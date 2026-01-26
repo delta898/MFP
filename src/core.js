@@ -4,8 +4,7 @@ const { chromium } = require('playwright');
 const CONFIG = require('../config/settings');
 const Utils = require('./utils');
 
-// 🔥 [호환성 패치] OS에 따른 단축키 modifier 설정
-// Mac('darwin')이면 'Meta'(Command), Windows/Linux면 'Control'
+// OS 감지
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
 
@@ -71,14 +70,25 @@ async function generateContent(jobData, customDir = null) {
     let text = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt);
     if (!text) throw new Error('API 응답 없음');
     
-    fs.writeFileSync(contentFile, text.replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, ''), 'utf-8');
+    // 마크다운 저장
+    const savedText = text.replace(/^```markdown\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '');
+    fs.writeFileSync(contentFile, savedText, 'utf-8');
+    
     console.log(`✅ 글 저장 완료: contents.md`);
+    
+    console.log('\n👀 [미리보기] 생성된 글 내용 (상위 600자):');
+    console.log('---------------------------------------------------');
+    console.log(savedText.substring(0, 600) + "\n... (중략) ...");
+    console.log('---------------------------------------------------\n');
     
     return targetDir;
 }
 
 async function prepareImages(dirPath, jobData) {
-    if (jobData.image_options?.generate === false) return;
+    if (jobData.image_options?.generate === false) {
+        console.log("🖼️ [Info] 이미지 생성 옵션이 false입니다. (Placeholder는 contents.md에 보존됨)");
+        return;
+    }
     
     const contentFile = path.join(dirPath, 'contents.md');
     if (!fs.existsSync(contentFile)) return;
@@ -114,7 +124,6 @@ async function prepareImages(dirPath, jobData) {
 async function publishToBlog(dirPath) {
     console.log(`🚀 [Step 5] 발행 시작: ${dirPath}`);
     
-    // OS 정보 출력
     const osName = IS_MAC ? "macOS" : "Windows/Linux";
     console.log(`   🖥️  OS 감지: ${osName} (Modifier Key: ${CMD_KEY})`);
 
@@ -171,7 +180,6 @@ async function publishToBlog(dirPath) {
                             await subTitleBtn.click();
                             console.log("         -> 스타일 적용 완료");
                         } else {
-                             // 🔥 [수정] OS에 맞는 키 조합 사용
                              await page.keyboard.press(`${CMD_KEY}+B`); 
                              console.log(`         -> 볼드체 적용 (${CMD_KEY}+B)`);
                         }
@@ -208,7 +216,13 @@ async function publishToBlog(dirPath) {
                         await Utils.sleep(CONFIG.WAIT.UPLOAD);
                     }
                 } else {
-                    await page.keyboard.type(`[이미지 없음]`);
+                    // 🔥 [수정됨] 파일이 없으면 "[이미지 없음]" 대신 원본 프롬프트 정보 입력!
+                    console.log(`      📝 이미지 대신 텍스트 Placeholder 입력`);
+                    
+                    // 네이버 에디터에서 보기 좋게 포맷팅
+                    const placeholderText = `[[IMAGE_${item.index} : ${item.prompt}]]`;
+                    
+                    await page.keyboard.type(placeholderText);
                     await page.keyboard.press('Enter');
                 }
             }

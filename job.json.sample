@@ -1,0 +1,15 @@
+{
+  "subject": "모차르트 음악의 아름다움",
+  "keywords": ["모차르트", "음악의 천재", "고전파"],
+  "content_guide": {
+    "target_audience": "중년",
+    "tone_and_manner": "",
+    "reference_urls": [],
+    "additional_instructions": "말년의 음악에 대해 집중 탐구해줘!"
+  },
+  "image_options": {
+    "generate": false,
+    "count": 4,
+    "style": "photorealistic"
+  }
+}

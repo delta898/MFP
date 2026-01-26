@@ -3,3 +3,4 @@ node_modules
 workspace
 config/auth.json
 .DS_Store
+job.json
