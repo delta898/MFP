@@ -1,0 +1,14 @@
+{
+  "subject": "모차르트가 10년만 더 살았다면?",
+  "keywords": ["모차르트", "음악의 천재", "역사의 가정"],
+  "content_guide": {
+    "target_audience": "중년",
+    "tone_and_manner": "전문적임",
+    "reference_urls": []
+  },
+  "image_options": {
+    "generate": true,
+    "count": 4,
+    "style": "photorealistic"
+  }
+}
