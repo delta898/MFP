@@ -7,20 +7,34 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
+    name: Build ${{ matrix.platform_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
+          # 1. 리눅스
           - os: ubuntu-latest
             target: node18-linux-x64
-            output: BlogGenius-linux
+            output_binary: BlogGenius-linux
+            platform_name: linux-x64
+            
+          # 2. 맥 (Intel)
           - os: macos-latest
             target: node18-macos-x64
-            output: BlogGenius-mac
+            output_binary: BlogGenius-mac-intel
+            platform_name: mac-intel
+            
+          # 3. 맥 (Apple Silicon - M1/M2/M3)
+          - os: macos-latest
+            target: node18-macos-arm64
+            output_binary: BlogGenius-mac-arm64
+            platform_name: mac-arm64
+
+          # 4. 윈도우
           - os: windows-latest
             target: node18-win-x64
-            output: BlogGenius.exe
+            output_binary: BlogGenius.exe
+            platform_name: win-x64
 
     steps:
     - uses: actions/checkout@v4
@@ -36,42 +50,40 @@ jobs:
     - name: Install pkg
       run: npm install -g pkg
 
-    # 1. 비밀키 파일 생성
     - name: Create secret.js
       shell: bash
       run: |
         mkdir -p src/config
         echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
 
-    # 2. 실행 파일 빌드
+    # 바이너리 빌드
     - name: Build Executable
       run: |
-        pkg src/main.js --targets ${{ matrix.target }} --output dist/${{ matrix.output }}
+        pkg src/main.js --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
 
-    # 3. [추가됨] 필수 파일(설정, 엑셀, 매뉴얼) 챙기기 📦
+    # 필수 파일 복사 (Assets)
     - name: Prepare Assets
       shell: bash
       run: |
-        # 폴더 생성
         mkdir -p dist/config
-
-        # 설정 및 샘플 파일 복사
         cp config/settings.js.sample dist/config/settings.js
         cp config/system_prompt.md.sample dist/config/system_prompt.md
         cp jobs.xlsx.sample dist/jobs.xlsx
         cp job.json.sample dist/job.json
         
-        # README 생성 (매뉴얼 내용 포함)
+        # README 생성
         cat > dist/README.md << 'EOF'
         # 🧞‍♂️ BlogGenius 사용자 가이드
-        (자세한 사용법은 구매 시 제공된 링크를 참고하세요)
-        
         1. config/settings.js 파일을 메모장으로 열어 설정하세요.
         2. jobs.xlsx 파일에 글감을 입력하세요.
         3. 프로그램을 실행하세요.
+        
+        [Mac 사용자 주의사항]
+        - M1/M2/M3 사용자: *-mac-arm64 버전을 사용하세요.
+        - Intel 사용자: *-mac-intel 버전을 사용하세요.
+        - "개발자를 확인할 수 없음" 경고 시: 우클릭 -> 열기
         EOF
         
-        # [Windows 전용] 배치 파일(.bat) 생성
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           echo "@echo off" > dist/실행하기_로그인.bat
           echo "chcp 65001 > nul" >> dist/실행하기_로그인.bat
@@ -89,9 +101,10 @@ jobs:
           echo "pause" >> dist/실행하기_단건테스트.bat
         fi
 
-    # 4. 압축해서 업로드
+    # ⚡ [핵심 수정] 압축파일 이름에 버전(github.ref_name) 넣기
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: BlogGenius-${{ matrix.os }}
+        # 예: BlogGenius-v0.1.7-mac-arm64
+        name: BlogGenius-${{ github.ref_name }}-${{ matrix.platform_name }}
         path: dist/

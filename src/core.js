@@ -6,6 +6,7 @@ const CONFIG = require('./config-loader');
 const Utils = require('./utils');
 const Logger = require('./logger'); // 로깅 시스템 적용
 const BrowserLauncher = require('./browser-launcher');
+const moment = require('moment-timezone');
 
 // OS 감지 (단축키 설정용)
 const IS_MAC = process.platform === 'darwin';
@@ -87,11 +88,13 @@ async function generateContent(jobData, customDir = null) {
     if (customDir) {
         targetDir = path.resolve(customDir);
     } else {
-        const now = new Date();
-        const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
-        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g,'');
+        // ✅ [수정] 무조건 '한국 시간'으로 포맷팅 (YYYYMMDD_HHmmss)
+        const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
+        
         const safeSubject = Utils.sanitizeFileName(finalSubject);
-        targetDir = path.join(CONFIG.WORKSPACE_DIR, `${dateStr}_${timeStr}_${safeSubject}`);
+        
+        // 날짜_시간_제목 형태로 합치기
+        targetDir = path.join(CONFIG.WORKSPACE_DIR, `${timestamp}_${safeSubject}`);
     }
 
     if (!fs.existsSync(targetDir)) {

@@ -1,3 +1,4 @@
+process.env.TZ = 'Asia/Seoul';
 const crypto = require('crypto');
 const BrowserLauncher = require('./browser-launcher');
 
