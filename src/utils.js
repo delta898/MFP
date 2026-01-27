@@ -1,47 +1,105 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright'); // 🔥 스크래핑용 (cheerio 대신 사용)
 const CONFIG = require('../config/settings');
 
-function sanitizeFileName(str) { return str.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_"); }
+// 파일명 정리
+function sanitizeFileName(str) { 
+    return str.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_"); 
+}
+
+// 대기 함수
 const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
+// 🔥 [강화됨] 참고 자료 스크래핑 (Playwright 사용)
 async function fetchReferenceContent(url) {
+    if (!url) return "";
+    console.log(`   🌐 [Scraping] 참고 자료 수집 중: ${url}`);
+    
+    let browser;
     try {
-        console.log(`   🌐 [Scraping] ${url}`);
-        const { data } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
-        const $ = cheerio.load(data);
-        $('script, style, nav, footer, header, .ad').remove();
-        return $('body').text().replace(/\s+/g, ' ').trim().substring(0, 3000);
-    } catch (e) { return null; }
+        // 1. 브라우저 실행 (가볍게)
+        browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage();
+        
+        // 2. 페이지 이동 (최대 10초 대기)
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+        
+        // 3. 본문 텍스트 추출 (불필요한 태그 제거 후)
+        const text = await page.evaluate(() => {
+            // 광고, 메뉴, 푸터 등 제거
+            const badTags = ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', '.ad', '#ad'];
+            badTags.forEach(tag => {
+                document.querySelectorAll(tag).forEach(el => el.remove());
+            });
+            return document.body.innerText;
+        });
+        
+        // 4. 공백 정리 및 길이 제한
+        const cleanText = text.replace(/\s+/g, ' ').trim().substring(0, 3000);
+        console.log(`      ✅ 본문 추출 성공 (${cleanText.length}자)`);
+        
+        return cleanText;
+
+    } catch (e) {
+        console.warn(`      ⚠️ 스크래핑 실패 (무시하고 진행): ${e.message}`);
+        return ""; // 실패해도 에러 내지 않고 빈 문자열 반환
+    } finally {
+        if (browser) await browser.close();
+    }
 }
 
+// 텍스트 생성 (Gemini 1.5 Flash)
 async function callGeminiText(prompt) {
     if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
-    const response = await axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`, 
-        { contents: [{ parts: [{ text: prompt }] }] }, 
-        { headers: { 'Content-Type': 'application/json' } }
-    );
-    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    
+    try {
+        const response = await axios.post(
+            `${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`, 
+            { contents: [{ parts: [{ text: prompt }] }] }, 
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+        return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    } catch (e) {
+        console.error("❌ Gemini API Error:", e.response?.data || e.message);
+        return null;
+    }
 }
 
+// 이미지 생성 (Imagen 3 호환)
 async function callGeminiImage(prompt, savePath) {
     if (!CONFIG.GEMINI_API_KEY) return null;
+    
     try {
-        const response = await axios.post(`${CONFIG.GEMINI_IMAGE_ENDPOINT}`, 
-            { contents: [{ parts: [{ text: prompt }] }], generationConfig: { imageConfig: { imageSize: "1K" } } },
-            { headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CONFIG.GEMINI_API_KEY } }
+        // 이미지가 이미 있으면 스킵
+        if (fs.existsSync(savePath + '.png')) return savePath + '.png';
+
+        const response = await axios.post(
+            `${CONFIG.GEMINI_IMAGE_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`, 
+            {
+                instances: [{ prompt: prompt }],
+                parameters: { sampleCount: 1, aspectRatio: "4:3" }
+            },
+            { headers: { 'Content-Type': 'application/json' } }
         );
-        const imagePart = response.data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-        if (!imagePart) return null;
-        const ext = imagePart.inlineData.mimeType.split('/')[1];
-        const fullPath = `${savePath}.${ext}`;
-        fs.writeFileSync(fullPath, Buffer.from(imagePart.inlineData.data, 'base64'));
+
+        // Imagen 3 응답 구조 처리
+        const base64Data = response.data?.predictions?.[0]?.bytesBase64Encoded;
+        
+        if (!base64Data) return null;
+
+        const fullPath = `${savePath}.png`;
+        fs.writeFileSync(fullPath, Buffer.from(base64Data, 'base64'));
         return fullPath;
-    } catch (e) { return null; }
+
+    } catch (e) {
+        console.warn(`   ⚠️ 이미지 생성 실패: ${prompt.substring(0, 20)}...`);
+        return null;
+    }
 }
 
-// 🔥 [강화된 파싱 로직] 보내주신 코드의 로직을 그대로 가져왔습니다.
+// 🔥 [유지] 사용자님이 작성하신 파싱 로직 (그대로 유지)
 function parseMarkdown(raw) {
     const lines = raw.split('\n');
     let title = '';
@@ -75,7 +133,6 @@ function parseMarkdown(raw) {
         if (skipImageBlock) {
             currentImageLines.push(line);
             if (trimmedLine.includes(']]')) {
-                // 이미지 블록 바로 위의 불필요한 엔터 제거
                 if (contents.length > 0 && contents[contents.length - 1].type === 'newline') contents.pop();
                 contents.push({ type: 'image', index: currentImageIndex, raw: currentImageLines.join('\n'), ...parseImageInfo(currentImageLines.join('\n')) });
                 skipImageBlock = false;
@@ -90,11 +147,10 @@ function parseMarkdown(raw) {
 
         if (/^##\s+/.test(trimmedLine)) {
             const text = trimmedLine.replace(/^##\s+/, '').trim();
-            contents.push({ type: 'header-h2', text: text }); // 타입명을 header-h2로 변경
+            contents.push({ type: 'header-h2', text: text });
             continue;
         }
 
-        // ### 도 본문으로 처리
         if (/^###+\s+/.test(trimmedLine)) {
             const text = trimmedLine.replace(/^###+\s+/, '').trim();
             contents.push({ type: 'paragraph', text: text });
@@ -102,7 +158,6 @@ function parseMarkdown(raw) {
         }
 
         let cleanLine = line.replace(/\*\*(.*?)\*\*/g, '$1'); 
-        // 링크 처리 로직 유지
         cleanLine = cleanLine.replace(/<a\s+[^>]*href=[\\"]+([^"\\>]+)[\\"]+[^>]*>(.*?)<\/a>/gi, (match, url, text) => {
             if (text.includes('http') || text.trim() === '') return url;
             return `${text}: ${url}`;
