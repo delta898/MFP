@@ -1,7 +1,12 @@
 const path = require('path');
 
-// 🔥 [Setup] 본인의 네이버 아이디로 변경하세요.
+// 🔥 [Setup] 본인의 정보로 변경하세요.
+
+
 const NAVER_ID = 'YOUR_NAVER_ID_HERE'; 
+const LICENSE_KEY = 'YOUR_LICENSE_KEY';
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE'; 
+
 
 module.exports = {
     AUTH_FILE_PATH: path.join(__dirname, 'auth.json'),
@@ -11,19 +16,23 @@ module.exports = {
     NAVER_ID: NAVER_ID,
     WRITE_URL: `https://blog.naver.com/${NAVER_ID}/postwrite`,
     
-    GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY_HERE', 
+    GEMINI_API_KEY: GEMINI_API_KEY, 
     
-    GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict',
+    GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+    GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
     
-    HEADLESS: true, 
+    HEADLESS: false, 
 
     API_CALL_INTERVAL: 5000,
-    TYPING: { MIN: 10, MAX: 30 },
-    WAIT: { LOAD: 3000, UPLOAD: 2000, SHORT: 100 }
+    TYPING: { MIN: 10, MAX: 100 },
+    WAIT: { LOAD: 3000, UPLOAD: 2000, SHORT: 100 },
 
     // [Batch Option]
     // 배치 작업 사이의 휴식 시간 (단위: 초 / Seconds)
     // 예: 60 = 1분, 300 = 5분
-    BATCH_INTERVAL_SECONDS: 60,
+    BATCH_INTERVAL_SECONDS: 20,
+
+    LICENSE_KEY: LICENSE_KEY,
+
+    LOG_LEVEL: 'info',
 };

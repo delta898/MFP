@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const CONFIG = require('../config/settings');
+const CONFIG = require('./config-loader');
 const Utils = require('./utils');
 const Logger = require('./logger'); // 로깅 시스템 적용
 

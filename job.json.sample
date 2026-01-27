@@ -1,14 +1,14 @@
 {
-  "subject": "모차르트 음악의 아름다움",
-  "keywords": ["모차르트", "음악의 천재", "고전파"],
+  "subject": "도전인생이 개발한 블로그 자동화 솔루션을 소개합니다.",
+  "keywords": ["블로그", "블로그 자동화", "AI", "도전인생"],
   "content_guide": {
-    "target_audience": "중년",
+    "target_audience": "",
     "tone_and_manner": "",
     "reference_urls": [],
-    "additional_instructions": "말년의 음악에 대해 집중 탐구해줘!"
+    "additional_instructions": "SEO + GEO, 내용에 맞는 이미지 자동 생성 및 업로드, 소제목 처리 등 모든 것을 자동으로 하는 찐 블로그 자동화 솔루션. 도전인생이 만들어서 이제 세상에 내보내려합니다. 추후에도 https://itmania.hangadac.com 을 통해 지속적으로 발전하는 모습을 살펴봐주시기 바랍니다. 2026년 1월 현재 소수의 알파테스터를 모집합니다. 많은 참여바랍니다. 도전인생의 메타 스레드 주소는 https://www.threads.net/amadejjs 입니다. 스하리는 사랑입니다."
   },
   "image_options": {
-    "generate": false,
+    "generate": true,
     "count": 4,
     "style": "photorealistic"
   }

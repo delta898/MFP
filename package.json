@@ -1,20 +1,32 @@
 {
-  "name": "blog-auto-bot",
-  "version": "1.0.0",
-  "description": "AI 기반 네이버 블로그 자동 포스팅 봇",
+  "name": "blog-genius",
+  "version": "0.1.0",
+  "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
   "main": "src/main.js",
+  "bin": {
+    "blog-genius": "./src/main.js"
+  },
   "scripts": {
     "login": "node src/main.js login",
     "gen": "node src/main.js gen",
     "auto": "node src/main.js auto",
     "pub": "node src/main.js pub",
-    "batch": "node src/batch.js"
+    "batch": "node src/batch.js",
+    "build": "./build.sh"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.39.0",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
+    "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "exceljs": "^4.4.0",
-    "playwright": "^1.40.0"
-  }
+    "moment": "^2.30.1",
+    "node-machine-id": "^1.1.12",
+    "playwright": "1.44.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "amadejjs",
+  "license": "Commercial"
 }

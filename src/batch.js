@@ -3,7 +3,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const Core = require('./core');
-const CONFIG = require('../config/settings');
+const CONFIG = require('./config-loader');
 
 // 파일 경로
 const EXCEL_FILE = path.join(__dirname, '../jobs.xlsx');

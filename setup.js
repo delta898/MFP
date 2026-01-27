@@ -12,6 +12,12 @@ const filesToCopy = [
         dest: path.join(__dirname, 'config', 'settings.js')
     },
     {
+        // 🔥 [추가됨] 시스템 프롬프트 복사
+        name: '시스템 프롬프트 (system_prompt.md)',
+        src: path.join(__dirname, 'config', 'system_prompt.md.sample'),
+        dest: path.join(__dirname, 'config', 'system_prompt.md')
+    },
+    {
         name: '단건 작업 파일 (job.json)',
         src: path.join(__dirname, 'job.json.sample'),
         dest: path.join(__dirname, 'job.json')
@@ -29,7 +35,6 @@ console.log("\n📂 필수 파일들을 준비합니다...");
 filesToCopy.forEach(file => {
     // 1) Source(샘플)가 없으면 경고
     if (!fs.existsSync(file.src)) {
-        // 혹시 기존 이름(jobs_sample.xlsx 등)일 수도 있으니 체크하지 않고 경고만 출력
         console.warn(`⚠️  [Skip] 샘플 파일을 찾을 수 없습니다: ${path.basename(file.src)}`);
         return;
     }
@@ -62,5 +67,5 @@ try {
 }
 
 console.log("\n🎉 설치가 완료되었습니다!");
-console.log("👉 'config/settings.js' 파일을 열어 아이디와 API 키를 설정해주세요.");
+console.log("👉 'config/settings.js' 파일을 열어 아이디와 라이선스 키를 설정해주세요.");
 console.log("👉 그 다음 'npm run login'을 실행하면 바로 시작할 수 있습니다!");
