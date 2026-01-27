@@ -68,10 +68,16 @@ async function performLogin() {
         console.log(`\n✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
         
         await browser.close();
+        // 🔥 [추가 2] 프로세스 강제 종료 (확실한 마무리를 위해)
+        console.log("👋 프로그램을 종료합니다.");
+        process.exit(0);
         return true;
     } catch (e) {
         console.error(`\n❌ 로그인 실패 또는 시간 초과: ${e.message}`);
-        await browser.close();
+        if (browser) await browser.close();
+        // 🔥 [추가 2] 프로세스 강제 종료 (확실한 마무리를 위해)
+        console.log("👋 프로그램을 종료합니다.");
+        process.exit(1);
         return false;
     }
 }
