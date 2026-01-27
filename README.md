@@ -1,4 +1,4 @@
-# 🤖 네이버 블로그 자동 포스팅 봇 (Naver Blog Auto Bot)
+# 🤖 네이버 블로그 자동 포스팅 솔루션 (Naver Blog Auto Posting Solution)
 
 ![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green) ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-blue) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
@@ -28,7 +28,7 @@ Google Gemini AI를 활용하여 블로그 포스팅의 전 과정을 자동화�
 프로젝트 폴더에서 터미널을 열고, **아래 명령어 하나만 실행하면 설치가 끝납니다.**
 
 ```bash
-node setup.js
+node src/setup.js
 ```
 > _(라이브러리 설치 및 설정 파일 복사를 자동으로 수행합니다.)_
 
