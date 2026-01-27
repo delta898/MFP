@@ -3,7 +3,7 @@ name: Build BlogGenius Executables
 on:
   push:
     tags:
-      - 'v*' # v0.1.0 처럼 태그를 달면 자동으로 빌드 시작!
+      - 'v*'
 
 jobs:
   build:
@@ -20,13 +20,11 @@ jobs:
             output: BlogGenius-mac
           - os: windows-latest
             target: node18-win-x64
-            output: BlogGenius-win.exe
+            output: BlogGenius.exe
 
     steps:
-    # 👇 [수정됨] v3 -> v4 로 변경
     - uses: actions/checkout@v4
 
-    # 👇 [수정됨] v3 -> v4 로 변경
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -38,18 +36,60 @@ jobs:
     - name: Install pkg
       run: npm install -g pkg
 
-    # ⚠️ Github Secrets에 'LICENSE_CHK_URL', 'LICENSE_CHK_KEY' 등록 필수
+    # 1. 비밀키 파일 생성
     - name: Create secret.js
       shell: bash
       run: |
         mkdir -p src/config
         echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
 
+    # 2. 실행 파일 빌드
     - name: Build Executable
       run: |
         pkg src/main.js --targets ${{ matrix.target }} --output dist/${{ matrix.output }}
 
-    # 👇 [수정됨] 여기가 문제였습니다! v3 -> v4 로 변경
+    # 3. [추가됨] 필수 파일(설정, 엑셀, 매뉴얼) 챙기기 📦
+    - name: Prepare Assets
+      shell: bash
+      run: |
+        # 폴더 생성
+        mkdir -p dist/config
+
+        # 설정 및 샘플 파일 복사
+        cp config/settings.js.sample dist/config/settings.js
+        cp config/system_prompt.md.sample dist/config/system_prompt.md
+        cp jobs.xlsx.sample dist/jobs.xlsx
+        cp job.json.sample dist/job.json
+        
+        # README 생성 (매뉴얼 내용 포함)
+        cat > dist/README.md << 'EOF'
+        # 🧞‍♂️ BlogGenius 사용자 가이드
+        (자세한 사용법은 구매 시 제공된 링크를 참고하세요)
+        
+        1. config/settings.js 파일을 메모장으로 열어 설정하세요.
+        2. jobs.xlsx 파일에 글감을 입력하세요.
+        3. 프로그램을 실행하세요.
+        EOF
+        
+        # [Windows 전용] 배치 파일(.bat) 생성
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          echo "@echo off" > dist/실행하기_로그인.bat
+          echo "chcp 65001 > nul" >> dist/실행하기_로그인.bat
+          echo "BlogGenius.exe login" >> dist/실행하기_로그인.bat
+          echo "pause" >> dist/실행하기_로그인.bat
+
+          echo "@echo off" > dist/실행하기_일괄발행.bat
+          echo "chcp 65001 > nul" >> dist/실행하기_일괄발행.bat
+          echo "BlogGenius.exe batch" >> dist/실행하기_일괄발행.bat
+          echo "pause" >> dist/실행하기_일괄발행.bat
+          
+          echo "@echo off" > dist/실행하기_단건테스트.bat
+          echo "chcp 65001 > nul" >> dist/실행하기_단건테스트.bat
+          echo "BlogGenius.exe auto" >> dist/실행하기_단건테스트.bat
+          echo "pause" >> dist/실행하기_단건테스트.bat
+        fi
+
+    # 4. 압축해서 업로드
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
