@@ -1,11 +1,35 @@
-# 🧞‍♂️ BlogGenius (v0.1.0) - 사용자 가이드
+# 🧞‍♂️ BlogGenius (알파테스트) - 사용자 가이드
 
 > **"주제만 입력하세요. 글쓰기부터 이미지 생성, 업로드까지 AI가 알아서 합니다."**
 
-BlogGenius 테스트에 신청해주셔서 감사합니다.
-이 프로그램은 복잡한 설치 과정 없이, 설정 파일만 입력하면 바로 사용할 수 있도록 제작되었습니다.
-원활한 테스트를 위해 무료로 총 10건의 글을 생성/발행하실 수 있게 제공됩니다.
-잘 사용해보시고 충실한 피드백과 주변에 입소문 부탁드립니다. :)
+안녕하세요, 도전인생입니다.
+**BlogGenius** 테스트에 신청해주셔서 감사합니다.
+제가 만들었지만 스스로 써보고선 너무 편하고 좋아서 이거 '저 혼자만 써야할까?' 싶었습니다.
+이걸 공개하면 네이버 블로그 생태계가 교란되는 것은 아닐까 하는 우려도 컸구요. :)
+하지만 상호 발전하기 위해 이렇게 제품을 공개하고 무료 테스트 진행합니다.
+충분한 테스트를 거쳐 조만간 상용화 예정도 갖고 있고, 본 기능 외에 다양한 기능을 추가할 것입니다.
+(지금 아이디어가 넘쳐나네요.)
+
+원활한 테스트를 위해 신청해주신 분들께 각각 **15건**의 글을 생성/발행하실 수 있게 설정하였습니다.
+잘 사용해보시고 솔직한 피드백과 주변에 많은 입소문 부탁드립니다. :)
+
+궁금하신 사항은 도전인생 카카오 오픈채팅방에서 물어봐주시고 많은 의견 부탁드립니다.
+ - [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
+
+---
+## 0. Quick Guide
+1. config/settings.js 파일안에 아래 정보를 넣습니다.
+ - NAVER_ID
+ - LICENSE_KEY
+ - GEMINI_API_KEY
+2. <프로그램> login 명령으로 최초 한번 네이버 로그인을 합니다.
+ - ex: ./BlogGenius-mac login
+3. <프로그램> auto 명령으로 글과 이미지 자동 생성 및 발행을 합니다.
+ - ex: ./BlogGenius-mac auto
+4. 쓰고 싶은 글감은 job.json 파일이나 jobs.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
+ - ex: ./BlogGenius-mac auto
+5. <프로그램> 혹은 <프로그램 --help> 를 실행하면 간단 사용법을 볼 수 있습니다.
+ - ex: ./BlogGenius-mac 혹은 ./BlogGenius-mac --help
 
 ---
 
@@ -23,7 +47,7 @@ AI가 글을 쓰고 이미지를 그리기 위해 구글의 권한이 필요합�
 
 ※ Key 발급 자체는 무료이나 API 사용료는 발생합니다.
 API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 상이하므로 아래 링크를 참고해주시기 바랍니다.
-[Gemini API Pricing](https://ai.google.dev/gemini-api/docs/pricing?hl=ko)
+- [Gemini API Pricing](https://ai.google.dev/gemini-api/docs/pricing?hl=ko)
 
 ---
 
@@ -109,7 +133,7 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 ## 5. ❓ 자주 묻는 질문 (FAQ)
 
 **Q. 테스트는 총 얼마나 지원되나요?**
-* 총 10건의 글을 생성/발행할 수 있습니다. 
+* 총 15건의 글을 생성/발행할 수 있습니다. 
 
 **Q. "라이선스 오류"라고 뜨면서 꺼져요.**
 * `settings.js` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
@@ -126,9 +150,12 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 
 ---
 
-**[고객 지원]**
+**[지원]**
+
 
 보다 자세한 정보는 도전인생의 SNS, 오픈채팅방, 카페, 블로그를 참고해주시기 바랍니다.
+
+👉 [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
 
 👉 [https://threads.net/amadejjs](https://threads.net/amadejjs)
 
