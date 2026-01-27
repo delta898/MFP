@@ -20,5 +20,11 @@ module.exports = {
 
     API_CALL_INTERVAL: 5000,
     TYPING: { MIN: 10, MAX: 30 },
-    WAIT: { LOAD: 3000, UPLOAD: 2000, SHORT: 100 }
+    WAIT: { LOAD: 3000, UPLOAD: 2000, SHORT: 100 },
+
+    // [Batch Option]
+    // 배치 작업 사이의 휴식 시간 (단위: 초 / Seconds)
+    // 예: 60 = 1분, 300 = 5분
+    BATCH_INTERVAL_SECONDS: 60,
+
 };

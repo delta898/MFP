@@ -4,15 +4,17 @@
   "description": "AI 기반 네이버 블로그 자동 포스팅 봇",
   "main": "src/main.js",
   "scripts": {
-    "login": "node src/login.js",
-    "gen": "node src/main.js generate -f job.json",
-    "auto": "node src/main.js generate -f job.json --publish",
-    "pub": "node src/main.js publish"
+    "login": "node src/main.js login",
+    "gen": "node src/main.js gen",
+    "auto": "node src/main.js auto",
+    "pub": "node src/main.js pub",
+    "batch": "node src/batch.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
     "commander": "^11.1.0",
+    "exceljs": "^4.4.0",
     "playwright": "^1.40.0"
   }
 }

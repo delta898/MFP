@@ -4,6 +4,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 const CONFIG = require('../config/settings');
 const Utils = require('./utils');
+const Logger = require('./logger'); // 로깅 시스템 적용
 
 // OS 감지 (단축키 설정용)
 const IS_MAC = process.platform === 'darwin';
@@ -14,7 +15,7 @@ const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
  * - AI에게 JSON 입력을 요청하여 제목, 키워드, 본문을 한 번에 받아옵니다.
  */
 async function generateContent(jobData, customDir = null) {
-    console.log("\n🚀 [Core] 콘텐츠 생성 프로세스 시작");
+    Logger.info("🚀 [Core] 콘텐츠 생성 프로세스 시작");
 
     // 1. 최소 요건 검증
     const hasSubject = !!jobData.subject;
@@ -28,7 +29,7 @@ async function generateContent(jobData, customDir = null) {
     // 2. 참고 자료 스크래핑 (URL이 있는 경우)
     let scrapedContext = "";
     if (hasRef) {
-        console.log("📚 참고 자료(URL) 분석 중...");
+        Logger.info("📚 참고 자료(URL) 분석 중...");
         for (const url of jobData.content_guide.reference_urls) {
             const text = await Utils.fetchReferenceContent(url);
             if (text) {
@@ -54,7 +55,7 @@ async function generateContent(jobData, customDir = null) {
     Now, generate the output in strict JSON format.
     `;
 
-    console.log("📝 Gemini에게 글 작성을 요청합니다... (One-Shot JSON)");
+    Logger.info("📝 Gemini에게 글 작성을 요청합니다... (One-Shot JSON)");
     
     // 4. API 호출
     const rawResult = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt);
@@ -67,8 +68,8 @@ async function generateContent(jobData, customDir = null) {
         const jsonString = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
         parsedData = JSON.parse(jsonString);
     } catch (e) {
-        console.error("❌ JSON 파싱 실패. AI 응답을 확인하세요.", e);
-        console.error("원본 응답:", rawResult);
+        Logger.error("❌ JSON 파싱 실패. AI 응답을 확인하세요.");
+        Logger.error(`원본 응답: ${rawResult}`);
         throw new Error("Content Generation Failed (JSON Parse Error)");
     }
 
@@ -77,8 +78,8 @@ async function generateContent(jobData, customDir = null) {
     const finalKeywords = parsedData.keywords || [];
     const finalContent = parsedData.content;
 
-    console.log(`\n✨ [Result] 제목 확정: "${finalSubject}"`);
-    console.log(`   [Result] 키워드: ${finalKeywords.join(', ')}`);
+    Logger.info(`✨ [Result] 제목 확정: "${finalSubject}"`);
+    Logger.info(`   [Result] 키워드: ${finalKeywords.join(', ')}`);
 
     // 7. 폴더 생성 (확정된 제목 사용)
     let targetDir;
@@ -94,13 +95,13 @@ async function generateContent(jobData, customDir = null) {
 
     if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
-        console.log(`📂 작업 폴더 생성: ${targetDir}`);
+        Logger.info(`📂 작업 폴더 생성: ${targetDir}`);
     }
 
     // 8. 파일 저장
     const contentFile = path.join(targetDir, 'contents.md');
     fs.writeFileSync(contentFile, finalContent, 'utf-8');
-    console.log(`✅ 본문 저장 완료: contents.md`);
+    Logger.info(`✅ 본문 저장 완료: contents.md`);
 
     // 🔥 Batch 업데이트를 위해 결과 반환
     return {
@@ -115,7 +116,7 @@ async function generateContent(jobData, customDir = null) {
  */
 async function prepareImages(dirPath, jobData) {
     if (jobData.image_options?.generate === false) {
-        console.log("🖼️ [Info] 이미지 생성 옵션이 false입니다. (Placeholder 유지)");
+        Logger.info("🖼️ [Info] 이미지 생성 옵션이 false입니다. (Placeholder 유지)");
         return;
     }
     
@@ -124,7 +125,7 @@ async function prepareImages(dirPath, jobData) {
 
     // 파싱 함수를 통해 이미지 위치 확인
     const { contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf-8'));
-    console.log('🖼️ 이미지 준비 중...');
+    Logger.info('🖼️ 이미지 준비 중...');
     let lastCall = 0;
     
     for (const item of contents) {
@@ -135,19 +136,20 @@ async function prepareImages(dirPath, jobData) {
         const exist = fs.readdirSync(dirPath).find(f => f.startsWith(`${prefix}_`) && /\.(png|jpg|jpeg|webp)$/i.test(f));
         
         if (exist) {
-            console.log(`   ✅ [Skip] 기존 이미지 존재: ${exist}`);
+            Logger.info(`   ✅ [Skip] 기존 이미지 존재: ${exist}`);
             continue;
         }
         
         const now = Date.now();
         if (lastCall > 0 && (now - lastCall) < CONFIG.API_CALL_INTERVAL) await Utils.sleep(CONFIG.API_CALL_INTERVAL - (now - lastCall));
         
-        console.log(`   🎨 생성 중 (Index ${item.index})`);
+        Logger.info(`   🎨 생성 중 (Index ${item.index})`);
         
         // 스타일 적용
         const finalImagePrompt = `${item.prompt}, ${jobData.image_options?.style || 'photorealistic'}`;
         const savePath = path.join(dirPath, `${prefix}_image`);
 
+        // Utils.callGeminiImage가 실패 시 null을 반환하고 로그를 남김
         await Utils.callGeminiImage(finalImagePrompt, savePath);
         lastCall = Date.now();
     }
@@ -157,12 +159,12 @@ async function prepareImages(dirPath, jobData) {
  * 3. 블로그 발행 (Publish)
  */
 async function publishToBlog(dirPath) {
-    console.log(`🚀 [Step 5] 발행 시작: ${dirPath}`);
+    Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
     
     const osName = IS_MAC ? "macOS" : "Windows/Linux";
-    console.log(`   🖥️  OS 감지: ${osName} (Modifier Key: ${CMD_KEY})`);
+    Logger.info(`   🖥️  OS 감지: ${osName}`);
 
-    if (CONFIG.HEADLESS) console.log("   👻 Headless 모드로 실행 중 (화면 숨김)");
+    if (CONFIG.HEADLESS) Logger.info("   👻 Headless 모드로 실행 중 (화면 숨김)");
 
     if (!fs.existsSync(CONFIG.AUTH_FILE_PATH)) throw new Error('auth.json 없음');
     
@@ -172,13 +174,26 @@ async function publishToBlog(dirPath) {
     const { title, contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf-8'));
 
     const browser = await chromium.launch({ headless: CONFIG.HEADLESS });
-    const context = await browser.newContext({ storageState: CONFIG.AUTH_FILE_PATH, viewport: { width: 1920, height: 1080 } });
+    const context = await browser.newContext({ 
+        storageState: CONFIG.AUTH_FILE_PATH, 
+        viewport: { width: 1920, height: 1080 },
+        
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+    });
+
     const page = await context.newPage();
     page.on('dialog', async dialog => await dialog.dismiss());
 
     try {
+        Logger.info("   🔄 블로그 에디터 접속 중...");
         await page.goto(CONFIG.WRITE_URL, { waitUntil: 'domcontentloaded' });
         await Utils.sleep(CONFIG.WAIT.LOAD);
+
+        // 🔥 [중요] 로그인 풀림 감지
+        if (page.url().includes('nid.naver.com') || page.url().includes('login')) {
+            Logger.error("🚨 [Critical] 로그인 정보가 만료되었습니다. 다시 로그인해주세요.");
+            throw new Error("Login Session Expired");
+        }
 
         // 팝업 닫기
         try {
@@ -190,7 +205,7 @@ async function publishToBlog(dirPath) {
         await Utils.sleep(1000);
 
         // 제목 입력
-        console.log(`   ✍️ 제목: ${title}`);
+        Logger.info(`   ✍️ 제목: ${title}`);
         await page.locator('.se-documentTitle').click({ force: true });
         await page.keyboard.type(title);
         
@@ -201,7 +216,7 @@ async function publishToBlog(dirPath) {
         // 본문 입력
         for (const item of contents) {
             if (item.type === 'header-h2') {
-                console.log(`      📌 소제목: ${item.text}`);
+                Logger.info(`      📌 소제목: ${item.text}`);
                 await page.keyboard.press('Enter'); 
                 await Utils.sleep(100);
                 await page.keyboard.type(item.text); 
@@ -221,7 +236,7 @@ async function publishToBlog(dirPath) {
                         }
                     }
                 } catch (e) {
-                    console.warn("         ⚠️ 스타일 적용 실패 (패스)");
+                    Logger.warn("         ⚠️ 스타일 적용 실패 (패스)");
                 }
                 
                 await Utils.sleep(200);
@@ -229,7 +244,7 @@ async function publishToBlog(dirPath) {
                 await Utils.sleep(100);
             }
             else if (item.type === 'paragraph') {
-                console.log(`      ✏️ 본문: ${item.text.substring(0, 15)}...`);
+                Logger.info(`      ✏️ 본문: ${item.text.substring(0, 15)}...`);
                 await page.keyboard.type(item.text);
                 // URL 자동 링크 방지용 공백
                 if (item.text.includes('http')) await page.keyboard.press('Space');
@@ -243,7 +258,7 @@ async function publishToBlog(dirPath) {
                 const file = fs.readdirSync(dirPath).find(f => f.startsWith(`${prefix}_`) && /\.(png|jpg|jpeg|webp)$/i.test(f));
                 
                 if (file) {
-                    console.log(`      🖼️ 이미지 업로드: ${file}`);
+                    Logger.info(`      🖼️ 이미지 업로드: ${file}`);
                     const fileChooserPromise = page.waitForEvent('filechooser');
                     const photoBtn = page.locator('button:has-text("사진")').first();
                     if (await photoBtn.isVisible()) {
@@ -253,8 +268,8 @@ async function publishToBlog(dirPath) {
                         await Utils.sleep(CONFIG.WAIT.UPLOAD);
                     }
                 } else {
-                    // 🔥 [중요] 이미지가 없을 때 Placeholder 텍스트 입력
-                    console.log(`      📝 이미지 없음 -> Placeholder 입력`);
+                    // 🔥 이미지가 없으면 Placeholder 텍스트 입력
+                    Logger.info(`      📝 이미지 없음 -> Placeholder 입력`);
                     await page.keyboard.type(`[[IMAGE_${item.index} : ${item.prompt}]]`);
                     await page.keyboard.press('Enter');
                 }
@@ -262,17 +277,17 @@ async function publishToBlog(dirPath) {
             await Utils.sleep(50);
         }
 
-        console.log("   ✅ 본문 작성 완료.");
+        Logger.info("   ✅ 본문 작성 완료.");
 
         // 임시 저장
         try {
-            console.log("   💾 [임시 저장] 시도...");
+            Logger.info("   💾 [임시 저장] 시도...");
             const saveBtn = page.locator('button.se-save-button, button:has-text("저장")');
             if (await saveBtn.count() > 0) {
                 await saveBtn.first().click();
                 await Utils.sleep(2000); 
             }
-        } catch (e) { console.warn("      ⚠️ 저장 실패 (무시):", e.message); }
+        } catch (e) { Logger.warn("      ⚠️ 저장 실패 (무시): " + e.message); }
 
         // 발행 버튼 클릭 (최종 발행은 사용자가 확인 후 하도록 창만 띄움)
         const publishBtns = page.locator('button').filter({ hasText: /발행/ });
@@ -281,14 +296,26 @@ async function publishToBlog(dirPath) {
                 const btn = publishBtns.nth(i);
                 if (await btn.isVisible() && (await btn.innerText()).includes('발행')) {
                     await btn.click();
-                    console.log("   🚀 [발행] 버튼 클릭 성공 (설정창 오픈)");
+                    Logger.info("   🚀 [발행] 버튼 클릭 성공 (설정창 오픈)");
                     break;
                 }
             }
         }
 
     } catch (e) {
-        console.error('❌ 에러:', e);
+        Logger.error(`❌ 에러 발생: ${e.message}`);
+        throw e;
+    } finally {
+        // 🔥 [수정] 헤드리스가 아니더라도, 3초 뒤엔 무조건 닫아서 프로그램을 종료시킴
+        if (!CONFIG.HEADLESS) {
+            Logger.info("   👋 (3초 뒤 브라우저를 닫습니다...)");
+            await Utils.sleep(3000); 
+        }
+        
+        if (browser) {
+            await browser.close();
+            Logger.info("   🔒 브라우저 세션 종료");
+        }
     }
 }
 
