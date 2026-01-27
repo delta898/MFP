@@ -1,0 +1,56 @@
+name: Build BlogGenius Executables
+
+on:
+  push:
+    tags:
+      - 'v*' # v0.1.0 처럼 태그를 달면 자동으로 빌드 시작!
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: node18-linux-x64
+            output: BlogGenius-linux
+          - os: macos-latest
+            target: node18-macos-x64
+            output: BlogGenius-mac
+          - os: windows-latest
+            target: node18-win-x64
+            output: BlogGenius-win.exe
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Install pkg
+      run: npm install -g pkg
+
+    # ⚠️ 중요: secret.js 생성 (Github Secrets 기능 활용)
+    # Github 레포지토리 Settings -> Secrets and variables -> Actions에 
+    # 'LICENSE_CHK_URL'과 'LICENSE_CHK_KEY'를 등록해둬야 합니다.
+    - name: Create secret.js
+      shell: bash
+      run: |
+        mkdir -p src/config
+        echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
+
+    - name: Build Executable
+      run: |
+        pkg src/main.js --targets ${{ matrix.target }} --output dist/${{ matrix.output }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: BlogGenius-${{ matrix.os }}
+        path: dist/
