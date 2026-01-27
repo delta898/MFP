@@ -83,18 +83,26 @@ API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 �
 
 맥 사용자는 터미널을 열어서 실행해야 합니다.
 
+※ 주의: ⚠️ 맥(Mac)에서 "개발자를 확인할 수 없음" 경고가 뜰 때
+애플 보안 정책상 인터넷에서 다운로드한 파일은 실행이 차단될 수 있습니다.
+
+아래 명령을 쳐서 검열을 차단하시기 바랍니다.
+```
+xattr -d com.apple.quarantine ./BlogGenius-mac
+```
+
 1. 터미널(Terminal) 앱을 실행합니다.
 2. `cd` 명령어로 폴더로 이동합니다. (예: `cd Downloads/BlogGenius`)
 3. 아래 명령어를 입력하여 실행합니다.
 
 # 로그인 모드
-./BlogGenius login
+./BlogGenius-mac login
 
 # 엑셀 대량 발행 모드
-./BlogGenius batch
+./BlogGenius-mac batch
 
 # 단건 테스트 모드
-./BlogGenius auto
+./BlogGenius-mac auto
 
 ---
 

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const moment = require('moment'); // 날짜 포맷팅용 (없으면 npm install moment)
-const CONFIG = require('../config/settings'); // (주의) setup 전이면 상대경로 확인, 보통은 config-loader 사용 권장
+const CONFIG = require('./config-loader');
 
 // 로그 레벨 정의 (숫자가 클수록 중요함)
 const LEVELS = {
