@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const CONFIG = require('./config-loader');
 const Utils = require('./utils');
 const Logger = require('./logger'); // 로깅 시스템 적용
+const BrowserLauncher = require('./browser-launcher');
 
 // OS 감지 (단축키 설정용)
 const IS_MAC = process.platform === 'darwin';
@@ -173,7 +174,7 @@ async function publishToBlog(dirPath) {
 
     const { title, contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf-8'));
 
-    const browser = await chromium.launch({ headless: CONFIG.HEADLESS });
+    const browser = await BrowserLauncher.launchBrowser();
     const context = await browser.newContext({ 
         storageState: CONFIG.AUTH_FILE_PATH, 
         viewport: { width: 1920, height: 1080 },

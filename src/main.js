@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const BrowserLauncher = require('./browser-launcher');
 
 // 1. [필수] Node 18 및 pkg 환경에서 WebCrypto 강제 활성화 (Supabase 에러 해결)
 if (!globalThis.crypto) {
@@ -46,9 +47,8 @@ function askQuestion(query) {
 // 📌 [함수] 로그인 로직 (pkg 호환성을 위해 main.js 내부에 통합)
 async function performLogin() {
     console.log("\n🚀 [Login Mode] 네이버 로그인 브라우저를 엽니다...");
-    
-    // CONFIG.HEADLESS 설정 반영
-    const browser = await chromium.launch({ headless: false }); 
+
+    const browser = await BrowserLauncher.launchBrowser();
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
