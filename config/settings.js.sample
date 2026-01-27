@@ -6,6 +6,7 @@ const path = require('path');
 const NAVER_ID = 'YOUR_NAVER_ID_HERE'; 
 const LICENSE_KEY = 'YOUR_LICENSE_KEY';
 const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE'; 
+const HEADLESS = false;
 const BROWSER_CHANNEL = 'chrome';
 
 // 'chrome': Chrome (Recommendation)
@@ -26,7 +27,7 @@ module.exports = {
     GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
     GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
     
-    HEADLESS: false, 
+    HEADLESS: HEADLESS, 
 
     API_CALL_INTERVAL: 5000,
     TYPING: { MIN: 10, MAX: 100 },
@@ -41,5 +42,5 @@ module.exports = {
 
     LOG_LEVEL: 'info',
 
-   BROWSER_CHANNEL: BROWSER_CHANNEL,
+    BROWSER_CHANNEL: BROWSER_CHANNEL,
 };
