@@ -1,36 +1,52 @@
-// setup.js
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
 console.log("🚀 [Setup] 네이버 블로그 봇 설치를 시작합니다...");
 
-// 1. [설정 파일 복사] settings.sample.js -> settings.js
-const settingsSample = path.join(__dirname, 'config', 'settings.sample.js');
-const settingsTarget = path.join(__dirname, 'config', 'settings.js');
+// ✅ 처리할 파일 목록 정의 (Source -> Target)
+const filesToCopy = [
+    {
+        name: '설정 파일 (settings.js)',
+        src: path.join(__dirname, 'config', 'settings.js.sample'),
+        dest: path.join(__dirname, 'config', 'settings.js')
+    },
+    {
+        name: '단건 작업 파일 (job.json)',
+        src: path.join(__dirname, 'job.json.sample'),
+        dest: path.join(__dirname, 'job.json')
+    },
+    {
+        name: '배치 엑셀 파일 (jobs.xlsx)',
+        src: path.join(__dirname, 'jobs.xlsx.sample'),
+        dest: path.join(__dirname, 'jobs.xlsx')
+    }
+];
 
-// 샘플이 없으면 현재 settings.js를 샘플로 만들어둠 (역방향 백업)
-if (fs.existsSync(settingsTarget) && !fs.existsSync(settingsSample)) {
-    fs.copyFileSync(settingsTarget, settingsSample);
-    console.log("ℹ️  현재 설정을 'config/settings.sample.js'로 백업했습니다.");
-}
+// 1. [파일 복사 루프]
+console.log("\n📂 필수 파일들을 준비합니다...");
 
-if (!fs.existsSync(settingsTarget) && fs.existsSync(settingsSample)) {
-    fs.copyFileSync(settingsSample, settingsTarget);
-    console.log("✅ config/settings.js 생성 완료!");
-}
+filesToCopy.forEach(file => {
+    // 1) Source(샘플)가 없으면 경고
+    if (!fs.existsSync(file.src)) {
+        // 혹시 기존 이름(jobs_sample.xlsx 등)일 수도 있으니 체크하지 않고 경고만 출력
+        console.warn(`⚠️  [Skip] 샘플 파일을 찾을 수 없습니다: ${path.basename(file.src)}`);
+        return;
+    }
 
-// 2. [엑셀 파일 복사] jobs_sample.xlsx -> jobs.xlsx
-const jobsSample = path.join(__dirname, 'jobs_sample.xlsx');
-const jobsTarget = path.join(__dirname, 'jobs.xlsx');
+    // 2) Target(실제파일)이 이미 있으면 스킵 (덮어쓰기 방지)
+    if (fs.existsSync(file.dest)) {
+        console.log(`ℹ️  [Skip] 이미 존재합니다: ${path.basename(file.dest)}`);
+    } else {
+        // 3) 복사 수행
+        fs.copyFileSync(file.src, file.dest);
+        console.log(`✅ [생성] ${file.name} 복사 완료!`);
+    }
+});
 
-if (!fs.existsSync(jobsTarget) && fs.existsSync(jobsSample)) {
-    fs.copyFileSync(jobsSample, jobsTarget);
-    console.log("✅ jobs.xlsx 생성 완료!");
-}
 
-// 3. [라이브러리 설치] npm install & playwright install
-console.log("📦 라이브러리를 설치합니다 (npm install)...");
+// 2. [라이브러리 설치] npm install & playwright install
+console.log("\n📦 라이브러리를 설치합니다 (npm install)...");
 try {
     // 윈도우/맥 호환을 위해 shell 옵션 사용
     execSync('npm install', { stdio: 'inherit', shell: true });
@@ -46,5 +62,5 @@ try {
 }
 
 console.log("\n🎉 설치가 완료되었습니다!");
-console.log("👉 'config/settings.js'에 아이디와 API 키를 넣어주세요.");
-console.log("👉 그 다음 'npm run login'으로 로그인하세요.");
+console.log("👉 'config/settings.js' 파일을 열어 아이디와 API 키를 설정해주세요.");
+console.log("👉 그 다음 'npm run login'을 실행하면 바로 시작할 수 있습니다!");
