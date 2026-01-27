@@ -66,24 +66,34 @@ jobs:
       shell: bash
       run: |
         mkdir -p dist/config
+        
+        # 1. 설정/샘플 파일 복사
         cp config/settings.js.sample dist/config/settings.js
         cp config/system_prompt.md.sample dist/config/system_prompt.md
         cp jobs.xlsx.sample dist/jobs.xlsx
         cp job.json.sample dist/job.json
         
-        # README 생성
-        cat > dist/README.md << 'EOF'
-        # 🧞‍♂️ BlogGenius 사용자 가이드
-        1. config/settings.js 파일을 메모장으로 열어 설정하세요.
-        2. jobs.xlsx 파일에 글감을 입력하세요.
-        3. 프로그램을 실행하세요.
+        # 2. README 처리 (안전하게 수정됨 🛠️)
+        if [ -f "README_USER.md" ]; then
+            echo "📄 README_USER.md를 발견하여 복사합니다."
+            cp README_USER.md dist/README.md
+        else
+            echo "⚠️ README_USER.md가 없어 기본 내용을 생성합니다."
+            # EOF 방식 대신 echo를 사용하여 들여쓰기 에러 방지
+            {
+              echo "# 🧞‍♂️ BlogGenius 사용자 가이드"
+              echo "1. config/settings.js 파일을 메모장으로 열어 설정하세요."
+              echo "2. jobs.xlsx 파일에 글감을 입력하세요."
+              echo "3. 프로그램을 실행하세요."
+              echo ""
+              echo "[Mac 사용자 주의사항]"
+              echo "- M1/M2/M3 사용자: *-mac-arm64 버전을 사용하세요."
+              echo "- Intel 사용자: *-mac-intel 버전을 사용하세요."
+              echo "- '개발자를 확인할 수 없음' 경고 시: 우클릭 -> 열기"
+            } > dist/README.md
+        fi
         
-        [Mac 사용자 주의사항]
-        - M1/M2/M3 사용자: *-mac-arm64 버전을 사용하세요.
-        - Intel 사용자: *-mac-intel 버전을 사용하세요.
-        - "개발자를 확인할 수 없음" 경고 시: 우클릭 -> 열기
-        EOF
-        
+        # 3. [Windows 전용] 배치 파일(.bat) 생성
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           echo "@echo off" > dist/실행하기_로그인.bat
           echo "chcp 65001 > nul" >> dist/실행하기_로그인.bat
@@ -101,7 +111,7 @@ jobs:
           echo "pause" >> dist/실행하기_단건테스트.bat
         fi
 
-    # ⚡ [핵심 수정] 압축파일 이름에 버전(github.ref_name) 넣기
+    # 압축파일 이름에 버전(github.ref_name) 넣기
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
