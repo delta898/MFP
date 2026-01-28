@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 
 process.env.TZ = 'Asia/Seoul';
-const crypto = require('crypto');
-const BrowserLauncher = require('./browser-launcher');
 
-// WebCrypto 폴리필 (Node.js 구버전 호환)
+// --------------------------------------------------------
+// 🛠️ [Fix 1] Crypto Polyfill (빌드 및 구버전 호환)
+// --------------------------------------------------------
+const crypto = require('crypto');
 if (!globalThis.crypto) {
-    globalThis.crypto = crypto.webcrypto;
+    if (crypto.webcrypto) {
+        globalThis.crypto = crypto.webcrypto;
+    } else {
+        globalThis.crypto = {
+            getRandomValues: (buffer) => crypto.randomFillSync(buffer),
+            subtle: {} 
+        };
+    }
 }
 
-// 경고 메시지 억제
 process.env.NODE_NO_WARNINGS = '1';
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -22,11 +29,12 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-// 모듈 로드
-const License = require('./license'); // 수정한 license.js
+// ✅ 분리된 모듈 불러오기
+const License = require('./license');
 const Core = require('./core');
 const Utils = require('./utils'); 
 const CONFIG = require('./config-loader'); 
+const BrowserLauncher = require('./browser-launcher');
 
 console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
@@ -50,7 +58,16 @@ function askQuestion(query) {
 
 async function performLogin() {
     console.log("\n🚀 [Login Mode] 네이버 로그인 브라우저를 엽니다...");
-    const browser = await BrowserLauncher.launchBrowser();
+    
+    // 브라우저 실행
+    let browser;
+    try {
+        browser = await BrowserLauncher.launchBrowser();
+    } catch (e) {
+        console.error("❌ [Error] 브라우저 실행 실패:", e);
+        return;
+    }
+
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
@@ -59,13 +76,20 @@ async function performLogin() {
     try {
         await page.goto('https://nid.naver.com/nidlogin.login');
         console.log("🔑 직접 로그인 완료 후 네이버 메인 이동 시 자동 저장됩니다.");
-        await page.waitForURL(url => url.includes('naver.com') && !url.includes('nid.naver.com'), { timeout: 300000, waitUntil: 'domcontentloaded' });
+        
+        // 🛠️ [Fix 2] URL 객체를 문자열로 변환(.toString()) 후 비교
+        await page.waitForURL(url => {
+            const urlStr = url.toString(); // URL 객체 -> 문자열 변환
+            return urlStr.includes('naver.com') && !urlStr.includes('nid.naver.com');
+        }, { timeout: 300000 }); // 5분 대기
+
         await context.storageState({ path: CONFIG.AUTH_FILE_PATH });
         console.log(`\n✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
+        
         await browser.close();
         process.exit(0);
     } catch (e) {
-        console.error(`\n❌ 로그인 실패: ${e.message}`);
+        console.error(`\n❌ 로그인 프로세스 실패: ${e.message}`);
         if (browser) await browser.close();
         process.exit(1);
     }
@@ -96,8 +120,6 @@ program
     .option('-d, --dir <path>', '출력 폴더')
     .action(async (opts) => {
         try {
-            // 주의: generate도 check_and_use_license를 호출하므로 횟수가 차감될 수 있습니다.
-            // 차감을 원치 않으시면 서버 쪽에 '조회 전용' RPC를 따로 만드셔야 합니다.
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 
@@ -120,7 +142,6 @@ program
         try {
             console.log("\n▶️ [Auto Mode] 작업을 시작합니다...");
             
-            // 1. 라이선스 체크 및 차감
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 
@@ -139,13 +160,12 @@ program
 
 // 4️⃣ Batch Command
 program
-    .command('batch', { hidden: false }) // 💡 배포용이므로 hidden: true 권장
+    .command('batch', { hidden: true })
     .description('📚 [배치] topics.xlsx 대량 포스팅')
     .option('-f, --file <path>', '엑셀 파일', 'topics.xlsx')
     .action(async (opts) => {
         try {
             console.log("\n▶️ [Batch Mode] 작업을 시작합니다...");
-            // 배치 시작 전 계정 인증 확인
             await ensureAuth(true);
 
             const excelPath = path.resolve(process.cwd(), opts.file);
@@ -168,13 +188,11 @@ program
                 console.log(`\n---------------------------------------------------`);
                 console.log(`[작업 ${i + 1}/${topics.length}] 라이선스 확인 중...`);
 
-                // 🔥 [중요 수정] 배치 루프 안에서 매번 라이선스 검증(차감)을 수행해야 함
-                // 만약 루프 밖에서 한 번만 하면, 1회 차감으로 100개를 발행하는 허점이 생김
                 const check = await License.verifyLicense();
                 if (!check.success) {
                     console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
                     console.log(`👉 남은 ${topics.length - i}건은 처리되지 않았습니다.`);
-                    break; // 루프 탈출
+                    break;
                 }
 
                 try {
@@ -216,7 +234,6 @@ program
     .requiredOption('-d, --dir <path>', '폴더 경로')
     .action(async (opts) => {
         try {
-            // Publish도 발행 행위이므로 라이선스 차감
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 

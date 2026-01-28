@@ -24,14 +24,14 @@
  - LICENSE_KEY
  - GEMINI_API_KEY
 2. <프로그램> login 명령으로 **최초 한번** 네이버 로그인을 합니다.
- - ex: ./BlogGenius-mac login
+ - ex: ./BlogGenius-mac-arm64 login
 3. <프로그램> auto 명령으로 글과 이미지 자동 생성 및 발행을 합니다.
- - ex: ./BlogGenius-mac auto
+ - ex: ./BlogGenius-mac-arm64 auto
 4. 쓰고 싶은 글감은 topic.json 파일이나 topics.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
- - ex: ./BlogGenius-mac auto  <-- topic.json 를 참고하여 단건 생성 & 저장
- - ex: ./BlogGenius-mac batch  <-- topics.xlsx 를 참고하여 다수글 생성 & 저장
+ - ex: ./BlogGenius-mac-arm64 auto  <-- topic.json 를 참고하여 단건 생성 & 저장
+ - ex: ./BlogGenius-mac-arm64 batch  <-- topics.xlsx 를 참고하여 다수글 생성 & 저장
 5. <프로그램> 혹은 <프로그램 --help> 를 실행하면 간단 사용법을 볼 수 있습니다.
- - ex: ./BlogGenius-mac 혹은 ./BlogGenius-mac --help
+ - ex: ./BlogGenius-mac-arm64 혹은 ./BlogGenius-mac-arm64 --help
 
 ---
 
@@ -118,7 +118,7 @@ API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 �
 
 아래 명령을 쳐서 검열을 차단하시기 바랍니다.
 ```
-xattr -d com.apple.quarantine ./BlogGenius-mac
+xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 ```
 
 1. 터미널(Terminal) 앱을 실행합니다.
@@ -126,13 +126,13 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 3. 아래 명령어를 입력하여 실행합니다.
 
 ### 로그인 모드
-./BlogGenius-mac login
+./BlogGenius-mac-arm64 login
 
 ### 단건 테스트 모드
-./BlogGenius-mac auto
+./BlogGenius-mac-arm64 auto
 
 ### 엑셀 대량 발행 모드
-./BlogGenius-mac batch
+./BlogGenius-mac-arm64 batch
 
 ---
 
