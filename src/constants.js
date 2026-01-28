@@ -19,8 +19,8 @@ module.exports = {
     
     // 🔒 타이핑 속도 프리셋 (ms)
     TYPING_PRESETS: {
-        FAST:   { MIN: 5, MAX: 30 },
-        NORMAL: { MIN: 30, MAX: 100 },
-        HUMAN:  { MIN: 80, MAX: 200 }
+        FAST:   { MIN: 2, MAX: 15 },
+        NORMAL: { MIN: 10, MAX: 90 },
+        HUMAN:  { MIN: 60, MAX: 150 }
     }
 };
