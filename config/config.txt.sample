@@ -19,12 +19,13 @@ GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE
 TEXT_MODEL = gemini-3-flash-preview
 
 # 이미지 생성 모델 (기본: gemini-2.5-flash-image)
+# 나노바나나 Pro로 하시려면 gemini-3-pro-image-preview
 IMAGE_MODEL = gemini-2.5-flash-image
 
 # [옵션] 상세 동작 설정
 # -------------------------------------------------------
 # 기본 이미지 스타일 (개별 작업에 스타일이 없을 때 사용됨)
-# 예: photorealistic, anime style, oil painting, cinematic, 3d render, automatic, ETC.
+# 예: photorealistic, anime style, oil painting, cinematic, 3d render, automatic 등등
 IMAGE_STYLE = photorealistic
 
 # -------------------------------------------------------

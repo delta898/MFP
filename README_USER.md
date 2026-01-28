@@ -22,12 +22,14 @@
  - NAVER_ID
  - LICENSE_KEY
  - GEMINI_API_KEY
-2. <프로그램> login 명령으로 최초 한번 네이버 로그인을 합니다.
+2. <프로그램> login 명령으로 **최초 한번** 네이버 로그인을 합니다.
  - ex: ./BlogGenius-mac login
 3. <프로그램> auto 명령으로 글과 이미지 자동 생성 및 발행을 합니다.
  - ex: ./BlogGenius-mac auto
 4. 쓰고 싶은 글감은 topic.json 파일이나 topics.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
- - ex: ./BlogGenius-mac auto
+ - ex: ./BlogGenius-mac auto  <-- topic.json 를 참고하여 단건 생성 & 저장
+ - ex: ./BlogGenius-mac batch  <-- topics.xlsx 를 참고하여 다수글 생성 & 저장
+
 5. <프로그램> 혹은 <프로그램 --help> 를 실행하면 간단 사용법을 볼 수 있습니다.
  - ex: ./BlogGenius-mac 혹은 ./BlogGenius-mac --help
 
@@ -41,7 +43,7 @@
 - 메일로 받으신 시리얼 키입니다.
 
 ### (2) Google Gemini API 키
-AI가 글을 쓰고 이미지를 그리기 위해 구글의 권한이 필요합니다.
+AI가 글을 쓰고 이미지를 그리기 위해 구글의 API가 필요합니다.
 1. [Google AI Studio](https://aistudio.google.com/)에 접속하여 구글 아이디로 로그인하세요.
 2. **"Get API key"** 버튼을 누르고 키를 복사해 두세요.
 
@@ -133,7 +135,7 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 ## 5. ❓ 자주 묻는 질문 (FAQ)
 
 **Q. 테스트는 총 얼마나 지원되나요?**
-* 총 15건의 글을 생성/발행할 수 있습니다. 
+* 총 15건의 글을 생성/발행할 수 있습니다. :)
 
 **Q. "라이선스 오류"라고 뜨면서 꺼져요.**
 * `config/config.txt` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
