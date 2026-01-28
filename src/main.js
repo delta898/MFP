@@ -123,7 +123,7 @@ program
     .command('generate')
     .alias('gen')
     .description('📝 [생성] 글과 이미지 생성 (발행 X)')
-    .requiredOption('-f, --file <path>', '작업 지시서 파일', CONFIG.PATHS.job || 'job.json')
+    .requiredOption('-f, --file <path>', '작업 지시서 파일', CONFIG.PATHS.topic || 'topic.json')
     .option('-d, --dir <path>', '커스텀 출력 폴더')
     .option('-p, --publish', '생성 후 즉시 발행', false)
     .action(async (opts) => {
@@ -151,14 +151,14 @@ program
                     process.exit(1);
                 }
             }
-            const jobData = JSON.parse(fs.readFileSync(opts.file, 'utf-8'));
+            const topicData = JSON.parse(fs.readFileSync(opts.file, 'utf-8'));
             console.log(`   📂 입력 파일 로드 완료: ${path.basename(opts.file)}`);
             
             // 코어 실행
-            const result = await Core.generateContent(jobData, opts.dir);
+            const result = await Core.generateContent(topicData, opts.dir);
             const targetDir = result.targetDir;
 
-            await Core.prepareImages(targetDir, jobData);
+            await Core.prepareImages(targetDir, topicData);
             
             if (opts.publish) {
                 await Core.publishToBlog(targetDir);
@@ -175,7 +175,7 @@ program
 program
     .command('auto')
     .description('🚀 [자동] 생성부터 발행까지 논스톱 실행')
-    .option('-f, --file <path>', '작업 지시서 파일', CONFIG.PATHS.job || 'job.json')
+    .option('-f, --file <path>', '작업 지시서 파일', CONFIG.PATHS.topic || 'topic.json')
     .option('-d, --dir <path>', '커스텀 출력 폴더')
     .action(async (opts) => {
         try {
@@ -201,16 +201,16 @@ program
                     process.exit(1);
                 }
             }
-            const jobData = JSON.parse(fs.readFileSync(opts.file, 'utf-8'));
+            const topicData = JSON.parse(fs.readFileSync(opts.file, 'utf-8'));
             
             console.log(`   📂 입력 파일 로드 완료: ${path.basename(opts.file)}`);
             console.log(`   🔥 Core 엔진 구동 중... (잠시만 기다려주세요)`);
             
             // 코어 실행
-            const result = await Core.generateContent(jobData, opts.dir);
+            const result = await Core.generateContent(topicData, opts.dir);
             const targetDir = result.targetDir;
 
-            await Core.prepareImages(targetDir, jobData);
+            await Core.prepareImages(targetDir, topicData);
             await Core.publishToBlog(targetDir);
 
         } catch (e) { console.error('❌ 에러:', e); }

@@ -18,14 +18,14 @@ const filesToCopy = [
         dest: path.join(__dirname, 'config', 'system_prompt.md')
     },
     {
-        name: '단건 작업 파일 (job.json)',
-        src: path.join(__dirname, 'job.json.sample'),
-        dest: path.join(__dirname, 'job.json')
+        name: '단건 작업 파일 (topic.json)',
+        src: path.join(__dirname, 'topic.json.sample'),
+        dest: path.join(__dirname, 'topic.json')
     },
     {
-        name: '배치 엑셀 파일 (jobs.xlsx)',
-        src: path.join(__dirname, 'jobs.xlsx.sample'),
-        dest: path.join(__dirname, 'jobs.xlsx')
+        name: '배치 엑셀 파일 (topics.xlsx)',
+        src: path.join(__dirname, 'topics.xlsx.sample'),
+        dest: path.join(__dirname, 'topics.xlsx')
     }
 ];
 

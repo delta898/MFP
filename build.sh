@@ -4,7 +4,7 @@
 # 🔧 설정
 # ==========================================
 APP_NAME="BlogGenius"
-VERSION="0.1.0"
+VERSION="0.1.9"  # 💡 버전도 최신으로 살짝 올렸습니다
 NODE_TARGET="node18" 
 # ==========================================
 
@@ -44,24 +44,34 @@ echo "🧹 기존 dist 폴더를 정리합니다..."
 rm -rf dist
 mkdir -p dist
 
-# 공통 자산 복사 함수
+# ---------------------------------------------------
+# 📦 공통 자산 복사 함수 (여기가 핵심 수정됨!)
+# ---------------------------------------------------
 copy_assets() {
     TARGET_DIR=$1
     
     mkdir -p "$TARGET_DIR/config"
     
-    # 설정/작업 파일 복사
-    cp config/settings.js.sample "$TARGET_DIR/config/settings.js"
+    # 🔥 [수정됨] settings.js 대신 config.txt 복사
+    # (sample 파일을 복사해서 사용자가 바로 쓸 수 있는 config.txt로 이름을 바꿉니다)
+    if [ -f "config/config.txt.sample" ]; then
+        cp config/config.txt.sample "$TARGET_DIR/config/config.txt"
+    else
+        echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
+    fi
+
+    # 프롬프트 및 엑셀 파일
     cp config/system_prompt.md.sample "$TARGET_DIR/config/system_prompt.md"
-    cp jobs.xlsx.sample "$TARGET_DIR/jobs.xlsx"
-    cp job.json.sample "$TARGET_DIR/job.json"
+    cp topics.xlsx.sample "$TARGET_DIR/topics.xlsx"
+    cp topic.json.sample "$TARGET_DIR/topic.json"
     
     # README 교체 (README_USER.md가 없으면 생성)
-    if [ ! -f "README_USER.md" ]; then
+    if [ -f "README_USER.md" ]; then
+        echo "   📄 README_USER.md를 발견하여 복사합니다."
+        cp README_USER.md "$TARGET_DIR/README.md"
+    else
         echo "   ⚠️ README_USER.md가 없어 기본 README.md를 사용합니다."
         cp README.md "$TARGET_DIR/README.md"
-    else
-        cp README_USER.md "$TARGET_DIR/README.md"
     fi
 
     # [Windows 전용] 더블클릭 실행 파일(.bat) 생성
@@ -104,7 +114,7 @@ EOF
 echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
 echo "---------------------------------------------------"
 
-# 1️⃣ MacOS (Apple Silicon)
+# 1️⃣ MacOS (Apple Silicon) - M1/M2/M3
 DIR_NAME="${APP_NAME}-v${VERSION}-mac-arm64"
 OUTPUT_DIR="dist/${DIR_NAME}"
 echo "🍎 MacOS (Apple Silicon) 빌드 중..."

@@ -68,10 +68,10 @@ jobs:
         mkdir -p dist/config
         
         # 1. 설정/샘플 파일 복사
-        cp config/settings.js.sample dist/config/settings.js
+        cp config/config.txt.sample dist/config/config.txt
         cp config/system_prompt.md.sample dist/config/system_prompt.md
-        cp jobs.xlsx.sample dist/jobs.xlsx
-        cp job.json.sample dist/job.json
+        cp topics.xlsx.sample dist/topics.xlsx
+        cp topic.json.sample dist/topic.json
         
         # 2. README 처리 (안전하게 수정됨 🛠️)
         if [ -f "README_USER.md" ]; then
@@ -83,7 +83,7 @@ jobs:
             {
               echo "# 🧞‍♂️ BlogGenius 사용자 가이드"
               echo "1. config/settings.js 파일을 메모장으로 열어 설정하세요."
-              echo "2. jobs.xlsx 파일에 글감을 입력하세요."
+              echo "2. topics.xlsx 파일에 글감을 입력하세요."
               echo "3. 프로그램을 실행하세요."
               echo ""
               echo "[Mac 사용자 주의사항]"

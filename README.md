@@ -14,7 +14,7 @@ Google Gemini AI와 최신 자동화 기술을 결합하여 블로그 포스팅�
 
 ## ✨ 주요 기능
 
-* **🏭 엑셀 대량 발행 (Batch)**: `jobs.xlsx` 파일에 주제 100개를 적어두면, 봇이 순차적으로 모두 발행합니다.
+* **🏭 엑셀 대량 발행 (Batch)**: `topics.xlsx` 파일에 주제 100개를 적어두면, 봇이 순차적으로 모두 발행합니다.
 * **✍️ SEO 최적화 글쓰기**: 서론-본문-결론 구조를 갖춘 검색 최적화(SEO) 원고를 자동으로 작성합니다.
 * **🎨 AI 이미지 자동 생성**: 글 내용을 분석해 **Google Gemini(Imagen)**가 고퀄리티 이미지를 생성하여 본문에 삽입합니다.
 * **🎭 페르소나 커스텀**: `system_prompt.md`를 수정하여 봇의 말투, 성격, 글쓰기 스타일을 내 맘대로 조정할 수 있습니다.
@@ -38,7 +38,7 @@ node setup.js
 > _(라이브러리 설치, 설정 파일 생성, 브라우저 드라이버 세팅을 자동으로 수행합니다.)_
 
 ### 3. 설정 (Configuration)
-`config/settings.js` 파일을 열어 발급받은 정보를 입력하세요.
+`config/config.txt` 파일을 열어 발급받은 정보를 입력하세요.
 
 ```javascript
 module.exports = {
@@ -70,7 +70,7 @@ npm run login
 * 로그인이 완료되면 창이 자동으로 닫히고 인증 정보가 저장됩니다.
 
 ### 2️⃣ 엑셀 대량 발행 (Batch Mode) 🔥 [강력 추천]
-`jobs.xlsx` 파일에 주제나 URL을 적어두고 실행하면, 봇이 하나씩 처리합니다.
+`topics.xlsx` 파일에 주제나 URL을 적어두고 실행하면, 봇이 하나씩 처리합니다.
 
 ```bash
 npm run batch
@@ -79,7 +79,7 @@ npm run batch
 * 작업 도중 중단되어도 다시 실행하면 **안 된 것부터 이어서** 작업합니다.
 
 ### 3️⃣ 단건 발행 (Auto Mode)
-`job.json` 파일을 수정해서 글 하나만 정교하게 테스트할 때 사용합니다.
+`topic.json` 파일을 수정해서 글 하나만 정교하게 테스트할 때 사용합니다.
 
 ```bash
 npm run auto
@@ -101,12 +101,12 @@ npm run auto -- -d "workspace/내_원고_폴더"
 ```text
 /NaverAutoBlog
 ├── config/             
-│   ├── settings.js     # 아이디, API 키, 라이선스 키 설정
+│   ├── config.txt     # 아이디, API 키, 라이선스 키 설정
 │   └── system_prompt.md # [Tip] 봇의 성격과 말투를 여기서 수정하세요!
 ├── logs/               # 실행 로그 (날짜별 자동 저장)
 ├── workspace/          # 결과물 저장소 (글, 이미지)
-├── jobs.xlsx           # [Batch] 엑셀 작업 리스트
-├── job.json            # [Auto] 단건 작업 지시서
+├── topics.xlsx           # [Batch] 엑셀 작업 리스트
+├── topic.json            # [Auto] 단건 작업 지시서
 └── setup.js            # 간편 설치 스크립트
 ```
 
@@ -115,7 +115,7 @@ npm run auto -- -d "workspace/내_원고_폴더"
 ## ❓ 자주 묻는 질문 (FAQ)
 
 **Q. "라이선스 오류"가 발생해요.**
-* A. `config/settings.js`에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요. 인터넷 연결 상태도 확인이 필요합니다.
+* A. `config/config.txt`에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요. 인터넷 연결 상태도 확인이 필요합니다.
 
 **Q. 이미지 생성이 실패해요.**
 * A. Google Gemini API 키가 올바른지, 해당 계정에 이미지 생성 권한이 있는지 확인하세요.

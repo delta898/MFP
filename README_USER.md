@@ -18,7 +18,7 @@
 
 ---
 ## 0. Quick Guide
-1. config/settings.js 파일안에 아래 정보를 넣습니다.
+1. config/config.txt 파일안에 아래 정보를 넣습니다.
  - NAVER_ID
  - LICENSE_KEY
  - GEMINI_API_KEY
@@ -26,7 +26,7 @@
  - ex: ./BlogGenius-mac login
 3. <프로그램> auto 명령으로 글과 이미지 자동 생성 및 발행을 합니다.
  - ex: ./BlogGenius-mac auto
-4. 쓰고 싶은 글감은 job.json 파일이나 jobs.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
+4. 쓰고 싶은 글감은 topic.json 파일이나 topics.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
  - ex: ./BlogGenius-mac auto
 5. <프로그램> 혹은 <프로그램 --help> 를 실행하면 간단 사용법을 볼 수 있습니다.
  - ex: ./BlogGenius-mac 혹은 ./BlogGenius-mac --help
@@ -54,7 +54,7 @@ API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 �
 ## 2. ⚙️ 설정하기 (딱 한 번만!)
 
 압축을 푼 폴더 안에 **`config`** 폴더가 있습니다.
-그 안의 **`settings.js`** 파일을 **메모장(Notepad)**으로 열고 내용을 수정해주세요.
+그 안의 **`config.txt`** 파일을 **메모장(Notepad)**으로 열고 내용을 수정해주세요.
 
 > **주의:** 작은따옴표(')를 지우지 말고 그 사이에 값을 넣어주세요.
 
@@ -77,10 +77,10 @@ API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 �
 
 ## 3. 글감 설정하기 (공통)
 
-- 단건: 폴더에 들어있는 `job.json' 파일은 단일 글감을 지정하는 파일입니다.
+- 단건: 폴더에 들어있는 `topic.json' 파일은 단일 글감을 지정하는 파일입니다.
 샘플 내용을 참고하여 본인이 원하는 주제, 키워드 등을 넣으시기 바랍니다.
 
-- 배치: `jobs.xlsx` 엑셀 파일을 열어서 각 행마다 주제를 적고 저장하세요.
+- 배치: `topics.xlsx` 엑셀 파일을 열어서 각 행마다 주제를 적고 저장하세요.
 프로그램을 batch 모드로 실행하면 순서대로 읽어서 발행합니다.
 
 
@@ -88,18 +88,18 @@ API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 �
 
 폴더에 들어있는 **`실행하기_xxx.bat`** 파일을 더블 클릭하면 됩니다.
 
-### ① 실행하기_로그인.bat (최초 1회 필수)
+### 1. 실행하기_로그인.bat (최초 1회 필수)
 * 처음 사용할 때는 반드시 먼저 실행해야 합니다.
 * 브라우저가 뜨면 **네이버에 로그인**해주세요. (2단계 인증 포함)
 * 로그인이 완료되고 네이버 메인 화면이 나오면, 창이 저절로 닫힙니다.
 
-### ② 실행하기_일괄발행.bat (추천 👍)
-* **`jobs.xlsx`** 엑셀 파일을 열어 주제를 적고 저장하세요.
+### 2. 실행하기_단건테스트.bat
+* `topic.json` 파일을 수정해서 글 하나만 빠르게 테스트해 볼 때 사용합니다.
+
+### 3. 실행하기_일괄발행.bat (추천 👍)
+* **`topics.xlsx`** 엑셀 파일을 열어 주제를 적고 저장하세요.
 * 이 파일을 실행하면 엑셀에 적힌 모든 주제에 대해 글을 쓰고 발행합니다.
 * **팁:** 엑셀의 `Image Gen` 칸을 비워두면 AI가 알아서 이미지를 만듭니다.
-
-### ③ 실행하기_단건테스트.bat
-* `job.json` 파일을 수정해서 글 하나만 빠르게 테스트해 볼 때 사용합니다.
 
 ---
 
@@ -122,11 +122,11 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 # 로그인 모드
 ./BlogGenius-mac login
 
-# 엑셀 대량 발행 모드
-./BlogGenius-mac batch
-
 # 단건 테스트 모드
 ./BlogGenius-mac auto
+
+# 엑셀 대량 발행 모드
+./BlogGenius-mac batch
 
 ---
 
@@ -136,22 +136,23 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 * 총 15건의 글을 생성/발행할 수 있습니다. 
 
 **Q. "라이선스 오류"라고 뜨면서 꺼져요.**
-* `settings.js` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
+* `config/config.txt` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
 * 인터넷 연결이 끊겨있으면 인증이 불가능합니다.
 
 **Q. 이미지가 생성이 안 돼요.**
-* `settings.js`의 `GEMINI_API_KEY`가 정확한지 확인하세요.
+* `config.txt`의 `GEMINI_API_KEY`가 정확한지 확인하세요.
 * 구글 API 사용량을 초과했을 수 있습니다. 잠시 후 다시 시도해보세요.
-* job.json 의 image 설정이 true로 되어있는지 확인하세요.
+* topic.json 의 image 설정이 true로 되어있는지 확인하세요.
 
 **Q. 로그인이 자꾸 풀려요.**
 * 네이버 보안 설정에서 "해외 로그인 차단"이 켜져 있다면 꺼주세요.
 * 너무 짧은 시간에 반복해서 로그인을 시도하면 네이버가 잠시 차단할 수 있습니다.
-
+---
+** 본 테스트는 자발적 테스트로써 사용자 본인의 과도한 실행(ex: 네이버의 과도한 접속, 생성, 발행)으로 인한 혹시 모를 네이버의 조치는 전적으로 테스터 본인의 책임입니다.
+어떠한 경우에도 개발자인 '도전인생'에게 책임을 묻지 않습니다. (근데 그럴 일은 별로 없을 것입니다.)
 ---
 
 **[지원]**
-
 
 보다 자세한 정보는 도전인생의 SNS, 오픈채팅방, 카페, 블로그를 참고해주시기 바랍니다.
 
@@ -160,3 +161,4 @@ xattr -d com.apple.quarantine ./BlogGenius-mac
 👉 [https://threads.net/amadejjs](https://threads.net/amadejjs)
 
 👉 [https://linktr.ee/amadejjs](https://linktr.ee/amadejjs)
+
