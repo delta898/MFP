@@ -1,4 +1,5 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -127,31 +128,40 @@ const Utils = {
     fetchReferenceContent: async function(url) {
         if (!url) return "";
         Logger.info(`🌐 [Scraping] 접속 시도: ${url}`);
-        let browser;
+
         try {
-            browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' });
-            const page = await context.newPage();
-            
-            await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
-
-            const mainFrame = page.frames().find(f => f.name() === 'mainFrame');
-            const target = mainFrame ? mainFrame : page;
-
-            const text = await target.evaluate(() => {
-                const tagsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', '.ad', '#ad'];
-                tagsToRemove.forEach(tag => {
-                    document.querySelectorAll(tag).forEach(el => el.remove());
-                });
-                return document.body.innerText;
+            // 1. HTTP GET 요청 (브라우저인 척 User-Agent 헤더 추가)
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                },
+                timeout: 10000 // 10초 타임아웃
             });
 
-            return text.replace(/\s+/g, ' ').trim().substring(0, 3500);
+            // 2. HTML 로드 (Cheerio)
+            const $ = cheerio.load(response.data);
+
+            // 3. 불필요한 태그 제거 (노이즈 필터링)
+            const tagsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', '.ad', '#ad', 'form', 'button'];
+            tagsToRemove.forEach(tag => $(tag).remove());
+
+            // 4. 본문 텍스트 추출 (body 전체)
+            // 특정 div를 찾지 않고 body 전체에서 텍스트만 발라냅니다.
+            const rawText = $('body').text();
+
+            // 5. 공백 정리 (연속된 공백/줄바꿈을 스페이스 하나로)
+            const cleanText = rawText.replace(/\s+/g, ' ').trim();
+
+            Logger.info(`   ✅ 스크래핑 성공 (길이: ${cleanText.length}자)`);
+            
+            // 너무 길면 3500자로 자름 (Gemini 입력 한계 고려)
+            return cleanText.substring(0, 3500);
+
         } catch (e) {
+            // 실패 시 로그만 남기고 빈 문자열 반환 (프로세스 죽지 않음)
             Logger.warn(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
             return "";
-        } finally {
-            if (browser) await browser.close();
         }
     },
 
