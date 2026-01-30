@@ -3,7 +3,7 @@
 process.env.TZ = 'Asia/Seoul';
 
 // --------------------------------------------------------
-// 🛠️ [Fix 1] Crypto Polyfill (빌드 및 구버전 호환)
+// 🛠️ [Fix 1] Crypto Polyfill (Node 버전 호환성 확보)
 // --------------------------------------------------------
 const crypto = require('crypto');
 if (!globalThis.crypto) {
@@ -17,6 +17,7 @@ if (!globalThis.crypto) {
     }
 }
 
+// 불필요한 경고 메시지 숨기기 (punycode deprecated 등)
 process.env.NODE_NO_WARNINGS = '1';
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -35,6 +36,28 @@ const Core = require('./core');
 const Utils = require('./utils'); 
 const CONFIG = require('./config-loader'); 
 const BrowserLauncher = require('./browser-launcher');
+const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
+
+// --------------------------------------------------------
+// 🛠️ [Fix 2] config.txt 설정을 읽어 API 모델 적용 (핵심!)
+// --------------------------------------------------------
+// 사용자가 config.txt에 'gemini-2.0-flash'라고 적으면, 
+// 이를 실제 API 호출 주소(URL)로 변환하여 상수를 덮어씁니다.
+const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+if (CONFIG.TEXT_MODEL) {
+    Constants.GEMINI_TEXT_ENDPOINT = `${BASE_API_URL}/${CONFIG.TEXT_MODEL}:generateContent`;
+    // console.log(`🧠 텍스트 모델 적용: ${CONFIG.TEXT_MODEL}`);
+}
+
+if (CONFIG.IMAGE_MODEL) {
+    Constants.GEMINI_IMAGE_ENDPOINT = `${BASE_API_URL}/${CONFIG.IMAGE_MODEL}:generateContent`;
+    // console.log(`🎨 이미지 모델 적용: ${CONFIG.IMAGE_MODEL}`);
+}
+
+// 타이핑 속도나 대기 시간 등 기타 설정은 Core나 BrowserLauncher에서 
+// 직접 CONFIG를 참조하므로 여기서는 모델 URL만 처리하면 충분합니다.
+
 
 console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
@@ -77,12 +100,13 @@ async function performLogin() {
         await page.goto('https://nid.naver.com/nidlogin.login');
         console.log("🔑 직접 로그인 완료 후 네이버 메인 이동 시 자동 저장됩니다.");
         
-        // 🛠️ [Fix 2] URL 객체를 문자열로 변환(.toString()) 후 비교
+        // 로그인 성공 감지: URL이 nid.naver.com이 아니고 naver.com을 포함할 때
         await page.waitForURL(url => {
-            const urlStr = url.toString(); // URL 객체 -> 문자열 변환
+            const urlStr = url.toString(); 
             return urlStr.includes('naver.com') && !urlStr.includes('nid.naver.com');
         }, { timeout: 300000 }); // 5분 대기
 
+        // 인증 정보 저장
         await context.storageState({ path: CONFIG.AUTH_FILE_PATH });
         console.log(`\n✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
         
@@ -126,8 +150,10 @@ program
             await ensureAuth(false);
             const filePath = path.resolve(process.cwd(), opts.file);
             const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            
             const result = await Core.generateContent(topicData, opts.dir);
             await Core.prepareImages(result.targetDir, topicData);
+            
             console.log(`\n🏁 완료: ${result.targetDir}`);
         } catch (e) { console.error('❌ 에러:', e); }
     });
@@ -150,8 +176,11 @@ program
             const filePath = path.resolve(process.cwd(), opts.file);
             const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
             
+            // 1. 콘텐츠 및 이미지 생성
             const result = await Core.generateContent(topicData, opts.dir);
             await Core.prepareImages(result.targetDir, topicData);
+            
+            // 2. 블로그 발행
             await Core.publishToBlog(result.targetDir);
 
             console.log(`\n✅ 자동 발행 완료!`);
@@ -199,6 +228,7 @@ program
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex+1})`);
                     Utils.updateExcelStatus(excelPath, rowIndex, 'processing', '작업 시작');
 
+                    // 생성 -> 이미지 -> 발행 순차 진행
                     const result = await Core.generateContent(topicData);
                     await Core.prepareImages(result.targetDir, topicData);
                     await Core.publishToBlog(result.targetDir);
@@ -212,6 +242,7 @@ program
                     failCount++;
                 }
 
+                // 다음 작업 전 대기 (config.txt 설정값 사용)
                 if (i < topics.length - 1) {
                     const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
                     console.log(`⏳ ${delay}초 대기 중...`);

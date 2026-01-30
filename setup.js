@@ -8,8 +8,8 @@ console.log("🚀 [Setup] 네이버 블로그 봇 설치를 시작합니다...")
 const filesToCopy = [
     {
         name: '설정 파일 (settings.js)',
-        src: path.join(__dirname, 'config', 'settings.js.sample'),
-        dest: path.join(__dirname, 'config', 'settings.js')
+        src: path.join(__dirname, 'config', 'config.txt.sample'),
+        dest: path.join(__dirname, 'config', 'config.txt')
     },
     {
         // 🔥 [추가됨] 시스템 프롬프트 복사
