@@ -55,42 +55,46 @@ const Utils = {
         return auth.getClient();
     },
 
-    // [New] 구글 시트 읽기 (기존 readExcelTopics와 동일한 구조 반환)
     readGoogleSheetTopics: async function() {
         try {
-	    Logger.info("🌐 구글 스프레드시트 읽기 시작 (함수 진입)");
+            Logger.info("🌐 구글 스프레드시트 읽기 시작 (Axios 모드)");
             
+            // 1. 인증 클라이언트 가져오기 (이건 성공함)
             const authClient = await this.getGoogleClient();
-            Logger.info("[DEBUG] 7. Auth Client 획득 완료 via readGoogleSheetTopics");
+            Logger.info("[DEBUG] 7. Auth Client 획득 완료");
 
-            const sheets = google.sheets({ version: 'v4', auth: authClient, http2: false });
+            // 2. 액세스 토큰 추출
+            const tokenResponse = await authClient.getAccessToken();
+            const accessToken = tokenResponse.token;
+            Logger.info("[DEBUG] 8. Access Token 획득 완료");
+
+            // 3. [핵심] Google 라이브러리 대신 Axios로 직접 요청
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
-            
-            Logger.info(`[DEBUG] 8. API 요청 시도 (Spreadsheet ID: ${CONFIG.GOOGLE_SHEET_ID})`);
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            // 범위 지정 (전체)
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
-            const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
-                range: sheetName,
+            Logger.info(`[DEBUG] 9. Axios 요청 시도: ${url}`);
+
+            const res = await axios.get(url, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
             });
 
-            Logger.info("[DEBUG] 9. API 응답 수신 성공");
+            Logger.info("[DEBUG] 10. API 응답 수신 성공");
 
             const rows = res.data.values;
             if (!rows || rows.length === 0) return [];
 
-            Logger.info(`[DEBUG] 10. 데이터 파싱 시작 (${rows.length} rows)`);
+            Logger.info(`[DEBUG] 11. 데이터 파싱 시작 (${rows.length} rows)`);
 
-            // 첫 줄(헤더) 처리
+            // --- 기존 데이터 매핑 로직 (그대로 유지) ---
             const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
-            
-            // 데이터 매핑 (기존 readExcelTopics 로직 재사용)
             const results = rows.slice(1).map((row, index) => {
                 const entry = {};
-                headers.forEach((h, i) => {
-                     // 구글 시트는 빈 셀이 있으면 row 길이가 짧을 수 있음
-                    entry[h] = row[i] !== undefined ? row[i] : ""; 
-                });
-
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
                 const getVal = (cols) => {
                     for (let col of cols) { 
                         const cleanCol = col.toLowerCase().replace(/[\s\/_]/g, '').trim();
@@ -98,62 +102,62 @@ const Utils = {
                     }
                     return "";
                 };
-
-                // 기존 로직 복사
+                
                 const subject = getVal(['subject', '주제', '제목']);
                 const kwStr = getVal(['keywords', '키워드']);
                 const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
                 const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
-                const status = getVal(['상태', 'status']).toLowerCase();
-                
+                const status = getVal(['상태', 'status']);
                 const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
 
                 return {
-                    rowIndex: index, // 0부터 시작 (실제 시트 행은 index + 2)
+                    rowIndex: index,
                     subject: subject || undefined,
                     keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
                     content_guide: { 
                         additional_instructions: instruction, 
                         reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : [] 
                     },
-                    status: status,
+                    status: status ? status.trim() : "",
                     image_options: {
-			generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
+                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
                         count: parseInt(imgCountStr) || 4
                     }
                 };
             });
 
-	    Logger.info("[DEBUG] 11. 데이터 파싱 완료");
-
-            // 필터링
             return results.filter(item => {
-                const hasData = item.subject || item.keywords.length > 0 || item.content_guide.additional_instructions || item.content_guide.reference_urls.length > 0;
-		return hasData && (item.status === '블로그 발행 준비 완료');
+                const hasData = item.subject || item.keywords.length > 0;
+                return hasData && (item.status === '블로그 발행 준비 완료');
             });
 
         } catch (e) {
-	    // 🔥 [중요] 에러 발생 시 스택 트레이스 전체 출력
             Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
-            console.error("----------- [Error Stack Trace] -----------");
-            console.error(e.stack);
-            console.error("-------------------------------------------");
+            if (e.response) {
+                Logger.error(`👉 응답 상세: ${JSON.stringify(e.response.data)}`);
+            }
             return [];
         }
     },
 
-    // [New] 구글 시트 상태 업데이트
+    /**
+     * ✅ [변경] axios로 직접 상태 업데이트
+     */
     updateGoogleSheetStatus: async function(rowIndex, status, logMessage) {
         try {
+            // 1. 토큰 획득
             const authClient = await this.getGoogleClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient, http2: false });
-            const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+            const tokenResponse = await authClient.getAccessToken();
+            const accessToken = tokenResponse.token;
 
-            // 1. 헤더를 읽어서 컬럼 위치 찾기 (매번 읽는게 비효율적이지만 안전함)
-            const headerRes = await sheets.spreadsheets.values.get({
-                spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
-                range: `${sheetName}!1:1`,
+            const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            // 2. 헤더 정보를 얻기 위해 1행 읽기 (Axios)
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await axios.get(readUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
             });
             
             const headers = headerRes.data.values[0];
@@ -166,12 +170,8 @@ const Utils = {
                 else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
             });
 
-            // 2. 업데이트할 데이터 준비
-            // rowIndex는 0부터 시작하므로, 실제 행 번호는 rowIndex + 2 (헤더1줄 + 0인덱스보정)
+            // 3. 업데이트 데이터 구성
             const targetRow = rowIndex + 2; 
-            const updates = [];
-
-            // A=0, B=1... 컬럼 인덱스를 A1 표기법으로 변환하는 간단한 헬퍼
             const toA1 = (colIdx) => {
                 let letter = '';
                 while (colIdx >= 0) {
@@ -181,35 +181,24 @@ const Utils = {
                 return letter;
             };
 
-            if (statusColIndex !== -1) {
-                updates.push({
-                    range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`,
-                    values: [[status]]
-                });
-            }
-            if (logColIndex !== -1) {
-                updates.push({
-                    range: `${sheetName}!${toA1(logColIndex)}${targetRow}`,
-                    values: [[logMessage]]
-                });
-            }
-            if (timeColIndex !== -1) {
-                updates.push({
-                    range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`,
-                    values: [[new Date().toLocaleString()]]
-                });
-            }
+            const dataToUpdate = [];
+            if (statusColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
+            if (logColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(logColIndex)}${targetRow}`, values: [[logMessage]] });
+            if (timeColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
 
-            // 3. 배치 업데이트 실행
-            if (updates.length > 0) {
-                await sheets.spreadsheets.values.batchUpdate({
-                    spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
-                    resource: {
-                        valueInputOption: 'USER_ENTERED',
-                        data: updates
-                    }
-                });
-            }
+            if (dataToUpdate.length === 0) return;
+
+            // 4. Batch Update (Axios)
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await axios.post(updateUrl, {
+                valueInputOption: 'USER_ENTERED',
+                data: dataToUpdate
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
         } catch (e) {
             Logger.error(`❌ 구글 시트 업데이트 실패: ${e.message}`);
