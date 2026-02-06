@@ -8,6 +8,8 @@ const { google } = require('googleapis');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 
+google.options({ http2: false });
+
 const Utils = {
     /**
      * 1. 파일명 정리
@@ -23,54 +25,34 @@ const Utils = {
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
     getGoogleClient: async function() {
-        Logger.info("[DEBUG] 1. getGoogleClient 진입");
-        
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
 
+        // 1. 경로 확보 (pkg 환경 고려하여 절대 경로로 변환)
         const keyFilePath = path.resolve(process.cwd(), rawPath);
-        Logger.info(`[DEBUG] 2. 인증 파일 경로: ${keyFilePath}`);
+        Logger.info(`🔑 인증 파일 경로: ${keyFilePath}`);
 
         if (!fs.existsSync(keyFilePath)) {
             throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
         }
 
+        // 2. 파일 읽기 (JSON.parse가 \n 등 이스케이프 문자를 자동으로 올바르게 처리해줍니다)
         let credentials;
         try {
             const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-            Logger.info(`[DEBUG] 3. 인증 파일 읽기 성공 (길이: ${fileContent.length})`);
             credentials = JSON.parse(fileContent);
         } catch (e) {
             throw new Error(`인증 파일 파싱 실패: ${e.message}`);
         }
 
-        Logger.info("[DEBUG] 4. JWT 클라이언트 생성 시도");
-        
-        // Private Key 줄바꿈 문자 처리
-        const privateKey = credentials.private_key
-            ? credentials.private_key.replace(/\\n/g, '\n')
-            : undefined;
+        // 3. 인증 클라이언트 생성
+        // JWT 등을 직접 호출하지 않고, 가장 안정적인 GoogleAuth에 credentials 객체를 직접 넘깁니다.
+        const auth = new google.auth.GoogleAuth({
+            credentials: credentials,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
 
-        const authClient = new google.auth.JWT(
-            credentials.client_email,
-            null,
-            privateKey,
-            ['https://www.googleapis.com/auth/spreadsheets']
-        );
-
-        Logger.info("[DEBUG] 5. JWT 클라이언트 생성 완료. authorize() 호출 시도");
-
-        try {
-            await authClient.authorize();
-            Logger.info("[DEBUG] 6. authorize() 성공");
-        } catch (e) {
-            Logger.error(`[DEBUG] 🚨 authorize() 실패: ${e.message}`);
-            // 여기서 스택 트레이스도 찍어봅니다.
-            console.error(e.stack); 
-            throw e;
-        }
-
-        return authClient;
+        return auth.getClient();
     },
 
     // [New] 구글 시트 읽기 (기존 readExcelTopics와 동일한 구조 반환)
