@@ -23,28 +23,31 @@ const Utils = {
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
     getGoogleClient: async function() {
-	// 1. 설정된 경로 가져오기
+        // 1. 설정된 경로 가져오기
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-        
-        if (!rawPath) {
-            throw new Error('설정 파일(config.txt)에 GOOGLE_AUTH_JSON 값이 없습니다.');
-        }
+        if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
 
-        // 🔥 [핵심 수정] 상대 경로(./config/...)를 실행 위치 기준 절대 경로로 변환
-        // 빌드된 환경에서는 './'가 예상과 다를 수 있으므로 명시적으로 변환해야 함
+        // 2. 절대 경로 변환
         const keyFilePath = path.resolve(process.cwd(), rawPath);
-
-        // 🔍 디버깅용 로그 (경로가 어디로 잡히는지 확인)
         Logger.info(`🔑 인증 파일 경로 확인: ${keyFilePath}`);
 
-        // 2. 파일 존재 여부 체크 (절대 경로로 체크)
+        // 3. 파일 존재 여부 체크
         if (!fs.existsSync(keyFilePath)) {
-            throw new Error(`인증 파일을 찾을 수 없습니다.\n경로: ${keyFilePath}\n👉 'config' 폴더 안에 'service_account.json' 파일이 있는지 확인해주세요.`);
+            throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
         }
 
-        // 3. GoogleAuth 초기화
+        // 4. [🔥 핵심 변경] 파일을 직접 읽어서 JSON 객체로 변환
+        let loadedCredentials;
+        try {
+            const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
+            loadedCredentials = JSON.parse(fileContent);
+        } catch (e) {
+            throw new Error(`인증 파일(JSON)을 읽거나 파싱하는데 실패했습니다: ${e.message}`);
+        }
+
+        // 5. GoogleAuth에 '경로(keyFile)' 대신 '객체(credentials)' 주입
         const auth = new google.auth.GoogleAuth({
-            keyFile: keyFilePath, // 변환된 절대 경로 주입
+            credentials: loadedCredentials, // 👈 이렇게 하면 라이브러리가 파일을 찾을 필요가 없음
             scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
 
