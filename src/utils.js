@@ -63,7 +63,7 @@ const Utils = {
             const authClient = await this.getGoogleClient();
             Logger.info("[DEBUG] 7. Auth Client 획득 완료 via readGoogleSheetTopics");
 
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const sheets = google.sheets({ version: 'v4', auth: authClient, http2: false });
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
             
             Logger.info(`[DEBUG] 8. API 요청 시도 (Spreadsheet ID: ${CONFIG.GOOGLE_SHEET_ID})`);
@@ -147,7 +147,7 @@ const Utils = {
     updateGoogleSheetStatus: async function(rowIndex, status, logMessage) {
         try {
             const authClient = await this.getGoogleClient();
-            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const sheets = google.sheets({ version: 'v4', auth: authClient, http2: false });
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
 
             // 1. 헤더를 읽어서 컬럼 위치 찾기 (매번 읽는게 비효율적이지만 안전함)
