@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const XLSX = require('xlsx');
+const { google } = require('googleapis');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 
@@ -21,6 +22,162 @@ const Utils = {
      */
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
+    getGoogleClient: async function() {
+        if (!CONFIG.GOOGLE_AUTH_JSON || !fs.existsSync(CONFIG.GOOGLE_AUTH_JSON)) {
+            throw new Error(`구글 인증 파일(${CONFIG.GOOGLE_AUTH_JSON})이 없습니다.`);
+        }
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.GOOGLE_AUTH_JSON,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        return auth.getClient();
+    },
+
+    // [New] 구글 시트 읽기 (기존 readExcelTopics와 동일한 구조 반환)
+    readGoogleSheetTopics: async function() {
+        try {
+            Logger.info("🌐 구글 스프레드시트에 접속 중...");
+            const authClient = await this.getGoogleClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+
+            const res = await sheets.spreadsheets.values.get({
+                spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
+                range: sheetName, // 전체 범위 읽기
+            });
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) return [];
+
+            // 첫 줄(헤더) 처리
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+            
+            // 데이터 매핑 (기존 readExcelTopics 로직 재사용)
+            const results = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => {
+                     // 구글 시트는 빈 셀이 있으면 row 길이가 짧을 수 있음
+                    entry[h] = row[i] !== undefined ? row[i] : ""; 
+                });
+
+                const getVal = (cols) => {
+                    for (let col of cols) { 
+                        const cleanCol = col.toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (entry[cleanCol]) return String(entry[cleanCol]).trim(); 
+                    }
+                    return "";
+                };
+
+                // 기존 로직 복사
+                const subject = getVal(['subject', '주제', '제목']);
+                const kwStr = getVal(['keywords', '키워드']);
+                const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
+                const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
+                const status = getVal(['상태', 'status']).toLowerCase();
+                
+                const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
+                const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
+
+                return {
+                    rowIndex: index, // 0부터 시작 (실제 시트 행은 index + 2)
+                    subject: subject || undefined,
+                    keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
+                    content_guide: { 
+                        additional_instructions: instruction, 
+                        reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : [] 
+                    },
+                    status: status,
+                    image_options: {
+			generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
+                        count: parseInt(imgCountStr) || 4
+                    }
+                };
+            });
+
+            // 필터링
+            return results.filter(item => {
+                const hasData = item.subject || item.keywords.length > 0 || item.content_guide.additional_instructions || item.content_guide.reference_urls.length > 0;
+		return hasData && (item.status === '블로그 발행 준비 완료');
+            });
+
+        } catch (e) {
+            Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
+            return [];
+        }
+    },
+
+    // [New] 구글 시트 상태 업데이트
+    updateGoogleSheetStatus: async function(rowIndex, status, logMessage) {
+        try {
+            const authClient = await this.getGoogleClient();
+            const sheets = google.sheets({ version: 'v4', auth: authClient });
+            const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+
+            // 1. 헤더를 읽어서 컬럼 위치 찾기 (매번 읽는게 비효율적이지만 안전함)
+            const headerRes = await sheets.spreadsheets.values.get({
+                spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
+                range: `${sheetName}!1:1`,
+            });
+            
+            const headers = headerRes.data.values[0];
+            let statusColIndex = -1, logColIndex = -1, timeColIndex = -1;
+
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
+                else if (clean.includes('로그') || clean.includes('log')) logColIndex = i;
+                else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
+            });
+
+            // 2. 업데이트할 데이터 준비
+            // rowIndex는 0부터 시작하므로, 실제 행 번호는 rowIndex + 2 (헤더1줄 + 0인덱스보정)
+            const targetRow = rowIndex + 2; 
+            const updates = [];
+
+            // A=0, B=1... 컬럼 인덱스를 A1 표기법으로 변환하는 간단한 헬퍼
+            const toA1 = (colIdx) => {
+                let letter = '';
+                while (colIdx >= 0) {
+                    letter = String.fromCharCode((colIdx % 26) + 65) + letter;
+                    colIdx = Math.floor(colIdx / 26) - 1;
+                }
+                return letter;
+            };
+
+            if (statusColIndex !== -1) {
+                updates.push({
+                    range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`,
+                    values: [[status]]
+                });
+            }
+            if (logColIndex !== -1) {
+                updates.push({
+                    range: `${sheetName}!${toA1(logColIndex)}${targetRow}`,
+                    values: [[logMessage]]
+                });
+            }
+            if (timeColIndex !== -1) {
+                updates.push({
+                    range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`,
+                    values: [[new Date().toLocaleString()]]
+                });
+            }
+
+            // 3. 배치 업데이트 실행
+            if (updates.length > 0) {
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
+                    resource: {
+                        valueInputOption: 'USER_ENTERED',
+                        data: updates
+                    }
+                });
+            }
+
+        } catch (e) {
+            Logger.error(`❌ 구글 시트 업데이트 실패: ${e.message}`);
+        }
+    },
     /**
      * 3. 엑셀 파일 읽기 (기존 유지)
      */
@@ -65,13 +222,13 @@ const Utils = {
                     },
                     status: status,
                     image_options: {
-                        generate: !['n', 'no', 'false', 'f', '거짓', '아니오'].includes(imgGenStr.toLowerCase()),
+			generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
                         count: parseInt(imgCountStr) || 4
                     }
                 };
             }).filter(item => {
                 const hasData = item.subject || item.keywords.length > 0 || item.content_guide.additional_instructions || item.content_guide.reference_urls.length > 0;
-                return hasData && (!item.status || ['ready', 'pending', ''].includes(item.status));
+		return hasData && (item.status === '블로그 발행 준비 완료');
             });
         } catch (e) {
             Logger.error(`❌ 엑셀 읽기 에러: ${e.message}`);

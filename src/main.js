@@ -197,15 +197,25 @@ program
             console.log("\n▶️ [Batch Mode] 작업을 시작합니다...");
             await ensureAuth(true);
 
-            const excelPath = path.resolve(process.cwd(), opts.file);
-            const topics = Utils.readExcelTopics(excelPath);
-            
+	    // [New] 데이터 소스 분기 처리
+            let topics = [];
+            const isGoogle = (CONFIG.DATA_SOURCE === 'GOOGLE'); // config-loader에서 읽어온 값
+
+            if (isGoogle) {
+                console.log(`📡 구글 스프레드시트 모드로 실행합니다.`);
+                topics = await Utils.readGoogleSheetTopics();
+            } else {
+                console.log(`📂 로컬 엑셀 모드로 실행합니다.`);
+                const excelPath = path.resolve(process.cwd(), opts.file);
+                topics = Utils.readExcelTopics(excelPath);
+            }
+
+            console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
+
             if (topics.length === 0) {
                 console.log("📭 처리할 새로운 주제가 없습니다.");
                 return;
             }
-
-            console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
 
             let successCount = 0;
             let failCount = 0;
@@ -226,19 +236,28 @@ program
 
                 try {
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex+1})`);
-                    Utils.updateExcelStatus(excelPath, rowIndex, 'processing', '작업 시작');
+		    // [New] 상태 업데이트 분기
+                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '작업 시작');
+                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '발행 중', '작업 시작');
 
                     // 생성 -> 이미지 -> 발행 순차 진행
                     const result = await Core.generateContent(topicData);
                     await Core.prepareImages(result.targetDir, topicData);
                     await Core.publishToBlog(result.targetDir);
 
-                    Utils.updateExcelStatus(excelPath, rowIndex, 'completed', '성공적으로 발행되었습니다.');
+		    // [New] 완료 상태 업데이트 분기
+                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '블로그 발행 완료', '성공적으로 발행되었습니다.');
+
                     successCount++;
+
                     console.log(`✅ 발행 성공!`);
                 } catch (err) {
                     console.error(`❌ 실패: ${err.message}`);
-                    Utils.updateExcelStatus(excelPath, rowIndex, 'failed', err.message);
+		    // [New] 실패 상태 업데이트 분기
+                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '실패', err.message);
+                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '실패', err.message);
+
                     failCount++;
                 }
 

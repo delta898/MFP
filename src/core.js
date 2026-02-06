@@ -270,15 +270,17 @@ try {
 		Logger.warn("   ⚠️ 임시저장 버튼을 찾지 못해 건너뜁니다");
 	}
 
-	// 🚀 발행 버튼 클릭 (설정창 진입까지만)
-	Logger.info("   🚀 발행 설정창 오픈 중...");
-	const publishBtn = page.locator('button.publish_btn, button:has-text("발행")').first();
-
-	if (await publishBtn.isVisible()) {
-		await publishBtn.click();
-		await Utils.sleep(2000); 
-		Logger.info("   🚀 [발행] 설정창 오픈 완료");
-	}
+	const publishBtns = page.locator('button').filter({ hasText: /발행/ });
+        if (await publishBtns.count() > 0) {
+            for (let i = 0; i < await publishBtns.count(); i++) {
+                const btn = publishBtns.nth(i);
+                if (await btn.isVisible() && (await btn.innerText()).includes('발행')) {
+                    await btn.click();
+                    Logger.info("   🚀 [발행] 버튼 클릭 성공 (설정창 오픈)");
+                    break;
+                }
+            }
+        }
 
 } catch (e) {
 	Logger.error(`❌ 에러 발생: ${e.message}`);

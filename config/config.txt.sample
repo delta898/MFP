@@ -12,6 +12,23 @@ LICENSE_KEY = YOUR_LICENSE_KEY_HERE
 GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE
 
 # -------------------------------------------------------
+# [데이터 소스 설정]
+# EXCEL : 기존 로컬 xlsx 파일 사용
+# GOOGLE : 구글 스프레드시트 사용
+DATA_SOURCE = EXCEL
+
+# [구글 스프레드시트 설정] (DATA_SOURCE = GOOGLE 일 때 필수)
+# 1. 서비스 계정 키 파일 경로 (프로젝트 루트 기준)
+GOOGLE_AUTH_JSON = ./config/service_account.json
+
+# 2. 스프레드시트 ID (URL 중간의 긴 문자열)
+GOOGLE_SHEET_ID = 여기에_구글시트_ID_입력
+
+# 3. 시트 이름 (탭 이름)
+GOOGLE_SHEET_NAME = Sheet1
+
+
+# -------------------------------------------------------
 # [AI 모델 설정]
 # 기본값으로 두셔도 무방하며, 특정 모델을 원할 때만 수정하세요.
 

@@ -22,7 +22,7 @@
     ],
     "assets": [
       "package.json",
-      "node_modules/playwright-core/**/*", 
+      "node_modules/playwright-core/**/*",
       "node_modules/@playwright/**/*",
       "node_modules/playwright/**/*"
     ],
@@ -40,6 +40,7 @@
     "cheerio": "^1.0.0-rc.12",
     "commander": "^11.1.0",
     "exceljs": "^4.4.0",
+    "googleapis": "^171.4.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
     "node-machine-id": "^1.1.12",
@@ -51,7 +52,6 @@
   },
   "author": "amadejjs",
   "license": "Commercial",
-  
   "//": "👇 [필수] GitHub Actions(Node 18)에서도 안정적인 빌드를 위해 추가",
   "overrides": {
     "undici": "6.19.2"
