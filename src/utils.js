@@ -1,77 +1,107 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('playwright');
-const XLSX = require('xlsx');
-const { google } = require('googleapis');
+const crypto = require('crypto'); // ✅ Node.js 기본 모듈 (pkg 호환성 100%)
+const axios = require('axios');   // ✅ 이미 검증된 통신 모듈
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 
-google.options({ http2: false });
-
 const Utils = {
-    /**
-     * 1. 파일명 정리
-     */
     sanitizeFileName: function(str) {
         if (!str) return "untitled";
         return str.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
     },
 
-    /**
-     * 2. 대기 함수
-     */
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
-    getGoogleClient: async function() {
+    /**
+     * 🔐 [New] 수동으로 구글 액세스 토큰 발급 (Google 라이브러리 미사용)
+     * pkg 환경에서 gaxios/http2 충돌을 피하기 위해 native crypto와 axios만 사용합니다.
+     */
+    getGoogleAccessToken: async function() {
+        // 1. 설정 로드
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
-
-        // 1. 경로 확보 (pkg 환경 고려하여 절대 경로로 변환)
         const keyFilePath = path.resolve(process.cwd(), rawPath);
-        Logger.info(`🔑 인증 파일 경로: ${keyFilePath}`);
+        
+        if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
+        
+        const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
+        const credentials = JSON.parse(fileContent);
+        
+        // 키 포맷팅
+        const privateKey = credentials.private_key.replace(/\\n/g, '\n');
+        const clientEmail = credentials.client_email;
 
-        if (!fs.existsSync(keyFilePath)) {
-            throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
-        }
+        // 2. JWT 생성 (Header & Payload)
+        const header = {
+            alg: "RS256",
+            typ: "JWT"
+        };
+        
+        const now = Math.floor(Date.now() / 1000);
+        const payload = {
+            iss: clientEmail,
+            scope: "https://www.googleapis.com/auth/spreadsheets",
+            aud: "https://oauth2.googleapis.com/token",
+            exp: now + 3600, // 1시간 유효
+            iat: now
+        };
 
-        // 2. 파일 읽기 (JSON.parse가 \n 등 이스케이프 문자를 자동으로 올바르게 처리해줍니다)
-        let credentials;
+        // 3. Base64Url 인코딩 헬퍼
+        const base64UrlEncode = (obj) => {
+            return Buffer.from(JSON.stringify(obj))
+                .toString('base64')
+                .replace(/=/g, '')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_');
+        };
+
+        const encodedHeader = base64UrlEncode(header);
+        const encodedPayload = base64UrlEncode(payload);
+
+        // 4. 서명 (Sign)
+        const sign = crypto.createSign('RSA-SHA256');
+        sign.update(`${encodedHeader}.${encodedPayload}`);
+        sign.end();
+        const signature = sign.sign(privateKey, 'base64')
+            .replace(/=/g, '')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_');
+
+        const jwt = `${encodedHeader}.${encodedPayload}.${signature}`;
+
+        // 5. 토큰 교환 요청 (Axios 사용)
+        Logger.info("[DEBUG] Google Token 교환 요청 (via Axios)");
+        
         try {
-            const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-            credentials = JSON.parse(fileContent);
+            const res = await axios.post('https://oauth2.googleapis.com/token', null, {
+                params: {
+                    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    assertion: jwt
+                }
+            });
+            
+            return res.data.access_token;
+
         } catch (e) {
-            throw new Error(`인증 파일 파싱 실패: ${e.message}`);
+            throw new Error(`토큰 발급 실패: ${e.message}`);
         }
-
-        // 3. 인증 클라이언트 생성
-        // JWT 등을 직접 호출하지 않고, 가장 안정적인 GoogleAuth에 credentials 객체를 직접 넘깁니다.
-        const auth = new google.auth.GoogleAuth({
-            credentials: credentials,
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
-
-        return auth.getClient();
     },
 
+    /**
+     * 1. 구글 시트 읽기 (Fully Manual Mode)
+     */
     readGoogleSheetTopics: async function() {
         try {
-            Logger.info("🌐 구글 스프레드시트 읽기 시작 (Axios 모드)");
+            Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
             
-            // 1. 인증 클라이언트 가져오기 (이건 성공함)
-            const authClient = await this.getGoogleClient();
-            Logger.info("[DEBUG] 7. Auth Client 획득 완료");
-
-            // 2. 액세스 토큰 추출
-            const tokenResponse = await authClient.getAccessToken();
-            const accessToken = tokenResponse.token;
+            // 🔥 [변경] 직접 만든 함수로 토큰 획득
+            const accessToken = await this.getGoogleAccessToken();
             Logger.info("[DEBUG] 8. Access Token 획득 완료");
 
-            // 3. [핵심] Google 라이브러리 대신 Axios로 직접 요청
+            // Axios로 데이터 요청
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
-            // 범위 지정 (전체)
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
             Logger.info(`[DEBUG] 9. Axios 요청 시도: ${url}`);
@@ -90,7 +120,7 @@ const Utils = {
 
             Logger.info(`[DEBUG] 11. 데이터 파싱 시작 (${rows.length} rows)`);
 
-            // --- 기존 데이터 매핑 로직 (그대로 유지) ---
+            // --- 기존 데이터 매핑 로직 유지 ---
             const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
             const results = rows.slice(1).map((row, index) => {
                 const entry = {};
@@ -134,31 +164,25 @@ const Utils = {
 
         } catch (e) {
             Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
-            if (e.response) {
-                Logger.error(`👉 응답 상세: ${JSON.stringify(e.response.data)}`);
-            }
+            if (e.response) Logger.error(`👉 상세: ${JSON.stringify(e.response.data)}`);
             return [];
         }
     },
 
     /**
-     * ✅ [변경] axios로 직접 상태 업데이트
+     * 2. 구글 시트 상태 업데이트 (Fully Manual Mode)
      */
     updateGoogleSheetStatus: async function(rowIndex, status, logMessage) {
         try {
-            // 1. 토큰 획득
-            const authClient = await this.getGoogleClient();
-            const tokenResponse = await authClient.getAccessToken();
-            const accessToken = tokenResponse.token;
+            // 🔥 [변경] 직접 만든 함수로 토큰 획득
+            const accessToken = await this.getGoogleAccessToken();
 
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
 
-            // 2. 헤더 정보를 얻기 위해 1행 읽기 (Axios)
+            // 헤더 읽기
             const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
-            const headerRes = await axios.get(readUrl, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            });
+            const headerRes = await axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } });
             
             const headers = headerRes.data.values[0];
             let statusColIndex = -1, logColIndex = -1, timeColIndex = -1;
@@ -170,7 +194,6 @@ const Utils = {
                 else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
             });
 
-            // 3. 업데이트 데이터 구성
             const targetRow = rowIndex + 2; 
             const toA1 = (colIdx) => {
                 let letter = '';
@@ -188,7 +211,7 @@ const Utils = {
 
             if (dataToUpdate.length === 0) return;
 
-            // 4. Batch Update (Axios)
+            // 업데이트 요청
             const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
             await axios.post(updateUrl, {
                 valueInputOption: 'USER_ENTERED',
@@ -204,10 +227,10 @@ const Utils = {
             Logger.error(`❌ 구글 시트 업데이트 실패: ${e.message}`);
         }
     },
-    /**
-     * 3. 엑셀 파일 읽기 (기존 유지)
-     */
+
+    // 엑셀 관련 기존 함수들 (readExcelTopics, updateExcelStatus 등)은 유지
     readExcelTopics: function(filePath) {
+        const XLSX = require('xlsx'); // 필요할 때만 require
         try {
             if (!fs.existsSync(filePath)) return [];
             const workbook = XLSX.readFile(filePath);
@@ -233,8 +256,7 @@ const Utils = {
                 const kwStr = getVal(['keywords', '키워드']);
                 const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
                 const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
-                const status = getVal(['상태', 'status']).toLowerCase();
-                
+                const status = getVal(['상태', 'status']);
                 const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
 
@@ -246,15 +268,15 @@ const Utils = {
                         additional_instructions: instruction, 
                         reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : [] 
                     },
-                    status: status,
+                    status: status ? status.trim() : "",
                     image_options: {
-			generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
+                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
                         count: parseInt(imgCountStr) || 4
                     }
                 };
             }).filter(item => {
-                const hasData = item.subject || item.keywords.length > 0 || item.content_guide.additional_instructions || item.content_guide.reference_urls.length > 0;
-		return hasData && (item.status === '블로그 발행 준비 완료');
+                const hasData = item.subject || item.keywords.length > 0;
+                return hasData && (item.status === '블로그 발행 준비 완료');
             });
         } catch (e) {
             Logger.error(`❌ 엑셀 읽기 에러: ${e.message}`);
@@ -262,22 +284,18 @@ const Utils = {
         }
     },
 
-    /**
-     * 4. 엑셀 상태 업데이트 (기존 유지)
-     */
     updateExcelStatus: function(filePath, rowIndex, status, logMessage) {
+        const XLSX = require('xlsx');
         try {
             const workbook = XLSX.readFile(filePath);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const range = XLSX.utils.decode_range(sheet['!ref']);
             
             let statusCol, logCol, timeCol;
-
             for (let c = range.s.c; c <= range.e.c; c++) {
                 const cellAddress = XLSX.utils.encode_cell({r: 0, c: c});
                 const cell = sheet[cellAddress];
                 if (!cell) continue;
-                
                 const hdr = cell.v.toString().toLowerCase().replace(/[\s\/_]/g, '');
                 if (hdr.includes('상태') || hdr.includes('status')) statusCol = c;
                 else if (hdr.includes('로그') || hdr.includes('log')) logCol = c;
@@ -301,13 +319,12 @@ const Utils = {
         }
     },
 
-    /**
-     * 5. 참고 자료 스크래핑 (기존 유지)
-     */
+    // 나머지 Gemini 호출 함수 등은 그대로 유지
     fetchReferenceContent: async function(url) {
+        // (기존 코드 생략 - 유지해주세요)
         if (!url) return "";
         Logger.info(`🌐 [Scraping] 접속 시도: ${url}`);
-
+        const cheerio = require('cheerio'); // 필요할 때 require
         try {
             const response = await axios.get(url, {
                 headers: {
@@ -316,43 +333,33 @@ const Utils = {
                 },
                 timeout: 10000 
             });
-
             const $ = cheerio.load(response.data);
             const tagsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', '.ad', '#ad', 'form', 'button'];
             tagsToRemove.forEach(tag => $(tag).remove());
-
             const rawText = $('body').text();
             const cleanText = rawText.replace(/\s+/g, ' ').trim();
-
             Logger.info(`   ✅ 스크래핑 성공 (길이: ${cleanText.length}자)`);
             return cleanText.substring(0, 3500);
-
         } catch (e) {
             Logger.warn(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
             return "";
         }
     },
 
-    /**
-     * 6. Gemini 텍스트 생성 (기존 유지)
-     */
     callGeminiText: async function(prompt) {
-        if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
-        try {
-            const response = await axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`, 
-                { contents: [{ parts: [{ text: prompt }] }] }, 
-                { headers: { 'Content-Type': 'application/json' } }
-            );
-            return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-        } catch (e) {
-            Logger.error(`❌ Gemini Text Error: ${e.message}`);
-            return null;
-        }
+         if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
+         try {
+             const response = await axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`, 
+                 { contents: [{ parts: [{ text: prompt }] }] }, 
+                 { headers: { 'Content-Type': 'application/json' } }
+             );
+             return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+         } catch (e) {
+             Logger.error(`❌ Gemini Text Error: ${e.message}`);
+             return null;
+         }
     },
 
-    /**
-     * 7. Gemini 이미지 생성 (기존 유지)
-     */
     callGeminiImage: async function(prompt, savePath) {
         if (!CONFIG.GEMINI_API_KEY) return null;
         try {
@@ -373,10 +380,8 @@ const Utils = {
         }
     },
 
-    /**
-     * 8. 마크다운 파싱 (🔥 수정됨: title/text 추출 추가)
-     */
     parseMarkdown: function(raw) {
+        // (기존 코드 유지)
         const lines = raw.split('\n');
         let title = '';
         const contents = [];
@@ -386,27 +391,21 @@ const Utils = {
 
         for (const line of lines) {
             const trimmedLine = line.trim();
-            // 제목(# ) 추출
             if (!title && trimmedLine.startsWith('# ')) {
                 title = trimmedLine.replace(/^#\s+/, '').trim();
                 continue;
             }
-
-            // 이미지 블록 시작 감지 [[IMAGE_...
             const imageStart = trimmedLine.match(/^\[\[IMAGE_(\d+)/);
             if (imageStart) {
                 skipImageBlock = true;
                 currentImageIndex = Number(imageStart[1]);
                 currentImageLines = [line];
-                
-                // 한 줄에 끝나는 경우 ([[IMAGE_1 ... ]])
                 if (trimmedLine.endsWith(']]')) {
                     const blockText = currentImageLines.join('\n');
                     contents.push({ 
                         type: 'image', 
                         index: currentImageIndex, 
                         raw: blockText, 
-                        // 🔥 [Fix] prompt 뿐만 아니라 title(text)도 추출
                         text: this.extractInfo(blockText, 'title'),
                         prompt: this.extractInfo(blockText, 'prompt') 
                     });
@@ -414,18 +413,14 @@ const Utils = {
                 }
                 continue;
             }
-
-            // 이미지 블록 내부 처리
             if (skipImageBlock) {
                 currentImageLines.push(line);
-                // 블록 끝 감지 ]]
                 if (trimmedLine.includes(']]')) {
                     const blockText = currentImageLines.join('\n');
                     contents.push({ 
                         type: 'image', 
                         index: currentImageIndex, 
                         raw: blockText, 
-                        // 🔥 [Fix] 여기서도 title(text) 추출 적용
                         text: this.extractInfo(blockText, 'title'), 
                         prompt: this.extractInfo(blockText, 'prompt') 
                     });
@@ -433,30 +428,19 @@ const Utils = {
                 }
                 continue;
             }
-
             if (trimmedLine === '') { contents.push({ type: 'newline' }); continue; }
-            
-            // 소제목 감지
             if (/^##\s+/.test(trimmedLine)) {
                 contents.push({ type: 'header-h2', text: trimmedLine.replace(/^##\s+/, '').trim() });
                 continue;
             }
-            
-            // 일반 텍스트
             contents.push({ type: 'paragraph', text: line.replace(/\*\*(.*?)\*\*/g, '$1') });
         }
         return { title, contents };
     },
 
-    /**
-     * 🔥 [New Helper] 정보 추출 함수 (title:과 prompt: 모두 처리)
-     * 예: "title: 제목" -> "제목" 반환
-     */
     extractInfo: function(txt, key) {
         let val = '';
-        // 정규식: 대소문자 무시(i), 키 뒤에 공백 허용(\s*), 콜론(:)
         const regex = new RegExp(`^${key}\\s*:`, 'i'); 
-        
         txt.split('\n').forEach(l => { 
             const trimmed = l.trim();
             if(regex.test(trimmed)) {
