@@ -23,53 +23,80 @@ const Utils = {
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
     getGoogleClient: async function() {
-        // 1. 경로 설정 및 확인
+        Logger.info("[DEBUG] 1. getGoogleClient 진입");
+        
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
 
         const keyFilePath = path.resolve(process.cwd(), rawPath);
-        Logger.info(`🔑 인증 파일 경로 확인: ${keyFilePath}`);
+        Logger.info(`[DEBUG] 2. 인증 파일 경로: ${keyFilePath}`);
 
         if (!fs.existsSync(keyFilePath)) {
             throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
         }
 
-        // 2. JSON 파일 직접 로드
         let credentials;
         try {
-            credentials = JSON.parse(fs.readFileSync(keyFilePath, 'utf-8'));
+            const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
+            Logger.info(`[DEBUG] 3. 인증 파일 읽기 성공 (길이: ${fileContent.length})`);
+            credentials = JSON.parse(fileContent);
         } catch (e) {
             throw new Error(`인증 파일 파싱 실패: ${e.message}`);
         }
 
-        // 3. [🔥 핵심 변경] GoogleAuth 대신 JWT 클라이언트 직접 생성
-        // 환경 감지 로직을 수행하지 않고, 입력된 키값으로 즉시 인증 클라이언트를 만듭니다.
+        Logger.info("[DEBUG] 4. JWT 클라이언트 생성 시도");
+        
+        // Private Key 줄바꿈 문자 처리
+        const privateKey = credentials.private_key
+            ? credentials.private_key.replace(/\\n/g, '\n')
+            : undefined;
+
         const authClient = new google.auth.JWT(
-            credentials.client_email,     // 이메일
-            null,                         // keyFile (사용 안 함)
-            credentials.private_key,      // 개인 키 (직접 주입)
-            ['https://www.googleapis.com/auth/spreadsheets'] // 권한 범위
+            credentials.client_email,
+            null,
+            privateKey,
+            ['https://www.googleapis.com/auth/spreadsheets']
         );
 
-        // 4. 인증 클라이언트 반환
+        Logger.info("[DEBUG] 5. JWT 클라이언트 생성 완료. authorize() 호출 시도");
+
+        try {
+            await authClient.authorize();
+            Logger.info("[DEBUG] 6. authorize() 성공");
+        } catch (e) {
+            Logger.error(`[DEBUG] 🚨 authorize() 실패: ${e.message}`);
+            // 여기서 스택 트레이스도 찍어봅니다.
+            console.error(e.stack); 
+            throw e;
+        }
+
         return authClient;
     },
 
     // [New] 구글 시트 읽기 (기존 readExcelTopics와 동일한 구조 반환)
     readGoogleSheetTopics: async function() {
         try {
-            Logger.info("🌐 구글 스프레드시트에 접속 중...");
+	    Logger.info("🌐 구글 스프레드시트 읽기 시작 (함수 진입)");
+            
             const authClient = await this.getGoogleClient();
+            Logger.info("[DEBUG] 7. Auth Client 획득 완료 via readGoogleSheetTopics");
+
             const sheets = google.sheets({ version: 'v4', auth: authClient });
             const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+            
+            Logger.info(`[DEBUG] 8. API 요청 시도 (Spreadsheet ID: ${CONFIG.GOOGLE_SHEET_ID})`);
 
             const res = await sheets.spreadsheets.values.get({
                 spreadsheetId: CONFIG.GOOGLE_SHEET_ID,
-                range: sheetName, // 전체 범위 읽기
+                range: sheetName,
             });
+
+            Logger.info("[DEBUG] 9. API 응답 수신 성공");
 
             const rows = res.data.values;
             if (!rows || rows.length === 0) return [];
+
+            Logger.info(`[DEBUG] 10. 데이터 파싱 시작 (${rows.length} rows)`);
 
             // 첫 줄(헤더) 처리
             const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
@@ -116,6 +143,8 @@ const Utils = {
                 };
             });
 
+	    Logger.info("[DEBUG] 11. 데이터 파싱 완료");
+
             // 필터링
             return results.filter(item => {
                 const hasData = item.subject || item.keywords.length > 0 || item.content_guide.additional_instructions || item.content_guide.reference_urls.length > 0;
@@ -123,7 +152,11 @@ const Utils = {
             });
 
         } catch (e) {
+	    // 🔥 [중요] 에러 발생 시 스택 트레이스 전체 출력
             Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
+            console.error("----------- [Error Stack Trace] -----------");
+            console.error(e.stack);
+            console.error("-------------------------------------------");
             return [];
         }
     },
