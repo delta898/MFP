@@ -23,35 +23,36 @@ const Utils = {
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
     getGoogleClient: async function() {
-        // 1. 설정된 경로 가져오기
+        // 1. 경로 설정 및 확인
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
 
-        // 2. 절대 경로 변환
         const keyFilePath = path.resolve(process.cwd(), rawPath);
         Logger.info(`🔑 인증 파일 경로 확인: ${keyFilePath}`);
 
-        // 3. 파일 존재 여부 체크
         if (!fs.existsSync(keyFilePath)) {
             throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
         }
 
-        // 4. [🔥 핵심 변경] 파일을 직접 읽어서 JSON 객체로 변환
-        let loadedCredentials;
+        // 2. JSON 파일 직접 로드
+        let credentials;
         try {
-            const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-            loadedCredentials = JSON.parse(fileContent);
+            credentials = JSON.parse(fs.readFileSync(keyFilePath, 'utf-8'));
         } catch (e) {
-            throw new Error(`인증 파일(JSON)을 읽거나 파싱하는데 실패했습니다: ${e.message}`);
+            throw new Error(`인증 파일 파싱 실패: ${e.message}`);
         }
 
-        // 5. GoogleAuth에 '경로(keyFile)' 대신 '객체(credentials)' 주입
-        const auth = new google.auth.GoogleAuth({
-            credentials: loadedCredentials, // 👈 이렇게 하면 라이브러리가 파일을 찾을 필요가 없음
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
+        // 3. [🔥 핵심 변경] GoogleAuth 대신 JWT 클라이언트 직접 생성
+        // 환경 감지 로직을 수행하지 않고, 입력된 키값으로 즉시 인증 클라이언트를 만듭니다.
+        const authClient = new google.auth.JWT(
+            credentials.client_email,     // 이메일
+            null,                         // keyFile (사용 안 함)
+            credentials.private_key,      // 개인 키 (직접 주입)
+            ['https://www.googleapis.com/auth/spreadsheets'] // 권한 범위
+        );
 
-        return auth.getClient();
+        // 4. 인증 클라이언트 반환
+        return authClient;
     },
 
     // [New] 구글 시트 읽기 (기존 readExcelTopics와 동일한 구조 반환)
