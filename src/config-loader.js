@@ -94,9 +94,15 @@ module.exports = {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
     NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
+    NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || userConfig.NAVER_CLIENT_ID,
+    NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET || userConfig.NAVER_CLIENT_SECRET,
     GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || userConfig.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY || userConfig.GOOGLE_PRIVATE_KEY,
     GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || userConfig.GOOGLE_SHEET_ID,
+
+    // 🆕 멀티 시트 지원 (하위 호환성 유지)
+    GOOGLE_KEYWORDS_SHEET: process.env.GOOGLE_KEYWORDS_SHEET || userConfig.GOOGLE_KEYWORDS_SHEET || 'keywords',
+    GOOGLE_TOPICS_SHEET: process.env.GOOGLE_TOPICS_SHEET || userConfig.GOOGLE_TOPICS_SHEET || userConfig.GOOGLE_SHEET_NAME || 'topics',
 
     // 💡 데이터 가공 섹션 (명시적 선언)
     IMAGE_STYLE: imageStyle,

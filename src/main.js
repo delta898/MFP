@@ -36,6 +36,7 @@ const Core = require('./core');
 const Utils = require('./utils');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
+const KeywordManager = require('./keyword-manager'); // [New]
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
 
 // --------------------------------------------------------
@@ -66,8 +67,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.2.0-alpha')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.2.0)');
+    .version('0.4.2')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.4.2)');
 
 // --- Helper Functions ---
 
@@ -195,8 +196,8 @@ program
 
 // 4️⃣ Batch Command
 program
-    .command('batch', { hidden: true })
-    .description('📚 [배치] topics.xlsx 대량 포스팅')
+    .command('batch')
+    .description('📚 [배치] 구글 시트/엑셀 대량 포스팅')
     .option('-f, --file <path>', '엑셀 파일', 'topics.xlsx')
     .action(async (opts) => {
         try {
@@ -299,6 +300,29 @@ program
             await ensureAuth(true);
             await Core.publishToBlog(path.resolve(opts.dir));
             console.log("\n🎉 발행 완료.");
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
+
+    });
+
+// 6️⃣ Keywords Command [New]
+program
+    .command('keywords')
+    .alias('kw')
+    .description('🔍 [키워드] 연관검색어 추출 및 토픽 등록')
+    .action(async () => {
+        try {
+            const check = await License.verifyLicense();
+            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
+
+            // 키워드 작업은 브라우저 인증이 필수적이지 않을 수 있으나, 
+            // 시트 접근을 위해 Service Account가 아닌 Token 방식을 쓴다면 필요할 수도 있음.
+            // Utils.js가 어떤 Auth를 쓰느냐에 따름 (현재는 Key 파일 기반이므로 ensureAuth 불필요할 수도 있으나 안전하게 유지)
+            // await ensureAuth(false); 
+
+            await KeywordManager.processKeywords();
         } catch (e) {
             console.error('❌ 에러:', e.message);
             if (process.env.DEBUG) console.error('Stack:', e.stack);

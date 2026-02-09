@@ -1,0 +1,175 @@
+# 🧞‍♂️ BlogGenius (알파테스트) - 사용자 가이드
+
+> **"주제만 입력하세요. 네이버 블로그에 글쓰기부터 이미지 생성, 업로드까지 다 알아서 합니다."**
+
+안녕하세요, 도전인생입니다.
+**BlogGenius** 를 소개합니다.
+제가 만들었지만 스스로 써보고선 너무 편하고 좋아서 이거 '저 혼자만 써야할까?' 싶었습니다.
+이걸 공개하면 네이버 블로그 생태계가 교란되는 것은 아닐까 하는 우려도 컸구요. :)
+하지만 상호 발전하기 위해 이렇게 제품을 공개하고 무료 테스트 진행합니다.
+충분한 테스트를 거쳐 조만간 상용화 예정도 갖고 있고, 본 기능 외에 다양한 기능을 추가할 것입니다.
+(아직은 UI가 없지만 UI(화면)도 붙이고, 여러 블로그 플랫폼으로 확장 예정입니다.
+지금 아이디어가 넘쳐나네요.)
+
+신청하여 선정되신 분들께 각각 **15건**의 글을 각자의 네이버 블로그에 생성/저장하실 수 있게 설정하겠습니다.
+잘 사용해보시고 솔직한 피드백과 주변에 많은 입소문 부탁드립니다. :)
+
+궁금하신 사항은 도전인생 카카오 오픈채팅방에서 물어봐주시고 많은 의견 부탁드립니다.
+ - [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
+
+신청은 여기에서 합니다. (구글폼)
+- https://docs.google.com/forms/d/e/1FAIpQLScSJqnpx3af6Kq0-KCI2N6oSZZW1crTu-xulx1icFxl0keSKQ/viewform?usp=sharing&ouid=101113430007675998938
+
+BlogGenius가 무엇인지는 여기를 보세요. (메타 스레드)
+- https://www.threads.com/@amadejjs/post/DUDcujnkZmt?xmt=AQF0c1qoYOcMo-jeyWsmJjgTwqUXW7diNpiMMYLthmgRyw
+
+---
+## 0. Quick Guide
+1. config/config.txt 파일안에 아래 정보를 넣습니다.
+ - NAVER_ID
+ - LICENSE_KEY
+ - GEMINI_API_KEY
+2. <프로그램> login 명령으로 **최초 한번** 네이버 로그인을 합니다.
+ - ex: ./BlogGenius-mac-arm64 login
+3. <프로그램> auto 명령으로 글과 이미지 자동 생성 및 발행을 합니다.
+ - ex: ./BlogGenius-mac-arm64 auto
+4. 쓰고 싶은 글감은 topic.json 파일이나 topics.xlsx 파일을 수정하시고 다시 프로그램을 실행하시면 됩니다.
+ - ex: ./BlogGenius-mac-arm64 auto  <-- topic.json 를 참고하여 단건 생성 & 저장
+ - ex: ./BlogGenius-mac-arm64 batch  <-- topics.xlsx 를 참고하여 다수글 생성 & 저장
+5. <프로그램> 혹은 <프로그램 --help> 를 실행하면 간단 사용법을 볼 수 있습니다.
+ - ex: ./BlogGenius-mac-arm64 혹은 ./BlogGenius-mac-arm64 --help
+
+---
+
+## 1. 🔑 준비물 챙기기
+
+프로그램을 실행하기 전에 딱 2가지만 준비해주세요.
+
+### (1) 라이선스 키 (License Key)
+- 메일로 받으신 시리얼 키입니다.
+
+### (2) Google Gemini API 키
+AI가 글을 쓰고 이미지를 그리기 위해 구글의 API가 필요합니다.
+1. [Google AI Studio](https://aistudio.google.com/)에 접속하여 구글 아이디로 로그인하세요.
+2. **"Get API key"** 버튼을 누르고 키를 복사해 두세요.
+
+※ Key 발급 자체는 무료이나 API 사용료는 발생합니다.
+API 사용료는 Token의 양과 이미지 개수, AI 모델 종류에 따라 상이하므로 아래 링크를 참고해주시기 바랍니다.
+- [Gemini API Pricing](https://ai.google.dev/gemini-api/docs/pricing?hl=ko)
+
+구글 클라우드에서 계정 당 처음 1회에 한해 $300(한화 42만원) 무료 크레딧을 제공합니다. (3개월 유효)
+관련 사항은 [https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko](https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko) 를 참고하시고,
+크레딧을 받는 절차는 [https://is.gd/92PyNE](https://is.gd/92PyNE) 를 참고하시기 바랍니다.
+
+---
+
+## 2. ⚙️ 설정하기 (딱 한 번만!)
+
+압축을 푼 폴더 안에 **`config`** 폴더가 있습니다.
+그 안의 **`config.txt`** 파일을 **메모장(Notepad)**으로 열고 내용을 수정해주세요.
+
+> **주의:** 작은따옴표(')를 지우지 말고 그 사이에 값을 넣어주세요.
+
+    // [필수] 구매하신 라이선스 키를 입력하세요.
+    LICENSE_KEY='YOUR_LICENSE_KEY_HERE' 
+
+    // [필수] 본인의 네이버 아이디
+    NAVER_ID='my_naver_id'
+
+    // [필수] 아까 복사한 Google API 키
+    GEMINI_API_KEY='AIzaSy.............',
+    
+    // (선택) true = 브라우저 숨김 / false = 브라우저 보임
+    HEADLESS: true, 
+
+
+저장(Ctrl+S) 후 메모장을 닫으시면 준비 끝입니다!
+
+---
+
+## 3. 글감 설정하기 (공통)
+
+- 단건: 폴더에 들어있는 `topic.json' 파일은 단일 글감을 지정하는 파일입니다.
+샘플 내용을 참고하여 본인이 원하는 주제, 키워드 등을 넣으시기 바랍니다.
+
+- 배치: `topics.xlsx` 엑셀 파일을 열어서 각 행마다 주제를 적고 저장하세요.
+프로그램을 batch 모드로 실행하면 순서대로 읽어서 발행합니다.
+
+
+## 4. 🚀 실행 방법 (Windows)
+
+폴더에 들어있는 **`실행하기_xxx.bat`** 파일을 더블 클릭하면 됩니다.
+
+### 1. 실행하기_로그인.bat (최초 1회 필수)
+* 처음 사용할 때는 반드시 먼저 실행해야 합니다.
+* 브라우저가 뜨면 **네이버에 로그인**해주세요. (2단계 인증 포함)
+* 로그인이 완료되고 네이버 메인 화면이 나오면, 창이 저절로 닫힙니다.
+
+### 2. 실행하기_단건테스트.bat
+* `topic.json` 파일을 수정해서 글 하나만 빠르게 테스트해 볼 때 사용합니다.
+
+### 3. 실행하기_일괄발행.bat (추천 👍)
+* **`topics.xlsx`** 엑셀 파일을 열어 주제를 적고 저장하세요.
+* 이 파일을 실행하면 엑셀에 적힌 모든 주제에 대해 글을 쓰고 발행합니다.
+* **팁:** 엑셀의 `Image Gen` 칸을 비워두면 AI가 알아서 이미지를 만듭니다.
+
+---
+
+## 4. 🍎 실행 방법 (MacOS)
+
+맥 사용자는 터미널을 열어서 실행해야 합니다.
+
+※ 주의: ⚠️ 맥(Mac)에서 "개발자를 확인할 수 없음" 경고가 뜰 때
+애플 보안 정책상 인터넷에서 다운로드한 파일은 실행이 차단될 수 있습니다.
+
+아래 명령을 쳐서 검열을 차단하시기 바랍니다.
+```
+xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
+```
+
+1. 터미널(Terminal) 앱을 실행합니다.
+2. `cd` 명령어로 폴더로 이동합니다. (예: `cd Downloads/BlogGenius`)
+3. 아래 명령어를 입력하여 실행합니다.
+
+### 로그인 모드
+./BlogGenius-mac-arm64 login
+
+### 단건 테스트 모드
+./BlogGenius-mac-arm64 auto
+
+### 엑셀 대량 발행 모드
+./BlogGenius-mac-arm64 batch
+
+---
+
+## 5. ❓ 자주 묻는 질문 (FAQ)
+
+**Q. 테스트는 총 얼마나 지원되나요?**
+* 총 15건의 글을 생성/발행할 수 있습니다. :)
+
+**Q. "라이선스 오류"라고 뜨면서 꺼져요.**
+* `config/config.txt` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
+* 인터넷 연결이 끊겨있으면 인증이 불가능합니다.
+
+**Q. 이미지가 생성이 안 돼요.**
+* `config.txt`의 `GEMINI_API_KEY`가 정확한지 확인하세요.
+* 구글 API 사용량을 초과했을 수 있습니다. 잠시 후 다시 시도해보세요.
+* topic.json 의 image 설정이 true로 되어있는지 확인하세요.
+
+**Q. 로그인이 자꾸 풀려요.**
+* 네이버 보안 설정에서 "해외 로그인 차단"이 켜져 있다면 꺼주세요.
+* 너무 짧은 시간에 반복해서 로그인을 시도하면 네이버가 잠시 차단할 수 있습니다.
+---
+* 본 테스트는 자발적 테스트로써 사용자 본인의 과도한 실행(ex: 네이버의 과도한 접속, 생성, 발행)으로 인한 혹시 모를 네이버의 조치는 전적으로 테스터 본인의 책임입니다.
+* 어떠한 경우에도 개발자인 '도전인생'에게 책임을 묻지 않습니다. (근데 그럴 일은 별로 없을 것입니다.)
+---
+
+## **지원**
+
+보다 자세한 정보는 도전인생의 SNS, 오픈채팅방, 카페, 블로그를 참고해주시기 바랍니다.
+
+👉 [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
+👉 [https://threads.net/amadejjs](https://threads.net/amadejjs)
+👉 [https://linktr.ee/amadejjs](https://linktr.ee/amadejjs)
+
+

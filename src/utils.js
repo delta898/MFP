@@ -19,10 +19,20 @@ const Utils = {
 
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
+    // 🔒 토큰 캐싱을 위한 변수
+    _cachedAccessToken: null,
+    _tokenExpiry: 0,
+
     /**
-     * 🔐 수동 구글 액세스 토큰 발급
+     * 🔐 수동 구글 액세스 토큰 발급 (캐싱 적용)
      */
     getGoogleAccessToken: async function () {
+        // 캐시된 토큰이 있고, 만료 시간(1시간)보다 5분 여유가 있다면 재사용
+        const now = Math.floor(Date.now() / 1000);
+        if (this._cachedAccessToken && this._tokenExpiry > now + 300) {
+            return this._cachedAccessToken;
+        }
+
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
         const keyFilePath = path.resolve(process.cwd(), rawPath);
@@ -36,7 +46,6 @@ const Utils = {
         const clientEmail = credentials.client_email;
 
         const header = { alg: "RS256", typ: "JWT" };
-        const now = Math.floor(Date.now() / 1000);
         const payload = {
             iss: clientEmail,
             scope: "https://www.googleapis.com/auth/spreadsheets",
@@ -64,9 +73,34 @@ const Utils = {
             const res = await axios.post('https://oauth2.googleapis.com/token', null, {
                 params: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }
             });
-            return res.data.access_token;
+
+            // 토큰 캐싱 저장
+            this._cachedAccessToken = res.data.access_token;
+            this._tokenExpiry = now + res.data.expires_in; // 보통 3600초
+
+            return this._cachedAccessToken;
         } catch (e) {
             throw new Error(`토큰 발급 실패: ${e.message}`);
+        }
+    },
+
+    /**
+     * 🛡️ API 호출 래퍼 (Rate Limit 자동 재시도)
+     */
+    callWithRetry: async function (fn, retries = 5, delay = 2000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await fn();
+            } catch (e) {
+                // 429(Too Many Requests) 또는 5xx 에러인 경우 재시도
+                if (i < retries - 1 && (e.response?.status === 429 || e.response?.status >= 500)) {
+                    const wait = delay * Math.pow(2, i); // 지수 백오프
+                    Logger.warn(`⚠️ Google API Rate Limit(${e.response?.status}). ${wait / 1000}초 후 재시도...`);
+                    await new Promise(res => setTimeout(res, wait));
+                } else {
+                    throw e;
+                }
+            }
         }
     },
 
@@ -78,13 +112,13 @@ const Utils = {
             Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
             const accessToken = await this.getGoogleAccessToken();
 
-            const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
+            const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
-            const res = await axios.get(url, {
+            const res = await this.callWithRetry(() => axios.get(url, {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            });
+            }));
 
             const rows = res.data.values;
             if (!rows || rows.length === 0) return [];
@@ -140,71 +174,295 @@ const Utils = {
     },
 
     /**
+     * 1-1. 키워드 시트 읽기 ('연관검색어 조사 준비 완료' 상태만)
+     */
+    readGoogleSheetKeywords: async function () {
+        try {
+            Logger.info("🌐 구글 키워드 시트 읽기 (Target: 연관검색어 조사 준비 완료)");
+            const accessToken = await this.getGoogleAccessToken();
+
+            const sheetName = CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) return [];
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+
+            // 인덱스 찾기
+            let kwIdx = -1, statusIdx = -1;
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('키워드') || clean.includes('keyword')) kwIdx = i;
+                else if (clean.includes('상태') || clean.includes('status') || clean.includes('동작')) statusIdx = i;
+            });
+
+            if (kwIdx === -1 || statusIdx === -1) {
+                Logger.error("❌ 키워드 시트 헤더를 찾을 수 없습니다. (키워드, 상태 필수)");
+                return [];
+            }
+
+            const targets = [];
+            rows.slice(1).forEach((row, index) => {
+                const status = row[statusIdx] ? row[statusIdx].trim() : "";
+                if (status === '연관검색어 조사 준비 완료') {
+                    targets.push({
+                        rowIndex: index, // 0-based index relative to data rows
+                        keyword: row[kwIdx],
+                        status: status
+                    });
+                }
+            });
+
+            return targets;
+
+        } catch (e) {
+            Logger.error(`❌ 키워드 시트 읽기 실패: ${e.message}`);
+            return [];
+        }
+    },
+
+    /**
+     * 1-2. 키워드 시트 상태 업데이트 (개별 row)
+     */
+    updateGoogleSheetKeywordStatus: async function (rowIndex, status) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            // 헤더 찾기 (상태 컬럼 위치 확인용)
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+
+            const headers = headerRes.data.values[0];
+            let statusColIndex = -1, timeColIndex = -1;
+
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('상태') || clean.includes('status') || clean.includes('동작')) statusColIndex = i;
+                else if (clean.includes('시간') || clean.includes('time') || clean.includes('date') || clean.includes('작업')) timeColIndex = i;
+            });
+
+            if (statusColIndex === -1) return;
+
+            const targetRow = rowIndex + 2; // Header(1) + 0-based index(1)
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                }
+                return letter;
+            };
+
+            const dataToUpdate = [];
+            dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
+            if (timeColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
+            await this.sleep(500);
+
+        } catch (e) {
+            Logger.error(`❌ 키워드 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
+        }
+    },
+
+    /**
+     * 1-3. 토픽 시트에 새로운 행 추가 (Append)
+     */
+    appendGoogleSheetTopics: async function (newTopics) {
+        if (!newTopics || newTopics.length === 0) return;
+
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            // 순서: 주제, 키워드, 참고지시사항, 참고URL, 상태, 이미지생성, 이미지개수, 로그, 발행시간
+            // (헤더 순서를 모르므로, 일반적인 순서로 값을 준비하고 append)
+            // *중요*: 사용자의 헤더 순서와 맞지 않을 수 있지만, append endpoint는 컬럼 매핑 기능이 없음.
+            // 따라서 3.0버전부터는 헤더를 읽어서 순서대로 정렬하는 로직 필요하나, 현재는 약속된 순서(또는 주요 컬럼만)로 추가 시도.
+            // 여기서는 헤더를 먼저 읽어서 매핑하는 방식을 사용.
+
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+
+            const headers = headerRes.data.values[0];
+            const map = {};
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
+                else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
+                else if (clean.includes('url') || clean.includes('참고')) map.url = i;
+                else if (clean.includes('상태') || clean.includes('status')) map.status = i;
+                else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
+            });
+
+            const maxCol = Math.max(...Object.values(map));
+            const rowsToAdd = newTopics.map(topic => {
+                const row = new Array(maxCol + 1).fill("");
+                if (map.subject !== undefined) row[map.subject] = topic.subject;
+                if (map.keyword !== undefined) row[map.keyword] = topic.keywords;
+                if (map.url !== undefined) row[map.url] = topic.reference_urls;
+                if (map.status !== undefined) row[map.status] = '블로그 발행 준비 완료';
+                if (map.imgGen !== undefined) row[map.imgGen] = 'No'; // 사용자 요청: 기본값 No
+                return row;
+            });
+
+            const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+
+            await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: rowsToAdd }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
+            await this.sleep(1000);
+
+            Logger.info(`   ✅ 토픽 시트에 ${rowsToAdd.length}건 추가 완료`);
+
+        } catch (e) {
+            Logger.error(`❌ 토픽 추가 실패: ${e.message}`);
+        }
+    },
+
+    /**
+     * 1-4. 네이버 연관검색어 추출
+     */
+    fetchNaverRelatedKeywords: async function (keyword) {
+        try {
+            const url = `https://ac.search.naver.com/nx/ac?q=${encodeURIComponent(keyword)}&st=1000&frm=nv&ans=1`;
+            const res = await axios.get(url);
+
+            // items 배열 추출
+            const items = res.data?.items?.[0];
+            if (!items || !Array.isArray(items)) return [];
+
+            // items는 [[keyword, ...], [keyword, ...]] 형태
+            const keywords = items.map(item => item[0]);
+            return keywords;
+
+        } catch (e) {
+            Logger.warn(`⚠️ 연관검색어 추출 실패 (${keyword}): ${e.message}`);
+            return [];
+        }
+    },
+
+    /**
+     * 1-5. 네이버 블로그 검색 (참고 URL 수집)
+     */
+    fetchNaverBlogSearchResults: async function (keyword) {
+        if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
+            Logger.warn("⚠️ 네이버 검색 API 설정(Client ID/Secret)이 없습니다. 블로그 검색을 건너뜁니다.");
+            return [];
+        }
+
+        try {
+            const url = `https://openapi.naver.com/v1/search/blog.json`;
+            const res = await axios.get(url, {
+                headers: {
+                    'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
+                    'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
+                },
+                params: {
+                    query: keyword,
+                    display: 5,
+                    sort: 'sim' // 정확도순
+                }
+            });
+
+            if (res.data && res.data.items) {
+                // postdate 기준 내림차순 정렬 (최신순)
+                const items = res.data.items.sort((a, b) => Number(b.postdate) - Number(a.postdate));
+
+                // 가장 최신 글 1개의 링크만 리턴
+                if (items.length > 0) {
+                    return items[0].link;
+                }
+            }
+            return "";
+
+        } catch (e) {
+            Logger.warn(`⚠️ 블로그 검색 API 실패 (${keyword}): ${e.message}`);
+            return "";
+        }
+    },
+
+    /**
      * 2. 구글 시트 상태 업데이트
      * 🔧 [Fixed] 재시도 로직 추가 및 백업 로깅
      */
-    updateGoogleSheetStatus: async function (rowIndex, status, logMessage, retries = 2) {
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                const accessToken = await this.getGoogleAccessToken();
-                const sheetName = CONFIG.GOOGLE_SHEET_NAME || 'Sheet1';
-                const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+    /**
+     * 2. 구글 시트 상태 업데이트
+     * 🔧 [Refactored] callWithRetry 사용 및 백업 로깅 유지
+     */
+    updateGoogleSheetStatus: async function (rowIndex, status, logMessage) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
 
-                const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
-                const headerRes = await axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+            // 헤더 읽기
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
 
-                const headers = headerRes.data.values[0];
-                let statusColIndex = -1, logColIndex = -1, timeColIndex = -1;
+            const headers = headerRes.data.values[0];
+            let statusColIndex = -1, logColIndex = -1, timeColIndex = -1;
 
-                headers.forEach((h, i) => {
-                    const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
-                    if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
-                    else if (clean.includes('로그') || clean.includes('log')) logColIndex = i;
-                    else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
-                });
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
+                else if (clean.includes('로그') || clean.includes('log')) logColIndex = i;
+                else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
+            });
 
-                const targetRow = rowIndex + 2;
-                // 🔧 [Fixed] 구글 시트 A1 변환 버그 수정
-                const toA1 = (colIdx) => {
-                    let letter = '';
-                    let num = colIdx;
-                    while (num >= 0) {
-                        letter = String.fromCharCode((num % 26) + 65) + letter;
-                        num = Math.floor(num / 26) - 1;
-                        if (num < 0) break; // 음수 방지
-                    }
-                    return letter;
-                };
-
-                const dataToUpdate = [];
-                if (statusColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
-                if (logColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(logColIndex)}${targetRow}`, values: [[logMessage]] });
-                if (timeColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
-
-                if (dataToUpdate.length === 0) return;
-
-                const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
-                await axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-                });
-
-                // 성공 시 즉시 리턴
-                return;
-            } catch (e) {
-                if (attempt === retries) {
-                    Logger.error(`❌ 구글 시트 업데이트 최종 실패 (Row ${rowIndex + 1}): ${e.message}`);
-                    // 🔧 [Fixed] 로컬 파일에 백업 기록
-                    const backupLog = `${new Date().toISOString()} | Row ${rowIndex + 1} | ${status} | ${logMessage}\n`;
-                    try {
-                        fs.appendFileSync('failed_updates.log', backupLog);
-                        Logger.warn(`   💾 백업 로그에 기록됨: failed_updates.log`);
-                    } catch (fileErr) {
-                        Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
-                    }
-                } else {
-                    Logger.warn(`⚠️ 구글 시트 업데이트 재시도 (${attempt}/${retries})`);
-                    await this.sleep(1000);
+            const targetRow = rowIndex + 2;
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                    if (num < 0) break;
                 }
+                return letter;
+            };
+
+            const dataToUpdate = [];
+            if (statusColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
+            if (logColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(logColIndex)}${targetRow}`, values: [[logMessage]] });
+            if (timeColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
+
+            if (dataToUpdate.length === 0) return;
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            // ⏳ API 호출 간 안전 대기
+            await this.sleep(500);
+
+        } catch (e) {
+            Logger.error(`❌ 구글 시트 업데이트 최종 실패 (Row ${rowIndex + 1}): ${e.message}`);
+            // 🔧 [Backup] 로컬 파일에 백업 기록
+            const backupLog = `${new Date().toISOString()} | Row ${rowIndex + 1} | ${status} | ${logMessage}\n`;
+            try {
+                fs.appendFileSync('failed_updates.log', backupLog);
+                Logger.warn(`   💾 백업 로그에 기록됨: failed_updates.log`);
+            } catch (fileErr) {
+                Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
             }
         }
     },
