@@ -12,7 +12,7 @@ if (!globalThis.crypto) {
     } else {
         globalThis.crypto = {
             getRandomValues: (buffer) => crypto.randomFillSync(buffer),
-            subtle: {} 
+            subtle: {}
         };
     }
 }
@@ -33,8 +33,8 @@ const readline = require('readline');
 // ✅ 분리된 모듈 불러오기
 const License = require('./license');
 const Core = require('./core');
-const Utils = require('./utils'); 
-const CONFIG = require('./config-loader'); 
+const Utils = require('./utils');
+const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
 
@@ -81,7 +81,7 @@ function askQuestion(query) {
 
 async function performLogin() {
     console.log("\n🚀 [Login Mode] 네이버 로그인 브라우저를 엽니다...");
-    
+
     // 브라우저 실행
     let browser;
     try {
@@ -99,17 +99,17 @@ async function performLogin() {
     try {
         await page.goto('https://nid.naver.com/nidlogin.login');
         console.log("🔑 직접 로그인 완료 후 네이버 메인 이동 시 자동 저장됩니다.");
-        
+
         // 로그인 성공 감지: URL이 nid.naver.com이 아니고 naver.com을 포함할 때
         await page.waitForURL(url => {
-            const urlStr = url.toString(); 
+            const urlStr = url.toString();
             return urlStr.includes('naver.com') && !urlStr.includes('nid.naver.com');
         }, { timeout: 300000 }); // 5분 대기
 
         // 인증 정보 저장
         await context.storageState({ path: CONFIG.AUTH_FILE_PATH });
         console.log(`\n✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
-        
+
         await browser.close();
         process.exit(0);
     } catch (e) {
@@ -150,12 +150,15 @@ program
             await ensureAuth(false);
             const filePath = path.resolve(process.cwd(), opts.file);
             const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            
+
             const result = await Core.generateContent(topicData, opts.dir);
             await Core.prepareImages(result.targetDir, topicData);
-            
+
             console.log(`\n🏁 완료: ${result.targetDir}`);
-        } catch (e) { console.error('❌ 에러:', e); }
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
     });
 
 // 3️⃣ Auto Command
@@ -167,7 +170,7 @@ program
     .action(async (opts) => {
         try {
             console.log("\n▶️ [Auto Mode] 작업을 시작합니다...");
-            
+
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 
@@ -175,16 +178,19 @@ program
 
             const filePath = path.resolve(process.cwd(), opts.file);
             const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            
+
             // 1. 콘텐츠 및 이미지 생성
             const result = await Core.generateContent(topicData, opts.dir);
             await Core.prepareImages(result.targetDir, topicData);
-            
+
             // 2. 블로그 발행
             await Core.publishToBlog(result.targetDir);
 
             console.log(`\n✅ 자동 발행 완료!`);
-        } catch (e) { console.error('❌ 에러:', e); }
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
     });
 
 // 4️⃣ Batch Command
@@ -197,7 +203,7 @@ program
             console.log("\n▶️ [Batch Mode] 작업을 시작합니다...");
             await ensureAuth(true);
 
-	    // [New] 데이터 소스 분기 처리
+            // [New] 데이터 소스 분기 처리
             let topics = [];
             const isGoogle = (CONFIG.DATA_SOURCE === 'GOOGLE'); // config-loader에서 읽어온 값
 
@@ -235,8 +241,8 @@ program
                 }
 
                 try {
-                    console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex+1})`);
-		    // [New] 상태 업데이트 분기
+                    console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
+                    // [New] 상태 업데이트 분기
                     if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '작업 시작');
                     else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '발행 중', '작업 시작');
 
@@ -245,7 +251,7 @@ program
                     await Core.prepareImages(result.targetDir, topicData);
                     await Core.publishToBlog(result.targetDir);
 
-		    // [New] 완료 상태 업데이트 분기
+                    // [New] 완료 상태 업데이트 분기
                     if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
                     else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '블로그 발행 완료', '성공적으로 발행되었습니다.');
 
@@ -254,7 +260,7 @@ program
                     console.log(`✅ 발행 성공!`);
                 } catch (err) {
                     console.error(`❌ 실패: ${err.message}`);
-		    // [New] 실패 상태 업데이트 분기
+                    // [New] 실패 상태 업데이트 분기
                     if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '실패', err.message);
                     else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '실패', err.message);
 
@@ -268,13 +274,16 @@ program
                     await Utils.sleep(delay * 1000);
                 }
             }
-            
+
             console.log(`\n===================================================`);
             console.log(`🎉 배치 작업 종료`);
             console.log(`📊 결과: 성공 ${successCount} / 실패 ${failCount}`);
             console.log(`===================================================`);
 
-        } catch (e) { console.error('❌ 에러:', e); }
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
     });
 
 // 5️⃣ Publish Command
@@ -290,7 +299,10 @@ program
             await ensureAuth(true);
             await Core.publishToBlog(path.resolve(opts.dir));
             console.log("\n🎉 발행 완료.");
-        } catch (e) { console.error('❌ 에러:', e); }
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
     });
 
 program.on('--help', () => {

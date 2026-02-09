@@ -25,7 +25,7 @@ class Logger {
     static _write(level, message) {
         // 1. 레벨 체크: 설정된 레벨보다 낮은 중요도의 로그는 무시
         if (LEVELS[level] < currentLevel) {
-            return; 
+            return;
         }
 
         const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
@@ -35,8 +35,8 @@ class Logger {
         // 2. 콘솔 출력 (색상 입히기)
         switch (level) {
             case 'debug': console.log(`\x1b[90m${logMessage}\x1b[0m`); break; // 회색
-            case 'info':  console.log(`\x1b[36m${logMessage}\x1b[0m`); break; // 청록색
-            case 'warn':  console.log(`\x1b[33m${logMessage}\x1b[0m`); break; // 노란색
+            case 'info': console.log(`\x1b[36m${logMessage}\x1b[0m`); break; // 청록색
+            case 'warn': console.log(`\x1b[33m${logMessage}\x1b[0m`); break; // 노란색
             case 'error': console.error(`\x1b[31m${logMessage}\x1b[0m`); break; // 빨간색
         }
 
@@ -49,9 +49,16 @@ class Logger {
     }
 
     static debug(message) { this._write('debug', message); }
-    static info(message)  { this._write('info', message); }
-    static warn(message)  { this._write('warn', message); }
-    static error(message) { this._write('error', message); }
+    static info(message) { this._write('info', message); }
+    static warn(message) { this._write('warn', message); }
+    // 🔧 [Fixed] error 메서드에 스택 트레이스 자동 로깅 추가
+    static error(message, error = null) {
+        this._write('error', message);
+        // DEBUG 모드일 때 스택 트레이스 자동 출력
+        if (process.env.DEBUG && error && error.stack) {
+            this._write('debug', `Stack trace: ${error.stack}`);
+        }
+    }
 }
 
 module.exports = Logger;

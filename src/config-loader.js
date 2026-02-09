@@ -1,9 +1,9 @@
 const path = require('path');
 const fs = require('fs');
-const Constants = require('./constants'); 
+const Constants = require('./constants');
 
 // 💡 [경로 기준점]
-const ROOT_DIR = process.cwd(); 
+const ROOT_DIR = process.cwd();
 
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
@@ -11,10 +11,10 @@ const ROOT_DIR = process.cwd();
 let internalSecrets = {};
 try {
     // pkg 빌드 시 번들링되는 내부 파일 (secret.js)
-    internalSecrets = require('./config/secret'); 
+    internalSecrets = require('./config/secret');
 } catch (e) {
     console.warn("⚠️ [Dev] 내부 secret.js를 찾을 수 없습니다. (빌드 시 포함됨)");
-    internalSecrets = { LICENSE_CHK_URL: "", LICENSE_CHK_KEY: "" }; 
+    internalSecrets = { LICENSE_CHK_URL: "", LICENSE_CHK_KEY: "" };
 }
 
 // =========================================================
@@ -33,7 +33,7 @@ const PATHS = {
 // =========================================================
 function loadUserConfig() {
     const config = {};
-    
+
     if (!fs.existsSync(PATHS.configFile)) {
         console.error(`❌ 설정 파일을 찾을 수 없습니다: ${PATHS.configFile}`);
         console.error(`👉 config/config.txt.sample 파일을 config.txt로 복사해주세요.`);
@@ -41,7 +41,7 @@ function loadUserConfig() {
     }
 
     const fileContent = fs.readFileSync(PATHS.configFile, 'utf-8');
-    
+
     fileContent.split('\n').forEach(line => {
         const cleanLine = line.split('#')[0].trim();
         if (!cleanLine || !cleanLine.includes('=')) return;
@@ -89,9 +89,17 @@ module.exports = {
     ...Constants,       // 1. 내부 상수 (대기 시간 등)
     ...internalSecrets, // 2. 비밀키 (라이선스 URL, KEY)
     ...userConfig,      // 3. 사용자 설정 (ID, Key, 모델명 등)
-    
+
+    // 🔧 [Fixed] 환경 변수 우선 지원 (보안 강화)
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
+    NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
+    NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || userConfig.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY || userConfig.GOOGLE_PRIVATE_KEY,
+    GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || userConfig.GOOGLE_SHEET_ID,
+
     // 💡 데이터 가공 섹션 (명시적 선언)
-    IMAGE_STYLE: imageStyle, 
+    IMAGE_STYLE: imageStyle,
     GEMINI_TEXT_ENDPOINT: TEXT_ENDPOINT,
     GEMINI_IMAGE_ENDPOINT: IMAGE_ENDPOINT,
     VIEWPORT: { width: viewportWidth, height: viewportHeight },
@@ -103,7 +111,7 @@ module.exports = {
     WORKSPACE_DIR: PATHS.workspace,
 
     // 5. 확정된 동적 데이터
-    WRITE_URL: `https://blog.naver.com/${userConfig.NAVER_ID}/postwrite`,
+    WRITE_URL: `https://blog.naver.com/${process.env.NAVER_ID || userConfig.NAVER_ID}/postwrite`,
     TYPING: typingDelay,
     CLOSE_DELAY: closeDelay,
 
