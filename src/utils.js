@@ -105,8 +105,170 @@ const Utils = {
     },
 
     /**
-     * 1. 구글 시트 읽기
+     * 0. 초기화: 모든 필수 시트가 있는지 확인하고 없으면 생성
      */
+    ensureAllSheetsExist: async function () {
+        try {
+            Logger.info("🔍 필수 시트 존재 여부 확인 중...");
+            const accessToken = await this.getGoogleAccessToken();
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            // 현재 시트 목록 조회
+            const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+            const metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+
+            const existingSheets = metaRes.data.sheets.map(s => s.properties.title);
+            const requiredSheets = [
+                { name: CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords', type: 'keywords' },
+                { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' },
+                { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' }
+            ];
+
+            for (const sheet of requiredSheets) {
+                if (!existingSheets.includes(sheet.name)) {
+                    Logger.info(`✨ '${sheet.name}' 시트가 없어서 생성을 시작합니다...`);
+                    await this.createSheetIfMissing(accessToken, spreadsheetId, sheet.name, sheet.type);
+                } else {
+                    // Logger.info(`   ✅ '${sheet.name}' 시트 확인됨`);
+                }
+            }
+            Logger.info("✅ 모든 필수 시트 준비 완료");
+
+        } catch (e) {
+            Logger.error(`❌ 시트 초기화 실패: ${e.message}`);
+            // 초기화 실패해도 프로그램은 계속 진행하도록 (치명적이지 않을 수 있음)
+        }
+    },
+
+    /**
+     * 0-1. 시트 생성 및 초기화 (헤더, 고정, 드롭다운)
+     */
+    createSheetIfMissing: async function (accessToken, spreadsheetId, sheetName, type) {
+        try {
+            // 1. 시트 생성 (1행 고정)
+            const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+            const createRes = await this.callWithRetry(() => axios.post(createUrl, {
+                requests: [{
+                    addSheet: {
+                        properties: {
+                            title: sheetName,
+                            gridProperties: { frozenRowCount: 1 }
+                        }
+                    }
+                }]
+            }, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+            const newSheetId = createRes.data.replies[0].addSheet.properties.sheetId;
+
+            // 2. 헤더 및 데이터 유효성 검사 설정
+            let headerRow = [];
+            let validationRequests = [];
+
+            if (type === 'keywords') {
+                // 헤더: keyword, 동작 / 상태, 작업 시간
+                headerRow = [['keyword', '동작 / 상태', '작업 시간']];
+
+                // Dropdown: B열 (Index 1) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '대기' },
+                                    { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                    { userEnteredValue: '연관검색어 조사 완료' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+            } else if (type === 'topics') {
+                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 참고 URL, 발행 시간, 로그
+                headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '참고 URL', '발행 시간', '로그']];
+
+                // Dropdown: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '대기' },
+                                    { userEnteredValue: '블로그 발행 준비 완료' },
+                                    { userEnteredValue: '블로그 발행 완료' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+
+                // Dropdown: F열 (Index 5) -> Yes, No (이미지 생성 여부)
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: 'Yes' },
+                                    { userEnteredValue: 'No' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+            } else if (type === 'trends') {
+                // 헤더: 날짜, 주제, 키워드, 증감, 동작/상태
+                headerRow = [['날짜', '주제', '키워드', '증감', '동작/상태']];
+
+                // Dropdown: E열 (Index 4) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '대기' },
+                                    { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                    { userEnteredValue: '연관검색어 조사 완료' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+            }
+
+            // 3. 드롭다운 적용
+            if (validationRequests.length > 0) {
+                await this.callWithRetry(() => axios.post(createUrl, { requests: validationRequests }, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+            }
+
+            // 4. 헤더 쓰기
+            const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+            await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            Logger.info(`   ✅ '${sheetName}' 시트 생성 및 초기화 완료`);
+
+        } catch (e) {
+            Logger.error(`   ❌ '${sheetName}' 시트 생성 중 오류: ${e.message}`);
+            throw e;
+        }
+    },
+
     readGoogleSheetTopics: async function () {
         try {
             Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
@@ -380,6 +542,7 @@ const Utils = {
 
                     // 데이터 유효성 검사 (Dropdown)
                     // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
+                    // 이미지 생성: F열 (Index 5) -> Yes, No
                     const validationReq = {
                         requests: [{
                             setDataValidation: {
@@ -391,6 +554,20 @@ const Utils = {
                                             { userEnteredValue: '대기' },
                                             { userEnteredValue: '블로그 발행 준비 완료' },
                                             { userEnteredValue: '블로그 발행 완료' }
+                                        ]
+                                    },
+                                    showCustomUi: true, strict: true
+                                }
+                            }
+                        }, {
+                            setDataValidation: {
+                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 },
+                                rule: {
+                                    condition: {
+                                        type: 'ONE_OF_LIST',
+                                        values: [
+                                            { userEnteredValue: 'Yes' },
+                                            { userEnteredValue: 'No' }
                                         ]
                                     },
                                     showCustomUi: true, strict: true

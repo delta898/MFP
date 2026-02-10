@@ -69,8 +69,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.4.2')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.4.2)');
+    .version('0.5.1')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.1)');
 
 // --- Helper Functions ---
 
@@ -206,6 +206,11 @@ program
             console.log("\n▶️ [Batch Mode] 작업을 시작합니다...");
             await ensureAuth(true);
 
+            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
+            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
+                await Utils.ensureAllSheetsExist();
+            }
+
             // [New] 데이터 소스 분기 처리
             let topics = [];
             const isGoogle = (CONFIG.DATA_SOURCE === 'GOOGLE'); // config-loader에서 읽어온 값
@@ -319,6 +324,11 @@ program
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 
+            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
+            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
+                await Utils.ensureAllSheetsExist();
+            }
+
             // 키워드 작업은 브라우저 인증이 필수적이지 않을 수 있으나, 
             // 시트 접근을 위해 Service Account가 아닌 Token 방식을 쓴다면 필요할 수도 있음.
             // Utils.js가 어떤 Auth를 쓰느냐에 따름 (현재는 Key 파일 기반이므로 ensureAuth 불필요할 수도 있으나 안전하게 유지)
@@ -339,6 +349,11 @@ program
         try {
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
             await ensureAuth(true); // 로그인 필요
+
+            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
+            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
+                await Utils.ensureAllSheetsExist();
+            }
 
             // 1. 트렌드 키워드 수집
             const trendKeywords = await TrendManager.fetchTrends();
