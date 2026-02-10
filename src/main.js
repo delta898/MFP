@@ -199,30 +199,18 @@ program
 // 4️⃣ Batch Command
 program
     .command('batch')
-    .description('📚 [배치] 구글 시트/엑셀 대량 포스팅')
-    .option('-f, --file <path>', '엑셀 파일', 'topics.xlsx')
-    .action(async (opts) => {
+    .description('📚 [배치] 구글 시트 대량 포스팅')
+    .action(async () => {
         try {
             console.log("\n▶️ [Batch Mode] 작업을 시작합니다...");
             await ensureAuth(true);
 
-            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
-            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
-                await Utils.ensureAllSheetsExist();
-            }
+            // [New] 필수 시트 존재 여부 확인 및 생성
+            await Utils.ensureAllSheetsExist();
 
-            // [New] 데이터 소스 분기 처리
-            let topics = [];
-            const isGoogle = (CONFIG.DATA_SOURCE === 'GOOGLE'); // config-loader에서 읽어온 값
-
-            if (isGoogle) {
-                console.log(`📡 구글 스프레드시트 모드로 실행합니다.`);
-                topics = await Utils.readGoogleSheetTopics();
-            } else {
-                console.log(`📂 로컬 엑셀 모드로 실행합니다.`);
-                const excelPath = path.resolve(process.cwd(), opts.file);
-                topics = Utils.readExcelTopics(excelPath);
-            }
+            // 구글 스프레드시트에서 주제 읽기
+            console.log(`📡 구글 스프레드시트에서 주제를 읽어옵니다...`);
+            const topics = await Utils.readGoogleSheetTopics();
 
             console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
 
@@ -250,27 +238,23 @@ program
 
                 try {
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
-                    // [New] 상태 업데이트 분기
-                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '작업 시작');
-                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '발행 중', '작업 시작');
+                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '작업 시작');
 
                     // 생성 -> 이미지 -> 발행 순차 진행
                     const result = await Core.generateContent(topicData);
                     await Core.prepareImages(result.targetDir, topicData);
                     await Core.publishToBlog(result.targetDir);
 
-                    // [New] 완료 상태 업데이트 분기
-                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
-                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '블로그 발행 완료', '성공적으로 발행되었습니다.');
+                    // 완료 상태 업데이트
+                    await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
 
                     successCount++;
 
                     console.log(`✅ 발행 성공!`);
                 } catch (err) {
                     console.error(`❌ 실패: ${err.message}`);
-                    // [New] 실패 상태 업데이트 분기
-                    if (isGoogle) await Utils.updateGoogleSheetStatus(rowIndex, '실패', err.message);
-                    else Utils.updateExcelStatus(path.resolve(process.cwd(), opts.file), rowIndex, '실패', err.message);
+                    // 실패 상태 업데이트
+                    await Utils.updateGoogleSheetStatus(rowIndex, '실패', err.message);
 
                     failCount++;
                 }
@@ -324,10 +308,8 @@ program
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
 
-            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
-            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
-                await Utils.ensureAllSheetsExist();
-            }
+            // 필수 시트 존재 여부 확인 및 생성
+            await Utils.ensureAllSheetsExist();
 
             // 키워드 작업은 브라우저 인증이 필수적이지 않을 수 있으나, 
             // 시트 접근을 위해 Service Account가 아닌 Token 방식을 쓴다면 필요할 수도 있음.
@@ -350,10 +332,8 @@ program
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
             await ensureAuth(true); // 로그인 필요
 
-            // [New] 구글 시트 모드일 경우 필수 시트 존재 여부 확인 및 생성
-            if (CONFIG.DATA_SOURCE === 'GOOGLE') {
-                await Utils.ensureAllSheetsExist();
-            }
+            // 필수 시트 존재 여부 확인 및 생성
+            await Utils.ensureAllSheetsExist();
 
             // 1. 트렌드 키워드 수집
             const trendKeywords = await TrendManager.fetchTrends();
@@ -362,15 +342,8 @@ program
                 console.log('⚠️ 수집된 트렌드 키워드가 없습니다.');
             } else {
                 console.log(`📥 수집된 ${trendKeywords.length}개의 키워드를 구글 시트에 추가합니다...`);
-
-                // [Check] 구글 시트 모드인지 확인
-                if (CONFIG.DATA_SOURCE === 'GOOGLE') {
-                    await Utils.appendGoogleSheetTrends(trendKeywords);
-                    console.log('✅ 트렌드 키워드 추가 완료!');
-                } else {
-                    console.log('⚠️ [Notice] 현재 설정이 로컬 엑셀 모드입니다. 트렌드 키워드는 화면에만 출력합니다.');
-                    console.log(trendKeywords);
-                }
+                await Utils.appendGoogleSheetTrends(trendKeywords);
+                console.log('✅ 트렌드 키워드 추가 완료!');
             }
         } catch (e) {
             console.error('❌ 에러:', e.message);

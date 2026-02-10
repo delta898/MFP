@@ -121,9 +121,9 @@ const Utils = {
 
             const existingSheets = metaRes.data.sheets.map(s => s.properties.title);
             const requiredSheets = [
+                { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' },
                 { name: CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords', type: 'keywords' },
-                { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' },
-                { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' }
+                { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' }
             ];
 
             for (const sheet of requiredSheets) {
@@ -170,7 +170,7 @@ const Utils = {
                 // 헤더: keyword, 동작 / 상태, 작업 시간
                 headerRow = [['keyword', '동작 / 상태', '작업 시간']];
 
-                // Dropdown: B열 (Index 1) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                // Dropdown: B열 (Index 1) -> 대기, 연관검색어 조사, 연관검색어 조사 완료
                 validationRequests.push({
                     setDataValidation: {
                         range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
@@ -179,7 +179,7 @@ const Utils = {
                                 type: 'ONE_OF_LIST',
                                 values: [
                                     { userEnteredValue: '대기' },
-                                    { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                    { userEnteredValue: '연관검색어 조사' },
                                     { userEnteredValue: '연관검색어 조사 완료' }
                                 ]
                             },
@@ -229,7 +229,7 @@ const Utils = {
                 // 헤더: 날짜, 주제, 키워드, 증감, 동작/상태
                 headerRow = [['날짜', '주제', '키워드', '증감', '동작/상태']];
 
-                // Dropdown: E열 (Index 4) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                // Dropdown: E열 (Index 4) -> 대기, 키워드 목록에 추가
                 validationRequests.push({
                     setDataValidation: {
                         range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
@@ -238,8 +238,7 @@ const Utils = {
                                 type: 'ONE_OF_LIST',
                                 values: [
                                     { userEnteredValue: '대기' },
-                                    { userEnteredValue: '연관검색어 조사 준비 완료' },
-                                    { userEnteredValue: '연관검색어 조사 완료' }
+                                    { userEnteredValue: '키워드 목록에 추가' }
                                 ]
                             },
                             showCustomUi: true, strict: true
@@ -336,11 +335,11 @@ const Utils = {
     },
 
     /**
-     * 1-1. 키워드 시트 읽기 ('연관검색어 조사 준비 완료' 상태만)
+     * 1-1. 키워드 시트 읽기 ('연관검색어 조사' 상태만)
      */
     readGoogleSheetKeywords: async function () {
         try {
-            Logger.info("🌐 구글 키워드 시트 읽기 (Target: 연관검색어 조사 준비 완료)");
+            Logger.info("🌐 구글 키워드 시트 읽기 (Target: 연관검색어 조사)");
             const accessToken = await this.getGoogleAccessToken();
 
             const sheetName = CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords';
@@ -373,7 +372,7 @@ const Utils = {
                     const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
 
                     // 데이터 유효성 검사 (Dropdown)
-                    // (readGoogleSheetKeywords) Status: B열 (Index 1) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                    // (readGoogleSheetKeywords) Status: B열 (Index 1) -> 대기, 연관검색어 조사, 연관검색어 조사 완료
                     const validationReq = {
                         requests: [{
                             setDataValidation: {
@@ -383,7 +382,7 @@ const Utils = {
                                         type: 'ONE_OF_LIST',
                                         values: [
                                             { userEnteredValue: '대기' },
-                                            { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                            { userEnteredValue: '연관검색어 조사' },
                                             { userEnteredValue: '연관검색어 조사 완료' }
                                         ]
                                     },
@@ -429,7 +428,7 @@ const Utils = {
             const targets = [];
             rows.slice(1).forEach((row, index) => {
                 const status = row[statusIdx] ? row[statusIdx].trim() : "";
-                if (status === '연관검색어 조사 준비 완료') {
+                if (status === '연관검색어 조사') {
                     targets.push({
                         rowIndex: index, // 0-based index relative to data rows
                         keyword: row[kwIdx],
@@ -679,7 +678,7 @@ const Utils = {
                     const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
 
                     // 데이터 유효성 검사 (Dropdown)
-                    // (appendGoogleSheetTrends) Status: E열 (Index 4) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                    // (appendGoogleSheetTrends) Status: E열 (Index 4) -> 대기, 키워드 목록에 추가
                     const validationReq = {
                         requests: [{
                             setDataValidation: {
@@ -689,8 +688,7 @@ const Utils = {
                                         type: 'ONE_OF_LIST',
                                         values: [
                                             { userEnteredValue: '대기' },
-                                            { userEnteredValue: '연관검색어 조사 준비 완료' },
-                                            { userEnteredValue: '연관검색어 조사 완료' }
+                                            { userEnteredValue: '키워드 목록에 추가' }
                                         ]
                                     },
                                     showCustomUi: true, strict: true
@@ -818,7 +816,13 @@ const Utils = {
 
                 // 가장 최신 글 1개의 링크만 리턴
                 if (items.length > 0) {
-                    return items[0].link;
+                    let link = items[0].link;
+                    // 🔧 [Added] 네이버 블로그 주소인 경우 모바일 주소로 변환
+                    if (link && link.includes('blog.naver.com') && !link.includes('m.blog.naver.com')) {
+                        link = link.replace('http://blog.naver.com', 'https://m.blog.naver.com')
+                            .replace('https://blog.naver.com', 'https://m.blog.naver.com');
+                    }
+                    return link;
                 }
             }
             return "";

@@ -5,34 +5,18 @@
 # [필수] 네이버 아이디
 NAVER_ID = 본인의_네이버_아이디
 
-# [옵션] 네이버 검색 API (연관검색어/블로그검색용)
-NAVER_CLIENT_ID = 발급받은_Client_ID
-NAVER_CLIENT_SECRET = 발급받은_Client_Secret
-
 # [필수] 라이선스 키
 LICENSE_KEY = YOUR_LICENSE_KEY_HERE
 
 # [필수] Gemini API 키
 GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE
 
-# -------------------------------------------------------
-# [데이터 소스 설정]
-# EXCEL : 기존 로컬 xlsx 파일 사용
-# GOOGLE : 구글 스프레드시트 사용
-DATA_SOURCE = EXCEL
-
-# [구글 스프레드시트 설정] (DATA_SOURCE = GOOGLE 일 때 필수)
+# [구글 스프레드시트 설정]
 # 1. 서비스 계정 키 파일 경로 (프로젝트 루트 기준)
 GOOGLE_AUTH_JSON = ./config/service_account.json
 
 # 2. 스프레드시트 ID (URL 중간의 긴 문자열)
 GOOGLE_SHEET_ID = 여기에_구글시트_ID_입력
-
-# 3-1. 키워드 시트 이름 (연관 키워드 추출용)
-GOOGLE_KEYWORDS_SHEET = keywords
-
-# 3-2. 주제 시트 이름 (블로그 발행용)
-GOOGLE_TOPICS_SHEET = topics
 
 
 # -------------------------------------------------------
