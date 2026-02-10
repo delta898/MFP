@@ -37,6 +37,8 @@ const Utils = require('./utils');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const KeywordManager = require('./keyword-manager'); // [New]
+const TrendManager = require('./trend-manager'); // Add this
+const Logger = require('./logger'); // Add this
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
 
 // --------------------------------------------------------
@@ -323,6 +325,38 @@ program
             // await ensureAuth(false); 
 
             await KeywordManager.processKeywords();
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
+    });
+
+// 7️⃣ Trends Command [New]
+program
+    .command('trends')
+    .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
+    .action(async () => {
+        try {
+            console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
+            await ensureAuth(true); // 로그인 필요
+
+            // 1. 트렌드 키워드 수집
+            const trendKeywords = await TrendManager.fetchTrends();
+
+            if (!trendKeywords || trendKeywords.length === 0) {
+                console.log('⚠️ 수집된 트렌드 키워드가 없습니다.');
+            } else {
+                console.log(`📥 수집된 ${trendKeywords.length}개의 키워드를 구글 시트에 추가합니다...`);
+
+                // [Check] 구글 시트 모드인지 확인
+                if (CONFIG.DATA_SOURCE === 'GOOGLE') {
+                    await Utils.appendGoogleSheetTrends(trendKeywords);
+                    console.log('✅ 트렌드 키워드 추가 완료!');
+                } else {
+                    console.log('⚠️ [Notice] 현재 설정이 로컬 엑셀 모드입니다. 트렌드 키워드는 화면에만 출력합니다.');
+                    console.log(trendKeywords);
+                }
+            }
         } catch (e) {
             console.error('❌ 에러:', e.message);
             if (process.env.DEBUG) console.error('Stack:', e.stack);

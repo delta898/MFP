@@ -28,9 +28,6 @@ GOOGLE_AUTH_JSON = ./config/service_account.json
 # 2. 스프레드시트 ID (URL 중간의 긴 문자열)
 GOOGLE_SHEET_ID = 여기에_구글시트_ID_입력
 
-# 3. 시트 이름 (탭 이름) - 하위 호환성을 위해 유지
-# GOOGLE_SHEET_NAME = Sheet1  # (deprecated, 아래 설정 사용 권장)
-
 # 3-1. 키워드 시트 이름 (연관 키워드 추출용)
 GOOGLE_KEYWORDS_SHEET = keywords
 
@@ -67,7 +64,7 @@ HEADLESS = false
 
 # [옵션] 브라우저 해상도 설정
 # 화면이 잘려 보인다면 1440, 900 또는 1280, 800으로 낮춰보세요.
-VIEWPORT_WIDTH = 1280
+VIEWPORT_WIDTH = 1440
 VIEWPORT_HEIGHT = 1024
 
 # -------------------------------------------------------

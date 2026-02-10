@@ -1,6 +1,6 @@
 {
   "name": "blog-genius",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
   "main": "src/main.js",
   "bin": {
@@ -12,7 +12,9 @@
     "gen": "node src/main.js gen",
     "auto": "node src/main.js auto",
     "batch": "node src/main.js batch",
-    "keywords": "node src/main.js keywords",
+    "keywords": "node src/main.js search",
+    "trends": "node src/main.js trends",
+    "post": "node src/main.js post",
     "kw": "node src/main.js keywords",
     "pub": "node src/main.js pub",
     "//": "👇 npm run build 실행 시 build.sh가 실행되도록 연결하면 편합니다.",

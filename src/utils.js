@@ -185,9 +185,66 @@ const Utils = {
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
-            const res = await this.callWithRetry(() => axios.get(url, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            }));
+            let res;
+            try {
+                res = await this.callWithRetry(() => axios.get(url, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+            } catch (e) {
+                // 400 Bad Request => 시트가 없을 가능성이 높음 -> 시트 생성 시도
+                if (e.response && (e.response.status === 400 || e.response.data?.error?.status === 'INVALID_ARGUMENT')) {
+                    Logger.info(`✨ '${sheetName}' 시트가 없어서 새로 생성합니다...`);
+
+                    // 시트 생성 (1행 고정) & ID 획득
+                    const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+                    const res = await this.callWithRetry(() => axios.post(createUrl, {
+                        requests: [{
+                            addSheet: {
+                                properties: {
+                                    title: sheetName,
+                                    gridProperties: { frozenRowCount: 1 } // 1행 고정
+                                }
+                            }
+                        }]
+                    }, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
+
+                    // 데이터 유효성 검사 (Dropdown)
+                    // (readGoogleSheetKeywords) Status: B열 (Index 1) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                    const validationReq = {
+                        requests: [{
+                            setDataValidation: {
+                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                                rule: {
+                                    condition: {
+                                        type: 'ONE_OF_LIST',
+                                        values: [
+                                            { userEnteredValue: '대기' },
+                                            { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                            { userEnteredValue: '연관검색어 조사 완료' }
+                                        ]
+                                    },
+                                    showCustomUi: true, strict: true
+                                }
+                            }
+                        }]
+                    };
+                    await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    // 헤더 추가: keyword, 동작 / 상태, 작업 시간
+                    const headerRow = [['keyword', '동작 / 상태', '작업 시간']];
+                    const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+                    await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                    }));
+
+                    Logger.info(`   ✅ 시트 생성 및 헤더 추가 완료`);
+                    return []; // 빈 시트이므로 빈 배열 반환
+                } else {
+                    throw e;
+                }
+            }
 
             const rows = res.data.values;
             if (!rows || rows.length === 0) return [];
@@ -297,26 +354,94 @@ const Utils = {
             // 여기서는 헤더를 먼저 읽어서 매핑하는 방식을 사용.
 
             const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
-            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+
+            let headerRes;
+            try {
+                headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+            } catch (e) {
+                // 400 Bad Request => 시트가 없을 가능성이 높음 -> 시트 생성 시도
+                if (e.response && (e.response.status === 400 || e.response.data?.error?.status === 'INVALID_ARGUMENT')) {
+                    Logger.info(`✨ '${sheetName}' 시트가 없어서 새로 생성합니다...`);
+
+                    // 시트 생성 (1행 고정) & ID 획득
+                    const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+                    const res = await this.callWithRetry(() => axios.post(createUrl, {
+                        requests: [{
+                            addSheet: {
+                                properties: {
+                                    title: sheetName,
+                                    gridProperties: { frozenRowCount: 1 } // 1행 고정
+                                }
+                            }
+                        }]
+                    }, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
+
+                    // 데이터 유효성 검사 (Dropdown)
+                    // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
+                    const validationReq = {
+                        requests: [{
+                            setDataValidation: {
+                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+                                rule: {
+                                    condition: {
+                                        type: 'ONE_OF_LIST',
+                                        values: [
+                                            { userEnteredValue: '대기' },
+                                            { userEnteredValue: '블로그 발행 준비 완료' },
+                                            { userEnteredValue: '블로그 발행 완료' }
+                                        ]
+                                    },
+                                    showCustomUi: true, strict: true
+                                }
+                            }
+                        }]
+                    };
+                    await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 참고 URL, 발행 시간, 로그
+                    const headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '참고 URL', '발행 시간', '로그']];
+                    const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+                    await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                    }));
+
+                    Logger.info(`   ✅ 시트 생성 및 헤더 추가 완료`);
+                    // 헤더가 생성되었으므로 다시 읽기보다는, 생성한 헤더를 그대로 사용
+                    headerRes = { data: { values: headerRow } };
+                } else {
+                    throw e;
+                }
+            }
 
             const headers = headerRes.data.values[0];
             const map = {};
             headers.forEach((h, i) => {
                 const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
-                if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
+                if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
+                else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
                 else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
                 else if (clean.includes('url') || clean.includes('참고')) map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
                 else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
             });
 
+            // 헤더가 없거나 매핑이 안되면 기본값 사용 (순서: blog, subject, keywords, instructions, status, imgGen, refUrl, timestamp, log)
+            // 여기서는 중요한 것만 매핑
+            if (map.blog === undefined) map.blog = 0;
+            if (map.subject === undefined) map.subject = 1;
+            if (map.keyword === undefined) map.keyword = 2;
+            // ... 나머지는 생략 가능하거나 자동 위치
+
             const maxCol = Math.max(...Object.values(map));
             const rowsToAdd = newTopics.map(topic => {
                 const row = new Array(maxCol + 1).fill("");
+                if (map.blog !== undefined) row[map.blog] = 'naver'; // 기본값 'naver'
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
                 if (map.keyword !== undefined) row[map.keyword] = topic.keywords;
                 if (map.url !== undefined) row[map.url] = topic.reference_urls;
-                if (map.status !== undefined) row[map.status] = '블로그 발행 준비 완료';
+                if (map.status !== undefined) row[map.status] = '대기';
                 if (map.imgGen !== undefined) row[map.imgGen] = 'No'; // 사용자 요청: 기본값 No
                 return row;
             });
@@ -334,6 +459,134 @@ const Utils = {
 
         } catch (e) {
             Logger.error(`❌ 토픽 추가 실패: ${e.message}`);
+        }
+    },
+
+    /**
+     * 1-6. 트렌드 시트에 데이터 추가 (Date, Category, Keyword, Status)
+     */
+    appendGoogleSheetTrends: async function (trendData) {
+        if (!trendData || trendData.length === 0) return;
+
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            // 기본값 'trends', 설정 없으면 'trends'
+            const sheetName = CONFIG.GOOGLE_TRENDS_SHEET || 'trends';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            // 1. 헤더 확인 및 매핑
+            let headers = [];
+
+            try {
+                const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+                const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+                headers = headerRes.data.values ? headerRes.data.values[0] : [];
+            } catch (e) {
+                // 400 Bad Request => 시트가 없을 가능성이 높음 -> 시트 생성 시도
+                if (e.response && (e.response.status === 400 || e.response.data?.error?.status === 'INVALID_ARGUMENT')) {
+                    Logger.info(`✨ '${sheetName}' 시트가 없어서 새로 생성합니다...`);
+
+                    // 시트 생성 (1행 고정) & ID 획득
+                    const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+                    const res = await this.callWithRetry(() => axios.post(createUrl, {
+                        requests: [{
+                            addSheet: {
+                                properties: {
+                                    title: sheetName,
+                                    gridProperties: { frozenRowCount: 1 } // 1행 고정
+                                }
+                            }
+                        }]
+                    }, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
+
+                    // 데이터 유효성 검사 (Dropdown)
+                    // (appendGoogleSheetTrends) Status: E열 (Index 4) -> 대기, 연관검색어 조사 준비 완료, 연관검색어 조사 완료
+                    const validationReq = {
+                        requests: [{
+                            setDataValidation: {
+                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+                                rule: {
+                                    condition: {
+                                        type: 'ONE_OF_LIST',
+                                        values: [
+                                            { userEnteredValue: '대기' },
+                                            { userEnteredValue: '연관검색어 조사 준비 완료' },
+                                            { userEnteredValue: '연관검색어 조사 완료' }
+                                        ]
+                                    },
+                                    showCustomUi: true, strict: true
+                                }
+                            }
+                        }]
+                    };
+                    await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
+
+                    // 헤더 추가
+                    const headerRow = [['날짜', '주제', '키워드', '증감', '동작/상태']];
+                    const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+                    await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                    }));
+
+                    headers = headerRow[0];
+                    Logger.info(`   ✅ 시트 생성 및 헤더 추가 완료`);
+                } else {
+                    throw e; // 다른 에러는 throw
+                }
+            }
+
+            const map = {};
+
+            // 헤더가 비어있다면(새 시트), 기본 헤더를 먼저 써주는게 좋겠지만 복잡도를 낮추기 위해
+            // 기존에 헤더가 있다고 가정하고 매핑 시도. 만약 헤더가 없으면 A,B,C,D 순서로 간주.
+
+            if (headers.length > 0) {
+                headers.forEach((h, i) => {
+                    const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                    if (clean.includes('날짜') || clean.includes('date')) map.date = i;
+                    else if (clean.includes('주제') || clean.includes('subject') || clean.includes('category')) map.category = i;
+                    else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
+                    else if (clean.includes('증감') || clean.includes('변동') || clean.includes('variation') || clean.includes('rank')) map.variation = i;
+                    else if (clean.includes('동작') || clean.includes('상태') || clean.includes('status')) map.status = i;
+                });
+            } else {
+                // 헤더가 없으면 기본 매핑 (A=Date, B=Category, C=Keyword, D=Variation, E=Status)
+                map.date = 0;
+                map.category = 1;
+                map.keyword = 2;
+                map.variation = 3;
+                map.status = 4;
+            }
+
+            const maxCol = Math.max(...Object.values(map));
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            const rowsToAdd = trendData.map(item => {
+                const row = new Array(maxCol + 1).fill("");
+                if (map.date !== undefined) row[map.date] = dateStr;
+                if (map.category !== undefined) row[map.category] = item.category;
+                if (map.keyword !== undefined) row[map.keyword] = item.keyword;
+                if (map.variation !== undefined) row[map.variation] = item.variation || '-';
+                if (map.status !== undefined) row[map.status] = '대기';
+                return row;
+            });
+
+            const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+
+            await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: rowsToAdd }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            // ⏳ API 호출 간 안전 대기
+            await this.sleep(1000);
+
+            Logger.info(`   ✅ 트렌드 시트(${sheetName})에 ${rowsToAdd.length}건 추가 완료`);
+
+        } catch (e) {
+            Logger.error(`❌ 트렌드 시트 추가 실패: ${e.message}`);
         }
     },
 
