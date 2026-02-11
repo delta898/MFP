@@ -136,6 +136,20 @@ async function ensureAuth(isStrict = true) {
     return false;
 }
 
+function parseMaxPosts(value, fallback = 3) {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 0) return fallback;
+    return parsed;
+}
+
+function resolveMaxBlogPostsPerRun() {
+    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 3);
+}
+
+function resolveMaxShoppingPostsPerRun() {
+    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 3);
+}
+
 // --- Commands ---
 
 // 1️⃣ Login Command
@@ -213,10 +227,13 @@ program
             // 구글 스프레드시트에서 주제 읽기
             console.log(`📡 구글 스프레드시트에서 주제를 읽어옵니다...`);
             const topics = await Utils.readGoogleSheetTopics();
+            const maxPostsPerRun = resolveMaxBlogPostsPerRun();
+            const targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
 
             console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
+            console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
 
-            if (topics.length === 0) {
+            if (targetTopics.length === 0) {
                 console.log("📭 처리할 새로운 주제가 없습니다.");
                 return;
             }
@@ -224,17 +241,17 @@ program
             let successCount = 0;
             let failCount = 0;
 
-            for (let i = 0; i < topics.length; i++) {
-                const topicData = topics[i];
+            for (let i = 0; i < targetTopics.length; i++) {
+                const topicData = targetTopics[i];
                 const rowIndex = topicData.rowIndex;
 
                 console.log(`\n---------------------------------------------------`);
-                console.log(`[작업 ${i + 1}/${topics.length}] 라이선스 확인 중...`);
+                console.log(`[작업 ${i + 1}/${targetTopics.length}] 라이선스 확인 중...`);
 
                 const check = await License.verifyLicense();
                 if (!check.success) {
                     console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
-                    console.log(`👉 남은 ${topics.length - i}건은 처리되지 않았습니다.`);
+                    console.log(`👉 남은 ${targetTopics.length - i}건은 처리되지 않았습니다.`);
                     break;
                 }
 
@@ -262,11 +279,15 @@ program
                 }
 
                 // 다음 작업 전 대기 (config.txt 설정값 사용)
-                if (i < topics.length - 1) {
+                if (i < targetTopics.length - 1) {
                     const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
                     console.log(`⏳ ${delay}초 대기 중...`);
                     await Utils.sleep(delay * 1000);
                 }
+            }
+
+            if (maxPostsPerRun !== 0 && topics.length > targetTopics.length) {
+                console.log(`ℹ️ 설정된 MAX_BLOG_POSTS_PER_RUN(${maxPostsPerRun})에 따라 이번 실행은 ${targetTopics.length}건만 처리했습니다.`);
             }
 
             console.log(`\n===================================================`);
@@ -364,9 +385,12 @@ program
             await Utils.ensureAllSheetsExist();
 
             const jobs = await Utils.readGoogleSheetShopping();
+            const maxPostsPerRun = resolveMaxShoppingPostsPerRun();
+            const targetJobs = maxPostsPerRun === 0 ? jobs : jobs.slice(0, maxPostsPerRun);
             console.log(`📂 총 ${jobs.length}개의 쇼핑 URL을 발견했습니다.`);
+            console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
 
-            if (jobs.length === 0) {
+            if (targetJobs.length === 0) {
                 console.log("📭 처리할 쇼핑 URL이 없습니다. (상태: 발행 준비 완료)");
                 return;
             }
@@ -374,17 +398,17 @@ program
             let successCount = 0;
             let failCount = 0;
 
-            for (let i = 0; i < jobs.length; i++) {
-                const job = jobs[i];
+            for (let i = 0; i < targetJobs.length; i++) {
+                const job = targetJobs[i];
                 const rowIndex = job.rowIndex;
 
                 console.log(`\n---------------------------------------------------`);
-                console.log(`[작업 ${i + 1}/${jobs.length}] 라이선스 확인 중...`);
+                console.log(`[작업 ${i + 1}/${targetJobs.length}] 라이선스 확인 중...`);
 
                 const check = await License.verifyLicense();
                 if (!check.success) {
                     console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
-                    console.log(`👉 남은 ${jobs.length - i}건은 처리되지 않았습니다.`);
+                    console.log(`👉 남은 ${targetJobs.length - i}건은 처리되지 않았습니다.`);
                     break;
                 }
 
@@ -405,11 +429,15 @@ program
                     failCount++;
                 }
 
-                if (i < jobs.length - 1) {
+                if (i < targetJobs.length - 1) {
                     const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
                     console.log(`⏳ ${delay}초 대기 중...`);
                     await Utils.sleep(delay * 1000);
                 }
+            }
+
+            if (maxPostsPerRun !== 0 && jobs.length > targetJobs.length) {
+                console.log(`ℹ️ 설정된 MAX_SHOPPING_POSTS_PER_RUN(${maxPostsPerRun})에 따라 이번 실행은 ${targetJobs.length}건만 처리했습니다.`);
             }
 
             console.log(`\n===================================================`);

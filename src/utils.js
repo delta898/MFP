@@ -143,7 +143,7 @@ const Utils = {
             }));
             const shoppingSheet = (latestMeta.data.sheets || []).find(s => s.properties?.title === shoppingSheetName);
             if (shoppingSheet?.properties?.sheetId !== undefined) {
-                await this.ensureShoppingSheetValidation(accessToken, spreadsheetId, shoppingSheet.properties.sheetId);
+                await this.ensureShoppingSheetValidation(accessToken, spreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
             }
 
             Logger.info("✅ 모든 필수 시트 준비 완료");
@@ -154,13 +154,29 @@ const Utils = {
         }
     },
 
-    ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId) {
+    ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName) {
         try {
+            let statusColIndex = 1; // 기본: B열(기존 시트 호환)
+            try {
+                const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+                const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }));
+                const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
+                const cleanHeaders = headers.map(h => String(h || '').toLowerCase().replace(/[\s\/_]/g, ''));
+                const detectedStatusColIndex = cleanHeaders.findIndex(h => h.includes('상태') || h.includes('status'));
+                if (detectedStatusColIndex >= 0) {
+                    statusColIndex = detectedStatusColIndex;
+                }
+            } catch (e) {
+                // 헤더 조회 실패 시 기본값(B열) 유지
+            }
+
             const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
             await this.callWithRetry(() => axios.post(updateUrl, {
                 requests: [{
                     setDataValidation: {
-                        range: { sheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        range: { sheetId, startRowIndex: 1, startColumnIndex: statusColIndex, endColumnIndex: statusColIndex + 1 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -309,13 +325,13 @@ const Utils = {
                     }
                 });
             } else if (type === 'shopping') {
-                // 헤더: URL, 상태, 발행 시간
-                headerRow = [['URL', '상태', '발행 시간']];
+                // 헤더: URL, 상품, 상태, 발행 시간
+                headerRow = [['URL', '상품', '상태', '발행 시간']];
 
-                // Dropdown: B열 (Index 1) -> 준비, 발행 준비 완료, 발행 완료, 실패
+                // Dropdown: C열 (Index 2) -> 준비, 발행 준비 완료, 발행 완료, 실패
                 validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 2, endColumnIndex: 3 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
