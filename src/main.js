@@ -70,8 +70,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.5.6')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.6)');
+    .version('0.5.7')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.7)');
 
 // --- Helper Functions ---
 
@@ -352,6 +352,9 @@ program
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
     .action(async () => {
         try {
+            const check = await License.verifyLicense();
+            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
+
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
             await ensureAuth(true); // 로그인 필요
 
