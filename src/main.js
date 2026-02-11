@@ -69,8 +69,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.5.3')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.3)');
+    .version('0.5.5')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.5)');
 
 // --- Helper Functions ---
 
@@ -88,7 +88,8 @@ async function performLogin() {
     // 브라우저 실행
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser();
+        // 로그인은 사용자의 수동 입력이 필요하므로 HEADLESS 설정과 무관하게 항상 UI를 표시한다.
+        browser = await BrowserLauncher.launchBrowser({ headless: false });
     } catch (e) {
         console.error("❌ [Error] 브라우저 실행 실패:", e);
         return;

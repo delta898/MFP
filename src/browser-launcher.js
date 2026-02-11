@@ -3,13 +3,13 @@ const { chromium } = require('playwright');
 // 💡 config-loader를 통해 바깥쪽 config/settings.js 내용을 가져옵니다.
 const CONFIG = require('./config-loader');
 
-async function launchBrowser() {
+async function launchBrowser(overrides = {}) {
     // 사용자가 설정한 값 가져오기 (없으면 기본값 'chrome')
-    let channel = CONFIG.BROWSER_CHANNEL || 'chrome';
+    const channel = overrides.channel || CONFIG.BROWSER_CHANNEL || 'chrome';
 
     const launchOptions = {
-        headless: CONFIG.HEADLESS,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] // 호환성 옵션
+        headless: typeof overrides.headless === 'boolean' ? overrides.headless : CONFIG.HEADLESS,
+        args: overrides.args || ['--no-sandbox', '--disable-setuid-sandbox'] // 호환성 옵션
     };
 
     // 🔧 [Fixed] 브라우저 채널 자동 복구 개선 (여러 옵션 시도)
