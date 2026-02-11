@@ -3,7 +3,7 @@ const Logger = require('./logger');
 
 const KeywordManager = {
     processKeywords: async function () {
-        Logger.info("\n🚀 [Action] 연관검색어 및 블로그 참고 자료 수집 시작...");
+        Logger.info("\n🚀 [Action] 연관검색어 수집 시작...");
 
         // 1. 대상 키워드 읽기
         const targets = await Utils.readGoogleSheetKeywords();
@@ -30,27 +30,13 @@ const KeywordManager = {
                 const relatedKeywords = await Utils.fetchNaverRelatedKeywords(keyword);
                 Logger.info(`   ✅ 연관검색어: ${relatedKeywords.length}개 발견`);
 
-                // 4. 각 연관검색어별로 블로그 검색 및 데이터 생성
-                const newTopics = [];
-                Logger.info(`   🔍 각 연관검색어에 대한 블로그 참고 URL 수집 중...`);
-
-                for (const relKw of relatedKeywords) {
-                    try {
-                        // 각 연관검색어(relKw)에 대해 블로그 검색 수행
-                        const referenceUrl = await Utils.fetchNaverBlogSearchResults(relKw);
-
-                        newTopics.push({
-                            subject: keyword,     // 주제: 원본 키워드 (사용자 요청)
-                            keywords: relKw,      // 키워드: 연관검색어
-                            reference_urls: referenceUrl
-                        });
-
-                        // 네이버 API 레이트 리밋 고려 (약간의 딜레이)
-                        await Utils.sleep(100);
-                    } catch (err) {
-                        Logger.warn(`   ⚠️ '${relKw}' 처리 중 오류: ${err.message}`);
-                    }
-                }
+                // 4. 각 연관검색어별 토픽 데이터 생성 (블로그 URL 수집 제거)
+                const newTopics = relatedKeywords.map(relKw => ({
+                    subject: keyword,           // 주제: 원본 키워드
+                    keywords: relKw,            // 키워드: 연관검색어
+                    use_external_ref: true,     // 외부 참고 여부: 기본 Yes
+                    reference_urls: ''          // 참고 URL: 빈값 (배치 실행 시 자동 수집)
+                }));
 
                 Logger.info(`   ✅ 수집 완료: 총 ${newTopics.length}개의 토픽 생성`);
 

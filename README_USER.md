@@ -139,7 +139,7 @@ https://docs.google.com/spreadsheets/d/여기가_스프레드시트_ID/edit
 5. 환경: **WEB 설정** → URL: `https://www.naver.com` (아무 URL이나 가능)
 6. 등록 후 **Client ID**와 **Client Secret**을 복사
 
-> 이 값들은 config.txt가 아닌 **Apps Script 스크립트 속성**에 입력합니다 (다음 단계 참고).
+> 이 값들은 `config.txt`에 입력하여 프로그램이 직접 사용합니다. Apps Script에는 입력할 필요가 없습니다.
 
 <!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
 
@@ -155,16 +155,7 @@ https://docs.google.com/spreadsheets/d/여기가_스프레드시트_ID/edit
 2. 기존 코드를 전부 지우고, 배포 패키지에 포함된 **`google_apps_script.js`** 파일의 내용을 **복사하여 붙여넣기**
 3. **💾 저장** (Ctrl+S / Cmd+S)
 
-#### 네이버 API 키 등록
 
-1. Apps Script 에디터 좌측 **⚙️ 프로젝트 설정** 클릭
-2. 맨 아래 **스크립트 속성** 섹션에서 **[스크립트 속성 추가]** 클릭
-3. 다음 2개를 추가:
-
-| 속성 | 값 |
-|------|------|
-| `NAVER_CLIENT_ID` | 1-5에서 발급받은 Client ID |
-| `NAVER_CLIENT_SECRET` | 1-5에서 발급받은 Client Secret |
 
 #### 트리거 설치 (최초 1회)
 
@@ -226,10 +217,17 @@ GOOGLE_SHEET_ID = 스프레드시트_URL에서_복사한_ID
 
 ### 3-3. 연관검색어 조사 (Apps Script 자동화)
 
-1. `trends` 시트에서 원하는 키워드의 **동작/상태** 드롭다운을 `키워드 목록에 추가`로 변경
-2. → `keywords` 시트에 자동 복사됨
-3. `keywords` 시트에서 **동작 / 상태** 드롭다운을 `연관검색어 조사`로 변경
-4. → 네이버 API로 연관검색어 + 참고 블로그 URL을 자동 수집하여 `topics` 시트에 추가됨
+### 3-3. 연관검색어 조사 (Apps Script 자동화)
+
+**방법 A: 트렌드에서 바로 조사 (추천)**
+1. `trends` 시트에서 원하는 키워드의 **동작/상태** 드롭다운을 `연관검색어 조사`로 변경
+2. → `topics` 시트에 네이버 연관검색어와 함께 주제가 **자동 등록**됩니다. (외부 참고 여부: Yes)
+3. 완료되면 상태가 `연관검색어 조사 완료`로 바뀝니다.
+
+**방법 B: 키워드 선별 후 조사**
+1. `trends` 시트에서 **동작/상태**를 `키워드 목록에 추가`로 변경 → `keywords` 시트에 복사됨
+2. `keywords` 시트에서 **동작 / 상태**를 `연관검색어 조사`로 변경
+3. → `topics` 시트에 추가됨
 
 ### 3-4. 블로그 포스팅
 
@@ -264,19 +262,20 @@ xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 
 ## 4. 📊 워크플로우 한눈에 보기
 
-```
 [1] 트렌드 수집 (BlogGenius CLI)
      └──▶ trends 시트에 키워드 추가
 
-[2] 키워드 선별 (사용자 → Apps Script)
-     └──▶ '키워드 목록에 추가' 선택 → keywords 시트에 복사
+[2] 주제 생성 (Apps Script)
+     ├──▶ '연관검색어 조사' 선택 ──────┐
+     │                             │
+     └──▶ '키워드 목록에 추가' 선택    │
+           ↓                       │ (Direct)
+          keywords 시트             │
+           ↓                       ▼
+          '연관검색어 조사' 선택 ──▶ topics 시트에 추가
 
-[3] 연관검색어 조사 (Apps Script)
-     └──▶ '연관검색어 조사' 선택 → topics 시트에 결과 자동 추가
-
-[4] 블로그 발행 (BlogGenius CLI)
+[3] 블로그 발행 (BlogGenius CLI)
      └──▶ batch 명령으로 topics 시트의 주제를 자동 발행
-```
 
 ---
 

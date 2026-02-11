@@ -61,8 +61,8 @@ const TrendManager = {
             const collectedCategories = new Set();
             let allKeywords = [];
 
-            // 최대 스와이프 횟수 제한 (무한 루프 방지)
-            const MAX_SWIPES = 20;
+            // 최대 스와이프 횟수 제한 (무한 루프 방지) - 카테고리가 많으므로 충분히 늘림
+            const MAX_SWIPES = 50;
             let swipeCount = 0;
             let noNewCategoryCount = 0; // 새로운 카테고리가 안 나오는 횟수 연속 체크
 
@@ -185,8 +185,8 @@ const TrendManager = {
                         await page.mouse.up();
 
                         swipeCount++;
-                        // 애니메이션 및 로딩 대기
-                        await page.waitForTimeout(800);
+                        // 애니메이션 및 로딩 대기 (충분한 시간 부여)
+                        await page.waitForTimeout(1500);
                     } else {
                         Logger.warn('⚠️ 스와이프 영역을 찾을 수 없습니다 (BoundingBox Fail).');
                         break;

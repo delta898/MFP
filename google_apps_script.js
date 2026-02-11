@@ -55,9 +55,13 @@ function onSheetEdit(e) {
     if (!newValue) return;
 
     try {
-        // ── trends 시트: '키워드 목록에 추가' ──
-        if (sheetName === 'trends' && col === 5 && newValue === '키워드 목록에 추가') {
-            handleTrendsToKeywords(e, sheet, range);
+        // ── trends 시트: '키워드 목록에 추가' OR '연관검색어 조사' ──
+        if (sheetName === 'trends' && col === 5) {
+            if (newValue === '키워드 목록에 추가') {
+                handleTrendsToKeywords(e, sheet, range);
+            } else if (newValue === '연관검색어 조사') {
+                handleKeywordResearch(e, sheet, range); // trends 시트에서도 바로 호출
+            }
         }
 
         // ── keywords 시트: '연관검색어 조사' ──
@@ -102,15 +106,32 @@ function handleTrendsToKeywords(e, sheet, range) {
     var timestamp = new Date();
     kwSheet.appendRow([keyword, '대기', timestamp]);
 
+    // trends 시트 상태 업데이트 (완료 표시)
+    sheet.getRange(row, 5).setValue('키워드 목록 추가 완료');
+
     e.source.toast('✅ keywords에 추가됨: ' + keyword);
 }
 
 // ============================================================
-// 2️⃣ keywords: 연관검색어 조사 실행
+// 2️⃣ keywords & trends: 연관검색어 조사 실행
 // ============================================================
 function handleKeywordResearch(e, sheet, range) {
+    var sheetName = sheet.getName();
     var row = range.getRow();
-    var keyword = sheet.getRange(row, 1).getValue(); // A열: 키워드
+    var keyword = '';
+    var statusCol = 0;
+    var timeCol = 0;
+
+    // 시트별 컬럼 위치 설정
+    if (sheetName === 'keywords') {
+        keyword = sheet.getRange(row, 1).getValue(); // A열
+        statusCol = 2; // B열
+        timeCol = 3;   // C열
+    } else if (sheetName === 'trends') {
+        keyword = sheet.getRange(row, 3).getValue(); // C열
+        statusCol = 5; // E열
+        // trends는 별도 시간 업데이트 컬럼 없음 (A열은 트렌드 날짜이므로 유지)
+    }
 
     if (!keyword) {
         e.source.toast('⚠️ 키워드가 비어있습니다.');
@@ -124,8 +145,8 @@ function handleKeywordResearch(e, sheet, range) {
 
     if (relatedKeywords.length === 0) {
         e.source.toast('⚠️ 연관검색어가 없습니다: ' + keyword);
-        sheet.getRange(row, 2).setValue('연관검색어 조사 완료'); // 결과 없어도 완료 처리
-        sheet.getRange(row, 3).setValue(new Date()); // 작업 시간 업데이트
+        if (statusCol > 0) sheet.getRange(row, statusCol).setValue('연관검색어 조사 완료');
+        if (timeCol > 0) sheet.getRange(row, timeCol).setValue(new Date());
         return;
     }
 
@@ -136,16 +157,14 @@ function handleKeywordResearch(e, sheet, range) {
         return;
     }
 
-    // 3. 각 연관검색어에 대해 블로그 URL 수집 → topics에 추가
+    // 3. 각 연관검색어에 대해 topics에 추가 (블로그 URL 수집 없음)
     var addedCount = 0;
     for (var i = 0; i < relatedKeywords.length; i++) {
         var relKw = relatedKeywords[i];
 
         try {
-            var blogUrl = fetchBlogUrl(relKw);
-
             // topics 시트에 추가
-            // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 참고 URL, 발행 시간, 로그
+            // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
             topicsSheet.appendRow([
                 'naver',    // blog
                 keyword,    // subject (원본 키워드)
@@ -153,23 +172,21 @@ function handleKeywordResearch(e, sheet, range) {
                 '',         // 참고/지시 사항
                 '대기',     // 상태
                 'No',       // 이미지 생성
-                blogUrl,    // 참고 URL
+                'Yes',      // 외부 참고 여부
+                '',         // 참고 URL (배치 실행 시 자동 수집)
                 '',         // 발행 시간
                 ''          // 로그
             ]);
 
             addedCount++;
-
-            // API 레이트 리밋 방지 (100ms 대기)
-            Utilities.sleep(100);
         } catch (err) {
             Logger.log('Error processing ' + relKw + ': ' + err.toString());
         }
     }
 
     // 4. 상태 업데이트: 연관검색어 조사 완료
-    sheet.getRange(row, 2).setValue('연관검색어 조사 완료');
-    sheet.getRange(row, 3).setValue(new Date()); // 작업 시간 업데이트
+    if (statusCol > 0) sheet.getRange(row, statusCol).setValue('연관검색어 조사 완료');
+    if (timeCol > 0) sheet.getRange(row, timeCol).setValue(new Date());
 
     e.source.toast('✅ 완료! ' + addedCount + '개의 토픽이 추가됨 (' + keyword + ')');
 }
@@ -196,47 +213,4 @@ function fetchRelatedKeywords(keyword) {
 // ============================================================
 // 🔍 네이버 블로그 검색 API
 // ============================================================
-function fetchBlogUrl(keyword) {
-    try {
-        var props = PropertiesService.getScriptProperties();
-        var clientId = props.getProperty('NAVER_CLIENT_ID');
-        var clientSecret = props.getProperty('NAVER_CLIENT_SECRET');
 
-        if (!clientId || !clientSecret) {
-            Logger.log('⚠️ NAVER API 키가 설정되지 않았습니다. 스크립트 속성을 확인하세요.');
-            return '';
-        }
-
-        var url = 'https://openapi.naver.com/v1/search/blog.json?query=' + encodeURIComponent(keyword) + '&display=5&sort=sim';
-        var options = {
-            headers: {
-                'X-Naver-Client-Id': clientId,
-                'X-Naver-Client-Secret': clientSecret
-            },
-            muteHttpExceptions: true
-        };
-
-        var response = UrlFetchApp.fetch(url, options);
-        var data = JSON.parse(response.getContentText());
-
-        if (data && data.items && data.items.length > 0) {
-            // postdate 기준 최신순 정렬 후 첫 번째 링크 반환
-            var items = data.items.sort(function (a, b) {
-                return Number(b.postdate) - Number(a.postdate);
-            });
-            var link = items[0].link || '';
-
-            // 🔧 [Added] 네이버 블로그 주소인 경우 모바일 주소로 변환
-            if (link && link.indexOf('blog.naver.com') !== -1 && link.indexOf('m.blog.naver.com') === -1) {
-                link = link.replace('http://blog.naver.com', 'https://m.blog.naver.com')
-                    .replace('https://blog.naver.com', 'https://m.blog.naver.com');
-            }
-            return link;
-        }
-
-        return '';
-    } catch (e) {
-        Logger.log('블로그 검색 API 오류 (' + keyword + '): ' + e.toString());
-        return '';
-    }
-}

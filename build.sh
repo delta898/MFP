@@ -62,7 +62,7 @@ copy_assets() {
 
     # 프롬프트 및 엑셀 파일
     cp config/system_prompt.md.sample "$TARGET_DIR/config/system_prompt.md"
-    cp topics.xlsx.sample "$TARGET_DIR/topics.xlsx"
+
     cp topic.json.sample "$TARGET_DIR/topic.json"
     
     # README 교체 (README_USER.md가 없으면 생성)

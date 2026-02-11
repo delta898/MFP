@@ -21,11 +21,6 @@ const filesToCopy = [
         name: '단건 작업 파일 (topic.json)',
         src: path.join(__dirname, 'topic.json.sample'),
         dest: path.join(__dirname, 'topic.json')
-    },
-    {
-        name: '배치 엑셀 파일 (topics.xlsx)',
-        src: path.join(__dirname, 'topics.xlsx.sample'),
-        dest: path.join(__dirname, 'topics.xlsx')
     }
 ];
 
@@ -56,11 +51,11 @@ try {
     // 윈도우/맥 호환을 위해 shell 옵션 사용
     execSync('npm install', { stdio: 'inherit', shell: true });
     console.log("✅ 기본 라이브러리 설치 완료!");
-    
+
     console.log("🌍 브라우저 드라이버를 설치합니다 (npx playwright install)...");
     execSync('npx playwright install', { stdio: 'inherit', shell: true });
     console.log("✅ 브라우저 드라이버 설치 완료!");
-    
+
 } catch (e) {
     console.error("❌ 설치 중 오류 발생:", e.message);
     console.log("👉 (팁) 'npm install'을 직접 실행해보세요.");

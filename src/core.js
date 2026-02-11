@@ -23,28 +23,67 @@ const Core = {
 		const hasKeywords = jobData.keywords && jobData.keywords.length > 0;
 		const hasInstructions = jobData.content_guide?.additional_instructions;
 		const hasRef = jobData.content_guide?.reference_urls && jobData.content_guide.reference_urls.length > 0;
+		const useExternalRef = jobData.use_external_ref === true;
 
 		if (!hasSubject && !hasKeywords && !hasRef && !hasInstructions) {
 			throw new Error("❌ [Error] 주제, 키워드, 지시사항, URL 중 적어도 하나는 필요합니다.");
 		}
 
-		// 1) 참고 자료 스크래핑
+		// 1) 외부 참고 블로그 인기글 수집 (use_external_ref === true일 때)
 		let scrapedContext = "";
+		let refSourceCount = 0;
+
+		if (useExternalRef) {
+			// 검색 키워드 결정: keywords 중 첫번째 또는 subject
+			const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
+			if (searchKeyword) {
+				Logger.debug(`🔍 [외부 참고] 인기글 수집 시작: '${searchKeyword}'`);
+				const relatedPosts = await Utils.fetchNaverBlogTopPosts(searchKeyword);
+
+				for (const post of relatedPosts) {
+					const safeTitle = post.title.length > 10 ? post.title.substring(0, 15) + '...' : post.title;
+					Logger.info(`   📖 [외부 참고] 관련 인기글 분석 중: ${safeTitle}`);
+					const text = await Utils.fetchReferenceContent(post.link);
+					if (text) {
+						refSourceCount++;
+						scrapedContext += `\n[인기 참고글 ${refSourceCount} - ${post.title}]:\n${text}\n`;
+					}
+					await Utils.sleep(1000);
+				}
+				Logger.debug(`🔍 [외부 참고] 인기글 스크래핑 완료: ${refSourceCount}건 성공`);
+			}
+		}
+
+		// 2) 수동 참고 URL 스크래핑 (기존 로직 유지)
 		if (hasRef) {
-			Logger.info("📚 참고 자료(URL) 분석 중...");
+			Logger.debug("📚 수동 참고 자료(URL) 분석 중...");
 			for (const url of jobData.content_guide.reference_urls) {
-				const text = await Utils.fetchReferenceContent(url);
-				if (text) scrapedContext += `\n[Reference from ${url}]:\n${text}\n`;
+				// 네이버 블로그 URL이면 모바일 변환
+				const convertedUrl = Utils.convertToMobileNaverBlogUrl(url);
+				const text = await Utils.fetchReferenceContent(convertedUrl);
+				if (text) {
+					refSourceCount++;
+					scrapedContext += `\n[수동 참고글 ${refSourceCount} - ${convertedUrl}]:\n${text}\n`;
+				}
 				await Utils.sleep(1000);
 			}
 		}
 
-		// 2) 프롬프트 로딩 (Priority: Config > Constants)
+		// 3) 프롬프트 로딩 (Priority: Config > Constants)
 		const promptPath = CONFIG.SYSTEM_PROMPT_PATH || Constants.PROMPT_FILE;
 		if (!fs.existsSync(promptPath)) {
 			throw new Error(`시스템 프롬프트 파일이 없습니다: ${promptPath}`);
 		}
 		const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
+
+		// 4) 참고 컨텍스트 구성
+		let referenceSection = "(No reference provided)";
+		if (scrapedContext) {
+			referenceSection = `아래는 해당 주제와 관련된 참고 블로그 글의 내용입니다.
+이 글들의 핵심 인사이트, 정보, 관점을 참고하여 독창적인 글을 작성하세요.
+단, 원문을 그대로 복사하지 말고, 여러 글의 정보를 종합하여 새로운 시각과 가치를 제공하는 글을 작성하세요.
+${scrapedContext}`;
+		}
 
 		const userPrompt = `
 				 [INPUT DATA]
@@ -53,7 +92,7 @@ const Core = {
 			 - Instructions: ${jobData.content_guide?.additional_instructions || "None"}
 			 - Image Count: ${jobData.image_options?.count || 4}
 			 [REFERENCE CONTEXT]
-				 ${scrapedContext || "(No reference provided)"}
+				 ${referenceSection}
 			 `;
 
 		// 3) Gemini 호출

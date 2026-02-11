@@ -188,8 +188,8 @@ const Utils = {
                     }
                 });
             } else if (type === 'topics') {
-                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 참고 URL, 발행 시간, 로그
-                headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '참고 URL', '발행 시간', '로그']];
+                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
+                headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL', '발행 시간', '로그']];
 
                 // Dropdown: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
                 validationRequests.push({
@@ -225,6 +225,23 @@ const Utils = {
                         }
                     }
                 });
+
+                // Dropdown: G열 (Index 6) -> Yes, No (외부 참고 여부)
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: 'Yes' },
+                                    { userEnteredValue: 'No' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
             } else if (type === 'trends') {
                 // 헤더: 날짜, 주제, 키워드, 증감, 동작/상태
                 headerRow = [['날짜', '주제', '키워드', '증감', '동작/상태']];
@@ -238,7 +255,10 @@ const Utils = {
                                 type: 'ONE_OF_LIST',
                                 values: [
                                     { userEnteredValue: '대기' },
-                                    { userEnteredValue: '키워드 목록에 추가' }
+                                    { userEnteredValue: '키워드 목록에 추가' },
+                                    { userEnteredValue: '키워드 목록 추가 완료' },
+                                    { userEnteredValue: '연관검색어 조사' },
+                                    { userEnteredValue: '연관검색어 조사 완료' }
                                 ]
                             },
                             showCustomUi: true, strict: true
@@ -303,6 +323,7 @@ const Utils = {
                 const status = getVal(['상태', 'status']);
                 const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
+                const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
 
                 return {
                     rowIndex: index,
@@ -313,6 +334,7 @@ const Utils = {
                         reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
                     },
                     status: status ? status.trim() : "",
+                    use_external_ref: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(extRefStr.toLowerCase()),
                     image_options: {
                         generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
                         count: parseInt(imgCountStr) || 4
@@ -542,6 +564,7 @@ const Utils = {
                     // 데이터 유효성 검사 (Dropdown)
                     // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
                     // 이미지 생성: F열 (Index 5) -> Yes, No
+                    // 외부 참고 여부: G열 (Index 6) -> Yes, No
                     const validationReq = {
                         requests: [{
                             setDataValidation: {
@@ -572,12 +595,26 @@ const Utils = {
                                     showCustomUi: true, strict: true
                                 }
                             }
+                        }, {
+                            setDataValidation: {
+                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
+                                rule: {
+                                    condition: {
+                                        type: 'ONE_OF_LIST',
+                                        values: [
+                                            { userEnteredValue: 'Yes' },
+                                            { userEnteredValue: 'No' }
+                                        ]
+                                    },
+                                    showCustomUi: true, strict: true
+                                }
+                            }
                         }]
                     };
                     await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
 
-                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 참고 URL, 발행 시간, 로그
-                    const headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '참고 URL', '발행 시간', '로그']];
+                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
+                    const headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL', '발행 시간', '로그']];
                     const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
                     await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
                         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
@@ -598,17 +635,16 @@ const Utils = {
                 if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
                 else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
                 else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
+                else if (clean.includes('외부참고') || clean.includes('extref') || clean.includes('external')) map.extRef = i;
                 else if (clean.includes('url') || clean.includes('참고')) map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
                 else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
             });
 
-            // 헤더가 없거나 매핑이 안되면 기본값 사용 (순서: blog, subject, keywords, instructions, status, imgGen, refUrl, timestamp, log)
-            // 여기서는 중요한 것만 매핑
+            // 헤더가 없거나 매핑이 안되면 기본값 사용
             if (map.blog === undefined) map.blog = 0;
             if (map.subject === undefined) map.subject = 1;
             if (map.keyword === undefined) map.keyword = 2;
-            // ... 나머지는 생략 가능하거나 자동 위치
 
             const maxCol = Math.max(...Object.values(map));
             const rowsToAdd = newTopics.map(topic => {
@@ -616,7 +652,8 @@ const Utils = {
                 if (map.blog !== undefined) row[map.blog] = 'naver'; // 기본값 'naver'
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
                 if (map.keyword !== undefined) row[map.keyword] = topic.keywords;
-                if (map.url !== undefined) row[map.url] = topic.reference_urls;
+                if (map.extRef !== undefined) row[map.extRef] = topic.use_external_ref !== undefined ? (topic.use_external_ref ? 'Yes' : 'No') : 'Yes';
+                if (map.url !== undefined) row[map.url] = topic.reference_urls || '';
                 if (map.status !== undefined) row[map.status] = '대기';
                 if (map.imgGen !== undefined) row[map.imgGen] = 'No'; // 사용자 요청: 기본값 No
                 return row;
@@ -688,7 +725,10 @@ const Utils = {
                                         type: 'ONE_OF_LIST',
                                         values: [
                                             { userEnteredValue: '대기' },
-                                            { userEnteredValue: '키워드 목록에 추가' }
+                                            { userEnteredValue: '키워드 목록에 추가' },
+                                            { userEnteredValue: '키워드 목록 추가 완료' },
+                                            { userEnteredValue: '연관검색어 조사' },
+                                            { userEnteredValue: '연관검색어 조사 완료' }
                                         ]
                                     },
                                     showCustomUi: true, strict: true
@@ -766,6 +806,18 @@ const Utils = {
     },
 
     /**
+     * 1-3-1. 네이버 블로그 URL 모바일 변환 헬퍼
+     */
+    convertToMobileNaverBlogUrl: function (url) {
+        if (!url) return url;
+        if (url.includes('blog.naver.com') && !url.includes('m.blog.naver.com')) {
+            return url.replace('http://blog.naver.com', 'https://m.blog.naver.com')
+                .replace('https://blog.naver.com', 'https://m.blog.naver.com');
+        }
+        return url;
+    },
+
+    /**
      * 1-4. 네이버 연관검색어 추출
      */
     fetchNaverRelatedKeywords: async function (keyword) {
@@ -817,12 +869,7 @@ const Utils = {
                 // 가장 최신 글 1개의 링크만 리턴
                 if (items.length > 0) {
                     let link = items[0].link;
-                    // 🔧 [Added] 네이버 블로그 주소인 경우 모바일 주소로 변환
-                    if (link && link.includes('blog.naver.com') && !link.includes('m.blog.naver.com')) {
-                        link = link.replace('http://blog.naver.com', 'https://m.blog.naver.com')
-                            .replace('https://blog.naver.com', 'https://m.blog.naver.com');
-                    }
-                    return link;
+                    return this.convertToMobileNaverBlogUrl(link);
                 }
             }
             return "";
@@ -830,6 +877,60 @@ const Utils = {
         } catch (e) {
             Logger.warn(`⚠️ 블로그 검색 API 실패 (${keyword}): ${e.message}`);
             return "";
+        }
+    },
+
+    /**
+     * 1-5-1. 네이버 블로그 인기글 상위 N개 URL 수집 (최신순)
+     * - 외부 참고 여부가 Yes인 경우 batch 실행 시 호출
+     * - 모든 로그는 DEBUG 레벨에서만 출력
+     */
+    fetchNaverBlogTopPosts: async function (keyword, count) {
+        const Constants = require('./constants');
+        const blogCount = count || Constants.REFERENCE_BLOG_COUNT || 3;
+
+        if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
+            Logger.debug('🔍 [외부 참고] 네이버 검색 API 설정이 없어 인기글 수집을 건너뜁니다.');
+            return [];
+        }
+
+        try {
+            const url = `https://openapi.naver.com/v1/search/blog.json`;
+            const res = await axios.get(url, {
+                headers: {
+                    'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
+                    'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
+                },
+                params: {
+                    query: keyword,
+                    display: Math.max(blogCount * 2, 10), // 여유를 두고 많이 가져와서 필터링
+                    sort: 'sim' // 정확도순
+                }
+            });
+
+            if (res.data && res.data.items && res.data.items.length > 0) {
+                // postdate 기준 내림차순 정렬 (최신순)
+                const sorted = res.data.items.sort((a, b) => Number(b.postdate) - Number(a.postdate));
+
+                // 상위 N개만 선택 후 모바일 URL 변환
+                const topPosts = sorted.slice(0, blogCount).map(item => {
+                    return {
+                        title: (item.title || '').replace(/<[^>]*>/g, ''), // HTML 태그 제거
+                        link: this.convertToMobileNaverBlogUrl(item.link),
+                        postdate: item.postdate || ''
+                    };
+                });
+
+                Logger.debug(`🔍 [외부 참고] '${keyword}' 인기글 ${topPosts.length}개 수집 완료`);
+                return topPosts;
+            }
+
+            Logger.debug(`🔍 [외부 참고] '${keyword}' 검색 결과 없음`);
+            return [];
+
+        } catch (e) {
+            Logger.debug(`🔍 [외부 참고] 인기글 수집 실패 (${keyword}): ${e.message}`);
+            return [];
         }
     },
 
@@ -904,141 +1005,32 @@ const Utils = {
     /**
      * 3. 엑셀 읽기 (기존 유지 + 필터 수정)
      */
-    readExcelTopics: function (filePath) {
-        const XLSX = require('xlsx');
-        try {
-            if (!fs.existsSync(filePath)) return [];
-            const workbook = XLSX.readFile(filePath);
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rawData = XLSX.utils.sheet_to_json(sheet);
-
-            return rawData.map((row, index) => {
-                const entry = {};
-                Object.keys(row).forEach(key => {
-                    const cleanKey = key.toLowerCase().replace(/[\s\/_]/g, '').trim();
-                    entry[cleanKey] = row[key];
-                });
-
-                const getVal = (cols) => {
-                    for (let col of cols) {
-                        const cleanCol = col.toLowerCase().replace(/[\s\/_]/g, '').trim();
-                        if (entry[cleanCol] !== undefined) return String(entry[cleanCol]).trim();
-                    }
-                    return "";
-                };
-
-                const subject = getVal(['subject', '주제', '제목']);
-                const kwStr = getVal(['keywords', '키워드']);
-                const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
-                const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
-                const status = getVal(['상태', 'status']);
-                const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
-                const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
-
-                return {
-                    rowIndex: index,
-                    subject: subject || undefined,
-                    keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
-                    content_guide: {
-                        additional_instructions: instruction,
-                        reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
-                    },
-                    status: status ? status.trim() : "",
-                    image_options: {
-                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
-                        count: parseInt(imgCountStr) || 4
-                    }
-                };
-            }).filter(item => {
-                // 🔥 [수정됨] 주제, 키워드, URL 중 하나라도 있으면 OK
-                const hasData = item.subject ||
-                    item.keywords.length > 0 ||
-                    item.content_guide.reference_urls.length > 0; // 👈 여기 추가됨
-                return hasData && (item.status === '블로그 발행 준비 완료');
-            });
-        } catch (e) {
-            Logger.error(`❌ 엑셀 읽기 에러: ${e.message}`);
-            return [];
-        }
-    },
-
-    // 🔧 [Fixed] 엑셀 업데이트 재시도 로직 추가
-    updateExcelStatus: function (filePath, rowIndex, status, logMessage, retries = 2) {
-        const XLSX = require('xlsx');
-
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                const workbook = XLSX.readFile(filePath);
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const range = XLSX.utils.decode_range(sheet['!ref']);
-
-                let statusCol, logCol, timeCol;
-                for (let c = range.s.c; c <= range.e.c; c++) {
-                    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: c });
-                    const cell = sheet[cellAddress];
-                    if (!cell) continue;
-                    const hdr = cell.v.toString().toLowerCase().replace(/[\s\/_]/g, '');
-                    if (hdr.includes('상태') || hdr.includes('status')) statusCol = c;
-                    else if (hdr.includes('로그') || hdr.includes('log')) logCol = c;
-                    else if (hdr.includes('발행') || hdr.includes('time')) timeCol = c;
-                }
-
-                const r = rowIndex + 1;
-                const writeCell = (col, val) => {
-                    if (col === undefined) return;
-                    const cellAddress = XLSX.utils.encode_cell({ r: r, c: col });
-                    sheet[cellAddress] = { v: val, t: 's' };
-                };
-
-                writeCell(statusCol, status);
-                writeCell(logCol, logMessage);
-                writeCell(timeCol, new Date().toLocaleString());
-                XLSX.writeFile(workbook, filePath);
-
-                // 성공 시 즉시 리턴
-                return;
-            } catch (e) {
-                if (attempt === retries) {
-                    Logger.error(`❌ 엑셀 업데이트 최종 실패 (Row ${rowIndex + 1}): ${e.message}`);
-                    // 백업 로깅
-                    const backupLog = `${new Date().toISOString()} | Row ${rowIndex + 1} | ${status} | ${logMessage}\n`;
-                    try {
-                        fs.appendFileSync('failed_updates.log', backupLog);
-                        Logger.warn(`   💾 백업 로그에 기록됨: failed_updates.log`);
-                    } catch (fileErr) {
-                        Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
-                    }
-                } else {
-                    Logger.warn(`⚠️ 엑셀 업데이트 재시도 (${attempt}/${retries})`);
-                    this.sleep(500); // 짧은 대기 (동기 함수이므로 setTimeout 사용 불가)
-                }
-            }
-        }
-    },
+    // 3. (Deleted) Excel Support Removed
+    // readExcelTopics & updateExcelStatus functions were removed.
 
     fetchReferenceContent: async function (url) {
         if (!url) return "";
-        Logger.info(`🌐 [Scraping] 접속 시도: ${url}`);
+        // 🔒 외부 참고 관련 로그는 DEBUG 레벨에서만 출력
+        Logger.debug(`🌐 [Scraping] 접속 시도: ${url}`);
         const cheerio = require('cheerio');
         try {
-            // 🔧 [Fixed] 타임아웃 연장 및 리다이렉트 제한 추가
             const response = await axios.get(url, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
                 },
-                timeout: CONFIG.SCRAPING_TIMEOUT || 20000,  // 설정 가능하게, 기본 20초
-                maxRedirects: 5  // 리다이렉트 제한
+                timeout: CONFIG.SCRAPING_TIMEOUT || 20000,
+                maxRedirects: 5
             });
             const $ = cheerio.load(response.data);
             const tagsToRemove = ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', '.ad', '#ad', 'form', 'button'];
             tagsToRemove.forEach(tag => $(tag).remove());
             const rawText = $('body').text();
             const cleanText = rawText.replace(/\s+/g, ' ').trim();
-            Logger.info(`   ✅ 스크래핑 성공 (길이: ${cleanText.length}자)`);
+            Logger.debug(`   ✅ 스크래핑 성공 (길이: ${cleanText.length}자)`);
             return cleanText.substring(0, 3500);
         } catch (e) {
-            Logger.warn(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
+            Logger.debug(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
             return "";
         }
     },
