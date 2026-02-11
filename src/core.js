@@ -375,6 +375,7 @@ async function focusEditorTypingArea(page) {
 async function getEditorLinkSnapshot(page, targetUrl = '') {
 	try {
 		return await page.evaluate((rawUrl) => {
+			const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const normalize = (value) => {
 				const v = String(value || '').trim();
 				if (!v) return '';
@@ -397,6 +398,7 @@ async function getEditorLinkSnapshot(page, targetUrl = '') {
 
 			const anchors = Array.from(editorRoot.querySelectorAll('a[href]'))
 				.filter(a => !a.closest('.se-popup-oglink'));
+			const allAnchorCount = anchors.length;
 
 			const targetAnchorCount = anchors.filter(a => {
 				const href = normalize(a.getAttribute('href'));
@@ -408,10 +410,26 @@ async function getEditorLinkSnapshot(page, targetUrl = '') {
 				.filter(el => !el.closest('.se-popup-oglink') && /\boglink\b/i.test(String(el.className || '')))
 				.length;
 
-			return { targetAnchorCount, oglinkCount };
+			const targetMentionCount = (() => {
+				if (!target) return 0;
+				const text = String(editorRoot.textContent || '');
+				const targetWithoutProtocol = target.replace(/^https?:\/\//i, '');
+				const patterns = [
+					new RegExp(escapeRegExp(target), 'gi'),
+					new RegExp(escapeRegExp(targetWithoutProtocol), 'gi')
+				];
+				let count = 0;
+				for (const pattern of patterns) {
+					const matched = text.match(pattern);
+					if (matched?.length) count += matched.length;
+				}
+				return count;
+			})();
+
+			return { targetAnchorCount, oglinkCount, allAnchorCount, targetMentionCount };
 		}, targetUrl);
 	} catch (e) {
-		return { targetAnchorCount: 0, oglinkCount: 0 };
+		return { targetAnchorCount: 0, oglinkCount: 0, allAnchorCount: 0, targetMentionCount: 0 };
 	}
 }
 
@@ -555,16 +573,18 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 		}
 
 		let inserted = false;
-		for (let i = 0; i < 18; i++) {
+		for (let i = 0; i < 40; i++) {
 			const nowSnapshot = await getEditorLinkSnapshot(page, url);
 			if (
 				nowSnapshot.targetAnchorCount > beforeSnapshot.targetAnchorCount ||
-				nowSnapshot.oglinkCount > beforeSnapshot.oglinkCount
+				nowSnapshot.oglinkCount > beforeSnapshot.oglinkCount ||
+				nowSnapshot.allAnchorCount > beforeSnapshot.allAnchorCount ||
+				nowSnapshot.targetMentionCount > beforeSnapshot.targetMentionCount
 			) {
 				inserted = true;
 				break;
 			}
-			await Utils.sleep(180);
+			await Utils.sleep(200);
 		}
 		if (!inserted) {
 			return false;

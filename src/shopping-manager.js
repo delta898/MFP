@@ -58,9 +58,10 @@ function extractNaverTypeSize(imageUrl) {
     }
 }
 
-function scoreImageUrl(imageUrl) {
+function scoreImageUrl(imageUrl, source = 'generic') {
     let score = 0;
     const lower = String(imageUrl || '').toLowerCase();
+    const sourceTag = String(source || '').toLowerCase();
 
     try {
         const parsed = new URL(imageUrl);
@@ -73,6 +74,13 @@ function scoreImageUrl(imageUrl) {
 
     if (/\/contact\//.test(lower)) score -= 90;
     if (/banner|gnb|profile|avatar|thumb|thumbnail|icon|logo|sprite|blank|mall_pc|_pc\d{1,2}/.test(lower)) score -= 70;
+    if (/main|represent|대표|cover/.test(lower)) score -= 20;
+    if (/detail|desc|introduce|editor|content|smarteditor/.test(lower)) score += 20;
+
+    if (sourceTag === 'detail_dom') score += 35;
+    if (sourceTag === 'detail_script') score += 30;
+    if (sourceTag === 'structured') score += 12;
+    if (sourceTag === 'og') score += 6;
 
     const typeInfo = extractNaverTypeSize(imageUrl);
     if (typeInfo) {
@@ -85,16 +93,22 @@ function scoreImageUrl(imageUrl) {
     return score;
 }
 
-function refineImageCandidates(imageCandidates, finalUrl) {
+function rankImageCandidates(imageCandidates, finalUrl) {
     const normalized = imageCandidates
-        .map(src => toAbsoluteUrl(src, finalUrl))
-        .filter(src => !!src)
-        .filter(src => !src.startsWith('data:'))
-        .filter(src => !src.includes('.svg'));
+        .map(item => {
+            const rawUrl = typeof item === 'string' ? item : item?.url;
+            const source = typeof item === 'string' ? 'generic' : (item?.source || 'generic');
+            const src = toAbsoluteUrl(unescapeJsEscapes(String(rawUrl || '')), finalUrl);
+            return { src, source };
+        })
+        .filter(item => !!item.src)
+        .filter(item => !item.src.startsWith('data:'))
+        .filter(item => !item.src.includes('.svg'));
 
     const expanded = [];
-    for (const src of normalized) {
-        expanded.push(src);
+    for (const item of normalized) {
+        const src = item.src;
+        expanded.push(item);
         try {
             const parsed = new URL(src);
             const host = parsed.hostname.toLowerCase();
@@ -102,46 +116,87 @@ function refineImageCandidates(imageCandidates, finalUrl) {
             if (host.includes('shop-phinf.pstatic.net') && typeInfo && typeInfo.size < 700) {
                 const noTypeUrl = new URL(parsed.toString());
                 noTypeUrl.searchParams.delete('type');
-                expanded.push(noTypeUrl.toString());
+                expanded.push({ src: noTypeUrl.toString(), source: item.source });
 
                 const o1000Url = new URL(parsed.toString());
                 o1000Url.searchParams.set('type', 'o1000');
-                expanded.push(o1000Url.toString());
+                expanded.push({ src: o1000Url.toString(), source: item.source });
             }
         } catch (e) { }
     }
 
     const dedupedMap = new Map();
-    for (const src of expanded) {
+    for (const item of expanded) {
+        const src = item.src;
         const identity = normalizeImageIdentity(src);
         const current = dedupedMap.get(identity);
         if (!current) {
-            dedupedMap.set(identity, src);
+            dedupedMap.set(identity, item);
             continue;
         }
-        // 같은 이미지라면 더 큰 type 파라미터(예: s80보다 o1000)를 우선
-        const currentType = extractNaverTypeSize(current);
+        const currentScore = scoreImageUrl(current.src, current.source);
+        const nextScore = scoreImageUrl(src, item.source);
+        if (nextScore > currentScore + 2) {
+            dedupedMap.set(identity, item);
+            continue;
+        }
+        if (nextScore + 2 < currentScore) continue;
+
+        // 점수가 비슷하면 더 큰 type 파라미터(예: s80보다 o1000)를 우선
+        const currentType = extractNaverTypeSize(current.src);
         const nextType = extractNaverTypeSize(src);
         if (currentType && !nextType) {
-            dedupedMap.set(identity, src);
+            dedupedMap.set(identity, item);
             continue;
         }
         if (!currentType && nextType) continue;
         if (currentType && nextType && nextType.size > currentType.size) {
-            dedupedMap.set(identity, src);
+            dedupedMap.set(identity, item);
         }
     }
 
     return [...dedupedMap.values()]
-        .filter(src => {
+        .filter(item => {
+            const src = item.src;
             const typeInfo = extractNaverTypeSize(src);
             if (!typeInfo) return true;
             if ((typeInfo.kind === 's' || typeInfo.kind === 'm') && typeInfo.size <= 250) return false;
             if (typeInfo.kind === 'f' && typeInfo.size < 500) return false;
             return true;
         })
-        .filter(src => scoreImageUrl(src) > -20)
-        .sort((a, b) => scoreImageUrl(b) - scoreImageUrl(a));
+        .filter(item => scoreImageUrl(item.src, item.source) > -20)
+        .sort((a, b) => scoreImageUrl(b.src, b.source) - scoreImageUrl(a.src, a.source));
+}
+
+function refineImageCandidates(imageCandidates, finalUrl, options = {}) {
+    const sortedItems = rankImageCandidates(imageCandidates, finalUrl);
+    const used = new Set();
+    const diversified = [];
+    const pushItem = (item) => {
+        if (!item?.src) return;
+        if (used.has(item.src)) return;
+        diversified.push(item);
+        used.add(item.src);
+    };
+
+    // 상세 이미지가 있으면 초반에 최소 3개까지 우선 배치해 대표 이미지 쏠림을 줄인다.
+    const detailFirst = sortedItems.filter(item => ['detail_dom', 'detail_script', 'html_img'].includes(item.source));
+    for (let i = 0; i < Math.min(3, detailFirst.length); i++) {
+        pushItem(detailFirst[i]);
+    }
+
+    for (const item of sortedItems) {
+        pushItem(item);
+    }
+
+    if (options.withMeta) {
+        return diversified.map(item => ({
+            url: item.src,
+            source: item.source,
+            score: scoreImageUrl(item.src, item.source)
+        }));
+    }
+    return diversified.map(item => item.src);
 }
 
 function getPngDimensions(buffer) {
@@ -198,9 +253,11 @@ function isLikelyUsableProductImage(dimensions) {
     const height = dimensions.height;
     const shortEdge = Math.min(width, height);
     const wideRatio = width / Math.max(height, 1);
+    const tallRatio = height / Math.max(width, 1);
 
     if (shortEdge < 450) return false;
     if (wideRatio > 2.8 && height < 800) return false;
+    if (tallRatio > 5.5 && width < 900) return false;
     return true;
 }
 
@@ -475,13 +532,89 @@ function extractReviewSamplesFromHtml(rawHtml) {
     ).slice(0, 6);
 }
 
+function splitReviewInsightChunks(text) {
+    const raw = decodeRepeatedly(unescapeJsEscapes(String(text || '')));
+    if (!raw) return [];
+
+    const compact = normalizeWhitespace(raw)
+        .replace(/베타\s*도움말/gi, ' ')
+        .replace(/AI\s*리뷰\s*요약/gi, ' ')
+        .replace(/[\[\]{}()]/g, ' ')
+        .replace(/[•·∙▪◦]/g, ',')
+        .replace(/[|/]/g, ',')
+        .replace(/(요|해요|좋아요|편해요|쉬워요|높아요|낮아요|만족스러워요|잘\s*돼요|돼요|됩니다)(?=[가-힣])/g, '$1,');
+
+    return uniqStrings(
+        compact
+            .split(/[,\n;]+/)
+            .map(item => normalizeWhitespace(item))
+            .map(item => item.replace(/^\d+[.)]?\s*/, '').trim())
+            .map(item => item.replace(/\.\.\.$/, '').trim())
+            .filter(item => item.length >= 3 && item.length <= 26)
+            .filter(item => /[가-힣]/.test(item))
+            .filter(item => !/리뷰|요약|전체보기|상품옵션|포토|동영상|랭킹순|최신순|도움말|베타/.test(item))
+    );
+}
+
+function normalizeReviewInsightPoints(points) {
+    const chunks = [];
+    for (const point of points || []) {
+        chunks.push(...splitReviewInsightChunks(point));
+    }
+    return uniqStrings(chunks).slice(0, 12);
+}
+
+function deriveReviewHighlights(aiSummaryPoints = [], reviewSamples = []) {
+    const normalizedPoints = normalizeReviewInsightPoints(aiSummaryPoints);
+    const sourceText = `${normalizedPoints.join(' ')} ${reviewSamples.join(' ')}`.toLowerCase();
+
+    const keywordRules = [
+        { label: '디자인이 예뻐요', regex: /(디자인|예쁘|예뻐|깔끔|고급|감성)/g },
+        { label: '설치가 편해요', regex: /(설치|세팅|설정|연결|배치)/g },
+        { label: '소음이 적어요', regex: /(소음|조용|정숙)/g },
+        { label: '사용이 편해요', regex: /(사용|조작|편해|간편|쉬워)/g },
+        { label: '건조 성능이 좋아요', regex: /(건조|말림|뽀송)/g },
+        { label: '세탁 성능이 좋아요', regex: /(세탁|빨래|오염)/g },
+        { label: '공간 활용이 좋아요', regex: /(공간|일체형|콤보|사이즈|자리|차지하지)/g },
+        { label: '시간 절약에 도움이 돼요', regex: /(시간|절약|빠르|단축)/g }
+    ];
+
+    const scored = keywordRules.map(rule => {
+        const matched = sourceText.match(rule.regex);
+        return { label: rule.label, count: matched ? matched.length : 0 };
+    }).filter(item => item.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .map(item => item.label);
+
+    const highlights = [];
+    for (const label of scored) {
+        if (!highlights.includes(label)) highlights.push(label);
+        if (highlights.length >= 3) break;
+    }
+
+    if (highlights.length < 3) {
+        for (const point of normalizedPoints) {
+            let candidate = point;
+            if (!/[요다]$/.test(candidate)) candidate = `${candidate}요`;
+            if (candidate.length > 26) continue;
+            if (!highlights.includes(candidate)) highlights.push(candidate);
+            if (highlights.length >= 3) break;
+        }
+    }
+
+    return highlights.slice(0, 3);
+}
+
 function buildReviewFacts(reviewData) {
     const facts = [];
     if (!reviewData) return facts;
     if (reviewData.reviewCount) facts.push(`리뷰 ${reviewData.reviewCount.toLocaleString('ko-KR')}개`);
     if (reviewData.averageRating) facts.push(`평점 ${reviewData.averageRating.toFixed(1)} / 5`);
-    if (reviewData.aiSummaryPoints?.length > 0) {
-        facts.push(...reviewData.aiSummaryPoints.slice(0, 2));
+    const highlights = (reviewData.reviewHighlights?.length > 0)
+        ? reviewData.reviewHighlights
+        : deriveReviewHighlights(reviewData.aiSummaryPoints || [], reviewData.reviewSamples || []);
+    if (highlights.length > 0) {
+        facts.push(`주요 반응: ${highlights.join(', ')}`);
     }
     return uniqStrings(facts).slice(0, 6);
 }
@@ -561,14 +694,14 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
 
     const aiSummaryPoints = [];
     const aiSummaryPatterns = [
-        /AI\s*리뷰\s*요약[:：]?\s*([^"'\n]{10,120})/gi,
-        /리뷰\s*요약[:：]?\s*([^"'\n]{10,120})/gi
+        /AI\s*리뷰\s*요약[:：]?\s*([^"'\n]{6,90})/gi,
+        /리뷰\s*요약[:：]?\s*([^"'\n]{6,90})/gi
     ];
     for (const pattern of aiSummaryPatterns) {
         const match = pattern.exec(text);
         if (!match?.[1]) continue;
         const cleaned = cleanReviewSnippet(match[1]);
-        if (cleaned) aiSummaryPoints.push(cleaned);
+        if (cleaned && cleaned.length <= 30) aiSummaryPoints.push(cleaned);
     }
     aiSummaryPoints.push(...extractAiSummaryPointsFromHtml(html));
 
@@ -592,11 +725,15 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
         }
     }
 
+    const normalizedAiSummaryPoints = normalizeReviewInsightPoints(aiSummaryPoints);
+    const reviewHighlights = deriveReviewHighlights(normalizedAiSummaryPoints, reviewSamples);
+
     const reviewData = {
         reviewCount: reviewCount || null,
         averageRating: averageRating || null,
-        aiSummaryPoints: uniqStrings(aiSummaryPoints).slice(0, 3),
-        reviewSamples: uniqStrings(reviewSamples).slice(0, 3)
+        aiSummaryPoints: normalizedAiSummaryPoints.slice(0, 6),
+        reviewSamples: uniqStrings(reviewSamples).slice(0, 3),
+        reviewHighlights
     };
     reviewData.facts = buildReviewFacts(reviewData);
     return reviewData;
@@ -605,10 +742,14 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
 function mergeReviewData(baseData = {}, extraData = {}) {
     const reviewCount = Math.max(baseData.reviewCount || 0, extraData.reviewCount || 0) || null;
     const averageRating = extraData.averageRating || baseData.averageRating || null;
-    const aiSummaryPoints = uniqStrings([...(baseData.aiSummaryPoints || []), ...(extraData.aiSummaryPoints || [])]).slice(0, 3);
+    const aiSummaryPoints = normalizeReviewInsightPoints([...(baseData.aiSummaryPoints || []), ...(extraData.aiSummaryPoints || [])]).slice(0, 6);
     const reviewSamples = uniqStrings([...(baseData.reviewSamples || []), ...(extraData.reviewSamples || [])]).slice(0, 3);
+    const reviewHighlights = deriveReviewHighlights(
+        [...(baseData.reviewHighlights || []), ...(extraData.reviewHighlights || []), ...aiSummaryPoints],
+        reviewSamples
+    );
 
-    const merged = { reviewCount, averageRating, aiSummaryPoints, reviewSamples };
+    const merged = { reviewCount, averageRating, aiSummaryPoints, reviewSamples, reviewHighlights };
     merged.facts = buildReviewFacts(merged);
     return merged;
 }
@@ -940,11 +1081,21 @@ async function resolveUrlAndHtml(shortUrl) {
 
 function mergeProductData(baseData, extraData) {
     const mergedImages = [...new Set([...(baseData.imageUrls || []), ...(extraData.imageUrls || [])])];
+    const mergedImageMetaMap = new Map();
+    for (const item of [...(baseData.imageMeta || []), ...(extraData.imageMeta || [])]) {
+        if (!item?.url) continue;
+        const current = mergedImageMetaMap.get(item.url);
+        if (!current || (item.score || 0) > (current.score || 0)) {
+            mergedImageMetaMap.set(item.url, item);
+        }
+    }
+    const mergedImageMeta = mergedImages.map(url => mergedImageMetaMap.get(url) || { url, source: 'merged', score: 0 });
     return {
         title: extraData.title || baseData.title,
         description: extraData.description || baseData.description,
         body: (extraData.body && extraData.body.length > (baseData.body || '').length) ? extraData.body : baseData.body,
         imageUrls: mergedImages,
+        imageMeta: mergedImageMeta,
         structuredProduct: extraData.structuredProduct || baseData.structuredProduct,
         commerceData: mergeCommerceData(baseData.commerceData, extraData.commerceData),
         reviewData: mergeReviewData(baseData.reviewData, extraData.reviewData)
@@ -1000,9 +1151,32 @@ function extractProductData(finalUrl, html) {
     ).replace(/\s+/g, ' ').trim().substring(0, 7000);
 
     const imageCandidates = [];
-    imageCandidates.push(...structuredImages);
+    imageCandidates.push(...structuredImages.map(url => ({ url, source: 'structured' })));
     const ogImage = $('meta[property="og:image"]').attr('content');
-    if (ogImage) imageCandidates.push(ogImage);
+    if (ogImage) imageCandidates.push({ url: ogImage, source: 'og' });
+
+    const detailImageSelectors = [
+        '#INTRODUCE img',
+        '#detail img',
+        '#DETAIL img',
+        '[id*="detail"] img',
+        '[id*="DETAIL"] img',
+        '[class*="detail"] img',
+        '[class*="DETAIL"] img',
+        '[class*="introduce"] img',
+        '[class*="description"] img'
+    ];
+    for (const selector of detailImageSelectors) {
+        $(selector).each((_, el) => {
+            const src =
+                $(el).attr('src') ||
+                $(el).attr('data-src') ||
+                $(el).attr('data-original') ||
+                $(el).attr('data-lazy-src') ||
+                $(el).attr('data-img-src');
+            if (src) imageCandidates.push({ url: src, source: 'detail_dom' });
+        });
+    }
 
     $('img').each((_, el) => {
         const src =
@@ -1011,14 +1185,40 @@ function extractProductData(finalUrl, html) {
             $(el).attr('data-original') ||
             $(el).attr('data-lazy-src') ||
             $(el).attr('data-img-src');
-        if (src) imageCandidates.push(src);
+        if (src) imageCandidates.push({ url: src, source: 'html_img' });
     });
 
-    const imageUrls = refineImageCandidates(imageCandidates, finalUrl);
+    // 동적 스크립트 내 상세 이미지 URL 후보도 수집한다.
+    const rawHtml = String(html || '');
+    const imageUrlRegex = /(https?:\/\/[^"'\\s>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\s>]*)?)/gi;
+    let match;
+    let scriptCandidateCount = 0;
+    while ((match = imageUrlRegex.exec(rawHtml)) !== null) {
+        const candidateUrl = unescapeJsEscapes(match[1] || '');
+        if (!candidateUrl) continue;
+        const idx = match.index || 0;
+        const context = rawHtml.slice(Math.max(0, idx - 140), Math.min(rawHtml.length, idx + 140)).toLowerCase();
+        if (!/detail|introduce|description|smarteditor|상품상세|상세설명/.test(context)) continue;
+        imageCandidates.push({ url: candidateUrl, source: 'detail_script' });
+        scriptCandidateCount++;
+        if (scriptCandidateCount >= 160) break;
+    }
+
+    const rankedImageMeta = refineImageCandidates(imageCandidates, finalUrl, { withMeta: true });
+    const imageUrls = rankedImageMeta.map(item => item.url);
     const commerceData = extractCommerceData(pageText, html, structuredProduct);
     const reviewData = extractReviewData(pageText, html, structuredProduct);
 
-    return { title, description, body: bodyText, imageUrls, structuredProduct, commerceData, reviewData };
+    return {
+        title,
+        description,
+        body: bodyText,
+        imageUrls,
+        imageMeta: rankedImageMeta,
+        structuredProduct,
+        commerceData,
+        reviewData
+    };
 }
 
 function isLikelyInvalidLanding(productData, finalUrl) {
@@ -1189,7 +1389,7 @@ async function resolveViaShoppingSearchApi(channelProductNo) {
             body,
             imageUrls: image ? [image] : [],
             commerceData,
-            reviewData: { reviewCount: null, averageRating: null, aiSummaryPoints: [], reviewSamples: [], facts: [] },
+            reviewData: { reviewCount: null, averageRating: null, aiSummaryPoints: [], reviewSamples: [], reviewHighlights: [], facts: [] },
             productLink: link
         };
     } catch (e) {
@@ -1489,7 +1689,8 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
         ? aiData.quickSummary
         : buildFallbackQuickSummary(aiData, commerceData);
     if (quickSummary.length > 0) {
-        lines.push('## 30초 요약');
+        const quickSummarySeconds = Math.floor(Math.random() * 6) + 5; // 5~10초
+        lines.push(`## ${quickSummarySeconds}초 요약`);
         quickSummary.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
         lines.push('');
         lines.push('');
@@ -1505,6 +1706,8 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
             lines.push('');
         }
         if (cons.length > 0) {
+            // [장점]과 [아쉬운 점] 사이 가독성을 위해 한 줄 더 띄운다.
+            lines.push('');
             lines.push('[아쉬운 점]');
             cons.forEach((item, idx) => lines.push(`${idx + 1}. ${normalizeFactText(item)}`));
             lines.push('');
@@ -1604,6 +1807,12 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
         }
     }
 
+    // 구매 전환을 위해 마지막 본문 단락(추천 글 섹션 직전)에 CTA 링크를 한 번 더 고정 배치한다.
+    const finalPhrase = ctaPhrases[linksInserted % ctaPhrases.length] || '지금 바로 혜택 확인하기';
+    lines.push(`🛒 ${finalPhrase}`);
+    lines.push(shortUrl);
+    lines.push('');
+
     lines.push('## 함께 보면 좋은 글');
     lines.push('- [관련 글 제목 1](여기에_링크_추가)');
     lines.push('- [관련 글 제목 2](여기에_링크_추가)');
@@ -1669,13 +1878,16 @@ const ShoppingManager = {
         }
 
         const reviewSampleCount = (productData.reviewData?.reviewSamples || []).length;
-        const reviewFactCount = (productData.reviewData?.facts || []).length;
-        const needsReviewEnrichment = !productData.reviewData?.reviewCount || reviewSampleCount < 1 || reviewFactCount < 2;
+        const reviewHighlightCount = (productData.reviewData?.reviewHighlights || []).length;
+        const hasCoreReviewMetrics = !!productData.reviewData?.reviewCount && !!productData.reviewData?.averageRating;
+        const needsReviewEnrichment = !hasCoreReviewMetrics || (reviewSampleCount < 1 && reviewHighlightCount < 2);
         if (needsReviewEnrichment) {
             Logger.info('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
-            const reviewResolved = await resolveReviewRichHtmlWithBrowser(finalUrl);
+            // #REVIEW 앵커가 붙은 URL은 네비게이션 왕복이 늘어날 수 있어 정규화해서 진입한다.
+            const reviewTargetUrl = String(finalUrl || '').replace(/#.*$/, '');
+            const reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl);
             if (reviewResolved?.html) {
-                const reviewCandidate = extractProductData(reviewResolved.finalUrl || finalUrl, reviewResolved.html);
+                const reviewCandidate = extractProductData(reviewResolved.finalUrl || reviewTargetUrl || finalUrl, reviewResolved.html);
                 const mergedReviewData = mergeProductData(productData, reviewCandidate);
                 const beforeSamples = (productData.reviewData?.reviewSamples || []).length;
                 const afterSamples = (mergedReviewData.reviewData?.reviewSamples || []).length;
@@ -1785,6 +1997,7 @@ const ShoppingManager = {
             bodyLength: (productData.body || '').length,
             imageCount: productData.imageUrls.length,
             sampleImages: productData.imageUrls.slice(0, 5),
+            sampleImageMeta: (productData.imageMeta || []).slice(0, 10),
             structuredProductFound: !!productData.structuredProduct,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData,
