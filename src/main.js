@@ -70,8 +70,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.5.5')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.5)');
+    .version('0.5.6')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.6)');
 
 // --- Helper Functions ---
 
