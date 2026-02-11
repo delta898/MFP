@@ -123,7 +123,8 @@ const Utils = {
             const requiredSheets = [
                 { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' },
                 { name: CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords', type: 'keywords' },
-                { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' }
+                { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' },
+                { name: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping', type: 'shopping' }
             ];
 
             for (const sheet of requiredSheets) {
@@ -134,11 +135,53 @@ const Utils = {
                     // Logger.info(`   ✅ '${sheet.name}' 시트 확인됨`);
                 }
             }
+
+            // 이미 존재하는 shopping 시트도 상태 드롭다운(발행 중 포함)을 최신 규칙으로 보정
+            const shoppingSheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const latestMeta = await this.callWithRetry(() => axios.get(metaUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const shoppingSheet = (latestMeta.data.sheets || []).find(s => s.properties?.title === shoppingSheetName);
+            if (shoppingSheet?.properties?.sheetId !== undefined) {
+                await this.ensureShoppingSheetValidation(accessToken, spreadsheetId, shoppingSheet.properties.sheetId);
+            }
+
             Logger.info("✅ 모든 필수 시트 준비 완료");
 
         } catch (e) {
             Logger.error(`❌ 시트 초기화 실패: ${e.message}`);
             // 초기화 실패해도 프로그램은 계속 진행하도록 (치명적이지 않을 수 있음)
+        }
+    },
+
+    ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId) {
+        try {
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                requests: [{
+                    setDataValidation: {
+                        range: { sheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '준비' },
+                                    { userEnteredValue: '발행 중' },
+                                    { userEnteredValue: '발행 준비 완료' },
+                                    { userEnteredValue: '발행 완료' },
+                                    { userEnteredValue: '실패' }
+                                ]
+                            },
+                            showCustomUi: true,
+                            strict: true
+                        }
+                    }
+                }]
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+        } catch (e) {
+            Logger.warn(`⚠️ shopping 시트 검증 규칙 업데이트 실패: ${e.message}`);
         }
     },
 
@@ -265,6 +308,29 @@ const Utils = {
                         }
                     }
                 });
+            } else if (type === 'shopping') {
+                // 헤더: URL, 상태, 발행 시간
+                headerRow = [['URL', '상태', '발행 시간']];
+
+                // Dropdown: B열 (Index 1) -> 준비, 발행 준비 완료, 발행 완료, 실패
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '준비' },
+                                    { userEnteredValue: '발행 중' },
+                                    { userEnteredValue: '발행 준비 완료' },
+                                    { userEnteredValue: '발행 완료' },
+                                    { userEnteredValue: '실패' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
             }
 
             // 3. 드롭다운 적용
@@ -353,6 +419,107 @@ const Utils = {
         } catch (e) {
             Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
             return [];
+        }
+    },
+
+    /**
+     * Shopping 시트 읽기 ('발행 준비 완료' 상태만)
+     */
+    readGoogleSheetShopping: async function () {
+        try {
+            Logger.info("🌐 구글 쇼핑 시트 읽기 (Target: 발행 준비 완료)");
+            const accessToken = await this.getGoogleAccessToken();
+
+            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) return [];
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+            let urlIdx = -1;
+            let statusIdx = -1;
+
+            headers.forEach((h, i) => {
+                if (h.includes('url') || h.includes('링크')) urlIdx = i;
+                if (h.includes('상태') || h.includes('status')) statusIdx = i;
+            });
+
+            if (urlIdx === -1 || statusIdx === -1) {
+                Logger.error("❌ 쇼핑 시트 헤더를 찾을 수 없습니다. (URL, 상태 필수)");
+                return [];
+            }
+
+            const jobs = [];
+            rows.slice(1).forEach((row, index) => {
+                const shortUrl = row[urlIdx] ? String(row[urlIdx]).trim() : "";
+                const status = row[statusIdx] ? String(row[statusIdx]).trim() : "";
+                if (shortUrl && status === '발행 준비 완료') {
+                    jobs.push({ rowIndex: index, shortUrl, status });
+                }
+            });
+
+            return jobs;
+        } catch (e) {
+            Logger.error(`❌ 쇼핑 시트 읽기 실패: ${e.message}`);
+            return [];
+        }
+    },
+
+    /**
+     * Shopping 시트 상태 업데이트 (개별 row)
+     */
+    updateGoogleSheetShoppingStatus: async function (rowIndex, status, updateTime = true) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+
+            const headers = headerRes.data.values[0];
+            let statusColIndex = -1;
+            let timeColIndex = -1;
+
+            headers.forEach((h, i) => {
+                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
+                else if (clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간')) timeColIndex = i;
+            });
+
+            if (statusColIndex === -1) return;
+
+            const targetRow = rowIndex + 2;
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                }
+                return letter;
+            };
+
+            const dataToUpdate = [];
+            dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
+            if (updateTime && timeColIndex !== -1) {
+                dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
+            }
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, { valueInputOption: 'USER_ENTERED', data: dataToUpdate }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            await this.sleep(500);
+        } catch (e) {
+            Logger.error(`❌ 쇼핑 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
         }
     },
 
@@ -1157,6 +1324,22 @@ const Utils = {
             if (trimmedLine === '') { contents.push({ type: 'newline' }); continue; }
             if (/^##\s+/.test(trimmedLine)) {
                 contents.push({ type: 'header-h2', text: trimmedLine.replace(/^##\s+/, '').trim() });
+                continue;
+            }
+            if (/^[-*]\s+/.test(trimmedLine)) {
+                contents.push({
+                    type: 'list-item',
+                    listType: 'unordered',
+                    text: trimmedLine.replace(/^[-*]\s+/, '').trim()
+                });
+                continue;
+            }
+            if (/^\d+[.)]\s+/.test(trimmedLine)) {
+                contents.push({
+                    type: 'list-item',
+                    listType: 'ordered',
+                    text: trimmedLine.replace(/^\d+[.)]\s+/, '').trim()
+                });
                 continue;
             }
             contents.push({ type: 'paragraph', text: line.replace(/\*\*(.*?)\*\*/g, '$1') });

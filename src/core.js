@@ -12,6 +12,573 @@ const BrowserLauncher = require('./browser-launcher');
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
 
+async function clickIfVisible(locator) {
+	try {
+		if (await locator.count() > 0 && await locator.first().isVisible()) {
+			await locator.first().click({ force: true });
+			return true;
+		}
+	} catch (e) { }
+	return false;
+}
+
+async function dismissEditorPopups(page) {
+	let dismissedCount = 0;
+	for (let i = 0; i < 5; i++) {
+		let dismissedThisRound = false;
+
+		// 1) Help 패널 닫기
+		dismissedThisRound = await clickIfVisible(page.locator('button.se-help-panel-close-button')) || dismissedThisRound;
+		dismissedThisRound = await clickIfVisible(page.getByRole('button', { name: /help|도움말/i })) || dismissedThisRound;
+
+		// 2) "이전 글이 있습니다. 로드하시겠습니까?" 류 팝업 닫기(취소/아니오 우선)
+		const popupDismissSelectors = [
+			'.se-popup-button-cancel',
+			'.se-popup button:has-text("취소")',
+			'.se-popup-container button:has-text("취소")',
+			'.se-popover button:has-text("취소")',
+			'[role="dialog"] button:has-text("취소")',
+			'.se-popup button:has-text("아니오")',
+			'.se-popup-container button:has-text("아니오")',
+			'.se-popover button:has-text("아니오")',
+			'[role="dialog"] button:has-text("아니오")',
+			'.se-popup button:has-text("불러오지 않기")',
+			'.se-popup-container button:has-text("불러오지 않기")',
+			'.se-popover button:has-text("불러오지 않기")',
+			'.se-popup button:has-text("닫기")',
+			'.se-popup-container button:has-text("닫기")',
+			'.se-popover button:has-text("닫기")'
+		];
+		for (const selector of popupDismissSelectors) {
+			const clicked = await clickIfVisible(page.locator(selector).first());
+			if (clicked) {
+				dismissedThisRound = true;
+				break;
+			}
+		}
+
+		if (!dismissedThisRound) break;
+		dismissedCount++;
+		await Utils.sleep(300);
+	}
+
+	if (dismissedCount > 0) {
+		Logger.info(`   🧹 에디터 팝업 정리 완료 (${dismissedCount}회)`);
+	}
+}
+
+async function focusLatestEditorImage(page) {
+	const imageSelectors = [
+		'.se-component-content img',
+		'.se-module-image img',
+		'.se-image-resource img',
+		'img'
+	];
+
+	for (const selector of imageSelectors) {
+		const images = page.locator(selector);
+		const count = await images.count();
+		if (count === 0) continue;
+
+		for (let i = count - 1; i >= 0; i--) {
+			const candidate = images.nth(i);
+			try {
+				if (!(await candidate.isVisible())) continue;
+				await candidate.click({ force: true });
+				await Utils.sleep(150);
+				return true;
+			} catch (e) { }
+		}
+	}
+	return false;
+}
+
+async function getVisibleImageToolbar(page) {
+	const toolbars = page.locator('.se-image-toolbar');
+	const count = await toolbars.count();
+	for (let i = count - 1; i >= 0; i--) {
+		const toolbar = toolbars.nth(i);
+		try {
+			if (await toolbar.isVisible()) return toolbar;
+		} catch (e) { }
+	}
+	return null;
+}
+
+async function getVisibleEditorToolbars(page) {
+	const selectors = [
+		'.se-image-toolbar',
+		'.se-toolbar',
+		'.se-toolbar-wrap',
+		'.se-toolbar-group',
+		'[role="toolbar"]'
+	];
+	const toolbars = [];
+
+	for (const selector of selectors) {
+		const locator = page.locator(selector);
+		const count = await locator.count();
+		for (let i = count - 1; i >= 0; i--) {
+			const toolbar = locator.nth(i);
+			try {
+				if (await toolbar.isVisible()) {
+					toolbars.push(toolbar);
+				}
+			} catch (e) { }
+		}
+	}
+	return toolbars;
+}
+
+async function centerAlignFocusedImage(page) {
+	const toolbar = await getVisibleImageToolbar(page);
+	if (!toolbar) return false;
+
+	const selectors = [
+		'button:has-text("가운데")',
+		'button:has-text("중앙")',
+		'button[aria-label*="가운데"]',
+		'button[aria-label*="중앙"]',
+		'button[data-name*="alignCenter"]',
+		'button[data-name*="align-center"]'
+	];
+	for (const selector of selectors) {
+		const clicked = await clickIfVisible(toolbar.locator(selector));
+		if (clicked) return true;
+	}
+	return false;
+}
+
+async function applyLinkToFocusedImage(page, linkUrl) {
+	if (!linkUrl) return false;
+
+	const toolbars = await getVisibleEditorToolbars(page);
+	if (toolbars.length === 0) return false;
+
+	const inputSelectors = [
+		'input.se-custom-layer-link-input',
+		'.se-property-toolbar-custom-layer-container input.se-custom-layer-link-input',
+		'.se-popover input[type="url"]',
+		'.se-popover input[placeholder*="링크"]',
+		'.se-popover input[placeholder*="URL"]',
+		'.se-popover input[placeholder*="URL을 입력"]',
+		'.se-popover input[aria-label*="링크"]',
+		'.se-popup input[type="url"]',
+		'.se-popup input[placeholder*="링크"]',
+		'.se-popup input[placeholder*="URL"]',
+		'.se-popup input[placeholder*="URL을 입력"]',
+		'.se-popup input[aria-label*="링크"]',
+		'input[type="url"]',
+		'input[placeholder*="URL을 입력"]',
+		'input[placeholder*="링크"]'
+	];
+
+	const hasVisibleLinkInput = async () => {
+		for (const selector of inputSelectors) {
+			const input = page.locator(selector).first();
+			try {
+				if (await input.count() > 0 && await input.isVisible()) return true;
+			} catch (e) { }
+		}
+		return false;
+	};
+
+	const linkButtonSelectors = [
+		'button[data-name="image-link"]',
+		'button.se-link-toolbar-button',
+		'li.se-toolbar-item-link button',
+		'button[data-type="custom-layer-button"][data-name="image-link"]',
+		'button[aria-label*="링크 입력"]',
+		'button[title*="링크 입력"]',
+		'button[data-name*="link"]',
+		'button[class*="link"]'
+	];
+
+	const isLikelySmallLinkButton = async (target) => {
+		try {
+			if (await target.count() === 0 || !(await target.isVisible())) return false;
+			const text = (await target.innerText()).trim();
+			const aria = String(await target.getAttribute('aria-label') || '').trim();
+			const title = String(await target.getAttribute('title') || '').trim();
+			const dataName = String(await target.getAttribute('data-name') || '').trim();
+			const className = String(await target.getAttribute('class') || '').trim();
+			let tooltip = '';
+			try {
+				const tooltipNode = target.locator('.se-toolbar-tooltip').first();
+				if (await tooltipNode.count() > 0 && await tooltipNode.isVisible()) {
+					tooltip = String(await tooltipNode.innerText()).trim();
+				}
+			} catch (e) { }
+
+			const signature = `${text} ${aria} ${title} ${dataName} ${className} ${tooltip}`.toLowerCase();
+			if (signature.includes('image-link')) return true;
+			if (signature.includes('se-link-toolbar-button')) return true;
+			if (signature.includes('링크 입력')) return true;
+			if (signature.includes('링크 입력 열기')) return true;
+
+			// "링크" 텍스트형(미리보기용) 버튼은 제외한다.
+			if (/^\s*링크\s*$/.test(text) && !signature.includes('image-link')) return false;
+
+			return false;
+		} catch (e) {
+			return false;
+		}
+	};
+
+	let opened = false;
+	for (const toolbar of toolbars) {
+		for (const selector of linkButtonSelectors) {
+			const targets = toolbar.locator(selector);
+			const count = await targets.count();
+			for (let i = 0; i < count; i++) {
+				const target = targets.nth(i);
+				const smallButton = await isLikelySmallLinkButton(target);
+				if (!smallButton) continue;
+				const clicked = await clickIfVisible(target);
+				if (!clicked) continue;
+				await Utils.sleep(180);
+				if (await hasVisibleLinkInput()) {
+					opened = true;
+					break;
+				}
+				try { await page.keyboard.press('Escape'); } catch (e) { }
+			}
+			if (opened) break;
+		}
+		if (opened) break;
+	}
+	if (!opened) return false;
+
+	for (const selector of inputSelectors) {
+		const input = page.locator(selector).first();
+		try {
+				if (await input.count() > 0 && await input.isVisible()) {
+					await input.fill(linkUrl);
+					await Utils.sleep(100);
+					let applied =
+						await clickIfVisible(input.locator('xpath=following-sibling::button[1]')) ||
+						await clickIfVisible(input.locator('xpath=parent::*//button[contains(@class, "check") or contains(@class, "confirm")]').first()) ||
+						await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[class*="check"], .se-property-toolbar-custom-layer-container button[class*="confirm"]')) ||
+						await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[aria-label*="확인"], .se-property-toolbar-custom-layer-container button[title*="확인"]'));
+					if (!applied) {
+						applied =
+							await clickIfVisible(page.locator('.se-popover button:has-text("적용"), .se-popup button:has-text("적용")')) ||
+							await clickIfVisible(page.locator('.se-popover button:has-text("등록"), .se-popup button:has-text("등록")')) ||
+							await clickIfVisible(page.locator('.se-popover button:has-text("확인"), .se-popup button:has-text("확인")')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[aria-label*="확인"], [role="toolbar"] button[aria-label*="확인"]')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[aria-label*="적용"], [role="toolbar"] button[aria-label*="적용"]')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[title*="확인"], [role="toolbar"] button[title*="확인"]')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[title*="적용"], [role="toolbar"] button[title*="적용"]')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[class*="check"], [role="toolbar"] button[class*="check"]')) ||
+							await clickIfVisible(page.locator('.se-toolbar button[class*="confirm"], [role="toolbar"] button[class*="confirm"]'));
+					}
+					if (!applied) {
+						await page.keyboard.press('Enter');
+					}
+					// 실제 반영 여부를 보수적으로 확인: 링크 입력창이 닫혀야 성공으로 간주
+					let closed = false;
+					try {
+						await input.waitFor({ state: 'hidden', timeout: 1200 });
+						closed = true;
+					} catch (e) { }
+					if (!closed) {
+						try { await page.keyboard.press('Escape'); } catch (e) { }
+						return false;
+					}
+					return true;
+				}
+			} catch (e) { }
+		}
+	return false;
+}
+
+function isUrlOnlyParagraph(text) {
+	const raw = String(text || '').trim();
+	if (!raw) return false;
+	return /^https?:\/\/[^\s]+$/i.test(raw);
+}
+
+async function closeVisibleOglinkPopup(page, maxAttempts = 8) {
+	const popup = page.locator('div.se-popup-oglink').first();
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		let visible = false;
+		try {
+			visible = await popup.count() > 0 && await popup.isVisible();
+		} catch (e) { }
+		if (!visible) return true;
+
+		let closed = false;
+		const closeSelectors = [
+			'div.se-popup-oglink button.se-popup-close-button',
+			'div.se-popup-oglink button[aria-label*="닫기"]',
+			'div.se-popup-oglink button[title*="닫기"]',
+			'div.se-popup-oglink button:has-text("닫기")',
+			'div.se-popup-oglink .se-popup-dim'
+		];
+		for (const selector of closeSelectors) {
+			try {
+				const btn = page.locator(selector).first();
+				if (await btn.count() > 0 && await btn.isVisible()) {
+					await btn.click({ force: true });
+					await Utils.sleep(120);
+					try {
+						await popup.waitFor({ state: 'hidden', timeout: 500 });
+						closed = true;
+						break;
+					} catch (e) { }
+				}
+			} catch (e) { }
+		}
+		if (closed) return true;
+
+		try { await page.keyboard.press('Escape'); } catch (e) { }
+		try {
+			await popup.waitFor({ state: 'hidden', timeout: 500 });
+			return true;
+		} catch (e) { }
+	}
+	return false;
+}
+
+async function focusEditorTypingArea(page) {
+	const paragraphSelectors = [
+		'.se-component-content.se-component-content-text p',
+		'.se-module-text p',
+		'.se-text-paragraph'
+	];
+
+	for (const selector of paragraphSelectors) {
+		const nodes = page.locator(selector);
+		const count = await nodes.count();
+		for (let i = count - 1; i >= 0; i--) {
+			const node = nodes.nth(i);
+			try {
+				if (!(await node.isVisible())) continue;
+				await node.click({ force: true });
+				await Utils.sleep(80);
+				return true;
+			} catch (e) { }
+		}
+	}
+
+	try {
+		const editor = page.locator('.se-container, .se-main-container, #mainFrame').first();
+		if (await editor.count() > 0 && await editor.isVisible()) {
+			await editor.click({ force: true, position: { x: 80, y: 220 } });
+			await Utils.sleep(80);
+			return true;
+		}
+	} catch (e) { }
+	return false;
+}
+
+async function getEditorLinkSnapshot(page, targetUrl = '') {
+	try {
+		return await page.evaluate((rawUrl) => {
+			const normalize = (value) => {
+				const v = String(value || '').trim();
+				if (!v) return '';
+				try {
+					const u = new URL(v, window.location.href);
+					u.hash = '';
+					const path = u.pathname.replace(/\/+$/, '');
+					return `${u.origin}${path}${u.search}`;
+				} catch (e) {
+					return v.replace(/\/+$/, '');
+				}
+			};
+
+			const target = normalize(rawUrl);
+			const editorRoot =
+				document.querySelector('.se-main-container') ||
+				document.querySelector('.se-container') ||
+				document.querySelector('.se-component-content') ||
+				document.body;
+
+			const anchors = Array.from(editorRoot.querySelectorAll('a[href]'))
+				.filter(a => !a.closest('.se-popup-oglink'));
+
+			const targetAnchorCount = anchors.filter(a => {
+				const href = normalize(a.getAttribute('href'));
+				if (!target || !href) return false;
+				return href === target || href.startsWith(target) || target.startsWith(href);
+			}).length;
+
+			const oglinkCount = Array.from(editorRoot.querySelectorAll('*'))
+				.filter(el => !el.closest('.se-popup-oglink') && /\boglink\b/i.test(String(el.className || '')))
+				.length;
+
+			return { targetAnchorCount, oglinkCount };
+		}, targetUrl);
+	} catch (e) {
+		return { targetAnchorCount: 0, oglinkCount: 0 };
+	}
+}
+
+async function insertOglinkCardAtCursor(page, linkUrl) {
+	const url = String(linkUrl || '').trim();
+	if (!/^https?:\/\//i.test(url)) return false;
+
+	const beforeSnapshot = await getEditorLinkSnapshot(page, url);
+	await closeVisibleOglinkPopup(page);
+	await focusEditorTypingArea(page);
+
+	const openButtonSelectors = [
+		'li.se-toolbar-item-oglink button[data-name="oglink"]',
+		'button[data-name="oglink"]',
+		'button.se-text-icon-toolbar-button[data-name="oglink"]',
+		'button[title*="링크 추가"]',
+		'button[aria-label*="링크 추가"]'
+	];
+	let opened = false;
+	for (const selector of openButtonSelectors) {
+		const buttons = page.locator(selector);
+		const count = await buttons.count();
+		for (let i = 0; i < count; i++) {
+			const btn = buttons.nth(i);
+			try {
+				if (!(await btn.isVisible())) continue;
+				await btn.click({ force: true });
+				await Utils.sleep(220);
+				const input = page.locator('input.se-popup-oglink-input, .se-popup-oglink input.se-popup-oglink-input').first();
+				if (await input.count() > 0 && await input.isVisible()) {
+					opened = true;
+					break;
+				}
+			} catch (e) { }
+		}
+		if (opened) break;
+	}
+	if (!opened) return false;
+
+	const popup = page.locator('div.se-popup-oglink').first();
+	const input = page.locator('input.se-popup-oglink-input, .se-popup-oglink input.se-popup-oglink-input').first();
+	const searchButtons = page.locator('button.se-popup-oglink-button');
+	const loading = page.locator('.se-popup-oglink-loading').first();
+	const confirmSelectors = [
+		'button.se-popup-button-confirm',
+		'.se-popup-button-container button.se-popup-button-confirm',
+		'.se-popup-button-container button:has-text("확인")'
+	];
+
+	const isEnabled = async (locator) => {
+		try {
+			if (await locator.count() === 0 || !(await locator.isVisible())) return false;
+			const disabledAttr = await locator.getAttribute('disabled');
+			const ariaDisabled = String(await locator.getAttribute('aria-disabled') || '').toLowerCase();
+			const className = String(await locator.getAttribute('class') || '').toLowerCase();
+			if (disabledAttr !== null) return false;
+			if (ariaDisabled === 'true') return false;
+			if (className.includes('disabled')) return false;
+			return true;
+		} catch (e) {
+			return false;
+		}
+	};
+
+	const clickVisibleSearchButton = async () => {
+		try {
+			const count = await searchButtons.count();
+			for (let i = 0; i < count; i++) {
+				const btn = searchButtons.nth(i);
+				if (!(await btn.isVisible())) continue;
+				await btn.click({ force: true });
+				return true;
+			}
+		} catch (e) { }
+		return false;
+	};
+
+	const clickEnabledConfirmButton = async () => {
+		for (const selector of confirmSelectors) {
+			const buttons = page.locator(selector);
+			const count = await buttons.count();
+			for (let i = 0; i < count; i++) {
+				const btn = buttons.nth(i);
+				if (!(await isEnabled(btn))) continue;
+				await btn.click({ force: true });
+				return true;
+			}
+		}
+		return false;
+	};
+
+	try {
+		await input.click({ force: true });
+		await input.fill('');
+		await input.fill(url);
+		await Utils.sleep(150);
+
+		// 1) URL 분석(돋보기) 버튼 클릭
+		let searched = await clickVisibleSearchButton();
+		if (!searched) {
+			try { await input.press('Enter'); } catch (e) { }
+		}
+
+		// 2) 확인 버튼 클릭은 "팝업이 닫힐 때까지" 재시도한다.
+		let closed = false;
+		for (let i = 0; i < 60; i++) {
+			try {
+				if (await popup.count() === 0 || !(await popup.isVisible())) {
+					closed = true;
+					break;
+				}
+			} catch (e) { }
+
+			// 링크 미리보기 로딩 중에는 확인 버튼 활성화를 잠시 기다린다.
+			try {
+				if (await loading.count() > 0 && await loading.isVisible()) {
+					await Utils.sleep(150);
+					continue;
+				}
+			} catch (e) { }
+
+			const clicked = await clickEnabledConfirmButton();
+			if (!clicked) {
+				// fallback: 엔터로 확인 시도
+				try { await input.press('Enter'); } catch (e) { }
+			}
+
+			try {
+				await popup.waitFor({ state: 'hidden', timeout: 250 });
+				closed = true;
+				break;
+			} catch (e) { }
+			await Utils.sleep(150);
+		}
+
+		if (!closed) {
+			closed = await closeVisibleOglinkPopup(page);
+		}
+		if (!closed) {
+			return false;
+		}
+
+		let inserted = false;
+		for (let i = 0; i < 18; i++) {
+			const nowSnapshot = await getEditorLinkSnapshot(page, url);
+			if (
+				nowSnapshot.targetAnchorCount > beforeSnapshot.targetAnchorCount ||
+				nowSnapshot.oglinkCount > beforeSnapshot.oglinkCount
+			) {
+				inserted = true;
+				break;
+			}
+			await Utils.sleep(180);
+		}
+		if (!inserted) {
+			return false;
+		}
+
+		await focusEditorTypingArea(page);
+		return true;
+	} catch (e) {
+		await closeVisibleOglinkPopup(page);
+		await focusEditorTypingArea(page);
+		return false;
+	}
+}
+
 const Core = {
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
@@ -172,7 +739,7 @@ ${scrapedContext}`;
 	/**
  * 3. 블로그 발행 (Publish)
  */
-	publishToBlog: async function (dirPath) {
+	publishToBlog: async function (dirPath, options = {}) {
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
 		const authPath = CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH;
@@ -181,7 +748,13 @@ ${scrapedContext}`;
 		const contentFile = path.join(dirPath, 'contents.md');
 		if (!fs.existsSync(contentFile)) throw new Error(`콘텐츠 파일 없음: contents.md`);
 
-		const { title, contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf-8'));
+		const markdownRaw = fs.readFileSync(contentFile, 'utf-8');
+		const { title, contents } = Utils.parseMarkdown(markdownRaw);
+		const primaryAffiliateUrl = String(options.affiliateUrl || '').trim();
+		const requireAffiliateUrl = options.requireAffiliateUrl === true;
+		if (requireAffiliateUrl && !/^https?:\/\//i.test(primaryAffiliateUrl)) {
+			throw new Error('스프레드시트 URL이 비어있거나 형식이 올바르지 않아 작업을 중단합니다.');
+		}
 
 		// Config 우선순위 적용 (Constants 필수)
 		const speedKey = CONFIG.TYPING_SPEED || 'NORMAL';
@@ -204,6 +777,12 @@ ${scrapedContext}`;
 			viewport: viewport,
 			userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 		});
+		try {
+			await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'https://blog.naver.com' });
+			await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'https://m.blog.naver.com' });
+		} catch (e) {
+			Logger.warn(`⚠️ 클립보드 권한 사전 부여 실패: ${e.message}`);
+		}
 
 		const page = await context.newPage();
 		page.on('dialog', async dialog => await dialog.dismiss());
@@ -224,13 +803,8 @@ ${scrapedContext}`;
 				throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
 			}
 
-			// 팝업 제거
-			try {
-				const cancelBtn = page.locator('.se-popup-button-cancel');
-				if (await cancelBtn.count() > 0 && await cancelBtn.first().isVisible()) await cancelBtn.first().click();
-				const closeHelp = page.locator('button.se-help-panel-close-button');
-				if (await closeHelp.count() > 0 && await closeHelp.first().isVisible()) await closeHelp.first().click();
-			} catch (e) { }
+			// 팝업 제거 (Help / 이전글 로드)
+			await dismissEditorPopups(page);
 			await Utils.sleep(1000);
 
 			// 🔧 [Fixed] 타이핑할 때마다 랜덤 속도 계산 (봇 감지 회피)
@@ -241,6 +815,7 @@ ${scrapedContext}`;
 			// ✍️ 제목 입력
 			Logger.info(`   ✍️ 제목 입력: ${title}`);
 			const titleArea = page.locator('.se-documentTitle, .se-ff-title');
+			await dismissEditorPopups(page);
 			await titleArea.click({ force: true });
 			await page.keyboard.type(title, { delay: getRandomTypingDelay() });
 			await page.keyboard.press('Enter');
@@ -248,8 +823,22 @@ ${scrapedContext}`;
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
 
-			// ✍️ 본문 입력 루프
-			for (const item of contents) {
+				// ✍️ 본문 입력 루프
+				let inListMode = false;
+				let currentListType = null;
+				for (const item of contents) {
+					if (item.type !== 'image') {
+						await closeVisibleOglinkPopup(page);
+						await focusEditorTypingArea(page);
+					}
+					if (item.type !== 'list-item' && inListMode) {
+						// 에디터 자동 리스트 종료: 다음 블록이 일반 문단/소제목이면 빈 항목 Enter 한 번으로 리스트 모드 해제
+						if (item.type !== 'newline') {
+							await page.keyboard.press('Enter');
+						}
+						inListMode = false;
+						currentListType = null;
+					}
 
 				if (item.type === 'header-h2') {
 					// 📌 [복구됨] 어제 성공했던 방식 (커서만 두고 메뉴 클릭)
@@ -275,12 +864,54 @@ ${scrapedContext}`;
 
 					await Utils.sleep(100);
 					await page.keyboard.press('Enter'); // 다음 줄로 이동
-				}
-				else if (item.type === 'paragraph') {
-					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-					if (item.text.includes('http')) await page.keyboard.press('Space');
-					await page.keyboard.press('Enter');
-				}
+					}
+						else if (item.type === 'list-item') {
+							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
+							const listText = String(item.text || '')
+								.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
+								.trim();
+							if (!listText) {
+								await page.keyboard.press('Enter');
+								inListMode = false;
+								currentListType = null;
+							} else {
+								// 리스트 종류가 바뀌면 기존 자동 리스트를 종료한 뒤 새 리스트를 시작한다.
+								if (inListMode && currentListType !== listType) {
+									await page.keyboard.press('Enter');
+									inListMode = false;
+									currentListType = null;
+								}
+
+								// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
+								const textToType = inListMode
+									? listText
+									: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
+								await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
+								if (textToType.includes('http')) await page.keyboard.press('Space');
+								await page.keyboard.press('Enter');
+								inListMode = true;
+								currentListType = listType;
+							}
+						}
+					else if (item.type === 'paragraph') {
+						const paragraphText = String(item.text || '');
+							if (isUrlOnlyParagraph(paragraphText)) {
+								const inserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
+								if (inserted) {
+									Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
+								} else {
+									await closeVisibleOglinkPopup(page);
+									await focusEditorTypingArea(page);
+									Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
+									await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+									await page.keyboard.press('Space');
+								}
+							} else {
+							await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+							if (paragraphText.includes('http')) await page.keyboard.press('Space');
+						}
+						await page.keyboard.press('Enter');
+					}
 				else if (item.type === 'newline') {
 					await page.keyboard.press('Enter');
 				}
@@ -301,6 +932,30 @@ ${scrapedContext}`;
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
 							await Utils.sleep(uploadWait);
+
+							const imageFocused = await focusLatestEditorImage(page);
+							if (!imageFocused) {
+								Logger.warn('       ⚠️ 방금 업로드한 이미지를 포커스하지 못했습니다.');
+							}
+
+							const centered = imageFocused ? await centerAlignFocusedImage(page) : false;
+							if (centered) {
+								Logger.info("       ↔️ 이미지 가운데 정렬 적용");
+							}
+
+							// CTA 이미지는 클릭 시 제휴 URL로 이동하도록 링크를 건다.
+							if (
+								imageFocused &&
+								/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file) &&
+								/^https?:\/\//i.test(primaryAffiliateUrl)
+							) {
+								const linked = await applyLinkToFocusedImage(page, primaryAffiliateUrl);
+								if (linked) {
+									Logger.info(`       🔗 CTA 이미지 링크 적용: ${primaryAffiliateUrl}`);
+								} else {
+									Logger.warn("       ⚠️ CTA 이미지 링크 버튼을 찾지 못했습니다.");
+								}
+							}
 						}
 					} else {
 						// 📌 [유지] 이미지 없을 때 원본 마크다운 그대로 입력 (사람 속도로)

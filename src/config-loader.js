@@ -101,6 +101,7 @@ module.exports = {
     GOOGLE_KEYWORDS_SHEET: 'keywords',
     GOOGLE_TOPICS_SHEET: 'topics',
     GOOGLE_TRENDS_SHEET: 'trends',
+    GOOGLE_SHOPPING_SHEET: 'shopping',
 
     // 💡 데이터 가공 섹션 (명시적 선언)
     IMAGE_STYLE: imageStyle,

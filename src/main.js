@@ -38,6 +38,7 @@ const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const KeywordManager = require('./keyword-manager'); // [New]
 const TrendManager = require('./trend-manager'); // Add this
+const ShoppingManager = require('./shopping-manager'); // Add this
 const Logger = require('./logger'); // Add this
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
 
@@ -346,6 +347,76 @@ program
                 await Utils.appendGoogleSheetTrends(trendKeywords);
                 console.log('✅ 트렌드 키워드 추가 완료!');
             }
+        } catch (e) {
+            console.error('❌ 에러:', e.message);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+        }
+    });
+
+// 8️⃣ Shopping Command [New]
+program
+    .command('shopping')
+    .description('🛍️ [쇼핑] 쇼핑커넥트 URL 기반 리뷰/추천 포스팅')
+    .action(async () => {
+        try {
+            console.log("\n▶️ [Shopping Mode] 쇼핑 포스팅 작업을 시작합니다...");
+            await ensureAuth(true); // 발행 작업이므로 로그인 필요
+            await Utils.ensureAllSheetsExist();
+
+            const jobs = await Utils.readGoogleSheetShopping();
+            console.log(`📂 총 ${jobs.length}개의 쇼핑 URL을 발견했습니다.`);
+
+            if (jobs.length === 0) {
+                console.log("📭 처리할 쇼핑 URL이 없습니다. (상태: 발행 준비 완료)");
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < jobs.length; i++) {
+                const job = jobs[i];
+                const rowIndex = job.rowIndex;
+
+                console.log(`\n---------------------------------------------------`);
+                console.log(`[작업 ${i + 1}/${jobs.length}] 라이선스 확인 중...`);
+
+                const check = await License.verifyLicense();
+                if (!check.success) {
+                    console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
+                    console.log(`👉 남은 ${jobs.length - i}건은 처리되지 않았습니다.`);
+                    break;
+                }
+
+                try {
+                    console.log(`[진행] 쇼핑 URL 처리 (Row ${rowIndex + 1})`);
+                    await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
+                    const result = await ShoppingManager.buildPostFromShortUrl(job.shortUrl);
+                    await Core.publishToBlog(result.targetDir, {
+                        affiliateUrl: job.shortUrl,
+                        requireAffiliateUrl: true
+                    });
+                    await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
+                    successCount++;
+                    console.log('✅ 쇼핑 포스팅 발행 버튼 처리 완료');
+                } catch (err) {
+                    console.error(`❌ 쇼핑 URL 처리 실패: ${err.message}`);
+                    await Utils.updateGoogleSheetShoppingStatus(rowIndex, '실패');
+                    failCount++;
+                }
+
+                if (i < jobs.length - 1) {
+                    const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
+                    console.log(`⏳ ${delay}초 대기 중...`);
+                    await Utils.sleep(delay * 1000);
+                }
+            }
+
+            console.log(`\n===================================================`);
+            console.log(`🎉 쇼핑 작업 종료`);
+            console.log(`📊 결과: 성공 ${successCount} / 실패 ${failCount}`);
+            console.log(`===================================================`);
+
         } catch (e) {
             console.error('❌ 에러:', e.message);
             if (process.env.DEBUG) console.error('Stack:', e.stack);

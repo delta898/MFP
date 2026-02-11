@@ -14,6 +14,7 @@
     "batch": "node src/main.js batch",
     "keywords": "node src/main.js search",
     "trends": "node src/main.js trends",
+    "shopping": "node src/main.js shopping",
     "post": "node src/main.js post",
     "kw": "node src/main.js keywords",
     "pub": "node src/main.js pub",

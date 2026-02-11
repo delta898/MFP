@@ -1,0 +1,1801 @@
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const moment = require('moment-timezone');
+const CONFIG = require('./config-loader');
+const Utils = require('./utils');
+const Logger = require('./logger');
+const BrowserLauncher = require('./browser-launcher');
+
+const DEFAULT_LINK_INSERT_COUNT = 3;
+const DEFAULT_IMAGE_MAX_COUNT = 5;
+const DEFAULT_CTA_IMAGE_INSERT_COUNT = 2;
+
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function clampInt(value, min, max, fallback) {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed)) return fallback;
+    return Math.max(min, Math.min(max, parsed));
+}
+
+function stripCodeFence(rawText) {
+    if (!rawText) return '';
+    return rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+}
+
+function toAbsoluteUrl(input, baseUrl) {
+    if (!input) return '';
+    try {
+        return new URL(input, baseUrl).href;
+    } catch (e) {
+        return '';
+    }
+}
+
+function normalizeImageIdentity(imageUrl) {
+    try {
+        const parsed = new URL(imageUrl);
+        return `${parsed.origin}${parsed.pathname}`;
+    } catch (e) {
+        return imageUrl;
+    }
+}
+
+function extractNaverTypeSize(imageUrl) {
+    try {
+        const parsed = new URL(imageUrl);
+        const type = String(parsed.searchParams.get('type') || '').toLowerCase();
+        const matched = type.match(/^([a-z])(\d{2,4})$/i);
+        if (!matched) return null;
+        return {
+            kind: matched[1].toLowerCase(),
+            size: parseInt(matched[2], 10)
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+function scoreImageUrl(imageUrl) {
+    let score = 0;
+    const lower = String(imageUrl || '').toLowerCase();
+
+    try {
+        const parsed = new URL(imageUrl);
+        const host = parsed.hostname.toLowerCase();
+
+        if (host.includes('shop-phinf.pstatic.net')) score += 80;
+        if (host.includes('phinf.pstatic.net')) score += 20;
+        if (host.includes('ssl.pstatic.net')) score -= 80;
+    } catch (e) { }
+
+    if (/\/contact\//.test(lower)) score -= 90;
+    if (/banner|gnb|profile|avatar|thumb|thumbnail|icon|logo|sprite|blank|mall_pc|_pc\d{1,2}/.test(lower)) score -= 70;
+
+    const typeInfo = extractNaverTypeSize(imageUrl);
+    if (typeInfo) {
+        if ((typeInfo.kind === 's' || typeInfo.kind === 'm') && typeInfo.size <= 250) score -= 80;
+        if (typeInfo.kind === 'f' && typeInfo.size < 500) score -= 90;
+        if (typeInfo.kind === 'o' && typeInfo.size >= 800) score += 40;
+        if (typeInfo.kind === 'w' && typeInfo.size >= 800) score += 20;
+    }
+
+    return score;
+}
+
+function refineImageCandidates(imageCandidates, finalUrl) {
+    const normalized = imageCandidates
+        .map(src => toAbsoluteUrl(src, finalUrl))
+        .filter(src => !!src)
+        .filter(src => !src.startsWith('data:'))
+        .filter(src => !src.includes('.svg'));
+
+    const expanded = [];
+    for (const src of normalized) {
+        expanded.push(src);
+        try {
+            const parsed = new URL(src);
+            const host = parsed.hostname.toLowerCase();
+            const typeInfo = extractNaverTypeSize(src);
+            if (host.includes('shop-phinf.pstatic.net') && typeInfo && typeInfo.size < 700) {
+                const noTypeUrl = new URL(parsed.toString());
+                noTypeUrl.searchParams.delete('type');
+                expanded.push(noTypeUrl.toString());
+
+                const o1000Url = new URL(parsed.toString());
+                o1000Url.searchParams.set('type', 'o1000');
+                expanded.push(o1000Url.toString());
+            }
+        } catch (e) { }
+    }
+
+    const dedupedMap = new Map();
+    for (const src of expanded) {
+        const identity = normalizeImageIdentity(src);
+        const current = dedupedMap.get(identity);
+        if (!current) {
+            dedupedMap.set(identity, src);
+            continue;
+        }
+        // 같은 이미지라면 더 큰 type 파라미터(예: s80보다 o1000)를 우선
+        const currentType = extractNaverTypeSize(current);
+        const nextType = extractNaverTypeSize(src);
+        if (currentType && !nextType) {
+            dedupedMap.set(identity, src);
+            continue;
+        }
+        if (!currentType && nextType) continue;
+        if (currentType && nextType && nextType.size > currentType.size) {
+            dedupedMap.set(identity, src);
+        }
+    }
+
+    return [...dedupedMap.values()]
+        .filter(src => {
+            const typeInfo = extractNaverTypeSize(src);
+            if (!typeInfo) return true;
+            if ((typeInfo.kind === 's' || typeInfo.kind === 'm') && typeInfo.size <= 250) return false;
+            if (typeInfo.kind === 'f' && typeInfo.size < 500) return false;
+            return true;
+        })
+        .filter(src => scoreImageUrl(src) > -20)
+        .sort((a, b) => scoreImageUrl(b) - scoreImageUrl(a));
+}
+
+function getPngDimensions(buffer) {
+    if (!buffer || buffer.length < 24) return null;
+    if (buffer.readUInt32BE(0) !== 0x89504E47) return null;
+    return {
+        width: buffer.readUInt32BE(16),
+        height: buffer.readUInt32BE(20)
+    };
+}
+
+function getJpegDimensions(buffer) {
+    if (!buffer || buffer.length < 4) return null;
+    if (!(buffer[0] === 0xFF && buffer[1] === 0xD8)) return null;
+
+    let offset = 2;
+    while (offset < buffer.length) {
+        if (buffer[offset] !== 0xFF) {
+            offset++;
+            continue;
+        }
+        const marker = buffer[offset + 1];
+        if (!marker) break;
+
+        // SOF0(0xC0), SOF2(0xC2) 등에서 해상도 추출
+        if ((marker >= 0xC0 && marker <= 0xC3) || (marker >= 0xC5 && marker <= 0xC7) || (marker >= 0xC9 && marker <= 0xCB) || (marker >= 0xCD && marker <= 0xCF)) {
+            if (offset + 8 >= buffer.length) break;
+            return {
+                height: buffer.readUInt16BE(offset + 5),
+                width: buffer.readUInt16BE(offset + 7)
+            };
+        }
+
+        if (offset + 3 >= buffer.length) break;
+        const segmentLength = buffer.readUInt16BE(offset + 2);
+        if (segmentLength < 2) break;
+        offset += 2 + segmentLength;
+    }
+    return null;
+}
+
+function getImageDimensions(buffer, ext) {
+    const normalizedExt = String(ext || '').toLowerCase();
+    if (normalizedExt === 'png') return getPngDimensions(buffer);
+    if (normalizedExt === 'jpg' || normalizedExt === 'jpeg') return getJpegDimensions(buffer);
+    // webp/gif는 해상도 파싱 생략 (URL/type/용량 필터로 선별)
+    return null;
+}
+
+function isLikelyUsableProductImage(dimensions) {
+    if (!dimensions || !dimensions.width || !dimensions.height) return true;
+
+    const width = dimensions.width;
+    const height = dimensions.height;
+    const shortEdge = Math.min(width, height);
+    const wideRatio = width / Math.max(height, 1);
+
+    if (shortEdge < 450) return false;
+    if (wideRatio > 2.8 && height < 800) return false;
+    return true;
+}
+
+function decodeHtml(text) {
+    if (!text) return '';
+    return cheerio.load('<textarea></textarea>')('textarea').html(text).text();
+}
+
+function stripTags(text) {
+    if (!text) return '';
+    return String(text).replace(/<[^>]*>/g, '').trim();
+}
+
+function unescapeJsEscapes(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/\\u002F/gi, '/')
+        .replace(/\\\//g, '/')
+        .replace(/\\u003A/gi, ':')
+        .replace(/\\u003F/gi, '?')
+        .replace(/\\u003D/gi, '=')
+        .replace(/\\u0026/gi, '&');
+}
+
+function safeDecodeURIComponent(text) {
+    if (!text) return '';
+    try {
+        return decodeURIComponent(text);
+    } catch (e) {
+        return String(text);
+    }
+}
+
+function decodeRepeatedly(text, maxDepth = 3) {
+    let current = String(text || '');
+    for (let i = 0; i < maxDepth; i++) {
+        const decoded = safeDecodeURIComponent(current);
+        if (!decoded || decoded === current) break;
+        current = decoded;
+    }
+    return current;
+}
+
+function safeParseJson(raw) {
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function collectProductFromJson(node, productNodes = []) {
+    if (!node) return productNodes;
+
+    if (Array.isArray(node)) {
+        node.forEach(item => collectProductFromJson(item, productNodes));
+        return productNodes;
+    }
+
+    if (typeof node !== 'object') return productNodes;
+
+    const typeValue = Array.isArray(node['@type']) ? node['@type'].join(',') : String(node['@type'] || '');
+    if (/product/i.test(typeValue)) {
+        productNodes.push(node);
+    }
+
+    Object.keys(node).forEach(key => collectProductFromJson(node[key], productNodes));
+    return productNodes;
+}
+
+function guessExtension(url, contentType) {
+    const type = (contentType || '').toLowerCase();
+    if (type.includes('jpeg') || type.includes('jpg')) return 'jpg';
+    if (type.includes('png')) return 'png';
+    if (type.includes('webp')) return 'webp';
+    if (type.includes('gif')) return 'gif';
+
+    try {
+        const ext = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
+        if (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+            return ext === 'jpeg' ? 'jpg' : ext;
+        }
+    } catch (e) { }
+    return 'jpg';
+}
+
+function buildImageBlock(index, title, prompt) {
+    return `[[IMAGE_${index}\ntitle: ${title}\nprompt: ${prompt}\n]]`;
+}
+
+function getDefaultLinkPhrases() {
+    return [
+        '가격/구성 확인하기',
+        '자세한 상품 정보 보기',
+        '실사용 후기가 궁금하다면 여기',
+        '지금 구매 링크 바로가기',
+        '할인 여부 확인하기'
+    ];
+}
+
+function normalizeWhitespace(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function uniqStrings(items) {
+    return [...new Set((items || []).map(v => normalizeWhitespace(v)).filter(Boolean))];
+}
+
+function normalizeFactText(text) {
+    let cleaned = normalizeWhitespace(String(text || ''));
+    cleaned = cleaned.replace(/^(?:[\s\-–—−•·∙▪◦*]|\u2022|\u00B7|\u2219|\u25AA|\u25E6)+/g, '').trim();
+    while (/^[-–—−]\s*/.test(cleaned)) {
+        cleaned = cleaned.replace(/^[-–—−]\s*/, '').trim();
+    }
+    return cleaned;
+}
+
+function parseKrwNumber(input) {
+    const raw = String(input || '').replace(/[^0-9]/g, '');
+    if (!raw) return null;
+    const num = parseInt(raw, 10);
+    if (Number.isNaN(num)) return null;
+    return num;
+}
+
+function formatKrw(num) {
+    if (!num || Number.isNaN(num)) return '';
+    return `${num.toLocaleString('ko-KR')}원`;
+}
+
+function collectRegexMatches(text, regex, maxCount = 5) {
+    const list = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        list.push(match[0]);
+        if (list.length >= maxCount) break;
+    }
+    return uniqStrings(list);
+}
+
+function collectCaptureMatches(text, regex, maxCount = 5) {
+    const list = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        if (match[1]) list.push(match[1]);
+        if (list.length >= maxCount) break;
+    }
+    return uniqStrings(list);
+}
+
+function extractPriceMentionsFromText(text) {
+    const source = normalizeWhitespace(text);
+    const regex = /(\d{1,3}(?:,\d{3})+)\s*원/g;
+    const mentions = [];
+    let match;
+
+    while ((match = regex.exec(source)) !== null) {
+        const value = parseKrwNumber(match[1]);
+        if (!value || value < 1000 || value > 100000000) continue;
+
+        const idx = match.index || 0;
+        const context = source.slice(Math.max(0, idx - 24), Math.min(source.length, idx + match[0].length + 24));
+        mentions.push({ value, context });
+    }
+
+    return mentions;
+}
+
+function buildCommerceFacts(commerceData) {
+    const facts = [];
+    if (!commerceData) return facts;
+
+    if (commerceData.salePrice) facts.push(`현재가 ${formatKrw(commerceData.salePrice)}`);
+    if (commerceData.originalPrice && commerceData.originalPrice > (commerceData.salePrice || 0)) {
+        facts.push(`기존가 ${formatKrw(commerceData.originalPrice)}`);
+    }
+    if (commerceData.discountRate) facts.push(`할인율 ${commerceData.discountRate}%`);
+    if (commerceData.freeShipping) facts.push('무료배송');
+    if (commerceData.deliveryMethods?.length > 0) facts.push(`배송 방식 ${commerceData.deliveryMethods.join(', ')}`);
+    if (commerceData.installment) facts.push(`할부 혜택 ${commerceData.installment}`);
+    if (commerceData.benefitHighlights?.length > 0) facts.push(...commerceData.benefitHighlights.slice(0, 3));
+
+    return uniqStrings(facts).map(normalizeFactText).filter(Boolean).slice(0, 8);
+}
+
+function parseRatingValue(input) {
+    const num = Number(String(input || '').replace(/[^0-9.]/g, ''));
+    if (Number.isNaN(num) || num <= 0) return null;
+    if (num > 5.0) return null;
+    return Math.round(num * 10) / 10;
+}
+
+function cleanReviewSnippet(text) {
+    const decoded = decodeRepeatedly(decodeHtml(unescapeJsEscapes(String(text || ''))));
+    const noTags = decoded.replace(/<[^>]*>/g, ' ');
+    const compact = normalizeWhitespace(noTags)
+        .replace(/[a-z0-9가-힣]{1,12}\*{2,}\s*·?\s*\d{2}\.\d{1,2}\.\d{1,2}\.?/gi, ' ')
+        .replace(/색상\s*모델명[:：]?\s*[^|]{0,30}/gi, ' ')
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/[{}[\]<>]/g, '')
+        .trim();
+    if (!compact) return '';
+    if (compact.length > 110) return `${compact.substring(0, 110).trim()}...`;
+    return compact;
+}
+
+function isLikelyReviewSentence(text) {
+    const clean = normalizeWhitespace(String(text || ''));
+    if (!clean) return false;
+    if (clean.length < 18 || clean.length > 180) return false;
+    if (!/[가-힣]/.test(clean)) return false;
+    if (/^(리뷰|상품평|평점|사용자\s*총\s*평점|전체\s*리뷰수|평점\s*비율|스토어\s*pick|포토\/동영상|랭킹순|최신순|평점\s*높은순|평점\s*낮은순|전체보기)/i.test(clean)) return false;
+    if (/^(?:\d+[,.]?)+\s*(?:개|건)?$/.test(clean)) return false;
+    if (/(무료배송|택배배송|오늘출발|무이자|할인율)\b/.test(clean) && clean.length < 36) return false;
+    return true;
+}
+
+function extractAiSummaryPointsFromHtml(rawHtml) {
+    const html = decodeRepeatedly(unescapeJsEscapes(String(rawHtml || '')));
+    const anchorIdx = html.search(/AI\s*리뷰\s*요약/i);
+    if (anchorIdx < 0) return [];
+
+    const windowed = html.slice(Math.max(0, anchorIdx - 1200), Math.min(html.length, anchorIdx + 22000));
+    const chips = collectCaptureMatches(
+        windowed,
+        />\s*([^<>]{2,24}(?:요|해요|좋아요|편해요|쉬워요|높아요|낮아요|따뜻해요|만족스러워요|잘\s*돼요))\s*</gi,
+        30
+    );
+
+    return uniqStrings(chips
+        .map(cleanReviewSnippet)
+        .filter(item => item.length >= 3 && item.length <= 24)
+        .filter(item => /[가-힣]/.test(item))
+        .filter(item => !/AI|리뷰|요약|전체보기|상품옵션|포토|동영상|랭킹순|최신순/.test(item))
+    ).slice(0, 6);
+}
+
+function extractReviewSamplesFromHtml(rawHtml) {
+    const html = String(rawHtml || '');
+    if (!html) return [];
+
+    const fromJson = collectCaptureMatches(
+        html,
+        /"(?:reviewContent|reviewText|reviewBody|reviewComment|reviewSummary|contents)"\s*:\s*"([^"]{14,320})"/gi,
+        12
+    );
+
+    const fromDom = [];
+    try {
+        const $ = cheerio.load(html);
+        const selectors = [
+            '[class*="review"]',
+            '[id*="review"]',
+            '[data-shp-area*="review"]',
+            '[data-testid*="review"]'
+        ];
+
+        for (const selector of selectors) {
+            $(selector).each((_, el) => {
+                if (fromDom.length >= 12) return false;
+                const cleaned = cleanReviewSnippet($(el).text());
+                if (!isLikelyReviewSentence(cleaned)) return;
+                fromDom.push(cleaned);
+            });
+            if (fromDom.length >= 12) break;
+        }
+    } catch (e) { }
+
+    return uniqStrings([...fromJson, ...fromDom]
+        .map(cleanReviewSnippet)
+        .filter(isLikelyReviewSentence)
+    ).slice(0, 6);
+}
+
+function buildReviewFacts(reviewData) {
+    const facts = [];
+    if (!reviewData) return facts;
+    if (reviewData.reviewCount) facts.push(`리뷰 ${reviewData.reviewCount.toLocaleString('ko-KR')}개`);
+    if (reviewData.averageRating) facts.push(`평점 ${reviewData.averageRating.toFixed(1)} / 5`);
+    if (reviewData.aiSummaryPoints?.length > 0) {
+        facts.push(...reviewData.aiSummaryPoints.slice(0, 2));
+    }
+    return uniqStrings(facts).slice(0, 6);
+}
+
+function extractReviewData(pageText, rawHtml, structuredProduct) {
+    const text = normalizeWhitespace(pageText);
+    const html = String(rawHtml || '');
+
+    const aggregateRating = structuredProduct?.aggregateRating || null;
+    let reviewCount = parseKrwNumber(aggregateRating?.ratingCount || aggregateRating?.reviewCount);
+    let averageRating = parseRatingValue(aggregateRating?.ratingValue);
+
+    if (!reviewCount) {
+        const htmlCountPatterns = [
+            /"(?:reviewCount|ratingCount|totalReviewCount|reviewTotalCount|reviewCnt)"\s*:\s*"?([0-9][0-9,]*)"?/gi
+        ];
+        for (const pattern of htmlCountPatterns) {
+            const match = pattern.exec(html);
+            if (!match?.[1]) continue;
+            const parsed = parseKrwNumber(match[1]);
+            if (parsed && parsed > 0) {
+                reviewCount = parsed;
+                break;
+            }
+        }
+    }
+
+    if (!reviewCount) {
+        const reviewCountPatterns = [
+            /(?:리뷰|상품평|사용자\s*리뷰)\s*([0-9][0-9,]*)\s*(?:개|건)?/gi,
+            /([0-9][0-9,]*)\s*개의?\s*(?:리뷰|상품평)/gi,
+            /리뷰\s*([0-9][0-9,]{2,})/gi
+        ];
+        for (const pattern of reviewCountPatterns) {
+            const match = pattern.exec(text);
+            if (!match?.[1]) continue;
+            const parsed = parseKrwNumber(match[1]);
+            if (parsed && parsed > 0) {
+                reviewCount = parsed;
+                break;
+            }
+        }
+    }
+
+    if (!averageRating) {
+        const htmlRatingPatterns = [
+            /"(?:ratingValue|averageRating|avgScore|reviewScore)"\s*:\s*"?([0-5](?:\.\d{1,2})?)"?/gi
+        ];
+        for (const pattern of htmlRatingPatterns) {
+            const match = pattern.exec(html);
+            if (!match?.[1]) continue;
+            const parsed = parseRatingValue(match[1]);
+            if (parsed) {
+                averageRating = parsed;
+                break;
+            }
+        }
+    }
+
+    if (!averageRating) {
+        const ratingPatterns = [
+            /평점\s*([0-5](?:\.\d{1,2})?)/gi,
+            /([0-5](?:\.\d{1,2})?)\s*점\s*(?:\/\s*5)?/gi,
+            /([0-5](?:\.\d{1,2})?)\s*\/\s*5/gi,
+            /최근\s*\d+\s*개월\s*([0-5](?:\.\d{1,2})?)/gi
+        ];
+        for (const pattern of ratingPatterns) {
+            const match = pattern.exec(text);
+            if (!match?.[1]) continue;
+            const parsed = parseRatingValue(match[1]);
+            if (parsed) {
+                averageRating = parsed;
+                break;
+            }
+        }
+    }
+
+    const aiSummaryPoints = [];
+    const aiSummaryPatterns = [
+        /AI\s*리뷰\s*요약[:：]?\s*([^"'\n]{10,120})/gi,
+        /리뷰\s*요약[:：]?\s*([^"'\n]{10,120})/gi
+    ];
+    for (const pattern of aiSummaryPatterns) {
+        const match = pattern.exec(text);
+        if (!match?.[1]) continue;
+        const cleaned = cleanReviewSnippet(match[1]);
+        if (cleaned) aiSummaryPoints.push(cleaned);
+    }
+    aiSummaryPoints.push(...extractAiSummaryPointsFromHtml(html));
+
+    const reviewSamples = [];
+    const structuredReviews = Array.isArray(structuredProduct?.review)
+        ? structuredProduct.review
+        : structuredProduct?.review ? [structuredProduct.review] : [];
+    for (const review of structuredReviews) {
+        const raw = review?.reviewBody || review?.description || review?.name || '';
+        const cleaned = cleanReviewSnippet(raw);
+        if (cleaned) reviewSamples.push(cleaned);
+        if (reviewSamples.length >= 3) break;
+    }
+
+    if (reviewSamples.length < 3) {
+        const htmlSamples = extractReviewSamplesFromHtml(html);
+        for (const sample of htmlSamples) {
+            const cleaned = cleanReviewSnippet(sample);
+            if (cleaned) reviewSamples.push(cleaned);
+            if (reviewSamples.length >= 3) break;
+        }
+    }
+
+    const reviewData = {
+        reviewCount: reviewCount || null,
+        averageRating: averageRating || null,
+        aiSummaryPoints: uniqStrings(aiSummaryPoints).slice(0, 3),
+        reviewSamples: uniqStrings(reviewSamples).slice(0, 3)
+    };
+    reviewData.facts = buildReviewFacts(reviewData);
+    return reviewData;
+}
+
+function mergeReviewData(baseData = {}, extraData = {}) {
+    const reviewCount = Math.max(baseData.reviewCount || 0, extraData.reviewCount || 0) || null;
+    const averageRating = extraData.averageRating || baseData.averageRating || null;
+    const aiSummaryPoints = uniqStrings([...(baseData.aiSummaryPoints || []), ...(extraData.aiSummaryPoints || [])]).slice(0, 3);
+    const reviewSamples = uniqStrings([...(baseData.reviewSamples || []), ...(extraData.reviewSamples || [])]).slice(0, 3);
+
+    const merged = { reviewCount, averageRating, aiSummaryPoints, reviewSamples };
+    merged.facts = buildReviewFacts(merged);
+    return merged;
+}
+
+function extractCommerceData(pageText, rawHtml, structuredProduct) {
+    const text = normalizeWhitespace(pageText);
+    const html = String(rawHtml || '');
+
+    const offers = Array.isArray(structuredProduct?.offers)
+        ? structuredProduct.offers[0]
+        : structuredProduct?.offers || null;
+
+    let salePrice = parseKrwNumber(offers?.price || offers?.lowPrice);
+    let originalPrice = parseKrwNumber(offers?.highPrice);
+    let discountRate = null;
+
+    const mentions = extractPriceMentionsFromText(text);
+    const nonPointPrices = mentions.filter(m => !/적립|포인트|혜택|캐시백|쿠폰/.test(m.context)).map(m => m.value);
+
+    if (!salePrice && nonPointPrices.length > 0) {
+        salePrice = Math.min(...nonPointPrices);
+    }
+
+    if (!originalPrice && nonPointPrices.length > 0) {
+        const candidates = nonPointPrices.filter(v => !salePrice || v > salePrice);
+        if (candidates.length > 0) {
+            originalPrice = Math.max(...candidates);
+        }
+    }
+
+    const discountRegex = /([1-9]\d?)\s*%/g;
+    let dMatch;
+    while ((dMatch = discountRegex.exec(text)) !== null) {
+        const value = parseInt(dMatch[1], 10);
+        if (Number.isNaN(value) || value <= 0 || value >= 90) continue;
+
+        const idx = dMatch.index || 0;
+        const context = text.slice(Math.max(0, idx - 16), Math.min(text.length, idx + dMatch[0].length + 16));
+        if (/적립|포인트|카드|추가/.test(context) && !/할인/.test(context)) continue;
+        discountRate = value;
+        if (/할인/.test(context)) break;
+    }
+
+    if (!discountRate) {
+        const htmlDiscount = html.match(/"discountRate"\s*:\s*"?(\d{1,2})"?/i);
+        if (htmlDiscount?.[1]) {
+            const num = parseInt(htmlDiscount[1], 10);
+            if (!Number.isNaN(num) && num > 0 && num < 90) discountRate = num;
+        }
+    }
+
+    if (!discountRate && salePrice && originalPrice && originalPrice > salePrice) {
+        const computed = Math.round((1 - (salePrice / originalPrice)) * 100);
+        if (computed > 0 && computed < 90) discountRate = computed;
+    }
+
+    const freeShipping = /무료배송/.test(text);
+    const deliveryMethods = [];
+    if (/택배배송/.test(text)) deliveryMethods.push('택배배송');
+    if (/우체국택배/.test(text)) deliveryMethods.push('우체국택배');
+    if (/오늘출발/.test(text)) deliveryMethods.push('오늘출발');
+    if (/내일도착/.test(text)) deliveryMethods.push('내일도착');
+
+    let installment = '';
+    const installmentMatch = text.match(/\d{1,2}\s*개월\s*무이자\s*할부/);
+    if (installmentMatch?.[0]) {
+        installment = normalizeWhitespace(installmentMatch[0]);
+    } else if (/무이자\s*할부/.test(text)) {
+        installment = '무이자 할부';
+    }
+
+    const benefitHighlights = uniqStrings([
+        ...collectRegexMatches(text, /최대\s*[0-9,]+\s*원\s*(?:추가\s*)?(?:적립|포인트)/g, 3),
+        ...collectRegexMatches(text, /네이버페이\s*포인트\s*[0-9,]+\s*원\s*증정/g, 2),
+        ...collectRegexMatches(text, /네이버페이\s*머니\s*결제\s*시\s*최대\s*적립/g, 1),
+        ...collectRegexMatches(text, /이벤트[^.]{0,35}(?:증정|혜택)/g, 2)
+    ]).slice(0, 5);
+
+    const commerceData = {
+        salePrice,
+        originalPrice,
+        discountRate,
+        freeShipping,
+        deliveryMethods: uniqStrings(deliveryMethods),
+        installment,
+        benefitHighlights
+    };
+    commerceData.facts = buildCommerceFacts(commerceData);
+    return commerceData;
+}
+
+function mergeCommerceData(baseData = {}, extraData = {}) {
+    const salePrice = extraData.salePrice || baseData.salePrice || null;
+    const originalPrice = extraData.originalPrice || baseData.originalPrice || null;
+    const discountRate = extraData.discountRate || baseData.discountRate || null;
+    const freeShipping = !!(extraData.freeShipping || baseData.freeShipping);
+    const deliveryMethods = uniqStrings([...(baseData.deliveryMethods || []), ...(extraData.deliveryMethods || [])]);
+    const installment = extraData.installment || baseData.installment || '';
+    const benefitHighlights = uniqStrings([...(baseData.benefitHighlights || []), ...(extraData.benefitHighlights || [])]).slice(0, 5);
+
+    const merged = {
+        salePrice,
+        originalPrice,
+        discountRate,
+        freeShipping,
+        deliveryMethods,
+        installment,
+        benefitHighlights
+    };
+    merged.facts = buildCommerceFacts(merged);
+    return merged;
+}
+
+function buildSeoKeywordHints(productTitle = '') {
+    const cleanTitle = normalizeWhitespace(String(productTitle || '').split(':')[0]);
+    const stopWords = new Set(['최신형', '공식파트너', '공식', '파트너', '정품', '대용량', '신생아', '아기', '필기용']);
+    const keywords = [];
+    const pushKeyword = (value) => {
+        const clean = normalizeWhitespace(value);
+        if (!clean || keywords.includes(clean)) return;
+        keywords.push(clean);
+    };
+
+    if (cleanTitle) pushKeyword(cleanTitle);
+
+    const titleForSplit = cleanTitle.replace(/[^\w\s가-힣-]/g, ' ');
+    const tokens = titleForSplit.split(/\s+/).map(t => t.trim()).filter(Boolean);
+
+    for (let i = 0; i < tokens.length - 1; i++) {
+        const a = tokens[i];
+        const b = tokens[i + 1];
+        if (stopWords.has(a) || stopWords.has(b)) continue;
+        if (a.length < 2 || b.length < 2) continue;
+        pushKeyword(`${a} ${b}`);
+        if (keywords.length >= 6) break;
+    }
+
+    for (const token of tokens) {
+        if (stopWords.has(token)) continue;
+        if (token.length < 2) continue;
+        pushKeyword(token);
+        if (keywords.length >= 8) break;
+    }
+
+    if (keywords.length === 0) {
+        return '- 메인 키워드: 상품 리뷰';
+    }
+
+    return keywords.slice(0, 8).map((k, idx) => `- ${idx === 0 ? '메인' : '서브'} 키워드: ${k}`).join('\n');
+}
+
+function firstSentence(text, maxLen = 72) {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return '';
+    const split = clean.split(/(?<=[.!?。！？])\s+/);
+    const sentence = (split[0] || clean).trim();
+    if (sentence.length <= maxLen) return sentence;
+    return `${sentence.substring(0, maxLen).trim()}...`;
+}
+
+function buildFallbackQuickSummary(aiData, commerceData) {
+    const items = [];
+    const facts = buildCommerceFacts(commerceData);
+    if (facts[0]) items.push(facts[0]);
+    if (facts[1]) items.push(facts[1]);
+
+    const firstSection = (aiData.sections || []).find(s => (s.body || '').trim());
+    if (firstSection) {
+        const summary = normalizeWhitespace(firstSection.summary || '') || firstSentence(firstSection.body || '');
+        if (summary) items.push(summary);
+    }
+
+    return uniqStrings(items).slice(0, 3);
+}
+
+function buildFallbackProsCons(aiData, commerceData, reviewData) {
+    const pros = uniqStrings([
+        ...(Array.isArray(aiData?.pros) ? aiData.pros : []),
+        ...buildFallbackQuickSummary(aiData, commerceData),
+        ...(Array.isArray(reviewData?.aiSummaryPoints) ? reviewData.aiSummaryPoints.slice(0, 1) : [])
+    ]).slice(0, 3);
+
+    const cons = uniqStrings([
+        ...(Array.isArray(aiData?.cons) ? aiData.cons : []),
+        '설치 공간과 크기는 구매 전에 한 번 더 확인하는 것이 좋습니다.',
+        '세척/관리 주기는 사용 환경에 따라 체감이 다를 수 있습니다.'
+    ]).slice(0, 2);
+
+    return { pros, cons };
+}
+
+function buildFallbackRecommendedFor(aiData) {
+    const list = Array.isArray(aiData?.recommendedFor) ? aiData.recommendedFor : [];
+    const fallback = [
+        '집에서 장시간 사용해도 부담 적은 제품을 찾는 분',
+        '할인/적립/무이자 할부까지 챙겨 실속 구매하고 싶은 분',
+        '실사용 후기와 검증된 평점을 중요하게 보는 분'
+    ];
+    return uniqStrings([...list, ...fallback]).slice(0, 3);
+}
+
+function buildAiPrompt(product) {
+    const commerceFacts = (product.commerceData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 가격/혜택 정보 없음';
+    const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
+    const reviewSamples = (product.reviewData?.reviewSamples || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n') || '1. 대표 리뷰를 추출하지 못했습니다.';
+    const seoKeywordHints = buildSeoKeywordHints(product.title || '');
+
+    const configuredPromptPath = (CONFIG.SHOPPING_PROMPT_FILE || '').trim();
+    const defaultPromptPath = path.join(process.cwd(), 'config', 'shopping_prompt.md');
+    const promptPath = configuredPromptPath
+        ? path.resolve(process.cwd(), configuredPromptPath)
+        : defaultPromptPath;
+
+    if (fs.existsSync(promptPath)) {
+        try {
+            const template = fs.readFileSync(promptPath, 'utf-8');
+            if (template.trim()) {
+                return template
+                    .replace(/{{\s*PRODUCT_TITLE\s*}}/g, product.title || '상품명 미확인')
+                    .replace(/{{\s*PRODUCT_DESCRIPTION\s*}}/g, product.description || '요약 정보 없음')
+                    .replace(/{{\s*PRODUCT_BODY\s*}}/g, (product.body || '').substring(0, 5000))
+                    .replace(/{{\s*COMMERCE_FACTS\s*}}/g, commerceFacts)
+                    .replace(/{{\s*REVIEW_FACTS\s*}}/g, reviewFacts)
+                    .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
+                    .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
+                    .trim();
+            }
+        } catch (e) {
+            Logger.warn(`⚠️ shopping 프롬프트 파일 로드 실패: ${e.message}`);
+        }
+    }
+
+    return `
+다음 상품 정보를 바탕으로 네이버 블로그용 사용기 + 추천기 글의 구조를 JSON으로 작성해줘.
+반드시 JSON만 반환하고, 코드블록은 사용하지 마.
+
+[상품 정보]
+- 상품명: ${product.title || '상품명 미확인'}
+- 요약: ${product.description || '요약 정보 없음'}
+- 상세 텍스트: ${(product.body || '').substring(0, 3000)}
+
+[구매 정보/혜택 데이터]
+${commerceFacts}
+
+[리뷰 데이터 요약]
+${reviewFacts}
+
+[대표 리뷰 샘플]
+${reviewSamples}
+
+[SEO 키워드 가이드]
+${seoKeywordHints}
+
+[요청 사항]
+- 너무 과장하지 말고 실제 사용 관점으로 신뢰감 있게 써줘.
+- 톤은 친근하지만 광고 티가 과하지 않게.
+- 장점/아쉬운점/추천대상 포함.
+- 입력으로 제공된 정보에 없는 스펙(예: 화면 크기, 배터리 시간, 칩셋 성능)은 단정하지 말고 일반적 사용 경험 중심으로 작성해.
+- 확인되지 않은 정보는 추측하지 말고 "상세 스펙은 링크에서 확인" 같은 표현으로 처리해.
+- "좋았던 점/아쉬운 점", "이런 분들께 추천해요", "지금 바로 확인하고 혜택 받으세요" 흐름을 자연스럽게 담아줘.
+
+[응답 JSON 형식]
+{
+  "title": "블로그 글 제목",
+  "intro": "도입 문단",
+  "quick_summary": ["핵심 요약 1", "핵심 요약 2", "핵심 요약 3"],
+  "quotes": ["짧은 인용구 1", "짧은 인용구 2"],
+  "pros": ["좋았던 점 1", "좋았던 점 2", "좋았던 점 3"],
+  "cons": ["아쉬운 점 1", "아쉬운 점 2"],
+  "recommended_for": ["추천 대상 1", "추천 대상 2", "추천 대상 3"],
+  "sections": [
+    { "heading": "소제목", "body": "해당 본문", "summary": "한 줄 정리", "quote": "짧은 인용구" },
+    { "heading": "소제목", "body": "해당 본문", "summary": "한 줄 정리", "quote": "짧은 인용구" }
+  ],
+  "conclusion": "마무리 문단",
+  "cta_phrases": ["클릭 유도 문구 1", "클릭 유도 문구 2"],
+  "hashtags": ["태그1", "태그2", "태그3"]
+}
+`;
+}
+
+function getHostLabel(url) {
+    try {
+        return new URL(url).hostname;
+    } catch (e) {
+        return '상품';
+    }
+}
+
+function isGenericShoppingTitle(title) {
+    const normalized = String(title || '').toLowerCase().replace(/\s+/g, '');
+    return normalized === '네이버쇼핑' || normalized === 'navershopping' || normalized === '쇼핑';
+}
+
+function extractChannelProductNo(url) {
+    if (!url) return '';
+    try {
+        const parsed = new URL(url);
+        const queryNo =
+            parsed.searchParams.get('channelProductNo') ||
+            parsed.searchParams.get('productNo') ||
+            parsed.searchParams.get('nvMid') ||
+            parsed.searchParams.get('query');
+        if (queryNo && /^\d{6,}$/.test(String(queryNo))) {
+            return String(queryNo);
+        }
+
+        const pathMatch = parsed.pathname.match(/\/(?:products|catalog)\/(\d{6,})/i);
+        if (pathMatch?.[1]) return pathMatch[1];
+        return '';
+    } catch (e) {
+        return '';
+    }
+}
+
+async function resolveUrlAndHtml(shortUrl) {
+    const response = await axios.get(shortUrl, {
+        timeout: 20000,
+        maxRedirects: 10,
+        headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml' },
+        validateStatus: () => true
+    });
+
+    const finalUrl = response?.request?.res?.responseUrl || shortUrl;
+    const html = typeof response.data === 'string' ? response.data : '';
+
+    return { finalUrl, html };
+}
+
+function mergeProductData(baseData, extraData) {
+    const mergedImages = [...new Set([...(baseData.imageUrls || []), ...(extraData.imageUrls || [])])];
+    return {
+        title: extraData.title || baseData.title,
+        description: extraData.description || baseData.description,
+        body: (extraData.body && extraData.body.length > (baseData.body || '').length) ? extraData.body : baseData.body,
+        imageUrls: mergedImages,
+        structuredProduct: extraData.structuredProduct || baseData.structuredProduct,
+        commerceData: mergeCommerceData(baseData.commerceData, extraData.commerceData),
+        reviewData: mergeReviewData(baseData.reviewData, extraData.reviewData)
+    };
+}
+
+function extractProductData(finalUrl, html) {
+    const $ = cheerio.load(html || '');
+    const pageText = normalizeWhitespace($('body').text() || '');
+
+    const structuredProducts = [];
+    $('script[type="application/ld+json"]').each((_, el) => {
+        const raw = ($(el).html() || '').trim();
+        if (!raw) return;
+        const parsed = safeParseJson(raw);
+        if (parsed) {
+            collectProductFromJson(parsed, structuredProducts);
+        }
+    });
+
+    const structuredProduct = structuredProducts[0] || null;
+
+    const structuredTitle = structuredProduct?.name || structuredProduct?.headline || '';
+    const structuredDescription = structuredProduct?.description || '';
+    const structuredImages = [];
+    if (structuredProduct?.image) {
+        if (Array.isArray(structuredProduct.image)) structuredImages.push(...structuredProduct.image);
+        else structuredImages.push(structuredProduct.image);
+    }
+
+    const title = (
+        structuredTitle ||
+        $('meta[property="og:title"]').attr('content') ||
+        $('meta[name="twitter:title"]').attr('content') ||
+        $('h1').first().text() ||
+        $('title').text() ||
+        ''
+    ).trim();
+
+    const description = (
+        structuredDescription ||
+        $('meta[property="og:description"]').attr('content') ||
+        $('meta[name="description"]').attr('content') ||
+        ''
+    ).trim();
+
+    ['script', 'style', 'noscript', 'iframe', 'nav', 'footer', 'header'].forEach(sel => $(sel).remove());
+    const bodyText = (
+        $('article').text() ||
+        $('main').text() ||
+        $('body').text() ||
+        ''
+    ).replace(/\s+/g, ' ').trim().substring(0, 7000);
+
+    const imageCandidates = [];
+    imageCandidates.push(...structuredImages);
+    const ogImage = $('meta[property="og:image"]').attr('content');
+    if (ogImage) imageCandidates.push(ogImage);
+
+    $('img').each((_, el) => {
+        const src =
+            $(el).attr('src') ||
+            $(el).attr('data-src') ||
+            $(el).attr('data-original') ||
+            $(el).attr('data-lazy-src') ||
+            $(el).attr('data-img-src');
+        if (src) imageCandidates.push(src);
+    });
+
+    const imageUrls = refineImageCandidates(imageCandidates, finalUrl);
+    const commerceData = extractCommerceData(pageText, html, structuredProduct);
+    const reviewData = extractReviewData(pageText, html, structuredProduct);
+
+    return { title, description, body: bodyText, imageUrls, structuredProduct, commerceData, reviewData };
+}
+
+function isLikelyInvalidLanding(productData, finalUrl) {
+    const title = (productData.title || '').toLowerCase();
+    const rawTitle = productData.title || '';
+    const bodyLen = (productData.body || '').length;
+    const imageCount = productData.imageUrls?.length || 0;
+    const host = getHostLabel(finalUrl).toLowerCase();
+
+    if (!title && bodyLen < 120 && imageCount === 0) return true;
+    if ((host.includes('brand.naver.com') || host.includes('brandconnect.naver.com')) && imageCount === 0 && bodyLen < 250) return true;
+    if (title.includes('브랜드 커넥트') && imageCount === 0) return true;
+    if (host.includes('search.shopping.naver.com') && imageCount === 0 && (isGenericShoppingTitle(rawTitle) || bodyLen < 800)) return true;
+    if (isGenericShoppingTitle(rawTitle) && imageCount === 0) return true;
+    return false;
+}
+
+async function resolveCandidateUrl(url) {
+    try {
+        const response = await axios.get(url, {
+            timeout: 20000,
+            maxRedirects: 10,
+            headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml' },
+            validateStatus: () => true
+        });
+        const finalUrl = response?.request?.res?.responseUrl || url;
+        const html = typeof response.data === 'string' ? response.data : '';
+        return { finalUrl, html };
+    } catch (e) {
+        return null;
+    }
+}
+
+async function resolveCandidateUrlWithBrowser(url) {
+    let browser;
+    try {
+        browser = await BrowserLauncher.launchBrowser();
+
+        const contextOptions = { userAgent: USER_AGENT };
+        if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
+            contextOptions.storageState = CONFIG.AUTH_FILE_PATH;
+        }
+
+        const context = await browser.newContext(contextOptions);
+        const page = await context.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2500);
+
+        const finalUrl = page.url() || url;
+        const html = await page.content();
+
+        await context.close();
+        await browser.close();
+
+        return { finalUrl, html };
+    } catch (e) {
+        if (browser) {
+            try { await browser.close(); } catch (ignore) { }
+        }
+        Logger.warn(`⚠️ 브라우저 fallback 실패 (${url}): ${e.message}`);
+        return null;
+    }
+}
+
+async function resolveReviewRichHtmlWithBrowser(url) {
+    let browser;
+    try {
+        browser = await BrowserLauncher.launchBrowser();
+
+        const contextOptions = { userAgent: USER_AGENT };
+        if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
+            contextOptions.storageState = CONFIG.AUTH_FILE_PATH;
+        }
+
+        const context = await browser.newContext(contextOptions);
+        const page = await context.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2500);
+
+        // 리뷰 탭 진입 시도 (상단 탭 클릭 중심)
+        try {
+            const reviewTabSelectors = [
+                '[role="tab"]:has-text("리뷰")',
+                'button:has-text("리뷰")',
+                'a:has-text("리뷰")',
+                'li:has-text("리뷰")'
+            ];
+            for (const selector of reviewTabSelectors) {
+                const reviewTab = page.locator(selector).first();
+                if (await reviewTab.count() === 0) continue;
+                try { await reviewTab.scrollIntoViewIfNeeded({ timeout: 1000 }); } catch (e) { }
+                await reviewTab.click({ force: true, timeout: 2000 });
+                await page.waitForTimeout(1000);
+                break;
+            }
+        } catch (e) { }
+
+        // 탭 콘텐츠 렌더링 대기
+        try { await page.waitForLoadState('networkidle', { timeout: 4000 }); } catch (e) { }
+        await page.waitForTimeout(1200);
+
+        const finalUrl = page.url() || url;
+        const html = await page.content();
+
+        await context.close();
+        await browser.close();
+
+        return { finalUrl, html };
+    } catch (e) {
+        if (browser) {
+            try { await browser.close(); } catch (ignore) { }
+        }
+        Logger.warn(`⚠️ 리뷰 보강용 브라우저 수집 실패 (${url}): ${e.message}`);
+        return null;
+    }
+}
+
+async function resolveViaShoppingSearchApi(channelProductNo) {
+    if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) return null;
+
+    try {
+        const apiUrl = 'https://openapi.naver.com/v1/search/shop.json';
+        const res = await axios.get(apiUrl, {
+            headers: {
+                'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
+                'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
+            },
+            params: { query: channelProductNo, display: 20, sort: 'sim' },
+            timeout: 15000
+        });
+
+        const items = res.data?.items || [];
+        if (!Array.isArray(items) || items.length === 0) return null;
+
+        const matched = items.find(item =>
+            String(item.productId || '') === String(channelProductNo) ||
+            String(item.link || '').includes(String(channelProductNo))
+        ) || items[0];
+
+        if (!matched) return null;
+
+        const link = decodeHtml(matched.link || '');
+        const image = decodeHtml(matched.image || '');
+        const title = stripTags(decodeHtml(matched.title || ''));
+        const category = [matched.category1, matched.category2, matched.category3, matched.category4].filter(Boolean).join(' > ');
+        const body = [
+            title ? `상품명: ${title}` : '',
+            matched.mallName ? `스토어: ${matched.mallName}` : '',
+            category ? `카테고리: ${category}` : '',
+            matched.lprice ? `최저가: ${matched.lprice}` : '',
+            matched.hprice ? `최고가: ${matched.hprice}` : ''
+        ].filter(Boolean).join('\n');
+
+        const commerceData = {
+            salePrice: parseKrwNumber(matched.lprice),
+            originalPrice: parseKrwNumber(matched.hprice),
+            discountRate: null,
+            freeShipping: false,
+            deliveryMethods: [],
+            installment: '',
+            benefitHighlights: []
+        };
+        commerceData.facts = buildCommerceFacts(commerceData);
+
+        return {
+            title,
+            description: '',
+            body,
+            imageUrls: image ? [image] : [],
+            commerceData,
+            reviewData: { reviewCount: null, averageRating: null, aiSummaryPoints: [], reviewSamples: [], facts: [] },
+            productLink: link
+        };
+    } catch (e) {
+        Logger.warn(`⚠️ 쇼핑 검색 API fallback 실패: ${e.message}`);
+        return null;
+    }
+}
+
+function extractDeepProductLinksFromHtml(html, channelProductNo) {
+    if (!html) return [];
+
+    const links = new Set();
+    const variants = [
+        String(html || ''),
+        decodeHtml(unescapeJsEscapes(html)),
+        decodeRepeatedly(decodeHtml(unescapeJsEscapes(html)))
+    ];
+
+    const directUrlRegex = /https?:\/\/(?:m\.)?smartstore\.naver\.com\/[^"'`\s<>]+\/products\/\d+(?:\?[^"'`\s<>]*)?/gi;
+    const encodedUrlRegex = /https?:%2F%2F(?:m\.)?smartstore\.naver\.com%2F[^"'`\s<>]+/gi;
+
+    for (const text of variants) {
+        if (!text) continue;
+
+        const directMatches = text.match(directUrlRegex) || [];
+        for (const rawLink of directMatches) {
+            const link = rawLink.trim();
+            if (!channelProductNo || String(link).includes(String(channelProductNo))) {
+                links.add(link);
+            }
+        }
+
+        const encodedMatches = text.match(encodedUrlRegex) || [];
+        for (const encodedLink of encodedMatches) {
+            const decodedLink = decodeRepeatedly(encodedLink);
+            const rematched = decodedLink.match(directUrlRegex) || [];
+            for (const link of rematched) {
+                if (!channelProductNo || String(link).includes(String(channelProductNo))) {
+                    links.add(link);
+                }
+            }
+        }
+    }
+
+    return Array.from(links);
+}
+
+function extractStoreAliasesFromHtml(html) {
+    if (!html) return [];
+
+    const aliases = new Set();
+    const reserved = new Set(['main', 'm', 'i', 'api', 'products', 'product', 'search', 'category', 'event', 'notice']);
+
+    const variants = [
+        String(html || ''),
+        decodeHtml(unescapeJsEscapes(html)),
+        decodeRepeatedly(decodeHtml(unescapeJsEscapes(html)))
+    ];
+
+    const aliasRegex = /(?:https?:\/\/)?(?:m\.)?smartstore\.naver\.com\/([a-zA-Z0-9_-]{2,})/gi;
+    const encodedAliasRegex = /smartstore\.naver\.com%2F([a-zA-Z0-9_-]{2,})/gi;
+
+    for (const text of variants) {
+        if (!text) continue;
+
+        let matched;
+        while ((matched = aliasRegex.exec(text)) !== null) {
+            const alias = (matched[1] || '').trim();
+            if (alias && !reserved.has(alias.toLowerCase())) aliases.add(alias);
+        }
+
+        let encodedMatched;
+        while ((encodedMatched = encodedAliasRegex.exec(text)) !== null) {
+            const alias = decodeRepeatedly(encodedMatched[1] || '').trim();
+            if (alias && !reserved.has(alias.toLowerCase())) aliases.add(alias);
+        }
+    }
+
+    return Array.from(aliases);
+}
+
+async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourceHtml = '') {
+    const deepLinks = extractDeepProductLinksFromHtml(sourceHtml, channelProductNo);
+    const storeAliases = extractStoreAliasesFromHtml(sourceHtml);
+    const aliasLinks = storeAliases.flatMap(alias => ([
+        `https://smartstore.naver.com/${alias}/products/${channelProductNo}`,
+        `https://m.smartstore.naver.com/${alias}/products/${channelProductNo}`
+    ]));
+
+    const deepLinkSet = new Set(deepLinks);
+    const aliasLinkSet = new Set(aliasLinks);
+    const candidateUrls = [
+        ...deepLinks,
+        ...aliasLinks,
+        `https://smartstore.naver.com/main/products/${channelProductNo}`,
+        `https://m.smartstore.naver.com/main/products/${channelProductNo}`,
+        `https://search.shopping.naver.com/catalog/${channelProductNo}`,
+        `https://msearch.shopping.naver.com/catalog/${channelProductNo}`,
+        `https://search.shopping.naver.com/search/all?query=${channelProductNo}`
+    ];
+    const uniqueCandidates = [...new Set(candidateUrls)];
+
+    for (const url of uniqueCandidates) {
+        const resolved = await resolveCandidateUrl(url);
+        if (!resolved) continue;
+
+        const candidateData = extractProductData(resolved.finalUrl, resolved.html);
+        const merged = mergeProductData(baseData, candidateData);
+        if (!isLikelyInvalidLanding(merged, resolved.finalUrl)) {
+            Logger.info(`✅ [Shopping] 채널번호 fallback 성공: ${resolved.finalUrl}`);
+            return {
+                productData: merged,
+                finalUrl: resolved.finalUrl,
+                source: deepLinkSet.has(url) ? 'deep_link_from_brandconnect'
+                    : aliasLinkSet.has(url) ? 'store_alias_fallback'
+                        : 'catalog_fallback'
+            };
+        }
+    }
+
+    const browserCandidates = uniqueCandidates.slice(0, 5);
+    for (const url of browserCandidates) {
+        const resolved = await resolveCandidateUrlWithBrowser(url);
+        if (!resolved) continue;
+
+        const candidateData = extractProductData(resolved.finalUrl, resolved.html);
+        const merged = mergeProductData(baseData, candidateData);
+        if (!isLikelyInvalidLanding(merged, resolved.finalUrl)) {
+            Logger.info(`✅ [Shopping] 브라우저 fallback 성공: ${resolved.finalUrl}`);
+            return {
+                productData: merged,
+                finalUrl: resolved.finalUrl,
+                source: deepLinkSet.has(url) ? 'deep_link_from_brandconnect_browser'
+                    : aliasLinkSet.has(url) ? 'store_alias_fallback_browser'
+                        : 'catalog_fallback_browser'
+            };
+        }
+    }
+
+    const searchFallback = await resolveViaShoppingSearchApi(channelProductNo);
+    if (searchFallback) {
+        const merged = mergeProductData(baseData, {
+            title: searchFallback.title,
+            description: searchFallback.description,
+            body: searchFallback.body,
+            imageUrls: searchFallback.imageUrls,
+            structuredProduct: null,
+            commerceData: searchFallback.commerceData,
+            reviewData: searchFallback.reviewData
+        });
+        const finalUrl = searchFallback.productLink || `channelProductNo:${channelProductNo}`;
+        Logger.info(`✅ [Shopping] 검색API fallback 적용: ${finalUrl}`);
+        return { productData: merged, finalUrl, source: 'shop_search_api' };
+    }
+
+    return null;
+}
+
+async function downloadImage(url, saveDir, index, label, referer = '', options = {}) {
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': USER_AGENT,
+            'Accept': 'image/*,*/*;q=0.8',
+            'Referer': referer || undefined
+        }
+    });
+
+    const ext = guessExtension(url, response.headers?.['content-type']);
+    const dataBuffer = Buffer.from(response.data);
+    const skipSizeCheck = options.skipSizeCheck === true;
+    if (!skipSizeCheck && dataBuffer.length < 10 * 1024) {
+        throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
+    }
+    const skipQualityCheck = options.skipQualityCheck === true;
+    if (!skipQualityCheck) {
+        const dimensions = getImageDimensions(dataBuffer, ext);
+        if (!isLikelyUsableProductImage(dimensions)) {
+            throw new Error(`이미지 해상도/비율이 본문용으로 부적합하여 스킵합니다 (${dimensions.width}x${dimensions.height})`);
+        }
+    }
+
+    const prefix = String(index).padStart(2, '0');
+    const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
+    const filename = `${prefix}_${safeLabel}.${ext}`;
+    const filePath = path.join(saveDir, filename);
+
+    fs.writeFileSync(filePath, dataBuffer);
+    return filePath;
+}
+
+async function transformShoppingImage(localPath) {
+    // TODO: v2에서 이미지 변형(텍스트 오버레이/누끼 등) 적용 예정
+    return localPath;
+}
+
+function parseAiJson(rawText, fallbackTitle) {
+    try {
+        const parsed = JSON.parse(stripCodeFence(rawText));
+        const sections = Array.isArray(parsed.sections) ? parsed.sections.map(section => ({
+            heading: section.heading || '',
+            body: section.body || '',
+            summary: section.summary || '',
+            quote: section.quote || ''
+        })) : [];
+
+        return {
+            title: parsed.title || fallbackTitle,
+            intro: parsed.intro || '',
+            sections,
+            quickSummary: Array.isArray(parsed.quick_summary) ? parsed.quick_summary.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            quotes: Array.isArray(parsed.quotes) ? parsed.quotes.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            pros: Array.isArray(parsed.pros) ? parsed.pros.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            cons: Array.isArray(parsed.cons) ? parsed.cons.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            recommendedFor: Array.isArray(parsed.recommended_for) ? parsed.recommended_for.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            conclusion: parsed.conclusion || '',
+            ctaPhrases: Array.isArray(parsed.cta_phrases) ? parsed.cta_phrases : [],
+            hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : []
+        };
+    } catch (e) {
+        Logger.warn(`⚠️ 쇼핑 콘텐츠 JSON 파싱 실패: ${e.message}`);
+        return {
+            title: fallbackTitle,
+            intro: '',
+            sections: [],
+            quickSummary: [],
+            quotes: [],
+            pros: [],
+            cons: [],
+            recommendedFor: [],
+            conclusion: '',
+            ctaPhrases: [],
+            hashtags: []
+        };
+    }
+}
+
+function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, ctaImageInsertCount, linkInsertCount, commerceData, reviewData }) {
+    const lines = [];
+    lines.push(`# ${aiData.title}`);
+    lines.push('');
+
+    if (ftcImage) {
+        lines.push(buildImageBlock(ftcImage.index, '공정위 안내 이미지', 'affiliate disclosure image'));
+        lines.push('');
+    }
+
+    if (!ftcImage) {
+        lines.push('※ 이 포스팅에는 제휴 링크가 포함되어 있으며, 일정 수수료를 받을 수 있습니다.');
+        lines.push('');
+    }
+
+    if (aiData.intro) {
+        lines.push(aiData.intro);
+        lines.push('');
+    }
+
+    let imageCursor = 0;
+    const insertNextProductImage = () => {
+        if (imageCursor >= productImages.length) return false;
+        const image = productImages[imageCursor];
+        lines.push(buildImageBlock(image.index, image.title, image.prompt));
+        lines.push('');
+        imageCursor++;
+        return true;
+    };
+
+    // 요청사항: 도입부 바로 아래에 상품 이미지 배치
+    insertNextProductImage();
+
+    const displayFacts = buildCommerceFacts(commerceData);
+    if (displayFacts.length > 0) {
+        lines.push('## 구매 포인트 한눈에');
+        displayFacts
+            .map(fact => normalizeFactText(fact))
+            .filter(Boolean)
+            .forEach(fact => lines.push(`- ${fact}`));
+        lines.push('');
+        lines.push('');
+    }
+
+    const reviewFacts = buildReviewFacts(reviewData);
+    if (reviewFacts.length > 0) {
+        lines.push('## 실사용자 반응 요약');
+        reviewFacts.forEach(fact => lines.push(`- ${normalizeFactText(fact)}`));
+        lines.push('');
+    }
+
+    if (reviewData?.reviewSamples?.length > 0) {
+        lines.push(`"${reviewData.reviewSamples[0]}"`);
+        lines.push('');
+    }
+
+    const quickSummary = (aiData.quickSummary || []).length > 0
+        ? aiData.quickSummary
+        : buildFallbackQuickSummary(aiData, commerceData);
+    if (quickSummary.length > 0) {
+        lines.push('## 30초 요약');
+        quickSummary.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
+        lines.push('');
+        lines.push('');
+    }
+
+    const { pros, cons } = buildFallbackProsCons(aiData, commerceData, reviewData);
+    if (pros.length > 0 || cons.length > 0) {
+        lines.push('## 좋았던 점/아쉬운 점');
+        lines.push('');
+        if (pros.length > 0) {
+            lines.push('[장점]');
+            pros.forEach((item, idx) => lines.push(`${idx + 1}. ${normalizeFactText(item)}`));
+            lines.push('');
+        }
+        if (cons.length > 0) {
+            lines.push('[아쉬운 점]');
+            cons.forEach((item, idx) => lines.push(`${idx + 1}. ${normalizeFactText(item)}`));
+            lines.push('');
+        }
+    }
+
+    const recommendedFor = buildFallbackRecommendedFor(aiData);
+    if (recommendedFor.length > 0) {
+        lines.push('## 이런 분들께 추천해요');
+        recommendedFor.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
+        lines.push('');
+    }
+
+    if ((aiData.quotes || []).length > 0) {
+        lines.push(`"${aiData.quotes[0]}"`);
+        lines.push('');
+    }
+
+    const ctaPhrases = aiData.ctaPhrases.length > 0 ? aiData.ctaPhrases : getDefaultLinkPhrases();
+    let linksInserted = 0;
+    let ctaImageInserted = 0;
+
+    const insertCtaImageBlock = () => {
+        if (!ctaImage) return;
+        if (ctaImageInserted >= ctaImageInsertCount) return;
+        lines.push(buildImageBlock(ctaImage.index, ctaImage.title, ctaImage.prompt));
+        lines.push('');
+        ctaImageInserted++;
+    };
+
+    const insertLinkLine = () => {
+        if (ctaImage && ctaImageInserted < ctaImageInsertCount) {
+            insertCtaImageBlock();
+        }
+        const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
+        if (linksInserted === 0) {
+            lines.push('## 지금 바로 확인하고 혜택 받으세요!');
+        }
+        lines.push(`🛒 ${phrase}`);
+        lines.push(shortUrl);
+        lines.push('');
+        linksInserted++;
+    };
+
+    if (linksInserted < linkInsertCount) insertLinkLine();
+
+    const sections = aiData.sections.length > 0
+        ? aiData.sections
+        : [{ heading: '상품 핵심 포인트', body: '상품의 기능과 장단점을 살펴보며 실제 사용 관점에서 정리해보겠습니다.' }];
+
+    for (const section of sections) {
+        lines.push(`## ${section.heading || '상세 리뷰'}`);
+        lines.push(section.body || '');
+        lines.push('');
+
+        const sectionSummary = normalizeWhitespace(section.summary || '') || firstSentence(section.body || '');
+        if (sectionSummary) {
+            lines.push(`한 줄 정리: ${sectionSummary}`);
+            lines.push('');
+        }
+
+        const sectionQuote = normalizeWhitespace(section.quote || '');
+        if (sectionQuote) {
+            lines.push(`"${sectionQuote}"`);
+            lines.push('');
+        }
+
+        insertNextProductImage();
+
+        if (linksInserted < linkInsertCount) {
+            insertLinkLine();
+        }
+    }
+
+    if (aiData.conclusion) {
+        lines.push('## 마무리');
+        lines.push(aiData.conclusion);
+        lines.push('');
+    }
+
+    while (linksInserted < linkInsertCount) {
+        insertLinkLine();
+    }
+
+    while (imageCursor < productImages.length) {
+        insertNextProductImage();
+    }
+
+    while (ctaImage && ctaImageInserted < ctaImageInsertCount) {
+        insertCtaImageBlock();
+        if (linksInserted < linkInsertCount + ctaImageInsertCount) {
+            const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
+            lines.push(`🛒 ${phrase}`);
+            lines.push(shortUrl);
+            lines.push('');
+            linksInserted++;
+        }
+    }
+
+    lines.push('## 함께 보면 좋은 글');
+    lines.push('- [관련 글 제목 1](여기에_링크_추가)');
+    lines.push('- [관련 글 제목 2](여기에_링크_추가)');
+    lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+    lines.push('');
+    lines.push('');
+
+    if (aiData.hashtags.length > 0) {
+        lines.push(aiData.hashtags.map(tag => `#${String(tag).replace(/^#/, '')}`).join(' '));
+    }
+
+    return lines.join('\n').trim() + '\n';
+}
+
+const ShoppingManager = {
+    buildPostFromShortUrl: async function (shortUrl) {
+        if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
+
+        const linkInsertCount = clampInt(CONFIG.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
+        const imageLimit = clampInt(CONFIG.SHOPPING_IMAGE_MAX_COUNT, 1, 15, DEFAULT_IMAGE_MAX_COUNT);
+        const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
+        const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
+        const ctaImageUrl = (CONFIG.SHOPPING_CTA_IMAGE_URL || '').trim();
+
+        Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
+        const initial = await resolveUrlAndHtml(shortUrl);
+        let sourceHtml = initial.html;
+        let finalUrl = initial.finalUrl;
+        let productData = extractProductData(finalUrl, initial.html);
+        let resolvedSource = 'short_url';
+        let channelProductNo = extractChannelProductNo(finalUrl);
+        let reviewEnrichedWithBrowser = false;
+
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl);
+            if (browserResolved) {
+                const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
+                sourceHtml = browserResolved.html || sourceHtml;
+                if (!isLikelyInvalidLanding(browserData, browserResolved.finalUrl)) {
+                    finalUrl = browserResolved.finalUrl;
+                    productData = mergeProductData(productData, browserData);
+                    resolvedSource = 'short_url_browser';
+                }
+                if (!channelProductNo) {
+                    channelProductNo = extractChannelProductNo(browserResolved.finalUrl);
+                }
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            if (channelProductNo) {
+                const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml);
+                if (fallback) {
+                    finalUrl = fallback.finalUrl;
+                    productData = fallback.productData;
+                    resolvedSource = fallback.source || resolvedSource;
+                }
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            throw new Error(`상품 정보를 추출하지 못했습니다. 단축 URL이 상품 페이지를 가리키는지 확인해주세요. (resolved: ${finalUrl})`);
+        }
+
+        const reviewSampleCount = (productData.reviewData?.reviewSamples || []).length;
+        const reviewFactCount = (productData.reviewData?.facts || []).length;
+        const needsReviewEnrichment = !productData.reviewData?.reviewCount || reviewSampleCount < 1 || reviewFactCount < 2;
+        if (needsReviewEnrichment) {
+            Logger.info('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
+            const reviewResolved = await resolveReviewRichHtmlWithBrowser(finalUrl);
+            if (reviewResolved?.html) {
+                const reviewCandidate = extractProductData(reviewResolved.finalUrl || finalUrl, reviewResolved.html);
+                const mergedReviewData = mergeProductData(productData, reviewCandidate);
+                const beforeSamples = (productData.reviewData?.reviewSamples || []).length;
+                const afterSamples = (mergedReviewData.reviewData?.reviewSamples || []).length;
+                const beforeFacts = (productData.reviewData?.facts || []).length;
+                const afterFacts = (mergedReviewData.reviewData?.facts || []).length;
+                productData = mergedReviewData;
+                if (reviewResolved.finalUrl) finalUrl = reviewResolved.finalUrl;
+                reviewEnrichedWithBrowser = afterSamples > beforeSamples || afterFacts > beforeFacts;
+                if (reviewEnrichedWithBrowser) {
+                    Logger.info(`✅ [Shopping] 리뷰 데이터 보강 완료 (samples ${beforeSamples}→${afterSamples}, facts ${beforeFacts}→${afterFacts})`);
+                } else {
+                    Logger.info('ℹ️ [Shopping] 리뷰 보강 수집을 시도했지만 추가 데이터가 제한적입니다.');
+                }
+            }
+        }
+
+        const titleBase = productData.title || `쇼핑 리뷰 (${getHostLabel(finalUrl)})`;
+
+        const wsDir = CONFIG.WORKSPACE_DIR || path.join(process.cwd(), 'workspace');
+        const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
+        const safeTitle = Utils.sanitizeFileName(titleBase);
+        const targetDir = path.join(wsDir, `${timestamp}_${safeTitle}`);
+        fs.mkdirSync(targetDir, { recursive: true });
+
+        const productImages = [];
+        let nextImageIndex = 1;
+        for (const imageUrl of productData.imageUrls) {
+            if (productImages.length >= imageLimit) break;
+            try {
+                const localPath = await downloadImage(imageUrl, targetDir, nextImageIndex, `product_${productImages.length + 1}`, finalUrl);
+                const transformedPath = await transformShoppingImage(localPath);
+                productImages.push({
+                    index: nextImageIndex,
+                    path: transformedPath,
+                    title: `상품 이미지 ${productImages.length + 1}`,
+                    prompt: imageUrl
+                });
+                nextImageIndex++;
+            } catch (e) {
+                Logger.warn(`⚠️ 상품 이미지 다운로드 실패: ${e.message}`);
+            }
+        }
+
+        let ftcImage = null;
+        if (ftcImageUrl) {
+            try {
+                const ftcPath = await downloadImage(ftcImageUrl, targetDir, 0, 'ftc_disclosure', finalUrl, { skipQualityCheck: true });
+                const transformedFtcPath = await transformShoppingImage(ftcPath);
+                ftcImage = { index: 0, path: transformedFtcPath };
+            } catch (e) {
+                throw new Error(`공정위 이미지 다운로드 실패: ${e.message}`);
+            }
+        } else {
+            throw new Error('FTC_DISCLOSURE_IMAGE_URL 설정이 없어 쇼핑 포스팅을 진행할 수 없습니다.');
+        }
+
+        let ctaImage = null;
+        if (ctaImageUrl && ctaImageInsertCount > 0) {
+            try {
+                const ctaPath = await downloadImage(ctaImageUrl, targetDir, nextImageIndex, 'cta_image', finalUrl, {
+                    skipQualityCheck: true,
+                    skipSizeCheck: true
+                });
+                const transformedCtaPath = await transformShoppingImage(ctaPath);
+                ctaImage = {
+                    index: nextImageIndex,
+                    path: transformedCtaPath,
+                    title: '혜택 안내 이미지',
+                    prompt: ctaImageUrl
+                };
+                nextImageIndex++;
+            } catch (e) {
+                Logger.warn(`⚠️ CTA 이미지 다운로드 실패: ${e.message}`);
+            }
+        }
+
+        const aiPrompt = buildAiPrompt({
+            title: titleBase,
+            description: productData.description,
+            body: productData.body,
+            commerceData: productData.commerceData,
+            reviewData: productData.reviewData
+        });
+        const aiRaw = await Utils.callGeminiText(aiPrompt);
+        const aiData = parseAiJson(aiRaw, titleBase);
+
+        const markdown = composeMarkdown({
+            aiData,
+            shortUrl,
+            ftcImage,
+            productImages,
+            ctaImage,
+            ctaImageInsertCount,
+            linkInsertCount,
+            commerceData: productData.commerceData,
+            reviewData: productData.reviewData
+        });
+
+        fs.writeFileSync(path.join(targetDir, 'contents.md'), markdown, 'utf-8');
+        fs.writeFileSync(path.join(targetDir, 'scrape_debug.json'), JSON.stringify({
+            shortUrl,
+            finalUrl,
+            resolvedSource,
+            channelProductNo,
+            extractedTitle: productData.title,
+            descriptionLength: (productData.description || '').length,
+            bodyLength: (productData.body || '').length,
+            imageCount: productData.imageUrls.length,
+            sampleImages: productData.imageUrls.slice(0, 5),
+            structuredProductFound: !!productData.structuredProduct,
+            commerceData: productData.commerceData,
+            reviewData: productData.reviewData,
+            reviewEnrichedWithBrowser,
+            ctaImageConfigured: !!ctaImageUrl,
+            ctaImageInserted: !!ctaImage
+        }, null, 2), 'utf-8');
+        Logger.info(`✅ [Shopping] 콘텐츠 준비 완료: ${targetDir}`);
+
+        return { targetDir, title: aiData.title, finalUrl };
+    }
+};
+
+module.exports = ShoppingManager;
