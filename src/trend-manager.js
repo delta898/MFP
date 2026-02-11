@@ -186,7 +186,7 @@ const TrendManager = {
 
                         swipeCount++;
                         // 애니메이션 및 로딩 대기 (충분한 시간 부여)
-                        await page.waitForTimeout(1500);
+                        await page.waitForTimeout(300);
                     } else {
                         Logger.warn('⚠️ 스와이프 영역을 찾을 수 없습니다 (BoundingBox Fail).');
                         break;
