@@ -1117,6 +1117,131 @@ const Utils = {
         }
     },
 
+    _resolveOwnBlogId: function () {
+        const configured = String(CONFIG.NAVER_ID || '').trim();
+        if (configured && !configured.includes('본인의_네이버_아이디')) return configured;
+
+        const writeUrl = String(CONFIG.WRITE_URL || '').trim();
+        if (!writeUrl) return '';
+        try {
+            const parsed = new URL(writeUrl);
+            const chunks = parsed.pathname.split('/').filter(Boolean);
+            return chunks[0] || '';
+        } catch (e) {
+            return '';
+        }
+    },
+
+    _normalizeNaverBlogPostUrl: function (rawUrl, blogId = '') {
+        const href = String(rawUrl || '').trim();
+        if (!href) return '';
+
+        try {
+            const parsed = new URL(href, 'https://blog.naver.com');
+            const host = parsed.hostname.toLowerCase();
+            const pathChunks = parsed.pathname.split('/').filter(Boolean);
+
+            if (parsed.pathname.includes('/PostView.naver')) {
+                const id = parsed.searchParams.get('blogId') || blogId;
+                const logNo = parsed.searchParams.get('logNo');
+                if (id && logNo && /^\d{6,}$/.test(String(logNo))) {
+                    return `https://blog.naver.com/${id}/${logNo}`;
+                }
+            }
+
+            if ((host === 'blog.naver.com' || host === 'm.blog.naver.com') && pathChunks.length >= 2) {
+                const id = pathChunks[0];
+                const logNo = pathChunks[1];
+                if (id && /^\d{6,}$/.test(String(logNo))) {
+                    return `https://blog.naver.com/${id}/${logNo}`;
+                }
+            }
+            return '';
+        } catch (e) {
+            return '';
+        }
+    },
+
+    _shuffleArray: function (list) {
+        const arr = Array.isArray(list) ? [...list] : [];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    },
+
+    pickRelatedPostsHeading: function () {
+        const headings = ['함께 보면 좋은 글', '같이 보면 좋은 글', '이어서 보면 좋은 글'];
+        return headings[Math.floor(Math.random() * headings.length)];
+    },
+
+    fetchOwnBlogRandomPosts: async function (count = 3) {
+        const targetCount = Math.max(1, Math.min(10, parseInt(count, 10) || 3));
+        const blogId = this._resolveOwnBlogId();
+        if (!blogId) return [];
+
+        const collected = [];
+        const seen = new Set();
+        const addPost = (title, link) => {
+            const cleanTitle = String(title || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+            const cleanLink = this._normalizeNaverBlogPostUrl(link, blogId);
+            if (!cleanTitle || !cleanLink || seen.has(cleanLink)) return;
+            seen.add(cleanLink);
+            collected.push({ title: cleanTitle, url: cleanLink });
+        };
+
+        // 1) RSS 우선 수집
+        try {
+            const cheerio = require('cheerio');
+            const rssUrl = `https://rss.blog.naver.com/${encodeURIComponent(blogId)}.xml`;
+            const rssRes = await axios.get(rssUrl, {
+                timeout: 10000,
+                maxRedirects: 3,
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
+                validateStatus: () => true
+            });
+            if (rssRes.status >= 200 && rssRes.status < 300 && typeof rssRes.data === 'string') {
+                const $ = cheerio.load(rssRes.data, { xmlMode: true, decodeEntities: true });
+                $('item').each((_, el) => {
+                    const title = $(el).find('title').first().text();
+                    const link = $(el).find('link').first().text();
+                    addPost(title, link);
+                });
+            }
+        } catch (e) {
+            Logger.debug(`🔎 [관련글] RSS 수집 실패: ${e.message}`);
+        }
+
+        // 2) RSS가 부족하면 목록 페이지에서 보강
+        if (collected.length < targetCount) {
+            try {
+                const cheerio = require('cheerio');
+                const listUrl = `https://blog.naver.com/PostList.naver?blogId=${encodeURIComponent(blogId)}&from=postList&categoryNo=0&currentPage=1`;
+                const listRes = await axios.get(listUrl, {
+                    timeout: 12000,
+                    maxRedirects: 3,
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/xhtml+xml' },
+                    validateStatus: () => true
+                });
+                if (listRes.status >= 200 && listRes.status < 300 && typeof listRes.data === 'string') {
+                    const $ = cheerio.load(listRes.data);
+                    $('a[href]').each((_, el) => {
+                        const link = $(el).attr('href') || '';
+                        const title = $(el).text() || '';
+                        if (String(title).trim().length < 6) return;
+                        if (/카테고리|메뉴|태그|이웃|프로필|공지|로그인/.test(String(title))) return;
+                        addPost(title, link);
+                    });
+                }
+            } catch (e) {
+                Logger.debug(`🔎 [관련글] HTML 수집 실패: ${e.message}`);
+            }
+        }
+
+        return this._shuffleArray(collected).slice(0, targetCount);
+    },
+
     /**
      * 2. 구글 시트 상태 업데이트
      * 🔧 [Fixed] 재시도 로직 추가 및 백업 로깅

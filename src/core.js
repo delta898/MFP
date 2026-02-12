@@ -149,6 +149,45 @@ async function centerAlignFocusedImage(page) {
 	return false;
 }
 
+async function setFocusedImageAsRepresentative(page) {
+	// 에디터 버전에 따라 대표 버튼이 이미지 툴바 내부가 아니라 이미지 오버레이에 직접 뜨기도 한다.
+	const selectors = [
+		'button.se-set-rep-image-button',
+		'.se-image-toolbar button.se-set-rep-image-button',
+		'.se-image-toolbar button[data-name="rep-image"]',
+		'button[data-name*="represent"]',
+		'button[aria-label*="대표"]',
+		'button[title*="대표"]',
+		'button:has-text("대표")'
+	];
+
+	for (let attempt = 0; attempt < 4; attempt++) {
+		try {
+			await focusLatestEditorImage(page);
+		} catch (e) { }
+		await Utils.sleep(120);
+
+		for (const selector of selectors) {
+			const buttons = page.locator(selector);
+			const count = await buttons.count();
+			for (let i = count - 1; i >= 0; i--) {
+				const button = buttons.nth(i);
+				try {
+					if (!(await button.isVisible())) continue;
+
+					const ariaPressed = String(await button.getAttribute('aria-pressed') || '').toLowerCase();
+					if (ariaPressed === 'true') return true;
+
+					await button.click({ force: true });
+					await Utils.sleep(180);
+					return true;
+				} catch (e) { }
+			}
+		}
+	}
+	return false;
+}
+
 async function applyLinkToFocusedImage(page, linkUrl) {
 	if (!linkUrl) return false;
 
@@ -599,6 +638,43 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 	}
 }
 
+function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true) {
+	const title = String(heading || '함께 보면 좋은 글').trim() || '함께 보면 좋은 글';
+	const lines = [];
+	if (includeHeading) {
+		lines.push(`## ${title}`);
+		lines.push('');
+	}
+	const validPosts = (Array.isArray(relatedPosts) ? relatedPosts : []).filter(post => {
+		const postTitle = String(post?.title || '').replace(/\s+/g, ' ').trim();
+		const postUrl = String(post?.url || '').trim();
+		return !!postTitle && /^https?:\/\//i.test(postUrl);
+	});
+
+	if (validPosts.length === 0) {
+		lines.push('- [관련 글 제목 1](여기에_링크_추가)');
+		lines.push('- [관련 글 제목 2](여기에_링크_추가)');
+		lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+		return lines.join('\n').trim();
+	}
+
+	validPosts.slice(0, 3).forEach(post => {
+		const postTitle = String(post?.title || '').replace(/\s+/g, ' ').trim();
+		const postUrl = String(post?.url || '').trim();
+		lines.push(postTitle);
+		lines.push(postUrl);
+		lines.push('');
+	});
+	return lines.join('\n').trim();
+}
+
+function stripAiRelatedPostsSection(markdown = '') {
+	if (!markdown) return '';
+	// AI가 생성한 "함께/같이/이어서 보면 좋은 글" 섹션은 제거하고, 후처리로 일관되게 재삽입한다.
+	const pattern = /(?:^|\n)##\s*(?:함께|같이|이어서)\s*보면\s*좋은\s*글[\s\S]*?(?=\n##\s+|$)/g;
+	return String(markdown).replace(pattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 const Core = {
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
@@ -702,6 +778,13 @@ ${scrapedContext}`;
 		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
 		const finalHashtags = parsedData.hashtags || [];
+		const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+		const relatedHeading = Utils.pickRelatedPostsHeading();
+		if (relatedPosts.length > 0) {
+			Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+		} else {
+			Logger.info("ℹ️ [Blog] 관련 글 자동 수집 실패/없음: placeholder 삽입");
+		}
 
 		// 5) 결과 저장
 		let targetDir;
@@ -716,7 +799,10 @@ ${scrapedContext}`;
 
 		if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
-		const pureContent = finalContent.replace(/^#\s+.+\n?/, "").trim();
+		let pureContent = finalContent.replace(/^#\s+.+\n?/, "").trim();
+		pureContent = stripAiRelatedPostsSection(pureContent);
+		const relatedSection = buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
+		pureContent = `${pureContent}\n\n${relatedSection}`.trim();
 		const hashtagLine = finalHashtags.length > 0 ? "\n\n\n" + finalHashtags.map(tag => `#${tag}`).join(' ') : "";
 		const fullFileContent = `# ${finalSubject}\n\n${pureContent}${hashtagLine}`;
 
@@ -846,6 +932,9 @@ ${scrapedContext}`;
 				// ✍️ 본문 입력 루프
 				let inListMode = false;
 				let currentListType = null;
+				let representativeImageSet = false;
+				let representativeAttemptCount = 0;
+				const representativeMaxAttempts = 3;
 				for (const item of contents) {
 					if (item.type !== 'image') {
 						await closeVisibleOglinkPopup(page);
@@ -958,13 +1047,33 @@ ${scrapedContext}`;
 								Logger.warn('       ⚠️ 방금 업로드한 이미지를 포커스하지 못했습니다.');
 							}
 
-							const centered = imageFocused ? await centerAlignFocusedImage(page) : false;
-							if (centered) {
-								Logger.info("       ↔️ 이미지 가운데 정렬 적용");
-							}
+								const centered = imageFocused ? await centerAlignFocusedImage(page) : false;
+								if (centered) {
+									Logger.info("       ↔️ 이미지 가운데 정렬 적용");
+								}
 
-							// CTA 이미지는 클릭 시 제휴 URL로 이동하도록 링크를 건다.
-							if (
+								// 대표 이미지는 공정위/CTA 이미지를 제외한 첫 일반 이미지로 지정한다.
+								const shouldSetRepresentative =
+									imageFocused &&
+									!representativeImageSet &&
+									representativeAttemptCount < representativeMaxAttempts &&
+									!/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) &&
+									!/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+								if (shouldSetRepresentative) {
+									representativeAttemptCount++;
+									const repSet = await setFocusedImageAsRepresentative(page);
+									if (repSet) {
+										representativeImageSet = true;
+										Logger.info("       🏷️ 대표 이미지 지정 완료");
+									} else if (representativeAttemptCount >= representativeMaxAttempts) {
+										Logger.warn("       ⚠️ 대표 이미지 버튼을 찾지 못했습니다.");
+									} else {
+										Logger.info("       ℹ️ 대표 이미지 지정 재시도 예정");
+									}
+								}
+
+								// CTA 이미지는 클릭 시 제휴 URL로 이동하도록 링크를 건다.
+								if (
 								imageFocused &&
 								/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file) &&
 								/^https?:\/\//i.test(primaryAffiliateUrl)

@@ -901,6 +901,374 @@ function buildSeoKeywordHints(productTitle = '') {
     return keywords.slice(0, 8).map((k, idx) => `- ${idx === 0 ? '메인' : '서브'} 키워드: ${k}`).join('\n');
 }
 
+function getTitleStopWords() {
+    return new Set([
+        '공식', '공식파트너', '공식인증점', '파트너', '정품', '최신형', '대용량', '신생아', '아기',
+        '필기용', '실사용', '사용기', '후기', '추천', '리뷰', '와이파이', 'wifi', '그레이'
+    ]);
+}
+
+function truncateTitle(text, maxLen = 35) {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return '';
+    if (clean.length <= maxLen) return clean;
+    const words = clean.split(' ');
+    let acc = '';
+    for (const word of words) {
+        const candidate = acc ? `${acc} ${word}` : word;
+        if (candidate.length > maxLen) break;
+        acc = candidate;
+    }
+    if (acc.length >= 12) return acc;
+    return clean.substring(0, maxLen).trim();
+}
+
+function extractCoreTitleKeyword(productTitle = '') {
+    const stopWords = getTitleStopWords();
+
+    const raw = normalizeWhitespace(String(productTitle || '').split(':')[0])
+        .replace(/\[[^\]]*]/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/[^\w\s가-힣-]/g, ' ');
+
+    const tokens = raw.split(/\s+/).map(v => v.trim()).filter(Boolean);
+    const selected = [];
+    for (const token of tokens) {
+        if (token.length < 2) continue;
+        if (stopWords.has(token.toLowerCase())) continue;
+        selected.push(token);
+        if (selected.length >= 6) break;
+    }
+
+    const joined = normalizeWhitespace(selected.join(' '));
+    if (joined) return truncateTitle(joined, 18);
+    return truncateTitle(normalizeWhitespace(productTitle), 18);
+}
+
+function escapeRegex(text) {
+    return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function countKeywordOccurrences(text, keyword) {
+    const cleanText = normalizeWhitespace(text);
+    const cleanKeyword = normalizeWhitespace(keyword);
+    if (!cleanText || !cleanKeyword) return 0;
+    const regex = new RegExp(escapeRegex(cleanKeyword), 'gi');
+    const matched = cleanText.match(regex);
+    return matched ? matched.length : 0;
+}
+
+function deriveSeoKeywordPlan(productTitle = '') {
+    const mainKeyword = extractCoreTitleKeyword(productTitle) || '상품 리뷰';
+    const stopWords = getTitleStopWords();
+    const tokens = normalizeWhitespace(productTitle)
+        .replace(/\[[^\]]*]/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/[^\w\s가-힣-]/g, ' ')
+        .split(/\s+/)
+        .map(v => v.trim())
+        .filter(Boolean);
+
+    const mainTokens = new Set(mainKeyword.split(/\s+/).map(v => v.trim().toLowerCase()).filter(Boolean));
+    const related = [];
+    for (const token of tokens) {
+        const lower = token.toLowerCase();
+        if (token.length < 2) continue;
+        if (stopWords.has(lower)) continue;
+        if (mainTokens.has(lower)) continue;
+        if (related.includes(token)) continue;
+        related.push(token);
+        if (related.length >= 3) break;
+    }
+
+    return { mainKeyword, relatedKeywords: related };
+}
+
+function resolveOwnBlogId() {
+    const configured = normalizeWhitespace(CONFIG.NAVER_ID || '');
+    if (configured && !configured.includes('본인의_네이버_아이디')) return configured;
+
+    const writeUrl = normalizeWhitespace(CONFIG.WRITE_URL || '');
+    if (!writeUrl) return '';
+    try {
+        const parsed = new URL(writeUrl);
+        const chunks = parsed.pathname.split('/').filter(Boolean);
+        return chunks[0] || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function normalizeNaverBlogPostUrl(rawUrl, blogId = '') {
+    const href = normalizeWhitespace(rawUrl);
+    if (!href) return '';
+
+    try {
+        const parsed = new URL(href, 'https://blog.naver.com');
+        const host = parsed.hostname.toLowerCase();
+        const pathChunks = parsed.pathname.split('/').filter(Boolean);
+
+        if (parsed.pathname.includes('/PostView.naver')) {
+            const id = parsed.searchParams.get('blogId') || blogId;
+            const logNo = parsed.searchParams.get('logNo');
+            if (id && logNo && /^\d{6,}$/.test(String(logNo))) {
+                return `https://blog.naver.com/${id}/${logNo}`;
+            }
+        }
+
+        if ((host === 'blog.naver.com' || host === 'm.blog.naver.com') && pathChunks.length >= 2) {
+            const id = pathChunks[0];
+            const logNo = pathChunks[1];
+            if (id && /^\d{6,}$/.test(String(logNo))) {
+                return `https://blog.naver.com/${id}/${logNo}`;
+            }
+        }
+
+        return '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function parseRecentPostsFromRssXml(xml, blogId, maxCount) {
+    if (!xml || typeof xml !== 'string') return [];
+    const $ = cheerio.load(xml, { xmlMode: true, decodeEntities: true });
+    const posts = [];
+    const seen = new Set();
+
+    $('item').each((_, el) => {
+        if (posts.length >= maxCount) return false;
+        const title = normalizeWhitespace(stripTags(decodeHtml($(el).find('title').first().text() || '')));
+        const linkRaw = normalizeWhitespace($(el).find('link').first().text() || '');
+        const url = normalizeNaverBlogPostUrl(linkRaw, blogId);
+        if (!title || !url || seen.has(url)) return;
+
+        seen.add(url);
+        posts.push({ title: truncateTitle(title, 60), url });
+    });
+
+    return posts;
+}
+
+function parseRecentPostsFromBlogHtml(html, blogId, maxCount) {
+    if (!html || typeof html !== 'string') return [];
+    const $ = cheerio.load(html);
+    const posts = [];
+    const seen = new Set();
+
+    $('a[href]').each((_, el) => {
+        if (posts.length >= maxCount) return false;
+        const href = $(el).attr('href') || '';
+        const title = normalizeWhitespace(stripTags($(el).text() || ''));
+        if (!title || title.length < 6) return;
+        if (/카테고리|메뉴|태그|이웃|프로필|공지|로그인/.test(title)) return;
+
+        const url = normalizeNaverBlogPostUrl(href, blogId);
+        if (!url || seen.has(url)) return;
+        if (!url.includes(`/${blogId}/`)) return;
+
+        seen.add(url);
+        posts.push({ title: truncateTitle(title, 60), url });
+    });
+
+    return posts;
+}
+
+async function fetchRecentOwnBlogPosts(maxCount = 3) {
+    const targetCount = clampInt(maxCount, 1, 10, 3);
+    const blogId = resolveOwnBlogId();
+    if (!blogId) return [];
+
+    const rssUrl = `https://rss.blog.naver.com/${encodeURIComponent(blogId)}.xml`;
+    try {
+        const rssRes = await axios.get(rssUrl, {
+            timeout: 10000,
+            maxRedirects: 3,
+            headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
+            validateStatus: () => true
+        });
+        if (rssRes.status >= 200 && rssRes.status < 300 && typeof rssRes.data === 'string') {
+            const rssPosts = parseRecentPostsFromRssXml(rssRes.data, blogId, targetCount);
+            if (rssPosts.length > 0) return rssPosts;
+        }
+    } catch (e) {
+        Logger.warn(`⚠️ 최신 글 RSS 수집 실패: ${e.message}`);
+    }
+
+    const listUrl = `https://blog.naver.com/PostList.naver?blogId=${encodeURIComponent(blogId)}&from=postList&categoryNo=0&currentPage=1`;
+    try {
+        const listRes = await axios.get(listUrl, {
+            timeout: 12000,
+            maxRedirects: 3,
+            headers: { 'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml' },
+            validateStatus: () => true
+        });
+        if (listRes.status >= 200 && listRes.status < 300 && typeof listRes.data === 'string') {
+            return parseRecentPostsFromBlogHtml(listRes.data, blogId, targetCount);
+        }
+    } catch (e) {
+        Logger.warn(`⚠️ 최신 글 HTML 수집 실패: ${e.message}`);
+    }
+
+    return [];
+}
+
+function hasAggressiveClickbait(title = '') {
+    const clean = normalizeWhitespace(title).toLowerCase();
+    if (!clean) return false;
+
+    const hardBanned = [
+        '절대 사지', '무조건 사', '역대급', '충격', '폭로', '망합니다', '사기', '최저가 보장',
+        '인생템 확정', '오늘만', '지금 안 사면', '비밀 공개', '소름', '0원'
+    ];
+    return hardBanned.some(token => clean.includes(token));
+}
+
+function isWeakShoppingTitle(title, productTitle = '') {
+    const clean = normalizeWhitespace(title);
+    if (!clean) return true;
+
+    const normalizedClean = clean.toLowerCase().replace(/\s+/g, '');
+    const normalizedProduct = normalizeWhitespace(productTitle).toLowerCase().replace(/\s+/g, '');
+    if (normalizedProduct && (normalizedClean === normalizedProduct || normalizedClean.includes(normalizedProduct))) return true;
+
+    if (clean.length < 12 || clean.length > 35) return true;
+    if ((clean.match(/[,/|]/g) || []).length >= 3) return true;
+    if (hasAggressiveClickbait(clean)) return true;
+
+    const hookPattern = /(써보|사용|후기|체감|고민|선택|이유|추천|정리|달라|만족|궁금|왜|느낀)/;
+    if (!hookPattern.test(clean)) return true;
+
+    const specsLikePattern = /(?:\b(?:wifi|gb|tb)\b|sm-[a-z0-9-]{3,}|amh-\d{3,}|wd\d{2,})/gi;
+    const specHits = clean.match(specsLikePattern) || [];
+    if (specHits.length >= 3) return true;
+
+    return false;
+}
+
+function pickTitleHook(commerceData = {}) {
+    const facts = buildCommerceFacts(commerceData);
+    const text = facts.join(' ');
+    if (/\d+%/.test(text) || /할인/.test(text)) return '끝까지 비교해 고른 이유';
+    if (/무이자/.test(text)) return '부담 줄이고 고른 핵심 이유';
+    if (/무료배송|오늘출발|내일도착|배송/.test(text)) return '받자마자 체감한 차이';
+    return '써보니 달라진 결정적 포인트';
+}
+
+function normalizeTitleForPublish(title = '') {
+    let clean = normalizeWhitespace(String(title || ''));
+    if (!clean) return '';
+
+    clean = clean
+        .replace(/^#+\s*/, '')
+        .replace(/[()[\]{}]/g, '')
+        .replace(/[!]{2,}/g, '!')
+        .replace(/[?]{2,}/g, '?')
+        .replace(/\s*[|/]\s*/g, ' ')
+        .trim();
+
+    // 네이버 노출 효율을 위해 최종 길이는 35자 이하로 강제한다.
+    clean = truncateTitle(clean, 35);
+    return clean;
+}
+
+function ensureTitleStartsWithKeyword(title, mainKeyword) {
+    const cleanTitle = normalizeTitleForPublish(title);
+    const keyword = normalizeWhitespace(mainKeyword);
+    if (!keyword) return cleanTitle;
+
+    if (cleanTitle.startsWith(keyword)) {
+        return truncateTitle(cleanTitle, 35);
+    }
+
+    const stripped = cleanTitle.replace(/^[,:\-\s]+/, '');
+    const candidate = normalizeTitleForPublish(`${keyword} ${stripped}`.trim());
+    if (candidate.length >= 12) return truncateTitle(candidate, 35);
+    return normalizeTitleForPublish(`${keyword} 써보니 달라진 점`);
+}
+
+function ensureParagraphContainsKeyword(paragraph, keyword, fallbackTail) {
+    const clean = normalizeWhitespace(paragraph);
+    const key = normalizeWhitespace(keyword);
+    if (!key) return clean;
+    if (clean && clean.includes(key)) return clean;
+    if (!clean) return `${key} ${fallbackTail}`.trim();
+    return `${clean} ${key} ${fallbackTail}`.trim();
+}
+
+function countSeoMentionsInAiData(aiData, seoPlan) {
+    const keywords = [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean);
+    const blocks = [
+        aiData.intro || '',
+        aiData.conclusion || '',
+        ...(aiData.sections || []).map(section => `${section.heading || ''} ${section.body || ''}`)
+    ];
+    return keywords.reduce((sum, keyword) => {
+        return sum + blocks.reduce((acc, block) => acc + countKeywordOccurrences(block, keyword), 0);
+    }, 0);
+}
+
+function reinforceSeoKeywordUsage(aiData, seoPlan) {
+    if (!aiData || !seoPlan?.mainKeyword) return aiData;
+
+    aiData.title = ensureTitleStartsWithKeyword(aiData.title, seoPlan.mainKeyword);
+    aiData.intro = ensureParagraphContainsKeyword(
+        aiData.intro,
+        seoPlan.mainKeyword,
+        '관점에서 핵심 포인트를 정리해봤습니다.'
+    );
+    aiData.conclusion = ensureParagraphContainsKeyword(
+        aiData.conclusion,
+        seoPlan.mainKeyword,
+        '기준으로 최종 선택 포인트를 정리합니다.'
+    );
+
+    const MIN_MENTIONS = 3;
+    const MAX_MENTIONS = 5;
+    let mentionCount = countSeoMentionsInAiData(aiData, seoPlan);
+
+    if (mentionCount < MIN_MENTIONS && Array.isArray(aiData.sections)) {
+        const keywordPool = [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean);
+        let keywordCursor = 0;
+        for (const section of aiData.sections) {
+            if (mentionCount >= MIN_MENTIONS || mentionCount >= MAX_MENTIONS) break;
+            const keyword = keywordPool[keywordCursor % keywordPool.length] || seoPlan.mainKeyword;
+            keywordCursor++;
+            section.body = ensureParagraphContainsKeyword(
+                section.body,
+                keyword,
+                '기준에서 봤을 때 체감 포인트가 분명했습니다.'
+            );
+            mentionCount = countSeoMentionsInAiData(aiData, seoPlan);
+        }
+    }
+
+    return aiData;
+}
+
+function buildEngagingShoppingTitle(aiTitle, productTitle, commerceData = {}) {
+    const cleanAiTitle = normalizeTitleForPublish(String(aiTitle || '').replace(/["']/g, ''));
+    if (!isWeakShoppingTitle(cleanAiTitle, productTitle)) {
+        return truncateTitle(cleanAiTitle, 35);
+    }
+
+    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
+    const hook = pickTitleHook(commerceData);
+    const templates = [
+        `${keyword} 3일 고민 끝에 고른 이유`,
+        `${keyword} 끝까지 비교해 고른 선택`,
+        `${keyword} 왜 찾는지 써보니 알겠더라`,
+        `${keyword} ${hook}`
+    ];
+
+    const seed = (normalizeWhitespace(productTitle).length + normalizeWhitespace(cleanAiTitle).length) % templates.length;
+    const candidate = normalizeTitleForPublish(templates[seed]);
+    if (!candidate || hasAggressiveClickbait(candidate) || candidate.length < 12) {
+        return normalizeTitleForPublish(`${keyword} 써보니 괜찮았던 이유`);
+    }
+    return candidate;
+}
+
 function firstSentence(text, maxLen = 72) {
     const clean = normalizeWhitespace(text);
     if (!clean) return '';
@@ -1004,6 +1372,15 @@ ${reviewSamples}
 ${seoKeywordHints}
 
 [요청 사항]
+- 제목은 "핵심 키워드 + 체감 변화/이유" 구조로 작성해.
+- 제목 길이는 25~35자로 작성하고, 35자를 절대 넘기지 마.
+- 상품명/스펙 전체 나열은 피하고 핵심 키워드만 추려 작성해.
+- 제목은 관심을 끌 정도로 선명하게 쓰되, 공포/협박/과장형 낚시 문구(절대 사지 마세요/역대급 충격/최저가 보장 등)는 금지.
+- "3일 고민 끝에", "끝까지 비교해", "결정적 이유" 같은 선명한 후킹 표현을 우선 사용해.
+- 메인 키워드([SEO 키워드 가이드] 첫 줄)는 제목 첫 단어로 시작하게 작성해.
+- 메인 키워드를 도입 문단(첫 1~2문장)에 반드시 포함해.
+- 메인 키워드 + 연관키워드를 본문 전체에서 합산 3~5회 자연스럽게 분산해.
+- 마지막 마무리 문단에 메인 키워드를 반드시 포함해.
 - 너무 과장하지 말고 실제 사용 관점으로 신뢰감 있게 써줘.
 - 톤은 친근하지만 광고 티가 과하지 않게.
 - 장점/아쉬운점/추천대상 포함.
@@ -1629,7 +2006,7 @@ function parseAiJson(rawText, fallbackTitle) {
     }
 }
 
-function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, ctaImageInsertCount, linkInsertCount, commerceData, reviewData }) {
+function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, ctaImageInsertCount, linkInsertCount, commerceData, reviewData, relatedPosts = [], relatedHeading = '함께 보면 좋은 글' }) {
     const lines = [];
     lines.push(`# ${aiData.title}`);
     lines.push('');
@@ -1813,10 +2190,22 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
     lines.push(shortUrl);
     lines.push('');
 
-    lines.push('## 함께 보면 좋은 글');
-    lines.push('- [관련 글 제목 1](여기에_링크_추가)');
-    lines.push('- [관련 글 제목 2](여기에_링크_추가)');
-    lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+    lines.push(`## ${relatedHeading}`);
+    if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
+        relatedPosts.slice(0, 3).forEach(post => {
+            const relatedTitle = normalizeWhitespace(post.title || '');
+            const relatedUrl = normalizeWhitespace(post.url || '');
+            if (!relatedTitle || !/^https?:\/\//i.test(relatedUrl)) return;
+            lines.push(`${relatedTitle}`);	// 관련 글 제목
+            lines.push(relatedUrl); // URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
+            lines.push('');
+        });
+        if (lines[lines.length - 1] !== '') lines.push('');
+    } else {
+        lines.push('- [관련 글 제목 1](여기에_링크_추가)');
+        lines.push('- [관련 글 제목 2](여기에_링크_추가)');
+        lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+    }
     lines.push('');
     lines.push('');
 
@@ -1973,6 +2362,27 @@ const ShoppingManager = {
         });
         const aiRaw = await Utils.callGeminiText(aiPrompt);
         const aiData = parseAiJson(aiRaw, titleBase);
+        const seoPlan = deriveSeoKeywordPlan(titleBase);
+        const seoMentionsBefore = countSeoMentionsInAiData(aiData, seoPlan);
+        reinforceSeoKeywordUsage(aiData, seoPlan);
+        const seoMentionsAfter = countSeoMentionsInAiData(aiData, seoPlan);
+
+        const originalAiTitle = aiData.title;
+        aiData.title = buildEngagingShoppingTitle(aiData.title, titleBase, productData.commerceData);
+        aiData.title = ensureTitleStartsWithKeyword(aiData.title, seoPlan.mainKeyword);
+        if (aiData.title !== originalAiTitle) {
+            Logger.info(`📝 [Shopping] 제목 보정 적용: ${aiData.title}`);
+        }
+        if (seoMentionsAfter !== seoMentionsBefore) {
+            Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
+        }
+        const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+        const relatedHeading = Utils.pickRelatedPostsHeading();
+        if (relatedPosts.length > 0) {
+            Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+        } else {
+            Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
+        }
 
         const markdown = composeMarkdown({
             aiData,
@@ -1983,7 +2393,9 @@ const ShoppingManager = {
             ctaImageInsertCount,
             linkInsertCount,
             commerceData: productData.commerceData,
-            reviewData: productData.reviewData
+            reviewData: productData.reviewData,
+            relatedPosts,
+            relatedHeading
         });
 
         fs.writeFileSync(path.join(targetDir, 'contents.md'), markdown, 'utf-8');
@@ -2003,7 +2415,8 @@ const ShoppingManager = {
             reviewData: productData.reviewData,
             reviewEnrichedWithBrowser,
             ctaImageConfigured: !!ctaImageUrl,
-            ctaImageInserted: !!ctaImage
+            ctaImageInserted: !!ctaImage,
+            relatedPosts
         }, null, 2), 'utf-8');
         Logger.info(`✅ [Shopping] 콘텐츠 준비 완료: ${targetDir}`);
 
