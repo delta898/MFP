@@ -2193,18 +2193,14 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
     lines.push(`## ${relatedHeading}`);
     if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
         relatedPosts.slice(0, 3).forEach(post => {
-            const relatedTitle = normalizeWhitespace(post.title || '');
             const relatedUrl = normalizeWhitespace(post.url || '');
-            if (!relatedTitle || !/^https?:\/\//i.test(relatedUrl)) return;
-            lines.push(`${relatedTitle}`);	// 관련 글 제목
+            if (!/^https?:\/\//i.test(relatedUrl)) return;
             lines.push(relatedUrl); // URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
-            lines.push('');
         });
-        if (lines[lines.length - 1] !== '') lines.push('');
     } else {
-        lines.push('- [관련 글 제목 1](여기에_링크_추가)');
-        lines.push('- [관련 글 제목 2](여기에_링크_추가)');
-        lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+        lines.push('https://blog.naver.com/여기에_링크_추가_1');
+        lines.push('https://blog.naver.com/여기에_링크_추가_2');
+        lines.push('https://blog.naver.com/여기에_링크_추가_3');
     }
     lines.push('');
     lines.push('');

@@ -93,16 +93,66 @@ async function focusLatestEditorImage(page) {
 	return false;
 }
 
-async function getVisibleImageToolbar(page) {
-	const toolbars = page.locator('.se-image-toolbar');
-	const count = await toolbars.count();
-	for (let i = count - 1; i >= 0; i--) {
-		const toolbar = toolbars.nth(i);
-		try {
-			if (await toolbar.isVisible()) return toolbar;
-		} catch (e) { }
+async function focusLatestOglinkCard(page) {
+	const selectors = [
+		'.se-component.se-oglink',
+		'.se-module-oglink',
+		'.se-oglink',
+		'.se-component[class*="oglink"]'
+	];
+
+	for (const selector of selectors) {
+		const cards = page.locator(selector);
+		const count = await cards.count();
+		if (count === 0) continue;
+
+		for (let i = count - 1; i >= 0; i--) {
+			const candidate = cards.nth(i);
+			try {
+				if (!(await candidate.isVisible())) continue;
+
+				const clickTargets = [
+					candidate.locator('.se-oglink-frame').first(),
+					candidate.locator('.se-oglink-info').first(),
+					candidate.locator('.se-component-content').first(),
+					candidate
+				];
+				for (const target of clickTargets) {
+					try {
+						if (await target.count() > 0 && await target.isVisible()) {
+							await target.click({ force: true });
+							await Utils.sleep(120);
+							return true;
+						}
+					} catch (e) { }
+				}
+			} catch (e) { }
+		}
 	}
-	return null;
+	return false;
+}
+
+async function getVisibleImageToolbars(page) {
+	const selectors = [
+		'.se-image-toolbar',
+		'.se-l-property-toolbar',
+		'.se-property-toolbar',
+		'.se-toolbar'
+	];
+	const toolbars = [];
+	for (const selector of selectors) {
+		const locator = page.locator(selector);
+		const count = await locator.count();
+		for (let i = count - 1; i >= 0; i--) {
+			const toolbar = locator.nth(i);
+			try {
+				if (await toolbar.isVisible()) {
+					toolbars.push(toolbar);
+				}
+			} catch (e) { }
+		}
+	}
+	return toolbars;
 }
 
 async function getVisibleEditorToolbars(page) {
@@ -131,20 +181,74 @@ async function getVisibleEditorToolbars(page) {
 }
 
 async function centerAlignFocusedImage(page) {
-	const toolbar = await getVisibleImageToolbar(page);
-	if (!toolbar) return false;
+	for (let attempt = 0; attempt < 4; attempt++) {
+		if (attempt > 0) {
+			try {
+				await focusLatestEditorImage(page);
+			} catch (e) { }
+			await Utils.sleep(120);
+		}
 
-	const selectors = [
-		'button:has-text("가운데")',
-		'button:has-text("중앙")',
-		'button[aria-label*="가운데"]',
-		'button[aria-label*="중앙"]',
-		'button[data-name*="alignCenter"]',
-		'button[data-name*="align-center"]'
-	];
-	for (const selector of selectors) {
-		const clicked = await clickIfVisible(toolbar.locator(selector));
-		if (clicked) return true;
+		const toolbars = await getVisibleImageToolbars(page);
+		if (toolbars.length === 0) continue;
+
+		const selectors = [
+			'button[data-name="cycle-align"][data-value="center"]',
+			'button[data-type="cycle-toggle"][data-name="cycle-align"][data-value="center"]',
+			'.se-context-toolbar-cycle-toggle-container button[data-value="center"]',
+			'li.se-toolbar-item-align button[data-value="center"]',
+			'li.se-toolbar-item-line-image-center button',
+			'li[class*="line-image-center"] button',
+			'button[data-name*="line-image-center"]',
+			'button[data-name*="image-center"]',
+			'button[data-name*="alignCenter"]',
+			'button[data-name*="align-center"]',
+			'button[class*="align-center"]',
+			'button[class*="image-center"]',
+			'button[class*="center"]',
+			'button[aria-label*="가운데"]',
+			'button[aria-label*="중앙"]',
+			'button[title*="가운데"]',
+			'button[title*="중앙"]',
+			'button:has-text("가운데")',
+			'button:has-text("중앙")'
+		];
+		for (const toolbar of toolbars) {
+			for (const selector of selectors) {
+				const clicked = await clickIfVisible(toolbar.locator(selector));
+				if (clicked) {
+					await Utils.sleep(120);
+					return true;
+				}
+			}
+
+			// 에디터 버전에 따라 정렬 버튼이 object-arrangement 그룹(좌/중/우 3버튼)으로만 노출된다.
+			const arrangementGroups = toolbar.locator('li.se-toolbar-item-object-arrangement, [class*="object-arrangement"]');
+			const groupCount = await arrangementGroups.count();
+			for (let i = groupCount - 1; i >= 0; i--) {
+				const group = arrangementGroups.nth(i);
+				try {
+					if (!(await group.isVisible())) continue;
+					const centerByClass = group.locator('li[class*="center"] button, button[data-name*="center"], button[class*="center"]').first();
+					if (await centerByClass.count() > 0 && await centerByClass.isVisible()) {
+						await centerByClass.click({ force: true });
+						await Utils.sleep(120);
+						return true;
+					}
+
+					const buttons = group.locator('button');
+					const btnCount = await buttons.count();
+					if (btnCount >= 2) {
+						const centerBtn = buttons.nth(1); // 일반적으로 가운데 버튼이 두 번째
+						if (await centerBtn.isVisible()) {
+							await centerBtn.click({ force: true });
+							await Utils.sleep(120);
+							return true;
+						}
+					}
+				} catch (e) { }
+			}
+		}
 	}
 	return false;
 }
@@ -629,6 +733,21 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			return false;
 		}
 
+		// 링크 카드를 선택한 뒤 가운데 정렬을 시도한다.
+		for (let i = 0; i < 3; i++) {
+			const focused = await focusLatestOglinkCard(page);
+			if (!focused) {
+				await Utils.sleep(120);
+				continue;
+			}
+			const centered = await centerAlignFocusedImage(page);
+			if (centered) {
+				Logger.info(`       ↔️ 링크 카드 가운데 정렬 적용: ${url}`);
+				break;
+			}
+			await Utils.sleep(120);
+		}
+
 		await focusEditorTypingArea(page);
 		return true;
 	} catch (e) {
@@ -643,27 +762,22 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
 	const lines = [];
 	if (includeHeading) {
 		lines.push(`## ${title}`);
-		lines.push('');
 	}
 	const validPosts = (Array.isArray(relatedPosts) ? relatedPosts : []).filter(post => {
-		const postTitle = String(post?.title || '').replace(/\s+/g, ' ').trim();
 		const postUrl = String(post?.url || '').trim();
-		return !!postTitle && /^https?:\/\//i.test(postUrl);
+		return /^https?:\/\//i.test(postUrl);
 	});
 
 	if (validPosts.length === 0) {
-		lines.push('- [관련 글 제목 1](여기에_링크_추가)');
-		lines.push('- [관련 글 제목 2](여기에_링크_추가)');
-		lines.push('- [관련 글 제목 3](여기에_링크_추가)');
+		lines.push('https://blog.naver.com/여기에_링크_추가_1');
+		lines.push('https://blog.naver.com/여기에_링크_추가_2');
+		lines.push('https://blog.naver.com/여기에_링크_추가_3');
 		return lines.join('\n').trim();
 	}
 
 	validPosts.slice(0, 3).forEach(post => {
-		const postTitle = String(post?.title || '').replace(/\s+/g, ' ').trim();
 		const postUrl = String(post?.url || '').trim();
-		lines.push(postTitle);
 		lines.push(postUrl);
-		lines.push('');
 	});
 	return lines.join('\n').trim();
 }
@@ -932,21 +1046,27 @@ ${scrapedContext}`;
 				// ✍️ 본문 입력 루프
 				let inListMode = false;
 				let currentListType = null;
+				let needsExtraGapAfterList = false;
 				let representativeImageSet = false;
 				let representativeAttemptCount = 0;
 				const representativeMaxAttempts = 3;
 				for (const item of contents) {
 					if (item.type !== 'image') {
 						await closeVisibleOglinkPopup(page);
-						await focusEditorTypingArea(page);
+						if (!inListMode) {
+							await focusEditorTypingArea(page);
+						}
 					}
 					if (item.type !== 'list-item' && inListMode) {
-						// 에디터 자동 리스트 종료: 다음 블록이 일반 문단/소제목이면 빈 항목 Enter 한 번으로 리스트 모드 해제
-						if (item.type !== 'newline') {
-							await page.keyboard.press('Enter');
-						}
+						// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
+						await page.keyboard.press('Enter');
+						// 리스트 뒤 문단/빈줄은 한 줄 공백이 보이도록 다음 블록에서 Enter 1회를 추가한다.
+						needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline');
 						inListMode = false;
 						currentListType = null;
+					}
+					if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline') {
+						needsExtraGapAfterList = false;
 					}
 
 				if (item.type === 'header-h2') {
@@ -1004,6 +1124,10 @@ ${scrapedContext}`;
 						}
 					else if (item.type === 'paragraph') {
 						const paragraphText = String(item.text || '');
+							if (needsExtraGapAfterList && paragraphText.trim()) {
+								await page.keyboard.press('Enter');
+							}
+							needsExtraGapAfterList = false;
 							if (isUrlOnlyParagraph(paragraphText)) {
 								const inserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
 								if (inserted) {
@@ -1022,6 +1146,7 @@ ${scrapedContext}`;
 						await page.keyboard.press('Enter');
 					}
 				else if (item.type === 'newline') {
+					needsExtraGapAfterList = false;
 					await page.keyboard.press('Enter');
 				}
 				else if (item.type === 'image') {
@@ -1047,9 +1172,17 @@ ${scrapedContext}`;
 								Logger.warn('       ⚠️ 방금 업로드한 이미지를 포커스하지 못했습니다.');
 							}
 
-								const centered = imageFocused ? await centerAlignFocusedImage(page) : false;
+								// 가운데 정렬은 공정위/CTA 이미지만 시도한다. (일반 상품 이미지는 스킵)
+								const shouldTryCenterAlign =
+									/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) ||
+									/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+								const centered = (imageFocused && shouldTryCenterAlign)
+									? await centerAlignFocusedImage(page)
+									: false;
 								if (centered) {
 									Logger.info("       ↔️ 이미지 가운데 정렬 적용");
+								} else if (imageFocused && shouldTryCenterAlign) {
+									Logger.warn("       ⚠️ 이미지 가운데 정렬 버튼을 찾지 못했습니다.");
 								}
 
 								// 대표 이미지는 공정위/CTA 이미지를 제외한 첫 일반 이미지로 지정한다.
