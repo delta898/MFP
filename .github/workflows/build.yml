@@ -70,7 +70,7 @@ jobs:
         # 1. 설정/샘플 파일 복사
         cp config/config.txt.sample dist/config/config.txt
         cp config/system_prompt.md.sample dist/config/system_prompt.md
-        cp topics.xlsx.sample dist/topics.xlsx
+        cp config/shopping_prompt.md.sample dist/config/shopping_prompt.md
         cp topic.json.sample dist/topic.json
         
         # 2. README 처리 (안전하게 수정됨 🛠️)
@@ -82,8 +82,8 @@ jobs:
             # EOF 방식 대신 echo를 사용하여 들여쓰기 에러 방지
             {
               echo "# 🧞‍♂️ BlogGenius 사용자 가이드"
-              echo "1. config/settings.js 파일을 메모장으로 열어 설정하세요."
-              echo "2. topics.xlsx 파일에 글감을 입력하세요."
+              echo "1. config/config.txt 파일을 열어 설정하세요."
+              echo "2. topic.json 파일에 글감을 입력하세요."
               echo "3. 프로그램을 실행하세요."
               echo ""
               echo "[Mac 사용자 주의사항]"
