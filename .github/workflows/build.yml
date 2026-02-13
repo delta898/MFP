@@ -25,6 +25,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: create_release
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -118,28 +119,21 @@ jobs:
             echo "pause" >> dist/실행하기_단건테스트.bat
           fi
 
-      - name: Create Platform ZIP
+      - name: Create Platform ZIP (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         shell: bash
         env:
           ZIP_NAME: ${{ matrix.zip_name }}
         run: |
-          python - <<'PY'
-          import os
-          import pathlib
-          import zipfile
+          cd dist
+          zip -r "../${ZIP_NAME}" .
+          cd -
 
-          zip_name = os.environ["ZIP_NAME"]
-          dist_dir = pathlib.Path("dist")
-          if not dist_dir.exists():
-              raise SystemExit("dist 폴더가 존재하지 않습니다.")
-
-          with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
-              for file_path in sorted(dist_dir.rglob("*")):
-                  if file_path.is_file():
-                      zf.write(file_path, file_path.relative_to(dist_dir))
-
-          print(f"ZIP 생성 완료: {zip_name}")
-          PY
+      - name: Create Platform ZIP (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath "${{ matrix.zip_name }}" -Force
 
       - name: Upload ZIP to GitHub Release
         uses: softprops/action-gh-release@v2
