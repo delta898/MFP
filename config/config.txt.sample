@@ -9,8 +9,10 @@
 # [필수] 네이버 아이디
 NAVER_ID = 본인의_네이버_아이디
 
-# [필수] 라이선스 키
-LICENSE_KEY = YOUR_LICENSE_KEY_HERE
+# [필수] 라이선스 키 (무료 기본값: free)
+# - 비워두거나 free로 두면 무료 정책으로 동작
+# - 유료/구독 전환 시 발급받은 키로 변경
+LICENSE_KEY = free
 
 # [필수] Gemini API 키
 GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE

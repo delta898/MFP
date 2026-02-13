@@ -28,7 +28,6 @@ console.warn = (...args) => {
 const { Command } = require('commander');
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 
 // ✅ 분리된 모듈 불러오기
 const License = require('./license');
@@ -70,18 +69,10 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.5.9')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.5.9)');
+    .version('0.6.0')
+    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.6.0)');
 
 // --- Helper Functions ---
-
-function askQuestion(query) {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise(resolve => rl.question(query, ans => {
-        rl.close();
-        resolve(ans);
-    }));
-}
 
 async function performLogin() {
     console.log("\n🚀 [Login Mode] 네이버 로그인 브라우저를 엽니다...");
@@ -124,16 +115,64 @@ async function performLogin() {
     }
 }
 
+async function checkAuthSessionValid() {
+    const authPath = CONFIG.AUTH_FILE_PATH;
+    if (!authPath || !fs.existsSync(authPath)) {
+        return { ok: false, reason: 'missing_auth' };
+    }
+
+    let browser = null;
+    let context = null;
+    try {
+        browser = await BrowserLauncher.launchBrowser({ headless: true });
+        context = await browser.newContext({
+            storageState: authPath,
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        });
+        const page = await context.newPage();
+        const checkUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
+
+        await page.goto(checkUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await Utils.sleep(400);
+
+        const currentUrl = String(page.url() || '');
+        if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {
+            return { ok: false, reason: 'expired' };
+        }
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, reason: 'check_failed', message: e.message };
+    } finally {
+        try { if (context) await context.close(); } catch (e) { }
+        try { if (browser) await browser.close(); } catch (e) { }
+    }
+}
+
 async function ensureAuth(isStrict = true) {
-    if (fs.existsSync(CONFIG.AUTH_FILE_PATH)) return true;
-    console.log("\n⚠️ [인증 확인] auth.json이 없습니다.");
-    const answer = await askQuestion("   🚀 지금 로그인 하시겠습니까? (Y/n): ");
-    if (answer.toLowerCase() === 'y' || answer === '') {
-        await performLogin();
-    } else if (isStrict) {
+    if (!fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
+        if (!isStrict) return false;
+        console.error("\n⛔ [인증 필요] 로그인 정보(auth.json)를 찾을 수 없습니다.");
+        console.error("👉 아래 명령으로 먼저 로그인해 주세요:");
+        console.error("   ./BlogGenius login");
         process.exit(1);
     }
-    return false;
+
+    if (!isStrict) return true;
+
+    console.log("🔎 [인증 확인] 네이버 세션 유효성 점검 중...");
+    const session = await checkAuthSessionValid();
+    if (session.ok) return true;
+
+    if (session.reason === 'expired') {
+        console.error("\n⛔ [인증 만료] 로그인 세션이 만료되었습니다.");
+    } else if (session.reason === 'missing_auth') {
+        console.error("\n⛔ [인증 필요] 로그인 정보(auth.json)가 없습니다.");
+    } else {
+        console.error(`\n⛔ [인증 확인 실패] 세션 확인 중 오류가 발생했습니다: ${session.message || 'unknown error'}`);
+    }
+    console.error("👉 아래 명령으로 다시 로그인 후 재실행해 주세요:");
+    console.error("   ./BlogGenius login");
+    process.exit(1);
 }
 
 function parseMaxPosts(value, fallback = 3) {
@@ -163,9 +202,6 @@ program
     .option('-d, --dir <path>', '출력 폴더')
     .action(async (opts) => {
         try {
-            const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-
             await ensureAuth(false);
             const filePath = path.resolve(process.cwd(), opts.file);
             const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -190,9 +226,6 @@ program
         try {
             console.log("\n▶️ [Auto Mode] 작업을 시작합니다...");
 
-            const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-
             await ensureAuth(true);
 
             const filePath = path.resolve(process.cwd(), opts.file);
@@ -203,6 +236,9 @@ program
             await Core.prepareImages(result.targetDir, topicData);
 
             // 2. 블로그 발행
+            console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
+            const check = await License.verifyLicense();
+            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
             await Core.publishToBlog(result.targetDir);
 
             console.log(`\n✅ 자동 발행 완료!`);
@@ -246,22 +282,25 @@ program
                 const rowIndex = topicData.rowIndex;
 
                 console.log(`\n---------------------------------------------------`);
-                console.log(`[작업 ${i + 1}/${targetTopics.length}] 라이선스 확인 중...`);
-
-                const check = await License.verifyLicense();
-                if (!check.success) {
-                    console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
-                    console.log(`👉 남은 ${targetTopics.length - i}건은 처리되지 않았습니다.`);
-                    break;
-                }
+                console.log(`[작업 ${i + 1}/${targetTopics.length}] 준비 중...`);
 
                 try {
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
-                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '작업 시작');
 
                     // 생성 -> 이미지 -> 발행 순차 진행
                     const result = await Core.generateContent(topicData);
                     await Core.prepareImages(result.targetDir, topicData);
+
+                    console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
+                    const check = await License.verifyLicense();
+                    if (!check.success) {
+                        console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
+                        await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+                        console.log(`👉 남은 ${targetTopics.length - i}건은 처리되지 않았습니다.`);
+                        break;
+                    }
+
+                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
                     await Core.publishToBlog(result.targetDir);
 
                     // 완료 상태 업데이트
@@ -308,10 +347,10 @@ program
     .requiredOption('-d, --dir <path>', '폴더 경로')
     .action(async (opts) => {
         try {
+            await ensureAuth(true);
+            console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-
-            await ensureAuth(true);
             await Core.publishToBlog(path.resolve(opts.dir));
             console.log("\n🎉 발행 완료.");
         } catch (e) {
@@ -328,9 +367,6 @@ program
     .description('🔍 [키워드] 연관검색어 추출 및 토픽 등록')
     .action(async () => {
         try {
-            const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-
             // 필수 시트 존재 여부 확인 및 생성
             await Utils.ensureAllSheetsExist();
 
@@ -352,9 +388,6 @@ program
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
     .action(async () => {
         try {
-            const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
             await ensureAuth(true); // 로그인 필요
 
@@ -367,6 +400,9 @@ program
             if (!trendKeywords || trendKeywords.length === 0) {
                 console.log('⚠️ 수집된 트렌드 키워드가 없습니다.');
             } else {
+                console.log("🔐 [라이선스] 트렌드 시트 반영 직전 확인...");
+                const check = await License.verifyLicense();
+                if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
                 console.log(`📥 수집된 ${trendKeywords.length}개의 키워드를 구글 시트에 추가합니다...`);
                 await Utils.appendGoogleSheetTrends(trendKeywords);
                 console.log('✅ 트렌드 키워드 추가 완료!');
@@ -406,19 +442,22 @@ program
                 const rowIndex = job.rowIndex;
 
                 console.log(`\n---------------------------------------------------`);
-                console.log(`[작업 ${i + 1}/${targetJobs.length}] 라이선스 확인 중...`);
-
-                const check = await License.verifyLicense();
-                if (!check.success) {
-                    console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
-                    console.log(`👉 남은 ${targetJobs.length - i}건은 처리되지 않았습니다.`);
-                    break;
-                }
+                console.log(`[작업 ${i + 1}/${targetJobs.length}] 쇼핑 콘텐츠 준비 중...`);
 
                 try {
                     console.log(`[진행] 쇼핑 URL 처리 (Row ${rowIndex + 1})`);
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
                     const result = await ShoppingManager.buildPostFromShortUrl(job.shortUrl);
+
+                    console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
+                    const check = await License.verifyLicense();
+                    if (!check.success) {
+                        console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
+                        await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
+                        console.log(`👉 남은 ${targetJobs.length - i}건은 처리되지 않았습니다.`);
+                        break;
+                    }
+
                     await Core.publishToBlog(result.targetDir, {
                         affiliateUrl: job.shortUrl,
                         requireAffiliateUrl: true

@@ -11,6 +11,13 @@ if (CONFIG.LICENSE_CHK_URL && CONFIG.LICENSE_CHK_KEY) {
     Logger.warn("⚠️ [License] 라이선스 서버 설정(URL/KEY)이 누락되었습니다.");
 }
 
+function resolveLicenseKey(rawKey) {
+    const value = String(rawKey || '').trim();
+    if (!value) return 'free';
+    if (value.toLowerCase() === 'free') return 'free';
+    return value;
+}
+
 const License = {
     /**
      * 라이선스 검증 및 사용 처리 (RPC 호출)
@@ -22,24 +29,22 @@ const License = {
             if (!supabase) {
                 return { success: false, message: '라이선스 서버 설정 오류 (pkg/secret.js 확인 필요)' };
             }
-            if (!CONFIG.LICENSE_KEY) {
-                return { success: false, message: '라이선스 키가 없습니다. settings.js를 확인하세요.' };
-            }
+            const resolvedLicenseKey = resolveLicenseKey(process.env.LICENSE_KEY || CONFIG.LICENSE_KEY);
 
             // 2. HWID 추출 (기기 고유 ID)
             const hwid = machineIdSync({ original: true });
             
             // 3. 로그 출력 (보안을 위해 키 일부 마스킹)
-            const maskedKey = CONFIG.LICENSE_KEY.length > 4 
-                ? `${CONFIG.LICENSE_KEY.substring(0, 4)}****` 
-                : '****';
+            const maskedKey = resolvedLicenseKey === 'free'
+                ? 'free'
+                : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****');
             Logger.info(`📡 라이선스 검증 중... (Key: ${maskedKey})`);
 
             // 4. Supabase RPC 호출 (check_and_use_license)
             // 주의: 이 함수가 호출되면 서버에서 카운트가 차감된다고 가정합니다.
             const { data, error } = await supabase
                 .rpc('check_and_use_license', { 
-                    p_license_key: CONFIG.LICENSE_KEY, 
+                    p_license_key: resolvedLicenseKey,
                     p_hwid: hwid 
                 });
 
@@ -51,7 +56,11 @@ const License = {
 
             // data 구조: { success: true/false, message: '...', remaining: N }
             if (data && data.success) {
-                Logger.info(`✅ 라이선스 승인 (잔여: ${data.remaining ?? 'N/A'}회)`);
+                const remainingLabel =
+                    (typeof data.remaining === 'number' && data.remaining < 0)
+                        ? '무제한'
+                        : `${data.remaining ?? 'N/A'}회`;
+                Logger.info(`✅ 라이선스 승인 (잔여: ${remainingLabel})`);
                 return { success: true, message: data.message, remaining: data.remaining };
             } else {
                 return { success: false, message: data?.message || '라이선스 검증 실패' };

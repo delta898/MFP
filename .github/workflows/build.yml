@@ -17,24 +17,28 @@ jobs:
             target: node18-linux-x64
             output_binary: BlogGenius-linux
             platform_name: linux-x64
+            zip_name: BlogGenius-linux-x64.zip
             
           # 2. 맥 (Intel)
           - os: macos-latest
             target: node18-macos-x64
             output_binary: BlogGenius-mac-intel
             platform_name: mac-intel
+            zip_name: BlogGenius-mac-intel.zip
             
           # 3. 맥 (Apple Silicon - M1/M2/M3)
           - os: macos-latest
             target: node18-macos-arm64
             output_binary: BlogGenius-mac-arm64
             platform_name: mac-arm64
+            zip_name: BlogGenius-mac-arm64.zip
 
           # 4. 윈도우
           - os: windows-latest
             target: node18-win-x64
             output_binary: BlogGenius.exe
             platform_name: win-x64
+            zip_name: BlogGenius-win-x64.zip
 
     steps:
     - uses: actions/checkout@v4
@@ -111,10 +115,75 @@ jobs:
           echo "pause" >> dist/실행하기_단건테스트.bat
         fi
 
-    # 압축파일 이름에 버전(github.ref_name) 넣기
-    - name: Upload Artifacts
+    - name: Create Platform ZIP
+      shell: bash
+      env:
+        ZIP_NAME: ${{ matrix.zip_name }}
+      run: |
+        python - <<'PY'
+        import os
+        import pathlib
+        import zipfile
+
+        zip_name = os.environ["ZIP_NAME"]
+        dist_dir = pathlib.Path("dist")
+        if not dist_dir.exists():
+            raise SystemExit("dist 폴더가 존재하지 않습니다.")
+
+        with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path in sorted(dist_dir.rglob("*")):
+                if file_path.is_file():
+                    zf.write(file_path, file_path.relative_to(dist_dir))
+
+        print(f"✅ ZIP 생성 완료: {zip_name}")
+        PY
+
+    - name: Upload Platform ZIP Artifact
       uses: actions/upload-artifact@v4
       with:
-        # 예: BlogGenius-v0.1.7-mac-arm64
-        name: BlogGenius-${{ github.ref_name }}-${{ matrix.platform_name }}
-        path: dist/
+        name: package-${{ matrix.platform_name }}
+        path: ${{ matrix.zip_name }}
+
+  bundle:
+    name: Assemble Release Folder
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download All Platform ZIPs
+      uses: actions/download-artifact@v4
+      with:
+        pattern: package-*
+        merge-multiple: true
+        path: release
+
+    - name: Add Top-level README with Versioned Filename
+      shell: bash
+      run: |
+        VERSION="${GITHUB_REF_NAME#v}"
+        README_PATH="release/README_v${VERSION}.md"
+
+        if [ -f "README_USER.md" ]; then
+          cp README_USER.md "${README_PATH}"
+        elif [ -f "README.md" ]; then
+          cp README.md "${README_PATH}"
+        else
+          {
+            echo "# BlogGenius 배포 안내"
+            echo ""
+            echo "- 각 OS에 맞는 ZIP 파일을 다운로드하여 사용하세요."
+            echo "- 실행 전 ZIP 내부의 README.md를 확인하세요."
+          } > "${README_PATH}"
+        fi
+
+    - name: Verify Release Folder Layout
+      shell: bash
+      run: |
+        ls -la release
+
+    - name: Upload Final Release Folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: BlogGenius-packages-${{ github.ref_name }}
+        path: release/

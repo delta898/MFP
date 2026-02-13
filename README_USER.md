@@ -1,318 +1,227 @@
-# 🧞‍♂️ BlogGenius (알파테스트) - 사용자 가이드
+# BlogGenius 사용자 가이드 (초보자용)
 
-> **"주제만 입력하세요. 네이버 블로그에 글쓰기부터 이미지 생성, 업로드까지 다 알아서 합니다."**
+> 주제만 준비하면, 블로그 글 생성부터 발행 버튼 클릭까지 자동으로 처리합니다.
 
-안녕하세요, 도전인생입니다.
-**BlogGenius** 테스트에 신청해주셔서 감사합니다.
-제가 만들었지만 스스로 써보고선 너무 편하고 좋아서 이거 '저 혼자만 써야할까?' 싶었습니다.
-이걸 공개하면 네이버 블로그 생태계가 교란되는 것은 아닐까 하는 우려도 컸구요. :)
-하지만 상호 발전하기 위해 이렇게 제품을 공개하고 무료 테스트 진행합니다.
-충분한 테스트를 거쳐 조만간 상용화 예정도 갖고 있고, 본 기능 외에 다양한 기능을 추가할 것입니다.
-(아직은 UI가 없지만 UI(화면)도 붙이고, 여러 블로그 플랫폼으로 확장 예정입니다.
-지금 아이디어가 넘쳐나네요.)
-
-신청하여 선정되신 분들께 각각 **15건**의 글을 각자의 네이버 블로그에 생성/저장하실 수 있게 설정하겠습니다.
-잘 사용해보시고 솔직한 피드백과 주변에 많은 입소문 부탁드립니다. :)
-
-궁금하신 사항은 도전인생 카카오 오픈채팅방에서 물어봐주시고 많은 의견 부탁드립니다.
- - [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
+이 문서는 처음 사용하는 분도 중도 포기하지 않도록 "꼭 필요한 순서"만 남겨서 작성했습니다.
 
 ---
 
-## 📋 전체 설정 순서 (Overview)
+## 0. 먼저 이해할 것 (아주 중요)
 
-| 순서 | 항목 | 난이도 | 비고 |
-|:---:|------|:---:|------|
-| 1 | 라이선스 키 입력 | ⭐ | 메일로 받은 키 |
-| 2 | Gemini API 키 발급 | ⭐⭐ | Google AI Studio |
-| 3 | 구글 서비스 계정 발급 | ⭐⭐⭐ | Google Cloud Console |
-| 4 | 구글 스프레드시트 생성 및 공유 | ⭐⭐ | 시트 ID 복사 |
-| 5 | 네이버 검색 API 발급 | ⭐⭐ | 네이버 개발자센터 |
-| 6 | Apps Script 설정 | ⭐⭐ | 코드 복사 + 속성 등록 |
-| 7 | config.txt 작성 | ⭐ | 위에서 받은 값 입력 |
-| 8 | 네이버 로그인 | ⭐ | 최초 1회 |
-
-> 복잡해 보이지만 **각 단계는 5~10분**이면 끝납니다. 한 번만 설정하면 이후에는 신경 쓸 필요 없습니다!
+- 이 프로그램은 **구글 시트 + 네이버 로그인 세션 + Gemini API**를 사용합니다.
+- 한 번 세팅하면 이후 반복 작업이 매우 편해집니다.
+- `login` 명령은 라이선스 차감이 없습니다.
 
 ---
 
-## 1. 🔑 준비물 발급받기
+## 1. 빠른 시작 체크리스트 (권장 순서)
 
-### 1-1. 라이선스 키 (License Key)
-메일로 받으신 시리얼 키입니다. 별도 발급 절차 없이 그대로 사용하시면 됩니다.
+아래 6개만 끝내면 실행할 수 있습니다.
 
----
-
-### 1-2. Google Gemini API 키
-
-AI가 글을 쓰고 이미지를 그리기 위해 구글의 API가 필요합니다.
-
-1. [Google AI Studio](https://aistudio.google.com/)에 접속하여 구글 아이디로 로그인
-2. **"Get API key"** 버튼을 누르고 키를 복사
-3. `AIzaSy...` 형태의 긴 문자열이 발급됩니다
-
-> ※ Key 발급은 무료이나 API 사용료는 발생합니다.
-> - [Gemini API 요금 안내](https://ai.google.dev/gemini-api/docs/pricing?hl=ko)
-> - 구글 클라우드 첫 가입 시 **$300 무료 크레딧** (3개월 유효): [무료 크레딧 안내](https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko)
-
-<!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
+1. Gemini API Key 발급
+2. Google Service Account JSON 발급
+3. Google Spreadsheet 생성
+4. **서비스 계정 이메일을 시트에 "공유(편집자)"**
+5. `config/config.txt` 작성
+6. `./BlogGenius login` 실행
 
 ---
 
-### 1-3. 구글 서비스 계정 (Google Service Account)
+## 2. 준비물 발급
 
-BlogGenius가 구글 스프레드시트를 읽고 쓰려면 **서비스 계정 키 파일**이 필요합니다.
+### 2-1. Gemini API Key
 
-#### 발급 순서
+1. [Google AI Studio](https://aistudio.google.com/) 접속
+2. `Get API key` 클릭
+3. 키(`AIza...`) 복사
 
-1. [Google Cloud Console](https://console.cloud.google.com/)에 접속하여 로그인
-2. 상단의 **프로젝트 선택** → **새 프로젝트** 생성 (이름은 아무거나, 예: `BlogGenius`)
-3. 좌측 메뉴 **[API 및 서비스]** → **[사용 설정된 API]** → **[+ API 및 서비스 사용 설정]** 클릭
-4. **"Google Sheets API"** 검색 → **[사용]** 클릭
-5. 좌측 메뉴 **[API 및 서비스]** → **[사용자 인증 정보]** → **[+ 사용자 인증 정보 만들기]** → **[서비스 계정]**
-6. 서비스 계정 이름 입력 (예: `bloggenius`) → **완료**
-7. 생성된 서비스 계정 클릭 → **[키]** 탭 → **[키 추가]** → **[새 키 만들기]** → **JSON** 선택 → **만들기**
-8. JSON 파일이 자동 다운로드됩니다
+---
 
-#### 키 파일 배치
+### 2-2. Google Service Account JSON
 
-다운로드된 JSON 파일의 이름을 `service_account.json`으로 변경하고,
-BlogGenius 폴더 안의 `config/` 폴더에 넣어주세요.
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. 프로젝트 생성
+3. `Google Sheets API` 사용 설정
+4. `사용자 인증 정보 > 서비스 계정` 생성
+5. `키 > 새 키 만들기 > JSON` 다운로드
+6. 파일명을 `service_account.json`으로 바꿔 `config/` 폴더에 저장
 
-```
+예시:
+
+```text
 BlogGenius/
-├── config/
-│   ├── config.txt          ← 설정 파일
-│   └── service_account.json ← 여기에 넣기!
-└── ...
+├─ config/
+│  ├─ config.txt
+│  └─ service_account.json
+└─ ...
 ```
 
-> ⚠️ 서비스 계정의 이메일 주소 (예: `bloggenius@프로젝트명.iam.gserviceaccount.com`)를
-> 다음 단계에서 스프레드시트에 **공유**해야 합니다!
+---
 
-<!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
+### 2-3. Google Spreadsheet 생성 + 공유
+
+1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
+2. URL에서 시트 ID 복사
+3. 우측 상단 `공유` 클릭
+4. `service_account.json` 안의 `client_email` 주소를 추가
+5. 권한을 **편집자**로 지정 후 저장
+
+중요:
+- 개인 구글 계정 이메일이 아니라 **서비스 계정 이메일**을 공유해야 합니다.
+- 이 단계가 빠지면 시트 읽기/쓰기 실패합니다.
 
 ---
 
-### 1-4. 구글 스프레드시트 생성 및 ID 확인
+### 2-4. 네이버 검색 API (keywords/trends 보조용)
 
-BlogGenius는 구글 스프레드시트를 데이터베이스처럼 사용합니다.
-
-#### 스프레드시트 생성
-
-1. [Google Sheets](https://sheets.google.com/)에서 **새 스프레드시트** 생성
-2. 제목은 아무거나 (예: `BlogGenius 데이터`)
-3. 시트(`keywords`, `topics`, `trends`)는 프로그램이 **자동 생성**하므로 별도 작업이 필요 없습니다
-
-#### 스프레드시트 ID 찾기
-
-스프레드시트 URL에서 중간의 긴 문자열이 **스프레드시트 ID**입니다:
-
-```
-https://docs.google.com/spreadsheets/d/여기가_스프레드시트_ID/edit
-                                       ^^^^^^^^^^^^^^^^^^^^^^^^
-```
-
-이 ID를 복사해 두세요.
-
-#### 서비스 계정에 공유하기
-
-1. 스프레드시트 우측 상단 **[공유]** 버튼 클릭
-2. 서비스 계정 이메일 주소 입력 (예: `bloggenius@프로젝트명.iam.gserviceaccount.com`)
-3. 권한: **편집자** 선택 → **보내기**
-
-> 이 단계를 빠뜨리면 프로그램이 시트에 접근할 수 없습니다!
-
-<!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
+1. [네이버 개발자센터](https://developers.naver.com/) 접속
+2. 애플리케이션 등록
+3. 검색 API 선택
+4. `Client ID`, `Client Secret` 복사
 
 ---
 
-### 1-5. 네이버 검색 API 발급
+## 3. config.txt 작성
 
-연관검색어 조사와 참고 블로그 URL 수집에 사용됩니다.
-이 API 키는 **Apps Script**(1-6 참고)에서 사용합니다.
-
-1. [네이버 개발자센터](https://developers.naver.com/)에 접속하여 로그인
-2. **[Application]** → **[애플리케이션 등록]**
-3. 애플리케이션 이름: 아무거나 (예: `BlogGenius`)
-4. 사용 API: **검색** 선택
-5. 환경: **WEB 설정** → URL: `https://www.naver.com` (아무 URL이나 가능)
-6. 등록 후 **Client ID**와 **Client Secret**을 복사
-
-> 이 값들은 `config.txt`에 입력하여 프로그램이 직접 사용합니다. Apps Script에는 입력할 필요가 없습니다.
-
-<!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
-
----
-
-### 1-6. Apps Script 설정
-
-구글 스프레드시트에서 **드롭다운만 바꾸면** 자동으로 연관검색어를 조사해주는 자동화 스크립트입니다.
-
-#### 코드 설치
-
-1. 구글 스프레드시트에서 상단 메뉴 **[확장 프로그램]** → **[Apps Script]** 클릭
-2. 기존 코드를 전부 지우고, 배포 패키지에 포함된 **`google_apps_script.js`** 파일의 내용을 **복사하여 붙여넣기**
-3. **💾 저장** (Ctrl+S / Cmd+S)
-
-
-
-#### 트리거 설치 (최초 1회)
-
-1. Apps Script 에디터 상단의 **함수 선택 드롭다운**에서 `setupTrigger` 선택
-2. **▶ 실행** 버튼 클릭
-3. 권한 승인 팝업이 뜨면 → **고급** → **프로젝트 이름(으)로 이동** → **허용**
-4. 하단에 `✅ 트리거 설치 완료!` 메시지가 표시되면 성공
-
-> 이 작업은 **딱 1번만** 하면 됩니다. 이후에는 시트에서 드롭다운만 바꾸면 자동으로 동작합니다.
-
-<!-- 👉 상세 가이드 블로그: [URL 추가 예정] -->
-
----
-
-## 2. ⚙️ config.txt 설정하기 (딱 한 번만!)
-
-`config` 폴더 안의 `config.txt.sample`을 `config.txt`로 복사한 후 **메모장(Notepad)**으로 열고 수정해주세요.
+`config/config.txt.sample`을 복사해서 `config/config.txt`를 만들고 아래 핵심 항목만 채우세요.
 
 ```ini
-# [필수] 네이버 아이디
-NAVER_ID = 본인의_네이버_아이디
+NAVER_ID = 본인_네이버_아이디
+LICENSE_KEY = free
+GEMINI_API_KEY = AIza...
 
-# [필수] 라이선스 키
-LICENSE_KEY = 메일로_받은_라이선스_키
-
-# [필수] Gemini API 키 (1-2에서 발급)
-GEMINI_API_KEY = AIzaSy...
-
-# [구글 스프레드시트 설정]
 GOOGLE_AUTH_JSON = ./config/service_account.json
-GOOGLE_SHEET_ID = 스프레드시트_URL에서_복사한_ID
+GOOGLE_SHEET_ID = 구글시트_ID
+
+NAVER_CLIENT_ID = 네이버_Client_ID
+NAVER_CLIENT_SECRET = 네이버_Client_Secret
 ```
 
-저장(Ctrl+S) 후 메모장을 닫으시면 준비 끝입니다!
-
-> 나머지 항목 (AI 모델, 브라우저, 타이핑 속도 등)은 기본값으로 두셔도 됩니다.
-> 필요시 `config.txt.sample`의 설명을 참고하여 수정하세요.
+포인트:
+- `LICENSE_KEY = free` 기본값으로 시작해도 됩니다.
+- 유료 라이선스 사용 시 나중에 키만 교체하면 됩니다.
 
 ---
 
-## 3. 🚀 실행 방법
+## 4. 실행 방법
 
-### 3-1. 네이버 로그인 (최초 1회 필수)
+### 4-1. 최초 1회 로그인
 
 ```bash
 ./BlogGenius login
 ```
 
-브라우저가 뜨면 **네이버에 로그인**해주세요. (2단계 인증 포함)
-로그인이 완료되고 네이버 메인 화면이 나오면 창이 저절로 닫힙니다.
+브라우저에서 로그인 완료 후 자동 저장됩니다.
 
-### 3-2. 트렌드 수집
+---
+
+### 4-2. 주요 명령
 
 ```bash
+# 트렌드 수집
 ./BlogGenius trends
-```
 
-네이버 크리에이터 어드바이저에서 인기 트렌드 키워드를 자동 수집하여 구글 시트 `trends` 탭에 추가합니다.
+# 단건 생성+발행 흐름
+./BlogGenius auto -f topic.json
 
-### 3-3. 연관검색어 조사 (Apps Script 자동화)
-
-### 3-3. 연관검색어 조사 (Apps Script 자동화)
-
-**방법 A: 트렌드에서 바로 조사 (추천)**
-1. `trends` 시트에서 원하는 키워드의 **동작/상태** 드롭다운을 `연관검색어 조사`로 변경
-2. → `topics` 시트에 네이버 연관검색어와 함께 주제가 **자동 등록**됩니다. (외부 참고 여부: Yes)
-3. 완료되면 상태가 `연관검색어 조사 완료`로 바뀝니다.
-
-**방법 B: 키워드 선별 후 조사**
-1. `trends` 시트에서 **동작/상태**를 `키워드 목록에 추가`로 변경 → `keywords` 시트에 복사됨
-2. `keywords` 시트에서 **동작 / 상태**를 `연관검색어 조사`로 변경
-3. → `topics` 시트에 추가됨
-
-### 3-4. 블로그 포스팅
-
-```bash
-# 단건 테스트 (topic.json 사용)
-./BlogGenius auto
-
-# 구글 시트 대량 발행
+# 구글 시트 기반 대량 발행
 ./BlogGenius batch
+
+# 쇼핑 시트 기반 발행
+./BlogGenius shopping
 ```
 
-`batch`를 실행하면 `topics` 시트의 `블로그 발행 준비 완료` 상태인 주제를 순서대로 발행합니다.
+---
 
-### 3-5. Windows 사용자
+### 4-3. Windows는 더 쉽게
 
-폴더에 들어있는 `.bat` 파일을 더블 클릭하면 됩니다.
+아래 파일 더블클릭:
 
-| 파일 | 설명 |
-|------|------|
-| `실행하기_로그인.bat` | 최초 1회 네이버 로그인 |
-| `실행하기_단건테스트.bat` | topic.json 기반 단건 발행 |
-| `실행하기_일괄발행.bat` | 구글 시트 기반 대량 발행 |
+- `실행하기_로그인.bat`
+- `실행하기_단건테스트.bat`
+- `실행하기_일괄발행.bat`
 
-### 3-6. MacOS 사용자
+---
 
-⚠️ "개발자를 확인할 수 없음" 경고가 뜰 경우:
+### 4-4. macOS 보안 경고 해결 (터미널 없이 먼저 시도)
+
+`"개발자를 확인할 수 없어 열 수 없습니다"`가 나오면 아래 순서로 해결하세요.
+
+1. Finder에서 실행 파일 우클릭
+2. `열기` 클릭
+3. 경고창이 다시 나오면 `열기` 또는 `시스템 설정 > 개인정보 보호 및 보안 > 그래도 열기`
+4. 한 번 허용하면 다음부터는 보통 정상 실행
+
+### 고급 방법 (필요할 때만)
+
+아래 명령은 고급 사용자용입니다.
+
 ```bash
 xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 ```
 
 ---
 
-## 4. 📊 워크플로우 한눈에 보기
+## 5. 워크플로우 (실사용 기준)
 
-[1] 트렌드 수집 (BlogGenius CLI)
-     └──▶ trends 시트에 키워드 추가
+1. `trends` 실행 -> `trends` 시트에 키워드 적재
+2. Apps Script/키워드 처리 -> `topics` 시트에 발행 주제 축적
+3. `batch` 실행 -> `블로그 발행 준비 완료` 항목 순차 처리
+4. `shopping` 실행 -> `shopping` 시트 URL 기반 글 생성/발행
 
-[2] 주제 생성 (Apps Script)
-     ├──▶ '연관검색어 조사' 선택 ──────┐
-     │                             │
-     └──▶ '키워드 목록에 추가' 선택    │
-           ↓                       │ (Direct)
-          keywords 시트             │
-           ↓                       ▼
-          '연관검색어 조사' 선택 ──▶ topics 시트에 추가
-
-[3] 블로그 발행 (BlogGenius CLI)
-     └──▶ batch 명령으로 topics 시트의 주제를 자동 발행
+자동 생성되는 시트:
+- `keywords`
+- `topics`
+- `trends`
+- `shopping`
 
 ---
 
-## 5. ❓ 자주 묻는 질문 (FAQ)
+## 6. 자주 묻는 문제
 
-**Q. 테스트는 총 얼마나 지원되나요?**
-* 총 15건의 글을 생성/발행할 수 있습니다. :)
+### Q1. 로그인 세션 만료라고 나옵니다.
 
-**Q. "라이선스 오류"라고 뜨면서 꺼져요.**
-* `config/config.txt` 파일에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요.
-* 인터넷 연결이 끊겨있으면 인증이 불가능합니다.
+- 먼저 아래 명령으로 다시 로그인하세요.
 
-**Q. 이미지가 생성이 안 돼요.**
-* `config.txt`의 `GEMINI_API_KEY`가 정확한지 확인하세요.
-* 구글 API 사용량을 초과했을 수 있습니다. 잠시 후 다시 시도해보세요.
-
-**Q. 로그인이 자꾸 풀려요.**
-* 네이버 보안 설정에서 "해외 로그인 차단"이 켜져 있다면 꺼주세요.
-* 너무 짧은 시간에 반복해서 로그인을 시도하면 네이버가 잠시 차단할 수 있습니다.
-
-**Q. 구글 시트에 시트(탭)가 없어요.**
-* 프로그램 실행 시 `keywords`, `topics`, `trends` 시트가 **자동 생성**됩니다.
-* 서비스 계정에 스프레드시트 편집 권한이 있는지 확인해주세요.
-
-**Q. Apps Script에서 '연관검색어 조사'가 안 돼요.**
-* ⚙️ 프로젝트 설정의 **스크립트 속성**에 `NAVER_CLIENT_ID`와 `NAVER_CLIENT_SECRET`이 정확히 입력되었는지 확인하세요.
-* `setupTrigger` 함수를 실행했는지 확인하세요 (최초 1회).
+```bash
+./BlogGenius login
+```
 
 ---
-* 본 테스트는 자발적 테스트로써 사용자 본인의 과도한 실행(ex: 네이버의 과도한 접속, 생성, 발행)으로 인한 혹시 모를 네이버의 조치는 전적으로 테스터 본인의 책임입니다.
-* 어떠한 경우에도 개발자인 '도전인생'에게 책임을 묻지 않습니다. (근데 그럴 일은 별로 없을 것입니다.)
+
+### Q2. 시트 접근 실패(권한 오류)가 납니다.
+
+아래 2개를 다시 확인하세요.
+
+1. `GOOGLE_SHEET_ID`가 정확한가?
+2. 스프레드시트 공유 대상이 **service account client_email**인가?
+
 ---
 
-## **지원**
+### Q3. 라이선스 오류가 납니다.
 
-보다 자세한 정보는 도전인생의 SNS, 오픈채팅방, 카페, 블로그를 참고해주시기 바랍니다.
+- `config/config.txt`의 `LICENSE_KEY` 확인
+- 무료 사용은 `free`로 시작 가능
+- 네트워크 연결 확인
 
-👉 [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
-👉 [https://threads.net/amadejjs](https://threads.net/amadejjs)
-👉 [https://linktr.ee/amadejjs](https://linktr.ee/amadejjs)
+---
+
+### Q4. 이미지 생성이 안 됩니다.
+
+- `GEMINI_API_KEY` 확인
+- Gemini API 사용량/결제 상태 확인
+
+---
+
+## 7. 지원
+
+- 오픈채팅: [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
+- Threads: [https://threads.net/amadejjs](https://threads.net/amadejjs)
+- 링크모음: [https://linktr.ee/amadejjs](https://linktr.ee/amadejjs)
+
+---
+
+## 8. 안내 및 면책
+
+- 본 도구 사용으로 인한 외부 서비스 정책 이슈(예: 과도한 요청)는 사용자 책임입니다.
+- 무리한 반복 실행은 피하고, 로그를 확인하면서 사용하세요.
