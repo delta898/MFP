@@ -28,6 +28,7 @@ console.warn = (...args) => {
 const { Command } = require('commander');
 const fs = require('fs');
 const path = require('path');
+const { version: APP_VERSION } = require('../package.json');
 
 // ✅ 분리된 모듈 불러오기
 const License = require('./license');
@@ -69,8 +70,8 @@ const program = new Command();
 program
     .name('BlogGenius')
     .usage('[command] [options]')
-    .version('0.6.1')
-    .description('🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v0.6.1)');
+    .version(APP_VERSION)
+    .description(`🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v${APP_VERSION})`);
 
 // --- Helper Functions ---
 
