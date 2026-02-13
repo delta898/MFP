@@ -28,7 +28,7 @@ console.warn = (...args) => {
 const { Command } = require('commander');
 const fs = require('fs');
 const path = require('path');
-const { version: APP_VERSION } = require('../package.json');
+const APP_VERSION = require('./version');
 
 // ✅ 분리된 모듈 불러오기
 const License = require('./license');

@@ -18,6 +18,9 @@
     "post": "node src/main.js post",
     "kw": "node src/main.js keywords",
     "pub": "node src/main.js pub",
+    "ver:patch": "node scripts/bump-version.js patch",
+    "ver:minor": "node scripts/bump-version.js minor",
+    "ver:major": "node scripts/bump-version.js major",
     "//": "👇 npm run build 실행 시 build.sh가 실행되도록 연결하면 편합니다.",
     "build": "./build.sh"
   },
