@@ -49,6 +49,7 @@
 기존 테이블 유지 + 아래 컬럼 사용:
 
 - `license_key` : 라이선스 키
+- `email` : 운영 식별용 사용자 이메일 (권장 필수)
 - `status` : `active`일 때만 승인
 - `hwid` : 최초 승인 시 바인딩
 - `usage_limit`, `usage_count`, `reset_date` : metered(차감형) 정책
@@ -155,6 +156,7 @@ where policy_key = 'free_default';
 - `anon/authenticated`의 테이블 직접 권한 제거
 - 앱은 테이블 직접 접근 대신 RPC만 사용
 - 무료 사용자 식별은 HWID 원문 대신 해시값 사용
+- 운영 식별은 `licenses.email` 기준으로 관리 (권장)
 
 ## 8. 변경 이력 (현재 기준)
 

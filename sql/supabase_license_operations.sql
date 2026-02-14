@@ -11,6 +11,57 @@
 -- - sql/supabase_license_precheck.sql 적용 완료
 
 -- ------------------------------------------------------------
+-- 0) 운영 조회 성능용 인덱스 (이메일)
+-- ------------------------------------------------------------
+create index if not exists idx_licenses_email on public.licenses (email);
+
+-- ------------------------------------------------------------
+-- 0-1) 16바이트 랜덤 키 자동 발급 (권장)
+--    - 실행 결과의 license_key를 사용자에게 전달
+--    - 충돌로 0행 반환 시 1회 재실행
+-- ------------------------------------------------------------
+with seed as (
+    select upper(encode(gen_random_bytes(16), 'hex')) as r
+),
+issued as (
+    select
+        'BG-' ||
+        substr(r, 1, 8)  || '-' ||
+        substr(r, 9, 8)  || '-' ||
+        substr(r, 17, 8) || '-' ||
+        substr(r, 25, 8) as license_key
+    from seed
+)
+insert into public.licenses (
+    license_key,
+    tier,
+    status,
+    email,
+    hwid,
+    usage_limit,
+    usage_count,
+    reset_date,
+    license_mode,
+    expires_at,
+    note
+)
+select
+    i.license_key,
+    'pro',
+    'active',
+    'user@example.com',
+    null,
+    300,
+    0,
+    timezone('utc', now()) + interval '1 month',
+    'metered',
+    null,
+    'issued automatically (16-byte random key)'
+from issued i
+on conflict (license_key) do nothing
+returning license_key, email, usage_limit, reset_date, created_at;
+
+-- ------------------------------------------------------------
 -- A) 무료 사용자에게 "차감형 유료 키(metered)" 발급/갱신
 --    - usage_limit: 월 허용 횟수
 --    - reset_date: 다음 리셋 시각
@@ -19,6 +70,7 @@ insert into public.licenses (
     license_key,
     tier,
     status,
+    email,
     hwid,
     usage_limit,
     usage_count,
@@ -30,6 +82,7 @@ insert into public.licenses (
     'PAID-KEY-REPLACE-ME',
     'pro',
     'active',
+    'user@example.com',
     null,                          -- 첫 실행 시 자동 HWID 바인딩
     300,                           -- 월 300회 예시
     0,
@@ -41,6 +94,7 @@ insert into public.licenses (
 on conflict (license_key) do update
 set tier = excluded.tier,
     status = excluded.status,
+    email = excluded.email,
     usage_limit = excluded.usage_limit,
     usage_count = excluded.usage_count,
     reset_date = excluded.reset_date,
@@ -55,6 +109,7 @@ insert into public.licenses (
     license_key,
     tier,
     status,
+    email,
     hwid,
     usage_limit,
     usage_count,
@@ -66,6 +121,7 @@ insert into public.licenses (
     'UNLIMITED-KEY-REPLACE-ME',
     'business',
     'active',
+    'user@example.com',
     null,
     0,
     0,
@@ -77,6 +133,7 @@ insert into public.licenses (
 on conflict (license_key) do update
 set tier = excluded.tier,
     status = excluded.status,
+    email = excluded.email,
     license_mode = excluded.license_mode,
     expires_at = excluded.expires_at,
     note = excluded.note;
@@ -125,6 +182,7 @@ where license_key = 'PAID-KEY-REPLACE-ME'
 -- ------------------------------------------------------------
 select
     license_key,
+    email,
     tier,
     status,
     license_mode,

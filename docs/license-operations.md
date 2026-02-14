@@ -29,20 +29,28 @@
 중요:
 - 무료 잔여분은 유료로 합산하지 않습니다.
 - `free_license_usages` 레코드는 삭제할 필요가 없습니다.
+- 유료 라이선스는 `email`을 반드시 입력해 식별 기준으로 사용하세요.
 
 ## 4. 운영 시나리오별 작업
+
+### 4.0 16바이트 랜덤 키 자동 발급 (권장)
+
+- 파일: `sql/supabase_license_operations.sql`
+- 섹션: `0-1`
+- 실행 결과의 `license_key`를 사용자에게 전달하면 됩니다.
+- 결과가 0행이면(희소한 키 충돌) 같은 쿼리를 1회 재실행하세요.
 
 ### 4.1 차감형 유료 키 발급
 
 - 파일: `sql/supabase_license_operations.sql`
 - 섹션: `A`
-- 조정 항목: `license_key`, `usage_limit`, `reset_date`, `tier`
+- 조정 항목: `license_key`, `email`, `usage_limit`, `reset_date`, `tier`
 
 ### 4.2 평생 무한 키 발급
 
 - 파일: `sql/supabase_license_operations.sql`
 - 섹션: `B`
-- 조정 항목: `license_key`, `tier`
+- 조정 항목: `license_key`, `email`, `tier`
 
 ### 4.3 기간형(구독형) 무한 키
 
@@ -73,6 +81,7 @@
 
 ## 6. 점검 체크리스트
 
+0. `email`이 정확히 입력되어 있는가 (운영 식별 기준)
 1. `licenses.status='active'` 인가
 2. `license_mode` 값이 의도대로 설정되었는가 (`metered`/`unlimited`)
 3. 차감형의 `usage_limit`, `usage_count`, `reset_date`가 정상인가
