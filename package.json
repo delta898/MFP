@@ -10,7 +10,6 @@
     "start": "node src/main.js",
     "login": "node src/main.js login",
     "gen": "node src/main.js gen",
-    "auto": "node src/main.js auto",
     "batch": "node src/main.js batch",
     "keywords": "node src/main.js search",
     "trends": "node src/main.js trends",

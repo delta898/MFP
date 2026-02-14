@@ -115,10 +115,10 @@ jobs:
             echo "BlogGenius.exe batch" >> dist/실행하기_일괄발행.bat
             echo "pause" >> dist/실행하기_일괄발행.bat
 
-            echo "@echo off" > dist/실행하기_단건테스트.bat
-            echo "chcp 65001 > nul" >> dist/실행하기_단건테스트.bat
-            echo "BlogGenius.exe auto" >> dist/실행하기_단건테스트.bat
-            echo "pause" >> dist/실행하기_단건테스트.bat
+            echo "@echo off" > dist/실행하기_쇼핑발행.bat
+            echo "chcp 65001 > nul" >> dist/실행하기_쇼핑발행.bat
+            echo "BlogGenius.exe shopping" >> dist/실행하기_쇼핑발행.bat
+            echo "pause" >> dist/실행하기_쇼핑발행.bat
           fi
 
       - name: Create Platform ZIP (Linux/macOS)

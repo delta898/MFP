@@ -53,11 +53,11 @@ SHOPPING_PROMPT_FILE = ./config/shopping_prompt.md
 
 # 배치(blog) 실행 1회당 최대 처리 포스트 수
 # 0이면 무제한, 미설정/음수는 기본 5
-MAX_BLOG_POSTS_PER_RUN = 3
+MAX_BLOG_POSTS_PER_RUN = 5
 
 # 쇼핑(shopping) 실행 1회당 최대 처리 포스트 수
-# 0이면 무제한, 미설정/음수는 기본 3
-MAX_SHOPPING_POSTS_PER_RUN = 3
+# 0이면 무제한, 미설정/음수는 기본 5
+MAX_SHOPPING_POSTS_PER_RUN = 5
 
 # 배치 발행 간격 (초)
 BATCH_INTERVAL_SECONDS = 5

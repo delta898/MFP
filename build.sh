@@ -103,14 +103,14 @@ echo [BlogGenius] 엑셀 대량 발행(Batch)을 시작합니다...
 BlogGenius.exe batch
 pause
 EOF
-        # 3) 단건 테스트
-        cat > "$TARGET_DIR/실행하기_단건테스트.bat" << 'EOF'
+        # 3) 쇼핑 발행
+        cat > "$TARGET_DIR/실행하기_쇼핑발행.bat" << 'EOF'
 @echo off
 chcp 65001 > nul
-title BlogGenius Auto Mode
+title BlogGenius Shopping Mode
 echo.
-echo [BlogGenius] 단건 테스트(Auto)를 시작합니다...
-BlogGenius.exe auto
+echo [BlogGenius] 쇼핑 발행(Shopping)을 시작합니다...
+BlogGenius.exe shopping
 pause
 EOF
     fi

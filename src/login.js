@@ -43,7 +43,7 @@ const NAVER_LOGIN_URL = 'https://nid.naver.com/nidlogin.login';
         await context.storageState({ path: AUTH_FILE_PATH });
 
         console.log(`💾 인증 정보 저장 완료: ${AUTH_FILE_PATH}`);
-        console.log("🎉 이제 'npm run auto'를 실행할 수 있습니다!");
+        console.log("🎉 이제 'npm run batch' 또는 'npm run shopping'을 실행할 수 있습니다!");
 
     } catch (e) {
         if (e.message.includes('Target closed')) {

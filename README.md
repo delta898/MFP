@@ -78,20 +78,19 @@ npm run batch
 * **팁**: 엑셀의 `Image Gen` 칸을 비워두면 자동으로 이미지를 생성합니다.
 * 작업 도중 중단되어도 다시 실행하면 **안 된 것부터 이어서** 작업합니다.
 
-### 3️⃣ 단건 발행 (Auto Mode)
-`topic.json` 파일을 수정해서 글 하나만 정교하게 테스트할 때 사용합니다.
+### 3️⃣ 쇼핑 시트 발행 (Shopping Mode)
+`shopping` 시트의 `발행 준비 완료` 항목을 기준으로 쇼핑 포스팅을 처리합니다.
 
 ```bash
-npm run auto
+npm run shopping
 ```
 
-### 4️⃣ 하이브리드 모드 (수동 글 + 자동 이미지)
-**"글은 내가 쓰고, 이미지는 AI가 만들어줘!"**
-이미 원고가 있는 폴더를 지정하면, 봇은 **글을 덮어쓰지 않고** 이미지만 생성해서 채워넣습니다.
+### 4️⃣ 폴더 발행 (Publish Mode)
+이미 생성된 원고 폴더(`contents.md`)를 발행할 때 사용합니다.
 
 ```bash
 # 특정 폴더 지정 실행
-npm run auto -- -d "workspace/내_원고_폴더"
+npm run pub -- -d "workspace/내_원고_폴더"
 ```
 
 ---
@@ -106,7 +105,7 @@ npm run auto -- -d "workspace/내_원고_폴더"
 ├── logs/               # 실행 로그 (날짜별 자동 저장)
 ├── workspace/          # 결과물 저장소 (글, 이미지)
 
-├── topic.json            # [Auto] 단건 작업 지시서
+├── topic.json            # [Gen] 단건 생성 작업 지시서
 └── setup.js            # 간편 설치 스크립트
 ```
 

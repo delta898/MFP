@@ -1,10 +1,10 @@
 # BlogGenius 사용자 가이드 (초보자용)
 
-> 주제만 준비하면, 블로그 글 생성부터 발행 버튼 클릭까지 자동으로 처리합니다.
+> 주제만 준비하면, 블로그 글 생성부터 저장까지 자동으로 처리합니다.
 
 이 문서는 처음 사용하는 분도 중도 포기하지 않도록 "꼭 필요한 순서"만 남겨서 작성했습니다.
 
-빠른 질문/문제 해결은 오픈채팅방이 가장 빠릅니다.
+빠른 질문/문제 해결은 오픈채팅방이 가장 빠르니 아래 링크를 통해 들어오시기 바랍니다.
 
 [도전인생의 100% 완전 자동화 블로깅 오픈채팅방](https://open.kakao.com/o/gZWL25Zh)
 
@@ -12,7 +12,7 @@
 
 ## 0. 먼저 이해할 것 (아주 중요)
 
-- 이 프로그램은 **구글 시트 + 네이버 로그인 세션 + Gemini API**를 사용합니다.
+- 이 프로그램은 **구글 스프레드시트 + 네이버 로그인 + Gemini API**를 사용합니다.
 - 한 번 세팅하면 이후 반복 작업이 매우 편해집니다.
 
 ---
@@ -25,7 +25,7 @@
 2. Google Service Account JSON 발급
 3. Google Spreadsheet 생성
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
-5. **서비스 계정 이메일을 시트에 "공유(편집자)"**
+5. **서비스 계정 이메일을 시트에 "공유(편집자 권한)"**
 6. `config/config.txt` 내용 수정
 7. `./BlogGenius login` 실행
 
@@ -34,7 +34,7 @@
 아래 3가지가 되면 세팅 완료입니다.
 1. `./BlogGenius login` 후 로그인 성공 메시지 확인
 2. `./BlogGenius trends` 실행 시 `trends/keywords/topics/shopping` 시트 자동 생성 확인
-3. 시트에서 상태 변경 시 Apps Script 동작 확인 (`topics`에 주제가 누적되면 정상)
+3. 시트에서 상태 변경 시 `topics`에 주제가 누적되면 정상
 
 ---
 
@@ -73,6 +73,8 @@ BlogGenius/
 
 ### 2-3. Google Spreadsheet 생성 + 공유
 
+- [구글 서비스 계정 발급 안내 참고](https://buly.kr/5UJLf0u)
+
 1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
 2. URL에서 시트 ID 복사 -> config/config.txt 파일에 반영
 예시:
@@ -88,6 +90,31 @@ BlogGenius/
 
 ---
 
+### 2-4. Apps Script 설정
+
+공유 파일 위치:
+- `scripts/google_apps_script.js`
+
+설정 순서:
+1. 구글 스프레드시트에서 `확장 프로그램 > Apps Script` 열기
+2. 기본으로 열린 `Code.gs` 내용을 전부 지우기
+3. 이 프로젝트의 `scripts/google_apps_script.js` 전체 내용을 복사해서 붙여넣기
+4. 상단의 기본제목('제목 없는 프로젝트')을 원하는 임의 이름으로 변경
+5. `저장` 클릭
+7. 상단 함수 선택에서 `setup권한 검토` 선택
+8. `구글에서 확인하지 아은 앱` 팝업이 나오면 좌측 하단의 '고급' 선택
+9. 팝업 좌측 하단의 <프로젝트이름>(으)로 이동(안전하지 않음) 클릭
+10. <프로젝트 이름>에서 Google 계정에 대한 액세스를 요청합니다 팝업이 뜸
+11. 액세스 항목에 '모두 허용'을 체크하고 '계속' 클릭
+12. Apps Script 화면 하단의 '실행 로그'에서 '실행이 시작됨' 로그가 나오면 성공
+13. 스프레드시트로 돌아와서 드롭다운 값을 바꿔 테스트
+
+동작 예시:
+- `trends` 시트 E열 값을 `키워드 목록에 추가`로 바꾸면 `keywords` 시트에 추가
+- `trends` 또는 `keywords` 시트에서 `연관검색어 조사`를 선택하면 `topics` 시트에 주제 누적
+
+---
+
 ## 3. config.txt 작성
 
 ```ini
@@ -95,7 +122,6 @@ NAVER_ID = 본인_네이버_아이디
 LICENSE_KEY = free
 GEMINI_API_KEY = AIza...
 
-GOOGLE_AUTH_JSON = ./config/service_account.json
 GOOGLE_SHEET_ID = 구글시트_ID
 ```
 
@@ -123,9 +149,6 @@ GOOGLE_SHEET_ID = 구글시트_ID
 # 트렌드 수집
 ./BlogGenius trends
 
-# 단건 생성+발행
-./BlogGenius auto -f topic.json
-
 # 구글 시트 기반 대량 발행
 ./BlogGenius batch
 
@@ -140,8 +163,8 @@ GOOGLE_SHEET_ID = 구글시트_ID
 아래 파일 더블클릭:
 
 - `실행하기_로그인.bat`
-- `실행하기_단건테스트.bat`
 - `실행하기_일괄발행.bat`
+- `실행하기_쇼핑발행.bat`
 
 ---
 
@@ -177,23 +200,6 @@ xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 - `topics`
 - `shopping`
 
-### 5-1. Apps Script 설정 (최초 1회)
-
-공유 파일 위치:
-- `scripts/google_apps_script.js`
-
-설정 순서:
-1. 구글 스프레드시트에서 `확장 프로그램 > Apps Script` 열기
-2. 기본으로 열린 `Code.gs` 내용을 전부 지우기
-3. 이 프로젝트의 `scripts/google_apps_script.js` 전체 내용을 복사해서 붙여넣기
-4. `저장` 클릭
-5. 상단 함수 선택에서 `setupTrigger` 선택 후 `실행` 클릭 (**최초 1회만 실행**)
-6. 권한 승인 팝업이 나오면 `허용`
-7. 시트로 돌아와서 드롭다운 값을 바꿔 테스트
-
-동작 예시:
-- `trends` 시트 E열 값을 `키워드 목록에 추가`로 바꾸면 `keywords` 시트에 추가
-- `trends` 또는 `keywords` 시트에서 `연관검색어 조사`를 선택하면 `topics` 시트에 주제 누적
 
 ---
 
@@ -229,7 +235,7 @@ xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 ### Q4. 이미지 생성이 안 됩니다.
 
 - `GEMINI_API_KEY` 확인
-- Gemini API 사용량/결제 상태 확인
+- Gemini API 사용량/결제 상태 확인 (https://aistudio.google.com)
 
 ---
 
@@ -241,7 +247,7 @@ xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
 
 ---
 
-## 8. 안내 및 면책
+## 8. 안내 및 주의사항
 
 - 본 도구 사용으로 인한 외부 서비스 정책 이슈(예: 과도한 요청)는 사용자 책임입니다.
 - 무리한 반복 실행은 피하고, 로그를 확인하면서 사용하세요.

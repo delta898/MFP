@@ -217,39 +217,7 @@ program
         }
     });
 
-// 3️⃣ Auto Command
-program
-    .command('auto')
-    .description('🚀 [자동] 단일 주제 생성부터 발행까지 논스톱 실행')
-    .option('-f, --file <path>', '작업 파일', 'topic.json')
-    .option('-d, --dir <path>', '출력 폴더')
-    .action(async (opts) => {
-        try {
-            console.log("\n▶️ [Auto Mode] 작업을 시작합니다...");
-
-            await ensureAuth(true);
-
-            const filePath = path.resolve(process.cwd(), opts.file);
-            const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-
-            // 1. 콘텐츠 및 이미지 생성
-            const result = await Core.generateContent(topicData, opts.dir);
-            await Core.prepareImages(result.targetDir, topicData);
-
-            // 2. 블로그 발행
-            console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
-            const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
-            await Core.publishToBlog(result.targetDir);
-
-            console.log(`\n✅ 자동 발행 완료!`);
-        } catch (e) {
-            console.error('❌ 에러:', e.message);
-            if (process.env.DEBUG) console.error('Stack:', e.stack);
-        }
-    });
-
-// 4️⃣ Batch Command
+// 3️⃣ Batch Command
 program
     .command('batch')
     .description('📚 [배치] 구글 시트 대량 포스팅')
@@ -363,7 +331,7 @@ program
         }
     });
 
-// 5️⃣ Publish Command
+// 4️⃣ Publish Command
 program
     .command('publish').alias('pub')
     .description('📤 [발행] 폴더 업로드')
@@ -383,7 +351,7 @@ program
 
     });
 
-// 6️⃣ Keywords Command [New]
+// 5️⃣ Keywords Command [New]
 program
     .command('keywords')
     .alias('kw')
@@ -405,7 +373,7 @@ program
         }
     });
 
-// 7️⃣ Trends Command [New]
+// 6️⃣ Trends Command [New]
 program
     .command('trends')
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
@@ -436,7 +404,7 @@ program
         }
     });
 
-// 8️⃣ Shopping Command [New]
+// 7️⃣ Shopping Command [New]
 program
     .command('shopping')
     .description('🛍️ [쇼핑] 쇼핑커넥트 URL 기반 리뷰/추천 포스팅')
@@ -543,7 +511,8 @@ program.on('--help', () => {
     console.log('');
     console.log('📖 사용 예시:');
     console.log('  $ ./BlogGenius login');
-    console.log('  $ ./BlogGenius auto -f topic.json');
+    console.log('  $ ./BlogGenius batch');
+    console.log('  $ ./BlogGenius shopping');
 });
 
 program.parse(process.argv);
