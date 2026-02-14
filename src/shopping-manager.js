@@ -1340,11 +1340,7 @@ function buildAiPrompt(product) {
     const reviewSamples = (product.reviewData?.reviewSamples || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n') || '1. 대표 리뷰를 추출하지 못했습니다.';
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
 
-    const configuredPromptPath = (CONFIG.SHOPPING_PROMPT_FILE || '').trim();
-    const defaultPromptPath = path.join(process.cwd(), 'config', 'shopping_prompt.md');
-    const promptPath = configuredPromptPath
-        ? path.resolve(process.cwd(), configuredPromptPath)
-        : defaultPromptPath;
+    const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
 
     if (fs.existsSync(promptPath)) {
         try {

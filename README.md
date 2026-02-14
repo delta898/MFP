@@ -17,7 +17,7 @@ Google Gemini AI와 최신 자동화 기술을 결합하여 블로그 포스팅�
 
 * **✍️ SEO 최적화 글쓰기**: 서론-본문-결론 구조를 갖춘 검색 최적화(SEO) 원고를 자동으로 작성합니다.
 * **🎨 AI 이미지 자동 생성**: 글 내용을 분석해 **Google Gemini(Imagen)**가 고퀄리티 이미지를 생성하여 본문에 삽입합니다.
-* **🎭 페르소나 커스텀**: `system_prompt.md`를 수정하여 봇의 말투, 성격, 글쓰기 스타일을 내 맘대로 조정할 수 있습니다.
+* **🎭 페르소나 커스텀**: 필요 시 `config/blog_prompt.md`(블로그), `config/shopping_prompt.md`(쇼핑) 파일로 기본 프롬프트를 오버라이드할 수 있습니다.
 * **🔧 하이브리드 모드**: 내가 쓴 글(`contents.md`)에 AI가 이미지만 채워넣는 협업이 가능합니다.
 * **🛡️ 안전한 실행**: 기존 파일은 절대 덮어쓰지 않으며(이어쓰기 지원), 작업 로그가 상세히 기록됩니다.
 
@@ -101,7 +101,8 @@ npm run pub -- -d "workspace/내_원고_폴더"
 /NaverAutoBlog
 ├── config/             
 │   ├── config.txt     # 아이디, API 키, 라이선스 키 설정
-│   └── system_prompt.md # [Tip] 봇의 성격과 말투를 여기서 수정하세요!
+│   ├── blog_prompt.md # [선택] 블로그 프롬프트 오버라이드
+│   └── shopping_prompt.md # [선택] 쇼핑 프롬프트 오버라이드
 ├── logs/               # 실행 로그 (날짜별 자동 저장)
 ├── workspace/          # 결과물 저장소 (글, 이미지)
 

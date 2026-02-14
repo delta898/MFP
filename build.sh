@@ -61,9 +61,6 @@ copy_assets() {
         echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
     fi
 
-    # 프롬프트 및 엑셀 파일
-    cp config/system_prompt.md.sample "$TARGET_DIR/config/system_prompt.md"
-
     if [ -f "scripts/google_apps_script.js" ]; then
         cp scripts/google_apps_script.js "$TARGET_DIR/scripts/google_apps_script.js"
     else

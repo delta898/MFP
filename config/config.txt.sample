@@ -44,8 +44,9 @@ SHOPPING_IMAGE_MAX_COUNT = 5
 # CTA 이미지 삽입 횟수 (기본 2회, 0이면 비활성화)
 SHOPPING_CTA_IMAGE_INSERT_COUNT = 2
 
-# 쇼핑 전용 프롬프트 파일 경로
-SHOPPING_PROMPT_FILE = ./config/shopping_prompt.md
+# 프롬프트 오버라이드(선택):
+# - ./config/blog_prompt.md 가 있으면 블로그 기본 프롬프트 대신 사용
+# - ./config/shopping_prompt.md 가 있으면 쇼핑 기본 프롬프트 대신 사용
 
 # -------------------------------------------------------
 # 3) 실행 제어 (운영 중 자주 조정)

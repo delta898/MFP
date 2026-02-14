@@ -128,6 +128,9 @@ GOOGLE_SHEET_ID = 구글시트_ID
 포인트:
 - `LICENSE_KEY = free` 기본값으로 시작해도 됩니다.
 - 유료 라이선스 사용 시 나중에 키만 교체하면 됩니다.
+- 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 내부 기본값 사용):
+  - `config/blog_prompt.md`
+  - `config/shopping_prompt.md`
 
 ---
 
@@ -176,13 +179,13 @@ GOOGLE_SHEET_ID = 구글시트_ID
 `"개발자를 확인할 수 없어 열 수 없습니다"` 혹은 `"손상되었거나 악성 코드가 없음 확인 불가"` + `휴지통으로 이동` 팝업이 나오면 아래 조치 필요합니다.
 
 아래 3줄을 터미널에서 실행한 뒤 다시 실행하세요.
-Architecture(ex: Apple Silicon, Intel)에 따라 실행파일명을 다를 수 있습니다.
+Architecture(ex: Apple Silicon, Intel)에 따라 실행파일명이 다를 수 있습니다.
 - BlogGenius-mac-arm64 혹은 BlogGenius-mac-intel
 
 ```bash
 cd <프로그램이 설치된 경로>
-xattr -dr com.apple.quarantine ./BlogGenius-mac-arm64
-chmod +x ./BlogGenius-mac-arm64
+xattr -dr com.apple.quarantine ./BlogGenius-mac-arm64   # Intel이면 BlogGenius-mac-intel
+chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius-mac-intel
 ```
 
 ---

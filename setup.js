@@ -10,12 +10,6 @@ const filesToCopy = [
         name: '설정 파일 (config.txt)',
         src: path.join(__dirname, 'config', 'config.txt.sample'),
         dest: path.join(__dirname, 'config', 'config.txt')
-    },
-    {
-        // 🔥 [추가됨] 시스템 프롬프트 복사
-        name: '시스템 프롬프트 (system_prompt.md)',
-        src: path.join(__dirname, 'config', 'system_prompt.md.sample'),
-        dest: path.join(__dirname, 'config', 'system_prompt.md')
     }
 ];
 

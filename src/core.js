@@ -817,9 +817,11 @@ const Core = {
 				Logger.debug(`🔍 [외부 참고] 인기글 수집 시작: '${searchKeyword}'`);
 				const relatedPosts = await Utils.fetchNaverBlogTopPosts(searchKeyword);
 
-				for (const post of relatedPosts) {
-					const safeTitle = post.title.length > 10 ? post.title.substring(0, 15) + '...' : post.title;
-					Logger.info(`   📖 [외부 참고] 관련 인기글 분석 중: ${safeTitle}`);
+				for (let i = 0; i < relatedPosts.length; i++) {
+					const post = relatedPosts[i];
+					const rawTitle = String(post.title || '').replace(/\s+/g, ' ').trim();
+					const previewTitle = rawTitle.slice(0, 5);
+					Logger.info(`   📖 [외부 참고] 관련 글 ${i + 1} 분석 중...: ${previewTitle}`);
 					const text = await Utils.fetchReferenceContent(post.link);
 					if (text) {
 						refSourceCount++;
@@ -847,7 +849,7 @@ const Core = {
 		}
 
 		// 3) 프롬프트 로딩 (Priority: Config > Constants)
-		const promptPath = CONFIG.SYSTEM_PROMPT_PATH || Constants.PROMPT_FILE;
+		const promptPath = CONFIG.BLOG_PROMPT_PATH || Constants.PROMPT_FILE;
 		if (!fs.existsSync(promptPath)) {
 			throw new Error(`시스템 프롬프트 파일이 없습니다: ${promptPath}`);
 		}

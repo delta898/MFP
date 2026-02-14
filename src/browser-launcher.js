@@ -1,6 +1,6 @@
 // src/browser-launcher.js
 const { chromium } = require('playwright');
-// 💡 config-loader를 통해 바깥쪽 config/settings.js 내용을 가져옵니다.
+// 💡 config-loader를 통해 config/config.txt 값을 로딩합니다.
 const CONFIG = require('./config-loader');
 
 async function launchBrowser(overrides = {}) {

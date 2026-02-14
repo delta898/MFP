@@ -13,9 +13,9 @@ module.exports = {
     // 2. 워크스페이스: 실행 위치 하위에 'workspace' 폴더 생성/사용
     WORKSPACE_DIR: path.join(RUNTIME_ROOT, 'workspace'),
 
-    // 3. 프롬프트: 실행 파일 바로 옆에 'system_prompt.md'가 있다고 가정
-    // (만약 config 폴더 안에 두고 싶으면 path.join(RUNTIME_ROOT, 'config', 'system_prompt.md') 로 변경)
-    PROMPT_FILE: path.join(RUNTIME_ROOT, 'system_prompt.md'),
+    // 3. 블로그 기본 프롬프트(내부 파일)
+    // 사용자 오버라이드는 config-loader에서 config/blog_prompt.md 우선 적용
+    PROMPT_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
 
     // 🔒 API 엔드포인트 (변경 없음)
     GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',

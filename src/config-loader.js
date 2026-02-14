@@ -26,7 +26,10 @@ try {
 const PATHS = {
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
-    systemPrompt: path.join(ROOT_DIR, 'config', 'system_prompt.md'),
+    blogPromptOverride: path.join(ROOT_DIR, 'config', 'blog_prompt.md'),
+    shoppingPromptOverride: path.join(ROOT_DIR, 'config', 'shopping_prompt.md'),
+    defaultBlogPrompt: path.join(__dirname, 'config', 'blog_prompt.md'),
+    defaultShoppingPrompt: path.join(__dirname, 'config', 'shopping_prompt.md'),
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 
@@ -89,6 +92,13 @@ const viewportHeight = userConfig.VIEWPORT_HEIGHT || 1024;
 
 const closeDelay = (userConfig.CLOSE_DELAY_SECONDS || 10) * 1000;
 
+const blogPromptPath = fs.existsSync(PATHS.blogPromptOverride)
+    ? PATHS.blogPromptOverride
+    : PATHS.defaultBlogPrompt;
+const shoppingPromptPath = fs.existsSync(PATHS.shoppingPromptOverride)
+    ? PATHS.shoppingPromptOverride
+    : PATHS.defaultShoppingPrompt;
+
 // 최종 내보낼 객체
 module.exports = {
     ...Constants,       // 1. 내부 상수 (대기 시간 등)
@@ -119,7 +129,8 @@ module.exports = {
     // 4. 경로 상수 (호환성 유지)
     PATHS: PATHS,
     AUTH_FILE_PATH: PATHS.auth,
-    SYSTEM_PROMPT_PATH: PATHS.systemPrompt,
+    BLOG_PROMPT_PATH: blogPromptPath,
+    SHOPPING_PROMPT_PATH: shoppingPromptPath,
     WORKSPACE_DIR: PATHS.workspace,
 
     // 5. 확정된 동적 데이터

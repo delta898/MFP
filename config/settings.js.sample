@@ -17,7 +17,7 @@ const BROWSER_CHANNEL = 'chrome';
 module.exports = {
     AUTH_FILE_PATH: path.join(__dirname, 'auth.json'),
     WORKSPACE_DIR: path.join(__dirname, '../workspace'),
-    PROMPT_FILE: path.join(__dirname, 'system_prompt.md'),
+    PROMPT_FILE: path.join(__dirname, 'blog_prompt.md'),
     
     NAVER_ID: NAVER_ID,
     WRITE_URL: `https://blog.naver.com/${NAVER_ID}/postwrite`,
