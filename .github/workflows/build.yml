@@ -80,11 +80,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/config
+          mkdir -p dist/scripts
 
           cp config/config.txt.sample dist/config/config.txt
           cp config/system_prompt.md.sample dist/config/system_prompt.md
           cp config/shopping_prompt.md.sample dist/config/shopping_prompt.md
           cp topic.json.sample dist/topic.json
+          cp scripts/google_apps_script.js dist/scripts/google_apps_script.js
 
           if [ -f "README_USER.md" ]; then
               cp README_USER.md dist/README.md

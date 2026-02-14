@@ -116,7 +116,7 @@ create or replace function public.check_and_use_license(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
     v_now timestamptz := timezone('utc', now());
@@ -167,7 +167,7 @@ begin
             return jsonb_build_object('success', false, 'message', '무료 정책이 비활성화되어 있습니다.');
         end if;
 
-        v_hwid_hash := encode(digest(v_hwid, 'sha256'), 'hex');
+        v_hwid_hash := encode(digest(convert_to(v_hwid, 'UTF8'), 'sha256'), 'hex');
 
         select period_start, period_end
           into v_period_start, v_period_end

@@ -29,11 +29,12 @@ module.exports = {
         SHORT: 500
     },
 
-    // 🔒 타이핑 속도 프리셋 (변경 없음)
+    // 🔒 타이핑 속도 프리셋 (ms/문자)
     TYPING_PRESETS: {
-        FAST: { MIN: 2, MAX: 15 },
-        NORMAL: { MIN: 10, MAX: 90 },
-        HUMAN: { MIN: 60, MAX: 150 }
+        QUICK: { MIN: 0, MAX: 2 },
+        FAST: { MIN: 1, MAX: 8 },
+        NORMAL: { MIN: 5, MAX: 45 },
+        HUMAN: { MIN: 24, MAX: 60 }
     },
 
     // 🔒 외부 참고 설정 (내부 변수 - 사용자 설정 아님)

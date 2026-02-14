@@ -14,7 +14,10 @@ try {
     internalSecrets = require('./config/secret');
 } catch (e) {
     console.warn("⚠️ [Dev] 내부 secret.js를 찾을 수 없습니다. (빌드 시 포함됨)");
-    internalSecrets = { LICENSE_CHK_URL: "", LICENSE_CHK_KEY: "" };
+    internalSecrets = {
+        LICENSE_CHK_URL: "",
+        LICENSE_CHK_KEY: ""
+    };
 }
 
 // =========================================================
@@ -61,6 +64,8 @@ function loadUserConfig() {
 
 // 사용자 설정 로드
 const userConfig = loadUserConfig();
+delete userConfig.NAVER_CLIENT_ID;
+delete userConfig.NAVER_CLIENT_SECRET;
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -76,8 +81,9 @@ const TEXT_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/$
 const IMAGE_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent`;
 
 // 타이핑 속도 변환
-const typingMode = userConfig.TYPING_SPEED || 'NORMAL';
-const typingDelay = Constants.TYPING_PRESETS[typingMode] || Constants.TYPING_PRESETS.NORMAL;
+const typingModeRaw = String(userConfig.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
+const typingMode = Constants.TYPING_PRESETS[typingModeRaw] ? typingModeRaw : 'NORMAL';
+const typingDelay = Constants.TYPING_PRESETS[typingMode];
 
 const viewportWidth = userConfig.VIEWPORT_WIDTH || 1280;
 const viewportHeight = userConfig.VIEWPORT_HEIGHT || 1024;
@@ -94,6 +100,8 @@ module.exports = {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
     NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
+    NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || '',
+    NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET || '',
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 
@@ -117,6 +125,7 @@ module.exports = {
 
     // 5. 확정된 동적 데이터
     WRITE_URL: `https://blog.naver.com/${process.env.NAVER_ID || userConfig.NAVER_ID}/postwrite`,
+    TYPING_SPEED: typingMode,
     TYPING: typingDelay,
     CLOSE_DELAY: closeDelay,
 

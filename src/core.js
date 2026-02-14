@@ -892,6 +892,7 @@ ${scrapedContext}`;
 		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
 		const finalHashtags = parsedData.hashtags || [];
+		Logger.info("🔎 [Blog] 관련 글 자동 수집 중...");
 		const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
 		const relatedHeading = Utils.pickRelatedPostsHeading();
 		if (relatedPosts.length > 0) {
@@ -977,7 +978,7 @@ ${scrapedContext}`;
 		}
 
 		// Config 우선순위 적용 (Constants 필수)
-		const speedKey = CONFIG.TYPING_SPEED || 'NORMAL';
+		const speedKey = String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
 		const typingPreset = Constants.TYPING_PRESETS[speedKey] || Constants.TYPING_PRESETS.NORMAL;
 
 		// 🔧 [Fixed] parseInt 기본값 처리 개선

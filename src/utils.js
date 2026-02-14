@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const RuntimeConfig = require('./runtime-config');
 
 const Utils = {
     sanitizeFileName: function (str) {
@@ -18,6 +19,20 @@ const Utils = {
     },
 
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
+
+    runWithHeartbeat: async function (taskLabel, fn, intervalMs = 7000) {
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+            const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+            Logger.info(`   ⏳ ${taskLabel} 진행 중... (${elapsedSec}초 경과)`);
+        }, intervalMs);
+
+        try {
+            return await fn();
+        } finally {
+            clearInterval(timer);
+        }
+    },
 
     // 🔒 토큰 캐싱을 위한 변수
     _cachedAccessToken: null,
@@ -1026,8 +1041,9 @@ const Utils = {
      * 1-5. 네이버 블로그 검색 (참고 URL 수집)
      */
     fetchNaverBlogSearchResults: async function (keyword) {
+        await RuntimeConfig.ensureNaverSearchCredentials();
         if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
-            Logger.warn("⚠️ 네이버 검색 API 설정(Client ID/Secret)이 없습니다. 블로그 검색을 건너뜁니다.");
+            Logger.warn("⚠️ 네이버 검색 API 서버 설정이 없어 블로그 검색을 건너뜁니다.");
             return [];
         }
 
@@ -1072,8 +1088,9 @@ const Utils = {
         const Constants = require('./constants');
         const blogCount = count || Constants.REFERENCE_BLOG_COUNT || 3;
 
+        await RuntimeConfig.ensureNaverSearchCredentials();
         if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
-            Logger.debug('🔍 [외부 참고] 네이버 검색 API 설정이 없어 인기글 수집을 건너뜁니다.');
+            Logger.debug('🔍 [외부 참고] 네이버 검색 API 서버 설정이 없어 인기글 수집을 건너뜁니다.');
             return [];
         }
 
@@ -1195,12 +1212,15 @@ const Utils = {
         try {
             const cheerio = require('cheerio');
             const rssUrl = `https://rss.blog.naver.com/${encodeURIComponent(blogId)}.xml`;
-            const rssRes = await axios.get(rssUrl, {
-                timeout: 10000,
-                maxRedirects: 3,
-                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
-                validateStatus: () => true
-            });
+            const rssRes = await this.runWithHeartbeat(
+                '관련 글 RSS 수집',
+                () => axios.get(rssUrl, {
+                    timeout: 10000,
+                    maxRedirects: 3,
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/rss+xml, application/xml, text/xml, */*' },
+                    validateStatus: () => true
+                })
+            );
             if (rssRes.status >= 200 && rssRes.status < 300 && typeof rssRes.data === 'string') {
                 const $ = cheerio.load(rssRes.data, { xmlMode: true, decodeEntities: true });
                 $('item').each((_, el) => {
@@ -1218,12 +1238,15 @@ const Utils = {
             try {
                 const cheerio = require('cheerio');
                 const listUrl = `https://blog.naver.com/PostList.naver?blogId=${encodeURIComponent(blogId)}&from=postList&categoryNo=0&currentPage=1`;
-                const listRes = await axios.get(listUrl, {
-                    timeout: 12000,
-                    maxRedirects: 3,
-                    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/xhtml+xml' },
-                    validateStatus: () => true
-                });
+                const listRes = await this.runWithHeartbeat(
+                    '관련 글 목록 페이지 수집',
+                    () => axios.get(listUrl, {
+                        timeout: 12000,
+                        maxRedirects: 3,
+                        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/xhtml+xml' },
+                        validateStatus: () => true
+                    })
+                );
                 if (listRes.status >= 200 && listRes.status < 300 && typeof listRes.data === 'string') {
                     const $ = cheerio.load(listRes.data);
                     $('a[href]').each((_, el) => {
@@ -1349,9 +1372,12 @@ const Utils = {
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const response = await axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
-                    { contents: [{ parts: [{ text: prompt }] }] },
-                    { headers: { 'Content-Type': 'application/json' } }
+                const response = await this.runWithHeartbeat(
+                    `(시도 ${attempt})`,
+                    () => axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
+                        { contents: [{ parts: [{ text: prompt }] }] },
+                        { headers: { 'Content-Type': 'application/json' } }
+                    )
                 );
                 const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error('Empty response from Gemini');
@@ -1379,9 +1405,12 @@ const Utils = {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 const endpoint = `${CONFIG.GEMINI_IMAGE_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`;
-                const response = await axios.post(endpoint,
-                    { contents: [{ parts: [{ text: prompt }] }] },
-                    { headers: { 'Content-Type': 'application/json' } }
+                const response = await this.runWithHeartbeat(
+                    `(시도 ${attempt})`,
+                    () => axios.post(endpoint,
+                        { contents: [{ parts: [{ text: prompt }] }] },
+                        { headers: { 'Content-Type': 'application/json' } }
+                    )
                 );
                 const candidates = response.data.candidates;
                 if (!candidates || candidates.length === 0) throw new Error("No candidates returned");

@@ -51,6 +51,7 @@ copy_assets() {
     TARGET_DIR=$1
     
     mkdir -p "$TARGET_DIR/config"
+    mkdir -p "$TARGET_DIR/scripts"
     
     # 🔥 [수정됨] settings.js 대신 config.txt 복사
     # (sample 파일을 복사해서 사용자가 바로 쓸 수 있는 config.txt로 이름을 바꿉니다)
@@ -64,6 +65,12 @@ copy_assets() {
     cp config/system_prompt.md.sample "$TARGET_DIR/config/system_prompt.md"
 
     cp topic.json.sample "$TARGET_DIR/topic.json"
+
+    if [ -f "scripts/google_apps_script.js" ]; then
+        cp scripts/google_apps_script.js "$TARGET_DIR/scripts/google_apps_script.js"
+    else
+        echo "⚠️ [Warning] scripts/google_apps_script.js 파일이 없습니다! Apps Script 안내 파일이 누락될 수 있습니다."
+    fi
     
     # README 교체 (README_USER.md가 없으면 생성)
     if [ -f "README_USER.md" ]; then

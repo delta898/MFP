@@ -7,6 +7,7 @@ const CONFIG = require('./config-loader');
 const Utils = require('./utils');
 const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
+const RuntimeConfig = require('./runtime-config');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 5;
@@ -356,6 +357,20 @@ function getDefaultLinkPhrases() {
         '지금 구매 링크 바로가기',
         '할인 여부 확인하기'
     ];
+}
+
+function getConfiguredCtaImageUrls() {
+    const candidates = [
+        CONFIG.SHOPPING_CTA_IMAGE_URL1,
+        CONFIG.SHOPPING_CTA_IMAGE_URL2,
+        CONFIG.SHOPPING_CTA_IMAGE_URL3
+    ];
+
+    const normalized = candidates
+        .map(v => normalizeWhitespace(v || ''))
+        .filter(v => /^https?:\/\//i.test(v));
+
+    return uniqStrings(normalized).slice(0, 3);
 }
 
 function normalizeWhitespace(text) {
@@ -1660,6 +1675,31 @@ async function resolveCandidateUrlWithBrowser(url) {
     }
 }
 
+async function resolveFinalUrlWithBrowser(url, referer = '') {
+    let browser;
+    try {
+        browser = await BrowserLauncher.launchBrowser({ headless: true });
+
+        const contextOptions = { userAgent: USER_AGENT };
+        if (referer) contextOptions.extraHTTPHeaders = { Referer: referer };
+
+        const context = await browser.newContext(contextOptions);
+        const page = await context.newPage();
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(600);
+
+        const finalUrl = page.url() || url;
+        await context.close();
+        await browser.close();
+        return finalUrl;
+    } catch (e) {
+        if (browser) {
+            try { await browser.close(); } catch (ignore) { }
+        }
+        return null;
+    }
+}
+
 async function resolveReviewRichHtmlWithBrowser(url) {
     let browser;
     try {
@@ -1714,6 +1754,7 @@ async function resolveReviewRichHtmlWithBrowser(url) {
 }
 
 async function resolveViaShoppingSearchApi(channelProductNo) {
+    await RuntimeConfig.ensureNaverSearchCredentials();
     if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) return null;
 
     try {
@@ -1926,18 +1967,44 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
 }
 
 async function downloadImage(url, saveDir, index, label, referer = '', options = {}) {
-    const response = await axios.get(url, {
+    const requestImage = async (targetUrl) => axios.get(targetUrl, {
         responseType: 'arraybuffer',
         timeout: 30000,
-        maxRedirects: 5,
+        maxRedirects: 10,
+        validateStatus: () => true,
         headers: {
             'User-Agent': USER_AGENT,
-            'Accept': 'image/*,*/*;q=0.8',
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
             'Referer': referer || undefined
         }
     });
 
-    const ext = guessExtension(url, response.headers?.['content-type']);
+    let response = await requestImage(url);
+    let resolvedUrl = response?.request?.res?.responseUrl || url;
+    const firstContentType = String(response?.headers?.['content-type'] || '').toLowerCase();
+    const firstFailed = response.status >= 400 || firstContentType.includes('text/html');
+
+    if (firstFailed) {
+        Logger.info(`ℹ️ 단축/중계 이미지 URL 재해석 시도: ${url} (status=${response.status || 'N/A'})`);
+        const browserResolved = await resolveFinalUrlWithBrowser(url, referer);
+        if (browserResolved && browserResolved !== url) {
+            Logger.info(`ℹ️ 브라우저 최종 URL 해석 성공: ${browserResolved}`);
+            response = await requestImage(browserResolved);
+            resolvedUrl = response?.request?.res?.responseUrl || browserResolved;
+        }
+    }
+
+    if (response.status >= 400) {
+        throw new Error(`Request failed with status code ${response.status}`);
+    }
+
+    const contentType = String(response?.headers?.['content-type'] || '').toLowerCase();
+    if (contentType.includes('text/html')) {
+        throw new Error('이미지 URL이 HTML 문서로 응답했습니다.');
+    }
+
+    const ext = guessExtension(resolvedUrl, response.headers?.['content-type']);
     const dataBuffer = Buffer.from(response.data);
     const skipSizeCheck = options.skipSizeCheck === true;
     if (!skipSizeCheck && dataBuffer.length < 10 * 1024) {
@@ -2006,7 +2073,7 @@ function parseAiJson(rawText, fallbackTitle) {
     }
 }
 
-function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, ctaImageInsertCount, linkInsertCount, commerceData, reviewData, relatedPosts = [], relatedHeading = '함께 보면 좋은 글' }) {
+function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImages = [], linkInsertCount, commerceData, reviewData, relatedPosts = [], relatedHeading = '함께 보면 좋은 글' }) {
     const lines = [];
     lines.push(`# ${aiData.title}`);
     lines.push('');
@@ -2105,18 +2172,19 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
 
     const ctaPhrases = aiData.ctaPhrases.length > 0 ? aiData.ctaPhrases : getDefaultLinkPhrases();
     let linksInserted = 0;
-    let ctaImageInserted = 0;
+    let ctaImageCursor = 0;
+    const ctaImageInsertCount = Array.isArray(ctaImages) ? ctaImages.length : 0;
 
     const insertCtaImageBlock = () => {
-        if (!ctaImage) return;
-        if (ctaImageInserted >= ctaImageInsertCount) return;
+        if (!Array.isArray(ctaImages) || ctaImageCursor >= ctaImages.length) return;
+        const ctaImage = ctaImages[ctaImageCursor];
         lines.push(buildImageBlock(ctaImage.index, ctaImage.title, ctaImage.prompt));
         lines.push('');
-        ctaImageInserted++;
+        ctaImageCursor++;
     };
 
     const insertLinkLine = () => {
-        if (ctaImage && ctaImageInserted < ctaImageInsertCount) {
+        if (ctaImageCursor < ctaImageInsertCount) {
             insertCtaImageBlock();
         }
         const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
@@ -2173,7 +2241,7 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImage, 
         insertNextProductImage();
     }
 
-    while (ctaImage && ctaImageInserted < ctaImageInsertCount) {
+    while (ctaImageCursor < ctaImageInsertCount) {
         insertCtaImageBlock();
         if (linksInserted < linkInsertCount + ctaImageInsertCount) {
             const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
@@ -2220,7 +2288,7 @@ const ShoppingManager = {
         const imageLimit = clampInt(CONFIG.SHOPPING_IMAGE_MAX_COUNT, 1, 15, DEFAULT_IMAGE_MAX_COUNT);
         const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
         const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
-        const ctaImageUrl = (CONFIG.SHOPPING_CTA_IMAGE_URL || '').trim();
+        const ctaImageUrls = getConfiguredCtaImageUrls();
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
         const initial = await resolveUrlAndHtml(shortUrl);
@@ -2329,23 +2397,27 @@ const ShoppingManager = {
             throw new Error('FTC_DISCLOSURE_IMAGE_URL 설정이 없어 쇼핑 포스팅을 진행할 수 없습니다.');
         }
 
-        let ctaImage = null;
-        if (ctaImageUrl && ctaImageInsertCount > 0) {
-            try {
-                const ctaPath = await downloadImage(ctaImageUrl, targetDir, nextImageIndex, 'cta_image', finalUrl, {
-                    skipQualityCheck: true,
-                    skipSizeCheck: true
-                });
-                const transformedCtaPath = await transformShoppingImage(ctaPath);
-                ctaImage = {
-                    index: nextImageIndex,
-                    path: transformedCtaPath,
-                    title: '혜택 안내 이미지',
-                    prompt: ctaImageUrl
-                };
-                nextImageIndex++;
-            } catch (e) {
-                Logger.warn(`⚠️ CTA 이미지 다운로드 실패: ${e.message}`);
+        const ctaImages = [];
+        if (ctaImageUrls.length > 0 && ctaImageInsertCount > 0) {
+            const randomStart = Math.floor(Math.random() * ctaImageUrls.length);
+            for (let i = 0; i < ctaImageInsertCount; i++) {
+                const ctaImageUrl = ctaImageUrls[(randomStart + i) % ctaImageUrls.length];
+                try {
+                    const ctaPath = await downloadImage(ctaImageUrl, targetDir, nextImageIndex, 'cta_image', finalUrl, {
+                        skipQualityCheck: true,
+                        skipSizeCheck: true
+                    });
+                    const transformedCtaPath = await transformShoppingImage(ctaPath);
+                    ctaImages.push({
+                        index: nextImageIndex,
+                        path: transformedCtaPath,
+                        title: '혜택 안내 이미지',
+                        prompt: ctaImageUrl
+                    });
+                    nextImageIndex++;
+                } catch (e) {
+                    Logger.warn(`⚠️ CTA 이미지 다운로드 실패: ${e.message}`);
+                }
             }
         }
 
@@ -2356,6 +2428,7 @@ const ShoppingManager = {
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
         });
+        Logger.info('📝 [Shopping] Gemini에게 글 작성을 요청합니다...');
         const aiRaw = await Utils.callGeminiText(aiPrompt);
         const aiData = parseAiJson(aiRaw, titleBase);
         const seoPlan = deriveSeoKeywordPlan(titleBase);
@@ -2372,6 +2445,7 @@ const ShoppingManager = {
         if (seoMentionsAfter !== seoMentionsBefore) {
             Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
         }
+        Logger.info('🔎 [Shopping] 관련 글 자동 수집 중...');
         const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
         const relatedHeading = Utils.pickRelatedPostsHeading();
         if (relatedPosts.length > 0) {
@@ -2385,8 +2459,7 @@ const ShoppingManager = {
             shortUrl,
             ftcImage,
             productImages,
-            ctaImage,
-            ctaImageInsertCount,
+            ctaImages,
             linkInsertCount,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData,
@@ -2410,8 +2483,9 @@ const ShoppingManager = {
             commerceData: productData.commerceData,
             reviewData: productData.reviewData,
             reviewEnrichedWithBrowser,
-            ctaImageConfigured: !!ctaImageUrl,
-            ctaImageInserted: !!ctaImage,
+            ctaImageConfigured: ctaImageUrls.length > 0,
+            ctaImageConfiguredCount: ctaImageUrls.length,
+            ctaImageInsertedCount: ctaImages.length,
             relatedPosts
         }, null, 2), 'utf-8');
         Logger.info(`✅ [Shopping] 콘텐츠 준비 완료: ${targetDir}`);

@@ -21,21 +21,21 @@ GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE
 GOOGLE_AUTH_JSON = ./config/service_account.json
 GOOGLE_SHEET_ID = 여기에_구글시트_ID_입력
 
-# [필수] 네이버 검색 API (연관검색어/블로그검색/트렌드 보조)
-NAVER_CLIENT_ID = 본인의_Client_ID
-NAVER_CLIENT_SECRET = 본인의_Client_Secret
-
 # -------------------------------------------------------
 # 2) 쇼핑 포스팅 핵심 설정 (자주 조정)
 # -------------------------------------------------------
 
 # 공정위 안내 이미지 URL (쇼핑 포스팅 상단에 삽입)
-FTC_DISCLOSURE_IMAGE_URL =
+# 추후 본인의 이미지로 대체 필요
+FTC_DISCLOSURE_IMAGE_URL = https://buly.kr/5JOadbF
 
-# CTA 이미지 URL (설정 시 본문 중간에 혜택 이미지 삽입)
-SHOPPING_CTA_IMAGE_URL =
+# CTA 이미지 URL 1~3 (1은 필수, 2~3은 옵션)
+# 추후 본인의 이미지로 대체 필요
+SHOPPING_CTA_IMAGE_URL1 = https://buly.kr/ChqPpmp
+SHOPPING_CTA_IMAGE_URL2 = https://buly.kr/BpGcviH
+SHOPPING_CTA_IMAGE_URL3 = https://buly.kr/EI5Ef8f
 
-# 본문 내 상품 단축 URL 삽입 횟수 (기본 3회)
+# 본문 내 상품 URL 삽입 횟수 (기본 3회)
 SHOPPING_LINK_INSERT_COUNT = 3
 
 # 상품 페이지에서 가져올 이미지 최대 개수 (기본 5장)
@@ -52,7 +52,7 @@ SHOPPING_PROMPT_FILE = ./config/shopping_prompt.md
 # -------------------------------------------------------
 
 # 배치(blog) 실행 1회당 최대 처리 포스트 수
-# 0이면 무제한, 미설정/음수는 기본 3
+# 0이면 무제한, 미설정/음수는 기본 5
 MAX_BLOG_POSTS_PER_RUN = 3
 
 # 쇼핑(shopping) 실행 1회당 최대 처리 포스트 수
@@ -60,7 +60,7 @@ MAX_BLOG_POSTS_PER_RUN = 3
 MAX_SHOPPING_POSTS_PER_RUN = 3
 
 # 배치 발행 간격 (초)
-BATCH_INTERVAL_SECONDS = 10
+BATCH_INTERVAL_SECONDS = 5
 
 # 글 작성 완료 후 브라우저 자동 종료 대기 시간 (초)
 # 0이면 자동으로 닫지 않음
@@ -69,12 +69,12 @@ CLOSE_DELAY_SECONDS = 5
 # 브라우저 화면 숨기기 (true: 숨김 / false: 표시)
 HEADLESS = false
 
-# 타이핑 속도 (FAST / NORMAL / HUMAN)
+# 타이핑 속도 (QUICK / FAST / NORMAL / HUMAN)
 TYPING_SPEED = FAST
 
 
 # -------------------------------------------------------
-# 4) 모델/브라우저 설정 (필요할 때만 수정)
+# 4) AI 모델/브라우저 설정 (필요할 때만 수정)
 # -------------------------------------------------------
 
 # 텍스트 생성 모델
@@ -93,6 +93,3 @@ BROWSER_CHANNEL = chrome
 # 브라우저 해상도
 VIEWPORT_WIDTH = 1440
 VIEWPORT_HEIGHT = 1024
-
-# 로그 레벨 (info / debug)
-LOG_LEVEL = info

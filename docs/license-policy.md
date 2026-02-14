@@ -6,8 +6,16 @@
 
 - 기본 라이선스 키: `free`
 - 무료 정책: **월 리셋 15회**
-- 무료 차감 대상: `gen`, `auto`, `batch`, `pub`, `keywords`, `trends`, `shopping`
-- 무료 차감 제외: `login`
+- 차감 대상:
+  - `pub` (실행 1회당 1차감)
+  - `auto` (실행 1회당 1차감)
+  - `trends` (트렌드 시트 반영 직전 1차감)
+  - `batch` (**포스트 건당 차감**)
+  - `shopping` (**포스트 건당 차감**)
+- 미차감:
+  - `login`
+  - `gen`
+  - `keywords`
 - 유료 전환 시 무료 잔여분: **무시** (합산하지 않음)
 - 무한 라이선스 지원: `license_mode = 'unlimited'`
 
@@ -23,6 +31,16 @@
   - 무료/유료/무한 정책 판단
   - 사용 횟수 차감/거부
   - 잔여 횟수 반환
+
+### 2.1 사전 체크 vs 실제 차감
+
+- `batch`, `shopping`:
+  - 실행 시작 시 사전 검증 RPC(`check_license_status`)로 유효성/잔여 조회(무차감)
+  - 실제 차감은 각 포스트 발행 직전 `check_and_use_license` 호출 시 발생
+- `auto`, `pub`, `trends`:
+  - 해당 핵심 동작 직전에 `check_and_use_license` 호출(즉시 차감)
+- `gen`, `keywords`, `login`:
+  - 라이선스 차감 호출 없음
 
 ## 3. 테이블
 

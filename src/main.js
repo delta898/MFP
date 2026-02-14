@@ -265,7 +265,7 @@ program
             console.log(`📡 구글 스프레드시트에서 주제를 읽어옵니다...`);
             const topics = await Utils.readGoogleSheetTopics();
             const maxPostsPerRun = resolveMaxBlogPostsPerRun();
-            const targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
+            let targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
 
             console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
             console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
@@ -273,6 +273,28 @@ program
             if (targetTopics.length === 0) {
                 console.log("📭 처리할 새로운 주제가 없습니다.");
                 return;
+            }
+
+            console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
+                return;
+            }
+            if (precheck.precheckUnavailable) {
+                console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
+            }
+            const precheckAllowedCount = (typeof precheck.remaining === 'number' && precheck.remaining >= 0)
+                ? precheck.remaining
+                : Number.POSITIVE_INFINITY;
+            if (Number.isFinite(precheckAllowedCount) && precheckAllowedCount <= 0) {
+                console.log("📭 현재 라이선스 잔여 횟수가 0회입니다. 이번 실행은 진행하지 않습니다.");
+                return;
+            }
+            if (Number.isFinite(precheckAllowedCount) && targetTopics.length > precheckAllowedCount) {
+                console.log(`ℹ️ 현재 라이선스 잔여 기준으로 이번 실행은 ${precheckAllowedCount}건만 진행합니다. (후보 ${targetTopics.length}건)`);
+                targetTopics = targetTopics.slice(0, precheckAllowedCount);
             }
 
             let successCount = 0;
@@ -426,13 +448,35 @@ program
 
             const jobs = await Utils.readGoogleSheetShopping();
             const maxPostsPerRun = resolveMaxShoppingPostsPerRun();
-            const targetJobs = maxPostsPerRun === 0 ? jobs : jobs.slice(0, maxPostsPerRun);
+            let targetJobs = maxPostsPerRun === 0 ? jobs : jobs.slice(0, maxPostsPerRun);
             console.log(`📂 총 ${jobs.length}개의 쇼핑 URL을 발견했습니다.`);
             console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
 
             if (targetJobs.length === 0) {
                 console.log("📭 처리할 쇼핑 URL이 없습니다. (상태: 발행 준비 완료)");
                 return;
+            }
+
+            console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
+                return;
+            }
+            if (precheck.precheckUnavailable) {
+                console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
+            }
+            const precheckAllowedCount = (typeof precheck.remaining === 'number' && precheck.remaining >= 0)
+                ? precheck.remaining
+                : Number.POSITIVE_INFINITY;
+            if (Number.isFinite(precheckAllowedCount) && precheckAllowedCount <= 0) {
+                console.log("📭 현재 라이선스 잔여 횟수가 0회입니다. 이번 실행은 진행하지 않습니다.");
+                return;
+            }
+            if (Number.isFinite(precheckAllowedCount) && targetJobs.length > precheckAllowedCount) {
+                console.log(`ℹ️ 현재 라이선스 잔여 기준으로 이번 실행은 ${precheckAllowedCount}건만 진행합니다. (후보 ${targetJobs.length}건)`);
+                targetJobs = targetJobs.slice(0, precheckAllowedCount);
             }
 
             let successCount = 0;
@@ -447,6 +491,7 @@ program
 
                 try {
                     console.log(`[진행] 쇼핑 URL 처리 (Row ${rowIndex + 1})`);
+
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
                     const result = await ShoppingManager.buildPostFromShortUrl(job.shortUrl);
 
