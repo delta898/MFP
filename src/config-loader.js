@@ -27,7 +27,6 @@ const PATHS = {
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
     systemPrompt: path.join(ROOT_DIR, 'config', 'system_prompt.md'),
-    topic: path.join(ROOT_DIR, 'topic.json'),
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 

@@ -105,7 +105,6 @@ npm run pub -- -d "workspace/내_원고_폴더"
 ├── logs/               # 실행 로그 (날짜별 자동 저장)
 ├── workspace/          # 결과물 저장소 (글, 이미지)
 
-├── topic.json            # [Gen] 단건 생성 작업 지시서
 └── setup.js            # 간편 설치 스크립트
 ```
 

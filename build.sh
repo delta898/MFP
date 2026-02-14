@@ -64,8 +64,6 @@ copy_assets() {
     # 프롬프트 및 엑셀 파일
     cp config/system_prompt.md.sample "$TARGET_DIR/config/system_prompt.md"
 
-    cp topic.json.sample "$TARGET_DIR/topic.json"
-
     if [ -f "scripts/google_apps_script.js" ]; then
         cp scripts/google_apps_script.js "$TARGET_DIR/scripts/google_apps_script.js"
     else

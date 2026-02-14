@@ -7,7 +7,7 @@ console.log("🚀 [Setup] 네이버 블로그 봇 설치를 시작합니다...")
 // ✅ 처리할 파일 목록 정의 (Source -> Target)
 const filesToCopy = [
     {
-        name: '설정 파일 (settings.js)',
+        name: '설정 파일 (config.txt)',
         src: path.join(__dirname, 'config', 'config.txt.sample'),
         dest: path.join(__dirname, 'config', 'config.txt')
     },
@@ -16,11 +16,6 @@ const filesToCopy = [
         name: '시스템 프롬프트 (system_prompt.md)',
         src: path.join(__dirname, 'config', 'system_prompt.md.sample'),
         dest: path.join(__dirname, 'config', 'system_prompt.md')
-    },
-    {
-        name: '단건 작업 파일 (topic.json)',
-        src: path.join(__dirname, 'topic.json.sample'),
-        dest: path.join(__dirname, 'topic.json')
     }
 ];
 
@@ -62,5 +57,5 @@ try {
 }
 
 console.log("\n🎉 설치가 완료되었습니다!");
-console.log("👉 'config/settings.js' 파일을 열어 아이디와 라이선스 키를 설정해주세요.");
-console.log("👉 그 다음 'npm run login'을 실행하면 바로 시작할 수 있습니다!");
+console.log("👉 'config/config.txt' 파일을 열어 아이디와 라이선스 키를 설정해주세요.");
+console.log("👉 그 다음 'npm run login' 후 'npm run batch' 또는 'npm run shopping'을 실행하세요.");

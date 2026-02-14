@@ -198,19 +198,59 @@ program.command('login').description('🔐 [로그인]').action(async () => { aw
 // 2️⃣ Generate Command
 program
     .command('generate').alias('gen')
-    .description('📝 [생성] 단일 주제 콘텐츠/이미지 생성 (발행X)')
-    .option('-f, --file <path>', '작업 파일', 'topic.json')
-    .option('-d, --dir <path>', '출력 폴더')
-    .action(async (opts) => {
+    .description('📝 [생성] 구글 시트 기반 콘텐츠/이미지 생성 (발행X)')
+    .action(async () => {
         try {
             await ensureAuth(false);
-            const filePath = path.resolve(process.cwd(), opts.file);
-            const topicData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            await Utils.ensureAllSheetsExist();
 
-            const result = await Core.generateContent(topicData, opts.dir);
-            await Core.prepareImages(result.targetDir, topicData);
+            console.log("\n▶️ [Gen Mode] 시트 기반 콘텐츠 생성을 시작합니다...");
+            console.log(`📡 구글 스프레드시트에서 주제를 읽어옵니다...`);
 
-            console.log(`\n🏁 완료: ${result.targetDir}`);
+            const topics = await Utils.readGoogleSheetTopics();
+            const maxPostsPerRun = resolveMaxBlogPostsPerRun();
+            const targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
+
+            console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
+            console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
+
+            if (targetTopics.length === 0) {
+                console.log("📭 생성할 주제가 없습니다. (상태: 블로그 발행 준비 완료)");
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < targetTopics.length; i++) {
+                const topicData = targetTopics[i];
+                const rowIndex = topicData.rowIndex;
+
+                console.log(`\n---------------------------------------------------`);
+                console.log(`[작업 ${i + 1}/${targetTopics.length}] 생성 중...`);
+
+                try {
+                    console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
+                    const result = await Core.generateContent(topicData);
+                    await Core.prepareImages(result.targetDir, topicData);
+                    console.log(`✅ 생성 완료: ${result.targetDir}`);
+                    successCount++;
+                } catch (err) {
+                    console.error(`❌ 생성 실패: ${err.message}`);
+                    failCount++;
+                }
+
+                if (i < targetTopics.length - 1) {
+                    const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
+                    console.log(`⏳ ${delay}초 대기 중...`);
+                    await Utils.sleep(delay * 1000);
+                }
+            }
+
+            console.log(`\n===================================================`);
+            console.log(`🎉 생성 작업 종료 (미발행)`);
+            console.log(`📊 결과: 성공 ${successCount} / 실패 ${failCount}`);
+            console.log(`===================================================`);
         } catch (e) {
             console.error('❌ 에러:', e.message);
             if (process.env.DEBUG) console.error('Stack:', e.stack);
@@ -511,6 +551,8 @@ program.on('--help', () => {
     console.log('');
     console.log('📖 사용 예시:');
     console.log('  $ ./BlogGenius login');
+    console.log('  $ ./BlogGenius gen');
+    console.log('  $ ./BlogGenius pub -d "workspace/내_원고_폴더"');
     console.log('  $ ./BlogGenius batch');
     console.log('  $ ./BlogGenius shopping');
 });

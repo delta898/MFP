@@ -25,7 +25,7 @@
 2. Google Service Account JSON 발급
 3. Google Spreadsheet 생성
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
-5. **서비스 계정 이메일을 시트에 "공유(편집자 권한)"**
+5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
 6. `config/config.txt` 내용 수정
 7. `./BlogGenius login` 실행
 
@@ -101,27 +101,27 @@ BlogGenius/
 3. 이 프로젝트의 `scripts/google_apps_script.js` 전체 내용을 복사해서 붙여넣기
 4. 상단의 기본제목('제목 없는 프로젝트')을 원하는 임의 이름으로 변경
 5. `저장` 클릭
-7. 상단 함수 선택에서 `setup권한 검토` 선택
-8. `구글에서 확인하지 아은 앱` 팝업이 나오면 좌측 하단의 '고급' 선택
-9. 팝업 좌측 하단의 <프로젝트이름>(으)로 이동(안전하지 않음) 클릭
-10. <프로젝트 이름>에서 Google 계정에 대한 액세스를 요청합니다 팝업이 뜸
-11. 액세스 항목에 '모두 허용'을 체크하고 '계속' 클릭
-12. Apps Script 화면 하단의 '실행 로그'에서 '실행이 시작됨' 로그가 나오면 성공
-13. 스프레드시트로 돌아와서 드롭다운 값을 바꿔 테스트
+6. 상단 함수 선택에서 `setupTrigger` 선택 후 '실행' 버튼 클릭 (저장 버튼, 실행, 디버그 있는 위치)
+7. `구글에서 확인하지 않은 앱` 팝업이 나오면 좌측 하단의 '고급' 선택
+8. 팝업 좌측 하단의 <프로젝트이름>(으)로 이동(안전하지 않음) 클릭
+9. <프로젝트 이름>에서 Google 계정에 대한 액세스를 요청합니다 팝업이 뜸
+10. 액세스 항목에 '모두 허용'을 체크하고 '계속' 클릭
+11. Apps Script 화면 하단의 '실행 로그'에서 '실행이 시작됨' 로그가 나오면 성공
+12. 스프레드시트로 돌아와서 trends sheet나 keywords sheet의 드롭다운 값을 바꿔 테스트
 
 동작 예시:
 - `trends` 시트 E열 값을 `키워드 목록에 추가`로 바꾸면 `keywords` 시트에 추가
-- `trends` 또는 `keywords` 시트에서 `연관검색어 조사`를 선택하면 `topics` 시트에 주제 누적
+- `trends` 또는 `keywords` 시트에서 `연관검색어 조사`를 선택하면 `topics` 시트에 주제 추가
 
 ---
 
-## 3. config.txt 작성
+## 3. config.txt 설정 수정
+- 에디터에서 config/config.txt 파일을 엽니다.
 
 ```ini
 NAVER_ID = 본인_네이버_아이디
 LICENSE_KEY = free
 GEMINI_API_KEY = AIza...
-
 GOOGLE_SHEET_ID = 구글시트_ID
 ```
 
@@ -139,7 +139,7 @@ GOOGLE_SHEET_ID = 구글시트_ID
 ./BlogGenius login
 ```
 
-브라우저에서 로그인 완료 후 자동 저장됩니다.
+브라우저에서 네이버 로그인 완료 후 인증 정보 자동 저장됩니다.
 
 ---
 
@@ -149,10 +149,10 @@ GOOGLE_SHEET_ID = 구글시트_ID
 # 트렌드 수집
 ./BlogGenius trends
 
-# 구글 시트 기반 대량 발행
+# 구글 시트 기반 대량 블로그 발행
 ./BlogGenius batch
 
-# 쇼핑 시트 기반 발행
+# 쇼핑 시트 기반 쇼핑 커넥트 블로그 발행
 ./BlogGenius shopping
 ```
 
@@ -168,21 +168,21 @@ GOOGLE_SHEET_ID = 구글시트_ID
 
 ---
 
-### 4-4. macOS 보안 경고 해결 (터미널 없이 먼저 시도)
+### 4-4. macOS 보안 경고 해결
 
-`"개발자를 확인할 수 없어 열 수 없습니다"`가 나오면 아래 순서로 해결하세요.
+- 본 프로그램은 아직 '개발 단계'라 애플 인증을 얻기 전입니다.
+- 실행 시 아래 메시지에 따라 추가 보안 조치 필요합니다.
 
-1. Finder에서 실행 파일 우클릭
-2. `열기` 클릭
-3. 경고창이 다시 나오면 `열기` 또는 `시스템 설정 > 개인정보 보호 및 보안 > 그래도 열기`
-4. 한 번 허용하면 다음부터는 보통 정상 실행
+`"개발자를 확인할 수 없어 열 수 없습니다"` 혹은 `"손상되었거나 악성 코드가 없음 확인 불가"` + `휴지통으로 이동` 팝업이 나오면 아래 조치 필요합니다.
 
-### 고급 방법 (필요할 때만)
-
-아래 명령은 고급 사용자용입니다.
+아래 3줄을 터미널에서 실행한 뒤 다시 실행하세요.
+Architecture(ex: Apple Silicon, Intel)에 따라 실행파일명을 다를 수 있습니다.
+- BlogGenius-mac-arm64 혹은 BlogGenius-mac-intel
 
 ```bash
-xattr -d com.apple.quarantine ./BlogGenius-mac-arm64
+cd <프로그램이 설치된 경로>
+xattr -dr com.apple.quarantine ./BlogGenius-mac-arm64
+chmod +x ./BlogGenius-mac-arm64
 ```
 
 ---
