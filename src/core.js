@@ -793,7 +793,7 @@ const Core = {
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
 	 */
-	generateContent: async function (jobData, customDir = null) {
+	generateContent: async function (jobData, customDir = null, runtimeOptions = {}) {
 		Logger.info("🚀 [Core] 콘텐츠 생성 프로세스 시작");
 
 		const hasSubject = !!jobData.subject;
@@ -875,7 +875,7 @@ ${scrapedContext}`;
 			 `;
 
 		// 3) Gemini 호출
-		Logger.info("📝 Gemini에게 글 작성을 요청합니다...");
+		Logger.info("📝 AI에게 글 작성을 요청합니다...");
 		const rawResult = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt);
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
 
@@ -894,13 +894,19 @@ ${scrapedContext}`;
 		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
 		const finalHashtags = parsedData.hashtags || [];
-		Logger.info("🔎 [Blog] 관련 글 자동 수집 중...");
-		const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
-		const relatedHeading = Utils.pickRelatedPostsHeading();
-		if (relatedPosts.length > 0) {
-			Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+		const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
+		let relatedPosts = [];
+		let relatedHeading = Utils.pickRelatedPostsHeading();
+		if (enableRelatedPostsAutoLink) {
+			Logger.info("🔎 [Blog] 관련 글 자동 수집 중...");
+			relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+			if (relatedPosts.length > 0) {
+				Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+			} else {
+				Logger.info("ℹ️ [Blog] 관련 글 자동 수집 실패/없음: placeholder 삽입");
+			}
 		} else {
-			Logger.info("ℹ️ [Blog] 관련 글 자동 수집 실패/없음: placeholder 삽입");
+			Logger.info("ℹ️ [Blog] 관련 글 자동 링크 기능 비활성화 (플랜 정책)");
 		}
 
 		// 5) 결과 저장
@@ -918,8 +924,10 @@ ${scrapedContext}`;
 
 		let pureContent = finalContent.replace(/^#\s+.+\n?/, "").trim();
 		pureContent = stripAiRelatedPostsSection(pureContent);
-		const relatedSection = buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
-		pureContent = `${pureContent}\n\n${relatedSection}`.trim();
+		if (enableRelatedPostsAutoLink) {
+			const relatedSection = buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
+			pureContent = `${pureContent}\n\n${relatedSection}`.trim();
+		}
 		const hashtagLine = finalHashtags.length > 0 ? "\n\n\n" + finalHashtags.map(tag => `#${tag}`).join(' ') : "";
 		const fullFileContent = `# ${finalSubject}\n\n${pureContent}${hashtagLine}`;
 
@@ -930,7 +938,11 @@ ${scrapedContext}`;
 	/**
 	 * 2. 이미지 준비 (Prepare)
 	 */
-	prepareImages: async function (dirPath, jobData) {
+	prepareImages: async function (dirPath, jobData, runtimeOptions = {}) {
+		if (runtimeOptions.imageGenerationEnabled === false) {
+			Logger.info("🖼️ 이미지 생성 기능이 플랜 정책으로 비활성화되어 건너뜁니다.");
+			return;
+		}
 		if (jobData.image_options?.generate === false) {
 			Logger.info("🖼️ 이미지 생성 옵션이 false입니다. 가이드만 유지합니다.");
 			return;

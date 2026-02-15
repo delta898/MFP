@@ -2069,7 +2069,19 @@ function parseAiJson(rawText, fallbackTitle) {
     }
 }
 
-function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImages = [], linkInsertCount, commerceData, reviewData, relatedPosts = [], relatedHeading = '함께 보면 좋은 글' }) {
+function composeMarkdown({
+    aiData,
+    shortUrl,
+    ftcImage,
+    productImages,
+    ctaImages = [],
+    linkInsertCount,
+    commerceData,
+    reviewData,
+    relatedPosts = [],
+    relatedHeading = '함께 보면 좋은 글',
+    enableRelatedPostsAutoLink = true
+}) {
     const lines = [];
     lines.push(`# ${aiData.title}`);
     lines.push('');
@@ -2254,20 +2266,22 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImages 
     lines.push(shortUrl);
     lines.push('');
 
-    lines.push(`## ${relatedHeading}`);
-    if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
-        relatedPosts.slice(0, 3).forEach(post => {
-            const relatedUrl = normalizeWhitespace(post.url || '');
-            if (!/^https?:\/\//i.test(relatedUrl)) return;
-            lines.push(relatedUrl); // URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
-        });
-    } else {
-        lines.push('https://blog.naver.com/여기에_링크_추가_1');
-        lines.push('https://blog.naver.com/여기에_링크_추가_2');
-        lines.push('https://blog.naver.com/여기에_링크_추가_3');
+    if (enableRelatedPostsAutoLink) {
+        lines.push(`## ${relatedHeading}`);
+        if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
+            relatedPosts.slice(0, 3).forEach(post => {
+                const relatedUrl = normalizeWhitespace(post.url || '');
+                if (!/^https?:\/\//i.test(relatedUrl)) return;
+                lines.push(relatedUrl); // URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
+            });
+        } else {
+            lines.push('https://blog.naver.com/여기에_링크_추가_1');
+            lines.push('https://blog.naver.com/여기에_링크_추가_2');
+            lines.push('https://blog.naver.com/여기에_링크_추가_3');
+        }
+        lines.push('');
+        lines.push('');
     }
-    lines.push('');
-    lines.push('');
 
     if (aiData.hashtags.length > 0) {
         lines.push(aiData.hashtags.map(tag => `#${String(tag).replace(/^#/, '')}`).join(' '));
@@ -2277,7 +2291,7 @@ function composeMarkdown({ aiData, shortUrl, ftcImage, productImages, ctaImages 
 }
 
 const ShoppingManager = {
-    buildPostFromShortUrl: async function (shortUrl) {
+    buildPostFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
 
         const linkInsertCount = clampInt(CONFIG.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
@@ -2424,7 +2438,7 @@ const ShoppingManager = {
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
         });
-        Logger.info('📝 [Shopping] Gemini에게 글 작성을 요청합니다...');
+        Logger.info('📝 [Shopping] AI에게 글 작성을 요청합니다...');
         const aiRaw = await Utils.callGeminiText(aiPrompt);
         const aiData = parseAiJson(aiRaw, titleBase);
         const seoPlan = deriveSeoKeywordPlan(titleBase);
@@ -2441,13 +2455,19 @@ const ShoppingManager = {
         if (seoMentionsAfter !== seoMentionsBefore) {
             Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
         }
-        Logger.info('🔎 [Shopping] 관련 글 자동 수집 중...');
-        const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
-        const relatedHeading = Utils.pickRelatedPostsHeading();
-        if (relatedPosts.length > 0) {
-            Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+        const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
+        let relatedPosts = [];
+        let relatedHeading = Utils.pickRelatedPostsHeading();
+        if (enableRelatedPostsAutoLink) {
+            Logger.info('🔎 [Shopping] 관련 글 자동 수집 중...');
+            relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+            if (relatedPosts.length > 0) {
+                Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+            } else {
+                Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
+            }
         } else {
-            Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
+            Logger.info('ℹ️ [Shopping] 관련 글 자동 링크 기능 비활성화 (플랜 정책)');
         }
 
         const markdown = composeMarkdown({
@@ -2460,7 +2480,8 @@ const ShoppingManager = {
             commerceData: productData.commerceData,
             reviewData: productData.reviewData,
             relatedPosts,
-            relatedHeading
+            relatedHeading,
+            enableRelatedPostsAutoLink
         });
 
         fs.writeFileSync(path.join(targetDir, 'contents.md'), markdown, 'utf-8');

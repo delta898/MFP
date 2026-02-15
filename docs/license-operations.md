@@ -1,100 +1,84 @@
-# License Operations Guide (운영 가이드)
+# License Operations Guide (v3)
 
-이 문서는 무료 사용자 전환을 포함한 BlogGenius 라이선스 운영 절차를 정리한 문서입니다.
+이 문서는 BlogGenius v3 라이선스 운영 절차를 정리합니다.
 
-## 1. 목적
+## 1. 적용 순서
 
-- 무료(`LICENSE_KEY=free`) 사용자 유료 전환
-- 유료 키 발급/갱신/중지
-- 무한 라이선스/구독형 라이선스 운영
-- 기기 변경(HWID 재바인딩) 대응
+1. Supabase SQL Editor에서 `sql/supabase_license_v3.sql` 실행
+2. 필요 시 `sql/supabase_license_precheck.sql` 실행 (사전검증 함수만 갱신할 때)
 
-## 2. 전제 조건
+## 2. 기본 정책 확인
 
-- Supabase에 아래 SQL이 적용되어 있어야 합니다.
-- `sql/supabase_license_v2.sql`
-- `sql/supabase_license_precheck.sql`
+- 기본 키: `test`
+- 공용 키:
+  - `test` -> `test` 플랜
+  - `free` -> `free` 플랜
+- 유료 키: `licenses` 테이블에 발급
+- test 1회성:
+  - `test -> free` 전환 허용
+  - `free/pro/ultra` 사용 이력 이후 `test` 재사용 불가
+  - `test` 소진 후 재사용 불가
 
-운영 템플릿 SQL 파일:
-- `sql/supabase_license_operations.sql`
+## 3. 운영 시나리오
 
-## 3. 무료 사용자 -> 유료 전환 표준 절차
+### 3.1 유료 키 신규 발급 (metered / pro)
 
-1. 운영자가 새 유료 키를 발급합니다.
-2. Supabase SQL Editor에서 `sql/supabase_license_operations.sql`의 A(차감형) 또는 B(무한형) 쿼리를 실행합니다.
-3. 사용자에게 유료 키를 전달합니다.
-4. 사용자는 `config/config.txt`에서 `LICENSE_KEY`를 새 키로 변경합니다.
-5. 사용자 첫 실행 시 유료 키가 HWID에 자동 바인딩됩니다.
+`sql/supabase_license_operations.sql`의 A 섹션 사용
 
-중요:
-- 무료 잔여분은 유료로 합산하지 않습니다.
-- `free_license_usages` 레코드는 삭제할 필요가 없습니다.
-- 유료 라이선스는 `email`을 반드시 입력해 식별 기준으로 사용하세요.
+- `license_key`, `email`, `usage_limit`, `plan_code` 수정
+- 기본 권장: `plan_code='pro'`, `license_mode='metered'`
 
-## 4. 운영 시나리오별 작업
+### 3.2 무제한 키 발급 (ultra)
 
-### 4.0 16바이트 랜덤 키 자동 발급 (권장)
+`sql/supabase_license_operations.sql`의 B 섹션 사용
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `0-1`
-- 실행 결과의 `license_key`를 사용자에게 전달하면 됩니다.
-- 결과가 0행이면(희소한 키 충돌) 같은 쿼리를 1회 재실행하세요.
+- `plan_code='ultra'`
+- `license_mode='unlimited'`
 
-### 4.1 차감형 유료 키 발급
+### 3.3 기간형(구독형) 무제한
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `A`
-- 조정 항목: `license_key`, `email`, `usage_limit`, `reset_date`, `tier`
+`sql/supabase_license_operations.sql`의 C 섹션 사용
 
-### 4.2 평생 무한 키 발급
+- `expires_at`만 연장/갱신
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `B`
-- 조정 항목: `license_key`, `email`, `tier`
+### 3.4 test/free 정책 수정
 
-### 4.3 기간형(구독형) 무한 키
+`license_plans` 테이블만 수정하면 즉시 반영됩니다.
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `C`
-- 조정 항목: `license_key`, `interval`
+예시:
 
-### 4.4 해지/정지
+```sql
+update public.license_plans
+set quota_limit = 30,
+    quota_cycle = 'monthly',
+    updated_at = timezone('utc', now())
+where plan_code = 'free';
+```
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `D`
+### 3.5 기본 키를 test -> free로 바꾸기
 
-### 4.5 기기 변경 대응(HWID 초기화)
+```sql
+update public.license_access_keys
+set is_default = (access_key = 'free'),
+    updated_at = timezone('utc', now());
+```
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `E`
+## 4. free -> 유료 전환
 
-### 4.6 차감형 사용량 수동 리셋
+1. 유료 키 발급 (`licenses` insert/upsert)
+2. 사용자에게 새 키 전달
+3. 사용자가 `config/config.txt`에서 `LICENSE_KEY` 변경
+4. 첫 실행 시 HWID 자동 바인딩
 
-- 파일: `sql/supabase_license_operations.sql`
-- 섹션: `F`
+참고:
+- test/free 카운트는 유료로 합산하지 않습니다.
+- 공용(test/free) 카운터는 `free_license_usages`에 유지됩니다.
+- test 재사용 차단 상태는 `license_device_states`에 유지됩니다.
 
-## 5. 월 리셋 동작 원리
+## 5. 점검 체크리스트
 
-- 무료 사용자는 `free_license_usages`가 월 주기로 자동 리셋됩니다.
-- 차감형 유료는 `licenses.reset_date` 도달 시 다음 호출에서 자동 리셋됩니다.
-- 무한형(`license_mode='unlimited'`)은 차감되지 않습니다.
-
-## 6. 점검 체크리스트
-
-0. `email`이 정확히 입력되어 있는가 (운영 식별 기준)
-1. `licenses.status='active'` 인가
-2. `license_mode` 값이 의도대로 설정되었는가 (`metered`/`unlimited`)
-3. 차감형의 `usage_limit`, `usage_count`, `reset_date`가 정상인가
-4. 구독형의 `expires_at`이 의도한 만료 시각인가
-5. HWID 재바인딩이 필요하면 `hwid=null`로 초기화했는가
-
-## 7. 장애 대응 힌트
-
-- 증상: "유효하지 않은 라이선스 키"
-  - `licenses.license_key` 오타 여부 확인
-- 증상: "다른 기기에 바인딩된 라이선스"
-  - 운영자가 `hwid=null`로 초기화 후 재실행 안내
-- 증상: "사용 횟수 모두 사용"
-  - 차감형이면 `usage_count`/`usage_limit` 점검, 필요 시 F 섹션 실행
-- 증상: "만료된 라이선스"
-  - `expires_at` 연장 또는 라이선스 재발급
+1. `license_plans.status='active'` 인가
+2. `license_access_keys` 매핑이 올바른가 (`test`, `free`)
+3. 유료 키의 `status`, `plan_code`, `license_mode`, `expires_at` 값이 맞는가
+4. HWID 재바인딩이 필요하면 `licenses.hwid = null` 처리했는가
+5. test 재진입 이슈 점검 시 `license_device_states.non_test_used/test_exhausted_at` 확인

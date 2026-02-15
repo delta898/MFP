@@ -1,166 +1,139 @@
-# License Policy (BlogGenius)
+# License Policy (BlogGenius v3)
 
-이 문서는 현재 BlogGenius 라이선스 정책과 운영 방식을 정리한 문서입니다.
+이 문서는 BlogGenius의 플랜 기반 라이선스 정책(v3)을 정리합니다.
 
 ## 1. 정책 요약
 
-- 기본 라이선스 키: `free`
-- 무료 정책: **월 리셋 15회**
+- 기본 라이선스 키: `test`
+- 플랜: `test`, `free`, `pro`, `ultra`
+- `test`: 모든 기능 허용, 1회성 20회(`quota_cycle=none`)
+- `free`: 일부/무료 플랜, 월 15회(`quota_cycle=monthly`)
+- `pro`: 모든 기능 허용, 월 100회
+- `ultra`: 모든 기능 허용, 무제한
+- test 플랜 1회성 규칙:
+  - `test -> 만료 -> free` 전환은 허용
+  - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
+  - `test` 소진 후에는 다시 `test` 사용 불가
 - 차감 대상:
   - `pub` (실행 1회당 1차감)
-  - `auto` (실행 1회당 1차감)
   - `trends` (트렌드 시트 반영 직전 1차감)
-  - `batch` (**포스트 건당 차감**)
-  - `shopping` (**포스트 건당 차감**)
+  - `batch` (포스트 건당 차감)
+  - `shopping` (포스트 건당 차감)
 - 미차감:
   - `login`
   - `gen`
   - `keywords`
-- 유료 전환 시 무료 잔여분: **무시** (합산하지 않음)
-- 무한 라이선스 지원: `license_mode = 'unlimited'`
 
-## 2. 전체 구조
+## 2. 구조
 
-라이선스 검증은 앱에서 직접 계산하지 않고, Supabase RPC(`check_and_use_license`)에서 처리합니다.
+라이선스 검증/차감은 모두 Supabase RPC에서 처리합니다.
 
-- 앱 역할:
-  - `config/config.txt`의 `LICENSE_KEY` 읽기
-  - 빈 값이면 `free`로 정규화
-  - HWID와 함께 RPC 호출
-- 서버 역할:
-  - 무료/유료/무한 정책 판단
-  - 사용 횟수 차감/거부
-  - 잔여 횟수 반환
+- 사전 검증(무차감): `check_license_status`
+- 실제 차감: `check_and_use_license`
 
-### 2.1 사전 체크 vs 실제 차감
+앱 역할:
+- `LICENSE_KEY` 읽기
+- 빈 값이면 `test`로 정규화
+- HWID와 함께 RPC 호출
 
-- `batch`, `shopping`:
-  - 실행 시작 시 사전 검증 RPC(`check_license_status`)로 유효성/잔여 조회(무차감)
-  - 실제 차감은 각 포스트 발행 직전 `check_and_use_license` 호출 시 발생
-- `auto`, `pub`, `trends`:
-  - 해당 핵심 동작 직전에 `check_and_use_license` 호출(즉시 차감)
-- `gen`, `keywords`, `login`:
-  - 라이선스 차감 호출 없음
+서버 역할:
+- 키가 공용키(`test`, `free`)인지 개별 유료키인지 판단
+- 플랜 정책/기능 조회
+- 차감/거부/잔여 반환
 
 ## 3. 테이블
 
-### 3.1 `public.licenses` (유료/구독)
+### 3.1 `public.license_plans`
 
-기존 테이블 유지 + 아래 컬럼 사용:
+플랜 정책/기능의 단일 기준 테이블
 
-- `license_key` : 라이선스 키
-- `email` : 운영 식별용 사용자 이메일 (권장 필수)
-- `status` : `active`일 때만 승인
-- `hwid` : 최초 승인 시 바인딩
-- `usage_limit`, `usage_count`, `reset_date` : metered(차감형) 정책
-- `license_mode` : `metered` or `unlimited`
-- `expires_at` : 기간형 라이선스 만료 시각 (null 가능)
+- `plan_code`: `test`, `free`, `pro`, `ultra` ...
+- `quota_mode`: `metered` or `unlimited`
+- `quota_limit`, `quota_cycle`
+- `features` (jsonb): 기능 플래그/제한값
 
-### 3.2 `public.license_policies` (무료 정책 관리)
+### 3.2 `public.license_access_keys`
 
-- `policy_key='free_default'`
-- `quota=15`
-- `reset_cycle='monthly'`
+공용 키 매핑 테이블
 
-정책은 DB 값으로 관리하므로 앱 재배포 없이 변경 가능합니다.
+- `access_key`: `test`, `free`
+- `plan_code`
+- `is_default` (`test=true`)
 
-### 3.3 `public.free_license_usages` (무료 사용자 사용량)
+### 3.3 `public.licenses`
 
-- `hwid_hash` : HWID SHA-256 해시 (원문 HWID 미저장)
-- `usage_limit`, `usage_count`
-- `period_start`, `period_end`
+개별 유료 키 테이블(기존 유지)
 
-무료 사용자는 최초 호출 시 자동 생성됩니다.
+- `license_key`, `status`, `hwid`, `email`
+- `plan_code` (`pro`, `ultra` 등)
+- `usage_limit`, `usage_count`, `reset_date` (필요 시 개별 override)
+- `license_mode` (`metered`, `unlimited`)
+- `expires_at`
 
-## 4. RPC 동작 규칙 (`check_and_use_license`)
+### 3.4 `public.free_license_usages`
 
-### 4.1 Free 경로 (`LICENSE_KEY`가 비었거나 `free`)
+공용 키(test/free) 사용량 카운터
 
-1. `license_policies.free_default` 조회
-2. `hwid_hash` 기준 무료 row 조회/생성
-3. 월 리셋 시점 도달 시 `usage_count=0`으로 초기화
-4. 잔여가 있으면 `usage_count + 1` 후 승인
-5. 없으면 거부 (`remaining=0`)
+- `hwid_hash` + `access_key` 조합으로 카운트
+- `usage_limit`, `usage_count`, `period_start`, `period_end`
 
-### 4.2 유료 metered 경로
+### 3.5 `public.license_device_states`
+
+기기 단위 1회성 정책 강제 테이블
+
+- `hwid_hash` (PK)
+- `test_started_at`, `test_exhausted_at`
+- `non_test_used` (free/pro/ultra 사용 이력)
+
+이 테이블로 `test` 재진입 차단을 강제합니다.
+
+## 4. RPC 동작
+
+### 4.1 공용 키 경로 (`test`, `free`)
+
+1. `license_access_keys`에서 플랜 결정
+2. `license_plans`에서 quota/features 조회
+3. `free_license_usages`에서 `hwid_hash + access_key` 카운트 처리
+4. `quota_cycle` 기준 리셋 후 차감
+
+### 4.2 개별 유료 키 경로
 
 1. `licenses.license_key` 조회
-2. `status='active'` 확인
-3. `expires_at` 만료 여부 확인
-4. HWID 최초 바인딩/불일치 차단
-5. `usage_limit/usage_count/reset_date` 기준 차감
+2. `status`, `expires_at`, `hwid` 확인
+3. `licenses.plan_code`로 `license_plans` 조회
+4. `metered`면 차감, `unlimited`면 무차감 승인
 
-### 4.3 유료 unlimited 경로
+## 5. 설정 값
 
-조건: `license_mode='unlimited'`
-
-- 차감 없이 승인
-- 반환값: `remaining = -1` (앱 로그에서는 `무제한`으로 표시)
-- `expires_at`가 있으면 만료 시 거부
-
-## 5. 앱 설정
-
-`config/config.txt` 또는 `config/config.txt.sample`:
+`config/config.txt`:
 
 ```txt
-LICENSE_KEY = free
+LICENSE_KEY = test
 ```
 
-- 빈 값도 내부에서 `free`로 처리됨
-- 유료 전환 시 발급 키로 변경
+- 빈 값도 내부에서 `test`로 처리됩니다.
+- 정식 무료 플랜은 `LICENSE_KEY = free`로 사용 가능합니다.
 
-## 6. 운영 SQL 예시
+## 6. 기능 제한(Feature Flags)
 
-### 6.1 평생 무한 라이선스
+`license_plans.features`에 json으로 저장합니다.
 
-```sql
-update public.licenses
-set license_mode = 'unlimited',
-    expires_at = null,
-    status = 'active'
-where license_key = 'YOUR_KEY';
+예시:
+
+```json
+{
+  "cmd_batch": true,
+  "cmd_shopping": true,
+  "image_generation": true,
+  "enable_related_posts_auto_link": true,
+  "max_blog_posts_per_run": 3
+}
 ```
 
-### 6.2 30일 구독형 무한 라이선스
+현재 앱은 잔여 횟수 중심으로 동작하며, 기능 플래그는 RPC 응답으로 함께 반환됩니다.
+후속 단계에서 명령별 게이트를 이 값 기준으로 확장할 수 있습니다.
 
-```sql
-update public.licenses
-set license_mode = 'unlimited',
-    expires_at = now() + interval '30 days',
-    status = 'active'
-where license_key = 'YOUR_KEY';
-```
+## 7. 적용 SQL
 
-### 6.3 차감형으로 복귀
-
-```sql
-update public.licenses
-set license_mode = 'metered',
-    expires_at = null
-where license_key = 'YOUR_KEY';
-```
-
-### 6.4 무료 정책 변경 (예: 월 30회)
-
-```sql
-update public.license_policies
-set quota = 30,
-    reset_cycle = 'monthly',
-    updated_at = timezone('utc', now())
-where policy_key = 'free_default';
-```
-
-## 7. 보안 원칙
-
-- RLS 활성화: `license_policies`, `free_license_usages`
-- `anon/authenticated`의 테이블 직접 권한 제거
-- 앱은 테이블 직접 접근 대신 RPC만 사용
-- 무료 사용자 식별은 HWID 원문 대신 해시값 사용
-- 운영 식별은 `licenses.email` 기준으로 관리 (권장)
-
-## 8. 변경 이력 (현재 기준)
-
-- 무료 기본키 도입: `free`
-- 무료 정책: 월 15회
-- 무한 라이선스(`unlimited`) 도입
-- 유료/무료 정책 분리 운영
+- `sql/supabase_license_v3.sql` (권장, 최초/마이그레이션)
+- `sql/supabase_license_precheck.sql` (사전검증 RPC만 재배포할 때)

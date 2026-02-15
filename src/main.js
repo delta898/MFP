@@ -190,6 +190,51 @@ function resolveMaxShoppingPostsPerRun() {
     return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 3);
 }
 
+function toFeatureMap(rawFeatures) {
+    return (rawFeatures && typeof rawFeatures === 'object' && !Array.isArray(rawFeatures))
+        ? rawFeatures
+        : {};
+}
+
+function getFeatureBool(features, key, fallback = true) {
+    const map = toFeatureMap(features);
+    if (!(key in map)) return fallback;
+    const value = map[key];
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const v = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on'].includes(v)) return true;
+        if (['false', '0', 'no', 'off'].includes(v)) return false;
+    }
+    return fallback;
+}
+
+function getFeatureInt(features, key, fallback = null) {
+    const map = toFeatureMap(features);
+    if (!(key in map)) return fallback;
+    const num = parseInt(map[key], 10);
+    if (Number.isNaN(num) || num < 0) return fallback;
+    return num;
+}
+
+function getEnableRelatedPostsAutoLink(features) {
+    const map = toFeatureMap(features);
+    return getFeatureBool(map, 'enable_related_posts_auto_link', true);
+}
+
+function isCommandEnabled(features, command) {
+    const keyMap = {
+        pub: 'cmd_pub',
+        batch: 'cmd_batch',
+        trends: 'cmd_trends',
+        shopping: 'cmd_shopping'
+    };
+    const key = keyMap[command];
+    if (!key) return true;
+    return getFeatureBool(features, key, true);
+}
+
 // --- Commands ---
 
 // 1️⃣ Login Command
@@ -209,7 +254,7 @@ program
 
             const topics = await Utils.readGoogleSheetTopics();
             const maxPostsPerRun = resolveMaxBlogPostsPerRun();
-            const targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
+            let targetTopics = maxPostsPerRun === 0 ? topics : topics.slice(0, maxPostsPerRun);
 
             console.log(`📂 총 ${topics.length}개의 주제를 발견했습니다.`);
             console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
@@ -217,6 +262,26 @@ program
             if (targetTopics.length === 0) {
                 console.log("📭 생성할 주제가 없습니다. (상태: 블로그 발행 준비 완료)");
                 return;
+            }
+
+            console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
+                return;
+            }
+            const featureMap = toFeatureMap(precheck.features);
+            const imageGenerationEnabled = getFeatureBool(featureMap, 'image_generation', true);
+            const enableRelatedPostsAutoLink = getEnableRelatedPostsAutoLink(featureMap);
+
+            const planMaxBlogPosts = getFeatureInt(featureMap, 'max_blog_posts_per_run', null);
+            if (planMaxBlogPosts !== null && planMaxBlogPosts > 0 && targetTopics.length > planMaxBlogPosts) {
+                console.log(`ℹ️ 플랜 제한(max_blog_posts_per_run=${planMaxBlogPosts})에 따라 ${planMaxBlogPosts}건만 생성합니다.`);
+                targetTopics = targetTopics.slice(0, planMaxBlogPosts);
+            }
+            if (planMaxBlogPosts === 0) {
+                console.log("ℹ️ 플랜 정책상 max_blog_posts_per_run=0(무제한)으로 처리합니다.");
             }
 
             let successCount = 0;
@@ -231,8 +296,12 @@ program
 
                 try {
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
-                    const result = await Core.generateContent(topicData);
-                    await Core.prepareImages(result.targetDir, topicData);
+                    const result = await Core.generateContent(topicData, null, {
+                        enableRelatedPostsAutoLink
+                    });
+                    await Core.prepareImages(result.targetDir, topicData, {
+                        imageGenerationEnabled
+                    });
                     console.log(`✅ 생성 완료: ${result.targetDir}`);
                     successCount++;
                 } catch (err) {
@@ -290,6 +359,20 @@ program
                 console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
                 return;
             }
+            const featureMap = toFeatureMap(precheck.features);
+            if (!isCommandEnabled(featureMap, 'batch')) {
+                console.error("\n⛔ [중단] 현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)");
+                return;
+            }
+            const imageGenerationEnabled = getFeatureBool(featureMap, 'image_generation', true);
+            const enableRelatedPostsAutoLink = getEnableRelatedPostsAutoLink(featureMap);
+
+            const planMaxBlogPosts = getFeatureInt(featureMap, 'max_blog_posts_per_run', null);
+            if (planMaxBlogPosts !== null && planMaxBlogPosts > 0 && targetTopics.length > planMaxBlogPosts) {
+                console.log(`ℹ️ 플랜 제한(max_blog_posts_per_run=${planMaxBlogPosts})에 따라 ${planMaxBlogPosts}건만 진행합니다.`);
+                targetTopics = targetTopics.slice(0, planMaxBlogPosts);
+            }
+
             if (precheck.precheckUnavailable) {
                 console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
             }
@@ -319,8 +402,12 @@ program
                     console.log(`[진행] 주제: ${topicData.subject || '자동 생성 중'} (Row ${rowIndex + 1})`);
 
                     // 생성 -> 이미지 -> 발행 순차 진행
-                    const result = await Core.generateContent(topicData);
-                    await Core.prepareImages(result.targetDir, topicData);
+                    const result = await Core.generateContent(topicData, null, {
+                        enableRelatedPostsAutoLink
+                    });
+                    await Core.prepareImages(result.targetDir, topicData, {
+                        imageGenerationEnabled
+                    });
 
                     console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
                     const check = await License.verifyLicense();
@@ -379,6 +466,17 @@ program
     .action(async (opts) => {
         try {
             await ensureAuth(true);
+            console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                process.exit(1);
+            }
+            const featureMap = toFeatureMap(precheck.features);
+            if (!isCommandEnabled(featureMap, 'pub')) {
+                console.error("⛔ [중단] 현재 플랜에서 pub 기능이 비활성화되어 있습니다. (cmd_pub=false)");
+                process.exit(1);
+            }
             console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
             const check = await License.verifyLicense();
             if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
@@ -424,6 +522,18 @@ program
 
             // 필수 시트 존재 여부 확인 및 생성
             await Utils.ensureAllSheetsExist();
+
+            console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                return;
+            }
+            const featureMap = toFeatureMap(precheck.features);
+            if (!isCommandEnabled(featureMap, 'trends')) {
+                console.error("⛔ [중단] 현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)");
+                return;
+            }
 
             // 1. 트렌드 키워드 수집
             const trendKeywords = await TrendManager.fetchTrends();
@@ -472,6 +582,19 @@ program
                 console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
                 return;
             }
+            const featureMap = toFeatureMap(precheck.features);
+            if (!isCommandEnabled(featureMap, 'shopping')) {
+                console.error("\n⛔ [중단] 현재 플랜에서 shopping 기능이 비활성화되어 있습니다. (cmd_shopping=false)");
+                return;
+            }
+            const enableRelatedPostsAutoLink = getEnableRelatedPostsAutoLink(featureMap);
+
+            const planMaxShoppingPosts = getFeatureInt(featureMap, 'max_shopping_posts_per_run', null);
+            if (planMaxShoppingPosts !== null && planMaxShoppingPosts > 0 && targetJobs.length > planMaxShoppingPosts) {
+                console.log(`ℹ️ 플랜 제한(max_shopping_posts_per_run=${planMaxShoppingPosts})에 따라 ${planMaxShoppingPosts}건만 진행합니다.`);
+                targetJobs = targetJobs.slice(0, planMaxShoppingPosts);
+            }
+
             if (precheck.precheckUnavailable) {
                 console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
             }
@@ -501,7 +624,9 @@ program
                     console.log(`[진행] 쇼핑 URL 처리 (Row ${rowIndex + 1})`);
 
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
-                    const result = await ShoppingManager.buildPostFromShortUrl(job.shortUrl);
+                    const result = await ShoppingManager.buildPostFromShortUrl(job.shortUrl, {
+                        enableRelatedPostsAutoLink
+                    });
 
                     console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
                     const check = await License.verifyLicense();

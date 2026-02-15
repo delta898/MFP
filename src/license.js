@@ -13,7 +13,8 @@ if (CONFIG.LICENSE_CHK_URL && CONFIG.LICENSE_CHK_KEY) {
 
 function resolveLicenseKey(rawKey) {
     const value = String(rawKey || '').trim();
-    if (!value) return 'free';
+    if (!value) return 'test';
+    if (value.toLowerCase() === 'test') return 'test';
     if (value.toLowerCase() === 'free') return 'free';
     return value;
 }
@@ -34,7 +35,9 @@ const License = {
             const hwid = machineIdSync({ original: true });
             const maskedKey = resolvedLicenseKey === 'free'
                 ? 'free'
-                : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****');
+                : (resolvedLicenseKey === 'test'
+                    ? 'test'
+                    : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****'));
             Logger.info(`📡 라이선스 사전 검증 중... (Key: ${maskedKey})`);
 
             const { data, error } = await supabase
@@ -59,9 +62,21 @@ const License = {
                         ? '무제한'
                         : `${data.remaining ?? 'N/A'}회`;
                 Logger.info(`✅ 라이선스 사전 검증 통과 (잔여: ${remainingLabel})`);
-                return { success: true, message: data.message, remaining: data.remaining };
+                return {
+                    success: true,
+                    message: data.message,
+                    remaining: data.remaining,
+                    planCode: data.plan_code,
+                    features: (data.features && typeof data.features === 'object') ? data.features : {}
+                };
             }
-            return { success: false, message: data?.message || '라이선스 사전 검증 실패', remaining: data?.remaining };
+            return {
+                success: false,
+                message: data?.message || '라이선스 사전 검증 실패',
+                remaining: data?.remaining,
+                planCode: data?.plan_code,
+                features: (data?.features && typeof data.features === 'object') ? data.features : {}
+            };
         } catch (e) {
             Logger.error(`❌ 라이선스 사전 검증 모듈 에러: ${e.message}`);
             return { success: false, message: `내부 오류: ${e.message}` };
@@ -86,7 +101,9 @@ const License = {
             // 3. 로그 출력 (보안을 위해 키 일부 마스킹)
             const maskedKey = resolvedLicenseKey === 'free'
                 ? 'free'
-                : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****');
+                : (resolvedLicenseKey === 'test'
+                    ? 'test'
+                    : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****'));
             Logger.info(`📡 라이선스 검증 중... (Key: ${maskedKey})`);
 
             // 4. Supabase RPC 호출 (check_and_use_license)
@@ -110,9 +127,21 @@ const License = {
                         ? '무제한'
                         : `${data.remaining ?? 'N/A'}회`;
                 Logger.info(`✅ 라이선스 승인 (잔여: ${remainingLabel})`);
-                return { success: true, message: data.message, remaining: data.remaining };
+                return {
+                    success: true,
+                    message: data.message,
+                    remaining: data.remaining,
+                    planCode: data.plan_code,
+                    features: (data.features && typeof data.features === 'object') ? data.features : {}
+                };
             } else {
-                return { success: false, message: data?.message || '라이선스 검증 실패' };
+                return {
+                    success: false,
+                    message: data?.message || '라이선스 검증 실패',
+                    remaining: data?.remaining,
+                    planCode: data?.plan_code,
+                    features: (data?.features && typeof data.features === 'object') ? data.features : {}
+                };
             }
 
         } catch (e) {

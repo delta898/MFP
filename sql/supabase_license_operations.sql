@@ -7,8 +7,7 @@
 -- - 유료 라이선스 발급/갱신/중지/재바인딩 운영
 --
 -- 전제:
--- - sql/supabase_license_v2.sql 적용 완료
--- - sql/supabase_license_precheck.sql 적용 완료
+-- - sql/supabase_license_v3.sql 적용 완료
 
 -- ------------------------------------------------------------
 -- 0) 운영 조회 성능용 인덱스 (이메일)
@@ -34,6 +33,7 @@ issued as (
 )
 insert into public.licenses (
     license_key,
+    plan_code,
     tier,
     status,
     email,
@@ -47,6 +47,7 @@ insert into public.licenses (
 )
 select
     i.license_key,
+    'pro',
     'pro',
     'active',
     'user@example.com',
@@ -68,6 +69,7 @@ returning license_key, email, usage_limit, reset_date, created_at;
 -- ------------------------------------------------------------
 insert into public.licenses (
     license_key,
+    plan_code,
     tier,
     status,
     email,
@@ -81,6 +83,7 @@ insert into public.licenses (
 ) values (
     'PAID-KEY-REPLACE-ME',
     'pro',
+    'pro',
     'active',
     'user@example.com',
     null,                          -- 첫 실행 시 자동 HWID 바인딩
@@ -92,7 +95,8 @@ insert into public.licenses (
     'issued manually'
 )
 on conflict (license_key) do update
-set tier = excluded.tier,
+set plan_code = excluded.plan_code,
+    tier = excluded.tier,
     status = excluded.status,
     email = excluded.email,
     usage_limit = excluded.usage_limit,
@@ -107,6 +111,7 @@ set tier = excluded.tier,
 -- ------------------------------------------------------------
 insert into public.licenses (
     license_key,
+    plan_code,
     tier,
     status,
     email,
@@ -119,6 +124,7 @@ insert into public.licenses (
     note
 ) values (
     'UNLIMITED-KEY-REPLACE-ME',
+    'ultra',
     'business',
     'active',
     'user@example.com',
@@ -131,7 +137,8 @@ insert into public.licenses (
     'unlimited lifetime'
 )
 on conflict (license_key) do update
-set tier = excluded.tier,
+set plan_code = excluded.plan_code,
+    tier = excluded.tier,
     status = excluded.status,
     email = excluded.email,
     license_mode = excluded.license_mode,
@@ -144,6 +151,7 @@ set tier = excluded.tier,
 -- ------------------------------------------------------------
 update public.licenses
 set status = 'active',
+    plan_code = 'ultra',
     license_mode = 'unlimited',
     expires_at = timezone('utc', now()) + interval '30 days',
     note = 'subscription: 30 days',
@@ -183,6 +191,7 @@ where license_key = 'PAID-KEY-REPLACE-ME'
 select
     license_key,
     email,
+    plan_code,
     tier,
     status,
     license_mode,

@@ -120,13 +120,14 @@ BlogGenius/
 
 ```ini
 NAVER_ID = 본인_네이버_아이디
-LICENSE_KEY = free
+LICENSE_KEY = test
 GEMINI_API_KEY = AIza...
 GOOGLE_SHEET_ID = 구글시트_ID
 ```
 
 포인트:
-- `LICENSE_KEY = free` 기본값으로 시작해도 됩니다.
+- `LICENSE_KEY = test` 기본값으로 시작하면 됩니다.
+- `free`는 정식 무료 플랜(월 갱신) 키로 사용할 수 있습니다.
 - 유료 라이선스 사용 시 나중에 키만 교체하면 됩니다.
 - 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 내부 기본값 사용):
   - `config/blog_prompt.md`
