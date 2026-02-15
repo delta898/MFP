@@ -63,10 +63,22 @@ const TrendManager = {
 
             // 최대 스와이프 횟수 제한 (무한 루프 방지) - 카테고리가 많으므로 충분히 늘림
             const MAX_SWIPES = 50;
+            const SWIPE_DRAG_STEPS = 3;
+            const SWIPE_SETTLE_MS = 50;
+            const SWIPE_START_RATIO = 0.90;
+            const SWIPE_END_RATIO = 0.05; // 85% 이동(90% -> 5%)
             let swipeCount = 0;
             let noNewCategoryCount = 0; // 새로운 카테고리가 안 나오는 횟수 연속 체크
 
             Logger.info('🔄 카테고리 순회 및 키워드 추출 시작 (스와이프 동작 포함)...');
+
+            // 스와이프 컨테이너는 루프 밖에서 1회 캐싱
+            const swiperSelector = '.u_ni_search_swiper';
+            const swiperBox = await page.$(swiperSelector);
+            if (!swiperBox) {
+                Logger.warn('⚠️ 스와이프 컨테이너(.u_ni_search_swiper)를 찾을 수 없습니다.');
+                return allKeywords;
+            }
 
             while (swipeCount < MAX_SWIPES) {
                 // 현재 화면에 보이는 슬라이드들 찾기
@@ -75,56 +87,60 @@ const TrendManager = {
 
                 // 4-1. 현재 페이지 데이터 추출
                 // NOTE:
-                // pkg 실행 환경에서 page.evaluate 직렬화 오류("Passed function is not well-serializable!")
-                // 가 발생할 수 있어 locator 기반으로 안전하게 추출합니다.
-                const pageData = [];
-                const boxLocators = page.locator('.u_ni_trend_list_box');
-                const boxCount = await boxLocators.count();
+                // pkg 환경의 function 직렬화 이슈를 피하기 위해 "문자열 evaluate"를 사용한다.
+                // (브라우저 컨텍스트 일괄 파싱으로 성능도 기존 수준에 가깝게 회복)
+                const extractTrendsScript = `
+(() => {
+  const isVisible = (el) => {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    if (!style || style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
 
-                for (let boxIdx = 0; boxIdx < boxCount; boxIdx++) {
-                    const box = boxLocators.nth(boxIdx);
-                    const titleLocator = box.locator('.u_ni_trend_title').first();
-                    if (await titleLocator.count() === 0) continue;
+  const allBoxes = Array.from(document.querySelectorAll('.u_ni_trend_list_box'));
+  const visibleBoxes = allBoxes.filter(isVisible);
+  const boxes = visibleBoxes.length > 0 ? visibleBoxes : allBoxes;
+  const results = [];
 
-                    const title = (await titleLocator.innerText()).trim();
-                    if (!title) continue;
+  for (const box of boxes) {
+    const titleEl = box.querySelector('.u_ni_trend_title');
+    if (!titleEl) continue;
+    const title = (titleEl.innerText || '').trim();
+    if (!title) continue;
 
-                    const itemLocators = box.locator('.u_ni_trend_item');
-                    const itemCount = await itemLocators.count();
-                    const items = [];
+    const items = [];
+    const itemEls = box.querySelectorAll('.u_ni_trend_item');
 
-                    for (let itemIdx = 0; itemIdx < itemCount; itemIdx++) {
-                        const item = itemLocators.nth(itemIdx);
-                        const keywordLocator = item.locator('.u_ni_trend_text').first();
-                        if (await keywordLocator.count() === 0) continue;
+    for (const item of itemEls) {
+      const keywordEl = item.querySelector('.u_ni_trend_text');
+      if (!keywordEl) continue;
+      const keyword = (keywordEl.innerText || '').trim();
+      if (!keyword) continue;
 
-                        const keyword = (await keywordLocator.innerText()).trim();
-                        if (!keyword) continue;
+      let variation = '-';
+      const dataEl = item.querySelector('.u_ni_data');
+      if (dataEl) {
+        const text = (dataEl.innerText || '').trim();
+        const className = dataEl.className || '';
+        if (className.includes('up')) variation = '+' + text;
+        else if (className.includes('down')) variation = '-' + text;
+        else if (className.includes('new')) variation = 'new';
+        else variation = text || '-';
+      }
 
-                        let variation = '-';
-                        const dataLocator = item.locator('.u_ni_data').first();
-                        if (await dataLocator.count() > 0) {
-                            const text = (await dataLocator.innerText()).trim();
-                            const className = (await dataLocator.getAttribute('class')) || '';
+      items.push({ keyword, variation });
+    }
 
-                            if (className.includes('up')) {
-                                variation = `+${text}`;
-                            } else if (className.includes('down')) {
-                                variation = `-${text}`;
-                            } else if (className.includes('new')) {
-                                variation = 'new';
-                            } else {
-                                variation = text || '-';
-                            }
-                        }
+    if (items.length > 0) results.push({ title, items });
+  }
 
-                        items.push({ keyword, variation });
-                    }
+  return results;
+})()
+`;
 
-                    if (items.length > 0) {
-                        pageData.push({ title, items });
-                    }
-                }
+                const pageData = await page.evaluate(extractTrendsScript);
 
                 // 4-2. 데이터 필터링 및 저장
                 let newCategoryFound = false;
@@ -172,32 +188,26 @@ const TrendManager = {
 
                 // 4-3. 스와이프 액션 (오른쪽 -> 왼쪽) 3시 -> 9시
                 // .u_ni_search_swiper 요소 위에서 드래그 수행
-                const swiperSelector = '.u_ni_search_swiper';
-                const swiperBox = await page.$(swiperSelector);
-
                 if (swiperBox) {
                     const boundingBox = await swiperBox.boundingBox();
                     if (boundingBox) {
-                        const startX = boundingBox.x + boundingBox.width * 0.8; // 오른쪽 80% 지점
-                        const endX = boundingBox.x + boundingBox.width * 0.2;   // 왼쪽 20% 지점
+                        const startX = boundingBox.x + boundingBox.width * SWIPE_START_RATIO;
+                        const endX = boundingBox.x + boundingBox.width * SWIPE_END_RATIO;
                         const y = boundingBox.y + boundingBox.height / 2;       // 중간 높이
 
                         // 마우스 이동 및 드래그
                         await page.mouse.move(startX, y);
                         await page.mouse.down();
-                        await page.mouse.move(endX, y, { steps: 10 }); // 부드럽게 이동
+                        await page.mouse.move(endX, y, { steps: SWIPE_DRAG_STEPS });
                         await page.mouse.up();
 
                         swipeCount++;
-                        // 애니메이션 및 로딩 대기 (충분한 시간 부여)
-                        await page.waitForTimeout(300);
+                        // 빠르게 다음 슬라이드로 진행 (속도 우선)
+                        await page.waitForTimeout(SWIPE_SETTLE_MS);
                     } else {
                         Logger.warn('⚠️ 스와이프 영역을 찾을 수 없습니다 (BoundingBox Fail).');
                         break;
                     }
-                } else {
-                    Logger.warn('⚠️ 스와이프 컨테이너(.u_ni_search_swiper)를 찾을 수 없습니다.');
-                    break;
                 }
             }
 
