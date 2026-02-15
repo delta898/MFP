@@ -1341,82 +1341,24 @@ function buildAiPrompt(product) {
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
-
-    if (fs.existsSync(promptPath)) {
-        try {
-            const template = fs.readFileSync(promptPath, 'utf-8');
-            if (template.trim()) {
-                return template
-                    .replace(/{{\s*PRODUCT_TITLE\s*}}/g, product.title || '상품명 미확인')
-                    .replace(/{{\s*PRODUCT_DESCRIPTION\s*}}/g, product.description || '요약 정보 없음')
-                    .replace(/{{\s*PRODUCT_BODY\s*}}/g, (product.body || '').substring(0, 5000))
-                    .replace(/{{\s*COMMERCE_FACTS\s*}}/g, commerceFacts)
-                    .replace(/{{\s*REVIEW_FACTS\s*}}/g, reviewFacts)
-                    .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
-                    .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
-                    .trim();
-            }
-        } catch (e) {
-            Logger.warn(`⚠️ shopping 프롬프트 파일 로드 실패: ${e.message}`);
-        }
+    if (!promptPath || !fs.existsSync(promptPath)) {
+        throw new Error(`쇼핑 프롬프트 파일이 없습니다: ${promptPath}`);
     }
 
-    return `
-다음 상품 정보를 바탕으로 네이버 블로그용 사용기 + 추천기 글의 구조를 JSON으로 작성해줘.
-반드시 JSON만 반환하고, 코드블록은 사용하지 마.
+    const template = fs.readFileSync(promptPath, 'utf-8');
+    if (!template || !template.trim()) {
+        throw new Error(`쇼핑 프롬프트 파일이 비어 있습니다: ${promptPath}`);
+    }
 
-[상품 정보]
-- 상품명: ${product.title || '상품명 미확인'}
-- 요약: ${product.description || '요약 정보 없음'}
-- 상세 텍스트: ${(product.body || '').substring(0, 3000)}
-
-[구매 정보/혜택 데이터]
-${commerceFacts}
-
-[리뷰 데이터 요약]
-${reviewFacts}
-
-[대표 리뷰 샘플]
-${reviewSamples}
-
-[SEO 키워드 가이드]
-${seoKeywordHints}
-
-[요청 사항]
-- 제목은 "핵심 키워드 + 체감 변화/이유" 구조로 작성해.
-- 제목 길이는 25~35자로 작성하고, 35자를 절대 넘기지 마.
-- 상품명/스펙 전체 나열은 피하고 핵심 키워드만 추려 작성해.
-- 제목은 관심을 끌 정도로 선명하게 쓰되, 공포/협박/과장형 낚시 문구(절대 사지 마세요/역대급 충격/최저가 보장 등)는 금지.
-- "3일 고민 끝에", "끝까지 비교해", "결정적 이유" 같은 선명한 후킹 표현을 우선 사용해.
-- 메인 키워드([SEO 키워드 가이드] 첫 줄)는 제목 첫 단어로 시작하게 작성해.
-- 메인 키워드를 도입 문단(첫 1~2문장)에 반드시 포함해.
-- 메인 키워드 + 연관키워드를 본문 전체에서 합산 3~5회 자연스럽게 분산해.
-- 마지막 마무리 문단에 메인 키워드를 반드시 포함해.
-- 너무 과장하지 말고 실제 사용 관점으로 신뢰감 있게 써줘.
-- 톤은 친근하지만 광고 티가 과하지 않게.
-- 장점/아쉬운점/추천대상 포함.
-- 입력으로 제공된 정보에 없는 스펙(예: 화면 크기, 배터리 시간, 칩셋 성능)은 단정하지 말고 일반적 사용 경험 중심으로 작성해.
-- 확인되지 않은 정보는 추측하지 말고 "상세 스펙은 링크에서 확인" 같은 표현으로 처리해.
-- "좋았던 점/아쉬운 점", "이런 분들께 추천해요", "지금 바로 확인하고 혜택 받으세요" 흐름을 자연스럽게 담아줘.
-
-[응답 JSON 형식]
-{
-  "title": "블로그 글 제목",
-  "intro": "도입 문단",
-  "quick_summary": ["핵심 요약 1", "핵심 요약 2", "핵심 요약 3"],
-  "quotes": ["짧은 인용구 1", "짧은 인용구 2"],
-  "pros": ["좋았던 점 1", "좋았던 점 2", "좋았던 점 3"],
-  "cons": ["아쉬운 점 1", "아쉬운 점 2"],
-  "recommended_for": ["추천 대상 1", "추천 대상 2", "추천 대상 3"],
-  "sections": [
-    { "heading": "소제목", "body": "해당 본문", "summary": "한 줄 정리", "quote": "짧은 인용구" },
-    { "heading": "소제목", "body": "해당 본문", "summary": "한 줄 정리", "quote": "짧은 인용구" }
-  ],
-  "conclusion": "마무리 문단",
-  "cta_phrases": ["클릭 유도 문구 1", "클릭 유도 문구 2"],
-  "hashtags": ["태그1", "태그2", "태그3"]
-}
-`;
+    return template
+        .replace(/{{\s*PRODUCT_TITLE\s*}}/g, product.title || '상품명 미확인')
+        .replace(/{{\s*PRODUCT_DESCRIPTION\s*}}/g, product.description || '요약 정보 없음')
+        .replace(/{{\s*PRODUCT_BODY\s*}}/g, (product.body || '').substring(0, 5000))
+        .replace(/{{\s*COMMERCE_FACTS\s*}}/g, commerceFacts)
+        .replace(/{{\s*REVIEW_FACTS\s*}}/g, reviewFacts)
+        .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
+        .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
+        .trim();
 }
 
 function getHostLabel(url) {

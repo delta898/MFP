@@ -74,7 +74,7 @@ jobs:
 
       - name: Build Executable
         run: |
-          pkg src/main.js --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
+          pkg package.json --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
 
       - name: Prepare Assets
         shell: bash

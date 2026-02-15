@@ -850,7 +850,7 @@ const Core = {
 
 		// 3) 프롬프트 로딩 (Priority: Config > Constants)
 		const promptPath = CONFIG.BLOG_PROMPT_PATH || Constants.PROMPT_FILE;
-		if (!fs.existsSync(promptPath)) {
+		if (!promptPath || !fs.existsSync(promptPath)) {
 			throw new Error(`시스템 프롬프트 파일이 없습니다: ${promptPath}`);
 		}
 		const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
