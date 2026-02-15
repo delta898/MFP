@@ -815,8 +815,8 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 		}
 
 		let inserted = false;
-		const verifyMaxAttempts = 18;
-		const verifyDelayMs = 120;
+		const verifyMaxAttempts = 5;
+		const verifyDelayMs = 180;
 		for (let i = 0; i < verifyMaxAttempts; i++) {
 			const nowSnapshot = await getEditorLinkSnapshot(page, url);
 			if (
