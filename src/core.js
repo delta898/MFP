@@ -135,6 +135,7 @@ async function focusLatestOglinkCard(page) {
 async function getVisibleImageToolbars(page) {
 	const selectors = [
 		'.se-image-toolbar',
+		'.se-context-toolbar',
 		'.se-l-property-toolbar',
 		'.se-property-toolbar',
 		'.se-toolbar'
@@ -180,9 +181,10 @@ async function getVisibleEditorToolbars(page) {
 	return toolbars;
 }
 
-async function centerAlignFocusedImage(page) {
+async function centerAlignFocusedImage(page, options = {}) {
+	const shouldRefocusImage = options.refocusImage !== false;
 	for (let attempt = 0; attempt < 4; attempt++) {
-		if (attempt > 0) {
+		if (attempt > 0 && shouldRefocusImage) {
 			try {
 				await focusLatestEditorImage(page);
 			} catch (e) { }
@@ -196,6 +198,7 @@ async function centerAlignFocusedImage(page) {
 			'button[data-name="cycle-align"][data-value="center"]',
 			'button[data-type="cycle-toggle"][data-name="cycle-align"][data-value="center"]',
 			'.se-context-toolbar-cycle-toggle-container button[data-value="center"]',
+			'.se-context-toolbar-cycle-toggle-container button.se-center-tool-bar-button',
 			'li.se-toolbar-item-align button[data-value="center"]',
 			'li.se-toolbar-item-line-image-center button',
 			'li[class*="line-image-center"] button',
@@ -549,14 +552,52 @@ async function getEditorLinkSnapshot(page, targetUrl = '') {
 				return href === target || href.startsWith(target) || target.startsWith(href);
 			}).length;
 
-			const oglinkCount = Array.from(editorRoot.querySelectorAll('*'))
-				.filter(el => !el.closest('.se-popup-oglink') && /\boglink\b/i.test(String(el.className || '')))
-				.length;
+			const oglinkRaw = [];
+			const oglinkSelectors = [
+				'.se-component.se-oglink',
+				'.se-module-oglink',
+				'.se-oglink',
+				'[class*="se-oglink"]'
+			];
+			for (const selector of oglinkSelectors) {
+				const nodes = editorRoot.querySelectorAll(selector);
+				for (const node of nodes) oglinkRaw.push(node);
+			}
+			const oglinkModules = Array.from(new Set(oglinkRaw))
+				.filter(el => !el.closest('.se-popup-oglink'));
+			const oglinkModuleCount = oglinkModules.length;
+
+			const targetWithoutProtocol = target.replace(/^https?:\/\//i, '');
+			const targetOglinkCount = oglinkModules.filter(module => {
+				if (!target) return false;
+				const hrefMatched = Array.from(module.querySelectorAll('a[href]')).some(anchor => {
+					const href = normalize(anchor.getAttribute('href'));
+					return href && (href === target || href.startsWith(target) || target.startsWith(href));
+				});
+				if (hrefMatched) return true;
+				const text = String(module.textContent || '');
+				return Boolean(targetWithoutProtocol && text.includes(targetWithoutProtocol));
+			}).length;
+
+			const oglinkSignature = oglinkModules
+				.map(module => {
+					const hrefs = Array.from(module.querySelectorAll('a[href]'))
+						.map(anchor => normalize(anchor.getAttribute('href')))
+						.filter(Boolean)
+						.slice(0, 2)
+						.join('|');
+					const title =
+						String(module.querySelector('.se-oglink-title, .se-oglink-info-title, .se-oglink-info')?.textContent || '')
+							.replace(/\s+/g, ' ')
+							.trim()
+							.slice(0, 80);
+					return `${hrefs}::${title}`;
+				})
+				.join('||');
 
 			const targetMentionCount = (() => {
 				if (!target) return 0;
 				const text = String(editorRoot.textContent || '');
-				const targetWithoutProtocol = target.replace(/^https?:\/\//i, '');
 				const patterns = [
 					new RegExp(escapeRegExp(target), 'gi'),
 					new RegExp(escapeRegExp(targetWithoutProtocol), 'gi')
@@ -569,10 +610,24 @@ async function getEditorLinkSnapshot(page, targetUrl = '') {
 				return count;
 			})();
 
-			return { targetAnchorCount, oglinkCount, allAnchorCount, targetMentionCount };
+			return {
+				targetAnchorCount,
+				oglinkModuleCount,
+				targetOglinkCount,
+				oglinkSignature,
+				allAnchorCount,
+				targetMentionCount
+			};
 		}, targetUrl);
 	} catch (e) {
-		return { targetAnchorCount: 0, oglinkCount: 0, allAnchorCount: 0, targetMentionCount: 0 };
+		return {
+			targetAnchorCount: 0,
+			oglinkModuleCount: 0,
+			targetOglinkCount: 0,
+			oglinkSignature: '',
+			allAnchorCount: 0,
+			targetMentionCount: 0
+		};
 	}
 }
 
@@ -716,11 +771,13 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 		}
 
 		let inserted = false;
-		for (let i = 0; i < 40; i++) {
+		for (let i = 0; i < 90; i++) {
 			const nowSnapshot = await getEditorLinkSnapshot(page, url);
 			if (
 				nowSnapshot.targetAnchorCount > beforeSnapshot.targetAnchorCount ||
-				nowSnapshot.oglinkCount > beforeSnapshot.oglinkCount ||
+				nowSnapshot.targetOglinkCount > beforeSnapshot.targetOglinkCount ||
+				nowSnapshot.oglinkModuleCount > beforeSnapshot.oglinkModuleCount ||
+				nowSnapshot.oglinkSignature !== beforeSnapshot.oglinkSignature ||
 				nowSnapshot.allAnchorCount > beforeSnapshot.allAnchorCount ||
 				nowSnapshot.targetMentionCount > beforeSnapshot.targetMentionCount
 			) {
@@ -740,7 +797,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 				await Utils.sleep(120);
 				continue;
 			}
-			const centered = await centerAlignFocusedImage(page);
+			const centered = await centerAlignFocusedImage(page, { refocusImage: false });
 			if (centered) {
 				Logger.info(`       ↔️ 링크 카드 가운데 정렬 적용: ${url}`);
 				break;
@@ -901,7 +958,7 @@ ${scrapedContext}`;
 			Logger.info("🔎 [Blog] 관련 글 자동 수집 중...");
 			relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
 			if (relatedPosts.length > 0) {
-				Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+				Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
 			} else {
 				Logger.info("ℹ️ [Blog] 관련 글 자동 수집 실패/없음: placeholder 삽입");
 			}

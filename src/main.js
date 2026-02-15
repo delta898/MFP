@@ -525,7 +525,7 @@ program
 program
     .command('trends')
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
-    .option('--date <date>', '트렌드 기준일 (YYYY-MM-DD 또는 yesterday)')
+    .option('--date <date>', '트렌드 기준일 (YYYY-MM-DD / YYYYMMDD / yesterday / -Nd)')
     .action(async (options) => {
         try {
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
@@ -699,8 +699,10 @@ program.on('--help', () => {
     console.log('📖 사용 예시:');
     console.log('  $ ./BlogGenius login');
     console.log('  $ ./BlogGenius gen');
-    console.log('  $ ./BlogGenius trends --date yesterday');
-    console.log('  $ ./BlogGenius trends --date 2026-01-30');
+    console.log('  $ ./BlogGenius trends --date=-1d');
+    console.log('  $ ./BlogGenius trends --date=yesterday');
+    console.log('  $ ./BlogGenius trends --date=2026-01-30');
+    console.log('  $ ./BlogGenius trends --date=20260130');
     console.log('  $ ./BlogGenius pub -d "workspace/내_원고_폴더"');
     console.log('  $ ./BlogGenius batch');
     console.log('  $ ./BlogGenius shopping');

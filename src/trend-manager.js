@@ -10,13 +10,30 @@ function resolveTrendDateInput(rawInput) {
     const input = String(rawInput).trim();
     const lowered = input.toLowerCase();
 
+    const relativeMatch = lowered.match(/^-(\d+)d$/);
+    if (relativeMatch) {
+        const days = Number(relativeMatch[1]);
+        if (Number.isInteger(days) && days >= 1) {
+            return moment().tz('Asia/Seoul').subtract(days, 'day').format('YYYY-MM-DD');
+        }
+    }
+
     if (lowered === 'yesterday' || lowered === '어제') {
         return moment().tz('Asia/Seoul').subtract(1, 'day').format('YYYY-MM-DD');
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-        return input;
+        const parsed = moment.tz(input, 'YYYY-MM-DD', true, 'Asia/Seoul');
+        if (parsed.isValid()) {
+            return parsed.format('YYYY-MM-DD');
+        }
     }
-    throw new Error(`잘못된 날짜 형식입니다: ${rawInput} (예: 2026-02-14 또는 yesterday)`);
+    if (/^\d{8}$/.test(input)) {
+        const parsed = moment.tz(input, 'YYYYMMDD', true, 'Asia/Seoul');
+        if (parsed.isValid()) {
+            return parsed.format('YYYY-MM-DD');
+        }
+    }
+    throw new Error(`잘못된 날짜 형식입니다: ${rawInput} (예: 2026-02-14, 20260214, yesterday 또는 -1d)`);
 }
 
 function toNaverDisplayDate(ymd) {

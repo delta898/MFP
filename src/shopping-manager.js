@@ -2404,7 +2404,7 @@ const ShoppingManager = {
             Logger.info('🔎 [Shopping] 관련 글 자동 수집 중...');
             relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
             if (relatedPosts.length > 0) {
-                Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건, 랜덤)`);
+                Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
             } else {
                 Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
             }
