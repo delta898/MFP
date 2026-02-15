@@ -73,54 +73,58 @@ const TrendManager = {
                 // .swiper-slide-active 와 그 주변 슬라이드들이 보일 것임.
                 // 하지만 안전하게 DOM에 있는 모든 visible한 .u_ni_trend_list_box를 대상으로 함.
 
-                // 4-1. 현재 페이지 데이터 추출 (브라우저 컨텍스트 실행)
-                const pageData = await page.evaluate(() => {
-                    const results = [];
-                    // 모든 트렌드 리스트 박스 순회
-                    const boxes = document.querySelectorAll('.u_ni_trend_list_box');
+                // 4-1. 현재 페이지 데이터 추출
+                // NOTE:
+                // pkg 실행 환경에서 page.evaluate 직렬화 오류("Passed function is not well-serializable!")
+                // 가 발생할 수 있어 locator 기반으로 안전하게 추출합니다.
+                const pageData = [];
+                const boxLocators = page.locator('.u_ni_trend_list_box');
+                const boxCount = await boxLocators.count();
 
-                    boxes.forEach(box => {
-                        // 제목 추출 (예: 맛집, 20대 여성 등)
-                        const titleEl = box.querySelector('.u_ni_trend_title');
-                        if (!titleEl) return;
+                for (let boxIdx = 0; boxIdx < boxCount; boxIdx++) {
+                    const box = boxLocators.nth(boxIdx);
+                    const titleLocator = box.locator('.u_ni_trend_title').first();
+                    if (await titleLocator.count() === 0) continue;
 
-                        const title = titleEl.innerText.trim();
+                    const title = (await titleLocator.innerText()).trim();
+                    if (!title) continue;
 
-                        // 아이템들 추출 (키워드 + 증감 데이터)
-                        const itemEls = box.querySelectorAll('.u_ni_trend_item');
-                        const items = [];
+                    const itemLocators = box.locator('.u_ni_trend_item');
+                    const itemCount = await itemLocators.count();
+                    const items = [];
 
-                        itemEls.forEach(item => {
-                            const keywordEl = item.querySelector('.u_ni_trend_text');
-                            const dataEl = item.querySelector('.u_ni_data');
+                    for (let itemIdx = 0; itemIdx < itemCount; itemIdx++) {
+                        const item = itemLocators.nth(itemIdx);
+                        const keywordLocator = item.locator('.u_ni_trend_text').first();
+                        if (await keywordLocator.count() === 0) continue;
 
-                            if (keywordEl) {
-                                const keyword = keywordEl.innerText.trim();
-                                let variation = '-';
+                        const keyword = (await keywordLocator.innerText()).trim();
+                        if (!keyword) continue;
 
-                                if (dataEl) {
-                                    const text = dataEl.innerText.trim();
-                                    if (dataEl.classList.contains('up')) {
-                                        variation = `+${text}`;
-                                    } else if (dataEl.classList.contains('down')) {
-                                        variation = `-${text}`;
-                                    } else if (dataEl.classList.contains('new')) {
-                                        variation = 'new';
-                                    } else {
-                                        variation = text; // '-', '0' or others
-                                    }
-                                }
-                                items.push({ keyword, variation });
+                        let variation = '-';
+                        const dataLocator = item.locator('.u_ni_data').first();
+                        if (await dataLocator.count() > 0) {
+                            const text = (await dataLocator.innerText()).trim();
+                            const className = (await dataLocator.getAttribute('class')) || '';
+
+                            if (className.includes('up')) {
+                                variation = `+${text}`;
+                            } else if (className.includes('down')) {
+                                variation = `-${text}`;
+                            } else if (className.includes('new')) {
+                                variation = 'new';
+                            } else {
+                                variation = text || '-';
                             }
-                        });
-
-
-                        if (items.length > 0) {
-                            results.push({ title, items });
                         }
-                    });
-                    return results;
-                });
+
+                        items.push({ keyword, variation });
+                    }
+
+                    if (items.length > 0) {
+                        pageData.push({ title, items });
+                    }
+                }
 
                 // 4-2. 데이터 필터링 및 저장
                 let newCategoryFound = false;
