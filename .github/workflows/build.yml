@@ -28,29 +28,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: node18-linux-x64
-            output_binary: BlogGenius-linux
-            platform_name: linux-x64
-            zip_name: BlogGenius-linux-x64.zip
-
+          # PoC: yao-pkg + 단일 타깃(mac-arm64, node20)
           - os: macos-latest
-            target: node18-macos-x64
-            output_binary: BlogGenius-mac-intel
-            platform_name: mac-intel
-            zip_name: BlogGenius-mac-intel.zip
-
-          - os: macos-latest
-            target: node18-macos-arm64
+            target: node20-macos-arm64
             output_binary: BlogGenius-mac-arm64
             platform_name: mac-arm64
             zip_name: BlogGenius-mac-arm64.zip
-
-          - os: windows-latest
-            target: node18-win-x64
-            output_binary: BlogGenius.exe
-            platform_name: win-x64
-            zip_name: BlogGenius-win-x64.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -58,13 +41,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Install pkg
-        run: npm install -g pkg
+      - name: Install yao-pkg
+        run: npm install -g @yao-pkg/pkg @yao-pkg/pkg-fetch
 
       - name: Create secret.js
         shell: bash

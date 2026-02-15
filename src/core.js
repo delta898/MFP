@@ -733,6 +733,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 
 		// 2) 확인 버튼 클릭은 "팝업이 닫힐 때까지" 재시도한다.
 		let closed = false;
+		let confirmAttempted = false;
 		for (let i = 0; i < 60; i++) {
 			try {
 				if (await popup.count() === 0 || !(await popup.isVisible())) {
@@ -752,7 +753,12 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			const clicked = await clickEnabledConfirmButton();
 			if (!clicked) {
 				// fallback: 엔터로 확인 시도
-				try { await input.press('Enter'); } catch (e) { }
+				try {
+					await input.press('Enter');
+					confirmAttempted = true;
+				} catch (e) { }
+			} else {
+				confirmAttempted = true;
 			}
 
 			try {
@@ -787,14 +793,22 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			await Utils.sleep(200);
 		}
 		if (!inserted) {
+			// pkg 환경(런타임/렌더 타이밍 차이)에서 실제 삽입됐는데도 스냅샷 검증이 늦게 반영되는 경우가 있어
+			// 중복 URL 텍스트 입력을 막기 위해 "팝업 정상 닫힘 + 확인 시도"는 성공으로 간주한다.
+			if (closed && confirmAttempted) {
+				Logger.warn(`       ⚠️ 링크 카드 삽입 검증 지연: 성공으로 간주(중복 URL 대체 방지): ${url}`);
+				inserted = true;
+			}
+		}
+		if (!inserted) {
 			return false;
 		}
 
 		// 링크 카드를 선택한 뒤 가운데 정렬을 시도한다.
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < 6; i++) {
 			const focused = await focusLatestOglinkCard(page);
 			if (!focused) {
-				await Utils.sleep(120);
+				await Utils.sleep(180);
 				continue;
 			}
 			const centered = await centerAlignFocusedImage(page, { refocusImage: false });
@@ -802,7 +816,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 				Logger.info(`       ↔️ 링크 카드 가운데 정렬 적용: ${url}`);
 				break;
 			}
-			await Utils.sleep(120);
+			await Utils.sleep(180);
 		}
 
 		await focusEditorTypingArea(page);
