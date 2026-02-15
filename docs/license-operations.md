@@ -55,6 +55,15 @@ set quota_limit = 30,
 where plan_code = 'free';
 ```
 
+날짜 지정 트렌드(`trends --date`) 권한까지 함께 조정하려면:
+
+```sql
+update public.license_plans
+set features = jsonb_set(coalesce(features, '{}'::jsonb), '{enable_trends_date_override}', 'false'::jsonb, true),
+    updated_at = timezone('utc', now())
+where plan_code = 'free';
+```
+
 ### 3.5 기본 키를 test -> free로 바꾸기
 
 ```sql

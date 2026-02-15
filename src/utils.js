@@ -876,7 +876,7 @@ const Utils = {
     /**
      * 1-6. 트렌드 시트에 데이터 추가 (Date, Category, Keyword, Status)
      */
-    appendGoogleSheetTrends: async function (trendData) {
+    appendGoogleSheetTrends: async function (trendData, dateOverride = null) {
         if (!trendData || trendData.length === 0) return;
 
         try {
@@ -975,7 +975,10 @@ const Utils = {
 
             const maxCol = Math.max(...Object.values(map));
             const today = new Date();
-            const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const defaultDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const dateStr = (typeof dateOverride === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride))
+                ? dateOverride
+                : defaultDateStr;
 
             const rowsToAdd = trendData.map(item => {
                 const row = new Array(maxCol + 1).fill("");

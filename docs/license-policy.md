@@ -10,6 +10,9 @@
 - `free`: 일부/무료 플랜, 월 15회(`quota_cycle=monthly`)
 - `pro`: 모든 기능 허용, 월 100회
 - `ultra`: 모든 기능 허용, 무제한
+- 날짜 지정 트렌드(`trends --date`):
+  - `test/pro/ultra`: 허용
+  - `free`: 기본 비허용 (`enable_trends_date_override=false`)
 - test 플랜 1회성 규칙:
   - `test -> 만료 -> free` 전환은 허용
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
@@ -124,11 +127,16 @@ LICENSE_KEY = test
 {
   "cmd_batch": true,
   "cmd_shopping": true,
+  "enable_trends_date_override": true,
   "image_generation": true,
   "enable_related_posts_auto_link": true,
   "max_blog_posts_per_run": 3
 }
 ```
+
+- `enable_trends_date_override`:
+  - `true`: `trends --date YYYY-MM-DD|yesterday` 허용
+  - `false`: 기본 `trends`만 허용(날짜 지정 불가)
 
 현재 앱은 잔여 횟수 중심으로 동작하며, 기능 플래그는 RPC 응답으로 함께 반환됩니다.
 후속 단계에서 명령별 게이트를 이 값 기준으로 확장할 수 있습니다.

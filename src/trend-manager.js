@@ -1,19 +1,247 @@
 const path = require('path');
 const fs = require('fs');
+const moment = require('moment-timezone');
 const { launchBrowser } = require('./browser-launcher');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+
+function resolveTrendDateInput(rawInput) {
+    if (!rawInput) return null;
+    const input = String(rawInput).trim();
+    const lowered = input.toLowerCase();
+
+    if (lowered === 'yesterday' || lowered === '어제') {
+        return moment().tz('Asia/Seoul').subtract(1, 'day').format('YYYY-MM-DD');
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+        return input;
+    }
+    throw new Error(`잘못된 날짜 형식입니다: ${rawInput} (예: 2026-02-14 또는 yesterday)`);
+}
+
+function toNaverDisplayDate(ymd) {
+    const [year, month, day] = ymd.split('-');
+    return `${year}. ${month}. ${day}.`;
+}
+
+function extractFirstNumber(input) {
+    const m = String(input || '').match(/\d+/);
+    return m ? Number(m[0]) : null;
+}
+
+async function readSelectOptions(selectLocator) {
+    const options = [];
+    const optionLoc = selectLocator.locator('option');
+    const count = await optionLoc.count();
+    for (let i = 0; i < count; i++) {
+        const opt = optionLoc.nth(i);
+        const value = String(await opt.getAttribute('value') || '').trim();
+        const label = String(await opt.innerText() || '').trim();
+        options.push({ value, label });
+    }
+    return options;
+}
+
+async function selectYearOption(selectLocator, targetYear) {
+    const options = await readSelectOptions(selectLocator);
+    if (options.length === 0) return false;
+
+    const direct = options.find(opt => extractFirstNumber(opt.label) === targetYear)
+        || options.find(opt => extractFirstNumber(opt.value) === targetYear);
+    if (!direct) return false;
+
+    await selectLocator.selectOption(direct.value);
+    return true;
+}
+
+async function selectMonthOption(selectLocator, targetMonth) {
+    const options = await readSelectOptions(selectLocator);
+    if (options.length === 0) return false;
+
+    // label 우선 매칭 (예: "1월")
+    let pick = options.find(opt => extractFirstNumber(opt.label) === targetMonth);
+
+    // value 매칭 (one-based / zero-based 모두 시도)
+    if (!pick) {
+        pick = options.find(opt => Number(opt.value) === targetMonth);
+    }
+    if (!pick) {
+        pick = options.find(opt => Number(opt.value) === (targetMonth - 1));
+    }
+    if (!pick) return false;
+
+    await selectLocator.selectOption(pick.value);
+    return true;
+}
+
+async function waitForDateCellVisible(page, targetDate, timeoutMs = 5000) {
+    const startedAt = Date.now();
+    const [yearStr, monthStr, dayStr] = targetDate.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const day = Number(dayStr);
+    const ariaPrefix = `${year}년 ${month}월 ${day}일`;
+
+    while ((Date.now() - startedAt) < timeoutMs) {
+        try {
+            const byDataDay = page.locator(`td[data-day="${targetDate}"]`).first();
+            if (await byDataDay.count() > 0 && await byDataDay.isVisible()) {
+                return { mode: 'data-day', locator: byDataDay };
+            }
+        } catch (e) { }
+
+        try {
+            const byAria = page.locator(`button.rdp-day_button[aria-label^="${ariaPrefix}"]`).first();
+            if (await byAria.count() > 0 && await byAria.isVisible()) {
+                return { mode: 'aria', locator: byAria };
+            }
+        } catch (e) { }
+
+        await page.waitForTimeout(120);
+    }
+
+    return null;
+}
+
+async function selectTrendDate(page, targetDate) {
+    if (!targetDate) return;
+    const [targetYear, targetMonth] = targetDate.split('-').map(Number);
+
+    const calendarButtonCandidates = [
+        page.locator('button.u_ni_btn_calendar').first(),
+        page.locator('.u_ni_btn_calendar').first(),
+        page.locator('span.u_ni_range.cursor_pointer').first(),
+        page.locator('.u_ni_range.cursor_pointer').first()
+    ];
+
+    let opened = false;
+    for (const candidate of calendarButtonCandidates) {
+        try {
+            if (await candidate.count() > 0 && await candidate.isVisible()) {
+                await candidate.click({ force: true });
+                opened = true;
+                break;
+            }
+        } catch (e) { }
+    }
+
+    if (!opened) {
+        throw new Error('날짜 선택 버튼을 찾을 수 없습니다.');
+    }
+
+    // 월이 다른 날짜도 선택 가능하도록 year/month 드롭다운을 우선 맞춘다.
+    const yearSelect = page.locator('select.ui-datepicker-year, select[name="year"]').first();
+    if (await yearSelect.count() > 0) {
+        const yearSelected = await selectYearOption(yearSelect, targetYear);
+        if (!yearSelected) {
+            throw new Error(`달력 연도 선택 실패: ${targetYear}년`);
+        }
+        await page.waitForTimeout(120);
+    }
+
+    const monthSelect = page.locator('select.ui-datepicker-month, select[name="month"]').first();
+    if (await monthSelect.count() > 0) {
+        const monthSelected = await selectMonthOption(monthSelect, targetMonth);
+        if (!monthSelected) {
+            throw new Error(`달력 월 선택 실패: ${targetMonth}월`);
+        }
+        await page.waitForTimeout(150);
+    }
+
+    const targetCell = await waitForDateCellVisible(page, targetDate, 5000);
+    if (!targetCell) {
+        throw new Error(`달력에서 지정 날짜를 찾지 못했습니다: ${targetDate}`);
+    }
+
+    if (targetCell.mode === 'aria') {
+        await targetCell.locator.click({ force: true });
+    } else {
+        const dayButton = targetCell.locator.locator('button.rdp-day_button, button').first();
+        if (await dayButton.count() > 0) {
+            await dayButton.click({ force: true });
+        } else {
+            await targetCell.locator.click({ force: true });
+        }
+    }
+
+    const expected = toNaverDisplayDate(targetDate);
+    const dateLabel = page.locator('span.u_ni_range.cursor_pointer, .u_ni_range.cursor_pointer').first();
+    let updated = false;
+    for (let i = 0; i < 20; i++) {
+        try {
+            if (await dateLabel.count() > 0) {
+                const text = (await dateLabel.innerText()).trim();
+                if (text.includes(expected)) {
+                    updated = true;
+                    break;
+                }
+            }
+        } catch (e) { }
+        await page.waitForTimeout(100);
+    }
+
+    // 달력 레이어가 남아있으면 닫아준다.
+    try {
+        const overlay = page.locator('div.rdp, .rdp, [class*="DayPicker"]').first();
+        if (await overlay.count() > 0 && await overlay.isVisible()) {
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(120);
+        }
+    } catch (e) { }
+
+    if (!updated) {
+        throw new Error(`날짜 변경 확인 실패: ${targetDate}`);
+    }
+}
+
+async function waitForTrendDataReady(page, timeoutMs = 12000) {
+    const startedAt = Date.now();
+    const listLocator = page.locator('.u_ni_trend_list_box');
+    const emptyStateCandidates = [
+        '.u_ni_no_data',
+        '.u_ni_empty',
+        '.u_ni_no_result',
+        '.u_ni_contents:has-text("데이터가 없습니다")',
+        '.u_ni_contents:has-text("조회된 데이터가 없습니다")',
+        '.u_ni_contents:has-text("표시할 데이터가 없습니다")'
+    ];
+
+    while ((Date.now() - startedAt) < timeoutMs) {
+        try {
+            if (await listLocator.count() > 0 && await listLocator.first().isVisible()) {
+                return { state: 'ready' };
+            }
+        } catch (e) { }
+
+        for (const selector of emptyStateCandidates) {
+            try {
+                const node = page.locator(selector).first();
+                if (await node.count() > 0 && await node.isVisible()) {
+                    return { state: 'empty' };
+                }
+            } catch (e) { }
+        }
+
+        await page.waitForTimeout(200);
+    }
+
+    return { state: 'timeout' };
+}
 
 const TrendManager = {
     /**
      * 트렌드 키워드 수집 메인 함수
      */
-    fetchTrends: async function () {
+    fetchTrends: async function (options = {}) {
         Logger.info('📈 네이버 크리에이터 어드바이저 트렌드 수집을 시작합니다...');
 
         const NAVER_ID = CONFIG.NAVER_ID;
         if (!NAVER_ID) {
             throw new Error('설정 파일에 NAVER_ID가 없습니다.');
+        }
+        const targetDate = resolveTrendDateInput(options.date);
+        if (targetDate) {
+            Logger.info(`📅 트렌드 수집 기준일 지정: ${targetDate}`);
         }
 
         const browser = await launchBrowser();
@@ -45,15 +273,23 @@ const TrendManager = {
             Logger.info(`🔗 접속 중: ${targetUrl}`);
             await page.goto(targetUrl, { waitUntil: 'networkidle' });
 
+            if (targetDate) {
+                await selectTrendDate(page, targetDate);
+            }
+
             // 3. 데이터 로딩 대기
-            try {
-                // 트렌드 리스트 박스가 뜰 때까지 대기 (최대 10초)
-                await page.waitForSelector('.u_ni_trend_list_box', { timeout: 10000 });
-            } catch (e) {
+            const dataState = await waitForTrendDataReady(page, 12000);
+            if (dataState.state === 'empty') {
+                Logger.warn(`⚠️ 지정한 날짜(${targetDate || '오늘'})의 트렌드 데이터가 아직 없습니다. (0건)`);
+                return {
+                    keywords: [],
+                    date: targetDate || moment().tz('Asia/Seoul').format('YYYY-MM-DD')
+                };
+            }
+            if (dataState.state !== 'ready') {
                 Logger.warn('⚠️ 트렌드 리스트를 찾지 못했습니다. 로그인을 확인하거나 페이지 구조가 변경되었을 수 있습니다.');
-                // 스크린샷 저장 (디버깅용)
                 await page.screenshot({ path: 'logs/debug_trend_fail.png' });
-                throw e;
+                throw new Error('트렌드 데이터 로딩 시간 초과');
             }
 
             // 4. 카테고리 순회 및 키워드 수집
@@ -222,7 +458,10 @@ const TrendManager = {
 
             Logger.info(`🎉 총 ${allKeywords.length}개의 트렌드 키워드 데이터를 수집했습니다.`);
 
-            return allKeywords;
+            return {
+                keywords: allKeywords,
+                date: targetDate || moment().tz('Asia/Seoul').format('YYYY-MM-DD')
+            };
 
         } catch (error) {
             Logger.error(`❌ 트렌드 수집 중 오류 발생: ${error.message}`);

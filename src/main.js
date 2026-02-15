@@ -223,6 +223,16 @@ function getEnableRelatedPostsAutoLink(features) {
     return getFeatureBool(map, 'enable_related_posts_auto_link', true);
 }
 
+function getEnableTrendsDateOverride(features, planCode = '') {
+    const map = toFeatureMap(features);
+    // 명시된 feature가 있으면 그 값을 우선
+    if (Object.prototype.hasOwnProperty.call(map, 'enable_trends_date_override')) {
+        return getFeatureBool(map, 'enable_trends_date_override', false);
+    }
+    // 하위 호환: feature 미정의 시 free만 기본 비활성, 나머지는 활성
+    return String(planCode || '').toLowerCase() !== 'free';
+}
+
 function isCommandEnabled(features, command) {
     const keyMap = {
         pub: 'cmd_pub',
@@ -515,7 +525,8 @@ program
 program
     .command('trends')
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
-    .action(async () => {
+    .option('--date <date>', '트렌드 기준일 (YYYY-MM-DD 또는 yesterday)')
+    .action(async (options) => {
         try {
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
             await ensureAuth(true); // 로그인 필요
@@ -534,9 +545,20 @@ program
                 console.error("⛔ [중단] 현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)");
                 return;
             }
+            const enableTrendsDateOverride = getEnableTrendsDateOverride(featureMap, precheck.planCode);
+            if (options.date && !enableTrendsDateOverride) {
+                console.error("⛔ [중단] 현재 플랜에서 날짜 지정 트렌드(--date) 기능이 비활성화되어 있습니다. (enable_trends_date_override=false)");
+                return;
+            }
 
             // 1. 트렌드 키워드 수집
-            const trendKeywords = await TrendManager.fetchTrends();
+            const trendResult = await TrendManager.fetchTrends({ date: options.date });
+            const trendKeywords = Array.isArray(trendResult)
+                ? trendResult
+                : (trendResult?.keywords || []);
+            const trendDate = (!Array.isArray(trendResult) && trendResult?.date)
+                ? trendResult.date
+                : null;
 
             if (!trendKeywords || trendKeywords.length === 0) {
                 console.log('⚠️ 수집된 트렌드 키워드가 없습니다.');
@@ -545,7 +567,7 @@ program
                 const check = await License.verifyLicense();
                 if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
                 console.log(`📥 수집된 ${trendKeywords.length}개의 키워드를 구글 시트에 추가합니다...`);
-                await Utils.appendGoogleSheetTrends(trendKeywords);
+                await Utils.appendGoogleSheetTrends(trendKeywords, trendDate);
                 console.log('✅ 트렌드 키워드 추가 완료!');
             }
         } catch (e) {
@@ -677,6 +699,8 @@ program.on('--help', () => {
     console.log('📖 사용 예시:');
     console.log('  $ ./BlogGenius login');
     console.log('  $ ./BlogGenius gen');
+    console.log('  $ ./BlogGenius trends --date yesterday');
+    console.log('  $ ./BlogGenius trends --date 2026-01-30');
     console.log('  $ ./BlogGenius pub -d "workspace/내_원고_폴더"');
     console.log('  $ ./BlogGenius batch');
     console.log('  $ ./BlogGenius shopping');
