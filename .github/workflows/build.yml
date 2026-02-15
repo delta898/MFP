@@ -83,6 +83,8 @@ jobs:
           mkdir -p dist/scripts
 
           cp config/config.txt.sample dist/config/config.txt
+          cp src/config/blog_prompt.md dist/config/blog_prompt.md
+          cp src/config/shopping_prompt.md dist/config/shopping_prompt.md
           cp scripts/google_apps_script.js dist/scripts/google_apps_script.js
 
           if [ -f "README_USER.md" ]; then

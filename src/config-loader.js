@@ -4,6 +4,7 @@ const Constants = require('./constants');
 
 // 💡 [경로 기준점]
 const ROOT_DIR = process.cwd();
+const EXEC_DIR = path.dirname(process.execPath || ROOT_DIR);
 
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
@@ -25,9 +26,12 @@ try {
 // =========================================================
 const PATHS = {
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
+    configFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
     blogPromptOverride: path.join(ROOT_DIR, 'config', 'blog_prompt.md'),
+    blogPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'blog_prompt.md'),
     shoppingPromptOverride: path.join(ROOT_DIR, 'config', 'shopping_prompt.md'),
+    shoppingPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'shopping_prompt.md'),
     defaultBlogPrompt: path.join(__dirname, 'config', 'blog_prompt.md'),
     defaultShoppingPrompt: path.join(__dirname, 'config', 'shopping_prompt.md'),
     workspace: path.join(ROOT_DIR, 'workspace')
@@ -38,14 +42,17 @@ const PATHS = {
 // =========================================================
 function loadUserConfig() {
     const config = {};
+    const configPath = fs.existsSync(PATHS.configFile)
+        ? PATHS.configFile
+        : PATHS.configFileFromExec;
 
-    if (!fs.existsSync(PATHS.configFile)) {
+    if (!fs.existsSync(configPath)) {
         console.error(`❌ 설정 파일을 찾을 수 없습니다: ${PATHS.configFile}`);
         console.error(`👉 config/config.txt.sample 파일을 config.txt로 복사해주세요.`);
         process.exit(1);
     }
 
-    const fileContent = fs.readFileSync(PATHS.configFile, 'utf-8');
+    const fileContent = fs.readFileSync(configPath, 'utf-8');
 
     fileContent.split('\n').forEach(line => {
         const cleanLine = line.split('#')[0].trim();
@@ -92,12 +99,19 @@ const viewportHeight = userConfig.VIEWPORT_HEIGHT || 1024;
 
 const closeDelay = (userConfig.CLOSE_DELAY_SECONDS || 10) * 1000;
 
-const blogPromptPath = fs.existsSync(PATHS.blogPromptOverride)
-    ? PATHS.blogPromptOverride
-    : PATHS.defaultBlogPrompt;
-const shoppingPromptPath = fs.existsSync(PATHS.shoppingPromptOverride)
-    ? PATHS.shoppingPromptOverride
-    : PATHS.defaultShoppingPrompt;
+const blogPromptCandidates = [
+    PATHS.blogPromptOverride,
+    PATHS.blogPromptOverrideFromExec,
+    PATHS.defaultBlogPrompt
+];
+const shoppingPromptCandidates = [
+    PATHS.shoppingPromptOverride,
+    PATHS.shoppingPromptOverrideFromExec,
+    PATHS.defaultShoppingPrompt
+];
+
+const blogPromptPath = blogPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultBlogPrompt;
+const shoppingPromptPath = shoppingPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultShoppingPrompt;
 
 // 최종 내보낼 객체
 module.exports = {

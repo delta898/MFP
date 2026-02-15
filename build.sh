@@ -61,6 +61,18 @@ copy_assets() {
         echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
     fi
 
+    if [ -f "src/config/blog_prompt.md" ]; then
+        cp src/config/blog_prompt.md "$TARGET_DIR/config/blog_prompt.md"
+    else
+        echo "⚠️ [Warning] src/config/blog_prompt.md 파일이 없습니다! 블로그 프롬프트 기본값이 누락될 수 있습니다."
+    fi
+
+    if [ -f "src/config/shopping_prompt.md" ]; then
+        cp src/config/shopping_prompt.md "$TARGET_DIR/config/shopping_prompt.md"
+    else
+        echo "⚠️ [Warning] src/config/shopping_prompt.md 파일이 없습니다! 쇼핑 프롬프트 기본값이 누락될 수 있습니다."
+    fi
+
     if [ -f "scripts/google_apps_script.js" ]; then
         cp scripts/google_apps_script.js "$TARGET_DIR/scripts/google_apps_script.js"
     else
