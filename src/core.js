@@ -93,6 +93,44 @@ async function focusLatestEditorImage(page) {
 	return false;
 }
 
+async function getEditorImageCount(page) {
+	const selectors = [
+		'.se-component-content img',
+		'.se-module-image img',
+		'.se-image-resource img',
+		'img'
+	];
+	let maxCount = 0;
+	for (const selector of selectors) {
+		try {
+			const count = await page.locator(selector).count();
+			if (count > maxCount) maxCount = count;
+		} catch (e) { }
+	}
+	return maxCount;
+}
+
+async function waitForNewImageSlot(page, beforeCount, timeoutMs = 4500) {
+	const startedAt = Date.now();
+	while ((Date.now() - startedAt) < timeoutMs) {
+		const nowCount = await getEditorImageCount(page);
+		if (nowCount > beforeCount) {
+			return true;
+		}
+		await Utils.sleep(120);
+	}
+	return false;
+}
+
+async function focusLatestEditorImageWithRetry(page, maxAttempts = 10, delayMs = 220) {
+	for (let i = 0; i < maxAttempts; i++) {
+		const focused = await focusLatestEditorImage(page);
+		if (focused) return true;
+		await Utils.sleep(delayMs);
+	}
+	return false;
+}
+
 async function focusLatestOglinkCard(page) {
 	const selectors = [
 		'.se-component.se-oglink',
@@ -777,7 +815,9 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 		}
 
 		let inserted = false;
-		for (let i = 0; i < 90; i++) {
+		const verifyMaxAttempts = 18;
+		const verifyDelayMs = 120;
+		for (let i = 0; i < verifyMaxAttempts; i++) {
 			const nowSnapshot = await getEditorLinkSnapshot(page, url);
 			if (
 				nowSnapshot.targetAnchorCount > beforeSnapshot.targetAnchorCount ||
@@ -790,7 +830,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 				inserted = true;
 				break;
 			}
-			await Utils.sleep(200);
+			await Utils.sleep(verifyDelayMs);
 		}
 		if (!inserted) {
 			// pkg 환경(런타임/렌더 타이밍 차이)에서 실제 삽입됐는데도 스냅샷 검증이 늦게 반영되는 경우가 있어
@@ -1246,6 +1286,7 @@ ${scrapedContext}`;
 						const photoBtn = page.locator('button.se-image-toolbar-button, button:has-text("사진")').first();
 
 						if (await photoBtn.isVisible()) {
+							const imageCountBefore = await getEditorImageCount(page);
 							await photoBtn.click();
 							const chooser = await fileChooserPromise;
 							await chooser.setFiles(path.join(dirPath, file));
@@ -1253,7 +1294,9 @@ ${scrapedContext}`;
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
 							await Utils.sleep(uploadWait);
 
-							const imageFocused = await focusLatestEditorImage(page);
+							// 큰 이미지 업로드 시 렌더 반영이 느릴 수 있어 슬롯 증가와 포커스를 재시도한다.
+							const appeared = await waitForNewImageSlot(page, imageCountBefore, 4500);
+							const imageFocused = await focusLatestEditorImageWithRetry(page, appeared ? 10 : 14, 220);
 							if (!imageFocused) {
 								Logger.warn('       ⚠️ 방금 업로드한 이미지를 포커스하지 못했습니다.');
 							}
