@@ -7,6 +7,53 @@
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-02-16
+
+### Added
+- `trends --date <YYYY-MM-DD|yesterday>` 고급 옵션 추가
+- 날짜 지정 트렌드 수집 시 월/연도 드롭다운 이동 지원
+- 라이선스 기능 플래그 `enable_trends_date_override` 추가
+
+### Changed
+- 날짜 지정 트렌드가 비활성 플랜일 때 명시적 차단 메시지 출력
+- 지정 날짜가 데이터 공백 시간대일 경우 오류 대신 0건 처리
+- 트렌드 시트 기록 날짜를 수집 기준일(`--date`)과 동기화
+- 라이선스 문서/운영 가이드 및 SQL seed에 날짜 지정 권한 정책 반영
+
+## [0.8.6] - 2026-02-15
+
+### Changed
+- 패키지 빌드를 `pkg package.json` 기준으로 통일해 asset 반영 일관성 강화
+- 프롬프트 로딩을 파일 기반 단일 소스로 정리 (`src/config/*.md`)
+- 코드 하드코딩 프롬프트 fallback 제거(회귀 리스크 축소)
+
+## [0.8.5] - 2026-02-15
+
+### Changed
+- 패키징 결과물 `config/`에서 기본 프롬프트 파일 비노출 처리
+- 사용자 override용 `config/blog_prompt.md`, `config/shopping_prompt.md` 수동 제공 정책 유지
+
+## [0.8.4] - 2026-02-15
+
+### Changed
+- `trends` 수집 속도 개선: pkg 직렬화 이슈 회피를 유지하면서 DOM 일괄 추출 경로로 최적화
+- 스와이프 대기/거리 튜닝으로 체감 수집 속도 개선
+
+## [0.8.3] - 2026-02-15
+
+### Fixed
+- 패키지 실행 시 `trends`에서 발생하던 `Passed function is not well-serializable!` 오류 수정
+
+## [0.8.2] - 2026-02-15
+
+### Changed
+- `config.txt.sample` 안내 문구/기본값 정리
+
+## [0.8.1] - 2026-02-15
+
+### Changed
+- 마이너 안정화 릴리즈(운영/배포 정비)
+
 ## [0.8.0] - 2026-02-15
 
 ### Added
