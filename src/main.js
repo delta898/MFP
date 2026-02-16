@@ -245,6 +245,19 @@ function isCommandEnabled(features, command) {
     return getFeatureBool(features, key, true);
 }
 
+function printLicenseNextAction(message = '') {
+    const normalized = String(message || '').trim();
+    if (!normalized) return;
+
+    const isTestEnded =
+        normalized.includes('test 플랜 1회 사용이 이미 종료되었습니다') ||
+        (normalized.includes('test 플랜') && normalized.includes('종료'));
+
+    if (isTestEnded) {
+        console.log("💡 테스트 이용해주셔서 감사합니다. 계속 이용하시려면 Pro 등의 상품을 구독해주시기 바랍니다.");
+    }
+}
+
 // --- Commands ---
 
 // 1️⃣ Login Command
@@ -277,7 +290,8 @@ program
             console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
             const precheck = await License.checkLicenseStatus();
             if (!precheck.success) {
-                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.error(`\n⛔ [중단] 라이선스 확인 결과: ${precheck.message}`);
+                printLicenseNextAction(precheck.message);
                 console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
                 return;
             }
@@ -365,7 +379,8 @@ program
             console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
             const precheck = await License.checkLicenseStatus();
             if (!precheck.success) {
-                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.error(`\n⛔ [중단] 라이선스 확인 결과: ${precheck.message}`);
+                printLicenseNextAction(precheck.message);
                 console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
                 return;
             }
@@ -422,7 +437,8 @@ program
                     console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
                     const check = await License.verifyLicense();
                     if (!check.success) {
-                        console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
+                        console.error(`\n⛔ [중단] 라이선스 확인 결과: ${check.message}`);
+                        printLicenseNextAction(check.message);
                         await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
                         console.log(`👉 남은 ${targetTopics.length - i}건은 처리되지 않았습니다.`);
                         break;
@@ -479,7 +495,8 @@ program
             console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
             const precheck = await License.checkLicenseStatus();
             if (!precheck.success) {
-                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.error(`\n⛔ [중단] 라이선스 확인 결과: ${precheck.message}`);
+                printLicenseNextAction(precheck.message);
                 process.exit(1);
             }
             const featureMap = toFeatureMap(precheck.features);
@@ -489,7 +506,11 @@ program
             }
             console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
             const check = await License.verifyLicense();
-            if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
+            if (!check.success) {
+                console.error(`⛔ ${check.message}`);
+                printLicenseNextAction(check.message);
+                process.exit(1);
+            }
             await Core.publishToBlog(path.resolve(opts.dir));
             console.log("\n🎉 발행 완료.");
         } catch (e) {
@@ -537,7 +558,8 @@ program
             console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
             const precheck = await License.checkLicenseStatus();
             if (!precheck.success) {
-                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.error(`\n⛔ [중단] 라이선스 확인 결과: ${precheck.message}`);
+                printLicenseNextAction(precheck.message);
                 return;
             }
             const featureMap = toFeatureMap(precheck.features);
@@ -565,7 +587,11 @@ program
             } else {
                 console.log("🔐 [라이선스] 트렌드 시트 반영 직전 확인...");
                 const check = await License.verifyLicense();
-                if (!check.success) { console.error(`⛔ ${check.message}`); process.exit(1); }
+                if (!check.success) {
+                    console.error(`⛔ ${check.message}`);
+                    printLicenseNextAction(check.message);
+                    process.exit(1);
+                }
                 console.log(`📥 수집된 ${trendKeywords.length}개의 키워드를 구글 시트에 추가합니다...`);
                 await Utils.appendGoogleSheetTrends(trendKeywords, trendDate);
                 console.log('✅ 트렌드 키워드 추가 완료!');
@@ -600,7 +626,8 @@ program
             console.log("🔐 [라이선스] 실행 전 사전 유효성 확인...");
             const precheck = await License.checkLicenseStatus();
             if (!precheck.success) {
-                console.error(`\n⛔ [중단] 라이선스 문제 발생: ${precheck.message}`);
+                console.error(`\n⛔ [중단] 라이선스 확인 결과: ${precheck.message}`);
+                printLicenseNextAction(precheck.message);
                 console.log("👉 라이선스 확인 실패로 작업 시작 전 종료합니다.");
                 return;
             }
@@ -653,7 +680,8 @@ program
                     console.log("🔐 [라이선스] 블로그 발행 직전 확인...");
                     const check = await License.verifyLicense();
                     if (!check.success) {
-                        console.error(`\n⛔ [중단] 라이선스 문제 발생: ${check.message}`);
+                        console.error(`\n⛔ [중단] 라이선스 확인 결과: ${check.message}`);
+                        printLicenseNextAction(check.message);
                         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
                         console.log(`👉 남은 ${targetJobs.length - i}건은 처리되지 않았습니다.`);
                         break;

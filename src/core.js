@@ -24,12 +24,28 @@ async function clickIfVisible(locator) {
 
 async function dismissEditorPopups(page) {
 	let dismissedCount = 0;
-	for (let i = 0; i < 5; i++) {
+	for (let i = 0; i < 8; i++) {
 		let dismissedThisRound = false;
 
 		// 1) Help 패널 닫기
-		dismissedThisRound = await clickIfVisible(page.locator('button.se-help-panel-close-button')) || dismissedThisRound;
-		dismissedThisRound = await clickIfVisible(page.getByRole('button', { name: /help|도움말/i })) || dismissedThisRound;
+		const helpDismissSelectors = [
+			'button.se-help-panel-close-button',
+			'.se-help-panel button[aria-label*="닫기"]',
+			'.se-help-panel button[title*="닫기"]',
+			'.se-help-panel button:has-text("닫기")',
+			'button[aria-label*="도움"]',
+			'button[title*="도움"]'
+		];
+		for (const selector of helpDismissSelectors) {
+			const clicked = await clickIfVisible(page.locator(selector).first());
+			if (clicked) {
+				dismissedThisRound = true;
+				break;
+			}
+		}
+		if (!dismissedThisRound) {
+			dismissedThisRound = await clickIfVisible(page.getByRole('button', { name: /help|도움말/i })) || dismissedThisRound;
+		}
 
 		// 2) "이전 글이 있습니다. 로드하시겠습니까?" 류 팝업 닫기(취소/아니오 우선)
 		const popupDismissSelectors = [
@@ -54,6 +70,35 @@ async function dismissEditorPopups(page) {
 			if (clicked) {
 				dismissedThisRound = true;
 				break;
+			}
+		}
+
+		// 3) Windows 환경에서 렌더 타이밍 차이로 클릭 타이밍을 놓치면 ESC로 한 번 더 시도
+		if (!dismissedThisRound) {
+			let hasOverlay = false;
+			const overlaySelectors = [
+				'.se-help-panel',
+				'.se-popup',
+				'.se-popup-container',
+				'.se-popover',
+				'[role="dialog"]'
+			];
+			for (const selector of overlaySelectors) {
+				try {
+					const overlay = page.locator(selector).first();
+					if (await overlay.count() > 0 && await overlay.isVisible()) {
+						hasOverlay = true;
+						break;
+					}
+				} catch (e) { }
+			}
+
+			if (hasOverlay) {
+				try {
+					await page.keyboard.press('Escape');
+					await Utils.sleep(120);
+					dismissedThisRound = true;
+				} catch (e) { }
 			}
 		}
 
@@ -1204,6 +1249,7 @@ ${scrapedContext}`;
 				const representativeMaxAttempts = 3;
 				for (const item of contents) {
 					if (item.type !== 'image') {
+						await dismissEditorPopups(page);
 						await closeVisibleOglinkPopup(page);
 						if (!inListMode) {
 							await focusEditorTypingArea(page);
@@ -1302,6 +1348,7 @@ ${scrapedContext}`;
 					await page.keyboard.press('Enter');
 				}
 				else if (item.type === 'image') {
+					await dismissEditorPopups(page);
 					const prefix = String(item.index).padStart(2, '0');
 					// 🔧 [Fixed] 미리 스캔한 파일 목록 사용
 					const file = allFiles.find(f => f.startsWith(`${prefix}_`) && /\.(png|jpg|jpeg|webp)$/i.test(f));
