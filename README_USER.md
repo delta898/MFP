@@ -19,7 +19,7 @@
 
 ## 1. 빠른 시작 체크리스트 (권장 순서)
 
-아래 8개만 끝내면 실행할 수 있습니다.
+아래 7개만 끝내면 실행할 수 있습니다.
 
 1. Gemini API Key 발급
 2. Google Service Account JSON 발급
@@ -27,8 +27,7 @@
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
 5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
 6. `config/config.txt` 내용 수정
-7. `config/license.key` 파일 생성
-8. `./BlogGenius login` 실행
+7. `./BlogGenius login` 실행
 
 ### 1-1. 여기까지 되면 정상
 
@@ -66,10 +65,12 @@
 BlogGenius/
 ├─ config/
 │  ├─ config.txt
-│  ├─ license.key
 │  └─ service_account.json
 └─ ...
 ```
+
+참고:
+- 라이선스는 실행 시 자동 인증됩니다.
 
 ---
 
@@ -126,18 +127,9 @@ GEMINI_API_KEY = AIza...
 GOOGLE_SHEET_ID = 구글시트_ID
 ```
 
-라이선스 키 파일도 함께 만듭니다.
-
-파일: `config/license.key`
-
-```text
-발급받은_라이선스_키
-```
-
 포인트:
-- 라이선스 키는 `config/license.key` 파일 한 줄로 관리합니다.
-- 플랜 변경 시에도 이 파일의 키만 교체하면 됩니다.
-- 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 내부 기본값 사용):
+- 라이선스는 별도 설정 없이 자동으로 처리됩니다.
+- 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 기본값 사용):
   - `config/blog_prompt.md`
   - `config/shopping_prompt.md`
 
@@ -239,9 +231,9 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 
 ### Q3. 라이선스 오류가 납니다.
 
-- `config/license.key` 파일 존재 여부 확인
-- `config/license.key` 파일의 키 값 확인
-- 네트워크 연결 확인
+- 네트워크 연결 상태를 먼저 확인하세요.
+- 잠시 후 다시 실행해 보세요.
+- 계속 동일하면 오픈채팅으로 문의해 주세요.
 
 ---
 

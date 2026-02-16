@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const { machineIdSync } = require('node-machine-id');
 const CONFIG = require('./config-loader');
@@ -8,17 +10,66 @@ let supabase = null;
 if (CONFIG.LICENSE_CHK_URL && CONFIG.LICENSE_CHK_KEY) {
     supabase = createClient(CONFIG.LICENSE_CHK_URL, CONFIG.LICENSE_CHK_KEY);
 } else {
-    Logger.warn("⚠️ [License] 라이선스 서버 설정(URL/KEY)이 누락되었습니다.");
+    Logger.warn("⚠️ 라이선스 서버 설정이 누락되었습니다.");
 }
 
 function resolveLicenseKey(rawKey) {
     return String(rawKey || '').trim();
 }
 
-function maskLicenseKey(licenseKey) {
-    const value = String(licenseKey || '').trim();
-    if (!value) return '(empty)';
-    return value.length > 4 ? `${value.substring(0, 4)}****` : '****';
+let runtimeLicenseKey = '';
+
+function getResolvedLicenseKey() {
+    return resolveLicenseKey(process.env.LICENSE_KEY || runtimeLicenseKey || CONFIG.LICENSE_KEY);
+}
+
+function persistLicenseKeyFile(licenseKey) {
+    // 환경변수로 주입된 키는 파일에 덮어쓰지 않는다.
+    if (process.env.LICENSE_KEY) return true;
+
+    const targetPath = CONFIG.LICENSE_KEY_FILE_PATH || path.join(process.cwd(), 'config', 'license.key');
+    try {
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        fs.writeFileSync(targetPath, `${licenseKey}\n`, { encoding: 'utf-8', mode: 0o600 });
+        try { fs.chmodSync(targetPath, 0o600); } catch (e) { }
+        return true;
+    } catch (e) {
+        Logger.warn('⚠️ 라이선스 정보를 로컬에 저장하지 못했습니다. 다음 실행에서 다시 인증이 필요할 수 있습니다.');
+        return false;
+    }
+}
+
+async function ensureLicenseKey(hwid) {
+    const current = getResolvedLicenseKey();
+    if (current) {
+        runtimeLicenseKey = current;
+        return { success: true, licenseKey: current };
+    }
+
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류' };
+    }
+
+    Logger.info('🔐 라이선스 초기화 중...');
+    const { data, error } = await supabase.rpc('issue_test_license', { p_hwid: hwid });
+    if (error) {
+        Logger.error(`❌ 라이선스 초기화 실패: ${error.message}`);
+        return { success: false, message: '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+
+    const issuedKey = String(data?.license_key || '').trim();
+    if (!data?.success || !issuedKey) {
+        return { success: false, message: data?.message || '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+
+    runtimeLicenseKey = issuedKey;
+    if (persistLicenseKeyFile(issuedKey)) {
+        Logger.info('✅ 라이선스 초기화 완료');
+    } else {
+        Logger.warn('⚠️ 라이선스 인증 정보 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+    }
+
+    return { success: true, licenseKey: issuedKey };
 }
 
 const License = {
@@ -29,17 +80,13 @@ const License = {
      */
     checkLicenseStatus: async function() {
         try {
-            if (!supabase) {
-                return { success: false, message: '라이선스 서버 설정 오류 (pkg/secret.js 확인 필요)' };
-            }
-
-            const resolvedLicenseKey = resolveLicenseKey(process.env.LICENSE_KEY || CONFIG.LICENSE_KEY);
-            if (!resolvedLicenseKey) {
-                return { success: false, message: 'LICENSE_KEY가 비어 있습니다. config/license.key 파일에 발급받은 키를 입력해 주세요.' };
-            }
             const hwid = machineIdSync({ original: true });
-            const maskedKey = maskLicenseKey(resolvedLicenseKey);
-            Logger.info(`📡 라이선스 사전 검증 중... (Key: ${maskedKey})`);
+            const keyReady = await ensureLicenseKey(hwid);
+            if (!keyReady.success) {
+                return { success: false, message: keyReady.message };
+            }
+            const resolvedLicenseKey = keyReady.licenseKey;
+            Logger.info('📡 라이선스 사전 검증 중...');
 
             const { data, error } = await supabase
                 .rpc('check_license_status', {
@@ -50,7 +97,7 @@ const License = {
             if (error) {
                 const msg = String(error.message || '');
                 Logger.error(`❌ 서버 통신 에러: ${msg}`);
-                return { success: false, message: `서버 에러: ${msg}` };
+                return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
             }
 
             if (data && data.success) {
@@ -76,7 +123,7 @@ const License = {
             };
         } catch (e) {
             Logger.error(`❌ 라이선스 사전 검증 모듈 에러: ${e.message}`);
-            return { success: false, message: `내부 오류: ${e.message}` };
+            return { success: false, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
         }
     },
 
@@ -88,19 +135,19 @@ const License = {
         try {
             // 1. 설정 검증
             if (!supabase) {
-                return { success: false, message: '라이선스 서버 설정 오류 (pkg/secret.js 확인 필요)' };
-            }
-            const resolvedLicenseKey = resolveLicenseKey(process.env.LICENSE_KEY || CONFIG.LICENSE_KEY);
-            if (!resolvedLicenseKey) {
-                return { success: false, message: 'LICENSE_KEY가 비어 있습니다. config/license.key 파일에 발급받은 키를 입력해 주세요.' };
+                return { success: false, message: '라이선스 서버 설정 오류' };
             }
 
             // 2. HWID 추출 (기기 고유 ID)
             const hwid = machineIdSync({ original: true });
+            const keyReady = await ensureLicenseKey(hwid);
+            if (!keyReady.success) {
+                return { success: false, message: keyReady.message };
+            }
+            const resolvedLicenseKey = keyReady.licenseKey;
             
-            // 3. 로그 출력 (보안을 위해 키 일부 마스킹)
-            const maskedKey = maskLicenseKey(resolvedLicenseKey);
-            Logger.info(`📡 라이선스 검증 중... (Key: ${maskedKey})`);
+            // 3. 로그 출력
+            Logger.info('📡 라이선스 검증 중...');
 
             // 4. Supabase RPC 호출 (check_and_use_license)
             // 주의: 이 함수가 호출되면 서버에서 카운트가 차감된다고 가정합니다.
@@ -113,7 +160,7 @@ const License = {
             if (error) {
                 // RPC 에러 (예: 함수 없음, 파라미터 오류 등)
                 Logger.error(`❌ 서버 통신 에러: ${error.message}`);
-                return { success: false, message: `서버 에러: ${error.message}` };
+                return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
             }
 
             // data 구조: { success: true/false, message: '...', remaining: N }
@@ -142,7 +189,7 @@ const License = {
 
         } catch (e) {
             Logger.error(`❌ 라이선스 모듈 에러: ${e.message}`);
-            return { success: false, message: `내부 오류: ${e.message}` };
+            return { success: false, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
         }
     }
 };

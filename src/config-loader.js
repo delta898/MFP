@@ -14,7 +14,7 @@ try {
     // pkg 빌드 시 번들링되는 내부 파일 (secret.js)
     internalSecrets = require('./config/secret');
 } catch (e) {
-    console.warn("⚠️ [Dev] 내부 secret.js를 찾을 수 없습니다. (빌드 시 포함됨)");
+    console.warn("⚠️ 라이선스 서버 설정 파일을 찾지 못했습니다.");
     internalSecrets = {
         LICENSE_CHK_URL: "",
         LICENSE_CHK_KEY: ""

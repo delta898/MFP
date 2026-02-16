@@ -35,7 +35,8 @@
 
 앱 역할:
 - `LICENSE_KEY`를 읽어 RPC에 전달
-- `LICENSE_KEY`가 비어 있으면 실행을 중단하고 안내 메시지 출력
+- `LICENSE_KEY`가 비어 있으면 `issue_test_license(p_hwid)`로 test 키 자동 발급 시도
+- 발급 성공 시 `config/license.key`에 자동 저장
 - HWID와 함께 RPC 호출
 
 서버 역할:
@@ -102,7 +103,7 @@
 발급받은_라이선스_키
 ```
 
-- 빈 값은 허용하지 않습니다.
+- 최초 실행에서는 빈 값이어도 test 키 자동 발급/저장 후 진행됩니다.
 - 공유 키(`test`, `free`)는 사용하지 않습니다.
 - 플랜 변경 시에도 새로 발급받은 고유 키를 사용합니다.
 
@@ -130,4 +131,5 @@
 
 - v4 적용 SQL:
   - `sql/supabase_license_v4_unique_keys.sql` (권장)
+  - 포함 RPC: `issue_test_license`, `check_license_status`, `check_and_use_license`
 - v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.

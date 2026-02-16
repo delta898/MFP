@@ -24,8 +24,16 @@
 2. `email`을 항상 함께 기록합니다.
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
+5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
 
 ## 3. 운영 시나리오
+
+### 3.-1 최초 실행 자동 test 발급
+
+- 사용자가 `config/license.key` 없이 앱을 실행하면 자동으로 `issue_test_license(p_hwid)`를 호출합니다.
+- 발급 성공 시 앱이 `config/license.key`를 자동 저장합니다.
+- 운영자 개입은 기본적으로 필요하지 않습니다.
+- 실패 시(네트워크/DB/RPC 오류)만 운영자가 키를 수동 발급해 전달합니다.
 
 ### 3.0 가장 빠른 발급 (권장)
 

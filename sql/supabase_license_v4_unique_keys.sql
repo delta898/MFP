@@ -211,7 +211,158 @@ end;
 $$;
 
 -- ------------------------------------------------------------
--- 4) 사전 검증 RPC (무차감, 고유키 전용)
+-- 4) test 키 자동 발급 RPC (최초 실행용)
+-- ------------------------------------------------------------
+drop function if exists public.issue_test_license(text);
+
+create or replace function public.issue_test_license(
+    p_hwid text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+    v_now timestamptz := timezone('utc', now());
+    v_hwid text := trim(coalesce(p_hwid, ''));
+    v_hwid_hash text;
+    v_non_test_used boolean := false;
+    v_test_exhausted_at timestamptz;
+    v_test_limit integer := 20;
+    v_license_key text;
+    v_try integer := 0;
+begin
+    if v_hwid = '' then
+        return jsonb_build_object('success', false, 'message', 'HWID가 비어 있습니다.');
+    end if;
+
+    v_hwid_hash := encode(digest(convert_to(v_hwid, 'UTF8'), 'sha256'), 'hex');
+
+    select quota_limit
+      into v_test_limit
+      from public.license_plans
+     where plan_code = 'test'
+       and status = 'active'
+     limit 1;
+    v_test_limit := coalesce(v_test_limit, 20);
+
+    select non_test_used, test_exhausted_at
+      into v_non_test_used, v_test_exhausted_at
+      from public.license_device_states
+     where hwid_hash = v_hwid_hash
+     for update;
+
+    if found then
+        if coalesce(v_non_test_used, false) then
+            return jsonb_build_object(
+                'success', false,
+                'message', 'test 플랜은 1회성입니다. 다른 플랜 사용 후에는 재사용할 수 없습니다.'
+            );
+        end if;
+        if v_test_exhausted_at is not null then
+            return jsonb_build_object(
+                'success', false,
+                'message', 'test 플랜 1회 사용이 이미 종료되었습니다.'
+            );
+        end if;
+    end if;
+
+    -- 동일 HWID에 이미 발급된 active test 키가 있으면 재사용
+    select l.license_key
+      into v_license_key
+      from public.licenses l
+     where l.hwid = v_hwid
+       and lower(coalesce(l.plan_code, '')) = 'test'
+       and coalesce(l.status, 'active') = 'active'
+       and (l.expires_at is null or l.expires_at > v_now)
+     order by l.created_at desc nulls last
+     limit 1;
+
+    if v_license_key is null then
+        -- 충돌 가능성이 매우 낮지만 안전하게 재시도
+        while v_try < 5 and v_license_key is null loop
+            v_try := v_try + 1;
+            v_license_key :=
+                'BG-' ||
+                substr(upper(encode(gen_random_bytes(16), 'hex')), 1, 8) || '-' ||
+                substr(upper(encode(gen_random_bytes(16), 'hex')), 1, 8) || '-' ||
+                substr(upper(encode(gen_random_bytes(16), 'hex')), 1, 8) || '-' ||
+                substr(upper(encode(gen_random_bytes(16), 'hex')), 1, 8);
+
+            insert into public.licenses (
+                license_key,
+                plan_code,
+                tier,
+                status,
+                hwid,
+                usage_limit,
+                usage_count,
+                reset_date,
+                license_mode,
+                expires_at,
+                note
+            )
+            values (
+                v_license_key,
+                'test',
+                'test',
+                'active',
+                v_hwid,
+                v_test_limit,
+                0,
+                null,
+                'metered',
+                null,
+                'auto-issued test key'
+            )
+            on conflict (license_key) do nothing;
+
+            if not found then
+                v_license_key := null;
+            end if;
+        end loop;
+    end if;
+
+    if v_license_key is null then
+        return jsonb_build_object('success', false, 'message', 'test 라이선스 키 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    end if;
+
+    insert into public.license_device_states (
+        hwid_hash,
+        test_started_at,
+        non_test_used,
+        last_seen_at,
+        updated_at,
+        note
+    )
+    values (
+        v_hwid_hash,
+        v_now,
+        false,
+        v_now,
+        v_now,
+        'test key auto issued'
+    )
+    on conflict (hwid_hash) do update
+    set test_started_at = coalesce(public.license_device_states.test_started_at, excluded.test_started_at),
+        last_seen_at = excluded.last_seen_at,
+        updated_at = excluded.updated_at;
+
+    return jsonb_build_object(
+        'success', true,
+        'message', 'test 라이선스 키 자동 발급 완료',
+        'license_key', v_license_key,
+        'plan_code', 'test'
+    );
+end;
+$$;
+
+grant execute on function public.issue_test_license(text) to anon, authenticated, service_role;
+revoke all on function public.issue_test_license(text) from public;
+
+-- ------------------------------------------------------------
+-- 5) 사전 검증 RPC (무차감, 고유키 전용)
 -- ------------------------------------------------------------
 drop function if exists public.check_license_status(text, text);
 
@@ -370,7 +521,7 @@ grant execute on function public.check_license_status(text, text) to anon, authe
 revoke all on function public.check_license_status(text, text) from public;
 
 -- ------------------------------------------------------------
--- 5) 차감 RPC (고유키 전용)
+-- 6) 차감 RPC (고유키 전용)
 -- ------------------------------------------------------------
 drop function if exists public.check_and_use_license(text, text);
 
