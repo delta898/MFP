@@ -28,12 +28,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # PoC: yao-pkg + 단일 타깃(mac-arm64, node20)
+          - os: ubuntu-latest
+            target: node20-linux-x64
+            output_binary: BlogGenius-linux
+            platform_name: linux-x64
+            zip_name: BlogGenius-linux-x64.zip
+
+          - os: macos-latest
+            target: node20-macos-x64
+            output_binary: BlogGenius-mac-intel
+            platform_name: mac-intel
+            zip_name: BlogGenius-mac-intel.zip
+
           - os: macos-latest
             target: node20-macos-arm64
             output_binary: BlogGenius-mac-arm64
             platform_name: mac-arm64
             zip_name: BlogGenius-mac-arm64.zip
+
+          - os: windows-latest
+            target: node20-win-x64
+            output_binary: BlogGenius.exe
+            platform_name: win-x64
+            zip_name: BlogGenius-win-x64.zip
 
     steps:
       - uses: actions/checkout@v4

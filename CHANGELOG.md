@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-02-16
+
+### Changed
+- GitHub Actions 패키징 타깃 플랫폼 재확장
+  - `node20-linux-x64`, `node20-win-x64`, `node20-macos-x64`, `node20-macos-arm64` 동시 빌드
+  - 산출 ZIP: `BlogGenius-linux-x64.zip`, `BlogGenius-win-x64.zip`, `BlogGenius-mac-intel.zip`, `BlogGenius-mac-arm64.zip`
+
 ## [0.8.11] - 2026-02-16
 
 ### Changed
