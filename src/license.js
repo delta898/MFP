@@ -12,18 +12,20 @@ if (CONFIG.LICENSE_CHK_URL && CONFIG.LICENSE_CHK_KEY) {
 }
 
 function resolveLicenseKey(rawKey) {
-    const value = String(rawKey || '').trim();
-    if (!value) return 'test';
-    if (value.toLowerCase() === 'test') return 'test';
-    if (value.toLowerCase() === 'free') return 'free';
-    return value;
+    return String(rawKey || '').trim();
+}
+
+function maskLicenseKey(licenseKey) {
+    const value = String(licenseKey || '').trim();
+    if (!value) return '(empty)';
+    return value.length > 4 ? `${value.substring(0, 4)}****` : '****';
 }
 
 const License = {
     /**
      * 라이선스 사전 검증 (무차감)
      * - 서버 RPC: check_license_status
-     * @returns {Promise<{success: boolean, message: string, remaining?: number, precheckUnavailable?: boolean}>}
+     * @returns {Promise<{success: boolean, message: string, remaining?: number}>}
      */
     checkLicenseStatus: async function() {
         try {
@@ -32,12 +34,11 @@ const License = {
             }
 
             const resolvedLicenseKey = resolveLicenseKey(process.env.LICENSE_KEY || CONFIG.LICENSE_KEY);
+            if (!resolvedLicenseKey) {
+                return { success: false, message: 'LICENSE_KEY가 비어 있습니다. config/license.key 파일에 발급받은 키를 입력해 주세요.' };
+            }
             const hwid = machineIdSync({ original: true });
-            const maskedKey = resolvedLicenseKey === 'free'
-                ? 'free'
-                : (resolvedLicenseKey === 'test'
-                    ? 'test'
-                    : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****'));
+            const maskedKey = maskLicenseKey(resolvedLicenseKey);
             Logger.info(`📡 라이선스 사전 검증 중... (Key: ${maskedKey})`);
 
             const { data, error } = await supabase
@@ -48,10 +49,6 @@ const License = {
 
             if (error) {
                 const msg = String(error.message || '');
-                if (msg.includes('check_license_status') && msg.includes('does not exist')) {
-                    Logger.warn('⚠️ 라이선스 사전검증 RPC(check_license_status)가 없어 사전 검증을 건너뜁니다.');
-                    return { success: true, message: '사전검증 RPC 미설치', remaining: undefined, precheckUnavailable: true };
-                }
                 Logger.error(`❌ 서버 통신 에러: ${msg}`);
                 return { success: false, message: `서버 에러: ${msg}` };
             }
@@ -94,16 +91,15 @@ const License = {
                 return { success: false, message: '라이선스 서버 설정 오류 (pkg/secret.js 확인 필요)' };
             }
             const resolvedLicenseKey = resolveLicenseKey(process.env.LICENSE_KEY || CONFIG.LICENSE_KEY);
+            if (!resolvedLicenseKey) {
+                return { success: false, message: 'LICENSE_KEY가 비어 있습니다. config/license.key 파일에 발급받은 키를 입력해 주세요.' };
+            }
 
             // 2. HWID 추출 (기기 고유 ID)
             const hwid = machineIdSync({ original: true });
             
             // 3. 로그 출력 (보안을 위해 키 일부 마스킹)
-            const maskedKey = resolvedLicenseKey === 'free'
-                ? 'free'
-                : (resolvedLicenseKey === 'test'
-                    ? 'test'
-                    : (resolvedLicenseKey.length > 4 ? `${resolvedLicenseKey.substring(0, 4)}****` : '****'));
+            const maskedKey = maskLicenseKey(resolvedLicenseKey);
             Logger.info(`📡 라이선스 검증 중... (Key: ${maskedKey})`);
 
             // 4. Supabase RPC 호출 (check_and_use_license)

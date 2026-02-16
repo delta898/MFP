@@ -398,9 +398,6 @@ program
                 targetTopics = targetTopics.slice(0, planMaxBlogPosts);
             }
 
-            if (precheck.precheckUnavailable) {
-                console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
-            }
             const precheckAllowedCount = (typeof precheck.remaining === 'number' && precheck.remaining >= 0)
                 ? precheck.remaining
                 : Number.POSITIVE_INFINITY;
@@ -644,9 +641,6 @@ program
                 targetJobs = targetJobs.slice(0, planMaxShoppingPosts);
             }
 
-            if (precheck.precheckUnavailable) {
-                console.log("ℹ️ 사전 검증 RPC가 없어 잔여 횟수 기반 선제 제한은 건너뜁니다.");
-            }
             const precheckAllowedCount = (typeof precheck.remaining === 'number' && precheck.remaining >= 0)
                 ? precheck.remaining
                 : Number.POSITIVE_INFINITY;

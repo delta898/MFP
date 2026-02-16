@@ -1,107 +1,134 @@
-# License Operations Guide (v3)
+# License Operations Guide (v4)
 
-이 문서는 BlogGenius v3 라이선스 운영 절차를 정리합니다.
+이 문서는 BlogGenius v4 라이선스 운영 절차를 정리합니다.
+
+기준:
+- 공유 키(`test`, `free`)를 사용하지 않습니다.
+- 모든 플랜(`test/free/pro/ultra`)은 고유 `license_key`를 발급해 운영합니다.
 
 ## 1. 적용 순서
 
-1. Supabase SQL Editor에서 `sql/supabase_license_v3.sql` 실행
-2. 필요 시 `sql/supabase_license_precheck.sql` 실행 (사전검증 함수만 갱신할 때)
+1. Supabase SQL Editor에서 v4 SQL 적용
+  - `sql/supabase_license_v4_unique_keys.sql`
+2. 운영용 발급/갱신 SQL 사용
+  - `sql/supabase_license_operations.sql`
+  - `sql/supabase_issue_pro_license.sql`
+  - `sql/supabase_issue_test_free_license.sql`
 
-## 2. 기본 정책 확인
+참고:
+- v4 적용 환경에서는 `supabase_license_v4_unique_keys.sql`의 RPC가 기준입니다.
 
-- 기본 키: `test`
-- 공용 키:
-  - `test` -> `test` 플랜
-  - `free` -> `free` 플랜
-- 유료 키: `licenses` 테이블에 발급
-- test 1회성:
-  - `test -> free` 전환 허용
-  - `free/pro/ultra` 사용 이력 이후 `test` 재사용 불가
-  - `test` 소진 후 재사용 불가
+## 2. 기본 운영 원칙
+
+1. `LICENSE_KEY`는 사용자별 고유값을 사용합니다.
+2. `email`을 항상 함께 기록합니다.
+3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
+4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 
 ## 3. 운영 시나리오
 
-### 3.0 빠른 발급(복붙 템플릿)
+### 3.0 가장 빠른 발급 (권장)
 
-가장 빠른 방법은 아래 템플릿 1개를 실행하는 것입니다.
+파일: `sql/supabase_issue_pro_license.sql`
 
-- 파일: `sql/supabase_issue_pro_license.sql`
-- 수정할 값: `p_email`, `p_usage_limit`, `p_note`
+운영자 순서:
+1. SQL 파일 열기
+2. `params` CTE의 값 수정 (`p_email`, `p_usage_limit`, `p_note`)
+3. 실행 후 반환된 `license_key`를 사용자에게 전달
+4. 사용자는 `config/license.key`에 입력
+
+test/free 고유키를 빠르게 발급하려면:
+
+- 파일: `sql/supabase_issue_test_free_license.sql`
+- 수정할 값:
+  - `p_plan_code` (`test` 또는 `free`)
+  - `p_email`
+  - `p_usage_limit_override` (선택)
+  - `p_note`
 - 실행 결과: `license_key` 반환 (이 값을 사용자에게 전달)
 
-운영자 체크 순서:
-1. Supabase SQL Editor에서 `sql/supabase_issue_pro_license.sql` 열기
-2. `params` CTE의 `p_email`, `p_usage_limit` 수정
-3. 실행 후 `returning` 결과의 `license_key` 복사
-4. 사용자에게 `LICENSE_KEY`로 전달 (사용자는 `config/config.txt`에 입력)
+### 3.1 test 플랜 고유키 발급
 
-### 3.1 유료 키 신규 발급 (metered / pro)
+- 권장: `sql/supabase_issue_test_free_license.sql` 사용 (`p_plan_code='test'`)
+- 기본값: 20회, 1회성(`reset_date=null`)
 
-`sql/supabase_license_operations.sql`의 A 섹션 사용
+### 3.2 free 플랜 고유키 발급 (월 갱신형)
 
-- `license_key`, `email`, `usage_limit`, `plan_code` 수정
-- 기본 권장: `plan_code='pro'`, `license_mode='metered'`
+- 권장: `sql/supabase_issue_test_free_license.sql` 사용 (`p_plan_code='free'`)
+- 기본값: 월 15회(`reset_date=now + 1 month`)
 
-### 3.2 무제한 키 발급 (ultra)
+### 3.3 pro / ultra 발급
 
-`sql/supabase_license_operations.sql`의 B 섹션 사용
+- `pro`(차감형), `ultra`(무제한) 발급은 `sql/supabase_license_operations.sql`의 A/B 섹션 사용
+- `ultra` 구독형은 C 섹션(`expires_at`)으로 운영
 
-- `plan_code='ultra'`
-- `license_mode='unlimited'`
+### 3.4 플랜 전환 (free -> pro 등)
 
-### 3.3 기간형(구독형) 무제한
-
-`sql/supabase_license_operations.sql`의 C 섹션 사용
-
-- `expires_at`만 연장/갱신
-
-### 3.4 test/free 정책 수정
-
-`license_plans` 테이블만 수정하면 즉시 반영됩니다.
+권장:
+- 동일 사용자라면 **기존 key 유지 + plan 변경** 방식으로 운영하면 사용자 안내가 단순합니다.
 
 예시:
-
 ```sql
-update public.license_plans
-set quota_limit = 30,
-    quota_cycle = 'monthly',
-    updated_at = timezone('utc', now())
-where plan_code = 'free';
+update public.licenses
+set plan_code = 'pro',
+    tier = 'pro',
+    status = 'active',
+    usage_limit = 300,
+    usage_count = 0,
+    reset_date = timezone('utc', now()) + interval '1 month',
+    license_mode = 'metered',
+    expires_at = null,
+    updated_at = timezone('utc', now()),
+    note = 'upgraded from free to pro'
+where license_key = 'FREE-KEY-REPLACE-ME';
 ```
 
-날짜 지정 트렌드(`trends --date`) 권한까지 함께 조정하려면:
+대안:
+- 새 키를 발급해 전달해도 됩니다. (보안/운영 정책에 따라 선택)
+
+### 3.5 비활성화 / 환불 / 해지
 
 ```sql
-update public.license_plans
-set features = jsonb_set(coalesce(features, '{}'::jsonb), '{enable_trends_date_override}', 'false'::jsonb, true),
-    updated_at = timezone('utc', now())
-where plan_code = 'free';
+update public.licenses
+set status = 'inactive',
+    updated_at = timezone('utc', now()),
+    note = 'deactivated by operator'
+where license_key = 'LICENSE-KEY-REPLACE-ME';
 ```
 
-### 3.5 기본 키를 test -> free로 바꾸기
+### 3.6 HWID 재바인딩
 
 ```sql
-update public.license_access_keys
-set is_default = (access_key = 'free'),
-    updated_at = timezone('utc', now());
+update public.licenses
+set hwid = null,
+    updated_at = timezone('utc', now()),
+    note = 'hwid reset by operator'
+where license_key = 'LICENSE-KEY-REPLACE-ME';
 ```
 
-## 4. free -> 유료 전환
+## 4. 사용자 안내 템플릿
 
-1. 유료 키 발급 (`licenses` insert/upsert)
-2. 사용자에게 새 키 전달
-3. 사용자가 `config/config.txt`에서 `LICENSE_KEY` 변경
-4. 첫 실행 시 HWID 자동 바인딩
-
-참고:
-- test/free 카운트는 유료로 합산하지 않습니다.
-- 공용(test/free) 카운터는 `free_license_usages`에 유지됩니다.
-- test 재사용 차단 상태는 `license_device_states`에 유지됩니다.
+1. 발급 안내:
+  - `LICENSE_KEY`를 전달하고 `config/license.key`에 입력하도록 안내
+2. 플랜 전환 안내:
+  - 기존 키 유지 전환이면 별도 조치 없음
+  - 새 키 발급 전환이면 `config/license.key`의 키 교체 안내
+3. 기기 변경 안내:
+  - 운영자가 HWID reset 후 재실행 요청
 
 ## 5. 점검 체크리스트
 
-1. `license_plans.status='active'` 인가
-2. `license_access_keys` 매핑이 올바른가 (`test`, `free`)
-3. 유료 키의 `status`, `plan_code`, `license_mode`, `expires_at` 값이 맞는가
-4. HWID 재바인딩이 필요하면 `licenses.hwid = null` 처리했는가
-5. test 재진입 이슈 점검 시 `license_device_states.non_test_used/test_exhausted_at` 확인
+1. `public.licenses.status='active'` 인가
+2. `plan_code`, `license_mode`, `usage_limit`, `reset_date`, `expires_at` 값이 정책과 일치하는가
+3. `email`이 정확히 입력되어 있는가
+4. 필요 시 `hwid` 재바인딩(`null`)이 처리되었는가
+5. 차감형 플랜에서 `usage_count <= usage_limit` 상태인가
+
+## 6. SQL 파일 역할 요약
+
+- `sql/supabase_issue_pro_license.sql`
+  - 운영자가 빠르게 pro 키를 발급할 때 사용
+- `sql/supabase_issue_test_free_license.sql`
+  - 운영자가 test/free 고유키를 빠르게 발급할 때 사용
+- `sql/supabase_license_operations.sql`
+  - 발급/갱신/비활성화/HWID 재바인딩 운영 작업

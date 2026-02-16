@@ -27,6 +27,8 @@ try {
 const PATHS = {
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
     configFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt'),
+    licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
+    licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
     blogPromptOverride: path.join(ROOT_DIR, 'config', 'blog_prompt.md'),
     blogPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'blog_prompt.md'),
@@ -71,10 +73,28 @@ function loadUserConfig() {
     return config;
 }
 
+function loadLicenseKey() {
+    const candidates = [PATHS.licenseKeyFile, PATHS.licenseKeyFileFromExec];
+    const matchedPath = candidates.find((filePath) => fs.existsSync(filePath));
+    if (!matchedPath) {
+        return { value: '', path: PATHS.licenseKeyFile };
+    }
+    try {
+        const value = String(fs.readFileSync(matchedPath, 'utf-8') || '')
+            .split(/\r?\n/)
+            .find((line) => String(line || '').trim() !== '') || '';
+        return { value: String(value).trim(), path: matchedPath };
+    } catch (e) {
+        return { value: '', path: matchedPath };
+    }
+}
+
 // 사용자 설정 로드
 const userConfig = loadUserConfig();
 delete userConfig.NAVER_CLIENT_ID;
 delete userConfig.NAVER_CLIENT_SECRET;
+delete userConfig.LICENSE_KEY;
+const licenseKeyInfo = loadLicenseKey();
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -121,6 +141,7 @@ module.exports = {
 
     // 🔧 [Fixed] 환경 변수 우선 지원 (보안 강화)
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
+    LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
     NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
     NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || '',
@@ -143,6 +164,7 @@ module.exports = {
     // 4. 경로 상수 (호환성 유지)
     PATHS: PATHS,
     AUTH_FILE_PATH: PATHS.auth,
+    LICENSE_KEY_FILE_PATH: licenseKeyInfo.path,
     BLOG_PROMPT_PATH: blogPromptPath,
     SHOPPING_PROMPT_PATH: shoppingPromptPath,
     WORKSPACE_DIR: PATHS.workspace,

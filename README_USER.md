@@ -19,7 +19,7 @@
 
 ## 1. 빠른 시작 체크리스트 (권장 순서)
 
-아래 7개만 끝내면 실행할 수 있습니다.
+아래 8개만 끝내면 실행할 수 있습니다.
 
 1. Gemini API Key 발급
 2. Google Service Account JSON 발급
@@ -27,7 +27,8 @@
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
 5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
 6. `config/config.txt` 내용 수정
-7. `./BlogGenius login` 실행
+7. `config/license.key` 파일 생성
+8. `./BlogGenius login` 실행
 
 ### 1-1. 여기까지 되면 정상
 
@@ -44,7 +45,7 @@
 
 1. [Google AI Studio](https://aistudio.google.com/) 접속
 2. `Get API key` 클릭
-3. 키(`AIza...`) 복사 -> config/config.txt 파일에 반영
+3. 키(`AIza...`) 복사 -> `config/config.txt` 파일에 반영
 
 ---
 
@@ -65,6 +66,7 @@
 BlogGenius/
 ├─ config/
 │  ├─ config.txt
+│  ├─ license.key
 │  └─ service_account.json
 └─ ...
 ```
@@ -76,7 +78,7 @@ BlogGenius/
 - [구글 서비스 계정 발급 안내 참고](https://buly.kr/5UJLf0u)
 
 1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
-2. URL에서 시트 ID 복사 -> config/config.txt 파일에 반영
+2. URL에서 시트 ID 복사 -> `config/config.txt` 파일에 반영
 예시:
 `https://docs.google.com/spreadsheets/d/1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY/edit?gid=1568478969`
 위 URL의 시트 ID는 `1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY` 입니다.
@@ -115,20 +117,26 @@ BlogGenius/
 
 ---
 
-## 3. config.txt 설정 수정
+## 3. 설정 파일 수정
 - 에디터에서 config/config.txt 파일을 엽니다.
 
 ```ini
 NAVER_ID = 본인_네이버_아이디
-LICENSE_KEY = test
 GEMINI_API_KEY = AIza...
 GOOGLE_SHEET_ID = 구글시트_ID
 ```
 
+라이선스 키 파일도 함께 만듭니다.
+
+파일: `config/license.key`
+
+```text
+발급받은_라이선스_키
+```
+
 포인트:
-- `LICENSE_KEY = test` 기본값으로 시작하면 됩니다.
-- `free`는 정식 무료 플랜(월 갱신) 키로 사용할 수 있습니다.
-- 유료 라이선스 사용 시 나중에 키만 교체하면 됩니다.
+- 라이선스 키는 `config/license.key` 파일 한 줄로 관리합니다.
+- 플랜 변경 시에도 이 파일의 키만 교체하면 됩니다.
 - 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 내부 기본값 사용):
   - `config/blog_prompt.md`
   - `config/shopping_prompt.md`
@@ -231,8 +239,8 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 
 ### Q3. 라이선스 오류가 납니다.
 
-- `config/config.txt`의 `LICENSE_KEY` 확인
-- 무료 사용은 `free`로 시작 가능
+- `config/license.key` 파일 존재 여부 확인
+- `config/license.key` 파일의 키 값 확인
 - 네트워크 연결 확인
 
 ---

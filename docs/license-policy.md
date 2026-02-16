@@ -1,19 +1,18 @@
-# License Policy (BlogGenius v3)
+# License Policy (BlogGenius v4)
 
-이 문서는 BlogGenius의 플랜 기반 라이선스 정책(v3)을 정리합니다.
+이 문서는 BlogGenius의 플랜 기반 라이선스 정책(v4, 고유키 통합)을 정리합니다.
 
 ## 1. 정책 요약
 
-- 기본 라이선스 키: `test`
+- 공유 키(`test`, `free`)는 사용하지 않습니다.
+- 모든 플랜은 고유 라이선스 키(권장: 16-byte 랜덤) 기반으로 동작합니다.
 - 플랜: `test`, `free`, `pro`, `ultra`
 - `test`: 모든 기능 허용, 1회성 20회(`quota_cycle=none`)
-- `free`: 일부/무료 플랜, 월 15회(`quota_cycle=monthly`)
+- `free`: 일부 기능, 월 15회(`quota_cycle=monthly`)
 - `pro`: 모든 기능 허용, 월 100회
 - `ultra`: 모든 기능 허용, 무제한
-- 날짜 지정 트렌드(`trends --date`):
-  - `test/pro/ultra`: 허용
-  - `free`: 기본 비허용 (`enable_trends_date_override=false`)
-- test 플랜 1회성 규칙:
+- 날짜 지정 트렌드(`trends --date`)는 feature flag(`enable_trends_date_override`)로 제어합니다.
+- test 1회성 규칙:
   - `test -> 만료 -> free` 전환은 허용
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
   - `test` 소진 후에는 다시 `test` 사용 불가
@@ -29,20 +28,21 @@
 
 ## 2. 구조
 
-라이선스 검증/차감은 모두 Supabase RPC에서 처리합니다.
+라이선스 검증/차감은 Supabase RPC에서 처리합니다.
 
 - 사전 검증(무차감): `check_license_status`
 - 실제 차감: `check_and_use_license`
 
 앱 역할:
-- `LICENSE_KEY` 읽기
-- 빈 값이면 `test`로 정규화
+- `LICENSE_KEY`를 읽어 RPC에 전달
+- `LICENSE_KEY`가 비어 있으면 실행을 중단하고 안내 메시지 출력
 - HWID와 함께 RPC 호출
 
 서버 역할:
-- 키가 공용키(`test`, `free`)인지 개별 유료키인지 판단
+- 입력된 `license_key`로 라이선스 단건 조회
 - 플랜 정책/기능 조회
 - 차감/거부/잔여 반환
+- 월 리셋 플랜은 `reset_date` 또는 `next_quota_reset_at` 기준으로 리셋 처리
 
 ## 3. 테이블
 
@@ -55,67 +55,56 @@
 - `quota_limit`, `quota_cycle`
 - `features` (jsonb): 기능 플래그/제한값
 
-### 3.2 `public.license_access_keys`
+### 3.2 `public.licenses`
 
-공용 키 매핑 테이블
+모든 플랜의 고유 라이선스를 저장하는 테이블
 
-- `access_key`: `test`, `free`
+- `license_key` (UNIQUE)
+- `status` (`active`, `paused`, `expired`, ...)
 - `plan_code`
-- `is_default` (`test=true`)
-
-### 3.3 `public.licenses`
-
-개별 유료 키 테이블(기존 유지)
-
-- `license_key`, `status`, `hwid`, `email`
-- `plan_code` (`pro`, `ultra` 등)
-- `usage_limit`, `usage_count`, `reset_date` (필요 시 개별 override)
+- `hwid`, `email`
+- `usage_limit`, `usage_count`, `reset_date` (필요 시 override)
 - `license_mode` (`metered`, `unlimited`)
 - `expires_at`
 
-### 3.4 `public.free_license_usages`
+### 3.3 `public.license_device_states` (선택)
 
-공용 키(test/free) 사용량 카운터
-
-- `hwid_hash` + `access_key` 조합으로 카운트
-- `usage_limit`, `usage_count`, `period_start`, `period_end`
-
-### 3.5 `public.license_device_states`
-
-기기 단위 1회성 정책 강제 테이블
+기기 단위 test 1회성 정책 강제 테이블
 
 - `hwid_hash` (PK)
 - `test_started_at`, `test_exhausted_at`
-- `non_test_used` (free/pro/ultra 사용 이력)
+- `non_test_used`
 
-이 테이블로 `test` 재진입 차단을 강제합니다.
+이 테이블을 통해 test 재진입 차단을 강제합니다.
+
+### 3.4 `public.payment_events` (구독 운영 시 권장)
+
+결제 웹훅 중복 처리 및 감사 로그용
+
+- `provider`, `event_id` (UNIQUE)
+- `event_type`, `payload_json`, `processed_at`
 
 ## 4. RPC 동작
 
-### 4.1 공용 키 경로 (`test`, `free`)
-
-1. `license_access_keys`에서 플랜 결정
-2. `license_plans`에서 quota/features 조회
-3. `free_license_usages`에서 `hwid_hash + access_key` 카운트 처리
-4. `quota_cycle` 기준 리셋 후 차감
-
-### 4.2 개별 유료 키 경로
+모든 키는 동일 경로로 처리합니다.
 
 1. `licenses.license_key` 조회
 2. `status`, `expires_at`, `hwid` 확인
-3. `licenses.plan_code`로 `license_plans` 조회
+3. `plan_code` 기반으로 `license_plans` 조회
 4. `metered`면 차감, `unlimited`면 무차감 승인
+5. `quota_cycle=monthly`면 리셋 시점 도달 시 카운트 리셋
 
 ## 5. 설정 값
 
-`config/config.txt`:
+`config/license.key`:
 
 ```txt
-LICENSE_KEY = test
+발급받은_라이선스_키
 ```
 
-- 빈 값도 내부에서 `test`로 처리됩니다.
-- 정식 무료 플랜은 `LICENSE_KEY = free`로 사용 가능합니다.
+- 빈 값은 허용하지 않습니다.
+- 공유 키(`test`, `free`)는 사용하지 않습니다.
+- 플랜 변경 시에도 새로 발급받은 고유 키를 사용합니다.
 
 ## 6. 기능 제한(Feature Flags)
 
@@ -125,23 +114,20 @@ LICENSE_KEY = test
 
 ```json
 {
+  "cmd_pub": true,
   "cmd_batch": true,
-  "cmd_shopping": true,
-  "enable_trends_date_override": true,
+  "cmd_trends": false,
+  "cmd_shopping": false,
   "image_generation": true,
-  "enable_related_posts_auto_link": true,
-  "max_blog_posts_per_run": 3
+  "max_blog_posts_per_run": 3,
+  "max_shopping_posts_per_run": 3,
+  "enable_related_posts_auto_link": false,
+  "enable_trends_date_override": false
 }
 ```
 
-- `enable_trends_date_override`:
-  - `true`: `trends --date YYYY-MM-DD|yesterday` 허용
-  - `false`: 기본 `trends`만 허용(날짜 지정 불가)
+## 7. SQL 반영 메모
 
-현재 앱은 잔여 횟수 중심으로 동작하며, 기능 플래그는 RPC 응답으로 함께 반환됩니다.
-후속 단계에서 명령별 게이트를 이 값 기준으로 확장할 수 있습니다.
-
-## 7. 적용 SQL
-
-- `sql/supabase_license_v3.sql` (권장, 최초/마이그레이션)
-- `sql/supabase_license_precheck.sql` (사전검증 RPC만 재배포할 때)
+- v4 적용 SQL:
+  - `sql/supabase_license_v4_unique_keys.sql` (권장)
+- v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.
