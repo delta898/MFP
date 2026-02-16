@@ -89,6 +89,16 @@ BlogGenius.exe login
 pause
 EOF
         # 2) 일괄 발행
+        cat > "$TARGET_DIR/실행하기_트렌드수집.bat" << 'EOF'
+@echo off
+chcp 65001 > nul
+title BlogGenius Trends Mode
+echo.
+echo [BlogGenius] 트렌드 수집(Trends)을 시작합니다...
+BlogGenius.exe trends
+pause
+EOF
+        # 3) 일괄 발행
         cat > "$TARGET_DIR/실행하기_일괄발행.bat" << 'EOF'
 @echo off
 chcp 65001 > nul
@@ -98,7 +108,7 @@ echo [BlogGenius] 엑셀 대량 발행(Batch)을 시작합니다...
 BlogGenius.exe batch
 pause
 EOF
-        # 3) 쇼핑 발행
+        # 4) 쇼핑 발행
         cat > "$TARGET_DIR/실행하기_쇼핑발행.bat" << 'EOF'
 @echo off
 chcp 65001 > nul

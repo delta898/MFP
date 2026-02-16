@@ -21,6 +21,20 @@
 
 ## 3. 운영 시나리오
 
+### 3.0 빠른 발급(복붙 템플릿)
+
+가장 빠른 방법은 아래 템플릿 1개를 실행하는 것입니다.
+
+- 파일: `sql/supabase_issue_pro_license.sql`
+- 수정할 값: `p_email`, `p_usage_limit`, `p_note`
+- 실행 결과: `license_key` 반환 (이 값을 사용자에게 전달)
+
+운영자 체크 순서:
+1. Supabase SQL Editor에서 `sql/supabase_issue_pro_license.sql` 열기
+2. `params` CTE의 `p_email`, `p_usage_limit` 수정
+3. 실행 후 `returning` 결과의 `license_key` 복사
+4. 사용자에게 `LICENSE_KEY`로 전달 (사용자는 `config/config.txt`에 입력)
+
 ### 3.1 유료 키 신규 발급 (metered / pro)
 
 `sql/supabase_license_operations.sql`의 A 섹션 사용

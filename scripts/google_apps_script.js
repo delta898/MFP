@@ -168,7 +168,7 @@ function handleKeywordResearch(e, sheet, range) {
                 relKw,      // keywords (연관검색어)
                 '',         // 참고/지시 사항
                 '대기',     // 상태
-                'No',       // 이미지 생성
+                'Yes',       // 이미지 생성
                 'Yes',      // 외부 참고 여부
                 '',         // 참고 URL (배치 실행 시 자동 수집)
                 '',         // 발행 시간

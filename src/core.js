@@ -900,6 +900,32 @@ function stripAiRelatedPostsSection(markdown = '') {
 	return String(markdown).replace(pattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
+	const source = Array.isArray(rawHashtags) ? rawHashtags : [rawHashtags];
+	const normalized = [];
+	const seen = new Set();
+
+	for (const item of source) {
+		if (item === null || item === undefined) continue;
+		const tokens = String(item).split(/[\s,]+/);
+		for (const tokenRaw of tokens) {
+			const token = String(tokenRaw || '')
+				.trim()
+				.replace(/^[#＃]+/, '')
+				.replace(/^[^0-9A-Za-z가-힣_]+/, '')
+				.replace(/[^0-9A-Za-z가-힣_]+$/, '');
+			if (!token) continue;
+			const key = token.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			normalized.push(token);
+			if (normalized.length >= maxCount) return normalized;
+		}
+	}
+
+	return normalized;
+}
+
 const Core = {
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
@@ -1004,7 +1030,7 @@ ${scrapedContext}`;
 
 		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
-		const finalHashtags = parsedData.hashtags || [];
+		const finalHashtags = normalizeHashtagTokens(parsedData.hashtags || [], 20);
 		const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
 		let relatedPosts = [];
 		let relatedHeading = Utils.pickRelatedPostsHeading();
