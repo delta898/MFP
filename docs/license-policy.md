@@ -13,7 +13,7 @@
 - `ultra`: 모든 기능 허용, 무제한
 - 날짜 지정 트렌드(`trends --date`)는 feature flag(`enable_trends_date_override`)로 제어합니다.
 - test 1회성 규칙:
-  - `test -> 만료 -> free` 전환은 허용
+  - `test -> 만료` 시 동일 키를 `free`로 자동 전환
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
   - `test` 소진 후에는 다시 `test` 사용 불가
 - 차감 대상:

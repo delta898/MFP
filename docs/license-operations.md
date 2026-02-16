@@ -25,6 +25,7 @@
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
+6. test 사용량 소진 시 동일 키가 free 플랜으로 자동 전환됩니다.
 
 ## 3. 운영 시나리오
 

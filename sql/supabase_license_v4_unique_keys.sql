@@ -391,6 +391,7 @@ declare
     v_usage_count integer := 0;
     v_plan_code text := 'pro';
 
+    v_plan_display_name text;
     v_plan_status text;
     v_plan_mode text;
     v_plan_limit integer;
@@ -398,9 +399,18 @@ declare
     v_plan_features jsonb := '{}'::jsonb;
     v_effective_count integer := 0;
     v_remaining integer := 0;
+    v_period_start timestamptz;
+    v_period_end timestamptz;
 
     v_non_test_used boolean := false;
     v_test_exhausted_at timestamptz;
+    v_auto_downgraded_to_free boolean := false;
+    v_free_plan_display_name text;
+    v_free_plan_status text;
+    v_free_plan_mode text;
+    v_free_plan_limit integer;
+    v_free_plan_cycle text;
+    v_free_plan_features jsonb := '{}'::jsonb;
 begin
     if v_hwid = '' then
         return jsonb_build_object('success', false, 'message', 'HWID가 비어 있습니다.');
@@ -423,25 +433,42 @@ begin
     end if;
 
     if coalesce(v_license_status, 'active') <> 'active' then
-        return jsonb_build_object('success', false, 'message', '비활성화된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '비활성화된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
     if v_license_expires_at is not null and v_now >= v_license_expires_at then
-        return jsonb_build_object('success', false, 'message', '만료된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '만료된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
     if v_license_hwid is not null and trim(v_license_hwid) <> '' and trim(v_license_hwid) <> v_hwid then
-        return jsonb_build_object('success', false, 'message', '다른 기기에 바인딩된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '다른 기기에 바인딩된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
-    select status, quota_mode, quota_limit, quota_cycle, features
-      into v_plan_status, v_plan_mode, v_plan_limit, v_plan_cycle, v_plan_features
+    select display_name, status, quota_mode, quota_limit, quota_cycle, features
+      into v_plan_display_name, v_plan_status, v_plan_mode, v_plan_limit, v_plan_cycle, v_plan_features
       from public.license_plans
      where plan_code = v_plan_code
      limit 1;
 
     if v_plan_status is distinct from 'active' then
-        return jsonb_build_object('success', false, 'message', '비활성화된 플랜입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '비활성화된 플랜입니다.',
+            'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code)
+        );
     end if;
 
     v_plan_mode := lower(coalesce(nullif(trim(v_license_mode), ''), v_plan_mode, 'metered'));
@@ -459,17 +486,75 @@ begin
                 'success', false,
                 'message', 'test 플랜은 1회성입니다. 다른 플랜 사용 후에는 재사용할 수 없습니다.',
                 'plan_code', 'test',
+                'plan_display_name', coalesce(v_plan_display_name, 'test'),
                 'remaining', 0
             );
         end if;
 
         if v_test_exhausted_at is not null then
-            return jsonb_build_object(
-                'success', false,
-                'message', 'test 플랜 1회 사용이 이미 종료되었습니다.',
-                'plan_code', 'test',
-                'remaining', 0
-            );
+            select display_name, status, quota_mode, quota_limit, quota_cycle, features
+              into v_free_plan_display_name, v_free_plan_status, v_free_plan_mode, v_free_plan_limit, v_free_plan_cycle, v_free_plan_features
+              from public.license_plans
+             where plan_code = 'free'
+             limit 1;
+
+            if v_free_plan_status is distinct from 'active' then
+                return jsonb_build_object(
+                    'success', false,
+                    'message', 'test 플랜 사용이 종료되었고 free 플랜 전환에 실패했습니다. 관리자에게 문의해 주세요.',
+                    'plan_code', 'test',
+                    'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                    'remaining', 0
+                );
+            end if;
+
+            if coalesce(v_free_plan_cycle, 'none') <> 'none' then
+                select period_start, period_end
+                  into v_period_start, v_period_end
+                  from public._license_calc_period_bounds(v_free_plan_cycle, v_now)
+                 limit 1;
+            else
+                v_period_start := null;
+                v_period_end := null;
+            end if;
+
+            update public.licenses
+               set plan_code = 'free',
+                   tier = 'free',
+                   status = 'active',
+                   license_mode = lower(coalesce(v_free_plan_mode, 'metered')),
+                   usage_limit = coalesce(v_free_plan_limit, 15),
+                   usage_count = 0,
+                   reset_date = v_period_end,
+                   expires_at = null,
+                   updated_at = v_now,
+                   note = case
+                       when coalesce(trim(note), '') = '' then 'auto-downgraded test->free'
+                       else trim(note) || ' | auto-downgraded test->free'
+                   end
+             where id = v_license_id;
+
+            insert into public.license_device_states (
+                hwid_hash, non_test_used, last_seen_at, updated_at, note
+            ) values (
+                v_hwid_hash, true, v_now, v_now, 'auto-downgraded test->free'
+            )
+            on conflict (hwid_hash) do update
+            set non_test_used = true,
+                last_seen_at = excluded.last_seen_at,
+                updated_at = excluded.updated_at;
+
+            v_plan_code := 'free';
+            v_plan_display_name := coalesce(v_free_plan_display_name, 'free');
+            v_plan_status := 'active';
+            v_plan_mode := lower(coalesce(v_free_plan_mode, 'metered'));
+            v_plan_limit := coalesce(v_free_plan_limit, 15);
+            v_plan_cycle := coalesce(v_free_plan_cycle, 'monthly');
+            v_plan_features := coalesce(v_free_plan_features, '{}'::jsonb);
+            v_usage_limit := v_plan_limit;
+            v_usage_count := 0;
+            v_license_reset_date := v_period_end;
+            v_auto_downgraded_to_free := true;
         end if;
     end if;
 
@@ -478,6 +563,7 @@ begin
             'success', true,
             'message', format('%s 플랜 사전 검증 통과', v_plan_code),
             'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
             'remaining', -1
         );
@@ -487,7 +573,13 @@ begin
         v_usage_limit := coalesce(v_plan_limit, 0);
     end if;
     if v_usage_limit <= 0 then
-        return jsonb_build_object('success', false, 'message', '사용 가능 횟수가 0으로 설정된 라이선스입니다.', 'remaining', 0);
+        return jsonb_build_object(
+            'success', false,
+            'message', '사용 가능 횟수가 0으로 설정된 라이선스입니다.',
+            'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
+            'remaining', 0
+        );
     end if;
 
     v_effective_count := v_usage_count;
@@ -502,7 +594,9 @@ begin
             'success', false,
             'message', '라이선스 사용 횟수를 모두 사용했습니다.',
             'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
+            'auto_downgraded_to_free', v_auto_downgraded_to_free,
             'remaining', 0
         );
     end if;
@@ -511,7 +605,9 @@ begin
         'success', true,
         'message', format('%s 플랜 사전 검증 통과', v_plan_code),
         'plan_code', v_plan_code,
+        'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
         'features', coalesce(v_plan_features, '{}'::jsonb),
+        'auto_downgraded_to_free', v_auto_downgraded_to_free,
         'remaining', v_remaining
     );
 end;
@@ -550,6 +646,7 @@ declare
     v_usage_count integer := 0;
     v_plan_code text := 'pro';
 
+    v_plan_display_name text;
     v_plan_status text;
     v_plan_mode text;
     v_plan_limit integer;
@@ -561,6 +658,13 @@ declare
 
     v_non_test_used boolean := false;
     v_test_exhausted_at timestamptz;
+    v_auto_downgraded_to_free boolean := false;
+    v_free_plan_display_name text;
+    v_free_plan_status text;
+    v_free_plan_mode text;
+    v_free_plan_limit integer;
+    v_free_plan_cycle text;
+    v_free_plan_features jsonb := '{}'::jsonb;
 begin
     if v_hwid = '' then
         return jsonb_build_object('success', false, 'message', 'HWID가 비어 있습니다.');
@@ -583,11 +687,19 @@ begin
     end if;
 
     if coalesce(v_license_status, 'active') <> 'active' then
-        return jsonb_build_object('success', false, 'message', '비활성화된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '비활성화된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
     if v_license_expires_at is not null and v_now >= v_license_expires_at then
-        return jsonb_build_object('success', false, 'message', '만료된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '만료된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
     if v_license_hwid is null or trim(v_license_hwid) = '' then
@@ -595,17 +707,26 @@ begin
            set hwid = v_hwid
          where id = v_license_id;
     elsif trim(v_license_hwid) <> v_hwid then
-        return jsonb_build_object('success', false, 'message', '다른 기기에 바인딩된 라이선스입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '다른 기기에 바인딩된 라이선스입니다.',
+            'plan_code', v_plan_code
+        );
     end if;
 
-    select status, quota_mode, quota_limit, quota_cycle, features
-      into v_plan_status, v_plan_mode, v_plan_limit, v_plan_cycle, v_plan_features
+    select display_name, status, quota_mode, quota_limit, quota_cycle, features
+      into v_plan_display_name, v_plan_status, v_plan_mode, v_plan_limit, v_plan_cycle, v_plan_features
       from public.license_plans
      where plan_code = v_plan_code
      limit 1;
 
     if v_plan_status is distinct from 'active' then
-        return jsonb_build_object('success', false, 'message', '비활성화된 플랜입니다.');
+        return jsonb_build_object(
+            'success', false,
+            'message', '비활성화된 플랜입니다.',
+            'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code)
+        );
     end if;
 
     v_plan_mode := lower(coalesce(nullif(trim(v_license_mode), ''), v_plan_mode, 'metered'));
@@ -633,19 +754,68 @@ begin
                 'success', false,
                 'message', 'test 플랜은 1회성입니다. 다른 플랜 사용 후에는 재사용할 수 없습니다.',
                 'plan_code', 'test',
+                'plan_display_name', coalesce(v_plan_display_name, 'test'),
                 'remaining', 0
             );
         end if;
 
         if v_test_exhausted_at is not null then
-            return jsonb_build_object(
-                'success', false,
-                'message', 'test 플랜 1회 사용이 이미 종료되었습니다.',
-                'plan_code', 'test',
-                'remaining', 0
-            );
+            select display_name, status, quota_mode, quota_limit, quota_cycle, features
+              into v_free_plan_display_name, v_free_plan_status, v_free_plan_mode, v_free_plan_limit, v_free_plan_cycle, v_free_plan_features
+              from public.license_plans
+             where plan_code = 'free'
+             limit 1;
+
+            if v_free_plan_status is distinct from 'active' then
+                return jsonb_build_object(
+                    'success', false,
+                    'message', 'test 플랜 사용이 종료되었고 free 플랜 전환에 실패했습니다. 관리자에게 문의해 주세요.',
+                    'plan_code', 'test',
+                    'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                    'remaining', 0
+                );
+            end if;
+
+            if coalesce(v_free_plan_cycle, 'none') <> 'none' then
+                select period_start, period_end
+                  into v_period_start, v_period_end
+                  from public._license_calc_period_bounds(v_free_plan_cycle, v_now)
+                 limit 1;
+            else
+                v_period_start := null;
+                v_period_end := null;
+            end if;
+
+            update public.licenses
+               set plan_code = 'free',
+                   tier = 'free',
+                   status = 'active',
+                   license_mode = lower(coalesce(v_free_plan_mode, 'metered')),
+                   usage_limit = coalesce(v_free_plan_limit, 15),
+                   usage_count = 0,
+                   reset_date = v_period_end,
+                   expires_at = null,
+                   updated_at = v_now,
+                   note = case
+                       when coalesce(trim(note), '') = '' then 'auto-downgraded test->free'
+                       else trim(note) || ' | auto-downgraded test->free'
+                   end
+             where id = v_license_id
+             returning usage_limit, usage_count, reset_date
+                  into v_usage_limit, v_usage_count, v_license_reset_date;
+
+            v_plan_code := 'free';
+            v_plan_display_name := coalesce(v_free_plan_display_name, 'free');
+            v_plan_status := 'active';
+            v_plan_mode := lower(coalesce(v_free_plan_mode, 'metered'));
+            v_plan_limit := coalesce(v_free_plan_limit, 15);
+            v_plan_cycle := coalesce(v_free_plan_cycle, 'monthly');
+            v_plan_features := coalesce(v_free_plan_features, '{}'::jsonb);
+            v_auto_downgraded_to_free := true;
         end if;
-    else
+    end if;
+
+    if lower(v_plan_code) <> 'test' then
         insert into public.license_device_states (
             hwid_hash, non_test_used, last_seen_at, updated_at, note
         ) values (
@@ -662,7 +832,9 @@ begin
             'success', true,
             'message', format('%s 플랜 승인', v_plan_code),
             'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
+            'auto_downgraded_to_free', v_auto_downgraded_to_free,
             'remaining', -1
         );
     end if;
@@ -671,7 +843,13 @@ begin
         v_usage_limit := coalesce(v_plan_limit, 0);
     end if;
     if v_usage_limit <= 0 then
-        return jsonb_build_object('success', false, 'message', '사용 가능 횟수가 0으로 설정된 라이선스입니다.', 'remaining', 0);
+        return jsonb_build_object(
+            'success', false,
+            'message', '사용 가능 횟수가 0으로 설정된 라이선스입니다.',
+            'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
+            'remaining', 0
+        );
     end if;
 
     if coalesce(v_plan_cycle, 'none') <> 'none' then
@@ -694,7 +872,9 @@ begin
             'success', false,
             'message', '라이선스 사용 횟수를 모두 사용했습니다.',
             'plan_code', v_plan_code,
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
+            'auto_downgraded_to_free', v_auto_downgraded_to_free,
             'remaining', 0
         );
     end if;
@@ -721,7 +901,9 @@ begin
         'success', true,
         'message', format('%s 플랜 승인', v_plan_code),
         'plan_code', v_plan_code,
+        'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
         'features', coalesce(v_plan_features, '{}'::jsonb),
+        'auto_downgraded_to_free', v_auto_downgraded_to_free,
         'remaining', greatest(v_remaining, 0)
     );
 end;
