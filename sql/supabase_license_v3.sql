@@ -171,11 +171,7 @@ alter table public.licenses
     add column if not exists plan_code text;
 
 update public.licenses
-   set plan_code = case
-        when lower(coalesce(tier, '')) in ('ultra', 'enterprise', 'business') then 'ultra'
-        when lower(coalesce(tier, '')) in ('pro', 'paid') then 'pro'
-        else 'pro'
-   end
+   set plan_code = 'pro'
  where plan_code is null
     or trim(plan_code) = '';
 

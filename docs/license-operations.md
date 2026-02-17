@@ -165,7 +165,6 @@ test/free 고유키를 빠르게 발급하려면:
 ```sql
 update public.licenses
 set plan_code = 'pro',
-    tier = 'pro',
     status = 'active',
     usage_limit = 300,
     usage_count = 0,

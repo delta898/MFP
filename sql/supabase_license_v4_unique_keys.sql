@@ -74,15 +74,33 @@ alter table public.license_device_states
     alter column last_seen_at set default timezone('utc', now()),
     alter column updated_at set default timezone('utc', now());
 
-update public.licenses
-   set plan_code = case
-        when lower(coalesce(tier, '')) in ('ultra', 'enterprise', 'business') then 'ultra'
-        when lower(coalesce(tier, '')) in ('free') then 'free'
-        when lower(coalesce(tier, '')) in ('test', 'tester') then 'test'
-        else 'pro'
-   end
- where plan_code is null
-    or trim(plan_code) = '';
+do $$
+begin
+    if exists (
+        select 1
+          from information_schema.columns
+         where table_schema = 'public'
+           and table_name = 'licenses'
+           and column_name = 'tier'
+    ) then
+        execute $sql$
+            update public.licenses
+               set plan_code = case
+                    when lower(coalesce(tier, '')) in ('ultra', 'enterprise', 'business') then 'ultra'
+                    when lower(coalesce(tier, '')) in ('free') then 'free'
+                    when lower(coalesce(tier, '')) in ('test', 'tester') then 'test'
+                    else 'pro'
+               end
+             where plan_code is null
+                or trim(plan_code) = ''
+        $sql$;
+    else
+        update public.licenses
+           set plan_code = 'pro'
+         where plan_code is null
+            or trim(plan_code) = '';
+    end if;
+end $$;
 
 alter table public.licenses
     alter column plan_code set default 'pro';
@@ -94,6 +112,9 @@ update public.licenses
    end
  where license_mode is null
     or trim(license_mode) = '';
+
+alter table public.licenses
+    drop column if exists tier;
 
 create index if not exists idx_licenses_plan_code
     on public.licenses (plan_code, status);
@@ -323,7 +344,6 @@ begin
             insert into public.licenses (
                 license_key,
                 plan_code,
-                tier,
                 status,
                 hwid,
                 usage_limit,
@@ -335,7 +355,6 @@ begin
             )
             values (
                 v_license_key,
-                'test',
                 'test',
                 'active',
                 v_hwid,
@@ -1002,7 +1021,6 @@ begin
 
     update public.licenses
        set plan_code = v_target,
-           tier = v_target,
            hwid = v_hwid,
            email = v_email,
            usage_limit = coalesce(v_plan_limit, 0),

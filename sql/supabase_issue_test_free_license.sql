@@ -56,7 +56,6 @@ issued as (
 insert into public.licenses (
     license_key,
     plan_code,
-    tier,
     status,
     email,
     hwid,
@@ -69,7 +68,6 @@ insert into public.licenses (
 )
 select
     i.license_key,
-    v.plan_code,
     v.plan_code,
     'active',
     v.email,

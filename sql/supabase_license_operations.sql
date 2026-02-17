@@ -34,7 +34,6 @@ issued as (
 insert into public.licenses (
     license_key,
     plan_code,
-    tier,
     status,
     email,
     hwid,
@@ -47,7 +46,6 @@ insert into public.licenses (
 )
 select
     i.license_key,
-    'pro',
     'pro',
     'active',
     'user@example.com',
@@ -70,7 +68,6 @@ returning license_key, email, usage_limit, reset_date, created_at;
 insert into public.licenses (
     license_key,
     plan_code,
-    tier,
     status,
     email,
     hwid,
@@ -82,7 +79,6 @@ insert into public.licenses (
     note
 ) values (
     'PAID-KEY-REPLACE-ME',
-    'pro',
     'pro',
     'active',
     'user@example.com',
@@ -96,7 +92,6 @@ insert into public.licenses (
 )
 on conflict (license_key) do update
 set plan_code = excluded.plan_code,
-    tier = excluded.tier,
     status = excluded.status,
     email = excluded.email,
     usage_limit = excluded.usage_limit,
@@ -112,7 +107,6 @@ set plan_code = excluded.plan_code,
 insert into public.licenses (
     license_key,
     plan_code,
-    tier,
     status,
     email,
     hwid,
@@ -125,7 +119,6 @@ insert into public.licenses (
 ) values (
     'UNLIMITED-KEY-REPLACE-ME',
     'ultra',
-    'business',
     'active',
     'user@example.com',
     null,
@@ -138,7 +131,6 @@ insert into public.licenses (
 )
 on conflict (license_key) do update
 set plan_code = excluded.plan_code,
-    tier = excluded.tier,
     status = excluded.status,
     email = excluded.email,
     license_mode = excluded.license_mode,
@@ -192,7 +184,6 @@ select
     license_key,
     email,
     plan_code,
-    tier,
     status,
     license_mode,
     usage_limit,
