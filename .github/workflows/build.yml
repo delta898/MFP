@@ -106,15 +106,15 @@ jobs:
               local title="$2"
               local message="$3"
               local command="$4"
-              cat > "dist/${file_name}" << EOF
-@echo off
-chcp 65001 > nul
-title ${title}
-echo.
-echo [BlogGenius] ${message}
-BlogGenius.exe ${command}
-pause
-EOF
+              {
+                echo "@echo off"
+                echo "chcp 65001 > nul"
+                echo "title ${title}"
+                echo "echo."
+                echo "echo [BlogGenius] ${message}"
+                echo "BlogGenius.exe ${command}"
+                echo "pause"
+              } > "dist/${file_name}"
             }
 
             create_win_bat "실행하기_로그인.bat" "BlogGenius Login" "네이버 로그인을 시작합니다..." "login"
