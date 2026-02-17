@@ -42,6 +42,8 @@
 
 ### 2-1. Gemini API Key
 
+- [구글 무료 크레딧 $300 발급 방법 참고](https://buly.kr/6iifSam)
+
 1. [Google AI Studio](https://aistudio.google.com/) 접속
 2. `Get API key` 클릭
 3. 키(`AIza...`) 복사 -> `config/config.txt` 파일에 반영
@@ -80,9 +82,12 @@ BlogGenius/
 
 1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
 2. URL에서 시트 ID 복사 -> `config/config.txt` 파일에 반영
+
 예시:
 `https://docs.google.com/spreadsheets/d/1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY/edit?gid=1568478969`
+
 위 URL의 시트 ID는 `1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY` 입니다.
+
 3. 우측 상단 `공유` 클릭
 4. `service_account.json` 안의 `client_email` 주소를 공유에 추가
 5. 권한을 **편집자**로 지정 후 저장
@@ -158,6 +163,18 @@ GOOGLE_SHEET_ID = 구글시트_ID
 
 # 쇼핑 시트 기반 쇼핑 커넥트 블로그 발행
 ./BlogGenius shopping
+
+# 테스트 종료 후 라이선스 등록(현재 Free 등록)
+./BlogGenius license register --email=you@example.com
+
+# 새 기기/재설치 시 라이선스 복구
+./BlogGenius license recover --email=you@example.com
+
+# 플랜 업그레이드(현재 free만 지원)
+./BlogGenius license upgrade --plan=free
+
+# 현재 라이선스 상태 확인
+./BlogGenius license status
 ```
 
 ---
@@ -170,6 +187,10 @@ GOOGLE_SHEET_ID = 구글시트_ID
 - `실행하기_트렌드수집.bat`
 - `실행하기_일괄발행.bat`
 - `실행하기_쇼핑발행.bat`
+- `실행하기_라이선스상태.bat`
+- `실행하기_라이선스등록.bat`
+- `실행하기_라이선스복구.bat`
+- `실행하기_라이선스업그레이드.bat`
 
 ---
 
@@ -233,6 +254,8 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 
 - 네트워크 연결 상태를 먼저 확인하세요.
 - 잠시 후 다시 실행해 보세요.
+- test 종료 안내가 보이면 아래 명령으로 업그레이드를 진행하세요.
+  - `./BlogGenius license upgrade --plan=free`
 - 계속 동일하면 오픈채팅으로 문의해 주세요.
 
 ---

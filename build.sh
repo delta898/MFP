@@ -78,46 +78,30 @@ copy_assets() {
 
     # [Windows 전용] 더블클릭 실행 파일(.bat) 생성
     if [[ "$TARGET_DIR" == *"win-x64"* ]]; then
-        # 1) 로그인
-        cat > "$TARGET_DIR/실행하기_로그인.bat" << 'EOF'
+        create_win_bat() {
+            local file_name="$1"
+            local title="$2"
+            local message="$3"
+            local command="$4"
+            cat > "$TARGET_DIR/${file_name}" << EOF
 @echo off
 chcp 65001 > nul
-title BlogGenius Login
+title ${title}
 echo.
-echo [BlogGenius] 네이버 로그인을 시작합니다...
-BlogGenius.exe login
+echo [BlogGenius] ${message}
+BlogGenius.exe ${command}
 pause
 EOF
-        # 2) 일괄 발행
-        cat > "$TARGET_DIR/실행하기_트렌드수집.bat" << 'EOF'
-@echo off
-chcp 65001 > nul
-title BlogGenius Trends Mode
-echo.
-echo [BlogGenius] 트렌드 수집(Trends)을 시작합니다...
-BlogGenius.exe trends
-pause
-EOF
-        # 3) 일괄 발행
-        cat > "$TARGET_DIR/실행하기_일괄발행.bat" << 'EOF'
-@echo off
-chcp 65001 > nul
-title BlogGenius Batch Mode
-echo.
-echo [BlogGenius] 엑셀 대량 발행(Batch)을 시작합니다...
-BlogGenius.exe batch
-pause
-EOF
-        # 4) 쇼핑 발행
-        cat > "$TARGET_DIR/실행하기_쇼핑발행.bat" << 'EOF'
-@echo off
-chcp 65001 > nul
-title BlogGenius Shopping Mode
-echo.
-echo [BlogGenius] 쇼핑 발행(Shopping)을 시작합니다...
-BlogGenius.exe shopping
-pause
-EOF
+        }
+
+        create_win_bat "실행하기_로그인.bat" "BlogGenius Login" "네이버 로그인을 시작합니다..." "login"
+        create_win_bat "실행하기_트렌드수집.bat" "BlogGenius Trends Mode" "트렌드 수집(Trends)을 시작합니다..." "trends"
+        create_win_bat "실행하기_일괄발행.bat" "BlogGenius Batch Mode" "엑셀 대량 발행(Batch)을 시작합니다..." "batch"
+        create_win_bat "실행하기_쇼핑발행.bat" "BlogGenius Shopping Mode" "쇼핑 발행(Shopping)을 시작합니다..." "shopping"
+        create_win_bat "실행하기_라이선스상태.bat" "BlogGenius License Status" "라이선스 상태 조회를 시작합니다..." "license status"
+        create_win_bat "실행하기_라이선스등록.bat" "BlogGenius License Register" "라이선스 이메일 등록을 시작합니다..." "license register"
+        create_win_bat "실행하기_라이선스복구.bat" "BlogGenius License Recover" "라이선스 복구를 시작합니다..." "license recover"
+        create_win_bat "실행하기_라이선스업그레이드.bat" "BlogGenius License Upgrade" "라이선스 업그레이드를 시작합니다..." "license upgrade"
     fi
     
     echo "   📄 필수 파일 복사 완료"

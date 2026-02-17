@@ -101,25 +101,30 @@ jobs:
           fi
 
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            echo "@echo off" > dist/실행하기_로그인.bat
-            echo "chcp 65001 > nul" >> dist/실행하기_로그인.bat
-            echo "BlogGenius.exe login" >> dist/실행하기_로그인.bat
-            echo "pause" >> dist/실행하기_로그인.bat
+            create_win_bat() {
+              local file_name="$1"
+              local title="$2"
+              local message="$3"
+              local command="$4"
+              cat > "dist/${file_name}" << EOF
+@echo off
+chcp 65001 > nul
+title ${title}
+echo.
+echo [BlogGenius] ${message}
+BlogGenius.exe ${command}
+pause
+EOF
+            }
 
-            echo "@echo off" > dist/실행하기_트렌드수집.bat
-            echo "chcp 65001 > nul" >> dist/실행하기_트렌드수집.bat
-            echo "BlogGenius.exe trends" >> dist/실행하기_트렌드수집.bat
-            echo "pause" >> dist/실행하기_트렌드수집.bat
-
-            echo "@echo off" > dist/실행하기_일괄발행.bat
-            echo "chcp 65001 > nul" >> dist/실행하기_일괄발행.bat
-            echo "BlogGenius.exe batch" >> dist/실행하기_일괄발행.bat
-            echo "pause" >> dist/실행하기_일괄발행.bat
-
-            echo "@echo off" > dist/실행하기_쇼핑발행.bat
-            echo "chcp 65001 > nul" >> dist/실행하기_쇼핑발행.bat
-            echo "BlogGenius.exe shopping" >> dist/실행하기_쇼핑발행.bat
-            echo "pause" >> dist/실행하기_쇼핑발행.bat
+            create_win_bat "실행하기_로그인.bat" "BlogGenius Login" "네이버 로그인을 시작합니다..." "login"
+            create_win_bat "실행하기_트렌드수집.bat" "BlogGenius Trends Mode" "트렌드 수집(Trends)을 시작합니다..." "trends"
+            create_win_bat "실행하기_일괄발행.bat" "BlogGenius Batch Mode" "엑셀 대량 발행(Batch)을 시작합니다..." "batch"
+            create_win_bat "실행하기_쇼핑발행.bat" "BlogGenius Shopping Mode" "쇼핑 발행(Shopping)을 시작합니다..." "shopping"
+            create_win_bat "실행하기_라이선스상태.bat" "BlogGenius License Status" "라이선스 상태 조회를 시작합니다..." "license status"
+            create_win_bat "실행하기_라이선스등록.bat" "BlogGenius License Register" "라이선스 이메일 등록을 시작합니다..." "license register"
+            create_win_bat "실행하기_라이선스복구.bat" "BlogGenius License Recover" "라이선스 복구를 시작합니다..." "license recover"
+            create_win_bat "실행하기_라이선스업그레이드.bat" "BlogGenius License Upgrade" "라이선스 업그레이드를 시작합니다..." "license upgrade"
           fi
 
       - name: Create Platform ZIP (Linux/macOS)

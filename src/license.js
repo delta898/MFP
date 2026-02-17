@@ -40,6 +40,123 @@ function buildMessageWithPlan(baseMessage, planCode, planDisplayName) {
     return `${message} (플랜: ${planLabel})`;
 }
 
+function sanitizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function sendLicenseRegistrationEmail(email, code, ttlSeconds, expiresAt = '') {
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류' };
+    }
+
+    try {
+        const { data, error } = await supabase.functions.invoke('send-license-code', {
+            body: {
+                email,
+                code,
+                ttlSeconds,
+                expiresAt
+            }
+        });
+
+        if (error) {
+            let detail = '';
+            try {
+                if (error.context) {
+                    const cloned = error.context.clone ? error.context.clone() : error.context;
+                    const parsed = await cloned.json();
+                    if (parsed && typeof parsed === 'object') {
+                        const providerStatus = parsed.provider_status ? `status=${parsed.provider_status}` : '';
+                        const providerMessage = parsed.provider_response?.message || parsed.message || '';
+                        detail = [providerStatus, providerMessage].filter(Boolean).join(' ');
+                    }
+                }
+            } catch (_e) {
+                // ignore parse failure
+            }
+
+            const logMessage = detail
+                ? `❌ 인증 메일 발송 호출 실패: ${error.message} (${detail})`
+                : `❌ 인증 메일 발송 호출 실패: ${error.message}`;
+            Logger.error(logMessage);
+            return {
+                success: false,
+                message: detail
+                    ? `인증 메일 전송에 실패했습니다. (${detail})`
+                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+            };
+        }
+
+        if (!data || data.success !== true) {
+            const providerStatus = data?.provider_status ? `status=${data.provider_status}` : '';
+            const providerMessage = data?.provider_response?.message || data?.message || '';
+            const detail = [providerStatus, providerMessage].filter(Boolean).join(' ');
+            return {
+                success: false,
+                message: detail
+                    ? `인증 메일 전송에 실패했습니다. (${detail})`
+                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+            };
+        }
+
+        return { success: true };
+    } catch (e) {
+        Logger.error(`❌ 인증 메일 발송 모듈 에러: ${e.message}`);
+        return { success: false, message: '인증 메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+}
+
+async function requestEmailVerificationCode(
+    email,
+    logLabel = '라이선스 등록',
+    rpcName = 'request_license_registration'
+) {
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류' };
+    }
+
+    Logger.info(`📨 ${logLabel} 인증 코드를 요청합니다...`);
+    const { data, error } = await supabase
+        .rpc(rpcName, { p_email: email });
+
+    if (error) {
+        Logger.error(`❌ 인증 코드 요청 실패: ${error.message}`);
+        return { success: false, message: '인증 코드 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+
+    if (!data || !data.success) {
+        return {
+            success: false,
+            message: data?.message || '인증 코드 요청에 실패했습니다.'
+        };
+    }
+
+    const ttlSeconds = Number.isFinite(Number(data.ttl_seconds)) ? parseInt(data.ttl_seconds, 10) : 300;
+    const verificationCode = String(data.verification_code || '').trim();
+    if (!verificationCode) {
+        return {
+            success: false,
+            message: '인증 코드 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        };
+    }
+
+    const mailSent = await sendLicenseRegistrationEmail(email, verificationCode, ttlSeconds, data.expires_at || '');
+    if (!mailSent.success) return mailSent;
+
+    return {
+        success: true,
+        message: data.message || '인증 코드가 발송되었습니다.',
+        email,
+        verificationCode: process.env.DEBUG ? verificationCode : '',
+        ttlSeconds,
+        expiresAt: data.expires_at || ''
+    };
+}
+
 let runtimeLicenseKey = '';
 
 function getResolvedLicenseKey() {
@@ -96,6 +213,225 @@ async function ensureLicenseKey(hwid) {
 }
 
 const License = {
+    requestLicenseRegistration: async function(email) {
+        try {
+            const normalizedEmail = sanitizeEmail(email);
+            if (!isValidEmail(normalizedEmail)) {
+                return { success: false, message: '유효한 이메일 주소를 입력해 주세요.' };
+            }
+            return await requestEmailVerificationCode(normalizedEmail, '라이선스 등록');
+        } catch (e) {
+            Logger.error(`❌ 등록 코드 요청 모듈 에러: ${e.message}`);
+            return { success: false, message: '인증 코드 요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+    },
+
+    requestLicenseRecovery: async function(email) {
+        try {
+            const normalizedEmail = sanitizeEmail(email);
+            if (!isValidEmail(normalizedEmail)) {
+                return { success: false, message: '유효한 이메일 주소를 입력해 주세요.' };
+            }
+            return await requestEmailVerificationCode(
+                normalizedEmail,
+                '라이선스 복구',
+                'request_license_recovery'
+            );
+        } catch (e) {
+            Logger.error(`❌ 복구 코드 요청 모듈 에러: ${e.message}`);
+            return { success: false, message: '인증 코드 요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+    },
+
+    verifyLicenseRegistration: async function(email, code) {
+        try {
+            if (!supabase) {
+                return { success: false, message: '라이선스 서버 설정 오류' };
+            }
+
+            const normalizedEmail = sanitizeEmail(email);
+            const normalizedCode = String(code || '').trim();
+            if (!isValidEmail(normalizedEmail)) {
+                return { success: false, message: '유효한 이메일 주소를 입력해 주세요.' };
+            }
+            if (!normalizedCode) {
+                return { success: false, message: '인증 코드를 입력해 주세요.' };
+            }
+
+            const hwid = machineIdSync({ original: true });
+            const keyReady = await ensureLicenseKey(hwid);
+            if (!keyReady.success) {
+                return { success: false, message: keyReady.message };
+            }
+            const resolvedLicenseKey = keyReady.licenseKey;
+
+            Logger.info('🔐 라이선스 등록을 확인합니다...');
+            const { data, error } = await supabase.rpc('verify_license_registration', {
+                p_email: normalizedEmail,
+                p_code: normalizedCode,
+                p_hwid: hwid,
+                p_license_key: resolvedLicenseKey
+            });
+
+            if (error) {
+                Logger.error(`❌ 라이선스 등록 확인 실패: ${error.message}`);
+                return { success: false, message: '등록 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+            }
+
+            if (!data?.success || !data?.license_key) {
+                return {
+                    success: false,
+                    message: buildMessageWithPlan(data?.message || '등록 확인에 실패했습니다.', data?.plan_code, data?.plan_display_name),
+                    planCode: data?.plan_code,
+                    planDisplayName: data?.plan_display_name
+                };
+            }
+
+            runtimeLicenseKey = String(data.license_key).trim();
+            const saved = persistLicenseKeyFile(runtimeLicenseKey);
+            if (saved) {
+                Logger.info('✅ 라이선스 등록 완료');
+            } else {
+                Logger.warn('⚠️ 라이선스 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+            }
+
+            return {
+                success: true,
+                message: data.message || '등록이 완료되었습니다.',
+                planCode: data.plan_code,
+                planDisplayName: data.plan_display_name,
+                remaining: data.remaining,
+                features: (data.features && typeof data.features === 'object') ? data.features : {},
+                licenseKey: runtimeLicenseKey
+            };
+        } catch (e) {
+            Logger.error(`❌ 라이선스 등록 모듈 에러: ${e.message}`);
+            return { success: false, message: '등록 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+    },
+
+    verifyLicenseRecovery: async function(email, code) {
+        try {
+            if (!supabase) {
+                return { success: false, message: '라이선스 서버 설정 오류' };
+            }
+
+            const normalizedEmail = sanitizeEmail(email);
+            const normalizedCode = String(code || '').trim();
+            if (!isValidEmail(normalizedEmail)) {
+                return { success: false, message: '유효한 이메일 주소를 입력해 주세요.' };
+            }
+            if (!normalizedCode) {
+                return { success: false, message: '인증 코드를 입력해 주세요.' };
+            }
+
+            const hwid = machineIdSync({ original: true });
+            Logger.info('🔐 라이선스 복구를 확인합니다...');
+            const { data, error } = await supabase.rpc('verify_license_recovery', {
+                p_email: normalizedEmail,
+                p_code: normalizedCode,
+                p_hwid: hwid
+            });
+
+            if (error) {
+                Logger.error(`❌ 라이선스 복구 확인 실패: ${error.message}`);
+                return { success: false, message: '복구 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+            }
+
+            if (!data?.success || !data?.license_key) {
+                return {
+                    success: false,
+                    message: buildMessageWithPlan(data?.message || '복구 확인에 실패했습니다.', data?.plan_code, data?.plan_display_name),
+                    planCode: data?.plan_code,
+                    planDisplayName: data?.plan_display_name
+                };
+            }
+
+            runtimeLicenseKey = String(data.license_key).trim();
+            const saved = persistLicenseKeyFile(runtimeLicenseKey);
+            if (saved) {
+                Logger.info('✅ 라이선스 복구 완료');
+            } else {
+                Logger.warn('⚠️ 라이선스 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+            }
+
+            return {
+                success: true,
+                message: data.message || '복구가 완료되었습니다.',
+                planCode: data.plan_code,
+                planDisplayName: data.plan_display_name,
+                remaining: data.remaining,
+                features: (data.features && typeof data.features === 'object') ? data.features : {},
+                licenseKey: runtimeLicenseKey
+            };
+        } catch (e) {
+            Logger.error(`❌ 라이선스 복구 모듈 에러: ${e.message}`);
+            return { success: false, message: '복구 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+    },
+
+    upgradeLicense: async function(targetPlan = 'free', email = '') {
+        try {
+            if (!supabase) {
+                return { success: false, message: '라이선스 서버 설정 오류' };
+            }
+
+            const normalizedPlan = String(targetPlan || 'free').trim().toLowerCase();
+            const normalizedEmail = sanitizeEmail(email);
+            if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+                return { success: false, message: '유효한 이메일 주소를 입력해 주세요.' };
+            }
+
+            const hwid = machineIdSync({ original: true });
+            const keyReady = await ensureLicenseKey(hwid);
+            if (!keyReady.success) {
+                return { success: false, message: keyReady.message };
+            }
+            const resolvedLicenseKey = keyReady.licenseKey;
+
+            Logger.info(`📡 라이선스 업그레이드 요청 중... (target: ${normalizedPlan})`);
+            const { data, error } = await supabase.rpc('upgrade_license_plan', {
+                p_license_key: resolvedLicenseKey,
+                p_hwid: hwid,
+                p_target_plan: normalizedPlan,
+                p_email: normalizedEmail || null
+            });
+
+            if (error) {
+                Logger.error(`❌ 라이선스 업그레이드 실패: ${error.message}`);
+                return { success: false, message: '업그레이드 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+            }
+
+            if (!data?.success || !data?.license_key) {
+                return {
+                    success: false,
+                    message: buildMessageWithPlan(data?.message || '업그레이드에 실패했습니다.', data?.plan_code, data?.plan_display_name),
+                    planCode: data?.plan_code,
+                    planDisplayName: data?.plan_display_name
+                };
+            }
+
+            runtimeLicenseKey = String(data.license_key).trim();
+            const saved = persistLicenseKeyFile(runtimeLicenseKey);
+            if (!saved) {
+                Logger.warn('⚠️ 라이선스 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+            }
+
+            return {
+                success: true,
+                message: data.message || '업그레이드가 완료되었습니다.',
+                planCode: data.plan_code,
+                planDisplayName: data.plan_display_name,
+                remaining: data.remaining,
+                features: (data.features && typeof data.features === 'object') ? data.features : {},
+                licenseKey: runtimeLicenseKey
+            };
+        } catch (e) {
+            Logger.error(`❌ 라이선스 업그레이드 모듈 에러: ${e.message}`);
+            return { success: false, message: '업그레이드 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+    },
+
     /**
      * 라이선스 사전 검증 (무차감)
      * - 서버 RPC: check_license_status
@@ -125,9 +461,6 @@ const License = {
 
             if (data && data.success) {
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
-                if (data.auto_downgraded_to_free) {
-                    Logger.info('ℹ️ 테스트 플랜이 종료되어 free 플랜으로 자동 전환되었습니다. 더 많은 사용량이 필요하면 Pro 플랜 업그레이드를 고려해 주세요.');
-                }
                 Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
                 return {
                     success: true,
@@ -135,6 +468,9 @@ const License = {
                     remaining: data.remaining,
                     planCode: data.plan_code,
                     planDisplayName: data.plan_display_name,
+                    createdAt: data.created_at || '',
+                    usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
+                    usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
                     features: (data.features && typeof data.features === 'object') ? data.features : {}
                 };
             }
@@ -144,6 +480,9 @@ const License = {
                 remaining: data?.remaining,
                 planCode: data?.plan_code,
                 planDisplayName: data?.plan_display_name,
+                createdAt: data?.created_at || '',
+                usageLimit: Number.isFinite(Number(data?.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
+                usageCount: Number.isFinite(Number(data?.usage_count)) ? parseInt(data.usage_count, 10) : null,
                 features: (data?.features && typeof data.features === 'object') ? data.features : {}
             };
         } catch (e) {
@@ -191,9 +530,6 @@ const License = {
             // data 구조: { success: true/false, message: '...', remaining: N }
             if (data && data.success) {
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
-                if (data.auto_downgraded_to_free) {
-                    Logger.info('ℹ️ 테스트 플랜이 종료되어 free 플랜으로 자동 전환되었습니다. 더 많은 사용량이 필요하면 Pro 플랜 업그레이드를 고려해 주세요.');
-                }
                 Logger.info(`✅ 라이선스 승인 (${remainingLabel})`);
                 return {
                     success: true,

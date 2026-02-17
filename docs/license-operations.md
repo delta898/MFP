@@ -14,6 +14,9 @@
   - `sql/supabase_license_operations.sql`
   - `sql/supabase_issue_pro_license.sql`
   - `sql/supabase_issue_test_free_license.sql`
+3. 라이선스 등록 메일 발송 함수 배포
+  - `supabase/functions/send-license-code/index.ts`
+  - 함수 시크릿: `BREVO_API_KEY`, `LICENSE_EMAIL_FROM`
 
 참고:
 - v4 적용 환경에서는 `supabase_license_v4_unique_keys.sql`의 RPC가 기준입니다.
@@ -25,7 +28,7 @@
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
-6. test 사용량 소진 시 동일 키가 free 플랜으로 자동 전환됩니다.
+6. test 사용량 소진 시에는 자동 전환하지 않고, `license upgrade`로 플랜 전환을 진행합니다.
 
 ## 3. 운영 시나리오
 
@@ -35,6 +38,88 @@
 - 발급 성공 시 앱이 `config/license.key`를 자동 저장합니다.
 - 운영자 개입은 기본적으로 필요하지 않습니다.
 - 실패 시(네트워크/DB/RPC 오류)만 운영자가 키를 수동 발급해 전달합니다.
+
+### 3.-2 등록(license register) 절차
+
+- 목적: 현재 사용 중인 라이선스에 이메일 연결 (플랜 변경 없음)
+- 흐름:
+  1. 사용자 이메일 입력
+  2. 인증 코드 요청/전송 (기본 300초 유효)
+  3. 인증 코드 검증
+  4. 현재 라이선스에 이메일 연결
+- 구현 RPC:
+  - `request_license_registration(p_email text)`
+  - `verify_license_registration(p_email text, p_code text, p_hwid text, p_license_key text)`
+- 메일 발송:
+  - Edge Function `send-license-code` 호출
+  - 함수 내부에서 Brevo Transactional Email API를 통해 인증 코드 메일 발송
+- 유효시간 설정:
+  - `app_runtime_configs.config_key='license_registration_code_ttl_seconds'`
+  - 값이 없으면 기본값 `300초(5분)` 사용
+
+### 3.-3 복구(license recover) 절차
+
+- 목적: 재설치/신규 기기에서 이메일 인증으로 기존 키 복구
+- 흐름:
+  1. 사용자 이메일 입력
+  2. 등록 이메일 여부 확인 (미등록이면 즉시 안내 후 종료)
+  3. 인증 코드 요청/전송
+  4. 인증 코드 검증
+  5. 기존 라이선스 키 로컬 저장
+- 구현 RPC:
+  - `request_license_recovery(p_email text)`
+  - `verify_license_recovery(p_email text, p_code text, p_hwid text)`
+- 참고:
+  - 등록 이메일이 없으면 메일을 발송하지 않고 `등록된 이메일이 없습니다` 메시지를 반환합니다.
+
+### 3.-4 업그레이드(license upgrade) 절차
+
+- 목적: 플랜 전환만 수행 (`register`와 분리)
+- 현재 정책: `free` 업그레이드만 지원
+- 구현 RPC:
+  - `upgrade_license_plan(p_license_key text, p_hwid text, p_target_plan text, p_email text)`
+- 참고:
+  - 이메일 미연결 상태에서 `upgrade` 실행 시 앱이 `register` 절차를 먼저 진행한 뒤 업그레이드를 재시도합니다.
+
+#### 3.-2-a 메일 발송 함수 설정(1회)
+
+Supabase CLI 기준 예시:
+
+```bash
+supabase functions deploy send-license-code --project-ref <PROJECT_REF> --no-verify-jwt
+supabase secrets set BREVO_API_KEY=<YOUR_BREVO_KEY> --project-ref <PROJECT_REF>
+supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" --project-ref <PROJECT_REF>
+```
+
+체크 포인트:
+- `send-license-code` 함수는 앱에서 익명 호출하므로 `--no-verify-jwt`로 배포해야 합니다.
+- Brevo 발신 도메인/발신자(sender)가 인증되어 있어야 합니다.
+- `BREVO_API_KEY`는 Brevo API 키(`xkeysib-...`)를 사용합니다.
+- 시크릿 누락 시 `license register`는 실패해야 정상입니다(보안상 코드 미노출).
+
+#### 3.-2-b 장애 대응 가이드
+
+- 증상: `status=401` (Edge Function returned non-2xx)
+  - 원인: 함수 JWT 검증 활성화
+  - 조치: `--no-verify-jwt` 옵션으로 함수 재배포
+
+- 증상: `status=400 Either of htmlContent or textContent is required`
+  - 원인: Brevo payload 형식 오류
+  - 조치: 함수 코드 최신화 후 재배포 (`htmlContent`, `textContent` 사용)
+
+- 증상: `status=502 email_provider_error`
+  - 원인: Brevo 인증/발신자 설정/쿼터 문제
+  - 조치:
+    1. Brevo API 키 재확인 (`xkeysib-...`)
+    2. `LICENSE_EMAIL_FROM` 발신자 인증 상태 확인
+    3. 함수 로그에서 `provider_response.message` 확인
+
+- 증상: 인증 코드 메일 미수신
+  - 조치:
+    1. 스팸함 확인
+    2. Brevo Sender 인증 확인
+    3. Brevo 계정 제한(일일 한도/심사 상태) 확인
+    4. Edge Function 로그에서 4xx/5xx 상세 메시지 확인
 
 ### 3.0 가장 빠른 발급 (권장)
 

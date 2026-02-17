@@ -13,7 +13,10 @@
 - `ultra`: 모든 기능 허용, 무제한
 - 날짜 지정 트렌드(`trends --date`)는 feature flag(`enable_trends_date_override`)로 제어합니다.
 - test 1회성 규칙:
-  - `test -> 만료` 시 동일 키를 `free`로 자동 전환
+  - `test -> 만료` 후에는 자동 전환하지 않음
+  - 계속 사용하려면 `license upgrade` 실행
+  - `license register`는 플랜 변경 없이 이메일 연결만 수행
+  - `license upgrade`는 플랜 전환만 수행(현재는 `free`만 지원)
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
   - `test` 소진 후에는 다시 `test` 사용 불가
 - 차감 대상:
@@ -38,6 +41,9 @@
 - `LICENSE_KEY`가 비어 있으면 `issue_test_license(p_hwid)`로 test 키 자동 발급 시도
 - 발급 성공 시 `config/license.key`에 자동 저장
 - HWID와 함께 RPC 호출
+- `license register` 명령으로 이메일 인증 후 현재 키에 이메일 연결
+- `license recover` 명령으로 이메일 인증 후 기존 키 복구
+- `license upgrade` 명령으로 플랜 전환
 
 서버 역할:
 - 입력된 `license_key`로 라이선스 단건 조회

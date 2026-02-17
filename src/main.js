@@ -24,11 +24,21 @@ console.warn = (...args) => {
     if (args[0] && args[0].includes && args[0].includes('deprecated')) return;
     originalWarn.apply(console, args);
 };
+const originalEmitWarning = process.emitWarning.bind(process);
+process.emitWarning = (warning, ...args) => {
+    const warningCode =
+        (warning && typeof warning === 'object' && warning.code)
+            ? String(warning.code)
+            : String(args.find(v => typeof v === 'string' && /^DEP\d+$/i.test(v)) || '');
+    if (warningCode === 'DEP0040') return;
+    return originalEmitWarning(warning, ...args);
+};
 
 const { Command } = require('commander');
+const readline = require('readline/promises');
 const fs = require('fs');
 const path = require('path');
-const APP_VERSION = require('./version');
+const { version: APP_VERSION } = require('../package.json');
 
 // ✅ 분리된 모듈 불러오기
 const License = require('./license');
@@ -72,6 +82,15 @@ program
     .usage('[command] [options]')
     .version(APP_VERSION)
     .description(`🤖 네이버 블로그 자동 포스팅 봇 - Topic 기반 엔진 (v${APP_VERSION})`);
+
+program.configureHelp({
+    subcommandTerm: (cmd) => {
+        const names = [cmd.name(), ...cmd.aliases()];
+        const namePart = names.join(' | ');
+        const optionPart = cmd.options && cmd.options.length > 0 ? ' [options]' : '';
+        return `${namePart}${optionPart}`;
+    }
+});
 
 // --- Helper Functions ---
 
@@ -251,17 +270,372 @@ function printLicenseNextAction(message = '') {
 
     const isTestEnded =
         normalized.includes('test 플랜 1회 사용이 이미 종료되었습니다') ||
-        (normalized.includes('test 플랜') && normalized.includes('종료'));
+        (normalized.includes('test 플랜') && normalized.includes('종료')) ||
+        (normalized.toLowerCase().includes('license register')) ||
+        (normalized.toLowerCase().includes('license upgrade'));
 
     if (isTestEnded) {
-        console.log("💡 테스트 이용해주셔서 감사합니다. 계속 이용하시려면 Pro 등의 상품을 구독해주시기 바랍니다.");
+        console.log("💡 테스트 이용이 종료되었습니다. 계속 이용하려면 `./BlogGenius license upgrade`를 실행해 주세요.");
+        console.log("💡 업그레이드 중 이메일 등록이 필요하면 자동으로 등록 절차가 이어집니다.");
     }
+}
+
+async function askUserInput(promptText) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        const answer = await rl.question(promptText);
+        return String(answer || '').trim();
+    } finally {
+        rl.close();
+    }
+}
+
+async function askUserInputWithTimeout(promptText, timeoutSeconds) {
+    const timeoutMs = Math.max(1, parseInt(timeoutSeconds, 10) || 300) * 1000;
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const abortController = new AbortController();
+    const timer = setTimeout(() => abortController.abort(), timeoutMs);
+
+    try {
+        const answer = await rl.question(promptText, { signal: abortController.signal });
+        return { value: String(answer || '').trim(), timedOut: false };
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return { value: '', timedOut: true };
+        }
+        throw e;
+    } finally {
+        clearTimeout(timer);
+        rl.close();
+    }
+}
+
+function isCancelInput(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['q', 'quit', 'cancel', 'exit'].includes(normalized);
+}
+
+function formatDateTimeKst(rawDateTime) {
+    const raw = String(rawDateTime || '').trim();
+    if (!raw) return '';
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return '';
+
+    const parts = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false
+    }).formatToParts(dt);
+
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') map[part.type] = part.value;
+    }
+    if (!map.year || !map.month || !map.day || !map.hour || !map.minute || !map.second) return '';
+    return `${map.year}년 ${map.month}월 ${map.day}일 ${map.hour}시 ${map.minute}분 ${map.second}초`;
+}
+
+async function resolveEmailInput(initialEmail = '') {
+    let email = String(initialEmail || '').trim();
+    if (!email) {
+        email = await askUserInput('📧 이메일을 입력하세요: ');
+    }
+    if (!email) {
+        return { canceled: true, email: '' };
+    }
+    if (isCancelInput(email)) {
+        return { canceled: true, email: '' };
+    }
+    return { canceled: false, email };
+}
+
+async function requestAndPromptVerificationCode(requestFn, email) {
+    const requested = await requestFn(email);
+    if (!requested.success) {
+        return { success: false, message: requested.message || '인증 코드 요청에 실패했습니다.' };
+    }
+
+    console.log('✅ 인증 코드가 전송되었습니다. 메일함을 확인해 주세요.');
+    if (process.env.DEBUG && requested.verificationCode) {
+        console.log(`ℹ️ 개발모드 인증 코드: ${requested.verificationCode}`);
+    }
+
+    const ttlSeconds = Math.max(1, parseInt(requested.ttlSeconds, 10) || 300);
+    const ttlMinutes = Math.max(1, Math.ceil(ttlSeconds / 60));
+    const expiresAtText = formatDateTimeKst(requested.expiresAt);
+    if (expiresAtText) {
+        console.log(`⏱️ 인증 코드 유효시간: ${ttlMinutes}분 (${ttlSeconds}초. ${expiresAtText}까지)`);
+    } else {
+        console.log(`⏱️ 인증 코드 유효시간: ${ttlMinutes}분 (${ttlSeconds}초)`);
+    }
+    console.log('↩️ 취소하려면 q 입력 후 Enter를 누르세요.');
+
+    const codeInput = await askUserInputWithTimeout('🔢 인증 코드를 입력하세요: ', ttlSeconds);
+    if (codeInput.timedOut) {
+        return { success: false, message: '인증 코드 입력 시간이 초과되었습니다. 다시 시도해 주세요.' };
+    }
+    const code = String(codeInput.value || '').trim();
+    if (!code || isCancelInput(code)) {
+        return { success: false, message: '라이선스 등록/복구가 취소되었습니다.', canceled: true };
+    }
+
+    return { success: true, code };
+}
+
+async function executeRegisterFlow(initialEmail = '') {
+    const resolved = await resolveEmailInput(initialEmail);
+    if (resolved.canceled) {
+        return { success: false, canceled: true, message: '라이선스 등록이 취소되었습니다.' };
+    }
+
+    const codeResult = await requestAndPromptVerificationCode(License.requestLicenseRegistration, resolved.email);
+    if (!codeResult.success) return codeResult;
+
+    return await License.verifyLicenseRegistration(resolved.email, codeResult.code);
+}
+
+async function executeRecoveryFlow(initialEmail = '') {
+    const resolved = await resolveEmailInput(initialEmail);
+    if (resolved.canceled) {
+        return { success: false, canceled: true, message: '라이선스 복구가 취소되었습니다.' };
+    }
+
+    const codeResult = await requestAndPromptVerificationCode(License.requestLicenseRecovery, resolved.email);
+    if (!codeResult.success) return codeResult;
+
+    return await License.verifyLicenseRecovery(resolved.email, codeResult.code);
+}
+
+function shouldRunRegisterBeforeUpgrade(message = '') {
+    const normalized = String(message || '').toLowerCase();
+    return normalized.includes('이메일') && normalized.includes('등록');
+}
+
+const UPGRADE_PLAN_CATALOG = [
+    {
+        code: 'free',
+        name: 'Free Plan',
+        summary: '월 15회 사용',
+        note: '일부 고급 기능 제한',
+        enabled: true
+    },
+    {
+        code: 'pro',
+        name: 'Pro Plan',
+        summary: '월 정기 구독 (준비중)',
+        note: '전체 기능 + 넉넉한 사용량(예정)',
+        enabled: false
+    },
+    {
+        code: 'ultra',
+        name: 'Ultra Plan',
+        summary: '월 정기 구독 (준비중)',
+        note: '전체 기능 + 무제한 사용량(예정)',
+        enabled: false
+    }
+];
+
+function getUpgradePlanMeta(planCode = '') {
+    const normalized = String(planCode || '').trim().toLowerCase();
+    return UPGRADE_PLAN_CATALOG.find(plan => plan.code === normalized) || null;
+}
+
+function printUpgradePlanGuide() {
+    console.log('\n📦 선택 가능한 플랜 안내');
+    UPGRADE_PLAN_CATALOG.forEach(plan => {
+        const status = plan.enabled ? '가능' : '준비중';
+        console.log(`- ${plan.code} (${plan.name}) [${status}]`);
+        console.log(`  · ${plan.summary}`);
+        console.log(`  · ${plan.note}`);
+    });
+}
+
+async function resolveUpgradePlanInput(initialPlan = '') {
+    const planArg = String(initialPlan || '').trim().toLowerCase();
+    if (planArg) {
+        if (isCancelInput(planArg)) {
+            return { canceled: true, plan: '' };
+        }
+        return { canceled: false, plan: planArg };
+    }
+
+    printUpgradePlanGuide();
+    const answer = await askUserInput('\n🎯 업그레이드할 플랜 코드를 입력하세요 (예: free, 취소: q): ');
+    const selected = String(answer || '').trim().toLowerCase();
+    if (!selected || isCancelInput(selected)) {
+        return { canceled: true, plan: '' };
+    }
+    return { canceled: false, plan: selected };
 }
 
 // --- Commands ---
 
 // 1️⃣ Login Command
-program.command('login').description('🔐 [로그인]').action(async () => { await performLogin(); });
+program.command('login').description('🔐 [네이버 로그인]').action(async () => { await performLogin(); });
+
+program
+    .command('license')
+    .description('🔑 [라이선스] 등록/조회')
+    .addCommand(
+        new Command('status')
+            .description('📋 [상태] 현재 라이선스 상태 조회')
+            .action(async () => {
+                try {
+                    const status = await License.checkLicenseStatus();
+                    if (!status.success) {
+                        console.error(`⛔ ${status.message}`);
+                        printLicenseNextAction(status.message);
+                        return;
+                    }
+
+                    const planLabel = status.planDisplayName || status.planCode || 'Unknown plan';
+                    const remainingLabel =
+                        (typeof status.remaining === 'number' && status.remaining < 0)
+                            ? '무제한'
+                            : `${status.remaining ?? 'N/A'}회`;
+                    const startedAtLabel = status.createdAt
+                        ? new Date(status.createdAt).toLocaleString('ko-KR', { hour12: false })
+                        : 'N/A';
+                    const usageLimitLabel =
+                        (typeof status.usageLimit === 'number' && status.usageLimit < 0)
+                            ? '무제한'
+                            : `${status.usageLimit ?? 'N/A'}회`;
+                    const usageCountLabel =
+                        (typeof status.usageCount === 'number')
+                            ? `${status.usageCount}회`
+                            : 'N/A';
+
+                    console.log('✅ 라이선스 상태');
+                    console.log(`- 플랜: ${planLabel}`);
+                    console.log(`- 시작 일시: ${startedAtLabel}`);
+                    console.log(`- 총 한도: ${usageLimitLabel}`);
+                    console.log(`- 사용: ${usageCountLabel}`);
+                    console.log(`- 잔여: ${remainingLabel}`);
+                } catch (e) {
+                    console.error(`❌ 에러: ${e.message}`);
+                    if (process.env.DEBUG) console.error('Stack:', e.stack);
+                }
+            })
+    )
+    .addCommand(
+        new Command('register')
+            .description('📨 [등록] 이메일 인증으로 라이선스 등록')
+            .option('--email <email>', '등록할 이메일')
+            .action(async (opts) => {
+                try {
+                    const verified = await executeRegisterFlow(String(opts.email || '').trim());
+                    if (!verified.success) {
+                        if (verified.canceled) {
+                            console.log(`ℹ️ ${verified.message || '라이선스 등록이 취소되었습니다.'}`);
+                            return;
+                        }
+                        console.error(`⛔ ${verified.message}`);
+                        return;
+                    }
+
+                    const remainingLabel =
+                        (typeof verified.remaining === 'number' && verified.remaining < 0)
+                            ? '무제한'
+                            : `${verified.remaining ?? 'N/A'}회`;
+                    console.log(`✅ 등록 완료 (${verified.planDisplayName || verified.planCode || 'Unknown plan'} 잔여: ${remainingLabel})`);
+                    console.log('💡 플랜을 변경하려면 `./BlogGenius license upgrade`를 실행하세요.');
+                } catch (e) {
+                    console.error(`❌ 에러: ${e.message}`);
+                    if (process.env.DEBUG) console.error('Stack:', e.stack);
+                }
+            })
+    )
+    .addCommand(
+        new Command('recover')
+            .description('♻️ [복구] 이메일 인증으로 라이선스 복구')
+            .option('--email <email>', '복구할 이메일')
+            .action(async (opts) => {
+                try {
+                    const recovered = await executeRecoveryFlow(String(opts.email || '').trim());
+                    if (!recovered.success) {
+                        if (recovered.canceled) {
+                            console.log(`ℹ️ ${recovered.message || '라이선스 복구가 취소되었습니다.'}`);
+                            return;
+                        }
+                        console.error(`⛔ ${recovered.message}`);
+                        return;
+                    }
+
+                    const remainingLabel =
+                        (typeof recovered.remaining === 'number' && recovered.remaining < 0)
+                            ? '무제한'
+                            : `${recovered.remaining ?? 'N/A'}회`;
+                    console.log(`✅ 복구 완료 (${recovered.planDisplayName || recovered.planCode || 'Unknown plan'} 잔여: ${remainingLabel})`);
+                } catch (e) {
+                    console.error(`❌ 에러: ${e.message}`);
+                    if (process.env.DEBUG) console.error('Stack:', e.stack);
+                }
+            })
+    )
+    .addCommand(
+        new Command('upgrade')
+            .description('⬆️ [업그레이드] 플랜 업그레이드')
+            .option('--plan <plan>', '대상 플랜 코드 (예: free)')
+            .option('--email <email>', '미등록 시 자동 등록에 사용할 이메일')
+            .action(async (opts) => {
+                try {
+                    const resolvedPlan = await resolveUpgradePlanInput(opts.plan);
+                    if (resolvedPlan.canceled) {
+                        console.log('ℹ️ 라이선스 업그레이드가 취소되었습니다.');
+                        return;
+                    }
+                    const targetPlan = resolvedPlan.plan;
+                    let email = String(opts.email || '').trim();
+
+                    const planMeta = getUpgradePlanMeta(targetPlan);
+                    if (!planMeta) {
+                        console.error(`⛔ 알 수 없는 플랜 코드입니다: ${targetPlan}`);
+                        printUpgradePlanGuide();
+                        return;
+                    }
+                    if (!planMeta.enabled) {
+                        console.log(`ℹ️ ${planMeta.name}은(는) 아직 준비 중입니다.`);
+                        console.log('💡 현재 즉시 전환 가능한 플랜은 free 입니다.');
+                        return;
+                    }
+
+                    let upgraded = await License.upgradeLicense(targetPlan, email);
+                    if (!upgraded.success && shouldRunRegisterBeforeUpgrade(upgraded.message)) {
+                        console.log('ℹ️ 업그레이드 전에 이메일 등록이 필요합니다. 등록 절차를 이어서 진행합니다.');
+                        const registered = await executeRegisterFlow(email);
+                        if (!registered.success) {
+                            if (registered.canceled) {
+                                console.log(`ℹ️ ${registered.message || '라이선스 등록이 취소되었습니다.'}`);
+                                return;
+                            }
+                            console.error(`⛔ ${registered.message}`);
+                            return;
+                        }
+                        email = email || '';
+                        upgraded = await License.upgradeLicense(targetPlan, email);
+                    }
+
+                    if (!upgraded.success) {
+                        console.error(`⛔ ${upgraded.message}`);
+                        return;
+                    }
+
+                    const remainingLabel =
+                        (typeof upgraded.remaining === 'number' && upgraded.remaining < 0)
+                            ? '무제한'
+                            : `${upgraded.remaining ?? 'N/A'}회`;
+                    console.log(`✅ 업그레이드 완료 (${upgraded.planDisplayName || upgraded.planCode || 'Unknown plan'} 잔여: ${remainingLabel})`);
+                } catch (e) {
+                    console.error(`❌ 에러: ${e.message}`);
+                    if (process.env.DEBUG) console.error('Stack:', e.stack);
+                }
+            })
+    );
 
 // 2️⃣ Generate Command
 program
@@ -484,7 +858,7 @@ program
 // 4️⃣ Publish Command
 program
     .command('publish').alias('pub')
-    .description('📤 [발행] 폴더 업로드')
+    .description('📤 [발행] 폴더 내 콘텐츠 기반 발행')
     .requiredOption('-d, --dir <path>', '폴더 경로')
     .action(async (opts) => {
         try {
@@ -543,7 +917,7 @@ program
 program
     .command('trends')
     .description('📈 [트렌드] 크리에이터 어드바이저 트렌드 수집')
-    .option('--date <date>', '트렌드 기준일 (YYYY-MM-DD / YYYYMMDD / yesterday / -Nd)')
+    .option('--date <date>', '트렌드 기준일 (YYYYMMDD / -Nd)')
     .action(async (options) => {
         try {
             console.log("\n▶️ [Trend Mode] 트렌드 키워드 수집을 시작합니다...");
@@ -720,12 +1094,14 @@ program.on('--help', () => {
     console.log('');
     console.log('📖 사용 예시:');
     console.log('  $ ./BlogGenius login');
+    console.log('  $ ./BlogGenius license status');
+    console.log('  $ ./BlogGenius license register --email=you@example.com');
+    console.log('  $ ./BlogGenius license recover --email=you@example.com');
+    console.log('  $ ./BlogGenius license upgrade');
     console.log('  $ ./BlogGenius gen');
     console.log('  $ ./BlogGenius trends --date=-1d');
-    console.log('  $ ./BlogGenius trends --date=yesterday');
-    console.log('  $ ./BlogGenius trends --date=2026-01-30');
     console.log('  $ ./BlogGenius trends --date=20260130');
-    console.log('  $ ./BlogGenius pub -d "workspace/내_원고_폴더"');
+    console.log('  $ ./BlogGenius pub -d "workspace/콘텐츠_폴더"');
     console.log('  $ ./BlogGenius batch');
     console.log('  $ ./BlogGenius shopping');
 });

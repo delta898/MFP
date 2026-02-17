@@ -16,6 +16,8 @@ topic.json
 config/service_account.json
 config/auth.json
 config/settings.js
+config/license.key
+supabase/.temp/
 log.txt
 topics 2.numbers
 topics_test.xlsx

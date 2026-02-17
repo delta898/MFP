@@ -58,10 +58,10 @@ commit;
 -- insert into public.app_runtime_configs (config_key, config_value, is_active, note)
 -- values
 --   ('naver_client_id', '여기에_네이버_Client_ID', true, 'Naver Search API Client ID'),
---   ('naver_client_secret', '여기에_네이버_Client_Secret', true, 'Naver Search API Client Secret')
+--   ('naver_client_secret', '여기에_네이버_Client_Secret', true, 'Naver Search API Client Secret'),
+--   ('license_registration_code_ttl_seconds', '300', true, '라이선스 등록 인증코드 유효시간(초)')
 -- on conflict (config_key) do update
 -- set config_value = excluded.config_value,
 --     is_active = excluded.is_active,
 --     note = excluded.note,
 --     updated_at = timezone('utc', now());
-
