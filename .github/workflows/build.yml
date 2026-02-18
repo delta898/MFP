@@ -107,13 +107,13 @@ jobs:
               local message="$3"
               local command="$4"
               {
-                echo "@echo off"
-                echo "chcp 65001 > nul"
-                echo "title ${title}"
-                echo "echo."
-                echo "echo [BlogGenius] ${message}"
-                echo "BlogGenius.exe ${command}"
-                echo "pause"
+                printf '@echo off\r\n'
+                printf 'chcp 65001 > nul\r\n'
+                printf 'title %s\r\n' "${title}"
+                printf 'echo.\r\n'
+                printf 'echo [BlogGenius] %s\r\n' "${message}"
+                printf 'BlogGenius.exe %s\r\n' "${command}"
+                printf 'pause\r\n'
               } > "dist/${file_name}"
             }
 
