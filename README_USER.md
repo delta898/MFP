@@ -105,7 +105,7 @@ BlogGenius/
 - `scripts/google_apps_script.js`
 
 설정 순서:
-1. 구글 스프레드시트에서 `확장 프로그램 > Apps Script` 열기
+1. 구글 스프레드시트 상단 메뉴에서 `확장 프로그램 > Apps Script` 열기
 2. 기본으로 열린 `Code.gs` 내용을 전부 지우기
 3. 이 프로젝트의 `scripts/google_apps_script.js` 전체 내용을 복사해서 붙여넣기
 4. 상단의 기본제목('제목 없는 프로젝트')을 원하는 임의 이름으로 변경

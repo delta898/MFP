@@ -211,13 +211,15 @@ h2 {
   grid-template-columns: 220px 1fr;
 }
 
-.blog-tabs {
+.blog-tabs,
+.shopping-tabs {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.blog-tab-btn {
+.blog-tab-btn,
+.shopping-tab-btn {
   border: 1px solid #cfd9e9;
   border-radius: 10px;
   background: #ffffff;
@@ -227,22 +229,62 @@ h2 {
   cursor: pointer;
 }
 
-.blog-tab-btn:hover {
+.blog-tab-btn:hover,
+.shopping-tab-btn:hover {
   background: #f3f8ff;
 }
 
-.blog-tab-btn.active {
+.blog-tab-btn.active,
+.shopping-tab-btn.active {
   border-color: #92c5ff;
   background: #eaf4ff;
   color: #0b4f9f;
 }
 
-.blog-tab-panel {
+.blog-tab-panel,
+.shopping-tab-panel {
   display: none;
 }
 
-.blog-tab-panel.active {
+.blog-tab-panel.active,
+.shopping-tab-panel.active {
   display: flex;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-tab-btn {
+  border: 1px solid #cfd9e9;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-tab-btn:hover {
+  background: #f3f8ff;
+}
+
+.settings-tab-btn.active {
+  border-color: #92c5ff;
+  background: #eaf4ff;
+  color: #0b4f9f;
+}
+
+.settings-tab-panel {
+  display: none;
+}
+
+.settings-tab-panel.active {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .tab-selected-count {
@@ -290,6 +332,28 @@ h2 {
 .form-actions {
   display: flex;
   gap: 8px;
+}
+
+.action-separator {
+  width: 12px;
+  min-width: 12px;
+}
+
+.filter-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+.filter-tools .secondary {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #475569;
+  color: #fff;
 }
 
 .form-actions button {
@@ -340,6 +404,33 @@ pre {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th.sortable::after {
+  content: "↕";
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: 6px;
+}
+
+.data-table th.sortable.active-sort {
+  color: #0b4f9f;
+}
+
+.data-table th.sortable[data-sort-dir="asc"]::after {
+  content: "↑";
+  color: #0b4f9f;
+}
+
+.data-table th.sortable[data-sort-dir="desc"]::after {
+  content: "↓";
+  color: #0b4f9f;
 }
 
 .data-table tr:hover td {
@@ -493,7 +584,8 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .blog-tabs {
+  .blog-tabs,
+  .shopping-tabs {
     flex-wrap: wrap;
   }
 

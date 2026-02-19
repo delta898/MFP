@@ -539,6 +539,38 @@ const Utils = {
                 });
             }
 
+            const sortBy = String(options.sortBy || 'rowNumber').trim();
+            const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+            const compareValues = (a, b) => {
+                const aNull = a === null || a === undefined || a === '';
+                const bNull = b === null || b === undefined || b === '';
+                if (aNull && bNull) return 0;
+                if (aNull) return 1;
+                if (bNull) return -1;
+                if (typeof a === 'number' && typeof b === 'number') return a - b;
+                return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+            };
+            const getSortValue = (item) => {
+                if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
+                if (sortBy === 'subject') return String(item.subject || '');
+                if (sortBy === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
+                if (sortBy === 'instruction') return String(item.content_guide?.additional_instructions || '');
+                if (sortBy === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
+                if (sortBy === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
+                if (sortBy === 'externalReference') return item.use_external_ref === true ? 1 : 0;
+                if (sortBy === 'runtimeLog') return String(item.log || '');
+                if (sortBy === 'status') return String(item.status || '');
+                return Number(item.rowNumber || 0);
+            };
+            filtered = filtered
+                .map((item, index) => ({ item, index }))
+                .sort((a, b) => {
+                    const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
+                    if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
+                    return a.index - b.index;
+                })
+                .map(v => v.item);
+
             const total = filtered.length;
             const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
             const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
@@ -548,6 +580,100 @@ const Utils = {
         } catch (e) {
             Logger.error(`❌ topics 전체 조회 실패: ${e.message}`);
             return { items: [], total: 0, limit: 0, offset: 0 };
+        }
+    },
+
+    /**
+     * 쇼핑 시트에 새로운 행 추가 (빠른발행/일괄발행용)
+     */
+    appendGoogleSheetShopping: async function (newItems, options = {}) {
+        if (!Array.isArray(newItems) || newItems.length === 0) {
+            return { success: true, addedCount: 0, rowNumbers: [], rowIndices: [] };
+        }
+
+        try {
+            await this.ensureAllSheetsExist();
+
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const headers = Array.isArray(headerRes?.data?.values?.[0]) ? headerRes.data.values[0] : [];
+            if (headers.length === 0) {
+                throw new Error('shopping 시트 헤더를 찾지 못했습니다.');
+            }
+
+            const map = {};
+            headers.forEach((h, i) => {
+                const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if ((clean.includes('url') || clean.includes('링크')) && map.shortUrl === undefined) map.shortUrl = i;
+                if ((clean.includes('상태') || clean.includes('status')) && map.status === undefined) map.status = i;
+                if ((clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간') || clean.includes('작업시간')) && map.publishedAt === undefined) map.publishedAt = i;
+                if ((clean.includes('상품') || clean.includes('product')) && map.product === undefined) map.product = i;
+            });
+
+            if (map.shortUrl === undefined) map.shortUrl = 0;
+            if (map.status === undefined) map.status = 1;
+            if (map.publishedAt === undefined) map.publishedAt = 2;
+            if (map.product === undefined) map.product = 3;
+
+            const maxCol = Math.max(map.shortUrl, map.status, map.publishedAt, map.product);
+            const defaultStatus = String(options.defaultStatus || '준비').trim() || '준비';
+            const rowsToAdd = newItems.map((item) => {
+                const row = new Array(maxCol + 1).fill('');
+                const shortUrl = String(item?.shortUrl || item?.url || '').trim();
+                const product = String(item?.product || '').trim();
+                const rowStatus = String(item?.status || defaultStatus).trim() || defaultStatus;
+
+                row[map.shortUrl] = shortUrl;
+                row[map.status] = rowStatus;
+                row[map.product] = product;
+                if (map.publishedAt !== undefined) row[map.publishedAt] = '';
+                return row;
+            });
+
+            const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+            const appendRes = await this.callWithRetry(() => axios.post(appendUrl, {
+                range: sheetName,
+                majorDimension: 'ROWS',
+                values: rowsToAdd
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const updatedRange = appendRes?.data?.updates?.updatedRange || '';
+            let rowNumbers = [];
+            if (updatedRange) {
+                const right = String(updatedRange).split('!')[1] || '';
+                const m = right.match(/[A-Z]+(\d+):[A-Z]+(\d+)/i) || right.match(/[A-Z]+(\d+)/i);
+                if (m) {
+                    const startRow = parseInt(m[1], 10);
+                    const endRow = m[2] ? parseInt(m[2], 10) : startRow;
+                    if (!Number.isNaN(startRow) && !Number.isNaN(endRow)) {
+                        for (let r = startRow; r <= endRow; r++) rowNumbers.push(r);
+                    }
+                }
+            }
+            const rowIndices = rowNumbers.map((rowNum) => rowNum - 2).filter((idx) => idx >= 0);
+
+            await this.sleep(300);
+
+            return {
+                success: true,
+                addedCount: rowsToAdd.length,
+                rowNumbers,
+                rowIndices
+            };
+        } catch (e) {
+            Logger.error(`❌ 쇼핑 시트 append 실패: ${e.message}`);
+            return {
+                success: false,
+                message: e.message
+            };
         }
     },
 
@@ -601,6 +727,117 @@ const Utils = {
     },
 
     /**
+     * UI/운영용: shopping 시트 전체 조회 (상태/검색/페이징/정렬 지원)
+     */
+    readGoogleSheetShoppingAll: async function (options = {}) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                return { items: [], total: 0, limit: 0, offset: 0 };
+            }
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+            const parsed = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                const getVal = (cols) => {
+                    for (const col of cols) {
+                        const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                            return String(entry[cleanCol]).trim();
+                        }
+                    }
+                    return "";
+                };
+
+                const shortUrl = getVal(['url', '링크']);
+                const status = getVal(['상태', 'status']);
+                const publishedAt = getVal(['발행시간', '발행시간', 'publish_time', 'time', '작업시간', '작업시간']);
+                const product = getVal(['상품', 'product']);
+                const logStr = getVal(['로그', 'log']);
+
+                return {
+                    rowIndex: index,
+                    rowNumber: index + 2,
+                    shortUrl: shortUrl || '',
+                    status: status || '',
+                    publishedAt: publishedAt || '',
+                    product: product || '',
+                    log: logStr || ''
+                };
+            });
+
+            const statusFilter = String(options.status || '').trim();
+            const q = String(options.q || '').trim().toLowerCase();
+            let filtered = parsed;
+
+            if (statusFilter) {
+                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+            }
+            if (q) {
+                filtered = filtered.filter((item) => {
+                    const haystack = [
+                        item.product,
+                        item.shortUrl,
+                        item.status,
+                        item.publishedAt,
+                        item.log
+                    ].join(' ').toLowerCase();
+                    return haystack.includes(q);
+                });
+            }
+
+            const sortBy = String(options.sortBy || 'rowNumber').trim();
+            const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+            const compareValues = (a, b) => {
+                const aNull = a === null || a === undefined || a === '';
+                const bNull = b === null || b === undefined || b === '';
+                if (aNull && bNull) return 0;
+                if (aNull) return 1;
+                if (bNull) return -1;
+                if (typeof a === 'number' && typeof b === 'number') return a - b;
+                return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+            };
+            const getSortValue = (item) => {
+                if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
+                if (sortBy === 'product') return String(item.product || '');
+                if (sortBy === 'shortUrl') return String(item.shortUrl || '');
+                if (sortBy === 'runtimeLog') return String(item.log || '');
+                if (sortBy === 'status') return String(item.status || '');
+                if (sortBy === 'publishedAt') return String(item.publishedAt || '');
+                return Number(item.rowNumber || 0);
+            };
+            filtered = filtered
+                .map((item, index) => ({ item, index }))
+                .sort((a, b) => {
+                    const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
+                    if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
+                    return a.index - b.index;
+                })
+                .map(v => v.item);
+
+            const total = filtered.length;
+            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
+            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+            const items = filtered.slice(offset, offset + limit);
+
+            return { items, total, limit, offset };
+        } catch (e) {
+            Logger.error(`❌ shopping 전체 조회 실패: ${e.message}`);
+            return { items: [], total: 0, limit: 0, offset: 0 };
+        }
+    },
+
+    /**
      * Shopping 시트 상태 업데이트 (개별 row)
      */
     updateGoogleSheetShoppingStatus: async function (rowIndex, status, updateTime = true) {
@@ -649,6 +886,80 @@ const Utils = {
             await this.sleep(500);
         } catch (e) {
             Logger.error(`❌ 쇼핑 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
+        }
+    },
+
+    /**
+     * shopping 시트 편집 가능 필드 업데이트 (상품/URL/상태)
+     */
+    updateGoogleSheetShoppingEditableFields: async function (rowIndex, fields = {}) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+
+            const headers = headerRes.data.values[0];
+            let urlColIndex = -1;
+            let statusColIndex = -1;
+            let productColIndex = -1;
+
+            headers.forEach((h, i) => {
+                const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if ((clean.includes('url') || clean.includes('링크')) && urlColIndex === -1) urlColIndex = i;
+                if ((clean.includes('상태') || clean.includes('status')) && statusColIndex === -1) statusColIndex = i;
+                if ((clean.includes('상품') || clean.includes('product')) && productColIndex === -1) productColIndex = i;
+            });
+
+            const targetRow = rowIndex + 2;
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                }
+                return letter;
+            };
+
+            const dataToUpdate = [];
+            if (fields.product !== undefined && productColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(productColIndex)}${targetRow}`,
+                    values: [[String(fields.product || '').trim()]]
+                });
+            }
+            if (fields.shortUrl !== undefined && urlColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(urlColIndex)}${targetRow}`,
+                    values: [[String(fields.shortUrl || '').trim()]]
+                });
+            }
+            if (fields.status !== undefined && statusColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`,
+                    values: [[String(fields.status || '').trim()]]
+                });
+            }
+
+            if (dataToUpdate.length === 0) {
+                throw new Error('shopping 시트 편집 가능한 컬럼(URL/상태/상품)을 찾지 못했습니다.');
+            }
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                valueInputOption: 'USER_ENTERED',
+                data: dataToUpdate
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            await this.sleep(300);
+        } catch (e) {
+            Logger.error(`❌ 쇼핑 editable 필드 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
+            throw e;
         }
     },
 
@@ -1230,6 +1541,49 @@ const Utils = {
                 });
             }
 
+            const sortBy = String(options.sortBy || 'rowNumber').trim();
+            const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+            const compareValues = (a, b) => {
+                const aNull = a === null || a === undefined || a === '';
+                const bNull = b === null || b === undefined || b === '';
+                if (aNull && bNull) return 0;
+                if (aNull) return 1;
+                if (bNull) return -1;
+                if (typeof a === 'number' && typeof b === 'number') return a - b;
+                return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+            };
+            const parseVariationValue = (raw) => {
+                const text = String(raw || '').trim();
+                if (!text) return 0;
+                if (text.includes('▲')) {
+                    const num = parseInt(text.replace(/[^\d-]/g, ''), 10);
+                    return Number.isNaN(num) ? 0 : Math.abs(num);
+                }
+                if (text.includes('▼')) {
+                    const num = parseInt(text.replace(/[^\d-]/g, ''), 10);
+                    return Number.isNaN(num) ? 0 : -Math.abs(num);
+                }
+                const plain = parseInt(text.replace(/[^\d-]/g, ''), 10);
+                return Number.isNaN(plain) ? 0 : plain;
+            };
+            const getSortValue = (item) => {
+                if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
+                if (sortBy === 'date') return String(item.date || '');
+                if (sortBy === 'category') return String(item.category || '');
+                if (sortBy === 'keyword') return String(item.keyword || '');
+                if (sortBy === 'variation') return parseVariationValue(item.variation);
+                if (sortBy === 'status') return String(item.status || '');
+                return Number(item.rowNumber || 0);
+            };
+            filtered = filtered
+                .map((item, index) => ({ item, index }))
+                .sort((a, b) => {
+                    const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
+                    if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
+                    return a.index - b.index;
+                })
+                .map(v => v.item);
+
             const total = filtered.length;
             const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 100;
             const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
@@ -1680,7 +2034,7 @@ const Utils = {
 
     /**
      * UI 편집용: topics 시트에서 수정 가능한 필드만 업데이트
-     * - subject, keywords, 참고/지시사항, 참고 URL, 이미지 생성 여부, 외부 참고 여부
+     * - subject, keywords, 참고/지시사항, 참고 URL, 상태, 이미지 생성 여부, 외부 참고 여부
      */
     updateGoogleSheetTopicEditableFields: async function (rowIndex, fields = {}) {
         const safeRowIndex = parseInt(rowIndex, 10);
@@ -1698,6 +2052,7 @@ const Utils = {
             referenceUrl: Array.isArray(fields.referenceUrl)
                 ? fields.referenceUrl.map(v => String(v || '').trim()).filter(Boolean).join(', ')
                 : String(fields.referenceUrl || '').trim(),
+            status: String(fields.status || '').trim(),
             imageGeneration: toYesNo(Boolean(fields.imageGeneration)),
             externalReference: toYesNo(Boolean(fields.externalReference))
         };
@@ -1723,6 +2078,7 @@ const Utils = {
             else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
             else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
             else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
+            else if (clean.includes('상태') || clean.includes('status')) map.status = i;
             else if (clean.includes('이미지생성') || clean.includes('imagegen') || clean.includes('imggen')) map.imgGen = i;
             else if (clean.includes('외부참고') || clean.includes('external') || clean.includes('extref')) map.extRef = i;
         });
@@ -1746,6 +2102,7 @@ const Utils = {
         if (map.keyword !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.keyword)}${targetRow}`, values: [[normalized.keywords]] });
         if (map.instruction !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.instruction)}${targetRow}`, values: [[normalized.instruction]] });
         if (map.url !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.url)}${targetRow}`, values: [[normalized.referenceUrl]] });
+        if (map.status !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.status)}${targetRow}`, values: [[normalized.status]] });
         if (map.imgGen !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.imgGen)}${targetRow}`, values: [[normalized.imageGeneration]] });
         if (map.extRef !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.extRef)}${targetRow}`, values: [[normalized.externalReference]] });
 

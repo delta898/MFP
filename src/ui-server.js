@@ -10,9 +10,11 @@ const Utils = require('./utils');
 const Core = require('./core');
 const BrowserLauncher = require('./browser-launcher');
 const TrendManager = require('./trend-manager');
+const ShoppingManager = require('./shopping-manager');
 
 const DEFAULT_PORT = 4577;
 const blogRuntimeLogs = new Map();
+const shoppingRuntimeLogs = new Map();
 const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
 const naverLoginState = {
     status: 'idle', // idle | running | success | failed
@@ -42,6 +44,25 @@ function clearAllBlogRuntimeLogs() {
 function getBlogRuntimeLogMap() {
     const map = new Map();
     for (const [rowIndex, log] of blogRuntimeLogs.entries()) {
+        map.set(rowIndex, String(log?.message || ''));
+    }
+    return map;
+}
+
+function setShoppingRuntimeLog(rowIndex, message) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
+    shoppingRuntimeLogs.set(rowIndex, {
+        message: String(message || '').trim()
+    });
+}
+
+function clearAllShoppingRuntimeLogs() {
+    shoppingRuntimeLogs.clear();
+}
+
+function getShoppingRuntimeLogMap() {
+    const map = new Map();
+    for (const [rowIndex, log] of shoppingRuntimeLogs.entries()) {
         map.set(rowIndex, String(log?.message || ''));
     }
     return map;
@@ -225,6 +246,77 @@ function parseIntSafe(input, fallback = null, min = null) {
 function parseBoolQuery(input) {
     const value = String(input || '').trim().toLowerCase();
     return ['1', 'true', 'yes', 'y', 'on'].includes(value);
+}
+
+function normalizeSortDir(input, fallback = 'desc') {
+    const value = String(input || '').trim().toLowerCase();
+    if (value === 'desc') return 'desc';
+    if (value === 'asc') return 'asc';
+    return fallback;
+}
+
+function compareSortValues(a, b) {
+    const aNull = a === null || a === undefined || a === '';
+    const bNull = b === null || b === undefined || b === '';
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+}
+
+function getTopicSortValue(item, key) {
+    if (!item) return '';
+    if (key === 'rowNumber') return Number(item.rowNumber || 0);
+    if (key === 'subject') return String(item.subject || '');
+    if (key === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
+    if (key === 'instruction') return String(item.content_guide?.additional_instructions || '');
+    if (key === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
+    if (key === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
+    if (key === 'externalReference') return item.use_external_ref === true ? 1 : 0;
+    if (key === 'runtimeLog') return String(item.runtimeLog || '');
+    if (key === 'status') return String(item.status || '');
+    return Number(item.rowNumber || 0);
+}
+
+function sortTopicItems(items, sortBy = 'rowNumber', sortDir = 'desc') {
+    const key = String(sortBy || 'rowNumber').trim();
+    const direction = String(sortDir || 'desc').trim().toLowerCase() === 'desc' ? -1 : 1;
+    const source = Array.isArray(items) ? items : [];
+    return source
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+            const cmp = compareSortValues(getTopicSortValue(a.item, key), getTopicSortValue(b.item, key));
+            if (cmp !== 0) return cmp * direction;
+            return a.index - b.index;
+        })
+        .map(v => v.item);
+}
+
+function getShoppingSortValue(item, key) {
+    if (!item) return '';
+    if (key === 'rowNumber') return Number(item.rowNumber || 0);
+    if (key === 'product') return String(item.product || '');
+    if (key === 'shortUrl') return String(item.shortUrl || '');
+    if (key === 'runtimeLog') return String(item.runtimeLog || '');
+    if (key === 'status') return String(item.status || '');
+    if (key === 'publishedAt') return String(item.publishedAt || '');
+    return Number(item.rowNumber || 0);
+}
+
+function sortShoppingItems(items, sortBy = 'rowNumber', sortDir = 'desc') {
+    const key = String(sortBy || 'rowNumber').trim();
+    const direction = String(sortDir || 'desc').trim().toLowerCase() === 'desc' ? -1 : 1;
+    const source = Array.isArray(items) ? items : [];
+    return source
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+            const cmp = compareSortValues(getShoppingSortValue(a.item, key), getShoppingSortValue(b.item, key));
+            if (cmp !== 0) return cmp * direction;
+            return a.index - b.index;
+        })
+        .map(v => v.item);
 }
 
 function resolveConfigPaths() {
@@ -658,6 +750,99 @@ async function executeQuickPublish(requestBody) {
     }
 }
 
+async function executeShoppingQuickPublish(requestBody = {}) {
+    const shortUrl = String(requestBody?.shortUrl || requestBody?.url || '').trim();
+    const product = String(requestBody?.product || '').trim();
+    const publishMode = normalizePublishMode(requestBody?.publishMode);
+
+    if (!shortUrl) {
+        return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL은 필수입니다.' };
+    }
+    if (!/^https?:\/\//i.test(shortUrl)) {
+        return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL 형식이 올바르지 않습니다. (http/https)' };
+    }
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+    const features = toFeatureMap(precheck.features);
+    if (publishMode === 'append_and_publish' && !isCommandEnabled(features, 'shopping')) {
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 shopping 기능이 비활성화되어 있습니다. (cmd_shopping=false)' };
+    }
+
+    await Utils.ensureAllSheetsExist();
+    const appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '준비';
+    const appendResult = await Utils.appendGoogleSheetShopping([{
+        shortUrl,
+        product,
+        status: appendStatus
+    }], {
+        defaultStatus: appendStatus
+    });
+
+    if (!appendResult?.success) {
+        return {
+            success: false,
+            code: 'SHOPPING_APPEND_FAILED',
+            message: appendResult?.message || 'shopping 시트 추가에 실패했습니다.'
+        };
+    }
+
+    const rowNumber = Array.isArray(appendResult.rowNumbers) ? appendResult.rowNumbers[0] : null;
+    const rowIndex = Array.isArray(appendResult.rowIndices) ? appendResult.rowIndices[0] : null;
+
+    if (publishMode === 'append_only') {
+        return {
+            success: true,
+            data: {
+                mode: publishMode,
+                sheet: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping',
+                rowNumber,
+                rowIndex,
+                status: appendStatus
+            }
+        };
+    }
+
+    if (!Number.isInteger(rowIndex)) {
+        return {
+            success: false,
+            code: 'SHOPPING_APPEND_ROW_INDEX_MISSING',
+            message: '추가된 행 인덱스를 확인하지 못했습니다.'
+        };
+    }
+
+    const session = await checkAuthSessionValid();
+    if (!session.ok) {
+        return {
+            success: false,
+            code: 'NAVER_SESSION_INVALID',
+            message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+        };
+    }
+
+    const result = await executeShoppingRowAction(
+        { rowIndex },
+        { enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', true) }
+    );
+
+    if (!result.success) {
+        return result;
+    }
+
+    return {
+        success: true,
+        data: {
+            mode: publishMode,
+            sheet: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping',
+            rowNumber,
+            rowIndex,
+            ...(result.data || {})
+        }
+    };
+}
+
 async function executeBlogRowAction(requestBody, options = {}) {
     const action = String(requestBody?.action || '').trim().toLowerCase();
     const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
@@ -709,6 +894,20 @@ async function executeBlogRowAction(requestBody, options = {}) {
     const imageGenerationFinal = imageGenerationEnabledByPlan && topicPayload.image_options.generate;
 
     try {
+        // action=batch(발행)은 생성/이미지 준비 전에 세션을 먼저 확인해
+        // 불필요한 대기/비용이 발생하지 않도록 한다.
+        if (action === 'batch') {
+            const session = await checkAuthSessionValid();
+            if (!session.ok) {
+                await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '네이버 세션 만료');
+                return {
+                    success: false,
+                    code: 'NAVER_SESSION_INVALID',
+                    message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+                };
+            }
+        }
+
         emitProgress('콘텐츠 생성 중...');
         const result = await Core.generateContent(topicPayload, null, {
             enableRelatedPostsAutoLink
@@ -736,12 +935,6 @@ async function executeBlogRowAction(requestBody, options = {}) {
         if (!isCommandEnabled(features, 'batch')) {
             await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
             return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
-        }
-
-        const session = await checkAuthSessionValid();
-        if (!session.ok) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '네이버 세션 만료');
-            return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.' };
         }
 
         emitProgress('라이선스 확인 중...');
@@ -806,6 +999,19 @@ async function executeBlogBatchRowsAction(requestBody) {
             setBlogRuntimeLog(rowIndex, '중단: 현재 플랜에서 batch 사용 불가');
         });
         return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+    }
+
+    // 배치 시작 전에 세션을 1차 확인해, 로그인 만료/미로그인 상태를 즉시 안내한다.
+    const initialSession = await checkAuthSessionValid();
+    if (!initialSession.ok) {
+        rowIndices.forEach((rowIndex) => {
+            setBlogRuntimeLog(rowIndex, '중단: 네이버 로그인 세션이 유효하지 않습니다.');
+        });
+        return {
+            success: false,
+            code: 'NAVER_SESSION_INVALID',
+            message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+        };
     }
 
     const featureMax = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
@@ -880,6 +1086,229 @@ async function executeBlogBatchRowsAction(requestBody) {
     };
 }
 
+async function executeShoppingRowAction(requestBody, options = {}) {
+    const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    if (rowIndex === null) {
+        return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+    }
+
+    const progress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const report = (message) => {
+        if (progress) progress(String(message || '').trim());
+    };
+
+    try {
+        const shoppingResult = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0 });
+        const allItems = Array.isArray(shoppingResult.items) ? shoppingResult.items : [];
+        const target = allItems.find(item => item.rowIndex === rowIndex);
+        if (!target) {
+            return { success: false, code: 'SHOPPING_ROW_NOT_FOUND', message: `shopping row(${rowIndex + 2})를 찾지 못했습니다.` };
+        }
+        const shortUrl = String(target.shortUrl || '').trim();
+        if (!shortUrl) {
+            return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL이 비어 있습니다.' };
+        }
+
+        report('상태 업데이트: 발행 중');
+        await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
+
+        report('쇼핑 콘텐츠 생성 중');
+        const runtimeOptions = {
+            enableRelatedPostsAutoLink: options.enableRelatedPostsAutoLink !== false
+        };
+        const buildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, runtimeOptions);
+
+        report('라이선스 확인 중');
+        const verify = await License.verifyLicense();
+        if (!verify.success) {
+            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
+            return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+        }
+
+        report('네이버 발행 단계 진행 중');
+        await Core.publishToBlog(buildResult.targetDir, {
+            affiliateUrl: shortUrl,
+            requireAffiliateUrl: true
+        });
+        await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
+
+        return {
+            success: true,
+            data: {
+                rowIndex,
+                rowNumber: rowIndex + 2,
+                status: '발행 완료',
+                shortUrl,
+                targetDir: buildResult.targetDir
+            }
+        };
+    } catch (e) {
+        await Utils.updateGoogleSheetShoppingStatus(rowIndex, '실패');
+        return { success: false, code: 'SHOPPING_ACTION_FAILED', message: e.message };
+    }
+}
+
+async function executeShoppingBatchRowsAction(requestBody = {}) {
+    const rawRowIndices = Array.isArray(requestBody?.rowIndices) ? requestBody.rowIndices : [];
+    const rowIndices = Array.from(new Set(
+        rawRowIndices
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: 'rowIndices는 0 이상의 정수 배열이어야 합니다.' };
+    }
+
+    clearAllShoppingRuntimeLogs();
+    rowIndices.forEach((rowIndex) => {
+        setShoppingRuntimeLog(rowIndex, '요청 접수');
+    });
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        rowIndices.forEach((rowIndex) => {
+            setShoppingRuntimeLog(rowIndex, `중단: ${precheck.message || '라이선스 확인 실패'}`);
+        });
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'shopping')) {
+        rowIndices.forEach((rowIndex) => {
+            setShoppingRuntimeLog(rowIndex, '중단: 현재 플랜에서 shopping 사용 불가');
+        });
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 shopping 기능이 비활성화되어 있습니다. (cmd_shopping=false)' };
+    }
+
+    const initialSession = await checkAuthSessionValid();
+    if (!initialSession.ok) {
+        rowIndices.forEach((rowIndex) => {
+            setShoppingRuntimeLog(rowIndex, '중단: 네이버 로그인 세션이 유효하지 않습니다.');
+        });
+        return {
+            success: false,
+            code: 'NAVER_SESSION_INVALID',
+            message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+        };
+    }
+
+    const featureMax = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
+    const effectiveMax = featureMax === 0 ? rowIndices.length : Math.max(1, featureMax);
+    const targetRowIndices = rowIndices.slice(0, effectiveMax);
+    const skippedByLimit = rowIndices.slice(effectiveMax);
+    const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+
+    targetRowIndices.forEach((rowIndex, i) => {
+        setShoppingRuntimeLog(rowIndex, `대기열 등록 (${i + 1}/${targetRowIndices.length})`);
+    });
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < targetRowIndices.length; i += 1) {
+        const rowIndex = targetRowIndices[i];
+        setShoppingRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
+        const result = await executeShoppingRowAction(
+            { rowIndex },
+            {
+                enableRelatedPostsAutoLink,
+                onProgress: (message) => setShoppingRuntimeLog(rowIndex, message)
+            }
+        );
+
+        if (result.success) {
+            successCount += 1;
+            results.push({
+                rowIndex,
+                success: true,
+                data: result.data
+            });
+            setShoppingRuntimeLog(rowIndex, '완료');
+            continue;
+        }
+
+        failCount += 1;
+        setShoppingRuntimeLog(rowIndex, `실패: ${result.message || 'unknown error'}`);
+        results.push({
+            rowIndex,
+            success: false,
+            code: result.code || 'SHOPPING_ACTION_FAILED',
+            message: result.message || '쇼핑 발행 처리에 실패했습니다.'
+        });
+
+        const shouldStop = ['LICENSE_VERIFY_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
+        if (shouldStop) {
+            const remaining = targetRowIndices.slice(i + 1);
+            for (const restRowIndex of remaining) {
+                setShoppingRuntimeLog(restRowIndex, '중단: 이전 치명 오류로 실행 중단');
+                results.push({
+                    rowIndex: restRowIndex,
+                    success: false,
+                    code: 'SKIPPED_AFTER_FATAL_ERROR',
+                    message: '이전 치명 오류로 인해 실행이 중단되었습니다.'
+                });
+            }
+            break;
+        }
+    }
+
+    return {
+        success: true,
+        data: {
+            requestedCount: rowIndices.length,
+            attemptedCount: targetRowIndices.length,
+            successCount,
+            failCount,
+            maxPerRun: effectiveMax,
+            skippedByLimit,
+            results
+        }
+    };
+}
+
+async function executeShoppingRowUpdate(requestBody = {}) {
+    const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    if (rowIndex === null) {
+        return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+    }
+
+    const product = String(requestBody?.product || '').trim();
+    const shortUrl = String(requestBody?.shortUrl || '').trim();
+    const status = String(requestBody?.status || '').trim();
+    const allowedStatus = new Set(['준비', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
+
+    if (shortUrl && !/^https?:\/\//i.test(shortUrl)) {
+        return { success: false, code: 'INVALID_SHOPPING_URL', message: 'URL 형식이 올바르지 않습니다. (http/https)' };
+    }
+    if (status && !allowedStatus.has(status)) {
+        return { success: false, code: 'INVALID_STATUS', message: '상태 값이 올바르지 않습니다.' };
+    }
+
+    try {
+        await Utils.updateGoogleSheetShoppingEditableFields(rowIndex, {
+            product,
+            shortUrl,
+            status
+        });
+        return {
+            success: true,
+            data: {
+                rowIndex,
+                rowNumber: rowIndex + 2,
+                message: '수정 완료'
+            }
+        };
+    } catch (e) {
+        return {
+            success: false,
+            code: 'SHOPPING_ROW_UPDATE_FAILED',
+            message: e.message
+        };
+    }
+}
+
 async function executeBlogTopicUpdate(requestBody) {
     const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
     if (rowIndex === null) {
@@ -892,6 +1321,8 @@ async function executeBlogTopicUpdate(requestBody) {
     }
 
     const referenceUrl = String(requestBody?.referenceUrl || '').trim();
+    const status = String(requestBody?.status || '').trim();
+    const allowedStatus = new Set(['대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패']);
     if (referenceUrl) {
         const urls = referenceUrl
             .split(',')
@@ -902,6 +1333,9 @@ async function executeBlogTopicUpdate(requestBody) {
             return { success: false, code: 'INVALID_REFERENCE_URL', message: `참고 URL 형식이 올바르지 않습니다: ${invalid}` };
         }
     }
+    if (status && !allowedStatus.has(status)) {
+        return { success: false, code: 'INVALID_STATUS', message: '상태 값이 올바르지 않습니다.' };
+    }
 
     try {
         await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
@@ -909,6 +1343,7 @@ async function executeBlogTopicUpdate(requestBody) {
             keywords: String(requestBody?.keywords || '').trim(),
             instruction: String(requestBody?.instruction || '').trim(),
             referenceUrl,
+            status,
             imageGeneration: normalizeBool(requestBody?.imageGeneration, false),
             externalReference: normalizeBool(requestBody?.externalReference, true)
         });
@@ -1334,13 +1769,24 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         return sendSuccess(res, requestId, result.data);
     }
 
+    if (pathname === '/api/v1/shopping/quick-publish') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeShoppingQuickPublish(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'SHOPPING_QUICK_PUBLISH_FAILED', result.message || '쇼핑 빠른발행 요청에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
     if (pathname === '/api/v1/blog/topics') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         const status = String(searchParams.get('status') || '').trim();
         const q = String(searchParams.get('q') || '').trim();
         const limit = parseIntSafe(searchParams.get('limit'), 50, 1) || 50;
         const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const result = await Utils.readGoogleSheetTopicsAll({ status, q, limit, offset });
+        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
+        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
+        const result = await Utils.readGoogleSheetTopicsAll({ status, q, limit, offset, sortBy, sortDir });
         const runtimeLogMap = getBlogRuntimeLogMap();
         let items = Array.isArray(result.items) ? [...result.items] : [];
 
@@ -1350,14 +1796,14 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             const existing = new Set(items.map(item => item.rowIndex));
             const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
             if (missingRuntimeRowIndices.length > 0) {
-                const allTopics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0 });
+                const allTopics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy, sortDir });
                 const allItems = Array.isArray(allTopics.items) ? allTopics.items : [];
                 const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
                 for (const rowIndex of missingRuntimeRowIndices) {
                     const found = byRowIndex.get(rowIndex);
                     if (found) items.push(found);
                 }
-                items.sort((a, b) => (a.rowNumber || 0) - (b.rowNumber || 0));
+                items = sortTopicItems(items, sortBy, sortDir);
             }
         }
 
@@ -1365,6 +1811,45 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             ...item,
             runtimeLog: runtimeLogMap.get(item.rowIndex) || ''
         }));
+        items = sortTopicItems(items, sortBy, sortDir);
+        return sendSuccess(res, requestId, {
+            ...result,
+            total: Math.max(Number(result.total || 0), items.length),
+            items
+        });
+    }
+
+    if (pathname === '/api/v1/shopping/items') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const status = String(searchParams.get('status') || '').trim();
+        const q = String(searchParams.get('q') || '').trim();
+        const limit = parseIntSafe(searchParams.get('limit'), 50, 1) || 50;
+        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
+        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
+        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
+        const result = await Utils.readGoogleSheetShoppingAll({ status, q, limit, offset, sortBy, sortDir });
+        const runtimeLogMap = getShoppingRuntimeLogMap();
+        let items = Array.isArray(result.items) ? [...result.items] : [];
+
+        if (runtimeLogMap.size > 0) {
+            const existing = new Set(items.map(item => item.rowIndex));
+            const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
+            if (missingRuntimeRowIndices.length > 0) {
+                const allShopping = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0, sortBy, sortDir });
+                const allItems = Array.isArray(allShopping.items) ? allShopping.items : [];
+                const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
+                for (const rowIndex of missingRuntimeRowIndices) {
+                    const found = byRowIndex.get(rowIndex);
+                    if (found) items.push(found);
+                }
+            }
+        }
+
+        items = items.map(item => ({
+            ...item,
+            runtimeLog: runtimeLogMap.get(item.rowIndex) || ''
+        }));
+        items = sortShoppingItems(items, sortBy, sortDir);
         return sendSuccess(res, requestId, {
             ...result,
             total: Math.max(Number(result.total || 0), items.length),
@@ -1381,6 +1866,29 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             : await executeBlogRowAction(body);
         if (!result.success) {
             return sendError(res, requestId, 400, result.code || 'BLOG_ACTION_FAILED', result.message || '블로그 작업 요청에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/shopping/action') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const body = requestBody || {};
+        const action = String(body.action || '').trim().toLowerCase();
+        if (action !== 'batch' || !Array.isArray(body.rowIndices)) {
+            return sendError(res, requestId, 400, 'INVALID_ACTION', 'shopping action은 batch만 지원합니다.');
+        }
+        const result = await executeShoppingBatchRowsAction(body);
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'SHOPPING_ACTION_FAILED', result.message || '쇼핑 작업 요청에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/shopping/row/update') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeShoppingRowUpdate(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'SHOPPING_ROW_UPDATE_FAILED', result.message || '쇼핑 행 수정에 실패했습니다.');
         }
         return sendSuccess(res, requestId, result.data);
     }
@@ -1409,7 +1917,9 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         const q = String(searchParams.get('q') || '').trim();
         const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
         const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const result = await Utils.readGoogleSheetTrendsAll({ status, q, limit, offset });
+        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
+        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
+        const result = await Utils.readGoogleSheetTrendsAll({ status, q, limit, offset, sortBy, sortDir });
         return sendSuccess(res, requestId, result);
     }
 

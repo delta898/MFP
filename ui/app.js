@@ -39,18 +39,28 @@ function setPre(id, data) {
 
 let blogTopicsCache = [];
 let blogTrendsCache = [];
+let blogShoppingCache = [];
 const blogSelectedRowIndices = new Set();
 const blogTrendsSelectedRowIndices = new Set();
+const blogShoppingSelectedRowIndices = new Set();
 let blogLastBatchResult = null;
 const blogRecentBatchRows = new Map();
 let blogInlineEditState = null;
+let shoppingInlineEditState = null;
 let blogActiveTab = 'quick';
+let shoppingActiveTab = 'quick';
 let blogTrendsCollectInFlight = false;
+let settingsActiveTab = 'basic';
 const blogPageState = {
   trends: { limit: 50, offset: 0, total: 0 },
-  topics: { limit: 50, offset: 0, total: 0 }
+  topics: { limit: 50, offset: 0, total: 0 },
+  shopping: { limit: 50, offset: 0, total: 0 }
 };
-let settingsLoadedOnce = false;
+const tableSortState = {
+  trends: { key: 'rowNumber', direction: 'desc' },
+  topics: { key: 'rowNumber', direction: 'desc' },
+  shopping: { key: 'rowNumber', direction: 'desc' }
+};
 let settingsAdvancedLoadedOnce = false;
 let uiConfigReady = true;
 let uiConfigPopupShown = false;
@@ -193,6 +203,17 @@ function renderTopicsPagination() {
   if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
 }
 
+function renderShoppingPagination() {
+  const infoEl = document.getElementById('shopping-page-info');
+  const prevBtn = document.getElementById('shopping-page-prev');
+  const nextBtn = document.getElementById('shopping-page-next');
+  const pageInfo = getPageInfo('shopping');
+  const { pageCount, currentPage } = getPageSummary(pageInfo.total, pageInfo.limit, pageInfo.offset);
+  if (infoEl) infoEl.textContent = `페이지 ${currentPage} / ${pageCount} (총 ${pageInfo.total || 0}건)`;
+  if (prevBtn) prevBtn.disabled = currentPage <= 1;
+  if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+}
+
 function updateTrendsSelectionUi() {
   const countEl = document.getElementById('blog-trends-selected-count');
   if (countEl) countEl.textContent = `${blogTrendsSelectedRowIndices.size}건 선택`;
@@ -205,17 +226,94 @@ function clearTrendsSelections() {
   updateTrendsSelectionUi();
 }
 
+function findShoppingByRowIndex(rowIndex) {
+  return (blogShoppingCache || []).find(item => item.rowIndex === rowIndex) || null;
+}
+
+function updateShoppingSelectionUi() {
+  const countEl = document.getElementById('shopping-selected-count');
+  if (countEl) countEl.textContent = `${blogShoppingSelectedRowIndices.size}건 선택`;
+}
+
+function clearShoppingSelections() {
+  blogShoppingSelectedRowIndices.clear();
+  const selectors = Array.from(document.querySelectorAll('input.shopping-row-selector'));
+  selectors.forEach(el => { el.checked = false; });
+  updateShoppingSelectionUi();
+}
+
+function getSortState(tableName) {
+  const target = String(tableName || '').trim();
+  if (!tableSortState[target]) {
+    tableSortState[target] = { key: 'rowNumber', direction: 'desc' };
+  }
+  return tableSortState[target];
+}
+
+function updateSortableHeadersUi() {
+  const headers = Array.from(document.querySelectorAll('.data-table th.sortable'));
+  headers.forEach((th) => {
+    const tableName = String(th.dataset.sortTable || '').trim();
+    const key = String(th.dataset.sortKey || '').trim();
+    const state = getSortState(tableName);
+    const isActive = state.key === key;
+    th.classList.toggle('active-sort', isActive);
+    th.setAttribute('data-sort-dir', isActive ? state.direction : '');
+    th.setAttribute('aria-sort', isActive ? (state.direction === 'desc' ? 'descending' : 'ascending') : 'none');
+    th.setAttribute('role', 'button');
+    th.setAttribute('tabindex', '0');
+  });
+}
+
+function toggleTableSort(tableName, key) {
+  const state = getSortState(tableName);
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return;
+
+  if (state.key === normalizedKey) {
+    state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.key = normalizedKey;
+    state.direction = 'asc';
+  }
+  updateSortableHeadersUi();
+
+  if (tableName === 'trends') {
+    setPageInfo('trends', { offset: 0 });
+    loadBlogTrends();
+    return;
+  }
+  if (tableName === 'topics') {
+    setPageInfo('topics', { offset: 0 });
+    loadBlogTopics();
+    return;
+  }
+  if (tableName === 'shopping') {
+    setPageInfo('shopping', { offset: 0 });
+    loadBlogShopping();
+  }
+}
+
+function resetTableSort(tableName) {
+  const state = getSortState(tableName);
+  state.key = 'rowNumber';
+  state.direction = 'desc';
+  updateSortableHeadersUi();
+}
+
 function renderBlogTrendsTable(items) {
   const tbody = document.getElementById('blog-trends-table-body');
   if (!tbody) return;
 
-  if (!Array.isArray(items) || items.length === 0) {
+  const sourceItems = Array.isArray(items) ? items : [];
+  if (sourceItems.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7">조회 결과가 없습니다.</td></tr>';
     updateTrendsSelectionUi();
+    updateSortableHeadersUi();
     return;
   }
 
-  tbody.innerHTML = items.map(item => {
+  tbody.innerHTML = sourceItems.map(item => {
     const checked = blogTrendsSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
     return `
       <tr data-row-index="${item.rowIndex}">
@@ -230,6 +328,7 @@ function renderBlogTrendsTable(items) {
     `;
   }).join('');
   updateTrendsSelectionUi();
+  updateSortableHeadersUi();
 }
 
 async function loadBlogTrends(options = {}) {
@@ -239,9 +338,12 @@ async function loadBlogTrends(options = {}) {
   const pageInfo = getPageInfo('trends');
   const q = (document.getElementById('blog-trends-q-filter')?.value || '').trim();
   const params = new URLSearchParams();
+  const sortState = getSortState('trends');
   if (q) params.set('q', q);
   params.set('limit', String(pageInfo.limit));
   params.set('offset', String(pageInfo.offset));
+  params.set('sortBy', String(sortState.key || 'rowNumber'));
+  params.set('sortDir', String(sortState.direction || 'desc'));
   if (resultBox && !silent) resultBox.textContent = 'Trends 조회 중...';
 
   try {
@@ -433,8 +535,38 @@ async function runTrendsToTopics() {
   }
 }
 
+function resetTrendsFiltersAndState() {
+  const dateInput = document.getElementById('blog-trends-date');
+  const qInput = document.getElementById('blog-trends-q-filter');
+  if (dateInput) dateInput.value = '';
+  if (qInput) qInput.value = '';
+  clearTrendsSelections();
+  resetTableSort('trends');
+  setPageInfo('trends', { offset: 0 });
+}
+
+function resetTopicsFiltersAndState() {
+  const statusSelect = document.getElementById('blog-status-filter');
+  const qInput = document.getElementById('blog-q-filter');
+  if (statusSelect) statusSelect.value = '';
+  if (qInput) qInput.value = '';
+  clearBlogSelections();
+  resetTableSort('topics');
+  setPageInfo('topics', { offset: 0 });
+}
+
+function resetShoppingFiltersAndState() {
+  const statusSelect = document.getElementById('shopping-status-filter');
+  const qInput = document.getElementById('shopping-q-filter');
+  if (statusSelect) statusSelect.value = '';
+  if (qInput) qInput.value = '';
+  clearShoppingSelections();
+  resetTableSort('shopping');
+  setPageInfo('shopping', { offset: 0 });
+}
+
 function activateBlogTab(tabName, options = {}) {
-  const allowed = ['quick', 'trends', 'topics', 'shopping'];
+  const allowed = ['quick', 'trends', 'topics'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -454,6 +586,46 @@ function activateBlogTab(tabName, options = {}) {
     loadBlogTopics();
     return;
   }
+}
+
+function activateShoppingTab(tabName, options = {}) {
+  const allowed = ['quick', 'batch'];
+  const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
+  shoppingActiveTab = target;
+
+  const tabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
+  const tabPanels = Array.from(document.querySelectorAll('.shopping-tab-panel'));
+  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shoppingTab === target));
+  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `shopping-tab-${target}`));
+
+  const forceReload = options.forceReload !== false;
+  if (!forceReload) return;
+
+  if (target === 'batch') {
+    loadBlogShopping();
+  }
+}
+
+function activateSettingsTab(tabName, options = {}) {
+  const allowed = ['basic', 'naver-login'];
+  const target = allowed.includes(String(tabName)) ? String(tabName) : 'basic';
+  settingsActiveTab = target;
+
+  const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
+  const tabPanels = Array.from(document.querySelectorAll('.settings-tab-panel'));
+  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.settingsTab === target));
+  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `settings-tab-${target}`));
+
+  const forceLoad = options.forceLoad !== false;
+  if (!forceLoad) return;
+
+  if (target === 'basic') {
+    stopNaverLoginPolling();
+    loadSettingsMajor();
+    return;
+  }
+
+  loadNaverLoginStatus();
 }
 
 function escapeHtml(input) {
@@ -512,14 +684,13 @@ function bindNavigation() {
       activateBlogTab(blogActiveTab, { forceReload: true });
       return;
     }
+    if (viewName === 'shopping') {
+      activateShoppingTab(shoppingActiveTab, { forceReload: true });
+      return;
+    }
     if (viewName === 'settings') {
-      if (!settingsLoadedOnce) {
-        loadSettingsMajor();
-        loadNaverLoginStatus();
-        settingsLoadedOnce = true;
-      } else {
-        loadNaverLoginStatus({ silent: true });
-      }
+      activateSettingsTab(settingsActiveTab, { forceLoad: true });
+      return;
     }
   };
 
@@ -573,12 +744,14 @@ function renderBlogTable(items) {
   const tbody = document.getElementById('blog-table-body');
   if (!tbody) return;
 
-  if (!items || items.length === 0) {
+  const sourceItems = Array.isArray(items) ? items : [];
+  if (sourceItems.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10">조회 결과가 없습니다.</td></tr>';
+    updateSortableHeadersUi();
     return;
   }
 
-  tbody.innerHTML = items.map(item => {
+  tbody.innerHTML = sourceItems.map(item => {
     const subject = escapeHtml(item.subject || '');
     const instruction = escapeHtml(item.content_guide?.additional_instructions || '');
     const referenceUrl = escapeHtml((item.content_guide?.reference_urls || []).join(', '));
@@ -611,11 +784,12 @@ function renderBlogTable(items) {
         <td class="toggle-cell"><input type="checkbox" class="inline-toggle" data-field="imageGeneration" data-row-index="${item.rowIndex}" ${imageChecked}></td>
         <td class="toggle-cell"><input type="checkbox" class="inline-toggle" data-field="externalReference" data-row-index="${item.rowIndex}" ${externalChecked}></td>
         <td class="runtime-log-cell">${runtimeLog}</td>
-        <td>${status || '-'}</td>
+        <td class="editable-cell" data-field="status">${status || '-'}</td>
       </tr>
     `;
   }).join('');
   updateBlogSelectionUi();
+  updateSortableHeadersUi();
 }
 
 function getEditableFieldValue(item, field) {
@@ -624,6 +798,7 @@ function getEditableFieldValue(item, field) {
   if (field === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
   if (field === 'instruction') return String(item.content_guide?.additional_instructions || '');
   if (field === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
+  if (field === 'status') return String(item.status || '');
   return '';
 }
 
@@ -695,7 +870,7 @@ async function startBlogInlineEdit(cell) {
   const rowIndex = Number(row.dataset.rowIndex);
   const field = String(cell.dataset.field || '');
   if (!Number.isInteger(rowIndex)) return;
-  if (!['subject', 'keywords', 'instruction', 'referenceUrl'].includes(field)) return;
+  if (!['subject', 'keywords', 'instruction', 'referenceUrl', 'status'].includes(field)) return;
 
   const item = findTopicByRowIndex(rowIndex);
   if (!item) return;
@@ -712,15 +887,30 @@ async function startBlogInlineEdit(cell) {
   const originalHtml = cell.innerHTML;
   const initialValue = getEditableFieldValue(item, field);
   const multiline = field === 'instruction' || field === 'referenceUrl';
-  const editorEl = document.createElement(multiline ? 'textarea' : 'input');
-  if (!multiline) editorEl.type = 'text';
-  editorEl.className = `inline-editor ${multiline ? 'multiline' : ''}`.trim();
-  editorEl.value = initialValue;
+  const useSelect = field === 'status';
+  let editorEl;
+  if (useSelect) {
+    editorEl = document.createElement('select');
+    editorEl.className = 'inline-editor';
+    const options = ['', '대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패'];
+    for (const optionValue of options) {
+      const opt = document.createElement('option');
+      opt.value = optionValue;
+      opt.textContent = optionValue || '(비움)';
+      if (optionValue === initialValue) opt.selected = true;
+      editorEl.appendChild(opt);
+    }
+  } else {
+    editorEl = document.createElement(multiline ? 'textarea' : 'input');
+    if (!multiline) editorEl.type = 'text';
+    editorEl.className = `inline-editor ${multiline ? 'multiline' : ''}`.trim();
+    editorEl.value = initialValue;
+  }
 
   cell.innerHTML = '';
   cell.appendChild(editorEl);
   editorEl.focus();
-  editorEl.select?.();
+  if (!useSelect) editorEl.select?.();
 
   blogInlineEditState = {
     rowIndex,
@@ -739,7 +929,7 @@ async function startBlogInlineEdit(cell) {
       return;
     }
     if (e.key === 'Enter') {
-      if (multiline && !(e.ctrlKey || e.metaKey)) {
+      if (!useSelect && multiline && !(e.ctrlKey || e.metaKey)) {
         return;
       }
       e.preventDefault();
@@ -799,6 +989,7 @@ function buildBlogUpdatePayload(baseItem, patch = {}) {
     keywords: (patch.keywords !== undefined ? patch.keywords : (Array.isArray(safeItem.keywords) ? safeItem.keywords.join(', ') : '')).toString().trim(),
     instruction: String((patch.instruction !== undefined ? patch.instruction : safeItem.content_guide?.additional_instructions) || '').trim(),
     referenceUrl: (patch.referenceUrl !== undefined ? patch.referenceUrl : (Array.isArray(safeItem.content_guide?.reference_urls) ? safeItem.content_guide.reference_urls.join(', ') : '')).toString().trim(),
+    status: String((patch.status !== undefined ? patch.status : safeItem.status) || '').trim(),
     imageGeneration: (patch.imageGeneration !== undefined ? patch.imageGeneration : Boolean(safeItem.image_options?.generate)) === true,
     externalReference: (patch.externalReference !== undefined ? patch.externalReference : Boolean(safeItem.use_external_ref)) === true
   };
@@ -825,10 +1016,13 @@ async function loadBlogTopics(options = {}) {
   const status = (document.getElementById('blog-status-filter')?.value || '').trim();
   const q = (document.getElementById('blog-q-filter')?.value || '').trim();
   const params = new URLSearchParams();
+  const sortState = getSortState('topics');
   if (status) params.set('status', status);
   if (q) params.set('q', q);
   params.set('limit', String(pageInfo.limit));
   params.set('offset', String(pageInfo.offset));
+  params.set('sortBy', String(sortState.key || 'rowNumber'));
+  params.set('sortDir', String(sortState.direction || 'desc'));
 
   const resultBox = document.getElementById('blog-action-result');
   if (resultBox && !silent) resultBox.textContent = '블로그 목록 조회 중...';
@@ -852,6 +1046,279 @@ async function loadBlogTopics(options = {}) {
     renderTopicsPagination();
     if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
   }
+}
+
+function renderBlogShoppingTable(items) {
+  const tbody = document.getElementById('shopping-table-body');
+  if (!tbody) return;
+
+  const sourceItems = Array.isArray(items) ? items : [];
+  if (sourceItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7">조회 결과가 없습니다.</td></tr>';
+    updateShoppingSelectionUi();
+    updateSortableHeadersUi();
+    return;
+  }
+
+  tbody.innerHTML = sourceItems.map(item => {
+    const checked = blogShoppingSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
+    const product = escapeHtml(item.product || '');
+    const shortUrl = escapeHtml(item.shortUrl || '');
+    const runtimeLog = escapeHtml(item.runtimeLog || '');
+    const status = escapeHtml(item.status || '');
+    const publishedAt = escapeHtml(item.publishedAt || '');
+    const runningClass = runtimeLog ? 'running-row' : '';
+    return `
+      <tr class="${runningClass}" data-row-index="${item.rowIndex}">
+        <td><input type="checkbox" class="shopping-row-selector" value="${item.rowIndex}" ${checked}></td>
+        <td>${item.rowNumber}</td>
+        <td class="editable-cell" data-field="product">${product || '-'}</td>
+        <td class="editable-cell" data-field="shortUrl">${shortUrl || '-'}</td>
+        <td class="runtime-log-cell">${runtimeLog || ''}</td>
+        <td class="editable-cell" data-field="status">${status || '-'}</td>
+        <td>${publishedAt || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+  updateShoppingSelectionUi();
+  updateSortableHeadersUi();
+}
+
+async function loadBlogShopping(options = {}) {
+  if (!guardUiConfigReady('쇼핑 목록 조회')) return;
+  const silent = Boolean(options.silent);
+  const pageInfo = getPageInfo('shopping');
+  const status = (document.getElementById('shopping-status-filter')?.value || '').trim();
+  const q = (document.getElementById('shopping-q-filter')?.value || '').trim();
+  const params = new URLSearchParams();
+  const sortState = getSortState('shopping');
+  if (status) params.set('status', status);
+  if (q) params.set('q', q);
+  params.set('limit', String(pageInfo.limit));
+  params.set('offset', String(pageInfo.offset));
+  params.set('sortBy', String(sortState.key || 'rowNumber'));
+  params.set('sortDir', String(sortState.direction || 'desc'));
+
+  const resultBox = document.getElementById('shopping-batch-result');
+  if (resultBox && !silent) resultBox.textContent = '쇼핑 목록 조회 중...';
+
+  try {
+    const data = await fetchJson(`/api/v1/shopping/items?${params.toString()}`);
+    blogShoppingCache = Array.isArray(data.items) ? data.items : [];
+    setPageInfo('shopping', {
+      total: Number(data.total || 0),
+      limit: Number(data.limit || pageInfo.limit || 50),
+      offset: Number(data.offset || 0)
+    });
+    renderBlogShoppingTable(blogShoppingCache);
+    renderShoppingPagination();
+    if (resultBox && !silent) {
+      resultBox.textContent = `조회 완료: ${data.total ?? blogShoppingCache.length}건`;
+    }
+  } catch (e) {
+    blogShoppingCache = [];
+    renderBlogShoppingTable([]);
+    renderShoppingPagination();
+    if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
+  }
+}
+
+async function runShoppingBatchAction() {
+  if (!guardUiConfigReady('선택 행 발행(batch)')) return;
+  const resultBox = document.getElementById('shopping-batch-result');
+  if (!resultBox) return;
+
+  const rowIndices = Array.from(blogShoppingSelectedRowIndices.values()).filter(v => Number.isInteger(v));
+  if (rowIndices.length === 0) {
+    resultBox.textContent = '먼저 발행할 행을 1개 이상 선택하세요.';
+    return;
+  }
+
+  const selectedSnapshot = [...rowIndices];
+  clearShoppingSelections();
+  const startedAt = Date.now();
+  const progressTimer = setInterval(async () => {
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    if (resultBox) {
+      resultBox.textContent = `shopping batch 실행 중... (선택 ${rowIndices.length}건, ${elapsedSec}초 경과)\n진행 상태를 표의 진행 로그/상태 컬럼에서 확인하세요.`;
+    }
+    try {
+      await loadBlogShopping({ silent: true });
+    } catch (e) {
+      // noop
+    }
+  }, 1000);
+
+  resultBox.textContent = `shopping batch 실행 중... (선택 ${rowIndices.length}건)\n진행 상태를 표의 진행 로그/상태 컬럼에서 확인하세요.`;
+  try {
+    await loadBlogShopping({ silent: true });
+    const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot });
+    resultBox.textContent = JSON.stringify(data, null, 2);
+    await Promise.all([loadDashboard(), loadBlogShopping()]);
+  } catch (e) {
+    resultBox.textContent = `오류: ${e.message}`;
+  } finally {
+    clearInterval(progressTimer);
+  }
+}
+
+function getShoppingEditableFieldValue(item, field) {
+  if (!item) return '';
+  if (field === 'product') return String(item.product || '');
+  if (field === 'shortUrl') return String(item.shortUrl || '');
+  if (field === 'status') return String(item.status || '');
+  return '';
+}
+
+function isShoppingRuntimeRunning(item) {
+  return Boolean(String(item?.runtimeLog || '').trim());
+}
+
+async function cancelShoppingInlineEdit() {
+  if (!shoppingInlineEditState) return;
+  const { cell, originalHtml } = shoppingInlineEditState;
+  if (cell) cell.innerHTML = originalHtml;
+  shoppingInlineEditState = null;
+}
+
+async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
+  const silent = Boolean(options.silent);
+  const resultBox = document.getElementById('shopping-batch-result');
+  const item = findShoppingByRowIndex(rowIndex);
+  if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
+
+  const payload = {
+    rowIndex,
+    product: String((patch.product !== undefined ? patch.product : item.product) || '').trim(),
+    shortUrl: String((patch.shortUrl !== undefined ? patch.shortUrl : item.shortUrl) || '').trim(),
+    status: String((patch.status !== undefined ? patch.status : item.status) || '').trim()
+  };
+
+  if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;
+  const data = await postJson('/api/v1/shopping/row/update', payload);
+  if (!silent && resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
+  await loadBlogShopping({ silent: true });
+}
+
+async function commitShoppingInlineEdit() {
+  if (!shoppingInlineEditState) return;
+
+  const resultBox = document.getElementById('shopping-batch-result');
+  const {
+    rowIndex,
+    field,
+    editorEl,
+    cell,
+    originalHtml
+  } = shoppingInlineEditState;
+
+  const normalizedValue = String(editorEl?.value ?? '').trim();
+  const item = findShoppingByRowIndex(rowIndex);
+  if (!item) {
+    shoppingInlineEditState = null;
+    await loadBlogShopping({ silent: true });
+    return;
+  }
+
+  const beforeValue = getShoppingEditableFieldValue(item, field);
+  if (normalizedValue === beforeValue) {
+    cell.innerHTML = originalHtml;
+    shoppingInlineEditState = null;
+    return;
+  }
+
+  const patch = {};
+  patch[field] = normalizedValue;
+
+  try {
+    if (resultBox) resultBox.textContent = `row ${rowIndex + 2} inline 수정 중...`;
+    await saveShoppingRowPatch(rowIndex, patch, { silent: true });
+    shoppingInlineEditState = null;
+    if (resultBox) resultBox.textContent = `row ${rowIndex + 2} inline 수정 완료`;
+  } catch (e) {
+    cell.innerHTML = originalHtml;
+    shoppingInlineEditState = null;
+    if (resultBox) resultBox.textContent = `오류: ${e.message}`;
+  }
+}
+
+async function startShoppingInlineEdit(cell) {
+  if (!cell) return;
+  const row = cell.closest('tr[data-row-index]');
+  if (!row) return;
+  const rowIndex = Number(row.dataset.rowIndex);
+  const field = String(cell.dataset.field || '');
+  if (!Number.isInteger(rowIndex)) return;
+  if (!['product', 'shortUrl', 'status'].includes(field)) return;
+
+  const item = findShoppingByRowIndex(rowIndex);
+  if (!item) return;
+  if (isShoppingRuntimeRunning(item)) {
+    const resultBox = document.getElementById('shopping-batch-result');
+    if (resultBox) resultBox.textContent = `row ${rowIndex + 2}는 진행 중이라 수정할 수 없습니다.`;
+    return;
+  }
+
+  if (shoppingInlineEditState) {
+    await cancelShoppingInlineEdit();
+  }
+
+  const originalHtml = cell.innerHTML;
+  const initialValue = getShoppingEditableFieldValue(item, field);
+  let editorEl;
+
+  if (field === 'status') {
+    editorEl = document.createElement('select');
+    editorEl.className = 'inline-editor';
+    const options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '실패'];
+    for (const optionValue of options) {
+      const opt = document.createElement('option');
+      opt.value = optionValue;
+      opt.textContent = optionValue || '(비움)';
+      if (optionValue === initialValue) opt.selected = true;
+      editorEl.appendChild(opt);
+    }
+  } else {
+    editorEl = document.createElement('input');
+    editorEl.type = 'text';
+    editorEl.className = 'inline-editor';
+    editorEl.value = initialValue;
+  }
+
+  cell.innerHTML = '';
+  cell.appendChild(editorEl);
+  editorEl.focus();
+  editorEl.select?.();
+
+  shoppingInlineEditState = {
+    rowIndex,
+    field,
+    cell,
+    editorEl,
+    originalHtml,
+    committing: false
+  };
+
+  editorEl.addEventListener('keydown', async (e) => {
+    if (!shoppingInlineEditState) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      await cancelShoppingInlineEdit();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      shoppingInlineEditState.committing = true;
+      await commitShoppingInlineEdit();
+    }
+  });
+
+  editorEl.addEventListener('blur', async () => {
+    if (!shoppingInlineEditState) return;
+    if (shoppingInlineEditState.committing) return;
+    shoppingInlineEditState.committing = true;
+    await commitShoppingInlineEdit();
+  });
 }
 
 async function runBlogBatchAction() {
@@ -1014,10 +1481,11 @@ async function startNaverLoginFromUi() {
     const data = await postJson('/api/v1/session/naver-login/start', {});
     renderNaverLoginStatus(data);
     startNaverLoginPolling();
-    showUiPopup('네이버 로그인 시작 요청이 접수되었습니다.\n브라우저가 뜨는지 확인하고, 로그인 완료 후 상태를 확인하세요.');
+    if (resultEl) {
+      resultEl.textContent = '네이버 로그인 시작 요청이 접수되었습니다. 브라우저에서 로그인 후 상태를 확인하세요.';
+    }
   } catch (e) {
     if (resultEl) resultEl.textContent = `오류: ${e.message}`;
-    showUiPopup(`네이버 로그인 시작 실패\n${e.message}`);
   }
 }
 
@@ -1063,11 +1531,41 @@ function bindActions() {
     publishBtn.addEventListener('click', () => runQuickPublish('append_and_publish'));
   }
 
+  const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
+  const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
+  const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
+  const buildShoppingQuickPayload = (mode) => ({
+    shortUrl: (document.getElementById('shopping-quick-url')?.value || '').trim(),
+    product: (document.getElementById('shopping-quick-product')?.value || '').trim(),
+    publishMode: mode
+  });
+  const runShoppingQuickPublish = async (mode) => {
+    if (!shoppingQuickResultEl) return;
+    if (!guardUiConfigReady('쇼핑커넥트 빠른발행')) return;
+    shoppingQuickResultEl.textContent = '요청 전송 중...';
+    try {
+      const data = await postJson('/api/v1/shopping/quick-publish', buildShoppingQuickPayload(mode));
+      shoppingQuickResultEl.textContent = JSON.stringify(data, null, 2);
+      await Promise.all([loadDashboard(), loadBlogShopping({ silent: true })]);
+    } catch (e) {
+      shoppingQuickResultEl.textContent = `오류: ${e.message}`;
+    }
+  };
+
+  if (shoppingQuickSaveBtn) {
+    shoppingQuickSaveBtn.addEventListener('click', () => runShoppingQuickPublish('append_only'));
+  }
+  if (shoppingQuickPublishBtn) {
+    shoppingQuickPublishBtn.addEventListener('click', () => runShoppingQuickPublish('append_and_publish'));
+  }
+
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
+  const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
   const blogTrendsDateInput = document.getElementById('blog-trends-date');
   const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
   const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
   const blogTrendsRefreshBtn = document.getElementById('blog-trends-refresh-btn');
+  const blogTrendsResetBtn = document.getElementById('blog-trends-reset-btn');
   const blogTrendsToTopicsBtn = document.getElementById('blog-trends-to-topics-btn');
   const blogTrendsPrevBtn = document.getElementById('blog-trends-page-prev');
   const blogTrendsNextBtn = document.getElementById('blog-trends-page-next');
@@ -1076,15 +1574,31 @@ function bindActions() {
   const blogBatchBtnBottom = document.getElementById('blog-batch-btn-bottom');
   const blogTopicsPrevBtn = document.getElementById('blog-topics-page-prev');
   const blogTopicsNextBtn = document.getElementById('blog-topics-page-next');
+  const blogTopicsResetBtn = document.getElementById('blog-topics-reset-btn');
+  const shoppingRefreshBtn = document.getElementById('shopping-refresh-btn');
+  const shoppingResetBtn = document.getElementById('shopping-reset-btn');
+  const shoppingBatchBtn = document.getElementById('shopping-batch-btn');
+  const shoppingStatusFilter = document.getElementById('shopping-status-filter');
+  const shoppingQFilter = document.getElementById('shopping-q-filter');
+  const shoppingPrevBtn = document.getElementById('shopping-page-prev');
+  const shoppingNextBtn = document.getElementById('shopping-page-next');
   const blogStatusFilter = document.getElementById('blog-status-filter');
   const blogQFilter = document.getElementById('blog-q-filter');
   const blogTrendsTableBody = document.getElementById('blog-trends-table-body');
   const blogTopicsTableBody = document.getElementById('blog-table-body');
+  const shoppingTableBody = document.getElementById('shopping-table-body');
+  const sortableHeaders = Array.from(document.querySelectorAll('.data-table th.sortable'));
 
   blogTabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const tabName = String(btn.dataset.blogTab || '');
       activateBlogTab(tabName, { forceReload: true });
+    });
+  });
+  shoppingTabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = String(btn.dataset.shoppingTab || '');
+      activateShoppingTab(tabName, { forceReload: true });
     });
   });
 
@@ -1096,6 +1610,12 @@ function bindActions() {
     });
   }
   if (blogTrendsRefreshBtn) blogTrendsRefreshBtn.addEventListener('click', () => loadBlogTrends());
+  if (blogTrendsResetBtn) {
+    blogTrendsResetBtn.addEventListener('click', () => {
+      resetTrendsFiltersAndState();
+      loadBlogTrends();
+    });
+  }
   if (blogTrendsToTopicsBtn) blogTrendsToTopicsBtn.addEventListener('click', runTrendsToTopics);
   if (blogTrendsQFilter) {
     blogTrendsQFilter.addEventListener('keydown', (e) => {
@@ -1124,8 +1644,51 @@ function bindActions() {
   }
 
   if (blogRefreshBtn) blogRefreshBtn.addEventListener('click', loadBlogTopics);
+  if (blogTopicsResetBtn) {
+    blogTopicsResetBtn.addEventListener('click', () => {
+      resetTopicsFiltersAndState();
+      loadBlogTopics();
+    });
+  }
   if (blogBatchBtn) blogBatchBtn.addEventListener('click', runBlogBatchAction);
   if (blogBatchBtnBottom) blogBatchBtnBottom.addEventListener('click', runBlogBatchAction);
+  if (shoppingRefreshBtn) shoppingRefreshBtn.addEventListener('click', loadBlogShopping);
+  if (shoppingResetBtn) {
+    shoppingResetBtn.addEventListener('click', () => {
+      resetShoppingFiltersAndState();
+      loadBlogShopping();
+    });
+  }
+  if (shoppingBatchBtn) shoppingBatchBtn.addEventListener('click', runShoppingBatchAction);
+  if (shoppingStatusFilter) {
+    shoppingStatusFilter.addEventListener('change', () => {
+      setPageInfo('shopping', { offset: 0 });
+      loadBlogShopping();
+    });
+  }
+  if (shoppingQFilter) {
+    shoppingQFilter.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setPageInfo('shopping', { offset: 0 });
+        loadBlogShopping();
+      }
+    });
+  }
+  if (shoppingPrevBtn) {
+    shoppingPrevBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('shopping');
+      setPageInfo('shopping', { offset: Math.max(0, pageInfo.offset - pageInfo.limit) });
+      loadBlogShopping();
+    });
+  }
+  if (shoppingNextBtn) {
+    shoppingNextBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('shopping');
+      setPageInfo('shopping', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
+      loadBlogShopping();
+    });
+  }
   if (blogStatusFilter) {
     blogStatusFilter.addEventListener('change', () => {
       setPageInfo('topics', { offset: 0 });
@@ -1210,11 +1773,49 @@ function bindActions() {
     });
   }
 
+  if (shoppingTableBody) {
+    shoppingTableBody.addEventListener('change', (e) => {
+      const selector = e.target?.closest('input.shopping-row-selector');
+      if (!selector) return;
+      const rowIndex = Number(selector.value);
+      if (!Number.isInteger(rowIndex) || !findShoppingByRowIndex(rowIndex)) return;
+      if (selector.checked) {
+        blogShoppingSelectedRowIndices.add(rowIndex);
+      } else {
+        blogShoppingSelectedRowIndices.delete(rowIndex);
+      }
+      updateShoppingSelectionUi();
+    });
+
+    shoppingTableBody.addEventListener('dblclick', (e) => {
+      const cell = e.target?.closest('td.editable-cell');
+      if (!cell) return;
+      startShoppingInlineEdit(cell);
+    });
+  }
+
+  sortableHeaders.forEach((th) => {
+    const onSort = () => {
+      const tableName = String(th.dataset.sortTable || '').trim();
+      const key = String(th.dataset.sortKey || '').trim();
+      if (!tableName || !key) return;
+      toggleTableSort(tableName, key);
+    };
+    th.addEventListener('click', onSort);
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSort();
+      }
+    });
+  });
+
   const settingsMajorRefreshBtn = document.getElementById('settings-major-refresh-btn');
   const settingsMajorSaveBtn = document.getElementById('settings-major-save-btn');
   const settingsAdvancedRefreshBtn = document.getElementById('settings-advanced-refresh-btn');
   const settingsAdvancedSaveBtn = document.getElementById('settings-advanced-save-btn');
   const settingsAdvancedFold = document.getElementById('settings-advanced-fold');
+  const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
   const settingsNaverLoginStartBtn = document.getElementById('settings-naver-login-start-btn');
   const settingsNaverLoginRefreshBtn = document.getElementById('settings-naver-login-refresh-btn');
 
@@ -1224,6 +1825,12 @@ function bindActions() {
   if (settingsAdvancedSaveBtn) settingsAdvancedSaveBtn.addEventListener('click', saveSettingsAdvanced);
   if (settingsNaverLoginStartBtn) settingsNaverLoginStartBtn.addEventListener('click', startNaverLoginFromUi);
   if (settingsNaverLoginRefreshBtn) settingsNaverLoginRefreshBtn.addEventListener('click', () => loadNaverLoginStatus());
+  settingsTabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = String(btn.dataset.settingsTab || '');
+      activateSettingsTab(tabName, { forceLoad: true });
+    });
+  });
   if (settingsAdvancedFold) {
     settingsAdvancedFold.addEventListener('toggle', () => {
       if (settingsAdvancedFold.open && !settingsAdvancedLoadedOnce) {
@@ -1243,7 +1850,10 @@ window.addEventListener('DOMContentLoaded', () => {
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();
   updateTrendsSelectionUi();
+  updateShoppingSelectionUi();
+  updateSortableHeadersUi();
   renderTrendsPagination();
   renderTopicsPagination();
+  renderShoppingPagination();
   setInterval(loadDashboard, 15000);
 });
