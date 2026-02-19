@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BlogGenius UI</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">BlogGenius</div>
+      <nav>
+        <button class="nav-btn active" data-view="dashboard">대시보드</button>
+        <button class="nav-btn" data-view="quick">빠른발행</button>
+        <button class="nav-btn" data-view="blog">블로그</button>
+        <button class="nav-btn" data-view="shopping">쇼핑</button>
+        <button class="nav-btn" data-view="trends">트렌드</button>
+        <button class="nav-btn" data-view="license">라이선스</button>
+        <button class="nav-btn" data-view="settings">설정</button>
+        <button class="nav-btn" data-view="logs">로그/이력</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="status-line">
+          <span id="top-plan">플랜: -</span>
+          <span id="top-remaining">잔여: -</span>
+          <span id="top-session">세션: -</span>
+        </div>
+        <button id="refresh-btn">새로고침</button>
+      </header>
+
+      <section class="view active" id="view-dashboard">
+        <h1>Sprint 1 대시보드</h1>
+        <p class="muted">헬스/라이선스/세션 상태를 우선 제공합니다.</p>
+
+        <div class="grid">
+          <article class="card">
+            <h2>Health</h2>
+            <p id="health-text">로딩 중...</p>
+          </article>
+          <article class="card">
+            <h2>라이선스 상태</h2>
+            <p id="license-text">로딩 중...</p>
+          </article>
+          <article class="card">
+            <h2>네이버 세션</h2>
+            <p id="session-text">로딩 중...</p>
+          </article>
+          <article class="card">
+            <h2>Capabilities</h2>
+            <pre id="cap-text">로딩 중...</pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-quick">
+        <h1>빠른발행</h1>
+        <p class="muted">입력값을 topics 시트에 추가한 뒤, 선택 시 즉시 발행까지 연결합니다.</p>
+
+        <div class="card form-card">
+          <div class="form-grid">
+            <label>Subject (필수)
+              <input id="quick-subject" type="text" placeholder="예: 맥모닝 메뉴 10년차 추천 조합">
+            </label>
+            <label>Keywords
+              <input id="quick-keywords" type="text" placeholder="예: 맥모닝, 맥머핀, 맥그리들">
+            </label>
+            <label>참고/지시사항
+              <textarea id="quick-instruction" rows="3" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"></textarea>
+            </label>
+            <label>참고 URL
+              <input id="quick-reference-url" type="text" placeholder="https://...">
+            </label>
+          </div>
+
+          <div class="form-inline">
+            <label><input id="quick-image-generation" type="checkbox"> 이미지 생성</label>
+            <label><input id="quick-external-reference" type="checkbox" checked> 외부 참고 사용</label>
+          </div>
+
+          <div class="form-actions">
+            <button id="quick-save-btn" class="secondary">시트에 저장</button>
+            <button id="quick-publish-btn">저장 후 즉시 발행</button>
+          </div>
+
+          <pre id="quick-result">대기 중...</pre>
+        </div>
+      </section>
+
+      <section class="view" id="view-blog">
+        <h1>블로그</h1>
+        <p class="muted">topics 시트를 조회하고 선택 행을 batch 발행합니다.</p>
+
+        <div class="card form-card">
+          <div class="form-grid blog-filter-grid">
+            <label>상태
+              <select id="blog-status-filter">
+                <option value="">전체</option>
+                <option value="대기">대기</option>
+                <option value="블로그 발행 준비 완료">블로그 발행 준비 완료</option>
+                <option value="발행 중">발행 중</option>
+                <option value="블로그 발행 완료">블로그 발행 완료</option>
+                <option value="실패">실패</option>
+              </select>
+            </label>
+            <label>검색
+              <input id="blog-q-filter" type="text" placeholder="subject / keywords / 지시사항">
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button id="blog-refresh-btn" class="secondary">목록 새로고침</button>
+            <button id="blog-batch-btn">선택 행 발행(batch)</button>
+          </div>
+
+          <div id="blog-last-batch" class="batch-summary hidden"></div>
+
+          <div class="table-wrap">
+            <table class="data-table" id="blog-table">
+              <thead>
+                <tr>
+                  <th style="width:56px;">선택</th>
+                  <th style="width:70px;">Row</th>
+                  <th style="width:220px;">Subject</th>
+                  <th style="width:200px;">Keywords</th>
+                  <th style="width:240px;">참고/지시사항</th>
+                  <th style="width:220px;">참고 URL</th>
+                  <th style="width:120px;">이미지 생성 여부</th>
+                  <th style="width:120px;">외부 참고 여부</th>
+                  <th style="width:220px;">진행 로그</th>
+                  <th style="width:170px;">상태</th>
+                </tr>
+              </thead>
+              <tbody id="blog-table-body">
+                <tr><td colspan="10">로딩 중...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="blog-sticky-actions" class="sticky-actions hidden">
+            <span id="blog-selected-count">0건 선택</span>
+            <button id="blog-batch-btn-bottom">선택 행 발행(batch)</button>
+          </div>
+
+          <pre id="blog-action-result">대기 중...</pre>
+        </div>
+      </section>
+      <section class="view" id="view-shopping"><h1>쇼핑 (예정)</h1></section>
+      <section class="view" id="view-trends"><h1>트렌드 (예정)</h1></section>
+      <section class="view" id="view-license"><h1>라이선스 (예정)</h1></section>
+      <section class="view" id="view-settings">
+        <h1>설정</h1>
+        <p class="muted">주요 항목은 간단히 수정하고, 필요 시 고급 모드에서 config.txt 전체를 편집하세요.</p>
+
+        <div class="card form-card">
+          <h2>주요 설정</h2>
+          <div class="form-grid">
+            <label>NAVER_ID
+              <input id="settings-naver-id" type="text" placeholder="네이버 아이디">
+            </label>
+            <label>GEMINI_API_KEY
+              <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
+            </label>
+            <label>GOOGLE_SHEET_ID
+              <input id="settings-google-sheet-id" type="text" placeholder="Google Spreadsheet ID">
+            </label>
+            <label>HEADLESS
+              <select id="settings-headless">
+                <option value="false">false (브라우저 표시)</option>
+                <option value="true">true (브라우저 숨김)</option>
+              </select>
+            </label>
+            <label>TYPING_SPEED
+              <select id="settings-typing-speed">
+                <option value="QUICK">QUICK</option>
+                <option value="FAST">FAST</option>
+                <option value="NORMAL">NORMAL</option>
+                <option value="HUMAN">HUMAN</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button id="settings-major-refresh-btn" class="secondary">불러오기</button>
+            <button id="settings-major-save-btn">주요 설정 저장</button>
+          </div>
+          <pre id="settings-major-result">대기 중...</pre>
+        </div>
+
+        <div class="card form-card">
+          <h2>네이버 로그인</h2>
+          <p class="muted">버튼을 누르면 브라우저가 열립니다. 로그인 완료 시 인증이 자동 저장됩니다.</p>
+          <div class="form-actions">
+            <button id="settings-naver-login-start-btn">네이버 로그인 시작</button>
+            <button id="settings-naver-login-refresh-btn" class="secondary">상태 새로고침</button>
+          </div>
+          <pre id="settings-naver-login-result">대기 중...</pre>
+        </div>
+
+        <details class="card form-card advanced-fold" id="settings-advanced-fold">
+          <summary>Advanced (config.txt 원문 편집)</summary>
+          <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
+          <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18" spellcheck="false"></textarea>
+          <div class="form-actions">
+            <button id="settings-advanced-refresh-btn" class="secondary">원문 다시 불러오기</button>
+            <button id="settings-advanced-save-btn">원문 저장</button>
+          </div>
+          <pre id="settings-advanced-result">대기 중...</pre>
+        </details>
+      </section>
+      <section class="view" id="view-logs"><h1>로그/이력 (예정)</h1></section>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

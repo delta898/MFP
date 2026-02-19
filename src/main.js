@@ -51,6 +51,7 @@ const TrendManager = require('./trend-manager'); // Add this
 const ShoppingManager = require('./shopping-manager'); // Add this
 const Logger = require('./logger'); // Add this
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
+const { checkAuthSessionValid } = require('./auth-session');
 
 // --------------------------------------------------------
 // 🛠️ [Fix 2] config.txt 설정을 읽어 API 모델 적용 (핵심!)
@@ -90,6 +91,43 @@ program.configureHelp({
         const optionPart = cmd.options && cmd.options.length > 0 ? ' [options]' : '';
         return `${namePart}${optionPart}`;
     }
+});
+
+function commandPathIncludes(commandObj, targetName) {
+    let cursor = commandObj;
+    while (cursor) {
+        if (String(cursor.name?.() || '').trim().toLowerCase() === String(targetName || '').toLowerCase()) {
+            return true;
+        }
+        cursor = cursor.parent;
+    }
+    return false;
+}
+
+program.hook('preAction', (thisCommand, actionCommand) => {
+    if (CONFIG.CONFIG_READY === true) return;
+
+    // 설정 파일이 없어도 진입 가능한 최소 명령:
+    // - ui: 웹 UI에서 설정 복구
+    // - login: 로그인만 먼저 수행 가능
+    // - license 하위 명령: 등록/복구 흐름 지원
+    const allowWithoutConfig =
+        commandPathIncludes(actionCommand, 'ui') ||
+        commandPathIncludes(actionCommand, 'login') ||
+        commandPathIncludes(actionCommand, 'license');
+
+    if (allowWithoutConfig) return;
+
+    console.error('\n⛔ 설정 파일 준비가 필요합니다.');
+    if (CONFIG.CONFIG_ERROR_MESSAGE) {
+        console.error(CONFIG.CONFIG_ERROR_MESSAGE);
+    } else {
+        console.error('config/config.txt 또는 config/config.txt.sample 파일을 확인해 주세요.');
+    }
+    console.error('\n👉 해결 방법');
+    console.error('1) UI 사용: ./BlogGenius ui  (설정 화면에서 바로 저장)');
+    console.error('2) 수동 복구: config/config.txt.sample -> config/config.txt 복사 후 필수값 입력');
+    process.exit(1);
 });
 
 // --- Helper Functions ---
@@ -192,39 +230,6 @@ async function performLogin() {
         console.error(`\n❌ 로그인 프로세스 실패: ${e.message}`);
         await closeBrowserResources(context, browser);
         process.exit(1);
-    }
-}
-
-async function checkAuthSessionValid() {
-    const authPath = CONFIG.AUTH_FILE_PATH;
-    if (!authPath || !fs.existsSync(authPath)) {
-        return { ok: false, reason: 'missing_auth' };
-    }
-
-    let browser = null;
-    let context = null;
-    try {
-        browser = await BrowserLauncher.launchBrowser({ headless: true });
-        context = await browser.newContext({
-            storageState: authPath,
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        });
-        const page = await context.newPage();
-        const checkUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
-
-        await page.goto(checkUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await Utils.sleep(400);
-
-        const currentUrl = String(page.url() || '');
-        if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {
-            return { ok: false, reason: 'expired' };
-        }
-        return { ok: true };
-    } catch (e) {
-        return { ok: false, reason: 'check_failed', message: e.message };
-    } finally {
-        try { if (context) await context.close(); } catch (e) { }
-        try { if (browser) await browser.close(); } catch (e) { }
     }
 }
 
@@ -537,6 +542,26 @@ async function resolveUpgradePlanInput(initialPlan = '') {
 
 // 1️⃣ Login Command
 program.command('login').description('🔐 [네이버 로그인]').action(async () => { await performLogin(); });
+
+// 1-1️⃣ UI Command
+program
+    .command('ui')
+    .description('🖥️ [UI] 로컬 웹 UI 실행')
+    .option('--port <port>', 'UI 서버 포트 (기본: 4577)')
+    .action(async (opts) => {
+        try {
+            const { startUiServer } = require('./ui-server');
+            const port = Number.isFinite(Number(opts.port)) ? parseInt(opts.port, 10) : 4577;
+            const started = await startUiServer({ port });
+            const uiUrl = `http://127.0.0.1:${started.port}`;
+            console.log(`\n✅ UI 서버 실행 중: ${uiUrl}`);
+            console.log('ℹ️ 종료하려면 Ctrl + C를 누르세요.');
+        } catch (e) {
+            console.error(`❌ UI 서버 실행 실패: ${e.message}`);
+            if (process.env.DEBUG) console.error('Stack:', e.stack);
+            process.exit(1);
+        }
+    });
 
 program
     .command('license')
@@ -1153,6 +1178,7 @@ program
 program.on('--help', () => {
     console.log('');
     console.log('📖 사용 예시:');
+    console.log('  $ ./BlogGenius ui --port=4577');
     console.log('  $ ./BlogGenius login');
     console.log('  $ ./BlogGenius license status');
     console.log('  $ ./BlogGenius license register --email=you@example.com');

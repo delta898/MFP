@@ -454,6 +454,104 @@ const Utils = {
     },
 
     /**
+     * UI/운영용: topics 시트 전체 조회 (상태/검색/페이징 지원)
+     */
+    readGoogleSheetTopicsAll: async function (options = {}) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                return { items: [], total: 0, limit: 0, offset: 0 };
+            }
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+            const parsed = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                const getVal = (cols) => {
+                    for (const col of cols) {
+                        const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                            return String(entry[cleanCol]).trim();
+                        }
+                    }
+                    return "";
+                };
+
+                const subject = getVal(['subject', '주제', '제목']);
+                const kwStr = getVal(['keywords', '키워드']);
+                const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
+                const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
+                const status = getVal(['상태', 'status']);
+                const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
+                const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
+                const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
+                const logStr = getVal(['로그', 'log']);
+                const publishedAt = getVal(['발행시간', '발행 시간', 'publish_time', 'time']);
+
+                return {
+                    rowIndex: index,
+                    rowNumber: index + 2,
+                    subject: subject || '',
+                    keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
+                    keywordsRaw: kwStr || '',
+                    content_guide: {
+                        additional_instructions: instruction || '',
+                        reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
+                    },
+                    status: status || '',
+                    use_external_ref: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(extRefStr.toLowerCase()),
+                    image_options: {
+                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
+                        count: parseInt(imgCountStr, 10) || 4
+                    },
+                    log: logStr || '',
+                    publishedAt: publishedAt || ''
+                };
+            });
+
+            const statusFilter = String(options.status || '').trim();
+            const q = String(options.q || '').trim().toLowerCase();
+            let filtered = parsed;
+
+            if (statusFilter) {
+                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+            }
+            if (q) {
+                filtered = filtered.filter((item) => {
+                    const haystack = [
+                        item.subject,
+                        item.keywordsRaw,
+                        item.content_guide?.additional_instructions || '',
+                        (item.content_guide?.reference_urls || []).join(' '),
+                        item.status,
+                        item.log
+                    ].join(' ').toLowerCase();
+                    return haystack.includes(q);
+                });
+            }
+
+            const total = filtered.length;
+            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
+            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+            const items = filtered.slice(offset, offset + limit);
+
+            return { items, total, limit, offset };
+        } catch (e) {
+            Logger.error(`❌ topics 전체 조회 실패: ${e.message}`);
+            return { items: [], total: 0, limit: 0, offset: 0 };
+        }
+    },
+
+    /**
      * Shopping 시트 읽기 ('발행 준비 완료' 상태만)
      */
     readGoogleSheetShopping: async function () {
@@ -720,7 +818,7 @@ const Utils = {
     /**
      * 1-3. 토픽 시트에 새로운 행 추가 (Append)
      */
-    appendGoogleSheetTopics: async function (newTopics) {
+    appendGoogleSheetTopics: async function (newTopics, options = {}) {
         if (!newTopics || newTopics.length === 0) return;
 
         try {
@@ -833,8 +931,9 @@ const Utils = {
                 if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
                 else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
                 else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
+                else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
                 else if (clean.includes('외부참고') || clean.includes('extref') || clean.includes('external')) map.extRef = i;
-                else if (clean.includes('url') || clean.includes('참고')) map.url = i;
+                else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
                 else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
             });
@@ -845,31 +944,85 @@ const Utils = {
             if (map.keyword === undefined) map.keyword = 2;
 
             const maxCol = Math.max(...Object.values(map));
+            const defaultStatus = String(options.defaultStatus || '대기').trim() || '대기';
             const rowsToAdd = newTopics.map(topic => {
                 const row = new Array(maxCol + 1).fill("");
+                const keywordValue = Array.isArray(topic.keywords) ? topic.keywords.join(', ') : String(topic.keywords || '');
+                const instructionValue = String(
+                    topic.content_guide?.additional_instructions ||
+                    topic.additional_instructions ||
+                    topic.instruction ||
+                    ''
+                ).trim();
+                const referenceUrlValue = Array.isArray(topic.content_guide?.reference_urls)
+                    ? topic.content_guide.reference_urls.join(', ')
+                    : (
+                        Array.isArray(topic.reference_urls)
+                            ? topic.reference_urls.join(', ')
+                            : String(topic.reference_urls || topic.reference_url || '')
+                    );
+                const imageGenerate = (typeof topic.image_options?.generate === 'boolean')
+                    ? topic.image_options.generate
+                    : (
+                        typeof topic.image_generation === 'boolean'
+                            ? topic.image_generation
+                            : false
+                    );
+                const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
+
                 if (map.blog !== undefined) row[map.blog] = 'naver'; // 기본값 'naver'
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
-                if (map.keyword !== undefined) row[map.keyword] = topic.keywords;
+                if (map.keyword !== undefined) row[map.keyword] = keywordValue;
+                if (map.instruction !== undefined) row[map.instruction] = instructionValue;
                 if (map.extRef !== undefined) row[map.extRef] = topic.use_external_ref !== undefined ? (topic.use_external_ref ? 'Yes' : 'No') : 'Yes';
-                if (map.url !== undefined) row[map.url] = topic.reference_urls || '';
-                if (map.status !== undefined) row[map.status] = '대기';
-                if (map.imgGen !== undefined) row[map.imgGen] = 'No'; // 사용자 요청: 기본값 No
+                if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
+                if (map.status !== undefined) row[map.status] = rowStatus;
+                if (map.imgGen !== undefined) row[map.imgGen] = imageGenerate ? 'Yes' : 'No';
                 return row;
             });
 
             const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
-
-            await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: rowsToAdd }, {
+            const appendRes = await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: rowsToAdd }, {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }));
+
+            const updatedRange = appendRes?.data?.updates?.updatedRange || '';
+            let rowNumbers = [];
+            if (updatedRange) {
+                // 예: topics!A12:J14
+                const right = String(updatedRange).split('!')[1] || '';
+                const m = right.match(/[A-Z]+(\d+):[A-Z]+(\d+)/i) || right.match(/[A-Z]+(\d+)/i);
+                if (m) {
+                    const startRow = parseInt(m[1], 10);
+                    const endRow = m[2] ? parseInt(m[2], 10) : startRow;
+                    if (!Number.isNaN(startRow) && !Number.isNaN(endRow)) {
+                        for (let r = startRow; r <= endRow; r++) rowNumbers.push(r);
+                    }
+                }
+            }
+            if (rowNumbers.length === 0) {
+                // 업데이트 범위를 못 읽은 경우 fallback (행 번호 미제공)
+                rowNumbers = [];
+            }
+            const rowIndices = rowNumbers.map((rowNum) => rowNum - 2).filter((idx) => idx >= 0);
 
             // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
             await this.sleep(1000);
 
             Logger.info(`   ✅ 토픽 시트에 ${rowsToAdd.length}건 추가 완료`);
+            return {
+                success: true,
+                addedCount: rowsToAdd.length,
+                rowNumbers,
+                rowIndices
+            };
 
         } catch (e) {
             Logger.error(`❌ 토픽 추가 실패: ${e.message}`);
+            return {
+                success: false,
+                message: e.message
+            };
         }
     },
 
@@ -1334,6 +1487,91 @@ const Utils = {
                 Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
             }
         }
+    },
+
+    /**
+     * UI 편집용: topics 시트에서 수정 가능한 필드만 업데이트
+     * - subject, keywords, 참고/지시사항, 참고 URL, 이미지 생성 여부, 외부 참고 여부
+     */
+    updateGoogleSheetTopicEditableFields: async function (rowIndex, fields = {}) {
+        const safeRowIndex = parseInt(rowIndex, 10);
+        if (Number.isNaN(safeRowIndex) || safeRowIndex < 0) {
+            throw new Error('rowIndex는 0 이상의 정수여야 합니다.');
+        }
+
+        const toYesNo = (value) => (value ? 'Yes' : 'No');
+        const normalized = {
+            subject: String(fields.subject || '').trim(),
+            keywords: Array.isArray(fields.keywords)
+                ? fields.keywords.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+                : String(fields.keywords || '').trim(),
+            instruction: String(fields.instruction || '').trim(),
+            referenceUrl: Array.isArray(fields.referenceUrl)
+                ? fields.referenceUrl.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+                : String(fields.referenceUrl || '').trim(),
+            imageGeneration: toYesNo(Boolean(fields.imageGeneration)),
+            externalReference: toYesNo(Boolean(fields.externalReference))
+        };
+
+        if (!normalized.subject) {
+            throw new Error('Subject는 비워둘 수 없습니다.');
+        }
+
+        const accessToken = await this.getGoogleAccessToken();
+        const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+        const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+        const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+        const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        }));
+        const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
+
+        const map = {};
+        headers.forEach((h, i) => {
+            const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+            if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
+            else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
+            else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
+            else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
+            else if (clean.includes('이미지생성') || clean.includes('imagegen') || clean.includes('imggen')) map.imgGen = i;
+            else if (clean.includes('외부참고') || clean.includes('external') || clean.includes('extref')) map.extRef = i;
+        });
+
+        if (map.subject === undefined) map.subject = 1;
+        if (map.keyword === undefined) map.keyword = 2;
+
+        const targetRow = safeRowIndex + 2;
+        const toA1 = (colIdx) => {
+            let letter = '';
+            let num = colIdx;
+            while (num >= 0) {
+                letter = String.fromCharCode((num % 26) + 65) + letter;
+                num = Math.floor(num / 26) - 1;
+            }
+            return letter;
+        };
+
+        const dataToUpdate = [];
+        if (map.subject !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.subject)}${targetRow}`, values: [[normalized.subject]] });
+        if (map.keyword !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.keyword)}${targetRow}`, values: [[normalized.keywords]] });
+        if (map.instruction !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.instruction)}${targetRow}`, values: [[normalized.instruction]] });
+        if (map.url !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.url)}${targetRow}`, values: [[normalized.referenceUrl]] });
+        if (map.imgGen !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.imgGen)}${targetRow}`, values: [[normalized.imageGeneration]] });
+        if (map.extRef !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.extRef)}${targetRow}`, values: [[normalized.externalReference]] });
+
+        if (dataToUpdate.length === 0) {
+            throw new Error('수정 가능한 컬럼을 찾지 못했습니다.');
+        }
+
+        const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+        await this.callWithRetry(() => axios.post(updateUrl, {
+            valueInputOption: 'USER_ENTERED',
+            data: dataToUpdate
+        }, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        }));
+        await this.sleep(300);
     },
 
     /**

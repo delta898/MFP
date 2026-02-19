@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node src/main.js",
+    "ui": "node src/main.js ui",
     "login": "node src/main.js login",
     "gen": "node src/main.js gen",
     "batch": "node src/main.js batch",
@@ -30,6 +31,7 @@
     ],
     "assets": [
       "package.json",
+      "ui/**/*",
       "src/config/*.md",
       "node_modules/playwright-core/**/*",
       "node_modules/@playwright/**/*",

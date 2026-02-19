@@ -1,0 +1,1290 @@
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+const { version: APP_VERSION } = require('../package.json');
+const License = require('./license');
+const CONFIG = require('./config-loader');
+const Logger = require('./logger');
+const { checkAuthSessionValid } = require('./auth-session');
+const Utils = require('./utils');
+const Core = require('./core');
+const BrowserLauncher = require('./browser-launcher');
+
+const DEFAULT_PORT = 4577;
+const blogRuntimeLogs = new Map();
+const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
+const naverLoginState = {
+    status: 'idle', // idle | running | success | failed
+    message: '',
+    startedAt: null,
+    finishedAt: null,
+    detectedBy: '',
+    error: ''
+};
+
+function setBlogRuntimeLog(rowIndex, message) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
+    blogRuntimeLogs.set(rowIndex, {
+        message: String(message || '').trim()
+    });
+}
+
+function clearBlogRuntimeLog(rowIndex) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
+    blogRuntimeLogs.delete(rowIndex);
+}
+
+function clearAllBlogRuntimeLogs() {
+    blogRuntimeLogs.clear();
+}
+
+function getBlogRuntimeLogMap() {
+    const map = new Map();
+    for (const [rowIndex, log] of blogRuntimeLogs.entries()) {
+        map.set(rowIndex, String(log?.message || ''));
+    }
+    return map;
+}
+
+function setNaverLoginState(patch = {}) {
+    Object.assign(naverLoginState, patch);
+}
+
+function getNaverLoginStatus() {
+    const startedAtMs = naverLoginState.startedAt ? new Date(naverLoginState.startedAt).getTime() : null;
+    const elapsedSeconds = startedAtMs ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)) : 0;
+    return {
+        status: naverLoginState.status,
+        message: naverLoginState.message,
+        startedAt: naverLoginState.startedAt,
+        finishedAt: naverLoginState.finishedAt,
+        detectedBy: naverLoginState.detectedBy,
+        error: naverLoginState.error,
+        isRunning: naverLoginState.status === 'running',
+        elapsedSeconds
+    };
+}
+
+function resolveUiRoot() {
+    const candidates = [
+        path.join(process.cwd(), 'ui'),
+        path.join(__dirname, '..', 'ui')
+    ];
+
+    for (const dir of candidates) {
+        try {
+            if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+                return dir;
+            }
+        } catch (e) { }
+    }
+    return null;
+}
+
+function jsonMeta(requestId) {
+    return {
+        requestId,
+        timestamp: new Date().toISOString()
+    };
+}
+
+function sendJson(res, requestId, statusCode, payload) {
+    res.writeHead(statusCode, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store'
+    });
+    res.end(JSON.stringify({
+        ...payload,
+        meta: jsonMeta(requestId)
+    }));
+}
+
+function sendSuccess(res, requestId, data, statusCode = 200) {
+    sendJson(res, requestId, statusCode, { success: true, data, error: null });
+}
+
+function sendError(res, requestId, statusCode, code, message) {
+    sendJson(res, requestId, statusCode, {
+        success: false,
+        data: null,
+        error: { code, message: String(message || '요청 처리 중 오류가 발생했습니다.') }
+    });
+}
+
+function toFeatureMap(rawFeatures) {
+    return (rawFeatures && typeof rawFeatures === 'object' && !Array.isArray(rawFeatures))
+        ? rawFeatures
+        : {};
+}
+
+function getFeatureInt(features, key, fallback = null) {
+    const map = toFeatureMap(features);
+    if (!(key in map)) return fallback;
+    const num = parseInt(map[key], 10);
+    if (Number.isNaN(num) || num < 0) return fallback;
+    return num;
+}
+
+function getFeatureBool(features, key, fallback = true) {
+    const map = toFeatureMap(features);
+    if (!(key in map)) return fallback;
+    const value = map[key];
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const v = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on'].includes(v)) return true;
+        if (['false', '0', 'no', 'off'].includes(v)) return false;
+    }
+    return fallback;
+}
+
+function isCommandEnabled(features, command) {
+    const keyMap = {
+        pub: 'cmd_pub',
+        batch: 'cmd_batch',
+        trends: 'cmd_trends',
+        shopping: 'cmd_shopping'
+    };
+    const key = keyMap[command];
+    if (!key) return true;
+    return getFeatureBool(features, key, true);
+}
+
+function parseMaxPosts(value, fallback = 3) {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 0) return fallback;
+    return parsed;
+}
+
+function resolveMaxBlogPostsPerRun() {
+    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 3);
+}
+
+function resolveMaxShoppingPostsPerRun() {
+    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 3);
+}
+
+function getContentType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.html') return 'text/html; charset=utf-8';
+    if (ext === '.css') return 'text/css; charset=utf-8';
+    if (ext === '.js') return 'application/javascript; charset=utf-8';
+    if (ext === '.json') return 'application/json; charset=utf-8';
+    if (ext === '.svg') return 'image/svg+xml';
+    if (ext === '.png') return 'image/png';
+    if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+    return 'application/octet-stream';
+}
+
+function sanitizePathname(pathname) {
+    const safe = String(pathname || '/').split('?')[0].split('#')[0];
+    const normalized = path.normalize(safe).replace(/^(\.\.[/\\])+/, '');
+    return normalized.startsWith('/') ? normalized.slice(1) : normalized;
+}
+
+function createRequestId() {
+    return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeBool(input, fallback = false) {
+    if (typeof input === 'boolean') return input;
+    if (typeof input === 'number') return input !== 0;
+    if (typeof input === 'string') {
+        const v = input.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(v)) return true;
+        if (['false', '0', 'no', 'n', 'off'].includes(v)) return false;
+    }
+    return fallback;
+}
+
+function normalizeKeywords(input) {
+    if (Array.isArray(input)) {
+        return input.map(v => String(v || '').trim()).filter(Boolean);
+    }
+    return String(input || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+}
+
+function normalizePublishMode(input) {
+    const mode = String(input || '').trim().toLowerCase();
+    if (mode === 'append_and_publish') return 'append_and_publish';
+    return 'append_only';
+}
+
+function parseIntSafe(input, fallback = null, min = null) {
+    const parsed = parseInt(input, 10);
+    if (Number.isNaN(parsed)) return fallback;
+    if (min !== null && parsed < min) return fallback;
+    return parsed;
+}
+
+function parseBoolQuery(input) {
+    const value = String(input || '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'y', 'on'].includes(value);
+}
+
+function resolveConfigPaths() {
+    const rootConfig = path.join(process.cwd(), 'config', 'config.txt');
+    const rootSample = path.join(process.cwd(), 'config', 'config.txt.sample');
+    const execDir = path.dirname(process.execPath || process.cwd());
+    const execConfig = path.join(execDir, 'config', 'config.txt');
+    const execSample = path.join(execDir, 'config', 'config.txt.sample');
+
+    return {
+        rootConfig,
+        rootSample,
+        execConfig,
+        execSample
+    };
+}
+
+function resolveReadableConfigSource() {
+    const paths = resolveConfigPaths();
+    if (fs.existsSync(paths.rootConfig)) return { path: paths.rootConfig, sourceType: 'config' };
+    if (fs.existsSync(paths.execConfig)) return { path: paths.execConfig, sourceType: 'config' };
+    if (fs.existsSync(paths.rootSample)) return { path: paths.rootSample, sourceType: 'sample' };
+    if (fs.existsSync(paths.execSample)) return { path: paths.execSample, sourceType: 'sample' };
+    throw new Error('설정 파일(config.txt/config.txt.sample)을 찾을 수 없습니다.');
+}
+
+function resolveWritableConfigPath() {
+    const paths = resolveConfigPaths();
+    if (fs.existsSync(paths.rootConfig)) return paths.rootConfig;
+    if (fs.existsSync(paths.execConfig)) return paths.execConfig;
+    if (fs.existsSync(paths.rootSample)) return paths.rootConfig;
+    if (fs.existsSync(paths.execSample)) return paths.execConfig;
+    return paths.rootConfig;
+}
+
+function readConfigRaw(configSource) {
+    if (!configSource?.path || !fs.existsSync(configSource.path)) {
+        throw new Error(`설정 파일을 찾을 수 없습니다: ${configSource?.path || '(unknown)'}`);
+    }
+    return fs.readFileSync(configSource.path, 'utf-8');
+}
+
+function tryResolveReadableConfigSource() {
+    try {
+        return resolveReadableConfigSource();
+    } catch (e) {
+        return null;
+    }
+}
+
+function buildDefaultConfigTemplate() {
+    return [
+        '# BlogGenius config (auto-generated)',
+        'NAVER_ID = ',
+        'GEMINI_API_KEY = ',
+        'GOOGLE_AUTH_JSON = ./config/service_account.json',
+        'GOOGLE_SHEET_ID = ',
+        'HEADLESS = false',
+        'TYPING_SPEED = FAST',
+        ''
+    ].join('\n');
+}
+
+function parseConfigValue(raw, key) {
+    const lines = String(raw || '').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+        const [left, ...rest] = trimmed.split('=');
+        if (String(left || '').trim() !== key) continue;
+        const joined = rest.join('=');
+        const value = joined.includes('#') ? joined.split('#')[0] : joined;
+        return String(value || '').trim();
+    }
+    return '';
+}
+
+function parseConfigBool(rawValue, fallback = false) {
+    const value = String(rawValue || '').trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(value)) return true;
+    if (['false', '0', 'no', 'off'].includes(value)) return false;
+    return fallback;
+}
+
+function normalizeTypingSpeed(input, fallback = 'NORMAL') {
+    const value = String(input || '').trim().toUpperCase();
+    return ALLOWED_TYPING_SPEEDS.includes(value) ? value : fallback;
+}
+
+function applyConfigUpdates(raw, updates = {}) {
+    const nextUpdates = { ...updates };
+    const lines = String(raw || '').split(/\r?\n/);
+    const pendingKeys = new Set(Object.keys(nextUpdates));
+    const nextLines = lines.map((line) => {
+        if (/^\s*#/.test(line) || !line.includes('=')) return line;
+        const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
+        if (!match) return line;
+        const key = match[1];
+        if (!pendingKeys.has(key)) return line;
+        pendingKeys.delete(key);
+        const indent = (line.match(/^\s*/) || [''])[0];
+        return `${indent}${key} = ${nextUpdates[key]}`;
+    });
+
+    if (pendingKeys.size > 0) {
+        if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
+            nextLines.push('');
+        }
+        for (const key of pendingKeys) {
+            nextLines.push(`${key} = ${nextUpdates[key]}`);
+        }
+    }
+
+    return nextLines.join('\n');
+}
+
+function buildMajorSettings(raw, configSource) {
+    const fallbackTyping = normalizeTypingSpeed(CONFIG.TYPING_SPEED, 'NORMAL');
+    const naverId = parseConfigValue(raw, 'NAVER_ID') || String(CONFIG.NAVER_ID || '');
+    const geminiApiKey = parseConfigValue(raw, 'GEMINI_API_KEY') || String(CONFIG.GEMINI_API_KEY || '');
+    const googleSheetId = parseConfigValue(raw, 'GOOGLE_SHEET_ID') || String(CONFIG.GOOGLE_SHEET_ID || '');
+    const headlessRaw = parseConfigValue(raw, 'HEADLESS');
+    const typingRaw = parseConfigValue(raw, 'TYPING_SPEED');
+    const headless = parseConfigBool(headlessRaw, Boolean(CONFIG.HEADLESS));
+    const typingSpeed = normalizeTypingSpeed(typingRaw, fallbackTyping);
+
+    return {
+        configPath: configSource?.path || '',
+        configSourceType: configSource?.sourceType || 'config',
+        fields: {
+            NAVER_ID: naverId,
+            GEMINI_API_KEY: geminiApiKey,
+            GOOGLE_SHEET_ID: googleSheetId,
+            HEADLESS: headless,
+            TYPING_SPEED: typingSpeed
+        },
+        typingSpeedOptions: ALLOWED_TYPING_SPEEDS
+    };
+}
+
+function applyRuntimeConfigFromMajor(fields = {}) {
+    const naverId = String(fields.NAVER_ID || '').trim();
+    const geminiApiKey = String(fields.GEMINI_API_KEY || '').trim();
+    const googleSheetId = String(fields.GOOGLE_SHEET_ID || '').trim();
+    const headless = Boolean(fields.HEADLESS);
+    const typingSpeed = normalizeTypingSpeed(fields.TYPING_SPEED, 'NORMAL');
+
+    CONFIG.NAVER_ID = naverId;
+    CONFIG.GEMINI_API_KEY = geminiApiKey;
+    CONFIG.GOOGLE_SHEET_ID = googleSheetId;
+    CONFIG.HEADLESS = headless;
+    CONFIG.TYPING_SPEED = typingSpeed;
+    CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
+    CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;
+}
+
+function parseMajorFieldsFromRequest(requestBody = {}) {
+    const naverId = String(requestBody.NAVER_ID || '').trim();
+    const geminiApiKey = String(requestBody.GEMINI_API_KEY || '').trim();
+    const googleSheetId = String(requestBody.GOOGLE_SHEET_ID || '').trim();
+    const headless = normalizeBool(requestBody.HEADLESS, false);
+    const typingSpeed = normalizeTypingSpeed(requestBody.TYPING_SPEED, 'NORMAL');
+    return {
+        NAVER_ID: naverId,
+        GEMINI_API_KEY: geminiApiKey,
+        GOOGLE_SHEET_ID: googleSheetId,
+        HEADLESS: headless,
+        TYPING_SPEED: typingSpeed
+    };
+}
+
+function isNaverLoginCompletedUrl(urlLike) {
+    const urlStr = String(urlLike || '');
+    return /naver\.com/i.test(urlStr) && !/nid\.naver\.com|nidlogin\.login/i.test(urlStr);
+}
+
+async function waitForNaverLoginCompleted(page, context, timeoutMs = 300000) {
+    const start = Date.now();
+    const pollIntervalMs = 500;
+
+    const samePageWait = page.waitForURL(url => isNaverLoginCompletedUrl(url), { timeout: timeoutMs })
+        .then(() => 'same-page-url')
+        .catch(() => null);
+
+    const pollWait = (async () => {
+        while (Date.now() - start < timeoutMs) {
+            for (const p of context.pages()) {
+                try {
+                    if (isNaverLoginCompletedUrl(p.url())) {
+                        return 'any-page-url';
+                    }
+                } catch (e) { }
+            }
+
+            try {
+                const cookies = await context.cookies([
+                    'https://www.naver.com',
+                    'https://naver.com',
+                    'https://nid.naver.com'
+                ]);
+                const hasAuthCookie = cookies.some(c =>
+                    c && (c.name === 'NID_AUT' || c.name === 'NID_SES')
+                );
+                if (hasAuthCookie) {
+                    return 'auth-cookie';
+                }
+            } catch (e) { }
+
+            await Utils.sleep(pollIntervalMs);
+        }
+        return null;
+    })();
+
+    const reason = await Promise.race([samePageWait, pollWait]);
+    if (!reason) {
+        throw new Error('네이버 로그인 완료를 확인하지 못했습니다. 다시 시도해 주세요.');
+    }
+    return reason;
+}
+
+async function closeBrowserResources(context, browser) {
+    try { if (context) await context.close(); } catch (e) { }
+    try { if (browser) await browser.close(); } catch (e) { }
+}
+
+async function runNaverLoginFlowForUi() {
+    let browser = null;
+    let context = null;
+    try {
+        Logger.info('🔐 [UI] 네이버 로그인 프로세스 시작');
+        setNaverLoginState({
+            status: 'running',
+            message: '브라우저 실행 중...',
+            startedAt: new Date().toISOString(),
+            finishedAt: null,
+            detectedBy: '',
+            error: ''
+        });
+
+        browser = await BrowserLauncher.launchBrowser({ headless: false });
+        Logger.info('🔐 [UI] 로그인 브라우저 실행 완료');
+        context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        });
+        const page = await context.newPage();
+
+        setNaverLoginState({
+            status: 'running',
+            message: '로그인 페이지를 여는 중...'
+        });
+        await page.goto('https://nid.naver.com/nidlogin.login', { waitUntil: 'domcontentloaded' });
+
+        setNaverLoginState({
+            status: 'running',
+            message: '브라우저에서 로그인 후 완료를 기다리는 중...'
+        });
+        const detectedBy = await waitForNaverLoginCompleted(page, context, 300000);
+        Logger.info(`✅ [UI] 네이버 로그인 완료 감지 (${detectedBy})`);
+
+        const authPath = CONFIG.AUTH_FILE_PATH;
+        fs.mkdirSync(path.dirname(authPath), { recursive: true });
+        await context.storageState({ path: authPath });
+        Logger.info(`✅ [UI] 로그인 인증 저장 완료: ${authPath}`);
+
+        setNaverLoginState({
+            status: 'success',
+            message: `로그인 완료 및 인증 저장됨 (${authPath})`,
+            finishedAt: new Date().toISOString(),
+            detectedBy,
+            error: ''
+        });
+    } catch (e) {
+        Logger.error(`❌ [UI] 네이버 로그인 실패: ${e.message}`);
+        setNaverLoginState({
+            status: 'failed',
+            message: '로그인 실패',
+            finishedAt: new Date().toISOString(),
+            error: String(e?.message || 'unknown error')
+        });
+    } finally {
+        await closeBrowserResources(context, browser);
+    }
+}
+
+async function executeQuickPublish(requestBody) {
+    const subject = String(requestBody?.subject || '').trim();
+    const keywords = normalizeKeywords(requestBody?.keywords);
+    const instruction = String(requestBody?.instruction || '').trim();
+    const externalReference = normalizeBool(requestBody?.externalReference, true);
+    const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+    const referenceUrl = String(requestBody?.referenceUrl || '').trim();
+    const publishMode = normalizePublishMode(requestBody?.publishMode);
+
+    if (!subject) {
+        return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 필수입니다.' };
+    }
+
+    if (referenceUrl && !/^https?:\/\//i.test(referenceUrl)) {
+        return { success: false, code: 'INVALID_REFERENCE_URL', message: '참고 URL 형식이 올바르지 않습니다. (http/https)' };
+    }
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+
+    const features = toFeatureMap(precheck.features);
+    if (publishMode === 'append_and_publish' && !isCommandEnabled(features, 'batch')) {
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+    }
+
+    const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+    const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
+    const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
+
+    await Utils.ensureAllSheetsExist();
+
+    const appendStatus = publishMode === 'append_and_publish' ? '블로그 발행 준비 완료' : '대기';
+    const appendResult = await Utils.appendGoogleSheetTopics([{
+        subject,
+        keywords,
+        content_guide: {
+            additional_instructions: instruction,
+            reference_urls: referenceUrl ? [referenceUrl] : []
+        },
+        use_external_ref: externalReference,
+        image_options: {
+            generate: imageGenerationFinal,
+            count: 4
+        },
+        status: appendStatus
+    }], {
+        defaultStatus: appendStatus
+    });
+
+    if (!appendResult?.success) {
+        return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 시트 추가에 실패했습니다.' };
+    }
+
+    const rowNumber = Array.isArray(appendResult.rowNumbers) ? appendResult.rowNumbers[0] : null;
+    const rowIndex = Array.isArray(appendResult.rowIndices) ? appendResult.rowIndices[0] : null;
+
+    if (publishMode === 'append_only') {
+        return {
+            success: true,
+            data: {
+                mode: publishMode,
+                sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
+                rowNumber,
+                rowIndex,
+                status: appendStatus
+            }
+        };
+    }
+
+    const session = await checkAuthSessionValid();
+    if (!session.ok) {
+        return {
+            success: false,
+            code: 'NAVER_SESSION_INVALID',
+            message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+        };
+    }
+
+    const topicData = {
+        rowIndex: Number.isInteger(rowIndex) ? rowIndex : 0,
+        subject,
+        keywords,
+        content_guide: {
+            additional_instructions: instruction,
+            reference_urls: referenceUrl ? [referenceUrl] : []
+        },
+        use_external_ref: externalReference,
+        image_options: {
+            generate: imageGenerationFinal,
+            count: 4
+        },
+        status: '블로그 발행 준비 완료'
+    };
+
+    try {
+        const result = await Core.generateContent(topicData, null, {
+            enableRelatedPostsAutoLink
+        });
+        await Core.prepareImages(result.targetDir, topicData, {
+            imageGenerationEnabled: imageGenerationFinal
+        });
+
+        const verify = await License.verifyLicense();
+        if (!verify.success) {
+            if (Number.isInteger(rowIndex)) {
+                await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+            }
+            return {
+                success: false,
+                code: 'LICENSE_VERIFY_FAILED',
+                message: verify.message
+            };
+        }
+
+        if (Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
+        }
+
+        await Core.publishToBlog(result.targetDir);
+
+        if (Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+        }
+
+        return {
+            success: true,
+            data: {
+                mode: publishMode,
+                sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
+                rowNumber,
+                rowIndex,
+                status: '블로그 발행 완료',
+                targetDir: result.targetDir
+            }
+        };
+    } catch (e) {
+        if (Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '실패', e.message);
+        }
+        return {
+            success: false,
+            code: 'QUICK_PUBLISH_FAILED',
+            message: e.message
+        };
+    }
+}
+
+async function executeBlogRowAction(requestBody, options = {}) {
+    const action = String(requestBody?.action || '').trim().toLowerCase();
+    const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const emitProgress = (message) => {
+        if (!onProgress) return;
+        try {
+            onProgress(String(message || ''));
+        } catch (e) { }
+    };
+
+    if (!['gen', 'batch'].includes(action)) {
+        return { success: false, code: 'INVALID_ACTION', message: '지원하지 않는 action입니다. (gen|batch)' };
+    }
+    if (rowIndex === null) {
+        return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+    }
+
+    const topics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0 });
+    const topicData = (topics.items || []).find(item => item.rowIndex === rowIndex);
+    if (!topicData) {
+        return { success: false, code: 'TOPIC_NOT_FOUND', message: `대상 rowIndex(${rowIndex})를 찾지 못했습니다.` };
+    }
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+    const features = toFeatureMap(precheck.features);
+    const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
+    const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+
+    const topicPayload = {
+        rowIndex: topicData.rowIndex,
+        subject: topicData.subject,
+        keywords: topicData.keywords || [],
+        content_guide: {
+            additional_instructions: topicData.content_guide?.additional_instructions || '',
+            reference_urls: topicData.content_guide?.reference_urls || []
+        },
+        use_external_ref: topicData.use_external_ref === true,
+        image_options: {
+            generate: topicData.image_options?.generate === true,
+            count: parseIntSafe(topicData.image_options?.count, 4, 1) || 4
+        },
+        status: topicData.status
+    };
+
+    const imageGenerationFinal = imageGenerationEnabledByPlan && topicPayload.image_options.generate;
+
+    try {
+        emitProgress('콘텐츠 생성 중...');
+        const result = await Core.generateContent(topicPayload, null, {
+            enableRelatedPostsAutoLink
+        });
+        emitProgress('이미지 준비 중...');
+        await Core.prepareImages(result.targetDir, topicPayload, {
+            imageGenerationEnabled: imageGenerationFinal
+        });
+
+        if (action === 'gen') {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', `생성 완료: ${path.basename(result.targetDir)}`);
+            return {
+                success: true,
+                data: {
+                    action,
+                    rowIndex,
+                    rowNumber: rowIndex + 2,
+                    status: '블로그 발행 준비 완료',
+                    targetDir: result.targetDir
+                }
+            };
+        }
+
+        // action=batch (단건 생성+발행)
+        if (!isCommandEnabled(features, 'batch')) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
+            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+        }
+
+        const session = await checkAuthSessionValid();
+        if (!session.ok) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '네이버 세션 만료');
+            return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.' };
+        }
+
+        emitProgress('라이선스 확인 중...');
+        const verify = await License.verifyLicense();
+        if (!verify.success) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+            return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+        }
+
+        await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
+        emitProgress('블로그 발행 중...');
+        await Core.publishToBlog(result.targetDir);
+        emitProgress('시트 상태 반영 중...');
+        await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+
+        return {
+            success: true,
+            data: {
+                action,
+                rowIndex,
+                rowNumber: rowIndex + 2,
+                status: '블로그 발행 완료',
+                targetDir: result.targetDir
+            }
+        };
+    } catch (e) {
+        await Utils.updateGoogleSheetStatus(rowIndex, '실패', e.message);
+        return { success: false, code: 'BLOG_ACTION_FAILED', message: e.message };
+    }
+}
+
+async function executeBlogBatchRowsAction(requestBody) {
+    const rawRowIndices = Array.isArray(requestBody?.rowIndices) ? requestBody.rowIndices : [];
+    const rowIndices = Array.from(new Set(
+        rawRowIndices
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: 'rowIndices는 0 이상의 정수 배열이어야 합니다.' };
+    }
+
+    // 새 배치 요청 시작 시 이전 런타임 로그를 정리한다.
+    clearAllBlogRuntimeLogs();
+
+    rowIndices.forEach((rowIndex) => {
+        setBlogRuntimeLog(rowIndex, '요청 접수');
+    });
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        rowIndices.forEach((rowIndex) => {
+            setBlogRuntimeLog(rowIndex, `중단: ${precheck.message || '라이선스 확인 실패'}`);
+        });
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'batch')) {
+        rowIndices.forEach((rowIndex) => {
+            setBlogRuntimeLog(rowIndex, '중단: 현재 플랜에서 batch 사용 불가');
+        });
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+    }
+
+    const featureMax = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
+    const effectiveMax = featureMax === 0 ? rowIndices.length : Math.max(1, featureMax);
+    const targetRowIndices = rowIndices.slice(0, effectiveMax);
+    const skippedByLimit = rowIndices.slice(effectiveMax);
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    targetRowIndices.forEach((rowIndex, i) => {
+        setBlogRuntimeLog(rowIndex, `대기열 등록 (${i + 1}/${targetRowIndices.length})`);
+    });
+
+    for (let i = 0; i < targetRowIndices.length; i += 1) {
+        const rowIndex = targetRowIndices[i];
+        setBlogRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
+        const result = await executeBlogRowAction(
+            { action: 'batch', rowIndex },
+            {
+                onProgress: (message) => setBlogRuntimeLog(rowIndex, message)
+            }
+        );
+        if (result.success) {
+            successCount += 1;
+            results.push({
+                rowIndex,
+                success: true,
+                data: result.data
+            });
+            setBlogRuntimeLog(rowIndex, '완료');
+            continue;
+        }
+
+        failCount += 1;
+        setBlogRuntimeLog(rowIndex, `실패: ${result.message || 'unknown error'}`);
+        results.push({
+            rowIndex,
+            success: false,
+            code: result.code || 'BLOG_ACTION_FAILED',
+            message: result.message || '블로그 발행 처리에 실패했습니다.'
+        });
+
+        const shouldStop = ['LICENSE_VERIFY_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
+        if (shouldStop) {
+            const remaining = targetRowIndices.slice(i + 1);
+            for (const restRowIndex of remaining) {
+                setBlogRuntimeLog(restRowIndex, '중단: 이전 치명 오류로 실행 중단');
+                results.push({
+                    rowIndex: restRowIndex,
+                    success: false,
+                    code: 'SKIPPED_AFTER_FATAL_ERROR',
+                    message: '이전 치명 오류로 인해 실행이 중단되었습니다.'
+                });
+            }
+            break;
+        }
+    }
+
+    return {
+        success: true,
+        data: {
+            requestedCount: rowIndices.length,
+            attemptedCount: targetRowIndices.length,
+            successCount,
+            failCount,
+            maxPerRun: effectiveMax,
+            skippedByLimit,
+            results
+        }
+    };
+}
+
+async function executeBlogTopicUpdate(requestBody) {
+    const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    if (rowIndex === null) {
+        return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+    }
+
+    const subject = String(requestBody?.subject || '').trim();
+    if (!subject) {
+        return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 비워둘 수 없습니다.' };
+    }
+
+    const referenceUrl = String(requestBody?.referenceUrl || '').trim();
+    if (referenceUrl) {
+        const urls = referenceUrl
+            .split(',')
+            .map(v => String(v || '').trim())
+            .filter(Boolean);
+        const invalid = urls.find(u => !/^https?:\/\//i.test(u));
+        if (invalid) {
+            return { success: false, code: 'INVALID_REFERENCE_URL', message: `참고 URL 형식이 올바르지 않습니다: ${invalid}` };
+        }
+    }
+
+    try {
+        await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
+            subject,
+            keywords: String(requestBody?.keywords || '').trim(),
+            instruction: String(requestBody?.instruction || '').trim(),
+            referenceUrl,
+            imageGeneration: normalizeBool(requestBody?.imageGeneration, false),
+            externalReference: normalizeBool(requestBody?.externalReference, true)
+        });
+
+        return {
+            success: true,
+            data: {
+                rowIndex,
+                rowNumber: rowIndex + 2,
+                message: '수정 완료'
+            }
+        };
+    } catch (e) {
+        return {
+            success: false,
+            code: 'TOPIC_UPDATE_FAILED',
+            message: e.message
+        };
+    }
+}
+
+function readJsonBody(req, limitBytes = 1024 * 1024) {
+    return new Promise((resolve, reject) => {
+        let total = 0;
+        const chunks = [];
+        req.on('data', (chunk) => {
+            total += chunk.length;
+            if (total > limitBytes) {
+                reject(new Error('요청 본문이 너무 큽니다.'));
+                req.destroy();
+                return;
+            }
+            chunks.push(chunk);
+        });
+        req.on('end', () => {
+            try {
+                const raw = Buffer.concat(chunks).toString('utf-8').trim();
+                if (!raw) return resolve({});
+                resolve(JSON.parse(raw));
+            } catch (e) {
+                reject(new Error('JSON 본문 파싱에 실패했습니다.'));
+            }
+        });
+        req.on('error', reject);
+    });
+}
+
+async function handleApi(requestId, method, pathname, searchParams, requestBody, res) {
+    if (pathname === '/api/v1/health') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendSuccess(res, requestId, { status: 'ok', version: APP_VERSION });
+    }
+
+    if (pathname === '/api/v1/config/status') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendSuccess(res, requestId, {
+            ready: CONFIG.CONFIG_READY === true,
+            sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
+            sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
+            message: String(CONFIG.CONFIG_ERROR_MESSAGE || '')
+        });
+    }
+
+    if (pathname === '/api/v1/license/status') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const quiet = parseBoolQuery(searchParams.get('quiet'));
+        const status = await License.checkLicenseStatus({ quiet });
+        if (!status.success) {
+            return sendError(res, requestId, 400, 'LICENSE_STATUS_FAILED', status.message);
+        }
+        return sendSuccess(res, requestId, {
+            planCode: status.planCode || '',
+            planName: status.planDisplayName || status.planCode || '',
+            createdAt: status.createdAt || '',
+            usageLimit: status.usageLimit,
+            usageCount: status.usageCount,
+            remaining: status.remaining,
+            features: toFeatureMap(status.features)
+        });
+    }
+
+    if (pathname === '/api/v1/capabilities') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const quiet = parseBoolQuery(searchParams.get('quiet'));
+        const status = await License.checkLicenseStatus({ quiet });
+        if (!status.success) {
+            return sendError(res, requestId, 400, 'CAPABILITY_RESOLVE_FAILED', status.message);
+        }
+        const features = toFeatureMap(status.features);
+        const maxBlogPosts = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
+        const maxShoppingPosts = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
+
+        return sendSuccess(res, requestId, {
+            planCode: status.planCode || '',
+            planName: status.planDisplayName || status.planCode || '',
+            features,
+            limits: {
+                max_blog_posts_per_run: maxBlogPosts,
+                max_shopping_posts_per_run: maxShoppingPosts
+            }
+        });
+    }
+
+    if (pathname === '/api/v1/session/naver') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const session = await checkAuthSessionValid();
+        return sendSuccess(res, requestId, {
+            valid: Boolean(session.ok),
+            reason: session.reason || '',
+            message: session.message || '',
+            checkedAt: new Date().toISOString()
+        });
+    }
+
+    if (pathname === '/api/v1/session/naver-login') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendSuccess(res, requestId, getNaverLoginStatus());
+    }
+
+    if (pathname === '/api/v1/session/naver-login/start') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+
+        if (naverLoginState.status === 'running') {
+            return sendError(res, requestId, 409, 'NAVER_LOGIN_ALREADY_RUNNING', '이미 로그인 진행 중입니다. 브라우저 창을 확인해 주세요.');
+        }
+
+        Logger.info('🔐 [UI] 네이버 로그인 시작 요청 수신');
+        setNaverLoginState({
+            status: 'running',
+            message: '로그인 프로세스를 시작합니다...',
+            startedAt: new Date().toISOString(),
+            finishedAt: null,
+            detectedBy: '',
+            error: ''
+        });
+
+        runNaverLoginFlowForUi().catch((e) => {
+            setNaverLoginState({
+                status: 'failed',
+                message: '로그인 실패',
+                finishedAt: new Date().toISOString(),
+                error: String(e?.message || 'unknown error')
+            });
+        });
+
+        return sendSuccess(res, requestId, getNaverLoginStatus(), 202);
+    }
+
+    if (pathname === '/api/v1/settings/major') {
+        if (method === 'GET') {
+            try {
+                const configSource = tryResolveReadableConfigSource();
+                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+                const effectiveSource = configSource || { path: resolveWritableConfigPath(), sourceType: 'generated' };
+                return sendSuccess(res, requestId, buildMajorSettings(raw, effectiveSource));
+            } catch (e) {
+                return sendError(res, requestId, 400, 'SETTINGS_READ_FAILED', e.message);
+            }
+        }
+
+        if (method === 'POST') {
+            try {
+                const configSource = tryResolveReadableConfigSource();
+                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+                const writablePath = resolveWritableConfigPath();
+                const fields = parseMajorFieldsFromRequest(requestBody || {});
+                const nextRaw = applyConfigUpdates(raw, {
+                    NAVER_ID: fields.NAVER_ID,
+                    GEMINI_API_KEY: fields.GEMINI_API_KEY,
+                    GOOGLE_SHEET_ID: fields.GOOGLE_SHEET_ID,
+                    HEADLESS: fields.HEADLESS ? 'true' : 'false',
+                    TYPING_SPEED: fields.TYPING_SPEED
+                });
+                fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+                fs.writeFileSync(writablePath, nextRaw, 'utf-8');
+                applyRuntimeConfigFromMajor(fields);
+                CONFIG.CONFIG_READY = true;
+                CONFIG.CONFIG_SOURCE_TYPE = 'config';
+                CONFIG.CONFIG_SOURCE_PATH = writablePath;
+                CONFIG.CONFIG_ERROR_MESSAGE = '';
+                return sendSuccess(res, requestId, {
+                    ...buildMajorSettings(nextRaw, { path: writablePath, sourceType: 'config' }),
+                    requiresRestart: false,
+                    message: '주요 설정 저장 완료'
+                });
+            } catch (e) {
+                return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
+            }
+        }
+
+        return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+    }
+
+    if (pathname === '/api/v1/settings/advanced') {
+        if (method === 'GET') {
+            try {
+                const configSource = tryResolveReadableConfigSource();
+                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+                return sendSuccess(res, requestId, {
+                    configPath: (configSource?.path) || resolveWritableConfigPath(),
+                    configSourceType: (configSource?.sourceType) || 'generated',
+                    content: raw
+                });
+            } catch (e) {
+                return sendError(res, requestId, 400, 'SETTINGS_READ_FAILED', e.message);
+            }
+        }
+
+        if (method === 'POST') {
+            const content = String(requestBody?.content || '');
+            if (!content.trim()) {
+                return sendError(res, requestId, 400, 'INVALID_CONTENT', '고급 설정 내용이 비어 있습니다.');
+            }
+            if (content.length > 1024 * 1024) {
+                return sendError(res, requestId, 400, 'CONTENT_TOO_LARGE', '고급 설정 내용이 너무 큽니다. (최대 1MB)');
+            }
+
+            try {
+                const writablePath = resolveWritableConfigPath();
+                fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+                fs.writeFileSync(writablePath, content, 'utf-8');
+                const fields = parseMajorFieldsFromRequest({
+                    NAVER_ID: parseConfigValue(content, 'NAVER_ID') || CONFIG.NAVER_ID,
+                    GEMINI_API_KEY: parseConfigValue(content, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
+                    GOOGLE_SHEET_ID: parseConfigValue(content, 'GOOGLE_SHEET_ID') || CONFIG.GOOGLE_SHEET_ID,
+                    HEADLESS: parseConfigValue(content, 'HEADLESS'),
+                    TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED')
+                });
+                applyRuntimeConfigFromMajor(fields);
+                CONFIG.CONFIG_READY = true;
+                CONFIG.CONFIG_SOURCE_TYPE = 'config';
+                CONFIG.CONFIG_SOURCE_PATH = writablePath;
+                CONFIG.CONFIG_ERROR_MESSAGE = '';
+                return sendSuccess(res, requestId, {
+                    configPath: writablePath,
+                    configSourceType: 'config',
+                    requiresRestart: true,
+                    message: '고급 설정 저장 완료'
+                });
+            } catch (e) {
+                return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
+            }
+        }
+
+        return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+    }
+
+    if (pathname === '/api/v1/blog/quick-publish') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeQuickPublish(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'QUICK_PUBLISH_FAILED', result.message || '빠른발행 요청에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/blog/topics') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const status = String(searchParams.get('status') || '').trim();
+        const q = String(searchParams.get('q') || '').trim();
+        const limit = parseIntSafe(searchParams.get('limit'), 50, 1) || 50;
+        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
+        const result = await Utils.readGoogleSheetTopicsAll({ status, q, limit, offset });
+        const runtimeLogMap = getBlogRuntimeLogMap();
+        let items = Array.isArray(result.items) ? [...result.items] : [];
+
+        // 상태/검색 필터로 빠진 행이어도 runtime 로그가 살아있는 동안은 목록에 유지해
+        // 사용자가 진행 상황을 추적할 수 있게 한다.
+        if (runtimeLogMap.size > 0) {
+            const existing = new Set(items.map(item => item.rowIndex));
+            const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
+            if (missingRuntimeRowIndices.length > 0) {
+                const allTopics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0 });
+                const allItems = Array.isArray(allTopics.items) ? allTopics.items : [];
+                const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
+                for (const rowIndex of missingRuntimeRowIndices) {
+                    const found = byRowIndex.get(rowIndex);
+                    if (found) items.push(found);
+                }
+                items.sort((a, b) => (a.rowNumber || 0) - (b.rowNumber || 0));
+            }
+        }
+
+        items = items.map(item => ({
+            ...item,
+            runtimeLog: runtimeLogMap.get(item.rowIndex) || ''
+        }));
+        return sendSuccess(res, requestId, {
+            ...result,
+            total: Math.max(Number(result.total || 0), items.length),
+            items
+        });
+    }
+
+    if (pathname === '/api/v1/blog/action') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const body = requestBody || {};
+        const action = String(body.action || '').trim().toLowerCase();
+        const result = (action === 'batch' && Array.isArray(body.rowIndices))
+            ? await executeBlogBatchRowsAction(body)
+            : await executeBlogRowAction(body);
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'BLOG_ACTION_FAILED', result.message || '블로그 작업 요청에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/blog/topic/update') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeBlogTopicUpdate(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    return false;
+}
+
+async function startUiServer(options = {}) {
+    const port = Number.isFinite(Number(options.port)) ? parseInt(options.port, 10) : DEFAULT_PORT;
+    const uiRoot = resolveUiRoot();
+    if (!uiRoot) {
+        throw new Error('UI 정적 파일 폴더를 찾을 수 없습니다. (ui/)');
+    }
+
+    const server = http.createServer(async (req, res) => {
+        const requestId = createRequestId();
+        const method = String(req.method || 'GET').toUpperCase();
+        const url = new URL(String(req.url || '/'), `http://127.0.0.1:${port}`);
+        const pathname = url.pathname;
+
+        try {
+            if (pathname.startsWith('/api/v1/')) {
+                let requestBody = {};
+                if (method === 'POST') {
+                    requestBody = await readJsonBody(req);
+                }
+                const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
+                if (apiHandled !== false) return;
+                return sendError(res, requestId, 404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.');
+            }
+
+            if (method !== 'GET') {
+                return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            }
+
+            const safePath = sanitizePathname(pathname === '/' ? 'index.html' : pathname);
+            const fullPath = path.join(uiRoot, safePath);
+            const rootPrefix = `${uiRoot}${path.sep}`;
+            if (!(fullPath === uiRoot || fullPath.startsWith(rootPrefix))) {
+                return sendError(res, requestId, 403, 'FORBIDDEN_PATH', '허용되지 않은 경로입니다.');
+            }
+            if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
+                return sendError(res, requestId, 404, 'NOT_FOUND', '요청한 리소스를 찾을 수 없습니다.');
+            }
+
+            const body = fs.readFileSync(fullPath);
+            res.writeHead(200, {
+                'Content-Type': getContentType(fullPath),
+                'Cache-Control': 'no-store'
+            });
+            res.end(body);
+        } catch (e) {
+            Logger.error(`❌ UI 서버 요청 처리 실패: ${e.message}`);
+            sendError(res, requestId, 500, 'INTERNAL_ERROR', '서버 내부 오류가 발생했습니다.');
+        }
+    });
+
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(port, '127.0.0.1', resolve);
+    });
+
+    return { server, port };
+}
+
+module.exports = {
+    startUiServer
+};

@@ -27,6 +27,8 @@ try {
 const PATHS = {
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
     configFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt'),
+    configSampleFile: path.join(ROOT_DIR, 'config', 'config.txt.sample'),
+    configSampleFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt.sample'),
     licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
     licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
@@ -46,12 +48,47 @@ function loadUserConfig() {
     const config = {};
     const configPath = fs.existsSync(PATHS.configFile)
         ? PATHS.configFile
-        : PATHS.configFileFromExec;
+        : fs.existsSync(PATHS.configFileFromExec)
+            ? PATHS.configFileFromExec
+            : fs.existsSync(PATHS.configSampleFile)
+                ? PATHS.configSampleFile
+                : PATHS.configSampleFileFromExec;
 
     if (!fs.existsSync(configPath)) {
-        console.error(`❌ 설정 파일을 찾을 수 없습니다: ${PATHS.configFile}`);
-        console.error(`👉 config/config.txt.sample 파일을 config.txt로 복사해주세요.`);
-        process.exit(1);
+        const lines = [
+            '❌ 설정 파일을 찾을 수 없습니다.',
+            `- 확인 경로: ${PATHS.configFile}`,
+            `- 확인 경로: ${PATHS.configSampleFile}`,
+            '',
+            '해결 방법:',
+            '1) 배포 패키지의 config/config.txt.sample 파일이 있는지 확인하세요.',
+            '2) sample이 있으면 config.txt로 복사한 뒤 필수값을 입력하세요.',
+            '',
+            '   macOS / Linux: cp config/config.txt.sample config/config.txt',
+            '   Windows PowerShell: Copy-Item .\\config\\config.txt.sample .\\config\\config.txt',
+            '',
+            '3) sample도 없으면 패키지를 다시 받아서 압축을 풀어주세요.'
+        ];
+        const message = lines.join('\n');
+        console.error(message);
+        try {
+            const logDir = path.join(ROOT_DIR, 'logs');
+            fs.mkdirSync(logDir, { recursive: true });
+            const startupErrorLog = path.join(logDir, 'startup-error.log');
+            fs.appendFileSync(startupErrorLog, `\n[${new Date().toISOString()}]\n${message}\n`);
+            console.error(`📝 상세 안내 로그: ${startupErrorLog}`);
+        } catch (e) { }
+        return {
+            __CONFIG_SOURCE_PATH: PATHS.configFile,
+            __CONFIG_SOURCE_TYPE: 'missing',
+            __CONFIG_READY: false,
+            __CONFIG_ERROR_MESSAGE: message
+        };
+    }
+
+    const usingSample = configPath.endsWith('config.txt.sample');
+    if (usingSample) {
+        console.warn(`⚠️ config.txt가 없어 sample 설정으로 로드합니다: ${configPath}`);
     }
 
     const fileContent = fs.readFileSync(configPath, 'utf-8');
@@ -70,7 +107,13 @@ function loadUserConfig() {
         else config[finalKey] = finalValue;
     });
 
-    return config;
+    return {
+        ...config,
+        __CONFIG_SOURCE_PATH: configPath,
+        __CONFIG_SOURCE_TYPE: usingSample ? 'sample' : 'config',
+        __CONFIG_READY: true,
+        __CONFIG_ERROR_MESSAGE: ''
+    };
 }
 
 function loadLicenseKey() {
@@ -91,6 +134,14 @@ function loadLicenseKey() {
 
 // 사용자 설정 로드
 const userConfig = loadUserConfig();
+const configSourcePath = userConfig.__CONFIG_SOURCE_PATH;
+const configSourceType = userConfig.__CONFIG_SOURCE_TYPE;
+const configReady = userConfig.__CONFIG_READY === true;
+const configErrorMessage = String(userConfig.__CONFIG_ERROR_MESSAGE || '');
+delete userConfig.__CONFIG_SOURCE_PATH;
+delete userConfig.__CONFIG_SOURCE_TYPE;
+delete userConfig.__CONFIG_READY;
+delete userConfig.__CONFIG_ERROR_MESSAGE;
 delete userConfig.NAVER_CLIENT_ID;
 delete userConfig.NAVER_CLIENT_SECRET;
 delete userConfig.LICENSE_KEY;
@@ -168,6 +219,10 @@ module.exports = {
     BLOG_PROMPT_PATH: blogPromptPath,
     SHOPPING_PROMPT_PATH: shoppingPromptPath,
     WORKSPACE_DIR: PATHS.workspace,
+    CONFIG_SOURCE_PATH: configSourcePath,
+    CONFIG_SOURCE_TYPE: configSourceType,
+    CONFIG_READY: configReady,
+    CONFIG_ERROR_MESSAGE: configErrorMessage,
 
     // 5. 확정된 동적 데이터
     WRITE_URL: `https://blog.naver.com/${process.env.NAVER_ID || userConfig.NAVER_ID}/postwrite`,

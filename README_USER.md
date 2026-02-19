@@ -189,6 +189,9 @@ GOOGLE_SHEET_ID = 구글시트_ID
 
 # 현재 라이선스 상태 확인
 ./BlogGenius license status
+
+# 로컬 웹 UI 실행 (Sprint 1)
+./BlogGenius ui --port=4577
 ```
 
 ---

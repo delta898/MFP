@@ -437,15 +437,18 @@ const License = {
      * - 서버 RPC: check_license_status
      * @returns {Promise<{success: boolean, message: string, remaining?: number}>}
      */
-    checkLicenseStatus: async function() {
+    checkLicenseStatus: async function(options = {}) {
         try {
+            const quiet = options && options.quiet === true;
             const hwid = machineIdSync({ original: true });
             const keyReady = await ensureLicenseKey(hwid);
             if (!keyReady.success) {
                 return { success: false, message: keyReady.message };
             }
             const resolvedLicenseKey = keyReady.licenseKey;
-            Logger.info('📡 라이선스 사전 검증 중...');
+            if (!quiet) {
+                Logger.info('📡 라이선스 사전 검증 중...');
+            }
 
             const { data, error } = await supabase
                 .rpc('check_license_status', {
@@ -461,7 +464,9 @@ const License = {
 
             if (data && data.success) {
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
-                Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
+                if (!quiet) {
+                    Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
+                }
                 return {
                     success: true,
                     message: data.message,
