@@ -26,7 +26,7 @@
 3. Google Spreadsheet 생성
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
 5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
-6. `config/config.txt` 내용 수정
+6. `config/config.txt.sample` 복사 후 `config/config.txt` 내용 수정
 7. `./BlogGenius login` 실행
 
 ### 1-1. 여기까지 되면 정상
@@ -66,6 +66,7 @@
 ```text
 BlogGenius/
 ├─ config/
+│  ├─ config.txt.sample
 │  ├─ config.txt
 │  └─ service_account.json
 └─ ...
@@ -124,7 +125,20 @@ BlogGenius/
 ---
 
 ## 3. 설정 파일 수정
-- 에디터에서 config/config.txt 파일을 엽니다.
+- 먼저 `config/config.txt.sample`을 복사해서 `config/config.txt`를 만듭니다.
+- 그 다음 에디터에서 `config/config.txt` 파일을 엽니다.
+
+예시:
+
+```bash
+# macOS / Linux
+cp config/config.txt.sample config/config.txt
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item .\config\config.txt.sample .\config\config.txt
+```
 
 ```ini
 NAVER_ID = 본인_네이버_아이디

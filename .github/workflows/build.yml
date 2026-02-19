@@ -82,7 +82,7 @@ jobs:
           mkdir -p dist/config
           mkdir -p dist/scripts
 
-          cp config/config.txt.sample dist/config/config.txt
+          cp config/config.txt.sample dist/config/config.txt.sample
           cp scripts/google_apps_script.js dist/scripts/google_apps_script.js
 
           if [ -f "README_USER.md" ]; then
@@ -90,7 +90,7 @@ jobs:
           else
               {
                 echo "# BlogGenius 사용자 가이드"
-                echo "1. config/config.txt 파일을 열어 설정하세요."
+                echo "1. config/config.txt.sample을 복사해 config/config.txt를 만든 뒤 설정하세요."
                 echo "2. 프로그램을 실행하세요."
                 echo ""
                 echo "[Mac 사용자 주의사항]"

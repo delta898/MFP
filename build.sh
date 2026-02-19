@@ -53,10 +53,10 @@ copy_assets() {
     mkdir -p "$TARGET_DIR/config"
     mkdir -p "$TARGET_DIR/scripts"
     
-    # 🔥 [수정됨] settings.js 대신 config.txt 복사
-    # (sample 파일을 복사해서 사용자가 바로 쓸 수 있는 config.txt로 이름을 바꿉니다)
+    # settings.js 대신 config.txt.sample 복사
+    # 사용자 기존 config.txt를 덮어쓰지 않도록 sample 이름을 유지합니다.
     if [ -f "config/config.txt.sample" ]; then
-        cp config/config.txt.sample "$TARGET_DIR/config/config.txt"
+        cp config/config.txt.sample "$TARGET_DIR/config/config.txt.sample"
     else
         echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
     fi
@@ -83,15 +83,15 @@ copy_assets() {
             local title="$2"
             local message="$3"
             local command="$4"
-            cat > "$TARGET_DIR/${file_name}" << EOF
-@echo off
-chcp 65001 > nul
-title ${title}
-echo.
-echo [BlogGenius] ${message}
-BlogGenius.exe ${command}
-pause
-EOF
+            {
+                printf '@echo off\r\n'
+                printf 'chcp 65001 > nul\r\n'
+                printf 'title %s\r\n' "$title"
+                printf 'echo.\r\n'
+                printf 'echo [BlogGenius] %s\r\n' "$message"
+                printf 'BlogGenius.exe %s\r\n' "$command"
+                printf 'pause\r\n'
+            } > "$TARGET_DIR/${file_name}"
         }
 
         create_win_bat "실행하기_로그인.bat" "BlogGenius Login" "네이버 로그인을 시작합니다..." "login"

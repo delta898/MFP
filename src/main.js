@@ -94,6 +94,64 @@ program.configureHelp({
 
 // --- Helper Functions ---
 
+function isNaverLoginCompletedUrl(urlLike) {
+    const urlStr = String(urlLike || '');
+    return /naver\.com/i.test(urlStr) && !/nid\.naver\.com|nidlogin\.login/i.test(urlStr);
+}
+
+async function waitForNaverLoginCompleted(page, context, timeoutMs = 300000) {
+    const start = Date.now();
+    const pollIntervalMs = 500;
+
+    // 1) 현재 탭 URL 변경 감지
+    const samePageWait = page.waitForURL(url => isNaverLoginCompletedUrl(url), { timeout: timeoutMs })
+        .then(() => 'same-page-url')
+        .catch(() => null);
+
+    // 2) 컨텍스트 내 모든 탭 URL 감지 + 인증 쿠키 감지
+    const pollWait = (async () => {
+        while (Date.now() - start < timeoutMs) {
+            // 새 탭/리다이렉트 탭에서 로그인 완료 감지
+            for (const p of context.pages()) {
+                try {
+                    if (isNaverLoginCompletedUrl(p.url())) {
+                        return 'any-page-url';
+                    }
+                } catch (e) { }
+            }
+
+            // 인증 쿠키가 생기면 로그인 완료로 간주
+            try {
+                const cookies = await context.cookies([
+                    'https://www.naver.com',
+                    'https://naver.com',
+                    'https://nid.naver.com'
+                ]);
+                const hasAuthCookie = cookies.some(c =>
+                    c && (c.name === 'NID_AUT' || c.name === 'NID_SES')
+                );
+                if (hasAuthCookie) {
+                    return 'auth-cookie';
+                }
+            } catch (e) { }
+
+            await Utils.sleep(pollIntervalMs);
+        }
+        return null;
+    })();
+
+    const reason = await Promise.race([samePageWait, pollWait]);
+    if (!reason) {
+        throw new Error('네이버 로그인 완료를 확인하지 못했습니다. 다시 시도해 주세요.');
+    }
+    return reason;
+}
+
+async function closeBrowserResources(context, browser) {
+    try { if (context) await context.close(); } catch (e) { }
+    try { if (browser) await browser.close(); } catch (e) { }
+}
+
 async function performLogin() {
     console.log("\n🚀 [Login Mode] 네이버 로그인 브라우저를 엽니다...");
 
@@ -116,21 +174,23 @@ async function performLogin() {
         await page.goto('https://nid.naver.com/nidlogin.login');
         console.log("🔑 직접 로그인 완료 후 네이버 메인 이동 시 자동 저장됩니다.");
 
-        // 로그인 성공 감지: URL이 nid.naver.com이 아니고 naver.com을 포함할 때
-        await page.waitForURL(url => {
-            const urlStr = url.toString();
-            return urlStr.includes('naver.com') && !urlStr.includes('nid.naver.com');
-        }, { timeout: 300000 }); // 5분 대기
+        // 로그인 성공 감지:
+        // - 현재 탭 URL
+        // - 새로 열린 탭 URL
+        // - 인증 쿠키(NID_AUT/NID_SES)
+        // 중 하나라도 만족하면 성공으로 간주
+        const detectedBy = await waitForNaverLoginCompleted(page, context, 300000);
+        Logger.info(`✅ 로그인 완료 감지 (${detectedBy})`);
 
         // 인증 정보 저장
         await context.storageState({ path: CONFIG.AUTH_FILE_PATH });
-        console.log(`\n✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
+        Logger.info(`✅ 로그인 정보 저장 완료: ${CONFIG.AUTH_FILE_PATH}`);
 
-        await browser.close();
+        await closeBrowserResources(context, browser);
         process.exit(0);
     } catch (e) {
         console.error(`\n❌ 로그인 프로세스 실패: ${e.message}`);
-        if (browser) await browser.close();
+        await closeBrowserResources(context, browser);
         process.exit(1);
     }
 }

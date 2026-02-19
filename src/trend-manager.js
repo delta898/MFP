@@ -41,6 +41,45 @@ function toNaverDisplayDate(ymd) {
     return `${year}. ${month}. ${day}.`;
 }
 
+function normalizeTrendDateTextToYmd(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text) return null;
+
+    // 예: "2026. 02. 18." / "2026.02.18." / "2026-02-18" / "2026/02/18"
+    const dotted = text.match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+    if (dotted) {
+        const y = Number(dotted[1]);
+        const m = Number(dotted[2]);
+        const d = Number(dotted[3]);
+        const parsed = moment.tz(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`, 'YYYY-MM-DD', true, 'Asia/Seoul');
+        if (parsed.isValid()) return parsed.format('YYYY-MM-DD');
+    }
+
+    return null;
+}
+
+async function resolveTrendDateFromPage(page, fallbackDate = null) {
+    const candidates = [
+        'span.u_ni_range.cursor_pointer',
+        '.u_ni_range.cursor_pointer',
+        '.u_ni_range_component .u_ni_range'
+    ];
+
+    for (const selector of candidates) {
+        try {
+            const label = page.locator(selector).first();
+            if (await label.count() > 0 && await label.isVisible()) {
+                const text = (await label.innerText() || '').trim();
+                const parsed = normalizeTrendDateTextToYmd(text);
+                if (parsed) return parsed;
+            }
+        } catch (e) { }
+    }
+
+    if (fallbackDate) return fallbackDate;
+    return moment().tz('Asia/Seoul').format('YYYY-MM-DD');
+}
+
 function extractFirstNumber(input) {
     const m = String(input || '').match(/\d+/);
     return m ? Number(m[0]) : null;
@@ -294,13 +333,15 @@ const TrendManager = {
                 await selectTrendDate(page, targetDate);
             }
 
+            const resolvedTrendDate = await resolveTrendDateFromPage(page, targetDate || null);
+
             // 3. 데이터 로딩 대기
             const dataState = await waitForTrendDataReady(page, 12000);
             if (dataState.state === 'empty') {
                 Logger.warn(`⚠️ 지정한 날짜(${targetDate || '오늘'})의 트렌드 데이터가 아직 없습니다. (0건)`);
                 return {
                     keywords: [],
-                    date: targetDate || moment().tz('Asia/Seoul').format('YYYY-MM-DD')
+                    date: resolvedTrendDate
                 };
             }
             if (dataState.state !== 'ready') {
@@ -477,7 +518,7 @@ const TrendManager = {
 
             return {
                 keywords: allKeywords,
-                date: targetDate || moment().tz('Asia/Seoul').format('YYYY-MM-DD')
+                date: resolvedTrendDate
             };
 
         } catch (error) {

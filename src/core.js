@@ -571,6 +571,8 @@ async function closeVisibleOglinkPopup(page, maxAttempts = 8) {
 
 async function focusEditorTypingArea(page) {
 	const paragraphSelectors = [
+		'.se-component.se-text .se-text-paragraph',
+		'.se-component-content.se-component-content-normal .se-text-paragraph',
 		'.se-component-content.se-component-content-text p',
 		'.se-module-text p',
 		'.se-text-paragraph'
@@ -581,12 +583,15 @@ async function focusEditorTypingArea(page) {
 		const count = await nodes.count();
 		for (let i = count - 1; i >= 0; i--) {
 			const node = nodes.nth(i);
-			try {
-				if (!(await node.isVisible())) continue;
-				await node.click({ force: true });
-				await Utils.sleep(80);
-				return true;
-			} catch (e) { }
+				try {
+					if (!(await node.isVisible())) continue;
+					// 제목 영역(.se-documentTitle)은 제외하고 본문 입력 영역을 우선 포커스한다.
+					const inTitleSection = await node.evaluate((el) => !!el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle'));
+					if (inTitleSection) continue;
+					await node.click({ force: true });
+					await Utils.sleep(80);
+					return true;
+				} catch (e) { }
 		}
 	}
 
@@ -599,6 +604,101 @@ async function focusEditorTypingArea(page) {
 		}
 	} catch (e) { }
 	return false;
+}
+
+function normalizeEditorText(value) {
+	return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+async function waitForBlogEditorReady(page, timeoutMs = 30000) {
+	const startedAt = Date.now();
+	let stableCount = 0;
+
+	const hasVisible = async (selector) => {
+		try {
+			const el = page.locator(selector).first();
+			return (await el.count()) > 0 && await el.isVisible();
+		} catch (e) {
+			return false;
+		}
+	};
+
+	while ((Date.now() - startedAt) < timeoutMs) {
+		// 로그인 페이지로 튄 경우는 즉시 실패 처리 (기존 상위 로직과 동일한 의도)
+		const currentUrl = String(page.url() || '');
+		if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
+			throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
+		}
+
+		const titleReady = await hasVisible('.se-component.se-documentTitle .se-text-paragraph, .se-section-documentTitle .se-text-paragraph, .se-documentTitle .se-text-paragraph, .se-documentTitle');
+		const editorReady = await hasVisible('.se-main-container, .se-container, .se-component.se-text .se-text-paragraph, .se-component-content.se-component-content-normal .se-text-paragraph, .se-component-content, .se-module-text');
+		const loadingVisible = await hasVisible('.se-progressbar, .se-loading, .se-spinner, .u_loading, .ly_loading');
+
+		if (titleReady && editorReady && !loadingVisible) {
+			stableCount++;
+			if (stableCount >= 2) {
+				const elapsedMs = Date.now() - startedAt;
+				if (elapsedMs >= 1500) {
+					Logger.info(`   ✅ 에디터 입력 준비 완료 (${Math.round(elapsedMs / 1000)}초)`);
+				}
+				return true;
+			}
+		} else {
+			stableCount = 0;
+		}
+
+		await Utils.sleep(220);
+	}
+
+	throw new Error(`에디터 로드 대기 시간 초과 (${timeoutMs}ms)`);
+}
+
+async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay, maxAttempts = 3) {
+	const titleArea = page.locator(
+		'.se-component.se-documentTitle .se-text-paragraph, ' +
+		'.se-section-documentTitle .se-text-paragraph, ' +
+		'.se-documentTitle .se-text-paragraph, ' +
+		'.se-documentTitle'
+	).first();
+	await titleArea.waitFor({ state: 'visible', timeout: 12000 });
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		await dismissEditorPopups(page);
+		await titleArea.click({ force: true });
+		await Utils.sleep(80);
+
+		try { await page.keyboard.press(`${CMD_KEY}+A`); } catch (e) { }
+		await Utils.sleep(50);
+		try { await page.keyboard.press('Backspace'); } catch (e) { }
+		try { await page.keyboard.press('Delete'); } catch (e) { }
+		await Utils.sleep(50);
+
+		await page.keyboard.type(title, { delay: getRandomTypingDelay() });
+		await Utils.sleep(180);
+
+		let typedTitle = '';
+		try {
+			typedTitle = normalizeEditorText(await titleArea.innerText());
+		} catch (e) {
+			try { typedTitle = normalizeEditorText(await titleArea.textContent()); } catch (e2) { }
+		}
+
+		const isMatched =
+			typedTitle === normalizeEditorText(title) ||
+			typedTitle.includes(normalizeEditorText(title));
+
+		if (isMatched) {
+			await page.keyboard.press('Enter');
+			return true;
+		}
+
+		if (attempt < maxAttempts) {
+			Logger.warn(`   ⚠️ 제목 입력 검증 실패(${attempt}/${maxAttempts}) - 재시도합니다.`);
+			await Utils.sleep(220);
+		}
+	}
+
+	throw new Error('제목 입력 검증에 실패했습니다. 네트워크/PC 성능 상태를 확인해주세요.');
 }
 
 async function getEditorLinkSnapshot(page, targetUrl = '') {
@@ -1220,9 +1320,12 @@ ${scrapedContext}`;
 				throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
 			}
 
+			await waitForBlogEditorReady(page);
+
 			// 팝업 제거 (Help / 이전글 로드)
 			await dismissEditorPopups(page);
-			await Utils.sleep(1000);
+			await waitForBlogEditorReady(page);
+			await Utils.sleep(300);
 
 			// 🔧 [Fixed] 타이핑할 때마다 랜덤 속도 계산 (봇 감지 회피)
 			const getRandomTypingDelay = () => {
@@ -1231,11 +1334,7 @@ ${scrapedContext}`;
 
 			// ✍️ 제목 입력
 			Logger.info(`   ✍️ 제목 입력: ${title}`);
-			const titleArea = page.locator('.se-documentTitle, .se-ff-title');
-			await dismissEditorPopups(page);
-			await titleArea.click({ force: true });
-			await page.keyboard.type(title, { delay: getRandomTypingDelay() });
-			await page.keyboard.press('Enter');
+			await inputBlogTitleWithVerification(page, title, getRandomTypingDelay);
 
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
