@@ -211,6 +211,76 @@ h2 {
   grid-template-columns: 220px 1fr;
 }
 
+.blog-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.blog-tab-btn {
+  border: 1px solid #cfd9e9;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.blog-tab-btn:hover {
+  background: #f3f8ff;
+}
+
+.blog-tab-btn.active {
+  border-color: #92c5ff;
+  background: #eaf4ff;
+  color: #0b4f9f;
+}
+
+.blog-tab-panel {
+  display: none;
+}
+
+.blog-tab-panel.active {
+  display: flex;
+}
+
+.tab-selected-count {
+  display: inline-flex;
+  align-items: center;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 2px;
+}
+
+.pagination-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-row button {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #475569;
+  color: #fff;
+}
+
+.pagination-row button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.pagination-row span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .form-inline {
   display: flex;
   gap: 16px;
@@ -421,6 +491,10 @@ pre {
 
   .blog-filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .blog-tabs {
+    flex-wrap: wrap;
   }
 
   .status-line {

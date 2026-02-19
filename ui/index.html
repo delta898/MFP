@@ -12,10 +12,7 @@
       <div class="logo">BlogGenius</div>
       <nav>
         <button class="nav-btn active" data-view="dashboard">대시보드</button>
-        <button class="nav-btn" data-view="quick">빠른발행</button>
         <button class="nav-btn" data-view="blog">블로그</button>
-        <button class="nav-btn" data-view="shopping">쇼핑</button>
-        <button class="nav-btn" data-view="trends">트렌드</button>
         <button class="nav-btn" data-view="license">라이선스</button>
         <button class="nav-btn" data-view="settings">설정</button>
         <button class="nav-btn" data-view="logs">로그/이력</button>
@@ -56,11 +53,18 @@
         </div>
       </section>
 
-      <section class="view" id="view-quick">
-        <h1>빠른발행</h1>
-        <p class="muted">입력값을 topics 시트에 추가한 뒤, 선택 시 즉시 발행까지 연결합니다.</p>
+      <section class="view" id="view-blog">
+        <h1>블로그</h1>
+        <p class="muted">빠른발행, 트렌드, 토픽, 쇼핑커넥트를 한 화면에서 관리합니다.</p>
 
-        <div class="card form-card">
+        <div class="blog-tabs">
+          <button class="blog-tab-btn active" data-blog-tab="quick">빠른발행</button>
+          <button class="blog-tab-btn" data-blog-tab="trends">Trends</button>
+          <button class="blog-tab-btn" data-blog-tab="topics">Topics</button>
+          <button class="blog-tab-btn" data-blog-tab="shopping">쇼핑커넥트</button>
+        </div>
+
+        <div class="card form-card blog-tab-panel active" id="blog-tab-quick">
           <div class="form-grid">
             <label>Subject (필수)
               <input id="quick-subject" type="text" placeholder="예: 맥모닝 메뉴 10년차 추천 조합">
@@ -88,13 +92,49 @@
 
           <pre id="quick-result">대기 중...</pre>
         </div>
-      </section>
 
-      <section class="view" id="view-blog">
-        <h1>블로그</h1>
-        <p class="muted">topics 시트를 조회하고 선택 행을 batch 발행합니다.</p>
+        <div class="card form-card blog-tab-panel" id="blog-tab-trends">
+          <div class="form-grid blog-filter-grid trends-filter-grid">
+            <label>수집 날짜 (옵션)
+              <input id="blog-trends-date" type="text" placeholder="예: 20260218 / 2026-02-18 / -1d">
+            </label>
+            <label>검색
+              <input id="blog-trends-q-filter" type="text" placeholder="날짜 / 주제 / 키워드 / 상태">
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="blog-trends-collect-btn" type="button">트렌드 수집</button>
+            <button id="blog-trends-refresh-btn" class="secondary">목록 새로고침</button>
+            <button id="blog-trends-to-topics-btn">선택 항목 Topics 추가</button>
+            <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:56px;">선택</th>
+                  <th style="width:70px;">Row</th>
+                  <th style="width:130px;">날짜</th>
+                  <th style="width:180px;">주제</th>
+                  <th style="width:220px;">키워드</th>
+                  <th style="width:90px;">증감</th>
+                  <th style="width:160px;">상태</th>
+                </tr>
+              </thead>
+              <tbody id="blog-trends-table-body">
+                <tr><td colspan="7">로딩 중...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-row">
+            <button id="blog-trends-page-prev" class="secondary">이전</button>
+            <span id="blog-trends-page-info">페이지 - / -</span>
+            <button id="blog-trends-page-next" class="secondary">다음</button>
+          </div>
+          <pre id="blog-trends-result">대기 중...</pre>
+        </div>
 
-        <div class="card form-card">
+        <div class="card form-card blog-tab-panel" id="blog-tab-topics">
           <div class="form-grid blog-filter-grid">
             <label>상태
               <select id="blog-status-filter">
@@ -139,6 +179,11 @@
               </tbody>
             </table>
           </div>
+          <div class="pagination-row">
+            <button id="blog-topics-page-prev" class="secondary">이전</button>
+            <span id="blog-topics-page-info">페이지 - / -</span>
+            <button id="blog-topics-page-next" class="secondary">다음</button>
+          </div>
 
           <div id="blog-sticky-actions" class="sticky-actions hidden">
             <span id="blog-selected-count">0건 선택</span>
@@ -147,9 +192,13 @@
 
           <pre id="blog-action-result">대기 중...</pre>
         </div>
+
+        <div class="card form-card blog-tab-panel" id="blog-tab-shopping">
+          <h2>쇼핑커넥트</h2>
+          <p class="muted">쇼핑커넥트 UI는 다음 스프린트에서 연결합니다.</p>
+          <pre>현재는 CLI shopping 명령 또는 기존 자동화 흐름을 사용하세요.</pre>
+        </div>
       </section>
-      <section class="view" id="view-shopping"><h1>쇼핑 (예정)</h1></section>
-      <section class="view" id="view-trends"><h1>트렌드 (예정)</h1></section>
       <section class="view" id="view-license"><h1>라이선스 (예정)</h1></section>
       <section class="view" id="view-settings">
         <h1>설정</h1>

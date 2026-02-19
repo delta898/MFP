@@ -38,10 +38,18 @@ function setPre(id, data) {
 }
 
 let blogTopicsCache = [];
+let blogTrendsCache = [];
 const blogSelectedRowIndices = new Set();
+const blogTrendsSelectedRowIndices = new Set();
 let blogLastBatchResult = null;
 const blogRecentBatchRows = new Map();
 let blogInlineEditState = null;
+let blogActiveTab = 'quick';
+let blogTrendsCollectInFlight = false;
+const blogPageState = {
+  trends: { limit: 50, offset: 0, total: 0 },
+  topics: { limit: 50, offset: 0, total: 0 }
+};
 let settingsLoadedOnce = false;
 let settingsAdvancedLoadedOnce = false;
 let uiConfigReady = true;
@@ -139,6 +147,315 @@ function startNaverLoginPolling() {
   }, 1000);
 }
 
+function findTrendByRowIndex(rowIndex) {
+  return (blogTrendsCache || []).find(item => item.rowIndex === rowIndex) || null;
+}
+
+function getPageInfo(type) {
+  return blogPageState[type] || { limit: 50, offset: 0, total: 0 };
+}
+
+function setPageInfo(type, patch = {}) {
+  const current = getPageInfo(type);
+  blogPageState[type] = {
+    ...current,
+    ...patch
+  };
+}
+
+function getPageSummary(total, limit, offset) {
+  const safeTotal = Math.max(0, Number(total || 0));
+  const safeLimit = Math.max(1, Number(limit || 50));
+  const pageCount = Math.max(1, Math.ceil(safeTotal / safeLimit));
+  const currentPage = Math.min(pageCount, Math.floor(Math.max(0, Number(offset || 0)) / safeLimit) + 1);
+  return { pageCount, currentPage };
+}
+
+function renderTrendsPagination() {
+  const infoEl = document.getElementById('blog-trends-page-info');
+  const prevBtn = document.getElementById('blog-trends-page-prev');
+  const nextBtn = document.getElementById('blog-trends-page-next');
+  const pageInfo = getPageInfo('trends');
+  const { pageCount, currentPage } = getPageSummary(pageInfo.total, pageInfo.limit, pageInfo.offset);
+  if (infoEl) infoEl.textContent = `페이지 ${currentPage} / ${pageCount} (총 ${pageInfo.total || 0}건)`;
+  if (prevBtn) prevBtn.disabled = currentPage <= 1;
+  if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+}
+
+function renderTopicsPagination() {
+  const infoEl = document.getElementById('blog-topics-page-info');
+  const prevBtn = document.getElementById('blog-topics-page-prev');
+  const nextBtn = document.getElementById('blog-topics-page-next');
+  const pageInfo = getPageInfo('topics');
+  const { pageCount, currentPage } = getPageSummary(pageInfo.total, pageInfo.limit, pageInfo.offset);
+  if (infoEl) infoEl.textContent = `페이지 ${currentPage} / ${pageCount} (총 ${pageInfo.total || 0}건)`;
+  if (prevBtn) prevBtn.disabled = currentPage <= 1;
+  if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+}
+
+function updateTrendsSelectionUi() {
+  const countEl = document.getElementById('blog-trends-selected-count');
+  if (countEl) countEl.textContent = `${blogTrendsSelectedRowIndices.size}건 선택`;
+}
+
+function clearTrendsSelections() {
+  blogTrendsSelectedRowIndices.clear();
+  const selectors = Array.from(document.querySelectorAll('input.trend-row-selector'));
+  selectors.forEach(el => { el.checked = false; });
+  updateTrendsSelectionUi();
+}
+
+function renderBlogTrendsTable(items) {
+  const tbody = document.getElementById('blog-trends-table-body');
+  if (!tbody) return;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7">조회 결과가 없습니다.</td></tr>';
+    updateTrendsSelectionUi();
+    return;
+  }
+
+  tbody.innerHTML = items.map(item => {
+    const checked = blogTrendsSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
+    return `
+      <tr data-row-index="${item.rowIndex}">
+        <td><input type="checkbox" class="trend-row-selector" value="${item.rowIndex}" ${checked}></td>
+        <td>${item.rowNumber}</td>
+        <td>${escapeHtml(item.date || '-')}</td>
+        <td>${escapeHtml(item.category || '-')}</td>
+        <td>${escapeHtml(item.keyword || '-')}</td>
+        <td>${escapeHtml(item.variation || '-')}</td>
+        <td>${escapeHtml(item.status || '-')}</td>
+      </tr>
+    `;
+  }).join('');
+  updateTrendsSelectionUi();
+}
+
+async function loadBlogTrends(options = {}) {
+  if (!guardUiConfigReady('Trends 조회')) return;
+  const silent = Boolean(options.silent);
+  const resultBox = document.getElementById('blog-trends-result');
+  const pageInfo = getPageInfo('trends');
+  const q = (document.getElementById('blog-trends-q-filter')?.value || '').trim();
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  params.set('limit', String(pageInfo.limit));
+  params.set('offset', String(pageInfo.offset));
+  if (resultBox && !silent) resultBox.textContent = 'Trends 조회 중...';
+
+  try {
+    const data = await fetchJson(`/api/v1/trends/items?${params.toString()}`);
+    blogTrendsCache = Array.isArray(data.items) ? data.items : [];
+    setPageInfo('trends', {
+      total: Number(data.total || 0),
+      limit: Number(data.limit || pageInfo.limit || 50),
+      offset: Number(data.offset || 0)
+    });
+    renderBlogTrendsTable(blogTrendsCache);
+    renderTrendsPagination();
+    if (resultBox && !silent) resultBox.textContent = `조회 완료: ${data.total ?? blogTrendsCache.length}건`;
+  } catch (e) {
+    blogTrendsCache = [];
+    renderBlogTrendsTable([]);
+    renderTrendsPagination();
+    if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
+  }
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function getKstDateParts(baseDate = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(baseDate);
+
+  const year = Number(parts.find(p => p.type === 'year')?.value || 0);
+  const month = Number(parts.find(p => p.type === 'month')?.value || 0);
+  const day = Number(parts.find(p => p.type === 'day')?.value || 0);
+  return { year, month, day };
+}
+
+function isValidYmd(year, month, day) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return d.getUTCFullYear() === year
+    && d.getUTCMonth() + 1 === month
+    && d.getUTCDate() === day;
+}
+
+function shiftKstDays(days) {
+  const { year, month, day } = getKstDateParts(new Date());
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() + Number(days || 0));
+  return `${utc.getUTCFullYear()}-${pad2(utc.getUTCMonth() + 1)}-${pad2(utc.getUTCDate())}`;
+}
+
+function resolveTrendCollectDateYmd(rawInput) {
+  const input = String(rawInput || '').trim();
+  if (!input) return shiftKstDays(-1);
+
+  const lower = input.toLowerCase();
+  if (lower === 'yesterday' || input === '어제') return shiftKstDays(-1);
+
+  const relativeMatch = lower.match(/^-(\d{1,3})d$/);
+  if (relativeMatch) {
+    const days = Number(relativeMatch[1]);
+    if (!Number.isInteger(days) || days < 1) {
+      throw new Error('상대 날짜는 -1d, -2d 형식으로 입력하세요.');
+    }
+    return shiftKstDays(-days);
+  }
+
+  const compactMatch = input.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactMatch) {
+    const year = Number(compactMatch[1]);
+    const month = Number(compactMatch[2]);
+    const day = Number(compactMatch[3]);
+    if (!isValidYmd(year, month, day)) {
+      throw new Error('유효하지 않은 날짜입니다.');
+    }
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  }
+
+  const dashedMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dashedMatch) {
+    const year = Number(dashedMatch[1]);
+    const month = Number(dashedMatch[2]);
+    const day = Number(dashedMatch[3]);
+    if (!isValidYmd(year, month, day)) {
+      throw new Error('유효하지 않은 날짜입니다.');
+    }
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  }
+
+  throw new Error('날짜 형식이 올바르지 않습니다. (예: 2026-02-18, 20260218, yesterday, -1d)');
+}
+
+async function checkTrendDateAlreadyCollected(targetDateYmd) {
+  const limit = 200;
+  let offset = 0;
+  let guard = 0;
+
+  while (guard < 20) {
+    const params = new URLSearchParams({
+      q: targetDateYmd,
+      limit: String(limit),
+      offset: String(offset)
+    });
+    const data = await fetchJson(`/api/v1/trends/items?${params.toString()}`);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const exists = items.some(item => String(item?.date || '').trim() === targetDateYmd);
+    if (exists) return true;
+
+    const total = Number(data?.total || 0);
+    if (items.length <= 0 || offset + items.length >= total) {
+      return false;
+    }
+    offset += items.length;
+    guard += 1;
+  }
+  return false;
+}
+
+async function runBlogTrendsCollect() {
+  if (!guardUiConfigReady('트렌드 수집')) return;
+  if (blogTrendsCollectInFlight) return;
+  const resultBox = document.getElementById('blog-trends-result');
+  const rawDateInput = String(document.getElementById('blog-trends-date')?.value || '').trim();
+  let targetDateYmd = '';
+  try {
+    targetDateYmd = resolveTrendCollectDateYmd(rawDateInput);
+    if (!targetDateYmd) throw new Error('날짜 해석에 실패했습니다.');
+  } catch (e) {
+    if (resultBox) resultBox.textContent = `오류: ${e.message}`;
+    return;
+  }
+
+  let alreadyCollected = false;
+  try {
+    alreadyCollected = await checkTrendDateAlreadyCollected(targetDateYmd);
+  } catch (e) {
+    // 중복 확인 실패는 수집 자체를 막지 않는다.
+    console.warn('트렌드 날짜 중복 확인 실패:', e);
+  }
+  const confirmLines = [`${targetDateYmd} 기준으로 트렌드 수집을 진행하시겠습니까?`];
+  if (alreadyCollected) {
+    confirmLines.push('');
+    confirmLines.push('이미 수집된 날짜가 확인되었습니다. 계속 진행하면 중복 데이터가 추가될 수 있습니다.');
+  }
+  const confirmMessage = confirmLines.join('\n');
+
+  const shouldProceed = window.confirm(confirmMessage);
+  if (shouldProceed !== true) {
+    return;
+  }
+
+  blogTrendsCollectInFlight = true;
+  if (resultBox) resultBox.textContent = `트렌드 수집 중... (기준일: ${targetDateYmd})`;
+  try {
+    const payload = { date: targetDateYmd };
+    const data = await postJson('/api/v1/trends/collect', payload);
+    if (resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
+    clearTrendsSelections();
+    setPageInfo('trends', { offset: 0 });
+    await Promise.all([loadDashboard(), loadBlogTrends({ silent: true })]);
+  } catch (e) {
+    if (resultBox) resultBox.textContent = `오류: ${e.message}`;
+  } finally {
+    blogTrendsCollectInFlight = false;
+  }
+}
+
+async function runTrendsToTopics() {
+  if (!guardUiConfigReady('Trends → Topics')) return;
+  const resultBox = document.getElementById('blog-trends-result');
+  const rowIndices = Array.from(blogTrendsSelectedRowIndices.values()).filter(v => Number.isInteger(v));
+  if (rowIndices.length === 0) {
+    if (resultBox) resultBox.textContent = '먼저 Topics에 보낼 Trends 행을 1개 이상 선택하세요.';
+    return;
+  }
+
+  if (resultBox) resultBox.textContent = `Trends → Topics 처리 중... (${rowIndices.length}건)`;
+  try {
+    const data = await postJson('/api/v1/trends/to-topics', { rowIndices });
+    if (resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
+    clearTrendsSelections();
+    await Promise.all([loadBlogTrends({ silent: true }), loadBlogTopics({ silent: true })]);
+  } catch (e) {
+    if (resultBox) resultBox.textContent = `오류: ${e.message}`;
+  }
+}
+
+function activateBlogTab(tabName, options = {}) {
+  const allowed = ['quick', 'trends', 'topics', 'shopping'];
+  const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
+  blogActiveTab = target;
+
+  const tabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
+  const tabPanels = Array.from(document.querySelectorAll('.blog-tab-panel'));
+  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.blogTab === target));
+  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `blog-tab-${target}`));
+
+  const forceReload = options.forceReload !== false;
+  if (!forceReload) return;
+
+  if (target === 'trends') {
+    loadBlogTrends();
+    return;
+  }
+  if (target === 'topics') {
+    loadBlogTopics();
+    return;
+  }
+}
+
 function escapeHtml(input) {
   return String(input ?? '')
     .replace(/&/g, '&amp;')
@@ -192,7 +509,7 @@ function bindNavigation() {
     navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
     views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
     if (viewName === 'blog') {
-      loadBlogTopics();
+      activateBlogTab(blogActiveTab, { forceReload: true });
       return;
     }
     if (viewName === 'settings') {
@@ -504,13 +821,14 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
 async function loadBlogTopics(options = {}) {
   if (!guardUiConfigReady('블로그 목록 조회')) return;
   const silent = Boolean(options.silent);
+  const pageInfo = getPageInfo('topics');
   const status = (document.getElementById('blog-status-filter')?.value || '').trim();
   const q = (document.getElementById('blog-q-filter')?.value || '').trim();
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (q) params.set('q', q);
-  params.set('limit', '100');
-  params.set('offset', '0');
+  params.set('limit', String(pageInfo.limit));
+  params.set('offset', String(pageInfo.offset));
 
   const resultBox = document.getElementById('blog-action-result');
   if (resultBox && !silent) resultBox.textContent = '블로그 목록 조회 중...';
@@ -518,13 +836,20 @@ async function loadBlogTopics(options = {}) {
   try {
     const data = await fetchJson(`/api/v1/blog/topics?${params.toString()}`);
     blogTopicsCache = Array.isArray(data.items) ? data.items : [];
+    setPageInfo('topics', {
+      total: Number(data.total || 0),
+      limit: Number(data.limit || pageInfo.limit || 50),
+      offset: Number(data.offset || 0)
+    });
     renderBlogTable(blogTopicsCache);
+    renderTopicsPagination();
     if (resultBox && !silent) {
       resultBox.textContent = `조회 완료: ${data.total ?? blogTopicsCache.length}건`;
     }
   } catch (e) {
     blogTopicsCache = [];
     renderBlogTable([]);
+    renderTopicsPagination();
     if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
   }
 }
@@ -738,28 +1063,116 @@ function bindActions() {
     publishBtn.addEventListener('click', () => runQuickPublish('append_and_publish'));
   }
 
+  const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
+  const blogTrendsDateInput = document.getElementById('blog-trends-date');
+  const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
+  const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
+  const blogTrendsRefreshBtn = document.getElementById('blog-trends-refresh-btn');
+  const blogTrendsToTopicsBtn = document.getElementById('blog-trends-to-topics-btn');
+  const blogTrendsPrevBtn = document.getElementById('blog-trends-page-prev');
+  const blogTrendsNextBtn = document.getElementById('blog-trends-page-next');
   const blogRefreshBtn = document.getElementById('blog-refresh-btn');
   const blogBatchBtn = document.getElementById('blog-batch-btn');
   const blogBatchBtnBottom = document.getElementById('blog-batch-btn-bottom');
+  const blogTopicsPrevBtn = document.getElementById('blog-topics-page-prev');
+  const blogTopicsNextBtn = document.getElementById('blog-topics-page-next');
   const blogStatusFilter = document.getElementById('blog-status-filter');
   const blogQFilter = document.getElementById('blog-q-filter');
-  const blogTableBody = document.getElementById('blog-table-body');
+  const blogTrendsTableBody = document.getElementById('blog-trends-table-body');
+  const blogTopicsTableBody = document.getElementById('blog-table-body');
+
+  blogTabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = String(btn.dataset.blogTab || '');
+      activateBlogTab(tabName, { forceReload: true });
+    });
+  });
+
+  if (blogTrendsCollectBtn) {
+    blogTrendsCollectBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      runBlogTrendsCollect();
+    });
+  }
+  if (blogTrendsRefreshBtn) blogTrendsRefreshBtn.addEventListener('click', () => loadBlogTrends());
+  if (blogTrendsToTopicsBtn) blogTrendsToTopicsBtn.addEventListener('click', runTrendsToTopics);
+  if (blogTrendsQFilter) {
+    blogTrendsQFilter.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setPageInfo('trends', { offset: 0 });
+        loadBlogTrends();
+      }
+    });
+  }
+  // 날짜 입력창 Enter로 수집을 바로 실행하지 않는다.
+  // (중복 호출/오동작 방지)
+  if (blogTrendsPrevBtn) {
+    blogTrendsPrevBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('trends');
+      setPageInfo('trends', { offset: Math.max(0, pageInfo.offset - pageInfo.limit) });
+      loadBlogTrends();
+    });
+  }
+  if (blogTrendsNextBtn) {
+    blogTrendsNextBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('trends');
+      setPageInfo('trends', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
+      loadBlogTrends();
+    });
+  }
 
   if (blogRefreshBtn) blogRefreshBtn.addEventListener('click', loadBlogTopics);
   if (blogBatchBtn) blogBatchBtn.addEventListener('click', runBlogBatchAction);
   if (blogBatchBtnBottom) blogBatchBtnBottom.addEventListener('click', runBlogBatchAction);
-  if (blogStatusFilter) blogStatusFilter.addEventListener('change', loadBlogTopics);
+  if (blogStatusFilter) {
+    blogStatusFilter.addEventListener('change', () => {
+      setPageInfo('topics', { offset: 0 });
+      loadBlogTopics();
+    });
+  }
   if (blogQFilter) {
     blogQFilter.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        setPageInfo('topics', { offset: 0 });
         loadBlogTopics();
       }
     });
   }
+  if (blogTopicsPrevBtn) {
+    blogTopicsPrevBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('topics');
+      setPageInfo('topics', { offset: Math.max(0, pageInfo.offset - pageInfo.limit) });
+      loadBlogTopics();
+    });
+  }
+  if (blogTopicsNextBtn) {
+    blogTopicsNextBtn.addEventListener('click', () => {
+      const pageInfo = getPageInfo('topics');
+      setPageInfo('topics', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
+      loadBlogTopics();
+    });
+  }
 
-  if (blogTableBody) {
-    blogTableBody.addEventListener('change', async (e) => {
+  if (blogTrendsTableBody) {
+    blogTrendsTableBody.addEventListener('change', (e) => {
+      const selector = e.target?.closest('input.trend-row-selector');
+      if (!selector) return;
+      const rowIndex = Number(selector.value);
+      if (!Number.isInteger(rowIndex) || !findTrendByRowIndex(rowIndex)) return;
+      if (selector.checked) {
+        blogTrendsSelectedRowIndices.add(rowIndex);
+      } else {
+        blogTrendsSelectedRowIndices.delete(rowIndex);
+      }
+      updateTrendsSelectionUi();
+    });
+  }
+
+  if (blogTopicsTableBody) {
+    blogTopicsTableBody.addEventListener('change', async (e) => {
       const selector = e.target?.closest('input.row-selector');
       if (selector) {
         const rowIndex = Number(selector.value);
@@ -790,7 +1203,7 @@ function bindActions() {
       }
     });
 
-    blogTableBody.addEventListener('dblclick', (e) => {
+    blogTopicsTableBody.addEventListener('dblclick', (e) => {
       const cell = e.target?.closest('td.editable-cell');
       if (!cell) return;
       startBlogInlineEdit(cell);
@@ -829,5 +1242,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();
+  updateTrendsSelectionUi();
+  renderTrendsPagination();
+  renderTopicsPagination();
   setInterval(loadDashboard, 15000);
 });

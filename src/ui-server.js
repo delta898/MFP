@@ -9,6 +9,7 @@ const { checkAuthSessionValid } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
 const BrowserLauncher = require('./browser-launcher');
+const TrendManager = require('./trend-manager');
 
 const DEFAULT_PORT = 4577;
 const blogRuntimeLogs = new Map();
@@ -929,6 +930,175 @@ async function executeBlogTopicUpdate(requestBody) {
     }
 }
 
+async function executeTrendCollectAction(requestBody = {}) {
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'trends')) {
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)' };
+    }
+    const dateInput = String(requestBody?.date || '').trim();
+    if (dateInput && !getFeatureBool(features, 'enable_trends_date_override', false)) {
+        return {
+            success: false,
+            code: 'FEATURE_DISABLED',
+            message: '현재 플랜에서 날짜 지정 트렌드 기능이 비활성화되어 있습니다. (enable_trends_date_override=false)'
+        };
+    }
+
+    const session = await checkAuthSessionValid();
+    if (!session.ok) {
+        return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 로그인해 주세요.' };
+    }
+
+    const trendResult = await TrendManager.fetchTrends({ date: dateInput || undefined });
+    const trendKeywords = Array.isArray(trendResult?.keywords) ? trendResult.keywords : [];
+    if (trendKeywords.length === 0) {
+        return {
+            success: true,
+            data: {
+                collectedCount: 0,
+                date: trendResult?.date || null,
+                appendedCount: 0,
+                message: '수집된 트렌드가 없습니다.'
+            }
+        };
+    }
+
+    const verify = await License.verifyLicense();
+    if (!verify.success) {
+        return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+    }
+
+    const appendResult = await Utils.appendGoogleSheetTrends(trendKeywords, trendResult?.date || null);
+    if (!appendResult?.success) {
+        return { success: false, code: 'TRENDS_APPEND_FAILED', message: appendResult?.message || 'trends 시트 추가에 실패했습니다.' };
+    }
+
+    return {
+        success: true,
+        data: {
+            collectedCount: trendKeywords.length,
+            appendedCount: appendResult.addedCount || trendKeywords.length,
+            date: appendResult.date || trendResult?.date || null,
+            message: '트렌드 수집 및 시트 추가 완료'
+        }
+    };
+}
+
+async function executeTrendsToTopicsAction(requestBody = {}) {
+    const rowIndices = Array.from(new Set(
+        (Array.isArray(requestBody.rowIndices) ? requestBody.rowIndices : [])
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: '선택된 trends 행이 없습니다.' };
+    }
+
+    const trendsResult = await Utils.readGoogleSheetTrendsAll({ limit: 100000, offset: 0 });
+    const allItems = Array.isArray(trendsResult.items) ? trendsResult.items : [];
+    const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
+    const selected = rowIndices.map(idx => byRowIndex.get(idx)).filter(Boolean);
+    if (selected.length === 0) {
+        return { success: false, code: 'TRENDS_NOT_FOUND', message: '선택된 trends 행을 찾지 못했습니다.' };
+    }
+
+    const topics = selected.map(item => ({
+        subject: String(item.category || item.keyword || '').trim(),
+        keywords: [String(item.keyword || '').trim()].filter(Boolean),
+        content_guide: {
+            additional_instructions: '',
+            reference_urls: []
+        },
+        use_external_ref: true,
+        image_options: { generate: false, count: 4 },
+        status: '대기'
+    })).filter(item => item.subject);
+
+    if (topics.length === 0) {
+        return { success: false, code: 'EMPTY_TOPICS', message: '선택된 행에서 토픽 생성이 가능한 데이터가 없습니다.' };
+    }
+
+    const appendResult = await Utils.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
+    if (!appendResult?.success) {
+        return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 추가에 실패했습니다.' };
+    }
+
+    for (const rowIndex of rowIndices) {
+        await Utils.updateGoogleSheetTrendStatus(rowIndex, '키워드 목록 추가 완료');
+    }
+
+    return {
+        success: true,
+        data: {
+            requestedCount: rowIndices.length,
+            appendedCount: topics.length,
+            rowIndices,
+            message: 'trends 선택 항목을 topics에 추가했습니다.'
+        }
+    };
+}
+
+async function executeKeywordsToTopicsAction(requestBody = {}) {
+    const rowIndices = Array.from(new Set(
+        (Array.isArray(requestBody.rowIndices) ? requestBody.rowIndices : [])
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: '선택된 keywords 행이 없습니다.' };
+    }
+
+    const keywordsResult = await Utils.readGoogleSheetKeywordsAll({ limit: 100000, offset: 0 });
+    const allItems = Array.isArray(keywordsResult.items) ? keywordsResult.items : [];
+    const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
+    const selected = rowIndices.map(idx => byRowIndex.get(idx)).filter(Boolean);
+    if (selected.length === 0) {
+        return { success: false, code: 'KEYWORDS_NOT_FOUND', message: '선택된 keywords 행을 찾지 못했습니다.' };
+    }
+
+    const topics = selected.map(item => {
+        const keyword = String(item.keyword || '').trim();
+        return {
+            subject: keyword,
+            keywords: keyword ? [keyword] : [],
+            content_guide: {
+                additional_instructions: '',
+                reference_urls: []
+            },
+            use_external_ref: true,
+            image_options: { generate: false, count: 4 },
+            status: '대기'
+        };
+    }).filter(item => item.subject);
+
+    if (topics.length === 0) {
+        return { success: false, code: 'EMPTY_TOPICS', message: '선택된 행에서 토픽 생성이 가능한 데이터가 없습니다.' };
+    }
+
+    const appendResult = await Utils.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
+    if (!appendResult?.success) {
+        return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 추가에 실패했습니다.' };
+    }
+
+    for (const rowIndex of rowIndices) {
+        await Utils.updateGoogleSheetKeywordStatus(rowIndex, '연관검색어 조사 완료');
+    }
+
+    return {
+        success: true,
+        data: {
+            requestedCount: rowIndices.length,
+            appendedCount: topics.length,
+            rowIndices,
+            message: 'keywords 선택 항목을 topics에 추가했습니다.'
+        }
+    };
+}
+
 function readJsonBody(req, limitBytes = 1024 * 1024) {
     return new Promise((resolve, reject) => {
         let total = 0;
@@ -1220,6 +1390,53 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         const result = await executeBlogTopicUpdate(requestBody || {});
         if (!result.success) {
             return sendError(res, requestId, 400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/trends/collect') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeTrendCollectAction(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'TRENDS_COLLECT_FAILED', result.message || '트렌드 수집에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/trends/items') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const status = String(searchParams.get('status') || '').trim();
+        const q = String(searchParams.get('q') || '').trim();
+        const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
+        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
+        const result = await Utils.readGoogleSheetTrendsAll({ status, q, limit, offset });
+        return sendSuccess(res, requestId, result);
+    }
+
+    if (pathname === '/api/v1/keywords/items') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const status = String(searchParams.get('status') || '').trim();
+        const q = String(searchParams.get('q') || '').trim();
+        const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
+        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
+        const result = await Utils.readGoogleSheetKeywordsAll({ status, q, limit, offset });
+        return sendSuccess(res, requestId, result);
+    }
+
+    if (pathname === '/api/v1/trends/to-topics') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeTrendsToTopicsAction(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'TRENDS_TO_TOPICS_FAILED', result.message || 'trends→topics 처리에 실패했습니다.');
+        }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/keywords/to-topics') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const result = await executeKeywordsToTopicsAction(requestBody || {});
+        if (!result.success) {
+            return sendError(res, requestId, 400, result.code || 'KEYWORDS_TO_TOPICS_FAILED', result.message || 'keywords→topics 처리에 실패했습니다.');
         }
         return sendSuccess(res, requestId, result.data);
     }

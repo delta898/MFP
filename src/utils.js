@@ -1030,7 +1030,9 @@ const Utils = {
      * 1-6. 트렌드 시트에 데이터 추가 (Date, Category, Keyword, Status)
      */
     appendGoogleSheetTrends: async function (trendData, dateOverride = null) {
-        if (!trendData || trendData.length === 0) return;
+        if (!trendData || trendData.length === 0) {
+            return { success: true, addedCount: 0 };
+        }
 
         try {
             const accessToken = await this.getGoogleAccessToken();
@@ -1153,9 +1155,196 @@ const Utils = {
             await this.sleep(1000);
 
             Logger.info(`   ✅ 트렌드 시트(${sheetName})에 ${rowsToAdd.length}건 추가 완료`);
+            return {
+                success: true,
+                addedCount: rowsToAdd.length,
+                date: dateStr
+            };
 
         } catch (e) {
             Logger.error(`❌ 트렌드 시트 추가 실패: ${e.message}`);
+            return {
+                success: false,
+                addedCount: 0,
+                message: e.message
+            };
+        }
+    },
+
+    readGoogleSheetTrendsAll: async function (options = {}) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TRENDS_SHEET || 'trends';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                return { items: [], total: 0, limit: 0, offset: 0 };
+            }
+
+            const headers = rows[0].map(h => String(h || '').toLowerCase().replace(/[\s\/_]/g, '').trim());
+            const parsed = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                const getVal = (cols) => {
+                    for (const col of cols) {
+                        const cleanCol = String(col || '').toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                            return String(entry[cleanCol]).trim();
+                        }
+                    }
+                    return "";
+                };
+
+                return {
+                    rowIndex: index,
+                    rowNumber: index + 2,
+                    date: getVal(['날짜', 'date']),
+                    category: getVal(['주제', 'category', 'subject']),
+                    keyword: getVal(['키워드', 'keyword']),
+                    variation: getVal(['증감', 'variation', 'rank']),
+                    status: getVal(['동작상태', '동작/상태', '상태', 'status'])
+                };
+            });
+
+            const statusFilter = String(options.status || '').trim();
+            const q = String(options.q || '').trim().toLowerCase();
+            let filtered = parsed;
+            if (statusFilter) {
+                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+            }
+            if (q) {
+                filtered = filtered.filter(item => {
+                    const haystack = [
+                        item.date,
+                        item.category,
+                        item.keyword,
+                        item.variation,
+                        item.status
+                    ].join(' ').toLowerCase();
+                    return haystack.includes(q);
+                });
+            }
+
+            const total = filtered.length;
+            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 100;
+            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+            const items = filtered.slice(offset, offset + limit);
+            return { items, total, limit, offset };
+        } catch (e) {
+            Logger.error(`❌ trends 전체 조회 실패: ${e.message}`);
+            return { items: [], total: 0, limit: 0, offset: 0 };
+        }
+    },
+
+    readGoogleSheetKeywordsAll: async function (options = {}) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                return { items: [], total: 0, limit: 0, offset: 0 };
+            }
+
+            const headers = rows[0].map(h => String(h || '').toLowerCase().replace(/[\s\/_]/g, '').trim());
+            const parsed = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                const getVal = (cols) => {
+                    for (const col of cols) {
+                        const cleanCol = String(col || '').toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                            return String(entry[cleanCol]).trim();
+                        }
+                    }
+                    return "";
+                };
+
+                return {
+                    rowIndex: index,
+                    rowNumber: index + 2,
+                    keyword: getVal(['키워드', 'keyword']),
+                    status: getVal(['동작상태', '동작/상태', '상태', 'status']),
+                    updatedAt: getVal(['작업시간', '작업 시간', '시간', 'time', 'date'])
+                };
+            });
+
+            const statusFilter = String(options.status || '').trim();
+            const q = String(options.q || '').trim().toLowerCase();
+            let filtered = parsed;
+            if (statusFilter) {
+                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+            }
+            if (q) {
+                filtered = filtered.filter(item => {
+                    const haystack = [
+                        item.keyword,
+                        item.status,
+                        item.updatedAt
+                    ].join(' ').toLowerCase();
+                    return haystack.includes(q);
+                });
+            }
+
+            const total = filtered.length;
+            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 100;
+            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+            const items = filtered.slice(offset, offset + limit);
+            return { items, total, limit, offset };
+        } catch (e) {
+            Logger.error(`❌ keywords 전체 조회 실패: ${e.message}`);
+            return { items: [], total: 0, limit: 0, offset: 0 };
+        }
+    },
+
+    updateGoogleSheetTrendStatus: async function (rowIndex, status) {
+        try {
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TRENDS_SHEET || 'trends';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+            const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
+
+            let statusColIndex = -1;
+            headers.forEach((h, i) => {
+                const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('동작상태') || clean.includes('동작') || clean.includes('상태') || clean.includes('status')) statusColIndex = i;
+            });
+            if (statusColIndex === -1) return;
+
+            const targetRow = rowIndex + 2;
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                }
+                return letter;
+            };
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                valueInputOption: 'USER_ENTERED',
+                data: [{ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] }]
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+            await this.sleep(300);
+        } catch (e) {
+            Logger.error(`❌ 트렌드 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
         }
     },
 
