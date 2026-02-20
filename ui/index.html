@@ -12,7 +12,7 @@
       <div class="logo">BlogGenius</div>
       <nav>
         <button class="nav-btn active" data-view="dashboard">대시보드</button>
-        <button class="nav-btn" data-view="blog">블로그</button>
+        <button class="nav-btn" data-view="blog">네이버 블로그</button>
         <button class="nav-btn" data-view="shopping">쇼핑커넥트</button>
         <button class="nav-btn" data-view="license">라이선스</button>
         <button class="nav-btn" data-view="settings">설정</button>
@@ -55,13 +55,15 @@
       </section>
 
       <section class="view" id="view-blog">
-        <h1>블로그</h1>
-        <p class="muted">빠른발행, 트렌드, 토픽을 한 화면에서 관리합니다.</p>
+        <h1>네이버 블로그</h1>
+        <p class="muted">빠른발행, 트렌드, 토픽, 자동발행 설정을 한 화면에서 관리합니다.</p>
 
         <div class="blog-tabs">
           <button class="blog-tab-btn active" data-blog-tab="quick">빠른발행</button>
           <button class="blog-tab-btn" data-blog-tab="trends">Trends</button>
           <button class="blog-tab-btn" data-blog-tab="topics">Topics</button>
+          <span class="blog-tab-gap" aria-hidden="true"></span>
+          <button class="blog-tab-btn" data-blog-tab="auto">자동발행 설정</button>
         </div>
 
         <div class="card form-card blog-tab-panel active" id="blog-tab-quick">
@@ -200,6 +202,38 @@
 
           <pre id="blog-action-result">대기 중...</pre>
         </div>
+
+        <div class="card form-card blog-tab-panel" id="blog-tab-auto">
+          <h2>자동발행 설정 (PoC)</h2>
+          <p class="muted">현재는 설정만 저장합니다. 실제 자동 실행은 아직 비활성화되어 있습니다.</p>
+          <div class="form-grid">
+            <label class="settings-checkbox-label">
+              <input id="blog-auto-mode" type="checkbox">
+              <span>NAVER_AUTO_MODE (자동발행 사용)</span>
+            </label>
+            <label>NAVER_AUTO_CATEGORIES
+              <input id="blog-auto-categories" type="text" placeholder="예: 여행, 맛집, IT">
+            </label>
+            <label>NAVER_AUTO_DAILY_POSTS
+              <input id="blog-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
+            </label>
+            <label>NAVER_AUTO_TRENDS_TIME
+              <input id="blog-auto-trends-time" type="time">
+            </label>
+            <label>NAVER_AUTO_PUBLISH_TIME
+              <input id="blog-auto-publish-time" type="time">
+            </label>
+            <label class="settings-checkbox-label">
+              <input id="blog-auto-notify-enabled" type="checkbox">
+              <span>NAVER_AUTO_NOTIFY_ENABLED (완료 알림)</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="blog-auto-refresh-btn" class="secondary" type="button">불러오기</button>
+            <button id="blog-auto-save-btn" type="button">저장</button>
+          </div>
+          <pre id="blog-auto-result">대기 중...</pre>
+        </div>
       </section>
       <section class="view" id="view-shopping">
         <h1>쇼핑커넥트</h1>
@@ -282,70 +316,171 @@
       <section class="view" id="view-settings">
         <h1>설정</h1>
         <p class="muted">주요 항목은 간단히 수정하고, 필요 시 고급 모드에서 config.txt 전체를 편집하세요.</p>
-
         <div class="settings-tabs">
-          <button class="settings-tab-btn active" data-settings-tab="basic">기본설정</button>
-          <button class="settings-tab-btn" data-settings-tab="naver-login">네이버 로그인</button>
+          <button class="settings-tab-btn active" data-settings-tab="general" type="button">일반</button>
+          <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">네이버 블로그</button>
+          <button class="settings-tab-btn" data-settings-tab="advanced" type="button">Advanced</button>
         </div>
 
-        <div class="settings-tab-panel active" id="settings-tab-basic">
-          <div class="card form-card">
-            <h2>주요 설정</h2>
-            <div class="form-grid">
-              <label>NAVER_ID
+        <div class="card form-card settings-tab-panel active" id="settings-tab-general">
+          <h2>일반 설정</h2>
+          <div class="form-grid">
+            <label>GEMINI_API_KEY
+              <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
+            </label>
+            <label>GOOGLE_SHEET_URL
+              <div class="input-with-action">
+                <input id="settings-google-sheet-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/...">
+                <button id="settings-open-google-sheet-btn" class="secondary" type="button">구글 스프레드시트 가기</button>
+              </div>
+              <small class="muted">service_account.json의 이메일을 해당 스프레드시트에 편집자로 공유해야 합니다.</small>
+            </label>
+            <label>LISTEN_HOST
+              <select id="settings-listen-host">
+                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
+                <option value="0.0.0.0">0.0.0.0 (동일 네트워크 허용)</option>
+              </select>
+            </label>
+            <label>LISTEN_PORT
+              <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
+            </label>
+          </div>
+        </div>
+
+        <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">
+          <h2>네이버 블로그 설정</h2>
+          <div class="form-grid">
+            <label>NAVER_ID
+              <div class="input-with-action">
                 <input id="settings-naver-id" type="text" placeholder="네이버 아이디">
+                <button id="settings-naver-login-btn" class="secondary" type="button">로그인</button>
+              </div>
+            </label>
+            <label>HEADLESS
+              <select id="settings-headless">
+                <option value="false">false (브라우저 표시)</option>
+                <option value="true">true (브라우저 숨김)</option>
+              </select>
+            </label>
+            <label>TYPING_SPEED
+              <select id="settings-typing-speed">
+                <option value="QUICK">QUICK</option>
+                <option value="FAST">FAST</option>
+                <option value="NORMAL">NORMAL</option>
+                <option value="HUMAN">HUMAN</option>
+              </select>
+            </label>
+            <div class="settings-typing-preview">
+              <div class="settings-typing-preview-head">
+                <strong>타이핑 속도 미리보기</strong>
+                <button id="settings-typing-preview-replay" class="secondary" type="button">다시 재생</button>
+              </div>
+              <label class="settings-typing-preview-input-wrap">미리보기 문구 (저장되지 않음)
+                <textarea
+                  id="settings-typing-preview-input"
+                  rows="4"
+                  placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"
+                ></textarea>
               </label>
-              <label>GEMINI_API_KEY
-                <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
-              </label>
-              <label>GOOGLE_SHEET_ID
-                <input id="settings-google-sheet-id" type="text" placeholder="Google Spreadsheet ID">
-              </label>
-              <label>HEADLESS
-                <select id="settings-headless">
-                  <option value="false">false (브라우저 표시)</option>
-                  <option value="true">true (브라우저 숨김)</option>
-                </select>
-              </label>
-              <label>TYPING_SPEED
-                <select id="settings-typing-speed">
-                  <option value="QUICK">QUICK</option>
-                  <option value="FAST">FAST</option>
-                  <option value="NORMAL">NORMAL</option>
-                  <option value="HUMAN">HUMAN</option>
-                </select>
-              </label>
+              <p id="settings-typing-preview-meta" class="settings-typing-preview-meta">자동 재생: 3회</p>
+              <p id="settings-typing-preview-text" class="settings-typing-preview-text" aria-live="polite">대기 중...</p>
             </div>
-
-            <div class="form-actions">
-              <button id="settings-major-refresh-btn" class="secondary">불러오기</button>
-              <button id="settings-major-save-btn">주요 설정 저장</button>
-            </div>
-            <pre id="settings-major-result">대기 중...</pre>
           </div>
 
-          <details class="card form-card advanced-fold" id="settings-advanced-fold">
-            <summary>Advanced (config.txt 원문 편집)</summary>
-            <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
-            <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18" spellcheck="false"></textarea>
-            <div class="form-actions">
-              <button id="settings-advanced-refresh-btn" class="secondary">원문 다시 불러오기</button>
-              <button id="settings-advanced-save-btn">원문 저장</button>
+          <div class="settings-image-section">
+            <div class="settings-image-header">
+              <h3>쇼핑 이미지 설정</h3>
+              <p class="muted">공정위 이미지와 구매 독려 이미지 1은 필수입니다. 구매 독려 이미지 2, 3은 선택입니다.</p>
             </div>
-            <pre id="settings-advanced-result">대기 중...</pre>
-          </details>
+            <div class="settings-image-grid">
+              <div class="settings-image-card" id="settings-image-card-ftc">
+                <div class="settings-image-card-title">
+                  <strong>공정위 이미지</strong>
+                  <span class="badge required">필수</span>
+                </div>
+                <input id="settings-image-source-ftc" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-ftc">
+                  <img id="settings-image-preview-ftc" alt="공정위 이미지 미리보기">
+                  <span id="settings-image-empty-ftc">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-ftc">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-ftc" type="file" accept="image/*">
+                  <button id="settings-image-reset-ftc" class="secondary" type="button">기본 이미지로 복원</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta1">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 1</strong>
+                  <span class="badge required">필수</span>
+                </div>
+                <input id="settings-image-source-cta1" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta1">
+                  <img id="settings-image-preview-cta1" alt="구매 독려 이미지 1 미리보기">
+                  <span id="settings-image-empty-cta1">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta1">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta1" type="file" accept="image/*">
+                  <button id="settings-image-reset-cta1" class="secondary" type="button">기본 이미지로 복원</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta2">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 2</strong>
+                  <span class="badge optional">선택</span>
+                </div>
+                <input id="settings-image-source-cta2" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta2">
+                  <img id="settings-image-preview-cta2" alt="구매 독려 이미지 2 미리보기">
+                  <span id="settings-image-empty-cta2">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta2">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta2" type="file" accept="image/*">
+                  <button id="settings-image-clear-cta2" class="secondary" type="button">설정 해제</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta3">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 3</strong>
+                  <span class="badge optional">선택</span>
+                </div>
+                <input id="settings-image-source-cta3" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta3">
+                  <img id="settings-image-preview-cta3" alt="구매 독려 이미지 3 미리보기">
+                  <span id="settings-image-empty-cta3">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta3">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta3" type="file" accept="image/*">
+                  <button id="settings-image-clear-cta3" class="secondary" type="button">설정 해제</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="settings-tab-panel" id="settings-tab-naver-login">
-          <div class="card form-card">
-            <h2>네이버 로그인</h2>
-            <p class="muted">버튼을 누르면 브라우저가 열립니다. 로그인 완료 시 인증이 자동 저장됩니다.</p>
-            <div class="form-actions">
-              <button id="settings-naver-login-start-btn">네이버 로그인 시작</button>
-              <button id="settings-naver-login-refresh-btn" class="secondary">상태 새로고침</button>
-            </div>
-            <pre id="settings-naver-login-result">대기 중...</pre>
+        <div class="card form-card settings-tab-panel" id="settings-tab-advanced">
+          <h2>Advanced (config.txt 원문 편집)</h2>
+          <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
+          <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18" spellcheck="false"></textarea>
+          <div class="form-actions">
+            <button id="settings-advanced-refresh-btn" class="secondary">원문 다시 불러오기</button>
+            <button id="settings-advanced-save-btn">원문 저장</button>
           </div>
+          <pre id="settings-advanced-result">대기 중...</pre>
+        </div>
+
+        <div class="card form-card">
+          <div class="form-actions">
+            <button id="settings-major-refresh-btn" class="secondary">불러오기</button>
+            <button id="settings-major-save-btn">주요 설정 저장</button>
+          </div>
+          <pre id="settings-major-result">대기 중...</pre>
         </div>
       </section>
       <section class="view" id="view-logs"><h1>로그/이력 (예정)</h1></section>

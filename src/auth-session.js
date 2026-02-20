@@ -3,7 +3,15 @@ const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
 
-async function checkAuthSessionValid() {
+let cachedSession = null;
+let cachedAtMs = 0;
+let sessionCheckInFlight = null;
+
+function cloneSessionResult(result) {
+    return result ? { ...result } : result;
+}
+
+async function performAuthSessionCheck() {
     const authPath = CONFIG.AUTH_FILE_PATH;
     if (!authPath || !fs.existsSync(authPath)) {
         return { ok: false, reason: 'missing_auth' };
@@ -36,7 +44,33 @@ async function checkAuthSessionValid() {
     }
 }
 
+async function checkAuthSessionValid(options = {}) {
+    const cacheTtlMs = Number.isFinite(Number(options.cacheTtlMs)) ? Math.max(0, parseInt(options.cacheTtlMs, 10)) : 0;
+    const forceRefresh = options.forceRefresh === true;
+    const now = Date.now();
+
+    if (!forceRefresh && cacheTtlMs > 0 && cachedSession && (now - cachedAtMs) < cacheTtlMs) {
+        return cloneSessionResult(cachedSession);
+    }
+
+    if (!forceRefresh && sessionCheckInFlight) {
+        return cloneSessionResult(await sessionCheckInFlight);
+    }
+
+    sessionCheckInFlight = (async () => {
+        const result = await performAuthSessionCheck();
+        cachedSession = cloneSessionResult(result);
+        cachedAtMs = Date.now();
+        return result;
+    })();
+
+    try {
+        return cloneSessionResult(await sessionCheckInFlight);
+    } finally {
+        sessionCheckInFlight = null;
+    }
+}
+
 module.exports = {
     checkAuthSessionValid
 };
-

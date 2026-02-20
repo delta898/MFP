@@ -7,6 +7,20 @@ const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
 
 const Utils = {
+    formatAxiosError: function (e) {
+        const status = e?.response?.status;
+        const data = e?.response?.data;
+        const apiMessage =
+            data?.error?.message ||
+            data?.error_description ||
+            (typeof data === 'string' ? data : '');
+        const baseMessage = String(e?.message || '요청 실패');
+        if (status) {
+            return apiMessage ? `status=${status} ${apiMessage}` : `status=${status} ${baseMessage}`;
+        }
+        return apiMessage || baseMessage;
+    },
+
     sanitizeFileName: function (str) {
         if (!str) return "untitled";
         // 🔧 [Fixed] 파일명 길이 제한 추가 (파일 시스템 에러 방지)
@@ -37,14 +51,24 @@ const Utils = {
     // 🔒 토큰 캐싱을 위한 변수
     _cachedAccessToken: null,
     _tokenExpiry: 0,
+    _cachedScopeKey: '',
 
     /**
      * 🔐 수동 구글 액세스 토큰 발급 (캐싱 적용)
      */
-    getGoogleAccessToken: async function () {
+    getGoogleAccessToken: async function (scopes = []) {
+        const normalizedScopes = (() => {
+            const incoming = Array.isArray(scopes) ? scopes : [];
+            const merged = incoming.length > 0
+                ? incoming
+                : ['https://www.googleapis.com/auth/spreadsheets'];
+            return Array.from(new Set(merged.map(s => String(s || '').trim()).filter(Boolean))).sort();
+        })();
+        const scopeKey = normalizedScopes.join(' ');
+
         // 캐시된 토큰이 있고, 만료 시간(1시간)보다 5분 여유가 있다면 재사용
         const now = Math.floor(Date.now() / 1000);
-        if (this._cachedAccessToken && this._tokenExpiry > now + 300) {
+        if (this._cachedAccessToken && this._tokenExpiry > now + 300 && this._cachedScopeKey === scopeKey) {
             return this._cachedAccessToken;
         }
 
@@ -63,7 +87,7 @@ const Utils = {
         const header = { alg: "RS256", typ: "JWT" };
         const payload = {
             iss: clientEmail,
-            scope: "https://www.googleapis.com/auth/spreadsheets",
+            scope: scopeKey,
             aud: "https://oauth2.googleapis.com/token",
             exp: now + 3600,
             iat: now
@@ -92,11 +116,26 @@ const Utils = {
             // 토큰 캐싱 저장
             this._cachedAccessToken = res.data.access_token;
             this._tokenExpiry = now + res.data.expires_in; // 보통 3600초
+            this._cachedScopeKey = scopeKey;
 
             return this._cachedAccessToken;
         } catch (e) {
             throw new Error(`토큰 발급 실패: ${e.message}`);
         }
+    },
+
+    getGoogleServiceAccountInfo: function () {
+        const rawPath = CONFIG.GOOGLE_AUTH_JSON;
+        if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
+        const keyFilePath = path.resolve(process.cwd(), rawPath);
+        if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
+        const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
+        const credentials = JSON.parse(fileContent);
+        return {
+            clientEmail: String(credentials.client_email || ''),
+            projectId: String(credentials.project_id || ''),
+            privateKeyId: String(credentials.private_key_id || '')
+        };
     },
 
     /**
@@ -110,10 +149,10 @@ const Utils = {
                 // 429(Too Many Requests) 또는 5xx 에러인 경우 재시도
                 if (i < retries - 1 && (e.response?.status === 429 || e.response?.status >= 500)) {
                     const wait = delay * Math.pow(2, i); // 지수 백오프
-                    Logger.warn(`⚠️ Google API Rate Limit(${e.response?.status}). ${wait / 1000}초 후 재시도...`);
+                    Logger.warn(`⚠️ Google Sheets API Rate Limit(${e.response?.status}). ${wait / 1000}초 후 재시도...`);
                     await new Promise(res => setTimeout(res, wait));
                 } else {
-                    throw e;
+                    throw new Error(this.formatAxiosError(e));
                 }
             }
         }
@@ -123,13 +162,22 @@ const Utils = {
      * 0. 초기화: 모든 필수 시트가 있는지 확인하고 없으면 생성
      */
     ensureAllSheetsExist: async function () {
+        return this._ensureAllSheetsExistInternal({ spreadsheetId: CONFIG.GOOGLE_SHEET_ID, suppressError: true });
+    },
+
+    ensureAllSheetsExistStrict: async function (spreadsheetId) {
+        return this._ensureAllSheetsExistInternal({ spreadsheetId, suppressError: false });
+    },
+
+    _ensureAllSheetsExistInternal: async function ({ spreadsheetId, suppressError }) {
         try {
             Logger.info("🔍 필수 시트 존재 여부 확인 중...");
             const accessToken = await this.getGoogleAccessToken();
-            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const targetSpreadsheetId = String(spreadsheetId || '').trim();
+            if (!targetSpreadsheetId) throw new Error('GOOGLE_SHEET_ID가 비어 있습니다.');
 
             // 현재 시트 목록 조회
-            const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+            const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${targetSpreadsheetId}`;
             const metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             }));
@@ -145,7 +193,7 @@ const Utils = {
             for (const sheet of requiredSheets) {
                 if (!existingSheets.includes(sheet.name)) {
                     Logger.info(`✨ '${sheet.name}' 시트가 없어서 생성을 시작합니다...`);
-                    await this.createSheetIfMissing(accessToken, spreadsheetId, sheet.name, sheet.type);
+                    await this.createSheetIfMissing(accessToken, targetSpreadsheetId, sheet.name, sheet.type);
                 } else {
                     // Logger.info(`   ✅ '${sheet.name}' 시트 확인됨`);
                 }
@@ -158,15 +206,81 @@ const Utils = {
             }));
             const shoppingSheet = (latestMeta.data.sheets || []).find(s => s.properties?.title === shoppingSheetName);
             if (shoppingSheet?.properties?.sheetId !== undefined) {
-                await this.ensureShoppingSheetValidation(accessToken, spreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
+                await this.ensureShoppingSheetValidation(accessToken, targetSpreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
             }
 
             Logger.info("✅ 모든 필수 시트 준비 완료");
+            return { success: true, spreadsheetId: targetSpreadsheetId };
 
         } catch (e) {
             Logger.error(`❌ 시트 초기화 실패: ${e.message}`);
-            // 초기화 실패해도 프로그램은 계속 진행하도록 (치명적이지 않을 수 있음)
+            if (suppressError) {
+                return { success: false, spreadsheetId: String(spreadsheetId || '').trim(), message: e.message };
+            }
+            throw e;
         }
+    },
+
+    createSpreadsheetWithDefaultSheets: async function (options = {}) {
+        const title = String(options.title || '').trim() || `BlogGenius ${new Date().toISOString().slice(0, 10)}`;
+        const shareEmail = String(options.shareEmail || '').trim();
+        const sheetsToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/spreadsheets']);
+        let createRes;
+        try {
+            createRes = await this.callWithRetry(() => axios.post(
+                'https://sheets.googleapis.com/v4/spreadsheets',
+                {
+                    properties: { title }
+                },
+                {
+                    headers: { 'Authorization': `Bearer ${sheetsToken}`, 'Content-Type': 'application/json' }
+                }
+            ));
+        } catch (e) {
+            throw new Error(`시트 생성 실패: ${this.formatAxiosError(e)}`);
+        }
+
+        const spreadsheetId = String(createRes?.data?.spreadsheetId || '').trim();
+        const spreadsheetUrl = String(createRes?.data?.spreadsheetUrl || '').trim();
+        if (!spreadsheetId) throw new Error('스프레드시트 생성에 실패했습니다. spreadsheetId를 받지 못했습니다.');
+
+        try {
+            await this.ensureAllSheetsExistStrict(spreadsheetId);
+        } catch (e) {
+            throw new Error(`기본 시트 초기화 실패: ${this.formatAxiosError(e)}`);
+        }
+
+        const shareResult = { attempted: false, success: false, message: '' };
+        if (shareEmail) {
+            shareResult.attempted = true;
+            try {
+                const driveToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/drive']);
+                await this.callWithRetry(() => axios.post(
+                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(spreadsheetId)}/permissions`,
+                    {
+                        role: 'writer',
+                        type: 'user',
+                        emailAddress: shareEmail
+                    },
+                    {
+                        params: { sendNotificationEmail: true },
+                        headers: { 'Authorization': `Bearer ${driveToken}`, 'Content-Type': 'application/json' }
+                    }
+                ));
+                shareResult.success = true;
+                shareResult.message = '공유 완료';
+            } catch (e) {
+                shareResult.success = false;
+                shareResult.message = e?.response?.data?.error?.message || e.message || '공유 실패';
+            }
+        }
+
+        return {
+            spreadsheetId,
+            spreadsheetUrl,
+            title,
+            share: shareResult
+        };
     },
 
     ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName) {

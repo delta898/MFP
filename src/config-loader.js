@@ -132,6 +132,54 @@ function loadLicenseKey() {
     }
 }
 
+function extractGoogleSheetId(input) {
+    const raw = String(input || '').trim();
+    if (!raw) return '';
+    const idPattern = /^[a-zA-Z0-9-_]{20,}$/;
+    if (idPattern.test(raw)) return raw;
+
+    try {
+        const u = new URL(raw);
+        if (!/docs\.google\.com$/i.test(u.hostname) && !/googleusercontent\.com$/i.test(u.hostname)) return '';
+        const byPath = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+        if (byPath?.[1]) return byPath[1];
+        const byQuery = u.searchParams.get('id');
+        if (byQuery && idPattern.test(byQuery)) return byQuery;
+    } catch (e) { }
+    return '';
+}
+
+function parseBoolLike(input, fallback = false) {
+    if (typeof input === 'boolean') return input;
+    if (typeof input === 'number') return input !== 0;
+    if (typeof input === 'string') {
+        const v = input.trim().toLowerCase();
+        if (['true', '1', 'yes', 'on', 'y'].includes(v)) return true;
+        if (['false', '0', 'no', 'off', 'n'].includes(v)) return false;
+    }
+    return fallback;
+}
+
+function parseNonNegativeInt(input, fallback) {
+    const num = parseInt(String(input ?? ''), 10);
+    if (!Number.isInteger(num) || num < 0) return fallback;
+    return num;
+}
+
+function parsePositiveInt(input, fallback) {
+    const num = parseInt(String(input ?? ''), 10);
+    if (!Number.isInteger(num) || num <= 0) return fallback;
+    return num;
+}
+
+function parseTimeHHmm(input, fallback = '07:30') {
+    const raw = String(input || '').trim();
+    if (!raw) return fallback;
+    const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!m) return fallback;
+    return `${m[1]}:${m[2]}`;
+}
+
 // 사용자 설정 로드
 const userConfig = loadUserConfig();
 const configSourcePath = userConfig.__CONFIG_SOURCE_PATH;
@@ -146,6 +194,28 @@ delete userConfig.NAVER_CLIENT_ID;
 delete userConfig.NAVER_CLIENT_SECRET;
 delete userConfig.LICENSE_KEY;
 const licenseKeyInfo = loadLicenseKey();
+
+const userSheetUrl = String(userConfig.GOOGLE_SHEET_URL || '').trim();
+const fallbackSheetId = String(userConfig.GOOGLE_SHEET_ID || '').trim();
+const resolvedSheetId = extractGoogleSheetId(userSheetUrl) || (fallbackSheetId || '');
+const resolvedSheetUrl = resolvedSheetId
+    ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
+    : userSheetUrl;
+
+const naverAutoMode = parseBoolLike(userConfig.NAVER_AUTO_MODE ?? userConfig.AUTO_MODE, false);
+const naverAutoCategories = String(
+    userConfig.NAVER_AUTO_CATEGORIES
+    ?? userConfig.AUTO_INCLUDE_CATEGORIES
+    ?? userConfig.AUTO_CATEGORIES
+    ?? ''
+).trim();
+const naverAutoDailyPosts = parseNonNegativeInt(
+    userConfig.NAVER_AUTO_DAILY_POSTS ?? userConfig.AUTO_DAILY_BLOG_CAP,
+    5
+);
+const naverAutoTrendsTime = parseTimeHHmm(userConfig.NAVER_AUTO_TRENDS_TIME, '07:30');
+const naverAutoPublishTime = parseTimeHHmm(userConfig.NAVER_AUTO_PUBLISH_TIME, '08:00');
+const naverAutoNotifyEnabled = parseBoolLike(userConfig.NAVER_AUTO_NOTIFY_ENABLED, true);
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -167,6 +237,12 @@ const typingDelay = Constants.TYPING_PRESETS[typingMode];
 
 const viewportWidth = userConfig.VIEWPORT_WIDTH || 1280;
 const viewportHeight = userConfig.VIEWPORT_HEIGHT || 1024;
+const listenHost = String(process.env.LISTEN_HOST || userConfig.LISTEN_HOST || '127.0.0.1').trim() || '127.0.0.1';
+const listenPortRaw = process.env.LISTEN_PORT || userConfig.LISTEN_PORT || 4577;
+const listenPortParsed = parseInt(String(listenPortRaw), 10);
+const listenPort = Number.isInteger(listenPortParsed) && listenPortParsed >= 1 && listenPortParsed <= 65535
+    ? listenPortParsed
+    : 4577;
 
 const closeDelay = (userConfig.CLOSE_DELAY_SECONDS || 10) * 1000;
 
@@ -197,6 +273,21 @@ module.exports = {
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
     NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || '',
     NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET || '',
+    GOOGLE_SHEET_URL: process.env.GOOGLE_SHEET_URL || resolvedSheetUrl,
+    GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || resolvedSheetId,
+    LISTEN_HOST: listenHost,
+    LISTEN_PORT: listenPort,
+    NAVER_AUTO_MODE: naverAutoMode,
+    NAVER_AUTO_CATEGORIES: naverAutoCategories,
+    NAVER_AUTO_DAILY_POSTS: naverAutoDailyPosts,
+    NAVER_AUTO_TRENDS_TIME: naverAutoTrendsTime,
+    NAVER_AUTO_PUBLISH_TIME: naverAutoPublishTime,
+    NAVER_AUTO_NOTIFY_ENABLED: naverAutoNotifyEnabled,
+    // legacy alias (내부 호환)
+    AUTO_MODE: naverAutoMode,
+    AUTO_INCLUDE_CATEGORIES: naverAutoCategories,
+    AUTO_CATEGORIES: naverAutoCategories,
+    AUTO_DAILY_BLOG_CAP: naverAutoDailyPosts,
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 

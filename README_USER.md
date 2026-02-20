@@ -27,13 +27,13 @@
 4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
 5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
 6. `config/config.txt.sample` 복사 후 `config/config.txt` 내용 수정
-7. `./BlogGenius login` 실행
+7. `<실행파일> login` 실행
 
 ### 1-1. 여기까지 되면 정상
 
 아래 3가지가 되면 세팅 완료입니다.
-1. `./BlogGenius login` 후 로그인 성공 메시지 확인
-2. `./BlogGenius trends` 실행 시 `trends/keywords/topics/shopping` 시트 자동 생성 확인
+1. `<실행파일> login` 후 로그인 성공 메시지 확인
+2. `<실행파일> trends` 실행 시 `trends/keywords/topics/shopping` 시트 자동 생성 확인
 3. 시트에서 상태 변경 시 `topics`에 주제가 누적되면 정상
 
 ---
@@ -82,12 +82,10 @@ BlogGenius/
 - [구글 서비스 계정 발급 안내 참고](https://buly.kr/5UJLf0u)
 
 1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
-2. URL에서 시트 ID 복사 -> `config/config.txt` 파일에 반영
+2. 생성한 시트의 URL 전체를 복사 -> `config/config.txt` 파일의 `GOOGLE_SHEET_URL`에 반영
 
 예시:
 `https://docs.google.com/spreadsheets/d/1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY/edit?gid=1568478969`
-
-위 URL의 시트 ID는 `1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY` 입니다.
 
 3. 우측 상단 `공유` 클릭
 4. `service_account.json` 안의 `client_email` 주소를 공유에 추가
@@ -143,7 +141,7 @@ Copy-Item .\config\config.txt.sample .\config\config.txt
 ```ini
 NAVER_ID = 본인_네이버_아이디
 GEMINI_API_KEY = AIza...
-GOOGLE_SHEET_ID = 구글시트_ID
+GOOGLE_SHEET_URL = https://docs.google.com/spreadsheets/d/구글시트_ID
 ```
 
 포인트:
@@ -159,7 +157,7 @@ GOOGLE_SHEET_ID = 구글시트_ID
 ### 4-1. 최초 1회 로그인
 
 ```bash
-./BlogGenius login
+<실행파일> login
 ```
 
 브라우저에서 네이버 로그인 완료 후 인증 정보 자동 저장됩니다.
@@ -170,28 +168,31 @@ GOOGLE_SHEET_ID = 구글시트_ID
 
 ```bash
 # 트렌드 수집
-./BlogGenius trends
+<실행파일> trends
 
 # 구글 시트 기반 대량 블로그 발행
-./BlogGenius batch
+<실행파일> batch
 
 # 쇼핑 시트 기반 쇼핑 커넥트 블로그 발행
-./BlogGenius shopping
+<실행파일> shopping
 
 # 테스트 종료 후 라이선스 등록(현재 Free 등록)
-./BlogGenius license register --email=you@example.com
+<실행파일> license register --email=you@example.com
 
 # 새 기기/재설치 시 라이선스 복구
-./BlogGenius license recover --email=you@example.com
+<실행파일> license recover --email=you@example.com
 
 # 플랜 업그레이드(현재 free만 지원)
-./BlogGenius license upgrade --plan=free
+<실행파일> license upgrade --plan=free
 
 # 현재 라이선스 상태 확인
-./BlogGenius license status
+<실행파일> license status
 
-# 로컬 웹 UI 실행 (Sprint 1)
-./BlogGenius ui --port=4577
+# 로컬 웹 UI 실행 (기본 모드)
+<실행파일>
+
+# 필요 시 호스트/포트 직접 지정
+<실행파일> --host=127.0.0.1 --port=4577
 ```
 
 ---
@@ -253,7 +254,7 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 - 먼저 아래 명령으로 다시 로그인하세요.
 
 ```bash
-./BlogGenius login
+<실행파일> login
 ```
 
 ---
@@ -262,7 +263,7 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 
 아래 2개를 다시 확인하세요.
 
-1. `GOOGLE_SHEET_ID`가 정확한가?
+1. `GOOGLE_SHEET_URL`이 정확한가?
 2. 스프레드시트 공유 대상이 **service account client_email**인가?
 
 ---
@@ -272,7 +273,7 @@ chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius
 - 네트워크 연결 상태를 먼저 확인하세요.
 - 잠시 후 다시 실행해 보세요.
 - test 종료 안내가 보이면 아래 명령으로 업그레이드를 진행하세요.
-  - `./BlogGenius license upgrade --plan=free`
+  - `<실행파일> license upgrade --plan=free`
 - 계속 동일하면 오픈채팅으로 문의해 주세요.
 
 ---

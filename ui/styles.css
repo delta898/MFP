@@ -156,6 +156,73 @@ h2 {
   color: #334155;
 }
 
+.settings-checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  min-height: 40px;
+}
+
+.settings-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.blog-tab-gap {
+  display: inline-block;
+  width: 16px;
+  flex: 0 0 16px;
+}
+
+.settings-typing-preview {
+  grid-column: 1 / -1;
+  border: 1px solid #d8e2f1;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-typing-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-typing-preview-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.settings-typing-preview-input-wrap textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.settings-typing-preview-meta {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.settings-typing-preview-text {
+  margin: 0;
+  min-height: 120px;
+  font-size: 22px;
+  line-height: 1.65;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  letter-spacing: 0.01em;
+}
+
 .form-grid input,
 .form-grid textarea,
 .form-grid select {
@@ -165,6 +232,119 @@ h2 {
   padding: 9px 10px;
   font: inherit;
   background: #fff;
+}
+
+.settings-image-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-image-header h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.settings-image-header .muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-image-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.settings-image-card {
+  border: 1px solid #d8e2f1;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fbfdff;
+}
+
+.settings-image-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge.required {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge.optional {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.settings-image-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 118px;
+  border: 1px solid #dce3ef;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.settings-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: none;
+}
+
+.settings-image-preview.has-image img {
+  display: block;
+}
+
+.settings-image-preview span {
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+  padding: 8px;
+}
+
+.settings-image-preview.has-image span {
+  display: none;
+}
+
+.settings-image-meta {
+  font-size: 12px;
+  color: #475569;
+  min-height: 16px;
+}
+
+.settings-image-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-image-actions input[type="file"] {
+  flex: 1;
+  min-width: 0;
 }
 
 .settings-advanced-editor {
@@ -285,6 +465,27 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-action input {
+  flex: 1;
+}
+
+.input-with-action button {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #475569;
+  color: #fff;
+  white-space: nowrap;
 }
 
 .tab-selected-count {
@@ -577,6 +778,10 @@ pre {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-image-grid {
     grid-template-columns: 1fr;
   }
 

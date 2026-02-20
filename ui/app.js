@@ -2,7 +2,10 @@ async function fetchJson(url) {
   const res = await fetch(url, { cache: 'no-store' });
   const body = await res.json();
   if (!res.ok || !body.success) {
-    throw new Error(body?.error?.message || `HTTP ${res.status}`);
+    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = body?.error?.code || '';
+    throw err;
   }
   return body.data;
 }
@@ -15,7 +18,10 @@ async function postJson(url, payload) {
   });
   const body = await res.json();
   if (!res.ok || !body.success) {
-    throw new Error(body?.error?.message || `HTTP ${res.status}`);
+    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = body?.error?.code || '';
+    throw err;
   }
   return body.data;
 }
@@ -49,8 +55,19 @@ let blogInlineEditState = null;
 let shoppingInlineEditState = null;
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
+let settingsActiveTab = 'general';
 let blogTrendsCollectInFlight = false;
-let settingsActiveTab = 'basic';
+const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
+const SETTINGS_SHOPPING_SLOT_META = {
+  ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
+  cta1: { key: 'SHOPPING_CTA_IMAGE_URL1', label: '구매 독려 이미지 1', required: true },
+  cta2: { key: 'SHOPPING_CTA_IMAGE_URL2', label: '구매 독려 이미지 2', required: false },
+  cta3: { key: 'SHOPPING_CTA_IMAGE_URL3', label: '구매 독려 이미지 3', required: false }
+};
+let settingsShoppingImageSlots = {};
+let settingsShoppingImageDefaults = {};
+const settingsShoppingImageFileState = {};
+const settingsShoppingImageObjectUrls = {};
 const blogPageState = {
   trends: { limit: 50, offset: 0, total: 0 },
   topics: { limit: 50, offset: 0, total: 0 },
@@ -65,7 +82,44 @@ let settingsAdvancedLoadedOnce = false;
 let uiConfigReady = true;
 let uiConfigPopupShown = false;
 let uiConfigStatusMessage = '';
-let naverLoginPollTimer = null;
+let dashboardPollingPauseCount = 0;
+let settingsMajorAutoSaveTimer = null;
+let settingsMajorSaveInFlight = false;
+let settingsMajorSaveQueued = false;
+let settingsMajorQueuedMode = null;
+let settingsMajorApplyingForm = false;
+let settingsMajorLastSavedSignature = '';
+let settingsMajorHasPendingBasicChanges = false;
+const SETTINGS_MAJOR_AUTOSAVE_DELAY_MS = 700;
+let settingsAdvancedRevision = '';
+let settingsAdvancedStale = false;
+const SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT = [
+  '나 보기가 역겨워 가실 때에는',
+  '말없이 고이 보내 드리우리다',
+  '영변에 약산 진달래꽃',
+  '아름 따다 가실 길에 뿌리우리다'
+].join('\n');
+const SETTINGS_TYPING_PREVIEW_DELAY = {
+  QUICK: 8,
+  FAST: 20,
+  NORMAL: 38,
+  HUMAN: 55
+};
+const SETTINGS_TYPING_PREVIEW_REPEAT_COUNT = 3;
+let settingsTypingPreviewTimer = null;
+let settingsTypingPreviewRunId = 0;
+
+function pauseDashboardPolling() {
+  dashboardPollingPauseCount += 1;
+}
+
+function resumeDashboardPolling() {
+  dashboardPollingPauseCount = Math.max(0, dashboardPollingPauseCount - 1);
+}
+
+function isDashboardPollingPaused() {
+  return dashboardPollingPauseCount > 0;
+}
 
 function showUiPopup(message) {
   const text = String(message || '').trim();
@@ -110,51 +164,6 @@ function guardUiConfigReady(featureLabel = '이 기능') {
     uiConfigStatusMessage || ''
   ].join('\n'));
   return false;
-}
-
-function formatDateTime(value) {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleString('ko-KR', { hour12: false });
-}
-
-function renderNaverLoginStatus(data) {
-  const resultEl = document.getElementById('settings-naver-login-result');
-  if (!resultEl) return;
-  if (!data) {
-    resultEl.textContent = '로그인 상태를 불러오지 못했습니다.';
-    return;
-  }
-
-  const lines = [
-    `상태: ${data.status || '-'}`,
-    `메시지: ${data.message || '-'}`,
-    `시작: ${formatDateTime(data.startedAt)}`,
-    `완료: ${formatDateTime(data.finishedAt)}`,
-    `경과: ${typeof data.elapsedSeconds === 'number' ? `${data.elapsedSeconds}초` : '-'}`,
-    `감지 방식: ${data.detectedBy || '-'}`,
-    `오류: ${data.error || '-'}`
-  ];
-  resultEl.textContent = lines.join('\n');
-}
-
-function stopNaverLoginPolling() {
-  if (naverLoginPollTimer) {
-    clearInterval(naverLoginPollTimer);
-    naverLoginPollTimer = null;
-  }
-}
-
-function startNaverLoginPolling() {
-  stopNaverLoginPolling();
-  naverLoginPollTimer = setInterval(async () => {
-    const status = await loadNaverLoginStatus({ silent: true });
-    if (!status?.isRunning) {
-      stopNaverLoginPolling();
-      await loadDashboard();
-    }
-  }, 1000);
 }
 
 function findTrendByRowIndex(rowIndex) {
@@ -566,7 +575,7 @@ function resetShoppingFiltersAndState() {
 }
 
 function activateBlogTab(tabName, options = {}) {
-  const allowed = ['quick', 'trends', 'topics'];
+  const allowed = ['quick', 'trends', 'topics', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -584,6 +593,10 @@ function activateBlogTab(tabName, options = {}) {
   }
   if (target === 'topics') {
     loadBlogTopics();
+    return;
+  }
+  if (target === 'auto') {
+    loadBlogAutoSettings();
     return;
   }
 }
@@ -607,8 +620,8 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['basic', 'naver-login'];
-  const target = allowed.includes(String(tabName)) ? String(tabName) : 'basic';
+  const allowed = ['general', 'naver-blog', 'advanced'];
+  const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   settingsActiveTab = target;
 
   const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
@@ -616,16 +629,12 @@ function activateSettingsTab(tabName, options = {}) {
   tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.settingsTab === target));
   tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `settings-tab-${target}`));
 
-  const forceLoad = options.forceLoad !== false;
-  if (!forceLoad) return;
-
-  if (target === 'basic') {
-    stopNaverLoginPolling();
-    loadSettingsMajor();
-    return;
+  const forceReload = options.forceReload !== false;
+  if (!forceReload) return;
+  if (target === 'advanced' && !settingsAdvancedLoadedOnce) {
+    loadSettingsAdvanced();
+    settingsAdvancedLoadedOnce = true;
   }
-
-  loadNaverLoginStatus();
 }
 
 function escapeHtml(input) {
@@ -689,7 +698,8 @@ function bindNavigation() {
       return;
     }
     if (viewName === 'settings') {
-      activateSettingsTab(settingsActiveTab, { forceLoad: true });
+      loadSettingsMajor();
+      activateSettingsTab(settingsActiveTab, { forceReload: true });
       return;
     }
   };
@@ -881,6 +891,7 @@ async function startBlogInlineEdit(cell) {
   }
 
   if (blogInlineEditState) {
+    if (blogInlineEditState.cell === cell) return;
     await cancelBlogInlineEdit();
   }
 
@@ -1136,6 +1147,7 @@ async function runShoppingBatchAction() {
 
   const selectedSnapshot = [...rowIndices];
   clearShoppingSelections();
+  pauseDashboardPolling();
   const startedAt = Date.now();
   const progressTimer = setInterval(async () => {
     const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
@@ -1147,7 +1159,7 @@ async function runShoppingBatchAction() {
     } catch (e) {
       // noop
     }
-  }, 1000);
+  }, 3000);
 
   resultBox.textContent = `shopping batch 실행 중... (선택 ${rowIndices.length}건)\n진행 상태를 표의 진행 로그/상태 컬럼에서 확인하세요.`;
   try {
@@ -1159,6 +1171,7 @@ async function runShoppingBatchAction() {
     resultBox.textContent = `오류: ${e.message}`;
   } finally {
     clearInterval(progressTimer);
+    resumeDashboardPolling();
   }
 }
 
@@ -1260,6 +1273,7 @@ async function startShoppingInlineEdit(cell) {
   }
 
   if (shoppingInlineEditState) {
+    if (shoppingInlineEditState.cell === cell) return;
     await cancelShoppingInlineEdit();
   }
 
@@ -1335,6 +1349,7 @@ async function runBlogBatchAction() {
   const selectedSnapshot = [...rowIndices];
   clearBlogSelections();
   clearPreviousBatchVisualState();
+  pauseDashboardPolling();
 
   const startedAt = Date.now();
   const progressTimer = setInterval(async () => {
@@ -1347,7 +1362,7 @@ async function runBlogBatchAction() {
     } catch (e) {
       // 진행 중 폴링 오류는 무시하고 본 요청 완료를 기다린다.
     }
-  }, 1000);
+  }, 3000);
 
   resultBox.textContent = `batch 실행 중... (선택 ${rowIndices.length}건)\n진행 상태를 표의 로그/상태 컬럼에서 확인하세요.`;
   try {
@@ -1362,62 +1377,443 @@ async function runBlogBatchAction() {
     resultBox.textContent = `오류: ${e.message}`;
   } finally {
     clearInterval(progressTimer);
+    resumeDashboardPolling();
   }
 }
 
 function applySettingsMajorToForm(data) {
   const fields = data?.fields || {};
+  const listenHostEl = document.getElementById('settings-listen-host');
+  const listenPortEl = document.getElementById('settings-listen-port');
   const naverIdEl = document.getElementById('settings-naver-id');
   const geminiKeyEl = document.getElementById('settings-gemini-api-key');
-  const sheetIdEl = document.getElementById('settings-google-sheet-id');
+  const sheetUrlEl = document.getElementById('settings-google-sheet-url');
   const headlessEl = document.getElementById('settings-headless');
   const typingEl = document.getElementById('settings-typing-speed');
+  const blogAutoModeEl = document.getElementById('blog-auto-mode');
+  const blogAutoCategoriesEl = document.getElementById('blog-auto-categories');
+  const blogAutoDailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const blogAutoTrendsTimeEl = document.getElementById('blog-auto-trends-time');
+  const blogAutoPublishTimeEl = document.getElementById('blog-auto-publish-time');
+  const blogAutoNotifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
 
+  settingsMajorApplyingForm = true;
+  if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
+  if (listenPortEl) listenPortEl.value = String(fields.LISTEN_PORT || 4577);
   if (naverIdEl) naverIdEl.value = String(fields.NAVER_ID || '');
   if (geminiKeyEl) geminiKeyEl.value = String(fields.GEMINI_API_KEY || '');
-  if (sheetIdEl) sheetIdEl.value = String(fields.GOOGLE_SHEET_ID || '');
+  if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
   if (headlessEl) headlessEl.value = fields.HEADLESS ? 'true' : 'false';
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
+  if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
+  if (blogAutoCategoriesEl) blogAutoCategoriesEl.value = String(fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || '');
+  if (blogAutoDailyPostsEl) blogAutoDailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
+  if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
+  if (blogAutoPublishTimeEl) blogAutoPublishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
+  if (blogAutoNotifyEnabledEl) blogAutoNotifyEnabledEl.checked = Boolean(fields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+  settingsMajorApplyingForm = false;
+  playSettingsTypingPreview();
+
+  settingsShoppingImageDefaults = { ...(data?.shoppingImageDefaults || {}) };
+  settingsShoppingImageSlots = { ...(data?.shoppingImageSlots || {}) };
+  SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
+    clearStagedSettingsShoppingImage(slot);
+  });
+  renderSettingsShoppingImageSlots();
+
+  settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
+  settingsMajorHasPendingBasicChanges = false;
 }
 
-async function loadSettingsMajor() {
-  const resultEl = document.getElementById('settings-major-result');
-  if (resultEl) resultEl.textContent = '주요 설정 불러오는 중...';
-  try {
-    const data = await fetchJson('/api/v1/settings/major');
-    applySettingsMajorToForm(data);
-    if (resultEl) {
-      resultEl.textContent = `불러오기 완료: ${data.configPath || '-'}`;
-    }
-  } catch (e) {
-    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
-  }
-}
-
-function buildSettingsMajorPayload() {
+function getSettingsMajorBasicValuesFromDom() {
   return {
+    LISTEN_HOST: (document.getElementById('settings-listen-host')?.value || '127.0.0.1').trim(),
+    LISTEN_PORT: parseInt((document.getElementById('settings-listen-port')?.value || '4577').trim(), 10) || 4577,
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
-    GOOGLE_SHEET_ID: (document.getElementById('settings-google-sheet-id')?.value || '').trim(),
+    GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: (document.getElementById('settings-headless')?.value || 'false') === 'true',
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase()
   };
 }
 
-async function saveSettingsMajor() {
+function buildSettingsMajorBasicSignature() {
+  return JSON.stringify(getSettingsMajorBasicValuesFromDom());
+}
+
+function markSettingsMajorPendingChanges(pending = true) {
+  settingsMajorHasPendingBasicChanges = Boolean(pending);
+}
+
+function setSettingsMajorResultText(message) {
   const resultEl = document.getElementById('settings-major-result');
-  if (resultEl) resultEl.textContent = '주요 설정 저장 중...';
-  try {
-    const payload = buildSettingsMajorPayload();
-    const data = await postJson('/api/v1/settings/major', payload);
-    applySettingsMajorToForm(data);
-    if (resultEl) {
-      resultEl.textContent = `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}`;
-    }
-    await Promise.all([loadConfigStatus(), loadDashboard()]);
-  } catch (e) {
-    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  if (resultEl) resultEl.textContent = String(message || '');
+}
+
+function markSettingsAdvancedAsStale() {
+  if (!settingsAdvancedLoadedOnce) return;
+  settingsAdvancedStale = true;
+  const resultEl = document.getElementById('settings-advanced-result');
+  if (settingsActiveTab === 'advanced' && resultEl) {
+    resultEl.textContent = '주의: 주요 설정 변경으로 원문 버전이 바뀌었습니다. 저장 전 [원문 다시 불러오기]를 권장합니다.';
   }
+}
+
+function stopSettingsTypingPreview() {
+  if (settingsTypingPreviewTimer) {
+    clearTimeout(settingsTypingPreviewTimer);
+    settingsTypingPreviewTimer = null;
+  }
+}
+
+function setSettingsTypingPreviewMeta(message) {
+  const metaEl = document.getElementById('settings-typing-preview-meta');
+  if (!metaEl) return;
+  metaEl.textContent = String(message || '');
+}
+
+function getSettingsTypingPreviewDelay(speedKey) {
+  const key = String(speedKey || '').trim().toUpperCase();
+  const base = SETTINGS_TYPING_PREVIEW_DELAY[key] || SETTINGS_TYPING_PREVIEW_DELAY.NORMAL;
+  const jitter = Math.floor(base * 0.35);
+  const offset = Math.floor(Math.random() * (jitter * 2 + 1)) - jitter;
+  return Math.max(1, base + offset);
+}
+
+function getSettingsTypingPreviewSourceText() {
+  const inputEl = document.getElementById('settings-typing-preview-input');
+  const raw = String(inputEl?.value || '').trim();
+  if (raw) return raw;
+  const placeholder = String(inputEl?.placeholder || '').trim();
+  if (placeholder) return placeholder;
+  return SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT;
+}
+
+function playSettingsTypingPreview() {
+  const targetEl = document.getElementById('settings-typing-preview-text');
+  const speedEl = document.getElementById('settings-typing-speed');
+  const sampleText = getSettingsTypingPreviewSourceText();
+  if (!targetEl || !speedEl) return;
+  if (!sampleText) {
+    targetEl.textContent = '미리보기 문구를 입력해 주세요.';
+    setSettingsTypingPreviewMeta('자동 재생: 대기');
+    stopSettingsTypingPreview();
+    return;
+  }
+
+  stopSettingsTypingPreview();
+  const runId = ++settingsTypingPreviewRunId;
+  const speedKey = String(speedEl.value || 'NORMAL').trim().toUpperCase();
+  let cursor = 0;
+  let repeatIndex = 1;
+  targetEl.textContent = '';
+  setSettingsTypingPreviewMeta(`자동 재생: ${repeatIndex}/${SETTINGS_TYPING_PREVIEW_REPEAT_COUNT}`);
+
+  const tick = () => {
+    if (runId !== settingsTypingPreviewRunId) return;
+    if (cursor >= sampleText.length) {
+      targetEl.textContent = sampleText;
+      if (repeatIndex >= SETTINGS_TYPING_PREVIEW_REPEAT_COUNT) {
+        setSettingsTypingPreviewMeta(`자동 재생 완료: ${SETTINGS_TYPING_PREVIEW_REPEAT_COUNT}회`);
+        stopSettingsTypingPreview();
+        return;
+      }
+      repeatIndex += 1;
+      cursor = 0;
+      setSettingsTypingPreviewMeta(`자동 재생: ${repeatIndex}/${SETTINGS_TYPING_PREVIEW_REPEAT_COUNT}`);
+      settingsTypingPreviewTimer = setTimeout(tick, 420);
+      return;
+    }
+    cursor += 1;
+    targetEl.textContent = `${sampleText.slice(0, cursor)}▌`;
+    settingsTypingPreviewTimer = setTimeout(tick, getSettingsTypingPreviewDelay(speedKey));
+  };
+
+  settingsTypingPreviewTimer = setTimeout(tick, 120);
+}
+
+function scheduleSettingsMajorAutoSave({ immediate = false } = {}) {
+  if (settingsMajorApplyingForm) return;
+  const currentSignature = buildSettingsMajorBasicSignature();
+  const isDirty = currentSignature !== settingsMajorLastSavedSignature;
+  markSettingsMajorPendingChanges(isDirty);
+  if (!isDirty) return;
+
+  if (settingsMajorAutoSaveTimer) {
+    clearTimeout(settingsMajorAutoSaveTimer);
+    settingsMajorAutoSaveTimer = null;
+  }
+
+  setSettingsMajorResultText('변경됨 · 자동 저장 대기 중...');
+  if (immediate) {
+    void saveSettingsMajor({ mode: 'auto' });
+    return;
+  }
+
+  settingsMajorAutoSaveTimer = setTimeout(() => {
+    settingsMajorAutoSaveTimer = null;
+    void saveSettingsMajor({ mode: 'auto' });
+  }, SETTINGS_MAJOR_AUTOSAVE_DELAY_MS);
+}
+
+async function loadSettingsMajor() {
+  setSettingsMajorResultText('주요 설정 불러오는 중...');
+  try {
+    const data = await fetchJson('/api/v1/settings/major');
+    applySettingsMajorToForm(data);
+    setSettingsMajorResultText(`불러오기 완료: ${data.configPath || '-'}`);
+  } catch (e) {
+    setSettingsMajorResultText(`오류: ${e.message}`);
+  }
+}
+
+function buildSettingsMajorPayload() {
+  const imageSources = {};
+  SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
+    const meta = SETTINGS_SHOPPING_SLOT_META[slot];
+    const source = (document.getElementById(`settings-image-source-${slot}`)?.value || '').trim();
+    imageSources[meta.key] = source;
+  });
+
+  return {
+    LISTEN_HOST: (document.getElementById('settings-listen-host')?.value || '127.0.0.1').trim(),
+    LISTEN_PORT: parseInt((document.getElementById('settings-listen-port')?.value || '4577').trim(), 10) || 4577,
+    NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
+    GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
+    GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
+    HEADLESS: (document.getElementById('settings-headless')?.value || 'false') === 'true',
+    TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
+    NAVER_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
+    NAVER_AUTO_CATEGORIES: (document.getElementById('blog-auto-categories')?.value || '').trim(),
+    NAVER_AUTO_DAILY_POSTS: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
+    NAVER_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+    NAVER_AUTO_PUBLISH_TIME: (document.getElementById('blog-auto-publish-time')?.value || '08:00').trim(),
+    NAVER_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-auto-notify-enabled')?.checked),
+    ...imageSources
+  };
+}
+
+function revokeSettingsShoppingObjectUrl(slot) {
+  const current = settingsShoppingImageObjectUrls[slot];
+  if (current) {
+    URL.revokeObjectURL(current);
+    delete settingsShoppingImageObjectUrls[slot];
+  }
+}
+
+function buildSettingsShoppingPreviewUrl(slot, source) {
+  const value = String(source || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  const query = new URLSearchParams({
+    slot,
+    source: value,
+    _t: String(Date.now())
+  });
+  return `/api/v1/settings/shopping-image/preview?${query.toString()}`;
+}
+
+function clearStagedSettingsShoppingImage(slot) {
+  delete settingsShoppingImageFileState[slot];
+  revokeSettingsShoppingObjectUrl(slot);
+  const fileInput = document.getElementById(`settings-image-file-${slot}`);
+  if (fileInput) fileInput.value = '';
+}
+
+function renderSettingsShoppingImageSlot(slot) {
+  const slotData = settingsShoppingImageSlots[slot] || {};
+  const sourceInput = document.getElementById(`settings-image-source-${slot}`);
+  const previewWrap = document.getElementById(`settings-image-preview-wrap-${slot}`);
+  const previewImg = document.getElementById(`settings-image-preview-${slot}`);
+  const metaEl = document.getElementById(`settings-image-meta-${slot}`);
+  if (!sourceInput || !previewWrap || !previewImg || !metaEl) return;
+
+  let source = String(sourceInput.value || '').trim();
+  if (!source) source = String(slotData.source || '').trim();
+  sourceInput.value = source;
+
+  const stagedFile = settingsShoppingImageFileState[slot];
+  if (stagedFile) {
+    revokeSettingsShoppingObjectUrl(slot);
+    const objectUrl = URL.createObjectURL(stagedFile);
+    settingsShoppingImageObjectUrls[slot] = objectUrl;
+    previewImg.src = objectUrl;
+    previewWrap.classList.add('has-image');
+    metaEl.textContent = `선택됨(저장 시 반영): ${stagedFile.name}`;
+    return;
+  }
+
+  revokeSettingsShoppingObjectUrl(slot);
+  const previewUrl = buildSettingsShoppingPreviewUrl(slot, source);
+  if (previewUrl) {
+    const modeText = /^https?:\/\//i.test(source) ? '원격 URL' : '로컬 파일';
+    metaEl.textContent = `현재 이미지: ${modeText}`;
+    previewImg.onload = () => {
+      previewWrap.classList.add('has-image');
+    };
+    previewImg.onerror = () => {
+      previewWrap.classList.remove('has-image');
+      metaEl.textContent = '현재 이미지: 미리보기를 불러오지 못했습니다.';
+    };
+    previewWrap.classList.remove('has-image');
+    previewImg.src = previewUrl;
+  } else {
+    previewImg.onload = null;
+    previewImg.onerror = null;
+    previewImg.removeAttribute('src');
+    previewWrap.classList.remove('has-image');
+    metaEl.textContent = '현재 이미지: 설정 없음';
+  }
+}
+
+function renderSettingsShoppingImageSlots() {
+  SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
+    const sourceInput = document.getElementById(`settings-image-source-${slot}`);
+    const source = String(settingsShoppingImageSlots?.[slot]?.source || '').trim();
+    if (sourceInput) sourceInput.value = source;
+    renderSettingsShoppingImageSlot(slot);
+  });
+}
+
+function restoreSettingsShoppingDefault(slot) {
+  const meta = SETTINGS_SHOPPING_SLOT_META[slot];
+  if (!meta) return;
+  clearStagedSettingsShoppingImage(slot);
+  const source = String(settingsShoppingImageDefaults?.[meta.key] || '').trim();
+  const sourceInput = document.getElementById(`settings-image-source-${slot}`);
+  if (sourceInput) sourceInput.value = source;
+  if (!settingsShoppingImageSlots[slot]) settingsShoppingImageSlots[slot] = {};
+  settingsShoppingImageSlots[slot].source = source;
+  renderSettingsShoppingImageSlot(slot);
+}
+
+function clearSettingsShoppingOptional(slot) {
+  clearStagedSettingsShoppingImage(slot);
+  const sourceInput = document.getElementById(`settings-image-source-${slot}`);
+  if (sourceInput) sourceInput.value = '';
+  if (!settingsShoppingImageSlots[slot]) settingsShoppingImageSlots[slot] = {};
+  settingsShoppingImageSlots[slot].source = '';
+  renderSettingsShoppingImageSlot(slot);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('파일이 선택되지 않았습니다.'));
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadShoppingImageFromSettings(slot, file) {
+  if (!file) throw new Error('업로드할 이미지 파일을 먼저 선택해 주세요.');
+  const dataUrl = await readFileAsDataUrl(file);
+  return postJson('/api/v1/settings/shopping-image', {
+    slot,
+    fileName: file.name,
+    mimeType: file.type || '',
+    base64Data: dataUrl
+  });
+}
+
+async function uploadPendingSettingsShoppingImages(resultEl) {
+  for (const slot of SETTINGS_SHOPPING_SLOT_ORDER) {
+    const file = settingsShoppingImageFileState[slot];
+    if (!file) continue;
+    const label = SETTINGS_SHOPPING_SLOT_META[slot]?.label || slot;
+    if (resultEl) resultEl.textContent = `이미지 업로드 중... (${label}: ${file.name})`;
+    const data = await uploadShoppingImageFromSettings(slot, file);
+    const sourceValue = String(data?.value || '').trim();
+    const sourceInput = document.getElementById(`settings-image-source-${slot}`);
+    if (sourceInput) sourceInput.value = sourceValue;
+    if (!settingsShoppingImageSlots[slot]) settingsShoppingImageSlots[slot] = {};
+    settingsShoppingImageSlots[slot].source = sourceValue;
+    clearStagedSettingsShoppingImage(slot);
+  }
+}
+
+function ensureRequiredSettingsShoppingImages() {
+  for (const slot of SETTINGS_SHOPPING_SLOT_ORDER) {
+    const meta = SETTINGS_SHOPPING_SLOT_META[slot];
+    if (!meta?.required) continue;
+    const source = String(document.getElementById(`settings-image-source-${slot}`)?.value || '').trim();
+    if (!source) {
+      throw new Error(`${meta.label}는 필수입니다. 이미지를 선택하거나 기본 이미지로 복원해 주세요.`);
+    }
+  }
+}
+
+async function saveSettingsMajor(options = {}) {
+  const mode = options?.mode === 'auto' ? 'auto' : 'manual';
+
+  if (settingsMajorAutoSaveTimer) {
+    clearTimeout(settingsMajorAutoSaveTimer);
+    settingsMajorAutoSaveTimer = null;
+  }
+
+  if (settingsMajorSaveInFlight) {
+    settingsMajorSaveQueued = true;
+    settingsMajorQueuedMode = settingsMajorQueuedMode === 'manual' || mode === 'manual' ? 'manual' : 'auto';
+    return;
+  }
+
+  settingsMajorSaveInFlight = true;
+  let nextMode = mode;
+
+  while (nextMode) {
+    const currentMode = nextMode;
+    nextMode = null;
+    try {
+      setSettingsMajorResultText(currentMode === 'auto' ? '자동 저장 중...' : '주요 설정 저장 중...');
+
+      if (currentMode === 'manual') {
+        await uploadPendingSettingsShoppingImages(document.getElementById('settings-major-result'));
+        ensureRequiredSettingsShoppingImages();
+      }
+
+      const payload = buildSettingsMajorPayload();
+      const data = await postJson('/api/v1/settings/major', payload);
+      applySettingsMajorToForm(data);
+      settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
+      markSettingsMajorPendingChanges(false);
+      markSettingsAdvancedAsStale();
+
+      const nowText = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+      if (currentMode === 'auto') {
+        const restartText = data.requiresRestart ? '\n리스닝 주소/포트 변경이 감지되어 앱 재시작이 필요합니다.' : '';
+        setSettingsMajorResultText(`자동 저장 완료 (${nowText})${restartText}`);
+      } else {
+        const restartText = data.requiresRestart ? '\n리스닝 주소/포트 변경이 감지되어 앱 재시작이 필요합니다.' : '';
+        setSettingsMajorResultText(`${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`);
+      }
+      await Promise.all([loadConfigStatus(), loadDashboard()]);
+    } catch (e) {
+      setSettingsMajorResultText(
+        currentMode === 'auto'
+          ? `자동 저장 실패: ${e.message}\n필요하면 [주요 설정 저장] 버튼을 눌러 다시 시도하세요.`
+          : `오류: ${e.message}`
+      );
+    }
+
+    if (settingsMajorSaveQueued) {
+      nextMode = settingsMajorQueuedMode === 'manual' ? 'manual' : 'auto';
+      settingsMajorSaveQueued = false;
+      settingsMajorQueuedMode = null;
+    }
+  }
+
+  settingsMajorSaveInFlight = false;
+}
+
+function buildGoogleSheetOpenUrl(rawInput) {
+  const raw = String(rawInput || '').trim();
+  if (!raw) return 'https://docs.google.com/spreadsheets';
+  if (/^https?:\/\/docs\.google\.com\/spreadsheets/i.test(raw)) return raw;
+
+  const idMatch = raw.match(/^[a-zA-Z0-9-_]{20,}$/);
+  if (idMatch) return `https://docs.google.com/spreadsheets/d/${raw}`;
+  return 'https://docs.google.com/spreadsheets';
 }
 
 async function loadSettingsAdvanced() {
@@ -1427,6 +1823,8 @@ async function loadSettingsAdvanced() {
   try {
     const data = await fetchJson('/api/v1/settings/advanced');
     if (editorEl) editorEl.value = String(data.content || '');
+    settingsAdvancedRevision = String(data.revision || '');
+    settingsAdvancedStale = false;
     if (resultEl) {
       resultEl.textContent = `불러오기 완료: ${data.configPath || '-'}`;
     }
@@ -1441,51 +1839,128 @@ async function saveSettingsAdvanced() {
   const content = String(editorEl?.value || '');
   if (resultEl) resultEl.textContent = '고급 설정 저장 중...';
   try {
-    const data = await postJson('/api/v1/settings/advanced', { content });
+    const data = await postJson('/api/v1/settings/advanced', {
+      content,
+      revision: settingsAdvancedRevision
+    });
+    settingsAdvancedRevision = String(data.revision || settingsAdvancedRevision || '');
+    settingsAdvancedStale = false;
     if (resultEl) {
       const restartText = data.requiresRestart ? '\n변경 적용을 위해 재시작을 권장합니다.' : '';
       resultEl.textContent = `${data.message || '고급 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`;
     }
     await Promise.all([loadSettingsMajor(), loadConfigStatus(), loadDashboard()]);
   } catch (e) {
-    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+    if (resultEl) {
+      const staleHint = e.code === 'SETTINGS_CONFLICT'
+        ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
+        : '';
+      resultEl.textContent = `오류: ${e.message}${staleHint}`;
+    }
   }
 }
 
-async function loadNaverLoginStatus(options = {}) {
-  const silent = Boolean(options.silent);
-  const resultEl = document.getElementById('settings-naver-login-result');
-  if (!silent && resultEl) resultEl.textContent = '네이버 로그인 상태 조회 중...';
-  try {
-    const data = await fetchJson('/api/v1/session/naver-login');
-    renderNaverLoginStatus(data);
-    if (data?.isRunning) {
-      startNaverLoginPolling();
+function openGoogleSheetFromUi() {
+  const resultEl = document.getElementById('settings-major-result');
+  const inputValue = (document.getElementById('settings-google-sheet-url')?.value || '').trim();
+  const openUrl = buildGoogleSheetOpenUrl(inputValue);
+  window.open(openUrl, '_blank', 'noopener,noreferrer');
+  if (resultEl) {
+    if (/^https?:\/\/docs\.google\.com\/spreadsheets\/d\//i.test(openUrl)) {
+      resultEl.textContent = `스프레드시트를 새 탭에서 열었습니다.\n${openUrl}`;
     } else {
-      stopNaverLoginPolling();
+      resultEl.textContent = [
+        '스프레드시트 목록 페이지를 열었습니다.',
+        '문서를 생성/선택 후 URL을 GOOGLE_SHEET_URL에 입력하세요.',
+        'service_account.json의 이메일을 편집자로 공유해야 합니다.',
+        openUrl
+      ].join('\n');
     }
-    return data;
-  } catch (e) {
-    stopNaverLoginPolling();
-    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
-    return null;
   }
 }
 
 async function startNaverLoginFromUi() {
-  const resultEl = document.getElementById('settings-naver-login-result');
+  const resultEl = document.getElementById('settings-major-result');
   if (resultEl) {
     resultEl.textContent = '로그인 시작 요청 중...';
   }
   try {
-    const data = await postJson('/api/v1/session/naver-login/start', {});
-    renderNaverLoginStatus(data);
-    startNaverLoginPolling();
+    await postJson('/api/v1/session/naver-login/start', {});
     if (resultEl) {
       resultEl.textContent = '네이버 로그인 시작 요청이 접수되었습니다. 브라우저에서 로그인 후 상태를 확인하세요.';
     }
   } catch (e) {
     if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  }
+}
+
+function setBlogAutoResultText(message) {
+  const resultEl = document.getElementById('blog-auto-result');
+  if (resultEl) resultEl.textContent = String(message || '');
+}
+
+async function loadBlogAutoSettings() {
+  const modeEl = document.getElementById('blog-auto-mode');
+  const categoriesEl = document.getElementById('blog-auto-categories');
+  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const trendsTimeEl = document.getElementById('blog-auto-trends-time');
+  const publishTimeEl = document.getElementById('blog-auto-publish-time');
+  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  setBlogAutoResultText('불러오는 중...');
+  try {
+    const data = await fetchJson('/api/v1/settings/major');
+    const fields = data?.fields || {};
+    if (modeEl) modeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
+    if (categoriesEl) categoriesEl.value = String(fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || '');
+    if (dailyPostsEl) dailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
+    if (trendsTimeEl) trendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
+    if (publishTimeEl) publishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
+    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(fields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+    setBlogAutoResultText([
+      '불러오기 완료',
+      '- 현재는 PoC 단계로 저장만 동작합니다.',
+      '- 실제 자동 실행은 추후 활성화 예정입니다.'
+    ].join('\n'));
+  } catch (e) {
+    setBlogAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function saveBlogAutoSettings() {
+  const modeEl = document.getElementById('blog-auto-mode');
+  const categoriesEl = document.getElementById('blog-auto-categories');
+  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const trendsTimeEl = document.getElementById('blog-auto-trends-time');
+  const publishTimeEl = document.getElementById('blog-auto-publish-time');
+  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  setBlogAutoResultText('저장 중...');
+  try {
+    const major = await fetchJson('/api/v1/settings/major');
+    const fields = { ...(major?.fields || {}) };
+    const payload = {
+      ...fields,
+      NAVER_AUTO_MODE: Boolean(modeEl?.checked),
+      NAVER_AUTO_CATEGORIES: (categoriesEl?.value || '').trim(),
+      NAVER_AUTO_DAILY_POSTS: parseInt((dailyPostsEl?.value || '3').trim(), 10) || 0,
+      NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
+      NAVER_AUTO_PUBLISH_TIME: (publishTimeEl?.value || '08:00').trim(),
+      NAVER_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
+    };
+    const saved = await postJson('/api/v1/settings/major', payload);
+    const savedFields = saved?.fields || {};
+    if (modeEl) modeEl.checked = Boolean(savedFields.NAVER_AUTO_MODE ?? savedFields.AUTO_MODE);
+    if (categoriesEl) categoriesEl.value = String(savedFields.NAVER_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || '');
+    if (dailyPostsEl) dailyPostsEl.value = String(savedFields.NAVER_AUTO_DAILY_POSTS ?? savedFields.AUTO_DAILY_BLOG_CAP ?? 3);
+    if (trendsTimeEl) trendsTimeEl.value = String(savedFields.NAVER_AUTO_TRENDS_TIME || '07:30');
+    if (publishTimeEl) publishTimeEl.value = String(savedFields.NAVER_AUTO_PUBLISH_TIME || '08:00');
+    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(savedFields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+    setBlogAutoResultText([
+      '저장 완료',
+      '- 현재는 PoC 단계로 설정만 저장됩니다.',
+      '- 실제 자동 실행은 아직 동작하지 않습니다.'
+    ].join('\n'));
+  } catch (e) {
+    setBlogAutoResultText(`오류: ${e.message}`);
   }
 }
 
@@ -1534,9 +2009,11 @@ function bindActions() {
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
+  const shoppingQuickUrlInput = document.getElementById('shopping-quick-url');
+  const shoppingQuickProductInput = document.getElementById('shopping-quick-product');
   const buildShoppingQuickPayload = (mode) => ({
-    shortUrl: (document.getElementById('shopping-quick-url')?.value || '').trim(),
-    product: (document.getElementById('shopping-quick-product')?.value || '').trim(),
+    shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
+    product: (shoppingQuickProductInput?.value || '').trim(),
     publishMode: mode
   });
   const runShoppingQuickPublish = async (mode) => {
@@ -1766,7 +2243,8 @@ function bindActions() {
       }
     });
 
-    blogTopicsTableBody.addEventListener('dblclick', (e) => {
+    blogTopicsTableBody.addEventListener('click', (e) => {
+      if (e.target?.closest('.inline-editor')) return;
       const cell = e.target?.closest('td.editable-cell');
       if (!cell) return;
       startBlogInlineEdit(cell);
@@ -1787,7 +2265,8 @@ function bindActions() {
       updateShoppingSelectionUi();
     });
 
-    shoppingTableBody.addEventListener('dblclick', (e) => {
+    shoppingTableBody.addEventListener('click', (e) => {
+      if (e.target?.closest('.inline-editor')) return;
       const cell = e.target?.closest('td.editable-cell');
       if (!cell) return;
       startShoppingInlineEdit(cell);
@@ -1814,39 +2293,95 @@ function bindActions() {
   const settingsMajorSaveBtn = document.getElementById('settings-major-save-btn');
   const settingsAdvancedRefreshBtn = document.getElementById('settings-advanced-refresh-btn');
   const settingsAdvancedSaveBtn = document.getElementById('settings-advanced-save-btn');
-  const settingsAdvancedFold = document.getElementById('settings-advanced-fold');
+  const settingsNaverLoginBtn = document.getElementById('settings-naver-login-btn');
+  const settingsOpenGoogleSheetBtn = document.getElementById('settings-open-google-sheet-btn');
+  const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
+  const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
+  const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
+  const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
+  const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
-  const settingsNaverLoginStartBtn = document.getElementById('settings-naver-login-start-btn');
-  const settingsNaverLoginRefreshBtn = document.getElementById('settings-naver-login-refresh-btn');
+  const settingsMajorAutoSaveInputs = [
+    document.getElementById('settings-listen-port'),
+    document.getElementById('settings-naver-id'),
+    document.getElementById('settings-gemini-api-key'),
+    document.getElementById('settings-google-sheet-url')
+  ].filter(Boolean);
+  const settingsMajorAutoSaveSelects = [
+    document.getElementById('settings-listen-host'),
+    document.getElementById('settings-headless'),
+    document.getElementById('settings-typing-speed')
+  ].filter(Boolean);
 
   if (settingsMajorRefreshBtn) settingsMajorRefreshBtn.addEventListener('click', loadSettingsMajor);
-  if (settingsMajorSaveBtn) settingsMajorSaveBtn.addEventListener('click', saveSettingsMajor);
-  if (settingsAdvancedRefreshBtn) settingsAdvancedRefreshBtn.addEventListener('click', loadSettingsAdvanced);
-  if (settingsAdvancedSaveBtn) settingsAdvancedSaveBtn.addEventListener('click', saveSettingsAdvanced);
-  if (settingsNaverLoginStartBtn) settingsNaverLoginStartBtn.addEventListener('click', startNaverLoginFromUi);
-  if (settingsNaverLoginRefreshBtn) settingsNaverLoginRefreshBtn.addEventListener('click', () => loadNaverLoginStatus());
-  settingsTabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tabName = String(btn.dataset.settingsTab || '');
-      activateSettingsTab(tabName, { forceLoad: true });
+  if (settingsMajorSaveBtn) settingsMajorSaveBtn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' }));
+  if (settingsNaverLoginBtn) settingsNaverLoginBtn.addEventListener('click', startNaverLoginFromUi);
+  if (settingsOpenGoogleSheetBtn) settingsOpenGoogleSheetBtn.addEventListener('click', openGoogleSheetFromUi);
+  if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
+  if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
+  if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
+  if (settingsTypingPreviewReplayBtn) settingsTypingPreviewReplayBtn.addEventListener('click', playSettingsTypingPreview);
+  if (settingsTypingPreviewInputEl) {
+    settingsTypingPreviewInputEl.placeholder = SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT;
+    settingsTypingPreviewInputEl.addEventListener('input', () => {
+      setSettingsTypingPreviewMeta('문구가 변경되었습니다. [다시 재생]을 누르거나 입력창을 벗어나면 재생됩니다.');
     });
-  });
-  if (settingsAdvancedFold) {
-    settingsAdvancedFold.addEventListener('toggle', () => {
-      if (settingsAdvancedFold.open && !settingsAdvancedLoadedOnce) {
-        loadSettingsAdvanced();
-        settingsAdvancedLoadedOnce = true;
-      }
+    settingsTypingPreviewInputEl.addEventListener('blur', () => {
+      playSettingsTypingPreview();
     });
   }
+  settingsTabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activateSettingsTab(btn.dataset.settingsTab, { forceReload: true });
+    });
+  });
+  settingsMajorAutoSaveInputs.forEach((inputEl) => {
+    inputEl.addEventListener('input', () => scheduleSettingsMajorAutoSave());
+    inputEl.addEventListener('blur', () => scheduleSettingsMajorAutoSave({ immediate: true }));
+  });
+  settingsMajorAutoSaveSelects.forEach((selectEl) => {
+    selectEl.addEventListener('change', () => scheduleSettingsMajorAutoSave({ immediate: true }));
+  });
+  SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
+    const fileInput = document.getElementById(`settings-image-file-${slot}`);
+    if (fileInput) {
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (file) {
+          settingsShoppingImageFileState[slot] = file;
+        } else {
+          clearStagedSettingsShoppingImage(slot);
+        }
+        renderSettingsShoppingImageSlot(slot);
+      });
+    }
+
+    const resetBtn = document.getElementById(`settings-image-reset-${slot}`);
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        restoreSettingsShoppingDefault(slot);
+      });
+    }
+
+    const clearBtn = document.getElementById(`settings-image-clear-${slot}`);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        clearSettingsShoppingOptional(slot);
+      });
+    }
+  });
+  if (settingsAdvancedRefreshBtn) settingsAdvancedRefreshBtn.addEventListener('click', loadSettingsAdvanced);
+  if (settingsAdvancedSaveBtn) settingsAdvancedSaveBtn.addEventListener('click', saveSettingsAdvanced);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   bindNavigation();
   bindActions();
+  playSettingsTypingPreview();
   loadConfigStatus().finally(() => {
     loadDashboard();
   });
+  loadBlogAutoSettings();
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();
   updateTrendsSelectionUi();
@@ -1855,5 +2390,8 @@ window.addEventListener('DOMContentLoaded', () => {
   renderTrendsPagination();
   renderTopicsPagination();
   renderShoppingPagination();
-  setInterval(loadDashboard, 15000);
+  setInterval(() => {
+    if (isDashboardPollingPaused()) return;
+    loadDashboard();
+  }, 15000);
 });

@@ -368,7 +368,12 @@ function getConfiguredCtaImageUrls() {
 
     const normalized = candidates
         .map(v => normalizeWhitespace(v || ''))
-        .filter(v => /^https?:\/\//i.test(v));
+        .filter(v => {
+            if (!v) return false;
+            if (/^https?:\/\//i.test(v)) return true;
+            if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(v) && !/^file:\/\//i.test(v)) return false;
+            return true;
+        });
 
     return uniqStrings(normalized).slice(0, 3);
 }
@@ -1400,6 +1405,12 @@ function isGenericShoppingTitle(title) {
     return normalized === '네이버쇼핑' || normalized === 'navershopping' || normalized === '쇼핑';
 }
 
+function isErrorLikePageTitle(title) {
+    const normalized = String(title || '').toLowerCase().replace(/\s+/g, '');
+    if (!normalized) return false;
+    return /에러페이지|시스템오류|오류페이지|서비스오류|errorpage|systemerror|serviceerror|internalservererror|forbidden|accessdenied/.test(normalized);
+}
+
 function extractChannelProductNo(url) {
     if (!url) return '';
     try {
@@ -1581,10 +1592,13 @@ function isLikelyInvalidLanding(productData, finalUrl) {
     const title = (productData.title || '').toLowerCase();
     const rawTitle = productData.title || '';
     const bodyLen = (productData.body || '').length;
+    const bodyHead = String(productData.body || '').slice(0, 700).toLowerCase().replace(/\s+/g, '');
     const imageCount = productData.imageUrls?.length || 0;
     const host = getHostLabel(finalUrl).toLowerCase();
 
     if (!title && bodyLen < 120 && imageCount === 0) return true;
+    if (isErrorLikePageTitle(rawTitle)) return true;
+    if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead) && imageCount === 0) return true;
     if ((host.includes('brand.naver.com') || host.includes('brandconnect.naver.com')) && imageCount === 0 && bodyLen < 250) return true;
     if (title.includes('브랜드 커넥트') && imageCount === 0) return true;
     if (host.includes('search.shopping.naver.com') && imageCount === 0 && (isGenericShoppingTitle(rawTitle) || bodyLen < 800)) return true;
@@ -1853,7 +1867,8 @@ function extractStoreAliasesFromHtml(html) {
     return Array.from(aliases);
 }
 
-async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourceHtml = '') {
+async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourceHtml = '', options = {}) {
+    const allowBrowserFallback = options.allowBrowserFallback !== false;
     const deepLinks = extractDeepProductLinksFromHtml(sourceHtml, channelProductNo);
     const storeAliases = extractStoreAliasesFromHtml(sourceHtml);
     const aliasLinks = storeAliases.flatMap(alias => ([
@@ -1892,22 +1907,24 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
         }
     }
 
-    const browserCandidates = uniqueCandidates.slice(0, 5);
-    for (const url of browserCandidates) {
-        const resolved = await resolveCandidateUrlWithBrowser(url);
-        if (!resolved) continue;
+    if (allowBrowserFallback) {
+        const browserCandidates = uniqueCandidates.slice(0, 5);
+        for (const url of browserCandidates) {
+            const resolved = await resolveCandidateUrlWithBrowser(url);
+            if (!resolved) continue;
 
-        const candidateData = extractProductData(resolved.finalUrl, resolved.html);
-        const merged = mergeProductData(baseData, candidateData);
-        if (!isLikelyInvalidLanding(merged, resolved.finalUrl)) {
-            Logger.info(`✅ [Shopping] 브라우저 fallback 성공: ${resolved.finalUrl}`);
-            return {
-                productData: merged,
-                finalUrl: resolved.finalUrl,
-                source: deepLinkSet.has(url) ? 'deep_link_from_brandconnect_browser'
-                    : aliasLinkSet.has(url) ? 'store_alias_fallback_browser'
-                        : 'catalog_fallback_browser'
-            };
+            const candidateData = extractProductData(resolved.finalUrl, resolved.html);
+            const merged = mergeProductData(baseData, candidateData);
+            if (!isLikelyInvalidLanding(merged, resolved.finalUrl)) {
+                Logger.info(`✅ [Shopping] 브라우저 fallback 성공: ${resolved.finalUrl}`);
+                return {
+                    productData: merged,
+                    finalUrl: resolved.finalUrl,
+                    source: deepLinkSet.has(url) ? 'deep_link_from_brandconnect_browser'
+                        : aliasLinkSet.has(url) ? 'store_alias_fallback_browser'
+                            : 'catalog_fallback_browser'
+                };
+            }
         }
     }
 
@@ -1930,7 +1947,94 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
     return null;
 }
 
+function resolveLocalImagePath(source) {
+    const raw = String(source || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return '';
+
+    const execDir = path.dirname(process.execPath || process.cwd());
+    const configDir = CONFIG.CONFIG_SOURCE_PATH
+        ? path.dirname(CONFIG.CONFIG_SOURCE_PATH)
+        : path.join(process.cwd(), 'config');
+    const candidates = [];
+
+    if (/^file:\/\//i.test(raw)) {
+        try {
+            const parsed = new URL(raw);
+            if (parsed.protocol === 'file:') {
+                const host = decodeURIComponent(parsed.hostname || '');
+                let localPath = decodeURIComponent(parsed.pathname || '');
+                if (host === '.') {
+                    localPath = `.${localPath}`;
+                } else if (host && host !== 'localhost') {
+                    localPath = `//${host}${localPath}`;
+                }
+                if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) {
+                    localPath = localPath.slice(1);
+                }
+                if (localPath) candidates.push(localPath);
+            }
+        } catch (e) {
+            const afterScheme = raw.replace(/^file:\/\//i, '');
+            if (afterScheme) candidates.push(afterScheme);
+        }
+    } else {
+        candidates.push(raw);
+    }
+
+    const expanded = [];
+    for (const candidate of candidates) {
+        const normalized = String(candidate || '').trim();
+        if (!normalized) continue;
+        if (path.isAbsolute(normalized)) {
+            expanded.push(normalized);
+        } else {
+            expanded.push(path.resolve(process.cwd(), normalized));
+            expanded.push(path.resolve(configDir, normalized));
+            expanded.push(path.resolve(execDir, normalized));
+        }
+    }
+
+    for (const candidate of expanded) {
+        try {
+            if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+                return candidate;
+            }
+        } catch (e) { }
+    }
+
+    return '';
+}
+
 async function downloadImage(url, saveDir, index, label, referer = '', options = {}) {
+    const rawSource = String(url || '').trim();
+    const localSourcePath = resolveLocalImagePath(url);
+    if (/^file:\/\//i.test(rawSource) && !localSourcePath) {
+        throw new Error(`로컬 이미지 파일을 찾을 수 없습니다: ${rawSource}`);
+    }
+    if (localSourcePath) {
+        const ext = guessExtension(localSourcePath, '');
+        const dataBuffer = fs.readFileSync(localSourcePath);
+        const skipSizeCheck = options.skipSizeCheck === true;
+        if (!skipSizeCheck && dataBuffer.length < 10 * 1024) {
+            throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
+        }
+        const skipQualityCheck = options.skipQualityCheck === true;
+        if (!skipQualityCheck) {
+            const dimensions = getImageDimensions(dataBuffer, ext);
+            if (!isLikelyUsableProductImage(dimensions)) {
+                throw new Error(`이미지 해상도/비율이 본문용으로 부적합하여 스킵합니다 (${dimensions.width}x${dimensions.height})`);
+            }
+        }
+
+        const prefix = String(index).padStart(2, '0');
+        const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
+        const filename = `${prefix}_${safeLabel}.${ext}`;
+        const filePath = path.join(saveDir, filename);
+        fs.writeFileSync(filePath, dataBuffer);
+        return filePath;
+    }
+
     const requestImage = async (targetUrl) => axios.get(targetUrl, {
         responseType: 'arraybuffer',
         timeout: 30000,
@@ -2260,6 +2364,90 @@ function composeMarkdown({
 }
 
 const ShoppingManager = {
+    previewFromShortUrl: async function (shortUrl) {
+        if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
+
+        Logger.info(`🛍️ [Shopping] 미리보기 URL 분석 시작: ${shortUrl}`);
+        const initial = await resolveUrlAndHtml(shortUrl);
+        let sourceHtml = initial.html;
+        let finalUrl = initial.finalUrl;
+        let productData = extractProductData(finalUrl, initial.html);
+        let resolvedSource = 'short_url';
+        let channelProductNo = extractChannelProductNo(finalUrl);
+
+        // 미리보기는 UI 응답성과 안정성을 위해 "브라우저 fallback 없이" 가볍게 처리한다.
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            const deepLinks = extractDeepProductLinksFromHtml(sourceHtml, channelProductNo).slice(0, 2);
+            for (const link of deepLinks) {
+                const resolved = await resolveCandidateUrl(link);
+                if (!resolved) continue;
+                const candidateData = extractProductData(resolved.finalUrl, resolved.html);
+                const merged = mergeProductData(productData, candidateData);
+                if (!isLikelyInvalidLanding(merged, resolved.finalUrl)) {
+                    finalUrl = resolved.finalUrl;
+                    productData = merged;
+                    resolvedSource = 'short_url_deeplink';
+                    break;
+                }
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl) && channelProductNo) {
+            const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, { allowBrowserFallback: false });
+            if (fallback) {
+                finalUrl = fallback.finalUrl;
+                productData = fallback.productData;
+                resolvedSource = fallback.source || resolvedSource;
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl) && channelProductNo) {
+            const searchFallback = await resolveViaShoppingSearchApi(channelProductNo);
+            if (searchFallback) {
+                const fallbackData = {
+                    title: searchFallback.title,
+                    description: searchFallback.description,
+                    body: searchFallback.body,
+                    imageUrls: searchFallback.imageUrls,
+                    commerceData: searchFallback.commerceData,
+                    reviewData: searchFallback.reviewData
+                };
+                productData = mergeProductData(productData, fallbackData);
+                finalUrl = searchFallback.productLink || finalUrl;
+                resolvedSource = 'shop_search_api';
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            throw new Error(`상품 정보를 추출하지 못했습니다. 단축 URL이 상품 페이지를 가리키는지 확인해주세요. (resolved: ${finalUrl})`);
+        }
+
+        const titleBase = productData.title || `쇼핑 리뷰 (${getHostLabel(finalUrl)})`;
+        const thumbnailUrl = Array.isArray(productData.imageUrls) && productData.imageUrls.length > 0
+            ? String(productData.imageUrls[0] || '').trim()
+            : '';
+        const salePrice = productData.commerceData?.salePrice || null;
+        const originalPrice = productData.commerceData?.originalPrice || null;
+        const discountRate = productData.commerceData?.discountRate || null;
+
+        return {
+            shortUrl,
+            finalUrl,
+            title: titleBase,
+            productNameSuggestion: titleBase,
+            thumbnailUrl,
+            resolvedSource,
+            imageCount: Array.isArray(productData.imageUrls) ? productData.imageUrls.length : 0,
+            commerce: {
+                salePrice,
+                originalPrice,
+                discountRate,
+                salePriceText: salePrice ? formatKrw(salePrice) : '',
+                originalPriceText: originalPrice ? formatKrw(originalPrice) : ''
+            }
+        };
+    },
+
     buildPostFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
 
@@ -2268,6 +2456,10 @@ const ShoppingManager = {
         const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
         const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
         const ctaImageUrls = getConfiguredCtaImageUrls();
+        Logger.info(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
+        if (ctaImageInsertCount > 0 && ctaImageUrls.length === 0) {
+            Logger.warn('⚠️ [Shopping] CTA 이미지 소스가 없어 CTA 이미지를 삽입하지 않습니다. (SHOPPING_CTA_IMAGE_URL1~3 확인)');
+        }
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
         const initial = await resolveUrlAndHtml(shortUrl);

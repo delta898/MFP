@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const { version: APP_VERSION } = require('../package.json');
 const License = require('./license');
 const CONFIG = require('./config-loader');
@@ -12,10 +13,49 @@ const BrowserLauncher = require('./browser-launcher');
 const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
 
+const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
+const UI_SESSION_CHECK_TTL_MS = 120000;
 const blogRuntimeLogs = new Map();
 const shoppingRuntimeLogs = new Map();
 const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
+const NAVER_AUTO_DEFAULTS = {
+    mode: false,
+    categories: '',
+    dailyPosts: 3,
+    trendsTime: '07:30',
+    publishTime: '08:00',
+    notifyEnabled: true
+};
+const autoRuntimeState = {
+    enabled: false,
+    running: false,
+    status: 'stopped', // stopped | waiting | running | error
+    message: '자동 모드 비활성화',
+    startedAt: null,
+    lastRunAt: null,
+    nextRunAt: null,
+    lastSummary: null,
+    cycleCount: 0,
+    timer: null,
+    dayKey: '',
+    blogPublishedToday: 0,
+    shoppingPublishedToday: 0,
+    lastPublishAtMs: 0
+};
+const SHOPPING_IMAGE_SLOT_MAP = {
+    ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', fileBase: 'ftc_disclosure', label: '공정위 이미지', required: true },
+    cta1: { key: 'SHOPPING_CTA_IMAGE_URL1', fileBase: 'shopping_cta_1', label: '구매 독려 이미지 1', required: true },
+    cta2: { key: 'SHOPPING_CTA_IMAGE_URL2', fileBase: 'shopping_cta_2', label: '구매 독려 이미지 2', required: false },
+    cta3: { key: 'SHOPPING_CTA_IMAGE_URL3', fileBase: 'shopping_cta_3', label: '구매 독려 이미지 3', required: false }
+};
+const DEFAULT_SHOPPING_IMAGE_SOURCES = {
+    FTC_DISCLOSURE_IMAGE_URL: './config/images/ftc_disclosure.jpeg',
+    SHOPPING_CTA_IMAGE_URL1: './config/images/shopping_cta_1.jpeg',
+    SHOPPING_CTA_IMAGE_URL2: './config/images/shopping_cta_2.jpeg',
+    SHOPPING_CTA_IMAGE_URL3: './config/images/shopping_cta_3.jpeg'
+};
+const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const naverLoginState = {
     status: 'idle', // idle | running | success | failed
     message: '',
@@ -209,6 +249,10 @@ function createRequestId() {
     return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+async function checkNaverSessionForUi() {
+    return checkAuthSessionValid({ cacheTtlMs: UI_SESSION_CHECK_TTL_MS });
+}
+
 function normalizeBool(input, fallback = false) {
     if (typeof input === 'boolean') return input;
     if (typeof input === 'number') return input !== 0;
@@ -253,6 +297,49 @@ function normalizeSortDir(input, fallback = 'desc') {
     if (value === 'desc') return 'desc';
     if (value === 'asc') return 'asc';
     return fallback;
+}
+
+function normalizeListenHost(input, fallback = DEFAULT_HOST) {
+    const raw = String(input || '').trim();
+    if (!raw) return fallback;
+    if (raw.toLowerCase() === 'localhost') return '127.0.0.1';
+    if (raw === '0.0.0.0' || raw === '127.0.0.1') return raw;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(raw)) return raw;
+    return fallback;
+}
+
+function normalizeListenPort(input, fallback = DEFAULT_PORT) {
+    const parsed = parseInt(String(input || ''), 10);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) return fallback;
+    return parsed;
+}
+
+function extractGoogleSheetId(input) {
+    const raw = String(input || '').trim();
+    if (!raw) return '';
+    if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return raw;
+    try {
+        const u = new URL(raw);
+        const byPath = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+        if (byPath?.[1]) return byPath[1];
+        const byQuery = u.searchParams.get('id');
+        if (byQuery && /^[a-zA-Z0-9-_]{20,}$/.test(byQuery)) return byQuery;
+    } catch (e) { }
+    return '';
+}
+
+function normalizeGoogleSheetUrl(rawUrl, fallbackId = '') {
+    const input = String(rawUrl || '').trim();
+    if (input) {
+        const fromInputId = extractGoogleSheetId(input);
+        if (fromInputId) {
+            return `https://docs.google.com/spreadsheets/d/${fromInputId}`;
+        }
+        if (/^https?:\/\//i.test(input)) return input;
+    }
+    const id = extractGoogleSheetId(fallbackId);
+    if (!id) return '';
+    return `https://docs.google.com/spreadsheets/d/${id}`;
 }
 
 function compareSortValues(a, b) {
@@ -359,6 +446,10 @@ function readConfigRaw(configSource) {
     return fs.readFileSync(configSource.path, 'utf-8');
 }
 
+function createConfigRevision(raw) {
+    return crypto.createHash('sha1').update(String(raw || ''), 'utf8').digest('hex');
+}
+
 function tryResolveReadableConfigSource() {
     try {
         return resolveReadableConfigSource();
@@ -373,9 +464,21 @@ function buildDefaultConfigTemplate() {
         'NAVER_ID = ',
         'GEMINI_API_KEY = ',
         'GOOGLE_AUTH_JSON = ./config/service_account.json',
-        'GOOGLE_SHEET_ID = ',
+        'GOOGLE_SHEET_URL = ',
+        `LISTEN_HOST = ${DEFAULT_HOST}`,
+        `LISTEN_PORT = ${DEFAULT_PORT}`,
         'HEADLESS = false',
         'TYPING_SPEED = FAST',
+        'NAVER_AUTO_MODE = false',
+        'NAVER_AUTO_CATEGORIES = ',
+        'NAVER_AUTO_DAILY_POSTS = 3',
+        'NAVER_AUTO_TRENDS_TIME = 07:30',
+        'NAVER_AUTO_PUBLISH_TIME = 08:00',
+        'NAVER_AUTO_NOTIFY_ENABLED = true',
+        `FTC_DISCLOSURE_IMAGE_URL = ${DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL}`,
+        `SHOPPING_CTA_IMAGE_URL1 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1}`,
+        `SHOPPING_CTA_IMAGE_URL2 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2}`,
+        `SHOPPING_CTA_IMAGE_URL3 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL3}`,
         ''
     ].join('\n');
 }
@@ -404,6 +507,117 @@ function parseConfigBool(rawValue, fallback = false) {
 function normalizeTypingSpeed(input, fallback = 'NORMAL') {
     const value = String(input || '').trim().toUpperCase();
     return ALLOWED_TYPING_SPEEDS.includes(value) ? value : fallback;
+}
+
+function normalizePositiveInt(input, fallback) {
+    const parsed = parseInt(String(input ?? ''), 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
+    return parsed;
+}
+
+function normalizeNonNegativeInt(input, fallback) {
+    const parsed = parseInt(String(input ?? ''), 10);
+    if (!Number.isInteger(parsed) || parsed < 0) return fallback;
+    return parsed;
+}
+
+function parseCsvTokens(input) {
+    return String(input || '')
+        .split(',')
+        .map((token) => token.trim())
+        .filter(Boolean);
+}
+
+function toBoolLike(input, fallback = false) {
+    if (typeof input === 'boolean') return input;
+    if (typeof input === 'number') return input !== 0;
+    if (typeof input === 'string') {
+        const v = input.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y', 'on'].includes(v)) return true;
+        if (['false', '0', 'no', 'n', 'off'].includes(v)) return false;
+    }
+    return fallback;
+}
+
+function normalizeTimeHHmm(input, fallback = '07:30') {
+    const raw = String(input || '').trim();
+    const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!m) return fallback;
+    return `${m[1]}:${m[2]}`;
+}
+
+function parseVariationValue(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return 0;
+    if (text.includes('▲')) {
+        const num = parseInt(text.replace(/[^\d-]/g, ''), 10);
+        return Number.isNaN(num) ? 0 : Math.abs(num);
+    }
+    if (text.includes('▼')) {
+        const num = parseInt(text.replace(/[^\d-]/g, ''), 10);
+        return Number.isNaN(num) ? 0 : -Math.abs(num);
+    }
+    const plain = parseInt(text.replace(/[^\d-]/g, ''), 10);
+    return Number.isNaN(plain) ? 0 : plain;
+}
+
+function matchesAnyToken(text, tokens = []) {
+    const haystack = String(text || '').toLowerCase();
+    if (!haystack || !Array.isArray(tokens) || tokens.length === 0) return false;
+    return tokens.some((token) => haystack.includes(String(token || '').toLowerCase()));
+}
+
+function normalizeNaverAutoSettings(input = {}) {
+    const categoriesRaw = String(
+        input.NAVER_AUTO_CATEGORIES
+        ?? input.AUTO_INCLUDE_CATEGORIES
+        ?? input.AUTO_CATEGORIES
+        ?? CONFIG.NAVER_AUTO_CATEGORIES
+        ?? CONFIG.AUTO_INCLUDE_CATEGORIES
+        ?? CONFIG.AUTO_CATEGORIES
+        ?? NAVER_AUTO_DEFAULTS.categories
+    ).trim();
+
+    const mode = toBoolLike(
+        input.NAVER_AUTO_MODE ?? input.AUTO_MODE,
+        toBoolLike(CONFIG.NAVER_AUTO_MODE ?? CONFIG.AUTO_MODE, NAVER_AUTO_DEFAULTS.mode)
+    );
+    const dailyPosts = normalizeNonNegativeInt(
+        input.NAVER_AUTO_DAILY_POSTS ?? input.AUTO_DAILY_BLOG_CAP,
+        normalizeNonNegativeInt(CONFIG.NAVER_AUTO_DAILY_POSTS ?? CONFIG.AUTO_DAILY_BLOG_CAP, NAVER_AUTO_DEFAULTS.dailyPosts)
+    );
+    const trendsTime = normalizeTimeHHmm(
+        input.NAVER_AUTO_TRENDS_TIME,
+        normalizeTimeHHmm(CONFIG.NAVER_AUTO_TRENDS_TIME, NAVER_AUTO_DEFAULTS.trendsTime)
+    );
+    const publishTime = normalizeTimeHHmm(
+        input.NAVER_AUTO_PUBLISH_TIME,
+        normalizeTimeHHmm(CONFIG.NAVER_AUTO_PUBLISH_TIME, NAVER_AUTO_DEFAULTS.publishTime)
+    );
+    const notifyEnabled = toBoolLike(
+        input.NAVER_AUTO_NOTIFY_ENABLED,
+        toBoolLike(CONFIG.NAVER_AUTO_NOTIFY_ENABLED, NAVER_AUTO_DEFAULTS.notifyEnabled)
+    );
+
+    return {
+        NAVER_AUTO_MODE: mode,
+        NAVER_AUTO_CATEGORIES: categoriesRaw,
+        NAVER_AUTO_DAILY_POSTS: dailyPosts,
+        NAVER_AUTO_TRENDS_TIME: trendsTime,
+        NAVER_AUTO_PUBLISH_TIME: publishTime,
+        NAVER_AUTO_NOTIFY_ENABLED: notifyEnabled,
+
+        // legacy alias (내부 호환)
+        AUTO_MODE: mode,
+        AUTO_INCLUDE_CATEGORIES: categoriesRaw,
+        AUTO_CATEGORIES: categoriesRaw,
+        AUTO_DAILY_BLOG_CAP: dailyPosts,
+        AUTO_MAX_BLOG_PER_CYCLE: dailyPosts,
+        AUTO_INTERVAL_MIN: 60,
+        AUTO_TRENDS_ENABLED: true,
+        AUTO_TOPICS_ENABLED: true,
+        AUTO_SHOPPING_ENABLED: false
+    };
 }
 
 function applyConfigUpdates(raw, updates = {}) {
@@ -435,57 +649,267 @@ function applyConfigUpdates(raw, updates = {}) {
 
 function buildMajorSettings(raw, configSource) {
     const fallbackTyping = normalizeTypingSpeed(CONFIG.TYPING_SPEED, 'NORMAL');
+    const fallbackListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
+    const fallbackListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
     const naverId = parseConfigValue(raw, 'NAVER_ID') || String(CONFIG.NAVER_ID || '');
     const geminiApiKey = parseConfigValue(raw, 'GEMINI_API_KEY') || String(CONFIG.GEMINI_API_KEY || '');
-    const googleSheetId = parseConfigValue(raw, 'GOOGLE_SHEET_ID') || String(CONFIG.GOOGLE_SHEET_ID || '');
+    const googleSheetUrlRaw = parseConfigValue(raw, 'GOOGLE_SHEET_URL') || String(CONFIG.GOOGLE_SHEET_URL || '');
+    const legacySheetId = parseConfigValue(raw, 'GOOGLE_SHEET_ID') || String(CONFIG.GOOGLE_SHEET_ID || '');
+    const googleSheetUrl = normalizeGoogleSheetUrl(googleSheetUrlRaw, legacySheetId);
+    const listenHostRaw = parseConfigValue(raw, 'LISTEN_HOST');
+    const listenPortRaw = parseConfigValue(raw, 'LISTEN_PORT');
     const headlessRaw = parseConfigValue(raw, 'HEADLESS');
     const typingRaw = parseConfigValue(raw, 'TYPING_SPEED');
+    const ftcImageUrl = parseConfigValue(raw, 'FTC_DISCLOSURE_IMAGE_URL') || String(CONFIG.FTC_DISCLOSURE_IMAGE_URL || '');
+    const ctaImageUrl1 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL1') || String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || '');
+    const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || '');
+    const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || '');
+    const autoSettings = normalizeNaverAutoSettings({
+        NAVER_AUTO_MODE: parseConfigValue(raw, 'NAVER_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
+        NAVER_AUTO_CATEGORIES:
+            parseConfigValue(raw, 'NAVER_AUTO_CATEGORIES')
+            || parseConfigValue(raw, 'AUTO_INCLUDE_CATEGORIES')
+            || parseConfigValue(raw, 'AUTO_CATEGORIES'),
+        NAVER_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_AUTO_DAILY_POSTS') || parseConfigValue(raw, 'AUTO_DAILY_BLOG_CAP'),
+        NAVER_AUTO_TRENDS_TIME: parseConfigValue(raw, 'NAVER_AUTO_TRENDS_TIME'),
+        NAVER_AUTO_PUBLISH_TIME: parseConfigValue(raw, 'NAVER_AUTO_PUBLISH_TIME'),
+        NAVER_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_AUTO_NOTIFY_ENABLED')
+    });
+    const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
+    const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
     const headless = parseConfigBool(headlessRaw, Boolean(CONFIG.HEADLESS));
     const typingSpeed = normalizeTypingSpeed(typingRaw, fallbackTyping);
+
+    const fields = {
+        LISTEN_HOST: listenHost,
+        LISTEN_PORT: listenPort,
+        NAVER_ID: naverId,
+        GEMINI_API_KEY: geminiApiKey,
+        GOOGLE_SHEET_URL: googleSheetUrl,
+        HEADLESS: headless,
+        TYPING_SPEED: typingSpeed,
+        FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
+        SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
+        SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
+        SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
+        NAVER_AUTO_MODE: autoSettings.NAVER_AUTO_MODE,
+        NAVER_AUTO_CATEGORIES: autoSettings.NAVER_AUTO_CATEGORIES,
+        NAVER_AUTO_DAILY_POSTS: autoSettings.NAVER_AUTO_DAILY_POSTS,
+        NAVER_AUTO_TRENDS_TIME: autoSettings.NAVER_AUTO_TRENDS_TIME,
+        NAVER_AUTO_PUBLISH_TIME: autoSettings.NAVER_AUTO_PUBLISH_TIME,
+        NAVER_AUTO_NOTIFY_ENABLED: autoSettings.NAVER_AUTO_NOTIFY_ENABLED
+    };
 
     return {
         configPath: configSource?.path || '',
         configSourceType: configSource?.sourceType || 'config',
-        fields: {
-            NAVER_ID: naverId,
-            GEMINI_API_KEY: geminiApiKey,
-            GOOGLE_SHEET_ID: googleSheetId,
-            HEADLESS: headless,
-            TYPING_SPEED: typingSpeed
-        },
-        typingSpeedOptions: ALLOWED_TYPING_SPEEDS
+        fields,
+        typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
+        shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
+        shoppingImageSlots: buildShoppingImageSlots(fields)
     };
 }
 
 function applyRuntimeConfigFromMajor(fields = {}) {
+    const listenHost = normalizeListenHost(fields.LISTEN_HOST, normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST));
+    const listenPort = normalizeListenPort(fields.LISTEN_PORT, normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT));
     const naverId = String(fields.NAVER_ID || '').trim();
     const geminiApiKey = String(fields.GEMINI_API_KEY || '').trim();
-    const googleSheetId = String(fields.GOOGLE_SHEET_ID || '').trim();
+    const googleSheetUrl = normalizeGoogleSheetUrl(fields.GOOGLE_SHEET_URL, CONFIG.GOOGLE_SHEET_ID);
+    const googleSheetId = extractGoogleSheetId(googleSheetUrl);
     const headless = Boolean(fields.HEADLESS);
     const typingSpeed = normalizeTypingSpeed(fields.TYPING_SPEED, 'NORMAL');
+    const ftcImageUrl = String(fields.FTC_DISCLOSURE_IMAGE_URL || '').trim();
+    const ctaImageUrl1 = String(fields.SHOPPING_CTA_IMAGE_URL1 || '').trim();
+    const ctaImageUrl2 = String(fields.SHOPPING_CTA_IMAGE_URL2 || '').trim();
+    const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
+    const autoSettings = normalizeNaverAutoSettings(fields);
 
     CONFIG.NAVER_ID = naverId;
+    CONFIG.LISTEN_HOST = listenHost;
+    CONFIG.LISTEN_PORT = listenPort;
     CONFIG.GEMINI_API_KEY = geminiApiKey;
+    CONFIG.GOOGLE_SHEET_URL = googleSheetUrl;
     CONFIG.GOOGLE_SHEET_ID = googleSheetId;
     CONFIG.HEADLESS = headless;
     CONFIG.TYPING_SPEED = typingSpeed;
     CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
     CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;
+    CONFIG.FTC_DISCLOSURE_IMAGE_URL = ftcImageUrl;
+    CONFIG.SHOPPING_CTA_IMAGE_URL1 = ctaImageUrl1;
+    CONFIG.SHOPPING_CTA_IMAGE_URL2 = ctaImageUrl2;
+    CONFIG.SHOPPING_CTA_IMAGE_URL3 = ctaImageUrl3;
+    Object.assign(CONFIG, autoSettings);
 }
 
 function parseMajorFieldsFromRequest(requestBody = {}) {
+    const listenHost = normalizeListenHost(requestBody.LISTEN_HOST, DEFAULT_HOST);
+    const listenPort = normalizeListenPort(requestBody.LISTEN_PORT, DEFAULT_PORT);
     const naverId = String(requestBody.NAVER_ID || '').trim();
     const geminiApiKey = String(requestBody.GEMINI_API_KEY || '').trim();
-    const googleSheetId = String(requestBody.GOOGLE_SHEET_ID || '').trim();
+    const googleSheetUrl = normalizeGoogleSheetUrl(requestBody.GOOGLE_SHEET_URL, requestBody.GOOGLE_SHEET_ID);
     const headless = normalizeBool(requestBody.HEADLESS, false);
     const typingSpeed = normalizeTypingSpeed(requestBody.TYPING_SPEED, 'NORMAL');
+    const ftcImageUrl = String(requestBody.FTC_DISCLOSURE_IMAGE_URL || '').trim();
+    const ctaImageUrl1 = String(requestBody.SHOPPING_CTA_IMAGE_URL1 || '').trim();
+    const ctaImageUrl2 = String(requestBody.SHOPPING_CTA_IMAGE_URL2 || '').trim();
+    const ctaImageUrl3 = String(requestBody.SHOPPING_CTA_IMAGE_URL3 || '').trim();
+    const autoSettings = normalizeNaverAutoSettings(requestBody);
     return {
+        LISTEN_HOST: listenHost,
+        LISTEN_PORT: listenPort,
         NAVER_ID: naverId,
         GEMINI_API_KEY: geminiApiKey,
-        GOOGLE_SHEET_ID: googleSheetId,
+        GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
-        TYPING_SPEED: typingSpeed
+        TYPING_SPEED: typingSpeed,
+        FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
+        SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
+        SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
+        SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
+        ...autoSettings
     };
+}
+
+function isAllowedImageSourceValue(value) {
+    const v = String(value || '').trim();
+    if (!v) return true;
+    if (/^https:\/\//i.test(v)) return true;
+    if (/^http:\/\//i.test(v)) return false;
+    if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(v)) return false;
+    return true;
+}
+
+function validateRequiredShoppingImageSources(fields = {}) {
+    const errors = [];
+    for (const slotInfo of Object.values(SHOPPING_IMAGE_SLOT_MAP)) {
+        if (!slotInfo.required) continue;
+        const value = String(fields[slotInfo.key] || '').trim();
+        if (!value) {
+            errors.push(`${slotInfo.label}는 필수입니다.`);
+        }
+    }
+    return errors;
+}
+
+function resolveLocalImagePathFromSource(source) {
+    const raw = String(source || '').trim();
+    if (!raw || /^https?:\/\//i.test(raw)) return '';
+
+    const writablePath = resolveWritableConfigPath();
+    const configDir = path.dirname(writablePath);
+    const execDir = path.dirname(process.execPath || process.cwd());
+    const candidates = [];
+    if (/^file:\/\//i.test(raw)) {
+        try {
+            const parsed = new URL(raw);
+            if (parsed.protocol === 'file:') {
+                const host = decodeURIComponent(parsed.hostname || '');
+                let localPath = decodeURIComponent(parsed.pathname || '');
+                if (host === '.') {
+                    localPath = `.${localPath}`;
+                } else if (host && host !== 'localhost') {
+                    localPath = `//${host}${localPath}`;
+                }
+                if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) {
+                    localPath = localPath.slice(1);
+                }
+                if (localPath) candidates.push(localPath);
+            }
+        } catch (e) {
+            const afterScheme = raw.replace(/^file:\/\//i, '');
+            if (afterScheme) candidates.push(afterScheme);
+        }
+    } else {
+        candidates.push(raw);
+    }
+
+    const expanded = [];
+    for (const candidate of candidates) {
+        const normalized = String(candidate || '').trim();
+        if (!normalized) continue;
+        if (path.isAbsolute(normalized)) {
+            expanded.push(normalized);
+        } else {
+            expanded.push(path.resolve(process.cwd(), normalized));
+            expanded.push(path.resolve(configDir, normalized));
+            expanded.push(path.resolve(execDir, normalized));
+        }
+    }
+
+    for (const candidate of expanded) {
+        try {
+            if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+        } catch (e) { }
+    }
+
+    return '';
+}
+
+function buildShoppingImageSlots(fields = {}) {
+    const slots = {};
+    for (const [slot, info] of Object.entries(SHOPPING_IMAGE_SLOT_MAP)) {
+        const source = String(fields[info.key] || '').trim();
+        const isRemote = /^https?:\/\//i.test(source);
+        const isLocal = !!source && !isRemote;
+        const defaultSource = String(DEFAULT_SHOPPING_IMAGE_SOURCES[info.key] || '').trim();
+        const previewUrl = source
+            ? (isLocal
+                ? `/api/v1/settings/shopping-image/preview?slot=${encodeURIComponent(slot)}&_t=${Date.now()}`
+                : source)
+            : '';
+        slots[slot] = {
+            slot,
+            label: info.label,
+            key: info.key,
+            source,
+            defaultSource,
+            required: Boolean(info.required),
+            mode: source ? (isLocal ? 'local' : 'remote') : 'empty',
+            previewUrl
+        };
+    }
+    return slots;
+}
+
+function inferImageExt(fileName = '', mimeType = '') {
+    const fromName = path.extname(String(fileName || '')).toLowerCase();
+    if (ALLOWED_IMAGE_EXTS.has(fromName)) return fromName;
+    const m = String(mimeType || '').toLowerCase();
+    if (m.includes('png')) return '.png';
+    if (m.includes('jpeg') || m.includes('jpg')) return '.jpg';
+    if (m.includes('webp')) return '.webp';
+    if (m.includes('gif')) return '.gif';
+    return '';
+}
+
+function parseBase64ImagePayload(requestBody = {}) {
+    const fileName = String(requestBody.fileName || '').trim();
+    const mimeType = String(requestBody.mimeType || '').trim();
+    let base64Data = String(requestBody.base64Data || '').trim();
+    if (!base64Data) throw new Error('이미지 데이터가 비어 있습니다.');
+
+    const dataUrlMatch = base64Data.match(/^data:([^;,]+);base64,(.+)$/i);
+    if (dataUrlMatch) {
+        if (!mimeType) {
+            requestBody.mimeType = dataUrlMatch[1] || '';
+        }
+        base64Data = dataUrlMatch[2] || '';
+    }
+
+    const ext = inferImageExt(fileName, mimeType || requestBody.mimeType || '');
+    if (!ext) throw new Error('지원하지 않는 이미지 형식입니다. (png/jpg/jpeg/webp/gif)');
+
+    let buffer;
+    try {
+        buffer = Buffer.from(base64Data, 'base64');
+    } catch (e) {
+        throw new Error('이미지 base64 디코딩에 실패했습니다.');
+    }
+    if (!buffer || buffer.length < 128) throw new Error('이미지 데이터가 너무 작습니다.');
+    if (buffer.length > 10 * 1024 * 1024) throw new Error('이미지 파일이 너무 큽니다. (최대 10MB)');
+
+    return { buffer, ext };
 }
 
 function isNaverLoginCompletedUrl(urlLike) {
@@ -1534,6 +1958,354 @@ async function executeKeywordsToTopicsAction(requestBody = {}) {
     };
 }
 
+function getAutoSettingsSnapshot() {
+    return normalizeNaverAutoSettings({});
+}
+
+function getDateKeyLocal(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function resetAutoDailyCountersIfNeeded() {
+    const today = getDateKeyLocal();
+    if (autoRuntimeState.dayKey !== today) {
+        autoRuntimeState.dayKey = today;
+        autoRuntimeState.blogPublishedToday = 0;
+        autoRuntimeState.shoppingPublishedToday = 0;
+    }
+}
+
+function getAutoStatusPayload() {
+    const settings = getAutoSettingsSnapshot();
+    return {
+        enabled: autoRuntimeState.enabled,
+        running: autoRuntimeState.running,
+        status: autoRuntimeState.status,
+        message: autoRuntimeState.message,
+        startedAt: autoRuntimeState.startedAt,
+        lastRunAt: autoRuntimeState.lastRunAt,
+        nextRunAt: autoRuntimeState.nextRunAt,
+        cycleCount: autoRuntimeState.cycleCount,
+        lastSummary: autoRuntimeState.lastSummary,
+        dayKey: autoRuntimeState.dayKey,
+        blogPublishedToday: autoRuntimeState.blogPublishedToday,
+        shoppingPublishedToday: autoRuntimeState.shoppingPublishedToday,
+        settings
+    };
+}
+
+function clearAutoTimer() {
+    if (autoRuntimeState.timer) {
+        clearTimeout(autoRuntimeState.timer);
+        autoRuntimeState.timer = null;
+    }
+}
+
+function scheduleNextAutoCycle(delayMs = null) {
+    clearAutoTimer();
+    if (!autoRuntimeState.enabled) {
+        autoRuntimeState.nextRunAt = null;
+        return;
+    }
+    const settings = getAutoSettingsSnapshot();
+    const waitMs = Number.isFinite(Number(delayMs))
+        ? Math.max(500, parseInt(delayMs, 10))
+        : Math.max(1000, settings.AUTO_INTERVAL_MIN * 60 * 1000);
+    autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
+    autoRuntimeState.timer = setTimeout(() => {
+        runAutoCycle('timer').catch((e) => {
+            Logger.error(`❌ [AUTO] 사이클 실행 실패: ${e.message}`);
+        });
+    }, waitMs);
+}
+
+function stopAutoRunner(reason = '자동 모드 중지') {
+    clearAutoTimer();
+    autoRuntimeState.enabled = false;
+    autoRuntimeState.status = 'stopped';
+    autoRuntimeState.message = reason;
+    autoRuntimeState.nextRunAt = null;
+}
+
+function startAutoRunner(reason = '자동 모드 시작') {
+    autoRuntimeState.enabled = true;
+    if (!autoRuntimeState.startedAt) autoRuntimeState.startedAt = new Date().toISOString();
+    autoRuntimeState.status = autoRuntimeState.running ? 'running' : 'waiting';
+    autoRuntimeState.message = reason;
+    scheduleNextAutoCycle(800);
+}
+
+function syncAutoRunnerWithConfig() {
+    const settings = getAutoSettingsSnapshot();
+    // PoC 단계: 설정만 저장하고 실제 자동 실행은 아직 시작하지 않는다.
+    clearAutoTimer();
+    autoRuntimeState.enabled = false;
+    autoRuntimeState.running = false;
+    autoRuntimeState.status = 'stopped';
+    autoRuntimeState.nextRunAt = null;
+    autoRuntimeState.message = settings.NAVER_AUTO_MODE
+        ? 'NAVER_AUTO_MODE는 저장되었지만, 현재 PoC 단계로 자동 실행은 비활성화되어 있습니다.'
+        : 'NAVER_AUTO_MODE가 비활성화되어 있습니다.';
+}
+
+function filterAutoTopicCandidates(items = [], settings = {}) {
+    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
+    const excludeKeywords = parseCsvTokens(settings.AUTO_EXCLUDE_KEYWORDS);
+
+    return items.filter((item) => {
+        const status = String(item?.status || '').trim();
+        if (status !== '대기' && status !== '블로그 발행 준비 완료') return false;
+
+        const subject = String(item?.subject || '').trim();
+        const keywordText = Array.isArray(item?.keywords) ? item.keywords.join(', ') : String(item?.keywords || '');
+        const text = `${subject} ${keywordText}`.toLowerCase();
+        if (includeCategories.length > 0 && !matchesAnyToken(text, includeCategories)) return false;
+        if (excludeKeywords.length > 0 && matchesAnyToken(text, excludeKeywords)) return false;
+        return true;
+    });
+}
+
+async function executeAutoTrendsToTopics(settings = {}) {
+    const trendsRes = await Utils.readGoogleSheetTrendsAll({ status: '대기', q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
+    const trends = Array.isArray(trendsRes.items) ? trendsRes.items : [];
+    if (trends.length === 0) {
+        return { appendedCount: 0, candidates: 0 };
+    }
+
+    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
+    const excludeKeywords = parseCsvTokens(settings.AUTO_EXCLUDE_KEYWORDS);
+    const minVariation = normalizeNonNegativeInt(settings.AUTO_TRENDS_MIN_VARIATION, 0);
+
+    const filtered = trends.filter((item) => {
+        const category = String(item?.category || '').trim();
+        const keyword = String(item?.keyword || '').trim();
+        const text = `${category} ${keyword}`.toLowerCase();
+        if (includeCategories.length > 0 && !matchesAnyToken(text, includeCategories)) return false;
+        if (excludeKeywords.length > 0 && matchesAnyToken(text, excludeKeywords)) return false;
+        if (parseVariationValue(item?.variation) < minVariation) return false;
+        return Boolean(keyword);
+    });
+
+    if (filtered.length === 0) {
+        return { appendedCount: 0, candidates: 0 };
+    }
+
+    const existingTopicsRes = await Utils.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
+    const existingTopics = Array.isArray(existingTopicsRes.items) ? existingTopicsRes.items : [];
+    const existingKeySet = new Set(
+        existingTopics.map((item) => `${String(item.subject || '').trim()}::${Array.isArray(item.keywords) ? item.keywords.join(',').trim() : ''}`)
+    );
+
+    const topicsToAppend = [];
+    const trendRowIndicesToMark = [];
+    for (const item of filtered) {
+        const subject = String(item.category || item.keyword || '').trim();
+        const keyword = String(item.keyword || '').trim();
+        if (!subject || !keyword) continue;
+        const key = `${subject}::${keyword}`;
+        if (existingKeySet.has(key)) {
+            trendRowIndicesToMark.push(item.rowIndex);
+            continue;
+        }
+        existingKeySet.add(key);
+        topicsToAppend.push({
+            subject,
+            keywords: [keyword],
+            content_guide: {
+                additional_instructions: '',
+                reference_urls: []
+            },
+            use_external_ref: true,
+            image_options: { generate: false, count: 4 },
+            status: '블로그 발행 준비 완료'
+        });
+        trendRowIndicesToMark.push(item.rowIndex);
+    }
+
+    if (topicsToAppend.length > 0) {
+        const appendResult = await Utils.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '블로그 발행 준비 완료' });
+        if (!appendResult?.success) {
+            throw new Error(appendResult?.message || 'AUTO trends→topics append 실패');
+        }
+    }
+
+    for (const rowIndex of trendRowIndicesToMark) {
+        await Utils.updateGoogleSheetTrendStatus(rowIndex, '키워드 목록 추가 완료');
+    }
+
+    return {
+        appendedCount: topicsToAppend.length,
+        candidates: filtered.length
+    };
+}
+
+async function runAutoCycle(trigger = 'manual') {
+    if (!autoRuntimeState.enabled) return;
+    if (autoRuntimeState.running) return;
+
+    autoRuntimeState.running = true;
+    autoRuntimeState.status = 'running';
+    autoRuntimeState.message = `자동 사이클 실행 중 (${trigger})`;
+    autoRuntimeState.lastRunAt = new Date().toISOString();
+    autoRuntimeState.nextRunAt = null;
+    resetAutoDailyCountersIfNeeded();
+
+    const summary = {
+        trigger,
+        trendsCollected: 0,
+        trendsToTopics: 0,
+        blogAttempted: 0,
+        blogSuccess: 0,
+        shoppingAttempted: 0,
+        shoppingSuccess: 0,
+        skipped: []
+    };
+
+    try {
+        const settings = getAutoSettingsSnapshot();
+        if (!settings.AUTO_MODE) {
+            stopAutoRunner('설정에 따라 자동 모드 비활성화');
+            return;
+        }
+
+        const precheck = await License.checkLicenseStatus({ quiet: true });
+        if (!precheck.success) {
+            autoRuntimeState.status = 'error';
+            autoRuntimeState.message = `라이선스 확인 실패: ${precheck.message}`;
+            autoRuntimeState.lastSummary = summary;
+            return;
+        }
+        const features = toFeatureMap(precheck.features);
+        const maxBlogByPlan = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
+        const maxShoppingByPlan = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
+
+        const requiresNaverSession = settings.AUTO_TRENDS_ENABLED || settings.AUTO_MAX_BLOG_PER_CYCLE > 0 || settings.AUTO_SHOPPING_ENABLED;
+        if (requiresNaverSession) {
+            const session = await checkAuthSessionValid();
+            if (!session.ok) {
+                autoRuntimeState.status = 'waiting';
+                autoRuntimeState.message = '네이버 로그인 세션이 유효하지 않아 자동 사이클을 대기합니다.';
+                autoRuntimeState.lastSummary = summary;
+                scheduleNextAutoCycle();
+                return;
+            }
+        }
+
+        if (settings.AUTO_TRENDS_ENABLED && isCommandEnabled(features, 'trends')) {
+            try {
+                const trendsResult = await executeTrendCollectAction({});
+                if (trendsResult.success) {
+                    summary.trendsCollected = Number(trendsResult?.data?.appendedCount || trendsResult?.data?.collectedCount || 0);
+                } else {
+                    summary.skipped.push(`트렌드 수집 실패: ${trendsResult.message || trendsResult.code || 'unknown'}`);
+                }
+            } catch (e) {
+                summary.skipped.push(`트렌드 수집 실패: ${e.message}`);
+            }
+        }
+
+        if (settings.AUTO_TOPICS_ENABLED) {
+            try {
+                const mapResult = await executeAutoTrendsToTopics(settings);
+                summary.trendsToTopics = Number(mapResult.appendedCount || 0);
+            } catch (e) {
+                summary.skipped.push(`trends→topics 실패: ${e.message}`);
+            }
+        }
+
+        const nowMs = Date.now();
+        const minGapMs = Math.max(0, settings.AUTO_MIN_POST_GAP_MIN) * 60 * 1000;
+        const gapAllowed = minGapMs <= 0 || autoRuntimeState.lastPublishAtMs <= 0 || (nowMs - autoRuntimeState.lastPublishAtMs >= minGapMs);
+        if (!gapAllowed) {
+            summary.skipped.push(`포스트 간격 제한(${settings.AUTO_MIN_POST_GAP_MIN}분)으로 발행 대기`);
+        }
+
+        const dailyBlogCap = settings.AUTO_DAILY_BLOG_CAP;
+        const dailyShoppingCap = settings.AUTO_DAILY_SHOPPING_CAP;
+        const remainingBlogByDaily = dailyBlogCap > 0 ? Math.max(0, dailyBlogCap - autoRuntimeState.blogPublishedToday) : Number.MAX_SAFE_INTEGER;
+        const remainingShoppingByDaily = dailyShoppingCap > 0 ? Math.max(0, dailyShoppingCap - autoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
+
+        if (gapAllowed && isCommandEnabled(features, 'batch')) {
+            const targetLimit = Math.max(0, Math.min(settings.AUTO_MAX_BLOG_PER_CYCLE, maxBlogByPlan, remainingBlogByDaily));
+            if (targetLimit > 0) {
+                const topicsRes = await Utils.readGoogleSheetTopicsAll({
+                    status: '',
+                    q: '',
+                    limit: 100000,
+                    offset: 0,
+                    sortBy: 'rowNumber',
+                    sortDir: 'asc'
+                });
+                const topicItems = Array.isArray(topicsRes.items) ? topicsRes.items : [];
+                const candidates = filterAutoTopicCandidates(topicItems, settings)
+                    .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
+                    .slice(0, targetLimit);
+                const rowIndices = candidates.map((item) => item.rowIndex).filter((v) => Number.isInteger(v) && v >= 0);
+                summary.blogAttempted = rowIndices.length;
+                if (rowIndices.length > 0) {
+                    const blogResult = await executeBlogBatchRowsAction({ action: 'batch', rowIndices });
+                    const successCount = Number(blogResult?.data?.successCount || 0);
+                    summary.blogSuccess = successCount;
+                    if (successCount > 0) {
+                        autoRuntimeState.blogPublishedToday += successCount;
+                        autoRuntimeState.lastPublishAtMs = Date.now();
+                    }
+                    const failCount = Number(blogResult?.data?.failCount || 0);
+                    if (failCount > 0) summary.skipped.push(`블로그 발행 실패 ${failCount}건`);
+                }
+            }
+        }
+
+        if (gapAllowed && settings.AUTO_SHOPPING_ENABLED && isCommandEnabled(features, 'shopping')) {
+            const targetLimit = Math.max(0, Math.min(settings.AUTO_MAX_SHOPPING_PER_CYCLE, maxShoppingByPlan, remainingShoppingByDaily));
+            if (targetLimit > 0) {
+                const shoppingRes = await Utils.readGoogleSheetShoppingAll({
+                    status: '발행 준비 완료',
+                    q: '',
+                    limit: 100000,
+                    offset: 0,
+                    sortBy: 'rowNumber',
+                    sortDir: 'asc'
+                });
+                const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
+                const rowIndices = shoppingItems
+                    .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
+                    .slice(0, targetLimit)
+                    .map((item) => item.rowIndex)
+                    .filter((v) => Number.isInteger(v) && v >= 0);
+                summary.shoppingAttempted = rowIndices.length;
+                if (rowIndices.length > 0) {
+                    const shoppingResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
+                    const successCount = Number(shoppingResult?.data?.successCount || 0);
+                    summary.shoppingSuccess = successCount;
+                    if (successCount > 0) {
+                        autoRuntimeState.shoppingPublishedToday += successCount;
+                        autoRuntimeState.lastPublishAtMs = Date.now();
+                    }
+                    const failCount = Number(shoppingResult?.data?.failCount || 0);
+                    if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
+                }
+            }
+        }
+
+        autoRuntimeState.cycleCount += 1;
+        autoRuntimeState.status = 'waiting';
+        autoRuntimeState.message = '자동 사이클 완료';
+        autoRuntimeState.lastSummary = summary;
+    } catch (e) {
+        autoRuntimeState.status = 'error';
+        autoRuntimeState.message = `자동 사이클 오류: ${e.message}`;
+        autoRuntimeState.lastSummary = summary;
+        Logger.error(`❌ [AUTO] 사이클 오류: ${e.message}`);
+    } finally {
+        autoRuntimeState.running = false;
+        if (autoRuntimeState.enabled) scheduleNextAutoCycle();
+    }
+}
+
 function readJsonBody(req, limitBytes = 1024 * 1024) {
     return new Promise((resolve, reject) => {
         let total = 0;
@@ -1616,9 +2388,24 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         });
     }
 
+    if (pathname === '/api/v1/auto/status') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendSuccess(res, requestId, getAutoStatusPayload());
+    }
+
+    if (pathname === '/api/v1/auto/start') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendError(res, requestId, 409, 'AUTO_POC_ONLY', '현재 Auto Mode는 PoC 단계로 설정 저장만 지원합니다. 실제 자동 실행은 추후 활성화 예정입니다.');
+    }
+
+    if (pathname === '/api/v1/auto/stop') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        return sendError(res, requestId, 409, 'AUTO_POC_ONLY', '현재 Auto Mode는 PoC 단계로 설정 저장만 지원합니다.');
+    }
+
     if (pathname === '/api/v1/session/naver') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const session = await checkAuthSessionValid();
+        const session = await checkNaverSessionForUi();
         return sendSuccess(res, requestId, {
             valid: Boolean(session.ok),
             reason: session.reason || '',
@@ -1679,23 +2466,58 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                 const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
                 const writablePath = resolveWritableConfigPath();
                 const fields = parseMajorFieldsFromRequest(requestBody || {});
+                const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
+                const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
+                const imageKeys = [
+                    'FTC_DISCLOSURE_IMAGE_URL',
+                    'SHOPPING_CTA_IMAGE_URL1',
+                    'SHOPPING_CTA_IMAGE_URL2',
+                    'SHOPPING_CTA_IMAGE_URL3'
+                ];
+                for (const key of imageKeys) {
+                    if (!isAllowedImageSourceValue(fields[key])) {
+                        const slotInfo = Object.values(SHOPPING_IMAGE_SLOT_MAP).find(v => v.key === key);
+                        const label = slotInfo?.label || key;
+                        return sendError(res, requestId, 400, 'INVALID_IMAGE_SOURCE', `${label} 경로는 https:// 또는 로컬 파일 경로(예: ./config/images/sample.jpg) 형식만 허용됩니다.`);
+                    }
+                }
+                const requiredErrors = validateRequiredShoppingImageSources(fields);
+                if (requiredErrors.length > 0) {
+                    return sendError(res, requestId, 400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
+                }
                 const nextRaw = applyConfigUpdates(raw, {
+                    LISTEN_HOST: fields.LISTEN_HOST,
+                    LISTEN_PORT: String(fields.LISTEN_PORT),
                     NAVER_ID: fields.NAVER_ID,
                     GEMINI_API_KEY: fields.GEMINI_API_KEY,
-                    GOOGLE_SHEET_ID: fields.GOOGLE_SHEET_ID,
+                    GOOGLE_SHEET_URL: fields.GOOGLE_SHEET_URL,
                     HEADLESS: fields.HEADLESS ? 'true' : 'false',
-                    TYPING_SPEED: fields.TYPING_SPEED
+                    TYPING_SPEED: fields.TYPING_SPEED,
+                    NAVER_AUTO_MODE: fields.NAVER_AUTO_MODE ? 'true' : 'false',
+                    NAVER_AUTO_CATEGORIES: fields.NAVER_AUTO_CATEGORIES,
+                    NAVER_AUTO_DAILY_POSTS: String(fields.NAVER_AUTO_DAILY_POSTS),
+                    NAVER_AUTO_TRENDS_TIME: fields.NAVER_AUTO_TRENDS_TIME,
+                    NAVER_AUTO_PUBLISH_TIME: fields.NAVER_AUTO_PUBLISH_TIME,
+                    NAVER_AUTO_NOTIFY_ENABLED: fields.NAVER_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
+                    FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
+                    SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
+                    SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
+                    SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3
                 });
                 fs.mkdirSync(path.dirname(writablePath), { recursive: true });
                 fs.writeFileSync(writablePath, nextRaw, 'utf-8');
                 applyRuntimeConfigFromMajor(fields);
+                syncAutoRunnerWithConfig();
+                const requiresRestart =
+                    fields.LISTEN_HOST !== prevListenHost ||
+                    normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT) !== prevListenPort;
                 CONFIG.CONFIG_READY = true;
                 CONFIG.CONFIG_SOURCE_TYPE = 'config';
                 CONFIG.CONFIG_SOURCE_PATH = writablePath;
                 CONFIG.CONFIG_ERROR_MESSAGE = '';
                 return sendSuccess(res, requestId, {
                     ...buildMajorSettings(nextRaw, { path: writablePath, sourceType: 'config' }),
-                    requiresRestart: false,
+                    requiresRestart,
                     message: '주요 설정 저장 완료'
                 });
             } catch (e) {
@@ -1711,10 +2533,12 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             try {
                 const configSource = tryResolveReadableConfigSource();
                 const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+                const revision = createConfigRevision(raw);
                 return sendSuccess(res, requestId, {
                     configPath: (configSource?.path) || resolveWritableConfigPath(),
                     configSourceType: (configSource?.sourceType) || 'generated',
-                    content: raw
+                    content: raw,
+                    revision
                 });
             } catch (e) {
                 return sendError(res, requestId, 400, 'SETTINGS_READ_FAILED', e.message);
@@ -1731,26 +2555,58 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             }
 
             try {
+                const configSource = tryResolveReadableConfigSource();
+                const currentRaw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+                const currentRevision = createConfigRevision(currentRaw);
+                const expectedRevision = String(requestBody?.revision || '').trim();
+                if (expectedRevision && expectedRevision !== currentRevision) {
+                    return sendError(
+                        res,
+                        requestId,
+                        409,
+                        'SETTINGS_CONFLICT',
+                        '고급 설정이 최신 상태가 아닙니다. [원문 다시 불러오기] 후 다시 저장해 주세요.'
+                    );
+                }
+
                 const writablePath = resolveWritableConfigPath();
                 fs.mkdirSync(path.dirname(writablePath), { recursive: true });
                 fs.writeFileSync(writablePath, content, 'utf-8');
                 const fields = parseMajorFieldsFromRequest({
+                    LISTEN_HOST: parseConfigValue(content, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
+                    LISTEN_PORT: parseConfigValue(content, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
                     NAVER_ID: parseConfigValue(content, 'NAVER_ID') || CONFIG.NAVER_ID,
                     GEMINI_API_KEY: parseConfigValue(content, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
-                    GOOGLE_SHEET_ID: parseConfigValue(content, 'GOOGLE_SHEET_ID') || CONFIG.GOOGLE_SHEET_ID,
+                    GOOGLE_SHEET_URL: parseConfigValue(content, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
                     HEADLESS: parseConfigValue(content, 'HEADLESS'),
-                    TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED')
+                    TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED'),
+                    NAVER_AUTO_MODE: parseConfigValue(content, 'NAVER_AUTO_MODE') || parseConfigValue(content, 'AUTO_MODE'),
+                    NAVER_AUTO_CATEGORIES:
+                        parseConfigValue(content, 'NAVER_AUTO_CATEGORIES')
+                        || parseConfigValue(content, 'AUTO_INCLUDE_CATEGORIES')
+                        || parseConfigValue(content, 'AUTO_CATEGORIES'),
+                    NAVER_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_AUTO_DAILY_POSTS') || parseConfigValue(content, 'AUTO_DAILY_BLOG_CAP'),
+                    NAVER_AUTO_TRENDS_TIME: parseConfigValue(content, 'NAVER_AUTO_TRENDS_TIME'),
+                    NAVER_AUTO_PUBLISH_TIME: parseConfigValue(content, 'NAVER_AUTO_PUBLISH_TIME'),
+                    NAVER_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_AUTO_NOTIFY_ENABLED'),
+                    FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
+                    SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
+                    SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
+                    SHOPPING_CTA_IMAGE_URL3: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
                 });
                 applyRuntimeConfigFromMajor(fields);
+                syncAutoRunnerWithConfig();
                 CONFIG.CONFIG_READY = true;
                 CONFIG.CONFIG_SOURCE_TYPE = 'config';
                 CONFIG.CONFIG_SOURCE_PATH = writablePath;
                 CONFIG.CONFIG_ERROR_MESSAGE = '';
+                const revision = createConfigRevision(content);
                 return sendSuccess(res, requestId, {
                     configPath: writablePath,
                     configSourceType: 'config',
                     requiresRestart: true,
-                    message: '고급 설정 저장 완료'
+                    message: '고급 설정 저장 완료',
+                    revision
                 });
             } catch (e) {
                 return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
@@ -1758,6 +2614,104 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         }
 
         return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+    }
+
+    if (pathname === '/api/v1/settings/shopping-image') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const slot = String(requestBody?.slot || '').trim().toLowerCase();
+            const slotInfo = SHOPPING_IMAGE_SLOT_MAP[slot];
+            if (!slotInfo) {
+                return sendError(res, requestId, 400, 'INVALID_SLOT', 'slot은 ftc, cta1, cta2, cta3 중 하나여야 합니다.');
+            }
+
+            const { buffer, ext } = parseBase64ImagePayload(requestBody || {});
+            const writablePath = resolveWritableConfigPath();
+            const configDir = path.dirname(writablePath);
+            const imageDir = path.join(configDir, 'images');
+            fs.mkdirSync(imageDir, { recursive: true });
+
+            const filename = `${slotInfo.fileBase}${ext}`;
+            const filePath = path.join(imageDir, filename);
+            fs.writeFileSync(filePath, buffer);
+
+            const configValue = `./config/images/${filename}`;
+
+            const configSource = tryResolveReadableConfigSource();
+            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+            const nextRaw = applyConfigUpdates(raw, {
+                [slotInfo.key]: configValue
+            });
+            fs.writeFileSync(writablePath, nextRaw, 'utf-8');
+
+            const mergedFields = {
+                LISTEN_HOST: parseConfigValue(nextRaw, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
+                LISTEN_PORT: parseConfigValue(nextRaw, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
+                NAVER_ID: parseConfigValue(nextRaw, 'NAVER_ID') || CONFIG.NAVER_ID,
+                GEMINI_API_KEY: parseConfigValue(nextRaw, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
+                GOOGLE_SHEET_URL: parseConfigValue(nextRaw, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
+                HEADLESS: parseConfigValue(nextRaw, 'HEADLESS'),
+                TYPING_SPEED: parseConfigValue(nextRaw, 'TYPING_SPEED'),
+                FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(nextRaw, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
+                SHOPPING_CTA_IMAGE_URL1: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
+                SHOPPING_CTA_IMAGE_URL2: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
+                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
+            };
+            applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
+            syncAutoRunnerWithConfig();
+            CONFIG.CONFIG_READY = true;
+            CONFIG.CONFIG_SOURCE_TYPE = 'config';
+            CONFIG.CONFIG_SOURCE_PATH = writablePath;
+            CONFIG.CONFIG_ERROR_MESSAGE = '';
+
+            return sendSuccess(res, requestId, {
+                slot,
+                key: slotInfo.key,
+                value: configValue,
+                savedPath: filePath,
+                configPath: writablePath,
+                message: '쇼핑 이미지 등록 완료'
+            });
+        } catch (e) {
+            return sendError(res, requestId, 400, 'SHOPPING_IMAGE_SAVE_FAILED', e.message || '쇼핑 이미지 저장에 실패했습니다.');
+        }
+    }
+
+    if (pathname === '/api/v1/settings/shopping-image/preview') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const slot = String(searchParams.get('slot') || '').trim().toLowerCase();
+        const slotInfo = SHOPPING_IMAGE_SLOT_MAP[slot];
+        if (!slotInfo) {
+            return sendError(res, requestId, 400, 'INVALID_SLOT', 'slot은 ftc, cta1, cta2, cta3 중 하나여야 합니다.');
+        }
+
+        const sourceOverride = String(searchParams.get('source') || '').trim();
+        let source = sourceOverride;
+        if (!source) {
+            const configSource = tryResolveReadableConfigSource();
+            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
+            const fields = buildMajorSettings(raw, configSource || { path: resolveWritableConfigPath(), sourceType: 'generated' }).fields;
+            source = String(fields[slotInfo.key] || '').trim();
+        }
+        if (!source) {
+            return sendError(res, requestId, 404, 'IMAGE_SOURCE_EMPTY', '설정된 이미지가 없습니다.');
+        }
+        if (/^https?:\/\//i.test(source)) {
+            return sendError(res, requestId, 400, 'INVALID_PREVIEW_SOURCE', '원격 URL 이미지는 브라우저가 직접 표시합니다.');
+        }
+
+        const localPath = resolveLocalImagePathFromSource(source);
+        if (!localPath || !fs.existsSync(localPath)) {
+            return sendError(res, requestId, 404, 'IMAGE_FILE_NOT_FOUND', '로컬 이미지를 찾을 수 없습니다.');
+        }
+
+        const body = fs.readFileSync(localPath);
+        res.writeHead(200, {
+            'Content-Type': getContentType(localPath),
+            'Cache-Control': 'no-store'
+        });
+        res.end(body);
+        return true;
     }
 
     if (pathname === '/api/v1/blog/quick-publish') {
@@ -1776,6 +2730,24 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             return sendError(res, requestId, 400, result.code || 'SHOPPING_QUICK_PUBLISH_FAILED', result.message || '쇼핑 빠른발행 요청에 실패했습니다.');
         }
         return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/shopping/preview') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const shortUrl = String(searchParams.get('url') || '').trim();
+        if (!shortUrl) {
+            return sendError(res, requestId, 400, 'INVALID_SHOPPING_URL', '쇼핑 URL은 필수입니다.');
+        }
+        if (!/^https?:\/\//i.test(shortUrl)) {
+            return sendError(res, requestId, 400, 'INVALID_SHOPPING_URL', '쇼핑 URL 형식이 올바르지 않습니다. (http/https)');
+        }
+
+        try {
+            const preview = await ShoppingManager.previewFromShortUrl(shortUrl);
+            return sendSuccess(res, requestId, preview);
+        } catch (e) {
+            return sendError(res, requestId, 400, 'SHOPPING_PREVIEW_FAILED', e.message || '쇼핑 미리보기에 실패했습니다.');
+        }
     }
 
     if (pathname === '/api/v1/blog/topics') {
@@ -1955,7 +2927,10 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
 }
 
 async function startUiServer(options = {}) {
-    const port = Number.isFinite(Number(options.port)) ? parseInt(options.port, 10) : DEFAULT_PORT;
+    const host = normalizeListenHost(options.host, normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST));
+    const port = Number.isFinite(Number(options.port))
+        ? normalizeListenPort(options.port, DEFAULT_PORT)
+        : normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
     const uiRoot = resolveUiRoot();
     if (!uiRoot) {
         throw new Error('UI 정적 파일 폴더를 찾을 수 없습니다. (ui/)');
@@ -1971,7 +2946,10 @@ async function startUiServer(options = {}) {
             if (pathname.startsWith('/api/v1/')) {
                 let requestBody = {};
                 if (method === 'POST') {
-                    requestBody = await readJsonBody(req);
+                    const limitBytes = pathname === '/api/v1/settings/shopping-image'
+                        ? 15 * 1024 * 1024
+                        : 1024 * 1024;
+                    requestBody = await readJsonBody(req, limitBytes);
                 }
                 const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
                 if (apiHandled !== false) return;
@@ -2006,10 +2984,13 @@ async function startUiServer(options = {}) {
 
     await new Promise((resolve, reject) => {
         server.once('error', reject);
-        server.listen(port, '127.0.0.1', resolve);
+        server.listen(port, host, resolve);
     });
 
-    return { server, port };
+    syncAutoRunnerWithConfig();
+
+    const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
+    return { server, host, port, openHost };
 }
 
 module.exports = {

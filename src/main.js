@@ -36,6 +36,7 @@ process.emitWarning = (warning, ...args) => {
 
 const { Command } = require('commander');
 const readline = require('readline/promises');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { version: APP_VERSION } = require('../package.json');
@@ -104,6 +105,36 @@ function commandPathIncludes(commandObj, targetName) {
     return false;
 }
 
+function openUrlInDefaultBrowser(url) {
+    const target = String(url || '').trim();
+    if (!target) return false;
+
+    let command = '';
+    let args = [];
+
+    if (process.platform === 'darwin') {
+        command = 'open';
+        args = [target];
+    } else if (process.platform === 'win32') {
+        command = 'cmd';
+        args = ['/c', 'start', '', target];
+    } else {
+        command = 'xdg-open';
+        args = [target];
+    }
+
+    try {
+        const child = spawn(command, args, {
+            detached: true,
+            stdio: 'ignore'
+        });
+        child.unref();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 program.hook('preAction', (thisCommand, actionCommand) => {
     if (CONFIG.CONFIG_READY === true) return;
 
@@ -125,7 +156,7 @@ program.hook('preAction', (thisCommand, actionCommand) => {
         console.error('config/config.txt 또는 config/config.txt.sample 파일을 확인해 주세요.');
     }
     console.error('\n👉 해결 방법');
-    console.error('1) UI 사용: ./BlogGenius ui  (설정 화면에서 바로 저장)');
+    console.error('1) UI 사용: <실행파일>  (기본 UI 모드, 설정 화면에서 바로 저장)');
     console.error('2) 수동 복구: config/config.txt.sample -> config/config.txt 복사 후 필수값 입력');
     process.exit(1);
 });
@@ -238,7 +269,7 @@ async function ensureAuth(isStrict = true) {
         if (!isStrict) return false;
         console.error("\n⛔ [인증 필요] 로그인 정보(auth.json)를 찾을 수 없습니다.");
         console.error("👉 아래 명령으로 먼저 로그인해 주세요:");
-        console.error("   ./BlogGenius login");
+        console.error("   <실행파일> login");
         process.exit(1);
     }
 
@@ -256,7 +287,7 @@ async function ensureAuth(isStrict = true) {
         console.error(`\n⛔ [인증 확인 실패] 세션 확인 중 오류가 발생했습니다: ${session.message || 'unknown error'}`);
     }
     console.error("👉 아래 명령으로 다시 로그인 후 재실행해 주세요:");
-    console.error("   ./BlogGenius login");
+    console.error("   <실행파일> login");
     process.exit(1);
 }
 
@@ -340,7 +371,7 @@ function printLicenseNextAction(message = '') {
         (normalized.toLowerCase().includes('license upgrade'));
 
     if (isTestEnded) {
-        console.log("💡 테스트 이용이 종료되었습니다. 계속 이용하려면 `./BlogGenius license upgrade`를 실행해 주세요.");
+        console.log("💡 테스트 이용이 종료되었습니다. 계속 이용하려면 `<실행파일> license upgrade`를 실행해 주세요.");
         console.log("💡 업그레이드 중 이메일 등록이 필요하면 자동으로 등록 절차가 이어집니다.");
     }
 }
@@ -547,14 +578,24 @@ program.command('login').description('🔐 [네이버 로그인]').action(async 
 program
     .command('ui')
     .description('🖥️ [UI] 로컬 웹 UI 실행')
-    .option('--port <port>', 'UI 서버 포트 (기본: 4577)')
+    .option('--host <host>', 'UI 서버 바인딩 호스트 (기본: LISTEN_HOST 또는 127.0.0.1)')
+    .option('--port <port>', 'UI 서버 포트 (기본: LISTEN_PORT 또는 4577)')
     .action(async (opts) => {
         try {
             const { startUiServer } = require('./ui-server');
-            const port = Number.isFinite(Number(opts.port)) ? parseInt(opts.port, 10) : 4577;
-            const started = await startUiServer({ port });
-            const uiUrl = `http://127.0.0.1:${started.port}`;
+            const host = String(opts.host || CONFIG.LISTEN_HOST || '127.0.0.1').trim() || '127.0.0.1';
+            const port = Number.isFinite(Number(opts.port))
+                ? parseInt(opts.port, 10)
+                : (Number.isFinite(Number(CONFIG.LISTEN_PORT)) ? parseInt(CONFIG.LISTEN_PORT, 10) : 4577);
+            const started = await startUiServer({ host, port });
+            const uiUrl = `http://${started.openHost || '127.0.0.1'}:${started.port}`;
             console.log(`\n✅ UI 서버 실행 중: ${uiUrl}`);
+            console.log(`ℹ️ 바인딩 주소: ${started.host}:${started.port}`);
+            if (openUrlInDefaultBrowser(uiUrl)) {
+                console.log('🌐 기본 브라우저를 자동으로 열었습니다.');
+            } else {
+                console.log('ℹ️ 브라우저 자동 실행에 실패했습니다. 위 URL을 직접 열어주세요.');
+            }
             console.log('ℹ️ 종료하려면 Ctrl + C를 누르세요.');
         } catch (e) {
             console.error(`❌ UI 서버 실행 실패: ${e.message}`);
@@ -628,7 +669,7 @@ program
                             ? '무제한'
                             : `${verified.remaining ?? 'N/A'}회`;
                     console.log(`✅ 등록 완료 (${verified.planDisplayName || verified.planCode || 'Unknown plan'} 잔여: ${remainingLabel})`);
-                    console.log('💡 플랜을 변경하려면 `./BlogGenius license upgrade`를 실행하세요.');
+                    console.log('💡 플랜을 변경하려면 `<실행파일> license upgrade`를 실행하세요.');
                 } catch (e) {
                     console.error(`❌ 에러: ${e.message}`);
                     if (process.env.DEBUG) console.error('Stack:', e.stack);
@@ -1178,18 +1219,32 @@ program
 program.on('--help', () => {
     console.log('');
     console.log('📖 사용 예시:');
-    console.log('  $ ./BlogGenius ui --port=4577');
-    console.log('  $ ./BlogGenius login');
-    console.log('  $ ./BlogGenius license status');
-    console.log('  $ ./BlogGenius license register --email=you@example.com');
-    console.log('  $ ./BlogGenius license recover --email=you@example.com');
-    console.log('  $ ./BlogGenius license upgrade');
-    console.log('  $ ./BlogGenius gen');
-    console.log('  $ ./BlogGenius trends --date=-1d');
-    console.log('  $ ./BlogGenius trends --date=20260130');
-    console.log('  $ ./BlogGenius pub -d "workspace/콘텐츠_폴더"');
-    console.log('  $ ./BlogGenius batch');
-    console.log('  $ ./BlogGenius shopping');
+    console.log('  $ <실행파일>                    # 기본 UI 모드');
+    console.log('  $ <실행파일> --host=127.0.0.1 --port=4577');
+    console.log('  $ <실행파일> login');
+    console.log('  $ <실행파일> license status');
+    console.log('  $ <실행파일> license register --email=you@example.com');
+    console.log('  $ <실행파일> license recover --email=you@example.com');
+    console.log('  $ <실행파일> license upgrade');
+    console.log('  $ <실행파일> gen');
+    console.log('  $ <실행파일> trends --date=-1d');
+    console.log('  $ <실행파일> trends --date=20260130');
+    console.log('  $ <실행파일> pub -d "workspace/콘텐츠_폴더"');
+    console.log('  $ <실행파일> batch');
+    console.log('  $ <실행파일> shopping');
 });
+
+const GLOBAL_HELP_FLAGS = new Set(['-h', '--help', '-V', '--version']);
+const firstArg = process.argv[2];
+if (process.argv.length <= 2) {
+    process.argv.push('ui');
+} else if (
+    typeof firstArg === 'string' &&
+    firstArg.startsWith('-') &&
+    !GLOBAL_HELP_FLAGS.has(firstArg)
+) {
+    // `ui`를 생략하고 `--host`, `--port`만 전달해도 UI 모드로 동작하도록 보정
+    process.argv.splice(2, 0, 'ui');
+}
 
 program.parse(process.argv);
