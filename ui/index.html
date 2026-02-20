@@ -212,7 +212,29 @@
               <span>NAVER_AUTO_MODE (자동발행 사용)</span>
             </label>
             <label>NAVER_AUTO_CATEGORIES
-              <input id="blog-auto-categories" type="text" placeholder="예: 여행, 맛집, IT">
+              <div class="category-picker">
+                <div class="category-picker-toolbar">
+                  <div class="input-inline-clear">
+                    <input id="blog-auto-category-search" type="text" placeholder="카테고리 검색">
+                    <button id="blog-auto-category-search-clear-btn" class="inline-clear-btn" type="button" title="검색어 지우기" aria-label="검색어 지우기">✕</button>
+                  </div>
+                  <button id="blog-auto-category-refresh-btn" class="secondary" type="button">카테고리 목록 새로고침</button>
+                </div>
+                <div class="category-picker-toolbar category-picker-toolbar-compact">
+                  <button id="blog-auto-category-clear-btn" class="secondary" type="button">선택 일괄 해제</button>
+                </div>
+                <div id="blog-auto-category-meta" class="category-meta">카테고리 로딩 중...</div>
+                <div id="blog-auto-category-options" class="category-options">
+                  <p class="category-hint">카테고리 목록을 불러오는 중...</p>
+                </div>
+                <div class="category-picker-toolbar">
+                  <input id="blog-auto-category-manual" type="text" placeholder="직접 입력 1개 추가">
+                  <button id="blog-auto-category-add-btn" class="secondary" type="button">추가</button>
+                </div>
+                <div id="blog-auto-category-chips" class="category-chips">
+                  <span class="category-hint">선택된 카테고리가 없습니다.</span>
+                </div>
+              </div>
             </label>
             <label>NAVER_AUTO_DAILY_POSTS
               <input id="blog-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
@@ -327,6 +349,11 @@
           <div class="form-grid">
             <label>GEMINI_API_KEY
               <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
+              <small class="muted">
+                API 키가 없으면
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+                에서 발급하세요.
+              </small>
             </label>
             <label>GOOGLE_SHEET_URL
               <div class="input-with-action">

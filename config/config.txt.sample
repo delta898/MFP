@@ -18,7 +18,7 @@ GEMINI_API_KEY = YOUR_GEMINI_API_KEY_HERE
 
 # [필수] 구글 스프레드시트 인증/대상
 GOOGLE_AUTH_JSON = ./config/service_account.json
-GOOGLE_SHEET_URL = https://docs.google.com/spreadsheets/d/여기에_구글시트_URL_전체
+GOOGLE_SHEET_URL = 
 
 # UI 서버 바인딩 주소/포트
 # LISTEN_HOST = 127.0.0.1  (로컬 전용)

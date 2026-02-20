@@ -376,8 +376,22 @@ const Utils = {
                     }
                 });
             } else if (type === 'topics') {
-                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
-                headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL', '발행 시간', '로그']];
+                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
+                headerRow = [[
+                    'blog',
+                    'subject',
+                    'keywords',
+                    '참고/지시 사항',
+                    '상태',
+                    '이미지 생성',
+                    '외부 참고 여부',
+                    '참고 URL',
+                    '발행 시간',
+                    '로그',
+                    '추가일시',
+                    '소스',
+                    '트렌드일자'
+                ]];
 
                 // Dropdown: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
                 validationRequests.push({
@@ -610,6 +624,9 @@ const Utils = {
                 const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
                 const logStr = getVal(['로그', 'log']);
                 const publishedAt = getVal(['발행시간', '발행 시간', 'publish_time', 'time']);
+                const addedAt = getVal(['추가일시', '추가 일시', 'addedat', 'createdat']);
+                const source = getVal(['소스', 'source']);
+                const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
 
                 return {
                     rowIndex: index,
@@ -628,7 +645,10 @@ const Utils = {
                         count: parseInt(imgCountStr, 10) || 4
                     },
                     log: logStr || '',
-                    publishedAt: publishedAt || ''
+                    publishedAt: publishedAt || '',
+                    addedAt: addedAt || '',
+                    source: source || '',
+                    trendDate: trendDate || ''
                 };
             });
 
@@ -647,7 +667,10 @@ const Utils = {
                         item.content_guide?.additional_instructions || '',
                         (item.content_guide?.reference_urls || []).join(' '),
                         item.status,
-                        item.log
+                        item.log,
+                        item.addedAt,
+                        item.source,
+                        item.trendDate
                     ].join(' ').toLowerCase();
                     return haystack.includes(q);
                 });
@@ -674,6 +697,9 @@ const Utils = {
                 if (sortBy === 'externalReference') return item.use_external_ref === true ? 1 : 0;
                 if (sortBy === 'runtimeLog') return String(item.log || '');
                 if (sortBy === 'status') return String(item.status || '');
+                if (sortBy === 'addedAt') return String(item.addedAt || '');
+                if (sortBy === 'source') return String(item.source || '');
+                if (sortBy === 'trendDate') return String(item.trendDate || '');
                 return Number(item.rowNumber || 0);
             };
             filtered = filtered
@@ -1334,8 +1360,22 @@ const Utils = {
                     };
                     await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
 
-                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
-                    const headerRow = [['blog', 'subject', 'keywords', '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL', '발행 시간', '로그']];
+                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
+                    const headerRow = [[
+                        'blog',
+                        'subject',
+                        'keywords',
+                        '참고/지시 사항',
+                        '상태',
+                        '이미지 생성',
+                        '외부 참고 여부',
+                        '참고 URL',
+                        '발행 시간',
+                        '로그',
+                        '추가일시',
+                        '소스',
+                        '트렌드일자'
+                    ]];
                     const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
                     await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
                         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
@@ -1349,7 +1389,7 @@ const Utils = {
                 }
             }
 
-            const headers = headerRes.data.values[0];
+            let headers = Array.isArray(headerRes?.data?.values?.[0]) ? headerRes.data.values[0] : [];
             const map = {};
             headers.forEach((h, i) => {
                 const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
@@ -1361,7 +1401,36 @@ const Utils = {
                 else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
                 else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
+                else if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
+                else if (clean === '소스' || clean.includes('source')) map.source = i;
+                else if (clean.includes('트렌드일자') || clean.includes('trenddate')) map.trendDate = i;
             });
+
+            const missingHeaderLabels = [];
+            if (map.addedAt === undefined) missingHeaderLabels.push('추가일시');
+            if (map.source === undefined) missingHeaderLabels.push('소스');
+            if (map.trendDate === undefined) missingHeaderLabels.push('트렌드일자');
+            if (missingHeaderLabels.length > 0) {
+                const nextHeaders = headers.slice();
+                for (const label of missingHeaderLabels) {
+                    nextHeaders.push(label);
+                }
+                const updateHeaderUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1?valueInputOption=USER_ENTERED`;
+                await this.callWithRetry(() => axios.put(updateHeaderUrl, {
+                    range: `${sheetName}!1:1`,
+                    majorDimension: 'ROWS',
+                    values: [nextHeaders]
+                }, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+                headers = nextHeaders;
+                headers.forEach((h, i) => {
+                    const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                    if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
+                    else if (clean === '소스' || clean.includes('source')) map.source = i;
+                    else if (clean.includes('트렌드일자') || clean.includes('trenddate')) map.trendDate = i;
+                });
+            }
 
             // 헤더가 없거나 매핑이 안되면 기본값 사용
             if (map.blog === undefined) map.blog = 0;
@@ -1393,6 +1462,25 @@ const Utils = {
                             ? topic.image_generation
                             : false
                     );
+                const sourceValue = String(
+                    topic.source
+                    || topic.topic_source
+                    || topic.added_source
+                    || options.source
+                    || 'manual'
+                ).trim();
+                const trendDateValue = String(
+                    topic.trendDate
+                    || topic.trend_date
+                    || options.trendDate
+                    || ''
+                ).trim();
+                const addedAtValue = String(
+                    topic.addedAt
+                    || topic.added_at
+                    || options.addedAt
+                    || new Date().toLocaleString()
+                ).trim();
                 const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
 
                 if (map.blog !== undefined) row[map.blog] = 'naver'; // 기본값 'naver'
@@ -1403,6 +1491,9 @@ const Utils = {
                 if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
                 if (map.status !== undefined) row[map.status] = rowStatus;
                 if (map.imgGen !== undefined) row[map.imgGen] = imageGenerate ? 'Yes' : 'No';
+                if (map.addedAt !== undefined) row[map.addedAt] = addedAtValue;
+                if (map.source !== undefined) row[map.source] = sourceValue;
+                if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;
                 return row;
             });
 

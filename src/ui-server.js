@@ -12,6 +12,7 @@ const Core = require('./core');
 const BrowserLauncher = require('./browser-launcher');
 const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
+const RuntimeConfig = require('./runtime-config');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
@@ -27,6 +28,7 @@ const NAVER_AUTO_DEFAULTS = {
     publishTime: '08:00',
     notifyEnabled: true
 };
+const NAVER_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'naver_auto_categories_master'];
 const autoRuntimeState = {
     enabled: false,
     running: false,
@@ -526,6 +528,109 @@ function parseCsvTokens(input) {
         .split(',')
         .map((token) => token.trim())
         .filter(Boolean);
+}
+
+function dedupeOrderedStrings(items = []) {
+    const out = [];
+    const seen = new Set();
+    for (const raw of items) {
+        const value = String(raw || '').trim();
+        if (!value) continue;
+        const key = value.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(value);
+    }
+    return out;
+}
+
+function parseCategoryListRaw(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return [];
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                const normalized = parsed
+                    .map((item, index) => {
+                        if (typeof item === 'string') {
+                            return {
+                                label: String(item || '').trim(),
+                                order: Number.MAX_SAFE_INTEGER - (100000 - index)
+                            };
+                        }
+                        if (item && typeof item === 'object') {
+                            const enabled = item.enabled !== false;
+                            if (!enabled) return null;
+                            const label = String(item.label || item.code || item.name || '').trim();
+                            const orderRaw = Number(item.order);
+                            const order = Number.isFinite(orderRaw)
+                                ? orderRaw
+                                : (Number.MAX_SAFE_INTEGER - (100000 - index));
+                            return { label, order };
+                        }
+                        return null;
+                    })
+                    .filter((v) => v && v.label);
+                normalized.sort((a, b) => a.order - b.order);
+                return dedupeOrderedStrings(normalized.map((v) => v.label));
+            }
+        } catch (_e) { }
+    }
+    return dedupeOrderedStrings(
+        raw
+            .split(/[\n,]/)
+            .map((token) => token.trim())
+            .filter(Boolean)
+    );
+}
+
+async function resolveNaverAutoCategoryCatalog(options = {}) {
+    const force = Boolean(options.force);
+    let runtimeCategories = [];
+    let trendCategories = [];
+    let configCategories = [];
+
+    try {
+        const runtimeMap = await RuntimeConfig.fetchRuntimeConfig(NAVER_AUTO_CATEGORY_MASTER_KEYS, force);
+        const runtimeRaw = String(
+            runtimeMap?.NAVER_AUTO_CATEGORIES_MASTER
+            || runtimeMap?.naver_auto_categories_master
+            || ''
+        ).trim();
+        runtimeCategories = parseCategoryListRaw(runtimeRaw);
+    } catch (_e) { }
+
+    try {
+        const trendsRes = await Utils.readGoogleSheetTrendsAll({
+            q: '',
+            limit: 100000,
+            offset: 0,
+            sortBy: 'rowNumber',
+            sortDir: 'desc'
+        });
+        const items = Array.isArray(trendsRes?.items) ? trendsRes.items : [];
+        trendCategories = dedupeOrderedStrings(items.map((item) => String(item?.category || '').trim()));
+    } catch (_e) { }
+
+    try {
+        const fromConfig = normalizeNaverAutoSettings({});
+        configCategories = parseCategoryListRaw(fromConfig?.NAVER_AUTO_CATEGORIES || '');
+    } catch (_e) { }
+
+    const categories = dedupeOrderedStrings([
+        ...runtimeCategories,
+        ...trendCategories,
+        ...configCategories
+    ]);
+
+    return {
+        categories,
+        runtimeCategories,
+        trendCategories,
+        configCategories,
+        updatedAt: new Date().toISOString()
+    };
 }
 
 function toBoolLike(input, fallback = false) {
@@ -1071,6 +1176,8 @@ async function executeQuickPublish(requestBody) {
             generate: imageGenerationFinal,
             count: 4
         },
+        source: 'manual',
+        trendDate: '',
         status: appendStatus
     }], {
         defaultStatus: appendStatus
@@ -1874,6 +1981,8 @@ async function executeTrendsToTopicsAction(requestBody = {}) {
         },
         use_external_ref: true,
         image_options: { generate: false, count: 4 },
+        source: 'auto-trends',
+        trendDate: String(item.date || '').trim(),
         status: '대기'
     })).filter(item => item.subject);
 
@@ -1930,6 +2039,8 @@ async function executeKeywordsToTopicsAction(requestBody = {}) {
             },
             use_external_ref: true,
             image_options: { generate: false, count: 4 },
+            source: 'manual',
+            trendDate: '',
             status: '대기'
         };
     }).filter(item => item.subject);
@@ -2120,6 +2231,8 @@ async function executeAutoTrendsToTopics(settings = {}) {
             },
             use_external_ref: true,
             image_options: { generate: false, count: 4 },
+            source: 'auto-trends',
+            trendDate: String(item.date || '').trim(),
             status: '블로그 발행 준비 완료'
         });
         trendRowIndicesToMark.push(item.rowIndex);
@@ -2391,6 +2504,13 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
     if (pathname === '/api/v1/auto/status') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         return sendSuccess(res, requestId, getAutoStatusPayload());
+    }
+
+    if (pathname === '/api/v1/blog/auto/categories') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        const force = parseBoolQuery(searchParams.get('force'));
+        const data = await resolveNaverAutoCategoryCatalog({ force });
+        return sendSuccess(res, requestId, data);
     }
 
     if (pathname === '/api/v1/auto/start') {

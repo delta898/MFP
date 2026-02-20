@@ -234,6 +234,145 @@ h2 {
   background: #fff;
 }
 
+.category-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-picker-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.category-picker-toolbar input {
+  flex: 1;
+}
+
+.category-picker-toolbar-compact {
+  justify-content: flex-start;
+}
+
+.input-inline-clear {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.input-inline-clear input {
+  width: 100%;
+  padding-right: 34px;
+}
+
+.inline-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.inline-clear-btn:hover {
+  background: #cbd5e1;
+}
+
+.inline-clear-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.category-options {
+  border: 1px solid #d8e2f1;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.category-option-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d9e8;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+
+.category-option-btn:hover {
+  border-color: #9ec5ff;
+  background: #f1f7ff;
+}
+
+.category-option-btn.active {
+  border-color: #76a8f5;
+  background: #e8f2ff;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f4ff;
+  border: 1px solid #c7defb;
+  font-size: 12px;
+  color: #1e3a8a;
+}
+
+.category-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1e3a8a;
+  padding: 0;
+  line-height: 1;
+}
+
+.category-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.category-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
 .settings-image-section {
   display: flex;
   flex-direction: column;

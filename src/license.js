@@ -158,6 +158,10 @@ async function requestEmailVerificationCode(
 }
 
 let runtimeLicenseKey = '';
+let ensureLicenseInitPromise = null;
+let lastInitFailureAt = 0;
+let lastInitFailureMessage = '';
+const LICENSE_INIT_RETRY_COOLDOWN_MS = 30000;
 
 function getResolvedLicenseKey() {
     return resolveLicenseKey(process.env.LICENSE_KEY || runtimeLicenseKey || CONFIG.LICENSE_KEY);
@@ -183,6 +187,8 @@ async function ensureLicenseKey(hwid) {
     const current = getResolvedLicenseKey();
     if (current) {
         runtimeLicenseKey = current;
+        lastInitFailureAt = 0;
+        lastInitFailureMessage = '';
         return { success: true, licenseKey: current };
     }
 
@@ -190,26 +196,56 @@ async function ensureLicenseKey(hwid) {
         return { success: false, message: '라이선스 서버 설정 오류' };
     }
 
-    Logger.info('🔐 라이선스 초기화 중...');
-    const { data, error } = await supabase.rpc('issue_test_license', { p_hwid: hwid });
-    if (error) {
-        Logger.error(`❌ 라이선스 초기화 실패: ${error.message}`);
-        return { success: false, message: '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+    // UI 폴링 등으로 초기화 요청이 동시에 몰릴 때 중복 RPC/중복 로그를 방지한다.
+    if (ensureLicenseInitPromise) {
+        return ensureLicenseInitPromise;
     }
 
-    const issuedKey = String(data?.license_key || '').trim();
-    if (!data?.success || !issuedKey) {
-        return { success: false, message: data?.message || '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+    const now = Date.now();
+    if (
+        lastInitFailureMessage &&
+        lastInitFailureAt > 0 &&
+        (now - lastInitFailureAt) < LICENSE_INIT_RETRY_COOLDOWN_MS
+    ) {
+        return { success: false, message: lastInitFailureMessage };
     }
 
-    runtimeLicenseKey = issuedKey;
-    if (persistLicenseKeyFile(issuedKey)) {
-        Logger.info('✅ 라이선스 초기화 완료');
-    } else {
-        Logger.warn('⚠️ 라이선스 인증 정보 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
-    }
+    ensureLicenseInitPromise = (async () => {
+        Logger.info('🔐 라이선스 초기화 중...');
+        const { data, error } = await supabase.rpc('issue_test_license', { p_hwid: hwid });
+        if (error) {
+            const failMessage = '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+            lastInitFailureAt = Date.now();
+            lastInitFailureMessage = failMessage;
+            Logger.error(`❌ 라이선스 초기화 실패: ${error.message}`);
+            return { success: false, message: failMessage };
+        }
 
-    return { success: true, licenseKey: issuedKey };
+        const issuedKey = String(data?.license_key || '').trim();
+        if (!data?.success || !issuedKey) {
+            const failMessage = data?.message || '라이선스 인증 준비에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+            lastInitFailureAt = Date.now();
+            lastInitFailureMessage = failMessage;
+            return { success: false, message: failMessage };
+        }
+
+        runtimeLicenseKey = issuedKey;
+        lastInitFailureAt = 0;
+        lastInitFailureMessage = '';
+        if (persistLicenseKeyFile(issuedKey)) {
+            Logger.info('✅ 라이선스 초기화 완료');
+        } else {
+            Logger.warn('⚠️ 라이선스 인증 정보 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
+        }
+
+        return { success: true, licenseKey: issuedKey };
+    })();
+
+    try {
+        return await ensureLicenseInitPromise;
+    } finally {
+        ensureLicenseInitPromise = null;
+    }
 }
 
 const License = {

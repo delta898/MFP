@@ -108,6 +108,13 @@ const SETTINGS_TYPING_PREVIEW_DELAY = {
 const SETTINGS_TYPING_PREVIEW_REPEAT_COUNT = 3;
 let settingsTypingPreviewTimer = null;
 let settingsTypingPreviewRunId = 0;
+let blogAutoCategoryCatalog = [];
+let blogAutoCategorySelected = new Set();
+let blogAutoCategoryCatalogMeta = {
+  runtimeCount: 0,
+  trendCount: 0,
+  updatedAt: ''
+};
 
 function pauseDashboardPolling() {
   dashboardPollingPauseCount += 1;
@@ -516,7 +523,11 @@ async function runBlogTrendsCollect() {
     if (resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
     clearTrendsSelections();
     setPageInfo('trends', { offset: 0 });
-    await Promise.all([loadDashboard(), loadBlogTrends({ silent: true })]);
+    await Promise.all([
+      loadDashboard(),
+      loadBlogTrends({ silent: true }),
+      loadBlogAutoCategoryCatalog({ force: true, silent: true })
+    ]);
   } catch (e) {
     if (resultBox) resultBox.textContent = `오류: ${e.message}`;
   } finally {
@@ -655,31 +666,56 @@ function normalizeCommaListText(input) {
 }
 
 async function loadDashboard() {
-  try {
-    const [health, license, session, capabilities] = await Promise.all([
-      fetchJson('/api/v1/health'),
-      fetchJson('/api/v1/license/status?quiet=1'),
-      fetchJson('/api/v1/session/naver'),
-      fetchJson('/api/v1/capabilities?quiet=1')
-    ]);
+  const [healthResult, licenseResult, sessionResult] = await Promise.allSettled([
+    fetchJson('/api/v1/health'),
+    fetchJson('/api/v1/license/status?quiet=1'),
+    fetchJson('/api/v1/session/naver')
+  ]);
 
-    setText('health-text', `상태: ${health.status} / 버전: ${health.version}`);
+  const healthOk = healthResult.status === 'fulfilled';
+  const licenseOk = licenseResult.status === 'fulfilled';
+  const sessionOk = sessionResult.status === 'fulfilled';
+  const health = healthOk ? healthResult.value : null;
+  const license = licenseOk ? licenseResult.value : null;
+  const session = sessionOk ? sessionResult.value : null;
+  const licenseErr = licenseOk ? null : licenseResult.reason;
+
+  setText(
+    'health-text',
+    healthOk
+      ? `상태: ${health.status} / 버전: ${health.version}`
+      : `오류: ${healthResult.reason?.message || '헬스 상태를 불러오지 못했습니다.'}`
+  );
+
+  if (licenseOk) {
     setText(
       'license-text',
       `${license.planName || license.planCode || '-'} | 사용 ${license.usageCount ?? '-'} / 총 ${license.usageLimit ?? '-'} | 잔여 ${formatRemaining(license.remaining)}`
     );
-    setText('session-text', session.valid ? '유효' : `만료/오류 (${session.reason || 'unknown'})`);
-    setPre('cap-text', capabilities);
-
-    setText('top-plan', `플랜: ${license.planName || license.planCode || '-'}`);
-    setText('top-remaining', `잔여: ${formatRemaining(license.remaining)}`);
-    setText('top-session', `세션: ${session.valid ? '유효' : '만료'}`);
-  } catch (e) {
-    setText('health-text', `오류: ${e.message}`);
-    setText('license-text', `오류: ${e.message}`);
-    setText('session-text', `오류: ${e.message}`);
-    setPre('cap-text', { error: e.message });
+    setPre('cap-text', {
+      planCode: license.planCode || '',
+      planName: license.planName || license.planCode || '',
+      features: license.features || {}
+    });
+  } else {
+    const msg = String(licenseErr?.message || '라이선스 상태를 불러오지 못했습니다.');
+    const withGuide = msg.includes('test 플랜은 1회성')
+      ? `${msg}\n안내: license upgrade로 다음 플랜을 선택해 계속 이용할 수 있습니다.`
+      : msg;
+    setText('license-text', `오류: ${withGuide}`);
+    setPre('cap-text', { error: withGuide });
   }
+
+  setText(
+    'session-text',
+    sessionOk
+      ? (session.valid ? '유효' : `만료/오류 (${session.reason || 'unknown'})`)
+      : `오류: ${sessionResult.reason?.message || '세션 상태를 불러오지 못했습니다.'}`
+  );
+
+  setText('top-plan', `플랜: ${license?.planName || license?.planCode || '-'}`);
+  setText('top-remaining', `잔여: ${formatRemaining(license?.remaining)}`);
+  setText('top-session', `세션: ${sessionOk ? (session.valid ? '유효' : '만료') : '-'}`);
 }
 
 function bindNavigation() {
@@ -1391,7 +1427,6 @@ function applySettingsMajorToForm(data) {
   const headlessEl = document.getElementById('settings-headless');
   const typingEl = document.getElementById('settings-typing-speed');
   const blogAutoModeEl = document.getElementById('blog-auto-mode');
-  const blogAutoCategoriesEl = document.getElementById('blog-auto-categories');
   const blogAutoDailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoTrendsTimeEl = document.getElementById('blog-auto-trends-time');
   const blogAutoPublishTimeEl = document.getElementById('blog-auto-publish-time');
@@ -1406,7 +1441,10 @@ function applySettingsMajorToForm(data) {
   if (headlessEl) headlessEl.value = fields.HEADLESS ? 'true' : 'false';
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
   if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
-  if (blogAutoCategoriesEl) blogAutoCategoriesEl.value = String(fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || '');
+  setSelectedBlogAutoCategories(
+    fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
+  );
+  renderBlogAutoCategoryUi();
   if (blogAutoDailyPostsEl) blogAutoDailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
   if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
   if (blogAutoPublishTimeEl) blogAutoPublishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
@@ -1584,7 +1622,7 @@ function buildSettingsMajorPayload() {
     HEADLESS: (document.getElementById('settings-headless')?.value || 'false') === 'true',
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
     NAVER_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
-    NAVER_AUTO_CATEGORIES: (document.getElementById('blog-auto-categories')?.value || '').trim(),
+    NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     NAVER_AUTO_DAILY_POSTS: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
     NAVER_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
     NAVER_AUTO_PUBLISH_TIME: (document.getElementById('blog-auto-publish-time')?.value || '08:00').trim(),
@@ -1809,10 +1847,33 @@ async function saveSettingsMajor(options = {}) {
 function buildGoogleSheetOpenUrl(rawInput) {
   const raw = String(rawInput || '').trim();
   if (!raw) return 'https://docs.google.com/spreadsheets';
-  if (/^https?:\/\/docs\.google\.com\/spreadsheets/i.test(raw)) return raw;
 
-  const idMatch = raw.match(/^[a-zA-Z0-9-_]{20,}$/);
-  if (idMatch) return `https://docs.google.com/spreadsheets/d/${raw}`;
+  const lower = raw.toLowerCase();
+  const hasPlaceholderHint =
+    lower.includes('여기에') ||
+    lower.includes('구글시트') ||
+    lower.includes('your_') ||
+    lower.includes('<') ||
+    lower.includes('...');
+  if (hasPlaceholderHint) return 'https://docs.google.com/spreadsheets';
+
+  const extractId = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    if (/^[a-zA-Z0-9-_]{20,}$/.test(text)) return text;
+    try {
+      const u = new URL(text);
+      const byPath = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+      if (byPath?.[1]) return byPath[1];
+      const byQuery = u.searchParams.get('id');
+      if (byQuery && /^[a-zA-Z0-9-_]{20,}$/.test(byQuery)) return byQuery;
+    } catch (_e) { }
+    return '';
+  };
+
+  const id = extractId(raw);
+  if (id) return `https://docs.google.com/spreadsheets/d/${id}`;
+  if (/^https?:\/\//i.test(raw) && !/^https?:\/\/docs\.google\.com\/spreadsheets/i.test(raw)) return raw;
   return 'https://docs.google.com/spreadsheets';
 }
 
@@ -1899,19 +1960,172 @@ function setBlogAutoResultText(message) {
   if (resultEl) resultEl.textContent = String(message || '');
 }
 
+function normalizeCategoryToken(input) {
+  return String(input || '').trim();
+}
+
+function parseCategoryTokens(input) {
+  if (Array.isArray(input)) {
+    return Array.from(new Set(input.map(normalizeCategoryToken).filter(Boolean)));
+  }
+  const raw = String(input || '').trim();
+  if (!raw) return [];
+  return Array.from(new Set(
+    raw
+      .split(/[\n,]/)
+      .map(normalizeCategoryToken)
+      .filter(Boolean)
+  ));
+}
+
+function serializeSelectedBlogAutoCategories() {
+  return Array.from(blogAutoCategorySelected.values()).join(', ');
+}
+
+function setSelectedBlogAutoCategories(categories = []) {
+  blogAutoCategorySelected = new Set(parseCategoryTokens(categories));
+}
+
+function ensureSelectedCategoriesInCatalog() {
+  if (!blogAutoCategorySelected.size) return;
+  const existingKeys = new Set(blogAutoCategoryCatalog.map((v) => String(v).toLowerCase()));
+  for (const category of blogAutoCategorySelected.values()) {
+    const key = String(category).toLowerCase();
+    if (!existingKeys.has(key)) {
+      blogAutoCategoryCatalog.push(category);
+      existingKeys.add(key);
+    }
+  }
+}
+
+function renderBlogAutoCategoryChips() {
+  const chipsEl = document.getElementById('blog-auto-category-chips');
+  if (!chipsEl) return;
+  const selected = Array.from(blogAutoCategorySelected.values());
+  if (selected.length === 0) {
+    chipsEl.innerHTML = '<span class="category-hint">선택된 카테고리가 없습니다.</span>';
+    return;
+  }
+  const html = selected
+    .map((value) => {
+      const escaped = escapeHtml(value);
+      return `<span class="category-chip">${escaped}<button type="button" data-category-chip-remove="${escaped}" title="제거">×</button></span>`;
+    })
+    .join('');
+  chipsEl.innerHTML = html;
+}
+
+function renderBlogAutoCategoryOptions() {
+  const optionsEl = document.getElementById('blog-auto-category-options');
+  const metaEl = document.getElementById('blog-auto-category-meta');
+  const clearBtn = document.getElementById('blog-auto-category-search-clear-btn');
+  if (!optionsEl) return;
+
+  const searchKeyword = String(document.getElementById('blog-auto-category-search')?.value || '').trim().toLowerCase();
+  const categories = Array.from(new Set(blogAutoCategoryCatalog.map(normalizeCategoryToken).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'ko', { sensitivity: 'base' }));
+  const filtered = searchKeyword
+    ? categories.filter((v) => v.toLowerCase().includes(searchKeyword))
+    : categories;
+  const selectedCount = blogAutoCategorySelected.size;
+  if (clearBtn) clearBtn.disabled = searchKeyword.length === 0;
+  if (metaEl) {
+    metaEl.textContent = `전체 ${categories.length}개 · 표시 ${filtered.length}개 · 선택 ${selectedCount}개`;
+  }
+
+  if (filtered.length === 0) {
+    optionsEl.innerHTML = '<p class="category-hint">표시할 카테고리가 없습니다.</p>';
+    return;
+  }
+
+  const html = filtered
+    .map((value) => {
+      const escaped = escapeHtml(value);
+      const active = blogAutoCategorySelected.has(value) ? 'active' : '';
+      return `<button type="button" class="category-option-btn ${active}" data-blog-auto-category-toggle="${escaped}">${escaped}</button>`;
+    })
+    .join('');
+  optionsEl.innerHTML = html;
+}
+
+function renderBlogAutoCategoryUi() {
+  ensureSelectedCategoriesInCatalog();
+  renderBlogAutoCategoryOptions();
+  renderBlogAutoCategoryChips();
+}
+
+function applyBlogAutoCategoryCatalog(data = {}) {
+  const list = Array.isArray(data.categories) ? data.categories : [];
+  blogAutoCategoryCatalog = parseCategoryTokens(list);
+  blogAutoCategoryCatalogMeta = {
+    runtimeCount: Number(data.runtimeCategories?.length || 0),
+    trendCount: Number(data.trendCategories?.length || 0),
+    updatedAt: String(data.updatedAt || '')
+  };
+}
+
+async function loadBlogAutoCategoryCatalog(options = {}) {
+  const force = options?.force === true;
+  const silent = options?.silent === true;
+  try {
+    const query = force ? '?force=true' : '';
+    const data = await fetchJson(`/api/v1/blog/auto/categories${query}`);
+    applyBlogAutoCategoryCatalog(data);
+    renderBlogAutoCategoryUi();
+    if (!silent) {
+      const base = `카테고리 목록 갱신 완료 (${blogAutoCategoryCatalog.length}건)`;
+      const detail = `(마스터 ${blogAutoCategoryCatalogMeta.runtimeCount} / 트렌드 ${blogAutoCategoryCatalogMeta.trendCount})`;
+      setBlogAutoResultText(`${base} ${detail}`);
+    }
+  } catch (e) {
+    if (!silent) setBlogAutoResultText(`카테고리 목록 갱신 실패: ${e.message}`);
+  }
+}
+
+function addBlogAutoManualCategory() {
+  const inputEl = document.getElementById('blog-auto-category-manual');
+  if (!inputEl) return;
+  const value = normalizeCategoryToken(inputEl.value);
+  if (!value) return;
+  blogAutoCategorySelected.add(value);
+  if (!blogAutoCategoryCatalog.some((v) => String(v).toLowerCase() === value.toLowerCase())) {
+    blogAutoCategoryCatalog.push(value);
+  }
+  inputEl.value = '';
+  renderBlogAutoCategoryUi();
+}
+
+function clearAllBlogAutoCategories() {
+  blogAutoCategorySelected.clear();
+  renderBlogAutoCategoryUi();
+}
+
+function clearBlogAutoCategorySearch() {
+  const inputEl = document.getElementById('blog-auto-category-search');
+  if (!inputEl) return;
+  inputEl.value = '';
+  renderBlogAutoCategoryOptions();
+  inputEl.focus();
+}
+
 async function loadBlogAutoSettings() {
   const modeEl = document.getElementById('blog-auto-mode');
-  const categoriesEl = document.getElementById('blog-auto-categories');
   const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
   const publishTimeEl = document.getElementById('blog-auto-publish-time');
   const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
   setBlogAutoResultText('불러오는 중...');
   try {
-    const data = await fetchJson('/api/v1/settings/major');
+    const [data] = await Promise.all([
+      fetchJson('/api/v1/settings/major'),
+      loadBlogAutoCategoryCatalog({ silent: true })
+    ]);
     const fields = data?.fields || {};
     if (modeEl) modeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
-    if (categoriesEl) categoriesEl.value = String(fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || '');
+    setSelectedBlogAutoCategories(
+      fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
+    );
+    renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
     if (trendsTimeEl) trendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
     if (publishTimeEl) publishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
@@ -1928,7 +2142,6 @@ async function loadBlogAutoSettings() {
 
 async function saveBlogAutoSettings() {
   const modeEl = document.getElementById('blog-auto-mode');
-  const categoriesEl = document.getElementById('blog-auto-categories');
   const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
   const publishTimeEl = document.getElementById('blog-auto-publish-time');
@@ -1940,7 +2153,7 @@ async function saveBlogAutoSettings() {
     const payload = {
       ...fields,
       NAVER_AUTO_MODE: Boolean(modeEl?.checked),
-      NAVER_AUTO_CATEGORIES: (categoriesEl?.value || '').trim(),
+      NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
       NAVER_AUTO_DAILY_POSTS: parseInt((dailyPostsEl?.value || '3').trim(), 10) || 0,
       NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
       NAVER_AUTO_PUBLISH_TIME: (publishTimeEl?.value || '08:00').trim(),
@@ -1949,7 +2162,10 @@ async function saveBlogAutoSettings() {
     const saved = await postJson('/api/v1/settings/major', payload);
     const savedFields = saved?.fields || {};
     if (modeEl) modeEl.checked = Boolean(savedFields.NAVER_AUTO_MODE ?? savedFields.AUTO_MODE);
-    if (categoriesEl) categoriesEl.value = String(savedFields.NAVER_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || '');
+    setSelectedBlogAutoCategories(
+      savedFields.NAVER_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || ''
+    );
+    renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(savedFields.NAVER_AUTO_DAILY_POSTS ?? savedFields.AUTO_DAILY_BLOG_CAP ?? 3);
     if (trendsTimeEl) trendsTimeEl.value = String(savedFields.NAVER_AUTO_TRENDS_TIME || '07:30');
     if (publishTimeEl) publishTimeEl.value = String(savedFields.NAVER_AUTO_PUBLISH_TIME || '08:00');
@@ -2298,6 +2514,14 @@ function bindActions() {
   const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
   const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
   const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
+  const blogAutoCategoryRefreshBtn = document.getElementById('blog-auto-category-refresh-btn');
+  const blogAutoCategoryClearBtn = document.getElementById('blog-auto-category-clear-btn');
+  const blogAutoCategorySearchEl = document.getElementById('blog-auto-category-search');
+  const blogAutoCategorySearchClearBtn = document.getElementById('blog-auto-category-search-clear-btn');
+  const blogAutoCategoryOptionsEl = document.getElementById('blog-auto-category-options');
+  const blogAutoCategoryChipsEl = document.getElementById('blog-auto-category-chips');
+  const blogAutoCategoryManualEl = document.getElementById('blog-auto-category-manual');
+  const blogAutoCategoryAddBtn = document.getElementById('blog-auto-category-add-btn');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
@@ -2320,6 +2544,57 @@ function bindActions() {
   if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
+  if (blogAutoCategoryRefreshBtn) {
+    blogAutoCategoryRefreshBtn.addEventListener('click', () => {
+      loadBlogAutoCategoryCatalog({ force: true, silent: false });
+    });
+  }
+  if (blogAutoCategoryClearBtn) {
+    blogAutoCategoryClearBtn.addEventListener('click', () => {
+      clearAllBlogAutoCategories();
+    });
+  }
+  if (blogAutoCategorySearchClearBtn) {
+    blogAutoCategorySearchClearBtn.addEventListener('click', () => {
+      clearBlogAutoCategorySearch();
+    });
+  }
+  if (blogAutoCategorySearchEl) {
+    blogAutoCategorySearchEl.addEventListener('input', () => {
+      renderBlogAutoCategoryOptions();
+    });
+  }
+  if (blogAutoCategoryOptionsEl) {
+    blogAutoCategoryOptionsEl.addEventListener('click', (e) => {
+      const btn = e.target?.closest('button[data-blog-auto-category-toggle]');
+      if (!btn) return;
+      const category = normalizeCategoryToken(btn.dataset.blogAutoCategoryToggle || '');
+      if (!category) return;
+      if (blogAutoCategorySelected.has(category)) blogAutoCategorySelected.delete(category);
+      else blogAutoCategorySelected.add(category);
+      renderBlogAutoCategoryUi();
+    });
+  }
+  if (blogAutoCategoryChipsEl) {
+    blogAutoCategoryChipsEl.addEventListener('click', (e) => {
+      const removeBtn = e.target?.closest('button[data-category-chip-remove]');
+      if (!removeBtn) return;
+      const category = normalizeCategoryToken(removeBtn.dataset.categoryChipRemove || '');
+      if (!category) return;
+      blogAutoCategorySelected.delete(category);
+      renderBlogAutoCategoryUi();
+    });
+  }
+  if (blogAutoCategoryAddBtn) {
+    blogAutoCategoryAddBtn.addEventListener('click', addBlogAutoManualCategory);
+  }
+  if (blogAutoCategoryManualEl) {
+    blogAutoCategoryManualEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      addBlogAutoManualCategory();
+    });
+  }
   if (settingsTypingPreviewReplayBtn) settingsTypingPreviewReplayBtn.addEventListener('click', playSettingsTypingPreview);
   if (settingsTypingPreviewInputEl) {
     settingsTypingPreviewInputEl.placeholder = SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT;
