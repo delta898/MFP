@@ -11,6 +11,8 @@ const BrowserLauncher = require('./browser-launcher');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
+const SAFE_EDITOR_VIEWPORT = { width: 1600, height: 1200 };
+const PUBLISH_EDITOR_READY_TIMEOUT_MS = 45000;
 
 async function clickIfVisible(locator) {
 	try {
@@ -575,7 +577,9 @@ async function focusEditorTypingArea(page) {
 		'.se-component-content.se-component-content-normal .se-text-paragraph',
 		'.se-component-content.se-component-content-text p',
 		'.se-module-text p',
-		'.se-text-paragraph'
+		'.se-text-paragraph',
+		'.se-section-text .se-text-paragraph',
+		'.se-component-content [contenteditable="true"]'
 	];
 
 	for (const selector of paragraphSelectors) {
@@ -585,6 +589,7 @@ async function focusEditorTypingArea(page) {
 			const node = nodes.nth(i);
 				try {
 					if (!(await node.isVisible())) continue;
+					try { await node.scrollIntoViewIfNeeded(); } catch (e) { }
 					// 제목 영역(.se-documentTitle)은 제외하고 본문 입력 영역을 우선 포커스한다.
 					const inTitleSection = await node.evaluate((el) => !!el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle'));
 					if (inTitleSection) continue;
@@ -598,7 +603,15 @@ async function focusEditorTypingArea(page) {
 	try {
 		const editor = page.locator('.se-container, .se-main-container, #mainFrame').first();
 		if (await editor.count() > 0 && await editor.isVisible()) {
-			await editor.click({ force: true, position: { x: 80, y: 220 } });
+			try { await editor.scrollIntoViewIfNeeded(); } catch (e) { }
+			const box = await editor.boundingBox();
+			if (box && box.width > 0 && box.height > 0) {
+				const clickX = Math.max(12, Math.floor(box.width * 0.18));
+				const clickY = Math.max(12, Math.floor(box.height * 0.42));
+				await editor.click({ force: true, position: { x: clickX, y: clickY } });
+			} else {
+				await editor.click({ force: true });
+			}
 			await Utils.sleep(80);
 			return true;
 		}
@@ -613,6 +626,7 @@ function normalizeEditorText(value) {
 async function waitForBlogEditorReady(page, timeoutMs = 30000) {
 	const startedAt = Date.now();
 	let stableCount = 0;
+	let popupDismissRound = 0;
 
 	const hasVisible = async (selector) => {
 		try {
@@ -630,11 +644,26 @@ async function waitForBlogEditorReady(page, timeoutMs = 30000) {
 			throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
 		}
 
-		const titleReady = await hasVisible('.se-component.se-documentTitle .se-text-paragraph, .se-section-documentTitle .se-text-paragraph, .se-documentTitle .se-text-paragraph, .se-documentTitle');
-		const editorReady = await hasVisible('.se-main-container, .se-container, .se-component.se-text .se-text-paragraph, .se-component-content.se-component-content-normal .se-text-paragraph, .se-component-content, .se-module-text');
+		const titleReady = await hasVisible(
+			'.se-component.se-documentTitle .se-text-paragraph, ' +
+			'.se-section-documentTitle .se-text-paragraph, ' +
+			'.se-documentTitle .se-text-paragraph, ' +
+			'.se-component.se-documentTitle .se-placeholder, ' +
+			'.se-section-documentTitle .se-placeholder, ' +
+			'.se-documentTitle .se-placeholder, ' +
+			'.se-documentTitle'
+		);
+		const editorReady = await hasVisible(
+			'.se-main-container, .se-container, ' +
+			'.se-component.se-text .se-text-paragraph, ' +
+			'.se-component-content.se-component-content-normal .se-text-paragraph, ' +
+			'.se-component-content, .se-module-text, .se-canvas-bottom'
+		);
 		const loadingVisible = await hasVisible('.se-progressbar, .se-loading, .se-spinner, .u_loading, .ly_loading');
+		const elapsed = Date.now() - startedAt;
+		const readyByTimeoutFallback = editorReady && !loadingVisible && elapsed > 12000;
 
-		if (titleReady && editorReady && !loadingVisible) {
+		if ((titleReady && editorReady && !loadingVisible) || readyByTimeoutFallback) {
 			stableCount++;
 			if (stableCount >= 2) {
 				const elapsedMs = Date.now() - startedAt;
@@ -647,6 +676,10 @@ async function waitForBlogEditorReady(page, timeoutMs = 30000) {
 			stableCount = 0;
 		}
 
+		if (popupDismissRound % 6 === 0) {
+			try { await dismissEditorPopups(page); } catch (e) { }
+		}
+		popupDismissRound++;
 		await Utils.sleep(220);
 	}
 
@@ -654,16 +687,29 @@ async function waitForBlogEditorReady(page, timeoutMs = 30000) {
 }
 
 async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay, maxAttempts = 3) {
-	const titleArea = page.locator(
+	const titleSelector =
 		'.se-component.se-documentTitle .se-text-paragraph, ' +
 		'.se-section-documentTitle .se-text-paragraph, ' +
 		'.se-documentTitle .se-text-paragraph, ' +
-		'.se-documentTitle'
-	).first();
+		'.se-component.se-documentTitle .se-placeholder, ' +
+		'.se-section-documentTitle .se-placeholder, ' +
+		'.se-documentTitle .se-placeholder, ' +
+		'.se-documentTitle';
+
+	const waitStartedAt = Date.now();
+	while ((Date.now() - waitStartedAt) < 25000) {
+		const titleAreaProbe = page.locator(titleSelector).first();
+		try {
+			if (await titleAreaProbe.count() > 0 && await titleAreaProbe.isVisible()) break;
+		} catch (e) { }
+		await Utils.sleep(220);
+	}
+	const titleArea = page.locator(titleSelector).first();
 	await titleArea.waitFor({ state: 'visible', timeout: 12000 });
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		await dismissEditorPopups(page);
+		try { await titleArea.scrollIntoViewIfNeeded(); } catch (e) { }
 		await titleArea.click({ force: true });
 		await Utils.sleep(80);
 
@@ -689,6 +735,10 @@ async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay,
 
 		if (isMatched) {
 			await page.keyboard.press('Enter');
+			for (let i = 0; i < 4; i++) {
+				if (await focusEditorTypingArea(page)) break;
+				await Utils.sleep(120);
+			}
 			return true;
 		}
 
@@ -699,6 +749,10 @@ async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay,
 	}
 
 	throw new Error('제목 입력 검증에 실패했습니다. 네트워크/PC 성능 상태를 확인해주세요.');
+}
+
+function resolvePublishViewport() {
+	return { ...SAFE_EDITOR_VIEWPORT };
 }
 
 async function getEditorLinkSnapshot(page, targetUrl = '') {
@@ -1277,16 +1331,7 @@ ${scrapedContext}`;
 		const speedKey = String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
 		const typingPreset = Constants.TYPING_PRESETS[speedKey] || Constants.TYPING_PRESETS.NORMAL;
 
-		// 🔧 [Fixed] parseInt 기본값 처리 개선
-		const getIntOrDefault = (value, defaultValue) => {
-			const parsed = parseInt(value, 10);
-			return isNaN(parsed) ? defaultValue : parsed;
-		};
-
-		const viewport = {
-			width: getIntOrDefault(CONFIG.VIEWPORT_WIDTH, 1280),
-			height: getIntOrDefault(CONFIG.VIEWPORT_HEIGHT, 1024)
-		};
+		const viewport = resolvePublishViewport();
 
 		const browser = await BrowserLauncher.launchBrowser();
 		const context = await browser.newContext({
@@ -1320,11 +1365,11 @@ ${scrapedContext}`;
 				throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
 			}
 
-			await waitForBlogEditorReady(page);
+			await waitForBlogEditorReady(page, PUBLISH_EDITOR_READY_TIMEOUT_MS);
 
 			// 팝업 제거 (Help / 이전글 로드)
 			await dismissEditorPopups(page);
-			await waitForBlogEditorReady(page);
+			await waitForBlogEditorReady(page, PUBLISH_EDITOR_READY_TIMEOUT_MS);
 			await Utils.sleep(300);
 
 			// 🔧 [Fixed] 타이핑할 때마다 랜덤 속도 계산 (봇 감지 회피)

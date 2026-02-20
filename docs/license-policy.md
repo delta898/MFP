@@ -139,3 +139,18 @@
   - `sql/supabase_license_v4_unique_keys.sql` (권장)
   - 포함 RPC: `issue_test_license`, `check_license_status`, `check_and_use_license`
 - v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.
+
+## 8. 라이선스 CLI 운영 원칙
+
+현재 사용자 노출 라이선스 명령은 아래 4종입니다.
+
+- `license status`: 현재 플랜/한도/사용/잔여 확인
+- `license register`: 이메일 연결(등록) 전용, 플랜 변경 없음
+- `license recover`: 등록된 이메일 기준 라이선스 복구
+- `license upgrade`: 플랜 전환 전용(현재 정책/구성에 따라 가능한 플랜만 노출)
+
+운영 정책:
+
+- 등록(`register`)과 플랜 변경(`upgrade`)은 분리합니다.
+- `register` 성공 시에도 현재 플랜/쿼터는 즉시 변경되지 않습니다.
+- 플랜 전환은 `upgrade` 경로로만 처리합니다.

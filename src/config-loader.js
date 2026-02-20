@@ -235,8 +235,6 @@ const typingModeRaw = String(userConfig.TYPING_SPEED || 'NORMAL').trim().toUpper
 const typingMode = Constants.TYPING_PRESETS[typingModeRaw] ? typingModeRaw : 'NORMAL';
 const typingDelay = Constants.TYPING_PRESETS[typingMode];
 
-const viewportWidth = userConfig.VIEWPORT_WIDTH || 1280;
-const viewportHeight = userConfig.VIEWPORT_HEIGHT || 1024;
 const listenHost = String(process.env.LISTEN_HOST || userConfig.LISTEN_HOST || '127.0.0.1').trim() || '127.0.0.1';
 const listenPortRaw = process.env.LISTEN_PORT || userConfig.LISTEN_PORT || 4577;
 const listenPortParsed = parseInt(String(listenPortRaw), 10);
@@ -301,7 +299,7 @@ module.exports = {
     IMAGE_STYLE: imageStyle,
     GEMINI_TEXT_ENDPOINT: TEXT_ENDPOINT,
     GEMINI_IMAGE_ENDPOINT: IMAGE_ENDPOINT,
-    VIEWPORT: { width: viewportWidth, height: viewportHeight },
+    // VIEWPORT_* 설정은 폐기됨. 발행 안정성을 위해 core에서 안전 뷰포트 정책을 사용한다.
 
     // 4. 경로 상수 (호환성 유지)
     PATHS: PATHS,

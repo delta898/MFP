@@ -80,9 +80,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/config
+          mkdir -p dist/config/images
           mkdir -p dist/scripts
 
           cp config/config.txt.sample dist/config/config.txt.sample
+          if [ -d "config/images" ]; then
+              find config/images -maxdepth 1 -type f ! -name '.*' -exec cp {} dist/config/images/ \;
+          else
+              echo "⚠️ config/images 폴더가 없어 기본 쇼핑 이미지가 누락될 수 있습니다."
+          fi
           cp scripts/google_apps_script.js dist/scripts/google_apps_script.js
 
           if [ -f "README_USER.md" ]; then

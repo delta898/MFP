@@ -51,6 +51,7 @@ copy_assets() {
     TARGET_DIR=$1
     
     mkdir -p "$TARGET_DIR/config"
+    mkdir -p "$TARGET_DIR/config/images"
     mkdir -p "$TARGET_DIR/scripts"
     
     # settings.js 대신 config.txt.sample 복사
@@ -59,6 +60,12 @@ copy_assets() {
         cp config/config.txt.sample "$TARGET_DIR/config/config.txt.sample"
     else
         echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
+    fi
+
+    if [ -d "config/images" ]; then
+        find config/images -maxdepth 1 -type f ! -name '.*' -exec cp {} "$TARGET_DIR/config/images/" \;
+    else
+        echo "⚠️ [Warning] config/images 폴더가 없습니다! 기본 쇼핑 이미지가 누락될 수 있습니다."
     fi
 
     if [ -f "scripts/google_apps_script.js" ]; then
