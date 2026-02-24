@@ -876,33 +876,37 @@ async function loadDashboard() {
 }
 
 async function loadDashboardLogs() {
-  const list = document.getElementById('activity-timeline');
-  if (!list) return;
+  const lists = document.querySelectorAll('.activity-timeline');
+  if (!lists || lists.length === 0) return;
 
   try {
     const res = await fetchJson('/api/v1/dashboard/logs');
-    if (res && res.logs && res.logs.length > 0) {
-      list.innerHTML = '';
-      res.logs.forEach(log => {
-        const li = document.createElement('li');
-        li.style.padding = '10px 12px';
-        li.style.borderBottom = '1px solid #f1f5f9';
-        li.style.fontSize = '14px';
-        li.style.color = '#334155';
+    lists.forEach(list => {
+      if (res && res.logs && res.logs.length > 0) {
+        list.innerHTML = '';
+        res.logs.forEach(log => {
+          const li = document.createElement('li');
+          li.style.padding = '10px 12px';
+          li.style.borderBottom = '1px solid #f1f5f9';
+          li.style.fontSize = '14px';
+          li.style.color = '#334155';
 
-        let icon = 'ℹ️';
-        if (log.level === 'error') icon = '❌';
-        else if (log.level === 'warn') icon = '⚠️';
-        else if (log.message.includes('완료') || log.message.includes('성공')) icon = '✅';
+          let icon = 'ℹ️';
+          if (log.level === 'error') icon = '❌';
+          else if (log.level === 'warn') icon = '⚠️';
+          else if (log.message.includes('완료') || log.message.includes('성공')) icon = '✅';
 
-        li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${icon} ${log.message}`;
-        list.appendChild(li);
-      });
-    } else {
-      list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">최근 활동 내역이 없습니다.</li>';
-    }
+          li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${icon} ${log.message}`;
+          list.appendChild(li);
+        });
+      } else {
+        list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">최근 활동 내역이 없습니다.</li>';
+      }
+    });
   } catch (err) {
-    list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';
+    lists.forEach(list => {
+      list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';
+    });
   }
 }
 
