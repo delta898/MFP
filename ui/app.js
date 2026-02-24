@@ -976,6 +976,19 @@ function bindNavigation() {
   const activate = async (viewName) => {
     navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
     views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
+    if (viewName === 'dashboard') {
+      loadDashboard();
+      return;
+    }
+    if (viewName === 'logs') {
+      const activeTab = document.querySelector('.logs-tab-btn.active');
+      if (activeTab && activeTab.getAttribute('data-logs-tab') === 'system') {
+        loadLogFiles();
+      } else {
+        loadDashboardLogs();
+      }
+      return;
+    }
     if (viewName === 'blog') {
       const ready = await ensureSheetsPreflightUi();
       if (!ready) return;
@@ -3049,6 +3062,47 @@ async function runBlogAutoManual() {
 }
 
 function bindActions() {
+  document.querySelectorAll('.app-title').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelector('.nav-btn[data-view="dashboard"]').click();
+    });
+  });
+
+  // Logs 위젯 이벤트
+  const logsTabBtns = Array.from(document.querySelectorAll('.logs-tab-btn'));
+  logsTabBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      logsTabBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const tabName = e.target.getAttribute('data-logs-tab');
+      document.querySelectorAll('.logs-tab-panel').forEach(p => p.style.display = 'none');
+      document.getElementById(`logs-tab-${tabName}`).style.display = 'block';
+      if (tabName === 'system') loadLogFiles();
+    });
+  });
+
+  const logsActivityRefreshBtn = document.getElementById('logs-activity-refresh-btn');
+  if (logsActivityRefreshBtn) {
+    logsActivityRefreshBtn.addEventListener('click', () => {
+      loadDashboardLogs();
+      logsActivityRefreshBtn.textContent = '불러오는 중...';
+      setTimeout(() => logsActivityRefreshBtn.textContent = '새로고침', 500);
+    });
+  }
+
+  const logsSystemFileSelect = document.getElementById('logs-system-file-select');
+  const logsSystemRefreshBtn = document.getElementById('logs-system-refresh-btn');
+  if (logsSystemFileSelect) {
+    logsSystemFileSelect.addEventListener('change', loadSystemLog);
+  }
+  if (logsSystemRefreshBtn) {
+    logsSystemRefreshBtn.addEventListener('click', () => {
+      loadSystemLog();
+      logsSystemRefreshBtn.textContent = '불러오는 중...';
+      setTimeout(() => logsSystemRefreshBtn.textContent = '현재 파일 새로고침', 500);
+    });
+  }
+
   const dialogBackdrop = document.getElementById('ui-dialog-backdrop');
   const dialogConfirmBtn = document.getElementById('ui-dialog-confirm');
   const dialogCancelBtn = document.getElementById('ui-dialog-cancel');

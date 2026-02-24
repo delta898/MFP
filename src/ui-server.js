@@ -3254,6 +3254,42 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         }
     }
 
+    if (pathname === '/api/v1/logs/files') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const logDir = path.join(process.cwd(), 'logs');
+            if (!fs.existsSync(logDir)) {
+                return sendSuccess(res, requestId, { files: [] });
+            }
+            const files = fs.readdirSync(logDir)
+                .filter(f => f.endsWith('.log'))
+                .sort((a, b) => b.localeCompare(a)); // 최신순 정렬 (내림차순)
+            return sendSuccess(res, requestId, { files });
+        } catch (e) {
+            return sendError(res, requestId, 500, 'LOGS_FILES_ERROR', e.message);
+        }
+    }
+
+    if (pathname === '/api/v1/logs/read') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const filename = searchParams.get('file');
+            // 보안: 디렉토리 트래버셜 방지
+            if (!filename || !filename.endsWith('.log') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+                return sendError(res, requestId, 400, 'INVALID_FILE', '잘못된 파일 이름입니다.');
+            }
+            const logFile = path.join(process.cwd(), 'logs', filename);
+            if (!fs.existsSync(logFile)) {
+                return sendError(res, requestId, 404, 'FILE_NOT_FOUND', '로그 파일을 찾을 수 없습니다.');
+            }
+            // 텍스트 전체 반환
+            const content = fs.readFileSync(logFile, 'utf-8');
+            return sendSuccess(res, requestId, { file: filename, content });
+        } catch (e) {
+            return sendError(res, requestId, 500, 'LOGS_READ_ERROR', e.message);
+        }
+    }
+
     if (pathname === '/api/v1/config/status') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         return sendSuccess(res, requestId, {

@@ -2621,10 +2621,19 @@ const Utils = {
         return val;
     },
 
+    _dashboardSummaryCache: null,
+    _dashboardSummaryCacheTime: 0,
+
     /**
      * Dashboard 통계 데이터 집계 함수
      */
     getDashboardSummary: async function () {
+        const nowMs = Date.now();
+        // 60초(1분) 동안 캐시된 데이터를 반환하여 Google Sheets API 호출 횟수 및 로그 스팸 감소
+        if (this._dashboardSummaryCache && (nowMs - this._dashboardSummaryCacheTime < 60000)) {
+            return this._dashboardSummaryCache;
+        }
+
         try {
             // 이번 주 월요일 0시부터 일요일 23:59까지의 '발행 완료' 건수를 집계
             const now = new Date();
@@ -2667,13 +2676,18 @@ const Utils = {
                 }
             });
 
-            return {
+            const result = {
                 blogWeeklyCount,
                 shoppingWeeklyCount,
                 pendingTopicsCount,
                 pendingTrendsCount,
                 recentTrendsFetched: trends.length > 0 ? trends[0].date : '-' // 가장 최근 수집 일자
             };
+
+            this._dashboardSummaryCache = result;
+            this._dashboardSummaryCacheTime = nowMs;
+            return result;
+
         } catch (error) {
             this.Logger.error(`❌ 대시보드 데이터 로드 실패: ${error.message}`);
             return {
