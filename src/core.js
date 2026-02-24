@@ -1049,9 +1049,17 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 	const url = String(linkUrl || '').trim();
 	if (!/^https?:\/\//i.test(url)) return false;
 
+	const moveCaretToCardInsertPoint = async () => {
+		// 링크 카드는 일반 본문 문단 포커스보다 "문서 하단 앵커" 기준이 안정적이다.
+		// (패키징 환경에서 본문 문단 포커스로 되돌아가며 카드가 역순/상단에 삽입되는 현상 방지)
+		if (await focusEditorBottomAnchor(page)) return true;
+		if (await placeCaretAtDocumentEnd(page)) return true;
+		return await focusEditorTypingArea(page);
+	};
+
 	const beforeSnapshot = await getEditorLinkSnapshot(page, url);
 	await closeVisibleOglinkPopup(page);
-	await focusEditorTypingArea(page);
+	await moveCaretToCardInsertPoint();
 
 	const openButtonSelectors = [
 		'li.se-toolbar-item-oglink button[data-name="oglink"]',
@@ -1235,11 +1243,11 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			await Utils.sleep(180);
 		}
 
-		await focusEditorTypingArea(page);
+		await moveCaretToCardInsertPoint();
 		return true;
 	} catch (e) {
 		await closeVisibleOglinkPopup(page);
-		await focusEditorTypingArea(page);
+		await moveCaretToCardInsertPoint();
 		return false;
 	}
 }
