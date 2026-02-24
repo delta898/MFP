@@ -58,6 +58,7 @@ let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
 let blogTrendsCollectInFlight = false;
 let blogAutoManualRunInFlight = false;
+let shoppingAutoManualRunInFlight = false;
 const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
 const SETTINGS_SHOPPING_SLOT_META = {
   ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
@@ -120,6 +121,8 @@ let blogAutoCategoryCatalogMeta = {
 };
 let blogAutoPlanMaxPosts = null;
 let blogAutoPlanName = '현재';
+let shoppingAutoPlanMaxPosts = null;
+let shoppingAutoPlanName = '현재';
 let uiDialogResolver = null;
 
 function pauseDashboardPolling() {
@@ -741,7 +744,7 @@ function activateBlogTab(tabName, options = {}) {
 }
 
 function activateShoppingTab(tabName, options = {}) {
-  const allowed = ['quick', 'batch'];
+  const allowed = ['quick', 'batch', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   shoppingActiveTab = target;
 
@@ -755,6 +758,10 @@ function activateShoppingTab(tabName, options = {}) {
 
   if (target === 'batch') {
     loadBlogShopping();
+    return;
+  }
+  if (target === 'auto') {
+    loadShoppingAutoSettings();
   }
 }
 
@@ -1571,6 +1578,10 @@ function applySettingsMajorToForm(data) {
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const blogAutoVariationNumberEl = document.getElementById('blog-auto-variation-number');
   const blogAutoKeywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+  const shoppingAutoModeEl = document.getElementById('shopping-auto-mode');
+  const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
+  const shoppingAutoTimeEl = document.getElementById('shopping-auto-time');
+  const shoppingAutoNotifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -1612,6 +1623,14 @@ function applySettingsMajorToForm(data) {
     const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
     blogAutoKeywordReuseGapEl.value = String(normalizedReuseGap);
   }
+  if (shoppingAutoModeEl) shoppingAutoModeEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_MODE);
+  if (shoppingAutoDailyPostsEl) shoppingAutoDailyPostsEl.value = String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
+  if (shoppingAutoTimeEl) shoppingAutoTimeEl.value = String(fields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+  if (shoppingAutoNotifyEnabledEl) {
+    shoppingAutoNotifyEnabledEl.checked = false;
+    shoppingAutoNotifyEnabledEl.disabled = true;
+  }
+  applyShoppingAutoDailyPostsLimitUi();
   syncBlogAutoVariationNumberUi();
   settingsMajorApplyingForm = false;
   playSettingsTypingPreview();
@@ -1797,6 +1816,10 @@ function buildSettingsMajorPayload() {
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
     NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-number')?.value || '', 50),
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
+    NAVER_SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
+    NAVER_SHOPPING_AUTO_DAILY_POSTS: parseInt((document.getElementById('shopping-auto-daily-posts')?.value || '3').trim(), 10) || 0,
+    NAVER_SHOPPING_AUTO_TIME: (document.getElementById('shopping-auto-time')?.value || '07:50').trim(),
+    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: false,
     ...imageSources
   };
 }
@@ -2285,6 +2308,92 @@ async function loadBlogAutoPlanLimit(options = {}) {
   }
 }
 
+function setShoppingAutoResultText(message) {
+  const resultEl = document.getElementById('shopping-auto-result');
+  if (resultEl) resultEl.textContent = String(message || '');
+}
+
+function applyShoppingAutoDailyPostsLimitUi() {
+  const inputEl = document.getElementById('shopping-auto-daily-posts');
+  const hintEl = document.getElementById('shopping-auto-daily-posts-hint');
+  if (!inputEl) return;
+
+  const planLabelRaw = String(shoppingAutoPlanName || '').trim();
+  const planLabel = planLabelRaw
+    ? planLabelRaw.replace(/\s+plan$/i, '').trim() || planLabelRaw
+    : '현재';
+
+  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts)) {
+    if (shoppingAutoPlanMaxPosts > 0) {
+      inputEl.max = String(shoppingAutoPlanMaxPosts);
+      const current = parseInt((inputEl.value || '').trim(), 10);
+      if (Number.isInteger(current) && current > shoppingAutoPlanMaxPosts) {
+        inputEl.value = String(shoppingAutoPlanMaxPosts);
+      }
+      if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: ${shoppingAutoPlanMaxPosts}건`;
+      return;
+    }
+    inputEl.removeAttribute('max');
+    if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 제한 없음`;
+    return;
+  }
+
+  inputEl.removeAttribute('max');
+  if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 확인 중`;
+}
+
+async function loadShoppingAutoPlanLimit(options = {}) {
+  const silent = options?.silent === true;
+  try {
+    const capabilities = await fetchJson('/api/v1/capabilities?quiet=1');
+    shoppingAutoPlanName = String(capabilities?.planName || capabilities?.planCode || '현재').trim() || '현재';
+    const raw = capabilities?.limits?.max_shopping_posts_per_run;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      shoppingAutoPlanMaxPosts = parsed;
+    } else {
+      shoppingAutoPlanMaxPosts = null;
+    }
+    applyShoppingAutoDailyPostsLimitUi();
+  } catch (e) {
+    shoppingAutoPlanMaxPosts = null;
+    applyShoppingAutoDailyPostsLimitUi();
+    if (!silent) setShoppingAutoResultText(`플랜 제한 조회 실패: ${e.message}`);
+  }
+}
+
+function normalizeShoppingAutoDailyPostsValue(rawValue) {
+  let value = parseInt(String(rawValue || '').trim(), 10);
+  if (!Number.isInteger(value) || value < 0) value = 0;
+  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts) && shoppingAutoPlanMaxPosts > 0) {
+    value = Math.min(value, shoppingAutoPlanMaxPosts);
+  }
+  return value;
+}
+
+function clampShoppingAutoDailyPostsInputValue(options = {}) {
+  const force = options?.force === true;
+  const inputEl = document.getElementById('shopping-auto-daily-posts');
+  if (!inputEl) return;
+
+  const raw = String(inputEl.value || '').trim();
+  if (!raw) {
+    if (force) inputEl.value = '0';
+    return;
+  }
+
+  const parsed = parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    if (force) inputEl.value = '0';
+    return;
+  }
+
+  const normalized = normalizeShoppingAutoDailyPostsValue(parsed);
+  if (normalized !== parsed) {
+    inputEl.value = String(normalized);
+  }
+}
+
 function normalizeBlogAutoDailyPostsValue(rawValue) {
   let value = parseInt(String(rawValue || '').trim(), 10);
   if (!Number.isInteger(value) || value < 0) value = 0;
@@ -2513,6 +2622,125 @@ async function saveBlogAutoSettings() {
     ].join('\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function loadShoppingAutoSettings() {
+  const modeEl = document.getElementById('shopping-auto-mode');
+  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
+  const timeEl = document.getElementById('shopping-auto-time');
+  const notifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
+  setShoppingAutoResultText('불러오는 중...');
+  try {
+    const [data] = await Promise.all([
+      fetchJson('/api/v1/settings/major'),
+      loadShoppingAutoPlanLimit({ silent: true })
+    ]);
+    const fields = data?.fields || {};
+    if (modeEl) modeEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_MODE);
+    if (dailyPostsEl) dailyPostsEl.value = String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
+    applyShoppingAutoDailyPostsLimitUi();
+    if (timeEl) timeEl.value = String(fields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+    if (notifyEnabledEl) {
+      notifyEnabledEl.checked = false;
+      notifyEnabledEl.disabled = true;
+    }
+    setShoppingAutoResultText([
+      '불러오기 완료',
+      '- 자동발행 기준을 확인했습니다.',
+      '- 변경 후 [저장]을 눌러 반영하세요.'
+    ].join('\n'));
+  } catch (e) {
+    setShoppingAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function saveShoppingAutoSettings() {
+  const modeEl = document.getElementById('shopping-auto-mode');
+  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
+  const timeEl = document.getElementById('shopping-auto-time');
+  setShoppingAutoResultText('저장 중...');
+  try {
+    const major = await fetchJson('/api/v1/settings/major');
+    const fields = { ...(major?.fields || {}) };
+    const dailyPosts = normalizeShoppingAutoDailyPostsValue(dailyPostsEl?.value || '3');
+    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
+    const payload = {
+      ...fields,
+      NAVER_SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
+      NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+      NAVER_SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
+      NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: false
+    };
+    const saved = await postJson('/api/v1/settings/major', payload);
+    const savedFields = saved?.fields || {};
+    if (modeEl) modeEl.checked = Boolean(savedFields.NAVER_SHOPPING_AUTO_MODE);
+    if (dailyPostsEl) dailyPostsEl.value = String(savedFields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
+    applyShoppingAutoDailyPostsLimitUi();
+    if (timeEl) timeEl.value = String(savedFields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+    setShoppingAutoResultText([
+      '저장 완료',
+      '- 쇼핑 자동발행 설정이 반영되었습니다.',
+      '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
+    ].join('\n'));
+  } catch (e) {
+    setShoppingAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function runShoppingAutoManual() {
+  if (!guardUiConfigReady('쇼핑 자동발행 수동 실행')) return;
+  if (shoppingAutoManualRunInFlight) return;
+
+  const resultEl = document.getElementById('shopping-auto-result');
+  const modeEl = document.getElementById('shopping-auto-mode');
+  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
+  const timeEl = document.getElementById('shopping-auto-time');
+  const notifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
+
+  const shouldProceed = await showUiConfirm('쇼핑커넥트 자동발행 파이프라인을 수동 실행하시겠습니까?', {
+    title: '수동 실행 확인',
+    confirmText: '진행',
+    cancelText: '취소'
+  });
+  if (shouldProceed === false) {
+    if (resultEl) resultEl.textContent = '수동 실행이 취소되었습니다.';
+    return;
+  }
+
+  shoppingAutoManualRunInFlight = true;
+  if (resultEl) resultEl.textContent = '수동 실행 중...';
+  pauseDashboardPolling();
+  try {
+    const dailyPosts = normalizeShoppingAutoDailyPostsValue(dailyPostsEl?.value || '3');
+    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
+    const settingsOverrides = {
+      NAVER_SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
+      NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+      NAVER_SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
+      NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
+    };
+    const data = await postJson('/api/v1/shopping/auto/run-manual', { settingsOverrides });
+    const summary = data?.summary || {};
+    const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
+    const lines = [
+      '수동 실행 완료',
+      `- 쇼핑 발행 시도/성공: ${Number(summary?.shoppingAttempted || 0)} / ${Number(summary?.shoppingSuccess || 0)}건`
+    ];
+    if (skipped.length > 0) {
+      lines.push('- 건너뜀/주의:');
+      for (const item of skipped) lines.push(`  • ${String(item)}`);
+    }
+    if (resultEl) resultEl.textContent = lines.join('\n');
+    await Promise.all([
+      loadDashboard(),
+      loadBlogShopping({ silent: true })
+    ]);
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  } finally {
+    shoppingAutoManualRunInFlight = false;
+    resumeDashboardPolling();
   }
 }
 
@@ -2997,6 +3225,10 @@ function bindActions() {
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-number');
   const blogAutoRunBtn = document.getElementById('blog-auto-run-btn');
+  const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
+  const shoppingAutoSaveBtn = document.getElementById('shopping-auto-save-btn');
+  const shoppingAutoRunBtn = document.getElementById('shopping-auto-run-btn');
+  const shoppingAutoDailyPostsInputEl = document.getElementById('shopping-auto-daily-posts');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
@@ -3020,6 +3252,9 @@ function bindActions() {
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
   if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogAutoManual);
+  if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', loadShoppingAutoSettings);
+  if (shoppingAutoSaveBtn) shoppingAutoSaveBtn.addEventListener('click', saveShoppingAutoSettings);
+  if (shoppingAutoRunBtn) shoppingAutoRunBtn.addEventListener('click', runShoppingAutoManual);
   if (blogAutoCategoryOptionsEl) {
     blogAutoCategoryOptionsEl.addEventListener('click', (e) => {
       const btn = e.target?.closest('button[data-blog-auto-category-toggle]');
@@ -3049,6 +3284,15 @@ function bindActions() {
   if (blogAutoVariationNumberEnabledEl) {
     blogAutoVariationNumberEnabledEl.addEventListener('change', () => {
       syncBlogAutoVariationNumberUi();
+    });
+  }
+  if (shoppingAutoDailyPostsInputEl) {
+    shoppingAutoDailyPostsInputEl.addEventListener('input', () => {
+      clampShoppingAutoDailyPostsInputValue({ force: false });
+    });
+    shoppingAutoDailyPostsInputEl.addEventListener('blur', () => {
+      clampShoppingAutoDailyPostsInputValue({ force: true });
+      applyShoppingAutoDailyPostsLimitUi();
     });
   }
   if (settingsTypingPreviewReplayBtn) settingsTypingPreviewReplayBtn.addEventListener('click', playSettingsTypingPreview);

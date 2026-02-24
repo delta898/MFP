@@ -2587,6 +2587,20 @@ const Utils = {
                 });
                 continue;
             }
+            if (/^>+\s*/.test(trimmedLine)) {
+                let quoteLine = trimmedLine.replace(/^>+\s*/, '');
+                quoteLine = quoteLine.replace(/\*\*(.*?)\*\*/g, '$1');
+                quoteLine = quoteLine.replace(/<a\s+[^>]*href=[\\"]+([^"\\>]+)[\\"]+[^>]*>(.*?)<\/a>/gi, (match, url, text) => {
+                    if (text.includes('http') || text.trim() === '') return url;
+                    return `${text}: ${url}`;
+                });
+                if (!quoteLine.trim()) {
+                    contents.push({ type: 'newline' });
+                } else {
+                    contents.push({ type: 'quote', text: quoteLine });
+                }
+                continue;
+            }
             contents.push({ type: 'paragraph', text: line.replace(/\*\*(.*?)\*\*/g, '$1') });
         }
         return { title, contents };

@@ -35,6 +35,12 @@ const NAVER_AUTO_DEFAULTS = {
     variationNumber: 50,
     keywordReuseGapDays: 15
 };
+const NAVER_SHOPPING_AUTO_DEFAULTS = {
+    mode: false,
+    dailyPosts: 3,
+    time: '07:50',
+    notifyEnabled: false
+};
 const AUTO_TRENDS_RETRY_WAIT_MS = 5 * 60 * 1000;
 const AUTO_TRENDS_MAX_RETRIES = 3;
 const NAVER_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'naver_auto_categories_master'];
@@ -567,6 +573,10 @@ function buildDefaultConfigTemplate() {
         'NAVER_AUTO_VARIATION_INCLUDE_NUMBER = true',
         'NAVER_AUTO_VARIATION_NUMBER = 50',
         'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS = 15',
+        'NAVER_SHOPPING_AUTO_MODE = false',
+        'NAVER_SHOPPING_AUTO_DAILY_POSTS = 3',
+        'NAVER_SHOPPING_AUTO_TIME = 07:50',
+        'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED = false',
         `FTC_DISCLOSURE_IMAGE_URL = ${DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL}`,
         `SHOPPING_CTA_IMAGE_URL1 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1}`,
         `SHOPPING_CTA_IMAGE_URL2 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2}`,
@@ -970,6 +980,45 @@ function normalizeNaverAutoSettings(input = {}) {
     };
 }
 
+function normalizeNaverShoppingAutoSettings(input = {}) {
+    const hasModeKey = Object.prototype.hasOwnProperty.call(input, 'NAVER_SHOPPING_AUTO_MODE');
+    const hasLegacyModeKey = Object.prototype.hasOwnProperty.call(input, 'AUTO_SHOPPING_ENABLED');
+    const hasDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'NAVER_SHOPPING_AUTO_DAILY_POSTS');
+    const hasLegacyDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'AUTO_MAX_SHOPPING_PER_CYCLE');
+
+    const mode = toBoolLike(
+        hasModeKey
+            ? input.NAVER_SHOPPING_AUTO_MODE
+            : (hasLegacyModeKey ? input.AUTO_SHOPPING_ENABLED : CONFIG.NAVER_SHOPPING_AUTO_MODE),
+        toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_MODE, NAVER_SHOPPING_AUTO_DEFAULTS.mode)
+    );
+    const dailyPosts = normalizeNonNegativeInt(
+        hasDailyPostsKey
+            ? input.NAVER_SHOPPING_AUTO_DAILY_POSTS
+            : (hasLegacyDailyPostsKey ? input.AUTO_MAX_SHOPPING_PER_CYCLE : CONFIG.NAVER_SHOPPING_AUTO_DAILY_POSTS),
+        normalizeNonNegativeInt(CONFIG.NAVER_SHOPPING_AUTO_DAILY_POSTS, NAVER_SHOPPING_AUTO_DEFAULTS.dailyPosts)
+    );
+    const time = normalizeTimeHHmm(
+        input.NAVER_SHOPPING_AUTO_TIME,
+        normalizeTimeHHmm(CONFIG.NAVER_SHOPPING_AUTO_TIME, NAVER_SHOPPING_AUTO_DEFAULTS.time)
+    );
+    const notifyEnabled = toBoolLike(
+        input.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
+        toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED, NAVER_SHOPPING_AUTO_DEFAULTS.notifyEnabled)
+    );
+
+    return {
+        NAVER_SHOPPING_AUTO_MODE: mode,
+        NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+        NAVER_SHOPPING_AUTO_TIME: time,
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
+
+        // legacy alias (내부 호환)
+        AUTO_SHOPPING_ENABLED: mode,
+        AUTO_MAX_SHOPPING_PER_CYCLE: dailyPosts
+    };
+}
+
 function applyConfigUpdates(raw, updates = {}) {
     const nextUpdates = { ...updates };
     const lines = String(raw || '').split(/\r?\n/);
@@ -1031,6 +1080,12 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS')
     });
+    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings({
+        NAVER_SHOPPING_AUTO_MODE: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_MODE'),
+        NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
+        NAVER_SHOPPING_AUTO_TIME: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_TIME'),
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED')
+    });
     const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
     const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
     const headless = parseConfigBool(headlessRaw, Boolean(CONFIG.HEADLESS));
@@ -1059,7 +1114,11 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_INCLUDE_DASH: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_DASH,
         NAVER_AUTO_VARIATION_INCLUDE_NUMBER: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_NUMBER,
         NAVER_AUTO_VARIATION_NUMBER: autoSettings.NAVER_AUTO_VARIATION_NUMBER,
-        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS
+        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS,
+        NAVER_SHOPPING_AUTO_MODE: shoppingAutoSettings.NAVER_SHOPPING_AUTO_MODE,
+        NAVER_SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
+        NAVER_SHOPPING_AUTO_TIME: shoppingAutoSettings.NAVER_SHOPPING_AUTO_TIME,
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED
     };
 
     return {
@@ -1086,6 +1145,7 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl2 = String(fields.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
     const autoSettings = normalizeNaverAutoSettings(fields);
+    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings(fields);
 
     CONFIG.NAVER_ID = naverId;
     CONFIG.LISTEN_HOST = listenHost;
@@ -1102,6 +1162,7 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.SHOPPING_CTA_IMAGE_URL2 = ctaImageUrl2;
     CONFIG.SHOPPING_CTA_IMAGE_URL3 = ctaImageUrl3;
     Object.assign(CONFIG, autoSettings);
+    Object.assign(CONFIG, shoppingAutoSettings);
 }
 
 function parseMajorFieldsFromRequest(requestBody = {}) {
@@ -1117,6 +1178,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const ctaImageUrl2 = String(requestBody.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(requestBody.SHOPPING_CTA_IMAGE_URL3 || '').trim();
     const autoSettings = normalizeNaverAutoSettings(requestBody);
+    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings(requestBody);
     return {
         LISTEN_HOST: listenHost,
         LISTEN_PORT: listenPort,
@@ -1129,7 +1191,8 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
         SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
         SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
-        ...autoSettings
+        ...autoSettings,
+        ...shoppingAutoSettings
     };
 }
 
@@ -2064,6 +2127,74 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
             maxPerRun: effectiveMax,
             skippedByLimit,
             results
+        }
+    };
+}
+
+async function executeShoppingAutoManualAction(requestBody = {}) {
+    try {
+        await ensureSheetsReadyForUi();
+    } catch (e) {
+        return { success: false, code: 'SHEETS_NOT_READY', message: `필수 시트 준비 실패: ${e.message}` };
+    }
+
+    const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
+        ? requestBody.settingsOverrides
+        : {};
+    const settings = normalizeNaverShoppingAutoSettings({
+        ...CONFIG,
+        ...settingsOverrides
+    });
+
+    const summary = {
+        shoppingAttempted: 0,
+        shoppingSuccess: 0,
+        skipped: []
+    };
+
+    const targetLimit = normalizeNonNegativeInt(
+        settings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
+        NAVER_SHOPPING_AUTO_DEFAULTS.dailyPosts
+    );
+    if (targetLimit <= 0) {
+        summary.skipped.push('1회 최대 발행수가 0건으로 설정되어 실행을 건너뜁니다.');
+        return { success: true, data: { summary } };
+    }
+
+    const shoppingRes = await Utils.readGoogleSheetShoppingAll({
+        status: '발행 준비 완료',
+        q: '',
+        limit: 100000,
+        offset: 0,
+        sortBy: 'rowNumber',
+        sortDir: 'asc'
+    });
+    const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
+    const rowIndices = shoppingItems
+        .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
+        .slice(0, targetLimit)
+        .map((item) => item.rowIndex)
+        .filter((v) => Number.isInteger(v) && v >= 0);
+
+    summary.shoppingAttempted = rowIndices.length;
+    if (rowIndices.length === 0) {
+        summary.skipped.push('상태가 "발행 준비 완료"인 쇼핑 후보가 없어 실행을 건너뜁니다.');
+        return { success: true, data: { summary } };
+    }
+
+    const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
+    if (!batchResult.success) {
+        return batchResult;
+    }
+    summary.shoppingSuccess = Number(batchResult?.data?.successCount || 0);
+    const failCount = Number(batchResult?.data?.failCount || 0);
+    if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
+
+    return {
+        success: true,
+        data: {
+            summary,
+            batch: batchResult.data
         }
     };
 }
@@ -3298,6 +3429,10 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ? 'true' : 'false',
                     NAVER_AUTO_VARIATION_NUMBER: fields.NAVER_AUTO_VARIATION_NUMBER === '' ? '' : String(fields.NAVER_AUTO_VARIATION_NUMBER),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: String(fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS),
+                    NAVER_SHOPPING_AUTO_MODE: fields.NAVER_SHOPPING_AUTO_MODE ? 'true' : 'false',
+                    NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
+                    NAVER_SHOPPING_AUTO_TIME: fields.NAVER_SHOPPING_AUTO_TIME,
+                    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: fields.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
                     FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
                     SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                     SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
@@ -3394,6 +3529,10 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
                     NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_MIN_VARIATION'),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(content, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
+                    NAVER_SHOPPING_AUTO_MODE: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_MODE'),
+                    NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
+                    NAVER_SHOPPING_AUTO_TIME: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_TIME'),
+                    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
                     FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                     SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                     SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
@@ -3668,6 +3807,19 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         if (!result.success) {
             return sendError(res, requestId, 400, result.code || 'SHOPPING_ACTION_FAILED', result.message || '쇼핑 작업 요청에 실패했습니다.');
         }
+        return sendSuccess(res, requestId, result.data);
+    }
+
+    if (pathname === '/api/v1/shopping/auto/run-manual') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        Logger.info('🚀 [UI][SHOPPING_AUTO] 수동 실행 요청 수신');
+        const result = await executeShoppingAutoManualAction(requestBody || {});
+        if (!result.success) {
+            Logger.warn(`⚠️ [UI][SHOPPING_AUTO] 수동 실행 실패: ${result.message || result.code || 'unknown'}`);
+            return sendError(res, requestId, 400, result.code || 'SHOPPING_AUTO_MANUAL_FAILED', result.message || '쇼핑 자동발행 수동 실행에 실패했습니다.');
+        }
+        const summary = result?.data?.summary || {};
+        Logger.info(`✅ [UI][SHOPPING_AUTO] 수동 실행 완료 (shopping: ${Number(summary?.shoppingSuccess || 0)}/${Number(summary?.shoppingAttempted || 0)})`);
         return sendSuccess(res, requestId, result.data);
     }
 

@@ -251,6 +251,19 @@ const naverAutoKeywordReuseGapDays = parseNonNegativeInt(
     userConfig.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
     15
 );
+const naverShoppingAutoMode = parseBoolLike(
+    userConfig.NAVER_SHOPPING_AUTO_MODE,
+    false
+);
+const naverShoppingAutoDailyPosts = parseNonNegativeInt(
+    userConfig.NAVER_SHOPPING_AUTO_DAILY_POSTS,
+    3
+);
+const naverShoppingAutoTime = parseTimeHHmm(userConfig.NAVER_SHOPPING_AUTO_TIME, '07:50');
+const naverShoppingAutoNotifyEnabled = parseBoolLike(
+    userConfig.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
+    false
+);
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -322,6 +335,10 @@ module.exports = {
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
     NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
+    NAVER_SHOPPING_AUTO_MODE: naverShoppingAutoMode,
+    NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
+    NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
+    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
     // legacy alias (내부 호환)
     AUTO_MODE: naverAutoMode,
     AUTO_INCLUDE_CATEGORIES: naverAutoCategories,
@@ -334,6 +351,8 @@ module.exports = {
     AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
     AUTO_TRENDS_MIN_VARIATION: naverAutoVariationNumber,
     AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
+    AUTO_SHOPPING_ENABLED: naverShoppingAutoMode,
+    AUTO_MAX_SHOPPING_PER_CYCLE: naverShoppingAutoDailyPosts,
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 

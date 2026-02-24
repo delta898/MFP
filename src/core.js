@@ -619,6 +619,33 @@ async function focusEditorTypingArea(page) {
 	return false;
 }
 
+async function focusEditorBottomAnchor(page) {
+	const selectors = [
+		'.se-canvas-bottom',
+		'.se-main-container',
+		'.se-container'
+	];
+
+	for (const selector of selectors) {
+		const node = page.locator(selector).first();
+		try {
+			if (await node.count() === 0 || !(await node.isVisible())) continue;
+			try { await node.scrollIntoViewIfNeeded(); } catch (e) { }
+			const box = await node.boundingBox();
+			if (box && box.width > 0 && box.height > 0) {
+				const clickX = Math.max(12, Math.floor(box.width * 0.08));
+				const clickY = Math.max(12, Math.floor(box.height * 0.95));
+				await node.click({ force: true, position: { x: clickX, y: clickY } });
+			} else {
+				await node.click({ force: true });
+			}
+			await Utils.sleep(100);
+			return true;
+		} catch (e) { }
+	}
+	return false;
+}
+
 function normalizeEditorText(value) {
 	return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -749,6 +776,93 @@ async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay,
 	}
 
 	throw new Error('제목 입력 검증에 실패했습니다. 네트워크/PC 성능 상태를 확인해주세요.');
+}
+
+async function applyTextFormatAtCursor(page, formatName) {
+	try {
+		const toolbarBtn = page.locator('button[data-name="text-format"]').first();
+		if (await toolbarBtn.count() === 0 || !(await toolbarBtn.isVisible())) return false;
+		const textIncludesFormat = async () => {
+			try {
+				const chunks = [
+					String(await toolbarBtn.innerText() || ''),
+					String(await toolbarBtn.getAttribute('aria-label') || ''),
+					String(await toolbarBtn.getAttribute('title') || '')
+				].join(' ').toLowerCase();
+				return chunks.includes(String(formatName || '').toLowerCase());
+			} catch (e) { }
+			return false;
+		};
+
+		const clickPreferredOption = async () => {
+			const preferredSelectors = formatName === '인용구'
+				? [
+					'button.se-toolbar-option-text-format-quotation',
+					'button[class*="text-format-quotation"]'
+				]
+				: formatName === '소제목'
+					? [
+						'button.se-toolbar-option-text-format-subtitle',
+						'button[class*="text-format-subtitle"]'
+					]
+					: [];
+
+			for (const selector of preferredSelectors) {
+				const options = page.locator(selector);
+				const count = await options.count();
+				for (let i = 0; i < count; i++) {
+					const option = options.nth(i);
+					try {
+						if (!(await option.isVisible())) continue;
+						await option.click({ force: true });
+						return true;
+					} catch (e) { }
+				}
+			}
+
+			// 옵션 버튼군 내부에서만 이름 매칭 (상단 토글 버튼 오인 방지)
+			const optionButtons = page.locator('button.se-toolbar-option-text-button');
+			const optionCount = await optionButtons.count();
+			for (let i = 0; i < optionCount; i++) {
+				const option = optionButtons.nth(i);
+				try {
+					if (!(await option.isVisible())) continue;
+					const signature = [
+						String(await option.innerText() || ''),
+						String(await option.getAttribute('aria-label') || ''),
+						String(await option.getAttribute('title') || ''),
+						String(await option.getAttribute('class') || '')
+					].join(' ').toLowerCase();
+					if (!signature.includes(String(formatName || '').toLowerCase())) continue;
+					await option.click({ force: true });
+					return true;
+				} catch (e) { }
+			}
+
+			// 마지막 fallback
+			const byRole = page.getByRole('button', { name: new RegExp(formatName) }).first();
+			if (await byRole.count() > 0 && await byRole.isVisible()) {
+				await byRole.click({ force: true });
+				return true;
+			}
+			return false;
+		};
+
+		for (let attempt = 0; attempt < 3; attempt++) {
+			await toolbarBtn.click({ force: true });
+			await Utils.sleep(180);
+
+			const clicked = await clickPreferredOption();
+			await Utils.sleep(140);
+
+			if (clicked && await textIncludesFormat()) return true;
+
+			// 포맷 라벨 검증이 실패해도 클릭은 되었을 수 있으므로 한 번 더 시도한다.
+			if (clicked && attempt === 2) return true;
+		}
+	} catch (e) { }
+	try { await page.keyboard.press('Escape'); } catch (e) { }
+	return false;
 }
 
 function resolvePublishViewport() {
@@ -1412,31 +1526,45 @@ ${scrapedContext}`;
 					}
 
 				if (item.type === 'header-h2') {
-					// 📌 [복구됨] 어제 성공했던 방식 (커서만 두고 메뉴 클릭)
 					Logger.info(`       📌 소제목: ${item.text}`);
 					await page.keyboard.press('Enter');
 					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
 					await Utils.sleep(300);
 
-					try {
-						const toolbarBtn = page.locator('button[data-name="text-format"]');
-						if (await toolbarBtn.isVisible()) {
-							await toolbarBtn.click();
-							await Utils.sleep(200);
-							const subTitleBtn = page.getByRole('button', { name: '소제목' });
-							if (await subTitleBtn.isVisible()) {
-								await subTitleBtn.click();
-							} else {
-								await page.keyboard.press(`${CMD_KEY}+B`);
-							}
-						}
-					} catch (e) { }
-
+					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
+					if (!subtitleApplied) {
+						try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
+					}
 
 					await Utils.sleep(100);
 					await page.keyboard.press('Enter'); // 다음 줄로 이동
+				}
+					else if (item.type === 'quote') {
+						const quoteText = String(item.text || '').trim();
+						if (quoteText) {
+							Logger.info(`       💬 인용구: ${quoteText}`);
+							await page.keyboard.press('Enter');
+							await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
+							await Utils.sleep(250);
+
+							const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
+							if (!quoteApplied) {
+								Logger.warn('       ⚠️ 인용구 버튼을 찾지 못해 본문으로 입력합니다.');
+							} else {
+								Logger.info('       ✅ 인용구 서식 적용');
+							}
+
+							await Utils.sleep(100);
+							const movedToBottom = await focusEditorBottomAnchor(page);
+							if (!movedToBottom) {
+								try { await page.keyboard.press('End'); } catch (e) { }
+							}
+							await page.keyboard.press('Enter');
+						} else {
+							await page.keyboard.press('Enter');
+						}
 					}
-						else if (item.type === 'list-item') {
+				else if (item.type === 'list-item') {
 							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
 							const listText = String(item.text || '')
 								.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
@@ -1464,7 +1592,7 @@ ${scrapedContext}`;
 								currentListType = listType;
 							}
 						}
-					else if (item.type === 'paragraph') {
+				else if (item.type === 'paragraph') {
 						const paragraphText = String(item.text || '');
 							if (needsExtraGapAfterList && paragraphText.trim()) {
 								await page.keyboard.press('Enter');
