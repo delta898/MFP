@@ -998,7 +998,7 @@ function initClockWidget() {
     const s = String(now.getSeconds()).padStart(2, '0');
 
     if (style === 'digital') {
-      display.innerHTML = `<div style="font-size: 48px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a;">
+      display.innerHTML = `<div style="font-size: 32px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a; line-height: 1;">
         ${h}<span style="opacity:0.5;">:</span>${m}<span style="opacity:0.5;">:</span>${s}
       </div>`;
     } else if (style === 'analog') {
@@ -1006,27 +1006,31 @@ function initClockWidget() {
       const minDeg = now.getMinutes() * 6 + now.getSeconds() * 0.1;
       const hourDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
 
+      let ticksHtml = '';
+      for (let i = 0; i < 12; i++) {
+        ticksHtml += `<div style="position: absolute; top: 0; left: 50%; width: 2px; height: ${i % 3 === 0 ? '8px' : '4px'}; background: ${i % 3 === 0 ? '#334155' : '#94a3b8'}; transform-origin: center 40px; transform: translateX(-50%) rotate(${i * 30}deg);"></div>`;
+      }
+
       display.innerHTML = `
-        <div style="position: relative; width: 100px; height: 100px; border-radius: 50%; border: 4px solid #334155; box-sizing: border-box; background: #f8fafc;">
-          <div style="position: absolute; top: 10%; bottom: 10%; left: 50%; width: 2px; transform: translateX(-50%); background: transparent; pointer-events: none;">
-            <!-- center dot -->
-            <div style="position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #334155; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10;"></div>
-          </div>
+        <div style="position: relative; width: 88px; height: 88px; border-radius: 50%; border: 4px solid #334155; box-sizing: border-box; background: #f8fafc; margin-right: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+          ${ticksHtml}
+          <!-- center dot -->
+          <div style="position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #0f172a; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10;"></div>
           <!-- Hour Hand -->
-          <div style="position: absolute; top: 25%; bottom: 50%; left: 50%; width: 4px; background: #0f172a; transform-origin: bottom center; transform: translateX(-50%) rotate(${hourDeg}deg); border-radius: 2px;"></div>
+          <div style="position: absolute; top: 25%; bottom: 50%; left: 50%; width: 5px; background: #0f172a; transform-origin: bottom center; transform: translateX(-50%) rotate(${hourDeg}deg); border-radius: 3px; z-index: 7;"></div>
           <!-- Min Hand -->
-          <div style="position: absolute; top: 15%; bottom: 50%; left: 50%; width: 3px; background: #475569; transform-origin: bottom center; transform: translateX(-50%) rotate(${minDeg}deg); border-radius: 2px;"></div>
+          <div style="position: absolute; top: 12%; bottom: 50%; left: 50%; width: 3px; background: #334155; transform-origin: bottom center; transform: translateX(-50%) rotate(${minDeg}deg); border-radius: 2px; z-index: 8;"></div>
           <!-- Sec Hand -->
-          <div style="position: absolute; top: 10%; bottom: 40%; left: 50%; width: 2px; background: #ef4444; transform-origin: 75% 75%; transform: translateX(-50%) rotate(${secDeg}deg);"></div>
+          <div style="position: absolute; top: 5%; bottom: 40%; left: 50%; width: 2px; background: #ef4444; transform-origin: 75% 75%; transform: translateX(-50%) rotate(${secDeg}deg); z-index: 9; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
         </div>
       `;
     } else if (style === 'flip') {
-      const bStyle = "display:inline-block; background:#1e293b; color:#fff; padding:10px 12px; border-radius:6px; font-size:40px; font-weight:bold; font-family:monospace; margin:0 4px; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);";
-      display.innerHTML = `<div>
+      const bStyle = "display:inline-block; background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:28px; font-weight:bold; font-family:monospace; margin:0 3px; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1); line-height: 1;";
+      display.innerHTML = `<div style="display:flex; align-items:center;">
         <span style="${bStyle}">${h}</span>
-        <span style="font-size:30px; font-weight:bold; position:relative; top:-5px;">:</span>
+        <span style="font-size:24px; font-weight:bold; color:#334155; margin:0 2px;">:</span>
         <span style="${bStyle}">${m}</span>
-        <span style="font-size:30px; font-weight:bold; position:relative; top:-5px;">:</span>
+        <span style="font-size:24px; font-weight:bold; color:#334155; margin:0 2px;">:</span>
         <span style="${bStyle}">${s}</span>
       </div>`;
     }

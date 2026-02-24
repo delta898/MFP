@@ -23,48 +23,37 @@
     </aside>
 
     <main class="main">
-      <header class="topbar">
-        <div class="status-line">
-          <span id="top-plan">플랜: -</span>
-          <span id="top-remaining">잔여: -</span>
-          <span id="top-session">세션: -</span>
-        </div>
-        <button id="refresh-btn">새로고침</button>
-      </header>
-
       <section class="view active" id="view-dashboard">
-        <div class="dashboard-header"
-          style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
-          <div>
-            <h1>Dashboard</h1>
-            <div class="dash-badges" id="dash-badges" style="margin-top: 8px; display: flex; gap: 8px;">
-              <span class="badge badge-health" id="badge-health"
-                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Health:
-                로딩중</span>
-              <span class="badge badge-session" id="badge-session"
-                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Session:
-                확인중</span>
-              <span class="badge badge-license" id="badge-license"
-                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Plan:
-                조회중</span>
+        <div class="dashboard-header" style="margin-bottom: 24px;">
+          <!-- Top Row: Title & Clock -->
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0;">Dashboard</h1>
+
+            <div class="dash-clock-widget" style="display: flex; align-items: center; gap: 12px;">
+              <select id="clock-style-select"
+                style="padding: 6px 10px; font-size: 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-weight: 500; height: 36px; outline: none; cursor: pointer;">
+                <option value="digital">Digital</option>
+                <option value="analog">Analog</option>
+                <option value="flip">Flip Clock</option>
+              </select>
+              <div id="clock-display"
+                style="min-width: 150px; display: flex; justify-content: flex-end; align-items: center;">
+                <!-- 시계 내용이 JS를 통해 렌더링됨 -->
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Clock Widget -->
-        <div class="dash-clock-widget card"
-          style="text-align: center; margin-bottom: 24px; padding: 30px; position: relative;">
-          <div class="clock-controls" style="position: absolute; top: 16px; right: 16px;">
-            <select id="clock-style-select"
-              style="padding: 4px 8px; font-size: 13px; border-radius: 4px; border: 1px solid #cbd5e1;">
-              <option value="digital">디지털 시계</option>
-              <option value="analog">아날로그 시계</option>
-              <option value="flip">플립 시계</option>
-            </select>
-          </div>
-          <div class="clock-display" id="clock-display"
-            style="min-height: 120px; display: flex; align-items: center; justify-content: center;">
-            <!-- JS 렌더링 영역 -->
+          <!-- Bottom Row: Badges -->
+          <div class="dash-badges" id="dash-badges" style="margin-top: 12px; display: flex; gap: 8px;">
+            <span class="badge badge-health" id="badge-health"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Health:
+              로딩중</span>
+            <span class="badge badge-session" id="badge-session"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Session:
+              확인중</span>
+            <span class="badge badge-license" id="badge-license"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Plan:
+              조회중</span>
           </div>
         </div>
 
@@ -108,8 +97,6 @@
           <article class="card activity-card">
             <h3 style="margin-bottom: 16px; font-size: 16px; display: flex; justify-content: space-between;">
               최근 시스템 활동
-              <button id="dash-log-refresh-btn" class="secondary"
-                style="font-size: 12px; padding: 4px 10px;">새로고침</button>
             </h3>
             <ul class="activity-timeline" id="activity-timeline"
               style="list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto;">
