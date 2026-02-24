@@ -1585,45 +1585,30 @@ ${scrapedContext}`;
 					}
 
 					if (item.type === 'header-h2') {
+						// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
 						Logger.info(`       📌 소제목: ${item.text}`);
-						await placeCaretAtDocumentEnd(page);
 						await page.keyboard.press('Enter');
 						await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
 						await Utils.sleep(300);
 
-					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
-						if (!subtitleApplied) {
-							try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
-						}
+						try {
+							const toolbarBtn = page.locator('button[data-name="text-format"]');
+							if (await toolbarBtn.isVisible()) {
+								await toolbarBtn.click();
+								await Utils.sleep(200);
+								const subTitleBtn = page.getByRole('button', { name: '소제목' });
+								if (await subTitleBtn.isVisible()) {
+									await subTitleBtn.click();
+								} else {
+									await page.keyboard.press(`${CMD_KEY}+B`);
+								}
+							}
+						} catch (e) { }
 
 						await Utils.sleep(100);
-						await placeCaretAtDocumentEnd(page);
 						await page.keyboard.press('Enter'); // 다음 줄로 이동
 					}
-						else if (item.type === 'quote') {
-							const quoteText = String(item.text || '').trim();
-							if (quoteText) {
-								Logger.info(`       💬 인용구: ${quoteText}`);
-								await placeCaretAtDocumentEnd(page);
-								await page.keyboard.press('Enter');
-								await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
-								await Utils.sleep(250);
-
-							const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
-							if (!quoteApplied) {
-								Logger.warn('       ⚠️ 인용구 버튼을 찾지 못해 본문으로 입력합니다.');
-								} else {
-									Logger.info('       ✅ 인용구 서식 적용');
-								}
-
-								await Utils.sleep(100);
-								await placeCaretAtDocumentEnd(page);
-								await page.keyboard.press('Enter');
-							} else {
-								await page.keyboard.press('Enter');
-						}
-					}
-				else if (item.type === 'list-item') {
+					else if (item.type === 'list-item') {
 							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
 							const listText = String(item.text || '')
 								.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
