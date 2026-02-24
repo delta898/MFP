@@ -303,7 +303,7 @@ const TrendManager = {
         const browser = await launchBrowser();
 
         // 1. 로그인 정보(Storage State) 로드
-        const authPath = path.join(process.cwd(), 'config', 'auth.json');
+        const authPath = CONFIG.AUTH_FILE_PATH || path.join(process.cwd(), 'config', 'auth.json');
         let context;
 
         if (fs.existsSync(authPath)) {

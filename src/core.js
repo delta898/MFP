@@ -646,6 +646,65 @@ async function focusEditorBottomAnchor(page) {
 	return false;
 }
 
+async function placeCaretAtDocumentEnd(page) {
+	// 1) Try the known bottom anchor first (fast path).
+	const movedByAnchor = await focusEditorBottomAnchor(page);
+	if (movedByAnchor) return true;
+
+	// 2) Fallback: force DOM selection to the last visible editable node.
+	try {
+		const movedByRange = await page.evaluate(() => {
+			const root =
+				document.querySelector('.se-main-container') ||
+				document.querySelector('.se-container') ||
+				document.body;
+			if (!root) return false;
+
+			const isVisible = (el) => {
+				if (!el) return false;
+				const rect = el.getBoundingClientRect();
+				const style = window.getComputedStyle(el);
+				return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+			};
+
+			const candidates = Array.from(
+				root.querySelectorAll(
+					'.se-component-content [contenteditable="true"], .se-module-text p, .se-text-paragraph, [contenteditable="true"]'
+				)
+			).filter((el) => {
+				if (!(el instanceof HTMLElement)) return false;
+				if (el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle')) return false;
+				return isVisible(el);
+			});
+
+			const target = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+			if (!target) return false;
+
+			const selection = window.getSelection();
+			if (!selection) return false;
+			const range = document.createRange();
+			range.selectNodeContents(target);
+			range.collapse(false); // move caret to the end
+			selection.removeAllRanges();
+			selection.addRange(range);
+			(target).focus?.();
+			return true;
+		});
+		if (movedByRange) {
+			await Utils.sleep(80);
+			return true;
+		}
+	} catch (e) { }
+
+	// 3) Last fallback key.
+	try {
+		await page.keyboard.press('End');
+		await Utils.sleep(80);
+		return true;
+	} catch (e) { }
+	return false;
+}
+
 function normalizeEditorText(value) {
 	return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -1525,43 +1584,43 @@ ${scrapedContext}`;
 						needsExtraGapAfterList = false;
 					}
 
-				if (item.type === 'header-h2') {
-					Logger.info(`       📌 소제목: ${item.text}`);
-					await page.keyboard.press('Enter');
-					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-					await Utils.sleep(300);
+					if (item.type === 'header-h2') {
+						Logger.info(`       📌 소제목: ${item.text}`);
+						await placeCaretAtDocumentEnd(page);
+						await page.keyboard.press('Enter');
+						await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
+						await Utils.sleep(300);
 
 					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
-					if (!subtitleApplied) {
-						try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
-					}
+						if (!subtitleApplied) {
+							try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
+						}
 
-					await Utils.sleep(100);
-					await page.keyboard.press('Enter'); // 다음 줄로 이동
-				}
-					else if (item.type === 'quote') {
-						const quoteText = String(item.text || '').trim();
-						if (quoteText) {
-							Logger.info(`       💬 인용구: ${quoteText}`);
-							await page.keyboard.press('Enter');
-							await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
-							await Utils.sleep(250);
+						await Utils.sleep(100);
+						await placeCaretAtDocumentEnd(page);
+						await page.keyboard.press('Enter'); // 다음 줄로 이동
+					}
+						else if (item.type === 'quote') {
+							const quoteText = String(item.text || '').trim();
+							if (quoteText) {
+								Logger.info(`       💬 인용구: ${quoteText}`);
+								await placeCaretAtDocumentEnd(page);
+								await page.keyboard.press('Enter');
+								await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
+								await Utils.sleep(250);
 
 							const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
 							if (!quoteApplied) {
 								Logger.warn('       ⚠️ 인용구 버튼을 찾지 못해 본문으로 입력합니다.');
-							} else {
-								Logger.info('       ✅ 인용구 서식 적용');
-							}
+								} else {
+									Logger.info('       ✅ 인용구 서식 적용');
+								}
 
-							await Utils.sleep(100);
-							const movedToBottom = await focusEditorBottomAnchor(page);
-							if (!movedToBottom) {
-								try { await page.keyboard.press('End'); } catch (e) { }
-							}
-							await page.keyboard.press('Enter');
-						} else {
-							await page.keyboard.press('Enter');
+								await Utils.sleep(100);
+								await placeCaretAtDocumentEnd(page);
+								await page.keyboard.press('Enter');
+							} else {
+								await page.keyboard.press('Enter');
 						}
 					}
 				else if (item.type === 'list-item') {

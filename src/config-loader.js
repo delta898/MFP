@@ -6,6 +6,28 @@ const Constants = require('./constants');
 const ROOT_DIR = process.cwd();
 const EXEC_DIR = path.dirname(process.execPath || ROOT_DIR);
 
+function decodeFileUriPath(raw) {
+    const input = String(raw || '').trim();
+    if (!/^file:\/\//i.test(input)) return input;
+    try {
+        const parsed = new URL(input);
+        if (parsed.protocol !== 'file:') return input;
+        const host = decodeURIComponent(parsed.hostname || '');
+        let localPath = decodeURIComponent(parsed.pathname || '');
+        if (host === '.') {
+            localPath = `.${localPath}`;
+        } else if (host && host !== 'localhost') {
+            localPath = `//${host}${localPath}`;
+        }
+        if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) {
+            localPath = localPath.slice(1);
+        }
+        return localPath || input;
+    } catch (e) {
+        return input.replace(/^file:\/\//i, '');
+    }
+}
+
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
 // =========================================================
@@ -203,6 +225,51 @@ delete userConfig.NAVER_CLIENT_SECRET;
 delete userConfig.LICENSE_KEY;
 const licenseKeyInfo = loadLicenseKey();
 
+const activeConfigDir = (() => {
+    if (configReady && configSourcePath) return path.dirname(configSourcePath);
+    const execConfigDir = path.join(EXEC_DIR, 'config');
+    if (fs.existsSync(execConfigDir)) return execConfigDir;
+    return path.join(ROOT_DIR, 'config');
+})();
+
+const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
+    ? path.dirname(activeConfigDir)
+    : activeConfigDir;
+
+function resolveRuntimePath(rawPath, options = {}) {
+    const { mustExist = false } = options || {};
+    const input = decodeFileUriPath(String(rawPath || '').trim());
+    if (!input) return '';
+    if (/^https?:\/\//i.test(input)) return input;
+
+    const candidates = [];
+    if (path.isAbsolute(input)) {
+        candidates.push(input);
+    } else {
+        candidates.push(path.resolve(activeAppRoot, input));
+        candidates.push(path.resolve(activeConfigDir, input));
+        candidates.push(path.resolve(EXEC_DIR, input));
+        candidates.push(path.resolve(ROOT_DIR, input));
+    }
+
+    if (!mustExist) return candidates[0] || '';
+    for (const candidate of candidates) {
+        try {
+            if (fs.existsSync(candidate)) return candidate;
+        } catch (e) { }
+    }
+    return candidates[0] || '';
+}
+
+const googleAuthRaw = String(process.env.GOOGLE_AUTH_JSON || userConfig.GOOGLE_AUTH_JSON || '').trim();
+const googleAuthPath = resolveRuntimePath(googleAuthRaw || './config/service_account.json', { mustExist: true });
+const workspaceRaw = String(userConfig.WORKSPACE_DIR || '').trim();
+const resolvedWorkspaceDir = workspaceRaw
+    ? resolveRuntimePath(workspaceRaw)
+    : path.join(activeAppRoot, 'workspace');
+const resolvedAuthPath = path.join(activeConfigDir, 'auth.json');
+const resolvedLicenseKeyPath = licenseKeyInfo.path || path.join(activeConfigDir, 'license.key');
+
 const userSheetUrl = String(userConfig.GOOGLE_SHEET_URL || '').trim();
 const fallbackSheetId = String(userConfig.GOOGLE_SHEET_ID || '').trim();
 const resolvedSheetId = extractGoogleSheetId(userSheetUrl) || (fallbackSheetId || '');
@@ -306,6 +373,11 @@ const shoppingPromptCandidates = [
 const blogPromptPath = blogPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultBlogPrompt;
 const shoppingPromptPath = shoppingPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultShoppingPrompt;
 
+PATHS.auth = resolvedAuthPath;
+PATHS.workspace = resolvedWorkspaceDir;
+PATHS.appRoot = activeAppRoot;
+PATHS.configDir = activeConfigDir;
+
 // 최종 내보낼 객체
 module.exports = {
     ...Constants,       // 1. 내부 상수 (대기 시간 등)
@@ -314,6 +386,8 @@ module.exports = {
 
     // 🔧 [Fixed] 환경 변수 우선 지원 (보안 강화)
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
+    GOOGLE_AUTH_JSON: googleAuthRaw || './config/service_account.json',
+    GOOGLE_AUTH_JSON_PATH: googleAuthPath,
     LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
     NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
@@ -370,15 +444,18 @@ module.exports = {
 
     // 4. 경로 상수 (호환성 유지)
     PATHS: PATHS,
-    AUTH_FILE_PATH: PATHS.auth,
-    LICENSE_KEY_FILE_PATH: licenseKeyInfo.path,
+    APP_ROOT_DIR: activeAppRoot,
+    CONFIG_DIR: activeConfigDir,
+    AUTH_FILE_PATH: resolvedAuthPath,
+    LICENSE_KEY_FILE_PATH: resolvedLicenseKeyPath,
     BLOG_PROMPT_PATH: blogPromptPath,
     SHOPPING_PROMPT_PATH: shoppingPromptPath,
-    WORKSPACE_DIR: PATHS.workspace,
+    WORKSPACE_DIR: resolvedWorkspaceDir,
     CONFIG_SOURCE_PATH: configSourcePath,
     CONFIG_SOURCE_TYPE: configSourceType,
     CONFIG_READY: configReady,
     CONFIG_ERROR_MESSAGE: configErrorMessage,
+    resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),
 
     // 5. 확정된 동적 데이터
     WRITE_URL: `https://blog.naver.com/${process.env.NAVER_ID || userConfig.NAVER_ID}/postwrite`,

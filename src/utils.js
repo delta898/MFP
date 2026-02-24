@@ -98,7 +98,10 @@ const Utils = {
 
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
-        const keyFilePath = path.resolve(process.cwd(), rawPath);
+        const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH
+            || (typeof CONFIG.resolveRuntimePath === 'function'
+                ? CONFIG.resolveRuntimePath(rawPath, { mustExist: true })
+                : path.resolve(process.cwd(), rawPath));
 
         if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
 
@@ -151,7 +154,10 @@ const Utils = {
     getGoogleServiceAccountInfo: function () {
         const rawPath = CONFIG.GOOGLE_AUTH_JSON;
         if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
-        const keyFilePath = path.resolve(process.cwd(), rawPath);
+        const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH
+            || (typeof CONFIG.resolveRuntimePath === 'function'
+                ? CONFIG.resolveRuntimePath(rawPath, { mustExist: true })
+                : path.resolve(process.cwd(), rawPath));
         if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
         const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
         const credentials = JSON.parse(fileContent);

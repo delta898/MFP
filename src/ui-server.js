@@ -1221,8 +1221,18 @@ function resolveLocalImagePathFromSource(source) {
     const raw = String(source || '').trim();
     if (!raw || /^https?:\/\//i.test(raw)) return '';
 
+    if (typeof CONFIG.resolveRuntimePath === 'function') {
+        const resolved = CONFIG.resolveRuntimePath(raw, { mustExist: true });
+        if (resolved) {
+            try {
+                if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) return resolved;
+            } catch (e) { }
+        }
+    }
+
     const writablePath = resolveWritableConfigPath();
     const configDir = path.dirname(writablePath);
+    const appRoot = CONFIG.APP_ROOT_DIR || process.cwd();
     const execDir = path.dirname(process.execPath || process.cwd());
     const candidates = [];
     if (/^file:\/\//i.test(raw)) {
@@ -1256,7 +1266,7 @@ function resolveLocalImagePathFromSource(source) {
         if (path.isAbsolute(normalized)) {
             expanded.push(normalized);
         } else {
-            expanded.push(path.resolve(process.cwd(), normalized));
+            expanded.push(path.resolve(appRoot, normalized));
             expanded.push(path.resolve(configDir, normalized));
             expanded.push(path.resolve(execDir, normalized));
         }

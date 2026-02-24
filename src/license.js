@@ -171,7 +171,8 @@ function persistLicenseKeyFile(licenseKey) {
     // 환경변수로 주입된 키는 파일에 덮어쓰지 않는다.
     if (process.env.LICENSE_KEY) return true;
 
-    const targetPath = CONFIG.LICENSE_KEY_FILE_PATH || path.join(process.cwd(), 'config', 'license.key');
+    const targetPath = CONFIG.LICENSE_KEY_FILE_PATH
+        || path.join(CONFIG.CONFIG_DIR || path.join(process.cwd(), 'config'), 'license.key');
     try {
         fs.mkdirSync(path.dirname(targetPath), { recursive: true });
         fs.writeFileSync(targetPath, `${licenseKey}\n`, { encoding: 'utf-8', mode: 0o600 });
