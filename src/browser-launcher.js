@@ -22,6 +22,7 @@ async function launchBrowser(overrides = {}) {
         try {
             launchOptions.channel = currentChannel;
             const browser = await chromium.launch(launchOptions);
+            console.log(`ℹ️ 브라우저 채널: ${currentChannel}`);
             if (i > 0) {
                 console.warn(`⚠️ ${channelsToTry[0]} 실패, ${currentChannel}(으)로 실행합니다.`);
             }

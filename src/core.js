@@ -1584,30 +1584,22 @@ ${scrapedContext}`;
 						needsExtraGapAfterList = false;
 					}
 
-					if (item.type === 'header-h2') {
-						// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
-						Logger.info(`       📌 소제목: ${item.text}`);
-						await page.keyboard.press('Enter');
-						await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-						await Utils.sleep(300);
-
-						try {
-							const toolbarBtn = page.locator('button[data-name="text-format"]');
-							if (await toolbarBtn.isVisible()) {
-								await toolbarBtn.click();
-								await Utils.sleep(200);
-								const subTitleBtn = page.getByRole('button', { name: '소제목' });
-								if (await subTitleBtn.isVisible()) {
-									await subTitleBtn.click();
-								} else {
-									await page.keyboard.press(`${CMD_KEY}+B`);
-								}
+						if (item.type === 'header-h2') {
+							// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
+							Logger.info(`       📌 소제목: ${item.text}`);
+							await placeCaretAtDocumentEnd(page);
+							await page.keyboard.press('Enter');
+							await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
+							await Utils.sleep(300);
+							const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
+							if (!subtitleApplied) {
+								try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
 							}
-						} catch (e) { }
 
-						await Utils.sleep(100);
-						await page.keyboard.press('Enter'); // 다음 줄로 이동
-					}
+							await Utils.sleep(100);
+							await placeCaretAtDocumentEnd(page);
+							await page.keyboard.press('Enter'); // 다음 줄로 이동
+						}
 					else if (item.type === 'list-item') {
 							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
 							const listText = String(item.text || '')
