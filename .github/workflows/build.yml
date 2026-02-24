@@ -76,6 +76,11 @@ jobs:
         run: |
           pkg package.json --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
 
+      - name: Code Sign (Ad-hoc) for macOS
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          codesign --sign - --force --preserve-metadata=identifier,entitlements,flags --timestamp=none dist/${{ matrix.output_binary }}
+
       - name: Prepare Assets
         shell: bash
         run: |
