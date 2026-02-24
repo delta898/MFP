@@ -978,20 +978,21 @@ async function loadSystemLog() {
 let clockInterval = null;
 function initClockWidget() {
   const display = document.getElementById('clock-display');
-  const select = document.getElementById('clock-style-select');
-  if (!display || !select) return;
+  if (!display) return;
 
-  // Load saved preference
-  const savedStyle = localStorage.getItem('bloggenius_clock_style') || 'digital';
-  select.value = savedStyle;
+  const styles = ['digital', 'analog', 'flip'];
+  let currentStyle = localStorage.getItem('bloggenius_clock_style') || 'digital';
+  if (!styles.includes(currentStyle)) currentStyle = 'digital';
 
-  select.addEventListener('change', (e) => {
-    localStorage.setItem('bloggenius_clock_style', e.target.value);
+  display.addEventListener('click', () => {
+    const nextIndex = (styles.indexOf(currentStyle) + 1) % styles.length;
+    currentStyle = styles[nextIndex];
+    localStorage.setItem('bloggenius_clock_style', currentStyle);
     renderClock();
   });
 
   function renderClock() {
-    const style = select.value;
+    const style = currentStyle;
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
