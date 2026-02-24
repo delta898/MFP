@@ -146,6 +146,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 10px;
+  align-items: start;
 }
 
 .form-grid label {
@@ -156,6 +157,20 @@ h2 {
   color: #334155;
 }
 
+.form-grid .form-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
 .settings-checkbox-label {
   flex-direction: row !important;
   align-items: center;
@@ -163,9 +178,73 @@ h2 {
   min-height: 40px;
 }
 
+.settings-checkbox-label.compact {
+  min-height: 32px;
+  font-size: 13px !important;
+  font-weight: 500;
+}
+
 .settings-checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
+}
+
+#blog-tab-auto label,
+#blog-tab-auto .form-field-block,
+#blog-tab-auto .field-label-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+#blog-tab-auto .field-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+#blog-tab-auto .settings-checkbox-label span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#blog-tab-auto .category-option-btn {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.auto-mode-inline {
+  display: flex;
+  align-items: center;
+}
+
+.auto-section {
+  border: 1px solid #d8e2f1;
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auto-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+#blog-tab-auto .field-label-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-checkbox-inline {
+  display: inline-flex !important;
+  width: auto !important;
+  min-height: 0 !important;
+  margin: 0;
 }
 
 .blog-tab-gap {
@@ -371,6 +450,175 @@ h2 {
 .category-meta {
   font-size: 12px;
   color: #64748b;
+}
+
+.auto-variation-filter {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: minmax(112px, auto) minmax(112px, auto) minmax(116px, auto) minmax(160px, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.auto-variation-filter .settings-checkbox-label.compact {
+  min-height: 36px;
+  margin: 0;
+}
+
+.auto-variation-number-input input {
+  width: 100%;
+}
+
+#blog-tab-auto .input-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #d1d9e8;
+}
+
+.auto-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 40px;
+  flex-wrap: wrap;
+}
+
+.auto-manual-group {
+  display: none;
+}
+
+.auto-manual-group h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.auto-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.auto-manual-inline {
+  min-width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.auto-manual-inline input {
+  width: 220px;
+  max-width: 100%;
+}
+
+.auto-manual-skip {
+  margin: 0;
+  min-height: 36px;
+  align-self: center;
+  width: auto !important;
+  flex-direction: row !important;
+  flex: 0 0 auto;
+}
+
+.auto-manual-row button {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #475569;
+  color: #fff;
+  align-self: center;
+  margin-left: 0;
+}
+
+.auto-actions {
+  margin-top: 2px;
+}
+
+.auto-log-section pre {
+  min-height: 56px;
+}
+
+.label-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.label-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid #9aa7bc;
+  color: #52607a;
+  background: #f8fbff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.label-help::after {
+  content: attr(data-help);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 240px;
+  max-width: 360px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.25);
+  opacity: 0;
+  transform: translateY(2px);
+  pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+  z-index: 40;
+}
+
+.label-help::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: calc(100% + 2px);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity .12s ease;
+  pointer-events: none;
+  z-index: 39;
+}
+
+.label-help:hover::after,
+.label-help:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.label-help:hover::before,
+.label-help:focus-visible::before {
+  opacity: 1;
 }
 
 .settings-image-section {
@@ -897,6 +1145,68 @@ pre {
   color: #991b1b;
 }
 
+.ui-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.ui-dialog-backdrop.hidden {
+  display: none;
+}
+
+.ui-dialog {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border: 1px solid #dce3ef;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+}
+
+.ui-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.ui-dialog p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #1f2937;
+  line-height: 1.45;
+}
+
+.ui-dialog-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ui-dialog-actions button {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--brand);
+  color: #fff;
+}
+
+.ui-dialog-actions button.secondary {
+  background: #475569;
+}
+
+.ui-dialog-actions button.hidden {
+  display: none;
+}
+
 @media (max-width: 960px) {
   .app {
     grid-template-columns: 1fr;
@@ -936,5 +1246,25 @@ pre {
   .status-line {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .auto-toggle-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .auto-manual-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .auto-manual-inline {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .auto-manual-inline input {
+    width: 100%;
   }
 }

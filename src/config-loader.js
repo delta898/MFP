@@ -166,6 +166,14 @@ function parseNonNegativeInt(input, fallback) {
     return num;
 }
 
+function parseIntegerOrBlank(input, fallback = '') {
+    const raw = String(input ?? '').trim();
+    if (!raw) return fallback;
+    const num = parseInt(raw, 10);
+    if (!Number.isInteger(num)) return fallback;
+    return num;
+}
+
 function parsePositiveInt(input, fallback) {
     const num = parseInt(String(input ?? ''), 10);
     if (!Number.isInteger(num) || num <= 0) return fallback;
@@ -214,8 +222,35 @@ const naverAutoDailyPosts = parseNonNegativeInt(
     5
 );
 const naverAutoTrendsTime = parseTimeHHmm(userConfig.NAVER_AUTO_TRENDS_TIME, '07:30');
-const naverAutoPublishTime = parseTimeHHmm(userConfig.NAVER_AUTO_PUBLISH_TIME, '08:00');
-const naverAutoNotifyEnabled = parseBoolLike(userConfig.NAVER_AUTO_NOTIFY_ENABLED, true);
+const naverAutoImageGeneration = parseBoolLike(
+    userConfig.NAVER_AUTO_IMAGE_GENERATION ?? userConfig.AUTO_IMAGE_GENERATION,
+    true
+);
+const naverAutoExternalReference = parseBoolLike(
+    userConfig.NAVER_AUTO_EXTERNAL_REFERENCE ?? userConfig.AUTO_USE_EXTERNAL_REF,
+    true
+);
+const naverAutoNotifyEnabled = parseBoolLike(userConfig.NAVER_AUTO_NOTIFY_ENABLED, false);
+const naverAutoVariationIncludeNew = parseBoolLike(
+    userConfig.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+    false
+);
+const naverAutoVariationIncludeDash = parseBoolLike(
+    userConfig.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
+    false
+);
+const naverAutoVariationIncludeNumber = parseBoolLike(
+    userConfig.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+    true
+);
+const naverAutoVariationNumber = parseIntegerOrBlank(
+    userConfig.NAVER_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
+    50
+);
+const naverAutoKeywordReuseGapDays = parseNonNegativeInt(
+    userConfig.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
+    15
+);
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -279,13 +314,26 @@ module.exports = {
     NAVER_AUTO_CATEGORIES: naverAutoCategories,
     NAVER_AUTO_DAILY_POSTS: naverAutoDailyPosts,
     NAVER_AUTO_TRENDS_TIME: naverAutoTrendsTime,
-    NAVER_AUTO_PUBLISH_TIME: naverAutoPublishTime,
+    NAVER_AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
+    NAVER_AUTO_EXTERNAL_REFERENCE: naverAutoExternalReference,
     NAVER_AUTO_NOTIFY_ENABLED: naverAutoNotifyEnabled,
+    NAVER_AUTO_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,
+    NAVER_AUTO_VARIATION_INCLUDE_DASH: naverAutoVariationIncludeDash,
+    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
+    NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
+    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
     // legacy alias (내부 호환)
     AUTO_MODE: naverAutoMode,
     AUTO_INCLUDE_CATEGORIES: naverAutoCategories,
     AUTO_CATEGORIES: naverAutoCategories,
     AUTO_DAILY_BLOG_CAP: naverAutoDailyPosts,
+    AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
+    AUTO_USE_EXTERNAL_REF: naverAutoExternalReference,
+    AUTO_TRENDS_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,
+    AUTO_TRENDS_VARIATION_INCLUDE_DASH: naverAutoVariationIncludeDash,
+    AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
+    AUTO_TRENDS_MIN_VARIATION: naverAutoVariationNumber,
+    AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 

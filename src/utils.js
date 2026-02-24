@@ -7,6 +7,30 @@ const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
 
 const Utils = {
+    formatKstDateTime: function (date = new Date()) {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        }).formatToParts(date);
+        const get = (type) => parts.find((p) => p.type === type)?.value || '';
+        const year = get('year');
+        const month = get('month');
+        const day = get('day');
+        const hour = get('hour');
+        const minute = get('minute');
+        const second = get('second');
+        if (!year || !month || !day || !hour || !minute || !second) {
+            return new Date().toISOString().replace('T', ' ').slice(0, 19);
+        }
+        return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    },
+
     formatAxiosError: function (e) {
         const status = e?.response?.status;
         const data = e?.response?.data;
@@ -1479,7 +1503,7 @@ const Utils = {
                     topic.addedAt
                     || topic.added_at
                     || options.addedAt
-                    || new Date().toLocaleString()
+                    || this.formatKstDateTime()
                 ).trim();
                 const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
 
@@ -1904,6 +1928,65 @@ const Utils = {
             await this.sleep(300);
         } catch (e) {
             Logger.error(`❌ 트렌드 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
+        }
+    },
+
+    updateGoogleSheetTrendStatusBulk: async function (rowIndices = [], status) {
+        try {
+            const uniqueRows = Array.from(
+                new Set(
+                    (Array.isArray(rowIndices) ? rowIndices : [])
+                        .map((v) => parseInt(v, 10))
+                        .filter((v) => Number.isInteger(v) && v >= 0)
+                )
+            );
+            if (uniqueRows.length === 0) return { success: true, updatedCount: 0 };
+
+            const accessToken = await this.getGoogleAccessToken();
+            const sheetName = CONFIG.GOOGLE_TRENDS_SHEET || 'trends';
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+            const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
+
+            let statusColIndex = -1;
+            headers.forEach((h, i) => {
+                const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if (clean.includes('동작상태') || clean.includes('동작') || clean.includes('상태') || clean.includes('status')) statusColIndex = i;
+            });
+            if (statusColIndex === -1) return { success: false, updatedCount: 0, message: '상태 컬럼을 찾지 못했습니다.' };
+
+            const toA1 = (colIdx) => {
+                let letter = '';
+                let num = colIdx;
+                while (num >= 0) {
+                    letter = String.fromCharCode((num % 26) + 65) + letter;
+                    num = Math.floor(num / 26) - 1;
+                }
+                return letter;
+            };
+
+            const data = uniqueRows.map((rowIndex) => {
+                const targetRow = rowIndex + 2;
+                return {
+                    range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`,
+                    values: [[status]]
+                };
+            });
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                valueInputOption: 'USER_ENTERED',
+                data
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            return { success: true, updatedCount: uniqueRows.length };
+        } catch (e) {
+            Logger.error(`❌ 트렌드 상태 일괄 업데이트 실패: ${e.message}`);
+            return { success: false, updatedCount: 0, message: e.message };
         }
     },
 

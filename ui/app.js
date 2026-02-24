@@ -57,6 +57,7 @@ let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
 let blogTrendsCollectInFlight = false;
+let blogAutoManualRunInFlight = false;
 const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
 const SETTINGS_SHOPPING_SLOT_META = {
   ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
@@ -82,6 +83,8 @@ let settingsAdvancedLoadedOnce = false;
 let uiConfigReady = true;
 let uiConfigPopupShown = false;
 let uiConfigStatusMessage = '';
+let uiSheetsReady = false;
+let uiSheetsPreflightInFlight = null;
 let dashboardPollingPauseCount = 0;
 let settingsMajorAutoSaveTimer = null;
 let settingsMajorSaveInFlight = false;
@@ -115,6 +118,9 @@ let blogAutoCategoryCatalogMeta = {
   trendCount: 0,
   updatedAt: ''
 };
+let blogAutoPlanMaxPosts = null;
+let blogAutoPlanName = '현재';
+let uiDialogResolver = null;
 
 function pauseDashboardPolling() {
   dashboardPollingPauseCount += 1;
@@ -128,10 +134,82 @@ function isDashboardPollingPaused() {
   return dashboardPollingPauseCount > 0;
 }
 
+function closeUiDialog(result = false) {
+  const backdrop = document.getElementById('ui-dialog-backdrop');
+  const confirmBtn = document.getElementById('ui-dialog-confirm');
+  const cancelBtn = document.getElementById('ui-dialog-cancel');
+  if (backdrop) {
+    backdrop.classList.add('hidden');
+    backdrop.setAttribute('aria-hidden', 'true');
+  }
+  if (confirmBtn) confirmBtn.textContent = '확인';
+  if (cancelBtn) {
+    cancelBtn.textContent = '취소';
+    cancelBtn.classList.add('hidden');
+  }
+  if (uiDialogResolver) {
+    const resolver = uiDialogResolver;
+    uiDialogResolver = null;
+    resolver(Boolean(result));
+  }
+}
+
+function showUiDialog(options = {}) {
+  const title = String(options?.title || '알림').trim() || '알림';
+  const message = String(options?.message || '').trim();
+  const showCancel = options?.showCancel === true;
+  const confirmText = String(options?.confirmText || '확인').trim() || '확인';
+  const cancelText = String(options?.cancelText || '취소').trim() || '취소';
+
+  const backdrop = document.getElementById('ui-dialog-backdrop');
+  const titleEl = document.getElementById('ui-dialog-title');
+  const messageEl = document.getElementById('ui-dialog-message');
+  const confirmBtn = document.getElementById('ui-dialog-confirm');
+  const cancelBtn = document.getElementById('ui-dialog-cancel');
+  if (!backdrop || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
+    if (showCancel) {
+      return Promise.resolve(window.confirm(message));
+    }
+    window.alert(message);
+    return Promise.resolve(true);
+  }
+
+  if (uiDialogResolver) {
+    closeUiDialog(false);
+  }
+
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  confirmBtn.textContent = confirmText;
+  cancelBtn.textContent = cancelText;
+  cancelBtn.classList.toggle('hidden', !showCancel);
+
+  backdrop.classList.remove('hidden');
+  backdrop.setAttribute('aria-hidden', 'false');
+
+  return new Promise((resolve) => {
+    uiDialogResolver = resolve;
+  });
+}
+
 function showUiPopup(message) {
   const text = String(message || '').trim();
   if (!text) return;
-  window.alert(text);
+  void showUiDialog({
+    title: '알림',
+    message: text,
+    showCancel: false
+  });
+}
+
+function showUiConfirm(message, options = {}) {
+  return showUiDialog({
+    title: String(options?.title || '확인'),
+    message: String(message || ''),
+    showCancel: true,
+    confirmText: String(options?.confirmText || '확인'),
+    cancelText: String(options?.cancelText || '취소')
+  });
 }
 
 async function loadConfigStatus() {
@@ -171,6 +249,52 @@ function guardUiConfigReady(featureLabel = '이 기능') {
     uiConfigStatusMessage || ''
   ].join('\n'));
   return false;
+}
+
+async function ensureSheetsPreflightUi(options = {}) {
+  const force = options?.force === true;
+  const silent = options?.silent === true;
+
+  if (!uiConfigReady) return false;
+  if (!force && uiSheetsReady) return true;
+
+  if (uiSheetsPreflightInFlight && !force) {
+    try {
+      await uiSheetsPreflightInFlight;
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  const query = force ? '?force=true' : '';
+  uiSheetsPreflightInFlight = fetchJson(`/api/v1/sheets/ensure${query}`)
+    .then(() => {
+      uiSheetsReady = true;
+      return true;
+    })
+    .catch((e) => {
+      uiSheetsReady = false;
+      if (!silent) {
+        showUiPopup([
+          '필수 시트 준비에 실패했습니다.',
+          '설정의 GOOGLE_SHEET_URL과 서비스 계정 공유 상태를 확인해 주세요.',
+          '',
+          String(e?.message || 'unknown')
+        ].join('\n'));
+      }
+      throw e;
+    })
+    .finally(() => {
+      uiSheetsPreflightInFlight = null;
+    });
+
+  try {
+    await uiSheetsPreflightInFlight;
+    return true;
+  } catch (_e) {
+    return false;
+  }
 }
 
 function findTrendByRowIndex(rowIndex) {
@@ -510,7 +634,11 @@ async function runBlogTrendsCollect() {
   }
   const confirmMessage = confirmLines.join('\n');
 
-  const shouldProceed = window.confirm(confirmMessage);
+  const shouldProceed = await showUiConfirm(confirmMessage, {
+    title: '트렌드 수집 확인',
+    confirmText: '진행',
+    cancelText: '취소'
+  });
   if (shouldProceed !== true) {
     return;
   }
@@ -722,14 +850,18 @@ function bindNavigation() {
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   const views = Array.from(document.querySelectorAll('.view'));
 
-  const activate = (viewName) => {
+  const activate = async (viewName) => {
     navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
     views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
     if (viewName === 'blog') {
+      const ready = await ensureSheetsPreflightUi();
+      if (!ready) return;
       activateBlogTab(blogActiveTab, { forceReload: true });
       return;
     }
     if (viewName === 'shopping') {
+      const ready = await ensureSheetsPreflightUi();
+      if (!ready) return;
       activateShoppingTab(shoppingActiveTab, { forceReload: true });
       return;
     }
@@ -741,7 +873,9 @@ function bindNavigation() {
   };
 
   navButtons.forEach(btn => {
-    btn.addEventListener('click', () => activate(btn.dataset.view));
+    btn.addEventListener('click', () => {
+      void activate(btn.dataset.view);
+    });
   });
 }
 
@@ -1429,8 +1563,14 @@ function applySettingsMajorToForm(data) {
   const blogAutoModeEl = document.getElementById('blog-auto-mode');
   const blogAutoDailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoTrendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const blogAutoPublishTimeEl = document.getElementById('blog-auto-publish-time');
+  const blogAutoImageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const blogAutoExternalReferenceEl = document.getElementById('blog-auto-external-reference');
   const blogAutoNotifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  const blogAutoVariationNewEl = document.getElementById('blog-auto-variation-new');
+  const blogAutoVariationDashEl = document.getElementById('blog-auto-variation-dash');
+  const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const blogAutoVariationNumberEl = document.getElementById('blog-auto-variation-number');
+  const blogAutoKeywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -1446,9 +1586,33 @@ function applySettingsMajorToForm(data) {
   );
   renderBlogAutoCategoryUi();
   if (blogAutoDailyPostsEl) blogAutoDailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
+  applyBlogAutoDailyPostsLimitUi();
   if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
-  if (blogAutoPublishTimeEl) blogAutoPublishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
-  if (blogAutoNotifyEnabledEl) blogAutoNotifyEnabledEl.checked = Boolean(fields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+  if (blogAutoImageGenerationEl) blogAutoImageGenerationEl.checked = Boolean(fields.NAVER_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
+  if (blogAutoExternalReferenceEl) blogAutoExternalReferenceEl.checked = Boolean(fields.NAVER_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
+  if (blogAutoNotifyEnabledEl) {
+    blogAutoNotifyEnabledEl.checked = false;
+    blogAutoNotifyEnabledEl.disabled = true;
+  }
+  if (blogAutoVariationNewEl) blogAutoVariationNewEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+  if (blogAutoVariationDashEl) blogAutoVariationDashEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+  if (blogAutoVariationNumberEnabledEl) {
+    blogAutoVariationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
+      fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+      true
+    );
+  }
+  if (blogAutoVariationNumberEl) {
+    const rawVariationNumber = fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
+    const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(rawVariationNumber, 50);
+    blogAutoVariationNumberEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
+  }
+  if (blogAutoKeywordReuseGapEl) {
+    const rawReuseGap = fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS;
+    const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
+    blogAutoKeywordReuseGapEl.value = String(normalizedReuseGap);
+  }
+  syncBlogAutoVariationNumberUi();
   settingsMajorApplyingForm = false;
   playSettingsTypingPreview();
 
@@ -1625,8 +1789,14 @@ function buildSettingsMajorPayload() {
     NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     NAVER_AUTO_DAILY_POSTS: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
     NAVER_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
-    NAVER_AUTO_PUBLISH_TIME: (document.getElementById('blog-auto-publish-time')?.value || '08:00').trim(),
-    NAVER_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-auto-notify-enabled')?.checked),
+    NAVER_AUTO_IMAGE_GENERATION: Boolean(document.getElementById('blog-auto-image-generation')?.checked),
+    NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(document.getElementById('blog-auto-external-reference')?.checked),
+    NAVER_AUTO_NOTIFY_ENABLED: false,
+    NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(document.getElementById('blog-auto-variation-new')?.checked),
+    NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
+    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
+    NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-number')?.value || '', 50),
+    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
     ...imageSources
   };
 }
@@ -1813,6 +1983,7 @@ async function saveSettingsMajor(options = {}) {
       const payload = buildSettingsMajorPayload();
       const data = await postJson('/api/v1/settings/major', payload);
       applySettingsMajorToForm(data);
+      uiSheetsReady = false;
       settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
       markSettingsMajorPendingChanges(false);
       markSettingsAdvancedAsStale();
@@ -1826,6 +1997,9 @@ async function saveSettingsMajor(options = {}) {
         setSettingsMajorResultText(`${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`);
       }
       await Promise.all([loadConfigStatus(), loadDashboard()]);
+      if (uiConfigReady) {
+        await ensureSheetsPreflightUi({ force: true, silent: true });
+      }
     } catch (e) {
       setSettingsMajorResultText(
         currentMode === 'auto'
@@ -1911,6 +2085,10 @@ async function saveSettingsAdvanced() {
       resultEl.textContent = `${data.message || '고급 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`;
     }
     await Promise.all([loadSettingsMajor(), loadConfigStatus(), loadDashboard()]);
+    if (uiConfigReady) {
+      uiSheetsReady = false;
+      await ensureSheetsPreflightUi({ force: true, silent: true });
+    }
   } catch (e) {
     if (resultEl) {
       const staleHint = e.code === 'SETTINGS_CONFLICT'
@@ -1998,47 +2176,19 @@ function ensureSelectedCategoriesInCatalog() {
   }
 }
 
-function renderBlogAutoCategoryChips() {
-  const chipsEl = document.getElementById('blog-auto-category-chips');
-  if (!chipsEl) return;
-  const selected = Array.from(blogAutoCategorySelected.values());
-  if (selected.length === 0) {
-    chipsEl.innerHTML = '<span class="category-hint">선택된 카테고리가 없습니다.</span>';
-    return;
-  }
-  const html = selected
-    .map((value) => {
-      const escaped = escapeHtml(value);
-      return `<span class="category-chip">${escaped}<button type="button" data-category-chip-remove="${escaped}" title="제거">×</button></span>`;
-    })
-    .join('');
-  chipsEl.innerHTML = html;
-}
-
 function renderBlogAutoCategoryOptions() {
   const optionsEl = document.getElementById('blog-auto-category-options');
-  const metaEl = document.getElementById('blog-auto-category-meta');
-  const clearBtn = document.getElementById('blog-auto-category-search-clear-btn');
   if (!optionsEl) return;
 
-  const searchKeyword = String(document.getElementById('blog-auto-category-search')?.value || '').trim().toLowerCase();
   const categories = Array.from(new Set(blogAutoCategoryCatalog.map(normalizeCategoryToken).filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, 'ko', { sensitivity: 'base' }));
-  const filtered = searchKeyword
-    ? categories.filter((v) => v.toLowerCase().includes(searchKeyword))
-    : categories;
-  const selectedCount = blogAutoCategorySelected.size;
-  if (clearBtn) clearBtn.disabled = searchKeyword.length === 0;
-  if (metaEl) {
-    metaEl.textContent = `전체 ${categories.length}개 · 표시 ${filtered.length}개 · 선택 ${selectedCount}개`;
-  }
 
-  if (filtered.length === 0) {
+  if (categories.length === 0) {
     optionsEl.innerHTML = '<p class="category-hint">표시할 카테고리가 없습니다.</p>';
     return;
   }
 
-  const html = filtered
+  const html = categories
     .map((value) => {
       const escaped = escapeHtml(value);
       const active = blogAutoCategorySelected.has(value) ? 'active' : '';
@@ -2051,7 +2201,6 @@ function renderBlogAutoCategoryOptions() {
 function renderBlogAutoCategoryUi() {
   ensureSelectedCategoriesInCatalog();
   renderBlogAutoCategoryOptions();
-  renderBlogAutoCategoryChips();
 }
 
 function applyBlogAutoCategoryCatalog(data = {}) {
@@ -2082,43 +2231,145 @@ async function loadBlogAutoCategoryCatalog(options = {}) {
   }
 }
 
-function addBlogAutoManualCategory() {
-  const inputEl = document.getElementById('blog-auto-category-manual');
-  if (!inputEl) return;
-  const value = normalizeCategoryToken(inputEl.value);
-  if (!value) return;
-  blogAutoCategorySelected.add(value);
-  if (!blogAutoCategoryCatalog.some((v) => String(v).toLowerCase() === value.toLowerCase())) {
-    blogAutoCategoryCatalog.push(value);
-  }
-  inputEl.value = '';
-  renderBlogAutoCategoryUi();
-}
-
 function clearAllBlogAutoCategories() {
   blogAutoCategorySelected.clear();
   renderBlogAutoCategoryUi();
 }
 
-function clearBlogAutoCategorySearch() {
-  const inputEl = document.getElementById('blog-auto-category-search');
+function applyBlogAutoDailyPostsLimitUi() {
+  const inputEl = document.getElementById('blog-auto-daily-posts');
+  const hintEl = document.getElementById('blog-auto-daily-posts-hint');
   if (!inputEl) return;
-  inputEl.value = '';
-  renderBlogAutoCategoryOptions();
-  inputEl.focus();
+  const planLabelRaw = String(blogAutoPlanName || '').trim();
+  const planLabel = planLabelRaw
+    ? planLabelRaw.replace(/\s+plan$/i, '').trim() || planLabelRaw
+    : '현재';
+
+  if (typeof blogAutoPlanMaxPosts === 'number' && Number.isFinite(blogAutoPlanMaxPosts)) {
+    if (blogAutoPlanMaxPosts > 0) {
+      inputEl.max = String(blogAutoPlanMaxPosts);
+      const current = parseInt((inputEl.value || '').trim(), 10);
+      if (Number.isInteger(current) && current > blogAutoPlanMaxPosts) {
+        inputEl.value = String(blogAutoPlanMaxPosts);
+      }
+      if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: ${blogAutoPlanMaxPosts}건`;
+      return;
+    }
+    // 0 = 제한 없음 (플랜 정책)
+    inputEl.removeAttribute('max');
+    if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 제한 없음`;
+    return;
+  }
+
+  inputEl.removeAttribute('max');
+  if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 확인 중`;
+}
+
+async function loadBlogAutoPlanLimit(options = {}) {
+  const silent = options?.silent === true;
+  try {
+    const capabilities = await fetchJson('/api/v1/capabilities?quiet=1');
+    blogAutoPlanName = String(capabilities?.planName || capabilities?.planCode || '현재').trim() || '현재';
+    const raw = capabilities?.limits?.max_blog_posts_per_run;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      blogAutoPlanMaxPosts = parsed;
+    } else {
+      blogAutoPlanMaxPosts = null;
+    }
+    applyBlogAutoDailyPostsLimitUi();
+  } catch (e) {
+    blogAutoPlanMaxPosts = null;
+    applyBlogAutoDailyPostsLimitUi();
+    if (!silent) setBlogAutoResultText(`플랜 제한 조회 실패: ${e.message}`);
+  }
+}
+
+function normalizeBlogAutoDailyPostsValue(rawValue) {
+  let value = parseInt(String(rawValue || '').trim(), 10);
+  if (!Number.isInteger(value) || value < 0) value = 0;
+  if (typeof blogAutoPlanMaxPosts === 'number' && Number.isFinite(blogAutoPlanMaxPosts) && blogAutoPlanMaxPosts > 0) {
+    value = Math.min(value, blogAutoPlanMaxPosts);
+  }
+  return value;
+}
+
+function normalizeBlogAutoVariationNumberValue(rawValue, fallback = 50) {
+  const raw = String(rawValue ?? '').trim();
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return parsed;
+}
+
+function normalizeBlogAutoVariationNumberEnabledValue(rawValue, fallback = true) {
+  if (typeof rawValue === 'boolean') return rawValue;
+  const raw = String(rawValue ?? '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (['true', '1', 'yes', 'on', 'y'].includes(raw)) return true;
+  if (['false', '0', 'no', 'off', 'n'].includes(raw)) return false;
+  return fallback;
+}
+
+function normalizeBlogAutoKeywordReuseGapValue(rawValue, fallback = 15) {
+  const raw = String(rawValue ?? '').trim();
+  if (!raw) return fallback;
+  const parsed = parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) return fallback;
+  return parsed;
+}
+
+function syncBlogAutoVariationNumberUi() {
+  const enabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const numberEl = document.getElementById('blog-auto-variation-number');
+  if (!enabledEl || !numberEl) return;
+  const enabled = Boolean(enabledEl.checked);
+  numberEl.disabled = !enabled;
+  numberEl.classList.toggle('input-disabled', !enabled);
+}
+
+function clampBlogAutoDailyPostsInputValue(options = {}) {
+  const force = options?.force === true;
+  const inputEl = document.getElementById('blog-auto-daily-posts');
+  if (!inputEl) return;
+
+  const raw = String(inputEl.value || '').trim();
+  if (!raw) {
+    if (force) inputEl.value = '0';
+    return;
+  }
+
+  const parsed = parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    if (force) inputEl.value = '0';
+    return;
+  }
+
+  const normalized = normalizeBlogAutoDailyPostsValue(parsed);
+  if (normalized !== parsed) {
+    inputEl.value = String(normalized);
+  }
 }
 
 async function loadBlogAutoSettings() {
   const modeEl = document.getElementById('blog-auto-mode');
   const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const publishTimeEl = document.getElementById('blog-auto-publish-time');
+  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
   const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  const variationNewEl = document.getElementById('blog-auto-variation-new');
+  const variationDashEl = document.getElementById('blog-auto-variation-dash');
+  const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+  const runDateEl = document.getElementById('blog-auto-run-date');
   setBlogAutoResultText('불러오는 중...');
   try {
     const [data] = await Promise.all([
       fetchJson('/api/v1/settings/major'),
-      loadBlogAutoCategoryCatalog({ silent: true })
+      loadBlogAutoCategoryCatalog({ silent: true }),
+      loadBlogAutoPlanLimit({ silent: true })
     ]);
     const fields = data?.fields || {};
     if (modeEl) modeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
@@ -2127,13 +2378,44 @@ async function loadBlogAutoSettings() {
     );
     renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
+    applyBlogAutoDailyPostsLimitUi();
     if (trendsTimeEl) trendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
-    if (publishTimeEl) publishTimeEl.value = String(fields.NAVER_AUTO_PUBLISH_TIME || '08:00');
-    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(fields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+    if (imageGenerationEl) imageGenerationEl.checked = Boolean(fields.NAVER_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
+    if (externalReferenceEl) externalReferenceEl.checked = Boolean(fields.NAVER_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
+    if (notifyEnabledEl) {
+      notifyEnabledEl.checked = false;
+      notifyEnabledEl.disabled = true;
+    }
+    if (variationNewEl) variationNewEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+    if (variationDashEl) variationDashEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+    if (variationNumberEnabledEl) {
+      variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
+        fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        true
+      );
+    }
+    if (variationNumberEl) {
+      const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(
+        fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
+        50
+      );
+      variationNumberEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
+    }
+    syncBlogAutoVariationNumberUi();
+    if (keywordReuseGapEl) {
+      const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
+        fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS,
+        15
+      );
+      keywordReuseGapEl.value = String(normalizedReuseGap);
+    }
+    if (runDateEl && !String(runDateEl.value || '').trim()) {
+      runDateEl.value = shiftKstDays(-1);
+    }
     setBlogAutoResultText([
       '불러오기 완료',
-      '- 현재는 PoC 단계로 저장만 동작합니다.',
-      '- 실제 자동 실행은 추후 활성화 예정입니다.'
+      '- 자동발행 기준을 확인했습니다.',
+      '- 변경 후 [저장]을 눌러 반영하세요.'
     ].join('\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
@@ -2144,20 +2426,46 @@ async function saveBlogAutoSettings() {
   const modeEl = document.getElementById('blog-auto-mode');
   const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const publishTimeEl = document.getElementById('blog-auto-publish-time');
+  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
   const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  const variationNewEl = document.getElementById('blog-auto-variation-new');
+  const variationDashEl = document.getElementById('blog-auto-variation-dash');
+  const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   setBlogAutoResultText('저장 중...');
   try {
     const major = await fetchJson('/api/v1/settings/major');
     const fields = { ...(major?.fields || {}) };
+    const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
+    const variationNumberRaw = String(variationNumberEl?.value ?? '').trim();
+    if (variationNumberRaw && !/^-?\d+$/.test(variationNumberRaw)) {
+      throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
+    }
+    const variationNumber = normalizeBlogAutoVariationNumberValue(variationNumberRaw, 50);
+    const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
+    if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
+      throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
+    }
+    const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
+    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
+    if (variationNumberEl) variationNumberEl.value = variationNumber === '' ? '' : String(variationNumber);
+    if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
     const payload = {
       ...fields,
       NAVER_AUTO_MODE: Boolean(modeEl?.checked),
       NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
-      NAVER_AUTO_DAILY_POSTS: parseInt((dailyPostsEl?.value || '3').trim(), 10) || 0,
+      NAVER_AUTO_DAILY_POSTS: dailyPosts,
       NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
-      NAVER_AUTO_PUBLISH_TIME: (publishTimeEl?.value || '08:00').trim(),
-      NAVER_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
+      NAVER_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
+      NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
+      NAVER_AUTO_NOTIFY_ENABLED: false,
+      NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
+      NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
+      NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      NAVER_AUTO_VARIATION_NUMBER: variationNumber,
+      NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
     const saved = await postJson('/api/v1/settings/major', payload);
     const savedFields = saved?.fields || {};
@@ -2167,20 +2475,190 @@ async function saveBlogAutoSettings() {
     );
     renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(savedFields.NAVER_AUTO_DAILY_POSTS ?? savedFields.AUTO_DAILY_BLOG_CAP ?? 3);
+    applyBlogAutoDailyPostsLimitUi();
     if (trendsTimeEl) trendsTimeEl.value = String(savedFields.NAVER_AUTO_TRENDS_TIME || '07:30');
-    if (publishTimeEl) publishTimeEl.value = String(savedFields.NAVER_AUTO_PUBLISH_TIME || '08:00');
-    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(savedFields.NAVER_AUTO_NOTIFY_ENABLED ?? true);
+    if (imageGenerationEl) imageGenerationEl.checked = Boolean(savedFields.NAVER_AUTO_IMAGE_GENERATION ?? savedFields.AUTO_IMAGE_GENERATION ?? true);
+    if (externalReferenceEl) externalReferenceEl.checked = Boolean(savedFields.NAVER_AUTO_EXTERNAL_REFERENCE ?? savedFields.AUTO_USE_EXTERNAL_REF ?? true);
+    if (notifyEnabledEl) {
+      notifyEnabledEl.checked = false;
+      notifyEnabledEl.disabled = true;
+    }
+    if (variationNewEl) variationNewEl.checked = Boolean(savedFields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+    if (variationDashEl) variationDashEl.checked = Boolean(savedFields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+    if (variationNumberEnabledEl) {
+      variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
+        savedFields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        true
+      );
+    }
+    if (variationNumberEl) {
+      const normalizedSavedVariationNumber = normalizeBlogAutoVariationNumberValue(
+        savedFields.NAVER_AUTO_VARIATION_NUMBER ?? savedFields.AUTO_TRENDS_MIN_VARIATION,
+        50
+      );
+      variationNumberEl.value = normalizedSavedVariationNumber === '' ? '' : String(normalizedSavedVariationNumber);
+    }
+    syncBlogAutoVariationNumberUi();
+    if (keywordReuseGapEl) {
+      const normalizedSavedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
+        savedFields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? savedFields.AUTO_KEYWORD_REUSE_GAP_DAYS,
+        15
+      );
+      keywordReuseGapEl.value = String(normalizedSavedReuseGap);
+    }
     setBlogAutoResultText([
       '저장 완료',
-      '- 현재는 PoC 단계로 설정만 저장됩니다.',
-      '- 실제 자동 실행은 아직 동작하지 않습니다.'
+      '- 자동발행 설정이 반영되었습니다.',
+      '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
   }
 }
 
+async function runBlogAutoManual() {
+  if (!guardUiConfigReady('자동발행 수동 실행')) return;
+  if (blogAutoManualRunInFlight) return;
+
+  const resultEl = document.getElementById('blog-auto-result');
+  const dateEl = document.getElementById('blog-auto-run-date');
+  const skipTrendsEl = document.getElementById('blog-auto-run-skip-trends');
+  const modeEl = document.getElementById('blog-auto-mode');
+  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const trendsTimeEl = document.getElementById('blog-auto-trends-time');
+  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
+  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
+  const variationNewEl = document.getElementById('blog-auto-variation-new');
+  const variationDashEl = document.getElementById('blog-auto-variation-dash');
+  const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+  const rawDate = String(dateEl?.value || '').trim();
+  const skipTrends = Boolean(skipTrendsEl?.checked);
+
+  if (resultEl) {
+    resultEl.textContent = rawDate
+      ? `수동 실행 확인 중... (기준일: ${rawDate}${skipTrends ? ', 트렌드 수집 스킵' : ''})`
+      : `수동 실행 확인 중... (기준일: 미지정${skipTrends ? ', 트렌드 수집 스킵' : ''})`;
+  }
+
+  const confirmMessage = rawDate
+    ? `${rawDate} 기준으로 자동발행 파이프라인을 수동 실행하시겠습니까?${skipTrends ? '\n(트렌드 수집은 건너뜁니다.)' : ''}`
+    : `기본(미지정) 기준으로 자동발행 파이프라인을 수동 실행하시겠습니까?${skipTrends ? '\n(트렌드 수집은 건너뜁니다.)' : ''}`;
+  const shouldProceed = await showUiConfirm(confirmMessage, {
+    title: '수동 실행 확인',
+    confirmText: '진행',
+    cancelText: '취소'
+  });
+  if (shouldProceed === false) {
+    if (resultEl) resultEl.textContent = '수동 실행이 취소되었습니다.';
+    return;
+  }
+
+  blogAutoManualRunInFlight = true;
+  if (resultEl) {
+    resultEl.textContent = rawDate
+      ? `수동 실행 중... (기준일: ${rawDate}${skipTrends ? ', 트렌드 수집 스킵' : ''})`
+      : `수동 실행 중... (기준일: 미지정${skipTrends ? ', 트렌드 수집 스킵' : ''})`;
+  }
+
+  try {
+    if (resultEl) resultEl.textContent += '\nAPI 요청 전송 중...';
+    const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
+    const variationNumberRaw = String(variationNumberEl?.value ?? '').trim();
+    if (variationNumberRaw && !/^-?\d+$/.test(variationNumberRaw)) {
+      throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
+    }
+    const variationNumber = normalizeBlogAutoVariationNumberValue(variationNumberRaw, 50);
+    const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
+    if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
+      throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
+    }
+    const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
+    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
+    if (variationNumberEl) variationNumberEl.value = variationNumber === '' ? '' : String(variationNumber);
+    if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
+
+    const settingsOverrides = {
+      NAVER_AUTO_MODE: Boolean(modeEl?.checked),
+      NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      NAVER_AUTO_DAILY_POSTS: dailyPosts,
+      NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
+      NAVER_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
+      NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
+      NAVER_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked),
+      NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
+      NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
+      NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      NAVER_AUTO_VARIATION_NUMBER: variationNumber,
+      NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
+    };
+
+    const payload = rawDate
+      ? { trendDate: rawDate, skipTrends, settingsOverrides }
+      : { skipTrends, settingsOverrides };
+    const data = await postJson('/api/v1/blog/auto/run-manual', payload);
+    const summary = data?.summary || {};
+    const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
+    const lines = [
+      '수동 실행 완료',
+      `- 기준일: ${data?.trendDate || '(미지정)'}`,
+      `- 트렌드 수집 스킵: ${data?.skipTrends ? 'Yes' : 'No'}`,
+      `- 트렌드 수집: ${Number(summary?.trendsCollected || 0)}건`,
+      `- Topics 추가: ${Number(summary?.trendsToTopics || 0)}건`,
+      `- 블로그 발행 시도/성공: ${Number(summary?.blogAttempted || 0)} / ${Number(summary?.blogSuccess || 0)}건`
+    ];
+    if (skipped.length > 0) {
+      lines.push('- 건너뜀/주의:');
+      for (const item of skipped) lines.push(`  • ${String(item)}`);
+    }
+    if (resultEl) resultEl.textContent = lines.join('\n');
+
+    await Promise.all([
+      loadDashboard(),
+      loadBlogTrends({ silent: true }),
+      loadBlogTopics({ silent: true }),
+      loadBlogAutoCategoryCatalog({ force: true, silent: true })
+    ]);
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  } finally {
+    blogAutoManualRunInFlight = false;
+  }
+}
+
 function bindActions() {
+  const dialogBackdrop = document.getElementById('ui-dialog-backdrop');
+  const dialogConfirmBtn = document.getElementById('ui-dialog-confirm');
+  const dialogCancelBtn = document.getElementById('ui-dialog-cancel');
+  if (dialogConfirmBtn) {
+    dialogConfirmBtn.addEventListener('click', () => closeUiDialog(true));
+  }
+  if (dialogCancelBtn) {
+    dialogCancelBtn.addEventListener('click', () => closeUiDialog(false));
+  }
+  if (dialogBackdrop) {
+    dialogBackdrop.addEventListener('click', (e) => {
+      if (e.target === dialogBackdrop) closeUiDialog(false);
+    });
+  }
+  document.querySelectorAll('.label-help').forEach((helpEl) => {
+    helpEl.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+    helpEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const backdrop = document.getElementById('ui-dialog-backdrop');
+    if (backdrop && !backdrop.classList.contains('hidden')) {
+      closeUiDialog(false);
+    }
+  });
+
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -2514,14 +2992,11 @@ function bindActions() {
   const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
   const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
   const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
-  const blogAutoCategoryRefreshBtn = document.getElementById('blog-auto-category-refresh-btn');
-  const blogAutoCategoryClearBtn = document.getElementById('blog-auto-category-clear-btn');
-  const blogAutoCategorySearchEl = document.getElementById('blog-auto-category-search');
-  const blogAutoCategorySearchClearBtn = document.getElementById('blog-auto-category-search-clear-btn');
   const blogAutoCategoryOptionsEl = document.getElementById('blog-auto-category-options');
-  const blogAutoCategoryChipsEl = document.getElementById('blog-auto-category-chips');
-  const blogAutoCategoryManualEl = document.getElementById('blog-auto-category-manual');
-  const blogAutoCategoryAddBtn = document.getElementById('blog-auto-category-add-btn');
+  const blogAutoDailyPostsInputEl = document.getElementById('blog-auto-daily-posts');
+  const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-number');
+  const blogAutoRunBtn = document.getElementById('blog-auto-run-btn');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
@@ -2544,26 +3019,7 @@ function bindActions() {
   if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
-  if (blogAutoCategoryRefreshBtn) {
-    blogAutoCategoryRefreshBtn.addEventListener('click', () => {
-      loadBlogAutoCategoryCatalog({ force: true, silent: false });
-    });
-  }
-  if (blogAutoCategoryClearBtn) {
-    blogAutoCategoryClearBtn.addEventListener('click', () => {
-      clearAllBlogAutoCategories();
-    });
-  }
-  if (blogAutoCategorySearchClearBtn) {
-    blogAutoCategorySearchClearBtn.addEventListener('click', () => {
-      clearBlogAutoCategorySearch();
-    });
-  }
-  if (blogAutoCategorySearchEl) {
-    blogAutoCategorySearchEl.addEventListener('input', () => {
-      renderBlogAutoCategoryOptions();
-    });
-  }
+  if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogAutoManual);
   if (blogAutoCategoryOptionsEl) {
     blogAutoCategoryOptionsEl.addEventListener('click', (e) => {
       const btn = e.target?.closest('button[data-blog-auto-category-toggle]');
@@ -2575,24 +3031,24 @@ function bindActions() {
       renderBlogAutoCategoryUi();
     });
   }
-  if (blogAutoCategoryChipsEl) {
-    blogAutoCategoryChipsEl.addEventListener('click', (e) => {
-      const removeBtn = e.target?.closest('button[data-category-chip-remove]');
-      if (!removeBtn) return;
-      const category = normalizeCategoryToken(removeBtn.dataset.categoryChipRemove || '');
-      if (!category) return;
-      blogAutoCategorySelected.delete(category);
-      renderBlogAutoCategoryUi();
+  if (blogAutoDailyPostsInputEl) {
+    blogAutoDailyPostsInputEl.addEventListener('input', () => {
+      clampBlogAutoDailyPostsInputValue({ force: false });
+    });
+    blogAutoDailyPostsInputEl.addEventListener('blur', () => {
+      clampBlogAutoDailyPostsInputValue({ force: true });
+      applyBlogAutoDailyPostsLimitUi();
     });
   }
-  if (blogAutoCategoryAddBtn) {
-    blogAutoCategoryAddBtn.addEventListener('click', addBlogAutoManualCategory);
+  if (blogAutoVariationNumberInputEl) {
+    blogAutoVariationNumberInputEl.addEventListener('blur', () => {
+      const normalized = normalizeBlogAutoVariationNumberValue(blogAutoVariationNumberInputEl.value, 50);
+      blogAutoVariationNumberInputEl.value = normalized === '' ? '' : String(normalized);
+    });
   }
-  if (blogAutoCategoryManualEl) {
-    blogAutoCategoryManualEl.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      addBlogAutoManualCategory();
+  if (blogAutoVariationNumberEnabledEl) {
+    blogAutoVariationNumberEnabledEl.addEventListener('change', () => {
+      syncBlogAutoVariationNumberUi();
     });
   }
   if (settingsTypingPreviewReplayBtn) settingsTypingPreviewReplayBtn.addEventListener('click', playSettingsTypingPreview);
@@ -2653,7 +3109,10 @@ window.addEventListener('DOMContentLoaded', () => {
   bindNavigation();
   bindActions();
   playSettingsTypingPreview();
-  loadConfigStatus().finally(() => {
+  loadConfigStatus().finally(async () => {
+    if (uiConfigReady) {
+      await ensureSheetsPreflightUi({ silent: true });
+    }
     loadDashboard();
   });
   loadBlogAutoSettings();

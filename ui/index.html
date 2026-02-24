@@ -204,57 +204,110 @@
         </div>
 
         <div class="card form-card blog-tab-panel" id="blog-tab-auto">
-          <h2>자동발행 설정 (PoC)</h2>
-          <p class="muted">현재는 설정만 저장합니다. 실제 자동 실행은 아직 비활성화되어 있습니다.</p>
-          <div class="form-grid">
-            <label class="settings-checkbox-label">
-              <input id="blog-auto-mode" type="checkbox">
-              <span>NAVER_AUTO_MODE (자동발행 사용)</span>
-            </label>
-            <label>NAVER_AUTO_CATEGORIES
-              <div class="category-picker">
-                <div class="category-picker-toolbar">
-                  <div class="input-inline-clear">
-                    <input id="blog-auto-category-search" type="text" placeholder="카테고리 검색">
-                    <button id="blog-auto-category-search-clear-btn" class="inline-clear-btn" type="button" title="검색어 지우기" aria-label="검색어 지우기">✕</button>
+          <div class="auto-section">
+            <div class="auto-mode-inline">
+              <label class="settings-checkbox-label settings-checkbox-inline">
+                <input id="blog-auto-mode" type="checkbox">
+                <span>자동발행 사용</span>
+              </label>
+            </div>
+            <div class="form-grid">
+              <div class="form-field-block">
+                <span class="field-label-text">네이버 카테고리</span>
+                <div class="category-picker">
+                  <div id="blog-auto-category-options" class="category-options">
+                    <p class="category-hint">카테고리 목록을 불러오는 중...</p>
                   </div>
-                  <button id="blog-auto-category-refresh-btn" class="secondary" type="button">카테고리 목록 새로고침</button>
-                </div>
-                <div class="category-picker-toolbar category-picker-toolbar-compact">
-                  <button id="blog-auto-category-clear-btn" class="secondary" type="button">선택 일괄 해제</button>
-                </div>
-                <div id="blog-auto-category-meta" class="category-meta">카테고리 로딩 중...</div>
-                <div id="blog-auto-category-options" class="category-options">
-                  <p class="category-hint">카테고리 목록을 불러오는 중...</p>
-                </div>
-                <div class="category-picker-toolbar">
-                  <input id="blog-auto-category-manual" type="text" placeholder="직접 입력 1개 추가">
-                  <button id="blog-auto-category-add-btn" class="secondary" type="button">추가</button>
-                </div>
-                <div id="blog-auto-category-chips" class="category-chips">
-                  <span class="category-hint">선택된 카테고리가 없습니다.</span>
                 </div>
               </div>
-            </label>
-            <label>NAVER_AUTO_DAILY_POSTS
-              <input id="blog-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
-            </label>
-            <label>NAVER_AUTO_TRENDS_TIME
-              <input id="blog-auto-trends-time" type="time">
-            </label>
-            <label>NAVER_AUTO_PUBLISH_TIME
-              <input id="blog-auto-publish-time" type="time">
-            </label>
-            <label class="settings-checkbox-label">
-              <input id="blog-auto-notify-enabled" type="checkbox">
-              <span>NAVER_AUTO_NOTIFY_ENABLED (완료 알림)</span>
-            </label>
+              <label>1회 최대 발행수
+                <input id="blog-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
+                <small id="blog-auto-daily-posts-hint" class="field-hint">플랜 최대 발행 개수를 확인하는 중...</small>
+              </label>
+              <div class="form-field-block">
+                <span class="label-title-row">
+                  <span class="field-label-text">필터 조건</span>
+                  <button
+                    type="button"
+                    class="label-help"
+                    data-help="아무것도 선택하지 않으면 증감 전체를 허용합니다."
+                    aria-label="필터 조건 도움말"
+                  >?</button>
+                </span>
+                <div class="auto-variation-filter">
+                  <label class="settings-checkbox-label compact">
+                    <input id="blog-auto-variation-new" type="checkbox">
+                    <span>new 포함</span>
+                  </label>
+                  <label class="settings-checkbox-label compact">
+                    <input id="blog-auto-variation-dash" type="checkbox">
+                    <span>- 포함</span>
+                  </label>
+                  <label class="settings-checkbox-label compact">
+                    <input id="blog-auto-variation-number-enabled" type="checkbox" checked>
+                    <span>증감 포함</span>
+                  </label>
+                  <div class="auto-variation-number-input">
+                    <input id="blog-auto-variation-number" type="number" step="1" value="50" placeholder="예: 50 (음수 가능)">
+                  </div>
+                </div>
+              </div>
+              <div class="form-field-block">
+                <span class="label-title-row">
+                  <span class="field-label-text">중복 키워드 금지 간격(일)</span>
+                  <button
+                    type="button"
+                    class="label-help"
+                    data-help="설정한 기간 내 같은 키워드는 자동발행 후보에서 제외됩니다. (0=제한 없음)"
+                    aria-label="중복 키워드 금지 간격 도움말"
+                  >?</button>
+                </span>
+                <input id="blog-auto-keyword-reuse-gap" type="number" min="0" step="1" value="15" placeholder="예: 15">
+              </div>
+              <label>자동 발행 시간
+                <input id="blog-auto-trends-time" type="time">
+              </label>
+              <div class="auto-toggle-row">
+                <label class="settings-checkbox-label compact">
+                  <input id="blog-auto-image-generation" type="checkbox" checked>
+                  <span>이미지 생성</span>
+                </label>
+                <label class="settings-checkbox-label compact">
+                  <input id="blog-auto-external-reference" type="checkbox" checked>
+                  <span>외부 참고</span>
+                </label>
+                <label class="settings-checkbox-label compact">
+                  <input id="blog-auto-notify-enabled" type="checkbox" disabled>
+                  <span>완료 알림</span>
+                </label>
+              </div>
+            </div>
           </div>
-          <div class="form-actions">
+
+          <div class="auto-section">
+            <h3 class="auto-section-title">수동 실행</h3>
+            <div class="auto-manual-row">
+              <div class="auto-manual-inline">
+                <span class="field-label-text">수동 트렌드 일자</span>
+                <input id="blog-auto-run-date" type="date">
+              </div>
+              <label class="settings-checkbox-label compact auto-manual-skip">
+                <input id="blog-auto-run-skip-trends" type="checkbox">
+                <span>트렌드 수집 스킵 (기존 trends 데이터 사용)</span>
+              </label>
+              <button id="blog-auto-run-btn" class="secondary" type="button">수동 실행</button>
+            </div>
+          </div>
+
+          <div class="form-actions auto-actions">
             <button id="blog-auto-refresh-btn" class="secondary" type="button">불러오기</button>
             <button id="blog-auto-save-btn" type="button">저장</button>
           </div>
-          <pre id="blog-auto-result">대기 중...</pre>
+
+          <div class="auto-section auto-log-section">
+            <h3 class="auto-section-title">로그</h3>
+            <pre id="blog-auto-result">대기 중...</pre>
+          </div>
         </div>
       </section>
       <section class="view" id="view-shopping">
@@ -512,6 +565,17 @@
       </section>
       <section class="view" id="view-logs"><h1>로그/이력 (예정)</h1></section>
     </main>
+  </div>
+
+  <div id="ui-dialog-backdrop" class="ui-dialog-backdrop hidden" aria-hidden="true">
+    <div class="ui-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title" aria-describedby="ui-dialog-message">
+      <h3 id="ui-dialog-title">알림</h3>
+      <p id="ui-dialog-message"></p>
+      <div class="ui-dialog-actions">
+        <button id="ui-dialog-cancel" class="secondary hidden" type="button">취소</button>
+        <button id="ui-dialog-confirm" type="button">확인</button>
+      </div>
+    </div>
   </div>
 
   <script src="./app.js"></script>
