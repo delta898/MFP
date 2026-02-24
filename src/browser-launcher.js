@@ -22,7 +22,7 @@ async function launchBrowser(overrides = {}) {
         try {
             launchOptions.channel = currentChannel;
             const browser = await chromium.launch(launchOptions);
-            console.log(`ℹ️ 브라우저 채널: ${currentChannel}`);
+            // console.log(`ℹ️ 브라우저 채널: ${currentChannel}`); // ❌ 대시보드 백그라운드 폴링 시 스팸 방지
             if (i > 0) {
                 console.warn(`⚠️ ${channelsToTry[0]} 실패, ${currentChannel}(으)로 실행합니다.`);
             }
