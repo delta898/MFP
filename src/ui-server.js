@@ -2585,9 +2585,27 @@ function scheduleNextAutoCycle(delayMs = null) {
         return;
     }
     const settings = getAutoSettingsSnapshot();
-    const waitMs = Number.isFinite(Number(delayMs))
-        ? Math.max(500, parseInt(delayMs, 10))
-        : Math.max(1000, settings.AUTO_INTERVAL_MIN * 60 * 1000);
+    let waitMs = 0;
+
+    if (Number.isFinite(Number(delayMs))) {
+        waitMs = Math.max(500, parseInt(delayMs, 10));
+    } else {
+        const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30').split(':');
+        const targetHour = parseInt(timeStr[0] || '7', 10);
+        const targetMin = parseInt(timeStr[1] || '30', 10);
+
+        const now = new Date();
+        const target = new Date(now);
+        target.setHours(targetHour, targetMin, 0, 0);
+
+        if (target.getTime() <= now.getTime()) {
+            target.setDate(target.getDate() + 1);
+        }
+
+        waitMs = target.getTime() - now.getTime();
+        waitMs = Math.max(60 * 1000, waitMs);
+    }
+
     autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
     autoRuntimeState.timer = setTimeout(() => {
         runAutoCycle('timer').catch((e) => {
@@ -2614,15 +2632,12 @@ function startAutoRunner(reason = '자동 모드 시작') {
 
 function syncAutoRunnerWithConfig() {
     const settings = getAutoSettingsSnapshot();
-    // PoC 단계: 설정만 저장하고 실제 자동 실행은 아직 시작하지 않는다.
-    clearAutoTimer();
-    autoRuntimeState.enabled = false;
-    autoRuntimeState.running = false;
-    autoRuntimeState.status = 'stopped';
-    autoRuntimeState.nextRunAt = null;
-    autoRuntimeState.message = settings.NAVER_AUTO_MODE
-        ? 'NAVER_AUTO_MODE는 저장되었지만, 현재 PoC 단계로 자동 실행은 비활성화되어 있습니다.'
-        : 'NAVER_AUTO_MODE가 비활성화되어 있습니다.';
+    if (settings.NAVER_AUTO_MODE) {
+        const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30');
+        startAutoRunner(`자동 실행 활성화 (목표시간: ${timeStr})`);
+    } else {
+        stopAutoRunner('NAVER_AUTO_MODE가 비활성화되어 있습니다.');
+    }
 }
 
 function filterAutoTopicCandidates(items = [], settings = {}) {
