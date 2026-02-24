@@ -63,11 +63,33 @@ const PATHS = {
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 
+function ensureConfigFileFromSample() {
+    const pairs = [
+        { config: PATHS.configFile, sample: PATHS.configSampleFile },
+        { config: PATHS.configFileFromExec, sample: PATHS.configSampleFileFromExec }
+    ];
+
+    for (const pair of pairs) {
+        try {
+            if (fs.existsSync(pair.config)) return pair.config;
+            if (!fs.existsSync(pair.sample)) continue;
+            fs.mkdirSync(path.dirname(pair.config), { recursive: true });
+            fs.copyFileSync(pair.sample, pair.config);
+            console.info(`✅ config.txt 자동 생성 완료: ${pair.config}`);
+            return pair.config;
+        } catch (e) {
+            console.warn(`⚠️ config.txt 자동 생성 실패: ${pair.config} (${e.message})`);
+        }
+    }
+    return '';
+}
+
 // =========================================================
 // 3. 🛠️ [config.txt 파싱 함수]
 // =========================================================
 function loadUserConfig() {
     const config = {};
+    const autoCreatedConfigPath = ensureConfigFileFromSample();
     const configPath = fs.existsSync(PATHS.configFile)
         ? PATHS.configFile
         : fs.existsSync(PATHS.configFileFromExec)
@@ -131,7 +153,7 @@ function loadUserConfig() {
 
     return {
         ...config,
-        __CONFIG_SOURCE_PATH: configPath,
+        __CONFIG_SOURCE_PATH: autoCreatedConfigPath || configPath,
         __CONFIG_SOURCE_TYPE: usingSample ? 'sample' : 'config',
         __CONFIG_READY: true,
         __CONFIG_ERROR_MESSAGE: ''

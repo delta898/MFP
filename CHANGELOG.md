@@ -14,6 +14,10 @@
   - `./config/...` 형식 경로를 `config.txt` 위치 기준으로 해석하도록 보강
   - `cwd`가 홈 디렉터리인 환경(Finder/Explorer 실행)에서도 이미지/인증 파일 경로 인식 개선
   - 적용 대상: 쇼핑 이미지 로컬 경로, Google 서비스계정 JSON, auth/license 경로 참조
+- 설정 파일 초기화 흐름 보강
+  - `config.txt`가 없고 `config.txt.sample`만 있을 때 실행 시 `config.txt`를 자동 생성
+  - UI/CLI 공통으로 생성된 `config.txt`를 우선 사용하도록 정합성 개선
+  - `config.txt`와 `config.txt.sample`이 모두 없는 경우는 명시적 오류로 실패 처리 유지
 - 에디터 커서 하단 고정 로직 강화
   - 소제목/인용구 처리 전후에 문서 하단 커서 강제 이동 보강
   - 하단 앵커 클릭 실패 시 DOM selection range 기반 fallback 적용

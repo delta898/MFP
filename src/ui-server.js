@@ -513,7 +513,31 @@ function resolveConfigPaths() {
     };
 }
 
+function ensureWritableConfigFromSample() {
+    const paths = resolveConfigPaths();
+    const pairs = [
+        { config: paths.rootConfig, sample: paths.rootSample },
+        { config: paths.execConfig, sample: paths.execSample }
+    ];
+
+    for (const pair of pairs) {
+        try {
+            if (fs.existsSync(pair.config)) return pair.config;
+            if (!fs.existsSync(pair.sample)) continue;
+            fs.mkdirSync(path.dirname(pair.config), { recursive: true });
+            fs.copyFileSync(pair.sample, pair.config);
+            Logger.info(`⚙️ 설정 파일 자동 생성: ${pair.config}`);
+            return pair.config;
+        } catch (e) {
+            Logger.warn(`⚠️ 설정 파일 자동 생성 실패: ${pair.config} (${e.message})`);
+        }
+    }
+    return '';
+}
+
 function resolveReadableConfigSource() {
+    const created = ensureWritableConfigFromSample();
+    if (created && fs.existsSync(created)) return { path: created, sourceType: 'config' };
     const paths = resolveConfigPaths();
     if (fs.existsSync(paths.rootConfig)) return { path: paths.rootConfig, sourceType: 'config' };
     if (fs.existsSync(paths.execConfig)) return { path: paths.execConfig, sourceType: 'config' };
@@ -523,6 +547,8 @@ function resolveReadableConfigSource() {
 }
 
 function resolveWritableConfigPath() {
+    const created = ensureWritableConfigFromSample();
+    if (created) return created;
     const paths = resolveConfigPaths();
     if (fs.existsSync(paths.rootConfig)) return paths.rootConfig;
     if (fs.existsSync(paths.execConfig)) return paths.execConfig;
