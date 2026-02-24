@@ -205,6 +205,63 @@ const Utils = {
         return this._ensureAllSheetsExistInternal({ spreadsheetId, suppressError: false });
     },
 
+    readGoogleSheetTrends: async function (options = {}) {
+        const result = [];
+        try {
+            if (!options.silent) Logger.info("🌐 구글 트렌드 시트 전체 스캔 중...");
+            const accessToken = await this.getGoogleAccessToken();
+            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const sheetName = CONFIG.GOOGLE_TRENDS_SHEET || 'trends';
+            const targetSpreadsheetId = String(spreadsheetId || '').trim();
+            if (!targetSpreadsheetId) throw new Error('GOOGLE_SHEET_ID가 비어 있습니다.');
+
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${targetSpreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+            const res = await this.callWithRetry(() => axios.get(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) return [];
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+            const parsed = rows.slice(1).map((row, index) => {
+                const entry = {};
+                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                const getVal = (cols) => {
+                    for (const col of cols) {
+                        const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                            return String(entry[cleanCol]).trim();
+                        }
+                    }
+                    return "";
+                };
+
+                const date = getVal(['날짜', 'date']);
+                const subject = getVal(['주제', 'subject']);
+                const keywords = getVal(['키워드', 'keyword']);
+                const change = getVal(['증감', 'change']);
+                const status = getVal(['동작상태', '동작/상태', 'status']);
+
+                return {
+                    rowIndex: index,
+                    rowNumber: index + 2,
+                    date: date || '',
+                    subject: subject || '',
+                    keywords: keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [],
+                    change: change || '',
+                    status: status || ''
+                };
+            });
+
+            return parsed;
+
+        } catch (e) {
+            Logger.error(`❌ 구글 트렌드 시트 읽기 실패: ${e.message}`);
+            return [];
+        }
+    },
+
     _ensureAllSheetsExistInternal: async function ({ spreadsheetId, suppressError }) {
         try {
             Logger.info("🔍 필수 시트 존재 여부 확인 중...");
@@ -549,9 +606,9 @@ const Utils = {
         }
     },
 
-    readGoogleSheetTopics: async function () {
+    readGoogleSheetTopics: async function (options = {}) {
         try {
-            Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
+            if (!options.silent) Logger.info("🌐 구글 스프레드시트 읽기 (Native Auth Mode)");
             const accessToken = await this.getGoogleAccessToken();
 
             const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
@@ -856,9 +913,9 @@ const Utils = {
     /**
      * Shopping 시트 읽기 ('발행 준비 완료' 상태만)
      */
-    readGoogleSheetShopping: async function () {
+    readGoogleSheetShopping: async function (options = {}) {
         try {
-            Logger.info("🌐 구글 쇼핑 시트 읽기 (Target: 발행 준비 완료)");
+            if (!options.silent) Logger.info("🌐 구글 쇼핑 시트 읽기 (Target: 발행 준비 완료)");
             const accessToken = await this.getGoogleAccessToken();
 
             const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
@@ -1142,9 +1199,9 @@ const Utils = {
     /**
      * 1-1. 키워드 시트 읽기 ('연관검색어 조사' 상태만)
      */
-    readGoogleSheetKeywords: async function () {
+    readGoogleSheetKeywords: async function (options = {}) {
         try {
-            Logger.info("🌐 구글 키워드 시트 읽기 (Target: 연관검색어 조사)");
+            if (!options.silent) Logger.info("🌐 구글 키워드 시트 읽기 (Target: 연관검색어 조사)");
             const accessToken = await this.getGoogleAccessToken();
 
             const sheetName = CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords';
@@ -2647,7 +2704,7 @@ const Utils = {
             let pendingTopicsCount = 0;
             let pendingTrendsCount = 0;
 
-            const topics = await this.readGoogleSheetTopics();
+            const topics = await this.readGoogleSheetTopics({ silent: true });
             topics.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '블로그 발행 완료') {
@@ -2660,7 +2717,7 @@ const Utils = {
                 }
             });
 
-            const shopping = await this.readGoogleSheetShopping();
+            const shopping = await this.readGoogleSheetShopping({ silent: true });
             shopping.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '발행 완료') {
@@ -2668,7 +2725,7 @@ const Utils = {
                 }
             });
 
-            const trends = await this.readGoogleSheetTrends();
+            const trends = await this.readGoogleSheetTrends({ silent: true });
             trends.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '대기' || st === '조사 완료') {

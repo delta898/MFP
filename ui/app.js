@@ -801,11 +801,17 @@ function normalizeCommaListText(input) {
 }
 
 async function loadDashboard() {
+  const quietCatch = (e) => {
+    if (e.status === 503 || String(e.message).includes('fetch failed')) return null;
+    console.warn('[Dashboard Polling]', e.message);
+    return null;
+  };
+
   const [healthResult, licenseResult, sessionResult, summaryResult] = await Promise.allSettled([
-    fetchJson('/api/v1/health'),
-    fetchJson('/api/v1/license/status?quiet=1'),
-    fetchJson('/api/v1/session/naver'),
-    fetchJson('/api/v1/dashboard/summary')
+    fetchJson('/api/v1/health').catch(quietCatch),
+    fetchJson('/api/v1/license/status?quiet=1').catch(quietCatch),
+    fetchJson('/api/v1/session/naver').catch(quietCatch),
+    fetchJson('/api/v1/dashboard/summary').catch(quietCatch)
   ]);
 
   const healthOk = healthResult.status === 'fulfilled';
@@ -904,6 +910,7 @@ async function loadDashboardLogs() {
       }
     });
   } catch (err) {
+    if (err.status === 503 || String(err.message).includes('fetch failed')) return;
     lists.forEach(list => {
       list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';
     });
@@ -930,6 +937,7 @@ async function loadLogFiles() {
     select.value = data.files[0];
     loadSystemLog();
   } catch (err) {
+    if (err.status === 503 || String(err.message).includes('fetch failed')) return;
     select.innerHTML = '<option value="">목록을 불러오지 못했습니다.</option>';
   }
 }
@@ -959,6 +967,10 @@ async function loadSystemLog() {
       content.textContent = '내용이 없습니다.';
     }
   } catch (e) {
+    if (e.status === 503 || String(e.message).includes('fetch failed')) {
+      content.textContent = '네트워크 연결이 지연되고 있습니다...';
+      return;
+    }
     content.textContent = '로그를 읽어오지 못했습니다: ' + e.message;
   }
 }
