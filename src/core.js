@@ -647,11 +647,7 @@ async function focusEditorBottomAnchor(page) {
 }
 
 async function placeCaretAtDocumentEnd(page) {
-	// 1) Try the known bottom anchor first (fast path).
-	const movedByAnchor = await focusEditorBottomAnchor(page);
-	if (movedByAnchor) return true;
-
-	// 2) Fallback: force DOM selection to the last visible editable node.
+	// 1) Primary: force DOM selection to the last visible editable node.
 	try {
 		const movedByRange = await page.evaluate(() => {
 			const root =
@@ -674,11 +670,15 @@ async function placeCaretAtDocumentEnd(page) {
 			).filter((el) => {
 				if (!(el instanceof HTMLElement)) return false;
 				if (el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle')) return false;
+				if (el.closest('.se-toolbar, .se-popup, .se-layer, [role="dialog"]')) return false;
 				return isVisible(el);
 			});
 
 			const target = candidates.length > 0 ? candidates[candidates.length - 1] : null;
 			if (!target) return false;
+			try {
+				target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			} catch (e) { }
 
 			const selection = window.getSelection();
 			if (!selection) return false;
@@ -696,7 +696,11 @@ async function placeCaretAtDocumentEnd(page) {
 		}
 	} catch (e) { }
 
-	// 3) Last fallback key.
+	// 2) Fallback: bottom anchor click path
+	const movedByAnchor = await focusEditorBottomAnchor(page);
+	if (movedByAnchor) return true;
+
+	// 3) Last fallback key
 	try {
 		await page.keyboard.press('End');
 		await Utils.sleep(80);
@@ -1564,14 +1568,17 @@ ${scrapedContext}`;
 				let representativeImageSet = false;
 				let representativeAttemptCount = 0;
 				const representativeMaxAttempts = 3;
-				for (const item of contents) {
-					if (item.type !== 'image') {
-						await dismissEditorPopups(page);
-						await closeVisibleOglinkPopup(page);
-						if (!inListMode) {
-							await focusEditorTypingArea(page);
+					for (const item of contents) {
+						if (item.type !== 'image') {
+							await dismissEditorPopups(page);
+							await closeVisibleOglinkPopup(page);
+							if (!inListMode) {
+								const movedToEnd = await placeCaretAtDocumentEnd(page);
+								if (!movedToEnd) {
+									await focusEditorTypingArea(page);
+								}
+							}
 						}
-					}
 					if (item.type !== 'list-item' && inListMode) {
 						// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
 						await page.keyboard.press('Enter');
@@ -1640,7 +1647,10 @@ ${scrapedContext}`;
 									Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
 								} else {
 									await closeVisibleOglinkPopup(page);
-									await focusEditorTypingArea(page);
+									const movedToEnd = await placeCaretAtDocumentEnd(page);
+									if (!movedToEnd) {
+										await focusEditorTypingArea(page);
+									}
 									Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
 									await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
 									await page.keyboard.press('Space');
