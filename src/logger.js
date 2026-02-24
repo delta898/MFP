@@ -22,6 +22,9 @@ if (!fs.existsSync(logDir)) {
 }
 
 class Logger {
+    static _recentLogs = [];
+    static _maxRecentLogs = 30;
+
     static _write(level, message) {
         // 1. 레벨 체크: 설정된 레벨보다 낮은 중요도의 로그는 무시
         if (LEVELS[level] < currentLevel) {
@@ -31,6 +34,12 @@ class Logger {
         const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
         const dateStr = moment().format('YYYY-MM-DD');
         const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+
+        // 대시보드 표시용으로 메모리에 최근 로그 저장
+        this._recentLogs.unshift({ timestamp, level, message });
+        if (this._recentLogs.length > this._maxRecentLogs) {
+            this._recentLogs.pop();
+        }
 
         // 2. 콘솔 출력 (색상 입히기)
         switch (level) {
@@ -58,6 +67,10 @@ class Logger {
         if (process.env.DEBUG && error && error.stack) {
             this._write('debug', `Stack trace: ${error.stack}`);
         }
+    }
+
+    static getRecentLogs(limit = 20) {
+        return this._recentLogs.slice(0, limit);
     }
 }
 

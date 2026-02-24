@@ -3234,6 +3234,26 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         return sendSuccess(res, requestId, { status: 'ok', version: APP_VERSION });
     }
 
+    if (pathname === '/api/v1/dashboard/summary') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const summary = await Utils.getDashboardSummary();
+            return sendSuccess(res, requestId, summary);
+        } catch (e) {
+            return sendError(res, requestId, 500, 'DASHBOARD_SUMMARY_ERROR', e.message);
+        }
+    }
+
+    if (pathname === '/api/v1/dashboard/logs') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const logs = Logger.getRecentLogs(20);
+            return sendSuccess(res, requestId, { logs });
+        } catch (e) {
+            return sendError(res, requestId, 500, 'DASHBOARD_LOGS_ERROR', e.message);
+        }
+    }
+
     if (pathname === '/api/v1/config/status') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         return sendSuccess(res, requestId, {

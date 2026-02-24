@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="ko">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>BlogGenius UI</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body>
   <div class="app">
     <aside class="sidebar">
@@ -31,25 +33,108 @@
       </header>
 
       <section class="view active" id="view-dashboard">
-        <h1>Sprint 1 대시보드</h1>
-        <p class="muted">헬스/라이선스/세션 상태를 우선 제공합니다.</p>
+        <div class="dashboard-header"
+          style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+          <div>
+            <h1>Dashboard</h1>
+            <div class="dash-badges" id="dash-badges" style="margin-top: 8px; display: flex; gap: 8px;">
+              <span class="badge badge-health" id="badge-health"
+                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Health:
+                로딩중</span>
+              <span class="badge badge-session" id="badge-session"
+                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Session:
+                확인중</span>
+              <span class="badge badge-license" id="badge-license"
+                style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Plan:
+                조회중</span>
+            </div>
+          </div>
+        </div>
 
-        <div class="grid">
-          <article class="card">
-            <h2>Health</h2>
-            <p id="health-text">로딩 중...</p>
+        <!-- Clock Widget -->
+        <div class="dash-clock-widget card"
+          style="text-align: center; margin-bottom: 24px; padding: 30px; position: relative;">
+          <div class="clock-controls" style="position: absolute; top: 16px; right: 16px;">
+            <select id="clock-style-select"
+              style="padding: 4px 8px; font-size: 13px; border-radius: 4px; border: 1px solid #cbd5e1;">
+              <option value="digital">디지털 시계</option>
+              <option value="analog">아날로그 시계</option>
+              <option value="flip">플립 시계</option>
+            </select>
+          </div>
+          <div class="clock-display" id="clock-display"
+            style="min-height: 120px; display: flex; align-items: center; justify-content: center;">
+            <!-- JS 렌더링 영역 -->
+          </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <h3 style="margin-bottom: 12px; font-size: 16px; color: #334155;">주간 요약 현황</h3>
+        <div class="dash-summary-stats grid" style="margin-bottom: 24px;">
+          <article class="stat-card card" style="text-align: center; padding: 20px;">
+            <h4 style="font-size: 14px; color: #64748b; margin-bottom: 8px; font-weight: normal;">블로그 주간 완료</h4>
+            <div class="stat-value" style="font-size: 32px; font-weight: 700; color: #0f172a;"><span
+                id="stat-blog-weekly">0</span><small
+                style="font-size: 16px; font-weight: normal; margin-left: 4px; color: #64748b;">건</small></div>
+            <div class="stat-label" style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Topics 기준</div>
           </article>
-          <article class="card">
-            <h2>라이선스 상태</h2>
-            <p id="license-text">로딩 중...</p>
+          <article class="stat-card card" style="text-align: center; padding: 20px;">
+            <h4 style="font-size: 14px; color: #64748b; margin-bottom: 8px; font-weight: normal;">쇼핑 주간 완료</h4>
+            <div class="stat-value" style="font-size: 32px; font-weight: 700; color: #10b981;"><span
+                id="stat-shop-weekly">0</span><small
+                style="font-size: 16px; font-weight: normal; margin-left: 4px; color: #64748b;">건</small></div>
+            <div class="stat-label" style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Shopping 기준</div>
           </article>
-          <article class="card">
-            <h2>네이버 세션</h2>
-            <p id="session-text">로딩 중...</p>
+          <article class="stat-card card" style="text-align: center; padding: 20px;">
+            <h4 style="font-size: 14px; color: #64748b; margin-bottom: 8px; font-weight: normal;">발행 대기열</h4>
+            <div class="stat-value" style="font-size: 32px; font-weight: 700; color: #f59e0b;"><span
+                id="stat-topic-pending">0</span><small
+                style="font-size: 16px; font-weight: normal; margin-left: 4px; color: #64748b;">건</small></div>
+            <div class="stat-label" style="font-size: 13px; color: #94a3b8; margin-top: 4px;">진행 대기 중</div>
           </article>
-          <article class="card">
-            <h2>Capabilities</h2>
-            <pre id="cap-text">로딩 중...</pre>
+          <article class="stat-card card" style="text-align: center; padding: 20px;">
+            <h4 style="font-size: 14px; color: #64748b; margin-bottom: 8px; font-weight: normal;">신규 트렌드 타겟</h4>
+            <div class="stat-value" style="font-size: 32px; font-weight: 700; color: #3b82f6;"><span
+                id="stat-trend-pending">0</span><small
+                style="font-size: 16px; font-weight: normal; margin-left: 4px; color: #64748b;">건</small></div>
+            <div class="stat-label" style="font-size: 13px; color: #94a3b8; margin-top: 4px;">최근: <span
+                id="stat-trend-recent-date">-</span></div>
+          </article>
+        </div>
+
+        <!-- Layout for Timeline & Shortcuts -->
+        <div class="dash-bottom-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+          <!-- Activity Timeline -->
+          <article class="card activity-card">
+            <h3 style="margin-bottom: 16px; font-size: 16px; display: flex; justify-content: space-between;">
+              최근 시스템 활동
+              <button id="dash-log-refresh-btn" class="secondary"
+                style="font-size: 12px; padding: 4px 10px;">새로고침</button>
+            </h3>
+            <ul class="activity-timeline" id="activity-timeline"
+              style="list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto;">
+              <li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">로그를
+                불러오는 중입니다...</li>
+            </ul>
+          </article>
+
+          <!-- Shortcuts -->
+          <article class="card shortcuts-card">
+            <h3 style="margin-bottom: 16px; font-size: 16px;">Quick Actions</h3>
+            <div class="shortcut-buttons" style="display: flex; flex-direction: column; gap: 12px;">
+              <button class="primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px;"
+                onclick="document.querySelector('.blog-tab-btn[data-blog-tab=\'quick\']').click(); document.querySelector('.nav-btn[data-view=\'blog\']').click();">
+                🚀 빠른 발행 작성
+              </button>
+              <button class="secondary" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px;"
+                onclick="document.querySelector('.blog-tab-btn[data-blog-tab=\'trends\']').click(); document.querySelector('.nav-btn[data-view=\'blog\']').click();">
+                🔍 트렌드 수집/확인
+              </button>
+              <button class="secondary" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px;"
+                onclick="document.querySelector('.nav-btn[data-view=\'settings\']').click();">
+                ⚙️ 주요 설정 변경
+              </button>
+            </div>
           </article>
         </div>
       </section>
@@ -128,7 +213,9 @@
                 </tr>
               </thead>
               <tbody id="blog-trends-table-body">
-                <tr><td colspan="7">로딩 중...</td></tr>
+                <tr>
+                  <td colspan="7">로딩 중...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -174,18 +261,27 @@
                 <tr>
                   <th style="width:56px;">선택</th>
                   <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">참고/지시사항</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:220px;">참고 URL</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:120px;">이미지 생성 여부</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="externalReference" style="width:120px;">외부 참고 여부</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:220px;">진행 로그</th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject
+                  </th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords
+                  </th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">참고/지시사항
+                  </th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:220px;">참고 URL
+                  </th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:120px;">이미지
+                    생성 여부</th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="externalReference" style="width:120px;">
+                    외부 참고 여부</th>
+                  <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:220px;">진행 로그
+                  </th>
                   <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:170px;">상태</th>
                 </tr>
               </thead>
               <tbody id="blog-table-body">
-                <tr><td colspan="10">로딩 중...</td></tr>
+                <tr>
+                  <td colspan="10">로딩 중...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -227,12 +323,8 @@
               <div class="form-field-block">
                 <span class="label-title-row">
                   <span class="field-label-text">필터 조건</span>
-                  <button
-                    type="button"
-                    class="label-help"
-                    data-help="아무것도 선택하지 않으면 증감 전체를 허용합니다."
-                    aria-label="필터 조건 도움말"
-                  >?</button>
+                  <button type="button" class="label-help" data-help="아무것도 선택하지 않으면 증감 전체를 허용합니다."
+                    aria-label="필터 조건 도움말">?</button>
                 </span>
                 <div class="auto-variation-filter">
                   <label class="settings-checkbox-label compact">
@@ -248,19 +340,16 @@
                     <span>증감 포함</span>
                   </label>
                   <div class="auto-variation-number-input">
-                    <input id="blog-auto-variation-number" type="number" step="1" value="50" placeholder="예: 50 (음수 가능)">
+                    <input id="blog-auto-variation-number" type="number" step="1" value="50"
+                      placeholder="예: 50 (음수 가능)">
                   </div>
                 </div>
               </div>
               <div class="form-field-block">
                 <span class="label-title-row">
                   <span class="field-label-text">중복 키워드 금지 간격(일)</span>
-                  <button
-                    type="button"
-                    class="label-help"
-                    data-help="설정한 기간 내 같은 키워드는 자동발행 후보에서 제외됩니다. (0=제한 없음)"
-                    aria-label="중복 키워드 금지 간격 도움말"
-                  >?</button>
+                  <button type="button" class="label-help" data-help="설정한 기간 내 같은 키워드는 자동발행 후보에서 제외됩니다. (0=제한 없음)"
+                    aria-label="중복 키워드 금지 간격 도움말">?</button>
                 </span>
                 <input id="blog-auto-keyword-reuse-gap" type="number" min="0" step="1" value="15" placeholder="예: 15">
               </div>
@@ -371,13 +460,17 @@
                   <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row</th>
                   <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
                   <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:260px;">URL</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행 로그</th>
+                  <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행 로그
+                  </th>
                   <th class="sortable" data-sort-table="shopping" data-sort-key="status" style="width:140px;">상태</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행 시간</th>
+                  <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행 시간
+                  </th>
                 </tr>
               </thead>
               <tbody id="shopping-table-body">
-                <tr><td colspan="7">로딩 중...</td></tr>
+                <tr>
+                  <td colspan="7">로딩 중...</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -432,7 +525,9 @@
           </div>
         </div>
       </section>
-      <section class="view" id="view-license"><h1>라이선스 (예정)</h1></section>
+      <section class="view" id="view-license">
+        <h1>라이선스 (예정)</h1>
+      </section>
       <section class="view" id="view-settings">
         <h1>설정</h1>
         <p class="muted">주요 항목은 간단히 수정하고, 필요 시 고급 모드에서 config.txt 전체를 편집하세요.</p>
@@ -449,13 +544,15 @@
               <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
               <small class="muted">
                 API 키가 없으면
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI
+                  Studio</a>
                 에서 발급하세요.
               </small>
             </label>
             <label>GOOGLE_SHEET_URL
               <div class="input-with-action">
-                <input id="settings-google-sheet-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/...">
+                <input id="settings-google-sheet-url" type="text"
+                  placeholder="https://docs.google.com/spreadsheets/d/...">
                 <button id="settings-open-google-sheet-btn" class="secondary" type="button">구글 스프레드시트 가기</button>
               </div>
               <small class="muted">service_account.json의 이메일을 해당 스프레드시트에 편집자로 공유해야 합니다.</small>
@@ -471,17 +568,19 @@
             </label>
           </div>
 
-          <div class="settings-auth-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+          <div class="settings-auth-section"
+            style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
             <h3>Google Service Account 인증</h3>
             <p class="muted">스프레드시트 편집 권한이 있는 Google 서비스 계정 인증 파일(service_account.json)을 업로드하거나 붙여넣어주세요.</p>
             <div id="settings-google-auth-status" class="status-badge" style="margin: 12px 0;">상태 확인 중...</div>
-            
+
             <div class="form-grid">
               <label>파일 업로드
                 <input id="settings-google-auth-file" type="file" accept=".json">
               </label>
               <label style="grid-column: 1 / -1;">텍스트 직접 붙여넣기
-                <textarea id="settings-google-auth-text" rows="5" placeholder="{&#10;  &quot;type&quot;: &quot;service_account&quot;,&#10;  ...&#10;}"></textarea>
+                <textarea id="settings-google-auth-text" rows="5"
+                  placeholder="{&#10;  &quot;type&quot;: &quot;service_account&quot;,&#10;  ...&#10;}"></textarea>
               </label>
             </div>
             <div class="form-actions" style="margin-top: 12px;">
@@ -520,11 +619,8 @@
                 <button id="settings-typing-preview-replay" class="secondary" type="button">다시 재생</button>
               </div>
               <label class="settings-typing-preview-input-wrap">미리보기 문구 (저장되지 않음)
-                <textarea
-                  id="settings-typing-preview-input"
-                  rows="4"
-                  placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"
-                ></textarea>
+                <textarea id="settings-typing-preview-input" rows="4"
+                  placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"></textarea>
               </label>
               <p id="settings-typing-preview-meta" class="settings-typing-preview-meta">자동 재생: 3회</p>
               <p id="settings-typing-preview-text" class="settings-typing-preview-text" aria-live="polite">대기 중...</p>
@@ -611,7 +707,8 @@
         <div class="card form-card settings-tab-panel" id="settings-tab-advanced">
           <h2>Advanced (config.txt 원문 편집)</h2>
           <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
-          <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18" spellcheck="false"></textarea>
+          <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18"
+            spellcheck="false"></textarea>
           <div class="form-actions">
             <button id="settings-advanced-refresh-btn" class="secondary">원문 다시 불러오기</button>
             <button id="settings-advanced-save-btn">원문 저장</button>
@@ -627,12 +724,15 @@
           <pre id="settings-major-result">대기 중...</pre>
         </div>
       </section>
-      <section class="view" id="view-logs"><h1>로그/이력 (예정)</h1></section>
+      <section class="view" id="view-logs">
+        <h1>로그/이력 (예정)</h1>
+      </section>
     </main>
   </div>
 
   <div id="ui-dialog-backdrop" class="ui-dialog-backdrop hidden" aria-hidden="true">
-    <div class="ui-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title" aria-describedby="ui-dialog-message">
+    <div class="ui-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title"
+      aria-describedby="ui-dialog-message">
       <h3 id="ui-dialog-title">알림</h3>
       <p id="ui-dialog-message"></p>
       <div class="ui-dialog-actions">
@@ -644,4 +744,5 @@
 
   <script src="./app.js"></script>
 </body>
+
 </html>

@@ -801,57 +801,173 @@ function normalizeCommaListText(input) {
 }
 
 async function loadDashboard() {
-  const [healthResult, licenseResult, sessionResult] = await Promise.allSettled([
+  const [healthResult, licenseResult, sessionResult, summaryResult] = await Promise.allSettled([
     fetchJson('/api/v1/health'),
     fetchJson('/api/v1/license/status?quiet=1'),
-    fetchJson('/api/v1/session/naver')
+    fetchJson('/api/v1/session/naver'),
+    fetchJson('/api/v1/dashboard/summary')
   ]);
 
   const healthOk = healthResult.status === 'fulfilled';
   const licenseOk = licenseResult.status === 'fulfilled';
   const sessionOk = sessionResult.status === 'fulfilled';
+  const summaryOk = summaryResult.status === 'fulfilled';
+
   const health = healthOk ? healthResult.value : null;
   const license = licenseOk ? licenseResult.value : null;
   const session = sessionOk ? sessionResult.value : null;
-  const licenseErr = licenseOk ? null : licenseResult.reason;
+  const summary = summaryOk ? summaryResult.value : null;
 
-  setText(
-    'health-text',
-    healthOk
-      ? `상태: ${health.status} / 버전: ${health.version}`
-      : `오류: ${healthResult.reason?.message || '헬스 상태를 불러오지 못했습니다.'}`
-  );
-
-  if (licenseOk) {
-    setText(
-      'license-text',
-      `${license.planName || license.planCode || '-'} | 사용 ${license.usageCount ?? '-'} / 총 ${license.usageLimit ?? '-'} | 잔여 ${formatRemaining(license.remaining)}`
-    );
-    setPre('cap-text', {
-      planCode: license.planCode || '',
-      planName: license.planName || license.planCode || '',
-      features: license.features || {}
-    });
-  } else {
-    const msg = String(licenseErr?.message || '라이선스 상태를 불러오지 못했습니다.');
-    const withGuide = msg.includes('test 플랜은 1회성')
-      ? `${msg}\n안내: license upgrade로 다음 플랜을 선택해 계속 이용할 수 있습니다.`
-      : msg;
-    setText('license-text', `오류: ${withGuide}`);
-    setPre('cap-text', { error: withGuide });
+  // Update Badges
+  const healthBadge = document.getElementById('badge-health');
+  if (healthBadge) {
+    if (healthOk) {
+      healthBadge.textContent = 'Health: OK';
+      healthBadge.style.background = '#dcfce7'; healthBadge.style.color = '#166534';
+    } else {
+      healthBadge.textContent = 'Health: Error';
+      healthBadge.style.background = '#fee2e2'; healthBadge.style.color = '#991b1b';
+    }
   }
 
-  setText(
-    'session-text',
-    sessionOk
-      ? (session.valid ? '유효' : `만료/오류 (${session.reason || 'unknown'})`)
-      : `오류: ${sessionResult.reason?.message || '세션 상태를 불러오지 못했습니다.'}`
-  );
+  const sessionBadge = document.getElementById('badge-session');
+  if (sessionBadge) {
+    if (sessionOk && session.valid) {
+      sessionBadge.textContent = 'Naver: 유효';
+      sessionBadge.style.background = '#dbeafe'; sessionBadge.style.color = '#1e3a8a';
+    } else {
+      sessionBadge.textContent = 'Naver: 오류/만료';
+      sessionBadge.style.background = '#fef3c7'; sessionBadge.style.color = '#92400e';
+    }
+  }
 
+  const licenseBadge = document.getElementById('badge-license');
+  if (licenseBadge) {
+    if (licenseOk) {
+      licenseBadge.textContent = `Plan: ${license.planName || license.planCode} (잔여 ${license.remaining})`;
+      licenseBadge.style.background = '#f3e8ff'; licenseBadge.style.color = '#6b21a8';
+    } else {
+      licenseBadge.textContent = 'Plan: 확인불가';
+      licenseBadge.style.background = '#fee2e2'; licenseBadge.style.color = '#991b1b';
+    }
+  }
+
+  // Update Summary Stats
+  if (summaryOk && summary) {
+    setText('stat-blog-weekly', summary.blogWeeklyCount ?? 0);
+    setText('stat-shop-weekly', summary.shoppingWeeklyCount ?? 0);
+    setText('stat-topic-pending', summary.pendingTopicsCount ?? 0);
+    setText('stat-trend-pending', summary.pendingTrendsCount ?? 0);
+    setText('stat-trend-recent-date', summary.recentTrendsFetched || '-');
+  } else {
+    setText('stat-blog-weekly', '-');
+    setText('stat-shop-weekly', '-');
+    setText('stat-topic-pending', '-');
+    setText('stat-trend-pending', '-');
+    setText('stat-trend-recent-date', '-');
+  }
+
+  // Top header status bar
   setText('top-plan', `플랜: ${license?.planName || license?.planCode || '-'}`);
   setText('top-remaining', `잔여: ${formatRemaining(license?.remaining)}`);
   setText('top-session', `세션: ${sessionOk ? (session.valid ? '유효' : '만료') : '-'}`);
+
+  await loadDashboardLogs();
 }
+
+async function loadDashboardLogs() {
+  const list = document.getElementById('activity-timeline');
+  if (!list) return;
+
+  try {
+    const res = await fetchJson('/api/v1/dashboard/logs');
+    if (res && res.logs && res.logs.length > 0) {
+      list.innerHTML = '';
+      res.logs.forEach(log => {
+        const li = document.createElement('li');
+        li.style.padding = '10px 12px';
+        li.style.borderBottom = '1px solid #f1f5f9';
+        li.style.fontSize = '14px';
+        li.style.color = '#334155';
+
+        let icon = 'ℹ️';
+        if (log.level === 'error') icon = '❌';
+        else if (log.level === 'warn') icon = '⚠️';
+        else if (log.message.includes('완료') || log.message.includes('성공')) icon = '✅';
+
+        li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${icon} ${log.message}`;
+        list.appendChild(li);
+      });
+    } else {
+      list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">최근 활동 내역이 없습니다.</li>';
+    }
+  } catch (err) {
+    list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';
+  }
+}
+
+let clockInterval = null;
+function initClockWidget() {
+  const display = document.getElementById('clock-display');
+  const select = document.getElementById('clock-style-select');
+  if (!display || !select) return;
+
+  // Load saved preference
+  const savedStyle = localStorage.getItem('bloggenius_clock_style') || 'digital';
+  select.value = savedStyle;
+
+  select.addEventListener('change', (e) => {
+    localStorage.setItem('bloggenius_clock_style', e.target.value);
+    renderClock();
+  });
+
+  function renderClock() {
+    const style = select.value;
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+
+    if (style === 'digital') {
+      display.innerHTML = `<div style="font-size: 48px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a;">
+        ${h}<span style="opacity:0.5;">:</span>${m}<span style="opacity:0.5;">:</span>${s}
+      </div>`;
+    } else if (style === 'analog') {
+      const secDeg = now.getSeconds() * 6;
+      const minDeg = now.getMinutes() * 6 + now.getSeconds() * 0.1;
+      const hourDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
+
+      display.innerHTML = `
+        <div style="position: relative; width: 100px; height: 100px; border-radius: 50%; border: 4px solid #334155; box-sizing: border-box; background: #f8fafc;">
+          <div style="position: absolute; top: 10%; bottom: 10%; left: 50%; width: 2px; transform: translateX(-50%); background: transparent; pointer-events: none;">
+            <!-- center dot -->
+            <div style="position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; background: #334155; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10;"></div>
+          </div>
+          <!-- Hour Hand -->
+          <div style="position: absolute; top: 25%; bottom: 50%; left: 50%; width: 4px; background: #0f172a; transform-origin: bottom center; transform: translateX(-50%) rotate(${hourDeg}deg); border-radius: 2px;"></div>
+          <!-- Min Hand -->
+          <div style="position: absolute; top: 15%; bottom: 50%; left: 50%; width: 3px; background: #475569; transform-origin: bottom center; transform: translateX(-50%) rotate(${minDeg}deg); border-radius: 2px;"></div>
+          <!-- Sec Hand -->
+          <div style="position: absolute; top: 10%; bottom: 40%; left: 50%; width: 2px; background: #ef4444; transform-origin: 75% 75%; transform: translateX(-50%) rotate(${secDeg}deg);"></div>
+        </div>
+      `;
+    } else if (style === 'flip') {
+      const bStyle = "display:inline-block; background:#1e293b; color:#fff; padding:10px 12px; border-radius:6px; font-size:40px; font-weight:bold; font-family:monospace; margin:0 4px; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);";
+      display.innerHTML = `<div>
+        <span style="${bStyle}">${h}</span>
+        <span style="font-size:30px; font-weight:bold; position:relative; top:-5px;">:</span>
+        <span style="${bStyle}">${m}</span>
+        <span style="font-size:30px; font-weight:bold; position:relative; top:-5px;">:</span>
+        <span style="${bStyle}">${s}</span>
+      </div>`;
+    }
+  }
+
+  if (clockInterval) clearInterval(clockInterval);
+  renderClock();
+  clockInterval = setInterval(renderClock, 1000);
+}
+
 
 function bindNavigation() {
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
@@ -3430,6 +3546,16 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  initClockWidget();
+  const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');
+  if (dashLogRefreshBtn) {
+    dashLogRefreshBtn.addEventListener('click', () => {
+      loadDashboardLogs();
+      dashLogRefreshBtn.textContent = '불러오는 중...';
+      setTimeout(() => dashLogRefreshBtn.textContent = '새로고침', 500);
+    });
+  }
+
   bindNavigation();
   bindActions();
   playSettingsTypingPreview();

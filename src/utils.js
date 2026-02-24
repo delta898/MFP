@@ -2619,6 +2619,70 @@ const Utils = {
             if (regex.test(trimmed)) { val = trimmed.replace(regex, '').trim(); }
         });
         return val;
+    },
+
+    /**
+     * Dashboard 통계 데이터 집계 함수
+     */
+    getDashboardSummary: async function () {
+        try {
+            // 이번 주 월요일 0시부터 일요일 23:59까지의 '발행 완료' 건수를 집계
+            const now = new Date();
+            const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Monday, 6=Sunday
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - dayOfWeek);
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            let blogWeeklyCount = 0;
+            let shoppingWeeklyCount = 0;
+            let pendingTopicsCount = 0;
+            let pendingTrendsCount = 0;
+
+            const topics = await this.readGoogleSheetTopics();
+            topics.forEach(t => {
+                const st = String(t.status || '').trim();
+                if (st === '블로그 발행 완료') {
+                    const dt = new Date(t.addedAt || '');
+                    if (!Number.isNaN(dt.getTime()) && dt >= startOfWeek) {
+                        blogWeeklyCount++;
+                    }
+                } else if (st === '대기') {
+                    pendingTopicsCount++;
+                }
+            });
+
+            const shopping = await this.readGoogleSheetShopping();
+            shopping.forEach(t => {
+                const st = String(t.status || '').trim();
+                if (st === '발행 완료') {
+                    shoppingWeeklyCount++;
+                }
+            });
+
+            const trends = await this.readGoogleSheetTrends();
+            trends.forEach(t => {
+                const st = String(t.status || '').trim();
+                if (st === '대기' || st === '조사 완료') {
+                    pendingTrendsCount++;
+                }
+            });
+
+            return {
+                blogWeeklyCount,
+                shoppingWeeklyCount,
+                pendingTopicsCount,
+                pendingTrendsCount,
+                recentTrendsFetched: trends.length > 0 ? trends[0].date : '-' // 가장 최근 수집 일자
+            };
+        } catch (error) {
+            this.Logger.error(`❌ 대시보드 데이터 로드 실패: ${error.message}`);
+            return {
+                blogWeeklyCount: 0,
+                shoppingWeeklyCount: 0,
+                pendingTopicsCount: 0,
+                pendingTrendsCount: 0,
+            };
+        }
     }
 };
 
