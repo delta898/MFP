@@ -470,6 +470,25 @@
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
             </label>
           </div>
+
+          <div class="settings-auth-section" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
+            <h3>Google Service Account 인증</h3>
+            <p class="muted">스프레드시트 편집 권한이 있는 Google 서비스 계정 인증 파일(service_account.json)을 업로드하거나 붙여넣어주세요.</p>
+            <div id="settings-google-auth-status" class="status-badge" style="margin: 12px 0;">상태 확인 중...</div>
+            
+            <div class="form-grid">
+              <label>파일 업로드
+                <input id="settings-google-auth-file" type="file" accept=".json">
+              </label>
+              <label style="grid-column: 1 / -1;">텍스트 직접 붙여넣기
+                <textarea id="settings-google-auth-text" rows="5" placeholder="{&#10;  &quot;type&quot;: &quot;service_account&quot;,&#10;  ...&#10;}"></textarea>
+              </label>
+            </div>
+            <div class="form-actions" style="margin-top: 12px;">
+              <button id="settings-google-auth-save-btn" type="button">텍스트 내용 저장</button>
+            </div>
+            <pre id="settings-google-auth-result" style="margin-top: 12px;">대기 중...</pre>
+          </div>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">

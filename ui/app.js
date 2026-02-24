@@ -2141,6 +2141,70 @@ function openGoogleSheetFromUi() {
   }
 }
 
+async function loadGoogleAuthStatus() {
+  const statusEl = document.getElementById('settings-google-auth-status');
+  if (!statusEl) return;
+
+  statusEl.textContent = '상태 확인 중...';
+  statusEl.className = 'status-badge';
+
+  try {
+    const data = await fetchJson('/api/v1/settings/google-auth/status');
+    if (data.configured) {
+      statusEl.textContent = `설정됨 (${data.clientEmail})`;
+      statusEl.className = 'status-badge success';
+    } else {
+      statusEl.textContent = '설정되지 않음';
+      statusEl.className = 'status-badge error';
+    }
+  } catch (e) {
+    statusEl.textContent = '상태 확인 실패';
+    statusEl.className = 'status-badge error';
+  }
+}
+
+async function saveGoogleAuthJson(content) {
+  const resultEl = document.getElementById('settings-google-auth-result');
+  if (resultEl) resultEl.textContent = '저장 중...';
+
+  try {
+    const data = await postJson('/api/v1/settings/google-auth', { content });
+    if (resultEl) {
+      resultEl.textContent = `저장 완료!\n계정: ${data.clientEmail}\n경로: ${data.savedPath}`;
+    }
+    await loadGoogleAuthStatus();
+    // 시트가 새 계정으로 정상 동작하는지 테스트하기 위해 preflight 다시 실행 권장
+    uiSheetsReady = false;
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  }
+}
+
+function handleGoogleAuthFileUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const content = e.target.result;
+    document.getElementById('settings-google-auth-text').value = content;
+    await saveGoogleAuthJson(content);
+    // 리셋하여 같은 파일 다시 선택 가능하도록 함
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function handleGoogleAuthTextSave() {
+  const content = document.getElementById('settings-google-auth-text')?.value || '';
+  if (!content.trim()) {
+    const resultEl = document.getElementById('settings-google-auth-result');
+    if (resultEl) resultEl.textContent = '내용을 입력해주세요.';
+    return;
+  }
+  saveGoogleAuthJson(content);
+}
+
 async function startNaverLoginFromUi() {
   const resultEl = document.getElementById('settings-major-result');
   if (resultEl) {
@@ -3217,6 +3281,8 @@ function bindActions() {
   const settingsAdvancedSaveBtn = document.getElementById('settings-advanced-save-btn');
   const settingsNaverLoginBtn = document.getElementById('settings-naver-login-btn');
   const settingsOpenGoogleSheetBtn = document.getElementById('settings-open-google-sheet-btn');
+  const settingsGoogleAuthFileBtn = document.getElementById('settings-google-auth-file');
+  const settingsGoogleAuthSaveBtn = document.getElementById('settings-google-auth-save-btn');
   const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
   const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
   const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
@@ -3248,6 +3314,8 @@ function bindActions() {
   if (settingsMajorSaveBtn) settingsMajorSaveBtn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' }));
   if (settingsNaverLoginBtn) settingsNaverLoginBtn.addEventListener('click', startNaverLoginFromUi);
   if (settingsOpenGoogleSheetBtn) settingsOpenGoogleSheetBtn.addEventListener('click', openGoogleSheetFromUi);
+  if (settingsGoogleAuthFileBtn) settingsGoogleAuthFileBtn.addEventListener('change', handleGoogleAuthFileUpload);
+  if (settingsGoogleAuthSaveBtn) settingsGoogleAuthSaveBtn.addEventListener('click', handleGoogleAuthTextSave);
   if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
@@ -3353,6 +3421,7 @@ window.addEventListener('DOMContentLoaded', () => {
   bindNavigation();
   bindActions();
   playSettingsTypingPreview();
+  loadGoogleAuthStatus();
   loadConfigStatus().finally(async () => {
     if (uiConfigReady) {
       await ensureSheetsPreflightUi({ silent: true });

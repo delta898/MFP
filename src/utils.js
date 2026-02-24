@@ -77,6 +77,12 @@ const Utils = {
     _tokenExpiry: 0,
     _cachedScopeKey: '',
 
+    clearGoogleAuthCache: function () {
+        this._cachedAccessToken = null;
+        this._tokenExpiry = 0;
+        this._cachedScopeKey = '';
+    },
+
     /**
      * 🔐 수동 구글 액세스 토큰 발급 (캐싱 적용)
      */

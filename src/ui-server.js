@@ -3694,6 +3694,78 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         return true;
     }
 
+    if (pathname === '/api/v1/settings/google-auth/status') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const rawPath = CONFIG.GOOGLE_AUTH_JSON;
+            const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
+
+            if (fs.existsSync(keyFilePath)) {
+                const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
+                const credentials = JSON.parse(fileContent);
+                return sendSuccess(res, requestId, {
+                    configured: true,
+                    clientEmail: credentials.client_email || '알 수 없음',
+                    projectId: credentials.project_id || '알 수 없음',
+                    path: keyFilePath
+                });
+            } else {
+                return sendSuccess(res, requestId, {
+                    configured: false,
+                    message: '설정된 Google Auth JSON 파일을 찾을 수 없습니다.'
+                });
+            }
+        } catch (e) {
+            return sendSuccess(res, requestId, {
+                configured: false,
+                message: `오류: ${e.message}`
+            });
+        }
+    }
+
+    if (pathname === '/api/v1/settings/google-auth') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const content = String(requestBody?.content || '').trim();
+            if (!content) {
+                return sendError(res, requestId, 400, 'INVALID_CONTENT', 'Google Auth JSON 내용이 없습니다.');
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch (e) {
+                return sendError(res, requestId, 400, 'INVALID_JSON', '올바른 JSON 형식이 아닙니다.');
+            }
+
+            if (parsed.type !== 'service_account' || !parsed.project_id || !parsed.private_key || !parsed.client_email) {
+                return sendError(res, requestId, 400, 'INVALID_SERVICE_ACCOUNT', '유효한 Google Service Account JSON 형식이 아닙니다. (type, project_id, private_key, client_email 필수)');
+            }
+
+            const rawPath = CONFIG.GOOGLE_AUTH_JSON;
+            const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
+
+            // 저장 폴더가 없으면 생성
+            const authDir = path.dirname(keyFilePath);
+            if (!fs.existsSync(authDir)) {
+                fs.mkdirSync(authDir, { recursive: true });
+            }
+
+            fs.writeFileSync(keyFilePath, JSON.stringify(parsed, null, 2), 'utf-8');
+            Utils.clearGoogleAuthCache(); // Utils 캐시 초기화
+
+            return sendSuccess(res, requestId, {
+                savedPath: keyFilePath,
+                clientEmail: parsed.client_email,
+                projectId: parsed.project_id,
+                message: 'Google Service Account JSON 저장 완료 및 캐시 초기화 성공'
+            });
+
+        } catch (e) {
+            return sendError(res, requestId, 400, 'SAVE_FAILED', e.message || '저장 중 오류가 발생했습니다.');
+        }
+    }
+
     if (pathname === '/api/v1/blog/quick-publish') {
         if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         const result = await executeQuickPublish(requestBody || {});
