@@ -571,6 +571,13 @@
             </div>
             <pre id="settings-google-auth-result" style="margin-top: 12px;">대기 중...</pre>
           </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <div class="form-actions">
+            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
+            <button class="settings-major-save-btn" type="button">저장</button>
+          </div>
+          <pre class="settings-major-result">대기 중...</pre>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">
@@ -685,26 +692,26 @@
               </div>
             </div>
           </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <div class="form-actions">
+            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
+            <button class="settings-major-save-btn" type="button">저장</button>
+          </div>
+          <pre class="settings-major-result">대기 중...</pre>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-advanced">
           <h2>Advanced (config.txt 원문 편집)</h2>
           <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
-          <textarea id="settings-advanced-content" class="settings-advanced-editor" rows="18"
+          <textarea id="settings-advanced-content" class="settings-advanced-editor"
+            style="font-family: monospace; resize: vertical; min-height: 400px; padding: 16px; line-height: 1.6; font-size: 14px; border: 1px solid var(--border-color); border-radius: 6px; width: 100%; box-sizing: border-box; background: #f8fafc; margin-bottom: 20px;"
             spellcheck="false"></textarea>
           <div class="form-actions">
             <button id="settings-advanced-refresh-btn" class="secondary">원문 다시 불러오기</button>
             <button id="settings-advanced-save-btn">원문 저장</button>
           </div>
           <pre id="settings-advanced-result">대기 중...</pre>
-        </div>
-
-        <div class="card form-card">
-          <div class="form-actions">
-            <button id="settings-major-refresh-btn" class="secondary">불러오기</button>
-            <button id="settings-major-save-btn">저장</button>
-          </div>
-          <pre id="settings-major-result">대기 중...</pre>
         </div>
       </section>
       <section class="view" id="view-logs">
