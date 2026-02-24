@@ -3485,10 +3485,21 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                 CONFIG.CONFIG_SOURCE_TYPE = 'config';
                 CONFIG.CONFIG_SOURCE_PATH = writablePath;
                 CONFIG.CONFIG_ERROR_MESSAGE = '';
+                // 재시작 여부를 확인하고, 응답 전송 후 비동기적으로 서버를 내렸다가 다시 올립니다.
+                if (requiresRestart) {
+                    setTimeout(async () => {
+                        const { reloadUiServer } = require('./ui-server');
+                        await reloadUiServer(fields.LISTEN_HOST, normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT));
+                    }, 500);
+                }
+
                 return sendSuccess(res, requestId, {
                     ...buildMajorSettings(nextRaw, { path: writablePath, sourceType: 'config' }),
                     requiresRestart,
-                    message: '주요 설정 저장 완료'
+                    restarting: requiresRestart,
+                    newHost: fields.LISTEN_HOST,
+                    newPort: normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT),
+                    message: requiresRestart ? '주요 설정 저장 완료. 서버가 재시작됩니다...' : '주요 설정 저장 완료'
                 });
             } catch (e) {
                 return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
@@ -4011,6 +4022,8 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
     return false;
 }
 
+let activeUiServer = null;
+
 async function startUiServer(options = {}) {
     const host = normalizeListenHost(options.host, normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST));
     const port = Number.isFinite(Number(options.port))
@@ -4069,7 +4082,10 @@ async function startUiServer(options = {}) {
 
     await new Promise((resolve, reject) => {
         server.once('error', reject);
-        server.listen(port, host, resolve);
+        server.listen(port, host, () => {
+            activeUiServer = server;
+            resolve();
+        });
     });
 
     syncAutoRunnerWithConfig();
@@ -4078,6 +4094,25 @@ async function startUiServer(options = {}) {
     return { server, host, port, openHost };
 }
 
+async function reloadUiServer(newHost, newPort) {
+    if (activeUiServer) {
+        Logger.info(`🔄 설정 변경 감지: 기존 UI 서버(포트)를 종료하고 재시작합니다...`);
+        await new Promise(resolve => {
+            activeUiServer.close(() => {
+                activeUiServer = null;
+                resolve();
+            });
+        });
+    }
+
+    // 이 시점에서 기존 서버가 완전히 내려갔으므로 새 설정으로 다시 올립니다.
+    // 주의: 실제 변경된 환경변수/설정이 startUiServer에서 똑같이 쓰이도록 보장해야 합니다.
+    const started = await startUiServer({ host: newHost, port: newPort });
+    Logger.info(`✅ UI 서버 재시작 완료: http://${started.openHost}:${started.port}`);
+    return started;
+}
+
 module.exports = {
-    startUiServer
+    startUiServer,
+    reloadUiServer
 };

@@ -2013,11 +2013,23 @@ async function saveSettingsMajor(options = {}) {
 
       const nowText = new Date().toLocaleTimeString('ko-KR', { hour12: false });
       if (currentMode === 'auto') {
-        const restartText = data.requiresRestart ? '\n리스닝 주소/포트 변경이 감지되어 앱 재시작이 필요합니다.' : '';
-        setSettingsMajorResultText(`자동 저장 완료 (${nowText})${restartText}`);
+        if (data.restarting) {
+          setSettingsMajorResultText(`자동 저장 완료 (${nowText})\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`);
+          setTimeout(() => {
+            window.location.href = `http://${data.newHost === '0.0.0.0' ? '127.0.0.1' : data.newHost}:${data.newPort}`;
+          }, 1500);
+          return;
+        }
+        setSettingsMajorResultText(`자동 저장 완료 (${nowText})`);
       } else {
-        const restartText = data.requiresRestart ? '\n리스닝 주소/포트 변경이 감지되어 앱 재시작이 필요합니다.' : '';
-        setSettingsMajorResultText(`${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`);
+        if (data.restarting) {
+          setSettingsMajorResultText(`${data.message || '주요 설정 저장 완료'}\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`);
+          setTimeout(() => {
+            window.location.href = `http://${data.newHost === '0.0.0.0' ? '127.0.0.1' : data.newHost}:${data.newPort}`;
+          }, 1500);
+          return;
+        }
+        setSettingsMajorResultText(`${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}`);
       }
       await Promise.all([loadConfigStatus(), loadDashboard()]);
       if (uiConfigReady) {
