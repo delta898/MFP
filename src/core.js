@@ -1591,11 +1591,11 @@ ${scrapedContext}`;
 						// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
 						await page.keyboard.press('Enter');
 						// 리스트 뒤 문단/빈줄은 한 줄 공백이 보이도록 다음 블록에서 Enter 1회를 추가한다.
-						needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline');
+						needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline' || item.type === 'quote');
 						inListMode = false;
 						currentListType = null;
 					}
-					if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline') {
+					if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline' && item.type !== 'quote') {
 						needsExtraGapAfterList = false;
 					}
 
@@ -1614,6 +1614,31 @@ ${scrapedContext}`;
 							await Utils.sleep(100);
 							await placeCaretAtDocumentEnd(page);
 							await page.keyboard.press('Enter'); // 다음 줄로 이동
+						}
+					else if (item.type === 'quote') {
+							const quoteText = String(item.text || '').trim();
+							if (quoteText) {
+								Logger.info(`       💬 인용구: ${quoteText}`);
+								if (needsExtraGapAfterList) {
+									await page.keyboard.press('Enter');
+								}
+								needsExtraGapAfterList = false;
+
+								await placeCaretAtDocumentEnd(page);
+								await page.keyboard.press('Enter');
+								await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
+								await Utils.sleep(260);
+
+								const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
+								if (!quoteApplied) {
+									Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
+								}
+
+								// 인용구 블록 종료 후 다음 블록이 아래에 이어지도록 하단 커서를 다시 고정한다.
+								await Utils.sleep(100);
+								await placeCaretAtDocumentEnd(page);
+								await page.keyboard.press('Enter');
+							}
 						}
 					else if (item.type === 'list-item') {
 							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';

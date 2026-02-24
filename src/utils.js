@@ -2577,6 +2577,13 @@ const Utils = {
                 contents.push({ type: 'header-h2', text: trimmedLine.replace(/^##\s+/, '').trim() });
                 continue;
             }
+            if (/^>\s*/.test(trimmedLine)) {
+                contents.push({
+                    type: 'quote',
+                    text: trimmedLine.replace(/^>\s*/, '').trim()
+                });
+                continue;
+            }
             if (/^[-*]\s+/.test(trimmedLine)) {
                 contents.push({
                     type: 'list-item',
