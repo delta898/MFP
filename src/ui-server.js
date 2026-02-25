@@ -2587,8 +2587,9 @@ function scheduleNextAutoCycle(delayMs = null) {
     const settings = getAutoSettingsSnapshot();
     let waitMs = 0;
 
-    if (Number.isFinite(Number(delayMs))) {
-        waitMs = Math.max(500, parseInt(delayMs, 10));
+    if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
+        const parsed = parseInt(delayMs, 10);
+        waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
     } else {
         const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30').split(':');
         const targetHour = parseInt(timeStr[0] || '7', 10);
