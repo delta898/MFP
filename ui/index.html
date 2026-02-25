@@ -63,6 +63,8 @@
             <span class="badge badge-license" id="badge-license"
               style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Plan:
               조회중</span>
+            <span class="badge badge-version" id="badge-version"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #f1f5f9; color: #64748b;">v0.0.0</span>
           </div>
         </div>
 
@@ -568,6 +570,16 @@
             </label>
             <label>LISTEN_PORT
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
+            </label>
+            <label>UPDATE_CHANNEL
+              <select id="settings-update-channel">
+                <option value="stable">Stable (정식 버전)</option>
+                <option value="beta">Beta (테스트 버전)</option>
+              </select>
+            </label>
+            <label>UPDATE_MIRROR_REPO
+              <input id="settings-update-mirror-repo" type="text" placeholder="delta898/NaverAutoBlog-Releases">
+              <small class="muted">기본값 사용 시 비워두세요.</small>
             </label>
           </div>
 

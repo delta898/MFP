@@ -269,6 +269,13 @@ async function loadConfigStatus() {
     const status = await fetchJson('/api/v1/config/status');
     uiConfigReady = status?.ready === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
+
+    // 앱 버전 표시
+    const versionBadge = document.getElementById('badge-version');
+    if (versionBadge && status?.version) {
+      versionBadge.textContent = `v${status.version}`;
+    }
+
     if (!uiConfigReady && !uiConfigPopupShown) {
       uiConfigPopupShown = true;
       const popupText = [
@@ -1835,6 +1842,8 @@ function applySettingsMajorToForm(data) {
   const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
   const shoppingAutoTimeEl = document.getElementById('shopping-auto-time');
   const shoppingAutoNotifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
+  const updateChannelEl = document.getElementById('settings-update-channel');
+  const updateMirrorRepoEl = document.getElementById('settings-update-mirror-repo');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -1844,6 +1853,8 @@ function applySettingsMajorToForm(data) {
   if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
   if (headlessEl) headlessEl.value = fields.HEADLESS ? 'true' : 'false';
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
+  if (updateChannelEl) updateChannelEl.value = String(fields.UPDATE_CHANNEL || 'stable');
+  if (updateMirrorRepoEl) updateMirrorRepoEl.value = String(fields.UPDATE_MIRROR_REPO || '');
   if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
   setSelectedBlogAutoCategories(
     fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
@@ -2082,6 +2093,8 @@ function buildSettingsMajorPayload() {
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: (document.getElementById('settings-headless')?.value || 'false') === 'true',
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
+    UPDATE_CHANNEL: (document.getElementById('settings-update-channel')?.value || 'stable').trim(),
+    UPDATE_MIRROR_REPO: (document.getElementById('settings-update-mirror-repo')?.value || '').trim(),
     NAVER_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
     NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     NAVER_AUTO_DAILY_POSTS: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,

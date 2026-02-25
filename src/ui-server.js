@@ -1113,6 +1113,8 @@ function buildMajorSettings(raw, configSource) {
     const ctaImageUrl1 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL1') || String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || '');
     const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || '');
     const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || '');
+    const updateChannel = parseConfigValue(raw, 'UPDATE_CHANNEL') || String(CONFIG.UPDATE_CHANNEL || 'stable');
+    const updateMirrorRepo = parseConfigValue(raw, 'UPDATE_MIRROR_REPO') || String(CONFIG.UPDATE_MIRROR_REPO || '');
     const autoSettings = normalizeNaverAutoSettings({
         NAVER_AUTO_MODE: parseConfigValue(raw, 'NAVER_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
         NAVER_AUTO_CATEGORIES:
@@ -1155,6 +1157,8 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
         SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
         SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
+        UPDATE_CHANNEL: updateChannel,
+        UPDATE_MIRROR_REPO: updateMirrorRepo,
         NAVER_AUTO_MODE: autoSettings.NAVER_AUTO_MODE,
         NAVER_AUTO_CATEGORIES: autoSettings.NAVER_AUTO_CATEGORIES,
         NAVER_AUTO_DAILY_POSTS: autoSettings.NAVER_AUTO_DAILY_POSTS,
@@ -3614,7 +3618,8 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             ready: CONFIG.CONFIG_READY === true,
             sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
             sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
-            message: String(CONFIG.CONFIG_ERROR_MESSAGE || '')
+            message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
+            version: String(CONFIG.APP_VERSION || '0.0.0')
         });
     }
 
@@ -3848,7 +3853,9 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
                     SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                     SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
-                    SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3
+                    SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3,
+                    UPDATE_CHANNEL: fields.UPDATE_CHANNEL || 'stable',
+                    UPDATE_MIRROR_REPO: fields.UPDATE_MIRROR_REPO || ''
                 });
                 fs.mkdirSync(path.dirname(writablePath), { recursive: true });
                 fs.writeFileSync(writablePath, nextRaw, 'utf-8');
