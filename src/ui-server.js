@@ -3617,7 +3617,7 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
             sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
             message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
-            version: String(CONFIG.APP_VERSION || '0.0.0')
+            version: String(APP_VERSION || '0.0.0') // config-loader 대신 ui-server의 APP_VERSION 직접 사용
         });
     }
 
