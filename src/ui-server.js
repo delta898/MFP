@@ -37,13 +37,15 @@ const NAVER_AUTO_DEFAULTS = {
     variationIncludeDash: false,
     variationIncludeNumber: true,
     variationNumber: 50,
-    keywordReuseGapDays: 15
+    keywordReuseGapDays: 15,
+    headless: true
 };
 const NAVER_SHOPPING_AUTO_DEFAULTS = {
     mode: false,
     dailyPosts: 3,
     time: '07:50',
-    notifyEnabled: false
+    notifyEnabled: false,
+    headless: true
 };
 const AUTO_TRENDS_RETRY_WAIT_MS = 5 * 60 * 1000;
 const AUTO_TRENDS_MAX_RETRIES = 3;
@@ -617,10 +619,12 @@ function buildDefaultConfigTemplate() {
         'NAVER_AUTO_VARIATION_NUMBER = 50',
         'NAVER_AUTO_VARIATION_TOP_N = 5',
         'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS = 15',
+        'NAVER_AUTO_HEADLESS = true',
         'NAVER_SHOPPING_AUTO_MODE = false',
         'NAVER_SHOPPING_AUTO_DAILY_POSTS = 3',
         'NAVER_SHOPPING_AUTO_TIME = 07:50',
         'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED = false',
+        'NAVER_SHOPPING_AUTO_HEADLESS = true',
         `FTC_DISCLOSURE_IMAGE_URL = ${DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL}`,
         `SHOPPING_CTA_IMAGE_URL1 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1}`,
         `SHOPPING_CTA_IMAGE_URL2 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2}`,
@@ -997,6 +1001,10 @@ function normalizeNaverAutoSettings(input = {}) {
             NAVER_AUTO_DEFAULTS.keywordReuseGapDays
         )
     );
+    const headless = toBoolLike(
+        input.NAVER_AUTO_HEADLESS ?? CONFIG.NAVER_AUTO_HEADLESS,
+        NAVER_AUTO_DEFAULTS.headless
+    );
 
     return {
         NAVER_AUTO_MODE: mode,
@@ -1013,6 +1021,7 @@ function normalizeNaverAutoSettings(input = {}) {
         NAVER_AUTO_VARIATION_NUMBER: variationNumber,
         NAVER_AUTO_VARIATION_TOP_N: variationTopN,
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGapDays,
+        NAVER_AUTO_HEADLESS: headless,
 
         // legacy alias (내부 호환)
         AUTO_MODE: mode,
@@ -1059,12 +1068,17 @@ function normalizeNaverShoppingAutoSettings(input = {}) {
         input.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
         toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED, NAVER_SHOPPING_AUTO_DEFAULTS.notifyEnabled)
     );
+    const headless = toBoolLike(
+        input.NAVER_SHOPPING_AUTO_HEADLESS ?? CONFIG.NAVER_SHOPPING_AUTO_HEADLESS,
+        NAVER_SHOPPING_AUTO_DEFAULTS.headless
+    );
 
     return {
         NAVER_SHOPPING_AUTO_MODE: mode,
         NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
         NAVER_SHOPPING_AUTO_TIME: time,
         NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
+        NAVER_SHOPPING_AUTO_HEADLESS: headless,
 
         // legacy alias (내부 호환)
         AUTO_SHOPPING_ENABLED: mode,
@@ -1134,13 +1148,15 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_TYPE: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
         NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
         NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(raw, 'AUTO_TRENDS_TOP_N'),
-        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS')
+        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
+        NAVER_AUTO_HEADLESS: parseConfigValue(raw, 'NAVER_AUTO_HEADLESS')
     });
     const shoppingAutoSettings = normalizeNaverShoppingAutoSettings({
         NAVER_SHOPPING_AUTO_MODE: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_MODE'),
         NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
         NAVER_SHOPPING_AUTO_TIME: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_TIME'),
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED')
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
+        NAVER_SHOPPING_AUTO_HEADLESS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_HEADLESS')
     });
     const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
     const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
@@ -1174,10 +1190,12 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_NUMBER: autoSettings.NAVER_AUTO_VARIATION_NUMBER,
         NAVER_AUTO_VARIATION_TOP_N: autoSettings.NAVER_AUTO_VARIATION_TOP_N,
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS,
+        NAVER_AUTO_HEADLESS: autoSettings.NAVER_AUTO_HEADLESS,
         NAVER_SHOPPING_AUTO_MODE: shoppingAutoSettings.NAVER_SHOPPING_AUTO_MODE,
         NAVER_SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
         NAVER_SHOPPING_AUTO_TIME: shoppingAutoSettings.NAVER_SHOPPING_AUTO_TIME,
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
+        NAVER_SHOPPING_AUTO_HEADLESS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_HEADLESS
     };
 
     return {
@@ -1641,7 +1659,10 @@ async function executeQuickPublish(requestBody) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
         }
 
-        await Core.publishToBlog(result.targetDir);
+        const autoSettings = getAutoSettingsSnapshot();
+        await Core.publishToBlog(result.targetDir, {
+            headless: autoSettings.NAVER_AUTO_HEADLESS
+        });
 
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
@@ -1866,7 +1887,12 @@ async function executeBlogRowAction(requestBody, options = {}) {
 
         await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
         emitProgress('블로그 발행 중...');
-        await Core.publishToBlog(result.targetDir);
+
+        const autoSettings = getAutoSettingsSnapshot();
+        await Core.publishToBlog(result.targetDir, {
+            headless: autoSettings.NAVER_AUTO_HEADLESS
+        });
+
         emitProgress('시트 상태 반영 중...');
         await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
 
@@ -2052,9 +2078,12 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         }
 
         report('네이버 발행 단계 진행 중');
+
+        const shoppingSettings = getShoppingAutoSettingsSnapshot();
         await Core.publishToBlog(buildResult.targetDir, {
             affiliateUrl: shortUrl,
-            requireAffiliateUrl: true
+            requireAffiliateUrl: true,
+            headless: shoppingSettings.NAVER_SHOPPING_AUTO_HEADLESS
         });
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
 
@@ -3891,10 +3920,12 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_NUMBER: fields.NAVER_AUTO_VARIATION_NUMBER === '' ? '' : String(fields.NAVER_AUTO_VARIATION_NUMBER),
                     NAVER_AUTO_VARIATION_TOP_N: fields.NAVER_AUTO_VARIATION_TOP_N === '' ? '5' : String(fields.NAVER_AUTO_VARIATION_TOP_N),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: String(fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS),
+                    NAVER_AUTO_HEADLESS: fields.NAVER_AUTO_HEADLESS ? 'true' : 'false',
                     NAVER_SHOPPING_AUTO_MODE: fields.NAVER_SHOPPING_AUTO_MODE ? 'true' : 'false',
                     NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
                     NAVER_SHOPPING_AUTO_TIME: fields.NAVER_SHOPPING_AUTO_TIME,
                     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: fields.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
+                    NAVER_SHOPPING_AUTO_HEADLESS: fields.NAVER_SHOPPING_AUTO_HEADLESS ? 'true' : 'false',
                     FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
                     SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                     SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
@@ -4006,10 +4037,12 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_MIN_VARIATION'),
                     NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(content, 'AUTO_TRENDS_TOP_N'),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(content, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
+                    NAVER_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_AUTO_HEADLESS'),
                     NAVER_SHOPPING_AUTO_MODE: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_MODE'),
                     NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
                     NAVER_SHOPPING_AUTO_TIME: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_TIME'),
                     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
+                    NAVER_SHOPPING_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_HEADLESS'),
                     FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                     SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                     SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,

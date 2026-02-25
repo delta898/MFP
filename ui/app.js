@@ -1849,6 +1849,7 @@ function applySettingsMajorToForm(data) {
   const blogAutoModeEl = document.getElementById('blog-auto-mode');
   const blogAutoDailyPostsEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoTrendsTimeEl = document.getElementById('blog-auto-trends-time');
+  const blogAutoHeadlessEl = document.getElementById('blog-auto-headless');
   const blogAutoImageGenerationEl = document.getElementById('blog-auto-image-generation');
   const blogAutoExternalReferenceEl = document.getElementById('blog-auto-external-reference');
   const blogAutoNotifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
@@ -1861,6 +1862,7 @@ function applySettingsMajorToForm(data) {
   const shoppingAutoModeEl = document.getElementById('shopping-auto-mode');
   const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
   const shoppingAutoTimeEl = document.getElementById('shopping-auto-time');
+  const shoppingAutoHeadlessEl = document.getElementById('shopping-auto-headless');
   const shoppingAutoNotifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
   const updateChannelEl = document.getElementById('settings-update-channel');
 
@@ -1881,6 +1883,7 @@ function applySettingsMajorToForm(data) {
   if (blogAutoDailyPostsEl) blogAutoDailyPostsEl.value = String(fields.NAVER_AUTO_DAILY_POSTS ?? fields.AUTO_DAILY_BLOG_CAP ?? 3);
   applyBlogAutoDailyPostsLimitUi();
   if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
+  if (blogAutoHeadlessEl) blogAutoHeadlessEl.checked = Boolean(fields.NAVER_AUTO_HEADLESS ?? true);
   if (blogAutoImageGenerationEl) blogAutoImageGenerationEl.checked = Boolean(fields.NAVER_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
   if (blogAutoExternalReferenceEl) blogAutoExternalReferenceEl.checked = Boolean(fields.NAVER_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
   if (blogAutoNotifyEnabledEl) {
@@ -1918,6 +1921,7 @@ function applySettingsMajorToForm(data) {
   if (shoppingAutoModeEl) shoppingAutoModeEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_MODE);
   if (shoppingAutoDailyPostsEl) shoppingAutoDailyPostsEl.value = String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
   if (shoppingAutoTimeEl) shoppingAutoTimeEl.value = String(fields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+  if (shoppingAutoHeadlessEl) shoppingAutoHeadlessEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_HEADLESS ?? true);
   if (shoppingAutoNotifyEnabledEl) {
     shoppingAutoNotifyEnabledEl.checked = false;
     shoppingAutoNotifyEnabledEl.disabled = true;
@@ -2116,6 +2120,7 @@ function buildSettingsMajorPayload() {
     NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     NAVER_AUTO_DAILY_POSTS: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
     NAVER_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+    NAVER_AUTO_HEADLESS: Boolean(document.getElementById('blog-auto-headless')?.checked),
     NAVER_AUTO_IMAGE_GENERATION: Boolean(document.getElementById('blog-auto-image-generation')?.checked),
     NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(document.getElementById('blog-auto-external-reference')?.checked),
     NAVER_AUTO_NOTIFY_ENABLED: false,
@@ -2129,6 +2134,7 @@ function buildSettingsMajorPayload() {
     NAVER_SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
     NAVER_SHOPPING_AUTO_DAILY_POSTS: parseInt((document.getElementById('shopping-auto-daily-posts')?.value || '3').trim(), 10) || 0,
     NAVER_SHOPPING_AUTO_TIME: (document.getElementById('shopping-auto-time')?.value || '07:50').trim(),
+    NAVER_SHOPPING_AUTO_HEADLESS: Boolean(document.getElementById('shopping-auto-headless')?.checked),
     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: false,
     ...imageSources
   };

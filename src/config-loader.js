@@ -348,6 +348,10 @@ const naverAutoKeywordReuseGapDays = parseNonNegativeInt(
     userConfig.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
     15
 );
+const naverAutoHeadless = parseBoolLike(
+    userConfig.NAVER_AUTO_HEADLESS,
+    true
+);
 const naverShoppingAutoMode = parseBoolLike(
     userConfig.NAVER_SHOPPING_AUTO_MODE,
     false
@@ -360,6 +364,10 @@ const naverShoppingAutoTime = parseTimeHHmm(userConfig.NAVER_SHOPPING_AUTO_TIME,
 const naverShoppingAutoNotifyEnabled = parseBoolLike(
     userConfig.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
     false
+);
+const naverShoppingAutoHeadless = parseBoolLike(
+    userConfig.NAVER_SHOPPING_AUTO_HEADLESS,
+    true
 );
 
 const updateChannel = String(userConfig.UPDATE_CHANNEL || 'stable').trim().toLowerCase();
@@ -444,10 +452,12 @@ module.exports = {
     NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
     NAVER_AUTO_VARIATION_TOP_N: naverAutoVariationTopN,
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
+    NAVER_AUTO_HEADLESS: naverAutoHeadless,
     NAVER_SHOPPING_AUTO_MODE: naverShoppingAutoMode,
     NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
     NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
+    NAVER_SHOPPING_AUTO_HEADLESS: naverShoppingAutoHeadless,
     UPDATE_CHANNEL: updateChannel,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,

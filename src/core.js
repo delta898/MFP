@@ -483,43 +483,43 @@ async function applyLinkToFocusedImage(page, linkUrl) {
 	for (const selector of inputSelectors) {
 		const input = page.locator(selector).first();
 		try {
-				if (await input.count() > 0 && await input.isVisible()) {
-					await input.fill(linkUrl);
-					await Utils.sleep(100);
-					let applied =
-						await clickIfVisible(input.locator('xpath=following-sibling::button[1]')) ||
-						await clickIfVisible(input.locator('xpath=parent::*//button[contains(@class, "check") or contains(@class, "confirm")]').first()) ||
-						await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[class*="check"], .se-property-toolbar-custom-layer-container button[class*="confirm"]')) ||
-						await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[aria-label*="확인"], .se-property-toolbar-custom-layer-container button[title*="확인"]'));
-					if (!applied) {
-						applied =
-							await clickIfVisible(page.locator('.se-popover button:has-text("적용"), .se-popup button:has-text("적용")')) ||
-							await clickIfVisible(page.locator('.se-popover button:has-text("등록"), .se-popup button:has-text("등록")')) ||
-							await clickIfVisible(page.locator('.se-popover button:has-text("확인"), .se-popup button:has-text("확인")')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[aria-label*="확인"], [role="toolbar"] button[aria-label*="확인"]')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[aria-label*="적용"], [role="toolbar"] button[aria-label*="적용"]')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[title*="확인"], [role="toolbar"] button[title*="확인"]')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[title*="적용"], [role="toolbar"] button[title*="적용"]')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[class*="check"], [role="toolbar"] button[class*="check"]')) ||
-							await clickIfVisible(page.locator('.se-toolbar button[class*="confirm"], [role="toolbar"] button[class*="confirm"]'));
-					}
-					if (!applied) {
-						await page.keyboard.press('Enter');
-					}
-					// 실제 반영 여부를 보수적으로 확인: 링크 입력창이 닫혀야 성공으로 간주
-					let closed = false;
-					try {
-						await input.waitFor({ state: 'hidden', timeout: 1200 });
-						closed = true;
-					} catch (e) { }
-					if (!closed) {
-						try { await page.keyboard.press('Escape'); } catch (e) { }
-						return false;
-					}
-					return true;
+			if (await input.count() > 0 && await input.isVisible()) {
+				await input.fill(linkUrl);
+				await Utils.sleep(100);
+				let applied =
+					await clickIfVisible(input.locator('xpath=following-sibling::button[1]')) ||
+					await clickIfVisible(input.locator('xpath=parent::*//button[contains(@class, "check") or contains(@class, "confirm")]').first()) ||
+					await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[class*="check"], .se-property-toolbar-custom-layer-container button[class*="confirm"]')) ||
+					await clickIfVisible(page.locator('.se-property-toolbar-custom-layer-container button[aria-label*="확인"], .se-property-toolbar-custom-layer-container button[title*="확인"]'));
+				if (!applied) {
+					applied =
+						await clickIfVisible(page.locator('.se-popover button:has-text("적용"), .se-popup button:has-text("적용")')) ||
+						await clickIfVisible(page.locator('.se-popover button:has-text("등록"), .se-popup button:has-text("등록")')) ||
+						await clickIfVisible(page.locator('.se-popover button:has-text("확인"), .se-popup button:has-text("확인")')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[aria-label*="확인"], [role="toolbar"] button[aria-label*="확인"]')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[aria-label*="적용"], [role="toolbar"] button[aria-label*="적용"]')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[title*="확인"], [role="toolbar"] button[title*="확인"]')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[title*="적용"], [role="toolbar"] button[title*="적용"]')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[class*="check"], [role="toolbar"] button[class*="check"]')) ||
+						await clickIfVisible(page.locator('.se-toolbar button[class*="confirm"], [role="toolbar"] button[class*="confirm"]'));
 				}
-			} catch (e) { }
-		}
+				if (!applied) {
+					await page.keyboard.press('Enter');
+				}
+				// 실제 반영 여부를 보수적으로 확인: 링크 입력창이 닫혀야 성공으로 간주
+				let closed = false;
+				try {
+					await input.waitFor({ state: 'hidden', timeout: 1200 });
+					closed = true;
+				} catch (e) { }
+				if (!closed) {
+					try { await page.keyboard.press('Escape'); } catch (e) { }
+					return false;
+				}
+				return true;
+			}
+		} catch (e) { }
+	}
 	return false;
 }
 
@@ -587,16 +587,16 @@ async function focusEditorTypingArea(page) {
 		const count = await nodes.count();
 		for (let i = count - 1; i >= 0; i--) {
 			const node = nodes.nth(i);
-				try {
-					if (!(await node.isVisible())) continue;
-					try { await node.scrollIntoViewIfNeeded(); } catch (e) { }
-					// 제목 영역(.se-documentTitle)은 제외하고 본문 입력 영역을 우선 포커스한다.
-					const inTitleSection = await node.evaluate((el) => !!el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle'));
-					if (inTitleSection) continue;
-					await node.click({ force: true });
-					await Utils.sleep(80);
-					return true;
-				} catch (e) { }
+			try {
+				if (!(await node.isVisible())) continue;
+				try { await node.scrollIntoViewIfNeeded(); } catch (e) { }
+				// 제목 영역(.se-documentTitle)은 제외하고 본문 입력 영역을 우선 포커스한다.
+				const inTitleSection = await node.evaluate((el) => !!el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle'));
+				if (inTitleSection) continue;
+				await node.click({ force: true });
+				await Utils.sleep(80);
+				return true;
+			} catch (e) { }
 		}
 	}
 
@@ -1518,7 +1518,7 @@ ${scrapedContext}`;
 
 		const viewport = resolvePublishViewport();
 
-		const browser = await BrowserLauncher.launchBrowser();
+		const browser = await BrowserLauncher.launchBrowser({ headless: options.headless });
 		const context = await browser.newContext({
 			storageState: authPath,
 			viewport: viewport,
@@ -1569,131 +1569,131 @@ ${scrapedContext}`;
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
 
-				// ✍️ 본문 입력 루프
-				let inListMode = false;
-				let currentListType = null;
-				let needsExtraGapAfterList = false;
-				let representativeImageSet = false;
-				let representativeAttemptCount = 0;
-				const representativeMaxAttempts = 3;
-					for (const item of contents) {
-						if (item.type !== 'image') {
-							await dismissEditorPopups(page);
-							await closeVisibleOglinkPopup(page);
-							if (!inListMode) {
-								const movedToEnd = await placeCaretAtDocumentEnd(page);
-								if (!movedToEnd) {
-									await focusEditorTypingArea(page);
-								}
-							}
+			// ✍️ 본문 입력 루프
+			let inListMode = false;
+			let currentListType = null;
+			let needsExtraGapAfterList = false;
+			let representativeImageSet = false;
+			let representativeAttemptCount = 0;
+			const representativeMaxAttempts = 3;
+			for (const item of contents) {
+				if (item.type !== 'image') {
+					await dismissEditorPopups(page);
+					await closeVisibleOglinkPopup(page);
+					if (!inListMode) {
+						const movedToEnd = await placeCaretAtDocumentEnd(page);
+						if (!movedToEnd) {
+							await focusEditorTypingArea(page);
 						}
-					if (item.type !== 'list-item' && inListMode) {
-						// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
+					}
+				}
+				if (item.type !== 'list-item' && inListMode) {
+					// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
+					await page.keyboard.press('Enter');
+					// 리스트 뒤 문단/빈줄은 한 줄 공백이 보이도록 다음 블록에서 Enter 1회를 추가한다.
+					needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline' || item.type === 'quote');
+					inListMode = false;
+					currentListType = null;
+				}
+				if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline' && item.type !== 'quote') {
+					needsExtraGapAfterList = false;
+				}
+
+				if (item.type === 'header-h2') {
+					// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
+					Logger.info(`       📌 소제목: ${item.text}`);
+					await placeCaretAtDocumentEnd(page);
+					await page.keyboard.press('Enter');
+					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
+					await Utils.sleep(300);
+					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
+					if (!subtitleApplied) {
+						try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
+					}
+
+					await Utils.sleep(100);
+					await placeCaretAtDocumentEnd(page);
+					await page.keyboard.press('Enter'); // 다음 줄로 이동
+				}
+				else if (item.type === 'quote') {
+					const quoteText = String(item.text || '').trim();
+					if (quoteText) {
+						Logger.info(`       💬 인용구: ${quoteText}`);
+						if (needsExtraGapAfterList) {
+							await page.keyboard.press('Enter');
+						}
+						needsExtraGapAfterList = false;
+
+						await placeCaretAtDocumentEnd(page);
 						await page.keyboard.press('Enter');
-						// 리스트 뒤 문단/빈줄은 한 줄 공백이 보이도록 다음 블록에서 Enter 1회를 추가한다.
-						needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline' || item.type === 'quote');
+						await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
+						await Utils.sleep(260);
+
+						const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
+						if (!quoteApplied) {
+							Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
+						}
+
+						// 인용구 블록 종료 후 다음 블록이 아래에 이어지도록 하단 커서를 다시 고정한다.
+						await Utils.sleep(100);
+						await placeCaretAtDocumentEnd(page);
+						await page.keyboard.press('Enter');
+					}
+				}
+				else if (item.type === 'list-item') {
+					const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
+					const listText = String(item.text || '')
+						.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
+						.trim();
+					if (!listText) {
+						await page.keyboard.press('Enter');
 						inListMode = false;
 						currentListType = null;
-					}
-					if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline' && item.type !== 'quote') {
-						needsExtraGapAfterList = false;
-					}
-
-						if (item.type === 'header-h2') {
-							// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
-							Logger.info(`       📌 소제목: ${item.text}`);
-							await placeCaretAtDocumentEnd(page);
+					} else {
+						// 리스트 종류가 바뀌면 기존 자동 리스트를 종료한 뒤 새 리스트를 시작한다.
+						if (inListMode && currentListType !== listType) {
 							await page.keyboard.press('Enter');
-							await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-							await Utils.sleep(300);
-							const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
-							if (!subtitleApplied) {
-								try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
-							}
-
-							await Utils.sleep(100);
-							await placeCaretAtDocumentEnd(page);
-							await page.keyboard.press('Enter'); // 다음 줄로 이동
+							inListMode = false;
+							currentListType = null;
 						}
-					else if (item.type === 'quote') {
-							const quoteText = String(item.text || '').trim();
-							if (quoteText) {
-								Logger.info(`       💬 인용구: ${quoteText}`);
-								if (needsExtraGapAfterList) {
-									await page.keyboard.press('Enter');
-								}
-								needsExtraGapAfterList = false;
 
-								await placeCaretAtDocumentEnd(page);
-								await page.keyboard.press('Enter');
-								await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
-								await Utils.sleep(260);
-
-								const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
-								if (!quoteApplied) {
-									Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
-								}
-
-								// 인용구 블록 종료 후 다음 블록이 아래에 이어지도록 하단 커서를 다시 고정한다.
-								await Utils.sleep(100);
-								await placeCaretAtDocumentEnd(page);
-								await page.keyboard.press('Enter');
-							}
-						}
-					else if (item.type === 'list-item') {
-							const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
-							const listText = String(item.text || '')
-								.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
-								.trim();
-							if (!listText) {
-								await page.keyboard.press('Enter');
-								inListMode = false;
-								currentListType = null;
-							} else {
-								// 리스트 종류가 바뀌면 기존 자동 리스트를 종료한 뒤 새 리스트를 시작한다.
-								if (inListMode && currentListType !== listType) {
-									await page.keyboard.press('Enter');
-									inListMode = false;
-									currentListType = null;
-								}
-
-								// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
-								const textToType = inListMode
-									? listText
-									: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
-								await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
-								if (textToType.includes('http')) await page.keyboard.press('Space');
-								await page.keyboard.press('Enter');
-								inListMode = true;
-								currentListType = listType;
-							}
-						}
+						// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
+						const textToType = inListMode
+							? listText
+							: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
+						await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
+						if (textToType.includes('http')) await page.keyboard.press('Space');
+						await page.keyboard.press('Enter');
+						inListMode = true;
+						currentListType = listType;
+					}
+				}
 				else if (item.type === 'paragraph') {
-						const paragraphText = String(item.text || '');
-							if (needsExtraGapAfterList && paragraphText.trim()) {
-								await page.keyboard.press('Enter');
-							}
-							needsExtraGapAfterList = false;
-							if (isUrlOnlyParagraph(paragraphText)) {
-								const inserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
-								if (inserted) {
-									Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
-								} else {
-									await closeVisibleOglinkPopup(page);
-									const movedToEnd = await placeCaretAtDocumentEnd(page);
-									if (!movedToEnd) {
-										await focusEditorTypingArea(page);
-									}
-									Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
-									await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
-									await page.keyboard.press('Space');
-								}
-							} else {
-							await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
-							if (paragraphText.includes('http')) await page.keyboard.press('Space');
-						}
+					const paragraphText = String(item.text || '');
+					if (needsExtraGapAfterList && paragraphText.trim()) {
 						await page.keyboard.press('Enter');
 					}
+					needsExtraGapAfterList = false;
+					if (isUrlOnlyParagraph(paragraphText)) {
+						const inserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
+						if (inserted) {
+							Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
+						} else {
+							await closeVisibleOglinkPopup(page);
+							const movedToEnd = await placeCaretAtDocumentEnd(page);
+							if (!movedToEnd) {
+								await focusEditorTypingArea(page);
+							}
+							Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
+							await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+							await page.keyboard.press('Space');
+						}
+					} else {
+						await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+						if (paragraphText.includes('http')) await page.keyboard.press('Space');
+					}
+					await page.keyboard.press('Enter');
+				}
 				else if (item.type === 'newline') {
 					needsExtraGapAfterList = false;
 					await page.keyboard.press('Enter');
@@ -1725,41 +1725,41 @@ ${scrapedContext}`;
 								Logger.warn('       ⚠️ 방금 업로드한 이미지를 포커스하지 못했습니다.');
 							}
 
-								// 가운데 정렬은 공정위/CTA 이미지만 시도한다. (일반 상품 이미지는 스킵)
-								const shouldTryCenterAlign =
-									/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) ||
-									/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
-								const centered = (imageFocused && shouldTryCenterAlign)
-									? await centerAlignFocusedImage(page)
-									: false;
-								if (centered) {
-									Logger.info("       ↔️ 이미지 가운데 정렬 적용");
-								} else if (imageFocused && shouldTryCenterAlign) {
-									Logger.warn("       ⚠️ 이미지 가운데 정렬 버튼을 찾지 못했습니다.");
-								}
+							// 가운데 정렬은 공정위/CTA 이미지만 시도한다. (일반 상품 이미지는 스킵)
+							const shouldTryCenterAlign =
+								/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) ||
+								/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+							const centered = (imageFocused && shouldTryCenterAlign)
+								? await centerAlignFocusedImage(page)
+								: false;
+							if (centered) {
+								Logger.info("       ↔️ 이미지 가운데 정렬 적용");
+							} else if (imageFocused && shouldTryCenterAlign) {
+								Logger.warn("       ⚠️ 이미지 가운데 정렬 버튼을 찾지 못했습니다.");
+							}
 
-								// 대표 이미지는 공정위/CTA 이미지를 제외한 첫 일반 이미지로 지정한다.
-								const shouldSetRepresentative =
-									imageFocused &&
-									!representativeImageSet &&
-									representativeAttemptCount < representativeMaxAttempts &&
-									!/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) &&
-									!/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
-								if (shouldSetRepresentative) {
-									representativeAttemptCount++;
-									const repSet = await setFocusedImageAsRepresentative(page);
-									if (repSet) {
-										representativeImageSet = true;
-										Logger.info("       🏷️ 대표 이미지 지정 완료");
-									} else if (representativeAttemptCount >= representativeMaxAttempts) {
-										Logger.warn("       ⚠️ 대표 이미지 버튼을 찾지 못했습니다.");
-									} else {
-										Logger.info("       ℹ️ 대표 이미지 지정 재시도 예정");
-									}
+							// 대표 이미지는 공정위/CTA 이미지를 제외한 첫 일반 이미지로 지정한다.
+							const shouldSetRepresentative =
+								imageFocused &&
+								!representativeImageSet &&
+								representativeAttemptCount < representativeMaxAttempts &&
+								!/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) &&
+								!/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+							if (shouldSetRepresentative) {
+								representativeAttemptCount++;
+								const repSet = await setFocusedImageAsRepresentative(page);
+								if (repSet) {
+									representativeImageSet = true;
+									Logger.info("       🏷️ 대표 이미지 지정 완료");
+								} else if (representativeAttemptCount >= representativeMaxAttempts) {
+									Logger.warn("       ⚠️ 대표 이미지 버튼을 찾지 못했습니다.");
+								} else {
+									Logger.info("       ℹ️ 대표 이미지 지정 재시도 예정");
 								}
+							}
 
-								// CTA 이미지는 클릭 시 제휴 URL로 이동하도록 링크를 건다.
-								if (
+							// CTA 이미지는 클릭 시 제휴 URL로 이동하도록 링크를 건다.
+							if (
 								imageFocused &&
 								/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file) &&
 								/^https?:\/\//i.test(primaryAffiliateUrl)
