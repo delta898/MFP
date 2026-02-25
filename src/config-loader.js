@@ -3,10 +3,9 @@ const path = require('path');
 const Constants = require('./constants');
 
 // 앱 버전 정보 로드
-const pkgPath = path.join(__dirname, '../package.json');
 let APP_VERSION = '0.0.0';
 try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    const pkg = require('../package.json');
     APP_VERSION = pkg.version;
 } catch (e) {
     // fallback
