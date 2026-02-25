@@ -3909,11 +3909,20 @@ window.addEventListener('DOMContentLoaded', () => {
   bindActions();
   playSettingsTypingPreview();
   loadGoogleAuthStatus();
-  loadConfigStatus().finally(async () => {
-    if (uiConfigReady) {
-      await ensureSheetsPreflightUi({ silent: true });
-    }
+
+  // 🚀 비동기 병렬 초기화 (블로킹 제거)
+  const configPromise = loadConfigStatus();
+
+  configPromise.finally(async () => {
+    // 대시보드 먼저 로드 (시트 검사 비동기 처리)
     loadDashboard();
+
+    if (uiConfigReady) {
+      // 시트 검사는 백그라운드에서 진행 (성공 시 대시보드 갱신)
+      ensureSheetsPreflightUi({ silent: true }).then(ready => {
+        if (ready) loadDashboard();
+      });
+    }
   });
   loadBlogAutoSettings();
   renderBlogLastBatchResult(blogLastBatchResult);
