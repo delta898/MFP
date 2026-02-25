@@ -339,6 +339,10 @@ const naverAutoVariationNumber = parseIntegerOrBlank(
     userConfig.NAVER_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
     50
 );
+const naverAutoVariationTopN = parseIntegerOrBlank(
+    userConfig.NAVER_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
+    5
+);
 const naverAutoKeywordReuseGapDays = parseNonNegativeInt(
     userConfig.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
     15
@@ -434,6 +438,7 @@ module.exports = {
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
     NAVER_AUTO_VARIATION_TYPE: naverAutoVariationType,
     NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
+    NAVER_AUTO_VARIATION_TOP_N: naverAutoVariationTopN,
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
     NAVER_SHOPPING_AUTO_MODE: naverShoppingAutoMode,
     NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,

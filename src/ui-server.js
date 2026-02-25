@@ -48,7 +48,7 @@ const autoRuntimeState = {
     enabled: false,
     running: false,
     status: 'stopped', // stopped | waiting | running | error
-    message: '자동 모드 비활성화',
+    message: '블로그 자동 모드 비활성화',
     startedAt: null,
     lastRunAt: null,
     nextRunAt: null,
@@ -57,8 +57,21 @@ const autoRuntimeState = {
     timer: null,
     dayKey: '',
     blogPublishedToday: 0,
-    shoppingPublishedToday: 0,
     lastPublishAtMs: 0
+};
+const shoppingAutoRuntimeState = {
+    enabled: false,
+    running: false,
+    status: 'stopped', // stopped | waiting | running | error
+    message: '쇼핑 자동 모드 비활성화',
+    startedAt: null,
+    lastRunAt: null,
+    nextRunAt: null,
+    lastSummary: null,
+    cycleCount: 0,
+    timer: null,
+    dayKey: '',
+    shoppingPublishedToday: 0
 };
 const SHOPPING_IMAGE_SLOT_MAP = {
     ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', fileBase: 'ftc_disclosure', label: '공정위 이미지', required: true },
@@ -598,6 +611,7 @@ function buildDefaultConfigTemplate() {
         'NAVER_AUTO_VARIATION_INCLUDE_DASH = false',
         'NAVER_AUTO_VARIATION_INCLUDE_NUMBER = true',
         'NAVER_AUTO_VARIATION_NUMBER = 50',
+        'NAVER_AUTO_VARIATION_TOP_N = 5',
         'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS = 15',
         'NAVER_SHOPPING_AUTO_MODE = false',
         'NAVER_SHOPPING_AUTO_DAILY_POSTS = 3',
@@ -964,6 +978,14 @@ function normalizeNaverAutoSettings(input = {}) {
         ? (input.NAVER_AUTO_VARIATION_NUMBER ?? input.AUTO_TRENDS_MIN_VARIATION)
         : (CONFIG.NAVER_AUTO_VARIATION_NUMBER ?? CONFIG.AUTO_TRENDS_MIN_VARIATION);
     const variationNumber = normalizeIntegerOrBlank(variationNumberSource, NAVER_AUTO_DEFAULTS.variationNumber);
+
+    const hasVariationTypeInput = Object.prototype.hasOwnProperty.call(input, 'NAVER_AUTO_VARIATION_TYPE');
+    const variationTypeSource = hasVariationTypeInput ? input.NAVER_AUTO_VARIATION_TYPE : CONFIG.NAVER_AUTO_VARIATION_TYPE;
+    const variationType = String(variationTypeSource || 'min').trim();
+
+    const hasVariationTopNInput = Object.prototype.hasOwnProperty.call(input, 'NAVER_AUTO_VARIATION_TOP_N') || Object.prototype.hasOwnProperty.call(input, 'AUTO_TRENDS_TOP_N');
+    const variationTopNSource = hasVariationTopNInput ? (input.NAVER_AUTO_VARIATION_TOP_N ?? input.AUTO_TRENDS_TOP_N) : (CONFIG.NAVER_AUTO_VARIATION_TOP_N ?? CONFIG.AUTO_TRENDS_TOP_N);
+    const variationTopN = normalizeIntegerOrBlank(variationTopNSource, 5);
     const keywordReuseGapDays = normalizeNonNegativeInt(
         input.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? input.AUTO_KEYWORD_REUSE_GAP_DAYS,
         normalizeNonNegativeInt(
@@ -983,7 +1005,9 @@ function normalizeNaverAutoSettings(input = {}) {
         NAVER_AUTO_VARIATION_INCLUDE_NEW: variationIncludeNew,
         NAVER_AUTO_VARIATION_INCLUDE_DASH: variationIncludeDash,
         NAVER_AUTO_VARIATION_INCLUDE_NUMBER: variationIncludeNumber,
+        NAVER_AUTO_VARIATION_TYPE: variationType,
         NAVER_AUTO_VARIATION_NUMBER: variationNumber,
+        NAVER_AUTO_VARIATION_TOP_N: variationTopN,
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGapDays,
 
         // legacy alias (내부 호환)
@@ -995,7 +1019,6 @@ function normalizeNaverAutoSettings(input = {}) {
         AUTO_INTERVAL_MIN: 60,
         AUTO_TRENDS_ENABLED: true,
         AUTO_TOPICS_ENABLED: true,
-        AUTO_SHOPPING_ENABLED: false,
         AUTO_IMAGE_GENERATION: imageGeneration,
         AUTO_USE_EXTERNAL_REF: externalReference,
         AUTO_TRENDS_VARIATION_INCLUDE_NEW: variationIncludeNew,
@@ -1103,7 +1126,9 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
         NAVER_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
         NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
+        NAVER_AUTO_VARIATION_TYPE: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
         NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
+        NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(raw, 'AUTO_TRENDS_TOP_N'),
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS')
     });
     const shoppingAutoSettings = normalizeNaverShoppingAutoSettings({
@@ -1139,7 +1164,9 @@ function buildMajorSettings(raw, configSource) {
         NAVER_AUTO_VARIATION_INCLUDE_NEW: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_NEW,
         NAVER_AUTO_VARIATION_INCLUDE_DASH: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_DASH,
         NAVER_AUTO_VARIATION_INCLUDE_NUMBER: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_NUMBER,
+        NAVER_AUTO_VARIATION_TYPE: autoSettings.NAVER_AUTO_VARIATION_TYPE,
         NAVER_AUTO_VARIATION_NUMBER: autoSettings.NAVER_AUTO_VARIATION_NUMBER,
+        NAVER_AUTO_VARIATION_TOP_N: autoSettings.NAVER_AUTO_VARIATION_TOP_N,
         NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS,
         NAVER_SHOPPING_AUTO_MODE: shoppingAutoSettings.NAVER_SHOPPING_AUTO_MODE,
         NAVER_SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
@@ -2536,6 +2563,10 @@ function getAutoSettingsSnapshot() {
     return normalizeNaverAutoSettings({});
 }
 
+function getShoppingAutoSettingsSnapshot() {
+    return normalizeNaverShoppingAutoSettings({});
+}
+
 function getDateKeyLocal(date = new Date()) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -2548,26 +2579,56 @@ function resetAutoDailyCountersIfNeeded() {
     if (autoRuntimeState.dayKey !== today) {
         autoRuntimeState.dayKey = today;
         autoRuntimeState.blogPublishedToday = 0;
-        autoRuntimeState.shoppingPublishedToday = 0;
+    }
+}
+
+function resetShoppingDailyCountersIfNeeded() {
+    const today = getDateKeyLocal();
+    if (shoppingAutoRuntimeState.dayKey !== today) {
+        shoppingAutoRuntimeState.dayKey = today;
+        shoppingAutoRuntimeState.shoppingPublishedToday = 0;
     }
 }
 
 function getAutoStatusPayload() {
-    const settings = getAutoSettingsSnapshot();
+    const blogSettings = getAutoSettingsSnapshot();
+    const shoppingSettings = getShoppingAutoSettingsSnapshot();
     return {
-        enabled: autoRuntimeState.enabled,
-        running: autoRuntimeState.running,
-        status: autoRuntimeState.status,
-        message: autoRuntimeState.message,
-        startedAt: autoRuntimeState.startedAt,
-        lastRunAt: autoRuntimeState.lastRunAt,
-        nextRunAt: autoRuntimeState.nextRunAt,
-        cycleCount: autoRuntimeState.cycleCount,
-        lastSummary: autoRuntimeState.lastSummary,
-        dayKey: autoRuntimeState.dayKey,
+        blog: {
+            enabled: autoRuntimeState.enabled,
+            running: autoRuntimeState.running,
+            status: autoRuntimeState.status,
+            message: autoRuntimeState.message,
+            startedAt: autoRuntimeState.startedAt,
+            lastRunAt: autoRuntimeState.lastRunAt,
+            nextRunAt: autoRuntimeState.nextRunAt,
+            cycleCount: autoRuntimeState.cycleCount,
+            lastSummary: autoRuntimeState.lastSummary,
+            dayKey: autoRuntimeState.dayKey,
+            blogPublishedToday: autoRuntimeState.blogPublishedToday,
+            settings: blogSettings
+        },
+        shopping: {
+            enabled: shoppingAutoRuntimeState.enabled,
+            running: shoppingAutoRuntimeState.running,
+            status: shoppingAutoRuntimeState.status,
+            message: shoppingAutoRuntimeState.message,
+            startedAt: shoppingAutoRuntimeState.startedAt,
+            lastRunAt: shoppingAutoRuntimeState.lastRunAt,
+            nextRunAt: shoppingAutoRuntimeState.nextRunAt,
+            cycleCount: shoppingAutoRuntimeState.cycleCount,
+            lastSummary: shoppingAutoRuntimeState.lastSummary,
+            dayKey: shoppingAutoRuntimeState.dayKey,
+            shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday,
+            settings: shoppingSettings
+        },
+        // legacy compat
+        enabled: autoRuntimeState.enabled || shoppingAutoRuntimeState.enabled,
+        running: autoRuntimeState.running || shoppingAutoRuntimeState.running,
+        status: autoRuntimeState.running ? autoRuntimeState.status : shoppingAutoRuntimeState.status,
+        message: [autoRuntimeState.message, shoppingAutoRuntimeState.message].filter(Boolean).join(' / '),
         blogPublishedToday: autoRuntimeState.blogPublishedToday,
-        shoppingPublishedToday: autoRuntimeState.shoppingPublishedToday,
-        settings
+        shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday
     };
 }
 
@@ -2609,7 +2670,7 @@ function scheduleNextAutoCycle(delayMs = null) {
         const waitMinutes = Math.floor(waitMs / (60 * 1000));
         const waitHours = Math.floor(waitMinutes / 60);
         const remainMins = waitMinutes % 60;
-        Logger.info(`ℹ️ [AUTO] 다음 블로그 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
+        Logger.info(`ℹ️ [AUTO][블로그] 다음 블로그 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
     }
 
     autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
@@ -2640,9 +2701,198 @@ function syncAutoRunnerWithConfig() {
     const settings = getAutoSettingsSnapshot();
     if (settings.NAVER_AUTO_MODE) {
         const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30');
-        startAutoRunner(`자동 실행 활성화 (목표시간: ${timeStr})`);
+        startAutoRunner(`블로그 자동 실행 활성화 (목표시간: ${timeStr})`);
     } else {
         stopAutoRunner('NAVER_AUTO_MODE가 비활성화되어 있습니다.');
+    }
+}
+
+// ──────────────────────────────────────────────
+// 쇼핑 독립 스케줄러
+// ──────────────────────────────────────────────
+function clearShoppingAutoTimer() {
+    if (shoppingAutoRuntimeState.timer) {
+        clearTimeout(shoppingAutoRuntimeState.timer);
+        shoppingAutoRuntimeState.timer = null;
+    }
+}
+
+function scheduleNextShoppingAutoCycle(delayMs = null) {
+    clearShoppingAutoTimer();
+    if (!shoppingAutoRuntimeState.enabled) {
+        shoppingAutoRuntimeState.nextRunAt = null;
+        return;
+    }
+    const settings = getShoppingAutoSettingsSnapshot();
+    let waitMs = 0;
+
+    if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
+        const parsed = parseInt(delayMs, 10);
+        waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
+    } else {
+        const timeStr = String(settings.NAVER_SHOPPING_AUTO_TIME || '07:50').split(':');
+        const targetHour = parseInt(timeStr[0] || '7', 10);
+        const targetMin = parseInt(timeStr[1] || '50', 10);
+
+        const now = new Date();
+        const target = new Date(now);
+        target.setHours(targetHour, targetMin, 0, 0);
+
+        if (target.getTime() <= now.getTime()) {
+            target.setDate(target.getDate() + 1);
+        }
+
+        waitMs = target.getTime() - now.getTime();
+        waitMs = Math.max(60 * 1000, waitMs);
+
+        const waitMinutes = Math.floor(waitMs / (60 * 1000));
+        const waitHours = Math.floor(waitMinutes / 60);
+        const remainMins = waitMinutes % 60;
+        Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
+    }
+
+    shoppingAutoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
+    shoppingAutoRuntimeState.timer = setTimeout(() => {
+        runShoppingAutoCycle('timer').catch((e) => {
+            Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
+        });
+    }, waitMs);
+}
+
+function stopShoppingAutoRunner(reason = '쇼핑 자동 모드 중지') {
+    clearShoppingAutoTimer();
+    shoppingAutoRuntimeState.enabled = false;
+    shoppingAutoRuntimeState.status = 'stopped';
+    shoppingAutoRuntimeState.message = reason;
+    shoppingAutoRuntimeState.nextRunAt = null;
+}
+
+function startShoppingAutoRunner(reason = '쇼핑 자동 모드 시작') {
+    shoppingAutoRuntimeState.enabled = true;
+    if (!shoppingAutoRuntimeState.startedAt) shoppingAutoRuntimeState.startedAt = new Date().toISOString();
+    shoppingAutoRuntimeState.status = shoppingAutoRuntimeState.running ? 'running' : 'waiting';
+    shoppingAutoRuntimeState.message = reason;
+    scheduleNextShoppingAutoCycle();
+}
+
+function syncShoppingAutoRunnerWithConfig() {
+    const settings = getShoppingAutoSettingsSnapshot();
+    if (settings.NAVER_SHOPPING_AUTO_MODE) {
+        const timeStr = String(settings.NAVER_SHOPPING_AUTO_TIME || '07:50');
+        startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (목표시간: ${timeStr})`);
+    } else {
+        stopShoppingAutoRunner('NAVER_SHOPPING_AUTO_MODE가 비활성화되어 있습니다.');
+    }
+}
+
+async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
+    const forceRun = options?.forceRun === true;
+    if (!forceRun && !shoppingAutoRuntimeState.enabled) return { success: false, code: 'SHOPPING_AUTO_DISABLED', message: '쇼핑 자동 실행이 비활성화되어 있습니다.' };
+    if (shoppingAutoRuntimeState.running) return { success: false, code: 'SHOPPING_AUTO_ALREADY_RUNNING', message: '다른 쇼핑 자동 사이클이 실행 중입니다.' };
+
+    shoppingAutoRuntimeState.running = true;
+    shoppingAutoRuntimeState.status = 'running';
+    shoppingAutoRuntimeState.message = `쇼핑 자동 사이클 실행 중 (${trigger})`;
+    shoppingAutoRuntimeState.lastRunAt = new Date().toISOString();
+    shoppingAutoRuntimeState.nextRunAt = null;
+    resetShoppingDailyCountersIfNeeded();
+
+    Logger.info(`🚀 [AUTO][쇼핑] 쇼핑 자동발행 파이프라인 시작! (Trigger: ${trigger})`);
+
+    const summary = {
+        trigger,
+        shoppingAttempted: 0,
+        shoppingSuccess: 0,
+        skipped: []
+    };
+
+    try {
+        const settings = getShoppingAutoSettingsSnapshot();
+        if (!settings.NAVER_SHOPPING_AUTO_MODE && !forceRun) {
+            stopShoppingAutoRunner('설정에 따라 쇼핑 자동 모드 비활성화');
+            return { success: false, code: 'SHOPPING_AUTO_DISABLED_BY_CONFIG', message: '쇼핑 자동 모드가 비활성화되어 있습니다.' };
+        }
+
+        const precheck = await License.checkLicenseStatus({ quiet: true });
+        if (!precheck.success) {
+            shoppingAutoRuntimeState.status = 'error';
+            shoppingAutoRuntimeState.message = `라이선스 확인 실패: ${precheck.message}`;
+            shoppingAutoRuntimeState.lastSummary = summary;
+            return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message, data: { trigger, summary } };
+        }
+        const features = toFeatureMap(precheck.features);
+        const maxShoppingByPlan = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
+        const planShoppingLimit = (Number.isFinite(maxShoppingByPlan) && maxShoppingByPlan > 0) ? maxShoppingByPlan : Number.MAX_SAFE_INTEGER;
+
+        const session = await checkAuthSessionValid();
+        if (!session.ok) {
+            shoppingAutoRuntimeState.status = 'waiting';
+            shoppingAutoRuntimeState.message = '네이버 로그인 세션이 유효하지 않아 쇼핑 자동 사이클을 대기합니다.';
+            shoppingAutoRuntimeState.lastSummary = summary;
+            return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다.', data: { trigger, summary } };
+        }
+
+        if (!isCommandEnabled(features, 'shopping')) {
+            summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
+        } else {
+            const dailyCap = settings.AUTO_MAX_SHOPPING_PER_CYCLE;
+            const remaining = dailyCap > 0 ? Math.max(0, dailyCap - shoppingAutoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
+            const targetLimit = Math.max(0, Math.min(dailyCap, planShoppingLimit, remaining));
+
+            if (targetLimit > 0) {
+                await ensureSheetsReadyForUi();
+                const shoppingRes = await Utils.readGoogleSheetShoppingAll({
+                    status: '발행 준비 완료',
+                    q: '',
+                    limit: 100000,
+                    offset: 0,
+                    sortBy: 'rowNumber',
+                    sortDir: 'asc'
+                });
+                const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
+                const rowIndices = shoppingItems
+                    .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
+                    .slice(0, targetLimit)
+                    .map((item) => item.rowIndex)
+                    .filter((v) => Number.isInteger(v) && v >= 0);
+                summary.shoppingAttempted = rowIndices.length;
+                if (rowIndices.length > 0) {
+                    const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
+                    const successCount = Number(batchResult?.data?.successCount || 0);
+                    summary.shoppingSuccess = successCount;
+                    if (successCount > 0) {
+                        shoppingAutoRuntimeState.shoppingPublishedToday += successCount;
+                    }
+                    const failCount = Number(batchResult?.data?.failCount || 0);
+                    if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
+                } else {
+                    summary.skipped.push('상태가 "발행 준비 완료"인 쇼핑 후보가 없어 건너뜁니다.');
+                }
+            } else {
+                summary.skipped.push('쇼핑 발행 한도가 0건이라 건너뜁니다.');
+            }
+        }
+
+        shoppingAutoRuntimeState.cycleCount += 1;
+        shoppingAutoRuntimeState.status = 'waiting';
+        shoppingAutoRuntimeState.message = '쇼핑 자동 사이클 완료';
+        shoppingAutoRuntimeState.lastSummary = summary;
+
+        Logger.success(`✅ [AUTO][쇼핑] 파이프라인 완료! - 쇼핑 발행 시도/성공: ${summary.shoppingAttempted}/${summary.shoppingSuccess}`);
+        if (summary.skipped && summary.skipped.length > 0) {
+            Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
+        }
+
+        return { success: true, data: { trigger, summary } };
+    } catch (e) {
+        shoppingAutoRuntimeState.status = 'error';
+        shoppingAutoRuntimeState.message = `쇼핑 자동 사이클 오류: ${e.message}`;
+        shoppingAutoRuntimeState.lastSummary = summary;
+        Logger.error(`❌ [AUTO][쇼핑] 사이클 오류: ${e.message}`);
+        return { success: false, code: 'SHOPPING_AUTO_CYCLE_FAILED', message: e.message, data: { trigger, summary } };
+    } finally {
+        shoppingAutoRuntimeState.running = false;
+        if (shoppingAutoRuntimeState.enabled) scheduleNextShoppingAutoCycle();
     }
 }
 
@@ -2714,6 +2964,10 @@ async function executeAutoTrendsToTopics(settings = {}) {
         settings.NAVER_AUTO_VARIATION_NUMBER ?? settings.AUTO_TRENDS_MIN_VARIATION,
         ''
     );
+    const variationTopN = normalizeIntegerOrBlank(
+        settings.NAVER_AUTO_VARIATION_TOP_N ?? settings.AUTO_TRENDS_TOP_N,
+        5
+    );
     const keywordReuseGapDays = normalizeNonNegativeInt(
         settings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? settings.AUTO_KEYWORD_REUSE_GAP_DAYS,
         NAVER_AUTO_DEFAULTS.keywordReuseGapDays
@@ -2739,7 +2993,7 @@ async function executeAutoTrendsToTopics(settings = {}) {
         + `statusScope=${readAllTrendStatuses ? 'ALL' : '대기'}, `
         + `categories=${includeCategories.length > 0 ? includeCategories.join('|') : '(전체)'}, `
         + `variationType=${variationType}, `
-        + `variation=new:${variationIncludeNew ? 'Y' : 'N'},dash:${variationIncludeDash ? 'Y' : 'N'},num:${variationIncludeNumber ? 'Y' : 'N'}${variationIncludeNumber && variationNumber !== '' ? `(val:${variationNumber})` : ''}, `
+        + `variation=new:${variationIncludeNew ? 'Y' : 'N'},dash:${variationIncludeDash ? 'Y' : 'N'},num:${variationIncludeNumber ? 'Y' : 'N'}${variationIncludeNumber && (variationType === 'top' ? Number.isInteger(variationTopN) : variationNumber !== '') ? `(${variationType === 'top' ? `top:${variationTopN}` : `val:${variationNumber}`})` : ''}, `
         + `reuseGapDays=${keywordReuseGapDays}`
     );
 
@@ -2764,7 +3018,7 @@ async function executeAutoTrendsToTopics(settings = {}) {
 
     let filtered = [];
 
-    if (variationType === 'top' && variationIncludeNumber && Number.isInteger(variationNumber) && variationNumber > 0) {
+    if (variationType === 'top' && variationIncludeNumber && Number.isInteger(variationTopN) && variationTopN > 0) {
         // [Top N 모드]
         const rankedPool = [];
         const absoluteAllowed = []; // new, dash 등 순위 계산 없는 대상
@@ -2783,7 +3037,7 @@ async function executeAutoTrendsToTopics(settings = {}) {
         }
 
         rankedPool.sort((a, b) => b.score - a.score);
-        const topSelected = rankedPool.slice(0, variationNumber).map(r => r.item);
+        const topSelected = rankedPool.slice(0, variationTopN).map(r => r.item);
         variationRejectedCount += Math.max(0, rankedPool.length - topSelected.length);
 
         filtered = [...absoluteAllowed, ...topSelected];
@@ -3006,8 +3260,6 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         trendsToTopics: 0,
         blogAttempted: 0,
         blogSuccess: 0,
-        shoppingAttempted: 0,
-        shoppingSuccess: 0,
         skipped: []
     };
 
@@ -3041,11 +3293,9 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
         const features = toFeatureMap(precheck.features);
         const maxBlogByPlan = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
-        const maxShoppingByPlan = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
         const planBlogLimit = (Number.isFinite(maxBlogByPlan) && maxBlogByPlan > 0) ? maxBlogByPlan : Number.MAX_SAFE_INTEGER;
-        const planShoppingLimit = (Number.isFinite(maxShoppingByPlan) && maxShoppingByPlan > 0) ? maxShoppingByPlan : Number.MAX_SAFE_INTEGER;
 
-        const requiresNaverSession = settings.AUTO_TRENDS_ENABLED || settings.AUTO_MAX_BLOG_PER_CYCLE > 0 || settings.AUTO_SHOPPING_ENABLED;
+        const requiresNaverSession = settings.AUTO_TRENDS_ENABLED || settings.AUTO_MAX_BLOG_PER_CYCLE > 0;
         if (requiresNaverSession) {
             const session = await checkAuthSessionValid();
             if (!session.ok) {
@@ -3131,9 +3381,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
 
         const dailyBlogCap = settings.AUTO_DAILY_BLOG_CAP;
-        const dailyShoppingCap = settings.AUTO_DAILY_SHOPPING_CAP;
         const remainingBlogByDaily = dailyBlogCap > 0 ? Math.max(0, dailyBlogCap - autoRuntimeState.blogPublishedToday) : Number.MAX_SAFE_INTEGER;
-        const remainingShoppingByDaily = dailyShoppingCap > 0 ? Math.max(0, dailyShoppingCap - autoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
 
         if (proceedAfterTrends && gapAllowed && isCommandEnabled(features, 'batch')) {
             const targetLimit = Math.max(0, Math.min(settings.AUTO_MAX_BLOG_PER_CYCLE, planBlogLimit, remainingBlogByDaily));
@@ -3194,50 +3442,12 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
             summary.skipped.push('현재 플랜에서 블로그 batch 기능이 비활성화되어 건너뜁니다.');
         }
 
-        if (proceedAfterTrends && gapAllowed && settings.AUTO_SHOPPING_ENABLED && isCommandEnabled(features, 'shopping')) {
-            const targetLimit = Math.max(0, Math.min(settings.AUTO_MAX_SHOPPING_PER_CYCLE, planShoppingLimit, remainingShoppingByDaily));
-            if (targetLimit > 0) {
-                const shoppingRes = await Utils.readGoogleSheetShoppingAll({
-                    status: '발행 준비 완료',
-                    q: '',
-                    limit: 100000,
-                    offset: 0,
-                    sortBy: 'rowNumber',
-                    sortDir: 'asc'
-                });
-                const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
-                const rowIndices = shoppingItems
-                    .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
-                    .slice(0, targetLimit)
-                    .map((item) => item.rowIndex)
-                    .filter((v) => Number.isInteger(v) && v >= 0);
-                summary.shoppingAttempted = rowIndices.length;
-                if (rowIndices.length > 0) {
-                    const shoppingResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
-                    const successCount = Number(shoppingResult?.data?.successCount || 0);
-                    summary.shoppingSuccess = successCount;
-                    if (successCount > 0) {
-                        autoRuntimeState.shoppingPublishedToday += successCount;
-                        autoRuntimeState.lastPublishAtMs = Date.now();
-                    }
-                    const failCount = Number(shoppingResult?.data?.failCount || 0);
-                    if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
-                } else {
-                    summary.skipped.push('쇼핑 발행 후보가 없어 건너뜁니다.');
-                }
-            } else {
-                summary.skipped.push('쇼핑 발행 한도가 0건이라 건너뜁니다.');
-            }
-        } else if (proceedAfterTrends && gapAllowed && settings.AUTO_SHOPPING_ENABLED && !isCommandEnabled(features, 'shopping')) {
-            summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
-        }
-
         autoRuntimeState.cycleCount += 1;
         autoRuntimeState.status = 'waiting';
-        autoRuntimeState.message = '자동 사이클 완료';
+        autoRuntimeState.message = '블로그 자동 사이클 완료';
         autoRuntimeState.lastSummary = summary;
 
-        Logger.success(`✅ [AUTO] 파이프라인(사이클) 완료! - 트렌드 수집: ${summary.trendsCollected}건, 토픽 전환: ${summary.trendsToTopics}건, 블로그 발행 시도/성공: ${summary.blogAttempted}/${summary.blogSuccess}`);
+        Logger.success(`✅ [AUTO][블로그] 파이프라인 완료! - 트렌드 수집: ${summary.trendsCollected}건, 토픽 전환: ${summary.trendsToTopics}건, 블로그 발행 시도/성공: ${summary.blogAttempted}/${summary.blogSuccess}`);
         if (summary.skipped && summary.skipped.length > 0) {
             Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
         }
@@ -3252,9 +3462,9 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         };
     } catch (e) {
         autoRuntimeState.status = 'error';
-        autoRuntimeState.message = `자동 사이클 오류: ${e.message}`;
+        autoRuntimeState.message = `블로그 자동 사이클 오류: ${e.message}`;
         autoRuntimeState.lastSummary = summary;
-        Logger.error(`❌ [AUTO] 사이클 오류: ${e.message}`);
+        Logger.error(`❌ [AUTO][블로그] 사이클 오류: ${e.message}`);
         return {
             success: false,
             code: 'AUTO_CYCLE_FAILED',
@@ -3592,7 +3802,9 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_INCLUDE_NEW: fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ? 'true' : 'false',
                     NAVER_AUTO_VARIATION_INCLUDE_DASH: fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ? 'true' : 'false',
                     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ? 'true' : 'false',
+                    NAVER_AUTO_VARIATION_TYPE: fields.NAVER_AUTO_VARIATION_TYPE || 'min',
                     NAVER_AUTO_VARIATION_NUMBER: fields.NAVER_AUTO_VARIATION_NUMBER === '' ? '' : String(fields.NAVER_AUTO_VARIATION_NUMBER),
+                    NAVER_AUTO_VARIATION_TOP_N: fields.NAVER_AUTO_VARIATION_TOP_N === '' ? '5' : String(fields.NAVER_AUTO_VARIATION_TOP_N),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: String(fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS),
                     NAVER_SHOPPING_AUTO_MODE: fields.NAVER_SHOPPING_AUTO_MODE ? 'true' : 'false',
                     NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
@@ -3607,6 +3819,7 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                 fs.writeFileSync(writablePath, nextRaw, 'utf-8');
                 applyRuntimeConfigFromMajor(fields);
                 syncAutoRunnerWithConfig();
+                syncShoppingAutoRunnerWithConfig();
                 const requiresRestart =
                     fields.LISTEN_HOST !== prevListenHost ||
                     normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT) !== prevListenPort;
@@ -3703,7 +3916,9 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                     NAVER_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
                     NAVER_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
                     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
+                    NAVER_AUTO_VARIATION_TYPE: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
                     NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_MIN_VARIATION'),
+                    NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(content, 'AUTO_TRENDS_TOP_N'),
                     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(content, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
                     NAVER_SHOPPING_AUTO_MODE: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_MODE'),
                     NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
@@ -3716,6 +3931,7 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
                 });
                 applyRuntimeConfigFromMajor(fields);
                 syncAutoRunnerWithConfig();
+                syncShoppingAutoRunnerWithConfig();
                 CONFIG.CONFIG_READY = true;
                 CONFIG.CONFIG_SOURCE_TYPE = 'config';
                 CONFIG.CONFIG_SOURCE_PATH = writablePath;
@@ -3779,6 +3995,7 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
             };
             applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
             syncAutoRunnerWithConfig();
+            syncShoppingAutoRunnerWithConfig();
             CONFIG.CONFIG_READY = true;
             CONFIG.CONFIG_SOURCE_TYPE = 'config';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
@@ -4218,6 +4435,7 @@ async function startUiServer(options = {}) {
     });
 
     syncAutoRunnerWithConfig();
+    syncShoppingAutoRunnerWithConfig();
 
     const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
     return { server, host, port, openHost };

@@ -1779,7 +1779,8 @@ function applySettingsMajorToForm(data) {
   const blogAutoVariationNewEl = document.getElementById('blog-auto-variation-new');
   const blogAutoVariationDashEl = document.getElementById('blog-auto-variation-dash');
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const blogAutoVariationNumberEl = document.getElementById('blog-auto-variation-number');
+  const blogAutoVariationMinEl = document.getElementById('blog-auto-variation-min');
+  const blogAutoVariationTopEl = document.getElementById('blog-auto-variation-top');
   const blogAutoKeywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   const shoppingAutoModeEl = document.getElementById('shopping-auto-mode');
   const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
@@ -1816,11 +1817,21 @@ function applySettingsMajorToForm(data) {
       true
     );
   }
-  if (blogAutoVariationNumberEl) {
+  const variationTypeEl = document.getElementById('blog-auto-variation-type');
+  if (variationTypeEl) {
+    variationTypeEl.value = String(fields.NAVER_AUTO_VARIATION_TYPE || 'min');
+  }
+  if (blogAutoVariationMinEl) {
     const rawVariationNumber = fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
     const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(rawVariationNumber, 50);
-    blogAutoVariationNumberEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
+    blogAutoVariationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
   }
+  if (blogAutoVariationTopEl) {
+    const rawTopN = fields.NAVER_AUTO_VARIATION_TOP_N ?? 5;
+    const normalizedTopN = normalizeBlogAutoVariationNumberValue(rawTopN, 5);
+    blogAutoVariationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
+  }
+  syncBlogAutoVariationTypeUi();
   if (blogAutoKeywordReuseGapEl) {
     const rawReuseGap = fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS;
     const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
@@ -2033,7 +2044,8 @@ function buildSettingsMajorPayload() {
     NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
     NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-    NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-number')?.value || '', 50),
+    NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-min')?.value || '', 50),
+    NAVER_AUTO_VARIATION_TOP_N: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-top')?.value || '', 5),
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
     NAVER_SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
     NAVER_SHOPPING_AUTO_DAILY_POSTS: parseInt((document.getElementById('shopping-auto-daily-posts')?.value || '3').trim(), 10) || 0,
@@ -2769,11 +2781,36 @@ function normalizeBlogAutoKeywordReuseGapValue(rawValue, fallback = 15) {
 
 function syncBlogAutoVariationNumberUi() {
   const enabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const numberEl = document.getElementById('blog-auto-variation-number');
-  if (!enabledEl || !numberEl) return;
+  const minWrap = document.getElementById('blog-auto-variation-min-wrap');
+  const topWrap = document.getElementById('blog-auto-variation-top-wrap');
+  if (!enabledEl) return;
   const enabled = Boolean(enabledEl.checked);
-  numberEl.disabled = !enabled;
-  numberEl.classList.toggle('input-disabled', !enabled);
+
+  if (minWrap) {
+    const minInput = document.getElementById('blog-auto-variation-min');
+    if (minInput) minInput.disabled = !enabled;
+    minWrap.classList.toggle('input-disabled', !enabled);
+  }
+  if (topWrap) {
+    const topInput = document.getElementById('blog-auto-variation-top');
+    if (topInput) topInput.disabled = !enabled;
+    topWrap.classList.toggle('input-disabled', !enabled);
+  }
+}
+
+function syncBlogAutoVariationTypeUi() {
+  const typeEl = document.getElementById('blog-auto-variation-type');
+  const minWrap = document.getElementById('blog-auto-variation-min-wrap');
+  const topWrap = document.getElementById('blog-auto-variation-top-wrap');
+  if (!typeEl || !minWrap || !topWrap) return;
+
+  if (typeEl.value === 'top') {
+    minWrap.style.display = 'none';
+    topWrap.style.display = 'block';
+  } else {
+    minWrap.style.display = 'block';
+    topWrap.style.display = 'none';
+  }
 }
 
 function clampBlogAutoDailyPostsInputValue(options = {}) {
@@ -2809,7 +2846,8 @@ async function loadBlogAutoSettings() {
   const variationNewEl = document.getElementById('blog-auto-variation-new');
   const variationDashEl = document.getElementById('blog-auto-variation-dash');
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const variationMinEl = document.getElementById('blog-auto-variation-min');
+  const variationTopEl = document.getElementById('blog-auto-variation-top');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   const runDateEl = document.getElementById('blog-auto-run-date');
   setBlogAutoResultText('불러오는 중...');
@@ -2846,13 +2884,21 @@ async function loadBlogAutoSettings() {
     if (variationTypeEl) {
       variationTypeEl.value = String(fields.NAVER_AUTO_VARIATION_TYPE || 'min');
     }
-    if (variationNumberEl) {
+    if (variationMinEl) {
       const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(
         fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
         50
       );
-      variationNumberEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
+      variationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
     }
+    if (variationTopEl) {
+      const normalizedTopN = normalizeBlogAutoVariationNumberValue(
+        fields.NAVER_AUTO_VARIATION_TOP_N ?? 5,
+        5
+      );
+      variationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
+    }
+    syncBlogAutoVariationTypeUi();
     syncBlogAutoVariationNumberUi();
     if (keywordReuseGapEl) {
       const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
@@ -2884,25 +2930,33 @@ async function saveBlogAutoSettings() {
   const variationNewEl = document.getElementById('blog-auto-variation-new');
   const variationDashEl = document.getElementById('blog-auto-variation-dash');
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const variationMinEl = document.getElementById('blog-auto-variation-min');
+  const variationTopEl = document.getElementById('blog-auto-variation-top');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   setBlogAutoResultText('저장 중...');
   try {
     const major = await fetchJson('/api/v1/settings/major');
     const fields = { ...(major?.fields || {}) };
     const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    const variationNumberRaw = String(variationNumberEl?.value ?? '').trim();
-    if (variationNumberRaw && !/^-?\d+$/.test(variationNumberRaw)) {
+    const variationMinRaw = String(variationMinEl?.value ?? '').trim();
+    if (variationMinRaw && !/^-?\d+$/.test(variationMinRaw)) {
       throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
     }
-    const variationNumber = normalizeBlogAutoVariationNumberValue(variationNumberRaw, 50);
+    const variationMin = normalizeBlogAutoVariationNumberValue(variationMinRaw, 50);
+
+    const variationTopRaw = String(variationTopEl?.value ?? '').trim();
+    if (variationTopRaw && !/^-?\d+$/.test(variationTopRaw)) {
+      throw new Error('상위 랭킹 개수는 앞선 정수만 필요합니다.');
+    }
+    const variationTopN = normalizeBlogAutoVariationNumberValue(variationTopRaw, 5);
     const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
     if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
       throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
     }
     const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
     if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
-    if (variationNumberEl) variationNumberEl.value = variationNumber === '' ? '' : String(variationNumber);
+    if (variationMinEl) variationMinEl.value = variationMin === '' ? '' : String(variationMin);
+    if (variationTopEl) variationTopEl.value = variationTopN === '' ? '' : String(variationTopN);
     if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
     const payload = {
       ...fields,
@@ -2916,7 +2970,8 @@ async function saveBlogAutoSettings() {
       NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
-      NAVER_AUTO_VARIATION_NUMBER: variationNumber,
+      NAVER_AUTO_VARIATION_NUMBER: variationMin,
+      NAVER_AUTO_VARIATION_TOP_N: variationTopN,
       NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
     const saved = await postJson('/api/v1/settings/major', payload);
@@ -3103,7 +3158,8 @@ async function runBlogAutoManual() {
   const variationNewEl = document.getElementById('blog-auto-variation-new');
   const variationDashEl = document.getElementById('blog-auto-variation-dash');
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const variationNumberEl = document.getElementById('blog-auto-variation-number');
+  const variationMinEl = document.getElementById('blog-auto-variation-min');
+  const variationTopEl = document.getElementById('blog-auto-variation-top');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   const rawDate = String(dateEl?.value || '').trim();
   const skipTrends = Boolean(skipTrendsEl?.checked);
@@ -3137,18 +3193,25 @@ async function runBlogAutoManual() {
   try {
     if (resultEl) resultEl.textContent += '\nAPI 요청 전송 중...';
     const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    const variationNumberRaw = String(variationNumberEl?.value ?? '').trim();
-    if (variationNumberRaw && !/^-?\d+$/.test(variationNumberRaw)) {
+    const variationMinRaw = String(variationMinEl?.value ?? '').trim();
+    if (variationMinRaw && !/^-?\d+$/.test(variationMinRaw)) {
       throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
     }
-    const variationNumber = normalizeBlogAutoVariationNumberValue(variationNumberRaw, 50);
+    const variationMin = normalizeBlogAutoVariationNumberValue(variationMinRaw, 50);
+
+    const variationTopRaw = String(variationTopEl?.value ?? '').trim();
+    if (variationTopRaw && !/^-?\d+$/.test(variationTopRaw)) {
+      throw new Error('상위 랭킹 개수는 앞선 정수만 필요합니다.');
+    }
+    const variationTopN = normalizeBlogAutoVariationNumberValue(variationTopRaw, 5);
     const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
     if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
       throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
     }
     const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
     if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
-    if (variationNumberEl) variationNumberEl.value = variationNumber === '' ? '' : String(variationNumber);
+    if (variationMinEl) variationMinEl.value = variationMin === '' ? '' : String(variationMin);
+    if (variationTopEl) variationTopEl.value = variationTopN === '' ? '' : String(variationTopN);
     if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
 
     const settingsOverrides = {
@@ -3163,7 +3226,8 @@ async function runBlogAutoManual() {
       NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
       NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-      NAVER_AUTO_VARIATION_NUMBER: variationNumber,
+      NAVER_AUTO_VARIATION_NUMBER: variationMin,
+      NAVER_AUTO_VARIATION_TOP_N: variationTopN,
       NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
 
@@ -3207,7 +3271,7 @@ function bindActions() {
     });
   });
 
-  // Logs 위젯 이벤트
+  // Logs 위젯 이벤트 (Pill 탭 전환)
   const logsTabBtns = Array.from(document.querySelectorAll('.logs-tab-btn'));
   logsTabBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -3217,6 +3281,7 @@ function bindActions() {
       document.querySelectorAll('.logs-tab-panel').forEach(p => p.style.display = 'none');
       document.getElementById(`logs-tab-${tabName}`).style.display = 'block';
       if (tabName === 'system') loadLogFiles();
+      else loadDashboardLogs();
     });
   });
 
@@ -3610,7 +3675,7 @@ function bindActions() {
   const blogAutoCategoryOptionsEl = document.getElementById('blog-auto-category-options');
   const blogAutoDailyPostsInputEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-number');
+  const blogAutoVariationTypeEl = document.getElementById('blog-auto-variation-type');
   const blogAutoRunBtn = document.getElementById('blog-auto-run-btn');
   const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
   const shoppingAutoSaveBtn = document.getElementById('shopping-auto-save-btn');
@@ -3641,6 +3706,12 @@ function bindActions() {
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
   if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogAutoManual);
+  if (blogAutoVariationNumberEnabledEl) {
+    blogAutoVariationNumberEnabledEl.addEventListener('change', syncBlogAutoVariationNumberUi);
+  }
+  if (blogAutoVariationTypeEl) {
+    blogAutoVariationTypeEl.addEventListener('change', syncBlogAutoVariationTypeUi);
+  }
   if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', loadShoppingAutoSettings);
   if (shoppingAutoSaveBtn) shoppingAutoSaveBtn.addEventListener('click', saveShoppingAutoSettings);
   if (shoppingAutoRunBtn) shoppingAutoRunBtn.addEventListener('click', runShoppingAutoManual);
@@ -3772,10 +3843,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isDashboardPollingPaused()) return;
     loadDashboard();
 
-    // 자동 새로고침: 로그 뷰가 활성화되어 있으면 함께 갱신
-    const logsView = document.getElementById('dash-logs-history');
-    if (logsView && !logsView.classList.contains('hidden')) {
-      loadDashboardLogs();
+    // 자동 새로고침: 로그/이력 뷰가 활성화되어 있으면 함께 갱신
+    const logsViewEl = document.getElementById('view-logs');
+    if (logsViewEl && logsViewEl.classList.contains('active')) {
+      const activeTab = document.querySelector('.logs-tab-btn.active');
+      const tabName = activeTab ? activeTab.getAttribute('data-logs-tab') : 'activity';
+      if (tabName === 'system') {
+        loadSystemLog();
+      } else {
+        loadDashboardLogs();
+      }
     }
   }, 15000);
 });
