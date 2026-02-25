@@ -22,7 +22,16 @@
       </nav>
     </aside>
 
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <main class="main">
+      <!-- Mobile Top App Bar -->
+      <header class="mobile-topbar">
+        <div class="mobile-topbar-title">BlogGenius</div>
+        <button class="hamburger-btn" id="mobile-menu-btn" aria-label="메뉴 열기">☰</button>
+      </header>
+
       <!-- Update Banner (Hidden by default) -->
       <div id="update-banner" class="update-banner hidden">
         <div class="update-banner-content">
@@ -44,6 +53,11 @@
 
             <!-- Clock Widget right next to Dashboard Title -->
             <div class="dash-clock-widget" style="display: flex; align-items: center; gap: 12px;">
+              <!-- Server Control Buttons -->
+              <div class="server-control" id="server-control">
+                <button id="server-restart-btn" class="server-control-btn restart" title="서버 재시작">🔄 재시작</button>
+                <button id="server-stop-btn" class="server-control-btn stop" title="서버 종료">🛑 종료</button>
+              </div>
               <div id="clock-display"
                 style="min-width: 150px; display: flex; justify-content: flex-end; align-items: center; cursor: pointer; user-select: none;"
                 title="클릭하여 시계 스타일 변경">
@@ -197,25 +211,27 @@
             <button id="blog-trends-to-topics-btn">선택 항목 Topics 추가</button>
             <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
           </div>
-          <div class="table-wrap">
-            <table class="data-table" id="blog-trends-table">
-              <thead>
-                <tr>
-                  <th style="width:56px;">선택</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="rowNumber" style="width:70px;">Row</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="date" style="width:130px;">날짜</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="category" style="width:180px;">주제</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="keyword" style="width:220px;">키워드</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="variation" style="width:90px;">증감</th>
-                  <th class="sortable" data-sort-table="trends" data-sort-key="status" style="width:160px;">상태</th>
-                </tr>
-              </thead>
-              <tbody id="blog-trends-table-body">
-                <tr>
-                  <td colspan="7">로딩 중...</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="table-responsive">
+            <div class="table-wrap">
+              <table class="data-table" id="blog-trends-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;">선택</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="rowNumber" style="width:70px;">Row</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="date" style="width:130px;">날짜</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="category" style="width:180px;">주제</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="keyword" style="width:220px;">키워드</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="variation" style="width:90px;">증감</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="status" style="width:160px;">상태</th>
+                  </tr>
+                </thead>
+                <tbody id="blog-trends-table-body">
+                  <tr>
+                    <td colspan="7">로딩 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <div class="pagination-row">
             <button id="blog-trends-page-prev" class="secondary">이전</button>
@@ -253,35 +269,41 @@
 
           <div id="blog-last-batch" class="batch-summary hidden"></div>
 
-          <div class="table-wrap">
-            <table class="data-table" id="blog-table">
-              <thead>
-                <tr>
-                  <th style="width:56px;">선택</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject
-                  </th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords
-                  </th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">참고/지시사항
-                  </th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:220px;">참고 URL
-                  </th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:120px;">이미지
-                    생성 여부</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="externalReference" style="width:120px;">
-                    외부 참고 여부</th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:220px;">진행 로그
-                  </th>
-                  <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:170px;">상태</th>
-                </tr>
-              </thead>
-              <tbody id="blog-table-body">
-                <tr>
-                  <td colspan="10">로딩 중...</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="table-responsive">
+            <div class="table-wrap">
+              <table class="data-table" id="blog-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;">선택</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">
+                      참고/지시사항
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:220px;">참고
+                      URL
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:120px;">
+                      이미지
+                      생성 여부</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="externalReference"
+                      style="width:120px;">
+                      외부 참고 여부</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:220px;">진행 로그
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:170px;">상태</th>
+                  </tr>
+                </thead>
+                <tbody id="blog-table-body">
+                  <tr>
+                    <td colspan="10">로딩 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <div class="pagination-row">
             <button id="blog-topics-page-prev" class="secondary">이전</button>
@@ -457,27 +479,33 @@
             <span class="tab-selected-count" id="shopping-selected-count">0건 선택</span>
           </div>
 
-          <div class="table-wrap">
-            <table class="data-table" id="shopping-table">
-              <thead>
-                <tr>
-                  <th style="width:56px;">선택</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:260px;">URL</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행 로그
-                  </th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="status" style="width:140px;">상태</th>
-                  <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행 시간
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="shopping-table-body">
-                <tr>
-                  <td colspan="7">로딩 중...</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="table-responsive">
+            <div class="table-wrap">
+              <table class="data-table" id="shopping-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;">선택</th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row
+                    </th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:260px;">URL
+                    </th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행
+                      로그
+                    </th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="status" style="width:140px;">상태</th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행
+                      시간
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="shopping-table-body">
+                  <tr>
+                    <td colspan="7">로딩 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <div class="pagination-row">
             <button id="shopping-page-prev" class="secondary">이전</button>

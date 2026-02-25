@@ -3557,6 +3557,27 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
         return;
     }
 
+    // --- Server Control Endpoints ---
+    if (pathname === '/api/v1/system/restart') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        Logger.info('🔄 [System] UI에서 서버 재시작 요청');
+        sendSuccess(res, requestId, { success: true, message: '서버를 재시작합니다.' });
+        setTimeout(() => {
+            Updater.restart();
+        }, 1000);
+        return;
+    }
+
+    if (pathname === '/api/v1/system/stop') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        Logger.info('🛑 [System] UI에서 서버 종료 요청');
+        sendSuccess(res, requestId, { success: true, message: '서버를 종료합니다.' });
+        setTimeout(() => {
+            process.exit(0);
+        }, 1000);
+        return;
+    }
+
     if (pathname === '/api/v1/dashboard/summary') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         try {

@@ -829,7 +829,7 @@ function activateSettingsTab(tabName, options = {}) {
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   settingsActiveTab = target;
 
-  const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
+  const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
   const tabPanels = Array.from(document.querySelectorAll('.settings-tab-panel'));
   tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.settingsTab === target));
   tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `settings-tab-${target}`));
@@ -898,6 +898,11 @@ async function loadDashboard() {
       healthBadge.textContent = 'Health: Error';
       healthBadge.style.background = '#fee2e2'; healthBadge.style.color = '#991b1b';
     }
+    healthBadge.style.cursor = 'pointer';
+    if (!healthBadge._navBound) {
+      healthBadge._navBound = true;
+      healthBadge.addEventListener('click', () => void navigateTo('settings', 'general'));
+    }
   }
 
   const sessionBadge = document.getElementById('badge-session');
@@ -908,6 +913,11 @@ async function loadDashboard() {
     } else {
       sessionBadge.textContent = 'Naver: 오류/만료';
       sessionBadge.style.background = '#fef3c7'; sessionBadge.style.color = '#92400e';
+    }
+    sessionBadge.style.cursor = 'pointer';
+    if (!sessionBadge._navBound) {
+      sessionBadge._navBound = true;
+      sessionBadge.addEventListener('click', () => void navigateTo('settings', 'naver-blog'));
     }
   }
 
@@ -920,6 +930,7 @@ async function loadDashboard() {
       licenseBadge.textContent = 'Plan: 확인불가';
       licenseBadge.style.background = '#fee2e2'; licenseBadge.style.color = '#991b1b';
     }
+    licenseBadge.style.cursor = 'default';
   }
 
   // Update Summary Stats
@@ -1107,48 +1118,49 @@ function initClockWidget() {
 }
 
 
-function bindNavigation() {
+async function navigateTo(viewName, settingsTab) {
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   const views = Array.from(document.querySelectorAll('.view'));
+  navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
+  views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
+  if (viewName === 'dashboard') {
+    loadDashboard();
+    return;
+  }
+  if (viewName === 'logs') {
+    const activeTab = document.querySelector('.logs-tab-btn.active');
+    if (activeTab && activeTab.getAttribute('data-logs-tab') === 'system') {
+      loadLogFiles();
+    } else {
+      loadDashboardLogs();
+    }
+    return;
+  }
+  if (viewName === 'blog') {
+    const ready = await ensureSheetsPreflightUi();
+    if (!ready) return;
+    activateBlogTab(blogActiveTab, { forceReload: true });
+    return;
+  }
+  if (viewName === 'shopping') {
+    const ready = await ensureSheetsPreflightUi();
+    if (!ready) return;
+    activateShoppingTab(shoppingActiveTab, { forceReload: true });
+    return;
+  }
+  if (viewName === 'settings') {
+    const tab = settingsTab || settingsActiveTab;
+    loadSettingsMajor();
+    activateSettingsTab(tab, { forceReload: true });
+    return;
+  }
+}
 
-  const activate = async (viewName) => {
-    navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
-    views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
-    if (viewName === 'dashboard') {
-      loadDashboard();
-      return;
-    }
-    if (viewName === 'logs') {
-      const activeTab = document.querySelector('.logs-tab-btn.active');
-      if (activeTab && activeTab.getAttribute('data-logs-tab') === 'system') {
-        loadLogFiles();
-      } else {
-        loadDashboardLogs();
-      }
-      return;
-    }
-    if (viewName === 'blog') {
-      const ready = await ensureSheetsPreflightUi();
-      if (!ready) return;
-      activateBlogTab(blogActiveTab, { forceReload: true });
-      return;
-    }
-    if (viewName === 'shopping') {
-      const ready = await ensureSheetsPreflightUi();
-      if (!ready) return;
-      activateShoppingTab(shoppingActiveTab, { forceReload: true });
-      return;
-    }
-    if (viewName === 'settings') {
-      loadSettingsMajor();
-      activateSettingsTab(settingsActiveTab, { forceReload: true });
-      return;
-    }
-  };
-
+function bindNavigation() {
+  const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      void activate(btn.dataset.view);
+      void navigateTo(btn.dataset.view);
     });
   });
 }
@@ -3742,6 +3754,7 @@ function bindActions() {
   const blogAutoCategoryOptionsEl = document.getElementById('blog-auto-category-options');
   const blogAutoDailyPostsInputEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-min');
   const blogAutoVariationTypeEl = document.getElementById('blog-auto-variation-type');
   const blogAutoRunBtn = document.getElementById('blog-auto-run-btn');
   const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
@@ -3750,7 +3763,7 @@ function bindActions() {
   const shoppingAutoDailyPostsInputEl = document.getElementById('shopping-auto-daily-posts');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
-  const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn'));
+  const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
   const settingsMajorAutoSaveInputs = [
     document.getElementById('settings-listen-port'),
     document.getElementById('settings-naver-id'),
@@ -3879,6 +3892,82 @@ function bindActions() {
 window.addEventListener('DOMContentLoaded', () => {
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
   try { checkUpdate(); } catch (e) { console.warn('checkUpdate error:', e); }
+
+  // Mobile Menu Toggle
+  try {
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    if (mobileMenuBtn && sidebar && sidebarOverlay) {
+      function toggleMenu() {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('active');
+        document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+      }
+      mobileMenuBtn.addEventListener('click', toggleMenu);
+      sidebarOverlay.addEventListener('click', toggleMenu);
+
+      // Close menu when a navigation button is clicked on mobile
+      const navBtns = document.querySelectorAll('.nav-btn');
+      navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (window.innerWidth <= 960 && sidebar.classList.contains('open')) {
+            toggleMenu();
+          }
+        });
+      });
+    }
+  } catch (e) { console.warn('Mobile menu init error:', e); }
+
+  // Server Control Buttons
+  try {
+    const restartBtn = document.getElementById('server-restart-btn');
+    const stopBtn = document.getElementById('server-stop-btn');
+
+    if (restartBtn) {
+      restartBtn.addEventListener('click', async () => {
+        const confirmed = await showUiDialog({
+          title: '서버 재시작',
+          message: '서버를 재시작하시겠습니까?\n잠시 후 자동으로 페이지가 새로고침됩니다.',
+          showCancel: true,
+          confirmText: '재시작',
+          cancelText: '취소'
+        });
+        if (!confirmed) return;
+        restartBtn.disabled = true;
+        restartBtn.textContent = '재시작 중...';
+        try {
+          await postJson('/api/v1/system/restart');
+          setTimeout(() => { location.reload(); }, 3500);
+        } catch (e) {
+          restartBtn.disabled = false;
+          restartBtn.textContent = '🔄 재시작';
+          await showUiDialog({ title: '오류', message: '재시작에 실패했습니다: ' + e.message });
+        }
+      });
+    }
+
+    if (stopBtn) {
+      stopBtn.addEventListener('click', async () => {
+        const confirmed = await showUiDialog({
+          title: '⚠️ 서버 종료',
+          message: '서버를 완전히 종료하시겠습니까?\n\n종료 후에는 이 페이지도 연결이 끊기며,\n다시 시작하려면 터미널에서 수동으로 실행해야 합니다.',
+          showCancel: true,
+          confirmText: '종료',
+          cancelText: '취소'
+        });
+        if (!confirmed) return;
+        stopBtn.disabled = true;
+        stopBtn.textContent = '종료 중...';
+        try {
+          await postJson('/api/v1/system/stop');
+        } catch (e) {
+          // Connection refused is expected after stop
+        }
+      });
+    }
+  } catch (e) { console.warn('Server control init error:', e); }
 
   // Update Banner Events
   try {
