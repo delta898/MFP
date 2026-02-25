@@ -2633,7 +2633,7 @@ function startAutoRunner(reason = '자동 모드 시작') {
     if (!autoRuntimeState.startedAt) autoRuntimeState.startedAt = new Date().toISOString();
     autoRuntimeState.status = autoRuntimeState.running ? 'running' : 'waiting';
     autoRuntimeState.message = reason;
-    scheduleNextAutoCycle(800);
+    scheduleNextAutoCycle();
 }
 
 function syncAutoRunnerWithConfig() {
@@ -2695,6 +2695,9 @@ async function executeAutoTrendsToTopics(settings = {}) {
 
     const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
     const targetTrendDateYmd = normalizeYmdToken(settings.AUTO_TARGET_TREND_DATE || '');
+    const variationType = String(
+        settings.NAVER_AUTO_VARIATION_TYPE ?? settings.AUTO_TRENDS_VARIATION_TYPE ?? 'min'
+    ).trim() || 'min';
     const variationIncludeNew = toBoolLike(
         settings.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
         false
@@ -2735,11 +2738,13 @@ async function executeAutoTrendsToTopics(settings = {}) {
         + `trendDate=${targetTrendDateYmd || '(미지정)'}, `
         + `statusScope=${readAllTrendStatuses ? 'ALL' : '대기'}, `
         + `categories=${includeCategories.length > 0 ? includeCategories.join('|') : '(전체)'}, `
-        + `variation=new:${variationIncludeNew ? 'Y' : 'N'},dash:${variationIncludeDash ? 'Y' : 'N'},num:${variationIncludeNumber ? 'Y' : 'N'}${variationIncludeNumber && variationNumber !== '' ? `>=${variationNumber}` : ''}, `
+        + `variationType=${variationType}, `
+        + `variation=new:${variationIncludeNew ? 'Y' : 'N'},dash:${variationIncludeDash ? 'Y' : 'N'},num:${variationIncludeNumber ? 'Y' : 'N'}${variationIncludeNumber && variationNumber !== '' ? `(val:${variationNumber})` : ''}, `
         + `reuseGapDays=${keywordReuseGapDays}`
     );
 
-    const filtered = trends.filter((item) => {
+    // 1차 필터링 (날짜, 카테고리, 빈 키워드 탈락)
+    const baseCandidates = trends.filter((item) => {
         if (targetTrendDateYmd) {
             const itemDateYmd = normalizeYmdToken(item?.date);
             if (!itemDateYmd || itemDateYmd !== targetTrendDateYmd) return false;
@@ -2750,34 +2755,73 @@ async function executeAutoTrendsToTopics(settings = {}) {
         if (includeCategories.length > 0 && !matchesAnyToken(text, includeCategories)) return false;
 
         dateCategoryMatchedCount += 1;
-        const variationMatched = matchesVariationFilter(item?.variation, settings);
-        const hasKeyword = Boolean(keyword);
-        let rejectReason = '';
-
-        if (!variationMatched) {
-            variationRejectedCount += 1;
-            rejectReason = '증감 필터';
-        } else if (!hasKeyword) {
+        if (!keyword) {
             emptyKeywordRejectedCount += 1;
-            rejectReason = '키워드 비어있음';
+            return false;
+        }
+        return true;
+    });
+
+    let filtered = [];
+
+    if (variationType === 'top' && variationIncludeNumber && Number.isInteger(variationNumber) && variationNumber > 0) {
+        // [Top N 모드]
+        const rankedPool = [];
+        const absoluteAllowed = []; // new, dash 등 순위 계산 없는 대상
+
+        for (const item of baseCandidates) {
+            const meta = parseVariationMeta(item?.variation);
+            if (variationIncludeNew && meta.kind === 'new') {
+                absoluteAllowed.push(item);
+            } else if (variationIncludeDash && meta.kind === 'dash') {
+                absoluteAllowed.push(item);
+            } else if (meta.kind === 'number') {
+                rankedPool.push({ item, score: Number(meta.number) });
+            } else {
+                variationRejectedCount += 1;
+            }
         }
 
-        if (dateCategoryMatchedRows.length < candidateLogLimit) {
+        rankedPool.sort((a, b) => b.score - a.score);
+        const topSelected = rankedPool.slice(0, variationNumber).map(r => r.item);
+        variationRejectedCount += Math.max(0, rankedPool.length - topSelected.length);
+
+        filtered = [...absoluteAllowed, ...topSelected];
+        // 로깅을 위해 매치된 목록 구성
+        for (const item of baseCandidates) {
+            if (dateCategoryMatchedRows.length >= candidateLogLimit) break;
+            const isSelected = filtered.some(f => f.rowIndex === item.rowIndex);
             dateCategoryMatchedRows.push({
                 rowNumber: Number(item?.rowNumber || 0),
                 date: String(item?.date || '').trim(),
-                category,
-                keyword,
+                category: String(item?.category || '').trim(),
+                keyword: String(item?.keyword || '').trim(),
                 variation: String(item?.variation || '-').trim() || '-',
-                selected: rejectReason === '',
-                rejectReason
+                selected: isSelected,
+                rejectReason: isSelected ? '' : '순위 밖 탈락(Top N)'
             });
         }
-
-        if (!variationMatched) return false;
-        if (!hasKeyword) return false;
-        return true;
-    });
+    } else {
+        // [기본 수치 이상(Min) 모드 - 기존 방식 호환]
+        filtered = baseCandidates.filter((item) => {
+            const isMatched = matchesVariationFilter(item?.variation, settings);
+            if (!isMatched) {
+                variationRejectedCount += 1;
+            }
+            if (dateCategoryMatchedRows.length < candidateLogLimit) {
+                dateCategoryMatchedRows.push({
+                    rowNumber: Number(item?.rowNumber || 0),
+                    date: String(item?.date || '').trim(),
+                    category: String(item?.category || '').trim(),
+                    keyword: String(item?.keyword || '').trim(),
+                    variation: String(item?.variation || '-').trim() || '-',
+                    selected: isMatched,
+                    rejectReason: isMatched ? '' : '수치 미달(Min)'
+                });
+            }
+            return isMatched;
+        });
+    }
 
     Logger.info(
         `ℹ️ [AUTO] trendDate+카테고리 후보: ${dateCategoryMatchedCount}건 `

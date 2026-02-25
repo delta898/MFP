@@ -1370,6 +1370,8 @@ function buildAiPrompt(product) {
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
     const reviewSamples = (product.reviewData?.reviewSamples || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n') || '1. 대표 리뷰를 추출하지 못했습니다.';
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
+    const commerceJson = JSON.stringify(product.commerceData || {}, null, 2);
+    const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -1386,7 +1388,9 @@ function buildAiPrompt(product) {
         .replace(/{{\s*PRODUCT_DESCRIPTION\s*}}/g, product.description || '요약 정보 없음')
         .replace(/{{\s*PRODUCT_BODY\s*}}/g, (product.body || '').substring(0, 5000))
         .replace(/{{\s*COMMERCE_FACTS\s*}}/g, commerceFacts)
+        .replace(/{{\s*COMMERCE_JSON\s*}}/g, commerceJson)
         .replace(/{{\s*REVIEW_FACTS\s*}}/g, reviewFacts)
+        .replace(/{{\s*REVIEW_JSON\s*}}/g, reviewJson)
         .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
         .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
         .trim();
@@ -2123,13 +2127,17 @@ function parseAiJson(rawText, fallbackTitle) {
             title: parsed.title || fallbackTitle,
             intro: parsed.intro || '',
             sections,
+            quickSummaryHeading: normalizeWhitespace(parsed.quick_summary_heading || ''),
             quickSummary: Array.isArray(parsed.quick_summary) ? parsed.quick_summary.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
             quotes: Array.isArray(parsed.quotes) ? parsed.quotes.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            prosConsHeading: normalizeWhitespace(parsed.pros_cons_heading || ''),
             pros: Array.isArray(parsed.pros) ? parsed.pros.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
             cons: Array.isArray(parsed.cons) ? parsed.cons.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            recommendedHeading: normalizeWhitespace(parsed.recommended_for_heading || ''),
             recommendedFor: Array.isArray(parsed.recommended_for) ? parsed.recommended_for.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
             conclusion: parsed.conclusion || '',
-            ctaPhrases: Array.isArray(parsed.cta_phrases) ? parsed.cta_phrases : [],
+            ctaHeading: normalizeWhitespace(parsed.cta_heading || ''),
+            ctaPhrases: Array.isArray(parsed.cta_phrases) ? parsed.cta_phrases.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
             hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : []
         };
     } catch (e) {
@@ -2138,12 +2146,16 @@ function parseAiJson(rawText, fallbackTitle) {
             title: fallbackTitle,
             intro: '',
             sections: [],
+            quickSummaryHeading: '',
             quickSummary: [],
             quotes: [],
+            prosConsHeading: '',
             pros: [],
             cons: [],
+            recommendedHeading: '',
             recommendedFor: [],
             conclusion: '',
+            ctaHeading: '',
             ctaPhrases: [],
             hashtags: []
         };
@@ -2164,6 +2176,7 @@ function composeMarkdown({
     enableRelatedPostsAutoLink = true
 }) {
     const lines = [];
+    const useFallbackStructure = !(Array.isArray(aiData.sections) && aiData.sections.length > 0);
     lines.push(`# ${aiData.title}`);
     lines.push('');
 
@@ -2195,43 +2208,25 @@ function composeMarkdown({
     // 요청사항: 도입부 바로 아래에 상품 이미지 배치
     insertNextProductImage();
 
-    const displayFacts = buildCommerceFacts(commerceData);
-    if (displayFacts.length > 0) {
-        lines.push('## 구매 포인트 한눈에');
-        displayFacts
-            .map(fact => normalizeFactText(fact))
-            .filter(Boolean)
-            .forEach(fact => lines.push(`- ${fact}`));
-        lines.push('');
-        lines.push('');
-    }
-
-    const reviewFacts = buildReviewFacts(reviewData);
-    if (reviewFacts.length > 0) {
-        lines.push('## 실사용자 반응 요약');
-        reviewFacts.forEach(fact => lines.push(`- ${normalizeFactText(fact)}`));
-        lines.push('');
-    }
-
-    if (reviewData?.reviewSamples?.length > 0) {
-        lines.push(`"${reviewData.reviewSamples[0]}"`);
-        lines.push('');
-    }
-
     const quickSummary = (aiData.quickSummary || []).length > 0
         ? aiData.quickSummary
-        : buildFallbackQuickSummary(aiData, commerceData);
+        : (useFallbackStructure ? buildFallbackQuickSummary(aiData, commerceData) : []);
     if (quickSummary.length > 0) {
         const quickSummarySeconds = Math.floor(Math.random() * 6) + 5; // 5~10초
-        lines.push(`## ${quickSummarySeconds}초 요약`);
+        lines.push(`## ${normalizeWhitespace(aiData.quickSummaryHeading || '') || `${quickSummarySeconds}초 요약`}`);
         quickSummary.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
         lines.push('');
         lines.push('');
     }
 
-    const { pros, cons } = buildFallbackProsCons(aiData, commerceData, reviewData);
+    const { pros, cons } = (Array.isArray(aiData?.pros) && aiData.pros.length > 0) || (Array.isArray(aiData?.cons) && aiData.cons.length > 0)
+        ? {
+            pros: (aiData.pros || []).map(normalizeFactText).filter(Boolean).slice(0, 3),
+            cons: (aiData.cons || []).map(normalizeFactText).filter(Boolean).slice(0, 2)
+        }
+        : (useFallbackStructure ? buildFallbackProsCons(aiData, commerceData, reviewData) : { pros: [], cons: [] });
     if (pros.length > 0 || cons.length > 0) {
-        lines.push('## 좋았던 점/아쉬운 점');
+        lines.push(`## ${normalizeWhitespace(aiData.prosConsHeading || '') || '좋았던 점/아쉬운 점'}`);
         lines.push('');
         if (pros.length > 0) {
             lines.push('[장점]');
@@ -2247,9 +2242,11 @@ function composeMarkdown({
         }
     }
 
-    const recommendedFor = buildFallbackRecommendedFor(aiData);
+    const recommendedFor = (Array.isArray(aiData?.recommendedFor) && aiData.recommendedFor.length > 0)
+        ? aiData.recommendedFor.map(normalizeFactText).filter(Boolean).slice(0, 3)
+        : (useFallbackStructure ? buildFallbackRecommendedFor(aiData) : []);
     if (recommendedFor.length > 0) {
-        lines.push('## 이런 분들께 추천해요');
+        lines.push(`## ${normalizeWhitespace(aiData.recommendedHeading || '') || '이런 분들께 추천해요'}`);
         recommendedFor.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
         lines.push('');
     }
@@ -2278,7 +2275,7 @@ function composeMarkdown({
         }
         const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
         if (linksInserted === 0) {
-            lines.push('## 지금 바로 확인하고 혜택 받으세요!');
+            lines.push(`## ${normalizeWhitespace(aiData.ctaHeading || '') || '지금 바로 확인하고 혜택 받으세요!'}`);
         }
         lines.push(`🛒 ${phrase}`);
         lines.push(shortUrl);

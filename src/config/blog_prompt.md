@@ -137,6 +137,8 @@ prompt: A professional high-quality [Selected Style Name] of [Image Description]
 - 오직 블록만 단독으로 줄바꿈하여 배치하세요.
 - AR 명시 (4:3)
 - 사람의 국적/성별은 내용에 부합하게 하고, 명확하지 않으면 한국인으로 함.
+- 이미지 내에는 문자(text) 금지 (no text)
+- 흰색의 빈 여백이 없이 가득찬 이미지이어야 함
 - 이미지 다음엔 반드시 빈 줄 하나
 
 [5] SEO & GEO 최적화 지침

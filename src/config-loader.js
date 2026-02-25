@@ -332,6 +332,9 @@ const naverAutoVariationIncludeNumber = parseBoolLike(
     userConfig.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
     true
 );
+const naverAutoVariationType = String(
+    userConfig.NAVER_AUTO_VARIATION_TYPE || 'min'
+).trim();
 const naverAutoVariationNumber = parseIntegerOrBlank(
     userConfig.NAVER_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
     50
@@ -429,6 +432,7 @@ module.exports = {
     NAVER_AUTO_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,
     NAVER_AUTO_VARIATION_INCLUDE_DASH: naverAutoVariationIncludeDash,
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
+    NAVER_AUTO_VARIATION_TYPE: naverAutoVariationType,
     NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
     NAVER_SHOPPING_AUTO_MODE: naverShoppingAutoMode,

@@ -2032,6 +2032,7 @@ function buildSettingsMajorPayload() {
     NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(document.getElementById('blog-auto-variation-new')?.checked),
     NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
     NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
+    NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
     NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-number')?.value || '', 50),
     NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
     NAVER_SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
@@ -2835,11 +2836,15 @@ async function loadBlogAutoSettings() {
     }
     if (variationNewEl) variationNewEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
     if (variationDashEl) variationDashEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+    const variationTypeEl = document.getElementById('blog-auto-variation-type');
     if (variationNumberEnabledEl) {
       variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
         fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
         true
       );
+    }
+    if (variationTypeEl) {
+      variationTypeEl.value = String(fields.NAVER_AUTO_VARIATION_TYPE || 'min');
     }
     if (variationNumberEl) {
       const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(
@@ -3157,6 +3162,7 @@ async function runBlogAutoManual() {
       NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
       NAVER_AUTO_VARIATION_NUMBER: variationNumber,
       NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
