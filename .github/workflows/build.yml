@@ -32,13 +32,25 @@ jobs:
       MIRROR_REPO: ${{ needs.setup.outputs.mirror_repo }}
       MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
     steps:
-      - name: Create or Update Release
+      - name: Create or Update Private Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+
+      - name: Create or Update Mirror Release (Single Job)
+        if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.MIRROR_REPO }}
+          token: ${{ env.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          overwrite_files: true
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          make_latest: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') }}
 
   build_and_upload:
     name: Build & Upload ${{ matrix.platform_name }}
@@ -196,8 +208,8 @@ jobs:
           files: ${{ matrix.zip_name }}
           fail_on_unmatched_files: true
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
-          make_latest: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') }}
+          # Note: We don't set make_latest or generate_release_notes here 
+          # to avoid concurrency issues since multiple jobs run in parallel.
 
   upload_release_readme:
     name: Upload Versioned Release README
