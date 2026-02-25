@@ -1,24 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Constants = require('./constants');
-
-// 앱 버전 정보 로드
-let APP_VERSION = '0.0.0';
-try {
-    // 1. require 방식 (node 실행 시 빠름)
-    APP_VERSION = require('../package.json').version;
-} catch (e) {
-    try {
-        // 2. fs 방식 (절대 경로)
-        const pkgPath = path.join(__dirname, '..', 'package.json');
-        if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            APP_VERSION = pkg.version;
-        }
-    } catch (e2) {
-        // fallback
-    }
-}
+const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점]
 const ROOT_DIR = process.cwd();

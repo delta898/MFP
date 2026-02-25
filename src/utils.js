@@ -2699,12 +2699,18 @@ const Utils = {
             startOfWeek.setDate(now.getDate() - dayOfWeek);
             startOfWeek.setHours(0, 0, 0, 0);
 
+            // 🚀 병렬 데이터 로딩 (블로킹 제거)
+            const [topics, shopping, trends] = await Promise.all([
+                this.readGoogleSheetTopics({ silent: true }),
+                this.readGoogleSheetShopping({ silent: true }),
+                this.readGoogleSheetTrends({ silent: true })
+            ]);
+
             let blogWeeklyCount = 0;
             let shoppingWeeklyCount = 0;
             let pendingTopicsCount = 0;
             let pendingTrendsCount = 0;
 
-            const topics = await this.readGoogleSheetTopics({ silent: true });
             topics.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '블로그 발행 완료') {
@@ -2717,7 +2723,6 @@ const Utils = {
                 }
             });
 
-            const shopping = await this.readGoogleSheetShopping({ silent: true });
             shopping.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '발행 완료') {
@@ -2725,7 +2730,6 @@ const Utils = {
                 }
             });
 
-            const trends = await this.readGoogleSheetTrends({ silent: true });
             trends.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '대기' || st === '조사 완료') {

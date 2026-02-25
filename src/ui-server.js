@@ -3,21 +3,9 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 
-// 앱 버전 정보 로드 (중복 검증 및 명시적 로딩)
-let APP_VERSION = '0.0.0';
-try {
-    const pkg = require('../package.json');
-    APP_VERSION = pkg.version || '0.0.0';
-} catch (e) {
-    try {
-        const pkgText = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8');
-        const pkg = JSON.parse(pkgText);
-        APP_VERSION = pkg.version || '0.0.0';
-    } catch (e2) {
-        // fallback
-    }
-}
 const License = require('./license');
+const Constants = require('./constants');
+const { APP_VERSION } = Constants;
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const { checkAuthSessionValid } = require('./auth-session');

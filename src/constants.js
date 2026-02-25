@@ -1,10 +1,27 @@
 const path = require('path');
+const fs = require('fs');
+
+// 앱 버전 정보 로드 (명시적 로딩)
+let APP_VERSION = '0.0.0';
+try {
+    const pkgPath = path.join(__dirname, '..', 'package.json');
+    if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        APP_VERSION = pkg.version || '0.0.0';
+    } else {
+        // node_modules 모드 고려
+        APP_VERSION = require('../package.json').version || '0.0.0';
+    }
+} catch (e) {
+    // fallback
+}
 
 // 💡 [핵심] __dirname 대신 process.cwd() 사용
 // 이렇게 해야 실행 파일이 있는 곳(사용자 PC 폴더)을 기준으로 파일을 찾습니다.
 const RUNTIME_ROOT = process.cwd();
 
 module.exports = {
+    APP_VERSION,
     // 🔓 시스템 경로 (사용자 실행 위치 기준)
 
     // 1. 인증 파일: 실행 파일 바로 옆에 'auth.json'이 있다고 가정
