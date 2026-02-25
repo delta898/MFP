@@ -1659,10 +1659,7 @@ async function executeQuickPublish(requestBody) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
         }
 
-        const autoSettings = getAutoSettingsSnapshot();
-        await Core.publishToBlog(result.targetDir, {
-            headless: autoSettings.NAVER_AUTO_HEADLESS
-        });
+        await Core.publishToBlog(result.targetDir);
 
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
@@ -1985,7 +1982,8 @@ async function executeBlogBatchRowsAction(requestBody) {
         const result = await executeBlogRowAction(
             { action: 'batch', rowIndex },
             {
-                onProgress: (message) => setBlogRuntimeLog(rowIndex, message)
+                onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
+                isAutoCycle: requestBody?.isAutoCycle === true
             }
         );
         if (result.success) {
@@ -2079,12 +2077,17 @@ async function executeShoppingRowAction(requestBody, options = {}) {
 
         report('네이버 발행 단계 진행 중');
 
-        const shoppingSettings = getShoppingAutoSettingsSnapshot();
-        await Core.publishToBlog(buildResult.targetDir, {
+        const publishOptions = {
             affiliateUrl: shortUrl,
-            requireAffiliateUrl: true,
-            headless: shoppingSettings.NAVER_SHOPPING_AUTO_HEADLESS
-        });
+            requireAffiliateUrl: true
+        };
+        if (options.isAutoCycle === true) {
+            const shoppingSettings = getShoppingAutoSettingsSnapshot();
+            if (shoppingSettings.NAVER_SHOPPING_AUTO_HEADLESS) {
+                publishOptions.headless = true;
+            }
+        }
+        await Core.publishToBlog(buildResult.targetDir, publishOptions);
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
 
         return {
@@ -2914,7 +2917,7 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
                     .filter((v) => Number.isInteger(v) && v >= 0);
                 summary.shoppingAttempted = rowIndices.length;
                 if (rowIndices.length > 0) {
-                    const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
+                    const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices, isAutoCycle: true });
                     const successCount = Number(batchResult?.data?.successCount || 0);
                     summary.shoppingSuccess = successCount;
                     if (successCount > 0) {
@@ -3476,7 +3479,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                 const rowIndices = candidates.map((item) => item.rowIndex).filter((v) => Number.isInteger(v) && v >= 0);
                 summary.blogAttempted = rowIndices.length;
                 if (rowIndices.length > 0) {
-                    const blogResult = await executeBlogBatchRowsAction({ action: 'batch', rowIndices });
+                    const blogResult = await executeBlogBatchRowsAction({ action: 'batch', rowIndices, isAutoCycle: true });
                     const successCount = Number(blogResult?.data?.successCount || 0);
                     summary.blogSuccess = successCount;
                     if (successCount > 0) {
