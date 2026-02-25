@@ -267,14 +267,16 @@ function showUiConfirm(message, options = {}) {
 async function loadConfigStatus() {
   try {
     const status = await fetchJson('/api/v1/config/status');
-    console.log('[Config Status]', status);
+    console.log('[Config Status] Received:', status);
     uiConfigReady = status?.ready === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
 
-    // 앱 버전 표시
+    // 앱 버전 즉시 표시
     const versionBadge = document.getElementById('badge-version');
-    if (versionBadge && status?.version) {
-      versionBadge.textContent = `v${status.version}`;
+    if (versionBadge) {
+      const v = status?.version || '0.0.0';
+      versionBadge.textContent = `v${v}`;
+      console.log('[UI] Version badge updated to:', v);
     }
 
     if (!uiConfigReady && !uiConfigPopupShown) {
@@ -3912,19 +3914,23 @@ window.addEventListener('DOMContentLoaded', () => {
   loadGoogleAuthStatus();
 
   // 🚀 비동기 병렬 초기화 (블로킹 제거)
-  const configPromise = loadConfigStatus();
+  loadConfigStatus().finally(() => {
+    console.log('[UI] Initial config status check completed');
+  });
 
-  configPromise.finally(async () => {
-    // 대시보드 먼저 로드 (시트 검사 비동기 처리)
-    loadDashboard();
+  // 대시보드 별도 로드 (블로킹 방지)
+  loadDashboard().finally(() => {
+    console.log('[UI] Initial dashboard load attempted');
+  });
 
+  // 시트 검사는 백그라운드에서 진행
+  setTimeout(() => {
     if (uiConfigReady) {
-      // 시트 검사는 백그라운드에서 진행 (성공 시 대시보드 갱신)
       ensureSheetsPreflightUi({ silent: true }).then(ready => {
         if (ready) loadDashboard();
       });
     }
-  });
+  }, 2000);
   loadBlogAutoSettings();
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();
