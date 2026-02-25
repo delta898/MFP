@@ -11,7 +11,7 @@ const Logger = require('./logger');
  */
 class Updater {
     constructor() {
-        this.currentVersion = CONFIG.APP_VERSION || require('../package.json').version;
+        this.currentVersion = APP_VERSION;
         this.repo = CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO;
         this.tempDir = path.join(CONFIG.APP_ROOT_DIR, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
         this.isUpdating = false;

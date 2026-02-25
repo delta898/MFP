@@ -8,6 +8,7 @@ const Constants = require('./constants');
 const { APP_VERSION } = Constants;
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+Logger.debug(`Application version: ${APP_VERSION}`);
 const { checkAuthSessionValid } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
@@ -3614,12 +3615,13 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
 
     if (pathname === '/api/v1/config/status') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        console.log(`[Status API] Reporting version: ${APP_VERSION}`);
         return sendSuccess(res, requestId, {
             ready: CONFIG.CONFIG_READY === true,
             sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
             sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
             message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
-            version: String(APP_VERSION || '0.0.0') // config-loader 대신 ui-server의 APP_VERSION 직접 사용
+            version: String(APP_VERSION || '0.0.0')
         });
     }
 

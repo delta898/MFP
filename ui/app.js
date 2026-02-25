@@ -267,6 +267,7 @@ function showUiConfirm(message, options = {}) {
 async function loadConfigStatus() {
   try {
     const status = await fetchJson('/api/v1/config/status');
+    console.log('[Config Status]', status);
     uiConfigReady = status?.ready === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
 
