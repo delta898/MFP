@@ -2640,7 +2640,7 @@ function getAutoStatusPayload() {
 
 function clearAutoTimer() {
     if (autoRuntimeState.timer) {
-        clearTimeout(autoRuntimeState.timer);
+        clearInterval(autoRuntimeState.timer);
         autoRuntimeState.timer = null;
     }
 }
@@ -2680,11 +2680,22 @@ function scheduleNextAutoCycle(delayMs = null) {
     }
 
     autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
-    autoRuntimeState.timer = setTimeout(() => {
-        runAutoCycle('timer').catch((e) => {
-            Logger.error(`❌ [AUTO] 사이클 실행 실패: ${e.message}`);
-        });
-    }, waitMs);
+
+    // 30초마다 현재 시간과 예약 시간을 비교하여, 목표 시간이 경과했다면 실행
+    autoRuntimeState.timer = setInterval(() => {
+        if (!autoRuntimeState.enabled || autoRuntimeState.running) return;
+
+        const nowMs = Date.now();
+        const targetMs = new Date(autoRuntimeState.nextRunAt).getTime();
+
+        if (nowMs >= targetMs) {
+            clearInterval(autoRuntimeState.timer);
+            autoRuntimeState.timer = null;
+            runAutoCycle('timer').catch((e) => {
+                Logger.error(`❌ [AUTO] 사이클 실행 실패: ${e.message}`);
+            });
+        }
+    }, 30000); // 30초마다 체크
 }
 
 function stopAutoRunner(reason = '자동 모드 중지') {
@@ -2718,7 +2729,7 @@ function syncAutoRunnerWithConfig() {
 // ──────────────────────────────────────────────
 function clearShoppingAutoTimer() {
     if (shoppingAutoRuntimeState.timer) {
-        clearTimeout(shoppingAutoRuntimeState.timer);
+        clearInterval(shoppingAutoRuntimeState.timer);
         shoppingAutoRuntimeState.timer = null;
     }
 }
@@ -2758,11 +2769,22 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
     }
 
     shoppingAutoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
-    shoppingAutoRuntimeState.timer = setTimeout(() => {
-        runShoppingAutoCycle('timer').catch((e) => {
-            Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
-        });
-    }, waitMs);
+
+    // 30초마다 현재 시간과 예약 시간을 비교하여, 목표 시간이 경과했다면 실행
+    shoppingAutoRuntimeState.timer = setInterval(() => {
+        if (!shoppingAutoRuntimeState.enabled || shoppingAutoRuntimeState.running) return;
+
+        const nowMs = Date.now();
+        const targetMs = new Date(shoppingAutoRuntimeState.nextRunAt).getTime();
+
+        if (nowMs >= targetMs) {
+            clearInterval(shoppingAutoRuntimeState.timer);
+            shoppingAutoRuntimeState.timer = null;
+            runShoppingAutoCycle('timer').catch((e) => {
+                Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
+            });
+        }
+    }, 30000); // 30초마다 체크
 }
 
 function stopShoppingAutoRunner(reason = '쇼핑 자동 모드 중지') {
