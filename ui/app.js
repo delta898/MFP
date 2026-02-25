@@ -886,9 +886,14 @@ async function loadDashboard() {
   // Update Badges
   const healthBadge = document.getElementById('badge-health');
   if (healthBadge) {
-    if (healthOk) {
+    if (healthOk && health) {
       healthBadge.textContent = 'Health: OK';
       healthBadge.style.background = '#dcfce7'; healthBadge.style.color = '#166534';
+
+      const versionBadge = document.getElementById('badge-version');
+      if (versionBadge && health.version) {
+        versionBadge.textContent = `v${health.version}`;
+      }
     } else {
       healthBadge.textContent = 'Health: Error';
       healthBadge.style.background = '#fee2e2'; healthBadge.style.color = '#991b1b';
@@ -897,7 +902,7 @@ async function loadDashboard() {
 
   const sessionBadge = document.getElementById('badge-session');
   if (sessionBadge) {
-    if (sessionOk && session.valid) {
+    if (sessionOk && session && session.valid) {
       sessionBadge.textContent = 'Naver: 유효';
       sessionBadge.style.background = '#dbeafe'; sessionBadge.style.color = '#1e3a8a';
     } else {
@@ -908,7 +913,7 @@ async function loadDashboard() {
 
   const licenseBadge = document.getElementById('badge-license');
   if (licenseBadge) {
-    if (licenseOk) {
+    if (licenseOk && license) {
       licenseBadge.textContent = `Plan: ${license.planName || license.planCode} (잔여 ${license.remaining})`;
       licenseBadge.style.background = '#f3e8ff'; licenseBadge.style.color = '#6b21a8';
     } else {
