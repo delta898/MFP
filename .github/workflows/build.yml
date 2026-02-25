@@ -255,6 +255,8 @@ jobs:
       - name: Upload README to Mirror Repo
         if: env.MIRROR_REPO != '' && secrets.MIRROR_REPO_PAT != ''
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.MIRROR_REPO_PAT }}
         with:
           repository: ${{ env.MIRROR_REPO }}
           token: ${{ secrets.MIRROR_REPO_PAT }}

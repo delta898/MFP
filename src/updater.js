@@ -4,6 +4,7 @@ const axios = require('axios');
 const { spawn } = require('child_process');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const { APP_VERSION } = require('./constants');
 
 /**
  * Updater Module
