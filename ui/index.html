@@ -23,6 +23,19 @@
     </aside>
 
     <main class="main">
+      <!-- Update Banner (Hidden by default) -->
+      <div id="update-banner" class="update-banner hidden">
+        <div class="update-banner-content">
+          <span class="update-icon">🚀</span>
+          <span id="update-banner-text">새로운 버전이 준비되었습니다!</span>
+          <button id="update-details-btn" class="text-btn">자세히 보기</button>
+        </div>
+        <div class="update-banner-actions">
+          <button id="update-now-btn" class="primary compact">지금 업데이트</button>
+          <button id="update-close-btn" class="close-btn">&times;</button>
+        </div>
+      </div>
+
       <section class="view active" id="view-dashboard">
         <div class="dashboard-header" style="margin-bottom: 24px;">
           <!-- Top Row: Title & Clock -->

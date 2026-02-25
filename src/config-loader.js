@@ -361,6 +361,9 @@ const naverShoppingAutoNotifyEnabled = parseBoolLike(
     false
 );
 
+const updateChannel = String(userConfig.UPDATE_CHANNEL || 'stable').trim().toLowerCase();
+const updateMirrorRepo = String(userConfig.UPDATE_MIRROR_REPO || '').trim();
+
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
 // =========================================================
@@ -444,6 +447,9 @@ module.exports = {
     NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
     NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
+    UPDATE_CHANNEL: updateChannel,
+    UPDATE_MIRROR_REPO: updateMirrorRepo,
+    APP_VERSION: APP_VERSION,
     // legacy alias (내부 호환)
     AUTO_MODE: naverAutoMode,
     AUTO_INCLUDE_CATEGORIES: naverAutoCategories,

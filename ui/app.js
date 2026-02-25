@@ -98,11 +98,60 @@ const SETTINGS_MAJOR_AUTOSAVE_DELAY_MS = 700;
 let settingsAdvancedRevision = '';
 let settingsAdvancedStale = false;
 const SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT = [
-  '나 보기가 역겨워 가실 때에는',
-  '말없이 고이 보내 드리우리다',
-  '영변에 약산 진달래꽃',
-  '아름 따다 가실 길에 뿌리우리다'
-].join('\n');
+  "나 보기가 역겨워 가실 때에는\n말없이 고이 보내 드리우리다\n영변에 약산 진달래꽃\n아름 따다 가실 길에 뿌리우리다",
+  "죽는 날까지 하늘을 우러러\n한 점 부끄럼이 없기를\n잎새에 이는 바람에도\n나는 괴로워했다"
+];
+
+let uiUpdateInfo = null;
+
+async function checkUpdate() {
+  try {
+    const info = await fetchJson('/api/v1/system/update/check');
+    if (info && info.hasUpdate) {
+      uiUpdateInfo = info;
+      const banner = document.getElementById('update-banner');
+      const bannerText = document.getElementById('update-banner-text');
+      if (banner && bannerText) {
+        bannerText.textContent = `새로운 버전(v${info.latestVersion})이 출시되었습니다!`;
+        banner.classList.remove('hidden');
+      }
+    }
+  } catch (e) {
+    console.warn('업데이트 체크 실패:', e);
+  }
+}
+
+async function applyUpdate() {
+  if (!uiUpdateInfo) return;
+
+  const confirmed = await showUiConfirm(`BlogGenius v${uiUpdateInfo.latestVersion} 업데이트를 시작할까요?\n\n업데이트 완료 후 앱이 자동으로 재시작되거나 수동으로 재시작해야 할 수 있습니다.`);
+  if (!confirmed) return;
+
+  const banner = document.getElementById('update-banner');
+  const bannerText = document.getElementById('update-banner-text');
+  const updateNowBtn = document.getElementById('update-now-btn');
+
+  try {
+    if (updateNowBtn) updateNowBtn.disabled = true;
+    if (bannerText) bannerText.textContent = '업데이트 다운로드 및 적용 중... (잠시만 기다려주세요)';
+
+    await postJson('/api/v1/system/update/apply');
+
+    if (bannerText) bannerText.textContent = '업데이트가 완료되었습니다. 1초 후 재시작합니다.';
+
+    await postJson('/api/v1/system/update/restart');
+
+    setTimeout(() => {
+      showUiPopup('앱이 재시작되었습니다. 페이지를 새로고침해 주세요.');
+      location.reload();
+    }, 3000);
+
+  } catch (e) {
+    if (updateNowBtn) updateNowBtn.disabled = false;
+    if (bannerText) bannerText.textContent = '업데이트 중 오류가 발생했습니다.';
+    showUiPopup(`업데이트 실패: ${e.message}`);
+  }
+}
 const SETTINGS_TYPING_PREVIEW_DELAY = {
   QUICK: 8,
   FAST: 20,
@@ -3811,6 +3860,32 @@ function bindActions() {
 
 window.addEventListener('DOMContentLoaded', () => {
   initClockWidget();
+  checkUpdate();
+
+  // Update Banner Events
+  const updateCloseBtn = document.getElementById('update-close-btn');
+  if (updateCloseBtn) {
+    updateCloseBtn.addEventListener('click', () => {
+      const banner = document.getElementById('update-banner');
+      if (banner) banner.classList.add('hidden');
+    });
+  }
+
+  const updateDetailsBtn = document.getElementById('update-details-btn');
+  if (updateDetailsBtn) {
+    updateDetailsBtn.addEventListener('click', () => {
+      if (uiUpdateInfo && uiUpdateInfo.htmlUrl) {
+        window.open(uiUpdateInfo.htmlUrl, '_blank');
+      }
+    });
+  }
+
+  const updateNowBtn = document.getElementById('update-now-btn');
+  if (updateNowBtn) {
+    updateNowBtn.addEventListener('click', () => {
+      applyUpdate();
+    });
+  }
   const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');
   if (dashLogRefreshBtn) {
     dashLogRefreshBtn.addEventListener('click', () => {

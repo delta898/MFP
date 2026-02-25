@@ -68,6 +68,95 @@ body {
   padding: 16px 20px 24px;
 }
 
+/* Update Banner */
+.update-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0f172a;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.update-banner.hidden {
+  display: none;
+}
+
+.update-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.update-icon {
+  font-size: 18px;
+}
+
+#update-banner-text {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  color: #38bdf8;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+}
+
+.text-btn:hover {
+  color: #7dd3fc;
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.primary.compact {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary.compact:hover {
+  background: #38bdf8;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+
 .topbar {
   display: flex;
   justify-content: space-between;

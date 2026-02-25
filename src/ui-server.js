@@ -12,6 +12,7 @@ const Core = require('./core');
 const BrowserLauncher = require('./browser-launcher');
 const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
+const Updater = require('./updater');
 const RuntimeConfig = require('./runtime-config');
 
 const DEFAULT_HOST = '127.0.0.1';
@@ -3515,6 +3516,40 @@ async function handleApi(requestId, method, pathname, searchParams, requestBody,
     if (pathname === '/api/v1/health') {
         if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
         return sendSuccess(res, requestId, { status: 'ok', version: APP_VERSION });
+    }
+
+    // --- System Update Endpoints ---
+    if (pathname === '/api/v1/system/update/check') {
+        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            const updateInfo = await Updater.checkForUpdate();
+            return sendSuccess(res, requestId, updateInfo || { hasUpdate: false });
+        } catch (e) {
+            return sendError(res, requestId, 500, 'UPDATE_CHECK_ERROR', e.message);
+        }
+    }
+
+    if (pathname === '/api/v1/system/update/apply') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        try {
+            await Updater.applyUpdate((progress) => {
+                // We don't have a way to stream progress back in a simple JSON API 
+                // easily without WebSockets, but we'll return once done.
+                // UI can show a generic "Updating..." spinner.
+            });
+            return sendSuccess(res, requestId, { success: true });
+        } catch (e) {
+            return sendError(res, requestId, 500, 'UPDATE_APPLY_ERROR', e.message);
+        }
+    }
+
+    if (pathname === '/api/v1/system/update/restart') {
+        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+        sendSuccess(res, requestId, { success: true });
+        setTimeout(() => {
+            Updater.restart();
+        }, 1000);
+        return;
     }
 
     if (pathname === '/api/v1/dashboard/summary') {

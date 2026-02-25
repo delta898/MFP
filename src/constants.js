@@ -38,5 +38,10 @@ module.exports = {
     },
 
     // 🔒 외부 참고 설정 (내부 변수 - 사용자 설정 아님)
-    REFERENCE_BLOG_COUNT: 3  // 자동 참고할 인기 블로그 글 수
+    REFERENCE_BLOG_COUNT: 3,  // 자동 참고할 인기 블로그 글 수
+
+    // 🔄 업데이트 관련 설정
+    DEFAULT_UPDATE_MIRROR_REPO: 'delta898/NaverAutoBlog-Releases',
+    UPDATE_CHECK_INTERVAL_MS: 1000 * 60 * 60 * 6, // 6시간마다 체크
+    UPDATE_TEMP_DIR: 'tmp_update'
 };
