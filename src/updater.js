@@ -181,7 +181,7 @@ class Updater {
                 fs.chmodSync(currentBinPath, '755');
             }
 
-            Logger.success('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
+            Logger.info('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
             return true;
         } catch (e) {
             Logger.error(`❌ [Updater] 업데이트 실패: ${e.message}`);

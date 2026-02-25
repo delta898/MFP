@@ -2884,7 +2884,7 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
         shoppingAutoRuntimeState.message = '쇼핑 자동 사이클 완료';
         shoppingAutoRuntimeState.lastSummary = summary;
 
-        Logger.success(`✅ [AUTO][쇼핑] 파이프라인 완료! - 쇼핑 발행 시도/성공: ${summary.shoppingAttempted}/${summary.shoppingSuccess}`);
+        Logger.info(`✅ [AUTO][쇼핑] 파이프라인 완료! - 쇼핑 발행 시도/성공: ${summary.shoppingAttempted}/${summary.shoppingSuccess}`);
         if (summary.skipped && summary.skipped.length > 0) {
             Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
         }
@@ -3453,7 +3453,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         autoRuntimeState.message = '블로그 자동 사이클 완료';
         autoRuntimeState.lastSummary = summary;
 
-        Logger.success(`✅ [AUTO][블로그] 파이프라인 완료! - 트렌드 수집: ${summary.trendsCollected}건, 토픽 전환: ${summary.trendsToTopics}건, 블로그 발행 시도/성공: ${summary.blogAttempted}/${summary.blogSuccess}`);
+        Logger.info(`✅ [AUTO][블로그] 파이프라인 완료! - 트렌드 수집: ${summary.trendsCollected}건, 토픽 전환: ${summary.trendsToTopics}건, 블로그 발행 시도/성공: ${summary.blogAttempted}/${summary.blogSuccess}`);
         if (summary.skipped && summary.skipped.length > 0) {
             Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
         }

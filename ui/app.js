@@ -3011,6 +3011,7 @@ async function saveBlogAutoSettings() {
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const variationMinEl = document.getElementById('blog-auto-variation-min');
   const variationTopEl = document.getElementById('blog-auto-variation-top');
+  const variationTypeEl = document.getElementById('blog-auto-variation-type');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
   setBlogAutoResultText('저장 중...');
   try {
@@ -3049,6 +3050,7 @@ async function saveBlogAutoSettings() {
       NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
       NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      NAVER_AUTO_VARIATION_TYPE: (variationTypeEl?.value || 'min').trim(),
       NAVER_AUTO_VARIATION_NUMBER: variationMin,
       NAVER_AUTO_VARIATION_TOP_N: variationTopN,
       NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
@@ -3077,13 +3079,24 @@ async function saveBlogAutoSettings() {
         true
       );
     }
-    if (variationNumberEl) {
+    if (variationTypeEl) {
+      variationTypeEl.value = String(savedFields.NAVER_AUTO_VARIATION_TYPE || 'min');
+    }
+    if (variationMinEl) {
       const normalizedSavedVariationNumber = normalizeBlogAutoVariationNumberValue(
         savedFields.NAVER_AUTO_VARIATION_NUMBER ?? savedFields.AUTO_TRENDS_MIN_VARIATION,
         50
       );
-      variationNumberEl.value = normalizedSavedVariationNumber === '' ? '' : String(normalizedSavedVariationNumber);
+      variationMinEl.value = normalizedSavedVariationNumber === '' ? '' : String(normalizedSavedVariationNumber);
     }
+    if (variationTopEl) {
+      const normalizedTopN = normalizeBlogAutoVariationNumberValue(
+        savedFields.NAVER_AUTO_VARIATION_TOP_N ?? 5,
+        5
+      );
+      variationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
+    }
+    syncBlogAutoVariationTypeUi();
     syncBlogAutoVariationNumberUi();
     if (keywordReuseGapEl) {
       const normalizedSavedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
