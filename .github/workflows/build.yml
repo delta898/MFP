@@ -216,7 +216,7 @@ jobs:
   upload_release_readme:
     name: Upload Versioned Release README
     runs-on: ubuntu-latest
-    needs: create_release
+    needs: [setup, create_release]
     steps:
       - uses: actions/checkout@v4
 
@@ -250,7 +250,7 @@ jobs:
           overwrite_files: true
 
       - name: Upload README to Mirror Repo
-        if: needs.setup.outputs.mirror_repo != '' && secrets.MIRROR_REPO_PAT != ''
+        if: needs.setup.outputs.mirror_repo != ''
         uses: softprops/action-gh-release@v2
         with:
           repository: ${{ needs.setup.outputs.mirror_repo }}
