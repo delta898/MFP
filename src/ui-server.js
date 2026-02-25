@@ -2605,6 +2605,11 @@ function scheduleNextAutoCycle(delayMs = null) {
 
         waitMs = target.getTime() - now.getTime();
         waitMs = Math.max(60 * 1000, waitMs);
+
+        const waitMinutes = Math.floor(waitMs / (60 * 1000));
+        const waitHours = Math.floor(waitMinutes / 60);
+        const remainMins = waitMinutes % 60;
+        Logger.info(`ℹ️ [AUTO] 다음 블로그 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
     }
 
     autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
@@ -2949,6 +2954,8 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
     autoRuntimeState.nextRunAt = null;
     resetAutoDailyCountersIfNeeded();
 
+    Logger.info(`🚀 [AUTO] 자동 발행 파이프라인(사이클) 시작! (Trigger: ${trigger})`);
+
     const summary = {
         trigger,
         trendsCollected: 0,
@@ -3185,6 +3192,12 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         autoRuntimeState.status = 'waiting';
         autoRuntimeState.message = '자동 사이클 완료';
         autoRuntimeState.lastSummary = summary;
+
+        Logger.success(`✅ [AUTO] 파이프라인(사이클) 완료! - 트렌드 수집: ${summary.trendsCollected}건, 토픽 전환: ${summary.trendsToTopics}건, 블로그 발행 시도/성공: ${summary.blogAttempted}/${summary.blogSuccess}`);
+        if (summary.skipped && summary.skipped.length > 0) {
+            Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
+        }
+
         return {
             success: true,
             data: {

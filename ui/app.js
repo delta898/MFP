@@ -3765,5 +3765,11 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (isDashboardPollingPaused()) return;
     loadDashboard();
+
+    // 자동 새로고침: 로그 뷰가 활성화되어 있으면 함께 갱신
+    const logsView = document.getElementById('dash-logs-history');
+    if (logsView && !logsView.classList.contains('hidden')) {
+      loadDashboardLogs();
+    }
   }, 15000);
 });
