@@ -3877,46 +3877,51 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  initClockWidget();
-  checkUpdate();
+  try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
+  try { checkUpdate(); } catch (e) { console.warn('checkUpdate error:', e); }
 
   // Update Banner Events
-  const updateCloseBtn = document.getElementById('update-close-btn');
-  if (updateCloseBtn) {
-    updateCloseBtn.addEventListener('click', () => {
-      const banner = document.getElementById('update-banner');
-      if (banner) banner.classList.add('hidden');
-    });
-  }
+  try {
+    const updateCloseBtn = document.getElementById('update-close-btn');
+    if (updateCloseBtn) {
+      updateCloseBtn.addEventListener('click', () => {
+        const banner = document.getElementById('update-banner');
+        if (banner) banner.classList.add('hidden');
+      });
+    }
 
-  const updateDetailsBtn = document.getElementById('update-details-btn');
-  if (updateDetailsBtn) {
-    updateDetailsBtn.addEventListener('click', () => {
-      if (uiUpdateInfo && uiUpdateInfo.htmlUrl) {
-        window.open(uiUpdateInfo.htmlUrl, '_blank');
-      }
-    });
-  }
+    const updateDetailsBtn = document.getElementById('update-details-btn');
+    if (updateDetailsBtn) {
+      updateDetailsBtn.addEventListener('click', () => {
+        if (uiUpdateInfo && uiUpdateInfo.htmlUrl) {
+          window.open(uiUpdateInfo.htmlUrl, '_blank');
+        }
+      });
+    }
 
-  const updateNowBtn = document.getElementById('update-now-btn');
-  if (updateNowBtn) {
-    updateNowBtn.addEventListener('click', () => {
-      applyUpdate();
-    });
-  }
-  const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');
-  if (dashLogRefreshBtn) {
-    dashLogRefreshBtn.addEventListener('click', () => {
-      loadDashboardLogs();
-      dashLogRefreshBtn.textContent = '불러오는 중...';
-      setTimeout(() => dashLogRefreshBtn.textContent = '새로고침', 500);
-    });
-  }
+    const updateNowBtn = document.getElementById('update-now-btn');
+    if (updateNowBtn) {
+      updateNowBtn.addEventListener('click', () => {
+        applyUpdate();
+      });
+    }
+  } catch (e) { console.warn('Update banner init error:', e); }
 
-  bindNavigation();
-  bindActions();
-  playSettingsTypingPreview();
-  loadGoogleAuthStatus();
+  try {
+    const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');
+    if (dashLogRefreshBtn) {
+      dashLogRefreshBtn.addEventListener('click', () => {
+        loadDashboardLogs();
+        dashLogRefreshBtn.textContent = '불러오는 중...';
+        setTimeout(() => dashLogRefreshBtn.textContent = '새로고침', 500);
+      });
+    }
+  } catch (e) { console.warn('Dash log refresh init error:', e); }
+
+  try { bindNavigation(); } catch (e) { console.warn('bindNavigation error:', e); }
+  try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
+  try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }
+  try { loadGoogleAuthStatus(); } catch (e) { console.warn('loadGoogleAuthStatus error:', e); }
 
   // 🚀 비동기 병렬 초기화 (블로킹 제거)
   loadConfigStatus().finally(() => {
