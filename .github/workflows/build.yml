@@ -248,3 +248,14 @@ jobs:
           files: ${{ env.README_FILE }}
           fail_on_unmatched_files: true
           overwrite_files: true
+
+      - name: Upload README to Mirror Repo
+        if: needs.setup.outputs.mirror_repo != '' && secrets.MIRROR_REPO_PAT != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ needs.setup.outputs.mirror_repo }}
+          token: ${{ secrets.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.README_FILE }}
+          fail_on_unmatched_files: true
+          overwrite_files: true

@@ -5,8 +5,11 @@ const Constants = require('./constants');
 // 앱 버전 정보 로드
 let APP_VERSION = '0.0.0';
 try {
-    const pkg = require('../package.json');
-    APP_VERSION = pkg.version;
+    const pkgPath = path.join(__dirname, '../package.json');
+    if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        APP_VERSION = pkg.version;
+    }
 } catch (e) {
     // fallback
 }
