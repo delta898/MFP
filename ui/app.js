@@ -3444,6 +3444,7 @@ function bindActions() {
 
   const saveBtn = document.getElementById('quick-save-btn');
   const publishBtn = document.getElementById('quick-publish-btn');
+  const clearBtn = document.getElementById('quick-clear-btn');
   const resultEl = document.getElementById('quick-result');
 
   const buildQuickPayload = (mode) => ({
@@ -3474,6 +3475,20 @@ function bindActions() {
   }
   if (publishBtn) {
     publishBtn.addEventListener('click', () => runQuickPublish('append_and_publish'));
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const subjectEl = document.getElementById('quick-subject');
+      const keywordsEl = document.getElementById('quick-keywords');
+      const instructionEl = document.getElementById('quick-instruction');
+      const referenceUrlEl = document.getElementById('quick-reference-url');
+      if (subjectEl) subjectEl.value = '';
+      if (keywordsEl) keywordsEl.value = '';
+      if (instructionEl) instructionEl.value = '';
+      if (referenceUrlEl) referenceUrlEl.value = '';
+      if (resultEl) resultEl.textContent = '입력 내용을 지웠습니다.';
+      subjectEl?.focus();
+    });
   }
 
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
