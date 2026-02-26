@@ -1,15 +1,8 @@
+const { createControllerErrorResponder, sendMethodNotAllowed } = require('./controller-common');
+
 function createSettingsController(deps = {}) {
     const { service, sendSuccess, sendError } = deps;
-
-    function toErrorResponse(res, requestId, fallbackCode, fallbackMessage, e) {
-        return sendError(
-            res,
-            requestId,
-            Number(e?.status || 400),
-            e?.apiCode || fallbackCode,
-            e?.message || fallbackMessage
-        );
-    }
+    const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 400 });
 
     return {
         async handleMajor({ requestId, method, requestBody, res }) {
@@ -31,7 +24,7 @@ function createSettingsController(deps = {}) {
                 }
             }
 
-            return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            return sendMethodNotAllowed(sendError, res, requestId);
         },
 
         async handleAdvanced({ requestId, method, requestBody, res }) {
@@ -53,7 +46,7 @@ function createSettingsController(deps = {}) {
                 }
             }
 
-            return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            return sendMethodNotAllowed(sendError, res, requestId);
         }
     };
 }

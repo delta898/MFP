@@ -3660,65 +3660,85 @@ function getSettingsRouteHandler() {
     return settingsRouteHandler;
 }
 
+function createLegacyApiDeps() {
+    const baseDeps = {
+        APP_VERSION,
+        Logger,
+        Updater,
+        Utils,
+        fs,
+        path,
+        CONFIG,
+        License,
+        ShoppingManager
+    };
+
+    const runtimeDeps = {
+        parseBoolQuery,
+        ensureSheetsReadyForUi,
+        toFeatureMap,
+        getFeatureInt,
+        resolveMaxBlogPostsPerRun,
+        resolveMaxShoppingPostsPerRun,
+        checkNaverSessionForUi,
+        getNaverLoginStatus,
+        getNaverLoginState: () => naverLoginState,
+        setNaverLoginState,
+        runNaverLoginFlowForUi
+    };
+
+    const configDeps = {
+        SHOPPING_IMAGE_SLOT_MAP,
+        parseBase64ImagePayload,
+        resolveWritableConfigPath,
+        tryResolveReadableConfigSource,
+        readConfigRaw,
+        buildDefaultConfigTemplate,
+        applyConfigUpdates,
+        parseConfigValue,
+        applyRuntimeConfigFromMajor,
+        parseMajorFieldsFromRequest,
+        syncAutoRunnerWithConfig,
+        syncShoppingAutoRunnerWithConfig,
+        resolveLocalImagePathFromSource,
+        getContentType,
+        resolveRuntimePath,
+        buildMajorSettings
+    };
+
+    const actionDeps = {
+        executeQuickPublish,
+        executeShoppingQuickPublish,
+        sortTopicItems,
+        getBlogRuntimeLogMap,
+        sortShoppingItems,
+        getShoppingRuntimeLogMap,
+        parseIntSafe,
+        normalizeSortDir,
+        executeBlogBatchRowsAction,
+        executeBlogRowAction,
+        executeShoppingBatchRowsAction,
+        executeShoppingAutoManualAction,
+        executeShoppingRowUpdate,
+        executeBlogTopicUpdate,
+        executeTrendCollectAction,
+        executeTrendsToTopicsAction,
+        executeKeywordsToTopicsAction
+    };
+
+    return {
+        ...baseDeps,
+        ...runtimeDeps,
+        ...configDeps,
+        ...actionDeps,
+        sendSuccess,
+        sendError
+    };
+}
+
 function getLegacyApiRouteHandler() {
     if (!legacyApiRouteHandler) {
-        legacyApiRouteHandler = createLegacyApiRouteHandler({
-            APP_VERSION,
-            Logger,
-            Updater,
-            Utils,
-            fs,
-            path,
-            CONFIG,
-            License,
-            ShoppingManager,
-            parseBoolQuery,
-            ensureSheetsReadyForUi,
-            toFeatureMap,
-            getFeatureInt,
-            resolveMaxBlogPostsPerRun,
-            resolveMaxShoppingPostsPerRun,
-            checkNaverSessionForUi,
-            getNaverLoginStatus,
-            getNaverLoginState: () => naverLoginState,
-            setNaverLoginState,
-            runNaverLoginFlowForUi,
-            SHOPPING_IMAGE_SLOT_MAP,
-            parseBase64ImagePayload,
-            resolveWritableConfigPath,
-            tryResolveReadableConfigSource,
-            readConfigRaw,
-            buildDefaultConfigTemplate,
-            applyConfigUpdates,
-            parseConfigValue,
-            applyRuntimeConfigFromMajor,
-            parseMajorFieldsFromRequest,
-            syncAutoRunnerWithConfig,
-            syncShoppingAutoRunnerWithConfig,
-            resolveLocalImagePathFromSource,
-            getContentType,
-            resolveRuntimePath,
-            buildMajorSettings,
-            executeQuickPublish,
-            executeShoppingQuickPublish,
-            sortTopicItems,
-            getBlogRuntimeLogMap,
-            sortShoppingItems,
-            getShoppingRuntimeLogMap,
-            parseIntSafe,
-            normalizeSortDir,
-            executeBlogBatchRowsAction,
-            executeBlogRowAction,
-            executeShoppingBatchRowsAction,
-            executeShoppingAutoManualAction,
-            executeShoppingRowUpdate,
-            executeBlogTopicUpdate,
-            executeTrendCollectAction,
-            executeTrendsToTopicsAction,
-            executeKeywordsToTopicsAction,
-            sendSuccess,
-            sendError
-        });
+        legacyApiRouteHandler = createLegacyApiRouteHandler(createLegacyApiDeps());
     }
     return legacyApiRouteHandler;
 }
