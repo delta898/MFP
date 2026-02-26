@@ -698,6 +698,11 @@ function normalizeIntegerOrBlank(input, fallback = '') {
 }
 
 function parseCsvTokens(input) {
+    if (Array.isArray(input)) {
+        return input
+            .map((token) => String(token || '').trim())
+            .filter(Boolean);
+    }
     return String(input || '')
         .split(',')
         .map((token) => token.trim())
@@ -2462,6 +2467,7 @@ async function executeTrendCollectAction(requestBody = {}) {
         return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)' };
     }
     const dateInput = String(requestBody?.date || '').trim();
+    const includeCategories = parseCsvTokens(requestBody?.categories);
     if (dateInput && !getFeatureBool(features, 'enable_trends_date_override', false)) {
         return {
             success: false,
@@ -2482,9 +2488,39 @@ async function executeTrendCollectAction(requestBody = {}) {
             success: true,
             data: {
                 collectedCount: 0,
+                rawCollectedCount: 0,
                 date: trendResult?.date || null,
                 appendedCount: 0,
                 message: '수집된 트렌드가 없습니다.'
+            }
+        };
+    }
+
+    const normalizedIncludeCategories = includeCategories
+        .map((token) => String(token || '').trim().toLowerCase())
+        .filter(Boolean);
+    const includeCategorySet = new Set(normalizedIncludeCategories);
+
+    const filteredTrendKeywords = includeCategorySet.size > 0
+        ? trendKeywords.filter((item) => {
+            const category = String(item?.category || '').trim().toLowerCase();
+            return includeCategorySet.has(category);
+        })
+        : trendKeywords;
+
+    if (includeCategorySet.size > 0) {
+        Logger.info(`ℹ️ [Collect] 카테고리 필터 적용: ${includeCategories.join('|')} (전체 ${trendKeywords.length}건 중 저장 대상 ${filteredTrendKeywords.length}건)`);
+    }
+
+    if (filteredTrendKeywords.length === 0) {
+        return {
+            success: true,
+            data: {
+                collectedCount: 0,
+                rawCollectedCount: trendKeywords.length,
+                date: trendResult?.date || null,
+                appendedCount: 0,
+                message: '선택 카테고리에 해당하는 트렌드가 없어 저장하지 않았습니다.'
             }
         };
     }
@@ -2494,7 +2530,7 @@ async function executeTrendCollectAction(requestBody = {}) {
         return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
     }
 
-    const appendResult = await Utils.appendGoogleSheetTrends(trendKeywords, trendResult?.date || null);
+    const appendResult = await Utils.appendGoogleSheetTrends(filteredTrendKeywords, trendResult?.date || null);
     if (!appendResult?.success) {
         return { success: false, code: 'TRENDS_APPEND_FAILED', message: appendResult?.message || 'trends 시트 추가에 실패했습니다.' };
     }
@@ -2502,8 +2538,9 @@ async function executeTrendCollectAction(requestBody = {}) {
     return {
         success: true,
         data: {
-            collectedCount: trendKeywords.length,
-            appendedCount: appendResult.addedCount || trendKeywords.length,
+            collectedCount: filteredTrendKeywords.length,
+            rawCollectedCount: trendKeywords.length,
+            appendedCount: appendResult.addedCount || filteredTrendKeywords.length,
             date: appendResult.date || trendResult?.date || null,
             message: '트렌드 수집 및 시트 추가 완료'
         }
@@ -3307,6 +3344,7 @@ function waitMs(delay) {
 
 async function executeTrendCollectWithRetry(options = {}) {
     const date = String(options?.date || '').trim();
+    const categories = options?.categories;
     const maxRetries = normalizeNonNegativeInt(options?.maxRetries, AUTO_TRENDS_MAX_RETRIES);
     const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, AUTO_TRENDS_RETRY_WAIT_MS);
     const maxAttempts = maxRetries + 1;
@@ -3314,7 +3352,10 @@ async function executeTrendCollectWithRetry(options = {}) {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
-            const trendsResult = await executeTrendCollectAction(date ? { date } : {});
+            const trendsResult = await executeTrendCollectAction({
+                ...(date ? { date } : {}),
+                ...(categories !== undefined ? { categories } : {})
+            });
             if (trendsResult?.success) {
                 return {
                     success: true,
@@ -3433,8 +3474,10 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                     proceedAfterTrends = false;
                     summary.skipped.push('트렌드 수집 권한이 없어 자동 발행 단계를 건너뜁니다.');
                 } else {
+                    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
                     const trendsRetryResult = await executeTrendCollectWithRetry({
                         date: requestedTrendDate,
+                        categories: includeCategories,
                         maxRetries: isManualTrigger ? 0 : AUTO_TRENDS_MAX_RETRIES,
                         retryWaitMs: AUTO_TRENDS_RETRY_WAIT_MS
                     });

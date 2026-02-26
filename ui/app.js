@@ -708,7 +708,13 @@ async function runBlogTrendsCollect() {
   blogTrendsCollectInFlight = true;
   if (resultBox) resultBox.textContent = `트렌드 수집 중... (기준일: ${targetDateYmd})`;
   try {
-    const payload = { date: targetDateYmd };
+    const selectedCategories = Array.from(blogAutoCategorySelected.values())
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
+    const payload = {
+      date: targetDateYmd,
+      ...(selectedCategories.length > 0 ? { categories: selectedCategories } : {})
+    };
     const data = await postJson('/api/v1/trends/collect', payload);
     if (resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
     clearTrendsSelections();
