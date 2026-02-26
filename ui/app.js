@@ -751,36 +751,6 @@ async function runTrendsToTopics() {
   }
 }
 
-function resetTrendsFiltersAndState() {
-  const dateInput = document.getElementById('blog-trends-date');
-  const qInput = document.getElementById('blog-trends-q-filter');
-  if (dateInput) dateInput.value = '';
-  if (qInput) qInput.value = '';
-  clearTrendsSelections();
-  resetTableSort('trends');
-  setPageInfo('trends', { offset: 0 });
-}
-
-function resetTopicsFiltersAndState() {
-  const statusSelect = document.getElementById('blog-status-filter');
-  const qInput = document.getElementById('blog-q-filter');
-  if (statusSelect) statusSelect.value = '';
-  if (qInput) qInput.value = '';
-  clearBlogSelections();
-  resetTableSort('topics');
-  setPageInfo('topics', { offset: 0 });
-}
-
-function resetShoppingFiltersAndState() {
-  const statusSelect = document.getElementById('shopping-status-filter');
-  const qInput = document.getElementById('shopping-q-filter');
-  if (statusSelect) statusSelect.value = '';
-  if (qInput) qInput.value = '';
-  clearShoppingSelections();
-  resetTableSort('shopping');
-  setPageInfo('shopping', { offset: 0 });
-}
-
 function activateBlogTab(tabName, options = {}) {
   const allowed = ['quick', 'trends', 'topics', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
@@ -3535,10 +3505,10 @@ function bindActions() {
   const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
   const blogTrendsDateInput = document.getElementById('blog-trends-date');
   const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
+  const blogTrendsQClearBtn = document.getElementById('blog-trends-q-clear-btn');
   const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
   const blogTrendsRefreshBtn = document.getElementById('blog-trends-refresh-btn');
   const blogTrendsSearchBtn = document.getElementById('blog-trends-search-btn');
-  const blogTrendsResetBtn = document.getElementById('blog-trends-reset-btn');
   const blogTrendsToTopicsBtn = document.getElementById('blog-trends-to-topics-btn');
   const blogTrendsPrevBtn = document.getElementById('blog-trends-page-prev');
   const blogTrendsNextBtn = document.getElementById('blog-trends-page-next');
@@ -3547,9 +3517,9 @@ function bindActions() {
   const blogBatchBtnBottom = document.getElementById('blog-batch-btn-bottom');
   const blogTopicsPrevBtn = document.getElementById('blog-topics-page-prev');
   const blogTopicsNextBtn = document.getElementById('blog-topics-page-next');
-  const blogTopicsResetBtn = document.getElementById('blog-topics-reset-btn');
+  const blogTopicsQClearBtn = document.getElementById('blog-topics-q-clear-btn');
   const shoppingRefreshBtn = document.getElementById('shopping-refresh-btn');
-  const shoppingResetBtn = document.getElementById('shopping-reset-btn');
+  const shoppingQClearBtn = document.getElementById('shopping-q-clear-btn');
   const shoppingBatchBtn = document.getElementById('shopping-batch-btn');
   const shoppingStatusFilter = document.getElementById('shopping-status-filter');
   const shoppingQFilter = document.getElementById('shopping-q-filter');
@@ -3589,10 +3559,12 @@ function bindActions() {
       loadBlogTrends();
     });
   }
-  if (blogTrendsResetBtn) {
-    blogTrendsResetBtn.addEventListener('click', () => {
-      resetTrendsFiltersAndState();
+  if (blogTrendsQClearBtn) {
+    blogTrendsQClearBtn.addEventListener('click', () => {
+      if (blogTrendsQFilter) blogTrendsQFilter.value = '';
+      setPageInfo('trends', { offset: 0 });
       loadBlogTrends();
+      blogTrendsQFilter?.focus();
     });
   }
   if (blogTrendsToTopicsBtn) blogTrendsToTopicsBtn.addEventListener('click', runTrendsToTopics);
@@ -3623,19 +3595,23 @@ function bindActions() {
   }
 
   if (blogRefreshBtn) blogRefreshBtn.addEventListener('click', loadBlogTopics);
-  if (blogTopicsResetBtn) {
-    blogTopicsResetBtn.addEventListener('click', () => {
-      resetTopicsFiltersAndState();
+  if (blogTopicsQClearBtn) {
+    blogTopicsQClearBtn.addEventListener('click', () => {
+      if (blogQFilter) blogQFilter.value = '';
+      setPageInfo('topics', { offset: 0 });
       loadBlogTopics();
+      blogQFilter?.focus();
     });
   }
   if (blogBatchBtn) blogBatchBtn.addEventListener('click', runBlogBatchAction);
   if (blogBatchBtnBottom) blogBatchBtnBottom.addEventListener('click', runBlogBatchAction);
   if (shoppingRefreshBtn) shoppingRefreshBtn.addEventListener('click', loadBlogShopping);
-  if (shoppingResetBtn) {
-    shoppingResetBtn.addEventListener('click', () => {
-      resetShoppingFiltersAndState();
+  if (shoppingQClearBtn) {
+    shoppingQClearBtn.addEventListener('click', () => {
+      if (shoppingQFilter) shoppingQFilter.value = '';
+      setPageInfo('shopping', { offset: 0 });
       loadBlogShopping();
+      shoppingQFilter?.focus();
     });
   }
   if (shoppingBatchBtn) shoppingBatchBtn.addEventListener('click', runShoppingBatchAction);

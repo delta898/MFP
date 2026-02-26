@@ -1640,7 +1640,7 @@ const Utils = {
      */
     appendGoogleSheetTrends: async function (trendData, dateOverride = null) {
         if (!trendData || trendData.length === 0) {
-            return { success: true, addedCount: 0 };
+            return { success: true, addedCount: 0, skippedExisting: 0, skippedInBatch: 0 };
         }
 
         try {
@@ -1743,16 +1743,79 @@ const Utils = {
             const dateStr = (typeof dateOverride === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride))
                 ? dateOverride
                 : defaultDateStr;
+            const normalizeDate = (raw) => {
+                const text = String(raw || '').trim();
+                if (!text) return '';
+                const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+                if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+                const dashed = text.match(/^(\d{4})[.\-/\s]+(\d{1,2})[.\-/\s]+(\d{1,2})$/);
+                if (dashed) {
+                    const y = dashed[1];
+                    const m = String(parseInt(dashed[2], 10)).padStart(2, '0');
+                    const d = String(parseInt(dashed[3], 10)).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                }
+                return text;
+            };
+            const trendKey = (dateVal, categoryVal, keywordVal) =>
+                `${normalizeDate(dateVal).toLowerCase()}|${String(categoryVal || '').trim().toLowerCase()}|${String(keywordVal || '').trim().toLowerCase()}`;
 
-            const rowsToAdd = trendData.map(item => {
+            // 기존 데이터 기준 dedupe 세트 구축 (date+category+keyword)
+            const existingRowsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+            const existingRowsRes = await this.callWithRetry(() => axios.get(existingRowsUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+            const existingRows = Array.isArray(existingRowsRes?.data?.values) ? existingRowsRes.data.values : [];
+            const existingKeySet = new Set();
+            if (existingRows.length > 1) {
+                for (let i = 1; i < existingRows.length; i++) {
+                    const row = existingRows[i] || [];
+                    const rowDate = map.date !== undefined ? row[map.date] : '';
+                    const rowCategory = map.category !== undefined ? row[map.category] : '';
+                    const rowKeyword = map.keyword !== undefined ? row[map.keyword] : '';
+                    const key = trendKey(rowDate, rowCategory, rowKeyword);
+                    if (key && !key.startsWith('||')) existingKeySet.add(key);
+                }
+            }
+
+            const inBatchKeySet = new Set();
+            const rowsToAdd = [];
+            let skippedExisting = 0;
+            let skippedInBatch = 0;
+            for (const item of trendData) {
+                const category = String(item?.category || '').trim();
+                const keyword = String(item?.keyword || '').trim();
+                if (!category || !keyword) continue;
+                const key = trendKey(dateStr, category, keyword);
+                if (existingKeySet.has(key)) {
+                    skippedExisting += 1;
+                    continue;
+                }
+                if (inBatchKeySet.has(key)) {
+                    skippedInBatch += 1;
+                    continue;
+                }
+                inBatchKeySet.add(key);
+
                 const row = new Array(maxCol + 1).fill("");
                 if (map.date !== undefined) row[map.date] = dateStr;
-                if (map.category !== undefined) row[map.category] = item.category;
-                if (map.keyword !== undefined) row[map.keyword] = item.keyword;
+                if (map.category !== undefined) row[map.category] = category;
+                if (map.keyword !== undefined) row[map.keyword] = keyword;
                 if (map.variation !== undefined) row[map.variation] = item.variation || '-';
                 if (map.status !== undefined) row[map.status] = '대기';
-                return row;
-            });
+                rowsToAdd.push(row);
+            }
+
+            if (rowsToAdd.length === 0) {
+                Logger.info(`   ℹ️ 트렌드 시트(${sheetName}) 중복 검사 결과 신규 추가할 데이터가 없습니다. (기존중복 ${skippedExisting}건, 배치중복 ${skippedInBatch}건)`);
+                return {
+                    success: true,
+                    addedCount: 0,
+                    date: dateStr,
+                    skippedExisting,
+                    skippedInBatch
+                };
+            }
 
             const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
 
@@ -1763,11 +1826,13 @@ const Utils = {
             // ⏳ API 호출 간 안전 대기
             await this.sleep(1000);
 
-            Logger.info(`   ✅ 트렌드 시트(${sheetName})에 ${rowsToAdd.length}건 추가 완료`);
+            Logger.info(`   ✅ 트렌드 시트(${sheetName})에 ${rowsToAdd.length}건 추가 완료 (기존중복 ${skippedExisting}건, 배치중복 ${skippedInBatch}건 제외)`);
             return {
                 success: true,
                 addedCount: rowsToAdd.length,
-                date: dateStr
+                date: dateStr,
+                skippedExisting,
+                skippedInBatch
             };
 
         } catch (e) {

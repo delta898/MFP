@@ -202,7 +202,7 @@
               <div class="form-field-block">
                 <span class="field-label-text">네이버 카테고리</span>
                 <div class="category-picker">
-                  <div id="blog-trends-category-options" class="category-options category-options-compact"
+                  <div id="blog-trends-category-options" class="category-options"
                     data-blog-category-options>
                     <p class="category-hint">카테고리 목록을 불러오는 중...</p>
                   </div>
@@ -222,9 +222,12 @@
               <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
             </div>
             <div class="form-actions-right trends-search-actions">
-              <input id="blog-trends-q-filter" type="text" placeholder="날짜 / 주제 / 키워드 / 상태">
+              <div class="input-inline-clear">
+                <input id="blog-trends-q-filter" type="text" placeholder="날짜 / 주제 / 키워드 / 상태">
+                <button id="blog-trends-q-clear-btn" class="inline-clear-btn" type="button"
+                  aria-label="트렌드 검색어 지우기">×</button>
+              </div>
               <button id="blog-trends-search-btn" class="secondary" type="button">검색</button>
-              <button id="blog-trends-reset-btn" class="secondary" type="button">필터 초기화</button>
             </div>
           </div>
           <div class="table-responsive">
@@ -270,11 +273,12 @@
               </select>
             </label>
             <label>검색
-              <input id="blog-q-filter" type="text" placeholder="subject / keywords / 지시사항">
+              <div class="input-inline-clear">
+                <input id="blog-q-filter" type="text" placeholder="subject / keywords / 지시사항">
+                <button id="blog-topics-q-clear-btn" class="inline-clear-btn" type="button"
+                  aria-label="토픽 검색어 지우기">×</button>
+              </div>
             </label>
-          </div>
-          <div class="filter-tools">
-            <button id="blog-topics-reset-btn" class="secondary" type="button">필터 초기화</button>
           </div>
 
           <div class="form-actions">
@@ -486,11 +490,12 @@
               </select>
             </label>
             <label>검색
-              <input id="shopping-q-filter" type="text" placeholder="상품 / URL / 상태 / 발행 시간">
+              <div class="input-inline-clear">
+                <input id="shopping-q-filter" type="text" placeholder="상품 / URL / 상태 / 발행 시간">
+                <button id="shopping-q-clear-btn" class="inline-clear-btn" type="button"
+                  aria-label="쇼핑 검색어 지우기">×</button>
+              </div>
             </label>
-          </div>
-          <div class="filter-tools">
-            <button id="shopping-reset-btn" class="secondary" type="button">필터 초기화</button>
           </div>
           <div class="form-actions">
             <button id="shopping-refresh-btn" class="secondary">목록 새로고침</button>
@@ -564,16 +569,10 @@
             </div>
           </div>
 
-          <div class="auto-section">
-            <h3 class="auto-section-title">수동 실행</h3>
-            <div class="auto-manual-row">
-              <button id="shopping-auto-run-btn" class="secondary" type="button">수동 실행</button>
-            </div>
-          </div>
-
           <div class="form-actions auto-actions">
             <button id="shopping-auto-refresh-btn" class="secondary" type="button">불러오기</button>
             <button id="shopping-auto-save-btn" type="button">저장</button>
+            <button id="shopping-auto-run-btn" class="secondary" type="button">수동 실행</button>
           </div>
 
           <div class="auto-section auto-log-section">

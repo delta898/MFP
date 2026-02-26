@@ -38,6 +38,7 @@ const NAVER_AUTO_DEFAULTS = {
     mode: false,
     categories: '',
     dailyPosts: 3,
+    minPostGapMin: 0,
     trendsTime: '07:30',
     imageGeneration: true,
     externalReference: true,
@@ -965,6 +966,13 @@ function normalizeNaverAutoSettings(input = {}) {
         input.NAVER_AUTO_DAILY_POSTS ?? input.AUTO_DAILY_BLOG_CAP,
         normalizeNonNegativeInt(CONFIG.NAVER_AUTO_DAILY_POSTS ?? CONFIG.AUTO_DAILY_BLOG_CAP, NAVER_AUTO_DEFAULTS.dailyPosts)
     );
+    const minPostGapMin = normalizeNonNegativeInt(
+        input.NAVER_AUTO_MIN_POST_GAP_MIN ?? input.AUTO_MIN_POST_GAP_MIN,
+        normalizeNonNegativeInt(
+            CONFIG.NAVER_AUTO_MIN_POST_GAP_MIN ?? CONFIG.AUTO_MIN_POST_GAP_MIN,
+            NAVER_AUTO_DEFAULTS.minPostGapMin
+        )
+    );
     const trendsTime = normalizeTimeHHmm(
         input.NAVER_AUTO_TRENDS_TIME,
         normalizeTimeHHmm(CONFIG.NAVER_AUTO_TRENDS_TIME, NAVER_AUTO_DEFAULTS.trendsTime)
@@ -1033,6 +1041,7 @@ function normalizeNaverAutoSettings(input = {}) {
         NAVER_AUTO_MODE: mode,
         NAVER_AUTO_CATEGORIES: categoriesRaw,
         NAVER_AUTO_DAILY_POSTS: dailyPosts,
+        NAVER_AUTO_MIN_POST_GAP_MIN: minPostGapMin,
         NAVER_AUTO_TRENDS_TIME: trendsTime,
         NAVER_AUTO_IMAGE_GENERATION: imageGeneration,
         NAVER_AUTO_EXTERNAL_REFERENCE: externalReference,
@@ -1052,6 +1061,7 @@ function normalizeNaverAutoSettings(input = {}) {
         AUTO_CATEGORIES: categoriesRaw,
         AUTO_DAILY_BLOG_CAP: dailyPosts,
         AUTO_MAX_BLOG_PER_CYCLE: dailyPosts,
+        AUTO_MIN_POST_GAP_MIN: minPostGapMin,
         AUTO_INTERVAL_MIN: 60,
         AUTO_TRENDS_ENABLED: true,
         AUTO_TOPICS_ENABLED: true,
@@ -2468,6 +2478,7 @@ async function executeTrendCollectAction(requestBody = {}) {
     }
     const dateInput = String(requestBody?.date || '').trim();
     const includeCategories = parseCsvTokens(requestBody?.categories);
+    const explicitTargetDate = normalizeYmdToken(dateInput);
     if (dateInput && !getFeatureBool(features, 'enable_trends_date_override', false)) {
         return {
             success: false,
@@ -2479,6 +2490,50 @@ async function executeTrendCollectAction(requestBody = {}) {
     const session = await checkAuthSessionValid();
     if (!session.ok) {
         return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 로그인해 주세요.' };
+    }
+
+    // 수집 전 pre-check:
+    // 날짜(YYYY-MM-DD/YYYYMMDD) + 카테고리 지정인 경우,
+    // 해당 날짜/카테고리 데이터가 이미 trends 시트에 존재하면 수집을 생략한다.
+    if (explicitTargetDate && includeCategories.length > 0) {
+        try {
+            const trendsExisting = await Utils.readGoogleSheetTrendsAll({
+                status: '',
+                q: '',
+                limit: 100000,
+                offset: 0,
+                sortBy: 'rowNumber',
+                sortDir: 'desc'
+            });
+            const items = Array.isArray(trendsExisting?.items) ? trendsExisting.items : [];
+            const existingByDateCategory = new Set(
+                items
+                    .filter((row) => normalizeYmdToken(row?.date) === explicitTargetDate)
+                    .map((row) => `${String(row?.category || '').trim().toLowerCase()}`)
+                    .filter(Boolean)
+            );
+            const requestedCategories = includeCategories
+                .map((v) => String(v || '').trim().toLowerCase())
+                .filter(Boolean);
+            const allCovered = requestedCategories.length > 0
+                && requestedCategories.every((cat) => existingByDateCategory.has(cat));
+            if (allCovered) {
+                Logger.info(`ℹ️ [Collect] pre-check: ${explicitTargetDate} ${includeCategories.join('|')} 카테고리 데이터가 이미 trends 시트에 있어 수집을 생략합니다.`);
+                return {
+                    success: true,
+                    data: {
+                        collectedCount: 0,
+                        rawCollectedCount: 0,
+                        date: explicitTargetDate,
+                        appendedCount: 0,
+                        skippedByPrecheck: true,
+                        message: '이미 수집된 날짜/카테고리 데이터가 있어 트렌드 수집을 생략했습니다.'
+                    }
+                };
+            }
+        } catch (e) {
+            Logger.warn(`⚠️ [Collect] pre-check 실패로 수집을 계속 진행합니다: ${e.message}`);
+        }
     }
 
     const trendResult = await TrendManager.fetchTrends({ date: dateInput || undefined });
@@ -2981,9 +3036,10 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
         if (!isCommandEnabled(features, 'shopping')) {
             summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
         } else {
-            const dailyCap = settings.AUTO_MAX_SHOPPING_PER_CYCLE;
-            const remaining = dailyCap > 0 ? Math.max(0, dailyCap - shoppingAutoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
-            const targetLimit = Math.max(0, Math.min(dailyCap, planShoppingLimit, remaining));
+            const cycleCap = settings.AUTO_MAX_SHOPPING_PER_CYCLE;
+            const effectiveCycleCap = cycleCap > 0 ? cycleCap : Number.MAX_SAFE_INTEGER;
+            const remaining = cycleCap > 0 ? Math.max(0, cycleCap - shoppingAutoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
+            const targetLimit = Math.max(0, Math.min(effectiveCycleCap, planShoppingLimit, remaining));
 
             if (targetLimit > 0) {
                 await ensureSheetsReadyForUi();
@@ -3015,7 +3071,10 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
                     summary.skipped.push('상태가 "발행 준비 완료"인 쇼핑 후보가 없어 건너뜁니다.');
                 }
             } else {
-                summary.skipped.push('쇼핑 발행 한도가 0건이라 건너뜁니다.');
+                summary.skipped.push(
+                    `쇼핑 발행 한도가 0건이라 건너뜁니다. `
+                    + `(설정=${cycleCap}, 플랜=${Number.isFinite(planShoppingLimit) ? planShoppingLimit : '무제한'}, 잔여=${Number.isFinite(remaining) ? remaining : '무제한'})`
+                );
             }
         }
 
@@ -3420,6 +3479,14 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                 ...settingsOverrides
             })
             : getAutoSettingsSnapshot();
+        Logger.info(
+            `ℹ️ [AUTO] 실행 설정값 (trigger=${trigger}, source=${Object.keys(settingsOverrides).length > 0 ? 'ui-overrides' : 'saved-config'}): `
+            + `mode=${settings.AUTO_MODE ? 'on' : 'off'}, `
+            + `cycleCap=${settings.AUTO_MAX_BLOG_PER_CYCLE}, `
+            + `dailyCap=${settings.AUTO_DAILY_BLOG_CAP}, `
+            + `categories=${settings.AUTO_INCLUDE_CATEGORIES || '(없음)'}, `
+            + `trendTime=${settings.NAVER_AUTO_TRENDS_TIME || '07:30'}`
+        );
         if (!settings.AUTO_MODE && !forceRun) {
             stopAutoRunner('설정에 따라 자동 모드 비활성화');
             return { success: false, code: 'AUTO_DISABLED_BY_CONFIG', message: '설정에 따라 자동 모드가 비활성화되어 있습니다.' };
@@ -3526,17 +3593,20 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
 
         const nowMs = Date.now();
-        const minGapMs = Math.max(0, settings.AUTO_MIN_POST_GAP_MIN) * 60 * 1000;
+        const minGapMin = normalizeNonNegativeInt(settings.AUTO_MIN_POST_GAP_MIN, 0);
+        const minGapMs = minGapMin * 60 * 1000;
         const gapAllowed = minGapMs <= 0 || autoRuntimeState.lastPublishAtMs <= 0 || (nowMs - autoRuntimeState.lastPublishAtMs >= minGapMs);
         if (!gapAllowed) {
-            summary.skipped.push(`포스트 간격 제한(${settings.AUTO_MIN_POST_GAP_MIN}분)으로 발행 대기`);
+            summary.skipped.push(`포스트 간격 제한(${minGapMin}분)으로 발행 대기`);
         }
 
         const dailyBlogCap = settings.AUTO_DAILY_BLOG_CAP;
+        const cycleBlogCap = settings.AUTO_MAX_BLOG_PER_CYCLE;
+        const effectiveCycleBlogCap = cycleBlogCap > 0 ? cycleBlogCap : Number.MAX_SAFE_INTEGER;
         const remainingBlogByDaily = dailyBlogCap > 0 ? Math.max(0, dailyBlogCap - autoRuntimeState.blogPublishedToday) : Number.MAX_SAFE_INTEGER;
 
         if (proceedAfterTrends && gapAllowed && isCommandEnabled(features, 'batch')) {
-            const targetLimit = Math.max(0, Math.min(settings.AUTO_MAX_BLOG_PER_CYCLE, planBlogLimit, remainingBlogByDaily));
+            const targetLimit = Math.max(0, Math.min(effectiveCycleBlogCap, planBlogLimit, remainingBlogByDaily));
             if (targetLimit > 0) {
                 const freshTopicRowSet = new Set(
                     appendedTopicRowIndices.filter((v) => Number.isInteger(v) && v >= 0)
@@ -3588,7 +3658,10 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                     );
                 }
             } else {
-                summary.skipped.push('블로그 발행 한도가 0건이라 건너뜁니다. (설정/플랜/일일한도 확인)');
+                summary.skipped.push(
+                    `블로그 발행 한도가 0건이라 건너뜁니다. `
+                    + `(설정=${cycleBlogCap}, 플랜=${Number.isFinite(planBlogLimit) ? planBlogLimit : '무제한'}, 일일잔여=${Number.isFinite(remainingBlogByDaily) ? remainingBlogByDaily : '무제한'})`
+                );
             }
         } else if (proceedAfterTrends && gapAllowed && !isCommandEnabled(features, 'batch')) {
             summary.skipped.push('현재 플랜에서 블로그 batch 기능이 비활성화되어 건너뜁니다.');
