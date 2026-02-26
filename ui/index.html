@@ -194,23 +194,38 @@
         </div>
 
         <div class="card form-card blog-tab-panel" id="blog-tab-trends">
-          <div class="form-grid blog-filter-grid trends-filter-grid">
-            <label>수집 날짜 (옵션)
-              <input id="blog-trends-date" type="text" placeholder="예: 20260218 / 2026-02-18 / -1d">
-            </label>
-            <label>검색
+          <div class="trends-collect-block">
+            <div class="form-grid trends-collect-grid">
+              <label>수집 날짜 (옵션)
+                <input id="blog-trends-date" type="text" placeholder="예: 20260218 / 2026-02-18 / -1d">
+              </label>
+              <div class="form-field-block">
+                <span class="field-label-text">네이버 카테고리</span>
+                <div class="category-picker">
+                  <div id="blog-trends-category-options" class="category-options category-options-compact"
+                    data-blog-category-options>
+                    <p class="category-hint">카테고리 목록을 불러오는 중...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions trends-collect-actions">
+              <button id="blog-trends-collect-btn" type="button">트렌드 수집</button>
+            </div>
+          </div>
+
+          <div class="form-actions form-actions-split">
+            <div class="form-actions-left">
+              <button id="blog-trends-refresh-btn" class="secondary">목록 새로고침</button>
+              <span class="action-separator" aria-hidden="true"></span>
+              <button id="blog-trends-to-topics-btn">선택 항목 Topics 추가</button>
+              <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
+            </div>
+            <div class="form-actions-right trends-search-actions">
               <input id="blog-trends-q-filter" type="text" placeholder="날짜 / 주제 / 키워드 / 상태">
-            </label>
-          </div>
-          <div class="filter-tools">
-            <button id="blog-trends-reset-btn" class="secondary" type="button">필터 초기화</button>
-          </div>
-          <div class="form-actions">
-            <button id="blog-trends-refresh-btn" class="secondary">목록 새로고침</button>
-            <span class="action-separator" aria-hidden="true"></span>
-            <button id="blog-trends-collect-btn" type="button">트렌드 수집</button>
-            <button id="blog-trends-to-topics-btn">선택 항목 Topics 추가</button>
-            <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
+              <button id="blog-trends-search-btn" class="secondary" type="button">검색</button>
+              <button id="blog-trends-reset-btn" class="secondary" type="button">필터 초기화</button>
+            </div>
           </div>
           <div class="table-responsive">
             <div class="table-wrap">
@@ -332,7 +347,7 @@
               <div class="form-field-block">
                 <span class="field-label-text">네이버 카테고리</span>
                 <div class="category-picker">
-                  <div id="blog-auto-category-options" class="category-options">
+                  <div id="blog-auto-category-options" class="category-options" data-blog-category-options>
                     <p class="category-hint">카테고리 목록을 불러오는 중...</p>
                   </div>
                 </div>

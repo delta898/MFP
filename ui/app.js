@@ -2642,14 +2642,16 @@ function ensureSelectedCategoriesInCatalog() {
 }
 
 function renderBlogAutoCategoryOptions() {
-  const optionsEl = document.getElementById('blog-auto-category-options');
-  if (!optionsEl) return;
+  const optionContainers = Array.from(document.querySelectorAll('[data-blog-category-options]'));
+  if (optionContainers.length === 0) return;
 
   const categories = Array.from(new Set(blogAutoCategoryCatalog.map(normalizeCategoryToken).filter(Boolean)))
     .sort((a, b) => a.localeCompare(b, 'ko', { sensitivity: 'base' }));
 
   if (categories.length === 0) {
-    optionsEl.innerHTML = '<p class="category-hint">표시할 카테고리가 없습니다.</p>';
+    optionContainers.forEach((el) => {
+      el.innerHTML = '<p class="category-hint">표시할 카테고리가 없습니다.</p>';
+    });
     return;
   }
 
@@ -2660,7 +2662,9 @@ function renderBlogAutoCategoryOptions() {
       return `<button type="button" class="category-option-btn ${active}" data-blog-auto-category-toggle="${escaped}">${escaped}</button>`;
     })
     .join('');
-  optionsEl.innerHTML = html;
+  optionContainers.forEach((el) => {
+    el.innerHTML = html;
+  });
 }
 
 function renderBlogAutoCategoryUi() {
@@ -3533,6 +3537,7 @@ function bindActions() {
   const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
   const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
   const blogTrendsRefreshBtn = document.getElementById('blog-trends-refresh-btn');
+  const blogTrendsSearchBtn = document.getElementById('blog-trends-search-btn');
   const blogTrendsResetBtn = document.getElementById('blog-trends-reset-btn');
   const blogTrendsToTopicsBtn = document.getElementById('blog-trends-to-topics-btn');
   const blogTrendsPrevBtn = document.getElementById('blog-trends-page-prev');
@@ -3578,6 +3583,12 @@ function bindActions() {
     });
   }
   if (blogTrendsRefreshBtn) blogTrendsRefreshBtn.addEventListener('click', () => loadBlogTrends());
+  if (blogTrendsSearchBtn) {
+    blogTrendsSearchBtn.addEventListener('click', () => {
+      setPageInfo('trends', { offset: 0 });
+      loadBlogTrends();
+    });
+  }
   if (blogTrendsResetBtn) {
     blogTrendsResetBtn.addEventListener('click', () => {
       resetTrendsFiltersAndState();
@@ -3791,7 +3802,7 @@ function bindActions() {
   const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
   const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
   const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
-  const blogAutoCategoryOptionsEl = document.getElementById('blog-auto-category-options');
+  const blogAutoCategoryOptionsEls = Array.from(document.querySelectorAll('[data-blog-category-options]'));
   const blogAutoDailyPostsInputEl = document.getElementById('blog-auto-daily-posts');
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-min');
@@ -3835,8 +3846,8 @@ function bindActions() {
   if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', loadShoppingAutoSettings);
   if (shoppingAutoSaveBtn) shoppingAutoSaveBtn.addEventListener('click', saveShoppingAutoSettings);
   if (shoppingAutoRunBtn) shoppingAutoRunBtn.addEventListener('click', runShoppingAutoManual);
-  if (blogAutoCategoryOptionsEl) {
-    blogAutoCategoryOptionsEl.addEventListener('click', (e) => {
+  blogAutoCategoryOptionsEls.forEach((containerEl) => {
+    containerEl.addEventListener('click', (e) => {
       const btn = e.target?.closest('button[data-blog-auto-category-toggle]');
       if (!btn) return;
       const category = normalizeCategoryToken(btn.dataset.blogAutoCategoryToggle || '');
@@ -3845,7 +3856,7 @@ function bindActions() {
       else blogAutoCategorySelected.add(category);
       renderBlogAutoCategoryUi();
     });
-  }
+  });
   if (blogAutoDailyPostsInputEl) {
     blogAutoDailyPostsInputEl.addEventListener('input', () => {
       clampBlogAutoDailyPostsInputValue({ force: false });
