@@ -17,6 +17,15 @@ const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
 const Updater = require('./updater');
 const RuntimeConfig = require('./runtime-config');
+const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
+const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
+const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
+const { createSettingsService } = require('./ui-api/services/settings.service');
+const { createSettingsController } = require('./ui-api/controllers/settings.controller');
+const { createSettingsRouteHandler } = require('./ui-api/routes/settings.routes');
+const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
+const { createApiRouteHub } = require('./ui-api/routes');
+const UiValidators = require('./ui-api/middleware/validate');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
@@ -107,6 +116,10 @@ const uiSheetsPreflightState = {
     lastSuccessAt: null,
     lastError: ''
 };
+let blogAutoRouteHandler = null;
+let settingsRouteHandler = null;
+let legacyApiRouteHandler = null;
+let apiRouteHub = null;
 
 function setBlogRuntimeLog(rowIndex, message) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
@@ -262,6 +275,10 @@ function jsonMeta(requestId) {
 }
 
 function sendJson(res, requestId, statusCode, payload) {
+    if (res.headersSent || res.writableEnded) {
+        Logger.warn(`⚠️ [UI][API] 응답이 이미 전송되어 중복 응답을 건너뜁니다. (requestId: ${requestId})`);
+        return false;
+    }
     res.writeHead(statusCode, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store'
@@ -270,14 +287,15 @@ function sendJson(res, requestId, statusCode, payload) {
         ...payload,
         meta: jsonMeta(requestId)
     }));
+    return true;
 }
 
 function sendSuccess(res, requestId, data, statusCode = 200) {
-    sendJson(res, requestId, statusCode, { success: true, data, error: null });
+    return sendJson(res, requestId, statusCode, { success: true, data, error: null });
 }
 
 function sendError(res, requestId, statusCode, code, message) {
-    sendJson(res, requestId, statusCode, {
+    return sendJson(res, requestId, statusCode, {
         success: false,
         data: null,
         error: { code, message: String(message || '요청 처리 중 오류가 발생했습니다.') }
@@ -1292,6 +1310,37 @@ function validateRequiredShoppingImageSources(fields = {}) {
         }
     }
     return errors;
+}
+
+function resolveRuntimePath(rawPath, options = {}) {
+    const raw = String(rawPath || '').trim();
+    if (!raw) return '';
+
+    if (typeof CONFIG.resolveRuntimePath === 'function') {
+        const resolved = CONFIG.resolveRuntimePath(raw, options || {});
+        if (resolved) return resolved;
+    }
+
+    const appRoot = CONFIG.APP_ROOT_DIR || process.cwd();
+    const writablePath = resolveWritableConfigPath();
+    const configDir = path.dirname(writablePath);
+    const execDir = path.dirname(process.execPath || process.cwd());
+    const mustExist = Boolean(options?.mustExist);
+
+    const candidates = path.isAbsolute(raw)
+        ? [raw]
+        : [
+            path.resolve(appRoot, raw),
+            path.resolve(configDir, raw),
+            path.resolve(execDir, raw)
+        ];
+
+    for (const candidate of candidates) {
+        if (!mustExist || fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return '';
 }
 
 function resolveLocalImagePathFromSource(source) {
@@ -3541,6 +3590,150 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
     }
 }
 
+function getBlogAutoRouteHandler() {
+    if (!blogAutoRouteHandler) {
+        const service = createBlogAutoService({
+            Logger,
+            getAutoStatusPayload,
+            ensureSheetsReadyForUi,
+            resolveNaverAutoCategoryCatalog,
+            runAutoCycle
+        });
+        const validators = {
+            parseForceQuery: UiValidators.parseForceQuery,
+            validateBlogAutoManualRunPayload: (payload) => UiValidators.validateBlogAutoManualRunPayload(payload, normalizeYmdToken),
+            isValidationError: UiValidators.isValidationError
+        };
+        const controller = createBlogAutoController({
+            service,
+            sendSuccess,
+            sendError,
+            Logger,
+            validators
+        });
+        blogAutoRouteHandler = createBlogAutoRouteHandler({ controller });
+    }
+    return blogAutoRouteHandler;
+}
+
+function scheduleUiReload(host, port) {
+    setTimeout(async () => {
+        const { reloadUiServer } = require('./ui-server');
+        await reloadUiServer(host, port);
+    }, 500);
+}
+
+function getSettingsRouteHandler() {
+    if (!settingsRouteHandler) {
+        const service = createSettingsService({
+            fs,
+            path,
+            CONFIG,
+            DEFAULT_HOST,
+            DEFAULT_PORT,
+            SHOPPING_IMAGE_SLOT_MAP,
+            tryResolveReadableConfigSource,
+            readConfigRaw,
+            buildDefaultConfigTemplate,
+            resolveWritableConfigPath,
+            buildMajorSettings,
+            parseMajorFieldsFromRequest,
+            normalizeListenHost,
+            normalizeListenPort,
+            isAllowedImageSourceValue,
+            validateRequiredShoppingImageSources,
+            applyConfigUpdates,
+            applyRuntimeConfigFromMajor,
+            syncAutoRunnerWithConfig,
+            syncShoppingAutoRunnerWithConfig,
+            scheduleUiReload,
+            createConfigRevision,
+            parseConfigValue
+        });
+        const controller = createSettingsController({
+            service,
+            sendSuccess,
+            sendError
+        });
+        settingsRouteHandler = createSettingsRouteHandler({ controller });
+    }
+    return settingsRouteHandler;
+}
+
+function getLegacyApiRouteHandler() {
+    if (!legacyApiRouteHandler) {
+        legacyApiRouteHandler = createLegacyApiRouteHandler({
+            APP_VERSION,
+            Logger,
+            Updater,
+            Utils,
+            fs,
+            path,
+            CONFIG,
+            License,
+            ShoppingManager,
+            parseBoolQuery,
+            ensureSheetsReadyForUi,
+            toFeatureMap,
+            getFeatureInt,
+            resolveMaxBlogPostsPerRun,
+            resolveMaxShoppingPostsPerRun,
+            checkNaverSessionForUi,
+            getNaverLoginStatus,
+            getNaverLoginState: () => naverLoginState,
+            setNaverLoginState,
+            runNaverLoginFlowForUi,
+            SHOPPING_IMAGE_SLOT_MAP,
+            parseBase64ImagePayload,
+            resolveWritableConfigPath,
+            tryResolveReadableConfigSource,
+            readConfigRaw,
+            buildDefaultConfigTemplate,
+            applyConfigUpdates,
+            parseConfigValue,
+            applyRuntimeConfigFromMajor,
+            parseMajorFieldsFromRequest,
+            syncAutoRunnerWithConfig,
+            syncShoppingAutoRunnerWithConfig,
+            resolveLocalImagePathFromSource,
+            getContentType,
+            resolveRuntimePath,
+            buildMajorSettings,
+            executeQuickPublish,
+            executeShoppingQuickPublish,
+            sortTopicItems,
+            getBlogRuntimeLogMap,
+            sortShoppingItems,
+            getShoppingRuntimeLogMap,
+            parseIntSafe,
+            normalizeSortDir,
+            executeBlogBatchRowsAction,
+            executeBlogRowAction,
+            executeShoppingBatchRowsAction,
+            executeShoppingAutoManualAction,
+            executeShoppingRowUpdate,
+            executeBlogTopicUpdate,
+            executeTrendCollectAction,
+            executeTrendsToTopicsAction,
+            executeKeywordsToTopicsAction,
+            sendSuccess,
+            sendError
+        });
+    }
+    return legacyApiRouteHandler;
+}
+
+function getApiRouteHub() {
+    if (!apiRouteHub) {
+        apiRouteHub = createApiRouteHub([
+            getBlogAutoRouteHandler(),
+            getSettingsRouteHandler(),
+            getLegacyApiRouteHandler()
+        ]);
+    }
+    return apiRouteHub;
+}
+
 function readJsonBody(req, limitBytes = 1024 * 1024) {
     return new Promise((resolve, reject) => {
         let total = 0;
@@ -3568,926 +3761,15 @@ function readJsonBody(req, limitBytes = 1024 * 1024) {
 }
 
 async function handleApi(requestId, method, pathname, searchParams, requestBody, res) {
-    if (pathname === '/api/v1/blog/auto/run-manual') {
-        Logger.info(`🧭 [UI][AUTO] API 진입 확인 (${method} ${pathname})`);
-    }
-
-    if (pathname === '/api/v1/health') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        return sendSuccess(res, requestId, { status: 'ok', version: APP_VERSION });
-    }
-
-    // --- System Update Endpoints ---
-    if (pathname === '/api/v1/system/update/check') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const updateInfo = await Updater.checkForUpdate();
-            return sendSuccess(res, requestId, updateInfo || { hasUpdate: false });
-        } catch (e) {
-            return sendError(res, requestId, 500, 'UPDATE_CHECK_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/system/update/apply') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await Updater.applyUpdate((progress) => {
-                // We don't have a way to stream progress back in a simple JSON API 
-                // easily without WebSockets, but we'll return once done.
-                // UI can show a generic "Updating..." spinner.
-            });
-            return sendSuccess(res, requestId, { success: true });
-        } catch (e) {
-            return sendError(res, requestId, 500, 'UPDATE_APPLY_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/system/update/restart') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        sendSuccess(res, requestId, { success: true });
-        setTimeout(() => {
-            Updater.restart();
-        }, 1000);
-        return;
-    }
-
-    // --- Server Control Endpoints ---
-    if (pathname === '/api/v1/system/restart') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        Logger.info('🔄 [System] UI에서 서버 재시작 요청');
-        sendSuccess(res, requestId, { success: true, message: '서버를 재시작합니다.' });
-        setTimeout(() => {
-            Updater.restart();
-        }, 1000);
-        return;
-    }
-
-    if (pathname === '/api/v1/system/stop') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        Logger.info('🛑 [System] UI에서 서버 종료 요청');
-        sendSuccess(res, requestId, { success: true, message: '서버를 종료합니다.' });
-        setTimeout(() => {
-            process.exit(0);
-        }, 1000);
-        return;
-    }
-
-    if (pathname === '/api/v1/dashboard/summary') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const summary = await Utils.getDashboardSummary();
-            return sendSuccess(res, requestId, summary);
-        } catch (e) {
-            return sendError(res, requestId, 500, 'DASHBOARD_SUMMARY_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/dashboard/logs') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const logs = Logger.getRecentLogs(20);
-            return sendSuccess(res, requestId, { logs });
-        } catch (e) {
-            return sendError(res, requestId, 500, 'DASHBOARD_LOGS_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/logs/files') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const logDir = path.join(process.cwd(), 'logs');
-            if (!fs.existsSync(logDir)) {
-                return sendSuccess(res, requestId, { files: [] });
-            }
-            const files = fs.readdirSync(logDir)
-                .filter(f => f.endsWith('.log'))
-                .sort((a, b) => b.localeCompare(a)); // 최신순 정렬 (내림차순)
-            return sendSuccess(res, requestId, { files });
-        } catch (e) {
-            return sendError(res, requestId, 500, 'LOGS_FILES_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/logs/read') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const filename = searchParams.get('file');
-            // 보안: 디렉토리 트래버셜 방지
-            if (!filename || !filename.endsWith('.log') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-                return sendError(res, requestId, 400, 'INVALID_FILE', '잘못된 파일 이름입니다.');
-            }
-            const logFile = path.join(process.cwd(), 'logs', filename);
-            if (!fs.existsSync(logFile)) {
-                return sendError(res, requestId, 404, 'FILE_NOT_FOUND', '로그 파일을 찾을 수 없습니다.');
-            }
-            // 텍스트 전체 반환
-            const content = fs.readFileSync(logFile, 'utf-8');
-            return sendSuccess(res, requestId, { file: filename, content });
-        } catch (e) {
-            return sendError(res, requestId, 500, 'LOGS_READ_ERROR', e.message);
-        }
-    }
-
-    if (pathname === '/api/v1/config/status') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        console.log(`[Status API] Reporting version: ${APP_VERSION}`);
-        return sendSuccess(res, requestId, {
-            ready: CONFIG.CONFIG_READY === true,
-            sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
-            sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
-            message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
-            version: String(APP_VERSION || '0.0.0')
-        });
-    }
-
-    if (pathname === '/api/v1/sheets/ensure') {
-        if (!['GET', 'POST'].includes(method)) return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const force = parseBoolQuery(searchParams.get('force'));
-        try {
-            const data = await ensureSheetsReadyForUi({ force });
-            return sendSuccess(res, requestId, data);
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-    }
-
-    if (pathname === '/api/v1/license/status') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const quiet = parseBoolQuery(searchParams.get('quiet'));
-        const status = await License.checkLicenseStatus({ quiet });
-        if (!status.success) {
-            return sendError(res, requestId, 400, 'LICENSE_STATUS_FAILED', status.message);
-        }
-        return sendSuccess(res, requestId, {
-            planCode: status.planCode || '',
-            planName: status.planDisplayName || status.planCode || '',
-            createdAt: status.createdAt || '',
-            usageLimit: status.usageLimit,
-            usageCount: status.usageCount,
-            remaining: status.remaining,
-            features: toFeatureMap(status.features)
-        });
-    }
-
-    if (pathname === '/api/v1/capabilities') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const quiet = parseBoolQuery(searchParams.get('quiet'));
-        const status = await License.checkLicenseStatus({ quiet });
-        if (!status.success) {
-            return sendError(res, requestId, 400, 'CAPABILITY_RESOLVE_FAILED', status.message);
-        }
-        const features = toFeatureMap(status.features);
-        const maxBlogPosts = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
-        const maxShoppingPosts = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
-
-        return sendSuccess(res, requestId, {
-            planCode: status.planCode || '',
-            planName: status.planDisplayName || status.planCode || '',
-            features,
-            limits: {
-                max_blog_posts_per_run: maxBlogPosts,
-                max_shopping_posts_per_run: maxShoppingPosts
-            }
-        });
-    }
-
-    if (pathname === '/api/v1/auto/status') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        return sendSuccess(res, requestId, getAutoStatusPayload());
-    }
-
-    if (pathname === '/api/v1/blog/auto/categories') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-        const force = parseBoolQuery(searchParams.get('force'));
-        const data = await resolveNaverAutoCategoryCatalog({ force });
-        return sendSuccess(res, requestId, data);
-    }
-
-    if (pathname === '/api/v1/auto/start') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        return sendError(res, requestId, 409, 'AUTO_POC_ONLY', '현재 Auto Mode는 PoC 단계로 설정 저장만 지원합니다. 실제 자동 실행은 추후 활성화 예정입니다.');
-    }
-
-    if (pathname === '/api/v1/auto/stop') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        return sendError(res, requestId, 409, 'AUTO_POC_ONLY', '현재 Auto Mode는 PoC 단계로 설정 저장만 지원합니다.');
-    }
-
-    if (pathname === '/api/v1/blog/auto/run-manual') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const requestedDate = normalizeYmdToken(requestBody?.trendDate || requestBody?.date || '');
-        const skipTrends = toBoolLike(requestBody?.skipTrends, false);
-        const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
-            ? requestBody.settingsOverrides
-            : {};
-        Logger.info(`🚀 [UI][AUTO] 수동 실행 요청 수신 (trendDate: ${requestedDate || '미지정'}, skipTrends: ${skipTrends ? 'Yes' : 'No'})`);
-        const runResult = await runAutoCycle('ui-manual', {
-            forceRun: true,
-            trendDate: requestedDate || '',
-            skipTrends,
-            settingsOverrides
-        });
-        if (!runResult?.success) {
-            Logger.warn(
-                `⚠️ [UI][AUTO] 수동 실행 실패 (trendDate: ${requestedDate || '미지정'}, skipTrends: ${skipTrends ? 'Yes' : 'No'}, code: ${runResult?.code || '-'}, message: ${runResult?.message || 'unknown'})`
-            );
-            return sendError(
-                res,
-                requestId,
-                400,
-                runResult?.code || 'AUTO_MANUAL_RUN_FAILED',
-                runResult?.message || '자동발행 수동 실행에 실패했습니다.'
-            );
-        }
-        const summary = runResult?.data?.summary || {};
-        const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
-        Logger.info(
-            `✅ [UI][AUTO] 수동 실행 완료 (trendDate: ${requestedDate || '미지정'}, skipTrends: ${skipTrends ? 'Yes' : 'No'}, trends: ${Number(summary?.trendsCollected || 0)}, topics: ${Number(summary?.trendsToTopics || 0)}, blog: ${Number(summary?.blogSuccess || 0)}/${Number(summary?.blogAttempted || 0)})`
-        );
-        if (skipped.length > 0) {
-            Logger.info(`ℹ️ [UI][AUTO] 수동 실행 건너뜀 사유: ${skipped.join(' | ')}`);
-        }
-        return sendSuccess(res, requestId, {
-            trendDate: requestedDate || '',
-            skipTrends,
-            ...(runResult?.data || {})
-        });
-    }
-
-    if (pathname === '/api/v1/session/naver') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const session = await checkNaverSessionForUi();
-        return sendSuccess(res, requestId, {
-            valid: Boolean(session.ok),
-            reason: session.reason || '',
-            message: session.message || '',
-            checkedAt: new Date().toISOString()
-        });
-    }
-
-    if (pathname === '/api/v1/session/naver-login') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        return sendSuccess(res, requestId, getNaverLoginStatus());
-    }
-
-    if (pathname === '/api/v1/session/naver-login/start') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-
-        if (naverLoginState.status === 'running') {
-            return sendError(res, requestId, 409, 'NAVER_LOGIN_ALREADY_RUNNING', '이미 로그인 진행 중입니다. 브라우저 창을 확인해 주세요.');
-        }
-
-        Logger.info('🔐 [UI] 네이버 로그인 시작 요청 수신');
-        setNaverLoginState({
-            status: 'running',
-            message: '로그인 프로세스를 시작합니다...',
-            startedAt: new Date().toISOString(),
-            finishedAt: null,
-            detectedBy: '',
-            error: ''
-        });
-
-        runNaverLoginFlowForUi().catch((e) => {
-            setNaverLoginState({
-                status: 'failed',
-                message: '로그인 실패',
-                finishedAt: new Date().toISOString(),
-                error: String(e?.message || 'unknown error')
-            });
-        });
-
-        return sendSuccess(res, requestId, getNaverLoginStatus(), 202);
-    }
-
-    if (pathname === '/api/v1/settings/major') {
-        if (method === 'GET') {
-            try {
-                const configSource = tryResolveReadableConfigSource();
-                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-                const effectiveSource = configSource || { path: resolveWritableConfigPath(), sourceType: 'generated' };
-                return sendSuccess(res, requestId, buildMajorSettings(raw, effectiveSource));
-            } catch (e) {
-                return sendError(res, requestId, 400, 'SETTINGS_READ_FAILED', e.message);
-            }
-        }
-
-        if (method === 'POST') {
-            try {
-                const configSource = tryResolveReadableConfigSource();
-                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-                const writablePath = resolveWritableConfigPath();
-                const fields = parseMajorFieldsFromRequest(requestBody || {});
-                const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
-                const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
-                const imageKeys = [
-                    'FTC_DISCLOSURE_IMAGE_URL',
-                    'SHOPPING_CTA_IMAGE_URL1',
-                    'SHOPPING_CTA_IMAGE_URL2',
-                    'SHOPPING_CTA_IMAGE_URL3'
-                ];
-                for (const key of imageKeys) {
-                    if (!isAllowedImageSourceValue(fields[key])) {
-                        const slotInfo = Object.values(SHOPPING_IMAGE_SLOT_MAP).find(v => v.key === key);
-                        const label = slotInfo?.label || key;
-                        return sendError(res, requestId, 400, 'INVALID_IMAGE_SOURCE', `${label} 경로는 https:// 또는 로컬 파일 경로(예: ./config/images/sample.jpg) 형식만 허용됩니다.`);
-                    }
-                }
-                const requiredErrors = validateRequiredShoppingImageSources(fields);
-                if (requiredErrors.length > 0) {
-                    return sendError(res, requestId, 400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
-                }
-                const nextRaw = applyConfigUpdates(raw, {
-                    LISTEN_HOST: fields.LISTEN_HOST,
-                    LISTEN_PORT: String(fields.LISTEN_PORT),
-                    NAVER_ID: fields.NAVER_ID,
-                    GEMINI_API_KEY: fields.GEMINI_API_KEY,
-                    GOOGLE_SHEET_URL: fields.GOOGLE_SHEET_URL,
-                    HEADLESS: fields.HEADLESS ? 'true' : 'false',
-                    TYPING_SPEED: fields.TYPING_SPEED,
-                    NAVER_AUTO_MODE: fields.NAVER_AUTO_MODE ? 'true' : 'false',
-                    NAVER_AUTO_CATEGORIES: fields.NAVER_AUTO_CATEGORIES,
-                    NAVER_AUTO_DAILY_POSTS: String(fields.NAVER_AUTO_DAILY_POSTS),
-                    NAVER_AUTO_TRENDS_TIME: fields.NAVER_AUTO_TRENDS_TIME,
-                    NAVER_AUTO_IMAGE_GENERATION: fields.NAVER_AUTO_IMAGE_GENERATION ? 'true' : 'false',
-                    NAVER_AUTO_EXTERNAL_REFERENCE: fields.NAVER_AUTO_EXTERNAL_REFERENCE ? 'true' : 'false',
-                    NAVER_AUTO_NOTIFY_ENABLED: fields.NAVER_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                    NAVER_AUTO_VARIATION_INCLUDE_NEW: fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ? 'true' : 'false',
-                    NAVER_AUTO_VARIATION_INCLUDE_DASH: fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ? 'true' : 'false',
-                    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ? 'true' : 'false',
-                    NAVER_AUTO_VARIATION_TYPE: fields.NAVER_AUTO_VARIATION_TYPE || 'min',
-                    NAVER_AUTO_VARIATION_NUMBER: fields.NAVER_AUTO_VARIATION_NUMBER === '' ? '' : String(fields.NAVER_AUTO_VARIATION_NUMBER),
-                    NAVER_AUTO_VARIATION_TOP_N: fields.NAVER_AUTO_VARIATION_TOP_N === '' ? '5' : String(fields.NAVER_AUTO_VARIATION_TOP_N),
-                    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: String(fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS),
-                    NAVER_AUTO_HEADLESS: fields.NAVER_AUTO_HEADLESS ? 'true' : 'false',
-                    NAVER_SHOPPING_AUTO_MODE: fields.NAVER_SHOPPING_AUTO_MODE ? 'true' : 'false',
-                    NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
-                    NAVER_SHOPPING_AUTO_TIME: fields.NAVER_SHOPPING_AUTO_TIME,
-                    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: fields.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                    NAVER_SHOPPING_AUTO_HEADLESS: fields.NAVER_SHOPPING_AUTO_HEADLESS ? 'true' : 'false',
-                    FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
-                    SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
-                    SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
-                    SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3,
-                    UPDATE_CHANNEL: fields.UPDATE_CHANNEL || 'stable'
-                });
-                fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-                fs.writeFileSync(writablePath, nextRaw, 'utf-8');
-                applyRuntimeConfigFromMajor(fields);
-                syncAutoRunnerWithConfig();
-                syncShoppingAutoRunnerWithConfig();
-                const requiresRestart =
-                    fields.LISTEN_HOST !== prevListenHost ||
-                    normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT) !== prevListenPort;
-                CONFIG.CONFIG_READY = true;
-                CONFIG.CONFIG_SOURCE_TYPE = 'config';
-                CONFIG.CONFIG_SOURCE_PATH = writablePath;
-                CONFIG.CONFIG_ERROR_MESSAGE = '';
-                // 재시작 여부를 확인하고, 응답 전송 후 비동기적으로 서버를 내렸다가 다시 올립니다.
-                if (requiresRestart) {
-                    setTimeout(async () => {
-                        const { reloadUiServer } = require('./ui-server');
-                        await reloadUiServer(fields.LISTEN_HOST, normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT));
-                    }, 500);
-                }
-
-                return sendSuccess(res, requestId, {
-                    ...buildMajorSettings(nextRaw, { path: writablePath, sourceType: 'config' }),
-                    requiresRestart,
-                    restarting: requiresRestart,
-                    newHost: fields.LISTEN_HOST,
-                    newPort: normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT),
-                    message: requiresRestart ? '주요 설정 저장 완료. 서버가 재시작됩니다...' : '주요 설정 저장 완료'
-                });
-            } catch (e) {
-                return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
-            }
-        }
-
-        return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-    }
-
-    if (pathname === '/api/v1/settings/advanced') {
-        if (method === 'GET') {
-            try {
-                const configSource = tryResolveReadableConfigSource();
-                const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-                const revision = createConfigRevision(raw);
-                return sendSuccess(res, requestId, {
-                    configPath: (configSource?.path) || resolveWritableConfigPath(),
-                    configSourceType: (configSource?.sourceType) || 'generated',
-                    content: raw,
-                    revision
-                });
-            } catch (e) {
-                return sendError(res, requestId, 400, 'SETTINGS_READ_FAILED', e.message);
-            }
-        }
-
-        if (method === 'POST') {
-            const content = String(requestBody?.content || '');
-            if (!content.trim()) {
-                return sendError(res, requestId, 400, 'INVALID_CONTENT', '고급 설정 내용이 비어 있습니다.');
-            }
-            if (content.length > 1024 * 1024) {
-                return sendError(res, requestId, 400, 'CONTENT_TOO_LARGE', '고급 설정 내용이 너무 큽니다. (최대 1MB)');
-            }
-
-            try {
-                const configSource = tryResolveReadableConfigSource();
-                const currentRaw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-                const currentRevision = createConfigRevision(currentRaw);
-                const expectedRevision = String(requestBody?.revision || '').trim();
-                if (expectedRevision && expectedRevision !== currentRevision) {
-                    return sendError(
-                        res,
-                        requestId,
-                        409,
-                        'SETTINGS_CONFLICT',
-                        '고급 설정이 최신 상태가 아닙니다. [원문 다시 불러오기] 후 다시 저장해 주세요.'
-                    );
-                }
-
-                const writablePath = resolveWritableConfigPath();
-                fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-                fs.writeFileSync(writablePath, content, 'utf-8');
-                const fields = parseMajorFieldsFromRequest({
-                    LISTEN_HOST: parseConfigValue(content, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
-                    LISTEN_PORT: parseConfigValue(content, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
-                    NAVER_ID: parseConfigValue(content, 'NAVER_ID') || CONFIG.NAVER_ID,
-                    GEMINI_API_KEY: parseConfigValue(content, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
-                    GOOGLE_SHEET_URL: parseConfigValue(content, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
-                    HEADLESS: parseConfigValue(content, 'HEADLESS'),
-                    TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED'),
-                    NAVER_AUTO_MODE: parseConfigValue(content, 'NAVER_AUTO_MODE') || parseConfigValue(content, 'AUTO_MODE'),
-                    NAVER_AUTO_CATEGORIES:
-                        parseConfigValue(content, 'NAVER_AUTO_CATEGORIES')
-                        || parseConfigValue(content, 'AUTO_INCLUDE_CATEGORIES')
-                        || parseConfigValue(content, 'AUTO_CATEGORIES'),
-                    NAVER_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_AUTO_DAILY_POSTS') || parseConfigValue(content, 'AUTO_DAILY_BLOG_CAP'),
-                    NAVER_AUTO_TRENDS_TIME: parseConfigValue(content, 'NAVER_AUTO_TRENDS_TIME'),
-                    NAVER_AUTO_IMAGE_GENERATION: parseConfigValue(content, 'NAVER_AUTO_IMAGE_GENERATION') || parseConfigValue(content, 'AUTO_IMAGE_GENERATION'),
-                    NAVER_AUTO_EXTERNAL_REFERENCE: parseConfigValue(content, 'NAVER_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(content, 'AUTO_USE_EXTERNAL_REF'),
-                    NAVER_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_AUTO_NOTIFY_ENABLED'),
-                    NAVER_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
-                    NAVER_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
-                    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
-                    NAVER_AUTO_VARIATION_TYPE: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
-                    NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_MIN_VARIATION'),
-                    NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(content, 'AUTO_TRENDS_TOP_N'),
-                    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(content, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
-                    NAVER_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_AUTO_HEADLESS'),
-                    NAVER_SHOPPING_AUTO_MODE: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_MODE'),
-                    NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
-                    NAVER_SHOPPING_AUTO_TIME: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_TIME'),
-                    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
-                    NAVER_SHOPPING_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_HEADLESS'),
-                    FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
-                    SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
-                    SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
-                    SHOPPING_CTA_IMAGE_URL3: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
-                });
-                applyRuntimeConfigFromMajor(fields);
-                syncAutoRunnerWithConfig();
-                syncShoppingAutoRunnerWithConfig();
-                CONFIG.CONFIG_READY = true;
-                CONFIG.CONFIG_SOURCE_TYPE = 'config';
-                CONFIG.CONFIG_SOURCE_PATH = writablePath;
-                CONFIG.CONFIG_ERROR_MESSAGE = '';
-                const revision = createConfigRevision(content);
-                return sendSuccess(res, requestId, {
-                    configPath: writablePath,
-                    configSourceType: 'config',
-                    requiresRestart: true,
-                    message: '고급 설정 저장 완료',
-                    revision
-                });
-            } catch (e) {
-                return sendError(res, requestId, 400, 'SETTINGS_SAVE_FAILED', e.message);
-            }
-        }
-
-        return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-    }
-
-    if (pathname === '/api/v1/settings/shopping-image') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const slot = String(requestBody?.slot || '').trim().toLowerCase();
-            const slotInfo = SHOPPING_IMAGE_SLOT_MAP[slot];
-            if (!slotInfo) {
-                return sendError(res, requestId, 400, 'INVALID_SLOT', 'slot은 ftc, cta1, cta2, cta3 중 하나여야 합니다.');
-            }
-
-            const { buffer, ext } = parseBase64ImagePayload(requestBody || {});
-            const writablePath = resolveWritableConfigPath();
-            const configDir = path.dirname(writablePath);
-            const imageDir = path.join(configDir, 'images');
-            fs.mkdirSync(imageDir, { recursive: true });
-
-            const filename = `${slotInfo.fileBase}${ext}`;
-            const filePath = path.join(imageDir, filename);
-            fs.writeFileSync(filePath, buffer);
-
-            const configValue = `./config/images/${filename}`;
-
-            const configSource = tryResolveReadableConfigSource();
-            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-            const nextRaw = applyConfigUpdates(raw, {
-                [slotInfo.key]: configValue
-            });
-            fs.writeFileSync(writablePath, nextRaw, 'utf-8');
-
-            const mergedFields = {
-                LISTEN_HOST: parseConfigValue(nextRaw, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
-                LISTEN_PORT: parseConfigValue(nextRaw, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
-                NAVER_ID: parseConfigValue(nextRaw, 'NAVER_ID') || CONFIG.NAVER_ID,
-                GEMINI_API_KEY: parseConfigValue(nextRaw, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
-                GOOGLE_SHEET_URL: parseConfigValue(nextRaw, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
-                HEADLESS: parseConfigValue(nextRaw, 'HEADLESS'),
-                TYPING_SPEED: parseConfigValue(nextRaw, 'TYPING_SPEED'),
-                FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(nextRaw, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
-                SHOPPING_CTA_IMAGE_URL1: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
-                SHOPPING_CTA_IMAGE_URL2: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
-                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
-            };
-            applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
-            syncAutoRunnerWithConfig();
-            syncShoppingAutoRunnerWithConfig();
-            CONFIG.CONFIG_READY = true;
-            CONFIG.CONFIG_SOURCE_TYPE = 'config';
-            CONFIG.CONFIG_SOURCE_PATH = writablePath;
-            CONFIG.CONFIG_ERROR_MESSAGE = '';
-
-            return sendSuccess(res, requestId, {
-                slot,
-                key: slotInfo.key,
-                value: configValue,
-                savedPath: filePath,
-                configPath: writablePath,
-                message: '쇼핑 이미지 등록 완료'
-            });
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHOPPING_IMAGE_SAVE_FAILED', e.message || '쇼핑 이미지 저장에 실패했습니다.');
-        }
-    }
-
-    if (pathname === '/api/v1/settings/shopping-image/preview') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const slot = String(searchParams.get('slot') || '').trim().toLowerCase();
-        const slotInfo = SHOPPING_IMAGE_SLOT_MAP[slot];
-        if (!slotInfo) {
-            return sendError(res, requestId, 400, 'INVALID_SLOT', 'slot은 ftc, cta1, cta2, cta3 중 하나여야 합니다.');
-        }
-
-        const sourceOverride = String(searchParams.get('source') || '').trim();
-        let source = sourceOverride;
-        if (!source) {
-            const configSource = tryResolveReadableConfigSource();
-            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-            const fields = buildMajorSettings(raw, configSource || { path: resolveWritableConfigPath(), sourceType: 'generated' }).fields;
-            source = String(fields[slotInfo.key] || '').trim();
-        }
-        if (!source) {
-            return sendError(res, requestId, 404, 'IMAGE_SOURCE_EMPTY', '설정된 이미지가 없습니다.');
-        }
-        if (/^https?:\/\//i.test(source)) {
-            return sendError(res, requestId, 400, 'INVALID_PREVIEW_SOURCE', '원격 URL 이미지는 브라우저가 직접 표시합니다.');
-        }
-
-        const localPath = resolveLocalImagePathFromSource(source);
-        if (!localPath || !fs.existsSync(localPath)) {
-            return sendError(res, requestId, 404, 'IMAGE_FILE_NOT_FOUND', '로컬 이미지를 찾을 수 없습니다.');
-        }
-
-        const body = fs.readFileSync(localPath);
-        res.writeHead(200, {
-            'Content-Type': getContentType(localPath),
-            'Cache-Control': 'no-store'
-        });
-        res.end(body);
-        return true;
-    }
-
-    if (pathname === '/api/v1/settings/google-auth/status') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-            const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
-
-            if (fs.existsSync(keyFilePath)) {
-                const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-                const credentials = JSON.parse(fileContent);
-                return sendSuccess(res, requestId, {
-                    configured: true,
-                    clientEmail: credentials.client_email || '알 수 없음',
-                    projectId: credentials.project_id || '알 수 없음',
-                    path: keyFilePath
-                });
-            } else {
-                return sendSuccess(res, requestId, {
-                    configured: false,
-                    message: '설정된 Google Auth JSON 파일을 찾을 수 없습니다.'
-                });
-            }
-        } catch (e) {
-            return sendSuccess(res, requestId, {
-                configured: false,
-                message: `오류: ${e.message}`
-            });
-        }
-    }
-
-    if (pathname === '/api/v1/settings/google-auth') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            const content = String(requestBody?.content || '').trim();
-            if (!content) {
-                return sendError(res, requestId, 400, 'INVALID_CONTENT', 'Google Auth JSON 내용이 없습니다.');
-            }
-
-            let parsed;
-            try {
-                parsed = JSON.parse(content);
-            } catch (e) {
-                return sendError(res, requestId, 400, 'INVALID_JSON', '올바른 JSON 형식이 아닙니다.');
-            }
-
-            if (parsed.type !== 'service_account' || !parsed.project_id || !parsed.private_key || !parsed.client_email) {
-                return sendError(res, requestId, 400, 'INVALID_SERVICE_ACCOUNT', '유효한 Google Service Account JSON 형식이 아닙니다. (type, project_id, private_key, client_email 필수)');
-            }
-
-            const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-            const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
-
-            // 저장 폴더가 없으면 생성
-            const authDir = path.dirname(keyFilePath);
-            if (!fs.existsSync(authDir)) {
-                fs.mkdirSync(authDir, { recursive: true });
-            }
-
-            fs.writeFileSync(keyFilePath, JSON.stringify(parsed, null, 2), 'utf-8');
-            Utils.clearGoogleAuthCache(); // Utils 캐시 초기화
-
-            return sendSuccess(res, requestId, {
-                savedPath: keyFilePath,
-                clientEmail: parsed.client_email,
-                projectId: parsed.project_id,
-                message: 'Google Service Account JSON 저장 완료 및 캐시 초기화 성공'
-            });
-
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SAVE_FAILED', e.message || '저장 중 오류가 발생했습니다.');
-        }
-    }
-
-    if (pathname === '/api/v1/blog/quick-publish') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeQuickPublish(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'QUICK_PUBLISH_FAILED', result.message || '빠른발행 요청에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/shopping/quick-publish') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeShoppingQuickPublish(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'SHOPPING_QUICK_PUBLISH_FAILED', result.message || '쇼핑 빠른발행 요청에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/shopping/preview') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const shortUrl = String(searchParams.get('url') || '').trim();
-        if (!shortUrl) {
-            return sendError(res, requestId, 400, 'INVALID_SHOPPING_URL', '쇼핑 URL은 필수입니다.');
-        }
-        if (!/^https?:\/\//i.test(shortUrl)) {
-            return sendError(res, requestId, 400, 'INVALID_SHOPPING_URL', '쇼핑 URL 형식이 올바르지 않습니다. (http/https)');
-        }
-
-        try {
-            const preview = await ShoppingManager.previewFromShortUrl(shortUrl);
-            return sendSuccess(res, requestId, preview);
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHOPPING_PREVIEW_FAILED', e.message || '쇼핑 미리보기에 실패했습니다.');
-        }
-    }
-
-    if (pathname === '/api/v1/blog/topics') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-        const status = String(searchParams.get('status') || '').trim();
-        const q = String(searchParams.get('q') || '').trim();
-        const limit = parseIntSafe(searchParams.get('limit'), 50, 1) || 50;
-        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
-        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
-        const result = await Utils.readGoogleSheetTopicsAll({ status, q, limit, offset, sortBy, sortDir });
-        const runtimeLogMap = getBlogRuntimeLogMap();
-        let items = Array.isArray(result.items) ? [...result.items] : [];
-
-        // 상태/검색 필터로 빠진 행이어도 runtime 로그가 살아있는 동안은 목록에 유지해
-        // 사용자가 진행 상황을 추적할 수 있게 한다.
-        if (runtimeLogMap.size > 0) {
-            const existing = new Set(items.map(item => item.rowIndex));
-            const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
-            if (missingRuntimeRowIndices.length > 0) {
-                const allTopics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy, sortDir });
-                const allItems = Array.isArray(allTopics.items) ? allTopics.items : [];
-                const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
-                for (const rowIndex of missingRuntimeRowIndices) {
-                    const found = byRowIndex.get(rowIndex);
-                    if (found) items.push(found);
-                }
-                items = sortTopicItems(items, sortBy, sortDir);
-            }
-        }
-
-        items = items.map(item => ({
-            ...item,
-            runtimeLog: runtimeLogMap.get(item.rowIndex) || ''
-        }));
-        items = sortTopicItems(items, sortBy, sortDir);
-        return sendSuccess(res, requestId, {
-            ...result,
-            total: Math.max(Number(result.total || 0), items.length),
-            items
-        });
-    }
-
-    if (pathname === '/api/v1/shopping/items') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-        const status = String(searchParams.get('status') || '').trim();
-        const q = String(searchParams.get('q') || '').trim();
-        const limit = parseIntSafe(searchParams.get('limit'), 50, 1) || 50;
-        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
-        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
-        const result = await Utils.readGoogleSheetShoppingAll({ status, q, limit, offset, sortBy, sortDir });
-        const runtimeLogMap = getShoppingRuntimeLogMap();
-        let items = Array.isArray(result.items) ? [...result.items] : [];
-
-        if (runtimeLogMap.size > 0) {
-            const existing = new Set(items.map(item => item.rowIndex));
-            const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
-            if (missingRuntimeRowIndices.length > 0) {
-                const allShopping = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0, sortBy, sortDir });
-                const allItems = Array.isArray(allShopping.items) ? allShopping.items : [];
-                const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
-                for (const rowIndex of missingRuntimeRowIndices) {
-                    const found = byRowIndex.get(rowIndex);
-                    if (found) items.push(found);
-                }
-            }
-        }
-
-        items = items.map(item => ({
-            ...item,
-            runtimeLog: runtimeLogMap.get(item.rowIndex) || ''
-        }));
-        items = sortShoppingItems(items, sortBy, sortDir);
-        return sendSuccess(res, requestId, {
-            ...result,
-            total: Math.max(Number(result.total || 0), items.length),
-            items
-        });
-    }
-
-    if (pathname === '/api/v1/blog/action') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const body = requestBody || {};
-        const action = String(body.action || '').trim().toLowerCase();
-        const result = (action === 'batch' && Array.isArray(body.rowIndices))
-            ? await executeBlogBatchRowsAction(body)
-            : await executeBlogRowAction(body);
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'BLOG_ACTION_FAILED', result.message || '블로그 작업 요청에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/shopping/action') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const body = requestBody || {};
-        const action = String(body.action || '').trim().toLowerCase();
-        if (action !== 'batch' || !Array.isArray(body.rowIndices)) {
-            return sendError(res, requestId, 400, 'INVALID_ACTION', 'shopping action은 batch만 지원합니다.');
-        }
-        const result = await executeShoppingBatchRowsAction(body);
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'SHOPPING_ACTION_FAILED', result.message || '쇼핑 작업 요청에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/shopping/auto/run-manual') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        Logger.info('🚀 [UI][SHOPPING_AUTO] 수동 실행 요청 수신');
-        const result = await executeShoppingAutoManualAction(requestBody || {});
-        if (!result.success) {
-            Logger.warn(`⚠️ [UI][SHOPPING_AUTO] 수동 실행 실패: ${result.message || result.code || 'unknown'}`);
-            return sendError(res, requestId, 400, result.code || 'SHOPPING_AUTO_MANUAL_FAILED', result.message || '쇼핑 자동발행 수동 실행에 실패했습니다.');
-        }
-        const summary = result?.data?.summary || {};
-        Logger.info(`✅ [UI][SHOPPING_AUTO] 수동 실행 완료 (shopping: ${Number(summary?.shoppingSuccess || 0)}/${Number(summary?.shoppingAttempted || 0)})`);
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/shopping/row/update') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeShoppingRowUpdate(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'SHOPPING_ROW_UPDATE_FAILED', result.message || '쇼핑 행 수정에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/blog/topic/update') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeBlogTopicUpdate(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/trends/collect') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeTrendCollectAction(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'TRENDS_COLLECT_FAILED', result.message || '트렌드 수집에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/trends/items') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-        const status = String(searchParams.get('status') || '').trim();
-        const q = String(searchParams.get('q') || '').trim();
-        const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
-        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
-        const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
-        const result = await Utils.readGoogleSheetTrendsAll({ status, q, limit, offset, sortBy, sortDir });
-        return sendSuccess(res, requestId, result);
-    }
-
-    if (pathname === '/api/v1/keywords/items') {
-        if (method !== 'GET') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (e) {
-            return sendError(res, requestId, 400, 'SHEETS_NOT_READY', e.message || '필수 시트 준비에 실패했습니다.');
-        }
-        const status = String(searchParams.get('status') || '').trim();
-        const q = String(searchParams.get('q') || '').trim();
-        const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
-        const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-        const result = await Utils.readGoogleSheetKeywordsAll({ status, q, limit, offset });
-        return sendSuccess(res, requestId, result);
-    }
-
-    if (pathname === '/api/v1/trends/to-topics') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeTrendsToTopicsAction(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'TRENDS_TO_TOPICS_FAILED', result.message || 'trends→topics 처리에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    if (pathname === '/api/v1/keywords/to-topics') {
-        if (method !== 'POST') return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
-        const result = await executeKeywordsToTopicsAction(requestBody || {});
-        if (!result.success) {
-            return sendError(res, requestId, 400, result.code || 'KEYWORDS_TO_TOPICS_FAILED', result.message || 'keywords→topics 처리에 실패했습니다.');
-        }
-        return sendSuccess(res, requestId, result.data);
-    }
-
-    return false;
+    const routed = await getApiRouteHub()({
+        requestId,
+        method,
+        pathname,
+        searchParams,
+        requestBody,
+        res
+    });
+    return routed === true;
 }
 
 let activeUiServer = null;
