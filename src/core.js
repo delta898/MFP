@@ -646,15 +646,19 @@ async function focusEditorBottomAnchor(page) {
 	return false;
 }
 
-async function placeCaretAtDocumentEnd(page) {
+async function placeCaretAtDocumentEnd(page, options = {}) {
+	const opts = options || {};
+	const skipRange = !!opts.skipRangeSelection;
+
 	// 1) Primary: force DOM selection to the last visible editable node.
-	try {
-		const movedByRange = await page.evaluate(() => {
-			const root =
-				document.querySelector('.se-main-container') ||
-				document.querySelector('.se-container') ||
-				document.body;
-			if (!root) return false;
+	if (!skipRange) {
+		try {
+			const movedByRange = await page.evaluate(() => {
+				const root =
+					document.querySelector('.se-main-container') ||
+					document.querySelector('.se-container') ||
+					document.body;
+				if (!root) return false;
 
 			const isVisible = (el) => {
 				if (!el) return false;
@@ -689,12 +693,13 @@ async function placeCaretAtDocumentEnd(page) {
 			selection.addRange(range);
 			(target).focus?.();
 			return true;
-		});
-		if (movedByRange) {
-			await Utils.sleep(80);
-			return true;
-		}
-	} catch (e) { }
+			});
+			if (movedByRange) {
+				await Utils.sleep(80);
+				return true;
+			}
+		} catch (e) { }
+	}
 
 	// 2) Fallback: bottom anchor click path
 	const movedByAnchor = await focusEditorBottomAnchor(page);
@@ -1634,10 +1639,16 @@ ${scrapedContext}`;
 							Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
 						}
 
-						// 인용구 블록 종료 후 다음 블록이 아래에 이어지도록 하단 커서를 다시 고정한다.
+						// 인용구 적용 직후에는 마지막 editable(range) 기준이 인용구 내부를 가리킬 수 있다.
+						// 따라서 range 이동을 건너뛰고 하단 앵커 우선으로 커서를 문서 맨 아래로 강제 이동한다.
 						await Utils.sleep(100);
-						await placeCaretAtDocumentEnd(page);
-						await page.keyboard.press('Enter');
+						const movedToBottom = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+						if (!movedToBottom) {
+							await focusEditorTypingArea(page);
+						}
+						// 서식 토글 재호출은 인용구 블록 자체를 다시 선택/해제할 수 있으므로
+						// 여기서는 포커스 이동만 수행한다.
+						try { await page.keyboard.press('Escape'); } catch (e) { }
 					}
 				}
 				else if (item.type === 'list-item') {
