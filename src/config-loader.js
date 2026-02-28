@@ -307,8 +307,11 @@ const naverAutoCategories = String(
     ?? userConfig.AUTO_CATEGORIES
     ?? ''
 ).trim();
-const naverAutoDailyPosts = parseNonNegativeInt(
-    userConfig.NAVER_AUTO_DAILY_POSTS ?? userConfig.AUTO_DAILY_BLOG_CAP,
+const naverAutoMaxPostsPerRun = parseNonNegativeInt(
+    userConfig.NAVER_AUTO_MAX_POSTS_PER_RUN
+    ?? userConfig.NAVER_AUTO_DAILY_POSTS
+    ?? userConfig.AUTO_MAX_BLOG_PER_CYCLE
+    ?? userConfig.AUTO_DAILY_BLOG_CAP,
     5
 );
 const naverAutoTrendsTime = parseTimeHHmm(userConfig.NAVER_AUTO_TRENDS_TIME, '07:30');
@@ -364,10 +367,6 @@ const naverShoppingAutoTime = parseTimeHHmm(userConfig.NAVER_SHOPPING_AUTO_TIME,
 const naverShoppingAutoNotifyEnabled = parseBoolLike(
     userConfig.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
     false
-);
-const naverShoppingAutoHeadless = parseBoolLike(
-    userConfig.NAVER_SHOPPING_AUTO_HEADLESS,
-    true
 );
 
 const updateChannel = String(userConfig.UPDATE_CHANNEL || 'stable').trim().toLowerCase();
@@ -440,7 +439,7 @@ module.exports = {
     LISTEN_PORT: listenPort,
     NAVER_AUTO_MODE: naverAutoMode,
     NAVER_AUTO_CATEGORIES: naverAutoCategories,
-    NAVER_AUTO_DAILY_POSTS: naverAutoDailyPosts,
+    NAVER_AUTO_MAX_POSTS_PER_RUN: naverAutoMaxPostsPerRun,
     NAVER_AUTO_TRENDS_TIME: naverAutoTrendsTime,
     NAVER_AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
     NAVER_AUTO_EXTERNAL_REFERENCE: naverAutoExternalReference,
@@ -457,7 +456,6 @@ module.exports = {
     NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
     NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
-    NAVER_SHOPPING_AUTO_HEADLESS: naverShoppingAutoHeadless,
     UPDATE_CHANNEL: updateChannel,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,
@@ -465,7 +463,6 @@ module.exports = {
     AUTO_MODE: naverAutoMode,
     AUTO_INCLUDE_CATEGORIES: naverAutoCategories,
     AUTO_CATEGORIES: naverAutoCategories,
-    AUTO_DAILY_BLOG_CAP: naverAutoDailyPosts,
     AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
     AUTO_USE_EXTERNAL_REF: naverAutoExternalReference,
     AUTO_TRENDS_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,

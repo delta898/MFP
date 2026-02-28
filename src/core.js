@@ -829,11 +829,9 @@ async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay,
 			typedTitle.includes(normalizeEditorText(title));
 
 		if (isMatched) {
+			// 수동 편집과 동일: 제목 입력 후 Enter 1회로 본문 첫 줄로 이동.
+			// 여기서 추가 포커스 이동을 하지 않는다(초기 빈 줄 생성 방지).
 			await page.keyboard.press('Enter');
-			for (let i = 0; i < 4; i++) {
-				if (await focusEditorTypingArea(page)) break;
-				await Utils.sleep(120);
-			}
 			return true;
 		}
 
@@ -846,7 +844,8 @@ async function inputBlogTitleWithVerification(page, title, getRandomTypingDelay,
 	throw new Error('제목 입력 검증에 실패했습니다. 네트워크/PC 성능 상태를 확인해주세요.');
 }
 
-async function applyTextFormatAtCursor(page, formatName) {
+async function applyTextFormatAtCursor(page, formatName, options = {}) {
+	const strict = options?.strict === true;
 	try {
 		const toolbarBtn = page.locator('button[data-name="text-format"]').first();
 		if (await toolbarBtn.count() === 0 || !(await toolbarBtn.isVisible())) return false;
@@ -916,6 +915,14 @@ async function applyTextFormatAtCursor(page, formatName) {
 			return false;
 		};
 
+		const isApplied = async () => {
+			if (await textIncludesFormat()) return true;
+			if (formatName === '인용구') {
+				return await isCaretInsideQuoteBlock(page);
+			}
+			return false;
+		};
+
 		for (let attempt = 0; attempt < 3; attempt++) {
 			await toolbarBtn.click({ force: true });
 			await Utils.sleep(180);
@@ -923,14 +930,112 @@ async function applyTextFormatAtCursor(page, formatName) {
 			const clicked = await clickPreferredOption();
 			await Utils.sleep(140);
 
-			if (clicked && await textIncludesFormat()) return true;
+			if (clicked && await isApplied()) return true;
 
 			// 포맷 라벨 검증이 실패해도 클릭은 되었을 수 있으므로 한 번 더 시도한다.
-			if (clicked && attempt === 2) return true;
+			if (!strict && clicked && attempt === 2) return true;
 		}
 	} catch (e) { }
 	try { await page.keyboard.press('Escape'); } catch (e) { }
 	return false;
+}
+
+async function isCaretInsideQuoteBlock(page) {
+	try {
+		return await page.evaluate(() => {
+			const sel = window.getSelection?.();
+			if (!sel || sel.rangeCount === 0) return false;
+			const range = sel.getRangeAt(0);
+			const node = range.startContainer;
+			const element = node instanceof Element ? node : node?.parentElement;
+			if (!element) return false;
+			return Boolean(
+				element.closest(
+					'blockquote, [class*="quotation"], [class*="quote"], .se-quotation, .se-module-quotation, .se-text-quotation'
+				)
+			);
+		});
+	} catch (e) {
+		return false;
+	}
+}
+
+async function ensureCaretOutsideQuoteBlock(page, maxTries = 4, options = {}) {
+	const allowEnter = options.allowEnter !== false;
+	// 먼저 문서 하단 기준으로 커서를 내린다(quote 내부 editable 재포커스 방지).
+	await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+	for (let i = 0; i < maxTries; i++) {
+		const inQuote = await isCaretInsideQuoteBlock(page);
+		if (!inQuote) return true;
+		if (allowEnter) {
+			try { await page.keyboard.press('Enter'); } catch (e) { }
+		} else {
+			try { await page.keyboard.press('ArrowDown'); } catch (e) { }
+			await collapseEditorSelectionToCaretEnd(page);
+		}
+		await Utils.sleep(90);
+		await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+		await Utils.sleep(60);
+	}
+	return !(await isCaretInsideQuoteBlock(page));
+}
+
+async function collapseEditorSelectionToCaretEnd(page) {
+	try {
+		return await page.evaluate(() => {
+			const sel = window.getSelection?.();
+			if (!sel || sel.rangeCount === 0) return false;
+			if (sel.isCollapsed) return true;
+			const range = sel.getRangeAt(0).cloneRange();
+			range.collapse(false);
+			sel.removeAllRanges();
+			sel.addRange(range);
+			return true;
+		});
+	} catch (e) {
+		return false;
+	}
+}
+
+async function escapeQuoteBlockByUserFlow(page, maxTries = 2) {
+	// 수동 편집 UX를 그대로 모사:
+	// 1) 인용구 적용 후 ArrowDown 2회 (출처/블록 선택 이동)
+	// 2) Enter는 기본적으로 치지 않고(임의 줄바꿈 방지), 필요 시 fallback에서만 사용
+	for (let i = 0; i < maxTries; i++) {
+		try { await page.keyboard.press('ArrowDown'); } catch (e) { }
+		await Utils.sleep(70);
+		try { await page.keyboard.press('ArrowDown'); } catch (e) { }
+		await Utils.sleep(70);
+		await collapseEditorSelectionToCaretEnd(page);
+		await Utils.sleep(100);
+		if (!(await isCaretInsideQuoteBlock(page))) return true;
+	}
+	return false;
+}
+
+async function selectCurrentParagraphContents(page) {
+	try {
+		return await page.evaluate(() => {
+			const sel = window.getSelection?.();
+			if (!sel || sel.rangeCount === 0) return false;
+			const range = sel.getRangeAt(0);
+			const node = range.startContainer;
+			const el = node instanceof Element ? node : node?.parentElement;
+			if (!el) return false;
+			const paragraph =
+				el.closest('.se-text-paragraph') ||
+				el.closest('p') ||
+				el.closest('[contenteditable="true"]');
+			if (!paragraph) return false;
+			const next = document.createRange();
+			next.selectNodeContents(paragraph);
+			sel.removeAllRanges();
+			sel.addRange(next);
+			return true;
+		});
+	} catch (e) {
+		return false;
+	}
 }
 
 function resolvePublishViewport() {
@@ -1455,7 +1560,8 @@ ${scrapedContext}`;
 			pureContent = `${pureContent}\n\n${relatedSection}`.trim();
 		}
 		const hashtagLine = finalHashtags.length > 0 ? "\n\n\n" + finalHashtags.map(tag => `#${tag}`).join(' ') : "";
-		const fullFileContent = `# ${finalSubject}\n\n${pureContent}${hashtagLine}`;
+		// 제목 직후 공백 줄을 강제하지 않는다. (에디터 첫 본문 앞 불필요 빈줄 방지)
+		const fullFileContent = `# ${finalSubject}\n${pureContent}${hashtagLine}`;
 
 		fs.writeFileSync(path.join(targetDir, 'contents.md'), fullFileContent, 'utf-8');
 		return { targetDir, finalSubject };
@@ -1578,20 +1684,31 @@ ${scrapedContext}`;
 			let inListMode = false;
 			let currentListType = null;
 			let needsExtraGapAfterList = false;
+			let isFirstBodyBlock = true;
 			let representativeImageSet = false;
 			let representativeAttemptCount = 0;
 			const representativeMaxAttempts = 3;
-			for (const item of contents) {
-				if (item.type !== 'image') {
-					await dismissEditorPopups(page);
-					await closeVisibleOglinkPopup(page);
-					if (!inListMode) {
-						const movedToEnd = await placeCaretAtDocumentEnd(page);
-						if (!movedToEnd) {
-							await focusEditorTypingArea(page);
+				for (const item of contents) {
+					if (item.type !== 'image') {
+						await dismissEditorPopups(page);
+						await closeVisibleOglinkPopup(page);
+						if (!inListMode) {
+							// 첫 본문 블록은 제목 Enter 직후 위치를 그대로 사용한다.
+							// (초기 빈 줄 생성 방지)
+							if (!isFirstBodyBlock) {
+								const movedToEnd = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+								if (!movedToEnd) {
+									await focusEditorTypingArea(page);
+								}
+								const escapedQuote = await ensureCaretOutsideQuoteBlock(page, 3);
+								if (!escapedQuote) {
+									Logger.warn('       ⚠️ 커서가 인용구 블록에 남아있을 수 있습니다.');
+								}
+							}
+							// 소제목/인용구 처리 후 남은 텍스트 선택(range)으로 다음 입력이 덮어쓰이는 현상 방지
+							await collapseEditorSelectionToCaretEnd(page);
 						}
 					}
-				}
 				if (item.type !== 'list-item' && inListMode) {
 					// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
 					await page.keyboard.press('Enter');
@@ -1604,22 +1721,24 @@ ${scrapedContext}`;
 					needsExtraGapAfterList = false;
 				}
 
-				if (item.type === 'header-h2') {
-					// 📌 안정 버전 복원: 커서만 둔 상태에서 소제목 적용
-					Logger.info(`       📌 소제목: ${item.text}`);
-					await placeCaretAtDocumentEnd(page);
-					await page.keyboard.press('Enter');
-					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-					await Utils.sleep(300);
-					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목');
-					if (!subtitleApplied) {
-						try { await page.keyboard.press(`${CMD_KEY}+B`); } catch (e) { }
+					if (item.type === 'header-h2') {
+						// 📌 수동 편집 플로우와 동일하게 처리:
+						// 텍스트 입력 -> 소제목 적용 -> Enter 1회
+						Logger.info(`       📌 소제목: ${item.text}`);
+						await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+						await ensureCaretOutsideQuoteBlock(page, 3);
+						await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
+						await Utils.sleep(300);
+						const subtitleApplied = await applyTextFormatAtCursor(page, '소제목', { strict: true });
+						if (!subtitleApplied) {
+							Logger.warn(`       ⚠️ 소제목 서식 적용 실패: ${item.text}`);
+						}
+						// 툴바 적용 후 남는 선택 상태를 키 이동으로 확실히 해제한다.
+						try { await page.keyboard.press('ArrowRight'); } catch (e) { }
+						await collapseEditorSelectionToCaretEnd(page);
+						await Utils.sleep(80);
+						await page.keyboard.press('Enter'); // 다음 줄(본문)로 이동
 					}
-
-					await Utils.sleep(100);
-					await placeCaretAtDocumentEnd(page);
-					await page.keyboard.press('Enter'); // 다음 줄로 이동
-				}
 				else if (item.type === 'quote') {
 					const quoteText = String(item.text || '').trim();
 					if (quoteText) {
@@ -1629,26 +1748,38 @@ ${scrapedContext}`;
 						}
 						needsExtraGapAfterList = false;
 
-						await placeCaretAtDocumentEnd(page);
-						await page.keyboard.press('Enter');
+						await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
 						await page.keyboard.type(quoteText, { delay: getRandomTypingDelay() });
 						await Utils.sleep(260);
 
-						const quoteApplied = await applyTextFormatAtCursor(page, '인용구');
+						let quoteApplied = await applyTextFormatAtCursor(page, '인용구', { strict: true });
+						if (!quoteApplied) {
+							// 간헐적으로 커서 기준 적용이 누락되면 현재 문단 선택 후 1회 복구 재시도
+							const selected = await selectCurrentParagraphContents(page);
+							if (selected) {
+								quoteApplied = await applyTextFormatAtCursor(page, '인용구', { strict: true });
+								if (quoteApplied) {
+									Logger.info(`       ✅ 인용구 서식 복구 성공: ${quoteText}`);
+								}
+							}
+						}
 						if (!quoteApplied) {
 							Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
 						}
 
-						// 인용구 적용 직후에는 마지막 editable(range) 기준이 인용구 내부를 가리킬 수 있다.
-						// 따라서 range 이동을 건너뛰고 하단 앵커 우선으로 커서를 문서 맨 아래로 강제 이동한다.
+						// 인용구 적용 직후에는 사용자 수동 편집과 동일하게 탈출한다.
+						// (커서 유지 -> ArrowDown x2)
 						await Utils.sleep(100);
-						const movedToBottom = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
-						if (!movedToBottom) {
-							await focusEditorTypingArea(page);
-						}
-						// 서식 토글 재호출은 인용구 블록 자체를 다시 선택/해제할 수 있으므로
-						// 여기서는 포커스 이동만 수행한다.
-						try { await page.keyboard.press('Escape'); } catch (e) { }
+						const escapedByUserFlow = await escapeQuoteBlockByUserFlow(page, 3);
+						if (!escapedByUserFlow) {
+							// 실패 시에만 문서 끝 기준 강제 탈출 fallback
+							const movedToBottom = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+							if (!movedToBottom) {
+								await focusEditorTypingArea(page);
+							}
+								await ensureCaretOutsideQuoteBlock(page, 4, { allowEnter: false });
+							}
+						await collapseEditorSelectionToCaretEnd(page);
 					}
 				}
 				else if (item.type === 'list-item') {
@@ -1782,6 +1913,17 @@ ${scrapedContext}`;
 									Logger.warn("       ⚠️ CTA 이미지 링크 버튼을 찾지 못했습니다.");
 								}
 							}
+
+							// 사람이 편집하는 흐름과 동일하게 이미지 업로드 후
+							// Enter 1회만 입력하여 다음 본문 입력 위치로 이동한다.
+							// 추가 줄바꿈은 contents.md의 newline 블록을 그대로 따른다.
+							if (imageFocused) {
+								try {
+									await page.keyboard.press('Enter');
+									await Utils.sleep(70);
+									Logger.info('       ↩️ 이미지 뒤 커서 이동(Enter x1)');
+								} catch (e) { }
+							}
 						}
 					} else {
 						// 📌 [유지] 이미지 없을 때 원본 마크다운 그대로 입력 (사람 속도로)
@@ -1790,8 +1932,11 @@ ${scrapedContext}`;
 						const rawBlock = `[[IMAGE_${item.index}\ntitle: ${item.text}\nprompt: ${item.prompt}\n]]`;
 						await page.keyboard.type(rawBlock, { delay: getRandomTypingDelay() });
 						await page.keyboard.press('Enter');
-						await page.keyboard.press('Enter');
 					}
+				}
+
+				if (item.type !== 'image' && isFirstBodyBlock) {
+					isFirstBodyBlock = false;
 				}
 				await Utils.sleep(50);
 			}

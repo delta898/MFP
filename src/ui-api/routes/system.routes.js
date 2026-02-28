@@ -12,6 +12,7 @@ function createSystemRouteHandler(deps = {}) {
         if (pathname === '/api/v1/system/stop') return controller.systemStop(ctx);
         if (pathname === '/api/v1/dashboard/summary') return controller.dashboardSummary(ctx);
         if (pathname === '/api/v1/dashboard/logs') return controller.dashboardLogs(ctx);
+        if (pathname === '/api/v1/dashboard/external-content') return controller.dashboardExternalContent(ctx);
         if (pathname === '/api/v1/logs/files') return controller.logsFiles(ctx);
         if (pathname === '/api/v1/logs/read') return controller.logsRead(ctx);
         if (pathname === '/api/v1/config/status') return controller.configStatus(ctx);

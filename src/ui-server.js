@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 const License = require('./license');
 const Constants = require('./constants');
@@ -37,7 +39,7 @@ const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
 const NAVER_AUTO_DEFAULTS = {
     mode: false,
     categories: '',
-    dailyPosts: 3,
+    maxPostsPerRun: 3,
     minPostGapMin: 0,
     trendsTime: '07:30',
     imageGeneration: true,
@@ -54,8 +56,7 @@ const NAVER_SHOPPING_AUTO_DEFAULTS = {
     mode: false,
     dailyPosts: 3,
     time: '07:50',
-    notifyEnabled: false,
-    headless: true
+    notifyEnabled: false
 };
 const AUTO_TRENDS_RETRY_WAIT_MS = 5 * 60 * 1000;
 const AUTO_TRENDS_MAX_RETRIES = 3;
@@ -71,8 +72,6 @@ const autoRuntimeState = {
     lastSummary: null,
     cycleCount: 0,
     timer: null,
-    dayKey: '',
-    blogPublishedToday: 0,
     lastPublishAtMs: 0
 };
 const shoppingAutoRuntimeState = {
@@ -117,6 +116,8 @@ const uiSheetsPreflightState = {
     lastSuccessAt: null,
     lastError: ''
 };
+const QUICK_PUBLISH_DEDUPE_TTL_MS = 90 * 1000;
+const quickPublishRecentMap = new Map();
 let blogAutoRouteHandler = null;
 let settingsRouteHandler = null;
 let legacyApiRouteHandler = null;
@@ -410,6 +411,33 @@ function normalizePublishMode(input) {
     return 'append_only';
 }
 
+function buildQuickPublishDedupeKey({ subject, keywords, instruction, referenceUrl, imageGeneration, externalReference }) {
+    const normalizedSubject = String(subject || '').trim().toLowerCase();
+    const normalizedKeywords = Array.isArray(keywords)
+        ? keywords.map(v => String(v || '').trim().toLowerCase()).filter(Boolean).join(',')
+        : '';
+    const normalizedInstruction = String(instruction || '').trim().toLowerCase();
+    const normalizedReferenceUrl = String(referenceUrl || '').trim().toLowerCase();
+    const normalizedImageGeneration = imageGeneration ? '1' : '0';
+    const normalizedExternalReference = externalReference ? '1' : '0';
+    return [
+        normalizedSubject,
+        normalizedKeywords,
+        normalizedInstruction,
+        normalizedReferenceUrl,
+        normalizedImageGeneration,
+        normalizedExternalReference
+    ].join('|');
+}
+
+function cleanupQuickPublishDedupeCache(nowMs = Date.now()) {
+    for (const [key, entry] of quickPublishRecentMap.entries()) {
+        if (!entry || !Number.isFinite(entry.updatedAtMs) || (nowMs - entry.updatedAtMs) > QUICK_PUBLISH_DEDUPE_TTL_MS) {
+            quickPublishRecentMap.delete(key);
+        }
+    }
+}
+
 function parseIntSafe(input, fallback = null, min = null) {
     const parsed = parseInt(input, 10);
     if (Number.isNaN(parsed)) return fallback;
@@ -627,7 +655,7 @@ function buildDefaultConfigTemplate() {
         'TYPING_SPEED = FAST',
         'NAVER_AUTO_MODE = false',
         'NAVER_AUTO_CATEGORIES = ',
-        'NAVER_AUTO_DAILY_POSTS = 3',
+        'NAVER_AUTO_MAX_POSTS_PER_RUN = 3',
         'NAVER_AUTO_TRENDS_TIME = 07:30',
         'NAVER_AUTO_IMAGE_GENERATION = true',
         'NAVER_AUTO_EXTERNAL_REFERENCE = true',
@@ -643,7 +671,6 @@ function buildDefaultConfigTemplate() {
         'NAVER_SHOPPING_AUTO_DAILY_POSTS = 3',
         'NAVER_SHOPPING_AUTO_TIME = 07:50',
         'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED = false',
-        'NAVER_SHOPPING_AUTO_HEADLESS = true',
         `FTC_DISCLOSURE_IMAGE_URL = ${DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL}`,
         `SHOPPING_CTA_IMAGE_URL1 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1}`,
         `SHOPPING_CTA_IMAGE_URL2 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2}`,
@@ -962,9 +989,18 @@ function normalizeNaverAutoSettings(input = {}) {
         input.NAVER_AUTO_MODE ?? input.AUTO_MODE,
         toBoolLike(CONFIG.NAVER_AUTO_MODE ?? CONFIG.AUTO_MODE, NAVER_AUTO_DEFAULTS.mode)
     );
-    const dailyPosts = normalizeNonNegativeInt(
-        input.NAVER_AUTO_DAILY_POSTS ?? input.AUTO_DAILY_BLOG_CAP,
-        normalizeNonNegativeInt(CONFIG.NAVER_AUTO_DAILY_POSTS ?? CONFIG.AUTO_DAILY_BLOG_CAP, NAVER_AUTO_DEFAULTS.dailyPosts)
+    const maxPostsPerRun = normalizeNonNegativeInt(
+        input.NAVER_AUTO_MAX_POSTS_PER_RUN
+        ?? input.NAVER_AUTO_DAILY_POSTS
+        ?? input.AUTO_MAX_BLOG_PER_CYCLE
+        ?? input.AUTO_DAILY_BLOG_CAP,
+        normalizeNonNegativeInt(
+            CONFIG.NAVER_AUTO_MAX_POSTS_PER_RUN
+            ?? CONFIG.NAVER_AUTO_DAILY_POSTS
+            ?? CONFIG.AUTO_MAX_BLOG_PER_CYCLE
+            ?? CONFIG.AUTO_DAILY_BLOG_CAP,
+            NAVER_AUTO_DEFAULTS.maxPostsPerRun
+        )
     );
     const minPostGapMin = normalizeNonNegativeInt(
         input.NAVER_AUTO_MIN_POST_GAP_MIN ?? input.AUTO_MIN_POST_GAP_MIN,
@@ -1040,7 +1076,7 @@ function normalizeNaverAutoSettings(input = {}) {
     return {
         NAVER_AUTO_MODE: mode,
         NAVER_AUTO_CATEGORIES: categoriesRaw,
-        NAVER_AUTO_DAILY_POSTS: dailyPosts,
+        NAVER_AUTO_MAX_POSTS_PER_RUN: maxPostsPerRun,
         NAVER_AUTO_MIN_POST_GAP_MIN: minPostGapMin,
         NAVER_AUTO_TRENDS_TIME: trendsTime,
         NAVER_AUTO_IMAGE_GENERATION: imageGeneration,
@@ -1059,8 +1095,6 @@ function normalizeNaverAutoSettings(input = {}) {
         AUTO_MODE: mode,
         AUTO_INCLUDE_CATEGORIES: categoriesRaw,
         AUTO_CATEGORIES: categoriesRaw,
-        AUTO_DAILY_BLOG_CAP: dailyPosts,
-        AUTO_MAX_BLOG_PER_CYCLE: dailyPosts,
         AUTO_MIN_POST_GAP_MIN: minPostGapMin,
         AUTO_INTERVAL_MIN: 60,
         AUTO_TRENDS_ENABLED: true,
@@ -1101,17 +1135,12 @@ function normalizeNaverShoppingAutoSettings(input = {}) {
         input.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
         toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED, NAVER_SHOPPING_AUTO_DEFAULTS.notifyEnabled)
     );
-    const headless = toBoolLike(
-        input.NAVER_SHOPPING_AUTO_HEADLESS ?? CONFIG.NAVER_SHOPPING_AUTO_HEADLESS,
-        NAVER_SHOPPING_AUTO_DEFAULTS.headless
-    );
 
     return {
         NAVER_SHOPPING_AUTO_MODE: mode,
         NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
         NAVER_SHOPPING_AUTO_TIME: time,
         NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
-        NAVER_SHOPPING_AUTO_HEADLESS: headless,
 
         // legacy alias (내부 호환)
         AUTO_SHOPPING_ENABLED: mode,
@@ -1170,7 +1199,11 @@ function buildMajorSettings(raw, configSource) {
             parseConfigValue(raw, 'NAVER_AUTO_CATEGORIES')
             || parseConfigValue(raw, 'AUTO_INCLUDE_CATEGORIES')
             || parseConfigValue(raw, 'AUTO_CATEGORIES'),
-        NAVER_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_AUTO_DAILY_POSTS') || parseConfigValue(raw, 'AUTO_DAILY_BLOG_CAP'),
+        NAVER_AUTO_MAX_POSTS_PER_RUN:
+            parseConfigValue(raw, 'NAVER_AUTO_MAX_POSTS_PER_RUN')
+            || parseConfigValue(raw, 'NAVER_AUTO_DAILY_POSTS')
+            || parseConfigValue(raw, 'AUTO_MAX_BLOG_PER_CYCLE')
+            || parseConfigValue(raw, 'AUTO_DAILY_BLOG_CAP'),
         NAVER_AUTO_TRENDS_TIME: parseConfigValue(raw, 'NAVER_AUTO_TRENDS_TIME'),
         NAVER_AUTO_IMAGE_GENERATION: parseConfigValue(raw, 'NAVER_AUTO_IMAGE_GENERATION') || parseConfigValue(raw, 'AUTO_IMAGE_GENERATION'),
         NAVER_AUTO_EXTERNAL_REFERENCE: parseConfigValue(raw, 'NAVER_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(raw, 'AUTO_USE_EXTERNAL_REF'),
@@ -1188,8 +1221,7 @@ function buildMajorSettings(raw, configSource) {
         NAVER_SHOPPING_AUTO_MODE: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_MODE'),
         NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
         NAVER_SHOPPING_AUTO_TIME: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_TIME'),
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
-        NAVER_SHOPPING_AUTO_HEADLESS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_HEADLESS')
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED')
     });
     const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
     const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
@@ -1211,7 +1243,7 @@ function buildMajorSettings(raw, configSource) {
         UPDATE_CHANNEL: updateChannel,
         NAVER_AUTO_MODE: autoSettings.NAVER_AUTO_MODE,
         NAVER_AUTO_CATEGORIES: autoSettings.NAVER_AUTO_CATEGORIES,
-        NAVER_AUTO_DAILY_POSTS: autoSettings.NAVER_AUTO_DAILY_POSTS,
+        NAVER_AUTO_MAX_POSTS_PER_RUN: autoSettings.NAVER_AUTO_MAX_POSTS_PER_RUN,
         NAVER_AUTO_TRENDS_TIME: autoSettings.NAVER_AUTO_TRENDS_TIME,
         NAVER_AUTO_IMAGE_GENERATION: autoSettings.NAVER_AUTO_IMAGE_GENERATION,
         NAVER_AUTO_EXTERNAL_REFERENCE: autoSettings.NAVER_AUTO_EXTERNAL_REFERENCE,
@@ -1227,8 +1259,7 @@ function buildMajorSettings(raw, configSource) {
         NAVER_SHOPPING_AUTO_MODE: shoppingAutoSettings.NAVER_SHOPPING_AUTO_MODE,
         NAVER_SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
         NAVER_SHOPPING_AUTO_TIME: shoppingAutoSettings.NAVER_SHOPPING_AUTO_TIME,
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
-        NAVER_SHOPPING_AUTO_HEADLESS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_HEADLESS
+        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED
     };
 
     return {
@@ -1607,6 +1638,7 @@ async function executeQuickPublish(requestBody) {
     const instruction = String(requestBody?.instruction || '').trim();
     const externalReference = normalizeBool(requestBody?.externalReference, true);
     const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
     const referenceUrl = String(requestBody?.referenceUrl || '').trim();
     const publishMode = normalizePublishMode(requestBody?.publishMode);
 
@@ -1632,34 +1664,105 @@ async function executeQuickPublish(requestBody) {
     const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
     const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
 
-    await Utils.ensureAllSheetsExist();
-
-    const appendStatus = publishMode === 'append_and_publish' ? '블로그 발행 준비 완료' : '대기';
-    const appendResult = await Utils.appendGoogleSheetTopics([{
+    const nowMs = Date.now();
+    cleanupQuickPublishDedupeCache(nowMs);
+    const dedupeKey = buildQuickPublishDedupeKey({
         subject,
         keywords,
-        content_guide: {
-            additional_instructions: instruction,
-            reference_urls: referenceUrl ? [referenceUrl] : []
-        },
-        use_external_ref: externalReference,
-        image_options: {
-            generate: imageGenerationFinal,
-            count: 4
-        },
-        source: 'manual',
-        trendDate: '',
-        status: appendStatus
-    }], {
-        defaultStatus: appendStatus
+        instruction,
+        referenceUrl,
+        imageGeneration: imageGenerationFinal,
+        externalReference
     });
+    const existingEntry = quickPublishRecentMap.get(dedupeKey) || null;
 
-    if (!appendResult?.success) {
-        return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 시트 추가에 실패했습니다.' };
+    await Utils.ensureAllSheetsExist();
+
+    let appendStatus = publishMode === 'append_and_publish' ? '블로그 발행 준비 완료' : '대기';
+    let rowNumber = null;
+    let rowIndex = null;
+    let deduplicated = false;
+
+    if (existingEntry && Number.isInteger(existingEntry.rowIndex)) {
+        deduplicated = true;
+        rowNumber = existingEntry.rowNumber ?? null;
+        rowIndex = existingEntry.rowIndex;
+        appendStatus = existingEntry.status || appendStatus;
+
+        if (publishMode === 'append_only') {
+            return {
+                success: true,
+                data: {
+                    mode: publishMode,
+                    sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
+                    rowNumber,
+                    rowIndex,
+                    status: appendStatus,
+                    deduplicated
+                }
+            };
+        }
+
+        if (existingEntry.published) {
+            return {
+                success: true,
+                data: {
+                    mode: publishMode,
+                    sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
+                    rowNumber,
+                    rowIndex,
+                    status: '블로그 발행 완료',
+                    deduplicated,
+                    targetDir: existingEntry.targetDir || null
+                }
+            };
+        }
+
+        if (appendStatus !== '블로그 발행 준비 완료' && Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '기존 글감 재사용');
+            appendStatus = '블로그 발행 준비 완료';
+        }
+        quickPublishRecentMap.set(dedupeKey, {
+            ...existingEntry,
+            status: appendStatus,
+            updatedAtMs: nowMs
+        });
+    } else {
+        const appendResult = await Utils.appendGoogleSheetTopics([{
+            subject,
+            keywords,
+            content_guide: {
+                additional_instructions: instruction,
+                reference_urls: referenceUrl ? [referenceUrl] : []
+            },
+            use_external_ref: externalReference,
+            image_options: {
+                generate: imageGenerationFinal,
+                count: 4
+            },
+            source: 'manual',
+            trendDate: '',
+            status: appendStatus
+        }], {
+            defaultStatus: appendStatus
+        });
+
+        if (!appendResult?.success) {
+            return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 시트 추가에 실패했습니다.' };
+        }
+
+        rowNumber = Array.isArray(appendResult.rowNumbers) ? appendResult.rowNumbers[0] : null;
+        rowIndex = Array.isArray(appendResult.rowIndices) ? appendResult.rowIndices[0] : null;
+
+        quickPublishRecentMap.set(dedupeKey, {
+            rowNumber,
+            rowIndex,
+            status: appendStatus,
+            published: false,
+            targetDir: null,
+            updatedAtMs: nowMs
+        });
     }
-
-    const rowNumber = Array.isArray(appendResult.rowNumbers) ? appendResult.rowNumbers[0] : null;
-    const rowIndex = Array.isArray(appendResult.rowIndices) ? appendResult.rowIndices[0] : null;
 
     if (publishMode === 'append_only') {
         return {
@@ -1669,7 +1772,8 @@ async function executeQuickPublish(requestBody) {
                 sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                 rowNumber,
                 rowIndex,
-                status: appendStatus
+                status: appendStatus,
+                deduplicated
             }
         };
     }
@@ -1712,6 +1816,14 @@ async function executeQuickPublish(requestBody) {
             if (Number.isInteger(rowIndex)) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
             }
+            quickPublishRecentMap.set(dedupeKey, {
+                rowNumber,
+                rowIndex,
+                status: '블로그 발행 준비 완료',
+                published: false,
+                targetDir: null,
+                updatedAtMs: Date.now()
+            });
             return {
                 success: false,
                 code: 'LICENSE_VERIFY_FAILED',
@@ -1723,11 +1835,19 @@ async function executeQuickPublish(requestBody) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
         }
 
-        await Core.publishToBlog(result.targetDir);
+        await Core.publishToBlog(result.targetDir, { headless });
 
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
         }
+        quickPublishRecentMap.set(dedupeKey, {
+            rowNumber,
+            rowIndex,
+            status: '블로그 발행 완료',
+            published: true,
+            targetDir: result.targetDir || null,
+            updatedAtMs: Date.now()
+        });
 
         return {
             success: true,
@@ -1737,6 +1857,7 @@ async function executeQuickPublish(requestBody) {
                 rowNumber,
                 rowIndex,
                 status: '블로그 발행 완료',
+                deduplicated,
                 targetDir: result.targetDir
             }
         };
@@ -1744,6 +1865,14 @@ async function executeQuickPublish(requestBody) {
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '실패', e.message);
         }
+        quickPublishRecentMap.set(dedupeKey, {
+            rowNumber,
+            rowIndex,
+            status: '실패',
+            published: false,
+            targetDir: null,
+            updatedAtMs: Date.now()
+        });
         return {
             success: false,
             code: 'QUICK_PUBLISH_FAILED',
@@ -1950,8 +2079,11 @@ async function executeBlogRowAction(requestBody, options = {}) {
         emitProgress('블로그 발행 중...');
 
         const autoSettings = getAutoSettingsSnapshot();
+        const batchHeadless = typeof requestBody?.headless === 'boolean'
+            ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
+
         await Core.publishToBlog(result.targetDir, {
-            headless: autoSettings.NAVER_AUTO_HEADLESS
+            headless: batchHeadless
         });
 
         emitProgress('시트 상태 반영 중...');
@@ -2031,6 +2163,7 @@ async function executeBlogBatchRowsAction(requestBody) {
     const effectiveMax = featureMax === 0 ? rowIndices.length : Math.max(1, featureMax);
     const targetRowIndices = rowIndices.slice(0, effectiveMax);
     const skippedByLimit = rowIndices.slice(effectiveMax);
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
 
     const results = [];
     let successCount = 0;
@@ -2044,7 +2177,7 @@ async function executeBlogBatchRowsAction(requestBody) {
         const rowIndex = targetRowIndices[i];
         setBlogRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
         const result = await executeBlogRowAction(
-            { action: 'batch', rowIndex },
+            { action: 'batch', rowIndex, headless },
             {
                 onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
                 isAutoCycle: requestBody?.isAutoCycle === true
@@ -2145,12 +2278,12 @@ async function executeShoppingRowAction(requestBody, options = {}) {
             affiliateUrl: shortUrl,
             requireAffiliateUrl: true
         };
-        if (options.isAutoCycle === true) {
-            const shoppingSettings = getShoppingAutoSettingsSnapshot();
-            if (shoppingSettings.NAVER_SHOPPING_AUTO_HEADLESS) {
-                publishOptions.headless = true;
-            }
-        }
+        const autoSettings = getAutoSettingsSnapshot();
+        const batchHeadless = typeof requestBody?.headless === 'boolean'
+            ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
+
+        publishOptions.headless = batchHeadless;
+
         await Core.publishToBlog(buildResult.targetDir, publishOptions);
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
 
@@ -2536,7 +2669,13 @@ async function executeTrendCollectAction(requestBody = {}) {
         }
     }
 
-    const trendResult = await TrendManager.fetchTrends({ date: dateInput || undefined });
+    const headless = typeof requestBody?.headless === 'boolean'
+        ? requestBody.headless : Boolean(CONFIG.HEADLESS);
+
+    const trendResult = await TrendManager.fetchTrends({
+        date: dateInput || undefined,
+        headless
+    });
     const trendKeywords = Array.isArray(trendResult?.keywords) ? trendResult.keywords : [];
     if (trendKeywords.length === 0) {
         return {
@@ -2753,14 +2892,6 @@ function getDateKeyLocal(date = new Date()) {
     return `${y}-${m}-${d}`;
 }
 
-function resetAutoDailyCountersIfNeeded() {
-    const today = getDateKeyLocal();
-    if (autoRuntimeState.dayKey !== today) {
-        autoRuntimeState.dayKey = today;
-        autoRuntimeState.blogPublishedToday = 0;
-    }
-}
-
 function resetShoppingDailyCountersIfNeeded() {
     const today = getDateKeyLocal();
     if (shoppingAutoRuntimeState.dayKey !== today) {
@@ -2783,8 +2914,6 @@ function getAutoStatusPayload() {
             nextRunAt: autoRuntimeState.nextRunAt,
             cycleCount: autoRuntimeState.cycleCount,
             lastSummary: autoRuntimeState.lastSummary,
-            dayKey: autoRuntimeState.dayKey,
-            blogPublishedToday: autoRuntimeState.blogPublishedToday,
             settings: blogSettings
         },
         shopping: {
@@ -2806,7 +2935,6 @@ function getAutoStatusPayload() {
         running: autoRuntimeState.running || shoppingAutoRuntimeState.running,
         status: autoRuntimeState.running ? autoRuntimeState.status : shoppingAutoRuntimeState.status,
         message: [autoRuntimeState.message, shoppingAutoRuntimeState.message].filter(Boolean).join(' / '),
-        blogPublishedToday: autoRuntimeState.blogPublishedToday,
         shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday
     };
 }
@@ -3459,8 +3587,6 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
     autoRuntimeState.message = `자동 사이클 실행 중 (${trigger})`;
     autoRuntimeState.lastRunAt = new Date().toISOString();
     autoRuntimeState.nextRunAt = null;
-    resetAutoDailyCountersIfNeeded();
-
     Logger.info(`🚀 [AUTO] 자동 발행 파이프라인(사이클) 시작! (Trigger: ${trigger})`);
 
     const summary = {
@@ -3482,8 +3608,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         Logger.info(
             `ℹ️ [AUTO] 실행 설정값 (trigger=${trigger}, source=${Object.keys(settingsOverrides).length > 0 ? 'ui-overrides' : 'saved-config'}): `
             + `mode=${settings.AUTO_MODE ? 'on' : 'off'}, `
-            + `cycleCap=${settings.AUTO_MAX_BLOG_PER_CYCLE}, `
-            + `dailyCap=${settings.AUTO_DAILY_BLOG_CAP}, `
+            + `maxPostsPerRun=${settings.NAVER_AUTO_MAX_POSTS_PER_RUN}, `
             + `categories=${settings.AUTO_INCLUDE_CATEGORIES || '(없음)'}, `
             + `trendTime=${settings.NAVER_AUTO_TRENDS_TIME || '07:30'}`
         );
@@ -3512,7 +3637,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         const maxBlogByPlan = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
         const planBlogLimit = (Number.isFinite(maxBlogByPlan) && maxBlogByPlan > 0) ? maxBlogByPlan : Number.MAX_SAFE_INTEGER;
 
-        const requiresNaverSession = settings.AUTO_TRENDS_ENABLED || settings.AUTO_MAX_BLOG_PER_CYCLE > 0;
+        const requiresNaverSession = true;
         if (requiresNaverSession) {
             const session = await checkAuthSessionValid();
             if (!session.ok) {
@@ -3600,13 +3725,14 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
             summary.skipped.push(`포스트 간격 제한(${minGapMin}분)으로 발행 대기`);
         }
 
-        const dailyBlogCap = settings.AUTO_DAILY_BLOG_CAP;
-        const cycleBlogCap = settings.AUTO_MAX_BLOG_PER_CYCLE;
-        const effectiveCycleBlogCap = cycleBlogCap > 0 ? cycleBlogCap : Number.MAX_SAFE_INTEGER;
-        const remainingBlogByDaily = dailyBlogCap > 0 ? Math.max(0, dailyBlogCap - autoRuntimeState.blogPublishedToday) : Number.MAX_SAFE_INTEGER;
+        const maxPostsPerRun = normalizeNonNegativeInt(
+            settings.NAVER_AUTO_MAX_POSTS_PER_RUN,
+            NAVER_AUTO_DEFAULTS.maxPostsPerRun
+        );
+        const effectiveCycleBlogCap = maxPostsPerRun > 0 ? maxPostsPerRun : Number.MAX_SAFE_INTEGER;
 
         if (proceedAfterTrends && gapAllowed && isCommandEnabled(features, 'batch')) {
-            const targetLimit = Math.max(0, Math.min(effectiveCycleBlogCap, planBlogLimit, remainingBlogByDaily));
+            const targetLimit = Math.max(0, Math.min(effectiveCycleBlogCap, planBlogLimit));
             if (targetLimit > 0) {
                 const freshTopicRowSet = new Set(
                     appendedTopicRowIndices.filter((v) => Number.isInteger(v) && v >= 0)
@@ -3645,7 +3771,6 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                     const successCount = Number(blogResult?.data?.successCount || 0);
                     summary.blogSuccess = successCount;
                     if (successCount > 0) {
-                        autoRuntimeState.blogPublishedToday += successCount;
                         autoRuntimeState.lastPublishAtMs = Date.now();
                     }
                     const failCount = Number(blogResult?.data?.failCount || 0);
@@ -3660,7 +3785,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
             } else {
                 summary.skipped.push(
                     `블로그 발행 한도가 0건이라 건너뜁니다. `
-                    + `(설정=${cycleBlogCap}, 플랜=${Number.isFinite(planBlogLimit) ? planBlogLimit : '무제한'}, 일일잔여=${Number.isFinite(remainingBlogByDaily) ? remainingBlogByDaily : '무제한'})`
+                    + `(설정=${maxPostsPerRun}, 플랜=${Number.isFinite(planBlogLimit) ? planBlogLimit : '무제한'})`
                 );
             }
         } else if (proceedAfterTrends && gapAllowed && !isCommandEnabled(features, 'batch')) {
@@ -3786,7 +3911,9 @@ function createLegacyApiDeps() {
         path,
         CONFIG,
         License,
-        ShoppingManager
+        ShoppingManager,
+        axios,
+        cheerio
     };
 
     const runtimeDeps = {

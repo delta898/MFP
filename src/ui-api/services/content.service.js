@@ -200,15 +200,19 @@ function createContentService(deps = {}) {
                 if (fs.existsSync(keyFilePath)) {
                     const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
                     const credentials = JSON.parse(fileContent);
+                    const stat = fs.statSync(keyFilePath);
                     return {
                         configured: true,
                         clientEmail: credentials.client_email || '알 수 없음',
                         projectId: credentials.project_id || '알 수 없음',
-                        path: keyFilePath
+                        path: keyFilePath,
+                        fileName: path.basename(keyFilePath),
+                        updatedAt: stat?.mtime ? stat.mtime.toISOString() : ''
                     };
                 }
                 return {
                     configured: false,
+                    path: keyFilePath,
                     message: '설정된 Google Auth JSON 파일을 찾을 수 없습니다.'
                 };
             } catch (e) {
@@ -363,4 +367,3 @@ function createContentService(deps = {}) {
 module.exports = {
     createContentService
 };
-

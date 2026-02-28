@@ -2252,7 +2252,7 @@ function composeMarkdown({
     }
 
     if ((aiData.quotes || []).length > 0) {
-        lines.push(`"${aiData.quotes[0]}"`);
+        lines.push(`> ${normalizeFactText(aiData.quotes[0])}`);
         lines.push('');
     }
 
@@ -2302,7 +2302,7 @@ function composeMarkdown({
 
         const sectionQuote = normalizeWhitespace(section.quote || '');
         if (sectionQuote) {
-            lines.push(`"${sectionQuote}"`);
+            lines.push(`> ${normalizeFactText(sectionQuote)}`);
             lines.push('');
         }
 

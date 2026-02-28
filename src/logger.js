@@ -23,7 +23,7 @@ if (!fs.existsSync(logDir)) {
 
 class Logger {
     static _recentLogs = [];
-    static _maxRecentLogs = 30;
+    static _maxRecentLogs = 200;
 
     static _write(level, message) {
         // 1. 레벨 체크: 설정된 레벨보다 낮은 중요도의 로그는 무시

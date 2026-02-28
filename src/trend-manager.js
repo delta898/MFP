@@ -300,7 +300,7 @@ const TrendManager = {
             Logger.info(`📅 트렌드 수집 기준일 지정: ${targetDate}`);
         }
 
-        const browser = await launchBrowser();
+        const browser = await launchBrowser({ headless: options.headless });
 
         // 1. 로그인 정보(Storage State) 로드
         const authPath = CONFIG.AUTH_FILE_PATH || path.join(process.cwd(), 'config', 'auth.json');

@@ -76,6 +76,11 @@ const Utils = {
     _cachedAccessToken: null,
     _tokenExpiry: 0,
     _cachedScopeKey: '',
+    _sheetsHealthLogState: {
+        hasIssue: null,
+        lastIssueMessage: '',
+        updatedAt: null
+    },
 
     clearGoogleAuthCache: function () {
         this._cachedAccessToken = null;
@@ -264,7 +269,6 @@ const Utils = {
 
     _ensureAllSheetsExistInternal: async function ({ spreadsheetId, suppressError }) {
         try {
-            Logger.info("🔍 필수 시트 존재 여부 확인 중...");
             const accessToken = await this.getGoogleAccessToken();
             const targetSpreadsheetId = String(spreadsheetId || '').trim();
             if (!targetSpreadsheetId) throw new Error('GOOGLE_SHEET_ID가 비어 있습니다.');
@@ -302,13 +306,30 @@ const Utils = {
                 await this.ensureShoppingSheetValidation(accessToken, targetSpreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
             }
 
-            Logger.info("✅ 모든 필수 시트 준비 완료");
+            if (this._sheetsHealthLogState?.hasIssue === true) {
+                Logger.info("✅ 필수 시트 준비 이슈 해지");
+            }
+            this._sheetsHealthLogState = {
+                hasIssue: false,
+                lastIssueMessage: '',
+                updatedAt: new Date().toISOString()
+            };
             return { success: true, spreadsheetId: targetSpreadsheetId };
 
         } catch (e) {
-            Logger.error(`❌ 시트 초기화 실패: ${e.message}`);
+            const errMessage = String(e?.message || e || 'unknown');
+            const prevHasIssue = this._sheetsHealthLogState?.hasIssue === true;
+            const prevMessage = String(this._sheetsHealthLogState?.lastIssueMessage || '');
+            if (!prevHasIssue || prevMessage !== errMessage) {
+                Logger.error(`❌ 필수 시트 준비 이슈: ${errMessage}`);
+            }
+            this._sheetsHealthLogState = {
+                hasIssue: true,
+                lastIssueMessage: errMessage,
+                updatedAt: new Date().toISOString()
+            };
             if (suppressError) {
-                return { success: false, spreadsheetId: String(spreadsheetId || '').trim(), message: e.message };
+                return { success: false, spreadsheetId: String(spreadsheetId || '').trim(), message: errMessage };
             }
             throw e;
         }
@@ -2757,12 +2778,64 @@ const Utils = {
         }
 
         try {
-            // 이번 주 월요일 0시부터 일요일 23:59까지의 '발행 완료' 건수를 집계
+            // 금주(일요일 0시 ~ 현재) 및 일간(어제/오늘) 집계
             const now = new Date();
-            const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Monday, 6=Sunday
+            const dayOfWeek = now.getDay(); // 0=Sunday
             const startOfWeek = new Date(now);
             startOfWeek.setDate(now.getDate() - dayOfWeek);
             startOfWeek.setHours(0, 0, 0, 0);
+            const startOfToday = new Date(now);
+            startOfToday.setHours(0, 0, 0, 0);
+            const startOfYesterday = new Date(startOfToday);
+            startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+            const startOfTomorrow = new Date(startOfToday);
+            startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+            const parseDateLoose = (value) => {
+                const raw = String(value || '').trim();
+                if (!raw) return null;
+
+                const native = new Date(raw);
+                if (!Number.isNaN(native.getTime())) return native;
+
+                const ymdKorean = raw.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?/);
+                if (ymdKorean) {
+                    const y = Number(ymdKorean[1]);
+                    const m = Number(ymdKorean[2]);
+                    const d = Number(ymdKorean[3]);
+                    const dt = new Date(y, m - 1, d);
+                    if (!Number.isNaN(dt.getTime())) return dt;
+                }
+
+                const ymdPlain = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                if (ymdPlain) {
+                    const y = Number(ymdPlain[1]);
+                    const m = Number(ymdPlain[2]);
+                    const d = Number(ymdPlain[3]);
+                    const dt = new Date(y, m - 1, d);
+                    if (!Number.isNaN(dt.getTime())) return dt;
+                }
+
+                const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+                if (compact) {
+                    const y = Number(compact[1]);
+                    const m = Number(compact[2]);
+                    const d = Number(compact[3]);
+                    const dt = new Date(y, m - 1, d);
+                    if (!Number.isNaN(dt.getTime())) return dt;
+                }
+
+                return null;
+            };
+
+            const normalizeYmd = (value) => {
+                const dt = parseDateLoose(value);
+                if (!dt) return '';
+                const y = dt.getFullYear();
+                const m = String(dt.getMonth() + 1).padStart(2, '0');
+                const d = String(dt.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
 
             // 🚀 병렬 데이터 로딩 (블로킹 제거)
             const [topics, shopping, trends] = await Promise.all([
@@ -2775,39 +2848,75 @@ const Utils = {
             let shoppingWeeklyCount = 0;
             let pendingTopicsCount = 0;
             let pendingTrendsCount = 0;
+            let blogReadyCount = 0;
+            let shoppingReadyCount = 0;
+            let blogTodayCount = 0;
+            let blogYesterdayCount = 0;
+            let shoppingTodayCount = 0;
+            let shoppingYesterdayCount = 0;
 
             topics.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '블로그 발행 완료') {
-                    const dt = new Date(t.addedAt || '');
-                    if (!Number.isNaN(dt.getTime()) && dt >= startOfWeek) {
-                        blogWeeklyCount++;
+                    const dt = parseDateLoose(t.publishedAt || t.addedAt);
+                    if (dt) {
+                        if (dt >= startOfWeek) blogWeeklyCount++;
+                        if (dt >= startOfToday && dt < startOfTomorrow) blogTodayCount++;
+                        else if (dt >= startOfYesterday && dt < startOfToday) blogYesterdayCount++;
                     }
-                } else if (st === '대기') {
-                    pendingTopicsCount++;
+                } else if (st === '블로그 발행 준비 완료') {
+                    blogReadyCount++;
                 }
             });
 
             shopping.forEach(t => {
                 const st = String(t.status || '').trim();
                 if (st === '발행 완료') {
-                    shoppingWeeklyCount++;
+                    const dt = parseDateLoose(t.publishedAt);
+                    if (dt) {
+                        if (dt >= startOfWeek) shoppingWeeklyCount++;
+                        if (dt >= startOfToday && dt < startOfTomorrow) shoppingTodayCount++;
+                        else if (dt >= startOfYesterday && dt < startOfToday) shoppingYesterdayCount++;
+                    }
+                } else if (st === '발행 준비 완료') {
+                    shoppingReadyCount++;
                 }
             });
 
+            pendingTopicsCount = blogReadyCount + shoppingReadyCount;
+
+            let recentTrendsFetched = '-';
+            let latestYmd = '';
             trends.forEach(t => {
-                const st = String(t.status || '').trim();
-                if (st === '대기' || st === '조사 완료') {
-                    pendingTrendsCount++;
-                }
+                const ymd = normalizeYmd(t.date);
+                if (!ymd) return;
+                if (!latestYmd || ymd > latestYmd) latestYmd = ymd;
             });
+            if (latestYmd) recentTrendsFetched = latestYmd;
+
+            if (latestYmd) {
+                trends.forEach(t => {
+                    const st = String(t.status || '').trim();
+                    const ymd = normalizeYmd(t.date);
+                    if (ymd !== latestYmd) return;
+                    if (st === '' || st === '대기' || st === '조사 완료') {
+                        pendingTrendsCount++;
+                    }
+                });
+            }
 
             const result = {
                 blogWeeklyCount,
                 shoppingWeeklyCount,
                 pendingTopicsCount,
                 pendingTrendsCount,
-                recentTrendsFetched: trends.length > 0 ? trends[0].date : '-' // 가장 최근 수집 일자
+                blogReadyCount,
+                shoppingReadyCount,
+                blogTodayCount,
+                blogYesterdayCount,
+                shoppingTodayCount,
+                shoppingYesterdayCount,
+                recentTrendsFetched // 가장 최근 수집 일자
             };
 
             this._dashboardSummaryCache = result;
@@ -2821,6 +2930,12 @@ const Utils = {
                 shoppingWeeklyCount: 0,
                 pendingTopicsCount: 0,
                 pendingTrendsCount: 0,
+                blogReadyCount: 0,
+                shoppingReadyCount: 0,
+                blogTodayCount: 0,
+                blogYesterdayCount: 0,
+                shoppingTodayCount: 0,
+                shoppingYesterdayCount: 0,
             };
         }
     }

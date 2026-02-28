@@ -80,7 +80,7 @@ function createSettingsService(deps = {}) {
                 TYPING_SPEED: fields.TYPING_SPEED,
                 NAVER_AUTO_MODE: fields.NAVER_AUTO_MODE ? 'true' : 'false',
                 NAVER_AUTO_CATEGORIES: fields.NAVER_AUTO_CATEGORIES,
-                NAVER_AUTO_DAILY_POSTS: String(fields.NAVER_AUTO_DAILY_POSTS),
+                NAVER_AUTO_MAX_POSTS_PER_RUN: String(fields.NAVER_AUTO_MAX_POSTS_PER_RUN),
                 NAVER_AUTO_TRENDS_TIME: fields.NAVER_AUTO_TRENDS_TIME,
                 NAVER_AUTO_IMAGE_GENERATION: fields.NAVER_AUTO_IMAGE_GENERATION ? 'true' : 'false',
                 NAVER_AUTO_EXTERNAL_REFERENCE: fields.NAVER_AUTO_EXTERNAL_REFERENCE ? 'true' : 'false',
@@ -97,7 +97,6 @@ function createSettingsService(deps = {}) {
                 NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
                 NAVER_SHOPPING_AUTO_TIME: fields.NAVER_SHOPPING_AUTO_TIME,
                 NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: fields.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                NAVER_SHOPPING_AUTO_HEADLESS: fields.NAVER_SHOPPING_AUTO_HEADLESS ? 'true' : 'false',
                 FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
@@ -180,7 +179,11 @@ function createSettingsService(deps = {}) {
                     parseConfigValue(content, 'NAVER_AUTO_CATEGORIES')
                     || parseConfigValue(content, 'AUTO_INCLUDE_CATEGORIES')
                     || parseConfigValue(content, 'AUTO_CATEGORIES'),
-                NAVER_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_AUTO_DAILY_POSTS') || parseConfigValue(content, 'AUTO_DAILY_BLOG_CAP'),
+                NAVER_AUTO_MAX_POSTS_PER_RUN:
+                    parseConfigValue(content, 'NAVER_AUTO_MAX_POSTS_PER_RUN')
+                    || parseConfigValue(content, 'NAVER_AUTO_DAILY_POSTS')
+                    || parseConfigValue(content, 'AUTO_MAX_BLOG_PER_CYCLE')
+                    || parseConfigValue(content, 'AUTO_DAILY_BLOG_CAP'),
                 NAVER_AUTO_TRENDS_TIME: parseConfigValue(content, 'NAVER_AUTO_TRENDS_TIME'),
                 NAVER_AUTO_IMAGE_GENERATION: parseConfigValue(content, 'NAVER_AUTO_IMAGE_GENERATION') || parseConfigValue(content, 'AUTO_IMAGE_GENERATION'),
                 NAVER_AUTO_EXTERNAL_REFERENCE: parseConfigValue(content, 'NAVER_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(content, 'AUTO_USE_EXTERNAL_REF'),
@@ -197,7 +200,6 @@ function createSettingsService(deps = {}) {
                 NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
                 NAVER_SHOPPING_AUTO_TIME: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_TIME'),
                 NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
-                NAVER_SHOPPING_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_HEADLESS'),
                 FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
