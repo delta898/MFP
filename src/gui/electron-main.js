@@ -76,7 +76,7 @@ async function createWindow() {
         height: 900,
         minWidth: 1024,
         minHeight: 768,
-        title: 'BlogGenius Dashboard',
+        title: '',
         icon: fs.existsSync(iconPath) ? iconPath : undefined,
         webPreferences: {
             nodeIntegration: false,

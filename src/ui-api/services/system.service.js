@@ -33,8 +33,8 @@ function createSystemService(deps = {}) {
             key: 'youtubePlaylist',
             label: '유튜브 쇼츠',
             feedType: 'atom',
-            rssUrl: 'https://www.youtube.com/feeds/videos.xml?playlist_id=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob',
-            homeUrl: 'https://studio.youtube.com/playlist/PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob'
+            rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCW_0T7pLhAofv_r6B9S8wZw',
+            homeUrl: 'https://www.youtube.com/playlist?list=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob'
         },
         {
             key: 'noworry',
