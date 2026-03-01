@@ -119,7 +119,7 @@ jobs:
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
           fi
-          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --icon=assets/icons/icon --ignore="(/[.]git|/dist|/logs|/assets|/Videos|/workspace|/NaverBlogAutoTool|/supabase|/temp|/docs)(/|$)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg)$|/node_modules/(electron|electron-packager|[.]cache)(/|$)"
+          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --icon=assets/icons/icon --ignore="(/(\\.git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs)(/|$))"
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -134,13 +134,12 @@ jobs:
           # 1. 로컬 빌드와 동일한 명명 규칙 적용 (BlogGenius-vX.X.X-platform-arch)
           ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
           ROOT_OUT="dist/${ROOT_NAME}"
-          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts" "${ROOT_OUT}/assets/icons"
+          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts"
 
           # 2. 필수 리소스 복사
           cp config/config.txt.sample "${ROOT_OUT}/config/config.txt.sample"
           cp -r config/images/* "${ROOT_OUT}/config/images/" || true
           cp scripts/google_apps_script.js "${ROOT_OUT}/scripts/"
-          cp assets/icons/* "${ROOT_OUT}/assets/icons/" || true
           [ -f "README_USER.md" ] && cp README_USER.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
           
           # 3. CLI 및 GUI 배치
