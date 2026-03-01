@@ -575,11 +575,16 @@ h2 {
   letter-spacing: -0.01em;
 }
 
-.blog-quick-result {
+.blog-quick-result,
+.scrollable-log {
   margin-top: 2px;
-  min-height: 64px;
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #f8fbff;
   border: 1px solid #d8e2f1;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 
 .field-hint {
