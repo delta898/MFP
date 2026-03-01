@@ -223,7 +223,7 @@ function createSystemService(deps = {}) {
                 items
             };
         } catch (error) {
-            logger.warn(`⚠️ 대시보드 피드 조회 실패: ${source.label} (${error?.message || 'unknown error'})`);
+            Logger.warn(`⚠️ 대시보드 피드 조회 실패: ${source.label} (URL: ${url}) - ${error?.message || 'unknown error'}`);
             return {
                 key: source.key,
                 label: source.label,
