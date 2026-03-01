@@ -41,10 +41,10 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-dev') }}
 
       - name: Create or Update Mirror Release
-        if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
+        if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
           repository: ${{ env.MIRROR_REPO }}
@@ -52,8 +52,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
-          make_latest: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-dev') }}
+          make_latest: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-dev') }}
 
   build_and_upload:
     name: Build & Upload ${{ matrix.platform_name }}
@@ -182,7 +182,7 @@ jobs:
           overwrite_files: true
 
       - name: Upload to Mirror
-        if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
+        if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
           repository: ${{ env.MIRROR_REPO }}
@@ -210,7 +210,7 @@ jobs:
   cleanup_old_releases:
     name: Cleanup Old Releases (-3 Rule)
     runs-on: ubuntu-latest
-    needs: [build_and_upload, upload_readme]
+    needs: [setup, build_and_upload, upload_readme]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MIRROR_REPO: delta898/NaverAutoBlog-Releases
@@ -221,7 +221,7 @@ jobs:
           RELEASES=$(gh release list --limit 100 | tail -n +4 | awk '{print $1}')
           for tag in $RELEASES; do gh release delete "$tag" --yes --cleanup-tag; done
       - name: Cleanup Mirror
-        if: env.MIRROR_REPO_PAT != ''
+        if: needs.setup.outputs.mirror_repo_pat == 'true'
         run: |
           export GITHUB_TOKEN=${{ secrets.MIRROR_REPO_PAT }}
           RELEASES=$(gh release list -R ${{ env.MIRROR_REPO }} --limit 100 | tail -n +4 | awk '{print $1}')
