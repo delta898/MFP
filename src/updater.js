@@ -72,11 +72,16 @@ class Updater {
         if (!latest) return null;
 
         const latestVersion = latest.tag_name.replace(/^v/, '');
-        const hasUpdate = this.compareVersions(latestVersion, this.currentVersion) > 0;
+        const isNewer = this.compareVersions(latestVersion, this.currentVersion) > 0;
+
+        // 중요: 에셋(빌드물)이 아직 업로드 중일 수 있으므로, 현재 플랫폼에 맞는 파일이 있는지 확인
+        const matchingAsset = this.getPlatformAsset(latest.assets);
+        const hasUpdate = isNewer && !!matchingAsset;
 
         this.lastCheck = now;
         this.updateInfo = {
             hasUpdate,
+            isNewer, // 버전 자체는 높지만 에셋이 없을 수 있음
             currentVersion: this.currentVersion,
             latestVersion,
             tagName: latest.tag_name,
@@ -86,6 +91,10 @@ class Updater {
             isPrerelease: latest.prerelease,
             htmlUrl: latest.html_url
         };
+
+        if (isNewer && !matchingAsset) {
+            Logger.info(`ℹ️ [Updater] 새 버전(${latest.tag_name})을 찾았으나, 현재 플랫폼용 에셋이 아직 업로드되지 않았습니다.`);
+        }
 
         return this.updateInfo;
     }
@@ -132,17 +141,34 @@ class Updater {
 
         const platform = process.platform;
         const arch = process.arch;
+        Logger.info(`🔍 [Updater] 플랫폼 확인: ${platform}-${arch} (총 에셋 수: ${assets.length})`);
 
-        let pattern = '';
+        let patterns = [];
         if (platform === 'darwin') {
-            pattern = arch === 'arm64' ? 'mac-arm64' : 'mac-intel';
+            // macOS: arm64(M1/M2/M3) 또는 x64(Intel)
+            if (arch === 'arm64') {
+                patterns = ['mac-arm64'];
+            } else {
+                patterns = ['mac-intel', 'macos-x64'];
+            }
         } else if (platform === 'win32') {
-            pattern = 'win-x64';
+            patterns = ['win-x64', 'windows-x64'];
         } else if (platform === 'linux') {
-            pattern = 'linux-x64';
+            patterns = ['linux-x64'];
         }
 
-        return assets.find(a => a.name.toLowerCase().includes(pattern) && a.name.endsWith('.zip'));
+        const asset = assets.find(a => {
+            const name = a.name.toLowerCase();
+            return patterns.some(p => name.includes(p)) && name.endsWith('.zip');
+        });
+
+        if (asset) {
+            Logger.info(`✅ [Updater] 매칭된 에셋 발견: ${asset.name}`);
+        } else {
+            Logger.warn(`❌ [Updater] 현재 플랫폼에 맞는 에셋을 찾지 못함 (Patterns: ${patterns.join(', ')})`);
+        }
+
+        return asset;
     }
 
     /**
