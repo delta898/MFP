@@ -35,8 +35,11 @@ class Updater {
                 timeout: 5000
             });
 
-            const releases = Array.isArray(response.data) ? response.data : [];
+            let releases = Array.isArray(response.data) ? response.data : [];
             if (releases.length === 0) return null;
+
+            // 추가: GitHub API 결과가 가끔 사전식(dev9 > dev10)으로 오기 때문에, 세부 버전 규칙으로 전체 정렬
+            releases.sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
 
             const role = String(userRole || 'User').trim().toLowerCase();
 
@@ -100,13 +103,28 @@ class Updater {
     }
 
     /**
-     * Compare semver strings (Handles prerelease tags like -beta, -alpha)
+     * Compare semver strings (Handles prerelease tags like -beta, -alpha, -dev10)
      */
     compareVersions(v1, v2) {
         const parse = (v) => {
             const [ver, pre] = String(v).replace(/^v/, '').split('-');
             const parts = ver.split('.').map(Number);
-            return { parts, pre: pre ? pre.toLowerCase() : null };
+
+            // Prerelease 파싱 (예: "dev10" -> { type: "dev", num: 10 })
+            let preObj = null;
+            if (pre) {
+                const match = pre.match(/^([a-z]+)(\d*)$/i);
+                if (match) {
+                    preObj = {
+                        type: match[1].toLowerCase(),
+                        num: match[2] ? parseInt(match[2], 10) : 0
+                    };
+                } else {
+                    preObj = { type: pre.toLowerCase(), num: 0 };
+                }
+            }
+
+            return { parts, pre: preObj };
         };
 
         const sv1 = parse(v1);
@@ -124,10 +142,15 @@ class Updater {
         if (sv1.pre === null && sv2.pre !== null) return 1;
         if (sv1.pre !== null && sv2.pre === null) return -1;
 
-        // 3. 둘 다 prerelease라면 문자열 비교 (beta > alpha 등, 로직은 단순히 다르면 최신으로 간주하거나 사전순)
+        // 3. 둘 다 prerelease라면 비교
         if (sv1.pre !== null && sv2.pre !== null) {
-            if (sv1.pre > sv2.pre) return 1;
-            if (sv1.pre < sv2.pre) return -1;
+            // 타입 비교 (예: beta > alpha)
+            if (sv1.pre.type > sv2.pre.type) return 1;
+            if (sv1.pre.type < sv2.pre.type) return -1;
+
+            // 타입이 같다면 숫자 비교 (예: dev10 > dev9)
+            if (sv1.pre.num > sv2.pre.num) return 1;
+            if (sv1.pre.num < sv2.pre.num) return -1;
         }
 
         return 0;
