@@ -1,13 +1,14 @@
 {
   "name": "blog-genius",
-  "version": "0.8.42",
+  "version": "0.9.0",
   "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
-  "main": "src/main.js",
+  "main": "src/gui/electron-main.js",
   "bin": {
     "blog-genius": "./src/main.js"
   },
   "scripts": {
-    "start": "node src/main.js",
+    "start": "electron .",
+    "cli": "node src/main.js",
     "ui": "node src/main.js ui",
     "login": "node src/main.js login",
     "gen": "node src/main.js gen",
@@ -29,16 +30,32 @@
   },
   "pkg": {
     "scripts": [
-      "src/**/*.js",
-      "config-loader.js"
+      "src/main.js",
+      "src/config-loader.js",
+      "src/license.js",
+      "src/core.js",
+      "src/utils.js",
+      "src/browser-launcher.js",
+      "src/keyword-manager.js",
+      "src/trend-manager.js",
+      "src/shopping-manager.js",
+      "src/logger.js",
+      "src/constants.js",
+      "src/auth-session.js",
+      "src/ui-server.js",
+      "src/ui-api/**/*.js"
     ],
     "assets": [
       "package.json",
       "ui/**/*",
       "src/config/*.md",
-      "node_modules/playwright-core/**/*",
-      "node_modules/@playwright/**/*",
-      "node_modules/playwright/**/*"
+      "node_modules/playwright-core/lib/**/*.js",
+      "node_modules/playwright-core/package.json",
+      "node_modules/axios/dist/node/axios.cjs",
+      "node_modules/cheerio/lib/*.js",
+      "node_modules/moment/moment.js",
+      "node_modules/moment-timezone/builds/moment-timezone-with-data.js",
+      "assets/icons/**/*"
     ],
     "//": "👇 targets는 build.sh에서 지정하므로 여기선 기본값으로 둡니다.",
     "targets": [
@@ -49,7 +66,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.39.0",
-    "axios": "^1.6.0",
+    "axios": "^1.13.6",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0-rc.12",
     "commander": "^11.1.0",
@@ -67,5 +84,9 @@
   "//": "👇 [필수] GitHub Actions(Node 18)에서도 안정적인 빌드를 위해 추가",
   "overrides": {
     "undici": "6.19.2"
+  },
+  "devDependencies": {
+    "electron": "^40.6.1",
+    "electron-packager": "^17.1.2"
   }
 }

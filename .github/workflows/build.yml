@@ -14,7 +14,10 @@ jobs:
     outputs:
       mirror_repo: ${{ steps.check_mirror.outputs.mirror_repo }}
       mirror_repo_pat: ${{ steps.check_mirror.outputs.has_pat }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
+      - id: get_version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
       - id: check_mirror
         run: |
           echo "mirror_repo=delta898/NaverAutoBlog-Releases" >> "$GITHUB_OUTPUT"
@@ -40,7 +43,7 @@ jobs:
           overwrite_files: true
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
 
-      - name: Create or Update Mirror Release (Single Job)
+      - name: Create or Update Mirror Release
         if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
         uses: softprops/action-gh-release@v2
         with:
@@ -59,215 +62,167 @@ jobs:
     env:
       MIRROR_REPO: ${{ needs.setup.outputs.mirror_repo }}
       MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
+      APP_VERSION: ${{ needs.setup.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: node20-linux-x64
-            output_binary: BlogGenius-linux
-            platform_name: linux-x64
-            zip_name: BlogGenius-linux-x64.zip
-
+            suffix: linux-x64
+            output_binary: BlogGenius-cli-linux
           - os: macos-latest
             target: node20-macos-x64
-            output_binary: BlogGenius-mac-intel
-            platform_name: mac-intel
-            zip_name: BlogGenius-mac-intel.zip
-
+            suffix: mac-intel
+            output_binary: BlogGenius-cli-mac-intel
           - os: macos-latest
             target: node20-macos-arm64
-            output_binary: BlogGenius-mac-arm64
-            platform_name: mac-arm64
-            zip_name: BlogGenius-mac-arm64.zip
-
+            suffix: mac-arm64
+            output_binary: BlogGenius-cli-mac-arm64
           - os: windows-latest
             target: node20-win-x64
-            output_binary: BlogGenius.exe
-            platform_name: win-x64
-            zip_name: BlogGenius-win-x64.zip
+            suffix: win-x64
+            output_binary: BlogGenius-cli.exe
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install Dependencies
         run: npm install
-
-      - name: Install yao-pkg
-        run: npm install -g @yao-pkg/pkg @yao-pkg/pkg-fetch
-
+      - name: Install yao-pkg and electron-packager
+        run: npm install -g @yao-pkg/pkg @yao-pkg/pkg-fetch electron-packager
       - name: Create secret.js
         shell: bash
         run: |
           mkdir -p src/config
           echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
 
-      - name: Build Executable
+      - name: Build CLI Executable
         run: |
           pkg package.json --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
 
-      - name: Code Sign (Ad-hoc) for macOS
+      - name: Build GUI App
+        shell: bash
+        run: |
+          APP_NAME="BlogGenius"
+          if [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
+            E_PLAT="linux"; E_ARCH="x64"
+          elif [[ "${{ matrix.suffix }}" == "mac-intel" ]]; then
+            E_PLAT="darwin"; E_ARCH="x64"
+          elif [[ "${{ matrix.suffix }}" == "mac-arm64" ]]; then
+            E_PLAT="darwin"; E_ARCH="arm64"
+          elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
+            E_PLAT="win32"; E_ARCH="x64"
+          fi
+          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --icon=assets/icons/icon --ignore="^/dist|^/.*\.zip$|^/\.git|^/logs|^/node_modules/electron$|^/node_modules/\.cache"
+
+      - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          # Ad-hoc sign the binary (required for Apple Silicon to run at all)
           codesign --sign - --force dist/${{ matrix.output_binary }}
+          APP_PATH=$(find dist/gui-temp -name "BlogGenius.app" -type d | head -n 1)
+          if [ -d "$APP_PATH" ]; then codesign --sign - --force --deep "$APP_PATH"; fi
 
-      - name: Prepare Assets
+      - name: Finalize Directory Structure (Naming Rule)
         shell: bash
         run: |
-          mkdir -p dist/config
-          mkdir -p dist/config/images
-          mkdir -p dist/scripts
+          # 1. 로컬 빌드와 동일한 명명 규칙 적용 (BlogGenius-vX.X.X-platform-arch)
+          ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
+          ROOT_OUT="dist/${ROOT_NAME}"
+          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts" "${ROOT_OUT}/assets/icons"
 
-          cp config/config.txt.sample dist/config/config.txt.sample
-          if [ -d "config/images" ]; then
-              find config/images -maxdepth 1 -type f ! -name '.*' -exec cp {} dist/config/images/ \;
-          else
-              echo "⚠️ config/images 폴더가 없어 기본 쇼핑 이미지가 누락될 수 있습니다."
+          # 2. 필수 리소스 복사
+          cp config/config.txt.sample "${ROOT_OUT}/config/config.txt.sample"
+          cp -r config/images/* "${ROOT_OUT}/config/images/" || true
+          cp scripts/google_apps_script.js "${ROOT_OUT}/scripts/"
+          cp assets/icons/* "${ROOT_OUT}/assets/icons/" || true
+          [ -f "README_USER.md" ] && cp README_USER.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
+          
+          # 3. CLI 및 GUI 배치
+          mv "dist/${{ matrix.output_binary }}" "${ROOT_OUT}/"
+          APP_NAME="BlogGenius"
+          TEMP_DIR=$(ls dist/gui-temp | head -n 1)
+          if [[ "${{ matrix.suffix }}" == "mac-"* ]]; then
+            cp -r dist/gui-temp/${TEMP_DIR}/${APP_NAME}.app "${ROOT_OUT}/"
+          elif [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
+            mkdir -p "${ROOT_OUT}/lib"
+            cp -a dist/gui-temp/${TEMP_DIR}/* "${ROOT_OUT}/lib/"
+            mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
+            echo -e "#!/bin/bash\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\nexport LD_LIBRARY_PATH=\"\$HERE/lib:\$LD_LIBRARY_PATH\"\n\"\$HERE/lib/${APP_NAME}-bin\" \"\$@\"" > "${ROOT_OUT}/${APP_NAME}"
+            chmod +x "${ROOT_OUT}/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
+          elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
+            cp -a dist/gui-temp/${TEMP_DIR}/* "${ROOT_OUT}/"
           fi
-          cp scripts/google_apps_script.js dist/scripts/google_apps_script.js
+          
+          # 4. ZIP 생성을 위해 원본 dist 정리 (ROOT_OUT만 남김)
+          mv "${ROOT_OUT}" "dist-final"
+          rm -rf dist/*
+          mv "dist-final" "dist/${ROOT_NAME}"
+          echo "ZIP_NAME=${ROOT_NAME}.zip" >> $GITHUB_ENV
+          echo "ZIP_DIR=${ROOT_NAME}" >> $GITHUB_ENV
 
-          if [ -f "README_USER.md" ]; then
-              cp README_USER.md dist/README.md
-          else
-              {
-                echo "# BlogGenius 사용자 가이드"
-                echo "1. config/config.txt.sample을 복사해 config/config.txt를 만든 뒤 설정하세요."
-                echo "2. 프로그램을 실행하세요."
-                echo ""
-                echo "[Mac 사용자 필수 주의사항 - Gatekeeper 우회 방법]"
-                echo "애플의 보안 정책(Gatekeeper)으로 인해 브라우저에서 다운로드한 앱은 실행이 차단될 수 있습니다."
-                echo "다음 3가지 방법 중 하나를 선택하여 실행하세요:"
-                echo ""
-                echo "방법 1 (가장 추천 - 격리 해제 명령어):"
-                echo "터미널을 열고 다음 명령어를 입력하세요:"
-                echo "xattr -cr ./*"
-                echo ""
-                echo "방법 2 (터미널 다운로드 - 경고창 방지):"
-                echo "터미널에서 직접 다운로드하면 보안 경고가 뜨지 않습니다:"
-                echo "curl -LO <릴리즈 ZIP 주소> && unzip <ZIP 파일명>"
-                echo ""
-                echo "방법 3 (마우스 우클릭):"
-                echo "BlogGenius-mac-* 파일을 '우클릭' 후 [열기]를 선택하세요."
-              } > dist/README.md
-          fi
-
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            create_win_bat() {
-              local file_name="$1"
-              local title="$2"
-              local message="$3"
-              local command="$4"
-              {
-                printf '@echo off\r\n'
-                printf 'chcp 65001 > nul\r\n'
-                printf 'title %s\r\n' "${title}"
-                printf 'echo.\r\n'
-                printf 'echo [BlogGenius] %s\r\n' "${message}"
-                printf 'BlogGenius.exe %s\r\n' "${command}"
-                printf 'pause\r\n'
-              } > "dist/${file_name}"
-            }
-
-            create_win_bat "실행하기_로그인.bat" "BlogGenius Login" "네이버 로그인을 시작합니다..." "login"
-            create_win_bat "실행하기_트렌드수집.bat" "BlogGenius Trends Mode" "트렌드 수집(Trends)을 시작합니다..." "trends"
-            create_win_bat "실행하기_일괄발행.bat" "BlogGenius Batch Mode" "엑셀 대량 발행(Batch)을 시작합니다..." "batch"
-            create_win_bat "실행하기_쇼핑발행.bat" "BlogGenius Shopping Mode" "쇼핑 발행(Shopping)을 시작합니다..." "shopping"
-            create_win_bat "실행하기_라이선스상태.bat" "BlogGenius License Status" "라이선스 상태 조회를 시작합니다..." "license status"
-            create_win_bat "실행하기_라이선스등록.bat" "BlogGenius License Register" "라이선스 이메일 등록을 시작합니다..." "license register"
-            create_win_bat "실행하기_라이선스복구.bat" "BlogGenius License Recover" "라이선스 복구를 시작합니다..." "license recover"
-            create_win_bat "실행하기_라이선스업그레이드.bat" "BlogGenius License Upgrade" "라이선스 업그레이드를 시작합니다..." "license upgrade"
-          fi
-
-      - name: Create Platform ZIP (Linux/macOS)
+      - name: Create ZIP (non-Windows)
         if: matrix.os != 'windows-latest'
         shell: bash
-        env:
-          ZIP_NAME: ${{ matrix.zip_name }}
-        run: |
-          cd dist
-          zip -r "../${ZIP_NAME}" .
-          cd -
+        run: cd dist && zip -r "../${ZIP_NAME}" "${ZIP_DIR}" && cd ..
 
-      - name: Create Platform ZIP (Windows)
+      - name: Create ZIP (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: |
-          Compress-Archive -Path dist\* -DestinationPath "${{ matrix.zip_name }}" -Force
+        run: Compress-Archive -Path "dist\*" -DestinationPath "${env:ZIP_NAME}" -Force
 
-      - name: Upload ZIP to GitHub Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: ${{ matrix.zip_name }}
-          fail_on_unmatched_files: true
+          files: ${{ env.ZIP_NAME }}
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
 
-      - name: Upload ZIP to Mirror Repo
+      - name: Upload to Mirror
         if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
         uses: softprops/action-gh-release@v2
         with:
           repository: ${{ env.MIRROR_REPO }}
           token: ${{ env.MIRROR_REPO_PAT }}
           tag_name: ${{ github.ref_name }}
-          files: ${{ matrix.zip_name }}
-          fail_on_unmatched_files: true
+          files: ${{ env.ZIP_NAME }}
           overwrite_files: true
-          # Note: We don't set make_latest or generate_release_notes here 
-          # to avoid concurrency issues since multiple jobs run in parallel.
 
-  upload_release_readme:
-    name: Upload Versioned Release README
+  upload_readme:
+    name: Upload Versioned README
     runs-on: ubuntu-latest
     needs: [setup, create_release]
-    env:
-      MIRROR_REPO: ${{ needs.setup.outputs.mirror_repo }}
-      MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Create README_v<version>.md
-        shell: bash
-        run: |
+      - run: |
           VERSION="${GITHUB_REF_NAME#v}"
           README_OUT="README_v${VERSION}.md"
-
-          if [ -f "README_USER.md" ]; then
-            cp README_USER.md "${README_OUT}"
-          elif [ -f "README.md" ]; then
-            cp README.md "${README_OUT}"
-          else
-            {
-              echo "# BlogGenius 배포 안내"
-              echo ""
-              echo "- 각 OS에 맞는 ZIP 파일을 다운로드하여 사용하세요."
-              echo "- 실행 전 ZIP 내부의 README.md를 확인하세요."
-            } > "${README_OUT}"
-          fi
-
+          [ -f "README_USER.md" ] && cp README_USER.md "${README_OUT}" || echo "# BlogGenius" > "${README_OUT}"
           echo "README_FILE=${README_OUT}" >> "$GITHUB_ENV"
-
-      - name: Upload README to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: ${{ env.README_FILE }}
-          fail_on_unmatched_files: true
-          overwrite_files: true
 
-      - name: Upload README to Mirror Repo
-        if: env.MIRROR_REPO != '' && env.MIRROR_REPO_PAT != ''
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: ${{ env.MIRROR_REPO }}
-          token: ${{ env.MIRROR_REPO_PAT }}
-          tag_name: ${{ github.ref_name }}
-          files: ${{ env.README_FILE }}
-          fail_on_unmatched_files: true
-          overwrite_files: true
+  cleanup_old_releases:
+    name: Cleanup Old Releases (-3 Rule)
+    runs-on: ubuntu-latest
+    needs: [build_and_upload, upload_readme]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MIRROR_REPO: delta898/NaverAutoBlog-Releases
+      MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
+    steps:
+      - name: Cleanup Private
+        run: |
+          RELEASES=$(gh release list --limit 100 | tail -n +4 | awk '{print $1}')
+          for tag in $RELEASES; do gh release delete "$tag" --yes --cleanup-tag; done
+      - name: Cleanup Mirror
+        if: env.MIRROR_REPO_PAT != ''
+        run: |
+          export GITHUB_TOKEN=${{ secrets.MIRROR_REPO_PAT }}
+          RELEASES=$(gh release list -R ${{ env.MIRROR_REPO }} --limit 100 | tail -n +4 | awk '{print $1}')
+          for tag in $RELEASES; do gh release delete "$tag" -R ${{ env.MIRROR_REPO }} --yes --cleanup-tag; done

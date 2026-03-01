@@ -1,6 +1,25 @@
 #!/usr/bin/env node
 
 process.env.TZ = 'Asia/Seoul';
+process.env.NODE_NO_WARNINGS = '1';
+
+// --------------------------------------------------------
+// 🚀 [Electron Check] GUI 모드 진입 판별
+// --------------------------------------------------------
+if (typeof process.versions.electron !== 'undefined' && process.argv.length <= 2) {
+    // Electron 환경에서 인자 없이 실행된 경우 GUI 창을 띄웁니다.
+    // pkg 정적 분석을 피하기 위해 eval('require')를 사용하며, 새로운 위치를 지칭합니다.
+    eval('require')('./gui/electron-main');
+    return; // CLI 로직 실행 중단
+}
+
+// 💡 [pkg Hint] pkg가 CLI 실행에 필수적인 의존성만 추적하도록 합니다.
+if (process.env.PKG_HINT === 'true') {
+    require('axios');
+    require('cheerio');
+    require('moment');
+    require('moment-timezone');
+}
 
 // --------------------------------------------------------
 // 🛠️ [Fix 1] Crypto Polyfill (Node 버전 호환성 확보)
@@ -18,7 +37,6 @@ if (!globalThis.crypto) {
 }
 
 // 불필요한 경고 메시지 숨기기 (punycode deprecated 등)
-process.env.NODE_NO_WARNINGS = '1';
 const originalWarn = console.warn;
 console.warn = (...args) => {
     if (args[0] && args[0].includes && args[0].includes('deprecated')) return;

@@ -3,9 +3,44 @@ const path = require('path');
 const Constants = require('./constants');
 const { APP_VERSION } = Constants;
 
-// 💡 [경로 기준점]
-const ROOT_DIR = process.cwd();
-const EXEC_DIR = path.dirname(process.execPath || ROOT_DIR);
+// 💡 [경로 기준점 고도화]
+// 1. 실행 파일의 실제 위치 파악
+const EXEC_PATH = process.execPath || '';
+// 🚀 [IS_PACKAGED Check] 더 정밀하게 패키징 여부를 확인합니다.
+const IS_PACKAGED = (() => {
+    // 1. pkg로 빌드된 경우
+    if (process.pkg) return true;
+    // 2. macOS .app 번들인 경우
+    if (process.platform === 'darwin' && EXEC_PATH.includes('.app/Contents/MacOS/')) return true;
+    // 3. 실행 파일이 'node'가 아닌 경우 (단, 개발 환경의 node_modules는 제외)
+    const execName = path.basename(EXEC_PATH).toLowerCase();
+    const isNode = execName === 'node' || execName === 'node.exe';
+    if (!isNode && !EXEC_PATH.includes('node_modules')) return true;
+    return false;
+})();
+
+const ACTIVE_ROOT = (() => {
+    // A. macOS .app 번들 내부에서 실행되는 경우
+    if (process.platform === 'darwin' && EXEC_PATH.includes('.app/Contents/MacOS/')) {
+        return path.resolve(path.dirname(EXEC_PATH), '../../..');
+    }
+    // B. 패키징된 바이너리인 경우 (실행 파일 위치 기준)
+    if (IS_PACKAGED) {
+        return path.dirname(EXEC_PATH);
+    }
+    // C. 개발 환경 (node src/main.js 등 - 현재 작업 디렉토리 기준)
+    return process.cwd();
+})();
+
+// 🚀 [Portable First] 프로그램 폴더 내의 config/ 폴더가 존재하면 포터블 모드로 간주
+const LOCAL_CONFIG_DIR = path.join(ACTIVE_ROOT, 'config');
+const HAS_LOCAL_CONFIG = fs.existsSync(LOCAL_CONFIG_DIR);
+
+// GUI 모드일 때 권한이 없는 특수 상황을 대비해 userData를 남겨두지만, 
+// 포터블 모드(로컬 config 존재)일 경우 ACTIVE_ROOT를 최우선으로 사용합니다.
+const BLOG_GENIUS_USER_DATA = process.env.BLOG_GENIUS_USER_DATA;
+const ROOT_DIR = (HAS_LOCAL_CONFIG || !BLOG_GENIUS_USER_DATA) ? ACTIVE_ROOT : BLOG_GENIUS_USER_DATA;
+const EXEC_DIR = ACTIVE_ROOT;
 
 function decodeFileUriPath(raw) {
     const input = String(raw || '').trim();
@@ -47,11 +82,19 @@ try {
 // =========================================================
 // 2. 📂 [경로 정의]
 // =========================================================
+// 🚀 [App Bundle Support] 앱 번들(ASAR) 내부의 원본 경로
+const BUNDLE_DIR = path.join(__dirname, '..');
+
 const PATHS = {
+    // 실제 설정 파일 (쓰기 가능한 ROOT_DIR 또는 EXEC_DIR 우선)
     configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
     configFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt'),
+
+    // 샘플 파일 (앱 번들 내부 ASAR 경로 추가)
     configSampleFile: path.join(ROOT_DIR, 'config', 'config.txt.sample'),
     configSampleFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt.sample'),
+    configSampleFileFromBundle: path.join(BUNDLE_DIR, 'config', 'config.txt.sample'),
+
     licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
     licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
@@ -59,24 +102,28 @@ const PATHS = {
     blogPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'blog_prompt.md'),
     shoppingPromptOverride: path.join(ROOT_DIR, 'config', 'shopping_prompt.md'),
     shoppingPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'shopping_prompt.md'),
-    defaultBlogPrompt: path.join(__dirname, 'config', 'blog_prompt.md'),
-    defaultShoppingPrompt: path.join(__dirname, 'config', 'shopping_prompt.md'),
+    defaultBlogPrompt: path.join(BUNDLE_DIR, 'config', 'blog_prompt.md'),
+    defaultShoppingPrompt: path.join(BUNDLE_DIR, 'config', 'shopping_prompt.md'),
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 
 function ensureConfigFileFromSample() {
     const pairs = [
-        { config: PATHS.configFile, sample: PATHS.configSampleFile },
-        { config: PATHS.configFileFromExec, sample: PATHS.configSampleFileFromExec }
+        { config: PATHS.configFile, samples: [PATHS.configSampleFile, PATHS.configSampleFileFromBundle] },
+        { config: PATHS.configFileFromExec, samples: [PATHS.configSampleFileFromExec] }
     ];
 
     for (const pair of pairs) {
         try {
             if (fs.existsSync(pair.config)) return pair.config;
-            if (!fs.existsSync(pair.sample)) continue;
+
+            // 사용 가능한 샘플 찾기
+            const samplePath = pair.samples.find(p => fs.existsSync(p));
+            if (!samplePath) continue;
+
             fs.mkdirSync(path.dirname(pair.config), { recursive: true });
-            fs.copyFileSync(pair.sample, pair.config);
-            console.info(`✅ config.txt 자동 생성 완료: ${pair.config}`);
+            fs.copyFileSync(samplePath, pair.config);
+            console.info(`✅ config.txt 자동 생성 완료: ${pair.config} (from ${samplePath})`);
             return pair.config;
         } catch (e) {
             console.warn(`⚠️ config.txt 자동 생성 실패: ${pair.config} (${e.message})`);
@@ -102,12 +149,13 @@ function loadUserConfig() {
     if (!fs.existsSync(configPath)) {
         const lines = [
             '❌ 설정 파일을 찾을 수 없습니다.',
-            `- 확인 경로: ${PATHS.configFile}`,
-            `- 확인 경로: ${PATHS.configSampleFile}`,
+            `- 확인 경로: ${path.resolve(PATHS.configFile)}`,
+            `- 확인 경로: ${path.resolve(PATHS.configSampleFile)}`,
+            `- 확인 경로 (앱 번들): ${path.resolve(PATHS.configSampleFileFromBundle)}`,
             '',
             '해결 방법:',
-            '1) 배포 패키지의 config/config.txt.sample 파일이 있는지 확인하세요.',
-            '2) sample이 있으면 config.txt로 복사한 뒤 필수값을 입력하세요.',
+            '1) 위 경로 중 하나에 config.txt.sample 파일이 있는지 확인하세요.',
+            '2) 파일이 있으면 위 확인 경로의 config.txt 위치로 복사한 뒤 필수값을 입력하세요.',
             '',
             '   macOS / Linux: cp config/config.txt.sample config/config.txt',
             '   Windows PowerShell: Copy-Item .\\config\\config.txt.sample .\\config\\config.txt',
@@ -489,6 +537,7 @@ module.exports = {
 
     // 4. 경로 상수 (호환성 유지)
     PATHS: PATHS,
+    ROOT_DIR: ROOT_DIR,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,
     AUTH_FILE_PATH: resolvedAuthPath,

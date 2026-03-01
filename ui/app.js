@@ -137,10 +137,7 @@ let settingsAdvancedRevision = '';
 let settingsAdvancedStale = false;
 let dashboardExternalContentLastLoadedAt = 0;
 const DASHBOARD_EXTERNAL_CONTENT_REFRESH_MS = 5 * 60 * 1000;
-const SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT = [
-  "나 보기가 역겨워 가실 때에는\n말없이 고이 보내 드리우리다\n영변에 약산 진달래꽃\n아름 따다 가실 길에 뿌리우리다",
-  "죽는 날까지 하늘을 우러러\n한 점 부끄럼이 없기를\n잎새에 이는 바람에도\n나는 괴로워했다"
-];
+const SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT = "나 보기가 역겨워 가실 때에는\n말없이 고이 보내 드리우리다\n영변에 약산 진달래꽃\n아름 따다 가실 길에 뿌리우리다";
 
 let uiUpdateInfo = null;
 const systemLogRenderState = {
@@ -148,8 +145,10 @@ const systemLogRenderState = {
   lastRaw: ''
 };
 
-async function checkUpdate() {
+async function checkUpdate(isManual = false) {
   try {
+    if (isManual) showUiPopup('최신 버전을 확인하고 있습니다...');
+
     const info = await fetchJson('/api/v1/system/update/check');
     if (info && info.hasUpdate) {
       uiUpdateInfo = info;
@@ -159,9 +158,13 @@ async function checkUpdate() {
         bannerText.textContent = `새로운 버전(v${info.latestVersion})이 출시되었습니다!`;
         banner.classList.remove('hidden');
       }
+      if (isManual) showUiPopup(`새로운 버전 v${info.latestVersion}을 찾았습니다!\n상단 알림 배너의 '지금 업데이트'를 눌러 진행하세요.`);
+    } else {
+      if (isManual) showUiPopup('현재 최신 버전을 사용 중입니다.');
     }
   } catch (e) {
     console.warn('업데이트 체크 실패:', e);
+    if (isManual) showUiPopup(`업데이트 확인 실패: ${e.message}`);
   }
 }
 
@@ -1074,6 +1077,10 @@ async function loadDashboard() {
       const versionBadge = document.getElementById('badge-version');
       if (versionBadge && health.version) {
         versionBadge.textContent = `v${health.version}`;
+      }
+      const settingsVersionDisplay = document.getElementById('settings-current-version-display');
+      if (settingsVersionDisplay && health.version) {
+        settingsVersionDisplay.textContent = `v${health.version}`;
       }
     } else {
       healthBadge.textContent = 'Health: Error';
@@ -4462,8 +4469,15 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
+  if (settingsCheckUpdateBtn) {
+    settingsCheckUpdateBtn.addEventListener('click', () => {
+      checkUpdate(true);
+    });
+  }
+
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
-  try { checkUpdate(); } catch (e) { console.warn('checkUpdate error:', e); }
+  try { checkUpdate(false); } catch (e) { console.warn('checkUpdate error:', e); }
 
   // Mobile Menu Toggle
   try {

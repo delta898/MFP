@@ -798,10 +798,14 @@
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
             </label>
             <label>UPDATE_CHANNEL
-              <select id="settings-update-channel">
-                <option value="stable">Stable (정식 버전)</option>
-                <option value="beta">Beta (테스트 버전)</option>
-              </select>
+              <div class="input-with-action">
+                <select id="settings-update-channel">
+                  <option value="stable">Stable (정식 버전)</option>
+                  <option value="beta">Beta (테스트 버전)</option>
+                </select>
+                <button id="settings-check-update-btn" class="secondary" type="button">최신 버전 확인</button>
+              </div>
+              <small class="muted">현재 버전: <strong id="settings-current-version-display">v0.0.0</strong></small>
             </label>
           </div>
 
@@ -831,6 +835,7 @@
             </div>
             <pre id="settings-google-auth-result" style="margin-top: 12px;">대기 중...</pre>
           </div>
+
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
           <div class="form-actions">
@@ -865,16 +870,27 @@
               </select>
             </label>
             <div class="settings-typing-preview">
-              <div class="settings-typing-preview-head">
-                <strong>타이핑 속도 미리보기</strong>
-                <button id="settings-typing-preview-replay" class="secondary" type="button">다시 재생</button>
+              <div class="settings-typing-grid">
+                <!-- Column 1: Input -->
+                <div class="settings-typing-col">
+                  <div class="typing-col-header">
+                    <span class="typing-col-label">미리보기 문구</span>
+                  </div>
+                  <textarea id="settings-typing-preview-input" class="typing-preview-textarea" rows="7"
+                    placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"></textarea>
+                </div>
+                <!-- Column 2: Playback -->
+                <div class="settings-typing-col">
+                  <div class="typing-col-header">
+                    <span id="settings-typing-preview-meta" class="settings-typing-preview-meta">자동 재생: 3회</span>
+                    <button id="settings-typing-preview-replay" class="secondary compact" type="button">다시 재생</button>
+                  </div>
+                  <div class="playback-area">
+                    <p id="settings-typing-preview-text" class="settings-typing-preview-text" aria-live="polite">대기 중...
+                    </p>
+                  </div>
+                </div>
               </div>
-              <label class="settings-typing-preview-input-wrap">미리보기 문구 (저장되지 않음)
-                <textarea id="settings-typing-preview-input" rows="4"
-                  placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"></textarea>
-              </label>
-              <p id="settings-typing-preview-meta" class="settings-typing-preview-meta">자동 재생: 3회</p>
-              <p id="settings-typing-preview-text" class="settings-typing-preview-text" aria-live="polite">대기 중...</p>
             </div>
           </div>
 

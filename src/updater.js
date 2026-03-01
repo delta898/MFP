@@ -8,16 +8,20 @@ const { APP_VERSION } = require('./constants');
 
 /**
  * Updater Module
- * Handles version checking and self-updating from a public GitHub mirror repository.
+ * Handles version checking and full folder self-updating from a public GitHub mirror repository.
  */
 class Updater {
     constructor() {
         this.currentVersion = APP_VERSION;
         this.repo = CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO;
-        this.tempDir = path.join(CONFIG.APP_ROOT_DIR, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
+        this.appRootDir = CONFIG.APP_ROOT_DIR;
+        this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
         this.isUpdating = false;
         this.lastCheck = 0;
         this.updateInfo = null;
+
+        // 보존할 대상 (업데이트 시 절대 건드리지 않음)
+        this.preserveList = ['config', 'logs', 'tmp_update', '.git', '.DS_Store'];
     }
 
     /**
@@ -35,8 +39,10 @@ class Updater {
             if (releases.length === 0) return null;
 
             if (includePrerelease) {
+                // 베타 채널: 안정/베타 상관없이 가장 최신(첫 번째) 릴리즈 반환
                 return releases[0];
             } else {
+                // 안정 채널: prerelease가 아닌 것 중 가장 최신 반환
                 return releases.find(r => !r.prerelease) || null;
             }
         } catch (e) {
@@ -52,6 +58,7 @@ class Updater {
         const now = Date.now();
         if (this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
 
+        // config.txt의 UPDATE_CHANNEL 설정(stable/beta)에 따라 판단
         const isBetaChannel = CONFIG.UPDATE_CHANNEL === 'beta';
         const latest = await this.getLatestRelease(isBetaChannel);
 
@@ -113,7 +120,7 @@ class Updater {
     }
 
     /**
-     * Download and apply the update
+     * Apply full folder update (Full Sync)
      */
     async applyUpdate(onProgress = null) {
         if (this.isUpdating) throw new Error('업데이트가 이미 진행 중입니다.');
@@ -127,6 +134,7 @@ class Updater {
             if (!fs.existsSync(this.tempDir)) fs.mkdirSync(this.tempDir, { recursive: true });
             const zipPath = path.join(this.tempDir, 'update.zip');
             const extractDir = path.join(this.tempDir, 'extracted');
+
             if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
             fs.mkdirSync(extractDir, { recursive: true });
 
@@ -155,31 +163,16 @@ class Updater {
             Logger.info('📂 [Updater] 압축 해제 중...');
             await this.unzip(zipPath, extractDir);
 
-            const currentBinPath = process.execPath;
-            const binName = path.basename(currentBinPath);
-            const newBinPath = path.join(extractDir, binName);
-
-            if (!fs.existsSync(newBinPath)) {
-                const files = fs.readdirSync(extractDir);
-                const possibleBin = files.find(f => f.startsWith('BlogGenius') && !f.endsWith('.bat') && !f.endsWith('.md'));
-                if (possibleBin) {
-                    Logger.info(`📂 [Updater] 새 바이너리 발견: ${possibleBin}`);
-                    fs.renameSync(path.join(extractDir, possibleBin), path.join(extractDir, binName));
-                } else {
-                    throw new Error('압축 파일 내에서 실행 파일을 찾을 수 없습니다.');
-                }
+            // 중요: 압축을 해제한 내용물이 'BlogGenius-v0.8.42-linux-x64' 같이 중첩된 폴더일 수 있음
+            let sourceDir = extractDir;
+            const entries = fs.readdirSync(extractDir);
+            if (entries.length === 1 && fs.statSync(path.join(extractDir, entries[0])).isDirectory()) {
+                sourceDir = path.join(extractDir, entries[0]);
+                Logger.info(`📂 [Updater] 중첩 폴더 발견: ${entries[0]}`);
             }
 
-            const backupPath = currentBinPath + '.bak';
-            if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
-
-            Logger.info('📂 [Updater] 바이너리 교체 중...');
-            fs.renameSync(currentBinPath, backupPath);
-            fs.copyFileSync(path.join(extractDir, binName), currentBinPath);
-
-            if (process.platform !== 'win32') {
-                fs.chmodSync(currentBinPath, '755');
-            }
+            Logger.info('📂 [Updater] 전체 폴더 동기화 업데이트 시작...');
+            this.syncFolders(sourceDir, this.appRootDir);
 
             Logger.info('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
             return true;
@@ -188,6 +181,46 @@ class Updater {
             throw e;
         } finally {
             this.isUpdating = false;
+        }
+    }
+
+    /**
+     * Recursively sync source folder to target folder, preserving specific items.
+     */
+    syncFolders(src, dest) {
+        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+
+        const items = fs.readdirSync(src);
+        for (const item of items) {
+            if (this.preserveList.includes(item)) {
+                Logger.info(`⏭️ [Updater] 보존 대상 제외: ${item}`);
+                continue;
+            }
+
+            const srcPath = path.join(src, item);
+            const destPath = path.join(dest, item);
+            const stat = fs.statSync(srcPath);
+
+            if (stat.isDirectory()) {
+                // 폴더면 재귀 호출
+                this.syncFolders(srcPath, destPath);
+            } else {
+                // 파일이면 교체
+                // 실행 중인 바이너리일 경우 대비 (특히 Windows)
+                try {
+                    if (fs.existsSync(destPath)) {
+                        const backupPath = destPath + '.old';
+                        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+                        fs.renameSync(destPath, backupPath);
+                    }
+                    fs.copyFileSync(srcPath, destPath);
+                    if (process.platform !== 'win32') {
+                        fs.chmodSync(destPath, '755');
+                    }
+                } catch (err) {
+                    Logger.warn(`⚠️ [Updater] 파일 교체 중 오류 (무시됨): ${item} - ${err.message}`);
+                }
+            }
         }
     }
 

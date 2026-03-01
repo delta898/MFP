@@ -564,63 +564,21 @@ function sortShoppingItems(items, sortBy = 'rowNumber', sortDir = 'desc') {
         .map(v => v.item);
 }
 
-function resolveConfigPaths() {
-    const rootConfig = path.join(process.cwd(), 'config', 'config.txt');
-    const rootSample = path.join(process.cwd(), 'config', 'config.txt.sample');
-    const execDir = path.dirname(process.execPath || process.cwd());
-    const execConfig = path.join(execDir, 'config', 'config.txt');
-    const execSample = path.join(execDir, 'config', 'config.txt.sample');
-
+function resolveReadableConfigSource() {
+    const configPath = CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS.configFile;
+    if (fs.existsSync(configPath)) {
+        return { path: configPath, sourceType: 'config' };
+    }
+    // config-loader.js 에서 이미 샘플 복사 로직이 실행되었을 것이므로, 
+    // 여기서는 현재 활성화된 소스 경로를 우선 반환합니다.
     return {
-        rootConfig,
-        rootSample,
-        execConfig,
-        execSample
+        path: configPath,
+        sourceType: fs.existsSync(configPath) ? 'config' : 'sample'
     };
 }
 
-function ensureWritableConfigFromSample() {
-    const paths = resolveConfigPaths();
-    const pairs = [
-        { config: paths.rootConfig, sample: paths.rootSample },
-        { config: paths.execConfig, sample: paths.execSample }
-    ];
-
-    for (const pair of pairs) {
-        try {
-            if (fs.existsSync(pair.config)) return pair.config;
-            if (!fs.existsSync(pair.sample)) continue;
-            fs.mkdirSync(path.dirname(pair.config), { recursive: true });
-            fs.copyFileSync(pair.sample, pair.config);
-            Logger.info(`⚙️ 설정 파일 자동 생성: ${pair.config}`);
-            return pair.config;
-        } catch (e) {
-            Logger.warn(`⚠️ 설정 파일 자동 생성 실패: ${pair.config} (${e.message})`);
-        }
-    }
-    return '';
-}
-
-function resolveReadableConfigSource() {
-    const created = ensureWritableConfigFromSample();
-    if (created && fs.existsSync(created)) return { path: created, sourceType: 'config' };
-    const paths = resolveConfigPaths();
-    if (fs.existsSync(paths.rootConfig)) return { path: paths.rootConfig, sourceType: 'config' };
-    if (fs.existsSync(paths.execConfig)) return { path: paths.execConfig, sourceType: 'config' };
-    if (fs.existsSync(paths.rootSample)) return { path: paths.rootSample, sourceType: 'sample' };
-    if (fs.existsSync(paths.execSample)) return { path: paths.execSample, sourceType: 'sample' };
-    throw new Error('설정 파일(config.txt/config.txt.sample)을 찾을 수 없습니다.');
-}
-
 function resolveWritableConfigPath() {
-    const created = ensureWritableConfigFromSample();
-    if (created) return created;
-    const paths = resolveConfigPaths();
-    if (fs.existsSync(paths.rootConfig)) return paths.rootConfig;
-    if (fs.existsSync(paths.execConfig)) return paths.execConfig;
-    if (fs.existsSync(paths.rootSample)) return paths.rootConfig;
-    if (fs.existsSync(paths.execSample)) return paths.execConfig;
-    return paths.rootConfig;
+    return CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS.configFile;
 }
 
 function readConfigRaw(configSource) {

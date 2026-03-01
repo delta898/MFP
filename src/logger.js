@@ -15,10 +15,19 @@ const LEVELS = {
 const currentLevelName = (CONFIG.LOG_LEVEL || 'info').toLowerCase();
 const currentLevel = LEVELS[currentLevelName] || 1;
 
-// 로그 저장 폴더 만들기
-const logDir = path.join(process.cwd(), 'logs');
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
+// 로그 저장 폴더 결정
+// 🚀 [Portable Mode Support]
+// config-loader 에서 결정한 ROOT_DIR 내의 logs 폴더를 최우선으로 사용합니다.
+logDir = path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
+
+// 폴더 생성 (이미 있으면 통과)
+try {
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+    }
+} catch (e) {
+    // EROFS 등 권한 문제 발생 시 콘솔에만 출력하고 진행
+    console.error(`⚠️ 로그 폴더 생성 실패 (${logDir}): ${e.message}`);
 }
 
 class Logger {
@@ -50,11 +59,13 @@ class Logger {
         }
 
         // 3. 파일 저장 (오늘 날짜 파일에 이어쓰기)
-        // 파일에는 레벨 상관없이 다 남길지, 파일도 필터링할지 결정해야 하는데
-        // 보통 디버깅을 위해 파일에는 '전부' 남기거나, 똑같이 필터링합니다.
-        // 여기서는 "설정된 레벨만" 파일에 남기도록 통일하겠습니다.
-        const logFile = path.join(logDir, `${dateStr}.log`);
-        fs.appendFileSync(logFile, logMessage + '\n');
+        try {
+            const logFile = path.join(logDir, `${dateStr}.log`);
+            fs.appendFileSync(logFile, logMessage + '\n');
+        } catch (fileErr) {
+            // 파일 쓰기 실패 시 콘솔에만 남김 (앱 중단 방지)
+            // 무한 루프 방지를 위해 Logger.error 대신 console.error 사용
+        }
     }
 
     static debug(message) { this._write('debug', message); }

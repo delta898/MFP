@@ -106,82 +106,112 @@ copy_assets() {
         } > "$TARGET_DIR/README.md"
     fi
 
-    # [Windows 전용] 더블클릭 실행 파일(.bat) 생성
-    if [[ "$TARGET_DIR" == *"win-x64"* ]]; then
-        create_win_bat() {
-            local file_name="$1"
-            local title="$2"
-            local message="$3"
-            local command="$4"
-            {
-                printf '@echo off\r\n'
-                printf 'chcp 65001 > nul\r\n'
-                printf 'title %s\r\n' "$title"
-                printf 'echo.\r\n'
-                printf 'echo [BlogGenius] %s\r\n' "$message"
-                printf 'BlogGenius.exe %s\r\n' "$command"
-                printf 'pause\r\n'
-            } > "$TARGET_DIR/${file_name}"
-        }
-
-        create_win_bat "실행하기_로그인.bat"           "BlogGenius Login"           "네이버 로그인을 시작합니다..."           "login"
-        create_win_bat "실행하기_트렌드수집.bat"       "BlogGenius Trends Mode"     "트렌드 수집(Trends)을 시작합니다..."     "trends"
-        create_win_bat "실행하기_일괄발행.bat"         "BlogGenius Batch Mode"      "엑셀 대량 발행(Batch)을 시작합니다..."   "batch"
-        create_win_bat "실행하기_쇼핑발행.bat"         "BlogGenius Shopping Mode"   "쇼핑 발행(Shopping)을 시작합니다..."    "shopping"
-        create_win_bat "실행하기_라이선스상태.bat"     "BlogGenius License Status"  "라이선스 상태 조회를 시작합니다..."     "license status"
-        create_win_bat "실행하기_라이선스등록.bat"     "BlogGenius License Register" "라이선스 이메일 등록을 시작합니다..."  "license register"
-        create_win_bat "실행하기_라이선스복구.bat"     "BlogGenius License Recover"  "라이선스 복구를 시작합니다..."         "license recover"
-        create_win_bat "실행하기_라이선스업그레이드.bat" "BlogGenius License Upgrade" "라이선스 업그레이드를 시작합니다..."  "license upgrade"
-    fi
-
+    # 📄 필수 파일 복사 (이미 dist/ 에 복사됨)
     echo "   📄 필수 파일 복사 완료"
 }
 
 echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
 echo "---------------------------------------------------"
 
-# 1️⃣ MacOS (Apple Silicon) - M1/M2/M3
-DIR_NAME="${APP_NAME}-v${VERSION}-mac-arm64"
-OUTPUT_DIR="dist/${DIR_NAME}"
-echo "🍎 MacOS (Apple Silicon) 빌드 중..."
-mkdir -p "$OUTPUT_DIR"
-copy_assets "$OUTPUT_DIR"
-$PKG_CMD package.json --targets ${NODE_TARGET}-macos-arm64 --output "${OUTPUT_DIR}/${APP_NAME}"
-# Ad-hoc 코드사인 (build.yml 동일 - Apple Silicon 실행 필수)
-codesign --sign - --force "${OUTPUT_DIR}/${APP_NAME}" 2>/dev/null && echo "   🔏 코드사인 완료" || echo "   ⚠️ 코드사인 생략 (codesign 없음)"
-echo "   ✅ 빌드 완료"
-echo ""
+# ---------------------------------------------------
+# 📦 통합 빌드 함수 (CLI + GUI)
+# ---------------------------------------------------
+build_platform() {
+    local plat=$1      # node target용 (macos, win, linux)
+    local e_plat=$2    # electron용 (darwin, win32, linux)
+    local arch=$3      # x64, arm64
+    local suffix=$4    # 폴더명 접미사 (mac-arm64 등)
+    
+    local ROOT_DIR_NAME="${APP_NAME}-v${VERSION}-${suffix}"
+    local ROOT_OUT="dist/${ROOT_DIR_NAME}"
+    
+    echo "---------------------------------------------------"
+    echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
+    mkdir -p "${ROOT_OUT}"
 
-# 2️⃣ MacOS (Intel)
-DIR_NAME="${APP_NAME}-v${VERSION}-mac-intel"
-OUTPUT_DIR="dist/${DIR_NAME}"
-echo "🍎 MacOS (Intel) 빌드 중..."
-mkdir -p "$OUTPUT_DIR"
-copy_assets "$OUTPUT_DIR"
-$PKG_CMD package.json --targets ${NODE_TARGET}-macos-x64 --output "${OUTPUT_DIR}/${APP_NAME}"
-codesign --sign - --force "${OUTPUT_DIR}/${APP_NAME}" 2>/dev/null && echo "   🔏 코드사인 완료" || echo "   ⚠️ 코드사인 생략 (codesign 없음)"
-echo "   ✅ 빌드 완료"
-echo ""
+    # 1. 공통 자산 복사
+    copy_assets "${ROOT_OUT}"
 
-# 3️⃣ Windows (x64)
-DIR_NAME="${APP_NAME}-v${VERSION}-win-x64"
-OUTPUT_DIR="dist/${DIR_NAME}"
-echo "🪟 Windows (x64) 빌드 중..."
-mkdir -p "$OUTPUT_DIR"
-copy_assets "$OUTPUT_DIR"
-$PKG_CMD package.json --targets ${NODE_TARGET}-win-x64 --output "${OUTPUT_DIR}/${APP_NAME}.exe"
-echo "   ✅ 빌드 완료"
-echo ""
+    # 2. CLI 빌드 (BlogGenius-cli)
+    echo "   💻 CLI 빌드 중..."
+    local cli_suffix=""
+    if [ "$e_plat" == "win32" ]; then cli_suffix=".exe"; fi
+    $PKG_CMD package.json --targets ${NODE_TARGET}-${plat}-${arch} --output "${ROOT_OUT}/${APP_NAME}-cli${cli_suffix}"
+    
+    # macOS 코드사인 (CLI)
+    if [ "$e_plat" == "darwin" ]; then
+        codesign --sign - --force "${ROOT_OUT}/${APP_NAME}-cli" 2>/dev/null && echo "   🔏 CLI 코드사인 완료"
+    fi
 
-# 4️⃣ Linux (x64)
-DIR_NAME="${APP_NAME}-v${VERSION}-linux-x64"
-OUTPUT_DIR="dist/${DIR_NAME}"
-echo "🐧 Linux (x64) 빌드 중..."
-mkdir -p "$OUTPUT_DIR"
-copy_assets "$OUTPUT_DIR"
-$PKG_CMD package.json --targets ${NODE_TARGET}-linux-x64 --output "${OUTPUT_DIR}/${APP_NAME}"
-echo "   ✅ 빌드 완료"
-echo ""
+    # 3. GUI 빌드 (BlogGenius)
+    echo "   📦 GUI 빌드 중..."
+    
+    local SKIP_GUI=false
+    ICON_OPT="--icon=assets/icons/icon"
+    # Windows 빌드 시 Wine이 없으면 빌드 불가
+    if [ "$e_plat" == "win32" ]; then
+        if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
+            echo "   ⚠️ [Warning] Wine이 설치되어 있지 않아 Windows GUI 빌드를 건너뜁니다. (CLI만 포함)"
+            SKIP_GUI=true
+        fi
+    fi
+
+    if [ "$SKIP_GUI" == "false" ]; then
+        npx electron-packager . "${APP_NAME}" \
+            --platform=${e_plat} --arch=${arch} \
+            --out=dist/gui-temp --overwrite \
+            --asar \
+            $ICON_OPT \
+            --ignore="^/dist|^/.*\.zip$|^/\.git|^/logs|^/node_modules/electron$|^/node_modules/\.cache|^/Videos|^/workspace" \
+            --quiet
+
+        # GUI 결과물 이동
+        local TEMP_NAME="${APP_NAME}-${e_plat}-${arch}"
+        if [ "$e_plat" == "win32" ]; then TEMP_NAME="${APP_NAME}-win32-${arch}"; fi
+        
+        # macOS의 경우 .app 번들 자체를 이동, 나머지는 내용물을 이동
+        if [ "$e_plat" == "darwin" ]; then
+            mv "dist/gui-temp/${TEMP_NAME}/${APP_NAME}.app" "${ROOT_OUT}/"
+        elif [ "$e_plat" == "linux" ]; then
+            # Linux: 부속 파일이 많으므로 lib/ 폴더로 격리 (Clean Look)
+            echo "   🧹 Linux GUI 파일 격리 및 바이너리 이름 최적화 중..."
+            mkdir -p "${ROOT_OUT}/lib"
+            cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/lib/"
+            
+            # 실제 바이너리 이름을 -bin으로 변경하여 런처와 구분
+            mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
+            chmod +x "${ROOT_OUT}/lib/${APP_NAME}-bin"
+
+            # 루트에 런처 스크립트 생성 (내부 -bin 바이너리 실행)
+            cat <<EOF > "${ROOT_OUT}/${APP_NAME}"
+#!/bin/bash
+# BlogGenius Launcher Script
+HERE="\$(dirname "\$(readlink -f "\$0")")"
+export LD_LIBRARY_PATH="\$HERE/lib:\$LD_LIBRARY_PATH"
+# \$@ 를 통해 인자 전달
+"\$HERE/lib/${APP_NAME}-bin" "\$@"
+EOF
+            chmod +x "${ROOT_OUT}/${APP_NAME}"
+        else
+            # Windows: 전체 파일 이동
+            if [ -d "dist/gui-temp/${TEMP_NAME}" ]; then
+                cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/"
+            fi
+        fi
+        rm -rf dist/gui-temp
+    fi
+
+    echo "   ✅ ${suffix} 빌드 완료"
+}
+
+# ---------------------------------------------------
+# 5. 플랫폼별 빌드 실행
+# ---------------------------------------------------
+# build_platform <pkg_os> <electron_os> <arch> <suffix>
+build_platform "macos" "darwin" "arm64" "mac-arm64"
+build_platform "macos" "darwin" "x64"   "mac-intel"
+build_platform "win"   "win32"  "x64"   "win-x64"
+build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # ---------------------------------------------------
 # 5. ZIP 생성 (build.yml Create Platform ZIP 와 동일)
