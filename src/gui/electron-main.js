@@ -37,6 +37,20 @@ function createMenu() {
             ]
         },
         {
+            label: '편집',
+            submenu: [
+                { label: '실행 취소', role: 'undo' },
+                { label: '다시 실행', role: 'redo' },
+                { type: 'separator' },
+                { label: '잘라내기', role: 'cut' },
+                { label: '복사', role: 'copy' },
+                { label: '붙여넣기', role: 'paste' },
+                { label: '삭제', role: 'delete' },
+                { type: 'separator' },
+                { label: '모두 선택', role: 'selectAll' }
+            ]
+        },
+        {
             label: '보기',
             submenu: [
                 { label: '새로고침', role: 'reload' },
@@ -51,21 +65,67 @@ function createMenu() {
             ]
         }
     ];
+
+    // macOS 전용 '앱 메뉴' 및 설정(Cmd + ,) 단축키 추가
+    if (process.platform === 'darwin') {
+        template.unshift({
+            label: 'BlogGenius',
+            submenu: [
+                { role: 'about', label: 'BlogGenius 정보' },
+                { type: 'separator' },
+                {
+                    label: '설정...',
+                    accelerator: 'CmdOrCtrl+,',
+                    click: () => {
+                        if (win) {
+                            win.webContents.executeJavaScript("const btn = document.querySelector('.nav-btn[data-view=\"settings\"]'); if(btn) btn.click();");
+                        }
+                    }
+                },
+                {
+                    label: '업데이트 확인...',
+                    click: () => {
+                        if (win) {
+                            win.webContents.executeJavaScript(`
+                                const navBtn = document.querySelector('.nav-btn[data-view="settings"]');
+                                if(navBtn) navBtn.click();
+                                setTimeout(() => {
+                                    const updateBtn = document.getElementById('settings-check-update-btn');
+                                    if(updateBtn) updateBtn.click();
+                                }, 100);
+                            `);
+                        }
+                    }
+                },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide', label: 'BlogGenius 숨기기' },
+                { role: 'hideOthers', label: '기타 숨기기' },
+                { role: 'unhide', label: '모두 보기' },
+                { type: 'separator' },
+                { role: 'quit', label: 'BlogGenius 종료' }
+            ]
+        });
+    }
+
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
 
 async function createWindow() {
-    // 1. UI 서버 시작 (백그라운드)
-    try {
-        const host = CONFIG.LISTEN_HOST || '127.0.0.1';
-        const port = CONFIG.LISTEN_PORT || 4577;
-        uiServer = await startUiServer({ host, port });
-        Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
-    } catch (err) {
-        Logger.error(`GUI: Failed to start UI Server: ${err.message}`);
-        app.quit();
-        return;
+    // 1. UI 서버 시작 (백그라운드 - 최초 1회만)
+    if (!uiServer) {
+        try {
+            const host = CONFIG.LISTEN_HOST || '127.0.0.1';
+            const port = CONFIG.LISTEN_PORT || 4577;
+            uiServer = await startUiServer({ host, port });
+            Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
+        } catch (err) {
+            Logger.error(`GUI: Failed to start UI Server: ${err.message}`);
+            app.quit();
+            return;
+        }
     }
 
     const iconPath = path.join(__dirname, '../../assets/icons/icon.png');
