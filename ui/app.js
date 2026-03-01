@@ -2210,7 +2210,6 @@ function applySettingsMajorToForm(data) {
   const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
   const shoppingAutoTimeEl = document.getElementById('shopping-auto-time');
   const shoppingAutoNotifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
-  const updateChannelEl = document.getElementById('settings-update-channel');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -2229,7 +2228,6 @@ function applySettingsMajorToForm(data) {
     });
 
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
-  if (updateChannelEl) updateChannelEl.value = String(fields.UPDATE_CHANNEL || 'stable');
   if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
   setSelectedBlogAutoCategories(
     fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
@@ -2475,7 +2473,6 @@ function buildSettingsMajorPayload() {
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: Boolean(document.getElementById('settings-headless')?.checked),
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
-    UPDATE_CHANNEL: (document.getElementById('settings-update-channel')?.value || 'stable').trim(),
     NAVER_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
     NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     NAVER_AUTO_MAX_POSTS_PER_RUN: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,

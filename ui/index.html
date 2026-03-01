@@ -797,16 +797,17 @@
             <label>LISTEN_PORT
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
             </label>
-            <label>UPDATE_CHANNEL
-              <div class="input-with-action">
-                <select id="settings-update-channel">
-                  <option value="stable">Stable (정식 버전)</option>
-                  <option value="beta">Beta (테스트 버전)</option>
-                </select>
+            <div class="form-field-block"
+              style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
+              <span class="field-label-text">앱 업데이트</span>
+              <div class="input-with-action" style="margin-top: 8px;">
+                <div
+                  style="flex-grow: 1; padding: 10px 12px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                  현재 버전: <strong id="settings-current-version-display">v0.0.0</strong>
+                </div>
                 <button id="settings-check-update-btn" class="secondary" type="button">최신 버전 확인</button>
               </div>
-              <small class="muted">현재 버전: <strong id="settings-current-version-display">v0.0.0</strong></small>
-            </label>
+            </div>
           </div>
 
           <div class="settings-auth-section"

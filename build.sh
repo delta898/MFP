@@ -162,7 +162,7 @@ build_platform() {
             --out=dist/gui-temp --overwrite \
             --asar \
             $ICON_OPT \
-            --ignore="^/dist|^/.*\.zip$|^/\.git|^/logs|^/node_modules/electron$|^/node_modules/\.cache|^/Videos|^/workspace" \
+            --ignore="(/[.]git|/dist|/logs|/assets|/Videos|/workspace|/NaverBlogAutoTool|/supabase|/temp|/docs)(/|$)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg)$|/node_modules/(electron|electron-packager|[.]cache)(/|$)" \
             --quiet
 
         # GUI 결과물 이동

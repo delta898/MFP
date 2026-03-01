@@ -416,8 +416,7 @@ const naverShoppingAutoNotifyEnabled = parseBoolLike(
     userConfig.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
     false
 );
-
-const updateChannel = String(userConfig.UPDATE_CHANNEL || 'stable').trim().toLowerCase();
+const userRole = String(userConfig.USER_ROLE || 'User').trim();
 const updateMirrorRepo = String(userConfig.UPDATE_MIRROR_REPO || '').trim();
 
 // =========================================================
@@ -450,11 +449,13 @@ const closeDelay = (userConfig.CLOSE_DELAY_SECONDS || 10) * 1000;
 const blogPromptCandidates = [
     PATHS.blogPromptOverride,
     PATHS.blogPromptOverrideFromExec,
+    path.join(__dirname, 'config', 'blog_prompt.md'), // Ensure fallback within snapshot
     PATHS.defaultBlogPrompt
 ];
 const shoppingPromptCandidates = [
     PATHS.shoppingPromptOverride,
     PATHS.shoppingPromptOverrideFromExec,
+    path.join(__dirname, 'config', 'shopping_prompt.md'),
     PATHS.defaultShoppingPrompt
 ];
 
@@ -504,7 +505,7 @@ module.exports = {
     NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
     NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
     NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
-    UPDATE_CHANNEL: updateChannel,
+    USER_ROLE: userRole,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,
     // legacy alias (내부 호환)

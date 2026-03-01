@@ -3490,6 +3490,7 @@ function waitMs(delay) {
 async function executeTrendCollectWithRetry(options = {}) {
     const date = String(options?.date || '').trim();
     const categories = options?.categories;
+    const headless = options?.headless;
     const maxRetries = normalizeNonNegativeInt(options?.maxRetries, AUTO_TRENDS_MAX_RETRIES);
     const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, AUTO_TRENDS_RETRY_WAIT_MS);
     const maxAttempts = maxRetries + 1;
@@ -3499,7 +3500,8 @@ async function executeTrendCollectWithRetry(options = {}) {
         try {
             const trendsResult = await executeTrendCollectAction({
                 ...(date ? { date } : {}),
-                ...(categories !== undefined ? { categories } : {})
+                ...(categories !== undefined ? { categories } : {}),
+                ...(typeof headless === 'boolean' ? { headless } : {})
             });
             if (trendsResult?.success) {
                 return {
@@ -3629,7 +3631,8 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                         date: requestedTrendDate,
                         categories: includeCategories,
                         maxRetries: isManualTrigger ? 0 : AUTO_TRENDS_MAX_RETRIES,
-                        retryWaitMs: AUTO_TRENDS_RETRY_WAIT_MS
+                        retryWaitMs: AUTO_TRENDS_RETRY_WAIT_MS,
+                        headless: settings.NAVER_AUTO_HEADLESS
                     });
                     if (trendsRetryResult.success) {
                         summary.trendsCollected = Number(trendsRetryResult.collected || 0);

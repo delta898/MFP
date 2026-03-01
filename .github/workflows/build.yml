@@ -117,7 +117,7 @@ jobs:
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
           fi
-          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --icon=assets/icons/icon --ignore="^/dist|^/.*\.zip$|^/\.git|^/logs|^/node_modules/electron$|^/node_modules/\.cache"
+          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --icon=assets/icons/icon --ignore="(/[.]git|/dist|/logs|/assets|/Videos|/workspace|/NaverBlogAutoTool|/supabase|/temp|/docs)(/|$)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg)$|/node_modules/(electron|electron-packager|[.]cache)(/|$)"
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')

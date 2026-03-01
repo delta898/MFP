@@ -25,9 +25,9 @@ class Updater {
     }
 
     /**
-     * Get the latest release information from GitHub API
+     * Get the latest release information from GitHub API based on USER_ROLE
      */
-    async getLatestRelease(includePrerelease = false) {
+    async getLatestRelease(userRole = 'User') {
         try {
             const url = `https://api.github.com/repos/${this.repo}/releases`;
             const response = await axios.get(url, {
@@ -38,11 +38,19 @@ class Updater {
             const releases = Array.isArray(response.data) ? response.data : [];
             if (releases.length === 0) return null;
 
-            if (includePrerelease) {
-                // 베타 채널: 안정/베타 상관없이 가장 최신(첫 번째) 릴리즈 반환
+            const role = String(userRole || 'User').trim().toLowerCase();
+
+            if (role === 'developer') {
+                // Developer: 무조건 가장 최신(첫 번째) 릴리즈 반환 (Alpha, Dev 등 포함)
                 return releases[0];
+            } else if (role === 'tester') {
+                // Tester: 정식 버전 또는 Beta 버전 중 최신 반환 (Alpha, Dev 제외)
+                return releases.find(r =>
+                    !r.prerelease ||
+                    (r.tag_name.toLowerCase().includes('beta') && !r.tag_name.toLowerCase().includes('alpha') && !r.tag_name.toLowerCase().includes('dev'))
+                ) || null;
             } else {
-                // 안정 채널: prerelease가 아닌 것 중 가장 최신 반환
+                // User: 오직 정식 버전(prerelease: false)만 반환
                 return releases.find(r => !r.prerelease) || null;
             }
         } catch (e) {
@@ -58,9 +66,8 @@ class Updater {
         const now = Date.now();
         if (this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
 
-        // config.txt의 UPDATE_CHANNEL 설정(stable/beta)에 따라 판단
-        const isBetaChannel = CONFIG.UPDATE_CHANNEL === 'beta';
-        const latest = await this.getLatestRelease(isBetaChannel);
+        // config.txt의 USER_ROLE 설정(User/Tester/Developer)에 따라 판단
+        const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
 
         if (!latest) return null;
 
@@ -84,17 +91,36 @@ class Updater {
     }
 
     /**
-     * Compare semver strings
+     * Compare semver strings (Handles prerelease tags like -beta, -alpha)
      */
     compareVersions(v1, v2) {
-        const p1 = v1.split('.').map(Number);
-        const p2 = v2.split('.').map(Number);
-        for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-            const n1 = p1[i] || 0;
-            const n2 = p2[i] || 0;
+        const parse = (v) => {
+            const [ver, pre] = String(v).replace(/^v/, '').split('-');
+            const parts = ver.split('.').map(Number);
+            return { parts, pre: pre ? pre.toLowerCase() : null };
+        };
+
+        const sv1 = parse(v1);
+        const sv2 = parse(v2);
+
+        // 1. Major.Minor.Patch 비교
+        for (let i = 0; i < Math.max(sv1.parts.length, sv2.parts.length); i++) {
+            const n1 = sv1.parts[i] || 0;
+            const n2 = sv2.parts[i] || 0;
             if (n1 > n2) return 1;
             if (n1 < n2) return -1;
         }
+
+        // 2. 버전 숫자가 같다면 Prerelease 존재 여부 비교 (정식 버전이 prerelease보다 높음)
+        if (sv1.pre === null && sv2.pre !== null) return 1;
+        if (sv1.pre !== null && sv2.pre === null) return -1;
+
+        // 3. 둘 다 prerelease라면 문자열 비교 (beta > alpha 등, 로직은 단순히 다르면 최신으로 간주하거나 사전순)
+        if (sv1.pre !== null && sv2.pre !== null) {
+            if (sv1.pre > sv2.pre) return 1;
+            if (sv1.pre < sv2.pre) return -1;
+        }
+
         return 0;
     }
 
