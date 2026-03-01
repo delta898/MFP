@@ -282,10 +282,19 @@ class Updater {
             if (process.platform === 'win32') {
                 cmd = `powershell -Command "Expand-Archive -Path '${zipPath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force"`;
             } else {
-                cmd = `unzip -o "${zipPath}" -d "${targetDir}"`;
+                // -q: quiet mode (대량의 파일 압축 해제 시 stdout 버퍼 행 방지)
+                // -o: overwrite
+                cmd = `unzip -qo "${zipPath}" -d "${targetDir}"`;
             }
 
-            const child = spawn(cmd, { shell: true });
+            Logger.info(`📂 [Updater] 압축 해제 명령 실행: ${cmd}`);
+
+            const child = spawn(cmd, { shell: true, stdio: 'ignore' });
+
+            child.on('error', (err) => {
+                reject(new Error(`압축 해제 프로세스 오류: ${err.message}`));
+            });
+
             child.on('close', (code) => {
                 if (code === 0) resolve();
                 else reject(new Error(`압축 해제 실패 (Exit code: ${code})`));
