@@ -660,39 +660,39 @@ async function placeCaretAtDocumentEnd(page, options = {}) {
 					document.body;
 				if (!root) return false;
 
-			const isVisible = (el) => {
-				if (!el) return false;
-				const rect = el.getBoundingClientRect();
-				const style = window.getComputedStyle(el);
-				return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-			};
+				const isVisible = (el) => {
+					if (!el) return false;
+					const rect = el.getBoundingClientRect();
+					const style = window.getComputedStyle(el);
+					return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+				};
 
-			const candidates = Array.from(
-				root.querySelectorAll(
-					'.se-component-content [contenteditable="true"], .se-module-text p, .se-text-paragraph, [contenteditable="true"]'
-				)
-			).filter((el) => {
-				if (!(el instanceof HTMLElement)) return false;
-				if (el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle')) return false;
-				if (el.closest('.se-toolbar, .se-popup, .se-layer, [role="dialog"]')) return false;
-				return isVisible(el);
-			});
+				const candidates = Array.from(
+					root.querySelectorAll(
+						'.se-component-content [contenteditable="true"], .se-module-text p, .se-text-paragraph, [contenteditable="true"]'
+					)
+				).filter((el) => {
+					if (!(el instanceof HTMLElement)) return false;
+					if (el.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle')) return false;
+					if (el.closest('.se-toolbar, .se-popup, .se-layer, [role="dialog"]')) return false;
+					return isVisible(el);
+				});
 
-			const target = candidates.length > 0 ? candidates[candidates.length - 1] : null;
-			if (!target) return false;
-			try {
-				target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			} catch (e) { }
+				const target = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+				if (!target) return false;
+				try {
+					target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				} catch (e) { }
 
-			const selection = window.getSelection();
-			if (!selection) return false;
-			const range = document.createRange();
-			range.selectNodeContents(target);
-			range.collapse(false); // move caret to the end
-			selection.removeAllRanges();
-			selection.addRange(range);
-			(target).focus?.();
-			return true;
+				const selection = window.getSelection();
+				if (!selection) return false;
+				const range = document.createRange();
+				range.selectNodeContents(target);
+				range.collapse(false); // move caret to the end
+				selection.removeAllRanges();
+				selection.addRange(range);
+				(target).focus?.();
+				return true;
 			});
 			if (movedByRange) {
 				await Utils.sleep(80);
@@ -1643,7 +1643,15 @@ ${scrapedContext}`;
 		}
 
 		const page = await context.newPage();
-		page.on('dialog', async dialog => await dialog.dismiss());
+		const dialogHandler = async dialog => {
+			if (dialog.type() === 'beforeunload') {
+				// 사용자의 수동 종료 의사를 존중하여 허용
+				await dialog.accept();
+			} else {
+				await dialog.dismiss();
+			}
+		};
+		page.on('dialog', dialogHandler);
 
 		try {
 			Logger.info("   🔄 블로그 에디터 접속 중...");
@@ -1688,27 +1696,27 @@ ${scrapedContext}`;
 			let representativeImageSet = false;
 			let representativeAttemptCount = 0;
 			const representativeMaxAttempts = 3;
-				for (const item of contents) {
-					if (item.type !== 'image') {
-						await dismissEditorPopups(page);
-						await closeVisibleOglinkPopup(page);
-						if (!inListMode) {
-							// 첫 본문 블록은 제목 Enter 직후 위치를 그대로 사용한다.
-							// (초기 빈 줄 생성 방지)
-							if (!isFirstBodyBlock) {
-								const movedToEnd = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
-								if (!movedToEnd) {
-									await focusEditorTypingArea(page);
-								}
-								const escapedQuote = await ensureCaretOutsideQuoteBlock(page, 3);
-								if (!escapedQuote) {
-									Logger.warn('       ⚠️ 커서가 인용구 블록에 남아있을 수 있습니다.');
-								}
+			for (const item of contents) {
+				if (item.type !== 'image') {
+					await dismissEditorPopups(page);
+					await closeVisibleOglinkPopup(page);
+					if (!inListMode) {
+						// 첫 본문 블록은 제목 Enter 직후 위치를 그대로 사용한다.
+						// (초기 빈 줄 생성 방지)
+						if (!isFirstBodyBlock) {
+							const movedToEnd = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+							if (!movedToEnd) {
+								await focusEditorTypingArea(page);
 							}
-							// 소제목/인용구 처리 후 남은 텍스트 선택(range)으로 다음 입력이 덮어쓰이는 현상 방지
-							await collapseEditorSelectionToCaretEnd(page);
+							const escapedQuote = await ensureCaretOutsideQuoteBlock(page, 3);
+							if (!escapedQuote) {
+								Logger.warn('       ⚠️ 커서가 인용구 블록에 남아있을 수 있습니다.');
+							}
 						}
+						// 소제목/인용구 처리 후 남은 텍스트 선택(range)으로 다음 입력이 덮어쓰이는 현상 방지
+						await collapseEditorSelectionToCaretEnd(page);
 					}
+				}
 				if (item.type !== 'list-item' && inListMode) {
 					// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
 					await page.keyboard.press('Enter');
@@ -1721,24 +1729,24 @@ ${scrapedContext}`;
 					needsExtraGapAfterList = false;
 				}
 
-					if (item.type === 'header-h2') {
-						// 📌 수동 편집 플로우와 동일하게 처리:
-						// 텍스트 입력 -> 소제목 적용 -> Enter 1회
-						Logger.info(`       📌 소제목: ${item.text}`);
-						await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
-						await ensureCaretOutsideQuoteBlock(page, 3);
-						await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
-						await Utils.sleep(300);
-						const subtitleApplied = await applyTextFormatAtCursor(page, '소제목', { strict: true });
-						if (!subtitleApplied) {
-							Logger.warn(`       ⚠️ 소제목 서식 적용 실패: ${item.text}`);
-						}
-						// 툴바 적용 후 남는 선택 상태를 키 이동으로 확실히 해제한다.
-						try { await page.keyboard.press('ArrowRight'); } catch (e) { }
-						await collapseEditorSelectionToCaretEnd(page);
-						await Utils.sleep(80);
-						await page.keyboard.press('Enter'); // 다음 줄(본문)로 이동
+				if (item.type === 'header-h2') {
+					// 📌 수동 편집 플로우와 동일하게 처리:
+					// 텍스트 입력 -> 소제목 적용 -> Enter 1회
+					Logger.info(`       📌 소제목: ${item.text}`);
+					await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+					await ensureCaretOutsideQuoteBlock(page, 3);
+					await page.keyboard.type(item.text, { delay: getRandomTypingDelay() });
+					await Utils.sleep(300);
+					const subtitleApplied = await applyTextFormatAtCursor(page, '소제목', { strict: true });
+					if (!subtitleApplied) {
+						Logger.warn(`       ⚠️ 소제목 서식 적용 실패: ${item.text}`);
 					}
+					// 툴바 적용 후 남는 선택 상태를 키 이동으로 확실히 해제한다.
+					try { await page.keyboard.press('ArrowRight'); } catch (e) { }
+					await collapseEditorSelectionToCaretEnd(page);
+					await Utils.sleep(80);
+					await page.keyboard.press('Enter'); // 다음 줄(본문)로 이동
+				}
 				else if (item.type === 'quote') {
 					const quoteText = String(item.text || '').trim();
 					if (quoteText) {
@@ -1777,8 +1785,8 @@ ${scrapedContext}`;
 							if (!movedToBottom) {
 								await focusEditorTypingArea(page);
 							}
-								await ensureCaretOutsideQuoteBlock(page, 4, { allowEnter: false });
-							}
+							await ensureCaretOutsideQuoteBlock(page, 4, { allowEnter: false });
+						}
 						await collapseEditorSelectionToCaretEnd(page);
 					}
 				}
@@ -1816,9 +1824,10 @@ ${scrapedContext}`;
 						await page.keyboard.press('Enter');
 					}
 					needsExtraGapAfterList = false;
+					let ogLinkInserted = false;
 					if (isUrlOnlyParagraph(paragraphText)) {
-						const inserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
-						if (inserted) {
+						ogLinkInserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
+						if (ogLinkInserted) {
 							Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
 						} else {
 							await closeVisibleOglinkPopup(page);
@@ -1834,7 +1843,11 @@ ${scrapedContext}`;
 						await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
 						if (paragraphText.includes('http')) await page.keyboard.press('Space');
 					}
-					await page.keyboard.press('Enter');
+
+					// 링크 카드가 삽입된 경우 에디터가 자동으로 다음 줄로 넘어가므로 추가 Enter를 생략한다.
+					if (!ogLinkInserted) {
+						await page.keyboard.press('Enter');
+					}
 				}
 				else if (item.type === 'newline') {
 					needsExtraGapAfterList = false;
@@ -1956,39 +1969,91 @@ ${scrapedContext}`;
 				Logger.warn("   ⚠️ 임시저장 버튼을 찾지 못해 건너뜁니다");
 			}
 
-			const publishBtns = page.locator('button').filter({ hasText: /발행/ });
-			if (await publishBtns.count() > 0) {
-				for (let i = 0; i < await publishBtns.count(); i++) {
-					const btn = publishBtns.nth(i);
-					if (await btn.isVisible() && (await btn.innerText()).includes('발행')) {
-						await btn.click();
-						Logger.info("   🚀 [발행] 버튼 클릭 성공 (설정창 오픈)");
-						break;
+			// 🚀 [발행] 버튼 클릭 (설정창 오픈)
+			// '예약 발행' 버튼과 혼동되지 않도록 구체적인 클래스와 정확한 텍스트 매칭 사용
+			let publishBtnClicked = false;
+			const publishBtnSelectors = [
+				'button[class*="publish_btn"]', // 공유해주신 특정 클래스 우선
+				'button.se-publish-button',     // 네이버 기본 클래스 예상
+				'button'                        // 일반 버튼 (가장 마지막 수단)
+			];
+
+			for (const selector of publishBtnSelectors) {
+				const btns = page.locator(selector);
+				const count = await btns.count();
+				for (let i = 0; i < count; i++) {
+					const btn = btns.nth(i);
+					if (await btn.isVisible()) {
+						const text = (await btn.innerText()).trim();
+						// '예약 발행'이 아닌 정확히 '발행'만 포함하거나 매칭되는지 확인
+						if (text === '발행' || (text.includes('발행') && !text.includes('예약'))) {
+							await btn.click();
+							Logger.info(`   🚀 [발행] 버튼 클릭 성공 (${selector})`);
+							publishBtnClicked = true;
+							break;
+						}
 					}
 				}
+				if (publishBtnClicked) break;
+			}
+
+			if (publishBtnClicked) {
+				await Utils.sleep(1000); // 팝업 애니메이션 대기
+
+				// 🚀 [2단계] 최종 발행 버튼 클릭 (발행 설정창 내 '발행' 버튼)
+				const finalPublishBtn = page.locator('.se-popup button:has-text("발행"), .se-popover button:has-text("발행"), .se-publish-button-container button:has-text("발행")');
+				if (await finalPublishBtn.isVisible()) {
+					await finalPublishBtn.click();
+					Logger.info("   ✅ [최종 발행] 완료 버튼 클릭 성공");
+					await Utils.sleep(2000); // 발행 처리 대기
+				} else {
+					// 가끔 '등록'으로 되어있는 경우도 대비
+					const confirmBtn = page.locator('.se-popup button:has-text("등록"), .se-popover button:has-text("등록")');
+					if (await confirmBtn.isVisible()) {
+						await confirmBtn.click();
+						Logger.info("   ✅ [최종 등록] 완료 버튼 클릭 성공");
+						await Utils.sleep(2000);
+					} else {
+						Logger.warn("   ⚠️ 최종 발행/등록 버튼을 찾지 못했습니다. 설정창만 열린 상태일 수 있습니다.");
+					}
+				}
+			}
+
+			if (!publishBtnClicked) {
+				Logger.warn("   ⚠️ [발행] 버튼을 클릭하지 못했습니다. 수동 확인이 필요할 수 있습니다.");
 			}
 
 		} catch (e) {
 			Logger.error(`❌ 에러 발생: ${e.message}`);
 			throw e;
 		} finally {
-			// 🔧 [Fixed] 브라우저 종료 로직 개선 (좀비 프로세스 방지)
+			// 🔧 [Fixed] 브라우저 종료 로직 개선 (좀비 프로세스 방지 + 마지막 글 유지 기능)
 			const closeDelaySeconds = parseInt(CONFIG.CLOSE_DELAY_SECONDS, 10) || 10;
 			const closeDelayMs = closeDelaySeconds * 1000;
+			const isHeadless = options.headless === true;
+			const isLast = options.isLast === true;
 
-			// CLOSE_DELAY_SECONDS=0 이면 브라우저를 닫지 않고 유지
+			// 헤드리스 모드가 아니면서 마지막 글인 경우, 사용자가 검토할 수 있도록 브라우저를 닫지 않음
+			if (!isHeadless && isLast) {
+				// 🔧 [Fixed] 자동화 종료 후 사용자의 수동 브라우저 닫기를 방해하지 않도록 리스너 제거
+				if (page) page.off('dialog', dialogHandler);
+				Logger.info("   📌 마지막 발행 건이므로 브라우저를 닫지 않고 대기합니다. (이제 수동 종료가 가능합니다)");
+				return;
+			}
+
+			// CLOSE_DELAY_SECONDS=0 이면 브라우저를 닫지 않고 유지 (모든 건에 대해)
 			if (closeDelayMs === 0) {
 				Logger.info("   🔒 브라우저를 닫지 않고 유지합니다.");
 				return;
 			}
 
-			// 비헤드리스 모드에서는 사용자가 볼 수 있도록 대기
-			if (!CONFIG.HEADLESS && closeDelayMs > 0) {
+			// 비헤드리스 모드(브라우저가 보이는 모드)에서는 사용자가 볼 수 있도록 대기
+			if (!isHeadless && closeDelayMs > 0) {
 				Logger.info(`   👋 (${closeDelaySeconds}초 뒤 브라우저를 닫습니다...)`);
 				await Utils.sleep(closeDelayMs);
 			}
 
-			// 모든 경우에 브라우저 닫기 (closeDelayMs === 0이 아닌 경우)
+			// 모든 경우에 브라우저 닫기 (위의 리턴 조건에 걸리지 않은 경우)
 			if (browser) {
 				await browser.close();
 				Logger.info("   🔒 브라우저 세션 종료");

@@ -1545,10 +1545,8 @@ function clearBlogSelections() {
 
 function updateBlogSelectionUi() {
   const count = blogSelectedRowIndices.size;
-  const sticky = document.getElementById('blog-sticky-actions');
   const countText = document.getElementById('blog-selected-count');
   if (countText) countText.textContent = `${count}건 선택`;
-  if (sticky) sticky.classList.toggle('hidden', count <= 0);
 }
 
 function renderBlogTable(items) {
@@ -1937,7 +1935,7 @@ async function loadBlogShopping(options = {}) {
 
 async function runShoppingBatchAction() {
   if (!guardUiConfigReady('선택 글감 발행')) return;
-  const resultBox = document.getElementById('shopping-batch-result');
+  const resultBox = document.getElementById('shopping-action-result');
   if (!resultBox) return;
 
   const rowIndices = Array.from(blogShoppingSelectedRowIndices.values()).filter(v => Number.isInteger(v));
@@ -1949,30 +1947,22 @@ async function runShoppingBatchAction() {
   const selectedSnapshot = [...rowIndices];
   clearShoppingSelections();
   pauseDashboardPolling();
-  const startedAt = Date.now();
-  const progressTimer = setInterval(async () => {
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    if (resultBox) {
-      resultBox.textContent = `shopping batch 실행 중... (선택 ${rowIndices.length}건, ${elapsedSec}초 경과)\n진행 상태를 표의 진행 로그/상태 컬럼에서 확인하세요.`;
-    }
-    try {
-      await loadBlogShopping({ silent: true });
-    } catch (e) {
-      // noop
-    }
-  }, 3000);
 
-  resultBox.textContent = `shopping batch 실행 중... (선택 ${rowIndices.length}건)\n진행 상태를 표의 진행 로그/상태 컬럼에서 확인하세요.`;
   const headless = Boolean(document.getElementById('shopping-batch-headless')?.checked);
   try {
-    await loadBlogShopping({ silent: true });
-    const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
-    resultBox.textContent = JSON.stringify(data, null, 2);
+    await runWithLiveProgress({
+      targetEl: resultBox,
+      requestLabel: `쇼핑 일괄 발행 (${selectedSnapshot.length}건)`,
+      requestFn: async () => {
+        await loadBlogShopping({ silent: true });
+        const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
+        return data;
+      }
+    });
     await Promise.all([loadDashboard(), loadBlogShopping()]);
   } catch (e) {
-    resultBox.textContent = `오류: ${e.message}`;
+    // runWithLiveProgress 이미 노출
   } finally {
-    clearInterval(progressTimer);
     resumeDashboardPolling();
   }
 }
@@ -2153,33 +2143,24 @@ async function runBlogBatchAction() {
   clearPreviousBatchVisualState();
   pauseDashboardPolling();
 
-  const startedAt = Date.now();
-  const progressTimer = setInterval(async () => {
-    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-    if (resultBox) {
-      resultBox.textContent = `batch 실행 중... (선택 ${rowIndices.length}건, ${elapsedSec}초 경과)\n진행 상태를 표의 로그/상태 컬럼에서 확인하세요.`;
-    }
-    try {
-      await loadBlogTopics({ silent: true });
-    } catch (e) {
-      // 진행 중 폴링 오류는 무시하고 본 요청 완료를 기다린다.
-    }
-  }, 3000);
-
-  resultBox.textContent = `batch 실행 중... (선택 ${rowIndices.length}건)\n진행 상태를 표의 로그/상태 컬럼에서 확인하세요.`;
-  const headless = Boolean(document.getElementById('blog-batch-headless')?.checked || document.getElementById('blog-batch-headless-bottom')?.checked);
+  const headless = Boolean(document.getElementById('blog-batch-headless')?.checked);
   try {
-    await loadBlogTopics({ silent: true });
-    const data = await postJson('/api/v1/blog/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
+    const data = await runWithLiveProgress({
+      targetEl: resultBox,
+      requestLabel: `블로그 일괄 발행 (${selectedSnapshot.length}건)`,
+      requestFn: async () => {
+        await loadBlogTopics({ silent: true });
+        const res = await postJson('/api/v1/blog/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
+        return res;
+      }
+    });
     blogLastBatchResult = data;
-    markRecentBatchRows(data.results || []);
+    markRecentBatchRows(data?.results || []);
     renderBlogLastBatchResult(blogLastBatchResult);
-    resultBox.textContent = JSON.stringify(data, null, 2);
     await Promise.all([loadDashboard(), loadBlogTopics()]);
   } catch (e) {
-    resultBox.textContent = `오류: ${e.message}`;
+    // runWithLiveProgress 이미 노출
   } finally {
-    clearInterval(progressTimer);
     resumeDashboardPolling();
   }
 }
@@ -2221,7 +2202,7 @@ function applySettingsMajorToForm(data) {
 
   // 빠른 실행, 트렌드, 일괄발행의 1회성 Headless 체크박스에 전역 설정값을 기본으로 세팅합니다.
   const isGlobalHeadless = Boolean(fields.HEADLESS);
-  ['quick-headless', 'blog-trends-headless', 'blog-batch-headless', 'blog-batch-headless-bottom',
+  ['quick-headless', 'blog-trends-headless', 'blog-batch-headless',
     'shopping-quick-headless', 'shopping-batch-headless'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.checked = isGlobalHeadless;
@@ -3889,6 +3870,8 @@ function bindActions() {
       lines.splice(0, lines.length - QUICK_PROGRESS_MAX_LINES);
     }
     targetEl.textContent = lines.join('\n');
+    // Auto-scroll to bottom
+    targetEl.scrollTop = targetEl.scrollHeight;
   };
 
   const runWithLiveProgress = async ({ targetEl, requestLabel, requestFn }) => {
@@ -4063,7 +4046,6 @@ function bindActions() {
   const blogTrendsNextBtn = document.getElementById('blog-trends-page-next');
   const blogRefreshBtn = document.getElementById('blog-refresh-btn');
   const blogBatchBtn = document.getElementById('blog-batch-btn');
-  const blogBatchBtnBottom = document.getElementById('blog-batch-btn-bottom');
   const blogTopicsPrevBtn = document.getElementById('blog-topics-page-prev');
   const blogTopicsNextBtn = document.getElementById('blog-topics-page-next');
   const blogTopicsQClearBtn = document.getElementById('blog-topics-q-clear-btn');
@@ -4153,7 +4135,6 @@ function bindActions() {
     });
   }
   if (blogBatchBtn) blogBatchBtn.addEventListener('click', runBlogBatchAction);
-  if (blogBatchBtnBottom) blogBatchBtnBottom.addEventListener('click', runBlogBatchAction);
   if (shoppingRefreshBtn) shoppingRefreshBtn.addEventListener('click', loadBlogShopping);
   if (shoppingQClearBtn) {
     shoppingQClearBtn.addEventListener('click', () => {

@@ -1,299 +1,84 @@
-# BlogGenius 사용자 가이드 (초보자용)
+# 🚀 BlogGenius: 왕초보를 위한 100% 자동 블로그 가이드 (v0.9.1)
 
-> 주제만 준비하면, 블로그 글 생성부터 저장까지 자동으로 처리합니다.
+> "주제만 정하세요. 글쓰기부터 발행까지 AI가 다 해드립니다!"
 
-이 문서는 처음 사용하는 분도 중도 포기하지 않도록 "꼭 필요한 순서"만 남겨서 작성했습니다.
+안녕하세요! BlogGenius는 어려운 컴퓨터 지식 없이도 누구나 전문가처럼 블로그를 운영할 수 있게 도와주는 똑똑한 도우미입니다. 이 문서는 **완전 초보자**분들을 위해 가장 쉽고 편한 방법만 모아서 정리했습니다.
 
-빠른 질문/문제 해결은 오픈채팅방이 가장 빠르니 아래 링크를 통해 들어오시기 바랍니다.
+중간에 막히거나 궁금한 점이 생기면 언제든 아래 오픈채팅방으로 오세요. 친절하게 도와드립니다! 😊
 
-[도전인생의 100% 완전 자동화 블로깅 오픈채팅방](https://open.kakao.com/o/gZWL25Zh)
-
----
-
-## 0. 먼저 이해할 것 (아주 중요)
-
-- 이 프로그램은 **구글 스프레드시트 + 네이버 로그인 + Gemini API**를 사용합니다.
-- 한 번 세팅하면 이후 반복 작업이 매우 편해집니다.
+👉 [도전인생의 자동화 블로깅 오픈채팅방 참여하기](https://open.kakao.com/o/gZWL25Zh)
 
 ---
 
-## 1. 빠른 시작 체크리스트 (권장 순서)
+## 🌟 BlogGenius로 무엇을 할 수 있나요?
 
-아래 7개만 끝내면 실행할 수 있습니다.
-
-1. Gemini API Key 발급
-2. Google Service Account JSON 발급
-3. Google Spreadsheet 생성
-4. Apps Script 코드 붙여넣기 + `setupTrigger` 1회 실행
-5. 서비스 계정 이메일을 시트에 "공유(편집자 권한)"
-6. `config/config.txt.sample` 복사 후 `config/config.txt` 내용 수정
-7. `<실행파일> login` 실행
-
-### 1-1. 여기까지 되면 정상
-
-아래 3가지가 되면 세팅 완료입니다.
-1. `<실행파일> login` 후 로그인 성공 메시지 확인
-2. `<실행파일> trends` 실행 시 `trends/keywords/topics/shopping` 시트 자동 생성 확인
-3. 시트에서 상태 변경 시 `topics`에 주제가 누적되면 정상
+1.  **AI가 대신 쓰는 블로그**: 키워드 하나만 넣으면 사람이 쓴 것 같은 고품질 글이 뚝딱 완성됩니다.
+2.  **쇼핑 포스팅 1분 컷**: 상품 링크만 넣으면 알아서 정보를 분석하고 깔끔한 리뷰 글을 써줍니다.
+3.  **잠자는 동안 자동발행**: 설정만 해두면 매일 아침 AI가 트렌드를 분석해서 알아서 글을 올려줍니다.
+4.  **세련된 디자인**: 보기 편하고 예쁜 화면(GUI)으로 누구나 쉽게 조작할 수 있습니다.
 
 ---
 
-## 2. 준비물 발급
+## 🛠️ 딱 3단계! 초간단 시작하기
 
-### 2-1. Gemini API Key
+어려운 설정 파일 수정은 잊으세요. 이제 화면에서 바로 버튼만 누르면 됩니다.
 
+### 1단계: AI의 두뇌(API 키) 준비하기
+- AI가 글을 쓰려면 '두뇌' 역할을 하는 키가 필요합니다.
+- [구글 AI 스튜디오](https://aistudio.google.com/)에서 무료로 발급받은 키를 복사해서, 프로그램 화면의 **[설정]** 탭에 붙여넣기만 하면 끝!
 - [구글 무료 크레딧 $300 발급 방법 참고](https://buly.kr/6iifSam)
 
-1. [Google AI Studio](https://aistudio.google.com/) 접속
-2. `Get API key` 클릭
-3. 키(`AIza...`) 복사 -> `config/config.txt` 파일에 반영
-
----
-
-### 2-2. Google Service Account JSON
-
+### 2단계: 나만의 비밀 일기장(구글 시트) 연결하기
 - [구글 서비스 계정 발급 안내 참고](https://buly.kr/5UJLf0u)
+- 글감을 저장할 구글 스프레드시트를 하나 만들고 그 주소(URL)를 **[설정]** 탭에 넣어주세요.
+- **중요!** 시트의 '공유' 버튼을 눌러 앱에서 알려주는 전용 관리 이메일을 '편집자'로 추가해주세요. 그러면 준비 완료!
 
-1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-2. 프로젝트 생성
-3. `Google Sheets API` 사용 설정
-4. `사용자 인증 정보 > 서비스 계정` 생성
-5. `키 > 새 키 만들기 > JSON` 다운로드
-6. 파일명을 `service_account.json`으로 바꿔 `config/` 폴더에 저장
-
-예시:
-
-```text
-BlogGenius/
-├─ config/
-│  ├─ config.txt.sample
-│  ├─ config.txt
-│  └─ service_account.json
-└─ ...
-```
-
-참고:
-- 라이선스는 실행 시 자동 인증됩니다.
+### 3단계: 네이버 로그인하고 시작하기!
+- 프로그램 화면에 있는 **[로그인]** 버튼을 누르고 평소처럼 네이버에 로그인하세요.
+- 이제 모든 준비가 끝났습니다. 바로 **[빠른 발행]** 탭에서 첫 글을 써보세요!
 
 ---
 
-### 2-3. Google Spreadsheet 생성 + 공유
+## 💡 주요 기능 200% 활용 팁
 
-- [구글 서비스 계정 발급 안내 참고](https://buly.kr/5UJLf0u)
+### 📝 "빠른 발행"으로 즉시 포스팅
+- **[네이버 블로그]** 탭에서 주제와 키워드를 넣고 '글감 등록 & 발행'을 누르세요. AI가 순식간에 글을 써서 블로그에 올려줍니다.
+- 글자 크기를 키워 눈이 편안하게 개선되었으니 편하게 작업하세요!
 
-1. [Google Sheets](https://sheets.google.com/)에서 새 시트 생성
-2. 생성한 시트의 URL 전체를 복사 -> `config/config.txt` 파일의 `GOOGLE_SHEET_URL`에 반영
+### 🛒 "쇼핑커넥트"로 수익형 블로그 만들기
+- **[쇼핑커넥트]** 탭에 상품 주소(URL)만 넣으면 됩니다. AI가 상품의 특징을 콕콕 집어 매력적인 리뷰로 만들어드립니다.
 
-예시:
-`https://docs.google.com/spreadsheets/d/1xQg0PuYHGKeM49TmxK4nIykFqtzGWRyQP8hygts-BVY/edit?gid=1568478969`
-
-3. 우측 상단 `공유` 클릭
-4. `service_account.json` 안의 `client_email` 주소를 공유에 추가
-5. 권한을 **편집자**로 지정 후 저장
-
-중요:
-- 개인 구글 계정 이메일이 아니라 **서비스 계정 이메일**을 공유해야 합니다.
-- 이 단계가 빠지면 시트 읽기/쓰기 실패합니다.
+### 🤖 "자동발행"으로 편하게 운영하기
+- **[자동발행 설정]**에서 원하는 시간만 정해두세요. AI가 매일 새로운 트렌드를 찾아 자동으로 블로그를 키워줍니다.
 
 ---
 
-### 2-4. Apps Script 설정
+## 🍎 macOS 사용자라면 꼭 확인하세요!
 
-공유 파일 위치:
-- `scripts/google_apps_script.js`
-
-설정 순서:
-1. 구글 스프레드시트 상단 메뉴에서 `확장 프로그램 > Apps Script` 열기
-2. 기본으로 열린 `Code.gs` 내용을 전부 지우기
-3. 이 프로젝트의 `scripts/google_apps_script.js` 전체 내용을 복사해서 붙여넣기
-4. 상단의 기본제목('제목 없는 프로젝트')을 원하는 임의 이름으로 변경
-5. `저장` 클릭
-6. 상단 함수 선택에서 `setupTrigger` 선택 후 '실행' 버튼 클릭 (저장 버튼, 실행, 디버그 있는 위치)
-7. `구글에서 확인하지 않은 앱` 팝업이 나오면 좌측 하단의 '고급' 선택
-8. 팝업 좌측 하단의 <프로젝트이름>(으)로 이동(안전하지 않음) 클릭
-9. <프로젝트 이름>에서 Google 계정에 대한 액세스를 요청합니다 팝업이 뜸
-10. 액세스 항목에 '모두 허용'을 체크하고 '계속' 클릭
-11. Apps Script 화면 하단의 '실행 로그'에서 '실행이 시작됨' 로그가 나오면 성공
-12. 스프레드시트로 돌아와서 trends sheet나 keywords sheet의 드롭다운 값을 바꿔 테스트
-
-동작 예시:
-- `trends` 시트 E열 값을 `키워드 목록에 추가`로 바꾸면 `keywords` 시트에 추가
-- `trends` 또는 `keywords` 시트에서 `연관검색어 조사`를 선택하면 `topics` 시트에 주제 추가
+맥(Mac)에서 처음 실행할 때 "확인되지 않은 개발자"라고 뜨나요? 당황하지 마세요!
+- 터미널(Terminal)을 열고 프로그램이 있는 폴더에서 아래 명령어를 한 번만 복사해서 붙여넣어 주세요.
+  ```bash
+  xattr -dr com.apple.quarantine ./BlogGenius.app
+  xattr -dr com.apple.quarantine ./BlogGenius-cli
+  chmod +x ./BlogGenius-cli
+  ```
+- 이제 마우스 클릭만으로 모든 기능을 즐기실 수 있습니다!
+- BlogGenius 를 더블클릭해서 실행해보세요.
+- BlogGenius-cli 를 실행하면 CLI 가 실행됩니다.
 
 ---
 
-## 3. 설정 파일 수정
-- 먼저 `config/config.txt.sample`을 복사해서 `config/config.txt`를 만듭니다.
-- 그 다음 에디터에서 `config/config.txt` 파일을 엽니다.
+## ❓ 도움이 필요하신가요? (FAQ)
 
-예시:
+**Q. 로그인이 풀렸다고 나와요!**
+- **[설정]** 탭에 가셔서 '로그인' 버튼을 한 번 더 눌러주시면 바로 해결됩니다.
 
-```bash
-# macOS / Linux
-cp config/config.txt.sample config/config.txt
-```
+**Q. 시트에 글이 안 써져요!**
+- 구글 시트의 '공유' 설정에서 관리용 이메일이 정확히 추가되었는지 다시 한번 확인해주세요.
 
-```powershell
-# Windows PowerShell
-Copy-Item .\config\config.txt.sample .\config\config.txt
-```
-
-```ini
-NAVER_ID = 본인_네이버_아이디
-GEMINI_API_KEY = AIza...
-GOOGLE_SHEET_URL = https://docs.google.com/spreadsheets/d/구글시트_ID
-```
-
-포인트:
-- 라이선스는 별도 설정 없이 자동으로 처리됩니다.
-- 프롬프트 커스터마이징이 필요하면 아래 파일을 직접 추가하세요(없으면 기본값 사용):
-  - `config/blog_prompt.md`
-  - `config/shopping_prompt.md`
+**Q. 사용법이 너무 어려워요!**
+- [오픈채팅방](https://open.kakao.com/o/gZWL25Zh)으로 오시면 하나하나 친절히 설명해 드립니다. 혼자 고민하지 마세요!
 
 ---
 
-## 4. 실행 방법
-
-### 4-1. 최초 1회 로그인
-
-```bash
-<실행파일> login
-```
-
-브라우저에서 네이버 로그인 완료 후 인증 정보 자동 저장됩니다.
-
----
-
-### 4-2. 주요 명령
-
-```bash
-# 트렌드 수집
-<실행파일> trends
-
-# 구글 시트 기반 대량 블로그 발행
-<실행파일> batch
-
-# 쇼핑 시트 기반 쇼핑 커넥트 블로그 발행
-<실행파일> shopping
-
-# 테스트 종료 후 라이선스 등록(현재 Free 등록)
-<실행파일> license register --email=you@example.com
-
-# 새 기기/재설치 시 라이선스 복구
-<실행파일> license recover --email=you@example.com
-
-# 플랜 업그레이드(현재 free만 지원)
-<실행파일> license upgrade --plan=free
-
-# 현재 라이선스 상태 확인
-<실행파일> license status
-
-# 로컬 웹 UI 실행 (기본 모드)
-<실행파일>
-
-# 필요 시 호스트/포트 직접 지정
-<실행파일> --host=127.0.0.1 --port=4577
-```
-
----
-
-### 4-3. Windows는 더 쉽게
-
-아래 파일 더블클릭:
-
-- `실행하기_로그인.bat`
-- `실행하기_트렌드수집.bat`
-- `실행하기_일괄발행.bat`
-- `실행하기_쇼핑발행.bat`
-- `실행하기_라이선스상태.bat`
-- `실행하기_라이선스등록.bat`
-- `실행하기_라이선스복구.bat`
-- `실행하기_라이선스업그레이드.bat`
-
----
-
-### 4-4. macOS 보안 경고 해결
-
-- 본 프로그램은 아직 '개발 단계'라 애플 인증을 얻기 전입니다.
-- 실행 시 아래 메시지에 따라 추가 보안 조치 필요합니다.
-
-`"개발자를 확인할 수 없어 열 수 없습니다"` 혹은 `"손상되었거나 악성 코드가 없음 확인 불가"` + `휴지통으로 이동` 팝업이 나오면 아래 조치 필요합니다.
-
-아래 3줄을 터미널에서 실행한 뒤 다시 실행하세요.
-Architecture(ex: Apple Silicon, Intel)에 따라 실행파일명이 다를 수 있습니다.
-- BlogGenius-mac-arm64 혹은 BlogGenius-mac-intel
-
-```bash
-cd <프로그램이 설치된 경로>
-xattr -dr com.apple.quarantine ./BlogGenius-mac-arm64   # Intel이면 BlogGenius-mac-intel
-chmod +x ./BlogGenius-mac-arm64                         # Intel이면 BlogGenius-mac-intel
-```
-
----
-
-## 5. 워크플로우 (실사용 기준)
-
-1. `trends` 실행 -> `trends` 시트에 키워드 적재
-2. 시트 드롭다운에서 동작 선택 -> `keywords/topics` 자동 적재
-3. `batch` 실행 -> `블로그 발행 준비 완료` 항목 순차 처리
-4. `shopping` 실행 -> `shopping` 시트 URL 기반 글 생성/발행
-
-자동 생성되는 시트:
-- `trends`
-- `keywords`
-- `topics`
-- `shopping`
-
-
----
-
-## 6. 자주 묻는 문제
-
-### Q1. 로그인 세션 만료라고 나옵니다.
-
-- 먼저 아래 명령으로 다시 로그인하세요.
-
-```bash
-<실행파일> login
-```
-
----
-
-### Q2. 시트 접근 실패(권한 오류)가 납니다.
-
-아래 2개를 다시 확인하세요.
-
-1. `GOOGLE_SHEET_URL`이 정확한가?
-2. 스프레드시트 공유 대상이 **service account client_email**인가?
-
----
-
-### Q3. 라이선스 오류가 납니다.
-
-- 네트워크 연결 상태를 먼저 확인하세요.
-- 잠시 후 다시 실행해 보세요.
-- test 종료 안내가 보이면 아래 명령으로 업그레이드를 진행하세요.
-  - `<실행파일> license upgrade --plan=free`
-- 계속 동일하면 오픈채팅으로 문의해 주세요.
-
----
-
-### Q4. 이미지 생성이 안 됩니다.
-
-- `GEMINI_API_KEY` 확인
-- Gemini API 사용량/결제 상태 확인 (https://aistudio.google.com)
-
----
-
-## 7. 지원
-
-가장 빠른 지원:
-- 오픈채팅: [https://open.kakao.com/o/gZWL25Zh](https://open.kakao.com/o/gZWL25Zh)
-- Threads: [https://threads.net/amadejjs](https://threads.net/amadejjs)
-
----
-
-## 8. 안내 및 주의사항
-
-- 본 도구 사용으로 인한 외부 서비스 정책 이슈(예: 과도한 요청)는 사용자 책임입니다.
-- 무리한 반복 실행은 피하고, 로그를 확인하면서 사용하세요.
+**안내**: 본 프로그램은 여러분의 편리한 블로그 생활을 돕는 도구입니다. 과도한 도배성 게시글 발행은 블로그 건강에 좋지 않으니, AI의 도움을 받아 가치 있는 정보를 나누는 즐거운 블로깅 되시길 바랍니다! 😊

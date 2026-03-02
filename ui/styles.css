@@ -340,6 +340,11 @@ button.secondary:hover {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-gradient);
+  z-index: 100;
+  padding: 8px 0;
 }
 
 .status-line {
@@ -483,7 +488,7 @@ h2 {
 
 .blog-quick-head p {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #64748b;
 }
 
@@ -508,7 +513,7 @@ h2 {
 }
 
 .blog-quick-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #334155;
   letter-spacing: 0.02em;
@@ -519,14 +524,16 @@ h2 {
   width: 100%;
   border: 1px solid #d7e2f0;
   border-radius: 12px;
-  padding: 12px 14px;
-  font: inherit;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-family: inherit;
   background: #f8fbff;
   transition: var(--transition);
+  color: var(--text-main);
 }
 
 .blog-quick-field textarea {
-  min-height: 108px;
+  min-height: 216px;
   resize: vertical;
   line-height: 1.45;
 }
@@ -551,7 +558,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   color: #334155;
   font-weight: 600;
 }
@@ -577,14 +584,22 @@ h2 {
 
 .blog-quick-result,
 .scrollable-log {
-  margin-top: 2px;
-  max-height: 240px;
+  margin-top: 12px;
+  min-height: 160px;
+  max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
   background: #f8fbff;
   border: 1px solid #d8e2f1;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-main);
   word-break: break-all;
   white-space: pre-wrap;
+  transition: var(--transition);
 }
 
 .field-hint {
@@ -2169,31 +2184,45 @@ pre {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   background: var(--surface-solid);
+  max-height: calc(100vh - 380px);
+  /* Internal scroll height */
+  position: relative;
 }
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
   background: var(--surface-solid);
+  table-layout: auto;
 }
 
 .data-table th,
 .data-table td {
   border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   padding: 12px 16px;
   text-align: left;
   vertical-align: middle;
 }
 
+.data-table th:last-child,
+.data-table td:last-child {
+  border-right: none;
+}
+
 .data-table th {
-  background: var(--bg-gradient);
-  font-weight: 600;
-  color: var(--text-muted);
+  background: #f1f5f9;
+  font-weight: 700;
+  color: var(--text-main);
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 20;
+  border-bottom: 2px solid var(--line);
+  background-clip: padding-box;
 }
+
 
 .data-table th.sortable {
   cursor: pointer;
@@ -2298,6 +2327,62 @@ pre {
   cursor: pointer;
   background: var(--brand-primary);
   color: #fff;
+}
+
+/* Batch Publish Sticky Header Refinement */
+.blog-tab-panel,
+.shopping-tab-panel {
+  display: none;
+  flex-direction: column;
+}
+
+.blog-tab-panel.active,
+.shopping-tab-panel.active {
+  display: flex !important;
+}
+
+.blog-filter-grid,
+.blog-batch-actions,
+.shopping-batch-actions {
+  position: static;
+  /* Remove floating stickiness for simplicity */
+  background: var(--surface-solid);
+}
+
+.blog-filter-grid {
+  margin-bottom: 8px;
+}
+
+.blog-batch-actions,
+.shopping-batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.form-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+
+/* Fix for long content leading to alignment issues */
+.data-table td {
+  word-break: break-all;
+  max-width: 400px;
+}
+
+.data-table td:has(pre),
+.data-table td pre {
+  max-width: 500px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .batch-summary.hidden {

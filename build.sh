@@ -214,19 +214,20 @@ build_platform "win"   "win32"  "x64"   "win-x64"
 build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # ---------------------------------------------------
-# 5. ZIP 생성 (build.yml Create Platform ZIP 와 동일)
+# 5. ZIP 생성 (플랫폼 폴더 내부에 생성)
 # ---------------------------------------------------
-echo "📦 ZIP 파일 생성 중..."
+echo "📦 각 플랫폼 폴더 내부에 ZIP 파일 생성 중..."
 cd dist
 for platform_dir in */; do
     platform_dir="${platform_dir%/}"
     zip_name="${platform_dir}.zip"
-    zip -r "../${zip_name}" "$platform_dir" -x "*.DS_Store"
-    echo "   ✅ ${zip_name} 생성 완료"
+    # 폴더 내부로 들어가서 그 내용물만 ZIP으로 압축하여 폴더 바로 안에 저장
+    (cd "$platform_dir" && zip -r "${zip_name}" . -x "*.DS_Store")
+    echo "   ✅ ${platform_dir}/${zip_name} 생성 완료"
 done
 cd -
 
 echo ""
 echo "---------------------------------------------------"
 echo "🎉 모든 작업이 완료되었습니다!"
-echo "📂 dist 폴더 및 ZIP 파일을 확인하세요."
+echo "📂 dist 폴더 내부의 각 플랫폼 폴더를 확인하세요."

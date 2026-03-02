@@ -246,7 +246,7 @@
 
             <label class="blog-quick-field blog-quick-field-full">
               <span class="blog-quick-label">참고/지시사항</span>
-              <textarea id="quick-instruction" rows="4" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"></textarea>
+              <textarea id="quick-instruction" rows="8" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"></textarea>
             </label>
           </div>
 
@@ -357,13 +357,18 @@
             </label>
           </div>
 
-          <div class="form-actions">
-            <button id="blog-refresh-btn" class="secondary">새로고침</button>
-            <span class="action-separator" aria-hidden="true"></span>
-            <label class="blog-quick-check" style="margin-right: 12px; margin-top: auto; margin-bottom: auto;"
-              title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="blog-batch-headless" type="checkbox" checked>
-              보이지 않게 실행</label>
-            <button id="blog-batch-btn">선택 글감 발행</button>
+          <div class="form-actions blog-batch-actions">
+            <div class="form-actions-left">
+              <button id="blog-refresh-btn" class="secondary">새로고침</button>
+              <span class="action-separator" aria-hidden="true"></span>
+              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                <input id="blog-batch-headless" type="checkbox" checked> 보이지 않게 실행
+              </label>
+              <button id="blog-batch-btn">선택 글감 발행</button>
+            </div>
+            <div class="form-actions-right">
+              <span class="tab-selected-count" id="blog-selected-count">0건 선택</span>
+            </div>
           </div>
 
           <div id="blog-last-batch" class="batch-summary hidden"></div>
@@ -410,15 +415,8 @@
             <button id="blog-topics-page-next" class="secondary">다음</button>
           </div>
 
-          <div id="blog-sticky-actions" class="sticky-actions hidden">
-            <span id="blog-selected-count">0건 선택</span>
-            <label class="blog-quick-check" style="margin-right: 12px; margin-top: auto; margin-bottom: auto;"
-              title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="blog-batch-headless-bottom" type="checkbox"
-                checked> 보이지 않게 실행</label>
-            <button id="blog-batch-btn-bottom">선택 글감 발행</button>
-          </div>
 
-          <pre id="blog-action-result">대기 중...</pre>
+          <pre id="blog-action-result" class="scrollable-log">대기 중...</pre>
         </div>
 
         <div class="card form-card blog-tab-panel" id="blog-tab-auto">
@@ -549,20 +547,32 @@
           <button class="shopping-tab-btn" data-shopping-tab="auto">자동발행 설정</button>
         </div>
 
-        <div class="card form-card shopping-tab-panel active" id="shopping-tab-quick">
-          <div class="form-grid">
-            <label>URL (필수)
+        <div class="card form-card shopping-tab-panel active blog-quick-panel" id="shopping-tab-quick">
+          <div class="blog-quick-head">
+            <h3>빠른 상품 등록</h3>
+            <p>쇼핑 단축 URL만 입력하면 상품 정보를 분석하여 발행을 진행합니다.</p>
+          </div>
+
+          <div class="blog-quick-grid">
+            <label class="blog-quick-field blog-quick-field-wide">
+              <span class="blog-quick-label">URL (필수)</span>
               <input id="shopping-quick-url" type="text" placeholder="https://naver.me/...">
             </label>
-            <label>상품명 (옵션)
+
+            <label class="blog-quick-field blog-quick-field-wide">
+              <span class="blog-quick-label">상품명 (옵션)</span>
               <input id="shopping-quick-product" type="text" placeholder="예: 에어메이드 가열식 가습기 2.0">
             </label>
           </div>
-          <div class="form-actions">
+
+          <div class="blog-quick-options">
+            <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+              <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
+            </label>
+          </div>
+
+          <div class="blog-quick-actions">
             <button id="shopping-quick-save-btn" class="secondary" type="button">글감 등록</button>
-            <label class="blog-quick-check" style="margin-right: 12px; margin-top: auto; margin-bottom: auto;"
-              title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="shopping-quick-headless" type="checkbox"
-                checked> 보이지 않게 실행</label>
             <button id="shopping-quick-publish-btn" class="primary" type="button">글감 등록 &amp; 발행</button>
           </div>
           <pre id="shopping-quick-result" class="scrollable-log">대기 중...</pre>
@@ -588,14 +598,18 @@
               </div>
             </label>
           </div>
-          <div class="form-actions">
-            <button id="shopping-refresh-btn" class="secondary">새로고침</button>
-            <span class="action-separator" aria-hidden="true"></span>
-            <label class="blog-quick-check" style="margin-right: 12px; margin-top: auto; margin-bottom: auto;"
-              title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="shopping-batch-headless" type="checkbox"
-                checked> 보이지 않게 실행</label>
-            <button id="shopping-batch-btn">선택 글감 발행</button>
-            <span class="tab-selected-count" id="shopping-selected-count">0건 선택</span>
+          <div class="form-actions shopping-batch-actions">
+            <div class="form-actions-left">
+              <button id="shopping-refresh-btn" class="secondary">새로고침</button>
+              <span class="action-separator" aria-hidden="true"></span>
+              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                <input id="shopping-batch-headless" type="checkbox" checked> 보이지 않게 실행
+              </label>
+              <button id="shopping-batch-btn">선택 글감 발행</button>
+            </div>
+            <div class="form-actions-right">
+              <span class="tab-selected-count" id="shopping-selected-count">0건 선택</span>
+            </div>
           </div>
 
           <div class="table-responsive">
@@ -631,6 +645,8 @@
             <span id="shopping-page-info">페이지 - / -</span>
             <button id="shopping-page-next" class="secondary">다음</button>
           </div>
+
+          <pre id="shopping-action-result" class="scrollable-log">대기 중...</pre>
           <pre id="shopping-batch-result">대기 중...</pre>
         </div>
 

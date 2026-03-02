@@ -2294,7 +2294,7 @@ function composeMarkdown({
         lines.push(section.body || '');
         lines.push('');
 
-        const sectionSummary = normalizeWhitespace(section.summary || '') || firstSentence(section.body || '');
+        const sectionSummary = normalizeWhitespace(section.summary || '');
         if (sectionSummary) {
             lines.push(`한 줄 정리: ${sectionSummary}`);
             lines.push('');

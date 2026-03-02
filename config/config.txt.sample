@@ -79,17 +79,16 @@ NAVER_SHOPPING_AUTO_TIME = 07:50
 NAVER_SHOPPING_AUTO_NOTIFY_ENABLED = false
 
 # 배치 발행 간격 (초, 수동 batch 내부 처리 간격)
-BATCH_INTERVAL_SECONDS = 5
+BATCH_INTERVAL_SECONDS = 3
 
 # 글 작성 완료 후 브라우저 자동 종료 대기 시간 (초)
-# 0이면 자동으로 닫지 않음
-CLOSE_DELAY_SECONDS = 5
+CLOSE_DELAY_SECONDS = 3
 
 # 브라우저 화면 숨기기 (true: 숨김 / false: 표시)
 HEADLESS = false
 
 # 타이핑 속도 (QUICK / FAST / NORMAL / HUMAN)
-TYPING_SPEED = FAST
+TYPING_SPEED = QUICK
 
 
 # -------------------------------------------------------

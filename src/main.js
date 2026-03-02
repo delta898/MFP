@@ -960,7 +960,9 @@ program
                     }
 
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
-                    await Core.publishToBlog(result.targetDir);
+                    await Core.publishToBlog(result.targetDir, {
+                        isLast: (i === targetTopics.length - 1)
+                    });
 
                     // 완료 상태 업데이트
                     await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
@@ -1026,7 +1028,7 @@ program
                 printLicenseNextAction(check.message);
                 process.exit(1);
             }
-            await Core.publishToBlog(path.resolve(opts.dir));
+            await Core.publishToBlog(path.resolve(opts.dir), { isLast: true });
             console.log("\n🎉 발행 완료.");
         } catch (e) {
             console.error('❌ 에러:', e.message);
@@ -1201,7 +1203,8 @@ program
 
                     await Core.publishToBlog(result.targetDir, {
                         affiliateUrl: job.shortUrl,
-                        requireAffiliateUrl: true
+                        requireAffiliateUrl: true,
+                        isLast: (i === targetJobs.length - 1)
                     });
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
                     successCount++;

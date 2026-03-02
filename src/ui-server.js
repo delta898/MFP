@@ -1793,7 +1793,7 @@ async function executeQuickPublish(requestBody) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
         }
 
-        await Core.publishToBlog(result.targetDir, { headless });
+        await Core.publishToBlog(result.targetDir, { headless, isLast: true });
 
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
@@ -2041,7 +2041,8 @@ async function executeBlogRowAction(requestBody, options = {}) {
             ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
 
         await Core.publishToBlog(result.targetDir, {
-            headless: batchHeadless
+            headless: batchHeadless,
+            isLast: options.isLast === true // executeBlogBatchRowsAction에서 전달받음
         });
 
         emitProgress('시트 상태 반영 중...');
@@ -2135,7 +2136,7 @@ async function executeBlogBatchRowsAction(requestBody) {
         const rowIndex = targetRowIndices[i];
         setBlogRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
         const result = await executeBlogRowAction(
-            { action: 'batch', rowIndex, headless },
+            { action: 'batch', rowIndex, headless, isLast: (i === targetRowIndices.length - 1) },
             {
                 onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
                 isAutoCycle: requestBody?.isAutoCycle === true
@@ -2240,8 +2241,7 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         const batchHeadless = typeof requestBody?.headless === 'boolean'
             ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
 
-        publishOptions.headless = batchHeadless;
-
+        publishOptions.isLast = requestBody.isLast === true;
         await Core.publishToBlog(buildResult.targetDir, publishOptions);
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
 
@@ -2333,7 +2333,8 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
             { rowIndex },
             {
                 enableRelatedPostsAutoLink,
-                onProgress: (message) => setShoppingRuntimeLog(rowIndex, message)
+                onProgress: (message) => setShoppingRuntimeLog(rowIndex, message),
+                isLast: (i === targetRowIndices.length - 1)
             }
         );
 
