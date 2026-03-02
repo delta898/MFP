@@ -62,6 +62,19 @@ function createSessionLicenseController(deps = {}) {
             } catch (e) {
                 return toErrorResponse(res, requestId, 'NAVER_LOGIN_START_FAILED', '네이버 로그인 시작에 실패했습니다.', e);
             }
+        },
+
+        async wordpressVerify({ requestId, method, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                logger.info('🔐 [UI] 워드프레스 연동 확인 요청 수신');
+                const data = await service.verifyWordPressAuth();
+                return sendSuccess(res, requestId, data);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'WORDPRESS_VERIFY_FAILED', '워드프레스 연동 확인에 실패했습니다.', e);
+            }
         }
     };
 }

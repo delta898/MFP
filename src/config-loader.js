@@ -418,6 +418,9 @@ const naverShoppingAutoNotifyEnabled = parseBoolLike(
 );
 const userRole = String(userConfig.USER_ROLE || 'User').trim();
 const updateMirrorRepo = String(userConfig.UPDATE_MIRROR_REPO || '').trim();
+const wordpressUrl = String(userConfig.WORDPRESS_URL || '').trim();
+const wordpressUserId = String(userConfig.WORDPRESS_USER_ID || '').trim();
+const wordpressAppPassword = String(userConfig.WORDPRESS_APP_PASSWORD || '').trim();
 
 // =========================================================
 // 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
@@ -482,6 +485,9 @@ module.exports = {
     NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
     NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || '',
     NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET || '',
+    WORDPRESS_URL: wordpressUrl,
+    WORDPRESS_USER_ID: wordpressUserId,
+    WORDPRESS_APP_PASSWORD: wordpressAppPassword,
     GOOGLE_SHEET_URL: process.env.GOOGLE_SHEET_URL || resolvedSheetUrl,
     GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || resolvedSheetId,
     LISTEN_HOST: listenHost,

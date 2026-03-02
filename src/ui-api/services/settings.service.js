@@ -101,11 +101,20 @@ function createSettingsService(deps = {}) {
                 SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
                 SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3,
+                WORDPRESS_URL: fields.WORDPRESS_URL,
+                WORDPRESS_USER_ID: fields.WORDPRESS_USER_ID,
+                WORDPRESS_APP_PASSWORD: fields.WORDPRESS_APP_PASSWORD,
                 UPDATE_CHANNEL: fields.UPDATE_CHANNEL || 'stable'
             });
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
             fs.writeFileSync(writablePath, nextRaw, 'utf-8');
             applyRuntimeConfigFromMajor(fields);
+
+            // 🆕 동적으로 CONFIG 객체 업데이트 (서버 재시작 없이 반영되도록)
+            Object.keys(fields).forEach(key => {
+                CONFIG[key] = fields[key];
+            });
+
             syncAutoRunnerWithConfig();
             syncShoppingAutoRunnerWithConfig();
             const requiresRestart =
@@ -203,7 +212,10 @@ function createSettingsService(deps = {}) {
                 FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
-                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
+                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3,
+                WORDPRESS_URL: parseConfigValue(content, 'WORDPRESS_URL') || CONFIG.WORDPRESS_URL,
+                WORDPRESS_USER_ID: parseConfigValue(content, 'WORDPRESS_USER_ID') || CONFIG.WORDPRESS_USER_ID,
+                WORDPRESS_APP_PASSWORD: parseConfigValue(content, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD
             });
             applyRuntimeConfigFromMajor(fields);
             syncAutoRunnerWithConfig();

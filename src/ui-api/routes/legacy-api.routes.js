@@ -10,6 +10,7 @@ const { createSystemController } = require('../controllers/system.controller');
 const { createSessionLicenseController } = require('../controllers/session-license.controller');
 const { createContentController } = require('../controllers/content.controller');
 const { createTrendsController } = require('../controllers/trends.controller');
+const WordPressClient = require('../../wordpress-client');
 
 function createLegacyApiRouteHandler(deps = {}) {
     const systemService = createSystemService({
@@ -43,7 +44,9 @@ function createLegacyApiRouteHandler(deps = {}) {
         getNaverLoginStatus: deps.getNaverLoginStatus,
         getNaverLoginState: deps.getNaverLoginState,
         setNaverLoginState: deps.setNaverLoginState,
-        runNaverLoginFlowForUi: deps.runNaverLoginFlowForUi
+        runNaverLoginFlowForUi: deps.runNaverLoginFlowForUi,
+        WordPressClient,
+        CONFIG: deps.CONFIG
     });
     const sessionLicenseController = createSessionLicenseController({
         service: sessionLicenseService,

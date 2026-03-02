@@ -10,17 +10,77 @@
 
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="logo">BlogGenius</div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">BlogGenius</div>
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" title="사이드바 접기/펴기">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </div>
       <nav>
-        <button class="nav-btn active" data-view="dashboard">대시보드</button>
-        <button class="nav-btn" data-view="blog">네이버 블로그</button>
-        <button class="nav-btn" data-view="shopping">쇼핑커넥트</button>
-        <button class="nav-btn" data-view="license">라이선스</button>
-        <button class="nav-btn" data-view="settings">설정</button>
-        <button class="nav-btn" data-view="logs">로그/이력</button>
+        <button class="nav-btn active" data-view="dashboard">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          <span class="nav-label">대시보드</span>
+        </button>
+        <button class="nav-btn" data-view="blog">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+          <span class="nav-label">블로그</span>
+        </button>
+        <button class="nav-btn" data-view="shopping">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+            <path d="M3 6h18" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </svg>
+          <span class="nav-label">쇼핑커넥트</span>
+        </button>
+        <button class="nav-btn" data-view="license">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          <span class="nav-label">라이선스</span>
+        </button>
+        <button class="nav-btn" data-view="settings">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span class="nav-label">설정</span>
+        </button>
+        <button class="nav-btn" data-view="logs">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 8v4l3 3" />
+            <circle cx="12" cy="12" r="10" />
+          </svg>
+          <span class="nav-label">로그/이력</span>
+        </button>
         <a class="nav-link-btn nav-help-link" href="https://open.kakao.com/o/gZWL25Zh" target="_blank"
-          rel="noopener noreferrer">Help</a>
+          rel="noopener noreferrer">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span class="nav-label">Help</span>
+        </a>
       </nav>
     </aside>
 
@@ -207,7 +267,7 @@
       <section class="view" id="view-blog">
         <div class="view-title-block">
           <div class="view-title-row">
-            <h1>네이버 블로그</h1>
+            <h1>블로그</h1>
             <div class="page-clock-widget">
               <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
             </div>
@@ -251,11 +311,67 @@
           </div>
 
           <div class="blog-quick-options">
-            <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="quick-headless"
-                type="checkbox" checked> 보이지 않게 실행</label>
-            <label class="blog-quick-check"><input id="quick-image-generation" type="checkbox"> 이미지 생성</label>
-            <label class="blog-quick-check"><input id="quick-external-reference" type="checkbox" checked> 외부 참고
-              사용</label>
+            <div class="blog-quick-options-header">
+              <div class="target-platforms">
+                <span class="blog-quick-label">발행 대상:</span>
+                <label class="blog-quick-check"><input id="quick-target-naver" type="checkbox"> 네이버 블로그</label>
+                <label class="blog-quick-check"><input id="quick-target-wordpress" type="checkbox"
+                    onchange="toggleQuickWpOptions()"> 워드프레스</label>
+              </div>
+
+              <div class="quick-common-checks">
+                <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                  <input id="quick-headless" type="checkbox" checked> 보이지 않게 실행
+                </label>
+                <label class="blog-quick-check">
+                  <input id="quick-image-generation" type="checkbox"> 이미지 생성
+                </label>
+                <label class="blog-quick-check">
+                  <input id="quick-external-reference" type="checkbox" checked> 외부 참고 사용
+                </label>
+              </div>
+            </div>
+
+            <!-- WordPress Specific Options (Hidden by default) -->
+            <div id="quick-wp-options-panel" class="quick-wp-options-panel" style="display: none;">
+              <div class="quick-wp-options-grid">
+                <!-- WP Category (Custom Searchable Dropdown) -->
+                <div class="blog-quick-field">
+                  <span class="blog-quick-label">WP 카테고리</span>
+                  <div class="custom-select-container" id="quick-wp-category-container">
+                    <div class="custom-select-trigger" id="quick-wp-category-trigger">
+                      <span id="quick-wp-category-text">카테고리 선택...</span>
+                      <i class="chevron-down-icon"></i>
+                    </div>
+                    <div class="custom-select-menu" id="quick-wp-category-menu">
+                      <div class="custom-select-search">
+                        <input type="text" id="quick-wp-category-search-v2" placeholder="카테고리 검색..." autocomplete="off">
+                      </div>
+                      <div class="custom-select-options" id="quick-wp-category-options-v2">
+                        <!-- Options populated by JS -->
+                        <div class="custom-select-loading">불러오는 중...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- WP Post Status -->
+                <label class="blog-quick-field">
+                  <span class="blog-quick-label">WP 발행 상태</span>
+                  <select id="quick-wp-post-status" onchange="toggleQuickWpScheduleDate()">
+                    <option value="publish" selected>즉시 발행</option>
+                    <option value="draft">임시 저장</option>
+                    <option value="schedule">예약 발행</option>
+                  </select>
+                </label>
+
+                <!-- WP Schedule Date -->
+                <label id="quick-wp-schedule-date-field" class="blog-quick-field">
+                  <span class="blog-quick-label">WP 예약 일시</span>
+                  <input id="quick-wp-schedule-date" type="datetime-local" disabled>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div class="blog-quick-actions">
@@ -364,6 +480,14 @@
               <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
                 <input id="blog-batch-headless" type="checkbox" checked> 보이지 않게 실행
               </label>
+              <div class="target-platforms"
+                style="display: inline-flex; align-items: center; gap: 12px; margin-right: 16px;">
+                <span class="field-label-text" style="font-size: 13px; color: var(--text-secondary);">발행 대상:</span>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-naver"
+                    type="checkbox"> 네이버</label>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-wordpress"
+                    type="checkbox"> 워프</label>
+              </div>
               <button id="blog-batch-btn">선택 글감 발행</button>
             </div>
             <div class="form-actions-right">
@@ -380,25 +504,27 @@
                   <tr>
                     <th style="width:56px;">선택</th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="category" style="width:120px;">Category
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="postStatus" style="width:100px;">
+                      Options</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="scheduleDate" style="width:160px;">
+                      Schedule Date</th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject
                     </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords
                     </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">
-                      참고/지시사항
-                    </th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:220px;">참고
-                      URL
-                    </th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:120px;">
-                      이미지
-                      생성 여부</th>
+                      참고/지시사항</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:160px;">참고
+                      URL</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:100px;">
+                      이미지</th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="externalReference"
-                      style="width:120px;">
-                      외부 참고 여부</th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:220px;">진행 로그
+                      style="width:100px;">외부참고</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:200px;">진행 로그
                     </th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:170px;">상태</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:150px;">상태</th>
                   </tr>
                 </thead>
                 <tbody id="blog-table-body">
@@ -566,6 +692,12 @@
           </div>
 
           <div class="blog-quick-options">
+            <div class="target-platforms">
+              <span class="blog-quick-label">발행 대상:</span>
+              <label class="blog-quick-check"><input id="shopping-quick-target-naver" type="checkbox">
+                네이버 블로그</label>
+              <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox"> 워드프레스</label>
+            </div>
             <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
               <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
             </label>
@@ -605,6 +737,14 @@
               <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
                 <input id="shopping-batch-headless" type="checkbox" checked> 보이지 않게 실행
               </label>
+              <div class="target-platforms"
+                style="display: inline-flex; align-items: center; gap: 12px; margin-right: 16px;">
+                <span class="field-label-text" style="font-size: 13px; color: var(--text-secondary);">발행 대상:</span>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-naver"
+                    type="checkbox"> 네이버</label>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-wordpress"
+                    type="checkbox"> 워프</label>
+              </div>
               <button id="shopping-batch-btn">선택 글감 발행</button>
             </div>
             <div class="form-actions-right">
@@ -713,7 +853,8 @@
         </div>
         <div class="settings-tabs">
           <button class="settings-tab-btn active" data-settings-tab="general" type="button">일반</button>
-          <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">네이버 블로그</button>
+          <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
+          <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
           <button class="settings-tab-btn" data-settings-tab="advanced" type="button">Advanced</button>
         </div>
 
@@ -799,8 +940,9 @@
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">
-          <h2>네이버 블로그 설정</h2>
+          <h2>블로그 설정</h2>
           <div class="form-grid">
+            <div class="settings-section-divider">네이버 블로그</div>
             <label>NAVER_ID
               <div class="input-with-action">
                 <input id="settings-naver-id" type="text" placeholder="네이버 아이디">
@@ -822,6 +964,25 @@
                 <option value="HUMAN">HUMAN</option>
               </select>
             </label>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">워드프레스</div>
+            <label style="grid-column: 1 / -1;">WORDPRESS_URL
+              <input id="settings-wordpress-url" type="text" placeholder="https://your-wordpress-site.com">
+            </label>
+            <label>WORDPRESS_USER_ID
+              <input id="settings-wordpress-user-id" type="text" placeholder="User ID">
+            </label>
+            <label>WORDPRESS_APP_PASSWORD
+              <div class="input-with-action">
+                <input id="settings-wordpress-app-password" type="password" placeholder="Application Password">
+                <button id="settings-wordpress-verify-btn" class="secondary" type="button">접속 확인</button>
+              </div>
+            </label>
+            <div id="settings-wordpress-verify-result"
+              style="grid-column: 1 / -1; font-size: 0.85rem; color: #666; margin-top: -12px; margin-bottom: 8px;">
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">타이핑 효과 미리보기</div>
             <div class="settings-typing-preview">
               <div class="settings-typing-grid">
                 <!-- Column 1: Input -->
@@ -847,6 +1008,15 @@
             </div>
           </div>
 
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <div class="form-actions">
+            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
+            <button class="settings-major-save-btn" type="button">저장</button>
+          </div>
+          <pre class="settings-major-result">대기 중...</pre>
+        </div>
+
+        <div class="card form-card settings-tab-panel" id="settings-tab-shopping-connect">
           <div class="settings-image-section">
             <div class="settings-image-header">
               <h3>쇼핑 이미지 설정</h3>

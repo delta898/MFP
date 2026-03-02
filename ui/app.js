@@ -1,13 +1,19 @@
 async function fetchJson(url) {
-  const res = await fetch(url, { cache: 'no-store' });
-  const body = await res.json();
-  if (!res.ok || !body.success) {
-    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
-    err.status = res.status;
-    err.code = body?.error?.code || '';
-    throw err;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const body = await res.json();
+    if (!res.ok || !body.success) {
+      console.error(`❌ API Fetch Error (${url}):`, body);
+      const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.code = body?.error?.code || '';
+      throw err;
+    }
+    return body.data;
+  } catch (e) {
+    console.error(`❌ Network or Parse Error (${url}):`, e);
+    throw e;
   }
-  return body.data;
 }
 
 async function postJson(url, payload) {
@@ -856,7 +862,7 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'naver-blog', 'advanced'];
+  const allowed = ['general', 'naver-blog', 'shopping-connect', 'advanced'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   settingsActiveTab = target;
 
@@ -1555,7 +1561,7 @@ function renderBlogTable(items) {
 
   const sourceItems = Array.isArray(items) ? items : [];
   if (sourceItems.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10">조회 결과가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14">조회 결과가 없습니다.</td></tr>';
     updateSortableHeadersUi();
     return;
   }
@@ -1570,9 +1576,12 @@ function renderBlogTable(items) {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+    const category = escapeHtml(item.category || '');
+    const postStatus = escapeHtml(item.postStatus || 'publish');
+    const scheduleDate = escapeHtml(item.scheduleDate || '');
     const status = escapeHtml(item.status || '');
-    const imageGeneration = Boolean(item.image_options?.generate);
-    const externalReference = Boolean(item.use_external_ref);
+    const imageGeneration = Boolean(item.image_gen);
+    const externalReference = Boolean(item.external_reference);
     const recentMeta = getRecentBatchMeta(item.rowIndex);
     const runningClass = runtimeLog ? 'running-row' : '';
     const recentClass = recentMeta ? (recentMeta.success ? 'recent-batch-success' : 'recent-batch-fail') : '';
@@ -1586,6 +1595,9 @@ function renderBlogTable(items) {
       <tr class="${[runningClass, recentClass].filter(Boolean).join(' ')}" data-row-index="${item.rowIndex}">
         <td><input type="checkbox" class="row-selector" name="blog-row" value="${item.rowIndex}" ${checked}></td>
         <td>${item.rowNumber}</td>
+        <td class="editable-cell" data-field="category">${category || '-'}</td>
+        <td class="editable-cell" data-field="postStatus">${postStatus}</td>
+        <td class="editable-cell" data-field="scheduleDate">${scheduleDate || '-'}</td>
         <td class="editable-cell" data-field="subject">${subject || '-'}${subjectBadge}</td>
         <td class="editable-cell" data-field="keywords">${keywords || '-'}</td>
         <td class="editable-cell" data-field="instruction">${instruction || '-'}</td>
@@ -1603,6 +1615,9 @@ function renderBlogTable(items) {
 
 function getEditableFieldValue(item, field) {
   if (!item) return '';
+  if (field === 'category') return String(item.category || '');
+  if (field === 'postStatus') return String(item.postStatus || 'publish');
+  if (field === 'scheduleDate') return String(item.scheduleDate || '');
   if (field === 'subject') return String(item.subject || '');
   if (field === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
   if (field === 'instruction') return String(item.content_guide?.additional_instructions || '');
@@ -1949,13 +1964,23 @@ async function runShoppingBatchAction() {
   pauseDashboardPolling();
 
   const headless = Boolean(document.getElementById('shopping-batch-headless')?.checked);
+  const targets = [];
+  if (document.getElementById('shopping-batch-target-naver')?.checked) targets.push('naver');
+  if (document.getElementById('shopping-batch-target-wordpress')?.checked) targets.push('wordpress');
+
+  const preCheck = checkPublishPrerequisites(targets);
+  if (!preCheck.ok) {
+    resultBox.textContent = preCheck.message;
+    return;
+  }
+
   try {
     await runWithLiveProgress({
       targetEl: resultBox,
       requestLabel: `쇼핑 일괄 발행 (${selectedSnapshot.length}건)`,
       requestFn: async () => {
         await loadBlogShopping({ silent: true });
-        const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
+        const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot, headless, targets });
         return data;
       }
     });
@@ -2144,13 +2169,23 @@ async function runBlogBatchAction() {
   pauseDashboardPolling();
 
   const headless = Boolean(document.getElementById('blog-batch-headless')?.checked);
+  const targets = [];
+  if (document.getElementById('blog-batch-target-naver')?.checked) targets.push('naver');
+  if (document.getElementById('blog-batch-target-wordpress')?.checked) targets.push('wordpress');
+
+  const preCheck = checkPublishPrerequisites(targets);
+  if (!preCheck.ok) {
+    resultBox.textContent = preCheck.message;
+    return;
+  }
+
   try {
     const data = await runWithLiveProgress({
       targetEl: resultBox,
       requestLabel: `블로그 일괄 발행 (${selectedSnapshot.length}건)`,
       requestFn: async () => {
         await loadBlogTopics({ silent: true });
-        const res = await postJson('/api/v1/blog/action', { action: 'batch', rowIndices: selectedSnapshot, headless });
+        const res = await postJson('/api/v1/blog/action', { action: 'batch', rowIndices: selectedSnapshot, headless, targets });
         return res;
       }
     });
@@ -2170,6 +2205,9 @@ function applySettingsMajorToForm(data) {
   const listenHostEl = document.getElementById('settings-listen-host');
   const listenPortEl = document.getElementById('settings-listen-port');
   const naverIdEl = document.getElementById('settings-naver-id');
+  const wordpressUrlEl = document.getElementById('settings-wordpress-url');
+  const wordpressUserIdEl = document.getElementById('settings-wordpress-user-id');
+  const wordpressAppPasswordEl = document.getElementById('settings-wordpress-app-password');
   const geminiKeyEl = document.getElementById('settings-gemini-api-key');
   const sheetUrlEl = document.getElementById('settings-google-sheet-url');
   const headlessEl = document.getElementById('settings-headless');
@@ -2196,6 +2234,9 @@ function applySettingsMajorToForm(data) {
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
   if (listenPortEl) listenPortEl.value = String(fields.LISTEN_PORT || 4577);
   if (naverIdEl) naverIdEl.value = String(fields.NAVER_ID || '');
+  if (wordpressUrlEl) wordpressUrlEl.value = String(fields.WORDPRESS_URL || '');
+  if (wordpressUserIdEl) wordpressUserIdEl.value = String(fields.WORDPRESS_USER_ID || '');
+  if (wordpressAppPasswordEl) wordpressAppPasswordEl.value = String(fields.WORDPRESS_APP_PASSWORD || '');
   if (geminiKeyEl) geminiKeyEl.value = String(fields.GEMINI_API_KEY || '');
   if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
   if (headlessEl) headlessEl.checked = Boolean(fields.HEADLESS);
@@ -2286,11 +2327,32 @@ function getSettingsMajorBasicValuesFromDom() {
     LISTEN_HOST: (document.getElementById('settings-listen-host')?.value || '127.0.0.1').trim(),
     LISTEN_PORT: parseInt((document.getElementById('settings-listen-port')?.value || '4577').trim(), 10) || 4577,
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
+    WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
+    WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
+    WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: Boolean(document.getElementById('settings-headless')?.checked),
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase()
   };
+}
+
+function checkPublishPrerequisites(targets) {
+  if (!targets || targets.length === 0) {
+    return { ok: false, message: '발행 대상을 1개 이상 선택해 주세요.' };
+  }
+  const settings = getSettingsMajorBasicValuesFromDom();
+  if (targets.includes('naver')) {
+    if (!settings.NAVER_ID) {
+      return { ok: false, message: '네이버 블로그 설정(NAVER_ID)이 필요합니다. 설정 탭에서 확인해 주세요.' };
+    }
+  }
+  if (targets.includes('wordpress')) {
+    if (!settings.WORDPRESS_URL || !settings.WORDPRESS_USER_ID || !settings.WORDPRESS_APP_PASSWORD) {
+      return { ok: false, message: '워드프레스 설정(URL, App ID, Password)이 필요합니다. 설정 탭에서 확인해 주세요.' };
+    }
+  }
+  return { ok: true };
 }
 
 function buildSettingsMajorBasicSignature() {
@@ -2450,6 +2512,9 @@ function buildSettingsMajorPayload() {
     LISTEN_HOST: (document.getElementById('settings-listen-host')?.value || '127.0.0.1').trim(),
     LISTEN_PORT: parseInt((document.getElementById('settings-listen-port')?.value || '4577').trim(), 10) || 4577,
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
+    WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
+    WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
+    WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: Boolean(document.getElementById('settings-headless')?.checked),
@@ -2960,6 +3025,38 @@ async function startNaverLoginFromUi() {
     });
   }
 }
+
+async function verifyWordPressAuthFromUi() {
+  const resultEl = document.getElementById('settings-wordpress-verify-result');
+  const btn = document.getElementById('settings-wordpress-verify-btn');
+  if (!resultEl) return;
+
+  resultEl.textContent = '연동 확인 중... (먼저 설정을 저장합니다)';
+  resultEl.style.color = '#666';
+  if (btn) btn.disabled = true;
+
+  try {
+    // 설정을 먼저 저장하여 백엔드가 최신 값을 사용하도록 함
+    await saveSettingsMajor({ mode: 'manual' });
+
+    resultEl.textContent = '연동 확인 중...';
+    const res = await postJson('/api/v1/session/wordpress-verify', {});
+    if (res.success) {
+      resultEl.textContent = '✅ ' + res.message;
+      resultEl.style.color = '#10b981';
+    } else {
+      resultEl.textContent = '❌ ' + res.message;
+      resultEl.style.color = '#ef4444';
+    }
+  } catch (e) {
+    resultEl.textContent = `❌ 오류: ${e.message}`;
+    resultEl.style.color = '#ef4444';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+
 
 function setBlogAutoResultText(message) {
   const resultEl = document.getElementById('blog-auto-result');
@@ -3929,16 +4026,38 @@ function bindActions() {
     }
   };
 
-  const buildQuickPayload = (mode) => ({
-    subject: (document.getElementById('quick-subject')?.value || '').trim(),
-    keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
-    instruction: (document.getElementById('quick-instruction')?.value || '').trim(),
-    referenceUrl: (document.getElementById('quick-reference-url')?.value || '').trim(),
-    imageGeneration: Boolean(document.getElementById('quick-image-generation')?.checked),
-    externalReference: Boolean(document.getElementById('quick-external-reference')?.checked),
-    headless: Boolean(document.getElementById('quick-headless')?.checked),
-    publishMode: mode
-  });
+  const buildQuickPayload = (mode) => {
+    const targets = [];
+    if (document.getElementById('quick-target-naver')?.checked) targets.push('naver');
+    if (document.getElementById('quick-target-wordpress')?.checked) targets.push('wordpress');
+
+    const payload = {
+      subject: (document.getElementById('quick-subject')?.value || '').trim(),
+      keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
+      instruction: (document.getElementById('quick-instruction')?.value || '').trim(),
+      referenceUrl: (document.getElementById('quick-reference-url')?.value || '').trim(),
+      imageGeneration: Boolean(document.getElementById('quick-image-generation')?.checked),
+      externalReference: Boolean(document.getElementById('quick-external-reference')?.checked),
+      headless: Boolean(document.getElementById('quick-headless')?.checked),
+      publishMode: mode,
+      targets
+    };
+
+    if (targets.includes('wordpress')) {
+      payload.category = (localStorage.getItem('last_quick_wp_category_value') || '').trim();
+      payload.postStatus = (document.getElementById('quick-wp-post-status')?.value || 'publish').trim();
+      payload.scheduleDate = (document.getElementById('quick-wp-schedule-date')?.value || '').trim();
+    }
+
+    // [New] Persist individual options (except sensitive text fields)
+    localStorage.setItem('quick_headless', document.getElementById('quick-headless')?.checked ? 'true' : 'false');
+    localStorage.setItem('quick_image_generation', document.getElementById('quick-image-generation')?.checked ? 'true' : 'false');
+    localStorage.setItem('quick_external_reference', document.getElementById('quick-external-reference')?.checked ? 'true' : 'false');
+    localStorage.setItem('quick_wp_post_status', document.getElementById('quick-wp-post-status')?.value || 'publish');
+    localStorage.setItem('quick_wp_schedule_date', document.getElementById('quick-wp-schedule-date')?.value || '');
+
+    return payload;
+  };
 
   const runQuickPublish = async (mode) => {
     if (!resultEl) return;
@@ -3950,6 +4069,17 @@ function bindActions() {
     quickPublishInFlight = true;
     if (saveBtn) saveBtn.disabled = true;
     if (publishBtn) publishBtn.disabled = true;
+
+    const dummyPayload = buildQuickPayload(mode);
+    const preCheck = checkPublishPrerequisites(dummyPayload.targets);
+    if (!preCheck.ok) {
+      resultEl.textContent = preCheck.message;
+      quickPublishInFlight = false;
+      if (saveBtn) saveBtn.disabled = false;
+      if (publishBtn) publishBtn.disabled = false;
+      return;
+    }
+
     try {
       const actionText = mode === 'append_and_publish' ? '글감 등록 & 발행' : '글감 등록';
       await runWithLiveProgress({
@@ -3983,6 +4113,18 @@ function bindActions() {
       if (keywordsEl) keywordsEl.value = '';
       if (instructionEl) instructionEl.value = '';
       if (referenceUrlEl) referenceUrlEl.value = '';
+
+      const wpCategoryText = document.getElementById('quick-wp-category-text');
+      const wpStatusEl = document.getElementById('quick-wp-post-status');
+      const wpDateEl = document.getElementById('quick-wp-schedule-date');
+      if (wpCategoryText) wpCategoryText.textContent = '카테고리 선택 (미지정 시 기본)';
+      localStorage.removeItem('last_quick_wp_category_name');
+      localStorage.removeItem('last_quick_wp_category_value');
+
+      if (wpStatusEl) wpStatusEl.value = 'publish';
+      if (wpDateEl) wpDateEl.value = '';
+      if (typeof window.toggleQuickWpScheduleDate === 'function') window.toggleQuickWpScheduleDate();
+      if (referenceUrlEl) referenceUrlEl.value = '';
       if (resultEl) resultEl.textContent = '입력 내용을 지웠습니다.';
       subjectEl?.focus();
     });
@@ -3993,12 +4135,18 @@ function bindActions() {
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
   const shoppingQuickUrlInput = document.getElementById('shopping-quick-url');
   const shoppingQuickProductInput = document.getElementById('shopping-quick-product');
-  const buildShoppingQuickPayload = (mode) => ({
-    shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
-    product: (shoppingQuickProductInput?.value || '').trim(),
-    headless: Boolean(document.getElementById('shopping-quick-headless')?.checked),
-    publishMode: mode
-  });
+  const buildShoppingQuickPayload = (mode) => {
+    const targets = [];
+    if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
+    if (document.getElementById('shopping-quick-target-wordpress')?.checked) targets.push('wordpress');
+    return {
+      shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
+      product: (shoppingQuickProductInput?.value || '').trim(),
+      headless: Boolean(document.getElementById('shopping-quick-headless')?.checked),
+      publishMode: mode,
+      targets
+    };
+  };
   const runShoppingQuickPublish = async (mode) => {
     if (!shoppingQuickResultEl) return;
     if (!guardUiConfigReady('쇼핑커넥트 빠른발행')) return;
@@ -4009,6 +4157,17 @@ function bindActions() {
     shoppingQuickPublishInFlight = true;
     if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = true;
     if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = true;
+
+    const dummyPayload = buildShoppingQuickPayload(mode);
+    const preCheck = checkPublishPrerequisites(dummyPayload.targets);
+    if (!preCheck.ok) {
+      shoppingQuickResultEl.textContent = preCheck.message;
+      shoppingQuickPublishInFlight = false;
+      if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+      if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+      return;
+    }
+
     try {
       const actionText = mode === 'append_and_publish' ? '쇼핑 글감 등록 & 발행' : '쇼핑 글감 등록';
       await runWithLiveProgress({
@@ -4324,6 +4483,9 @@ function bindActions() {
   const settingsMajorAutoSaveInputs = [
     document.getElementById('settings-listen-port'),
     document.getElementById('settings-naver-id'),
+    document.getElementById('settings-wordpress-url'),
+    document.getElementById('settings-wordpress-user-id'),
+    document.getElementById('settings-wordpress-app-password'),
     document.getElementById('settings-gemini-api-key'),
     document.getElementById('settings-google-sheet-url')
   ].filter(Boolean);
@@ -4336,6 +4498,8 @@ function bindActions() {
   settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', loadSettingsMajor));
   settingsMajorSaveBtns.forEach(btn => btn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' })));
   if (settingsNaverLoginBtn) settingsNaverLoginBtn.addEventListener('click', startNaverLoginFromUi);
+  const settingsWordPressVerifyBtn = document.getElementById('settings-wordpress-verify-btn');
+  if (settingsWordPressVerifyBtn) settingsWordPressVerifyBtn.addEventListener('click', verifyWordPressAuthFromUi);
   if (settingsOpenGoogleSheetBtn) settingsOpenGoogleSheetBtn.addEventListener('click', openGoogleSheetFromUi);
   if (settingsGoogleAuthFileBtn) settingsGoogleAuthFileBtn.addEventListener('change', handleGoogleAuthFileUpload);
   if (settingsGoogleAuthSaveBtn) settingsGoogleAuthSaveBtn.addEventListener('click', handleGoogleAuthTextSave);
@@ -4456,6 +4620,29 @@ window.addEventListener('DOMContentLoaded', () => {
 
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
   try { checkUpdate(false); } catch (e) { console.warn('checkUpdate error:', e); }
+
+  // Sidebar Toggle (Desktop)
+  try {
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+    const sidebar = document.getElementById('sidebar');
+
+    // Restore state
+    const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+    if (isCollapsed && sidebar) {
+      sidebar.classList.add('collapsed');
+    }
+
+    if (sidebarToggleBtn && sidebar) {
+      sidebarToggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const nowCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('sidebar-collapsed', nowCollapsed);
+
+        // Trigger a window resize event to let other components (like tables) adjust if needed
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+  } catch (e) { console.warn('Sidebar toggle init error:', e); }
 
   // Mobile Menu Toggle
   try {
@@ -4593,10 +4780,133 @@ window.addEventListener('DOMContentLoaded', () => {
   try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }
   try { loadGoogleAuthStatus(); } catch (e) { console.warn('loadGoogleAuthStatus error:', e); }
 
+  // 🚀 설정 초기 로딩 (어느 탭에서든 즉시 발행 가능하도록)
+  loadSettingsMajor();
+
   // 🚀 비동기 병렬 초기화 (블로킹 제거)
   loadConfigStatus().finally(() => {
     console.log('[UI] Initial config status check completed');
   });
+
+  // Restore Quick Publish Targets
+  const savedTargets = JSON.parse(localStorage.getItem('quick_publish_targets') || '["naver"]');
+  const qNaver = document.getElementById('quick-target-naver');
+  const qWp = document.getElementById('quick-target-wordpress');
+  if (qNaver) qNaver.checked = savedTargets.includes('naver');
+  if (qWp) qWp.checked = savedTargets.includes('wordpress');
+
+  // Restore other Quick Publish options
+  const qHeadless = document.getElementById('quick-headless');
+  if (qHeadless) {
+    const saved = localStorage.getItem('quick_headless');
+    if (saved !== null) qHeadless.checked = (saved === 'true');
+  }
+  const qImgGen = document.getElementById('quick-image-generation');
+  if (qImgGen) {
+    const saved = localStorage.getItem('quick_image_generation');
+    if (saved !== null) qImgGen.checked = (saved === 'true');
+  }
+  const qExtRef = document.getElementById('quick-external-reference');
+  if (qExtRef) {
+    const saved = localStorage.getItem('quick_external_reference');
+    if (saved !== null) qExtRef.checked = (saved === 'true');
+  }
+  const qWpStatus = document.getElementById('quick-wp-post-status');
+  if (qWpStatus) {
+    const saved = localStorage.getItem('quick_wp_post_status');
+    if (saved !== null) qWpStatus.value = saved;
+    // Trigger dependency UI (like schedule date visibility)
+    if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
+  }
+  const qWpDate = document.getElementById('quick-wp-schedule-date');
+  if (qWpDate) {
+    const saved = localStorage.getItem('quick_wp_schedule_date');
+    if (saved !== null) qWpDate.value = saved;
+  }
+
+  // Add target persistence listeners
+  ['quick-target-naver', 'quick-target-wordpress'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      const targets = [];
+      if (document.getElementById('quick-target-naver').checked) targets.push('naver');
+      if (document.getElementById('quick-target-wordpress').checked) targets.push('wordpress');
+      localStorage.setItem('quick_publish_targets', JSON.stringify(targets));
+    });
+  });
+
+  // Add other persistence listeners
+  ['quick-headless', 'quick-image-generation', 'quick-external-reference', 'quick-wp-post-status', 'quick-wp-schedule-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (el.type === 'checkbox') {
+        localStorage.setItem(id.replace(/-/g, '_'), el.checked ? 'true' : 'false');
+      } else {
+        localStorage.setItem(id.replace(/-/g, '_'), el.value);
+      }
+    });
+  });
+
+  // Category Search Event (V2 - Custom Dropdown)
+  const wpCatSearchV2 = document.getElementById('quick-wp-category-search-v2');
+  if (wpCatSearchV2) {
+    wpCatSearchV2.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const optionsContainer = document.getElementById('quick-wp-category-options-v2');
+      if (!optionsContainer) return;
+
+      const options = optionsContainer.querySelectorAll('.custom-select-option');
+      let found = false;
+      options.forEach(opt => {
+        const text = opt.textContent.toLowerCase();
+        const match = text.includes(q);
+        opt.style.display = match ? '' : 'none';
+        if (match) found = true;
+      });
+
+      // Handle "No results" message
+      let noResultEl = optionsContainer.querySelector('.custom-select-no-results');
+      if (!found) {
+        if (!noResultEl) {
+          noResultEl = document.createElement('div');
+          noResultEl.className = 'custom-select-no-results';
+          noResultEl.textContent = '검색 결과가 없습니다.';
+          optionsContainer.appendChild(noResultEl);
+        }
+      } else if (noResultEl) {
+        noResultEl.remove();
+      }
+    });
+
+    // Prevent closing when clicking search box
+    wpCatSearchV2.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  // Custom Dropdown Trigger
+  const wpCatTrigger = document.getElementById('quick-wp-category-trigger');
+  const wpCatContainer = document.getElementById('quick-wp-category-container');
+  if (wpCatTrigger && wpCatContainer) {
+    wpCatTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = wpCatContainer.classList.contains('open');
+      // Close all other custom dropdowns if any, then toggle this one
+      wpCatContainer.classList.toggle('open');
+      if (!isOpen) {
+        // Focus search when opening
+        setTimeout(() => wpCatSearchV2?.focus(), 50);
+      }
+    });
+  }
+
+  // Close dropdown on outside click
+  document.addEventListener('click', () => {
+    wpCatContainer?.classList.remove('open');
+  });
+
+  // Initial WP Options Sync
+  window.toggleQuickWpOptions();
 
   // 대시보드 별도 로드 (블로킹 방지)
   loadDashboard().finally(() => {
@@ -4642,3 +4952,95 @@ window.addEventListener('DOMContentLoaded', () => {
     renderDashboardAutoSchedule();
   }, 60000);
 });
+
+// WordPress Quick Publish UI Helpers
+let wpCategoryCache = null;
+window.toggleQuickWpOptions = async function () {
+  const panel = document.getElementById('quick-wp-options-panel');
+  const checkbox = document.getElementById('quick-target-wordpress');
+
+  if (panel && checkbox) {
+    if (checkbox.checked) {
+      panel.style.display = 'block';
+
+      // Fetch categories if not cached
+      if (!wpCategoryCache) {
+        try {
+          const optionsContainer = document.getElementById('quick-wp-category-options-v2');
+          const triggerText = document.getElementById('quick-wp-category-text');
+
+          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
+
+          const categories = await fetchJson('/api/v1/wordpress/categories');
+          if (Array.isArray(categories)) {
+            wpCategoryCache = categories;
+            if (optionsContainer) {
+              optionsContainer.innerHTML = '';
+
+              // Default "No Selection" Option
+              const defaultOpt = document.createElement('div');
+              defaultOpt.className = 'custom-select-option';
+              defaultOpt.dataset.value = '';
+              defaultOpt.textContent = '카테고리 선택 (미지정 시 기본)';
+              optionsContainer.appendChild(defaultOpt);
+
+              categories.forEach(cat => {
+                const opt = document.createElement('div');
+                opt.className = 'custom-select-option';
+                opt.dataset.value = cat.name;
+                opt.textContent = `${cat.name} (${cat.count})`;
+                optionsContainer.appendChild(opt);
+              });
+
+              // Add Click Listeners to Options
+              optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
+                el.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const val = el.dataset.value;
+                  const text = el.textContent;
+
+                  // Update UI
+                  if (triggerText) triggerText.textContent = text;
+                  optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+                  el.classList.add('selected');
+
+                  // Persistence
+                  localStorage.setItem('last_quick_wp_category_name', text);
+                  localStorage.setItem('last_quick_wp_category_value', val);
+
+                  // Close
+                  document.getElementById('quick-wp-category-container')?.classList.remove('open');
+                });
+              });
+
+              // Restore last selected
+              const savedName = localStorage.getItem('last_quick_wp_category_name');
+              const savedVal = localStorage.getItem('last_quick_wp_category_value');
+              if (savedName && triggerText) {
+                triggerText.textContent = savedName;
+                const savedEl = Array.from(optionsContainer.querySelectorAll('.custom-select-option')).find(opt => opt.dataset.value === savedVal);
+                if (savedEl) savedEl.classList.add('selected');
+              }
+            }
+          } else {
+            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
+          }
+        } catch (e) {
+          console.error('WP Categories fetch failed:', e);
+          const optionsContainer = document.getElementById('quick-wp-category-options-v2');
+          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">호출 오류</div>';
+        }
+      }
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+};
+
+window.toggleQuickWpScheduleDate = function () {
+  const input = document.getElementById('quick-wp-schedule-date');
+  const status = document.getElementById('quick-wp-post-status')?.value;
+  if (input) {
+    input.disabled = (status !== 'schedule');
+  }
+};

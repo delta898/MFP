@@ -18,6 +18,7 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/shopping/auto/run-manual') return controller.shoppingAutoRunManual(ctx);
         if (pathname === '/api/v1/shopping/row/update') return controller.shoppingRowUpdate(ctx);
         if (pathname === '/api/v1/blog/topic/update') return controller.blogTopicUpdate(ctx);
+        if (pathname === '/api/v1/wordpress/categories') return controller.wordpressCategories(ctx);
 
         return false;
     };

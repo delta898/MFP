@@ -8,6 +8,8 @@ const Constants = require('./constants');    // 🔥 [필수] 기본 설정 상�
 const Utils = require('./utils');
 const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
+const WordPressClient = require('./wordpress-client');
+const { marked } = require('marked');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1525,19 +1527,39 @@ ${scrapedContext}`;
 		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
 		const finalHashtags = normalizeHashtagTokens(parsedData.hashtags || [], 20);
+		// 5) 관련 글 수집 및 생성 (Platform에 따른 하이브리드 지원)
 		const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
-		let relatedPosts = [];
-		let relatedHeading = Utils.pickRelatedPostsHeading();
+		const platform = String(runtimeOptions.platform || 'naver').toLowerCase();
+		let relatedPostsMarkdown = "";
+
 		if (enableRelatedPostsAutoLink) {
-			Logger.info("🔎 [Blog] 관련 글 자동 수집 중...");
-			relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
-			if (relatedPosts.length > 0) {
-				Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
+			if (platform === 'wordpress') {
+				Logger.info("🔎 [WordPress] 하이브리드 관련 글 수집 중...");
+				try {
+					const wpRandomPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+					const naverRandomPosts = await Utils.fetchOwnBlogRandomPosts(2);
+					const combinedPosts = Utils._shuffleArray([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
+
+					if (combinedPosts.length > 0) {
+						relatedPostsMarkdown = Utils.generateRelatedPostsMarkdown(combinedPosts);
+						Logger.info(`🔗 [WordPress] 관련 글 ${combinedPosts.length}개 자동 생성 완료`);
+					}
+				} catch (e) {
+					Logger.error(`⚠️ [WordPress] 관련 글 수집 중 오류: ${e.message}`);
+				}
 			} else {
-				Logger.info("ℹ️ [Blog] 관련 글 자동 수집 실패/없음: placeholder 삽입");
+				Logger.info("🔎 [Blog] 네이버 관련 글 자동 수집 중...");
+				const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+				if (relatedPosts.length > 0) {
+					const relatedHeading = Utils.pickRelatedPostsHeading();
+					relatedPostsMarkdown = "\n\n" + buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
+					Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
+				} else {
+					Logger.info("ℹ️ [Blog] 관련 글 수집 결과 없음");
+				}
 			}
 		} else {
-			Logger.info("ℹ️ [Blog] 관련 글 자동 링크 기능 비활성화 (플랜 정책)");
+			Logger.info("ℹ️ [Core] 관련 글 자동 링크 기능 비활성화");
 		}
 
 		// 5) 결과 저장
@@ -1546,7 +1568,20 @@ ${scrapedContext}`;
 		if (customDir) {
 			targetDir = path.resolve(customDir);
 		} else {
-			const wsDir = CONFIG.WORKSPACE_DIR || Constants.WORKSPACE_DIR;
+			const wsBase = CONFIG.WORKSPACE_DIR || Constants.WORKSPACE_DIR;
+			const platform = String(runtimeOptions.platform || 'naver').toLowerCase();
+			let platformDir;
+			if (platform === 'wordpress') {
+				// wp_blog.hangadac.com (hostname only, no protocol)
+				const wpUrl = String(CONFIG.WORDPRESS_URL || '').trim();
+				const domain = wpUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '') || 'wp_unknown';
+				platformDir = `wp_${domain}`;
+			} else {
+				// naver_amadejjs
+				const naverId = String(CONFIG.NAVER_ID || '').trim();
+				platformDir = naverId ? `naver_${naverId}` : 'naver';
+			}
+			const wsDir = path.join(wsBase, platformDir);
 			const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
 			targetDir = path.join(wsDir, `${timestamp}_${safeSubject}`);
 		}
@@ -1555,13 +1590,11 @@ ${scrapedContext}`;
 
 		let pureContent = finalContent.replace(/^#\s+.+\n?/, "").trim();
 		pureContent = stripAiRelatedPostsSection(pureContent);
-		if (enableRelatedPostsAutoLink) {
-			const relatedSection = buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
-			pureContent = `${pureContent}\n\n${relatedSection}`.trim();
-		}
+
 		const hashtagLine = finalHashtags.length > 0 ? "\n\n\n" + finalHashtags.map(tag => `#${tag}`).join(' ') : "";
-		// 제목 직후 공백 줄을 강제하지 않는다. (에디터 첫 본문 앞 불필요 빈줄 방지)
-		const fullFileContent = `# ${finalSubject}\n${pureContent}${hashtagLine}`;
+
+		// [위치 조정] 관련 글 섹션은 해시태그 "위"에 배치
+		const fullFileContent = `# ${finalSubject}\n${pureContent}${relatedPostsMarkdown}${hashtagLine}`;
 
 		fs.writeFileSync(path.join(targetDir, 'contents.md'), fullFileContent, 'utf-8');
 		return { targetDir, finalSubject };
@@ -1684,6 +1717,18 @@ ${scrapedContext}`;
 			// ✍️ 제목 입력
 			Logger.info(`   ✍️ 제목 입력: ${title}`);
 			await inputBlogTitleWithVerification(page, title, getRandomTypingDelay);
+
+			// ✍️ 카테고리 선택
+			const requestedCategory = String(options.category || '').trim();
+			if (requestedCategory) {
+				Logger.info(`   📁 카테고리 선택 시도: ${requestedCategory}`);
+				const categoryApplied = await selectNaverBlogCategoryByName(page, requestedCategory);
+				if (categoryApplied) {
+					Logger.info(`   ✅ 카테고리 선택 완료: ${requestedCategory}`);
+				} else {
+					Logger.warn(`   ⚠️ 카테고리 선택 실패 (기본 카테고리 유지): ${requestedCategory}`);
+				}
+			}
 
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
@@ -1956,7 +2001,23 @@ ${scrapedContext}`;
 
 			Logger.info("   ✅ 본문 작성 완료");
 
-			// 💾 임시 저장
+			// 💾 [Draft] 옵션인 경우 저장 후 중단
+			if (String(options.postStatus || '').toLowerCase() === 'draft') {
+				Logger.info("   💾 [Draft] 옵션이므로 임시저장 후 작업을 완료합니다.");
+				try {
+					const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
+					if (await saveBtn.isVisible()) {
+						await saveBtn.click();
+						await Utils.sleep(3000);
+						Logger.info("   ✅ 임시저장 완료");
+						return { success: true, message: 'Draft saved' };
+					}
+				} catch (e) {
+					Logger.warn(`   ⚠️ 임시저장 실패: ${e.message}`);
+				}
+			}
+
+			// 💾 임시 저장 (안전을 위해 공통 시도)
 			try {
 				Logger.info("   💾 안전을 위해 임시저장을 시도합니다...");
 				const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
@@ -2059,7 +2120,153 @@ ${scrapedContext}`;
 				Logger.info("   🔒 브라우저 세션 종료");
 			}
 		}
-	}
+	},
+
+	/**
+	 * WordPress 발행 (Publish)
+	 */
+	publishToWordPress: async function (dirPath, options = {}) {
+		Logger.info(`🚀 [WordPress] 발행 시작: ${path.basename(dirPath)}`);
+
+		const wpClient = new WordPressClient({
+			url: CONFIG.WORDPRESS_URL,
+			userId: CONFIG.WORDPRESS_USER_ID,
+			appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+		});
+
+		if (!wpClient.isConfigured()) {
+			throw new Error('WordPress 설정이 올바르지 않습니다.');
+		}
+
+		const contentFile = path.join(dirPath, 'contents.md');
+		if (!fs.existsSync(contentFile)) throw new Error(`콘텐츠 파일 없음: contents.md`);
+
+		const markdownRaw = fs.readFileSync(contentFile, 'utf-8');
+		const { title: postTitle, contents: parsedContents } = Utils.parseMarkdown(markdownRaw);
+
+		// 1. 이미지 처리 및 업로드
+		const warnings = [];
+		let featuredMediaId = null;
+		let finalMarkdown = markdownRaw;
+		const uploadResults = new Map(); // index -> { id, url, alt }
+
+		// [[IMAGE_N\ntitle: ...\nprompt: ...\n]] 포맷 파싱
+		const imageRegex = /\[\[IMAGE_(\d+)\n\s*title:\s*(.+)\n\s*prompt:\s*([\s\S]+?)\n\]\]/g;
+		let match;
+		const imageBlocks = [];
+		while ((match = imageRegex.exec(markdownRaw)) !== null) {
+			imageBlocks.push({
+				fullTag: match[0],
+				index: parseInt(match[1]),
+				title: match[2].trim(),
+				prompt: match[3].trim()
+			});
+		}
+
+		Logger.info(`🖼️ [WordPress] 이미지 업로드 프로세스 시작 (총 ${imageBlocks.length}개)`);
+
+		for (const block of imageBlocks) {
+			const prefix = String(block.index).padStart(2, '0');
+			const possibleFiles = [
+				path.join(dirPath, `${prefix}_image.jpg`),
+				path.join(dirPath, `${prefix}_image.png`),
+				path.join(dirPath, `${prefix}_image.jpeg`)
+			];
+			const imagePath = possibleFiles.find(f => fs.existsSync(f));
+
+			if (!imagePath) {
+				Logger.warn(`⚠️ [WordPress] 이미지 파일을 찾을 수 없음: ${prefix}_image`);
+				warnings.push(`이미지 ${block.index}번 누락`);
+				continue;
+			}
+
+			// 파일명 생성 (Slug + Timestamp)
+			const timestamp = Math.floor(Date.now() / 1000);
+			const cleanTitle = block.title.normalize('NFC').trim();
+			const baseName = cleanTitle
+				.replace(/\s+/g, '_') // 공백을 언더바로 변환
+				.slice(0, 50); // 적당한 길이 유지 (50자)
+			const fileName = `${baseName}_${timestamp}${path.extname(imagePath)}`;
+
+			const buffer = fs.readFileSync(imagePath);
+			const uploadRes = await wpClient.uploadMedia(buffer, fileName, block.title);
+
+			if (uploadRes) {
+				uploadResults.set(block.index, {
+					id: uploadRes.id,
+					url: uploadRes.url,
+					alt: block.title
+				});
+				if (featuredMediaId === null) featuredMediaId = uploadRes.id;
+
+				// Markdown 치환
+				const mdImageTag = `![${block.title}](${uploadRes.url})`;
+				finalMarkdown = finalMarkdown.replace(block.fullTag, mdImageTag);
+			} else {
+				warnings.push(`이미지 ${block.index}번 업로드 실패`);
+			}
+		}
+
+		// 2. 상태 결정 (이미지 생성 실패 시 Draft 강제)
+		let finalStatus = options.postStatus || 'draft';
+		if (options.imageGeneration === false) {
+			if (finalStatus !== 'draft') {
+				Logger.info("ℹ️ [WordPress] 이미지 미생성 옵션으로 인해 Draft로 강제 전환합니다.");
+				finalStatus = 'draft';
+				warnings.push("이미지 미생성으로 Draft 저장됨");
+			}
+		} else if (warnings.length > 0) {
+			if (finalStatus !== 'draft') {
+				Logger.info(`ℹ️ [WordPress] 이미지 누락/실패(${warnings.length}건)로 인해 Draft로 강제 전환합니다.`);
+				finalStatus = 'draft';
+				warnings.push("이미지 처리 이슈로 Draft 저장됨");
+			}
+		}
+
+		// 3. 카테고리 처리
+		let categoryIds = [];
+		if (options.wpCategory) {
+			// options.wpCategory identifies the ID or Name. 
+			// In our UI, it's likely the ID if from dropdown, but let's handle both.
+			if (/^\d+$/.test(options.wpCategory)) {
+				categoryIds = [parseInt(options.wpCategory)];
+			} else {
+				const catId = await wpClient.getOrCreateCategory(options.wpCategory);
+				if (catId) categoryIds = [catId];
+			}
+		}
+
+		// 4. HTML 변환 및 최종 발행
+		// h1 제거 (WP는 Title 필드가 별도 존재)
+		const bodyMarkdown = finalMarkdown.replace(/^#\s+.+\n?/, "").trim();
+		const htmlContent = marked(bodyMarkdown);
+
+		const postData = {
+			title: postTitle || 'Untitled Post',
+			content: htmlContent,
+			status: finalStatus === 'schedule' ? 'future' : finalStatus,
+			categories: categoryIds,
+			featured_media: featuredMediaId
+		};
+
+		if (finalStatus === 'schedule' && options.wpScheduleDate) {
+			postData.date = options.wpScheduleDate;
+		}
+
+		const result = await wpClient.createPost(postData);
+
+		if (!result) {
+			throw new Error('WordPress 포스트 생성 요청이 실패했습니다.');
+		}
+
+		return {
+			success: true,
+			postId: result.id,
+			postUrl: result.link,
+			status: finalStatus,
+			warnings: warnings.length > 0 ? warnings : null
+		};
+	},
 };
 
 module.exports = Core;

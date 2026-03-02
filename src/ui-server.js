@@ -607,6 +607,8 @@ function buildDefaultConfigTemplate() {
         'GEMINI_API_KEY = ',
         'GOOGLE_AUTH_JSON = ./config/service_account.json',
         'GOOGLE_SHEET_URL = ',
+        'WORDPRESS_USER_ID = ' + (CONFIG.WORDPRESS_USER_ID || ''),
+        'WORDPRESS_APP_PASSWORD = ',
         `LISTEN_HOST = ${DEFAULT_HOST}`,
         `LISTEN_PORT = ${DEFAULT_PORT}`,
         'HEADLESS = false',
@@ -1141,6 +1143,9 @@ function buildMajorSettings(raw, configSource) {
     const geminiApiKey = parseConfigValue(raw, 'GEMINI_API_KEY') || String(CONFIG.GEMINI_API_KEY || '');
     const googleSheetUrlRaw = parseConfigValue(raw, 'GOOGLE_SHEET_URL') || String(CONFIG.GOOGLE_SHEET_URL || '');
     const legacySheetId = parseConfigValue(raw, 'GOOGLE_SHEET_ID') || String(CONFIG.GOOGLE_SHEET_ID || '');
+    const wordpressUrl = parseConfigValue(raw, 'WORDPRESS_URL') || String(CONFIG.WORDPRESS_URL || '');
+    const wordpressUserId = parseConfigValue(raw, 'WORDPRESS_USER_ID') || String(CONFIG.WORDPRESS_USER_ID || '');
+    const wordpressAppPassword = parseConfigValue(raw, 'WORDPRESS_APP_PASSWORD') || String(CONFIG.WORDPRESS_APP_PASSWORD || '');
     const googleSheetUrl = normalizeGoogleSheetUrl(googleSheetUrlRaw, legacySheetId);
     const listenHostRaw = parseConfigValue(raw, 'LISTEN_HOST');
     const listenPortRaw = parseConfigValue(raw, 'LISTEN_PORT');
@@ -1190,6 +1195,9 @@ function buildMajorSettings(raw, configSource) {
         LISTEN_HOST: listenHost,
         LISTEN_PORT: listenPort,
         NAVER_ID: naverId,
+        WORDPRESS_URL: wordpressUrl,
+        WORDPRESS_USER_ID: wordpressUserId,
+        WORDPRESS_APP_PASSWORD: wordpressAppPassword,
         GEMINI_API_KEY: geminiApiKey,
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
@@ -1234,6 +1242,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const listenHost = normalizeListenHost(fields.LISTEN_HOST, normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST));
     const listenPort = normalizeListenPort(fields.LISTEN_PORT, normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT));
     const naverId = String(fields.NAVER_ID || '').trim();
+    const wordpressUrl = String(fields.WORDPRESS_URL || '').trim();
+    const wordpressUserId = String(fields.WORDPRESS_USER_ID || '').trim();
+    const wordpressAppPassword = String(fields.WORDPRESS_APP_PASSWORD || '').trim();
     const geminiApiKey = String(fields.GEMINI_API_KEY || '').trim();
     const googleSheetUrl = normalizeGoogleSheetUrl(fields.GOOGLE_SHEET_URL, CONFIG.GOOGLE_SHEET_ID);
     const googleSheetId = extractGoogleSheetId(googleSheetUrl);
@@ -1247,6 +1258,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const shoppingAutoSettings = normalizeNaverShoppingAutoSettings(fields);
 
     CONFIG.NAVER_ID = naverId;
+    CONFIG.WORDPRESS_URL = wordpressUrl;
+    CONFIG.WORDPRESS_USER_ID = wordpressUserId;
+    CONFIG.WORDPRESS_APP_PASSWORD = wordpressAppPassword;
     CONFIG.LISTEN_HOST = listenHost;
     CONFIG.LISTEN_PORT = listenPort;
     CONFIG.GEMINI_API_KEY = geminiApiKey;
@@ -1268,6 +1282,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const listenHost = normalizeListenHost(requestBody.LISTEN_HOST, DEFAULT_HOST);
     const listenPort = normalizeListenPort(requestBody.LISTEN_PORT, DEFAULT_PORT);
     const naverId = String(requestBody.NAVER_ID || '').trim();
+    const wordpressUrl = String(requestBody.WORDPRESS_URL || '').trim();
+    const wordpressUserId = String(requestBody.WORDPRESS_USER_ID || '').trim();
+    const wordpressAppPassword = String(requestBody.WORDPRESS_APP_PASSWORD || '').trim();
     const geminiApiKey = String(requestBody.GEMINI_API_KEY || '').trim();
     const googleSheetUrl = normalizeGoogleSheetUrl(requestBody.GOOGLE_SHEET_URL, requestBody.GOOGLE_SHEET_ID);
     const headless = normalizeBool(requestBody.HEADLESS, false);
@@ -1282,6 +1299,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         LISTEN_HOST: listenHost,
         LISTEN_PORT: listenPort,
         NAVER_ID: naverId,
+        WORDPRESS_URL: wordpressUrl,
+        WORDPRESS_USER_ID: wordpressUserId,
+        WORDPRESS_APP_PASSWORD: wordpressAppPassword,
         GEMINI_API_KEY: geminiApiKey,
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
@@ -1599,6 +1619,7 @@ async function executeQuickPublish(requestBody) {
     const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
     const referenceUrl = String(requestBody?.referenceUrl || '').trim();
     const publishMode = normalizePublishMode(requestBody?.publishMode);
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
     if (!subject) {
         return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 필수입니다.' };
@@ -1700,7 +1721,12 @@ async function executeQuickPublish(requestBody) {
             },
             source: 'manual',
             trendDate: '',
-            status: appendStatus
+            status: appendStatus,
+            // WordPress Metadata
+            category: requestBody?.category || '',
+            postStatus: requestBody?.postStatus || 'publish',
+            scheduleDate: requestBody?.scheduleDate || '',
+            targets: targets.join(', ')
         }], {
             defaultStatus: appendStatus
         });
@@ -1758,28 +1784,48 @@ async function executeQuickPublish(requestBody) {
             generate: imageGenerationFinal,
             count: 4
         },
-        status: '블로그 발행 준비 완료'
+        status: '발행 준비 완료'
     };
 
     try {
-        const result = await Core.generateContent(topicData, null, {
-            enableRelatedPostsAutoLink
-        });
-        await Core.prepareImages(result.targetDir, topicData, {
-            imageGenerationEnabled: imageGenerationFinal
-        });
+        let naverResult = null;
+        let wpResult = null;
+
+        // 1. 네이버 생성 및 이미지 준비
+        if (targets.includes('naver')) {
+            Logger.info(`   📝 [Naver] 콘텐츠 생성 중: ${subject}`);
+            naverResult = await Core.generateContent(topicData, null, {
+                enableRelatedPostsAutoLink,
+                platform: 'naver'
+            });
+            await Core.prepareImages(naverResult.targetDir, topicData, {
+                imageGenerationEnabled: imageGenerationFinal
+            });
+        }
+
+        // 2. 워드프레스 생성 및 이미지 준비
+        if (targets.includes('wordpress')) {
+            Logger.info(`   📝 [WordPress] 콘텐츠 생성 중: ${subject}`);
+            wpResult = await Core.generateContent(topicData, null, {
+                enableRelatedPostsAutoLink: enableRelatedPostsAutoLink, // Correctly pass the license-checked value
+                platform: 'wordpress'
+            });
+            await Core.prepareImages(wpResult.targetDir, topicData, {
+                imageGenerationEnabled: imageGenerationFinal
+            });
+        }
 
         const verify = await License.verifyLicense();
         if (!verify.success) {
             if (Number.isInteger(rowIndex)) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '라이선스 부족으로 발행 보류');
             }
             quickPublishRecentMap.set(dedupeKey, {
                 rowNumber,
                 rowIndex,
-                status: '블로그 발행 준비 완료',
+                status: '발행 준비 완료',
                 published: false,
-                targetDir: null,
+                targetDir: naverResult?.targetDir || wpResult?.targetDir || null,
                 updatedAtMs: Date.now()
             });
             return {
@@ -1789,21 +1835,48 @@ async function executeQuickPublish(requestBody) {
             };
         }
 
-        if (Number.isInteger(rowIndex)) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
+        let naverPubSuccess = false;
+        let wpPubSuccess = false;
+        let wpInfo = null;
+
+        // 3. 네이버 발행
+        if (targets.includes('naver') && naverResult) {
+            await Core.publishToBlog(naverResult.targetDir, { headless, isLast: true });
+            naverPubSuccess = true;
         }
 
-        await Core.publishToBlog(result.targetDir, { headless, isLast: true });
-
-        if (Number.isInteger(rowIndex)) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+        // 4. 워드프레스 발행
+        if (targets.includes('wordpress') && wpResult) {
+            const wpOptions = {
+                wpCategory: requestBody?.category || '',
+                postStatus: requestBody?.postStatus || 'draft',
+                wpScheduleDate: requestBody?.scheduleDate || '',
+                imageGeneration: imageGenerationFinal
+            };
+            const pubRes = await Core.publishToWordPress(wpResult.targetDir, wpOptions);
+            wpPubSuccess = pubRes.success;
+            wpInfo = pubRes;
         }
+
+        // 5. 시트 업데이트 및 결과 반환
+        if (Number.isInteger(rowIndex)) {
+            const statusArr = [];
+            const logArr = [];
+            if (naverPubSuccess) { statusArr.push('블로그 발행 완료'); logArr.push('네이버 완료'); }
+            if (wpPubSuccess) { statusArr.push('워드프레스 발행 완료'); logArr.push('워프 완료'); }
+
+            const finalStatusStr = statusArr.length === 2 ? '발행 완료' : (statusArr[0] || '발행 완료');
+            const finalLogStr = logArr.join('/');
+            await Utils.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
+        }
+
+        const summaryStatus = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '발행 실패';
         quickPublishRecentMap.set(dedupeKey, {
             rowNumber,
             rowIndex,
-            status: '블로그 발행 완료',
+            status: summaryStatus,
             published: true,
-            targetDir: result.targetDir || null,
+            targetDir: naverResult?.targetDir || wpResult?.targetDir,
             updatedAtMs: Date.now()
         });
 
@@ -1814,9 +1887,10 @@ async function executeQuickPublish(requestBody) {
                 sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                 rowNumber,
                 rowIndex,
-                status: '블로그 발행 완료',
+                status: summaryStatus,
                 deduplicated,
-                targetDir: result.targetDir
+                targetDir: naverResult?.targetDir || wpResult?.targetDir,
+                wordpress: wpInfo
             }
         };
     } catch (e) {
@@ -1935,6 +2009,7 @@ async function executeShoppingQuickPublish(requestBody = {}) {
 async function executeBlogRowAction(requestBody, options = {}) {
     const action = String(requestBody?.action || '').trim().toLowerCase();
     const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
     const emitProgress = (message) => {
         if (!onProgress) return;
@@ -2033,20 +2108,33 @@ async function executeBlogRowAction(requestBody, options = {}) {
             return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
         }
 
-        await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
-        emitProgress('블로그 발행 중...');
+        if (targets.includes('naver')) {
+            await Core.publishToBlog(result.targetDir, {
+                headless: batchHeadless,
+                category: topicData.category || '',
+                postStatus: topicData.postStatus || 'publish',
+                scheduleDate: topicData.scheduleDate || '',
+                isLast: options.isLast === true
+            });
+            emitProgress('네이버 발행 완료');
+        }
 
-        const autoSettings = getAutoSettingsSnapshot();
-        const batchHeadless = typeof requestBody?.headless === 'boolean'
-            ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
-
-        await Core.publishToBlog(result.targetDir, {
-            headless: batchHeadless,
-            isLast: options.isLast === true // executeBlogBatchRowsAction에서 전달받음
-        });
+        if (targets.includes('wordpress')) {
+            emitProgress('워드프레스 발행 중...');
+            await Core.publishToWordPress(result.targetDir, {
+                category: topicData.category || '',
+                postStatus: topicData.postStatus || 'publish',
+                scheduleDate: topicData.scheduleDate || ''
+            });
+            emitProgress('워드프레스 발행 완료');
+        }
 
         emitProgress('시트 상태 반영 중...');
-        await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+        const finalStatus = targets.includes('naver') ? '블로그 발행 완료' : '발행 완료';
+        const finalLog = targets.includes('naver') && targets.includes('wordpress')
+            ? '네이버/워프 발행 완료'
+            : targets.includes('wordpress') ? '워프 발행 완료' : '발행 완료';
+        await Utils.updateGoogleSheetStatus(rowIndex, finalStatus, finalLog);
 
         return {
             success: true,
@@ -2123,6 +2211,7 @@ async function executeBlogBatchRowsAction(requestBody) {
     const targetRowIndices = rowIndices.slice(0, effectiveMax);
     const skippedByLimit = rowIndices.slice(effectiveMax);
     const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
     const results = [];
     let successCount = 0;
@@ -2136,7 +2225,7 @@ async function executeBlogBatchRowsAction(requestBody) {
         const rowIndex = targetRowIndices[i];
         setBlogRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
         const result = await executeBlogRowAction(
-            { action: 'batch', rowIndex, headless, isLast: (i === targetRowIndices.length - 1) },
+            { action: 'batch', rowIndex, headless, targets, isLast: (i === targetRowIndices.length - 1) },
             {
                 onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
                 isAutoCycle: requestBody?.isAutoCycle === true
@@ -2194,6 +2283,7 @@ async function executeBlogBatchRowsAction(requestBody) {
 
 async function executeShoppingRowAction(requestBody, options = {}) {
     const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
     if (rowIndex === null) {
         return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
     }
@@ -2241,9 +2331,17 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         const batchHeadless = typeof requestBody?.headless === 'boolean'
             ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
 
-        publishOptions.isLast = requestBody.isLast === true;
-        await Core.publishToBlog(buildResult.targetDir, publishOptions);
-        await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
+        if (targets.includes('naver')) {
+            publishOptions.isLast = requestBody.isLast === true;
+            await Core.publishToBlog(buildResult.targetDir, publishOptions);
+            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '네이버 발행 완료');
+        }
+
+        if (targets.includes('wordpress')) {
+            report('워드프레스 발행 단계 진행 중');
+            await Core.publishToWordPress(buildResult.targetDir, { category: 'Shopping' });
+            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '네이버/워프 발행 완료');
+        }
 
         return {
             success: true,
@@ -2317,6 +2415,7 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
     const targetRowIndices = rowIndices.slice(0, effectiveMax);
     const skippedByLimit = rowIndices.slice(effectiveMax);
     const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
     targetRowIndices.forEach((rowIndex, i) => {
         setShoppingRuntimeLog(rowIndex, `대기열 등록 (${i + 1}/${targetRowIndices.length})`);
@@ -2330,7 +2429,7 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
         const rowIndex = targetRowIndices[i];
         setShoppingRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
         const result = await executeShoppingRowAction(
-            { rowIndex },
+            { rowIndex, targets },
             {
                 enableRelatedPostsAutoLink,
                 onProgress: (message) => setShoppingRuntimeLog(rowIndex, message),

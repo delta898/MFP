@@ -138,7 +138,10 @@ function createContentService(deps = {}) {
                 FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(nextRaw, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
-                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3
+                SHOPPING_CTA_IMAGE_URL3: parseConfigValue(nextRaw, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3,
+                WORDPRESS_URL: parseConfigValue(nextRaw, 'WORDPRESS_URL') || CONFIG.WORDPRESS_URL,
+                WORDPRESS_USER_ID: parseConfigValue(nextRaw, 'WORDPRESS_USER_ID') || CONFIG.WORDPRESS_USER_ID,
+                WORDPRESS_APP_PASSWORD: parseConfigValue(nextRaw, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD
             };
             applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
             syncAutoRunnerWithConfig();
@@ -360,6 +363,44 @@ function createContentService(deps = {}) {
                 throw createApiError(400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
             }
             return result.data;
+        },
+
+        async getWordPressCategories() {
+            const Logger = require('../../logger');
+            const WordPressClient = require('../../wordpress-client');
+
+            // config 파일에서 최신값을 직접 읽어 사용 (메모리 캐시 우회)
+            let wpUrl = String(CONFIG.WORDPRESS_URL || '').trim();
+            let wpUserId = String(CONFIG.WORDPRESS_USER_ID || '').trim();
+            let wpAppPassword = String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim();
+            try {
+                const configSource = tryResolveReadableConfigSource();
+                if (configSource) {
+                    const raw = readConfigRaw(configSource);
+                    wpUrl = parseConfigValue(raw, 'WORDPRESS_URL') || wpUrl;
+                    wpUserId = parseConfigValue(raw, 'WORDPRESS_USER_ID') || wpUserId;
+                    wpAppPassword = parseConfigValue(raw, 'WORDPRESS_APP_PASSWORD') || wpAppPassword;
+                }
+            } catch (readErr) {
+                Logger.warn(`⚠️ WordPress 카테고리: config 파일 읽기 실패, 메모리 설정 사용 (${readErr.message})`);
+            }
+
+            const wpClient = new WordPressClient({
+                url: wpUrl,
+                userId: wpUserId,
+                appPassword: wpAppPassword
+            });
+
+            if (!wpClient.isConfigured()) {
+                Logger.error(`❌ WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}"`);
+                throw createApiError(400, 'WP_NOT_CONFIGURED', '워드프레스 설정이 필요합니다. 설정 > 블로그 탭에서 저장 후 다시 시도해 주세요.');
+            }
+
+            const categories = await wpClient.listCategories();
+            if (categories === null) {
+                throw createApiError(500, 'WP_API_ERROR', '워드프레스 API 호출 중 오류가 발생했습니다. 터미널 로그를 확인해 주세요.');
+            }
+            return categories;
         }
     };
 }

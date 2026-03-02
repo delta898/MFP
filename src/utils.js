@@ -490,9 +490,11 @@ const Utils = {
                     }
                 });
             } else if (type === 'topics') {
-                // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
+                // 헤더: category, post_status, schedule_date, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
                 headerRow = [[
-                    'blog',
+                    'category',
+                    'post_status',
+                    'schedule_date',
                     'subject',
                     'keywords',
                     '참고/지시 사항',
@@ -507,10 +509,28 @@ const Utils = {
                     '트렌드일자'
                 ]];
 
-                // Dropdown: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
+                // Dropdown: B열 (Index 1) -> publish, draft, schedule (발행 옵션)
                 validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: 'publish' },
+                                    { userEnteredValue: 'draft' },
+                                    { userEnteredValue: 'schedule' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+
+                // Dropdown: G열 (Index 6) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료 (처리 상태)
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -525,10 +545,10 @@ const Utils = {
                     }
                 });
 
-                // Dropdown: F열 (Index 5) -> Yes, No (이미지 생성 여부)
+                // Dropdown: H열 (Index 7) -> Yes, No (이미지 생성 여부)
                 validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 },
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 7, endColumnIndex: 8 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -542,10 +562,10 @@ const Utils = {
                     }
                 });
 
-                // Dropdown: G열 (Index 6) -> Yes, No (외부 참고 여부)
+                // Dropdown: I열 (Index 8) -> Yes, No (외부 참고 여부)
                 validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 8, endColumnIndex: 9 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -659,6 +679,7 @@ const Utils = {
                 const kwStr = getVal(['keywords', '키워드']);
                 const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
                 const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
+                const ctgRaw = getVal(['category', '카테고리']);
                 const status = getVal(['상태', 'status']);
                 const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
@@ -666,6 +687,7 @@ const Utils = {
 
                 return {
                     rowIndex: index,
+                    category: ctgRaw || '',
                     subject: subject || undefined,
                     keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
                     content_guide: {
@@ -732,6 +754,9 @@ const Utils = {
                 const kwStr = getVal(['keywords', '키워드']);
                 const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
                 const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
+                const ctgRaw = getVal(['category', '카테고리']);
+                const postStatus = getVal(['poststatus', 'post_status', '발행옵션', '발행_옵션']);
+                const scheduleDate = getVal(['scheduledate', 'schedule_date', '예약일시', '예약_일시']);
                 const status = getVal(['상태', 'status']);
                 const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
@@ -745,6 +770,9 @@ const Utils = {
                 return {
                     rowIndex: index,
                     rowNumber: index + 2,
+                    category: ctgRaw || '',
+                    postStatus: postStatus || 'publish',
+                    scheduleDate: scheduleDate || '',
                     subject: subject || '',
                     keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
                     keywordsRaw: kwStr || '',
@@ -753,16 +781,14 @@ const Utils = {
                         reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
                     },
                     status: status || '',
-                    use_external_ref: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(extRefStr.toLowerCase()),
-                    image_options: {
-                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
-                        count: parseInt(imgCountStr, 10) || 4
-                    },
+                    image_gen: String(imgGenStr || '').toLowerCase() === 'yes',
+                    image_count: parseInt(imgCountStr, 10) || 1,
+                    external_reference: String(extRefStr || '').toLowerCase() === 'yes',
                     log: logStr || '',
-                    publishedAt: publishedAt || '',
-                    addedAt: addedAt || '',
+                    published_at: publishedAt || '',
+                    created_at: addedAt || '',
                     source: source || '',
-                    trendDate: trendDate || ''
+                    trend_date: trendDate || ''
                 };
             });
 
@@ -1507,7 +1533,14 @@ const Utils = {
             const map = {};
             headers.forEach((h, i) => {
                 const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
-                if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
+
+                // 1. Specialized Metadata (Prioritize these to avoid overlap)
+                if (clean.includes('category') || clean.includes('카테고리')) map.category = i;
+                else if (clean.includes('poststatus') || clean.includes('발행옵션')) map.postStatus = i;
+                else if (clean.includes('scheduledate') || clean.includes('예약일시')) map.scheduleDate = i;
+
+                // 2. Core Fields
+                else if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
                 else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
                 else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
                 else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
@@ -1540,14 +1573,18 @@ const Utils = {
                 headers = nextHeaders;
                 headers.forEach((h, i) => {
                     const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
-                    if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
+
+                    // Priority matching
+                    if (clean.includes('category') || clean.includes('카테고리')) map.category = i;
+                    else if (clean.includes('poststatus') || clean.includes('발행옵션')) map.postStatus = i;
+                    else if (clean.includes('scheduledate') || clean.includes('예약일시')) map.scheduleDate = i;
+                    else if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
                     else if (clean === '소스' || clean.includes('source')) map.source = i;
                     else if (clean.includes('트렌드일자') || clean.includes('trenddate')) map.trendDate = i;
                 });
             }
 
-            // 헤더가 없거나 매핑이 안되면 기본값 사용
-            if (map.blog === undefined) map.blog = 0;
+            // 헤더가 없거나 매핑이 안되면 기본값 사용 (최소 필수 필드들)
             if (map.subject === undefined) map.subject = 1;
             if (map.keyword === undefined) map.keyword = 2;
 
@@ -1597,7 +1634,7 @@ const Utils = {
                 ).trim();
                 const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
 
-                if (map.blog !== undefined) row[map.blog] = 'naver'; // 기본값 'naver'
+                if (map.blog !== undefined) row[map.blog] = topic.targets || topic.platform || 'naver';
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
                 if (map.keyword !== undefined) row[map.keyword] = keywordValue;
                 if (map.instruction !== undefined) row[map.instruction] = instructionValue;
@@ -1608,6 +1645,12 @@ const Utils = {
                 if (map.addedAt !== undefined) row[map.addedAt] = addedAtValue;
                 if (map.source !== undefined) row[map.source] = sourceValue;
                 if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;
+
+                // WP 전용 필드들
+                if (map.category !== undefined) row[map.category] = topic.category || '';
+                if (map.postStatus !== undefined) row[map.postStatus] = topic.postStatus || '';
+                if (map.scheduleDate !== undefined) row[map.scheduleDate] = topic.scheduleDate || '';
+
                 return row;
             });
 
@@ -2331,8 +2374,64 @@ const Utils = {
     },
 
     pickRelatedPostsHeading: function () {
-        const headings = ['함께 보면 좋은 글', '같이 보면 좋은 글', '이어서 보면 좋은 글'];
+        const headings = [
+            '함께 보면 좋은 글',
+            '같이 보면 좋은 글',
+            '이어서 보면 좋은 글',
+            '추천하는 포스팅',
+            '브라우징 이어가기'
+        ];
         return headings[Math.floor(Math.random() * headings.length)];
+    },
+
+    fetchWordPressRandomPosts: async function (wpUrl, count = 3) {
+        if (!wpUrl) return [];
+        const targetCount = Math.max(1, Math.min(10, parseInt(count, 10) || 3));
+
+        // WP RSS URL can be /feed or /?feed=rss2
+        const rssUrl = wpUrl.replace(/\/$/, '') + '/feed';
+        const collected = [];
+
+        try {
+            const cheerio = require('cheerio');
+            const axios = require('axios');
+            const rssRes = await this.runWithHeartbeat(
+                'WP 관련 글 RSS 수집',
+                () => axios.get(rssUrl, {
+                    timeout: 10000,
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    validateStatus: () => true
+                })
+            );
+
+            if (rssRes.status >= 200 && rssRes.status < 300 && typeof rssRes.data === 'string') {
+                const $ = cheerio.load(rssRes.data, { xmlMode: true });
+                $('item').each((_, el) => {
+                    const title = $(el).find('title').first().text().trim();
+                    const link = $(el).find('link').first().text().trim();
+                    if (title && link) {
+                        collected.push({ title, url: link, source: 'wordpress' });
+                    }
+                });
+            }
+        } catch (e) {
+            Logger.debug(`🔎 [WP 관련글] RSS 수집 실패: ${e.message}`);
+        }
+
+        return this._shuffleArray(collected).slice(0, targetCount);
+    },
+
+    generateRelatedPostsMarkdown: function (posts) {
+        if (!Array.isArray(posts) || posts.length === 0) return '';
+
+        const heading = this.pickRelatedPostsHeading();
+        let markdown = `\n\n## ${heading}\n\n`;
+
+        posts.forEach(post => {
+            markdown += `* [${post.title}](${post.url})\n`;
+        });
+
+        return markdown;
     },
 
     fetchOwnBlogRandomPosts: async function (count = 3) {

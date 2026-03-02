@@ -174,6 +174,17 @@ function createContentController(deps = {}) {
             } catch (e) {
                 return toErrorResponse(res, requestId, 'TOPIC_UPDATE_FAILED', '토픽 수정에 실패했습니다.', e);
             }
+        },
+
+        async wordpressCategories({ requestId, method, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.getWordPressCategories());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'WP_CATEGORIES_FETCH_FAILED', '워드프레스 카테고리 목록 조회에 실패했습니다.', e);
+            }
         }
     };
 }

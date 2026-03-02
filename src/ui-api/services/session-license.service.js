@@ -12,7 +12,9 @@ function createSessionLicenseService(deps = {}) {
         getNaverLoginStatus,
         getNaverLoginState,
         setNaverLoginState,
-        runNaverLoginFlowForUi
+        runNaverLoginFlowForUi,
+        WordPressClient,
+        CONFIG
     } = deps;
 
     return {
@@ -93,6 +95,15 @@ function createSessionLicenseService(deps = {}) {
             });
 
             return getNaverLoginStatus();
+        },
+
+        async verifyWordPressAuth() {
+            const wpClient = new WordPressClient({
+                url: CONFIG.WORDPRESS_URL,
+                userId: CONFIG.WORDPRESS_USER_ID,
+                appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+            });
+            return await wpClient.verifyAuth();
         }
     };
 }
