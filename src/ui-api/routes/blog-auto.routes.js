@@ -29,6 +29,21 @@ function createBlogAutoRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/auto/collect/trends/run') {
+            await controller.runCollectTrends(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/auto/collect/rss/run') {
+            await controller.runCollectRss(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/auto/publish/run') {
+            await controller.runAutoPublish(ctx);
+            return true;
+        }
+
         return false;
     };
 }

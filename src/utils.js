@@ -2557,6 +2557,73 @@ const Utils = {
     },
 
     /**
+     * 🌐 RSS/Atom 피드 수집 및 파싱
+     */
+    fetchAndParseRss: async function (url) {
+        if (!url) return [];
+        const collected = [];
+        try {
+            const cheerio = require('cheerio');
+            const axios = require('axios');
+            const res = await this.runWithHeartbeat(
+                `RSS 수집 (${url})`,
+                () => axios.get(url, {
+                    timeout: 10000,
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    validateStatus: () => true
+                })
+            );
+
+            if (res.status >= 200 && res.status < 300 && typeof res.data === 'string') {
+                const $ = cheerio.load(res.data, { xmlMode: true, decodeEntities: true });
+
+                // RSS 2.0
+                if ($('rss').length > 0 || $('channel').length > 0) {
+                    $('item').each((_, el) => {
+                        const title = $(el).find('title').first().text().trim();
+                        let link = $(el).find('link').first().text().trim();
+                        if (!link) {
+                            link = $(el).find('guid').first().text().trim();
+                        }
+                        const pubDate = $(el).find('pubDate').first().text().trim();
+                        const description = $(el).find('description').first().text().trim();
+                        if (title && link) {
+                            collected.push({
+                                title,
+                                link,
+                                pubDate,
+                                description,
+                                source: 'rss'
+                            });
+                        }
+                    });
+                }
+                // Atom
+                else if ($('feed').length > 0) {
+                    $('entry').each((_, el) => {
+                        const title = $(el).find('title').first().text().trim();
+                        let link = $(el).find('link[rel="alternate"]').attr('href') || $(el).find('link').attr('href') || $(el).find('link').text().trim();
+                        const updated = $(el).find('updated').first().text().trim() || $(el).find('published').first().text().trim();
+                        const summary = $(el).find('summary').first().text().trim() || $(el).find('content').first().text().trim();
+                        if (title && link) {
+                            collected.push({
+                                title,
+                                link,
+                                pubDate: updated,
+                                description: summary,
+                                source: 'rss'
+                            });
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            Logger.warn(`⚠️ RSS 수집 실패 (${url}): ${e.message}`);
+        }
+        return collected;
+    },
+
+    /**
      * 2. 구글 시트 상태 업데이트
      * 🔧 [Fixed] 재시도 로직 추가 및 백업 로깅
      */

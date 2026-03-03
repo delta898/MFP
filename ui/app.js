@@ -847,7 +847,7 @@ async function runTrendsToTopics() {
 }
 
 function activateBlogTab(tabName, options = {}) {
-  const allowed = ['quick', 'trends', 'topics', 'auto'];
+  const allowed = ['quick', 'trends', 'topics', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -865,6 +865,10 @@ function activateBlogTab(tabName, options = {}) {
   }
   if (target === 'topics') {
     loadBlogTopics();
+    return;
+  }
+  if (target === 'collect') {
+    loadBlogCollectSettings();
     return;
   }
   if (target === 'auto') {
@@ -2306,7 +2310,15 @@ function applySettingsMajorToForm(data) {
     ?? 3
   );
   applyBlogAutoDailyPostsLimitUi();
-  if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.BLOG_AUTO_TRENDS_TIME || '07:30');
+  if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.COLLECT_TRENDS_TIME || fields.BLOG_AUTO_TRENDS_TIME || '07:30');
+  const collectTrendsEnabledEl = document.getElementById('blog-collect-trends-enabled');
+  if (collectTrendsEnabledEl) {
+    collectTrendsEnabledEl.checked = Boolean(fields.COLLECT_TRENDS_ENABLED ?? fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
+  }
+  const publishAutoEnabledEl = document.getElementById('blog-publish-auto-enabled');
+  if (publishAutoEnabledEl) {
+    publishAutoEnabledEl.checked = Boolean(fields.PUBLISH_AUTO_ENABLED ?? false);
+  }
   if (blogAutoHeadlessEl) blogAutoHeadlessEl.checked = Boolean(fields.BLOG_AUTO_HEADLESS ?? true);
   if (blogAutoImageGenerationEl) blogAutoImageGenerationEl.checked = Boolean(fields.BLOG_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
   if (blogAutoExternalReferenceEl) blogAutoExternalReferenceEl.checked = Boolean(fields.BLOG_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
@@ -2566,6 +2578,9 @@ function buildSettingsMajorPayload() {
     BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
     BLOG_AUTO_MAX_POSTS_PER_RUN: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
     BLOG_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+    COLLECT_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+    COLLECT_TRENDS_ENABLED: Boolean(document.getElementById('blog-collect-trends-enabled')?.checked),
+    PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('blog-publish-auto-enabled')?.checked),
     BLOG_AUTO_HEADLESS: Boolean(document.getElementById('blog-auto-headless')?.checked),
     BLOG_AUTO_IMAGE_GENERATION: Boolean(document.getElementById('blog-auto-image-generation')?.checked),
     BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(document.getElementById('blog-auto-external-reference')?.checked),
@@ -3106,6 +3121,77 @@ function setBlogAutoResultText(message) {
   if (resultEl) resultEl.textContent = String(message || '');
 }
 
+function setBlogCollectResultText(message) {
+  const resultEl = document.getElementById('blog-collect-result');
+  if (resultEl) resultEl.textContent = String(message || '').replace(/\\n/g, '\n');
+}
+
+let currentRssConfigs = [];
+window.addRssConfig = function () {
+  currentRssConfigs.push({ enabled: true, url: '', interval: 60, includeKeywords: '', excludeKeywords: '' });
+  renderBlogCollectRssUi(currentRssConfigs);
+};
+window.removeRssConfig = function (index) {
+  currentRssConfigs.splice(index, 1);
+  renderBlogCollectRssUi(currentRssConfigs);
+};
+window.updateRssConfig = function (index, key, value) {
+  if (currentRssConfigs[index]) currentRssConfigs[index][key] = value;
+};
+window.toggleAllRssConfigs = function (checked) {
+  currentRssConfigs.forEach(rss => { rss.enabled = checked; });
+  renderBlogCollectRssUi(currentRssConfigs);
+};
+window.openRssTest = function (index) {
+  const url = currentRssConfigs[index]?.url;
+  if (url) window.open(url, '_blank');
+};
+function renderBlogCollectRssUi(configs = []) {
+  currentRssConfigs = Array.isArray(configs) ? configs : [];
+  const tbody = document.getElementById('blog-collect-rss-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // 헤더 체크박스 상태 동기화
+  const toggleAllEl = document.getElementById('blog-collect-rss-toggle-all');
+  if (toggleAllEl) {
+    toggleAllEl.checked = currentRssConfigs.length > 0 && currentRssConfigs.every(rss => rss.enabled);
+  }
+
+  if (currentRssConfigs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">등록된 RSS 피드가 없습니다.</td></tr>';
+    return;
+  }
+  currentRssConfigs.forEach((rss, index) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border-color)';
+    tr.innerHTML = `
+      <td style="padding: 10px; text-align: center;">
+        <input type="checkbox" onchange="updateRssConfig(${index}, 'enabled', this.checked); renderBlogCollectRssUi(currentRssConfigs);" ${rss.enabled ? 'checked' : ''}>
+      </td>
+      <td style="padding: 10px;">
+        <input type="url" placeholder="RSS URL" value="${rss.url || ''}" onchange="updateRssConfig(${index}, 'url', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+      </td>
+      <td style="padding: 10px; text-align: center;">
+        <input type="number" min="1" step="1" value="${rss.interval || 60}" onchange="updateRssConfig(${index}, 'interval', parseInt(this.value, 10))" style="width: 60px; min-height: 32px; text-align: center;">
+      </td>
+      <td style="padding: 10px;">
+        <input type="text" placeholder="포함(쉼표 구분)" value="${rss.includeKeywords || ''}" onchange="updateRssConfig(${index}, 'includeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+      </td>
+      <td style="padding: 10px;">
+        <input type="text" placeholder="제외(쉼표 구분)" value="${rss.excludeKeywords || ''}" onchange="updateRssConfig(${index}, 'excludeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+      </td>
+      <td style="padding: 10px; text-align: center; white-space: nowrap;">
+        <div style="display: flex; gap: 4px; justify-content: center;">
+          <button type="button" class="secondary compact" onclick="openRssTest(${index})">테스트</button>
+          <button type="button" class="secondary compact" onclick="removeRssConfig(${index})">삭제</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 function normalizeCategoryToken(input) {
   return String(input || '').trim();
 }
@@ -3126,6 +3212,48 @@ function parseCategoryTokens(input) {
 
 function serializeSelectedBlogAutoCategories() {
   return Array.from(blogAutoCategorySelected.values()).join(', ');
+}
+
+function getBlogAutoSettingsFromUi() {
+  const modeEl = document.getElementById('blog-collect-trends-enabled');
+  const variationNewEl = document.getElementById('blog-auto-variation-new');
+  const variationDashEl = document.getElementById('blog-auto-variation-dash');
+  const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
+  const variationMinEl = document.getElementById('blog-auto-variation-min');
+  const variationTopEl = document.getElementById('blog-auto-variation-top');
+  const variationTypeEl = document.getElementById('blog-auto-variation-type');
+  const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+  const trendsTimeEl = document.getElementById('blog-auto-trends-time');
+
+  const variationMinRaw = String(variationMinEl?.value ?? '').trim();
+  if (variationMinRaw && !/^-?\d+$/.test(variationMinRaw)) throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
+  const variationMin = normalizeBlogAutoVariationNumberValue(variationMinRaw, 50);
+
+  const variationTopRaw = String(variationTopEl?.value ?? '').trim();
+  if (variationTopRaw && !/^-?\d+$/.test(variationTopRaw)) throw new Error('상위 랭킹 개수는 앞선 정수만 필요합니다.');
+  const variationTopN = normalizeBlogAutoVariationNumberValue(variationTopRaw, 5);
+
+  const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
+  if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
+  const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
+
+  const categories = serializeSelectedBlogAutoCategories();
+
+  return {
+    COLLECT_TRENDS_ENABLED: Boolean(modeEl?.checked),
+    COLLECT_TRENDS_CATEGORIES: categories,
+    BLOG_AUTO_CATEGORIES: categories,
+    COLLECT_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
+    BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
+    BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
+    BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+    BLOG_AUTO_VARIATION_TYPE: (variationTypeEl?.value || 'min').trim(),
+    COLLECT_TRENDS_FILTER_MIN_INCR: variationMin,
+    BLOG_AUTO_VARIATION_NUMBER: variationMin,
+    BLOG_AUTO_VARIATION_TOP_N: variationTopN,
+    COLLECT_TRENDS_REUSE_GAP_DAYS: keywordReuseGap,
+    BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
+  };
 }
 
 function setSelectedBlogAutoCategories(categories = []) {
@@ -3434,48 +3562,29 @@ function clampBlogAutoDailyPostsInputValue(options = {}) {
   }
 }
 
-async function loadBlogAutoSettings() {
-  const modeEl = document.getElementById('blog-auto-mode');
-  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+async function loadBlogCollectSettings() {
+  const modeEl = document.getElementById('blog-collect-trends-enabled');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
-  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
-  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
   const variationNewEl = document.getElementById('blog-auto-variation-new');
   const variationDashEl = document.getElementById('blog-auto-variation-dash');
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const variationMinEl = document.getElementById('blog-auto-variation-min');
   const variationTopEl = document.getElementById('blog-auto-variation-top');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
-  const runDateEl = document.getElementById('blog-auto-run-date');
-  setBlogAutoResultText('불러오는 중...');
+  setBlogCollectResultText('불러오는 중...');
   try {
     const [data] = await Promise.all([
       fetchJson('/api/v1/settings/major'),
-      loadBlogAutoCategoryCatalog({ silent: true }),
-      loadBlogAutoPlanLimit({ silent: true })
+      loadBlogAutoCategoryCatalog({ silent: true })
     ]);
     const fields = data?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
+    if (modeEl) modeEl.checked = Boolean(fields.COLLECT_TRENDS_ENABLED ?? fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
     setSelectedBlogAutoCategories(
-      fields.BLOG_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
+      fields.COLLECT_TRENDS_CATEGORIES || fields.BLOG_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
     );
     renderBlogAutoCategoryUi();
-    if (dailyPostsEl) dailyPostsEl.value = String(
-      fields.BLOG_AUTO_MAX_POSTS_PER_RUN
-      ?? fields.BLOG_AUTO_DAILY_POSTS
-      ?? fields.AUTO_MAX_BLOG_PER_CYCLE
-      ?? fields.AUTO_DAILY_BLOG_CAP
-      ?? 3
-    );
-    applyBlogAutoDailyPostsLimitUi();
-    if (trendsTimeEl) trendsTimeEl.value = String(fields.BLOG_AUTO_TRENDS_TIME || '07:30');
-    if (imageGenerationEl) imageGenerationEl.checked = Boolean(fields.BLOG_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
-    if (externalReferenceEl) externalReferenceEl.checked = Boolean(fields.BLOG_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
-    if (notifyEnabledEl) {
-      notifyEnabledEl.checked = false;
-      notifyEnabledEl.disabled = true;
-    }
+    if (trendsTimeEl) trendsTimeEl.value = String(fields.COLLECT_TRENDS_TIME || fields.BLOG_AUTO_TRENDS_TIME || '07:30');
+
     if (variationNewEl) variationNewEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
     if (variationDashEl) variationDashEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
     const variationTypeEl = document.getElementById('blog-auto-variation-type');
@@ -3490,7 +3599,7 @@ async function loadBlogAutoSettings() {
     }
     if (variationMinEl) {
       const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(
-        fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
+        fields.COLLECT_TRENDS_FILTER_MIN_INCR ?? fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
         50
       );
       variationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
@@ -3506,31 +3615,32 @@ async function loadBlogAutoSettings() {
     syncBlogAutoVariationNumberUi();
     if (keywordReuseGapEl) {
       const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
-        fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS,
+        fields.COLLECT_TRENDS_REUSE_GAP_DAYS ?? fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS,
         15
       );
       keywordReuseGapEl.value = String(normalizedReuseGap);
     }
-    if (runDateEl && !String(runDateEl.value || '').trim()) {
-      runDateEl.value = shiftKstDays(-1);
-    }
-    setBlogAutoResultText([
+
+    const rssGlobalEnabledEl = document.getElementById('blog-collect-rss-enabled');
+    if (rssGlobalEnabledEl) rssGlobalEnabledEl.checked = Boolean(fields.COLLECT_RSS_ENABLED ?? false);
+
+    let rssArr = [];
+    try { rssArr = typeof fields.COLLECT_RSS_CONFIGS === 'string' ? JSON.parse(fields.COLLECT_RSS_CONFIGS) : fields.COLLECT_RSS_CONFIGS; } catch (e) { }
+    renderBlogCollectRssUi(rssArr);
+
+    setBlogCollectResultText([
       '불러오기 완료',
-      '- 자동발행 기준을 확인했습니다.',
+      '- 수집 기준을 확인했습니다.',
       '- 변경 후 [저장]을 눌러 반영하세요.'
     ].join('\n'));
   } catch (e) {
-    setBlogAutoResultText(`오류: ${e.message}`);
+    setBlogCollectResultText(`오류: ${e.message}`);
   }
 }
 
-async function saveBlogAutoSettings() {
-  const modeEl = document.getElementById('blog-auto-mode');
-  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+async function saveBlogCollectSettings() {
+  const modeEl = document.getElementById('blog-collect-trends-enabled');
   const trendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
-  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
-  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
   const variationNewEl = document.getElementById('blog-auto-variation-new');
   const variationDashEl = document.getElementById('blog-auto-variation-dash');
   const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
@@ -3538,111 +3648,172 @@ async function saveBlogAutoSettings() {
   const variationTopEl = document.getElementById('blog-auto-variation-top');
   const variationTypeEl = document.getElementById('blog-auto-variation-type');
   const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+  setBlogCollectResultText('저장 중...');
+  try {
+    const major = await fetchJson('/api/v1/settings/major');
+    const fields = { ...(major?.fields || {}) };
+
+    const uiSettings = getBlogAutoSettingsFromUi();
+
+    const variationMinEl = document.getElementById('blog-auto-variation-min');
+    const variationTopEl = document.getElementById('blog-auto-variation-top');
+    const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
+
+    if (variationMinEl) variationMinEl.value = uiSettings.BLOG_AUTO_VARIATION_NUMBER === '' ? '' : String(uiSettings.BLOG_AUTO_VARIATION_NUMBER);
+    if (variationTopEl) variationTopEl.value = uiSettings.BLOG_AUTO_VARIATION_TOP_N === '' ? '' : String(uiSettings.BLOG_AUTO_VARIATION_TOP_N);
+    if (keywordReuseGapEl) keywordReuseGapEl.value = String(uiSettings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS);
+
+    const payload = {
+      ...fields,
+      ...uiSettings,
+      COLLECT_RSS_ENABLED: Boolean(document.getElementById('blog-collect-rss-enabled')?.checked),
+      COLLECT_RSS_CONFIGS: JSON.stringify(currentRssConfigs)
+    };
+    const saved = await postJson('/api/v1/settings/major', payload);
+    const savedFields = saved?.fields || {};
+
+    setBlogCollectResultText([
+      '저장 완료',
+      '- 자동수집 설정이 반영되었습니다.',
+      '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
+    ].join('\\n'));
+  } catch (e) {
+    setBlogCollectResultText(`오류: ${e.message}`);
+  }
+}
+
+async function loadBlogAutoSettings() {
+  const publishEnabledEl = document.getElementById('blog-publish-auto-enabled');
+  const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
+  const publishBatchEl = document.getElementById('blog-publish-auto-batch');
+  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
+  const headlessEl = document.getElementById('blog-auto-headless');
+
+  setBlogAutoResultText('불러오는 중...');
+  try {
+    const [data] = await Promise.all([
+      fetchJson('/api/v1/settings/major'),
+      loadBlogAutoPlanLimit({ silent: true })
+    ]);
+    const fields = data?.fields || {};
+
+    if (publishEnabledEl) publishEnabledEl.checked = Boolean(fields.PUBLISH_AUTO_ENABLED ?? fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
+    if (publishIntervalEl) publishIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN ?? 60);
+    if (publishBatchEl) publishBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE ?? 1);
+    if (headlessEl) headlessEl.checked = Boolean(fields.BLOG_AUTO_HEADLESS ?? true);
+
+    if (dailyPostsEl) dailyPostsEl.value = String(
+      fields.BLOG_AUTO_MAX_POSTS_PER_RUN
+      ?? fields.BLOG_AUTO_DAILY_POSTS
+      ?? fields.AUTO_MAX_BLOG_PER_CYCLE
+      ?? 3
+    );
+    applyBlogAutoDailyPostsLimitUi();
+
+    if (imageGenerationEl) imageGenerationEl.checked = Boolean(fields.BLOG_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
+    if (externalReferenceEl) externalReferenceEl.checked = Boolean(fields.BLOG_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
+
+    setBlogAutoResultText([
+      '불러오기 완료',
+      '- 자동발행 기준을 확인했습니다.',
+      '- 변경 후 [저장]을 눌러 반영하세요.'
+    ].join('\\n'));
+  } catch (e) {
+    setBlogAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function saveBlogAutoSettings() {
+  const publishEnabledEl = document.getElementById('blog-publish-auto-enabled');
+  const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
+  const publishBatchEl = document.getElementById('blog-publish-auto-batch');
+  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
+  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
+  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
+  const headlessEl = document.getElementById('blog-auto-headless');
+
   setBlogAutoResultText('저장 중...');
   try {
     const major = await fetchJson('/api/v1/settings/major');
     const fields = { ...(major?.fields || {}) };
     const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    const variationMinRaw = String(variationMinEl?.value ?? '').trim();
-    if (variationMinRaw && !/^-?\d+$/.test(variationMinRaw)) {
-      throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
-    }
-    const variationMin = normalizeBlogAutoVariationNumberValue(variationMinRaw, 50);
-
-    const variationTopRaw = String(variationTopEl?.value ?? '').trim();
-    if (variationTopRaw && !/^-?\d+$/.test(variationTopRaw)) {
-      throw new Error('상위 랭킹 개수는 앞선 정수만 필요합니다.');
-    }
-    const variationTopN = normalizeBlogAutoVariationNumberValue(variationTopRaw, 5);
-    const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
-    if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
-      throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
-    }
-    const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
     if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
-    if (variationMinEl) variationMinEl.value = variationMin === '' ? '' : String(variationMin);
-    if (variationTopEl) variationTopEl.value = variationTopN === '' ? '' : String(variationTopN);
-    if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
+
     const payload = {
       ...fields,
-      BLOG_AUTO_MODE: Boolean(modeEl?.checked),
-      BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      PUBLISH_AUTO_ENABLED: Boolean(publishEnabledEl?.checked),
+      PUBLISH_AUTO_INTERVAL_MIN: parseInt(publishIntervalEl?.value || '60', 10),
+      PUBLISH_AUTO_BATCH_SIZE: parseInt(publishBatchEl?.value || '1', 10),
       BLOG_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
-      BLOG_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
       BLOG_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
       BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
-      BLOG_AUTO_NOTIFY_ENABLED: false,
-      BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
-      BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
-      BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
-      BLOG_AUTO_VARIATION_TYPE: (variationTypeEl?.value || 'min').trim(),
-      BLOG_AUTO_VARIATION_NUMBER: variationMin,
-      BLOG_AUTO_VARIATION_TOP_N: variationTopN,
-      BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
+      BLOG_AUTO_HEADLESS: Boolean(headlessEl?.checked),
+      COLLECT_TRENDS_ENABLED: Boolean(document.getElementById('blog-collect-trends-enabled')?.checked),
+      COLLECT_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+      COLLECT_TRENDS_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      BLOG_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+      BLOG_AUTO_MODE: Boolean(publishEnabledEl?.checked) // Alias for internal compatibility
     };
-    const saved = await postJson('/api/v1/settings/major', payload);
-    const savedFields = saved?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(savedFields.BLOG_AUTO_MODE ?? savedFields.AUTO_MODE);
-    setSelectedBlogAutoCategories(
-      savedFields.BLOG_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || ''
-    );
-    renderBlogAutoCategoryUi();
-    if (dailyPostsEl) dailyPostsEl.value = String(
-      savedFields.BLOG_AUTO_MAX_POSTS_PER_RUN
-      ?? savedFields.MAX_BLOG_POSTS_PER_RUN
-      ?? savedFields.AUTO_MAX_BLOG_PER_CYCLE
-      ?? savedFields.AUTO_DAILY_BLOG_CAP
-      ?? 3
-    );
-    applyBlogAutoDailyPostsLimitUi();
-    if (trendsTimeEl) trendsTimeEl.value = String(savedFields.BLOG_AUTO_TRENDS_TIME || '07:30');
-    if (imageGenerationEl) imageGenerationEl.checked = Boolean(savedFields.BLOG_AUTO_IMAGE_GENERATION ?? savedFields.AUTO_IMAGE_GENERATION ?? true);
-    if (externalReferenceEl) externalReferenceEl.checked = Boolean(savedFields.BLOG_AUTO_EXTERNAL_REFERENCE ?? savedFields.AUTO_USE_EXTERNAL_REF ?? true);
-    if (notifyEnabledEl) {
-      notifyEnabledEl.checked = false;
-      notifyEnabledEl.disabled = true;
-    }
-    if (variationNewEl) variationNewEl.checked = Boolean(savedFields.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
-    if (variationDashEl) variationDashEl.checked = Boolean(savedFields.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
-    if (variationNumberEnabledEl) {
-      variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
-        savedFields.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
-        true
-      );
-    }
-    if (variationTypeEl) {
-      variationTypeEl.value = String(savedFields.BLOG_AUTO_VARIATION_TYPE || 'min');
-    }
-    if (variationMinEl) {
-      const normalizedSavedVariationNumber = normalizeBlogAutoVariationNumberValue(
-        savedFields.BLOG_AUTO_VARIATION_NUMBER ?? savedFields.AUTO_TRENDS_MIN_VARIATION,
-        50
-      );
-      variationMinEl.value = normalizedSavedVariationNumber === '' ? '' : String(normalizedSavedVariationNumber);
-    }
-    if (variationTopEl) {
-      const normalizedTopN = normalizeBlogAutoVariationNumberValue(
-        savedFields.BLOG_AUTO_VARIATION_TOP_N ?? 5,
-        5
-      );
-      variationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
-    }
-    syncBlogAutoVariationTypeUi();
-    syncBlogAutoVariationNumberUi();
-    if (keywordReuseGapEl) {
-      const normalizedSavedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
-        savedFields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? savedFields.AUTO_KEYWORD_REUSE_GAP_DAYS,
-        15
-      );
-      keywordReuseGapEl.value = String(normalizedSavedReuseGap);
-    }
+
+    await postJson('/api/v1/settings/major', payload);
+
     setBlogAutoResultText([
       '저장 완료',
       '- 자동발행 설정이 반영되었습니다.',
       '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
-    ].join('\n'));
+    ].join('\\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
+  }
+}
+
+async function runBlogCollectTrendsManual() {
+  if (!guardUiConfigReady('트렌드 1회 수집')) return;
+  const resultEl = document.getElementById('blog-collect-result');
+  const runDateEl = document.getElementById('blog-collect-trends-date');
+
+  const rawDate = String(runDateEl?.value || '').trim();
+
+  const confirmMessage = rawDate ? `${rawDate} 기준으로 트렌드 수집을 강제 1회 실행하시겠습니까?` : `오늘 날짜를 기준으로 트렌드 수집을 1회 실행하시겠습니까?`;
+  if (await showUiConfirm(confirmMessage) === false) return;
+
+  if (resultEl) resultEl.textContent = '트렌드 수집 1회 실행 중...';
+  try {
+    const settings = getBlogAutoSettingsFromUi();
+    const data = await postJson('/api/v1/auto/collect/trends/run', { trendDate: rawDate, settings });
+    // Handle both data structures (nested or direct summary) gracefully
+    const dataPayload = data?.data || data;
+    const summary = dataPayload?.summary || dataPayload || {};
+
+    const lines = [
+      '수동 수집 완료',
+      `- 트렌드 수집: ${Number(summary?.trendsCollected || 0)}건`,
+      `- Topics 추가: ${Number(summary?.trendsToTopics || 0)}건`
+    ];
+    if (resultEl) resultEl.textContent = lines.join('\n');
+    await loadBlogTopics({ silent: true });
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+  }
+}
+
+async function runBlogCollectRssManual() {
+  if (!guardUiConfigReady('RSS 1회 수집')) return;
+  const resultEl = document.getElementById('blog-collect-result');
+  if (await showUiConfirm('RSS 수집을 1회 실행하시겠습니까?') === false) return;
+  if (resultEl) resultEl.textContent = 'RSS 수집 실행 중...';
+  try {
+    const data = await postJson('/api/v1/auto/collect/rss/run', {
+      settingsOverrides: {
+        COLLECT_RSS_CONFIGS: currentRssConfigs
+      }
+    });
+    if (resultEl) resultEl.textContent = `RSS 수집 완료: ${JSON.stringify(data.data?.summary || data)}`;
+  } catch (e) {
+    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
   }
 }
 
@@ -3770,120 +3941,27 @@ async function runShoppingAutoManual() {
   }
 }
 
-async function runBlogAutoManual() {
-  if (!guardUiConfigReady('자동발행 수동 실행')) return;
+async function runBlogPublishAutoManual() {
+  if (!guardUiConfigReady('자동발행 수동 1회 실행')) return;
   if (blogAutoManualRunInFlight) return;
 
   const resultEl = document.getElementById('blog-auto-result');
-  const dateEl = document.getElementById('blog-auto-run-date');
-  const skipTrendsEl = document.getElementById('blog-auto-run-skip-trends');
-  const modeEl = document.getElementById('blog-auto-mode');
-  const dailyPostsEl = document.getElementById('blog-auto-daily-posts');
-  const trendsTimeEl = document.getElementById('blog-auto-trends-time');
-  const imageGenerationEl = document.getElementById('blog-auto-image-generation');
-  const externalReferenceEl = document.getElementById('blog-auto-external-reference');
-  const notifyEnabledEl = document.getElementById('blog-auto-notify-enabled');
-  const variationNewEl = document.getElementById('blog-auto-variation-new');
-  const variationDashEl = document.getElementById('blog-auto-variation-dash');
-  const variationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
-  const variationMinEl = document.getElementById('blog-auto-variation-min');
-  const variationTopEl = document.getElementById('blog-auto-variation-top');
-  const keywordReuseGapEl = document.getElementById('blog-auto-keyword-reuse-gap');
-  const rawDate = String(dateEl?.value || '').trim();
-  const skipTrends = Boolean(skipTrendsEl?.checked);
-
-  if (resultEl) {
-    resultEl.textContent = rawDate
-      ? `수동 실행 확인 중... (기준일: ${rawDate}${skipTrends ? ', 트렌드 수집 스킵' : ''})`
-      : `수동 실행 확인 중... (기준일: 미지정${skipTrends ? ', 트렌드 수집 스킵' : ''})`;
-  }
-
-  const confirmMessage = rawDate
-    ? `${rawDate} 기준으로 자동발행 파이프라인을 수동 실행하시겠습니까?${skipTrends ? '\n(트렌드 수집은 건너뜁니다.)' : ''}`
-    : `기본(미지정) 기준으로 자동발행 파이프라인을 수동 실행하시겠습니까?${skipTrends ? '\n(트렌드 수집은 건너뜁니다.)' : ''}`;
-  const shouldProceed = await showUiConfirm(confirmMessage, {
-    title: '수동 실행 확인',
-    confirmText: '진행',
-    cancelText: '취소'
-  });
-  if (shouldProceed === false) {
-    if (resultEl) resultEl.textContent = '수동 실행이 취소되었습니다.';
-    return;
-  }
+  if (await showUiConfirm('큐에서 가져와서 1회 발행을 시도하시겠습니까?') === false) return;
 
   blogAutoManualRunInFlight = true;
-  if (resultEl) {
-    resultEl.textContent = rawDate
-      ? `수동 실행 중... (기준일: ${rawDate}${skipTrends ? ', 트렌드 수집 스킵' : ''})`
-      : `수동 실행 중... (기준일: 미지정${skipTrends ? ', 트렌드 수집 스킵' : ''})`;
-  }
+  if (resultEl) resultEl.textContent = '발행 파이프라인 1회 실행 중...';
 
   try {
-    if (resultEl) resultEl.textContent += '\nAPI 요청 전송 중...';
-    const dailyPosts = normalizeBlogAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    const variationMinRaw = String(variationMinEl?.value ?? '').trim();
-    if (variationMinRaw && !/^-?\d+$/.test(variationMinRaw)) {
-      throw new Error('증감 숫자 기준은 정수만 입력할 수 있습니다.');
-    }
-    const variationMin = normalizeBlogAutoVariationNumberValue(variationMinRaw, 50);
-
-    const variationTopRaw = String(variationTopEl?.value ?? '').trim();
-    if (variationTopRaw && !/^-?\d+$/.test(variationTopRaw)) {
-      throw new Error('상위 랭킹 개수는 앞선 정수만 필요합니다.');
-    }
-    const variationTopN = normalizeBlogAutoVariationNumberValue(variationTopRaw, 5);
-    const keywordReuseGapRaw = String(keywordReuseGapEl?.value ?? '').trim();
-    if (keywordReuseGapRaw && !/^\d+$/.test(keywordReuseGapRaw)) {
-      throw new Error('중복 키워드 금지 간격은 0 이상의 정수만 입력할 수 있습니다.');
-    }
-    const keywordReuseGap = normalizeBlogAutoKeywordReuseGapValue(keywordReuseGapRaw, 15);
-    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
-    if (variationMinEl) variationMinEl.value = variationMin === '' ? '' : String(variationMin);
-    if (variationTopEl) variationTopEl.value = variationTopN === '' ? '' : String(variationTopN);
-    if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
-
-    const settingsOverrides = {
-      BLOG_AUTO_MODE: Boolean(modeEl?.checked),
-      BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
-      BLOG_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
-      BLOG_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
-      BLOG_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
-      BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
-      BLOG_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked),
-      BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
-      BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
-      BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
-      BLOG_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-      BLOG_AUTO_VARIATION_NUMBER: variationMin,
-      BLOG_AUTO_VARIATION_TOP_N: variationTopN,
-      BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
-    };
-
-    const payload = rawDate
-      ? { trendDate: rawDate, skipTrends, settingsOverrides }
-      : { skipTrends, settingsOverrides };
-    const data = await postJson('/api/v1/blog/auto/run-manual', payload);
+    const data = await postJson('/api/v1/auto/publish/run', {});
     const summary = data?.summary || {};
-    const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
     const lines = [
       '수동 실행 완료',
-      `- 기준일: ${data?.trendDate || '(미지정)'}`,
-      `- 트렌드 수집 스킵: ${data?.skipTrends ? 'Yes' : 'No'}`,
-      `- 트렌드 수집: ${Number(summary?.trendsCollected || 0)}건`,
-      `- Topics 추가: ${Number(summary?.trendsToTopics || 0)}건`,
       `- 블로그 발행 시도/성공: ${Number(summary?.blogAttempted || 0)} / ${Number(summary?.blogSuccess || 0)}건`
     ];
-    if (skipped.length > 0) {
-      lines.push('- 건너뜀/주의:');
-      for (const item of skipped) lines.push(`  • ${String(item)}`);
-    }
-    if (resultEl) resultEl.textContent = lines.join('\n');
-
+    if (resultEl) resultEl.textContent = lines.join('\\n');
     await Promise.all([
       loadDashboard(),
-      loadBlogTrends({ silent: true }),
-      loadBlogTopics({ silent: true }),
-      loadBlogAutoCategoryCatalog({ force: true, silent: true })
+      loadBlogTopics({ silent: true })
     ]);
   } catch (e) {
     if (resultEl) resultEl.textContent = `오류: ${e.message}`;
@@ -4617,6 +4695,11 @@ function bindActions() {
   const settingsGoogleAuthFileBtn = document.getElementById('settings-google-auth-file');
   const settingsGoogleAuthSaveBtn = document.getElementById('settings-google-auth-save-btn');
   const settingsTypingSpeedEl = document.getElementById('settings-typing-speed');
+  const blogCollectRefreshBtn = document.getElementById('blog-collect-refresh-btn');
+  const blogCollectSaveBtn = document.getElementById('blog-collect-save-btn');
+  const blogCollectTrendsRunBtn = document.getElementById('blog-collect-trends-run-btn');
+  const blogCollectRssRunBtn = document.getElementById('blog-collect-rss-run-btn');
+  const blogCollectRssAddBtn = document.getElementById('blog-collect-rss-add-btn');
   const blogAutoRefreshBtn = document.getElementById('blog-auto-refresh-btn');
   const blogAutoSaveBtn = document.getElementById('blog-auto-save-btn');
   const blogAutoCategoryOptionsEls = Array.from(document.querySelectorAll('[data-blog-category-options]'));
@@ -4624,7 +4707,7 @@ function bindActions() {
   const blogAutoVariationNumberEnabledEl = document.getElementById('blog-auto-variation-number-enabled');
   const blogAutoVariationNumberInputEl = document.getElementById('blog-auto-variation-min');
   const blogAutoVariationTypeEl = document.getElementById('blog-auto-variation-type');
-  const blogAutoRunBtn = document.getElementById('blog-auto-run-btn');
+  const blogAutoRunBtn = document.getElementById('blog-publish-auto-run-btn');
   const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
   const shoppingAutoSaveBtn = document.getElementById('shopping-auto-save-btn');
   const shoppingAutoRunBtn = document.getElementById('shopping-auto-run-btn');
@@ -4656,9 +4739,14 @@ function bindActions() {
   if (settingsGoogleAuthFileBtn) settingsGoogleAuthFileBtn.addEventListener('change', handleGoogleAuthFileUpload);
   if (settingsGoogleAuthSaveBtn) settingsGoogleAuthSaveBtn.addEventListener('click', handleGoogleAuthTextSave);
   if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
+  if (blogCollectRefreshBtn) blogCollectRefreshBtn.addEventListener('click', loadBlogCollectSettings);
+  if (blogCollectSaveBtn) blogCollectSaveBtn.addEventListener('click', saveBlogCollectSettings);
+  if (blogCollectTrendsRunBtn) blogCollectTrendsRunBtn.addEventListener('click', runBlogCollectTrendsManual);
+  if (blogCollectRssRunBtn) blogCollectRssRunBtn.addEventListener('click', runBlogCollectRssManual);
+  if (blogCollectRssAddBtn) blogCollectRssAddBtn.addEventListener('click', window.addRssConfig);
   if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
-  if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogAutoManual);
+  if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogPublishAutoManual);
   if (blogAutoVariationNumberEnabledEl) {
     blogAutoVariationNumberEnabledEl.addEventListener('change', syncBlogAutoVariationNumberUi);
   }
@@ -5074,6 +5162,7 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     }
   }, 2000);
+  loadBlogCollectSettings();
   loadBlogAutoSettings();
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();

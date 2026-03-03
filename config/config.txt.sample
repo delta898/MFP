@@ -41,10 +41,21 @@ BLOG_AUTO_CATEGORIES =
 BLOG_AUTO_MAX_POSTS_PER_RUN = 10
 BLOG_AUTO_TRENDS_TIME = 07:30
 
+# [트렌드 자동수집]
+COLLECT_TRENDS_ENABLED = false
+COLLECT_TRENDS_TIME = 07:30
+
 # [쇼핑 자동발행]
 SHOPPING_AUTO_MODE = false
 SHOPPING_AUTO_DAILY_POSTS = 10
 SHOPPING_AUTO_TIME = 07:50
+
+# [이미지 설정]
+# 기본 제공되는 이미지를 사용하거나, 커스텀 이미지(https:// 또는 로컬경로)로 변경 가능합니다.
+FTC_DISCLOSURE_IMAGE_URL = ./config/images/ftc_disclosure.jpeg
+SHOPPING_CTA_IMAGE_URL1 = ./config/images/shopping_cta_1.jpeg
+SHOPPING_CTA_IMAGE_URL2 = ./config/images/shopping_cta_2.jpeg
+SHOPPING_CTA_IMAGE_URL3 = ./config/images/shopping_cta_3.jpeg
 
 # -------------------------------------------------------
 # ※ 위 설정만으로도 즉시 사용 가능합니다.

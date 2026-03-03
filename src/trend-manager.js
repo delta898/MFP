@@ -259,7 +259,10 @@ async function waitForTrendDataReady(page, timeoutMs = 12000) {
         '.u_ni_no_result',
         '.u_ni_contents:has-text("데이터가 없습니다")',
         '.u_ni_contents:has-text("조회된 데이터가 없습니다")',
-        '.u_ni_contents:has-text("표시할 데이터가 없습니다")'
+        '.u_ni_contents:has-text("표시할 데이터가 없습니다")',
+        '.u_ni_contents:has-text("조회한 기간의 데이터가 없습니다")',
+        'div:has-text("데이터가 없습니다")',
+        'p:has-text("데이터가 없습니다")'
     ];
 
     while ((Date.now() - startedAt) < timeoutMs) {
@@ -333,20 +336,51 @@ const TrendManager = {
                 await selectTrendDate(page, targetDate);
             }
 
-            const resolvedTrendDate = await resolveTrendDateFromPage(page, targetDate || null);
+            let resolvedTrendDate = await resolveTrendDateFromPage(page, targetDate || null);
 
-            // 3. 데이터 로딩 대기
-            const dataState = await waitForTrendDataReady(page, 12000);
+            // 3. 데이터 로딩 대기 및 자동 날짜 폴백 (데이터가 없을 때 어제/그제 데이터 확인)
+            let dataState = await waitForTrendDataReady(page, 15000);
+            resolvedTrendDate = await resolveTrendDateFromPage(page, targetDate || null);
+            let fallbackAttempt = 0;
+            const MAX_FALLBACKS = 3; // 최대 3일 전까지 거슬러 올라감 (새벽 시간대 대응)
+
+            // 만약 날짜가 명시되지 않은 '자동 수집'인 경우, 데이터가 나올 때까지 이전 날짜로 자동 이동
+            if (!targetDate && (dataState.state === 'empty' || dataState.state === 'timeout')) {
+                while (fallbackAttempt < MAX_FALLBACKS) {
+                    fallbackAttempt++;
+                    const fallbackDate = moment(resolvedTrendDate).subtract(1, 'day').format('YYYY-MM-DD');
+                    Logger.info(`🔄 [Fallback] ${resolvedTrendDate} 데이터가 없어 ${fallbackDate}로 재시도합니다... (${fallbackAttempt}/${MAX_FALLBACKS})`);
+
+                    try {
+                        await selectTrendDate(page, fallbackDate);
+                        dataState = await waitForTrendDataReady(page, 10000);
+                        resolvedTrendDate = await resolveTrendDateFromPage(page, fallbackDate);
+
+                        if (dataState.state === 'ready') {
+                            Logger.info(`✅ [Fallback] ${fallbackDate} 데이터를 찾았습니다.`);
+                            break;
+                        }
+                    } catch (err) {
+                        Logger.warn(`⚠️ [Fallback] ${fallbackDate} 이동 중 오류: ${err.message}`);
+                    }
+                }
+            }
+
             if (dataState.state === 'empty') {
-                Logger.warn(`⚠️ 지정한 날짜(${targetDate || '오늘'})의 트렌드 데이터가 아직 없습니다. (0건)`);
+                Logger.warn(`⚠️ 지정한 날짜(${resolvedTrendDate})의 트렌드 데이터가 아직 없습니다. (0건)`);
                 return {
                     keywords: [],
                     date: resolvedTrendDate
                 };
             }
+
             if (dataState.state !== 'ready') {
                 Logger.warn('⚠️ 트렌드 리스트를 찾지 못했습니다. 로그인을 확인하거나 페이지 구조가 변경되었을 수 있습니다.');
-                await page.screenshot({ path: 'logs/debug_trend_fail.png' });
+                try {
+                    const debugPath = path.join(process.cwd(), 'logs', `debug_trend_fail_${Date.now()}.png`);
+                    await page.screenshot({ path: debugPath });
+                    Logger.info(`📸 디버그 스크린샷 저장됨: ${debugPath}`);
+                } catch (e) { }
                 throw new Error('트렌드 데이터 로딩 시간 초과');
             }
 

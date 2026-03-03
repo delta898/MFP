@@ -4,7 +4,10 @@ function createBlogAutoService(deps = {}) {
         getAutoStatusPayload,
         ensureSheetsReadyForUi,
         resolveNaverAutoCategoryCatalog,
-        runAutoCycle
+        runAutoCycle,
+        runTrendCollectCycle,
+        runRssCollectCycle,
+        runAutoPublishCycle
     } = deps;
 
     return {
@@ -62,6 +65,39 @@ function createBlogAutoService(deps = {}) {
                     ...(runResult?.data || {})
                 }
             };
+        },
+
+        async runCollectTrends({ requestBody = {} } = {}) {
+            Logger.info(`🚀 [UI][AUTO] 트렌드 수동 수집 요청 수신`);
+            try {
+                const result = await runTrendCollectCycle('ui-manual', requestBody);
+                return { success: true, data: result || {} };
+            } catch (e) {
+                Logger.error(`⚠️ [UI][AUTO] 트렌드 수동 수집 오류:`, e);
+                return { success: false, message: e.message || '알 수 없는 오류' };
+            }
+        },
+
+        async runCollectRss({ requestBody = {} } = {}) {
+            Logger.info(`🚀 [UI][AUTO] RSS 수동 수집 요청 수신`);
+            try {
+                const result = await runRssCollectCycle('ui-manual', requestBody);
+                return { success: true, data: result || {} };
+            } catch (e) {
+                Logger.error(`⚠️ [UI][AUTO] RSS 수동 수집 오류:`, e);
+                return { success: false, message: e.message || '알 수 없는 오류' };
+            }
+        },
+
+        async runAutoPublish({ requestBody = {} } = {}) {
+            Logger.info(`🚀 [UI][AUTO] 자동발행 1회 수동 실행 요청 수신`);
+            try {
+                const result = await runAutoPublishCycle('ui-manual');
+                return { success: true, data: result || {} };
+            } catch (e) {
+                Logger.error(`⚠️ [UI][AUTO] 자동발행 수동 실행 오류:`, e);
+                return { success: false, message: e.message || '알 수 없는 오류' };
+            }
         },
 
         async startAuto() {

@@ -967,6 +967,7 @@ program
 
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
                     await Core.publishToBlog(result.targetDir, {
+                        headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
                         isLast: (i === targetTopics.length - 1)
                     });
 
@@ -1210,6 +1211,7 @@ program
                     await Core.publishToBlog(result.targetDir, {
                         affiliateUrl: job.shortUrl,
                         requireAffiliateUrl: true,
+                        headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
                         isLast: (i === targetJobs.length - 1)
                     });
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');

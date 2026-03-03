@@ -86,10 +86,14 @@ function createSettingsService(deps = {}) {
                 BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: 15,
                 BLOG_AUTO_HEADLESS: true,
                 SHOPPING_AUTO_NOTIFY_ENABLED: false,
-                FTC_DISCLOSURE_IMAGE_URL: './config/images/ftc_disclosure.jpeg',
-                SHOPPING_CTA_IMAGE_URL1: './config/images/shopping_cta_1.jpeg',
-                SHOPPING_CTA_IMAGE_URL2: './config/images/shopping_cta_2.jpeg',
-                SHOPPING_CTA_IMAGE_URL3: './config/images/shopping_cta_3.jpeg'
+                COLLECT_TRENDS_ENABLED: false,
+                COLLECT_TRENDS_FILTER_MIN_INCR: 50,
+                COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
+                COLLECT_TRENDS_TIME: '07:30',
+                PUBLISH_AUTO_ENABLED: false,
+                PUBLISH_AUTO_INTERVAL_MIN: 60,
+                PUBLISH_AUTO_BATCH_SIZE: 1,
+                COLLECT_RSS_ENABLED: false
             };
 
             const updates = {
@@ -107,7 +111,21 @@ function createSettingsService(deps = {}) {
                 BLOG_AUTO_TRENDS_TIME: fields.BLOG_AUTO_TRENDS_TIME,
                 SHOPPING_AUTO_MODE: fields.SHOPPING_AUTO_MODE ? 'true' : 'false',
                 SHOPPING_AUTO_DAILY_POSTS: String(fields.SHOPPING_AUTO_DAILY_POSTS),
-                SHOPPING_AUTO_TIME: fields.SHOPPING_AUTO_TIME
+                SHOPPING_AUTO_TIME: fields.SHOPPING_AUTO_TIME,
+                COLLECT_TRENDS_ENABLED: fields.COLLECT_TRENDS_ENABLED ? 'true' : 'false',
+                COLLECT_TRENDS_CATEGORIES: fields.COLLECT_TRENDS_CATEGORIES,
+                COLLECT_TRENDS_FILTER_MIN_INCR: String(fields.COLLECT_TRENDS_FILTER_MIN_INCR),
+                COLLECT_TRENDS_REUSE_GAP_DAYS: String(fields.COLLECT_TRENDS_REUSE_GAP_DAYS),
+                COLLECT_TRENDS_TIME: fields.COLLECT_TRENDS_TIME,
+                COLLECT_RSS_ENABLED: fields.COLLECT_RSS_ENABLED ? 'true' : 'false',
+                COLLECT_RSS_CONFIGS: Array.isArray(fields.COLLECT_RSS_CONFIGS) ? JSON.stringify(fields.COLLECT_RSS_CONFIGS) : JSON.stringify([]),
+                PUBLISH_AUTO_ENABLED: fields.PUBLISH_AUTO_ENABLED ? 'true' : 'false',
+                PUBLISH_AUTO_INTERVAL_MIN: String(fields.PUBLISH_AUTO_INTERVAL_MIN),
+                PUBLISH_AUTO_BATCH_SIZE: String(fields.PUBLISH_AUTO_BATCH_SIZE),
+                FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
+                SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
+                SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
+                SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3
             };
 
             // 💡 [Smart Filter] Advanced 설정 중 기본값과 같은 것은 파일에서 제거(null) 처리
@@ -235,7 +253,16 @@ function createSettingsService(deps = {}) {
                 SHOPPING_CTA_IMAGE_URL3: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL3') || CONFIG.SHOPPING_CTA_IMAGE_URL3,
                 WORDPRESS_URL: parseConfigValue(content, 'WORDPRESS_URL') || CONFIG.WORDPRESS_URL,
                 WORDPRESS_USER_ID: parseConfigValue(content, 'WORDPRESS_USER_ID') || CONFIG.WORDPRESS_USER_ID,
-                WORDPRESS_APP_PASSWORD: parseConfigValue(content, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD
+                WORDPRESS_APP_PASSWORD: parseConfigValue(content, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD,
+                COLLECT_TRENDS_ENABLED: parseConfigValue(content, 'COLLECT_TRENDS_ENABLED'),
+                COLLECT_TRENDS_CATEGORIES: parseConfigValue(content, 'COLLECT_TRENDS_CATEGORIES'),
+                COLLECT_TRENDS_FILTER_MIN_INCR: parseConfigValue(content, 'COLLECT_TRENDS_FILTER_MIN_INCR'),
+                COLLECT_TRENDS_REUSE_GAP_DAYS: parseConfigValue(content, 'COLLECT_TRENDS_REUSE_GAP_DAYS'),
+                COLLECT_TRENDS_TIME: parseConfigValue(content, 'COLLECT_TRENDS_TIME'),
+                COLLECT_RSS_CONFIGS: parseConfigValue(content, 'COLLECT_RSS_CONFIGS'),
+                PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'PUBLISH_AUTO_ENABLED'),
+                PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'PUBLISH_AUTO_INTERVAL_MIN'),
+                PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'PUBLISH_AUTO_BATCH_SIZE')
             });
             applyRuntimeConfigFromMajor(fields);
             syncAutoRunnerWithConfig();

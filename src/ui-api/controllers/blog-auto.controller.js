@@ -98,6 +98,42 @@ function createBlogAutoController(deps = {}) {
                 result?.code || 'AUTO_POC_ONLY',
                 result?.message || '현재 Auto Mode는 PoC 단계입니다.'
             );
+        },
+
+        async runCollectTrends({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            }
+            Logger.info(`[UI][AUTO] API 진입: 트렌드 수동 수집 (/api/v1/auto/collect/trends/run)`);
+            const result = await service.runCollectTrends({ requestBody });
+            if (!result?.success) {
+                return sendError(res, requestId, 400, 'COLLECT_TRENDS_FAILED', result?.message || '트렌드 수집에 실패했습니다.');
+            }
+            return sendSuccess(res, requestId, result?.data || {});
+        },
+
+        async runCollectRss({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            }
+            Logger.info(`[UI][AUTO] API 진입: RSS 수동 수집 (/api/v1/auto/collect/rss/run)`);
+            const result = await service.runCollectRss({ requestBody });
+            if (!result?.success) {
+                return sendError(res, requestId, 400, 'COLLECT_RSS_FAILED', result?.message || 'RSS 수집에 실패했습니다.');
+            }
+            return sendSuccess(res, requestId, result?.data || {});
+        },
+
+        async runAutoPublish({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            }
+            Logger.info(`[UI][AUTO] API 진입: 자동발행 수동 1회 실행 (/api/v1/auto/publish/run)`);
+            const result = await service.runAutoPublish({ requestBody });
+            if (!result?.success) {
+                return sendError(res, requestId, 400, 'PUBLISH_AUTO_FAILED', result?.message || '자동 발행 처리에 실패했습니다.');
+            }
+            return sendSuccess(res, requestId, result?.data || {});
         }
     };
 }

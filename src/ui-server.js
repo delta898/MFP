@@ -52,7 +52,9 @@ const BLOG_AUTO_DEFAULTS = {
     variationNumber: 50,
     variationTopN: 5,
     keywordReuseGapDays: 15,
-    headless: true
+    headless: true,
+    trendsMaxRetries: 3,
+    trendsRetryWaitMs: 5 * 60 * 1000
 };
 const SHOPPING_AUTO_DEFAULTS = {
     mode: false,
@@ -66,8 +68,8 @@ const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['BLOG_AUTO_CATEGORIES_MASTER', 'blog_aut
 const autoRuntimeState = {
     enabled: false,
     running: false,
-    status: 'stopped', // stopped | waiting | running | error
-    message: '블로그 자동 모드 비활성화',
+    status: 'stopped',
+    message: '블로그 자동 모드 비활성화 (레거시)',
     startedAt: null,
     lastRunAt: null,
     nextRunAt: null,
@@ -76,6 +78,18 @@ const autoRuntimeState = {
     timer: null,
     lastPublishAtMs: 0
 };
+
+const trendsRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null };
+const rssRuntimeState = {
+    enabled: false,
+    running: false,
+    status: 'stopped',
+    nextRunAt: null,
+    timer: null,
+    lastRunTimes: {} // feedUrl -> timestamp
+};
+const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null };
+
 const shoppingAutoRuntimeState = {
     enabled: false,
     running: false,
@@ -1126,10 +1140,10 @@ function buildMajorSettings(raw, configSource) {
     const listenPortRaw = parseConfigValue(raw, 'LISTEN_PORT');
     const headlessRaw = parseConfigValue(raw, 'HEADLESS');
     const typingRaw = parseConfigValue(raw, 'TYPING_SPEED');
-    const ftcImageUrl = parseConfigValue(raw, 'FTC_DISCLOSURE_IMAGE_URL') || String(CONFIG.FTC_DISCLOSURE_IMAGE_URL || '');
-    const ctaImageUrl1 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL1') || String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || '');
-    const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || '');
-    const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || '');
+    const ftcImageUrl = parseConfigValue(raw, 'FTC_DISCLOSURE_IMAGE_URL') || String(CONFIG.FTC_DISCLOSURE_IMAGE_URL || DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL);
+    const ctaImageUrl1 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL1') || String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1);
+    const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2);
+    const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL3);
     const updateChannel = parseConfigValue(raw, 'UPDATE_CHANNEL') || String(CONFIG.UPDATE_CHANNEL || 'stable');
     const autoSettings = normalizeBlogAutoSettings({
         BLOG_AUTO_MODE: parseConfigValue(raw, 'BLOG_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
@@ -1200,7 +1214,17 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_AUTO_MODE: shoppingAutoSettings.SHOPPING_AUTO_MODE,
         SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.SHOPPING_AUTO_DAILY_POSTS,
         SHOPPING_AUTO_TIME: shoppingAutoSettings.SHOPPING_AUTO_TIME,
-        SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED
+        SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED,
+        COLLECT_TRENDS_ENABLED: parseConfigBool(parseConfigValue(raw, 'COLLECT_TRENDS_ENABLED'), false),
+        COLLECT_TRENDS_CATEGORIES: parseConfigValue(raw, 'COLLECT_TRENDS_CATEGORIES') || '',
+        COLLECT_TRENDS_FILTER_MIN_INCR: normalizeIntegerOrBlank(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_MIN_INCR'), 50),
+        COLLECT_TRENDS_REUSE_GAP_DAYS: normalizeNonNegativeInt(parseConfigValue(raw, 'COLLECT_TRENDS_REUSE_GAP_DAYS'), 15),
+        COLLECT_TRENDS_TIME: parseConfigValue(raw, 'COLLECT_TRENDS_TIME') || autoSettings.BLOG_AUTO_TRENDS_TIME,
+        COLLECT_RSS_ENABLED: parseConfigBool(parseConfigValue(raw, 'COLLECT_RSS_ENABLED'), false),
+        COLLECT_RSS_CONFIGS: parseConfigValue(raw, 'COLLECT_RSS_CONFIGS') || '[]',
+        PUBLISH_AUTO_ENABLED: parseConfigBool(parseConfigValue(raw, 'PUBLISH_AUTO_ENABLED'), false),
+        PUBLISH_AUTO_INTERVAL_MIN: normalizeNonNegativeInt(parseConfigValue(raw, 'PUBLISH_AUTO_INTERVAL_MIN'), 60),
+        PUBLISH_AUTO_BATCH_SIZE: normalizeNonNegativeInt(parseConfigValue(raw, 'PUBLISH_AUTO_BATCH_SIZE'), 1)
     };
 
     return {
@@ -1229,8 +1253,8 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl1 = String(fields.SHOPPING_CTA_IMAGE_URL1 || '').trim();
     const ctaImageUrl2 = String(fields.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
-    const autoSettings = normalizeNaverAutoSettings(fields);
-    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings(fields);
+    const autoSettings = normalizeBlogAutoSettings(fields);
+    const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
 
     CONFIG.NAVER_ID = naverId;
     CONFIG.WORDPRESS_URL = wordpressUrl;
@@ -1249,6 +1273,25 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.SHOPPING_CTA_IMAGE_URL1 = ctaImageUrl1;
     CONFIG.SHOPPING_CTA_IMAGE_URL2 = ctaImageUrl2;
     CONFIG.SHOPPING_CTA_IMAGE_URL3 = ctaImageUrl3;
+
+    CONFIG.COLLECT_TRENDS_ENABLED = normalizeBool(fields.COLLECT_TRENDS_ENABLED, false);
+    CONFIG.COLLECT_TRENDS_CATEGORIES = String(fields.COLLECT_TRENDS_CATEGORIES || '').trim();
+    CONFIG.COLLECT_TRENDS_FILTER_MIN_INCR = normalizeIntegerOrBlank(fields.COLLECT_TRENDS_FILTER_MIN_INCR, 50);
+    CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS = normalizeNonNegativeInt(fields.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
+    CONFIG.COLLECT_TRENDS_TIME = normalizeTimeHHmm(fields.COLLECT_TRENDS_TIME, '07:30');
+
+    try {
+        const rawRss = String(fields.COLLECT_RSS_CONFIGS || '').trim();
+        CONFIG.COLLECT_RSS_CONFIGS = rawRss ? JSON.parse(rawRss) : [];
+        if (!Array.isArray(CONFIG.COLLECT_RSS_CONFIGS)) CONFIG.COLLECT_RSS_CONFIGS = [];
+    } catch {
+        CONFIG.COLLECT_RSS_CONFIGS = [];
+    }
+
+    CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
+    CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
+    CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizeNonNegativeInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
+
     Object.assign(CONFIG, autoSettings);
     Object.assign(CONFIG, shoppingAutoSettings);
 }
@@ -1268,8 +1311,8 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const ctaImageUrl1 = String(requestBody.SHOPPING_CTA_IMAGE_URL1 || '').trim();
     const ctaImageUrl2 = String(requestBody.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(requestBody.SHOPPING_CTA_IMAGE_URL3 || '').trim();
-    const autoSettings = normalizeNaverAutoSettings(requestBody);
-    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings(requestBody);
+    const autoSettings = normalizeBlogAutoSettings(requestBody);
+    const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
     return {
         LISTEN_HOST: listenHost,
         LISTEN_PORT: listenPort,
@@ -1285,6 +1328,23 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
         SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
         SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
+        COLLECT_TRENDS_ENABLED: normalizeBool(requestBody.COLLECT_TRENDS_ENABLED, false),
+        COLLECT_RSS_ENABLED: normalizeBool(requestBody.COLLECT_RSS_ENABLED, false),
+        COLLECT_TRENDS_CATEGORIES: String(requestBody.COLLECT_TRENDS_CATEGORIES || '').trim(),
+        COLLECT_TRENDS_FILTER_MIN_INCR: normalizeIntegerOrBlank(requestBody.COLLECT_TRENDS_FILTER_MIN_INCR, 50),
+        COLLECT_TRENDS_REUSE_GAP_DAYS: normalizeNonNegativeInt(requestBody.COLLECT_TRENDS_REUSE_GAP_DAYS, 15),
+        COLLECT_TRENDS_TIME: normalizeTimeHHmm(requestBody.COLLECT_TRENDS_TIME, '07:30'),
+        COLLECT_RSS_CONFIGS: (() => {
+            const raw = requestBody.COLLECT_RSS_CONFIGS;
+            if (Array.isArray(raw)) return raw;
+            if (typeof raw === 'string' && raw.trim()) {
+                try { return JSON.parse(raw); } catch (e) { return []; }
+            }
+            return [];
+        })(),
+        PUBLISH_AUTO_ENABLED: normalizeBool(requestBody.PUBLISH_AUTO_ENABLED, false),
+        PUBLISH_AUTO_INTERVAL_MIN: normalizeNonNegativeInt(requestBody.PUBLISH_AUTO_INTERVAL_MIN, 60),
+        PUBLISH_AUTO_BATCH_SIZE: normalizeNonNegativeInt(requestBody.PUBLISH_AUTO_BATCH_SIZE, 1),
         ...autoSettings,
         ...shoppingAutoSettings
     };
@@ -1971,7 +2031,7 @@ async function executeShoppingQuickPublish(requestBody = {}) {
     }
 
     const result = await executeShoppingRowAction(
-        { rowIndex },
+        { rowIndex, headless },
         { enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', true) }
     );
 
@@ -2094,8 +2154,12 @@ async function executeBlogRowAction(requestBody, options = {}) {
         }
 
         if (targets.includes('naver')) {
+            const autoSettings = getBlogAutoSettingsSnapshot();
+            const resolvedHeadless = typeof requestBody?.headless === 'boolean'
+                ? requestBody.headless : autoSettings.BLOG_AUTO_HEADLESS;
+
             await Core.publishToBlog(result.targetDir, {
-                headless: batchHeadless,
+                headless: resolvedHeadless,
                 category: topicData.category || '',
                 postStatus: topicData.postStatus || 'publish',
                 scheduleDate: topicData.scheduleDate || '',
@@ -2425,6 +2489,7 @@ async function executeShoppingRowAction(requestBody, options = {}) {
             ? requestBody.headless : autoSettings.BLOG_AUTO_HEADLESS;
 
         if (targets.includes('naver')) {
+            publishOptions.headless = batchHeadless;
             publishOptions.isLast = requestBody.isLast === true;
             await Core.publishToBlog(buildResult.targetDir, publishOptions);
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
@@ -2749,19 +2814,20 @@ async function executeTrendCollectAction(requestBody = {}) {
     try {
         await ensureSheetsReadyForUi();
     } catch (e) {
+        Logger.error(`❌ [AUTO][Producer] 필수 시트 준비 실패: ${e.message}`);
         return { success: false, code: 'SHEETS_NOT_READY', message: `필수 시트 준비 실패: ${e.message}` };
     }
 
     const precheck = await License.checkLicenseStatus();
     if (!precheck.success) {
+        Logger.error(`❌ [AUTO][Producer] 라이선스 상태 확인 실패: ${precheck.message}`);
         return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
     }
     const features = toFeatureMap(precheck.features);
     if (!isCommandEnabled(features, 'trends')) {
         return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)' };
     }
-    const dateInput = String(requestBody?.date || '').trim();
-    const includeCategories = parseCsvTokens(requestBody?.categories);
+    const dateInput = String(requestBody?.date || requestBody?.trendDate || '').trim();
     const explicitTargetDate = normalizeYmdToken(dateInput);
     if (dateInput && !getFeatureBool(features, 'enable_trends_date_override', false)) {
         return {
@@ -2773,51 +2839,8 @@ async function executeTrendCollectAction(requestBody = {}) {
 
     const session = await checkAuthSessionValid();
     if (!session.ok) {
+        Logger.error(`❌ [AUTO][Producer] 네이버 인증 세션 유효하지 않음 (${session.reason}): ${session.message || '인증 정보가 없거나 만료되었습니다.'}`);
         return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 로그인해 주세요.' };
-    }
-
-    // 수집 전 pre-check:
-    // 날짜(YYYY-MM-DD/YYYYMMDD) + 카테고리 지정인 경우,
-    // 해당 날짜/카테고리 데이터가 이미 trends 시트에 존재하면 수집을 생략한다.
-    if (explicitTargetDate && includeCategories.length > 0) {
-        try {
-            const trendsExisting = await Utils.readGoogleSheetTrendsAll({
-                status: '',
-                q: '',
-                limit: 100000,
-                offset: 0,
-                sortBy: 'rowNumber',
-                sortDir: 'desc'
-            });
-            const items = Array.isArray(trendsExisting?.items) ? trendsExisting.items : [];
-            const existingByDateCategory = new Set(
-                items
-                    .filter((row) => normalizeYmdToken(row?.date) === explicitTargetDate)
-                    .map((row) => `${String(row?.category || '').trim().toLowerCase()}`)
-                    .filter(Boolean)
-            );
-            const requestedCategories = includeCategories
-                .map((v) => String(v || '').trim().toLowerCase())
-                .filter(Boolean);
-            const allCovered = requestedCategories.length > 0
-                && requestedCategories.every((cat) => existingByDateCategory.has(cat));
-            if (allCovered) {
-                Logger.info(`ℹ️ [Collect] pre-check: ${explicitTargetDate} ${includeCategories.join('|')} 카테고리 데이터가 이미 trends 시트에 있어 수집을 생략합니다.`);
-                return {
-                    success: true,
-                    data: {
-                        collectedCount: 0,
-                        rawCollectedCount: 0,
-                        date: explicitTargetDate,
-                        appendedCount: 0,
-                        skippedByPrecheck: true,
-                        message: '이미 수집된 날짜/카테고리 데이터가 있어 트렌드 수집을 생략했습니다.'
-                    }
-                };
-            }
-        } catch (e) {
-            Logger.warn(`⚠️ [Collect] pre-check 실패로 수집을 계속 진행합니다: ${e.message}`);
-        }
     }
 
     const headless = typeof requestBody?.headless === 'boolean'
@@ -2841,55 +2864,46 @@ async function executeTrendCollectAction(requestBody = {}) {
         };
     }
 
-    const normalizedIncludeCategories = includeCategories
-        .map((token) => String(token || '').trim().toLowerCase())
-        .filter(Boolean);
-    const includeCategorySet = new Set(normalizedIncludeCategories);
-
-    const filteredTrendKeywords = includeCategorySet.size > 0
-        ? trendKeywords.filter((item) => {
-            const category = String(item?.category || '').trim().toLowerCase();
-            return includeCategorySet.has(category);
-        })
-        : trendKeywords;
-
-    if (includeCategorySet.size > 0) {
-        Logger.info(`ℹ️ [Collect] 카테고리 필터 적용: ${includeCategories.join('|')} (전체 ${trendKeywords.length}건 중 저장 대상 ${filteredTrendKeywords.length}건)`);
-    }
-
-    if (filteredTrendKeywords.length === 0) {
-        return {
-            success: true,
-            data: {
-                collectedCount: 0,
-                rawCollectedCount: trendKeywords.length,
-                date: trendResult?.date || null,
-                appendedCount: 0,
-                message: '선택 카테고리에 해당하는 트렌드가 없어 저장하지 않았습니다.'
-            }
-        };
-    }
-
     const verify = await License.verifyLicense();
     if (!verify.success) {
+        Logger.error(`❌ [AUTO][Producer] 라이선스 검증 실패: ${verify.message}`);
         return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
     }
 
-    const appendResult = await Utils.appendGoogleSheetTrends(filteredTrendKeywords, trendResult?.date || null);
-    if (!appendResult?.success) {
-        return { success: false, code: 'TRENDS_APPEND_FAILED', message: appendResult?.message || 'trends 시트 추가에 실패했습니다.' };
-    }
+    // Attach rowNumber-like schema matching to what processAndAppendTrendsToTopics expects
+    const trendsWithDate = trendKeywords.map((item, idx) => ({
+        ...item,
+        date: trendResult?.date || null,
+        rowIndex: idx // Not actually a sheet rowIndex anymore
+    }));
 
-    return {
-        success: true,
-        data: {
-            collectedCount: filteredTrendKeywords.length,
-            rawCollectedCount: trendKeywords.length,
-            appendedCount: appendResult.addedCount || filteredTrendKeywords.length,
-            date: appendResult.date || trendResult?.date || null,
-            message: '트렌드 수집 및 시트 추가 완료'
-        }
-    };
+    try {
+        // requestBody.settings is expected to be passed from executeTrendCollectWithRetry during auto cycle.
+        // We MUST merge with getBlogAutoSettingsSnapshot() to ensure default filters are applied if not overridden.
+        const snapshot = getBlogAutoSettingsSnapshot();
+        const settingsToUse = { ...snapshot, ...(requestBody?.settings || {}) };
+        const mapResult = await processAndAppendTrendsToTopics(trendsWithDate, settingsToUse);
+
+        const dupCount = Number(mapResult?.duplicateCount || 0);
+        const reuseCount = Number(mapResult?.reuseBlockedCount || 0);
+        const addedCount = Number(mapResult?.appendedCount || 0);
+
+        return {
+            success: true,
+            data: {
+                collectedCount: mapResult?.candidates || 0, // This is count after category match
+                rawCollectedCount: trendKeywords.length,
+                appendedCount: addedCount,
+                duplicateCount: dupCount,
+                reuseBlockedCount: reuseCount,
+                date: trendResult?.date || null,
+                message: '트렌드 수집 및 토픽 직접 추가 완료'
+            }
+        };
+    } catch (e) {
+        Logger.error(`❌ [AUTO][Producer] trends->topics 직접 이관 실패: ${e.message}`);
+        return { success: false, code: 'TRENDS_DIRECT_APPEND_FAILED', message: `topics 직접 추가에 실패했습니다: ${e.message}` };
+    }
 }
 
 async function executeTrendsToTopicsAction(requestBody = {}) {
@@ -3090,90 +3104,155 @@ function getAutoStatusPayload() {
     };
 }
 
-function clearAutoTimer() {
-    if (autoRuntimeState.timer) {
-        clearInterval(autoRuntimeState.timer);
-        autoRuntimeState.timer = null;
-    }
-}
-
-function scheduleNextAutoCycle(delayMs = null) {
-    clearAutoTimer();
-    if (!autoRuntimeState.enabled) {
-        autoRuntimeState.nextRunAt = null;
+function syncTrendsRunner() {
+    if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
+    trendsRuntimeState.enabled = Boolean(CONFIG.COLLECT_TRENDS_ENABLED);
+    if (!trendsRuntimeState.enabled) {
+        trendsRuntimeState.status = 'stopped';
+        trendsRuntimeState.nextRunAt = null;
+        Logger.info('ℹ️ [AUTO][Producer] 트렌드 자동 수집 비활성화됨');
         return;
     }
-    const settings = normalizeBlogAutoSettings(CONFIG);
-    let waitMs = 0;
 
-    if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
-        const parsed = parseInt(delayMs, 10);
-        waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
-    } else {
-        const timeStr = String(settings.BLOG_AUTO_TRENDS_TIME || '07:30').split(':');
-        const targetHour = parseInt(timeStr[0] || '7', 10);
-        const targetMin = parseInt(timeStr[1] || '30', 10);
+    trendsRuntimeState.status = trendsRuntimeState.running ? 'running' : 'waiting';
+    const timeStr = String(CONFIG.COLLECT_TRENDS_TIME || '07:30').split(':');
+    const targetHour = parseInt(timeStr[0] || '7', 10);
+    const targetMin = parseInt(timeStr[1] || '30', 10);
 
+    const scheduleTrends = () => {
         const now = new Date();
         const target = new Date(now);
         target.setHours(targetHour, targetMin, 0, 0);
+        if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
 
-        if (target.getTime() <= now.getTime()) {
-            target.setDate(target.getDate() + 1);
-        }
+        const waitMs = Math.max(1000, target.getTime() - now.getTime());
+        trendsRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
+        Logger.info(`ℹ️ [AUTO][Producer] 트렌드 자동 수집 예약: ${new Date(trendsRuntimeState.nextRunAt).toLocaleString()} (설정시간: ${CONFIG.COLLECT_TRENDS_TIME || '07:30'})`);
 
-        waitMs = target.getTime() - now.getTime();
-        waitMs = Math.max(60 * 1000, waitMs);
+        if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
+        trendsRuntimeState.timer = setInterval(() => {
+            if (!trendsRuntimeState.enabled || trendsRuntimeState.running) return;
+            if (Date.now() >= new Date(trendsRuntimeState.nextRunAt).getTime()) {
+                trendsRuntimeState.running = true;
+                trendsRuntimeState.status = 'running';
+                runTrendCollectCycle('auto').finally(() => {
+                    trendsRuntimeState.running = false;
+                    scheduleTrends();
+                });
+            }
+        }, 10000);
+    };
+    scheduleTrends();
+}
 
-        const waitMinutes = Math.floor(waitMs / (60 * 1000));
-        const waitHours = Math.floor(waitMinutes / 60);
-        const remainMins = waitMinutes % 60;
-        Logger.info(`ℹ️ [AUTO][블로그] 다음 블로그 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
+function syncRssRunner() {
+    if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
+    const rssConfigs = Array.isArray(CONFIG.COLLECT_RSS_CONFIGS) ? CONFIG.COLLECT_RSS_CONFIGS : [];
+    const enabledConfigs = rssConfigs.filter(rc => rc.enabled);
+
+    const isGlobalEnabled = parseConfigBool(CONFIG.COLLECT_RSS_ENABLED, false);
+    rssRuntimeState.enabled = isGlobalEnabled && enabledConfigs.length > 0;
+
+    if (!rssRuntimeState.enabled) {
+        rssRuntimeState.status = 'stopped';
+        rssRuntimeState.nextRunAt = null;
+        Logger.info('ℹ️ [AUTO][Producer] RSS 자동 수집 비활성화됨');
+        return;
     }
 
-    autoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
+    rssRuntimeState.status = rssRuntimeState.running ? 'running' : 'waiting';
 
-    // 30초마다 현재 시간과 예약 시간을 비교하여, 목표 시간이 경과했다면 실행
-    autoRuntimeState.timer = setInterval(() => {
-        if (!autoRuntimeState.enabled || autoRuntimeState.running) return;
+    const scheduleRss = () => {
+        // 1분마다 체크하여 개별 주기가 도래했는지 확인
+        const checkIntervalMs = 60 * 1000;
+        if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
 
-        const nowMs = Date.now();
-        const targetMs = new Date(autoRuntimeState.nextRunAt).getTime();
+        rssRuntimeState.timer = setInterval(async () => {
+            if (!rssRuntimeState.enabled || rssRuntimeState.running) return;
 
-        if (nowMs >= targetMs) {
-            clearInterval(autoRuntimeState.timer);
-            autoRuntimeState.timer = null;
-            executeBlogTrendsAutoCycle('timer').catch((e) => {
-                Logger.error(`❌ [AUTO] 사이클 실행 실패: ${e.message}`);
+            const now = Date.now();
+            const configsToRun = [];
+
+            enabledConfigs.forEach(rc => {
+                const url = String(rc.url || '').trim();
+                if (!url) return;
+
+                const intervalMin = parseInt(rc.interval, 10) || 60;
+                const intervalMs = intervalMin * 60 * 1000;
+                const lastRun = rssRuntimeState.lastRunTimes[url] || 0;
+
+                if (now - lastRun >= intervalMs) {
+                    configsToRun.push(rc);
+                }
             });
-        }
-    }, 30000); // 30초마다 체크
+
+            if (configsToRun.length > 0) {
+                rssRuntimeState.running = true;
+                rssRuntimeState.status = 'running';
+
+                // 실행 대상 피드들에 대해 마지막 실행 시간 업데이트
+                configsToRun.forEach(rc => {
+                    rssRuntimeState.lastRunTimes[String(rc.url || '').trim()] = now;
+                });
+
+                Logger.info(`ℹ️ [AUTO][Producer] RSS 개별 주기 도달 (${configsToRun.length}개 피드 실행)`);
+                runRssCollectCycle('auto', {
+                    settingsOverrides: { COLLECT_RSS_CONFIGS: configsToRun }
+                }).finally(() => {
+                    rssRuntimeState.running = false;
+                    rssRuntimeState.status = 'waiting';
+                });
+            }
+        }, checkIntervalMs);
+    };
+    scheduleRss();
 }
 
-function stopAutoRunner(reason = '자동 모드 중지') {
-    clearAutoTimer();
-    autoRuntimeState.enabled = false;
-    autoRuntimeState.status = 'stopped';
-    autoRuntimeState.message = reason;
-    autoRuntimeState.nextRunAt = null;
-}
+function syncPublishRunner() {
+    if (publishRuntimeState.timer) clearInterval(publishRuntimeState.timer);
+    publishRuntimeState.enabled = Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
+    if (!publishRuntimeState.enabled) {
+        publishRuntimeState.status = 'stopped';
+        publishRuntimeState.nextRunAt = null;
+        Logger.info('ℹ️ [AUTO][Consumer] 자동 발행 비활성화됨');
+        return;
+    }
 
-function startAutoRunner(reason = '자동 모드 시작') {
-    autoRuntimeState.enabled = true;
-    if (!autoRuntimeState.startedAt) autoRuntimeState.startedAt = new Date().toISOString();
-    autoRuntimeState.status = autoRuntimeState.running ? 'running' : 'waiting';
-    autoRuntimeState.message = reason;
-    scheduleNextAutoCycle();
+    publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
+    let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
+    if (intervalMin < 1) intervalMin = 60;
+    const intervalMs = intervalMin * 60 * 1000;
+
+    const schedulePublish = () => {
+        publishRuntimeState.nextRunAt = new Date(Date.now() + intervalMs).toISOString();
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 예약: ${new Date(publishRuntimeState.nextRunAt).toLocaleString()} (간격: ${intervalMin}분)`);
+        if (publishRuntimeState.timer) clearInterval(publishRuntimeState.timer);
+        publishRuntimeState.timer = setInterval(() => {
+            if (!publishRuntimeState.enabled || publishRuntimeState.running) return;
+            if (Date.now() >= new Date(publishRuntimeState.nextRunAt).getTime()) {
+                publishRuntimeState.running = true;
+                publishRuntimeState.status = 'running';
+                runAutoPublishCycle('auto').finally(() => {
+                    publishRuntimeState.running = false;
+                    schedulePublish();
+                });
+            }
+        }, 10000);
+    };
+    schedulePublish();
 }
 
 function syncAutoRunnerWithConfig() {
-    const settings = normalizeBlogAutoSettings(CONFIG);
-    if (settings.BLOG_AUTO_MODE) {
-        const timeStr = String(settings.BLOG_AUTO_TRENDS_TIME || '07:30');
-        startAutoRunner(`블로그 자동 실행 활성화 (목표시간: ${timeStr})`);
-    } else {
-        stopAutoRunner('BLOG_AUTO_MODE가 비활성화되어 있습니다.');
-    }
+    syncTrendsRunner();
+    syncRssRunner();
+    syncPublishRunner();
+
+    // Fallback UI State computation for backward compatibility
+    autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled;
+    autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running;
+    autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status}`;
+    autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
+    if (publishRuntimeState.nextRunAt) autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt;
 }
 
 // ──────────────────────────────────────────────
@@ -3385,7 +3464,7 @@ async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
 }
 
 function filterAutoTopicCandidates(items = [], settings = {}) {
-    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
+    const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES);
     const todayYmd = getSeoulTodayYmd();
 
     return items.filter((item) => {
@@ -3410,64 +3489,21 @@ function filterAutoTopicCandidates(items = [], settings = {}) {
     });
 }
 
-async function executeAutoTrendsToTopics(settings = {}) {
-    const readAllTrendStatuses = toBoolLike(settings.AUTO_READ_ALL_TRENDS_STATUSES, false);
-    const trendsRes = await Utils.readGoogleSheetTrendsAll({
-        status: readAllTrendStatuses ? '' : '대기',
-        q: '',
-        limit: 100000,
-        offset: 0,
-        sortBy: 'rowNumber',
-        sortDir: 'desc'
-    });
-    const trends = Array.isArray(trendsRes.items) ? trendsRes.items : [];
-    if (trends.length === 0) {
-        return {
-            appendedCount: 0,
-            candidates: 0,
-            rowIndices: [],
-            filteredCount: 0,
-            duplicateCount: 0
-        };
+async function processAndAppendTrendsToTopics(trends, settings = {}) {
+    if (!Array.isArray(trends) || trends.length === 0) {
+        return { appendedCount: 0, candidates: 0, rowIndices: [], filteredCount: 0, duplicateCount: 0, reuseBlockedCount: 0 };
     }
 
-    const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES);
     const targetTrendDateYmd = normalizeYmdToken(settings.BLOG_AUTO_TARGET_TREND_DATE || '');
-    const variationType = String(
-        settings.BLOG_AUTO_VARIATION_TYPE ?? 'min'
-    ).trim() || 'min';
-    const variationIncludeNew = toBoolLike(
-        settings.BLOG_AUTO_VARIATION_INCLUDE_NEW,
-        false
-    );
-    const variationIncludeDash = toBoolLike(
-        settings.BLOG_AUTO_VARIATION_INCLUDE_DASH,
-        false
-    );
-    const variationIncludeNumber = toBoolLike(
-        settings.BLOG_AUTO_VARIATION_INCLUDE_NUMBER,
-        true
-    );
-    const variationNumber = normalizeIntegerOrBlank(
-        settings.BLOG_AUTO_VARIATION_NUMBER,
-        ''
-    );
-    const variationTopN = normalizeIntegerOrBlank(
-        settings.BLOG_AUTO_VARIATION_TOP_N,
-        5
-    );
-    const keywordReuseGapDays = normalizeNonNegativeInt(
-        settings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS,
-        BLOG_AUTO_DEFAULTS.keywordReuseGapDays
-    );
-    const autoImageGeneration = toBoolLike(
-        settings.BLOG_AUTO_IMAGE_GENERATION,
-        BLOG_AUTO_DEFAULTS.imageGeneration
-    );
-    const autoExternalReference = toBoolLike(
-        settings.BLOG_AUTO_EXTERNAL_REFERENCE,
-        BLOG_AUTO_DEFAULTS.externalReference
-    );
+    const variationType = String(settings.BLOG_AUTO_VARIATION_TYPE ?? 'min').trim() || 'min';
+    const variationIncludeNew = toBoolLike(settings.BLOG_AUTO_VARIATION_INCLUDE_NEW, false);
+    const variationIncludeDash = toBoolLike(settings.BLOG_AUTO_VARIATION_INCLUDE_DASH, false);
+    const variationIncludeNumber = toBoolLike(settings.BLOG_AUTO_VARIATION_INCLUDE_NUMBER, true);
+    const variationNumber = normalizeIntegerOrBlank(settings.BLOG_AUTO_VARIATION_NUMBER, '');
+    const variationTopN = normalizeIntegerOrBlank(settings.BLOG_AUTO_VARIATION_TOP_N, 5);
+    const keywordReuseGapDays = normalizeNonNegativeInt(settings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS, BLOG_AUTO_DEFAULTS.keywordReuseGapDays);
+    const autoImageGeneration = toBoolLike(settings.BLOG_AUTO_IMAGE_GENERATION, BLOG_AUTO_DEFAULTS.imageGeneration);
+    const autoExternalReference = toBoolLike(settings.BLOG_AUTO_EXTERNAL_REFERENCE, BLOG_AUTO_DEFAULTS.externalReference);
 
     const candidateLogLimit = 120;
     const dateCategoryMatchedRows = [];
@@ -3475,28 +3511,35 @@ async function executeAutoTrendsToTopics(settings = {}) {
     let variationRejectedCount = 0;
     let emptyKeywordRejectedCount = 0;
 
+    const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES || '');
+
+    // [DEBUG] Raw settings received in processAndAppendTrendsToTopics
+    Logger.debug(`ℹ️ [AUTO][DEBUG] processAndAppendTrendsToTopics settings: ${JSON.stringify(settings)}`);
+
     Logger.info(
-        `ℹ️ [AUTO] trends→topics 적용 필터: `
+        `ℹ️ [AUTO] Direct trends→topics 필터: `
         + `trendDate=${targetTrendDateYmd || '(미지정)'}, `
-        + `statusScope=${readAllTrendStatuses ? 'ALL' : '대기'}, `
-        + `categories=${includeCategories.length > 0 ? includeCategories.join('|') : '(전체)'}, `
+        + `categories=${includeCategories.length > 0 ? includeCategories.join(',') : '(전체)'}, `
         + `variationType=${variationType}, `
         + `variation=new:${variationIncludeNew ? 'Y' : 'N'},dash:${variationIncludeDash ? 'Y' : 'N'},num:${variationIncludeNumber ? 'Y' : 'N'}${variationIncludeNumber && (variationType === 'top' ? Number.isInteger(variationTopN) : variationNumber !== '') ? `(${variationType === 'top' ? `top:${variationTopN}` : `val:${variationNumber}`})` : ''}, `
         + `reuseGapDays=${keywordReuseGapDays}`
     );
 
     // 1차 필터링 (날짜, 카테고리, 빈 키워드 탈락)
-    const baseCandidates = trends.filter((item) => {
+    const baseCandidates = trends.filter((item, idx) => {
+        // assign pseudo rowNumber for logging purposes
+        item.rowNumber = idx + 1;
+
         if (targetTrendDateYmd) {
             const itemDateYmd = normalizeYmdToken(item?.date);
             if (!itemDateYmd || itemDateYmd !== targetTrendDateYmd) return false;
         }
+
         const category = String(item?.category || '').trim();
-        const keyword = String(item?.keyword || '').trim();
-        const text = `${category} ${keyword}`.toLowerCase();
-        if (includeCategories.length > 0 && !matchesAnyToken(text, includeCategories)) return false;
+        if (includeCategories.length > 0 && !matchesAnyToken(category, includeCategories)) return false;
 
         dateCategoryMatchedCount += 1;
+        const keyword = String(item?.keyword || '').trim();
         if (!keyword) {
             emptyKeywordRejectedCount += 1;
             return false;
@@ -3509,7 +3552,7 @@ async function executeAutoTrendsToTopics(settings = {}) {
     if (variationType === 'top' && variationIncludeNumber && Number.isInteger(variationTopN) && variationTopN > 0) {
         // [Top N 모드]
         const rankedPool = [];
-        const absoluteAllowed = []; // new, dash 등 순위 계산 없는 대상
+        const absoluteAllowed = [];
 
         for (const item of baseCandidates) {
             const meta = parseVariationMeta(item?.variation);
@@ -3529,10 +3572,9 @@ async function executeAutoTrendsToTopics(settings = {}) {
         variationRejectedCount += Math.max(0, rankedPool.length - topSelected.length);
 
         filtered = [...absoluteAllowed, ...topSelected];
-        // 로깅을 위해 매치된 목록 구성
         for (const item of baseCandidates) {
             if (dateCategoryMatchedRows.length >= candidateLogLimit) break;
-            const isSelected = filtered.some(f => f.rowIndex === item.rowIndex);
+            const isSelected = filtered.some(f => f.rowNumber === item.rowNumber);
             dateCategoryMatchedRows.push({
                 rowNumber: Number(item?.rowNumber || 0),
                 date: String(item?.date || '').trim(),
@@ -3544,16 +3586,9 @@ async function executeAutoTrendsToTopics(settings = {}) {
             });
         }
     } else {
-        // [기본 수치 이상(Min) 모드 - 기존 방식 호환]
+        // [기본 수치 이상(Min) 모드]
         filtered = baseCandidates.filter((item) => {
-            const isMatched = matchesVariationFilter(item?.variation, {
-                variationType,
-                variationIncludeNew,
-                variationIncludeDash,
-                variationIncludeNumber,
-                variationNumber,
-                variationTopN
-            });
+            const isMatched = matchesVariationFilter(item?.variation, settings);
             if (!isMatched) {
                 variationRejectedCount += 1;
             }
@@ -3572,20 +3607,23 @@ async function executeAutoTrendsToTopics(settings = {}) {
         });
     }
 
+    // [DEBUG] 트렌드 필터링 과정을 상세 로그로 남김 (사용자 요청으로 DEBUG 레벨 하향)
     Logger.info(
-        `ℹ️ [AUTO] trendDate+카테고리 후보: ${dateCategoryMatchedCount}건 `
+        `ℹ️ [AUTO] direct trendDate 카테고리 후보: ${dateCategoryMatchedCount}건 `
         + `(증감 탈락 ${variationRejectedCount}, 빈키워드 탈락 ${emptyKeywordRejectedCount})`
     );
+
     if (dateCategoryMatchedRows.length > 0) {
+        Logger.debug(`ℹ️ [AUTO] 트렌드 후보 필터링 상세 (상한 ${candidateLogLimit}건):`);
         for (const row of dateCategoryMatchedRows) {
             const decision = row.selected ? '선정' : `제외(${row.rejectReason})`;
-            Logger.info(
+            Logger.debug(
                 `   • [AUTO][후보] Row ${row.rowNumber || '-'} | ${row.date || '-'} | `
                 + `${row.category || '-'} | ${row.keyword || '-'} | 증감:${row.variation} | ${decision}`
             );
         }
         if (dateCategoryMatchedCount > dateCategoryMatchedRows.length) {
-            Logger.info(
+            Logger.debug(
                 `   • [AUTO][후보] ... 생략 ${dateCategoryMatchedCount - dateCategoryMatchedRows.length}건 `
                 + `(로그 상한 ${candidateLogLimit}건)`
             );
@@ -3593,19 +3631,14 @@ async function executeAutoTrendsToTopics(settings = {}) {
     }
 
     if (filtered.length === 0) {
-        return {
-            appendedCount: 0,
-            candidates: 0,
-            rowIndices: [],
-            filteredCount: 0,
-            duplicateCount: 0
-        };
+        return { appendedCount: 0, candidates: 0, rowIndices: [], filteredCount: 0, duplicateCount: 0, reuseBlockedCount: 0 };
     }
 
     const existingTopicsRes = await Utils.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
     const existingTopics = Array.isArray(existingTopicsRes.items) ? existingTopicsRes.items : [];
     const baseYmd = getSeoulTodayYmd();
     const recentReuseKeySet = new Set();
+
     if (keywordReuseGapDays > 0 && baseYmd) {
         for (const item of existingTopics) {
             const key = buildTopicReuseKey(item?.subject, item?.keywords);
@@ -3620,25 +3653,25 @@ async function executeAutoTrendsToTopics(settings = {}) {
     const inBatchKeySet = new Set();
 
     const topicsToAppend = [];
-    const trendRowIndicesToMark = [];
     let duplicateCount = 0;
     let reuseBlockedCount = 0;
+
     for (const item of filtered) {
         const subject = String(item.category || item.keyword || '').trim();
         const keyword = String(item.keyword || '').trim();
         if (!subject || !keyword) continue;
+
         const reuseKey = buildTopicReuseKey(subject, [keyword]);
         if (keywordReuseGapDays > 0 && reuseKey && recentReuseKeySet.has(reuseKey)) {
             reuseBlockedCount += 1;
-            trendRowIndicesToMark.push(item.rowIndex);
             continue;
         }
         if (reuseKey && inBatchKeySet.has(reuseKey)) {
             duplicateCount += 1;
-            trendRowIndicesToMark.push(item.rowIndex);
             continue;
         }
         if (reuseKey) inBatchKeySet.add(reuseKey);
+
         topicsToAppend.push({
             subject,
             keywords: [keyword],
@@ -3652,28 +3685,17 @@ async function executeAutoTrendsToTopics(settings = {}) {
             trendDate: String(item.date || '').trim(),
             status: '발행 준비 완료'
         });
-        trendRowIndicesToMark.push(item.rowIndex);
     }
 
     let appendedRowIndices = [];
     if (topicsToAppend.length > 0) {
         const appendResult = await Utils.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '발행 준비 완료' });
         if (!appendResult?.success) {
-            throw new Error(appendResult?.message || 'AUTO trends→topics append 실패');
+            throw new Error(appendResult?.message || 'AUTO direct trends→topics append 실패');
         }
         appendedRowIndices = Array.isArray(appendResult?.rowIndices)
             ? appendResult.rowIndices.filter((v) => Number.isInteger(v) && v >= 0)
             : [];
-    }
-
-    if (trendRowIndicesToMark.length > 0) {
-        const bulkUpdate = await Utils.updateGoogleSheetTrendStatusBulk(trendRowIndicesToMark, '키워드 목록 추가 완료');
-        if (!bulkUpdate?.success) {
-            // 배치 실패 시 기존 단건 로직으로 폴백
-            for (const rowIndex of trendRowIndicesToMark) {
-                await Utils.updateGoogleSheetTrendStatus(rowIndex, '키워드 목록 추가 완료');
-            }
-        }
     }
 
     return {
@@ -3695,9 +3717,10 @@ async function executeTrendCollectWithRetry(options = {}) {
     const date = String(options?.date || '').trim();
     const categories = options?.categories;
     const headless = options?.headless;
-    const maxRetries = normalizeNonNegativeInt(options?.maxRetries, BLOG_AUTO_DEFAULTS.trendsMaxRetries);
-    const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, BLOG_AUTO_DEFAULTS.trendsRetryWaitMs);
+    const maxRetries = normalizeNonNegativeInt(options?.maxRetries, BLOG_AUTO_DEFAULTS.trendsMaxRetries || 3);
+    const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, BLOG_AUTO_DEFAULTS.trendsRetryWaitMs || 300000);
     const maxAttempts = maxRetries + 1;
+    Logger.info(`   ⏳ [AUTO] 트렌드 수집 시도 시작 (최대 ${maxAttempts}회 시도)`);
     let lastError = 'unknown';
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -3705,11 +3728,13 @@ async function executeTrendCollectWithRetry(options = {}) {
             const trendsResult = await executeTrendCollectAction({
                 ...(date ? { date } : {}),
                 ...(categories !== undefined ? { categories } : {}),
-                ...(typeof headless === 'boolean' ? { headless } : {})
+                ...(typeof headless === 'boolean' ? { headless } : {}),
+                settings: options?.settings // Propagate settings overrides
             });
             if (trendsResult?.success) {
                 return {
                     success: true,
+                    data: trendsResult.data,
                     collected: Number(trendsResult?.data?.appendedCount || trendsResult?.data?.collectedCount || 0),
                     attempt,
                     maxAttempts
@@ -3822,7 +3847,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
 
         let proceedAfterTrends = true;
-        if (settings.AUTO_TRENDS_ENABLED) {
+        if (true) { // replaces settings.AUTO_TRENDS_ENABLED
             if (skipTrendsCollect) {
                 summary.skipped.push('요청 옵션에 따라 트렌드 수집을 건너뜁니다. (기존 trends 데이터 사용)');
             } else {
@@ -3830,7 +3855,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                     proceedAfterTrends = false;
                     summary.skipped.push('트렌드 수집 권한이 없어 자동 발행 단계를 건너뜁니다.');
                 } else {
-                    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
+                    const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES);
                     const trendsRetryResult = await executeTrendCollectWithRetry({
                         date: requestedTrendDate,
                         categories: includeCategories,
@@ -3854,11 +3879,11 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
 
         let appendedTopicRowIndices = [];
-        if (proceedAfterTrends && settings.AUTO_TOPICS_ENABLED) {
+        if (proceedAfterTrends) { // replaces proceedAfterTrends && settings.AUTO_TOPICS_ENABLED
             try {
                 const mapResult = await executeAutoTrendsToTopics({
                     ...settings,
-                    AUTO_TARGET_TREND_DATE: requestedTrendDate,
+                    BLOG_AUTO_TARGET_TREND_DATE: requestedTrendDate,
                     AUTO_READ_ALL_TRENDS_STATUSES: skipTrendsCollect
                 });
                 summary.trendsToTopics = Number(mapResult.appendedCount || 0);
@@ -3883,7 +3908,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
         }
 
         const nowMs = Date.now();
-        const minGapMin = normalizeNonNegativeInt(settings.AUTO_MIN_POST_GAP_MIN, 0);
+        const minGapMin = normalizeNonNegativeInt(settings.BLOG_AUTO_MIN_POST_GAP_MIN, 0);
         const minGapMs = minGapMin * 60 * 1000;
         const gapAllowed = minGapMs <= 0 || autoRuntimeState.lastPublishAtMs <= 0 || (nowMs - autoRuntimeState.lastPublishAtMs >= minGapMs);
         if (!gapAllowed) {
@@ -3932,7 +3957,12 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                 const rowIndices = candidates.map((item) => item.rowIndex).filter((v) => Number.isInteger(v) && v >= 0);
                 summary.blogAttempted = rowIndices.length;
                 if (rowIndices.length > 0) {
-                    const blogResult = await executeBlogBatchRowsAction({ action: 'batch', rowIndices, isAutoCycle: true });
+                    const blogResult = await executeBlogBatchRowsAction({
+                        action: 'batch',
+                        rowIndices,
+                        headless: settings.BLOG_AUTO_HEADLESS,
+                        isAutoCycle: true
+                    });
                     const successCount = Number(blogResult?.data?.successCount || 0);
                     summary.blogSuccess = successCount;
                     if (successCount > 0) {
@@ -3996,6 +4026,276 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
     }
 }
 
+async function runTrendCollectCycle(trigger = 'manual', options = {}) {
+    const isManual = String(trigger || '').toLowerCase().includes('manual');
+    const requestedTrendDate = normalizeYmdToken(options?.trendDate || options?.date || '');
+
+    // Ensure settings object has the required fields for processAndAppendTrendsToTopics
+    const settingsOverride = {
+        ...(options?.settings || {}),
+        BLOG_AUTO_TARGET_TREND_DATE: requestedTrendDate
+    };
+
+    if (!CONFIG.COLLECT_TRENDS_ENABLED && !isManual) {
+        return { success: false, message: '트렌드 수집이 비활성화되어 있습니다.' };
+    }
+
+    const precheck = await License.checkLicenseStatus({ quiet: true });
+    if (!precheck.success) return { success: false, message: `라이선스 오류: ${precheck.message}` };
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'trends')) return { success: false, message: '트렌드 수집 권한이 없습니다.' };
+
+    Logger.info(`🚀 [AUTO][Producer] 트렌드 수집 시작 (Trigger: ${trigger})`);
+
+    const includeCategories = parseCsvTokens(settingsOverride.BLOG_AUTO_CATEGORIES || CONFIG.COLLECT_TRENDS_CATEGORIES);
+    const trendsRetryResult = await executeTrendCollectWithRetry({
+        date: requestedTrendDate || undefined,
+        categories: includeCategories,
+        maxRetries: isManual ? 0 : BLOG_AUTO_DEFAULTS.trendsMaxRetries,
+        retryWaitMs: BLOG_AUTO_DEFAULTS.trendsRetryWaitMs,
+        headless: CONFIG.BLOG_AUTO_HEADLESS !== undefined ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+        settings: settingsOverride // Propagate settings overrides from UI
+    });
+
+    if (!trendsRetryResult.success) {
+        Logger.error(`❌ [AUTO][Producer] 트렌드 수집 실패: ${trendsRetryResult.message}`);
+        return { success: false, message: `수집 실패: ${trendsRetryResult.message}` };
+    }
+
+    try {
+        const addedCount = Number(trendsRetryResult.data?.appendedCount || 0);
+        const dupCount = Number(trendsRetryResult.data?.duplicateCount || 0);
+        const reuseCount = Number(trendsRetryResult.data?.reuseBlockedCount || 0);
+
+        Logger.info(`✅ [AUTO][Producer] 트렌드 수집 완료: Topics 신규 추가 ${addedCount}건 (중복 ${dupCount}, 재사용간격제외 ${reuseCount})`);
+
+        return {
+            success: true,
+            data: {
+                trendsCollected: trendsRetryResult.data?.rawCollectedCount || trendsRetryResult.collected,
+                trendsToTopics: addedCount
+            }
+        };
+    } catch (e) {
+        Logger.error(`❌ [AUTO][Producer] trends->topics 데이터 구성 실패: ${e.message}`);
+        return { success: false, message: `topics 등록 실패: ${e.message}` };
+    }
+}
+
+async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
+    const isManual = String(trigger || '').toLowerCase().includes('manual');
+    const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
+        ? requestBody.settingsOverrides
+        : {};
+
+    let rssConfigs = Array.isArray(CONFIG.COLLECT_RSS_CONFIGS) ? CONFIG.COLLECT_RSS_CONFIGS : [];
+    const isGlobalEnabled = parseConfigBool(CONFIG.COLLECT_RSS_ENABLED, false);
+
+    // [Global Skip] 자동 수집(trigger != manual)일 때 글로벌 설정이 꺼져있으면 중단
+    if (!isManual && !isGlobalEnabled) {
+        return { success: false, message: '글로벌 RSS 수집 설정이 비활성화되어 있습니다.' };
+    }
+
+    // [Manual Override] 만약 수동 실행이고 UI에서 실시간 설정값이 넘어왔다면 그것을 최우선 사용
+    if (isManual && settingsOverrides.COLLECT_RSS_CONFIGS) {
+        rssConfigs = Array.isArray(settingsOverrides.COLLECT_RSS_CONFIGS)
+            ? settingsOverrides.COLLECT_RSS_CONFIGS
+            : rssConfigs;
+    }
+
+    const enabledConfigs = (isManual && rssConfigs.length > 0) ? rssConfigs : rssConfigs.filter(rc => rc.enabled);
+
+    if (enabledConfigs.length === 0 && !isManual) {
+        return { success: false, message: '활성화된 RSS 수집 설정이 없습니다.' };
+    }
+
+    const precheck = await License.checkLicenseStatus({ quiet: true });
+    if (!precheck.success) return { success: false, message: `라이선스 오류: ${precheck.message}` };
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'trends')) {
+        return { success: false, message: '현재 플랜에서 외부 피드 수집 기능이 비활성화되어 있습니다.' };
+    }
+
+    const feedUrls = enabledConfigs.map(c => String(c.url || '').trim()).filter(Boolean);
+    Logger.info(`🚀 [AUTO][Producer] RSS 수집 시작 (Trigger: ${trigger}, Feeds: ${enabledConfigs.length}개)`);
+    if (feedUrls.length > 0) {
+        Logger.info(`   📝 수집 대상 피드: ${feedUrls.join(', ')}`);
+    } else if (isManual) {
+        Logger.warn(`   ⚠️ 수집 가능한 피드 주소가 없습니다. 설정에서 RSS 주소를 입력해 주세요.`);
+    }
+
+    let totalRssCollected = 0;
+    let totalRssToTopics = 0;
+    const allNewItems = [];
+
+    try {
+        // 1. 기존 토픽들 로드하여 중복 방지 (URL 기준)
+        const topicsSnapshot = await Utils.readGoogleSheetTopicsAll({ limit: 2000, silent: true });
+        const existingLinks = new Set(
+            (topicsSnapshot.items || [])
+                .map(item => {
+                    const refUrls = Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls : [];
+                    const firstUrl = refUrls[0] || item.url || '';
+                    return String(firstUrl).trim();
+                })
+                .filter(Boolean)
+        );
+
+        // 2. 피드별 순회 수집
+        for (const config of enabledConfigs) {
+            const feedUrl = String(config.url || '').trim();
+            if (!feedUrl) continue;
+
+            Logger.info(`   📡 RSS 피드 요청: ${feedUrl}`);
+            const items = await Utils.fetchAndParseRss(feedUrl);
+            totalRssCollected += items.length;
+
+            const includeKws = String(config.includeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+            const excludeKws = String(config.excludeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+
+            const filteredItems = items.filter(item => {
+                const title = String(item.title || '');
+                const desc = String(item.description || '');
+                const targetText = (title + ' ' + desc).toLowerCase();
+
+                // 1. 포함 문구 필터 (OR)
+                if (includeKws.length > 0) {
+                    const hasInclude = includeKws.some(kw => targetText.includes(kw.toLowerCase()));
+                    if (!hasInclude) return false;
+                }
+
+                // 2. 배제 문구 필터 (하나라도 있으면 탈락)
+                if (excludeKws.length > 0) {
+                    const hasExclude = excludeKws.some(kw => targetText.includes(kw.toLowerCase()));
+                    if (hasExclude) return false;
+                }
+
+                return true;
+            });
+
+            const newItemsFromFeed = filteredItems.filter(item => {
+                let link = String(item.link || '').trim();
+                if (!link) return false;
+
+                // 네이버 블로그 URL 모바일화
+                if (link.includes('blog.naver.com')) {
+                    link = Utils.convertToMobileNaverBlogUrl(link);
+                }
+
+                // 중복 체크
+                return !existingLinks.has(link);
+            });
+
+            for (const item of newItemsFromFeed) {
+                let normalizedLink = String(item.link || '').trim();
+                if (normalizedLink.includes('blog.naver.com')) {
+                    normalizedLink = Utils.convertToMobileNaverBlogUrl(normalizedLink);
+                }
+
+                allNewItems.push({
+                    subject: item.title,
+                    keywords: [], // 주제만 요청하셨으므로 키워드 비움
+                    content_guide: {
+                        additional_instructions: '',
+                        reference_urls: [normalizedLink]
+                    },
+                    use_external_ref: false,
+                    image_options: { generate: true, count: 4 },
+                    source: 'rss',
+                    status: '발행 준비 완료'
+                });
+                existingLinks.add(normalizedLink); // 현재 세션 내 중복 방지
+            }
+        }
+
+        // 3. 시트에 일괄 추가
+        if (allNewItems.length > 0) {
+            await Utils.appendGoogleSheetTopics(allNewItems, { source: 'rss' });
+            totalRssToTopics = allNewItems.length;
+            Logger.info(`✅ [AUTO][Producer] RSS 수집 완료: Topics 신규 추가 ${totalRssToTopics}건 (전체 발견 ${totalRssCollected}건)`);
+        } else {
+            Logger.info(`ℹ️ [AUTO][Producer] RSS 수집 완료: 새로운 항목이 없습니다.`);
+        }
+
+        return {
+            success: true,
+            data: {
+                rssCollected: totalRssCollected,
+                rssToTopics: totalRssToTopics
+            }
+        };
+    } catch (e) {
+        Logger.error(`❌ [AUTO][Producer] RSS 수집 중 시스템 오류: ${e.message}`);
+        return { success: false, message: `RSS 수집 실패: ${e.message}` };
+    }
+}
+
+async function runAutoPublishCycle(trigger = 'manual') {
+    const isManual = String(trigger || '').toLowerCase().includes('manual');
+    if (!CONFIG.PUBLISH_AUTO_ENABLED && !isManual) {
+        return { success: false, message: '자동 발행이 비활성화되어 있습니다.' };
+    }
+
+    const precheck = await License.checkLicenseStatus({ quiet: true });
+    if (!precheck.success) return { success: false, message: `라이선스 오류: ${precheck.message}` };
+    const features = toFeatureMap(precheck.features);
+
+    if (!isCommandEnabled(features, 'batch')) {
+        return { success: false, message: '블로그 batch 권한이 없습니다.' };
+    }
+
+    Logger.info(`🚀 [AUTO][Consumer] 자동 발행 시작 (Trigger: ${trigger})`);
+
+    try {
+        const topicsRes = await Utils.readGoogleSheetTopicsAll({
+            status: '',
+            limit: 100000,
+            sortBy: 'rowNumber',
+            sortDir: 'asc'
+        });
+        const topicItems = Array.isArray(topicsRes.items) ? topicsRes.items : [];
+        const candidates = topicItems
+            .filter((item) => String(item?.status || '').trim() === '발행 준비 완료')
+            .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0));
+
+        let batchSize = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_BATCH_SIZE, 1);
+        if (batchSize === 0) batchSize = 1;
+
+        const targetCandidates = candidates.slice(0, batchSize);
+        if (targetCandidates.length === 0) {
+            Logger.info(`ℹ️ [AUTO][Consumer] 발행 대기 상태인 토픽이 없습니다.`);
+            return { success: true, data: { published: 0 } };
+        }
+
+        const rowIndices = targetCandidates.map(c => c.rowIndex).filter(v => Number.isInteger(v));
+        Logger.info(`   ⏳ [AUTO][Consumer] 총 ${rowIndices.length}건 발행 시도...`);
+
+        const blogResult = await executeBlogBatchRowsAction({
+            action: 'batch',
+            rowIndices,
+            headless: CONFIG.BLOG_AUTO_HEADLESS !== undefined ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+            isAutoCycle: true
+        });
+
+        const successCount = Number(blogResult?.data?.successCount || 0);
+        const failCount = Number(blogResult?.data?.failCount || 0);
+
+        Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
+
+        return {
+            success: true,
+            data: {
+                published: successCount,
+                failed: failCount
+            }
+        };
+
+    } catch (e) {
+        Logger.error(`❌ [AUTO][Consumer] 자동 발행 실패: ${e.message}`);
+        return { success: false, message: `자동 발행 실행 오류: ${e.message}` };
+    }
+}
+
 function getBlogAutoRouteHandler() {
     if (!blogAutoRouteHandler) {
         const service = createBlogAutoService({
@@ -4003,7 +4303,10 @@ function getBlogAutoRouteHandler() {
             getAutoStatusPayload,
             ensureSheetsReadyForUi,
             resolveNaverAutoCategoryCatalog,
-            runAutoCycle
+            runAutoCycle,
+            runTrendCollectCycle,
+            runRssCollectCycle,
+            runAutoPublishCycle
         });
         const validators = {
             parseForceQuery: UiValidators.parseForceQuery,

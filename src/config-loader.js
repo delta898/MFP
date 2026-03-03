@@ -406,6 +406,28 @@ const blogAutoHeadless = parseBoolLike(
     userConfig.BLOG_AUTO_HEADLESS,
     true
 );
+
+// New Producers (Auto Collect) Configurations
+const collectTrendsEnabled = parseBoolLike(userConfig.COLLECT_TRENDS_ENABLED, false);
+const collectTrendsCategories = String(userConfig.COLLECT_TRENDS_CATEGORIES || '').trim();
+const collectTrendsFilterMinIncr = parseIntegerOrBlank(userConfig.COLLECT_TRENDS_FILTER_MIN_INCR, 50);
+const collectTrendsReuseGapDays = parseNonNegativeInt(userConfig.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
+const collectTrendsTime = parseTimeHHmm(userConfig.COLLECT_TRENDS_TIME, '07:30');
+
+let collectRssConfigs = [];
+try {
+    const rawRss = String(userConfig.COLLECT_RSS_CONFIGS || '').trim();
+    if (rawRss) collectRssConfigs = JSON.parse(rawRss);
+    if (!Array.isArray(collectRssConfigs)) collectRssConfigs = [];
+} catch (e) {
+    collectRssConfigs = [];
+}
+
+// New Consumers (Auto Publish) Configurations
+const publishAutoEnabled = parseBoolLike(userConfig.PUBLISH_AUTO_ENABLED, false);
+const publishAutoIntervalMin = parseNonNegativeInt(userConfig.PUBLISH_AUTO_INTERVAL_MIN, 60);
+const publishAutoBatchSize = parseNonNegativeInt(userConfig.PUBLISH_AUTO_BATCH_SIZE, 1);
+
 const shoppingAutoMode = parseBoolLike(
     userConfig.SHOPPING_AUTO_MODE,
     false
@@ -517,6 +539,20 @@ module.exports = {
     USER_ROLE: userRole,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,
+
+    // New Producers (Collect)
+    COLLECT_TRENDS_ENABLED: collectTrendsEnabled,
+    COLLECT_TRENDS_CATEGORIES: collectTrendsCategories,
+    COLLECT_TRENDS_FILTER_MIN_INCR: collectTrendsFilterMinIncr,
+    COLLECT_TRENDS_REUSE_GAP_DAYS: collectTrendsReuseGapDays,
+    COLLECT_TRENDS_TIME: collectTrendsTime,
+    COLLECT_RSS_CONFIGS: collectRssConfigs,
+
+    // New Consumers (Publish)
+    PUBLISH_AUTO_ENABLED: publishAutoEnabled,
+    PUBLISH_AUTO_INTERVAL_MIN: publishAutoIntervalMin,
+    PUBLISH_AUTO_BATCH_SIZE: publishAutoBatchSize,
+
     // legacy alias (내부 호환)
     AUTO_MODE: blogAutoMode,
     AUTO_INCLUDE_CATEGORIES: blogAutoCategories,
