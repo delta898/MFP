@@ -309,18 +309,18 @@ async function ensureAuth(isStrict = true) {
     process.exit(1);
 }
 
-function parseMaxPosts(value, fallback = 3) {
+function parseMaxPosts(value, fallback = 10) {
     const parsed = parseInt(value, 10);
     if (Number.isNaN(parsed) || parsed < 0) return fallback;
     return parsed;
 }
 
 function resolveMaxBlogPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 3);
+    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 10);
 }
 
 function resolveMaxShoppingPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 3);
+    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 10);
 }
 
 function toFeatureMap(rawFeatures) {
@@ -609,6 +609,12 @@ program
             const uiUrl = `http://${started.openHost || '127.0.0.1'}:${started.port}`;
             console.log(`\n✅ UI 서버 실행 중: ${uiUrl}`);
             console.log(`ℹ️ 바인딩 주소: ${started.host}:${started.port}`);
+
+            if (!CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                console.log('\n👋 BlogGenius에 오신 것을 환영합니다!');
+                console.log('ℹ️ 프로그램 시작을 위해 먼저 [설정] 메뉴에서 필수 정보를 입력해 주세요.\n');
+            }
+
             if (openUrlInDefaultBrowser(uiUrl)) {
                 console.log('🌐 기본 브라우저를 자동으로 열었습니다.');
             } else {
@@ -801,7 +807,7 @@ program
             console.log(`⚙️ 이번 실행 최대 처리 건수: ${maxPostsPerRun === 0 ? '무제한' : maxPostsPerRun}`);
 
             if (targetTopics.length === 0) {
-                console.log("📭 생성할 주제가 없습니다. (상태: 블로그 발행 준비 완료)");
+                console.log("📭 생성할 주제가 없습니다. (상태: 발행 준비 완료)");
                 return;
             }
 
@@ -954,7 +960,7 @@ program
                     if (!check.success) {
                         console.error(`\n⛔ [중단] 라이선스 확인 결과: ${check.message}`);
                         printLicenseNextAction(check.message);
-                        await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+                        await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '라이선스 부족으로 발행 보류');
                         console.log(`👉 남은 ${targetTopics.length - i}건은 처리되지 않았습니다.`);
                         break;
                     }
@@ -965,7 +971,7 @@ program
                     });
 
                     // 완료 상태 업데이트
-                    await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 완료', '발행 완료');
+                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 완료', '발행 완료');
 
                     successCount++;
 

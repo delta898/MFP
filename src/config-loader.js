@@ -348,72 +348,75 @@ const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
     : userSheetUrl;
 
-const naverAutoMode = parseBoolLike(userConfig.NAVER_AUTO_MODE ?? userConfig.AUTO_MODE, false);
-const naverAutoCategories = String(
-    userConfig.NAVER_AUTO_CATEGORIES
+const blogAutoMode = parseBoolLike(userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE, false);
+const blogAutoCategories = String(
+    userConfig.BLOG_AUTO_CATEGORIES
     ?? userConfig.AUTO_INCLUDE_CATEGORIES
     ?? userConfig.AUTO_CATEGORIES
     ?? ''
 ).trim();
-const naverAutoMaxPostsPerRun = parseNonNegativeInt(
-    userConfig.NAVER_AUTO_MAX_POSTS_PER_RUN
-    ?? userConfig.NAVER_AUTO_DAILY_POSTS
+const blogAutoMaxPostsPerRun = parseNonNegativeInt(
+    userConfig.BLOG_AUTO_MAX_POSTS_PER_RUN
+    ?? userConfig.MAX_BLOG_POSTS_PER_RUN
     ?? userConfig.AUTO_MAX_BLOG_PER_CYCLE
     ?? userConfig.AUTO_DAILY_BLOG_CAP,
-    5
+    10
 );
-const naverAutoTrendsTime = parseTimeHHmm(userConfig.NAVER_AUTO_TRENDS_TIME, '07:30');
-const naverAutoImageGeneration = parseBoolLike(
-    userConfig.NAVER_AUTO_IMAGE_GENERATION ?? userConfig.AUTO_IMAGE_GENERATION,
+const blogAutoTargetTrendDate = String(userConfig.BLOG_AUTO_TARGET_TREND_DATE || '').trim();
+const maxBlogPostsPerRun = parseNonNegativeInt(userConfig.MAX_BLOG_POSTS_PER_RUN, 10);
+const maxShoppingPostsPerRun = parseNonNegativeInt(userConfig.MAX_SHOPPING_POSTS_PER_RUN, 10);
+const blogAutoTrendsTime = parseTimeHHmm(userConfig.BLOG_AUTO_TRENDS_TIME, '07:30');
+const blogAutoImageGeneration = parseBoolLike(
+    userConfig.BLOG_AUTO_IMAGE_GENERATION ?? userConfig.AUTO_IMAGE_GENERATION,
     true
 );
-const naverAutoExternalReference = parseBoolLike(
-    userConfig.NAVER_AUTO_EXTERNAL_REFERENCE ?? userConfig.AUTO_USE_EXTERNAL_REF,
+const blogAutoExternalReference = parseBoolLike(
+    userConfig.BLOG_AUTO_EXTERNAL_REFERENCE ?? userConfig.AUTO_USE_EXTERNAL_REF,
     true
 );
-const naverAutoNotifyEnabled = parseBoolLike(userConfig.NAVER_AUTO_NOTIFY_ENABLED, false);
-const naverAutoVariationIncludeNew = parseBoolLike(
-    userConfig.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+const blogAutoNotifyEnabled = parseBoolLike(userConfig.BLOG_AUTO_NOTIFY_ENABLED, false);
+const blogAutoVariationIncludeNew = parseBoolLike(
+    userConfig.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
     false
 );
-const naverAutoVariationIncludeDash = parseBoolLike(
-    userConfig.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
+const blogAutoVariationIncludeDash = parseBoolLike(
+    userConfig.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
     false
 );
-const naverAutoVariationIncludeNumber = parseBoolLike(
-    userConfig.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+const blogAutoVariationIncludeNumber = parseBoolLike(
+    userConfig.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
     true
 );
-const naverAutoVariationType = String(
-    userConfig.NAVER_AUTO_VARIATION_TYPE || 'min'
+const blogAutoVariationType = String(
+    userConfig.BLOG_AUTO_VARIATION_TYPE || 'min'
 ).trim();
-const naverAutoVariationNumber = parseIntegerOrBlank(
-    userConfig.NAVER_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
+const blogAutoVariationNumber = parseIntegerOrBlank(
+    userConfig.BLOG_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
     50
 );
-const naverAutoVariationTopN = parseIntegerOrBlank(
-    userConfig.NAVER_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
+const blogAutoVariationTopN = parseIntegerOrBlank(
+    userConfig.BLOG_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
     5
 );
-const naverAutoKeywordReuseGapDays = parseNonNegativeInt(
-    userConfig.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
+const blogAutoKeywordReuseGapDays = parseNonNegativeInt(
+    userConfig.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
     15
 );
-const naverAutoHeadless = parseBoolLike(
-    userConfig.NAVER_AUTO_HEADLESS,
+const blogAutoHeadless = parseBoolLike(
+    userConfig.BLOG_AUTO_HEADLESS,
     true
 );
-const naverShoppingAutoMode = parseBoolLike(
-    userConfig.NAVER_SHOPPING_AUTO_MODE,
+const shoppingAutoMode = parseBoolLike(
+    userConfig.SHOPPING_AUTO_MODE,
     false
 );
-const naverShoppingAutoDailyPosts = parseNonNegativeInt(
-    userConfig.NAVER_SHOPPING_AUTO_DAILY_POSTS,
-    3
+const shoppingAutoDailyPosts = parseNonNegativeInt(
+    userConfig.SHOPPING_AUTO_DAILY_POSTS,
+    10
 );
-const naverShoppingAutoTime = parseTimeHHmm(userConfig.NAVER_SHOPPING_AUTO_TIME, '07:50');
-const naverShoppingAutoNotifyEnabled = parseBoolLike(
-    userConfig.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
+const shoppingAutoTime = parseTimeHHmm(userConfig.SHOPPING_AUTO_TIME, '07:50');
+const shoppingAutoNotifyEnabled = parseBoolLike(
+    userConfig.SHOPPING_AUTO_NOTIFY_ENABLED,
     false
 );
 const userRole = String(userConfig.USER_ROLE || 'User').trim();
@@ -492,41 +495,41 @@ module.exports = {
     GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || resolvedSheetId,
     LISTEN_HOST: listenHost,
     LISTEN_PORT: listenPort,
-    NAVER_AUTO_MODE: naverAutoMode,
-    NAVER_AUTO_CATEGORIES: naverAutoCategories,
-    NAVER_AUTO_MAX_POSTS_PER_RUN: naverAutoMaxPostsPerRun,
-    NAVER_AUTO_TRENDS_TIME: naverAutoTrendsTime,
-    NAVER_AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
-    NAVER_AUTO_EXTERNAL_REFERENCE: naverAutoExternalReference,
-    NAVER_AUTO_NOTIFY_ENABLED: naverAutoNotifyEnabled,
-    NAVER_AUTO_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,
-    NAVER_AUTO_VARIATION_INCLUDE_DASH: naverAutoVariationIncludeDash,
-    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
-    NAVER_AUTO_VARIATION_TYPE: naverAutoVariationType,
-    NAVER_AUTO_VARIATION_NUMBER: naverAutoVariationNumber,
-    NAVER_AUTO_VARIATION_TOP_N: naverAutoVariationTopN,
-    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
-    NAVER_AUTO_HEADLESS: naverAutoHeadless,
-    NAVER_SHOPPING_AUTO_MODE: naverShoppingAutoMode,
-    NAVER_SHOPPING_AUTO_DAILY_POSTS: naverShoppingAutoDailyPosts,
-    NAVER_SHOPPING_AUTO_TIME: naverShoppingAutoTime,
-    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: naverShoppingAutoNotifyEnabled,
+    BLOG_AUTO_MODE: blogAutoMode,
+    BLOG_AUTO_CATEGORIES: blogAutoCategories,
+    BLOG_AUTO_MAX_POSTS_PER_RUN: blogAutoMaxPostsPerRun,
+    BLOG_AUTO_TRENDS_TIME: blogAutoTrendsTime,
+    BLOG_AUTO_IMAGE_GENERATION: blogAutoImageGeneration,
+    BLOG_AUTO_EXTERNAL_REFERENCE: blogAutoExternalReference,
+    BLOG_AUTO_NOTIFY_ENABLED: blogAutoNotifyEnabled,
+    BLOG_AUTO_VARIATION_INCLUDE_NEW: blogAutoVariationIncludeNew,
+    BLOG_AUTO_VARIATION_INCLUDE_DASH: blogAutoVariationIncludeDash,
+    BLOG_AUTO_VARIATION_INCLUDE_NUMBER: blogAutoVariationIncludeNumber,
+    BLOG_AUTO_VARIATION_TYPE: blogAutoVariationType,
+    BLOG_AUTO_VARIATION_NUMBER: blogAutoVariationNumber,
+    BLOG_AUTO_VARIATION_TOP_N: blogAutoVariationTopN,
+    BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: blogAutoKeywordReuseGapDays,
+    BLOG_AUTO_TARGET_TREND_DATE: blogAutoTargetTrendDate,
+    MAX_BLOG_POSTS_PER_RUN: maxBlogPostsPerRun,
+    MAX_SHOPPING_POSTS_PER_RUN: maxShoppingPostsPerRun,
+    SHOPPING_AUTO_TIME: shoppingAutoTime,
+    SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoNotifyEnabled,
     USER_ROLE: userRole,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,
     // legacy alias (내부 호환)
-    AUTO_MODE: naverAutoMode,
-    AUTO_INCLUDE_CATEGORIES: naverAutoCategories,
-    AUTO_CATEGORIES: naverAutoCategories,
-    AUTO_IMAGE_GENERATION: naverAutoImageGeneration,
-    AUTO_USE_EXTERNAL_REF: naverAutoExternalReference,
-    AUTO_TRENDS_VARIATION_INCLUDE_NEW: naverAutoVariationIncludeNew,
-    AUTO_TRENDS_VARIATION_INCLUDE_DASH: naverAutoVariationIncludeDash,
-    AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: naverAutoVariationIncludeNumber,
-    AUTO_TRENDS_MIN_VARIATION: naverAutoVariationNumber,
-    AUTO_KEYWORD_REUSE_GAP_DAYS: naverAutoKeywordReuseGapDays,
-    AUTO_SHOPPING_ENABLED: naverShoppingAutoMode,
-    AUTO_MAX_SHOPPING_PER_CYCLE: naverShoppingAutoDailyPosts,
+    AUTO_MODE: blogAutoMode,
+    AUTO_INCLUDE_CATEGORIES: blogAutoCategories,
+    AUTO_CATEGORIES: blogAutoCategories,
+    AUTO_IMAGE_GENERATION: blogAutoImageGeneration,
+    AUTO_USE_EXTERNAL_REF: blogAutoExternalReference,
+    AUTO_TRENDS_VARIATION_INCLUDE_NEW: blogAutoVariationIncludeNew,
+    AUTO_TRENDS_VARIATION_INCLUDE_DASH: blogAutoVariationIncludeDash,
+    AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: blogAutoVariationIncludeNumber,
+    AUTO_TRENDS_MIN_VARIATION: blogAutoVariationNumber,
+    AUTO_KEYWORD_REUSE_GAP_DAYS: blogAutoKeywordReuseGapDays,
+    AUTO_SHOPPING_ENABLED: shoppingAutoMode,
+    AUTO_MAX_SHOPPING_PER_CYCLE: shoppingAutoDailyPosts,
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 
@@ -565,5 +568,18 @@ module.exports = {
     CLOSE_DELAY: closeDelay,
 
     // 브라우저 채널 처리
-    BROWSER_CHANNEL: (userConfig.BROWSER_CHANNEL === 'auto') ? undefined : userConfig.BROWSER_CHANNEL
+    BROWSER_CHANNEL: (userConfig.BROWSER_CHANNEL === 'auto') ? undefined : userConfig.BROWSER_CHANNEL,
+
+    // 🆕 필수 설정 완료 여부 (UX 개선용)
+    // - process.env 우선, 그 다음 처리된(resolved) 값 사용
+    // - 플레이스홀더("본인의_..." 등) 값은 미설정으로 간주
+    CONFIG_IS_ESSENTIAL_SET: (() => {
+        const naverId = String(process.env.NAVER_ID || userConfig.NAVER_ID || '').trim();
+        const apiKey = String(process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY || '').trim();
+        const sheetId = String(process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEET_URL || resolvedSheetId || resolvedSheetUrl || '').trim();
+        const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
+        return Boolean(naverId && !isPlaceholder(naverId) &&
+            apiKey && !isPlaceholder(apiKey) &&
+            sheetId && !isPlaceholder(sheetId));
+    })()
 };

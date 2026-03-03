@@ -70,42 +70,69 @@ function createSettingsService(deps = {}) {
                 throw createApiError(400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
             }
 
-            const nextRaw = applyConfigUpdates(raw, {
+            const ADVANCED_DEFAULTS = {
+                HEADLESS: false,
+                TYPING_SPEED: 'NORMAL',
+                UPDATE_CHANNEL: 'stable',
+                BLOG_AUTO_IMAGE_GENERATION: true,
+                BLOG_AUTO_EXTERNAL_REFERENCE: true,
+                BLOG_AUTO_NOTIFY_ENABLED: false,
+                BLOG_AUTO_VARIATION_INCLUDE_NEW: false,
+                BLOG_AUTO_VARIATION_INCLUDE_DASH: false,
+                BLOG_AUTO_VARIATION_INCLUDE_NUMBER: true,
+                BLOG_AUTO_VARIATION_TYPE: 'min',
+                BLOG_AUTO_VARIATION_NUMBER: 50,
+                BLOG_AUTO_VARIATION_TOP_N: 5,
+                BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: 15,
+                BLOG_AUTO_HEADLESS: true,
+                SHOPPING_AUTO_NOTIFY_ENABLED: false,
+                FTC_DISCLOSURE_IMAGE_URL: './config/images/ftc_disclosure.jpeg',
+                SHOPPING_CTA_IMAGE_URL1: './config/images/shopping_cta_1.jpeg',
+                SHOPPING_CTA_IMAGE_URL2: './config/images/shopping_cta_2.jpeg',
+                SHOPPING_CTA_IMAGE_URL3: './config/images/shopping_cta_3.jpeg'
+            };
+
+            const updates = {
                 LISTEN_HOST: fields.LISTEN_HOST,
                 LISTEN_PORT: String(fields.LISTEN_PORT),
                 NAVER_ID: fields.NAVER_ID,
                 GEMINI_API_KEY: fields.GEMINI_API_KEY,
                 GOOGLE_SHEET_URL: fields.GOOGLE_SHEET_URL,
-                HEADLESS: fields.HEADLESS ? 'true' : 'false',
-                TYPING_SPEED: fields.TYPING_SPEED,
-                NAVER_AUTO_MODE: fields.NAVER_AUTO_MODE ? 'true' : 'false',
-                NAVER_AUTO_CATEGORIES: fields.NAVER_AUTO_CATEGORIES,
-                NAVER_AUTO_MAX_POSTS_PER_RUN: String(fields.NAVER_AUTO_MAX_POSTS_PER_RUN),
-                NAVER_AUTO_TRENDS_TIME: fields.NAVER_AUTO_TRENDS_TIME,
-                NAVER_AUTO_IMAGE_GENERATION: fields.NAVER_AUTO_IMAGE_GENERATION ? 'true' : 'false',
-                NAVER_AUTO_EXTERNAL_REFERENCE: fields.NAVER_AUTO_EXTERNAL_REFERENCE ? 'true' : 'false',
-                NAVER_AUTO_NOTIFY_ENABLED: fields.NAVER_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                NAVER_AUTO_VARIATION_INCLUDE_NEW: fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ? 'true' : 'false',
-                NAVER_AUTO_VARIATION_INCLUDE_DASH: fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ? 'true' : 'false',
-                NAVER_AUTO_VARIATION_INCLUDE_NUMBER: fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ? 'true' : 'false',
-                NAVER_AUTO_VARIATION_TYPE: fields.NAVER_AUTO_VARIATION_TYPE || 'min',
-                NAVER_AUTO_VARIATION_NUMBER: fields.NAVER_AUTO_VARIATION_NUMBER === '' ? '' : String(fields.NAVER_AUTO_VARIATION_NUMBER),
-                NAVER_AUTO_VARIATION_TOP_N: fields.NAVER_AUTO_VARIATION_TOP_N === '' ? '5' : String(fields.NAVER_AUTO_VARIATION_TOP_N),
-                NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: String(fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS),
-                NAVER_AUTO_HEADLESS: fields.NAVER_AUTO_HEADLESS ? 'true' : 'false',
-                NAVER_SHOPPING_AUTO_MODE: fields.NAVER_SHOPPING_AUTO_MODE ? 'true' : 'false',
-                NAVER_SHOPPING_AUTO_DAILY_POSTS: String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS),
-                NAVER_SHOPPING_AUTO_TIME: fields.NAVER_SHOPPING_AUTO_TIME,
-                NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: fields.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
-                SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
-                SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
-                SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3,
                 WORDPRESS_URL: fields.WORDPRESS_URL,
                 WORDPRESS_USER_ID: fields.WORDPRESS_USER_ID,
                 WORDPRESS_APP_PASSWORD: fields.WORDPRESS_APP_PASSWORD,
-                UPDATE_CHANNEL: fields.UPDATE_CHANNEL || 'stable'
+                BLOG_AUTO_MODE: fields.BLOG_AUTO_MODE ? 'true' : 'false',
+                BLOG_AUTO_CATEGORIES: fields.BLOG_AUTO_CATEGORIES,
+                BLOG_AUTO_MAX_POSTS_PER_RUN: String(fields.BLOG_AUTO_MAX_POSTS_PER_RUN),
+                BLOG_AUTO_TRENDS_TIME: fields.BLOG_AUTO_TRENDS_TIME,
+                SHOPPING_AUTO_MODE: fields.SHOPPING_AUTO_MODE ? 'true' : 'false',
+                SHOPPING_AUTO_DAILY_POSTS: String(fields.SHOPPING_AUTO_DAILY_POSTS),
+                SHOPPING_AUTO_TIME: fields.SHOPPING_AUTO_TIME
+            };
+
+            // 💡 [Smart Filter] Advanced 설정 중 기본값과 같은 것은 파일에서 제거(null) 처리
+            Object.keys(ADVANCED_DEFAULTS).forEach(key => {
+                const currentVal = fields[key];
+                const defaultVal = ADVANCED_DEFAULTS[key];
+
+                let isDefault = false;
+                if (typeof defaultVal === 'boolean') {
+                    isDefault = Boolean(currentVal) === defaultVal;
+                } else if (typeof defaultVal === 'number') {
+                    isDefault = Number(currentVal) === defaultVal || (currentVal === '' && defaultVal === 5); // Special case for TopN
+                } else {
+                    isDefault = String(currentVal || '').trim() === String(defaultVal).trim();
+                }
+
+                if (isDefault) {
+                    updates[key] = null; // applyConfigUpdates에서 삭제 처리됨
+                } else {
+                    if (typeof currentVal === 'boolean') updates[key] = currentVal ? 'true' : 'false';
+                    else updates[key] = String(currentVal ?? '');
+                }
             });
+
+            const nextRaw = applyConfigUpdates(raw, updates);
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
             fs.writeFileSync(writablePath, nextRaw, 'utf-8');
             applyRuntimeConfigFromMajor(fields);
@@ -183,32 +210,25 @@ function createSettingsService(deps = {}) {
                 GOOGLE_SHEET_URL: parseConfigValue(content, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
                 HEADLESS: parseConfigValue(content, 'HEADLESS'),
                 TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED'),
-                NAVER_AUTO_MODE: parseConfigValue(content, 'NAVER_AUTO_MODE') || parseConfigValue(content, 'AUTO_MODE'),
-                NAVER_AUTO_CATEGORIES:
-                    parseConfigValue(content, 'NAVER_AUTO_CATEGORIES')
-                    || parseConfigValue(content, 'AUTO_INCLUDE_CATEGORIES')
-                    || parseConfigValue(content, 'AUTO_CATEGORIES'),
-                NAVER_AUTO_MAX_POSTS_PER_RUN:
-                    parseConfigValue(content, 'NAVER_AUTO_MAX_POSTS_PER_RUN')
-                    || parseConfigValue(content, 'NAVER_AUTO_DAILY_POSTS')
-                    || parseConfigValue(content, 'AUTO_MAX_BLOG_PER_CYCLE')
-                    || parseConfigValue(content, 'AUTO_DAILY_BLOG_CAP'),
-                NAVER_AUTO_TRENDS_TIME: parseConfigValue(content, 'NAVER_AUTO_TRENDS_TIME'),
-                NAVER_AUTO_IMAGE_GENERATION: parseConfigValue(content, 'NAVER_AUTO_IMAGE_GENERATION') || parseConfigValue(content, 'AUTO_IMAGE_GENERATION'),
-                NAVER_AUTO_EXTERNAL_REFERENCE: parseConfigValue(content, 'NAVER_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(content, 'AUTO_USE_EXTERNAL_REF'),
-                NAVER_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_AUTO_NOTIFY_ENABLED'),
-                NAVER_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
-                NAVER_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
-                NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
-                NAVER_AUTO_VARIATION_TYPE: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
-                NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(content, 'AUTO_TRENDS_MIN_VARIATION'),
-                NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(content, 'AUTO_TRENDS_TOP_N'),
-                NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(content, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
-                NAVER_AUTO_HEADLESS: parseConfigValue(content, 'NAVER_AUTO_HEADLESS'),
-                NAVER_SHOPPING_AUTO_MODE: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_MODE'),
-                NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
-                NAVER_SHOPPING_AUTO_TIME: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_TIME'),
-                NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED'),
+                BLOG_AUTO_MODE: parseConfigValue(content, 'BLOG_AUTO_MODE'),
+                BLOG_AUTO_CATEGORIES: parseConfigValue(content, 'BLOG_AUTO_CATEGORIES'),
+                BLOG_AUTO_MAX_POSTS_PER_RUN: parseConfigValue(content, 'BLOG_AUTO_MAX_POSTS_PER_RUN'),
+                BLOG_AUTO_TRENDS_TIME: parseConfigValue(content, 'BLOG_AUTO_TRENDS_TIME'),
+                BLOG_AUTO_IMAGE_GENERATION: parseConfigValue(content, 'BLOG_AUTO_IMAGE_GENERATION'),
+                BLOG_AUTO_EXTERNAL_REFERENCE: parseConfigValue(content, 'BLOG_AUTO_EXTERNAL_REFERENCE'),
+                BLOG_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'BLOG_AUTO_NOTIFY_ENABLED'),
+                BLOG_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(content, 'BLOG_AUTO_VARIATION_INCLUDE_NEW'),
+                BLOG_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(content, 'BLOG_AUTO_VARIATION_INCLUDE_DASH'),
+                BLOG_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'BLOG_AUTO_VARIATION_INCLUDE_NUMBER'),
+                BLOG_AUTO_VARIATION_TYPE: parseConfigValue(content, 'BLOG_AUTO_VARIATION_TYPE') || 'min',
+                BLOG_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'BLOG_AUTO_VARIATION_NUMBER'),
+                BLOG_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'BLOG_AUTO_VARIATION_TOP_N'),
+                BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS'),
+                BLOG_AUTO_HEADLESS: parseConfigValue(content, 'BLOG_AUTO_HEADLESS'),
+                SHOPPING_AUTO_MODE: parseConfigValue(content, 'SHOPPING_AUTO_MODE'),
+                SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(content, 'SHOPPING_AUTO_DAILY_POSTS'),
+                SHOPPING_AUTO_TIME: parseConfigValue(content, 'SHOPPING_AUTO_TIME'),
+                SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'SHOPPING_AUTO_NOTIFY_ENABLED'),
                 FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,

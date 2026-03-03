@@ -36,31 +36,33 @@ const UI_SHEETS_PREFLIGHT_TTL_MS = 10 * 60 * 1000;
 const blogRuntimeLogs = new Map();
 const shoppingRuntimeLogs = new Map();
 const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
-const NAVER_AUTO_DEFAULTS = {
+const BLOG_AUTO_DEFAULTS = {
     mode: false,
     categories: '',
-    maxPostsPerRun: 3,
-    minPostGapMin: 0,
+    maxPostsPerRun: 10,
     trendsTime: '07:30',
     imageGeneration: true,
     externalReference: true,
     notifyEnabled: false,
+    minPostGapMin: 120,
     variationIncludeNew: false,
     variationIncludeDash: false,
     variationIncludeNumber: true,
+    variationType: 'min',
     variationNumber: 50,
+    variationTopN: 5,
     keywordReuseGapDays: 15,
     headless: true
 };
-const NAVER_SHOPPING_AUTO_DEFAULTS = {
+const SHOPPING_AUTO_DEFAULTS = {
     mode: false,
-    dailyPosts: 3,
+    dailyPosts: 10,
     time: '07:50',
     notifyEnabled: false
 };
 const AUTO_TRENDS_RETRY_WAIT_MS = 5 * 60 * 1000;
 const AUTO_TRENDS_MAX_RETRIES = 3;
-const NAVER_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'naver_auto_categories_master'];
+const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['BLOG_AUTO_CATEGORIES_MASTER', 'blog_auto_categories_master'];
 const autoRuntimeState = {
     enabled: false,
     running: false,
@@ -344,18 +346,18 @@ function isCommandEnabled(features, command) {
     return getFeatureBool(features, key, true);
 }
 
-function parseMaxPosts(value, fallback = 3) {
+function parseMaxPosts(value, fallback = 10) {
     const parsed = parseInt(value, 10);
     if (Number.isNaN(parsed) || parsed < 0) return fallback;
     return parsed;
 }
 
 function resolveMaxBlogPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 3);
+    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 10);
 }
 
 function resolveMaxShoppingPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 3);
+    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 10);
 }
 
 function getContentType(filePath) {
@@ -613,24 +615,26 @@ function buildDefaultConfigTemplate() {
         `LISTEN_PORT = ${DEFAULT_PORT}`,
         'HEADLESS = false',
         'TYPING_SPEED = FAST',
-        'NAVER_AUTO_MODE = false',
-        'NAVER_AUTO_CATEGORIES = ',
-        'NAVER_AUTO_MAX_POSTS_PER_RUN = 3',
-        'NAVER_AUTO_TRENDS_TIME = 07:30',
-        'NAVER_AUTO_IMAGE_GENERATION = true',
-        'NAVER_AUTO_EXTERNAL_REFERENCE = true',
-        'NAVER_AUTO_NOTIFY_ENABLED = false',
-        'NAVER_AUTO_VARIATION_INCLUDE_NEW = false',
-        'NAVER_AUTO_VARIATION_INCLUDE_DASH = false',
-        'NAVER_AUTO_VARIATION_INCLUDE_NUMBER = true',
-        'NAVER_AUTO_VARIATION_NUMBER = 50',
-        'NAVER_AUTO_VARIATION_TOP_N = 5',
-        'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS = 15',
-        'NAVER_AUTO_HEADLESS = true',
-        'NAVER_SHOPPING_AUTO_MODE = false',
-        'NAVER_SHOPPING_AUTO_DAILY_POSTS = 3',
-        'NAVER_SHOPPING_AUTO_TIME = 07:50',
-        'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED = false',
+        'BLOG_AUTO_MODE = false',
+        'BLOG_AUTO_CATEGORIES = ',
+        'BLOG_AUTO_MAX_POSTS_PER_RUN = 10',
+        'BLOG_AUTO_TRENDS_TIME = 07:30',
+        'BLOG_AUTO_IMAGE_GENERATION = true',
+        'BLOG_AUTO_EXTERNAL_REFERENCE = true',
+        'BLOG_AUTO_NOTIFY_ENABLED = false',
+        'BLOG_AUTO_VARIATION_INCLUDE_NEW = false',
+        'BLOG_AUTO_VARIATION_INCLUDE_DASH = false',
+        'BLOG_AUTO_VARIATION_INCLUDE_NUMBER = true',
+        'BLOG_AUTO_VARIATION_NUMBER = 50',
+        'BLOG_AUTO_VARIATION_TOP_N = 5',
+        'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS = 15',
+        'BLOG_AUTO_HEADLESS = true',
+        'SHOPPING_AUTO_MODE = false',
+        'SHOPPING_AUTO_DAILY_POSTS = 10',
+        'MAX_BLOG_POSTS_PER_RUN = 10',
+        'MAX_SHOPPING_POSTS_PER_RUN = 10',
+        'SHOPPING_AUTO_TIME = 07:50',
+        'SHOPPING_AUTO_NOTIFY_ENABLED = false',
         `FTC_DISCLOSURE_IMAGE_URL = ${DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL}`,
         `SHOPPING_CTA_IMAGE_URL1 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1}`,
         `SHOPPING_CTA_IMAGE_URL2 = ${DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2}`,
@@ -759,13 +763,13 @@ async function resolveNaverAutoCategoryCatalog(options = {}) {
     let configCategories = [];
 
     try {
-        const runtimeMap = await RuntimeConfig.fetchRuntimeConfig(NAVER_AUTO_CATEGORY_MASTER_KEYS, force);
-        const runtimeRaw = String(
-            runtimeMap?.NAVER_AUTO_CATEGORIES_MASTER
-            || runtimeMap?.naver_auto_categories_master
+        const runtimeMap = await RuntimeConfig.fetchRuntimeConfig(BLOG_AUTO_CATEGORY_MASTER_KEYS, force);
+        const masterValue = String(
+            runtimeMap?.BLOG_AUTO_CATEGORIES_MASTER
+            || runtimeMap?.blog_auto_categories_master
             || ''
         ).trim();
-        runtimeCategories = parseCategoryListRaw(runtimeRaw);
+        runtimeCategories = parseCategoryListRaw(masterValue);
     } catch (_e) { }
 
     try {
@@ -781,8 +785,8 @@ async function resolveNaverAutoCategoryCatalog(options = {}) {
     } catch (_e) { }
 
     try {
-        const fromConfig = normalizeNaverAutoSettings({});
-        configCategories = parseCategoryListRaw(fromConfig?.NAVER_AUTO_CATEGORIES || '');
+        const fromConfig = normalizeBlogAutoSettings({});
+        configCategories = parseCategoryListRaw(fromConfig?.BLOG_AUTO_CATEGORIES || '');
     } catch (_e) { }
 
     const categories = dedupeOrderedStrings([
@@ -833,19 +837,19 @@ function parseVariationMeta(raw) {
 
 function matchesVariationFilter(rawVariation, settings = {}) {
     const includeNew = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_NEW,
         false
     );
     const includeDash = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_DASH,
         false
     );
     const includeNumber = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_NUMBER,
         true
     );
     const threshold = normalizeIntegerOrBlank(
-        settings.NAVER_AUTO_VARIATION_NUMBER ?? settings.AUTO_TRENDS_MIN_VARIATION,
+        settings.BLOG_AUTO_VARIATION_NUMBER,
         ''
     );
     // "new", "-", "증감(숫자 기준 이상)"은 OR 조건.
@@ -934,177 +938,136 @@ function matchesAnyToken(text, tokens = []) {
     return tokens.some((token) => haystack.includes(String(token || '').toLowerCase()));
 }
 
-function normalizeNaverAutoSettings(input = {}) {
-    const categoriesRaw = String(
-        input.NAVER_AUTO_CATEGORIES
-        ?? input.AUTO_INCLUDE_CATEGORIES
-        ?? input.AUTO_CATEGORIES
-        ?? CONFIG.NAVER_AUTO_CATEGORIES
-        ?? CONFIG.AUTO_INCLUDE_CATEGORIES
-        ?? CONFIG.AUTO_CATEGORIES
-        ?? NAVER_AUTO_DEFAULTS.categories
+function normalizeBlogAutoSettings(input = {}) {
+    const categories = String(
+        input.BLOG_AUTO_CATEGORIES
+        ?? CONFIG.BLOG_AUTO_CATEGORIES
+        ?? BLOG_AUTO_DEFAULTS.categories
     ).trim();
 
     const mode = toBoolLike(
-        input.NAVER_AUTO_MODE ?? input.AUTO_MODE,
-        toBoolLike(CONFIG.NAVER_AUTO_MODE ?? CONFIG.AUTO_MODE, NAVER_AUTO_DEFAULTS.mode)
+        input.BLOG_AUTO_MODE,
+        toBoolLike(CONFIG.BLOG_AUTO_MODE, BLOG_AUTO_DEFAULTS.mode)
     );
-    const maxPostsPerRun = normalizeNonNegativeInt(
-        input.NAVER_AUTO_MAX_POSTS_PER_RUN
-        ?? input.NAVER_AUTO_DAILY_POSTS
-        ?? input.AUTO_MAX_BLOG_PER_CYCLE
-        ?? input.AUTO_DAILY_BLOG_CAP,
-        normalizeNonNegativeInt(
-            CONFIG.NAVER_AUTO_MAX_POSTS_PER_RUN
-            ?? CONFIG.NAVER_AUTO_DAILY_POSTS
-            ?? CONFIG.AUTO_MAX_BLOG_PER_CYCLE
-            ?? CONFIG.AUTO_DAILY_BLOG_CAP,
-            NAVER_AUTO_DEFAULTS.maxPostsPerRun
-        )
-    );
-    const minPostGapMin = normalizeNonNegativeInt(
-        input.NAVER_AUTO_MIN_POST_GAP_MIN ?? input.AUTO_MIN_POST_GAP_MIN,
-        normalizeNonNegativeInt(
-            CONFIG.NAVER_AUTO_MIN_POST_GAP_MIN ?? CONFIG.AUTO_MIN_POST_GAP_MIN,
-            NAVER_AUTO_DEFAULTS.minPostGapMin
-        )
-    );
+
+    const maxPostsPerRunSource =
+        input.BLOG_AUTO_MAX_POSTS_PER_RUN
+        ?? CONFIG.BLOG_AUTO_MAX_POSTS_PER_RUN
+        ?? BLOG_AUTO_DEFAULTS.maxPostsPerRun;
+    const maxPostsPerRun = normalizePositiveInt(maxPostsPerRunSource, BLOG_AUTO_DEFAULTS.maxPostsPerRun);
+
+    const minPostGapMinSource =
+        input.BLOG_AUTO_MIN_POST_GAP_MIN
+        ?? CONFIG.BLOG_AUTO_MIN_POST_GAP_MIN
+        ?? BLOG_AUTO_DEFAULTS.minPostGapMin;
+    const minPostGapMin = normalizeNonNegativeInt(minPostGapMinSource, BLOG_AUTO_DEFAULTS.minPostGapMin);
+
     const trendsTime = normalizeTimeHHmm(
-        input.NAVER_AUTO_TRENDS_TIME,
-        normalizeTimeHHmm(CONFIG.NAVER_AUTO_TRENDS_TIME, NAVER_AUTO_DEFAULTS.trendsTime)
+        input.BLOG_AUTO_TRENDS_TIME,
+        normalizeTimeHHmm(CONFIG.BLOG_AUTO_TRENDS_TIME, BLOG_AUTO_DEFAULTS.trendsTime)
     );
+
     const imageGeneration = toBoolLike(
-        input.NAVER_AUTO_IMAGE_GENERATION ?? input.AUTO_IMAGE_GENERATION,
-        toBoolLike(CONFIG.NAVER_AUTO_IMAGE_GENERATION ?? CONFIG.AUTO_IMAGE_GENERATION, NAVER_AUTO_DEFAULTS.imageGeneration)
+        input.BLOG_AUTO_IMAGE_GENERATION,
+        toBoolLike(CONFIG.BLOG_AUTO_IMAGE_GENERATION, BLOG_AUTO_DEFAULTS.imageGeneration)
     );
+
     const externalReference = toBoolLike(
-        input.NAVER_AUTO_EXTERNAL_REFERENCE ?? input.AUTO_USE_EXTERNAL_REF,
-        toBoolLike(CONFIG.NAVER_AUTO_EXTERNAL_REFERENCE ?? CONFIG.AUTO_USE_EXTERNAL_REF, NAVER_AUTO_DEFAULTS.externalReference)
+        input.BLOG_AUTO_EXTERNAL_REFERENCE,
+        toBoolLike(CONFIG.BLOG_AUTO_EXTERNAL_REFERENCE, BLOG_AUTO_DEFAULTS.externalReference)
     );
+
     const notifyEnabled = toBoolLike(
-        input.NAVER_AUTO_NOTIFY_ENABLED,
-        toBoolLike(CONFIG.NAVER_AUTO_NOTIFY_ENABLED, NAVER_AUTO_DEFAULTS.notifyEnabled)
+        input.BLOG_AUTO_NOTIFY_ENABLED,
+        toBoolLike(CONFIG.BLOG_AUTO_NOTIFY_ENABLED, BLOG_AUTO_DEFAULTS.notifyEnabled)
     );
+
     const variationIncludeNew = toBoolLike(
-        input.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? input.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
-        toBoolLike(
-            CONFIG.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? CONFIG.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
-            NAVER_AUTO_DEFAULTS.variationIncludeNew
-        )
+        input.BLOG_AUTO_VARIATION_INCLUDE_NEW,
+        toBoolLike(CONFIG.BLOG_AUTO_VARIATION_INCLUDE_NEW, BLOG_AUTO_DEFAULTS.variationIncludeNew)
     );
+
     const variationIncludeDash = toBoolLike(
-        input.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? input.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
-        toBoolLike(
-            CONFIG.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? CONFIG.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
-            NAVER_AUTO_DEFAULTS.variationIncludeDash
-        )
+        input.BLOG_AUTO_VARIATION_INCLUDE_DASH,
+        toBoolLike(CONFIG.BLOG_AUTO_VARIATION_INCLUDE_DASH, BLOG_AUTO_DEFAULTS.variationIncludeDash)
     );
+
     const variationIncludeNumber = toBoolLike(
-        input.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? input.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
-        toBoolLike(
-            CONFIG.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? CONFIG.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
-            NAVER_AUTO_DEFAULTS.variationIncludeNumber
-        )
+        input.BLOG_AUTO_VARIATION_INCLUDE_NUMBER,
+        toBoolLike(CONFIG.BLOG_AUTO_VARIATION_INCLUDE_NUMBER, BLOG_AUTO_DEFAULTS.variationIncludeNumber)
     );
-    const hasVariationNumberInput =
-        Object.prototype.hasOwnProperty.call(input, 'NAVER_AUTO_VARIATION_NUMBER')
-        || Object.prototype.hasOwnProperty.call(input, 'AUTO_TRENDS_MIN_VARIATION');
+
+    const hasVariationNumberInput = Object.prototype.hasOwnProperty.call(input, 'BLOG_AUTO_VARIATION_NUMBER');
     const variationNumberSource = hasVariationNumberInput
-        ? (input.NAVER_AUTO_VARIATION_NUMBER ?? input.AUTO_TRENDS_MIN_VARIATION)
-        : (CONFIG.NAVER_AUTO_VARIATION_NUMBER ?? CONFIG.AUTO_TRENDS_MIN_VARIATION);
-    const variationNumber = normalizeIntegerOrBlank(variationNumberSource, NAVER_AUTO_DEFAULTS.variationNumber);
+        ? input.BLOG_AUTO_VARIATION_NUMBER
+        : CONFIG.BLOG_AUTO_VARIATION_NUMBER;
+    const variationNumber = normalizeIntegerOrBlank(variationNumberSource, BLOG_AUTO_DEFAULTS.variationNumber);
 
-    const hasVariationTypeInput = Object.prototype.hasOwnProperty.call(input, 'NAVER_AUTO_VARIATION_TYPE');
-    const variationTypeSource = hasVariationTypeInput ? input.NAVER_AUTO_VARIATION_TYPE : CONFIG.NAVER_AUTO_VARIATION_TYPE;
-    const variationType = String(variationTypeSource || 'min').trim();
+    const hasVariationTypeInput = Object.prototype.hasOwnProperty.call(input, 'BLOG_AUTO_VARIATION_TYPE');
+    const variationTypeSource = hasVariationTypeInput ? input.BLOG_AUTO_VARIATION_TYPE : CONFIG.BLOG_AUTO_VARIATION_TYPE;
+    const variationType = String(variationTypeSource || BLOG_AUTO_DEFAULTS.variationType).trim();
 
-    const hasVariationTopNInput = Object.prototype.hasOwnProperty.call(input, 'NAVER_AUTO_VARIATION_TOP_N') || Object.prototype.hasOwnProperty.call(input, 'AUTO_TRENDS_TOP_N');
-    const variationTopNSource = hasVariationTopNInput ? (input.NAVER_AUTO_VARIATION_TOP_N ?? input.AUTO_TRENDS_TOP_N) : (CONFIG.NAVER_AUTO_VARIATION_TOP_N ?? CONFIG.AUTO_TRENDS_TOP_N);
-    const variationTopN = normalizeIntegerOrBlank(variationTopNSource, 5);
-    const keywordReuseGapDays = normalizeNonNegativeInt(
-        input.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? input.AUTO_KEYWORD_REUSE_GAP_DAYS,
-        normalizeNonNegativeInt(
-            CONFIG.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? CONFIG.AUTO_KEYWORD_REUSE_GAP_DAYS,
-            NAVER_AUTO_DEFAULTS.keywordReuseGapDays
-        )
-    );
+    const hasVariationTopNInput = Object.prototype.hasOwnProperty.call(input, 'BLOG_AUTO_VARIATION_TOP_N');
+    const variationTopNSource = hasVariationTopNInput ? input.BLOG_AUTO_VARIATION_TOP_N : CONFIG.BLOG_AUTO_VARIATION_TOP_N;
+    const variationTopN = normalizeIntegerOrBlank(variationTopNSource, BLOG_AUTO_DEFAULTS.variationTopN);
+
+    const keywordReuseGapDaysSource =
+        input.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS
+        ?? CONFIG.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS
+        ?? BLOG_AUTO_DEFAULTS.keywordReuseGapDays;
+    const keywordReuseGapDays = normalizeNonNegativeInt(keywordReuseGapDaysSource, BLOG_AUTO_DEFAULTS.keywordReuseGapDays);
+
     const headless = toBoolLike(
-        input.NAVER_AUTO_HEADLESS ?? CONFIG.NAVER_AUTO_HEADLESS,
-        NAVER_AUTO_DEFAULTS.headless
+        input.BLOG_AUTO_HEADLESS ?? CONFIG.BLOG_AUTO_HEADLESS,
+        BLOG_AUTO_DEFAULTS.headless
     );
 
     return {
-        NAVER_AUTO_MODE: mode,
-        NAVER_AUTO_CATEGORIES: categoriesRaw,
-        NAVER_AUTO_MAX_POSTS_PER_RUN: maxPostsPerRun,
-        NAVER_AUTO_MIN_POST_GAP_MIN: minPostGapMin,
-        NAVER_AUTO_TRENDS_TIME: trendsTime,
-        NAVER_AUTO_IMAGE_GENERATION: imageGeneration,
-        NAVER_AUTO_EXTERNAL_REFERENCE: externalReference,
-        NAVER_AUTO_NOTIFY_ENABLED: notifyEnabled,
-        NAVER_AUTO_VARIATION_INCLUDE_NEW: variationIncludeNew,
-        NAVER_AUTO_VARIATION_INCLUDE_DASH: variationIncludeDash,
-        NAVER_AUTO_VARIATION_INCLUDE_NUMBER: variationIncludeNumber,
-        NAVER_AUTO_VARIATION_TYPE: variationType,
-        NAVER_AUTO_VARIATION_NUMBER: variationNumber,
-        NAVER_AUTO_VARIATION_TOP_N: variationTopN,
-        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGapDays,
-        NAVER_AUTO_HEADLESS: headless,
-
-        // legacy alias (내부 호환)
-        AUTO_MODE: mode,
-        AUTO_INCLUDE_CATEGORIES: categoriesRaw,
-        AUTO_CATEGORIES: categoriesRaw,
-        AUTO_MIN_POST_GAP_MIN: minPostGapMin,
-        AUTO_INTERVAL_MIN: 60,
-        AUTO_TRENDS_ENABLED: true,
-        AUTO_TOPICS_ENABLED: true,
-        AUTO_IMAGE_GENERATION: imageGeneration,
-        AUTO_USE_EXTERNAL_REF: externalReference,
-        AUTO_TRENDS_VARIATION_INCLUDE_NEW: variationIncludeNew,
-        AUTO_TRENDS_VARIATION_INCLUDE_DASH: variationIncludeDash,
-        AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: variationIncludeNumber,
-        AUTO_TRENDS_MIN_VARIATION: variationNumber,
-        AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGapDays
+        BLOG_AUTO_MODE: mode,
+        BLOG_AUTO_CATEGORIES: categories,
+        BLOG_AUTO_MAX_POSTS_PER_RUN: maxPostsPerRun,
+        BLOG_AUTO_MIN_POST_GAP_MIN: minPostGapMin,
+        BLOG_AUTO_TRENDS_TIME: trendsTime,
+        BLOG_AUTO_IMAGE_GENERATION: imageGeneration,
+        BLOG_AUTO_EXTERNAL_REFERENCE: externalReference,
+        BLOG_AUTO_NOTIFY_ENABLED: notifyEnabled,
+        BLOG_AUTO_VARIATION_INCLUDE_NEW: variationIncludeNew,
+        BLOG_AUTO_VARIATION_INCLUDE_DASH: variationIncludeDash,
+        BLOG_AUTO_VARIATION_INCLUDE_NUMBER: variationIncludeNumber,
+        BLOG_AUTO_VARIATION_TYPE: variationType,
+        BLOG_AUTO_VARIATION_NUMBER: variationNumber,
+        BLOG_AUTO_VARIATION_TOP_N: variationTopN,
+        BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGapDays,
+        BLOG_AUTO_HEADLESS: headless
     };
 }
 
-function normalizeNaverShoppingAutoSettings(input = {}) {
-    const hasModeKey = Object.prototype.hasOwnProperty.call(input, 'NAVER_SHOPPING_AUTO_MODE');
-    const hasLegacyModeKey = Object.prototype.hasOwnProperty.call(input, 'AUTO_SHOPPING_ENABLED');
-    const hasDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'NAVER_SHOPPING_AUTO_DAILY_POSTS');
-    const hasLegacyDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'AUTO_MAX_SHOPPING_PER_CYCLE');
+function normalizeShoppingAutoSettings(input = {}) {
+    const hasModeKey = Object.prototype.hasOwnProperty.call(input, 'SHOPPING_AUTO_MODE');
+    const hasDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'SHOPPING_AUTO_DAILY_POSTS');
 
     const mode = toBoolLike(
-        hasModeKey
-            ? input.NAVER_SHOPPING_AUTO_MODE
-            : (hasLegacyModeKey ? input.AUTO_SHOPPING_ENABLED : CONFIG.NAVER_SHOPPING_AUTO_MODE),
-        toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_MODE, NAVER_SHOPPING_AUTO_DEFAULTS.mode)
+        hasModeKey ? input.SHOPPING_AUTO_MODE : CONFIG.SHOPPING_AUTO_MODE,
+        toBoolLike(CONFIG.SHOPPING_AUTO_MODE, SHOPPING_AUTO_DEFAULTS.mode)
     );
     const dailyPosts = normalizeNonNegativeInt(
-        hasDailyPostsKey
-            ? input.NAVER_SHOPPING_AUTO_DAILY_POSTS
-            : (hasLegacyDailyPostsKey ? input.AUTO_MAX_SHOPPING_PER_CYCLE : CONFIG.NAVER_SHOPPING_AUTO_DAILY_POSTS),
-        normalizeNonNegativeInt(CONFIG.NAVER_SHOPPING_AUTO_DAILY_POSTS, NAVER_SHOPPING_AUTO_DEFAULTS.dailyPosts)
+        hasDailyPostsKey ? input.SHOPPING_AUTO_DAILY_POSTS : CONFIG.SHOPPING_AUTO_DAILY_POSTS,
+        normalizeNonNegativeInt(CONFIG.SHOPPING_AUTO_DAILY_POSTS, SHOPPING_AUTO_DEFAULTS.dailyPosts)
     );
     const time = normalizeTimeHHmm(
-        input.NAVER_SHOPPING_AUTO_TIME,
-        normalizeTimeHHmm(CONFIG.NAVER_SHOPPING_AUTO_TIME, NAVER_SHOPPING_AUTO_DEFAULTS.time)
+        input.SHOPPING_AUTO_TIME,
+        normalizeTimeHHmm(CONFIG.SHOPPING_AUTO_TIME, SHOPPING_AUTO_DEFAULTS.time)
     );
     const notifyEnabled = toBoolLike(
-        input.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED,
-        toBoolLike(CONFIG.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED, NAVER_SHOPPING_AUTO_DEFAULTS.notifyEnabled)
+        input.SHOPPING_AUTO_NOTIFY_ENABLED,
+        toBoolLike(CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED, SHOPPING_AUTO_DEFAULTS.notifyEnabled)
     );
 
     return {
-        NAVER_SHOPPING_AUTO_MODE: mode,
-        NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-        NAVER_SHOPPING_AUTO_TIME: time,
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
-
-        // legacy alias (내부 호환)
-        AUTO_SHOPPING_ENABLED: mode,
-        AUTO_MAX_SHOPPING_PER_CYCLE: dailyPosts
+        SHOPPING_AUTO_MODE: mode,
+        SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+        SHOPPING_AUTO_TIME: time,
+        SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled
     };
 }
 
@@ -1112,23 +1075,35 @@ function applyConfigUpdates(raw, updates = {}) {
     const nextUpdates = { ...updates };
     const lines = String(raw || '').split(/\r?\n/);
     const pendingKeys = new Set(Object.keys(nextUpdates));
-    const nextLines = lines.map((line) => {
+    const processedKeys = new Set();
+
+    let nextLines = lines.map((line) => {
         if (/^\s*#/.test(line) || !line.includes('=')) return line;
         const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
         if (!match) return line;
         const key = match[1];
         if (!pendingKeys.has(key)) return line;
+
         pendingKeys.delete(key);
+        processedKeys.add(key);
+
+        const val = nextUpdates[key];
+        // 💡 [Smart Removal] 값이 null이거나 undefined면 해당 라인을 삭제 대상으로 표시
+        if (val === null || val === undefined) return null;
+
         const indent = (line.match(/^\s*/) || [''])[0];
-        return `${indent}${key} = ${nextUpdates[key]}`;
-    });
+        return `${indent}${key} = ${val}`;
+    }).filter(line => line !== null);
 
     if (pendingKeys.size > 0) {
-        if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
-            nextLines.push('');
-        }
         for (const key of pendingKeys) {
-            nextLines.push(`${key} = ${nextUpdates[key]}`);
+            const val = nextUpdates[key];
+            if (val === null || val === undefined) continue;
+
+            if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
+                nextLines.push('');
+            }
+            nextLines.push(`${key} = ${val}`);
         }
     }
 
@@ -1156,35 +1131,35 @@ function buildMajorSettings(raw, configSource) {
     const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || '');
     const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || '');
     const updateChannel = parseConfigValue(raw, 'UPDATE_CHANNEL') || String(CONFIG.UPDATE_CHANNEL || 'stable');
-    const autoSettings = normalizeNaverAutoSettings({
-        NAVER_AUTO_MODE: parseConfigValue(raw, 'NAVER_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
-        NAVER_AUTO_CATEGORIES:
-            parseConfigValue(raw, 'NAVER_AUTO_CATEGORIES')
+    const autoSettings = normalizeBlogAutoSettings({
+        BLOG_AUTO_MODE: parseConfigValue(raw, 'BLOG_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
+        BLOG_AUTO_CATEGORIES:
+            parseConfigValue(raw, 'BLOG_AUTO_CATEGORIES')
             || parseConfigValue(raw, 'AUTO_INCLUDE_CATEGORIES')
             || parseConfigValue(raw, 'AUTO_CATEGORIES'),
-        NAVER_AUTO_MAX_POSTS_PER_RUN:
-            parseConfigValue(raw, 'NAVER_AUTO_MAX_POSTS_PER_RUN')
-            || parseConfigValue(raw, 'NAVER_AUTO_DAILY_POSTS')
+        BLOG_AUTO_MAX_POSTS_PER_RUN:
+            parseConfigValue(raw, 'BLOG_AUTO_MAX_POSTS_PER_RUN')
+            || parseConfigValue(raw, 'BLOG_AUTO_MAX_POSTS_PER_RUN')
             || parseConfigValue(raw, 'AUTO_MAX_BLOG_PER_CYCLE')
             || parseConfigValue(raw, 'AUTO_DAILY_BLOG_CAP'),
-        NAVER_AUTO_TRENDS_TIME: parseConfigValue(raw, 'NAVER_AUTO_TRENDS_TIME'),
-        NAVER_AUTO_IMAGE_GENERATION: parseConfigValue(raw, 'NAVER_AUTO_IMAGE_GENERATION') || parseConfigValue(raw, 'AUTO_IMAGE_GENERATION'),
-        NAVER_AUTO_EXTERNAL_REFERENCE: parseConfigValue(raw, 'NAVER_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(raw, 'AUTO_USE_EXTERNAL_REF'),
-        NAVER_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_AUTO_NOTIFY_ENABLED'),
-        NAVER_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
-        NAVER_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
-        NAVER_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
-        NAVER_AUTO_VARIATION_TYPE: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TYPE') || 'min',
-        NAVER_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
-        NAVER_AUTO_VARIATION_TOP_N: parseConfigValue(raw, 'NAVER_AUTO_VARIATION_TOP_N') || parseConfigValue(raw, 'AUTO_TRENDS_TOP_N'),
-        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
-        NAVER_AUTO_HEADLESS: parseConfigValue(raw, 'NAVER_AUTO_HEADLESS')
+        BLOG_AUTO_TRENDS_TIME: parseConfigValue(raw, 'BLOG_AUTO_TRENDS_TIME'),
+        BLOG_AUTO_IMAGE_GENERATION: parseConfigValue(raw, 'BLOG_AUTO_IMAGE_GENERATION') || parseConfigValue(raw, 'AUTO_IMAGE_GENERATION'),
+        BLOG_AUTO_EXTERNAL_REFERENCE: parseConfigValue(raw, 'BLOG_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(raw, 'AUTO_USE_EXTERNAL_REF'),
+        BLOG_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'BLOG_AUTO_NOTIFY_ENABLED'),
+        BLOG_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
+        BLOG_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
+        BLOG_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
+        BLOG_AUTO_VARIATION_TYPE: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_TYPE') || 'min',
+        BLOG_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
+        BLOG_AUTO_VARIATION_TOP_N: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_TOP_N') || parseConfigValue(raw, 'AUTO_TRENDS_TOP_N'),
+        BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
+        BLOG_AUTO_HEADLESS: parseConfigValue(raw, 'BLOG_AUTO_HEADLESS')
     });
-    const shoppingAutoSettings = normalizeNaverShoppingAutoSettings({
-        NAVER_SHOPPING_AUTO_MODE: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_MODE'),
-        NAVER_SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_DAILY_POSTS'),
-        NAVER_SHOPPING_AUTO_TIME: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_TIME'),
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'NAVER_SHOPPING_AUTO_NOTIFY_ENABLED')
+    const shoppingAutoSettings = normalizeShoppingAutoSettings({
+        SHOPPING_AUTO_MODE: parseConfigValue(raw, 'SHOPPING_AUTO_MODE'),
+        SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'SHOPPING_AUTO_DAILY_POSTS'),
+        SHOPPING_AUTO_TIME: parseConfigValue(raw, 'SHOPPING_AUTO_TIME'),
+        SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'SHOPPING_AUTO_NOTIFY_ENABLED')
     });
     const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
     const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
@@ -1207,25 +1182,25 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
         SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
         UPDATE_CHANNEL: updateChannel,
-        NAVER_AUTO_MODE: autoSettings.NAVER_AUTO_MODE,
-        NAVER_AUTO_CATEGORIES: autoSettings.NAVER_AUTO_CATEGORIES,
-        NAVER_AUTO_MAX_POSTS_PER_RUN: autoSettings.NAVER_AUTO_MAX_POSTS_PER_RUN,
-        NAVER_AUTO_TRENDS_TIME: autoSettings.NAVER_AUTO_TRENDS_TIME,
-        NAVER_AUTO_IMAGE_GENERATION: autoSettings.NAVER_AUTO_IMAGE_GENERATION,
-        NAVER_AUTO_EXTERNAL_REFERENCE: autoSettings.NAVER_AUTO_EXTERNAL_REFERENCE,
-        NAVER_AUTO_NOTIFY_ENABLED: autoSettings.NAVER_AUTO_NOTIFY_ENABLED,
-        NAVER_AUTO_VARIATION_INCLUDE_NEW: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_NEW,
-        NAVER_AUTO_VARIATION_INCLUDE_DASH: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_DASH,
-        NAVER_AUTO_VARIATION_INCLUDE_NUMBER: autoSettings.NAVER_AUTO_VARIATION_INCLUDE_NUMBER,
-        NAVER_AUTO_VARIATION_TYPE: autoSettings.NAVER_AUTO_VARIATION_TYPE,
-        NAVER_AUTO_VARIATION_NUMBER: autoSettings.NAVER_AUTO_VARIATION_NUMBER,
-        NAVER_AUTO_VARIATION_TOP_N: autoSettings.NAVER_AUTO_VARIATION_TOP_N,
-        NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS,
-        NAVER_AUTO_HEADLESS: autoSettings.NAVER_AUTO_HEADLESS,
-        NAVER_SHOPPING_AUTO_MODE: shoppingAutoSettings.NAVER_SHOPPING_AUTO_MODE,
-        NAVER_SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
-        NAVER_SHOPPING_AUTO_TIME: shoppingAutoSettings.NAVER_SHOPPING_AUTO_TIME,
-        NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.NAVER_SHOPPING_AUTO_NOTIFY_ENABLED
+        BLOG_AUTO_MODE: autoSettings.BLOG_AUTO_MODE,
+        BLOG_AUTO_CATEGORIES: autoSettings.BLOG_AUTO_CATEGORIES,
+        BLOG_AUTO_MAX_POSTS_PER_RUN: autoSettings.BLOG_AUTO_MAX_POSTS_PER_RUN,
+        BLOG_AUTO_TRENDS_TIME: autoSettings.BLOG_AUTO_TRENDS_TIME,
+        BLOG_AUTO_IMAGE_GENERATION: autoSettings.BLOG_AUTO_IMAGE_GENERATION,
+        BLOG_AUTO_EXTERNAL_REFERENCE: autoSettings.BLOG_AUTO_EXTERNAL_REFERENCE,
+        BLOG_AUTO_NOTIFY_ENABLED: autoSettings.BLOG_AUTO_NOTIFY_ENABLED,
+        BLOG_AUTO_VARIATION_INCLUDE_NEW: autoSettings.BLOG_AUTO_VARIATION_INCLUDE_NEW,
+        BLOG_AUTO_VARIATION_INCLUDE_DASH: autoSettings.BLOG_AUTO_VARIATION_INCLUDE_DASH,
+        BLOG_AUTO_VARIATION_INCLUDE_NUMBER: autoSettings.BLOG_AUTO_VARIATION_INCLUDE_NUMBER,
+        BLOG_AUTO_VARIATION_TYPE: autoSettings.BLOG_AUTO_VARIATION_TYPE,
+        BLOG_AUTO_VARIATION_NUMBER: autoSettings.BLOG_AUTO_VARIATION_NUMBER,
+        BLOG_AUTO_VARIATION_TOP_N: autoSettings.BLOG_AUTO_VARIATION_TOP_N,
+        BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: autoSettings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS,
+        BLOG_AUTO_HEADLESS: autoSettings.BLOG_AUTO_HEADLESS,
+        SHOPPING_AUTO_MODE: shoppingAutoSettings.SHOPPING_AUTO_MODE,
+        SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.SHOPPING_AUTO_DAILY_POSTS,
+        SHOPPING_AUTO_TIME: shoppingAutoSettings.SHOPPING_AUTO_TIME,
+        SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED
     };
 
     return {
@@ -1629,6 +1604,13 @@ async function executeQuickPublish(requestBody) {
         return { success: false, code: 'INVALID_REFERENCE_URL', message: '참고 URL 형식이 올바르지 않습니다. (http/https)' };
     }
 
+    // [New] WordPress 예약 일시 검증
+    const postStatus = String(requestBody?.postStatus || 'publish').trim();
+    const scheduleDate = String(requestBody?.scheduleDate || '').trim();
+    if (targets.includes('wordpress') && postStatus === 'schedule' && !scheduleDate) {
+        return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필수입니다.' };
+    }
+
     const precheck = await License.checkLicenseStatus();
     if (!precheck.success) {
         return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
@@ -1657,7 +1639,7 @@ async function executeQuickPublish(requestBody) {
 
     await Utils.ensureAllSheetsExist();
 
-    let appendStatus = publishMode === 'append_and_publish' ? '블로그 발행 준비 완료' : '대기';
+    let appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '대기';
     let rowNumber = null;
     let rowIndex = null;
     let deduplicated = false;
@@ -1690,16 +1672,16 @@ async function executeQuickPublish(requestBody) {
                     sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                     rowNumber,
                     rowIndex,
-                    status: '블로그 발행 완료',
+                    status: '발행 완료',
                     deduplicated,
                     targetDir: existingEntry.targetDir || null
                 }
             };
         }
 
-        if (appendStatus !== '블로그 발행 준비 완료' && Number.isInteger(rowIndex)) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '기존 글감 재사용');
-            appendStatus = '블로그 발행 준비 완료';
+        if (appendStatus !== '발행 준비 완료' && Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '기존 글감 재사용');
+            appendStatus = '발행 준비 완료';
         }
         quickPublishRecentMap.set(dedupeKey, {
             ...existingEntry,
@@ -1862,10 +1844,10 @@ async function executeQuickPublish(requestBody) {
         if (Number.isInteger(rowIndex)) {
             const statusArr = [];
             const logArr = [];
-            if (naverPubSuccess) { statusArr.push('블로그 발행 완료'); logArr.push('네이버 완료'); }
-            if (wpPubSuccess) { statusArr.push('워드프레스 발행 완료'); logArr.push('워프 완료'); }
+            if (naverPubSuccess) { statusArr.push('발행 완료'); logArr.push('네이버 완료'); }
+            if (wpPubSuccess) { statusArr.push('발행 완료'); logArr.push('워드프레스 완료'); }
 
-            const finalStatusStr = statusArr.length === 2 ? '발행 완료' : (statusArr[0] || '발행 완료');
+            const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
             const finalLogStr = logArr.join('/');
             await Utils.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
         }
@@ -2063,7 +2045,7 @@ async function executeBlogRowAction(requestBody, options = {}) {
         if (action === 'batch') {
             const session = await checkAuthSessionValid();
             if (!session.ok) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '네이버 세션 만료');
+                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '네이버 세션 만료');
                 return {
                     success: false,
                     code: 'NAVER_SESSION_INVALID',
@@ -2082,14 +2064,14 @@ async function executeBlogRowAction(requestBody, options = {}) {
         });
 
         if (action === 'gen') {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', `생성 완료: ${path.basename(result.targetDir)}`);
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료: ${path.basename(result.targetDir)}`);
             return {
                 success: true,
                 data: {
                     action,
                     rowIndex,
                     rowNumber: rowIndex + 2,
-                    status: '블로그 발행 준비 완료',
+                    status: '발행 준비 완료',
                     targetDir: result.targetDir
                 }
             };
@@ -2097,14 +2079,14 @@ async function executeBlogRowAction(requestBody, options = {}) {
 
         // action=batch (단건 생성+발행)
         if (!isCommandEnabled(features, 'batch')) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
             return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
         }
 
         emitProgress('라이선스 확인 중...');
         const verify = await License.verifyLicense();
         if (!verify.success) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '블로그 발행 준비 완료', '라이선스 부족으로 발행 보류');
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '라이선스 부족으로 발행 보류');
             return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
         }
 
@@ -2116,7 +2098,7 @@ async function executeBlogRowAction(requestBody, options = {}) {
                 scheduleDate: topicData.scheduleDate || '',
                 isLast: options.isLast === true
             });
-            emitProgress('네이버 발행 완료');
+            emitProgress('네이버 완료');
         }
 
         if (targets.includes('wordpress')) {
@@ -2126,14 +2108,12 @@ async function executeBlogRowAction(requestBody, options = {}) {
                 postStatus: topicData.postStatus || 'publish',
                 scheduleDate: topicData.scheduleDate || ''
             });
-            emitProgress('워드프레스 발행 완료');
+            emitProgress('워드프레스 완료');
         }
 
         emitProgress('시트 상태 반영 중...');
-        const finalStatus = targets.includes('naver') ? '블로그 발행 완료' : '발행 완료';
-        const finalLog = targets.includes('naver') && targets.includes('wordpress')
-            ? '네이버/워프 발행 완료'
-            : targets.includes('wordpress') ? '워프 발행 완료' : '발행 완료';
+        const finalStatus = '발행 완료';
+        const finalLog = '발행 완료';
         await Utils.updateGoogleSheetStatus(rowIndex, finalStatus, finalLog);
 
         return {
@@ -2142,13 +2122,123 @@ async function executeBlogRowAction(requestBody, options = {}) {
                 action,
                 rowIndex,
                 rowNumber: rowIndex + 2,
-                status: '블로그 발행 완료',
+                status: '발행 완료',
                 targetDir: result.targetDir
             }
         };
     } catch (e) {
         await Utils.updateGoogleSheetStatus(rowIndex, '실패', e.message);
         return { success: false, code: 'BLOG_ACTION_FAILED', message: e.message };
+    }
+}
+
+async function executeBlogTopicsDelete(requestBody) {
+    const rawRowIndices = Array.isArray(requestBody?.rowIndices) ? requestBody.rowIndices : [];
+    const rowIndices = Array.from(new Set(
+        rawRowIndices
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: '삭제할 rowIndices 배열이 필요합니다.' };
+    }
+
+    try {
+        await ensureSheetsReadyForUi();
+        // 삭제를 위해 인덱스를 내림차순으로 정렬 (뒤에서부터 지워야 인덱스가 꼬이지 않음)
+        const sortedIndices = [...rowIndices].sort((a, b) => b - a);
+
+        const spreadsheetId = CONFIG.GOOGLE_SPREADSHEET_ID;
+        const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+        const sheetId = await Utils.getSheetIdByName(spreadsheetId, sheetName);
+
+        if (sheetId === null) {
+            return { success: false, code: 'SHEET_NOT_FOUND', message: `대상 시트(${sheetName})를 찾지 못했습니다.` };
+        }
+
+        const requests = sortedIndices.map(idx => ({
+            deleteDimension: {
+                range: {
+                    sheetId: sheetId,
+                    dimension: 'ROWS',
+                    startIndex: idx,
+                    endIndex: idx + 1
+                }
+            }
+        }));
+
+        const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+        const response = await Utils.googleSheetPost(updateUrl, { requests });
+
+        if (!response.spreadsheetId) {
+            throw new Error('시트 삭제 응답이 유효하지 않습니다.');
+        }
+
+        return {
+            success: true,
+            data: {
+                deletedCount: rowIndices.length,
+                message: `${rowIndices.length}개의 글감이 삭제되었습니다.`
+            }
+        };
+    } catch (e) {
+        return { success: false, code: 'TOPICS_DELETE_FAILED', message: `삭제 실패: ${e.message}` };
+    }
+}
+
+async function executeShoppingTopicsDelete(requestBody) {
+    const rawRowIndices = Array.isArray(requestBody?.rowIndices) ? requestBody.rowIndices : [];
+    const rowIndices = Array.from(new Set(
+        rawRowIndices
+            .map(v => parseIntSafe(v, null, 0))
+            .filter(v => v !== null)
+    ));
+
+    if (rowIndices.length === 0) {
+        return { success: false, code: 'INVALID_ROW_INDICES', message: '삭제할 rowIndices 배열이 필요합니다.' };
+    }
+
+    try {
+        await ensureSheetsReadyForUi();
+        // 삭제를 위해 인덱스를 내림차순으로 정렬
+        const sortedIndices = [...rowIndices].sort((a, b) => b - a);
+
+        const spreadsheetId = CONFIG.GOOGLE_SPREADSHEET_ID;
+        const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+        const sheetId = await Utils.getSheetIdByName(spreadsheetId, sheetName);
+
+        if (sheetId === null) {
+            return { success: false, code: 'SHEET_NOT_FOUND', message: `대상 시트(${sheetName})를 찾지 못했습니다.` };
+        }
+
+        const requests = sortedIndices.map(idx => ({
+            deleteDimension: {
+                range: {
+                    sheetId: sheetId,
+                    dimension: 'ROWS',
+                    startIndex: idx,
+                    endIndex: idx + 1
+                }
+            }
+        }));
+
+        const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+        const response = await Utils.googleSheetPost(updateUrl, { requests });
+
+        if (!response.spreadsheetId) {
+            throw new Error('시트 삭제 응답이 유효하지 않습니다.');
+        }
+
+        return {
+            success: true,
+            data: {
+                deletedCount: rowIndices.length,
+                message: `${rowIndices.length}개의 쇼핑 상품이 삭제되었습니다.`
+            }
+        };
+    } catch (e) {
+        return { success: false, code: 'SHOPPING_DELETE_FAILED', message: `삭제 실패: ${e.message}` };
     }
 }
 
@@ -2329,18 +2419,18 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         };
         const autoSettings = getAutoSettingsSnapshot();
         const batchHeadless = typeof requestBody?.headless === 'boolean'
-            ? requestBody.headless : autoSettings.NAVER_AUTO_HEADLESS;
+            ? requestBody.headless : autoSettings.BLOG_AUTO_HEADLESS;
 
         if (targets.includes('naver')) {
             publishOptions.isLast = requestBody.isLast === true;
             await Core.publishToBlog(buildResult.targetDir, publishOptions);
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '네이버 발행 완료');
+            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
         }
 
         if (targets.includes('wordpress')) {
             report('워드프레스 발행 단계 진행 중');
             await Core.publishToWordPress(buildResult.targetDir, { category: 'Shopping' });
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '네이버/워프 발행 완료');
+            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
         }
 
         return {
@@ -2509,8 +2599,8 @@ async function executeShoppingAutoManualAction(requestBody = {}) {
     };
 
     const targetLimit = normalizeNonNegativeInt(
-        settings.NAVER_SHOPPING_AUTO_DAILY_POSTS,
-        NAVER_SHOPPING_AUTO_DEFAULTS.dailyPosts
+        settings.SHOPPING_AUTO_DAILY_POSTS,
+        SHOPPING_AUTO_DEFAULTS.dailyPosts
     );
     if (targetLimit <= 0) {
         summary.skipped.push('1회 최대 발행수가 0건으로 설정되어 실행을 건너뜁니다.');
@@ -2609,7 +2699,7 @@ async function executeBlogTopicUpdate(requestBody) {
 
     const referenceUrl = String(requestBody?.referenceUrl || '').trim();
     const status = String(requestBody?.status || '').trim();
-    const allowedStatus = new Set(['대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패']);
+    const allowedStatus = new Set(['대기', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
     if (referenceUrl) {
         const urls = referenceUrl
             .split(',')
@@ -2822,14 +2912,14 @@ async function executeTrendsToTopicsAction(requestBody = {}) {
     if (selected.length === 0) {
         return { success: false, code: 'TRENDS_NOT_FOUND', message: '선택된 trends 행을 찾지 못했습니다.' };
     }
-    const autoSettings = getAutoSettingsSnapshot();
+    const autoSettings = getBlogAutoSettingsSnapshot();
     const autoImageGeneration = toBoolLike(
-        autoSettings.NAVER_AUTO_IMAGE_GENERATION ?? autoSettings.AUTO_IMAGE_GENERATION,
-        NAVER_AUTO_DEFAULTS.imageGeneration
+        autoSettings.BLOG_AUTO_IMAGE_GENERATION,
+        BLOG_AUTO_DEFAULTS.imageGeneration
     );
-    const autoExternalReference = toBoolLike(
-        autoSettings.NAVER_AUTO_EXTERNAL_REFERENCE ?? autoSettings.AUTO_USE_EXTERNAL_REF,
-        NAVER_AUTO_DEFAULTS.externalReference
+    const externalReference = parseBoolLike(
+        autoSettings.BLOG_AUTO_EXTERNAL_REFERENCE,
+        BLOG_AUTO_DEFAULTS.externalReference
     );
 
     const topics = selected.map(item => ({
@@ -2839,7 +2929,7 @@ async function executeTrendsToTopicsAction(requestBody = {}) {
             additional_instructions: '',
             reference_urls: []
         },
-        use_external_ref: autoExternalReference,
+        use_external_ref: externalReference,
         image_options: { generate: autoImageGeneration, count: 4 },
         source: 'auto-trends',
         trendDate: String(item.date || '').trim(),
@@ -2935,12 +3025,12 @@ async function executeKeywordsToTopicsAction(requestBody = {}) {
     };
 }
 
-function getAutoSettingsSnapshot() {
-    return normalizeNaverAutoSettings({});
+function getBlogAutoSettingsSnapshot() {
+    return normalizeBlogAutoSettings({});
 }
 
 function getShoppingAutoSettingsSnapshot() {
-    return normalizeNaverShoppingAutoSettings({});
+    return normalizeShoppingAutoSettings({});
 }
 
 function getDateKeyLocal(date = new Date()) {
@@ -2959,7 +3049,7 @@ function resetShoppingDailyCountersIfNeeded() {
 }
 
 function getAutoStatusPayload() {
-    const blogSettings = getAutoSettingsSnapshot();
+    const blogSettings = getBlogAutoSettingsSnapshot();
     const shoppingSettings = getShoppingAutoSettingsSnapshot();
     return {
         blog: {
@@ -3010,14 +3100,14 @@ function scheduleNextAutoCycle(delayMs = null) {
         autoRuntimeState.nextRunAt = null;
         return;
     }
-    const settings = getAutoSettingsSnapshot();
+    const settings = normalizeBlogAutoSettings(CONFIG);
     let waitMs = 0;
 
     if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
         const parsed = parseInt(delayMs, 10);
         waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
     } else {
-        const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30').split(':');
+        const timeStr = String(settings.BLOG_AUTO_TRENDS_TIME || '07:30').split(':');
         const targetHour = parseInt(timeStr[0] || '7', 10);
         const targetMin = parseInt(timeStr[1] || '30', 10);
 
@@ -3050,7 +3140,7 @@ function scheduleNextAutoCycle(delayMs = null) {
         if (nowMs >= targetMs) {
             clearInterval(autoRuntimeState.timer);
             autoRuntimeState.timer = null;
-            runAutoCycle('timer').catch((e) => {
+            executeBlogTrendsAutoCycle('timer').catch((e) => {
                 Logger.error(`❌ [AUTO] 사이클 실행 실패: ${e.message}`);
             });
         }
@@ -3074,12 +3164,12 @@ function startAutoRunner(reason = '자동 모드 시작') {
 }
 
 function syncAutoRunnerWithConfig() {
-    const settings = getAutoSettingsSnapshot();
-    if (settings.NAVER_AUTO_MODE) {
-        const timeStr = String(settings.NAVER_AUTO_TRENDS_TIME || '07:30');
+    const settings = normalizeBlogAutoSettings(CONFIG);
+    if (settings.BLOG_AUTO_MODE) {
+        const timeStr = String(settings.BLOG_AUTO_TRENDS_TIME || '07:30');
         startAutoRunner(`블로그 자동 실행 활성화 (목표시간: ${timeStr})`);
     } else {
-        stopAutoRunner('NAVER_AUTO_MODE가 비활성화되어 있습니다.');
+        stopAutoRunner('BLOG_AUTO_MODE가 비활성화되어 있습니다.');
     }
 }
 
@@ -3099,14 +3189,14 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
         shoppingAutoRuntimeState.nextRunAt = null;
         return;
     }
-    const settings = getShoppingAutoSettingsSnapshot();
+    const settings = normalizeShoppingAutoSettings(CONFIG);
     let waitMs = 0;
 
     if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
         const parsed = parseInt(delayMs, 10);
         waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
     } else {
-        const timeStr = String(settings.NAVER_SHOPPING_AUTO_TIME || '07:50').split(':');
+        const timeStr = String(settings.SHOPPING_AUTO_TIME || '07:50').split(':');
         const targetHour = parseInt(timeStr[0] || '7', 10);
         const targetMin = parseInt(timeStr[1] || '50', 10);
 
@@ -3139,7 +3229,7 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
         if (nowMs >= targetMs) {
             clearInterval(shoppingAutoRuntimeState.timer);
             shoppingAutoRuntimeState.timer = null;
-            runShoppingAutoCycle('timer').catch((e) => {
+            executeShoppingAutoCycle('timer').catch((e) => {
                 Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
             });
         }
@@ -3163,16 +3253,20 @@ function startShoppingAutoRunner(reason = '쇼핑 자동 모드 시작') {
 }
 
 function syncShoppingAutoRunnerWithConfig() {
-    const settings = getShoppingAutoSettingsSnapshot();
-    if (settings.NAVER_SHOPPING_AUTO_MODE) {
-        const timeStr = String(settings.NAVER_SHOPPING_AUTO_TIME || '07:50');
+    const settings = normalizeShoppingAutoSettings(CONFIG);
+    if (settings.SHOPPING_AUTO_MODE) {
+        const timeStr = String(settings.SHOPPING_AUTO_TIME || '07:50');
         startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (목표시간: ${timeStr})`);
     } else {
-        stopShoppingAutoRunner('NAVER_SHOPPING_AUTO_MODE가 비활성화되어 있습니다.');
+        stopShoppingAutoRunner('SHOPPING_AUTO_MODE가 비활성화되어 있습니다.');
     }
 }
 
-async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
+async function executeBlogTrendsAutoCycle(trigger = 'timer', options = {}) {
+    return runAutoCycle(trigger, options);
+}
+
+async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
     const forceRun = options?.forceRun === true;
     if (!forceRun && !shoppingAutoRuntimeState.enabled) return { success: false, code: 'SHOPPING_AUTO_DISABLED', message: '쇼핑 자동 실행이 비활성화되어 있습니다.' };
     if (shoppingAutoRuntimeState.running) return { success: false, code: 'SHOPPING_AUTO_ALREADY_RUNNING', message: '다른 쇼핑 자동 사이클이 실행 중입니다.' };
@@ -3194,8 +3288,8 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
     };
 
     try {
-        const settings = getShoppingAutoSettingsSnapshot();
-        if (!settings.NAVER_SHOPPING_AUTO_MODE && !forceRun) {
+        const settings = normalizeShoppingAutoSettings(CONFIG);
+        if (!settings.SHOPPING_AUTO_MODE && !forceRun) {
             stopShoppingAutoRunner('설정에 따라 쇼핑 자동 모드 비활성화');
             return { success: false, code: 'SHOPPING_AUTO_DISABLED_BY_CONFIG', message: '쇼핑 자동 모드가 비활성화되어 있습니다.' };
         }
@@ -3222,7 +3316,7 @@ async function runShoppingAutoCycle(trigger = 'manual', options = {}) {
         if (!isCommandEnabled(features, 'shopping')) {
             summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
         } else {
-            const cycleCap = settings.AUTO_MAX_SHOPPING_PER_CYCLE;
+            const cycleCap = settings.SHOPPING_AUTO_DAILY_POSTS;
             const effectiveCycleCap = cycleCap > 0 ? cycleCap : Number.MAX_SAFE_INTEGER;
             const remaining = cycleCap > 0 ? Math.max(0, cycleCap - shoppingAutoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
             const targetLimit = Math.max(0, Math.min(effectiveCycleCap, planShoppingLimit, remaining));
@@ -3293,7 +3387,7 @@ function filterAutoTopicCandidates(items = [], settings = {}) {
 
     return items.filter((item) => {
         const status = String(item?.status || '').trim();
-        if (status !== '블로그 발행 준비 완료') return false;
+        if (status !== '발행 준비 완료') return false;
 
         const source = String(item?.source || '').trim().toLowerCase();
         if (source !== 'auto-trends') return false;
@@ -3334,42 +3428,42 @@ async function executeAutoTrendsToTopics(settings = {}) {
         };
     }
 
-    const includeCategories = parseCsvTokens(settings.AUTO_INCLUDE_CATEGORIES);
-    const targetTrendDateYmd = normalizeYmdToken(settings.AUTO_TARGET_TREND_DATE || '');
+    const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES);
+    const targetTrendDateYmd = normalizeYmdToken(settings.BLOG_AUTO_TARGET_TREND_DATE || '');
     const variationType = String(
-        settings.NAVER_AUTO_VARIATION_TYPE ?? settings.AUTO_TRENDS_VARIATION_TYPE ?? 'min'
+        settings.BLOG_AUTO_VARIATION_TYPE ?? 'min'
     ).trim() || 'min';
     const variationIncludeNew = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_NEW,
         false
     );
     const variationIncludeDash = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_DASH,
         false
     );
     const variationIncludeNumber = toBoolLike(
-        settings.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? settings.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        settings.BLOG_AUTO_VARIATION_INCLUDE_NUMBER,
         true
     );
     const variationNumber = normalizeIntegerOrBlank(
-        settings.NAVER_AUTO_VARIATION_NUMBER ?? settings.AUTO_TRENDS_MIN_VARIATION,
+        settings.BLOG_AUTO_VARIATION_NUMBER,
         ''
     );
     const variationTopN = normalizeIntegerOrBlank(
-        settings.NAVER_AUTO_VARIATION_TOP_N ?? settings.AUTO_TRENDS_TOP_N,
+        settings.BLOG_AUTO_VARIATION_TOP_N,
         5
     );
     const keywordReuseGapDays = normalizeNonNegativeInt(
-        settings.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? settings.AUTO_KEYWORD_REUSE_GAP_DAYS,
-        NAVER_AUTO_DEFAULTS.keywordReuseGapDays
+        settings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS,
+        BLOG_AUTO_DEFAULTS.keywordReuseGapDays
     );
     const autoImageGeneration = toBoolLike(
-        settings.NAVER_AUTO_IMAGE_GENERATION ?? settings.AUTO_IMAGE_GENERATION,
-        NAVER_AUTO_DEFAULTS.imageGeneration
+        settings.BLOG_AUTO_IMAGE_GENERATION,
+        BLOG_AUTO_DEFAULTS.imageGeneration
     );
     const autoExternalReference = toBoolLike(
-        settings.NAVER_AUTO_EXTERNAL_REFERENCE ?? settings.AUTO_USE_EXTERNAL_REF,
-        NAVER_AUTO_DEFAULTS.externalReference
+        settings.BLOG_AUTO_EXTERNAL_REFERENCE,
+        BLOG_AUTO_DEFAULTS.externalReference
     );
 
     const candidateLogLimit = 120;
@@ -3449,7 +3543,14 @@ async function executeAutoTrendsToTopics(settings = {}) {
     } else {
         // [기본 수치 이상(Min) 모드 - 기존 방식 호환]
         filtered = baseCandidates.filter((item) => {
-            const isMatched = matchesVariationFilter(item?.variation, settings);
+            const isMatched = matchesVariationFilter(item?.variation, {
+                variationType,
+                variationIncludeNew,
+                variationIncludeDash,
+                variationIncludeNumber,
+                variationNumber,
+                variationTopN
+            });
             if (!isMatched) {
                 variationRejectedCount += 1;
             }
@@ -3546,14 +3647,14 @@ async function executeAutoTrendsToTopics(settings = {}) {
             image_options: { generate: autoImageGeneration, count: 4 },
             source: 'auto-trends',
             trendDate: String(item.date || '').trim(),
-            status: '블로그 발행 준비 완료'
+            status: '발행 준비 완료'
         });
         trendRowIndicesToMark.push(item.rowIndex);
     }
 
     let appendedRowIndices = [];
     if (topicsToAppend.length > 0) {
-        const appendResult = await Utils.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '블로그 발행 준비 완료' });
+        const appendResult = await Utils.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '발행 준비 완료' });
         if (!appendResult?.success) {
             throw new Error(appendResult?.message || 'AUTO trends→topics append 실패');
         }
@@ -3591,8 +3692,8 @@ async function executeTrendCollectWithRetry(options = {}) {
     const date = String(options?.date || '').trim();
     const categories = options?.categories;
     const headless = options?.headless;
-    const maxRetries = normalizeNonNegativeInt(options?.maxRetries, AUTO_TRENDS_MAX_RETRIES);
-    const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, AUTO_TRENDS_RETRY_WAIT_MS);
+    const maxRetries = normalizeNonNegativeInt(options?.maxRetries, BLOG_AUTO_DEFAULTS.trendsMaxRetries);
+    const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, BLOG_AUTO_DEFAULTS.trendsRetryWaitMs);
     const maxAttempts = maxRetries + 1;
     let lastError = 'unknown';
 
@@ -3660,21 +3761,21 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
 
     try {
         const settings = Object.keys(settingsOverrides).length > 0
-            ? normalizeNaverAutoSettings({
-                ...getAutoSettingsSnapshot(),
+            ? normalizeBlogAutoSettings({
+                ...getBlogAutoSettingsSnapshot(),
                 ...settingsOverrides
             })
-            : getAutoSettingsSnapshot();
+            : getBlogAutoSettingsSnapshot();
         Logger.info(
             `ℹ️ [AUTO] 실행 설정값 (trigger=${trigger}, source=${Object.keys(settingsOverrides).length > 0 ? 'ui-overrides' : 'saved-config'}): `
-            + `mode=${settings.AUTO_MODE ? 'on' : 'off'}, `
-            + `maxPostsPerRun=${settings.NAVER_AUTO_MAX_POSTS_PER_RUN}, `
-            + `categories=${settings.AUTO_INCLUDE_CATEGORIES || '(없음)'}, `
-            + `trendTime=${settings.NAVER_AUTO_TRENDS_TIME || '07:30'}`
+            + `mode=${settings.BLOG_AUTO_MODE ? 'on' : 'off'}, `
+            + `maxPostsPerRun=${settings.BLOG_AUTO_MAX_POSTS_PER_RUN}, `
+            + `categories=${settings.BLOG_AUTO_CATEGORIES || '(없음)'}, `
+            + `trendTime=${settings.BLOG_AUTO_TRENDS_TIME || '07:30'}`
         );
-        if (!settings.AUTO_MODE && !forceRun) {
+        if (!settings.BLOG_AUTO_MODE && !forceRun) {
             stopAutoRunner('설정에 따라 자동 모드 비활성화');
-            return { success: false, code: 'AUTO_DISABLED_BY_CONFIG', message: '설정에 따라 자동 모드가 비활성화되어 있습니다.' };
+            return { success: false, code: 'BLOG_AUTO_DISABLED_BY_CONFIG', message: '자동 모드가 비활성화되어 있습니다.' };
         }
 
         const precheck = await License.checkLicenseStatus({ quiet: true });
@@ -3730,9 +3831,9 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                     const trendsRetryResult = await executeTrendCollectWithRetry({
                         date: requestedTrendDate,
                         categories: includeCategories,
-                        maxRetries: isManualTrigger ? 0 : AUTO_TRENDS_MAX_RETRIES,
-                        retryWaitMs: AUTO_TRENDS_RETRY_WAIT_MS,
-                        headless: settings.NAVER_AUTO_HEADLESS
+                        maxRetries: isManualTrigger ? 0 : BLOG_AUTO_DEFAULTS.trendsMaxRetries,
+                        retryWaitMs: BLOG_AUTO_DEFAULTS.trendsRetryWaitMs,
+                        headless: settings.BLOG_AUTO_HEADLESS
                     });
                     if (trendsRetryResult.success) {
                         summary.trendsCollected = Number(trendsRetryResult.collected || 0);
@@ -3740,7 +3841,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                         proceedAfterTrends = false;
                         const retryInfo = Number.isFinite(trendsRetryResult.maxRetries)
                             ? trendsRetryResult.maxRetries
-                            : (isManualTrigger ? 0 : AUTO_TRENDS_MAX_RETRIES);
+                            : (isManualTrigger ? 0 : BLOG_AUTO_DEFAULTS.trendsMaxRetries);
                         summary.skipped.push(
                             `트렌드 수집 실패(재시도 ${retryInfo}회): ${trendsRetryResult.message || 'unknown'}`
                         );
@@ -3786,11 +3887,11 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
             summary.skipped.push(`포스트 간격 제한(${minGapMin}분)으로 발행 대기`);
         }
 
-        const maxPostsPerRun = normalizeNonNegativeInt(
-            settings.NAVER_AUTO_MAX_POSTS_PER_RUN,
-            NAVER_AUTO_DEFAULTS.maxPostsPerRun
+        const maxPosts = parseMaxPosts(
+            settings.BLOG_AUTO_MAX_POSTS_PER_RUN,
+            BLOG_AUTO_DEFAULTS.maxPostsPerRun
         );
-        const effectiveCycleBlogCap = maxPostsPerRun > 0 ? maxPostsPerRun : Number.MAX_SAFE_INTEGER;
+        const effectiveCycleBlogCap = maxPosts > 0 ? maxPosts : Number.MAX_SAFE_INTEGER;
 
         if (proceedAfterTrends && gapAllowed && isCommandEnabled(features, 'batch')) {
             const targetLimit = Math.max(0, Math.min(effectiveCycleBlogCap, planBlogLimit));
@@ -3816,7 +3917,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                 if (candidates.length === 0) {
                     // 2순위: 이번 실행 신규 추가 후보가 없으면, 전체 준비완료 행에서 발행
                     candidates = topicItems
-                        .filter((item) => String(item?.status || '').trim() === '블로그 발행 준비 완료')
+                        .filter((item) => String(item?.status || '').trim() === '발행 준비 완료')
                         .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0));
                     fallbackUsed = candidates.length > 0;
                     if (fallbackUsed) {
@@ -3839,7 +3940,7 @@ async function runAutoCycle(trigger = 'manual', options = {}) {
                 } else {
                     summary.skipped.push(
                         fallbackUsed
-                            ? '블로그 발행 후보가 없어 건너뜁니다. (조건: 상태=블로그 발행 준비 완료)'
+                            ? '발행 후보가 없어 건너뜁니다. (조건: 상태=발행 준비 완료)'
                             : '블로그 발행 후보가 없어 건너뜁니다. (조건: 이번 실행에서 추가된 토픽 행 + 상태/소스/일자/카테고리)'
                     );
                 }

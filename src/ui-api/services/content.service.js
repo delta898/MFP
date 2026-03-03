@@ -316,6 +316,13 @@ function createContentService(deps = {}) {
             return hydrateShoppingItemsWithRuntimeLogs(result, sortBy, sortDir);
         },
 
+        async deleteBlogTopics(requestBody = {}) {
+            const result = await executeBlogTopicsDelete(requestBody || {});
+            if (!result.success) {
+                throw createApiError(400, result.code || 'TOPICS_DELETE_FAILED', result.message || '토픽 삭제에 실패했습니다.');
+            }
+            return result.data;
+        },
         async runBlogAction(requestBody = {}) {
             const body = requestBody || {};
             const action = String(body.action || '').trim().toLowerCase();
@@ -337,6 +344,14 @@ function createContentService(deps = {}) {
             const result = await executeShoppingBatchRowsAction(body);
             if (!result.success) {
                 throw createApiError(400, result.code || 'SHOPPING_ACTION_FAILED', result.message || '쇼핑 작업 요청에 실패했습니다.');
+            }
+            return result.data;
+        },
+
+        async deleteShoppingTopics(requestBody = {}) {
+            const result = await executeShoppingTopicsDelete(requestBody || {});
+            if (!result.success) {
+                throw createApiError(400, result.code || 'SHOPPING_DELETE_FAILED', result.message || '쇼핑 데이터 삭제에 실패했습니다.');
             }
             return result.data;
         },
@@ -392,7 +407,9 @@ function createContentService(deps = {}) {
             });
 
             if (!wpClient.isConfigured()) {
-                Logger.error(`❌ WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}"`);
+                if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                    Logger.error(`❌ WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}"`);
+                }
                 throw createApiError(400, 'WP_NOT_CONFIGURED', '워드프레스 설정이 필요합니다. 설정 > 블로그 탭에서 저장 후 다시 시도해 주세요.');
             }
 

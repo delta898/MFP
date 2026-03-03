@@ -136,6 +136,17 @@
           </div>
         </div>
 
+        <!-- 🆕 첫 실행 안내 배너 (필수 설정 미완료 시 표시) -->
+        <div id="setup-guide-banner" style="display:none;" class="setup-guide-banner">
+          <div class="setup-guide-banner-icon">🚀</div>
+          <div class="setup-guide-banner-content">
+            <strong>BlogGenius에 오신 것을 환영합니다!</strong>
+            <p>아직 필수 설정이 완료되지 않았습니다. 네이버 아이디, Gemini API 키, 구글 스프레드시트를 입력하면 모든 기능을 사용할 수 있습니다.</p>
+          </div>
+          <button class="setup-guide-banner-btn" onclick="goToSettings()">⚙️ 지금 설정하기</button>
+          <button class="setup-guide-banner-close" onclick="dismissSetupBanner()" title="닫기">✕</button>
+        </div>
+
         <div class="dash-auto-actions-grid">
           <section class="dash-auto-column">
             <div class="dash-summary-stats grid dash-auto-cards">
@@ -427,7 +438,8 @@
               <table class="data-table" id="blog-trends-table">
                 <thead>
                   <tr>
-                    <th style="width:56px;">선택</th>
+                    <th style="width:56px;"><input type="checkbox" id="blog-trends-table-select-all"
+                        class="header-checkbox"></th>
                     <th class="sortable" data-sort-table="trends" data-sort-key="rowNumber" style="width:70px;">Row</th>
                     <th class="sortable" data-sort-table="trends" data-sort-key="date" style="width:130px;">날짜</th>
                     <th class="sortable" data-sort-table="trends" data-sort-key="category" style="width:180px;">주제</th>
@@ -458,9 +470,9 @@
               <select id="blog-status-filter">
                 <option value="">전체</option>
                 <option value="대기">대기</option>
-                <option value="블로그 발행 준비 완료">블로그 발행 준비 완료</option>
+                <option value="발행 준비 완료">발행 준비 완료</option>
                 <option value="발행 중">발행 중</option>
-                <option value="블로그 발행 완료">블로그 발행 완료</option>
+                <option value="발행 완료">발행 완료</option>
                 <option value="실패">실패</option>
               </select>
             </label>
@@ -486,9 +498,10 @@
                 <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-naver"
                     type="checkbox"> 네이버</label>
                 <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-wordpress"
-                    type="checkbox"> 워프</label>
+                    type="checkbox"> 워드프레스</label>
               </div>
               <button id="blog-batch-btn">선택 글감 발행</button>
+              <button id="blog-delete-batch-btn" class="secondary danger">선택 글감 삭제</button>
             </div>
             <div class="form-actions-right">
               <span class="tab-selected-count" id="blog-selected-count">0건 선택</span>
@@ -502,7 +515,8 @@
               <table class="data-table" id="blog-table">
                 <thead>
                   <tr>
-                    <th style="width:56px;">선택</th>
+                    <th style="width:56px;"><input type="checkbox" id="blog-table-select-all" class="header-checkbox">
+                    </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="category" style="width:120px;">Category
                     </th>
@@ -743,9 +757,10 @@
                 <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-naver"
                     type="checkbox"> 네이버</label>
                 <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-wordpress"
-                    type="checkbox"> 워프</label>
+                    type="checkbox"> 워드프레스</label>
               </div>
               <button id="shopping-batch-btn">선택 글감 발행</button>
+              <button id="shopping-delete-batch-btn" class="secondary danger">선택 글감 삭제</button>
             </div>
             <div class="form-actions-right">
               <span class="tab-selected-count" id="shopping-selected-count">0건 선택</span>
@@ -757,7 +772,8 @@
               <table class="data-table" id="shopping-table">
                 <thead>
                   <tr>
-                    <th style="width:56px;">선택</th>
+                    <th style="width:56px;"><input type="checkbox" id="shopping-table-select-all"
+                        class="header-checkbox"></th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row
                     </th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>

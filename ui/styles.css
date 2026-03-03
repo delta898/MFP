@@ -3026,3 +3026,99 @@ pre {
     transform: translateY(0);
   }
 }
+
+/* 🆕 First-Run Setup Banner Styles */
+.setup-guide-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0 2rem 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  position: relative;
+  animation: setupBannerSlideDown 0.4s ease-out;
+}
+
+@keyframes setupBannerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.setup-guide-banner-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.setup-guide-banner-content {
+  flex-grow: 1;
+}
+
+.setup-guide-banner-content strong {
+  display: block;
+  font-size: 1.1rem;
+  color: #1e3a8a;
+  margin-bottom: 0.25rem;
+}
+
+.setup-guide-banner-content p {
+  font-size: 0.95rem;
+  color: #3b4b8a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.setup-guide-banner-btn {
+  background: #2563eb;
+  color: white !important;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.setup-guide-banner-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.setup-guide-banner-close {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: color 0.2s;
+  margin-left: 0.5rem;
+}
+
+.setup-guide-banner-close:hover {
+  color: #475569;
+}
+
+@media (max-width: 768px) {
+  .setup-guide-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .setup-guide-banner-icon {
+    display: none;
+  }
+}

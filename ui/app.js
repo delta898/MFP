@@ -1,3 +1,35 @@
+// ─── 첫 실행 안내 배너 ───────────────────────────────────────────
+const SETUP_BANNER_DISMISS_KEY = 'bloggenius_setup_banner_dismissed_v1';
+
+async function checkSetupBanner() {
+  if (localStorage.getItem(SETUP_BANNER_DISMISS_KEY) === 'true') return;
+  try {
+    const status = await fetchJson('/api/v1/config/status');
+    const banner = document.getElementById('setup-guide-banner');
+    if (!banner) return;
+    if (status && status.isEssentialSet === false) {
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+      localStorage.removeItem(SETUP_BANNER_DISMISS_KEY);
+    }
+  } catch (e) {
+    console.warn('Setup banner check failed:', e.message);
+  }
+}
+
+function goToSettings() {
+  const settingsBtn = document.querySelector('[data-view="settings"]');
+  if (settingsBtn) settingsBtn.click();
+}
+
+function dismissSetupBanner() {
+  const banner = document.getElementById('setup-guide-banner');
+  if (banner) banner.style.display = 'none';
+  localStorage.setItem(SETUP_BANNER_DISMISS_KEY, 'true');
+}
+// ─────────────────────────────────────────────────────────────────
+
 async function fetchJson(url) {
   try {
     const res = await fetch(url, { cache: 'no-store' });
@@ -582,6 +614,8 @@ function renderBlogTrendsTable(items) {
       </tr>
     `;
   }).join('');
+  const trendsSelectAll = document.getElementById('blog-trends-table-select-all');
+  if (trendsSelectAll) trendsSelectAll.checked = false;
   updateTrendsSelectionUi();
   updateSortableHeadersUi();
 }
@@ -1172,8 +1206,8 @@ async function loadDashboard() {
   dashboardAutoScheduleState.shopping.enabled = shopAutoEnabled;
   dashboardAutoScheduleState.shopping.nextRunAt = String(auto?.shopping?.nextRunAt || '').trim();
 
-  const blogCap = parsePositiveInt(auto?.blog?.settings?.NAVER_AUTO_MAX_POSTS_PER_RUN, 0);
-  const shopCap = parsePositiveInt(auto?.shopping?.settings?.NAVER_SHOPPING_AUTO_DAILY_POSTS, 0);
+  const blogCap = parsePositiveInt(auto?.blog?.settings?.BLOG_AUTO_MAX_POSTS_PER_RUN, 0);
+  const shopCap = parsePositiveInt(auto?.shopping?.settings?.SHOPPING_AUTO_DAILY_POSTS, 0);
   // 자동발행은 trends→topics→발행 파이프라인으로 신규 글감을 만들기 때문에
   // 대시보드 "예상 발행"은 준비완료 건수 기반이 아니라 설정 최대값 기준으로 표기한다.
   const blogEstimate = blogAutoEnabled ? blogCap : 0;
@@ -1609,6 +1643,8 @@ function renderBlogTable(items) {
       </tr>
     `;
   }).join('');
+  const blogSelectAll = document.getElementById('blog-table-select-all');
+  if (blogSelectAll) blogSelectAll.checked = false;
   updateBlogSelectionUi();
   updateSortableHeadersUi();
 }
@@ -1905,6 +1941,8 @@ function renderBlogShoppingTable(items) {
       </tr>
     `;
   }).join('');
+  const shoppingSelectAll = document.getElementById('shopping-table-select-all');
+  if (shoppingSelectAll) shoppingSelectAll.checked = false;
   updateShoppingSelectionUi();
   updateSortableHeadersUi();
 }
@@ -2250,58 +2288,58 @@ function applySettingsMajorToForm(data) {
     });
 
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
-  if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
+  if (blogAutoModeEl) blogAutoModeEl.checked = Boolean(fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
   setSelectedBlogAutoCategories(
-    fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
+    fields.BLOG_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
   );
   renderBlogAutoCategoryUi();
   if (blogAutoDailyPostsEl) blogAutoDailyPostsEl.value = String(
-    fields.NAVER_AUTO_MAX_POSTS_PER_RUN
-    ?? fields.NAVER_AUTO_DAILY_POSTS
+    fields.BLOG_AUTO_MAX_POSTS_PER_RUN
+    ?? fields.MAX_BLOG_POSTS_PER_RUN
     ?? fields.AUTO_MAX_BLOG_PER_CYCLE
     ?? fields.AUTO_DAILY_BLOG_CAP
     ?? 3
   );
   applyBlogAutoDailyPostsLimitUi();
-  if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
-  if (blogAutoHeadlessEl) blogAutoHeadlessEl.checked = Boolean(fields.NAVER_AUTO_HEADLESS ?? true);
-  if (blogAutoImageGenerationEl) blogAutoImageGenerationEl.checked = Boolean(fields.NAVER_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
-  if (blogAutoExternalReferenceEl) blogAutoExternalReferenceEl.checked = Boolean(fields.NAVER_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
+  if (blogAutoTrendsTimeEl) blogAutoTrendsTimeEl.value = String(fields.BLOG_AUTO_TRENDS_TIME || '07:30');
+  if (blogAutoHeadlessEl) blogAutoHeadlessEl.checked = Boolean(fields.BLOG_AUTO_HEADLESS ?? true);
+  if (blogAutoImageGenerationEl) blogAutoImageGenerationEl.checked = Boolean(fields.BLOG_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
+  if (blogAutoExternalReferenceEl) blogAutoExternalReferenceEl.checked = Boolean(fields.BLOG_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
   if (blogAutoNotifyEnabledEl) {
     blogAutoNotifyEnabledEl.checked = false;
     blogAutoNotifyEnabledEl.disabled = true;
   }
-  if (blogAutoVariationNewEl) blogAutoVariationNewEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
-  if (blogAutoVariationDashEl) blogAutoVariationDashEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+  if (blogAutoVariationNewEl) blogAutoVariationNewEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+  if (blogAutoVariationDashEl) blogAutoVariationDashEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
   if (blogAutoVariationNumberEnabledEl) {
     blogAutoVariationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
-      fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+      fields.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
       true
     );
   }
   const variationTypeEl = document.getElementById('blog-auto-variation-type');
   if (variationTypeEl) {
-    variationTypeEl.value = String(fields.NAVER_AUTO_VARIATION_TYPE || 'min');
+    variationTypeEl.value = String(fields.BLOG_AUTO_VARIATION_TYPE || 'min');
   }
   if (blogAutoVariationMinEl) {
-    const rawVariationNumber = fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
+    const rawVariationNumber = fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
     const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(rawVariationNumber, 50);
     blogAutoVariationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
   }
   if (blogAutoVariationTopEl) {
-    const rawTopN = fields.NAVER_AUTO_VARIATION_TOP_N ?? 5;
+    const rawTopN = fields.BLOG_AUTO_VARIATION_TOP_N ?? 5;
     const normalizedTopN = normalizeBlogAutoVariationNumberValue(rawTopN, 5);
     blogAutoVariationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
   }
   syncBlogAutoVariationTypeUi();
   if (blogAutoKeywordReuseGapEl) {
-    const rawReuseGap = fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS;
+    const rawReuseGap = fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS;
     const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
     blogAutoKeywordReuseGapEl.value = String(normalizedReuseGap);
   }
-  if (shoppingAutoModeEl) shoppingAutoModeEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_MODE);
-  if (shoppingAutoDailyPostsEl) shoppingAutoDailyPostsEl.value = String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
-  if (shoppingAutoTimeEl) shoppingAutoTimeEl.value = String(fields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+  if (shoppingAutoModeEl) shoppingAutoModeEl.checked = Boolean(fields.SHOPPING_AUTO_MODE);
+  if (shoppingAutoDailyPostsEl) shoppingAutoDailyPostsEl.value = String(fields.SHOPPING_AUTO_DAILY_POSTS ?? 3);
+  if (shoppingAutoTimeEl) shoppingAutoTimeEl.value = String(fields.SHOPPING_AUTO_TIME || '07:50');
   if (shoppingAutoNotifyEnabledEl) {
     shoppingAutoNotifyEnabledEl.checked = false;
     shoppingAutoNotifyEnabledEl.disabled = true;
@@ -2519,25 +2557,25 @@ function buildSettingsMajorPayload() {
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     HEADLESS: Boolean(document.getElementById('settings-headless')?.checked),
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
-    NAVER_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
-    NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
-    NAVER_AUTO_MAX_POSTS_PER_RUN: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
-    NAVER_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
-    NAVER_AUTO_HEADLESS: Boolean(document.getElementById('blog-auto-headless')?.checked),
-    NAVER_AUTO_IMAGE_GENERATION: Boolean(document.getElementById('blog-auto-image-generation')?.checked),
-    NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(document.getElementById('blog-auto-external-reference')?.checked),
-    NAVER_AUTO_NOTIFY_ENABLED: false,
-    NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(document.getElementById('blog-auto-variation-new')?.checked),
-    NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
-    NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
-    NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-    NAVER_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-min')?.value || '', 50),
-    NAVER_AUTO_VARIATION_TOP_N: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-top')?.value || '', 5),
-    NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
-    NAVER_SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
-    NAVER_SHOPPING_AUTO_DAILY_POSTS: parseInt((document.getElementById('shopping-auto-daily-posts')?.value || '3').trim(), 10) || 0,
-    NAVER_SHOPPING_AUTO_TIME: (document.getElementById('shopping-auto-time')?.value || '07:50').trim(),
-    NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: false,
+    BLOG_AUTO_MODE: Boolean(document.getElementById('blog-auto-mode')?.checked),
+    BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+    BLOG_AUTO_MAX_POSTS_PER_RUN: parseInt((document.getElementById('blog-auto-daily-posts')?.value || '3').trim(), 10) || 0,
+    BLOG_AUTO_TRENDS_TIME: (document.getElementById('blog-auto-trends-time')?.value || '07:30').trim(),
+    BLOG_AUTO_HEADLESS: Boolean(document.getElementById('blog-auto-headless')?.checked),
+    BLOG_AUTO_IMAGE_GENERATION: Boolean(document.getElementById('blog-auto-image-generation')?.checked),
+    BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(document.getElementById('blog-auto-external-reference')?.checked),
+    BLOG_AUTO_NOTIFY_ENABLED: false,
+    BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(document.getElementById('blog-auto-variation-new')?.checked),
+    BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
+    BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
+    BLOG_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
+    BLOG_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-min')?.value || '', 50),
+    BLOG_AUTO_VARIATION_TOP_N: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-top')?.value || '', 5),
+    BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
+    SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
+    SHOPPING_AUTO_DAILY_POSTS: parseInt((document.getElementById('shopping-auto-daily-posts')?.value || '3').trim(), 10) || 0,
+    SHOPPING_AUTO_TIME: (document.getElementById('shopping-auto-time')?.value || '07:50').trim(),
+    SHOPPING_AUTO_NOTIFY_ENABLED: false,
     ...imageSources
   };
 }
@@ -3413,48 +3451,48 @@ async function loadBlogAutoSettings() {
       loadBlogAutoPlanLimit({ silent: true })
     ]);
     const fields = data?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(fields.NAVER_AUTO_MODE ?? fields.AUTO_MODE);
+    if (modeEl) modeEl.checked = Boolean(fields.BLOG_AUTO_MODE ?? fields.AUTO_MODE);
     setSelectedBlogAutoCategories(
-      fields.NAVER_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
+      fields.BLOG_AUTO_CATEGORIES || fields.AUTO_INCLUDE_CATEGORIES || fields.AUTO_CATEGORIES || ''
     );
     renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(
-      fields.NAVER_AUTO_MAX_POSTS_PER_RUN
-      ?? fields.NAVER_AUTO_DAILY_POSTS
+      fields.BLOG_AUTO_MAX_POSTS_PER_RUN
+      ?? fields.BLOG_AUTO_DAILY_POSTS
       ?? fields.AUTO_MAX_BLOG_PER_CYCLE
       ?? fields.AUTO_DAILY_BLOG_CAP
       ?? 3
     );
     applyBlogAutoDailyPostsLimitUi();
-    if (trendsTimeEl) trendsTimeEl.value = String(fields.NAVER_AUTO_TRENDS_TIME || '07:30');
-    if (imageGenerationEl) imageGenerationEl.checked = Boolean(fields.NAVER_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
-    if (externalReferenceEl) externalReferenceEl.checked = Boolean(fields.NAVER_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
+    if (trendsTimeEl) trendsTimeEl.value = String(fields.BLOG_AUTO_TRENDS_TIME || '07:30');
+    if (imageGenerationEl) imageGenerationEl.checked = Boolean(fields.BLOG_AUTO_IMAGE_GENERATION ?? fields.AUTO_IMAGE_GENERATION ?? true);
+    if (externalReferenceEl) externalReferenceEl.checked = Boolean(fields.BLOG_AUTO_EXTERNAL_REFERENCE ?? fields.AUTO_USE_EXTERNAL_REF ?? true);
     if (notifyEnabledEl) {
       notifyEnabledEl.checked = false;
       notifyEnabledEl.disabled = true;
     }
-    if (variationNewEl) variationNewEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
-    if (variationDashEl) variationDashEl.checked = Boolean(fields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+    if (variationNewEl) variationNewEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+    if (variationDashEl) variationDashEl.checked = Boolean(fields.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
     const variationTypeEl = document.getElementById('blog-auto-variation-type');
     if (variationNumberEnabledEl) {
       variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
-        fields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        fields.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? fields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
         true
       );
     }
     if (variationTypeEl) {
-      variationTypeEl.value = String(fields.NAVER_AUTO_VARIATION_TYPE || 'min');
+      variationTypeEl.value = String(fields.BLOG_AUTO_VARIATION_TYPE || 'min');
     }
     if (variationMinEl) {
       const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(
-        fields.NAVER_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
+        fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION,
         50
       );
       variationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
     }
     if (variationTopEl) {
       const normalizedTopN = normalizeBlogAutoVariationNumberValue(
-        fields.NAVER_AUTO_VARIATION_TOP_N ?? 5,
+        fields.BLOG_AUTO_VARIATION_TOP_N ?? 5,
         5
       );
       variationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
@@ -3463,7 +3501,7 @@ async function loadBlogAutoSettings() {
     syncBlogAutoVariationNumberUi();
     if (keywordReuseGapEl) {
       const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
-        fields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS,
+        fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? fields.AUTO_KEYWORD_REUSE_GAP_DAYS,
         15
       );
       keywordReuseGapEl.value = String(normalizedReuseGap);
@@ -3522,64 +3560,64 @@ async function saveBlogAutoSettings() {
     if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
     const payload = {
       ...fields,
-      NAVER_AUTO_MODE: Boolean(modeEl?.checked),
-      NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
-      NAVER_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
-      NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
-      NAVER_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
-      NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
-      NAVER_AUTO_NOTIFY_ENABLED: false,
-      NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
-      NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
-      NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
-      NAVER_AUTO_VARIATION_TYPE: (variationTypeEl?.value || 'min').trim(),
-      NAVER_AUTO_VARIATION_NUMBER: variationMin,
-      NAVER_AUTO_VARIATION_TOP_N: variationTopN,
-      NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
+      BLOG_AUTO_MODE: Boolean(modeEl?.checked),
+      BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      BLOG_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
+      BLOG_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
+      BLOG_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
+      BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
+      BLOG_AUTO_NOTIFY_ENABLED: false,
+      BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
+      BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
+      BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      BLOG_AUTO_VARIATION_TYPE: (variationTypeEl?.value || 'min').trim(),
+      BLOG_AUTO_VARIATION_NUMBER: variationMin,
+      BLOG_AUTO_VARIATION_TOP_N: variationTopN,
+      BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
     const saved = await postJson('/api/v1/settings/major', payload);
     const savedFields = saved?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(savedFields.NAVER_AUTO_MODE ?? savedFields.AUTO_MODE);
+    if (modeEl) modeEl.checked = Boolean(savedFields.BLOG_AUTO_MODE ?? savedFields.AUTO_MODE);
     setSelectedBlogAutoCategories(
-      savedFields.NAVER_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || ''
+      savedFields.BLOG_AUTO_CATEGORIES || savedFields.AUTO_INCLUDE_CATEGORIES || savedFields.AUTO_CATEGORIES || ''
     );
     renderBlogAutoCategoryUi();
     if (dailyPostsEl) dailyPostsEl.value = String(
-      savedFields.NAVER_AUTO_MAX_POSTS_PER_RUN
-      ?? savedFields.NAVER_AUTO_DAILY_POSTS
+      savedFields.BLOG_AUTO_MAX_POSTS_PER_RUN
+      ?? savedFields.MAX_BLOG_POSTS_PER_RUN
       ?? savedFields.AUTO_MAX_BLOG_PER_CYCLE
       ?? savedFields.AUTO_DAILY_BLOG_CAP
       ?? 3
     );
     applyBlogAutoDailyPostsLimitUi();
-    if (trendsTimeEl) trendsTimeEl.value = String(savedFields.NAVER_AUTO_TRENDS_TIME || '07:30');
-    if (imageGenerationEl) imageGenerationEl.checked = Boolean(savedFields.NAVER_AUTO_IMAGE_GENERATION ?? savedFields.AUTO_IMAGE_GENERATION ?? true);
-    if (externalReferenceEl) externalReferenceEl.checked = Boolean(savedFields.NAVER_AUTO_EXTERNAL_REFERENCE ?? savedFields.AUTO_USE_EXTERNAL_REF ?? true);
+    if (trendsTimeEl) trendsTimeEl.value = String(savedFields.BLOG_AUTO_TRENDS_TIME || '07:30');
+    if (imageGenerationEl) imageGenerationEl.checked = Boolean(savedFields.BLOG_AUTO_IMAGE_GENERATION ?? savedFields.AUTO_IMAGE_GENERATION ?? true);
+    if (externalReferenceEl) externalReferenceEl.checked = Boolean(savedFields.BLOG_AUTO_EXTERNAL_REFERENCE ?? savedFields.AUTO_USE_EXTERNAL_REF ?? true);
     if (notifyEnabledEl) {
       notifyEnabledEl.checked = false;
       notifyEnabledEl.disabled = true;
     }
-    if (variationNewEl) variationNewEl.checked = Boolean(savedFields.NAVER_AUTO_VARIATION_INCLUDE_NEW ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
-    if (variationDashEl) variationDashEl.checked = Boolean(savedFields.NAVER_AUTO_VARIATION_INCLUDE_DASH ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
+    if (variationNewEl) variationNewEl.checked = Boolean(savedFields.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NEW);
+    if (variationDashEl) variationDashEl.checked = Boolean(savedFields.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_DASH);
     if (variationNumberEnabledEl) {
       variationNumberEnabledEl.checked = normalizeBlogAutoVariationNumberEnabledValue(
-        savedFields.NAVER_AUTO_VARIATION_INCLUDE_NUMBER ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
+        savedFields.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? savedFields.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
         true
       );
     }
     if (variationTypeEl) {
-      variationTypeEl.value = String(savedFields.NAVER_AUTO_VARIATION_TYPE || 'min');
+      variationTypeEl.value = String(savedFields.BLOG_AUTO_VARIATION_TYPE || 'min');
     }
     if (variationMinEl) {
       const normalizedSavedVariationNumber = normalizeBlogAutoVariationNumberValue(
-        savedFields.NAVER_AUTO_VARIATION_NUMBER ?? savedFields.AUTO_TRENDS_MIN_VARIATION,
+        savedFields.BLOG_AUTO_VARIATION_NUMBER ?? savedFields.AUTO_TRENDS_MIN_VARIATION,
         50
       );
       variationMinEl.value = normalizedSavedVariationNumber === '' ? '' : String(normalizedSavedVariationNumber);
     }
     if (variationTopEl) {
       const normalizedTopN = normalizeBlogAutoVariationNumberValue(
-        savedFields.NAVER_AUTO_VARIATION_TOP_N ?? 5,
+        savedFields.BLOG_AUTO_VARIATION_TOP_N ?? 5,
         5
       );
       variationTopEl.value = normalizedTopN === '' ? '' : String(normalizedTopN);
@@ -3588,7 +3626,7 @@ async function saveBlogAutoSettings() {
     syncBlogAutoVariationNumberUi();
     if (keywordReuseGapEl) {
       const normalizedSavedReuseGap = normalizeBlogAutoKeywordReuseGapValue(
-        savedFields.NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS ?? savedFields.AUTO_KEYWORD_REUSE_GAP_DAYS,
+        savedFields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? savedFields.AUTO_KEYWORD_REUSE_GAP_DAYS,
         15
       );
       keywordReuseGapEl.value = String(normalizedSavedReuseGap);
@@ -3616,11 +3654,11 @@ async function loadShoppingAutoSettings() {
       loadShoppingAutoPlanLimit({ silent: true })
     ]);
     const fields = data?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(fields.NAVER_SHOPPING_AUTO_MODE);
-    if (headlessEl) headlessEl.checked = Boolean(fields.NAVER_AUTO_HEADLESS ?? fields.HEADLESS ?? true);
-    if (dailyPostsEl) dailyPostsEl.value = String(fields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
+    if (modeEl) modeEl.checked = Boolean(fields.SHOPPING_AUTO_MODE);
+    if (headlessEl) headlessEl.checked = Boolean(fields.BLOG_AUTO_HEADLESS ?? fields.HEADLESS ?? true);
+    if (dailyPostsEl) dailyPostsEl.value = String(fields.SHOPPING_AUTO_DAILY_POSTS ?? 3);
     applyShoppingAutoDailyPostsLimitUi();
-    if (timeEl) timeEl.value = String(fields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+    if (timeEl) timeEl.value = String(fields.SHOPPING_AUTO_TIME || '07:50');
     if (notifyEnabledEl) {
       notifyEnabledEl.checked = false;
       notifyEnabledEl.disabled = true;
@@ -3648,19 +3686,19 @@ async function saveShoppingAutoSettings() {
     if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
     const payload = {
       ...fields,
-      NAVER_SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
-      NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-      NAVER_SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
-      NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: false,
-      NAVER_AUTO_HEADLESS: Boolean(headlessEl?.checked)
+      SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
+      SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+      SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
+      SHOPPING_AUTO_NOTIFY_ENABLED: false,
+      BLOG_AUTO_HEADLESS: Boolean(headlessEl?.checked)
     };
     const saved = await postJson('/api/v1/settings/major', payload);
     const savedFields = saved?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(savedFields.NAVER_SHOPPING_AUTO_MODE);
-    if (headlessEl) headlessEl.checked = Boolean(savedFields.NAVER_AUTO_HEADLESS ?? savedFields.HEADLESS ?? true);
-    if (dailyPostsEl) dailyPostsEl.value = String(savedFields.NAVER_SHOPPING_AUTO_DAILY_POSTS ?? 3);
+    if (modeEl) modeEl.checked = Boolean(savedFields.SHOPPING_AUTO_MODE);
+    if (headlessEl) headlessEl.checked = Boolean(savedFields.BLOG_AUTO_HEADLESS ?? savedFields.HEADLESS ?? true);
+    if (dailyPostsEl) dailyPostsEl.value = String(savedFields.SHOPPING_AUTO_DAILY_POSTS ?? 3);
     applyShoppingAutoDailyPostsLimitUi();
-    if (timeEl) timeEl.value = String(savedFields.NAVER_SHOPPING_AUTO_TIME || '07:50');
+    if (timeEl) timeEl.value = String(savedFields.SHOPPING_AUTO_TIME || '07:50');
     setShoppingAutoResultText([
       '저장 완료',
       '- 쇼핑 자동발행 설정이 반영되었습니다.',
@@ -3698,10 +3736,10 @@ async function runShoppingAutoManual() {
     const dailyPosts = normalizeShoppingAutoDailyPostsValue(dailyPostsEl?.value || '3');
     if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
     const settingsOverrides = {
-      NAVER_SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
-      NAVER_SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-      NAVER_SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
-      NAVER_SHOPPING_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
+      SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
+      SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
+      SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
+      SHOPPING_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
     };
     const data = await postJson('/api/v1/shopping/auto/run-manual', { settingsOverrides });
     const summary = data?.summary || {};
@@ -3800,20 +3838,20 @@ async function runBlogAutoManual() {
     if (keywordReuseGapEl) keywordReuseGapEl.value = String(keywordReuseGap);
 
     const settingsOverrides = {
-      NAVER_AUTO_MODE: Boolean(modeEl?.checked),
-      NAVER_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
-      NAVER_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
-      NAVER_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
-      NAVER_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
-      NAVER_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
-      NAVER_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked),
-      NAVER_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
-      NAVER_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
-      NAVER_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
-      NAVER_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-      NAVER_AUTO_VARIATION_NUMBER: variationMin,
-      NAVER_AUTO_VARIATION_TOP_N: variationTopN,
-      NAVER_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
+      BLOG_AUTO_MODE: Boolean(modeEl?.checked),
+      BLOG_AUTO_CATEGORIES: serializeSelectedBlogAutoCategories(),
+      BLOG_AUTO_MAX_POSTS_PER_RUN: dailyPosts,
+      BLOG_AUTO_TRENDS_TIME: (trendsTimeEl?.value || '07:30').trim(),
+      BLOG_AUTO_IMAGE_GENERATION: Boolean(imageGenerationEl?.checked),
+      BLOG_AUTO_EXTERNAL_REFERENCE: Boolean(externalReferenceEl?.checked),
+      BLOG_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked),
+      BLOG_AUTO_VARIATION_INCLUDE_NEW: Boolean(variationNewEl?.checked),
+      BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(variationDashEl?.checked),
+      BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(variationNumberEnabledEl?.checked),
+      BLOG_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
+      BLOG_AUTO_VARIATION_NUMBER: variationMin,
+      BLOG_AUTO_VARIATION_TOP_N: variationTopN,
+      BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: keywordReuseGap
     };
 
     const payload = rawDate
@@ -4071,6 +4109,19 @@ function bindActions() {
     if (publishBtn) publishBtn.disabled = true;
 
     const dummyPayload = buildQuickPayload(mode);
+
+    // [New] WordPress 예약 일시 검증
+    if (dummyPayload.targets.includes('wordpress') && dummyPayload.postStatus === 'schedule') {
+      if (!dummyPayload.scheduleDate) {
+        if (resultEl) resultEl.textContent = '⚠️ 예약 발행을 위해서는 예약 일시를 선택해야 합니다.';
+        showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
+        if (saveBtn) saveBtn.disabled = false;
+        if (publishBtn) publishBtn.disabled = false;
+        quickPublishInFlight = false;
+        return;
+      }
+    }
+
     const preCheck = checkPublishPrerequisites(dummyPayload.targets);
     if (!preCheck.ok) {
       resultEl.textContent = preCheck.message;
@@ -4294,6 +4345,31 @@ function bindActions() {
     });
   }
   if (blogBatchBtn) blogBatchBtn.addEventListener('click', runBlogBatchAction);
+  const blogDeleteBatchBtn = document.getElementById('blog-delete-batch-btn');
+  if (blogDeleteBatchBtn) {
+    blogDeleteBatchBtn.addEventListener('click', async () => {
+      const rowIndices = Array.from(blogSelectedRowIndices);
+      if (rowIndices.length === 0) {
+        showUiPopup('삭제할 글감을 선택해 주세요.');
+        return;
+      }
+      if (!confirm(`선택한 ${rowIndices.length}개의 글감을 삭제하시겠습니까?\n구글 시트에서도 행이 영구 삭제됩니다.`)) {
+        return;
+      }
+      const resultBox = document.getElementById('blog-action-result');
+      if (resultBox) resultBox.textContent = '글감 삭제 중...';
+      try {
+        await postJson('/api/v1/blog/topics/delete', { rowIndices });
+        blogSelectedRowIndices.clear();
+        updateBlogSelectionUi();
+        await loadBlogTopics();
+        if (resultBox) resultBox.textContent = `성공: ${rowIndices.length}개의 글감을 삭제했습니다.`;
+      } catch (err) {
+        if (resultBox) resultBox.textContent = `삭제 실패: ${err.message}`;
+        showUiPopup(`삭제 실패: ${err.message}`);
+      }
+    });
+  }
   if (shoppingRefreshBtn) shoppingRefreshBtn.addEventListener('click', loadBlogShopping);
   if (shoppingQClearBtn) {
     shoppingQClearBtn.addEventListener('click', () => {
@@ -4304,6 +4380,31 @@ function bindActions() {
     });
   }
   if (shoppingBatchBtn) shoppingBatchBtn.addEventListener('click', runShoppingBatchAction);
+  const shoppingDeleteBatchBtn = document.getElementById('shopping-delete-batch-btn');
+  if (shoppingDeleteBatchBtn) {
+    shoppingDeleteBatchBtn.addEventListener('click', async () => {
+      const rowIndices = Array.from(blogShoppingSelectedRowIndices);
+      if (rowIndices.length === 0) {
+        showUiPopup('삭제할 상품을 선택해 주세요.');
+        return;
+      }
+      if (!confirm(`선택한 ${rowIndices.length}개의 상품을 삭제하시겠습니까?\n구글 시트에서도 행이 영구 삭제됩니다.`)) {
+        return;
+      }
+      const shoppingResultBox = document.getElementById('shopping-action-result');
+      if (shoppingResultBox) shoppingResultBox.textContent = '상품 삭제 중...';
+      try {
+        await postJson('/api/v1/shopping/topics/delete', { rowIndices });
+        blogShoppingSelectedRowIndices.clear();
+        updateShoppingSelectionUi();
+        await loadBlogShopping();
+        if (shoppingResultBox) shoppingResultBox.textContent = `성공: ${rowIndices.length}개의 상품을 삭제했습니다.`;
+      } catch (err) {
+        if (shoppingResultBox) shoppingResultBox.textContent = `삭제 실패: ${err.message}`;
+        showUiPopup(`삭제 실패: ${err.message}`);
+      }
+    });
+  }
   if (shoppingStatusFilter) {
     shoppingStatusFilter.addEventListener('change', () => {
       setPageInfo('shopping', { offset: 0 });
@@ -4360,6 +4461,52 @@ function bindActions() {
       const pageInfo = getPageInfo('topics');
       setPageInfo('topics', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
       loadBlogTopics();
+    });
+  }
+
+  // Select All Header Checkbox Listeners
+  const trendsSelectAll = document.getElementById('blog-trends-table-select-all');
+  if (trendsSelectAll) {
+    trendsSelectAll.addEventListener('change', () => {
+      const checked = trendsSelectAll.checked;
+      const selectors = Array.from(document.querySelectorAll('input.trend-row-selector'));
+      selectors.forEach(s => {
+        s.checked = checked;
+        const rowIndex = Number(s.value);
+        if (checked) blogTrendsSelectedRowIndices.add(rowIndex);
+        else blogTrendsSelectedRowIndices.delete(rowIndex);
+      });
+      updateTrendsSelectionUi();
+    });
+  }
+
+  const blogSelectAll = document.getElementById('blog-table-select-all');
+  if (blogSelectAll) {
+    blogSelectAll.addEventListener('change', () => {
+      const checked = blogSelectAll.checked;
+      const selectors = Array.from(document.querySelectorAll('input.row-selector'));
+      selectors.forEach(s => {
+        s.checked = checked;
+        const rowIndex = Number(s.value);
+        if (checked) blogSelectedRowIndices.add(rowIndex);
+        else blogSelectedRowIndices.delete(rowIndex);
+      });
+      updateBlogSelectionUi();
+    });
+  }
+
+  const shoppingSelectAll = document.getElementById('shopping-table-select-all');
+  if (shoppingSelectAll) {
+    shoppingSelectAll.addEventListener('change', () => {
+      const checked = shoppingSelectAll.checked;
+      const selectors = Array.from(document.querySelectorAll('input.shopping-row-selector'));
+      selectors.forEach(s => {
+        s.checked = checked;
+        const rowIndex = Number(s.value);
+        if (checked) blogShoppingSelectedRowIndices.add(rowIndex);
+        else blogShoppingSelectedRowIndices.delete(rowIndex);
+      });
+      updateShoppingSelectionUi();
     });
   }
 
@@ -4611,6 +4758,7 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  checkSetupBanner();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {

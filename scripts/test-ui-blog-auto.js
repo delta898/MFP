@@ -135,7 +135,7 @@ async function run() {
             body: {
                 trendDate: '20260224',
                 skipTrends: 'true',
-                settingsOverrides: { NAVER_AUTO_MODE: true }
+                settingsOverrides: { BLOG_AUTO_MODE: true }
             }
         });
         assert.strictEqual(handled, true);

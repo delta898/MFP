@@ -262,7 +262,9 @@ const Utils = {
             return parsed;
 
         } catch (e) {
-            Logger.error(`❌ 구글 트렌드 시트 읽기 실패: ${e.message}`);
+            if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                Logger.error(`❌ 구글 트렌드 시트 읽기 실패: ${e.message}`);
+            }
             return [];
         }
     },
@@ -527,7 +529,7 @@ const Utils = {
                     }
                 });
 
-                // Dropdown: G열 (Index 6) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료 (처리 상태)
+                // Dropdown: G열 (Index 6) -> 대기, 발행 준비 완료, 발행 완료 (처리 상태)
                 validationRequests.push({
                     setDataValidation: {
                         range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
@@ -536,8 +538,8 @@ const Utils = {
                                 type: 'ONE_OF_LIST',
                                 values: [
                                     { userEnteredValue: '대기' },
-                                    { userEnteredValue: '블로그 발행 준비 완료' },
-                                    { userEnteredValue: '블로그 발행 완료' }
+                                    { userEnteredValue: '발행 준비 완료' },
+                                    { userEnteredValue: '발행 완료' }
                                 ]
                             },
                             showCustomUi: true, strict: true
@@ -708,11 +710,13 @@ const Utils = {
                 const hasData = item.subject ||
                     item.keywords.length > 0 ||
                     item.content_guide.reference_urls.length > 0; // 👈 여기 추가됨
-                return hasData && (item.status === '블로그 발행 준비 완료');
+                return hasData && (item.status === '발행 준비 완료');
             });
 
         } catch (e) {
-            Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
+            if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
+            }
             return [];
         }
     },
@@ -1001,7 +1005,9 @@ const Utils = {
 
             return jobs;
         } catch (e) {
-            Logger.error(`❌ 쇼핑 시트 읽기 실패: ${e.message}`);
+            if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                Logger.error(`❌ 쇼핑 시트 읽기 실패: ${e.message}`);
+            }
             return [];
         }
     },
@@ -1349,7 +1355,9 @@ const Utils = {
             return targets;
 
         } catch (e) {
-            Logger.error(`❌ 키워드 시트 읽기 실패: ${e.message}`);
+            if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
+                Logger.error(`❌ 키워드 시트 읽기 실패: ${e.message}`);
+            }
             return [];
         }
     },
@@ -1449,7 +1457,7 @@ const Utils = {
                     const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
 
                     // 데이터 유효성 검사 (Dropdown)
-                    // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 블로그 발행 준비 완료, 블로그 발행 완료
+                    // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 발행 준비 완료, 발행 완료
                     // 이미지 생성: F열 (Index 5) -> Yes, No
                     // 외부 참고 여부: G열 (Index 6) -> Yes, No
                     const validationReq = {
@@ -1461,8 +1469,8 @@ const Utils = {
                                         type: 'ONE_OF_LIST',
                                         values: [
                                             { userEnteredValue: '대기' },
-                                            { userEnteredValue: '블로그 발행 준비 완료' },
-                                            { userEnteredValue: '블로그 발행 완료' }
+                                            { userEnteredValue: '발행 준비 완료' },
+                                            { userEnteredValue: '발행 완료' }
                                         ]
                                     },
                                     showCustomUi: true, strict: true
@@ -2956,14 +2964,14 @@ const Utils = {
 
             topics.forEach(t => {
                 const st = String(t.status || '').trim();
-                if (st === '블로그 발행 완료') {
+                if (st === '발행 완료') {
                     const dt = parseDateLoose(t.publishedAt || t.addedAt);
                     if (dt) {
                         if (dt >= startOfWeek) blogWeeklyCount++;
                         if (dt >= startOfToday && dt < startOfTomorrow) blogTodayCount++;
                         else if (dt >= startOfYesterday && dt < startOfToday) blogYesterdayCount++;
                     }
-                } else if (st === '블로그 발행 준비 완료') {
+                } else if (st === '발행 준비 완료') {
                     blogReadyCount++;
                 }
             });

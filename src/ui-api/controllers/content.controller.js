@@ -175,6 +175,26 @@ function createContentController(deps = {}) {
                 return toErrorResponse(res, requestId, 'TOPIC_UPDATE_FAILED', '토픽 수정에 실패했습니다.', e);
             }
         },
+        async blogTopicsDelete({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.deleteBlogTopics(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'TOPICS_DELETE_FAILED', '토픽 삭제에 실패했습니다.', e);
+            }
+        },
+        async shoppingTopicsDelete({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.deleteShoppingTopics(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'SHOPPING_DELETE_FAILED', '쇼핑 데이터 삭제에 실패했습니다.', e);
+            }
+        },
 
         async wordpressCategories({ requestId, method, res }) {
             if (method !== 'GET') {

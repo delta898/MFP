@@ -304,7 +304,8 @@ function createSystemService(deps = {}) {
                 sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
                 sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
                 message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
-                version: String(APP_VERSION || '0.0.0')
+                version: String(APP_VERSION || '0.0.0'),
+                isEssentialSet: CONFIG.CONFIG_IS_ESSENTIAL_SET === true
             };
         },
 
