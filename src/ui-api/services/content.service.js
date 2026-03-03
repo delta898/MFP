@@ -37,7 +37,9 @@ function createContentService(deps = {}) {
         executeShoppingBatchRowsAction,
         executeShoppingAutoManualAction,
         executeShoppingRowUpdate,
-        executeBlogTopicUpdate
+        executeBlogTopicUpdate,
+        executeBlogTopicsDelete,
+        executeShoppingTopicsDelete
     } = deps;
 
     async function hydrateTopicItemsWithRuntimeLogs(result, sortBy, sortDir) {

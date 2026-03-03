@@ -2152,7 +2152,7 @@ async function executeBlogTopicsDelete(requestBody) {
         // 삭제를 위해 인덱스를 내림차순으로 정렬 (뒤에서부터 지워야 인덱스가 꼬이지 않음)
         const sortedIndices = [...rowIndices].sort((a, b) => b - a);
 
-        const spreadsheetId = CONFIG.GOOGLE_SPREADSHEET_ID;
+        const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
         const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
         const sheetId = await Utils.getSheetIdByName(spreadsheetId, sheetName);
 
@@ -2165,8 +2165,8 @@ async function executeBlogTopicsDelete(requestBody) {
                 range: {
                     sheetId: sheetId,
                     dimension: 'ROWS',
-                    startIndex: idx,
-                    endIndex: idx + 1
+                    startIndex: idx + 1,
+                    endIndex: idx + 2
                 }
             }
         }));
@@ -2207,7 +2207,7 @@ async function executeShoppingTopicsDelete(requestBody) {
         // 삭제를 위해 인덱스를 내림차순으로 정렬
         const sortedIndices = [...rowIndices].sort((a, b) => b - a);
 
-        const spreadsheetId = CONFIG.GOOGLE_SPREADSHEET_ID;
+        const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
         const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
         const sheetId = await Utils.getSheetIdByName(spreadsheetId, sheetName);
 
@@ -2220,8 +2220,8 @@ async function executeShoppingTopicsDelete(requestBody) {
                 range: {
                     sheetId: sheetId,
                     dimension: 'ROWS',
-                    startIndex: idx,
-                    endIndex: idx + 1
+                    startIndex: idx + 1,
+                    endIndex: idx + 2
                 }
             }
         }));
@@ -4129,6 +4129,8 @@ function createLegacyApiDeps() {
         executeShoppingAutoManualAction,
         executeShoppingRowUpdate,
         executeBlogTopicUpdate,
+        executeBlogTopicsDelete,
+        executeShoppingTopicsDelete,
         executeTrendCollectAction,
         executeTrendsToTopicsAction,
         executeKeywordsToTopicsAction

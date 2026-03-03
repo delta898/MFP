@@ -5,6 +5,14 @@
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
+## [0.9.4] - 2026-03-03
+
+### Fixed
+- **블로그 글감 및 쇼핑 아이템 삭제 오류 수정**: 
+  - 의존성 주입 누락으로 인한 "is not a function" 에러 해결.
+  - 구글 시트 API 호출 시 오타(`GOOGLE_SPREADSHEET_ID`) 및 누락된 유틸리티 함수(`getSheetIdByName`, `googleSheetPost`) 복구.
+  - 구글 시트 헤더를 고려하지 않은 인덱스 오차(Off-by-one) 보정으로 정확한 행 삭제 보장.
+
 ## [0.9.3] - 2026-03-03
 
 ### Added

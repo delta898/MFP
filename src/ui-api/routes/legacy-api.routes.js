@@ -91,7 +91,9 @@ function createLegacyApiRouteHandler(deps = {}) {
         executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
         executeShoppingAutoManualAction: deps.executeShoppingAutoManualAction,
         executeShoppingRowUpdate: deps.executeShoppingRowUpdate,
-        executeBlogTopicUpdate: deps.executeBlogTopicUpdate
+        executeBlogTopicUpdate: deps.executeBlogTopicUpdate,
+        executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
+        executeShoppingTopicsDelete: deps.executeShoppingTopicsDelete
     });
     const contentController = createContentController({
         service: contentService,

@@ -200,6 +200,33 @@ const Utils = {
     },
 
     /**
+     * 🌐 Google Sheets API POST 요청 래퍼
+     */
+    googleSheetPost: async function (url, data) {
+        const accessToken = await this.getGoogleAccessToken();
+        return this.callWithRetry(() => axios.post(url, data, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        })).then(res => res.data);
+    },
+
+    /**
+     * 🔍 시트 이름으로 sheetId 조회
+     */
+    getSheetIdByName: async function (spreadsheetId, sheetName) {
+        const accessToken = await this.getGoogleAccessToken();
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`;
+        const res = await this.callWithRetry(() => axios.get(url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        }));
+
+        const sheet = (res.data.sheets || []).find(s => s.properties.title === sheetName);
+        return sheet ? sheet.properties.sheetId : null;
+    },
+
+    /**
      * 0. 초기화: 모든 필수 시트가 있는지 확인하고 없으면 생성
      */
     ensureAllSheetsExist: async function () {
