@@ -1287,7 +1287,12 @@ async function loadDashboardLogs() {
         else if (log.level === 'warn') icon = '⚠️';
         else if (log.message.includes('완료') || log.message.includes('성공')) icon = '✅';
 
-        li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${icon} ${log.message}`;
+        // 🆕 만약 메시지 자체가 이모지로 시작하면 중복 방지
+        const msg = String(log.message || '').trim();
+        const startsWithEmoji = /^([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/.test(msg);
+        const finalMessage = (startsWithEmoji && (msg.startsWith(icon) || icon === 'ℹ️')) ? msg : `${icon} ${msg}`;
+
+        li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${finalMessage}`;
         list.appendChild(li);
       });
     };

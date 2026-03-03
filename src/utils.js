@@ -263,7 +263,7 @@ const Utils = {
 
         } catch (e) {
             if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                Logger.error(`❌ 구글 트렌드 시트 읽기 실패: ${e.message}`);
+                Logger.info(`구글 트렌드 시트 읽기 실패: ${e.message} (미사용 시 무시 가능)`);
             }
             return [];
         }
@@ -715,7 +715,7 @@ const Utils = {
 
         } catch (e) {
             if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                Logger.error(`❌ 구글 시트 읽기 실패: ${e.message}`);
+                Logger.info(`구글 시트 읽기 실패: ${e.message}`);
             }
             return [];
         }
@@ -1006,7 +1006,7 @@ const Utils = {
             return jobs;
         } catch (e) {
             if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                Logger.error(`❌ 쇼핑 시트 읽기 실패: ${e.message}`);
+                Logger.info(`쇼핑 시트 읽기 실패: ${e.message} (미사용 시 무시 가능)`);
             }
             return [];
         }
@@ -2197,15 +2197,30 @@ const Utils = {
     },
 
     /**
-     * 1-3-1. 네이버 블로그 URL 모바일 변환 헬퍼
+     * 1-3-1. 네이버 블로그 URL 모바일 변환 헬퍼 (스크래핑 성능 최적화)
      */
     convertToMobileNaverBlogUrl: function (url) {
         if (!url) return url;
-        if (url.includes('blog.naver.com') && !url.includes('m.blog.naver.com')) {
-            return url.replace('http://blog.naver.com', 'https://m.blog.naver.com')
-                .replace('https://blog.naver.com', 'https://m.blog.naver.com');
+        try {
+            const trimmed = String(url).trim();
+            if (!trimmed.includes('blog.naver.com')) return trimmed;
+
+            // 이미 m.blog.naver.com 이면 통과
+            if (trimmed.includes('m.blog.naver.com')) return trimmed;
+
+            // PC URL 패턴 (blog.naver.com/id/logNo) -> (m.blog.naver.com/id/logNo)
+            // http/https 모두 대응
+            let converted = trimmed
+                .replace(/^http:\/\/blog\.naver\.com/i, 'https://m.blog.naver.com')
+                .replace(/^https:\/\/blog\.naver\.com/i, 'https://m.blog.naver.com');
+
+            // 쿼리 파라미터가 있는 경우 (PostView.naver?blogId=... 등)
+            // 사실 m.blog.naver.com 은 쿼리 파라미터 방식도 어느 정도 지원하지만, 
+            // 가급적 경로 기반 주소인 경우가 스크래퍼에 유리함.
+            return converted;
+        } catch (e) {
+            return url;
         }
-        return url;
     },
 
     /**

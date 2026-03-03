@@ -1370,6 +1370,7 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
 	if (includeHeading) {
 		lines.push(`## ${title}`);
 	}
+	// [Policy] RSS 등에서 수집된 본인의 다른 글만 포함하며, 참고 URL 등 외부 링크는 절대 포함하지 않음
 	const validPosts = (Array.isArray(relatedPosts) ? relatedPosts : []).filter(post => {
 		const postUrl = String(post?.url || '').trim();
 		return /^https?:\/\//i.test(postUrl);
@@ -1391,9 +1392,24 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
 
 function stripAiRelatedPostsSection(markdown = '') {
 	if (!markdown) return '';
-	// AI가 생성한 "함께/같이/이어서 보면 좋은 글" 섹션은 제거하고, 후처리로 일관되게 재삽입한다.
-	const pattern = /(?:^|\n)##\s*(?:함께|같이|이어서)\s*보면\s*좋은\s*글[\s\S]*?(?=\n##\s+|$)/g;
-	return String(markdown).replace(pattern, '\n').replace(/\n{3,}/g, '\n\n').trim();
+	// AI가 생성한 "함께/같이/이어서/관련/추천/정보... 보면 좋은 글/포스트/링크" 섹션은 제거하고, 후처리로 일관되게 재삽입한다.
+	// 제목 기호(#)가 없을 때도 대응하며, 가변적 헤딩, 영문 키워드(Related) 등 대응 강화
+	const patterns = [
+		// 헤딩이 있는 경우 (더 안전함)
+		/(?:^|\n)[#\s]+(?:함께|같이|이어서|관련|추천|정보|참고|보충|더|또|계속)\s*(?:하면|보면|읽어볼|읽어|더)\s*(?:좋은|볼만한|유익한|괜찮은)\s*(?:글|포스트|링크|정보|내용|기사|아티클)[\s\S]*?(?=\n[#\s]+|$)/gi,
+		// 헤딩이 없더라도 특정 키워드 뭉치로 시작하는 경우 (조금 더 공격적)
+		/(?:^|\n)(?:함께|같이|이어서|관련|추천|참고)\s*보면\s*좋은\s*글[\s\S]*?$/gi,
+		// 영문 패턴
+		/(?:^|\n)[#\s]+(?:Related|More|Interesting|Recommended)\s*(?:Posts|Links|Articles|Readings|Content)[\s\S]*?(?=\n[#\s]+|$)/gi,
+		// 고정 키워드 패턴
+		/(?:^|\n)[#\s]*(?:관련[ \t]*(?:글|포스팅|링크|포스트)|함께[ \t]*(?:읽기|보기)|추천[ \t]*(?:정보|포스팅)|이전[ \t]*포스팅)[\s\S]*?(?=\n[#\s]+|$)/gi
+	];
+
+	let cleaned = String(markdown);
+	for (const p of patterns) {
+		cleaned = cleaned.replace(p, '\n');
+	}
+	return cleaned.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
@@ -1423,6 +1439,8 @@ function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
 }
 
 const Core = {
+	buildRelatedPostsSectionMarkdown,
+	stripAiRelatedPostsSection,
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
 	 */
@@ -1552,7 +1570,7 @@ ${scrapedContext}`;
 				const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
 				if (relatedPosts.length > 0) {
 					const relatedHeading = Utils.pickRelatedPostsHeading();
-					relatedPostsMarkdown = "\n\n" + buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
+					relatedPostsMarkdown = "\n\n" + Core.buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
 					Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
 				} else {
 					Logger.info("ℹ️ [Blog] 관련 글 수집 결과 없음");
@@ -1589,7 +1607,7 @@ ${scrapedContext}`;
 		if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
 		let pureContent = finalContent.replace(/^#\s+.+\n?/, "").trim();
-		pureContent = stripAiRelatedPostsSection(pureContent);
+		pureContent = Core.stripAiRelatedPostsSection(pureContent);
 
 		const hashtagLine = finalHashtags.length > 0 ? "\n\n\n" + finalHashtags.map(tag => `#${tag}`).join(' ') : "";
 

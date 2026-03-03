@@ -408,7 +408,7 @@ function createContentService(deps = {}) {
 
             if (!wpClient.isConfigured()) {
                 if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                    Logger.error(`❌ WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}"`);
+                    Logger.info(`WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}" (필요 시 [설정 > 블로그] 탭에서 입력 가능)`);
                 }
                 throw createApiError(400, 'WP_NOT_CONFIGURED', '워드프레스 설정이 필요합니다. 설정 > 블로그 탭에서 저장 후 다시 시도해 주세요.');
             }

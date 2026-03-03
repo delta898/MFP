@@ -1592,7 +1592,10 @@ async function executeQuickPublish(requestBody) {
     const externalReference = normalizeBool(requestBody?.externalReference, true);
     const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
     const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
-    const referenceUrl = String(requestBody?.referenceUrl || '').trim();
+    let referenceUrl = String(requestBody?.referenceUrl || '').trim();
+    if (referenceUrl) {
+        referenceUrl = Utils.convertToMobileNaverBlogUrl(referenceUrl);
+    }
     const publishMode = normalizePublishMode(requestBody?.publishMode);
     const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
