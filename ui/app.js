@@ -2339,7 +2339,7 @@ function applySettingsMajorToForm(data) {
     variationTypeEl.value = String(fields.BLOG_AUTO_VARIATION_TYPE || 'min');
   }
   if (blogAutoVariationMinEl) {
-    const rawVariationNumber = fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
+    const rawVariationNumber = fields.COLLECT_TRENDS_FILTER_MIN_INCR ?? fields.BLOG_AUTO_VARIATION_NUMBER ?? fields.AUTO_TRENDS_MIN_VARIATION;
     const normalizedVariationNumber = normalizeBlogAutoVariationNumberValue(rawVariationNumber, 50);
     blogAutoVariationMinEl.value = normalizedVariationNumber === '' ? '' : String(normalizedVariationNumber);
   }
@@ -2589,7 +2589,7 @@ function buildSettingsMajorPayload() {
     BLOG_AUTO_VARIATION_INCLUDE_DASH: Boolean(document.getElementById('blog-auto-variation-dash')?.checked),
     BLOG_AUTO_VARIATION_INCLUDE_NUMBER: Boolean(document.getElementById('blog-auto-variation-number-enabled')?.checked),
     BLOG_AUTO_VARIATION_TYPE: (document.getElementById('blog-auto-variation-type')?.value || 'min').trim(),
-    BLOG_AUTO_VARIATION_NUMBER: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-min')?.value || '', 50),
+    COLLECT_TRENDS_FILTER_MIN_INCR: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-min')?.value || '', 50),
     BLOG_AUTO_VARIATION_TOP_N: normalizeBlogAutoVariationNumberValue(document.getElementById('blog-auto-variation-top')?.value || '', 5),
     BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: normalizeBlogAutoKeywordReuseGapValue(document.getElementById('blog-auto-keyword-reuse-gap')?.value || '', 15),
     SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),

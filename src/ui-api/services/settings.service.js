@@ -77,17 +77,13 @@ function createSettingsService(deps = {}) {
                 BLOG_AUTO_IMAGE_GENERATION: true,
                 BLOG_AUTO_EXTERNAL_REFERENCE: true,
                 BLOG_AUTO_NOTIFY_ENABLED: false,
-                BLOG_AUTO_VARIATION_INCLUDE_NEW: false,
-                BLOG_AUTO_VARIATION_INCLUDE_DASH: false,
-                BLOG_AUTO_VARIATION_INCLUDE_NUMBER: true,
-                BLOG_AUTO_VARIATION_TYPE: 'min',
-                BLOG_AUTO_VARIATION_NUMBER: 50,
-                BLOG_AUTO_VARIATION_TOP_N: 5,
-                BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: 15,
                 BLOG_AUTO_HEADLESS: true,
                 SHOPPING_AUTO_NOTIFY_ENABLED: false,
                 COLLECT_TRENDS_ENABLED: false,
                 COLLECT_TRENDS_FILTER_MIN_INCR: 50,
+                COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
+                COLLECT_TRENDS_TIME: '07:30',
+                PUBLISH_AUTO_ENABLED: false,
                 COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
                 COLLECT_TRENDS_TIME: '07:30',
                 PUBLISH_AUTO_ENABLED: false,
@@ -149,6 +145,13 @@ function createSettingsService(deps = {}) {
                     else updates[key] = String(currentVal ?? '');
                 }
             });
+
+            // 💡 [Sync] COLLECT_TRENDS_FILTER_MIN_INCR 값이 있으면 최우선 적용
+            if (fields.COLLECT_TRENDS_FILTER_MIN_INCR !== undefined) {
+                updates.COLLECT_TRENDS_FILTER_MIN_INCR = String(fields.COLLECT_TRENDS_FILTER_MIN_INCR);
+                updates.BLOG_AUTO_VARIATION_NUMBER = null; // 레거시 삭제
+                updates.AUTO_TRENDS_MIN_VARIATION = null; // 레거시 삭제
+            }
 
             const nextRaw = applyConfigUpdates(raw, updates);
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
@@ -239,7 +242,6 @@ function createSettingsService(deps = {}) {
                 BLOG_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(content, 'BLOG_AUTO_VARIATION_INCLUDE_DASH'),
                 BLOG_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(content, 'BLOG_AUTO_VARIATION_INCLUDE_NUMBER'),
                 BLOG_AUTO_VARIATION_TYPE: parseConfigValue(content, 'BLOG_AUTO_VARIATION_TYPE') || 'min',
-                BLOG_AUTO_VARIATION_NUMBER: parseConfigValue(content, 'BLOG_AUTO_VARIATION_NUMBER'),
                 BLOG_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'BLOG_AUTO_VARIATION_TOP_N'),
                 BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS'),
                 BLOG_AUTO_HEADLESS: parseConfigValue(content, 'BLOG_AUTO_HEADLESS'),

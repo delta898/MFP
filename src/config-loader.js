@@ -391,7 +391,7 @@ const blogAutoVariationType = String(
     userConfig.BLOG_AUTO_VARIATION_TYPE || 'min'
 ).trim();
 const blogAutoVariationNumber = parseIntegerOrBlank(
-    userConfig.BLOG_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
+    userConfig.COLLECT_TRENDS_FILTER_MIN_INCR ?? userConfig.BLOG_AUTO_VARIATION_NUMBER,
     50
 );
 const blogAutoVariationTopN = parseIntegerOrBlank(
@@ -410,7 +410,7 @@ const blogAutoHeadless = parseBoolLike(
 // New Producers (Auto Collect) Configurations
 const collectTrendsEnabled = parseBoolLike(userConfig.COLLECT_TRENDS_ENABLED, false);
 const collectTrendsCategories = String(userConfig.COLLECT_TRENDS_CATEGORIES || '').trim();
-const collectTrendsFilterMinIncr = parseIntegerOrBlank(userConfig.COLLECT_TRENDS_FILTER_MIN_INCR, 50);
+const collectTrendsFilterMinIncr = blogAutoVariationNumber;
 const collectTrendsReuseGapDays = parseNonNegativeInt(userConfig.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
 const collectTrendsTime = parseTimeHHmm(userConfig.COLLECT_TRENDS_TIME, '07:30');
 
@@ -528,7 +528,7 @@ module.exports = {
     BLOG_AUTO_VARIATION_INCLUDE_DASH: blogAutoVariationIncludeDash,
     BLOG_AUTO_VARIATION_INCLUDE_NUMBER: blogAutoVariationIncludeNumber,
     BLOG_AUTO_VARIATION_TYPE: blogAutoVariationType,
-    BLOG_AUTO_VARIATION_NUMBER: blogAutoVariationNumber,
+    BLOG_AUTO_VARIATION_NUMBER: blogAutoVariationNumber, // 유지하되 내부적으로 collectTrendsFilterMinIncr와 동일하게 취급
     BLOG_AUTO_VARIATION_TOP_N: blogAutoVariationTopN,
     BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: blogAutoKeywordReuseGapDays,
     BLOG_AUTO_TARGET_TREND_DATE: blogAutoTargetTrendDate,

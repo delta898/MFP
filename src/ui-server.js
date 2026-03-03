@@ -3162,6 +3162,25 @@ function syncRssRunner() {
 
     rssRuntimeState.status = rssRuntimeState.running ? 'running' : 'waiting';
 
+    // 각 피드별 다음 실행 예정 시간 로그 출력
+    const now = Date.now();
+    enabledConfigs.forEach(rc => {
+        const url = String(rc.url || '').trim();
+        if (!url) return;
+
+        // [중요] 처음 등록되거나 서버 재시작 시, 즉시 실행되지 않고 주기를 기다리도록 초기화
+        if (!rssRuntimeState.lastRunTimes[url]) {
+            rssRuntimeState.lastRunTimes[url] = now;
+        }
+
+        const intervalMin = parseInt(rc.interval, 10) || 60;
+        const lastRun = rssRuntimeState.lastRunTimes[url];
+        const nextRunAt = lastRun + (intervalMin * 60 * 1000);
+        const remainingMs = Math.max(0, nextRunAt - now);
+
+        Logger.info(`ℹ️ [AUTO][Producer] RSS 수집 예약: ${new Date(nextRunAt).toLocaleString()} (피드: ${url}, 주기: ${intervalMin}분, 남은시간: ${Math.round(remainingMs / 1000 / 60)}분)`);
+    });
+
     const scheduleRss = () => {
         // 1분마다 체크하여 개별 주기가 도래했는지 확인
         const checkIntervalMs = 60 * 1000;
@@ -3179,7 +3198,7 @@ function syncRssRunner() {
 
                 const intervalMin = parseInt(rc.interval, 10) || 60;
                 const intervalMs = intervalMin * 60 * 1000;
-                const lastRun = rssRuntimeState.lastRunTimes[url] || 0;
+                const lastRun = rssRuntimeState.lastRunTimes[url] || now; // fallback to now if missing
 
                 if (now - lastRun >= intervalMs) {
                     configsToRun.push(rc);
@@ -4096,8 +4115,8 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
         return { success: false, message: '글로벌 RSS 수집 설정이 비활성화되어 있습니다.' };
     }
 
-    // [Manual Override] 만약 수동 실행이고 UI에서 실시간 설정값이 넘어왔다면 그것을 최우선 사용
-    if (isManual && settingsOverrides.COLLECT_RSS_CONFIGS) {
+    // [Override] 수동 실행이거나 스케줄러에서 특정 설정이 넘어왔다면 그것을 사용
+    if (settingsOverrides.COLLECT_RSS_CONFIGS) {
         rssConfigs = Array.isArray(settingsOverrides.COLLECT_RSS_CONFIGS)
             ? settingsOverrides.COLLECT_RSS_CONFIGS
             : rssConfigs;
