@@ -17,6 +17,18 @@ function resolveLicenseKey(rawKey) {
     return String(rawKey || '').trim();
 }
 
+/**
+ * Supabase 502 등 HTTP 오류 시 error.message에 HTML 본문이 그대로 담기는 것을 방어한다.
+ * HTML 태그를 감지하면 간결한 메시지로 대체하고, 그 외 긴 메시지는 200자로 자른다.
+ */
+function sanitizeErrorMessage(msg) {
+    const str = String(msg || '').trim();
+    if (/<(!DOCTYPE|html|head|body|div|title)/i.test(str)) {
+        return 'HTTP 오류 응답 수신 (라이선스 서버 일시 불가)';
+    }
+    return str.length > 200 ? str.slice(0, 200) + '…' : str;
+}
+
 function formatPlanLabel(planCode, planDisplayName) {
     const display = String(planDisplayName || '').trim();
     if (display) return display;
@@ -163,6 +175,15 @@ let lastInitFailureAt = 0;
 let lastInitFailureMessage = '';
 const LICENSE_INIT_RETRY_COOLDOWN_MS = 30000;
 
+/**
+ * 라이선스 서버 부하 방지를 위한 메모리 캐시 (10분)
+ */
+let licenseStatusCache = {
+    data: null,
+    timestamp: 0,
+    ttl: 10 * 60 * 1000 // 10분
+};
+
 function getResolvedLicenseKey() {
     return resolveLicenseKey(process.env.LICENSE_KEY || runtimeLicenseKey || CONFIG.LICENSE_KEY);
 }
@@ -250,7 +271,7 @@ async function ensureLicenseKey(hwid) {
 }
 
 const License = {
-    requestLicenseRegistration: async function(email) {
+    requestLicenseRegistration: async function (email) {
         try {
             const normalizedEmail = sanitizeEmail(email);
             if (!isValidEmail(normalizedEmail)) {
@@ -263,7 +284,7 @@ const License = {
         }
     },
 
-    requestLicenseRecovery: async function(email) {
+    requestLicenseRecovery: async function (email) {
         try {
             const normalizedEmail = sanitizeEmail(email);
             if (!isValidEmail(normalizedEmail)) {
@@ -280,7 +301,7 @@ const License = {
         }
     },
 
-    verifyLicenseRegistration: async function(email, code) {
+    verifyLicenseRegistration: async function (email, code) {
         try {
             if (!supabase) {
                 return { success: false, message: '라이선스 서버 설정 오류' };
@@ -325,6 +346,7 @@ const License = {
             }
 
             runtimeLicenseKey = String(data.license_key).trim();
+            licenseStatusCache.timestamp = 0; // 캐시 무효화
             const saved = persistLicenseKeyFile(runtimeLicenseKey);
             if (saved) {
                 Logger.info('✅ 라이선스 등록 완료');
@@ -347,7 +369,7 @@ const License = {
         }
     },
 
-    verifyLicenseRecovery: async function(email, code) {
+    verifyLicenseRecovery: async function (email, code) {
         try {
             if (!supabase) {
                 return { success: false, message: '라이선스 서버 설정 오류' };
@@ -385,6 +407,7 @@ const License = {
             }
 
             runtimeLicenseKey = String(data.license_key).trim();
+            licenseStatusCache.timestamp = 0; // 캐시 무효화
             const saved = persistLicenseKeyFile(runtimeLicenseKey);
             if (saved) {
                 Logger.info('✅ 라이선스 복구 완료');
@@ -407,7 +430,7 @@ const License = {
         }
     },
 
-    upgradeLicense: async function(targetPlan = 'free', email = '') {
+    upgradeLicense: async function (targetPlan = 'free', email = '') {
         try {
             if (!supabase) {
                 return { success: false, message: '라이선스 서버 설정 오류' };
@@ -449,6 +472,7 @@ const License = {
             }
 
             runtimeLicenseKey = String(data.license_key).trim();
+            licenseStatusCache.timestamp = 0; // 캐시 무효화
             const saved = persistLicenseKeyFile(runtimeLicenseKey);
             if (!saved) {
                 Logger.warn('⚠️ 라이선스 저장이 지연되었지만 이번 실행은 계속 진행합니다.');
@@ -474,9 +498,20 @@ const License = {
      * - 서버 RPC: check_license_status
      * @returns {Promise<{success: boolean, message: string, remaining?: number}>}
      */
-    checkLicenseStatus: async function(options = {}) {
+    checkLicenseStatus: async function (options = {}) {
         try {
             const quiet = options && options.quiet === true;
+            const force = options && options.force === true;
+
+            // 🚀 캐시 체크
+            const now = Date.now();
+            if (!force && licenseStatusCache.data && (now - licenseStatusCache.timestamp) < licenseStatusCache.ttl) {
+                if (!quiet) {
+                    Logger.info('📡 라이선스 사전 검증 (캐시 사용)');
+                }
+                return licenseStatusCache.data;
+            }
+
             const hwid = machineIdSync({ original: true });
             const keyReady = await ensureLicenseKey(hwid);
             if (!keyReady.success) {
@@ -484,7 +519,7 @@ const License = {
             }
             const resolvedLicenseKey = keyReady.licenseKey;
             if (!quiet) {
-                Logger.info('📡 라이선스 사전 검증 중...');
+                Logger.info('📡 라이선스 서버 실시간 검증 중...');
             }
 
             const { data, error } = await supabase
@@ -494,17 +529,14 @@ const License = {
                 });
 
             if (error) {
-                const msg = String(error.message || '');
+                const msg = sanitizeErrorMessage(error.message);
                 Logger.error(`❌ 서버 통신 에러: ${msg}`);
                 return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
             }
 
             if (data && data.success) {
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
-                if (!quiet) {
-                    Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
-                }
-                return {
+                const result = {
                     success: true,
                     message: data.message,
                     remaining: data.remaining,
@@ -515,6 +547,15 @@ const License = {
                     usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
                     features: (data.features && typeof data.features === 'object') ? data.features : {}
                 };
+
+                // 🚀 캐시 업데이트
+                licenseStatusCache.data = result;
+                licenseStatusCache.timestamp = now;
+
+                if (!quiet) {
+                    Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
+                }
+                return result;
             }
             return {
                 success: false,
@@ -537,7 +578,7 @@ const License = {
      * 라이선스 검증 및 사용 처리 (RPC 호출)
      * @returns {Promise<{success: boolean, message: string, remaining?: number}>}
      */
-    verifyLicense: async function() {
+    verifyLicense: async function () {
         try {
             // 1. 설정 검증
             if (!supabase) {
@@ -551,21 +592,21 @@ const License = {
                 return { success: false, message: keyReady.message };
             }
             const resolvedLicenseKey = keyReady.licenseKey;
-            
+
             // 3. 로그 출력
             Logger.info('📡 라이선스 검증 중...');
 
             // 4. Supabase RPC 호출 (check_and_use_license)
             // 주의: 이 함수가 호출되면 서버에서 카운트가 차감된다고 가정합니다.
             const { data, error } = await supabase
-                .rpc('check_and_use_license', { 
+                .rpc('check_and_use_license', {
                     p_license_key: resolvedLicenseKey,
-                    p_hwid: hwid 
+                    p_hwid: hwid
                 });
 
             if (error) {
-                // RPC 에러 (예: 함수 없음, 파라미터 오류 등)
-                Logger.error(`❌ 서버 통신 에러: ${error.message}`);
+                // RPC 에러 (예: 함수 없음, 파라미터 오류, 502 응답 등)
+                Logger.error(`❌ 서버 통신 에러: ${sanitizeErrorMessage(error.message)}`);
                 return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
             }
 

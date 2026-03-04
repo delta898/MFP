@@ -1332,18 +1332,9 @@ async function loadDashboard() {
   dashboardAutoScheduleState.shopping.enabled = shopAutoEnabled;
   dashboardAutoScheduleState.shopping.nextRunAt = String(auto?.shopping?.nextRunAt || '').trim();
 
-  const blogCap = parsePositiveInt(auto?.blog?.settings?.BLOG_AUTO_MAX_POSTS_PER_RUN, 0);
-  const shopCap = parsePositiveInt(auto?.shopping?.settings?.SHOPPING_AUTO_DAILY_POSTS, 0);
-  // 자동발행은 trends→topics→발행 파이프라인으로 신규 글감을 만들기 때문에
-  // 대시보드 "예상 발행"은 준비완료 건수 기반이 아니라 설정 최대값 기준으로 표기한다.
-  const blogEstimate = blogAutoEnabled ? blogCap : 0;
-  const shopEstimate = shopAutoEnabled ? shopCap : 0;
-
   setText('dash-auto-blog-enabled', blogAutoEnabled ? 'ON' : 'OFF');
   setText('dash-auto-shopping-enabled', shopAutoEnabled ? 'ON' : 'OFF');
   renderDashboardAutoSchedule();
-  setText('dash-auto-blog-estimate', `${blogEstimate}건 발행 예정`);
-  setText('dash-auto-shopping-estimate', `${shopEstimate}건 발행 예정`);
 
   const blogCard = document.getElementById('dash-auto-blog-card');
   const blogStateChip = document.getElementById('dash-auto-blog-enabled');
@@ -1373,6 +1364,30 @@ async function loadDashboard() {
     shoppingCard._navBound = true;
     shoppingCard.addEventListener('click', () => void navigateTo('shopping', 'auto'));
   }
+
+  // 📊 compact meta info: 주기, 연속건수, 대상 채널
+  function renderAutoMetaRow(prefix, settings, enabledFlag) {
+    const metaEl = document.getElementById(`dash-auto-${prefix}-meta`);
+    if (!metaEl) return;
+    if (!enabledFlag || !settings) {
+      metaEl.innerHTML = '';
+      return;
+    }
+    // 블로그: PUBLISH_AUTO_*, 쇼핑: SHOPPING_PUBLISH_AUTO_*
+    const interval = settings.PUBLISH_AUTO_INTERVAL_MIN ?? settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN ?? '-';
+    const batch = settings.PUBLISH_AUTO_BATCH_SIZE ?? settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? '-';
+    const channelStr = settings.PUBLISH_AUTO_TARGET_CHANNELS ?? settings.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
+    const channels = String(channelStr).split(',').map(v => v.trim()).filter(Boolean);
+    const channelLabel = channels.map(c => c === 'wordpress' ? 'WP' : c === 'naver' ? '네이버' : c).join(' · ');
+    metaEl.innerHTML = [
+      `<span class="dash-meta-chip">⏱ ${interval}분 주기</span>`,
+      `<span class="dash-meta-chip">📄 ${batch}건/회</span>`,
+      channelLabel ? `<span class="dash-meta-chip">🎯 ${channelLabel}</span>` : ''
+    ].filter(Boolean).join('');
+  }
+
+  renderAutoMetaRow('blog', auto?.blog?.settings, blogAutoEnabled);
+  renderAutoMetaRow('shopping', auto?.shopping?.settings, shopAutoEnabled);
 
   // Top header status bar
   setText('top-plan', `플랜: ${license?.planName || license?.planCode || '-'}`);
@@ -5325,7 +5340,7 @@ window.addEventListener('DOMContentLoaded', () => {
         loadDashboardLogs();
       }
     }
-  }, 15000);
+  }, 30000);
 
   // 대시보드 자동발행 "다음 실행"은 분 단위로 상대시간을 갱신
   setInterval(() => {

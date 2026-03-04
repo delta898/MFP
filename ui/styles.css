@@ -1539,8 +1539,9 @@ h2 {
 }
 
 .dash-auto-card-grid {
-  display: block;
-  height: calc(100% - 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .dash-auto-chip {
@@ -1576,7 +1577,6 @@ h2 {
   flex-direction: column;
   justify-content: center;
   gap: 8px;
-  height: 100%;
 }
 
 .dash-auto-next-date {
@@ -1608,6 +1608,32 @@ h2 {
 
 .dash-auto-chip-hidden {
   display: none !important;
+}
+
+.dash-auto-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dash-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.dash-auto-card.is-on .dash-meta-chip {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
 }
 
 .dash-auto-info-box {
