@@ -74,22 +74,23 @@ function createSettingsService(deps = {}) {
                 HEADLESS: false,
                 TYPING_SPEED: 'NORMAL',
                 UPDATE_CHANNEL: 'stable',
-                BLOG_AUTO_IMAGE_GENERATION: true,
-                BLOG_AUTO_EXTERNAL_REFERENCE: true,
-                BLOG_AUTO_NOTIFY_ENABLED: false,
-                BLOG_AUTO_HEADLESS: true,
                 SHOPPING_AUTO_NOTIFY_ENABLED: false,
                 COLLECT_TRENDS_ENABLED: false,
                 COLLECT_TRENDS_FILTER_MIN_INCR: 50,
+                COLLECT_TRENDS_FILTER_INCLUDE_NEW: false,
+                COLLECT_TRENDS_FILTER_INCLUDE_DASH: false,
+                COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: true,
+                COLLECT_TRENDS_FILTER_TYPE: 'min',
+                COLLECT_TRENDS_FILTER_TOP_N: 5,
                 COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
                 COLLECT_TRENDS_TIME: '07:30',
-                PUBLISH_AUTO_ENABLED: false,
-                COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
-                COLLECT_TRENDS_TIME: '07:30',
+                COLLECT_RSS_ENABLED: false,
                 PUBLISH_AUTO_ENABLED: false,
                 PUBLISH_AUTO_INTERVAL_MIN: 60,
                 PUBLISH_AUTO_BATCH_SIZE: 1,
-                COLLECT_RSS_ENABLED: false
+                PUBLISH_AUTO_NOTIFY_ENABLED: false,
+                PUBLISH_AUTO_TARGET_CHANNELS: 'naver',
+                PUBLISH_AUTO_HEADLESS: true
             };
 
             const updates = {
@@ -101,10 +102,6 @@ function createSettingsService(deps = {}) {
                 WORDPRESS_URL: fields.WORDPRESS_URL,
                 WORDPRESS_USER_ID: fields.WORDPRESS_USER_ID,
                 WORDPRESS_APP_PASSWORD: fields.WORDPRESS_APP_PASSWORD,
-                BLOG_AUTO_MODE: fields.BLOG_AUTO_MODE ? 'true' : 'false',
-                BLOG_AUTO_CATEGORIES: fields.BLOG_AUTO_CATEGORIES,
-                BLOG_AUTO_MAX_POSTS_PER_RUN: String(fields.BLOG_AUTO_MAX_POSTS_PER_RUN),
-                BLOG_AUTO_TRENDS_TIME: fields.BLOG_AUTO_TRENDS_TIME,
                 SHOPPING_AUTO_MODE: fields.SHOPPING_AUTO_MODE ? 'true' : 'false',
                 SHOPPING_AUTO_DAILY_POSTS: String(fields.SHOPPING_AUTO_DAILY_POSTS),
                 SHOPPING_AUTO_TIME: fields.SHOPPING_AUTO_TIME,
@@ -115,9 +112,8 @@ function createSettingsService(deps = {}) {
                 COLLECT_TRENDS_TIME: fields.COLLECT_TRENDS_TIME,
                 COLLECT_RSS_ENABLED: fields.COLLECT_RSS_ENABLED ? 'true' : 'false',
                 COLLECT_RSS_CONFIGS: Array.isArray(fields.COLLECT_RSS_CONFIGS) ? JSON.stringify(fields.COLLECT_RSS_CONFIGS) : JSON.stringify([]),
-                PUBLISH_AUTO_ENABLED: fields.PUBLISH_AUTO_ENABLED ? 'true' : 'false',
-                PUBLISH_AUTO_INTERVAL_MIN: String(fields.PUBLISH_AUTO_INTERVAL_MIN),
                 PUBLISH_AUTO_BATCH_SIZE: String(fields.PUBLISH_AUTO_BATCH_SIZE),
+                PUBLISH_AUTO_TARGET_CHANNELS: fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver',
                 FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
@@ -146,12 +142,21 @@ function createSettingsService(deps = {}) {
                 }
             });
 
-            // 💡 [Sync] COLLECT_TRENDS_FILTER_MIN_INCR 값이 있으면 최우선 적용
-            if (fields.COLLECT_TRENDS_FILTER_MIN_INCR !== undefined) {
-                updates.COLLECT_TRENDS_FILTER_MIN_INCR = String(fields.COLLECT_TRENDS_FILTER_MIN_INCR);
-                updates.BLOG_AUTO_VARIATION_NUMBER = null; // 레거시 삭제
-                updates.AUTO_TRENDS_MIN_VARIATION = null; // 레거시 삭제
-            }
+            // 💡 [Cleanup] 모든 BLOG_AUTO_* 및 기타 레거시 설정을 config.txt에서 제거
+            Object.keys(raw).forEach(key => {
+                if (key.startsWith('BLOG_AUTO_')) updates[key] = null;
+            });
+            const EXTRA_LEGACY = [
+                'AUTO_MODE', 'AUTO_CATEGORIES', 'AUTO_INCLUDE_CATEGORIES', 'AUTO_MAX_BLOG_PER_CYCLE',
+                'AUTO_IMAGE_GENERATION', 'AUTO_USE_EXTERNAL_REF', 'AUTO_TRENDS_MIN_VARIATION',
+                'AUTO_TRENDS_VARIATION_INCLUDE_NEW', 'AUTO_TRENDS_VARIATION_INCLUDE_DASH',
+                'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER', 'AUTO_TRENDS_TOP_N', 'AUTO_KEYWORD_REUSE_GAP_DAYS',
+                'PUBLISH_AUTO_DAILY_LIMIT', 'BLOG_AUTO_MAX_POSTS_PER_RUN', 'BLOG_AUTO_TRENDS_TIME',
+                'BLOG_AUTO_IMAGE_GENERATION', 'BLOG_AUTO_EXTERNAL_REFERENCE'
+            ];
+            EXTRA_LEGACY.forEach(key => {
+                if (raw[key] !== undefined) updates[key] = null;
+            });
 
             const nextRaw = applyConfigUpdates(raw, updates);
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });

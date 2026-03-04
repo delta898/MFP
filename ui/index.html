@@ -288,7 +288,8 @@
 
         <div class="blog-tabs">
           <button class="blog-tab-btn active" data-blog-tab="quick">빠른발행</button>
-          <button class="blog-tab-btn" data-blog-tab="trends">Trends</button>
+          <!-- [DISABLED] Trends tab - removed from production UI (2026-03-04). Code kept for reference. -->
+          <!-- <button class="blog-tab-btn" data-blog-tab="trends">Trends</button> -->
           <button class="blog-tab-btn" data-blog-tab="topics">일괄발행</button>
           <span class="blog-tab-gap" aria-hidden="true"></span>
           <button class="blog-tab-btn" data-blog-tab="collect">자동수집 설정</button>
@@ -396,6 +397,10 @@
           <pre id="quick-result" class="blog-quick-result">대기 중...</pre>
         </div>
 
+
+        <!-- [DISABLED] Trends tab panel - removed from production UI (2026-03-04).
+             All JS logic for this tab is preserved in app.js.
+             To restore: uncomment below AND the tab button above.
         <div class="card form-card blog-tab-panel" id="blog-tab-trends">
           <div class="trends-collect-block">
             <div class="form-grid trends-collect-grid">
@@ -465,6 +470,7 @@
           </div>
           <pre id="blog-trends-result">대기 중...</pre>
         </div>
+        -->
 
         <div class="card form-card blog-tab-panel" id="blog-tab-topics">
           <div class="form-grid blog-filter-grid">
@@ -573,7 +579,7 @@
               <div class="form-field-block">
                 <span class="field-label-text">수집 카테고리</span>
                 <div class="category-picker">
-                  <div id="blog-auto-category-options" class="category-options" data-blog-category-options>
+                  <div id="blog-collect-trends-category-options" class="category-options" data-blog-category-options>
                     <p class="category-hint">카테고리 목록을 불러오는 중...</p>
                   </div>
                 </div>
@@ -588,26 +594,28 @@
                   </span>
                   <div class="auto-variation-filter">
                     <label class="settings-checkbox-label compact">
-                      <input id="blog-auto-variation-new" type="checkbox">
+                      <input id="blog-collect-trends-filter-new" type="checkbox">
                       <span>new 포함</span>
                     </label>
                     <label class="settings-checkbox-label compact">
-                      <input id="blog-auto-variation-dash" type="checkbox">
+                      <input id="blog-collect-trends-filter-dash" type="checkbox">
                       <span>- 포함</span>
                     </label>
                     <label class="settings-checkbox-label compact">
-                      <input id="blog-auto-variation-number-enabled" type="checkbox" checked>
-                      <select id="blog-auto-variation-type"
+                      <input id="blog-collect-trends-filter-number-enabled" type="checkbox" checked>
+                      <select id="blog-collect-trends-filter-type"
                         style="margin-left:4px; padding:2px 4px; font-size:13px; border-radius:4px; border:1px solid var(--border-color); background:var(--surface-color); color:var(--text-primary);">
                         <option value="min">증가값 (Min)</option>
                         <option value="top">증가 순위 (Top N)</option>
                       </select>
                     </label>
-                    <div class="auto-variation-number-input" id="blog-auto-variation-min-wrap">
-                      <input id="blog-auto-variation-min" type="number" step="1" value="50" placeholder="증가값 (예: 50)">
+                    <div class="auto-variation-number-input" id="blog-collect-trends-filter-min-wrap">
+                      <input id="blog-collect-trends-filter-min" type="number" step="1" value="50"
+                        placeholder="증가값 (예: 50)">
                     </div>
-                    <div class="auto-variation-number-input" id="blog-auto-variation-top-wrap" style="display:none;">
-                      <input id="blog-auto-variation-top" type="number" step="1" value="5" min="1"
+                    <div class="auto-variation-number-input" id="blog-collect-trends-filter-top-wrap"
+                      style="display:none;">
+                      <input id="blog-collect-trends-filter-top" type="number" step="1" value="5" min="1"
                         placeholder="순위 (예: 5)">
                     </div>
                   </div>
@@ -620,13 +628,14 @@
                     <button type="button" class="label-help" data-help="설정한 기간 내 같은 키워드는 수집에서 제외됩니다. (0=제한 없음)"
                       aria-label="중복 키워드 금지 간격 도움말">?</button>
                   </span>
-                  <input id="blog-auto-keyword-reuse-gap" type="number" min="0" step="1" value="15" placeholder="예: 15">
+                  <input id="blog-collect-trends-reuse-gap" type="number" min="0" step="1" value="15"
+                    placeholder="예: 15">
                 </div>
 
                 <div class="form-field-block"
                   style="margin-bottom: 0; padding: 0; border: none; background: transparent;">
                   <span class="field-label-text">수집 스케줄 시간 (매일)</span>
-                  <input id="blog-auto-trends-time" type="time">
+                  <input id="blog-collect-trends-time" type="time">
                 </div>
               </div>
             </div>
@@ -634,7 +643,7 @@
             <div class="auto-manual-row"
               style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
               <div class="auto-manual-inline" style="display: flex; gap: 8px; align-items: center;">
-                <span class="field-label-text" style="color: var(--text-color); font-weight: 500;">수동 1회 실행</span>
+                <span class="field-label-text" style="color: var(--text-color); font-weight: 500;">수동 실행</span>
                 <input id="blog-collect-trends-date" type="date" title="특정일 지정 수집" style="max-width: 140px;">
               </div>
               <button id="blog-collect-trends-run-btn" class="secondary" type="button">트렌드 1회 수집</button>
@@ -676,37 +685,34 @@
             <div class="auto-manual-row"
               style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
               <div class="auto-manual-inline">
-                <span class="field-label-text">수동 1회 실행</span>
+                <span class="field-label-text">수동 실행</span>
               </div>
               <button id="blog-collect-rss-run-btn" class="secondary" type="button">RSS 수동 수집</button>
             </div>
           </div>
 
-          <div class="form-actions auto-actions">
-            <button id="blog-collect-refresh-btn" class="secondary" type="button">불러오기</button>
-            <button id="blog-collect-save-btn" type="button">저장</button>
-          </div>
 
           <div class="auto-section auto-log-section">
             <h3 class="auto-section-title">로그</h3>
-            <pre id="blog-collect-result">대기 중...</pre>
+            <pre id="blog-collect-trends-result" class="settings-major-result">대기 중...</pre>
           </div>
         </div>
 
         <div class="card form-card blog-tab-panel" id="blog-tab-auto">
           <div class="auto-section">
-            <h3 class="auto-section-title">자동 발행 (Consumer)</h3>
-            <div class="auto-mode-inline">
+            <div class="auto-mode-inline" style="margin-bottom: 20px;">
               <label class="settings-checkbox-label settings-checkbox-inline">
                 <input id="blog-publish-auto-enabled" type="checkbox">
-                <span>자동 발행 프로세스 사용</span>
+                <span style="font-weight: 600; font-size: 1.1rem;">자동 발행 사용</span>
               </label>
-              <small class="field-hint" style="margin-left: 12px; display: inline-block;">(발행 준비 완료 상태인 토픽을 자동으로
-                발행합니다)</small>
+              <div class="tooltip-container" style="display: inline-block; margin-left: 6px; vertical-align: middle;">
+                <span class="tooltip-icon">?</span>
+                <div class="tooltip-text">발행 준비 완료 상태인 글감을 정해진 주기에 맞춰 자동으로 발행합니다.</div>
+              </div>
             </div>
 
             <div class="form-grid">
-              <label>발행 인터벌 (분 단위 큐 폴링)
+              <label>발행 주기 (분)
                 <input id="blog-publish-auto-interval" type="number" min="1" step="1" value="60" placeholder="예: 60">
               </label>
 
@@ -714,26 +720,30 @@
                 <input id="blog-publish-auto-batch" type="number" min="1" step="1" value="1" placeholder="예: 1">
               </label>
 
-              <label>하루 최대 발행 한도
-                <input id="blog-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
-                <small id="blog-auto-daily-posts-hint" class="field-hint">플랜 최대 발행 개수를 확인하는 중...</small>
-              </label>
 
-              <div class="auto-toggle-row">
+              <div class="auto-toggle-row" style="margin-top: 20px; align-items: center;">
                 <label class="settings-checkbox-label compact" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
-                  <input id="blog-auto-headless" type="checkbox" checked>
+                  <input id="blog-publish-auto-headless" type="checkbox" checked>
                   <span>보이지 않게 실행</span>
                 </label>
+
+                <div class="target-channels-group"
+                  style="margin-left: 20px; padding: 4px 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 0.9rem; color: var(--text-muted);">발행 대상:</span>
+                  <label class="settings-checkbox-label compact">
+                    <input type="checkbox" data-publish-target="naver" checked>
+                    <span>네이버</span>
+                  </label>
+                  <label class="settings-checkbox-label compact">
+                    <input type="checkbox" data-publish-target="wordpress">
+                    <span>워드프레스</span>
+                  </label>
+                </div>
+
+                <div style="flex: 1;"></div>
+
                 <label class="settings-checkbox-label compact">
-                  <input id="blog-auto-image-generation" type="checkbox" checked>
-                  <span>이미지 생성</span>
-                </label>
-                <label class="settings-checkbox-label compact">
-                  <input id="blog-auto-external-reference" type="checkbox" checked>
-                  <span>외부 참고</span>
-                </label>
-                <label class="settings-checkbox-label compact">
-                  <input id="blog-auto-notify-enabled" type="checkbox" disabled>
+                  <input id="blog-publish-auto-notify-enabled" type="checkbox" disabled>
                   <span>완료 알림</span>
                 </label>
               </div>
@@ -742,20 +752,16 @@
             <div class="auto-manual-row"
               style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
               <div class="auto-manual-inline">
-                <span class="field-label-text">수동 1회 실행</span>
+                <span class="field-label-text">수동 실행</span>
               </div>
-              <button id="blog-publish-auto-run-btn" class="secondary" type="button">큐 1회 발행</button>
+              <button id="blog-publish-auto-run-btn" class="secondary" type="button">수동 실행</button>
             </div>
           </div>
 
-          <div class="form-actions auto-actions">
-            <button id="blog-auto-refresh-btn" class="secondary" type="button">불러오기</button>
-            <button id="blog-auto-save-btn" type="button">저장</button>
-          </div>
 
           <div class="auto-section auto-log-section">
             <h3 class="auto-section-title">로그</h3>
-            <pre id="blog-auto-result">대기 중...</pre>
+            <pre id="blog-publish-auto-result" class="settings-major-result">대기 중...</pre>
           </div>
         </div>
       </section>
@@ -926,14 +932,12 @@
           </div>
 
           <div class="form-actions auto-actions">
-            <button id="shopping-auto-refresh-btn" class="secondary" type="button">불러오기</button>
-            <button id="shopping-auto-save-btn" type="button">저장</button>
             <button id="shopping-auto-run-btn" class="secondary" type="button">수동 실행</button>
           </div>
 
           <div class="auto-section auto-log-section">
             <h3 class="auto-section-title">로그</h3>
-            <pre id="shopping-auto-result">대기 중...</pre>
+            <pre id="shopping-auto-result" class="settings-major-result">대기 중...</pre>
           </div>
         </div>
       </section>
@@ -1037,10 +1041,6 @@
 
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-          <div class="form-actions">
-            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
-            <button class="settings-major-save-btn" type="button">저장</button>
-          </div>
           <pre class="settings-major-result">대기 중...</pre>
         </div>
 
@@ -1114,10 +1114,6 @@
           </div>
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-          <div class="form-actions">
-            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
-            <button class="settings-major-save-btn" type="button">저장</button>
-          </div>
           <pre class="settings-major-result">대기 중...</pre>
         </div>
 
@@ -1199,18 +1195,21 @@
           </div>
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-          <div class="form-actions">
-            <button class="settings-major-refresh-btn secondary" type="button">불러오기</button>
-            <button class="settings-major-save-btn" type="button">저장</button>
-          </div>
           <pre class="settings-major-result">대기 중...</pre>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-advanced">
           <h2>Advanced (config.txt 원문 편집)</h2>
           <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
+          <div id="settings-advanced-stale-banner"
+            style="display:none; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin-bottom:14px; background:#fef3c7; border:1px solid #f59e0b; border-radius:6px; font-size:13px; color:#92400e;">
+            <span>⚠️ 다른 탭에서 설정이 변경되어 원문이 최신이 아닐 수 있습니다. 저장하기 전에 먼저 불러오기를 권장합니다.</span>
+            <button id="settings-advanced-stale-reload-btn"
+              style="white-space:nowrap; padding:5px 12px; font-size:13px; border:1px solid #f59e0b; background:#fffbeb; border-radius:4px; cursor:pointer; color:#92400e;">지금
+              다시 불러오기</button>
+          </div>
           <textarea id="settings-advanced-content" class="settings-advanced-editor"
-            style="font-family: monospace; resize: vertical; min-height: 400px; padding: 16px; line-height: 1.6; font-size: 14px; border: 1px solid var(--border-color); border-radius: 6px; width: 100%; box-sizing: border-box; background: #f8fafc; margin-bottom: 20px;"
+            style="font-family: monospace; resize: vertical; min-height: 650px; padding: 16px; line-height: 1.6; font-size: 14px; border: 1px solid var(--border-color); border-radius: 6px; width: 100%; box-sizing: border-box; background: #f8fafc; margin-bottom: 20px;"
             spellcheck="false"></textarea>
           <div class="form-actions">
             <button id="settings-advanced-refresh-btn" class="secondary">불러오기</button>

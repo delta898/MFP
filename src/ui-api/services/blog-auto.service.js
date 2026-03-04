@@ -92,7 +92,9 @@ function createBlogAutoService(deps = {}) {
         async runAutoPublish({ requestBody = {} } = {}) {
             Logger.info(`🚀 [UI][AUTO] 자동발행 1회 수동 실행 요청 수신`);
             try {
-                const result = await runAutoPublishCycle('ui-manual');
+                const result = await runAutoPublishCycle('ui-manual', {
+                    settingsOverrides: requestBody?.settingsOverrides || {}
+                });
                 return { success: true, data: result || {} };
             } catch (e) {
                 Logger.error(`⚠️ [UI][AUTO] 자동발행 수동 실행 오류:`, e);

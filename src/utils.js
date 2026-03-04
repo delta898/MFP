@@ -7,6 +7,38 @@ const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
 
 const Utils = {
+    _sheetCache: {}, // { key: { data: any, expiry: number } }
+    _headerCache: {}, // { key: { map: any, timestamp: number } }
+
+    /**
+     * 🛡️ 간단한 시간 기반 캐시 래퍼 (5초 TTL)
+     */
+    withSimpleCache: async function (key, fn, ttlMs = 5000) {
+        const now = Date.now();
+        const entry = this._sheetCache[key];
+        if (entry && entry.expiry > now) {
+            return entry.data;
+        }
+        const data = await fn();
+        this._sheetCache[key] = { data, expiry: now + ttlMs };
+        return data;
+    },
+
+    /**
+     * 🧹 캐시 강제 무효화
+     */
+    clearSheetCache: function (keyPrefix) {
+        if (keyPrefix) {
+            Object.keys(this._sheetCache).forEach(k => {
+                if (k === keyPrefix || k.startsWith(keyPrefix + '_') || k.startsWith(keyPrefix)) {
+                    delete this._sheetCache[k];
+                }
+            });
+        } else {
+            this._sheetCache = {};
+        }
+    },
+
     formatKstDateTime: function (date = new Date()) {
         const parts = new Intl.DateTimeFormat('en-US', {
             timeZone: 'Asia/Seoul',
@@ -310,8 +342,9 @@ const Utils = {
 
             const existingSheets = metaRes.data.sheets.map(s => s.properties.title);
             const requiredSheets = [
-                { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' },
-                { name: CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords', type: 'keywords' },
+                // [REMOVED] trends, keywords 시트는 production에서 불필요하여 자동 생성에서 제외됨
+                // { name: CONFIG.GOOGLE_TRENDS_SHEET || 'trends', type: 'trends' },
+                // { name: CONFIG.GOOGLE_KEYWORDS_SHEET || 'keywords', type: 'keywords' },
                 { name: CONFIG.GOOGLE_TOPICS_SHEET || 'topics', type: 'topics' },
                 { name: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping', type: 'shopping' }
             ];
@@ -752,147 +785,151 @@ const Utils = {
      * UI/운영용: topics 시트 전체 조회 (상태/검색/페이징 지원)
      */
     readGoogleSheetTopicsAll: async function (options = {}) {
-        try {
-            const accessToken = await this.getGoogleAccessToken();
-            const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
-            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+        const cacheKey = `topics_${options.status || 'all'}_${options.q || ''}_${options.limit || 'max'}_${options.offset || 0}_${options.sortBy || 'none'}_${options.sortDir || 'none'}`;
+        return this.withSimpleCache(cacheKey, async () => {
+            try {
+                const accessToken = await this.getGoogleAccessToken();
+                const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+                const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
-            const res = await this.callWithRetry(() => axios.get(url, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            }));
+                const res = await this.callWithRetry(() => axios.get(url, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
 
-            const rows = res.data.values;
-            if (!rows || rows.length === 0) {
+                const rows = res.data.values;
+                if (!rows || rows.length === 0) {
+                    return { items: [], total: 0, limit: 0, offset: 0 };
+                }
+
+                const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+                const parsed = rows.slice(1).map((row, index) => {
+                    const entry = {};
+                    headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                    const getVal = (cols) => {
+                        for (const col of cols) {
+                            const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                            if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                                return String(entry[cleanCol]).trim();
+                            }
+                        }
+                        return "";
+                    };
+
+                    const subject = getVal(['subject', '주제', '제목']);
+                    const kwStr = getVal(['keywords', '키워드']);
+                    const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
+                    const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
+                    const ctgRaw = getVal(['category', '카테고리']);
+                    const postStatus = getVal(['poststatus', 'post_status', '발행옵션', '발행_옵션']);
+                    const scheduleDate = getVal(['scheduledate', 'schedule_date', '예약일시', '예약_일시']);
+                    const status = getVal(['상태', 'status']);
+                    const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
+                    const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
+                    const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
+                    const logStr = getVal(['로그', 'log']);
+                    const publishedAt = getVal(['발행시간', '발행 시간', 'publish_time', 'time']);
+                    const addedAt = getVal(['추가일시', '추가 일시', 'addedat', 'createdat']);
+                    const source = getVal(['소스', 'source']);
+                    const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
+
+                    return {
+                        rowIndex: index,
+                        rowNumber: index + 2,
+                        category: ctgRaw || '',
+                        postStatus: postStatus || 'publish',
+                        scheduleDate: scheduleDate || '',
+                        subject: subject || '',
+                        keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
+                        keywordsRaw: kwStr || '',
+                        content_guide: {
+                            additional_instructions: instruction || '',
+                            reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
+                        },
+                        status: status || '',
+                        image_gen: String(imgGenStr || '').toLowerCase() === 'yes',
+                        image_count: parseInt(imgCountStr, 10),
+                        external_reference: String(extRefStr || '').toLowerCase() === 'yes',
+                        log: logStr || '',
+                        published_at: publishedAt || '',
+                        created_at: addedAt || '',
+                        source: source || '',
+                        trend_date: trendDate || ''
+                    };
+                });
+
+                const statusFilter = String(options.status || '').trim();
+                const q = String(options.q || '').trim().toLowerCase();
+                let filtered = parsed;
+
+                if (statusFilter) {
+                    filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+                }
+                if (q) {
+                    filtered = filtered.filter((item) => {
+                        const haystack = [
+                            item.subject,
+                            item.keywordsRaw,
+                            item.content_guide?.additional_instructions || '',
+                            (item.content_guide?.reference_urls || []).join(' '),
+                            item.status,
+                            item.log,
+                            item.addedAt,
+                            item.source,
+                            item.trendDate
+                        ].join(' ').toLowerCase();
+                        return haystack.includes(q);
+                    });
+                }
+
+                const sortBy = String(options.sortBy || 'rowNumber').trim();
+                const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+                const compareValues = (a, b) => {
+                    const aNull = a === null || a === undefined || a === '';
+                    const bNull = b === null || b === undefined || b === '';
+                    if (aNull && bNull) return 0;
+                    if (aNull) return 1;
+                    if (bNull) return -1;
+                    if (typeof a === 'number' && typeof b === 'number') return a - b;
+                    return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+                };
+                const getSortValue = (item) => {
+                    if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
+                    if (sortBy === 'subject') return String(item.subject || '');
+                    if (sortBy === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
+                    if (sortBy === 'instruction') return String(item.content_guide?.additional_instructions || '');
+                    if (sortBy === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
+                    if (sortBy === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
+                    if (sortBy === 'externalReference') return item.use_external_ref === true ? 1 : 0;
+                    if (sortBy === 'runtimeLog') return String(item.log || '');
+                    if (sortBy === 'status') return String(item.status || '');
+                    if (sortBy === 'addedAt') return String(item.addedAt || '');
+                    if (sortBy === 'source') return String(item.source || '');
+                    if (sortBy === 'trendDate') return String(item.trendDate || '');
+                    return Number(item.rowNumber || 0);
+                };
+                filtered = filtered
+                    .map((item, index) => ({ item, index }))
+                    .sort((a, b) => {
+                        const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
+                        if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
+                        return a.index - b.index;
+                    })
+                    .map(v => v.item);
+
+                const total = filtered.length;
+                const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
+                const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+                const items = filtered.slice(offset, offset + limit);
+
+                return { items, total, limit, offset };
+            } catch (e) {
+                Logger.error(`❌ topics 전체 조회 실패: ${e.message}`);
                 return { items: [], total: 0, limit: 0, offset: 0 };
             }
-
-            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
-            const parsed = rows.slice(1).map((row, index) => {
-                const entry = {};
-                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
-                const getVal = (cols) => {
-                    for (const col of cols) {
-                        const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
-                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
-                            return String(entry[cleanCol]).trim();
-                        }
-                    }
-                    return "";
-                };
-
-                const subject = getVal(['subject', '주제', '제목']);
-                const kwStr = getVal(['keywords', '키워드']);
-                const instruction = getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항', '내용']);
-                const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
-                const ctgRaw = getVal(['category', '카테고리']);
-                const postStatus = getVal(['poststatus', 'post_status', '발행옵션', '발행_옵션']);
-                const scheduleDate = getVal(['scheduledate', 'schedule_date', '예약일시', '예약_일시']);
-                const status = getVal(['상태', 'status']);
-                const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
-                const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
-                const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
-                const logStr = getVal(['로그', 'log']);
-                const publishedAt = getVal(['발행시간', '발행 시간', 'publish_time', 'time']);
-                const addedAt = getVal(['추가일시', '추가 일시', 'addedat', 'createdat']);
-                const source = getVal(['소스', 'source']);
-                const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
-
-                return {
-                    rowIndex: index,
-                    rowNumber: index + 2,
-                    category: ctgRaw || '',
-                    postStatus: postStatus || 'publish',
-                    scheduleDate: scheduleDate || '',
-                    subject: subject || '',
-                    keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
-                    keywordsRaw: kwStr || '',
-                    content_guide: {
-                        additional_instructions: instruction || '',
-                        reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
-                    },
-                    status: status || '',
-                    image_gen: String(imgGenStr || '').toLowerCase() === 'yes',
-                    image_count: parseInt(imgCountStr, 10) || 1,
-                    external_reference: String(extRefStr || '').toLowerCase() === 'yes',
-                    log: logStr || '',
-                    published_at: publishedAt || '',
-                    created_at: addedAt || '',
-                    source: source || '',
-                    trend_date: trendDate || ''
-                };
-            });
-
-            const statusFilter = String(options.status || '').trim();
-            const q = String(options.q || '').trim().toLowerCase();
-            let filtered = parsed;
-
-            if (statusFilter) {
-                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
-            }
-            if (q) {
-                filtered = filtered.filter((item) => {
-                    const haystack = [
-                        item.subject,
-                        item.keywordsRaw,
-                        item.content_guide?.additional_instructions || '',
-                        (item.content_guide?.reference_urls || []).join(' '),
-                        item.status,
-                        item.log,
-                        item.addedAt,
-                        item.source,
-                        item.trendDate
-                    ].join(' ').toLowerCase();
-                    return haystack.includes(q);
-                });
-            }
-
-            const sortBy = String(options.sortBy || 'rowNumber').trim();
-            const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
-            const compareValues = (a, b) => {
-                const aNull = a === null || a === undefined || a === '';
-                const bNull = b === null || b === undefined || b === '';
-                if (aNull && bNull) return 0;
-                if (aNull) return 1;
-                if (bNull) return -1;
-                if (typeof a === 'number' && typeof b === 'number') return a - b;
-                return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
-            };
-            const getSortValue = (item) => {
-                if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
-                if (sortBy === 'subject') return String(item.subject || '');
-                if (sortBy === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
-                if (sortBy === 'instruction') return String(item.content_guide?.additional_instructions || '');
-                if (sortBy === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
-                if (sortBy === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
-                if (sortBy === 'externalReference') return item.use_external_ref === true ? 1 : 0;
-                if (sortBy === 'runtimeLog') return String(item.log || '');
-                if (sortBy === 'status') return String(item.status || '');
-                if (sortBy === 'addedAt') return String(item.addedAt || '');
-                if (sortBy === 'source') return String(item.source || '');
-                if (sortBy === 'trendDate') return String(item.trendDate || '');
-                return Number(item.rowNumber || 0);
-            };
-            filtered = filtered
-                .map((item, index) => ({ item, index }))
-                .sort((a, b) => {
-                    const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
-                    if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
-                    return a.index - b.index;
-                })
-                .map(v => v.item);
-
-            const total = filtered.length;
-            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
-            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
-            const items = filtered.slice(offset, offset + limit);
-
-            return { items, total, limit, offset };
-        } catch (e) {
-            Logger.error(`❌ topics 전체 조회 실패: ${e.message}`);
-            return { items: [], total: 0, limit: 0, offset: 0 };
-        }
+        });
     },
+
 
     /**
      * 쇼핑 시트에 새로운 행 추가 (빠른발행/일괄발행용)
@@ -971,7 +1008,9 @@ const Utils = {
             }
             const rowIndices = rowNumbers.map((rowNum) => rowNum - 2).filter((idx) => idx >= 0);
 
-            await this.sleep(300);
+            await this.sleep(200);
+            this.clearSheetCache('topics_all');
+            this.clearSheetCache('shopping_all');
 
             return {
                 success: true,
@@ -1043,111 +1082,114 @@ const Utils = {
      * UI/운영용: shopping 시트 전체 조회 (상태/검색/페이징/정렬 지원)
      */
     readGoogleSheetShoppingAll: async function (options = {}) {
-        try {
-            const accessToken = await this.getGoogleAccessToken();
-            const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
-            const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+        const cacheKey = `shopping_${options.status || 'all'}_${options.q || ''}_${options.limit || 'max'}_${options.offset || 0}_${options.sortBy || 'none'}_${options.sortDir || 'none'}`;
+        return this.withSimpleCache(cacheKey, async () => {
+            try {
+                const accessToken = await this.getGoogleAccessToken();
+                const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
+                const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
 
-            const res = await this.callWithRetry(() => axios.get(url, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            }));
+                const res = await this.callWithRetry(() => axios.get(url, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
 
-            const rows = res.data.values;
-            if (!rows || rows.length === 0) {
-                return { items: [], total: 0, limit: 0, offset: 0 };
-            }
+                const rows = res.data.values;
+                if (!rows || rows.length === 0) {
+                    return { items: [], total: 0, limit: 0, offset: 0 };
+                }
 
-            const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
-            const parsed = rows.slice(1).map((row, index) => {
-                const entry = {};
-                headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
-                const getVal = (cols) => {
-                    for (const col of cols) {
-                        const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
-                        if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
-                            return String(entry[cleanCol]).trim();
+                const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+                const parsed = rows.slice(1).map((row, index) => {
+                    const entry = {};
+                    headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+                    const getVal = (cols) => {
+                        for (const col of cols) {
+                            const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                            if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                                return String(entry[cleanCol]).trim();
+                            }
                         }
-                    }
-                    return "";
-                };
+                        return "";
+                    };
 
-                const shortUrl = getVal(['url', '링크']);
-                const status = getVal(['상태', 'status']);
-                const publishedAt = getVal(['발행시간', '발행시간', 'publish_time', 'time', '작업시간', '작업시간']);
-                const product = getVal(['상품', 'product']);
-                const logStr = getVal(['로그', 'log']);
+                    const shortUrl = getVal(['url', '링크']);
+                    const status = getVal(['상태', 'status']);
+                    const publishedAt = getVal(['발행시간', '발행시간', 'publish_time', 'time', '작업시간', '작업시간']);
+                    const product = getVal(['상품', 'product']);
+                    const logStr = getVal(['로그', 'log']);
 
-                return {
-                    rowIndex: index,
-                    rowNumber: index + 2,
-                    shortUrl: shortUrl || '',
-                    status: status || '',
-                    publishedAt: publishedAt || '',
-                    product: product || '',
-                    log: logStr || ''
-                };
-            });
-
-            const statusFilter = String(options.status || '').trim();
-            const q = String(options.q || '').trim().toLowerCase();
-            let filtered = parsed;
-
-            if (statusFilter) {
-                filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
-            }
-            if (q) {
-                filtered = filtered.filter((item) => {
-                    const haystack = [
-                        item.product,
-                        item.shortUrl,
-                        item.status,
-                        item.publishedAt,
-                        item.log
-                    ].join(' ').toLowerCase();
-                    return haystack.includes(q);
+                    return {
+                        rowIndex: index,
+                        rowNumber: index + 2,
+                        shortUrl: shortUrl || '',
+                        status: status || '',
+                        publishedAt: publishedAt || '',
+                        product: product || '',
+                        log: logStr || ''
+                    };
                 });
+
+                const statusFilter = String(options.status || '').trim();
+                const q = String(options.q || '').trim().toLowerCase();
+                let filtered = parsed;
+
+                if (statusFilter) {
+                    filtered = filtered.filter(item => String(item.status || '').trim() === statusFilter);
+                }
+                if (q) {
+                    filtered = filtered.filter((item) => {
+                        const haystack = [
+                            item.product,
+                            item.shortUrl,
+                            item.status,
+                            item.publishedAt,
+                            item.log
+                        ].join(' ').toLowerCase();
+                        return haystack.includes(q);
+                    });
+                }
+
+                const sortBy = String(options.sortBy || 'rowNumber').trim();
+                const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
+                const compareValues = (a, b) => {
+                    const aNull = a === null || a === undefined || a === '';
+                    const bNull = b === null || b === undefined || b === '';
+                    if (aNull && bNull) return 0;
+                    if (aNull) return 1;
+                    if (bNull) return -1;
+                    if (typeof a === 'number' && typeof b === 'number') return a - b;
+                    return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
+                };
+                const getSortValue = (item) => {
+                    if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
+                    if (sortBy === 'product') return String(item.product || '');
+                    if (sortBy === 'shortUrl') return String(item.shortUrl || '');
+                    if (sortBy === 'runtimeLog') return String(item.log || '');
+                    if (sortBy === 'status') return String(item.status || '');
+                    if (sortBy === 'publishedAt') return String(item.publishedAt || '');
+                    return Number(item.rowNumber || 0);
+                };
+                filtered = filtered
+                    .map((item, index) => ({ item, index }))
+                    .sort((a, b) => {
+                        const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
+                        if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
+                        return a.index - b.index;
+                    })
+                    .map(v => v.item);
+
+                const total = filtered.length;
+                const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
+                const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
+                const items = filtered.slice(offset, offset + limit);
+
+                return { items, total, limit, offset };
+            } catch (e) {
+                Logger.error(`❌ readGoogleSheetShoppingAll 오류: ${e.message}`);
+                throw e;
             }
-
-            const sortBy = String(options.sortBy || 'rowNumber').trim();
-            const sortDir = String(options.sortDir || 'desc').trim().toLowerCase() === 'desc' ? 'desc' : 'asc';
-            const compareValues = (a, b) => {
-                const aNull = a === null || a === undefined || a === '';
-                const bNull = b === null || b === undefined || b === '';
-                if (aNull && bNull) return 0;
-                if (aNull) return 1;
-                if (bNull) return -1;
-                if (typeof a === 'number' && typeof b === 'number') return a - b;
-                return String(a).localeCompare(String(b), 'ko', { numeric: true, sensitivity: 'base' });
-            };
-            const getSortValue = (item) => {
-                if (sortBy === 'rowNumber') return Number(item.rowNumber || 0);
-                if (sortBy === 'product') return String(item.product || '');
-                if (sortBy === 'shortUrl') return String(item.shortUrl || '');
-                if (sortBy === 'runtimeLog') return String(item.log || '');
-                if (sortBy === 'status') return String(item.status || '');
-                if (sortBy === 'publishedAt') return String(item.publishedAt || '');
-                return Number(item.rowNumber || 0);
-            };
-            filtered = filtered
-                .map((item, index) => ({ item, index }))
-                .sort((a, b) => {
-                    const cmp = compareValues(getSortValue(a.item), getSortValue(b.item));
-                    if (cmp !== 0) return sortDir === 'desc' ? -cmp : cmp;
-                    return a.index - b.index;
-                })
-                .map(v => v.item);
-
-            const total = filtered.length;
-            const limit = Number.isFinite(Number(options.limit)) ? Math.max(1, parseInt(options.limit, 10)) : 50;
-            const offset = Number.isFinite(Number(options.offset)) ? Math.max(0, parseInt(options.offset, 10)) : 0;
-            const items = filtered.slice(offset, offset + limit);
-
-            return { items, total, limit, offset };
-        } catch (e) {
-            Logger.error(`❌ shopping 전체 조회 실패: ${e.message}`);
-            return { items: [], total: 0, limit: 0, offset: 0 };
-        }
+        });
     },
 
     /**
@@ -1716,6 +1758,7 @@ const Utils = {
 
             // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
             await this.sleep(1000);
+            this.clearSheetCache('topics_all');
 
             Logger.info(`   ✅ 토픽 시트에 ${rowsToAdd.length}건 추가 완료`);
             return {
@@ -2636,20 +2679,33 @@ const Utils = {
             const accessToken = await this.getGoogleAccessToken();
             const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
             const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+            const cacheKey = `${spreadsheetId}_${sheetName}_headers`;
+            const now = Date.now();
 
-            // 헤더 읽기
-            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
-            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+            let map = null;
+            // 🔗 1분 이내 캐시된 헤더 매핑이 있으면 사용
+            if (this._headerCache[cacheKey] && (now - this._headerCache[cacheKey].timestamp < 60000)) {
+                map = this._headerCache[cacheKey].map;
+            }
 
-            const headers = headerRes.data.values[0];
-            let statusColIndex = -1, logColIndex = -1, timeColIndex = -1;
+            if (!map) {
+                // 헤더 읽기 (캐시 없거나 만료됨)
+                const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+                const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
 
-            headers.forEach((h, i) => {
-                const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
-                if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
-                else if (clean.includes('로그') || clean.includes('log')) logColIndex = i;
-                else if (clean.includes('발행') || clean.includes('time')) timeColIndex = i;
-            });
+                const headers = headerRes.data.values[0];
+                map = { status: -1, log: -1, time: -1 };
+
+                headers.forEach((h, i) => {
+                    const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
+                    if (clean.includes('상태') || clean.includes('status')) map.status = i;
+                    else if (clean.includes('로그') || clean.includes('log')) map.log = i;
+                    else if (clean.includes('발행') || clean.includes('time')) map.time = i;
+                });
+
+                // 캐시 업데이트
+                this._headerCache[cacheKey] = { map, timestamp: now };
+            }
 
             const targetRow = rowIndex + 2;
             const toA1 = (colIdx) => {
@@ -2664,9 +2720,9 @@ const Utils = {
             };
 
             const dataToUpdate = [];
-            if (statusColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
-            if (logColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(logColIndex)}${targetRow}`, values: [[logMessage]] });
-            if (timeColIndex !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
+            if (map.status !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(map.status)}${targetRow}`, values: [[status]] });
+            if (map.log !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(map.log)}${targetRow}`, values: [[logMessage]] });
+            if (map.time !== -1) dataToUpdate.push({ range: `${sheetName}!${toA1(map.time)}${targetRow}`, values: [[new Date().toLocaleString()]] });
 
             if (dataToUpdate.length === 0) return;
 
@@ -2675,8 +2731,8 @@ const Utils = {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }));
 
-            // ⏳ API 호출 간 안전 대기
-            await this.sleep(500);
+            // ⏳ API 호출 간 안전 대기 (헤더 읽기를 건너뛰므로 요청 간격이 좁아질 수 있음)
+            await this.sleep(300);
 
         } catch (e) {
             Logger.error(`❌ 구글 시트 업데이트 최종 실패 (Row ${rowIndex + 1}): ${e.message}`);

@@ -1520,7 +1520,6 @@ ${scrapedContext}`;
 				 - Subject: ${jobData.subject || "(Context에 기반해 멋진 제목을 지어주세요)"}
 			 - Keywords: ${jobData.keywords?.join(', ') || "(핵심 키워드 5개를 추출해주세요)"}
 			 - Instructions: ${jobData.content_guide?.additional_instructions || "None"}
-			 - Image Count: ${jobData.image_options?.count || 4}
 			 [REFERENCE CONTEXT]
 				 ${referenceSection}
 			 `;
@@ -1736,17 +1735,14 @@ ${scrapedContext}`;
 			Logger.info(`   ✍️ 제목 입력: ${title}`);
 			await inputBlogTitleWithVerification(page, title, getRandomTypingDelay);
 
-			// ✍️ 카테고리 선택
+			// ✍️ 카테고리 선택 (Naver의 경우 사용자가 무시하길 원함)
+			/* 
 			const requestedCategory = String(options.category || '').trim();
 			if (requestedCategory) {
 				Logger.info(`   📁 카테고리 선택 시도: ${requestedCategory}`);
-				const categoryApplied = await selectNaverBlogCategoryByName(page, requestedCategory);
-				if (categoryApplied) {
-					Logger.info(`   ✅ 카테고리 선택 완료: ${requestedCategory}`);
-				} else {
-					Logger.warn(`   ⚠️ 카테고리 선택 실패 (기본 카테고리 유지): ${requestedCategory}`);
-				}
+				// [REMOVED] selectNaverBlogCategoryByName is not defined and Naver categories are ignored
 			}
+			*/
 
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
@@ -2079,6 +2075,13 @@ ${scrapedContext}`;
 			if (publishBtnClicked) {
 				await Utils.sleep(1000); // 팝업 애니메이션 대기
 
+				// 🚀 [네이버 가이드라인] 네이버는 최종 발행 버튼을 누르지 않고 중단한다.
+				// 임시저장 -> 1차 발행버튼 -> 잠시 대기 -> 끝!
+				Logger.info("   ✅ [Naver] 1차 발행 버튼 클릭 완료. 최종 발행은 수동으로 진행해 주세요.");
+				await Utils.sleep(3000); // 상태 확인 대기
+				return { success: true, message: 'Naver settings window opened' };
+
+				/* [DEPRECATED FOR NAVER]
 				// 🚀 [2단계] 최종 발행 버튼 클릭 (발행 설정창 내 '발행' 버튼)
 				const finalPublishBtn = page.locator('.se-popup button:has-text("발행"), .se-popover button:has-text("발행"), .se-publish-button-container button:has-text("발행")');
 				if (await finalPublishBtn.isVisible()) {
@@ -2096,6 +2099,7 @@ ${scrapedContext}`;
 						Logger.warn("   ⚠️ 최종 발행/등록 버튼을 찾지 못했습니다. 설정창만 열린 상태일 수 있습니다.");
 					}
 				}
+				*/
 			}
 
 			if (!publishBtnClicked) {

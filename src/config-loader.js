@@ -348,71 +348,70 @@ const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
     : userSheetUrl;
 
-const blogAutoMode = parseBoolLike(userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE, false);
-const blogAutoCategories = String(
-    userConfig.BLOG_AUTO_CATEGORIES
-    ?? userConfig.AUTO_INCLUDE_CATEGORIES
-    ?? userConfig.AUTO_CATEGORIES
-    ?? ''
-).trim();
-const blogAutoMaxPostsPerRun = parseNonNegativeInt(
-    userConfig.BLOG_AUTO_MAX_POSTS_PER_RUN
-    ?? userConfig.MAX_BLOG_POSTS_PER_RUN
-    ?? userConfig.AUTO_MAX_BLOG_PER_CYCLE
-    ?? userConfig.AUTO_DAILY_BLOG_CAP,
-    10
-);
-const blogAutoTargetTrendDate = String(userConfig.BLOG_AUTO_TARGET_TREND_DATE || '').trim();
-const maxBlogPostsPerRun = parseNonNegativeInt(userConfig.MAX_BLOG_POSTS_PER_RUN, 10);
-const maxShoppingPostsPerRun = parseNonNegativeInt(userConfig.MAX_SHOPPING_POSTS_PER_RUN, 10);
-const blogAutoTrendsTime = parseTimeHHmm(userConfig.BLOG_AUTO_TRENDS_TIME, '07:30');
-const blogAutoImageGeneration = parseBoolLike(
-    userConfig.BLOG_AUTO_IMAGE_GENERATION ?? userConfig.AUTO_IMAGE_GENERATION,
-    true
-);
-const blogAutoExternalReference = parseBoolLike(
-    userConfig.BLOG_AUTO_EXTERNAL_REFERENCE ?? userConfig.AUTO_USE_EXTERNAL_REF,
-    true
-);
-const blogAutoNotifyEnabled = parseBoolLike(userConfig.BLOG_AUTO_NOTIFY_ENABLED, false);
-const blogAutoVariationIncludeNew = parseBoolLike(
-    userConfig.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+// [Refactored] Automated Settings (COLLECT & PUBLISH)
+const collectTrendsEnabled = parseBoolLike(
+    userConfig.COLLECT_TRENDS_ENABLED ?? userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE,
     false
 );
-const blogAutoVariationIncludeDash = parseBoolLike(
-    userConfig.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
-    false
-);
-const blogAutoVariationIncludeNumber = parseBoolLike(
-    userConfig.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
-    true
-);
-const blogAutoVariationType = String(
-    userConfig.BLOG_AUTO_VARIATION_TYPE || 'min'
+const collectTrendsCategories = String(
+    userConfig.COLLECT_TRENDS_CATEGORIES ?? userConfig.BLOG_AUTO_CATEGORIES ?? userConfig.AUTO_CATEGORIES ?? ''
 ).trim();
-const blogAutoVariationNumber = parseIntegerOrBlank(
-    userConfig.COLLECT_TRENDS_FILTER_MIN_INCR ?? userConfig.BLOG_AUTO_VARIATION_NUMBER,
-    50
+const collectTrendsTime = parseTimeHHmm(
+    userConfig.COLLECT_TRENDS_TIME ?? userConfig.BLOG_AUTO_TRENDS_TIME,
+    '07:30'
 );
-const blogAutoVariationTopN = parseIntegerOrBlank(
-    userConfig.BLOG_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
-    5
-);
-const blogAutoKeywordReuseGapDays = parseNonNegativeInt(
-    userConfig.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
+const collectTrendsReuseGapDays = parseNonNegativeInt(
+    userConfig.COLLECT_TRENDS_REUSE_GAP_DAYS ?? userConfig.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
     15
 );
-const blogAutoHeadless = parseBoolLike(
-    userConfig.BLOG_AUTO_HEADLESS,
+
+// Filtering (COLLECT_TRENDS_FILTER_*)
+const collectTrendsFilterMinIncr = parseIntegerOrBlank(
+    userConfig.COLLECT_TRENDS_FILTER_MIN_INCR ?? userConfig.BLOG_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
+    50
+);
+const collectTrendsFilterIncludeNew = parseBoolLike(
+    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_NEW ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
+    false
+);
+const collectTrendsFilterIncludeDash = parseBoolLike(
+    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_DASH ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
+    false
+);
+const collectTrendsFilterIncludeNumber = parseBoolLike(
+    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
     true
 );
+const collectTrendsFilterType = String(
+    (userConfig.COLLECT_TRENDS_FILTER_TYPE ?? userConfig.BLOG_AUTO_VARIATION_TYPE) || 'min'
+).trim();
+const collectTrendsFilterTopN = parseIntegerOrBlank(
+    userConfig.COLLECT_TRENDS_FILTER_TOP_N ?? userConfig.BLOG_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
+    5
+);
 
-// New Producers (Auto Collect) Configurations
-const collectTrendsEnabled = parseBoolLike(userConfig.COLLECT_TRENDS_ENABLED, false);
-const collectTrendsCategories = String(userConfig.COLLECT_TRENDS_CATEGORIES || '').trim();
-const collectTrendsFilterMinIncr = blogAutoVariationNumber;
-const collectTrendsReuseGapDays = parseNonNegativeInt(userConfig.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
-const collectTrendsTime = parseTimeHHmm(userConfig.COLLECT_TRENDS_TIME, '07:30');
+const maxBlogPostsPerRun = parseNonNegativeInt(userConfig.MAX_BLOG_POSTS_PER_RUN, 10);
+const maxShoppingPostsPerRun = parseNonNegativeInt(userConfig.MAX_SHOPPING_POSTS_PER_RUN, 10);
+
+// Publishing (PUBLISH_AUTO_*)
+const publishAutoEnabled = parseBoolLike(
+    userConfig.PUBLISH_AUTO_ENABLED ?? userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE,
+    false
+);
+const publishAutoIntervalMin = parseNonNegativeInt(userConfig.PUBLISH_AUTO_INTERVAL_MIN, 60);
+const publishAutoBatchSize = parseNonNegativeInt(
+    userConfig.PUBLISH_AUTO_BATCH_SIZE ?? userConfig.BLOG_AUTO_MAX_POSTS_PER_RUN ?? userConfig.AUTO_MAX_BLOG_PER_CYCLE,
+    1
+);
+const publishAutoNotifyEnabled = parseBoolLike(
+    userConfig.PUBLISH_AUTO_NOTIFY_ENABLED ?? userConfig.BLOG_AUTO_NOTIFY_ENABLED,
+    false
+);
+const publishAutoTargetChannels = String(userConfig.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
+const publishAutoHeadless = parseBoolLike(
+    userConfig.PUBLISH_AUTO_HEADLESS ?? userConfig.BLOG_AUTO_HEADLESS,
+    true
+);
 
 let collectRssConfigs = [];
 try {
@@ -422,11 +421,7 @@ try {
 } catch (e) {
     collectRssConfigs = [];
 }
-
-// New Consumers (Auto Publish) Configurations
-const publishAutoEnabled = parseBoolLike(userConfig.PUBLISH_AUTO_ENABLED, false);
-const publishAutoIntervalMin = parseNonNegativeInt(userConfig.PUBLISH_AUTO_INTERVAL_MIN, 60);
-const publishAutoBatchSize = parseNonNegativeInt(userConfig.PUBLISH_AUTO_BATCH_SIZE, 1);
+const collectRssEnabled = parseBoolLike(userConfig.COLLECT_RSS_ENABLED, false);
 
 const shoppingAutoMode = parseBoolLike(
     userConfig.SHOPPING_AUTO_MODE,
@@ -517,21 +512,26 @@ module.exports = {
     GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || resolvedSheetId,
     LISTEN_HOST: listenHost,
     LISTEN_PORT: listenPort,
-    BLOG_AUTO_MODE: blogAutoMode,
-    BLOG_AUTO_CATEGORIES: blogAutoCategories,
-    BLOG_AUTO_MAX_POSTS_PER_RUN: blogAutoMaxPostsPerRun,
-    BLOG_AUTO_TRENDS_TIME: blogAutoTrendsTime,
-    BLOG_AUTO_IMAGE_GENERATION: blogAutoImageGeneration,
-    BLOG_AUTO_EXTERNAL_REFERENCE: blogAutoExternalReference,
-    BLOG_AUTO_NOTIFY_ENABLED: blogAutoNotifyEnabled,
-    BLOG_AUTO_VARIATION_INCLUDE_NEW: blogAutoVariationIncludeNew,
-    BLOG_AUTO_VARIATION_INCLUDE_DASH: blogAutoVariationIncludeDash,
-    BLOG_AUTO_VARIATION_INCLUDE_NUMBER: blogAutoVariationIncludeNumber,
-    BLOG_AUTO_VARIATION_TYPE: blogAutoVariationType,
-    BLOG_AUTO_VARIATION_NUMBER: blogAutoVariationNumber, // 유지하되 내부적으로 collectTrendsFilterMinIncr와 동일하게 취급
-    BLOG_AUTO_VARIATION_TOP_N: blogAutoVariationTopN,
-    BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: blogAutoKeywordReuseGapDays,
-    BLOG_AUTO_TARGET_TREND_DATE: blogAutoTargetTrendDate,
+    PUBLISH_AUTO_ENABLED: publishAutoEnabled,
+    PUBLISH_AUTO_INTERVAL_MIN: publishAutoIntervalMin,
+    PUBLISH_AUTO_BATCH_SIZE: publishAutoBatchSize,
+    PUBLISH_AUTO_NOTIFY_ENABLED: publishAutoNotifyEnabled,
+    PUBLISH_AUTO_TARGET_CHANNELS: publishAutoTargetChannels,
+    PUBLISH_AUTO_HEADLESS: publishAutoHeadless,
+
+    COLLECT_TRENDS_ENABLED: collectTrendsEnabled,
+    COLLECT_TRENDS_CATEGORIES: collectTrendsCategories,
+    COLLECT_TRENDS_FILTER_MIN_INCR: collectTrendsFilterMinIncr,
+    COLLECT_TRENDS_FILTER_INCLUDE_NEW: collectTrendsFilterIncludeNew,
+    COLLECT_TRENDS_FILTER_INCLUDE_DASH: collectTrendsFilterIncludeDash,
+    COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: collectTrendsFilterIncludeNumber,
+    COLLECT_TRENDS_FILTER_TYPE: collectTrendsFilterType,
+    COLLECT_TRENDS_FILTER_TOP_N: collectTrendsFilterTopN,
+    COLLECT_TRENDS_REUSE_GAP_DAYS: collectTrendsReuseGapDays,
+    COLLECT_TRENDS_TIME: collectTrendsTime,
+    COLLECT_RSS_ENABLED: collectRssEnabled,
+    COLLECT_RSS_CONFIGS: collectRssConfigs,
+
     MAX_BLOG_POSTS_PER_RUN: maxBlogPostsPerRun,
     MAX_SHOPPING_POSTS_PER_RUN: maxShoppingPostsPerRun,
     SHOPPING_AUTO_TIME: shoppingAutoTime,
@@ -539,33 +539,6 @@ module.exports = {
     USER_ROLE: userRole,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,
-
-    // New Producers (Collect)
-    COLLECT_TRENDS_ENABLED: collectTrendsEnabled,
-    COLLECT_TRENDS_CATEGORIES: collectTrendsCategories,
-    COLLECT_TRENDS_FILTER_MIN_INCR: collectTrendsFilterMinIncr,
-    COLLECT_TRENDS_REUSE_GAP_DAYS: collectTrendsReuseGapDays,
-    COLLECT_TRENDS_TIME: collectTrendsTime,
-    COLLECT_RSS_CONFIGS: collectRssConfigs,
-
-    // New Consumers (Publish)
-    PUBLISH_AUTO_ENABLED: publishAutoEnabled,
-    PUBLISH_AUTO_INTERVAL_MIN: publishAutoIntervalMin,
-    PUBLISH_AUTO_BATCH_SIZE: publishAutoBatchSize,
-
-    // legacy alias (내부 호환)
-    AUTO_MODE: blogAutoMode,
-    AUTO_INCLUDE_CATEGORIES: blogAutoCategories,
-    AUTO_CATEGORIES: blogAutoCategories,
-    AUTO_IMAGE_GENERATION: blogAutoImageGeneration,
-    AUTO_USE_EXTERNAL_REF: blogAutoExternalReference,
-    AUTO_TRENDS_VARIATION_INCLUDE_NEW: blogAutoVariationIncludeNew,
-    AUTO_TRENDS_VARIATION_INCLUDE_DASH: blogAutoVariationIncludeDash,
-    AUTO_TRENDS_VARIATION_INCLUDE_NUMBER: blogAutoVariationIncludeNumber,
-    AUTO_TRENDS_MIN_VARIATION: blogAutoVariationNumber,
-    AUTO_KEYWORD_REUSE_GAP_DAYS: blogAutoKeywordReuseGapDays,
-    AUTO_SHOPPING_ENABLED: shoppingAutoMode,
-    AUTO_MAX_SHOPPING_PER_CYCLE: shoppingAutoDailyPosts,
     // 🆕 데이터 소스 (GOOGLE 고정)
     DATA_SOURCE: 'GOOGLE',
 
