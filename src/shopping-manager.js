@@ -1626,10 +1626,10 @@ async function resolveCandidateUrl(url) {
     }
 }
 
-async function resolveCandidateUrlWithBrowser(url) {
+async function resolveCandidateUrlWithBrowser(url, headless = true) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser();
+        browser = await BrowserLauncher.launchBrowser({ headless });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
@@ -1644,10 +1644,32 @@ async function resolveCandidateUrlWithBrowser(url) {
         const finalUrl = page.url() || url;
         const html = await page.content();
 
+        // 🚀 [최적화] 같은 세션에서 리뷰 탭도 클릭해 추가 데이터 수집 (2번째 브라우저 방문 불필요)
+        let reviewHtml = null;
+        try {
+            const reviewTabSelectors = [
+                '[role="tab"]:has-text("리뷰")',
+                'button:has-text("리뷰")',
+                'a:has-text("리뷰")',
+                'li:has-text("리뷰")'
+            ];
+            for (const selector of reviewTabSelectors) {
+                const reviewTab = page.locator(selector).first();
+                if (await reviewTab.count() === 0) continue;
+                try { await reviewTab.scrollIntoViewIfNeeded({ timeout: 1000 }); } catch (ignore) { }
+                await reviewTab.click({ force: true, timeout: 2000 });
+                await page.waitForTimeout(1000);
+                break;
+            }
+            try { await page.waitForLoadState('networkidle', { timeout: 4000 }); } catch (ignore) { }
+            await page.waitForTimeout(1200);
+            reviewHtml = await page.content();
+        } catch (ignore) { }
+
         await context.close();
         await browser.close();
 
-        return { finalUrl, html };
+        return { finalUrl, html, reviewHtml };
     } catch (e) {
         if (browser) {
             try { await browser.close(); } catch (ignore) { }
@@ -1657,10 +1679,10 @@ async function resolveCandidateUrlWithBrowser(url) {
     }
 }
 
-async function resolveFinalUrlWithBrowser(url, referer = '') {
+async function resolveFinalUrlWithBrowser(url, referer = '', headless = true) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless: true });
+        browser = await BrowserLauncher.launchBrowser({ headless });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (referer) contextOptions.extraHTTPHeaders = { Referer: referer };
@@ -1682,10 +1704,10 @@ async function resolveFinalUrlWithBrowser(url, referer = '') {
     }
 }
 
-async function resolveReviewRichHtmlWithBrowser(url) {
+async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser();
+        browser = await BrowserLauncher.launchBrowser({ headless });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
@@ -2173,7 +2195,8 @@ function composeMarkdown({
     reviewData,
     relatedPosts = [],
     relatedHeading = '함께 보면 좋은 글',
-    enableRelatedPostsAutoLink = true
+    enableRelatedPostsAutoLink = true,
+    platform = 'naver'
 }) {
     const lines = [];
     const useFallbackStructure = !(Array.isArray(aiData.sections) && aiData.sections.length > 0);
@@ -2181,7 +2204,7 @@ function composeMarkdown({
     lines.push('');
 
     if (ftcImage) {
-        lines.push(buildImageBlock(ftcImage.index, '공정위 안내 이미지', 'affiliate disclosure image'));
+        lines.push(buildImageBlock(ftcImage.index, '공정위 안내 이미지', ftcImage.prompt));
         lines.push('');
     }
 
@@ -2199,7 +2222,14 @@ function composeMarkdown({
     const insertNextProductImage = () => {
         if (imageCursor >= productImages.length) return false;
         const image = productImages[imageCursor];
-        lines.push(buildImageBlock(image.index, image.title, image.prompt));
+        const imageBlock = buildImageBlock(image.index, image.title, image.prompt);
+
+        if (platform === 'wordpress' && shortUrl) {
+            // 워드프레스: 상품 이미지에 상품 URL 링크 적용 (CTR 향상)
+            lines.push(`[${imageBlock}](${shortUrl})`);
+        } else {
+            lines.push(imageBlock);
+        }
         lines.push('');
         imageCursor++;
         return true;
@@ -2264,7 +2294,13 @@ function composeMarkdown({
     const insertCtaImageBlock = () => {
         if (!Array.isArray(ctaImages) || ctaImageCursor >= ctaImages.length) return;
         const ctaImage = ctaImages[ctaImageCursor];
-        lines.push(buildImageBlock(ctaImage.index, ctaImage.title, ctaImage.prompt));
+        const imageBlock = buildImageBlock(ctaImage.index, ctaImage.title, ctaImage.prompt);
+
+        if (platform === 'wordpress' && shortUrl) {
+            lines.push(`[${imageBlock}](${shortUrl})`);
+        } else {
+            lines.push(imageBlock);
+        }
         lines.push('');
         ctaImageCursor++;
     };
@@ -2277,8 +2313,14 @@ function composeMarkdown({
         if (linksInserted === 0) {
             lines.push(`## ${normalizeWhitespace(aiData.ctaHeading || '') || '지금 바로 확인하고 혜택 받으세요!'}`);
         }
-        lines.push(`🛒 ${phrase}`);
-        lines.push(shortUrl);
+
+        if (platform === 'wordpress' && shortUrl) {
+            lines.push(`🛒 [${phrase}](${shortUrl})`);
+            // 워드프레스: 링크가 이미 문구에 적용되어 URL 단독 라인 불필요
+        } else {
+            lines.push(`🛒 ${phrase}`);
+            lines.push(shortUrl);
+        }
         lines.push('');
         linksInserted++;
     };
@@ -2340,22 +2382,47 @@ function composeMarkdown({
 
     // 구매 전환을 위해 마지막 본문 단락(추천 글 섹션 직전)에 CTA 링크를 한 번 더 고정 배치한다.
     const finalPhrase = ctaPhrases[linksInserted % ctaPhrases.length] || '지금 바로 혜택 확인하기';
-    lines.push(`🛒 ${finalPhrase}`);
-    lines.push(shortUrl);
+    if (platform === 'wordpress' && shortUrl) {
+        lines.push(`🛒 [${finalPhrase}](${shortUrl})`);
+    } else {
+        lines.push(`🛒 ${finalPhrase}`);
+        lines.push(shortUrl);
+    }
     lines.push('');
 
     if (enableRelatedPostsAutoLink) {
-        lines.push(`## ${relatedHeading}`);
-        if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
-            relatedPosts.slice(0, 3).forEach(post => {
-                const relatedUrl = normalizeWhitespace(post.url || '');
-                if (!/^https?:\/\//i.test(relatedUrl)) return;
-                lines.push(relatedUrl); // URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
-            });
+        if (platform === 'wordpress') {
+            // 워드프레스: 제목에 URL 링크 적용 (generateRelatedPostsMarkdown 형식과 동일)
+            lines.push(`## ${relatedHeading}`);
+            lines.push('');
+            if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
+                relatedPosts.slice(0, 3).forEach(post => {
+                    const relatedUrl = normalizeWhitespace(post.url || '');
+                    const relatedTitle = normalizeWhitespace(post.title || '');
+                    if (!/^https?:\/\//i.test(relatedUrl)) return;
+                    if (relatedTitle) {
+                        lines.push(`* [${relatedTitle}](${relatedUrl})`);
+                    } else {
+                        lines.push(`* ${relatedUrl}`);
+                    }
+                });
+            } else {
+                lines.push('* 관련 글 링크를 여기에 추가하세요');
+            }
         } else {
-            lines.push('https://blog.naver.com/여기에_링크_추가_1');
-            lines.push('https://blog.naver.com/여기에_링크_추가_2');
-            lines.push('https://blog.naver.com/여기에_링크_추가_3');
+            // 네이버: URL 단독 라인 -> 에디터 링크카드 자동 변환 대상
+            lines.push(`## ${relatedHeading}`);
+            if (Array.isArray(relatedPosts) && relatedPosts.length > 0) {
+                relatedPosts.slice(0, 3).forEach(post => {
+                    const relatedUrl = normalizeWhitespace(post.url || '');
+                    if (!/^https?:\/\//i.test(relatedUrl)) return;
+                    lines.push(relatedUrl);
+                });
+            } else {
+                lines.push('https://blog.naver.com/여기에_링크_추가_1');
+                lines.push('https://blog.naver.com/여기에_링크_추가_2');
+                lines.push('https://blog.naver.com/여기에_링크_추가_3');
+            }
         }
         lines.push('');
         lines.push('');
@@ -2468,6 +2535,8 @@ const ShoppingManager = {
         }
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
+        // 🔑 headless 설정: runtimeOptions에서 값을 읽어 스크래핑 브라우저에도 적용
+        const scrapingHeadless = typeof runtimeOptions.headless === 'boolean' ? runtimeOptions.headless : true;
         const initial = await resolveUrlAndHtml(shortUrl);
         let sourceHtml = initial.html;
         let finalUrl = initial.finalUrl;
@@ -2476,8 +2545,10 @@ const ShoppingManager = {
         let channelProductNo = extractChannelProductNo(finalUrl);
         let reviewEnrichedWithBrowser = false;
 
+        let browserResolvedReviewHtml = null; // 🚀 [최적화] 1차 브라우저 패스에서 리뷰 HTML을 이미 수집했을 때 재사용
+
         if (isLikelyInvalidLanding(productData, finalUrl)) {
-            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl);
+            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless);
             if (browserResolved) {
                 const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
                 sourceHtml = browserResolved.html || sourceHtml;
@@ -2488,6 +2559,10 @@ const ShoppingManager = {
                 }
                 if (!channelProductNo) {
                     channelProductNo = extractChannelProductNo(browserResolved.finalUrl);
+                }
+                // 🚀 1차 브라우저 패스에서 수집한 리뷰 HTML 보존
+                if (browserResolved.reviewHtml) {
+                    browserResolvedReviewHtml = browserResolved.reviewHtml;
                 }
             }
         }
@@ -2513,9 +2588,17 @@ const ShoppingManager = {
         const needsReviewEnrichment = !hasCoreReviewMetrics || (reviewSampleCount < 1 && reviewHighlightCount < 2);
         if (needsReviewEnrichment) {
             Logger.info('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
-            // #REVIEW 앵커가 붙은 URL은 네비게이션 왕복이 늘어날 수 있어 정규화해서 진입한다.
             const reviewTargetUrl = String(finalUrl || '').replace(/#.*$/, '');
-            const reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl);
+
+            // 🚀 [최적화] 1차 브라우저 패스에서 이미 수집한 리뷰 HTML이 있으면 재사용 (2번째 브라우저 방문 생략)
+            let reviewResolved;
+            if (browserResolvedReviewHtml) {
+                Logger.info('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
+                reviewResolved = { finalUrl: reviewTargetUrl, html: browserResolvedReviewHtml };
+            } else {
+                reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless);
+            }
+
             if (reviewResolved?.html) {
                 const reviewCandidate = extractProductData(reviewResolved.finalUrl || reviewTargetUrl || finalUrl, reviewResolved.html);
                 const mergedReviewData = mergeProductData(productData, reviewCandidate);
@@ -2536,14 +2619,14 @@ const ShoppingManager = {
 
         const titleBase = productData.title || `쇼핑 리뷰 (${getHostLabel(finalUrl)})`;
 
-        const wsDir = CONFIG.WORKSPACE_DIR || path.join(process.cwd(), 'workspace');
+        const wsDir = Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform);
         const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
         const safeTitle = Utils.sanitizeFileName(titleBase);
         const targetDir = path.join(wsDir, `${timestamp}_${safeTitle}`);
-        fs.mkdirSync(targetDir, { recursive: true });
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
         const productImages = [];
-        let nextImageIndex = 1;
+        let nextImageIndex = 0;
         for (const imageUrl of productData.imageUrls) {
             if (productImages.length >= imageLimit) break;
             try {
@@ -2564,9 +2647,10 @@ const ShoppingManager = {
         let ftcImage = null;
         if (ftcImageUrl) {
             try {
-                const ftcPath = await downloadImage(ftcImageUrl, targetDir, 0, 'ftc_disclosure', finalUrl, { skipQualityCheck: true });
+                const ftcIndex = nextImageIndex++;
+                const ftcPath = await downloadImage(ftcImageUrl, targetDir, ftcIndex, 'ftc_disclosure', finalUrl, { skipQualityCheck: true });
                 const transformedFtcPath = await transformShoppingImage(ftcPath);
-                ftcImage = { index: 0, path: transformedFtcPath };
+                ftcImage = { index: ftcIndex, path: transformedFtcPath, prompt: ftcImageUrl };
             } catch (e) {
                 throw new Error(`공정위 이미지 다운로드 실패: ${e.message}`);
             }
@@ -2623,15 +2707,32 @@ const ShoppingManager = {
             Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
         }
         const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
+        const shoppingPlatform = String(runtimeOptions.platform || 'naver').toLowerCase();
         let relatedPosts = [];
         let relatedHeading = Utils.pickRelatedPostsHeading();
         if (enableRelatedPostsAutoLink) {
-            Logger.info('🔎 [Shopping] 관련 글 자동 수집 중...');
-            relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
-            if (relatedPosts.length > 0) {
-                Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
+            if (shoppingPlatform === 'wordpress') {
+                Logger.info('🔎 [Shopping/WordPress] 하이브리드 관련 글 수집 중...');
+                try {
+                    const wpPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+                    const naverPosts = await Utils.fetchOwnBlogRandomPosts(2);
+                    relatedPosts = Utils._shuffleArray([...wpPosts, ...naverPosts]).slice(0, 3);
+                    if (relatedPosts.length > 0) {
+                        Logger.info(`🔗 [Shopping/WordPress] 관련 글 ${relatedPosts.length}개 수집 완료`);
+                    } else {
+                        Logger.info('ℹ️ [Shopping/WordPress] 관련 글 수집 결과 없음');
+                    }
+                } catch (e) {
+                    Logger.warn(`⚠️ [Shopping/WordPress] 관련 글 수집 중 오류: ${e.message}`);
+                }
             } else {
-                Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
+                Logger.info('🔎 [Shopping] 네이버 관련 글 자동 수집 중...');
+                relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+                if (relatedPosts.length > 0) {
+                    Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
+                } else {
+                    Logger.info('ℹ️ [Shopping] 관련 글 자동 수집 실패/없음: placeholder 유지');
+                }
             }
         } else {
             Logger.info('ℹ️ [Shopping] 관련 글 자동 링크 기능 비활성화 (플랜 정책)');
@@ -2648,7 +2749,8 @@ const ShoppingManager = {
             reviewData: productData.reviewData,
             relatedPosts,
             relatedHeading,
-            enableRelatedPostsAutoLink
+            enableRelatedPostsAutoLink,
+            platform: runtimeOptions.platform
         });
 
         fs.writeFileSync(path.join(targetDir, 'contents.md'), markdown, 'utf-8');

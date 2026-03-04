@@ -1208,15 +1208,32 @@ program
                         break;
                     }
 
-                    await Core.publishToBlog(result.targetDir, {
-                        affiliateUrl: job.shortUrl,
-                        requireAffiliateUrl: true,
-                        headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
-                        isLast: (i === targetJobs.length - 1)
-                    });
+                    const publishTargets = String(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS || 'naver')
+                        .split(',')
+                        .map(t => t.trim().toLowerCase());
+
+                    if (publishTargets.includes('naver')) {
+                        console.log("   📝 [Naver] 발행 시작...");
+                        await Core.publishToBlog(result.targetDir, {
+                            affiliateUrl: job.shortUrl,
+                            requireAffiliateUrl: true,
+                            headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+                            isLast: (i === targetJobs.length - 1)
+                        });
+                    }
+
+                    if (publishTargets.includes('wordpress')) {
+                        console.log("   📝 [WordPress] 발행 시작...");
+                        await Core.publishToWordPress(result.targetDir, {
+                            wpCategory: job.category || 'Shopping',
+                            postStatus: job.postStatus || 'publish',
+                            wpScheduleDate: job.scheduleDate || null
+                        });
+                    }
+
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
                     successCount++;
-                    console.log('✅ 쇼핑 포스팅 발행 버튼 처리 완료');
+                    console.log('✅ 쇼핑 포스팅 발행 처리 완료');
                 } catch (err) {
                     console.error(`❌ 쇼핑 URL 처리 실패: ${err.message}`);
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '실패');

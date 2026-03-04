@@ -304,7 +304,7 @@
 
           <div class="blog-quick-grid">
             <label class="blog-quick-field blog-quick-field-wide">
-              <span class="blog-quick-label">Subject (필수)</span>
+              <span class="blog-quick-label">Subject</span>
               <input id="quick-subject" type="text" placeholder="예: 맥모닝 메뉴 10년차 추천 조합">
             </label>
 
@@ -666,7 +666,8 @@
                       <input id="blog-collect-rss-toggle-all" type="checkbox" title="모두 선택/해제"
                         onchange="toggleAllRssConfigs(this.checked)">
                     </th>
-                    <th style="padding: 10px; text-align: left; width: 350px;">RSS URL</th>
+                    <th style="padding: 10px; text-align: left; width: 250px;">RSS URL</th>
+                    <th style="padding: 10px; text-align: left; width: 140px;">WP 카테고리</th>
                     <th style="padding: 10px; text-align: center; width: 80px;">주기(분)</th>
                     <th style="padding: 10px; text-align: left; width: 150px;">포함 키워드</th>
                     <th style="padding: 10px; text-align: left; width: 150px;">제외 키워드</th>
@@ -801,17 +802,60 @@
           </div>
 
           <div class="blog-quick-options">
-            <div class="target-platforms">
-              <span class="blog-quick-label">발행 대상:</span>
-              <label class="blog-quick-check"><input id="shopping-quick-target-naver" type="checkbox">
-                네이버 블로그</label>
-              <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox"> 워드프레스</label>
+            <div class="blog-quick-options-header" style="justify-content: flex-start; gap: 24px;">
+              <div class="target-platforms">
+                <span class="blog-quick-label">발행 대상:</span>
+                <label class="blog-quick-check"><input id="shopping-quick-target-naver" type="checkbox"> 네이버 블로그</label>
+                <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox"
+                    onchange="toggleShoppingQuickWpOptions()"> 워드프레스</label>
+              </div>
+              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
+              </label>
             </div>
-            <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
-              <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
-            </label>
-          </div>
 
+            <!-- WordPress Specific Options (Hidden by default) -->
+            <div id="shopping-quick-wp-options-panel" class="quick-wp-options-panel" style="display: none;">
+              <div class="quick-wp-options-grid">
+                <!-- WP Category (Custom Searchable Dropdown) -->
+                <div class="blog-quick-field">
+                  <span class="blog-quick-label">WP 카테고리</span>
+                  <div class="custom-select-container" id="shopping-quick-wp-category-container">
+                    <div class="custom-select-trigger" id="shopping-quick-wp-category-trigger">
+                      <span id="shopping-quick-wp-category-text">카테고리 선택...</span>
+                      <i class="chevron-down-icon"></i>
+                    </div>
+                    <div class="custom-select-menu" id="shopping-quick-wp-category-menu">
+                      <div class="custom-select-search">
+                        <input type="text" id="shopping-quick-wp-category-search-v2" placeholder="카테고리 검색..."
+                          autocomplete="off">
+                      </div>
+                      <div class="custom-select-options" id="shopping-quick-wp-category-options-v2">
+                        <!-- Options populated by JS -->
+                        <div class="custom-select-loading">불러오는 중...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- WP Post Status -->
+                <label class="blog-quick-field">
+                  <span class="blog-quick-label">WP 발행 상태</span>
+                  <select id="shopping-quick-wp-post-status" onchange="toggleShoppingQuickWpScheduleDate()">
+                    <option value="publish" selected>즉시 발행</option>
+                    <option value="draft">임시 저장</option>
+                    <option value="schedule">예약 발행</option>
+                  </select>
+                </label>
+
+                <!-- WP Schedule Date -->
+                <label id="shopping-quick-wp-schedule-date-field" class="blog-quick-field">
+                  <span class="blog-quick-label">WP 예약 일시</span>
+                  <input id="shopping-quick-wp-schedule-date" type="datetime-local" disabled>
+                </label>
+              </div>
+            </div>
+          </div>
           <div class="blog-quick-actions">
             <button id="shopping-quick-save-btn" class="secondary" type="button">글감 등록</button>
             <button id="shopping-quick-publish-btn" class="primary" type="button">글감 등록 &amp; 발행</button>
@@ -871,16 +915,20 @@
                         class="header-checkbox"></th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row
                     </th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="category" style="width:120px;">
+                      Category</th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="postStatus" style="width:100px;">
+                      Options</th>
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="scheduleDate" style="width:160px;">
+                      Schedule Date</th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:260px;">URL
                     </th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행
-                      로그
-                    </th>
+                      로그</th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="status" style="width:140px;">상태</th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행
-                      시간
-                    </th>
+                      시간</th>
                   </tr>
                 </thead>
                 <tbody id="shopping-table-body">
@@ -903,36 +951,65 @@
 
         <div class="card form-card shopping-tab-panel" id="shopping-tab-auto">
           <div class="auto-section">
-            <div class="auto-mode-inline">
+            <div class="auto-mode-inline" style="margin-bottom: 20px;">
               <label class="settings-checkbox-label settings-checkbox-inline">
-                <input id="shopping-auto-mode" type="checkbox">
-                <span>자동발행 사용</span>
+                <input id="shopping-publish-auto-enabled" type="checkbox">
+                <span style="font-weight: 600; font-size: 1.1rem;">자동 발행 사용</span>
               </label>
-              <label class="settings-checkbox-label settings-checkbox-inline" style="margin-left: 20px;"
-                title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다. (블로그 공통 설정)">
-                <input id="shopping-auto-headless" type="checkbox">
-                <span>보이지 않게 실행</span>
-              </label>
+              <div class="tooltip-container" style="display: inline-block; margin-left: 6px; vertical-align: middle;">
+                <span class="tooltip-icon">?</span>
+                <div class="tooltip-text">발행 준비 완료 상태인 쇼핑 글감을 정해진 주기에 맞춰 자동으로 발행합니다.</div>
+              </div>
             </div>
+
             <div class="form-grid">
-              <label>1회 최대 발행수
-                <input id="shopping-auto-daily-posts" type="number" min="0" step="1" placeholder="예: 3">
-                <small id="shopping-auto-daily-posts-hint" class="field-hint">플랜 최대 발행 개수를 확인하는 중...</small>
+              <label>발행 주기 (분)
+                <input id="shopping-publish-auto-interval" type="number" min="1" step="1" value="60"
+                  placeholder="예: 60">
               </label>
-              <label>자동 발행 시간
-                <input id="shopping-auto-time" type="time">
+
+              <label>1회 실행 시 연속 발행 건수
+                <input id="shopping-publish-auto-batch" type="number" min="1" step="1" value="1" placeholder="예: 1">
               </label>
-              <div class="auto-toggle-row">
+
+              <div class="auto-toggle-row" style="margin-top: 20px; align-items: center;">
+                <label class="settings-checkbox-label compact"
+                  title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다. (블로그 공통 설정)">
+                  <input id="shopping-publish-auto-headless" type="checkbox" checked>
+                  <span>보이지 않게 실행</span>
+                </label>
+
+                <div class="target-channels-group"
+                  style="margin-left: 20px; padding: 4px 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 0.9rem; color: var(--text-muted);">발행 대상:</span>
+                  <label class="settings-checkbox-label compact">
+                    <input id="shopping-publish-auto-target-naver" type="checkbox" data-shopping-publish-target="naver"
+                      checked>
+                    <span>네이버</span>
+                  </label>
+                  <label class="settings-checkbox-label compact">
+                    <input id="shopping-publish-auto-target-wordpress" type="checkbox"
+                      data-shopping-publish-target="wordpress">
+                    <span>워드프레스</span>
+                  </label>
+                </div>
+
+                <div style="flex: 1;"></div>
+
                 <label class="settings-checkbox-label compact">
-                  <input id="shopping-auto-notify-enabled" type="checkbox" disabled>
+                  <input id="shopping-publish-auto-notify-enabled" type="checkbox" disabled>
                   <span>완료 알림</span>
                 </label>
               </div>
             </div>
-          </div>
 
-          <div class="form-actions auto-actions">
-            <button id="shopping-auto-run-btn" class="secondary" type="button">수동 실행</button>
+            <div class="auto-manual-row"
+              style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <div class="auto-manual-inline">
+                <span class="field-label-text">수동 실행</span>
+              </div>
+              <button id="shopping-publish-auto-run-btn" class="secondary" type="button">수동 실행</button>
+            </div>
           </div>
 
           <div class="auto-section auto-log-section">

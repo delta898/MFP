@@ -69,7 +69,7 @@ const SHOPPING_AUTO_DEFAULTS = {
 };
 const AUTO_TRENDS_RETRY_WAIT_MS = 5 * 60 * 1000;
 const AUTO_TRENDS_MAX_RETRIES = 3;
-const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['BLOG_AUTO_CATEGORIES_MASTER', 'blog_auto_categories_master'];
+const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'BLOG_AUTO_CATEGORIES_MASTER', 'blog_auto_categories_master', 'naver_auto_categories_master'];
 const autoRuntimeState = {
     enabled: false,
     running: false,
@@ -784,28 +784,21 @@ async function resolveNaverAutoCategoryCatalog(options = {}) {
     try {
         const runtimeMap = await RuntimeConfig.fetchRuntimeConfig(BLOG_AUTO_CATEGORY_MASTER_KEYS, force);
         const masterValue = String(
-            runtimeMap?.BLOG_AUTO_CATEGORIES_MASTER
+            runtimeMap?.NAVER_AUTO_CATEGORIES_MASTER
+            || runtimeMap?.naver_auto_categories_master
+            || runtimeMap?.BLOG_AUTO_CATEGORIES_MASTER
             || runtimeMap?.blog_auto_categories_master
             || ''
         ).trim();
         runtimeCategories = parseCategoryListRaw(masterValue);
-    } catch (_e) { }
-
-    try {
-        const trendsRes = await Utils.readGoogleSheetTrendsAll({
-            q: '',
-            limit: 100000,
-            offset: 0,
-            sortBy: 'rowNumber',
-            sortDir: 'desc'
-        });
-        const items = Array.isArray(trendsRes?.items) ? trendsRes.items : [];
-        trendCategories = dedupeOrderedStrings(items.map((item) => String(item?.category || '').trim()));
-    } catch (_e) { }
+    } catch (_e) {
+        Logger.error(`🔍 [resolveNaverAutoCategoryCatalog] Supabase Fetch ERROR:`, _e);
+    }
 
     try {
         const fromConfig = normalizeBlogAutoSettings({});
-        configCategories = parseCategoryListRaw(fromConfig?.BLOG_AUTO_CATEGORIES || '');
+        // Use COLLECT_TRENDS_CATEGORIES as it is the normalized key
+        configCategories = parseCategoryListRaw(fromConfig?.COLLECT_TRENDS_CATEGORIES || '');
     } catch (_e) { }
 
     const categories = dedupeOrderedStrings([
@@ -987,7 +980,9 @@ function matchesAnyToken(text, tokens = []) {
 function normalizeCollectTrendsSettings(input = {}) {
     const categories = String(
         input.COLLECT_TRENDS_CATEGORIES
+        ?? input.BLOG_AUTO_CATEGORIES
         ?? CONFIG.COLLECT_TRENDS_CATEGORIES
+        ?? CONFIG.BLOG_AUTO_CATEGORIES
         ?? COLLECT_TRENDS_DEFAULTS.categories
     ).trim();
 
@@ -1043,6 +1038,7 @@ function normalizeCollectTrendsSettings(input = {}) {
     return {
         COLLECT_TRENDS_ENABLED: enabled,
         COLLECT_TRENDS_CATEGORIES: categories,
+        BLOG_AUTO_CATEGORIES: categories, // Compatibility alias
         COLLECT_TRENDS_TIME: time,
         COLLECT_TRENDS_REUSE_GAP_DAYS: reuseGapDays,
         COLLECT_TRENDS_FILTER_MIN_INCR: filterMinIncr,
@@ -1105,33 +1101,21 @@ function normalizeBlogAutoSettings(input = {}) {
         ...normalizePublishAutoSettings(input)
     };
 }
-
 function normalizeShoppingAutoSettings(input = {}) {
-    const hasModeKey = Object.prototype.hasOwnProperty.call(input, 'SHOPPING_AUTO_MODE');
-    const hasDailyPostsKey = Object.prototype.hasOwnProperty.call(input, 'SHOPPING_AUTO_DAILY_POSTS');
-
-    const mode = toBoolLike(
-        hasModeKey ? input.SHOPPING_AUTO_MODE : CONFIG.SHOPPING_AUTO_MODE,
-        toBoolLike(CONFIG.SHOPPING_AUTO_MODE, SHOPPING_AUTO_DEFAULTS.mode)
-    );
-    const dailyPosts = normalizeNonNegativeInt(
-        hasDailyPostsKey ? input.SHOPPING_AUTO_DAILY_POSTS : CONFIG.SHOPPING_AUTO_DAILY_POSTS,
-        normalizeNonNegativeInt(CONFIG.SHOPPING_AUTO_DAILY_POSTS, SHOPPING_AUTO_DEFAULTS.dailyPosts)
-    );
-    const time = normalizeTimeHHmm(
-        input.SHOPPING_AUTO_TIME,
-        normalizeTimeHHmm(CONFIG.SHOPPING_AUTO_TIME, SHOPPING_AUTO_DEFAULTS.time)
-    );
-    const notifyEnabled = toBoolLike(
-        input.SHOPPING_AUTO_NOTIFY_ENABLED,
-        toBoolLike(CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED, SHOPPING_AUTO_DEFAULTS.notifyEnabled)
-    );
+    const enabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_ENABLED ?? input.SHOPPING_AUTO_MODE, CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED);
+    const interval = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN, CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN);
+    const batchSize = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? input.SHOPPING_AUTO_DAILY_POSTS, CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE);
+    const headless = toBoolLike(input.SHOPPING_PUBLISH_AUTO_HEADLESS ?? input.SHOPPING_AUTO_HEADLESS, CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS);
+    const targets = String(input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
+    const notifyEnabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED, CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
 
     return {
-        SHOPPING_AUTO_MODE: mode,
-        SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-        SHOPPING_AUTO_TIME: time,
-        SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled
+        SHOPPING_PUBLISH_AUTO_ENABLED: enabled,
+        SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: interval,
+        SHOPPING_PUBLISH_AUTO_BATCH_SIZE: batchSize,
+        SHOPPING_PUBLISH_AUTO_HEADLESS: headless,
+        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targets,
+        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled
     };
 }
 
@@ -1220,9 +1204,14 @@ function buildMajorSettings(raw, configSource) {
         BLOG_AUTO_HEADLESS: parseConfigValue(raw, 'BLOG_AUTO_HEADLESS')
     });
     const shoppingAutoSettings = normalizeShoppingAutoSettings({
+        SHOPPING_PUBLISH_AUTO_ENABLED: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_ENABLED'),
         SHOPPING_AUTO_MODE: parseConfigValue(raw, 'SHOPPING_AUTO_MODE'),
+        SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_INTERVAL_MIN'),
+        SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_BATCH_SIZE'),
         SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'SHOPPING_AUTO_DAILY_POSTS'),
-        SHOPPING_AUTO_TIME: parseConfigValue(raw, 'SHOPPING_AUTO_TIME'),
+        SHOPPING_PUBLISH_AUTO_HEADLESS: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_HEADLESS'),
+        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS'),
+        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED'),
         SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'SHOPPING_AUTO_NOTIFY_ENABLED')
     });
     const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
@@ -1839,9 +1828,12 @@ async function executeQuickPublish(requestBody) {
     const publishMode = normalizePublishMode(requestBody?.publishMode);
     const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
-    if (!subject) {
-        return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 필수입니다.' };
+    if (!subject && (!keywords || keywords.length === 0) && !referenceUrl) {
+        return { success: false, code: 'INVALID_INPUT', message: 'Subject, Keywords, 참고 URL 중 최소 하나는 입력해야 합니다.' };
     }
+
+    // 내부 시스템이 subject를 필수처럼 다룰 수 있으므로, 비어있을 경우 대체값 부여
+    const finalSubject = subject || '(제목 미지정)';
 
     if (referenceUrl && !/^https?:\/\//i.test(referenceUrl)) {
         return { success: false, code: 'INVALID_REFERENCE_URL', message: '참고 URL 형식이 올바르지 않습니다. (http/https)' };
@@ -2090,6 +2082,8 @@ async function executeShoppingQuickPublish(requestBody = {}) {
     const shortUrl = String(requestBody?.shortUrl || requestBody?.url || '').trim();
     const product = String(requestBody?.product || '').trim();
     const publishMode = normalizePublishMode(requestBody?.publishMode);
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
     if (!shortUrl) {
         return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL은 필수입니다.' };
@@ -2112,7 +2106,10 @@ async function executeShoppingQuickPublish(requestBody = {}) {
     const appendResult = await Utils.appendGoogleSheetShopping([{
         shortUrl,
         product,
-        status: appendStatus
+        status: appendStatus,
+        category: (requestBody?.category || '').trim(),
+        postStatus: (requestBody?.postStatus || 'publish').trim(),
+        scheduleDate: (requestBody?.scheduleDate || '').trim()
     }], {
         defaultStatus: appendStatus
     });
@@ -2159,7 +2156,7 @@ async function executeShoppingQuickPublish(requestBody = {}) {
     }
 
     const result = await executeShoppingRowAction(
-        { rowIndex, headless },
+        { rowIndex, headless, targets },
         { enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', true) }
     );
 
@@ -2610,13 +2607,17 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         }
 
         report('상태 업데이트: 발행 중');
-        emitProgress('상태 업데이트: 발행 중');
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
 
         report('쇼핑 콘텐츠 생성 중');
-        emitProgress('쇼핑 콘텐츠 생성 중');
+        const primaryPlatform = targets.includes('wordpress') ? 'wordpress' : 'naver';
+        const blogAutoSettings = getBlogAutoSettingsSnapshot();
+        const batchHeadless = typeof requestBody?.headless === 'boolean'
+            ? requestBody.headless : blogAutoSettings.BLOG_AUTO_HEADLESS;
         const runtimeOptions = {
-            enableRelatedPostsAutoLink: options.enableRelatedPostsAutoLink !== false
+            enableRelatedPostsAutoLink: options.enableRelatedPostsAutoLink !== false,
+            platform: primaryPlatform,
+            headless: batchHeadless
         };
         const buildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, runtimeOptions);
 
@@ -2633,9 +2634,6 @@ async function executeShoppingRowAction(requestBody, options = {}) {
             affiliateUrl: shortUrl,
             requireAffiliateUrl: true
         };
-        const blogAutoSettings = getBlogAutoSettingsSnapshot();
-        const batchHeadless = typeof requestBody?.headless === 'boolean'
-            ? requestBody.headless : blogAutoSettings.BLOG_AUTO_HEADLESS;
 
         if (targets.includes('naver')) {
             publishOptions.headless = batchHeadless;
@@ -2646,7 +2644,12 @@ async function executeShoppingRowAction(requestBody, options = {}) {
 
         if (targets.includes('wordpress')) {
             report('워드프레스 발행 단계 진행 중');
-            await Core.publishToWordPress(buildResult.targetDir, { category: 'Shopping' });
+            await Core.publishToWordPress(buildResult.targetDir, {
+                wpCategory: target.category || 'Shopping',
+                postStatus: target.postStatus || 'publish',
+                wpScheduleDate: target.scheduleDate || null,
+                headless: batchHeadless
+            });
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
         }
 
@@ -2722,6 +2725,7 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
     const targetRowIndices = rowIndices.slice(0, effectiveMax);
     const skippedByLimit = rowIndices.slice(effectiveMax);
     const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
     const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
     targetRowIndices.forEach((rowIndex, i) => {
@@ -2736,11 +2740,10 @@ async function executeShoppingBatchRowsAction(requestBody = {}) {
         const rowIndex = targetRowIndices[i];
         setShoppingRuntimeLog(rowIndex, `처리 시작 (${i + 1}/${targetRowIndices.length})`);
         const result = await executeShoppingRowAction(
-            { rowIndex, targets },
+            { rowIndex, targets, headless, isLast: (i === targetRowIndices.length - 1) },
             {
                 enableRelatedPostsAutoLink,
-                onProgress: (message) => setShoppingRuntimeLog(rowIndex, message),
-                isLast: (i === targetRowIndices.length - 1)
+                onProgress: (message) => setShoppingRuntimeLog(rowIndex, message)
             }
         );
 
@@ -2868,9 +2871,13 @@ async function executeShoppingRowUpdate(requestBody = {}) {
         return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
     }
 
-    const product = String(requestBody?.product || '').trim();
-    const shortUrl = String(requestBody?.shortUrl || '').trim();
-    const status = String(requestBody?.status || '').trim();
+    const product = requestBody?.product !== undefined ? String(requestBody.product || '').trim() : undefined;
+    const shortUrl = requestBody?.shortUrl !== undefined ? String(requestBody.shortUrl || '').trim() : undefined;
+    const status = requestBody?.status !== undefined ? String(requestBody.status || '').trim() : undefined;
+    const category = requestBody?.category !== undefined ? String(requestBody.category || '').trim() : undefined;
+    const postStatus = requestBody?.postStatus !== undefined ? String(requestBody.postStatus || '').trim() : undefined;
+    const scheduleDate = requestBody?.scheduleDate !== undefined ? String(requestBody.scheduleDate || '').trim() : undefined;
+
     const allowedStatus = new Set(['준비', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
 
     if (shortUrl && !/^https?:\/\//i.test(shortUrl)) {
@@ -2879,12 +2886,18 @@ async function executeShoppingRowUpdate(requestBody = {}) {
     if (status && !allowedStatus.has(status)) {
         return { success: false, code: 'INVALID_STATUS', message: '상태 값이 올바르지 않습니다.' };
     }
+    if (postStatus && !['publish', 'draft', 'private', 'future', 'schedule'].includes(postStatus)) {
+        // schedule is often used as a synonym for future in this app
+    }
 
     try {
         await Utils.updateGoogleSheetShoppingEditableFields(rowIndex, {
             product,
             shortUrl,
-            status
+            status,
+            category,
+            postStatus,
+            scheduleDate
         });
         return {
             success: true,
@@ -3295,7 +3308,6 @@ function syncTrendsRunner() {
     if (!trendsRuntimeState.enabled) {
         trendsRuntimeState.status = 'stopped';
         trendsRuntimeState.nextRunAt = null;
-        Logger.info('ℹ️ [AUTO][Producer] 트렌드 자동 수집 비활성화됨');
         return;
     }
 
@@ -3341,7 +3353,6 @@ function syncRssRunner() {
     if (!rssRuntimeState.enabled) {
         rssRuntimeState.status = 'stopped';
         rssRuntimeState.nextRunAt = null;
-        Logger.info('ℹ️ [AUTO][Producer] RSS 자동 수집 비활성화됨');
         return;
     }
 
@@ -3418,7 +3429,6 @@ function syncPublishRunner() {
     if (!publishRuntimeState.enabled) {
         publishRuntimeState.status = 'stopped';
         publishRuntimeState.nextRunAt = null;
-        Logger.info('ℹ️ [AUTO][Consumer] 자동 발행 비활성화됨');
         return;
     }
 
@@ -3482,25 +3492,12 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
         const parsed = parseInt(delayMs, 10);
         waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
     } else {
-        const timeStr = String(settings.SHOPPING_AUTO_TIME || '07:50').split(':');
-        const targetHour = parseInt(timeStr[0] || '7', 10);
-        const targetMin = parseInt(timeStr[1] || '50', 10);
-
-        const now = new Date();
-        const target = new Date(now);
-        target.setHours(targetHour, targetMin, 0, 0);
-
-        if (target.getTime() <= now.getTime()) {
-            target.setDate(target.getDate() + 1);
-        }
-
-        waitMs = target.getTime() - now.getTime();
+        const intervalMin = parseInt(settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60, 10);
+        waitMs = intervalMin * 60 * 1000;
         waitMs = Math.max(60 * 1000, waitMs);
 
         const waitMinutes = Math.floor(waitMs / (60 * 1000));
-        const waitHours = Math.floor(waitMinutes / 60);
-        const remainMins = waitMinutes % 60;
-        Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: ${target.toLocaleString()} (약 ${waitHours}시간 ${remainMins}분 대기)`);
+        Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: 약 ${waitMinutes}분 후 실행`);
     }
 
     shoppingAutoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
@@ -3540,11 +3537,10 @@ function startShoppingAutoRunner(reason = '쇼핑 자동 모드 시작') {
 
 function syncShoppingAutoRunnerWithConfig() {
     const settings = normalizeShoppingAutoSettings(CONFIG);
-    if (settings.SHOPPING_AUTO_MODE) {
-        const timeStr = String(settings.SHOPPING_AUTO_TIME || '07:50');
-        startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (목표시간: ${timeStr})`);
+    if (settings.SHOPPING_PUBLISH_AUTO_ENABLED) {
+        startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (주기: ${settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN}분)`);
     } else {
-        stopShoppingAutoRunner('SHOPPING_AUTO_MODE가 비활성화되어 있습니다.');
+        stopShoppingAutoRunner('SHOPPING_PUBLISH_AUTO_ENABLED가 비활성화되어 있습니다.');
     }
 }
 
@@ -3574,8 +3570,8 @@ async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
     };
 
     try {
-        const settings = normalizeShoppingAutoSettings(CONFIG);
-        if (!settings.SHOPPING_AUTO_MODE && !forceRun) {
+        const settings = normalizeShoppingAutoSettings({ ...CONFIG, ...(options?.settingsOverrides || {}) });
+        if (!settings.SHOPPING_PUBLISH_AUTO_ENABLED && !forceRun) {
             stopShoppingAutoRunner('설정에 따라 쇼핑 자동 모드 비활성화');
             return { success: false, code: 'SHOPPING_AUTO_DISABLED_BY_CONFIG', message: '쇼핑 자동 모드가 비활성화되어 있습니다.' };
         }
@@ -4397,7 +4393,9 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
                     use_external_ref: false,
                     image_options: { generate: true, count: 4 },
                     source: 'rss',
-                    status: '발행 준비 완료'
+                    status: '발행 준비 완료',
+                    wp_category: String(config.wpCategory || '').trim() || '',
+                    postStatus: 'publish'
                 });
                 existingLinks.add(normalizedLink); // 현재 세션 내 중복 방지
             }

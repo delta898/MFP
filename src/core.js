@@ -1585,20 +1585,7 @@ ${scrapedContext}`;
 		if (customDir) {
 			targetDir = path.resolve(customDir);
 		} else {
-			const wsBase = CONFIG.WORKSPACE_DIR || Constants.WORKSPACE_DIR;
-			const platform = String(runtimeOptions.platform || 'naver').toLowerCase();
-			let platformDir;
-			if (platform === 'wordpress') {
-				// wp_blog.hangadac.com (hostname only, no protocol)
-				const wpUrl = String(CONFIG.WORDPRESS_URL || '').trim();
-				const domain = wpUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '') || 'wp_unknown';
-				platformDir = `wp_${domain}`;
-			} else {
-				// naver_amadejjs
-				const naverId = String(CONFIG.NAVER_ID || '').trim();
-				platformDir = naverId ? `naver_${naverId}` : 'naver';
-			}
-			const wsDir = path.join(wsBase, platformDir);
+			const wsDir = Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform);
 			const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
 			targetDir = path.join(wsDir, `${timestamp}_${safeSubject}`);
 		}
@@ -1654,8 +1641,8 @@ ${scrapedContext}`;
 	},
 
 	/**
- * 3. 블로그 발행 (Publish)
- */
+	* 3. 블로그 발행 (Publish)
+	*/
 	publishToBlog: async function (dirPath, options = {}) {
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
@@ -1914,12 +1901,11 @@ ${scrapedContext}`;
 				}
 				else if (item.type === 'image') {
 					await dismissEditorPopups(page);
-					const prefix = String(item.index).padStart(2, '0');
-					// 🔧 [Fixed] 미리 스캔한 파일 목록 사용
-					const file = allFiles.find(f => f.startsWith(`${prefix}_`) && /\.(png|jpg|jpeg|webp)$/i.test(f));
+					const file = Utils.findImageByPrefix(dirPath, item.index);
 
 					if (file) {
-						Logger.info(`       🖼️ 이미지 업로드: ${file}`);
+						const fileNameOnly = path.basename(file);
+						Logger.info(`       🖼️ 이미지 업로드: ${fileNameOnly}`);
 						const fileChooserPromise = page.waitForEvent('filechooser');
 						const photoBtn = page.locator('button.se-image-toolbar-button, button:has-text("사진")').first();
 
@@ -1927,7 +1913,7 @@ ${scrapedContext}`;
 							const imageCountBefore = await getEditorImageCount(page);
 							await photoBtn.click();
 							const chooser = await fileChooserPromise;
-							await chooser.setFiles(path.join(dirPath, file));
+							await chooser.setFiles(file);
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
 							await Utils.sleep(uploadWait);
@@ -2188,16 +2174,39 @@ ${scrapedContext}`;
 		Logger.info(`🖼️ [WordPress] 이미지 업로드 프로세스 시작 (총 ${imageBlocks.length}개)`);
 
 		for (const block of imageBlocks) {
-			const prefix = String(block.index).padStart(2, '0');
-			const possibleFiles = [
-				path.join(dirPath, `${prefix}_image.jpg`),
-				path.join(dirPath, `${prefix}_image.png`),
-				path.join(dirPath, `${prefix}_image.jpeg`)
-			];
-			const imagePath = possibleFiles.find(f => fs.existsSync(f));
+			// 🚀 [WordPress Asset Caching] FTC/CTA 이미지인 경우 영구 URL 재사용 확인
+			let permanentUrl = null;
+			let permanentKey = null;
 
-			if (!imagePath) {
-				Logger.warn(`⚠️ [WordPress] 이미지 파일을 찾을 수 없음: ${prefix}_image`);
+			const promptUrl = String(block.prompt || '').trim();
+			if (promptUrl && promptUrl === String(CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim()) {
+				permanentKey = 'WP_PERMANENT_FTC_URL';
+			} else if (promptUrl && promptUrl === String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || '').trim()) {
+				permanentKey = 'WP_PERMANENT_CTA_URL1';
+			} else if (promptUrl && promptUrl === String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || '').trim()) {
+				permanentKey = 'WP_PERMANENT_CTA_URL2';
+			} else if (promptUrl && promptUrl === String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || '').trim()) {
+				permanentKey = 'WP_PERMANENT_CTA_URL3';
+			}
+
+			if (permanentKey && CONFIG[permanentKey]) {
+				permanentUrl = CONFIG[permanentKey];
+				Logger.info(`♻️ [WordPress] 영구 자산 재사용 (Key: ${permanentKey}, URL: ${permanentUrl})`);
+			}
+
+			if (permanentUrl) {
+				uploadResults.set(block.index, { url: permanentUrl, alt: block.title });
+				// Markdown 치환
+				const mdImageTag = `![${block.title}](${permanentUrl})`;
+				finalMarkdown = finalMarkdown.replace(block.fullTag, mdImageTag);
+				continue;
+			}
+
+			const imagePath = Utils.findImageByPrefix(dirPath, block.index);
+
+			if (!imagePath || !fs.existsSync(imagePath)) {
+				const prefix = String(block.index).padStart(2, '0');
+				Logger.warn(`⚠️ [WordPress] 이미지 파일을 찾을 수 없음 (Index: ${prefix})`);
 				warnings.push(`이미지 ${block.index}번 누락`);
 				continue;
 			}
@@ -2219,7 +2228,17 @@ ${scrapedContext}`;
 					url: uploadRes.url,
 					alt: block.title
 				});
-				if (featuredMediaId === null) featuredMediaId = uploadRes.id;
+
+				// 영구 자산인 경우 URL 캐싱
+				if (permanentKey) {
+					Utils.updateConfigValue(permanentKey, uploadRes.url);
+					Logger.info(`💾 [WordPress] 영구 자산 캐싱 완료 (Key: ${permanentKey})`);
+				}
+
+				// 대표 이미지는 제품 이미지만 대상으로 함 (FTC/CTA 제외)
+				if (featuredMediaId === null && !permanentKey) {
+					featuredMediaId = uploadRes.id;
+				}
 
 				// Markdown 치환
 				const mdImageTag = `![${block.title}](${uploadRes.url})`;

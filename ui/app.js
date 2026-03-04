@@ -2148,14 +2148,20 @@ function renderBlogShoppingTable(items) {
     const checked = blogShoppingSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
     const product = escapeHtml(item.product || '');
     const shortUrl = escapeHtml(item.shortUrl || '');
-    const runtimeLog = escapeHtml(item.runtimeLog || '');
+    const runtimeLog = escapeHtml(item.runtimeLog || ''); // use runtimeLog field from API
     const status = escapeHtml(item.status || '');
     const publishedAt = escapeHtml(item.publishedAt || '');
+    const category = escapeHtml(item.category || '');
+    const postStatus = escapeHtml(item.postStatus || 'publish');
+    const scheduleDate = escapeHtml(item.scheduleDate || '');
     const runningClass = runtimeLog ? 'running-row' : '';
     return `
       <tr class="${runningClass}" data-row-index="${item.rowIndex}">
         <td><input type="checkbox" class="shopping-row-selector" value="${item.rowIndex}" ${checked}></td>
         <td>${item.rowNumber}</td>
+        <td class="editable-cell" data-field="category">${category || '-'}</td>
+        <td class="editable-cell" data-field="postStatus">${postStatus || '-'}</td>
+        <td class="editable-cell" data-field="scheduleDate">${scheduleDate || '-'}</td>
         <td class="editable-cell" data-field="product">${product || '-'}</td>
         <td class="editable-cell" data-field="shortUrl">${shortUrl || '-'}</td>
         <td class="runtime-log-cell">${runtimeLog || ''}</td>
@@ -2259,6 +2265,9 @@ function getShoppingEditableFieldValue(item, field) {
   if (field === 'product') return String(item.product || '');
   if (field === 'shortUrl') return String(item.shortUrl || '');
   if (field === 'status') return String(item.status || '');
+  if (field === 'category') return String(item.category || '');
+  if (field === 'postStatus') return String(item.postStatus || 'publish');
+  if (field === 'scheduleDate') return String(item.scheduleDate || '');
   return '';
 }
 
@@ -2281,9 +2290,12 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
 
   const payload = {
     rowIndex,
-    product: String((patch.product !== undefined ? patch.product : item.product) || '').trim(),
-    shortUrl: String((patch.shortUrl !== undefined ? patch.shortUrl : item.shortUrl) || '').trim(),
-    status: String((patch.status !== undefined ? patch.status : item.status) || '').trim()
+    product: patch.product !== undefined ? String(patch.product || '').trim() : item.product,
+    shortUrl: patch.shortUrl !== undefined ? String(patch.shortUrl || '').trim() : item.shortUrl,
+    status: patch.status !== undefined ? String(patch.status || '').trim() : item.status,
+    category: patch.category !== undefined ? String(patch.category || '').trim() : item.category,
+    postStatus: patch.postStatus !== undefined ? String(patch.postStatus || '').trim() : item.postStatus,
+    scheduleDate: patch.scheduleDate !== undefined ? String(patch.scheduleDate || '').trim() : item.scheduleDate
   };
 
   if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;
@@ -2304,7 +2316,11 @@ async function commitShoppingInlineEdit() {
     originalHtml
   } = shoppingInlineEditState;
 
-  const normalizedValue = String(editorEl?.value ?? '').trim();
+  let normalizedValue = String(editorEl?.value ?? '').trim();
+  if (field === 'scheduleDate' && normalizedValue) {
+    normalizedValue = normalizedValue.replace('T', ' ');
+    if (normalizedValue.length === 16) normalizedValue += ':00';
+  }
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) {
     shoppingInlineEditState = null;
@@ -2341,7 +2357,7 @@ async function startShoppingInlineEdit(cell) {
   const rowIndex = Number(row.dataset.rowIndex);
   const field = String(cell.dataset.field || '');
   if (!Number.isInteger(rowIndex)) return;
-  if (!['product', 'shortUrl', 'status'].includes(field)) return;
+  if (!['product', 'shortUrl', 'status', 'category', 'postStatus', 'scheduleDate'].includes(field)) return;
 
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) return;
@@ -2358,30 +2374,58 @@ async function startShoppingInlineEdit(cell) {
 
   const originalHtml = cell.innerHTML;
   const initialValue = getShoppingEditableFieldValue(item, field);
-  let editorEl;
+  const multiline = false; // 쇼핑 테이블은 아직 멀티라인 필드 없음
+  const useSelect = ['status', 'postStatus', 'category'].includes(field);
+  const isDateTime = field === 'scheduleDate';
 
-  if (field === 'status') {
+  if (useSelect) {
     editorEl = document.createElement('select');
     editorEl.className = 'inline-editor';
-    const options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '실패'];
+    let options = [];
+    if (field === 'status') {
+      options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '실패'];
+    } else if (field === 'postStatus') {
+      options = ['publish', 'draft', 'schedule'];
+    } else if (field === 'category') {
+      options = [''];
+      if (blogWpCategoriesCache) {
+        options = ['', ...blogWpCategoriesCache.map(c => c.name)];
+      } else {
+        fetchWpCategoriesSilently();
+      }
+      if (initialValue && !options.includes(initialValue)) {
+        options.push(initialValue);
+      }
+    }
+
     for (const optionValue of options) {
       const opt = document.createElement('option');
       opt.value = optionValue;
-      opt.textContent = optionValue || '(비움)';
+      opt.textContent = optionValue || (field === 'category' ? '(기본)' : '(비움)');
       if (optionValue === initialValue) opt.selected = true;
       editorEl.appendChild(opt);
     }
   } else {
     editorEl = document.createElement('input');
-    editorEl.type = 'text';
-    editorEl.className = 'inline-editor';
-    editorEl.value = initialValue;
+    if (isDateTime) {
+      editorEl.type = 'datetime-local';
+    } else {
+      editorEl.type = 'text';
+    }
+    editorEl.className = `inline-editor ${isDateTime ? 'datetime' : ''}`.trim();
+
+    // scheduleDate 포맷 변환 (YYYY-MM-DD HH:mm:ss -> YYYY-MM-DDTHH:mm)
+    let val = initialValue;
+    if (isDateTime && val) {
+      val = val.replace(' ', 'T').substring(0, 16);
+    }
+    editorEl.value = val;
   }
 
   cell.innerHTML = '';
   cell.appendChild(editorEl);
   editorEl.focus();
-  editorEl.select?.();
+  if (!useSelect) editorEl.select?.();
 
   shoppingInlineEditState = {
     rowIndex,
@@ -2489,11 +2533,11 @@ function applySettingsMajorToForm(data) {
   const blogPublishAutoBatchEl = document.getElementById('blog-publish-auto-batch');
   const blogPublishAutoIntervalEl = document.getElementById('blog-publish-auto-interval');
   const blogPublishAutoHeadlessEl = document.getElementById('blog-publish-auto-headless');
-  const blogPublishAutoNotifyEnabledEl = document.getElementById('blog-publish-auto-notify-enabled');
-  const shoppingAutoModeEl = document.getElementById('shopping-auto-mode');
-  const shoppingAutoDailyPostsEl = document.getElementById('shopping-auto-daily-posts');
-  const shoppingAutoTimeEl = document.getElementById('shopping-auto-time');
-  const shoppingAutoNotifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
+  const shoppingPublishAutoEnabledEl = document.getElementById('shopping-publish-auto-enabled');
+  const shoppingPublishAutoBatchEl = document.getElementById('shopping-publish-auto-batch');
+  const shoppingPublishAutoIntervalEl = document.getElementById('shopping-publish-auto-interval');
+  const shoppingPublishAutoHeadlessEl = document.getElementById('shopping-publish-auto-headless');
+  const shoppingPublishAutoNotifyEnabledEl = document.getElementById('shopping-publish-auto-notify-enabled');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -2542,20 +2586,22 @@ function applySettingsMajorToForm(data) {
     el.checked = targetChannels.includes(el.getAttribute('data-publish-target'));
   });
 
-  if (blogPublishAutoHeadlessEl) blogPublishAutoHeadlessEl.checked = Boolean(fields.PUBLISH_AUTO_HEADLESS ?? true);
+  if (shoppingPublishAutoEnabledEl) shoppingPublishAutoEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_ENABLED);
+  if (shoppingPublishAutoBatchEl) shoppingPublishAutoBatchEl.value = String(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
+  if (shoppingPublishAutoIntervalEl) shoppingPublishAutoIntervalEl.value = String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
 
-  if (shoppingAutoModeEl) shoppingAutoModeEl.checked = Boolean(fields.SHOPPING_AUTO_MODE);
-  if (shoppingAutoDailyPostsEl) shoppingAutoDailyPostsEl.value = String(fields.SHOPPING_AUTO_DAILY_POSTS || 0);
-  if (shoppingAutoTimeEl) shoppingAutoTimeEl.value = String(fields.SHOPPING_AUTO_TIME || '07:50');
+  const shoppingTargetChannels = String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
+  document.querySelectorAll('[data-shopping-publish-target]').forEach(el => {
+    el.checked = shoppingTargetChannels.includes(el.getAttribute('data-shopping-publish-target'));
+  });
+
+  if (shoppingPublishAutoHeadlessEl) shoppingPublishAutoHeadlessEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
+  if (shoppingPublishAutoNotifyEnabledEl) shoppingPublishAutoNotifyEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
   syncBlogAutoVariationTypeUi();
   if (blogCollectTrendsReuseGapEl) {
     const rawReuseGap = fields.COLLECT_TRENDS_REUSE_GAP_DAYS || fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS;
     const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
     blogCollectTrendsReuseGapEl.value = String(normalizedReuseGap);
-  }
-  if (shoppingAutoNotifyEnabledEl) {
-    shoppingAutoNotifyEnabledEl.checked = false;
-    shoppingAutoNotifyEnabledEl.disabled = true;
   }
   applyShoppingAutoDailyPostsLimitUi();
   syncBlogAutoVariationNumberUi();
@@ -2618,10 +2664,13 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(','),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
 
-    // Shopping Auto
-    SHOPPING_AUTO_MODE: Boolean(document.getElementById('shopping-auto-mode')?.checked),
-    SHOPPING_AUTO_DAILY_POSTS: parseInt(document.getElementById('shopping-auto-daily-posts')?.value || '0', 10),
-    SHOPPING_AUTO_TIME: (document.getElementById('shopping-auto-time')?.value || '07:50').trim()
+    // Shopping Auto Refined
+    SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('shopping-publish-auto-enabled')?.checked),
+    SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('shopping-publish-auto-interval')?.value || '60', 10),
+    SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('shopping-publish-auto-batch')?.value || '1', 10),
+    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')).join(','),
+    SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('shopping-publish-auto-headless')?.checked),
+    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked)
   };
 }
 
@@ -3368,10 +3417,30 @@ window.openRssTest = function (index) {
   const url = currentRssConfigs[index]?.url;
   if (url) window.open(url, '_blank');
 };
+function buildWpCategorySelectHtml(selectedValue, index) {
+  if (!blogWpCategoriesCache) return `<select onchange="updateRssConfig(${index}, 'wpCategory', this.value)" style="width: 100%; min-height: 32px; box-sizing: border-box;"><option value="">불러오는 중...</option></select>`;
+  let opts = `<option value="">미지정</option>`;
+  blogWpCategoriesCache.forEach(c => {
+    const sel = (c.name === selectedValue) ? 'selected' : '';
+    opts += `<option value="${c.name}" ${sel}>${c.name} (${c.count})</option>`;
+  });
+  return `<select onchange="updateRssConfig(${index}, 'wpCategory', this.value)" style="width: 100%; min-height: 32px; box-sizing: border-box;">${opts}</select>`;
+}
+
 function renderBlogCollectRssUi(configs = []) {
   currentRssConfigs = Array.isArray(configs) ? configs : [];
   const tbody = document.getElementById('blog-collect-rss-tbody');
   if (!tbody) return;
+
+  // Attempt to load WP categories asynchronously if needed
+  if (!blogWpCategoriesCache && !window._wpCatFetchTriggeredForRss) {
+    window._wpCatFetchTriggeredForRss = true;
+    fetchWpCategoriesSilently().finally(() => {
+      if (!blogWpCategoriesCache) blogWpCategoriesCache = []; // Default to empty array to prevent refetch loops
+      renderBlogCollectRssUi(currentRssConfigs);
+    });
+  }
+
   tbody.innerHTML = '';
 
   // 헤더 체크박스 상태 동기화
@@ -3381,7 +3450,7 @@ function renderBlogCollectRssUi(configs = []) {
   }
 
   if (currentRssConfigs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">등록된 RSS 피드가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">등록된 RSS 피드가 없습니다.</td></tr>';
     return;
   }
   currentRssConfigs.forEach((rss, index) => {
@@ -3393,6 +3462,9 @@ function renderBlogCollectRssUi(configs = []) {
       </td>
       <td style="padding: 10px;">
         <input type="url" placeholder="RSS URL" value="${rss.url || ''}" onchange="updateRssConfig(${index}, 'url', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+      </td>
+      <td style="padding: 10px;">
+        ${buildWpCategorySelectHtml(rss.wpCategory, index)}
       </td>
       <td style="padding: 10px; text-align: center;">
         <input type="number" min="1" step="1" value="${rss.interval || 60}" onchange="updateRssConfig(${index}, 'interval', parseInt(this.value, 10))" style="width: 60px; min-height: 32px; text-align: center;">
@@ -3989,10 +4061,8 @@ async function runShoppingAutoManual() {
   if (shoppingAutoManualRunInFlight) return;
 
   const resultEl = document.getElementById('shopping-auto-result');
-  const modeEl = document.getElementById('shopping-auto-mode');
-  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
-  const timeEl = document.getElementById('shopping-auto-time');
-  const notifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
+  const batchEl = document.getElementById('shopping-publish-auto-batch');
+  const headlessEl = document.getElementById('shopping-publish-auto-headless');
 
   const shouldProceed = await showUiConfirm('쇼핑커넥트 자동발행 파이프라인을 수동 실행하시겠습니까?', {
     title: '수동 실행 확인',
@@ -4004,35 +4074,33 @@ async function runShoppingAutoManual() {
     return;
   }
 
+  const batchSize = parseInt((batchEl?.value || '1').trim(), 10) || 1;
+  const targets = Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')).join(',');
+  const headless = Boolean(headlessEl?.checked);
+
   shoppingAutoManualRunInFlight = true;
-  if (resultEl) resultEl.textContent = '수동 실행 중...';
+  if (resultEl) resultEl.textContent = '쇼핑 자동발행 파이프라인 실행 중...';
   pauseDashboardPolling();
   try {
-    const dailyPosts = normalizeShoppingAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
-    const settingsOverrides = {
-      SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
-      SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-      SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
-      SHOPPING_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
-    };
-    const data = await postJson('/api/v1/shopping/auto/run-manual', { settingsOverrides });
+    const data = await postJson('/api/v1/auto/shopping/run', {
+      settingsOverrides: {
+        SHOPPING_PUBLISH_AUTO_BATCH_SIZE: batchSize,
+        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targets,
+        SHOPPING_PUBLISH_AUTO_HEADLESS: headless
+      }
+    });
     const summary = data?.summary || {};
-    const skipped = Array.isArray(summary?.skipped) ? summary.skipped : [];
     const lines = [
-      '수동 실행 완료',
-      `- 쇼핑 발행 시도/성공: ${Number(summary?.shoppingAttempted || 0)} / ${Number(summary?.shoppingSuccess || 0)}건`
+      '쇼핑 수동 실행 완료',
+      `- 시도/성공: ${Number(summary?.attempted || 0)} / ${Number(summary?.success || 0)}건`
     ];
-    if (skipped.length > 0) {
-      lines.push('- 건너뜀/주의:');
-      for (const item of skipped) lines.push(`  • ${String(item)}`);
-    }
     if (resultEl) resultEl.textContent = lines.join('\n');
     await Promise.all([
       loadDashboard(),
       loadBlogShopping({ silent: true })
     ]);
   } catch (e) {
+    console.error('[Shopping][ManualRun] Failed:', e);
     if (resultEl) resultEl.textContent = `오류: ${e.message}`;
   } finally {
     shoppingAutoManualRunInFlight = false;
@@ -4226,6 +4294,17 @@ function bindActions() {
       }
     }
 
+    // [New] Require at least one of Subject, Keywords, or Reference URL
+    if (!dummyPayload.subject && !dummyPayload.keywords && !dummyPayload.referenceUrl) {
+      const msg = 'Subject, Keywords, 참고 URL 중 최소 하나는 입력해 주세요.';
+      if (resultEl) resultEl.textContent = `⚠️ ${msg}`;
+      showUiPopup(msg);
+      if (saveBtn) saveBtn.disabled = false;
+      if (publishBtn) publishBtn.disabled = false;
+      quickPublishInFlight = false;
+      return;
+    }
+
     const preCheck = checkPublishPrerequisites(dummyPayload.targets);
     if (!preCheck.ok) {
       resultEl.textContent = preCheck.message;
@@ -4294,13 +4373,22 @@ function bindActions() {
     const targets = [];
     if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
     if (document.getElementById('shopping-quick-target-wordpress')?.checked) targets.push('wordpress');
-    return {
+
+    const payload = {
       shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
       product: (shoppingQuickProductInput?.value || '').trim(),
       headless: Boolean(document.getElementById('shopping-quick-headless')?.checked),
       publishMode: mode,
       targets
     };
+
+    if (targets.includes('wordpress')) {
+      payload.category = (localStorage.getItem('last_shopping_quick_wp_category_value') || '').trim();
+      payload.postStatus = (document.getElementById('shopping-quick-wp-post-status')?.value || 'publish').trim();
+      payload.scheduleDate = (document.getElementById('shopping-quick-wp-schedule-date')?.value || '').trim();
+    }
+
+    return payload;
   };
   const runShoppingQuickPublish = async (mode) => {
     if (!shoppingQuickResultEl) return;
@@ -4730,7 +4818,7 @@ function bindActions() {
   const blogAutoRunBtn = document.getElementById('blog-publish-auto-run-btn');
   const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
   const shoppingAutoSaveBtn = document.getElementById('shopping-auto-save-btn');
-  const shoppingAutoRunBtn = document.getElementById('shopping-auto-run-btn');
+  const shoppingAutoRunBtn = document.getElementById('shopping-publish-auto-run-btn');
   const shoppingAutoDailyPostsInputEl = document.getElementById('shopping-auto-daily-posts');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
@@ -4749,8 +4837,8 @@ function bindActions() {
     document.getElementById('blog-collect-trends-reuse-gap'),
     document.getElementById('blog-publish-auto-interval'),
     document.getElementById('blog-publish-auto-batch'),
-    document.getElementById('shopping-auto-daily-posts'),
-    document.getElementById('shopping-auto-time')
+    document.getElementById('shopping-publish-auto-interval'),
+    document.getElementById('shopping-publish-auto-batch')
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
@@ -4763,10 +4851,10 @@ function bindActions() {
     document.getElementById('blog-collect-trends-filter-new'),
     document.getElementById('blog-collect-trends-filter-dash'),
     document.getElementById('blog-collect-trends-filter-number-enabled'),
-    document.getElementById('blog-publish-auto-enabled'),
-    document.getElementById('blog-publish-auto-headless'),
-    document.getElementById('shopping-auto-mode'),
-    ...Array.from(document.querySelectorAll('[data-publish-target]'))
+    document.getElementById('shopping-publish-auto-enabled'),
+    document.getElementById('shopping-publish-auto-headless'),
+    ...Array.from(document.querySelectorAll('[data-publish-target]')),
+    ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
 
   settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', loadSettingsMajor));
@@ -5117,6 +5205,41 @@ window.addEventListener('DOMContentLoaded', () => {
     wpCatSearchV2.addEventListener('click', (e) => e.stopPropagation());
   }
 
+  // Shopping Category Search Event (V2 - Custom Dropdown)
+  const shoppingWpCatSearchV2 = document.getElementById('shopping-quick-wp-category-search-v2');
+  if (shoppingWpCatSearchV2) {
+    shoppingWpCatSearchV2.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
+      if (!optionsContainer) return;
+
+      const options = optionsContainer.querySelectorAll('.custom-select-option');
+      let found = false;
+      options.forEach(opt => {
+        const text = opt.textContent.toLowerCase();
+        const match = text.includes(q);
+        opt.style.display = match ? '' : 'none';
+        if (match) found = true;
+      });
+
+      // Handle "No results" message
+      let noResultEl = optionsContainer.querySelector('.custom-select-no-results');
+      if (!found) {
+        if (!noResultEl) {
+          noResultEl = document.createElement('div');
+          noResultEl.className = 'custom-select-no-results';
+          noResultEl.textContent = '검색 결과가 없습니다.';
+          optionsContainer.appendChild(noResultEl);
+        }
+      } else if (noResultEl) {
+        noResultEl.remove();
+      }
+    });
+
+    // Prevent closing when clicking search box
+    shoppingWpCatSearchV2.addEventListener('click', (e) => e.stopPropagation());
+  }
+
   // Custom Dropdown Trigger
   const wpCatTrigger = document.getElementById('quick-wp-category-trigger');
   const wpCatContainer = document.getElementById('quick-wp-category-container');
@@ -5124,7 +5247,10 @@ window.addEventListener('DOMContentLoaded', () => {
     wpCatTrigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = wpCatContainer.classList.contains('open');
-      // Close all other custom dropdowns if any, then toggle this one
+      // Close all other custom dropdowns
+      document.querySelectorAll('.custom-select-container').forEach(c => {
+        if (c !== wpCatContainer) c.classList.remove('open');
+      });
       wpCatContainer.classList.toggle('open');
       if (!isOpen) {
         // Focus search when opening
@@ -5133,9 +5259,29 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Shopping Custom Dropdown Trigger
+  const shoppingWpCatTrigger = document.getElementById('shopping-quick-wp-category-trigger');
+  const shoppingWpCatContainer = document.getElementById('shopping-quick-wp-category-container');
+  if (shoppingWpCatTrigger && shoppingWpCatContainer) {
+    shoppingWpCatTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = shoppingWpCatContainer.classList.contains('open');
+      // Close all other custom dropdowns
+      document.querySelectorAll('.custom-select-container').forEach(c => {
+        if (c !== shoppingWpCatContainer) c.classList.remove('open');
+      });
+      shoppingWpCatContainer.classList.toggle('open');
+      if (!isOpen) {
+        // Focus search when opening
+        setTimeout(() => shoppingWpCatSearchV2?.focus(), 50);
+      }
+    });
+  }
+
   // Close dropdown on outside click
   document.addEventListener('click', () => {
     wpCatContainer?.classList.remove('open');
+    shoppingWpCatContainer?.classList.remove('open');
   });
 
   // Initial WP Options Sync
@@ -5286,19 +5432,19 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless'],
+      ids: ['quick-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver'],
+      ids: ['quick-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress'],
+      ids: ['quick-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },
@@ -5328,8 +5474,9 @@ function initGlobalPublishSettingsSync() {
       }
     });
     // Special Trigger: If WP target changed, sync WP options visibility
-    if (group.key === 'pub_pref_target_wordpress' && typeof toggleQuickWpOptions === 'function') {
-      toggleQuickWpOptions();
+    if (group.key === 'pub_pref_target_wordpress') {
+      if (typeof toggleQuickWpOptions === 'function') toggleQuickWpOptions();
+      if (typeof toggleShoppingQuickWpOptions === 'function') toggleShoppingQuickWpOptions();
     }
   };
 
@@ -5360,7 +5507,9 @@ function initGlobalPublishSettingsSync() {
   // 3. Keep other Quick Publish specific options that are not shared but need persistence
   const quickSpecific = [
     { key: 'quick_wp_post_status', id: 'quick-wp-post-status', type: 'select', default: 'publish' },
-    { key: 'quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' }
+    { key: 'quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' },
+    { key: 'shopping_quick_wp_post_status', id: 'shopping-quick-wp-post-status', type: 'select', default: 'publish' },
+    { key: 'shopping_quick_wp_schedule_date', id: 'shopping-quick-wp-schedule-date', type: 'input', default: '' }
   ];
 
   quickSpecific.forEach(item => {
@@ -5377,6 +5526,8 @@ function initGlobalPublishSettingsSync() {
       localStorage.setItem(item.key, el.value);
       if (item.id === 'quick-wp-post-status' && typeof toggleQuickWpScheduleDate === 'function') {
         toggleQuickWpScheduleDate();
+      } else if (item.id === 'shopping-quick-wp-post-status' && typeof toggleShoppingQuickWpScheduleDate === 'function') {
+        toggleShoppingQuickWpScheduleDate();
       }
     });
   });
@@ -5384,3 +5535,96 @@ function initGlobalPublishSettingsSync() {
   // Initial dependency sync
   if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
 }
+
+// Shopping Connect Quick Publish WP Helpers
+window.toggleShoppingQuickWpOptions = async function () {
+  const panel = document.getElementById('shopping-quick-wp-options-panel');
+  const checkbox = document.getElementById('shopping-quick-target-wordpress');
+
+  if (panel && checkbox) {
+    if (checkbox.checked) {
+      panel.style.display = 'block';
+
+      if (!wpCategoryCache) {
+        try {
+          const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
+          const triggerText = document.getElementById('shopping-quick-wp-category-text');
+
+          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
+
+          const categories = await fetchJson('/api/v1/wordpress/categories');
+          if (Array.isArray(categories)) {
+            wpCategoryCache = categories;
+          } else {
+            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
+            return;
+          }
+        } catch (e) {
+          console.error('Shopping WP Categories fetch failed:', e);
+          const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
+          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">호출 오류</div>';
+          return;
+        }
+      }
+
+      // Render options from cache
+      if (wpCategoryCache) {
+        const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
+        const triggerText = document.getElementById('shopping-quick-wp-category-text');
+
+        if (optionsContainer) {
+          optionsContainer.innerHTML = '';
+
+          const defaultOpt = document.createElement('div');
+          defaultOpt.className = 'custom-select-option';
+          defaultOpt.dataset.value = '';
+          defaultOpt.textContent = '카테고리 선택 (미지정 시 기본)';
+          optionsContainer.appendChild(defaultOpt);
+
+          wpCategoryCache.forEach(cat => {
+            const opt = document.createElement('div');
+            opt.className = 'custom-select-option';
+            opt.dataset.value = cat.name;
+            opt.textContent = `${cat.name} (${cat.count})`;
+            optionsContainer.appendChild(opt);
+          });
+
+          optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
+            el.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const val = el.dataset.value;
+              const text = el.textContent;
+
+              if (triggerText) triggerText.textContent = text;
+              optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+              el.classList.add('selected');
+
+              localStorage.setItem('last_shopping_quick_wp_category_name', text);
+              localStorage.setItem('last_shopping_quick_wp_category_value', val);
+
+              document.getElementById('shopping-quick-wp-category-container')?.classList.remove('open');
+            });
+          });
+
+          const savedName = localStorage.getItem('last_shopping_quick_wp_category_name');
+          const savedVal = localStorage.getItem('last_shopping_quick_wp_category_value');
+          if (savedName && triggerText) {
+            triggerText.textContent = savedName;
+            const savedEl = Array.from(optionsContainer.querySelectorAll('.custom-select-option')).find(opt => opt.dataset.value === savedVal);
+            if (savedEl) savedEl.classList.add('selected');
+          }
+        }
+      }
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+};
+
+window.toggleShoppingQuickWpScheduleDate = function () {
+  const input = document.getElementById('shopping-quick-wp-schedule-date');
+  const status = document.getElementById('shopping-quick-wp-post-status')?.value;
+  if (input) {
+    input.disabled = (status !== 'schedule');
+  }
+};

@@ -423,19 +423,25 @@ try {
 }
 const collectRssEnabled = parseBoolLike(userConfig.COLLECT_RSS_ENABLED, false);
 
-const shoppingAutoMode = parseBoolLike(
-    userConfig.SHOPPING_AUTO_MODE,
-    false
-);
-const shoppingAutoDailyPosts = parseNonNegativeInt(
-    userConfig.SHOPPING_AUTO_DAILY_POSTS,
-    10
-);
 const shoppingAutoTime = parseTimeHHmm(userConfig.SHOPPING_AUTO_TIME, '07:50');
 const shoppingAutoNotifyEnabled = parseBoolLike(
-    userConfig.SHOPPING_AUTO_NOTIFY_ENABLED,
+    userConfig.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? userConfig.SHOPPING_AUTO_NOTIFY_ENABLED,
     false
 );
+const shoppingPublishAutoEnabled = parseBoolLike(
+    userConfig.SHOPPING_PUBLISH_AUTO_ENABLED ?? userConfig.SHOPPING_AUTO_MODE,
+    false
+);
+const shoppingPublishAutoIntervalMin = parseNonNegativeInt(userConfig.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN, 60);
+const shoppingPublishAutoBatchSize = parseNonNegativeInt(
+    userConfig.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? userConfig.SHOPPING_AUTO_DAILY_POSTS,
+    1
+);
+const shoppingPublishAutoHeadless = parseBoolLike(
+    userConfig.SHOPPING_PUBLISH_AUTO_HEADLESS ?? userConfig.SHOPPING_AUTO_HEADLESS,
+    true
+);
+const shoppingPublishAutoTargetChannels = String(userConfig.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
 const userRole = String(userConfig.USER_ROLE || 'User').trim();
 const updateMirrorRepo = String(userConfig.UPDATE_MIRROR_REPO || '').trim();
 const wordpressUrl = String(userConfig.WORDPRESS_URL || '').trim();
@@ -534,8 +540,13 @@ module.exports = {
 
     MAX_BLOG_POSTS_PER_RUN: maxBlogPostsPerRun,
     MAX_SHOPPING_POSTS_PER_RUN: maxShoppingPostsPerRun,
+    SHOPPING_PUBLISH_AUTO_ENABLED: shoppingPublishAutoEnabled,
+    SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: shoppingPublishAutoIntervalMin,
+    SHOPPING_PUBLISH_AUTO_BATCH_SIZE: shoppingPublishAutoBatchSize,
+    SHOPPING_PUBLISH_AUTO_HEADLESS: shoppingPublishAutoHeadless,
+    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: shoppingPublishAutoTargetChannels,
     SHOPPING_AUTO_TIME: shoppingAutoTime,
-    SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoNotifyEnabled,
+    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: shoppingAutoNotifyEnabled,
     USER_ROLE: userRole,
     UPDATE_MIRROR_REPO: updateMirrorRepo,
     APP_VERSION: APP_VERSION,

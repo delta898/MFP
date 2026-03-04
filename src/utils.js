@@ -461,7 +461,8 @@ const Utils = {
 
     ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName) {
         try {
-            let statusColIndex = 1; // 기본: B열(기존 시트 호환)
+            let wpStatusColIndex = -1;
+            let generalStatusColIndex = -1;
             try {
                 const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
                 const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
@@ -469,19 +470,45 @@ const Utils = {
                 }));
                 const headers = (headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
                 const cleanHeaders = headers.map(h => String(h || '').toLowerCase().replace(/[\s\/_]/g, ''));
-                const detectedStatusColIndex = cleanHeaders.findIndex(h => h.includes('상태') || h.includes('status'));
-                if (detectedStatusColIndex >= 0) {
-                    statusColIndex = detectedStatusColIndex;
+
+                // 1. post_status (WP) 컬럼 찾기
+                wpStatusColIndex = cleanHeaders.findIndex(h => h === 'poststatus' || h === '발행상태');
+
+                // 2. 일반 상태 컬럼 찾기 (post_status 제외)
+                generalStatusColIndex = cleanHeaders.findIndex((h, i) => i !== wpStatusColIndex && (h === '상태' || h === 'status'));
+
+                // fallback for legacy
+                if (generalStatusColIndex === -1 && wpStatusColIndex === -1) {
+                    generalStatusColIndex = cleanHeaders.findIndex(h => h.includes('상태') || h.includes('status'));
                 }
             } catch (e) {
-                // 헤더 조회 실패 시 기본값(B열) 유지
+                // 헤더 조회 실패 시 중단
+                return;
             }
 
-            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
-            await this.callWithRetry(() => axios.post(updateUrl, {
-                requests: [{
+            const validationRequests = [];
+
+            // WP 상태 드롭다운 (publish, draft, schedule)
+            if (wpStatusColIndex >= 0) {
+                validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId, startRowIndex: 1, startColumnIndex: statusColIndex, endColumnIndex: statusColIndex + 1 },
+                        range: { sheetId, startRowIndex: 1, startColumnIndex: wpStatusColIndex, endColumnIndex: wpStatusColIndex + 1 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [{ userEnteredValue: 'publish' }, { userEnteredValue: 'draft' }, { userEnteredValue: 'schedule' }]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+            }
+
+            // 일반 상태 드롭다운 (준비, 발행 중, ...)
+            if (generalStatusColIndex >= 0) {
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId, startRowIndex: 1, startColumnIndex: generalStatusColIndex, endColumnIndex: generalStatusColIndex + 1 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -493,14 +520,18 @@ const Utils = {
                                     { userEnteredValue: '실패' }
                                 ]
                             },
-                            showCustomUi: true,
-                            strict: true
+                            showCustomUi: true, strict: true
                         }
                     }
-                }]
-            }, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-            }));
+                });
+            }
+
+            if (validationRequests.length > 0) {
+                const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+                await this.callWithRetry(() => axios.post(updateUrl, { requests: validationRequests }, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+            }
         } catch (e) {
             Logger.warn(`⚠️ shopping 시트 검증 규칙 업데이트 실패: ${e.message}`);
         }
@@ -664,13 +695,31 @@ const Utils = {
                     }
                 });
             } else if (type === 'shopping') {
-                // 헤더: URL, 상품, 상태, 발행 시간
-                headerRow = [['URL', '상품', '상태', '발행 시간']];
+                // 헤더: category, post_status, schedule_date, URL, 상품, 상태, 발행 시간, 로그
+                headerRow = [['category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그']];
 
-                // Dropdown: C열 (Index 2) -> 준비, 발행 준비 완료, 발행 완료, 실패
+                // Dropdown: B열 (Index 1) -> publish, draft, schedule (발행 옵션)
                 validationRequests.push({
                     setDataValidation: {
-                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 2, endColumnIndex: 3 },
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 1, endColumnIndex: 2 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: 'publish' },
+                                    { userEnteredValue: 'draft' },
+                                    { userEnteredValue: 'schedule' }
+                                ]
+                            },
+                            showCustomUi: true, strict: true
+                        }
+                    }
+                });
+
+                // Dropdown: F열 (Index 5) -> 준비, 발행 중, 발행 준비 완료, 발행 완료, 실패 (상태)
+                validationRequests.push({
+                    setDataValidation: {
+                        range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 },
                         rule: {
                             condition: {
                                 type: 'ONE_OF_LIST',
@@ -958,29 +1007,48 @@ const Utils = {
             const map = {};
             headers.forEach((h, i) => {
                 const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if ((clean.includes('category') || clean.includes('카테고리')) && map.category === undefined) map.category = i;
+                if ((clean.includes('poststatus') || clean.includes('옵션') || clean.includes('발행상태')) && map.postStatus === undefined) map.postStatus = i;
+                if ((clean.includes('scheduledate') || clean.includes('예약')) && map.scheduleDate === undefined) map.scheduleDate = i;
                 if ((clean.includes('url') || clean.includes('링크')) && map.shortUrl === undefined) map.shortUrl = i;
-                if ((clean.includes('상태') || clean.includes('status')) && map.status === undefined) map.status = i;
-                if ((clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간') || clean.includes('작업시간')) && map.publishedAt === undefined) map.publishedAt = i;
                 if ((clean.includes('상품') || clean.includes('product')) && map.product === undefined) map.product = i;
+                if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && map.status === undefined) map.status = i;
+                if ((clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간') || clean.includes('작업시간')) && !clean.includes('예약') && map.publishedAt === undefined) map.publishedAt = i;
+                if ((clean.includes('로그') || clean.includes('log')) && map.log === undefined) map.log = i;
             });
 
-            if (map.shortUrl === undefined) map.shortUrl = 0;
-            if (map.status === undefined) map.status = 1;
-            if (map.publishedAt === undefined) map.publishedAt = 2;
-            if (map.product === undefined) map.product = 3;
+            // Fallbacks for the default structure if not found
+            if (map.category === undefined) map.category = 0;
+            if (map.postStatus === undefined) map.postStatus = 1;
+            if (map.scheduleDate === undefined) map.scheduleDate = 2;
+            if (map.shortUrl === undefined) map.shortUrl = 3;
+            if (map.product === undefined) map.product = 4;
+            if (map.status === undefined) map.status = 5;
+            if (map.publishedAt === undefined) map.publishedAt = 6;
+            if (map.log === undefined) map.log = 7;
 
-            const maxCol = Math.max(map.shortUrl, map.status, map.publishedAt, map.product);
+            const maxCol = Math.max(map.category, map.postStatus, map.scheduleDate, map.shortUrl, map.product, map.status, map.publishedAt, map.log);
             const defaultStatus = String(options.defaultStatus || '준비').trim() || '준비';
+
             const rowsToAdd = newItems.map((item) => {
                 const row = new Array(maxCol + 1).fill('');
+
+                const category = String(item?.category || item?.wp_category || '').trim();
+                const postStatus = String(item?.postStatus || item?.post_status || 'publish').trim();
+                const scheduleDate = String(item?.scheduleDate || item?.schedule_date || '').trim();
                 const shortUrl = String(item?.shortUrl || item?.url || '').trim();
                 const product = String(item?.product || '').trim();
                 const rowStatus = String(item?.status || defaultStatus).trim() || defaultStatus;
 
+                row[map.category] = category;
+                row[map.postStatus] = postStatus;
+                row[map.scheduleDate] = scheduleDate;
                 row[map.shortUrl] = shortUrl;
-                row[map.status] = rowStatus;
                 row[map.product] = product;
+                row[map.status] = rowStatus;
                 if (map.publishedAt !== undefined) row[map.publishedAt] = '';
+                if (map.log !== undefined) row[map.log] = '';
+
                 return row;
             });
 
@@ -1065,7 +1133,29 @@ const Utils = {
                 const shortUrl = row[urlIdx] ? String(row[urlIdx]).trim() : "";
                 const status = row[statusIdx] ? String(row[statusIdx]).trim() : "";
                 if (shortUrl && status === '발행 준비 완료') {
-                    jobs.push({ rowIndex: index, shortUrl, status });
+                    const headers = rows[0].map(h => h.toLowerCase().replace(/[\s\/_]/g, '').trim());
+                    const entry = {};
+                    headers.forEach((h, i) => { entry[h] = row[i] !== undefined ? row[i] : ""; });
+
+                    const getVal = (cols) => {
+                        for (const col of cols) {
+                            const cleanCol = String(col).toLowerCase().replace(/[\s\/_]/g, '').trim();
+                            if (Object.prototype.hasOwnProperty.call(entry, cleanCol) && String(entry[cleanCol]).trim() !== '') {
+                                return String(entry[cleanCol]).trim();
+                            }
+                        }
+                        return "";
+                    };
+
+                    jobs.push({
+                        rowIndex: index,
+                        shortUrl,
+                        status,
+                        category: getVal(['category', '카테고리']),
+                        postStatus: getVal(['poststatus', '발행상태']),
+                        scheduleDate: getVal(['scheduledate', '예약일시']),
+                        log: getVal(['log', '로그'])
+                    });
                 }
             });
 
@@ -1118,6 +1208,9 @@ const Utils = {
                     const publishedAt = getVal(['발행시간', '발행시간', 'publish_time', 'time', '작업시간', '작업시간']);
                     const product = getVal(['상품', 'product']);
                     const logStr = getVal(['로그', 'log']);
+                    const category = getVal(['category', '카테고리']);
+                    const postStatus = getVal(['poststatus', '발행상태']);
+                    const scheduleDate = getVal(['scheduledate', '예약일시']);
 
                     return {
                         rowIndex: index,
@@ -1126,7 +1219,10 @@ const Utils = {
                         status: status || '',
                         publishedAt: publishedAt || '',
                         product: product || '',
-                        log: logStr || ''
+                        log: logStr || '',
+                        category: category || '',
+                        postStatus: postStatus || 'publish',
+                        scheduleDate: scheduleDate || ''
                     };
                 });
 
@@ -1195,7 +1291,7 @@ const Utils = {
     /**
      * Shopping 시트 상태 업데이트 (개별 row)
      */
-    updateGoogleSheetShoppingStatus: async function (rowIndex, status, updateTime = true) {
+    updateGoogleSheetShoppingStatus: async function (rowIndex, status, updateTime = true, logMessage = null) {
         try {
             const accessToken = await this.getGoogleAccessToken();
             const sheetName = CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping';
@@ -1207,11 +1303,13 @@ const Utils = {
             const headers = headerRes.data.values[0];
             let statusColIndex = -1;
             let timeColIndex = -1;
+            let logColIndex = -1;
 
             headers.forEach((h, i) => {
                 const clean = h.toLowerCase().replace(/[\s\/_]/g, '');
                 if (clean.includes('상태') || clean.includes('status')) statusColIndex = i;
                 else if (clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간')) timeColIndex = i;
+                else if (clean.includes('로그') || clean.includes('log')) logColIndex = i;
             });
 
             if (statusColIndex === -1) return;
@@ -1231,6 +1329,9 @@ const Utils = {
             dataToUpdate.push({ range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`, values: [[status]] });
             if (updateTime && timeColIndex !== -1) {
                 dataToUpdate.push({ range: `${sheetName}!${toA1(timeColIndex)}${targetRow}`, values: [[new Date().toLocaleString()]] });
+            }
+            if (logMessage !== null && logColIndex !== -1) {
+                dataToUpdate.push({ range: `${sheetName}!${toA1(logColIndex)}${targetRow}`, values: [[String(logMessage)]] });
             }
 
             const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
@@ -1260,11 +1361,17 @@ const Utils = {
             let urlColIndex = -1;
             let statusColIndex = -1;
             let productColIndex = -1;
+            let categoryColIndex = -1;
+            let postStatusColIndex = -1;
+            let scheduleDateColIndex = -1;
 
             headers.forEach((h, i) => {
                 const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
+                if ((clean.includes('category') || clean.includes('카테고리')) && categoryColIndex === -1) categoryColIndex = i;
+                if ((clean.includes('poststatus') || clean.includes('옵션') || clean.includes('발행상태')) && postStatusColIndex === -1) postStatusColIndex = i;
+                if ((clean.includes('scheduledate') || clean.includes('예약')) && scheduleDateColIndex === -1) scheduleDateColIndex = i;
                 if ((clean.includes('url') || clean.includes('링크')) && urlColIndex === -1) urlColIndex = i;
-                if ((clean.includes('상태') || clean.includes('status')) && statusColIndex === -1) statusColIndex = i;
+                if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && statusColIndex === -1) statusColIndex = i;
                 if ((clean.includes('상품') || clean.includes('product')) && productColIndex === -1) productColIndex = i;
             });
 
@@ -1280,6 +1387,24 @@ const Utils = {
             };
 
             const dataToUpdate = [];
+            if (fields.category !== undefined && categoryColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(categoryColIndex)}${targetRow}`,
+                    values: [[String(fields.category || '').trim()]]
+                });
+            }
+            if (fields.postStatus !== undefined && postStatusColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(postStatusColIndex)}${targetRow}`,
+                    values: [[String(fields.postStatus || '').trim()]]
+                });
+            }
+            if (fields.scheduleDate !== undefined && scheduleDateColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(scheduleDateColIndex)}${targetRow}`,
+                    values: [[String(fields.scheduleDate || '').trim()]]
+                });
+            }
             if (fields.product !== undefined && productColIndex !== -1) {
                 dataToUpdate.push({
                     range: `${sheetName}!${toA1(productColIndex)}${targetRow}`,
@@ -1300,7 +1425,7 @@ const Utils = {
             }
 
             if (dataToUpdate.length === 0) {
-                throw new Error('shopping 시트 편집 가능한 컬럼(URL/상태/상품)을 찾지 못했습니다.');
+                throw new Error('shopping 시트 편집 가능한 컬럼을 찾지 못했습니다.');
             }
 
             const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
@@ -1724,7 +1849,7 @@ const Utils = {
                 if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;
 
                 // WP 전용 필드들
-                if (map.category !== undefined) row[map.category] = topic.category || '';
+                if (map.category !== undefined) row[map.category] = topic.wp_category || topic.category || '';
                 if (map.postStatus !== undefined) row[map.postStatus] = topic.postStatus || '';
                 if (map.scheduleDate !== undefined) row[map.scheduleDate] = topic.scheduleDate || '';
 
@@ -1978,12 +2103,11 @@ const Utils = {
             };
 
         } catch (e) {
-            Logger.error(`❌ 트렌드 시트 추가 실패: ${e.message}`);
-            return {
-                success: false,
-                addedCount: 0,
-                message: e.message
-            };
+            // Trends 시트가 없는 경우 400 에러(Unable to parse range)가 발생할 수 있음 (미사용 시 무시)
+            if (e.response?.status !== 400 && !String(e.message).includes('Unable to parse range')) {
+                Logger.debug(`⚠️ trends 시트 읽기 실패: ${e.message}`);
+            }
+            return [];
         }
     },
 
@@ -2095,7 +2219,13 @@ const Utils = {
             const items = filtered.slice(offset, offset + limit);
             return { items, total, limit, offset };
         } catch (e) {
-            Logger.error(`❌ trends 전체 조회 실패: ${e.message}`);
+            //Trends 시트가 없는 경우 400 에러(Unable to parse range)가 발생할 수 있음
+            //사용자가 트렌드 기능을 사용하지 않는 경우이므로 에러 로그 대신 디버그 로그로 처리
+            if (e.response?.status === 400 || String(e.message).includes('Unable to parse range')) {
+                Logger.debug(`[GoogleSheet] trends 시트 읽기 건너뜐 (미사용 혹은 시트 없음)`);
+            } else {
+                Logger.warn(`⚠️ trends 시트 조회 실패 (미사용 시 무시 가능): ${e.message}`);
+            }
             return { items: [], total: 0, limit: 0, offset: 0 };
         }
     },
@@ -2471,8 +2601,9 @@ const Utils = {
             '함께 보면 좋은 글',
             '같이 보면 좋은 글',
             '이어서 보면 좋은 글',
-            '추천하는 포스팅',
-            '브라우징 이어가기'
+            '추천 포스팅',
+            '관련 글 더 보기',
+            '다른 글도 확인해 보세요'
         ];
         return headings[Math.floor(Math.random() * headings.length)];
     },
@@ -3119,16 +3250,14 @@ const Utils = {
             };
 
             // 🚀 병렬 데이터 로딩 (블로킹 제거)
-            const [topics, shopping, trends] = await Promise.all([
+            const [topics, shopping] = await Promise.all([
                 this.readGoogleSheetTopics({ silent: true }),
-                this.readGoogleSheetShopping({ silent: true }),
-                this.readGoogleSheetTrends({ silent: true })
+                this.readGoogleSheetShopping({ silent: true })
             ]);
 
             let blogWeeklyCount = 0;
             let shoppingWeeklyCount = 0;
             let pendingTopicsCount = 0;
-            let pendingTrendsCount = 0;
             let blogReadyCount = 0;
             let shoppingReadyCount = 0;
             let blogTodayCount = 0;
@@ -3166,38 +3295,18 @@ const Utils = {
 
             pendingTopicsCount = blogReadyCount + shoppingReadyCount;
 
-            let recentTrendsFetched = '-';
-            let latestYmd = '';
-            trends.forEach(t => {
-                const ymd = normalizeYmd(t.date);
-                if (!ymd) return;
-                if (!latestYmd || ymd > latestYmd) latestYmd = ymd;
-            });
-            if (latestYmd) recentTrendsFetched = latestYmd;
-
-            if (latestYmd) {
-                trends.forEach(t => {
-                    const st = String(t.status || '').trim();
-                    const ymd = normalizeYmd(t.date);
-                    if (ymd !== latestYmd) return;
-                    if (st === '' || st === '대기' || st === '조사 완료') {
-                        pendingTrendsCount++;
-                    }
-                });
-            }
-
             const result = {
                 blogWeeklyCount,
                 shoppingWeeklyCount,
                 pendingTopicsCount,
-                pendingTrendsCount,
+                pendingTrendsCount: 0,
                 blogReadyCount,
                 shoppingReadyCount,
                 blogTodayCount,
                 blogYesterdayCount,
                 shoppingTodayCount,
                 shoppingYesterdayCount,
-                recentTrendsFetched // 가장 최근 수집 일자
+                recentTrendsFetched: '-' // 트렌드 통계 제외
             };
 
             this._dashboardSummaryCache = result;
@@ -3205,7 +3314,7 @@ const Utils = {
             return result;
 
         } catch (error) {
-            this.Logger.error(`❌ 대시보드 데이터 로드 실패: ${error.message}`);
+            Logger.error(`❌ 대시보드 데이터 로드 실패: ${error.message}`);
             return {
                 blogWeeklyCount: 0,
                 shoppingWeeklyCount: 0,
@@ -3217,7 +3326,106 @@ const Utils = {
                 blogYesterdayCount: 0,
                 shoppingTodayCount: 0,
                 shoppingYesterdayCount: 0,
+                recentTrendsFetched: '-'
             };
+        }
+    },
+
+    /**
+     * 📂 플랫폼별 워크스페이스 베이스 디렉토리 결정
+     * @param {string} platformHint 'naver' | 'wordpress'
+     * @returns {string} 플랫폼별 하위 디렉토리를 포함한 워크스페이스 절대 경로
+     */
+    resolvePlatformWorkspaceDir: function (platformHint = 'naver') {
+        const Constants = require('./constants');
+        const wsBase = CONFIG.WORKSPACE_DIR || Constants.WORKSPACE_DIR || path.join(process.cwd(), 'workspace');
+        const platform = String(platformHint || 'naver').toLowerCase();
+
+        let platformDir;
+        if (platform === 'wordpress') {
+            const wpUrl = String(CONFIG.WORDPRESS_URL || '').trim();
+            const domain = wpUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '') || 'wp_unknown';
+            platformDir = `wp_${domain}`;
+        } else {
+            const naverId = String(CONFIG.NAVER_ID || '').trim();
+            platformDir = naverId ? `naver_${naverId}` : 'naver';
+        }
+
+        const wsPath = path.join(wsBase, platformDir);
+        if (!fs.existsSync(wsPath)) {
+            try {
+                fs.mkdirSync(wsPath, { recursive: true });
+            } catch (e) {
+                Logger.error(`❌ 플랫폼 워크스페이스 폴더 생성 실패 (${wsPath}): ${e.message}`);
+            }
+        }
+        return wsPath;
+    },
+
+    /**
+     * 🔍 디렉토리 내에서 숫자로 시작하는 이미지 파일 찾기
+     * @param {string} dirPath 탐색할 디렉토리 경로
+     * @param {number|string} index 이미지 인덱스 (0, 1, 2...)
+     * @returns {string|null} 찾은 이미지의 절대 경로 또는 null
+     */
+    findImageByPrefix: function (dirPath, index) {
+        if (!dirPath || !fs.existsSync(dirPath)) return null;
+
+        try {
+            const prefix = String(index).padStart(2, '0');
+            const allFiles = fs.readdirSync(dirPath);
+            // 숫자로 시작하고 유효한 이미지 확장자를 가진 첫 번째 파일 반환
+            // 예: 00_image.jpg, 01_product_1.png, 02_any_name.webp
+            const foundFile = allFiles.find(f =>
+                f.startsWith(`${prefix}_`) &&
+                /\.(png|jpg|jpeg|webp|gif)$/i.test(f)
+            );
+
+            return foundFile ? path.join(dirPath, foundFile) : null;
+        } catch (e) {
+            Logger.error(`❌ 이미지 파일 탐색 실패 (Index: ${index}): ${e.message}`);
+            return null;
+        }
+    },
+
+    /**
+     * config.txt 파일 내의 특정 필드를 업데이트하고 메모리(CONFIG)에도 반영한다.
+     */
+    updateConfigValue: (key, value) => {
+        try {
+            const configPath = CONFIG.CONFIG_SOURCE_PATH;
+            if (!configPath || !fs.existsSync(configPath)) return false;
+
+            const raw = fs.readFileSync(configPath, 'utf-8');
+            const lines = raw.split(/\r?\n/);
+            let found = false;
+
+            const nextLines = lines.map(line => {
+                if (/^\s*#/.test(line) || !line.includes('=')) return line;
+                const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
+                if (!match) return line;
+
+                const currentKey = match[1];
+                if (currentKey !== key) return line;
+
+                found = true;
+                const indent = (line.match(/^\s*/) || [''])[0];
+                return `${indent}${key} = ${value}`;
+            });
+
+            if (!found) {
+                if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
+                    nextLines.push('');
+                }
+                nextLines.push(`${key} = ${value}`);
+            }
+
+            fs.writeFileSync(configPath, nextLines.join('\n'), 'utf-8');
+            CONFIG[key] = value;
+            return true;
+        } catch (e) {
+            Logger.error(`❌ 설정 파일 업데이트 실패 (${key}): ${e.message}`);
+            return false;
         }
     }
 };
