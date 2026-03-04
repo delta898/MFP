@@ -2932,7 +2932,16 @@ async function executeBlogTopicUpdate(requestBody) {
     }
 
     try {
+        const allowedPostStatus = new Set(['publish', 'draft', 'schedule', '']);
+        const postStatusRaw = String(requestBody?.postStatus || '').trim();
+        if (postStatusRaw && !allowedPostStatus.has(postStatusRaw)) {
+            return { success: false, code: 'INVALID_POST_STATUS', message: `post_status 값이 올바르지 않습니다: ${postStatusRaw}` };
+        }
+
         await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
+            category: String(requestBody?.category || '').trim(),
+            postStatus: postStatusRaw,
+            scheduleDate: String(requestBody?.scheduleDate || '').trim(),
             subject,
             keywords: String(requestBody?.keywords || '').trim(),
             instruction: String(requestBody?.instruction || '').trim(),

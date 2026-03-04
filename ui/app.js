@@ -116,6 +116,8 @@ function parseBoolLike(value) {
 }
 
 let blogTopicsCache = [];
+let blogTopicsWriteLockUntil = 0; // write 진행 중 loadBlogTopics 재렌더링 방지용 타임스탬프
+let blogWpCategoriesCache = null; // 워드프레스 카테고리 캐시
 let blogTrendsCache = [];
 let blogShoppingCache = [];
 const blogSelectedRowIndices = new Set();
@@ -1820,6 +1822,11 @@ async function commitBlogInlineEdit() {
   let normalizedValue = rawValue;
   if (field === 'keywords' || field === 'referenceUrl') {
     normalizedValue = normalizeCommaListText(rawValue);
+  } else if (field === 'scheduleDate') {
+    // datetime-local(YYYY-MM-DDTHH:mm) -> YYYY-MM-DD HH:mm:ss
+    normalizedValue = rawValue.replace('T', ' ');
+    if (normalizedValue.length === 16) normalizedValue += ':00';
+    normalizedValue = normalizedValue.trim();
   } else {
     normalizedValue = rawValue.trim();
   }
@@ -1859,7 +1866,8 @@ async function startBlogInlineEdit(cell) {
   const rowIndex = Number(row.dataset.rowIndex);
   const field = String(cell.dataset.field || '');
   if (!Number.isInteger(rowIndex)) return;
-  if (!['subject', 'keywords', 'instruction', 'referenceUrl', 'status'].includes(field)) return;
+  const allowed = ['subject', 'keywords', 'instruction', 'referenceUrl', 'status', 'category', 'postStatus', 'scheduleDate'];
+  if (!allowed.includes(field)) return;
 
   const item = findTopicByRowIndex(rowIndex);
   if (!item) return;
@@ -1877,24 +1885,55 @@ async function startBlogInlineEdit(cell) {
   const originalHtml = cell.innerHTML;
   const initialValue = getEditableFieldValue(item, field);
   const multiline = field === 'instruction' || field === 'referenceUrl';
-  const useSelect = field === 'status';
+  const useSelect = ['status', 'postStatus', 'category'].includes(field);
+  const isDateTime = field === 'scheduleDate';
+
   let editorEl;
   if (useSelect) {
     editorEl = document.createElement('select');
     editorEl.className = 'inline-editor';
-    const options = ['', '대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패'];
+
+    let options = [];
+    if (field === 'status') {
+      options = ['', '대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패'];
+    } else if (field === 'postStatus') {
+      options = ['publish', 'draft', 'schedule'];
+    } else if (field === 'category') {
+      // 카테고리는 동적으로 채워짐
+      options = [''];
+      if (blogWpCategoriesCache) {
+        options = ['', ...blogWpCategoriesCache.map(c => c.name)];
+      } else {
+        // 백그라운드에서 가져오기만 하고 일단 있는 값만 보여줌
+        fetchWpCategoriesSilently();
+      }
+      if (initialValue && !options.includes(initialValue)) {
+        options.push(initialValue);
+      }
+    }
+
     for (const optionValue of options) {
       const opt = document.createElement('option');
       opt.value = optionValue;
-      opt.textContent = optionValue || '(비움)';
+      opt.textContent = optionValue || (field === 'category' ? '(기본)' : '(비움)');
       if (optionValue === initialValue) opt.selected = true;
       editorEl.appendChild(opt);
     }
   } else {
     editorEl = document.createElement(multiline ? 'textarea' : 'input');
-    if (!multiline) editorEl.type = 'text';
-    editorEl.className = `inline-editor ${multiline ? 'multiline' : ''}`.trim();
-    editorEl.value = initialValue;
+    if (isDateTime) {
+      editorEl.type = 'datetime-local';
+    } else if (!multiline) {
+      editorEl.type = 'text';
+    }
+    editorEl.className = `inline-editor ${multiline ? 'multiline' : ''} ${isDateTime ? 'datetime' : ''}`.trim();
+
+    // scheduleDate 포맷 변환 (YYYY-MM-DD HH:mm:ss -> YYYY-MM-DDTHH:mm)
+    let val = initialValue;
+    if (isDateTime && val) {
+      val = val.replace(' ', 'T').substring(0, 16);
+    }
+    editorEl.value = val;
   }
 
   cell.innerHTML = '';
@@ -1980,9 +2019,24 @@ function buildBlogUpdatePayload(baseItem, patch = {}) {
     instruction: String((patch.instruction !== undefined ? patch.instruction : safeItem.content_guide?.additional_instructions) || '').trim(),
     referenceUrl: (patch.referenceUrl !== undefined ? patch.referenceUrl : (Array.isArray(safeItem.content_guide?.reference_urls) ? safeItem.content_guide.reference_urls.join(', ') : '')).toString().trim(),
     status: String((patch.status !== undefined ? patch.status : safeItem.status) || '').trim(),
+    category: String((patch.category !== undefined ? patch.category : safeItem.category) || '').trim(),
+    postStatus: String((patch.postStatus !== undefined ? patch.postStatus : safeItem.postStatus) || '').trim(),
+    scheduleDate: String((patch.scheduleDate !== undefined ? patch.scheduleDate : safeItem.scheduleDate) || '').trim(),
     imageGeneration: (patch.imageGeneration !== undefined ? patch.imageGeneration : Boolean(safeItem.image_gen)) === true,
     externalReference: (patch.externalReference !== undefined ? patch.externalReference : Boolean(safeItem.external_reference)) === true
   };
+}
+
+async function fetchWpCategoriesSilently() {
+  if (blogWpCategoriesCache) return;
+  try {
+    const data = await fetchJson('/api/v1/wordpress/categories');
+    if (Array.isArray(data)) {
+      blogWpCategoriesCache = data;
+    }
+  } catch (e) {
+    console.warn('WP categories fetch failed:', e);
+  }
 }
 
 async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
@@ -1991,17 +2045,45 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
   const item = findTopicByRowIndex(rowIndex);
   if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
 
+  // 1. 캐시를 즉시 업데이트 (race condition 방지)
+  if (patch.imageGeneration !== undefined) item.image_gen = Boolean(patch.imageGeneration);
+  if (patch.externalReference !== undefined) item.external_reference = Boolean(patch.externalReference);
+  if (patch.subject !== undefined) item.subject = patch.subject;
+  if (patch.keywords !== undefined) item.keywords = typeof patch.keywords === 'string'
+    ? patch.keywords.split(',').map(k => k.trim()).filter(Boolean)
+    : patch.keywords;
+  if (patch.instruction !== undefined) {
+    if (!item.content_guide) item.content_guide = {};
+    item.content_guide.additional_instructions = patch.instruction;
+  }
+  if (patch.referenceUrl !== undefined) {
+    if (!item.content_guide) item.content_guide = {};
+    item.content_guide.reference_urls = typeof patch.referenceUrl === 'string'
+      ? patch.referenceUrl.split(',').map(u => u.trim()).filter(Boolean)
+      : patch.referenceUrl;
+  }
+  if (patch.status !== undefined) item.status = patch.status;
+
+  // 2. 즉시 재렌더링 (낙관적 업데이트)
+  renderBlogTable(blogTopicsCache);
+
   const payload = buildBlogUpdatePayload(item, patch);
   if (!payload.subject) throw new Error('Subject는 비워둘 수 없습니다.');
   if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;
+
   const data = await postJson('/api/v1/blog/topic/update', payload);
   if (!silent && resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
-  await loadBlogTopics({ silent: true });
+
+  // 3. write-lock: Google Sheets 전파 시간(~5s) 동안 loadBlogTopics가 재렌더링하지 않도록 막음
+  blogTopicsWriteLockUntil = Date.now() + 6000;
+  setTimeout(() => loadBlogTopics({ silent: true }), 6500);
 }
+
 
 async function loadBlogTopics(options = {}) {
   if (!guardUiConfigReady('블로그 목록 조회')) return;
   const silent = Boolean(options.silent);
+  const skipRender = Boolean(options.skipRender);
   const pageInfo = getPageInfo('topics');
   const status = (document.getElementById('blog-status-filter')?.value || '').trim();
   const q = (document.getElementById('blog-q-filter')?.value || '').trim();
@@ -2017,23 +2099,35 @@ async function loadBlogTopics(options = {}) {
   const resultBox = document.getElementById('blog-action-result');
   if (resultBox && !silent) resultBox.textContent = '블로그 목록 조회 중...';
 
+  // write-lock: 최근 patch 저장 직후에는 서버 데이터가 아직 구버전일 수 있으므로 재렌더링 차단
+  const writeLocked = Date.now() < blogTopicsWriteLockUntil;
+
   try {
     const data = await fetchJson(`/api/v1/blog/topics?${params.toString()}`);
-    blogTopicsCache = Array.isArray(data.items) ? data.items : [];
-    setPageInfo('topics', {
-      total: Number(data.total || 0),
-      limit: Number(data.limit || pageInfo.limit || 50),
-      offset: Number(data.offset || 0)
-    });
-    renderBlogTable(blogTopicsCache);
-    renderTopicsPagination();
+    const freshItems = Array.isArray(data.items) ? data.items : [];
+    if (!writeLocked && !skipRender) {
+      // lock 해제 후 정상 렌더링
+      blogTopicsCache = freshItems;
+      setPageInfo('topics', {
+        total: Number(data.total || 0),
+        limit: Number(data.limit || pageInfo.limit || 50),
+        offset: Number(data.offset || 0)
+      });
+      renderBlogTable(blogTopicsCache);
+      renderTopicsPagination();
+    } else {
+      // lock 중에는 캐시만 조용히 업데이트 (재렌더링 없음)
+      blogTopicsCache = freshItems;
+    }
     if (resultBox && !silent) {
       resultBox.textContent = `조회 완료: ${data.total ?? blogTopicsCache.length}건`;
     }
   } catch (e) {
-    blogTopicsCache = [];
-    renderBlogTable([]);
-    renderTopicsPagination();
+    if (!writeLocked && !skipRender) {
+      blogTopicsCache = [];
+      renderBlogTable([]);
+      renderTopicsPagination();
+    }
     if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
   }
 }

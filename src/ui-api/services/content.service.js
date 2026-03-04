@@ -379,6 +379,8 @@ function createContentService(deps = {}) {
             if (!result.success) {
                 throw createApiError(400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
             }
+            // 서버 캐시 무효화: 다음 조회 시 Google Sheets에서 최신 데이터를 읽어옴
+            Utils.clearSheetCache('topics');
             return result.data;
         },
 

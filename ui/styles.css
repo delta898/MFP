@@ -2362,17 +2362,29 @@ pre {
 
 .inline-editor {
   width: 100%;
-  border: 1px solid #7aa8e8;
+  border: 1px solid var(--brand-primary);
   border-radius: 6px;
   padding: 6px 8px;
   font: inherit;
-  color: inherit;
+  color: var(--text-main);
   background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
 }
 
 .inline-editor.multiline {
   min-height: 72px;
   resize: vertical;
+}
+
+.inline-editor.datetime {
+  font-family: 'Inter', sans-serif;
+  min-width: 160px;
+}
+
+select.inline-editor {
+  cursor: pointer;
+  appearance: auto;
 }
 
 .sticky-actions.hidden {

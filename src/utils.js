@@ -2759,6 +2759,9 @@ const Utils = {
 
         const toYesNo = (value) => (value ? 'Yes' : 'No');
         const normalized = {
+            category: String(fields.category || '').trim(),
+            postStatus: String(fields.postStatus || '').trim(),
+            scheduleDate: String(fields.scheduleDate || '').trim(),
             subject: String(fields.subject || '').trim(),
             keywords: Array.isArray(fields.keywords)
                 ? fields.keywords.map(v => String(v || '').trim()).filter(Boolean).join(', ')
@@ -2789,7 +2792,10 @@ const Utils = {
         const map = {};
         headers.forEach((h, i) => {
             const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
-            if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
+            if (clean === 'category' || clean === '카테고리') map.category = i;
+            else if (clean === 'poststatus' || clean === 'post_status' || clean === '발행옵션') map.postStatus = i;
+            else if (clean === 'scheduledate' || clean === 'schedule_date' || clean === '예약일시') map.scheduleDate = i;
+            else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
             else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
             else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
             else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
@@ -2813,6 +2819,9 @@ const Utils = {
         };
 
         const dataToUpdate = [];
+        if (map.category !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.category)}${targetRow}`, values: [[normalized.category]] });
+        if (map.postStatus !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.postStatus)}${targetRow}`, values: [[normalized.postStatus]] });
+        if (map.scheduleDate !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.scheduleDate)}${targetRow}`, values: [[normalized.scheduleDate]] });
         if (map.subject !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.subject)}${targetRow}`, values: [[normalized.subject]] });
         if (map.keyword !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.keyword)}${targetRow}`, values: [[normalized.keywords]] });
         if (map.instruction !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.instruction)}${targetRow}`, values: [[normalized.instruction]] });
