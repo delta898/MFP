@@ -1073,11 +1073,14 @@ function normalizePublishAutoSettings(input = {}) {
         toBoolLike(CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED, PUBLISH_AUTO_DEFAULTS.notifyEnabled)
     );
 
-    const targetChannels = String(
-        input.PUBLISH_AUTO_TARGET_CHANNELS
+    const targetChannels = (input.PUBLISH_AUTO_TARGET_CHANNELS
         ?? CONFIG.PUBLISH_AUTO_TARGET_CHANNELS
-        ?? PUBLISH_AUTO_DEFAULTS.targetChannels
-    ).trim();
+        ?? PUBLISH_AUTO_DEFAULTS.targetChannels);
+
+    // Convert string to array
+    const targetChannelsArray = Array.isArray(targetChannels)
+        ? targetChannels
+        : String(targetChannels).split(',').map(v => v.trim()).filter(Boolean);
 
     const headless = toBoolLike(
         input.PUBLISH_AUTO_HEADLESS ?? CONFIG.PUBLISH_AUTO_HEADLESS,
@@ -1089,7 +1092,7 @@ function normalizePublishAutoSettings(input = {}) {
         PUBLISH_AUTO_INTERVAL_MIN: intervalMin,
         PUBLISH_AUTO_BATCH_SIZE: batchSize,
         PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
-        PUBLISH_AUTO_TARGET_CHANNELS: targetChannels,
+        PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
         PUBLISH_AUTO_HEADLESS: headless
     };
 }
@@ -1106,7 +1109,8 @@ function normalizeShoppingAutoSettings(input = {}) {
     const interval = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN, CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN);
     const batchSize = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? input.SHOPPING_AUTO_DAILY_POSTS, CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE);
     const headless = toBoolLike(input.SHOPPING_PUBLISH_AUTO_HEADLESS ?? input.SHOPPING_AUTO_HEADLESS, CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS);
-    const targets = String(input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
+    const targets = input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
+    const targetsArray = Array.isArray(targets) ? targets : String(targets).split(',').map(v => v.trim()).filter(Boolean);
     const notifyEnabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED, CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
 
     return {
@@ -1114,156 +1118,74 @@ function normalizeShoppingAutoSettings(input = {}) {
         SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: interval,
         SHOPPING_PUBLISH_AUTO_BATCH_SIZE: batchSize,
         SHOPPING_PUBLISH_AUTO_HEADLESS: headless,
-        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targets,
+        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targetsArray,
         SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled
     };
 }
 
+/**
+ * @deprecated JSON 구조 도입으로 더 이상 사용되지 않음 (settings.service.js에서 직접 처리)
+ */
 function applyConfigUpdates(raw, updates = {}) {
-    const nextUpdates = { ...updates };
-    const lines = String(raw || '').split(/\r?\n/);
-    const pendingKeys = new Set(Object.keys(nextUpdates));
-    const processedKeys = new Set();
-
-    let nextLines = lines.map((line) => {
-        if (/^\s*#/.test(line) || !line.includes('=')) return line;
-        const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
-        if (!match) return line;
-        const key = match[1];
-        if (!pendingKeys.has(key)) return line;
-
-        pendingKeys.delete(key);
-        processedKeys.add(key);
-
-        const val = nextUpdates[key];
-        // 💡 [Smart Removal] 값이 null이거나 undefined면 해당 라인을 삭제 대상으로 표시
-        if (val === null || val === undefined) return null;
-
-        const indent = (line.match(/^\s*/) || [''])[0];
-        return `${indent}${key} = ${val}`;
-    }).filter(line => line !== null);
-
-    if (pendingKeys.size > 0) {
-        for (const key of pendingKeys) {
-            const val = nextUpdates[key];
-            if (val === null || val === undefined) continue;
-
-            if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
-                nextLines.push('');
-            }
-            nextLines.push(`${key} = ${val}`);
-        }
-    }
-
-    return nextLines.join('\n');
+    return raw;
 }
 
 function buildMajorSettings(raw, configSource) {
-    const fallbackTyping = normalizeTypingSpeed(CONFIG.TYPING_SPEED, 'NORMAL');
-    const fallbackListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
-    const fallbackListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
-    const naverId = parseConfigValue(raw, 'NAVER_ID') || String(CONFIG.NAVER_ID || '');
-    const geminiApiKey = parseConfigValue(raw, 'GEMINI_API_KEY') || String(CONFIG.GEMINI_API_KEY || '');
-    const googleSheetUrlRaw = parseConfigValue(raw, 'GOOGLE_SHEET_URL') || String(CONFIG.GOOGLE_SHEET_URL || '');
-    const legacySheetId = parseConfigValue(raw, 'GOOGLE_SHEET_ID') || String(CONFIG.GOOGLE_SHEET_ID || '');
-    const wordpressUrl = parseConfigValue(raw, 'WORDPRESS_URL') || String(CONFIG.WORDPRESS_URL || '');
-    const wordpressUserId = parseConfigValue(raw, 'WORDPRESS_USER_ID') || String(CONFIG.WORDPRESS_USER_ID || '');
-    const wordpressAppPassword = parseConfigValue(raw, 'WORDPRESS_APP_PASSWORD') || String(CONFIG.WORDPRESS_APP_PASSWORD || '');
-    const googleSheetUrl = normalizeGoogleSheetUrl(googleSheetUrlRaw, legacySheetId);
-    const listenHostRaw = parseConfigValue(raw, 'LISTEN_HOST');
-    const listenPortRaw = parseConfigValue(raw, 'LISTEN_PORT');
-    const headlessRaw = parseConfigValue(raw, 'HEADLESS');
-    const typingRaw = parseConfigValue(raw, 'TYPING_SPEED');
-    const ftcImageUrl = parseConfigValue(raw, 'FTC_DISCLOSURE_IMAGE_URL') || String(CONFIG.FTC_DISCLOSURE_IMAGE_URL || DEFAULT_SHOPPING_IMAGE_SOURCES.FTC_DISCLOSURE_IMAGE_URL);
-    const ctaImageUrl1 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL1') || String(CONFIG.SHOPPING_CTA_IMAGE_URL1 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL1);
-    const ctaImageUrl2 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL2') || String(CONFIG.SHOPPING_CTA_IMAGE_URL2 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL2);
-    const ctaImageUrl3 = parseConfigValue(raw, 'SHOPPING_CTA_IMAGE_URL3') || String(CONFIG.SHOPPING_CTA_IMAGE_URL3 || DEFAULT_SHOPPING_IMAGE_SOURCES.SHOPPING_CTA_IMAGE_URL3);
-    const updateChannel = parseConfigValue(raw, 'UPDATE_CHANNEL') || String(CONFIG.UPDATE_CHANNEL || 'stable');
-    const autoSettings = normalizeBlogAutoSettings({
-        BLOG_AUTO_MODE: parseConfigValue(raw, 'BLOG_AUTO_MODE') || parseConfigValue(raw, 'AUTO_MODE'),
-        BLOG_AUTO_CATEGORIES:
-            parseConfigValue(raw, 'BLOG_AUTO_CATEGORIES')
-            || parseConfigValue(raw, 'AUTO_INCLUDE_CATEGORIES')
-            || parseConfigValue(raw, 'AUTO_CATEGORIES'),
-        BLOG_AUTO_MAX_POSTS_PER_RUN:
-            parseConfigValue(raw, 'BLOG_AUTO_MAX_POSTS_PER_RUN')
-            || parseConfigValue(raw, 'BLOG_AUTO_MAX_POSTS_PER_RUN')
-            || parseConfigValue(raw, 'AUTO_MAX_BLOG_PER_CYCLE')
-            || parseConfigValue(raw, 'AUTO_DAILY_BLOG_CAP'),
-        BLOG_AUTO_TRENDS_TIME: parseConfigValue(raw, 'BLOG_AUTO_TRENDS_TIME'),
-        BLOG_AUTO_IMAGE_GENERATION: parseConfigValue(raw, 'BLOG_AUTO_IMAGE_GENERATION') || parseConfigValue(raw, 'AUTO_IMAGE_GENERATION'),
-        BLOG_AUTO_EXTERNAL_REFERENCE: parseConfigValue(raw, 'BLOG_AUTO_EXTERNAL_REFERENCE') || parseConfigValue(raw, 'AUTO_USE_EXTERNAL_REF'),
-        BLOG_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'BLOG_AUTO_NOTIFY_ENABLED'),
-        BLOG_AUTO_VARIATION_INCLUDE_NEW: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_NEW') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NEW'),
-        BLOG_AUTO_VARIATION_INCLUDE_DASH: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_DASH') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_DASH'),
-        BLOG_AUTO_VARIATION_INCLUDE_NUMBER: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_INCLUDE_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER'),
-        BLOG_AUTO_VARIATION_TYPE: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_TYPE') || 'min',
-        BLOG_AUTO_VARIATION_NUMBER: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_NUMBER') || parseConfigValue(raw, 'AUTO_TRENDS_MIN_VARIATION'),
-        BLOG_AUTO_VARIATION_TOP_N: parseConfigValue(raw, 'BLOG_AUTO_VARIATION_TOP_N') || parseConfigValue(raw, 'AUTO_TRENDS_TOP_N'),
-        BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(raw, 'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS') || parseConfigValue(raw, 'AUTO_KEYWORD_REUSE_GAP_DAYS'),
-        BLOG_AUTO_HEADLESS: parseConfigValue(raw, 'BLOG_AUTO_HEADLESS')
-    });
-    const shoppingAutoSettings = normalizeShoppingAutoSettings({
-        SHOPPING_PUBLISH_AUTO_ENABLED: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_ENABLED'),
-        SHOPPING_AUTO_MODE: parseConfigValue(raw, 'SHOPPING_AUTO_MODE'),
-        SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_INTERVAL_MIN'),
-        SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_BATCH_SIZE'),
-        SHOPPING_AUTO_DAILY_POSTS: parseConfigValue(raw, 'SHOPPING_AUTO_DAILY_POSTS'),
-        SHOPPING_PUBLISH_AUTO_HEADLESS: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_HEADLESS'),
-        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS'),
-        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED'),
-        SHOPPING_AUTO_NOTIFY_ENABLED: parseConfigValue(raw, 'SHOPPING_AUTO_NOTIFY_ENABLED')
-    });
-    const listenHost = normalizeListenHost(listenHostRaw, fallbackListenHost);
-    const listenPort = normalizeListenPort(listenPortRaw, fallbackListenPort);
-    const headless = parseConfigBool(headlessRaw, Boolean(CONFIG.HEADLESS));
-    const typingSpeed = normalizeTypingSpeed(typingRaw, fallbackTyping);
-
+    // 이제 raw(text)를 파싱하는 대신 이미 로드된 CONFIG 객체의 값을 우선 시용합니다.
     const fields = {
-        LISTEN_HOST: listenHost,
-        LISTEN_PORT: listenPort,
-        NAVER_ID: naverId,
-        WORDPRESS_URL: wordpressUrl,
-        WORDPRESS_USER_ID: wordpressUserId,
-        WORDPRESS_APP_PASSWORD: wordpressAppPassword,
-        GEMINI_API_KEY: geminiApiKey,
-        GOOGLE_SHEET_URL: googleSheetUrl,
-        HEADLESS: headless,
-        TYPING_SPEED: typingSpeed,
-        FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
-        SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
-        SHOPPING_CTA_IMAGE_URL2: ctaImageUrl2,
-        SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
-        UPDATE_CHANNEL: updateChannel,
-        SHOPPING_AUTO_MODE: shoppingAutoSettings.SHOPPING_AUTO_MODE,
-        SHOPPING_AUTO_DAILY_POSTS: shoppingAutoSettings.SHOPPING_AUTO_DAILY_POSTS,
-        SHOPPING_AUTO_TIME: shoppingAutoSettings.SHOPPING_AUTO_TIME,
-        SHOPPING_AUTO_NOTIFY_ENABLED: shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED,
-        COLLECT_TRENDS_ENABLED: parseConfigBool(parseConfigValue(raw, 'COLLECT_TRENDS_ENABLED'), false),
-        COLLECT_TRENDS_CATEGORIES: parseConfigValue(raw, 'COLLECT_TRENDS_CATEGORIES') || '',
-        COLLECT_TRENDS_FILTER_MIN_INCR: normalizeIntegerOrBlank(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_MIN_INCR'), 50),
-        COLLECT_TRENDS_FILTER_INCLUDE_NEW: parseConfigBool(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_INCLUDE_NEW'), false),
-        COLLECT_TRENDS_FILTER_INCLUDE_DASH: parseConfigBool(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_INCLUDE_DASH'), false),
-        COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: parseConfigBool(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_INCLUDE_NUMBER'), true),
-        COLLECT_TRENDS_FILTER_TYPE: parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_TYPE') || 'min',
-        COLLECT_TRENDS_FILTER_TOP_N: normalizeIntegerOrBlank(parseConfigValue(raw, 'COLLECT_TRENDS_FILTER_TOP_N'), 5),
-        COLLECT_TRENDS_REUSE_GAP_DAYS: normalizeNonNegativeInt(parseConfigValue(raw, 'COLLECT_TRENDS_REUSE_GAP_DAYS'), 15),
-        // 구 legacy key(BLOG_AUTO_TRENDS_TIME) fallback 지원
-        COLLECT_TRENDS_TIME: parseConfigValue(raw, 'COLLECT_TRENDS_TIME') || parseConfigValue(raw, 'BLOG_AUTO_TRENDS_TIME') || '07:30',
-        COLLECT_RSS_ENABLED: parseConfigBool(parseConfigValue(raw, 'COLLECT_RSS_ENABLED'), false),
-        COLLECT_RSS_CONFIGS: parseConfigValue(raw, 'COLLECT_RSS_CONFIGS') || '[]',
-        PUBLISH_AUTO_ENABLED: parseConfigBool(parseConfigValue(raw, 'PUBLISH_AUTO_ENABLED'), false),
-        PUBLISH_AUTO_INTERVAL_MIN: normalizeNonNegativeInt(parseConfigValue(raw, 'PUBLISH_AUTO_INTERVAL_MIN'), 60),
-        PUBLISH_AUTO_BATCH_SIZE: normalizeNonNegativeInt(parseConfigValue(raw, 'PUBLISH_AUTO_BATCH_SIZE'), 1),
-        PUBLISH_AUTO_TARGET_CHANNELS: parseConfigValue(raw, 'PUBLISH_AUTO_TARGET_CHANNELS') || 'naver',
-        PUBLISH_AUTO_HEADLESS: parseConfigBool(parseConfigValue(raw, 'PUBLISH_AUTO_HEADLESS'), true),
-        PUBLISH_AUTO_NOTIFY_ENABLED: parseConfigBool(parseConfigValue(raw, 'PUBLISH_AUTO_NOTIFY_ENABLED'), false)
+        LISTEN_HOST: CONFIG.LISTEN_HOST,
+        LISTEN_PORT: CONFIG.LISTEN_PORT,
+        NAVER_ID: CONFIG.NAVER_ID,
+        WORDPRESS_URL: CONFIG.WORDPRESS_URL,
+        WORDPRESS_USER_ID: CONFIG.WORDPRESS_USER_ID,
+        WORDPRESS_APP_PASSWORD: CONFIG.WORDPRESS_APP_PASSWORD,
+        GEMINI_API_KEY: CONFIG.GEMINI_API_KEY,
+        GOOGLE_SHEET_URL: CONFIG.GOOGLE_SHEET_URL,
+        HEADLESS: CONFIG.HEADLESS,
+        TYPING_SPEED: CONFIG.TYPING_SPEED,
+        FTC_DISCLOSURE_IMAGE_URL: CONFIG.FTC_DISCLOSURE_IMAGE_URL,
+        SHOPPING_CTA_IMAGE_URL1: CONFIG.SHOPPING_CTA_IMAGE_URL1,
+        SHOPPING_CTA_IMAGE_URL2: CONFIG.SHOPPING_CTA_IMAGE_URL2,
+        SHOPPING_CTA_IMAGE_URL3: CONFIG.SHOPPING_CTA_IMAGE_URL3,
+        UPDATE_CHANNEL: CONFIG.UPDATE_CHANNEL || 'stable',
 
+        // Automation - Trends
+        COLLECT_TRENDS_ENABLED: CONFIG.COLLECT_TRENDS_ENABLED,
+        COLLECT_TRENDS_CATEGORIES: CONFIG.COLLECT_TRENDS_CATEGORIES,
+        COLLECT_TRENDS_FILTER_MIN_INCR: CONFIG.COLLECT_TRENDS_FILTER_MIN_INCR,
+        COLLECT_TRENDS_FILTER_INCLUDE_NEW: CONFIG.COLLECT_TRENDS_FILTER_INCLUDE_NEW,
+        COLLECT_TRENDS_FILTER_INCLUDE_DASH: CONFIG.COLLECT_TRENDS_FILTER_INCLUDE_DASH,
+        COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: CONFIG.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER,
+        COLLECT_TRENDS_FILTER_TYPE: CONFIG.COLLECT_TRENDS_FILTER_TYPE,
+        COLLECT_TRENDS_FILTER_TOP_N: CONFIG.COLLECT_TRENDS_FILTER_TOP_N,
+        COLLECT_TRENDS_REUSE_GAP_DAYS: CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS,
+        COLLECT_TRENDS_TIME: CONFIG.COLLECT_TRENDS_TIME,
+
+        // Automation - RSS
+        COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
+        COLLECT_RSS_CONFIGS: CONFIG.COLLECT_RSS_CONFIGS || [],
+
+        // Automation - Publish
+        PUBLISH_AUTO_ENABLED: CONFIG.PUBLISH_AUTO_ENABLED,
+        PUBLISH_AUTO_INTERVAL_MIN: CONFIG.PUBLISH_AUTO_INTERVAL_MIN,
+        PUBLISH_AUTO_BATCH_SIZE: CONFIG.PUBLISH_AUTO_BATCH_SIZE,
+        PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.PUBLISH_AUTO_TARGET_CHANNELS,
+        PUBLISH_AUTO_HEADLESS: CONFIG.PUBLISH_AUTO_HEADLESS,
+        PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED,
+
+        // Automation - Shopping
+        SHOPPING_PUBLISH_AUTO_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED,
+        SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN,
+        SHOPPING_PUBLISH_AUTO_BATCH_SIZE: CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE,
+        SHOPPING_PUBLISH_AUTO_HEADLESS: CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS,
+        SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS,
+        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED,
+        SHOPPING_AUTO_TIME: CONFIG.SHOPPING_AUTO_TIME
     };
 
     return {
-        configPath: configSource?.path || '',
-        configSourceType: configSource?.sourceType || 'config',
+        configPath: configSource?.path || CONFIG.CONFIG_SOURCE_PATH || '',
+        configSourceType: configSource?.sourceType || CONFIG.CONFIG_SOURCE_TYPE || 'json',
         fields,
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
@@ -1361,12 +1283,29 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     // Reorganized Namespaces
     const collectTrendsSettings = normalizeCollectTrendsSettings(requestBody);
     const rssConfigs = (() => {
+        let configs = [];
         const raw = requestBody.COLLECT_RSS_CONFIGS;
-        if (Array.isArray(raw)) return raw;
-        if (typeof raw === 'string' && raw.trim()) {
-            try { return JSON.parse(raw); } catch (e) { return []; }
+        if (Array.isArray(raw)) {
+            configs = raw;
+        } else if (typeof raw === 'string' && raw.trim()) {
+            try { configs = JSON.parse(raw); } catch (e) { configs = []; }
         }
-        return [];
+
+        return configs.map(config => {
+            const includeKeywords = Array.isArray(config.includeKeywords)
+                ? config.includeKeywords
+                : String(config.includeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+
+            const excludeKeywords = Array.isArray(config.excludeKeywords)
+                ? config.excludeKeywords
+                : String(config.excludeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+
+            return {
+                ...config,
+                includeKeywords,
+                excludeKeywords
+            };
+        });
     })();
     const collectRssEnabled = normalizeBool(requestBody.COLLECT_RSS_ENABLED, false);
 
@@ -4341,8 +4280,12 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
             const items = await Utils.fetchAndParseRss(feedUrl);
             totalRssCollected += items.length;
 
-            const includeKws = String(config.includeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
-            const excludeKws = String(config.excludeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+            const includeKws = Array.isArray(config.includeKeywords)
+                ? config.includeKeywords
+                : String(config.includeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
+            const excludeKws = Array.isArray(config.excludeKeywords)
+                ? config.excludeKeywords
+                : String(config.excludeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
 
             const filteredItems = items.filter(item => {
                 const title = String(item.title || '');

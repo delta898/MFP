@@ -38,20 +38,25 @@ node setup.js
 > _(라이브러리 설치, 설정 파일 생성, 브라우저 드라이버 세팅을 자동으로 수행합니다.)_
 
 ### 3. 설정 (Configuration)
-`config/config.txt` 파일을 열어 발급받은 정보를 입력하세요.
+`config/config.json` 파일을 열어 발급받은 정보를 입력하세요.
 
-```javascript
-module.exports = {
-    // [필수] 구매한 라이선스 키 입력
-    LICENSE_KEY: '발급받은_라이선스_키_입력', 
-
-    // [필수] 네이버 계정 및 구글 API
-    NAVER_ID: '본인의_네이버_아이디',
-    GEMINI_API_KEY: '발급받은_Gemini_API_Key',
-    
-    // [선택] 브라우저 화면 표시 여부 (true: 숨김, false: 보임)
-    HEADLESS: true, 
-};
+```json
+{
+  "essential": {
+    "gemini_api_key": "YOUR_API_KEY",
+    "google_sheet_url": "YOUR_SHEET_URL"
+  },
+  "platforms": {
+    "naver": {
+      "user_id": "YOUR_NAVER_ID"
+    }
+  },
+  "automation": {
+    "publish": {
+      "blog": { "enabled": true }
+    }
+  }
+}
 ```
 
 ---
@@ -100,7 +105,8 @@ npm run pub -- -d "workspace/내_원고_폴더"
 ```text
 /NaverAutoBlog
 ├── config/             
-│   ├── config.txt     # 아이디, API 키, 라이선스 키 설정
+│   ├── config.json     # 아이디, API 키, 라이선스 키 설정
+│   ├── config.json.sample # 설정 파일 템플릿
 │   ├── blog_prompt.md # [선택] 블로그 프롬프트 오버라이드
 │   └── shopping_prompt.md # [선택] 쇼핑 프롬프트 오버라이드
 ├── logs/               # 실행 로그 (날짜별 자동 저장)
@@ -114,7 +120,7 @@ npm run pub -- -d "workspace/내_원고_폴더"
 ## ❓ 자주 묻는 질문 (FAQ)
 
 **Q. "라이선스 오류"가 발생해요.**
-* A. `config/config.txt`에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요. 인터넷 연결 상태도 확인이 필요합니다.
+* A. `config/config.json`에 `LICENSE_KEY`가 정확히 입력되었는지 확인하세요. 인터넷 연결 상태도 확인이 필요합니다.
 
 **Q. 이미지 생성이 실패해요.**
 * A. Google Gemini API 키가 올바른지, 해당 계정에 이미지 생성 권한이 있는지 확인하세요.

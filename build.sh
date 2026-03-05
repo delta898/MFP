@@ -60,10 +60,10 @@ copy_assets() {
     mkdir -p "$TARGET_DIR/config/images"
     mkdir -p "$TARGET_DIR/scripts"
 
-    if [ -f "config/config.txt.sample" ]; then
-        cp config/config.txt.sample "$TARGET_DIR/config/config.txt.sample"
+    if [ -f "config/config.json.sample" ]; then
+        cp config/config.json.sample "$TARGET_DIR/config/config.json.sample"
     else
-        echo "⚠️ [Warning] config.txt.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
+        echo "⚠️ [Warning] config.json.sample 파일이 없습니다! 설정 파일이 누락될 수 있습니다."
     fi
 
     if [ -d "config/images" ]; then
@@ -86,7 +86,7 @@ copy_assets() {
         echo "   ⚠️ README_USER.md가 없어 기본 README를 생성합니다."
         {
             echo "# BlogGenius 사용자 가이드"
-            echo "1. config/config.txt.sample을 복사해 config/config.txt를 만든 뒤 설정하세요."
+            echo "1. config/config.json.sample을 복사해 config/config.json를 만든 뒤 설정하세요."
             echo "2. 프로그램을 실행하세요."
             echo ""
             echo "[Mac 사용자 필수 주의사항 - Gatekeeper 우회 방법]"

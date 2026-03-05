@@ -3396,33 +3396,40 @@ const Utils = {
             const configPath = CONFIG.CONFIG_SOURCE_PATH;
             if (!configPath || !fs.existsSync(configPath)) return false;
 
-            const raw = fs.readFileSync(configPath, 'utf-8');
-            const lines = raw.split(/\r?\n/);
-            let found = false;
+            if (configPath.endsWith('.json')) {
+                const configRaw = fs.readFileSync(configPath, 'utf8');
+                const config = JSON.parse(configRaw);
 
-            const nextLines = lines.map(line => {
-                if (/^\s*#/.test(line) || !line.includes('=')) return line;
-                const match = line.match(/^\s*([A-Za-z0-9_]+)\s*=/);
-                if (!match) return line;
+                // Legacy Flat Keys => Structured Paths Mapping
+                const mapping = {
+                    'WP_PERMANENT_FTC_URL': ['platforms', 'wordpress', 'assets', 'ftc_image'],
+                    'WP_PERMANENT_CTA_URL1': ['platforms', 'wordpress', 'assets', 'cta_images', 0],
+                    'WP_PERMANENT_CTA_URL2': ['platforms', 'wordpress', 'assets', 'cta_images', 1],
+                    'WP_PERMANENT_CTA_URL3': ['platforms', 'wordpress', 'assets', 'cta_images', 2]
+                };
 
-                const currentKey = match[1];
-                if (currentKey !== key) return line;
-
-                found = true;
-                const indent = (line.match(/^\s*/) || [''])[0];
-                return `${indent}${key} = ${value}`;
-            });
-
-            if (!found) {
-                if (nextLines.length > 0 && nextLines[nextLines.length - 1].trim() !== '') {
-                    nextLines.push('');
+                const targetPath = mapping[key];
+                if (targetPath) {
+                    let curr = config;
+                    for (let i = 0; i < targetPath.length - 1; i++) {
+                        const p = targetPath[i];
+                        const nextP = targetPath[i + 1];
+                        if (!curr[p]) curr[p] = (typeof nextP === 'number' ? [] : {});
+                        curr = curr[p];
+                    }
+                    curr[targetPath[targetPath.length - 1]] = value;
+                } else {
+                    // Fallback to top-level for unknown keys
+                    config[key] = value;
                 }
-                nextLines.push(`${key} = ${value}`);
+
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+                CONFIG[key] = value; // Sync memory
+                return true;
             }
 
-            fs.writeFileSync(configPath, nextLines.join('\n'), 'utf-8');
-            CONFIG[key] = value;
-            return true;
+            // config.txt 지원은 중단됨 (Legacy logic removed)
+            return false;
         } catch (e) {
             Logger.error(`❌ 설정 파일 업데이트 실패 (${key}): ${e.message}`);
             return false;

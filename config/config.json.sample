@@ -1,0 +1,99 @@
+{
+  "essential": {
+    "gemini_api_key": "",
+    "google_auth_json": "./config/service_account.json",
+    "google_sheet_url": "",
+    "listen_host": "127.0.0.1",
+    "listen_port": 4577,
+    "workspace_dir": "./workspace"
+  },
+  "ai_settings": {
+    "text_model": "gemini-3.1-flash-lite-preview",
+    "image_model": "gemini-2.5-flash-image",
+    "image_style": "photorealistic"
+  },
+  "platforms": {
+    "naver": {
+      "user_id": "",
+      "typing_speed": "QUICK",
+      "close_delay_seconds": 3,
+      "browser_channel": "auto",
+      "assets": {
+        "ftc_image": "./config/images/ftc_disclosure.jpeg",
+        "cta_images": [
+          "./config/images/shopping_cta_1.jpeg",
+          "./config/images/shopping_cta_2.jpeg",
+          "./config/images/shopping_cta_3.jpeg"
+        ]
+      }
+    },
+    "wordpress": {
+      "url": "",
+      "user_id": "",
+      "app_password": "",
+      "assets": {
+        "ftc_image": "",
+        "cta_images": [
+          "",
+          "",
+          ""
+        ]
+      }
+    }
+  },
+  "automation": {
+    "blog_collect": {
+      "trends": {
+        "enabled": false,
+        "time": "07:30",
+        "categories": "",
+        "reuse_gap_days": 21,
+        "filters": {
+          "min_increase": 30,
+          "include_new": false,
+          "include_dash": false,
+          "include_number": true,
+          "type": "top",
+          "top_n": 5
+        }
+      },
+      "rss": {
+        "enabled": false,
+        "feeds": [
+          {
+            "enabled": false,
+            "url": "",
+            "interval": 60,
+            "includeKeywords": [],
+            "excludeKeywords": [],
+            "wpCategory": ""
+          }
+        ]
+      }
+    },
+    "publish": {
+      "blog": {
+        "enabled": false,
+        "interval_min": 60,
+        "batch_size": 1,
+        "target_channels": [
+        ],
+        "headless": true,
+        "notify_enabled": false
+      },
+      "shopping": {
+        "enabled": false,
+        "interval_min": 60,
+        "batch_size": 1,
+        "target_channels": [
+        ],
+        "headless": true,
+        "notify_enabled": false
+      }
+    }
+  },
+  "system": {
+    "update_channel": "stable",
+    "update_mirror_repo": "delta898/NaverAutoBlog-Releases"
+  }
+}

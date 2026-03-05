@@ -171,11 +171,11 @@ program.hook('preAction', (thisCommand, actionCommand) => {
     if (CONFIG.CONFIG_ERROR_MESSAGE) {
         console.error(CONFIG.CONFIG_ERROR_MESSAGE);
     } else {
-        console.error('config/config.txt 또는 config/config.txt.sample 파일을 확인해 주세요.');
+        console.error('config/config.json 또는 config/config.json.sample 파일을 확인해 주세요.');
     }
     console.error('\n👉 해결 방법');
     console.error('1) UI 사용: <실행파일>  (기본 UI 모드, 설정 화면에서 바로 저장)');
-    console.error('2) 수동 복구: config/config.txt.sample -> config/config.txt 복사 후 필수값 입력');
+    console.error('2) 수동 복구: config/config.json.sample -> config/config.json 복사 후 필수값 입력');
     process.exit(1);
 });
 
@@ -1208,9 +1208,11 @@ program
                         break;
                     }
 
-                    const publishTargets = String(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS || 'naver')
-                        .split(',')
-                        .map(t => t.trim().toLowerCase());
+                    const publishTargets = Array.isArray(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS)
+                        ? CONFIG.PUBLISH_AUTO_TARGET_CHANNELS.map(t => String(t).trim().toLowerCase())
+                        : String(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS || 'naver')
+                            .split(',')
+                            .map(t => t.trim().toLowerCase());
 
                     if (publishTargets.includes('naver')) {
                         console.log("   📝 [Naver] 발행 시작...");

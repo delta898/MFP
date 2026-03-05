@@ -1,6 +1,10 @@
 node_modules/
 .env
 config/config.txt
+config/config.json
+config/config.json.delta*
+config/config.json.bak
+!config/config.json.sample
 logs/
 *.log
 video.tar.gz
