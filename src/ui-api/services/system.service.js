@@ -305,7 +305,9 @@ function createSystemService(deps = {}) {
                 sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
                 message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
                 version: String(APP_VERSION || '0.0.0'),
-                isEssentialSet: CONFIG.CONFIG_IS_ESSENTIAL_SET === true
+                isEssentialSet: CONFIG.CONFIG_IS_ESSENTIAL_SET === true,
+                isNaverSet: CONFIG.CONFIG_IS_NAVER_SET === true,
+                isWpSet: CONFIG.CONFIG_IS_WP_SET === true
             };
         },
 

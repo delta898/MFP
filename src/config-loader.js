@@ -396,15 +396,33 @@ const CONFIG = {
 
     // 🆕 필수 설정 완료 여부 (UX 개선용)
     get CONFIG_IS_ESSENTIAL_SET() {
-        const naverId = String(this.NAVER_ID || '').trim();
         const apiKey = String(this.GEMINI_API_KEY || '').trim();
         const sheetId = String(this.GOOGLE_SHEET_ID || '').trim();
         const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
-        return Boolean(naverId && !isPlaceholder(naverId) &&
-            apiKey && !isPlaceholder(apiKey) &&
-            sheetId && !isPlaceholder(sheetId));
+
+        const isCoreSet = apiKey && !isPlaceholder(apiKey) && sheetId && !isPlaceholder(sheetId);
+        const isPlatformSet = this.CONFIG_IS_NAVER_SET || this.CONFIG_IS_WP_SET;
+
+        return Boolean(isCoreSet && isPlatformSet);
+    },
+
+    // 🆕 네이버 설정 완료 여부
+    get CONFIG_IS_NAVER_SET() {
+        const naverId = String(this.NAVER_ID || '').trim();
+        const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
+        return Boolean(naverId && !isPlaceholder(naverId));
+    },
+
+    // 🆕 워드프레스 설정 완료 여부
+    get CONFIG_IS_WP_SET() {
+        const wpUrl = String(this.WORDPRESS_URL || '').trim();
+        const wpUser = String(this.WORDPRESS_USER_ID || '').trim();
+        const wpPass = String(this.WORDPRESS_APP_PASSWORD || '').trim();
+        const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
+        return Boolean(wpUrl && !isPlaceholder(wpUrl) &&
+            wpUser && !isPlaceholder(wpUser) &&
+            wpPass && !isPlaceholder(wpPass));
     }
 };
 
 module.exports = CONFIG;
-

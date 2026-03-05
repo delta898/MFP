@@ -156,6 +156,8 @@ const tableSortState = {
 };
 let settingsAdvancedLoadedOnce = false;
 let uiConfigReady = true;
+let uiNaverReady = true;
+let uiWpReady = true;
 let uiConfigPopupShown = false;
 let uiConfigStatusMessage = '';
 let uiSheetsReady = false;
@@ -453,7 +455,13 @@ async function loadConfigStatus() {
     const status = await fetchJson('/api/v1/config/status');
     console.log('[Config Status] Received:', status);
     uiConfigReady = status?.ready === true;
+    uiNaverReady = status?.isNaverSet === true;
+    uiWpReady = status?.isWpSet === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
+
+    // 플랫폼 UI 상태 동기화 (네이버 & 워드프레스)
+    syncPlatformUiState('naver', uiNaverReady);
+    syncPlatformUiState('wordpress', uiWpReady);
 
     // 앱 버전 즉시 표시
     const versionBadge = document.getElementById('badge-version');
@@ -477,7 +485,11 @@ async function loadConfigStatus() {
     return status;
   } catch (e) {
     uiConfigReady = false;
+    uiNaverReady = false;
+    uiWpReady = false;
     uiConfigStatusMessage = String(e.message || '');
+    syncPlatformUiState('naver', false);
+    syncPlatformUiState('wordpress', false);
     if (!uiConfigPopupShown) {
       uiConfigPopupShown = true;
       showUiPopup(`설정 상태 확인 중 오류가 발생했습니다.\n${uiConfigStatusMessage}`);
@@ -485,6 +497,72 @@ async function loadConfigStatus() {
     return null;
   }
 }
+
+function syncPlatformUiState(platform, isReady) {
+  const targetIds = {
+    naver: [
+      'quick-target-naver',
+      'blog-batch-target-naver',
+      'shopping-quick-target-naver',
+      'shopping-batch-target-naver',
+      'blog-publish-auto-target-naver',
+      'shopping-publish-auto-target-naver'
+    ],
+    wordpress: [
+      'quick-target-wordpress',
+      'blog-batch-target-wordpress',
+      'shopping-quick-target-wordpress',
+      'shopping-batch-target-wordpress',
+      'blog-publish-auto-target-wordpress',
+      'shopping-publish-auto-target-wordpress'
+    ]
+  };
+
+  const ids = targetIds[platform] || [];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    // 비활성화 처리
+    el.disabled = !isReady;
+
+    // 설정 미비 시 체크 해제
+    if (!isReady) el.checked = false;
+
+    // 안내 아이콘 (Emoji) 제어
+    const container = el.closest('label') || el.parentElement;
+    if (!container) return;
+
+    let hint = container.querySelector('.platform-setup-hint');
+    if (!isReady) {
+      if (!hint) {
+        hint = document.createElement('span');
+        hint.className = 'platform-setup-hint';
+        hint.style.cursor = 'pointer';
+        hint.style.marginLeft = '0px';
+        hint.style.fontSize = '12px';
+        hint.innerHTML = '❗';
+        hint.title = `${platform === 'naver' ? '네이버' : '워드프레스'} 설정이 필요합니다. 클릭하여 [설정 > 블로그] 탭으로 이동합니다.`;
+
+        // 클릭 시 설정 -> 블로그 탭으로 이동
+        hint.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof navigateTo === 'function') {
+            navigateTo('settings', 'blog');
+          }
+        };
+
+        container.appendChild(hint);
+      }
+    } else {
+      if (hint) hint.remove();
+    }
+  });
+}
+
+// Legacy function removed (integrated into syncPlatformUiState)
+function syncWordPressUiState() { }
 
 function guardUiConfigReady(featureLabel = '이 기능') {
   if (uiConfigReady) return true;
