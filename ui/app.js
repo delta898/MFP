@@ -70,6 +70,28 @@ function formatRemaining(value) {
   return '-';
 }
 
+/**
+ * 설정 화면의 상태 메시지 UI를 공통된 스타일로 업데이트합니다.
+ * @param {string} selector - 대상 엘리먼트 선택자 (id 또는 class)
+ * @param {string} message - 표시할 메시지
+ * @param {'info'|'success'|'error'} type - 메시지 타입 (색상 결정)
+ */
+function updateSettingsStatus(selector, message, type = 'info') {
+  const els = document.querySelectorAll(selector);
+  if (els.length === 0) return;
+
+  const colors = {
+    info: '',
+    success: '#10b981', // green
+    error: '#ef4444'    // red
+  };
+
+  els.forEach(el => {
+    el.textContent = message;
+    el.style.color = colors[type] || '';
+  });
+}
+
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
@@ -539,7 +561,7 @@ function syncPlatformUiState(platform, isReady) {
         hint = document.createElement('span');
         hint.className = 'platform-setup-hint';
         hint.style.cursor = 'pointer';
-        hint.style.marginLeft = '0px';
+        hint.style.marginLeft = '-3px';
         hint.style.fontSize = '12px';
         hint.innerHTML = '❗';
         hint.title = `${platform === 'naver' ? '네이버' : '워드프레스'} 설정이 필요합니다. 클릭하여 [설정 > 블로그] 탭으로 이동합니다.`;
@@ -549,7 +571,7 @@ function syncPlatformUiState(platform, isReady) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof navigateTo === 'function') {
-            navigateTo('settings', 'blog');
+            navigateTo('settings', 'naver-blog');
           }
         };
 
@@ -2610,7 +2632,7 @@ function applySettingsMajorToForm(data) {
   const wordpressAppPasswordEl = document.getElementById('settings-wordpress-app-password');
   const geminiKeyEl = document.getElementById('settings-gemini-api-key');
   const sheetUrlEl = document.getElementById('settings-google-sheet-url');
-  const headlessEl = document.getElementById('settings-headless');
+
   const typingEl = document.getElementById('settings-typing-speed');
   const blogCollectTrendsEnabledEl = document.getElementById('blog-collect-trends-enabled');
   const blogCollectTrendsTimeEl = document.getElementById('blog-collect-trends-time');
@@ -2641,7 +2663,6 @@ function applySettingsMajorToForm(data) {
   if (wordpressAppPasswordEl) wordpressAppPasswordEl.value = String(fields.WORDPRESS_APP_PASSWORD || '');
   if (geminiKeyEl) geminiKeyEl.value = String(fields.GEMINI_API_KEY || '');
   if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
-  if (headlessEl) headlessEl.checked = Boolean(fields.HEADLESS);
 
   // 빠른 실행, 트렌드, 일괄발행의 1회성 Headless 체크박스에 전역 설정값을 기본으로 세팅합니다.
   const isGlobalHeadless = Boolean(fields.HEADLESS);
@@ -2739,7 +2760,7 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
-    HEADLESS: Boolean(document.getElementById('settings-headless')?.checked),
+
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
 
     // Trend Collection
@@ -2920,22 +2941,13 @@ async function loadSettingsMajor() {
   const resultEls = document.querySelectorAll('.settings-major-result');
 
   refreshBtns.forEach(btn => btn.disabled = true);
-  resultEls.forEach(el => {
-    el.textContent = '불러오는 중...';
-    el.style.color = '';
-  });
+  updateSettingsStatus('.settings-major-result', '불러오는 중...', 'info');
   try {
     const data = await fetchJson('/api/v1/settings/major');
     applySettingsMajorToForm(data);
-    resultEls.forEach(el => {
-      el.textContent = `불러오기 완료: ${data.configPath || '-'}`;
-      el.style.color = '#10b981';
-    });
+    updateSettingsStatus('.settings-major-result', `불러오기 완료: ${data.configPath || '-'}`, 'success');
   } catch (e) {
-    resultEls.forEach(el => {
-      el.textContent = `오류: ${e.message}`;
-      el.style.color = '#ef4444';
-    });
+    updateSettingsStatus('.settings-major-result', `오류: ${e.message}`, 'error');
   } finally {
     refreshBtns.forEach(btn => btn.disabled = false);
   }
@@ -3136,14 +3148,14 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
 
   if (mode === 'manual') {
     saveBtns.forEach(btn => btn.disabled = true);
-    setSettingsMajorResultText('저장 중...');
+    updateSettingsStatus('.settings-major-result', '저장 중...', 'info');
   }
 
   while (nextMode) {
     const currentMode = nextMode;
     nextMode = null;
     try {
-      setSettingsMajorResultText(currentMode === 'auto' ? '자동 저장 중...' : '주요 설정 저장 중...');
+      updateSettingsStatus('.settings-major-result', currentMode === 'auto' ? '자동 저장 중...' : '주요 설정 저장 중...', 'info');
 
       await uploadPendingSettingsShoppingImages(resultEls);
       ensureRequiredSettingsShoppingImages();
@@ -3161,34 +3173,22 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       const nowText = new Date().toLocaleTimeString('ko-KR', { hour12: false });
       if (currentMode === 'auto') {
         if (data.restarting) {
-          resultEls.forEach(el => {
-            el.textContent = `자동 저장 완료 (${nowText})\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`;
-            el.style.color = '#10b981';
-          });
+          updateSettingsStatus('.settings-major-result', `자동 저장 완료 (${nowText})\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`, 'success');
           setTimeout(() => {
             window.location.href = `http://${data.newHost === '0.0.0.0' ? '127.0.0.1' : data.newHost}:${data.newPort}`;
           }, 1500);
           return;
         }
-        resultEls.forEach(el => {
-          el.textContent = `자동 저장 완료 (${nowText})`;
-          el.style.color = '#10b981';
-        });
+        updateSettingsStatus('.settings-major-result', `자동 저장 완료 (${nowText})`, 'success');
       } else {
         if (data.restarting) {
-          resultEls.forEach(el => {
-            el.textContent = `${data.message || '주요 설정 저장 완료'}\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`;
-            el.style.color = '#10b981';
-          });
+          updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`, 'success');
           setTimeout(() => {
             window.location.href = `http://${data.newHost === '0.0.0.0' ? '127.0.0.1' : data.newHost}:${data.newPort}`;
           }, 1500);
           return;
         }
-        resultEls.forEach(el => {
-          el.textContent = `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}`;
-          el.style.color = '#10b981';
-        });
+        updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}`, 'success');
       }
       await Promise.all([loadConfigStatus(), loadDashboard()]);
       if (uiConfigReady) {
@@ -3196,15 +3196,13 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       }
     } catch (e) {
       console.error('[Auto-save] Save failed:', e);
-      resultEls.forEach(el => {
-        const staleHint = e.code === 'SETTINGS_CONFLICT'
-          ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
-          : '';
-        el.textContent = currentMode === 'auto'
-          ? `자동 저장 실패: ${e.message}`
-          : `오류: ${e.message}${staleHint}`;
-        el.style.color = '#ef4444';
-      });
+      const staleHint = e.code === 'SETTINGS_CONFLICT'
+        ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
+        : '';
+      const message = currentMode === 'auto'
+        ? `자동 저장 실패: ${e.message}`
+        : `오류: ${e.message}${staleHint}`;
+      updateSettingsStatus('.settings-major-result', message, 'error');
     }
 
     if (settingsMajorSaveQueued) {
@@ -3256,7 +3254,7 @@ function buildGoogleSheetOpenUrl(rawInput) {
 async function loadSettingsAdvanced() {
   const resultEls = document.querySelectorAll('.settings-advanced-result');
   const editorEl = document.getElementById('settings-advanced-content');
-  resultEls.forEach(el => el.textContent = '고급 설정 불러오는 중...');
+  updateSettingsStatus('.settings-advanced-result', '고급 설정 불러오는 중...', 'info');
   try {
     const data = await fetchJson('/api/v1/settings/advanced');
     if (editorEl) {
@@ -3266,11 +3264,9 @@ async function loadSettingsAdvanced() {
     settingsAdvancedRevision = String(data.revision || '');
     settingsAdvancedStale = false;
     showSettingsAdvancedStaleBanner(false);
-    resultEls.forEach(el => {
-      el.textContent = `불러오기 완료: ${data.configPath || '-'}`;
-    });
+    updateSettingsStatus('.settings-advanced-result', `불러오기 완료: ${data.configPath || '-'}`, 'success');
   } catch (e) {
-    resultEls.forEach(el => el.textContent = `오류: ${e.message}`);
+    updateSettingsStatus('.settings-advanced-result', `오류: ${e.message}`, 'error');
   }
 }
 
@@ -3278,7 +3274,7 @@ async function saveSettingsAdvanced() {
   const resultEls = document.querySelectorAll('.settings-advanced-result');
   const editorEl = document.getElementById('settings-advanced-content');
   const content = String(editorEl?.value || '');
-  resultEls.forEach(el => el.textContent = '고급 설정 저장 중...');
+  updateSettingsStatus('.settings-advanced-result', '고급 설정 저장 중...', 'info');
   try {
     const data = await postJson('/api/v1/settings/advanced', {
       content,
@@ -3286,22 +3282,19 @@ async function saveSettingsAdvanced() {
     });
     settingsAdvancedRevision = String(data.revision || settingsAdvancedRevision || '');
     settingsAdvancedStale = false;
-    resultEls.forEach(el => {
-      const restartText = data.requiresRestart ? '\n변경 적용을 위해 재시작을 권장합니다.' : '';
-      el.textContent = `${data.message || '고급 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`;
-    });
+    const restartText = data.requiresRestart ? '\n변경 적용을 위해 재시작을 권장합니다.' : '';
+    updateSettingsStatus('.settings-advanced-result', `${data.message || '고급 설정 저장 완료'}\n${data.configPath || '-'}${restartText}`, 'success');
+
     await Promise.all([loadSettingsMajor(), loadConfigStatus(), loadDashboard()]);
     if (uiConfigReady) {
       uiSheetsReady = false;
       await ensureSheetsPreflightUi({ force: true, silent: true });
     }
   } catch (e) {
-    resultEls.forEach(el => {
-      const staleHint = e.code === 'SETTINGS_CONFLICT'
-        ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
-        : '';
-      el.textContent = `오류: ${e.message}${staleHint}`;
-    });
+    const staleHint = e.code === 'SETTINGS_CONFLICT'
+      ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
+      : '';
+    updateSettingsStatus('.settings-advanced-result', `오류: ${e.message}${staleHint}`, 'error');
   }
 }
 
@@ -3390,18 +3383,12 @@ async function saveGoogleAuthJson(content) {
 
   try {
     const data = await postJson('/api/v1/settings/google-auth', { content });
-    resultEls.forEach(el => {
-      el.textContent = `저장 완료!\n계정: ${data.clientEmail}\n경로: ${data.savedPath}`;
-      el.style.color = '#10b981';
-    });
+    updateSettingsStatus('.settings-google-auth-result', `저장 완료!\n계정: ${data.clientEmail}\n경로: ${data.savedPath}`, 'success');
     await loadGoogleAuthStatus();
     // 시트가 새 계정으로 정상 동작하는지 테스트하기 위해 preflight 다시 실행 권장
     uiSheetsReady = false;
   } catch (e) {
-    resultEls.forEach(el => {
-      el.textContent = `오류: ${e.message}`;
-      el.style.color = '#ef4444';
-    });
+    updateSettingsStatus('.settings-google-auth-result', `오류: ${e.message}`, 'error');
   }
 }
 
@@ -3423,25 +3410,17 @@ function handleGoogleAuthFileUpload(event) {
 function handleGoogleAuthTextSave() {
   const content = document.getElementById('settings-google-auth-text')?.value || '';
   if (!content.trim()) {
-    const resultEls = document.querySelectorAll('.settings-google-auth-result');
-    resultEls.forEach(el => el.textContent = '내용을 입력해주세요.');
+    updateSettingsStatus('.settings-google-auth-result', '내용을 입력해주세요.', 'error');
     return;
   }
   saveGoogleAuthJson(content);
 }
 
 async function startNaverLoginFromUi() {
-  const resultEls = document.querySelectorAll('.settings-major-result');
-  resultEls.forEach(el => {
-    el.textContent = '로그인 시작 요청 중...';
-    el.style.color = '';
-  });
+  updateSettingsStatus('.settings-major-result', '로그인 시작 요청 중...', 'info');
   try {
     await postJson('/api/v1/session/naver-login/start', {});
-    resultEls.forEach(el => {
-      el.textContent = '네이버 로그인 시작 요청이 접수되었습니다. 브라우저에서 로그인 후 상태를 확인하세요.';
-      el.style.color = '#10b981';
-    });
+    updateSettingsStatus('.settings-major-result', '네이버 로그인 시작 요청이 접수되었습니다. 브라우저에서 로그인 후 상태를 확인하세요.', 'success');
   } catch (e) {
     resultEls.forEach(el => {
       el.textContent = `오류: ${e.message}`;
@@ -3455,26 +3434,22 @@ async function verifyWordPressAuthFromUi() {
   const btn = document.getElementById('settings-wordpress-verify-btn');
   if (!resultEl) return;
 
-  resultEl.textContent = '연동 확인 중... (먼저 설정을 저장합니다)';
-  resultEl.style.color = '#666';
+  updateSettingsStatus('#settings-wordpress-verify-result', '연동 확인 중... (먼저 설정을 저장합니다)', 'info');
   if (btn) btn.disabled = true;
 
   try {
     // 설정을 먼저 저장하여 백엔드가 최신 값을 사용하도록 함
     await saveSettingsMajor({ mode: 'manual' });
 
-    resultEl.textContent = '연동 확인 중...';
+    updateSettingsStatus('#settings-wordpress-verify-result', '연동 확인 중...', 'info');
     const res = await postJson('/api/v1/session/wordpress-verify', {});
     if (res.success) {
-      resultEl.textContent = '✅ ' + res.message;
-      resultEl.style.color = '#10b981';
+      updateSettingsStatus('#settings-wordpress-verify-result', '✅ ' + res.message, 'success');
     } else {
-      resultEl.textContent = '❌ ' + res.message;
-      resultEl.style.color = '#ef4444';
+      updateSettingsStatus('#settings-wordpress-verify-result', '❌ ' + res.message, 'error');
     }
   } catch (e) {
-    resultEl.textContent = `❌ 오류: ${e.message}`;
-    resultEl.style.color = '#ef4444';
+    updateSettingsStatus('#settings-wordpress-verify-result', `❌ 오류: ${e.message}`, 'error');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -3950,7 +3925,7 @@ async function loadBlogCollectSettings() {
     setBlogCollectResultText([
       '불러오기 완료',
       '- 수집 기준을 확인했습니다.',
-      '- 변경 후 [저장]을 눌러 반영하세요.'
+      '- 변경사항은 즉시 반영됩니다.'
     ].join('\n'));
   } catch (e) {
     setBlogCollectResultText(`오류: ${e.message}`);
@@ -4008,7 +3983,7 @@ async function loadBlogAutoSettings() {
     setBlogAutoResultText([
       '불러오기 완료',
       '- 자동발행 기준을 확인했습니다.',
-      '- 변경 후 [저장]을 눌러 반영하세요.'
+      '- 변경사항은 즉시 반영됩니다.'
     ].join('\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
@@ -4119,7 +4094,7 @@ async function loadShoppingAutoSettings() {
     setShoppingAutoResultText([
       '불러오기 완료',
       '- 자동발행 기준을 확인했습니다.',
-      '- 변경 후 [저장]을 눌러 반영하세요.'
+      '- 변경사항은 즉시 반영됩니다.'
     ].join('\n'));
   } catch (e) {
     setShoppingAutoResultText(`오류: ${e.message}`);
@@ -4948,7 +4923,7 @@ function bindActions() {
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
-    document.getElementById('settings-headless'),
+
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);

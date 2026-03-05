@@ -815,18 +815,17 @@ h2 {
 
 .typing-col-label {
   font-size: 13px;
-  font-weight: 600;
-  color: #475569;
+  color: #334155;
 }
 
-.typing-preview-textarea {
+#settings-typing-preview-input {
   width: 100%;
   resize: vertical;
   background: #fff;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 10px 12px;
-  font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-main);
@@ -835,8 +834,7 @@ h2 {
 .settings-typing-preview-meta {
   margin: 0;
   font-size: 13px;
-  font-weight: 500;
-  color: #64748b;
+  color: #334155;
 }
 
 .playback-area {
@@ -849,14 +847,13 @@ h2 {
   align-items: flex-start;
 }
 
-.settings-typing-preview-text {
+#settings-typing-preview-text {
   margin: 0;
-  font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-main);
   white-space: pre-wrap;
-  word-break: keep-all;
 }
 
 .status-badge {
