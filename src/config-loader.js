@@ -87,30 +87,30 @@ const BUNDLE_DIR = path.join(__dirname, '..');
 
 const PATHS = {
     // 실제 설정 파일 (쓰기 가능한 ROOT_DIR 또는 EXEC_DIR 우선)
-    configFile: path.join(ROOT_DIR, 'config', 'config.txt'),
-    configFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt'),
+    configJson: path.join(ROOT_DIR, 'config', 'config.json'),
+    configJsonFromExec: path.join(EXEC_DIR, 'config', 'config.json'),
 
     // 샘플 파일 (앱 번들 내부 ASAR 경로 추가)
-    configSampleFile: path.join(ROOT_DIR, 'config', 'config.txt.sample'),
-    configSampleFileFromExec: path.join(EXEC_DIR, 'config', 'config.txt.sample'),
-    configSampleFileFromBundle: path.join(BUNDLE_DIR, 'config', 'config.txt.sample'),
+    configJsonSample: path.join(ROOT_DIR, 'config', 'config.json.sample'),
+    configJsonSampleFromExec: path.join(EXEC_DIR, 'config', 'config.json.sample'),
+    configJsonSampleFromBundle: path.join(BUNDLE_DIR, 'config', 'config.json.sample'),
 
     licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
     licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
     auth: path.join(ROOT_DIR, 'config', 'auth.json'),
-    blogPromptOverride: path.join(ROOT_DIR, 'config', 'blog_prompt.md'),
-    blogPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'blog_prompt.md'),
-    shoppingPromptOverride: path.join(ROOT_DIR, 'config', 'shopping_prompt.md'),
-    shoppingPromptOverrideFromExec: path.join(EXEC_DIR, 'config', 'shopping_prompt.md'),
-    defaultBlogPrompt: path.join(BUNDLE_DIR, 'config', 'blog_prompt.md'),
-    defaultShoppingPrompt: path.join(BUNDLE_DIR, 'config', 'shopping_prompt.md'),
+    blogPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'blog_prompt.md'),
+    blogPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'blog_prompt.md'),
+    shoppingPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'shopping_prompt.md'),
+    shoppingPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'shopping_prompt.md'),
+    defaultBlogPrompt: path.join(BUNDLE_DIR, 'src', 'config', 'blog_prompt.md'),
+    defaultShoppingPrompt: path.join(BUNDLE_DIR, 'src', 'config', 'shopping_prompt.md'),
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 
-function ensureConfigFileFromSample() {
+function ensureConfigJsonFromSample() {
     const pairs = [
-        { config: PATHS.configFile, samples: [PATHS.configSampleFile, PATHS.configSampleFileFromBundle] },
-        { config: PATHS.configFileFromExec, samples: [PATHS.configSampleFileFromExec] }
+        { config: PATHS.configJson, samples: [PATHS.configJsonSample, PATHS.configJsonSampleFromBundle] },
+        { config: PATHS.configJsonFromExec, samples: [PATHS.configJsonSampleFromExec] }
     ];
 
     for (const pair of pairs) {
@@ -123,89 +123,42 @@ function ensureConfigFileFromSample() {
 
             fs.mkdirSync(path.dirname(pair.config), { recursive: true });
             fs.copyFileSync(samplePath, pair.config);
-            console.info(`✅ config.txt 자동 생성 완료: ${pair.config} (from ${samplePath})`);
+            console.info(`✅ config.json 자동 생성 완료: ${pair.config} (from ${samplePath})`);
             return pair.config;
         } catch (e) {
-            console.warn(`⚠️ config.txt 자동 생성 실패: ${pair.config} (${e.message})`);
+            console.warn(`⚠️ config.json 자동 생성 실패: ${pair.config} (${e.message})`);
         }
     }
     return '';
 }
 
-// =========================================================
-// 3. 🛠️ [config.txt 파싱 함수]
-// =========================================================
 function loadUserConfig() {
-    const config = {};
-    const autoCreatedConfigPath = ensureConfigFileFromSample();
-    const configPath = fs.existsSync(PATHS.configFile)
-        ? PATHS.configFile
-        : fs.existsSync(PATHS.configFileFromExec)
-            ? PATHS.configFileFromExec
-            : fs.existsSync(PATHS.configSampleFile)
-                ? PATHS.configSampleFile
-                : PATHS.configSampleFileFromExec;
+    // 💡 [JSON First] config.json이 있으면 최우선으로 사용, 없으면 샘플로부터 생성 시도
+    ensureConfigJsonFromSample();
 
-    if (!fs.existsSync(configPath)) {
-        const lines = [
-            '❌ 설정 파일을 찾을 수 없습니다.',
-            `- 확인 경로: ${path.resolve(PATHS.configFile)}`,
-            `- 확인 경로: ${path.resolve(PATHS.configSampleFile)}`,
-            `- 확인 경로 (앱 번들): ${path.resolve(PATHS.configSampleFileFromBundle)}`,
-            '',
-            '해결 방법:',
-            '1) 위 경로 중 하나에 config.txt.sample 파일이 있는지 확인하세요.',
-            '2) 파일이 있으면 위 확인 경로의 config.txt 위치로 복사한 뒤 필수값을 입력하세요.',
-            '',
-            '   macOS / Linux: cp config/config.txt.sample config/config.txt',
-            '   Windows PowerShell: Copy-Item .\\config\\config.txt.sample .\\config\\config.txt',
-            '',
-            '3) sample도 없으면 패키지를 다시 받아서 압축을 풀어주세요.'
-        ];
-        const message = lines.join('\n');
-        console.error(message);
+    const jsonPath = PATHS.configJson;
+    if (fs.existsSync(jsonPath)) {
         try {
-            const logDir = path.join(ROOT_DIR, 'logs');
-            fs.mkdirSync(logDir, { recursive: true });
-            const startupErrorLog = path.join(logDir, 'startup-error.log');
-            fs.appendFileSync(startupErrorLog, `\n[${new Date().toISOString()}]\n${message}\n`);
-            console.error(`📝 상세 안내 로그: ${startupErrorLog}`);
-        } catch (e) { }
-        return {
-            __CONFIG_SOURCE_PATH: PATHS.configFile,
-            __CONFIG_SOURCE_TYPE: 'missing',
-            __CONFIG_READY: false,
-            __CONFIG_ERROR_MESSAGE: message
-        };
+            const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+            return {
+                ...json,
+                __CONFIG_SOURCE_PATH: jsonPath,
+                __CONFIG_SOURCE_TYPE: 'json',
+                __CONFIG_READY: true,
+                __CONFIG_ERROR_MESSAGE: ''
+            };
+        } catch (e) {
+            console.error(`❌ config.json 파싱 실패: ${e.message}`);
+        }
     }
 
-    const usingSample = configPath.endsWith('config.txt.sample');
-    if (usingSample) {
-        console.warn(`⚠️ config.txt가 없어 sample 설정으로 로드합니다: ${configPath}`);
-    }
-
-    const fileContent = fs.readFileSync(configPath, 'utf-8');
-
-    fileContent.split('\n').forEach(line => {
-        const cleanLine = line.split('#')[0].trim();
-        if (!cleanLine || !cleanLine.includes('=')) return;
-
-        const [key, ...valueParts] = cleanLine.split('=');
-        const finalKey = key.trim();
-        const finalValue = valueParts.join('=').trim();
-
-        if (finalValue.toLowerCase() === 'true') config[finalKey] = true;
-        else if (finalValue.toLowerCase() === 'false') config[finalKey] = false;
-        else if (!isNaN(finalValue) && finalValue !== '') config[finalKey] = Number(finalValue);
-        else config[finalKey] = finalValue;
-    });
-
+    // 샘플 파일 로드 (최상위 fallback)
     return {
-        ...config,
-        __CONFIG_SOURCE_PATH: autoCreatedConfigPath || configPath,
-        __CONFIG_SOURCE_TYPE: usingSample ? 'sample' : 'config',
-        __CONFIG_READY: true,
-        __CONFIG_ERROR_MESSAGE: ''
+        ...DEFAULT_STRUCTURED_CONFIG,
+        __CONFIG_SOURCE_PATH: jsonPath,
+        __CONFIG_SOURCE_TYPE: 'generated',
+        __CONFIG_READY: false,
+        __CONFIG_ERROR_MESSAGE: '설정 파일이 없습니다. 기본값으로 시작합니다.'
     };
 }
 
@@ -242,58 +195,18 @@ function extractGoogleSheetId(input) {
     return '';
 }
 
-function parseBoolLike(input, fallback = false) {
-    if (typeof input === 'boolean') return input;
-    if (typeof input === 'number') return input !== 0;
-    if (typeof input === 'string') {
-        const v = input.trim().toLowerCase();
-        if (['true', '1', 'yes', 'on', 'y'].includes(v)) return true;
-        if (['false', '0', 'no', 'off', 'n'].includes(v)) return false;
-    }
-    return fallback;
-}
-
-function parseNonNegativeInt(input, fallback) {
-    const num = parseInt(String(input ?? ''), 10);
-    if (!Number.isInteger(num) || num < 0) return fallback;
-    return num;
-}
-
-function parseIntegerOrBlank(input, fallback = '') {
-    const raw = String(input ?? '').trim();
-    if (!raw) return fallback;
-    const num = parseInt(raw, 10);
-    if (!Number.isInteger(num)) return fallback;
-    return num;
-}
-
-function parsePositiveInt(input, fallback) {
-    const num = parseInt(String(input ?? ''), 10);
-    if (!Number.isInteger(num) || num <= 0) return fallback;
-    return num;
-}
-
-function parseTimeHHmm(input, fallback = '07:30') {
-    const raw = String(input || '').trim();
-    if (!raw) return fallback;
-    const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-    if (!m) return fallback;
-    return `${m[1]}:${m[2]}`;
-}
-
 // 사용자 설정 로드
-const userConfig = loadUserConfig();
-const configSourcePath = userConfig.__CONFIG_SOURCE_PATH;
-const configSourceType = userConfig.__CONFIG_SOURCE_TYPE;
-const configReady = userConfig.__CONFIG_READY === true;
-const configErrorMessage = String(userConfig.__CONFIG_ERROR_MESSAGE || '');
-delete userConfig.__CONFIG_SOURCE_PATH;
-delete userConfig.__CONFIG_SOURCE_TYPE;
-delete userConfig.__CONFIG_READY;
-delete userConfig.__CONFIG_ERROR_MESSAGE;
-delete userConfig.NAVER_CLIENT_ID;
-delete userConfig.NAVER_CLIENT_SECRET;
-delete userConfig.LICENSE_KEY;
+const structuredConfig = loadUserConfig();
+const configSourcePath = structuredConfig.__CONFIG_SOURCE_PATH;
+const configSourceType = structuredConfig.__CONFIG_SOURCE_TYPE;
+const configReady = structuredConfig.__CONFIG_READY === true;
+const configErrorMessage = String(structuredConfig.__CONFIG_ERROR_MESSAGE || '');
+
+delete structuredConfig.__CONFIG_SOURCE_PATH;
+delete structuredConfig.__CONFIG_SOURCE_TYPE;
+delete structuredConfig.__CONFIG_READY;
+delete structuredConfig.__CONFIG_ERROR_MESSAGE;
+
 const licenseKeyInfo = loadLicenseKey();
 
 const activeConfigDir = (() => {
@@ -306,6 +219,23 @@ const activeConfigDir = (() => {
 const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
     ? path.dirname(activeConfigDir)
     : activeConfigDir;
+
+function decodeFileUriPath(raw) {
+    const input = String(raw || '').trim();
+    if (!/^file:\/\//i.test(input)) return input;
+    try {
+        const parsed = new URL(input);
+        if (parsed.protocol !== 'file:') return input;
+        const host = decodeURIComponent(parsed.hostname || '');
+        let localPath = decodeURIComponent(parsed.pathname || '');
+        if (host === '.') localPath = `.${localPath}`;
+        else if (host && host !== 'localhost') localPath = `//${host}${localPath}`;
+        if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) localPath = localPath.slice(1);
+        return localPath || input;
+    } catch (e) {
+        return input.replace(/^file:\/\//i, '');
+    }
+}
 
 function resolveRuntimePath(rawPath, options = {}) {
     const { mustExist = false } = options || {};
@@ -332,274 +262,149 @@ function resolveRuntimePath(rawPath, options = {}) {
     return candidates[0] || '';
 }
 
-const googleAuthRaw = String(process.env.GOOGLE_AUTH_JSON || userConfig.GOOGLE_AUTH_JSON || '').trim();
+// 💡 [환경변수 및 동적 경로 처리]
+const googleAuthRaw = String(process.env.GOOGLE_AUTH_JSON || structuredConfig.essential.google_auth_json || '').trim();
 const googleAuthPath = resolveRuntimePath(googleAuthRaw || './config/service_account.json', { mustExist: true });
-const workspaceRaw = String(userConfig.WORKSPACE_DIR || '').trim();
+
+const workspaceRaw = String(structuredConfig.essential.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw
     ? resolveRuntimePath(workspaceRaw)
     : path.join(activeAppRoot, 'workspace');
+
 const resolvedAuthPath = path.join(activeConfigDir, 'auth.json');
 const resolvedLicenseKeyPath = licenseKeyInfo.path || path.join(activeConfigDir, 'license.key');
 
-const userSheetUrl = String(userConfig.GOOGLE_SHEET_URL || '').trim();
-const fallbackSheetId = String(userConfig.GOOGLE_SHEET_ID || '').trim();
-const resolvedSheetId = extractGoogleSheetId(userSheetUrl) || (fallbackSheetId || '');
+const userSheetUrl = String(structuredConfig.essential.google_sheet_url || '').trim();
+const resolvedSheetId = extractGoogleSheetId(userSheetUrl);
 const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
     : userSheetUrl;
 
-// [Refactored] Automated Settings (COLLECT & PUBLISH)
-const collectTrendsEnabled = parseBoolLike(
-    userConfig.COLLECT_TRENDS_ENABLED ?? userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE,
-    false
-);
-const collectTrendsCategories = String(
-    userConfig.COLLECT_TRENDS_CATEGORIES ?? userConfig.BLOG_AUTO_CATEGORIES ?? userConfig.AUTO_CATEGORIES ?? ''
-).trim();
-const collectTrendsTime = parseTimeHHmm(
-    userConfig.COLLECT_TRENDS_TIME ?? userConfig.BLOG_AUTO_TRENDS_TIME,
-    '07:30'
-);
-const collectTrendsReuseGapDays = parseNonNegativeInt(
-    userConfig.COLLECT_TRENDS_REUSE_GAP_DAYS ?? userConfig.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS ?? userConfig.AUTO_KEYWORD_REUSE_GAP_DAYS,
-    15
-);
-
-// Filtering (COLLECT_TRENDS_FILTER_*)
-const collectTrendsFilterMinIncr = parseIntegerOrBlank(
-    userConfig.COLLECT_TRENDS_FILTER_MIN_INCR ?? userConfig.BLOG_AUTO_VARIATION_NUMBER ?? userConfig.AUTO_TRENDS_MIN_VARIATION,
-    50
-);
-const collectTrendsFilterIncludeNew = parseBoolLike(
-    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_NEW ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_NEW ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NEW,
-    false
-);
-const collectTrendsFilterIncludeDash = parseBoolLike(
-    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_DASH ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_DASH ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_DASH,
-    false
-);
-const collectTrendsFilterIncludeNumber = parseBoolLike(
-    userConfig.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER ?? userConfig.BLOG_AUTO_VARIATION_INCLUDE_NUMBER ?? userConfig.AUTO_TRENDS_VARIATION_INCLUDE_NUMBER,
-    true
-);
-const collectTrendsFilterType = String(
-    (userConfig.COLLECT_TRENDS_FILTER_TYPE ?? userConfig.BLOG_AUTO_VARIATION_TYPE) || 'min'
-).trim();
-const collectTrendsFilterTopN = parseIntegerOrBlank(
-    userConfig.COLLECT_TRENDS_FILTER_TOP_N ?? userConfig.BLOG_AUTO_VARIATION_TOP_N ?? userConfig.AUTO_TRENDS_TOP_N,
-    5
-);
-
-const maxBlogPostsPerRun = parseNonNegativeInt(userConfig.MAX_BLOG_POSTS_PER_RUN, 10);
-const maxShoppingPostsPerRun = parseNonNegativeInt(userConfig.MAX_SHOPPING_POSTS_PER_RUN, 10);
-
-// Publishing (PUBLISH_AUTO_*)
-const publishAutoEnabled = parseBoolLike(
-    userConfig.PUBLISH_AUTO_ENABLED ?? userConfig.BLOG_AUTO_MODE ?? userConfig.AUTO_MODE,
-    false
-);
-const publishAutoIntervalMin = parseNonNegativeInt(userConfig.PUBLISH_AUTO_INTERVAL_MIN, 60);
-const publishAutoBatchSize = parseNonNegativeInt(
-    userConfig.PUBLISH_AUTO_BATCH_SIZE ?? userConfig.BLOG_AUTO_MAX_POSTS_PER_RUN ?? userConfig.AUTO_MAX_BLOG_PER_CYCLE,
-    1
-);
-const publishAutoNotifyEnabled = parseBoolLike(
-    userConfig.PUBLISH_AUTO_NOTIFY_ENABLED ?? userConfig.BLOG_AUTO_NOTIFY_ENABLED,
-    false
-);
-const publishAutoTargetChannels = String(userConfig.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
-const publishAutoHeadless = parseBoolLike(
-    userConfig.PUBLISH_AUTO_HEADLESS ?? userConfig.BLOG_AUTO_HEADLESS,
-    true
-);
-
-let collectRssConfigs = [];
-try {
-    const rawRss = String(userConfig.COLLECT_RSS_CONFIGS || '').trim();
-    if (rawRss) collectRssConfigs = JSON.parse(rawRss);
-    if (!Array.isArray(collectRssConfigs)) collectRssConfigs = [];
-} catch (e) {
-    collectRssConfigs = [];
-}
-const collectRssEnabled = parseBoolLike(userConfig.COLLECT_RSS_ENABLED, false);
-
-const shoppingAutoTime = parseTimeHHmm(userConfig.SHOPPING_AUTO_TIME, '07:50');
-const shoppingAutoNotifyEnabled = parseBoolLike(
-    userConfig.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? userConfig.SHOPPING_AUTO_NOTIFY_ENABLED,
-    false
-);
-const shoppingPublishAutoEnabled = parseBoolLike(
-    userConfig.SHOPPING_PUBLISH_AUTO_ENABLED ?? userConfig.SHOPPING_AUTO_MODE,
-    false
-);
-const shoppingPublishAutoIntervalMin = parseNonNegativeInt(userConfig.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN, 60);
-const shoppingPublishAutoBatchSize = parseNonNegativeInt(
-    userConfig.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? userConfig.SHOPPING_AUTO_DAILY_POSTS,
-    1
-);
-const shoppingPublishAutoHeadless = parseBoolLike(
-    userConfig.SHOPPING_PUBLISH_AUTO_HEADLESS ?? userConfig.SHOPPING_AUTO_HEADLESS,
-    true
-);
-const shoppingPublishAutoTargetChannels = String(userConfig.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
-const userRole = String(userConfig.USER_ROLE || 'User').trim();
-const updateMirrorRepo = String(userConfig.UPDATE_MIRROR_REPO || '').trim();
-const wordpressUrl = String(userConfig.WORDPRESS_URL || '').trim();
-const wordpressUserId = String(userConfig.WORDPRESS_USER_ID || '').trim();
-const wordpressAppPassword = String(userConfig.WORDPRESS_APP_PASSWORD || '').trim();
-
-// =========================================================
-// 4. 🧩 [데이터 가공 및 엔드포인트 동적 생성]
-// =========================================================
-
-// 💡 [모델명 처리] 사용자가 설정한 모델, 없으면 기본값 사용
-const textModel = userConfig.TEXT_MODEL || 'gemini-3-flash-preview';
-const imageModel = userConfig.IMAGE_MODEL || 'gemini-2.5-flash-image';
-const imageStyle = userConfig.IMAGE_STYLE || 'photorealistic';
-
-// 💡 [엔드포인트 생성] 주소 체계 유지하며 모델명만 주입
-const TEXT_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent`;
-const IMAGE_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent`;
-
 // 타이핑 속도 변환
-const typingModeRaw = String(userConfig.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
+const typingModeRaw = String(structuredConfig.platforms.naver.typing_speed || 'NORMAL').trim().toUpperCase();
 const typingMode = Constants.TYPING_PRESETS[typingModeRaw] ? typingModeRaw : 'NORMAL';
 const typingDelay = Constants.TYPING_PRESETS[typingMode];
 
-const listenHost = String(process.env.LISTEN_HOST || userConfig.LISTEN_HOST || '127.0.0.1').trim() || '127.0.0.1';
-const listenPortRaw = process.env.LISTEN_PORT || userConfig.LISTEN_PORT || 4577;
-const listenPortParsed = parseInt(String(listenPortRaw), 10);
-const listenPort = Number.isInteger(listenPortParsed) && listenPortParsed >= 1 && listenPortParsed <= 65535
-    ? listenPortParsed
-    : 4577;
+// 💡 [최종 CONFIG 객체 구성]
+const CONFIG = {
+    ...structuredConfig, // 신규 계층 구조 전체 포함
 
-const closeDelay = (userConfig.CLOSE_DELAY_SECONDS || 10) * 1000;
-
-const blogPromptCandidates = [
-    PATHS.blogPromptOverride,
-    PATHS.blogPromptOverrideFromExec,
-    path.join(__dirname, 'config', 'blog_prompt.md'), // Ensure fallback within snapshot
-    PATHS.defaultBlogPrompt
-];
-const shoppingPromptCandidates = [
-    PATHS.shoppingPromptOverride,
-    PATHS.shoppingPromptOverrideFromExec,
-    path.join(__dirname, 'config', 'shopping_prompt.md'),
-    PATHS.defaultShoppingPrompt
-];
-
-const blogPromptPath = blogPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultBlogPrompt;
-const shoppingPromptPath = shoppingPromptCandidates.find((filePath) => fs.existsSync(filePath)) || PATHS.defaultShoppingPrompt;
-
-PATHS.auth = resolvedAuthPath;
-PATHS.workspace = resolvedWorkspaceDir;
-PATHS.appRoot = activeAppRoot;
-PATHS.configDir = activeConfigDir;
-
-// 최종 내보낼 객체
-module.exports = {
-    ...Constants,       // 1. 내부 상수 (대기 시간 등)
-    ...internalSecrets, // 2. 비밀키 (라이선스 URL, KEY)
-    ...userConfig,      // 3. 사용자 설정 (ID, Key, 모델명 등)
-
-    // 🔧 [Fixed] 환경 변수 우선 지원 (보안 강화)
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY,
-    GOOGLE_AUTH_JSON: googleAuthRaw || './config/service_account.json',
-    GOOGLE_AUTH_JSON_PATH: googleAuthPath,
-    LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
-    NAVER_ID: process.env.NAVER_ID || userConfig.NAVER_ID,
-    NAVER_PASSWORD: process.env.NAVER_PASSWORD || userConfig.NAVER_PASSWORD,
-    NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID || '',
-    NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET || '',
-    WORDPRESS_URL: wordpressUrl,
-    WORDPRESS_USER_ID: wordpressUserId,
-    WORDPRESS_APP_PASSWORD: wordpressAppPassword,
-    GOOGLE_SHEET_URL: process.env.GOOGLE_SHEET_URL || resolvedSheetUrl,
-    GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || resolvedSheetId,
-    LISTEN_HOST: listenHost,
-    LISTEN_PORT: listenPort,
-    PUBLISH_AUTO_ENABLED: publishAutoEnabled,
-    PUBLISH_AUTO_INTERVAL_MIN: publishAutoIntervalMin,
-    PUBLISH_AUTO_BATCH_SIZE: publishAutoBatchSize,
-    PUBLISH_AUTO_NOTIFY_ENABLED: publishAutoNotifyEnabled,
-    PUBLISH_AUTO_TARGET_CHANNELS: publishAutoTargetChannels,
-    PUBLISH_AUTO_HEADLESS: publishAutoHeadless,
-
-    COLLECT_TRENDS_ENABLED: collectTrendsEnabled,
-    COLLECT_TRENDS_CATEGORIES: collectTrendsCategories,
-    COLLECT_TRENDS_FILTER_MIN_INCR: collectTrendsFilterMinIncr,
-    COLLECT_TRENDS_FILTER_INCLUDE_NEW: collectTrendsFilterIncludeNew,
-    COLLECT_TRENDS_FILTER_INCLUDE_DASH: collectTrendsFilterIncludeDash,
-    COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: collectTrendsFilterIncludeNumber,
-    COLLECT_TRENDS_FILTER_TYPE: collectTrendsFilterType,
-    COLLECT_TRENDS_FILTER_TOP_N: collectTrendsFilterTopN,
-    COLLECT_TRENDS_REUSE_GAP_DAYS: collectTrendsReuseGapDays,
-    COLLECT_TRENDS_TIME: collectTrendsTime,
-    COLLECT_RSS_ENABLED: collectRssEnabled,
-    COLLECT_RSS_CONFIGS: collectRssConfigs,
-
-    MAX_BLOG_POSTS_PER_RUN: maxBlogPostsPerRun,
-    MAX_SHOPPING_POSTS_PER_RUN: maxShoppingPostsPerRun,
-    SHOPPING_PUBLISH_AUTO_ENABLED: shoppingPublishAutoEnabled,
-    SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: shoppingPublishAutoIntervalMin,
-    SHOPPING_PUBLISH_AUTO_BATCH_SIZE: shoppingPublishAutoBatchSize,
-    SHOPPING_PUBLISH_AUTO_HEADLESS: shoppingPublishAutoHeadless,
-    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: shoppingPublishAutoTargetChannels,
-    SHOPPING_AUTO_TIME: shoppingAutoTime,
-    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: shoppingAutoNotifyEnabled,
-    USER_ROLE: userRole,
-    UPDATE_MIRROR_REPO: updateMirrorRepo,
-    APP_VERSION: APP_VERSION,
-    // 🆕 데이터 소스 (GOOGLE 고정)
-    DATA_SOURCE: 'GOOGLE',
-
-    // 🆕 시트 이름 (내부 고정값)
-    GOOGLE_KEYWORDS_SHEET: 'keywords',
-    GOOGLE_TOPICS_SHEET: 'topics',
-    GOOGLE_TRENDS_SHEET: 'trends',
-    GOOGLE_SHOPPING_SHEET: 'shopping',
-
-    // 💡 데이터 가공 섹션 (명시적 선언)
-    IMAGE_STYLE: imageStyle,
-    GEMINI_TEXT_ENDPOINT: TEXT_ENDPOINT,
-    GEMINI_IMAGE_ENDPOINT: IMAGE_ENDPOINT,
-    // VIEWPORT_* 설정은 폐기됨. 발행 안정성을 위해 core에서 안전 뷰포트 정책을 사용한다.
-
-    // 4. 경로 상수 (호환성 유지)
-    PATHS: PATHS,
-    ROOT_DIR: ROOT_DIR,
-    APP_ROOT_DIR: activeAppRoot,
-    CONFIG_DIR: activeConfigDir,
-    AUTH_FILE_PATH: resolvedAuthPath,
-    LICENSE_KEY_FILE_PATH: resolvedLicenseKeyPath,
-    BLOG_PROMPT_PATH: blogPromptPath,
-    SHOPPING_PROMPT_PATH: shoppingPromptPath,
-    WORKSPACE_DIR: resolvedWorkspaceDir,
+    // 🔧 [Metadata]
+    APP_VERSION,
+    CONFIG_READY: configReady,
     CONFIG_SOURCE_PATH: configSourcePath,
     CONFIG_SOURCE_TYPE: configSourceType,
-    CONFIG_READY: configReady,
     CONFIG_ERROR_MESSAGE: configErrorMessage,
-    resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),
 
-    // 5. 확정된 동적 데이터
-    WRITE_URL: `https://blog.naver.com/${process.env.NAVER_ID || userConfig.NAVER_ID}/postwrite`,
+    // 🔧 [Essential Resolved]
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY || structuredConfig.essential.gemini_api_key,
+    GOOGLE_AUTH_JSON: googleAuthRaw,
+    GOOGLE_AUTH_JSON_PATH: googleAuthPath,
+    GOOGLE_SHEET_URL: resolvedSheetUrl,
+    GOOGLE_SHEET_ID: resolvedSheetId,
+    LISTEN_HOST: structuredConfig.essential.listen_host || '127.0.0.1',
+    LISTEN_PORT: structuredConfig.essential.listen_port || 4577,
+    WORKSPACE_DIR: resolvedWorkspaceDir,
+    LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
+
+    // 🔧 [Flat Keys for Backward Compatibility]
+    NAVER_ID: process.env.NAVER_ID || structuredConfig.platforms.naver.user_id,
+    NAVER_PASSWORD: process.env.NAVER_PASSWORD || structuredConfig.platforms.naver.password || '', // 비밀번호 필드는 스키마에 명시 안되었으나 호환성 위해 유지
+    WORDPRESS_URL: structuredConfig.platforms.wordpress.url,
+    WORDPRESS_USER_ID: structuredConfig.platforms.wordpress.user_id,
+    WORDPRESS_APP_PASSWORD: structuredConfig.platforms.wordpress.app_password,
+    AUTH_FILE_PATH: resolvedAuthPath,
+    APP_ROOT_DIR: activeAppRoot,
+    CONFIG_DIR: activeConfigDir,
+
+    // 🔧 [More Flat Keys for Backward Compatibility]
+    TEXT_MODEL: structuredConfig.ai_settings.text_model,
+    IMAGE_MODEL: structuredConfig.ai_settings.image_model,
+    IMAGE_STYLE: structuredConfig.ai_settings.image_style,
+    FTC_DISCLOSURE_IMAGE_URL: structuredConfig.platforms.naver.assets.ftc_image,
+    SHOPPING_CTA_IMAGE_URL1: structuredConfig.platforms.naver.assets.cta_images?.[0] || '',
+    SHOPPING_CTA_IMAGE_URL2: structuredConfig.platforms.naver.assets.cta_images?.[1] || '',
+    SHOPPING_CTA_IMAGE_URL3: structuredConfig.platforms.naver.assets.cta_images?.[2] || '',
+
+    // Automation - Trends
+    COLLECT_TRENDS_ENABLED: structuredConfig.automation.blog_collect.trends.enabled,
+    COLLECT_TRENDS_TIME: structuredConfig.automation.blog_collect.trends.time,
+    COLLECT_TRENDS_CATEGORIES: structuredConfig.automation.blog_collect.trends.categories,
+    COLLECT_TRENDS_REUSE_GAP_DAYS: structuredConfig.automation.blog_collect.trends.reuse_gap_days,
+    COLLECT_TRENDS_FILTER_MIN_INCR: structuredConfig.automation.blog_collect.trends.filters.min_increase,
+    COLLECT_TRENDS_FILTER_INCLUDE_NEW: structuredConfig.automation.blog_collect.trends.filters.include_new,
+    COLLECT_TRENDS_FILTER_INCLUDE_DASH: structuredConfig.automation.blog_collect.trends.filters.include_dash,
+    COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: structuredConfig.automation.blog_collect.trends.filters.include_number,
+    COLLECT_TRENDS_FILTER_TYPE: structuredConfig.automation.blog_collect.trends.filters.type,
+    COLLECT_TRENDS_FILTER_TOP_N: structuredConfig.automation.blog_collect.trends.filters.top_n,
+
+    // Automation - RSS
+    COLLECT_RSS_ENABLED: structuredConfig.automation.blog_collect.rss.enabled,
+    COLLECT_RSS_CONFIGS: structuredConfig.automation.blog_collect.rss.feeds,
+
+    // Automation - Publish (Blog)
+    PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.blog.enabled,
+    PUBLISH_AUTO_INTERVAL_MIN: structuredConfig.automation.publish.blog.interval_min,
+    PUBLISH_AUTO_BATCH_SIZE: structuredConfig.automation.publish.blog.batch_size,
+    PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.blog.target_channels) ? structuredConfig.automation.publish.blog.target_channels : [structuredConfig.automation.publish.blog.target_channels || 'naver'],
+    PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.blog.headless,
+    PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,
+
+    // Automation - Publish (Shopping)
+    SHOPPING_PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.shopping.enabled,
+    SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: structuredConfig.automation.publish.shopping.interval_min,
+    SHOPPING_PUBLISH_AUTO_BATCH_SIZE: structuredConfig.automation.publish.shopping.batch_size,
+    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.shopping.target_channels) ? structuredConfig.automation.publish.shopping.target_channels : [structuredConfig.automation.publish.shopping.target_channels || 'naver'],
+    SHOPPING_PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.shopping.headless,
+    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.shopping.notify_enabled,
+    SHOPPING_AUTO_TIME: structuredConfig.automation.publish.shopping.scheduled_time,
+
+    // System & Constants
+    UPDATE_CHANNEL: structuredConfig.system.update_channel,
+    HEADLESS: structuredConfig.automation.publish.blog.headless, // Global fallback
+    CLOSE_DELAY_SECONDS: structuredConfig.platforms.naver.close_delay_seconds,
+    WAIT_LOAD: Constants.WAIT.LOAD,
+    WAIT_UPLOAD: Constants.WAIT.UPLOAD,
+    LICENSE_CHK_URL: internalSecrets.LICENSE_CHK_URL,
+    LICENSE_CHK_KEY: internalSecrets.LICENSE_CHK_KEY,
+    BLOG_PROMPT_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: false }),
+    SHOPPING_PROMPT_PATH: resolveRuntimePath('src/config/shopping_prompt.md', { mustExist: false }),
+
+    // 🔧 [Paths]
+    PATHS: {
+        ...PATHS,
+        auth: resolvedAuthPath,
+        workspace: resolvedWorkspaceDir,
+        appRoot: activeAppRoot,
+        configDir: activeConfigDir,
+        licenseKeyFile: resolvedLicenseKeyPath
+    },
+
+    // 🔧 [AI/Dynamic]
+    GEMINI_TEXT_ENDPOINT: `https://generativelanguage.googleapis.com/v1beta/models/${structuredConfig.ai_settings.text_model || 'gemini-3.1-flash-lite-preview'}:generateContent`,
+    GEMINI_IMAGE_ENDPOINT: `https://generativelanguage.googleapis.com/v1beta/models/${structuredConfig.ai_settings.image_model || 'gemini-2.5-flash-image'}:generateContent`,
     TYPING_SPEED: typingMode,
     TYPING: typingDelay,
-    CLOSE_DELAY: closeDelay,
+    CLOSE_DELAY: (structuredConfig.platforms.naver.close_delay_seconds || 10) * 1000,
+    BROWSER_CHANNEL: structuredConfig.platforms.naver.browser_channel === 'auto' ? undefined : structuredConfig.platforms.naver.browser_channel,
 
-    // 브라우저 채널 처리
-    BROWSER_CHANNEL: (userConfig.BROWSER_CHANNEL === 'auto') ? undefined : userConfig.BROWSER_CHANNEL,
+    // 🔧 [System]
+    UPDATE_MIRROR_REPO: structuredConfig.system.update_mirror_repo || Constants.DEFAULT_UPDATE_MIRROR_REPO,
+
+    // 🔧 [Utility]
+    resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),
 
     // 🆕 필수 설정 완료 여부 (UX 개선용)
-    // - process.env 우선, 그 다음 처리된(resolved) 값 사용
-    // - 플레이스홀더("본인의_..." 등) 값은 미설정으로 간주
-    CONFIG_IS_ESSENTIAL_SET: (() => {
-        const naverId = String(process.env.NAVER_ID || userConfig.NAVER_ID || '').trim();
-        const apiKey = String(process.env.GEMINI_API_KEY || userConfig.GEMINI_API_KEY || '').trim();
-        const sheetId = String(process.env.GOOGLE_SHEET_ID || process.env.GOOGLE_SHEET_URL || resolvedSheetId || resolvedSheetUrl || '').trim();
+    get CONFIG_IS_ESSENTIAL_SET() {
+        const naverId = String(this.NAVER_ID || '').trim();
+        const apiKey = String(this.GEMINI_API_KEY || '').trim();
+        const sheetId = String(this.GOOGLE_SHEET_ID || '').trim();
         const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
         return Boolean(naverId && !isPlaceholder(naverId) &&
             apiKey && !isPlaceholder(apiKey) &&
             sheetId && !isPlaceholder(sheetId));
-    })()
+    }
 };
+
+module.exports = CONFIG;
+

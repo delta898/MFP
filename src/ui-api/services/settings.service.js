@@ -34,26 +34,41 @@ function createSettingsService(deps = {}) {
 
     return {
         async getMajorSettings() {
-            const configSource = tryResolveReadableConfigSource();
-            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-            const effectiveSource = configSource || { path: resolveWritableConfigPath(), sourceType: 'generated' };
-            return buildMajorSettings(raw, effectiveSource);
+            // 이제 CONFIG 객체 자체가 최신 상태를 유지하므로 직접 반환하거나 
+            // config-loader의 내부 구조를 활용합니다.
+            const configSource = {
+                path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
+                sourceType: CONFIG.CONFIG_SOURCE_TYPE
+            };
+
+            // UI에 필요한 필드들을 명시적으로 구성 (기존 buildMajorSettings 호환)
+            return buildMajorSettings(null, configSource);
         },
 
         async saveMajorSettings(requestBody = {}) {
-            const configSource = tryResolveReadableConfigSource();
-            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
             const writablePath = resolveWritableConfigPath();
             const fields = parseMajorFieldsFromRequest(requestBody || {});
             const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
             const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
 
+            // 클라이언트가 이미지 값을 보내지 않은 경우 (쇼핑 설정 탭을 방문하지 않은 상태에서 저장 시)
+            // 기존 config에서 값을 읽어 채웁니다 — 이렇게 해야 다른 탭에서 저장할 때 이미지 URL이 유실되지 않습니다
             const imageKeys = [
                 'FTC_DISCLOSURE_IMAGE_URL',
                 'SHOPPING_CTA_IMAGE_URL1',
                 'SHOPPING_CTA_IMAGE_URL2',
                 'SHOPPING_CTA_IMAGE_URL3'
             ];
+            for (const key of imageKeys) {
+                if (!String(fields[key] || '').trim()) {
+                    // 기존 런타임 CONFIG에서 해당 이미지 경로 복원
+                    const existingValue = String(CONFIG[key] || '').trim();
+                    if (existingValue) {
+                        fields[key] = existingValue;
+                    }
+                }
+            }
+
             for (const key of imageKeys) {
                 if (!isAllowedImageSourceValue(fields[key])) {
                     const slotInfo = Object.values(SHOPPING_IMAGE_SLOT_MAP).find(v => v.key === key);
@@ -70,121 +85,112 @@ function createSettingsService(deps = {}) {
                 throw createApiError(400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
             }
 
-            const ADVANCED_DEFAULTS = {
-                HEADLESS: false,
-                TYPING_SPEED: 'NORMAL',
-                UPDATE_CHANNEL: 'stable',
-                SHOPPING_AUTO_NOTIFY_ENABLED: false,
-                COLLECT_TRENDS_ENABLED: false,
-                COLLECT_TRENDS_FILTER_MIN_INCR: 50,
-                COLLECT_TRENDS_FILTER_INCLUDE_NEW: false,
-                COLLECT_TRENDS_FILTER_INCLUDE_DASH: false,
-                COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: true,
-                COLLECT_TRENDS_FILTER_TYPE: 'min',
-                COLLECT_TRENDS_FILTER_TOP_N: 5,
-                COLLECT_TRENDS_REUSE_GAP_DAYS: 15,
-                COLLECT_TRENDS_TIME: '07:30',
-                COLLECT_RSS_ENABLED: false,
-                PUBLISH_AUTO_ENABLED: false,
-                PUBLISH_AUTO_INTERVAL_MIN: 60,
-                PUBLISH_AUTO_BATCH_SIZE: 1,
-                PUBLISH_AUTO_NOTIFY_ENABLED: false,
-                PUBLISH_AUTO_TARGET_CHANNELS: 'naver',
-                PUBLISH_AUTO_HEADLESS: true,
-                SHOPPING_PUBLISH_AUTO_ENABLED: false,
-                SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: 60,
-                SHOPPING_PUBLISH_AUTO_BATCH_SIZE: 1,
-                SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: false,
-                SHOPPING_PUBLISH_AUTO_HEADLESS: true,
-                SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: 'naver'
-            };
-
-            const updates = {
-                LISTEN_HOST: fields.LISTEN_HOST,
-                LISTEN_PORT: String(fields.LISTEN_PORT),
-                NAVER_ID: fields.NAVER_ID,
-                GEMINI_API_KEY: fields.GEMINI_API_KEY,
-                GOOGLE_SHEET_URL: fields.GOOGLE_SHEET_URL,
-                WORDPRESS_URL: fields.WORDPRESS_URL,
-                WORDPRESS_USER_ID: fields.WORDPRESS_USER_ID,
-                WORDPRESS_APP_PASSWORD: fields.WORDPRESS_APP_PASSWORD,
-                SHOPPING_PUBLISH_AUTO_ENABLED: fields.SHOPPING_PUBLISH_AUTO_ENABLED ? 'true' : 'false',
-                SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN),
-                SHOPPING_PUBLISH_AUTO_BATCH_SIZE: String(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE),
-                SHOPPING_PUBLISH_AUTO_HEADLESS: fields.SHOPPING_PUBLISH_AUTO_HEADLESS ? 'true' : 'false',
-                SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver',
-                SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ? 'true' : 'false',
-                SHOPPING_AUTO_TIME: fields.SHOPPING_AUTO_TIME,
-                COLLECT_TRENDS_ENABLED: fields.COLLECT_TRENDS_ENABLED ? 'true' : 'false',
-                COLLECT_TRENDS_CATEGORIES: fields.COLLECT_TRENDS_CATEGORIES,
-                COLLECT_TRENDS_FILTER_MIN_INCR: String(fields.COLLECT_TRENDS_FILTER_MIN_INCR),
-                COLLECT_TRENDS_REUSE_GAP_DAYS: String(fields.COLLECT_TRENDS_REUSE_GAP_DAYS),
-                COLLECT_TRENDS_TIME: fields.COLLECT_TRENDS_TIME,
-                COLLECT_RSS_ENABLED: fields.COLLECT_RSS_ENABLED ? 'true' : 'false',
-                COLLECT_RSS_CONFIGS: Array.isArray(fields.COLLECT_RSS_CONFIGS) ? JSON.stringify(fields.COLLECT_RSS_CONFIGS) : JSON.stringify([]),
-                PUBLISH_AUTO_BATCH_SIZE: String(fields.PUBLISH_AUTO_BATCH_SIZE),
-                PUBLISH_AUTO_TARGET_CHANNELS: fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver',
-                FTC_DISCLOSURE_IMAGE_URL: fields.FTC_DISCLOSURE_IMAGE_URL,
-                SHOPPING_CTA_IMAGE_URL1: fields.SHOPPING_CTA_IMAGE_URL1,
-                SHOPPING_CTA_IMAGE_URL2: fields.SHOPPING_CTA_IMAGE_URL2,
-                SHOPPING_CTA_IMAGE_URL3: fields.SHOPPING_CTA_IMAGE_URL3
-            };
-
-            // 💡 [Smart Filter] Advanced 설정 중 기본값과 같은 것은 파일에서 제거(null) 처리
-            Object.keys(ADVANCED_DEFAULTS).forEach(key => {
-                const currentVal = fields[key];
-                const defaultVal = ADVANCED_DEFAULTS[key];
-
-                let isDefault = false;
-                if (typeof defaultVal === 'boolean') {
-                    isDefault = Boolean(currentVal) === defaultVal;
-                } else if (typeof defaultVal === 'number') {
-                    isDefault = Number(currentVal) === defaultVal || (currentVal === '' && defaultVal === 5); // Special case for TopN
-                } else {
-                    isDefault = String(currentVal || '').trim() === String(defaultVal).trim();
+            // 💡 [JSON 기반 저장 로직 시작]
+            // 기존 config.json이 있으면 읽어오고, 없으면 기본 구조 사용
+            let structuredConfig = {};
+            try {
+                if (fs.existsSync(writablePath)) {
+                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
                 }
+            } catch (e) {
+                console.error('Failed to read existing config.json for update:', e);
+            }
 
-                if (isDefault) {
-                    updates[key] = null; // applyConfigUpdates에서 삭제 처리됨
-                } else {
-                    if (typeof currentVal === 'boolean') updates[key] = currentVal ? 'true' : 'false';
-                    else updates[key] = String(currentVal ?? '');
-                }
-            });
+            // 계층 구조에 맞춰 필드 업데이트
+            // 1. Essential
+            if (!structuredConfig.essential) structuredConfig.essential = {};
+            structuredConfig.essential.gemini_api_key = fields.GEMINI_API_KEY;
+            structuredConfig.essential.google_sheet_url = fields.GOOGLE_SHEET_URL;
+            structuredConfig.essential.listen_host = fields.LISTEN_HOST;
+            structuredConfig.essential.listen_port = Number(fields.LISTEN_PORT);
 
-            // 💡 [Cleanup] 모든 BLOG_AUTO_* 및 기타 레거시 설정을 config.txt에서 제거
-            Object.keys(raw).forEach(key => {
-                if (key.startsWith('BLOG_AUTO_')) updates[key] = null;
-            });
-            const EXTRA_LEGACY = [
-                'AUTO_MODE', 'AUTO_CATEGORIES', 'AUTO_INCLUDE_CATEGORIES', 'AUTO_MAX_BLOG_PER_CYCLE',
-                'AUTO_IMAGE_GENERATION', 'AUTO_USE_EXTERNAL_REF', 'AUTO_TRENDS_MIN_VARIATION',
-                'AUTO_TRENDS_VARIATION_INCLUDE_NEW', 'AUTO_TRENDS_VARIATION_INCLUDE_DASH',
-                'AUTO_TRENDS_VARIATION_INCLUDE_NUMBER', 'AUTO_TRENDS_TOP_N', 'AUTO_KEYWORD_REUSE_GAP_DAYS',
-                'PUBLISH_AUTO_DAILY_LIMIT', 'BLOG_AUTO_MAX_POSTS_PER_RUN', 'BLOG_AUTO_TRENDS_TIME',
-                'BLOG_AUTO_IMAGE_GENERATION', 'BLOG_AUTO_EXTERNAL_REFERENCE'
-            ];
-            EXTRA_LEGACY.forEach(key => {
-                if (raw[key] !== undefined) updates[key] = null;
-            });
+            // 2. AI Settings
+            if (!structuredConfig.ai_settings) structuredConfig.ai_settings = {};
+            // text_model, image_model 등은 고급 설정에서 관리하거나 기본값 유지
 
-            const nextRaw = applyConfigUpdates(raw, updates);
+            // 3. Platforms
+            if (!structuredConfig.platforms) structuredConfig.platforms = {};
+            if (!structuredConfig.platforms.naver) structuredConfig.platforms.naver = {};
+            structuredConfig.platforms.naver.user_id = fields.NAVER_ID;
+            structuredConfig.platforms.naver.typing_speed = fields.TYPING_SPEED;
+            if (!structuredConfig.platforms.naver.assets) structuredConfig.platforms.naver.assets = {};
+            structuredConfig.platforms.naver.assets.ftc_image = fields.FTC_DISCLOSURE_IMAGE_URL;
+            structuredConfig.platforms.naver.assets.cta_images = [
+                fields.SHOPPING_CTA_IMAGE_URL1,
+                fields.SHOPPING_CTA_IMAGE_URL2,
+                fields.SHOPPING_CTA_IMAGE_URL3
+            ].filter(Boolean);
+
+            if (!structuredConfig.platforms.wordpress) structuredConfig.platforms.wordpress = {};
+            structuredConfig.platforms.wordpress.url = fields.WORDPRESS_URL;
+            structuredConfig.platforms.wordpress.user_id = fields.WORDPRESS_USER_ID;
+            structuredConfig.platforms.wordpress.app_password = fields.WORDPRESS_APP_PASSWORD;
+
+            // 4. Automation
+            if (!structuredConfig.automation) structuredConfig.automation = {};
+            // Collect
+            if (!structuredConfig.automation.collect) structuredConfig.automation.collect = {};
+            if (!structuredConfig.automation.collect.trends) structuredConfig.automation.collect.trends = {};
+            structuredConfig.automation.collect.trends.enabled = fields.COLLECT_TRENDS_ENABLED;
+            structuredConfig.automation.collect.trends.categories = fields.COLLECT_TRENDS_CATEGORIES;
+            structuredConfig.automation.collect.trends.time = fields.COLLECT_TRENDS_TIME;
+            structuredConfig.automation.collect.trends.reuse_gap_days = Number(fields.COLLECT_TRENDS_REUSE_GAP_DAYS);
+
+            if (!structuredConfig.automation.collect.trends.filters) structuredConfig.automation.collect.trends.filters = {};
+            structuredConfig.automation.collect.trends.filters.min_increase = Number(fields.COLLECT_TRENDS_FILTER_MIN_INCR);
+            structuredConfig.automation.collect.trends.filters.include_new = fields.COLLECT_TRENDS_FILTER_INCLUDE_NEW;
+            structuredConfig.automation.collect.trends.filters.include_dash = fields.COLLECT_TRENDS_FILTER_INCLUDE_DASH;
+            structuredConfig.automation.collect.trends.filters.include_number = fields.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER;
+            structuredConfig.automation.collect.trends.filters.type = fields.COLLECT_TRENDS_FILTER_TYPE;
+            structuredConfig.automation.collect.trends.filters.top_n = Number(fields.COLLECT_TRENDS_FILTER_TOP_N);
+
+            if (!structuredConfig.automation.collect.rss) structuredConfig.automation.collect.rss = {};
+            structuredConfig.automation.collect.rss.enabled = fields.COLLECT_RSS_ENABLED;
+            structuredConfig.automation.collect.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
+
+            // Publish
+            if (!structuredConfig.automation.publish) structuredConfig.automation.publish = {};
+            if (!structuredConfig.automation.publish.blog) structuredConfig.automation.publish.blog = {};
+            structuredConfig.automation.publish.blog.enabled = fields.PUBLISH_AUTO_ENABLED;
+            structuredConfig.automation.publish.blog.interval_min = Number(fields.PUBLISH_AUTO_INTERVAL_MIN);
+            structuredConfig.automation.publish.blog.batch_size = Number(fields.PUBLISH_AUTO_BATCH_SIZE);
+            structuredConfig.automation.publish.blog.notify_enabled = fields.PUBLISH_AUTO_NOTIFY_ENABLED;
+            structuredConfig.automation.publish.blog.target_channels = fields.PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
+            structuredConfig.automation.publish.blog.headless = fields.PUBLISH_AUTO_HEADLESS;
+
+            if (!structuredConfig.automation.publish.shopping) structuredConfig.automation.publish.shopping = {};
+            structuredConfig.automation.publish.shopping.enabled = fields.SHOPPING_PUBLISH_AUTO_ENABLED;
+            structuredConfig.automation.publish.shopping.interval_min = Number(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN);
+            structuredConfig.automation.publish.shopping.batch_size = Number(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE);
+            structuredConfig.automation.publish.shopping.notify_enabled = fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED;
+            structuredConfig.automation.publish.shopping.target_channels = fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
+            structuredConfig.automation.publish.shopping.headless = fields.SHOPPING_PUBLISH_AUTO_HEADLESS;
+            structuredConfig.automation.publish.shopping.time = fields.SHOPPING_AUTO_TIME;
+
+            // 파일 저장 (Pretty JSON)
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, nextRaw, 'utf-8');
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf-8');
+
+            // 런타임 적용
             applyRuntimeConfigFromMajor(fields);
 
             // 🆕 동적으로 CONFIG 객체 업데이트 (서버 재시작 없이 반영되도록)
+            // 여기서는 신규 스택 구조 업데이트 + 레거시 플랫 키 업데이트 병행
             Object.keys(fields).forEach(key => {
                 CONFIG[key] = fields[key];
             });
+            // 계층 구조도 동기화 (간소화를 위해 다시 로드하는 것과 유사한 효과)
+            Object.assign(CONFIG, structuredConfig);
 
             syncAutoRunnerWithConfig();
             syncShoppingAutoRunnerWithConfig();
+
             const requiresRestart =
                 fields.LISTEN_HOST !== prevListenHost ||
                 normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT) !== prevListenPort;
+
             CONFIG.CONFIG_READY = true;
-            CONFIG.CONFIG_SOURCE_TYPE = 'config';
+            CONFIG.CONFIG_SOURCE_TYPE = 'json';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
 
@@ -192,24 +198,39 @@ function createSettingsService(deps = {}) {
                 scheduleUiReload(fields.LISTEN_HOST, normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT));
             }
 
+            const updatedSettings = buildMajorSettings(null, {
+                path: writablePath,
+                sourceType: 'json'
+            });
+
             return {
-                ...buildMajorSettings(nextRaw, { path: writablePath, sourceType: 'config' }),
                 requiresRestart,
                 restarting: requiresRestart,
                 newHost: fields.LISTEN_HOST,
                 newPort: normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT),
-                message: requiresRestart ? '주요 설정 저장 완료. 서버가 재시작됩니다...' : '주요 설정 저장 완료'
+                message: requiresRestart ? '주요 설정 저장 완료. 서버가 재시작됩니다...' : '주요 설정 저장 완료',
+                fields: updatedSettings.fields,
+                shoppingImageSlots: updatedSettings.shoppingImageSlots,
+                shoppingImageDefaults: updatedSettings.shoppingImageDefaults
             };
         },
 
         async getAdvancedSettings() {
-            const configSource = tryResolveReadableConfigSource();
-            const raw = configSource ? readConfigRaw(configSource) : buildDefaultConfigTemplate();
-            const revision = createConfigRevision(raw);
+            const writablePath = resolveWritableConfigPath();
+            let content = '';
+            try {
+                if (fs.existsSync(writablePath)) {
+                    content = fs.readFileSync(writablePath, 'utf8');
+                }
+            } catch (e) {
+                console.error('Failed to read config.json for advanced view:', e);
+            }
+
+            const revision = createConfigRevision(content);
             return {
-                configPath: (configSource?.path) || resolveWritableConfigPath(),
-                configSourceType: (configSource?.sourceType) || 'generated',
-                content: raw,
+                configPath: writablePath,
+                configSourceType: 'json',
+                content,
                 revision
             };
         },

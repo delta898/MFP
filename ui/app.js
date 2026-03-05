@@ -2596,7 +2596,9 @@ function applySettingsMajorToForm(data) {
   if (blogPublishAutoBatchEl) blogPublishAutoBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE || 1);
   if (blogPublishAutoIntervalEl) blogPublishAutoIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
 
-  const targetChannels = String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
+  const targetChannels = Array.isArray(fields.PUBLISH_AUTO_TARGET_CHANNELS)
+    ? fields.PUBLISH_AUTO_TARGET_CHANNELS
+    : String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
   document.querySelectorAll('[data-publish-target]').forEach(el => {
     el.checked = targetChannels.includes(el.getAttribute('data-publish-target'));
   });
@@ -2605,7 +2607,9 @@ function applySettingsMajorToForm(data) {
   if (shoppingPublishAutoBatchEl) shoppingPublishAutoBatchEl.value = String(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
   if (shoppingPublishAutoIntervalEl) shoppingPublishAutoIntervalEl.value = String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
 
-  const shoppingTargetChannels = String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
+  const shoppingTargetChannels = Array.isArray(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
+    ? fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
+    : String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
   document.querySelectorAll('[data-shopping-publish-target]').forEach(el => {
     el.checked = shoppingTargetChannels.includes(el.getAttribute('data-shopping-publish-target'));
   });
@@ -2620,15 +2624,19 @@ function applySettingsMajorToForm(data) {
   }
   applyShoppingAutoDailyPostsLimitUi();
   syncBlogAutoVariationNumberUi();
-  settingsMajorApplyingForm = false;
-  playSettingsTypingPreview();
 
+  // 이미지 슬롯을 applyingForm 플래그 해제 전에 먼저 채웁니다.
+  // 그래야 플래그 해제 직후 auto-save가 트리거되더라도
+  // ensureRequiredSettingsShoppingImages()가 올바른 데이터를 볼 수 있습니다.
   settingsShoppingImageDefaults = { ...(data?.shoppingImageDefaults || {}) };
   settingsShoppingImageSlots = { ...(data?.shoppingImageSlots || {}) };
   SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
     clearStagedSettingsShoppingImage(slot);
   });
   renderSettingsShoppingImageSlots();
+
+  settingsMajorApplyingForm = false;
+  playSettingsTypingPreview();
 
   settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
   settingsMajorHasPendingBasicChanges = false;
@@ -2676,14 +2684,14 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('blog-publish-auto-enabled')?.checked),
     PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('blog-publish-auto-interval')?.value || '60', 10),
     PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('blog-publish-auto-batch')?.value || '1', 10),
-    PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(','),
+    PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
 
     // Shopping Auto Refined
     SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('shopping-publish-auto-enabled')?.checked),
     SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('shopping-publish-auto-interval')?.value || '60', 10),
     SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('shopping-publish-auto-batch')?.value || '1', 10),
-    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')).join(','),
+    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')),
     SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('shopping-publish-auto-headless')?.checked),
     SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked)
   };
@@ -2859,8 +2867,11 @@ function buildSettingsMajorPayload() {
   const imageSources = {};
   SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
     const meta = SETTINGS_SHOPPING_SLOT_META[slot];
-    const source = (document.getElementById(`settings-image-source-${slot}`)?.value || '').trim();
-    imageSources[meta.key] = source;
+    const domValue = (document.getElementById(`settings-image-source-${slot}`)?.value || '').trim();
+    // DOM input이 비어있을 수 있음 (쇼핑 설정 탭이 활성화되지 않으면 renderSettingsShoppingImageSlot이 값을 채우지 않음)
+    // 그 경우 메모리에 있는 슬롯 데이터를 사용하여 기존 값이 유실되지 않도록 함
+    const memoryValue = String(settingsShoppingImageSlots?.[slot]?.source || '').trim();
+    imageSources[meta.key] = domValue || memoryValue;
   });
 
   const basic = getSettingsMajorBasicValuesFromDom();
@@ -3012,11 +3023,15 @@ async function uploadPendingSettingsShoppingImages(resultEls) {
 }
 
 function ensureRequiredSettingsShoppingImages() {
+  // 슬롯 데이터가 아직 로드되지 않은 경우 검증을 건너뜁니다
+  if (!settingsShoppingImageSlots || Object.keys(settingsShoppingImageSlots).length === 0) return;
   for (const slot of SETTINGS_SHOPPING_SLOT_ORDER) {
     const meta = SETTINGS_SHOPPING_SLOT_META[slot];
     if (!meta?.required) continue;
-    const source = String(document.getElementById(`settings-image-source-${slot}`)?.value || '').trim();
-    if (!source) {
+    // DOM input 대신 메모리 상태로 검사 (렌더링 여부와 무관하게 항상 정확함)
+    const slotSource = String(settingsShoppingImageSlots?.[slot]?.source || '').trim();
+    const hasStagedFile = !!settingsShoppingImageFileState?.[slot];
+    if (!slotSource && !hasStagedFile) {
       throw new Error(`${meta.label}는 필수입니다. 이미지를 선택하거나 기본 이미지로 복원해 주세요.`);
     }
   }
@@ -3052,10 +3067,8 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     try {
       setSettingsMajorResultText(currentMode === 'auto' ? '자동 저장 중...' : '주요 설정 저장 중...');
 
-      if (currentMode === 'manual') {
-        await uploadPendingSettingsShoppingImages(resultEls);
-        ensureRequiredSettingsShoppingImages();
-      }
+      await uploadPendingSettingsShoppingImages(resultEls);
+      ensureRequiredSettingsShoppingImages();
 
       const payload = buildSettingsMajorPayload();
       const data = await postJson('/api/v1/settings/major', payload);
@@ -3110,7 +3123,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
           ? '\n원문이 최신이 아닙니다. [원문 다시 불러오기] 후 변경사항을 다시 적용해 주세요.'
           : '';
         el.textContent = currentMode === 'auto'
-          ? `자동 저장 실패: ${e.message}\n필요하면 [주요 설정 저장] 버튼을 눌러 다시 시도하세요.`
+          ? `자동 저장 실패: ${e.message}`
           : `오류: ${e.message}${staleHint}`;
         el.style.color = '#ef4444';
       });
@@ -3485,10 +3498,10 @@ function renderBlogCollectRssUi(configs = []) {
         <input type="number" min="1" step="1" value="${rss.interval || 60}" onchange="updateRssConfig(${index}, 'interval', parseInt(this.value, 10))" style="width: 60px; min-height: 32px; text-align: center;">
       </td>
       <td style="padding: 10px;">
-        <input type="text" placeholder="포함(쉼표 구분)" value="${rss.includeKeywords || ''}" onchange="updateRssConfig(${index}, 'includeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+        <input type="text" placeholder="포함(쉼표 구분)" value="${Array.isArray(rss.includeKeywords) ? rss.includeKeywords.join(', ') : (rss.includeKeywords || '')}" onchange="updateRssConfig(${index}, 'includeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
       </td>
       <td style="padding: 10px;">
-        <input type="text" placeholder="제외(쉼표 구분)" value="${rss.excludeKeywords || ''}" onchange="updateRssConfig(${index}, 'excludeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
+        <input type="text" placeholder="제외(쉼표 구분)" value="${Array.isArray(rss.excludeKeywords) ? rss.excludeKeywords.join(', ') : (rss.excludeKeywords || '')}" onchange="updateRssConfig(${index}, 'excludeKeywords', this.value)" style="width: 100%; min-height: 32px; padding: 0 8px; box-sizing: border-box;">
       </td>
       <td style="padding: 10px; text-align: center; white-space: nowrap;">
         <div style="display: flex; gap: 4px; justify-content: center;">
@@ -4866,6 +4879,8 @@ function bindActions() {
     document.getElementById('blog-collect-trends-filter-new'),
     document.getElementById('blog-collect-trends-filter-dash'),
     document.getElementById('blog-collect-trends-filter-number-enabled'),
+    document.getElementById('blog-publish-auto-enabled'),
+    document.getElementById('blog-publish-auto-headless'),
     document.getElementById('shopping-publish-auto-enabled'),
     document.getElementById('shopping-publish-auto-headless'),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
@@ -5328,6 +5343,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (isDashboardPollingPaused()) return;
     loadDashboard();
+    checkSetupBanner();
 
     // 자동 새로고침: 로그/이력 뷰가 활성화되어 있으면 함께 갱신
     const logsViewEl = document.getElementById('view-logs');
