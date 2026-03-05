@@ -137,7 +137,7 @@ jobs:
           mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts"
 
           # 2. 필수 리소스 복사
-          cp config/config.txt.sample "${ROOT_OUT}/config/config.txt.sample"
+          cp config/config.json.sample "${ROOT_OUT}/config/config.json.sample"
           cp -r config/images/* "${ROOT_OUT}/config/images/" || true
           cp scripts/google_apps_script.js "${ROOT_OUT}/scripts/"
           [ -f "README_USER.md" ] && cp README_USER.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"

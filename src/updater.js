@@ -69,7 +69,7 @@ class Updater {
         const now = Date.now();
         if (this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
 
-        // config.txt의 USER_ROLE 설정(User/Tester/Developer)에 따라 판단
+        // config.json의 USER_ROLE 설정(User/Tester/Developer)에 따라 판단
         const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
 
         if (!latest) return null;

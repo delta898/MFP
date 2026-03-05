@@ -470,7 +470,7 @@ async function loadConfigStatus() {
         '',
         '설정 메뉴에서 주요 항목을 입력 후 저장하세요.',
         '',
-        uiConfigStatusMessage || '- config/config.txt 또는 config/config.txt.sample 확인 필요'
+        uiConfigStatusMessage || '- config/config.json 또는 config/config.json.sample 확인 필요'
       ].join('\n');
       showUiPopup(popupText);
     }

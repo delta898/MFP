@@ -3389,7 +3389,7 @@ const Utils = {
     },
 
     /**
-     * config.txt 파일 내의 특정 필드를 업데이트하고 메모리(CONFIG)에도 반영한다.
+     * config.json 파일 내의 특정 필드를 업데이트하고 메모리(CONFIG)에도 반영한다.
      */
     updateConfigValue: (key, value) => {
         try {
@@ -3428,7 +3428,7 @@ const Utils = {
                 return true;
             }
 
-            // config.txt 지원은 중단됨 (Legacy logic removed)
+            // config.json 기반의 구조적 업데이트 (Surgical Update) 지원
             return false;
         } catch (e) {
             Logger.error(`❌ 설정 파일 업데이트 실패 (${key}): ${e.message}`);

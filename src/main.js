@@ -73,9 +73,9 @@ const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하�
 const { checkAuthSessionValid } = require('./auth-session');
 
 // --------------------------------------------------------
-// 🛠️ [Fix 2] config.txt 설정을 읽어 API 모델 적용 (핵심!)
+// 🛠️ [Fix 2] config.json 설정을 읽어 API 모델 적용 (핵심!)
 // --------------------------------------------------------
-// 사용자가 config.txt에 'gemini-2.0-flash'라고 적으면, 
+// 사용자가 config.json에 'gemini-2.0-flash'라고 적으면, 
 // 이를 실제 API 호출 주소(URL)로 변환하여 상수를 덮어씁니다.
 const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -985,7 +985,7 @@ program
                     failCount++;
                 }
 
-                // 다음 작업 전 대기 (config.txt 설정값 사용)
+                // 다음 작업 전 대기 (config.json 설정값 사용)
                 if (i < targetTopics.length - 1) {
                     const delay = CONFIG.BATCH_INTERVAL_SECONDS || 30;
                     console.log(`⏳ ${delay}초 대기 중...`);
