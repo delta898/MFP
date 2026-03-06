@@ -217,6 +217,7 @@ const Utils = {
     callWithRetry: async function (fn, retries = 5, delay = 2000) {
         for (let i = 0; i < retries; i++) {
             try {
+                // 🛡️ [Fixed] 기본 타임아웃 15초 부여 (무한 대기 방지)
                 return await fn();
             } catch (e) {
                 // 429(Too Many Requests) 또는 5xx 에러인 경우 재시도

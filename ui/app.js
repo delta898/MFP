@@ -137,9 +137,10 @@ function parseBoolLike(value) {
   return raw === 'true' || raw === '1' || raw === 'yes' || raw === 'y' || raw === 'on';
 }
 
-let blogTopicsCache = [];
-let blogTopicsWriteLockUntil = 0; // write 진행 중 loadBlogTopics 재렌더링 방지용 타임스탬프
-let blogWpCategoriesCache = null; // 워드프레스 카테고리 캐시
+let wpCategoryCache = null; // 워드프레스 카테고리 캐시 공통
+let wpCategoryFetchPromise = null; // 중복 요청 방지용 프로미스
+let blogTopicsCache = []; // [Restored] 블로그 목록 데이터 캐시
+let blogTopicsWriteLockUntil = 0; // [Restored] 블로그 목록 재렌더링 방지 락
 let blogTrendsCache = [];
 let blogShoppingCache = [];
 const blogSelectedRowIndices = new Set();
@@ -149,6 +150,33 @@ let blogLastBatchResult = null;
 const blogRecentBatchRows = new Map();
 let blogInlineEditState = null;
 let shoppingInlineEditState = null;
+
+// [Restored] 워드프레스 카테고리 드롭다운 채우기 헬퍼
+function populateFilterWpCategoryDropdown(selectId, categories) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  const firstOption = select.options.length > 0 ? select.options[0] : null;
+  select.innerHTML = '';
+
+  if (firstOption && firstOption.value === '') {
+    select.appendChild(firstOption);
+  } else {
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '워드프레스 카테고리 (전체)';
+    select.appendChild(defaultOpt);
+  }
+
+  if (Array.isArray(categories)) {
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.name || cat.id; // 보통 검색 필터는 name을 사용
+      opt.textContent = cat.name;
+      select.appendChild(opt);
+    });
+  }
+}
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
@@ -1046,6 +1074,7 @@ async function runTrendsToTopics() {
 }
 
 function activateBlogTab(tabName, options = {}) {
+  console.log("=== activateBlogTab CALLED ===", tabName);
   const allowed = ['quick', 'trends', 'topics', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
@@ -1063,7 +1092,13 @@ function activateBlogTab(tabName, options = {}) {
     return;
   }
   if (target === 'topics') {
+    console.log("activateBlogTab: calling loadBlogTopics()");
     loadBlogTopics();
+    console.log("activateBlogTab: loading categories");
+    fetchWpCategories().then(() => {
+      populateFilterWpCategoryDropdown('blog-status-filter-wp-category', globalWpCategoryCache || wpCategoryCache);
+      console.log("activateBlogTab: categories populated");
+    }).catch(e => console.error("WP Category Load Error:", e));
     return;
   }
   if (target === 'collect') {
@@ -2016,11 +2051,26 @@ async function startBlogInlineEdit(cell) {
     } else if (field === 'category') {
       // 카테고리는 동적으로 채워짐
       options = [''];
-      if (blogWpCategoriesCache) {
-        options = ['', ...blogWpCategoriesCache.map(c => c.name)];
+      if (wpCategoryCache) {
+        options = ['', ...wpCategoryCache.map(c => c.name)];
       } else {
-        // 백그라운드에서 가져오기만 하고 일단 있는 값만 보여줌
-        fetchWpCategoriesSilently();
+        // 백그라운드에서 가져오고, 완료되면 셀을 다시 클릭하라는 힌트나 자동 갱신 고려
+        fetchWpCategories().then(() => {
+          if (blogInlineEditState && blogInlineEditState.cell === cell && blogInlineEditState.field === 'category') {
+            // 이미 에디터가 열려있다면 옵션만 교체
+            const currentVal = editorEl.value;
+            editorEl.innerHTML = '';
+            const newOpts = ['', ...wpCategoryCache.map(c => c.name)];
+            if (currentVal && !newOpts.includes(currentVal)) newOpts.push(currentVal);
+            newOpts.forEach(optVal => {
+              const opt = document.createElement('option');
+              opt.value = optVal;
+              opt.textContent = optVal || '(기본)';
+              if (optVal === currentVal) opt.selected = true;
+              editorEl.appendChild(opt);
+            });
+          }
+        });
       }
       if (initialValue && !options.includes(initialValue)) {
         options.push(initialValue);
@@ -2035,6 +2085,7 @@ async function startBlogInlineEdit(cell) {
       editorEl.appendChild(opt);
     }
   } else {
+    let editorEl;
     editorEl = document.createElement(multiline ? 'textarea' : 'input');
     if (isDateTime) {
       editorEl.type = 'datetime-local';
@@ -2142,16 +2193,44 @@ function buildBlogUpdatePayload(baseItem, patch = {}) {
   };
 }
 
-async function fetchWpCategoriesSilently() {
-  if (blogWpCategoriesCache) return;
-  try {
-    const data = await fetchJson('/api/v1/wordpress/categories');
-    if (Array.isArray(data)) {
-      blogWpCategoriesCache = data;
+/**
+ * 워드프레스 카테고리 목록을 서버에서 가져옵니다. (캐시 및 중복 요청 방지 포함)
+ */
+async function fetchWpCategories(options = {}) {
+  const force = Boolean(options.force);
+  if (!force && wpCategoryCache) return wpCategoryCache;
+  if (wpCategoryFetchPromise) return wpCategoryFetchPromise;
+
+  wpCategoryFetchPromise = (async () => {
+    try {
+      const data = await fetchJson('/api/v1/wordpress/categories');
+      if (Array.isArray(data)) {
+        wpCategoryCache = data;
+        // 카테고리를 사용하는 UI들 갱신 요청 (이벤트 방식 대신 간단히 캐시 채우기)
+        return data;
+      }
+      return null;
+    } catch (e) {
+      console.warn('WordPress categories fetch failed:', e);
+      return null;
+    } finally {
+      wpCategoryFetchPromise = null;
     }
-  } catch (e) {
-    console.warn('WP categories fetch failed:', e);
-  }
+  })();
+
+  return wpCategoryFetchPromise;
+}
+
+/**
+ * 워드프레스 카테고리 캐시를 강제로 비웁니다. (설정 변경 시 등)
+ */
+function invalidateWpCategoryCache() {
+  wpCategoryCache = null;
+  wpCategoryFetchPromise = null;
+}
+
+async function fetchWpCategoriesSilently() {
+  await fetchWpCategories();
 }
 
 async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
@@ -2196,32 +2275,39 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
 
 
 async function loadBlogTopics(options = {}) {
-  if (!guardUiConfigReady('블로그 목록 조회')) return;
-  const silent = Boolean(options.silent);
-  const skipRender = Boolean(options.skipRender);
-  const pageInfo = getPageInfo('topics');
-  const status = (document.getElementById('blog-status-filter')?.value || '').trim();
-  const q = (document.getElementById('blog-q-filter')?.value || '').trim();
-  const params = new URLSearchParams();
-  const sortState = getSortState('topics');
-  if (status) params.set('status', status);
-  if (q) params.set('q', q);
-  params.set('limit', String(pageInfo.limit));
-  params.set('offset', String(pageInfo.offset));
-  params.set('sortBy', String(sortState.key || 'rowNumber'));
-  params.set('sortDir', String(sortState.direction || 'desc'));
-
-  const resultBox = document.getElementById('blog-action-result');
-  if (resultBox && !silent) resultBox.textContent = '블로그 목록 조회 중...';
-
-  // write-lock: 최근 patch 저장 직후에는 서버 데이터가 아직 구버전일 수 있으므로 재렌더링 차단
-  const writeLocked = Date.now() < blogTopicsWriteLockUntil;
-
+  console.log("=== loadBlogTopics START ===", options);
   try {
+    if (!guardUiConfigReady('블로그 목록 조회')) {
+      console.log("loadBlogTopics: guardUiConfigReady returned false");
+      return;
+    }
+
+    const silent = Boolean(options.silent);
+    const skipRender = Boolean(options.skipRender);
+    const pageInfo = getPageInfo('topics');
+    const status = (document.getElementById('blog-status-filter')?.value || '').trim();
+    const q = (document.getElementById('blog-q-filter')?.value || '').trim();
+    const params = new URLSearchParams();
+    const sortState = getSortState('topics');
+
+    if (status) params.set('status', status);
+    if (q) params.set('q', q);
+    params.set('limit', String(pageInfo.limit));
+    params.set('offset', String(pageInfo.offset));
+    params.set('sortBy', String(sortState.key || 'rowNumber'));
+    params.set('sortDir', String(sortState.direction || 'desc'));
+
+    const resultBox = document.getElementById('blog-action-result');
+    if (resultBox && !silent) resultBox.textContent = '블로그 목록 조회 중...';
+
+    const writeLocked = Date.now() < blogTopicsWriteLockUntil;
+    console.log("loadBlogTopics: fetching...", `/api/v1/blog/topics?${params.toString()}`);
+
     const data = await fetchJson(`/api/v1/blog/topics?${params.toString()}`);
-    const freshItems = Array.isArray(data.items) ? data.items : [];
+    console.log("loadBlogTopics: fetch complete", data);
+
+    const freshItems = Array.isArray(data?.items) ? data.items : [];
     if (!writeLocked && !skipRender) {
-      // lock 해제 후 정상 렌더링
       blogTopicsCache = freshItems;
       setPageInfo('topics', {
         total: Number(data.total || 0),
@@ -2231,18 +2317,22 @@ async function loadBlogTopics(options = {}) {
       renderBlogTable(blogTopicsCache);
       renderTopicsPagination();
     } else {
-      // lock 중에는 캐시만 조용히 업데이트 (재렌더링 없음)
       blogTopicsCache = freshItems;
     }
     if (resultBox && !silent) {
       resultBox.textContent = `조회 완료: ${data.total ?? blogTopicsCache.length}건`;
     }
   } catch (e) {
+    console.error("=== FATAL ERROR in loadBlogTopics ===", e);
+    const writeLocked = Date.now() < blogTopicsWriteLockUntil;
+    const skipRender = Boolean(options.skipRender);
     if (!writeLocked && !skipRender) {
       blogTopicsCache = [];
       renderBlogTable([]);
       renderTopicsPagination();
     }
+    const silent = Boolean(options.silent);
+    const resultBox = document.getElementById('blog-action-result');
     if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
   }
 }
@@ -2503,10 +2593,24 @@ async function startShoppingInlineEdit(cell) {
       options = ['publish', 'draft', 'schedule'];
     } else if (field === 'category') {
       options = [''];
-      if (blogWpCategoriesCache) {
-        options = ['', ...blogWpCategoriesCache.map(c => c.name)];
+      if (wpCategoryCache) {
+        options = ['', ...wpCategoryCache.map(c => c.name)];
       } else {
-        fetchWpCategoriesSilently();
+        fetchWpCategories().then(() => {
+          if (shoppingInlineEditState && shoppingInlineEditState.cell === cell && shoppingInlineEditState.field === 'category') {
+            const currentVal = editorEl.value;
+            editorEl.innerHTML = '';
+            const newOpts = ['', ...wpCategoryCache.map(c => c.name)];
+            if (currentVal && !newOpts.includes(currentVal)) newOpts.push(currentVal);
+            newOpts.forEach(optVal => {
+              const opt = document.createElement('option');
+              opt.value = optVal;
+              opt.textContent = optVal || '(기본)';
+              if (optVal === currentVal) opt.selected = true;
+              editorEl.appendChild(opt);
+            });
+          }
+        });
       }
       if (initialValue && !options.includes(initialValue)) {
         options.push(initialValue);
@@ -2521,6 +2625,7 @@ async function startShoppingInlineEdit(cell) {
       editorEl.appendChild(opt);
     }
   } else {
+    let editorEl;
     editorEl = document.createElement('input');
     if (isDateTime) {
       editorEl.type = 'datetime-local';
@@ -3166,6 +3271,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       console.log('[Auto-save] Save successful');
       applySettingsMajorToForm(data);
       uiSheetsReady = false;
+      invalidateWpCategoryCache(); // WordPress 설정 변경 가능성이 있으므로 캐시 초기화
       settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
       markSettingsMajorPendingChanges(false);
       markSettingsAdvancedAsStale();
@@ -3445,6 +3551,8 @@ async function verifyWordPressAuthFromUi() {
     const res = await postJson('/api/v1/session/wordpress-verify', {});
     if (res.success) {
       updateSettingsStatus('#settings-wordpress-verify-result', '✅ ' + res.message, 'success');
+      invalidateWpCategoryCache(); // 인증 성공 시 카테고리 정보 갱신을 위해 캐시 초기화
+      fetchWpCategories(); // 백그라운드에서 즉시 갱신 시작
     } else {
       updateSettingsStatus('#settings-wordpress-verify-result', '❌ ' + res.message, 'error');
     }
@@ -3499,9 +3607,9 @@ window.openRssTest = function (index) {
   if (url) window.open(url, '_blank');
 };
 function buildWpCategorySelectHtml(selectedValue, index) {
-  if (!blogWpCategoriesCache) return `<select onchange="updateRssConfig(${index}, 'wpCategory', this.value)" style="width: 100%; min-height: 32px; box-sizing: border-box;"><option value="">불러오는 중...</option></select>`;
+  if (!wpCategoryCache) return `<select onchange="updateRssConfig(${index}, 'wpCategory', this.value)" style="width: 100%; min-height: 32px; box-sizing: border-box;"><option value="">불러오는 중...</option></select>`;
   let opts = `<option value="">미지정</option>`;
-  blogWpCategoriesCache.forEach(c => {
+  wpCategoryCache.forEach(c => {
     const sel = (c.name === selectedValue) ? 'selected' : '';
     opts += `<option value="${c.name}" ${sel}>${c.name} (${c.count})</option>`;
   });
@@ -3514,10 +3622,10 @@ function renderBlogCollectRssUi(configs = []) {
   if (!tbody) return;
 
   // Attempt to load WP categories asynchronously if needed
-  if (!blogWpCategoriesCache && !window._wpCatFetchTriggeredForRss) {
+  if (!wpCategoryCache && !window._wpCatFetchTriggeredForRss) {
     window._wpCatFetchTriggeredForRss = true;
-    fetchWpCategoriesSilently().finally(() => {
-      if (!blogWpCategoriesCache) blogWpCategoriesCache = []; // Default to empty array to prevent refetch loops
+    fetchWpCategories().finally(() => {
+      if (!wpCategoryCache) wpCategoryCache = []; // Default to empty array to prevent refetch loops
       renderBlogCollectRssUi(currentRssConfigs);
     });
   }
@@ -5418,7 +5526,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // WordPress Quick Publish UI Helpers
-let wpCategoryCache = null;
+// WordPress Quick Publish UI Helpers
 window.toggleQuickWpOptions = async function () {
   const panel = document.getElementById('quick-wp-options-panel');
   const checkbox = document.getElementById('quick-target-wordpress');
@@ -5435,9 +5543,8 @@ window.toggleQuickWpOptions = async function () {
 
           if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
 
-          const categories = await fetchJson('/api/v1/wordpress/categories');
+          const categories = await fetchWpCategories();
           if (Array.isArray(categories)) {
-            wpCategoryCache = categories;
             if (optionsContainer) {
               optionsContainer.innerHTML = '';
 
@@ -5636,9 +5743,8 @@ window.toggleShoppingQuickWpOptions = async function () {
 
           if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
 
-          const categories = await fetchJson('/api/v1/wordpress/categories');
+          const categories = await fetchWpCategories();
           if (Array.isArray(categories)) {
-            wpCategoryCache = categories;
           } else {
             if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
             return;

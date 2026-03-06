@@ -47,8 +47,8 @@ class WordPressClient {
             const response = await axios.post(url, formData, {
                 headers: {
                     ...this.authHeader,
-                    // axios automatically sets the correct Content-Type with boundary for FormData
-                }
+                },
+                timeout: 15000 // 🛡️ [Added] 타임아웃 15초
             });
             const mediaId = response.data.id;
             const mediaUrl = response.data.source_url;
@@ -60,7 +60,10 @@ class WordPressClient {
                         alt_text: altText,
                         title: altText || fileName.split('.')[0],
                         caption: altText
-                    }, { headers: this.authHeader });
+                    }, {
+                        headers: this.authHeader,
+                        timeout: 10000 // 🛡️ [Added] 타임아웃 10초
+                    });
                 } catch (altErr) {
                     Logger.warn(`⚠️ WordPress 미디어 메타데이터 설정 실패: ${altErr.message}`);
                 }
@@ -85,13 +88,19 @@ class WordPressClient {
         try {
             // Find existing
             const searchUrl = `${this.apiBase}/categories?search=${encodeURIComponent(name)}`;
-            const searchRes = await axios.get(searchUrl, { headers: this.authHeader });
+            const searchRes = await axios.get(searchUrl, {
+                headers: this.authHeader,
+                timeout: 15000 // 🛡️ [Added] 타임아웃 15초
+            });
             const existing = searchRes.data.find(c => c.name.toLowerCase() === name.toLowerCase());
             if (existing) return existing.id;
 
             // Create new
             const createUrl = `${this.apiBase}/categories`;
-            const createRes = await axios.post(createUrl, { name }, { headers: this.authHeader });
+            const createRes = await axios.post(createUrl, { name }, {
+                headers: this.authHeader,
+                timeout: 15000 // 🛡️ [Added] 타임아웃 15초
+            });
             Logger.info(`✅ WordPress 새 카테고리 생성: ${name} (ID=${createRes.data.id})`);
             return createRes.data.id;
         } catch (e) {
@@ -109,7 +118,10 @@ class WordPressClient {
         if (!this.isConfigured()) return null;
         try {
             const url = `${this.apiBase}/posts`;
-            const response = await axios.post(url, postData, { headers: this.authHeader });
+            const response = await axios.post(url, postData, {
+                headers: this.authHeader,
+                timeout: 20000 // 🛡️ [Added] 타임아웃 20초 (포스팅은 조금 더 길게)
+            });
             Logger.info(`✅ WordPress 포스팅 성공: ID=${response.data.id}, Link=${response.data.link}`);
             return response.data;
         } catch (e) {
@@ -129,7 +141,10 @@ class WordPressClient {
         try {
             // Get current user info to verify credentials
             const url = `${this.apiBase}/users/me?context=edit`;
-            const response = await axios.get(url, { headers: this.authHeader });
+            const response = await axios.get(url, {
+                headers: this.authHeader,
+                timeout: 15000 // 🛡️ [Added] 타임아웃 15초
+            });
 
             // Check if user has capability to create/publish posts
             const user = response.data;
@@ -169,7 +184,10 @@ class WordPressClient {
         if (!this.isConfigured()) return null;
         try {
             const url = `${this.apiBase}/categories?per_page=100&_fields=id,name,slug,count`;
-            const response = await axios.get(url, { headers: this.authHeader });
+            const response = await axios.get(url, {
+                headers: this.authHeader,
+                timeout: 15000 // 🛡️ [Added] 타임아웃 15초
+            });
             return Array.isArray(response.data) ? response.data : [];
         } catch (e) {
             Logger.error(`❌ WordPress 카테고리 목록 가져오기 실패: ${e.response?.data?.message || e.message}`);
