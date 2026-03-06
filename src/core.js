@@ -1517,8 +1517,16 @@ const Core = {
 		let referenceSection = "(No reference provided)";
 		if (scrapedContext) {
 			referenceSection = `아래는 해당 주제와 관련된 참고 블로그 글의 내용입니다.
+이 자료는 문장을 베끼기 위한 원문이 아니라, 사실관계와 핵심 논지를 추출하기 위한 참고 컨텍스트입니다.
 이 글들의 핵심 인사이트, 정보, 관점을 참고하여 독창적인 글을 작성하세요.
 단, 원문을 그대로 복사하지 말고, 여러 글의 정보를 종합하여 새로운 시각과 가치를 제공하는 글을 작성하세요.
+특히 다음 규칙을 반드시 지키세요.
+- 원문 문장, 문단 순서, 표현을 거의 그대로 옮기지 마세요.
+- 먼저 내용을 충분히 이해한 뒤, 한국어로 자연스럽고 새롭게 재구성해서 다시 쓰세요.
+- 외국어 기사인 경우 직역투를 피하고, 한국 독자가 읽기 쉬운 문장으로 정확하게 풀어쓰세요.
+- 참고자료에 있는 중요한 배경, 변화점, 수치, 사례, 비교 포인트, 주의사항이 있다면 빠뜨리지 말고 본문에 녹여 쓰세요.
+- 내용이 풍부한 원문이라면 글도 충분히 풍성해야 합니다. 핵심 디테일이 빠진 얕은 요약문처럼 쓰지 마세요.
+- 단순 줄거리 요약이 아니라, 핵심 주장과 맥락이 살아 있는 해설형 글처럼 재서술하세요.
 ${scrapedContext}`;
 		}
 
@@ -1935,8 +1943,8 @@ ${scrapedContext}`;
 
 							// 가운데 정렬은 공정위/CTA 이미지만 시도한다. (일반 상품 이미지는 스킵)
 							const shouldTryCenterAlign =
-								/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) ||
-								/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+								/_ftc_disclosure/i.test(file) ||
+								/_cta_image/i.test(file);
 							const centered = (imageFocused && shouldTryCenterAlign)
 								? await centerAlignFocusedImage(page)
 								: false;
@@ -1951,8 +1959,8 @@ ${scrapedContext}`;
 								imageFocused &&
 								!representativeImageSet &&
 								representativeAttemptCount < representativeMaxAttempts &&
-								!/_ftc_disclosure\.(png|jpg|jpeg|webp)$/i.test(file) &&
-								!/_cta_image\.(png|jpg|jpeg|webp)$/i.test(file);
+								!/_ftc_disclosure/i.test(file) &&
+								!/_cta_image/i.test(file);
 							if (shouldSetRepresentative) {
 								representativeAttemptCount++;
 								const repSet = await setFocusedImageAsRepresentative(page);

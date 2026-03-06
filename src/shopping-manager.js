@@ -10,7 +10,7 @@ const BrowserLauncher = require('./browser-launcher');
 const RuntimeConfig = require('./runtime-config');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
-const DEFAULT_IMAGE_MAX_COUNT = 5;
+const DEFAULT_IMAGE_MAX_COUNT = 12;
 const DEFAULT_CTA_IMAGE_INSERT_COUNT = 2;
 
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -78,6 +78,7 @@ function scoreImageUrl(imageUrl, source = 'generic') {
     if (/main|represent|대표|cover/.test(lower)) score -= 20;
     if (/detail|desc|introduce|editor|content|smarteditor/.test(lower)) score += 20;
 
+    if (sourceTag === 'main_gallery') score += 80;
     if (sourceTag === 'detail_dom') score += 35;
     if (sourceTag === 'detail_script') score += 30;
     if (sourceTag === 'structured') score += 12;
@@ -180,12 +181,21 @@ function refineImageCandidates(imageCandidates, finalUrl, options = {}) {
         used.add(item.src);
     };
 
-    // 상세 이미지가 있으면 초반에 최소 3개까지 우선 배치해 대표 이미지 쏠림을 줄인다.
-    const detailFirst = sortedItems.filter(item => ['detail_dom', 'detail_script', 'html_img'].includes(item.source));
-    for (let i = 0; i < Math.min(3, detailFirst.length); i++) {
-        pushItem(detailFirst[i]);
+    // 🌟 main_gallery 이미지가 있으면 그것을 최우선 배치합니다.
+    const mainGalleryItems = sortedItems.filter(item => item.source === 'main_gallery');
+    if (mainGalleryItems.length > 0) {
+        for (const item of mainGalleryItems) {
+            pushItem(item);
+        }
+    } else {
+        // main_gallery가 없는 경우에만 detail_dom 3개 우선 배치 (기존 로직)
+        const detailFirst = sortedItems.filter(item => ['detail_dom', 'detail_script', 'html_img'].includes(item.source));
+        for (let i = 0; i < Math.min(3, detailFirst.length); i++) {
+            pushItem(detailFirst[i]);
+        }
     }
 
+    // 나머지 이미지 순위대로 추가
     for (const item of sortedItems) {
         pushItem(item);
     }
@@ -199,6 +209,7 @@ function refineImageCandidates(imageCandidates, finalUrl, options = {}) {
     }
     return diversified.map(item => item.src);
 }
+
 
 function getPngDimensions(buffer) {
     if (!buffer || buffer.length < 24) return null;
@@ -349,14 +360,50 @@ function buildImageBlock(index, title, prompt) {
     return `[[IMAGE_${index}\ntitle: ${title}\nprompt: ${prompt}\n]]`;
 }
 
-function getDefaultLinkPhrases() {
-    return [
+function computeStringSeed(...values) {
+    const raw = values.map((value) => normalizeWhitespace(String(value || ''))).join('|');
+    let seed = 0;
+    for (let i = 0; i < raw.length; i++) {
+        seed = (seed * 31 + raw.charCodeAt(i)) % 2147483647;
+    }
+    return seed;
+}
+
+function rotateBySeed(items = [], seed = 0) {
+    const source = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (source.length <= 1) return source;
+    const offset = Math.abs(Number(seed) || 0) % source.length;
+    return source.slice(offset).concat(source.slice(0, offset));
+}
+
+function getDefaultLinkPhrases(seed = 0) {
+    return rotateBySeed([
         '가격/구성 확인하기',
         '자세한 상품 정보 보기',
         '실사용 후기가 궁금하다면 여기',
         '지금 구매 링크 바로가기',
-        '할인 여부 확인하기'
-    ];
+        '할인 여부 확인하기',
+        '지금 조건 다시 보기',
+        '구매 전 체크포인트 보기'
+    ], seed);
+}
+
+function getDefaultCtaHeadings(seed = 0) {
+    return rotateBySeed([
+        '지금 체크해볼 포인트',
+        '구매 전에 확인할 부분',
+        '이 조건이면 한 번 볼 만합니다',
+        '지금 비교해보면 좋은 이유'
+    ], seed);
+}
+
+function getDefaultClosingCtaPhrases(seed = 0) {
+    return rotateBySeed([
+        '가격과 혜택 다시 확인하기',
+        '내 조건에 맞는지 바로 보기',
+        '후기와 조건 함께 체크하기',
+        '지금 구매 포인트 확인하기'
+    ], seed);
 }
 
 function getConfiguredCtaImageUrls() {
@@ -421,6 +468,55 @@ function normalizeFactText(text) {
     return cleaned;
 }
 
+function splitContentSentences(text = '') {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return [];
+    return clean
+        .replace(/([.!?。！？])\s+/g, '$1\n')
+        .split('\n')
+        .map((sentence) => normalizeWhitespace(sentence))
+        .filter(Boolean);
+}
+
+function mergeDistinctSentences(primary = '', secondary = '', maxSentences = 5) {
+    const merged = [];
+    const seen = new Set();
+    for (const sentence of [...splitContentSentences(primary), ...splitContentSentences(secondary)]) {
+        const key = sentence.replace(/\s+/g, '').toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(sentence);
+        if (merged.length >= maxSentences) break;
+    }
+    return merged.join(' ').trim();
+}
+
+function hasConcreteShoppingSignal(text = '') {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return false;
+    return /(\d{1,3}(?:,\d{3})*원|\d+%|\d+개월|무료배송|택배배송|무이자|적립|예약|공식\s*브랜드스토어|공식\s*스토어|배송|할부|포인트|현재가|할인율)/i.test(clean);
+}
+
+function isGenericShoppingCopy(text = '') {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return false;
+
+    const genericTokens = [
+        '적합한 선택', '적합한 선택지', '만족감을', '만족도를', '든든한', '주목을 받고',
+        '큰 강점', '효율적인', '쾌적한', '스마트하게', '세련된', '기대됩니다',
+        '보여줄 것으로', '최적의 선택', '차별화된', '정갈하게', '선사할', '선사합니다',
+        '한층 더', '확실한 품질', '가장 큰 이유', '가장 큰 강점', '좋은 기회입니다'
+    ];
+
+    let hitCount = 0;
+    for (const token of genericTokens) {
+        if (clean.includes(token)) hitCount++;
+        if (hitCount >= 2) return true;
+    }
+
+    return hitCount >= 1 && !hasConcreteShoppingSignal(clean);
+}
+
 function parseKrwNumber(input) {
     const raw = String(input || '').replace(/[^0-9]/g, '');
     if (!raw) return null;
@@ -481,12 +577,14 @@ function buildCommerceFacts(commerceData) {
         facts.push(`기존가 ${formatKrw(commerceData.originalPrice)}`);
     }
     if (commerceData.discountRate) facts.push(`할인율 ${commerceData.discountRate}%`);
-    if (commerceData.freeShipping) facts.push('무료배송');
-    if (commerceData.deliveryMethods?.length > 0) facts.push(`배송 방식 ${commerceData.deliveryMethods.join(', ')}`);
-    if (commerceData.installment) facts.push(`할부 혜택 ${commerceData.installment}`);
-    if (commerceData.benefitHighlights?.length > 0) facts.push(...commerceData.benefitHighlights.slice(0, 3));
+    if (commerceData.freeShipping) facts.push('무료배송 혜택');
+    if (commerceData.deliveryFee && !commerceData.freeShipping) facts.push(`배송비 ${commerceData.deliveryFee}`);
+    if (commerceData.deliveryDateNotice) facts.push(`${commerceData.deliveryDateNotice.replace(/\(.*\)/, '').trim()} 예정`);
+    if (commerceData.wishlistCount && commerceData.wishlistCount > 100) facts.push(`관심 고객 ${commerceData.wishlistCount.toLocaleString('ko-KR')}명 돌파`);
+    if (commerceData.installment) facts.push(`혜택: ${commerceData.installment}`);
+    if (commerceData.benefitHighlights?.length > 0) facts.push(...commerceData.benefitHighlights.slice(0, 4));
 
-    return uniqStrings(facts).map(normalizeFactText).filter(Boolean).slice(0, 8);
+    return uniqStrings(facts).map(normalizeFactText).filter(Boolean).slice(0, 10);
 }
 
 function parseRatingValue(input) {
@@ -513,7 +611,7 @@ function cleanReviewSnippet(text) {
 function isLikelyReviewSentence(text) {
     const clean = normalizeWhitespace(String(text || ''));
     if (!clean) return false;
-    if (clean.length < 18 || clean.length > 180) return false;
+    if (clean.length < 8 || clean.length > 300) return false;
     if (!/[가-힣]/.test(clean)) return false;
     if (/^(리뷰|상품평|평점|사용자\s*총\s*평점|전체\s*리뷰수|평점\s*비율|스토어\s*pick|포토\/동영상|랭킹순|최신순|평점\s*높은순|평점\s*낮은순|전체보기)/i.test(clean)) return false;
     if (/^(?:\d+[,.]?)+\s*(?:개|건)?$/.test(clean)) return false;
@@ -523,19 +621,31 @@ function isLikelyReviewSentence(text) {
 
 function extractAiSummaryPointsFromHtml(rawHtml) {
     const html = decodeRepeatedly(unescapeJsEscapes(String(rawHtml || '')));
+    const $ = cheerio.load(html);
+    const points = [];
+
+    // 셀렉터 기반 수집 (가장 정확함)
+    $('[class*="ReviewSummary"], [class*="AiSummary"], [class*="Chip"], [class*="chip"]').each((_, el) => {
+        const txt = ($(el).text() || '').trim();
+        if (txt.length >= 3 && txt.length <= 40 && /[가-힣]/.test(txt)) {
+            if (!/AI|리뷰|요약|전체보기|전체 리뷰|옵션/.test(txt)) points.push(cleanReviewSnippet(txt));
+        }
+    });
+
     const anchorIdx = html.search(/AI\s*리뷰\s*요약/i);
-    if (anchorIdx < 0) return [];
+    if (anchorIdx >= 0) {
+        const windowed = html.slice(Math.max(0, anchorIdx - 1200), Math.min(html.length, anchorIdx + 22000));
+        const chips = collectCaptureMatches(
+            windowed,
+            />\s*([^<>]{2,24}(?:요|해요|좋아요|편해요|쉬워요|높아요|낮아요|따뜻해요|만족스러워요|잘\s*돼요))\s*</gi,
+            30
+        );
+        points.push(...chips);
+    }
 
-    const windowed = html.slice(Math.max(0, anchorIdx - 1200), Math.min(html.length, anchorIdx + 22000));
-    const chips = collectCaptureMatches(
-        windowed,
-        />\s*([^<>]{2,24}(?:요|해요|좋아요|편해요|쉬워요|높아요|낮아요|따뜻해요|만족스러워요|잘\s*돼요))\s*</gi,
-        30
-    );
-
-    return uniqStrings(chips
+    return uniqStrings(points
         .map(cleanReviewSnippet)
-        .filter(item => item.length >= 3 && item.length <= 24)
+        .filter(item => item.length >= 3 && item.length <= 40)
         .filter(item => /[가-힣]/.test(item))
         .filter(item => !/AI|리뷰|요약|전체보기|상품옵션|포토|동영상|랭킹순|최신순/.test(item))
     ).slice(0, 6);
@@ -654,29 +764,46 @@ function deriveReviewHighlights(aiSummaryPoints = [], reviewSamples = []) {
 function buildReviewFacts(reviewData) {
     const facts = [];
     if (!reviewData) return facts;
-    if (reviewData.reviewCount) facts.push(`리뷰 ${reviewData.reviewCount.toLocaleString('ko-KR')}개`);
-    if (reviewData.averageRating) facts.push(`평점 ${reviewData.averageRating.toFixed(1)} / 5`);
+    if (reviewData.sellerName) facts.push(`판매처: ${reviewData.sellerName}`);
+    if (reviewData.reviewCount) facts.push(`누적 리뷰 ${reviewData.reviewCount.toLocaleString('ko-KR')}개`);
+    if (reviewData.averageRating) {
+        let ratingText = `평점 ${reviewData.averageRating.toFixed(2)}점`;
+        if (reviewData.recentRating && reviewData.recentRating > 4.5) {
+            ratingText += ` (최근 6개월 ${reviewData.recentRating.toFixed(2)}점 기록 중)`;
+        }
+        facts.push(ratingText);
+    }
     const highlights = (reviewData.reviewHighlights?.length > 0)
         ? reviewData.reviewHighlights
         : deriveReviewHighlights(reviewData.aiSummaryPoints || [], reviewData.reviewSamples || []);
     if (highlights.length > 0) {
-        facts.push(`주요 반응: ${highlights.join(', ')}`);
+        facts.push(`사용자 평가: ${highlights.join(', ')}`);
     }
-    return uniqStrings(facts).slice(0, 6);
+    return uniqStrings(facts).slice(0, 8);
 }
 
 function extractReviewData(pageText, rawHtml, structuredProduct) {
     const text = normalizeWhitespace(pageText);
     const html = String(rawHtml || '');
+    const $ = cheerio.load(html);
 
     const aggregateRating = structuredProduct?.aggregateRating || null;
     let reviewCount = parseKrwNumber(aggregateRating?.ratingCount || aggregateRating?.reviewCount);
     let averageRating = parseRatingValue(aggregateRating?.ratingValue);
 
+    // 🌟 [개선] 셀렉터 기반 리뷰 개수 추출 (더 폭넓은 범위)
+    if (!reviewCount) {
+        reviewCount = parseKrwNumber(
+            $('a[class*="ReviewCount"] strong, a[class*="Review"] strong, span[class*="ReviewCount"], span._2Pg_uT9_69, div._2P6977S9un:contains("전체 리뷰수") + span').first().text()
+            || $('a.yfYuXvGCiB strong').text()
+        );
+    }
+
     if (!reviewCount) {
         const htmlCountPatterns = [
             /"(?:reviewCount|ratingCount|totalReviewCount|reviewTotalCount|reviewCnt)"\s*:\s*"?([0-9][0-9,]*)"?/gi
         ];
+        // ... (이후 기존 로직 유지하되 셀렉터 우선)
         for (const pattern of htmlCountPatterns) {
             const match = pattern.exec(html);
             if (!match?.[1]) continue;
@@ -688,57 +815,32 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
         }
     }
 
-    if (!reviewCount) {
-        const reviewCountPatterns = [
-            /(?:리뷰|상품평|사용자\s*리뷰)\s*([0-9][0-9,]*)\s*(?:개|건)?/gi,
-            /([0-9][0-9,]*)\s*개의?\s*(?:리뷰|상품평)/gi,
-            /리뷰\s*([0-9][0-9,]{2,})/gi
-        ];
-        for (const pattern of reviewCountPatterns) {
-            const match = pattern.exec(text);
-            if (!match?.[1]) continue;
-            const parsed = parseKrwNumber(match[1]);
-            if (parsed && parsed > 0) {
-                reviewCount = parsed;
-                break;
-            }
-        }
-    }
-
+    // 🌟 [개선] 셀렉터 기반 평점 추출 (전체 및 최근 6개월) - 더 정밀해진 퍼지 셀렉터
+    let recentRating = null;
     if (!averageRating) {
-        const htmlRatingPatterns = [
-            /"(?:ratingValue|averageRating|avgScore|reviewScore)"\s*:\s*"?([0-5](?:\.\d{1,2})?)"?/gi
-        ];
-        for (const pattern of htmlRatingPatterns) {
-            const match = pattern.exec(html);
-            if (!match?.[1]) continue;
-            const parsed = parseRatingValue(match[1]);
-            if (parsed) {
-                averageRating = parsed;
-                break;
-            }
-        }
+        const ratingText = $('[class*="RatingValue"], [class*="AverageRating"], [class*="rating_value"], span._29N9_sgv_d, div._2y6y6f0p_p, em[class*="score"]').first().text();
+        averageRating = parseRatingValue(ratingText);
     }
+    recentRating = parseRatingValue(
+        $('span._2P6977S9un:contains("최근 6개월")').next().text()
+        || $('span:contains("최근 6개월 평점")').next().text()
+        || $('dt:contains("최근 6개월")').next().text()
+        || $('[class*="RecentRating"]').text()
+    );
 
-    if (!averageRating) {
-        const ratingPatterns = [
-            /평점\s*([0-5](?:\.\d{1,2})?)/gi,
-            /([0-5](?:\.\d{1,2})?)\s*점\s*(?:\/\s*5)?/gi,
-            /([0-5](?:\.\d{1,2})?)\s*\/\s*5/gi,
-            /최근\s*\d+\s*개월\s*([0-5](?:\.\d{1,2})?)/gi
-        ];
-        for (const pattern of ratingPatterns) {
-            const match = pattern.exec(text);
-            if (!match?.[1]) continue;
-            const parsed = parseRatingValue(match[1]);
-            if (parsed) {
-                averageRating = parsed;
-                break;
-            }
-        }
-    }
+    // 🌟 [개선] 판매자명 추출 (가시성 높은 영역 우선)
+    const sellerName = (
+        $('a[class*="StoreName"], a._2-9uOkYpxb, [class*="seller_name"], span:contains("판매자") + span, [class*="StoreHeader"] h1, [class*="store_name"]').first().text()
+        || ''
+    ).trim();
 
     const aiSummaryPoints = [];
+    // 🌟 [개선] 셀렉터 기반 AI 리뷰 요약 추출
+    $('[class*="ReviewSummary"], [class*="AiSummary"], [class*="review_summary"]').each((_, el) => {
+        const txt = ($(el).text() || '').trim();
+        if (txt && txt.length > 5) aiSummaryPoints.push(cleanReviewSnippet(txt));
+    });
+
     const aiSummaryPatterns = [
         /AI\s*리뷰\s*요약[:：]?\s*([^"'\n]{6,90})/gi,
         /리뷰\s*요약[:：]?\s*([^"'\n]{6,90})/gi
@@ -747,28 +849,26 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
         const match = pattern.exec(text);
         if (!match?.[1]) continue;
         const cleaned = cleanReviewSnippet(match[1]);
-        if (cleaned && cleaned.length <= 30) aiSummaryPoints.push(cleaned);
+        if (cleaned && cleaned.length <= 60) aiSummaryPoints.push(cleaned);
     }
     aiSummaryPoints.push(...extractAiSummaryPointsFromHtml(html));
 
     const reviewSamples = [];
+    // 🌟 [개선] 실제 리뷰 목록에서 대표 텍스트 추출 (Store PICK 등)
+    $('p._1reK39Ua4r, div._19YID_5gL- p, [class*="ReviewText"], [class*="review_text"]').each((_, el) => {
+        const cleaned = cleanReviewSnippet($(el).text());
+        if (cleaned && cleaned.length > 20) reviewSamples.push(cleaned);
+        if (reviewSamples.length >= 10) return false;
+    });
+
     const structuredReviews = Array.isArray(structuredProduct?.review)
         ? structuredProduct.review
         : structuredProduct?.review ? [structuredProduct.review] : [];
     for (const review of structuredReviews) {
         const raw = review?.reviewBody || review?.description || review?.name || '';
         const cleaned = cleanReviewSnippet(raw);
-        if (cleaned) reviewSamples.push(cleaned);
-        if (reviewSamples.length >= 3) break;
-    }
-
-    if (reviewSamples.length < 3) {
-        const htmlSamples = extractReviewSamplesFromHtml(html);
-        for (const sample of htmlSamples) {
-            const cleaned = cleanReviewSnippet(sample);
-            if (cleaned) reviewSamples.push(cleaned);
-            if (reviewSamples.length >= 3) break;
-        }
+        if (cleaned && !reviewSamples.includes(cleaned)) reviewSamples.push(cleaned);
+        if (reviewSamples.length >= 15) break;
     }
 
     const normalizedAiSummaryPoints = normalizeReviewInsightPoints(aiSummaryPoints);
@@ -777,8 +877,10 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
     const reviewData = {
         reviewCount: reviewCount || null,
         averageRating: averageRating || null,
-        aiSummaryPoints: normalizedAiSummaryPoints.slice(0, 6),
-        reviewSamples: uniqStrings(reviewSamples).slice(0, 3),
+        recentRating: recentRating || null,
+        sellerName: sellerName || null,
+        aiSummaryPoints: normalizedAiSummaryPoints.slice(0, 8),
+        reviewSamples: uniqStrings(reviewSamples).slice(0, 10),
         reviewHighlights
     };
     reviewData.facts = buildReviewFacts(reviewData);
@@ -788,14 +890,24 @@ function extractReviewData(pageText, rawHtml, structuredProduct) {
 function mergeReviewData(baseData = {}, extraData = {}) {
     const reviewCount = Math.max(baseData.reviewCount || 0, extraData.reviewCount || 0) || null;
     const averageRating = extraData.averageRating || baseData.averageRating || null;
-    const aiSummaryPoints = normalizeReviewInsightPoints([...(baseData.aiSummaryPoints || []), ...(extraData.aiSummaryPoints || [])]).slice(0, 6);
-    const reviewSamples = uniqStrings([...(baseData.reviewSamples || []), ...(extraData.reviewSamples || [])]).slice(0, 3);
+    const recentRating = extraData.recentRating || baseData.recentRating || null;
+    const sellerName = extraData.sellerName || baseData.sellerName || null;
+    const aiSummaryPoints = normalizeReviewInsightPoints([...(baseData.aiSummaryPoints || []), ...(extraData.aiSummaryPoints || [])]).slice(0, 8);
+    const reviewSamples = uniqStrings([...(baseData.reviewSamples || []), ...(extraData.reviewSamples || [])]).slice(0, 10);
     const reviewHighlights = deriveReviewHighlights(
         [...(baseData.reviewHighlights || []), ...(extraData.reviewHighlights || []), ...aiSummaryPoints],
         reviewSamples
     );
 
-    const merged = { reviewCount, averageRating, aiSummaryPoints, reviewSamples, reviewHighlights };
+    const merged = {
+        reviewCount,
+        averageRating,
+        recentRating,
+        sellerName,
+        aiSummaryPoints,
+        reviewSamples,
+        reviewHighlights
+    };
     merged.facts = buildReviewFacts(merged);
     return merged;
 }
@@ -803,6 +915,7 @@ function mergeReviewData(baseData = {}, extraData = {}) {
 function extractCommerceData(pageText, rawHtml, structuredProduct) {
     const text = normalizeWhitespace(pageText);
     const html = String(rawHtml || '');
+    const $ = cheerio.load(html);
 
     const offers = Array.isArray(structuredProduct?.offers)
         ? structuredProduct.offers[0]
@@ -825,6 +938,27 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
             originalPrice = Math.max(...candidates);
         }
     }
+
+    // 찜하기 수 (wishlistCount) 추출 (지연 로드 대응 셀렉터 보강)
+    const wishlistCount = parseKrwNumber(
+        $('span[class*="Count"], span._3H-ms').text()
+        || $('em:contains("관심고객수")').next().text()
+        || $('span:contains("관심고객수")').next().text()
+        || $('button[class*="zzim"] span[class*="count"]').text()
+    );
+
+    // 배송비 및 배송 예정일
+    const deliveryFee = normalizeWhitespace(
+        $('span._2_nBaYvofS:contains("배송비")').nextAll('span.XmPOfshMvY').first().text()
+        || $('dt:contains("배송비")').next().text()
+        || ''
+    );
+    const deliveryDateNotice = normalizeWhitespace(
+        $('span._2_nBaYvofS:contains("배송일")').nextAll().find('span.XmPOfshMvY').first().text()
+        || $('span:contains("도착보장")').parent().text()
+        || $('[class*="DeliveryNotice"]').text()
+        || ''
+    );
 
     const discountRegex = /([1-9]\d?)\s*%/g;
     let dMatch;
@@ -852,7 +986,7 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
         if (computed > 0 && computed < 90) discountRate = computed;
     }
 
-    const freeShipping = /무료배송/.test(text);
+    const freeShipping = /무료배송/.test(text) || deliveryFee.includes('무료');
     const deliveryMethods = [];
     if (/택배배송/.test(text)) deliveryMethods.push('택배배송');
     if (/우체국택배/.test(text)) deliveryMethods.push('우체국택배');
@@ -866,22 +1000,30 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
     } else if (/무이자\s*할부/.test(text)) {
         installment = '무이자 할부';
     }
+    // 셀렉터 기반 무이자 정보 보강
+    const installmentDetail = normalizeWhitespace($('span._2_nBaYvofS:contains("무이자")').parent().text() || '');
+    if (installmentDetail && !installment) installment = installmentDetail;
 
-    const benefitHighlights = uniqStrings([
+    const eventHighlights = uniqStrings([
+        normalizeWhitespace($('span._2_nBaYvofS:contains("이벤트")').nextAll('span.XmPOfshMvY').first().text() || ''),
+        normalizeWhitespace($('span._2_nBaYvofS:contains("사은품")').nextAll('span.XmPOfshMvY').first().text() || ''),
         ...collectRegexMatches(text, /최대\s*[0-9,]+\s*원\s*(?:추가\s*)?(?:적립|포인트)/g, 3),
         ...collectRegexMatches(text, /네이버페이\s*포인트\s*[0-9,]+\s*원\s*증정/g, 2),
         ...collectRegexMatches(text, /네이버페이\s*머니\s*결제\s*시\s*최대\s*적립/g, 1),
         ...collectRegexMatches(text, /이벤트[^.]{0,35}(?:증정|혜택)/g, 2)
-    ]).slice(0, 5);
+    ]).filter(s => s.length > 2).slice(0, 7);
 
     const commerceData = {
         salePrice,
         originalPrice,
         discountRate,
         freeShipping,
+        deliveryFee,
+        deliveryDateNotice,
         deliveryMethods: uniqStrings(deliveryMethods),
         installment,
-        benefitHighlights
+        wishlistCount,
+        benefitHighlights: eventHighlights
     };
     commerceData.facts = buildCommerceFacts(commerceData);
     return commerceData;
@@ -892,17 +1034,23 @@ function mergeCommerceData(baseData = {}, extraData = {}) {
     const originalPrice = extraData.originalPrice || baseData.originalPrice || null;
     const discountRate = extraData.discountRate || baseData.discountRate || null;
     const freeShipping = !!(extraData.freeShipping || baseData.freeShipping);
+    const deliveryFee = extraData.deliveryFee || baseData.deliveryFee || '';
+    const deliveryDateNotice = extraData.deliveryDateNotice || baseData.deliveryDateNotice || '';
     const deliveryMethods = uniqStrings([...(baseData.deliveryMethods || []), ...(extraData.deliveryMethods || [])]);
     const installment = extraData.installment || baseData.installment || '';
-    const benefitHighlights = uniqStrings([...(baseData.benefitHighlights || []), ...(extraData.benefitHighlights || [])]).slice(0, 5);
+    const wishlistCount = extraData.wishlistCount || baseData.wishlistCount || null;
+    const benefitHighlights = uniqStrings([...(baseData.benefitHighlights || []), ...(extraData.benefitHighlights || [])]).slice(0, 7);
 
     const merged = {
         salePrice,
         originalPrice,
         discountRate,
         freeShipping,
+        deliveryFee,
+        deliveryDateNotice,
         deliveryMethods,
         installment,
+        wishlistCount,
         benefitHighlights
     };
     merged.facts = buildCommerceFacts(merged);
@@ -950,8 +1098,20 @@ function buildSeoKeywordHints(productTitle = '') {
 function getTitleStopWords() {
     return new Set([
         '공식', '공식파트너', '공식인증점', '파트너', '정품', '최신형', '대용량', '신생아', '아기',
-        '필기용', '실사용', '사용기', '후기', '추천', '리뷰', '와이파이', 'wifi', '그레이'
+        '필기용', '실사용', '사용기', '후기', '추천', '리뷰', '와이파이', 'wifi', '그레이',
+        '터치', '아이디', 'touch', 'id', 'ram', 'ssd', '브랜드스토어', '스토어',
+        '사전예약', '예약', '1차예약', '2차예약'
     ]);
+}
+
+function isSpecLikeTitleToken(token = '') {
+    const lower = String(token || '').trim().toLowerCase();
+    if (!lower) return false;
+    if (/^\d+(gb|tb|mb)$/i.test(lower)) return true;
+    if (/^\d+세대$/.test(lower)) return true;
+    if (/^[a-z]{1,4}\d[a-z0-9/-]{2,}$/i.test(lower)) return true;
+    if (/^[a-z]{2,}\d{2,}[a-z0-9-]*$/i.test(lower)) return true;
+    return ['touch', 'id', 'ram', 'ssd', 'lte', '5g'].includes(lower);
 }
 
 function truncateTitle(text, maxLen = 35) {
@@ -982,13 +1142,14 @@ function extractCoreTitleKeyword(productTitle = '') {
     for (const token of tokens) {
         if (token.length < 2) continue;
         if (stopWords.has(token.toLowerCase())) continue;
+        if (isSpecLikeTitleToken(token)) continue;
         selected.push(token);
-        if (selected.length >= 6) break;
+        if (selected.length >= 4) break;
     }
 
     const joined = normalizeWhitespace(selected.join(' '));
-    if (joined) return truncateTitle(joined, 18);
-    return truncateTitle(normalizeWhitespace(productTitle), 18);
+    if (joined) return truncateTitle(joined, 16);
+    return truncateTitle(normalizeWhitespace(productTitle), 16);
 }
 
 function escapeRegex(text) {
@@ -1195,10 +1356,10 @@ function isWeakShoppingTitle(title, productTitle = '') {
 function pickTitleHook(commerceData = {}) {
     const facts = buildCommerceFacts(commerceData);
     const text = facts.join(' ');
-    if (/\d+%/.test(text) || /할인/.test(text)) return '끝까지 비교해 고른 이유';
-    if (/무이자/.test(text)) return '부담 줄이고 고른 핵심 이유';
-    if (/무료배송|오늘출발|내일도착|배송/.test(text)) return '받자마자 체감한 차이';
-    return '써보니 달라진 결정적 포인트';
+    if (/무이자|적립/.test(text)) return '지금 조건이 괜찮은 이유';
+    if (/\d+%/.test(text) || /할인/.test(text)) return '지금 비교해볼 만한 이유';
+    if (/무료배송|오늘출발|내일도착|배송/.test(text)) return '구매 전에 체크할 조건';
+    return '구매 기준이 또렷해지는 이유';
 }
 
 function normalizeTitleForPublish(title = '') {
@@ -1244,10 +1405,11 @@ function ensureParagraphContainsKeyword(paragraph, keyword, fallbackTail) {
 
 function countSeoMentionsInAiData(aiData, seoPlan) {
     const keywords = [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean);
+    const contentBlocks = Array.isArray(aiData?.blocks) ? aiData.blocks : [];
     const blocks = [
         aiData.intro || '',
         aiData.conclusion || '',
-        ...(aiData.sections || []).map(section => `${section.heading || ''} ${section.body || ''}`)
+        ...contentBlocks.map((block) => `${block.heading || ''} ${block.body || ''} ${(block.bullets || []).join(' ')} ${block.quote || ''}`)
     ];
     return keywords.reduce((sum, keyword) => {
         return sum + blocks.reduce((acc, block) => acc + countKeywordOccurrences(block, keyword), 0);
@@ -1273,11 +1435,14 @@ function reinforceSeoKeywordUsage(aiData, seoPlan) {
     const MAX_MENTIONS = 5;
     let mentionCount = countSeoMentionsInAiData(aiData, seoPlan);
 
-    if (mentionCount < MIN_MENTIONS && Array.isArray(aiData.sections)) {
+    const targetBlocks = Array.isArray(aiData?.blocks) ? aiData.blocks : [];
+
+    if (mentionCount < MIN_MENTIONS && targetBlocks.length > 0) {
         const keywordPool = [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean);
         let keywordCursor = 0;
-        for (const section of aiData.sections) {
+        for (const section of targetBlocks) {
             if (mentionCount >= MIN_MENTIONS || mentionCount >= MAX_MENTIONS) break;
+            if (['cta', 'quote'].includes(normalizeAiBlockType(section.type))) continue;
             const keyword = keywordPool[keywordCursor % keywordPool.length] || seoPlan.mainKeyword;
             keywordCursor++;
             section.body = ensureParagraphContainsKeyword(
@@ -1292,86 +1457,155 @@ function reinforceSeoKeywordUsage(aiData, seoPlan) {
     return aiData;
 }
 
-function buildEngagingShoppingTitle(aiTitle, productTitle, commerceData = {}) {
+function buildEngagingShoppingTitle(aiTitle, productTitle, commerceData = {}, platform = 'naver') {
     const cleanAiTitle = normalizeTitleForPublish(String(aiTitle || '').replace(/["']/g, ''));
-    if (!isWeakShoppingTitle(cleanAiTitle, productTitle)) {
+
+    // AI가 생성한 제목을 최대한 존중하되, 최소한의 유효성만 체크합니다.
+    if (cleanAiTitle && cleanAiTitle.length >= 10) {
         return truncateTitle(cleanAiTitle, 35);
     }
 
+    // AI 제목이 너무 짧거나 없는 경우에만 최소한의 폴백을 적용합니다.
     const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
-    const hook = pickTitleHook(commerceData);
-    const templates = [
-        `${keyword} 3일 고민 끝에 고른 이유`,
-        `${keyword} 끝까지 비교해 고른 선택`,
-        `${keyword} 왜 찾는지 써보니 알겠더라`,
-        `${keyword} ${hook}`
-    ];
+    return truncateTitle(normalizeTitleForPublish(`${keyword} 고를 때 보게 되는 포인트`), 35);
+}
 
-    const seed = (normalizeWhitespace(productTitle).length + normalizeWhitespace(cleanAiTitle).length) % templates.length;
-    const candidate = normalizeTitleForPublish(templates[seed]);
-    if (!candidate || hasAggressiveClickbait(candidate) || candidate.length < 12) {
-        return normalizeTitleForPublish(`${keyword} 써보니 괜찮았던 이유`);
+function joinNaturalFacts(items = []) {
+    const facts = uniqStrings((items || []).map(normalizeFactText).filter(Boolean));
+    if (facts.length === 0) return '';
+    if (facts.length === 1) return facts[0];
+    if (facts.length === 2) return `${facts[0]}와 ${facts[1]}`;
+    return `${facts.slice(0, -1).join(', ')}, ${facts[facts.length - 1]}`;
+}
+
+function buildShoppingFallbackIntro(productTitle, commerceData = {}) {
+    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
+    const facts = buildCommerceFacts(commerceData).filter(f => /현재가|할인|적립|할부|무료배송|배송/.test(f)).slice(0, 3);
+    const factText = joinNaturalFacts(facts);
+    if (factText) {
+        return `${keyword}를 볼 때 중요한 건 사양표보다 지금 바로 계산되는 구매 조건입니다. ${factText}처럼 실제 결제 체감에 영향을 주는 요소를 먼저 보면, 이 상품이 단순 신제품인지 지금 비교해볼 만한 선택인지 판단이 훨씬 쉬워집니다.`;
     }
-    return candidate;
+    return `${keyword}를 고를 때는 제품 설명만 보는 것보다 실제 구매 조건과 사용 상황을 같이 보는 편이 좋습니다. 어떤 점이 지금 이 상품을 다시 보게 만드는지 핵심만 정리하겠습니다.`;
 }
 
-function firstSentence(text, maxLen = 72) {
-    const clean = normalizeWhitespace(text);
-    if (!clean) return '';
-    const split = clean.split(/(?<=[.!?。！？])\s+/);
-    const sentence = (split[0] || clean).trim();
-    if (sentence.length <= maxLen) return sentence;
-    return `${sentence.substring(0, maxLen).trim()}...`;
+function buildShoppingFallbackConclusion(productTitle, commerceData = {}) {
+    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
+    const facts = buildCommerceFacts(commerceData).filter(f => /적립|할부|무료배송|배송|할인/.test(f)).slice(0, 2);
+    const factText = joinNaturalFacts(facts);
+    if (factText) {
+        return `${keyword}는 스펙만 보고 결정하기보다 구매 조건까지 같이 볼 때 만족도가 갈리는 유형입니다. ${factText}처럼 지금 바로 체감되는 조건이 살아 있을 때 비교를 끝내면, 결제 직전에 흔들릴 이유가 훨씬 줄어듭니다.`;
+    }
+    return `${keyword}는 내 사용 방식과 구매 조건이 맞는지만 분명하면 만족도가 갈리는 제품입니다. 지금 필요한 기준과 우선순위를 놓치지 말고 마지막 조건까지 확인해보세요.`;
 }
 
-function buildFallbackQuickSummary(aiData, commerceData) {
-    const items = [];
-    const facts = buildCommerceFacts(commerceData);
-    if (facts[0]) items.push(facts[0]);
-    if (facts[1]) items.push(facts[1]);
+function buildShoppingFallbackBlockCatalog(productTitle, commerceData = {}, reviewData = {}) {
+    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
+    const commerceFacts = buildCommerceFacts(commerceData);
+    const reviewFacts = buildReviewFacts(reviewData);
+    const purchaseFacts = commerceFacts.filter(f => /현재가|할인|적립|할부|무료배송|배송/.test(f));
+    const reviewSentence = reviewFacts.length > 0
+        ? `${joinNaturalFacts(reviewFacts.slice(0, 2))}까지 같이 보면 단순 스펙보다 실제 판단 기준이 더 분명해집니다.`
+        : '리뷰 데이터가 많지 않더라도 구매 조건과 사용 상황을 같이 보면 선택 기준은 충분히 세울 수 있습니다.';
 
-    const firstSection = (aiData.sections || []).find(s => (s.body || '').trim());
-    if (firstSection) {
-        const summary = normalizeWhitespace(firstSection.summary || '') || firstSentence(firstSection.body || '');
-        if (summary) items.push(summary);
+    const decisionHeadings = [
+        '계속 보게 되는 이유부터 분명합니다',
+        '왜 지금 이 상품에 주목해야 할까요?',
+        '결정적인 선택의 기준은 따로 있습니다',
+        '다시 봐도 고를 수밖에 없는 이유'
+    ];
+    const decisionHeading = rotateBySeed(decisionHeadings, computeStringSeed(productTitle, 'decision'));
+
+    return [
+        normalizeAiBlock({
+            type: 'decision',
+            heading: decisionHeading,
+            body: `${keyword}를 다시 보게 되는 건 단순히 신제품이어서가 아니라, ${joinNaturalFacts(purchaseFacts.slice(0, 2)) || '구매 조건'}처럼 바로 계산되는 기준이 있기 때문입니다. 예산과 결제 부담, 구매 타이밍을 함께 보는 사람일수록 이런 조건 차이가 실제 체감에서 더 크게 작동합니다.`
+        }),
+        normalizeAiBlock({
+            type: 'proof',
+            heading: '조건을 숫자로 보면 판단이 쉬워집니다',
+            body: `${joinNaturalFacts(purchaseFacts.slice(0, 3)) || '구매 조건'}이 한 번에 들어오면 비교가 훨씬 단순해집니다. ${reviewSentence}`,
+            bullets: purchaseFacts.slice(0, 3)
+        }),
+        normalizeAiBlock({
+            type: 'comparison',
+            heading: '비교할 때는 가격만 보면 아쉽습니다',
+            body: `${keyword} 같은 제품은 표면적인 가격만 볼수록 판단이 흐려질 수 있습니다. 저장공간, 결제 혜택, 배송 조건, 예약 일정처럼 실제 사용 전부터 영향을 주는 항목까지 같이 봐야 내 상황에 맞는 선택인지 분명해집니다.`
+        }),
+        normalizeAiBlock({
+            type: 'tip',
+            heading: '구매 전에 놓치지 말아야 할 체크포인트',
+            body: `예약 상품이나 혜택형 상품은 제품 스펙보다 적용 조건을 같이 보는 편이 안전합니다. ${keyword}도 적립 방식, 무이자 적용 범위, 배송 조건 같은 항목을 함께 확인해두면 결제 직전에 흔들릴 일이 줄어듭니다.`,
+            bullets: uniqStrings([
+                commerceData.installment ? `무이자 적용 범위: ${commerceData.installment}` : '',
+                commerceData.freeShipping ? '배송비 추가 부담 여부 확인' : '',
+                purchaseFacts.find(f => /적립/.test(f)) || ''
+            ]).filter(Boolean).slice(0, 3)
+        }),
+        normalizeAiBlock({
+            type: 'recommendation',
+            heading: '이런 상황이라면 더 만족도가 높습니다',
+            body: `${keyword}는 단순히 최신 제품이 필요한 사람보다, 결제 조건과 사용 균형을 함께 따지는 사람에게 더 잘 맞습니다. 오래 쓸 노트북을 한 번에 정리하고 싶거나, 지금 살아 있는 혜택까지 포함해 총구매 체감을 따져보고 싶은 경우 특히 후보로 남기기 좋습니다.`,
+            bullets: [
+                '지금 구매 조건과 실사용 균형을 함께 보고 싶은 경우',
+                '무이자/적립까지 포함해 총구매 체감을 따져보는 경우',
+                '예약 시점에 혜택과 발송 일정을 같이 확인하려는 경우'
+            ]
+        }),
+        normalizeAiBlock({
+            type: 'cta',
+            heading: '지금 확인해볼 조건은 이 정도입니다',
+            body: `${joinNaturalFacts(purchaseFacts.slice(0, 2)) || '구매 조건'}처럼 지금 바로 계산 가능한 이점부터 확인해보는 편이 좋습니다. 가격만 보고 넘기기보다 실제 결제 체감이 어떻게 달라지는지 함께 체크해보세요.`,
+            bullets: purchaseFacts.slice(0, 2)
+        })
+    ].filter(block => block.heading || block.body || block.bullets.length > 0);
+}
+
+function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewData = {}) {
+    // 🚀 [Pure AI Strategy] 프로그램의 임의 개입을 싹 뺍니다. 
+    // AI 프롬프트 엔지니어링에 전적으로 의존하며, 여기서는 구조적 정규화만 수행합니다.
+    const normalizedBlocks = Array.isArray(aiData?.blocks)
+        ? aiData.blocks.map(normalizeAiBlock).filter(block => block.heading || block.body || block.bullets.length > 0 || block.quote || block.ctaPhrase)
+        : [];
+
+    // 블록이 하나도 없는 극단적인 경우에만 최소한의 구조를 유지합니다.
+    if (normalizedBlocks.length === 0) {
+        normalizedBlocks.push({
+            type: 'section',
+            heading: '구매 가치와 실제 체감 포인트',
+            body: '상품의 핵심 특징과 실제 구매 시 고려해야 할 요소들을 정리해 드립니다.',
+            bullets: []
+        });
     }
 
-    return uniqStrings(items).slice(0, 3);
+    aiData.blocks = normalizedBlocks.slice(0, 10);
+
+    // intro/conclusion도 AI가 생성한 것을 그대로 사용합니다. (최소 유효성만 유지)
+    aiData.intro = normalizeWhitespace(aiData.intro || '');
+    aiData.conclusion = normalizeWhitespace(aiData.conclusion || '');
+
+    // CTA 문구는 버튼 텍스트로 사용되므로 최소한의 시각적 형태를 보장합니다.
+    if (!Array.isArray(aiData.ctaPhrases) || aiData.ctaPhrases.length === 0) {
+        const seed = computeStringSeed(productTitle, JSON.stringify(commerceData || {}));
+        aiData.ctaPhrases = getDefaultLinkPhrases(seed);
+    }
+
+    return aiData;
 }
 
-function buildFallbackProsCons(aiData, commerceData, reviewData) {
-    const pros = uniqStrings([
-        ...(Array.isArray(aiData?.pros) ? aiData.pros : []),
-        ...buildFallbackQuickSummary(aiData, commerceData),
-        ...(Array.isArray(reviewData?.aiSummaryPoints) ? reviewData.aiSummaryPoints.slice(0, 1) : [])
-    ]).slice(0, 3);
-
-    const cons = uniqStrings([
-        ...(Array.isArray(aiData?.cons) ? aiData.cons : []),
-        '설치 공간과 크기는 구매 전에 한 번 더 확인하는 것이 좋습니다.',
-        '세척/관리 주기는 사용 환경에 따라 체감이 다를 수 있습니다.'
-    ]).slice(0, 2);
-
-    return { pros, cons };
-}
-
-function buildFallbackRecommendedFor(aiData) {
-    const list = Array.isArray(aiData?.recommendedFor) ? aiData.recommendedFor : [];
-    const fallback = [
-        '집에서 장시간 사용해도 부담 적은 제품을 찾는 분',
-        '할인/적립/무이자 할부까지 챙겨 실속 구매하고 싶은 분',
-        '실사용 후기와 검증된 평점을 중요하게 보는 분'
-    ];
-    return uniqStrings([...list, ...fallback]).slice(0, 3);
-}
-
-function buildAiPrompt(product) {
+function buildAiPrompt(product, platform = 'naver') {
     const commerceFacts = (product.commerceData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 가격/혜택 정보 없음';
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
     const reviewSamples = (product.reviewData?.reviewSamples || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n') || '1. 대표 리뷰를 추출하지 못했습니다.';
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
     const commerceJson = JSON.stringify(product.commerceData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
+
+    // 플랫폼별 특화 지시사항
+    const platformLabel = platform === 'wordpress' ? '워드프레스(WordPress)' : '네이버 블로그(Naver Blog)';
+    const platformStyle = platform === 'wordpress'
+        ? '정보 중심의 깔끔하고 구조적인 문체와 객관적인 톤을 유지하세요.'
+        : '이웃과 대화하듯 친근하고 개인적인 경험이 묻어나는 "블로그 나수" 스타일로 작성하세요.';
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -1393,6 +1627,8 @@ function buildAiPrompt(product) {
         .replace(/{{\s*REVIEW_JSON\s*}}/g, reviewJson)
         .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
         .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
+        .replace(/{{\s*PLATFORM_NAME\s*}}/g, platformLabel)
+        .replace(/{{\s*PLATFORM_STYLE\s*}}/g, platformStyle)
         .trim();
 }
 
@@ -1451,16 +1687,24 @@ async function resolveUrlAndHtml(shortUrl) {
 }
 
 function mergeProductData(baseData, extraData) {
-    const mergedImages = [...new Set([...(baseData.imageUrls || []), ...(extraData.imageUrls || [])])];
     const mergedImageMetaMap = new Map();
-    for (const item of [...(baseData.imageMeta || []), ...(extraData.imageMeta || [])]) {
+    const allMeta = [...(baseData.imageMeta || []), ...(extraData.imageMeta || [])];
+
+    for (const item of allMeta) {
         if (!item?.url) continue;
         const current = mergedImageMetaMap.get(item.url);
         if (!current || (item.score || 0) > (current.score || 0)) {
             mergedImageMetaMap.set(item.url, item);
         }
     }
-    const mergedImageMeta = mergedImages.map(url => mergedImageMetaMap.get(url) || { url, source: 'merged', score: 0 });
+
+    // 최종 병합된 메타 데이터들을 점수 내림차순으로 정렬
+    const sortedMeta = [...mergedImageMetaMap.values()]
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    const mergedImages = sortedMeta.map(item => item.url);
+    const mergedImageMeta = sortedMeta;
+
     return {
         title: extraData.title || baseData.title,
         description: extraData.description || baseData.description,
@@ -1468,6 +1712,7 @@ function mergeProductData(baseData, extraData) {
         imageUrls: mergedImages,
         imageMeta: mergedImageMeta,
         structuredProduct: extraData.structuredProduct || baseData.structuredProduct,
+
         commerceData: mergeCommerceData(baseData.commerceData, extraData.commerceData),
         reviewData: mergeReviewData(baseData.reviewData, extraData.reviewData)
     };
@@ -1526,6 +1771,48 @@ function extractProductData(finalUrl, html) {
     const ogImage = $('meta[property="og:image"]').attr('content');
     if (ogImage) imageCandidates.push({ url: ogImage, source: 'og' });
 
+    // 🌟 [우선] 네이버 스마트스토어/브랜드스토어 메인 상품 이미지 슬라이더 전용 셀렉터
+    // 하단의 "다른 구성", "베스트 상품", "추천 상품" 영역을 제외하고 메인 갤러리만 추출합니다.
+    // 실제 페이지 DOM 분석으로 확인된 클래스명:
+    //   메인 갤러리 썸네일: a.MLx6OjiZJZ
+    //   다른 구성 섹션:   a.XtWZmys5I5 (제외)
+    //   베스트 상품 섹션: a.RtatPoQQiT (제외)
+    const mainGallerySelectors = [
+        // ✅ 실제 Naver Brand/SmartStore DOM에서 확인한 메인 갤러리 셀렉터 (최우선)
+        'a.MLx6OjiZJZ img',
+        // ✅ 범용 대체 셀렉터 (클래스명이 난독화되어 다를 경우 대비)
+        '[class*="ProductImageView"] img',
+        '[class*="productImage"] img',
+        '[class*="product_image"] img',
+        '[class*="MainImageWrap"] img',
+        '[class*="mainImage"] img',
+        '[class*="main_image"] img',
+        '[class*="repImage"] img',
+        '[class*="rep_image"] img',
+        '[class*="ProductRepImage"] img',
+        '[class*="SwipeableViews"] img',
+        '[class*="swiper-slide"] img',
+        '[class*="image-slider"] img',
+        '[class*="ImageSlider"] img',
+        '[class*="GalleryImage"] img'
+    ];
+    let mainGalleryImages = 0;
+    for (const selector of mainGallerySelectors) {
+        $(selector).each((_, el) => {
+            const src =
+                $(el).attr('src') ||
+                $(el).attr('data-src') ||
+                $(el).attr('data-original') ||
+                $(el).attr('data-lazy-src') ||
+                $(el).attr('data-img-src');
+            if (src) {
+                imageCandidates.push({ url: src, source: 'main_gallery' });
+                mainGalleryImages++;
+            }
+        });
+    }
+
+
     const detailImageSelectors = [
         '#INTRODUCE img',
         '#detail img',
@@ -1549,15 +1836,47 @@ function extractProductData(finalUrl, html) {
         });
     }
 
-    $('img').each((_, el) => {
-        const src =
-            $(el).attr('src') ||
-            $(el).attr('data-src') ||
-            $(el).attr('data-original') ||
-            $(el).attr('data-lazy-src') ||
-            $(el).attr('data-img-src');
-        if (src) imageCandidates.push({ url: src, source: 'html_img' });
-    });
+    // 🚫 하단 추천/관련 상품 섹션을 제외한 img 전체 스캔 (메인 갤러리 이미지가 부족한 경우에만)
+    if (mainGalleryImages < 5) {
+        // 추천/관련/베스트 상품 섹션 영역을 DOM에서 임시 제거 후 스캔
+        const excludeSelectors = [
+            // ✅ 실제 Naver Brand Store DOM 클래스 (브라우저 확인)
+            'a.XtWZmys5I5',   // "다른 구성" 섹션
+            'a.RtatPoQQiT',   // "베스트 상품" 섹션
+            // 범용 제외 패턴
+            '[class*="recommendation"]',
+            '[class*="Recommendation"]',
+            '[class*="related"]',
+            '[class*="Related"]',
+            '[class*="other_product"]',
+            '[class*="OtherProduct"]',
+            '[class*="bestSeller"]',
+            '[class*="BestSeller"]',
+            '[class*="best_product"]',
+            '[class*="BestProduct"]',
+            '[class*="similar"]',
+            '[class*="Similar"]',
+            '[class*="recently_viewed"]',
+            '[class*="RecentlyViewed"]',
+            '[class*="also_viewed"]',
+            'section[data-shp-section*="recommend"]',
+            'section[data-shp-section*="related"]'
+        ];
+        // 임시 복사 $clone에서 제외 섹션 제거 후 스캔
+        const $clone = cheerio.load($.html());
+        excludeSelectors.forEach(sel => { try { $clone(sel).remove(); } catch (e) { /* */ } });
+        $clone('img').each((_, el) => {
+            const src =
+                $clone(el).attr('src') ||
+                $clone(el).attr('data-src') ||
+                $clone(el).attr('data-original') ||
+                $clone(el).attr('data-lazy-src') ||
+                $clone(el).attr('data-img-src');
+            if (src) imageCandidates.push({ url: src, source: 'html_img' });
+        });
+    }
+
+
 
     // 동적 스크립트 내 상세 이미지 URL 후보도 수집한다.
     const rawHtml = String(html || '');
@@ -1610,6 +1929,89 @@ function isLikelyInvalidLanding(productData, finalUrl) {
     return false;
 }
 
+/**
+ * Naver 쇼핑 등 상세 페이지에서 '리뷰' 탭을 찾아 클릭하고 데이터 로딩을 대외합니다.
+ * @param {import('playwright').Page} page 
+ */
+async function clickReviewTab(page) {
+    try {
+        const reviewTabSelectors = [
+            // 1순위: 명시적인 탭 역할과 텍스트 (가장 정확)
+            'ul[role="tablist"] li[role="tab"]:has-text("리뷰")',
+            'a[role="tab"]:has-text("리뷰")',
+            'button[role="tab"]:has-text("리뷰")',
+
+            // 2순위: Naver 스마트스토어 전용 셀렉터 (data-clk 등)
+            'li[data-clk*="rev"] a',
+            'a[data-clk*="rev"]',
+            'li._16i9p:has-text("리뷰") a', // 스마트스토어 신규 클래스
+            '.U96_i:has-text("리뷰")',      // 스마트스토어 공통 클래스
+
+            // 3순위: 일반적인 버튼/링크 (fallback)
+            'button:has-text("리뷰")',
+            'a:has-text("리뷰")',
+            'li:has-text("리뷰")',
+            '#_review_menu'
+        ];
+
+        const reviewContentSelectors = [
+            '#REVIEW', '[class*="ReviewList"]', '[class*="ReviewArea"]',
+            '._2Uo_P', '[class*="review_list"]', '[id*="review"]'
+        ];
+
+        let clicked = false;
+        for (const selector of reviewTabSelectors) {
+            const reviewTab = page.locator(selector).first();
+            if (await reviewTab.count() === 0) continue;
+
+            Logger.info(`🛍️ [Shopping] 리뷰 탭 클릭 시도 중: ${selector}`);
+            try {
+                await reviewTab.scrollIntoViewIfNeeded({ timeout: 1000 });
+                // 살짝 위로 스크롤하여 플로팅 헤더에 가려지는 것 방지
+                await page.mouse.wheel(0, -100);
+            } catch (e) { }
+
+            await reviewTab.click({ force: true, timeout: 3000 });
+            await page.waitForTimeout(1500);
+
+            // 클릭 성공 여부 확인 (리뷰 관련 콘텐츠가 보이는지)
+            let isVisible = false;
+            for (const contentSel of reviewContentSelectors) {
+                if (await page.locator(contentSel).first().isVisible({ timeout: 1000 }).catch(() => false)) {
+                    isVisible = true;
+                    break;
+                }
+            }
+
+            if (isVisible) {
+                Logger.info(`✅ [Shopping] 리뷰 탭 활성화 확인됨 (셀렉터: ${selector})`);
+                clicked = true;
+                break;
+            } else {
+                Logger.info(`ℹ️ [Shopping] 리뷰 영역 미노출, 다음 셀렉터 시도...`);
+            }
+        }
+
+        if (clicked) {
+            // 지연 로딩 트리거를 위한 추가 스크롤
+            Logger.info('🛍️ [Shopping] 리뷰 데이터 로딩을 위해 하단으로 스크롤합니다...');
+            await page.mouse.wheel(0, 1000);
+            await page.waitForTimeout(1000);
+            await page.mouse.wheel(0, 2000);
+            await page.waitForTimeout(1500);
+
+            try { await page.waitForLoadState('networkidle', { timeout: 3000 }); } catch (e) { }
+        } else {
+            Logger.warn('⚠️ [Shopping] 리뷰 탭 활성화에 실패했습니다. 현재 페이지 HTML에서 추출을 시도합니다.');
+            // 마지막 수단으로 상단 페이지만이라도 스크롤
+            await page.mouse.wheel(0, 3000);
+            await page.waitForTimeout(2000);
+        }
+    } catch (e) {
+        Logger.warn(`⚠️ [Shopping] 리뷰 탭 클릭 프로세스 중 오류: ${e.message}`);
+    }
+}
+
 async function resolveCandidateUrl(url) {
     try {
         const response = await axios.get(url, {
@@ -1647,22 +2049,7 @@ async function resolveCandidateUrlWithBrowser(url, headless = true) {
         // 🚀 [최적화] 같은 세션에서 리뷰 탭도 클릭해 추가 데이터 수집 (2번째 브라우저 방문 불필요)
         let reviewHtml = null;
         try {
-            const reviewTabSelectors = [
-                '[role="tab"]:has-text("리뷰")',
-                'button:has-text("리뷰")',
-                'a:has-text("리뷰")',
-                'li:has-text("리뷰")'
-            ];
-            for (const selector of reviewTabSelectors) {
-                const reviewTab = page.locator(selector).first();
-                if (await reviewTab.count() === 0) continue;
-                try { await reviewTab.scrollIntoViewIfNeeded({ timeout: 1000 }); } catch (ignore) { }
-                await reviewTab.click({ force: true, timeout: 2000 });
-                await page.waitForTimeout(1000);
-                break;
-            }
-            try { await page.waitForLoadState('networkidle', { timeout: 4000 }); } catch (ignore) { }
-            await page.waitForTimeout(1200);
+            await clickReviewTab(page);
             reviewHtml = await page.content();
         } catch (ignore) { }
 
@@ -1720,26 +2107,8 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
         await page.waitForTimeout(2500);
 
         // 리뷰 탭 진입 시도 (상단 탭 클릭 중심)
-        try {
-            const reviewTabSelectors = [
-                '[role="tab"]:has-text("리뷰")',
-                'button:has-text("리뷰")',
-                'a:has-text("리뷰")',
-                'li:has-text("리뷰")'
-            ];
-            for (const selector of reviewTabSelectors) {
-                const reviewTab = page.locator(selector).first();
-                if (await reviewTab.count() === 0) continue;
-                try { await reviewTab.scrollIntoViewIfNeeded({ timeout: 1000 }); } catch (e) { }
-                await reviewTab.click({ force: true, timeout: 2000 });
-                await page.waitForTimeout(1000);
-                break;
-            }
-        } catch (e) { }
-
-        // 탭 콘텐츠 렌더링 대기
-        try { await page.waitForLoadState('networkidle', { timeout: 4000 }); } catch (e) { }
-        await page.waitForTimeout(1200);
+        // 리뷰 탭 진입 시도 (상단 탭 클릭 중심)
+        await clickReviewTab(page);
 
         const finalUrl = page.url() || url;
         const html = await page.content();
@@ -2044,29 +2413,52 @@ function resolveLocalImagePath(source) {
 async function downloadImage(url, saveDir, index, label, referer = '', options = {}) {
     const rawSource = String(url || '').trim();
     const localSourcePath = resolveLocalImagePath(url);
+
+    // 원본 파일명 추출 (URL의 마지막 세그먼트에서 쿼리 제외)
+    let originalName = 'image';
+    try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const lastPart = pathname.split('/').pop() || '';
+        if (lastPart) {
+            originalName = lastPart.split('.')[0] || 'image';
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    const prefix = String(index).padStart(2, '0');
+    const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
+    const safeOriginal = Utils.sanitizeFileName(originalName).slice(0, 30);
+
     if (/^file:\/\//i.test(rawSource) && !localSourcePath) {
         throw new Error(`로컬 이미지 파일을 찾을 수 없습니다: ${rawSource}`);
     }
+
     if (localSourcePath) {
         const ext = guessExtension(localSourcePath, '');
         const dataBuffer = fs.readFileSync(localSourcePath);
         const skipSizeCheck = options.skipSizeCheck === true;
         if (!skipSizeCheck && dataBuffer.length < 10 * 1024) {
+            const reason = `용량 부족 (${dataBuffer.length} bytes)`;
+            Logger.info(`[Skip] ${url} (이유: ${reason})`);
             throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
         }
         const skipQualityCheck = options.skipQualityCheck === true;
         if (!skipQualityCheck) {
             const dimensions = getImageDimensions(dataBuffer, ext);
             if (!isLikelyUsableProductImage(dimensions)) {
+                const reason = `부적합 해상도/비율 (${dimensions.width}x${dimensions.height})`;
+                Logger.info(`[Skip] ${url} (이유: ${reason})`);
                 throw new Error(`이미지 해상도/비율이 본문용으로 부적합하여 스킵합니다 (${dimensions.width}x${dimensions.height})`);
             }
         }
 
-        const prefix = String(index).padStart(2, '0');
-        const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
-        const filename = `${prefix}_${safeLabel}.${ext}`;
+        const filename = `${prefix}_${safeLabel}_${safeOriginal}.${ext}`;
         const filePath = path.join(saveDir, filename);
         fs.writeFileSync(filePath, dataBuffer);
+        const sourceLabel = options.source ? ` (${options.source})` : '';
+        Logger.info(`[Download] ${url} -> ${filename}${sourceLabel} (Local)`);
         return filePath;
     }
 
@@ -2111,54 +2503,104 @@ async function downloadImage(url, saveDir, index, label, referer = '', options =
     const dataBuffer = Buffer.from(response.data);
     const skipSizeCheck = options.skipSizeCheck === true;
     if (!skipSizeCheck && dataBuffer.length < 10 * 1024) {
-        throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
+        const reason = `용량 부족 (${dataBuffer.length} bytes)`;
+        // 🚀 [개선] main_gallery 가 아닌 일반 이미지의 용량 부족은 경고 로그를 남기지 않고 조용히 스킵합니다.
+        if (options.source === 'main_gallery') {
+            Logger.info(`[Skip] ${url} (이유: ${reason})`);
+            throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
+        } else {
+            throw new Error(`이미지 용량이 너무 작아 스킵합니다 (${dataBuffer.length} bytes)`);
+        }
     }
     const skipQualityCheck = options.skipQualityCheck === true;
     if (!skipQualityCheck) {
         const dimensions = getImageDimensions(dataBuffer, ext);
         if (!isLikelyUsableProductImage(dimensions)) {
+            const reason = `부적합 해상도/비율 (${dimensions.width}x${dimensions.height})`;
+            Logger.info(`[Skip] ${url} (이유: ${reason})`);
             throw new Error(`이미지 해상도/비율이 본문용으로 부적합하여 스킵합니다 (${dimensions.width}x${dimensions.height})`);
         }
     }
 
-    const prefix = String(index).padStart(2, '0');
-    const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
-    const filename = `${prefix}_${safeLabel}.${ext}`;
+    const filename = `${prefix}_${safeLabel}_${safeOriginal}.${ext}`;
     const filePath = path.join(saveDir, filename);
 
     fs.writeFileSync(filePath, dataBuffer);
+    const sourceLabel = options.source ? ` (${options.source})` : '';
+    Logger.info(`[Download] ${url} -> ${filename}${sourceLabel}`);
     return filePath;
 }
+
 
 async function transformShoppingImage(localPath) {
     // TODO: v2에서 이미지 변형(텍스트 오버레이/누끼 등) 적용 예정
     return localPath;
 }
 
+function normalizeAiBlockType(type = '') {
+    const raw = normalizeWhitespace(type).toLowerCase().replace(/[\s_-]+/g, '');
+    if (!raw) return 'section';
+
+    const aliases = {
+        scene: 'scene',
+        opening: 'scene',
+        story: 'scene',
+        problem: 'problem',
+        pain: 'problem',
+        decision: 'decision',
+        reason: 'decision',
+        proof: 'proof',
+        evidence: 'proof',
+        comparison: 'comparison',
+        compare: 'comparison',
+        review: 'review',
+        usage: 'review',
+        tip: 'tip',
+        tips: 'tip',
+        recommendation: 'recommendation',
+        recommend: 'recommendation',
+        faq: 'faq',
+        cta: 'cta',
+        quote: 'quote',
+        section: 'section'
+    };
+
+    return aliases[raw] || 'section';
+}
+
+function normalizeAiBlock(rawBlock = {}) {
+    const bullets = Array.isArray(rawBlock.bullets)
+        ? rawBlock.bullets.map(v => normalizeFactText(v)).filter(Boolean).slice(0, 5)
+        : [];
+
+    return {
+        type: normalizeAiBlockType(rawBlock.type),
+        heading: normalizeWhitespace(rawBlock.heading || ''),
+        body: normalizeWhitespace(rawBlock.body || ''),
+        bullets,
+        quote: normalizeWhitespace(rawBlock.quote || ''),
+        ctaPhrase: normalizeWhitespace(rawBlock.cta_phrase || rawBlock.ctaPhrase || '')
+    };
+}
+
+function isNarrativeBlockType(type = '') {
+    return !['quote', 'cta'].includes(normalizeAiBlockType(type));
+}
+
 function parseAiJson(rawText, fallbackTitle) {
     try {
         const parsed = JSON.parse(stripCodeFence(rawText));
-        const sections = Array.isArray(parsed.sections) ? parsed.sections.map(section => ({
-            heading: section.heading || '',
-            body: section.body || '',
-            summary: section.summary || '',
-            quote: section.quote || ''
-        })) : [];
+        const blocks = Array.isArray(parsed.blocks)
+            ? parsed.blocks.map(normalizeAiBlock).filter(block => (
+                block.heading || block.body || block.bullets.length > 0 || block.quote || block.ctaPhrase
+            ))
+            : [];
 
         return {
             title: parsed.title || fallbackTitle,
             intro: parsed.intro || '',
-            sections,
-            quickSummaryHeading: normalizeWhitespace(parsed.quick_summary_heading || ''),
-            quickSummary: Array.isArray(parsed.quick_summary) ? parsed.quick_summary.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
-            quotes: Array.isArray(parsed.quotes) ? parsed.quotes.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
-            prosConsHeading: normalizeWhitespace(parsed.pros_cons_heading || ''),
-            pros: Array.isArray(parsed.pros) ? parsed.pros.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
-            cons: Array.isArray(parsed.cons) ? parsed.cons.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
-            recommendedHeading: normalizeWhitespace(parsed.recommended_for_heading || ''),
-            recommendedFor: Array.isArray(parsed.recommended_for) ? parsed.recommended_for.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
+            blocks,
             conclusion: parsed.conclusion || '',
-            ctaHeading: normalizeWhitespace(parsed.cta_heading || ''),
             ctaPhrases: Array.isArray(parsed.cta_phrases) ? parsed.cta_phrases.map(v => normalizeWhitespace(v)).filter(Boolean) : [],
             hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : []
         };
@@ -2167,17 +2609,8 @@ function parseAiJson(rawText, fallbackTitle) {
         return {
             title: fallbackTitle,
             intro: '',
-            sections: [],
-            quickSummaryHeading: '',
-            quickSummary: [],
-            quotes: [],
-            prosConsHeading: '',
-            pros: [],
-            cons: [],
-            recommendedHeading: '',
-            recommendedFor: [],
+            blocks: [],
             conclusion: '',
-            ctaHeading: '',
             ctaPhrases: [],
             hashtags: []
         };
@@ -2191,15 +2624,44 @@ function composeMarkdown({
     productImages,
     ctaImages = [],
     linkInsertCount,
-    commerceData,
-    reviewData,
     relatedPosts = [],
     relatedHeading = '함께 보면 좋은 글',
     enableRelatedPostsAutoLink = true,
     platform = 'naver'
 }) {
     const lines = [];
-    const useFallbackStructure = !(Array.isArray(aiData.sections) && aiData.sections.length > 0);
+    const renderBlocks = Array.isArray(aiData?.blocks) ? aiData.blocks.filter(Boolean) : [];
+    if (renderBlocks.length === 0) {
+        renderBlocks.push({
+            type: 'section',
+            heading: '이 제품을 보기 시작한 이유',
+            body: '상품의 핵심 특징과 구매 포인트를 실제 사용 관점에서 정리해보겠습니다.',
+            bullets: [],
+            quote: '',
+            ctaPhrase: ''
+        });
+    }
+
+    const seed = computeStringSeed(
+        aiData.title,
+        shortUrl,
+        aiData.intro,
+        renderBlocks.map((block) => `${block.type}:${block.heading}:${block.body}`).join('|')
+    );
+    const fallbackCtaHeadings = getDefaultCtaHeadings(seed);
+    const ctaPhrases = aiData.ctaPhrases.length > 0
+        ? uniqStrings(aiData.ctaPhrases.map(normalizeFactText)).slice(0, 5)
+        : getDefaultLinkPhrases(seed);
+    const closingCtaPhrases = getDefaultClosingCtaPhrases(seed);
+    const explicitCtaBlocks = renderBlocks.filter((block) => normalizeAiBlockType(block.type) === 'cta').length;
+    const requestedLinkCount = clampInt(linkInsertCount, 1, 10, DEFAULT_LINK_INSERT_COUNT);
+    const targetLinkCount = explicitCtaBlocks > 0
+        ? Math.min(requestedLinkCount, 1)
+        : Math.min(requestedLinkCount, 2);
+    const ctaImageInsertCount = Array.isArray(ctaImages) ? ctaImages.length : 0;
+    const genericContentBlocks = renderBlocks.filter((block) => !['quote', 'cta'].includes(block.type));
+    const genericCtaEvery = Math.max(2, Math.ceil(genericContentBlocks.length / Math.max(1, targetLinkCount)));
+
     lines.push(`# ${aiData.title}`);
     lines.push('');
 
@@ -2219,6 +2681,11 @@ function composeMarkdown({
     }
 
     let imageCursor = 0;
+    let narrativeBlocksSeen = 0;
+    let ctaOpportunitiesSeen = 0;
+    let linksInserted = 0;
+    let ctaImageCursor = 0;
+
     const insertNextProductImage = () => {
         if (imageCursor >= productImages.length) return false;
         const image = productImages[imageCursor];
@@ -2235,61 +2702,8 @@ function composeMarkdown({
         return true;
     };
 
-    // 요청사항: 도입부 바로 아래에 상품 이미지 배치
+    // 도입 직후 첫 제품 이미지를 우선 배치해 시각 몰입을 높인다.
     insertNextProductImage();
-
-    const quickSummary = (aiData.quickSummary || []).length > 0
-        ? aiData.quickSummary
-        : (useFallbackStructure ? buildFallbackQuickSummary(aiData, commerceData) : []);
-    if (quickSummary.length > 0) {
-        const quickSummarySeconds = Math.floor(Math.random() * 6) + 5; // 5~10초
-        lines.push(`## ${normalizeWhitespace(aiData.quickSummaryHeading || '') || `${quickSummarySeconds}초 요약`}`);
-        quickSummary.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
-        lines.push('');
-        lines.push('');
-    }
-
-    const { pros, cons } = (Array.isArray(aiData?.pros) && aiData.pros.length > 0) || (Array.isArray(aiData?.cons) && aiData.cons.length > 0)
-        ? {
-            pros: (aiData.pros || []).map(normalizeFactText).filter(Boolean).slice(0, 3),
-            cons: (aiData.cons || []).map(normalizeFactText).filter(Boolean).slice(0, 2)
-        }
-        : (useFallbackStructure ? buildFallbackProsCons(aiData, commerceData, reviewData) : { pros: [], cons: [] });
-    if (pros.length > 0 || cons.length > 0) {
-        lines.push(`## ${normalizeWhitespace(aiData.prosConsHeading || '') || '좋았던 점/아쉬운 점'}`);
-        lines.push('');
-        if (pros.length > 0) {
-            lines.push('[장점]');
-            pros.forEach((item, idx) => lines.push(`${idx + 1}. ${normalizeFactText(item)}`));
-            lines.push('');
-        }
-        if (cons.length > 0) {
-            // [장점]과 [아쉬운 점] 사이 가독성을 위해 한 줄 더 띄운다.
-            lines.push('');
-            lines.push('[아쉬운 점]');
-            cons.forEach((item, idx) => lines.push(`${idx + 1}. ${normalizeFactText(item)}`));
-            lines.push('');
-        }
-    }
-
-    const recommendedFor = (Array.isArray(aiData?.recommendedFor) && aiData.recommendedFor.length > 0)
-        ? aiData.recommendedFor.map(normalizeFactText).filter(Boolean).slice(0, 3)
-        : (useFallbackStructure ? buildFallbackRecommendedFor(aiData) : []);
-    if (recommendedFor.length > 0) {
-        lines.push(`## ${normalizeWhitespace(aiData.recommendedHeading || '') || '이런 분들께 추천해요'}`);
-        recommendedFor.forEach(item => lines.push(`- ${normalizeFactText(item)}`));
-        lines.push('');
-    }
-
-    if ((aiData.quotes || []).length > 0) {
-        lines.push(`> ${normalizeFactText(aiData.quotes[0])}`);
-        lines.push('');
-    }
-
-    const ctaPhrases = aiData.ctaPhrases.length > 0 ? aiData.ctaPhrases : getDefaultLinkPhrases();
-    let linksInserted = 0;
-    let ctaImageCursor = 0;
-    const ctaImageInsertCount = Array.isArray(ctaImages) ? ctaImages.length : 0;
 
     const insertCtaImageBlock = () => {
         if (!Array.isArray(ctaImages) || ctaImageCursor >= ctaImages.length) return;
@@ -2305,53 +2719,107 @@ function composeMarkdown({
         ctaImageCursor++;
     };
 
-    const insertLinkLine = () => {
+    const insertLinkLine = (options = {}) => {
+        if (!options.force && linksInserted >= targetLinkCount) return false;
+        if (!shortUrl) return false;
+
         if (ctaImageCursor < ctaImageInsertCount) {
             insertCtaImageBlock();
         }
-        const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
-        if (linksInserted === 0) {
-            lines.push(`## ${normalizeWhitespace(aiData.ctaHeading || '') || '지금 바로 확인하고 혜택 받으세요!'}`);
+
+        const heading = normalizeWhitespace(options.heading || '');
+        const body = normalizeWhitespace(options.body || '');
+        const bullets = Array.isArray(options.bullets)
+            ? options.bullets.map(normalizeFactText).filter(Boolean).slice(0, 3)
+            : [];
+        const phrasePool = linksInserted >= targetLinkCount
+            ? closingCtaPhrases
+            : ctaPhrases;
+        const phrase = normalizeFactText(options.phrase || phrasePool[linksInserted % phrasePool.length] || '지금 구매 포인트 확인하기');
+
+        if (heading) {
+            lines.push(`## ${heading}`);
+            lines.push('');
+        }
+        if (body) {
+            lines.push(body);
+            lines.push('');
+        }
+        if (bullets.length > 0) {
+            bullets.forEach((item) => lines.push(`- ${item}`));
+            lines.push('');
         }
 
         if (platform === 'wordpress' && shortUrl) {
             lines.push(`🛒 [${phrase}](${shortUrl})`);
-            // 워드프레스: 링크가 이미 문구에 적용되어 URL 단독 라인 불필요
         } else {
             lines.push(`🛒 ${phrase}`);
             lines.push(shortUrl);
         }
         lines.push('');
         linksInserted++;
+        return true;
     };
 
-    if (linksInserted < linkInsertCount) insertLinkLine();
+    const renderBlock = (block) => {
+        const heading = normalizeWhitespace(block.heading || '');
+        const body = normalizeWhitespace(block.body || '');
+        const bullets = Array.isArray(block.bullets) ? block.bullets.map(normalizeFactText).filter(Boolean) : [];
+        const quote = normalizeWhitespace(block.quote || '');
+        const type = normalizeAiBlockType(block.type);
 
-    const sections = aiData.sections.length > 0
-        ? aiData.sections
-        : [{ heading: '상품 핵심 포인트', body: '상품의 기능과 장단점을 살펴보며 실제 사용 관점에서 정리해보겠습니다.' }];
-
-    for (const section of sections) {
-        lines.push(`## ${section.heading || '상세 리뷰'}`);
-        lines.push(section.body || '');
-        lines.push('');
-
-        const sectionSummary = normalizeWhitespace(section.summary || '');
-        if (sectionSummary) {
-            lines.push(`한 줄 정리: ${sectionSummary}`);
-            lines.push('');
+        if (type === 'quote') {
+            if (quote) {
+                lines.push(`> ${normalizeFactText(quote)}`);
+                lines.push('');
+            }
+            return;
         }
 
-        const sectionQuote = normalizeWhitespace(section.quote || '');
-        if (sectionQuote) {
-            lines.push(`> ${normalizeFactText(sectionQuote)}`);
-            lines.push('');
+        if (type === 'cta') {
+            insertLinkLine({
+                heading: heading || fallbackCtaHeadings[linksInserted % fallbackCtaHeadings.length],
+                body,
+                bullets,
+                phrase: block.ctaPhrase || ''
+            });
+            if (quote) {
+                lines.push(`> ${normalizeFactText(quote)}`);
+                lines.push('');
+            }
+            return;
         }
 
-        insertNextProductImage();
+        if (heading) lines.push(`## ${heading}`);
+        if (body) lines.push(body);
+        if (body || heading) lines.push('');
+        if (bullets.length > 0) {
+            bullets.forEach((item) => lines.push(`- ${item}`));
+            lines.push('');
+            lines.push(''); // 🚀 [개선] 리스트 뒤 가독성을 위한 추가 개행
+        }
+        if (quote) {
+            lines.push(`> ${normalizeFactText(quote)}`);
+            lines.push('');
+        }
+    };
 
-        if (linksInserted < linkInsertCount) {
-            insertLinkLine();
+    for (const block of renderBlocks) {
+        renderBlock(block);
+
+        if (isNarrativeBlockType(block.type)) {
+            narrativeBlocksSeen++;
+            // 🚀 [개선] 이미지 밀도 강화: 모든 서사 블록마다 이미지 삽입 시도
+            if (imageCursor < productImages.length) {
+                insertNextProductImage();
+            }
+        }
+
+        if (!['quote', 'cta'].includes(block.type)) {
+            ctaOpportunitiesSeen++;
+            if (explicitCtaBlocks === 0 && linksInserted < targetLinkCount && ctaOpportunitiesSeen % genericCtaEvery === 0) {
+                insertLinkLine();
+            }
         }
     }
 
@@ -2361,34 +2829,21 @@ function composeMarkdown({
         lines.push('');
     }
 
-    while (linksInserted < linkInsertCount) {
-        insertLinkLine();
+    while (shortUrl && linksInserted < targetLinkCount) {
+        const inserted = insertLinkLine({
+            heading: linksInserted === 0 ? fallbackCtaHeadings[linksInserted % fallbackCtaHeadings.length] : '',
+            force: true
+        });
+        if (!inserted) break;
     }
 
-    while (imageCursor < productImages.length) {
-        insertNextProductImage();
+    if (linksInserted === 0 && shortUrl) {
+        insertLinkLine({
+            heading: fallbackCtaHeadings[0],
+            phrase: closingCtaPhrases[0] || '지금 구매 포인트 확인하기',
+            force: true
+        });
     }
-
-    while (ctaImageCursor < ctaImageInsertCount) {
-        insertCtaImageBlock();
-        if (linksInserted < linkInsertCount + ctaImageInsertCount) {
-            const phrase = ctaPhrases[linksInserted % ctaPhrases.length];
-            lines.push(`🛒 ${phrase}`);
-            lines.push(shortUrl);
-            lines.push('');
-            linksInserted++;
-        }
-    }
-
-    // 구매 전환을 위해 마지막 본문 단락(추천 글 섹션 직전)에 CTA 링크를 한 번 더 고정 배치한다.
-    const finalPhrase = ctaPhrases[linksInserted % ctaPhrases.length] || '지금 바로 혜택 확인하기';
-    if (platform === 'wordpress' && shortUrl) {
-        lines.push(`🛒 [${finalPhrase}](${shortUrl})`);
-    } else {
-        lines.push(`🛒 ${finalPhrase}`);
-        lines.push(shortUrl);
-    }
-    lines.push('');
 
     if (enableRelatedPostsAutoLink) {
         if (platform === 'wordpress') {
@@ -2521,22 +2976,11 @@ const ShoppingManager = {
         };
     },
 
-    buildPostFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
+    scrapeShoppingProduct: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
-
-        const linkInsertCount = clampInt(CONFIG.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
-        const imageLimit = clampInt(CONFIG.SHOPPING_IMAGE_MAX_COUNT, 1, 15, DEFAULT_IMAGE_MAX_COUNT);
-        const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
-        const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
-        const ctaImageUrls = getConfiguredCtaImageUrls();
-        Logger.info(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
-        if (ctaImageInsertCount > 0 && ctaImageUrls.length === 0) {
-            Logger.warn('⚠️ [Shopping] CTA 이미지 소스가 없어 CTA 이미지를 삽입하지 않습니다. (SHOPPING_CTA_IMAGE_URL1~3 확인)');
-        }
+        const scrapingHeadless = typeof runtimeOptions.headless === 'boolean' ? runtimeOptions.headless : true;
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
-        // 🔑 headless 설정: runtimeOptions에서 값을 읽어 스크래핑 브라우저에도 적용
-        const scrapingHeadless = typeof runtimeOptions.headless === 'boolean' ? runtimeOptions.headless : true;
         const initial = await resolveUrlAndHtml(shortUrl);
         let sourceHtml = initial.html;
         let finalUrl = initial.finalUrl;
@@ -2544,8 +2988,7 @@ const ShoppingManager = {
         let resolvedSource = 'short_url';
         let channelProductNo = extractChannelProductNo(finalUrl);
         let reviewEnrichedWithBrowser = false;
-
-        let browserResolvedReviewHtml = null; // 🚀 [최적화] 1차 브라우저 패스에서 리뷰 HTML을 이미 수집했을 때 재사용
+        let browserResolvedReviewHtml = null;
 
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless);
@@ -2560,7 +3003,6 @@ const ShoppingManager = {
                 if (!channelProductNo) {
                     channelProductNo = extractChannelProductNo(browserResolved.finalUrl);
                 }
-                // 🚀 1차 브라우저 패스에서 수집한 리뷰 HTML 보존
                 if (browserResolved.reviewHtml) {
                     browserResolvedReviewHtml = browserResolved.reviewHtml;
                 }
@@ -2582,15 +3024,12 @@ const ShoppingManager = {
             throw new Error(`상품 정보를 추출하지 못했습니다. 단축 URL이 상품 페이지를 가리키는지 확인해주세요. (resolved: ${finalUrl})`);
         }
 
-        const reviewSampleCount = (productData.reviewData?.reviewSamples || []).length;
-        const reviewHighlightCount = (productData.reviewData?.reviewHighlights || []).length;
-        const hasCoreReviewMetrics = !!productData.reviewData?.reviewCount && !!productData.reviewData?.averageRating;
-        const needsReviewEnrichment = !hasCoreReviewMetrics || (reviewSampleCount < 1 && reviewHighlightCount < 2);
+        // 🚀 [개선] 리뷰 개수에 상관없이 리뷰 탭은 무조건 방문하여 AI 요약 및 상세 정보를 수집합니다.
+        const needsReviewEnrichment = true;
+
         if (needsReviewEnrichment) {
             Logger.info('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
             const reviewTargetUrl = String(finalUrl || '').replace(/#.*$/, '');
-
-            // 🚀 [최적화] 1차 브라우저 패스에서 이미 수집한 리뷰 HTML이 있으면 재사용 (2번째 브라우저 방문 생략)
             let reviewResolved;
             if (browserResolvedReviewHtml) {
                 Logger.info('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
@@ -2606,15 +3045,46 @@ const ShoppingManager = {
                 const afterSamples = (mergedReviewData.reviewData?.reviewSamples || []).length;
                 const beforeFacts = (productData.reviewData?.facts || []).length;
                 const afterFacts = (mergedReviewData.reviewData?.facts || []).length;
+
+                Logger.info(`🛍️ [Shopping] 리뷰 데이터 추출 완료 (샘플: ${afterSamples}건, 요약: ${afterFacts}건)`);
+
                 productData = mergedReviewData;
                 if (reviewResolved.finalUrl) finalUrl = reviewResolved.finalUrl;
                 reviewEnrichedWithBrowser = afterSamples > beforeSamples || afterFacts > beforeFacts;
-                if (reviewEnrichedWithBrowser) {
-                    Logger.info(`✅ [Shopping] 리뷰 데이터 보강 완료 (samples ${beforeSamples}→${afterSamples}, facts ${beforeFacts}→${afterFacts})`);
-                } else {
-                    Logger.info('ℹ️ [Shopping] 리뷰 보강 수집을 시도했지만 추가 데이터가 제한적입니다.');
-                }
             }
+        }
+
+        return { productData, finalUrl, resolvedSource, channelProductNo, reviewEnrichedWithBrowser };
+    },
+
+    buildPostFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
+        if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
+
+        const linkInsertCount = clampInt(CONFIG.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
+        const imageLimit = typeof runtimeOptions.imageLimit === 'number'
+            ? runtimeOptions.imageLimit
+            : clampInt(CONFIG.SHOPPING_IMAGE_MAX_COUNT, 1, 20, DEFAULT_IMAGE_MAX_COUNT);
+        const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
+        const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
+        const ctaImageUrls = getConfiguredCtaImageUrls();
+
+        Logger.info(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
+
+        let productData, finalUrl, resolvedSource, channelProductNo, reviewEnrichedWithBrowser;
+        if (runtimeOptions.preScrapedData) {
+            Logger.info('♻️ [Shopping] 기수집된 쇼핑 데이터를 재사용합니다.');
+            productData = runtimeOptions.preScrapedData.productData;
+            finalUrl = runtimeOptions.preScrapedData.finalUrl;
+            resolvedSource = runtimeOptions.preScrapedData.resolvedSource || 'pre_scraped';
+            channelProductNo = runtimeOptions.preScrapedData.channelProductNo;
+            reviewEnrichedWithBrowser = runtimeOptions.preScrapedData.reviewEnrichedWithBrowser || false;
+        } else {
+            const scraped = await this.scrapeShoppingProduct(shortUrl, runtimeOptions);
+            productData = scraped.productData;
+            finalUrl = scraped.finalUrl;
+            resolvedSource = scraped.resolvedSource;
+            channelProductNo = scraped.channelProductNo;
+            reviewEnrichedWithBrowser = scraped.reviewEnrichedWithBrowser;
         }
 
         const titleBase = productData.title || `쇼핑 리뷰 (${getHostLabel(finalUrl)})`;
@@ -2627,22 +3097,48 @@ const ShoppingManager = {
 
         const productImages = [];
         let nextImageIndex = 0;
-        for (const imageUrl of productData.imageUrls) {
-            if (productImages.length >= imageLimit) break;
-            try {
-                const localPath = await downloadImage(imageUrl, targetDir, nextImageIndex, `product_${productImages.length + 1}`, finalUrl);
-                const transformedPath = await transformShoppingImage(localPath);
-                productImages.push({
-                    index: nextImageIndex,
-                    path: transformedPath,
-                    title: `상품 이미지 ${productImages.length + 1}`,
-                    prompt: imageUrl
-                });
-                nextImageIndex++;
-            } catch (e) {
-                Logger.warn(`⚠️ 상품 이미지 다운로드 실패: ${e.message}`);
+
+        // 🚀 [Feature] 이미지 큐 구성 최적화 (main_gallery 우선순위 강화)
+        // 🌟 [개선] main_gallery 이미지가 있다면 그것들만 우선적으로 사용하도록 필터링합니다.
+        let mainGalleryUrls = (productData.imageMeta || [])
+            .filter(m => m.source === 'main_gallery')
+            .map(m => m.url);
+
+        let otherUrls = (productData.imageUrls || []).filter(url => !mainGalleryUrls.includes(url));
+
+        // 셔플 함수 (Fisher-Yates)
+        const shuffleArray = (array) => {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
             }
+            return arr;
+        };
+
+        let finalImageUrls = [];
+        if (mainGalleryUrls.length > 0) {
+            // main_gallery가 있으면 첫 번째는 무조건 gallery의 첫 번째로 고정
+            const firstMain = mainGalleryUrls[0];
+            // 나머지 gallery 이미지들만 먼저 섞음
+            const restMain = shuffleArray(mainGalleryUrls.slice(1));
+            // 기타 이미지들은 그 뒤에 붙임
+            const shuffledOthers = shuffleArray(otherUrls);
+            finalImageUrls = [firstMain, ...restMain, ...shuffledOthers];
+            Logger.info(`📸 [Shopping] 이미지 큐 구성: 메인 갤러리(${mainGalleryUrls.length}) + 기타(${otherUrls.length})`);
+        } else {
+            // main_gallery가 없는 경우 전체 셔플 (첫 번째는 고정)
+            let allUrls = [...(productData.imageUrls || [])];
+            if (allUrls.length > 1) {
+                const first = allUrls[0];
+                const rest = shuffleArray(allUrls.slice(1));
+                finalImageUrls = [first, ...rest];
+            } else {
+                finalImageUrls = allUrls;
+            }
+            Logger.info(`📸 [Shopping] 이미지 큐 구성: 전체(${finalImageUrls.length}) - 메인 갤러리 없음`);
         }
+
 
         let ftcImage = null;
         if (ftcImageUrl) {
@@ -2682,26 +3178,56 @@ const ShoppingManager = {
             }
         }
 
+        for (const url of finalImageUrls) {
+            if (nextImageIndex >= imageLimit) break;
+            try {
+                // 해당 URL의 메타데이터를 찾아 출처(source) 파악
+                const meta = (productData.imageMeta || []).find(m => m.url === url);
+                const source = meta ? meta.source : 'DOM';
+
+                const filePath = await downloadImage(url, targetDir, nextImageIndex + 3, 'product', finalUrl, {
+                    source
+                });
+                productImages.push({
+                    index: nextImageIndex + 3,
+                    path: filePath,
+                    url: url,
+                    title: `상품 이미지 ${productImages.length + 1}`,
+                    prompt: url
+                });
+                nextImageIndex++;
+            } catch (err) {
+                // downloadImage 내부에서 처리됨
+            }
+        }
+
+        const platform = runtimeOptions.platform || 'naver';
         const aiPrompt = buildAiPrompt({
             title: titleBase,
             description: productData.description,
             body: productData.body,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
-        });
-        Logger.info('📝 [Shopping] AI에게 글 작성을 요청합니다...');
+        }, platform);
+        Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
         const aiRaw = await Utils.callGeminiText(aiPrompt);
         const aiData = parseAiJson(aiRaw, titleBase);
+        const blockCountBefore = Array.isArray(aiData.blocks) ? aiData.blocks.length : 0;
+        enrichShoppingAiData(aiData, titleBase, productData.commerceData, productData.reviewData);
+        const blockCountAfter = Array.isArray(aiData.blocks) ? aiData.blocks.length : 0;
         const seoPlan = deriveSeoKeywordPlan(titleBase);
         const seoMentionsBefore = countSeoMentionsInAiData(aiData, seoPlan);
         reinforceSeoKeywordUsage(aiData, seoPlan);
         const seoMentionsAfter = countSeoMentionsInAiData(aiData, seoPlan);
 
         const originalAiTitle = aiData.title;
-        aiData.title = buildEngagingShoppingTitle(aiData.title, titleBase, productData.commerceData);
+        aiData.title = buildEngagingShoppingTitle(aiData.title, titleBase, productData.commerceData, platform);
         aiData.title = ensureTitleStartsWithKeyword(aiData.title, seoPlan.mainKeyword);
         if (aiData.title !== originalAiTitle) {
-            Logger.info(`📝 [Shopping] 제목 보정 적용: ${aiData.title}`);
+            Logger.info(`📝 [Shopping/${platform}] 제목 보정 적용: "${originalAiTitle}" -> "${aiData.title}"`);
+        }
+        if (blockCountAfter !== blockCountBefore) {
+            Logger.info(`🧱 [Shopping] 본문 블록 보강 적용 (${blockCountBefore}→${blockCountAfter})`);
         }
         if (seoMentionsAfter !== seoMentionsBefore) {
             Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
@@ -2745,8 +3271,6 @@ const ShoppingManager = {
             productImages,
             ctaImages,
             linkInsertCount,
-            commerceData: productData.commerceData,
-            reviewData: productData.reviewData,
             relatedPosts,
             relatedHeading,
             enableRelatedPostsAutoLink,

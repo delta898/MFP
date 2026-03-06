@@ -2550,17 +2550,48 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         report('상태 업데이트: 발행 중');
         await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
 
-        report('쇼핑 콘텐츠 생성 중');
-        const primaryPlatform = targets.includes('wordpress') ? 'wordpress' : 'naver';
         const blogAutoSettings = getBlogAutoSettingsSnapshot();
         const batchHeadless = typeof requestBody?.headless === 'boolean'
             ? requestBody.headless : blogAutoSettings.BLOG_AUTO_HEADLESS;
-        const runtimeOptions = {
-            enableRelatedPostsAutoLink: options.enableRelatedPostsAutoLink !== false,
-            platform: primaryPlatform,
-            headless: batchHeadless
+        const enableRelatedPostsAutoLink = options.enableRelatedPostsAutoLink !== false;
+
+        const results = {
+            naver: { success: false, message: '', targetDir: null },
+            wordpress: { success: false, message: '', targetDir: null }
         };
-        const buildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, runtimeOptions);
+
+        // 0. 공통 스크래핑 (중복 방지)
+        let preScrapedData = null;
+        if (targets.length > 0) {
+            report('쇼핑 상품 데이터 수집 시작');
+            preScrapedData = await ShoppingManager.scrapeShoppingProduct(shortUrl, {
+                headless: batchHeadless
+            });
+        }
+
+        // 1. 네이버 처리
+        if (targets.includes('naver')) {
+            report('네이버 쇼핑 콘텐츠 생성 중');
+            const naverBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
+                enableRelatedPostsAutoLink,
+                platform: 'naver',
+                headless: batchHeadless,
+                preScrapedData
+            });
+            results.naver.targetDir = naverBuildResult.targetDir;
+        }
+
+        // 2. 워드프레스 처리
+        if (targets.includes('wordpress')) {
+            report('워드프레스 쇼핑 콘텐츠 생성 중');
+            const wpBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
+                enableRelatedPostsAutoLink,
+                platform: 'wordpress',
+                headless: batchHeadless,
+                preScrapedData
+            });
+            results.wordpress.targetDir = wpBuildResult.targetDir;
+        }
 
         report('라이선스 확인 중');
         const verify = await License.verifyLicense();
@@ -2569,39 +2600,54 @@ async function executeShoppingRowAction(requestBody, options = {}) {
             return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
         }
 
-        report('네이버 발행 단계 진행 중');
-
-        const publishOptions = {
-            affiliateUrl: shortUrl,
-            requireAffiliateUrl: true
-        };
-
-        if (targets.includes('naver')) {
-            publishOptions.headless = batchHeadless;
-            publishOptions.isLast = requestBody.isLast === true;
-            await Core.publishToBlog(buildResult.targetDir, publishOptions);
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
+        // 3. 네이버 발행
+        if (targets.includes('naver') && results.naver.targetDir) {
+            report('네이버 발행 단계 진행 중');
+            await Core.publishToBlog(results.naver.targetDir, {
+                affiliateUrl: shortUrl,
+                requireAffiliateUrl: true,
+                headless: batchHeadless,
+                isLast: requestBody.isLast === true
+            });
+            results.naver.success = true;
+            results.naver.message = '네이버 완료';
         }
 
-        if (targets.includes('wordpress')) {
+        // 4. 워드프레스 발행
+        if (targets.includes('wordpress') && results.wordpress.targetDir) {
             report('워드프레스 발행 단계 진행 중');
-            await Core.publishToWordPress(buildResult.targetDir, {
+            const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, {
                 wpCategory: target.category || 'Shopping',
                 postStatus: target.postStatus || 'publish',
                 wpScheduleDate: target.scheduleDate || null,
                 headless: batchHeadless
             });
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료', false, '발행 완료');
+            results.wordpress.success = pubRes.success;
+            results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 완료' : '워드프레스 실패');
         }
+
+        const naverPubSuccess = results.naver.success;
+        const wpPubSuccess = results.wordpress.success;
+        const naverDir = results.naver.targetDir;
+        const wpDir = results.wordpress.targetDir;
+
+        const statusArr = [];
+        const logArr = [];
+        if (targets.includes('naver') && naverPubSuccess) { statusArr.push('발행 완료'); logArr.push('네이버 완료'); }
+        if (targets.includes('wordpress') && wpPubSuccess) { statusArr.push('발행 완료'); logArr.push('워드프레스 완료'); }
+
+        const finalStatus = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
+        const finalLog = logArr.length > 0 ? logArr.join('/') : '발행 실패';
+        await Utils.updateGoogleSheetShoppingStatus(rowIndex, finalStatus, false, finalLog);
 
         return {
             success: true,
             data: {
                 rowIndex,
                 rowNumber: rowIndex + 2,
-                status: '발행 완료',
+                status: finalStatus,
                 shortUrl,
-                targetDir: buildResult.targetDir
+                targetDir: naverDir || wpDir
             }
         };
     } catch (e) {
@@ -2869,7 +2915,12 @@ async function executeBlogTopicUpdate(requestBody) {
     }
 
     const referenceUrl = String(requestBody?.referenceUrl || '').trim();
-    const status = String(requestBody?.status || '').trim();
+    const rawStatus = String(requestBody?.status || '').trim();
+    const statusAliases = {
+        '블로그 발행 준비 완료': '발행 준비 완료',
+        '블로그 발행 완료': '발행 완료'
+    };
+    const status = statusAliases[rawStatus] || rawStatus;
     const allowedStatus = new Set(['대기', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
     if (referenceUrl) {
         const urls = referenceUrl

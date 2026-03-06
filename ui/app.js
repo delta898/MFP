@@ -2045,7 +2045,7 @@ async function startBlogInlineEdit(cell) {
 
     let options = [];
     if (field === 'status') {
-      options = ['', '대기', '블로그 발행 준비 완료', '발행 중', '블로그 발행 완료', '실패'];
+      options = ['', '대기', '발행 준비 완료', '발행 중', '발행 완료', '실패'];
     } else if (field === 'postStatus') {
       options = ['publish', 'draft', 'schedule'];
     } else if (field === 'category') {
@@ -2085,7 +2085,6 @@ async function startBlogInlineEdit(cell) {
       editorEl.appendChild(opt);
     }
   } else {
-    let editorEl;
     editorEl = document.createElement(multiline ? 'textarea' : 'input');
     if (isDateTime) {
       editorEl.type = 'datetime-local';
@@ -2582,6 +2581,7 @@ async function startShoppingInlineEdit(cell) {
   const multiline = false; // 쇼핑 테이블은 아직 멀티라인 필드 없음
   const useSelect = ['status', 'postStatus', 'category'].includes(field);
   const isDateTime = field === 'scheduleDate';
+  let editorEl;
 
   if (useSelect) {
     editorEl = document.createElement('select');
@@ -2625,7 +2625,6 @@ async function startShoppingInlineEdit(cell) {
       editorEl.appendChild(opt);
     }
   } else {
-    let editorEl;
     editorEl = document.createElement('input');
     if (isDateTime) {
       editorEl.type = 'datetime-local';
