@@ -5525,7 +5525,85 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 60000);
 });
 
-// WordPress Quick Publish UI Helpers
+/**
+ * Common WordPress Category Custom Select Initializer
+ * @param {string} optionsContainerId - ID of the container for dropdown options (e.g., 'quick-wp-category-options-v2')
+ * @param {string} triggerTextId - ID of the text element on the trigger button (e.g., 'quick-wp-category-text')
+ * @param {string} containerId - ID of the main wrapper (e.g., 'quick-wp-category-container')
+ * @param {string} storagePrefix - Prefix for localStorage keys (e.g., 'quick_' or 'shopping_quick_')
+ */
+async function initWpCategorySelector({ optionsContainerId, triggerTextId, containerId, storagePrefix }) {
+  const optionsContainer = document.getElementById(optionsContainerId);
+  const triggerText = document.getElementById(triggerTextId);
+  const container = document.getElementById(containerId);
+
+  // 이미 렌더링 되어 있고 캐시도 있다면 스킵
+  const hasOptions = optionsContainer && optionsContainer.querySelectorAll('.custom-select-option').length > 0;
+  if (hasOptions && window.wpCategoryCache) return;
+
+  if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
+
+  try {
+    const categories = await window.fetchWpCategories();
+    if (Array.isArray(categories)) {
+      if (optionsContainer) {
+        optionsContainer.innerHTML = '';
+
+        // Default "No Selection" Option
+        const defaultOpt = document.createElement('div');
+        defaultOpt.className = 'custom-select-option';
+        defaultOpt.dataset.value = '';
+        defaultOpt.textContent = '카테고리 선택 (미지정 시 기본)';
+        optionsContainer.appendChild(defaultOpt);
+
+        // Populate Categories
+        categories.forEach(cat => {
+          const opt = document.createElement('div');
+          opt.className = 'custom-select-option';
+          opt.dataset.value = cat.name;
+          opt.textContent = `${cat.name} (${cat.count})`;
+          optionsContainer.appendChild(opt);
+        });
+
+        // Click Listeners
+        optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const val = el.dataset.value;
+            const text = el.textContent;
+
+            // Update UI
+            if (triggerText) triggerText.textContent = text;
+            optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+            el.classList.add('selected');
+
+            // Persistence
+            localStorage.setItem(`${storagePrefix}wp_category_name`, text);
+            localStorage.setItem(`${storagePrefix}wp_category_value`, val);
+
+            // Close
+            if (container) container.classList.remove('open');
+          });
+        });
+
+        // Restore last selected
+        const savedName = localStorage.getItem(`${storagePrefix}wp_category_name`);
+        const savedVal = localStorage.getItem(`${storagePrefix}wp_category_value`);
+        if (savedName && triggerText) {
+          triggerText.textContent = savedName;
+          const savedEl = Array.from(optionsContainer.querySelectorAll('.custom-select-option')).find(opt => opt.dataset.value === savedVal);
+          if (savedEl) savedEl.classList.add('selected');
+        }
+      }
+    } else {
+      if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
+    }
+  } catch (e) {
+    console.error(`WP Categories fetch failed for ${storagePrefix}:`, e);
+    if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">호출 오류</div>';
+  }
+}
+
 // WordPress Quick Publish UI Helpers
 window.toggleQuickWpOptions = async function () {
   const panel = document.getElementById('quick-wp-options-panel');
@@ -5534,74 +5612,12 @@ window.toggleQuickWpOptions = async function () {
   if (panel && checkbox) {
     if (checkbox.checked) {
       panel.style.display = 'block';
-
-      // Fetch categories if not cached
-      if (!wpCategoryCache) {
-        try {
-          const optionsContainer = document.getElementById('quick-wp-category-options-v2');
-          const triggerText = document.getElementById('quick-wp-category-text');
-
-          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
-
-          const categories = await fetchWpCategories();
-          if (Array.isArray(categories)) {
-            if (optionsContainer) {
-              optionsContainer.innerHTML = '';
-
-              // Default "No Selection" Option
-              const defaultOpt = document.createElement('div');
-              defaultOpt.className = 'custom-select-option';
-              defaultOpt.dataset.value = '';
-              defaultOpt.textContent = '카테고리 선택 (미지정 시 기본)';
-              optionsContainer.appendChild(defaultOpt);
-
-              categories.forEach(cat => {
-                const opt = document.createElement('div');
-                opt.className = 'custom-select-option';
-                opt.dataset.value = cat.name;
-                opt.textContent = `${cat.name} (${cat.count})`;
-                optionsContainer.appendChild(opt);
-              });
-
-              // Add Click Listeners to Options
-              optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
-                el.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  const val = el.dataset.value;
-                  const text = el.textContent;
-
-                  // Update UI
-                  if (triggerText) triggerText.textContent = text;
-                  optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
-                  el.classList.add('selected');
-
-                  // Persistence
-                  localStorage.setItem('last_quick_wp_category_name', text);
-                  localStorage.setItem('last_quick_wp_category_value', val);
-
-                  // Close
-                  document.getElementById('quick-wp-category-container')?.classList.remove('open');
-                });
-              });
-
-              // Restore last selected
-              const savedName = localStorage.getItem('last_quick_wp_category_name');
-              const savedVal = localStorage.getItem('last_quick_wp_category_value');
-              if (savedName && triggerText) {
-                triggerText.textContent = savedName;
-                const savedEl = Array.from(optionsContainer.querySelectorAll('.custom-select-option')).find(opt => opt.dataset.value === savedVal);
-                if (savedEl) savedEl.classList.add('selected');
-              }
-            }
-          } else {
-            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
-          }
-        } catch (e) {
-          console.error('WP Categories fetch failed:', e);
-          const optionsContainer = document.getElementById('quick-wp-category-options-v2');
-          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">호출 오류</div>';
-        }
-      }
+      await initWpCategorySelector({
+        optionsContainerId: 'quick-wp-category-options-v2',
+        triggerTextId: 'quick-wp-category-text',
+        containerId: 'quick-wp-category-container',
+        storagePrefix: 'last_quick_'
+      });
     } else {
       panel.style.display = 'none';
     }
@@ -5735,76 +5751,12 @@ window.toggleShoppingQuickWpOptions = async function () {
   if (panel && checkbox) {
     if (checkbox.checked) {
       panel.style.display = 'block';
-
-      if (!wpCategoryCache) {
-        try {
-          const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
-          const triggerText = document.getElementById('shopping-quick-wp-category-text');
-
-          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
-
-          const categories = await fetchWpCategories();
-          if (Array.isArray(categories)) {
-          } else {
-            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">목록 호출 실패</div>';
-            return;
-          }
-        } catch (e) {
-          console.error('Shopping WP Categories fetch failed:', e);
-          const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
-          if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">호출 오류</div>';
-          return;
-        }
-      }
-
-      // Render options from cache
-      if (wpCategoryCache) {
-        const optionsContainer = document.getElementById('shopping-quick-wp-category-options-v2');
-        const triggerText = document.getElementById('shopping-quick-wp-category-text');
-
-        if (optionsContainer) {
-          optionsContainer.innerHTML = '';
-
-          const defaultOpt = document.createElement('div');
-          defaultOpt.className = 'custom-select-option';
-          defaultOpt.dataset.value = '';
-          defaultOpt.textContent = '카테고리 선택 (미지정 시 기본)';
-          optionsContainer.appendChild(defaultOpt);
-
-          wpCategoryCache.forEach(cat => {
-            const opt = document.createElement('div');
-            opt.className = 'custom-select-option';
-            opt.dataset.value = cat.name;
-            opt.textContent = `${cat.name} (${cat.count})`;
-            optionsContainer.appendChild(opt);
-          });
-
-          optionsContainer.querySelectorAll('.custom-select-option').forEach(el => {
-            el.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const val = el.dataset.value;
-              const text = el.textContent;
-
-              if (triggerText) triggerText.textContent = text;
-              optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
-              el.classList.add('selected');
-
-              localStorage.setItem('last_shopping_quick_wp_category_name', text);
-              localStorage.setItem('last_shopping_quick_wp_category_value', val);
-
-              document.getElementById('shopping-quick-wp-category-container')?.classList.remove('open');
-            });
-          });
-
-          const savedName = localStorage.getItem('last_shopping_quick_wp_category_name');
-          const savedVal = localStorage.getItem('last_shopping_quick_wp_category_value');
-          if (savedName && triggerText) {
-            triggerText.textContent = savedName;
-            const savedEl = Array.from(optionsContainer.querySelectorAll('.custom-select-option')).find(opt => opt.dataset.value === savedVal);
-            if (savedEl) savedEl.classList.add('selected');
-          }
-        }
-      }
+      await initWpCategorySelector({
+        optionsContainerId: 'shopping-quick-wp-category-options-v2',
+        triggerTextId: 'shopping-quick-wp-category-text',
+        containerId: 'shopping-quick-wp-category-container',
+        storagePrefix: 'last_shopping_quick_'
+      });
     } else {
       panel.style.display = 'none';
     }
