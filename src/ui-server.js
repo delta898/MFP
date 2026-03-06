@@ -3689,28 +3689,38 @@ async function processAndAppendTrendsToTopics(trends, settings = {}) {
     let filtered = [];
 
     if (variationType === 'top' && variationIncludeNumber && Number.isInteger(variationTopN) && variationTopN > 0) {
-        // [Top N 모드]
-        const rankedPool = [];
-        const absoluteAllowed = [];
+        // [Top N 모드] - 카테고리별로 적용
+        const categoryGroups = {};
 
         for (const item of baseCandidates) {
+            const cat = String(item.category || '').trim();
+            if (!categoryGroups[cat]) {
+                categoryGroups[cat] = { rankedPool: [], absoluteAllowed: [] };
+            }
+
             const meta = parseVariationMeta(item?.variation);
             if (variationIncludeNew && meta.kind === 'new') {
-                absoluteAllowed.push(item);
+                categoryGroups[cat].absoluteAllowed.push(item);
             } else if (variationIncludeDash && meta.kind === 'dash') {
-                absoluteAllowed.push(item);
+                categoryGroups[cat].absoluteAllowed.push(item);
             } else if (meta.kind === 'number') {
-                rankedPool.push({ item, score: Number(meta.number) });
+                categoryGroups[cat].rankedPool.push({ item, score: Number(meta.number) });
             } else {
                 variationRejectedCount += 1;
             }
         }
 
-        rankedPool.sort((a, b) => b.score - a.score);
-        const topSelected = rankedPool.slice(0, variationTopN).map(r => r.item);
-        variationRejectedCount += Math.max(0, rankedPool.length - topSelected.length);
+        const allSelected = [];
+        for (const cat in categoryGroups) {
+            const group = categoryGroups[cat];
+            group.rankedPool.sort((a, b) => b.score - a.score);
+            const topSelected = group.rankedPool.slice(0, variationTopN).map(r => r.item);
+            variationRejectedCount += Math.max(0, group.rankedPool.length - topSelected.length);
 
-        filtered = [...absoluteAllowed, ...topSelected];
+            allSelected.push(...group.absoluteAllowed, ...topSelected);
+        }
+
+        filtered = allSelected;
         for (const item of baseCandidates) {
             if (dateCategoryMatchedRows.length >= candidateLogLimit) break;
             const isSelected = filtered.some(f => f.rowNumber === item.rowNumber);
