@@ -251,6 +251,7 @@ function resolveRuntimePath(rawPath, options = {}) {
         candidates.push(path.resolve(activeConfigDir, input));
         candidates.push(path.resolve(EXEC_DIR, input));
         candidates.push(path.resolve(ROOT_DIR, input));
+        candidates.push(path.resolve(BUNDLE_DIR, input));
     }
 
     if (!mustExist) return candidates[0] || '';
@@ -295,6 +296,7 @@ const CONFIG = {
     CONFIG_SOURCE_PATH: configSourcePath,
     CONFIG_SOURCE_TYPE: configSourceType,
     CONFIG_ERROR_MESSAGE: configErrorMessage,
+    ROOT_DIR: ROOT_DIR,
 
     // 🔧 [Essential Resolved]
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || structuredConfig.essential.gemini_api_key,
@@ -330,6 +332,7 @@ const CONFIG = {
     COLLECT_TRENDS_ENABLED: structuredConfig.automation.blog_collect.trends.enabled,
     COLLECT_TRENDS_TIME: structuredConfig.automation.blog_collect.trends.time,
     COLLECT_TRENDS_CATEGORIES: structuredConfig.automation.blog_collect.trends.categories,
+    COLLECT_TRENDS_WP_CATEGORY: structuredConfig.automation.blog_collect.trends.wpCategory,
     COLLECT_TRENDS_REUSE_GAP_DAYS: structuredConfig.automation.blog_collect.trends.reuse_gap_days,
     COLLECT_TRENDS_FILTER_MIN_INCR: structuredConfig.automation.blog_collect.trends.filters.min_increase,
     COLLECT_TRENDS_FILTER_INCLUDE_NEW: structuredConfig.automation.blog_collect.trends.filters.include_new,
@@ -367,8 +370,8 @@ const CONFIG = {
     WAIT_UPLOAD: Constants.WAIT.UPLOAD,
     LICENSE_CHK_URL: internalSecrets.LICENSE_CHK_URL,
     LICENSE_CHK_KEY: internalSecrets.LICENSE_CHK_KEY,
-    BLOG_PROMPT_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: false }),
-    SHOPPING_PROMPT_PATH: resolveRuntimePath('src/config/shopping_prompt.md', { mustExist: false }),
+    BLOG_PROMPT_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: true }),
+    SHOPPING_PROMPT_PATH: resolveRuntimePath('src/config/shopping_prompt.md', { mustExist: true }),
 
     // 🔧 [Paths]
     PATHS: {

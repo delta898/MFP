@@ -1039,6 +1039,7 @@ function normalizeCollectTrendsSettings(input = {}) {
         COLLECT_TRENDS_ENABLED: enabled,
         COLLECT_TRENDS_CATEGORIES: categories,
         BLOG_AUTO_CATEGORIES: categories, // Compatibility alias
+        COLLECT_TRENDS_WP_CATEGORY: String(input.COLLECT_TRENDS_WP_CATEGORY || CONFIG.COLLECT_TRENDS_WP_CATEGORY || '').trim(),
         COLLECT_TRENDS_TIME: time,
         COLLECT_TRENDS_REUSE_GAP_DAYS: reuseGapDays,
         COLLECT_TRENDS_FILTER_MIN_INCR: filterMinIncr,
@@ -1160,6 +1161,7 @@ function buildMajorSettings(raw, configSource) {
         COLLECT_TRENDS_FILTER_TOP_N: CONFIG.COLLECT_TRENDS_FILTER_TOP_N,
         COLLECT_TRENDS_REUSE_GAP_DAYS: CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS,
         COLLECT_TRENDS_TIME: CONFIG.COLLECT_TRENDS_TIME,
+        COLLECT_TRENDS_WP_CATEGORY: CONFIG.COLLECT_TRENDS_WP_CATEGORY,
 
         // Automation - RSS
         COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
@@ -3641,6 +3643,7 @@ async function processAndAppendTrendsToTopics(trends, settings = {}) {
     const variationNumber = normalizeIntegerOrBlank(settings.COLLECT_TRENDS_FILTER_MIN_INCR, '');
     const variationTopN = normalizeIntegerOrBlank(settings.COLLECT_TRENDS_FILTER_TOP_N, 5);
     const keywordReuseGapDays = normalizeNonNegativeInt(settings.COLLECT_TRENDS_REUSE_GAP_DAYS, COLLECT_TRENDS_DEFAULTS.reuseGapDays);
+    const wpCategory = String(settings.COLLECT_TRENDS_WP_CATEGORY || '').trim();
     const autoImageGeneration = toBoolLike(settings.PUBLISH_AUTO_IMAGE_GENERATION, PUBLISH_AUTO_DEFAULTS.imageGeneration);
     const autoExternalReference = toBoolLike(settings.PUBLISH_AUTO_EXTERNAL_REFERENCE, PUBLISH_AUTO_DEFAULTS.externalReference);
 
@@ -3819,6 +3822,7 @@ async function processAndAppendTrendsToTopics(trends, settings = {}) {
                 reference_urls: []
             },
             use_external_ref: true, // 🔄 [Source-Based] Trends collection 무조건 Yes
+            category: wpCategory,
             image_options: { generate: autoImageGeneration, count: 4 },
             source: 'auto-trends',
             trendDate: String(item.date || '').trim(),

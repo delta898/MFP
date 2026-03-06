@@ -55,7 +55,8 @@
           "include_number": true,
           "type": "top",
           "top_n": 5
-        }
+        },
+        "wpCategory": ""
       },
       "rss": {
         "enabled": false,

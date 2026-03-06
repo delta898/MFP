@@ -13,17 +13,24 @@ const { marked } = require('marked');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
-const SAFE_EDITOR_VIEWPORT = { width: 1600, height: 1200 };
+const SAFE_EDITOR_VIEWPORT = { width: 1280, height: 800 };
 const PUBLISH_EDITOR_READY_TIMEOUT_MS = 45000;
 
-async function clickIfVisible(locator) {
+async function autoScrollAndClick(locator) {
 	try {
 		if (await locator.count() > 0 && await locator.first().isVisible()) {
+			await locator.first().scrollIntoViewIfNeeded({ timeout: 1000 }).catch(() => { });
 			await locator.first().click({ force: true });
 			return true;
 		}
-	} catch (e) { }
+	} catch (e) {
+		Logger.warn(`⚠️ 요소 스크롤/클릭 실패: ${e.message}`);
+	}
 	return false;
+}
+
+async function clickIfVisible(locator) {
+	return await autoScrollAndClick(locator);
 }
 
 async function dismissEditorPopups(page) {
@@ -133,7 +140,7 @@ async function focusLatestEditorImage(page) {
 			const candidate = images.nth(i);
 			try {
 				if (!(await candidate.isVisible())) continue;
-				await candidate.click({ force: true });
+				await autoScrollAndClick(candidate);
 				await Utils.sleep(150);
 				return true;
 			} catch (e) { }
@@ -207,7 +214,7 @@ async function focusLatestOglinkCard(page) {
 				for (const target of clickTargets) {
 					try {
 						if (await target.count() > 0 && await target.isVisible()) {
-							await target.click({ force: true });
+							await autoScrollAndClick(target);
 							await Utils.sleep(120);
 							return true;
 						}
@@ -321,7 +328,7 @@ async function centerAlignFocusedImage(page, options = {}) {
 					if (!(await group.isVisible())) continue;
 					const centerByClass = group.locator('li[class*="center"] button, button[data-name*="center"], button[class*="center"]').first();
 					if (await centerByClass.count() > 0 && await centerByClass.isVisible()) {
-						await centerByClass.click({ force: true });
+						await autoScrollAndClick(centerByClass);
 						await Utils.sleep(120);
 						return true;
 					}
@@ -331,7 +338,7 @@ async function centerAlignFocusedImage(page, options = {}) {
 					if (btnCount >= 2) {
 						const centerBtn = buttons.nth(1); // 일반적으로 가운데 버튼이 두 번째
 						if (await centerBtn.isVisible()) {
-							await centerBtn.click({ force: true });
+							await autoScrollAndClick(centerBtn);
 							await Utils.sleep(120);
 							return true;
 						}
@@ -372,7 +379,7 @@ async function setFocusedImageAsRepresentative(page) {
 					const ariaPressed = String(await button.getAttribute('aria-pressed') || '').toLowerCase();
 					if (ariaPressed === 'true') return true;
 
-					await button.click({ force: true });
+					await autoScrollAndClick(button);
 					await Utils.sleep(180);
 					return true;
 				} catch (e) { }
@@ -883,7 +890,7 @@ async function applyTextFormatAtCursor(page, formatName, options = {}) {
 					const option = options.nth(i);
 					try {
 						if (!(await option.isVisible())) continue;
-						await option.click({ force: true });
+						await autoScrollAndClick(option);
 						return true;
 					} catch (e) { }
 				}
@@ -911,7 +918,7 @@ async function applyTextFormatAtCursor(page, formatName, options = {}) {
 			// 마지막 fallback
 			const byRole = page.getByRole('button', { name: new RegExp(formatName) }).first();
 			if (await byRole.count() > 0 && await byRole.isVisible()) {
-				await byRole.click({ force: true });
+				await autoScrollAndClick(byRole);
 				return true;
 			}
 			return false;
@@ -1188,7 +1195,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			const btn = buttons.nth(i);
 			try {
 				if (!(await btn.isVisible())) continue;
-				await btn.click({ force: true });
+				await autoScrollAndClick(btn);
 				await Utils.sleep(220);
 				const input = page.locator('input.se-popup-oglink-input, .se-popup-oglink input.se-popup-oglink-input').first();
 				if (await input.count() > 0 && await input.isVisible()) {
@@ -1232,7 +1239,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			for (let i = 0; i < count; i++) {
 				const btn = searchButtons.nth(i);
 				if (!(await btn.isVisible())) continue;
-				await btn.click({ force: true });
+				await autoScrollAndClick(btn);
 				return true;
 			}
 		} catch (e) { }
@@ -1246,7 +1253,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			for (let i = 0; i < count; i++) {
 				const btn = buttons.nth(i);
 				if (!(await isEnabled(btn))) continue;
-				await btn.click({ force: true });
+				await autoScrollAndClick(btn);
 				return true;
 			}
 		}
@@ -1254,7 +1261,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 	};
 
 	try {
-		await input.click({ force: true });
+		await autoScrollAndClick(input);
 		await input.fill('');
 		await input.fill(url);
 		await Utils.sleep(150);
@@ -1692,8 +1699,9 @@ ${scrapedContext}`;
 
 		try {
 			Logger.info("   🔄 블로그 에디터 접속 중...");
-			Logger.info(`   🔗 접속 URL: ${CONFIG.WRITE_URL}`);
-			await page.goto(CONFIG.WRITE_URL, { waitUntil: 'domcontentloaded' });
+			const writeUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
+			Logger.info(`   🔗 접속 URL: ${writeUrl}`);
+			await page.goto(writeUrl, { waitUntil: 'domcontentloaded' });
 
 			const loadWait = CONFIG.WAIT_LOAD || Constants.WAIT.LOAD;
 			await Utils.sleep(loadWait);
@@ -1985,6 +1993,7 @@ ${scrapedContext}`;
 						}
 					} else {
 						// 📌 [유지] 이미지 없을 때 원본 마크다운 그대로 입력 (사람 속도로)
+						const prefix = String(item.index).padStart(2, '0');
 						Logger.warn(`⚠️ 이미지 파일을 찾을 수 없습니다: ${prefix}_*.(png|jpg|jpeg|webp)`);
 						Logger.info(`       📝 이미지 블록(원본) 입력 (Index ${item.index})`);
 						const rawBlock = `[[IMAGE_${item.index}\ntitle: ${item.text}\nprompt: ${item.prompt}\n]]`;
@@ -2211,13 +2220,20 @@ ${scrapedContext}`;
 				continue;
 			}
 
-			// 파일명 생성 (Slug + Timestamp)
-			const timestamp = Math.floor(Date.now() / 1000);
-			const cleanTitle = block.title.normalize('NFC').trim();
-			const baseName = cleanTitle
-				.replace(/\s+/g, '_') // 공백을 언더바로 변환
-				.slice(0, 50); // 적당한 길이 유지 (50자)
-			const fileName = `${baseName}_${timestamp}${path.extname(imagePath)}`;
+			// 🔧 [Fixed] Open Graph 렌더링 호환성 + 워드프레스 파일명 길이 제한(100자 이내) 완벽 차단
+			// 외부 연동(n8n 등)에서 검증된 영숫자 + 타임스탬프 + 랜덤 파일명 로직 적용
+			const extension = path.extname(imagePath);
+			const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+			const slug = block.title.normalize('NFC')
+				.replace(/[a-zA-Z0-9]+/g, match => match.toLowerCase())
+				.replace(/[^a-zA-Z0-9]+/g, '_')
+				.replace(/_{2,}/g, '_')
+				.replace(/^_|_$/g, '') || 'image';
+
+			const maxSlugLength = 100 - uniqueSuffix.length - extension.length - 1; // 언더바 1개 포함
+			const trimmedSlug = slug.slice(0, maxSlugLength);
+			const fileName = `${trimmedSlug}_${uniqueSuffix}${extension}`;
 
 			const buffer = fs.readFileSync(imagePath);
 			const uploadRes = await wpClient.uploadMedia(buffer, fileName, block.title);

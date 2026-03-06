@@ -306,7 +306,7 @@ const TrendManager = {
         const browser = await launchBrowser({ headless: options.headless });
 
         // 1. 로그인 정보(Storage State) 로드
-        const authPath = CONFIG.AUTH_FILE_PATH || path.join(process.cwd(), 'config', 'auth.json');
+        const authPath = CONFIG.AUTH_FILE_PATH || path.join(CONFIG.ROOT_DIR, 'config', 'auth.json');
         let context;
 
         if (fs.existsSync(authPath)) {
@@ -377,7 +377,7 @@ const TrendManager = {
             if (dataState.state !== 'ready') {
                 Logger.warn('⚠️ 트렌드 리스트를 찾지 못했습니다. 로그인을 확인하거나 페이지 구조가 변경되었을 수 있습니다.');
                 try {
-                    const debugPath = path.join(process.cwd(), 'logs', `debug_trend_fail_${Date.now()}.png`);
+                    const debugPath = path.join(CONFIG.ROOT_DIR, 'logs', `debug_trend_fail_${Date.now()}.png`);
                     await page.screenshot({ path: debugPath });
                     Logger.info(`📸 디버그 스크린샷 저장됨: ${debugPath}`);
                 } catch (e) { }

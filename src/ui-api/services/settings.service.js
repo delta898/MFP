@@ -133,6 +133,7 @@ function createSettingsService(deps = {}) {
             if (!structuredConfig.automation.collect.trends) structuredConfig.automation.collect.trends = {};
             structuredConfig.automation.collect.trends.enabled = fields.COLLECT_TRENDS_ENABLED;
             structuredConfig.automation.collect.trends.categories = fields.COLLECT_TRENDS_CATEGORIES;
+            structuredConfig.automation.collect.trends.wpCategory = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
             structuredConfig.automation.collect.trends.time = fields.COLLECT_TRENDS_TIME;
             structuredConfig.automation.collect.trends.reuse_gap_days = Number(fields.COLLECT_TRENDS_REUSE_GAP_DAYS);
 
@@ -300,6 +301,7 @@ function createSettingsService(deps = {}) {
                 COLLECT_TRENDS_FILTER_MIN_INCR: parseConfigValue(content, 'COLLECT_TRENDS_FILTER_MIN_INCR'),
                 COLLECT_TRENDS_REUSE_GAP_DAYS: parseConfigValue(content, 'COLLECT_TRENDS_REUSE_GAP_DAYS'),
                 COLLECT_TRENDS_TIME: parseConfigValue(content, 'COLLECT_TRENDS_TIME'),
+                COLLECT_TRENDS_WP_CATEGORY: parseConfigValue(content, 'COLLECT_TRENDS_WP_CATEGORY'),
                 COLLECT_RSS_CONFIGS: parseConfigValue(content, 'COLLECT_RSS_CONFIGS'),
                 PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'PUBLISH_AUTO_ENABLED'),
                 PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'PUBLISH_AUTO_INTERVAL_MIN'),

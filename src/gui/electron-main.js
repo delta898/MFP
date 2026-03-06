@@ -11,7 +11,7 @@ const CONFIG = require('../config-loader');
 
 // 로그 디렉토리를 미리 생성해 둡니다. (logger.js 가 로드될 때 오류 방지)
 // config-loader 가 결정한 ROOT_DIR 을 따릅니다.
-const logDir = path.join(CONFIG.ROOT_DIR, 'logs');
+const logDir = path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
 if (!fs.existsSync(logDir)) {
     try {
         fs.mkdirSync(logDir, { recursive: true });

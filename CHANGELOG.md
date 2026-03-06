@@ -1,4 +1,22 @@
 # Changelog
+All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
+
+## 0.9.6-dev1 (2026-03-06)
+### Fixed
+- **패키징 환경(Packaged App) 경로 및 로딩 이슈 해결**:
+  - `resolveRuntimePath`에 `mustExist: true` 옵션 및 `app.asar` 번들 경로(`BUNDLE_DIR`) 탐색 기능을 추가하여, 패키징된 상태에서도 `blog_prompt.md` 등 내부 시스템 프롬프트 파일을 정상적으로 탐색하도록 수정.
+  - 시스템 로그(`system.service.js`) 및 트렌드 디버그 스크린샷(`trend-manager.js`)의 저장 경로를 `process.cwd()`에서 `CONFIG.ROOT_DIR`로 변경하여 패키징 후에도 사용자 데이터 폴더를 일관되게 사용하도록 보완.
+  - 패키징 실행 시 메인 프로세스(`electron-main.js`)에서 `CONFIG.ROOT_DIR`이 `undefined`로 발생하던 `TypeError`를 방지하기 위해 `resolveConfig` 폴백을 추가.
+- **워드프레스 이미지 업로드 안정성 및 외부 연동 호환성 극대화**:
+  - 파일명에 한글 등 비 ASCII 문자가 포함될 경우 워드프레스 DB 에러 및 Meta Threads 등 외부 플랫폼의 Open Graph 렌더링 누락 현상을 완벽히 차단하기 위해, n8n 등 외부 자동화에서 검증된 강력한 파일명 정규화 로직 도입.
+  - 모든 문자를 영문 소문자 및 언더바(`_`)로 치환하고 연속된 언더바를 정리한 뒤, 길이를 강제로 100자 이내로 제한. 파일명 끝에 타임스탬프와 5자리 랜덤 해시(`Math.random`)를 결합하여 동시다발적인 처리 시에도 100% 충돌 없는 고유(Unique) 파일명 보장.
+  - (※ 단, 워드프레스 미디어 라이브러리 상의 '대체 텍스트(Alt)' 및 '제목' 메타데이터는 기존과 동일하게 원본 한글이 정상적으로 들어갑니다)
+- **WP 이미지 없는 게시글 작성 (Fallback) 크래시 수정**:
+  - 네이버 블로그 자동 발행 시 삽입할 이미지가 없는 경우 실행되는 원본 마크다운 텍스트 처리 과정에서 `prefix` 변수가 정의되지 않아 발생하던 오류 로그(`prefix is not defined`)를 수정.
+- **발행 모듈 내 브라우저 안정성(Safe Interaction) 강화**:
+  - 13인치 노트북 등 작은 해상도에서도 팝업이 가려지지 않도록 Playwright 블로그 에디터의 기본 창 크기(`SAFE_EDITOR_VIEWPORT`)를 `1280x800`으로 최적화.
+  - 화면 밖이나 툴바 아래에 일시적으로 가려진 요소를 클릭할 때 발생하던 에러를 방지하기 위해, 모든 강제 클릭(`force: true`) 로직을 화면 스크롤 기반의 안전한 클릭 함수(`autoScrollAndClick`)로 전면 교체.
+  - UI 서버가 완전히 로드되기 전 발행 프로세스가 시작될 경우 `CONFIG.WRITE_URL`이 `undefined`로 호출되어 브라우저 탐색이 실패하던 이슈(`page.goto: url: expected string, got undefined`) 수정.
 
 이 프로젝트의 주요 변경 사항을 기록합니다.
 
@@ -14,8 +32,16 @@
   - 블로그 및 쇼핑 일괄발행 테이블의 '카테고리' 인라인 수정 시, 워드프레스 카테고리를 실시간으로 불러와 드롭다운으로 제공.
   - 카테고리 정보 로드 전 인라인 수정 시 '불러오는 중...' 상태 표시 및 로딩 완료 후 자동 갱신.
   - 워드프레스 연동 확인(Verify) 성공 시 및 주요 설정 저장 시 카테고리 캐시 즉시 만료 및 동기화 추가.
+- **워드프레스 이미지 업로드 안정성 개선**:
+  - 한글 등 비 ASCII 문자를 포함한 이미지 파일명을 URI 인코딩(`encodeURIComponent`) 처리하여 서버 호환성 및 업로드 안정성 확보.
+- **트렌드 자동 수집 WP 카테고리 지정 옵션 추가**:
+  - '자동글감 설정'의 트렌드 자동 수집 사용 블록에 WP 카테고리 선택 드롭다운(검색 지원) 연동.
+  - 필터 조건, 중복 금지 간격, WP 카테고리 UI 배치를 공간 효율적으로 개선 (가로 정렬 및 순서 조정).
+  - 트렌드 수집 시 지정된 WP 카테고리가 Google Sheets의 '카테고리' 컬럼에 자동으로 기록되도록 백엔드 로직 연동.
+  - `config.json.sample`에 `automations.blog_collect.trends.wpCategory` 기본값 반영.
 
 ### Fixed
+- **패키징된 앱 실행 시 메인 프로세스 오류 수정**: `config-loader.js`에서 `ROOT_DIR`이 export되지 않아 발생하던 `TypeError`를 해결하고 경로 fallback 로직을 추가하여 안정성 확보.
 - **블로그/쇼핑 일괄발행 목록 무한 로딩(Hang) 수정**:
   - 구글 시트 검증(`uiSheetsPreflightState.inFlight`) 진행 중 예외 발생 시 Promise가 정리되지 않아 영구적으로 로딩에 빠지는 데드락 해결.
   - 구글 시트 및 워드프레스 API(`axios`) 호출 시 타임아웃(기본 15초)이 누락되어 네트워크 지연 시 백엔드가 무한 대기하던 문제 수정.

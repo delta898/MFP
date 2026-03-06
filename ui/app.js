@@ -2871,6 +2871,7 @@ function getSettingsMajorBasicValuesFromDom() {
     // Trend Collection
     COLLECT_TRENDS_ENABLED: Boolean(document.getElementById('blog-collect-trends-enabled')?.checked),
     COLLECT_TRENDS_CATEGORIES: serializeSelectedBlogAutoCategories(),
+    COLLECT_TRENDS_WP_CATEGORY: localStorage.getItem('blog_collect_trends_wp_category_value') || '',
     COLLECT_TRENDS_TIME: (document.getElementById('blog-collect-trends-time')?.value || '07:30').trim(),
     COLLECT_TRENDS_FILTER_INCLUDE_NEW: Boolean(document.getElementById('blog-collect-trends-filter-new')?.checked),
     COLLECT_TRENDS_FILTER_INCLUDE_DASH: Boolean(document.getElementById('blog-collect-trends-filter-dash')?.checked),
@@ -3998,6 +3999,23 @@ async function loadBlogCollectSettings() {
     if (modeEl) modeEl.checked = Boolean(fields.COLLECT_TRENDS_ENABLED);
     setSelectedBlogAutoCategories(fields.COLLECT_TRENDS_CATEGORIES || '');
     renderBlogAutoCategoryUi();
+
+    const catVal = String(fields.COLLECT_TRENDS_WP_CATEGORY || '');
+    const triggerText = document.getElementById('blog-collect-trends-wp-category-text');
+    if (triggerText) {
+      triggerText.textContent = catVal || '카테고리 선택 (미지정 시 기본)';
+    }
+    localStorage.setItem('blog_collect_trends_wp_category_value', catVal);
+    localStorage.setItem('blog_collect_trends_wp_category_name', catVal || '카테고리 선택 (미지정 시 기본)');
+
+    // Async Init
+    initWpCategorySelector({
+      optionsContainerId: 'blog-collect-trends-wp-category-options',
+      triggerTextId: 'blog-collect-trends-wp-category-text',
+      containerId: 'blog-collect-trends-wp-category-container',
+      storagePrefix: 'blog_collect_trends_'
+    });
+
     if (trendsTimeEl) trendsTimeEl.value = String(fields.COLLECT_TRENDS_TIME || '07:30');
 
     if (variationNewEl) variationNewEl.checked = Boolean(fields.COLLECT_TRENDS_FILTER_INCLUDE_NEW);
@@ -5431,6 +5449,56 @@ window.addEventListener('DOMContentLoaded', () => {
     shoppingWpCatSearchV2.addEventListener('click', (e) => e.stopPropagation());
   }
 
+  // Blog Collect Category Search Event
+  const blogCollectWpCatSearchV2 = document.getElementById('blog-collect-trends-wp-category-search-v2');
+  if (blogCollectWpCatSearchV2) {
+    blogCollectWpCatSearchV2.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const optionsContainer = document.getElementById('blog-collect-trends-wp-category-options');
+      if (!optionsContainer) return;
+
+      const options = optionsContainer.querySelectorAll('.custom-select-option');
+      let found = false;
+      options.forEach(opt => {
+        const text = opt.textContent.toLowerCase();
+        const match = text.includes(q);
+        opt.style.display = match ? '' : 'none';
+        if (match) found = true;
+      });
+
+      let noResultEl = optionsContainer.querySelector('.custom-select-no-results');
+      if (!found) {
+        if (!noResultEl) {
+          noResultEl = document.createElement('div');
+          noResultEl.className = 'custom-select-no-results';
+          noResultEl.textContent = '검색 결과가 없습니다.';
+          optionsContainer.appendChild(noResultEl);
+        }
+      } else if (noResultEl) {
+        noResultEl.remove();
+      }
+    });
+    blogCollectWpCatSearchV2.addEventListener('click', (e) => e.stopPropagation());
+  }
+  // Blog Collect Custom Dropdown Trigger
+  const blogCollectWpCatTrigger = document.getElementById('blog-collect-trends-wp-category-trigger');
+  const blogCollectWpCatContainer = document.getElementById('blog-collect-trends-wp-category-container');
+  if (blogCollectWpCatTrigger && blogCollectWpCatContainer) {
+    blogCollectWpCatTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = blogCollectWpCatContainer.classList.contains('open');
+      // Close all other custom dropdowns
+      document.querySelectorAll('.custom-select-container').forEach(c => {
+        if (c !== blogCollectWpCatContainer) c.classList.remove('open');
+      });
+      blogCollectWpCatContainer.classList.toggle('open');
+      if (!isOpen) {
+        // Focus search when opening
+        setTimeout(() => blogCollectWpCatSearchV2?.focus(), 50);
+      }
+    });
+  }
+
   // Custom Dropdown Trigger
   const wpCatTrigger = document.getElementById('quick-wp-category-trigger');
   const wpCatContainer = document.getElementById('quick-wp-category-container');
@@ -5473,6 +5541,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', () => {
     wpCatContainer?.classList.remove('open');
     shoppingWpCatContainer?.classList.remove('open');
+    blogCollectWpCatContainer?.classList.remove('open');
   });
 
   // Initial WP Options Sync
