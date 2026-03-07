@@ -1134,7 +1134,7 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'naver-blog', 'shopping-connect', 'advanced'];
+  const allowed = ['general', 'naver-blog', 'shopping-connect', 'notification', 'advanced'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   settingsActiveTab = target;
 
@@ -2785,6 +2785,12 @@ function applySettingsMajorToForm(data) {
   const shoppingPublishAutoIntervalEl = document.getElementById('shopping-publish-auto-interval');
   const shoppingPublishAutoHeadlessEl = document.getElementById('shopping-publish-auto-headless');
   const shoppingPublishAutoNotifyEnabledEl = document.getElementById('shopping-publish-auto-notify-enabled');
+  const blogPublishAutoNotifyEnabledEl = document.getElementById('blog-publish-auto-notify-enabled');
+
+  const telegramEnabledEl = document.getElementById('settings-notify-telegram-enabled');
+  const telegramBotTokenEl = document.getElementById('settings-notify-telegram-bot-token');
+  const telegramChatIdEl = document.getElementById('settings-notify-telegram-chat-id');
+  const bitlyTokenEl = document.getElementById('settings-notify-bitly-token');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -2822,6 +2828,7 @@ function applySettingsMajorToForm(data) {
   if (blogPublishAutoBatchEl) blogPublishAutoBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE || 1);
   if (blogPublishAutoIntervalEl) blogPublishAutoIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
   if (blogPublishAutoHeadlessEl) blogPublishAutoHeadlessEl.checked = Boolean(fields.PUBLISH_AUTO_HEADLESS ?? true);
+  if (blogPublishAutoNotifyEnabledEl) blogPublishAutoNotifyEnabledEl.checked = Boolean(fields.PUBLISH_AUTO_NOTIFY_ENABLED);
 
   const blogStartTimeEl = document.getElementById('blog-publish-auto-start-time');
   const blogEndTimeEl = document.getElementById('blog-publish-auto-end-time');
@@ -2858,6 +2865,11 @@ function applySettingsMajorToForm(data) {
 
   if (shoppingPublishAutoHeadlessEl) shoppingPublishAutoHeadlessEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
   if (shoppingPublishAutoNotifyEnabledEl) shoppingPublishAutoNotifyEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
+
+  if (telegramEnabledEl) telegramEnabledEl.checked = Boolean(fields.NOTIFY_TELEGRAM_ENABLED);
+  if (telegramBotTokenEl) telegramBotTokenEl.value = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '');
+  if (telegramChatIdEl) telegramChatIdEl.value = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '');
+  if (bitlyTokenEl) bitlyTokenEl.value = String(fields.NOTIFY_BITLY_TOKEN || '');
   syncBlogAutoVariationTypeUi();
   if (blogCollectTrendsReuseGapEl) {
     const rawReuseGap = fields.COLLECT_TRENDS_REUSE_GAP_DAYS || fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS;
@@ -2929,6 +2941,7 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('blog-publish-auto-batch')?.value || '1', 10),
     PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
+    PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-publish-auto-notify-enabled')?.checked),
     PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
     PUBLISH_AUTO_END_TIME: (document.getElementById('blog-publish-auto-end-time')?.value || '23:59').trim(),
 
@@ -2938,7 +2951,13 @@ function getSettingsMajorBasicValuesFromDom() {
     SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('shopping-publish-auto-batch')?.value || '1', 10),
     SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')),
     SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('shopping-publish-auto-headless')?.checked),
-    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked)
+    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked),
+
+    // Notification (Telegram)
+    NOTIFY_TELEGRAM_ENABLED: Boolean(document.getElementById('settings-notify-telegram-enabled')?.checked),
+    NOTIFY_TELEGRAM_BOT_TOKEN: (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim(),
+    NOTIFY_TELEGRAM_CHAT_ID: (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim(),
+    NOTIFY_BITLY_TOKEN: (document.getElementById('settings-notify-bitly-token')?.value || '').trim(),
   };
 }
 
@@ -3873,23 +3892,18 @@ function applyShoppingAutoDailyPostsLimitUi() {
     ? planLabelRaw.replace(/\s+plan$/i, '').trim() || planLabelRaw
     : '현재';
 
-  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts)) {
-    if (shoppingAutoPlanMaxPosts > 0) {
-      inputEl.max = String(shoppingAutoPlanMaxPosts);
-      const current = parseInt((inputEl.value || '').trim(), 10);
-      if (Number.isInteger(current) && current > shoppingAutoPlanMaxPosts) {
-        inputEl.value = String(shoppingAutoPlanMaxPosts);
-      }
-      if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: ${shoppingAutoPlanMaxPosts}건`;
-      return;
+  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts) && shoppingAutoPlanMaxPosts > 0) {
+    inputEl.max = String(shoppingAutoPlanMaxPosts);
+    const current = parseInt((inputEl.value || '').trim(), 10);
+    if (Number.isInteger(current) && current > shoppingAutoPlanMaxPosts) {
+      inputEl.value = String(shoppingAutoPlanMaxPosts);
     }
-    inputEl.removeAttribute('max');
-    if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 제한 없음`;
+    if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: ${shoppingAutoPlanMaxPosts}건`;
     return;
   }
 
   inputEl.removeAttribute('max');
-  if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 확인 중`;
+  if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 제한 없음`;
 }
 
 async function loadShoppingAutoPlanLimit(options = {}) {
@@ -5086,7 +5100,10 @@ function bindActions() {
     document.getElementById('blog-publish-auto-start-time'),
     document.getElementById('blog-publish-auto-end-time'),
     document.getElementById('shopping-publish-auto-interval'),
-    document.getElementById('shopping-publish-auto-batch')
+    document.getElementById('shopping-publish-auto-batch'),
+    document.getElementById('settings-notify-telegram-bot-token'),
+    document.getElementById('settings-notify-telegram-chat-id'),
+    document.getElementById('settings-notify-bitly-token'),
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
@@ -5103,6 +5120,9 @@ function bindActions() {
     document.getElementById('blog-publish-auto-headless'),
     document.getElementById('shopping-publish-auto-enabled'),
     document.getElementById('shopping-publish-auto-headless'),
+    document.getElementById('blog-publish-auto-notify-enabled'),
+    document.getElementById('shopping-publish-auto-notify-enabled'),
+    document.getElementById('settings-notify-telegram-enabled'),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
@@ -5163,6 +5183,43 @@ function bindActions() {
     shoppingAutoDailyPostsInputEl.addEventListener('blur', () => {
       clampShoppingAutoDailyPostsInputValue({ force: true });
       applyShoppingAutoDailyPostsLimitUi();
+    });
+  }
+  const settingsNotifyTelegramTestBtn = document.getElementById('settings-notify-telegram-test-btn');
+  if (settingsNotifyTelegramTestBtn) {
+    settingsNotifyTelegramTestBtn.addEventListener('click', async () => {
+      const botToken = (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim();
+      const chatId = (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim();
+      const resultEl = document.getElementById('settings-notify-telegram-test-result');
+
+      if (!botToken || !chatId) {
+        if (resultEl) {
+          resultEl.textContent = '❌ 봇 토큰과 챗 ID를 입력해주세요.';
+          resultEl.style.color = 'var(--danger)';
+        }
+        return;
+      }
+
+      settingsNotifyTelegramTestBtn.disabled = true;
+      if (resultEl) {
+        resultEl.textContent = '⏳ 테스트 중...';
+        resultEl.style.color = 'var(--text-muted)';
+      }
+
+      try {
+        const res = await postJson('/api/v1/settings/test-telegram', { botToken, chatId });
+        if (resultEl) {
+          resultEl.textContent = '✅ 성공! 텔레그램 메시지를 확인하세요.';
+          resultEl.style.color = 'var(--success)';
+        }
+      } catch (e) {
+        if (resultEl) {
+          resultEl.textContent = '❌ 실패: ' + e.message;
+          resultEl.style.color = 'var(--danger)';
+        }
+      } finally {
+        settingsNotifyTelegramTestBtn.disabled = false;
+      }
     });
   }
   if (settingsTypingPreviewReplayBtn) settingsTypingPreviewReplayBtn.addEventListener('click', playSettingsTypingPreview);

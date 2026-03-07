@@ -14,6 +14,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/test-telegram') {
+            await controller.handleTestTelegram(ctx);
+            return true;
+        }
+
         return false;
     };
 }

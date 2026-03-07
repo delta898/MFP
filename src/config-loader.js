@@ -395,6 +395,10 @@ const CONFIG = {
 
     // 🔧 [System]
     UPDATE_MIRROR_REPO: structuredConfig.system.update_mirror_repo || Constants.DEFAULT_UPDATE_MIRROR_REPO,
+    NOTIFY_TELEGRAM_ENABLED: structuredConfig.notification?.telegram?.enabled || false,
+    NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',
+    NOTIFY_TELEGRAM_CHAT_ID: structuredConfig.notification?.telegram?.chat_id || '',
+    NOTIFY_BITLY_TOKEN: structuredConfig.notification?.telegram?.bitly_token || '',
 
     // 🔧 [Utility]
     resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),

@@ -47,6 +47,18 @@ function createSettingsController(deps = {}) {
             }
 
             return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleTestTelegram({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.testTelegramConnection(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'TELEGRAM_TEST_FAILED', '텔레그램 테스트에 실패했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
         }
     };
 }

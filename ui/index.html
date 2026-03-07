@@ -782,7 +782,7 @@
                 <div style="flex: 1;"></div>
 
                 <label class="settings-checkbox-label compact">
-                  <input id="blog-publish-auto-notify-enabled" type="checkbox" disabled>
+                  <input id="blog-publish-auto-notify-enabled" type="checkbox">
                   <span>완료 알림</span>
                 </label>
               </div>
@@ -1035,7 +1035,7 @@
                 <div style="flex: 1;"></div>
 
                 <label class="settings-checkbox-label compact">
-                  <input id="shopping-publish-auto-notify-enabled" type="checkbox" disabled>
+                  <input id="shopping-publish-auto-notify-enabled" type="checkbox">
                   <span>완료 알림</span>
                 </label>
               </div>
@@ -1079,6 +1079,7 @@
           <button class="settings-tab-btn active" data-settings-tab="general" type="button">일반</button>
           <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
           <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
+          <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
           <button class="settings-tab-btn" data-settings-tab="advanced" type="button">Advanced</button>
         </div>
 
@@ -1304,6 +1305,39 @@
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
           <pre class="settings-major-result"></pre>
+        </div>
+
+        <div class="card form-card settings-tab-panel" id="settings-tab-notification">
+          <h2>알림 설정</h2>
+          <div class="form-grid">
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
+              <label class="settings-checkbox-label">
+                <input id="settings-notify-telegram-enabled" type="checkbox">
+                <span style="font-size: 1rem; font-weight: 700;">텔레그램 알림 활성화</span>
+              </label>
+              <small class="muted">자동 발행 완료 시 텔레그램으로 알림을 보냅니다. (봇 토큰과 챗 ID가 필요합니다)</small>
+            </div>
+
+            <label>텔레그램 봇 토큰 (Bot Token)
+              <input id="settings-notify-telegram-bot-token" type="password"
+                placeholder="예: 123456789:ABCDefGhIjKlMnOpQrStUvWxYz">
+            </label>
+
+            <label>텔레그램 챗 ID (Chat ID)
+              <input id="settings-notify-telegram-chat-id" type="text" placeholder="예: 123456789">
+            </label>
+
+            <label>Bitly Access Token (옵션)
+              <input id="settings-notify-bitly-token" type="password" placeholder="Generic Access Token (URL 단축용)">
+              <small class="muted">워드프레스 발행 시 텔레그램 알림의 URL을 단축하는 데 사용됩니다.</small>
+            </label>
+          </div>
+
+          <div
+            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; align-items: center;">
+            <button id="settings-notify-telegram-test-btn" class="secondary" type="button">연결 테스트</button>
+            <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
+          </div>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-advanced">

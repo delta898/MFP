@@ -26,6 +26,23 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 ## [0.9.9] - 2026-03-07
 
 ### Added
+- **텔레그램 알림 고도화 및 Bitly URL 단축 연동 (Phase 7)**:
+  - **발행 상세 내역 알림**: 단순히 성공/실패 건수만 보내던 방식에서, 발행된 글의 원본 제목 리스트(최대 3건)를 포함하도록 개선.
+  - **플랫폼 식별자 도입**: 알림 메시지 내 제목 앞에 `[N]` (네이버), `[W]` (워드프레스) 표시를 추가하여 발행 대상을 명확히 구분.
+  - **Bitly URL 단축 서비스 연동**: 워드프레스 포스팅의 긴 URL을 텔레그램에서 가독성 있게 볼 수 있도록 Bitly API를 통한 단축 기능 추가.
+  - **설정 UI 확장**: '설정 > 알림' 탭에 Bitly Generic Access Token 입력 필드를 추가하고 보안 입력(Password type) 및 자동 저장 적용.
+  - **알림 활성화 상태 연동**: 블로그 설정 화면의 '완료 알림' 체크박스를 실제 알림 발송 조건과 동기화.
+- **콘텐츠 생성 및 발행 로직 보강**:
+  - `processMultiPlatformPublish`에서 `finalSubject` 및 `postUrl`을 상위로 전달하도록 보강하여 알림 정확도 향상.
+
+### Fixed
+- **알림 카운트 및 링크 유실 버그 수정**:
+  - `executeBlogRowAction`에서 정의되지 않은 변수(`finalSubject`) 참조로 인해 발행 성공 시에도 알림에는 실패로 집계되던 ReferenceError 수정.
+  - 워드프레스 발행 성공 시 생성된 링크가 알림 메시지에 포함되지 않던 로직 결함 해결.
+- **설정 저장/불러오기 일관성 보완**:
+  - `ui-server.js`의 `getMajorSettings` 및 `validateMajorSettingsRequestBody`에 `NOTIFY_BITLY_TOKEN` 필드를 추가하여 UI 새로고침 후에도 설정값이 유지되지 않던 문제 해결.
+
+### Added
 - **고볼륨 & 고품질 콘텐츠 생성 전략 (Phase 4)**:
   - **콘텐츠 볼륨 확장**: AI 프롬프트 최적화를 통해 본문 2,000자(실제 4,500자+ 생성) 및 소제목 블록 7~8개 이상의 풍성한 본문 구성 확보.
   - **베네핏 중심 소제목**: "N개의 리뷰가 증명하는~" 등 구매 욕구를 자극하는 긴 문장형, 혜택 기반의 소제목 자동 생성 가이드 강화.

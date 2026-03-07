@@ -6,6 +6,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const License = require('./license');
+const TelegramService = require('./telegram-service');
+const UrlService = require('./url-service');
 const Constants = require('./constants');
 const { APP_VERSION } = Constants;
 const CONFIG = require('./config-loader');
@@ -1189,7 +1191,13 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_PUBLISH_AUTO_HEADLESS: CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS,
         SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS,
         SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED,
-        SHOPPING_AUTO_TIME: CONFIG.SHOPPING_AUTO_TIME
+        SHOPPING_AUTO_TIME: CONFIG.SHOPPING_AUTO_TIME,
+
+        // Telegram Notification
+        NOTIFY_TELEGRAM_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED,
+        NOTIFY_TELEGRAM_BOT_TOKEN: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+        NOTIFY_TELEGRAM_CHAT_ID: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+        NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN
     };
 
     return {
@@ -1269,6 +1277,14 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizeNonNegativeInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
 
+    CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED, false);
+
+    // Telegram Notify
+    CONFIG.NOTIFY_TELEGRAM_ENABLED = normalizeBool(fields.NOTIFY_TELEGRAM_ENABLED, false);
+    CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
+    CONFIG.NOTIFY_TELEGRAM_CHAT_ID = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
+    CONFIG.NOTIFY_BITLY_TOKEN = String(fields.NOTIFY_BITLY_TOKEN || '').trim();
+
     Object.assign(CONFIG, autoSettings);
     Object.assign(CONFIG, shoppingAutoSettings);
 }
@@ -1342,7 +1358,12 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         COLLECT_RSS_CONFIGS: rssConfigs,
 
         ...publishAutoSettings,
-        ...shoppingAutoSettings
+        ...shoppingAutoSettings,
+
+        NOTIFY_TELEGRAM_ENABLED: normalizeBool(requestBody.NOTIFY_TELEGRAM_ENABLED, false),
+        NOTIFY_TELEGRAM_BOT_TOKEN: String(requestBody.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
+        NOTIFY_TELEGRAM_CHAT_ID: String(requestBody.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
+        NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim()
     };
 }
 
@@ -1680,6 +1701,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
                 platform: 'naver'
             });
             results.naver.targetDir = naverResult.targetDir;
+            results.finalSubject = naverResult.finalSubject;
 
             emitProgress('네이버 이미지 준비 중...');
             await Core.prepareImages(naverResult.targetDir, naverTopic, {
@@ -1706,6 +1728,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
                 platform: 'wordpress'
             });
             results.wordpress.targetDir = wpResult.targetDir;
+            if (!results.finalSubject) results.finalSubject = wpResult.finalSubject;
 
             emitProgress('워드프레스 이미지 준비 중...');
             await Core.prepareImages(wpResult.targetDir, wpTopic, {
@@ -1746,6 +1769,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             };
             const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, wpOptions);
             results.wordpress.success = pubRes.success;
+            results.wordpress.postUrl = pubRes.postUrl;
             results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 발행 성공' : '워드프레스 발행 실패');
             if (pubRes.success) {
                 emitProgress('워드프레스 완료');
@@ -2282,7 +2306,9 @@ async function executeBlogRowAction(requestBody, options = {}) {
                 rowIndex,
                 rowNumber: rowIndex + 2,
                 status: finalStatus,
-                targetDir: naverDir || wpDir
+                targetDir: naverDir || wpDir,
+                title: publishRes.results.finalSubject || topicData.subject,
+                results: publishRes.results
             }
         };
     } catch (e) {
@@ -3730,6 +3756,16 @@ async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
             Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
         }
 
+        // 알림 전송
+        if (settings.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+            const msg = `<b>[쇼핑 자동 발행 완료]</b>\n- 시도: <b>${summary.shoppingAttempted}</b>건\n- 성공: <b>${summary.shoppingSuccess}</b>건\n- 시각: ${new Date().toLocaleString()}`;
+            TelegramService.sendNotification(msg, {
+                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+                enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
+            }).catch(e => Logger.error(`알림 전송 에러: ${e.message}`));
+        }
+
         return { success: true, data: { trigger, summary } };
     } catch (e) {
         shoppingAutoRuntimeState.status = 'error';
@@ -4580,6 +4616,49 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
 
         Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
 
+        // 알림 전송 (성공 또는 실패가 있을 때)
+        if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+            let detailMsg = '';
+
+            // 결과 데이터에서 성공 내역 추출
+            const successItems = (blogResult?.data?.results || []).filter(r => r.success);
+            const displayItems = successItems.slice(0, 3);
+
+            if (displayItems.length > 0) {
+                detailMsg += '\n\n<b>[발행 내역 (최대 3건)]</b>';
+                for (const item of displayItems) {
+                    const title = item.data?.title || '제목 없음';
+                    const results = item.data?.results || {};
+
+                    // 네이버나 워드프레스 중 하나라도 성공한 경우 표시
+                    let platforms = [];
+                    if (results.naver?.success) platforms.push('N');
+                    if (results.wordpress?.success) platforms.push('W');
+                    const platformIndicator = platforms.length > 0 ? `[${platforms.join('/')}] ` : '';
+
+                    let itemLine = `\n• ${platformIndicator}${title}`;
+
+                    // 워드프레스 성공 시 단축 URL 추가 시도
+                    if (results.wordpress?.success && results.wordpress?.postUrl) {
+                        let shortUrl = results.wordpress.postUrl;
+                        if (CONFIG.NOTIFY_BITLY_TOKEN) {
+                            shortUrl = await UrlService.shorten(results.wordpress.postUrl, CONFIG.NOTIFY_BITLY_TOKEN);
+                        }
+                        itemLine += ` (${shortUrl})`;
+                    }
+
+                    detailMsg += itemLine;
+                }
+            }
+
+            const msg = `<b>[블로그 자동 발행 완료]</b>\n- 성공: <b>${successCount}</b>건\n- 실패: <b>${failCount}</b>건${detailMsg}\n- 시각: ${new Date().toLocaleString()}`;
+            TelegramService.sendNotification(msg, {
+                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+                enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
+            }).catch(e => Logger.error(`알림 전송 에러: ${e.message}`));
+        }
+
         return {
             success: true,
             data: {
@@ -4655,7 +4734,8 @@ function getSettingsRouteHandler() {
             syncShoppingAutoRunnerWithConfig,
             scheduleUiReload,
             createConfigRevision,
-            parseConfigValue
+            parseConfigValue,
+            TelegramService
         });
         const controller = createSettingsController({
             service,

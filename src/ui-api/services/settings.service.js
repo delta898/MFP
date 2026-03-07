@@ -29,7 +29,8 @@ function createSettingsService(deps = {}) {
         syncShoppingAutoRunnerWithConfig,
         scheduleUiReload,
         createConfigRevision,
-        parseConfigValue
+        parseConfigValue,
+        TelegramService
     } = deps;
 
     return {
@@ -189,6 +190,14 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.shopping.headless = fields.SHOPPING_PUBLISH_AUTO_HEADLESS;
             structuredConfig.automation.publish.shopping.time = fields.SHOPPING_AUTO_TIME;
 
+            // Notification
+            if (!structuredConfig.notification) structuredConfig.notification = {};
+            if (!structuredConfig.notification.telegram) structuredConfig.notification.telegram = {};
+            structuredConfig.notification.telegram.enabled = fields.NOTIFY_TELEGRAM_ENABLED;
+            structuredConfig.notification.telegram.bot_token = fields.NOTIFY_TELEGRAM_BOT_TOKEN;
+            structuredConfig.notification.telegram.chat_id = fields.NOTIFY_TELEGRAM_CHAT_ID;
+            structuredConfig.notification.telegram.bitly_token = fields.NOTIFY_BITLY_TOKEN;
+
             // 파일 저장 (Pretty JSON)
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
             fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf-8');
@@ -343,6 +352,22 @@ function createSettingsService(deps = {}) {
                 message: '고급 설정 저장 완료',
                 revision
             };
+        },
+
+        async testTelegramConnection(requestBody = {}) {
+            const botToken = String(requestBody.botToken || '').trim();
+            const chatId = String(requestBody.chatId || '').trim();
+
+            if (!botToken || !chatId) {
+                throw createApiError(400, 'MISSING_PARAMS', '봇 토큰과 챗 ID를 모두 입력해주세요.');
+            }
+
+            const result = await TelegramService.testConnection(botToken, chatId);
+            if (!result.success) {
+                throw createApiError(400, 'TEST_FAILED', result.message || '텔레그램 메시지 전송에 실패했습니다.');
+            }
+
+            return { message: '테스트 메시지가 성공적으로 전송되었습니다.' };
         }
     };
 }
