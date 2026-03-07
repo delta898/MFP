@@ -1929,7 +1929,9 @@ ${scrapedContext}`;
 							const imageCountBefore = await getEditorImageCount(page);
 							await photoBtn.click();
 							const chooser = await fileChooserPromise;
-							await chooser.setFiles(file);
+							const ImageService = require('./image-service');
+							const optimizedFile = await ImageService.optimizeImageForPlatform(file, 'naver');
+							await chooser.setFiles(optimizedFile);
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
 							await Utils.sleep(uploadWait);
@@ -2244,7 +2246,19 @@ ${scrapedContext}`;
 			const fileName = `${trimmedSlug}_${uniqueSuffix}${extension}`;
 
 			const buffer = fs.readFileSync(imagePath);
-			const uploadRes = await wpClient.uploadMedia(buffer, fileName, block.title);
+			const ImageService = require('./image-service');
+			const { buffer: optimizedBuffer, ext: optimizedExt } = await ImageService.optimizeBufferForPlatform(buffer, 'wordpress', {
+				fallbackExt: path.extname(fileName).slice(1)
+			});
+
+			// 확장자가 변경된 경우 파일명 보정
+			let finalFileName = fileName;
+			if (optimizedExt && !fileName.toLowerCase().endsWith('.' + optimizedExt)) {
+				const baseName = path.basename(fileName, path.extname(fileName));
+				finalFileName = `${baseName}.${optimizedExt}`;
+			}
+
+			const uploadRes = await wpClient.uploadMedia(optimizedBuffer, finalFileName, block.title);
 
 			if (uploadRes) {
 				uploadResults.set(block.index, {

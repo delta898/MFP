@@ -1126,6 +1126,16 @@
             <label>LISTEN_PORT
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
             </label>
+            <div class="form-field-block">
+              <span class="field-label-text">이미지 퀄리티 최적화</span>
+              <label class="settings-checkbox-label">
+                <input id="settings-image-optimization" type="checkbox">
+                <span>이미지를 플랫폼에 맞게 최적화 (네이버: WebP, WP: AVIF)</span>
+              </label>
+              <small class="muted" style="display:block; margin-top:8px;">
+                발행 시 최종 업로드 직전에 변환되어 원본 손실을 최소화합니다.
+              </small>
+            </div>
             <div class="form-field-block"
               style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
               <span class="field-label-text">앱 업데이트</span>

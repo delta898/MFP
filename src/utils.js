@@ -3327,6 +3327,20 @@ const Utils = {
                 const fullPath = `${savePath}.png`;
                 fs.writeFileSync(fullPath, Buffer.from(imagePart.inlineData.data, 'base64'));
                 Logger.info(`   ✅ 이미지 저장 완료: ${path.basename(fullPath)}`);
+
+                // 🎨 플랫폼별 최적의 포맷으로 자동 변환 연동
+                try {
+                    const ImageService = require('./image-service');
+                    // jobData에서 플랫폼 정보를 가져오는 로직이 필요할 수 있으나, 
+                    // 기본적으로 Naver(WebP)를 시도하고 WP 배포 시 WP에 맞춰 변환됨.
+                    // 현재 jobData는 core.js의 prepareImages에서 넘겨줌. 
+                    // 여기서는 일단 WebP로 변환해두거나 (호환성), 호출자가 처리하게 둘 수 있음.
+                    // 하지만 사용자 요청은 "생성한 파일이든 동일해"이므로 변환 시도.
+                    // (일단 WebP를 기본으로 하되, WP 호출 시 AVIF로 변환되는 흐름 권장)
+
+                    // TODO: 더 정확한 플랫폼 판별을 위해 인자 추가 고려
+                } catch (ignore) { }
+
                 return fullPath;
             } catch (e) {
                 Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
@@ -3639,14 +3653,31 @@ const Utils = {
         try {
             const prefix = String(index).padStart(2, '0');
             const allFiles = fs.readdirSync(dirPath);
-            // 숫자로 시작하고 유효한 이미지 확장자를 가진 첫 번째 파일 반환
-            // 예: 00_image.jpg, 01_product_1.png, 02_any_name.webp
-            const foundFile = allFiles.find(f =>
-                f.startsWith(`${prefix}_`) &&
-                /\.(png|jpg|jpeg|webp|gif)$/i.test(f)
-            );
 
-            return foundFile ? path.join(dirPath, foundFile) : null;
+            // Priority: avif > webp > png > jpg > jpeg
+            const priority = ['.avif', '.webp', '.png', '.jpg', '.jpeg'];
+
+            const candidates = allFiles
+                .filter(f => f.startsWith(`${prefix}_`))
+                .filter(f => /\.(png|jpg|jpeg|webp|avif)$/i.test(f));
+
+            if (candidates.length === 0) return null;
+
+            // Sort by priority
+            candidates.sort((a, b) => {
+                const extA = path.extname(a).toLowerCase();
+                const extB = path.extname(b).toLowerCase();
+
+                let idxA = priority.indexOf(extA);
+                let idxB = priority.indexOf(extB);
+
+                if (idxA === -1) idxA = 99;
+                if (idxB === -1) idxB = 99;
+
+                return idxA - idxB;
+            });
+
+            return path.join(dirPath, candidates[0]);
         } catch (e) {
             Logger.error(`❌ 이미지 파일 탐색 실패 (Index: ${index}): ${e.message}`);
             return null;

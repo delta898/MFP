@@ -2802,6 +2802,9 @@ function applySettingsMajorToForm(data) {
   if (geminiKeyEl) geminiKeyEl.value = String(fields.GEMINI_API_KEY || '');
   if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
 
+  const imageOptimizationEl = document.getElementById('settings-image-optimization');
+  if (imageOptimizationEl) imageOptimizationEl.checked = Boolean(fields.IMAGE_OPTIMIZATION_ENABLED ?? true);
+
   // 개 개별 섹션의 Headless 설정을 우선하며, Global 설정은 이제 레거시 호환용으로만 유지됩니다.
   // ['blog-publish-auto-headless', 'shopping-publish-auto-headless'].forEach(...) 블록은 삭제하고 아래에서 개별 처리합니다.
 
@@ -2920,6 +2923,8 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
+
+    IMAGE_OPTIMIZATION_ENABLED: Boolean(document.getElementById('settings-image-optimization')?.checked),
 
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
 

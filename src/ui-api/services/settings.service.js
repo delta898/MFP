@@ -169,6 +169,8 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.collect.blog.rss.enabled = fields.COLLECT_RSS_ENABLED;
             structuredConfig.automation.collect.blog.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
 
+            structuredConfig.automation.image_optimization_enabled = fields.IMAGE_OPTIMIZATION_ENABLED !== false;
+
             // Publish
             if (!structuredConfig.automation.publish) structuredConfig.automation.publish = {};
             if (!structuredConfig.automation.publish.blog) structuredConfig.automation.publish.blog = {};
