@@ -1359,6 +1359,30 @@
             <button id="settings-notify-telegram-test-btn" class="secondary" type="button">연결 테스트</button>
             <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
           </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+
+          <div class="form-grid">
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
+              <label class="settings-checkbox-label">
+                <input id="settings-notify-slack-enabled" type="checkbox">
+                <span style="font-size: 1rem; font-weight: 700;">Slack 알림 활성화</span>
+              </label>
+              <small class="muted">자동 발행 완료 시 Slack으로 알림을 보냅니다. (Incoming Webhook URL이 필요합니다)</small>
+            </div>
+
+            <label style="grid-column: 1 / -1;">Slack Webhook URL
+              <input id="settings-notify-slack-webhook-url" type="password"
+                placeholder="예: https://hooks.slack.com/services/T00000/B00000/XXXXXXX">
+              <small class="muted">Slack 앱 > Incoming Webhooks에서 생성한 URL을 입력하세요.</small>
+            </label>
+          </div>
+
+          <div
+            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; align-items: center;">
+            <button id="settings-notify-slack-test-btn" class="secondary" type="button">연결 테스트</button>
+            <span id="settings-notify-slack-test-result" style="font-size: 0.9rem;"></span>
+          </div>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-advanced">

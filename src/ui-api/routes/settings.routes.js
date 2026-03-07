@@ -19,6 +19,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/test-slack') {
+            await controller.handleTestSlack(ctx);
+            return true;
+        }
+
         return false;
     };
 }

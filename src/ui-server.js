@@ -7,6 +7,7 @@ const cheerio = require('cheerio');
 
 const License = require('./license');
 const TelegramService = require('./telegram-service');
+const SlackService = require('./slack-service');
 const UrlService = require('./url-service');
 const Constants = require('./constants');
 const { APP_VERSION } = Constants;
@@ -1201,7 +1202,11 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_TELEGRAM_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED,
         NOTIFY_TELEGRAM_BOT_TOKEN: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
         NOTIFY_TELEGRAM_CHAT_ID: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
-        NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN
+        NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN,
+
+        // Slack Notification
+        NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
+        NOTIFY_SLACK_WEBHOOK_URL: CONFIG.NOTIFY_SLACK_WEBHOOK_URL
     };
 
     return {
@@ -1289,6 +1294,10 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.NOTIFY_TELEGRAM_CHAT_ID = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
     CONFIG.NOTIFY_BITLY_TOKEN = String(fields.NOTIFY_BITLY_TOKEN || '').trim();
 
+    // Slack Notify
+    CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
+    CONFIG.NOTIFY_SLACK_WEBHOOK_URL = String(fields.NOTIFY_SLACK_WEBHOOK_URL || '').trim();
+
     Object.assign(CONFIG, autoSettings);
     Object.assign(CONFIG, shoppingAutoSettings);
 }
@@ -1367,7 +1376,10 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         NOTIFY_TELEGRAM_ENABLED: normalizeBool(requestBody.NOTIFY_TELEGRAM_ENABLED, false),
         NOTIFY_TELEGRAM_BOT_TOKEN: String(requestBody.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
         NOTIFY_TELEGRAM_CHAT_ID: String(requestBody.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
-        NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim()
+        NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim(),
+
+        NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
+        NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim()
     };
 }
 
@@ -3769,13 +3781,21 @@ async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
         }
 
         // 알림 전송
-        if (settings.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+        if (settings.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED) {
             const msg = `<b>[쇼핑 자동 발행 완료]</b>\n- 시도: <b>${summary.shoppingAttempted}</b>건\n- 성공: <b>${summary.shoppingSuccess}</b>건\n- 시각: ${new Date().toLocaleString()}`;
-            TelegramService.sendNotification(msg, {
-                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
-                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
-                enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
-            }).catch(e => Logger.error(`알림 전송 에러: ${e.message}`));
+            if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                TelegramService.sendNotification(msg, {
+                    botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                    chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+                    enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
+                }).catch(e => Logger.error(`텔레그램 알림 전송 에러: ${e.message}`));
+            }
+            if (CONFIG.NOTIFY_SLACK_ENABLED) {
+                SlackService.sendNotification(msg, {
+                    webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
+                    enabled: CONFIG.NOTIFY_SLACK_ENABLED
+                }).catch(e => Logger.error(`Slack 알림 전송 에러: ${e.message}`));
+            }
         }
 
         return { success: true, data: { trigger, summary } };
@@ -4632,7 +4652,7 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
         Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
 
         // 알림 전송 (성공 또는 실패가 있을 때)
-        if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+        if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED) {
             let detailMsg = '';
 
             // 결과 데이터에서 성공 내역 추출
@@ -4667,11 +4687,19 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
             }
 
             const msg = `<b>[블로그 자동 발행 완료]</b>\n- 성공: <b>${successCount}</b>건\n- 실패: <b>${failCount}</b>건${detailMsg}\n- 시각: ${new Date().toLocaleString()}`;
-            TelegramService.sendNotification(msg, {
-                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
-                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
-                enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
-            }).catch(e => Logger.error(`알림 전송 에러: ${e.message}`));
+            if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                TelegramService.sendNotification(msg, {
+                    botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                    chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+                    enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
+                }).catch(e => Logger.error(`텔레그램 알림 전송 에러: ${e.message}`));
+            }
+            if (CONFIG.NOTIFY_SLACK_ENABLED) {
+                SlackService.sendNotification(msg, {
+                    webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
+                    enabled: CONFIG.NOTIFY_SLACK_ENABLED
+                }).catch(e => Logger.error(`Slack 알림 전송 에러: ${e.message}`));
+            }
         }
 
         return {

@@ -59,6 +59,18 @@ function createSettingsController(deps = {}) {
                 }
             }
             return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleTestSlack({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.testSlackConnection(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'SLACK_TEST_FAILED', 'Slack 테스트에 실패했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
         }
     };
 }
