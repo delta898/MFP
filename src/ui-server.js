@@ -4521,6 +4521,9 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
                 return !existingLinks.has(link);
             });
 
+            // RSS 피드는 기본적으로 최신순(desc)이므로, 과거순(asc) 반영을 위해 배열 순서 뒤집기
+            newItemsFromFeed.reverse();
+
             for (const item of newItemsFromFeed) {
                 let normalizedLink = String(item.link || '').trim();
                 if (normalizedLink.includes('blog.naver.com')) {

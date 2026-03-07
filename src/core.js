@@ -2251,16 +2251,31 @@ ${scrapedContext}`;
 				fallbackExt: path.extname(fileName).slice(1)
 			});
 
-			// 확장자가 변경된 경우 파일명 보정
+			// 확장자가 변경된 경우 파일명 보정 (WP 업로드용)
 			let finalFileName = fileName;
 			if (optimizedExt && !fileName.toLowerCase().endsWith('.' + optimizedExt)) {
 				const baseName = path.basename(fileName, path.extname(fileName));
 				finalFileName = `${baseName}.${optimizedExt}`;
 			}
 
+			// 로컬 보존용 파일명 보정 (원본명 그대로 사용: 00_image.png -> 00_image.avif)
+			const originalBaseName = path.basename(imagePath, extension);
+			const localSaveFileName = `${originalBaseName}.${optimizedExt || extension.slice(1)}`;
+
 			const uploadRes = await wpClient.uploadMedia(optimizedBuffer, finalFileName, block.title);
 
 			if (uploadRes) {
+				// 워드프레스 업로드 후, 원본 보존을 위해 변환된 이미지를 해당 폴더에 파일로 저장 (Memory -> Upload -> Save)
+				try {
+					const savePath = path.join(dirPath, localSaveFileName);
+					if (!fs.existsSync(savePath) && optimizedBuffer) {
+						fs.writeFileSync(savePath, optimizedBuffer);
+						Logger.info(`💾 [WordPress] 변환된 이미지 로컬 보존 완료: ${localSaveFileName}`);
+					}
+				} catch (e) {
+					Logger.warn(`⚠️ [WordPress] 변환된 이미지 로컬 보존 실패: ${e.message}`);
+				}
+
 				uploadResults.set(block.index, {
 					id: uploadRes.id,
 					url: uploadRes.url,

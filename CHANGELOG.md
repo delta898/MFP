@@ -26,6 +26,12 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 ## [0.9.6-dev2] - 2026-03-08
 
 ### Added
+- **이미지 자동 최적화 변환 (Image Optimization)**:
+  - **플랫폼별 자동 변환**: 네이버 블로그 발행 시 WebP, 워드프레스 발행 시 AVIF로 이미지를 자동 변환하여 로딩 속도 및 SEO 개선.
+  - **발행 시점 변환**: 이미지 생성/다운로드 단계가 아닌, 발행 직전에 일괄 변환하여 아키텍처를 단순화.
+  - **로컬 파일 보존**: 변환된 이미지(WebP/AVIF)를 원본과 동일한 폴더에 원본 파일명 기반으로 저장 (예: `00_image.png` → `00_image.avif`).
+  - **변환 로그**: 이미지 변환 성공/실패에 대한 상세 로그 출력 추가.
+  - **설정 UI**: 일반 설정 탭에 이미지 최적화 글로벌 토글 추가.
 - **쇼핑커넥트 자동발행 허용 시간대 설정 추가 (Phase 8)**:
   - **발행 시간 제한**: 블로그 자동발행과 동일하게 쇼핑 자동발행도 특정 시간대(예: 09:00~23:59)에만 동작하도록 제한하는 기능 추가.
   - **상태 표시 개선**: 허용 시간대 밖일 경우 대시보드 및 시스템 상태에 `waiting_time_window` 및 안내 메시지 표시.
@@ -38,6 +44,9 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
   - **알림 활성화 상태 연동**: 블로그 설정 화면의 '완료 알림' 체크박스를 실제 알림 발송 조건과 동기화.
 - **콘텐츠 생성 및 발행 로직 보강**:
   - `processMultiPlatformPublish`에서 `finalSubject` 및 `postUrl`을 상위로 전달하도록 보강하여 알림 정확도 향상.
+
+### Changed
+- **RSS 수집 순서 변경**: RSS 피드에서 수집한 글감을 최신순(desc)이 아닌 과거순(asc)으로 Topics 시트에 추가하도록 변경.
 
 ### Fixed
 - **알림 카운트 및 링크 유실 버그 수정**:
