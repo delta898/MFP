@@ -1120,6 +1120,8 @@ function normalizeShoppingAutoSettings(input = {}) {
     const targets = input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
     const targetsArray = Array.isArray(targets) ? targets : String(targets).split(',').map(v => v.trim()).filter(Boolean);
     const notifyEnabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED, CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
+    const startTime = input.SHOPPING_PUBLISH_AUTO_START_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME ?? '00:00';
+    const endTime = input.SHOPPING_PUBLISH_AUTO_END_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME ?? '23:59';
 
     return {
         SHOPPING_PUBLISH_AUTO_ENABLED: enabled,
@@ -1127,7 +1129,9 @@ function normalizeShoppingAutoSettings(input = {}) {
         SHOPPING_PUBLISH_AUTO_BATCH_SIZE: batchSize,
         SHOPPING_PUBLISH_AUTO_HEADLESS: headless,
         SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targetsArray,
-        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled
+        SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
+        SHOPPING_PUBLISH_AUTO_START_TIME: startTime,
+        SHOPPING_PUBLISH_AUTO_END_TIME: endTime
     };
 }
 
@@ -3616,6 +3620,14 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
         const targetMs = new Date(shoppingAutoRuntimeState.nextRunAt).getTime();
 
         if (nowMs >= targetMs) {
+            // 시간 범위 체크
+            const settings = normalizeShoppingAutoSettings(CONFIG);
+            if (!isWithinTimeRange(settings.SHOPPING_PUBLISH_AUTO_START_TIME, settings.SHOPPING_PUBLISH_AUTO_END_TIME)) {
+                shoppingAutoRuntimeState.status = 'waiting_time_window';
+                shoppingAutoRuntimeState.message = `발행 허용 시간대가 아닙니다. (${settings.SHOPPING_PUBLISH_AUTO_START_TIME} ~ ${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`;
+                return;
+            }
+
             clearInterval(shoppingAutoRuntimeState.timer);
             shoppingAutoRuntimeState.timer = null;
             executeShoppingAutoCycle('timer').catch((e) => {

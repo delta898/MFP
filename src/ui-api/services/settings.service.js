@@ -188,6 +188,8 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.shopping.notify_enabled = fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED;
             structuredConfig.automation.publish.shopping.target_channels = fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
             structuredConfig.automation.publish.shopping.headless = fields.SHOPPING_PUBLISH_AUTO_HEADLESS;
+            structuredConfig.automation.publish.shopping.start_time = fields.SHOPPING_PUBLISH_AUTO_START_TIME;
+            structuredConfig.automation.publish.shopping.end_time = fields.SHOPPING_PUBLISH_AUTO_END_TIME;
             structuredConfig.automation.publish.shopping.time = fields.SHOPPING_AUTO_TIME;
 
             // Notification

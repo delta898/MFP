@@ -362,6 +362,8 @@ const CONFIG = {
     SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.shopping.target_channels) ? structuredConfig.automation.publish.shopping.target_channels : [structuredConfig.automation.publish.shopping.target_channels || 'naver'],
     SHOPPING_PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.shopping.headless,
     SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.shopping.notify_enabled,
+    SHOPPING_PUBLISH_AUTO_START_TIME: structuredConfig.automation.publish.shopping.start_time || '00:00',
+    SHOPPING_PUBLISH_AUTO_END_TIME: structuredConfig.automation.publish.shopping.end_time || '23:59',
     SHOPPING_AUTO_TIME: structuredConfig.automation.publish.shopping.scheduled_time,
 
     // System & Constants

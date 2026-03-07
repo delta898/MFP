@@ -2848,6 +2848,11 @@ function applySettingsMajorToForm(data) {
   });
 
   if (shoppingPublishAutoEnabledEl) shoppingPublishAutoEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_ENABLED);
+
+  const shoppingStartTimeEl = document.getElementById('shopping-publish-auto-start-time');
+  const shoppingEndTimeEl = document.getElementById('shopping-publish-auto-end-time');
+  if (shoppingStartTimeEl) shoppingStartTimeEl.value = String(fields.SHOPPING_PUBLISH_AUTO_START_TIME || '00:00');
+  if (shoppingEndTimeEl) shoppingEndTimeEl.value = String(fields.SHOPPING_PUBLISH_AUTO_END_TIME || '23:59');
   if (shoppingPublishAutoBatchEl) shoppingPublishAutoBatchEl.value = String(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
   if (shoppingPublishAutoIntervalEl) shoppingPublishAutoIntervalEl.value = String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
 
@@ -2949,6 +2954,8 @@ function getSettingsMajorBasicValuesFromDom() {
     SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('shopping-publish-auto-enabled')?.checked),
     SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('shopping-publish-auto-interval')?.value || '60', 10),
     SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('shopping-publish-auto-batch')?.value || '1', 10),
+    SHOPPING_PUBLISH_AUTO_START_TIME: (document.getElementById('shopping-publish-auto-start-time')?.value || '00:00').trim(),
+    SHOPPING_PUBLISH_AUTO_END_TIME: (document.getElementById('shopping-publish-auto-end-time')?.value || '23:59').trim(),
     SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')),
     SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('shopping-publish-auto-headless')?.checked),
     SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked),
@@ -5101,6 +5108,8 @@ function bindActions() {
     document.getElementById('blog-publish-auto-end-time'),
     document.getElementById('shopping-publish-auto-interval'),
     document.getElementById('shopping-publish-auto-batch'),
+    document.getElementById('shopping-publish-auto-start-time'),
+    document.getElementById('shopping-publish-auto-end-time'),
     document.getElementById('settings-notify-telegram-bot-token'),
     document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-notify-bitly-token'),

@@ -93,7 +93,9 @@
         "target_channels": [
         ],
         "headless": true,
-        "notify_enabled": false
+        "notify_enabled": false,
+        "start_time": "00:00",
+        "end_time": "23:59"
       }
     }
   },
