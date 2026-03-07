@@ -42,34 +42,36 @@
     }
   },
   "automation": {
-    "blog_collect": {
-      "trends": {
-        "enabled": false,
-        "time": "07:30",
-        "categories": "",
-        "reuse_gap_days": 21,
-        "filters": {
-          "min_increase": 30,
-          "include_new": false,
-          "include_dash": false,
-          "include_number": true,
-          "type": "top",
-          "top_n": 5
+    "collect": {
+      "blog": {
+        "trends": {
+          "enabled": false,
+          "time": "07:30",
+          "categories": "",
+          "reuse_gap_days": 21,
+          "filters": {
+            "min_increase": 30,
+            "include_new": false,
+            "include_dash": false,
+            "include_number": true,
+            "type": "top",
+            "top_n": 5
+          },
+          "wpCategory": ""
         },
-        "wpCategory": ""
-      },
-      "rss": {
-        "enabled": false,
-        "feeds": [
-          {
-            "enabled": false,
-            "url": "",
-            "interval": 60,
-            "includeKeywords": [],
-            "excludeKeywords": [],
-            "wpCategory": ""
-          }
-        ]
+        "rss": {
+          "enabled": false,
+          "feeds": [
+            {
+              "enabled": false,
+              "url": "",
+              "interval": 60,
+              "includeKeywords": [],
+              "excludeKeywords": [],
+              "wpCategory": ""
+            }
+          ]
+        }
       }
     },
     "publish": {
@@ -80,7 +82,9 @@
         "target_channels": [
         ],
         "headless": true,
-        "notify_enabled": false
+        "notify_enabled": false,
+        "start_time": "00:00",
+        "end_time": "23:59"
       },
       "shopping": {
         "enabled": false,

@@ -329,21 +329,21 @@ const CONFIG = {
     SHOPPING_CTA_IMAGE_URL3: structuredConfig.platforms.naver.assets.cta_images?.[2] || '',
 
     // Automation - Trends
-    COLLECT_TRENDS_ENABLED: structuredConfig.automation.blog_collect.trends.enabled,
-    COLLECT_TRENDS_TIME: structuredConfig.automation.blog_collect.trends.time,
-    COLLECT_TRENDS_CATEGORIES: structuredConfig.automation.blog_collect.trends.categories,
-    COLLECT_TRENDS_WP_CATEGORY: structuredConfig.automation.blog_collect.trends.wpCategory,
-    COLLECT_TRENDS_REUSE_GAP_DAYS: structuredConfig.automation.blog_collect.trends.reuse_gap_days,
-    COLLECT_TRENDS_FILTER_MIN_INCR: structuredConfig.automation.blog_collect.trends.filters.min_increase,
-    COLLECT_TRENDS_FILTER_INCLUDE_NEW: structuredConfig.automation.blog_collect.trends.filters.include_new,
-    COLLECT_TRENDS_FILTER_INCLUDE_DASH: structuredConfig.automation.blog_collect.trends.filters.include_dash,
-    COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: structuredConfig.automation.blog_collect.trends.filters.include_number,
-    COLLECT_TRENDS_FILTER_TYPE: structuredConfig.automation.blog_collect.trends.filters.type,
-    COLLECT_TRENDS_FILTER_TOP_N: structuredConfig.automation.blog_collect.trends.filters.top_n,
+    COLLECT_TRENDS_ENABLED: structuredConfig.automation.collect?.blog?.trends?.enabled,
+    COLLECT_TRENDS_TIME: structuredConfig.automation.collect?.blog?.trends?.time,
+    COLLECT_TRENDS_CATEGORIES: structuredConfig.automation.collect?.blog?.trends?.categories,
+    COLLECT_TRENDS_WP_CATEGORY: structuredConfig.automation.collect?.blog?.trends?.wpCategory,
+    COLLECT_TRENDS_REUSE_GAP_DAYS: structuredConfig.automation.collect?.blog?.trends?.reuse_gap_days,
+    COLLECT_TRENDS_FILTER_MIN_INCR: structuredConfig.automation.collect?.blog?.trends?.filters?.min_increase,
+    COLLECT_TRENDS_FILTER_INCLUDE_NEW: structuredConfig.automation.collect?.blog?.trends?.filters?.include_new,
+    COLLECT_TRENDS_FILTER_INCLUDE_DASH: structuredConfig.automation.collect?.blog?.trends?.filters?.include_dash,
+    COLLECT_TRENDS_FILTER_INCLUDE_NUMBER: structuredConfig.automation.collect?.blog?.trends?.filters?.include_number,
+    COLLECT_TRENDS_FILTER_TYPE: structuredConfig.automation.collect?.blog?.trends?.filters?.type,
+    COLLECT_TRENDS_FILTER_TOP_N: structuredConfig.automation.collect?.blog?.trends?.filters?.top_n,
 
     // Automation - RSS
-    COLLECT_RSS_ENABLED: structuredConfig.automation.blog_collect.rss.enabled,
-    COLLECT_RSS_CONFIGS: structuredConfig.automation.blog_collect.rss.feeds,
+    COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
+    COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
 
     // Automation - Publish (Blog)
     PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.blog.enabled,
@@ -352,6 +352,8 @@ const CONFIG = {
     PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.blog.target_channels) ? structuredConfig.automation.publish.blog.target_channels : [structuredConfig.automation.publish.blog.target_channels || 'naver'],
     PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.blog.headless,
     PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,
+    PUBLISH_AUTO_START_TIME: structuredConfig.automation.publish.blog.start_time,
+    PUBLISH_AUTO_END_TIME: structuredConfig.automation.publish.blog.end_time,
 
     // Automation - Publish (Shopping)
     SHOPPING_PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.shopping.enabled,

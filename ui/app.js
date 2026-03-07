@@ -214,8 +214,8 @@ let uiSheetsReady = false;
 let uiSheetsPreflightInFlight = null;
 let dashboardPollingPauseCount = 0;
 const dashboardAutoScheduleState = {
-  blog: { enabled: false, nextRunAt: '' },
-  shopping: { enabled: false, nextRunAt: '' }
+  blog: { enabled: false, nextRunAt: '', status: '', startTime: '', endTime: '' },
+  shopping: { enabled: false, nextRunAt: '', status: '', startTime: '', endTime: '' }
 };
 let settingsMajorAutoSaveTimer = null;
 let settingsMajorSaveInFlight = false;
@@ -1198,12 +1198,33 @@ function renderDashboardAutoSchedule() {
   const setAutoScheduleUI = (prefix, data) => {
     const dateEl = document.getElementById(`dash-auto-${prefix}-next-date`);
     const relEl = document.getElementById(`dash-auto-${prefix}-next-relative`);
+
+    const isWithinTimeRange = (timeStr, start, end) => {
+      if (!start || !end) return true;
+      if (!timeStr || timeStr === '-') return true;
+      const date = new Date(timeStr);
+      if (isNaN(date.getTime())) return true;
+      const mins = date.getHours() * 60 + date.getMinutes();
+      const [sH, sM] = start.split(':').map(Number);
+      const [eH, eM] = end.split(':').map(Number);
+      const sMin = sH * 60 + sM;
+      const eMin = eH * 60 + eM;
+      if (sMin <= eMin) return mins >= sMin && mins <= eMin;
+      return mins >= sMin || mins <= eMin;
+    };
+
     if (!data.enabled || !data.nextRunAt || data.nextRunAt === '-') {
       if (dateEl) dateEl.textContent = '-';
       if (relEl) relEl.textContent = '';
     } else {
-      if (dateEl) dateEl.textContent = formatDateTimeAbsolute(data.nextRunAt);
-      if (relEl) relEl.textContent = formatNextRunText(data.nextRunAt);
+      const isAllowed = isWithinTimeRange(data.nextRunAt, data.startTime, data.endTime);
+      if (data.status === 'waiting_time_window' || !isAllowed) {
+        if (dateEl) dateEl.textContent = `허용 대기중 (${data.startTime || '00:00'}~${data.endTime || '23:59'})`;
+        if (relEl) relEl.textContent = '';
+      } else {
+        if (dateEl) dateEl.textContent = formatDateTimeAbsolute(data.nextRunAt);
+        if (relEl) relEl.textContent = formatNextRunText(data.nextRunAt);
+      }
     }
   };
 
@@ -1464,8 +1485,15 @@ async function loadDashboard() {
   const shopAutoEnabled = Boolean(auto?.shopping?.enabled);
   dashboardAutoScheduleState.blog.enabled = blogAutoEnabled;
   dashboardAutoScheduleState.blog.nextRunAt = String(auto?.blog?.nextRunAt || '').trim();
+  dashboardAutoScheduleState.blog.status = auto?.blog?.status;
+  dashboardAutoScheduleState.blog.startTime = auto?.blog?.settings?.PUBLISH_AUTO_START_TIME;
+  dashboardAutoScheduleState.blog.endTime = auto?.blog?.settings?.PUBLISH_AUTO_END_TIME;
+
   dashboardAutoScheduleState.shopping.enabled = shopAutoEnabled;
   dashboardAutoScheduleState.shopping.nextRunAt = String(auto?.shopping?.nextRunAt || '').trim();
+  dashboardAutoScheduleState.shopping.status = auto?.shopping?.status;
+  dashboardAutoScheduleState.shopping.startTime = auto?.shopping?.settings?.SHOPPING_PUBLISH_AUTO_START_TIME;
+  dashboardAutoScheduleState.shopping.endTime = auto?.shopping?.settings?.SHOPPING_PUBLISH_AUTO_END_TIME;
 
   setText('dash-auto-blog-enabled', blogAutoEnabled ? 'ON' : 'OFF');
   setText('dash-auto-shopping-enabled', shopAutoEnabled ? 'ON' : 'OFF');
@@ -2768,13 +2796,8 @@ function applySettingsMajorToForm(data) {
   if (geminiKeyEl) geminiKeyEl.value = String(fields.GEMINI_API_KEY || '');
   if (sheetUrlEl) sheetUrlEl.value = String(fields.GOOGLE_SHEET_URL || '');
 
-  // 빠른 실행, 트렌드, 일괄발행의 1회성 Headless 체크박스에 전역 설정값을 기본으로 세팅합니다.
-  const isGlobalHeadless = Boolean(fields.HEADLESS);
-  ['quick-headless', 'blog-trends-headless', 'blog-batch-headless',
-    'shopping-quick-headless', 'shopping-batch-headless'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.checked = isGlobalHeadless;
-    });
+  // 개 개별 섹션의 Headless 설정을 우선하며, Global 설정은 이제 레거시 호환용으로만 유지됩니다.
+  // ['blog-publish-auto-headless', 'shopping-publish-auto-headless'].forEach(...) 블록은 삭제하고 아래에서 개별 처리합니다.
 
   if (typingEl) typingEl.value = String(fields.TYPING_SPEED || 'NORMAL');
   if (blogCollectTrendsEnabledEl) blogCollectTrendsEnabledEl.checked = Boolean(fields.COLLECT_TRENDS_ENABLED);
@@ -2798,12 +2821,23 @@ function applySettingsMajorToForm(data) {
   if (blogPublishAutoEnabledEl) blogPublishAutoEnabledEl.checked = Boolean(fields.PUBLISH_AUTO_ENABLED);
   if (blogPublishAutoBatchEl) blogPublishAutoBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE || 1);
   if (blogPublishAutoIntervalEl) blogPublishAutoIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
+  if (blogPublishAutoHeadlessEl) blogPublishAutoHeadlessEl.checked = Boolean(fields.PUBLISH_AUTO_HEADLESS ?? true);
+
+  const blogStartTimeEl = document.getElementById('blog-publish-auto-start-time');
+  const blogEndTimeEl = document.getElementById('blog-publish-auto-end-time');
+  if (blogStartTimeEl) blogStartTimeEl.value = String(fields.PUBLISH_AUTO_START_TIME || '00:00');
+  if (blogEndTimeEl) blogEndTimeEl.value = String(fields.PUBLISH_AUTO_END_TIME || '23:59');
 
   const targetChannels = Array.isArray(fields.PUBLISH_AUTO_TARGET_CHANNELS)
     ? fields.PUBLISH_AUTO_TARGET_CHANNELS
     : String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
-  document.querySelectorAll('[data-publish-target]').forEach(el => {
-    el.checked = targetChannels.includes(el.getAttribute('data-publish-target'));
+  // 자동 발행 전용 타겟 체크박스만 갱신 (수동/일괄 UI는 전역 설정에 영향받지 않도록 skip)
+  ['blog-publish-auto-target-naver', 'blog-publish-auto-target-wordpress'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const target = el.getAttribute('data-publish-target');
+      el.checked = targetChannels.includes(target);
+    }
   });
 
   if (shoppingPublishAutoEnabledEl) shoppingPublishAutoEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_ENABLED);
@@ -2813,8 +2847,13 @@ function applySettingsMajorToForm(data) {
   const shoppingTargetChannels = Array.isArray(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
     ? fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
     : String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
-  document.querySelectorAll('[data-shopping-publish-target]').forEach(el => {
-    el.checked = shoppingTargetChannels.includes(el.getAttribute('data-shopping-publish-target'));
+  // 쇼핑 자동 발행 전용 타겟 체크박스만 갱신
+  ['shopping-publish-auto-target-naver', 'shopping-publish-auto-target-wordpress'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const target = el.getAttribute('data-shopping-publish-target');
+      el.checked = shoppingTargetChannels.includes(target);
+    }
   });
 
   if (shoppingPublishAutoHeadlessEl) shoppingPublishAutoHeadlessEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
@@ -2890,6 +2929,8 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('blog-publish-auto-batch')?.value || '1', 10),
     PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
+    PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
+    PUBLISH_AUTO_END_TIME: (document.getElementById('blog-publish-auto-end-time')?.value || '23:59').trim(),
 
     // Shopping Auto Refined
     SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('shopping-publish-auto-enabled')?.checked),
@@ -4104,6 +4145,8 @@ async function loadBlogAutoSettings() {
     });
 
     if (headlessEl) headlessEl.checked = Boolean(fields.PUBLISH_AUTO_HEADLESS ?? true);
+    if (document.getElementById('blog-publish-auto-start-time')) document.getElementById('blog-publish-auto-start-time').value = String(fields.PUBLISH_AUTO_START_TIME || '00:00');
+    if (document.getElementById('blog-publish-auto-end-time')) document.getElementById('blog-publish-auto-end-time').value = String(fields.PUBLISH_AUTO_END_TIME || '23:59');
 
     setBlogAutoResultText([
       '불러오기 완료',
@@ -4132,7 +4175,9 @@ async function saveBlogAutoSettings() {
       PUBLISH_AUTO_INTERVAL_MIN: parseInt(publishIntervalEl?.value || '60', 10),
       PUBLISH_AUTO_BATCH_SIZE: parseInt(publishBatchEl?.value || '1', 10),
       PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(','),
-      PUBLISH_AUTO_HEADLESS: Boolean(headlessEl?.checked)
+      PUBLISH_AUTO_HEADLESS: Boolean(headlessEl?.checked),
+      PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
+      PUBLISH_AUTO_END_TIME: (document.getElementById('blog-publish-auto-end-time')?.value || '23:59').trim()
     };
 
     await postJson('/api/v1/settings/major', payload);
@@ -4465,12 +4510,7 @@ function bindActions() {
       payload.scheduleDate = (document.getElementById('quick-wp-schedule-date')?.value || '').trim();
     }
 
-    // [New] Persist individual options (except sensitive text fields)
-    localStorage.setItem('quick_headless', document.getElementById('quick-headless')?.checked ? 'true' : 'false');
-    localStorage.setItem('quick_image_generation', document.getElementById('quick-image-generation')?.checked ? 'true' : 'false');
-    localStorage.setItem('quick_external_reference', document.getElementById('quick-external-reference')?.checked ? 'true' : 'false');
-    localStorage.setItem('quick_wp_post_status', document.getElementById('quick-wp-post-status')?.value || 'publish');
-    localStorage.setItem('quick_wp_schedule_date', document.getElementById('quick-wp-schedule-date')?.value || '');
+    // [Consolidated] Individual options are now persisted via initGlobalPublishSettingsSync change listeners.
 
     return payload;
   };
@@ -5043,6 +5083,8 @@ function bindActions() {
     document.getElementById('blog-collect-trends-reuse-gap'),
     document.getElementById('blog-publish-auto-interval'),
     document.getElementById('blog-publish-auto-batch'),
+    document.getElementById('blog-publish-auto-start-time'),
+    document.getElementById('blog-publish-auto-end-time'),
     document.getElementById('shopping-publish-auto-interval'),
     document.getElementById('shopping-publish-auto-batch')
   ].filter(Boolean);
@@ -5141,6 +5183,10 @@ function bindActions() {
   settingsMajorAutoSaveInputs.forEach((inputEl) => {
     inputEl.addEventListener('input', () => scheduleSettingsMajorAutoSave());
     inputEl.addEventListener('blur', () => scheduleSettingsMajorAutoSave({ immediate: true }));
+    // type="time" 필드는 change 이벤트가 더 확실하게 저장 트리거임
+    if (inputEl.type === 'time') {
+      inputEl.addEventListener('change', () => scheduleSettingsMajorAutoSave({ immediate: true }));
+    }
   });
   settingsMajorAutoSaveSelects.forEach((selectEl) => {
     selectEl.addEventListener('change', () => scheduleSettingsMajorAutoSave({ immediate: true }));

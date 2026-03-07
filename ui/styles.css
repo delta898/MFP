@@ -1062,15 +1062,18 @@ h2 {
 
 .auto-variation-filter {
   margin-top: 6px;
-  display: grid;
-  grid-template-columns: minmax(112px, auto) minmax(112px, auto) minmax(116px, auto) minmax(160px, 1fr);
-  gap: 8px;
-  align-items: end;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* 전체 항목 간 간격 약간 복구 */
+  flex-wrap: wrap;
 }
 
 .auto-variation-filter .settings-checkbox-label.compact {
   min-height: 36px;
   margin: 0;
+  gap: 2px !important;
+  /* 체크박스와 텍스트 사이 밀착 유지 */
 }
 
 .auto-variation-number-input input {

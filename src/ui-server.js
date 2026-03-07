@@ -59,7 +59,9 @@ const PUBLISH_AUTO_DEFAULTS = {
     targetChannels: 'naver',
     headless: true,
     imageGeneration: true,
-    externalReference: false
+    externalReference: false,
+    startTime: '00:00',
+    endTime: '23:59'
 };
 const SHOPPING_AUTO_DEFAULTS = {
     mode: false,
@@ -84,16 +86,17 @@ const autoRuntimeState = {
     lastPublishAtMs: 0
 };
 
-const trendsRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null };
+const trendsRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastTime: null };
 const rssRuntimeState = {
     enabled: false,
     running: false,
     status: 'stopped',
     nextRunAt: null,
     timer: null,
+    lastConfigsJson: null,
     lastRunTimes: {} // feedUrl -> timestamp
 };
-const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null };
+const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastInterval: null, lastStartTime: null, lastEndTime: null };
 
 const shoppingAutoRuntimeState = {
     enabled: false,
@@ -1094,7 +1097,9 @@ function normalizePublishAutoSettings(input = {}) {
         PUBLISH_AUTO_BATCH_SIZE: batchSize,
         PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
         PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
-        PUBLISH_AUTO_HEADLESS: headless
+        PUBLISH_AUTO_HEADLESS: headless,
+        PUBLISH_AUTO_START_TIME: input.PUBLISH_AUTO_START_TIME ?? CONFIG.PUBLISH_AUTO_START_TIME ?? PUBLISH_AUTO_DEFAULTS.startTime,
+        PUBLISH_AUTO_END_TIME: input.PUBLISH_AUTO_END_TIME ?? CONFIG.PUBLISH_AUTO_END_TIME ?? PUBLISH_AUTO_DEFAULTS.endTime
     };
 }
 
@@ -1174,6 +1179,8 @@ function buildMajorSettings(raw, configSource) {
         PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.PUBLISH_AUTO_TARGET_CHANNELS,
         PUBLISH_AUTO_HEADLESS: CONFIG.PUBLISH_AUTO_HEADLESS,
         PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED,
+        PUBLISH_AUTO_START_TIME: CONFIG.PUBLISH_AUTO_START_TIME,
+        PUBLISH_AUTO_END_TIME: CONFIG.PUBLISH_AUTO_END_TIME,
 
         // Automation - Shopping
         SHOPPING_PUBLISH_AUTO_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED,
@@ -3295,16 +3302,29 @@ function getAutoStatusPayload() {
 }
 
 function syncTrendsRunner() {
+    const isEnabled = Boolean(CONFIG.COLLECT_TRENDS_ENABLED);
+    const targetTime = String(CONFIG.COLLECT_TRENDS_TIME || '07:30').trim();
+
+    // 💡 변경사항이 없으면 타이머를 초기화하지 않음
+    if (trendsRuntimeState.enabled === isEnabled &&
+        trendsRuntimeState.lastTime === targetTime &&
+        trendsRuntimeState.nextRunAt) {
+        trendsRuntimeState.status = trendsRuntimeState.running ? 'running' : 'waiting';
+        return;
+    }
+
     if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
-    trendsRuntimeState.enabled = Boolean(CONFIG.COLLECT_TRENDS_ENABLED);
-    if (!trendsRuntimeState.enabled) {
+    trendsRuntimeState.enabled = isEnabled;
+    trendsRuntimeState.lastTime = targetTime;
+
+    if (!isEnabled) {
         trendsRuntimeState.status = 'stopped';
         trendsRuntimeState.nextRunAt = null;
         return;
     }
 
     trendsRuntimeState.status = trendsRuntimeState.running ? 'running' : 'waiting';
-    const timeStr = String(CONFIG.COLLECT_TRENDS_TIME || '07:30').split(':');
+    const timeStr = targetTime.split(':');
     const targetHour = parseInt(timeStr[0] || '7', 10);
     const targetMin = parseInt(timeStr[1] || '30', 10);
 
@@ -3335,12 +3355,22 @@ function syncTrendsRunner() {
 }
 
 function syncRssRunner() {
-    if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
     const rssConfigs = Array.isArray(CONFIG.COLLECT_RSS_CONFIGS) ? CONFIG.COLLECT_RSS_CONFIGS : [];
-    const enabledConfigs = rssConfigs.filter(rc => rc.enabled);
-
     const isGlobalEnabled = parseConfigBool(CONFIG.COLLECT_RSS_ENABLED, false);
-    rssRuntimeState.enabled = isGlobalEnabled && enabledConfigs.length > 0;
+    const configsJson = JSON.stringify(rssConfigs);
+    const isEnabled = isGlobalEnabled && rssConfigs.some(rc => rc.enabled);
+
+    // 💡 변경사항이 없으면 타이머를 초기화하지 않음
+    if (rssRuntimeState.enabled === isEnabled &&
+        rssRuntimeState.lastConfigsJson === configsJson &&
+        rssRuntimeState.timer) {
+        rssRuntimeState.status = rssRuntimeState.running ? 'running' : 'waiting';
+        return;
+    }
+
+    if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
+    rssRuntimeState.enabled = isEnabled;
+    rssRuntimeState.lastConfigsJson = configsJson;
 
     if (!rssRuntimeState.enabled) {
         rssRuntimeState.status = 'stopped';
@@ -3416,18 +3446,69 @@ function syncRssRunner() {
 }
 
 function syncPublishRunner() {
+    const isEnabled = Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
+    let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
+    if (intervalMin < 1) intervalMin = 60;
+    const startTime = String(CONFIG.PUBLISH_AUTO_START_TIME || '00:00').trim();
+    const endTime = String(CONFIG.PUBLISH_AUTO_END_TIME || '23:59').trim();
+
+    const isIntervalChanged = publishRuntimeState.lastInterval !== intervalMin;
+    const isStatusChanged = publishRuntimeState.enabled !== isEnabled;
+    const isTimeRangeChanged = publishRuntimeState.lastStartTime !== startTime || publishRuntimeState.lastEndTime !== endTime;
+
+    // 변경사항이 아예 없으면 즉시 반환
+    if (!isStatusChanged && !isIntervalChanged && !isTimeRangeChanged && publishRuntimeState.nextRunAt) {
+        publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
+        return;
+    }
+
+    // 상태 보관 및 갱신
+    const wasEnabled = publishRuntimeState.enabled;
+    const oldInterval = publishRuntimeState.lastInterval;
+    const oldStartTime = publishRuntimeState.lastStartTime;
+    const oldEndTime = publishRuntimeState.lastEndTime;
+
+    publishRuntimeState.enabled = isEnabled;
+    publishRuntimeState.lastInterval = intervalMin;
+    publishRuntimeState.lastStartTime = startTime;
+    publishRuntimeState.lastEndTime = endTime;
+
+    // 💡 [단순화] 시간대만 바뀐 경우: 예약된 타이머를 리셋하지 않고 실행 시점에 범위 판단 (사용자 요청)
+    if (!isStatusChanged && !isIntervalChanged && isTimeRangeChanged && publishRuntimeState.nextRunAt) {
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시간대 설정이 변경되었습니다. (${oldStartTime}~${oldEndTime} -> ${startTime}~${endTime}) - 기존 예약 유지`);
+        return;
+    }
+
+    // 여기부터는 실질적인 리셋(setInterval 재설정)이 필요한 경우 (상태 변경 or 간격 변경)
     if (publishRuntimeState.timer) clearInterval(publishRuntimeState.timer);
-    publishRuntimeState.enabled = Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
-    if (!publishRuntimeState.enabled) {
+
+    if (!isEnabled) {
+        if (wasEnabled) Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시스템이 OFF 되었습니다. (기존 예약 취소)`);
         publishRuntimeState.status = 'stopped';
         publishRuntimeState.nextRunAt = null;
         return;
     }
 
+    if (!wasEnabled) {
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시스템이 ON 되었습니다.`);
+    } else if (isIntervalChanged) {
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 주기가 변경되어 예약을 갱신합니다. (${oldInterval}분 -> ${intervalMin}분)`);
+    }
+
     publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
-    let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
-    if (intervalMin < 1) intervalMin = 60;
     const intervalMs = intervalMin * 60 * 1000;
+
+    const isWithinTimeRange = (start, end) => {
+        if (!start || !end) return true;
+        const now = new Date();
+        const currentMin = now.getHours() * 60 + now.getMinutes();
+        const [sH, sM] = start.split(':').map(Number);
+        const [eH, eM] = end.split(':').map(Number);
+        const startMin = sH * 60 + sM;
+        const endMin = eH * 60 + eM;
+        if (startMin <= endMin) return currentMin >= startMin && currentMin <= endMin;
+        return currentMin >= startMin || currentMin <= endMin;
+    };
 
     const schedulePublish = () => {
         publishRuntimeState.nextRunAt = new Date(Date.now() + intervalMs).toISOString();
@@ -3436,6 +3517,13 @@ function syncPublishRunner() {
         publishRuntimeState.timer = setInterval(() => {
             if (!publishRuntimeState.enabled || publishRuntimeState.running) return;
             if (Date.now() >= new Date(publishRuntimeState.nextRunAt).getTime()) {
+                // 시간 범위 체크
+                if (!isWithinTimeRange(CONFIG.PUBLISH_AUTO_START_TIME, CONFIG.PUBLISH_AUTO_END_TIME)) {
+                    publishRuntimeState.status = 'waiting_time_window';
+                    return;
+                }
+
+                publishRuntimeState.status = 'waiting';
                 publishRuntimeState.running = true;
                 publishRuntimeState.status = 'running';
                 runAutoPublishCycle('auto').finally(() => {

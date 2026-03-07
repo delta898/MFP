@@ -128,26 +128,45 @@ function createSettingsService(deps = {}) {
 
             // 4. Automation
             if (!structuredConfig.automation) structuredConfig.automation = {};
-            // Collect
             if (!structuredConfig.automation.collect) structuredConfig.automation.collect = {};
-            if (!structuredConfig.automation.collect.trends) structuredConfig.automation.collect.trends = {};
-            structuredConfig.automation.collect.trends.enabled = fields.COLLECT_TRENDS_ENABLED;
-            structuredConfig.automation.collect.trends.categories = fields.COLLECT_TRENDS_CATEGORIES;
-            structuredConfig.automation.collect.trends.wpCategory = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
-            structuredConfig.automation.collect.trends.time = fields.COLLECT_TRENDS_TIME;
-            structuredConfig.automation.collect.trends.reuse_gap_days = Number(fields.COLLECT_TRENDS_REUSE_GAP_DAYS);
 
-            if (!structuredConfig.automation.collect.trends.filters) structuredConfig.automation.collect.trends.filters = {};
-            structuredConfig.automation.collect.trends.filters.min_increase = Number(fields.COLLECT_TRENDS_FILTER_MIN_INCR);
-            structuredConfig.automation.collect.trends.filters.include_new = fields.COLLECT_TRENDS_FILTER_INCLUDE_NEW;
-            structuredConfig.automation.collect.trends.filters.include_dash = fields.COLLECT_TRENDS_FILTER_INCLUDE_DASH;
-            structuredConfig.automation.collect.trends.filters.include_number = fields.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER;
-            structuredConfig.automation.collect.trends.filters.type = fields.COLLECT_TRENDS_FILTER_TYPE;
-            structuredConfig.automation.collect.trends.filters.top_n = Number(fields.COLLECT_TRENDS_FILTER_TOP_N);
+            // [Migration/Cleanup] Legacy paths migration
+            // blog_collect -> collect.blog
+            if (structuredConfig.automation.blog_collect) {
+                if (!structuredConfig.automation.collect.blog) {
+                    structuredConfig.automation.collect.blog = structuredConfig.automation.blog_collect;
+                }
+                delete structuredConfig.automation.blog_collect;
+            }
+            // Old collect (flat) -> collect.blog
+            if (structuredConfig.automation.collect.trends && !structuredConfig.automation.collect.blog) {
+                const trends = structuredConfig.automation.collect.trends;
+                const rss = structuredConfig.automation.collect.rss;
+                structuredConfig.automation.collect.blog = { trends, rss };
+                delete structuredConfig.automation.collect.trends;
+                delete structuredConfig.automation.collect.rss;
+            }
 
-            if (!structuredConfig.automation.collect.rss) structuredConfig.automation.collect.rss = {};
-            structuredConfig.automation.collect.rss.enabled = fields.COLLECT_RSS_ENABLED;
-            structuredConfig.automation.collect.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
+            if (!structuredConfig.automation.collect.blog) structuredConfig.automation.collect.blog = {};
+            if (!structuredConfig.automation.collect.blog.trends) structuredConfig.automation.collect.blog.trends = {};
+
+            structuredConfig.automation.collect.blog.trends.enabled = fields.COLLECT_TRENDS_ENABLED;
+            structuredConfig.automation.collect.blog.trends.categories = fields.COLLECT_TRENDS_CATEGORIES;
+            structuredConfig.automation.collect.blog.trends.wpCategory = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
+            structuredConfig.automation.collect.blog.trends.time = fields.COLLECT_TRENDS_TIME;
+            structuredConfig.automation.collect.blog.trends.reuse_gap_days = Number(fields.COLLECT_TRENDS_REUSE_GAP_DAYS);
+
+            if (!structuredConfig.automation.collect.blog.trends.filters) structuredConfig.automation.collect.blog.trends.filters = {};
+            structuredConfig.automation.collect.blog.trends.filters.min_increase = Number(fields.COLLECT_TRENDS_FILTER_MIN_INCR);
+            structuredConfig.automation.collect.blog.trends.filters.include_new = fields.COLLECT_TRENDS_FILTER_INCLUDE_NEW;
+            structuredConfig.automation.collect.blog.trends.filters.include_dash = fields.COLLECT_TRENDS_FILTER_INCLUDE_DASH;
+            structuredConfig.automation.collect.blog.trends.filters.include_number = fields.COLLECT_TRENDS_FILTER_INCLUDE_NUMBER;
+            structuredConfig.automation.collect.blog.trends.filters.type = fields.COLLECT_TRENDS_FILTER_TYPE;
+            structuredConfig.automation.collect.blog.trends.filters.top_n = Number(fields.COLLECT_TRENDS_FILTER_TOP_N);
+
+            if (!structuredConfig.automation.collect.blog.rss) structuredConfig.automation.collect.blog.rss = {};
+            structuredConfig.automation.collect.blog.rss.enabled = fields.COLLECT_RSS_ENABLED;
+            structuredConfig.automation.collect.blog.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
 
             // Publish
             if (!structuredConfig.automation.publish) structuredConfig.automation.publish = {};
@@ -158,6 +177,8 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.blog.notify_enabled = fields.PUBLISH_AUTO_NOTIFY_ENABLED;
             structuredConfig.automation.publish.blog.target_channels = fields.PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
             structuredConfig.automation.publish.blog.headless = fields.PUBLISH_AUTO_HEADLESS;
+            structuredConfig.automation.publish.blog.start_time = fields.PUBLISH_AUTO_START_TIME || "00:00";
+            structuredConfig.automation.publish.blog.end_time = fields.PUBLISH_AUTO_END_TIME || "23:59";
 
             if (!structuredConfig.automation.publish.shopping) structuredConfig.automation.publish.shopping = {};
             structuredConfig.automation.publish.shopping.enabled = fields.SHOPPING_PUBLISH_AUTO_ENABLED;

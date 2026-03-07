@@ -604,7 +604,7 @@
                     <label class="settings-checkbox-label compact">
                       <input id="blog-collect-trends-filter-number-enabled" type="checkbox" checked>
                       <select id="blog-collect-trends-filter-type"
-                        style="margin-left:4px; padding:2px 4px; font-size:13px; border-radius:4px; border:1px solid var(--border-color); background:var(--surface-color); color:var(--text-primary);">
+                        style="padding:2px 4px; font-size:13px; border-radius:4px; border:1px solid var(--border-color); background:var(--surface-color); color:var(--text-primary);">
                         <option value="min">증가값 (Min)</option>
                         <option value="top">증가 순위 (Top N)</option>
                       </select>
@@ -748,6 +748,17 @@
                 <input id="blog-publish-auto-batch" type="number" min="1" step="1" value="1" placeholder="예: 1">
               </label>
 
+              <div class="form-field-block">
+                <span class="field-label-text">발행 허용 시간대</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input id="blog-publish-auto-start-time" type="time" value="00:00"
+                    style="width: auto; min-width: 120px;">
+                  <span style="color: var(--text-muted); font-weight: 500;">~</span>
+                  <input id="blog-publish-auto-end-time" type="time" value="23:59"
+                    style="width: auto; min-width: 120px;">
+                </div>
+              </div>
+
 
               <div class="auto-toggle-row" style="margin-top: 20px; align-items: center;">
                 <label class="settings-checkbox-label compact" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
@@ -757,7 +768,7 @@
 
                 <div class="target-channels-group"
                   style="margin-left: 20px; padding: 4px 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
-                  <span style="font-size: 0.9rem; color: var(--text-muted);">발행 대상:</span>
+                  <span style="font-size: 0.9rem; color: var(--text-secondary);">발행 대상:</span>
                   <label class="settings-checkbox-label compact">
                     <input id="blog-publish-auto-target-naver" type="checkbox" data-publish-target="naver" checked>
                     <span>네이버</span>
@@ -1008,7 +1019,7 @@
 
                 <div class="target-channels-group"
                   style="margin-left: 20px; padding: 4px 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
-                  <span style="font-size: 0.9rem; color: var(--text-muted);">발행 대상:</span>
+                  <span style="font-size: 0.9rem; color: var(--text-secondary);">발행 대상:</span>
                   <label class="settings-checkbox-label compact">
                     <input id="shopping-publish-auto-target-naver" type="checkbox" data-shopping-publish-target="naver"
                       checked>
