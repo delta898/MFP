@@ -23,7 +23,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
-## [0.9.9] - 2026-03-07
+## [0.9.6-dev2] - 2026-03-07
 
 ### Added
 - **텔레그램 알림 고도화 및 Bitly URL 단축 연동 (Phase 7)**:
