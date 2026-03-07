@@ -2245,11 +2245,11 @@ ${scrapedContext}`;
 			const trimmedSlug = slug.slice(0, maxSlugLength);
 			const fileName = `${trimmedSlug}_${uniqueSuffix}${extension}`;
 
-			const buffer = fs.readFileSync(imagePath);
 			const ImageService = require('./image-service');
-			const { buffer: optimizedBuffer, ext: optimizedExt } = await ImageService.optimizeBufferForPlatform(buffer, 'wordpress', {
-				fallbackExt: path.extname(fileName).slice(1)
-			});
+			const optimizedFilePath = await ImageService.optimizeImageForPlatform(imagePath, 'wordpress');
+			const optimizedExt = path.extname(optimizedFilePath).slice(1) || path.extname(fileName).slice(1);
+			const optimizedBuffer = fs.readFileSync(optimizedFilePath);
+
 
 			// 확장자가 변경된 경우 파일명 보정
 			let finalFileName = fileName;
