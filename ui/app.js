@@ -2791,6 +2791,8 @@ function applySettingsMajorToForm(data) {
   const telegramBotTokenEl = document.getElementById('settings-notify-telegram-bot-token');
   const telegramChatIdEl = document.getElementById('settings-notify-telegram-chat-id');
   const bitlyTokenEl = document.getElementById('settings-notify-bitly-token');
+  const slackEnabledEl = document.getElementById('settings-notify-slack-enabled');
+  const slackWebhookUrlEl = document.getElementById('settings-notify-slack-webhook-url');
 
   settingsMajorApplyingForm = true;
   if (listenHostEl) listenHostEl.value = String(fields.LISTEN_HOST || '127.0.0.1');
@@ -2878,6 +2880,8 @@ function applySettingsMajorToForm(data) {
   if (telegramBotTokenEl) telegramBotTokenEl.value = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '');
   if (telegramChatIdEl) telegramChatIdEl.value = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '');
   if (bitlyTokenEl) bitlyTokenEl.value = String(fields.NOTIFY_BITLY_TOKEN || '');
+  if (slackEnabledEl) slackEnabledEl.checked = Boolean(fields.NOTIFY_SLACK_ENABLED);
+  if (slackWebhookUrlEl) slackWebhookUrlEl.value = String(fields.NOTIFY_SLACK_WEBHOOK_URL || '');
   syncBlogAutoVariationTypeUi();
   if (blogCollectTrendsReuseGapEl) {
     const rawReuseGap = fields.COLLECT_TRENDS_REUSE_GAP_DAYS || fields.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS;
@@ -2970,6 +2974,10 @@ function getSettingsMajorBasicValuesFromDom() {
     NOTIFY_TELEGRAM_BOT_TOKEN: (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim(),
     NOTIFY_TELEGRAM_CHAT_ID: (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim(),
     NOTIFY_BITLY_TOKEN: (document.getElementById('settings-notify-bitly-token')?.value || '').trim(),
+
+    // Notification (Slack)
+    NOTIFY_SLACK_ENABLED: Boolean(document.getElementById('settings-notify-slack-enabled')?.checked),
+    NOTIFY_SLACK_WEBHOOK_URL: (document.getElementById('settings-notify-slack-webhook-url')?.value || '').trim(),
   };
 }
 
@@ -4392,35 +4400,32 @@ async function runBlogPublishAutoManual() {
   const batchEl = document.getElementById('blog-publish-auto-batch');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
   const resultEl = document.getElementById('blog-publish-auto-result');
-  if (await showUiConfirm('큐에서 가져와서 수동 발행을 시도하시겠습니까?') === false) return;
+  if (await showUiConfirm('수동 발행을 진행하시겠습니까?') === false) return;
 
   const batchSize = parseInt((batchEl?.value || '1').trim(), 10) || 1;
   const targets = Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(',');
   const headless = Boolean(headlessEl?.checked);
 
   blogAutoManualRunInFlight = true;
-  if (resultEl) resultEl.textContent = '발행 파이프라인 실행 중...';
 
   try {
-    const data = await postJson('/api/v1/auto/publish/run', {
-      settingsOverrides: {
-        PUBLISH_AUTO_BATCH_SIZE: batchSize,
-        PUBLISH_AUTO_TARGET_CHANNELS: targets,
-        PUBLISH_AUTO_HEADLESS: headless
-      }
+    await runWithLiveProgress({
+      targetEl: resultEl,
+      requestLabel: '수동 발행 실행',
+      requestFn: () => postJson('/api/v1/auto/publish/run', {
+        settingsOverrides: {
+          PUBLISH_AUTO_BATCH_SIZE: batchSize,
+          PUBLISH_AUTO_TARGET_CHANNELS: targets,
+          PUBLISH_AUTO_HEADLESS: headless
+        }
+      })
     });
-    const summary = data?.summary || {};
-    const lines = [
-      '수동 실행 완료',
-      `- 블로그 발행 시도/성공: ${Number(summary?.blogAttempted || 0)} / ${Number(summary?.blogSuccess || 0)}건`
-    ];
-    if (resultEl) resultEl.textContent = lines.join('\\n');
     await Promise.all([
       loadDashboard(),
       loadBlogTopics({ silent: true })
     ]);
   } catch (e) {
-    if (resultEl) resultEl.textContent = `오류: ${e.message}`;
+    // runWithLiveProgress already shows error in the log area
   } finally {
     blogAutoManualRunInFlight = false;
   }
@@ -5223,9 +5228,11 @@ function bindActions() {
       try {
         const res = await postJson('/api/v1/settings/test-telegram', { botToken, chatId });
         if (resultEl) {
-          resultEl.textContent = '✅ 성공! 텔레그램 메시지를 확인하세요.';
+          resultEl.textContent = '✅ 성공! 텔레그램 메시지를 확인하세요. (설정이 자동 저장되었습니다)';
           resultEl.style.color = 'var(--success)';
         }
+        // 테스트 성공 시 자동 저장
+        void saveSettingsMajor({ mode: 'auto' });
       } catch (e) {
         if (resultEl) {
           resultEl.textContent = '❌ 실패: ' + e.message;
@@ -5233,6 +5240,45 @@ function bindActions() {
         }
       } finally {
         settingsNotifyTelegramTestBtn.disabled = false;
+      }
+    });
+  }
+
+  const settingsNotifySlackTestBtn = document.getElementById('settings-notify-slack-test-btn');
+  if (settingsNotifySlackTestBtn) {
+    settingsNotifySlackTestBtn.addEventListener('click', async () => {
+      const webhookUrl = (document.getElementById('settings-notify-slack-webhook-url')?.value || '').trim();
+      const resultEl = document.getElementById('settings-notify-slack-test-result');
+
+      if (!webhookUrl) {
+        if (resultEl) {
+          resultEl.textContent = '❌ Webhook URL을 입력해주세요.';
+          resultEl.style.color = 'var(--danger)';
+        }
+        return;
+      }
+
+      settingsNotifySlackTestBtn.disabled = true;
+      if (resultEl) {
+        resultEl.textContent = '⏳ 테스트 중...';
+        resultEl.style.color = 'var(--text-muted)';
+      }
+
+      try {
+        const res = await postJson('/api/v1/settings/test-slack', { webhookUrl });
+        if (resultEl) {
+          resultEl.textContent = '✅ 성공! Slack 채널을 확인하세요. (설정이 자동 저장되었습니다)';
+          resultEl.style.color = 'var(--success)';
+        }
+        // 테스트 성공 시 자동 저장
+        void saveSettingsMajor({ mode: 'auto' });
+      } catch (e) {
+        if (resultEl) {
+          resultEl.textContent = '❌ 실패: ' + e.message;
+          resultEl.style.color = 'var(--danger)';
+        }
+      } finally {
+        settingsNotifySlackTestBtn.disabled = false;
       }
     });
   }

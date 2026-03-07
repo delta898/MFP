@@ -201,6 +201,9 @@ function createSettingsService(deps = {}) {
             structuredConfig.notification.telegram.bot_token = fields.NOTIFY_TELEGRAM_BOT_TOKEN;
             structuredConfig.notification.telegram.chat_id = fields.NOTIFY_TELEGRAM_CHAT_ID;
             structuredConfig.notification.telegram.bitly_token = fields.NOTIFY_BITLY_TOKEN;
+            if (!structuredConfig.notification.slack) structuredConfig.notification.slack = {};
+            structuredConfig.notification.slack.enabled = fields.NOTIFY_SLACK_ENABLED;
+            structuredConfig.notification.slack.webhook_url = fields.NOTIFY_SLACK_WEBHOOK_URL;
 
             // 파일 저장 (Pretty JSON)
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
@@ -372,6 +375,22 @@ function createSettingsService(deps = {}) {
             }
 
             return { message: '테스트 메시지가 성공적으로 전송되었습니다.' };
+        },
+
+        async testSlackConnection(requestBody = {}) {
+            const webhookUrl = String(requestBody.webhookUrl || '').trim();
+
+            if (!webhookUrl) {
+                throw createApiError(400, 'MISSING_PARAMS', 'Webhook URL을 입력해주세요.');
+            }
+
+            const SlackService = require('../../slack-service');
+            const result = await SlackService.testConnection(webhookUrl);
+            if (!result.success) {
+                throw createApiError(400, 'TEST_FAILED', result.message || 'Slack 메시지 전송에 실패했습니다.');
+            }
+
+            return { message: '테스트 메시지가 Slack으로 성공적으로 전송되었습니다.' };
         }
     };
 }

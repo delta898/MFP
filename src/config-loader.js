@@ -404,6 +404,8 @@ const CONFIG = {
     NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',
     NOTIFY_TELEGRAM_CHAT_ID: structuredConfig.notification?.telegram?.chat_id || '',
     NOTIFY_BITLY_TOKEN: structuredConfig.notification?.telegram?.bitly_token || '',
+    NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
+    NOTIFY_SLACK_WEBHOOK_URL: structuredConfig.notification?.slack?.webhook_url || '',
 
     // 🔧 [Utility]
     resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),
