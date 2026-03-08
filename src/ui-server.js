@@ -4398,13 +4398,18 @@ async function runTrendCollectCycle(trigger = 'manual', options = {}) {
 
     Logger.info(`🚀 [AUTO][Producer] 트렌드 수집 시작 (Trigger: ${trigger})`);
 
+    // [Headless Logic] 
+    // - 스케줄러(auto 등)에 의한 실행은 무조건 안보이게(headless: true)
+    // - UI 수동 버튼 등에 의한 실행은 무조건 보이게(headless: false)
+    const headless = !isManual;
+
     const includeCategories = parseCsvTokens(settingsOverride.COLLECT_TRENDS_CATEGORIES || CONFIG.COLLECT_TRENDS_CATEGORIES);
     const trendsRetryResult = await executeTrendCollectWithRetry({
         date: requestedTrendDate || undefined,
         categories: includeCategories,
         maxRetries: isManual ? 0 : COLLECT_TRENDS_DEFAULTS.trendsMaxRetries,
         retryWaitMs: COLLECT_TRENDS_DEFAULTS.trendsRetryWaitMs,
-        headless: CONFIG.PUBLISH_AUTO_HEADLESS !== undefined ? CONFIG.PUBLISH_AUTO_HEADLESS : CONFIG.HEADLESS,
+        headless,
         settings: settingsOverride // Propagate settings overrides from UI
     });
 
