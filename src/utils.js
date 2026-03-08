@@ -610,7 +610,8 @@ const Utils = {
                     Logger.info(`✨ '${sheet.name}' 시트가 없어서 생성을 시작합니다...`);
                     await this.createSheetIfMissing(accessToken, targetSpreadsheetId, sheet.name, sheet.type);
                 } else {
-                    // Logger.info(`   ✅ '${sheet.name}' 시트 확인됨`);
+                    // [Added] 이미 존재하는 시트에도 필수 헤더(특히 options)가 있는지 확인하고 동기화
+                    await this._syncSheetHeadersIfMissing(accessToken, targetSpreadsheetId, sheet.name, sheet.type);
                 }
             }
 
@@ -794,6 +795,52 @@ const Utils = {
     },
 
     /**
+     * 0-2. 기존 시트에 필수 헤더가 빠져있으면 추가 (Sync)
+     */
+    _syncSheetHeadersIfMissing: async function (accessToken, spreadsheetId, sheetName, type) {
+        try {
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
+            const currentHeaders = Array.isArray(headerRes?.data?.values?.[0]) ? headerRes.data.values[0] : [];
+            const currentHeadersClean = currentHeaders.map(h => String(h || '').toLowerCase().replace(/[\s\/_]/g, '').trim());
+
+            let requiredHeaders = [];
+            if (type === 'topics') {
+                requiredHeaders = [
+                    'category', 'post_status', 'schedule_date', 'subject', 'keywords',
+                    '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL',
+                    'options', '발행 시간', '로그', '추가일시', '소스', '트렌드일자'
+                ];
+            } else if (type === 'shopping') {
+                requiredHeaders = [
+                    'category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그', 'options'
+                ];
+            }
+
+            const missingHeaders = requiredHeaders.filter(h => {
+                const cleanH = h.toLowerCase().replace(/[\s\/_]/g, '').trim();
+                return !currentHeadersClean.includes(cleanH);
+            });
+
+            if (missingHeaders.length > 0) {
+                Logger.info(`   🔍 '${sheetName}' 시트에 누락된 헤더 발견: ${missingHeaders.join(', ')}. 추가를 시작합니다...`);
+                const newHeaders = [...currentHeaders, ...missingHeaders];
+                const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1?valueInputOption=USER_ENTERED`;
+                await this.callWithRetry(() => axios.put(updateUrl, {
+                    range: `${sheetName}!1:1`,
+                    majorDimension: 'ROWS',
+                    values: [newHeaders]
+                }, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+                Logger.info(`   ✅ '${sheetName}' 시트 헤더 동기화 완료`);
+            }
+        } catch (e) {
+            Logger.warn(`⚠️ '${sheetName}' 헤더 동기화 중 오류 (무시 가능): ${e.message}`);
+        }
+    },
+
+    /**
      * 0-1. 시트 생성 및 초기화 (헤더, 고정, 드롭다운)
      */
     createSheetIfMissing: async function (accessToken, spreadsheetId, sheetName, type) {
@@ -851,6 +898,7 @@ const Utils = {
                     '이미지 생성',
                     '외부 참고 여부',
                     '참고 URL',
+                    'options', // [Added] JSON 확장 옵션 컬럼
                     '발행 시간',
                     '로그',
                     '추가일시',
@@ -1132,11 +1180,21 @@ const Utils = {
                     const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
                     const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
                     const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
+                    const optionsStr = getVal(['options', '옵션', 'extra_options']);
                     const logStr = getVal(['로그', 'log']);
                     const publishedAt = getVal(['발행시간', '발행 시간', 'publish_time', 'time']);
                     const addedAt = getVal(['추가일시', '추가 일시', 'addedat', 'createdat']);
                     const source = getVal(['소스', 'source']);
                     const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
+
+                    let optionsObj = {};
+                    if (optionsStr) {
+                        try {
+                            optionsObj = JSON.parse(optionsStr);
+                        } catch (e) {
+                            Logger.warn(`⚠️ [Utils] Row ${index + 2} options JSON 파싱 실패: ${e.message}`);
+                        }
+                    }
 
                     return {
                         rowIndex: index,
@@ -1152,9 +1210,10 @@ const Utils = {
                             reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
                         },
                         status: status || '',
-                        image_gen: String(imgGenStr || '').toLowerCase() === 'yes',
-                        image_count: parseInt(imgCountStr, 10),
-                        external_reference: String(extRefStr || '').toLowerCase() === 'yes',
+                        image_gen: optionsObj.image_gen !== undefined ? !!optionsObj.image_gen : (String(imgGenStr || '').toLowerCase() === 'yes'),
+                        image_count: optionsObj.image_count !== undefined ? parseInt(optionsObj.image_count, 10) : parseInt(imgCountStr, 10),
+                        external_reference: optionsObj.external_reference !== undefined ? !!optionsObj.external_reference : (String(extRefStr || '').toLowerCase() === 'yes'),
+                        options: optionsObj, // [Added] 원본 옵션 객체 유지
                         log: logStr || '',
                         published_at: publishedAt || '',
                         created_at: addedAt || '',
@@ -1881,112 +1940,8 @@ const Utils = {
             // 따라서 3.0버전부터는 헤더를 읽어서 순서대로 정렬하는 로직 필요하나, 현재는 약속된 순서(또는 주요 컬럼만)로 추가 시도.
             // 여기서는 헤더를 먼저 읽어서 매핑하는 방식을 사용.
 
-            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
-
-            let headerRes;
-            try {
-                headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
-            } catch (e) {
-                // 400 Bad Request => 시트가 없을 가능성이 높음 -> 시트 생성 시도
-                if (e.response && (e.response.status === 400 || e.response.data?.error?.status === 'INVALID_ARGUMENT')) {
-                    Logger.info(`✨ '${sheetName}' 시트가 없어서 새로 생성합니다...`);
-
-                    // 시트 생성 (1행 고정) & ID 획득
-                    const createUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
-                    const res = await this.callWithRetry(() => axios.post(createUrl, {
-                        requests: [{
-                            addSheet: {
-                                properties: {
-                                    title: sheetName,
-                                    gridProperties: { frozenRowCount: 1 } // 1행 고정
-                                }
-                            }
-                        }]
-                    }, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
-
-                    const newSheetId = res.data.replies[0].addSheet.properties.sheetId;
-
-                    // 데이터 유효성 검사 (Dropdown)
-                    // (appendGoogleSheetTopics) Status: E열 (Index 4) -> 대기, 발행 준비 완료, 발행 완료
-                    // 이미지 생성: F열 (Index 5) -> Yes, No
-                    // 외부 참고 여부: G열 (Index 6) -> Yes, No
-                    const validationReq = {
-                        requests: [{
-                            setDataValidation: {
-                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 4, endColumnIndex: 5 },
-                                rule: {
-                                    condition: {
-                                        type: 'ONE_OF_LIST',
-                                        values: [
-                                            { userEnteredValue: '대기' },
-                                            { userEnteredValue: '발행 준비 완료' },
-                                            { userEnteredValue: '발행 완료' }
-                                        ]
-                                    },
-                                    showCustomUi: true, strict: true
-                                }
-                            }
-                        }, {
-                            setDataValidation: {
-                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 5, endColumnIndex: 6 },
-                                rule: {
-                                    condition: {
-                                        type: 'ONE_OF_LIST',
-                                        values: [
-                                            { userEnteredValue: 'Yes' },
-                                            { userEnteredValue: 'No' }
-                                        ]
-                                    },
-                                    showCustomUi: true, strict: true
-                                }
-                            }
-                        }, {
-                            setDataValidation: {
-                                range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 6, endColumnIndex: 7 },
-                                rule: {
-                                    condition: {
-                                        type: 'ONE_OF_LIST',
-                                        values: [
-                                            { userEnteredValue: 'Yes' },
-                                            { userEnteredValue: 'No' }
-                                        ]
-                                    },
-                                    showCustomUi: true, strict: true
-                                }
-                            }
-                        }]
-                    };
-                    await this.callWithRetry(() => axios.post(createUrl, validationReq, { headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }));
-
-                    // 헤더 추가: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
-                    const headerRow = [[
-                        'blog',
-                        'subject',
-                        'keywords',
-                        '참고/지시 사항',
-                        '상태',
-                        '이미지 생성',
-                        '외부 참고 여부',
-                        '참고 URL',
-                        '발행 시간',
-                        '로그',
-                        '추가일시',
-                        '소스',
-                        '트렌드일자'
-                    ]];
-                    const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
-                    await this.callWithRetry(() => axios.post(appendUrl, { range: sheetName, majorDimension: 'ROWS', values: headerRow }, {
-                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-                    }));
-
-                    Logger.info(`   ✅ 시트 생성 및 헤더 추가 완료`);
-                    // 헤더가 생성되었으므로 다시 읽기보다는, 생성한 헤더를 그대로 사용
-                    headerRes = { data: { values: headerRow } };
-                } else {
-                    throw e;
-                }
-            }
-
+            const headerReadUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(headerReadUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
             let headers = Array.isArray(headerRes?.data?.values?.[0]) ? headerRes.data.values[0] : [];
             const map = {};
             headers.forEach((h, i) => {
@@ -1998,7 +1953,6 @@ const Utils = {
                 else if (clean.includes('scheduledate') || clean.includes('예약일시')) map.scheduleDate = i;
 
                 // 2. Core Fields
-                else if (clean.includes('blog') || clean.includes('블로그')) map.blog = i;
                 else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
                 else if (clean.includes('키워드') || clean.includes('keyword')) map.keyword = i;
                 else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
@@ -2009,6 +1963,7 @@ const Utils = {
                 else if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
                 else if (clean === '소스' || clean.includes('source')) map.source = i;
                 else if (clean.includes('트렌드일자') || clean.includes('trenddate')) map.trendDate = i;
+                else if (clean === 'options' || clean === '옵션') map.options = i;
             });
 
             const missingHeaderLabels = [];
@@ -2092,7 +2047,6 @@ const Utils = {
                 ).trim();
                 const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
 
-                if (map.blog !== undefined) row[map.blog] = topic.targets || topic.platform || 'naver';
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
                 if (map.keyword !== undefined) row[map.keyword] = keywordValue;
                 if (map.instruction !== undefined) row[map.instruction] = instructionValue;
@@ -2103,6 +2057,7 @@ const Utils = {
                 if (map.addedAt !== undefined) row[map.addedAt] = addedAtValue;
                 if (map.source !== undefined) row[map.source] = sourceValue;
                 if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;
+                if (map.options !== undefined) row[map.options] = topic.options ? (typeof topic.options === 'string' ? topic.options : JSON.stringify(topic.options)) : '';
 
                 // WP 전용 필드들
                 if (map.category !== undefined) row[map.category] = topic.wp_category || topic.category || '';

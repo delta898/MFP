@@ -23,6 +23,17 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
+## [0.9.8-dev3] - 2026-03-08
+
+### Added
+- **지능형 범용 오버라이드(Universal Override) 시스템 (Phase 7)**:
+  - **만능 options 필드**: `Topics` 시트의 `options` JSON 컬럼이 시트의 모든 개별 컬럼(제목, 키워드, 카테고리, 예약일시 등) 및 전역 설정을 덮어쓸 수 있도록 오버라이드 우선순위 정립 (`options` > 시트 > 전역).
+  - **AI 시공간 인식 강화**: 텔레그램 메시지 내 "내일 모레", "오늘 저녁" 등 상대적 시간 표현을 AI가 분석 시점의 KST 기준으로 정확한 `YYYY-MM-DD HH:mm:ss` 형식으로 변환하여 `options.schedule_date`에 자동 기록.
+  - **상세 지시 사항 추출**: 사용자의 말투 지정, 특정 자료 참고 요청 등을 AI가 분석하여 `options.instruction` 및 `options.reference_urls`에 정밀하게 매핑.
+- **봇 메시지 개인화 및 다양화 (Phase 8 - Fun Factor)**:
+  - **랜덤 메시지 시스템**: 토픽 등록 완료, 발행 시작, 서비스 대기 등 주요 알림 시 3~4가지의 서로 다른 렌더링 멘트를 무작위로 선택하여 제공함으로써 따분함 해소 및 친근한 비서 페르소나 구축.
+  - **맥락 인식 안내**: `/help` 및 시작 안내 메시지에도 랜덤화를 적용하고, 대화의 맥락(Context)을 기억하여 이전 주제를 지칭하는 명령을 똑똑하게 이해하도록 개선.
+
 ## [0.9.6-dev2] - 2026-03-08
 
 ### Added
