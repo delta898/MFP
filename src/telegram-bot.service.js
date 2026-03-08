@@ -105,57 +105,89 @@ class TelegramBotService {
                 const Core = require('./core');
                 const context = this.chatContext.get(chatId) || null;
                 const parsedData = await Core.parseTelegramRequest(text, context);
+                const { intent, data } = parsedData;
 
-                const optionsObj = parsedData.options || {};
-                let platformsStr = parsedData.platforms.map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
-                let imgGenIcon = optionsObj.image_gen !== false ? '✅' : '❌';
-                let extRefIcon = optionsObj.external_reference !== false ? '✅' : '❌';
+                // 인텐트별 분기 처리 (Dispatcher)
+                if (intent === 'PUBLISH') {
+                    const optionsObj = data.options || {};
+                    let platformsStr = (data.platforms || ['naver']).map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
+                    let imgGenIcon = optionsObj.image_gen !== false ? '✅' : '❌';
+                    let extRefIcon = optionsObj.external_reference !== false ? '✅' : '❌';
 
-                let confirmMsg = `✨ *분석 완료!* 다음 조건으로 발행을 준비할까요?\n\n` +
-                    `🎯 *주제:* ${parsedData.theme}\n` +
-                    `🔑 *키워드:* ${parsedData.keywords.join(', ') || '없음'}\n` +
-                    `🏷️ *발행 대상:* ${platformsStr}\n` +
-                    `🖼️ *이미지 생성:* ${imgGenIcon}\n` +
-                    `🔍 *외부 자료 참고:* ${extRefIcon}\n`;
+                    let confirmMsg = `✨ *분석 완료!* 다음 조건으로 발행을 준비할까요?\n\n` +
+                        `🎯 *주제:* ${data.theme}\n` +
+                        `🔑 *키워드:* ${(data.keywords || []).join(', ') || '없음'}\n` +
+                        `🏷️ *발행 대상:* ${platformsStr}\n` +
+                        `🖼️ *이미지 생성:* ${imgGenIcon}\n` +
+                        `🔍 *외부 자료 참고:* ${extRefIcon}\n`;
 
-                if (optionsObj.schedule_date) {
-                    confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
+                    if (optionsObj.schedule_date) confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
+                    if (optionsObj.instruction) confirmMsg += `📝 *추가 지시:* ${optionsObj.instruction}\n`;
+                    if (optionsObj.category) confirmMsg += `📁 *카테고리:* ${optionsObj.category}\n`;
+                    if (optionsObj.post_status === 'draft') confirmMsg += `📌 *발행 옵션:* 임시저장(Draft)\n`;
+
+                    const options = {
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.stringify({
+                            inline_keyboard: [
+                                [{ text: '✅ 네, 진행해 주세요', callback_data: 'publish_confirm' }],
+                                [{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]
+                            ]
+                        })
+                    };
+
+                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
+                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+
+                } else if (intent === 'UPDATE_CONFIG') {
+                    // 설정 변경은 중요하므로 확인 절차 거침
+                    const updates = data.config_updates || {};
+                    let summary = '';
+                    for (const [k, v] of Object.entries(updates)) {
+                        summary += `• \`${k}\` ➔ \`${v}\`\n`;
+                    }
+
+                    const confirmMsg = `⚙️ *시스템 설정 변경 요청이 감지되었습니다.*\n\n${summary}\n정말 변경할까요? (즉시 반영됩니다)`;
+                    const options = {
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.stringify({
+                            inline_keyboard: [
+                                [{ text: '✅ 예, 변경합니다', callback_data: 'config_confirm' }],
+                                [{ text: '❌ 취소', callback_data: 'publish_cancel' }]
+                            ]
+                        })
+                    };
+                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
+                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+
+                } else if (intent === 'RUN_JOB') {
+                    // 작업 실행 (예: 트렌드 수집)
+                    const jobName = data.job_name || '알 수 없는 작업';
+                    const confirmMsg = `🚀 *시스템 작업을 실행할까요?*\n\n작업: \`${jobName}\`\n\n(완료 후 알림을 보내드릴게요)`;
+                    const options = {
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.stringify({
+                            inline_keyboard: [
+                                [{ text: '✅ 실행하기', callback_data: 'job_confirm' }],
+                                [{ text: '❌ 취소', callback_data: 'publish_cancel' }]
+                            ]
+                        })
+                    };
+                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
+                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+
+                } else if (intent === 'QUERY_DATA') {
+                    // 데이터 조회는 즉시 실행
+                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    await this.handleQueryIntent(chatId, data);
                 }
-                if (optionsObj.instruction) {
-                    confirmMsg += `📝 *추가 지시:* ${optionsObj.instruction}\n`;
-                }
-                if (optionsObj.category) {
-                    confirmMsg += `📁 *카테고리:* ${optionsObj.category}\n`;
-                }
-                if (optionsObj.post_status === 'draft') {
-                    confirmMsg += `📌 *발행 옵션:* 임시저장(Draft)\n`;
-                }
-
-                // 버튼 옵션
-                const options = {
-                    parse_mode: 'Markdown',
-                    reply_markup: JSON.stringify({
-                        inline_keyboard: [
-                            [{ text: '✅ 네, 진행해 주세요', callback_data: 'publish_confirm' }],
-                            [{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]
-                        ]
-                    })
-                };
-
-                // 결과 발송 및 분석중 메시지 삭제
-                const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
-
-                // 메시지 ID와 함께 세션에 임시 저장 (버튼 클릭 시 꺼내 쓰기 위함)
-                this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-
-                await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
 
             } catch (err) {
                 Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
-                await this.bot.sendMessage(
-                    chatId,
-                    '😥 죄송합니다. 요청하신 내용을 AI가 분석하는 데 실패했습니다. 다시 한 번 명확하게 말씀해 주시겠어요?'
-                );
+                await this.bot.sendMessage(chatId, '😥 죄송합니다. 요청하신 내용을 분석하는 데 실패했습니다. 다시 말씀해 주시겠어요?');
             }
         };
 
@@ -183,7 +215,7 @@ class TelegramBotService {
                     });
                 } else if (data === 'publish_confirm') {
                     const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData) {
+                    if (!parsedData || !parsedData.data) {
                         await this.bot.answerCallbackQuery(query.id, { text: '세션이 만료되었거나 이미 처리된 요청입니다.', show_alert: true });
                         return;
                     }
@@ -193,14 +225,15 @@ class TelegramBotService {
                     const CONFIG = require('./config-loader');
 
                     const newTopics = [];
+                    const pData = parsedData.data;
                     // 플랫폼별로 분리해서 행 생성
-                    const platforms = parsedData.platforms || ['naver'];
+                    const platforms = pData.platforms || ['naver'];
                     for (const p of platforms) {
                         newTopics.push({
-                            subject: parsedData.theme,
-                            keywords: parsedData.keywords,
+                            subject: pData.theme,
+                            keywords: pData.keywords,
                             options: {
-                                ...parsedData.options,
+                                ...pData.options,
                                 platforms: [p.toLowerCase().includes('wordpress') ? 'wordpress' : 'naver']
                             },
                             source: 'telegram'
@@ -212,9 +245,9 @@ class TelegramBotService {
                     const addedRowIndices = appendRes?.rowIndices || [];
 
                     // [Context Store] 성공적으로 등록된 주제를 맥락 메모리에 저장
-                    if (parsedData.theme) {
-                        this.chatContext.set(chatId, parsedData.theme);
-                        Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${parsedData.theme}`);
+                    if (pData.theme) {
+                        this.chatContext.set(chatId, pData.theme);
+                        Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
                     }
 
                     this.pendingRequests.delete(requestKey);
@@ -250,6 +283,66 @@ class TelegramBotService {
                     } catch (apiErr) {
                         Logger.error(`❌ [TelegramBot] 상태 확인 또는 발행 루틴 호출 실패: ${apiErr.message}`);
                     }
+                } else if (data === 'config_confirm') {
+                    const parsedData = this.pendingRequests.get(requestKey);
+                    if (!parsedData || !parsedData.data || !parsedData.data.config_updates) {
+                        await this.bot.answerCallbackQuery(query.id, { text: '설정 정보가 없거나 세션이 만료되었습니다.', show_alert: true });
+                        return;
+                    }
+
+                    const axios = require('axios');
+                    const CONFIG = require('./config-loader');
+                    const port = CONFIG.UI_SERVER_PORT || 4577;
+
+                    try {
+                        // Settings API 호출 (Major 설정을 통해 JSON 구조 업데이트)
+                        // 주의: AI가 보낸 키-값 쌍을 API 스펙에 맞춰 전달해야 함.
+                        // 여기서는 단순화를 위해 /api/v1/settings/major 에 직접 필드를 보냄.
+                        await axios.post(`http://127.0.0.1:${port}/api/v1/settings/major`, parsedData.data.config_updates);
+
+                        this.pendingRequests.delete(requestKey);
+                        await this.bot.editMessageText('✅ 시스템 설정이 성공적으로 변경되었습니다. (즉시 반영됨)', {
+                            chat_id: chatId,
+                            message_id: messageId
+                        });
+                    } catch (err) {
+                        Logger.error(`❌ [TelegramBot] 설정 변경 요청 실패: ${err.message}`);
+                        await this.bot.sendMessage(chatId, `❌ 설정 변경 중 오류가 발생했습니다: ${err.message}`);
+                    }
+
+                } else if (data === 'job_confirm') {
+                    const parsedData = this.pendingRequests.get(requestKey);
+                    if (!parsedData || !parsedData.data || !parsedData.data.job_name) {
+                        await this.bot.answerCallbackQuery(query.id, { text: '작업 정보가 없거나 세션이 만료되었습니다.', show_alert: true });
+                        return;
+                    }
+
+                    const axios = require('axios');
+                    const CONFIG = require('./config-loader');
+                    const port = CONFIG.UI_SERVER_PORT || 4577;
+                    const jobName = parsedData.data.job_name.toLowerCase();
+
+                    let endpoint = '';
+                    if (jobName.includes('trend')) endpoint = '/api/v1/auto/collect/trends/run';
+                    else if (jobName.includes('rss')) endpoint = '/api/v1/auto/collect/rss/run';
+                    else if (jobName.includes('publish') || jobName.includes('shopping')) endpoint = '/api/v1/auto/publish/run';
+
+                    if (!endpoint) {
+                        await this.bot.sendMessage(chatId, `❌ 알 수 없는 작업입니다: ${jobName}`);
+                        return;
+                    }
+
+                    try {
+                        await axios.post(`http://127.0.0.1:${port}${endpoint}`, parsedData.data.job_params || {});
+                        this.pendingRequests.delete(requestKey);
+                        await this.bot.editMessageText(`🚀 \`${jobName}\` 작업이 시작되었습니다. 결과는 알림으로 보고드릴게요!`, {
+                            chat_id: chatId,
+                            message_id: messageId
+                        });
+                    } catch (err) {
+                        Logger.error(`❌ [TelegramBot] 작업 실행 요청 실패: ${err.message}`);
+                        await this.bot.sendMessage(chatId, `❌ 작업 실행 중 오류가 발생했습니다: ${err.message}`);
+                    }
                 }
 
                 // 버튼 로딩 해제
@@ -269,12 +362,17 @@ class TelegramBotService {
         try {
             if (cmd === '/start' || cmd === '/help') {
                 let helpMsg = this.getRandomMessage('welcome') + '\n\n' +
-                    `*이런 식으로 말씀해 보세요:*\n` +
-                    `💬 _"AI 기술 동향에 대해 워드프레스에만 글 하나 써줘. 참고 링크는 https://... 야"_\n` +
-                    `💬 _"이번 주말에 가기 좋은 봄 축제를 주제로 네이버 블로그에 포스팅 해줘"_\n` +
-                    `💬 _"키워드는 '재테크 기초'로 하고 글 하나 다듬어줄래?"_\n` +
-                    `💬 _"아까 그 주제로 워드프레스에도 다시 올려줘"_\n\n` +
-                    `어떤 글을 쓰고 싶으신지 편하게 남겨주세요! 🚀`;
+                    `*에이전트에게 이렇게 명령해 보세요:*\n` +
+                    `📝 *콘텐츠 발행*\n` +
+                    `💬 _"경주 맛집에 대해 블로그 글 하나 써줘"_\n` +
+                    `💬 _"아까 그 주제로 워드프레스에도 올려줄래?"_\n\n` +
+                    `⚙️ *시스템 제어*\n` +
+                    `💬 _"발행 주기를 30분으로 변경해줘"_\n` +
+                    `💬 _"지금 트렌드 수집 시작해줘"_\n\n` +
+                    `📊 *상태 조회*\n` +
+                    `💬 _"지금 시스템 상태 어때?"_\n` +
+                    `💬 _"대기 중인 글감 몇 개인지 알려줘"_\n\n` +
+                    `무엇이든 편하게 말씀해 보세요! 🚀`;
 
                 await this.bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
             } else {
@@ -282,6 +380,34 @@ class TelegramBotService {
             }
         } catch (err) {
             Logger.error(`❌ [TelegramBot] 명령 응답 실패: ${err.message}`);
+        }
+    }
+
+    /**
+     * [Universal Agent] 데이터 조회 처리
+     */
+    static async handleQueryIntent(chatId, data) {
+        const queryType = data.query_type || 'status';
+        const axios = require('axios');
+        const CONFIG = require('./config-loader');
+        const port = CONFIG.UI_SERVER_PORT || 4577;
+
+        try {
+            if (queryType === 'status' || queryType === 'system') {
+                const res = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
+                const s = res.data?.data;
+                const statusMsg = `📊 *시스템 실시간 상태 리포트*\n\n` +
+                    `• *상태:* ${s.status === 'running' ? '🟢 실행 중' : '⚪️ 정지'}\n` +
+                    `• *다음 발행:* ${s.nextRunAt || '없음'}\n` +
+                    `• *오늘 발행량:* ${s.cycleCount || 0}건\n` +
+                    `• *메시지:* ${s.message || '정상'}`;
+                await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
+            } else {
+                await this.bot.sendMessage(chatId, `ℹ️ 요청하신 \`${queryType}\` 조회 기능은 현재 준비 중입니다. 곧 만나보실 수 있어요!`);
+            }
+        } catch (err) {
+            Logger.error(`❌ [TelegramBot] 쿼리 요청 실패: ${err.message}`);
+            await this.bot.sendMessage(chatId, `❌ 데이터 조회 중 오류가 발생했습니다: ${err.message}`);
         }
     }
 
