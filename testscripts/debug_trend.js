@@ -1,9 +1,9 @@
 
 const path = require('path');
 const fs = require('fs');
-const { launchBrowser } = require('./src/browser-launcher');
-const CONFIG = require('./src/config-loader');
-const Logger = require('./src/logger');
+const { launchBrowser } = require('../src/browser-launcher');
+const CONFIG = require('../src/config-loader');
+const Logger = require('../src/logger');
 
 (async () => {
     Logger.info('🔍 디버깅 모드: 트렌드 페이지 접속 및 상태 확인');

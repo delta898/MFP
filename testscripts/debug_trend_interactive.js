@@ -1,8 +1,8 @@
 const path = require('path');
 const fs = require('fs');
-const { launchBrowser } = require('./src/browser-launcher'); // Import launchBrowser
-const CONFIG = require('./src/config-loader');
-const Logger = require('./src/logger');
+const { launchBrowser } = require('../src/browser-launcher'); // Import launchBrowser
+const CONFIG = require('../src/config-loader');
+const Logger = require('../src/logger');
 
 (async () => {
     Logger.info('🔍 [Interactive Debug] 브라우저를 직접 띄워 확인합니다.');

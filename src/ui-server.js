@@ -17,6 +17,7 @@ Logger.debug(`Application version: ${APP_VERSION}`);
 const { checkAuthSessionValid } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
+const TelegramBotService = require('./telegram-bot.service');
 const BrowserLauncher = require('./browser-launcher');
 const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
@@ -1762,17 +1763,25 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
         // 4. Naver Publish
         if (targets.includes('naver') && results.naver.targetDir) {
             emitProgress('네이버 발행 중...');
-            await Core.publishToBlog(results.naver.targetDir, {
+            const naverRes = await Core.publishToBlog(results.naver.targetDir, {
                 headless,
                 category: context.category || '',
                 postStatus: context.postStatus || 'publish',
                 scheduleDate: context.scheduleDate || '',
                 isLast: options.isLast === true
-            });
-            results.naver.success = true;
-            results.naver.message = '네이버 발행 성공';
-            emitProgress('네이버 완료');
+            }) || { success: true, message: 'Published (No response returned)' };
+            results.naver.success = naverRes.success;
+            results.naver.postUrl = naverRes.postUrl;
+            results.naver.message = naverRes.message || (naverRes.postUrl ? `네이버 발행 완료: ${naverRes.postUrl}` : '네이버 발행 완료');
+            emitProgress(naverRes.success ? '네이버 발행 완료' : `네이버 발행 실패: ${naverRes.message}`);
+
+            if (naverRes.success) {
+                const statusLabel = context.postStatus === 'draft' ? '저장' : '발행';
+                const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+            }
         }
+
 
         // 5. WordPress Publish
         if (targets.includes('wordpress') && results.wordpress.targetDir) {
@@ -1789,10 +1798,14 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 발행 성공' : '워드프레스 발행 실패');
             if (pubRes.success) {
                 emitProgress('워드프레스 완료');
+                const statusLabel = context.postStatus === 'draft' ? '저장' : '발행';
+                const urlMsg = pubRes.postUrl ? `\n\n🔗 [글 보기](${pubRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
             } else {
                 emitProgress(`워드프레스 실패: ${pubRes.message}`);
             }
         }
+
 
         return { success: true, results };
     } catch (e) {
@@ -2307,8 +2320,15 @@ async function executeBlogRowAction(requestBody, options = {}) {
         emitProgress('시트 상태 반영 중...');
         const statusArr = [];
         const logArr = [];
-        if (naverPubSuccess) { statusArr.push('발행 완료'); logArr.push('네이버 완료'); }
-        if (wpPubSuccess) { statusArr.push('발행 완료'); logArr.push('워드프레스 완료'); }
+        if (naverPubSuccess) {
+            statusArr.push('발행 완료');
+            const nUrl = publishRes.results.naver.postUrl;
+            logArr.push(nUrl ? `네이버 완료(${nUrl})` : '네이버 완료');
+        }
+        if (wpPubSuccess) {
+            statusArr.push('발행 완료');
+            logArr.push('워드프레스 완료');
+        }
 
         const finalStatus = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
         const finalLog = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
@@ -2656,6 +2676,8 @@ async function executeShoppingRowAction(requestBody, options = {}) {
                 affiliateUrl: shortUrl,
                 requireAffiliateUrl: true,
                 headless: batchHeadless,
+                postStatus: target.postStatus || 'publish',
+                scheduleDate: target.scheduleDate || '',
                 isLast: requestBody.isLast === true
             });
             results.naver.success = true;
@@ -3337,7 +3359,8 @@ function getAutoStatusPayload() {
         // legacy compat
         enabled: autoRuntimeState.enabled || shoppingAutoRuntimeState.enabled,
         running: autoRuntimeState.running || shoppingAutoRuntimeState.running,
-        status: autoRuntimeState.running ? autoRuntimeState.status : shoppingAutoRuntimeState.status,
+        status: (autoRuntimeState.running || shoppingAutoRuntimeState.running) ? 'running' :
+            (autoRuntimeState.status === 'waiting' || shoppingAutoRuntimeState.status === 'waiting' ? 'waiting' : 'stopped'),
         message: [autoRuntimeState.message, shoppingAutoRuntimeState.message].filter(Boolean).join(' / '),
         shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday
     };
@@ -4686,7 +4709,10 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
         Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${finalSuccessCount}건, 실패 ${finalFailCount}건`);
 
         // 알림 전송 (성공 또는 실패가 있을 때)
-        if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED) {
+        // [De-duplicate Fix] 발행 건수가 1건이고 성공한 경우라면 개별 플랫폼 알림이 이미 갔으므로 요약 알림은 생략합니다.
+        const shouldSendSummary = (successCount + failCount) > 1 || failCount > 0;
+
+        if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED && shouldSendSummary) {
             let detailMsg = '';
 
             // 결과 데이터에서 성공 내역 추출

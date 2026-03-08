@@ -1445,9 +1445,14 @@ function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
 	return normalized;
 }
 
+
+
+
 const Core = {
 	buildRelatedPostsSectionMarkdown,
 	stripAiRelatedPostsSection,
+	dismissEditorPopups,
+	waitForBlogEditorReady,
 
 	/**
 	 * 텔레그램 자연어 요청 파싱 (Phase 2)
@@ -1800,7 +1805,7 @@ ${scrapedContext}`;
 			await waitForBlogEditorReady(page, PUBLISH_EDITOR_READY_TIMEOUT_MS);
 
 			// 팝업 제거 (Help / 이전글 로드)
-			await dismissEditorPopups(page);
+			await this.dismissEditorPopups(page);
 			await waitForBlogEditorReady(page, PUBLISH_EDITOR_READY_TIMEOUT_MS);
 			await Utils.sleep(300);
 
@@ -1813,14 +1818,12 @@ ${scrapedContext}`;
 			Logger.info(`   ✍️ 제목 입력: ${title}`);
 			await inputBlogTitleWithVerification(page, title, getRandomTypingDelay);
 
-			// ✍️ 카테고리 선택 (Naver의 경우 사용자가 무시하길 원함)
-			/* 
+			// ✍️ 카테고리 설정
 			const requestedCategory = String(options.category || '').trim();
 			if (requestedCategory) {
-				Logger.info(`   📁 카테고리 선택 시도: ${requestedCategory}`);
-				// [REMOVED] selectNaverBlogCategoryByName is not defined and Naver categories are ignored
+				Logger.info(`   📁 카테고리 설정 예약: ${requestedCategory}`);
+				// 발행 팝업에서 처리하므로 여기서는 로깅만 수행
 			}
-			*/
 
 			// 🔧 [Fixed] 디렉토리 스캔 최적화 (한 번만 스캔)
 			const allFiles = fs.readdirSync(dirPath);
@@ -1833,9 +1836,14 @@ ${scrapedContext}`;
 			let representativeImageSet = false;
 			let representativeAttemptCount = 0;
 			const representativeMaxAttempts = 3;
+			let hasImageWarnings = false;
+			if (options.imageGeneration === false) {
+				hasImageWarnings = true;
+			}
+
 			for (const item of contents) {
 				if (item.type !== 'image') {
-					await dismissEditorPopups(page);
+					await this.dismissEditorPopups(page);
 					await closeVisibleOglinkPopup(page);
 					if (!inListMode) {
 						// 첫 본문 블록은 제목 Enter 직후 위치를 그대로 사용한다.
@@ -1991,7 +1999,7 @@ ${scrapedContext}`;
 					await page.keyboard.press('Enter');
 				}
 				else if (item.type === 'image') {
-					await dismissEditorPopups(page);
+					await this.dismissEditorPopups(page);
 					const file = Utils.findImageByPrefix(dirPath, item.index);
 
 					if (file) {
@@ -2084,6 +2092,7 @@ ${scrapedContext}`;
 						const rawBlock = `[[IMAGE_${item.index}\ntitle: ${item.text}\nprompt: ${item.prompt}\n]]`;
 						await page.keyboard.type(rawBlock, { delay: getRandomTypingDelay() });
 						await page.keyboard.press('Enter');
+						hasImageWarnings = true;
 					}
 				}
 
@@ -2094,6 +2103,12 @@ ${scrapedContext}`;
 			}
 
 			Logger.info("   ✅ 본문 작성 완료");
+
+			// 💾 [Safeguard] 이미지 누락/미생성 시 Draft 강제 전환
+			if (hasImageWarnings && options.postStatus !== 'draft') {
+				Logger.info("ℹ️ [Naver] 이미지 누락/미생성으로 인해 Draft(저장) 모드로 자동 전환합니다.");
+				options.postStatus = 'draft';
+			}
 
 			// 💾 [Draft] 옵션인 경우 저장 후 중단
 			if (String(options.postStatus || '').toLowerCase() === 'draft') {
@@ -2119,21 +2134,45 @@ ${scrapedContext}`;
 					await saveBtn.click();
 					await Utils.sleep(2000);
 					Logger.info("   ✅ 임시저장 완료");
+
+					// [New] 'draft' 모드인 경우 여기서 종료
+					if (options.postStatus === 'draft') {
+						Logger.info("   📌 [Draft] 저장 모드이므로 발행을 진행하지 않고 종료합니다.");
+						return { success: true, message: 'Saved as draft to Naver Blog' };
+					}
 				}
 			} catch (e) {
 				Logger.warn("   ⚠️ 임시저장 버튼을 찾지 못해 건너뜁니다");
 			}
 
-			// 🚀 [발행] 버튼 클릭 (설정창 오픈)
-			// '예약 발행' 버튼과 혼동되지 않도록 구체적인 클래스와 정확한 텍스트 매칭 사용
+			// 팝업/도움말 패널 닫기 (클릭 방해 방지)
+			try {
+				const dismissSelectors = [
+					'.se-help-panel-close-button',
+					'.se-popup-button-cancel',
+					'.se-help-panel-close',
+					'button:has-text("닫기")'
+				];
+				for (const sel of dismissSelectors) {
+					const btn = page.locator(sel).first();
+					if (await btn.count() > 0 && await btn.isVisible()) {
+						await btn.click();
+						await Utils.sleep(500);
+					}
+				}
+			} catch (e) { }
+
+			// 🚀 [발행] 버튼 클릭 (설정창 오픈 - 에디터 상단 버튼)
 			let publishBtnClicked = false;
-			const publishBtnSelectors = [
-				'button[class*="publish_btn"]', // 공유해주신 특정 클래스 우선
-				'button.se-publish-button',     // 네이버 기본 클래스 예상
-				'button'                        // 일반 버튼 (가장 마지막 수단)
+			const topPublishBtnSelectors = [
+				'button[class*="publish_btn"]', // 해시값이 변경될 수 있으므로 부분 일치 사용
+				'button.se-publish-button',   // 네이버 이전 기본 클래스
+				'header button:has-text("발행")', // 명시적인 header 태그 내부
+				'[class*="header"] button:has-text("발행")', // 헤더 래퍼 내부
+				'button:has-text("발행")' // 최후의 수단 (예약 발행 등이 잘못 눌릴 위험 대비 텍스트 필터링 필수)
 			];
 
-			for (const selector of publishBtnSelectors) {
+			for (const selector of topPublishBtnSelectors) {
 				const btns = page.locator(selector);
 				const count = await btns.count();
 				for (let i = 0; i < count; i++) {
@@ -2143,7 +2182,7 @@ ${scrapedContext}`;
 						// '예약 발행'이 아닌 정확히 '발행'만 포함하거나 매칭되는지 확인
 						if (text === '발행' || (text.includes('발행') && !text.includes('예약'))) {
 							await btn.click();
-							Logger.info(`   🚀 [발행] 버튼 클릭 성공 (${selector})`);
+							Logger.info(`   🚀 [설정 열기] 상단 '발행' 버튼 클릭 성공 (${selector})`);
 							publishBtnClicked = true;
 							break;
 						}
@@ -2153,37 +2192,142 @@ ${scrapedContext}`;
 			}
 
 			if (publishBtnClicked) {
-				await Utils.sleep(1000); // 팝업 애니메이션 대기
+				// 🕒 설정 레이어가 완전히 뜰 때까지 대기
+				let settingsLayerOpened = false;
+				try {
+					// 🔧 [Updated] 더 강력한 셀렉터 조합 (클래스 + 텍스트 + 최종 버튼)
+					const layerSelector = [
+						'.se-publish-setting-panel',
+						'.se-publish-setting-layer',
+						'.se-publish-setting-container',
+						'[class*="publish_setting"]',
+						'[class*="SettingPanel"]',
+						'button.confirm_btn__WEaBq', // 최종 발행 버튼 (스크린샷 확인됨)
+						'xpath=//h3[contains(text(), "카테고리")]',
+						'xpath=//label[contains(text(), "카테고리")]'
+					].join(', ');
 
-				// 🚀 [네이버 가이드라인] 네이버는 최종 발행 버튼을 누르지 않고 중단한다.
-				// 임시저장 -> 1차 발행버튼 -> 잠시 대기 -> 끝!
-				Logger.info("   ✅ [Naver] 1차 발행 버튼 클릭 완료. 최종 발행은 수동으로 진행해 주세요.");
-				await Utils.sleep(3000); // 상태 확인 대기
-				return { success: true, message: 'Naver settings window opened' };
+					Logger.info("   🕒 발행 설정창 대기 중...");
+					try {
+						await page.waitForSelector(layerSelector, { timeout: 15000, state: 'attached' });
+						settingsLayerOpened = true;
+					} catch (e) {
+						// ⚠️ [Fallback] 클래스로 못 찾더라도 화면에 '카테고리' 텍스트나 특정 버튼이 보이면 진행 시도
+						const hasCategoryLabel = await page.locator('text="카테고리"').count() > 0;
+						const hasFinalBtn = await page.locator('button.confirm_btn__WEaBq').count() > 0;
+						if (hasCategoryLabel || hasFinalBtn) {
+							Logger.info("   ℹ️ 클래스 감지에는 실패했으나 화면상에서 설정 요소가 확인되어 계속 진행합니다.");
+							settingsLayerOpened = true;
+						} else {
+							throw e;
+						}
+					}
 
-				/* [DEPRECATED FOR NAVER]
-				// 🚀 [2단계] 최종 발행 버튼 클릭 (발행 설정창 내 '발행' 버튼)
-				const finalPublishBtn = page.locator('.se-popup button:has-text("발행"), .se-popover button:has-text("발행"), .se-publish-button-container button:has-text("발행")');
-				if (await finalPublishBtn.isVisible()) {
-					await finalPublishBtn.click();
-					Logger.info("   ✅ [최종 발행] 완료 버튼 클릭 성공");
-					await Utils.sleep(2000); // 발행 처리 대기
-				} else {
-					// 가끔 '등록'으로 되어있는 경우도 대비
-					const confirmBtn = page.locator('.se-popup button:has-text("등록"), .se-popover button:has-text("등록")');
-					if (await confirmBtn.isVisible()) {
-						await confirmBtn.click();
-						Logger.info("   ✅ [최종 등록] 완료 버튼 클릭 성공");
+					if (settingsLayerOpened) {
 						await Utils.sleep(2000);
-					} else {
-						Logger.warn("   ⚠️ 최종 발행/등록 버튼을 찾지 못했습니다. 설정창만 열린 상태일 수 있습니다.");
+					}
+				} catch (e) {
+					Logger.error("   ❌ [오류] 발행 설정창이 제한 시간 내에 나타나지 않았습니다. 발행을 중단합니다.");
+					// 디버깅을 위해 현재 페이지의 일부 텍스트 로그 출력
+					try {
+						const bodyText = (await page.innerText('body')).slice(0, 500).replace(/\n/g, ' ');
+						Logger.info(`   🔍 현재 페이지 텍스트 요약: ${bodyText}...`);
+					} catch (err) { }
+					return { success: false, message: 'Publish settings panel failed to open' };
+				}
+
+				// 📂 1단계: 카테고리 설정
+				let hasCategoryError = false;
+				if (requestedCategory) {
+					const categorySuccess = await this.selectNaverBlogCategory(page, requestedCategory);
+					if (!categorySuccess) {
+						Logger.warn("   ⚠️ 카테고리 설정에 실패하여 발행을 중단하고 임시저장으로 전환합니다.");
+						hasCategoryError = true;
+					}
+				} else {
+					Logger.info("   📂 카테고리 미지정: 네이버 기본 설정 카테고리로 발행을 진행합니다.");
+				}
+
+				// ⏰ 2단계: 예약 발행 설정
+				if (!hasCategoryError && options.postStatus === 'schedule') {
+					await this.setNaverBlogSchedule(page, options.scheduleDate);
+				}
+
+				// 🚀 3단계: 최종 발행 또는 에러 시 상시 저장 처리
+				if (hasCategoryError) {
+					// 설정창 닫기 (다시 에디터로 돌아가서 저장하기 위함)
+					try {
+						Logger.info("      🚪 설정창 닫기 시도...");
+						await page.keyboard.press('Escape');
+						await Utils.sleep(1000);
+					} catch (e) { }
+
+					// Draft 모드로 강제 전환하여 아래 로직에서 저장 처리되게 함
+					options.postStatus = 'draft';
+					// 여기서 바로 저장 로직을 타기 위해 루프를 타거나 return 하지 않고 흐름을 계속하게 하되, 발행 버튼 클릭은 건너뜀
+				}
+
+				const finalPublishBtnSelectors = [
+					'button.confirm_btn__WEaBq',
+					'button[data-testid="seOnePublishBtn"]',
+					'.se-publish-submit-button',
+					'.se-publish-setting-layer button:has-text("발행")',
+					'.se-popup button:has-text("발행")'
+				];
+
+				let finalClicked = false;
+				if (options.postStatus !== 'draft') {
+					for (const selector of finalPublishBtnSelectors) {
+						const btn = page.locator(selector).first();
+						if (await btn.isVisible()) {
+							await btn.click();
+							Logger.info(`   ✅ [최종 발행] 버튼 클릭 성공 (${selector})`);
+							finalClicked = true;
+							break;
+						}
+					}
+				} else if (hasCategoryError) {
+					Logger.info("   💾 카테고리 설정 실패로 인해 '발행' 대신 '저장' 모드로 실행합니다.");
+					// 에디터 상단 '저장' 버튼 클릭 시도 (이미 설정창은 Esc로 닫았을 것임)
+					try {
+						const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
+						if (await saveBtn.isVisible()) {
+							await saveBtn.click();
+							await Utils.sleep(3000);
+							Logger.info("   ✅ 임시저장 완료 (카테고리 오류 복구)");
+							return { success: true, message: 'Saved as draft due to category failure' };
+						}
+					} catch (e) {
+						Logger.error(`   ❌ 임시저장 시도 실패: ${e.message}`);
 					}
 				}
-				*/
+
+				if (finalClicked) {
+					// 🔗 4단계: 발행 완료 후 URL 캡처 (logNo 추출용)
+					try {
+						// 발행 후 'PostList.naver'가 아닌 실제 글 본문 페이지('PostView.naver' 또는 'logNo=')로 이동할 때까지 대기
+						// 네이버는 가끔 목록으로 리다이렉트되기도 하지만, 최대한 본문 URL을 잡으려 시도
+						await page.waitForURL(url => url.href.includes('logNo=') && !url.href.includes('PostList.naver'), { timeout: 20000 });
+						const postUrl = page.url();
+						Logger.info(`   📝 [Naver] 발행 완료 확인 (본문 URL): ${postUrl}`);
+						await Utils.sleep(2000);
+						return { success: true, message: 'Published to Naver Blog', postUrl };
+					} catch (e) {
+						// 본문 URL 캡처 실패 시 현재 URL이라도 반환 (PostList 등일 수 있음)
+						const fallbackUrl = page.url();
+						Logger.warn(`   ⚠️ 발행 완료 후 본문 URL 캡처 실패 (PostList 가능성): ${fallbackUrl}`);
+						return { success: true, message: 'Published to Naver Blog (URL capture fallback)', postUrl: fallbackUrl };
+					}
+				} else {
+					Logger.info("   ✅ [Naver] 최종 발행 버튼을 찾지 못했습니다. 설정창만 열린 상태에서 중단합니다.");
+					await Utils.sleep(3000); // 상태 확인 대기
+					return { success: true, message: 'Naver settings window opened' };
+				}
 			}
 
 			if (!publishBtnClicked) {
 				Logger.warn("   ⚠️ [발행] 버튼을 클릭하지 못했습니다. 수동 확인이 필요할 수 있습니다.");
+				return { success: false, message: 'Failed to click top publish button' };
 			}
 
 		} catch (e) {
@@ -2436,6 +2580,238 @@ ${scrapedContext}`;
 			warnings: warnings.length > 0 ? warnings : null
 		};
 	},
+
+	/**
+	 * 네이버 블로그 카테고리 선택 (발행 팝업 내)
+	 */
+	selectNaverBlogCategory: async function (page, categoryName) {
+		try {
+			Logger.info(`   📁 카테고리 설정 시도: [${categoryName}]`);
+			const dropdownBtn = page.locator('button.selectbox_button__jb1Dt, button[aria-label="카테고리 목록 버튼"], .se-publish-setting-item--category button').first();
+
+			if (await dropdownBtn.isVisible()) {
+				const currentText = await dropdownBtn.innerText();
+				Logger.info(`      🔍 현재 선택된 카테고리: ${currentText.trim()}`);
+				if (currentText.trim().includes(categoryName)) {
+					Logger.info(`      ✅ 이미 '${categoryName}' 카테고리가 선택되어 있습니다.`);
+					return true;
+				}
+
+				Logger.info("      🖱️ 카테고리 드롭다운 클릭 시도 (Human-like)...");
+				await dropdownBtn.scrollIntoViewIfNeeded();
+				await dropdownBtn.hover();
+				await Utils.sleep(200);
+				await dropdownBtn.click({ force: true });
+				await Utils.sleep(1200);
+
+				// 카테고리 목록 패널 대기
+				// 스크린샷 상의 클래스: .selectbox_list__SD2nT, .option_list_layer__YX1Tq
+				const listSelector = '.selectbox_list__SD2nT, .selectbox-list, .se-category-list-container, [class*="selectbox_list"], [class*="option_list_layer"]';
+				const listPanel = page.locator(listSelector).first();
+
+				if (!(await listPanel.isVisible())) {
+					Logger.warn("      ⚠️ 카테고리 목록 패널이 나타나지 않았습니다. JS 클릭으로 재시도...");
+					await page.evaluate((sel) => {
+						const btns = document.querySelectorAll(sel);
+						if (btns.length > 0) btns[0].click();
+					}, 'button.selectbox_button__jb1Dt, button[aria-label="카테고리 목록 버튼"]');
+					await Utils.sleep(1500);
+				}
+
+				if (await listPanel.isVisible()) {
+					const itemSelectors = ['label.radio_label__mB6ia', '[class*="radio_label"]', 'button', 'li'];
+					let categoryItem = null;
+
+					for (const selector of itemSelectors) {
+						const items = listPanel.locator(selector);
+						const foundCount = await items.count();
+						if (foundCount > 0) {
+							for (let i = 0; i < foundCount; i++) {
+								const item = items.nth(i);
+								let itemText = await item.innerText();
+								itemText = itemText.replace(/\u00A0/g, ' ').trim();
+
+								if (itemText === categoryName || itemText.includes(categoryName)) {
+									Logger.info(`      🎯 매칭 항목 발견: "${itemText}"`);
+									categoryItem = item;
+									break;
+								}
+							}
+						}
+						if (categoryItem) break;
+					}
+
+					if (categoryItem) {
+						Logger.info(`      🖱️ 항목 [${categoryName}] 선택 중 (Hover -> Click)...`);
+						await categoryItem.scrollIntoViewIfNeeded();
+						await Utils.sleep(300);
+						await categoryItem.hover().catch(() => { });
+						await Utils.sleep(200);
+						await categoryItem.click({ force: true });
+
+						// 선택 후 드롭다운이 닫히며 텍스트가 반영될 때까지 대기
+						await Utils.sleep(1500);
+						const confirmedText = await dropdownBtn.innerText();
+						if (confirmedText.includes(categoryName)) {
+							Logger.info(`   ✅ 카테고리 변경 확인 완료: ${confirmedText.trim()}`);
+							return true;
+						} else {
+							Logger.warn(`   ⚠️ 클릭을 시도했으나 버튼 텍스트가 미변경되었습니다. (현재: ${confirmedText.trim()})`);
+							return false;
+						}
+					} else {
+						Logger.warn(`   ⚠️ 목록에서 '${categoryName}'을 찾지 못했습니다.`);
+						await dropdownBtn.click({ force: true }).catch(() => { });
+						return false;
+					}
+				} else {
+					Logger.warn("   ⚠️ 카테고리 목록 패널이 끝내 열리지 않았습니다.");
+					return false;
+				}
+			} else {
+				Logger.warn("   ⚠️ 카테고리 드롭다운 버튼을 찾지 못했습니다.");
+				return false;
+			}
+		} catch (e) {
+			Logger.warn(`   ⚠️ 카테고리 설정 도중 오류 발생: ${e.message}`);
+			return false;
+		}
+	},
+
+	/**
+	 * 네이버 블로그 예약 시간 설정 (발행 팝업 내)
+	 */
+	setNaverBlogSchedule: async function (page, scheduleDate) {
+		try {
+			Logger.info(`   ⏰ 예약 발행 설정 시도: ${scheduleDate || '기본값'}`);
+
+			// '예약' 라디오 버튼 클릭
+			const scheduleSelectors = [
+				'label:has-text("예약")',
+				'label.radio_label__mB6ia:has-text("예약")',
+				'label[for="radio_time2"]',
+				'input[value="schedule"]'
+			];
+
+			let scheduleBtn = null;
+			for (const sel of scheduleSelectors) {
+				const loc = page.locator(sel).first();
+				if (await loc.isVisible()) {
+					Logger.info(`      🖱️ 예약 옵션 선택 시도 (셀렉터: ${sel})`);
+					scheduleBtn = loc;
+					break;
+				}
+			}
+
+			if (scheduleBtn) {
+				await scheduleBtn.scrollIntoViewIfNeeded();
+				await scheduleBtn.click({ force: true });
+				await Utils.sleep(1200);
+
+				// 클릭이 먹혔는지 확인 (input 상태 체크)
+				const isChecked = await page.evaluate(() => {
+					const radios = document.querySelectorAll('input[name="publish-time"], input[type="radio"], input[name="publish-type"]');
+					for (const r of radios) {
+						if (r.nextElementSibling && r.nextElementSibling.textContent.includes('예약')) {
+							return r.checked;
+						}
+						const label = document.querySelector(`label[for="${r.id}"]`);
+						if (label && label.textContent.includes('예약')) return r.checked;
+						if (r.value === 'schedule') return r.checked;
+					}
+					return false;
+				});
+
+				if (!isChecked) {
+					Logger.warn("      ⚠️ 라디오 버튼이 선택되지 않았습니다. JS 직접 조작 시들...");
+					await page.evaluate(() => {
+						const labels = Array.from(document.querySelectorAll('label'));
+						const targetLabel = labels.find(l => l.textContent.trim() === '예약' || l.textContent.includes('예약'));
+						if (targetLabel) {
+							targetLabel.click();
+							const inputId = targetLabel.getAttribute('for');
+							if (inputId) {
+								const input = document.getElementById(inputId);
+								if (input) {
+									input.checked = true;
+									input.dispatchEvent(new Event('change', { bubbles: true }));
+								}
+							}
+						}
+					});
+					await Utils.sleep(1500);
+				}
+
+				if (scheduleDate) {
+					try {
+						const dateInput = page.locator('input.input_date__QmA0s, input[aria-label="날짜 입력"], .input_date__S9V_r').first();
+						const hourSelect = page.locator('select.hour_option__J_heO, input[aria-label="시간 입력"], .input_time__R3iOQ').first();
+						const minuteSelect = page.locator('select.minute_option__Vb3xB, input[aria-label="분 입력"]').first();
+
+						if (await dateInput.isVisible()) {
+							const dateMatch = scheduleDate.match(/\d{4}\.\s*\d{2}\.\s*\d{2}\./);
+							const targetDateStr = dateMatch ? dateMatch[0] : scheduleDate.split(' ')[0];
+
+							const selectAllKey = IS_MAC ? 'Meta+A' : 'Control+A';
+							await dateInput.click();
+							await page.keyboard.press(selectAllKey);
+							await page.keyboard.press('Backspace');
+							await dateInput.type(targetDateStr);
+							await page.keyboard.press('Enter');
+						}
+
+						const timeMatch = scheduleDate.match(/(\d{1,2}):(\d{2})/);
+						const requestedHour = timeMatch ? timeMatch[1].padStart(2, '0') : '09';
+						let requestedMin = timeMatch ? timeMatch[2].padStart(2, '0') : '00';
+
+						// ✅ 네이버 예약은 10분 단위만 허용 (내림 처리)
+						const rawMin = parseInt(requestedMin, 10);
+						if (!isNaN(rawMin)) {
+							const roundedMin = Math.floor(rawMin / 10) * 10;
+							requestedMin = String(roundedMin).padStart(2, '0');
+							if (rawMin !== roundedMin) {
+								Logger.info(`      🕒 분 단위 조정: ${rawMin}분 -> ${requestedMin}분 (네이버 10분 단위 제약 반영)`);
+							}
+						}
+
+						if (await hourSelect.isVisible()) {
+							const tagName = await hourSelect.evaluate(el => el.tagName.toLowerCase());
+							if (tagName === 'select') {
+								await hourSelect.selectOption(requestedHour);
+							} else {
+								await hourSelect.click();
+								await page.keyboard.press(IS_MAC ? 'Meta+A' : 'Control+A');
+								await page.keyboard.press('Backspace');
+								await hourSelect.type(requestedHour);
+							}
+						}
+
+						if (await minuteSelect.isVisible()) {
+							const tagName = await minuteSelect.evaluate(el => el.tagName.toLowerCase());
+							if (tagName === 'select') {
+								await minuteSelect.selectOption(requestedMin);
+							} else {
+								await minuteSelect.click();
+								await page.keyboard.press(IS_MAC ? 'Meta+A' : 'Control+A');
+								await page.keyboard.press('Backspace');
+								await minuteSelect.type(requestedMin);
+							}
+						}
+
+						await Utils.sleep(500);
+						Logger.info(`   ✅ 예약 일시 설정 완료: ${scheduleDate}`);
+					} catch (dateErr) {
+						Logger.warn(`   ⚠️ 상세 날짜/시간 입력 필드 조작 실패: ${dateErr.message}`);
+					}
+				}
+			} else {
+				Logger.warn("   ⚠️ 예약 라디오 버튼을 찾지 못했습니다.");
+			}
+		} catch (e) {
+			Logger.warn(`   ⚠️ 예약 설정 실패: ${e.message}`);
+		}
+	}
 };
 
+// 🧹 하단에서 module.exports = Core; 만 남김
 module.exports = Core;
