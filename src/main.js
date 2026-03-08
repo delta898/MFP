@@ -71,6 +71,8 @@ const ShoppingManager = require('./shopping-manager'); // Add this
 const Logger = require('./logger'); // Add this
 const Constants = require('./constants'); // 🔥 [필수] 상수를 수정하기 위해 불러옴
 const { checkAuthSessionValid } = require('./auth-session');
+const TelegramBotService = require('./telegram-bot.service');
+
 
 // --------------------------------------------------------
 // 🛠️ [Fix 2] config.json 설정을 읽어 API 모델 적용 (핵심!)
@@ -95,9 +97,13 @@ if (CONFIG.IMAGE_MODEL) {
 
 console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
+// 텔레그램 봇 초기화 (CLI 모드에서도 알림 수신 및 명령 처리를 위해)
+TelegramBotService.init();
+
 const program = new Command();
 
 program
+
     .name('BlogGenius')
     .usage('[command] [options]')
     .version(APP_VERSION)
@@ -967,12 +973,23 @@ program
 
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '발행 시작');
                     await Core.publishToBlog(result.targetDir, {
-                        headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+                        headless: (typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean') ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+                        postStatus: topicData.postStatus || 'publish',
+                        scheduleDate: topicData.scheduleDate || '',
                         isLast: (i === targetTopics.length - 1)
                     });
 
+
                     // 완료 상태 업데이트
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 완료', '발행 완료');
+
+                    // 텔레그램 알림
+                    if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                        const platformName = (topicData.options?.platforms || ['naver'])[0];
+                        const platformLabel = platformName === 'wordpress' ? '워드프레스' : '네이버 블로그';
+                        await TelegramBotService.sendNotification(`✅ *${platformLabel} 발행 완료 (Batch)!*\n\n🎯 *주제:* ${topicData.subject}\n🔗 [글 확인](${topicData.postUrl || '(URL 확보 실패)'})`);
+                    }
+
 
                     successCount++;
 
@@ -1035,7 +1052,11 @@ program
                 printLicenseNextAction(check.message);
                 process.exit(1);
             }
-            await Core.publishToBlog(path.resolve(opts.dir), { isLast: true });
+            await Core.publishToBlog(path.resolve(opts.dir), {
+                headless: CONFIG.HEADLESS, // pub 명령은 기본 전역 설정 따름
+                isLast: true
+            });
+
             console.log("\n🎉 발행 완료.");
         } catch (e) {
             console.error('❌ 에러:', e.message);
@@ -1220,6 +1241,8 @@ program
                             affiliateUrl: job.shortUrl,
                             requireAffiliateUrl: true,
                             headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+                            postStatus: job.postStatus || 'publish',
+                            scheduleDate: job.scheduleDate || null,
                             isLast: (i === targetJobs.length - 1)
                         });
                     }
@@ -1234,6 +1257,12 @@ program
                     }
 
                     await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 완료');
+
+                    // 텔레그램 알림
+                    if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                        await TelegramBotService.sendNotification(`🛍️ *네이버 쇼핑 포스팅 완료!*\n\n🔗 [상품 확인](${job.shortUrl})`);
+                    }
+
                     successCount++;
                     console.log('✅ 쇼핑 포스팅 발행 처리 완료');
                 } catch (err) {

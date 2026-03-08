@@ -41,9 +41,10 @@ class TelegramBotService {
         };
 
         if (this.isInitialized && this.bot) {
-            Logger.info('🔄 [TelegramBot] 기존 봇 인스턴스를 중지하고 재시작합니다.');
-            this.stop();
+            // Logger.info('🔄 [TelegramBot] 기존 봇 인스턴스가 이미 실행 중입니다.');
+            return;
         }
+
 
         const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
         const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
@@ -396,11 +397,11 @@ class TelegramBotService {
             if (queryType === 'status' || queryType === 'system') {
                 const res = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
                 const s = res.data?.data;
-                const statusMsg = `📊 *시스템 실시간 상태 리포트*\n\n` +
-                    `• *상태:* ${s.status === 'running' ? '🟢 실행 중' : '⚪️ 정지'}\n` +
-                    `• *다음 발행:* ${s.nextRunAt || '없음'}\n` +
+                const statusMsg = `📊 *자동발행 예약 현황*\n\n` +
+                    `• *상태:* ${s.status === 'running' ? '🟢 실행 중' : (s.status === 'waiting' ? '🟡 대기 중' : '⚪️ 정지')}\n` +
+                    `• *다음 발행:* ${this.escapeMarkdown(s.nextRunAt || '없음')}\n` +
                     `• *오늘 발행량:* ${s.cycleCount || 0}건\n` +
-                    `• *메시지:* ${s.message || '정상'}`;
+                    `• *메시지:* ${this.escapeMarkdown(s.message || '정상')}`;
                 await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
             } else {
                 await this.bot.sendMessage(chatId, `ℹ️ 요청하신 \`${queryType}\` 조회 기능은 현재 준비 중입니다. 곧 만나보실 수 있어요!`);
@@ -420,6 +421,35 @@ class TelegramBotService {
         return list[Math.floor(Math.random() * list.length)];
     }
 
+    /**
+     * [Notify] 외부 모듈에서 알림 메시지를 보낼 때 사용 (Config의 ChatId 자동 사용)
+     */
+    static async sendNotification(text, options = {}) {
+        const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
+        const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
+        const chatId = CONFIG.NOTIFY_TELEGRAM_CHAT_ID;
+
+        if (!enabled || !botToken || !chatId || !this.bot) {
+            // Logger.info('ℹ️ [TelegramBot] 알림이 비활성화되어 있거나 봇이 시작되지 않아 메시지를 보내지 않습니다.');
+            return false;
+        }
+
+        try {
+            // [Markdown Fix] 전체 텍스트에 마크다운이 포함되어 있지 않다면 안전하게 이스케이프할 수 있지만,
+            // 이미 마크다운 태그(*, [ 등)가 포함된 경우라면 선별적으로 적용해야 합니다.
+            // 여기서는 기본적으로 parse_mode를 사용하므로 호출부에서 이스케이프된 텍스트를 주거나,
+            // 아래와 같이 옵션으로 제어할 수 있게 둡니다.
+            await this.bot.sendMessage(chatId, text, {
+                parse_mode: 'Markdown',
+                ...options
+            });
+            return true;
+        } catch (err) {
+            Logger.error(`❌ [TelegramBot] 알림 전송 실패: ${err.message}`);
+            return false;
+        }
+    }
+
     static stop() {
         if (this.bot) {
             try {
@@ -431,6 +461,19 @@ class TelegramBotService {
                 Logger.error(`❌ [TelegramBot] 봇 중지 실패: ${err.message}`);
             }
         }
+    }
+
+    /**
+     * Telegram Markdown(V1) 특수문자 이스케이프
+     * _, *, [, ` 등 마크다운 예약 문자를 처리합니다.
+     */
+    static escapeMarkdown(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/_/g, '\\_')
+            .replace(/\*/g, '\\*')
+            .replace(/\[/g, '\\[')
+            .replace(/`/g, '\\`');
     }
 }
 

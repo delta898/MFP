@@ -1192,7 +1192,9 @@ const Utils = {
                         try {
                             optionsObj = JSON.parse(optionsStr);
                         } catch (e) {
-                            Logger.warn(`⚠️ [Utils] Row ${index + 2} options JSON 파싱 실패: ${e.message}`);
+                            // If not JSON, it might be a legacy string like 'draft' from early refactoring
+                            optionsObj = { post_status: optionsStr };
+                            Logger.warn(`ℹ️ [Utils] Row ${index + 2} options is not JSON, treating as post_status: ${optionsStr}`);
                         }
                     }
 
@@ -1683,7 +1685,7 @@ const Utils = {
             headers.forEach((h, i) => {
                 const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
                 if ((clean.includes('category') || clean.includes('카테고리')) && categoryColIndex === -1) categoryColIndex = i;
-                if ((clean.includes('poststatus') || clean.includes('옵션') || clean.includes('발행상태')) && postStatusColIndex === -1) postStatusColIndex = i;
+                if ((clean.includes('poststatus') || clean.includes('발행상태')) && postStatusColIndex === -1) postStatusColIndex = i;
                 if ((clean.includes('scheduledate') || clean.includes('예약')) && scheduleDateColIndex === -1) scheduleDateColIndex = i;
                 if ((clean.includes('url') || clean.includes('링크')) && urlColIndex === -1) urlColIndex = i;
                 if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && statusColIndex === -1) statusColIndex = i;
@@ -3139,8 +3141,6 @@ const Utils = {
                 clean === 'poststatus'
                 || clean === 'post_status'
                 || clean === '발행옵션'
-                || clean === '옵션'
-                || clean === 'options'
             ) map.postStatus = i;
             else if (clean === 'scheduledate' || clean === 'schedule_date' || clean === '예약일시') map.scheduleDate = i;
             else if (clean.includes('주제') || clean.includes('subject')) map.subject = i;
