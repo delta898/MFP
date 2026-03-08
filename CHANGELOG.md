@@ -23,7 +23,18 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
+## [0.9.9-dev1] - 2026-03-08
+### Added
+- **Universal Agent - 범용 의도 해석 및 제어 시스템 구축 (Phase 9)**:
+  - **Universal Intent Parser**: 텔레그램 메시지를 분석하여 `PUBLISH`(발행), `UPDATE_CONFIG`(설정 변경), `RUN_JOB`(작업 실행), `QUERY_DATA`(데이터 조회)로 분류하고 정밀 파라미터를 추출하는 AI 레이어 도입.
+  - **Configuration Agent**: 전역 시스템 설정(`config.json`)을 자연어로 제어. "트렌드 수집 꺼줘", "발행 주기를 20분으로 바꿔줘" 등 복잡한 설정 변경을 대화를 통해 수행.
+  - **Job Orchestrator**: 트렌드 수집, RSS 수집 등 백그라운드 작업을 텔레그램에서 직접 트리거. 특정 날짜 지정 수집(`trendDate`) 등 상세 파라미터 지원.
+  - **Granular Dispatcher**: 대화 맥락(`chatContext`)을 기억하여 "방금 그거 발행해줘"와 같은 지시 대명사 및 후속 명령을 지능적으로 처리.
+  - **Interactive Feedback**: 주요 설정 변경이나 작업 실행 전 인라인 키보드 버튼을 통해 사용자의 최종 승인을 받는 안전 장치 및 실시간 피드백 루프 강화.
+  - **Query Data Agent**: 현재 시스템 상태, 대기 중인 글감 수 등 운영 데이터를 대화형으로 조회하는 기반 마련.
+
 ## [0.9.8-dev3] - 2026-03-08
+
 
 ### Added
 - **지능형 범용 오버라이드(Universal Override) 시스템 (Phase 7)**:

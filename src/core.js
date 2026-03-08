@@ -1455,30 +1455,49 @@ const Core = {
 	 * @returns {Promise<Object>} 파싱된 JSON 객체
 	 */
 	parseTelegramRequest: async function (messageText, context = null) {
-		const prompt = `당신은 블로그 자동 발행을 돕는 유능한 데이터 추출기입니다.
-사용자가 보낸 자연어 메시지를 분석하여 다음 정보를 JSON 형태로 추출하세요.
+		const prompt = `당신은 블로그 자동화 시스템의 모든 것을 관리하는 전지전능한 '유니버설 에이전트'입니다.
+사용자가 보낸 자연어 메시지를 분석하여 의도(intent)를 분류하고 필요한 파라미터를 JSON 형태로 추출하세요.
 
-[추출 규칙]
-1. theme: 글의 주제 또는 제목 (필수).
-2. keywords: 관련 키워드 배열 (없으면 []).
-3. platforms: 발행 대상 배열 ("naver", "wordpress").
-4. options: 추가 제어 옵션 객체 (아래 정해진 Key만 사용).
-   - "schedule_date": 예약 일시 (예약 시간 언급 시). 현재 시간(${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}) 기준 KST로 계산하여 "YYYY-MM-DD HH:mm:ss" 형식으로 추출.
-   - "instruction": 특별 지침 (말투, 강조점 등).
-   - "reference_urls": 참고할 외부 URL 배열.
-   - "category": 카테고리 명칭.
-   - "post_status": "publish" 또는 "draft" (임시저장 언급 시).
-   - "image_gen": 이미지 생성 여부 (boolean, 기본 true).
-   - "image_count": 이미지 생성 개수 (숫자, 기본 4).
-   - "external_reference": 외부 자료 참고 여부 (boolean, 기본 true).
+[의도(intent) 분류 규칙]
+1. PUBLISH: 새 글 발행 또는 등록 요청 (예: "~에 대해 글 써줘", "그 주제로 다시 발행해줘")
+2. UPDATE_CONFIG: 시스템 설정 변경 요청 (예: "발행 주기를 20분으로 바꿔줘", "이미지 생성 꺼줘", "카테고리 A로 변경해")
+3. RUN_JOB: 특정 시스템 작업 실행 요청 (예: "트렌드 지금 수집해줘", "RSS 수집 시작해")
+4. QUERY_DATA: 데이터 조회 또는 요약 요청 (예: "지금 대기 중인 글 몇 개야?", "최근 5개 로그 보여줘")
+
+[파라미터 추출 규칙]
+1. PUBLISH 인텐트일 경우:
+   - theme, keywords, platforms(배열), options 객체 확보.
+   - options 내에 schedule_date, instruction, reference_urls, category, post_status, image_gen, image_count, external_reference 등 포함.
+2. UPDATE_CONFIG 인텐트일 경우:
+   - config_updates: 변경할 설정 키와 값의 쌍. 아래 내부 키 목록을 참고하여 매핑하세요.
+     * 발행 주기(분): PUBLISH_AUTO_INTERVAL_MIN
+     * 발행 자동화 켜기/끄기: PUBLISH_AUTO_ENABLED
+     * Headless 모드(화면 숨김): PUBLISH_AUTO_HEADLESS
+     * 이미지 생성 켜기/끄기: image_gen (또는 BLOG_AUTO_IMAGE_GENERATION)
+     * 네이버 ID: NAVER_ID
+     * 타자 속도: TYPING_SPEED (QUICK, FAST, NORMAL, HUMAN)
+     * 트렌드 수집 켜기/끄기: COLLECT_TRENDS_ENABLED
+     * 트렌드 수집 카테고리: COLLECT_TRENDS_CATEGORIES (쉼표 구분)
+     * 트렌드 수집 시간: COLLECT_TRENDS_TIME (HH:mm)
+     * 트렌드 필터 최소 상승률: COLLECT_TRENDS_FILTER_MIN_INCR
+     * 트렌드 필터 종류: COLLECT_TRENDS_FILTER_TYPE (min, top)
+     * 트렌드 필터 상위 N개: COLLECT_TRENDS_FILTER_TOP_N
+     * RSS 수집 켜기/끄기: COLLECT_RSS_ENABLED
+     * 텔레그램 알림 켜기/끄기: NOTIFY_TELEGRAM_ENABLED
+     * 슬랙 알림 켜기/끄기: NOTIFY_SLACK_ENABLED
+3. RUN_JOB 인텐트일 경우:
+   - job_name: 실행할 작업 이름 (trends, rss, shopping 등).
+   - job_params: 작업에 필요한 추가 파라미터 (예: {"trendDate": "2026-03-05"}).
+4. QUERY_DATA 인텐트일 경우:
+   - query_type: 조회 종류 (status, logs, topics 등).
 
 [대화 맥락 (Context)]
 ${context ? `직전 대화에서 다음과 같은 주제를 다루었습니다: "${context}"` : '이전 대화 정보가 없습니다.'}
 
 [지침]
-- "그 주제로", "아까 그 글", "다시 해줘" 등의 지칭어가 있으면 [대화 맥락]의 주제를 theme으로 사용하세요.
-- 사용자의 특별 요청 사항은 반드시 options 객체 내의 정해진 Key에 담으세요.
-- 언급이 없는 항목은 options에서 생략하세요.
+- 현재 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (KST)
+- 사용자의 모든 특수 요청(예: "이번만 카테고리 없이 저장만")은 PUBLISH 인텐트의 options.instruction에 상세히 담으세요.
+- 의도가 불분명할 경우 가장 근접한 인텐트를 선택하고, 파라미터가 없으면 빈 객체 {}를 반환하세요.
 
 [사용자 메시지]
 ${messageText}
@@ -1486,13 +1505,8 @@ ${messageText}
 [출력 형식]
 반드시 아래 JSON 형태로만 응답하세요.
 {
-  "theme": "주제",
-  "keywords": ["키워드1"],
-  "platforms": ["naver"],
-  "options": {
-    "schedule_date": null,
-    "instruction": null
-  }
+  "intent": "PUBLISH | UPDATE_CONFIG | RUN_JOB | QUERY_DATA",
+  "data": { ... 추출된 파라미터 ... }
 }`;
 
 		Logger.info("🧠 [Core] 텔레그램 메시지 AI 분석 요청 중...");
