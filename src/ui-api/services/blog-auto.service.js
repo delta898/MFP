@@ -93,6 +93,7 @@ function createBlogAutoService(deps = {}) {
             Logger.info(`🚀 [UI][AUTO] 자동발행 1회 수동 실행 요청 수신`);
             try {
                 const result = await runAutoPublishCycle('ui-manual', {
+                    targetRowIndices: requestBody?.targetRowIndices || [],
                     settingsOverrides: requestBody?.settingsOverrides || {}
                 });
                 return { success: true, data: result || {} };

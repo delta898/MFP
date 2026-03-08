@@ -2167,7 +2167,6 @@ async function executeShoppingQuickPublish(requestBody = {}) {
 async function executeBlogRowAction(requestBody, options = {}) {
     const action = String(requestBody?.action || '').trim().toLowerCase();
     const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
-    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
     const emitProgress = (message) => {
         if (!onProgress) return;
@@ -2197,23 +2196,24 @@ async function executeBlogRowAction(requestBody, options = {}) {
     const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
     const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
 
-    const topicPayload = {
-        rowIndex: topicData.rowIndex,
-        subject: topicData.subject,
-        keywords: topicData.keywords || [],
-        content_guide: {
-            additional_instructions: topicData.content_guide?.additional_instructions || '',
-            reference_urls: topicData.content_guide?.reference_urls || []
-        },
-        use_external_ref: topicData.external_reference === true,
-        image_options: {
-            generate: topicData.image_gen === true,
-            count: parseIntSafe(topicData.image_count, 4, 1) || 4
-        },
-        status: topicData.status
+    // [Smart Override] 개별 행의 options를 모든 컬럼보다 우선 적용
+    const rowOptions = topicData.options || {};
+    const getVal = (key, fallback) => {
+        if (rowOptions[key] !== undefined && rowOptions[key] !== null && rowOptions[key] !== '') return rowOptions[key];
+        return fallback;
     };
 
-    const imageGenerationFinal = imageGenerationEnabledByPlan && topicPayload.image_options.generate;
+    const effectiveTargets = getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
+    const effectiveSubject = getVal('subject', topicData.subject);
+    const effectiveKeywords = getVal('keywords', topicData.keywords || []);
+    const effectiveInstruction = getVal('instruction', topicData.content_guide?.additional_instructions || '');
+    const effectiveRefUrls = getVal('reference_urls', topicData.content_guide?.reference_urls || []);
+    const effectiveImgGen = getVal('image_gen', topicData.image_gen === true);
+    const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
+    const effectiveExtRef = getVal('external_reference', topicData.external_reference === true);
+    const effectiveCategory = getVal('category', topicData.category || '');
+    const effectivePostStatus = getVal('post_status', topicData.postStatus || 'publish');
+    const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
 
     const autoSettingsSnapshot = getBlogAutoSettingsSnapshot();
     const resolvedHeadless = typeof requestBody?.headless === 'boolean'
@@ -2221,20 +2221,20 @@ async function executeBlogRowAction(requestBody, options = {}) {
 
     const publishParams = {
         context: {
-            subject: topicData.subject,
-            keywords: topicData.keywords || [],
-            instruction: topicData.content_guide?.additional_instructions || '',
-            referenceUrls: topicData.content_guide?.reference_urls || [],
-            useExternalRef: topicData.external_reference === true,
+            subject: effectiveSubject,
+            keywords: effectiveKeywords,
+            instruction: effectiveInstruction,
+            referenceUrls: effectiveRefUrls,
+            useExternalRef: effectiveExtRef,
             imageOptions: {
-                generate: topicData.image_gen === true,
-                count: parseIntSafe(topicData.image_count, 4, 1) || 4
+                generate: effectiveImgGen,
+                count: effectiveImgCount
             },
-            category: topicData.category || '',
-            postStatus: topicData.postStatus || 'publish',
-            scheduleDate: topicData.scheduleDate || ''
+            category: effectiveCategory,
+            postStatus: effectivePostStatus,
+            scheduleDate: effectiveScheduleDate
         },
-        targets,
+        targets: effectiveTargets,
         headless: resolvedHeadless,
         features,
         enableRelatedPostsAutoLink
@@ -4620,9 +4620,17 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
             sortDir: 'asc'
         });
         const topicItems = Array.isArray(topicsRes.items) ? topicsRes.items : [];
-        const candidates = topicItems
-            .filter((item) => String(item?.status || '').trim() === '발행 준비 완료')
-            .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0));
+
+        let candidates = [];
+        if (Array.isArray(options?.targetRowIndices) && options.targetRowIndices.length > 0) {
+            // 특정 행 번호가 지정된 경우 (텔레그램 요청 등) 해당 행들을 우선적으로 후보로 선택
+            candidates = topicItems.filter(item => options.targetRowIndices.includes(item.rowIndex));
+        } else {
+            // 일반적인 자동/수동 사이클: '발행 준비 완료' 상태인 것들만 선택
+            candidates = topicItems
+                .filter((item) => String(item?.status || '').trim() === '발행 준비 완료')
+                .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0));
+        }
 
         let batchSize = normalizeNonNegativeInt(settingsOverrides.PUBLISH_AUTO_BATCH_SIZE ?? CONFIG.PUBLISH_AUTO_BATCH_SIZE, 1);
         if (batchSize === 0) batchSize = 1;
@@ -4633,9 +4641,6 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
             return { success: true, data: { published: 0 } };
         }
 
-        const rowIndices = targetCandidates.map(c => c.rowIndex).filter(v => Number.isInteger(v));
-        Logger.info(`   ⏳ [AUTO][Consumer] 총 ${rowIndices.length}건 발행 시도...`);
-
         const rawTargets = String(settingsOverrides.PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver').split(',').map(v => v.trim()).filter(Boolean);
         const targets = rawTargets.length > 0 ? rawTargets : ['naver'];
 
@@ -4643,18 +4648,42 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
             ? settingsOverrides.PUBLISH_AUTO_HEADLESS
             : (CONFIG.PUBLISH_AUTO_HEADLESS !== undefined ? CONFIG.PUBLISH_AUTO_HEADLESS : CONFIG.HEADLESS);
 
-        const blogResult = await executeBlogBatchRowsAction({
-            action: 'batch',
-            rowIndices,
-            headless,
-            targets,
-            isAutoCycle: true
-        });
+        let successCount = 0;
+        let failCount = 0;
+        const totalResults = [];
 
-        const successCount = Number(blogResult?.data?.successCount || 0);
-        const failCount = Number(blogResult?.data?.failCount || 0);
+        // [Smart Override] 개별 행의 options를 순회하며 각각 실행
+        for (const candidate of targetCandidates) {
+            const rowOptions = candidate.options || {};
 
-        Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
+            // 1. 플랫폼 결정 (개별 행 options > 전역 settingsOverrides > 전역 CONFIG)
+            let rowTargets = targets; // 기본값 (전역)
+            if (rowOptions.platforms && Array.isArray(rowOptions.platforms) && rowOptions.platforms.length > 0) {
+                rowTargets = rowOptions.platforms;
+            }
+
+            // 2. 개별 행 실행
+            const singleResult = await executeBlogBatchRowsAction({
+                action: 'batch',
+                rowIndices: [candidate.rowIndex],
+                headless,
+                targets: rowTargets,
+                isAutoCycle: true
+            });
+
+            successCount += Number(singleResult?.data?.successCount || 0);
+            failCount += Number(singleResult?.data?.failCount || 0);
+            if (singleResult?.data?.results) {
+                totalResults.push(...singleResult.data.results);
+            }
+        }
+
+        const blogResult = { data: { successCount, failCount, results: totalResults } };
+
+        const finalSuccessCount = Number(blogResult?.data?.successCount || 0);
+        const finalFailCount = Number(blogResult?.data?.failCount || 0);
+
+        Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${finalSuccessCount}건, 실패 ${finalFailCount}건`);
 
         // 알림 전송 (성공 또는 실패가 있을 때)
         if (CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED) {
@@ -5000,6 +5029,10 @@ async function startUiServer(options = {}) {
     syncAutoRunnerWithConfig();
     syncShoppingAutoRunnerWithConfig();
 
+    // 시작 시 텔레그램 수신 데몬(Phase 1) 초기화
+    const TelegramBotService = require('./telegram-bot.service');
+    TelegramBotService.init();
+
     const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
     return { server, host, port, openHost };
 }
@@ -5007,6 +5040,8 @@ async function startUiServer(options = {}) {
 async function reloadUiServer(newHost, newPort) {
     if (activeUiServer) {
         Logger.info(`🔄 설정 변경 감지: 기존 UI 서버(포트)를 종료하고 재시작합니다...`);
+        const TelegramBotService = require('./telegram-bot.service');
+        TelegramBotService.stop();
         await new Promise(resolve => {
             activeUiServer.close(() => {
                 activeUiServer = null;

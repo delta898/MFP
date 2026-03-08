@@ -1448,6 +1448,67 @@ function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
 const Core = {
 	buildRelatedPostsSectionMarkdown,
 	stripAiRelatedPostsSection,
+
+	/**
+	 * 텔레그램 자연어 요청 파싱 (Phase 2)
+	 * @param {string} messageText 사용자 메시지 원문
+	 * @returns {Promise<Object>} 파싱된 JSON 객체
+	 */
+	parseTelegramRequest: async function (messageText, context = null) {
+		const prompt = `당신은 블로그 자동 발행을 돕는 유능한 데이터 추출기입니다.
+사용자가 보낸 자연어 메시지를 분석하여 다음 정보를 JSON 형태로 추출하세요.
+
+[추출 규칙]
+1. theme: 글의 주제 또는 제목 (필수).
+2. keywords: 관련 키워드 배열 (없으면 []).
+3. platforms: 발행 대상 배열 ("naver", "wordpress").
+4. options: 추가 제어 옵션 객체 (아래 정해진 Key만 사용).
+   - "schedule_date": 예약 일시 (예약 시간 언급 시). 현재 시간(${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}) 기준 KST로 계산하여 "YYYY-MM-DD HH:mm:ss" 형식으로 추출.
+   - "instruction": 특별 지침 (말투, 강조점 등).
+   - "reference_urls": 참고할 외부 URL 배열.
+   - "category": 카테고리 명칭.
+   - "post_status": "publish" 또는 "draft" (임시저장 언급 시).
+   - "image_gen": 이미지 생성 여부 (boolean, 기본 true).
+   - "image_count": 이미지 생성 개수 (숫자, 기본 4).
+   - "external_reference": 외부 자료 참고 여부 (boolean, 기본 true).
+
+[대화 맥락 (Context)]
+${context ? `직전 대화에서 다음과 같은 주제를 다루었습니다: "${context}"` : '이전 대화 정보가 없습니다.'}
+
+[지침]
+- "그 주제로", "아까 그 글", "다시 해줘" 등의 지칭어가 있으면 [대화 맥락]의 주제를 theme으로 사용하세요.
+- 사용자의 특별 요청 사항은 반드시 options 객체 내의 정해진 Key에 담으세요.
+- 언급이 없는 항목은 options에서 생략하세요.
+
+[사용자 메시지]
+${messageText}
+
+[출력 형식]
+반드시 아래 JSON 형태로만 응답하세요.
+{
+  "theme": "주제",
+  "keywords": ["키워드1"],
+  "platforms": ["naver"],
+  "options": {
+    "schedule_date": null,
+    "instruction": null
+  }
+}`;
+
+		Logger.info("🧠 [Core] 텔레그램 메시지 AI 분석 요청 중...");
+		const rawResult = await Utils.callGeminiText(prompt);
+		if (!rawResult) throw new Error("AI 응답이 비어있습니다.");
+
+		try {
+			const jsonString = rawResult.replace(/```json/gi, '').replace(/```/g, '').trim();
+			const parsed = JSON.parse(jsonString);
+			Logger.debug("✅ [Core] 텔레그램 메시지 해석 완료: " + JSON.stringify(parsed));
+			return parsed;
+		} catch (e) {
+			Logger.error("❌ [Core] 텔레그램 메시지 AI 파싱(JSON) 실패: " + e.message + "\\n원문 응답: " + rawResult);
+			throw new Error("메시지를 정확히 해석하지 못했습니다. (JSON 변환 실패)");
+		}
+	},
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
 	 */
