@@ -1586,17 +1586,27 @@ async function loadDashboardLogs() {
         li.style.borderBottom = '1px solid #f1f5f9';
         li.style.fontSize = '14px';
         li.style.color = '#334155';
+        li.style.display = 'flex';
+        li.style.alignItems = 'flex-start';
 
         let icon = 'ℹ️';
         if (log.level === 'error') icon = '❌';
         else if (log.level === 'warn') icon = '⚠️';
         else if (msg.includes('완료') || msg.includes('성공')) icon = '✅';
 
-        // 🆕 만약 메시지 자체가 이모지로 시작하면 중복 방지
         const startsWithEmoji = /^([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/.test(msg);
         const finalMessage = (startsWithEmoji && (msg.startsWith(icon) || icon === 'ℹ️')) ? msg : `${icon} ${msg}`;
 
-        li.innerHTML = `<span style="color:#94a3b8; font-size:12px; margin-right:8px;">${log.timestamp.split(' ')[1]}</span> ${finalMessage}`;
+        // 대시보드에서는 말줄임표 처리 (line-break 방지)
+        const isDashboard = list.id === 'activity-timeline';
+        const msgStyle = isDashboard
+          ? 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;'
+          : 'flex: 1; word-break: break-all;';
+
+        li.innerHTML = `
+          <span style="color:#94a3b8; font-size:12px; margin-right:8px; white-space: nowrap;">${log.timestamp.split(' ')[1]}</span>
+          <span style="${msgStyle}" title="${msg.replace(/"/g, '&quot;')}">${finalMessage}</span>
+        `;
         list.appendChild(li);
       });
     };
@@ -1605,7 +1615,8 @@ async function loadDashboardLogs() {
     const activityLogs = logs.filter(log => {
       if (log.level === 'debug') return false;
       const msg = String(log.message || '').trim();
-      const sysPrefixes = ['[Kuzu]', '[TelegramBot]', '[System]', '[Updater]', '📡', '✅ 세션 확인 완료'];
+      // 기술 용어([xx])가 포함된 메시지나 특정 접두사 필터링
+      const sysPrefixes = ['[', '📡', '✅ 세션 확인 완료'];
       return !sysPrefixes.some(p => msg.startsWith(p));
     });
 

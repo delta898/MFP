@@ -24,6 +24,7 @@ class KuzuService {
                 // Ensure data directory exists
                 const dataDir = path.join(CONFIG.PATHS.appRoot || process.cwd(), 'data');
                 if (!fs.existsSync(dataDir)) {
+                    Logger.debug(`📂 데이터 디렉토리 생성: ${dataDir}`);
                     fs.mkdirSync(dataDir, { recursive: true });
                 }
 

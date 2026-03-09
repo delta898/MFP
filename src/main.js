@@ -100,6 +100,9 @@ if (CONFIG.IMAGE_MODEL) {
 // 텔레그램 봇 초기화 (CLI 모드에서도 알림 수신 및 명령 처리를 위해)
 TelegramBotService.init();
 
+// 모든 시스템 모듈 준비 완료 로그 (사용자에게 노출될 유일한 초기화 로그)
+Logger.info('✅ 시스템이 정상적으로 구동되었습니다.');
+
 const program = new Command();
 
 program
