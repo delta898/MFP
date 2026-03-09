@@ -1286,7 +1286,7 @@ function renderDashboardShortsList(containerId, source) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 2);
+  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 3);
   if (!items.length) {
     const message = source?.error ? `불러오기 실패: ${escapeHtml(source.error)}` : '콘텐츠가 없습니다.';
     container.innerHTML = `<p class="dash-feed-empty">${message}</p>`;

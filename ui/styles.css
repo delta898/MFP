@@ -1688,15 +1688,21 @@ h2 {
 .dash-bottom-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.activity-card {
+  display: flex;
+  flex-direction: column;
 }
 
 .activity-card .activity-timeline {
   list-style: none;
   padding: 0;
   margin: 0;
+  flex: 1;
   max-height: 620px;
   overflow-y: auto;
 }
@@ -1710,7 +1716,8 @@ h2 {
 
 .dash-shorts-list {
   min-height: 0;
-  max-height: 300px;
+  flex: 1;
+  max-height: 600px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
