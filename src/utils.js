@@ -3527,10 +3527,16 @@ const Utils = {
             };
 
             // 🚀 병렬 데이터 로딩 (블로킹 제거)
+            if (!this._dashboardSummaryCache) {
+                Logger.info('[DIAG][Dash] Initializing dashboard summary (fetching sheets)...');
+            }
+            const fetchStart = Date.now();
             const [topics, shopping] = await Promise.all([
                 this.readGoogleSheetTopics({ silent: true }),
                 this.readGoogleSheetShopping({ silent: true })
             ]);
+            const fetchDuration = Date.now() - fetchStart;
+            Logger.info(`[DIAG][Dash] Sheets fetched in ${fetchDuration}ms (topics: ${topics ? topics.length : 0}, shopping: ${shopping ? shopping.length : 0})`);
 
             let blogWeeklyCount = 0;
             let shoppingWeeklyCount = 0;

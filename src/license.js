@@ -499,15 +499,18 @@ const License = {
      * @returns {Promise<{success: boolean, message: string, remaining?: number}>}
      */
     checkLicenseStatus: async function (options = {}) {
+        const startTime = Date.now();
+        const silent = options.quiet || options.silent;
+        if (!silent) Logger.info('[DIAG][License] Checking license status...');
+
         try {
             const quiet = options && options.quiet === true;
             const force = options && options.force === true;
 
             // 🚀 캐시 체크
-            const now = Date.now();
-            if (!force && licenseStatusCache.data && (now - licenseStatusCache.timestamp) < licenseStatusCache.ttl) {
+            if (!force && licenseStatusCache.data && (Date.now() - licenseStatusCache.timestamp) < licenseStatusCache.ttl) {
                 if (!quiet) {
-                    Logger.info('📡 라이선스 사전 검증 (캐시 사용)');
+                    Logger.info(`[DIAG][License] Using cached status (${Date.now() - startTime}ms)`);
                 }
                 return licenseStatusCache.data;
             }
@@ -519,7 +522,7 @@ const License = {
             }
             const resolvedLicenseKey = keyReady.licenseKey;
             if (!quiet) {
-                Logger.info('📡 라이선스 서버 실시간 검증 중...');
+                Logger.info(`[DIAG][License] Real-time verification starting... (${Date.now() - startTime}ms)`);
             }
 
             const { data, error } = await supabase
@@ -528,9 +531,11 @@ const License = {
                     p_hwid: hwid
                 });
 
+            const duration = Date.now() - startTime;
+
             if (error) {
                 const msg = sanitizeErrorMessage(error.message);
-                Logger.error(`❌ 서버 통신 에러: ${msg}`);
+                Logger.error(`❌ [License] 서버 통신 에러: ${msg} (${duration}ms)`);
                 return { success: false, message: '라이선스 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
             }
 
@@ -550,13 +555,15 @@ const License = {
 
                 // 🚀 캐시 업데이트
                 licenseStatusCache.data = result;
-                licenseStatusCache.timestamp = now;
+                licenseStatusCache.timestamp = Date.now();
 
                 if (!quiet) {
-                    Logger.info(`✅ 라이선스 사전 검증 통과 (${remainingLabel})`);
+                    Logger.info(`✅ [DIAG][License] 사전 검증 통과: ${remainingLabel} (${duration}ms)`);
                 }
                 return result;
             }
+
+            Logger.info(`[DIAG][License] Pre-verification failed (${duration}ms)`);
             return {
                 success: false,
                 message: buildMessageWithPlan(data?.message || '라이선스 사전 검증 실패', data?.plan_code, data?.plan_display_name),
@@ -569,7 +576,7 @@ const License = {
                 features: (data?.features && typeof data.features === 'object') ? data.features : {}
             };
         } catch (e) {
-            Logger.error(`❌ 라이선스 사전 검증 모듈 에러: ${e.message}`);
+            Logger.error(`❌ [DIAG][License] 사전 검증 모듈 에러: ${e.message} (${Date.now() - startTime}ms)`);
             return { success: false, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
         }
     },

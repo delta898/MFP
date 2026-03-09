@@ -1379,13 +1379,15 @@ async function loadDashboard() {
     return null;
   };
 
+  console.time('Dash:AllPromises');
   const [healthResult, licenseResult, sessionResult, summaryResult, autoResult] = await Promise.allSettled([
-    fetchJson('/api/v1/health').catch(quietCatch),
-    fetchJson('/api/v1/license/status?quiet=1').catch(quietCatch),
-    fetchJson('/api/v1/session/naver').catch(quietCatch),
-    fetchJson('/api/v1/dashboard/summary').catch(quietCatch),
-    fetchJson('/api/v1/auto/status').catch(quietCatch)
+    (async () => { console.time('Dash:Health'); try { return await fetchJson('/api/v1/health'); } finally { console.timeEnd('Dash:Health'); } })().catch(quietCatch),
+    (async () => { console.time('Dash:License'); try { return await fetchJson('/api/v1/license/status?quiet=1'); } finally { console.timeEnd('Dash:License'); } })().catch(quietCatch),
+    (async () => { console.time('Dash:Session'); try { return await fetchJson('/api/v1/session/naver'); } finally { console.timeEnd('Dash:Session'); } })().catch(quietCatch),
+    (async () => { console.time('Dash:Summary'); try { return await fetchJson('/api/v1/dashboard/summary'); } finally { console.timeEnd('Dash:Summary'); } })().catch(quietCatch),
+    (async () => { console.time('Dash:AutoStatus'); try { return await fetchJson('/api/v1/auto/status'); } finally { console.timeEnd('Dash:AutoStatus'); } })().catch(quietCatch)
   ]);
+  console.timeEnd('Dash:AllPromises');
 
   const healthOk = healthResult.status === 'fulfilled';
   const licenseOk = licenseResult.status === 'fulfilled';
@@ -5642,6 +5644,8 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 UI DOMContentLoaded triggered');
+  console.time('UI:InitTotal');
   checkSetupBanner();
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
