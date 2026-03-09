@@ -2110,21 +2110,7 @@ ${scrapedContext}`;
 				options.postStatus = 'draft';
 			}
 
-			// 💾 [Draft] 옵션인 경우 저장 후 중단
-			if (String(options.postStatus || '').toLowerCase() === 'draft') {
-				Logger.info("   💾 [Draft] 옵션이므로 임시저장 후 작업을 완료합니다.");
-				try {
-					const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
-					if (await saveBtn.isVisible()) {
-						await saveBtn.click();
-						await Utils.sleep(3000);
-						Logger.info("   ✅ 임시저장 완료");
-						return { success: true, message: 'Draft saved' };
-					}
-				} catch (e) {
-					Logger.warn(`   ⚠️ 임시저장 실패: ${e.message}`);
-				}
-			}
+			// [REMOVED] early draft saving exit to ensure we always reach the publish modal for category setting
 
 			// 💾 임시 저장 (안전을 위해 공통 시도)
 			try {
@@ -2135,11 +2121,7 @@ ${scrapedContext}`;
 					await Utils.sleep(2000);
 					Logger.info("   ✅ 임시저장 완료");
 
-					// [New] 'draft' 모드인 경우 여기서 종료
-					if (options.postStatus === 'draft') {
-						Logger.info("   📌 [Draft] 저장 모드이므로 발행을 진행하지 않고 종료합니다.");
-						return { success: true, message: 'Saved as draft to Naver Blog' };
-					}
+					// [REMOVED] redundant draft check to allow proceeding to publish modal
 				}
 			} catch (e) {
 				Logger.warn("   ⚠️ 임시저장 버튼을 찾지 못해 건너뜁니다");
@@ -2276,7 +2258,9 @@ ${scrapedContext}`;
 				];
 
 				let finalClicked = false;
-				if (options.postStatus !== 'draft') {
+				const isDraftMode = options.postStatus === 'draft';
+
+				if (!isDraftMode && !hasCategoryError) {
 					for (const selector of finalPublishBtnSelectors) {
 						const btn = page.locator(selector).first();
 						if (await btn.isVisible()) {
@@ -2286,41 +2270,46 @@ ${scrapedContext}`;
 							break;
 						}
 					}
-				} else if (hasCategoryError) {
-					Logger.info("   💾 카테고리 설정 실패로 인해 '발행' 대신 '저장' 모드로 실행합니다.");
-					// 에디터 상단 '저장' 버튼 클릭 시도 (이미 설정창은 Esc로 닫았을 것임)
+				} else {
+					// Draft 모드이거나 카테고리 설정 오류 발생 시: 설정창 닫고 에디터의 '저장' 클릭
+					Logger.info(isDraftMode
+						? "   💾 [Draft] 모드이므로 발행 대신 저장 처리를 진행합니다."
+						: "   💾 카테고리 설정 실패로 인해 '발행' 대신 '저장' 모드로 실행합니다.");
+
 					try {
+						// 1. 설정창 닫기 (Esc)
+						await page.keyboard.press('Escape');
+						await Utils.sleep(1000);
+
+						// 2. 에디터 상단 '저장' 버튼 클릭
 						const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
 						if (await saveBtn.isVisible()) {
 							await saveBtn.click();
 							await Utils.sleep(3000);
-							Logger.info("   ✅ 임시저장 완료 (카테고리 오류 복구)");
-							return { success: true, message: 'Saved as draft due to category failure' };
+							Logger.info("   ✅ 임시저장 완료 (카테고리 설정 포함)");
+							return { success: true, message: isDraftMode ? 'Saved as draft' : 'Saved as draft due to category failure' };
 						}
 					} catch (e) {
-						Logger.error(`   ❌ 임시저장 시도 실패: ${e.message}`);
+						Logger.warn(`   ⚠️ 최종 저장 시도 중 오류: ${e.message}`);
 					}
 				}
 
 				if (finalClicked) {
 					// 🔗 4단계: 발행 완료 후 URL 캡처 (logNo 추출용)
 					try {
-						// 발행 후 'PostList.naver'가 아닌 실제 글 본문 페이지('PostView.naver' 또는 'logNo=')로 이동할 때까지 대기
-						// 네이버는 가끔 목록으로 리다이렉트되기도 하지만, 최대한 본문 URL을 잡으려 시도
 						await page.waitForURL(url => url.href.includes('logNo=') && !url.href.includes('PostList.naver'), { timeout: 20000 });
 						const postUrl = page.url();
 						Logger.info(`   📝 [Naver] 발행 완료 확인 (본문 URL): ${postUrl}`);
 						await Utils.sleep(2000);
 						return { success: true, message: 'Published to Naver Blog', postUrl };
 					} catch (e) {
-						// 본문 URL 캡처 실패 시 현재 URL이라도 반환 (PostList 등일 수 있음)
 						const fallbackUrl = page.url();
 						Logger.warn(`   ⚠️ 발행 완료 후 본문 URL 캡처 실패 (PostList 가능성): ${fallbackUrl}`);
 						return { success: true, message: 'Published to Naver Blog (URL capture fallback)', postUrl: fallbackUrl };
 					}
 				} else {
 					Logger.info("   ✅ [Naver] 최종 발행 버튼을 찾지 못했습니다. 설정창만 열린 상태에서 중단합니다.");
-					await Utils.sleep(3000); // 상태 확인 대기
+					await Utils.sleep(3000);
 					return { success: true, message: 'Naver settings window opened' };
 				}
 			}
@@ -2538,14 +2527,25 @@ ${scrapedContext}`;
 
 		// 3. 카테고리 처리
 		let categoryIds = [];
-		if (options.wpCategory) {
-			// options.wpCategory identifies the ID or Name. 
-			// In our UI, it's likely the ID if from dropdown, but let's handle both.
-			if (/^\d+$/.test(options.wpCategory)) {
-				categoryIds = [parseInt(options.wpCategory)];
+		if (options.category) {
+			// Try to find the category By Name or ID
+			const catList = await wpClient.listCategories();
+			const targetCat = String(options.category).trim().toLowerCase();
+
+			// 정확한 ID 매칭 또는 이름 매칭 (Trim 후 소문자 비교)
+			let foundCat = catList.find(c =>
+				String(c.id) === targetCat ||
+				String(c.name).trim().toLowerCase() === targetCat ||
+				String(c.slug).toLowerCase() === targetCat
+			);
+
+			if (foundCat) {
+				categoryIds = [foundCat.id];
+				Logger.info(`   ✅ 워드프레스 카테고리 매칭 성공: ${foundCat.name} (ID: ${foundCat.id})`);
 			} else {
-				const catId = await wpClient.getOrCreateCategory(options.wpCategory);
-				if (catId) categoryIds = [catId];
+				Logger.warn(`⚠️ [WordPress] 지정된 카테고리('${options.category}')가 사이트에 존재하지 않습니다. Draft 상태로 강제 전환합니다.`);
+				warnings.push(`카테고리 '${options.category}' 없음 (Draft 저장)`);
+				finalStatus = 'draft';
 			}
 		}
 

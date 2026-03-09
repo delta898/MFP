@@ -303,24 +303,63 @@
           </div>
 
           <div class="blog-quick-grid">
-            <label class="blog-quick-field blog-quick-field-wide">
-              <span class="blog-quick-label">Subject</span>
-              <input id="quick-subject" type="text" placeholder="예: 맥모닝 메뉴 10년차 추천 조합">
+            <!-- Row 1: Subject (Half) & Keywords (Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">Subject (주제)</span>
+              <input id="quick-subject" type="text" placeholder="예: 도전인생의 블로그 자동화 개발 후기">
             </label>
 
-            <label class="blog-quick-field">
-              <span class="blog-quick-label">Keywords</span>
-              <input id="quick-keywords" type="text" placeholder="예: 맥모닝, 맥머핀, 맥그리들">
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">Keywords (키워드)</span>
+              <input id="quick-keywords" type="text" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
             </label>
 
-            <label class="blog-quick-field">
-              <span class="blog-quick-label">참고 URL</span>
-              <input id="quick-reference-url" type="text" placeholder="https://...">
-            </label>
-
-            <label class="blog-quick-field blog-quick-field-full">
+            <!-- Row 2: Instruction (Half) & Reference URL (Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
               <span class="blog-quick-label">참고/지시사항</span>
-              <textarea id="quick-instruction" rows="8" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"></textarea>
+              <textarea id="quick-instruction" rows="2" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"
+                style="height: 80px; min-height: 80px;"></textarea>
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">참고 URL</span>
+              <textarea id="quick-reference-url" rows="2" placeholder="https://..."
+                style="height: 80px; min-height: 80px;"></textarea>
+            </label>
+
+            <!-- Row 3: Categories (Half + Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">네이버 카테고리</span>
+              <input id="quick-naver-category" type="text" placeholder="예: 일상/생각">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">워드프레스 카테고리</span>
+              <input id="quick-wp-category" type="text" placeholder="예: Daily">
+            </label>
+
+            <!-- Row 4: Publish Status & Schedule Date (Half + Half) -->
+            <div class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">발행 상태</span>
+              <div class="custom-select-container" id="quick-wp-status-container">
+                <div class="custom-select-trigger" id="quick-wp-status-trigger">
+                  <span id="quick-wp-status-text">즉시 발행</span>
+                  <i class="chevron-down-icon"></i>
+                </div>
+                <div class="custom-select-menu" id="quick-wp-status-menu">
+                  <div class="custom-select-options" id="quick-wp-status-options">
+                    <div class="custom-select-option selected" data-value="publish">즉시 발행</div>
+                    <div class="custom-select-option" data-value="draft">임시 저장</div>
+                    <div class="custom-select-option" data-value="schedule">예약 발행</div>
+                  </div>
+                </div>
+                <input type="hidden" id="quick-wp-post-status" value="publish">
+              </div>
+            </div>
+
+            <label id="quick-wp-schedule-date-field" class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">예약 일시</span>
+              <input id="quick-wp-schedule-date" type="datetime-local" disabled style="height: 48px;">
             </label>
           </div>
 
@@ -346,46 +385,6 @@
               </div>
             </div>
 
-            <!-- WordPress Specific Options (Hidden by default) -->
-            <div id="quick-wp-options-panel" class="quick-wp-options-panel" style="display: none;">
-              <div class="quick-wp-options-grid">
-                <!-- WP Category (Custom Searchable Dropdown) -->
-                <div class="blog-quick-field">
-                  <span class="blog-quick-label">WP 카테고리</span>
-                  <div class="custom-select-container" id="quick-wp-category-container">
-                    <div class="custom-select-trigger" id="quick-wp-category-trigger">
-                      <span id="quick-wp-category-text">카테고리 선택...</span>
-                      <i class="chevron-down-icon"></i>
-                    </div>
-                    <div class="custom-select-menu" id="quick-wp-category-menu">
-                      <div class="custom-select-search">
-                        <input type="text" id="quick-wp-category-search-v2" placeholder="카테고리 검색..." autocomplete="off">
-                      </div>
-                      <div class="custom-select-options" id="quick-wp-category-options-v2">
-                        <!-- Options populated by JS -->
-                        <div class="custom-select-loading">불러오는 중...</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- WP Post Status -->
-                <label class="blog-quick-field">
-                  <span class="blog-quick-label">WP 발행 상태</span>
-                  <select id="quick-wp-post-status" onchange="toggleQuickWpScheduleDate()">
-                    <option value="publish" selected>즉시 발행</option>
-                    <option value="draft">임시 저장</option>
-                    <option value="schedule">예약 발행</option>
-                  </select>
-                </label>
-
-                <!-- WP Schedule Date -->
-                <label id="quick-wp-schedule-date-field" class="blog-quick-field">
-                  <span class="blog-quick-label">WP 예약 일시</span>
-                  <input id="quick-wp-schedule-date" type="datetime-local" disabled>
-                </label>
-              </div>
-            </div>
           </div>
 
           <div class="blog-quick-actions">
@@ -526,12 +525,8 @@
                     <th style="width:56px;"><input type="checkbox" id="blog-table-select-all" class="header-checkbox">
                     </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="category" style="width:120px;">Category
-                    </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="postStatus" style="width:100px;">
                       Post Status</th>
-                    <th class="sortable" data-sort-table="topics" data-sort-key="scheduleDate" style="width:160px;">
-                      Schedule Date</th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">Subject
                     </th>
                     <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">Keywords
@@ -575,11 +570,12 @@
                 <span>트렌드 자동 수집 사용</span>
               </label>
             </div>
-            <div class="form-grid">
-              <div class="form-field-block">
+            <div class="form-grid" style="align-items: stretch;">
+              <div class="form-field-block" style="display: flex; flex-direction: column;">
                 <span class="field-label-text">수집 카테고리</span>
-                <div class="category-picker">
-                  <div id="blog-collect-trends-category-options" class="category-options" data-blog-category-options>
+                <div class="category-picker" style="flex: 1; display: flex; flex-direction: column;">
+                  <div id="blog-collect-trends-category-options" class="category-options" data-blog-category-options
+                    style="flex: 1; max-height: 280px; min-height: 220px;">
                     <p class="category-hint">카테고리 목록을 불러오는 중...</p>
                   </div>
                 </div>
@@ -640,28 +636,27 @@
                   </div>
                 </div>
 
-                <div class="form-field-block"
-                  style="margin-bottom: 0; padding: 0; border: none; background: transparent; display: flex; flex-direction: row; align-items: center; gap: 15px;">
-                  <span class="label-title-row" style="margin-bottom: 0;">
-                    <span class="field-label-text">WP 카테고리</span>
-                    <button type="button" class="label-help" data-help="자동 수집된 트렌드 글감의 워드프레스 기본 카테고리를 지정합니다."
-                      aria-label="WP 카테고리 도움말">?</button>
-                  </span>
-                  <div class="custom-select-container" id="blog-collect-trends-wp-category-container"
-                    style="max-width: 300px;">
-                    <div class="custom-select-trigger" id="blog-collect-trends-wp-category-trigger">
-                      <span id="blog-collect-trends-wp-category-text">목록을 불러오는 중...</span>
-                      <i class="chevron-down-icon"></i>
-                    </div>
-                    <div class="custom-select-menu" id="blog-collect-trends-wp-category-menu">
-                      <div class="custom-select-search">
-                        <input type="text" id="blog-collect-trends-wp-category-search-v2" placeholder="카테고리 검색..."
-                          autocomplete="off">
-                      </div>
-                      <div class="custom-select-options" id="blog-collect-trends-wp-category-options">
-                        <div class="custom-select-loading">워드프레스 설정을 먼저 완료해주세요.</div>
-                      </div>
-                    </div>
+                <div style="display: flex; gap: 15px; width: 100%;">
+                  <div class="form-field-block"
+                    style="margin-bottom: 0; padding: 0; border: none; background: transparent; flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <span class="label-title-row" style="margin-bottom: 0;">
+                      <span class="field-label-text">Naver Category</span>
+                      <button type="button" class="label-help" data-help="자동 수집된 트렌드 글감의 네이버 기본 카테고리를 지정합니다."
+                        aria-label="Naver Category 도움말">?</button>
+                    </span>
+                    <input type="text" id="blog-collect-trends-naver-category" placeholder="네이버 카테고리 (예: 도전인생)"
+                      style="width: 100%;">
+                  </div>
+
+                  <div class="form-field-block"
+                    style="margin-bottom: 0; padding: 0; border: none; background: transparent; flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <span class="label-title-row" style="margin-bottom: 0;">
+                      <span class="field-label-text">WordPress Category</span>
+                      <button type="button" class="label-help" data-help="자동 수집된 트렌드 글감의 워드프레스 기본 카테고리를 지정합니다."
+                        aria-label="WordPress Category 도움말">?</button>
+                    </span>
+                    <input type="text" id="blog-collect-trends-wordpress-category" placeholder="워드프레스 카테고리 (예: IT/Tech)"
+                      style="width: 100%;">
                   </div>
                 </div>
               </div>
@@ -694,7 +689,7 @@
                         onchange="toggleAllRssConfigs(this.checked)">
                     </th>
                     <th style="padding: 10px; text-align: left; width: 250px;">RSS URL</th>
-                    <th style="padding: 10px; text-align: left; width: 140px;">WP 카테고리</th>
+                    <th style="padding: 10px; text-align: left; width: 140px;">Category (N/W)</th>
                     <th style="padding: 10px; text-align: center; width: 80px;">주기(분)</th>
                     <th style="padding: 10px; text-align: left; width: 150px;">포함 키워드</th>
                     <th style="padding: 10px; text-align: left; width: 150px;">제외 키워드</th>
@@ -828,14 +823,39 @@
           </div>
 
           <div class="blog-quick-grid">
-            <label class="blog-quick-field blog-quick-field-wide">
+            <label class="blog-quick-field blog-quick-field-half">
               <span class="blog-quick-label">URL (필수)</span>
               <input id="shopping-quick-url" type="text" placeholder="https://naver.me/...">
             </label>
 
-            <label class="blog-quick-field blog-quick-field-wide">
+            <label class="blog-quick-field blog-quick-field-half">
               <span class="blog-quick-label">상품명 (옵션)</span>
               <input id="shopping-quick-product" type="text" placeholder="예: 에어메이드 가열식 가습기 2.0">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">네이버 카테고리</span>
+              <input type="text" id="shopping-quick-naver-category" placeholder="예: 일상/생각">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">워드프레스 카테고리</span>
+              <input type="text" id="shopping-quick-wp-category" placeholder="예: Daily">
+            </label>
+
+            <div class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">발행 상태</span>
+              <select id="shopping-quick-wp-post-status" onchange="toggleShoppingQuickWpScheduleDate()"
+                style="height: 48px; width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 12px; background: white; font-size: 15px; color: var(--text-main);">
+                <option value="publish" selected>즉시 발행</option>
+                <option value="draft">임시 저장</option>
+                <option value="schedule">예약 발행</option>
+              </select>
+            </div>
+
+            <label id="shopping-quick-wp-schedule-date-field" class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">예약 일시</span>
+              <input id="shopping-quick-wp-schedule-date" type="datetime-local" disabled style="height: 48px;">
             </label>
           </div>
 
@@ -844,54 +864,12 @@
               <div class="target-platforms">
                 <span class="blog-quick-label">발행 대상:</span>
                 <label class="blog-quick-check"><input id="shopping-quick-target-naver" type="checkbox"> 네이버 블로그</label>
-                <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox"
-                    onchange="toggleShoppingQuickWpOptions()"> 워드프레스</label>
+                <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox">
+                  워드프레스</label>
               </div>
               <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
                 <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
               </label>
-            </div>
-
-            <!-- WordPress Specific Options (Hidden by default) -->
-            <div id="shopping-quick-wp-options-panel" class="quick-wp-options-panel" style="display: none;">
-              <div class="quick-wp-options-grid">
-                <!-- WP Category (Custom Searchable Dropdown) -->
-                <div class="blog-quick-field">
-                  <span class="blog-quick-label">WP 카테고리</span>
-                  <div class="custom-select-container" id="shopping-quick-wp-category-container">
-                    <div class="custom-select-trigger" id="shopping-quick-wp-category-trigger">
-                      <span id="shopping-quick-wp-category-text">카테고리 선택...</span>
-                      <i class="chevron-down-icon"></i>
-                    </div>
-                    <div class="custom-select-menu" id="shopping-quick-wp-category-menu">
-                      <div class="custom-select-search">
-                        <input type="text" id="shopping-quick-wp-category-search-v2" placeholder="카테고리 검색..."
-                          autocomplete="off">
-                      </div>
-                      <div class="custom-select-options" id="shopping-quick-wp-category-options-v2">
-                        <!-- Options populated by JS -->
-                        <div class="custom-select-loading">불러오는 중...</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- WP Post Status -->
-                <label class="blog-quick-field">
-                  <span class="blog-quick-label">WP 발행 상태</span>
-                  <select id="shopping-quick-wp-post-status" onchange="toggleShoppingQuickWpScheduleDate()">
-                    <option value="publish" selected>즉시 발행</option>
-                    <option value="draft">임시 저장</option>
-                    <option value="schedule">예약 발행</option>
-                  </select>
-                </label>
-
-                <!-- WP Schedule Date -->
-                <label id="shopping-quick-wp-schedule-date-field" class="blog-quick-field">
-                  <span class="blog-quick-label">WP 예약 일시</span>
-                  <input id="shopping-quick-wp-schedule-date" type="datetime-local" disabled>
-                </label>
-              </div>
             </div>
           </div>
           <div class="blog-quick-actions">
@@ -953,14 +931,10 @@
                         class="header-checkbox"></th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row
                     </th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="category" style="width:120px;">
-                      Category</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="postStatus" style="width:100px;">
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="postStatus" style="width:110px;">
                       Post Status</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="scheduleDate" style="width:160px;">
-                      Schedule Date</th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:260px;">URL
+                    <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:280px;">URL
                     </th>
                     <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행
                       로그</th>
@@ -1454,6 +1428,172 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Topic Edit Modal -->
+  <div id="blog-edit-modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-container blog-edit-modal">
+      <div class="modal-header">
+        <h3>글감 정보 수정</h3>
+        <button id="blog-edit-close-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="field-item">
+            <label>Subject</label>
+            <input type="text" id="blog-edit-subject" placeholder="예: 도전인생의 블로그 자동화 개발 후기">
+          </div>
+          <div class="field-item">
+            <label>Keywords</label>
+            <input type="text" id="blog-edit-keywords" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
+          </div>
+          <div class="field-item full">
+            <label>참고/지시사항</label>
+            <textarea id="blog-edit-instruction" rows="3"></textarea>
+          </div>
+          <div class="field-item full">
+            <label>참고 URL</label>
+            <textarea id="blog-edit-reference-url" rows="2" placeholder="URL을 콤마(,)나 줄바꿈으로 구분하여 입력"></textarea>
+          </div>
+          <div class="field-item">
+            <label>네이버 카테고리</label>
+            <input type="text" id="blog-edit-naver-category" placeholder="네이버 카테고리 (예: 도전인생)">
+          </div>
+          <div class="field-item">
+            <label>워드프레스 카테고리</label>
+            <input type="text" id="blog-edit-wordpress-category" placeholder="워드프레스 카테고리">
+          </div>
+          <div class="field-item">
+            <label>발행 상태</label>
+            <div id="modal-blog-post-status-container" class="custom-select-container">
+              <div id="modal-blog-post-status-trigger" class="custom-select-trigger">
+                <span id="modal-blog-post-status-text">즉시 발행</span>
+                <i class="chevron-down-icon"></i>
+              </div>
+              <div class="custom-select-menu">
+                <div class="custom-select-options">
+                  <div class="custom-select-option" data-value="publish">즉시 발행</div>
+                  <div class="custom-select-option" data-value="draft">임시 저장</div>
+                  <div class="custom-select-option" data-value="schedule">예약 발행</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field-item">
+            <label>예약 일시</label>
+            <input type="datetime-local" id="blog-edit-schedule-date" class="premium-input">
+          </div>
+          <div class="field-item" style="display: flex; align-items: flex-end; gap: 20px; padding-bottom: 5px;">
+            <label class="premium-checkbox-container">
+              <input type="checkbox" id="blog-edit-image-required">
+              <span class="checkmark"></span>
+              이미지 생성
+            </label>
+            <label class="premium-checkbox-container">
+              <input type="checkbox" id="blog-edit-external-ref">
+              <span class="checkmark"></span>
+              외부 참고
+            </label>
+          </div>
+          <div class="field-item">
+            <label>상태</label>
+            <div id="modal-blog-status-container" class="custom-select-container drop-up">
+              <div id="modal-blog-status-trigger" class="custom-select-trigger">
+                <span id="modal-blog-status-text">대기</span>
+                <i class="chevron-down-icon"></i>
+              </div>
+              <div class="custom-select-menu">
+                <div class="custom-select-options">
+                  <div class="custom-select-option" data-value="대기">대기</div>
+                  <div class="custom-select-option" data-value="발행 준비 완료">발행 준비 완료</div>
+                  <div class="custom-select-option" data-value="발행 완료">발행 완료</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div id="blog-edit-result" class="action-result"></div>
+        <div class="actions">
+          <button id="blog-edit-cancel-btn" class="secondary">취소</button>
+          <button id="blog-edit-save-btn" class="primary">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shopping Edit Modal -->
+  <div id="shopping-edit-modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-container blog-edit-modal">
+      <div class="modal-header">
+        <h3>상품 정보 수정</h3>
+        <button id="shopping-edit-close-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="field-item full">
+            <label>상품명</label>
+            <input type="text" id="shopping-edit-product" placeholder="예: 에어메이드 가열식 가습기 2.0">
+          </div>
+          <div class="field-item full">
+            <label>URL</label>
+            <input type="text" id="shopping-edit-url" placeholder="https://naver.me/...">
+          </div>
+          <div class="field-item">
+            <label>네이버 카테고리</label>
+            <input type="text" id="shopping-edit-naver-category" placeholder="예: 일상/생각">
+          </div>
+          <div class="field-item">
+            <label>워드프레스 카테고리</label>
+            <input type="text" id="shopping-edit-wordpress-category" placeholder="예: Daily">
+          </div>
+          <div class="field-item">
+            <label>발행 상태</label>
+            <div id="modal-shopping-post-status-container" class="custom-select-container">
+              <div id="modal-shopping-post-status-trigger" class="custom-select-trigger">
+                <span id="modal-shopping-post-status-text">즉시 발행</span>
+                <i class="chevron-down-icon"></i>
+              </div>
+              <div class="custom-select-menu">
+                <div class="custom-select-options">
+                  <div class="custom-select-option" data-value="publish">즉시 발행</div>
+                  <div class="custom-select-option" data-value="draft">임시 저장</div>
+                  <div class="custom-select-option" data-value="schedule">예약 발행</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field-item">
+            <label>예약 일시</label>
+            <input type="datetime-local" id="shopping-edit-schedule-date" class="premium-input">
+          </div>
+          <div class="field-item full">
+            <label>상태</label>
+            <div id="modal-shopping-status-container" class="custom-select-container drop-up">
+              <div id="modal-shopping-status-trigger" class="custom-select-trigger">
+                <span id="modal-shopping-status-text">준비</span>
+                <i class="chevron-down-icon"></i>
+              </div>
+              <div class="custom-select-menu">
+                <div class="custom-select-options">
+                  <div class="custom-select-option" data-value="준비">준비</div>
+                  <div class="custom-select-option" data-value="발행 준비 완료">발행 준비 완료</div>
+                  <div class="custom-select-option" data-value="발행 완료">발행 완료</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div id="shopping-edit-result" class="action-result"></div>
+        <div class="actions">
+          <button id="shopping-edit-cancel-btn" class="secondary">취소</button>
+          <button id="shopping-edit-save-btn" class="primary">저장</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="ui-dialog-backdrop" class="ui-dialog-backdrop hidden" aria-hidden="true">

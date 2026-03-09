@@ -58,7 +58,8 @@
             "type": "top",
             "top_n": 5
           },
-          "wpCategory": ""
+          "naver_category": "",
+          "wordpress_category": ""
         },
         "rss": {
           "enabled": false,
@@ -69,7 +70,8 @@
               "interval": 60,
               "includeKeywords": [],
               "excludeKeywords": [],
-              "wpCategory": ""
+              "naver_category": "",
+              "wordpress_category": ""
             }
           ]
         }
