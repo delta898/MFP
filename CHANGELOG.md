@@ -1,18 +1,18 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
-## [Unreleased]
-### Fixed
-- **UI 시작 시 먹통 현상 해결**: `DOMContentLoaded` 내에서 `settingsCheckUpdateBtn` 요소가 정의되기 전 참조되어 발생하던 `ReferenceError`로 인해 이벤트 리스너 등록이 중단되고 버튼/화면이 전혀 반응하지 않던 치명적 버그 수정.
-- **대시보드 API 폭주 방지**: `loadDashboard()` 함수에 5초 스로틀 및 중복 호출 방지 플래그(`isDashboardLoading`)를 추가하여 컴포넌트 마운트 시 동시에 30개 이상의 요청이 날아가던 현상 해소.
-- **Naver 세션 확인 성능 개선**: `/api/v1/session/naver` 호출 시 매번 Playwright 헤드리스 브라우저를 실행하던 방식을 2분 TTL 캐시로 전환하여 응답 시간을 2400ms → 1ms 수준으로 단축.
+## [0.1.2] - 2026-03-10
 
 ### Added
-- **업데이트 진행 상태 실시간 표시**: '지금 업데이트' 버튼 클릭 시 상단 배너가 진행 상태 표시로 전환됩니다.
-  - 다운로드(⬇️) → 압축 해제(📦) → 파일 동기화(🔄) → 완료(✅) 단계별 아이콘과 메시지 표시.
-  - 다운로드 단계에서는 퍼센트바로 실시간 진행률 표시.
-  - 다운로드 단계에서만 **취소** 버튼 활성화; 클릭 시 `AbortController`로 스트림을 즉시 중단.
-  - 신규 API 엔드포인트: `GET /api/v1/system/update/progress`, `POST /api/v1/system/update/cancel`.
+- **Dashboard Enhancements**: Implemented dynamic RSS feed detection. The dashboard now shows user-specific Naver and WordPress content if configured, with improved fallback feeds (amadejjs, No Worry Blog, IT Mania).
+- **Featured Content**: Added IT Mania as a permanent featured technical resource on the dashboard.
+- **Update Status**: Added real-time progress indicators for the update process (download, extract, sync).
+
+### Fixed
+- **Incremental Build Logic**: Fixed a bug in `build.sh` where the Electron App Bundle's internal timestamps caused rebuilds to be skipped. Now uses a stamp file based on source mtime.
+- **Build Bloat**: Optimized `electron-packager` ignore patterns to prevent recursive bundling, reducing App Bundle size by ~86% (7.2GB -> 1.0GB).
+- **UI Freeze Fix**: Resolved a `ReferenceError` related to `settingsCheckUpdateBtn` that caused the UI to sometimes stop responding on load.
+- **API Optimization**: Added throttling to dashboard API calls and implemented 2-min caching for Naver session checks.
 
 ## [0.1.1] - 2026-03-10
 ### Added
