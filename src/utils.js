@@ -6,6 +6,7 @@ const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
+const KuzuService = require('./kuzu-service');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -1400,6 +1401,21 @@ const Utils = {
             this.clearSheetCache('topics_all');
             this.clearSheetCache('shopping_all');
 
+            // [Universal Memory] Kuzu DB에 쇼핑 아이템 기록
+            for (const item of newItems) {
+                try {
+                    const kuzuData = {
+                        name: item.product || item.name || '',
+                        price: item.price || '',
+                        mall: item.mall || '',
+                        source: item.source || options.source || 'manual'
+                    };
+                    await KuzuService.recordShoppingItem(item.chatId || null, kuzuData);
+                } catch (kuzuErr) {
+                    Logger.error(`⚠️ [Utils] Kuzu 쇼핑 기록 실패: ${kuzuErr.message}`);
+                }
+            }
+
             return {
                 success: true,
                 addedCount: rowsToAdd.length,
@@ -2100,6 +2116,30 @@ const Utils = {
             // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
             await this.sleep(1000);
             this.clearSheetCache('topics_all');
+
+            // [Universal Memory] Kuzu DB에 토픽 기록
+            for (const topic of newTopics) {
+                try {
+                    const instructionValue = String(
+                        topic.instruction ||
+                        topic.options?.instruction ||
+                        topic.content_guide?.additional_instructions ||
+                        topic.additional_instructions ||
+                        ''
+                    ).trim();
+                    const kuzuData = {
+                        subject: topic.subject || '',
+                        platform: Array.isArray(topic.platforms) ? topic.platforms.join(', ') : (topic.options?.platforms ? topic.options.platforms.join(', ') : 'naver'),
+                        category: topic.category || topic.options?.category || '',
+                        keywords: Array.isArray(topic.keywords) ? topic.keywords.join(', ') : String(topic.keywords || ''),
+                        instruction: instructionValue,
+                        source: topic.source || options.source || 'manual'
+                    };
+                    await KuzuService.recordTopic(topic.chatId || options.chatId || null, kuzuData);
+                } catch (kuzuErr) {
+                    Logger.error(`⚠️ [Utils] Kuzu 토픽 기록 실패: ${kuzuErr.message}`);
+                }
+            }
 
             Logger.info(`   ✅ 토픽 시트에 ${rowsToAdd.length}건 추가 완료`);
             return {

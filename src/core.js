@@ -1463,55 +1463,73 @@ const Core = {
 		const prompt = `당신은 블로그 자동화 시스템의 모든 것을 관리하는 전지전능한 '유니버설 에이전트'입니다.
 사용자가 보낸 자연어 메시지를 분석하여 의도(intent)를 분류하고 필요한 파라미터를 JSON 형태로 추출하세요.
 
-[의도(intent) 분류 규칙]
-1. PUBLISH: 새 글 발행 또는 등록 요청 (예: "~에 대해 글 써줘", "그 주제로 다시 발행해줘")
-2. UPDATE_CONFIG: 시스템 설정 변경 요청 (예: "발행 주기를 20분으로 바꿔줘", "이미지 생성 꺼줘", "카테고리 A로 변경해")
-3. RUN_JOB: 특정 시스템 작업 실행 요청 (예: "트렌드 지금 수집해줘", "RSS 수집 시작해")
-4. QUERY_DATA: 데이터 조회 또는 요약 요청 (예: "지금 대기 중인 글 몇 개야?", "최근 5개 로그 보여줘")
+[Capability (능력) 분류 규칙]
+사용자의 의도를 분석하여 실행할 행동(Action)들의 조합을 배열(Array)로 구성하세요.
+1. register_topic: 새로운 글감을 대기열(시트)에 등록합니다. (예: "~에 대해 글 써줘", "주제 추가해줘")
+2. publish_article: 특정 플랫폼으로 글 발행 프로세스를 시작합니다. (예: "지금 네이버에 발행해", "등록하고 바로 발행까지 해줘")
+3. update_config: 시스템 설정을 변경합니다. (예: "발행 주기를 20분으로 바꿔줘", "이미지 생성 꺼줘")
+4. run_job: 특정 백그라운드 작업을 실행합니다. (예: "트렌드 지금 수집해줘", "RSS 수집 시작해")
+5. query_data: 데이터 요약, 통계, 로그 등을 조회합니다. (예: "지금 대기 중인 글은?", "나에 대해 요약해줘")
 
-[파라미터 추출 규칙]
-1. PUBLISH 인텐트일 경우:
-   - theme, keywords, platforms(배열), options 객체 확보.
-   - options 내에 schedule_date, instruction, reference_urls, category, post_status, image_gen, image_count, external_reference 등 포함.
-2. UPDATE_CONFIG 인텐트일 경우:
-   - config_updates: 변경할 설정 키와 값의 쌍. 아래 내부 키 목록을 참고하여 매핑하세요.
-     * 발행 주기(분): PUBLISH_AUTO_INTERVAL_MIN
-     * 발행 자동화 켜기/끄기: PUBLISH_AUTO_ENABLED
-     * Headless 모드(화면 숨김): PUBLISH_AUTO_HEADLESS
-     * 이미지 생성 켜기/끄기: image_gen (또는 BLOG_AUTO_IMAGE_GENERATION)
-     * 네이버 ID: NAVER_ID
-     * 타자 속도: TYPING_SPEED (QUICK, FAST, NORMAL, HUMAN)
-     * 트렌드 수집 켜기/끄기: COLLECT_TRENDS_ENABLED
-     * 트렌드 수집 카테고리: COLLECT_TRENDS_CATEGORIES (쉼표 구분)
-     * 트렌드 수집 시간: COLLECT_TRENDS_TIME (HH:mm)
-     * 트렌드 필터 최소 상승률: COLLECT_TRENDS_FILTER_MIN_INCR
-     * 트렌드 필터 종류: COLLECT_TRENDS_FILTER_TYPE (min, top)
-     * 트렌드 필터 상위 N개: COLLECT_TRENDS_FILTER_TOP_N
-     * RSS 수집 켜기/끄기: COLLECT_RSS_ENABLED
-     * 텔레그램 알림 켜기/끄기: NOTIFY_TELEGRAM_ENABLED
-     * 슬랙 알림 켜기/끄기: NOTIFY_SLACK_ENABLED
-3. RUN_JOB 인텐트일 경우:
-   - job_name: 실행할 작업 이름 (trends, rss, shopping 등).
-   - job_params: 작업에 필요한 추가 파라미터 (예: {"trendDate": "2026-03-05"}).
-4. QUERY_DATA 인텐트일 경우:
-   - query_type: 조회 종류 (status, logs, topics 등).
+[Action 파라미터 추출 규칙]
+- 각 Capability에 맞는 params 객체를 구성하세요.
+1. register_topic 파라미터:
+   - theme(문자열), keywords(배열), platforms(배열) 필수/선택 확보.
+   - options 내부: schedule_date, instruction, reference_urls, category, post_status, image_gen, external_reference.
+   - **[중요]** 플랫폼별 카테고리 지정 시(예: "네이버는 A, 워드는 B"), 'naver_category', 'wordpress_category'로 분리.
+2. publish_article 파라미터:
+   - target: "all" 또는 특정 플랫폼 ("naver", "wordpress"). (단순히 "발행"만 언급 시 빈 객체도 가능)
+3. update_config 파라미터 (config_updates 객체 구성):
+   - PUBLISH_AUTO_INTERVAL_MIN, PUBLISH_AUTO_ENABLED, PUBLISH_AUTO_HEADLESS, image_gen, NAVER_ID, TYPING_SPEED 등.
+4. run_job 파라미터:
+   - job_name: "trends", "rss", "shopping" 등.
+5. query_data 파라미터:
+   - query_type: ("status", "logs", "topics", "shopping", "stats", "insight")
+   - query_params: 조회 필터 (예: {"category": "기술", "limit": 5})
+
+[조합 및 추론 핵심 지침]
+- **액션의 분리**: 사용자가 "저장만 해줘", "등록하고 발행은 미뤄" 라고 하면 'register_topic' 한 개만 반환하세요.
+- **동시 처리**: 사용자가 "네이버에 테슬라 글 발행해" 라고 하면, 대기열에 없으므로 'register_topic' + 'publish_article' 2개의 액션을 순서대로 반환해야 합니다.
+- **메타 데이터**: 어떤 파라미터를 사용자가 '직접' 명시했는지 'meta'의 'explicit_params' 배열에 기록하세요.
 
 [대화 맥락 (Context)]
-${context ? `직전 대화에서 다음과 같은 주제를 다루었습니다: "${context}"` : '이전 대화 정보가 없습니다.'}
+${(() => {
+				let contextStr = '';
+				if (context) {
+					if (context.user_insight) {
+						contextStr += `* 사용자 성향 인사이트: "${context.user_insight}"\n`;
+					}
+					if (context.last_topic) {
+						contextStr += `* 직전 발행 주제: "${context.last_topic}"\n`;
+					}
+					if (context.history && context.history.length > 0) {
+						contextStr += `* 최근 대화 기록:\n`;
+						context.history.reverse().forEach(h => {
+							contextStr += `  - [${h.intent}] ${h.text}\n`;
+						});
+					}
+				}
+				return contextStr || '이전 대화 정보가 없습니다.';
+			})()}
 
 [지침]
 - 현재 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (KST)
 - 사용자의 모든 특수 요청(예: "이번만 카테고리 없이 저장만")은 PUBLISH 인텐트의 options.instruction에 상세히 담으세요.
+- 멀티 플랫폼 카테고리 예시: "네이버는 '기술', 워드프레스는 'Tech'로 해줘" -> options: { naver_category: "기술", wordpress_category: "Tech" }
 - 의도가 불분명할 경우 가장 근접한 인텐트를 선택하고, 파라미터가 없으면 빈 객체 {}를 반환하세요.
 
 [사용자 메시지]
 ${messageText}
 
 [출력 형식]
-반드시 아래 JSON 형태로만 응답하세요.
 {
-  "intent": "PUBLISH | UPDATE_CONFIG | RUN_JOB | QUERY_DATA",
-  "data": { ... 추출된 파라미터 ... }
+  "actions": [
+    {
+      "action": "register_topic | publish_article | update_config | run_job | query_data",
+      "params": { ... 추출된 파라미터 ... }
+    }
+  ],
+  "meta": { "explicit_params": ["image_gen", "category", ...] }
 }`;
 
 		Logger.info("🧠 [Core] 텔레그램 메시지 AI 분석 요청 중...");
@@ -1527,6 +1545,15 @@ ${messageText}
 			Logger.error("❌ [Core] 텔레그램 메시지 AI 파싱(JSON) 실패: " + e.message + "\\n원문 응답: " + rawResult);
 			throw new Error("메시지를 정확히 해석하지 못했습니다. (JSON 변환 실패)");
 		}
+	},
+	/**
+	 * 간단한 AI 인사이트 생성 (Gemini 활용)
+	 */
+	generateSimpleInsight: async function (prompt) {
+		const Utils = require('./utils');
+		Logger.info("🧠 [Core] AI 인사이트 분석 요청 중...");
+		const result = await Utils.callGeminiText(prompt);
+		return (result || '').trim();
 	},
 	/**
 	 * 1. 콘텐츠 생성 (Generate)
@@ -2457,7 +2484,6 @@ ${scrapedContext}`;
 			const optimizedFilePath = await ImageService.optimizeImageForPlatform(imagePath, 'wordpress');
 			const optimizedExt = path.extname(optimizedFilePath).slice(1) || path.extname(fileName).slice(1);
 			const optimizedBuffer = fs.readFileSync(optimizedFilePath);
-
 
 			// 확장자가 변경된 경우 파일명 보정 (WP 업로드용)
 			let finalFileName = fileName;

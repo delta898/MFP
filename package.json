@@ -43,6 +43,9 @@
       "src/constants.js",
       "src/auth-session.js",
       "src/ui-server.js",
+      "src/telegram-bot.service.js",
+      "src/kuzu-service.js",
+      "src/insight-engine.js",
       "src/ui-api/**/*.js"
     ],
     "assets": [
@@ -70,6 +73,7 @@
     "cheerio": "^1.0.0-rc.12",
     "commander": "^11.1.0",
     "googleapis": "^171.4.0",
+    "kuzu": "^0.11.3",
     "marked": "^17.0.3",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",

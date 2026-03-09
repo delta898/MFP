@@ -59,6 +59,7 @@ copy_assets() {
     mkdir -p "$TARGET_DIR/config"
     mkdir -p "$TARGET_DIR/config/images"
     mkdir -p "$TARGET_DIR/scripts"
+    mkdir -p "$TARGET_DIR/data"
 
     if [ -f "config/config.json.sample" ]; then
         cp config/config.json.sample "$TARGET_DIR/config/config.json.sample"
