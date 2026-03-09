@@ -1669,14 +1669,48 @@ h2 {
 
 .quick-action-btn {
   width: 100%;
-  min-height: 104px;
+  min-height: 110px;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 12px 14px;
-  font-size: clamp(22px, 1.6vw, 28px);
+  padding: 12px 16px;
+  font-size: clamp(24px, 1.8vw, 32px);
   line-height: 1.2;
-  font-weight: 800;
-  border-radius: 12px;
-  letter-spacing: -0.01em;
+  font-weight: 900;
+  border-radius: 16px;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.02em;
+}
+
+.quick-action-btn:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  filter: brightness(1.1);
+}
+
+.quick-action-btn:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.btn-blog {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.btn-shopping {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.btn-settings {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.btn-logs {
+  background: linear-gradient(135deg, #64748b 0%, #334155 100%);
 }
 
 @media (max-width: 1240px) {
