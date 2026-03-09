@@ -240,8 +240,9 @@ function createSystemService(deps = {}) {
             return { status: 'ok', version: APP_VERSION };
         },
 
-        async checkUpdate({ updater }) {
-            return (await updater.checkForUpdate()) || { hasUpdate: false };
+        async checkUpdate({ updater, forceRaw }) {
+            const force = forceRaw === 'true' || forceRaw === true;
+            return (await updater.checkForUpdate({ force })) || { hasUpdate: false };
         },
 
         async applyUpdate({ updater }) {

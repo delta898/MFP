@@ -78,10 +78,16 @@ class Updater {
 
     /**
      * Check if a new version is available
+     * @param {Object} options - { force: boolean }
      */
-    async checkForUpdate() {
+    async checkForUpdate(options = {}) {
+        const force = options.force === true;
         const now = Date.now();
-        if (this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
+        if (!force && this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
+
+        if (force) {
+            Logger.info('🔄 [Updater] 강제 업데이트 체크 모드 활성화');
+        }
 
         // config.json의 USER_ROLE 설정(User/Tester/Developer)에 따라 판단
         const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
@@ -91,7 +97,7 @@ class Updater {
         const latestVersion = latest.tag_name.replace(/^v/, '');
         const isNewer = this.compareVersions(latestVersion, this.currentVersion) > 0;
 
-        if (!isNewer) {
+        if (!force && !isNewer) {
             Logger.info(`✅ [Updater] 현재 최신 버전(v${this.currentVersion})을 사용 중입니다.`);
             this.lastCheck = now;
             this.updateInfo = { hasUpdate: false, latestVersion };

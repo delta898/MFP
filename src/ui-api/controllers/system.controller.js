@@ -16,12 +16,15 @@ function createSystemController(deps = {}) {
             }
         },
 
-        async updateCheck({ requestId, method, res }) {
+        async updateCheck({ requestId, method, searchParams, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             try {
-                return sendSuccess(res, requestId, await service.checkUpdate({ updater }));
+                return sendSuccess(res, requestId, await service.checkUpdate({
+                    updater,
+                    forceRaw: searchParams?.get('force')
+                }));
             } catch (e) {
                 return toErrorResponse(res, requestId, 'UPDATE_CHECK_ERROR', '업데이트 확인에 실패했습니다.', e);
             }

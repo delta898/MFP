@@ -237,20 +237,30 @@ const systemLogRenderState = {
   lastRaw: ''
 };
 
-async function checkUpdate(isManual = false) {
+async function checkUpdate(isManual = false, isForce = false) {
   try {
-    if (isManual) showUiPopup('최신 버전을 확인하고 있습니다...');
+    if (isManual) {
+      showUiPopup(isForce ? '전체 환경을 다시 점검하며 강제 업데이트를 확인 중입니다...' : '최신 버전을 확인하고 있습니다...');
+    }
 
-    const info = await fetchJson('/api/v1/system/update/check');
+    const url = isForce ? '/api/v1/system/update/check?force=true' : '/api/v1/system/update/check';
+    const info = await fetchJson(url);
     if (info && info.hasUpdate) {
       uiUpdateInfo = info;
       const banner = document.getElementById('update-banner');
       const bannerText = document.getElementById('update-banner-text');
       if (banner && bannerText) {
-        bannerText.textContent = `새로운 버전(v${info.latestVersion})이 출시되었습니다!`;
+        bannerText.textContent = isForce
+          ? `강제 업데이트 준비 완료 (대상 버전: v${info.latestVersion})`
+          : `새로운 버전(v${info.latestVersion})이 출시되었습니다!`;
         banner.classList.remove('hidden');
       }
-      if (isManual) showUiPopup(`새로운 버전 v${info.latestVersion}을 찾았습니다!\n상단 알림 배너의 '지금 업데이트'를 눌러 진행하세요.`);
+      if (isManual) {
+        const msg = isForce
+          ? `현재 버전과 동일하더라도 업데이트가 가능합니다.\n상단 알림 배너의 '지금 업데이트'를 눌러 재설치를 진행하세요.`
+          : `새로운 버전 v${info.latestVersion}을 찾았습니다!\n상단 알림 배너의 '지금 업데이트'를 눌러 진행하세요.`;
+        showUiPopup(msg);
+      }
     } else {
       if (isManual) showUiPopup('현재 최신 버전을 사용 중입니다.');
     }
@@ -5633,10 +5643,16 @@ function bindActions() {
 
 window.addEventListener('DOMContentLoaded', () => {
   checkSetupBanner();
-  const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
-      checkUpdate(true);
+      checkUpdate(true, false);
+    });
+  }
+
+  const settingsForceUpdateBtn = document.getElementById('settings-force-update-btn');
+  if (settingsForceUpdateBtn) {
+    settingsForceUpdateBtn.addEventListener('click', () => {
+      checkUpdate(true, true);
     });
   }
 
