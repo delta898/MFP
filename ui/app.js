@@ -1898,6 +1898,12 @@ function updateBlogSelectionUi() {
   if (countText) countText.textContent = `${count}건 선택`;
 }
 
+function getPostStatusLabel(val) {
+  const norm = String(val || 'publish').trim().toLowerCase();
+  const map = { 'publish': '즉시 발행', 'draft': '임시 저장', 'schedule': '예약 발행' };
+  return map[norm] || val || '-';
+}
+
 function renderBlogTable(items) {
   const tbody = document.getElementById('blog-table-body');
   if (!tbody) return;
@@ -1920,7 +1926,8 @@ function renderBlogTable(items) {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     const category = escapeHtml(item.category || '');
-    const postStatus = escapeHtml(item.postStatus || 'publish');
+    const postStatusRaw = item.postStatus || 'publish';
+    const postStatus = escapeHtml(getPostStatusLabel(postStatusRaw));
     const scheduleDate = escapeHtml(item.scheduleDate || '');
     const status = escapeHtml(item.status || '');
     const imageGeneration = Boolean(item.image_gen);
@@ -2424,7 +2431,8 @@ function renderBlogShoppingTable(items) {
     const runtimeLog = escapeHtml(item.runtimeLog || '');
     const status = escapeHtml(item.status || '');
     const publishedAt = escapeHtml(item.publishedAt || '');
-    const postStatus = escapeHtml(item.postStatus || 'publish');
+    const postStatusRaw = item.postStatus || 'publish';
+    const postStatus = escapeHtml(getPostStatusLabel(postStatusRaw));
     const runningClass = runtimeLog ? 'running-row' : '';
     return `
       <tr class="${runningClass} clickable-row" data-row-index="${item.rowIndex}" title="더블클릭으로 편집" style="cursor:pointer;">
