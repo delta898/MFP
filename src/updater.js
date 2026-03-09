@@ -91,9 +91,16 @@ class Updater {
         const latestVersion = latest.tag_name.replace(/^v/, '');
         const isNewer = this.compareVersions(latestVersion, this.currentVersion) > 0;
 
+        if (!isNewer) {
+            Logger.info(`✅ [Updater] 현재 최신 버전(v${this.currentVersion})을 사용 중입니다.`);
+            this.lastCheck = now;
+            this.updateInfo = { hasUpdate: false, latestVersion };
+            return this.updateInfo;
+        }
+
         // 중요: 에셋(빌드물)이 아직 업로드 중일 수 있으므로, 현재 플랫폼에 맞는 파일이 있는지 확인
         const matchingAsset = this.getPlatformAsset(latest.assets);
-        const hasUpdate = isNewer && !!matchingAsset;
+        const hasUpdate = !!matchingAsset;
 
         this.lastCheck = now;
         this.updateInfo = {
