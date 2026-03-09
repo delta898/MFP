@@ -228,13 +228,14 @@ for platform_dir in */; do
 done
 cd -
 
-# ---------------------------------------------------
-# 6. update.json 생성 (자가 업데이트 지원용)
-# ---------------------------------------------------
-echo ""
-echo "📄 자가 업데이트용 update.json 생성 중..."
+# 📄 자가 업데이트용 update.json 생성 중...
 UPDATE_JSON="dist/update.json"
 PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# 📂 [Optimization] ZIP 파일들을 dist/ 루트로 이동 (구조 단순화)
+echo "📂 ZIP 파일들을 dist/ 루트로 모으는 중..."
+# 각 플랫폼 하위 폴더에 생성된 ZIP들을 dist/ 바로 아래로 이동시킵니다.
+mv dist/*/*.zip dist/ 2>/dev/null || true
 
 cat <<EOF > "${UPDATE_JSON}"
 {
@@ -245,16 +246,16 @@ cat <<EOF > "${UPDATE_JSON}"
 EOF
 
 FIRST_ASSET=true
-# dist 하위 폴더들에 있는 모든 ZIP 파일을 찾아서 에셋 목록 구성
+# dist 루트에 있는 모든 ZIP 파일을 기반으로 에셋 목록 구성
 cd dist
-for zip_file in */*.zip; do
+for zip_file in *.zip; do
+    if [ ! -f "$zip_file" ]; then continue; fi
     if [ "$FIRST_ASSET" = "false" ]; then
         echo "," >> "../${UPDATE_JSON}"
     fi
     FIRST_ASSET=false
     
     FILE_NAME=$(basename "$zip_file")
-    # browser_download_url은 파일명만 기록하여 Updater에서 상대 경로로 처리하게 함
     echo "    {" >> "../${UPDATE_JSON}"
     echo "      \"name\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
     echo "      \"browser_download_url\": \"${FILE_NAME}\"" >> "../${UPDATE_JSON}"
@@ -268,7 +269,20 @@ cat <<EOF >> "${UPDATE_JSON}"
 EOF
 echo "   ✅ ${UPDATE_JSON} 생성 완료"
 
+# 🚀 [Deploy] 서버 자동 업로드 (SCP)
+UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/dist/BlogGenius/"
+echo ""
+echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
+# ZIP 파일들과 update.json을 한 번에 업로드
+scp dist/*.zip "${UPDATE_JSON}" "${UPLOAD_TARGET}"
+
+if [ $? -eq 0 ]; then
+    echo "   ✅ 서버 업로드 완료!"
+else
+    echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
+fi
+
 echo ""
 echo "---------------------------------------------------"
 echo "🎉 모든 작업이 완료되었습니다!"
-echo "📂 dist 폴더 내부의 각 플랫폼 폴더를 확인하세요."
+echo "📂 dist 폴더의 내용을 확인하세요."
