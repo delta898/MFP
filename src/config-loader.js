@@ -400,6 +400,8 @@ const CONFIG = {
     BROWSER_CHANNEL: structuredConfig.platforms.naver.browser_channel === 'auto' ? undefined : structuredConfig.platforms.naver.browser_channel,
 
     // 🔧 [System]
+    UPDATE_SERVER_TYPE: structuredConfig.system.update_server_type || Constants.DEFAULT_UPDATE_SERVER_TYPE || 'github',
+    CUSTOM_UPDATE_CHECK_URL: structuredConfig.system.custom_update_check_url || '',
     UPDATE_MIRROR_REPO: structuredConfig.system.update_mirror_repo || Constants.DEFAULT_UPDATE_MIRROR_REPO,
     NOTIFY_TELEGRAM_ENABLED: structuredConfig.notification?.telegram?.enabled || false,
     NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',

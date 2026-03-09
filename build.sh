@@ -228,6 +228,46 @@ for platform_dir in */; do
 done
 cd -
 
+# ---------------------------------------------------
+# 6. update.json 생성 (자가 업데이트 지원용)
+# ---------------------------------------------------
+echo ""
+echo "📄 자가 업데이트용 update.json 생성 중..."
+UPDATE_JSON="dist/update.json"
+PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+cat <<EOF > "${UPDATE_JSON}"
+{
+  "tag_name": "v${VERSION}",
+  "published_at": "${PUBLISHED_AT}",
+  "body": "BlogGenius v${VERSION} Release (Built at $(date))",
+  "assets": [
+EOF
+
+FIRST_ASSET=true
+# dist 하위 폴더들에 있는 모든 ZIP 파일을 찾아서 에셋 목록 구성
+cd dist
+for zip_file in */*.zip; do
+    if [ "$FIRST_ASSET" = "false" ]; then
+        echo "," >> "../${UPDATE_JSON}"
+    fi
+    FIRST_ASSET=false
+    
+    FILE_NAME=$(basename "$zip_file")
+    # browser_download_url은 파일명만 기록하여 Updater에서 상대 경로로 처리하게 함
+    echo "    {" >> "../${UPDATE_JSON}"
+    echo "      \"name\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
+    echo "      \"browser_download_url\": \"${FILE_NAME}\"" >> "../${UPDATE_JSON}"
+    echo "    }" >> "../${UPDATE_JSON}"
+done
+cd -
+
+cat <<EOF >> "${UPDATE_JSON}"
+  ]
+}
+EOF
+echo "   ✅ ${UPDATE_JSON} 생성 완료"
+
 echo ""
 echo "---------------------------------------------------"
 echo "🎉 모든 작업이 완료되었습니다!"

@@ -104,6 +104,8 @@
   },
   "system": {
     "update_channel": "stable",
+    "update_server_type": "github",
+    "custom_update_check_url": "https://your-server.com/update.json",
     "update_mirror_repo": "delta898/NaverAutoBlog-Releases"
   },
   "notification": {

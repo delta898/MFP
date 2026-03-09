@@ -14,6 +14,8 @@ class Updater {
     constructor() {
         this.currentVersion = APP_VERSION;
         this.repo = CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO;
+        this.updateServerType = CONFIG.UPDATE_SERVER_TYPE || 'github';
+        this.customUpdateCheckUrl = CONFIG.CUSTOM_UPDATE_CHECK_URL;
         this.appRootDir = CONFIG.APP_ROOT_DIR;
         this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
         this.isUpdating = false;
@@ -25,18 +27,30 @@ class Updater {
     }
 
     /**
-     * Get the latest release information from GitHub API based on USER_ROLE
+     * Get the latest release information from the server (GitHub or Custom)
      */
     async getLatestRelease(userRole = 'User') {
         try {
-            const url = `https://api.github.com/repos/${this.repo}/releases`;
-            const response = await axios.get(url, {
-                headers: { 'User-Agent': 'BlogGenius-Updater' },
-                timeout: 5000
-            });
+            let releases = [];
 
-            let releases = Array.isArray(response.data) ? response.data : [];
-            if (releases.length === 0) return null;
+            if (this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
+                Logger.info(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
+                const response = await axios.get(this.customUpdateCheckUrl, {
+                    timeout: 5000
+                });
+                // 단일 객체 혹은 배열 모두 지원
+                releases = Array.isArray(response.data) ? response.data : [response.data];
+            } else {
+                // GitHub API
+                const url = `https://api.github.com/repos/${this.repo}/releases`;
+                const response = await axios.get(url, {
+                    headers: { 'User-Agent': 'BlogGenius-Updater' },
+                    timeout: 5000
+                });
+                releases = Array.isArray(response.data) ? response.data : [];
+            }
+
+            if (releases.length === 0 || !releases[0]) return null;
 
             // 추가: GitHub API 결과가 가끔 사전식(dev9 > dev10)으로 오기 때문에, 세부 버전 규칙으로 전체 정렬
             releases.sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
@@ -213,9 +227,21 @@ class Updater {
             if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
             fs.mkdirSync(extractDir, { recursive: true });
 
-            Logger.info(`📂 [Updater] 다운로드 시작: ${asset.browser_download_url}`);
+            let downloadUrl = asset.browser_download_url;
+            // 커스텀 서버일 경우 상대 경로(파일명만 있는 경우 등) 지원
+            if (!/^https?:\/\//i.test(downloadUrl) && this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
+                try {
+                    const baseUrl = new URL('.', this.customUpdateCheckUrl).href;
+                    downloadUrl = new URL(downloadUrl, baseUrl).href;
+                    Logger.info(`🔗 [Updater] 상대 경로 다운로드 URL 변환: ${downloadUrl}`);
+                } catch (e) {
+                    Logger.warn(`⚠️ [Updater] URL 변환 실패: ${e.message}`);
+                }
+            }
+
+            Logger.info(`📂 [Updater] 다운로드 시작: ${downloadUrl}`);
             const response = await axios({
-                url: asset.browser_download_url,
+                url: downloadUrl,
                 method: 'GET',
                 responseType: 'stream'
             });

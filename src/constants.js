@@ -57,6 +57,7 @@ module.exports = {
 
     // 🔄 업데이트 관련 설정
     DEFAULT_UPDATE_MIRROR_REPO: 'delta898/NaverAutoBlog-Releases',
+    DEFAULT_UPDATE_SERVER_TYPE: 'github',
     UPDATE_CHECK_INTERVAL_MS: 1000 * 60 * 60 * 6, // 6시간마다 체크
     UPDATE_TEMP_DIR: 'tmp_update'
 };
