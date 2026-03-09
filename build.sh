@@ -199,7 +199,7 @@ build_platform() {
             --out=dist/gui-temp --overwrite \
             --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
             $ICON_OPT \
-            --ignore="^/([.]git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs)($|/)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
+            --ignore="^/([.]git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs|tmp|tmp_update|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
             --quiet
 
         # GUI 결과물 이동
