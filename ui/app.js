@@ -2485,7 +2485,7 @@ async function loadBlogShopping(options = {}) {
 }
 
 async function runShoppingBatchAction() {
-  if (!guardUiConfigReady('선택 글감 발행')) return;
+  if (!guardUiConfigReady('선택 글감 포스팅')) return;
   const resultBox = document.getElementById('shopping-action-result');
   if (!resultBox) return;
 
@@ -2759,7 +2759,7 @@ async function startShoppingInlineEdit(cell) {
 }
 
 async function runBlogBatchAction() {
-  if (!guardUiConfigReady('선택 글감 발행')) return;
+  if (!guardUiConfigReady('선택 글감 포스팅')) return;
   const resultBox = document.getElementById('blog-action-result');
   if (!resultBox) return;
 
@@ -4341,7 +4341,7 @@ async function saveBlogAutoSettings() {
 
     setBlogAutoResultText([
       '저장 완료',
-      '- 자동발행 설정이 반영되었습니다.',
+      '- 자동 포스팅 설정이 반영되었습니다.',
       '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
@@ -4458,7 +4458,7 @@ async function saveShoppingAutoSettings() {
     if (timeEl) timeEl.value = String(savedFields.SHOPPING_AUTO_TIME || '07:50');
     setShoppingAutoResultText([
       '저장 완료',
-      '- 쇼핑 자동발행 설정이 반영되었습니다.',
+      '- 쇼핑 자동 포스팅 설정이 반영되었습니다.',
       '- 수동 실행으로 즉시 동작을 검증할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
@@ -4722,7 +4722,7 @@ function bindActions() {
     }
 
     try {
-      const actionText = mode === 'append_and_publish' ? '글감 등록 & 발행' : '글감 등록';
+      const actionText = mode === 'append_and_publish' ? '글감 저장 & 포스팅' : '글감 저장';
       await runWithLiveProgress({
         targetEl: resultEl,
         requestLabel: actionText,
@@ -4827,7 +4827,7 @@ function bindActions() {
     }
 
     try {
-      const actionText = mode === 'append_and_publish' ? '쇼핑 글감 등록 & 발행' : '쇼핑 글감 등록';
+      const actionText = mode === 'append_and_publish' ? '쇼핑 글감 저장 & 포스팅' : '쇼핑 글감 저장';
       await runWithLiveProgress({
         targetEl: shoppingQuickResultEl,
         requestLabel: actionText,
