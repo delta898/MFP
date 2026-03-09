@@ -23,7 +23,22 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
-## [0.9.9-dev1] - 2026-03-09
+## [0.9.9-dev2] - 2026-03-09
+### Added
+- **Capability-Based AI Architecture (기능 기반 AI 구조)**:
+  - 기존의 단일 Intent(의도) 파싱 방식에서 벗어나, AI가 `register_topic`, `publish_article`, `update_config`, `run_job`, `query_data` 등의 모듈화된 **기능(Action) 배열**을 반환하도록 핵심 로직(`Core.parseTelegramRequest`)을 전면 재설계.
+  - "글감만 등록해줘"와 "네이버에 바로 발행해줘" 등 복합적인 명령을 `[Action1, Action2]` 형태로 완벽히 분리 및 동시 처리 지원.
+- **텔레그램 인터랙티브 제어 (Interactive Toggles)**:
+  - AI가 분석한 발행 조건을 텔레그램 인라인 키보드(버튼)를 통해 런타임에 즉각 수정할 수 있는 기능 도입.
+  - `[🚀 자동 발행: ✅/❌]`: 글감을 등록만 할지, 즉시 발행 파이프라인까지 태울지 버튼 클릭 한 번으로 토글 가능.
+  - `[🖼️ 이미지: ✅/❌]`, `[🔍 외부참고: ✅/❌]`: 이미지 생성 및 외부 문서 참고 여부를 발행 전 실시간 제어.
+
+### Fixed
+- **KuzuDB 안정성 및 동시성 문제 해결**:
+  - 기존 파일 기반 DB(`memory_db`)와 숨김 폴더(`.kuzu`) 방식이 혼용되어 발생하던 충돌(`IO Error`)을 제거하고, 순수 디렉터리 기반(`data/memory_db/`)으로 아키텍처 완전 이관.
+  - `KuzuQueue` 전역 싱글톤 큐를 도입하여 여러 컴포넌트(Telegram, UI Server, Auto Publisher)가 동시에 DB에 접근할 때 발생하는 잠금(Lock) 에러 해소.
+
+
 ### Added
 - **Naver 블로그 자동 발행 견고성 강화**:
   - **예약 발행 정밀도 개선**: 네이버 시스템 제약(10분 단위)에 맞춰 예약 시 분 단위를 자동으로 내림 보정(Floor)하는 로직 도입 (예: 12분 -> 10분).

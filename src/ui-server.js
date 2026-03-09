@@ -2253,16 +2253,21 @@ async function executeBlogRowAction(requestBody, options = {}) {
         ? requestBody.headless : autoSettingsSnapshot.BLOG_AUTO_HEADLESS;
 
     // Resolve platform-specific categories if N:..., W:... format is used
-    let naverCat = '';
-    let wpCat = '';
-    if (effectiveCategory.includes('N:') || effectiveCategory.includes('W:')) {
-        const nMatch = effectiveCategory.match(/N:([^,]*)/);
-        const wMatch = effectiveCategory.match(/W:([^,]*)/);
-        naverCat = nMatch ? nMatch[1].trim() : '';
-        wpCat = wMatch ? wMatch[1].trim() : '';
-    } else {
-        naverCat = effectiveCategory;
-        wpCat = effectiveCategory;
+    // Priority: Explicit rowOptions field > N:..., W:... string > general category
+    let naverCat = getVal('naver_category', '');
+    let wpCat = getVal('wordpress_category', '');
+
+    if (!naverCat || !wpCat) {
+        if (effectiveCategory.includes('N:') || effectiveCategory.includes('W:')) {
+            const nMatch = effectiveCategory.match(/N:([^,]*)/);
+            const wMatch = effectiveCategory.match(/W:([^,]*)/);
+            if (!naverCat) naverCat = nMatch ? nMatch[1].trim() : '';
+            if (!wpCat) wpCat = wMatch ? wMatch[1].trim() : '';
+        }
+
+        // Fallback to general category if still missing
+        if (!naverCat) naverCat = effectiveCategory;
+        if (!wpCat) wpCat = effectiveCategory;
     }
 
     const publishParams = {

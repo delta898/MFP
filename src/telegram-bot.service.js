@@ -1,6 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const KuzuService = require('./kuzu-service');
 
 class TelegramBotService {
     static bot = null;
@@ -56,6 +57,11 @@ class TelegramBotService {
         }
 
         try {
+            // [Persistent Memory] Kuzu DB 초기화
+            KuzuService.initialize().catch(err => {
+                Logger.error(`❌ [TelegramBot] Kuzu 서비스 초기화 실패: ${err.message}`);
+            });
+
             // Polling 방식으로 봇 인스턴스 생성
             this.bot = new TelegramBot(botToken, { polling: true });
             this.isInitialized = true;
@@ -102,48 +108,64 @@ class TelegramBotService {
                     { parse_mode: 'Markdown' }
                 );
 
-                // AI 파싱 (맥락 정보 포함)
+                // AI 파싱 (Kuzu 영구 메모리 맥락 정보 포함)
                 const Core = require('./core');
-                const context = this.chatContext.get(chatId) || null;
+
+                // 1. Kuzu에서 과거 인사이트 및 최근 대화 히스토리 로드
+                const userInsight = await KuzuService.getUserInsight(chatId);
+                const chatHistory = await KuzuService.getHistory(chatId, 5); // 최근 5개 대화
+
+                const context = {
+                    last_topic: this.chatContext.get(chatId) || null,
+                    user_insight: userInsight,
+                    history: chatHistory
+                };
+
                 const parsedData = await Core.parseTelegramRequest(text, context);
-                const { intent, data } = parsedData;
+                const { actions, meta } = parsedData;
+
+                // For simple message recording, decide a primary intent
+                let primaryIntent = 'UNKNOWN';
+                if (actions && actions.length > 0) {
+                    if (actions.some(a => a.action === 'register_topic' || a.action === 'publish_article')) primaryIntent = 'PUBLISH';
+                    else if (actions.some(a => a.action === 'update_config')) primaryIntent = 'UPDATE_CONFIG';
+                    else if (actions.some(a => a.action === 'run_job')) primaryIntent = 'RUN_JOB';
+                    else if (actions.some(a => a.action === 'query_data')) primaryIntent = 'QUERY_DATA';
+                }
+
+                // 2. 메시지 기록 (추후 분석을 위해 인텐트 포함)
+                await KuzuService.recordMessage(chatId, text, primaryIntent);
+
+                if (!actions || actions.length === 0) {
+                    await this.bot.sendMessage(chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?');
+                    return;
+                }
+
+                const hasRegister = actions.some(a => a.action === 'register_topic');
+                const hasPublish = actions.some(a => a.action === 'publish_article');
+                const hasConfig = actions.some(a => a.action === 'update_config');
+                const hasJob = actions.some(a => a.action === 'run_job');
+                const hasQuery = actions.some(a => a.action === 'query_data');
 
                 // 인텐트별 분기 처리 (Dispatcher)
-                if (intent === 'PUBLISH') {
-                    const optionsObj = data.options || {};
-                    let platformsStr = (data.platforms || ['naver']).map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
-                    let imgGenIcon = optionsObj.image_gen !== false ? '✅' : '❌';
-                    let extRefIcon = optionsObj.external_reference !== false ? '✅' : '❌';
+                if (hasRegister || hasPublish) {
+                    const confirmMsg = this.getPublishConfirmMessage(parsedData);
+                    const keyboard = this.getPublishConfirmKeyboard(parsedData);
 
-                    let confirmMsg = `✨ *분석 완료!* 다음 조건으로 발행을 준비할까요?\n\n` +
-                        `🎯 *주제:* ${data.theme}\n` +
-                        `🔑 *키워드:* ${(data.keywords || []).join(', ') || '없음'}\n` +
-                        `🏷️ *발행 대상:* ${platformsStr}\n` +
-                        `🖼️ *이미지 생성:* ${imgGenIcon}\n` +
-                        `🔍 *외부 자료 참고:* ${extRefIcon}\n`;
-
-                    if (optionsObj.schedule_date) confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
-                    if (optionsObj.instruction) confirmMsg += `📝 *추가 지시:* ${optionsObj.instruction}\n`;
-                    if (optionsObj.category) confirmMsg += `📁 *카테고리:* ${optionsObj.category}\n`;
-                    if (optionsObj.post_status === 'draft') confirmMsg += `📌 *발행 옵션:* 임시저장(Draft)\n`;
-
-                    const options = {
+                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, {
                         parse_mode: 'Markdown',
-                        reply_markup: JSON.stringify({
-                            inline_keyboard: [
-                                [{ text: '✅ 네, 진행해 주세요', callback_data: 'publish_confirm' }],
-                                [{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]
-                            ]
-                        })
-                    };
+                        reply_markup: JSON.stringify({ inline_keyboard: keyboard })
+                    });
 
-                    const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+                    // [Universal Memory] 에이전트 답변 기록
+                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
-
-                } else if (intent === 'UPDATE_CONFIG') {
+                } else if (hasConfig) {
                     // 설정 변경은 중요하므로 확인 절차 거침
-                    const updates = data.config_updates || {};
+                    const configAction = actions.find(a => a.action === 'update_config');
+                    const updates = configAction.params?.config_updates || {};
                     let summary = '';
                     for (const [k, v] of Object.entries(updates)) {
                         summary += `• \`${k}\` ➔ \`${v}\`\n`;
@@ -160,12 +182,17 @@ class TelegramBotService {
                         })
                     };
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+
+                    // [Universal Memory] 에이전트 답변 기록
+                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
 
-                } else if (intent === 'RUN_JOB') {
+                } else if (hasJob) {
                     // 작업 실행 (예: 트렌드 수집)
-                    const jobName = data.job_name || '알 수 없는 작업';
+                    const jobAction = actions.find(a => a.action === 'run_job');
+                    const jobName = jobAction.params?.job_name || '알 수 없는 작업';
                     const confirmMsg = `🚀 *시스템 작업을 실행할까요?*\n\n작업: \`${jobName}\`\n\n(완료 후 알림을 보내드릴게요)`;
                     const options = {
                         parse_mode: 'Markdown',
@@ -177,13 +204,18 @@ class TelegramBotService {
                         })
                     };
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
+
+                    // [Universal Memory] 에이전트 답변 기록
+                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
 
-                } else if (intent === 'QUERY_DATA') {
+                } else if (hasQuery) {
                     // 데이터 조회는 즉시 실행
+                    const queryAction = actions.find(a => a.action === 'query_data');
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
-                    await this.handleQueryIntent(chatId, data);
+                    await this.handleQueryIntent(chatId, queryAction.params || {});
                 }
 
             } catch (err) {
@@ -214,79 +246,147 @@ class TelegramBotService {
                         chat_id: chatId,
                         message_id: messageId
                     });
+                } else if (data === 'toggle_image' || data === 'toggle_extref' || data === 'toggle_autotrigger') {
+                    const parsedData = this.pendingRequests.get(requestKey);
+                    if (!parsedData || !parsedData.actions) return;
+
+                    const actions = parsedData.actions;
+                    const registerAction = actions.find(a => a.action === 'register_topic');
+                    if (!registerAction && data !== 'toggle_autotrigger') return;
+
+                    const optionsObj = registerAction ? (registerAction.params.options || (registerAction.params.options = {})) : {};
+                    const explicitParams = parsedData.meta?.explicit_params || [];
+
+                    if (data === 'toggle_image') {
+                        optionsObj.image_gen = optionsObj.image_gen === false ? true : false;
+                        if (!explicitParams.includes('image_gen')) explicitParams.push('image_gen');
+                    } else if (data === 'toggle_extref') {
+                        optionsObj.external_reference = optionsObj.external_reference === false ? true : false;
+                        if (!explicitParams.includes('external_reference')) explicitParams.push('external_reference');
+                    } else if (data === 'toggle_autotrigger') {
+                        const publishIdx = actions.findIndex(a => a.action === 'publish_article');
+                        if (publishIdx >= 0) {
+                            actions.splice(publishIdx, 1);
+                        } else {
+                            actions.push({ action: 'publish_article', params: { target: 'all' } });
+                        }
+                    }
+
+                    if (!parsedData.meta) parsedData.meta = {};
+                    parsedData.meta.explicit_params = explicitParams;
+
+                    const newMsg = this.getPublishConfirmMessage(parsedData);
+                    const newKeyboard = this.getPublishConfirmKeyboard(parsedData);
+
+                    await this.bot.editMessageText(newMsg, {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        parse_mode: 'Markdown',
+                        reply_markup: JSON.stringify({ inline_keyboard: newKeyboard })
+                    });
                 } else if (data === 'publish_confirm') {
                     const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData || !parsedData.data) {
+                    if (!parsedData || !parsedData.actions) {
                         await this.bot.answerCallbackQuery(query.id, { text: '세션이 만료되었거나 이미 처리된 요청입니다.', show_alert: true });
                         return;
                     }
+
+                    const actions = parsedData.actions;
+                    const registerAction = actions.find(a => a.action === 'register_topic');
+                    const hasPublish = actions.some(a => a.action === 'publish_article');
 
                     const Utils = require('./utils');
                     const axios = require('axios');
                     const CONFIG = require('./config-loader');
 
-                    const newTopics = [];
-                    const pData = parsedData.data;
-                    // 플랫폼별로 분리해서 행 생성
-                    const platforms = pData.platforms || ['naver'];
-                    for (const p of platforms) {
-                        newTopics.push({
-                            subject: pData.theme,
-                            keywords: pData.keywords,
-                            options: {
-                                ...pData.options,
-                                platforms: [p.toLowerCase().includes('wordpress') ? 'wordpress' : 'naver']
-                            },
-                            source: 'telegram'
-                        });
-                    }
+                    let addedRowIndices = [];
 
-                    // SpreadSheet 에 등록 ('발행 준비 완료' 상태로)
-                    const appendRes = await Utils.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
-                    const addedRowIndices = appendRes?.rowIndices || [];
+                    if (registerAction) {
+                        const newTopics = [];
+                        const pData = registerAction.params || {};
+                        // 플랫폼별로 분리해서 행 생성
+                        const platforms = pData.platforms || ['naver'];
+                        for (const p of platforms) {
+                            const isWP = p.toLowerCase().includes('wordpress');
+                            const targetPlatform = isWP ? 'wordpress' : 'naver';
 
-                    // [Context Store] 성공적으로 등록된 주제를 맥락 메모리에 저장
-                    if (pData.theme) {
-                        this.chatContext.set(chatId, pData.theme);
-                        Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
+                            // 플랫폼별 카테고리 결정 (naver_category/wordpress_category 우선, 없으면 공통 category)
+                            const platformCategory = isWP
+                                ? (pData.options?.wordpress_category || pData.options?.category || '')
+                                : (pData.options?.naver_category || pData.options?.category || '');
+
+                            newTopics.push({
+                                subject: pData.theme || '주제 없음',
+                                keywords: pData.keywords || [],
+                                category: platformCategory,
+                                options: {
+                                    ...(pData.options || {}),
+                                    platforms: [targetPlatform]
+                                },
+                                source: 'telegram',
+                                chatId: chatId // [Universal Memory] Kuzu 전파용
+                            });
+                        }
+
+                        // SpreadSheet 에 등록 ('발행 준비 완료' 상태로)
+                        // (Utils 내부에서 Kuzu 에도 자동으로 기록함)
+                        const appendRes = await Utils.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
+                        addedRowIndices = appendRes?.rowIndices || [];
+
+                        if (pData.theme) {
+                            this.chatContext.set(chatId, pData.theme);
+                            Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
+
+                            // [Insight] 신규 데이터가 쌓였으므로 인사이트 생성 시도 (백그라운드)
+                            const InsightEngine = require('./insight-engine');
+                            InsightEngine.generateInsight(chatId).catch(() => { });
+                        }
                     }
 
                     this.pendingRequests.delete(requestKey);
 
-                    await this.bot.editMessageText(this.getRandomMessage('topic_added'), {
-                        chat_id: chatId,
-                        message_id: messageId
-                    });
-
-                    // 향후 추가될 강제 트리거 등 위치 (Phase 4: 발행 파이프라인 트리거)
-                    try {
-                        const port = CONFIG.UI_SERVER_PORT || 4577;
-
-                        // 현재 상태 확인 (다른 발행이 돌고 있는지 체크)
-                        const statusRes = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
-                        const isRunning = statusRes.data?.data?.running === true;
-
-                        if (isRunning) {
-                            await this.bot.sendMessage(chatId, this.getRandomMessage('busy'));
-                        } else if (addedRowIndices.length > 0) {
-                            // 발행 트리거
-                            await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
-                            // 백그라운드로 던짐 (await 하지 않음)
-                            axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/run`, {
-                                targetRowIndices: addedRowIndices,
-                                settingsOverrides: {
-                                    PUBLISH_AUTO_HEADLESS: true // 텔레그램 요청은 가급적 Headless 모드로 조용히 실행
-                                }
-                            }).catch(e => {
-                                Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패: ${e.message}`);
-                            });
+                    await this.bot.editMessageText(
+                        hasPublish ? this.getRandomMessage('topic_added') : '✅ 글감이 시트 대기열에 성공적으로 등록되었습니다!',
+                        {
+                            chat_id: chatId,
+                            message_id: messageId
                         }
-                    } catch (apiErr) {
-                        Logger.error(`❌ [TelegramBot] 상태 확인 또는 발행 루틴 호출 실패: ${apiErr.message}`);
+                    );
+
+                    if (hasPublish) {
+                        try {
+                            const port = CONFIG.UI_SERVER_PORT || 4577;
+
+                            // 현재 상태 확인 (다른 발행이 돌고 있는지 체크)
+                            const statusRes = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
+                            const isRunning = statusRes.data?.data?.running === true;
+
+                            if (isRunning) {
+                                await this.bot.sendMessage(chatId, this.getRandomMessage('busy'));
+                            } else {
+                                // 발행 트리거
+                                await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
+                                // 백그라운드로 던짐 (await 하지 않음)
+                                const postData = {
+                                    settingsOverrides: {
+                                        PUBLISH_AUTO_HEADLESS: true // 텔레그램 요청은 가급적 Headless 모드로 조용히 실행
+                                    }
+                                };
+                                if (addedRowIndices.length > 0) {
+                                    postData.targetRowIndices = addedRowIndices;
+                                }
+                                axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/run`, postData).catch(e => {
+                                    Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패: ${e.message}`);
+                                });
+                            }
+                        } catch (apiErr) {
+                            Logger.error(`❌ [TelegramBot] 상태 확인 또는 발행 루틴 호출 실패: ${apiErr.message}`);
+                        }
                     }
                 } else if (data === 'config_confirm') {
                     const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData || !parsedData.data || !parsedData.data.config_updates) {
+                    const configAction = parsedData?.actions?.find(a => a.action === 'update_config');
+                    if (!parsedData || !configAction || !configAction.params?.config_updates) {
                         await this.bot.answerCallbackQuery(query.id, { text: '설정 정보가 없거나 세션이 만료되었습니다.', show_alert: true });
                         return;
                     }
@@ -389,9 +489,11 @@ class TelegramBotService {
      */
     static async handleQueryIntent(chatId, data) {
         const queryType = data.query_type || 'status';
+        const params = data.query_params || {};
         const axios = require('axios');
         const CONFIG = require('./config-loader');
         const port = CONFIG.UI_SERVER_PORT || 4577;
+        const KuzuService = require('./kuzu-service');
 
         try {
             if (queryType === 'status' || queryType === 'system') {
@@ -403,6 +505,50 @@ class TelegramBotService {
                     `• *오늘 발행량:* ${s.cycleCount || 0}건\n` +
                     `• *메시지:* ${this.escapeMarkdown(s.message || '정상')}`;
                 await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
+
+            } else if (queryType === 'topics') {
+                const results = await KuzuService.getTopicSummary(chatId, params);
+                if (results.length === 0) {
+                    await this.bot.sendMessage(chatId, "📝 아직 기록된 토픽이 없습니다.");
+                } else {
+                    let msg = `📝 *최근 등록된 토픽 (${results.length}건)*\n\n`;
+                    results.forEach(t => {
+                        msg += `• [${t.category || '일반'}] *${t.subject}*\n  (소스: ${t.source})\n`;
+                    });
+                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+                }
+
+            } else if (queryType === 'shopping') {
+                const results = await KuzuService.getShoppingSummary(chatId, params);
+                if (results.length === 0) {
+                    await this.bot.sendMessage(chatId, "🛍️ 등록된 쇼핑 아이템이 없습니다.");
+                } else {
+                    let msg = `🛍️ *최근 쇼핑 아이템 (${results.length}건)*\n\n`;
+                    results.forEach(s => {
+                        msg += `• *${s.name}*\n  가격: ${s.price} | 몰: ${s.mall}\n`;
+                    });
+                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+                }
+
+            } else if (queryType === 'stats') {
+                const s = await KuzuService.getGlobalStats();
+                const msg = `📈 *지능형 메모리 통계*\n\n` +
+                    `• 전체 사용자: ${s.users}명\n` +
+                    `• 총 대화량: ${s.messages}건\n` +
+                    `• 등록된 토픽: ${s.topics}건\n` +
+                    `• 쇼핑 아이템: ${s.shopping}건\n\n` +
+                    `_모든 데이터는 Kuzu Graph DB에 안전하게 기록되고 있습니다._`;
+                await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+
+            } else if (queryType === 'insight') {
+                const insight = await KuzuService.getUserInsight(chatId);
+                if (!insight) {
+                    await this.bot.sendMessage(chatId, "🤔 아직 분석된 성향 정보가 부족합니다. 대화를 조금 더 나누어 볼까요?");
+                } else {
+                    const msg = `✨ *에이전트가 파악한 사용자 인사이트*\n\n"${insight}"`;
+                    await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+                }
+
             } else {
                 await this.bot.sendMessage(chatId, `ℹ️ 요청하신 \`${queryType}\` 조회 기능은 현재 준비 중입니다. 곧 만나보실 수 있어요!`);
             }
@@ -474,6 +620,72 @@ class TelegramBotService {
             .replace(/\*/g, '\\*')
             .replace(/\[/g, '\\[')
             .replace(/`/g, '\\`');
+    }
+
+    /**
+     * 발행 정보 메시지 생성 (미지정 설정 하이라이트 포함)
+     */
+    static getPublishConfirmMessage(parsedData) {
+        const actions = parsedData.actions || [];
+        const meta = parsedData.meta || {};
+        const explicitParams = meta.explicit_params || [];
+
+        const registerAction = actions.find(a => a.action === 'register_topic');
+        const data = registerAction ? (registerAction.params || {}) : {};
+        const optionsObj = data.options || {};
+        const hasPublish = actions.some(a => a.action === 'publish_article');
+
+        let platformsStr = (data.platforms || ['naver']).map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
+        const imgGenVal = optionsObj.image_gen !== false;
+        const extRefVal = optionsObj.external_reference !== false;
+
+        let imgGenIcon = imgGenVal ? '✅' : '❌';
+        let extRefIcon = extRefVal ? '✅' : '❌';
+        let publishIcon = hasPublish ? '✅' : '❌';
+
+        // 사용자가 명시하지 않은 경우 힌트 추가
+        const imgHint = explicitParams.includes('image_gen') ? '' : ' 💡 _(기본 설정)_';
+        const extRefHint = explicitParams.includes('external_reference') ? '' : ' 💡 _(기본 설정)_';
+
+        let confirmMsg = `✨ *분석 완료!* 다음 조건으로 준비할까요?\n\n` +
+            `🎯 *주제:* ${this.escapeMarkdown(data.theme || '주제 없음')}\n` +
+            `🔑 *키워드:* ${(data.keywords || []).map(k => this.escapeMarkdown(k)).join(', ') || '없음'}\n` +
+            `🏷️ *적용 대상:* ${platformsStr}\n` +
+            `🖼️ *이미지 생성:* ${imgGenIcon}${imgHint}\n` +
+            `🔍 *외부 자료 참고:* ${extRefIcon}${extRefHint}\n` +
+            `🚀 *자동 발행:* ${publishIcon}\n`;
+
+        if (optionsObj.schedule_date) confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
+        if (optionsObj.instruction) confirmMsg += `📝 *추가 지시:* ${this.escapeMarkdown(optionsObj.instruction)}\n`;
+        if (optionsObj.category) confirmMsg += `📁 *카테고리:* ${this.escapeMarkdown(optionsObj.category)}\n`;
+        if (optionsObj.post_status === 'draft') confirmMsg += `📌 *발행 옵션:* 임시저장(Draft)\n`;
+
+        return confirmMsg;
+    }
+
+    /**
+     * 발행 컨펌용 인라인 키보드 생성 (토글 버튼 포함)
+     */
+    static getPublishConfirmKeyboard(parsedData) {
+        const actions = parsedData.actions || [];
+        const registerAction = actions.find(a => a.action === 'register_topic');
+        const optionsObj = registerAction ? (registerAction.params?.options || {}) : {};
+        const hasPublish = actions.some(a => a.action === 'publish_article');
+
+        const imgGenVal = optionsObj.image_gen !== false;
+        const extRefVal = optionsObj.external_reference !== false;
+
+        return [
+            [
+                { text: `🖼️ 이미지: ${imgGenVal ? '✅' : '❌'}`, callback_data: 'toggle_image' },
+                { text: `🔍 외부참고: ${extRefVal ? '✅' : '❌'}`, callback_data: 'toggle_extref' }
+            ],
+            [
+                { text: `🚀 자동 발행: ${hasPublish ? '✅' : '❌'}`, callback_data: 'toggle_autotrigger' }
+            ],
+            [{ text: `✅ 네, 이대로 ${hasPublish ? '진행해 주세요' : '등록해 주세요'}`, callback_data: 'publish_confirm' }],
+            [{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]
+        ];
     }
 }
 
