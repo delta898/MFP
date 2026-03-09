@@ -43,22 +43,32 @@ if [ ! -f "src/config/secret.js" ]; then
 fi
 
 # ==========================================
-# 🚀 인자 처리 (Incremental Build 지원)
+# 🚀 인자 처리 (Smart Build 지원)
 # ==========================================
-SKIP_BUILD=false
+FORCE_BUILD=false
 for arg in "$@"; do
-    if [ "$arg" == "--skip-build" ] || [ "$arg" == "--deploy-only" ]; then
-        SKIP_BUILD=true
+    if [ "$arg" == "--force" ] || [ "$arg" == "-f" ]; then
+        FORCE_BUILD=true
     fi
 done
 
-if [ "$SKIP_BUILD" == "true" ]; then
-    echo "⏩ [Fast] 빌드 단계를 건너뛰고 패키징/배포만 진행합니다."
-else
-    echo "🧹 기존 dist 폴더를 정리합니다..."
+# ---------------------------------------------------
+# 🕒 소스 코드의 최신 수정 시간 계산 함수
+# ---------------------------------------------------
+get_latest_source_mtime() {
+    # src, ui, assets, package.json 등 주요 파일의 최신 수정 시간을 Unix Timestamp로 반환
+    find src ui assets package.json scripts -type f -not -path '*/.*' -exec stat -f "%m" {} + | sort -rn | head -1
+}
+
+LATEST_SRC_MTIME=$(get_latest_source_mtime)
+
+if [ "$FORCE_BUILD" == "true" ]; then
+    echo "🧹 [Force] 강제 빌드가 설정되어 기존 dist 폴더를 정리합니다..."
     rm -rf dist
-    mkdir -p dist
+else
+    echo "🕒 [Smart] 점진적 빌드(Incremental Build) 모드 활성화"
 fi
+mkdir -p dist
 
 # ---------------------------------------------------
 # 📦 공통 자산 복사 함수 (build.yml Prepare Assets 와 동일)
@@ -138,6 +148,20 @@ build_platform() {
     
     echo "---------------------------------------------------"
     echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
+
+    # 🕒 [Smart Check] 빌드 필요 여부 판단
+    if [ "$FORCE_BUILD" == "false" ] && [ -d "${ROOT_OUT}" ]; then
+        # dist 폴더 내의 가장 최신 파일 시간을 가져옴
+        local LATEST_BUILD_MTIME=$(find "${ROOT_OUT}" -type f -exec stat -f "%m" {} + | sort -rn | head -1)
+        
+        if [ "$LATEST_BUILD_MTIME" -ge "$LATEST_SRC_MTIME" ]; then
+            echo "   ✅ [Skip] 소스 변경이 없습니다. 기존 빌드물을 유지합니다. (mtime: ${LATEST_BUILD_MTIME} >= ${LATEST_SRC_MTIME})"
+            return 0
+        fi
+        echo "   🔄 [Update] 소스 변경이 감지되었습니다. 재빌드를 진행합니다."
+    fi
+
+    # 실제 빌드 과정 시작
     mkdir -p "${ROOT_OUT}"
 
     # 1. 공통 자산 복사
@@ -218,15 +242,11 @@ EOF
 # ---------------------------------------------------
 # 5. 플랫폼별 빌드 실행
 # ---------------------------------------------------
-if [ "$SKIP_BUILD" == "false" ]; then
-    # build_platform <pkg_os> <electron_os> <arch> <suffix>
-    build_platform "macos" "darwin" "arm64" "mac-arm64"
-    # build_platform "macos" "darwin" "x64"   "mac-intel"
-    build_platform "win"   "win32"  "x64"   "win-x64"
-    # build_platform "linux" "linux"  "x64"   "linux-x64"
-else
-    echo "⏩ [Skip] 플랫폼별 빌드 과정을 건너뜁니다."
-fi
+# build_platform <pkg_os> <electron_os> <arch> <suffix>
+build_platform "macos" "darwin" "arm64" "mac-arm64"
+# build_platform "macos" "darwin" "x64"   "mac-intel"
+build_platform "win"   "win32"  "x64"   "win-x64"
+# build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # ---------------------------------------------------
 # 5. ZIP 생성 (플랫폼 폴더 내부에 생성)
