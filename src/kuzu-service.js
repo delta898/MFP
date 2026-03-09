@@ -27,13 +27,7 @@ class KuzuService {
                     fs.mkdirSync(dataDir, { recursive: true });
                 }
 
-                Logger.info(`📂 [Kuzu] 데이터베이스 초기화 중: ${this.dbPath}`);
-
-                // If the path exists but is not a directory, remove it (safety against old file-based DBs)
-                if (fs.existsSync(this.dbPath) && !fs.lstatSync(this.dbPath).isDirectory()) {
-                    Logger.warn(`⚠️ [Kuzu] 보관된 파일형 DB 발견. 디렉토리 기반으로 교체합니다.`);
-                    fs.unlinkSync(this.dbPath);
-                }
+                Logger.debug(`📂 [Kuzu] 데이터베이스 초기화 중: ${this.dbPath}`);
 
                 this.db = new kuzu.Database(this.dbPath);
                 this.conn = new kuzu.Connection(this.db);
@@ -41,7 +35,7 @@ class KuzuService {
                 await this._createSchema();
 
                 this.isInitialized = true;
-                Logger.info('✅ [Kuzu] 데이터베이스 서비스가 준비되었습니다.');
+                Logger.debug('✅ [Kuzu] 데이터베이스 서비스가 준비되었습니다.');
             } catch (err) {
                 Logger.error(`❌ [Kuzu] 초기화 실패: ${err.message}`);
                 this.isInitializing = false;

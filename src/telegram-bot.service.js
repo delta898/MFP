@@ -65,7 +65,7 @@ class TelegramBotService {
             // Polling 방식으로 봇 인스턴스 생성
             this.bot = new TelegramBot(botToken, { polling: true });
             this.isInitialized = true;
-            Logger.info('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
+            Logger.debug('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
 
             this.setupListeners(chatId);
         } catch (error) {

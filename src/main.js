@@ -95,7 +95,7 @@ if (CONFIG.IMAGE_MODEL) {
 // 직접 CONFIG를 참조하므로 여기서는 모델 URL만 처리하면 충분합니다.
 
 
-console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
+// console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
 // 텔레그램 봇 초기화 (CLI 모드에서도 알림 수신 및 명령 처리를 위해)
 TelegramBotService.init();
