@@ -270,9 +270,10 @@ EOF
 echo "   ✅ ${UPDATE_JSON} 생성 완료"
 
 # 🚀 [Deploy] 서버 자동 업로드 (SCP)
-UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/dist/BlogGenius/"
+UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/wordpress/dist/BlogGenius/"
 echo ""
 echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
+
 # ZIP 파일들과 update.json을 한 번에 업로드
 scp dist/*.zip "${UPDATE_JSON}" "${UPLOAD_TARGET}"
 
@@ -280,7 +281,23 @@ if [ $? -eq 0 ]; then
     echo "   ✅ 서버 업로드 완료!"
 else
     echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
+    echo "   💡 Tip: dist/upload.sh를 생성했으니 나중에 수동으로 시도할 수 있습니다."
 fi
+
+# 🛠 [Utility] 수동 업로드용 스크립트 생성
+UPLOAD_SH="dist/upload.sh"
+cat <<EOF > "${UPLOAD_SH}"
+#!/bin/bash
+echo "🚀 [Manual] 서버로 업로드 중..."
+scp ./*.zip ./update.json "${UPLOAD_TARGET}"
+if [ \$? -eq 0 ]; then
+    echo "✅ 업로드 성공!"
+else
+    echo "❌ 업로드 실패!"
+fi
+EOF
+chmod +x "${UPLOAD_SH}"
+echo "   ✅ 수동 업로드용 스크립트 생성 완료: ${UPLOAD_SH}"
 
 echo ""
 echo "---------------------------------------------------"
