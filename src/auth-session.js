@@ -2,6 +2,7 @@ const fs = require('fs');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
+const Logger = require('./logger');
 
 let cachedSession = null;
 let cachedAtMs = 0;
@@ -19,6 +20,7 @@ async function performAuthSessionCheck() {
 
     let browser = null;
     let context = null;
+    Logger.info("📡 네이버 로그인 세션 유효성 확인 중...");
     try {
         browser = await BrowserLauncher.launchBrowser({ headless: true });
         context = await browser.newContext({
@@ -33,8 +35,10 @@ async function performAuthSessionCheck() {
 
         const currentUrl = String(page.url() || '');
         if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {
+            Logger.error("🚨 세션 확인 실패: 로그인 정보가 만료되었습니다.");
             return { ok: false, reason: 'expired' };
         }
+        Logger.info("✅ 세션 확인 완료: 정상적으로 로그인되어 있습니다.");
         return { ok: true };
     } catch (e) {
         return { ok: false, reason: 'check_failed', message: e.message };

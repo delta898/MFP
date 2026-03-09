@@ -2021,9 +2021,11 @@ async function openBlogTopicEditor(rowIndex) {
   statusTabText.textContent = item.status || '대기';
   statusTabText.dataset.value = item.status || '대기';
 
+  const postStatusMap = { 'publish': '즉시 발행', 'draft': '임시 저장', 'schedule': '예약 발행' };
+  const postStatusValue = item.postStatus || 'publish';
   const postStatusText = document.getElementById('modal-blog-post-status-text');
-  postStatusText.textContent = item.postStatus || 'publish';
-  postStatusText.dataset.value = item.postStatus || 'publish';
+  postStatusText.textContent = postStatusMap[postStatusValue] || postStatusValue;
+  postStatusText.dataset.value = postStatusValue;
 
   // Checkboxes
   document.getElementById('blog-edit-image-required').checked = Boolean(item.image_gen);
@@ -2101,9 +2103,11 @@ function openShoppingEditor(rowIndex) {
   document.getElementById('shopping-edit-naver-category').value = naverCategory;
   document.getElementById('shopping-edit-wordpress-category').value = wordpressCategory;
 
+  const postStatusMap = { 'publish': '즉시 발행', 'draft': '임시 저장', 'schedule': '예약 발행' };
+  const postStatusValue = item.postStatus || 'publish';
   const postStatusText = document.getElementById('modal-shopping-post-status-text');
-  postStatusText.textContent = item.postStatus || 'publish';
-  postStatusText.dataset.value = item.postStatus || 'publish';
+  postStatusText.textContent = postStatusMap[postStatusValue] || postStatusValue;
+  postStatusText.dataset.value = postStatusValue;
 
   const statusText = document.getElementById('modal-shopping-status-text');
   statusText.textContent = item.status || '준비';
@@ -2318,6 +2322,9 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
       : patch.referenceUrl;
   }
   if (patch.status !== undefined) item.status = patch.status;
+  if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
+  if (patch.scheduleDate !== undefined) item.scheduleDate = patch.scheduleDate;
+  if (patch.category !== undefined) item.category = patch.category;
 
   // 2. 즉시 재렌더링 (낙관적 업데이트)
   renderBlogTable(blogTopicsCache);
@@ -2550,6 +2557,17 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
 
+  // 1. 캐시를 즉시 업데이트 (race condition 방지)
+  if (patch.product !== undefined) item.product = patch.product;
+  if (patch.shortUrl !== undefined) item.shortUrl = patch.shortUrl;
+  if (patch.status !== undefined) item.status = patch.status;
+  if (patch.category !== undefined) item.category = patch.category;
+  if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
+  if (patch.scheduleDate !== undefined) item.scheduleDate = patch.scheduleDate;
+
+  // 2. 즉시 재렌더링 (낙관적 업데이트)
+  renderBlogShoppingTable(blogShoppingCache);
+
   const payload = {
     rowIndex,
     product: patch.product !== undefined ? String(patch.product || '').trim() : item.product,
@@ -2563,7 +2581,12 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;
   const data = await postJson('/api/v1/shopping/row/update', payload);
   if (!silent && resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
-  await loadBlogShopping({ silent: true });
+
+  // 3. write-lock: Google Sheets 전파 시간(~5s) 동안 loadBlogShopping가 재렌더링하지 않도록 막음
+  if (typeof blogShoppingWriteLockUntil !== 'undefined') {
+    blogShoppingWriteLockUntil = Date.now() + 6000;
+  }
+  setTimeout(() => loadBlogShopping({ silent: true }), 6500);
 }
 
 async function commitShoppingInlineEdit() {

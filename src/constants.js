@@ -16,9 +16,7 @@ try {
     // fallback
 }
 
-// 💡 [핵심] __dirname 대신 process.cwd() 사용
-// 이렇게 해야 실행 파일이 있는 곳(사용자 PC 폴더)을 기준으로 파일을 찾습니다.
-const RUNTIME_ROOT = process.cwd();
+const RUNTIME_ROOT = process.env.BLOG_GENIUS_USER_DATA || process.cwd();
 
 module.exports = {
     APP_VERSION,

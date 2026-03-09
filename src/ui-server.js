@@ -283,8 +283,8 @@ async function ensureSheetsReadyForUi(options = {}) {
 
 function resolveUiRoot() {
     const candidates = [
-        path.join(process.cwd(), 'ui'),
-        path.join(__dirname, '..', 'ui')
+        path.join(__dirname, '..', 'ui'),
+        path.join(CONFIG.PATHS.appRoot || process.cwd(), 'ui')
     ];
 
     for (const dir of candidates) {
@@ -1703,6 +1703,17 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
     };
 
     try {
+        // [Safety Check] 가장 먼저 네이버 세션을 확인하여 AI 비용 낭비를 방지합니다.
+        if (targets.includes('naver')) {
+            const session = await checkAuthSessionValid();
+            if (!session.ok) {
+                return {
+                    success: false,
+                    message: session.reason === 'expired' ? '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.' : '네이버 로그인이 필요합니다.'
+                };
+            }
+        }
+
         // 1. Naver Generation
         if (targets.includes('naver')) {
             emitProgress('네이버 콘텐츠 생성 중...');
@@ -1775,7 +1786,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
                 postStatus: context.postStatus || 'publish',
                 scheduleDate: context.scheduleDate || '',
                 isLast: options.isLast === true
-            }) || { success: true, message: 'Published (No response returned)' };
+            }) || { success: false, message: 'Naver publish returned no response' };
             results.naver.success = naverRes.success;
             results.naver.postUrl = naverRes.postUrl;
             results.naver.message = naverRes.message || (naverRes.postUrl ? `네이버 발행 완료: ${naverRes.postUrl}` : '네이버 발행 완료');

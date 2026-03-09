@@ -7,6 +7,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
   - `resolveRuntimePath`에 `mustExist: true` 옵션 및 `app.asar` 번들 경로(`BUNDLE_DIR`) 탐색 기능을 추가하여, 패키징된 상태에서도 `blog_prompt.md` 등 내부 시스템 프롬프트 파일을 정상적으로 탐색하도록 수정.
   - 시스템 로그(`system.service.js`) 및 트렌드 디버그 스크린샷(`trend-manager.js`)의 저장 경로를 `process.cwd()`에서 `CONFIG.ROOT_DIR`로 변경하여 패키징 후에도 사용자 데이터 폴더를 일관되게 사용하도록 보완.
   - 패키징 실행 시 메인 프로세스(`electron-main.js`)에서 `CONFIG.ROOT_DIR`이 `undefined`로 발생하던 `TypeError`를 방지하기 위해 `resolveConfig` 폴백을 추가.
+  - **`sharp` 모듈 네이티브 라이브러리 로드 오류 수정**: 맥OS(`darwin-arm64` 등)환경 패키징 시 `sharp`와 `@img` 모듈이 `app.asar` 내부에 묶여 있어 실행 시점에 라이브러리(`libvips-cpp.dylib`)를 찾지 못하던 문제(`ERR_DLOPEN_FAILED`) 해결. `build.sh` 및 `build.yml`의 `electron-packager` 옵션에 `--asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*"`를 추가하여 정상 동작하도록 보완.
+- **UI 및 사용자 경험 개선**:
+  - **영문 라벨 한글화**: 글감(블로그) 및 상품(쇼핑커넥트) 수정 팝업에서 'Subject', 'Keywords' 등을 '주제', '키워드'로 변경. 테이블 헤더의 'Post Status'를 '발행 상태'로 일괄 수정.
+  - **상태 값 한글 표시 맵핑**: 스프레드시트에 영문(`draft`, `publish`, `schedule`)으로 저장되는 발행 상태를 UI 상에서는 '임시 저장', '즉시 발행', '예약 발행'으로 자동 표시 및 선택 가능하도록 수정.
+  - **인라인 수정 시 캐시 즉시 반영 (Optimistic UI Update)**: 팝업을 통해 발행 상태(`postStatus`), 예약 일시(`scheduleDate`) 등을 변경하고 [저장] 시, 구글 시트 반영을 기다리느라 화면에 옛날 값이 남던 현상을 수정. 저장 완료 즉시 로컬 캐시를 업데이트하고 재렌더링하여 지연 없는 사용자 경험 제공.
 - **워드프레스 이미지 업로드 안정성 및 외부 연동 호환성 극대화**:
   - 파일명에 한글 등 비 ASCII 문자가 포함될 경우 워드프레스 DB 에러 및 Meta Threads 등 외부 플랫폼의 Open Graph 렌더링 누락 현상을 완벽히 차단하기 위해, n8n 등 외부 자동화에서 검증된 강력한 파일명 정규화 로직 도입.
   - 모든 문자를 영문 소문자 및 언더바(`_`)로 치환하고 연속된 언더바를 정리한 뒤, 길이를 강제로 100자 이내로 제한. 파일명 끝에 타임스탬프와 5자리 랜덤 해시(`Math.random`)를 결합하여 동시다발적인 처리 시에도 100% 충돌 없는 고유(Unique) 파일명 보장.
@@ -23,20 +28,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 형식: Keep a Changelog 스타일  
 버전: SemVer
 
-## [0.9.9-dev2] - 2026-03-09
+## [0.1.0] - 2026-03-09
 ### Added
-- **Capability-Based AI Architecture (기능 기반 AI 구조)**:
-  - 기존의 단일 Intent(의도) 파싱 방식에서 벗어나, AI가 `register_topic`, `publish_article`, `update_config`, `run_job`, `query_data` 등의 모듈화된 **기능(Action) 배열**을 반환하도록 핵심 로직(`Core.parseTelegramRequest`)을 전면 재설계.
-  - "글감만 등록해줘"와 "네이버에 바로 발행해줘" 등 복합적인 명령을 `[Action1, Action2]` 형태로 완벽히 분리 및 동시 처리 지원.
-- **텔레그램 인터랙티브 제어 (Interactive Toggles)**:
-  - AI가 분석한 발행 조건을 텔레그램 인라인 키보드(버튼)를 통해 런타임에 즉각 수정할 수 있는 기능 도입.
-  - `[🚀 자동 발행: ✅/❌]`: 글감을 등록만 할지, 즉시 발행 파이프라인까지 태울지 버튼 클릭 한 번으로 토글 가능.
-  - `[🖼️ 이미지: ✅/❌]`, `[🔍 외부참고: ✅/❌]`: 이미지 생성 및 외부 문서 참고 여부를 발행 전 실시간 제어.
+- **Capability-Based AI Architecture**: Complete redesign of the AI core to handle modular actions (`register_topic`, `publish_article`, etc.) allowing for "Register only" and "Interactive Publish" flows.
+- **Interactive Telegram UI**: Added real-time toggle buttons (`[🚀 Auto-Publish: ✅/❌]`, `[🖼️ Image: ✅/❌]`) to control AI behavior directly from the bot before execution.
+- **KuzuDB Integration**: Introduced a persistent memory system using KuzuDB to store user insights, conversation history, and topic relationship graphs.
 
 ### Fixed
-- **KuzuDB 안정성 및 동시성 문제 해결**:
-  - 기존 파일 기반 DB(`memory_db`)와 숨김 폴더(`.kuzu`) 방식이 혼용되어 발생하던 충돌(`IO Error`)을 제거하고, 순수 디렉터리 기반(`data/memory_db/`)으로 아키텍처 완전 이관.
-  - `KuzuQueue` 전역 싱글톤 큐를 도입하여 여러 컴포넌트(Telegram, UI Server, Auto Publisher)가 동시에 DB에 접근할 때 발생하는 잠금(Lock) 에러 해소.
+- **Packaged App Stability**: Fixed `sharp` module loading errors and `EROFS` write access issues when running the application as a standalone `.app` bundle.
+- **Concurrent DB Access**: Implemented `KuzuQueue` to prevent database locking errors across multiple application components.
 
 
 ### Added

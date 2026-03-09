@@ -2,6 +2,7 @@ const kuzu = require('kuzu');
 const path = require('path');
 const fs = require('fs');
 const Logger = require('./logger');
+const CONFIG = require('./config-loader');
 
 class KuzuService {
     constructor() {
@@ -10,7 +11,7 @@ class KuzuService {
         this.isInitialized = false;
         this.isInitializing = false;
         this.initPromise = null;
-        this.dbPath = path.join(process.cwd(), 'data', 'memory_db');
+        this.dbPath = path.join(CONFIG.PATHS.appRoot || process.cwd(), 'data', 'memory_db');
     }
 
     async initialize() {
@@ -21,9 +22,9 @@ class KuzuService {
         this.initPromise = (async () => {
             try {
                 // Ensure data directory exists
-                const dataDir = path.join(process.cwd(), 'data');
+                const dataDir = path.join(CONFIG.PATHS.appRoot || process.cwd(), 'data');
                 if (!fs.existsSync(dataDir)) {
-                    fs.mkdirSync(dataDir);
+                    fs.mkdirSync(dataDir, { recursive: true });
                 }
 
                 Logger.info(`📂 [Kuzu] 데이터베이스 초기화 중: ${this.dbPath}`);

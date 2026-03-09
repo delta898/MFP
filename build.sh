@@ -161,7 +161,7 @@ build_platform() {
         npx electron-packager . "${APP_NAME}" \
             --platform=${e_plat} --arch=${arch} \
             --out=dist/gui-temp --overwrite \
-            --asar \
+            --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
             $ICON_OPT \
             --ignore="^/([.]git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs)($|/)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
             --quiet
