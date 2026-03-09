@@ -43,6 +43,9 @@
       "src/constants.js",
       "src/auth-session.js",
       "src/ui-server.js",
+      "src/telegram-bot.service.js",
+      "src/kuzu-service.js",
+      "src/insight-engine.js",
       "src/ui-api/**/*.js"
     ],
     "assets": [
