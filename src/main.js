@@ -60,7 +60,7 @@ const path = require('path');
 const { version: APP_VERSION } = require('../package.json');
 
 const Logger = require('./logger');
-Logger.info('[DIAG] Loading core modules...');
+Logger.debug('[Init] Loading core modules...');
 const License = require('./license');
 const Core = require('./core');
 const Utils = require('./utils');
@@ -72,7 +72,7 @@ const ShoppingManager = require('./shopping-manager');
 const Constants = require('./constants');
 const { checkAuthSessionValid } = require('./auth-session');
 const TelegramBotService = require('./telegram-bot.service');
-Logger.info('[DIAG] Core modules loaded.');
+Logger.debug('[Init] Core modules loaded.');
 
 
 // --------------------------------------------------------
@@ -99,9 +99,9 @@ if (CONFIG.IMAGE_MODEL) {
 // console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
 // 텔레그램 봇 초기화 (CLI 모드에서도 알림 수신 및 명령 처리를 위해)
-Logger.info('[DIAG] Initializing TelegramBotService...');
+Logger.debug('[Init] Initializing TelegramBotService...');
 TelegramBotService.init();
-Logger.info('[DIAG] TelegramBotService initialized.');
+Logger.debug('[Init] TelegramBotService initialized.');
 
 // 모든 시스템 모듈 준비 완료 로그 (사용자에게 노출될 유일한 초기화 로그)
 Logger.info('✅ 시스템이 정상적으로 구동되었습니다.');

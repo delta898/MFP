@@ -5070,7 +5070,7 @@ async function startUiServer(options = {}) {
         try {
             if (pathname.startsWith('/api/v1/')) {
                 const startTime = Date.now();
-                Logger.info(`[DIAG][API][${requestId}] Request: ${method} ${pathname}`);
+                Logger.debug(`[API][${requestId}] Request: ${method} ${pathname}`);
                 let requestBody = {};
                 if (method === 'POST') {
                     const limitBytes = pathname === '/api/v1/settings/shopping-image'
@@ -5081,10 +5081,10 @@ async function startUiServer(options = {}) {
                 const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
                 const duration = Date.now() - startTime;
                 if (apiHandled !== false) {
-                    Logger.info(`[DIAG][API][${requestId}] Responded in ${duration}ms`);
+                    Logger.debug(`[API][${requestId}] Responded in ${duration}ms`);
                     return;
                 }
-                Logger.info(`[DIAG][API][${requestId}] Not found (${duration}ms)`);
+                Logger.debug(`[API][${requestId}] Not found (${duration}ms)`);
                 return sendError(res, requestId, 404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.');
             }
 
@@ -5114,7 +5114,7 @@ async function startUiServer(options = {}) {
         }
     });
 
-    Logger.info('[DIAG][UI] Starting HTTP server...');
+    Logger.debug('[UI] Starting HTTP server...');
     await new Promise((resolve, reject) => {
         server.once('error', reject);
         server.listen(port, host, () => {
@@ -5122,14 +5122,14 @@ async function startUiServer(options = {}) {
             resolve();
         });
     });
-    Logger.info(`[DIAG][UI] Listening on ${host}:${port}`);
+    Logger.debug(`[UI] Listening on ${host}:${port}`);
 
-    Logger.info('[DIAG][UI] Syncing auto-runners...');
+    Logger.debug('[UI] Syncing auto-runners...');
     syncAutoRunnerWithConfig();
     syncShoppingAutoRunnerWithConfig();
 
     // 시작 시 텔레그램 수신 데몬(Phase 1) 초기화
-    Logger.info('[DIAG][UI] Initializing TelegramBotService (UI)...');
+    Logger.debug('[UI] Initializing TelegramBotService (UI)...');
     const TelegramBotService = require('./telegram-bot.service');
     TelegramBotService.init();
 

@@ -245,6 +245,10 @@ function createSystemService(deps = {}) {
             return (await updater.checkForUpdate({ force })) || { hasUpdate: false };
         },
 
+        async getUpdateProgress({ updater }) {
+            return { ...updater.progress };
+        },
+
         async applyUpdate({ updater }) {
             await updater.applyUpdate(() => { });
             return { success: true };

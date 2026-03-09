@@ -24,6 +24,19 @@ class Updater {
 
         // 보존할 대상 (업데이트 시 절대 건드리지 않음)
         this.preserveList = ['config', 'logs', 'tmp_update', '.git', '.DS_Store'];
+
+        // 업데이트 진행 상태 (UI 폴링용)
+        this.progress = {
+            active: false,
+            stage: 'idle',
+            message: '',
+            percent: 0,
+            totalSize: 0,
+            downloadedSize: 0
+        };
+
+        // 다운로드 취소용 AbortController
+        this._cancelController = null;
     }
 
     /**
@@ -224,6 +237,21 @@ class Updater {
     /**
      * Apply full folder update (Full Sync)
      */
+    /**
+     * Cancel an in-progress download (only effective during the downloading stage)
+     */
+    cancel() {
+        if (this._cancelController) {
+            this._cancelController.abort();
+            this._cancelController = null;
+        }
+        if (this.progress.stage === 'downloading') {
+            this.progress = { active: false, stage: 'idle', message: '취소됨', percent: 0, totalSize: 0, downloadedSize: 0 };
+            this.isUpdating = false;
+            Logger.info('⚠️ [Updater] 다운로드 취소됨');
+        }
+    }
+
     async applyUpdate(onProgress = null) {
         if (this.isUpdating) throw new Error('업데이트가 이미 진행 중입니다.');
         if (!this.updateInfo || !this.updateInfo.hasUpdate) throw new Error('업데이트 정보가 없거나 최신 버전입니다.');
@@ -232,6 +260,7 @@ class Updater {
         if (!asset) throw new Error(`현재 플랫폼(${process.platform}-${process.arch})에 맞는 배포 파일을 찾을 수 없습니다.`);
 
         this.isUpdating = true;
+        this.progress = { active: true, stage: 'downloading', message: '다운로드 준비 중...', percent: 0, totalSize: 0, downloadedSize: 0 };
         try {
             if (!fs.existsSync(this.tempDir)) fs.mkdirSync(this.tempDir, { recursive: true });
             const zipPath = path.join(this.tempDir, 'update.zip');
@@ -253,19 +282,36 @@ class Updater {
             }
 
             Logger.info(`📂 [Updater] 다운로드 시작: ${downloadUrl}`);
-            const response = await axios({
-                url: downloadUrl,
-                method: 'GET',
-                responseType: 'stream'
-            });
+            this.progress.message = '다운로드 중...';
+            this._cancelController = new AbortController();
+            let response;
+            try {
+                response = await axios({
+                    url: downloadUrl,
+                    method: 'GET',
+                    responseType: 'stream',
+                    signal: this._cancelController.signal
+                });
+            } catch (axiosErr) {
+                if (axiosErr.name === 'CanceledError' || axiosErr.code === 'ERR_CANCELED') {
+                    throw new Error('취소됨');
+                }
+                throw axiosErr;
+            }
+            this._cancelController = null;
 
-            const totalSize = parseInt(response.headers['content-length'], 10);
+            const totalSize = parseInt(response.headers['content-length'], 10) || 0;
             let downloadedSize = 0;
+            this.progress.totalSize = totalSize;
             const writer = fs.createWriteStream(zipPath);
 
             response.data.on('data', (chunk) => {
                 downloadedSize += chunk.length;
-                if (onProgress) onProgress({ percent: Math.round((downloadedSize / totalSize) * 100), totalSize, downloadedSize });
+                const percent = totalSize > 0 ? Math.round((downloadedSize / totalSize) * 100) : 0;
+                this.progress.downloadedSize = downloadedSize;
+                this.progress.percent = percent;
+                this.progress.message = `다운로드 중... ${percent}%`;
+                if (onProgress) onProgress({ percent, totalSize, downloadedSize });
             });
 
             await new Promise((resolve, reject) => {
@@ -275,6 +321,7 @@ class Updater {
             });
 
             Logger.info('📂 [Updater] 압축 해제 중...');
+            this.progress = { active: true, stage: 'extracting', message: '압축 해제 중...', percent: 100, totalSize, downloadedSize };
             await this.unzip(zipPath, extractDir);
 
             // 중요: 압축을 해제한 내용물이 'BlogGenius-v0.8.42-linux-x64' 같이 중첩된 폴더일 수 있음
@@ -286,12 +333,16 @@ class Updater {
             }
 
             Logger.info('📂 [Updater] 전체 폴더 동기화 업데이트 시작...');
+            this.progress.stage = 'syncing';
+            this.progress.message = '파일 동기화 중...';
             this.syncFolders(sourceDir, this.appRootDir);
 
             Logger.info('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
+            this.progress = { active: true, stage: 'done', message: '업데이트 완료! 재시작 중...', percent: 100, totalSize, downloadedSize };
             return true;
         } catch (e) {
             Logger.error(`❌ [Updater] 업데이트 실패: ${e.message}`);
+            this.progress = { active: false, stage: 'error', message: `업데이트 실패: ${e.message}`, percent: 0, totalSize: 0, downloadedSize: 0 };
             throw e;
         } finally {
             this.isUpdating = false;

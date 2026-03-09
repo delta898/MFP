@@ -273,34 +273,112 @@ async function checkUpdate(isManual = false, isForce = false) {
 async function applyUpdate() {
   if (!uiUpdateInfo) return;
 
-  const confirmed = await showUiConfirm(`BlogGenius v${uiUpdateInfo.latestVersion} 업데이트를 시작할까요?\n\n업데이트 완료 후 앱이 자동으로 재시작되거나 수동으로 재시작해야 할 수 있습니다.`);
+  const confirmed = await showUiConfirm(`BlogGenius v${uiUpdateInfo.latestVersion} 업데이트를 시작할까요?\n\n업데이트 완료 후 앱이 자동으로 재시작됩니다.`);
   if (!confirmed) return;
 
   const banner = document.getElementById('update-banner');
-  const bannerText = document.getElementById('update-banner-text');
+  const normalSection = document.getElementById('update-banner-normal');
+  const progressSection = document.getElementById('update-banner-progress');
+  const progressMessage = document.getElementById('update-progress-message');
+  const progressPercent = document.getElementById('update-progress-percent');
+  const progressBar = document.getElementById('update-progress-bar');
+  const progressIcon = document.getElementById('update-progress-icon');
   const updateNowBtn = document.getElementById('update-now-btn');
+  const updateCloseBtn = document.getElementById('update-close-btn');
+  const updateCancelBtn = document.getElementById('update-cancel-btn');
+
+  // Show progress UI
+  if (normalSection) normalSection.style.display = 'none';
+  if (progressSection) progressSection.style.display = 'flex';
+  if (banner) banner.classList.remove('hidden');
+  if (updateNowBtn) updateNowBtn.style.display = 'none';
+  if (updateCloseBtn) updateCloseBtn.style.display = 'none';
+
+  const stageIcons = { downloading: '⬇️', extracting: '📦', syncing: '🔄', done: '✅', error: '❌', idle: '⏳' };
+
+  function setProgressUi({ message, percent, stage }) {
+    // message에 대한 텍스트 (퍼센트 제외, 별도로 표시)
+    const stageLabels = {
+      downloading: '다운로드 중...',
+      extracting: '압축 해제 중...',
+      syncing: '파일 동기화 중...',
+      done: '업데이트 완료! 재시작 중...',
+      error: message || '오류 발생',
+      idle: '준비 중...'
+    };
+    if (progressMessage) progressMessage.textContent = stageLabels[stage] || message || '진행 중...';
+    if (progressIcon) progressIcon.textContent = stageIcons[stage] || '⏳';
+
+    // 퍼센트는 다운로드 단계에서만 표시
+    if (stage === 'downloading') {
+      const pct = typeof percent === 'number' ? percent : 0;
+      if (progressPercent) progressPercent.textContent = pct > 0 ? `${pct}%` : '';
+      if (progressBar) progressBar.style.width = `${pct}%`;
+      if (updateCancelBtn) updateCancelBtn.style.display = ''; // 취소 가능
+    } else {
+      if (progressPercent) progressPercent.textContent = '';
+      if (progressBar) progressBar.style.width = '100%';
+      if (updateCancelBtn) updateCancelBtn.style.display = 'none'; // 취소 불가
+    }
+  }
+
+  let pollTimer = null;
+  let cancelled = false;
+
+  if (updateCancelBtn) {
+    updateCancelBtn.onclick = async () => {
+      cancelled = true;
+      clearTimeout(pollTimer);
+      if (updateCancelBtn) updateCancelBtn.disabled = true;
+      if (progressMessage) progressMessage.textContent = '취소 중...';
+      try { await postJson('/api/v1/system/update/cancel'); } catch (_) { }
+      // Restore normal state
+      setTimeout(() => {
+        if (normalSection) normalSection.style.display = '';
+        if (progressSection) progressSection.style.display = 'none';
+        if (updateNowBtn) updateNowBtn.style.display = '';
+        if (updateCloseBtn) updateCloseBtn.style.display = '';
+        if (updateCancelBtn) { updateCancelBtn.style.display = 'none'; updateCancelBtn.disabled = false; }
+      }, 1000);
+    };
+  }
+
+  async function pollProgress() {
+    if (cancelled) return;
+    try {
+      const p = await fetchJson('/api/v1/system/update/progress');
+      setProgressUi(p);
+      if (p.stage !== 'done' && p.stage !== 'error') pollTimer = setTimeout(pollProgress, 800);
+    } catch (_) {
+      if (!cancelled) pollTimer = setTimeout(pollProgress, 1000);
+    }
+  }
 
   try {
-    if (updateNowBtn) updateNowBtn.disabled = true;
-    if (bannerText) bannerText.textContent = '업데이트 다운로드 및 적용 중... (잠시만 기다려주세요)';
-
-    await postJson('/api/v1/system/update/apply');
-
-    if (bannerText) bannerText.textContent = '업데이트가 완료되었습니다. 1초 후 재시작합니다.';
-
-    await postJson('/api/v1/system/update/restart');
-
-    setTimeout(() => {
-      showUiPopup('앱이 재시작되었습니다. 페이지를 새로고침해 주세요.');
-      location.reload();
-    }, 3000);
-
+    const applyPromise = postJson('/api/v1/system/update/apply');
+    pollTimer = setTimeout(pollProgress, 400);
+    await applyPromise;
+    if (cancelled) return;
+    clearTimeout(pollTimer);
+    setProgressUi({ stage: 'done', percent: 100 });
+    setTimeout(async () => {
+      try { await postJson('/api/v1/system/update/restart'); } catch (_) { }
+      setTimeout(() => location.reload(), 3000);
+    }, 1500);
   } catch (e) {
-    if (updateNowBtn) updateNowBtn.disabled = false;
-    if (bannerText) bannerText.textContent = '업데이트 중 오류가 발생했습니다.';
-    showUiPopup(`업데이트 실패: ${e.message}`);
+    if (cancelled) return;
+    clearTimeout(pollTimer);
+    setProgressUi({ stage: 'error', message: `업데이트 실패: ${e.message}`, percent: 0 });
+    if (updateNowBtn) updateNowBtn.style.display = '';
+    if (updateCloseBtn) updateCloseBtn.style.display = '';
+    if (updateCancelBtn) updateCancelBtn.style.display = 'none';
+    setTimeout(() => {
+      if (normalSection) normalSection.style.display = '';
+      if (progressSection) progressSection.style.display = 'none';
+    }, 4000);
   }
 }
+
 const SETTINGS_TYPING_PREVIEW_DELAY = {
   QUICK: 8,
   FAST: 20,
@@ -1372,22 +1450,34 @@ async function loadDashboardExternalContent(options = {}) {
   }
 }
 
+let isDashboardLoading = false;
+let lastDashboardLoadTime = 0;
+
 async function loadDashboard() {
+  if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
+    return; // Throttle: prevent concurrent or overly frequent calls (5s cooldown)
+  }
+  isDashboardLoading = true;
+
   const quietCatch = (e) => {
     if (e.status === 503 || String(e.message).includes('fetch failed')) return null;
     console.warn('[Dashboard Polling]', e.message);
     return null;
   };
 
-  console.time('Dash:AllPromises');
-  const [healthResult, licenseResult, sessionResult, summaryResult, autoResult] = await Promise.allSettled([
-    (async () => { console.time('Dash:Health'); try { return await fetchJson('/api/v1/health'); } finally { console.timeEnd('Dash:Health'); } })().catch(quietCatch),
-    (async () => { console.time('Dash:License'); try { return await fetchJson('/api/v1/license/status?quiet=1'); } finally { console.timeEnd('Dash:License'); } })().catch(quietCatch),
-    (async () => { console.time('Dash:Session'); try { return await fetchJson('/api/v1/session/naver'); } finally { console.timeEnd('Dash:Session'); } })().catch(quietCatch),
-    (async () => { console.time('Dash:Summary'); try { return await fetchJson('/api/v1/dashboard/summary'); } finally { console.timeEnd('Dash:Summary'); } })().catch(quietCatch),
-    (async () => { console.time('Dash:AutoStatus'); try { return await fetchJson('/api/v1/auto/status'); } finally { console.timeEnd('Dash:AutoStatus'); } })().catch(quietCatch)
-  ]);
-  console.timeEnd('Dash:AllPromises');
+  let healthResult, licenseResult, sessionResult, summaryResult, autoResult;
+  try {
+    [healthResult, licenseResult, sessionResult, summaryResult, autoResult] = await Promise.allSettled([
+      fetchJson('/api/v1/health').catch(quietCatch),
+      fetchJson('/api/v1/license/status?quiet=1').catch(quietCatch),
+      fetchJson('/api/v1/session/naver').catch(quietCatch),
+      fetchJson('/api/v1/dashboard/summary').catch(quietCatch),
+      fetchJson('/api/v1/auto/status').catch(quietCatch)
+    ]);
+    lastDashboardLoadTime = Date.now();
+  } finally {
+    isDashboardLoading = false;
+  }
 
   const healthOk = healthResult.status === 'fulfilled';
   const licenseOk = licenseResult.status === 'fulfilled';
@@ -5644,9 +5734,8 @@ function bindActions() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 UI DOMContentLoaded triggered');
-  console.time('UI:InitTotal');
   checkSetupBanner();
+  const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
       checkUpdate(true, false);

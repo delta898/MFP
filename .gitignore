@@ -32,3 +32,6 @@ config/CTA_IMAGE*.jpeg
 config/FTC_IMAGE*.jpeg
 *.zip
 data/
+tmp_update/
+BlogGenius.app/
+*.old

@@ -97,13 +97,30 @@
 
       <!-- Update Banner (Hidden by default) -->
       <div id="update-banner" class="update-banner hidden">
-        <div class="update-banner-content">
+        <!-- Normal state: new version announcement -->
+        <div id="update-banner-normal" class="update-banner-content">
           <span class="update-icon">🚀</span>
           <span id="update-banner-text">새로운 버전이 준비되었습니다!</span>
           <button id="update-details-btn" class="text-btn">자세히 보기</button>
         </div>
+        <!-- Progress state: shown while applying update -->
+        <div id="update-banner-progress"
+          style="display:none; flex: 1; padding: 6px 16px; flex-direction: column; justify-content: center;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+            <span id="update-progress-icon" style="font-size: 16px;">⏳</span>
+            <span id="update-progress-message" style="font-size: 13px; font-weight: 500; color: #f1f5f9; flex: 1;">업데이트
+              준비 중...</span>
+            <span id="update-progress-percent" style="font-size: 12px; color: #94a3b8; white-space: nowrap;"></span>
+          </div>
+          <div style="height: 5px; background: rgba(255,255,255,0.15); border-radius: 99px; overflow: hidden;">
+            <div id="update-progress-bar"
+              style="height: 100%; width: 0%; background: linear-gradient(90deg, #818cf8, #a78bfa); border-radius: 99px; transition: width 0.4s ease;">
+            </div>
+          </div>
+        </div>
         <div class="update-banner-actions">
           <button id="update-now-btn" class="primary compact">지금 업데이트</button>
+          <button id="update-cancel-btn" class="secondary compact" style="display:none;">취소</button>
           <button id="update-close-btn" class="close-btn">&times;</button>
         </div>
       </div>
