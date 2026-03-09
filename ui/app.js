@@ -1422,7 +1422,7 @@ async function loadDashboardExternalContent(options = {}) {
     }
     renderDashboardFeedList('dash-feed-list-naver', sourceMap.naver || {});
     renderDashboardFeedList('dash-feed-list-wordpress', sourceMap.wordpress || {});
-    renderDashboardFeedList('dash-feed-list-noworry', sourceMap.noworry || {});
+    renderDashboardFeedList('dash-feed-list-itmania', sourceMap.itmania || {});
     renderDashboardShortsList('dash-feed-list-youtube-playlist', sourceMap.youtubePlaylist || {});
 
     const setHomeLink = (id, source) => {
@@ -1433,7 +1433,7 @@ async function loadDashboardExternalContent(options = {}) {
     };
     setHomeLink('dash-feed-home-naver', sourceMap.naver || {});
     setHomeLink('dash-feed-home-wordpress', sourceMap.wordpress || {});
-    setHomeLink('dash-feed-home-noworry', sourceMap.noworry || {});
+    setHomeLink('dash-feed-home-itmania', sourceMap.itmania || {});
     setHomeLink('dash-feed-home-youtube-playlist', sourceMap.youtubePlaylist || {});
 
     dashboardExternalContentLastLoadedAt = Date.now();

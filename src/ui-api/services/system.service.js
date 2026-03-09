@@ -14,36 +14,57 @@ function createSystemService(deps = {}) {
         cheerio
     } = deps;
 
-    const DASHBOARD_CONTENT_SOURCES = [
-        {
-            key: 'naver',
-            label: '네이버 블로그',
-            feedType: 'rss',
-            rssUrl: 'https://rss.blog.naver.com/amadejjs.xml',
-            homeUrl: 'https://blog.naver.com/amadejjs'
-        },
-        {
-            key: 'wordpress',
-            label: '워드프레스',
-            feedType: 'rss',
-            rssUrl: 'https://itmania.hangadac.com/feed/',
-            homeUrl: 'https://itmania.hangadac.com'
-        },
-        {
-            key: 'youtubePlaylist',
-            label: '유튜브 쇼츠',
-            feedType: 'atom',
-            rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC4Sl4m-ZV65knmWTl0UFYkw',
-            homeUrl: 'https://www.youtube.com/playlist?list=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob'
-        },
-        {
-            key: 'noworry',
-            label: 'No Worry Blog',
-            feedType: 'rss',
-            rssUrl: 'https://noworrybehappy.com/feed/',
-            homeUrl: 'https://noworrybehappy.com'
-        }
-    ];
+    function getDashboardContentSources() {
+        // [조건 1, 2] 네이버 블로그 설정 확인
+        const naverId = String(CONFIG.NAVER_ID || '').trim();
+        const isNaverConfigured = CONFIG.CONFIG_IS_NAVER_SET === true;
+        const naverFeedUrl = isNaverConfigured
+            ? `https://rss.blog.naver.com/${naverId}.xml`
+            : 'https://rss.blog.naver.com/amadejjs.xml';
+        const naverHomeUrl = isNaverConfigured
+            ? `https://blog.naver.com/${naverId}`
+            : 'https://blog.naver.com/amadejjs';
+
+        // [조건 1, 3] 워드프레스 설정 확인
+        const isWpConfigured = CONFIG.CONFIG_IS_WP_SET === true;
+        const wpFeedUrl = (isWpConfigured && CONFIG.WORDPRESS_URL)
+            ? `${String(CONFIG.WORDPRESS_URL).replace(/\/$/, '')}/feed/`
+            : 'https://noworrybehappy.com/feed/';
+        const wpHomeUrl = (isWpConfigured && CONFIG.WORDPRESS_URL)
+            ? String(CONFIG.WORDPRESS_URL).replace(/\/$/, '')
+            : 'https://noworrybehappy.com';
+
+        return [
+            {
+                key: 'naver',
+                label: '네이버 블로그',
+                feedType: 'rss',
+                rssUrl: naverFeedUrl,
+                homeUrl: naverHomeUrl
+            },
+            {
+                key: 'wordpress',
+                label: '워드프레스',
+                feedType: 'rss',
+                rssUrl: wpFeedUrl,
+                homeUrl: wpHomeUrl
+            },
+            {
+                key: 'itmania', // [조건 5] No Worry Blog를 IT Mania로 변경 및 전진 배치
+                label: 'IT Mania',
+                feedType: 'rss',
+                rssUrl: 'https://itmania.hangadac.com/feed/',
+                homeUrl: 'https://itmania.hangadac.com'
+            },
+            {
+                key: 'youtubePlaylist',
+                label: '유튜브 쇼츠',
+                feedType: 'atom',
+                rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC4Sl4m-ZV65knmWTl0UFYkw',
+                homeUrl: 'https://www.youtube.com/playlist?list=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob'
+            }
+        ];
+    }
 
     const FEED_FETCH_TIMEOUT_MS = 10000;
     const MAX_FEED_ITEMS = 10;
@@ -318,8 +339,9 @@ function createSystemService(deps = {}) {
 
         async getDashboardExternalContent({ limitRaw }) {
             const limit = clampFeedLimit(limitRaw);
+            const sources = getDashboardContentSources();
             const results = await Promise.all(
-                DASHBOARD_CONTENT_SOURCES.map((source) => fetchFeedItems(source, limit))
+                sources.map((source) => fetchFeedItems(source, limit))
             );
 
             return {
