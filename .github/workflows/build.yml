@@ -69,14 +69,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: node20-linux-x64
-            suffix: linux-x64
-            output_binary: BlogGenius-cli
-          - os: macos-latest
-            target: node20-macos-x64
-            suffix: mac-intel
-            output_binary: BlogGenius-cli
+#           - os: ubuntu-latest
+#             target: node20-linux-x64
+#             suffix: linux-x64
+#             output_binary: BlogGenius-cli
+#           - os: macos-latest
+#             target: node20-macos-x64
+#             suffix: mac-intel
+#             output_binary: BlogGenius-cli
           - os: macos-latest
             target: node20-macos-arm64
             suffix: mac-arm64

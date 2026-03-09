@@ -210,9 +210,9 @@ EOF
 # ---------------------------------------------------
 # build_platform <pkg_os> <electron_os> <arch> <suffix>
 build_platform "macos" "darwin" "arm64" "mac-arm64"
-build_platform "macos" "darwin" "x64"   "mac-intel"
+# build_platform "macos" "darwin" "x64"   "mac-intel"
 build_platform "win"   "win32"  "x64"   "win-x64"
-build_platform "linux" "linux"  "x64"   "linux-x64"
+# build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # ---------------------------------------------------
 # 5. ZIP 생성 (플랫폼 폴더 내부에 생성)
