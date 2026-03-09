@@ -1581,14 +1581,6 @@ async function loadDashboardLogs() {
       list.innerHTML = '';
       items.forEach(log => {
         const msg = String(log.message || '').trim();
-
-        // Skip debug logs and system-only noise for the dashboard timeline
-        if (log.level === 'debug') return;
-        if (list.id === 'activity-timeline') {
-          const sysPrefixes = ['[Kuzu]', '[TelegramBot]', '[System]', '[Updater]', '📡', '✅ 세션 확인 완료'];
-          if (sysPrefixes.some(p => msg.startsWith(p))) return;
-        }
-
         const li = document.createElement('li');
         li.style.padding = '10px 12px';
         li.style.borderBottom = '1px solid #f1f5f9';
@@ -1609,8 +1601,16 @@ async function loadDashboardLogs() {
       });
     };
 
-    renderLogs(dashList, logs.slice(0, 5));   // 대시보드: 4~5건 표시
-    renderLogs(logsList, logs.slice(0, 50));  // 로그/이력: 더 넉넉히 표시
+    // 대시보드용 활동 이력 필터링: debug 제외 및 시스템성 접두사 제외
+    const activityLogs = logs.filter(log => {
+      if (log.level === 'debug') return false;
+      const msg = String(log.message || '').trim();
+      const sysPrefixes = ['[Kuzu]', '[TelegramBot]', '[System]', '[Updater]', '📡', '✅ 세션 확인 완료'];
+      return !sysPrefixes.some(p => msg.startsWith(p));
+    });
+
+    renderLogs(dashList, activityLogs.slice(0, 5));   // 대시보드: 필터링된 최신 5건
+    renderLogs(logsList, logs.slice(0, 50));        // 로그/이력: 원본 최신 50건 (debug 제외 원하면 추가 필터 가능)
   } catch (err) {
     if (err.status === 503 || String(err.message).includes('fetch failed')) return;
     const failHtml = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';
