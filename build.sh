@@ -150,15 +150,17 @@ build_platform() {
     echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
 
     # 🕒 [Smart Check] 빌드 필요 여부 판단
-    if [ "$FORCE_BUILD" == "false" ] && [ -d "${ROOT_OUT}" ]; then
-        # dist 폴더 내의 가장 최신 파일 시간을 가져옴
-        local LATEST_BUILD_MTIME=$(find "${ROOT_OUT}" -type f -exec stat -f "%m" {} + | sort -rn | head -1)
-        
-        if [ "$LATEST_BUILD_MTIME" -ge "$LATEST_SRC_MTIME" ]; then
-            echo "   ✅ [Skip] 소스 변경이 없습니다. 기존 빌드물을 유지합니다. (mtime: ${LATEST_BUILD_MTIME} >= ${LATEST_SRC_MTIME})"
+    # ⚠️ dist 폴더의 mtime은 App Bundle 내부 바이너리(Electron 등)에 의해 항상
+    #    최신으로 보이기 때문에 mtime 직접 비교는 신뢰할 수 없습니다.
+    #    → 빌드 완료 시 소스 mtime을 스탬프 파일에 기록하고 다음 실행 때 비교합니다.
+    local STAMP_FILE="dist/.build_stamp_${suffix}"
+    if [ "$FORCE_BUILD" == "false" ] && [ -d "${ROOT_OUT}" ] && [ -f "${STAMP_FILE}" ]; then
+        local LAST_BUILD_SRC_MTIME=$(cat "${STAMP_FILE}" 2>/dev/null)
+        if [ "${LAST_BUILD_SRC_MTIME}" = "${LATEST_SRC_MTIME}" ]; then
+            echo "   ✅ [Skip] 소스 변경이 없습니다. 기존 빌드물을 유지합니다. (stamp: ${LAST_BUILD_SRC_MTIME})"
             return 0
         fi
-        echo "   🔄 [Update] 소스 변경이 감지되었습니다. 재빌드를 진행합니다."
+        echo "   🔄 [Update] 소스 변경이 감지되었습니다. 재빌드를 진행합니다. (이전: ${LAST_BUILD_SRC_MTIME} → 현재: ${LATEST_SRC_MTIME})"
     fi
 
     # 실제 빌드 과정 시작
@@ -237,6 +239,8 @@ EOF
     fi
 
     echo "   ✅ ${suffix} 빌드 완료"
+    # ✏️ 소스 mtime을 스탬프 파일에 기록 (다음 incremental 빌드 비교용)
+    echo "${LATEST_SRC_MTIME}" > "dist/.build_stamp_${suffix}"
 }
 
 # ---------------------------------------------------
