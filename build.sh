@@ -42,13 +42,23 @@ if [ ! -f "src/config/secret.js" ]; then
     exit 1
 fi
 
-# ---------------------------------------------------
-# 4. 빌드 시작
-# ---------------------------------------------------
-echo ""
-echo "🧹 기존 dist 폴더를 정리합니다..."
-rm -rf dist
-mkdir -p dist
+# ==========================================
+# 🚀 인자 처리 (Incremental Build 지원)
+# ==========================================
+SKIP_BUILD=false
+for arg in "$@"; do
+    if [ "$arg" == "--skip-build" ] || [ "$arg" == "--deploy-only" ]; then
+        SKIP_BUILD=true
+    fi
+done
+
+if [ "$SKIP_BUILD" == "true" ]; then
+    echo "⏩ [Fast] 빌드 단계를 건너뛰고 패키징/배포만 진행합니다."
+else
+    echo "🧹 기존 dist 폴더를 정리합니다..."
+    rm -rf dist
+    mkdir -p dist
+fi
 
 # ---------------------------------------------------
 # 📦 공통 자산 복사 함수 (build.yml Prepare Assets 와 동일)
@@ -208,11 +218,15 @@ EOF
 # ---------------------------------------------------
 # 5. 플랫폼별 빌드 실행
 # ---------------------------------------------------
-# build_platform <pkg_os> <electron_os> <arch> <suffix>
-build_platform "macos" "darwin" "arm64" "mac-arm64"
-# build_platform "macos" "darwin" "x64"   "mac-intel"
-build_platform "win"   "win32"  "x64"   "win-x64"
-# build_platform "linux" "linux"  "x64"   "linux-x64"
+if [ "$SKIP_BUILD" == "false" ]; then
+    # build_platform <pkg_os> <electron_os> <arch> <suffix>
+    build_platform "macos" "darwin" "arm64" "mac-arm64"
+    # build_platform "macos" "darwin" "x64"   "mac-intel"
+    build_platform "win"   "win32"  "x64"   "win-x64"
+    # build_platform "linux" "linux"  "x64"   "linux-x64"
+else
+    echo "⏩ [Skip] 플랫폼별 빌드 과정을 건너뜁니다."
+fi
 
 # ---------------------------------------------------
 # 5. ZIP 생성 (플랫폼 폴더 내부에 생성)
