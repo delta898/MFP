@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.1.1] - 2026-03-10
+### Added
+- **Premium Dashboard UX**: Total redesign of the quick action area with vibrant gradients, increased visibility, and smooth hover interactions.
+- **Harmonized Card Layout**: Perfectly aligned "Activity History" and "YouTube Shorts" cards using CSS Grid stretch properties and synchronized content density.
+- **Enhanced Log Filtering**: Refined user logs by moving technical startup messages (Kuzu, Telegram, System init) to DEBUG level and implementing prefix-based hiding for a cleaner "Activity History" view.
+- **Improved Quick Action Links**: Renamed buttons to "블로그 빠른 발행" and "쇼핑커넥트 빠른 발행", with the latter now linking directly to the Shopping view.
+
+### Fixed
+- **KuzuDB Initialization**: Resolved a critical startup error on macOS by identifying Kuzu's file-based storage behavior and removing incorrect directory-only checks.
+- **Dashboard Text Overflow**: Implemented `white-space: nowrap` and optimized font scaling to prevent long button labels from breaking the layout.
+
 ## 0.9.6-dev1 (2026-03-06)
 ### Fixed
 - **패키징 환경(Packaged App) 경로 및 로딩 이슈 해결**:
