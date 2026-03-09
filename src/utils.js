@@ -1198,6 +1198,9 @@ const Utils = {
                         }
                     }
 
+                    const explicitImgGen = imgGenStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(imgGenStr).toLowerCase()) : undefined;
+                    const explicitExtRef = extRefStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(extRefStr).toLowerCase()) : undefined;
+
                     return {
                         rowIndex: index,
                         rowNumber: index + 2,
@@ -1212,9 +1215,9 @@ const Utils = {
                             reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
                         },
                         status: status || '',
-                        image_gen: optionsObj.image_gen !== undefined ? !!optionsObj.image_gen : (String(imgGenStr || '').toLowerCase() === 'yes'),
-                        image_count: optionsObj.image_count !== undefined ? parseInt(optionsObj.image_count, 10) : parseInt(imgCountStr, 10),
-                        external_reference: optionsObj.external_reference !== undefined ? !!optionsObj.external_reference : (String(extRefStr || '').toLowerCase() === 'yes'),
+                        image_gen: explicitImgGen !== undefined ? explicitImgGen : (optionsObj.image_gen !== undefined ? !!optionsObj.image_gen : false),
+                        image_count: parseInt(imgCountStr, 10) || (optionsObj.image_count !== undefined ? parseInt(optionsObj.image_count, 10) : 4),
+                        external_reference: explicitExtRef !== undefined ? explicitExtRef : (optionsObj.external_reference !== undefined ? !!optionsObj.external_reference : false),
                         options: optionsObj, // [Added] 원본 옵션 객체 유지
                         log: logStr || '',
                         published_at: publishedAt || '',

@@ -1046,6 +1046,7 @@ function normalizeCollectTrendsSettings(input = {}) {
         COLLECT_TRENDS_ENABLED: enabled,
         COLLECT_TRENDS_CATEGORIES: categories,
         BLOG_AUTO_CATEGORIES: categories, // Compatibility alias
+        COLLECT_TRENDS_NAVER_CATEGORY: String(input.COLLECT_TRENDS_NAVER_CATEGORY || CONFIG.COLLECT_TRENDS_NAVER_CATEGORY || '').trim(),
         COLLECT_TRENDS_WP_CATEGORY: String(input.COLLECT_TRENDS_WP_CATEGORY || CONFIG.COLLECT_TRENDS_WP_CATEGORY || '').trim(),
         COLLECT_TRENDS_TIME: time,
         COLLECT_TRENDS_REUSE_GAP_DAYS: reuseGapDays,
@@ -1174,6 +1175,7 @@ function buildMajorSettings(raw, configSource) {
         COLLECT_TRENDS_FILTER_TOP_N: CONFIG.COLLECT_TRENDS_FILTER_TOP_N,
         COLLECT_TRENDS_REUSE_GAP_DAYS: CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS,
         COLLECT_TRENDS_TIME: CONFIG.COLLECT_TRENDS_TIME,
+        COLLECT_TRENDS_NAVER_CATEGORY: CONFIG.COLLECT_TRENDS_NAVER_CATEGORY,
         COLLECT_TRENDS_WP_CATEGORY: CONFIG.COLLECT_TRENDS_WP_CATEGORY,
 
         // Automation - RSS
@@ -1267,6 +1269,8 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.COLLECT_TRENDS_FILTER_TOP_N = normalizeIntegerOrBlank(fields.COLLECT_TRENDS_FILTER_TOP_N, 5);
     CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS = normalizeNonNegativeInt(fields.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
     CONFIG.COLLECT_TRENDS_TIME = normalizeTimeHHmm(fields.COLLECT_TRENDS_TIME, '07:30');
+    CONFIG.COLLECT_TRENDS_NAVER_CATEGORY = String(fields.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
+    CONFIG.COLLECT_TRENDS_WP_CATEGORY = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
 
     CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizePositiveInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
@@ -1680,7 +1684,7 @@ async function runNaverLoginFlowForUi() {
 }
 async function processMultiPlatformPublish(params = {}, options = {}) {
     const {
-        context, // { subject, keywords, instruction, referenceUrls, useExternalRef, imageOptions, category, postStatus, scheduleDate }
+        context, // { subject, keywords, instruction, referenceUrls, useExternalRef, imageOptions, category, naverCategory, wordpressCategory, postStatus, scheduleDate }
         targets,
         headless,
         features,
@@ -1704,6 +1708,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             emitProgress('네이버 콘텐츠 생성 중...');
             const naverTopic = {
                 ...context,
+                category: context.naverCategory || context.category || '', // Use platform-specific if available
                 content_guide: {
                     additional_instructions: context.instruction || '',
                     reference_urls: context.referenceUrls || []
@@ -1731,6 +1736,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             emitProgress('워드프레스 콘텐츠 생성 중...');
             const wpTopic = {
                 ...context,
+                category: context.wordpressCategory || context.category || '', // Use platform-specific if available
                 content_guide: {
                     additional_instructions: context.instruction || '',
                     reference_urls: context.referenceUrls || []
@@ -1765,7 +1771,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             emitProgress('네이버 발행 중...');
             const naverRes = await Core.publishToBlog(results.naver.targetDir, {
                 headless,
-                category: context.category || '',
+                category: context.naverCategory || context.category || '',
                 postStatus: context.postStatus || 'publish',
                 scheduleDate: context.scheduleDate || '',
                 isLast: options.isLast === true
@@ -1787,7 +1793,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
         if (targets.includes('wordpress') && results.wordpress.targetDir) {
             emitProgress('워드프레스 발행 중...');
             const wpOptions = {
-                wpCategory: context.category || '',
+                category: context.wordpressCategory || context.category || '',
                 postStatus: context.postStatus || 'draft',
                 wpScheduleDate: context.scheduleDate || '',
                 imageGeneration: imageGenerationFinal
@@ -1941,7 +1947,10 @@ async function executeQuickPublish(requestBody) {
             trendDate: '',
             status: appendStatus,
             // WordPress Metadata
-            category: requestBody?.category || '',
+            // WordPress Metadata
+            category: (requestBody?.naverCategory || requestBody?.wordpressCategory)
+                ? `N:${requestBody.naverCategory || ''}, W:${requestBody.wordpressCategory || ''}`
+                : (requestBody?.category || ''),
             postStatus: requestBody?.postStatus || 'publish',
             scheduleDate: requestBody?.scheduleDate || '',
             targets: targets.join(', ')
@@ -1993,6 +2002,8 @@ async function executeQuickPublish(requestBody) {
                     count: 4
                 },
                 category: requestBody?.category || '',
+                naverCategory: requestBody?.naverCategory || '',
+                wordpressCategory: requestBody?.wordpressCategory || '',
                 postStatus: requestBody?.postStatus || 'draft',
                 scheduleDate: requestBody?.scheduleDate || ''
             },
@@ -2104,11 +2115,17 @@ async function executeShoppingQuickPublish(requestBody = {}) {
 
     await Utils.ensureAllSheetsExist();
     const appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '준비';
+    const naverCategory = (requestBody?.naverCategory || '').trim();
+    const wordpressCategory = (requestBody?.wordpressCategory || requestBody?.category || '').trim();
+    let categoryField = '';
+    if (naverCategory || wordpressCategory) {
+        categoryField = `N:${naverCategory}, W:${wordpressCategory}`;
+    }
     const appendResult = await Utils.appendGoogleSheetShopping([{
         shortUrl,
         product,
         status: appendStatus,
-        category: (requestBody?.category || '').trim(),
+        category: categoryField,
         postStatus: (requestBody?.postStatus || 'publish').trim(),
         scheduleDate: (requestBody?.scheduleDate || '').trim()
     }], {
@@ -2209,7 +2226,7 @@ async function executeBlogRowAction(requestBody, options = {}) {
     const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
     const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
 
-    // [Smart Override] 개별 행의 options를 모든 컬럼보다 우선 적용
+    // [Smart Override] 개별 행의 options를 모든 컬럼보다 우선 적용 (단, UI 명시적 필드는 제외)
     const rowOptions = topicData.options || {};
     const getVal = (key, fallback) => {
         if (rowOptions[key] !== undefined && rowOptions[key] !== null && rowOptions[key] !== '') return rowOptions[key];
@@ -2221,16 +2238,32 @@ async function executeBlogRowAction(requestBody, options = {}) {
     const effectiveKeywords = getVal('keywords', topicData.keywords || []);
     const effectiveInstruction = getVal('instruction', topicData.content_guide?.additional_instructions || '');
     const effectiveRefUrls = getVal('reference_urls', topicData.content_guide?.reference_urls || []);
-    const effectiveImgGen = getVal('image_gen', topicData.image_gen === true);
-    const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
-    const effectiveExtRef = getVal('external_reference', topicData.external_reference === true);
     const effectiveCategory = getVal('category', topicData.category || '');
     const effectivePostStatus = getVal('post_status', topicData.postStatus || 'publish');
     const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
 
+    // 🔴 [FIX] 이미지생성과 외부참고여부는 UI 체크박스와 시트의 명시적 컬럼 값이 최우선입니다. 
+    // JSON options를 무시하고 topicData(UI가 보여주는 최종 값)를 그대로 사용합니다.
+    const effectiveImgGen = topicData.image_gen === true;
+    const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
+    const effectiveExtRef = topicData.external_reference === true;
+
     const autoSettingsSnapshot = getBlogAutoSettingsSnapshot();
     const resolvedHeadless = typeof requestBody?.headless === 'boolean'
         ? requestBody.headless : autoSettingsSnapshot.BLOG_AUTO_HEADLESS;
+
+    // Resolve platform-specific categories if N:..., W:... format is used
+    let naverCat = '';
+    let wpCat = '';
+    if (effectiveCategory.includes('N:') || effectiveCategory.includes('W:')) {
+        const nMatch = effectiveCategory.match(/N:([^,]*)/);
+        const wMatch = effectiveCategory.match(/W:([^,]*)/);
+        naverCat = nMatch ? nMatch[1].trim() : '';
+        wpCat = wMatch ? wMatch[1].trim() : '';
+    } else {
+        naverCat = effectiveCategory;
+        wpCat = effectiveCategory;
+    }
 
     const publishParams = {
         context: {
@@ -2244,6 +2277,8 @@ async function executeBlogRowAction(requestBody, options = {}) {
                 count: effectiveImgCount
             },
             category: effectiveCategory,
+            naverCategory: naverCat,
+            wordpressCategory: wpCat,
             postStatus: effectivePostStatus,
             scheduleDate: effectiveScheduleDate
         },
@@ -2688,7 +2723,7 @@ async function executeShoppingRowAction(requestBody, options = {}) {
         if (targets.includes('wordpress') && results.wordpress.targetDir) {
             report('워드프레스 발행 단계 진행 중');
             const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, {
-                wpCategory: target.category || 'Shopping',
+                category: target.category || 'Shopping',
                 postStatus: target.postStatus || 'publish',
                 wpScheduleDate: target.scheduleDate || null,
                 headless: batchHeadless
@@ -2980,6 +3015,7 @@ async function executeBlogTopicUpdate(requestBody) {
         return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
     }
 
+
     const subject = String(requestBody?.subject || '').trim();
     if (!subject) {
         return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 비워둘 수 없습니다.' };
@@ -3014,8 +3050,12 @@ async function executeBlogTopicUpdate(requestBody) {
             return { success: false, code: 'INVALID_POST_STATUS', message: `post_status 값이 올바르지 않습니다: ${postStatusRaw}` };
         }
 
+        const naverCat = String(requestBody?.naverCategory || '').trim();
+        const wpCat = String(requestBody?.wordpressCategory || '').trim();
+        const finalCategory = (naverCat || wpCat) ? `N:${naverCat}, W:${wpCat}` : String(requestBody?.category || '').trim();
+
         await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
-            category: String(requestBody?.category || '').trim(),
+            category: finalCategory,
             postStatus: postStatusRaw,
             scheduleDate: String(requestBody?.scheduleDate || '').trim(),
             subject,
@@ -3447,6 +3487,7 @@ function syncRssRunner() {
 
     // 각 피드별 다음 실행 예정 시간 로그 출력
     const now = Date.now();
+    const enabledConfigs = rssConfigs.filter(rc => rc.enabled);
     enabledConfigs.forEach(rc => {
         const url = String(rc.url || '').trim();
         if (!url) return;
@@ -3873,7 +3914,9 @@ async function processAndAppendTrendsToTopics(trends, settings = {}) {
     const variationNumber = normalizeIntegerOrBlank(settings.COLLECT_TRENDS_FILTER_MIN_INCR, '');
     const variationTopN = normalizeIntegerOrBlank(settings.COLLECT_TRENDS_FILTER_TOP_N, 5);
     const keywordReuseGapDays = normalizeNonNegativeInt(settings.COLLECT_TRENDS_REUSE_GAP_DAYS, COLLECT_TRENDS_DEFAULTS.reuseGapDays);
-    const wpCategory = String(settings.COLLECT_TRENDS_WP_CATEGORY || '').trim();
+    const naverCategory = String(settings.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
+    const wordpressCategory = String(settings.COLLECT_TRENDS_WP_CATEGORY || '').trim();
+    const finalCategory = (naverCategory || wordpressCategory) ? `N:${naverCategory}, W:${wordpressCategory}` : '';
     const autoImageGeneration = toBoolLike(settings.PUBLISH_AUTO_IMAGE_GENERATION, PUBLISH_AUTO_DEFAULTS.imageGeneration);
     const autoExternalReference = toBoolLike(settings.PUBLISH_AUTO_EXTERNAL_REFERENCE, PUBLISH_AUTO_DEFAULTS.externalReference);
 
@@ -4052,7 +4095,7 @@ async function processAndAppendTrendsToTopics(trends, settings = {}) {
                 reference_urls: []
             },
             use_external_ref: true, // 🔄 [Source-Based] Trends collection 무조건 Yes
-            category: wpCategory,
+            category: finalCategory,
             image_options: { generate: autoImageGeneration, count: 4 },
             source: 'auto-trends',
             trendDate: String(item.date || '').trim(),
@@ -4578,6 +4621,10 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
                     normalizedLink = Utils.convertToMobileNaverBlogUrl(normalizedLink);
                 }
 
+                const naverCategory = String(config.naver_category || '').trim();
+                const wordpressCategory = String(config.wordpress_category || config.category || '').trim();
+                const finalCategory = (naverCategory || wordpressCategory) ? `N:${naverCategory}, W:${wordpressCategory}` : '';
+
                 allNewItems.push({
                     subject: item.title,
                     keywords: [], // 주제만 요청하셨으므로 키워드 비움
@@ -4589,7 +4636,7 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
                     image_options: { generate: true, count: 4 },
                     source: 'rss',
                     status: '발행 준비 완료',
-                    wp_category: String(config.wpCategory || '').trim() || '',
+                    category: finalCategory,
                     postStatus: 'publish'
                 });
                 existingLinks.add(normalizedLink); // 현재 세션 내 중복 방지

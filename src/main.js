@@ -1250,7 +1250,7 @@ program
                     if (publishTargets.includes('wordpress')) {
                         console.log("   📝 [WordPress] 발행 시작...");
                         await Core.publishToWordPress(result.targetDir, {
-                            wpCategory: job.category || 'Shopping',
+                            category: job.category || 'Shopping',
                             postStatus: job.postStatus || 'publish',
                             wpScheduleDate: job.scheduleDate || null
                         });
