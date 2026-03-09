@@ -1580,6 +1580,15 @@ async function loadDashboardLogs() {
       }
       list.innerHTML = '';
       items.forEach(log => {
+        const msg = String(log.message || '').trim();
+
+        // Skip debug logs and system-only noise for the dashboard timeline
+        if (log.level === 'debug') return;
+        if (list.id === 'activity-timeline') {
+          const sysPrefixes = ['[Kuzu]', '[TelegramBot]', '[System]', '[Updater]', '📡', '✅ 세션 확인 완료'];
+          if (sysPrefixes.some(p => msg.startsWith(p))) return;
+        }
+
         const li = document.createElement('li');
         li.style.padding = '10px 12px';
         li.style.borderBottom = '1px solid #f1f5f9';
@@ -1589,10 +1598,9 @@ async function loadDashboardLogs() {
         let icon = 'ℹ️';
         if (log.level === 'error') icon = '❌';
         else if (log.level === 'warn') icon = '⚠️';
-        else if (log.message.includes('완료') || log.message.includes('성공')) icon = '✅';
+        else if (msg.includes('완료') || msg.includes('성공')) icon = '✅';
 
         // 🆕 만약 메시지 자체가 이모지로 시작하면 중복 방지
-        const msg = String(log.message || '').trim();
         const startsWithEmoji = /^([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/.test(msg);
         const finalMessage = (startsWithEmoji && (msg.startsWith(icon) || icon === 'ℹ️')) ? msg : `${icon} ${msg}`;
 

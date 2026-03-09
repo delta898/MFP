@@ -409,7 +409,7 @@ function createRequestId() {
 }
 
 async function checkNaverSessionForUi() {
-    return checkAuthSessionValid({ cacheTtlMs: UI_SESSION_CHECK_TTL_MS, silent: true });
+    return checkAuthSessionValid({ cacheTtlMs: UI_SESSION_CHECK_TTL_MS });
 }
 
 function normalizeBool(input, fallback = false) {
