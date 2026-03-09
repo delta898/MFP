@@ -12,7 +12,8 @@ function cloneSessionResult(result) {
     return result ? { ...result } : result;
 }
 
-async function performAuthSessionCheck() {
+async function performAuthSessionCheck(options = {}) {
+    const silent = options.silent === true;
     const authPath = CONFIG.AUTH_FILE_PATH;
     if (!authPath || !fs.existsSync(authPath)) {
         return { ok: false, reason: 'missing_auth' };
@@ -20,7 +21,7 @@ async function performAuthSessionCheck() {
 
     let browser = null;
     let context = null;
-    Logger.info("📡 네이버 로그인 세션 유효성 확인 중...");
+    if (!silent) Logger.info("📡 네이버 로그인 세션 유효성 확인 중...");
     try {
         browser = await BrowserLauncher.launchBrowser({ headless: true });
         context = await browser.newContext({
@@ -38,7 +39,7 @@ async function performAuthSessionCheck() {
             Logger.error("🚨 세션 확인 실패: 로그인 정보가 만료되었습니다.");
             return { ok: false, reason: 'expired' };
         }
-        Logger.info("✅ 세션 확인 완료: 정상적으로 로그인되어 있습니다.");
+        if (!silent) Logger.info("✅ 세션 확인 완료: 정상적으로 로그인되어 있습니다.");
         return { ok: true };
     } catch (e) {
         return { ok: false, reason: 'check_failed', message: e.message };
@@ -62,7 +63,7 @@ async function checkAuthSessionValid(options = {}) {
     }
 
     sessionCheckInFlight = (async () => {
-        const result = await performAuthSessionCheck();
+        const result = await performAuthSessionCheck(options);
         cachedSession = cloneSessionResult(result);
         cachedAtMs = Date.now();
         return result;
