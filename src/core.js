@@ -1567,6 +1567,16 @@ ${messageText}
 		const hasRef = jobData.content_guide?.reference_urls && jobData.content_guide.reference_urls.length > 0;
 		const useExternalRef = jobData.use_external_ref === true;
 
+		// 📋 요청 파라미터 요약 로그 (디버깅용)
+		Logger.info("┌─────────────────────────────────────────");
+		Logger.info(`│ 📌 주제       : ${jobData.subject || '(없음)'}`);
+		Logger.info(`│ 🏷️  키워드     : ${hasKeywords ? jobData.keywords.join(', ') : '(없음)'}`);
+		Logger.info(`│ 🔗 참고 URL   : ${hasRef ? jobData.content_guide.reference_urls.join(', ') : '(없음)'}`);
+		Logger.info(`│ 🌐 외부 참고  : ${useExternalRef ? '✅ 예' : '❌ 아니오'}`);
+		Logger.info(`│ 🖼️  이미지 생성: ${jobData.image_options?.generate !== false ? '✅ 예' : '❌ 아니오'}`);
+		Logger.info(`│ 📤 발행 옵션  : ${jobData.post_status || runtimeOptions.postStatus || '임시저장'}`);
+		Logger.info("└─────────────────────────────────────────");
+
 		if (!hasSubject && !hasKeywords && !hasRef && !hasInstructions) {
 			throw new Error("❌ [Error] 주제, 키워드, 지시사항, URL 중 적어도 하나는 필요합니다.");
 		}
@@ -1579,13 +1589,13 @@ ${messageText}
 			// 검색 키워드 결정: keywords 중 첫번째 또는 subject
 			const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
 			if (searchKeyword) {
-				Logger.debug(`🔍 [외부 참고] 인기글 수집 시작: '${searchKeyword}'`);
+				Logger.info(`🔍 [외부 참고] 인기글 수집 및 분석 시작: '${searchKeyword}'`);
 				const relatedPosts = await Utils.fetchNaverBlogTopPosts(searchKeyword);
 
 				for (let i = 0; i < relatedPosts.length; i++) {
 					const post = relatedPosts[i];
 					const rawTitle = String(post.title || '').replace(/\s+/g, ' ').trim();
-					const previewTitle = rawTitle.slice(0, 5);
+					const previewTitle = rawTitle.length > 10 ? rawTitle.slice(0, 10) + '...' : rawTitle;
 					Logger.info(`   📖 [외부 참고] 관련 글 ${i + 1} 분석 중...: ${previewTitle}`);
 					const text = await Utils.fetchReferenceContent(post.link);
 					if (text) {
@@ -1594,16 +1604,19 @@ ${messageText}
 					}
 					await Utils.sleep(1000);
 				}
-				Logger.debug(`🔍 [외부 참고] 인기글 스크래핑 완료: ${refSourceCount}건 성공`);
+				Logger.info(`🔍 [외부 참고] 인기글 스크래핑 완료: ${refSourceCount}건 성공`);
 			}
 		}
 
 		// 2) 수동 참고 URL 스크래핑 (기존 로직 유지)
 		if (hasRef) {
-			Logger.debug("📚 수동 참고 자료(URL) 분석 중...");
-			for (const url of jobData.content_guide.reference_urls) {
+			const refUrls = jobData.content_guide.reference_urls;
+			Logger.info(`📚 수동 참고 자료(${refUrls.length}개) 분석 중...`);
+			for (let i = 0; i < refUrls.length; i++) {
+				const url = refUrls[i];
 				// 네이버 블로그 URL이면 모바일 변환
 				const convertedUrl = Utils.convertToMobileNaverBlogUrl(url);
+				Logger.info(`   🔗 [참고 자료] URL 분석 중 (${i + 1}/${refUrls.length}): ${convertedUrl}`);
 				const text = await Utils.fetchReferenceContent(convertedUrl);
 				if (text) {
 					refSourceCount++;
