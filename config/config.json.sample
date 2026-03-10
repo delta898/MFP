@@ -9,7 +9,7 @@
   },
   "ai_settings": {
     "text_model": "gemini-3.1-flash-lite-preview",
-    "image_model": "gemini-2.5-flash-image",
+    "image_model": "gemini-3.1-flash-image-preview",
     "image_style": "photorealistic"
   },
   "platforms": {

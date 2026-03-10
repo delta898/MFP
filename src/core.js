@@ -1757,7 +1757,11 @@ ${scrapedContext}`;
 			const style = jobData.image_options?.style || CONFIG.IMAGE_STYLE || 'photorealistic';
 			const prompt = `${item.prompt}, ${style}, high quality, no text`;
 
-			await Utils.callGeminiImage(prompt, path.join(dirPath, `${prefix}_image`));
+			try {
+				await Utils.callGeminiImage(prompt, path.join(dirPath, `${prefix}_image`));
+			} catch (imageErr) {
+				Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
+			}
 			lastCall = Date.now();
 		}
 	},

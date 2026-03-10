@@ -3281,7 +3281,7 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
                         { contents: [{ parts: [{ text: prompt }] }] },
-                        { headers: { 'Content-Type': 'application/json' } }
+                        { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
                     )
                 );
                 const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -3314,7 +3314,7 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => axios.post(endpoint,
                         { contents: [{ parts: [{ text: prompt }] }] },
-                        { headers: { 'Content-Type': 'application/json' } }
+                        { headers: { 'Content-Type': 'application/json' }, timeout: 180000 }
                     )
                 );
                 const candidates = response.data.candidates;
