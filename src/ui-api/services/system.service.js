@@ -327,7 +327,21 @@ function createSystemService(deps = {}) {
             if (!fs.existsSync(logFile)) {
                 throw createApiError(404, 'FILE_NOT_FOUND', '로그 파일을 찾을 수 없습니다.');
             }
-            const content = fs.readFileSync(logFile, 'utf-8');
+
+            const stats = fs.statSync(logFile);
+            const MAX_SIZE = 1024 * 1024; // 1MB
+            let content = '';
+
+            if (stats.size > MAX_SIZE) {
+                const buffer = Buffer.alloc(MAX_SIZE);
+                const fd = fs.openSync(logFile, 'r');
+                fs.readSync(fd, buffer, 0, MAX_SIZE, stats.size - MAX_SIZE);
+                fs.closeSync(fd);
+                content = '\n... [로그 파일이 너무 커서 최근 1MB 내용만 표시됩니다] ...\n\n' + buffer.toString('utf-8');
+            } else {
+                content = fs.readFileSync(logFile, 'utf-8');
+            }
+
             return { file: filename, content };
         },
 
