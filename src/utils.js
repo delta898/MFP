@@ -3243,7 +3243,7 @@ const Utils = {
 
     fetchReferenceContent: async function (url) {
         if (!url) return "";
-        Logger.info(`🌐 [참고자료 Fetch] 요청 시작: ${url}`);
+        Logger.debug(`🌐 [참고자료 Fetch] 요청 시작: ${url}`);
         Logger.debug(`🌐 [Scraping] 접속 시도: ${url}`);
         try {
             const response = await axios.get(url, {
@@ -3256,16 +3256,16 @@ const Utils = {
             });
             const extracted = extractReferenceContentFromHtml(response.data, url);
             if (!extracted.text) {
-                Logger.info(`⚠️ [참고자료 Fetch] 본문 추출 결과 비어 있음: ${url}`);
+                Logger.debug(`⚠️ [참고자료 Fetch] 본문 추출 결과 비어 있음: ${url}`);
                 return "";
             }
-            Logger.info(
+            Logger.debug(
                 `✅ [참고자료 Fetch] 완료: ${url} (제목: ${extracted.title || '없음'}, 본문 길이: ${extracted.bodyLength}자, 선택영역: ${extracted.selector})`
             );
             Logger.debug(`   ✅ 스크래핑 성공 (길이: ${extracted.text.length}자)`);
             return extracted.text;
         } catch (e) {
-            Logger.info(`⚠️ [참고자료 Fetch] 실패: ${url} (${e.message})`);
+            Logger.debug(`⚠️ [참고자료 Fetch] 실패: ${url} (${e.message})`);
             Logger.debug(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
             return "";
         }
