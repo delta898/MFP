@@ -42,28 +42,6 @@ const BLOG_GENIUS_USER_DATA = process.env.BLOG_GENIUS_USER_DATA;
 const ROOT_DIR = (HAS_LOCAL_CONFIG || !BLOG_GENIUS_USER_DATA) ? ACTIVE_ROOT : BLOG_GENIUS_USER_DATA;
 const EXEC_DIR = ACTIVE_ROOT;
 
-function decodeFileUriPath(raw) {
-    const input = String(raw || '').trim();
-    if (!/^file:\/\//i.test(input)) return input;
-    try {
-        const parsed = new URL(input);
-        if (parsed.protocol !== 'file:') return input;
-        const host = decodeURIComponent(parsed.hostname || '');
-        let localPath = decodeURIComponent(parsed.pathname || '');
-        if (host === '.') {
-            localPath = `.${localPath}`;
-        } else if (host && host !== 'localhost') {
-            localPath = `//${host}${localPath}`;
-        }
-        if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) {
-            localPath = localPath.slice(1);
-        }
-        return localPath || input;
-    } catch (e) {
-        return input.replace(/^file:\/\//i, '');
-    }
-}
-
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
 // =========================================================
