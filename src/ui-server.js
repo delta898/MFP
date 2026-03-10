@@ -1720,6 +1720,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             const naverTopic = {
                 ...context,
                 category: context.naverCategory || context.category || '', // Use platform-specific if available
+                use_external_ref: context.useExternalRef,
                 content_guide: {
                     additional_instructions: context.instruction || '',
                     reference_urls: context.referenceUrls || []
@@ -1748,6 +1749,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             const wpTopic = {
                 ...context,
                 category: context.wordpressCategory || context.category || '', // Use platform-specific if available
+                use_external_ref: context.useExternalRef,
                 content_guide: {
                     additional_instructions: context.instruction || '',
                     reference_urls: context.referenceUrls || []
@@ -2309,7 +2311,19 @@ async function executeBlogRowAction(requestBody, options = {}) {
             emitProgress('콘텐츠 생성 중...');
             // 'gen' action only generates for the first target or 'naver' by default
             const targetPlatform = targets[0] || 'naver';
-            const result = await Core.generateContent(publishParams.context, null, {
+            const topic = {
+                ...publishParams.context,
+                use_external_ref: publishParams.context.useExternalRef,
+                content_guide: {
+                    additional_instructions: publishParams.context.instruction || '',
+                    reference_urls: publishParams.context.referenceUrls || []
+                },
+                image_options: {
+                    generate: imageGenerationFinal,
+                    count: publishParams.context.imageOptions?.count || 4
+                }
+            };
+            const result = await Core.generateContent(topic, null, {
                 enableRelatedPostsAutoLink,
                 platform: targetPlatform
             });
