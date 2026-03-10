@@ -3,6 +3,7 @@ const { createApiError } = require('../errors');
 function createTrendsService(deps = {}) {
     const {
         Utils,
+        Logger,
         ensureSheetsReadyForUi,
         parseIntSafe,
         normalizeSortDir,

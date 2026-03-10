@@ -7,6 +7,7 @@ function createContentService(deps = {}) {
         path,
         CONFIG,
         ShoppingManager,
+        Logger,
         SHOPPING_IMAGE_SLOT_MAP,
         parseBase64ImagePayload,
         resolveWritableConfigPath,

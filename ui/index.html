@@ -241,16 +241,16 @@
             </ul>
           </article>
 
-          <!-- YouTube Shorts Playlist -->
-          <article class="card dash-shorts-card">
+          <!-- Instagram Reels (RSS.app Widget) -->
+          <article class="card dash-shorts-card" style="min-height: 480px; overflow: hidden;">
             <div class="dash-feed-header">
-              <h3 style="margin: 0; font-size: 16px;">유튜브 쇼츠</h3>
-              <a id="dash-feed-home-youtube-playlist" class="dash-feed-home-link"
-                href="https://www.youtube.com/playlist?list=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob" target="_blank"
-                rel="noopener noreferrer">재생목록 이동</a>
+              <h3 style="margin: 0; font-size: 16px;">인스타그램 릴스</h3>
+              <a href="https://www.instagram.com/amadejjs/reels/" target="_blank" rel="noopener noreferrer"
+                class="dash-feed-home-link">프로필 이동</a>
             </div>
-            <div id="dash-feed-list-youtube-playlist" class="dash-feed-list dash-shorts-list">
-              <p class="dash-feed-empty">불러오는 중...</p>
+            <div class="dash-feed-list" style="padding: 0; min-height: 200px;">
+              <rssapp-carousel id="r0RymD0NgNk92TX6"></rssapp-carousel>
+              <script src="https://widget.rss.app/v1/carousel.js" type="text/javascript" async></script>
             </div>
           </article>
         </div>
@@ -1319,6 +1319,9 @@
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
           <pre class="settings-major-result"></pre>
+          <div class="form-actions">
+            <button id="settings-shopping-connect-save-btn" class="settings-major-save-btn">저장</button>
+          </div>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-notification">

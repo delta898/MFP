@@ -21,7 +21,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         CONFIG: deps.CONFIG,
         parseBoolQuery: deps.parseBoolQuery,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
-        logger: deps.Logger,
+        Logger: deps.Logger,
         axios: deps.axios,
         cheerio: deps.cheerio
     });
@@ -61,6 +61,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         path: deps.path,
         CONFIG: deps.CONFIG,
         ShoppingManager: deps.ShoppingManager,
+        Logger: deps.Logger,
         SHOPPING_IMAGE_SLOT_MAP: deps.SHOPPING_IMAGE_SLOT_MAP,
         parseBase64ImagePayload: deps.parseBase64ImagePayload,
         resolveWritableConfigPath: deps.resolveWritableConfigPath,
@@ -104,6 +105,7 @@ function createLegacyApiRouteHandler(deps = {}) {
 
     const trendsService = createTrendsService({
         Utils: deps.Utils,
+        Logger: deps.Logger,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         parseIntSafe: deps.parseIntSafe,
         normalizeSortDir: deps.normalizeSortDir,

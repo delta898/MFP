@@ -9,10 +9,15 @@ function createSystemService(deps = {}) {
         CONFIG,
         parseBoolQuery,
         ensureSheetsReadyForUi,
-        logger,
+        Logger,
         axios,
         cheerio
     } = deps;
+    if (typeof Logger?.getRecentLogs !== 'function') {
+        console.error('❌ [System] Logger dependency missing or invalid in SystemService');
+    } else {
+        Logger.info('✅ [System] Dashboard SystemService가 로드되었습니다. (Logger 연동 완료)');
+    }
 
     function getDashboardContentSources() {
         // [조건 1, 2] 네이버 블로그 설정 확인
@@ -55,13 +60,6 @@ function createSystemService(deps = {}) {
                 feedType: 'rss',
                 rssUrl: 'https://itmania.hangadac.com/feed/',
                 homeUrl: 'https://itmania.hangadac.com'
-            },
-            {
-                key: 'youtubePlaylist',
-                label: '유튜브 쇼츠',
-                feedType: 'atom',
-                rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC4Sl4m-ZV65knmWTl0UFYkw',
-                homeUrl: 'https://www.youtube.com/playlist?list=PLm2fQEuE3U-NafRxEALr8Us7mtm5cV7ob'
             }
         ];
     }
@@ -215,6 +213,8 @@ function createSystemService(deps = {}) {
     }
 
     async function fetchFeedItems(source, limit) {
+        const sourceKey = String(source.key || '');
+
         const url = String(source.rssUrl || '').trim();
         if (!url) return { ...source, items: [], error: '피드 URL 없음' };
 
@@ -223,7 +223,7 @@ function createSystemService(deps = {}) {
                 responseType: 'text',
                 timeout: FEED_FETCH_TIMEOUT_MS,
                 headers: {
-                    'User-Agent': 'BlogGenius/1.0 (+https://blog.naver.com/amadejjs)',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
                     'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
                 },
                 maxRedirects: 5,
@@ -281,7 +281,7 @@ function createSystemService(deps = {}) {
 
         async getDashboardLogs({ limitRaw } = {}) {
             const limit = clampDashboardLogLimit(limitRaw);
-            const memoryLogs = Array.isArray(logger.getRecentLogs(limit)) ? logger.getRecentLogs(limit) : [];
+            const memoryLogs = Array.isArray(Logger.getRecentLogs(limit)) ? Logger.getRecentLogs(limit) : [];
             const fileLogs = getRecentLogsFromFile(limit);
 
             // 메모리/파일 로그 합치고 중복 제거 (timestamp + level + message)

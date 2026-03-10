@@ -8,11 +8,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **Startup Error Dialog**: Application now shows a user-friendly popup dialog via `dialog.showErrorBox` when the UI server fails to start (e.g., port conflict `EADDRINUSE`). CLI mode also prints a specific port conflict error message.
 - **SHA-256 Checksum Integrity Verification**: Self-update now verifies the SHA-256 checksum of the downloaded ZIP against the value in `update.json` before extraction, preventing corrupted installs. Build pipeline now generates checksums automatically.
 - **`--build-only` Flag**: Added `--build-only` argument to `build.sh` to perform a local build without uploading to the server.
+- **Instagram Carousel Widget**: Replaced the problematic YouTube Shorts feed with a sleek Instagram Reels carousel via RSS.app, providing a more reliable and visually engaging dashboard experience.
 - **Remote Server Cleanup**: After a successful upload, the build script now automatically removes old release files from the server, keeping only the latest 3 versions per platform to manage disk space.
 - **Prerelease Tagging in Build**: `build.sh` now detects if the version contains a suffix (e.g., `-beta`, `-dev`) and sets `"prerelease": true` in `update.json` accordingly.
 
 ### Changed
 - **`build.sh` Clean Build**: Removed the unreliable incremental build (smart skip) logic. The script now always performs a clean build (`rm -rf dist`) to ensure consistent and reliable output.
+
+### Fixed
+- **Dashboard Logger Error**: Fixed a critical `ReferenceError: logger is not defined` in `system.service.js` that prevented activity logs from loading. Standardized `Logger` dependency injection across all UI API services.
 
 ## [0.1.2] - 2026-03-10
 

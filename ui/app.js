@@ -294,12 +294,13 @@ async function applyUpdate() {
   if (updateNowBtn) updateNowBtn.style.display = 'none';
   if (updateCloseBtn) updateCloseBtn.style.display = 'none';
 
-  const stageIcons = { downloading: '⬇️', extracting: '📦', syncing: '🔄', done: '✅', error: '❌', idle: '⏳' };
+  const stageIcons = { downloading: '⬇️', verifying: '🔐', extracting: '📦', syncing: '🔄', done: '✅', error: '❌', idle: '⏳' };
 
   function setProgressUi({ message, percent, stage }) {
     // message에 대한 텍스트 (퍼센트 제외, 별도로 표시)
     const stageLabels = {
       downloading: '다운로드 중...',
+      verifying: '무결성 검증 중...',
       extracting: '압축 해제 중...',
       syncing: '파일 동기화 중...',
       done: '업데이트 완료! 재시작 중...',
@@ -1423,7 +1424,7 @@ async function loadDashboardExternalContent(options = {}) {
     renderDashboardFeedList('dash-feed-list-naver', sourceMap.naver || {});
     renderDashboardFeedList('dash-feed-list-wordpress', sourceMap.wordpress || {});
     renderDashboardFeedList('dash-feed-list-itmania', sourceMap.itmania || {});
-    renderDashboardShortsList('dash-feed-list-youtube-playlist', sourceMap.youtubePlaylist || {});
+    // Instagram Reels is now handled by RSS.app widget in HTML
 
     const setHomeLink = (id, source) => {
       const el = document.getElementById(id);
@@ -1434,7 +1435,7 @@ async function loadDashboardExternalContent(options = {}) {
     setHomeLink('dash-feed-home-naver', sourceMap.naver || {});
     setHomeLink('dash-feed-home-wordpress', sourceMap.wordpress || {});
     setHomeLink('dash-feed-home-itmania', sourceMap.itmania || {});
-    setHomeLink('dash-feed-home-youtube-playlist', sourceMap.youtubePlaylist || {});
+    // setHomeLink('dash-feed-home-instagram-reels', sourceMap.instagramReels || {});
 
     dashboardExternalContentLastLoadedAt = Date.now();
   } catch (e) {
@@ -1446,7 +1447,7 @@ async function loadDashboardExternalContent(options = {}) {
     renderDashboardFeedList('dash-feed-list-naver', fallback);
     renderDashboardFeedList('dash-feed-list-wordpress', fallback);
     renderDashboardFeedList('dash-feed-list-noworry', fallback);
-    renderDashboardShortsList('dash-feed-list-youtube-playlist', fallback);
+    // renderDashboardShortsList('dash-feed-list-instagram-reels', fallback);
   }
 }
 
