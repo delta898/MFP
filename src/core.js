@@ -2361,6 +2361,7 @@ ${scrapedContext}`;
 				// 🔧 [Fixed] 자동화 종료 후 사용자의 수동 브라우저 닫기를 방해하지 않도록 리스너 제거
 				if (page) page.off('dialog', dialogHandler);
 				Logger.info("   📌 마지막 발행 건이므로 브라우저를 닫지 않고 대기합니다. (이제 수동 종료가 가능합니다)");
+				return;
 			}
 
 			// CLOSE_DELAY_SECONDS=0 이면 브라우저를 닫지 않고 유지 (모든 건에 대해)

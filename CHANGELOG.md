@@ -8,6 +8,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **Smart Dashboard Feed**: Implemented a "Smart" feed fallback logic. The dashboard now attempts to fetch the latest YouTube videos via RSS first and automatically falls back to the Instagram Reels widget if the feed is unavailable or empty.
 
 ### Fixed
+- **Browser Premature Closing**: Fixed an issue where the browser session was aggressively closed after the last published post even when it was supposed to remain open for manual user execution/review. The browser will now properly stay alive in this state.
 - **Image Deletion Persistence**: Fixed a bug where clearing an image setting was not persisting because the backend would restore the previous value from the configuration if the field was empty.
 
 ## [0.1.3] - 2026-03-10
