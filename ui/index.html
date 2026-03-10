@@ -241,16 +241,28 @@
             </ul>
           </article>
 
-          <!-- Instagram Reels (RSS.app Widget) -->
+          <!-- Smart Feed (YouTube RSS / Instagram Widget Fallback) -->
           <article class="card dash-shorts-card" style="min-height: 480px; overflow: hidden;">
             <div class="dash-feed-header">
-              <h3 style="margin: 0; font-size: 16px;">인스타그램 릴스</h3>
-              <a href="https://www.instagram.com/amadejjs/reels/" target="_blank" rel="noopener noreferrer"
-                class="dash-feed-home-link">프로필 이동</a>
+              <h3 id="dash-smart-feed-title" style="margin: 0; font-size: 16px;">유튜브 / 인스타그램</h3>
+              <a href="#" id="dash-smart-feed-link" target="_blank" rel="noopener noreferrer"
+                class="dash-feed-home-link">채널 이동</a>
             </div>
             <div class="dash-feed-list" style="padding: 0; min-height: 200px;">
-              <rssapp-carousel id="r0RymD0NgNk92TX6"></rssapp-carousel>
-              <script src="https://widget.rss.app/v1/carousel.js" type="text/javascript" async></script>
+              <!-- YouTube Layer -->
+              <div id="dash-smart-feed-youtube" class="dash-shorts-list" style="display: none;">
+                <!-- JS handles rendering here -->
+              </div>
+              <!-- Instagram Layer -->
+              <div id="dash-smart-feed-instagram" style="display: none;">
+                <rssapp-carousel id="r0RymD0NgNk92TX6"></rssapp-carousel>
+                <script src="https://widget.rss.app/v1/carousel.js" type="text/javascript" async></script>
+              </div>
+              <!-- Loading/Status Layer -->
+              <div id="dash-smart-feed-status"
+                style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                불러오는 중...
+              </div>
             </div>
           </article>
         </div>
@@ -1260,7 +1272,7 @@
                 <div class="settings-image-meta" id="settings-image-meta-ftc">현재 이미지: -</div>
                 <div class="settings-image-actions">
                   <input id="settings-image-file-ftc" type="file" accept="image/*">
-                  <button id="settings-image-reset-ftc" class="secondary" type="button">기본 이미지로 복원</button>
+                  <button id="settings-image-reset-ftc" class="secondary" type="button">기본값 복원</button>
                 </div>
               </div>
 
@@ -1277,7 +1289,7 @@
                 <div class="settings-image-meta" id="settings-image-meta-cta1">현재 이미지: -</div>
                 <div class="settings-image-actions">
                   <input id="settings-image-file-cta1" type="file" accept="image/*">
-                  <button id="settings-image-reset-cta1" class="secondary" type="button">기본 이미지로 복원</button>
+                  <button id="settings-image-reset-cta1" class="secondary" type="button">기본값 복원</button>
                 </div>
               </div>
 
@@ -1294,7 +1306,8 @@
                 <div class="settings-image-meta" id="settings-image-meta-cta2">현재 이미지: -</div>
                 <div class="settings-image-actions">
                   <input id="settings-image-file-cta2" type="file" accept="image/*">
-                  <button id="settings-image-clear-cta2" class="secondary" type="button">기본 이미지로 복원</button>
+                  <button id="settings-image-reset-cta2" class="secondary" type="button">기본값 복원</button>
+                  <button id="settings-image-clear-cta2" class="secondary" type="button">설정 삭제</button>
                 </div>
               </div>
 
@@ -1311,7 +1324,8 @@
                 <div class="settings-image-meta" id="settings-image-meta-cta3">현재 이미지: -</div>
                 <div class="settings-image-actions">
                   <input id="settings-image-file-cta3" type="file" accept="image/*">
-                  <button id="settings-image-clear-cta3" class="secondary" type="button">기본 이미지로 복원</button>
+                  <button id="settings-image-reset-cta3" class="secondary" type="button">기본값 복원</button>
+                  <button id="settings-image-clear-cta3" class="secondary" type="button">설정 삭제</button>
                 </div>
               </div>
             </div>

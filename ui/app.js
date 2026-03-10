@@ -1424,7 +1424,37 @@ async function loadDashboardExternalContent(options = {}) {
     renderDashboardFeedList('dash-feed-list-naver', sourceMap.naver || {});
     renderDashboardFeedList('dash-feed-list-wordpress', sourceMap.wordpress || {});
     renderDashboardFeedList('dash-feed-list-itmania', sourceMap.itmania || {});
-    // Instagram Reels is now handled by RSS.app widget in HTML
+
+    // Smart Feed (YouTube RSS -> Instagram Widget Fallback)
+    const smart = sourceMap.smart || {};
+    const smartTitle = document.getElementById('dash-smart-feed-title');
+    const smartLink = document.getElementById('dash-smart-feed-link');
+    const smartStatus = document.getElementById('dash-smart-feed-status');
+    const smartYoutube = document.getElementById('dash-smart-feed-youtube');
+    const smartInstagram = document.getElementById('dash-smart-feed-instagram');
+
+    if (smartStatus) smartStatus.style.display = 'none';
+
+    if (smart && Array.isArray(smart.items) && smart.items.length > 0) {
+      // YouTube Win
+      if (smartTitle) smartTitle.textContent = '유튜브 최신 영상';
+      if (smartLink) smartLink.href = String(smart.homeUrl || 'https://www.youtube.com/channel/UC4Sl4m-ZV65knmWTl0UFYkw');
+      if (smartLink) smartLink.textContent = '채널 이동';
+
+      if (smartYoutube) {
+        smartYoutube.style.display = 'flex';
+        renderDashboardShortsList('dash-smart-feed-youtube', smart);
+      }
+      if (smartInstagram) smartInstagram.style.display = 'none';
+    } else {
+      // Instagram Fallback
+      if (smartTitle) smartTitle.textContent = '인스타그램 릴스';
+      if (smartLink) smartLink.href = 'https://www.instagram.com/amadejjs/reels/';
+      if (smartLink) smartLink.textContent = '프로필 이동';
+
+      if (smartYoutube) smartYoutube.style.display = 'none';
+      if (smartInstagram) smartInstagram.style.display = 'block';
+    }
 
     const setHomeLink = (id, source) => {
       const el = document.getElementById(id);

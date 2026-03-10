@@ -60,6 +60,13 @@ function createSystemService(deps = {}) {
                 feedType: 'rss',
                 rssUrl: 'https://itmania.hangadac.com/feed/',
                 homeUrl: 'https://itmania.hangadac.com'
+            },
+            {
+                key: 'smart',
+                label: 'Smart Feed',
+                feedType: 'atom',
+                rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC4Sl4m-ZV65knmWTl0UFYkw',
+                homeUrl: 'https://www.youtube.com/channel/UC4Sl4m-ZV65knmWTl0UFYkw'
             }
         ];
     }

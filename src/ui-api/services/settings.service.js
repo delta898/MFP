@@ -52,8 +52,6 @@ function createSettingsService(deps = {}) {
             const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
             const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
 
-            // 클라이언트가 이미지 값을 보내지 않은 경우 (쇼핑 설정 탭을 방문하지 않은 상태에서 저장 시)
-            // 기존 config에서 값을 읽어 채웁니다 — 이렇게 해야 다른 탭에서 저장할 때 이미지 URL이 유실되지 않습니다
             const imageKeys = [
                 'FTC_DISCLOSURE_IMAGE_URL',
                 'SHOPPING_CTA_IMAGE_URL1',
@@ -61,8 +59,11 @@ function createSettingsService(deps = {}) {
                 'SHOPPING_CTA_IMAGE_URL3'
             ];
             for (const key of imageKeys) {
-                if (!String(fields[key] || '').trim()) {
-                    // 기존 런타임 CONFIG에서 해당 이미지 경로 복원
+                // [수정] 단순히 값이 비어있는지(empty)가 아니라, 
+                // 요청 바디 자체에 해당 키가 '존재하지 않을 때'만 기존 값을 복원합니다.
+                // 이렇게 해야 쇼핑 탭에서 명시적으로 '설정 삭제'를 눌러 빈 값을 보냈을 때 
+                // 삭제 의도가 무시되지 않고 정상적으로 반영됩니다.
+                if (!(key in requestBody)) {
                     const existingValue = String(CONFIG[key] || '').trim();
                     if (existingValue) {
                         fields[key] = existingValue;

@@ -1,6 +1,6 @@
 {
   "name": "blog-genius",
-  "version": "0.1.3",
+  "version": "0.1.4-dev1",
   "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
   "main": "src/gui/electron-main.js",
   "bin": {

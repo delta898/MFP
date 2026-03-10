@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.1.4-dev1] - 2026-03-10
+
+### Added
+- **Image Deletion Feature**: Added a "Delete Setting" button for optional shopping images (CTA2, CTA3) in the settings UI, allowing users to explicitly clear these optional configurations.
+- **Smart Dashboard Feed**: Implemented a "Smart" feed fallback logic. The dashboard now attempts to fetch the latest YouTube videos via RSS first and automatically falls back to the Instagram Reels widget if the feed is unavailable or empty.
+
+### Fixed
+- **Image Deletion Persistence**: Fixed a bug where clearing an image setting was not persisting because the backend would restore the previous value from the configuration if the field was empty.
+
 ## [0.1.3] - 2026-03-10
 
 ### Added
