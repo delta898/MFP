@@ -634,7 +634,13 @@ program
             }
             console.log('ℹ️ 종료하려면 Ctrl + C를 누르세요.');
         } catch (e) {
-            console.error(`❌ UI 서버 실행 실패: ${e.message}`);
+            if (e.code === 'EADDRINUSE') {
+                const port = opts.port || CONFIG.LISTEN_PORT || 4577;
+                console.error(`\n❌ [Error] 포트 ${port}번이 이미 사용 중입니다.`);
+                console.error(`   다른 BlogGenius 프로그램이 실행 중이거나, 다른 앱이 이 포트를 사용하고 있습니다.`);
+            } else {
+                console.error(`❌ UI 서버 실행 실패: ${e.message}`);
+            }
             if (process.env.DEBUG) console.error('Stack:', e.stack);
             process.exit(1);
         }

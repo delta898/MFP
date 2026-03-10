@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -123,6 +123,14 @@ async function createWindow() {
             Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
         } catch (err) {
             Logger.error(`GUI: Failed to start UI Server: ${err.message}`);
+
+            let displayMsg = err.message;
+            if (err.code === 'EADDRINUSE') {
+                const port = CONFIG.LISTEN_PORT || 4577;
+                displayMsg = `포트 ${port}번이 이미 사용 중입니다.\n\n다른 BlogGenius 프로그램이 실행 중이거나, 다른 앱이 이 포트를 사용하고 있습니다.`;
+            }
+
+            dialog.showErrorBox('BlogGenius 시작 오류', displayMsg);
             app.quit();
             return;
         }

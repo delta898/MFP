@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
@@ -23,7 +24,7 @@ class Updater {
         this.updateInfo = null;
 
         // 보존할 대상 (업데이트 시 절대 건드리지 않음)
-        this.preserveList = ['config', 'logs', 'tmp_update', '.git', '.DS_Store'];
+        this.preserveList = ['config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store'];
 
         // 업데이트 진행 상태 (UI 폴링용)
         this.progress = {
@@ -68,19 +69,27 @@ class Updater {
             // 추가: GitHub API 결과가 가끔 사전식(dev9 > dev10)으로 오기 때문에, 세부 버전 규칙으로 전체 정렬
             releases.sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
 
-            const role = String(userRole || 'User').trim().toLowerCase();
+            // 채널 결정 (Explicit 'update_channel' 우선, 없으면 'USER_ROLE' 기반 매핑)
+            let channel = String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase();
+            if (!channel) {
+                const role = String(userRole || 'User').trim().toLowerCase();
+                if (role === 'developer') channel = 'dev';
+                else if (role === 'tester') channel = 'beta';
+                else channel = 'stable';
+            }
 
-            if (role === 'developer') {
-                // Developer: 무조건 가장 최신(첫 번째) 릴리즈 반환 (Alpha, Dev 등 포함)
+            if (channel === 'dev') {
+                // Dev: 무조건 가장 최신(첫 번째) 릴리즈 반환 (Alpha, Dev 등 포함)
                 return releases[0];
-            } else if (role === 'tester') {
-                // Tester: 정식 버전 또는 Beta 버전 중 최신 반환 (Alpha, Dev 제외)
+            } else if (channel === 'beta') {
+                // Beta: 정식 버전 또는 Beta/RC 버전 중 최신 반환 (Alpha, Dev 제외)
                 return releases.find(r =>
                     !r.prerelease ||
-                    (r.tag_name.toLowerCase().includes('beta') && !r.tag_name.toLowerCase().includes('alpha') && !r.tag_name.toLowerCase().includes('dev'))
+                    (r.tag_name.toLowerCase().includes('beta') || r.tag_name.toLowerCase().includes('rc')) &&
+                    !r.tag_name.toLowerCase().includes('alpha') && !r.tag_name.toLowerCase().includes('dev')
                 ) || null;
             } else {
-                // User: 오직 정식 버전(prerelease: false)만 반환
+                // Stable (Default): 오직 정식 버전(prerelease: false)만 반환
                 return releases.find(r => !r.prerelease) || null;
             }
         } catch (e) {
@@ -320,6 +329,20 @@ class Updater {
                 writer.on('error', reject);
             });
 
+            // 🔐 SHA-256 무결성 검증 (update.json에 sha256 필드가 있는 경우)
+            const expectedHash = String(asset.sha256 || '').trim().toLowerCase();
+            if (expectedHash) {
+                Logger.info('🔐 [Updater] SHA-256 무결성 검증 시작...');
+                this.progress = { active: true, stage: 'verifying', message: '무결성 검증 중...', percent: 100, totalSize, downloadedSize };
+                const actualHash = await this.computeFileHash(zipPath, 'sha256');
+                if (actualHash !== expectedHash) {
+                    throw new Error(`SHA-256 체크섬 불일치!\n기대: ${expectedHash}\n실제: ${actualHash}\n파일이 손상되었을 수 있습니다.`);
+                }
+                Logger.info(`✅ [Updater] SHA-256 검증 통과: ${actualHash}`);
+            } else {
+                Logger.warn('⚠️ [Updater] 체크섬 정보 없음 — 무결성 검증을 건너뜁니다.');
+            }
+
             Logger.info('📂 [Updater] 압축 해제 중...');
             this.progress = { active: true, stage: 'extracting', message: '압축 해제 중...', percent: 100, totalSize, downloadedSize };
             await this.unzip(zipPath, extractDir);
@@ -337,6 +360,16 @@ class Updater {
             this.progress.message = '파일 동기화 중...';
             this.syncFolders(sourceDir, this.appRootDir);
 
+            // 업데이트 성공 시 tmp_update 임시 폴더 정리
+            try {
+                if (fs.existsSync(this.tempDir)) {
+                    fs.rmSync(this.tempDir, { recursive: true, force: true });
+                    Logger.info('🧹 [Updater] tmp_update 임시 폴더 정리 완료');
+                }
+            } catch (cleanupErr) {
+                Logger.warn(`⚠️ [Updater] tmp_update 정리 실패 (무시됨): ${cleanupErr.message}`);
+            }
+
             Logger.info('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
             this.progress = { active: true, stage: 'done', message: '업데이트 완료! 재시작 중...', percent: 100, totalSize, downloadedSize };
             return true;
@@ -351,6 +384,7 @@ class Updater {
 
     /**
      * Recursively sync source folder to target folder, preserving specific items.
+     * Directories are replaced atomically (rename → cpSync) to preserve symlinks and bundle integrity.
      */
     syncFolders(src, dest) {
         if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
@@ -364,29 +398,89 @@ class Updater {
 
             const srcPath = path.join(src, item);
             const destPath = path.join(dest, item);
-            const stat = fs.statSync(srcPath);
+            // lstatSync: 심볼릭 링크 자체의 타입을 확인 (따라가지 않음)
+            const srcStat = fs.lstatSync(srcPath);
 
-            if (stat.isDirectory()) {
-                // 폴더면 재귀 호출
-                this.syncFolders(srcPath, destPath);
-            } else {
-                // 파일이면 교체
-                // 실행 중인 바이너리일 경우 대비 (특히 Windows)
-                try {
+            try {
+                if (srcStat.isDirectory()) {
+                    // 디렉토리: 원자적 교체 (기존 폴더를 .old로 이름 변경 후 새 폴더를 통째로 복사)
+                    // 이 방식은 macOS .app 번들 내부의 심볼릭 링크를 완벽히 보존합니다.
                     if (fs.existsSync(destPath)) {
                         const backupPath = destPath + '.old';
-                        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
-                        fs.renameSync(destPath, backupPath);
+                        try {
+                            if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
+                            fs.renameSync(destPath, backupPath);
+                            Logger.info(`🔄 [Updater] 디렉토리 백업: ${item} → ${item}.old`);
+                        } catch (renameErr) {
+                            // rename 실패 시 (예: 크로스-디바이스 이동) 기존 폴더 삭제 후 복사
+                            Logger.warn(`⚠️ [Updater] 디렉토리 백업 실패, 직접 교체: ${item} - ${renameErr.message}`);
+                            fs.rmSync(destPath, { recursive: true, force: true });
+                        }
+                    }
+                    fs.cpSync(srcPath, destPath, { recursive: true, verbatimSymlinks: true });
+                    Logger.info(`✅ [Updater] 디렉토리 교체 완료: ${item}`);
+                } else if (srcStat.isSymbolicLink()) {
+                    // 심볼릭 링크: 링크 자체를 복제
+                    const linkTarget = fs.readlinkSync(srcPath);
+                    if (fs.existsSync(destPath)) {
+                        const backupPath = destPath + '.old';
+                        try {
+                            if (fs.existsSync(backupPath)) fs.rmSync(backupPath, { recursive: true, force: true });
+                            fs.renameSync(destPath, backupPath);
+                        } catch (_) {
+                            fs.rmSync(destPath, { recursive: true, force: true });
+                        }
+                    }
+                    fs.symlinkSync(linkTarget, destPath);
+                } else {
+                    // 일반 파일: 기존 로직 (rename → copy)
+                    if (fs.existsSync(destPath)) {
+                        const backupPath = destPath + '.old';
+                        try {
+                            if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+                            fs.renameSync(destPath, backupPath);
+                        } catch (_) {
+                            try { fs.unlinkSync(destPath); } catch (__) { }
+                        }
                     }
                     fs.copyFileSync(srcPath, destPath);
                     if (process.platform !== 'win32') {
                         fs.chmodSync(destPath, '755');
                     }
-                } catch (err) {
-                    Logger.warn(`⚠️ [Updater] 파일 교체 중 오류 (무시됨): ${item} - ${err.message}`);
                 }
+            } catch (err) {
+                Logger.warn(`⚠️ [Updater] 항목 교체 중 오류 (무시됨): ${item} - ${err.message}`);
             }
         }
+
+        // 동기화 완료 후 .old 백업 파일/폴더 정리
+        try {
+            const destItems = fs.readdirSync(dest);
+            for (const item of destItems) {
+                if (item.endsWith('.old')) {
+                    const oldPath = path.join(dest, item);
+                    try {
+                        fs.rmSync(oldPath, { recursive: true, force: true });
+                    } catch (_) { }
+                }
+            }
+        } catch (_) { }
+    }
+
+    /**
+     * Compute the hash of a file using streaming (memory-efficient for large files).
+     * @param {string} filePath - Path to the file
+     * @param {string} algorithm - Hash algorithm (e.g., 'sha256')
+     * @returns {Promise<string>} Hex digest of the file hash
+     */
+    computeFileHash(filePath, algorithm = 'sha256') {
+        return new Promise((resolve, reject) => {
+            const hash = crypto.createHash(algorithm);
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', (chunk) => hash.update(chunk));
+            stream.on('end', () => resolve(hash.digest('hex')));
+            stream.on('error', (err) => reject(new Error(`해시 계산 실패: ${err.message}`)));
+        });
     }
 
     async unzip(zipPath, targetDir) {

@@ -8,6 +8,18 @@ VERSION=$(node -p "require('./package.json').version")
 NODE_TARGET="node20"   # build.yml: node20
 # ==========================================
 
+# 📥 인수 처리
+BUILD_ONLY=false
+for arg in "$@"; do
+    if [ "$arg" == "--build-only" ]; then
+        BUILD_ONLY=true
+    fi
+done
+
+if [ "$BUILD_ONLY" == "true" ]; then
+    echo "🏗 [Mode] 빌드 전용 모드 활성화 (업로드 스킵)"
+fi
+
 echo "🔍 [Check] 빌드 환경을 점검합니다..."
 
 # ---------------------------------------------------
@@ -42,32 +54,11 @@ if [ ! -f "src/config/secret.js" ]; then
     exit 1
 fi
 
-# ==========================================
-# 🚀 인자 처리 (Smart Build 지원)
-# ==========================================
-FORCE_BUILD=false
-for arg in "$@"; do
-    if [ "$arg" == "--force" ] || [ "$arg" == "-f" ]; then
-        FORCE_BUILD=true
-    fi
-done
-
 # ---------------------------------------------------
-# 🕒 소스 코드의 최신 수정 시간 계산 함수
+# 4. dist 폴더 정리 (항상 Clean Build)
 # ---------------------------------------------------
-get_latest_source_mtime() {
-    # src, ui, assets, package.json 등 주요 파일의 최신 수정 시간을 Unix Timestamp로 반환
-    find src ui assets package.json scripts -type f -not -path '*/.*' -exec stat -f "%m" {} + | sort -rn | head -1
-}
-
-LATEST_SRC_MTIME=$(get_latest_source_mtime)
-
-if [ "$FORCE_BUILD" == "true" ]; then
-    echo "🧹 [Force] 강제 빌드가 설정되어 기존 dist 폴더를 정리합니다..."
-    rm -rf dist
-else
-    echo "🕒 [Smart] 점진적 빌드(Incremental Build) 모드 활성화"
-fi
+echo "🧹 [Clean] 항상 클린 빌드를 수행하기 위해 기존 dist 폴더를 정리합니다..."
+rm -rf dist
 mkdir -p dist
 
 # ---------------------------------------------------
@@ -149,20 +140,6 @@ build_platform() {
     echo "---------------------------------------------------"
     echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
 
-    # 🕒 [Smart Check] 빌드 필요 여부 판단
-    # ⚠️ dist 폴더의 mtime은 App Bundle 내부 바이너리(Electron 등)에 의해 항상
-    #    최신으로 보이기 때문에 mtime 직접 비교는 신뢰할 수 없습니다.
-    #    → 빌드 완료 시 소스 mtime을 스탬프 파일에 기록하고 다음 실행 때 비교합니다.
-    local STAMP_FILE="dist/.build_stamp_${suffix}"
-    if [ "$FORCE_BUILD" == "false" ] && [ -d "${ROOT_OUT}" ] && [ -f "${STAMP_FILE}" ]; then
-        local LAST_BUILD_SRC_MTIME=$(cat "${STAMP_FILE}" 2>/dev/null)
-        if [ "${LAST_BUILD_SRC_MTIME}" = "${LATEST_SRC_MTIME}" ]; then
-            echo "   ✅ [Skip] 소스 변경이 없습니다. 기존 빌드물을 유지합니다. (stamp: ${LAST_BUILD_SRC_MTIME})"
-            return 0
-        fi
-        echo "   🔄 [Update] 소스 변경이 감지되었습니다. 재빌드를 진행합니다. (이전: ${LAST_BUILD_SRC_MTIME} → 현재: ${LATEST_SRC_MTIME})"
-    fi
-
     # 실제 빌드 과정 시작
     mkdir -p "${ROOT_OUT}"
 
@@ -239,8 +216,6 @@ EOF
     fi
 
     echo "   ✅ ${suffix} 빌드 완료"
-    # ✏️ 소스 mtime을 스탬프 파일에 기록 (다음 incremental 빌드 비교용)
-    echo "${LATEST_SRC_MTIME}" > "dist/.build_stamp_${suffix}"
 }
 
 # ---------------------------------------------------
@@ -270,6 +245,13 @@ cd -
 UPDATE_JSON="dist/update.json"
 PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Prerelease 여부 판별 (버전에 - 접미사가 있는 경우)
+IS_PRERELEASE=false
+if [[ $VERSION == *"-"* ]]; then
+    IS_PRERELEASE=true
+    echo "🧪 [Prerelease] 버전이 감지되었습니다. (${VERSION})"
+fi
+
 # 📂 [Optimization] ZIP 파일들을 dist/ 루트로 이동 (구조 단순화)
 echo "📂 ZIP 파일들을 dist/ 루트로 모으는 중..."
 # 각 플랫폼 하위 폴더에 생성된 ZIP들을 dist/ 바로 아래로 이동시킵니다.
@@ -279,12 +261,13 @@ cat <<EOF > "${UPDATE_JSON}"
 {
   "tag_name": "v${VERSION}",
   "published_at": "${PUBLISHED_AT}",
+  "prerelease": ${IS_PRERELEASE},
   "body": "BlogGenius v${VERSION} Release (Built at $(date))",
   "assets": [
 EOF
 
 FIRST_ASSET=true
-# dist 루트에 있는 모든 ZIP 파일을 기반으로 에셋 목록 구성
+# dist 루트에 있는 모든 ZIP 파일을 기반으로 에셋 목록 구성 (SHA-256 체크섬 포함)
 cd dist
 for zip_file in *.zip; do
     if [ ! -f "$zip_file" ]; then continue; fi
@@ -294,10 +277,15 @@ for zip_file in *.zip; do
     FIRST_ASSET=false
     
     FILE_NAME=$(basename "$zip_file")
+    FILE_SHA256=$(shasum -a 256 "$zip_file" | awk '{print $1}')
+    FILE_SIZE=$(stat -f%z "$zip_file" 2>/dev/null || stat --printf="%s" "$zip_file" 2>/dev/null || echo "0")
     echo "    {" >> "../${UPDATE_JSON}"
     echo "      \"name\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
-    echo "      \"browser_download_url\": \"${FILE_NAME}\"" >> "../${UPDATE_JSON}"
+    echo "      \"browser_download_url\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
+    echo "      \"sha256\": \"${FILE_SHA256}\"," >> "../${UPDATE_JSON}"
+    echo "      \"size\": ${FILE_SIZE}" >> "../${UPDATE_JSON}"
     echo "    }" >> "../${UPDATE_JSON}"
+    echo "   🔐 ${FILE_NAME}: SHA-256=${FILE_SHA256} (${FILE_SIZE} bytes)"
 done
 cd -
 
@@ -308,18 +296,27 @@ EOF
 echo "   ✅ ${UPDATE_JSON} 생성 완료"
 
 # 🚀 [Deploy] 서버 자동 업로드 (SCP)
-UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/wordpress/dist/BlogGenius/"
-echo ""
-echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
-
-# ZIP 파일들과 update.json을 한 번에 업로드
-scp dist/*.zip "${UPDATE_JSON}" "${UPLOAD_TARGET}"
-
-if [ $? -eq 0 ]; then
-    echo "   ✅ 서버 업로드 완료!"
+if [ "$BUILD_ONLY" == "true" ]; then
+    echo ""
+    echo "⏭ [Skip] --build-only 옵션에 의해 업로드를 스킵합니다."
 else
-    echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
-    echo "   💡 Tip: dist/upload.sh를 생성했으니 나중에 수동으로 시도할 수 있습니다."
+    UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/wordpress/dist/BlogGenius/"
+    echo ""
+    echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
+
+    # ZIP 파일들과 update.json을 한 번에 업로드
+    scp dist/*.zip "${UPDATE_JSON}" "${UPLOAD_TARGET}"
+
+    if [ $? -eq 0 ]; then
+        echo "   ✅ 서버 업로드 완료!"
+        # 🧹 [Cleanup] 서버 용량 관리를 위해 각 플랫폼별 최신 3개만 남기고 삭제
+        echo "   🧹 [Cleanup] 구버전 파일 정리 중 (최신 3개 유지)..."
+        ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
+        echo "   ✅ 서버 정리 완료"
+    else
+        echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
+        echo "   💡 Tip: dist/upload.sh를 생성했으니 나중에 수동으로 시도할 수 있습니다."
+    fi
 fi
 
 # 🛠 [Utility] 수동 업로드용 스크립트 생성
@@ -330,6 +327,8 @@ echo "🚀 [Manual] 서버로 업로드 중..."
 scp ./*.zip ./update.json "${UPLOAD_TARGET}"
 if [ \$? -eq 0 ]; then
     echo "✅ 업로드 성공!"
+    echo "🧹 구버전 파일 정리 중..."
+    ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
 else
     echo "❌ 업로드 실패!"
 fi
