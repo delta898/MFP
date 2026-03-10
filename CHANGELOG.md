@@ -9,6 +9,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Fixed
 - **System Log UI Freeze**: Mitigated an issue where opening the "System Log" tab with very large log files (e.g., 25MB+) could freeze the GUI or cause memory issues. The backend API (`/api/v1/logs/read`) now safely truncates files larger than 1MB, returning only the most recent 1MB of log data to the frontend.
+- **Telegram Bot Dynamic Initialization**: Fixed an issue where enabling the Telegram bot from the UI settings while the application was running did not actually start the bot daemon until the application was fully restarted. The bot now dynamically starts and stops when settings are changed and saved safely.
 - **Browser Premature Closing**: Fixed an issue where the browser session was aggressively closed after the last published post even when it was supposed to remain open for manual user execution/review. The browser will now properly stay alive in this state.
 - **Image Deletion Persistence**: Fixed a bug where clearing an image setting was not persisting because the backend would restore the previous value from the configuration if the field was empty.
 

@@ -234,6 +234,17 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
 
+            // 🤖 텔레그램 봇 동적 재시작 (설정 변경 시 즉각 반영)
+            try {
+                const TelegramBotService = require('../../telegram-bot.service');
+                TelegramBotService.stop(); // 기존 인스턴스가 타는 경우 중지
+                if (CONFIG.NOTIFY_TELEGRAM_ENABLED && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN) {
+                    TelegramBotService.init(); // 새 설정으로 다시 시작
+                }
+            } catch (err) {
+                console.error('Failed to restart TelegramBotService:', err);
+            }
+
             if (requiresRestart) {
                 scheduleUiReload(fields.LISTEN_HOST, normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT));
             }
