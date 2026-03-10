@@ -8,7 +8,7 @@ const Logger = require('../src/logger');
 async function testIntegratedNaverFlow() {
     Logger.info("🚀 Naver Blog Integrated Category & Schedule Test Started");
 
-    const storageStatePath = path.join(__dirname, '../config/auth.json');
+    const storageStatePath = path.join(__dirname, '../config/naver_auth.json');
     if (!fs.existsSync(storageStatePath)) {
         Logger.error(`❌ Cannot find Naver login state file (${storageStatePath}).`);
         return;

@@ -3,9 +3,9 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-// 설정 파일 경로 (auth.json 저장 위치)
+// 설정 파일 경로 (naver_auth.json 저장 위치)
 const CONFIG_DIR = path.join(__dirname, '../config');
-const AUTH_FILE_PATH = path.join(CONFIG_DIR, 'auth.json');
+const AUTH_FILE_PATH = path.join(CONFIG_DIR, 'naver_auth.json');
 const NAVER_LOGIN_URL = 'https://nid.naver.com/nidlogin.login';
 
 (async () => {
@@ -19,7 +19,7 @@ const NAVER_LOGIN_URL = 'https://nid.naver.com/nidlogin.login';
         viewport: { width: 1280, height: 800 },
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     });
-    
+
     const page = await context.newPage();
 
     try {

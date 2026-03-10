@@ -306,21 +306,21 @@ const TrendManager = {
         const browser = await launchBrowser({ headless: options.headless });
 
         // 1. 로그인 정보(Storage State) 로드
-        const authPath = CONFIG.AUTH_FILE_PATH || path.join(CONFIG.ROOT_DIR, 'config', 'auth.json');
+        const authPath = CONFIG.AUTH_FILE_PATH || path.join(CONFIG.ROOT_DIR, 'config', 'naver_auth.json');
         let context;
 
         if (fs.existsSync(authPath)) {
             try {
                 // Playwright의 storageState 기능을 사용하여 쿠키/로컬스토리지 자동 로드
                 context = await browser.newContext({ storageState: authPath });
-                Logger.info('✅ 로그인 정보(auth.json)를 로드했습니다.');
+                Logger.info('✅ 로그인 정보(naver_auth.json)를 로드했습니다.');
             } catch (e) {
-                Logger.error(`❌ auth.json 로드 실패: ${e.message}`);
+                Logger.error(`❌ naver_auth.json 로드 실패: ${e.message}`);
                 // 파일이 깨졌을 경우를 대비해 기본 컨텍스트 생성
                 context = await browser.newContext();
             }
         } else {
-            Logger.warn('⚠️ 로그인 정보(auth.json)가 없습니다. 비로그인 상태로 진행합니다.');
+            Logger.warn('⚠️ 로그인 정보(naver_auth.json)가 없습니다. 비로그인 상태로 진행합니다.');
             context = await browser.newContext();
         }
 

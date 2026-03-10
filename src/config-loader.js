@@ -97,7 +97,7 @@ const PATHS = {
 
     licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
     licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
-    auth: path.join(ROOT_DIR, 'config', 'auth.json'),
+    auth: path.join(ROOT_DIR, 'config', 'naver_auth.json'),
     blogPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'blog_prompt.md'),
     blogPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'blog_prompt.md'),
     shoppingPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'shopping_prompt.md'),
@@ -272,7 +272,20 @@ const resolvedWorkspaceDir = workspaceRaw
     ? resolveRuntimePath(workspaceRaw)
     : path.join(activeAppRoot, 'workspace');
 
-const resolvedAuthPath = path.join(activeConfigDir, 'auth.json');
+const oldAuthPath = path.join(activeConfigDir, 'auth.json');
+const resolvedAuthPath = path.join(activeConfigDir, 'naver_auth.json');
+
+// [Migration] 기존 auth.json이 존재하고 naver_auth.json이 없을 경우 자동 이름 변경
+if (fs.existsSync(oldAuthPath) && !fs.existsSync(resolvedAuthPath)) {
+    try {
+        fs.renameSync(oldAuthPath, resolvedAuthPath);
+        // Logger는 나중에 세팅되므로 일단 console.log 사용
+        console.log(`✅ [Migration] 성공적으로 auth.json을 naver_auth.json으로 마이그레이션했습니다.`);
+    } catch (err) {
+        console.error(`❌ [Migration] auth.json 이름 변경 실패: ${err.message}`);
+    }
+}
+
 const resolvedLicenseKeyPath = licenseKeyInfo.path || path.join(activeConfigDir, 'license.key');
 
 const userSheetUrl = String(structuredConfig.essential.google_sheet_url || '').trim();

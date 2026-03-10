@@ -22,8 +22,8 @@ module.exports = {
     APP_VERSION,
     // 🔓 시스템 경로 (사용자 실행 위치 기준)
 
-    // 1. 인증 파일: 실행 파일 바로 옆에 'auth.json'이 있다고 가정
-    AUTH_FILE_PATH: path.join(RUNTIME_ROOT, 'auth.json'),
+    // 1. 인증 파일: 실행 파일 바로 옆에 'naver_auth.json'이 있다고 가정
+    AUTH_FILE_PATH: path.join(RUNTIME_ROOT, 'naver_auth.json'),
 
     // 2. 워크스페이스: 실행 위치 하위에 'workspace' 폴더 생성/사용
     WORKSPACE_DIR: path.join(RUNTIME_ROOT, 'workspace'),

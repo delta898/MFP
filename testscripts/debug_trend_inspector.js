@@ -17,12 +17,12 @@ const CONFIG = require('../src/config-loader');
     });
 
     // 인증 정보 로드
-    const authPath = path.join(__dirname, '../config/auth.json');
+    const authPath = path.join(__dirname, '../config/naver_auth.json');
     if (fs.existsSync(authPath)) {
         console.log("✅ 인증 정보 로드 중...");
         await context.addCookies(JSON.parse(fs.readFileSync(authPath, 'utf-8')).cookies);
     } else {
-        console.warn("⚠️ 인증 파일(auth.json)이 없습니다. 로그인이 필요할 수 있습니다.");
+        console.warn("⚠️ 인증 파일(naver_auth.json)이 없습니다. 로그인이 필요할 수 있습니다.");
     }
 
     const page = await context.newPage();

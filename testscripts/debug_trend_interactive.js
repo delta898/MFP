@@ -25,7 +25,7 @@ const Logger = require('../src/logger');
     CONFIG.HEADLESS = originalHeadless;
 
     // Auth 로드 시도 (있으면 사용, 없으면 빈 컨텍스트)
-    const authPath = path.join(process.cwd(), 'config', 'auth.json');
+    const authPath = path.join(process.cwd(), 'config', 'naver_auth.json');
     let context;
     if (fs.existsSync(authPath)) {
         Logger.info(`   - 기존 인증 파일 로드: ${authPath}`);

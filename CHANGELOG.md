@@ -5,7 +5,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Added
 - **Image Deletion Feature**: Added a "Delete Setting" button for optional shopping images (CTA2, CTA3) in the settings UI, allowing users to explicitly clear these optional configurations.
-- **Smart Dashboard Feed**: Implemented a "Smart" feed fallback logic. The dashboard now attempts to fetch the latest YouTube videos via RSS first and automatically falls back to the Instagram Reels widget if the feed is unavailable or empty.
+### Changed
+- **Authentication File Renaming**: Renamed the Naver login authentication storage file from `auth.json` to `naver_auth.json` to explicitly clarify its purpose in multi-platform environments. Existing users' `auth.json` files will be automatically migrated to the new name on startup.
 
 ### Fixed
 - **System Log UI Freeze**: Mitigated an issue where opening the "System Log" tab with very large log files (e.g., 25MB+) could freeze the GUI or cause memory issues. The backend API (`/api/v1/logs/read`) now safely truncates files larger than 1MB, returning only the most recent 1MB of log data to the frontend.

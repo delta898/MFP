@@ -5,7 +5,7 @@ async function testNaverPublishModal() {
     console.log("🚀 Naver Blog Publish Modal Test Script Started");
 
     let storageStatePath = null;
-    const authPath = path.join(__dirname, '../config/auth.json');
+    const authPath = path.join(__dirname, '../config/naver_auth.json');
     if (fs.existsSync(authPath)) {
         storageStatePath = authPath;
     }

@@ -297,7 +297,7 @@ async function performLogin() {
 async function ensureAuth(isStrict = true) {
     if (!fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
         if (!isStrict) return false;
-        console.error("\n⛔ [인증 필요] 로그인 정보(auth.json)를 찾을 수 없습니다.");
+        console.error("\n⛔ [인증 필요] 로그인 정보(naver_auth.json)를 찾을 수 없습니다.");
         console.error("👉 아래 명령으로 먼저 로그인해 주세요:");
         console.error("   <실행파일> login");
         process.exit(1);
@@ -312,7 +312,7 @@ async function ensureAuth(isStrict = true) {
     if (session.reason === 'expired') {
         console.error("\n⛔ [인증 만료] 로그인 세션이 만료되었습니다.");
     } else if (session.reason === 'missing_auth') {
-        console.error("\n⛔ [인증 필요] 로그인 정보(auth.json)가 없습니다.");
+        console.error("\n⛔ [인증 필요] 로그인 정보(naver_auth.json)가 없습니다.");
     } else {
         console.error(`\n⛔ [인증 확인 실패] 세션 확인 중 오류가 발생했습니다: ${session.message || 'unknown error'}`);
     }

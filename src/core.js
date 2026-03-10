@@ -1769,7 +1769,7 @@ ${scrapedContext}`;
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
 		const authPath = CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH;
-		if (!fs.existsSync(authPath)) throw new Error('auth.json 없음');
+		if (!fs.existsSync(authPath)) throw new Error('naver_auth.json 없음');
 
 		const contentFile = path.join(dirPath, 'contents.md');
 		if (!fs.existsSync(contentFile)) throw new Error(`콘텐츠 파일 없음: contents.md`);

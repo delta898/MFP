@@ -14,13 +14,13 @@ const Logger = require('../src/logger');
     const browser = await launchBrowser();
 
     // Auth 로드
-    const authPath = path.join(process.cwd(), 'config', 'auth.json');
+    const authPath = path.join(process.cwd(), 'config', 'naver_auth.json');
     let context;
     if (fs.existsSync(authPath)) {
         Logger.info(`   - 인증 파일 로드: ${authPath}`);
         context = await browser.newContext({ storageState: authPath });
     } else {
-        Logger.warn('   ⚠️ 인증 파일(auth.json)이 없습니다. 비로그인 상태로 진행합니다.');
+        Logger.warn('   ⚠️ 인증 파일(naver_auth.json)이 없습니다. 비로그인 상태로 진행합니다.');
         context = await browser.newContext();
     }
 
