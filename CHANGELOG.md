@@ -9,6 +9,10 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **설정 저장 시 불필요한 Telegram Bot 재시작 방지**: `saveMajorSettings()` 호출 시 텔레그램 관련 설정(`enabled`, `bot_token`, `chat_id`)이 실제로 변경된 경우에만 봇을 재시작하도록 변경 감지 로직 추가. Slack 연결 테스트 등 무관한 설정 저장 시 봇이 불필요하게 중지/시작되던 현상 해결.
 - **Telegram Bot Polling 에러 자동 중지**: 잘못된 봇 토큰 등으로 Polling 에러가 60초 내 5회 연속 발생하면 자동으로 봇을 중지하여 로그 스팸 방지. 정상 메시지 수신 시 에러 카운터 자동 리셋.
 - **Slack 알림 설정 저장 누락 수정**: Slack 활성화 체크박스(`settings-notify-slack-enabled`)와 Webhook URL 입력란이 자동 저장 리스너 목록에 누락되어 `config.json`에 반영되지 않던 버그 수정.
+- **세션 만료 로그 스팸 방지**: 네이버 세션 확인 로그를 상태 전이 기반으로 변경하여 같은 상태에서는 반복 출력되지 않도록 개선. 이제 `만료 → 정상`, `정상 → 만료` 등 상태 변경 시점에만 최종 상태 메시지를 출력.
+- **대시보드 RSS 썸네일 추출 강화**: `media:*` 태그가 없는 피드에서도 `content:encoded`/`description` 내부 이미지를 안정적으로 추출하도록 파서 개선. `srcset`, `data-src`, `data-lazy-src` 등 다양한 속성 및 최소 크기 필터를 지원해 썸네일 인식률 향상.
+- **텔레그램 Kuzu 연동 안정성 보강**: `KuzuService` 참조를 `KuzuDB`로 통일하고 초기화 함수 존재 여부를 확인한 뒤 실행하도록 방어 로직 추가. 런타임 환경 차이에서 발생할 수 있는 초기화/참조 오류 위험 감소.
+- **대시보드 카드 정렬/스크롤 UX 개선**: Smart Feed 카드의 인라인 높이 강제를 제거하고, 활동 이력/쇼츠 리스트의 최대 높이를 맞춰 균형 잡힌 레이아웃으로 조정. 양쪽 리스트에 얇은 스크롤바 스타일을 적용해 가독성과 탐색성 개선.
 
 ## [0.1.4-dev1] - 2026-03-10
 

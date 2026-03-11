@@ -129,50 +129,142 @@ function createSystemService(deps = {}) {
     }
 
     function extractFirstImageUrl(rawHtml = '') {
-        const html = String(rawHtml || '');
+        const html = String(rawHtml || '').trim();
         if (!html) return '';
-        const m = html.match(/<img[^>]+src=['"]([^'"]+)['"]/i);
-        return m?.[1] || '';
+
+        try {
+            const $ = cheerio.load(html, { xmlMode: false });
+            let found = '';
+
+            // 헬퍼: srcset에서 가장 큰 이미지 URL 추출
+            const getFromSrcset = (srcset = '') => {
+                if (!srcset) return '';
+                const parts = srcset.split(',').map(p => p.trim().split(/\s+/));
+                const largest = parts.sort((a, b) => {
+                    const wa = parseInt(a[1] || '0', 10);
+                    const wb = parseInt(b[1] || '0', 10);
+                    return wb - wa;
+                })[0];
+                return largest ? largest[0] : '';
+            };
+
+            // 1. 퀄리티 순서로 이미지 찾기 (데이터 속성 -> srcset -> src)
+            $('img').each((_, el) => {
+                if (found) return false;
+                const node = $(el);
+                
+                // 다양한 속성 체크
+                const src = String(
+                    node.attr('data-orig-file') || 
+                    node.attr('data-lazy-src') || 
+                    node.attr('data-src') || 
+                    getFromSrcset(node.attr('srcset')) || 
+                    node.attr('src') || 
+                    ''
+                ).trim();
+
+                if (!src || !src.startsWith('http')) return;
+
+                // 크기 체크 (명시된 경우)
+                const w = parseInt(node.attr('width') || '999', 10);
+                const h = parseInt(node.attr('height') || '999', 10);
+                
+                // 본문 이미지로 볼 수 있는 최소 크기 (아이콘/픽셀 제외)
+                if (w >= 40 && h >= 40) {
+                    found = src;
+                }
+            });
+
+            if (found) return found;
+
+            // 2. 완화된 크기 조건으로 다시 찾기
+            $('img').each((_, el) => {
+                if (found) return false;
+                const src = String($(el).attr('src') || '').trim();
+                if (src && src.startsWith('http')) {
+                    found = src;
+                }
+            });
+
+            return found;
+        } catch (_) {
+            return '';
+        }
     }
 
     function parseRssItems({ xml, limit, sourceKey }) {
         const items = [];
         if (!xml || typeof xml !== 'string') return items;
         const $ = cheerio.load(xml, { xmlMode: true, decodeEntities: true });
+
         $('item').each((_, el) => {
             if (items.length >= limit) return false;
             const node = $(el);
+            
             const title = collapseText(node.find('title').first().text());
             const link = collapseText(node.find('link').first().text());
             const pubDate = collapseText(node.find('pubDate').first().text());
+            
+            // content:encoded 또는 encoded 태그 찾기 (네임스페이스 대응)
             const descriptionHtml = node.find('description').first().text() || '';
-            const contentEncodedHtml = node.find('content\\:encoded').first().text() || '';
-            const descriptionRaw = descriptionHtml || contentEncodedHtml;
-            const description = collapseText((descriptionRaw || '').replace(/<[^>]*>/g, ' '));
+            let contentEncodedHtml = '';
+            
+            // Try different ways to find encoded content
+            const encodedNode = node.find('content\\:encoded, encoded, content');
+            encodedNode.each((_, enc) => {
+                const text = $(enc).text();
+                if (text && text.includes('<img')) {
+                    contentEncodedHtml = text;
+                    return false;
+                }
+            });
+            if (!contentEncodedHtml) contentEncodedHtml = encodedNode.first().text();
+
+            const description = collapseText((descriptionHtml || contentEncodedHtml || '').replace(/<[^>]*>/g, ' '));
+
             let thumbnail = '';
+
+            // Priority 1: media:thumbnail
             const mediaThumb = node.find('media\\:thumbnail').first();
             if (mediaThumb.length > 0) {
                 thumbnail = collapseText(mediaThumb.attr('url'));
             }
+
+            // Priority 2: media:content (image)
             if (!thumbnail) {
-                const mediaContent = node.find('media\\:content').first();
-                const contentType = String(mediaContent.attr('type') || '');
-                const medium = String(mediaContent.attr('medium') || '');
-                if (mediaContent.length > 0 && (contentType.startsWith('image/') || medium === 'image')) {
-                    thumbnail = collapseText(mediaContent.attr('url'));
-                }
+                node.find('media\\:content').each((_, contentEl) => {
+                    const mNode = $(contentEl);
+                    const type = String(mNode.attr('type') || '');
+                    const medium = String(mNode.attr('medium') || '');
+                    if (type.startsWith('image/') || medium === 'image') {
+                        thumbnail = collapseText(mNode.attr('url'));
+                        return false;
+                    }
+                });
             }
+
+            // Priority 3: enclosure (image)
             if (!thumbnail) {
-                const enclosure = node.find('enclosure').first();
-                const contentType = String(enclosure.attr('type') || '');
-                if (enclosure.length > 0 && contentType.startsWith('image/')) {
-                    thumbnail = collapseText(enclosure.attr('url'));
-                }
+                node.find('enclosure').each((_, encEl) => {
+                    const eNode = $(encEl);
+                    const type = String(eNode.attr('type') || '');
+                    if (type.startsWith('image/')) {
+                        thumbnail = collapseText(eNode.attr('url'));
+                        return false;
+                    }
+                });
             }
-            if (!thumbnail) {
-                // WordPress는 description에 요약만 들어가고 content:encoded에 본문 이미지가 들어가는 경우가 많음
-                thumbnail = extractFirstImageUrl(contentEncodedHtml || descriptionHtml || descriptionRaw);
+
+            // Priority 4: First image in content:encoded
+            if (!thumbnail && contentEncodedHtml) {
+                thumbnail = extractFirstImageUrl(contentEncodedHtml);
             }
+
+            // Priority 5: First image in description
+            if (!thumbnail && descriptionHtml) {
+                thumbnail = extractFirstImageUrl(descriptionHtml);
+            }
+
             if (!title || !link) return;
             items.push({
                 source: sourceKey,

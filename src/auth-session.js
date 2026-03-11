@@ -7,9 +7,53 @@ const Logger = require('./logger');
 let cachedSession = null;
 let cachedAtMs = 0;
 let sessionCheckInFlight = null;
+let lastSessionStateKey = null;
 
 function cloneSessionResult(result) {
     return result ? { ...result } : result;
+}
+
+function getSessionStateKey(result) {
+    if (result && result.ok === true) return 'valid';
+    const reason = String(result?.reason || 'unknown').trim().toLowerCase() || 'unknown';
+    return `invalid:${reason}`;
+}
+
+function stateKeyToLabel(stateKey) {
+    if (!stateKey) return '미확인';
+    if (stateKey === 'valid') return '유효';
+    if (stateKey === 'invalid:expired') return '만료';
+    if (stateKey === 'invalid:missing_auth') return '인증파일 없음';
+    if (stateKey === 'invalid:check_failed') return '확인 실패';
+    return '오류';
+}
+
+function logSessionStateTransition(result) {
+    const nextStateKey = getSessionStateKey(result);
+    if (lastSessionStateKey === nextStateKey) return;
+    lastSessionStateKey = nextStateKey;
+
+    if (result?.ok === true) {
+        Logger.info('🔄 [AuthSession] 세션 상태 변경: 로그인 세션이 정상입니다.');
+        return;
+    }
+
+    if (result?.reason === 'expired') {
+        Logger.error('🔄 [AuthSession] 세션 상태 변경: 로그인 정보가 만료되었습니다.');
+        return;
+    }
+
+    if (result?.reason === 'missing_auth') {
+        Logger.warn('🔄 [AuthSession] 세션 상태 변경: naver_auth.json 파일을 찾지 못했습니다.');
+        return;
+    }
+
+    if (result?.reason === 'check_failed') {
+        Logger.warn(`🔄 [AuthSession] 세션 상태 변경: 세션 확인 중 오류가 발생했습니다. (${String(result?.message || 'unknown')})`);
+        return;
+    }
+
+    Logger.warn(`🔄 [AuthSession] 세션 상태 변경: ${stateKeyToLabel(nextStateKey)}`);
 }
 
 async function performAuthSessionCheck(options = {}) {
@@ -35,10 +79,8 @@ async function performAuthSessionCheck(options = {}) {
 
         const currentUrl = String(page.url() || '');
         if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {
-            Logger.error("🚨 세션 확인 실패: 로그인 정보가 만료되었습니다.");
             return { ok: false, reason: 'expired' };
         }
-        Logger.debug("✅ 세션 확인 완료: 정상적으로 로그인되어 있습니다.");
         return { ok: true };
     } catch (e) {
         return { ok: false, reason: 'check_failed', message: e.message };
@@ -63,6 +105,7 @@ async function checkAuthSessionValid(options = {}) {
 
     sessionCheckInFlight = (async () => {
         const result = await performAuthSessionCheck(options);
+        logSessionStateTransition(result);
         cachedSession = cloneSessionResult(result);
         cachedAtMs = Date.now();
         return result;

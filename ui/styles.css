@@ -1738,8 +1738,24 @@ h2 {
   padding: 0;
   margin: 0;
   flex: 1;
-  max-height: 620px;
+  max-height: 480px; /* Aligned with YouTube block */
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-primary) transparent;
+}
+
+.activity-card .activity-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+.activity-card .activity-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+.activity-card .activity-timeline::-webkit-scrollbar-thumb {
+  background-color: rgba(14, 165, 233, 0.2);
+  border-radius: 10px;
+}
+.activity-card .activity-timeline:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(14, 165, 233, 0.4);
 }
 
 .dash-shorts-card {
@@ -1752,11 +1768,27 @@ h2 {
 .dash-shorts-list {
   min-height: 0;
   flex: 1;
-  max-height: 600px;
+  max-height: 480px; /* Matches activity timeline */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-primary) transparent;
+}
+
+.dash-shorts-list::-webkit-scrollbar {
+  width: 6px;
+}
+.dash-shorts-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-shorts-list::-webkit-scrollbar-thumb {
+  background-color: rgba(14, 165, 233, 0.2);
+  border-radius: 10px;
+}
+.dash-shorts-list:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(14, 165, 233, 0.4);
 }
 
 .dash-shorts-item {
@@ -2052,6 +2084,16 @@ h2 {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.dash-feed-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0ea5e9;
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
 .dash-feed-body {

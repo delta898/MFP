@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
-const KuzuService = require('./kuzu-service');
+const KuzuDB = require('./kuzu-service');
 
 class TelegramBotService {
     static bot = null;
@@ -71,9 +71,11 @@ class TelegramBotService {
 
         try {
             // [Persistent Memory] Kuzu DB 초기화
-            KuzuService.initialize().catch(err => {
-                Logger.error(`❌ [TelegramBot] Kuzu 서비스 초기화 실패: ${err.message}`);
-            });
+            if (KuzuDB && typeof KuzuDB.initialize === 'function') {
+                KuzuDB.initialize().catch(err => {
+                    Logger.error(`❌ [TelegramBot] Kuzu 서비스 초기화 실패: ${err.message}`);
+                });
+            }
 
             // Polling 방식으로 봇 인스턴스 생성
             this.bot = new TelegramBot(botToken, { polling: true });
@@ -105,7 +107,7 @@ class TelegramBotService {
 
             if (TelegramBotService._pollingErrorCount === TelegramBotService.POLLING_ERROR_THRESHOLD) {
                 Logger.error(`🛑 [TelegramBot] Polling 에러가 ${TelegramBotService.POLLING_ERROR_THRESHOLD}회 연속 발생하여 봇을 자동 중지합니다. 봇 토큰과 설정을 확인해 주세요.`);
-                TelegramBotService.stop().catch(() => {});
+                TelegramBotService.stop().catch(() => { });
             }
         });
 
@@ -142,8 +144,8 @@ class TelegramBotService {
                 const Core = require('./core');
 
                 // 1. Kuzu에서 과거 인사이트 및 최근 대화 히스토리 로드
-                const userInsight = await KuzuService.getUserInsight(chatId);
-                const chatHistory = await KuzuService.getHistory(chatId, 5); // 최근 5개 대화
+                const userInsight = await KuzuDB.getUserInsight(chatId);
+                const chatHistory = await KuzuDB.getHistory(chatId, 5); // 최근 5개 대화
 
                 const context = {
                     last_topic: this.chatContext.get(chatId) || null,
@@ -164,7 +166,7 @@ class TelegramBotService {
                 }
 
                 // 2. 메시지 기록 (추후 분석을 위해 인텐트 포함)
-                await KuzuService.recordMessage(chatId, text, primaryIntent);
+                await KuzuDB.recordMessage(chatId, text, primaryIntent);
 
                 if (!actions || actions.length === 0) {
                     await this.bot.sendMessage(chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?');
@@ -188,7 +190,7 @@ class TelegramBotService {
                     });
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
@@ -214,7 +216,7 @@ class TelegramBotService {
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
@@ -236,7 +238,7 @@ class TelegramBotService {
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuService.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
@@ -523,7 +525,7 @@ class TelegramBotService {
         const axios = require('axios');
         const CONFIG = require('./config-loader');
         const port = CONFIG.UI_SERVER_PORT || 4577;
-        const KuzuService = require('./kuzu-service');
+        // Kuzu Service를 사용하여 데이터 조회
 
         try {
             if (queryType === 'status' || queryType === 'system') {
@@ -537,7 +539,7 @@ class TelegramBotService {
                 await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
 
             } else if (queryType === 'topics') {
-                const results = await KuzuService.getTopicSummary(chatId, params);
+                const results = await KuzuDB.getTopicSummary(chatId, params);
                 if (results.length === 0) {
                     await this.bot.sendMessage(chatId, "📝 아직 기록된 토픽이 없습니다.");
                 } else {
@@ -549,7 +551,7 @@ class TelegramBotService {
                 }
 
             } else if (queryType === 'shopping') {
-                const results = await KuzuService.getShoppingSummary(chatId, params);
+                const results = await KuzuDB.getShoppingSummary(chatId, params);
                 if (results.length === 0) {
                     await this.bot.sendMessage(chatId, "🛍️ 등록된 쇼핑 아이템이 없습니다.");
                 } else {
@@ -561,7 +563,7 @@ class TelegramBotService {
                 }
 
             } else if (queryType === 'stats') {
-                const s = await KuzuService.getGlobalStats();
+                const s = await KuzuDB.getGlobalStats();
                 const msg = `📈 *지능형 메모리 통계*\n\n` +
                     `• 전체 사용자: ${s.users}명\n` +
                     `• 총 대화량: ${s.messages}건\n` +
@@ -571,7 +573,7 @@ class TelegramBotService {
                 await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
 
             } else if (queryType === 'insight') {
-                const insight = await KuzuService.getUserInsight(chatId);
+                const insight = await KuzuDB.getUserInsight(chatId);
                 if (!insight) {
                     await this.bot.sendMessage(chatId, "🤔 아직 분석된 성향 정보가 부족합니다. 대화를 조금 더 나누어 볼까요?");
                 } else {
