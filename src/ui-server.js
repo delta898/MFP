@@ -5156,7 +5156,7 @@ async function reloadUiServer(newHost, newPort) {
     if (activeUiServer) {
         Logger.info(`🔄 설정 변경 감지: 기존 UI 서버(포트)를 종료하고 재시작합니다...`);
         const TelegramBotService = require('./telegram-bot.service');
-        TelegramBotService.stop();
+        await TelegramBotService.stop();
         await new Promise(resolve => {
             activeUiServer.close(() => {
                 activeUiServer = null;

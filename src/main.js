@@ -98,10 +98,8 @@ if (CONFIG.IMAGE_MODEL) {
 
 // console.log("⏳ BlogGenius 시스템 모듈을 로딩하고 있습니다...");
 
-// 텔레그램 봇 초기화 (CLI 모드에서도 알림 수신 및 명령 처리를 위해)
-Logger.debug('[Init] Initializing TelegramBotService...');
-TelegramBotService.init();
-Logger.debug('[Init] TelegramBotService initialized.');
+// 텔레그램 봇 초기화는 startUiServer() 내부에서 수행됩니다.
+// main.js에서 중복 호출하면 동일 토큰으로 이중 Polling이 발생하여 409 Conflict 에러가 납니다.
 
 // 모든 시스템 모듈 준비 완료 로그 (사용자에게 노출될 유일한 초기화 로그)
 Logger.info('✅ 시스템이 정상적으로 구동되었습니다.');

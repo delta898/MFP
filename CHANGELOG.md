@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.1.5] - 2026-03-11
+
+### Fixed
+- **Telegram Bot 이중 Polling (409 Conflict) 해결**: `main.js`와 `startUiServer()` 양쪽에서 `TelegramBotService.init()`이 호출되어 동일 봇 토큰으로 두 개의 Polling 인스턴스가 생성되던 근본 원인 제거. `main.js`의 중복 호출을 삭제하고, `stop()`을 async로 변경하여 Polling이 완전히 종료된 후에만 새 인스턴스를 생성하도록 개선.
+- **Telegram Bot 시작 로그 누락 수정**: `init()`의 성공 메시지가 `Logger.debug()`로 출력되어 기본 로그 레벨(`info`)에서 보이지 않던 문제를 `Logger.info()`로 변경.
+- **설정 저장 시 불필요한 Telegram Bot 재시작 방지**: `saveMajorSettings()` 호출 시 텔레그램 관련 설정(`enabled`, `bot_token`, `chat_id`)이 실제로 변경된 경우에만 봇을 재시작하도록 변경 감지 로직 추가. Slack 연결 테스트 등 무관한 설정 저장 시 봇이 불필요하게 중지/시작되던 현상 해결.
+- **Telegram Bot Polling 에러 자동 중지**: 잘못된 봇 토큰 등으로 Polling 에러가 60초 내 5회 연속 발생하면 자동으로 봇을 중지하여 로그 스팸 방지. 정상 메시지 수신 시 에러 카운터 자동 리셋.
+- **Slack 알림 설정 저장 누락 수정**: Slack 활성화 체크박스(`settings-notify-slack-enabled`)와 Webhook URL 입력란이 자동 저장 리스너 목록에 누락되어 `config.json`에 반영되지 않던 버그 수정.
+
 ## [0.1.4-dev1] - 2026-03-10
 
 ### Added

@@ -51,6 +51,9 @@ function createSettingsService(deps = {}) {
             const fields = parseMajorFieldsFromRequest(requestBody || {});
             const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
             const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
+            const prevTelegramEnabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
+            const prevTelegramBotToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
+            const prevTelegramChatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
 
             const imageKeys = [
                 'FTC_DISCLOSURE_IMAGE_URL',
@@ -234,15 +237,22 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
 
-            // 🤖 텔레그램 봇 동적 재시작 (설정 변경 시 즉각 반영)
-            try {
-                const TelegramBotService = require('../../telegram-bot.service');
-                TelegramBotService.stop(); // 기존 인스턴스가 타는 경우 중지
-                if (CONFIG.NOTIFY_TELEGRAM_ENABLED && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN) {
-                    TelegramBotService.init(); // 새 설정으로 다시 시작
+            // 🤖 텔레그램 봇 동적 재시작 (텔레그램 관련 설정이 실제로 변경된 경우에만)
+            const telegramSettingsChanged =
+                fields.NOTIFY_TELEGRAM_ENABLED !== prevTelegramEnabled ||
+                fields.NOTIFY_TELEGRAM_BOT_TOKEN !== prevTelegramBotToken ||
+                String(fields.NOTIFY_TELEGRAM_CHAT_ID || '') !== prevTelegramChatId;
+
+            if (telegramSettingsChanged) {
+                try {
+                    const TelegramBotService = require('../../telegram-bot.service');
+                    await TelegramBotService.stop(); // 기존 인스턴스가 완전히 중지될 때까지 대기
+                    if (CONFIG.NOTIFY_TELEGRAM_ENABLED && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN) {
+                        TelegramBotService.init(); // 새 설정으로 다시 시작
+                    }
+                } catch (err) {
+                    console.error('Failed to restart TelegramBotService:', err);
                 }
-            } catch (err) {
-                console.error('Failed to restart TelegramBotService:', err);
             }
 
             if (requiresRestart) {

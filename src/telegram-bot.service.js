@@ -8,6 +8,10 @@ class TelegramBotService {
     static isInitialized = false;
     static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
     static chatContext = new Map(); // chatId별 마지막 성공 토픽 주제 저장용
+    static _pollingErrorCount = 0;
+    static _pollingErrorWindowStart = 0;
+    static POLLING_ERROR_THRESHOLD = 5; // 연속 에러 N회 초과 시 자동 중지
+    static POLLING_ERROR_WINDOW_MS = 60000; // 에러 카운트 리셋 윈도우 (60초)
 
     static init() {
         // [Fun Factor] 상황별 다양한 메시지 정의
@@ -46,6 +50,15 @@ class TelegramBotService {
             return;
         }
 
+        // 안전장치: 이전 인스턴스가 완전히 정리되지 않은 경우 먼저 중지
+        if (this.bot) {
+            try {
+                this.bot.stopPolling();
+            } catch (e) { /* ignore */ }
+            this.bot = null;
+            this.isInitialized = false;
+        }
+
 
         const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
         const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
@@ -65,7 +78,7 @@ class TelegramBotService {
             // Polling 방식으로 봇 인스턴스 생성
             this.bot = new TelegramBot(botToken, { polling: true });
             this.isInitialized = true;
-            Logger.debug('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
+            Logger.info('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
 
             this.setupListeners(chatId);
         } catch (error) {
@@ -76,9 +89,24 @@ class TelegramBotService {
     static setupListeners(allowedChatId) {
         if (!this.bot) return;
 
-        // 에러 핸들링
+        // 에러 핸들링 (연속 에러 시 자동 중지)
         this.bot.on('polling_error', (error) => {
-            Logger.error(`❌ [TelegramBot] Polling Error: ${error.message}`);
+            const now = Date.now();
+            // 윈도우 리셋: 마지막 에러로부터 충분한 시간이 지났으면 카운터 초기화
+            if (now - TelegramBotService._pollingErrorWindowStart > TelegramBotService.POLLING_ERROR_WINDOW_MS) {
+                TelegramBotService._pollingErrorCount = 0;
+                TelegramBotService._pollingErrorWindowStart = now;
+            }
+            TelegramBotService._pollingErrorCount++;
+
+            if (TelegramBotService._pollingErrorCount <= TelegramBotService.POLLING_ERROR_THRESHOLD) {
+                Logger.error(`❌ [TelegramBot] Polling Error (${TelegramBotService._pollingErrorCount}/${TelegramBotService.POLLING_ERROR_THRESHOLD}): ${error.message}`);
+            }
+
+            if (TelegramBotService._pollingErrorCount === TelegramBotService.POLLING_ERROR_THRESHOLD) {
+                Logger.error(`🛑 [TelegramBot] Polling 에러가 ${TelegramBotService.POLLING_ERROR_THRESHOLD}회 연속 발생하여 봇을 자동 중지합니다. 봇 토큰과 설정을 확인해 주세요.`);
+                TelegramBotService.stop().catch(() => {});
+            }
         });
 
         const handleIncoming = async (msg) => {
@@ -92,6 +120,8 @@ class TelegramBotService {
             }
 
             Logger.info(`💬 [TelegramBot] 메시지 수신: ${text}`);
+            // 메시지 수신 성공 시 에러 카운터 리셋
+            TelegramBotService._pollingErrorCount = 0;
 
             // 2. 명령어 처리 (/help 등)
             if (text.startsWith('/')) {
@@ -596,15 +626,18 @@ class TelegramBotService {
         }
     }
 
-    static stop() {
+    static async stop() {
         if (this.bot) {
             try {
-                this.bot.stopPolling();
+                await this.bot.stopPolling();
                 this.bot = null;
                 this.isInitialized = false;
                 Logger.info('🛑 [TelegramBot] 텔레그램 수신 봇 데몬을 중지했습니다.');
             } catch (err) {
                 Logger.error(`❌ [TelegramBot] 봇 중지 실패: ${err.message}`);
+                // 에러가 발생해도 상태는 초기화
+                this.bot = null;
+                this.isInitialized = false;
             }
         }
     }

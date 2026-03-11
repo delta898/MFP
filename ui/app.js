@@ -5531,6 +5531,7 @@ function bindActions() {
     document.getElementById('settings-notify-telegram-bot-token'),
     document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-notify-bitly-token'),
+    document.getElementById('settings-notify-slack-webhook-url'),
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
@@ -5550,6 +5551,7 @@ function bindActions() {
     document.getElementById('blog-publish-auto-notify-enabled'),
     document.getElementById('shopping-publish-auto-notify-enabled'),
     document.getElementById('settings-notify-telegram-enabled'),
+    document.getElementById('settings-notify-slack-enabled'),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
