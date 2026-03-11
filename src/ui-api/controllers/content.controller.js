@@ -61,6 +61,46 @@ function createContentController(deps = {}) {
             }
         },
 
+        async naverCommentDraftSettings({ requestId, method, requestBody, res }) {
+            if (method === 'GET') {
+                try {
+                    return sendSuccess(res, requestId, await service.getNaverCommentDraftSettings());
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'NAVER_COMMENT_DRAFT_SETTINGS_READ_FAILED', '스마트 댓글 설정 조회에 실패했습니다.', e);
+                }
+            }
+            if (method === 'POST') {
+                try {
+                    return sendSuccess(res, requestId, await service.saveNaverCommentDraftSettings(requestBody || {}));
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'NAVER_COMMENT_DRAFT_SETTINGS_SAVE_FAILED', '스마트 댓글 설정 저장에 실패했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async naverCommentDraftRun({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.runNaverCommentDraft(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'NAVER_COMMENT_DRAFT_RUN_FAILED', '스마트 댓글 실행에 실패했습니다.', e);
+            }
+        },
+
+        async naverCommentDraftRedraft({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.redraftNaverCommentDraft(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'NAVER_COMMENT_DRAFT_REDRAFT_FAILED', '댓글 초안 다시 생성에 실패했습니다.', e);
+            }
+        },
+
         async blogQuickPublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

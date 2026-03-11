@@ -404,6 +404,11 @@ const CONFIG = {
     CUSTOM_AI_MODEL: structuredConfig.ai_settings?.custom?.model || '',
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
     NOTIFY_SLACK_WEBHOOK_URL: structuredConfig.notification?.slack?.webhook_url || '',
+    NAVER_COMMENT_DRAFT_AI_MODE: structuredConfig.features?.naver?.comment_draft?.ai_mode === 'custom' ? 'custom' : 'default',
+    NAVER_COMMENT_DRAFT_FETCH_LIMIT: Number(structuredConfig.features?.naver?.comment_draft?.fetch_limit || 10),
+    NAVER_COMMENT_DRAFT_TONE: structuredConfig.features?.naver?.comment_draft?.tone || 'empathetic',
+    NAVER_COMMENT_DRAFT_MAX_CHARS: Number(structuredConfig.features?.naver?.comment_draft?.max_chars || 60),
+    NAVER_COMMENT_DRAFT_HEADLESS: structuredConfig.features?.naver?.comment_draft?.headless !== false,
 
     // 🔧 [Utility]
     resolveRuntimePath: (targetPath, opts = {}) => resolveRuntimePath(targetPath, opts),

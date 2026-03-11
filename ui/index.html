@@ -320,6 +320,7 @@
           <!-- [DISABLED] Trends tab - removed from production UI (2026-03-04). Code kept for reference. -->
           <!-- <button class="blog-tab-btn" data-blog-tab="trends">Trends</button> -->
           <button class="blog-tab-btn" data-blog-tab="topics">일괄 포스팅</button>
+          <button class="blog-tab-btn" data-blog-tab="comment-draft">스마트 댓글(네이버)</button>
           <span class="blog-tab-gap" aria-hidden="true"></span>
           <button class="blog-tab-btn" data-blog-tab="collect">자동글감 설정</button>
           <button class="blog-tab-btn" data-blog-tab="auto">자동 포스팅 설정</button>
@@ -589,6 +590,64 @@
 
 
           <pre id="blog-action-result" class="scrollable-log"></pre>
+        </div>
+
+        <div class="card form-card blog-tab-panel" id="blog-tab-comment-draft">
+          <div class="auto-section">
+            <div class="form-grid">
+              <label>AI 선택
+                <select id="naver-comment-draft-ai-mode">
+                  <option value="default">기본 AI (Gemini)</option>
+                  <option value="custom">Custom AI</option>
+                </select>
+              </label>
+
+              <label>후보 글 수 (최대 10개)
+                <input id="naver-comment-draft-fetch-limit" type="number" min="1" max="10" step="1" value="10" placeholder="예: 10">
+              </label>
+
+              <label>댓글 톤
+                <select id="naver-comment-draft-tone">
+                  <option value="empathetic">공감형</option>
+                  <option value="friendly">친근형</option>
+                  <option value="calm">담백형</option>
+                </select>
+              </label>
+
+              <label>최대 글자수
+                <input id="naver-comment-draft-max-chars" type="number" min="20" max="200" step="1" value="60" placeholder="예: 60">
+              </label>
+
+              <div class="auto-toggle-row" style="margin-top: 8px; align-items: center;">
+                <label class="settings-checkbox-label compact" title="문제 발생 시 브라우저를 눈으로 확인하려면 체크를 해제하세요.">
+                  <input id="naver-comment-draft-headless" type="checkbox" checked>
+                  <span>보이지 않게 실행</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="auto-manual-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <div class="auto-manual-inline">
+                <span class="field-label-text">초안 생성</span>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="naver-comment-draft-save-btn" class="secondary" type="button">저장</button>
+                <button id="naver-comment-draft-run-btn" class="primary" type="button">실행</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="auto-section auto-log-section">
+            <h3 class="auto-section-title">상태</h3>
+            <pre id="naver-comment-draft-result" class="settings-major-result">설정을 확인한 뒤 실행해 주세요.</pre>
+          </div>
+
+          <div class="auto-section">
+            <h3 class="auto-section-title">스마트 댓글 리스트</h3>
+            <div id="naver-comment-draft-list" class="comment-draft-list">
+              <p class="dash-feed-empty">아직 실행 결과가 없습니다.</p>
+            </div>
+          </div>
         </div>
 
         <div class="card form-card blog-tab-panel" id="blog-tab-collect">

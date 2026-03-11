@@ -3293,26 +3293,39 @@ const Utils = {
     },
 
     // 🔧 [Fixed] Gemini API 재시도 로직 추가 (지수 백오프)
-    callGeminiText: async function (prompt, retries = 3) {
+    callGeminiText: async function (prompt, retries = 3, options = {}) {
         if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
+        const usageLabel = String(options?.usageLabel || 'Gemini Text API').trim() || 'Gemini Text API';
+        const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
+        const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
+        const logStart = options?.logStart !== false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
+                if (logStart) Logger.info(`🧠 [${usageLabel}] Gemini 호출 중... (시도 ${attempt}/${retries})`);
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
-                    () => axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
-                        { contents: [{ parts: [{ text: prompt }] }] },
+                    () => {
+                        const body = { contents: [{ parts: [{ text: prompt }] }] };
+                        if (maxTokens || temperature !== null) {
+                            body.generationConfig = {};
+                            if (maxTokens) body.generationConfig.maxOutputTokens = maxTokens;
+                            if (temperature !== null) body.generationConfig.temperature = temperature;
+                        }
+                        return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
+                        body,
                         { headers: { 'Content-Type': 'application/json' }, timeout: 120000 }
-                    )
+                    );
+                    }
                 );
                 const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error('Empty response from Gemini');
                 return text;
             } catch (e) {
-                Logger.warn(`⚠️ Gemini Text API 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                Logger.warn(`⚠️ [${usageLabel}] Gemini 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
 
                 if (attempt === retries) {
-                    Logger.error(`❌ Gemini Text API 최대 재시도 횟수 초과`);
+                    Logger.error(`❌ [${usageLabel}] Gemini 최대 재시도 횟수 초과`);
                     throw e; // null 대신 에러 throw
                 }
 
@@ -3324,44 +3337,49 @@ const Utils = {
         }
     },
 
-    callTelegramChatModel: async function (prompt, retries = 3) {
-        if (String(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default').trim() !== 'custom') {
-            return this.callGeminiText(prompt, retries);
-        }
-
+    callCustomAiText: async function (prompt, retries = 3, options = {}) {
+        const usageLabel = String(options?.usageLabel || 'Custom AI').trim() || 'Custom AI';
         const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.CUSTOM_AI_BASE_URL);
         const model = String(CONFIG.CUSTOM_AI_MODEL || '').trim();
         const apiKey = String(CONFIG.CUSTOM_AI_API_KEY || '').trim();
+        const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
+        const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
+        const logStart = options?.logStart !== false;
 
-        if (!baseUrl || !model) throw new Error('텔레그램 채팅 모델로 Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
+        if (!baseUrl || !model) throw new Error(`${usageLabel}를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.`);
 
         const headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                Logger.info(`🧠 [Custom AI] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
+                if (logStart) Logger.info(`🧠 [${usageLabel}] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
-                    () => axios.post(`${baseUrl}/chat/completions`, {
+                    () => {
+                        const body = {
                         model,
                         messages: [
                             { role: 'user', content: prompt }
                         ]
-                    }, {
+                        };
+                        if (maxTokens) body.max_tokens = maxTokens;
+                        if (temperature !== null) body.temperature = temperature;
+                        return axios.post(`${baseUrl}/chat/completions`, body, {
                         headers,
                         timeout: 120000
-                    })
+                        });
+                    }
                 );
                 const text = extractOpenAIChatContent(response.data);
                 if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
                 return text;
             } catch (e) {
-                Logger.warn(`⚠️ [Custom AI] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
 
                 if (attempt === retries) {
-                    Logger.error('❌ [Custom AI] 최대 재시도 횟수 초과');
-                    throw new Error(`Custom AI 호출에 실패했습니다: ${e.message}`);
+                    Logger.error(`❌ [${usageLabel}] 최대 재시도 횟수 초과`);
+                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${e.message}`);
                 }
 
                 const waitTime = 1000 * Math.pow(2, attempt - 1);
@@ -3369,6 +3387,20 @@ const Utils = {
                 await this.sleep(waitTime);
             }
         }
+    },
+
+    callTextModelByMode: async function (mode, prompt, retries = 3, options = {}) {
+        const normalizedMode = String(mode || 'default').trim().toLowerCase();
+        if (normalizedMode === 'custom') {
+            return this.callCustomAiText(prompt, retries, options);
+        }
+        return this.callGeminiText(prompt, retries, options);
+    },
+
+    callTelegramChatModel: async function (prompt, retries = 3) {
+        return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
+            usageLabel: 'Custom AI'
+        });
     },
 
     // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가

@@ -18,6 +18,7 @@ job.json
 jobs.xlsx
 topic.json
 config/service_account.json
+config/naver_auth.json
 config/auth.json
 config/settings.js
 config/license.key

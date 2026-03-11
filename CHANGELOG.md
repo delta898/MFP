@@ -5,6 +5,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Added
 - **Custom AI 설정 탭 추가**: OpenAI-compatible 보조 모델 연결 정보를 별도 `AI` 탭에서 관리할 수 있도록 구성. `Base URL`, `API Key`, `Model` 입력과 연결 테스트를 제공하여 텔레그램 외 다른 기능에서도 재사용 가능한 구조로 정리.
+- **스마트 댓글(네이버) 초안 도구 추가**: `블로그 > 스마트 댓글(네이버)` 탭에서 이웃새글 후보를 읽고 AI 댓글 초안 3개를 생성하는 보조 기능 추가. 공감 상태 판별, 댓글창 바로 이동(`copen=1`), 썸네일 표시, 초안 재생성/복사를 지원.
 
 ### Changed
 - **설정 저장 UX 개편**: 설정 화면의 자동 저장을 제거하고, 탭 공통 `저장` 버튼으로만 반영되도록 변경. 설정 탭 간 이동은 자유롭게 유지하면서, 설정 화면 이탈/새로고침/닫기 시 저장되지 않은 변경사항 경고를 표시하도록 조정.
@@ -14,11 +15,13 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **Custom AI 설정 단순화**: `enabled` 체크박스를 제거하고 `Base URL + Model` 기반의 연결 정의로 정리. 실제 사용 여부는 텔레그램 같은 각 기능의 모델 선택값에서 결정하도록 책임을 분리.
 - **텔레그램 분석 실패 메시지 명확화**: Custom AI 또는 Gemini 호출 실패 시 텔레그램 채팅창에 실패 사유를 함께 안내하도록 조정. 자동 fallback 없이 즉시 종료하는 정책으로 디버깅 용이성 향상.
 - **알림 설정 라벨 정리**: Bitly, Custom AI Base URL, 모델 입력 안내 문구를 플랫폼/제품 종속 표현 없이 더 일반적인 문구로 정리.
+- **AI 호출 로그 정리**: 스마트 댓글 생성 시 개별 모델 호출 로그를 줄이고, 작업 시작/완료 중심 로그로 정리하여 최근 활동 이력 노이즈를 완화.
 
 ### Fixed
 - **이미지 최적화 설정 저장 누락 수정**: `IMAGE_OPTIMIZATION_ENABLED` 값이 저장 파싱, 런타임 반영, 설정 재불러오기 경로에서 모두 연결되도록 보완하여 체크박스 상태가 저장 후 원복되던 문제 해결.
 - **Custom AI 예외 경로 안정화**: AI 호출 timeout 등 분석 실패 시 `loadingMsg` 참조 오류로 텔레그램 데몬이 종료되던 문제를 수정하고, 실패 후에도 봇 프로세스가 계속 살아 있도록 보완.
 - **대시보드 외부 피드 오류 로그 스팸 완화**: 실패한 RSS/YouTube 피드에 대해 짧은 cooldown과 in-flight dedupe를 적용하고, 상태 변경 시에만 경고/복구 로그를 남기도록 조정.
+- **네이버 인증 파일 추적 해제**: `config/naver_auth.json`을 `.gitignore`에 추가하고 Git 추적 대상에서 제외하여 개인 로그인 세션 파일이 저장소에 포함되지 않도록 보정.
 
 ## [0.1.5] - 2026-03-11
 

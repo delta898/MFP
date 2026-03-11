@@ -180,6 +180,8 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
+let naverCommentDraftItems = [];
+let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;
 let blogAutoManualRunInFlight = false;
 let shoppingAutoManualRunInFlight = false;
@@ -1180,7 +1182,7 @@ async function runTrendsToTopics() {
 
 function activateBlogTab(tabName, options = {}) {
   console.log("=== activateBlogTab CALLED ===", tabName);
-  const allowed = ['quick', 'trends', 'topics', 'collect', 'auto'];
+  const allowed = ['quick', 'trends', 'topics', 'comment-draft', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -1206,6 +1208,10 @@ function activateBlogTab(tabName, options = {}) {
     }).catch(e => console.error("WP Category Load Error:", e));
     return;
   }
+  if (target === 'comment-draft') {
+    loadNaverCommentDraftSettings();
+    return;
+  }
   if (target === 'collect') {
     loadBlogCollectSettings();
     return;
@@ -1213,6 +1219,150 @@ function activateBlogTab(tabName, options = {}) {
   if (target === 'auto') {
     loadBlogAutoSettings();
     return;
+  }
+}
+
+function setNaverCommentDraftResultText(message) {
+  naverCommentDraftStatusText = String(message || '');
+  const resultEl = document.getElementById('naver-comment-draft-result');
+  if (resultEl) resultEl.textContent = naverCommentDraftStatusText;
+}
+
+function getNaverCommentDraftSettingsFromUi() {
+  return {
+    aiMode: (document.getElementById('naver-comment-draft-ai-mode')?.value || 'default').trim(),
+    fetchLimit: parseInt(document.getElementById('naver-comment-draft-fetch-limit')?.value || '10', 10) || 10,
+    tone: (document.getElementById('naver-comment-draft-tone')?.value || 'empathetic').trim(),
+    maxChars: parseInt(document.getElementById('naver-comment-draft-max-chars')?.value || '60', 10) || 60,
+    headless: Boolean(document.getElementById('naver-comment-draft-headless')?.checked)
+  };
+}
+
+function renderNaverCommentDraftItems(items = []) {
+  const listEl = document.getElementById('naver-comment-draft-list');
+  if (!listEl) return;
+
+  const safeItems = Array.isArray(items) ? items : [];
+  naverCommentDraftItems = safeItems.map(item => ({ ...(item || {}) }));
+  if (safeItems.length === 0) {
+    listEl.innerHTML = '<p class="dash-feed-empty">조건에 맞는 후보 글이 없습니다.</p>';
+    return;
+  }
+
+  listEl.innerHTML = safeItems.map((item, index) => {
+    const drafts = Array.isArray(item?.drafts) ? item.drafts : [];
+    const draftHtml = drafts.length > 0
+      ? drafts.map((draft, draftIndex) => `
+        <div class="comment-draft-item">
+          <button class="secondary compact" type="button" data-comment-draft-copy="${index}:${draftIndex}">복사</button>
+          <div class="comment-draft-item-text">${escapeHtml(draft)}</div>
+        </div>
+      `).join('')
+      : `<div class="comment-draft-item"><div class="comment-draft-item-text">${escapeHtml(item?.error || '초안을 생성하지 못했습니다.')}</div></div>`;
+
+    const chips = [
+      item?.likedStateKnown ? (item?.liked ? '이미 공감한 글' : '공감 안 한 글') : '공감 여부 확인 불가',
+      item?.postUrl ? '글 링크 확인됨' : '글 링크 없음'
+    ];
+
+    return `
+      <article class="comment-draft-card" data-comment-draft-card="${index}">
+        <div class="comment-draft-card-head">
+          ${item?.thumbnailUrl ? `<div class="comment-draft-thumb"><img src="${escapeHtml(item.thumbnailUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('is-hidden'); this.remove();"></div>` : ''}
+          <div>
+            <div class="comment-draft-card-author">${escapeHtml(item?.authorName || '작성자 미상')}</div>
+            <div class="comment-draft-card-title">${escapeHtml(item?.title || '제목 없음')}</div>
+          </div>
+        </div>
+        <div class="comment-draft-chip-row">
+          ${chips.map((chip) => `<span class="comment-draft-chip">${escapeHtml(chip)}</span>`).join('')}
+        </div>
+        <div class="comment-draft-card-excerpt">${escapeHtml(item?.excerpt || '본문 요약을 불러오지 못했습니다.')}</div>
+        <div class="comment-draft-drafts">${draftHtml}</div>
+        <div class="comment-draft-actions">
+          <button class="secondary" type="button" data-comment-draft-redraft="${index}">다시 생성</button>
+          ${(item?.commentUrl || item?.postUrl) ? `<a class="secondary" href="${escapeHtml(item.commentUrl || item.postUrl)}" target="_blank" rel="noopener noreferrer">글로 이동</a>` : ''}
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+async function loadNaverCommentDraftSettings() {
+  const hadItems = Array.isArray(naverCommentDraftItems) && naverCommentDraftItems.length > 0;
+  setNaverCommentDraftResultText(hadItems ? naverCommentDraftStatusText : '불러오는 중...');
+  try {
+    const data = await fetchJson('/api/v1/blog/naver-comment-draft/settings');
+    const settings = data?.settings || {};
+    const aiModeEl = document.getElementById('naver-comment-draft-ai-mode');
+    const fetchLimitEl = document.getElementById('naver-comment-draft-fetch-limit');
+    const toneEl = document.getElementById('naver-comment-draft-tone');
+    const maxCharsEl = document.getElementById('naver-comment-draft-max-chars');
+    const headlessEl = document.getElementById('naver-comment-draft-headless');
+    if (aiModeEl) aiModeEl.value = String(settings.aiMode || 'default');
+    if (fetchLimitEl) fetchLimitEl.value = String(settings.fetchLimit || 10);
+    if (toneEl) toneEl.value = String(settings.tone || 'empathetic');
+    if (maxCharsEl) maxCharsEl.value = String(settings.maxChars || 60);
+    if (headlessEl) headlessEl.checked = Boolean(settings.headless ?? true);
+    if (hadItems) {
+      renderNaverCommentDraftItems(naverCommentDraftItems);
+      setNaverCommentDraftResultText(naverCommentDraftStatusText);
+    } else {
+      setNaverCommentDraftResultText('불러오기 완료');
+    }
+  } catch (e) {
+    setNaverCommentDraftResultText(`오류: ${e.message}`);
+  }
+}
+
+async function saveNaverCommentDraftSettings() {
+  setNaverCommentDraftResultText('저장 중...');
+  try {
+    const payload = getNaverCommentDraftSettingsFromUi();
+    await postJson('/api/v1/blog/naver-comment-draft/settings', payload);
+    setNaverCommentDraftResultText('저장 완료');
+  } catch (e) {
+    setNaverCommentDraftResultText(`오류: ${e.message}`);
+  }
+}
+
+async function runNaverCommentDraft() {
+  setNaverCommentDraftResultText('후보 글을 수집하고 댓글 초안을 생성 중...');
+  const listEl = document.getElementById('naver-comment-draft-list');
+  if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 중...</p>';
+  try {
+    const payload = getNaverCommentDraftSettingsFromUi();
+    const data = await postJson('/api/v1/blog/naver-comment-draft/run', payload);
+    renderNaverCommentDraftItems(data?.items || []);
+    setNaverCommentDraftResultText(`완료: ${Array.isArray(data?.items) ? data.items.length : 0}건 후보를 확인했습니다.`);
+  } catch (e) {
+    if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 결과가 없습니다.</p>';
+    setNaverCommentDraftResultText(`오류: ${e.message}`);
+  }
+}
+
+async function redraftNaverCommentDraft(itemIndex) {
+  const item = naverCommentDraftItems[itemIndex];
+  if (!item) return;
+  const payload = {
+    ...getNaverCommentDraftSettingsFromUi(),
+    title: item.title || '',
+    authorName: item.authorName || '',
+    excerpt: item.excerpt || '',
+    postUrl: item.postUrl || ''
+  };
+
+  setNaverCommentDraftResultText('초안을 다시 생성 중...');
+  try {
+    const data = await postJson('/api/v1/blog/naver-comment-draft/redraft', payload);
+    const currentItems = naverCommentDraftItems.map((entry, index) => ({
+      ...entry,
+      drafts: index === itemIndex ? (Array.isArray(data?.drafts) ? data.drafts : []) : (Array.isArray(entry?.drafts) ? entry.drafts : [])
+    }));
+    renderNaverCommentDraftItems(currentItems);
+    setNaverCommentDraftResultText('초안을 다시 생성했습니다.');
+  } catch (e) {
+    setNaverCommentDraftResultText(`오류: ${e.message}`);
   }
 }
 
@@ -4950,6 +5100,9 @@ function bindActions() {
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
   const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
   const blogTrendsDateInput = document.getElementById('blog-trends-date');
+  const naverCommentDraftSaveBtn = document.getElementById('naver-comment-draft-save-btn');
+  const naverCommentDraftRunBtn = document.getElementById('naver-comment-draft-run-btn');
+  const naverCommentDraftListEl = document.getElementById('naver-comment-draft-list');
   const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
   const blogTrendsQClearBtn = document.getElementById('blog-trends-q-clear-btn');
   const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
@@ -5040,6 +5193,42 @@ function bindActions() {
   }
 
   if (blogRefreshBtn) blogRefreshBtn.addEventListener('click', loadBlogTopics);
+  if (naverCommentDraftSaveBtn) naverCommentDraftSaveBtn.addEventListener('click', saveNaverCommentDraftSettings);
+  if (naverCommentDraftRunBtn) naverCommentDraftRunBtn.addEventListener('click', runNaverCommentDraft);
+  if (naverCommentDraftListEl) {
+    naverCommentDraftListEl.addEventListener('click', async (event) => {
+      const copyBtn = event.target.closest('[data-comment-draft-copy]');
+      if (copyBtn) {
+        const raw = String(copyBtn.getAttribute('data-comment-draft-copy') || '');
+        const [cardIndexRaw, draftIndexRaw] = raw.split(':');
+        const cardIndex = Number(cardIndexRaw);
+        const draftIndex = Number(draftIndexRaw);
+        const cardEl = naverCommentDraftListEl.querySelector(`[data-comment-draft-card="${cardIndex}"]`);
+        const textEls = Array.from(cardEl?.querySelectorAll('.comment-draft-item-text') || []);
+        const text = textEls[draftIndex]?.textContent || '';
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const original = copyBtn.textContent;
+          copyBtn.textContent = '복사됨';
+          setTimeout(() => {
+            copyBtn.textContent = original || '복사';
+          }, 1200);
+        } catch (e) {
+          showUiPopup(`복사 실패: ${e.message}`);
+        }
+        return;
+      }
+
+      const redraftBtn = event.target.closest('[data-comment-draft-redraft]');
+      if (redraftBtn) {
+        const itemIndex = Number(redraftBtn.getAttribute('data-comment-draft-redraft'));
+        if (Number.isInteger(itemIndex)) {
+          await redraftNaverCommentDraft(itemIndex);
+        }
+      }
+    });
+  }
   if (blogTopicsQClearBtn) {
     blogTopicsQClearBtn.addEventListener('click', () => {
       if (blogQFilter) blogQFilter.value = '';

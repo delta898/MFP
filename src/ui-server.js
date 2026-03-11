@@ -408,8 +408,11 @@ function createRequestId() {
     return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function checkNaverSessionForUi() {
-    return checkAuthSessionValid({ cacheTtlMs: UI_SESSION_CHECK_TTL_MS });
+async function checkNaverSessionForUi(options = {}) {
+    return checkAuthSessionValid({
+        cacheTtlMs: UI_SESSION_CHECK_TTL_MS,
+        ...options
+    });
 }
 
 function normalizeBool(input, fallback = false) {
@@ -4954,6 +4957,7 @@ function createLegacyApiDeps() {
         Logger,
         Updater,
         Utils,
+        BrowserLauncher,
         fs,
         path,
         CONFIG,

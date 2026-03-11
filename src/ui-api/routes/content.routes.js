@@ -8,6 +8,9 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/settings/shopping-image/preview') return controller.shoppingImagePreview(ctx);
         if (pathname === '/api/v1/settings/google-auth/status') return controller.googleAuthStatus(ctx);
         if (pathname === '/api/v1/settings/google-auth') return controller.googleAuthSave(ctx);
+        if (pathname === '/api/v1/blog/naver-comment-draft/settings') return controller.naverCommentDraftSettings(ctx);
+        if (pathname === '/api/v1/blog/naver-comment-draft/run') return controller.naverCommentDraftRun(ctx);
+        if (pathname === '/api/v1/blog/naver-comment-draft/redraft') return controller.naverCommentDraftRedraft(ctx);
         if (pathname === '/api/v1/blog/quick-publish') return controller.blogQuickPublish(ctx);
         if (pathname === '/api/v1/shopping/quick-publish') return controller.shoppingQuickPublish(ctx);
         if (pathname === '/api/v1/shopping/preview') return controller.shoppingPreview(ctx);

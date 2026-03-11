@@ -125,5 +125,16 @@
       "enabled": false,
       "webhook_url": ""
     }
+  },
+  "features": {
+    "naver": {
+      "comment_draft": {
+        "ai_mode": "default",
+        "fetch_limit": 10,
+        "tone": "empathetic",
+        "max_chars": 60,
+        "headless": true
+      }
+    }
   }
 }
