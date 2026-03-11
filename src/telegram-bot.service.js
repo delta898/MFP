@@ -250,11 +250,12 @@ class TelegramBotService {
                     await this.handleQueryIntent(chatId, queryAction.params || {});
                 }
 
-            } catch (err) {
-                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
-                await this.bot.sendMessage(chatId, '😥 죄송합니다. 요청하신 내용을 분석하는 데 실패했습니다. 다시 말씀해 주시겠어요?');
-            }
-        };
+	            } catch (err) {
+	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
+	                await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+	                await this.bot.sendMessage(chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`);
+	            }
+	        };
 
         // 1:1 채팅 및 그룹방 메시지 수신
         this.bot.on('message', handleIncoming);

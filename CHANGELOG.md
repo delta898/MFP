@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.1.6-dev1] - 2026-03-11
+
+### Added
+- **Telegram Custom AI (OpenAI-compatible) 지원**: 텔레그램 자연어 해석 경로에 한해 OpenAI-compatible LLM 서버를 별도로 연결할 수 있는 `notification.telegram.custom_ai` 설정 추가. `enabled`, `base_url`, `api_key`, `model` 값을 UI와 `config.json`에서 관리 가능.
+- **Custom Telegram AI 연결 테스트**: 알림 설정 화면에 OpenAI-compatible AI 서버용 별도 연결 테스트 버튼과 결과 표시를 추가하여, 텔레그램 봇 연결과 AI 서버 연결을 분리해 검증할 수 있도록 개선.
+
+### Changed
+- **텔레그램 AI 경로 분리**: Custom Telegram AI가 활성화된 경우 텔레그램 메시지 해석만 OpenAI-compatible `/v1/chat/completions` 경로를 사용하도록 변경. 일반 글 작성 및 기존 Gemini 기반 경로에는 영향을 주지 않음.
+- **텔레그램 분석 실패 메시지 명확화**: Custom AI 또는 Gemini 호출 실패 시 텔레그램 채팅창에 실패 사유를 함께 안내하도록 조정. 자동 fallback 없이 즉시 종료하는 정책으로 디버깅 용이성 향상.
+- **알림 설정 라벨 정리**: Bitly, Custom AI Base URL, 모델 입력 안내 문구를 플랫폼/제품 종속 표현 없이 더 일반적인 문구로 정리.
+
 ## [0.1.5] - 2026-03-11
 
 ### Fixed

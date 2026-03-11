@@ -1360,14 +1360,43 @@
 
             <label>Bitly Access Token (옵션)
               <input id="settings-notify-bitly-token" type="password" placeholder="Generic Access Token (URL 단축용)">
-              <small class="muted">워드프레스 발행 시 텔레그램 알림의 URL을 단축하는 데 사용됩니다.</small>
+              <small class="muted">블로그 발행 시 텔레그램 알림의 URL을 단축하는 데 사용됩니다.</small>
             </label>
-          </div>
 
-          <div
-            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; align-items: center;">
-            <button id="settings-notify-telegram-test-btn" class="secondary" type="button">연결 테스트</button>
-            <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
+            <div
+              style="grid-column: 1 / -1; margin-top: 8px; display: flex; gap: 12px; align-items: center;">
+              <button id="settings-notify-telegram-test-btn" class="secondary" type="button">연결 테스트</button>
+              <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
+            </div>
+
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <label class="settings-checkbox-label">
+                <input id="settings-telegram-custom-ai-enabled" type="checkbox">
+                <span style="font-size: 1rem; font-weight: 700;">텔레그램 채팅에 OpenAI-compatible 모델 사용</span>
+              </label>
+              <small class="muted">활성화하면 텔레그램 자연어 해석은 Gemini 대신 OpenAI-compatible API를 사용합니다. 글 작성 모델에는 영향을 주지 않습니다.</small>
+            </div>
+
+            <label>Custom Telegram AI Base URL
+              <input id="settings-telegram-custom-ai-base-url" type="text" placeholder="http://127.0.0.1:1234/v1">
+              <small class="muted">OpenAI-compatible LLM 서버 주소를 입력하세요. /v1 포함 여부는 자동 보정합니다.</small>
+            </label>
+
+            <label>Custom Telegram AI API Key (옵션)
+              <input id="settings-telegram-custom-ai-api-key" type="password" placeholder="Bearer token (optional)">
+              <small class="muted">비워두면 Authorization 헤더를 보내지 않습니다.</small>
+            </label>
+
+            <label style="grid-column: 1 / -1;">Custom Telegram AI Model
+              <input id="settings-telegram-custom-ai-model" type="text" placeholder="qwen/qwen3-coder-30b">
+              <small class="muted">모델명을 입력하세요.</small>
+            </label>
+
+            <div
+              style="grid-column: 1 / -1; margin-top: 8px; display: flex; gap: 12px; align-items: center;">
+              <button id="settings-telegram-custom-ai-test-btn" class="secondary" type="button">AI 연결 테스트</button>
+              <span id="settings-telegram-custom-ai-test-result" style="font-size: 0.9rem;"></span>
+            </div>
           </div>
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">

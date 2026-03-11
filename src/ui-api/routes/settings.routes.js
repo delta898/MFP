@@ -24,6 +24,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/test-telegram-custom-ai') {
+            await controller.handleTestTelegramCustomAi(ctx);
+            return true;
+        }
+
         return false;
     };
 }

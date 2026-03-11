@@ -398,6 +398,10 @@ const CONFIG = {
     NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',
     NOTIFY_TELEGRAM_CHAT_ID: structuredConfig.notification?.telegram?.chat_id || '',
     NOTIFY_BITLY_TOKEN: structuredConfig.notification?.telegram?.bitly_token || '',
+    TELEGRAM_CUSTOM_AI_ENABLED: structuredConfig.notification?.telegram?.custom_ai?.enabled || false,
+    TELEGRAM_CUSTOM_AI_BASE_URL: structuredConfig.notification?.telegram?.custom_ai?.base_url || '',
+    TELEGRAM_CUSTOM_AI_API_KEY: structuredConfig.notification?.telegram?.custom_ai?.api_key || '',
+    TELEGRAM_CUSTOM_AI_MODEL: structuredConfig.notification?.telegram?.custom_ai?.model || '',
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
     NOTIFY_SLACK_WEBHOOK_URL: structuredConfig.notification?.slack?.webhook_url || '',
 

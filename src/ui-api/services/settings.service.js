@@ -33,6 +33,12 @@ function createSettingsService(deps = {}) {
         TelegramService
     } = deps;
 
+    const normalizeTelegramCustomAiBaseUrl = (rawBaseUrl) => {
+        const trimmed = String(rawBaseUrl || '').trim().replace(/\/+$/, '');
+        if (!trimmed) return '';
+        return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
+    };
+
     return {
         async getMajorSettings() {
             // 이제 CONFIG 객체 자체가 최신 상태를 유지하므로 직접 반환하거나 
@@ -206,6 +212,20 @@ function createSettingsService(deps = {}) {
             structuredConfig.notification.telegram.bot_token = fields.NOTIFY_TELEGRAM_BOT_TOKEN;
             structuredConfig.notification.telegram.chat_id = fields.NOTIFY_TELEGRAM_CHAT_ID;
             structuredConfig.notification.telegram.bitly_token = fields.NOTIFY_BITLY_TOKEN;
+            if (fields.TELEGRAM_CUSTOM_AI_ENABLED) {
+                if (!fields.TELEGRAM_CUSTOM_AI_BASE_URL) {
+                    throw createApiError(400, 'INVALID_TELEGRAM_CUSTOM_AI', 'Custom Telegram AI를 사용하려면 Base URL이 필요합니다.');
+                }
+                if (!fields.TELEGRAM_CUSTOM_AI_MODEL) {
+                    throw createApiError(400, 'INVALID_TELEGRAM_CUSTOM_AI', 'Custom Telegram AI를 사용하려면 Model이 필요합니다.');
+                }
+            }
+            structuredConfig.notification.telegram.custom_ai = {
+                enabled: fields.TELEGRAM_CUSTOM_AI_ENABLED,
+                base_url: fields.TELEGRAM_CUSTOM_AI_BASE_URL,
+                api_key: fields.TELEGRAM_CUSTOM_AI_API_KEY,
+                model: fields.TELEGRAM_CUSTOM_AI_MODEL
+            };
             if (!structuredConfig.notification.slack) structuredConfig.notification.slack = {};
             structuredConfig.notification.slack.enabled = fields.NOTIFY_SLACK_ENABLED;
             structuredConfig.notification.slack.webhook_url = fields.NOTIFY_SLACK_WEBHOOK_URL;
@@ -399,6 +419,47 @@ function createSettingsService(deps = {}) {
             }
 
             return { message: '테스트 메시지가 성공적으로 전송되었습니다.' };
+        },
+
+        async testTelegramCustomAiConnection(requestBody = {}) {
+            const baseUrl = normalizeTelegramCustomAiBaseUrl(requestBody.baseUrl);
+            const apiKey = String(requestBody.apiKey || '').trim();
+            const model = String(requestBody.model || '').trim();
+
+            if (!baseUrl) {
+                throw createApiError(400, 'MISSING_PARAMS', 'Base URL을 입력해주세요.');
+            }
+            if (!model) {
+                throw createApiError(400, 'MISSING_PARAMS', 'Model을 입력해주세요.');
+            }
+
+            const axios = require('axios');
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+            try {
+                const response = await axios.post(`${baseUrl}/chat/completions`, {
+                    model,
+                    messages: [
+                        { role: 'user', content: 'Return exactly this JSON: {"ok":true}' }
+                    ]
+                }, {
+                    headers,
+                    timeout: 30000
+                });
+                const content = response?.data?.choices?.[0]?.message?.content;
+                if (!content || (Array.isArray(content) && content.length === 0)) {
+                    throw new Error('응답 본문이 비어 있습니다.');
+                }
+            } catch (e) {
+                const remoteMessage =
+                    e?.response?.data?.error?.message ||
+                    e?.response?.data?.message ||
+                    e.message;
+                throw createApiError(400, 'TEST_FAILED', `Custom Telegram AI 연결에 실패했습니다: ${remoteMessage}`);
+            }
+
+            return { message: 'Custom Telegram AI 연결에 성공했습니다.' };
         },
 
         async testSlackConnection(requestBody = {}) {

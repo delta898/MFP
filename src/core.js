@@ -1533,7 +1533,7 @@ ${messageText}
 }`;
 
 		Logger.info("🧠 [Core] 텔레그램 메시지 AI 분석 요청 중...");
-		const rawResult = await Utils.callGeminiText(prompt);
+		const rawResult = await Utils.callTelegramChatModel(prompt);
 		if (!rawResult) throw new Error("AI 응답이 비어있습니다.");
 
 		try {

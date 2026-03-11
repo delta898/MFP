@@ -111,6 +111,27 @@ const REFERENCE_NOISE_LINE_PATTERNS = [
     /^(본문 바로가기|메뉴 바로가기|콘텐츠 바로가기)$/i
 ];
 
+function normalizeTelegramCustomAiBaseUrl(rawBaseUrl) {
+    const trimmed = String(rawBaseUrl || '').trim().replace(/\/+$/, '');
+    if (!trimmed) return '';
+    return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
+}
+
+function extractOpenAIChatContent(data) {
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return '';
+
+    return content
+        .map((part) => {
+            if (typeof part === 'string') return part;
+            if (typeof part?.text === 'string') return part.text;
+            return '';
+        })
+        .join('')
+        .trim();
+}
+
 function normalizeTextWhitespace(value) {
     return String(value || '')
         .replace(/\u00a0/g, ' ')
@@ -3296,6 +3317,54 @@ const Utils = {
                 }
 
                 // 지수 백오프 (1초, 2초, 4초...)
+                const waitTime = 1000 * Math.pow(2, attempt - 1);
+                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
+                await this.sleep(waitTime);
+            }
+        }
+    },
+
+    callTelegramChatModel: async function (prompt, retries = 3) {
+        if (CONFIG.TELEGRAM_CUSTOM_AI_ENABLED !== true) {
+            return this.callGeminiText(prompt, retries);
+        }
+
+        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.TELEGRAM_CUSTOM_AI_BASE_URL);
+        const model = String(CONFIG.TELEGRAM_CUSTOM_AI_MODEL || '').trim();
+        const apiKey = String(CONFIG.TELEGRAM_CUSTOM_AI_API_KEY || '').trim();
+
+        if (!baseUrl) throw new Error('Custom Telegram AI를 사용하려면 Base URL이 필요합니다.');
+        if (!model) throw new Error('Custom Telegram AI를 사용하려면 Model이 필요합니다.');
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                Logger.info(`🧠 [Telegram Custom AI] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
+                const response = await this.runWithHeartbeat(
+                    `(시도 ${attempt})`,
+                    () => axios.post(`${baseUrl}/chat/completions`, {
+                        model,
+                        messages: [
+                            { role: 'user', content: prompt }
+                        ]
+                    }, {
+                        headers,
+                        timeout: 120000
+                    })
+                );
+                const text = extractOpenAIChatContent(response.data);
+                if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
+                return text;
+            } catch (e) {
+                Logger.warn(`⚠️ [Telegram Custom AI] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+
+                if (attempt === retries) {
+                    Logger.error('❌ [Telegram Custom AI] 최대 재시도 횟수 초과');
+                    throw new Error(`Custom Telegram AI 호출에 실패했습니다: ${e.message}`);
+                }
+
                 const waitTime = 1000 * Math.pow(2, attempt - 1);
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
                 await this.sleep(waitTime);
