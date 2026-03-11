@@ -8,9 +8,17 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **Custom Telegram AI 연결 테스트**: 알림 설정 화면에 OpenAI-compatible AI 서버용 별도 연결 테스트 버튼과 결과 표시를 추가하여, 텔레그램 봇 연결과 AI 서버 연결을 분리해 검증할 수 있도록 개선.
 
 ### Changed
+- **설정 저장 UX 개편**: 설정 화면의 자동 저장을 제거하고, 탭 공통 `저장` 버튼으로만 반영되도록 변경. 설정 탭 간 이동은 자유롭게 유지하면서, 설정 화면 이탈/새로고침/닫기 시 저장되지 않은 변경사항 경고를 표시하도록 조정.
+- **설정 화면 단순화**: `Advanced` 원문 편집 탭을 제거하고, 상단 저장 상태/버튼 UI를 탭 바 옆으로 재배치해 더 명확한 저장 흐름으로 정리.
+- **워드프레스 인증 확인 동작 개선**: 설정 저장 없이 현재 입력값만으로 워드프레스 연동 확인을 수행하도록 변경하여 draft 상태에서도 즉시 검증 가능하도록 조정.
 - **텔레그램 AI 경로 분리**: Custom Telegram AI가 활성화된 경우 텔레그램 메시지 해석만 OpenAI-compatible `/v1/chat/completions` 경로를 사용하도록 변경. 일반 글 작성 및 기존 Gemini 기반 경로에는 영향을 주지 않음.
 - **텔레그램 분석 실패 메시지 명확화**: Custom AI 또는 Gemini 호출 실패 시 텔레그램 채팅창에 실패 사유를 함께 안내하도록 조정. 자동 fallback 없이 즉시 종료하는 정책으로 디버깅 용이성 향상.
 - **알림 설정 라벨 정리**: Bitly, Custom AI Base URL, 모델 입력 안내 문구를 플랫폼/제품 종속 표현 없이 더 일반적인 문구로 정리.
+
+### Fixed
+- **이미지 최적화 설정 저장 누락 수정**: `IMAGE_OPTIMIZATION_ENABLED` 값이 저장 파싱, 런타임 반영, 설정 재불러오기 경로에서 모두 연결되도록 보완하여 체크박스 상태가 저장 후 원복되던 문제 해결.
+- **Telegram Custom AI 예외 경로 안정화**: AI 호출 timeout 등 분석 실패 시 `loadingMsg` 참조 오류로 텔레그램 데몬이 종료되던 문제를 수정하고, 실패 후에도 봇 프로세스가 계속 살아 있도록 보완.
+- **대시보드 외부 피드 오류 로그 스팸 완화**: 실패한 RSS/YouTube 피드에 대해 짧은 cooldown과 in-flight dedupe를 적용하고, 상태 변경 시에만 경고/복구 로그를 남기도록 조정.
 
 ## [0.1.5] - 2026-03-11
 

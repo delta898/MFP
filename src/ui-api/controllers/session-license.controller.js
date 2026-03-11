@@ -70,7 +70,7 @@ function createSessionLicenseController(deps = {}) {
             }
             try {
                 logger.info('🔐 [UI] 워드프레스 연동 확인 요청 수신');
-                const data = await service.verifyWordPressAuth();
+                const data = await service.verifyWordPressAuth(requestBody || {});
                 return sendSuccess(res, requestId, data);
             } catch (e) {
                 return toErrorResponse(res, requestId, 'WORDPRESS_VERIFY_FAILED', '워드프레스 연동 확인에 실패했습니다.', e);

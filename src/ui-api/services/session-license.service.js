@@ -97,11 +97,14 @@ function createSessionLicenseService(deps = {}) {
             return getNaverLoginStatus();
         },
 
-        async verifyWordPressAuth() {
+        async verifyWordPressAuth(requestBody = {}) {
+            const url = String(requestBody.wordpressUrl || CONFIG.WORDPRESS_URL || '').trim();
+            const userId = String(requestBody.wordpressUserId || CONFIG.WORDPRESS_USER_ID || '').trim();
+            const appPassword = String(requestBody.wordpressAppPassword || CONFIG.WORDPRESS_APP_PASSWORD || '').trim();
             const wpClient = new WordPressClient({
-                url: CONFIG.WORDPRESS_URL,
-                userId: CONFIG.WORDPRESS_USER_ID,
-                appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+                url,
+                userId,
+                appPassword
             });
             return await wpClient.verifyAuth();
         }
@@ -111,4 +114,3 @@ function createSessionLicenseService(deps = {}) {
 module.exports = {
     createSessionLicenseService
 };
-

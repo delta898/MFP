@@ -1157,6 +1157,7 @@ function buildMajorSettings(raw, configSource) {
         GEMINI_API_KEY: CONFIG.GEMINI_API_KEY,
         GOOGLE_SHEET_URL: CONFIG.GOOGLE_SHEET_URL,
         HEADLESS: CONFIG.HEADLESS,
+        IMAGE_OPTIMIZATION_ENABLED: CONFIG.IMAGE_OPTIMIZATION_ENABLED,
         TYPING_SPEED: CONFIG.TYPING_SPEED,
         FTC_DISCLOSURE_IMAGE_URL: CONFIG.FTC_DISCLOSURE_IMAGE_URL,
         SHOPPING_CTA_IMAGE_URL1: CONFIG.SHOPPING_CTA_IMAGE_URL1,
@@ -1255,6 +1256,7 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.GOOGLE_SHEET_URL = googleSheetUrl;
     CONFIG.GOOGLE_SHEET_ID = googleSheetId;
     CONFIG.HEADLESS = headless;
+    CONFIG.IMAGE_OPTIMIZATION_ENABLED = normalizeBool(fields.IMAGE_OPTIMIZATION_ENABLED, true);
     CONFIG.TYPING_SPEED = typingSpeed;
     CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
     CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;
@@ -1359,6 +1361,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         });
     })();
     const collectRssEnabled = normalizeBool(requestBody.COLLECT_RSS_ENABLED, false);
+    const imageOptimizationEnabled = normalizeBool(requestBody.IMAGE_OPTIMIZATION_ENABLED, true);
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
@@ -1373,6 +1376,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         GEMINI_API_KEY: geminiApiKey,
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
+        IMAGE_OPTIMIZATION_ENABLED: imageOptimizationEnabled,
         TYPING_SPEED: typingSpeed,
         FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,

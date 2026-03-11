@@ -72,7 +72,9 @@ function createSystemService(deps = {}) {
     }
 
     const FEED_FETCH_TIMEOUT_MS = 10000;
+    const FEED_FAILURE_RETRY_COOLDOWN_MS = 30000;
     const MAX_FEED_ITEMS = 10;
+    const dashboardFeedStateByKey = new Map();
 
     function clampFeedLimit(raw) {
         const value = Number(raw);
@@ -84,6 +86,40 @@ function createSystemService(deps = {}) {
         const value = Number(raw);
         if (!Number.isFinite(value)) return 80;
         return Math.max(10, Math.min(200, Math.floor(value)));
+    }
+
+    function getDashboardFeedState(sourceKey) {
+        const key = String(sourceKey || '').trim() || 'unknown';
+        if (!dashboardFeedStateByKey.has(key)) {
+            dashboardFeedStateByKey.set(key, {
+                inFlight: null,
+                failureUntil: 0,
+                lastStateKey: 'idle',
+                lastResult: null
+            });
+        }
+        return dashboardFeedStateByKey.get(key);
+    }
+
+    function cloneFeedResult(result, source, rssUrl) {
+        if (!result || typeof result !== 'object') {
+            return {
+                key: source.key,
+                label: source.label,
+                homeUrl: source.homeUrl,
+                rssUrl,
+                items: []
+            };
+        }
+
+        return {
+            ...result,
+            key: source.key,
+            label: source.label,
+            homeUrl: source.homeUrl,
+            rssUrl,
+            items: Array.isArray(result.items) ? result.items.map((item) => ({ ...item })) : []
+        };
     }
 
     function parseLogLine(line = '') {
@@ -313,46 +349,83 @@ function createSystemService(deps = {}) {
 
     async function fetchFeedItems(source, limit) {
         const sourceKey = String(source.key || '');
-
         const url = String(source.rssUrl || '').trim();
         if (!url) return { ...source, items: [], error: '피드 URL 없음' };
+        const state = getDashboardFeedState(sourceKey);
+        const now = Date.now();
 
-        try {
-            const response = await axios.get(url, {
-                responseType: 'text',
-                timeout: FEED_FETCH_TIMEOUT_MS,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                    'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
-                },
-                maxRedirects: 5,
-                validateStatus: (status) => status >= 200 && status < 400
-            });
-
-            const xml = String(response.data || '');
-            const feedType = String(source.feedType || 'rss').trim().toLowerCase();
-            const items = feedType === 'atom'
-                ? parseYoutubeAtomItems({ xml, limit, sourceKey: source.key })
-                : parseRssItems({ xml, limit, sourceKey: source.key });
-
-            return {
-                key: source.key,
-                label: source.label,
-                homeUrl: source.homeUrl,
-                rssUrl: url,
-                items
-            };
-        } catch (error) {
-            Logger.warn(`⚠️ 대시보드 피드 조회 실패: ${source.label} (URL: ${url}) - ${error?.message || 'unknown error'}`);
-            return {
-                key: source.key,
-                label: source.label,
-                homeUrl: source.homeUrl,
-                rssUrl: url,
-                items: [],
-                error: String(error?.message || '피드 조회 실패')
-            };
+        if (state.inFlight) {
+            return state.inFlight;
         }
+
+        if (state.failureUntil > now && state.lastResult) {
+            return cloneFeedResult(state.lastResult, source, url);
+        }
+
+        state.inFlight = (async () => {
+            try {
+                const response = await axios.get(url, {
+                    responseType: 'text',
+                    timeout: FEED_FETCH_TIMEOUT_MS,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+                    },
+                    maxRedirects: 5,
+                    validateStatus: (status) => status >= 200 && status < 400
+                });
+
+                const xml = String(response.data || '');
+                const feedType = String(source.feedType || 'rss').trim().toLowerCase();
+                const items = feedType === 'atom'
+                    ? parseYoutubeAtomItems({ xml, limit, sourceKey: source.key })
+                    : parseRssItems({ xml, limit, sourceKey: source.key });
+
+                const result = {
+                    key: source.key,
+                    label: source.label,
+                    homeUrl: source.homeUrl,
+                    rssUrl: url,
+                    items
+                };
+
+                if (state.lastStateKey !== 'ok' && state.lastStateKey !== 'idle') {
+                    Logger.info(`✅ 대시보드 피드 조회 복구: ${source.label} (URL: ${url})`);
+                }
+
+                state.failureUntil = 0;
+                state.lastStateKey = 'ok';
+                state.lastResult = result;
+
+                return cloneFeedResult(result, source, url);
+            } catch (error) {
+                const errorMessage = String(error?.message || '피드 조회 실패');
+                const statusCode = Number(error?.response?.status);
+                const stateKey = `error:${Number.isFinite(statusCode) ? statusCode : 'unknown'}:${errorMessage}`;
+                const result = {
+                    key: source.key,
+                    label: source.label,
+                    homeUrl: source.homeUrl,
+                    rssUrl: url,
+                    items: [],
+                    error: errorMessage
+                };
+
+                if (state.lastStateKey !== stateKey) {
+                    Logger.warn(`⚠️ 대시보드 피드 조회 실패: ${source.label} (URL: ${url}) - ${errorMessage}`);
+                }
+
+                state.failureUntil = Date.now() + FEED_FAILURE_RETRY_COOLDOWN_MS;
+                state.lastStateKey = stateKey;
+                state.lastResult = result;
+
+                return cloneFeedResult(result, source, url);
+            } finally {
+                state.inFlight = null;
+            }
+        })();
+
+        return state.inFlight;
     }
 
     return {

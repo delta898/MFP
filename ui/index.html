@@ -1084,8 +1084,10 @@
         <div class="view-title-block">
           <div class="view-title-row">
             <h1>설정</h1>
-            <div class="page-clock-widget">
-              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+            <div class="settings-header-tools">
+              <div class="page-clock-widget">
+                <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1094,7 +1096,10 @@
           <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
           <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
           <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
-          <button class="settings-tab-btn" data-settings-tab="advanced" type="button">Advanced</button>
+          <div class="settings-save-actions">
+            <div id="settings-major-save-status" class="settings-major-save-status">저장됨</div>
+            <button id="settings-major-save-btn" class="settings-major-save-btn" type="button" disabled>저장</button>
+          </div>
         </div>
 
         <div class="card form-card settings-tab-panel active" id="settings-tab-general">
@@ -1333,9 +1338,6 @@
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
           <pre class="settings-major-result"></pre>
-          <div class="form-actions">
-            <button id="settings-shopping-connect-save-btn" class="settings-major-save-btn">저장</button>
-          </div>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-notification">
@@ -1423,26 +1425,6 @@
             <span id="settings-notify-slack-test-result" style="font-size: 0.9rem;"></span>
           </div>
         </div>
-
-        <div class="card form-card settings-tab-panel" id="settings-tab-advanced">
-          <h2>Advanced (config.json 원문 편집)</h2>
-          <p class="muted">주의: 잘못된 문법 저장 시 실행 동작에 영향을 줄 수 있습니다.</p>
-          <div id="settings-advanced-stale-banner"
-            style="display:none; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin-bottom:14px; background:#fef3c7; border:1px solid #f59e0b; border-radius:6px; font-size:13px; color:#92400e;">
-            <span>⚠️ 다른 탭에서 설정이 변경되어 원문이 최신이 아닐 수 있습니다. 저장하기 전에 먼저 불러오기를 권장합니다.</span>
-            <button id="settings-advanced-stale-reload-btn"
-              style="white-space:nowrap; padding:5px 12px; font-size:13px; border:1px solid #f59e0b; background:#fffbeb; border-radius:4px; cursor:pointer; color:#92400e;">지금
-              다시 불러오기</button>
-          </div>
-          <textarea id="settings-advanced-content" class="settings-advanced-editor"
-            style="font-family: monospace; resize: vertical; min-height: 650px; padding: 16px; line-height: 1.6; font-size: 14px; border: 1px solid var(--border-color); border-radius: 6px; width: 100%; box-sizing: border-box; background: #f8fafc; margin-bottom: 20px;"
-            spellcheck="false"></textarea>
-          <div class="form-actions">
-            <button id="settings-advanced-refresh-btn" class="secondary">불러오기</button>
-            <button id="settings-advanced-save-btn">저장</button>
-          </div>
-          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-          <pre id="settings-advanced-result" class="settings-advanced-result"></pre>
       </section>
       <section class="view" id="view-logs">
         <div class="view-title-block logs-header">

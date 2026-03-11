@@ -132,9 +132,10 @@ class TelegramBotService {
             }
 
             // 3. 일반 자연어 메시지 (Phase 2: AI 파싱 및 확인 대기)
+            let loadingMsg = null;
             try {
                 // 임시 응답 
-                const loadingMsg = await this.bot.sendMessage(
+                loadingMsg = await this.bot.sendMessage(
                     chatId,
                     '🤖 쓰신 내용을 열심히 읽고 분석 중입니다... 잠시만 기다려주세요! ⏳',
                     { parse_mode: 'Markdown' }
@@ -169,6 +170,9 @@ class TelegramBotService {
                 await KuzuDB.recordMessage(chatId, text, primaryIntent);
 
                 if (!actions || actions.length === 0) {
+                    if (loadingMsg?.message_id) {
+                        await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    }
                     await this.bot.sendMessage(chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?');
                     return;
                 }
@@ -252,7 +256,9 @@ class TelegramBotService {
 
 	            } catch (err) {
 	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
-	                await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+	                if (loadingMsg?.message_id) {
+	                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+	                }
 	                await this.bot.sendMessage(chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`);
 	            }
 	        };
