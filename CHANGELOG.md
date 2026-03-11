@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Agent Runtime Foundation**: Telegram 입력을 `Agent Runtime -> Capability Registry -> Memory` 경로로 처리하는 1차 기반 추가. action schema, confirmation store, typed runtime contract를 도입해 자연어 요청을 구조화된 capability 실행으로 연결.
+- **Kuzu Event-First Memory 재설계**: `Message`, `Action`, `SettingChange`, `JobRun`, `Artifact`, `Preference`, `Suggestion`, `DomainKnowledge` 노드와 관계를 추가하여 대화/실행/선호/제안/도메인 지식을 그래프로 추적할 수 있도록 확장.
+- **Typed Retrieval / Preference / Suggestion Loop**: 최근 메시지, action, 설정 변경, job run, artifact, preference, pending confirmation을 context packet으로 조립하는 retrieval 계층 추가. suggestion과 content idea 결과에 대한 feedback(`수락/거절`, `도움됨/별로`)도 memory graph에 기록하도록 구성.
+- **도메인 검증 및 학습형 Alias Memory**: 시간, 시간대, AI mode, 트렌드 카테고리에 대한 validator 계층 추가. 잘못된 카테고리 입력에 correction proposal을 제시하고, 사용자가 수락하면 alias를 학습하여 이후 동일 표현을 canonical value로 자동 정규화하도록 구현.
+- **Knowledge Provider Architecture**: `kind + transport + config` 기반의 knowledge provider 구조 도입. `builtin_api`, `mcp_tool`, `internal_query` transport contract를 정의하고, route별(`suggestions`, `content_ideas`) provider routing을 지원.
+- **SerpApi Trends Provider (1차)**: `trends + builtin_api + SerpApi` provider를 추가하여 외부 trends 신호를 suggestion/content idea 엔진에서 사용할 수 있는 구조 연결. provider 조회 시작/완료/실패 trace 로그도 함께 추가.
+
+### Changed
+- **Telegram Agent 제어 범위 확장**: Telegram에서 설정 조회/변경, pending confirmation 조회, preference 요약, 추천 요청, 글감 추천, 트렌드 수집 실행을 새 agent capability 경로로 처리하도록 정리.
+- **추천/글감 피드백 의미 분리**: suggestion type에 따라 버튼 의미를 `수락/거절` 또는 `도움됨/별로`로 구분하고, 해당 피드백을 이후 suggestion suppression 및 글감 반복 억제에 활용하도록 조정.
+- **Content Idea Lane 분리**: 운영 추천과 글감 추천을 별도 lane으로 분리하고, 최근 artifact 및 feedback를 바탕으로 동일 제목 반복 추천을 줄이도록 개선.
+- **Knowledge Config 보존 강화**: `config.json`에 `knowledge` 섹션이 없더라도 sample 기본 구조를 merge하여 runtime에 provider/routing 정의가 항상 주입되도록 변경. 설정 저장 시에도 `knowledge.providers`, `knowledge.routing`이 유실되지 않도록 보완.
+
 ## [0.1.6-dev1] - 2026-03-11
 
 ### Added

@@ -71,6 +71,13 @@ function createBlogAutoService(deps = {}) {
             Logger.info(`🚀 [UI][AUTO] 트렌드 수동 수집 요청 수신`);
             try {
                 const result = await runTrendCollectCycle('ui-manual', requestBody);
+                if (!result?.success) {
+                    return {
+                        success: false,
+                        message: result?.message || '트렌드 수집에 실패했습니다.',
+                        data: result || {}
+                    };
+                }
                 return { success: true, data: result || {} };
             } catch (e) {
                 Logger.error(`⚠️ [UI][AUTO] 트렌드 수동 수집 오류:`, e);

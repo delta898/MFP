@@ -85,6 +85,44 @@ const PATHS = {
     workspace: path.join(ROOT_DIR, 'workspace')
 };
 
+function readDefaultStructuredConfig() {
+    const sampleCandidates = [
+        PATHS.configJsonSample,
+        PATHS.configJsonSampleFromExec,
+        PATHS.configJsonSampleFromBundle
+    ];
+
+    for (const samplePath of sampleCandidates) {
+        try {
+            if (!fs.existsSync(samplePath)) continue;
+            return JSON.parse(fs.readFileSync(samplePath, 'utf8'));
+        } catch (_ignore) { }
+    }
+    return {};
+}
+
+function mergeStructuredDefaults(target, defaults) {
+    if (Array.isArray(defaults)) {
+        return Array.isArray(target) ? target : defaults.slice();
+    }
+
+    if (!defaults || typeof defaults !== 'object') {
+        return target === undefined ? defaults : target;
+    }
+
+    const result = target && typeof target === 'object' && !Array.isArray(target)
+        ? { ...target }
+        : {};
+
+    Object.keys(defaults).forEach((key) => {
+        result[key] = mergeStructuredDefaults(result[key], defaults[key]);
+    });
+
+    return result;
+}
+
+const DEFAULT_STRUCTURED_CONFIG = readDefaultStructuredConfig();
+
 function ensureConfigJsonFromSample() {
     const pairs = [
         { config: PATHS.configJson, samples: [PATHS.configJsonSample, PATHS.configJsonSampleFromBundle] },
@@ -119,7 +157,7 @@ function loadUserConfig() {
         try {
             const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             return {
-                ...json,
+                ...mergeStructuredDefaults(json, DEFAULT_STRUCTURED_CONFIG),
                 __CONFIG_SOURCE_PATH: jsonPath,
                 __CONFIG_SOURCE_TYPE: 'json',
                 __CONFIG_READY: true,
@@ -402,6 +440,8 @@ const CONFIG = {
     CUSTOM_AI_BASE_URL: structuredConfig.ai_settings?.custom?.base_url || '',
     CUSTOM_AI_API_KEY: structuredConfig.ai_settings?.custom?.api_key || '',
     CUSTOM_AI_MODEL: structuredConfig.ai_settings?.custom?.model || '',
+    KNOWLEDGE_PROVIDERS: Array.isArray(structuredConfig.knowledge?.providers) ? structuredConfig.knowledge.providers : [],
+    KNOWLEDGE_ROUTING: structuredConfig.knowledge?.routing && typeof structuredConfig.knowledge.routing === 'object' ? structuredConfig.knowledge.routing : {},
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
     NOTIFY_SLACK_WEBHOOK_URL: structuredConfig.notification?.slack?.webhook_url || '',
     NAVER_COMMENT_DRAFT_AI_MODE: structuredConfig.features?.naver?.comment_draft?.ai_mode === 'custom' ? 'custom' : 'default',

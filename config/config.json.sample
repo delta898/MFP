@@ -17,6 +17,34 @@
       "model": ""
     }
   },
+  "knowledge": {
+    "providers": [
+      {
+        "id": "trends-main",
+        "kind": "trends",
+        "transport": "builtin_api",
+        "enabled": false,
+        "label": "SerpApi Trends",
+        "config": {
+          "vendor": "serpapi",
+          "api_key": "",
+          "geo": "KR",
+          "hl": "ko",
+          "hours": 24,
+          "limit": 10,
+          "only_active": true
+        }
+      }
+    ],
+    "routing": {
+      "suggestions": [
+        "trends-main"
+      ],
+      "content_ideas": [
+        "trends-main"
+      ]
+    }
+  },
   "platforms": {
     "naver": {
       "user_id": "",

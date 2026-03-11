@@ -23,6 +23,7 @@ const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
 const Updater = require('./updater');
 const RuntimeConfig = require('./runtime-config');
+const { registerRuntimeHooks } = require('./runtime-hooks');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
 const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
@@ -3795,6 +3796,14 @@ function syncShoppingAutoRunnerWithConfig() {
 async function executeBlogTrendsAutoCycle(trigger = 'timer', options = {}) {
     return runAutoCycle(trigger, options);
 }
+
+registerRuntimeHooks({
+    resolveWritableConfigPath,
+    buildDefaultConfigTemplate,
+    syncAutoRunnerWithConfig,
+    syncShoppingAutoRunnerWithConfig,
+    resolveNaverAutoCategoryCatalog
+});
 
 async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
     const forceRun = options?.forceRun === true;

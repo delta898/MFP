@@ -2,12 +2,25 @@ const TelegramBot = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const KuzuDB = require('./kuzu-service');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const { createAgentRuntime } = require('./agent/runtime');
+const { createCapabilityRegistry } = require('./capabilities');
+const { KuzuEventStore } = require('./memory/event-store');
+const { createMemoryRetrievalService } = require('./memory/retrieval-service');
+const { parseTelegramAgentEnvelope } = require('./agent/telegram-parser');
+const TelegramAgentRenderer = require('./channels/telegram/renderer');
+const { getRuntimeHooks } = require('./runtime-hooks');
 
 class TelegramBotService {
     static bot = null;
     static isInitialized = false;
     static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
     static chatContext = new Map(); // chatId별 마지막 성공 토픽 주제 저장용
+    static agentRuntime = null;
+    static agentEventStore = null;
+    static agentRetrieval = null;
     static _pollingErrorCount = 0;
     static _pollingErrorWindowStart = 0;
     static POLLING_ERROR_THRESHOLD = 5; // 연속 에러 N회 초과 시 자동 중지
@@ -70,10 +83,17 @@ class TelegramBotService {
         }
 
         try {
+            this.ensureAgentRuntime();
+
             // [Persistent Memory] Kuzu DB 초기화
             if (KuzuDB && typeof KuzuDB.initialize === 'function') {
                 KuzuDB.initialize().catch(err => {
                     Logger.error(`❌ [TelegramBot] Kuzu 서비스 초기화 실패: ${err.message}`);
+                });
+            }
+            if (this.agentEventStore && typeof this.agentEventStore.initialize === 'function') {
+                this.agentEventStore.initialize().catch(err => {
+                    Logger.error(`❌ [TelegramBot] Agent EventStore 초기화 실패: ${err.message}`);
                 });
             }
 
@@ -86,6 +106,266 @@ class TelegramBotService {
         } catch (error) {
             Logger.error(`❌ [TelegramBot] 텔레그램 수신 봇 시작 실패: ${error.message}`);
         }
+    }
+
+    static ensureAgentRuntime() {
+        if (this.agentRuntime) return this.agentRuntime;
+
+        this.agentEventStore = new KuzuEventStore({
+            Logger,
+            baseDir: process.cwd()
+        });
+
+        const hooks = getRuntimeHooks();
+        const resolveWritableConfigPath = hooks.resolveWritableConfigPath
+            || (() => CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
+        const buildDefaultConfigTemplate = hooks.buildDefaultConfigTemplate || (() => '{}');
+        const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
+        const syncShoppingAutoRunnerWithConfig = hooks.syncShoppingAutoRunnerWithConfig || (() => { });
+        const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
+
+        const capabilityRegistry = createCapabilityRegistry({
+            fs,
+            path,
+            axios,
+            Logger,
+            CONFIG,
+            eventStore: this.agentEventStore,
+            resolveWritableConfigPath,
+            buildDefaultConfigTemplate,
+            syncAutoRunnerWithConfig,
+            syncShoppingAutoRunnerWithConfig,
+            resolveNaverAutoCategoryCatalog
+        });
+
+        this.agentRuntime = createAgentRuntime({
+            capabilityRegistry,
+            eventStore: this.agentEventStore
+        });
+        this.agentRetrieval = createMemoryRetrievalService({
+            eventStore: this.agentEventStore,
+            confirmationStore: this.agentRuntime.confirmationStore
+        });
+
+        return this.agentRuntime;
+    }
+
+    static buildAgentContext(chatId, msgOrQuery = {}) {
+        const numericChatId = String(chatId || '').trim();
+        const username = String(msgOrQuery?.chat?.username || msgOrQuery?.from?.username || '').trim();
+        return {
+            channel: 'telegram',
+            user: {
+                id: numericChatId,
+                channel: 'telegram',
+                username
+            },
+            conversation: {
+                id: `telegram:${numericChatId}`,
+                channel: 'telegram'
+            },
+            messageId: String(msgOrQuery?.message_id || msgOrQuery?.id || '').trim()
+        };
+    }
+
+    static isAgentCapabilityHelpRequest(text) {
+        const normalized = String(text || '').trim().toLowerCase();
+        if (!normalized) return false;
+        return [
+            '네가 할 수 있는 일',
+            '네가 할 수 있는 일 나열',
+            '할 수 있는 일',
+            '할수있는일',
+            '무엇을 할 수 있어',
+            '뭘 할 수 있어',
+            '무슨 일을 할 수 있어',
+            '지원하는 기능',
+            '가능한 명령'
+        ].some((keyword) => normalized.includes(keyword));
+    }
+
+    static formatAgentCapabilityHelpMessage() {
+        return TelegramAgentRenderer.formatCapabilityHelpMessage();
+    }
+
+    static async tryHandleAgentRequest(chatId, text, msg) {
+        if (this.isAgentCapabilityHelpRequest(text)) {
+            await this.bot.sendMessage(chatId, this.formatAgentCapabilityHelpMessage(), { parse_mode: 'Markdown' });
+            return { handled: true };
+        }
+
+        const runtime = this.ensureAgentRuntime();
+        const context = this.buildAgentContext(chatId, msg);
+        context.messageId = String(msg?.message_id || '').trim();
+        context.memory = await this.agentRetrieval.buildContextPacket({
+            conversationId: context.conversation.id,
+            userId: context.user.id,
+            limit: 8
+        });
+
+        if (this.agentEventStore) {
+            await this.agentEventStore.appendEvent({
+                event_type: 'user.message.received',
+                actor_type: 'user',
+                actor_id: context.user.id,
+                conversation_id: context.conversation.id,
+                message_id: context.messageId,
+                payload: {
+                    text
+                },
+                user: context.user,
+                conversation: context.conversation
+            }).catch(() => { });
+        }
+
+        const envelope = await parseTelegramAgentEnvelope(text, {
+            conversationId: context.conversation.id,
+            messageId: context.messageId,
+            memory: context.memory
+        });
+
+        if (!Array.isArray(envelope?.actions) || envelope.actions.length === 0) {
+            return { handled: false };
+        }
+
+        const outcome = await runtime.handleParsedEnvelope(envelope, context);
+        if (!outcome.ok) {
+            Logger.debug(`⚠️ [TelegramBot] Agent envelope rejected: ${(outcome.errors || []).join(' | ')}`);
+            await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
+            return { handled: true };
+        }
+
+        if (outcome.status === 'confirmation_required') {
+            const confirmationId = outcome.confirmation?.id;
+            const message = TelegramAgentRenderer.formatPreviewMessage(outcome.previews);
+            await this.bot.sendMessage(chatId, message, {
+                parse_mode: 'Markdown',
+                reply_markup: JSON.stringify({
+                    inline_keyboard: [
+                        [{ text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }],
+                        [{ text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` }]
+                    ]
+                })
+            });
+            return { handled: true };
+        }
+
+        if (outcome.status === 'completed') {
+            const suggestionKeyboard = TelegramAgentRenderer.buildSuggestionKeyboard(outcome.results);
+            const artifactKeyboard = TelegramAgentRenderer.buildArtifactKeyboard(outcome.results);
+            const options = {
+                parse_mode: 'Markdown'
+            };
+            const inlineKeyboard = [...suggestionKeyboard, ...artifactKeyboard];
+            if (inlineKeyboard.length > 0) {
+                options.reply_markup = JSON.stringify({ inline_keyboard: inlineKeyboard });
+            }
+            await this.bot.sendMessage(chatId, TelegramAgentRenderer.formatExecutionMessage(outcome.results), options);
+            return { handled: true };
+        }
+
+        return { handled: false };
+    }
+
+    static async handleAgentCallback(chatId, messageId, data, query) {
+        const runtime = this.ensureAgentRuntime();
+        const parts = String(data || '').split(':');
+        const verb = parts[0];
+        const targetId = parts[parts.length - 1];
+        if (!targetId) return false;
+
+        if (verb === 'suggest_feedback') {
+            const context = this.buildAgentContext(chatId, query?.message || {});
+            context.messageId = String(messageId || '').trim();
+            const feedback = String(parts[1] || '').trim();
+            const eventType = feedback === 'accepted'
+                ? 'suggestion.accepted'
+                : feedback === 'rejected'
+                    ? 'suggestion.rejected'
+                    : feedback === 'helpful'
+                        ? 'suggestion.helpful'
+                        : 'suggestion.not_helpful';
+            await this.agentEventStore.appendEvent({
+                event_type: eventType,
+                actor_type: 'user',
+                actor_id: context.user.id,
+                conversation_id: context.conversation.id,
+                message_id: context.messageId,
+                payload: {
+                    suggestion_id: targetId
+                },
+                user: context.user,
+                conversation: context.conversation
+            }).catch(() => { });
+
+            await this.bot.answerCallbackQuery(query.id, {
+                text: feedback === 'accepted'
+                    ? '추천을 수락했습니다.'
+                    : feedback === 'rejected'
+                        ? '추천을 거절했습니다.'
+                        : feedback === 'helpful'
+                            ? '도움됨으로 기록했습니다.'
+                            : '별로로 기록했습니다.'
+            });
+            return true;
+        }
+
+        if (verb === 'artifact_feedback') {
+            const context = this.buildAgentContext(chatId, query?.message || {});
+            context.messageId = String(messageId || '').trim();
+            const feedback = String(parts[1] || '').trim();
+            const eventType = feedback === 'helpful' ? 'artifact.helpful' : 'artifact.not_helpful';
+            await this.agentEventStore.appendEvent({
+                event_type: eventType,
+                actor_type: 'user',
+                actor_id: context.user.id,
+                conversation_id: context.conversation.id,
+                message_id: context.messageId,
+                payload: {
+                    artifact_id: targetId,
+                    feedback
+                },
+                user: context.user,
+                conversation: context.conversation
+            }).catch(() => { });
+
+            await this.bot.answerCallbackQuery(query.id, {
+                text: feedback === 'helpful' ? '도움됨으로 기록했습니다.' : '별로로 기록했습니다.'
+            });
+            return true;
+        }
+
+        const context = this.buildAgentContext(chatId, query?.message || {});
+        context.messageId = String(messageId || '').trim();
+
+        const decision = verb === 'agent_confirm' ? 'approve' : 'reject';
+        const outcome = await runtime.handleConfirmationDecision({ confirmationId: targetId, decision }, context);
+
+        if (!outcome.ok) {
+            await this.bot.answerCallbackQuery(query.id, { text: outcome.message || '처리하지 못했습니다.', show_alert: true });
+            return true;
+        }
+
+        if (outcome.status === 'rejected') {
+            await this.bot.editMessageText('❌ 설정 변경 요청이 취소되었습니다.', {
+                chat_id: chatId,
+                message_id: messageId
+            });
+            await this.bot.answerCallbackQuery(query.id);
+            return true;
+        }
+
+        if (outcome.status === 'executed') {
+            await this.bot.editMessageText(TelegramAgentRenderer.formatExecutionMessage(outcome.results), {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'Markdown'
+            });
+            await this.bot.answerCallbackQuery(query.id);
+            return true;
+        }
+
+        return false;
     }
 
     static setupListeners(allowedChatId) {
@@ -140,6 +420,14 @@ class TelegramBotService {
                     '🤖 쓰신 내용을 열심히 읽고 분석 중입니다... 잠시만 기다려주세요! ⏳',
                     { parse_mode: 'Markdown' }
                 );
+
+                const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg);
+                if (agentOutcome.handled) {
+                    if (loadingMsg?.message_id) {
+                        await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    }
+                    return;
+                }
 
                 // AI 파싱 (Kuzu 영구 메모리 맥락 정보 포함)
                 const Core = require('./core');
@@ -279,6 +567,11 @@ class TelegramBotService {
             const requestKey = `${chatId}_${messageId}`;
 
             try {
+                if (String(data || '').startsWith('agent_confirm:') || String(data || '').startsWith('agent_reject:')) {
+                    const handled = await this.handleAgentCallback(chatId, messageId, data, query);
+                    if (handled) return;
+                }
+
                 if (data === 'publish_cancel') {
                     this.pendingRequests.delete(requestKey);
                     await this.bot.editMessageText('❌ 발행 요청이 취소되었습니다.', {
