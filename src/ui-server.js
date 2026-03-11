@@ -1207,10 +1207,12 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_TELEGRAM_BOT_TOKEN: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
         NOTIFY_TELEGRAM_CHAT_ID: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
         NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN,
-        TELEGRAM_CUSTOM_AI_ENABLED: CONFIG.TELEGRAM_CUSTOM_AI_ENABLED,
-        TELEGRAM_CUSTOM_AI_BASE_URL: CONFIG.TELEGRAM_CUSTOM_AI_BASE_URL,
-        TELEGRAM_CUSTOM_AI_API_KEY: CONFIG.TELEGRAM_CUSTOM_AI_API_KEY,
-        TELEGRAM_CUSTOM_AI_MODEL: CONFIG.TELEGRAM_CUSTOM_AI_MODEL,
+        TELEGRAM_CHAT_AI_MODE: CONFIG.TELEGRAM_CHAT_AI_MODE || 'default',
+
+        // Custom AI
+        CUSTOM_AI_BASE_URL: CONFIG.CUSTOM_AI_BASE_URL,
+        CUSTOM_AI_API_KEY: CONFIG.CUSTOM_AI_API_KEY,
+        CUSTOM_AI_MODEL: CONFIG.CUSTOM_AI_MODEL,
 
         // Slack Notification
         NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
@@ -1304,10 +1306,12 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
     CONFIG.NOTIFY_TELEGRAM_CHAT_ID = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
     CONFIG.NOTIFY_BITLY_TOKEN = String(fields.NOTIFY_BITLY_TOKEN || '').trim();
-    CONFIG.TELEGRAM_CUSTOM_AI_ENABLED = normalizeBool(fields.TELEGRAM_CUSTOM_AI_ENABLED, false);
-    CONFIG.TELEGRAM_CUSTOM_AI_BASE_URL = String(fields.TELEGRAM_CUSTOM_AI_BASE_URL || '').trim();
-    CONFIG.TELEGRAM_CUSTOM_AI_API_KEY = String(fields.TELEGRAM_CUSTOM_AI_API_KEY || '').trim();
-    CONFIG.TELEGRAM_CUSTOM_AI_MODEL = String(fields.TELEGRAM_CUSTOM_AI_MODEL || '').trim();
+    CONFIG.TELEGRAM_CHAT_AI_MODE = String(fields.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default';
+
+    // Custom AI
+    CONFIG.CUSTOM_AI_BASE_URL = String(fields.CUSTOM_AI_BASE_URL || '').trim();
+    CONFIG.CUSTOM_AI_API_KEY = String(fields.CUSTOM_AI_API_KEY || '').trim();
+    CONFIG.CUSTOM_AI_MODEL = String(fields.CUSTOM_AI_MODEL || '').trim();
 
     // Slack Notify
     CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
@@ -1394,10 +1398,11 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         NOTIFY_TELEGRAM_BOT_TOKEN: String(requestBody.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
         NOTIFY_TELEGRAM_CHAT_ID: String(requestBody.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
         NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim(),
-        TELEGRAM_CUSTOM_AI_ENABLED: normalizeBool(requestBody.TELEGRAM_CUSTOM_AI_ENABLED, false),
-        TELEGRAM_CUSTOM_AI_BASE_URL: String(requestBody.TELEGRAM_CUSTOM_AI_BASE_URL || '').trim(),
-        TELEGRAM_CUSTOM_AI_API_KEY: String(requestBody.TELEGRAM_CUSTOM_AI_API_KEY || '').trim(),
-        TELEGRAM_CUSTOM_AI_MODEL: String(requestBody.TELEGRAM_CUSTOM_AI_MODEL || '').trim(),
+        TELEGRAM_CHAT_AI_MODE: String(requestBody.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default',
+
+        CUSTOM_AI_BASE_URL: String(requestBody.CUSTOM_AI_BASE_URL || '').trim(),
+        CUSTOM_AI_API_KEY: String(requestBody.CUSTOM_AI_API_KEY || '').trim(),
+        CUSTOM_AI_MODEL: String(requestBody.CUSTOM_AI_MODEL || '').trim(),
 
         NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
         NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim()

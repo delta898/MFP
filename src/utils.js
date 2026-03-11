@@ -3325,23 +3325,22 @@ const Utils = {
     },
 
     callTelegramChatModel: async function (prompt, retries = 3) {
-        if (CONFIG.TELEGRAM_CUSTOM_AI_ENABLED !== true) {
+        if (String(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default').trim() !== 'custom') {
             return this.callGeminiText(prompt, retries);
         }
 
-        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.TELEGRAM_CUSTOM_AI_BASE_URL);
-        const model = String(CONFIG.TELEGRAM_CUSTOM_AI_MODEL || '').trim();
-        const apiKey = String(CONFIG.TELEGRAM_CUSTOM_AI_API_KEY || '').trim();
+        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.CUSTOM_AI_BASE_URL);
+        const model = String(CONFIG.CUSTOM_AI_MODEL || '').trim();
+        const apiKey = String(CONFIG.CUSTOM_AI_API_KEY || '').trim();
 
-        if (!baseUrl) throw new Error('Custom Telegram AI를 사용하려면 Base URL이 필요합니다.');
-        if (!model) throw new Error('Custom Telegram AI를 사용하려면 Model이 필요합니다.');
+        if (!baseUrl || !model) throw new Error('텔레그램 채팅 모델로 Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
 
         const headers = { 'Content-Type': 'application/json' };
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                Logger.info(`🧠 [Telegram Custom AI] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
+                Logger.info(`🧠 [Custom AI] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => axios.post(`${baseUrl}/chat/completions`, {
@@ -3358,11 +3357,11 @@ const Utils = {
                 if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
                 return text;
             } catch (e) {
-                Logger.warn(`⚠️ [Telegram Custom AI] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                Logger.warn(`⚠️ [Custom AI] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
 
                 if (attempt === retries) {
-                    Logger.error('❌ [Telegram Custom AI] 최대 재시도 횟수 초과');
-                    throw new Error(`Custom Telegram AI 호출에 실패했습니다: ${e.message}`);
+                    Logger.error('❌ [Custom AI] 최대 재시도 횟수 초과');
+                    throw new Error(`Custom AI 호출에 실패했습니다: ${e.message}`);
                 }
 
                 const waitTime = 1000 * Math.pow(2, attempt - 1);

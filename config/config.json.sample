@@ -10,7 +10,12 @@
   "ai_settings": {
     "text_model": "gemini-3.1-flash-lite-preview",
     "image_model": "gemini-3.1-flash-image-preview",
-    "image_style": "photorealistic"
+    "image_style": "photorealistic",
+    "custom": {
+      "base_url": "",
+      "api_key": "",
+      "model": ""
+    }
   },
   "platforms": {
     "naver": {
@@ -114,12 +119,7 @@
       "bot_token": "",
       "chat_id": "",
       "bitly_token": "",
-      "custom_ai": {
-        "enabled": false,
-        "base_url": "",
-        "api_key": "",
-        "model": ""
-      }
+      "chat_ai_mode": "default"
     },
     "slack": {
       "enabled": false,

@@ -1239,7 +1239,7 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'naver-blog', 'shopping-connect', 'notification'];
+  const allowed = ['general', 'naver-blog', 'shopping-connect', 'notification', 'ai'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   settingsActiveTab = target;
 
@@ -3013,10 +3013,10 @@ function applySettingsMajorToForm(data, options = {}) {
   const telegramBotTokenEl = document.getElementById('settings-notify-telegram-bot-token');
   const telegramChatIdEl = document.getElementById('settings-notify-telegram-chat-id');
   const bitlyTokenEl = document.getElementById('settings-notify-bitly-token');
-  const telegramCustomAiEnabledEl = document.getElementById('settings-telegram-custom-ai-enabled');
-  const telegramCustomAiBaseUrlEl = document.getElementById('settings-telegram-custom-ai-base-url');
-  const telegramCustomAiApiKeyEl = document.getElementById('settings-telegram-custom-ai-api-key');
-  const telegramCustomAiModelEl = document.getElementById('settings-telegram-custom-ai-model');
+  const telegramChatAiModeEl = document.getElementById('settings-telegram-chat-ai-mode');
+  const customAiBaseUrlEl = document.getElementById('settings-custom-ai-base-url');
+  const customAiApiKeyEl = document.getElementById('settings-custom-ai-api-key');
+  const customAiModelEl = document.getElementById('settings-custom-ai-model');
   const slackEnabledEl = document.getElementById('settings-notify-slack-enabled');
   const slackWebhookUrlEl = document.getElementById('settings-notify-slack-webhook-url');
 
@@ -3123,10 +3123,10 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(telegramBotTokenEl, fields.NOTIFY_TELEGRAM_BOT_TOKEN || '');
   sv(telegramChatIdEl, fields.NOTIFY_TELEGRAM_CHAT_ID || '');
   sv(bitlyTokenEl, fields.NOTIFY_BITLY_TOKEN || '');
-  sc(telegramCustomAiEnabledEl, fields.TELEGRAM_CUSTOM_AI_ENABLED);
-  sv(telegramCustomAiBaseUrlEl, fields.TELEGRAM_CUSTOM_AI_BASE_URL || '');
-  sv(telegramCustomAiApiKeyEl, fields.TELEGRAM_CUSTOM_AI_API_KEY || '');
-  sv(telegramCustomAiModelEl, fields.TELEGRAM_CUSTOM_AI_MODEL || '');
+  sv(telegramChatAiModeEl, fields.TELEGRAM_CHAT_AI_MODE || 'default');
+  sv(customAiBaseUrlEl, fields.CUSTOM_AI_BASE_URL || '');
+  sv(customAiApiKeyEl, fields.CUSTOM_AI_API_KEY || '');
+  sv(customAiModelEl, fields.CUSTOM_AI_MODEL || '');
   sc(slackEnabledEl, fields.NOTIFY_SLACK_ENABLED);
   sv(slackWebhookUrlEl, fields.NOTIFY_SLACK_WEBHOOK_URL || '');
 
@@ -3225,10 +3225,10 @@ function getSettingsMajorBasicValuesFromDom() {
     NOTIFY_TELEGRAM_BOT_TOKEN: (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim(),
     NOTIFY_TELEGRAM_CHAT_ID: (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim(),
     NOTIFY_BITLY_TOKEN: (document.getElementById('settings-notify-bitly-token')?.value || '').trim(),
-    TELEGRAM_CUSTOM_AI_ENABLED: Boolean(document.getElementById('settings-telegram-custom-ai-enabled')?.checked),
-    TELEGRAM_CUSTOM_AI_BASE_URL: (document.getElementById('settings-telegram-custom-ai-base-url')?.value || '').trim(),
-    TELEGRAM_CUSTOM_AI_API_KEY: (document.getElementById('settings-telegram-custom-ai-api-key')?.value || '').trim(),
-    TELEGRAM_CUSTOM_AI_MODEL: (document.getElementById('settings-telegram-custom-ai-model')?.value || '').trim(),
+    TELEGRAM_CHAT_AI_MODE: (document.getElementById('settings-telegram-chat-ai-mode')?.value || 'default').trim(),
+    CUSTOM_AI_BASE_URL: (document.getElementById('settings-custom-ai-base-url')?.value || '').trim(),
+    CUSTOM_AI_API_KEY: (document.getElementById('settings-custom-ai-api-key')?.value || '').trim(),
+    CUSTOM_AI_MODEL: (document.getElementById('settings-custom-ai-model')?.value || '').trim(),
 
     // Notification (Slack)
     NOTIFY_SLACK_ENABLED: Boolean(document.getElementById('settings-notify-slack-enabled')?.checked),
@@ -5466,14 +5466,14 @@ function bindActions() {
     document.getElementById('settings-notify-telegram-bot-token'),
     document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-notify-bitly-token'),
-    document.getElementById('settings-telegram-custom-ai-base-url'),
-    document.getElementById('settings-telegram-custom-ai-api-key'),
-    document.getElementById('settings-telegram-custom-ai-model'),
+    document.getElementById('settings-custom-ai-base-url'),
+    document.getElementById('settings-custom-ai-api-key'),
+    document.getElementById('settings-custom-ai-model'),
     document.getElementById('settings-notify-slack-webhook-url'),
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
-
+    document.getElementById('settings-telegram-chat-ai-mode'),
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);
@@ -5490,7 +5490,6 @@ function bindActions() {
     document.getElementById('blog-publish-auto-notify-enabled'),
     document.getElementById('shopping-publish-auto-notify-enabled'),
     document.getElementById('settings-notify-telegram-enabled'),
-    document.getElementById('settings-telegram-custom-ai-enabled'),
     document.getElementById('settings-notify-slack-enabled'),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
@@ -5591,13 +5590,13 @@ function bindActions() {
     });
   }
 
-  const settingsTelegramCustomAiTestBtn = document.getElementById('settings-telegram-custom-ai-test-btn');
-  if (settingsTelegramCustomAiTestBtn) {
-    settingsTelegramCustomAiTestBtn.addEventListener('click', async () => {
-      const baseUrl = (document.getElementById('settings-telegram-custom-ai-base-url')?.value || '').trim();
-      const apiKey = (document.getElementById('settings-telegram-custom-ai-api-key')?.value || '').trim();
-      const model = (document.getElementById('settings-telegram-custom-ai-model')?.value || '').trim();
-      const resultEl = document.getElementById('settings-telegram-custom-ai-test-result');
+  const settingsCustomAiTestBtn = document.getElementById('settings-custom-ai-test-btn');
+  if (settingsCustomAiTestBtn) {
+    settingsCustomAiTestBtn.addEventListener('click', async () => {
+      const baseUrl = (document.getElementById('settings-custom-ai-base-url')?.value || '').trim();
+      const apiKey = (document.getElementById('settings-custom-ai-api-key')?.value || '').trim();
+      const model = (document.getElementById('settings-custom-ai-model')?.value || '').trim();
+      const resultEl = document.getElementById('settings-custom-ai-test-result');
 
       if (!baseUrl || !model) {
         if (resultEl) {
@@ -5607,16 +5606,16 @@ function bindActions() {
         return;
       }
 
-      settingsTelegramCustomAiTestBtn.disabled = true;
+      settingsCustomAiTestBtn.disabled = true;
       if (resultEl) {
         resultEl.textContent = '⏳ 테스트 중...';
         resultEl.style.color = 'var(--text-muted)';
       }
 
       try {
-        await postJson('/api/v1/settings/test-telegram-custom-ai', { baseUrl, apiKey, model });
+        await postJson('/api/v1/settings/test-custom-ai', { baseUrl, apiKey, model });
         if (resultEl) {
-          resultEl.textContent = '✅ 성공! Custom Telegram AI 연결이 확인되었습니다.';
+          resultEl.textContent = '✅ 성공! Custom AI 연결이 확인되었습니다.';
           resultEl.style.color = 'var(--success)';
         }
       } catch (e) {
@@ -5625,7 +5624,7 @@ function bindActions() {
           resultEl.style.color = 'var(--danger)';
         }
       } finally {
-        settingsTelegramCustomAiTestBtn.disabled = false;
+        settingsCustomAiTestBtn.disabled = false;
       }
     });
   }
