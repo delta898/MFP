@@ -34,6 +34,7 @@ class ConfirmationStore {
             channel: String(payload.channel || 'telegram').trim(),
             userId: String(payload.userId || '').trim(),
             kind: String(payload.kind || 'confirmation').trim(),
+            plan: payload.plan && typeof payload.plan === 'object' ? payload.plan : null,
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             previews: Array.isArray(payload.previews) ? payload.previews : [],
             correction: payload.correction && typeof payload.correction === 'object' ? payload.correction : null,

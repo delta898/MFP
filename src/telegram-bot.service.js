@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { createAgentRuntime } = require('./agent/runtime');
+const { createPlanner } = require('./agent/planner');
 const { createCapabilityRegistry } = require('./capabilities');
 const { KuzuEventStore } = require('./memory/event-store');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
@@ -19,6 +20,7 @@ class TelegramBotService {
     static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
     static chatContext = new Map(); // chatId별 마지막 성공 토픽 주제 저장용
     static agentRuntime = null;
+    static agentPlanner = null;
     static agentEventStore = null;
     static agentRetrieval = null;
     static _pollingErrorCount = 0;
@@ -142,6 +144,9 @@ class TelegramBotService {
             capabilityRegistry,
             eventStore: this.agentEventStore
         });
+        this.agentPlanner = createPlanner({
+            capabilityRegistry
+        });
         this.agentRetrieval = createMemoryRetrievalService({
             eventStore: this.agentEventStore,
             confirmationStore: this.agentRuntime.confirmationStore
@@ -228,9 +233,16 @@ class TelegramBotService {
             return { handled: false };
         }
 
-        const outcome = await runtime.handleParsedEnvelope(envelope, context);
+        const planResult = await this.agentPlanner.buildPlan(envelope, context);
+        if (!planResult.ok) {
+            Logger.debug(`⚠️ [TelegramBot] Agent plan rejected: ${(planResult.errors || []).join(' | ')}`);
+            await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
+            return { handled: true };
+        }
+
+        const outcome = await runtime.handlePlan(planResult.plan, context);
         if (!outcome.ok) {
-            Logger.debug(`⚠️ [TelegramBot] Agent envelope rejected: ${(outcome.errors || []).join(' | ')}`);
+            Logger.debug(`⚠️ [TelegramBot] Agent runtime rejected: ${(outcome.errors || []).join(' | ')}`);
             await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
             return { handled: true };
         }

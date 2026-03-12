@@ -6,6 +6,7 @@ const {
     buildCompletedResult,
     buildConfirmationResult
 } = require('./runtime-contract');
+const { validatePlan, buildSingleActionPlan } = require('./planner-contract');
 
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
@@ -23,7 +24,7 @@ function createAgentRuntime(options = {}) {
         } catch (_ignore) { }
     }
 
-    async function executeActions(actions = [], context = {}) {
+    async function executeActions(actions = [], context = {}, plan = null) {
         const results = [];
         for (const action of actions) {
             const result = await capabilityRegistry.executeAction(action, context);
@@ -40,7 +41,8 @@ function createAgentRuntime(options = {}) {
                 message_id: context?.messageId || '',
                 payload: {
                     action,
-                    result
+                    result,
+                    plan
                 },
                 user: context?.user,
                 conversation: context?.conversation
@@ -52,15 +54,18 @@ function createAgentRuntime(options = {}) {
     return {
         confirmationStore,
 
-        async handleParsedEnvelope(envelope = {}, context = {}) {
+        async handlePlan(planInput = {}, context = {}) {
             const runtimeContext = normalizeRuntimeContext(context);
-            const validation = validateActionEnvelope(envelope, capabilityRegistry);
+            const validation = validatePlan(planInput);
             if (!validation.ok) {
                 return buildInvalidResult(validation.errors);
             }
 
+            const normalizedPlan = validation.plan;
             const normalizedActions = [];
-            for (const action of validation.envelope.actions) {
+            const normalizedSteps = [];
+            for (const step of normalizedPlan.steps) {
+                const action = step.action;
                 const actionValidation = await capabilityRegistry.validateAction(action, context);
                 if (!actionValidation.ok) {
                     if (actionValidation.correctionProposal) {
@@ -73,12 +78,22 @@ function createAgentRuntime(options = {}) {
                             reason: action.reason || `입력값 보정: ${actionValidation.correctionProposal.raw_input} → ${actionValidation.correctionProposal.canonical_value}`
                         };
                         const preview = await capabilityRegistry.previewAction(correctedAction, context);
+                        const correctedPlan = {
+                            ...normalizedPlan,
+                            confirmation_mode: 'plan',
+                            steps: [{
+                                ...step,
+                                action: correctedAction,
+                                requires_confirmation: true
+                            }]
+                        };
                         const confirmation = confirmationStore.create({
-                            conversationId: runtimeContext?.conversation?.id || validation.envelope.conversation_id || '',
-                            messageId: validation.envelope.message_id || '',
+                            conversationId: runtimeContext?.conversation?.id || normalizedPlan.conversation_id || '',
+                            messageId: normalizedPlan.message_id || '',
                             channel: runtimeContext?.channel || 'telegram',
                             userId: runtimeContext?.user?.id || '',
                             kind: 'correction',
+                            plan: correctedPlan,
                             correction: actionValidation.correctionProposal,
                             actions: [correctedAction],
                             previews: [{
@@ -104,25 +119,49 @@ function createAgentRuntime(options = {}) {
                     }
                     return buildInvalidResult(actionValidation.errors);
                 }
-                normalizedActions.push({
+                const normalizedAction = {
                     ...action,
                     params: actionValidation.normalizedParams || {}
+                };
+                normalizedActions.push(normalizedAction);
+                normalizedSteps.push({
+                    ...step,
+                    action: normalizedAction
                 });
             }
 
-            const normalizedEnvelope = {
-                ...validation.envelope,
-                actions: normalizedActions
+            const planned = {
+                ...normalizedPlan,
+                steps: normalizedSteps
             };
+
+            await recordEvent({
+                event_type: 'agent.plan.created',
+                actor_type: 'agent',
+                actor_id: runtimeContext?.user?.id || '',
+                conversation_id: runtimeContext?.conversation?.id || planned.conversation_id || '',
+                message_id: planned.message_id || '',
+                payload: {
+                    plan: planned,
+                    memory: runtimeContext.memory || {}
+                },
+                user: runtimeContext?.user,
+                conversation: runtimeContext?.conversation
+            });
 
             await recordEvent({
                 event_type: 'agent.intent.parsed',
                 actor_type: 'agent',
                 actor_id: runtimeContext?.user?.id || '',
-                conversation_id: runtimeContext?.conversation?.id || normalizedEnvelope.conversation_id || '',
-                message_id: normalizedEnvelope.message_id || '',
+                conversation_id: runtimeContext?.conversation?.id || planned.conversation_id || '',
+                message_id: planned.message_id || '',
                 payload: {
-                    envelope: normalizedEnvelope,
+                    envelope: {
+                        version: '1.0',
+                        conversation_id: planned.conversation_id,
+                        message_id: planned.message_id,
+                        actions: normalizedActions
+                    },
                     memory: runtimeContext.memory || {}
                 },
                 user: runtimeContext?.user,
@@ -132,7 +171,7 @@ function createAgentRuntime(options = {}) {
             const previewItems = [];
             let requiresConfirmation = false;
 
-            for (const action of normalizedEnvelope.actions) {
+            for (const action of normalizedActions) {
                 const preview = await capabilityRegistry.previewAction(action, context);
                 previewItems.push({
                     action_id: action.id,
@@ -144,11 +183,12 @@ function createAgentRuntime(options = {}) {
 
             if (requiresConfirmation) {
                 const confirmation = confirmationStore.create({
-                    conversationId: runtimeContext?.conversation?.id || normalizedEnvelope.conversation_id || '',
-                    messageId: normalizedEnvelope.message_id || '',
+                    conversationId: runtimeContext?.conversation?.id || planned.conversation_id || '',
+                    messageId: planned.message_id || '',
                     channel: runtimeContext?.channel || 'telegram',
                     userId: runtimeContext?.user?.id || '',
-                    actions: normalizedEnvelope.actions,
+                    plan: planned,
+                    actions: normalizedActions,
                     previews: previewItems
                 });
                 await recordEvent({
@@ -164,8 +204,17 @@ function createAgentRuntime(options = {}) {
                 return buildConfirmationResult(confirmation, previewItems, { memory: runtimeContext.memory || {} });
             }
 
-            const results = await executeActions(normalizedEnvelope.actions, context);
+            const results = await executeActions(normalizedActions, context, planned);
             return buildCompletedResult(results, { memory: runtimeContext.memory || {} });
+        },
+
+        async handleParsedEnvelope(envelope = {}, context = {}) {
+            const validation = validateActionEnvelope(envelope, capabilityRegistry);
+            if (!validation.ok) {
+                return buildInvalidResult(validation.errors);
+            }
+            const plan = buildSingleActionPlan(validation.envelope);
+            return this.handlePlan(plan, context);
         },
 
         async handleConfirmationDecision(input = {}, context = {}) {
@@ -213,7 +262,10 @@ function createAgentRuntime(options = {}) {
                 conversation: context?.conversation
             });
 
-            const results = await executeActions(accepted.actions || [], context);
+            const acceptedActions = Array.isArray(accepted?.plan?.steps)
+                ? accepted.plan.steps.map((step) => step.action).filter(Boolean)
+                : (accepted.actions || []);
+            const results = await executeActions(acceptedActions, context, accepted?.plan || null);
             if (accepted?.correction) {
                 await recordEvent({
                     event_type: 'domain.alias.accepted',

@@ -10,6 +10,195 @@
 >
 > This file should track open work and sequencing. Stable conclusions should be promoted out of this plan.
 
+## 현재 다음 작업 순서
+
+### Phase A — 구조 보강
+1. **Planner 분리**
+   - 현재 parser + runtime 조합을 `planner` 계층으로 분리
+   - 멀티스텝 action composition 준비
+   - confirmation을 action 단위에서 plan 단위로 확장할 기반 마련
+
+2. **MCP transport 실구현**
+   - 현재 `mcp_tool`은 계약만 있고 실행 구현이 없음
+   - knowledge provider 구조의 확장성을 실제로 증명해야 함
+   - 1차는 최소 invoke contract + normalize path 확보
+
+### Phase B — memory / scoring 고도화
+3. **Preference scoring 개선**
+   - 단순 누적에서 벗어나 최근성, confidence, feedback 반영
+   - accepted/rejected, helpful/not_helpful를 선호 승격 규칙에 반영
+
+4. **Suggestion actionability 강화**
+   - 정보성 추천과 실행형 제안을 더 명확히 구분
+   - 실행 가능한 제안은 다음 action으로 직접 연결
+
+### Phase C — provider / retrieval 확장
+5. **Knowledge provider 관리 capability**
+   - provider 조회/활성화/비활성화/요약 상태를 capability로 노출
+   - UI 없이도 Telegram에서 provider 상태를 파악할 수 있게 정리
+
+6. **Artifact 범위 확장**
+   - 현재 content idea 중심 artifact를 topic 등록, 발행 결과, comment draft까지 확장
+   - retrieval에서 더 넓은 결과 맥락을 사용할 수 있게 함
+
+### Phase D — domain intelligence 확장
+7. **Domain validation 확장**
+   - trends 외 다른 설정 도메인에도 동일한 validator / correction / learned alias 구조 적용
+   - ambiguous literal 처리 품질 개선
+
+---
+
+## Planner 설계 초안
+
+## 목적
+
+현재 구조에서는 Telegram parser가 거의 바로 action envelope를 생성하고, runtime은 검증과 실행만 담당한다.
+이 방식은 단일 action에는 충분하지만 다음 경우에 한계가 있다.
+
+- 한 요청에서 여러 action을 순서대로 조합해야 하는 경우
+- 조회 후 변경/실행처럼 단계가 있는 경우
+- suggestion을 바로 실행 가능한 다음 action으로 연결해야 하는 경우
+- confirmation을 action 하나가 아니라 계획 전체 기준으로 다뤄야 하는 경우
+
+Planner는 이 간극을 메우기 위한 계층이다.
+
+## 목표 역할
+
+Planner는 **해석된 intent를 실행 가능한 계획(plan)으로 바꾸는 계층**이다.
+
+### Parser와의 분리
+- Parser:
+  - 사용자 메시지를 해석한다
+  - action 후보 또는 goal을 구조화한다
+- Planner:
+  - 그 후보를 capability 실행 계획으로 정리한다
+  - 순서, confirmation 범위, 의존성, precondition을 판단한다
+
+### Runtime과의 분리
+- Runtime:
+  - planner 결과를 검증하고 실행한다
+  - confirmation store와 event 기록을 담당한다
+- Planner:
+  - 무엇을 어떤 순서로 실행할지 결정한다
+
+## Planner 입력 / 출력
+
+### 입력
+- parsed envelope 또는 intent candidate
+- typed retrieval context
+- capability registry metadata
+
+### 출력
+```json
+{
+  "plan_id": "plan_123",
+  "goal": "트렌드 수집 시간을 변경",
+  "steps": [
+    {
+      "id": "step_1",
+      "action": {
+        "id": "act_1",
+        "type": "setting.update",
+        "domain": "settings.trends",
+        "name": "set_time",
+        "params": {
+          "time": "07:30"
+        }
+      },
+      "preconditions": [],
+      "requires_confirmation": true
+    }
+  ],
+  "confirmation_mode": "plan",
+  "reason": "사용자 요청에 따라 트렌드 수집 시간을 07:30으로 변경"
+}
+```
+
+핵심은 `action list`가 아니라 `plan with steps`를 반환하는 것이다.
+
+## 1차 Planner 책임
+
+1. **action normalization**
+- parser가 만든 action들을 planner가 다시 정리
+- 중복 action 제거
+- 순서 고정
+
+2. **dependency ordering**
+- 예:
+  - 설정 조회 → 설정 변경
+  - suggestion 수락 → 실제 action 실행
+
+3. **confirmation scope 결정**
+- 단일 action이면 기존처럼 처리 가능
+- 다중 step이면 plan 전체를 한 번에 확인
+
+4. **precondition 명시**
+- 실행 전 필요한 조건을 step에 붙임
+- 예:
+  - `requires_known_category`
+  - `requires_enabled_provider`
+
+## 2차 Planner 책임
+
+1. **multi-step composition**
+- 예:
+  - "현재 시간 확인하고 7시 반으로 바꿔줘"
+  - 조회 + 변경의 2-step plan
+
+2. **conditional planning**
+- 예:
+  - pending confirmation이 있으면 새 변경보다 기존 것을 먼저 정리
+
+3. **suggestion-to-action bridge**
+- suggestion을 단순 텍스트가 아니라 실행 가능한 next action으로 연결
+
+## 권장 파일 구조
+
+```text
+src/agent/
+  planner.js
+  planner-contract.js
+  planner-rules.js
+```
+
+### planner.js
+- `createPlanner(...)`
+- `buildPlan(parsedEnvelope, context)`
+
+### planner-contract.js
+- plan shape
+- step shape
+- confirmation mode enum
+
+### planner-rules.js
+- ordering rule
+- dedupe rule
+- plan-level confirmation rule
+
+## Runtime 변경 방향
+
+현재:
+- parser → runtime validate → preview/execute
+
+변경 후:
+- parser → planner → runtime validate plan → preview/execute plan
+
+즉 runtime은 더 이상 raw envelope를 직접 실행하지 않고, planner 결과를 소비한다.
+
+## 1차 구현 순서
+
+1. `planner-contract.js` 추가
+2. `planner.js`에서 단일 action plan 래핑
+3. runtime이 envelope 대신 plan도 받을 수 있게 확장
+4. confirmation result에 `plan_id`, `steps`를 노출
+5. 이후 multi-step composition 추가
+
+## 1차 완료 기준
+
+- 현재 단일 action 흐름이 planner를 거쳐도 동작해야 함
+- 외부 동작 변화 없이 내부 경로가 `parser -> planner -> runtime`으로 정리되어야 함
+- confirmation payload가 action 중심이 아니라 plan 중심으로 확장 가능해야 함
+
 ## 목적
 
 이 프로젝트를 `Telegram 챗봇 + 블로그 자동화 도구`에서 `대화형 운영 에이전트`로 재설계한다.

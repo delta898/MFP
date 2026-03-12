@@ -22,3 +22,12 @@ The agent runtime turns channel input into validated actions, manages confirmati
 - Planner is still implicit.
 - Multi-step action composition is limited.
 - Confirmation is action-level, not yet full plan-level.
+
+## Planned Next Step
+- Introduce an explicit planner between parser and runtime.
+- Parser should produce intent/action candidates.
+- Planner should turn them into an ordered execution plan with:
+  - step ordering
+  - preconditions
+  - plan-level confirmation scope
+  - future multi-step composition support
