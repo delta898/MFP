@@ -284,8 +284,16 @@ function resolveRuntimePath(rawPath, options = {}) {
 // 💡 [환경변수 및 동적 경로 처리]
 const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.essential.google_oauth_tokens_json || '').trim();
 const googleOauthTokensPath = resolveRuntimePath(googleOauthTokensRaw || './config/google_oauth_tokens.json', { mustExist: false });
-const googleOauthClientId = String(process.env.GOOGLE_OAUTH_CLIENT_ID || structuredConfig.essential.google_oauth_client_id || internalSecrets.GOOGLE_OAUTH_CLIENT_ID || '').trim();
-const googleOauthClientSecret = String(process.env.GOOGLE_OAUTH_CLIENT_SECRET || structuredConfig.essential.google_oauth_client_secret || internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET || '').trim();
+const googleOauthClientId = String(
+    process.env.GOOGLE_OAUTH_CLIENT_ID
+    || internalSecrets.GOOGLE_OAUTH_CLIENT_ID
+    || ''
+).trim();
+const googleOauthClientSecret = String(
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    || internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET
+    || ''
+).trim();
 
 const workspaceRaw = String(structuredConfig.essential.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw

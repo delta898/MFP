@@ -29,6 +29,8 @@
 - Google Sheets 접근은 사용자 자신의 Google 계정 권한으로 수행한다.
 - 앱은 access token / refresh token을 저장하고 재사용한다.
 - refresh token이 유효한 동안은 재로그인 없이 자동 갱신한다.
+- OAuth `client_id` / `client_secret`는 사용자 설정(`config.json`)에 두지 않는다.
+- OAuth client 설정은 **Supabase `app_runtime_configs`** 의 공통 운영값으로 관리한다.
 - `service_account.json` 업로드/등록 흐름은 제품 구조에서 제거한다.
 - 개발자 공용 service account를 앱에 내장하거나 중앙 DB에서 앱으로 배포하는 방식은 채택하지 않는다.
 
@@ -123,6 +125,28 @@ OAuth 흐름은 현재 네이버 로그인 세션 보관과 감각적으로 비�
 - `refresh_token`이 있으면 자동 갱신 우선
 - 로그/UI에는 token 원문 노출 금지
 - 연결 해제 시 토큰 파일 삭제 또는 무효화
+- `config/google_oauth_tokens.json`은 `.gitignore`로 관리한다.
+
+## OAuth Client Configuration
+
+### source of truth
+- `google_oauth_client_id`
+- `google_oauth_client_secret`
+
+위 두 값은 **Supabase `app_runtime_configs`** 에 저장한다.
+
+### why
+- 사용자 설정값이 아니다.
+- 앱 공통 운영값이며, 교체/회전 가능성이 있다.
+- 재배포 없이 운영값을 바꿀 수 있어야 한다.
+- 독립 앱이더라도 이 값은 사용자에게 노출할 필요가 없다.
+
+### load order
+1. `app_runtime_configs`
+2. 개발/비상용 env override
+3. 내부 secret fallback
+
+`config.json`은 더 이상 OAuth client 설정 source로 사용하지 않는다.
 
 ## OAuth Technical Shape
 
