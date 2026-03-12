@@ -73,7 +73,21 @@ async function ensureNaverSearchCredentials(force = false) {
     return Boolean(CONFIG.NAVER_CLIENT_ID && CONFIG.NAVER_CLIENT_SECRET);
 }
 
+async function ensureGoogleOauthClientConfig(force = false) {
+    if (CONFIG.GOOGLE_OAUTH_CLIENT_ID && CONFIG.GOOGLE_OAUTH_CLIENT_SECRET) return true;
+
+    const values = await fetchRuntimeConfig(['google_oauth_client_id', 'google_oauth_client_secret'], force);
+    const nextId = String(values.google_oauth_client_id || '').trim();
+    const nextSecret = String(values.google_oauth_client_secret || '').trim();
+
+    if (!CONFIG.GOOGLE_OAUTH_CLIENT_ID && nextId) CONFIG.GOOGLE_OAUTH_CLIENT_ID = nextId;
+    if (!CONFIG.GOOGLE_OAUTH_CLIENT_SECRET && nextSecret) CONFIG.GOOGLE_OAUTH_CLIENT_SECRET = nextSecret;
+
+    return Boolean(CONFIG.GOOGLE_OAUTH_CLIENT_ID && CONFIG.GOOGLE_OAUTH_CLIENT_SECRET);
+}
+
 module.exports = {
     fetchRuntimeConfig,
-    ensureNaverSearchCredentials
+    ensureNaverSearchCredentials,
+    ensureGoogleOauthClientConfig
 };

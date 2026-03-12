@@ -6,6 +6,7 @@ function createContentService(deps = {}) {
         fs,
         path,
         axios,
+        RuntimeConfig,
         CONFIG,
         GoogleOAuth,
         BrowserLauncher,
@@ -573,10 +574,19 @@ function createContentService(deps = {}) {
         },
 
         async getGoogleOauthStatus() {
+            if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
+                await RuntimeConfig.ensureGoogleOauthClientConfig();
+            }
             return GoogleOAuth.getStatus();
         },
 
         async startGoogleOauth() {
+            if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
+                const ready = await RuntimeConfig.ensureGoogleOauthClientConfig(true);
+                if (!ready) {
+                    throw createApiError(400, 'GOOGLE_OAUTH_CLIENT_NOT_READY', 'Google OAuth 클라이언트가 아직 구성되지 않았습니다.');
+                }
+            }
             const http = require('http');
             const callbackServer = http.createServer(async (req, res) => {
                 try {
@@ -633,6 +643,9 @@ function createContentService(deps = {}) {
         },
 
         async testGoogleOauthConnection() {
+            if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
+                await RuntimeConfig.ensureGoogleOauthClientConfig();
+            }
             const status = await GoogleOAuth.getStatus();
             if (status.state !== 'connected') {
                 throw createApiError(400, 'GOOGLE_OAUTH_NOT_CONNECTED', status.message || 'Google 계정이 아직 연결되지 않았습니다.');

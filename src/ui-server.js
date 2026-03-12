@@ -4972,7 +4972,8 @@ function createLegacyApiDeps() {
         License,
         ShoppingManager,
         axios,
-        cheerio
+        cheerio,
+        RuntimeConfig
     };
 
     const runtimeDeps = {

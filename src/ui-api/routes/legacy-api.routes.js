@@ -60,6 +60,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         fs: deps.fs,
         path: deps.path,
         axios: deps.axios,
+        RuntimeConfig: deps.RuntimeConfig,
         CONFIG: deps.CONFIG,
         GoogleOAuth: require('../../google-oauth'),
         BrowserLauncher: deps.BrowserLauncher,
