@@ -5,6 +5,7 @@ const { createBlogAutoCapabilities } = require('./settings/blog-auto');
 const { createTelegramCapabilities } = require('./settings/telegram');
 const { createCustomAiCapabilities } = require('./settings/custom-ai');
 const { createAgentPendingCapabilities } = require('./agent/pending');
+const { createAgentMetaCapabilities } = require('./agent/meta');
 const { createAgentPreferenceCapabilities } = require('./agent/preferences');
 const { createAgentSuggestionCapabilities } = require('./agent/suggestions');
 const { createTrendJobCapabilities } = require('./jobs/trends');
@@ -57,6 +58,7 @@ function createCapabilityRegistry(deps = {}) {
     const capabilityDeps = { ...deps, configState, knowledgeRegistry, suggestionEngine, contentIdeaEngine };
 
     const allCapabilities = [
+        ...createAgentMetaCapabilities(capabilityDeps),
         ...createAgentPendingCapabilities(capabilityDeps),
         ...createAgentPreferenceCapabilities(capabilityDeps),
         ...createAgentSuggestionCapabilities(capabilityDeps),

@@ -67,7 +67,24 @@ function formatExecutionMessage(results = []) {
         return 'ℹ️ 처리할 결과가 없습니다.';
     }
 
-    const lines = ['✅ *요청을 처리했습니다.*', ''];
+    const first = results[0] || {};
+    const actionType = String(first.action_type || '').trim();
+    const actionDomain = String(first.action_domain || '').trim();
+    let title = '✅ *요청을 처리했습니다.*';
+    if (actionType === 'setting.query' || actionType === 'agent.query') {
+        title = 'ℹ️ *확인했습니다.*';
+    } else if (actionType === 'setting.update') {
+        title = '✅ *변경했습니다.*';
+    } else if (actionType === 'content.generate') {
+        title = '💡 *이렇게 제안드립니다.*';
+    } else if (actionType === 'job.run') {
+        title = '🚀 *실행했습니다.*';
+    }
+    if (actionDomain === 'agent.meta') {
+        title = 'ℹ️ *안내드립니다.*';
+    }
+
+    const lines = [title, ''];
     results.forEach((item, index) => {
         const result = item.result || {};
         lines.push(`${index + 1}. ${escapeMarkdown(result.message || item.capability_id || '완료')}`);

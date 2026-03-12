@@ -64,6 +64,40 @@ function tryParseDeterministicEnvelope(messageText, context = {}) {
         }]);
     }
 
+    if (/(너 누구|넌 누구|뭐하는 봇|뭐하는 에이전트|정체가 뭐)/.test(text)) {
+        return buildEnvelope(conversationId, messageId, [{
+            id: 'act_1',
+            type: 'agent.query',
+            domain: 'agent.meta',
+            name: 'get_identity',
+            params: {},
+            reason: 'Agent 정체성과 역할 안내'
+        }]);
+    }
+
+    if (/(사용법|사용 방법|어떻게 써|어떻게 사용|가이드|도움말)/.test(text)) {
+        return buildEnvelope(conversationId, messageId, [{
+            id: 'act_1',
+            type: 'agent.query',
+            domain: 'agent.meta',
+            name: 'get_help',
+            params: {},
+            reason: 'Agent 사용법 안내'
+        }]);
+    }
+
+    if ((/(지금|현재)/.test(text) && /(몇시|시간)/.test(text))
+        && !/트렌드 수집 시간|트렌드 수집시간|자동 블로그 포스팅 시간대|블로그 자동 포스팅 시간대/.test(text)) {
+        return buildEnvelope(conversationId, messageId, [{
+            id: 'act_1',
+            type: 'agent.query',
+            domain: 'agent.meta',
+            name: 'get_current_time',
+            params: {},
+            reason: '현재 시각 확인'
+        }]);
+    }
+
     if ((lower.includes('트렌드 수집 시간') || lower.includes('트렌드 수집시간'))
         && /(바꿔|변경|설정)/.test(text)) {
         const time = extractStrictTime(text);
@@ -191,22 +225,25 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 1. agent.pending.get
 2. agent.pending.apply_latest
 3. agent.pending.reject_latest
-4. agent.preferences.get_summary
-5. agent.suggestions.get
-6. content.idea.suggest
-7. jobs.trends.run_collect
-8. settings.trends.get_time
-9. settings.trends.set_time
-10. settings.trends.get_categories
-11. settings.trends.add_category
-12. settings.trends.remove_category
-13. settings.blog_auto.get_enabled
-14. settings.blog_auto.set_enabled
-15. settings.blog_auto.get_time_window
-16. settings.blog_auto.set_time_window
-17. settings.telegram.get_chat_ai_mode
-18. settings.telegram.set_chat_ai_mode
-19. settings.custom_ai.get_summary
+4. agent.meta.get_help
+5. agent.meta.get_identity
+6. agent.meta.get_current_time
+7. agent.preferences.get_summary
+8. agent.suggestions.get
+9. content.idea.suggest
+10. jobs.trends.run_collect
+11. settings.trends.get_time
+12. settings.trends.set_time
+13. settings.trends.get_categories
+14. settings.trends.add_category
+15. settings.trends.remove_category
+16. settings.blog_auto.get_enabled
+17. settings.blog_auto.set_enabled
+18. settings.blog_auto.get_time_window
+19. settings.blog_auto.set_time_window
+20. settings.telegram.get_chat_ai_mode
+21. settings.telegram.set_chat_ai_mode
+22. settings.custom_ai.get_summary
 
 [액션 매핑 규칙]
 - 확인 대기 요청 조회는 type: "agent.query"
@@ -227,6 +264,7 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 - 활성화 변경은 params에 { "enabled": true | false }
 - "지금 바꾸려는 설정이 뭐였지", "확인 대기 중인 요청 뭐야" 같은 질의는 agent.pending.get 으로 해석
 - "그거 적용해", "그거 취소해", "아까 그거 적용", "방금 대기 중인 거 취소" 같은 질의는 agent.pending.apply_latest / agent.pending.reject_latest 로 해석
+- "넌 누구니", "너 뭐하는 봇이야", "사용법이 어떻게 돼", "어떻게 써?", "지금 몇시야?" 같은 질의는 agent.meta.get_identity / agent.meta.get_help / agent.meta.get_current_time 로 해석
 - "내 성향 알려줘", "내 선호 요약 보여줘", "내가 어떤 설정을 선호하는지 알려줘" 같은 질의는 agent.preferences.get_summary 로 해석
 - "추천해줘", "지금 기준으로 추천할 것 있어?", "다음에 뭘 하면 좋을까?" 같은 질의는 agent.suggestions.get 으로 해석
 - "글감 추천해줘", "새로운 글감 하나 추천해줄래?", "주제 아이디어 줘", "콘텐츠 아이디어 추천해줘" 같은 질의는 content.idea.suggest 로 해석
@@ -267,8 +305,8 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
     {
       "id": "act_1",
       "type": "agent.query | agent.command | setting.query | setting.update | job.run | content.generate",
-      "domain": "agent.pending | agent.preferences | agent.suggestions | content.idea | jobs.trends | settings.trends | settings.blog_auto | settings.telegram | settings.custom_ai",
-      "name": "get | apply_latest | reject_latest | get_summary | suggest | run_collect | get_time | set_time | get_categories | add_category | remove_category | get_enabled | set_enabled | get_time_window | set_time_window | get_chat_ai_mode | set_chat_ai_mode",
+      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | jobs.trends | settings.trends | settings.blog_auto | settings.telegram | settings.custom_ai",
+      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest | run_collect | get_time | set_time | get_categories | add_category | remove_category | get_enabled | set_enabled | get_time_window | set_time_window | get_chat_ai_mode | set_chat_ai_mode",
       "params": {},
       "reason": "간단한 한국어 설명"
     }
@@ -297,5 +335,6 @@ ${messageText}`;
 }
 
 module.exports = {
-    parseTelegramAgentEnvelope
+    parseTelegramAgentEnvelope,
+    tryParseDeterministicEnvelope
 };

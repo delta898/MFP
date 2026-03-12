@@ -10,7 +10,7 @@ const { createPlanner } = require('./agent/planner');
 const { createCapabilityRegistry } = require('./capabilities');
 const { KuzuEventStore } = require('./memory/event-store');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
-const { parseTelegramAgentEnvelope } = require('./agent/telegram-parser');
+const { parseTelegramAgentEnvelope, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getRuntimeHooks } = require('./runtime-hooks');
 
@@ -28,35 +28,72 @@ class TelegramBotService {
     static POLLING_ERROR_THRESHOLD = 5; // 연속 에러 N회 초과 시 자동 중지
     static POLLING_ERROR_WINDOW_MS = 60000; // 에러 카운트 리셋 윈도우 (60초)
 
-    static async startLoadingIndicator(chatId) {
-        const frames = ['⏳ .', '⏳ ..', '⏳ ...'];
-        let frameIndex = 0;
-        const sent = await this.bot.sendMessage(chatId, frames[frameIndex], { parse_mode: 'Markdown' });
-        const intervalId = setInterval(async () => {
-            if (!this.bot || !sent?.message_id) return;
-            frameIndex = (frameIndex + 1) % frames.length;
-            try {
-                await this.bot.editMessageText(frames[frameIndex], {
-                    chat_id: chatId,
-                    message_id: sent.message_id,
-                    parse_mode: 'Markdown'
-                });
-            } catch (_ignore) { }
-        }, 1200);
+    static async sleep(ms) {
+        await new Promise((resolve) => setTimeout(resolve, ms));
+    }
 
+    static _getRetryAfterSeconds(error) {
+        const bodyRetryAfter = Number(error?.response?.body?.parameters?.retry_after);
+        const rawRetryAfter = Number(error?.response?.parameters?.retry_after);
+        const textMatch = String(error?.message || '').match(/retry after\s+(\d+)/i);
+        return bodyRetryAfter || rawRetryAfter || Number(textMatch?.[1] || 0) || 0;
+    }
+
+    static async callTelegramApi(methodName, args = [], options = {}) {
+        const retries = Number.isFinite(Number(options.retries)) ? Math.max(0, Number(options.retries)) : 1;
+        const silent = options.silent === true;
+        const bot = this.bot;
+        if (!bot || typeof bot[methodName] !== 'function') {
+            if (silent) return null;
+            throw new Error(`Telegram bot method unavailable: ${methodName}`);
+        }
+
+        let lastError = null;
+        for (let attempt = 0; attempt <= retries; attempt += 1) {
+            try {
+                return await bot[methodName](...args);
+            } catch (error) {
+                lastError = error;
+                const statusCode = Number(error?.response?.statusCode || error?.response?.status || 0);
+                const retryAfterSeconds = this._getRetryAfterSeconds(error);
+                const canRetry = statusCode === 429 && attempt < retries;
+                if (canRetry) {
+                    Logger.warn(`⚠️ [TelegramBot] ${methodName} rate limited. retry after ${retryAfterSeconds || 1}s`);
+                    await this.sleep(Math.max(1, retryAfterSeconds || 1) * 1000);
+                    continue;
+                }
+                if (!silent) {
+                    Logger.warn(`⚠️ [TelegramBot] ${methodName} failed: ${error.message}`);
+                }
+                break;
+            }
+        }
+
+        if (silent) return null;
+        throw lastError;
+    }
+
+    static async startLoadingIndicator(chatId) {
+        const loadingMessages = [
+            '⏳ 잠깐만요. 내용을 보고 있습니다.',
+            '⏳ 요청을 확인하고 있습니다. 잠시만요.',
+            '⏳ 맥락을 정리하고 있습니다. 조금만 기다려주세요.',
+            '⏳ 확인 중입니다. 곧 답을 드리겠습니다.'
+        ];
+        const message = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+        const sent = await this.callTelegramApi('sendMessage', [chatId, message], { retries: 1, silent: true });
+        if (!sent?.message_id) {
+            return { messageId: null };
+        }
         return {
-            messageId: sent?.message_id || null,
-            intervalId
+            messageId: sent?.message_id || null
         };
     }
 
     static async stopLoadingIndicator(chatId, loadingState) {
         if (!loadingState) return;
-        if (loadingState.intervalId) {
-            clearInterval(loadingState.intervalId);
-        }
         if (loadingState.messageId) {
-            await this.bot.deleteMessage(chatId, loadingState.messageId).catch(() => { });
+            await this.callTelegramApi('deleteMessage', [chatId, loadingState.messageId], { retries: 0, silent: true });
         }
     }
 
@@ -226,7 +263,7 @@ class TelegramBotService {
         return TelegramAgentRenderer.formatCapabilityHelpMessage();
     }
 
-    static async tryHandleAgentRequest(chatId, text, msg) {
+    static async tryHandleAgentRequest(chatId, text, msg, options = {}) {
         if (this.isAgentCapabilityHelpRequest(text)) {
             await this.bot.sendMessage(chatId, this.formatAgentCapabilityHelpMessage(), { parse_mode: 'Markdown' });
             return { handled: true };
@@ -256,7 +293,7 @@ class TelegramBotService {
             }).catch(() => { });
         }
 
-        const envelope = await parseTelegramAgentEnvelope(text, {
+        const envelope = options.preParsedEnvelope || await parseTelegramAgentEnvelope(text, {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory
@@ -486,9 +523,18 @@ class TelegramBotService {
             // 3. 일반 자연어 메시지 (Phase 2: AI 파싱 및 확인 대기)
             let loadingMsg = null;
             try {
-                loadingMsg = await this.startLoadingIndicator(chatId);
+                const agentContext = {
+                    conversationId: `telegram:${String(chatId || '').trim()}`,
+                    messageId: String(msg?.message_id || '').trim()
+                };
+                const deterministicEnvelope = tryParseDeterministicEnvelope(text, agentContext);
+                if (!deterministicEnvelope) {
+                    loadingMsg = await this.startLoadingIndicator(chatId);
+                }
 
-                const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg);
+                const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg, {
+                    preParsedEnvelope: deterministicEnvelope
+                });
                 if (agentOutcome.handled) {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
                     return;
@@ -524,7 +570,7 @@ class TelegramBotService {
 
                 if (!actions || actions.length === 0) {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
-                    await this.bot.sendMessage(chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?');
+                    await this.callTelegramApi('sendMessage', [chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?'], { retries: 1, silent: true });
                     return;
                 }
 
@@ -608,14 +654,22 @@ class TelegramBotService {
 	            } catch (err) {
 	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
 	                await this.stopLoadingIndicator(chatId, loadingMsg);
-	                await this.bot.sendMessage(chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`);
+	                await this.callTelegramApi('sendMessage', [chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`], { retries: 1, silent: true });
 	            }
 	        };
 
         // 1:1 채팅 및 그룹방 메시지 수신
-        this.bot.on('message', handleIncoming);
+        this.bot.on('message', (msg) => {
+            handleIncoming(msg).catch((error) => {
+                Logger.error(`❌ [TelegramBot] message handler unhandled failure: ${error.message}`);
+            });
+        });
         // 채널 메시지 수신
-        this.bot.on('channel_post', handleIncoming);
+        this.bot.on('channel_post', (msg) => {
+            handleIncoming(msg).catch((error) => {
+                Logger.error(`❌ [TelegramBot] channel_post handler unhandled failure: ${error.message}`);
+            });
+        });
 
         // 콜백(버튼 클릭) 쿼리 리스너
         this.bot.on('callback_query', async (query) => {
@@ -843,7 +897,7 @@ class TelegramBotService {
                 await this.bot.answerCallbackQuery(query.id);
             } catch (err) {
                 Logger.error(`❌ [TelegramBot] 콜백 처리 실패: ${err.message}`);
-                await this.bot.answerCallbackQuery(query.id, { text: '처리 중 오류가 발생했습니다.', show_alert: true });
+                await this.callTelegramApi('answerCallbackQuery', [query.id, { text: '처리 중 오류가 발생했습니다.', show_alert: true }], { retries: 0, silent: true });
             }
         });
     }

@@ -31,6 +31,9 @@ function createAgentRuntime(options = {}) {
             const result = await capabilityRegistry.executeAction(action, context);
             results.push({
                 action_id: action.id,
+                action_type: action.type,
+                action_domain: action.domain,
+                action_name: action.name,
                 capability_id: buildCapabilityId(action.domain, action.name),
                 result
             });
@@ -55,6 +58,9 @@ function createAgentRuntime(options = {}) {
     function buildSyntheticCapabilityResult(action = {}, message = '', data = {}) {
         return [{
             action_id: String(action.id || '').trim() || 'act_synthetic',
+            action_type: action.type,
+            action_domain: action.domain,
+            action_name: action.name,
             capability_id: buildCapabilityId(action.domain, action.name),
             result: {
                 success: true,
