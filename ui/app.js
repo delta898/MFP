@@ -233,6 +233,38 @@ const systemLogRenderState = {
   lastRaw: ''
 };
 
+function formatUpdatePublishDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function buildUpdateDetailsMessage(info) {
+  const details = info?.details || {};
+  const lines = [];
+  const summary = String(details.summary || info?.body || '').trim();
+  const highlights = Array.isArray(details.highlights) ? details.highlights.filter(Boolean) : [];
+  const publishDate = formatUpdatePublishDate(info?.publishDate);
+
+  if (summary) lines.push(summary);
+  if (publishDate) lines.push(`배포일: ${publishDate}`);
+  if (highlights.length > 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('주요 변경');
+    highlights.forEach((item, index) => {
+      lines.push(`${index + 1}. ${item}`);
+    });
+  }
+  if (!summary && highlights.length === 0) {
+    lines.push(`v${info?.latestVersion || ''} 업데이트 안내 정보가 아직 없습니다.`);
+  }
+
+  return lines.join('\n');
+}
+
 async function checkUpdate(isManual = false, isForce = false) {
   try {
     if (isManual) {
@@ -1889,7 +1921,7 @@ async function loadDashboardLogs() {
       return !sysPrefixes.some(p => msg.startsWith(p));
     });
 
-    renderLogs(dashList, activityLogs.slice(0, 5));   // 대시보드: 필터링된 최신 5건
+    renderLogs(dashList, activityLogs.slice(0, 100));   // 대시보드: 필터링된 최신 100건
     renderLogs(logsList, logs.slice(0, 50));        // 로그/이력: 원본 최신 50건 (debug 제외 원하면 추가 필터 가능)
   } catch (err) {
     if (err.status === 503 || String(err.message).includes('fetch failed')) return;
@@ -6052,10 +6084,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const updateDetailsBtn = document.getElementById('update-details-btn');
     if (updateDetailsBtn) {
-      updateDetailsBtn.addEventListener('click', () => {
-        if (uiUpdateInfo && uiUpdateInfo.htmlUrl) {
-          window.open(uiUpdateInfo.htmlUrl, '_blank');
-        }
+      updateDetailsBtn.addEventListener('click', async () => {
+        if (!uiUpdateInfo) return;
+        await showUiDialog({
+          title: `v${uiUpdateInfo.latestVersion} 업데이트 안내`,
+          message: buildUpdateDetailsMessage(uiUpdateInfo),
+          showCancel: false,
+          confirmText: '확인'
+        });
       });
     }
 

@@ -40,6 +40,40 @@ class Updater {
         this._cancelController = null;
     }
 
+    normalizeUpdateDetails(release = {}) {
+        const body = String(release?.body || '').trim();
+        const provided = release?.details && typeof release.details === 'object' ? release.details : null;
+        const summary = String(provided?.summary || '').trim();
+        const highlights = Array.isArray(provided?.highlights)
+            ? provided.highlights.map(item => String(item || '').trim()).filter(Boolean)
+            : [];
+        const normalizedSummary = summary || highlights[0] || this.extractBodySummary(body) || '';
+        const normalizedHighlights = highlights.length > 0 ? highlights : this.extractBodyHighlights(body);
+        const url = String(provided?.url || release?.html_url || '').trim();
+
+        return {
+            summary: normalizedSummary,
+            highlights: normalizedHighlights,
+            url
+        };
+    }
+
+    extractBodySummary(body = '') {
+        const raw = String(body || '');
+        const firstLine = raw.split('\n').map(line => line.trim()).find(Boolean) || '';
+        return firstLine.replace(/^[-*]\s*/, '').trim();
+    }
+
+    extractBodyHighlights(body = '') {
+        return String(body || '')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => /^[-*]\s+/.test(line))
+            .map(line => line.replace(/^[-*]\s+/, '').trim())
+            .filter(Boolean)
+            .slice(0, 5);
+    }
+
     /**
      * Get the latest release information from the server (GitHub or Custom)
      */
@@ -138,6 +172,7 @@ class Updater {
             latestVersion,
             tagName: latest.tag_name,
             body: latest.body,
+            details: this.normalizeUpdateDetails(latest),
             assets: latest.assets,
             publishDate: latest.published_at,
             isPrerelease: latest.prerelease,
