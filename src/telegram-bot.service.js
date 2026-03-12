@@ -755,7 +755,7 @@ class TelegramBotService {
                         chat_id: chatId,
                         message_id: messageId
                     });
-                } else if (data === 'toggle_image' || data === 'toggle_extref' || data === 'toggle_autotrigger') {
+                } else if (data === 'toggle_image' || data === 'toggle_extref' || data === 'toggle_autotrigger' || data === 'toggle_poststatus') {
                     const parsedData = this.pendingRequests.get(requestKey);
                     if (!parsedData || !parsedData.actions) return;
 
@@ -772,6 +772,9 @@ class TelegramBotService {
                     } else if (data === 'toggle_extref') {
                         optionsObj.external_reference = optionsObj.external_reference === false ? true : false;
                         if (!explicitParams.includes('external_reference')) explicitParams.push('external_reference');
+                    } else if (data === 'toggle_poststatus') {
+                        optionsObj.post_status = optionsObj.post_status === 'draft' ? 'publish' : 'draft';
+                        if (!explicitParams.includes('post_status')) explicitParams.push('post_status');
                     } else if (data === 'toggle_autotrigger') {
                         const publishIdx = actions.findIndex(a => a.action === 'publish_article');
                         if (publishIdx >= 0) {
@@ -828,9 +831,11 @@ class TelegramBotService {
                                 subject: pData.theme || '주제 없음',
                                 keywords: pData.keywords || [],
                                 category: platformCategory,
+                                image_generation: pData.options?.image_gen === true,
+                                use_external_ref: pData.options?.external_reference !== false,
+                                post_status: pData.options?.post_status || '',
                                 options: {
-                                    ...(pData.options || {}),
-                                    platforms: [targetPlatform]
+                                    ...(pData.options || {})
                                 },
                                 source: 'telegram',
                                 chatId: chatId // [Universal Memory] Kuzu 전파용
@@ -1150,6 +1155,7 @@ class TelegramBotService {
         let platformsStr = (data.platforms || ['naver']).map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
         const imgGenVal = optionsObj.image_gen !== false;
         const extRefVal = optionsObj.external_reference !== false;
+        const postStatusVal = optionsObj.post_status === 'draft' ? 'draft' : 'publish';
 
         let imgGenIcon = imgGenVal ? '✅' : '❌';
         let extRefIcon = extRefVal ? '✅' : '❌';
@@ -1162,15 +1168,19 @@ class TelegramBotService {
         let confirmMsg = `✨ *분석 완료!* 다음 조건으로 준비할까요?\n\n` +
             `🎯 *주제:* ${this.escapeMarkdown(data.theme || '주제 없음')}\n` +
             `🔑 *키워드:* ${(data.keywords || []).map(k => this.escapeMarkdown(k)).join(', ') || '없음'}\n` +
-            `🏷️ *적용 대상:* ${platformsStr}\n` +
             `🖼️ *이미지 생성:* ${imgGenIcon}${imgHint}\n` +
-            `🔍 *외부 자료 참고:* ${extRefIcon}${extRefHint}\n` +
-            `🚀 *자동 발행:* ${publishIcon}\n`;
+            `🔍 *외부 자료 참고:* ${extRefIcon}${extRefHint}\n`;
+
+        if (hasPublish) {
+            confirmMsg +=
+                `🏷️ *적용 대상:* ${platformsStr}\n` +
+                `🚀 *발행까지:* ${publishIcon}\n` +
+                `📌 *발행 형태:* ${postStatusVal === 'draft' ? '임시저장' : '최종발행'}\n`;
+        }
 
         if (optionsObj.schedule_date) confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
         if (optionsObj.instruction) confirmMsg += `📝 *추가 지시:* ${this.escapeMarkdown(optionsObj.instruction)}\n`;
         if (optionsObj.category) confirmMsg += `📁 *카테고리:* ${this.escapeMarkdown(optionsObj.category)}\n`;
-        if (optionsObj.post_status === 'draft') confirmMsg += `📌 *발행 옵션:* 임시저장(Draft)\n`;
 
         return confirmMsg;
     }
@@ -1186,18 +1196,25 @@ class TelegramBotService {
 
         const imgGenVal = optionsObj.image_gen !== false;
         const extRefVal = optionsObj.external_reference !== false;
+        const isDraft = optionsObj.post_status === 'draft';
 
-        return [
+        const keyboard = [
             [
                 { text: `🖼️ 이미지: ${imgGenVal ? '✅' : '❌'}`, callback_data: 'toggle_image' },
                 { text: `🔍 외부참고: ${extRefVal ? '✅' : '❌'}`, callback_data: 'toggle_extref' }
-            ],
-            [
-                { text: `🚀 자동 발행: ${hasPublish ? '✅' : '❌'}`, callback_data: 'toggle_autotrigger' }
-            ],
-            [{ text: `✅ 네, 이대로 ${hasPublish ? '진행해 주세요' : '등록해 주세요'}`, callback_data: 'publish_confirm' }],
-            [{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]
+            ]
         ];
+
+        if (hasPublish) {
+            keyboard.push([
+                { text: `📌 ${isDraft ? '임시저장' : '최종발행'}`, callback_data: 'toggle_poststatus' },
+                { text: `🚀 발행까지: ${hasPublish ? '✅' : '❌'}`, callback_data: 'toggle_autotrigger' }
+            ]);
+        }
+
+        keyboard.push([{ text: `✅ 네, 이대로 ${hasPublish ? '진행해 주세요' : '등록해 주세요'}`, callback_data: 'publish_confirm' }]);
+        keyboard.push([{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]);
+        return keyboard;
     }
 }
 

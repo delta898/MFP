@@ -2010,7 +2010,11 @@ const Utils = {
                     : (
                         typeof topic.image_generation === 'boolean'
                             ? topic.image_generation
-                            : false
+                            : (
+                                typeof topic.options?.image_gen === 'boolean'
+                                    ? topic.options.image_gen
+                                    : false
+                            )
                     );
                 const sourceValue = String(
                     topic.source
@@ -2036,7 +2040,18 @@ const Utils = {
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
                 if (map.keyword !== undefined) row[map.keyword] = keywordValue;
                 if (map.instruction !== undefined) row[map.instruction] = instructionValue;
-                if (map.extRef !== undefined) row[map.extRef] = topic.use_external_ref !== undefined ? (topic.use_external_ref ? 'Yes' : 'No') : 'Yes';
+                const externalReference = (typeof topic.use_external_ref === 'boolean')
+                    ? topic.use_external_ref
+                    : (
+                        typeof topic.external_reference === 'boolean'
+                            ? topic.external_reference
+                            : (
+                                typeof topic.options?.external_reference === 'boolean'
+                                    ? topic.options.external_reference
+                                    : true
+                            )
+                    );
+                if (map.extRef !== undefined) row[map.extRef] = externalReference ? 'Yes' : 'No';
                 if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
                 if (map.status !== undefined) row[map.status] = rowStatus;
                 if (map.imgGen !== undefined) row[map.imgGen] = imageGenerate ? 'Yes' : 'No';
@@ -2047,7 +2062,7 @@ const Utils = {
 
                 // WP 전용 필드들
                 if (map.category !== undefined) row[map.category] = topic.wp_category || topic.category || '';
-                if (map.postStatus !== undefined) row[map.postStatus] = topic.postStatus || '';
+                if (map.postStatus !== undefined) row[map.postStatus] = topic.postStatus || topic.post_status || topic.options?.post_status || '';
                 if (map.scheduleDate !== undefined) row[map.scheduleDate] = topic.scheduleDate || '';
 
                 return row;
