@@ -1,4 +1,4 @@
-const KuzuService = require('./kuzu-service');
+const { getAgentEventStore } = require('./memory/store');
 const Logger = require('./logger');
 
 class InsightEngine {
@@ -8,9 +8,10 @@ class InsightEngine {
     async generateInsight(chatId) {
         try {
             Logger.info(`🔍 [InsightEngine] 사용자(${chatId}) 인사이트 분석 시작...`);
+            const agentEventStore = getAgentEventStore();
 
             // 1. 히스토리 로드 (최근 20개 정도)
-            const history = await KuzuService.getHistory(chatId, 20);
+            const history = await agentEventStore.getHistory(chatId, 20);
             if (!history || history.length < 3) {
                 Logger.info(`ℹ️ [InsightEngine] 데이터가 부족하여 분석을 건너뜁니다. (최소 3개 필요)`);
                 return null;
@@ -36,7 +37,7 @@ ${historyText}
 
             if (summary) {
                 Logger.info(`✨ [InsightEngine] 신규 인사이트 도출: ${summary}`);
-                await KuzuService.updateUserInsight(chatId, summary);
+                await agentEventStore.updateUserInsight(chatId, summary);
                 return summary;
             }
         } catch (err) {

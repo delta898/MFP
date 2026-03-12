@@ -6,7 +6,7 @@ const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
-const KuzuService = require('./kuzu-service');
+const { getAgentEventStore } = require('./memory/store');
 const GoogleOAuth = require('./google-oauth');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
@@ -1375,7 +1375,7 @@ const Utils = {
                         mall: item.mall || '',
                         source: item.source || options.source || 'manual'
                     };
-                    await KuzuService.recordShoppingItem(item.chatId || null, kuzuData);
+                    await getAgentEventStore().recordShoppingItem(item.chatId || null, kuzuData);
                 } catch (kuzuErr) {
                     Logger.error(`⚠️ [Utils] Kuzu 쇼핑 기록 실패: ${kuzuErr.message}`);
                 }
@@ -2100,7 +2100,7 @@ const Utils = {
                         instruction: instructionValue,
                         source: topic.source || options.source || 'manual'
                     };
-                    await KuzuService.recordTopic(topic.chatId || options.chatId || null, kuzuData);
+                    await getAgentEventStore().recordTopic(topic.chatId || options.chatId || null, kuzuData);
                 } catch (kuzuErr) {
                     Logger.error(`⚠️ [Utils] Kuzu 토픽 기록 실패: ${kuzuErr.message}`);
                 }
@@ -3344,6 +3344,12 @@ const Utils = {
     callTelegramChatModel: async function (prompt, retries = 3) {
         return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
             usageLabel: 'Custom AI'
+        });
+    },
+
+    callAgentMemoryModel: async function (prompt, retries = 3) {
+        return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
+            usageLabel: 'Agent Memory AI'
         });
     },
 

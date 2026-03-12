@@ -1547,12 +1547,12 @@ ${messageText}
 		}
 	},
 	/**
-	 * 간단한 AI 인사이트 생성 (Gemini 활용)
+	 * 간단한 AI 인사이트 생성 (Agent memory model 활용)
 	 */
 	generateSimpleInsight: async function (prompt) {
 		const Utils = require('./utils');
-		Logger.info("🧠 [Core] AI 인사이트 분석 요청 중...");
-		const result = await Utils.callGeminiText(prompt);
+		Logger.info("🧠 [Core] Agent memory 인사이트 분석 요청 중...");
+		const result = await Utils.callAgentMemoryModel(prompt);
 		return (result || '').trim();
 	},
 	/**

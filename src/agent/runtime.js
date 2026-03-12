@@ -162,8 +162,7 @@ function createAgentRuntime(options = {}) {
                 conversation_id: runtimeContext?.conversation?.id || planned.conversation_id || '',
                 message_id: planned.message_id || '',
                 payload: {
-                    plan: planned,
-                    memory: runtimeContext.memory || {}
+                    plan: planned
                 },
                 user: runtimeContext?.user,
                 conversation: runtimeContext?.conversation
@@ -181,8 +180,7 @@ function createAgentRuntime(options = {}) {
                         conversation_id: planned.conversation_id,
                         message_id: planned.message_id,
                         actions: normalizedActions
-                    },
-                    memory: runtimeContext.memory || {}
+                    }
                 },
                 user: runtimeContext?.user,
                 conversation: runtimeContext?.conversation

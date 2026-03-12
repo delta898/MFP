@@ -1,7 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
-const KuzuDB = require('./kuzu-service');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -13,6 +12,7 @@ const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { parseTelegramAgentEnvelope, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getRuntimeHooks } = require('./runtime-hooks');
+const { getAgentEventStore } = require('./memory/store');
 
 class TelegramBotService {
     static bot = null;
@@ -156,12 +156,6 @@ class TelegramBotService {
         try {
             this.ensureAgentRuntime();
 
-            // [Persistent Memory] Kuzu DB 초기화
-            if (KuzuDB && typeof KuzuDB.initialize === 'function') {
-                KuzuDB.initialize().catch(err => {
-                    Logger.error(`❌ [TelegramBot] Kuzu 서비스 초기화 실패: ${err.message}`);
-                });
-            }
             if (this.agentEventStore && typeof this.agentEventStore.initialize === 'function') {
                 this.agentEventStore.initialize().catch(err => {
                     Logger.error(`❌ [TelegramBot] Agent EventStore 초기화 실패: ${err.message}`);
@@ -182,10 +176,7 @@ class TelegramBotService {
     static ensureAgentRuntime() {
         if (this.agentRuntime) return this.agentRuntime;
 
-        this.agentEventStore = new KuzuEventStore({
-            Logger,
-            baseDir: process.cwd()
-        });
+        this.agentEventStore = getAgentEventStore();
 
         const hooks = getRuntimeHooks();
         const resolveWritableConfigPath = hooks.resolveWritableConfigPath
@@ -615,8 +606,8 @@ class TelegramBotService {
                 const Core = require('./core');
 
                 // 1. Kuzu에서 과거 인사이트 및 최근 대화 히스토리 로드
-                const userInsight = await KuzuDB.getUserInsight(chatId);
-                const chatHistory = await KuzuDB.getHistory(chatId, 5); // 최근 5개 대화
+                const userInsight = await this.agentEventStore.getUserInsight(chatId);
+                const chatHistory = await this.agentEventStore.getHistory(chatId, 5); // 최근 5개 대화
 
                 const context = {
                     last_topic: this.chatContext.get(chatId) || null,
@@ -637,7 +628,7 @@ class TelegramBotService {
                 }
 
                 // 2. 메시지 기록 (추후 분석을 위해 인텐트 포함)
-                await KuzuDB.recordMessage(chatId, text, primaryIntent);
+                await this.agentEventStore.recordMessage(chatId, text, primaryIntent);
 
                 if (!actions || actions.length === 0) {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
@@ -662,7 +653,7 @@ class TelegramBotService {
                     });
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.stopLoadingIndicator(chatId, loadingMsg);
@@ -688,7 +679,7 @@ class TelegramBotService {
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.stopLoadingIndicator(chatId, loadingMsg);
@@ -710,7 +701,7 @@ class TelegramBotService {
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, options);
 
                     // [Universal Memory] 에이전트 답변 기록
-                    await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
+                    await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
                     await this.stopLoadingIndicator(chatId, loadingMsg);
@@ -1025,7 +1016,7 @@ class TelegramBotService {
                 await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
 
             } else if (queryType === 'topics') {
-                const results = await KuzuDB.getTopicSummary(chatId, params);
+                const results = await this.agentEventStore.getTopicSummary(chatId, params);
                 if (results.length === 0) {
                     await this.bot.sendMessage(chatId, "📝 아직 기록된 토픽이 없습니다.");
                 } else {
@@ -1037,7 +1028,7 @@ class TelegramBotService {
                 }
 
             } else if (queryType === 'shopping') {
-                const results = await KuzuDB.getShoppingSummary(chatId, params);
+                const results = await this.agentEventStore.getShoppingSummary(chatId, params);
                 if (results.length === 0) {
                     await this.bot.sendMessage(chatId, "🛍️ 등록된 쇼핑 아이템이 없습니다.");
                 } else {
@@ -1049,7 +1040,7 @@ class TelegramBotService {
                 }
 
             } else if (queryType === 'stats') {
-                const s = await KuzuDB.getGlobalStats();
+                const s = await this.agentEventStore.getGlobalStats();
                 const msg = `📈 *지능형 메모리 통계*\n\n` +
                     `• 전체 사용자: ${s.users}명\n` +
                     `• 총 대화량: ${s.messages}건\n` +
@@ -1059,7 +1050,7 @@ class TelegramBotService {
                 await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
 
             } else if (queryType === 'insight') {
-                const insight = await KuzuDB.getUserInsight(chatId);
+                const insight = await this.agentEventStore.getUserInsight(chatId);
                 if (!insight) {
                     await this.bot.sendMessage(chatId, "🤔 아직 분석된 성향 정보가 부족합니다. 대화를 조금 더 나누어 볼까요?");
                 } else {

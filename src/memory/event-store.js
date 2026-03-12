@@ -25,6 +25,17 @@ class KuzuEventStore {
                 fs.mkdirSync(dataDir, { recursive: true });
             }
 
+            try {
+                if (fs.existsSync(this.dbPath)) {
+                    const stats = fs.statSync(this.dbPath);
+                    const sizeBytes = Number(stats.size || 0);
+                    const sizeMb = Math.round(sizeBytes / (1024 * 1024));
+                    if (sizeMb >= 512) {
+                        this.Logger.warn(`⚠️ [AgentMemory] agent_memory_db 크기가 ${sizeMb}MB 입니다. 현재 저장 정책으로 재시작하려면 scripts/reset_agent_memory_db.sh 실행을 검토하세요.`);
+                    }
+                }
+            } catch (_ignore) { }
+
             this.db = new kuzu.Database(this.dbPath);
             this.conn = new kuzu.Connection(this.db);
 
@@ -49,6 +60,7 @@ class KuzuEventStore {
                 'CREATE REL TABLE ActionCHANGED_SETTING(FROM ActionNode TO SettingChangeNode)',
                 'CREATE REL TABLE ActionTRIGGERED_JOB(FROM ActionNode TO JobRunNode)',
                 'CREATE REL TABLE ActionPRODUCED_ARTIFACT(FROM ActionNode TO ArtifactNode)',
+                'CREATE REL TABLE EventHAS_ARTIFACT(FROM EventNode TO ArtifactNode)',
                 'CREATE REL TABLE UserHAS_PREFERENCE(FROM AgentUserNode TO PreferenceNode)',
                 'CREATE REL TABLE UserACCEPTED_SUGGESTION(FROM AgentUserNode TO SuggestionNode)',
                 'CREATE REL TABLE UserREJECTED_SUGGESTION(FROM AgentUserNode TO SuggestionNode)',
@@ -125,6 +137,249 @@ class KuzuEventStore {
         } catch (_ignore) {
             return '{}';
         }
+    }
+
+    _compactString(value, maxLength = 400) {
+        const text = String(value ?? '');
+        if (text.length <= maxLength) return text;
+        return `${text.slice(0, maxLength - 1)}…`;
+    }
+
+    _compactValue(value, options = {}) {
+        const depth = Number.isFinite(Number(options.depth)) ? Number(options.depth) : 0;
+        const maxDepth = Number.isFinite(Number(options.maxDepth)) ? Number(options.maxDepth) : 3;
+        const maxArray = Number.isFinite(Number(options.maxArray)) ? Number(options.maxArray) : 8;
+        const maxString = Number.isFinite(Number(options.maxString)) ? Number(options.maxString) : 400;
+
+        if (value == null) return value;
+        if (typeof value === 'string') return this._compactString(value, maxString);
+        if (typeof value === 'number' || typeof value === 'boolean') return value;
+        if (depth >= maxDepth) {
+            if (Array.isArray(value)) return { truncated: true, count: value.length };
+            if (typeof value === 'object') return { truncated: true };
+            return value;
+        }
+
+        if (Array.isArray(value)) {
+            return value.slice(0, maxArray).map((item) => this._compactValue(item, {
+                depth: depth + 1,
+                maxDepth,
+                maxArray,
+                maxString
+            }));
+        }
+
+        if (typeof value === 'object') {
+            const compacted = {};
+            const deniedKeys = new Set([
+                'memory',
+                'recent_events',
+                'recent_messages',
+                'recent_actions',
+                'recent_setting_changes',
+                'recent_job_runs',
+                'recent_artifacts',
+                'preferences',
+                'pending_confirmations',
+                'runtimeContext'
+            ]);
+            Object.entries(value).forEach(([key, nested]) => {
+                if (deniedKeys.has(String(key))) return;
+                compacted[key] = this._compactValue(nested, {
+                    depth: depth + 1,
+                    maxDepth,
+                    maxArray,
+                    maxString
+                });
+            });
+            return compacted;
+        }
+
+        return value;
+    }
+
+    _summarizeAction(action = {}) {
+        return {
+            id: String(action.id || '').trim(),
+            type: String(action.type || '').trim(),
+            domain: String(action.domain || '').trim(),
+            name: String(action.name || '').trim(),
+            params: this._compactValue(action.params || {}, { maxDepth: 2, maxArray: 6, maxString: 200 })
+        };
+    }
+
+    _summarizePlan(plan = {}) {
+        const steps = Array.isArray(plan.steps) ? plan.steps : [];
+        return {
+            id: String(plan.id || '').trim(),
+            goal: this._compactString(plan.goal || '', 180),
+            confirmation_mode: String(plan.confirmation_mode || '').trim(),
+            step_count: steps.length,
+            steps: steps.slice(0, 8).map((step) => ({
+                id: String(step?.id || '').trim(),
+                requires_confirmation: !!step?.requires_confirmation,
+                action: this._summarizeAction(step?.action || {})
+            }))
+        };
+    }
+
+    _summarizeResult(result = {}) {
+        const data = result && typeof result.data === 'object' ? result.data : {};
+        const ideas = Array.isArray(data.ideas) ? data.ideas : [];
+        const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+        return {
+            success: result?.success !== false,
+            message: this._compactString(result?.message || '', 240),
+            data: {
+                ...Object.fromEntries(Object.entries(this._compactValue(data, { maxDepth: 2, maxArray: 6, maxString: 180 }) || {}).filter(([key]) => !['ideas', 'suggestions'].includes(key))),
+                ideas_count: ideas.length,
+                idea_titles: ideas.slice(0, 5).map((item) => this._compactString(item?.title || '', 120)).filter(Boolean),
+                suggestions_count: suggestions.length,
+                suggestion_summaries: suggestions.slice(0, 5).map((item) => this._compactString(item?.summary || '', 140)).filter(Boolean)
+            }
+        };
+    }
+
+    _summarizeConfirmationPayload(payload = {}) {
+        const actions = Array.isArray(payload.actions) ? payload.actions : [];
+        const previews = Array.isArray(payload.previews) ? payload.previews : [];
+        return {
+            id: String(payload.id || '').trim(),
+            kind: String(payload.kind || 'confirmation').trim(),
+            status: String(payload.status || 'pending').trim(),
+            superseded_confirmation_id: String(payload.supersededConfirmationId || payload.superseded_confirmation_id || '').trim(),
+            correction: payload.correction ? this._compactValue(payload.correction, { maxDepth: 2, maxArray: 4, maxString: 140 }) : null,
+            action_ids: actions.map((item) => String(item?.id || '').trim()).filter(Boolean),
+            preview_summaries: previews.slice(0, 4).map((item) => this._compactString(item?.preview?.summary || '', 180)).filter(Boolean),
+            plan: payload.plan ? this._summarizePlan(payload.plan) : null
+        };
+    }
+
+    _summarizeArtifactPayload(payload = {}) {
+        return {
+            title: this._compactString(payload?.title || '', 180),
+            summary: this._compactString(payload?.summary || '', 260),
+            reason: this._compactString(payload?.reason || '', 220),
+            keywords: Array.isArray(payload?.keywords) ? payload.keywords.slice(0, 8).map((item) => this._compactString(item, 60)).filter(Boolean) : [],
+            source: String(payload?.source || '').trim(),
+            feedback_key: String(payload?.feedback_key || '').trim()
+        };
+    }
+
+    _summarizeSuggestionPayload(payload = {}) {
+        return {
+            source: String(payload?.source || '').trim(),
+            preference: String(payload?.preference || '').trim(),
+            top_title: this._compactString(payload?.top_title || '', 140),
+            job_name: String(payload?.job_name || '').trim(),
+            pending_count: Number(payload?.pending_count || 0),
+            feedback_key: String(payload?.feedback_key || '').trim(),
+            value: this._compactValue(payload?.value || {}, { maxDepth: 2, maxArray: 6, maxString: 120 })
+        };
+    }
+
+    _summarizeEventPayload(eventType, payload = {}) {
+        const compact = this._compactValue(payload, { maxDepth: 3, maxArray: 8, maxString: 240 }) || {};
+
+        if (eventType === 'agent.intent.parsed') {
+            return {
+                envelope: {
+                    version: String(payload.envelope?.version || '1.0'),
+                    conversation_id: String(payload.envelope?.conversation_id || '').trim(),
+                    message_id: String(payload.envelope?.message_id || '').trim(),
+                    actions: Array.isArray(payload.envelope?.actions) ? payload.envelope.actions.map((action) => this._summarizeAction(action)) : []
+                }
+            };
+        }
+
+        if (eventType === 'agent.plan.created') {
+            return {
+                plan: this._summarizePlan(payload.plan || {})
+            };
+        }
+
+        if (eventType === 'agent.confirmation.requested') {
+            return this._summarizeConfirmationPayload(payload);
+        }
+
+        if (eventType === 'agent.confirmation.accepted' || eventType === 'agent.confirmation.rejected') {
+            return {
+                confirmation_id: String(payload.confirmation_id || '').trim(),
+                decision: eventType.endsWith('accepted') ? 'accepted' : 'rejected'
+            };
+        }
+
+        if (eventType.startsWith('capability.') && payload.action) {
+            return {
+                action: this._summarizeAction(payload.action),
+                result: this._summarizeResult(payload.result || {}),
+                plan: payload.plan ? this._summarizePlan(payload.plan) : null
+            };
+        }
+
+        if (eventType === 'user.message.received') {
+            return {
+                text: this._compactString(payload.text || '', 500)
+            };
+        }
+
+        if (eventType === 'agent.message.sent') {
+            return {
+                text: this._compactString(payload.text || '', 500),
+                intent: String(payload.intent || '').trim()
+            };
+        }
+
+        if (eventType === 'memory.insight.updated') {
+            return {
+                summary: this._compactString(payload.summary || '', 260)
+            };
+        }
+
+        if (eventType === 'content.topic.registered') {
+            return {
+                subject: this._compactString(payload.subject || '', 180),
+                category: this._compactString(payload.category || '', 80),
+                platform: this._compactString(payload.platform || '', 80),
+                keywords: this._compactString(payload.keywords || '', 200),
+                instruction: this._compactString(payload.instruction || '', 240),
+                source: this._compactString(payload.source || '', 80)
+            };
+        }
+
+        if (eventType === 'shopping.item.recorded') {
+            return {
+                name: this._compactString(payload.name || '', 180),
+                price: this._compactString(payload.price || '', 80),
+                mall: this._compactString(payload.mall || '', 120),
+                source: this._compactString(payload.source || '', 80)
+            };
+        }
+
+        if (eventType.startsWith('suggestion.')) {
+            return {
+                suggestion_id: String(payload.suggestion_id || '').trim(),
+                type: String(payload.type || '').trim(),
+                summary: this._compactString(payload.summary || '', 200),
+                feedback_key: String(payload.feedback_key || '').trim()
+            };
+        }
+
+        if (eventType.startsWith('artifact.')) {
+            return {
+                artifact_id: String(payload.artifact_id || '').trim()
+            };
+        }
+
+        if (eventType === 'domain.alias.accepted') {
+            return {
+                domain: String(payload.domain || '').trim(),
+                raw_input: this._compactString(payload.raw_input || '', 120),
+                canonical_value: this._compactString(payload.canonical_value || '', 120)
+            };
+        }
+
+        return compact;
     }
 
     async _upsertMessageNode({ conversationId, actorId, actorType, channelMessageId, text, timestamp }) {
@@ -571,11 +826,11 @@ class KuzuEventStore {
         const messageId = String(event.message_id || '').trim();
         const timestamp = String(event.timestamp || new Date().toISOString()).replace('T', ' ').replace('Z', '');
 
-        if (eventType === 'user.message.received' && payload.text) {
+        if ((eventType === 'user.message.received' || eventType === 'agent.message.sent') && payload.text) {
             await this._upsertMessageNode({
                 conversationId,
                 actorId,
-                actorType,
+                actorType: eventType === 'agent.message.sent' ? 'agent' : actorType,
                 channelMessageId: messageId,
                 text: payload.text,
                 timestamp
@@ -600,7 +855,7 @@ class KuzuEventStore {
                 id: payload.id,
                 type: 'confirmation',
                 summary: Array.isArray(payload.previews) && payload.previews[0] ? String(payload.previews[0].preview?.summary || '확인 요청').trim() : '확인 요청',
-                payload,
+                payload: this._summarizeConfirmationPayload(payload),
                 status: 'pending'
             }, {
                 eventId: meta.eventId,
@@ -614,7 +869,10 @@ class KuzuEventStore {
                 id: payload.confirmation_id,
                 type: 'confirmation',
                 summary: '확인 요청',
-                payload,
+                payload: {
+                    confirmation_id: String(payload.confirmation_id || '').trim(),
+                    decision: eventType.endsWith('accepted') ? 'accepted' : 'rejected'
+                },
                 status: eventType.endsWith('accepted') ? 'accepted' : 'rejected'
             }, {
                 eventId: meta.eventId,
@@ -657,7 +915,9 @@ class KuzuEventStore {
                 id: payload.suggestion_id,
                 type: String(payload.type || existingSuggestion?.type || 'recommendation').trim(),
                 summary: String(payload.summary || existingSuggestion?.summary || '').trim(),
-                payload: (payload.payload && typeof payload.payload === 'object') ? payload.payload : (existingSuggestion?.payload || {}),
+                payload: (payload.payload && typeof payload.payload === 'object')
+                    ? this._summarizeSuggestionPayload(payload.payload)
+                    : this._summarizeSuggestionPayload(existingSuggestion?.payload || {}),
                 status
             }, {
                 eventId: meta.eventId,
@@ -734,7 +994,7 @@ class KuzuEventStore {
                         id: suggestion.id,
                         type: suggestion.type || 'recommendation',
                         summary: suggestion.summary || '',
-                        payload: suggestion.payload || {},
+                        payload: this._summarizeSuggestionPayload(suggestion.payload || {}),
                         status: suggestion.status || 'proposed'
                     }, {
                         eventId: meta.eventId,
@@ -752,7 +1012,7 @@ class KuzuEventStore {
                         artifact_type: 'content_idea',
                         title: String(idea.title || '').trim(),
                         summary: String(idea.summary || '').trim(),
-                        payload: idea
+                        payload: this._summarizeArtifactPayload(idea)
                     }, {
                         actionId,
                         timestamp
@@ -784,6 +1044,39 @@ class KuzuEventStore {
                 });
             }
         }
+
+        if (['content.topic.registered', 'shopping.item.recorded', 'memory.insight.updated'].includes(eventType)) {
+            const artifactType = eventType === 'content.topic.registered'
+                ? 'topic'
+                : eventType === 'shopping.item.recorded'
+                    ? 'shopping_item'
+                    : 'user_insight';
+            const artifactId = `${artifactType}_${crypto.randomUUID()}`;
+            const artifact = {
+                id: artifactId,
+                artifact_type: artifactType,
+                title: artifactType === 'user_insight'
+                    ? '사용자 인사이트'
+                    : artifactType === 'topic'
+                        ? String(payload.subject || '').trim()
+                        : String(payload.name || '').trim(),
+                summary: artifactType === 'user_insight'
+                    ? String(payload.summary || '').trim()
+                    : artifactType === 'topic'
+                        ? `${String(payload.category || '').trim()} | ${String(payload.subject || '').trim()}`
+                        : `${String(payload.mall || '').trim()} | ${String(payload.name || '').trim()}`,
+                payload: artifactType === 'user_insight'
+                    ? { summary: String(payload.summary || '').trim() }
+                    : this._compactValue(payload, { maxDepth: 2, maxArray: 6, maxString: 180 })
+            };
+            await this._createArtifactNode(artifact, { timestamp });
+            if (meta.eventId) {
+                await this._runQuery(
+                    'MATCH (e:EventNode {id: $event_id}), (a:ArtifactNode {id: $artifact_id}) MERGE (e)-[:EventHAS_ARTIFACT]->(a)',
+                    { event_id: String(meta.eventId || '').trim(), artifact_id: artifactId }
+                );
+            }
+        }
     }
 
     async appendEvent(event = {}) {
@@ -793,7 +1086,7 @@ class KuzuEventStore {
         const actorId = String(event.actor_id || '').trim();
         const conversationId = String(event.conversation_id || '').trim();
         const messageId = String(event.message_id || '').trim();
-        const payloadJson = JSON.stringify(event.payload || {});
+        const payloadJson = this._normalizeJson(this._summarizeEventPayload(String(event.event_type || '').trim(), event.payload || {}));
         const user = event.user || { id: actorId, channel: event.channel || 'telegram', username: event.username || '' };
         const conversation = event.conversation || { id: conversationId, channel: event.channel || 'telegram' };
 
@@ -953,6 +1246,176 @@ class KuzuEventStore {
             });
         }
         return items;
+    }
+
+    async recordMessage(chatId, text, intent = 'UNKNOWN', sender = 'USER') {
+        const userId = String(chatId || '').trim();
+        if (!userId || !String(text || '').trim()) return null;
+        const eventType = String(sender || 'USER').trim().toUpperCase() === 'AGENT' ? 'agent.message.sent' : 'user.message.received';
+        const eventId = `${eventType.startsWith('agent') ? 'agent' : 'user'}_msg_${crypto.randomUUID()}`;
+        const result = await this.appendEvent({
+            id: eventId,
+            event_type: eventType,
+            actor_type: eventType.startsWith('agent') ? 'agent' : 'user',
+            actor_id: userId,
+            conversation_id: `telegram:${userId}`,
+            message_id: eventId,
+            channel: 'telegram',
+            user: { id: userId, channel: 'telegram', username: '' },
+            conversation: { id: `telegram:${userId}`, channel: 'telegram' },
+            payload: {
+                text: String(text || '').trim(),
+                intent: String(intent || 'UNKNOWN').trim()
+            }
+        });
+        return result?.id || null;
+    }
+
+    async getHistory(chatId, limit = 10) {
+        const items = await this.listRecentMessages(`telegram:${String(chatId || '').trim()}`, limit);
+        return items.map((item) => ({
+            text: item.text,
+            intent: String(item.role || '').trim().toUpperCase() === 'AGENT' ? 'AGENT' : 'UNKNOWN',
+            timestamp: item.timestamp,
+            sender: String(item.role || '').trim().toUpperCase() === 'AGENT' ? 'AGENT' : 'USER'
+        }));
+    }
+
+    async updateUserInsight(chatId, summary) {
+        const userId = String(chatId || '').trim();
+        const insight = String(summary || '').trim();
+        if (!userId || !insight) return null;
+        const result = await this.appendEvent({
+            event_type: 'memory.insight.updated',
+            actor_type: 'agent',
+            actor_id: userId,
+            conversation_id: `telegram:${userId}`,
+            channel: 'telegram',
+            user: { id: userId, channel: 'telegram', username: '' },
+            conversation: { id: `telegram:${userId}`, channel: 'telegram' },
+            payload: { summary: insight }
+        });
+        return result?.id || null;
+    }
+
+    async getUserInsight(chatId) {
+        const userId = String(chatId || '').trim();
+        const res = await this._runQuery(
+            'MATCH (u:AgentUserNode {id: $user_id})-[:UserTRIGGERED_EVENT]->(:EventNode)-[:EventHAS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type}) RETURN a.summary AS summary, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT 1',
+            { user_id: userId, artifact_type: 'user_insight' }
+        );
+        if (res.hasNext()) {
+            const row = await res.getNext();
+            return String(row.summary || '').trim();
+        }
+        return '';
+    }
+
+    async recordTopic(chatId, topicData = {}) {
+        const userId = String(chatId || 'SYSTEM').trim();
+        return this.appendEvent({
+            event_type: 'content.topic.registered',
+            actor_type: 'user',
+            actor_id: userId,
+            conversation_id: userId === 'SYSTEM' ? '' : `telegram:${userId}`,
+            channel: 'telegram',
+            user: { id: userId, channel: 'telegram', username: '' },
+            conversation: userId === 'SYSTEM' ? null : { id: `telegram:${userId}`, channel: 'telegram' },
+            payload: {
+                subject: topicData.subject || '',
+                platform: topicData.platform || '',
+                category: topicData.category || '',
+                keywords: topicData.keywords || '',
+                instruction: topicData.instruction || '',
+                source: topicData.source || 'manual'
+            }
+        });
+    }
+
+    async recordShoppingItem(chatId, itemData = {}) {
+        const userId = String(chatId || 'SYSTEM').trim();
+        return this.appendEvent({
+            event_type: 'shopping.item.recorded',
+            actor_type: 'user',
+            actor_id: userId,
+            conversation_id: userId === 'SYSTEM' ? '' : `telegram:${userId}`,
+            channel: 'telegram',
+            user: { id: userId, channel: 'telegram', username: '' },
+            conversation: userId === 'SYSTEM' ? null : { id: `telegram:${userId}`, channel: 'telegram' },
+            payload: {
+                name: itemData.name || '',
+                price: itemData.price || '',
+                mall: itemData.mall || '',
+                source: itemData.source || 'manual'
+            }
+        });
+    }
+
+    async getTopicSummary(chatId, options = {}) {
+        const limit = options.limit || 5;
+        const category = String(options.category || '').trim();
+        const query = category
+            ? 'MATCH (u:AgentUserNode {id: $user_id})-[:UserTRIGGERED_EVENT]->(:EventNode)-[:EventHAS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type}) WHERE a.summary STARTS WITH $category_prefix RETURN a.title AS title, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT $limit'
+            : 'MATCH (u:AgentUserNode {id: $user_id})-[:UserTRIGGERED_EVENT]->(:EventNode)-[:EventHAS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type}) RETURN a.title AS title, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT $limit';
+        const res = await this._runQuery(query, {
+            user_id: String(chatId || '').trim(),
+            artifact_type: 'topic',
+            category_prefix: `${category} |`,
+            limit: parseInt(limit, 10) || 5
+        });
+        const results = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            const payload = (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })();
+            results.push({
+                subject: row.title || payload.subject || '',
+                category: payload.category || '',
+                timestamp: row.timestamp,
+                source: payload.source || ''
+            });
+        }
+        return results;
+    }
+
+    async getShoppingSummary(chatId, options = {}) {
+        const limit = options.limit || 5;
+        const res = await this._runQuery(
+            'MATCH (u:AgentUserNode {id: $user_id})-[:UserTRIGGERED_EVENT]->(:EventNode)-[:EventHAS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type}) RETURN a.title AS title, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT $limit',
+            { user_id: String(chatId || '').trim(), artifact_type: 'shopping_item', limit: parseInt(limit, 10) || 5 }
+        );
+        const results = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            const payload = (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })();
+            results.push({
+                name: row.title || payload.name || '',
+                price: payload.price || '',
+                mall: payload.mall || '',
+                timestamp: row.timestamp
+            });
+        }
+        return results;
+    }
+
+    async getGlobalStats() {
+        const stats = {};
+        const queries = {
+            users: 'MATCH (u:AgentUserNode) RETURN count(u) AS count',
+            messages: 'MATCH (m:MessageNode) RETURN count(m) AS count',
+            topics: 'MATCH (a:ArtifactNode {artifact_type: $artifact_type}) RETURN count(a) AS count',
+            shopping: 'MATCH (a:ArtifactNode {artifact_type: $artifact_type}) RETURN count(a) AS count'
+        };
+        for (const [key, query] of Object.entries(queries)) {
+            const params = key === 'topics'
+                ? { artifact_type: 'topic' }
+                : key === 'shopping'
+                    ? { artifact_type: 'shopping_item' }
+                    : {};
+            const res = await this._runQuery(query, params);
+            const row = await res.getNext();
+            stats[key] = Number(row.count || row[0] || 0);
+        }
+        return stats;
     }
 
     async listDomainKnowledge(domain, limit = 20) {
