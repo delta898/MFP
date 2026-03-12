@@ -1,0 +1,37 @@
+# Documentation Guide
+
+## Purpose
+`docs/` contains current, maintained engineering documentation. A document that is not kept in sync is treated as stale and should be updated, archived, or removed.
+
+## Structure
+- `architecture/`
+  - Current canonical system structure.
+  - Long-lived documents that describe how the system is supposed to work now.
+- `features/`
+  - Feature-specific reference documents for implemented user-facing capabilities.
+- `decisions/`
+  - ADR-style records for important design decisions and tradeoffs.
+- `plans/active/`
+  - In-progress design and implementation plans.
+- `plans/archive/`
+  - Completed or superseded plans kept only for historical reference.
+
+## Lifecycle
+1. Start design work in `plans/active/`.
+2. When major design choices are made, record them in `decisions/` if the rationale matters long-term.
+3. When implementation stabilizes, promote the current truth into `architecture/` and/or `features/`.
+4. Move completed plans from `plans/active/` to `plans/archive/`, or delete them if they no longer add value.
+
+## Maintenance Rules
+- Update documentation alongside code changes that affect structure, control flow, contracts, or release process.
+- Prefer small canonical docs over one large catch-all document.
+- Keep documents scoped: one topic, one file.
+- If a document becomes stale, fix it before adding new adjacent docs.
+- `CHANGELOG.md` is the source of truth for user-facing release notes.
+
+## Current Canonical Docs
+- `architecture/overview.md`
+- `architecture/agent-runtime.md`
+- `architecture/memory-graph.md`
+- `architecture/knowledge-providers.md`
+- `plans/active/agent-redesign-plan.md`

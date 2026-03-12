@@ -1,5 +1,15 @@
 # Agent Redesign Plan
 
+> Status: active plan
+>
+> Canonical structure docs now live under:
+> - `/Users/delta898/Project/NaverAutoBlog/docs/architecture/overview.md`
+> - `/Users/delta898/Project/NaverAutoBlog/docs/architecture/agent-runtime.md`
+> - `/Users/delta898/Project/NaverAutoBlog/docs/architecture/memory-graph.md`
+> - `/Users/delta898/Project/NaverAutoBlog/docs/architecture/knowledge-providers.md`
+>
+> This file should track open work and sequencing. Stable conclusions should be promoted out of this plan.
+
 ## 목적
 
 이 프로젝트를 `Telegram 챗봇 + 블로그 자동화 도구`에서 `대화형 운영 에이전트`로 재설계한다.
@@ -880,6 +890,117 @@ src/channels/
 
 이는 provider architecture 자체를 검증하기 위한 첫 샘플이며,
 UI 없이도 config 기반으로 활성화할 수 있게 두었다.
+
+---
+
+## 18. Development / Release Routine
+
+업데이트 배너와 `update.json` 메타데이터를 안정적으로 자동 생성하려면, 개발 루틴도 일정한 규칙을 가져야 한다.
+
+핵심 목표는 다음 두 가지다.
+
+1. 개발 중에는 빠르게 작업한다.
+2. 릴리즈 직전에는 일관된 구조로 버전/릴리즈 노트를 정리한다.
+
+### 18-1. 기본 원칙
+
+#### 버전은 릴리즈 직전에만 확정한다
+- 개발 도중 기능 하나 끝날 때마다 버전을 올리지 않는다.
+- `main`에 릴리즈 준비가 끝났을 때만 버전을 확정한다.
+- 즉 평소 개발 커밋과 릴리즈 커밋을 분리한다.
+
+#### 커밋 메시지는 Conventional Commit 형식을 사용한다
+권장 prefix:
+- `feat`
+- `fix`
+- `refactor`
+- `docs`
+- `chore`
+
+예시:
+- `feat: add serpapi trends provider`
+- `fix: preserve knowledge config during runtime sync`
+- `refactor: split agent runtime and capability registry`
+- `docs: update agent redesign plan`
+- `chore: release v0.1.7-dev1`
+
+#### 사용자용 릴리즈 노트의 source of truth는 CHANGELOG다
+- 커밋 메시지는 개발자용 기록이다.
+- 사용자가 보는 업데이트 설명은 `CHANGELOG.md` 기준으로 정리한다.
+- `build.sh`는 커밋 로그보다 `CHANGELOG.md`를 우선 읽어 `update.json.details`를 생성한다.
+
+### 18-2. 권장 작업 흐름
+
+#### 평소 개발
+1. feature branch에서 작업
+2. 기능 단위로 커밋
+3. 커밋 메시지는 conventional format 사용
+4. 버전은 아직 올리지 않음
+
+#### 릴리즈 직전
+1. 대상 기능이 `main`에 정리되어 있는지 확인
+2. 릴리즈 버전 결정
+3. `CHANGELOG.md`에 해당 버전 섹션 작성
+4. 릴리즈용 커밋 수행
+   - 예: `chore: release v0.1.7-dev1`
+5. `build.sh` 실행
+6. `build.sh`가 `update.json` 생성
+7. 배포 후 update banner / update details에 반영
+
+### 18-3. update.json 메타데이터 생성 원칙
+
+`update.json`은 단순 버전/에셋 목록만이 아니라, UI가 읽을 수 있는 릴리즈 메타를 포함해야 한다.
+
+권장 필드:
+
+```json
+{
+  "tag_name": "v0.1.7-dev1",
+  "published_at": "2026-03-12T10:00:00Z",
+  "body": "간단한 릴리즈 요약",
+  "details": {
+    "summary": "Agent runtime과 knowledge provider 구조를 도입했습니다.",
+    "highlights": [
+      "Telegram Agent runtime foundation",
+      "Kuzu event-first memory redesign",
+      "SerpApi trends provider support"
+    ]
+  },
+  "assets": []
+}
+```
+
+#### 데이터 우선순위
+1. `CHANGELOG.md`
+2. 없으면 커밋 로그 기반 fallback
+
+즉 release metadata는 **커밋 메시지에 직접 의존하지 않고**, `CHANGELOG.md`에서 사용자용 문장을 가져오도록 설계한다.
+
+### 18-4. build.sh의 역할
+
+향후 `build.sh`는 아래를 자동 수행하는 방향으로 설계한다.
+
+1. 현재 릴리즈 버전 확인
+2. `CHANGELOG.md`에서 해당 버전 섹션 추출
+3. `Added / Changed / Fixed` 항목에서 highlights 생성
+4. `update.json.details.summary` / `highlights` 채우기
+5. zip과 함께 `update.json` 업로드
+
+즉 HTML 릴리즈 페이지를 별도로 만들지 않아도,
+앱 내부의 “자세히 보기”는 `update.json.details`만으로 충분히 구성 가능하게 한다.
+
+### 18-5. 이 루틴을 택하는 이유
+
+이 방식의 장점:
+- 개발 중에는 버전 관리 부담이 적다
+- 릴리즈 직전에만 정리하면 된다
+- 업데이트 설명이 개발자 관점이 아니라 사용자 관점으로 유지된다
+- `build.sh` 자동화가 단순하고 안정적이다
+- update banner / update details 체계를 확장하기 쉽다
+
+결론적으로, 이 프로젝트의 권장 루틴은 다음 한 줄로 요약된다.
+
+> 개발 중에는 기능 단위 conventional commit, 릴리즈 직전에만 버전 확정과 CHANGELOG 정리, 그리고 `build.sh`가 CHANGELOG 기반으로 `update.json.details`를 생성한다.
 
 ## 14. 1차 구현 우선순위
 
