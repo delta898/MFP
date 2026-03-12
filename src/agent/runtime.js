@@ -6,7 +6,8 @@ const {
     buildCompletedResult,
     buildConfirmationResult
 } = require('./runtime-contract');
-const { validatePlan, buildSingleActionPlan } = require('./planner-contract');
+const { validatePlan } = require('./planner-contract');
+const { buildPlanFromActions } = require('./planner-rules');
 
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
@@ -213,7 +214,7 @@ function createAgentRuntime(options = {}) {
             if (!validation.ok) {
                 return buildInvalidResult(validation.errors);
             }
-            const plan = buildSingleActionPlan(validation.envelope);
+            const plan = buildPlanFromActions(validation.envelope);
             return this.handlePlan(plan, context);
         },
 

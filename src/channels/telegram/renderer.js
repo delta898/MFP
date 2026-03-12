@@ -7,8 +7,22 @@ function escapeMarkdown(text) {
         .replace(/`/g, '\\`');
 }
 
-function formatPreviewMessage(previews = []) {
-    const lines = ['⚙️ *설정 변경 요청을 확인했습니다.*', ''];
+function formatPreviewMessage(confirmation = null, previews = []) {
+    const plan = confirmation?.plan && typeof confirmation.plan === 'object' ? confirmation.plan : null;
+    const isCorrection = String(confirmation?.kind || '').trim() === 'correction';
+    const title = isCorrection ? '⚙️ *설정 보정 요청을 확인했습니다.*' : '⚙️ *실행 계획을 확인했습니다.*';
+    const lines = [title, ''];
+
+    if (plan?.goal) {
+        lines.push(`목표: *${escapeMarkdown(plan.goal)}*`);
+    }
+    if (Array.isArray(plan?.steps) && plan.steps.length > 0) {
+        lines.push(`단계 수: ${plan.steps.length}`);
+    }
+    if (plan?.goal || (Array.isArray(plan?.steps) && plan.steps.length > 0)) {
+        lines.push('');
+    }
+
     previews.forEach((item, index) => {
         const preview = item.preview || {};
         lines.push(`${index + 1}. *${escapeMarkdown(preview.summary || item.capability_id || '변경 요청')}*`);
@@ -20,6 +34,25 @@ function formatPreviewMessage(previews = []) {
         }
         lines.push('');
     });
+
+    const planSteps = Array.isArray(plan?.steps) ? plan.steps : [];
+    const planPreconditions = planSteps.flatMap((step) => Array.isArray(step.preconditions) ? step.preconditions : []);
+    if (planPreconditions.length > 0) {
+        lines.push('사전 조건');
+        planPreconditions.forEach((precondition, index) => {
+            if (precondition.type === 'knowledge_provider_available') {
+                lines.push(`- ${index + 1}. knowledge route \`${escapeMarkdown(precondition.route || '')}\` 에 provider가 연결되어 있어야 합니다.`);
+                return;
+            }
+            if (precondition.type === 'trend_category_catalog_available') {
+                lines.push(`- ${index + 1}. 트렌드 카테고리 기준 목록이 필요합니다.`);
+                return;
+            }
+            lines.push(`- ${index + 1}. ${escapeMarkdown(JSON.stringify(precondition))}`);
+        });
+        lines.push('');
+    }
+
     lines.push('진행할까요?');
     return lines.join('\n');
 }

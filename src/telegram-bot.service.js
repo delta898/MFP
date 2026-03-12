@@ -145,7 +145,8 @@ class TelegramBotService {
             eventStore: this.agentEventStore
         });
         this.agentPlanner = createPlanner({
-            capabilityRegistry
+            capabilityRegistry,
+            CONFIG
         });
         this.agentRetrieval = createMemoryRetrievalService({
             eventStore: this.agentEventStore,
@@ -249,7 +250,7 @@ class TelegramBotService {
 
         if (outcome.status === 'confirmation_required') {
             const confirmationId = outcome.confirmation?.id;
-            const message = TelegramAgentRenderer.formatPreviewMessage(outcome.previews);
+            const message = TelegramAgentRenderer.formatPreviewMessage(outcome.confirmation, outcome.previews);
             await this.bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
                 reply_markup: JSON.stringify({

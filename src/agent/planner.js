@@ -1,8 +1,9 @@
 const { validateActionEnvelope } = require('./action-schema');
-const { buildSingleActionPlan } = require('./planner-contract');
+const { buildPlanFromActions } = require('./planner-rules');
 
 function createPlanner(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
+    const config = options.CONFIG || null;
 
     if (!capabilityRegistry) {
         throw new Error('capabilityRegistry is required');
@@ -22,7 +23,10 @@ function createPlanner(options = {}) {
             return {
                 ok: true,
                 envelope: validation.envelope,
-                plan: buildSingleActionPlan(validation.envelope)
+                plan: buildPlanFromActions({
+                    ...validation.envelope,
+                    routing: config?.knowledge?.routing || config?.KNOWLEDGE_ROUTING || {}
+                })
             };
         }
     };

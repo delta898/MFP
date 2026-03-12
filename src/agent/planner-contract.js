@@ -44,30 +44,8 @@ function validatePlan(plan = {}) {
     };
 }
 
-function buildSingleActionPlan(envelope = {}) {
-    const actions = Array.isArray(envelope.actions) ? envelope.actions : [];
-    const primaryAction = actions[0] || {};
-    const primaryReason = primaryAction.reason || `${primaryAction.domain || 'agent'}.${primaryAction.name || 'action'}`;
-
-    return normalizePlan({
-        plan_id: `plan_${envelope.message_id || Date.now()}`,
-        goal: primaryReason,
-        reason: primaryReason,
-        confirmation_mode: actions.some((action) => action.requires_confirmation === true) ? 'plan' : 'none',
-        conversation_id: String(envelope.conversation_id || '').trim(),
-        message_id: String(envelope.message_id || '').trim(),
-        steps: actions.map((action, index) => ({
-            id: `step_${index + 1}`,
-            action,
-            preconditions: [],
-            requires_confirmation: action.requires_confirmation === true
-        }))
-    });
-}
-
 module.exports = {
     normalizePlanStep,
     normalizePlan,
-    validatePlan,
-    buildSingleActionPlan
+    validatePlan
 };
