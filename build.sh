@@ -55,10 +55,9 @@ if [ ! -f "src/config/secret.js" ]; then
 fi
 
 # ---------------------------------------------------
-# 4. dist 폴더 정리 (항상 Clean Build)
+# 4. dist 폴더 준비
 # ---------------------------------------------------
-echo "🧹 [Clean] 항상 클린 빌드를 수행하기 위해 기존 dist 폴더를 정리합니다..."
-rm -rf dist
+echo "🧹 [Prepare] dist 폴더를 준비합니다..."
 mkdir -p dist
 
 # ---------------------------------------------------
@@ -126,6 +125,9 @@ copy_assets() {
 echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
 echo "---------------------------------------------------"
 
+BUILT_ROOTS=()
+BUILT_ZIPS=()
+
 # ---------------------------------------------------
 # 📦 통합 빌드 함수 (CLI + GUI)
 # ---------------------------------------------------
@@ -137,9 +139,15 @@ build_platform() {
     
     local ROOT_DIR_NAME="${APP_NAME}-v${VERSION}-${suffix}"
     local ROOT_OUT="dist/${ROOT_DIR_NAME}"
+    local ROOT_ZIP="dist/${ROOT_DIR_NAME}.zip"
     
     echo "---------------------------------------------------"
     echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
+
+    # 해당 타깃 산출물만 정리
+    echo "   🧹 이전 ${suffix} 산출물 정리 중..."
+    rm -rf "${ROOT_OUT}"
+    rm -f "${ROOT_ZIP}"
 
     # 실제 빌드 과정 시작
     mkdir -p "${ROOT_OUT}"
@@ -161,44 +169,39 @@ build_platform() {
     # 3. GUI 빌드 (BlogGenius)
     echo "   📦 GUI 빌드 중..."
     
-    local SKIP_GUI=false
     ICON_OPT="--icon=assets/icons/icon"
-    # Windows 빌드 시 Wine이 없으면 빌드 불가
-    if [ "$e_plat" == "win32" ]; then
-        if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
-            echo "   ⚠️ [Warning] Wine이 설치되어 있지 않아 Windows GUI 빌드를 건너뜁니다. (CLI만 포함)"
-            SKIP_GUI=true
-        fi
+    npx electron-packager . "${APP_NAME}" \
+        --platform=${e_plat} --arch=${arch} \
+        --out=dist/gui-temp --overwrite \
+        --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
+        $ICON_OPT \
+        --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
+        --quiet
+
+    if [ $? -ne 0 ]; then
+        echo "   ❌ [Error] GUI 빌드 실패 (${suffix})"
+        exit 1
     fi
 
-    if [ "$SKIP_GUI" == "false" ]; then
-        npx electron-packager . "${APP_NAME}" \
-            --platform=${e_plat} --arch=${arch} \
-            --out=dist/gui-temp --overwrite \
-            --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
-            $ICON_OPT \
-            --ignore="^/([.]git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs|tmp|tmp_update|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
-            --quiet
-
-        # GUI 결과물 이동
-        local TEMP_NAME="${APP_NAME}-${e_plat}-${arch}"
-        if [ "$e_plat" == "win32" ]; then TEMP_NAME="${APP_NAME}-win32-${arch}"; fi
+    # GUI 결과물 이동
+    local TEMP_NAME="${APP_NAME}-${e_plat}-${arch}"
+    if [ "$e_plat" == "win32" ]; then TEMP_NAME="${APP_NAME}-win32-${arch}"; fi
+    
+    # macOS의 경우 .app 번들 자체를 이동, 나머지는 내용물을 이동
+    if [ "$e_plat" == "darwin" ]; then
+        mv "dist/gui-temp/${TEMP_NAME}/${APP_NAME}.app" "${ROOT_OUT}/"
+    elif [ "$e_plat" == "linux" ]; then
+        # Linux: 부속 파일이 많으므로 lib/ 폴더로 격리 (Clean Look)
+        echo "   🧹 Linux GUI 파일 격리 및 바이너리 이름 최적화 중..."
+        mkdir -p "${ROOT_OUT}/lib"
+        cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/lib/"
         
-        # macOS의 경우 .app 번들 자체를 이동, 나머지는 내용물을 이동
-        if [ "$e_plat" == "darwin" ]; then
-            mv "dist/gui-temp/${TEMP_NAME}/${APP_NAME}.app" "${ROOT_OUT}/"
-        elif [ "$e_plat" == "linux" ]; then
-            # Linux: 부속 파일이 많으므로 lib/ 폴더로 격리 (Clean Look)
-            echo "   🧹 Linux GUI 파일 격리 및 바이너리 이름 최적화 중..."
-            mkdir -p "${ROOT_OUT}/lib"
-            cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/lib/"
-            
-            # 실제 바이너리 이름을 -bin으로 변경하여 런처와 구분
-            mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
-            chmod +x "${ROOT_OUT}/lib/${APP_NAME}-bin"
+        # 실제 바이너리 이름을 -bin으로 변경하여 런처와 구분
+        mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
+        chmod +x "${ROOT_OUT}/lib/${APP_NAME}-bin"
 
-            # 루트에 런처 스크립트 생성 (내부 -bin 바이너리 실행)
-            cat <<EOF > "${ROOT_OUT}/${APP_NAME}"
+        # 루트에 런처 스크립트 생성 (내부 -bin 바이너리 실행)
+        cat <<EOF > "${ROOT_OUT}/${APP_NAME}"
 #!/bin/bash
 # BlogGenius Launcher Script
 HERE="\$(dirname "\$(readlink -f "\$0")")"
@@ -206,17 +209,17 @@ export LD_LIBRARY_PATH="\$HERE/lib:\$LD_LIBRARY_PATH"
 # \$@ 를 통해 인자 전달
 "\$HERE/lib/${APP_NAME}-bin" "\$@"
 EOF
-            chmod +x "${ROOT_OUT}/${APP_NAME}"
-        else
-            # Windows: 전체 파일 이동
-            if [ -d "dist/gui-temp/${TEMP_NAME}" ]; then
-                cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/"
-            fi
+        chmod +x "${ROOT_OUT}/${APP_NAME}"
+    else
+        # Windows: 전체 파일 이동
+        if [ -d "dist/gui-temp/${TEMP_NAME}" ]; then
+            cp -a dist/gui-temp/${TEMP_NAME}/* "${ROOT_OUT}/"
         fi
-        rm -rf dist/gui-temp
     fi
+    rm -rf dist/gui-temp
 
     echo "   ✅ ${suffix} 빌드 완료"
+    BUILT_ROOTS+=("${ROOT_OUT}")
 }
 
 # ---------------------------------------------------
@@ -225,22 +228,23 @@ EOF
 # build_platform <pkg_os> <electron_os> <arch> <suffix>
 build_platform "macos" "darwin" "arm64" "mac-arm64"
 # build_platform "macos" "darwin" "x64"   "mac-intel"
-build_platform "win"   "win32"  "x64"   "win-x64"
 # build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # ---------------------------------------------------
-# 5. ZIP 생성 (플랫폼 폴더 내부에 생성)
+# 5. ZIP 생성 (이번 실행 대상만)
 # ---------------------------------------------------
-echo "📦 각 플랫폼 폴더 내부에 ZIP 파일 생성 중..."
-cd dist
-for platform_dir in */; do
-    platform_dir="${platform_dir%/}"
+echo "📦 이번 실행에서 생성한 플랫폼 폴더만 ZIP 생성 중..."
+for root_out in "${BUILT_ROOTS[@]}"; do
+    [ -d "${root_out}" ] || continue
+    platform_dir=$(basename "${root_out}")
     zip_name="${platform_dir}.zip"
-    # 폴더 내부로 들어가서 그 내용물만 ZIP으로 압축하여 폴더 바로 안에 저장
-    (cd "$platform_dir" && zip -r "${zip_name}" . -x "*.DS_Store")
-    echo "   ✅ ${platform_dir}/${zip_name} 생성 완료"
+    (cd "${root_out}" && zip -r "${zip_name}" . -x "*.DS_Store")
+    if [ -f "${root_out}/${zip_name}" ]; then
+        mv "${root_out}/${zip_name}" "dist/${zip_name}"
+        BUILT_ZIPS+=("dist/${zip_name}")
+        echo "   ✅ dist/${zip_name} 생성 완료"
+    fi
 done
-cd -
 
 # 📄 자가 업데이트용 update.json 생성 중...
 UPDATE_JSON="dist/update.json"
@@ -252,11 +256,6 @@ if [[ $VERSION == *"-"* ]]; then
     IS_PRERELEASE=true
     echo "🧪 [Prerelease] 버전이 감지되었습니다. (${VERSION})"
 fi
-
-# 📂 [Optimization] ZIP 파일들을 dist/ 루트로 이동 (구조 단순화)
-echo "📂 ZIP 파일들을 dist/ 루트로 모으는 중..."
-# 각 플랫폼 하위 폴더에 생성된 ZIP들을 dist/ 바로 아래로 이동시킵니다.
-mv dist/*/*.zip dist/ 2>/dev/null || true
 
 RELEASE_DETAILS_JSON=$(VERSION="$VERSION" node <<'NODE'
 const fs = require('fs');
@@ -354,27 +353,25 @@ cat <<EOF > "${UPDATE_JSON}"
 EOF
 
 FIRST_ASSET=true
-# dist 루트에 있는 모든 ZIP 파일을 기반으로 에셋 목록 구성 (SHA-256 체크섬 포함)
-cd dist
-for zip_file in *.zip; do
+# 이번 실행에서 생성한 ZIP 파일만 에셋 목록 구성 (SHA-256 체크섬 포함)
+for zip_file in "${BUILT_ZIPS[@]}"; do
     if [ ! -f "$zip_file" ]; then continue; fi
     if [ "$FIRST_ASSET" = "false" ]; then
-        echo "," >> "../${UPDATE_JSON}"
+        echo "," >> "${UPDATE_JSON}"
     fi
     FIRST_ASSET=false
     
     FILE_NAME=$(basename "$zip_file")
     FILE_SHA256=$(shasum -a 256 "$zip_file" | awk '{print $1}')
     FILE_SIZE=$(stat -f%z "$zip_file" 2>/dev/null || stat --printf="%s" "$zip_file" 2>/dev/null || echo "0")
-    echo "    {" >> "../${UPDATE_JSON}"
-    echo "      \"name\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
-    echo "      \"browser_download_url\": \"${FILE_NAME}\"," >> "../${UPDATE_JSON}"
-    echo "      \"sha256\": \"${FILE_SHA256}\"," >> "../${UPDATE_JSON}"
-    echo "      \"size\": ${FILE_SIZE}" >> "../${UPDATE_JSON}"
-    echo "    }" >> "../${UPDATE_JSON}"
+    echo "    {" >> "${UPDATE_JSON}"
+    echo "      \"name\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
+    echo "      \"browser_download_url\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
+    echo "      \"sha256\": \"${FILE_SHA256}\"," >> "${UPDATE_JSON}"
+    echo "      \"size\": ${FILE_SIZE}" >> "${UPDATE_JSON}"
+    echo "    }" >> "${UPDATE_JSON}"
     echo "   🔐 ${FILE_NAME}: SHA-256=${FILE_SHA256} (${FILE_SIZE} bytes)"
 done
-cd -
 
 cat <<EOF >> "${UPDATE_JSON}"
   ]
@@ -391,8 +388,8 @@ else
     echo ""
     echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
 
-    # ZIP 파일들과 update.json을 한 번에 업로드
-    scp dist/*.zip "${UPDATE_JSON}" "${UPLOAD_TARGET}"
+    # 이번 실행에서 생성한 ZIP 파일들과 update.json만 업로드
+    scp "${BUILT_ZIPS[@]}" "${UPDATE_JSON}" "${UPLOAD_TARGET}"
 
     if [ $? -eq 0 ]; then
         echo "   ✅ 서버 업로드 완료!"
@@ -408,10 +405,14 @@ fi
 
 # 🛠 [Utility] 수동 업로드용 스크립트 생성
 UPLOAD_SH="dist/upload.sh"
+BUILT_ZIP_NAMES=""
+for zip_file in "${BUILT_ZIPS[@]}"; do
+    BUILT_ZIP_NAMES="${BUILT_ZIP_NAMES} ./$(basename "$zip_file")"
+done
 cat <<EOF > "${UPLOAD_SH}"
 #!/bin/bash
 echo "🚀 [Manual] 서버로 업로드 중..."
-scp ./*.zip ./update.json "${UPLOAD_TARGET}"
+scp${BUILT_ZIP_NAMES} ./update.json "${UPLOAD_TARGET}"
 if [ \$? -eq 0 ]; then
     echo "✅ 업로드 성공!"
     echo "🧹 구버전 파일 정리 중..."
