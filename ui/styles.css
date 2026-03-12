@@ -2342,16 +2342,18 @@ h2 {
 .settings-save-actions {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-left: 48px;
 }
 
 .settings-major-save-status {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-muted);
   white-space: nowrap;
+  line-height: 1;
+  padding-right: 2px;
 }
 
 .settings-major-save-btn {

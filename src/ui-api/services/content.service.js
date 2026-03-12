@@ -47,6 +47,8 @@ function createContentService(deps = {}) {
         executeShoppingTopicsDelete
     } = deps;
 
+    let wordpressCategoryConfigLogState = '';
+
     const COMMENT_DRAFT_DEFAULTS = {
         aiMode: 'default',
         fetchLimit: 10,
@@ -927,11 +929,16 @@ function createContentService(deps = {}) {
 
             if (!wpClient.isConfigured()) {
                 if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                    Logger.info(`WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}" (필요 시 [설정 > 블로그] 탭에서 입력 가능)`);
+                    const nextLogState = `missing:${wpUrl}|${wpUserId}`;
+                    if (wordpressCategoryConfigLogState !== nextLogState) {
+                        Logger.info(`WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}" (필요 시 [설정 > 블로그] 탭에서 입력 가능)`);
+                        wordpressCategoryConfigLogState = nextLogState;
+                    }
                 }
                 throw createApiError(400, 'WP_NOT_CONFIGURED', '워드프레스 설정이 필요합니다. 설정 > 블로그 탭에서 저장 후 다시 시도해 주세요.');
             }
 
+            wordpressCategoryConfigLogState = 'ready';
             const categories = await wpClient.listCategories();
             if (categories === null) {
                 throw createApiError(500, 'WP_API_ERROR', '워드프레스 API 호출 중 오류가 발생했습니다. 터미널 로그를 확인해 주세요.');

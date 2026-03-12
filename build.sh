@@ -90,16 +90,17 @@ copy_assets() {
         echo "⚠️ [Warning] scripts/google_apps_script.js 파일이 없습니다!"
     fi
 
-    # README 복사 (build.yml fallback과 동일)
-    if [ -f "README_USER.md" ]; then
-        echo "   📄 README_USER.md를 발견하여 복사합니다."
-        cp README_USER.md "$TARGET_DIR/README.md"
+    # README 복사
+    if [ -f "README.md" ]; then
+        echo "   📄 README.md를 복사합니다."
+        cp README.md "$TARGET_DIR/README.md"
     else
-        echo "   ⚠️ README_USER.md가 없어 기본 README를 생성합니다."
+        echo "   ⚠️ README.md가 없어 기본 README를 생성합니다."
         {
             echo "# BlogGenius 사용자 가이드"
-            echo "1. config/config.json.sample을 복사해 config/config.json를 만든 뒤 설정하세요."
-            echo "2. 프로그램을 실행하세요."
+            echo "1. 프로그램을 실행합니다."
+            echo "2. 설정에서 AI 연결을 확인합니다."
+            echo "3. 설정에서 Google 계정 연결과 Spreadsheet URL을 확인합니다."
             echo ""
             echo "[Mac 사용자 필수 주의사항 - Gatekeeper 우회 방법]"
             echo "애플의 보안 정책(Gatekeeper)으로 인해 브라우저에서 다운로드한 앱은 실행이 차단될 수 있습니다."

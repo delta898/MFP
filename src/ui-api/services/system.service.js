@@ -16,7 +16,7 @@ function createSystemService(deps = {}) {
     if (typeof Logger?.getRecentLogs !== 'function') {
         console.error('❌ [System] Logger dependency missing or invalid in SystemService');
     } else {
-        Logger.info('✅ [System] Dashboard SystemService가 로드되었습니다. (Logger 연동 완료)');
+        Logger.debug('✅ [System] Dashboard SystemService가 로드되었습니다. (Logger 연동 완료)');
     }
 
     function getDashboardContentSources() {

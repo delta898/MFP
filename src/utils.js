@@ -402,6 +402,10 @@ const Utils = {
      * 🔐 수동 구글 액세스 토큰 발급 (캐싱 적용)
      */
     getGoogleAccessToken: async function (scopes = []) {
+        if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
+            await RuntimeConfig.ensureGoogleOauthClientConfig();
+        }
+
         const normalizedScopes = (() => {
             const incoming = Array.isArray(scopes) ? scopes : [];
             const merged = incoming.length > 0

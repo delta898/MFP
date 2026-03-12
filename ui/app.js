@@ -1543,10 +1543,11 @@ function renderDashboardShortsList(containerId, source) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 3);
+  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 5);
   if (!items.length) {
     const message = source?.error ? `불러오기 실패: ${escapeHtml(source.error)}` : '콘텐츠가 없습니다.';
     container.innerHTML = `<p class="dash-feed-empty">${message}</p>`;
+    syncDashboardBottomColumnHeights();
     return;
   }
 
@@ -1572,7 +1573,35 @@ function renderDashboardShortsList(containerId, source) {
       </a>
     `;
   }).join('');
+  syncDashboardBottomColumnHeights();
 }
+
+function syncDashboardBottomColumnHeights() {
+  const timeline = document.getElementById('activity-timeline');
+  const shorts = document.getElementById('dash-smart-feed-youtube');
+  if (!timeline || !shorts) return;
+
+  if (window.innerWidth <= 1100) {
+    timeline.style.maxHeight = '';
+    shorts.style.maxHeight = '';
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const shortsItems = shorts.querySelectorAll('.dash-shorts-item');
+    if (!shortsItems.length) {
+      timeline.style.maxHeight = '';
+      shorts.style.maxHeight = '';
+      return;
+    }
+
+    const nextHeight = `${Math.max(320, Math.min(560, shorts.scrollHeight))}px`;
+    timeline.style.maxHeight = nextHeight;
+    shorts.style.maxHeight = nextHeight;
+  });
+}
+
+window.addEventListener('resize', syncDashboardBottomColumnHeights);
 
 async function loadDashboardExternalContent(options = {}) {
   const force = options?.force === true;
@@ -1584,7 +1613,7 @@ async function loadDashboardExternalContent(options = {}) {
   }
 
   try {
-    const data = await fetchJson('/api/v1/dashboard/external-content?limit=4');
+    const data = await fetchJson('/api/v1/dashboard/external-content?limit=6');
     const sourceMap = {};
     for (const source of (data?.sources || [])) {
       sourceMap[String(source?.key || '').trim()] = source;
@@ -1636,6 +1665,7 @@ async function loadDashboardExternalContent(options = {}) {
     // setHomeLink('dash-feed-home-instagram-reels', sourceMap.instagramReels || {});
 
     dashboardExternalContentLastLoadedAt = Date.now();
+    syncDashboardBottomColumnHeights();
   } catch (e) {
     const errMsg = String(e?.message || '콘텐츠를 불러오지 못했습니다.');
     if (!silent) {
@@ -1923,6 +1953,7 @@ async function loadDashboardLogs() {
 
     renderLogs(dashList, activityLogs.slice(0, 100));   // 대시보드: 필터링된 최신 100건
     renderLogs(logsList, logs.slice(0, 50));        // 로그/이력: 원본 최신 50건 (debug 제외 원하면 추가 필터 가능)
+    syncDashboardBottomColumnHeights();
   } catch (err) {
     if (err.status === 503 || String(err.message).includes('fetch failed')) return;
     const failHtml = '<li class="timeline-empty" style="padding: 12px; color: #ef4444; text-align: center; font-size: 14px;">로그를 불러오는데 실패했습니다.</li>';

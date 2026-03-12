@@ -82,7 +82,7 @@ class Updater {
             let releases = [];
 
             if (this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
-                Logger.info(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
+                Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
                 const response = await axios.get(this.customUpdateCheckUrl, {
                     timeout: 5000
                 });

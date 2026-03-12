@@ -3,7 +3,28 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.6-dev2] - 2026-03-12
+
 ### Added
+- **업데이트 안내 메타데이터 플로우**: `CHANGELOG.md`를 기준으로 `update.json`의 `details.summary`와 `details.highlights`를 생성하고, 앱 내 `자세히 보기` 대화상자에서 릴리즈 요약과 주요 변경점을 바로 확인할 수 있도록 정리.
+- **Google Sheets OAuth 연결**: Google Sheets 접근 방식을 OAuth 기반으로 전환하고, loopback callback과 토큰 저장(`config/google_oauth_tokens.json`) 흐름을 도입. 설정 화면에서 Google 계정 연결/해제/테스트를 직접 수행할 수 있도록 구성.
+- **Telegram Agent Planner 안정화**: planner rules, preflight query composition, pending confirmation 대체/적용/취소 흐름을 정리해 Telegram Agent의 확인 기반 제어를 한 단계 안정화.
+
+### Changed
+- **Google Sheets 인증 UX 단순화**: `GOOGLE_SHEET_URL`은 유지하고, Google 계정 연결과 스프레드시트 설정을 하나의 흐름으로 재배치. 더 이상 `service_account.json` 업로드/공유 안내를 기본 UX로 노출하지 않음.
+- **Google OAuth 클라이언트 설정 경계 정리**: 사용자 설정 파일에서 OAuth client 값을 제거하고, `app_runtime_configs`를 source of truth로 사용하도록 변경.
+- **Telegram 핵심 요청 우선순위 조정**: `글감 등록/추가`, `발행` 계열은 recommendation lane이 아니라 기존 register/publish 경로를 우선 사용하도록 라우팅을 조정.
+- **사용자 문서/패키징 정리**: `README_USER.md`를 제거하고 `/README.md`를 사용자용 안내 문서로 통합. 패키징 시 동일 파일을 포함하도록 변경.
+- **설정 화면 저장 UX 미세 조정**: 저장 버튼과 상태 문구 순서를 `[저장] 저장됨`으로 정리하고 상태 문구 크기를 줄여 버튼 위치가 흔들리지 않도록 보완.
+- **대시보드 하단 레이아웃 균형 조정**: 최근 활동 이력과 우측 YouTube 영역의 높이를 맞추고, 쇼츠/영상 노출 수를 늘려 좌우 카드 균형을 개선.
+
+### Fixed
+- **Telegram loading/rate-limit 부담 완화**: 로딩 문구를 1회 전송으로 단순화하고, deterministic fast-path 요청은 AI 파싱 전에 바로 처리하도록 조정.
+- **WordPress 설정 미비 로그 중복 완화**: 동일한 WordPress 미설정 상태에 대한 반복 로그를 줄여 시작 로그 노이즈를 완화.
+- **Google OAuth 초기 false error 완화**: 시트 준비 전에 runtime config에서 OAuth client 구성을 먼저 확보하도록 조정해 앱 시작 직후 불필요한 OAuth 미구성 오류가 뜨는 문제를 줄임.
+- **사이드 메뉴 정리**: 현재 사용하지 않는 `라이선스` 메뉴 항목을 숨겨 실제 노출 메뉴를 단순화.
+
+### Added (continued)
 - **Agent Runtime Foundation**: Telegram 입력을 `Agent Runtime -> Capability Registry -> Memory` 경로로 처리하는 1차 기반 추가. action schema, confirmation store, typed runtime contract를 도입해 자연어 요청을 구조화된 capability 실행으로 연결.
 - **Kuzu Event-First Memory 재설계**: `Message`, `Action`, `SettingChange`, `JobRun`, `Artifact`, `Preference`, `Suggestion`, `DomainKnowledge` 노드와 관계를 추가하여 대화/실행/선호/제안/도메인 지식을 그래프로 추적할 수 있도록 확장.
 - **Typed Retrieval / Preference / Suggestion Loop**: 최근 메시지, action, 설정 변경, job run, artifact, preference, pending confirmation을 context packet으로 조립하는 retrieval 계층 추가. suggestion과 content idea 결과에 대한 feedback(`수락/거절`, `도움됨/별로`)도 memory graph에 기록하도록 구성.
@@ -11,7 +32,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **Knowledge Provider Architecture**: `kind + transport + config` 기반의 knowledge provider 구조 도입. `builtin_api`, `mcp_tool`, `internal_query` transport contract를 정의하고, route별(`suggestions`, `content_ideas`) provider routing을 지원.
 - **SerpApi Trends Provider (1차)**: `trends + builtin_api + SerpApi` provider를 추가하여 외부 trends 신호를 suggestion/content idea 엔진에서 사용할 수 있는 구조 연결. provider 조회 시작/완료/실패 trace 로그도 함께 추가.
 
-### Changed
+### Changed (continued)
 - **Telegram Agent 제어 범위 확장**: Telegram에서 설정 조회/변경, pending confirmation 조회, preference 요약, 추천 요청, 글감 추천, 트렌드 수집 실행을 새 agent capability 경로로 처리하도록 정리.
 - **추천/글감 피드백 의미 분리**: suggestion type에 따라 버튼 의미를 `수락/거절` 또는 `도움됨/별로`로 구분하고, 해당 피드백을 이후 suggestion suppression 및 글감 반복 억제에 활용하도록 조정.
 - **Content Idea Lane 분리**: 운영 추천과 글감 추천을 별도 lane으로 분리하고, 최근 artifact 및 feedback를 바탕으로 동일 제목 반복 추천을 줄이도록 개선.
