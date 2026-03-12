@@ -28,6 +28,38 @@ class TelegramBotService {
     static POLLING_ERROR_THRESHOLD = 5; // 연속 에러 N회 초과 시 자동 중지
     static POLLING_ERROR_WINDOW_MS = 60000; // 에러 카운트 리셋 윈도우 (60초)
 
+    static async startLoadingIndicator(chatId) {
+        const frames = ['⏳ .', '⏳ ..', '⏳ ...'];
+        let frameIndex = 0;
+        const sent = await this.bot.sendMessage(chatId, frames[frameIndex], { parse_mode: 'Markdown' });
+        const intervalId = setInterval(async () => {
+            if (!this.bot || !sent?.message_id) return;
+            frameIndex = (frameIndex + 1) % frames.length;
+            try {
+                await this.bot.editMessageText(frames[frameIndex], {
+                    chat_id: chatId,
+                    message_id: sent.message_id,
+                    parse_mode: 'Markdown'
+                });
+            } catch (_ignore) { }
+        }, 1200);
+
+        return {
+            messageId: sent?.message_id || null,
+            intervalId
+        };
+    }
+
+    static async stopLoadingIndicator(chatId, loadingState) {
+        if (!loadingState) return;
+        if (loadingState.intervalId) {
+            clearInterval(loadingState.intervalId);
+        }
+        if (loadingState.messageId) {
+            await this.bot.deleteMessage(chatId, loadingState.messageId).catch(() => { });
+        }
+    }
+
     static init() {
         // [Fun Factor] 상황별 다양한 메시지 정의
         this.messages = {
@@ -255,8 +287,10 @@ class TelegramBotService {
                 parse_mode: 'Markdown',
                 reply_markup: JSON.stringify({
                     inline_keyboard: [
-                        [{ text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }],
-                        [{ text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` }]
+                        [
+                            { text: '❌ 취소', callback_data: `agent_reject:${confirmationId}` },
+                            { text: '✅ 적용', callback_data: `agent_confirm:${confirmationId}` }
+                        ]
                     ]
                 })
             });
@@ -452,18 +486,11 @@ class TelegramBotService {
             // 3. 일반 자연어 메시지 (Phase 2: AI 파싱 및 확인 대기)
             let loadingMsg = null;
             try {
-                // 임시 응답 
-                loadingMsg = await this.bot.sendMessage(
-                    chatId,
-                    '🤖 쓰신 내용을 열심히 읽고 분석 중입니다... 잠시만 기다려주세요! ⏳',
-                    { parse_mode: 'Markdown' }
-                );
+                loadingMsg = await this.startLoadingIndicator(chatId);
 
                 const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg);
                 if (agentOutcome.handled) {
-                    if (loadingMsg?.message_id) {
-                        await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
-                    }
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
                     return;
                 }
 
@@ -496,9 +523,7 @@ class TelegramBotService {
                 await KuzuDB.recordMessage(chatId, text, primaryIntent);
 
                 if (!actions || actions.length === 0) {
-                    if (loadingMsg?.message_id) {
-                        await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
-                    }
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
                     await this.bot.sendMessage(chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?');
                     return;
                 }
@@ -523,7 +548,7 @@ class TelegramBotService {
                     await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
                 } else if (hasConfig) {
                     // 설정 변경은 중요하므로 확인 절차 거침
                     const configAction = actions.find(a => a.action === 'update_config');
@@ -549,7 +574,7 @@ class TelegramBotService {
                     await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
 
                 } else if (hasJob) {
                     // 작업 실행 (예: 트렌드 수집)
@@ -571,20 +596,18 @@ class TelegramBotService {
                     await KuzuDB.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
                     this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
-                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
 
                 } else if (hasQuery) {
                     // 데이터 조회는 즉시 실행
                     const queryAction = actions.find(a => a.action === 'query_data');
-                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
                     await this.handleQueryIntent(chatId, queryAction.params || {});
                 }
 
 	            } catch (err) {
 	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
-	                if (loadingMsg?.message_id) {
-	                    await this.bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => { });
-	                }
+	                await this.stopLoadingIndicator(chatId, loadingMsg);
 	                await this.bot.sendMessage(chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`);
 	            }
 	        };
