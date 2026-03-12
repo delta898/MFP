@@ -56,7 +56,6 @@ function createAgentMetaCapabilities() {
                 return {
                     success: true,
                     message: [
-                        '지금 바로 도와드릴 수 있는 작업입니다.',
                         '• 설정 조회/변경',
                         '• 확인 대기 요청 조회/적용/취소',
                         '• 현재 기준 추천 조회',

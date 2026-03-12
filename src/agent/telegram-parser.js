@@ -75,7 +75,9 @@ function tryParseDeterministicEnvelope(messageText, context = {}) {
         }]);
     }
 
-    if (/(사용법|사용 방법|어떻게 써|어떻게 사용|가이드|도움말)/.test(text)) {
+    const isHelpLike = /(사용법|사용 방법|어떻게 써|어떻게 사용|가이드|도움말)/.test(text);
+    const looksLikeContentCommand = /(주제|글감|추가|등록|발행|추천|써줘|작성|포스팅)/.test(text);
+    if (isHelpLike && !looksLikeContentCommand) {
         return buildEnvelope(conversationId, messageId, [{
             id: 'act_1',
             type: 'agent.query',

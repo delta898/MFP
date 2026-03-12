@@ -270,6 +270,51 @@ class TelegramBotService {
         }
 
         const runtime = this.ensureAgentRuntime();
+        const baseContext = this.buildAgentContext(chatId, msg);
+        baseContext.messageId = String(msg?.message_id || '').trim();
+
+        const earlyDeterministicEnvelope = options.preParsedEnvelope || tryParseDeterministicEnvelope(text, {
+            conversationId: baseContext.conversation.id,
+            messageId: baseContext.messageId
+        });
+
+        if (earlyDeterministicEnvelope?.actions?.length === 1
+            && String(earlyDeterministicEnvelope.actions[0]?.domain || '').trim() === 'agent.meta') {
+            if (this.agentEventStore) {
+                this.agentEventStore.appendEvent({
+                    event_type: 'user.message.received',
+                    actor_type: 'user',
+                    actor_id: baseContext.user.id,
+                    conversation_id: baseContext.conversation.id,
+                    message_id: baseContext.messageId,
+                    payload: {
+                        text
+                    },
+                    user: baseContext.user,
+                    conversation: baseContext.conversation
+                }).catch(() => { });
+            }
+
+            const planResult = await this.agentPlanner.buildPlan(earlyDeterministicEnvelope, baseContext);
+            if (!planResult.ok) {
+                await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
+                return { handled: true };
+            }
+
+            const outcome = await runtime.handlePlan(planResult.plan, baseContext);
+            if (!outcome.ok) {
+                await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
+                return { handled: true };
+            }
+
+            if (outcome.status === 'completed') {
+                await this.bot.sendMessage(chatId, TelegramAgentRenderer.formatExecutionMessage(outcome.results), {
+                    parse_mode: 'Markdown'
+                });
+                return { handled: true };
+            }
+        }
+
         const context = this.buildAgentContext(chatId, msg);
         context.messageId = String(msg?.message_id || '').trim();
         context.memory = await this.agentRetrieval.buildContextPacket({
@@ -293,7 +338,7 @@ class TelegramBotService {
             }).catch(() => { });
         }
 
-        const envelope = options.preParsedEnvelope || await parseTelegramAgentEnvelope(text, {
+        const envelope = earlyDeterministicEnvelope || await parseTelegramAgentEnvelope(text, {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory
