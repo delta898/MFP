@@ -637,7 +637,6 @@ function buildDefaultConfigTemplate() {
         '# BlogGenius config (auto-generated)',
         'NAVER_ID = ',
         'GEMINI_API_KEY = ',
-        'GOOGLE_AUTH_JSON = ./config/service_account.json',
         'GOOGLE_SHEET_URL = ',
         'WORDPRESS_USER_ID = ' + (CONFIG.WORDPRESS_USER_ID || ''),
         'WORDPRESS_APP_PASSWORD = ',
@@ -5116,6 +5115,28 @@ async function startUiServer(options = {}) {
         const pathname = url.pathname;
 
         try {
+            if (pathname === '/oauth/google/callback') {
+                const GoogleOAuth = require('./google-oauth');
+                try {
+                    const code = String(url.searchParams.get('code') || '').trim();
+                    const state = String(url.searchParams.get('state') || '').trim();
+                    if (!code || !state) {
+                        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+                        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: '인증 코드 또는 상태값이 없습니다.' }));
+                        return;
+                    }
+                    const tokens = await GoogleOAuth.exchangeCode(code, state);
+                    Utils.clearGoogleAuthCache();
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(GoogleOAuth.renderCallbackHtml({ success: true, email: String(tokens.connected_email || '') }));
+                    return;
+                } catch (e) {
+                    res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(require('./google-oauth').renderCallbackHtml({ success: false, message: e.message }));
+                    return;
+                }
+            }
+
             if (pathname.startsWith('/api/v1/')) {
                 const startTime = Date.now();
                 Logger.debug(`[API][${requestId}] Request: ${method} ${pathname}`);

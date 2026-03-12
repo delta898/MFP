@@ -5,7 +5,9 @@ function createContentService(deps = {}) {
         Utils,
         fs,
         path,
+        axios,
         CONFIG,
+        GoogleOAuth,
         BrowserLauncher,
         ShoppingManager,
         Logger,
@@ -570,68 +572,99 @@ function createContentService(deps = {}) {
             };
         },
 
-        async getGoogleAuthStatus() {
-            try {
-                const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-                const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
-                if (fs.existsSync(keyFilePath)) {
-                    const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-                    const credentials = JSON.parse(fileContent);
-                    const stat = fs.statSync(keyFilePath);
-                    return {
-                        configured: true,
-                        clientEmail: credentials.client_email || '알 수 없음',
-                        projectId: credentials.project_id || '알 수 없음',
-                        path: keyFilePath,
-                        fileName: path.basename(keyFilePath),
-                        updatedAt: stat?.mtime ? stat.mtime.toISOString() : ''
-                    };
-                }
-                return {
-                    configured: false,
-                    path: keyFilePath,
-                    message: '설정된 Google Auth JSON 파일을 찾을 수 없습니다.'
-                };
-            } catch (e) {
-                return {
-                    configured: false,
-                    message: `오류: ${e.message}`
-                };
-            }
+        async getGoogleOauthStatus() {
+            return GoogleOAuth.getStatus();
         },
 
-        async saveGoogleAuth(requestBody = {}) {
-            const content = String(requestBody?.content || '').trim();
-            if (!content) {
-                throw createApiError(400, 'INVALID_CONTENT', 'Google Auth JSON 내용이 없습니다.');
-            }
+        async startGoogleOauth() {
+            const http = require('http');
+            const callbackServer = http.createServer(async (req, res) => {
+                try {
+                    const requestUrl = new URL(req.url, redirectUri);
+                    const code = requestUrl.searchParams.get('code');
+                    const state = requestUrl.searchParams.get('state');
+                    if (!code || !state) {
+                        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: '인증 코드 또는 상태값이 없습니다.' }));
+                        return;
+                    }
+                    const tokens = await GoogleOAuth.exchangeCode(code, state);
+                    Utils.clearGoogleAuthCache();
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(GoogleOAuth.renderCallbackHtml({ success: true, email: String(tokens.connected_email || '') }));
+                } catch (error) {
+                    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: error.message }));
+                } finally {
+                    setTimeout(() => callbackServer.close(() => { }), 250);
+                }
+            });
 
-            let parsed;
-            try {
-                parsed = JSON.parse(content);
-            } catch (_e) {
-                throw createApiError(400, 'INVALID_JSON', '올바른 JSON 형식이 아닙니다.');
-            }
+            const redirectUri = await new Promise((resolve, reject) => {
+                callbackServer.once('error', reject);
+                callbackServer.listen(0, '127.0.0.1', () => {
+                    const address = callbackServer.address();
+                    if (!address || typeof address !== 'object' || !address.port) {
+                        reject(new Error('Google OAuth callback 서버를 시작하지 못했습니다.'));
+                        return;
+                    }
+                    resolve(`http://127.0.0.1:${address.port}`);
+                });
+            });
 
-            if (parsed.type !== 'service_account' || !parsed.project_id || !parsed.private_key || !parsed.client_email) {
-                throw createApiError(400, 'INVALID_SERVICE_ACCOUNT', '유효한 Google Service Account JSON 형식이 아닙니다. (type, project_id, private_key, client_email 필수)');
-            }
+            callbackServer.setTimeout(10 * 60 * 1000, () => {
+                callbackServer.close(() => { });
+            });
 
-            const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-            const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH || resolveRuntimePath(rawPath, { mustExist: false });
-            const authDir = path.dirname(keyFilePath);
-            if (!fs.existsSync(authDir)) {
-                fs.mkdirSync(authDir, { recursive: true });
-            }
+            const { authUrl } = GoogleOAuth.buildAuthUrl({ redirectUri });
+            return {
+                authUrl,
+                redirectUri,
+                message: '브라우저에서 Google 로그인을 진행하세요.'
+            };
+        },
 
-            fs.writeFileSync(keyFilePath, JSON.stringify(parsed, null, 2), 'utf-8');
+        async disconnectGoogleOauth() {
+            GoogleOAuth.deleteTokens();
             Utils.clearGoogleAuthCache();
+            return {
+                message: 'Google 계정 연결을 해제했습니다.'
+            };
+        },
+
+        async testGoogleOauthConnection() {
+            const status = await GoogleOAuth.getStatus();
+            if (status.state !== 'connected') {
+                throw createApiError(400, 'GOOGLE_OAUTH_NOT_CONNECTED', status.message || 'Google 계정이 아직 연결되지 않았습니다.');
+            }
+
+            const sheetUrl = String(CONFIG.GOOGLE_SHEET_URL || '').trim();
+            if (!sheetUrl) {
+                return {
+                    ok: true,
+                    message: 'Google 계정 연결은 정상입니다. 이제 스프레드시트 주소를 입력하세요.',
+                    status
+                };
+            }
+
+            const spreadsheetId = String(CONFIG.GOOGLE_SHEET_ID || '').trim();
+            if (!spreadsheetId) {
+                throw createApiError(400, 'INVALID_SHEET_URL', '스프레드시트 주소를 다시 확인해 주세요.');
+            }
+
+            const accessToken = await Utils.getGoogleAccessToken(['https://www.googleapis.com/auth/spreadsheets.readonly']);
+            const response = await axios.get(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,properties.title`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            });
 
             return {
-                savedPath: keyFilePath,
-                clientEmail: parsed.client_email,
-                projectId: parsed.project_id,
-                message: 'Google Service Account JSON 저장 완료 및 캐시 초기화 성공'
+                ok: true,
+                message: 'Google Spreadsheet 연결이 정상입니다.',
+                spreadsheetId: String(response.data?.spreadsheetId || spreadsheetId),
+                spreadsheetTitle: String(response.data?.properties?.title || ''),
+                status
             };
         },
 

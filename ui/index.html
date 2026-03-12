@@ -1181,10 +1181,26 @@
                 <button id="settings-open-google-sheet-btn" class="secondary" type="button">구글 스프레드시트 가기</button>
               </div>
               <small class="muted">
-                service_account.json의 이메일을 해당 스프레드시트에 편집자로 공유해야 합니다.
-                (<a href="https://buly.kr/5UJLf0u" target="_blank" rel="noopener noreferrer">설정 가이드</a>)
+                먼저 Google 계정을 연결한 뒤 스프레드시트 주소를 입력하세요.
               </small>
             </label>
+            <div class="settings-auth-section"
+              style="grid-column: 1 / -1; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <h3 style="margin-bottom: 8px;">Google 계정 연결</h3>
+              <p class="muted">Google 계정을 연결하면 현재 계정 권한으로 스프레드시트에 접근할 수 있습니다.</p>
+              <p class="muted" style="margin-top: 6px;">
+                연결 후에는 현재 Google 계정으로 접근 가능한 스프레드시트만 사용할 수 있습니다.
+              </p>
+              <div id="settings-google-auth-status" class="status-badge" style="margin: 12px 0;">상태 확인 중...</div>
+              <div id="settings-google-auth-details" class="settings-google-auth-details">연결 상태 확인 중...</div>
+
+              <div class="form-actions" style="margin-top: 12px;">
+                <button id="settings-google-oauth-connect-btn" type="button">Google 계정 연결</button>
+                <button id="settings-google-oauth-disconnect-btn" class="secondary" type="button">연결 해제</button>
+                <button id="settings-google-oauth-test-btn" class="secondary" type="button">연결 테스트</button>
+              </div>
+              <pre id="settings-google-auth-result" class="settings-google-auth-result" style="margin-top: 12px;"></pre>
+            </div>
             <label>LISTEN_HOST
               <select id="settings-listen-host">
                 <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
@@ -1218,34 +1234,6 @@
               </div>
             </div>
           </div>
-
-          <div class="settings-auth-section"
-            style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color);">
-            <h3>Google Service Account 인증</h3>
-            <p class="muted">스프레드시트 편집 권한이 있는 Google 서비스 계정 인증 파일(service_account.json)을 업로드하거나 붙여넣어주세요.</p>
-            <p class="muted" style="margin-top: 6px;">
-              설정이 어렵다면
-              <a href="https://buly.kr/5UJLf0u" target="_blank" rel="noopener noreferrer">서비스 계정 설정 가이드</a>
-              를 참고하세요.
-            </p>
-            <div id="settings-google-auth-status" class="status-badge" style="margin: 12px 0;">상태 확인 중...</div>
-            <div id="settings-google-auth-details" class="settings-google-auth-details">상세 정보 확인 중...</div>
-
-            <div class="form-grid">
-              <label>파일 업로드
-                <input id="settings-google-auth-file" type="file" accept=".json">
-              </label>
-              <label style="grid-column: 1 / -1;">텍스트 직접 붙여넣기
-                <textarea id="settings-google-auth-text" rows="5"
-                  placeholder="{&#10;  &quot;type&quot;: &quot;service_account&quot;,&#10;  ...&#10;}"></textarea>
-              </label>
-            </div>
-            <div class="form-actions" style="margin-top: 12px;">
-              <button id="settings-google-auth-save-btn" type="button">텍스트 내용 저장</button>
-            </div>
-            <pre id="settings-google-auth-result" class="settings-google-auth-result" style="margin-top: 12px;"></pre>
-          </div>
-
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
           <pre class="settings-major-result"></pre>

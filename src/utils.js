@@ -7,6 +7,7 @@ const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
 const KuzuService = require('./kuzu-service');
+const GoogleOAuth = require('./google-oauth');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -416,76 +417,15 @@ const Utils = {
             return this._cachedAccessToken;
         }
 
-        const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-        if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
-        const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH
-            || (typeof CONFIG.resolveRuntimePath === 'function'
-                ? CONFIG.resolveRuntimePath(rawPath, { mustExist: true })
-                : path.resolve(process.cwd(), rawPath));
-
-        if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
-
-        const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-        const credentials = JSON.parse(fileContent);
-
-        const privateKey = credentials.private_key.replace(/\\n/g, '\n');
-        const clientEmail = credentials.client_email;
-
-        const header = { alg: "RS256", typ: "JWT" };
-        const payload = {
-            iss: clientEmail,
-            scope: scopeKey,
-            aud: "https://oauth2.googleapis.com/token",
-            exp: now + 3600,
-            iat: now
-        };
-
-        const base64UrlEncode = (obj) => {
-            return Buffer.from(JSON.stringify(obj))
-                .toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-        };
-
-        const encodedHeader = base64UrlEncode(header);
-        const encodedPayload = base64UrlEncode(payload);
-
-        const sign = crypto.createSign('RSA-SHA256');
-        sign.update(`${encodedHeader}.${encodedPayload}`);
-        sign.end();
-        const signature = sign.sign(privateKey, 'base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-        const jwt = `${encodedHeader}.${encodedPayload}.${signature}`;
-
         try {
-            const res = await axios.post('https://oauth2.googleapis.com/token', null, {
-                params: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }
-            });
-
-            // 토큰 캐싱 저장
-            this._cachedAccessToken = res.data.access_token;
-            this._tokenExpiry = now + res.data.expires_in; // 보통 3600초
+            const { accessToken, tokens } = await GoogleOAuth.getAccessToken(normalizedScopes);
+            this._cachedAccessToken = accessToken;
+            this._tokenExpiry = Math.floor(Number(tokens.expiry_date || 0) / 1000);
             this._cachedScopeKey = scopeKey;
-
-            return this._cachedAccessToken;
+            return accessToken;
         } catch (e) {
-            throw new Error(`토큰 발급 실패: ${e.message}`);
+            throw new Error(`Google OAuth 토큰 발급 실패: ${e.message}`);
         }
-    },
-
-    getGoogleServiceAccountInfo: function () {
-        const rawPath = CONFIG.GOOGLE_AUTH_JSON;
-        if (!rawPath) throw new Error('설정 파일에 GOOGLE_AUTH_JSON 값이 없습니다.');
-        const keyFilePath = CONFIG.GOOGLE_AUTH_JSON_PATH
-            || (typeof CONFIG.resolveRuntimePath === 'function'
-                ? CONFIG.resolveRuntimePath(rawPath, { mustExist: true })
-                : path.resolve(process.cwd(), rawPath));
-        if (!fs.existsSync(keyFilePath)) throw new Error(`인증 파일을 찾을 수 없습니다: ${keyFilePath}`);
-        const fileContent = fs.readFileSync(keyFilePath, 'utf-8');
-        const credentials = JSON.parse(fileContent);
-        return {
-            clientEmail: String(credentials.client_email || ''),
-            projectId: String(credentials.project_id || ''),
-            privateKeyId: String(credentials.private_key_id || '')
-        };
     },
 
     /**

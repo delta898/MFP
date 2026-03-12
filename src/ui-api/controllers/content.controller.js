@@ -39,25 +39,47 @@ function createContentController(deps = {}) {
             }
         },
 
-        async googleAuthStatus({ requestId, method, res }) {
+        async googleOauthStatus({ requestId, method, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             try {
-                return sendSuccess(res, requestId, await service.getGoogleAuthStatus());
+                return sendSuccess(res, requestId, await service.getGoogleOauthStatus());
             } catch (e) {
-                return toErrorResponse(res, requestId, 'GOOGLE_AUTH_STATUS_ERROR', 'Google 인증 상태 조회에 실패했습니다.', e);
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_STATUS_ERROR', 'Google 연결 상태 조회에 실패했습니다.', e);
             }
         },
 
-        async googleAuthSave({ requestId, method, requestBody, res }) {
+        async googleOauthStart({ requestId, method, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             try {
-                return sendSuccess(res, requestId, await service.saveGoogleAuth(requestBody || {}));
+                return sendSuccess(res, requestId, await service.startGoogleOauth());
             } catch (e) {
-                return toErrorResponse(res, requestId, 'SAVE_FAILED', '저장 중 오류가 발생했습니다.', e);
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_START_FAILED', 'Google 연결 시작에 실패했습니다.', e);
+            }
+        },
+
+        async googleOauthDisconnect({ requestId, method, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.disconnectGoogleOauth());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_DISCONNECT_FAILED', 'Google 연결 해제에 실패했습니다.', e);
+            }
+        },
+
+        async googleOauthTest({ requestId, method, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.testGoogleOauthConnection());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_TEST_FAILED', 'Google 연결 테스트에 실패했습니다.', e);
             }
         },
 

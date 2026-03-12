@@ -1,7 +1,8 @@
 {
   "essential": {
     "gemini_api_key": "",
-    "google_auth_json": "./config/service_account.json",
+    "google_oauth_client_id": "",
+    "google_oauth_client_secret": "",
     "google_sheet_url": "",
     "listen_host": "127.0.0.1",
     "listen_port": 4577,

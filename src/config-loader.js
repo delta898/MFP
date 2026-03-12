@@ -53,7 +53,9 @@ try {
     console.warn("⚠️ 라이선스 서버 설정 파일을 찾지 못했습니다.");
     internalSecrets = {
         LICENSE_CHK_URL: "",
-        LICENSE_CHK_KEY: ""
+        LICENSE_CHK_KEY: "",
+        GOOGLE_OAUTH_CLIENT_ID: "",
+        GOOGLE_OAUTH_CLIENT_SECRET: ""
     };
 }
 
@@ -280,8 +282,10 @@ function resolveRuntimePath(rawPath, options = {}) {
 }
 
 // 💡 [환경변수 및 동적 경로 처리]
-const googleAuthRaw = String(process.env.GOOGLE_AUTH_JSON || structuredConfig.essential.google_auth_json || '').trim();
-const googleAuthPath = resolveRuntimePath(googleAuthRaw || './config/service_account.json', { mustExist: true });
+const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.essential.google_oauth_tokens_json || '').trim();
+const googleOauthTokensPath = resolveRuntimePath(googleOauthTokensRaw || './config/google_oauth_tokens.json', { mustExist: false });
+const googleOauthClientId = String(process.env.GOOGLE_OAUTH_CLIENT_ID || structuredConfig.essential.google_oauth_client_id || internalSecrets.GOOGLE_OAUTH_CLIENT_ID || '').trim();
+const googleOauthClientSecret = String(process.env.GOOGLE_OAUTH_CLIENT_SECRET || structuredConfig.essential.google_oauth_client_secret || internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET || '').trim();
 
 const workspaceRaw = String(structuredConfig.essential.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw
@@ -329,8 +333,10 @@ const CONFIG = {
 
     // 🔧 [Essential Resolved]
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || structuredConfig.essential.gemini_api_key,
-    GOOGLE_AUTH_JSON: googleAuthRaw,
-    GOOGLE_AUTH_JSON_PATH: googleAuthPath,
+    GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
+    GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
+    GOOGLE_OAUTH_TOKENS_JSON: googleOauthTokensRaw,
+    GOOGLE_OAUTH_TOKENS_JSON_PATH: googleOauthTokensPath,
     GOOGLE_SHEET_URL: resolvedSheetUrl,
     GOOGLE_SHEET_ID: resolvedSheetId,
     LISTEN_HOST: structuredConfig.essential.listen_host || '127.0.0.1',
