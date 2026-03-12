@@ -263,6 +263,16 @@ class TelegramBotService {
         return TelegramAgentRenderer.formatCapabilityHelpMessage();
     }
 
+    static isLegacyPublishRegisterRequest(text) {
+        const normalized = String(text || '').trim();
+        if (!normalized) return false;
+        const hasContentIntent = /(글감|주제|글|포스팅|발행|올려줘|써줘|작성해줘|등록해줘|추가해줘|저장만|저장해줘)/.test(normalized);
+        if (!hasContentIntent) return false;
+        const isMetaOnly = /(사용법|사용 방법|도움말|가이드|넌 누구|너 누구|뭐하는 봇|몇시|현재 시간)/.test(normalized);
+        if (isMetaOnly && !/(글감|주제|발행|등록|추가|저장)/.test(normalized)) return false;
+        return /(글감|주제).*(추가|등록|저장)|((네이버|워드프레스|워프|워드프레스에도|네이버에).*(발행|올려))|((발행|올려).*(해줘|해|해봐))|((글감|주제).*(발행|올려))|((저장만|등록만).*(해줘|해))/.test(normalized);
+    }
+
     static async tryHandleAgentRequest(chatId, text, msg, options = {}) {
         if (this.isAgentCapabilityHelpRequest(text)) {
             await this.bot.sendMessage(chatId, this.formatAgentCapabilityHelpMessage(), { parse_mode: 'Markdown' });
@@ -317,13 +327,16 @@ class TelegramBotService {
 
         const context = this.buildAgentContext(chatId, msg);
         context.messageId = String(msg?.message_id || '').trim();
+        const retrievalStartedAt = Date.now();
         context.memory = await this.agentRetrieval.buildContextPacket({
             conversationId: context.conversation.id,
             userId: context.user.id,
             limit: 8
         });
+        Logger.info(`⏱️ [TelegramAgent] retrieval ${Date.now() - retrievalStartedAt}ms`);
 
         if (this.agentEventStore) {
+            const eventAppendStartedAt = Date.now();
             await this.agentEventStore.appendEvent({
                 event_type: 'user.message.received',
                 actor_type: 'user',
@@ -336,26 +349,33 @@ class TelegramBotService {
                 user: context.user,
                 conversation: context.conversation
             }).catch(() => { });
+            Logger.info(`⏱️ [TelegramAgent] event append ${Date.now() - eventAppendStartedAt}ms`);
         }
 
+        const parserStartedAt = Date.now();
         const envelope = earlyDeterministicEnvelope || await parseTelegramAgentEnvelope(text, {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory
         });
+        Logger.info(`⏱️ [TelegramAgent] parser ${Date.now() - parserStartedAt}ms`);
 
         if (!Array.isArray(envelope?.actions) || envelope.actions.length === 0) {
             return { handled: false };
         }
 
+        const plannerStartedAt = Date.now();
         const planResult = await this.agentPlanner.buildPlan(envelope, context);
+        Logger.info(`⏱️ [TelegramAgent] planner ${Date.now() - plannerStartedAt}ms`);
         if (!planResult.ok) {
             Logger.debug(`⚠️ [TelegramBot] Agent plan rejected: ${(planResult.errors || []).join(' | ')}`);
             await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
             return { handled: true };
         }
 
+        const runtimeStartedAt = Date.now();
         const outcome = await runtime.handlePlan(planResult.plan, context);
+        Logger.info(`⏱️ [TelegramAgent] runtime ${Date.now() - runtimeStartedAt}ms`);
         if (!outcome.ok) {
             Logger.debug(`⚠️ [TelegramBot] Agent runtime rejected: ${(outcome.errors || []).join(' | ')}`);
             await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
@@ -568,21 +588,27 @@ class TelegramBotService {
             // 3. 일반 자연어 메시지 (Phase 2: AI 파싱 및 확인 대기)
             let loadingMsg = null;
             try {
+                const shouldUseLegacyPublishFlow = this.isLegacyPublishRegisterRequest(text);
+                if (shouldUseLegacyPublishFlow) {
+                    Logger.debug('↪️ [TelegramBot] 핵심 등록/발행 요청으로 판단하여 legacy publish/register 경로를 사용합니다.');
+                }
                 const agentContext = {
                     conversationId: `telegram:${String(chatId || '').trim()}`,
                     messageId: String(msg?.message_id || '').trim()
                 };
-                const deterministicEnvelope = tryParseDeterministicEnvelope(text, agentContext);
-                if (!deterministicEnvelope) {
+                const deterministicEnvelope = shouldUseLegacyPublishFlow ? null : tryParseDeterministicEnvelope(text, agentContext);
+                if (!deterministicEnvelope && !shouldUseLegacyPublishFlow) {
                     loadingMsg = await this.startLoadingIndicator(chatId);
                 }
 
-                const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg, {
-                    preParsedEnvelope: deterministicEnvelope
-                });
-                if (agentOutcome.handled) {
-                    await this.stopLoadingIndicator(chatId, loadingMsg);
-                    return;
+                if (!shouldUseLegacyPublishFlow) {
+                    const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg, {
+                        preParsedEnvelope: deterministicEnvelope
+                    });
+                    if (agentOutcome.handled) {
+                        await this.stopLoadingIndicator(chatId, loadingMsg);
+                        return;
+                    }
                 }
 
                 // AI 파싱 (Kuzu 영구 메모리 맥락 정보 포함)
