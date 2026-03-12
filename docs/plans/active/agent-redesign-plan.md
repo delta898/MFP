@@ -12,6 +12,38 @@
 
 ## 현재 다음 작업 순서
 
+## Phase 1 실전 안정화 체크리스트
+
+### 완료
+- Planner 계층 분리 (`parser -> planner -> runtime`)
+- planner rules 분리
+- setting update preflight query composition
+- confirmation을 plan 기준으로 확장
+- suggestion / content idea / provider / validator 기본 구조 연결
+- same-domain pending confirmation replacement
+- text 기반 최신 pending 적용/취소 처리
+
+### 남은 항목
+1. **deterministic parser coverage 확대**
+   - 시간/시간대 외 자주 쓰는 on/off, 기본 AI/Custom AI, provider 제어 표현 보강
+
+2. **confirmation UX 일관화**
+   - correction / replacement / multi-step preview 메시지 정리
+   - 현재값 / 변경값 / 대체 여부 표시 규칙 통일
+
+3. **provider failure visibility**
+   - Telegram 응답 또는 로그에서 knowledge provider 실패가 더 분명히 보이도록 정리
+
+4. **validator 적용 범위 확대**
+   - trends 외 나머지 자주 쓰는 setting domain에도 동일한 validation / correction 흐름 확장
+
+### Phase 1 종료 기준
+- Telegram에서 설정 조회/변경/확인/취소가 안정적으로 동작한다.
+- pending confirmation follow-up이 자연스럽게 동작한다.
+- 글감 추천과 추천 feedback이 memory loop에 기록된다.
+- provider가 실패해도 원인을 추적할 수 있다.
+- planner / runtime / capability / memory 경계가 유지된다.
+
 ### Phase A — 구조 보강
 1. **Planner 분리**
    - 현재 parser + runtime 조합을 `planner` 계층으로 분리

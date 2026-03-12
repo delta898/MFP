@@ -145,8 +145,11 @@ function resolveConfirmationMode(actions = []) {
 }
 
 function buildGoal(actions = []) {
-    const first = (Array.isArray(actions) ? actions : [])[0] || {};
-    return String(first.reason || `${first.domain || 'agent'}.${first.name || 'action'}`).trim();
+    const normalizedActions = Array.isArray(actions) ? actions : [];
+    const primary = normalizedActions.find((action) => String(action.type || '').trim() !== 'setting.query')
+        || normalizedActions[0]
+        || {};
+    return String(primary.reason || `${primary.domain || 'agent'}.${primary.name || 'action'}`).trim();
 }
 
 function buildPreconditions(action = {}, envelope = {}) {
@@ -189,11 +192,36 @@ function buildPreconditions(action = {}, envelope = {}) {
     return preconditions;
 }
 
+function findSupersededConfirmationId(actions = [], envelope = {}) {
+    const pendingConfirmations = Array.isArray(envelope.pending_confirmations) ? envelope.pending_confirmations : [];
+    if (pendingConfirmations.length === 0) return '';
+
+    const updateDomains = new Set(
+        (Array.isArray(actions) ? actions : [])
+            .filter((action) => String(action.type || '').trim() === 'setting.update')
+            .map((action) => String(action.domain || '').trim())
+            .filter(Boolean)
+    );
+    if (updateDomains.size === 0) return '';
+
+    const latestSameDomain = [...pendingConfirmations].reverse().find((item) => {
+        const planSteps = Array.isArray(item?.plan?.steps) ? item.plan.steps : [];
+        return planSteps.some((step) => {
+            const action = step?.action || {};
+            return String(action.type || '').trim() === 'setting.update'
+                && updateDomains.has(String(action.domain || '').trim());
+        });
+    });
+
+    return String(latestSameDomain?.id || '').trim();
+}
+
 function buildPlanFromActions(envelope = {}) {
     const expanded = expandActions(envelope.actions || []);
     const deduped = dedupeActions(expanded);
     const ordered = orderActions(deduped);
     const goal = buildGoal(ordered);
+    const supersedesConfirmationId = findSupersededConfirmationId(ordered, envelope);
 
     return normalizePlan({
         plan_id: `plan_${envelope.message_id || Date.now()}`,
@@ -202,6 +230,7 @@ function buildPlanFromActions(envelope = {}) {
         confirmation_mode: resolveConfirmationMode(ordered),
         conversation_id: String(envelope.conversation_id || '').trim(),
         message_id: String(envelope.message_id || '').trim(),
+        supersedes_confirmation_id: supersedesConfirmationId,
         steps: ordered.map((action, index) => ({
             id: `step_${index + 1}`,
             action,
@@ -220,5 +249,6 @@ module.exports = {
     resolveConfirmationMode,
     buildGoal,
     buildPreconditions,
+    findSupersededConfirmationId,
     buildPlanFromActions
 };

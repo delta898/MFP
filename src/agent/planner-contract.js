@@ -16,6 +16,7 @@ function normalizePlan(input = {}) {
         confirmation_mode: String(input.confirmation_mode || 'none').trim() || 'none',
         conversation_id: String(input.conversation_id || '').trim(),
         message_id: String(input.message_id || '').trim(),
+        supersedes_confirmation_id: String(input.supersedes_confirmation_id || '').trim(),
         steps: Array.isArray(input.steps) ? input.steps.map(normalizePlanStep) : []
     };
 }

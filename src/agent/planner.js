@@ -10,7 +10,7 @@ function createPlanner(options = {}) {
     }
 
     return {
-        async buildPlan(envelope = {}) {
+        async buildPlan(envelope = {}, context = {}) {
             const validation = validateActionEnvelope(envelope, capabilityRegistry);
             if (!validation.ok) {
                 return {
@@ -25,7 +25,10 @@ function createPlanner(options = {}) {
                 envelope: validation.envelope,
                 plan: buildPlanFromActions({
                     ...validation.envelope,
-                    routing: config?.knowledge?.routing || config?.KNOWLEDGE_ROUTING || {}
+                    routing: config?.knowledge?.routing || config?.KNOWLEDGE_ROUTING || {},
+                    pending_confirmations: Array.isArray(context?.memory?.pending_confirmations)
+                        ? context.memory.pending_confirmations
+                        : []
                 })
             };
         }

@@ -38,6 +38,9 @@ class ConfirmationStore {
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             previews: Array.isArray(payload.previews) ? payload.previews : [],
             correction: payload.correction && typeof payload.correction === 'object' ? payload.correction : null,
+            supersededConfirmationId: String(payload.superseded_confirmation_id || '').trim(),
+            transportChatId: String(payload.transport_chat_id || '').trim(),
+            transportMessageId: String(payload.transport_message_id || '').trim(),
             status: 'pending',
             createdAt: new Date(now).toISOString(),
             expiresAt: new Date(now + this.ttlMs).toISOString(),
@@ -70,6 +73,17 @@ class ConfirmationStore {
 
     markExecuted(id) {
         return this._updateStatus(id, 'executed');
+    }
+
+    bindTransportMessage(id, payload = {}) {
+        this._cleanupExpired();
+        const key = String(id || '').trim();
+        const item = this.items.get(key);
+        if (!item) return null;
+        item.transportChatId = String(payload.chatId || item.transportChatId || '').trim();
+        item.transportMessageId = String(payload.messageId || item.transportMessageId || '').trim();
+        this.items.set(key, item);
+        return { ...item };
     }
 
     _updateStatus(id, nextStatus) {

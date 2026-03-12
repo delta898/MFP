@@ -52,6 +52,19 @@ function createAgentRuntime(options = {}) {
         return results;
     }
 
+    function buildSyntheticCapabilityResult(action = {}, message = '', data = {}) {
+        return [{
+            action_id: String(action.id || '').trim() || 'act_synthetic',
+            capability_id: buildCapabilityId(action.domain, action.name),
+            result: {
+                success: true,
+                message,
+                data,
+                sideEffects: []
+            }
+        }];
+    }
+
     return {
         confirmationStore,
 
@@ -169,6 +182,54 @@ function createAgentRuntime(options = {}) {
                 conversation: runtimeContext?.conversation
             });
 
+            if (normalizedActions.length === 1) {
+                const pendingAction = normalizedActions[0];
+                if (String(pendingAction.domain || '').trim() === 'agent.pending'
+                    && (pendingAction.name === 'apply_latest' || pendingAction.name === 'reject_latest')) {
+                    const latestPending = confirmationStore.getPendingByUser(runtimeContext?.user?.id || '').slice(-1)[0] || null;
+                    if (!latestPending) {
+                        return buildCompletedResult(
+                            buildSyntheticCapabilityResult(
+                                pendingAction,
+                                '현재 확인 대기 중인 요청이 없습니다.',
+                                { pending: [] }
+                            ),
+                            { memory: runtimeContext.memory || {} }
+                        );
+                    }
+
+                    const decision = pendingAction.name === 'apply_latest' ? 'approve' : 'reject';
+                    const outcome = await this.handleConfirmationDecision({
+                        confirmationId: latestPending.id,
+                        decision
+                    }, context);
+
+                    if (!outcome.ok) {
+                        return buildInvalidResult([outcome.message || '확인 대기 중인 요청을 처리하지 못했습니다.']);
+                    }
+
+                    if (outcome.status === 'rejected') {
+                        return buildCompletedResult(
+                            buildSyntheticCapabilityResult(
+                                pendingAction,
+                                '가장 최근 확인 대기 중인 요청을 취소했습니다.',
+                                { confirmation_id: latestPending.id }
+                            ),
+                            { memory: runtimeContext.memory || {} }
+                        );
+                    }
+
+                    return buildCompletedResult([
+                        ...buildSyntheticCapabilityResult(
+                            pendingAction,
+                            '가장 최근 확인 대기 중인 요청을 적용했습니다.',
+                            { confirmation_id: latestPending.id }
+                        ),
+                        ...(Array.isArray(outcome.results) ? outcome.results : [])
+                    ], { memory: runtimeContext.memory || {} });
+                }
+            }
+
             const previewItems = [];
             let requiresConfirmation = false;
 
@@ -183,6 +244,25 @@ function createAgentRuntime(options = {}) {
             }
 
             if (requiresConfirmation) {
+                let supersededConfirmation = null;
+                if (planned.supersedes_confirmation_id) {
+                    supersededConfirmation = confirmationStore.reject(planned.supersedes_confirmation_id);
+                    if (supersededConfirmation) {
+                        await recordEvent({
+                            event_type: 'agent.confirmation.superseded',
+                            actor_type: 'agent',
+                            actor_id: runtimeContext?.user?.id || '',
+                            conversation_id: supersededConfirmation.conversationId || '',
+                            message_id: supersededConfirmation.messageId || '',
+                            payload: {
+                                previous_confirmation_id: supersededConfirmation.id,
+                                replacement_plan_id: planned.plan_id
+                            },
+                            user: runtimeContext?.user,
+                            conversation: runtimeContext?.conversation
+                        });
+                    }
+                }
                 const confirmation = confirmationStore.create({
                     conversationId: runtimeContext?.conversation?.id || planned.conversation_id || '',
                     messageId: planned.message_id || '',
@@ -190,7 +270,8 @@ function createAgentRuntime(options = {}) {
                     userId: runtimeContext?.user?.id || '',
                     plan: planned,
                     actions: normalizedActions,
-                    previews: previewItems
+                    previews: previewItems,
+                    superseded_confirmation_id: supersededConfirmation?.id || planned.supersedes_confirmation_id || ''
                 });
                 await recordEvent({
                     event_type: 'agent.confirmation.requested',

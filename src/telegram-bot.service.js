@@ -251,7 +251,7 @@ class TelegramBotService {
         if (outcome.status === 'confirmation_required') {
             const confirmationId = outcome.confirmation?.id;
             const message = TelegramAgentRenderer.formatPreviewMessage(outcome.confirmation, outcome.previews);
-            await this.bot.sendMessage(chatId, message, {
+            const sent = await this.bot.sendMessage(chatId, message, {
                 parse_mode: 'Markdown',
                 reply_markup: JSON.stringify({
                     inline_keyboard: [
@@ -260,6 +260,31 @@ class TelegramBotService {
                     ]
                 })
             });
+            if (confirmationId) {
+                runtime.confirmationStore.bindTransportMessage(confirmationId, {
+                    chatId: String(chatId || '').trim(),
+                    messageId: String(sent?.message_id || '').trim()
+                });
+            }
+            const supersededId = String(outcome.confirmation?.supersededConfirmationId || '').trim();
+            if (supersededId) {
+                const superseded = runtime.confirmationStore.get(supersededId);
+                let supersededEdited = false;
+                if (superseded?.transportChatId && superseded?.transportMessageId) {
+                    await this.bot.editMessageText(TelegramAgentRenderer.formatSupersededConfirmationMessage(), {
+                        chat_id: /^-?\d+$/.test(String(superseded.transportChatId)) ? Number(superseded.transportChatId) : superseded.transportChatId,
+                        message_id: Number(superseded.transportMessageId),
+                        reply_markup: { inline_keyboard: [] }
+                    }).then(() => {
+                        supersededEdited = true;
+                    }).catch((error) => {
+                        Logger.debug(`⚠️ [TelegramBot] Superseded confirmation edit failed: ${error.message}`);
+                    });
+                }
+                if (!supersededEdited) {
+                    await this.bot.sendMessage(chatId, 'ℹ️ 이전 확인 요청은 더 최신 요청으로 대체되었습니다. 아래 최신 카드로 계속 진행하세요.').catch(() => { });
+                }
+            }
             return { handled: true };
         }
 

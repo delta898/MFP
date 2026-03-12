@@ -2,6 +2,7 @@ const MAX_ACTIONS_PER_MESSAGE = 3;
 
 const ALLOWED_ACTION_TYPES = new Set([
     'agent.query',
+    'agent.command',
     'setting.query',
     'setting.update',
     'job.run',

@@ -47,6 +47,66 @@ function createAgentPendingCapabilities() {
                     sideEffects: []
                 };
             }
+        },
+        {
+            id: 'agent.pending.apply_latest',
+            type: 'agent.command',
+            domain: 'agent.pending',
+            name: 'apply_latest',
+            confirmPolicy: 'never',
+            validate() {
+                return { ok: true, errors: [], normalizedParams: {} };
+            },
+            async preview(_params = {}, context = {}) {
+                const pending = Array.isArray(context?.memory?.pending_confirmations)
+                    ? context.memory.pending_confirmations
+                    : [];
+                return {
+                    summary: '가장 최근 확인 대기 중인 요청을 적용합니다.',
+                    before: {
+                        pending_count: pending.length
+                    },
+                    after: {}
+                };
+            },
+            async execute(_params = {}, _context = {}) {
+                return {
+                    success: true,
+                    message: '가장 최근 확인 대기 중인 요청을 적용합니다.',
+                    data: {},
+                    sideEffects: []
+                };
+            }
+        },
+        {
+            id: 'agent.pending.reject_latest',
+            type: 'agent.command',
+            domain: 'agent.pending',
+            name: 'reject_latest',
+            confirmPolicy: 'never',
+            validate() {
+                return { ok: true, errors: [], normalizedParams: {} };
+            },
+            async preview(_params = {}, context = {}) {
+                const pending = Array.isArray(context?.memory?.pending_confirmations)
+                    ? context.memory.pending_confirmations
+                    : [];
+                return {
+                    summary: '가장 최근 확인 대기 중인 요청을 취소합니다.',
+                    before: {
+                        pending_count: pending.length
+                    },
+                    after: {}
+                };
+            },
+            async execute(_params = {}, _context = {}) {
+                return {
+                    success: true,
+                    message: '가장 최근 확인 대기 중인 요청을 취소합니다.',
+                    data: {},
+                    sideEffects: []
+                };
+            }
         }
     ];
 }

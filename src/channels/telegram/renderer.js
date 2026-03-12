@@ -23,6 +23,11 @@ function formatPreviewMessage(confirmation = null, previews = []) {
         lines.push('');
     }
 
+    if (confirmation?.supersededConfirmationId) {
+        lines.push('기존 확인 대기 중 요청 1건을 대체합니다.');
+        lines.push('');
+    }
+
     previews.forEach((item, index) => {
         const preview = item.preview || {};
         lines.push(`${index + 1}. *${escapeMarkdown(preview.summary || item.capability_id || '변경 요청')}*`);
@@ -68,6 +73,10 @@ function formatExecutionMessage(results = []) {
         lines.push(`${index + 1}. ${escapeMarkdown(result.message || item.capability_id || '완료')}`);
     });
     return lines.join('\n');
+}
+
+function formatSupersededConfirmationMessage() {
+    return 'ℹ️ 이 확인 요청은 더 최신 설정 변경 요청으로 대체되었습니다.\n\n최신 요청 카드에서 계속 진행하세요.';
 }
 
 function buildSuggestionKeyboard(results = []) {
@@ -145,6 +154,7 @@ module.exports = {
     escapeMarkdown,
     formatPreviewMessage,
     formatExecutionMessage,
+    formatSupersededConfirmationMessage,
     formatCapabilityHelpMessage,
     buildSuggestionKeyboard,
     buildArtifactKeyboard

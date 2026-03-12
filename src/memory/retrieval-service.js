@@ -61,7 +61,8 @@ function createMemoryRetrievalService(options = {}) {
                     id: item.id,
                     status: item.status,
                     createdAt: item.createdAt,
-                    previews: item.previews || []
+                    previews: item.previews || [],
+                    plan: item.plan && typeof item.plan === 'object' ? item.plan : null
                 })) : []
             };
         }
