@@ -163,7 +163,8 @@ function buildContentRequestKeyboard(bundle = {}) {
         ]);
     }
 
-    const confirmLabel = publishPayload?.auto_trigger !== false
+    const hasPublishExecution = !!publishPayload && showPublishOptions && publishPayload.auto_trigger !== false;
+    const confirmLabel = hasPublishExecution
         ? '✅ 네, 이대로 진행해 주세요'
         : (registerPayload ? '✅ 네, 이대로 등록해 주세요' : '✅ 네, 진행해 주세요');
     keyboard.push([{ text: confirmLabel, callback_data: 'publish_confirm' }]);
