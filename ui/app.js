@@ -180,6 +180,7 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
+let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
 let naverCommentDraftItems = [];
@@ -3257,6 +3258,7 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
   sv(geminiKeyEl, fields.GEMINI_API_KEY || '');
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
+  settingsTelegramRuntimeStatus = data?.telegramBotStatus || null;
 
   const imageOptimizationEl = document.getElementById('settings-image-optimization');
   sc(imageOptimizationEl, fields.IMAGE_OPTIMIZATION_ENABLED ?? true);
@@ -3378,6 +3380,7 @@ function applySettingsMajorToForm(data, options = {}) {
 
   settingsMajorApplyingForm = false;
   settingsMajorLoadedOnce = true;
+  syncSettingsTelegramUi();
   syncSettingsMcpUi();
   playSettingsTypingPreview();
 
@@ -3563,6 +3566,44 @@ function syncSettingsMcpTokenDisplay() {
   }
   if (copyBtn) {
     copyBtn.disabled = !hasToken;
+  }
+}
+
+function buildSettingsTelegramPreviewLines() {
+  const enabled = Boolean(document.getElementById('settings-notify-telegram-enabled')?.checked);
+  const botToken = String(document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim();
+  const chatId = String(document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim();
+  const runtimeRunning = settingsTelegramRuntimeStatus?.running === true;
+  const runtimeEnabled = settingsTelegramRuntimeStatus?.enabled === true;
+  const runtimeConfigured = settingsTelegramRuntimeStatus?.configured === true;
+  const runtimeStateLabel = runtimeRunning
+    ? '실행 중'
+    : (runtimeEnabled
+      ? (runtimeConfigured ? '중지됨' : '설정 미완료')
+      : '중지됨');
+
+  const lines = [
+    `현재 상태: ${runtimeStateLabel}`,
+    `저장 후 적용: ${enabled ? '활성화' : '비활성화'}`
+  ];
+
+  if (!botToken || !chatId) {
+    lines.push('봇 토큰과 챗 ID가 모두 있어야 저장 및 적용 시 텔레그램 봇이 시작됩니다.');
+  } else {
+    lines.push('저장 및 적용 시 현재 입력한 봇 토큰과 챗 ID로 텔레그램 봇 상태가 다시 적용됩니다.');
+  }
+
+  if (!enabled) {
+    lines.push('비활성화 상태로 저장하면 텔레그램 봇은 실행되지 않습니다.');
+  }
+
+  return lines;
+}
+
+function syncSettingsTelegramUi() {
+  const previewEl = document.getElementById('settings-telegram-status-preview');
+  if (previewEl) {
+    previewEl.textContent = buildSettingsTelegramPreviewLines().join('\n');
   }
 }
 
@@ -5971,6 +6012,9 @@ function bindActions() {
   settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', loadSettingsMajor));
   settingsMajorSaveBtns.forEach(btn => btn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' })));
   [
+    document.getElementById('settings-notify-telegram-enabled'),
+    document.getElementById('settings-notify-telegram-bot-token'),
+    document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-mcp-remote-enabled'),
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-mcp-remote-port'),
@@ -5978,7 +6022,10 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-auth-token-display')
   ].filter(Boolean).forEach((el) => {
     const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
-    el.addEventListener(eventName, syncSettingsMcpUi);
+    el.addEventListener(eventName, () => {
+      syncSettingsTelegramUi();
+      syncSettingsMcpUi();
+    });
   });
   const settingsMcpRemoteAuthTokenDisplay = document.getElementById('settings-mcp-remote-auth-token-display');
   if (settingsMcpRemoteAuthTokenDisplay) {

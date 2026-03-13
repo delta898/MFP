@@ -1438,7 +1438,13 @@
                 <input id="settings-notify-telegram-enabled" type="checkbox">
                 <span style="font-size: 1rem; font-weight: 700;">텔레그램 알림 활성화</span>
               </label>
-              <small class="muted">자동 발행 완료 시 텔레그램으로 알림을 보냅니다. (봇 토큰과 챗 ID가 필요합니다)</small>
+              <small class="muted">자동 발행 완료 시 텔레그램으로 알림을 보냅니다. 체크박스 변경은 저장 전까지는 설정 초안이며, `저장 및 적용` 시 실제 봇 상태에 반영됩니다.</small>
+            </div>
+
+            <div class="settings-auth-section"
+              style="grid-column: 1 / -1; margin-top: 4px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
+              <div style="font-weight: 600; margin-bottom: 6px;">텔레그램 적용 상태</div>
+              <pre id="settings-telegram-status-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
             </div>
 
             <label>텔레그램 봇 토큰 (Bot Token)

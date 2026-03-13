@@ -1131,6 +1131,19 @@ class TelegramBotService {
         }
     }
 
+    static getStatus() {
+        const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED === true;
+        const botToken = String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
+        const chatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
+        return {
+            enabled,
+            configured: Boolean(botToken && chatId),
+            running: Boolean(this.isInitialized && this.bot),
+            hasBotToken: Boolean(botToken),
+            hasChatId: Boolean(chatId)
+        };
+    }
+
     static async stop() {
         if (this.bot) {
             try {

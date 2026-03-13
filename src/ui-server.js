@@ -1240,6 +1240,9 @@ function buildMajorSettings(raw, configSource) {
         configPath: configSource?.path || CONFIG.CONFIG_SOURCE_PATH || '',
         configSourceType: configSource?.sourceType || CONFIG.CONFIG_SOURCE_TYPE || 'json',
         fields,
+        telegramBotStatus: typeof TelegramBotService.getStatus === 'function'
+            ? TelegramBotService.getStatus()
+            : null,
         remoteMcpStatus: getRemoteServiceStatus(),
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
