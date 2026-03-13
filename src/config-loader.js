@@ -321,6 +321,12 @@ const resolvedSheetId = extractGoogleSheetId(userSheetUrl);
 const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
     : userSheetUrl;
+const remoteMcpConfig = structuredConfig.mcp?.remote && typeof structuredConfig.mcp.remote === 'object'
+    ? structuredConfig.mcp.remote
+    : {};
+const remoteMcpAuthConfig = remoteMcpConfig.auth && typeof remoteMcpConfig.auth === 'object'
+    ? remoteMcpConfig.auth
+    : {};
 
 // 타이핑 속도 변환
 const typingModeRaw = String(structuredConfig.platforms.naver.typing_speed || 'NORMAL').trim().toUpperCase();
@@ -458,6 +464,12 @@ const CONFIG = {
     KNOWLEDGE_ROUTING: structuredConfig.knowledge?.routing && typeof structuredConfig.knowledge.routing === 'object' ? structuredConfig.knowledge.routing : {},
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
     NOTIFY_SLACK_WEBHOOK_URL: structuredConfig.notification?.slack?.webhook_url || '',
+    MCP_REMOTE_ENABLED: remoteMcpConfig.enabled !== false,
+    MCP_REMOTE_HOST: String(remoteMcpConfig.host || '127.0.0.1').trim() || '127.0.0.1',
+    MCP_REMOTE_PORT: Number(remoteMcpConfig.port || 4578) || 4578,
+    MCP_REMOTE_PATH: String(remoteMcpConfig.path || '/mcp').trim() || '/mcp',
+    MCP_REMOTE_AUTH_MODE: String(remoteMcpAuthConfig.mode || 'none').trim() || 'none',
+    MCP_REMOTE_AUTH_TOKEN: String(remoteMcpAuthConfig.bearer_token || '').trim(),
     NAVER_COMMENT_DRAFT_AI_MODE: structuredConfig.features?.naver?.comment_draft?.ai_mode === 'custom' ? 'custom' : 'default',
     NAVER_COMMENT_DRAFT_FETCH_LIMIT: Number(structuredConfig.features?.naver?.comment_draft?.fetch_limit || 10),
     NAVER_COMMENT_DRAFT_TONE: structuredConfig.features?.naver?.comment_draft?.tone || 'empathetic',

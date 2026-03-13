@@ -1,15 +1,17 @@
 # MCP Client Setup
 
 ## Purpose
-현재 저장소에는 register/publish 중심의 prototype MCP stdio server가 포함되어 있다.
+현재 저장소에는 register/publish 중심의 prototype MCP server가 포함되어 있다.
 
 엔트리 포인트:
 - `src/mcp/stdio-server.js`
+- `src/mcp/http-server.js`
 
 실행 명령:
 
 ```bash
 npm run mcp:stdio
+npm run mcp:http
 ```
 
 현재 노출되는 tool:
@@ -23,7 +25,7 @@ npm run mcp:stdio
 - `tools/list`
 - `tools/call`
 
-즉, MCP 클라이언트가 stdio 기반으로 서버를 띄우고 tool discovery / tool invoke까지 수행하는 최소 경로는 동작한다.
+즉, MCP 클라이언트가 stdio 또는 HTTP 기반으로 서버에 연결하고 tool discovery / tool invoke까지 수행하는 최소 경로는 동작한다.
 
 ## Codex CLI Setup
 Codex CLI에서는 `codex mcp add`로 로컬 stdio 서버를 등록할 수 있다.
@@ -82,11 +84,74 @@ stdio 기반 MCP 클라이언트가 `mcpServers` 형식을 사용한다면 아�
 
 `cwd`를 지원하는 host라면 설정하는 편이 안전하다.
 
+## Remote HTTP Prototype
+BlogGenius App을 실행하면 `McpRemoteService`가 UI 서버와 별도로 함께 관리된다.
+
+기본 endpoint:
+
+```text
+http://127.0.0.1:4578/mcp
+```
+
+설정 위치:
+- `config/config.json`
+- `mcp.remote.enabled`
+- `mcp.remote.host`
+- `mcp.remote.port`
+- `mcp.remote.path`
+- `mcp.remote.auth.mode`
+- `mcp.remote.auth.bearer_token`
+- `mcp.remote.allowed_origins`
+
+예시:
+
+```json
+{
+  "mcp": {
+    "remote": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 4578,
+      "path": "/mcp",
+      "auth": {
+        "mode": "bearer",
+        "bearer_token": "change-me"
+      },
+      "allowed_origins": [
+        "http://localhost:3000"
+      ]
+    }
+  }
+}
+```
+
+현재 remote transport 동작 방식:
+- request/response 본 경로는 `POST /mcp`다.
+- `initialize` 응답 시 `mcp-session-id` 헤더를 발급한다.
+- 후속 `tools/list`, `tools/call` 요청은 같은 `mcp-session-id`를 포함해야 한다.
+- `DELETE /mcp` with `mcp-session-id`로 세션 종료가 가능하다.
+- 서버 응답은 현재 `application/json` 중심이며 SSE streaming/resume은 아직 없다.
+
+주의:
+- 기본 bind는 `127.0.0.1:4578`을 권장한다.
+- 로컬호스트 외 노출 시에는 bearer token을 설정하는 편이 안전하다.
+- Origin 검사는 localhost / same-host / `allowed_origins`만 허용한다.
+- `0.0.0.0`으로 바인딩한 경우 MCP client는 `0.0.0.0`이 아니라 실제 LAN IP 또는 reverse proxy URL을 사용해야 한다.
+
+접속 URL 예시:
+- 같은 컴퓨터: `http://127.0.0.1:4578/mcp`
+- 같은 네트워크: `http://192.168.x.x:4578/mcp`
+- reverse proxy/public: `https://your-domain.com/mcp`
+
+reverse proxy 사용 시 원칙:
+- MCP client에는 내부 포트가 아니라 외부에서 실제로 보이는 최종 URL을 넣는다.
+- 예: nginx가 `https://blog.example.com/mcp`를 내부 `127.0.0.1:4578/mcp`로 전달하면, MCP client 설정은 `https://blog.example.com/mcp`다.
+
 ## Smoke Test Flow
 정상 동작 기준 최소 흐름:
 
 1. `initialize`
-2. `notifications/initialized`
+2. `notifications/initialized` 또는 `mcp-session-id` 저장
 3. `tools/list`
 4. `tools/call` with `content_request_prepare`
 5. `tools/call` with `confirmation_decide`
@@ -95,10 +160,11 @@ stdio 기반 MCP 클라이언트가 `mcpServers` 형식을 사용한다면 아�
 - prototype MCP server이며 full production transport hardening 단계는 아직 아니다.
 - content domain만 우선 노출한다.
 - settings / jobs / suggestions tool surface는 아직 추가하지 않았다.
-- OAuth / remote auth / streamable HTTP server는 아직 없다.
+- remote auth는 shared bearer token 수준의 최소 전략만 있다.
+- Streamable HTTP 중 SSE / resumability / multi-session persistence는 아직 없다.
 
 ## Recommended Next Steps
-- Codex/Claude 실제 클라이언트에 1회 연결 후 smoke test
+- Codex/Claude 실제 클라이언트에 remote endpoint 연결 smoke test
+- single-user / single-client 가정 기준 confirmation fallback 단순화 점검
 - `settings` / `jobs` tool 추가
 - tool input schema를 더 엄격한 JSON schema로 보강
-- 필요 시 stdio 외 transport도 검토

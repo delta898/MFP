@@ -28,6 +28,8 @@ function createSettingsService(deps = {}) {
         syncAutoRunnerWithConfig,
         syncShoppingAutoRunnerWithConfig,
         scheduleUiReload,
+        restartRemoteMcpService,
+        getRemoteServiceStatus,
         createConfigRevision,
         parseConfigValue,
         TelegramService
@@ -60,6 +62,12 @@ function createSettingsService(deps = {}) {
             const prevTelegramEnabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
             const prevTelegramBotToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
             const prevTelegramChatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
+            const prevMcpRemoteEnabled = CONFIG.MCP_REMOTE_ENABLED ?? (CONFIG.mcp?.remote?.enabled !== false);
+            const prevMcpRemoteHost = String(CONFIG.MCP_REMOTE_HOST || CONFIG.mcp?.remote?.host || '127.0.0.1').trim();
+            const prevMcpRemotePort = normalizeListenPort(CONFIG.MCP_REMOTE_PORT || CONFIG.mcp?.remote?.port, 4578);
+            const prevMcpRemotePath = String(CONFIG.MCP_REMOTE_PATH || CONFIG.mcp?.remote?.path || '/mcp').trim();
+            const prevMcpRemoteAuthMode = String(CONFIG.MCP_REMOTE_AUTH_MODE || CONFIG.mcp?.remote?.auth?.mode || 'none').trim();
+            const prevMcpRemoteAuthToken = String(CONFIG.MCP_REMOTE_AUTH_TOKEN || CONFIG.mcp?.remote?.auth?.bearer_token || '').trim();
 
             const imageKeys = [
                 'FTC_DISCLOSURE_IMAGE_URL',
@@ -94,6 +102,9 @@ function createSettingsService(deps = {}) {
             const requiredErrors = validateRequiredShoppingImageSources(fields);
             if (requiredErrors.length > 0) {
                 throw createApiError(400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
+            }
+            if (fields.MCP_REMOTE_ENABLED && fields.MCP_REMOTE_AUTH_MODE === 'bearer' && !String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim()) {
+                throw createApiError(400, 'INVALID_MCP_AUTH', 'MCP 인증 모드가 bearer라면 bearer token을 입력해야 합니다.');
             }
 
             // 💡 [JSON 기반 저장 로직 시작]
@@ -229,6 +240,17 @@ function createSettingsService(deps = {}) {
             structuredConfig.notification.slack.enabled = fields.NOTIFY_SLACK_ENABLED;
             structuredConfig.notification.slack.webhook_url = fields.NOTIFY_SLACK_WEBHOOK_URL;
 
+            // MCP Remote
+            if (!structuredConfig.mcp) structuredConfig.mcp = {};
+            if (!structuredConfig.mcp.remote) structuredConfig.mcp.remote = {};
+            structuredConfig.mcp.remote.enabled = fields.MCP_REMOTE_ENABLED;
+            structuredConfig.mcp.remote.host = fields.MCP_REMOTE_HOST;
+            structuredConfig.mcp.remote.port = Number(fields.MCP_REMOTE_PORT);
+            structuredConfig.mcp.remote.path = fields.MCP_REMOTE_PATH;
+            if (!structuredConfig.mcp.remote.auth) structuredConfig.mcp.remote.auth = {};
+            structuredConfig.mcp.remote.auth.mode = fields.MCP_REMOTE_AUTH_MODE;
+            structuredConfig.mcp.remote.auth.bearer_token = fields.MCP_REMOTE_AUTH_TOKEN;
+
             // 파일 저장 (Pretty JSON)
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
             fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf-8');
@@ -250,6 +272,13 @@ function createSettingsService(deps = {}) {
             const requiresRestart =
                 fields.LISTEN_HOST !== prevListenHost ||
                 normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT) !== prevListenPort;
+            const mcpSettingsChanged =
+                fields.MCP_REMOTE_ENABLED !== prevMcpRemoteEnabled ||
+                fields.MCP_REMOTE_HOST !== prevMcpRemoteHost ||
+                normalizeListenPort(fields.MCP_REMOTE_PORT, 4578) !== prevMcpRemotePort ||
+                fields.MCP_REMOTE_PATH !== prevMcpRemotePath ||
+                fields.MCP_REMOTE_AUTH_MODE !== prevMcpRemoteAuthMode ||
+                String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim() !== prevMcpRemoteAuthToken;
 
             CONFIG.CONFIG_READY = true;
             CONFIG.CONFIG_SOURCE_TYPE = 'json';
@@ -277,21 +306,37 @@ function createSettingsService(deps = {}) {
             if (requiresRestart) {
                 scheduleUiReload(fields.LISTEN_HOST, normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT));
             }
+            if (mcpSettingsChanged && typeof restartRemoteMcpService === 'function') {
+                await restartRemoteMcpService({
+                    enabled: fields.MCP_REMOTE_ENABLED,
+                    host: fields.MCP_REMOTE_HOST,
+                    port: normalizeListenPort(fields.MCP_REMOTE_PORT, 4578),
+                    path: fields.MCP_REMOTE_PATH,
+                    authMode: fields.MCP_REMOTE_AUTH_MODE,
+                    authToken: String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim()
+                });
+            }
 
             const updatedSettings = buildMajorSettings(null, {
                 path: writablePath,
                 sourceType: 'json'
             });
+            const remoteMcpStatus = typeof getRemoteServiceStatus === 'function'
+                ? getRemoteServiceStatus()
+                : null;
 
             return {
                 requiresRestart,
                 restarting: requiresRestart,
                 newHost: fields.LISTEN_HOST,
                 newPort: normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT),
-                message: requiresRestart ? '주요 설정 저장 완료. 서버가 재시작됩니다...' : '주요 설정 저장 완료',
+                message: requiresRestart
+                    ? '주요 설정 저장 완료. 서버가 재시작됩니다...'
+                    : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서비스 구성이 반영되었습니다.' : '주요 설정 저장 완료'),
                 fields: updatedSettings.fields,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
-                shoppingImageDefaults: updatedSettings.shoppingImageDefaults
+                shoppingImageDefaults: updatedSettings.shoppingImageDefaults,
+                remoteMcpStatus
             };
         },
 

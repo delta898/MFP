@@ -24,6 +24,7 @@ const ShoppingManager = require('./shopping-manager');
 const Updater = require('./updater');
 const RuntimeConfig = require('./runtime-config');
 const { registerRuntimeHooks } = require('./runtime-hooks');
+const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
 const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
@@ -502,6 +503,20 @@ function normalizeListenPort(input, fallback = DEFAULT_PORT) {
     const parsed = parseInt(String(input || ''), 10);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) return fallback;
     return parsed;
+}
+
+function normalizeMcpPath(input, fallback = '/mcp') {
+    const raw = String(input || '').trim();
+    if (!raw) return fallback;
+    const prefixed = raw.startsWith('/') ? raw : `/${raw}`;
+    return prefixed.length > 1 ? prefixed.replace(/\/+$/, '') : prefixed;
+}
+
+function normalizeMcpAuthMode(input, fallback = 'none') {
+    const raw = String(input || '').trim().toLowerCase();
+    if (raw === 'bearer') return 'bearer';
+    if (raw === 'none') return 'none';
+    return fallback;
 }
 
 function extractGoogleSheetId(input) {
@@ -1219,7 +1234,14 @@ function buildMajorSettings(raw, configSource) {
 
         // Slack Notification
         NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
-        NOTIFY_SLACK_WEBHOOK_URL: CONFIG.NOTIFY_SLACK_WEBHOOK_URL
+        NOTIFY_SLACK_WEBHOOK_URL: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
+
+        MCP_REMOTE_ENABLED: CONFIG.MCP_REMOTE_ENABLED ?? (CONFIG.mcp?.remote?.enabled !== false),
+        MCP_REMOTE_HOST: CONFIG.MCP_REMOTE_HOST || CONFIG.mcp?.remote?.host || '127.0.0.1',
+        MCP_REMOTE_PORT: CONFIG.MCP_REMOTE_PORT || CONFIG.mcp?.remote?.port || 4578,
+        MCP_REMOTE_PATH: CONFIG.MCP_REMOTE_PATH || CONFIG.mcp?.remote?.path || '/mcp',
+        MCP_REMOTE_AUTH_MODE: CONFIG.MCP_REMOTE_AUTH_MODE || CONFIG.mcp?.remote?.auth?.mode || 'none',
+        MCP_REMOTE_AUTH_TOKEN: CONFIG.MCP_REMOTE_AUTH_TOKEN || CONFIG.mcp?.remote?.auth?.bearer_token || ''
     };
 
     return {
@@ -1250,6 +1272,12 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
     const autoSettings = normalizeBlogAutoSettings(fields);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
+    const mcpRemoteEnabled = normalizeBool(fields.MCP_REMOTE_ENABLED, true);
+    const mcpRemoteHost = normalizeListenHost(fields.MCP_REMOTE_HOST, '127.0.0.1');
+    const mcpRemotePort = normalizeListenPort(fields.MCP_REMOTE_PORT, 4578);
+    const mcpRemotePath = normalizeMcpPath(fields.MCP_REMOTE_PATH, '/mcp');
+    const mcpRemoteAuthMode = normalizeMcpAuthMode(fields.MCP_REMOTE_AUTH_MODE, 'none');
+    const mcpRemoteAuthToken = String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim();
 
     CONFIG.NAVER_ID = naverId;
     CONFIG.WORDPRESS_URL = wordpressUrl;
@@ -1319,6 +1347,21 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     // Slack Notify
     CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
     CONFIG.NOTIFY_SLACK_WEBHOOK_URL = String(fields.NOTIFY_SLACK_WEBHOOK_URL || '').trim();
+    CONFIG.MCP_REMOTE_ENABLED = mcpRemoteEnabled;
+    CONFIG.MCP_REMOTE_HOST = mcpRemoteHost;
+    CONFIG.MCP_REMOTE_PORT = mcpRemotePort;
+    CONFIG.MCP_REMOTE_PATH = mcpRemotePath;
+    CONFIG.MCP_REMOTE_AUTH_MODE = mcpRemoteAuthMode;
+    CONFIG.MCP_REMOTE_AUTH_TOKEN = mcpRemoteAuthToken;
+    if (!CONFIG.mcp || typeof CONFIG.mcp !== 'object') CONFIG.mcp = {};
+    if (!CONFIG.mcp.remote || typeof CONFIG.mcp.remote !== 'object') CONFIG.mcp.remote = {};
+    CONFIG.mcp.remote.enabled = mcpRemoteEnabled;
+    CONFIG.mcp.remote.host = mcpRemoteHost;
+    CONFIG.mcp.remote.port = mcpRemotePort;
+    CONFIG.mcp.remote.path = mcpRemotePath;
+    if (!CONFIG.mcp.remote.auth || typeof CONFIG.mcp.remote.auth !== 'object') CONFIG.mcp.remote.auth = {};
+    CONFIG.mcp.remote.auth.mode = mcpRemoteAuthMode;
+    CONFIG.mcp.remote.auth.bearer_token = mcpRemoteAuthToken;
 
     Object.assign(CONFIG, autoSettings);
     Object.assign(CONFIG, shoppingAutoSettings);
@@ -1408,7 +1451,14 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         CUSTOM_AI_MODEL: String(requestBody.CUSTOM_AI_MODEL || '').trim(),
 
         NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
-        NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim()
+        NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),
+
+        MCP_REMOTE_ENABLED: normalizeBool(requestBody.MCP_REMOTE_ENABLED, true),
+        MCP_REMOTE_HOST: normalizeListenHost(requestBody.MCP_REMOTE_HOST, '127.0.0.1'),
+        MCP_REMOTE_PORT: normalizeListenPort(requestBody.MCP_REMOTE_PORT, 4578),
+        MCP_REMOTE_PATH: normalizeMcpPath(requestBody.MCP_REMOTE_PATH, '/mcp'),
+        MCP_REMOTE_AUTH_MODE: normalizeMcpAuthMode(requestBody.MCP_REMOTE_AUTH_MODE, 'none'),
+        MCP_REMOTE_AUTH_TOKEN: String(requestBody.MCP_REMOTE_AUTH_TOKEN || '').trim()
     };
 }
 
@@ -4945,6 +4995,8 @@ function getSettingsRouteHandler() {
             syncAutoRunnerWithConfig,
             syncShoppingAutoRunnerWithConfig,
             scheduleUiReload,
+            restartRemoteMcpService,
+            getRemoteServiceStatus,
             createConfigRevision,
             parseConfigValue,
             TelegramService

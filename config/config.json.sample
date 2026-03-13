@@ -44,6 +44,19 @@
       ]
     }
   },
+  "mcp": {
+    "remote": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 4578,
+      "path": "/mcp",
+      "auth": {
+        "mode": "none",
+        "bearer_token": ""
+      },
+      "allowed_origins": []
+    }
+  },
   "platforms": {
     "naver": {
       "user_id": "",

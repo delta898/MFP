@@ -1202,6 +1202,43 @@
             <label>LISTEN_PORT
               <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
             </label>
+            <div class="form-field-block"
+              style="grid-column: 1 / -1; border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
+              <span class="field-label-text">Remote MCP Server</span>
+              <label class="settings-checkbox-label" style="margin-top: 8px;">
+                <input id="settings-mcp-remote-enabled" type="checkbox">
+                <span>BlogGenius MCP 서버 활성화</span>
+              </label>
+              <small class="muted" style="display:block; margin-top:8px;">
+                같은 컴퓨터, 동일 네트워크, reverse proxy 공개 시나리오를 위한 별도 MCP endpoint 설정입니다.
+              </small>
+            </div>
+            <label>MCP_REMOTE_HOST
+              <select id="settings-mcp-remote-host">
+                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
+                <option value="0.0.0.0">0.0.0.0 (동일 네트워크/프록시 허용)</option>
+              </select>
+            </label>
+            <label>MCP_REMOTE_PORT
+              <input id="settings-mcp-remote-port" type="number" min="1" max="65535" step="1" placeholder="4578">
+            </label>
+            <label>MCP_REMOTE_PATH
+              <input id="settings-mcp-remote-path" type="text" placeholder="/mcp">
+            </label>
+            <label>MCP_REMOTE_AUTH_MODE
+              <select id="settings-mcp-remote-auth-mode">
+                <option value="none">none</option>
+                <option value="bearer">bearer</option>
+              </select>
+            </label>
+            <label style="grid-column: 1 / -1;">MCP_REMOTE_AUTH_TOKEN
+              <input id="settings-mcp-remote-auth-token" type="password" placeholder="Bearer token">
+            </label>
+            <div class="settings-auth-section"
+              style="grid-column: 1 / -1; margin-top: 4px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
+              <div style="font-weight: 600; margin-bottom: 6px;">접속 미리보기</div>
+              <pre id="settings-mcp-remote-endpoint-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
+            </div>
             <div class="form-field-block">
               <span class="field-label-text">이미지 퀄리티 최적화</span>
               <label class="settings-checkbox-label">

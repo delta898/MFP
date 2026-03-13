@@ -3193,6 +3193,12 @@ function applySettingsMajorToForm(data, options = {}) {
 
   const listenHostEl = document.getElementById('settings-listen-host');
   const listenPortEl = document.getElementById('settings-listen-port');
+  const mcpRemoteEnabledEl = document.getElementById('settings-mcp-remote-enabled');
+  const mcpRemoteHostEl = document.getElementById('settings-mcp-remote-host');
+  const mcpRemotePortEl = document.getElementById('settings-mcp-remote-port');
+  const mcpRemotePathEl = document.getElementById('settings-mcp-remote-path');
+  const mcpRemoteAuthModeEl = document.getElementById('settings-mcp-remote-auth-mode');
+  const mcpRemoteAuthTokenEl = document.getElementById('settings-mcp-remote-auth-token');
   const naverIdEl = document.getElementById('settings-naver-id');
   const wordpressUrlEl = document.getElementById('settings-wordpress-url');
   const wordpressUserIdEl = document.getElementById('settings-wordpress-user-id');
@@ -3237,6 +3243,12 @@ function applySettingsMajorToForm(data, options = {}) {
 
   sv(listenHostEl, fields.LISTEN_HOST || '127.0.0.1');
   sv(listenPortEl, fields.LISTEN_PORT || 4577);
+  sc(mcpRemoteEnabledEl, fields.MCP_REMOTE_ENABLED ?? true);
+  sv(mcpRemoteHostEl, fields.MCP_REMOTE_HOST || '127.0.0.1');
+  sv(mcpRemotePortEl, fields.MCP_REMOTE_PORT || 4578);
+  sv(mcpRemotePathEl, fields.MCP_REMOTE_PATH || '/mcp');
+  sv(mcpRemoteAuthModeEl, fields.MCP_REMOTE_AUTH_MODE || 'none');
+  sv(mcpRemoteAuthTokenEl, fields.MCP_REMOTE_AUTH_TOKEN || '');
   sv(naverIdEl, fields.NAVER_ID || '');
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
@@ -3364,6 +3376,7 @@ function applySettingsMajorToForm(data, options = {}) {
 
   settingsMajorApplyingForm = false;
   settingsMajorLoadedOnce = true;
+  syncSettingsMcpUi();
   playSettingsTypingPreview();
 
   settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
@@ -3384,6 +3397,12 @@ function getSettingsMajorBasicValuesFromDom() {
     // General & Blog
     LISTEN_HOST: (document.getElementById('settings-listen-host')?.value || '127.0.0.1').trim(),
     LISTEN_PORT: parseInt((document.getElementById('settings-listen-port')?.value || '4577').trim(), 10) || 4577,
+    MCP_REMOTE_ENABLED: Boolean(document.getElementById('settings-mcp-remote-enabled')?.checked),
+    MCP_REMOTE_HOST: (document.getElementById('settings-mcp-remote-host')?.value || '127.0.0.1').trim(),
+    MCP_REMOTE_PORT: parseInt((document.getElementById('settings-mcp-remote-port')?.value || '4578').trim(), 10) || 4578,
+    MCP_REMOTE_PATH: normalizeSettingsMcpPath(document.getElementById('settings-mcp-remote-path')?.value || '/mcp'),
+    MCP_REMOTE_AUTH_MODE: (document.getElementById('settings-mcp-remote-auth-mode')?.value || 'none').trim().toLowerCase(),
+    MCP_REMOTE_AUTH_TOKEN: (document.getElementById('settings-mcp-remote-auth-token')?.value || '').trim(),
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
@@ -3489,6 +3508,71 @@ function buildSettingsMajorBasicSignature() {
     basic: getSettingsMajorBasicValuesFromDom(),
     shoppingImages: buildSettingsShoppingImageDraftState()
   });
+}
+
+function normalizeSettingsMcpPath(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return '/mcp';
+  const prefixed = raw.startsWith('/') ? raw : `/${raw}`;
+  return prefixed.length > 1 ? prefixed.replace(/\/+$/, '') : prefixed;
+}
+
+function buildSettingsMcpPreviewLines() {
+  const enabled = Boolean(document.getElementById('settings-mcp-remote-enabled')?.checked);
+  if (!enabled) {
+    return [
+      '상태: 비활성화',
+      '설정 저장 시 MCP remote service가 내려갑니다.'
+    ];
+  }
+
+  const host = (document.getElementById('settings-mcp-remote-host')?.value || '127.0.0.1').trim() || '127.0.0.1';
+  const port = parseInt((document.getElementById('settings-mcp-remote-port')?.value || '4578').trim(), 10) || 4578;
+  const path = normalizeSettingsMcpPath(document.getElementById('settings-mcp-remote-path')?.value || '/mcp');
+  const authMode = (document.getElementById('settings-mcp-remote-auth-mode')?.value || 'none').trim().toLowerCase();
+  const directHost = host === '0.0.0.0' ? '127.0.0.1' : host;
+
+  const lines = [
+    `Direct URL: http://${directHost}:${port}${path}`,
+    `Auth: ${authMode}`
+  ];
+
+  if (host === '0.0.0.0') {
+    lines.push('LAN/Public에서는 장치의 실제 IP 또는 reverse proxy URL을 MCP client에 넣어야 합니다.');
+  } else {
+    lines.push('같은 컴퓨터의 MCP client는 위 Direct URL을 그대로 사용하면 됩니다.');
+  }
+
+  if (authMode === 'bearer') {
+    lines.push('MCP client는 Authorization: Bearer <token> 헤더를 함께 보내야 합니다.');
+  }
+
+  return lines;
+}
+
+function syncSettingsMcpUi() {
+  const enabled = Boolean(document.getElementById('settings-mcp-remote-enabled')?.checked);
+  const authMode = (document.getElementById('settings-mcp-remote-auth-mode')?.value || 'none').trim().toLowerCase();
+
+  [
+    'settings-mcp-remote-host',
+    'settings-mcp-remote-port',
+    'settings-mcp-remote-path',
+    'settings-mcp-remote-auth-mode'
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
+
+  const tokenEl = document.getElementById('settings-mcp-remote-auth-token');
+  if (tokenEl) {
+    tokenEl.disabled = !enabled || authMode !== 'bearer';
+  }
+
+  const previewEl = document.getElementById('settings-mcp-remote-endpoint-preview');
+  if (previewEl) {
+    previewEl.textContent = buildSettingsMcpPreviewLines().join('\n');
+  }
 }
 
 function markSettingsMajorPendingChanges(pending = true) {
@@ -3832,7 +3916,10 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       return;
     }
 
-    updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}`, 'success');
+    const mcpStatusLine = data?.remoteMcpStatus?.running
+      ? `\nMCP: ${data.remoteMcpStatus.endpoint || '-'}`
+      : (data?.remoteMcpStatus?.enabled === false ? '\nMCP: 비활성화' : '');
+    updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${mcpStatusLine}`, 'success');
     await Promise.all([loadConfigStatus(), loadDashboard()]);
     if (uiConfigReady) {
       await ensureSheetsPreflightUi({ force: true, silent: true });
@@ -5751,6 +5838,9 @@ function bindActions() {
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
   const settingsMajorAutoSaveInputs = [
     document.getElementById('settings-listen-port'),
+    document.getElementById('settings-mcp-remote-port'),
+    document.getElementById('settings-mcp-remote-path'),
+    document.getElementById('settings-mcp-remote-auth-token'),
     document.getElementById('settings-naver-id'),
     document.getElementById('settings-wordpress-url'),
     document.getElementById('settings-wordpress-user-id'),
@@ -5781,11 +5871,14 @@ function bindActions() {
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
+    document.getElementById('settings-mcp-remote-host'),
+    document.getElementById('settings-mcp-remote-auth-mode'),
     document.getElementById('settings-telegram-chat-ai-mode'),
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);
   const settingsMajorAutoSaveChecks = [
+    document.getElementById('settings-mcp-remote-enabled'),
     document.getElementById('settings-image-optimization'),
     document.getElementById('blog-collect-trends-enabled'),
     document.getElementById('blog-collect-trends-filter-new'),
@@ -5805,6 +5898,17 @@ function bindActions() {
 
   settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', loadSettingsMajor));
   settingsMajorSaveBtns.forEach(btn => btn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' })));
+  [
+    document.getElementById('settings-mcp-remote-enabled'),
+    document.getElementById('settings-mcp-remote-host'),
+    document.getElementById('settings-mcp-remote-port'),
+    document.getElementById('settings-mcp-remote-path'),
+    document.getElementById('settings-mcp-remote-auth-mode'),
+    document.getElementById('settings-mcp-remote-auth-token')
+  ].filter(Boolean).forEach((el) => {
+    const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+    el.addEventListener(eventName, syncSettingsMcpUi);
+  });
   if (settingsNaverLoginBtn) settingsNaverLoginBtn.addEventListener('click', startNaverLoginFromUi);
   const settingsWordPressVerifyBtn = document.getElementById('settings-wordpress-verify-btn');
   if (settingsWordPressVerifyBtn) settingsWordPressVerifyBtn.addEventListener('click', verifyWordPressAuthFromUi);

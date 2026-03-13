@@ -22,8 +22,8 @@ The agent runtime turns channel input into validated actions, manages confirmati
 ## Current Gaps
 - Multi-step action composition is still limited to preflight query expansion.
 - Pending confirmation handling is only partially rule-driven.
-- MCP wire transport is still not implemented.
-- A prototype MCP adapter/tool contract layer can now sit above runtime, but it is not yet exposed as a real server.
+- MCP surface is still limited to content prepare/confirm only.
+- Remote MCP is still prototype-grade: a dedicated app-managed remote service now exists, but SSE/resumability and broader tool coverage are not finished.
 
 ## Current Planner Coverage
 - Deduplicates actions.
@@ -40,5 +40,5 @@ The agent runtime turns channel input into validated actions, manages confirmati
   - confirmation UX consistency
   - provider failure visibility
 - Then move to:
-  - MCP transport implementation
+  - MCP remote transport hardening
   - richer multi-step planning
