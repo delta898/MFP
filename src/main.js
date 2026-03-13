@@ -611,14 +611,21 @@ program
     .action(async (opts) => {
         try {
             const { startUiServer } = require('./ui-server');
+            const { startRemoteMcpService } = require('./mcp/remote-service');
             const host = String(opts.host || CONFIG.LISTEN_HOST || '127.0.0.1').trim() || '127.0.0.1';
             const port = Number.isFinite(Number(opts.port))
                 ? parseInt(opts.port, 10)
                 : (Number.isFinite(Number(CONFIG.LISTEN_PORT)) ? parseInt(CONFIG.LISTEN_PORT, 10) : 4577);
             const started = await startUiServer({ host, port });
+            const mcpStarted = await startRemoteMcpService();
             const uiUrl = `http://${started.openHost || '127.0.0.1'}:${started.port}`;
             console.log(`\n✅ UI 서버 실행 중: ${uiUrl}`);
             console.log(`ℹ️ 바인딩 주소: ${started.host}:${started.port}`);
+            if (mcpStarted?.running) {
+                console.log(`✅ MCP 서버 실행 중: ${mcpStarted.endpoint}`);
+            } else {
+                console.log('ℹ️ MCP 서버는 현재 비활성화 상태입니다.');
+            }
 
             if (!CONFIG.CONFIG_IS_ESSENTIAL_SET) {
                 console.log('\n👋 BlogGenius에 오신 것을 환영합니다!');

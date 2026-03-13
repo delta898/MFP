@@ -22,6 +22,7 @@ if (!fs.existsSync(logDir)) {
 
 // ⚠️ 환경 설정 완료 후 하위 모듈 로드
 const { startUiServer } = require('../ui-server');
+const { startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service');
 const Logger = require('../logger');
 
 let win = null;
@@ -120,6 +121,7 @@ async function createWindow() {
             const host = CONFIG.LISTEN_HOST || '127.0.0.1';
             const port = CONFIG.LISTEN_PORT || 4577;
             uiServer = await startUiServer({ host, port });
+            await startRemoteMcpService();
             Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
         } catch (err) {
             Logger.error(`GUI: Failed to start UI Server: ${err.message}`);
@@ -191,4 +193,7 @@ app.on('before-quit', () => {
     if (uiServer && uiServer.server) {
         uiServer.server.close();
     }
+    stopRemoteMcpService().catch((error) => {
+        Logger.error(`GUI: Failed to stop MCP remote service: ${error.message}`);
+    });
 });

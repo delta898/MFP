@@ -5108,7 +5108,6 @@ async function startUiServer(options = {}) {
     if (!uiRoot) {
         throw new Error('UI 정적 파일 폴더를 찾을 수 없습니다. (ui/)');
     }
-
     const server = http.createServer(async (req, res) => {
         const requestId = createRequestId();
         const method = String(req.method || 'GET').toUpperCase();

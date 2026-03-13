@@ -34,15 +34,14 @@ redirectConsoleToStderr();
 
 const pkg = require('../../package.json');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
-
-const SUPPORTED_PROTOCOL_VERSION = '2025-11-05';
+const {
+    SUPPORTED_PROTOCOL_VERSION,
+    createServerState,
+    buildJsonRpcError,
+    buildToolResultPayload,
+    handleProtocolMessage
+} = require('./protocol');
 const DEBUG_MCP = String(process.env.DEBUG_MCP || '').trim() === '1';
-
-function createServerState() {
-    return {
-        initialized: false
-    };
-}
 
 function traceMcp(label, payload = {}) {
     if (!DEBUG_MCP) return;
@@ -57,122 +56,35 @@ function writeMessage(message = {}) {
     process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
-function writeResponse(id, result) {
-    const payload = {
-        jsonrpc: '2.0',
-        id,
-        result
-    };
+function writeResponse(payload) {
     traceMcp('response', payload);
     writeMessage(payload);
 }
 
-function writeError(id, code, message, data = undefined) {
-    const payload = {
-        jsonrpc: '2.0',
-        id: id === undefined ? null : id,
-        error: {
-            code,
-            message
-        }
-    };
-
-    if (data !== undefined) {
-        payload.error.data = data;
-    }
-
+function writeError(payload) {
     traceMcp('error', payload);
     writeMessage(payload);
 }
 
-function buildToolResultPayload(result = {}) {
-    const ok = result?.ok !== false;
-    const summary = ok
-        ? `Tool completed: ${result.status || 'ok'}`
-        : `Tool failed: ${Array.isArray(result?.errors) ? result.errors.join('; ') : (result?.message || 'error')}`;
-
-    return {
-        content: [
-            {
-                type: 'text',
-                text: summary
-            }
-        ],
-        structuredContent: result,
-        isError: !ok
-    };
-}
-
 async function handleRequest(message = {}, runtimeState = {}, services = {}) {
-    const { adapter } = services;
-    const id = message.id;
-    const method = String(message.method || '').trim();
-    const params = message.params && typeof message.params === 'object' ? message.params : {};
-
-    if (Array.isArray(message)) {
-        writeError(id, -32600, 'Batch requests are not supported.');
-        return;
-    }
-
-    if (!method) {
-        writeError(id, -32600, 'Missing method.');
-        return;
-    }
-
-    if (method === 'initialize') {
-        runtimeState.initialized = true;
-        const requestedVersion = String(params.protocolVersion || '').trim();
-        writeResponse(id, {
-            protocolVersion: requestedVersion || SUPPORTED_PROTOCOL_VERSION,
-            capabilities: {
-                tools: {
-                    listChanged: false
-                }
-            },
-            serverInfo: {
-                name: 'naver-auto-blog-mcp-prototype',
-                version: pkg.version
-            }
-        });
-        return;
-    }
-
-    if (method === 'notifications/initialized') {
-        runtimeState.initialized = true;
-        return;
-    }
-
-    if (method === 'ping') {
-        writeResponse(id, {});
-        return;
-    }
-
-    if (!runtimeState.initialized) {
-        writeError(id, -32002, 'Server not initialized.');
-        return;
-    }
-
-    if (method === 'tools/list') {
-        writeResponse(id, {
-            tools: adapter.listTools()
-        });
-        return;
-    }
-
-    if (method === 'tools/call') {
-        try {
-            const result = await adapter.callTool({
-                name: params.name,
-                arguments: params.arguments || {}
-            });
-            writeResponse(id, buildToolResultPayload(result));
-        } catch (error) {
-            writeError(id, -32000, error.message || 'Tool call failed.');
+    const payload = await handleProtocolMessage(message, runtimeState, services, {
+        protocolVersion: SUPPORTED_PROTOCOL_VERSION,
+        serverInfo: {
+            name: 'naver-auto-blog-mcp-prototype',
+            version: pkg.version
         }
+    });
+
+    if (!payload) {
         return;
     }
 
-    writeError(id, -32601, `Method not found: ${method}`);
+    if (payload.error) {
+        writeError(payload);
+        return;
+    }
+
+    writeResponse(payload);
 }
 
 async function startServer() {
@@ -192,7 +104,7 @@ async function startServer() {
         try {
             message = JSON.parse(raw);
         } catch (error) {
-            writeError(null, -32700, 'Parse error.', { detail: error.message });
+            writeError(buildJsonRpcError(null, -32700, 'Parse error.', { detail: error.message }));
             return;
         }
         traceMcp('request', message);
@@ -200,7 +112,7 @@ async function startServer() {
         try {
             await handleRequest(message, runtimeState, services);
         } catch (error) {
-            writeError(message?.id, -32000, error.message || 'Unhandled server error.');
+            writeError(buildJsonRpcError(message?.id, -32000, error.message || 'Unhandled server error.'));
         }
     });
 
@@ -211,7 +123,7 @@ async function startServer() {
 
 if (require.main === module) {
     startServer().catch((error) => {
-        writeError(null, -32000, error.message || 'Failed to start MCP server.');
+        writeError(buildJsonRpcError(null, -32000, error.message || 'Failed to start MCP server.'));
         process.exit(1);
     });
 }

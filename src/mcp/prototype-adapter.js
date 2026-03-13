@@ -251,9 +251,9 @@ function createMcpPrototypeAdapter(options = {}) {
         throw new Error('runtime is required');
     }
 
-    async function prepareTool(input = {}) {
+    async function prepareTool(input = {}, callOptions = {}) {
         const coercedInput = coercePrepareInput(input);
-        const context = buildMcpContext(coercedInput);
+        const context = buildMcpContext(coercedInput, callOptions.contextOverride || {});
         const bundle = await prepareContentRequestBundle({
             source: 'mcp_tool',
             register_request: coercedInput.register_request || null,
@@ -296,9 +296,9 @@ function createMcpPrototypeAdapter(options = {}) {
         };
     }
 
-    async function decideTool(input = {}) {
+    async function decideTool(input = {}, callOptions = {}) {
         const decision = normalizeDecision(input.decision);
-        const context = buildMcpContext(input);
+        const context = buildMcpContext(input, callOptions.contextOverride || {});
         let confirmationId = resolveConfirmationId(input);
 
         if (!confirmationId && runtime?.confirmationStore) {
@@ -341,15 +341,15 @@ function createMcpPrototypeAdapter(options = {}) {
         listTools() {
             return buildMcpToolDefinitions();
         },
-        async callTool(input = {}) {
+        async callTool(input = {}, callOptions = {}) {
             const name = String(input.name || '').trim();
             const args = input.arguments && typeof input.arguments === 'object' ? input.arguments : {};
 
             if (name === 'content_request_prepare') {
-                return prepareTool(args);
+                return prepareTool(args, callOptions);
             }
             if (name === 'confirmation_decide') {
-                return decideTool(args);
+                return decideTool(args, callOptions);
             }
             throw new Error(`지원하지 않는 MCP prototype tool입니다: ${name}`);
         }
