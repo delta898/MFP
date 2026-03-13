@@ -12,13 +12,13 @@ function normalizeBoolean(value, defaultValue) {
     return defaultValue;
 }
 
-function normalizePlatforms(value) {
+function normalizePlatforms(value, fallback = []) {
     const list = Array.isArray(value) ? value : [value];
     const normalized = list
         .map((item) => normalizeString(item).toLowerCase())
         .filter(Boolean)
         .map((item) => (item.includes('wordpress') ? 'wordpress' : 'naver'));
-    return Array.from(new Set(normalized.length > 0 ? normalized : ['naver']));
+    return Array.from(new Set(normalized.length > 0 ? normalized : fallback));
 }
 
 function normalizePublishParams(params = {}) {
@@ -28,14 +28,18 @@ function normalizePublishParams(params = {}) {
     const options = (params.options && typeof params.options === 'object' && !Array.isArray(params.options))
         ? { ...params.options }
         : {};
+    const target = normalizeString(params.target) || 'selected';
+    const fallbackPlatforms = target === 'naver'
+        ? ['naver']
+        : (target === 'wordpress' ? ['wordpress'] : []);
 
     options.post_status = normalizeString(options.post_status) === 'draft' ? 'draft' : 'publish';
 
     return {
         targetRowIndices: normalizeArray(params.targetRowIndices),
         settingsOverrides,
-        target: normalizeString(params.target) || 'selected',
-        platforms: normalizePlatforms(params.platforms),
+        target,
+        platforms: normalizePlatforms(params.platforms, fallbackPlatforms),
         options,
         auto_trigger: normalizeBoolean(params.auto_trigger, true)
     };

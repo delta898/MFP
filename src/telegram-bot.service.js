@@ -10,11 +10,15 @@ const { createCapabilityRegistry } = require('./capabilities');
 const { KuzuEventStore } = require('./memory/event-store');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { parseTelegramAgentEnvelope, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
+const {
+    mapLegacyTelegramContentRequest,
+    isCanonicalContentRequestBundle,
+    applyContentRequestToggle,
+    isPublishExecutionEnabled
+} = require('./agent/content-request-mapper');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
-const { buildTopicRegistrationPreview } = require('./capabilities/content/register-topic');
-const { buildPublishRequestPreview } = require('./capabilities/content/publish');
 
 class TelegramBotService {
     static bot = null;
@@ -648,11 +652,12 @@ class TelegramBotService {
 
                 // 인텐트별 분기 처리 (Dispatcher)
                 if (hasRegister || hasPublish) {
-                    if (hasRegister) {
-                        await this.prepareRegisterTopicRequest(parsedData, chatId, msg);
-                    }
-                    const confirmMsg = this.getPublishConfirmMessage(parsedData);
-                    const keyboard = this.getPublishConfirmKeyboard(parsedData);
+                    const contentContext = this.buildAgentContext(chatId, msg);
+                    const requestBundle = await mapLegacyTelegramContentRequest(parsedData, contentContext, {
+                        capabilityRegistry: this.agentCapabilityRegistry
+                    });
+                    const confirmMsg = TelegramAgentRenderer.formatContentRequestMessage(requestBundle);
+                    const keyboard = TelegramAgentRenderer.buildContentRequestKeyboard(requestBundle);
 
                     const sentMsg = await this.bot.sendMessage(chatId, confirmMsg, {
                         parse_mode: 'Markdown',
@@ -662,7 +667,7 @@ class TelegramBotService {
                     // [Universal Memory] 에이전트 답변 기록
                     await this.agentEventStore.recordMessage(chatId, confirmMsg, 'AGENT_CONFIRM', 'AGENT').catch(() => { });
 
-                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, parsedData);
+                    this.pendingRequests.set(`${chatId}_${sentMsg.message_id}`, requestBundle);
                     await this.stopLoadingIndicator(chatId, loadingMsg);
                 } else if (hasConfig) {
                     // 설정 변경은 중요하므로 확인 절차 거침
@@ -758,44 +763,18 @@ class TelegramBotService {
 
                 if (data === 'publish_cancel') {
                     this.pendingRequests.delete(requestKey);
-                    await this.bot.editMessageText('❌ 발행 요청이 취소되었습니다.', {
+                    await this.bot.editMessageText('❌ 요청이 취소되었습니다.', {
                         chat_id: chatId,
                         message_id: messageId
                     });
                 } else if (data === 'toggle_image' || data === 'toggle_extref' || data === 'toggle_autotrigger' || data === 'toggle_poststatus') {
-                    const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData || !parsedData.actions) return;
+                    const pending = this.pendingRequests.get(requestKey);
+                    if (!isCanonicalContentRequestBundle(pending)) return;
 
-                    const actions = parsedData.actions;
-                    const registerAction = actions.find(a => a.action === 'register_topic');
-                    if (!registerAction && data !== 'toggle_autotrigger') return;
-
-                    const optionsObj = registerAction ? (registerAction.params.options || (registerAction.params.options = {})) : {};
-                    const explicitParams = parsedData.meta?.explicit_params || [];
-
-                    if (data === 'toggle_image') {
-                        optionsObj.image_gen = optionsObj.image_gen === false ? true : false;
-                        if (!explicitParams.includes('image_gen')) explicitParams.push('image_gen');
-                    } else if (data === 'toggle_extref') {
-                        optionsObj.external_reference = optionsObj.external_reference === false ? true : false;
-                        if (!explicitParams.includes('external_reference')) explicitParams.push('external_reference');
-                    } else if (data === 'toggle_poststatus') {
-                        optionsObj.post_status = optionsObj.post_status === 'draft' ? 'publish' : 'draft';
-                        if (!explicitParams.includes('post_status')) explicitParams.push('post_status');
-                    } else if (data === 'toggle_autotrigger') {
-                        const publishIdx = actions.findIndex(a => a.action === 'publish_article');
-                        if (publishIdx >= 0) {
-                            actions.splice(publishIdx, 1);
-                        } else {
-                            actions.push({ action: 'publish_article', params: { target: 'all' } });
-                        }
-                    }
-
-                    if (!parsedData.meta) parsedData.meta = {};
-                    parsedData.meta.explicit_params = explicitParams;
-
-                    const newMsg = this.getPublishConfirmMessage(parsedData);
-                    const newKeyboard = this.getPublishConfirmKeyboard(parsedData);
+                    const nextBundle = applyContentRequestToggle(pending, data);
+                    this.pendingRequests.set(requestKey, nextBundle);
+                    const newMsg = TelegramAgentRenderer.formatContentRequestMessage(nextBundle);
+                    const newKeyboard = TelegramAgentRenderer.buildContentRequestKeyboard(nextBundle);
 
                     await this.bot.editMessageText(newMsg, {
                         chat_id: chatId,
@@ -804,24 +783,23 @@ class TelegramBotService {
                         reply_markup: JSON.stringify({ inline_keyboard: newKeyboard })
                     });
                 } else if (data === 'publish_confirm') {
-                    const parsedData = this.pendingRequests.get(requestKey);
-                    if (!parsedData || !parsedData.actions) {
+                    const requestBundle = this.pendingRequests.get(requestKey);
+                    if (!isCanonicalContentRequestBundle(requestBundle)) {
                         await this.bot.answerCallbackQuery(query.id, { text: '세션이 만료되었거나 이미 처리된 요청입니다.', show_alert: true });
                         return;
                     }
-
-                    const actions = parsedData.actions;
-                    const registerAction = actions.find(a => a.action === 'register_topic');
-                    const hasPublish = actions.some(a => a.action === 'publish_article');
 
                     const Utils = require('./utils');
                     const axios = require('axios');
                     const CONFIG = require('./config-loader');
 
+                    const registerPayload = requestBundle.register_request?.payload || null;
+                    const publishPayload = requestBundle.publish_request?.payload || null;
+                    const shouldExecutePublish = isPublishExecutionEnabled(requestBundle);
                     let addedRowIndices = [];
 
-                    if (registerAction) {
-                        const pData = registerAction.params || {};
+                    if (registerPayload) {
+                        const pData = registerPayload;
                         const registerContext = this.buildAgentContext(chatId, query.message);
                         let registerResult = null;
 
@@ -879,18 +857,30 @@ class TelegramBotService {
 
                     this.pendingRequests.delete(requestKey);
 
-                    await this.bot.editMessageText(
-                        hasPublish ? this.getRandomMessage('topic_added') : '✅ 글감이 시트 대기열에 성공적으로 등록되었습니다!',
-                        {
-                            chat_id: chatId,
-                            message_id: messageId
-                        }
-                    );
+                    let confirmationText = '✅ 요청을 접수했습니다.';
+                    if (registerPayload && shouldExecutePublish) {
+                        confirmationText = this.getRandomMessage('topic_added');
+                    } else if (registerPayload) {
+                        confirmationText = '✅ 글감이 시트 대기열에 성공적으로 등록되었습니다!';
+                    } else if (shouldExecutePublish) {
+                        confirmationText = '✅ 발행 요청을 접수했습니다.';
+                    }
 
-                    if (hasPublish) {
+                    await this.bot.editMessageText(confirmationText, {
+                        chat_id: chatId,
+                        message_id: messageId
+                    });
+
+                    if (shouldExecutePublish && publishPayload) {
                         try {
                             const publishContext = this.buildAgentContext(chatId, query.message);
                             let publishResult = null;
+                            const publishParams = {
+                                ...publishPayload,
+                                targetRowIndices: addedRowIndices.length > 0
+                                    ? addedRowIndices
+                                    : (publishPayload.targetRowIndices || [])
+                            };
 
                             if (this.agentCapabilityRegistry) {
                                 publishResult = await this.agentCapabilityRegistry.executeAction({
@@ -898,12 +888,7 @@ class TelegramBotService {
                                     type: 'content.publish',
                                     domain: 'content.publish',
                                     name: 'execute',
-                                    params: {
-                                        targetRowIndices: addedRowIndices,
-                                        settingsOverrides: {
-                                            PUBLISH_AUTO_HEADLESS: true
-                                        }
-                                    }
+                                    params: publishParams
                                 }, publishContext);
                             }
 
@@ -916,11 +901,14 @@ class TelegramBotService {
                                 await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
                                 const postData = {
                                     settingsOverrides: {
-                                        PUBLISH_AUTO_HEADLESS: true
+                                        PUBLISH_AUTO_HEADLESS: true,
+                                        ...((publishPayload && publishPayload.settingsOverrides) || {})
                                     }
                                 };
                                 if (addedRowIndices.length > 0) {
                                     postData.targetRowIndices = addedRowIndices;
+                                } else if (Array.isArray(publishPayload.targetRowIndices) && publishPayload.targetRowIndices.length > 0) {
+                                    postData.targetRowIndices = publishPayload.targetRowIndices;
                                 }
                                 axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/run`, postData).catch(e => {
                                     Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패: ${e.message}`);
@@ -1170,121 +1158,6 @@ class TelegramBotService {
             .replace(/\*/g, '\\*')
             .replace(/\[/g, '\\[')
             .replace(/`/g, '\\`');
-    }
-
-    static async prepareRegisterTopicRequest(parsedData, chatId, message) {
-        if (!this.agentCapabilityRegistry || !parsedData?.actions) {
-            return parsedData;
-        }
-
-        const registerAction = parsedData.actions.find((action) => action.action === 'register_topic');
-        if (!registerAction) {
-            return parsedData;
-        }
-
-        try {
-            const registerContext = this.buildAgentContext(chatId, message);
-            const prepared = await this.agentCapabilityRegistry.executeAction({
-                id: `prepare_register_${Date.now()}`,
-                type: 'content.register',
-                domain: 'content.register_topic',
-                name: 'prepare',
-                params: registerAction.params || {}
-            }, registerContext);
-
-            if (prepared?.success && prepared?.data) {
-                registerAction.params = {
-                    ...(registerAction.params || {}),
-                    theme: prepared.data.theme,
-                    keywords: prepared.data.keywords,
-                    platforms: prepared.data.platforms,
-                    options: {
-                        ...((registerAction.params && registerAction.params.options) || {}),
-                        ...(prepared.data.options || {})
-                    }
-                };
-            }
-        } catch (err) {
-            Logger.debug(`⚠️ [TelegramBot] register_topic prepare capability failed, legacy preview 유지: ${err.message}`);
-        }
-
-        return parsedData;
-    }
-
-    /**
-     * 발행 정보 메시지 생성 (미지정 설정 하이라이트 포함)
-     */
-    static getPublishConfirmMessage(parsedData) {
-        const actions = parsedData.actions || [];
-        const meta = parsedData.meta || {};
-        const explicitParams = meta.explicit_params || [];
-
-        const registerAction = actions.find(a => a.action === 'register_topic');
-        const data = registerAction ? (registerAction.params || {}) : {};
-        const optionsObj = data.options || {};
-        const hasPublish = actions.some(a => a.action === 'publish_article');
-
-        const postStatusVal = optionsObj.post_status === 'draft' ? 'draft' : 'publish';
-        let publishIcon = hasPublish ? '✅' : '❌';
-
-        const registerPreview = buildTopicRegistrationPreview(data);
-        const registerLines = TelegramAgentRenderer.formatStructuredPreviewLines(registerPreview).map((line) => {
-            if (line.startsWith('🖼️')) {
-                return `${line}${explicitParams.includes('image_gen') ? '' : ' 💡 _(기본 설정)_'}`;
-            }
-            if (line.startsWith('🔍')) {
-                return `${line}${explicitParams.includes('external_reference') ? '' : ' 💡 _(기본 설정)_'}`;
-            }
-            return line;
-        });
-
-        let confirmMsg = `✨ *분석 완료!* 다음 조건으로 준비할까요?\n\n${registerLines.join('\n')}\n`;
-
-        if (hasPublish) {
-            let platformsStr = (data.platforms || ['naver']).map(p => p.toLowerCase() === 'wordpress' ? '워드프레스' : '네이버 블로그').join(', ');
-            confirmMsg +=
-                `🏷️ *적용 대상:* ${platformsStr}\n` +
-                `🚀 *발행까지:* ${publishIcon}\n` +
-                `📌 *발행 형태:* ${postStatusVal === 'draft' ? '임시저장' : '최종발행'}\n`;
-        }
-
-        if (optionsObj.schedule_date) confirmMsg += `⏰ *예약 일시:* ${optionsObj.schedule_date}\n`;
-        if (optionsObj.instruction) confirmMsg += `📝 *추가 지시:* ${this.escapeMarkdown(optionsObj.instruction)}\n`;
-        if (optionsObj.category) confirmMsg += `📁 *카테고리:* ${this.escapeMarkdown(optionsObj.category)}\n`;
-
-        return confirmMsg;
-    }
-
-    /**
-     * 발행 컨펌용 인라인 키보드 생성 (토글 버튼 포함)
-     */
-    static getPublishConfirmKeyboard(parsedData) {
-        const actions = parsedData.actions || [];
-        const registerAction = actions.find(a => a.action === 'register_topic');
-        const optionsObj = registerAction ? (registerAction.params?.options || {}) : {};
-        const hasPublish = actions.some(a => a.action === 'publish_article');
-
-        const imgGenVal = optionsObj.image_gen !== false;
-        const extRefVal = optionsObj.external_reference !== false;
-        const isDraft = optionsObj.post_status === 'draft';
-
-        const keyboard = [
-            [
-                { text: `🖼️ 이미지: ${imgGenVal ? '✅' : '❌'}`, callback_data: 'toggle_image' },
-                { text: `🔍 외부참고: ${extRefVal ? '✅' : '❌'}`, callback_data: 'toggle_extref' }
-            ]
-        ];
-
-        if (hasPublish) {
-            keyboard.push([
-                { text: `📌 ${isDraft ? '임시저장' : '최종발행'}`, callback_data: 'toggle_poststatus' },
-                { text: `🚀 발행까지: ${hasPublish ? '✅' : '❌'}`, callback_data: 'toggle_autotrigger' }
-            ]);
-        }
-
-        keyboard.push([{ text: `✅ 네, 이대로 ${hasPublish ? '진행해 주세요' : '등록해 주세요'}`, callback_data: 'publish_confirm' }]);
-        keyboard.push([{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]);
-        return keyboard;
     }
 }
 

@@ -96,6 +96,82 @@ function formatPreviewMessage(confirmation = null, previews = []) {
     return lines.join('\n');
 }
 
+function formatContentRequestMessage(bundle = {}) {
+    const explicitParams = Array.isArray(bundle?.meta?.explicit_params) ? bundle.meta.explicit_params : [];
+    const registerPreview = bundle?.register_request?.preview || null;
+    const registerPayload = bundle?.register_request?.payload || null;
+    const publishPreview = bundle?.publish_request?.preview || null;
+    const showPublishOptions = bundle?.ui?.show_publish_options === true;
+    const lines = ['✨ *분석 완료!* 다음 조건으로 준비할까요?', ''];
+
+    if (registerPreview) {
+        const registerLines = formatStructuredPreviewLines(registerPreview).map((line) => {
+            if (line.startsWith('🖼️')) {
+                return `${line}${explicitParams.includes('image_gen') ? '' : ' 💡 _(기본 설정)_'}`;
+            }
+            if (line.startsWith('🔍')) {
+                return `${line}${explicitParams.includes('external_reference') ? '' : ' 💡 _(기본 설정)_'}`;
+            }
+            return line;
+        });
+        lines.push(...registerLines);
+    }
+
+    if (showPublishOptions && publishPreview) {
+        if (registerPreview) {
+            lines.push('');
+        }
+        lines.push(...formatStructuredPreviewLines(publishPreview));
+    } else if (!registerPreview && publishPreview) {
+        lines.push(...formatStructuredPreviewLines(publishPreview));
+    }
+
+    if (registerPayload?.options?.schedule_date) {
+        lines.push(`⏰ *예약 일시:* ${escapeMarkdown(registerPayload.options.schedule_date)}`);
+    }
+    if (registerPayload?.options?.instruction) {
+        lines.push(`📝 *추가 지시:* ${escapeMarkdown(registerPayload.options.instruction)}`);
+    }
+    if (registerPayload?.options?.category) {
+        lines.push(`📁 *카테고리:* ${escapeMarkdown(registerPayload.options.category)}`);
+    }
+
+    return lines.join('\n');
+}
+
+function buildContentRequestKeyboard(bundle = {}) {
+    const registerPayload = bundle?.register_request?.payload || null;
+    const publishPayload = bundle?.publish_request?.payload || null;
+    const showPublishOptions = bundle?.ui?.show_publish_options === true;
+    const keyboard = [];
+
+    if (registerPayload) {
+        const imgGenVal = registerPayload.options?.image_gen !== false;
+        const extRefVal = registerPayload.options?.external_reference !== false;
+        keyboard.push([
+            { text: `🖼️ 이미지: ${imgGenVal ? '✅' : '❌'}`, callback_data: 'toggle_image' },
+            { text: `🔍 외부참고: ${extRefVal ? '✅' : '❌'}`, callback_data: 'toggle_extref' }
+        ]);
+    }
+
+    if (registerPayload && showPublishOptions && publishPayload) {
+        const isDraft = publishPayload.options?.post_status === 'draft';
+        const autoTrigger = publishPayload.auto_trigger !== false;
+        keyboard.push([
+            { text: `📌 ${isDraft ? '임시저장' : '최종발행'}`, callback_data: 'toggle_poststatus' },
+            { text: `🚀 발행까지: ${autoTrigger ? '✅' : '❌'}`, callback_data: 'toggle_autotrigger' }
+        ]);
+    }
+
+    const confirmLabel = publishPayload?.auto_trigger !== false
+        ? '✅ 네, 이대로 진행해 주세요'
+        : (registerPayload ? '✅ 네, 이대로 등록해 주세요' : '✅ 네, 진행해 주세요');
+    keyboard.push([{ text: confirmLabel, callback_data: 'publish_confirm' }]);
+    keyboard.push([{ text: '❌ 아뇨, 취소할게요', callback_data: 'publish_cancel' }]);
+
+    return keyboard;
+}
+
 function formatExecutionMessage(results = []) {
     if (!Array.isArray(results) || results.length === 0) {
         return 'ℹ️ 처리할 결과가 없습니다.';
@@ -210,9 +286,11 @@ module.exports = {
     escapeMarkdown,
     formatStructuredPreviewLines,
     formatPreviewMessage,
+    formatContentRequestMessage,
     formatExecutionMessage,
     formatSupersededConfirmationMessage,
     formatCapabilityHelpMessage,
     buildSuggestionKeyboard,
-    buildArtifactKeyboard
+    buildArtifactKeyboard,
+    buildContentRequestKeyboard
 };
