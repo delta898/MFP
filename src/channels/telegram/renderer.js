@@ -7,6 +7,37 @@ function escapeMarkdown(text) {
         .replace(/`/g, '\\`');
 }
 
+function formatStructuredPreviewLines(preview = {}) {
+    const kind = String(preview?.kind || '').trim();
+    if (kind === 'topic_registration') {
+        return [
+            `🎯 *주제:* ${escapeMarkdown(preview.theme || '주제 없음')}`,
+            `🔑 *키워드:* ${Array.isArray(preview.keywords) && preview.keywords.length > 0 ? preview.keywords.map((item) => escapeMarkdown(item)).join(', ') : '없음'}`,
+            `🖼️ *이미지 생성:* ${preview.options?.image_gen === true ? '✅' : '❌'}`,
+            `🔍 *외부 자료 참고:* ${preview.options?.external_reference !== false ? '✅' : '❌'}`
+        ];
+    }
+
+    if (kind === 'publish_request') {
+        const lines = [];
+        if (Array.isArray(preview.platforms) && preview.platforms.length > 0) {
+            const labels = preview.platforms.map((item) => item === 'wordpress' ? '워드프레스' : '네이버 블로그');
+            lines.push(`🏷️ *적용 대상:* ${labels.join(', ')}`);
+        }
+        lines.push(`🚀 *발행까지:* ${preview.auto_trigger === false ? '❌' : '✅'}`);
+        lines.push(`📌 *발행 형태:* ${preview.options?.post_status === 'draft' ? '임시저장' : '최종발행'}`);
+        if (typeof preview.target_row_count === 'number' && preview.target_row_count > 0) {
+            lines.push(`📦 *대상 건수:* ${Number(preview.target_row_count || 0)}건`);
+        }
+        if (preview.settings?.headless === true) {
+            lines.push(`👁️ *헤드리스:* ✅`);
+        }
+        return lines;
+    }
+
+    return [];
+}
+
 function formatPreviewMessage(confirmation = null, previews = []) {
     const plan = confirmation?.plan && typeof confirmation.plan === 'object' ? confirmation.plan : null;
     const isCorrection = String(confirmation?.kind || '').trim() === 'correction';
@@ -31,10 +62,13 @@ function formatPreviewMessage(confirmation = null, previews = []) {
     previews.forEach((item, index) => {
         const preview = item.preview || {};
         lines.push(`${index + 1}. *${escapeMarkdown(preview.summary || item.capability_id || '변경 요청')}*`);
-        if (preview.before && Object.keys(preview.before).length > 0) {
+        const structuredLines = formatStructuredPreviewLines(preview);
+        if (structuredLines.length > 0) {
+            structuredLines.forEach((line) => lines.push(`   ${line}`));
+        } else if (preview.before && Object.keys(preview.before).length > 0) {
             lines.push(`   • 현재: \`${escapeMarkdown(JSON.stringify(preview.before))}\``);
         }
-        if (preview.after && Object.keys(preview.after).length > 0) {
+        if (!structuredLines.length && preview.after && Object.keys(preview.after).length > 0) {
             lines.push(`   • 변경: \`${escapeMarkdown(JSON.stringify(preview.after))}\``);
         }
         lines.push('');
@@ -79,6 +113,11 @@ function formatExecutionMessage(results = []) {
         title = '💡 *이렇게 제안드립니다.*';
     } else if (actionType === 'job.run') {
         title = '🚀 *실행했습니다.*';
+    }
+    if (actionDomain === 'content.register_topic') {
+        title = '📝 *등록했습니다.*';
+    } else if (actionDomain === 'content.publish') {
+        title = '🚀 *발행을 시작했습니다.*';
     }
     if (actionDomain === 'agent.meta') {
         title = 'ℹ️ *안내드립니다.*';
@@ -169,6 +208,7 @@ function formatCapabilityHelpMessage() {
 
 module.exports = {
     escapeMarkdown,
+    formatStructuredPreviewLines,
     formatPreviewMessage,
     formatExecutionMessage,
     formatSupersededConfirmationMessage,
