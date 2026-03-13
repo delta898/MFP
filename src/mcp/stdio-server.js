@@ -1,5 +1,37 @@
 const readline = require('readline');
 
+function redirectConsoleToStderr() {
+    const originalConsole = {
+        log: console.log.bind(console),
+        info: console.info.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console),
+        debug: console.debug ? console.debug.bind(console) : console.log.bind(console)
+    };
+
+    function writeToStderr(args = []) {
+        const line = args.map((item) => {
+            if (typeof item === 'string') return item;
+            try {
+                return JSON.stringify(item);
+            } catch (_error) {
+                return String(item);
+            }
+        }).join(' ');
+        process.stderr.write(`${line}\n`);
+    }
+
+    console.log = (...args) => writeToStderr(args);
+    console.info = (...args) => writeToStderr(args);
+    console.warn = (...args) => writeToStderr(args);
+    console.error = (...args) => writeToStderr(args);
+    console.debug = (...args) => writeToStderr(args);
+
+    return originalConsole;
+}
+
+redirectConsoleToStderr();
+
 const pkg = require('../../package.json');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 
