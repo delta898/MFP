@@ -45,6 +45,22 @@ codex mcp get naver-autoblog
 - 절대 경로를 사용하는 편이 가장 안전하다.
 - `npm run mcp:stdio` 대신 `node .../stdio-server.js` 직접 실행이 클라이언트 설정에서는 더 단순하다.
 - 서버 로그는 stdout을 오염시키지 않도록 stderr로 분리되어 있다.
+- 개발 모드에서는 `cwd`가 프로젝트 루트여야 `config/`와 OAuth 토큰 파일을 올바르게 찾는다.
+
+## Codex GUI Setup
+Codex GUI의 `맞춤형 MCP`에서 `STDIO`를 선택했다면 아래처럼 설정한다.
+
+- 이름: `bloggenius-mcp`
+- 실행 명령: `node`
+- 인자: `/Users/delta898/Project/NaverAutoBlog/src/mcp/stdio-server.js`
+- 환경 변수:
+  - `DEBUG_MCP=1` (선택)
+- 작업 중인 디렉터리: `/Users/delta898/Project/NaverAutoBlog`
+
+중요:
+- `작업 중인 디렉터리`가 `~/code` 같은 기본값으로 남아 있으면 MCP 서버가 다른 위치의 `config/`를 찾게 된다.
+- 이 경우 `Google 계정 미연동`, `Google OAuth client not ready`처럼 보이는 오진이 날 수 있다.
+- Codex GUI 설정을 바꾼 뒤에는 앱을 완전히 재시작하는 편이 가장 안전하다.
 
 ## Claude / MCP JSON Config Example
 stdio 기반 MCP 클라이언트가 `mcpServers` 형식을 사용한다면 아래처럼 붙일 수 있다.
@@ -57,11 +73,14 @@ stdio 기반 MCP 클라이언트가 `mcpServers` 형식을 사용한다면 아�
       "args": [
         "/Users/delta898/Project/NaverAutoBlog/src/mcp/stdio-server.js"
       ],
+      "cwd": "/Users/delta898/Project/NaverAutoBlog",
       "env": {}
     }
   }
 }
 ```
+
+`cwd`를 지원하는 host라면 설정하는 편이 안전하다.
 
 ## Smoke Test Flow
 정상 동작 기준 최소 흐름:

@@ -34,6 +34,7 @@ config/CTA_IMAGE*.jpeg
 config/FTC_IMAGE*.jpeg
 data/
 tmp_update/
+.tmp/
 dist/
 BlogGenius.app/
 BlogGenius-cli

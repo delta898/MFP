@@ -97,7 +97,7 @@ function normalizeRegisterTopicParams(params = {}, context = {}) {
     };
 }
 
-function createRegisterTopicCapabilities(_deps = {}) {
+function createRegisterTopicCapabilities(deps = {}) {
     return [
         {
             id: 'content.register_topic.prepare',
@@ -160,8 +160,16 @@ function createRegisterTopicCapabilities(_deps = {}) {
             async execute(params = {}, context = {}) {
                 const normalizedParams = normalizeRegisterTopicParams(params, context);
                 const rows = buildRowsFromParams(normalizedParams, context);
-                const Utils = require('../../utils');
-                const appendRes = await Utils.appendGoogleSheetTopics(rows, { defaultStatus: '발행 준비 완료' });
+                const appendGoogleSheetTopics = typeof deps.appendGoogleSheetTopics === 'function'
+                    ? deps.appendGoogleSheetTopics
+                    : ((topics, options) => {
+                        const Utils = require('../../utils');
+                        return Utils.appendGoogleSheetTopics(topics, options);
+                    });
+                const appendRes = await appendGoogleSheetTopics(rows, { defaultStatus: '발행 준비 완료' });
+                if (!appendRes || appendRes.success === false) {
+                    throw new Error(appendRes?.message || '글감 시트 등록에 실패했습니다.');
+                }
                 return {
                     success: true,
                     message: '글감을 시트 대기열에 등록했습니다.',

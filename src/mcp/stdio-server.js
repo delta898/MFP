@@ -36,6 +36,7 @@ const pkg = require('../../package.json');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 
 const SUPPORTED_PROTOCOL_VERSION = '2025-11-05';
+const DEBUG_MCP = String(process.env.DEBUG_MCP || '').trim() === '1';
 
 function createServerState() {
     return {
@@ -43,16 +44,27 @@ function createServerState() {
     };
 }
 
+function traceMcp(label, payload = {}) {
+    if (!DEBUG_MCP) return;
+    try {
+        process.stderr.write(`[mcp:${label}] ${JSON.stringify(payload)}\n`);
+    } catch (_error) {
+        process.stderr.write(`[mcp:${label}] ${String(payload)}\n`);
+    }
+}
+
 function writeMessage(message = {}) {
     process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
 function writeResponse(id, result) {
-    writeMessage({
+    const payload = {
         jsonrpc: '2.0',
         id,
         result
-    });
+    };
+    traceMcp('response', payload);
+    writeMessage(payload);
 }
 
 function writeError(id, code, message, data = undefined) {
@@ -69,6 +81,7 @@ function writeError(id, code, message, data = undefined) {
         payload.error.data = data;
     }
 
+    traceMcp('error', payload);
     writeMessage(payload);
 }
 
@@ -173,6 +186,7 @@ async function startServer() {
     reader.on('line', async (line) => {
         const raw = String(line || '').trim();
         if (!raw) return;
+        traceMcp('request.raw', raw);
 
         let message = null;
         try {
@@ -181,6 +195,7 @@ async function startServer() {
             writeError(null, -32700, 'Parse error.', { detail: error.message });
             return;
         }
+        traceMcp('request', message);
 
         try {
             await handleRequest(message, runtimeState, services);

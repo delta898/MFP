@@ -403,7 +403,10 @@ const Utils = {
      */
     getGoogleAccessToken: async function (scopes = []) {
         if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
-            await RuntimeConfig.ensureGoogleOauthClientConfig();
+            const ready = await RuntimeConfig.ensureGoogleOauthClientConfig();
+            if (!ready) {
+                throw new Error('Google OAuth 클라이언트를 runtime config에서 불러오지 못했습니다. Supabase app_runtime_configs 또는 네트워크 상태를 확인해 주세요.');
+            }
         }
 
         const normalizedScopes = (() => {

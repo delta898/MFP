@@ -1,19 +1,29 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('path');
 const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 
-function spawnServer() {
+function spawnServer(options = {}) {
     const serverPath = path.join(__dirname, 'stdio-server.js');
     const child = spawn(process.execPath, [serverPath], {
         cwd: path.join(__dirname, '..', '..'),
+        env: {
+            ...process.env,
+            ...(options.env || {})
+        },
         stdio: ['pipe', 'pipe', 'pipe']
     });
 
     const rl = readline.createInterface({
         input: child.stdout,
         crlfDelay: Infinity
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString('utf8');
     });
 
     const pending = new Map();
@@ -65,6 +75,9 @@ function spawnServer() {
         child,
         request,
         notify,
+        getStderr() {
+            return stderr;
+        },
         stop
     };
 }
@@ -117,6 +130,96 @@ test('stdio mcp server supports initialize, tools/list, and tools/call', async (
         assert.equal(prepared.result.structuredContent.ok, true);
         assert.equal(prepared.result.structuredContent.confirmation_token.token_type, 'agent.confirmation');
         assert.equal(prepared.result.structuredContent.bundle.register_request.payload.theme, 'stdio 확인');
+    } finally {
+        await server.stop();
+    }
+});
+
+test('stdio mcp server can confirm after process restart using persisted confirmation store', async () => {
+    const persistPath = path.join(os.tmpdir(), `naver-autoblog-mcp-test-${Date.now()}.json`);
+    const env = {
+        MCP_CONFIRMATION_STORE_PATH: persistPath
+    };
+
+    let server = spawnServer({ env });
+    try {
+        await server.request(1, 'initialize', {
+            protocolVersion: '2025-11-05',
+            capabilities: {},
+            clientInfo: {
+                name: 'test-client',
+                version: '0.0.0'
+            }
+        });
+        server.notify('notifications/initialized');
+
+        const prepared = await server.request(2, 'tools/call', {
+            name: 'content_request_prepare',
+            arguments: {
+                conversation_id: 'mcp:restart-test',
+                user_id: 'restart-user',
+                register_request: {
+                    theme: '재시작 확인 테스트'
+                }
+            }
+        });
+
+        assert.equal(prepared.result.structuredContent.ok, true);
+    } finally {
+        await server.stop();
+    }
+
+    server = spawnServer({ env });
+    try {
+        await server.request(3, 'initialize', {
+            protocolVersion: '2025-11-05',
+            capabilities: {},
+            clientInfo: {
+                name: 'test-client',
+                version: '0.0.0'
+            }
+        });
+        server.notify('notifications/initialized');
+
+        const decided = await server.request(4, 'tools/call', {
+            name: 'confirmation_decide',
+            arguments: {
+                decision: '거부',
+                conversation_id: 'mcp:restart-test',
+                user_id: 'restart-user'
+            }
+        });
+
+        assert.equal(decided.result.isError, false);
+        assert.equal(decided.result.structuredContent.ok, true);
+        assert.equal(decided.result.structuredContent.status, 'rejected');
+    } finally {
+        await server.stop();
+        fs.rmSync(persistPath, { force: true });
+    }
+});
+
+test('stdio mcp server writes request and response traces to stderr when DEBUG_MCP=1', async () => {
+    const server = spawnServer({
+        env: {
+            DEBUG_MCP: '1'
+        }
+    });
+
+    try {
+        await server.request(1, 'initialize', {
+            protocolVersion: '2025-11-05',
+            capabilities: {},
+            clientInfo: {
+                name: 'test-client',
+                version: '0.0.0'
+            }
+        });
+
+        const stderr = server.getStderr();
+        assert.match(stderr, /\[mcp:request\.raw\]/);
+        assert.match(stderr, /\[mcp:request\]/);
+        assert.match(stderr, /\[mcp:response\]/);
     } finally {
         await server.stop();
     }

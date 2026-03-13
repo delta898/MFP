@@ -111,6 +111,22 @@ test('mcp prototype adapter prepares bundle and returns confirmation token', asy
     assert.equal(result.confirmation_token.action_count, 1);
 });
 
+test('mcp prototype adapter exposes host-friendly top-level tool schemas', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    const tools = adapter.listTools();
+    const prepareTool = tools.find((tool) => tool.name === 'content_request_prepare');
+
+    assert.equal(prepareTool.inputSchema.type, 'object');
+    assert.equal(Object.prototype.hasOwnProperty.call(prepareTool.inputSchema, 'anyOf'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(prepareTool.inputSchema, 'oneOf'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(prepareTool.inputSchema, 'allOf'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(prepareTool.inputSchema, 'enum'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(prepareTool.inputSchema, 'not'), false);
+});
+
 test('mcp prototype adapter executes approved confirmation with only enabled actions', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
     const runtime = createAgentRuntime({ capabilityRegistry });
@@ -155,4 +171,100 @@ test('mcp prototype adapter executes approved confirmation with only enabled act
     assert.equal(decided.results.length, 1);
     assert.equal(decided.results[0].action_domain, 'content.register_topic');
     assert.equal(decided.confirmation_token.status, 'accepted');
+});
+
+test('mcp prototype adapter infers request wrappers when host omits intent and payload keys', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    const result = await adapter.callTool({
+        name: 'content_request_prepare',
+        arguments: {
+            conversation_id: 'mcp:session-3',
+            user_id: 'user-3',
+            register_request: {
+                theme: 'Wrapper 없는 요청',
+                platforms: ['naver']
+            },
+            publish_request: {
+                target: 'naver',
+                auto_trigger: false,
+                options: {
+                    post_status: 'draft'
+                }
+            },
+            ui: {
+                show_publish_options: true
+            }
+        }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.bundle.register_request.intent, 'content.register_topic');
+    assert.equal(result.bundle.publish_request.intent, 'content.publish');
+    assert.equal(result.bundle.register_request.payload.theme, 'Wrapper 없는 요청');
+    assert.equal(result.bundle.publish_request.payload.target, 'naver');
+    assert.equal(result.bundle.publish_request.payload.auto_trigger, false);
+});
+
+test('mcp prototype adapter resolves latest pending confirmation when host omits confirmation id', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    await adapter.callTool({
+        name: 'content_request_prepare',
+        arguments: {
+            conversation_id: 'mcp:session-4',
+            user_id: 'user-4',
+            register_request: {
+                theme: '승인 fallback 테스트'
+            }
+        }
+    });
+
+    const decided = await adapter.callTool({
+        name: 'confirmation_decide',
+        arguments: {
+            decision: '승인',
+            conversation_id: 'mcp:session-4',
+            user_id: 'user-4'
+        }
+    });
+
+    assert.equal(decided.ok, true);
+    assert.equal(decided.status, 'executed');
+    assert.equal(decided.results.length, 1);
+    assert.equal(decided.results[0].action_domain, 'content.register_topic');
+});
+
+test('mcp prototype adapter falls back to latest global pending when host sends mismatched user and conversation ids', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    await adapter.callTool({
+        name: 'content_request_prepare',
+        arguments: {
+            register_request: {
+                theme: 'LM Studio fallback 테스트'
+            }
+        }
+    });
+
+    const decided = await adapter.callTool({
+        name: 'confirmation_decide',
+        arguments: {
+            decision: 'approve',
+            conversation_id: '2025-07-18 14:36:01.948258',
+            user_id: 'delta898',
+            message_id: '1721436265.948258'
+        }
+    });
+
+    assert.equal(decided.ok, true);
+    assert.equal(decided.status, 'executed');
+    assert.equal(decided.results.length, 1);
+    assert.equal(decided.results[0].action_domain, 'content.register_topic');
 });

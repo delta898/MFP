@@ -13,40 +13,192 @@ function buildMcpToolDefinitions() {
         {
             name: 'content_request_prepare',
             title: 'Prepare Content Request',
-            description: 'Normalize a canonical content request bundle and create a confirmation token for execution.',
+            description: 'Prepare a blog topic register/publish request. Use only for blog content registration or publish preparation. Do not use for file creation, note writing, or generic document editing.',
             inputSchema: {
                 type: 'object',
+                description: 'At least one of register_request or publish_request is required.',
                 properties: {
-                    conversation_id: { type: 'string' },
-                    user_id: { type: 'string' },
-                    message_id: { type: 'string' },
-                    register_request: { type: 'object' },
-                    publish_request: { type: 'object' },
-                    meta: { type: 'object' },
-                    ui: { type: 'object' }
+                    conversation_id: {
+                        type: 'string',
+                        description: 'Optional client conversation or session id.'
+                    },
+                    user_id: {
+                        type: 'string',
+                        description: 'Optional client user id.'
+                    },
+                    message_id: {
+                        type: 'string',
+                        description: 'Optional client message id.'
+                    },
+                    register_request: {
+                        type: 'object',
+                        description: 'Blog topic registration request. Prefer { intent: "content.register_topic", payload: { theme, keywords?, platforms?, options? } }.',
+                        properties: {
+                            intent: {
+                                type: 'string',
+                                enum: ['content.register_topic']
+                            },
+                            payload: {
+                                type: 'object',
+                                properties: {
+                                    theme: {
+                                        type: 'string',
+                                        description: 'Required topic title or theme.'
+                                    },
+                                    keywords: {
+                                        type: 'array',
+                                        items: { type: 'string' }
+                                    },
+                                    platforms: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'string',
+                                            enum: ['naver', 'wordpress']
+                                        }
+                                    },
+                                    options: {
+                                        type: 'object',
+                                        properties: {
+                                            image_gen: { type: 'boolean' },
+                                            external_reference: { type: 'boolean' },
+                                            post_status: {
+                                                type: 'string',
+                                                enum: ['draft', 'publish']
+                                            },
+                                            category: { type: 'string' },
+                                            naver_category: { type: 'string' },
+                                            wordpress_category: { type: 'string' },
+                                            instruction: { type: 'string' },
+                                            schedule_date: { type: 'string' }
+                                        }
+                                    }
+                                },
+                                required: ['theme']
+                            }
+                        }
+                    },
+                    publish_request: {
+                        type: 'object',
+                        description: 'Blog publish request. Prefer { intent: "content.publish", payload: { target?, platforms?, auto_trigger?, options? } }.',
+                        properties: {
+                            intent: {
+                                type: 'string',
+                                enum: ['content.publish']
+                            },
+                            payload: {
+                                type: 'object',
+                                properties: {
+                                    target: {
+                                        type: 'string',
+                                        enum: ['all', 'naver', 'wordpress', 'selected']
+                                    },
+                                    platforms: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'string',
+                                            enum: ['naver', 'wordpress']
+                                        }
+                                    },
+                                    auto_trigger: {
+                                        type: 'boolean',
+                                        description: 'false means prepare/register only and do not execute publish.'
+                                    },
+                                    options: {
+                                        type: 'object',
+                                        properties: {
+                                            post_status: {
+                                                type: 'string',
+                                                enum: ['draft', 'publish']
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    meta: {
+                        type: 'object',
+                        properties: {
+                            explicit_params: {
+                                type: 'array',
+                                items: { type: 'string' }
+                            }
+                        }
+                    },
+                    ui: {
+                        type: 'object',
+                        properties: {
+                            show_publish_options: {
+                                type: 'boolean',
+                                description: 'Show publish-specific preview controls.'
+                            }
+                        }
+                    }
                 }
             }
         },
         {
             name: 'confirmation_decide',
             title: 'Decide Confirmation',
-            description: 'Approve or reject a previously issued confirmation token.',
+            description: 'Approve or reject a previously issued confirmation token. If confirmation_id is omitted, the latest pending confirmation for the same user/conversation will be used when possible.',
             inputSchema: {
                 type: 'object',
                 properties: {
-                    confirmation_id: { type: 'string' },
+                    confirmation_id: {
+                        type: 'string',
+                        description: 'Optional confirmation id. If omitted, the latest pending confirmation for the same user/conversation is used.'
+                    },
                     decision: {
                         type: 'string',
-                        enum: ['approve', 'reject']
+                        enum: ['approve', 'reject', '승인', '거부', '취소']
                     },
                     conversation_id: { type: 'string' },
                     user_id: { type: 'string' },
                     message_id: { type: 'string' }
                 },
-                required: ['confirmation_id', 'decision']
+                required: ['decision']
             }
         }
     ];
+}
+
+function normalizeRequestWrapper(request = null, intent = '') {
+    if (!request || typeof request !== 'object' || Array.isArray(request)) return null;
+
+    if (request.payload && typeof request.payload === 'object' && !Array.isArray(request.payload)) {
+        return {
+            ...request,
+            intent: String(request.intent || intent).trim() || intent,
+            payload: request.payload
+        };
+    }
+
+    const raw = { ...request };
+    delete raw.intent;
+
+    return {
+        intent: String(request.intent || intent).trim() || intent,
+        payload: raw
+    };
+}
+
+function coercePrepareInput(input = {}) {
+    return {
+        ...input,
+        register_request: normalizeRequestWrapper(input.register_request, 'content.register_topic'),
+        publish_request: normalizeRequestWrapper(input.publish_request, 'content.publish')
+    };
+}
+
+function normalizeDecision(value = '') {
+    const raw = String(value || '').trim().toLowerCase();
+    if (['approve', 'approved', 'accept', 'accepted', 'ok', 'yes', 'confirm', 'confirmed', '승인', '확인', '적용'].includes(raw)) {
+        return 'approve';
+    }
+    if (['reject', 'rejected', 'decline', 'cancel', 'cancelled', 'canceled', 'no', '거부', '취소', '중단'].includes(raw)) {
+        return 'reject';
+    }
+    return raw || 'approve';
 }
 
 function buildMcpContext(input = {}, override = {}) {
@@ -100,13 +252,14 @@ function createMcpPrototypeAdapter(options = {}) {
     }
 
     async function prepareTool(input = {}) {
-        const context = buildMcpContext(input);
+        const coercedInput = coercePrepareInput(input);
+        const context = buildMcpContext(coercedInput);
         const bundle = await prepareContentRequestBundle({
             source: 'mcp_tool',
-            register_request: input.register_request || null,
-            publish_request: input.publish_request || null,
-            meta: input.meta || {},
-            ui: input.ui || {}
+            register_request: coercedInput.register_request || null,
+            publish_request: coercedInput.publish_request || null,
+            meta: coercedInput.meta || {},
+            ui: coercedInput.ui || {}
         }, context, { capabilityRegistry });
         const validation = validateContentRequestBundle(bundle);
         if (!validation.ok) {
@@ -144,12 +297,38 @@ function createMcpPrototypeAdapter(options = {}) {
     }
 
     async function decideTool(input = {}) {
-        const confirmationId = resolveConfirmationId(input);
-        const decision = String(input.decision || '').trim().toLowerCase();
+        const decision = normalizeDecision(input.decision);
         const context = buildMcpContext(input);
+        let confirmationId = resolveConfirmationId(input);
+
+        if (!confirmationId && runtime?.confirmationStore) {
+            const userPending = typeof runtime.confirmationStore.getPendingByUser === 'function'
+                ? runtime.confirmationStore.getPendingByUser(context?.user?.id || '')
+                : [];
+            const allPending = typeof runtime.confirmationStore.getPending === 'function'
+                ? runtime.confirmationStore.getPending()
+                : userPending;
+
+            const latestSameConversation = Array.isArray(userPending)
+                ? userPending.filter((item) => String(item?.conversationId || '').trim() === context?.conversation?.id).slice(-1)[0] || null
+                : null;
+            const latestUserPending = Array.isArray(userPending) ? userPending.slice(-1)[0] || null : null;
+            const latestGlobalPending = Array.isArray(allPending) ? allPending.slice(-1)[0] || null : null;
+
+            confirmationId = latestSameConversation?.id || latestUserPending?.id || latestGlobalPending?.id || '';
+        }
+
+        if (!confirmationId) {
+            return {
+                ok: false,
+                status: 'not_found',
+                message: '확인 요청 id가 없고, 현재 사용자 기준으로도 pending confirmation을 찾지 못했습니다.'
+            };
+        }
+
         const outcome = await runtime.handleConfirmationDecision({
             confirmationId,
-            decision: decision === 'approve' ? 'approve' : 'reject'
+            decision
         }, context);
 
         return {

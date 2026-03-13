@@ -1,9 +1,13 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 class ConfirmationStore {
     constructor(options = {}) {
         this.ttlMs = Number.isFinite(Number(options.ttlMs)) ? Math.max(1000, Number(options.ttlMs)) : 10 * 60 * 1000;
         this.items = new Map();
+        this.persistPath = String(options.persistPath || '').trim();
+        this._loadPersisted();
     }
 
     _now() {
@@ -20,6 +24,59 @@ class ConfirmationStore {
             if (item.expiresAtMs <= now - this.ttlMs) {
                 this.items.delete(id);
             }
+        }
+        this._persist();
+    }
+
+    _normalizePersistedItem(item = {}) {
+        return {
+            id: String(item.id || '').trim(),
+            conversationId: String(item.conversationId || '').trim(),
+            messageId: String(item.messageId || '').trim(),
+            channel: String(item.channel || 'telegram').trim(),
+            userId: String(item.userId || '').trim(),
+            kind: String(item.kind || 'confirmation').trim(),
+            plan: item.plan && typeof item.plan === 'object' ? item.plan : null,
+            actions: Array.isArray(item.actions) ? item.actions : [],
+            previews: Array.isArray(item.previews) ? item.previews : [],
+            correction: item.correction && typeof item.correction === 'object' ? item.correction : null,
+            supersededConfirmationId: String(item.supersededConfirmationId || '').trim(),
+            transportChatId: String(item.transportChatId || '').trim(),
+            transportMessageId: String(item.transportMessageId || '').trim(),
+            status: String(item.status || 'pending').trim(),
+            createdAt: String(item.createdAt || '').trim(),
+            expiresAt: String(item.expiresAt || '').trim(),
+            expiresAtMs: Number.isFinite(Number(item.expiresAtMs)) ? Number(item.expiresAtMs) : 0
+        };
+    }
+
+    _loadPersisted() {
+        if (!this.persistPath) return;
+        try {
+            if (!fs.existsSync(this.persistPath)) return;
+            const raw = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+            const items = Array.isArray(raw?.items) ? raw.items : [];
+            items.forEach((item) => {
+                const normalized = this._normalizePersistedItem(item);
+                if (normalized.id) {
+                    this.items.set(normalized.id, normalized);
+                }
+            });
+            this._cleanupExpired();
+        } catch (_error) {
+            // Ignore persistence load failures and continue in memory-only mode.
+        }
+    }
+
+    _persist() {
+        if (!this.persistPath) return;
+        try {
+            fs.mkdirSync(path.dirname(this.persistPath), { recursive: true });
+            fs.writeFileSync(this.persistPath, JSON.stringify({
+                items: Array.from(this.items.values())
+            }, null, 2), 'utf8');
+        } catch (_error) {
+            // Ignore persistence write failures to avoid breaking runtime behavior.
         }
     }
 
@@ -47,6 +104,7 @@ class ConfirmationStore {
             expiresAtMs: now + this.ttlMs
         };
         this.items.set(id, item);
+        this._persist();
         return { ...item };
     }
 
@@ -60,6 +118,13 @@ class ConfirmationStore {
         this._cleanupExpired();
         return Array.from(this.items.values())
             .filter((item) => item.userId === String(userId || '').trim() && item.status === 'pending')
+            .map((item) => ({ ...item }));
+    }
+
+    getPending() {
+        this._cleanupExpired();
+        return Array.from(this.items.values())
+            .filter((item) => item.status === 'pending')
             .map((item) => ({ ...item }));
     }
 
@@ -83,6 +148,7 @@ class ConfirmationStore {
         item.transportChatId = String(payload.chatId || item.transportChatId || '').trim();
         item.transportMessageId = String(payload.messageId || item.transportMessageId || '').trim();
         this.items.set(key, item);
+        this._persist();
         return { ...item };
     }
 
@@ -93,6 +159,7 @@ class ConfirmationStore {
         if (!item) return null;
         item.status = nextStatus;
         this.items.set(key, item);
+        this._persist();
         return { ...item };
     }
 }
