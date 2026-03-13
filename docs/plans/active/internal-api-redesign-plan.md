@@ -59,6 +59,11 @@ Config / Jobs / Publishing / Memory / Knowledge
 - Telegram 등록 확정은 `content.register_topic.execute` capability를 통해 시트에 등록
 - `content.publish.prepare/execute` capability 추가
 - Telegram 발행 확정은 `content.publish.execute` capability를 통해 발행 실행으로 연결
+- `request-mapper` 추가: legacy Telegram `parsedData`를 canonical content request bundle로 변환
+- Telegram register/publish pending payload를 raw `parsedData` 대신 canonical request bundle로 저장
+- Telegram preview / toggle / confirm execute 경로를 canonical request bundle 기준으로 재배선
+- 등록 요청 UI는 단순 유지, 발행 요청일 때만 발행 옵션(`post_status`, `auto_trigger`) 노출
+- canonical bundle mapper / Telegram renderer 단위 테스트 추가
 
 ## Internal API Surface (Draft)
 
@@ -118,6 +123,77 @@ pending plan을 적용/취소/대체한다.
   }
 }
 ```
+
+register/publish 같이 하나의 사용자 요청이 여러 content action으로 확장될 수 있는 경우에는 단일 request만으로는 pending UI 상태를 표현하기 어렵다.
+현재 Telegram legacy adapter에서는 아래 `content request bundle`을 canonical pending payload로 사용한다.
+
+```json
+{
+  "kind": "content_request_bundle",
+  "bundle_id": "content_bundle:telegram:123:55:1710...",
+  "source": "telegram_legacy_parser",
+  "register_request": {
+    "request_id": "content.register_topic:telegram:123:55:1710...",
+    "conversation_id": "telegram:123",
+    "channel": "telegram",
+    "user_id": "123",
+    "mode": "prepare",
+    "intent": "content.register_topic",
+    "payload": {
+      "theme": "구글 애드센스",
+      "keywords": [],
+      "platforms": ["naver", "wordpress"],
+      "options": {
+        "image_gen": false,
+        "external_reference": true,
+        "post_status": "draft"
+      },
+      "source": "telegram"
+    },
+    "context_refs": {
+      "pending_plan_id": null,
+      "message_id": "55"
+    }
+  },
+  "publish_request": {
+    "request_id": "content.publish:telegram:123:55:1710...",
+    "conversation_id": "telegram:123",
+    "channel": "telegram",
+    "user_id": "123",
+    "mode": "prepare",
+    "intent": "content.publish",
+    "payload": {
+      "target": "all",
+      "platforms": ["naver", "wordpress"],
+      "targetRowIndices": [],
+      "auto_trigger": true,
+      "settingsOverrides": {
+        "PUBLISH_AUTO_HEADLESS": true
+      },
+      "options": {
+        "post_status": "draft"
+      }
+    },
+    "context_refs": {
+      "pending_plan_id": null,
+      "message_id": "55"
+    }
+  },
+  "meta": {
+    "explicit_params": ["image_gen", "post_status"]
+  },
+  "ui": {
+    "show_publish_options": true
+  }
+}
+```
+
+이 bundle은 Telegram adapter에서 다음 용도로 사용한다.
+
+- preview 렌더링의 단일 source of truth
+- 토글(button callback)에 따른 pending payload 갱신
+- confirm 시 `content.register_topic.execute` / `content.publish.execute` 입력 재구성
+- 발행 요청이 아닐 때 publish UI를 숨기기 위한 분기
 
 ## Canonical Plan Model
 planner는 action envelope가 아니라 아래 plan 모델을 만든다.
@@ -193,12 +269,14 @@ runtime/capability는 채널 독립 결과를 반환한다.
 ```json
 {
   "kind": "publish_request",
-  "theme": "구글 애드센스",
-  "targets": ["wordpress"],
-  "post_status": "draft",
+  "platforms": ["wordpress"],
+  "auto_trigger": true,
+  "target_row_count": 1,
   "options": {
-    "image_gen": true,
-    "external_reference": true
+    "post_status": "draft"
+  },
+  "settings": {
+    "headless": true
   }
 }
 ```
@@ -241,23 +319,46 @@ runtime/capability는 채널 독립 결과를 반환한다.
 
 ## Refactor Targets
 ### Telegram-specific logic that should move down
-- publish/register preview assembly
+- request normalization (`parsedData` -> canonical content request bundle)
 - option toggles semantics
 - platform/post status interpretation
-- apply/cancel/replacement rules
+- confirm 시 capability execute input 재구성 규칙
 
 ### Telegram-specific logic that should remain
 - inline keyboard rendering
 - callback query ack/edit/send
 - human-facing markdown formatting
+- request bundle을 Telegram message/card에 바인딩하는 transport glue
 
 ## Legacy Register/Publish Migration Strategy
 현재 register/publish는 legacy 흐름이 실전 핵심이다. 이것을 한 번에 agent path로 바꾸지 않는다.
 
 1. 기존 parser/legacy 진입 유지
+   - 완료
 2. 내부적으로 `content.register_topic.prepare/execute`, `content.publish.prepare/execute` capability를 먼저 구현
+   - 완료
 3. Telegram legacy 경로는 그 capability를 호출하는 adapter로 얇게 변경
+   - 진행됨
+   - 현재는 legacy parser 입력을 유지하되, adapter 내부에서 canonical content request bundle로 즉시 변환한 뒤 preview/toggle/confirm을 처리한다.
 4. 이후 MCP/UI도 같은 capability를 호출
+   - 미진행
+
+## Current Status Summary
+현재 register/publish 경로는 완전한 agent planner path는 아니지만, Telegram 내부 상태와 실행 계약은 이전보다 훨씬 internal API에 가깝게 정리되었다.
+
+- 입력 진입: legacy `Core.parseTelegramRequest` 유지
+- 내부 pending 상태: canonical content request bundle 사용
+- preview: canonical request payload 기반 renderer 사용
+- toggle: canonical bundle payload 직접 수정
+- confirm execute: canonical bundle에서 capability execute input 재구성
+
+즉, 현재 단계의 의미는 `legacy parser in / canonical execution contract inside` 로 보는 것이 가장 정확하다.
+
+## Next Recommended Steps
+- Telegram callback naming을 `content_request.*` 계열로 정리
+- content request bundle schema/validator를 internal API 공용 모듈로 승격
+- MCP/UI가 같은 canonical content request model을 공유하도록 contract 추출
+- 이후 legacy parser를 planner-compatible parser로 대체할 수 있는지 검토
 
 즉 **legacy behavior를 지우는 것이 아니라, 아래쪽 실행 계층을 먼저 공통화**한다.
 

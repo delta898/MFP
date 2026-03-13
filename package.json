@@ -19,7 +19,7 @@
     "test:ui-blog-auto": "node scripts/test-ui-blog-auto.js",
     "test:ui-settings": "node scripts/test-ui-settings.js",
     "test:ui-e2e": "node scripts/test-ui-e2e.js",
-    "test:unit": "node --test src/agent/content-request-mapper.test.js src/channels/telegram/renderer.test.js",
+    "test:unit": "node --test src/agent/content-request-mapper.test.js src/channels/telegram/renderer.test.js src/mcp/prototype-adapter.test.js",
     "post": "node src/main.js post",
     "kw": "node src/main.js keywords",
     "pub": "node src/main.js pub",
