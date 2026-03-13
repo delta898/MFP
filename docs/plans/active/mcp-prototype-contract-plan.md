@@ -150,6 +150,14 @@ Agent Runtime / Confirmation Store / Capability Registry
 - MCP prototype adapter가 tool list / tool invoke 수준으로 동작
 - 최소 단위 테스트로 schema + adapter 흐름이 고정됨
 
+현재 구현 메모:
+- `src/mcp/prototype-adapter.js`
+  - runtime/capability 위에서 `content_request_prepare`, `confirmation_decide`를 호출
+- `src/mcp/stdio-server.js`
+  - newline JSON-RPC 기반 prototype MCP server wrapper
+  - `initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call` 지원
+- 실제 MCP wire transport 전 단계의 데모/프로토타이핑 용도
+
 ## Next Step After Prototype
 - 실제 MCP server transport 연결
 - tool metadata를 표준 MCP schema에 맞게 보강
