@@ -11,6 +11,7 @@ MCP_APPROVE_FLOW="${MCP_APPROVE_FLOW:-0}"
 TMP_DIR="$(mktemp -d)"
 LAST_HEADERS_FILE=""
 LAST_BODY_FILE=""
+LAST_STATUS=""
 SESSION_ID=""
 
 cleanup() {
@@ -109,9 +110,8 @@ curl_json() {
     headers+=(-H "Content-Type: application/json")
   fi
 
-  local http_code
   if [[ "$method" == "POST" ]]; then
-    http_code="$(
+    LAST_STATUS="$(
       curl -sS -o "$LAST_BODY_FILE" -D "$LAST_HEADERS_FILE" -w '%{http_code}' \
         -X "$method" \
         "${headers[@]}" \
@@ -119,15 +119,13 @@ curl_json() {
         "$MCP_URL"
     )"
   else
-    http_code="$(
+    LAST_STATUS="$(
       curl -sS -o "$LAST_BODY_FILE" -D "$LAST_HEADERS_FILE" -w '%{http_code}' \
         -X "$method" \
         "${headers[@]}" \
         "$MCP_URL"
     )"
   fi
-
-  printf '%s' "$http_code"
 }
 
 assert_status() {
@@ -144,9 +142,8 @@ run_missing_session_check() {
   log 'Checking tools/list without session -> expect 400'
   local saved_session="$SESSION_ID"
   SESSION_ID=""
-  local status
-  status="$(curl_json "POST" '{"jsonrpc":"2.0","id":9001,"method":"tools/list","params":{}}')"
-  assert_status "$status" "400" 'tools/list without session should fail'
+  curl_json "POST" '{"jsonrpc":"2.0","id":9001,"method":"tools/list","params":{}}'
+  assert_status "$LAST_STATUS" "400" 'tools/list without session should fail'
   json_assert "$LAST_BODY_FILE" 'input.error && input.error.message === "Missing MCP session id."' 'missing-session error message mismatch'
   SESSION_ID="$saved_session"
 }
@@ -156,9 +153,8 @@ run_unauthorized_check() {
   log 'Checking initialize without Authorization -> expect 401'
   local saved_session="$SESSION_ID"
   SESSION_ID=""
-  local status
-  status="$(curl_json "POST" "{\"jsonrpc\":\"2.0\",\"id\":9000,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"${MCP_PROTOCOL_VERSION}\"}}" "omit")"
-  assert_status "$status" "401" 'initialize without token should fail when bearer auth is enabled'
+  curl_json "POST" "{\"jsonrpc\":\"2.0\",\"id\":9000,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"${MCP_PROTOCOL_VERSION}\"}}" "omit"
+  assert_status "$LAST_STATUS" "401" 'initialize without token should fail when bearer auth is enabled'
   json_assert "$LAST_BODY_FILE" 'input.error && input.error.message === "Unauthorized."' 'unauthorized error message mismatch'
   SESSION_ID="$saved_session"
 }
@@ -170,9 +166,8 @@ run_initialize() {
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"${MCP_PROTOCOL_VERSION}","capabilities":{},"clientInfo":{"name":"curl-smoke","version":"1.0.0"}}}
 JSON
 )"
-  local status
-  status="$(curl_json "POST" "$payload")"
-  assert_status "$status" "200" 'initialize should succeed'
+  curl_json "POST" "$payload"
+  assert_status "$LAST_STATUS" "200" 'initialize should succeed'
   SESSION_ID="$(extract_session_header "$LAST_HEADERS_FILE")"
   [[ -n "$SESSION_ID" ]] || fail 'initialize should return mcp-session-id header'
   json_assert "$LAST_BODY_FILE" 'input.result && input.result.serverInfo && input.result.serverInfo.name === "naver-auto-blog-mcp-prototype"' 'serverInfo.name mismatch'
@@ -181,9 +176,8 @@ JSON
 
 run_tools_list() {
   log 'Listing tools'
-  local status
-  status="$(curl_json "POST" '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}')"
-  assert_status "$status" "200" 'tools/list should succeed'
+  curl_json "POST" '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+  assert_status "$LAST_STATUS" "200" 'tools/list should succeed'
   json_assert "$LAST_BODY_FILE" 'Array.isArray(input.result?.tools) && input.result.tools.some((tool) => tool.name === "content_request_prepare")' 'content_request_prepare missing'
   json_assert "$LAST_BODY_FILE" 'Array.isArray(input.result?.tools) && input.result.tools.some((tool) => tool.name === "confirmation_decide")' 'confirmation_decide missing'
 }
@@ -197,9 +191,8 @@ run_prepare_register_only() {
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"content_request_prepare","arguments":{"register_request":{"theme":${theme_json}}}}}
 JSON
 )"
-  local status
-  status="$(curl_json "POST" "$payload")"
-  assert_status "$status" "200" 'content_request_prepare should succeed'
+  curl_json "POST" "$payload"
+  assert_status "$LAST_STATUS" "200" 'content_request_prepare should succeed'
   json_assert "$LAST_BODY_FILE" 'input.result && input.result.isError === false' 'prepare should not be error'
   json_assert "$LAST_BODY_FILE" 'input.result?.structuredContent?.ok === true' 'prepare structuredContent.ok should be true'
   json_assert "$LAST_BODY_FILE" 'input.result?.structuredContent?.status === "confirmation_required"' 'prepare should require confirmation'
@@ -216,9 +209,8 @@ run_reject_confirmation() {
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"confirmation_decide","arguments":{"confirmation_id":"${confirmation_id}","decision":"reject"}}}
 JSON
 )"
-  local status
-  status="$(curl_json "POST" "$payload")"
-  assert_status "$status" "200" 'confirmation_decide reject should succeed'
+  curl_json "POST" "$payload"
+  assert_status "$LAST_STATUS" "200" 'confirmation_decide reject should succeed'
   json_assert "$LAST_BODY_FILE" 'input.result?.structuredContent?.status === "rejected"' 'reject should produce rejected status'
 }
 
@@ -232,9 +224,8 @@ run_optional_approve_flow() {
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"content_request_prepare","arguments":{"register_request":{"theme":${theme_json},"platforms":["naver"]},"publish_request":{"target":"naver","auto_trigger":true,"options":{"post_status":"draft"}},"ui":{"show_publish_options":true}}}}
 JSON
 )"
-  local status
-  status="$(curl_json "POST" "$payload")"
-  assert_status "$status" "200" 'optional prepare should succeed'
+  curl_json "POST" "$payload"
+  assert_status "$LAST_STATUS" "200" 'optional prepare should succeed'
   json_assert "$LAST_BODY_FILE" 'input.result?.structuredContent?.confirmation_token?.action_count === 2' 'optional approve flow should prepare 2 actions'
   local confirmation_id
   confirmation_id="$(json_get "$LAST_BODY_FILE" 'result.structuredContent.confirmation_token.confirmation_id')"
@@ -245,16 +236,15 @@ JSON
 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"confirmation_decide","arguments":{"confirmation_id":"${confirmation_id}","decision":"approve"}}}
 JSON
 )"
-  status="$(curl_json "POST" "$payload")"
-  assert_status "$status" "200" 'optional approve should succeed'
+  curl_json "POST" "$payload"
+  assert_status "$LAST_STATUS" "200" 'optional approve should succeed'
   json_assert "$LAST_BODY_FILE" 'input.result?.structuredContent?.status === "executed"' 'approve should execute actions'
 }
 
 run_delete_session() {
   log 'Closing session'
-  local status
-  status="$(curl_json "DELETE" '')"
-  assert_status "$status" "204" 'DELETE /mcp should close session'
+  curl_json "DELETE" ''
+  assert_status "$LAST_STATUS" "204" 'DELETE /mcp should close session'
 }
 
 main() {
