@@ -5,6 +5,11 @@ function createApiError(status, code, message) {
     return err;
 }
 
+const {
+    ensureRuntimeRemoteMcpConfig,
+    generateRemoteMcpBearerToken
+} = require('../../mcp/remote-config');
+
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -43,15 +48,28 @@ function createSettingsService(deps = {}) {
 
     return {
         async getMajorSettings() {
-            // 이제 CONFIG 객체 자체가 최신 상태를 유지하므로 직접 반환하거나 
-            // config-loader의 내부 구조를 활용합니다.
+            ensureRuntimeRemoteMcpConfig(CONFIG);
             const configSource = {
                 path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
                 sourceType: CONFIG.CONFIG_SOURCE_TYPE
             };
+            const data = buildMajorSettings(null, configSource);
+            const savedTokenExists = (() => {
+                try {
+                    const configPath = configSource.path || resolveWritableConfigPath();
+                    if (!configPath || !fs.existsSync(configPath)) return false;
+                    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                    return Object.prototype.hasOwnProperty.call(raw?.mcp?.remote?.auth || {}, 'bearer_token');
+                } catch (_error) {
+                    return false;
+                }
+            })();
 
-            // UI에 필요한 필드들을 명시적으로 구성 (기존 buildMajorSettings 호환)
-            return buildMajorSettings(null, configSource);
+            if (!savedTokenExists && !String(data?.fields?.MCP_REMOTE_AUTH_TOKEN || '').trim()) {
+                data.fields.MCP_REMOTE_AUTH_TOKEN = generateRemoteMcpBearerToken();
+            }
+
+            return data;
         },
 
         async saveMajorSettings(requestBody = {}) {
@@ -62,11 +80,10 @@ function createSettingsService(deps = {}) {
             const prevTelegramEnabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
             const prevTelegramBotToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
             const prevTelegramChatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
-            const prevMcpRemoteEnabled = CONFIG.MCP_REMOTE_ENABLED ?? (CONFIG.mcp?.remote?.enabled !== false);
+            const prevMcpRemoteEnabled = CONFIG.MCP_REMOTE_ENABLED ?? (CONFIG.mcp?.remote?.enabled === true);
             const prevMcpRemoteHost = String(CONFIG.MCP_REMOTE_HOST || CONFIG.mcp?.remote?.host || '127.0.0.1').trim();
             const prevMcpRemotePort = normalizeListenPort(CONFIG.MCP_REMOTE_PORT || CONFIG.mcp?.remote?.port, 4578);
             const prevMcpRemotePath = String(CONFIG.MCP_REMOTE_PATH || CONFIG.mcp?.remote?.path || '/mcp').trim();
-            const prevMcpRemoteAuthMode = String(CONFIG.MCP_REMOTE_AUTH_MODE || CONFIG.mcp?.remote?.auth?.mode || 'none').trim();
             const prevMcpRemoteAuthToken = String(CONFIG.MCP_REMOTE_AUTH_TOKEN || CONFIG.mcp?.remote?.auth?.bearer_token || '').trim();
 
             const imageKeys = [
@@ -103,9 +120,18 @@ function createSettingsService(deps = {}) {
             if (requiredErrors.length > 0) {
                 throw createApiError(400, 'REQUIRED_IMAGE_MISSING', requiredErrors[0]);
             }
-            if (fields.MCP_REMOTE_ENABLED && fields.MCP_REMOTE_AUTH_MODE === 'bearer' && !String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim()) {
-                throw createApiError(400, 'INVALID_MCP_AUTH', 'MCP 인증 모드가 bearer라면 bearer token을 입력해야 합니다.');
-            }
+            const resolvedRemoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG, {
+                enabled: fields.MCP_REMOTE_ENABLED,
+                host: fields.MCP_REMOTE_HOST,
+                port: fields.MCP_REMOTE_PORT,
+                path: fields.MCP_REMOTE_PATH,
+                authToken: fields.MCP_REMOTE_AUTH_TOKEN
+            });
+            fields.MCP_REMOTE_ENABLED = resolvedRemoteMcp.enabled;
+            fields.MCP_REMOTE_HOST = resolvedRemoteMcp.host;
+            fields.MCP_REMOTE_PORT = resolvedRemoteMcp.port;
+            fields.MCP_REMOTE_PATH = resolvedRemoteMcp.path;
+            fields.MCP_REMOTE_AUTH_TOKEN = resolvedRemoteMcp.authToken;
 
             // 💡 [JSON 기반 저장 로직 시작]
             // 기존 config.json이 있으면 읽어오고, 없으면 기본 구조 사용
@@ -248,8 +274,10 @@ function createSettingsService(deps = {}) {
             structuredConfig.mcp.remote.port = Number(fields.MCP_REMOTE_PORT);
             structuredConfig.mcp.remote.path = fields.MCP_REMOTE_PATH;
             if (!structuredConfig.mcp.remote.auth) structuredConfig.mcp.remote.auth = {};
-            structuredConfig.mcp.remote.auth.mode = fields.MCP_REMOTE_AUTH_MODE;
             structuredConfig.mcp.remote.auth.bearer_token = fields.MCP_REMOTE_AUTH_TOKEN;
+            if ('mode' in structuredConfig.mcp.remote.auth) {
+                delete structuredConfig.mcp.remote.auth.mode;
+            }
 
             // 파일 저장 (Pretty JSON)
             fs.mkdirSync(path.dirname(writablePath), { recursive: true });
@@ -277,7 +305,6 @@ function createSettingsService(deps = {}) {
                 fields.MCP_REMOTE_HOST !== prevMcpRemoteHost ||
                 normalizeListenPort(fields.MCP_REMOTE_PORT, 4578) !== prevMcpRemotePort ||
                 fields.MCP_REMOTE_PATH !== prevMcpRemotePath ||
-                fields.MCP_REMOTE_AUTH_MODE !== prevMcpRemoteAuthMode ||
                 String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim() !== prevMcpRemoteAuthToken;
 
             CONFIG.CONFIG_READY = true;
@@ -312,7 +339,6 @@ function createSettingsService(deps = {}) {
                     host: fields.MCP_REMOTE_HOST,
                     port: normalizeListenPort(fields.MCP_REMOTE_PORT, 4578),
                     path: fields.MCP_REMOTE_PATH,
-                    authMode: fields.MCP_REMOTE_AUTH_MODE,
                     authToken: String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim()
                 });
             }
@@ -332,11 +358,17 @@ function createSettingsService(deps = {}) {
                 newPort: normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT),
                 message: requiresRestart
                     ? '주요 설정 저장 완료. 서버가 재시작됩니다...'
-                    : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서비스 구성이 반영되었습니다.' : '주요 설정 저장 완료'),
+                    : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서버 설정이 적용되었습니다.' : '주요 설정 저장 완료'),
                 fields: updatedSettings.fields,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
                 shoppingImageDefaults: updatedSettings.shoppingImageDefaults,
                 remoteMcpStatus
+            };
+        },
+
+        async regenerateMcpToken() {
+            return {
+                token: generateRemoteMcpBearerToken()
             };
         },
 

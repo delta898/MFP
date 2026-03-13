@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const CONFIG = require('../config-loader');
 const Logger = require('../logger');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
+const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
 const {
     SUPPORTED_PROTOCOL_VERSION,
     createServerState,
@@ -83,33 +84,23 @@ function parseRequestHostname(request = {}) {
 }
 
 function resolveRemoteMcpConfig(overrides = {}) {
-    const configRoot = CONFIG.mcp?.remote && typeof CONFIG.mcp.remote === 'object'
-        ? CONFIG.mcp.remote
-        : {};
-    const authRoot = configRoot.auth && typeof configRoot.auth === 'object'
-        ? configRoot.auth
-        : {};
-
-    const authToken = String(
-        overrides.authToken
-        || process.env.MCP_REMOTE_AUTH_TOKEN
-        || authRoot.bearer_token
-        || ''
-    ).trim();
-    const authMode = normalizeAuthMode(overrides.authMode || authRoot.mode, authToken);
-
-    if (authMode === 'bearer' && !authToken) {
-        throw new Error('Remote MCP bearer auth is enabled, but no bearer token is configured.');
-    }
+    const runtimeConfig = ensureRuntimeRemoteMcpConfig(CONFIG, {
+        enabled: overrides.enabled,
+        host: overrides.host || process.env.MCP_REMOTE_HOST,
+        port: overrides.port || process.env.MCP_REMOTE_PORT,
+        path: overrides.path || process.env.MCP_REMOTE_PATH,
+        authMode: overrides.authMode,
+        authToken: overrides.authToken || process.env.MCP_REMOTE_AUTH_TOKEN
+    });
 
     return {
-        enabled: normalizeBoolean(overrides.enabled ?? configRoot.enabled, true),
-        host: String(overrides.host || process.env.MCP_REMOTE_HOST || DEFAULT_HTTP_HOST).trim() || DEFAULT_HTTP_HOST,
-        port: normalizePort(overrides.port || process.env.MCP_REMOTE_PORT, DEFAULT_HTTP_PORT),
-        path: normalizePathname(overrides.path || process.env.MCP_REMOTE_PATH || configRoot.path || DEFAULT_HTTP_PATH),
-        authMode,
-        authToken,
-        allowedOrigins: normalizeAllowedOrigins(overrides.allowedOrigins ?? configRoot.allowed_origins),
+        enabled: normalizeBoolean(runtimeConfig.enabled, true),
+        host: String(runtimeConfig.host || DEFAULT_HTTP_HOST).trim() || DEFAULT_HTTP_HOST,
+        port: normalizePort(runtimeConfig.port, DEFAULT_HTTP_PORT),
+        path: normalizePathname(runtimeConfig.path || DEFAULT_HTTP_PATH),
+        authMode: normalizeAuthMode(runtimeConfig.authMode, runtimeConfig.authToken),
+        authToken: String(runtimeConfig.authToken || '').trim(),
+        allowedOrigins: normalizeAllowedOrigins(overrides.allowedOrigins ?? CONFIG.mcp?.remote?.allowed_origins),
         debug: normalizeBoolean(overrides.debug ?? process.env.DEBUG_MCP, false)
     };
 }

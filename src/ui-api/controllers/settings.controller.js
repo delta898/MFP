@@ -83,6 +83,18 @@ function createSettingsController(deps = {}) {
                 }
             }
             return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleRegenerateMcpToken({ requestId, method, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.regenerateMcpToken();
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'MCP_TOKEN_REGENERATE_FAILED', 'MCP token 재발급에 실패했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
         }
     };
 }

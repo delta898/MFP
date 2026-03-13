@@ -1,9 +1,12 @@
 const Logger = require('../logger');
+const CONFIG = require('../config-loader');
 const { startHttpMcpServer, resolveRemoteMcpConfig } = require('./http-server');
+const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
 
 let activeRemoteService = null;
 
 function buildRemoteServiceOptions(overrides = {}) {
+    ensureRuntimeRemoteMcpConfig(CONFIG, overrides);
     const config = resolveRemoteMcpConfig(overrides);
     return {
         enabled: config.enabled !== false,

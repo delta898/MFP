@@ -24,6 +24,12 @@ const ShoppingManager = require('./shopping-manager');
 const Updater = require('./updater');
 const RuntimeConfig = require('./runtime-config');
 const { registerRuntimeHooks } = require('./runtime-hooks');
+const {
+    ensureRuntimeRemoteMcpConfig,
+    normalizeRemoteMcpHost,
+    normalizeRemoteMcpPath,
+    normalizeRemoteMcpPort
+} = require('./mcp/remote-config');
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
@@ -503,20 +509,6 @@ function normalizeListenPort(input, fallback = DEFAULT_PORT) {
     const parsed = parseInt(String(input || ''), 10);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) return fallback;
     return parsed;
-}
-
-function normalizeMcpPath(input, fallback = '/mcp') {
-    const raw = String(input || '').trim();
-    if (!raw) return fallback;
-    const prefixed = raw.startsWith('/') ? raw : `/${raw}`;
-    return prefixed.length > 1 ? prefixed.replace(/\/+$/, '') : prefixed;
-}
-
-function normalizeMcpAuthMode(input, fallback = 'none') {
-    const raw = String(input || '').trim().toLowerCase();
-    if (raw === 'bearer') return 'bearer';
-    if (raw === 'none') return 'none';
-    return fallback;
 }
 
 function extractGoogleSheetId(input) {
@@ -1164,6 +1156,7 @@ function applyConfigUpdates(raw, updates = {}) {
 }
 
 function buildMajorSettings(raw, configSource) {
+    const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG);
     // 이제 raw(text)를 파싱하는 대신 이미 로드된 CONFIG 객체의 값을 우선 시용합니다.
     const fields = {
         LISTEN_HOST: CONFIG.LISTEN_HOST,
@@ -1236,18 +1229,18 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
         NOTIFY_SLACK_WEBHOOK_URL: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
 
-        MCP_REMOTE_ENABLED: CONFIG.MCP_REMOTE_ENABLED ?? (CONFIG.mcp?.remote?.enabled !== false),
-        MCP_REMOTE_HOST: CONFIG.MCP_REMOTE_HOST || CONFIG.mcp?.remote?.host || '127.0.0.1',
-        MCP_REMOTE_PORT: CONFIG.MCP_REMOTE_PORT || CONFIG.mcp?.remote?.port || 4578,
-        MCP_REMOTE_PATH: CONFIG.MCP_REMOTE_PATH || CONFIG.mcp?.remote?.path || '/mcp',
-        MCP_REMOTE_AUTH_MODE: CONFIG.MCP_REMOTE_AUTH_MODE || CONFIG.mcp?.remote?.auth?.mode || 'none',
-        MCP_REMOTE_AUTH_TOKEN: CONFIG.MCP_REMOTE_AUTH_TOKEN || CONFIG.mcp?.remote?.auth?.bearer_token || ''
+        MCP_REMOTE_ENABLED: remoteMcp.enabled,
+        MCP_REMOTE_HOST: remoteMcp.host,
+        MCP_REMOTE_PORT: remoteMcp.port,
+        MCP_REMOTE_PATH: remoteMcp.path,
+        MCP_REMOTE_AUTH_TOKEN: remoteMcp.authToken
     };
 
     return {
         configPath: configSource?.path || CONFIG.CONFIG_SOURCE_PATH || '',
         configSourceType: configSource?.sourceType || CONFIG.CONFIG_SOURCE_TYPE || 'json',
         fields,
+        remoteMcpStatus: getRemoteServiceStatus(),
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
         shoppingImageSlots: buildShoppingImageSlots(fields)
@@ -1272,12 +1265,13 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
     const autoSettings = normalizeBlogAutoSettings(fields);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
-    const mcpRemoteEnabled = normalizeBool(fields.MCP_REMOTE_ENABLED, true);
-    const mcpRemoteHost = normalizeListenHost(fields.MCP_REMOTE_HOST, '127.0.0.1');
-    const mcpRemotePort = normalizeListenPort(fields.MCP_REMOTE_PORT, 4578);
-    const mcpRemotePath = normalizeMcpPath(fields.MCP_REMOTE_PATH, '/mcp');
-    const mcpRemoteAuthMode = normalizeMcpAuthMode(fields.MCP_REMOTE_AUTH_MODE, 'none');
-    const mcpRemoteAuthToken = String(fields.MCP_REMOTE_AUTH_TOKEN || '').trim();
+    const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG, {
+        enabled: fields.MCP_REMOTE_ENABLED,
+        host: fields.MCP_REMOTE_HOST,
+        port: fields.MCP_REMOTE_PORT,
+        path: fields.MCP_REMOTE_PATH,
+        authToken: fields.MCP_REMOTE_AUTH_TOKEN
+    });
 
     CONFIG.NAVER_ID = naverId;
     CONFIG.WORDPRESS_URL = wordpressUrl;
@@ -1347,21 +1341,11 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     // Slack Notify
     CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
     CONFIG.NOTIFY_SLACK_WEBHOOK_URL = String(fields.NOTIFY_SLACK_WEBHOOK_URL || '').trim();
-    CONFIG.MCP_REMOTE_ENABLED = mcpRemoteEnabled;
-    CONFIG.MCP_REMOTE_HOST = mcpRemoteHost;
-    CONFIG.MCP_REMOTE_PORT = mcpRemotePort;
-    CONFIG.MCP_REMOTE_PATH = mcpRemotePath;
-    CONFIG.MCP_REMOTE_AUTH_MODE = mcpRemoteAuthMode;
-    CONFIG.MCP_REMOTE_AUTH_TOKEN = mcpRemoteAuthToken;
-    if (!CONFIG.mcp || typeof CONFIG.mcp !== 'object') CONFIG.mcp = {};
-    if (!CONFIG.mcp.remote || typeof CONFIG.mcp.remote !== 'object') CONFIG.mcp.remote = {};
-    CONFIG.mcp.remote.enabled = mcpRemoteEnabled;
-    CONFIG.mcp.remote.host = mcpRemoteHost;
-    CONFIG.mcp.remote.port = mcpRemotePort;
-    CONFIG.mcp.remote.path = mcpRemotePath;
-    if (!CONFIG.mcp.remote.auth || typeof CONFIG.mcp.remote.auth !== 'object') CONFIG.mcp.remote.auth = {};
-    CONFIG.mcp.remote.auth.mode = mcpRemoteAuthMode;
-    CONFIG.mcp.remote.auth.bearer_token = mcpRemoteAuthToken;
+    CONFIG.MCP_REMOTE_ENABLED = remoteMcp.enabled;
+    CONFIG.MCP_REMOTE_HOST = remoteMcp.host;
+    CONFIG.MCP_REMOTE_PORT = remoteMcp.port;
+    CONFIG.MCP_REMOTE_PATH = remoteMcp.path;
+    CONFIG.MCP_REMOTE_AUTH_TOKEN = remoteMcp.authToken;
 
     Object.assign(CONFIG, autoSettings);
     Object.assign(CONFIG, shoppingAutoSettings);
@@ -1453,11 +1437,10 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
         NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),
 
-        MCP_REMOTE_ENABLED: normalizeBool(requestBody.MCP_REMOTE_ENABLED, true),
-        MCP_REMOTE_HOST: normalizeListenHost(requestBody.MCP_REMOTE_HOST, '127.0.0.1'),
-        MCP_REMOTE_PORT: normalizeListenPort(requestBody.MCP_REMOTE_PORT, 4578),
-        MCP_REMOTE_PATH: normalizeMcpPath(requestBody.MCP_REMOTE_PATH, '/mcp'),
-        MCP_REMOTE_AUTH_MODE: normalizeMcpAuthMode(requestBody.MCP_REMOTE_AUTH_MODE, 'none'),
+        MCP_REMOTE_ENABLED: normalizeBool(requestBody.MCP_REMOTE_ENABLED, false),
+        MCP_REMOTE_HOST: normalizeRemoteMcpHost(requestBody.MCP_REMOTE_HOST, '127.0.0.1'),
+        MCP_REMOTE_PORT: normalizeRemoteMcpPort(requestBody.MCP_REMOTE_PORT, 4578),
+        MCP_REMOTE_PATH: normalizeRemoteMcpPath(requestBody.MCP_REMOTE_PATH, '/mcp'),
         MCP_REMOTE_AUTH_TOKEN: String(requestBody.MCP_REMOTE_AUTH_TOKEN || '').trim()
     };
 }

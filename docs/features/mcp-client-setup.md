@@ -94,14 +94,8 @@ http://127.0.0.1:4578/mcp
 ```
 
 설정 위치:
-- `config/config.json`
-- `mcp.remote.enabled`
-- `mcp.remote.host`
-- `mcp.remote.port`
-- `mcp.remote.path`
-- `mcp.remote.auth.mode`
-- `mcp.remote.auth.bearer_token`
-- `mcp.remote.allowed_origins`
+- 앱 UI의 `설정 -> MCP` 탭
+- 저장 후 `config/config.json`의 `mcp.remote.*`
 
 예시:
 
@@ -109,12 +103,11 @@ http://127.0.0.1:4578/mcp
 {
   "mcp": {
     "remote": {
-      "enabled": true,
+      "enabled": false,
       "host": "127.0.0.1",
       "port": 4578,
       "path": "/mcp",
       "auth": {
-        "mode": "bearer",
         "bearer_token": "change-me"
       },
       "allowed_origins": [
@@ -124,6 +117,18 @@ http://127.0.0.1:4578/mcp
   }
 }
 ```
+
+초기 설치 직후에는 `config/config.json`에 `mcp` 섹션이 없을 수 있다.
+이 경우 앱은 런타임에서 기본값을 사용한다:
+- `enabled: false`
+- `host: 127.0.0.1`
+- `port: 4578`
+- `path: /mcp`
+- `auth.bearer_token: 비어 있음`
+
+이 상태에서 MCP 설정 UI를 열면, 저장된 token이 아직 없을 때 화면에는 32-byte random -> base64url 43자 draft token이 표시될 수 있다.
+이 draft token은 저장 전까지는 UI 값이며, 저장하면 `config/config.json`에 기록된다.
+반대로 token을 비우고 저장하면 인증 없음(`none`)으로 동작한다.
 
 현재 remote transport 동작 방식:
 - request/response 본 경로는 `POST /mcp`다.
@@ -137,6 +142,7 @@ http://127.0.0.1:4578/mcp
 - 로컬호스트 외 노출 시에는 bearer token을 설정하는 편이 안전하다.
 - Origin 검사는 localhost / same-host / `allowed_origins`만 허용한다.
 - `0.0.0.0`으로 바인딩한 경우 MCP client는 `0.0.0.0`이 아니라 실제 LAN IP 또는 reverse proxy URL을 사용해야 한다.
+- `Bearer Token 재발급`은 UI에서 새 값을 발급한 뒤, `저장 및 적용` 시 파일과 서비스 구성에 반영된다.
 
 접속 URL 예시:
 - 같은 컴퓨터: `http://127.0.0.1:4578/mcp`

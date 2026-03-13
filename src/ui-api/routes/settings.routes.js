@@ -29,6 +29,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/mcp-token') {
+            await controller.handleRegenerateMcpToken(ctx);
+            return true;
+        }
+
         return false;
     };
 }
