@@ -64,7 +64,7 @@ function createSessionLicenseController(deps = {}) {
             }
         },
 
-        async wordpressVerify({ requestId, method, res }) {
+        async wordpressVerify({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
