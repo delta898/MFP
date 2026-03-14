@@ -14,10 +14,48 @@ jobs:
     outputs:
       mirror_repo: ${{ steps.check_mirror.outputs.mirror_repo }}
       mirror_repo_pat: ${{ steps.check_mirror.outputs.has_pat }}
-      version: ${{ steps.get_version.outputs.version }}
+      app_version: ${{ steps.release_meta.outputs.app_version }}
+      version_clean: ${{ steps.release_meta.outputs.version_clean }}
+      prerelease: ${{ steps.release_meta.outputs.prerelease }}
+      release_body: ${{ steps.release_meta.outputs.release_body }}
+      release_details_json: ${{ steps.release_meta.outputs.release_details_json }}
     steps:
-      - id: get_version
-        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+      - id: release_meta
+        shell: bash
+        run: |
+          APP_VERSION="${GITHUB_REF_NAME}"
+          VERSION_CLEAN="${GITHUB_REF_NAME#v}"
+          PRERELEASE=false
+          if [[ "${GITHUB_REF_NAME}" == *"-beta"* || "${GITHUB_REF_NAME}" == *"-alpha"* || "${GITHUB_REF_NAME}" == *"-dev"* ]]; then
+            PRERELEASE=true
+          fi
+          DETAILS_JSON=$(node scripts/release-details.js "${VERSION_CLEAN}")
+          RELEASE_BODY=$(DETAILS_JSON="$DETAILS_JSON" node <<'NODE'
+          try {
+            const details = JSON.parse(process.env.DETAILS_JSON || '{}');
+            const body = Array.isArray(details.highlights) && details.highlights.length > 0
+              ? details.highlights.join('\n')
+              : (details.summary || '');
+            process.stdout.write(body);
+          } catch (_) {
+            process.stdout.write('');
+          }
+          NODE
+          )
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_clean=${VERSION_CLEAN}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+          {
+            echo "release_body<<EOF"
+            printf '%s\n' "$RELEASE_BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "release_details_json<<EOF"
+            printf '%s\n' "$DETAILS_JSON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - id: check_mirror
         run: |
           echo "mirror_repo=delta898/NaverAutoBlog-Releases" >> "$GITHUB_OUTPUT"
@@ -39,9 +77,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          body: ${{ needs.setup.outputs.release_body }}
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-dev') }}
+          prerelease: ${{ needs.setup.outputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,10 +90,10 @@ jobs:
           repository: ${{ env.MIRROR_REPO }}
           token: ${{ env.MIRROR_REPO_PAT }}
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          body: ${{ needs.setup.outputs.release_body }}
           overwrite_files: true
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-dev') }}
-          make_latest: ${{ !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-dev') }}
+          prerelease: ${{ needs.setup.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.setup.outputs.prerelease != 'true' }}
 
   build_and_upload:
     name: Build & Upload ${{ matrix.platform_name }}
@@ -64,7 +102,7 @@ jobs:
     env:
       MIRROR_REPO: ${{ needs.setup.outputs.mirror_repo }}
       MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
-      APP_VERSION: ${{ needs.setup.outputs.version }}
+      APP_VERSION: ${{ needs.setup.outputs.app_version }}
     strategy:
       fail-fast: false
       matrix:
@@ -119,7 +157,7 @@ jobs:
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
           fi
-          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" --icon=assets/icons/icon --ignore="^/(\\.git|dist|logs|assets|Videos|workspace|NaverAutoBlog|supabase|temp|docs)($|/)"
+          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -134,13 +172,13 @@ jobs:
           # 1. 로컬 빌드와 동일한 명명 규칙 적용 (BlogGenius-vX.X.X-platform-arch)
           ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
           ROOT_OUT="dist/${ROOT_NAME}"
-          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts"
+          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts" "${ROOT_OUT}/data"
 
           # 2. 필수 리소스 복사
           cp config/config.json.sample "${ROOT_OUT}/config/config.json.sample"
           cp -r config/images/* "${ROOT_OUT}/config/images/" || true
           cp scripts/google_apps_script.js "${ROOT_OUT}/scripts/"
-          [ -f "README_USER.md" ] && cp README_USER.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
+          [ -f "README.md" ] && cp README.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
           
           # 3. CLI 및 GUI 배치
           mv "dist/${{ matrix.output_binary }}" "${ROOT_OUT}/"
@@ -194,6 +232,27 @@ jobs:
           files: ${{ env.ZIP_NAME }}
           overwrite_files: true
 
+      - name: Build Asset Metadata
+        shell: bash
+        run: |
+          FILE_NAME=$(basename "${ZIP_NAME}")
+          FILE_SHA256=$(shasum -a 256 "${ZIP_NAME}" | awk '{print $1}')
+          FILE_SIZE=$(stat -f%z "${ZIP_NAME}" 2>/dev/null || stat --printf="%s" "${ZIP_NAME}" 2>/dev/null || echo "0")
+          cat <<EOF > "asset-meta-${{ matrix.suffix }}.json"
+          {
+            "name": "${FILE_NAME}",
+            "sha256": "${FILE_SHA256}",
+            "size": ${FILE_SIZE}
+          }
+          EOF
+
+      - name: Upload Asset Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-meta-${{ matrix.suffix }}
+          path: asset-meta-${{ matrix.suffix }}.json
+          if-no-files-found: error
+
   upload_readme:
     name: Upload Versioned README
     runs-on: ubuntu-latest
@@ -203,17 +262,171 @@ jobs:
       - run: |
           VERSION="${GITHUB_REF_NAME#v}"
           README_OUT="README_v${VERSION}.md"
-          [ -f "README_USER.md" ] && cp README_USER.md "${README_OUT}" || echo "# BlogGenius" > "${README_OUT}"
+          [ -f "README.md" ] && cp README.md "${README_OUT}" || echo "# BlogGenius" > "${README_OUT}"
           echo "README_FILE=${README_OUT}" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: ${{ env.README_FILE }}
 
+  publish_update_manifest:
+    name: Publish update.json
+    runs-on: ubuntu-latest
+    needs: [setup, build_and_upload]
+    env:
+      MIRROR_REPO: ${{ needs.setup.outputs.mirror_repo }}
+      MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
+      RELEASE_DETAILS_JSON: ${{ needs.setup.outputs.release_details_json }}
+      RELEASE_BODY: ${{ needs.setup.outputs.release_body }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: .asset-meta
+
+      - name: Fetch Private Release Metadata
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} > private-release.json
+
+      - name: Generate Private update.json
+        shell: bash
+        run: |
+          node <<'NODE' > update.json
+          const fs = require('fs');
+          const path = require('path');
+
+          const release = JSON.parse(fs.readFileSync('private-release.json', 'utf8'));
+          const details = JSON.parse(process.env.RELEASE_DETAILS_JSON || '{}');
+          const body = String(process.env.RELEASE_BODY || '');
+          const metaDir = path.join(process.cwd(), '.asset-meta');
+          const metaMap = new Map();
+
+          function readMetaFiles(dirPath) {
+            if (!fs.existsSync(dirPath)) return;
+            for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+              const fullPath = path.join(dirPath, entry.name);
+              if (entry.isDirectory()) {
+                readMetaFiles(fullPath);
+                continue;
+              }
+              if (!entry.name.endsWith('.json')) continue;
+              try {
+                const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                if (parsed && parsed.name) metaMap.set(parsed.name, parsed);
+              } catch (_) {}
+            }
+          }
+
+          readMetaFiles(metaDir);
+
+          const assets = Array.isArray(release.assets) ? release.assets : [];
+          const payload = {
+            tag_name: release.tag_name,
+            published_at: release.published_at,
+            prerelease: Boolean(release.prerelease),
+            body,
+            details,
+            assets: assets
+              .filter((asset) => String(asset.name || '').toLowerCase().endsWith('.zip'))
+              .map((asset) => {
+                const meta = metaMap.get(asset.name) || {};
+                return {
+                  name: asset.name,
+                  browser_download_url: asset.browser_download_url,
+                  sha256: String(meta.sha256 || '').trim(),
+                  size: Number(meta.size || asset.size || 0)
+                };
+              })
+          };
+
+          process.stdout.write(JSON.stringify(payload, null, 2));
+          NODE
+
+      - name: Upload Private update.json
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: update.json
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch Mirror Release Metadata
+        if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        env:
+          GITHUB_TOKEN: ${{ env.MIRROR_REPO_PAT }}
+        run: gh api repos/${{ env.MIRROR_REPO }}/releases/tags/${{ github.ref_name }} > mirror-release.json
+
+      - name: Generate Mirror update.json
+        if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        shell: bash
+        run: |
+          node <<'NODE' > update.json
+          const fs = require('fs');
+          const path = require('path');
+
+          const release = JSON.parse(fs.readFileSync('mirror-release.json', 'utf8'));
+          const details = JSON.parse(process.env.RELEASE_DETAILS_JSON || '{}');
+          const body = String(process.env.RELEASE_BODY || '');
+          const metaDir = path.join(process.cwd(), '.asset-meta');
+          const metaMap = new Map();
+
+          function readMetaFiles(dirPath) {
+            if (!fs.existsSync(dirPath)) return;
+            for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+              const fullPath = path.join(dirPath, entry.name);
+              if (entry.isDirectory()) {
+                readMetaFiles(fullPath);
+                continue;
+              }
+              if (!entry.name.endsWith('.json')) continue;
+              try {
+                const parsed = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+                if (parsed && parsed.name) metaMap.set(parsed.name, parsed);
+              } catch (_) {}
+            }
+          }
+
+          readMetaFiles(metaDir);
+
+          const assets = Array.isArray(release.assets) ? release.assets : [];
+          const payload = {
+            tag_name: release.tag_name,
+            published_at: release.published_at,
+            prerelease: Boolean(release.prerelease),
+            body,
+            details,
+            assets: assets
+              .filter((asset) => String(asset.name || '').toLowerCase().endsWith('.zip'))
+              .map((asset) => {
+                const meta = metaMap.get(asset.name) || {};
+                return {
+                  name: asset.name,
+                  browser_download_url: asset.browser_download_url,
+                  sha256: String(meta.sha256 || '').trim(),
+                  size: Number(meta.size || asset.size || 0)
+                };
+              })
+          };
+
+          process.stdout.write(JSON.stringify(payload, null, 2));
+          NODE
+
+      - name: Upload Mirror update.json
+        if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.MIRROR_REPO }}
+          token: ${{ env.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          files: update.json
+          overwrite_files: true
+
   cleanup_old_releases:
     name: Cleanup Old Releases (-3 Rule)
     runs-on: ubuntu-latest
-    needs: [setup, build_and_upload, upload_readme]
+    needs: [setup, build_and_upload, upload_readme, publish_update_manifest]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MIRROR_REPO: delta898/NaverAutoBlog-Releases

@@ -257,77 +257,7 @@ if [[ $VERSION == *"-"* ]]; then
     echo "🧪 [Prerelease] 버전이 감지되었습니다. (${VERSION})"
 fi
 
-RELEASE_DETAILS_JSON=$(VERSION="$VERSION" node <<'NODE'
-const fs = require('fs');
-
-const version = process.env.VERSION || '';
-const fallback = {
-  summary: 'BlogGenius v' + version + ' 업데이트',
-  highlights: []
-};
-
-function escapeText(text) {
-  return String(text || '')
-    .replace(/\*\*/g, '')
-    .replace(new RegExp(String.fromCharCode(96), 'g'), '')
-    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function extractSection(content, candidates) {
-  const lines = String(content || '').split('\n');
-  for (const candidate of candidates) {
-    const headings = ['## [' + candidate + ']', '## [v' + candidate + ']'];
-    let start = -1;
-    for (let i = 0; i < lines.length; i += 1) {
-      const line = lines[i].trim();
-      if (headings.some(heading => line.startsWith(heading))) {
-        start = i + 1;
-        break;
-      }
-    }
-    if (start === -1) continue;
-
-    const collected = [];
-    for (let i = start; i < lines.length; i += 1) {
-      const line = lines[i];
-      if (line.startsWith('## [')) break;
-      collected.push(line);
-    }
-    return collected.join('\n');
-  }
-  return '';
-}
-
-function buildDetails(sectionText) {
-  const lines = String(sectionText || '').split('\n');
-  const highlights = [];
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line.startsWith('- ')) continue;
-    const cleaned = escapeText(line.slice(2));
-    if (!cleaned) continue;
-    highlights.push(cleaned);
-    if (highlights.length >= 5) break;
-  }
-  const summary = highlights[0] || fallback.summary;
-  return {
-    summary,
-    highlights
-  };
-}
-
-try {
-  const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
-  const section = extractSection(changelog, [version, 'Unreleased']);
-  const details = buildDetails(section);
-  process.stdout.write(JSON.stringify(details));
-} catch (_) {
-  process.stdout.write(JSON.stringify(fallback));
-}
-NODE
-)
+RELEASE_DETAILS_JSON=$(node scripts/release-details.js "$VERSION")
 
 RELEASE_BODY=$(DETAILS_JSON="$RELEASE_DETAILS_JSON" node <<'NODE'
 try {
