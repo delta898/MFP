@@ -815,10 +815,11 @@ function createContentService(deps = {}) {
             return result.data;
         },
 
-        async getBlogQuickPreviewImage({ previewIdRaw, indexRaw }) {
+        async getBlogQuickPreviewImage({ previewIdRaw, targetRaw, indexRaw }) {
             try {
                 return getQuickPreviewImagePayload({
                     previewId: previewIdRaw,
+                    target: targetRaw,
                     index: indexRaw
                 });
             } catch (e) {

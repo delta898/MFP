@@ -152,6 +152,7 @@ function createContentController(deps = {}) {
             try {
                 const data = await service.getBlogQuickPreviewImage({
                     previewIdRaw: searchParams.get('previewId'),
+                    targetRaw: searchParams.get('target'),
                     indexRaw: searchParams.get('index')
                 });
                 if (data?.binary) {

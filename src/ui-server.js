@@ -499,7 +499,7 @@ function getQuickPublishPreviewSession(previewId) {
 }
 
 function buildQuickPublishPreviewResponse(session = {}) {
-    const previewData = session.previewData || {};
+    const previewsByTarget = session.previewsByTarget || {};
     return {
         previewId: session.previewId,
         rowIndex: session.rowIndex,
@@ -507,22 +507,27 @@ function buildQuickPublishPreviewResponse(session = {}) {
         primaryTarget: session.primaryTarget,
         targets: Array.isArray(session.targets) ? session.targets.slice() : [],
         expiresAt: session.expiresAtMs ? new Date(session.expiresAtMs).toISOString() : '',
-        preview: {
-            ...previewData,
-            source: {
-                ...(previewData.source || {}),
-                type: 'generated_quick_post'
-            },
-            images: Array.isArray(previewData.images)
-                ? previewData.images.map((image) => ({
-                    ...image,
-                    imagePath: '',
-                    previewUrl: image.exists
-                        ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(session.previewId)}&index=${encodeURIComponent(String(image.index))}`
-                        : ''
-                }))
-                : []
-        }
+        previews: Object.fromEntries(
+            Object.entries(previewsByTarget).map(([target, previewData]) => [
+                target,
+                {
+                    ...previewData,
+                    source: {
+                        ...(previewData?.source || {}),
+                        type: 'generated_quick_post'
+                    },
+                    images: Array.isArray(previewData?.images)
+                        ? previewData.images.map((image) => ({
+                            ...image,
+                            imagePath: '',
+                            previewUrl: image.exists
+                                ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(session.previewId)}&target=${encodeURIComponent(String(target || ''))}&index=${encodeURIComponent(String(image.index))}`
+                                : ''
+                        }))
+                        : []
+                }
+            ])
+        )
     };
 }
 
@@ -535,7 +540,7 @@ function registerQuickPublishPreviewSession({
     targets,
     primaryTarget,
     targetDirs,
-    previewData
+    previewsByTarget
 } = {}) {
     cleanupQuickPublishPreviewCache();
     const normalizedPreviewId = String(previewId || '').trim() || crypto.randomUUID();
@@ -549,7 +554,7 @@ function registerQuickPublishPreviewSession({
         targets: Array.isArray(targets) ? targets.slice() : [],
         primaryTarget: String(primaryTarget || '').trim(),
         targetDirs: targetDirs || {},
-        previewData: previewData || null,
+        previewsByTarget: previewsByTarget || {},
         expiresAtMs
     };
     quickPublishPreviewMap.set(normalizedPreviewId, session);
@@ -2011,7 +2016,7 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
 function buildQuickPreviewDataFromDirectory({
     directoryPath,
     previewId,
-    primaryTarget,
+    target,
     targets,
     postStatus,
     scheduleDate,
@@ -2034,12 +2039,12 @@ function buildQuickPreviewDataFromDirectory({
         type: 'generated_quick_post'
     };
     preview.previewId = String(previewId || '').trim();
-    preview.primaryTarget = String(primaryTarget || '').trim();
+    preview.target = String(target || '').trim();
     preview.images = Array.isArray(preview.images)
         ? preview.images.map((image) => ({
             ...image,
             previewUrl: image.exists
-                ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(String(previewId || ''))}&index=${encodeURIComponent(String(image.index))}`
+                ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(String(previewId || ''))}&target=${encodeURIComponent(String(target || ''))}&index=${encodeURIComponent(String(image.index))}`
                 : ''
         }))
         : [];
@@ -2062,7 +2067,21 @@ async function executeQuickPreviewPublish(requestBody = {}) {
         return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
     }
 
-    const targets = Array.isArray(session.targets) ? session.targets.slice() : [];
+    const generatedTargets = Array.isArray(session.targets) ? session.targets.slice() : [];
+    const selectedTargets = Array.isArray(requestBody?.targets)
+        ? requestBody.targets.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+        : generatedTargets.slice();
+    if (selectedTargets.length === 0) {
+        return { success: false, code: 'INVALID_TARGETS', message: '포스팅 대상을 하나 이상 선택해야 합니다.' };
+    }
+    const missingPreviewTargets = selectedTargets.filter((target) => !generatedTargets.includes(target) || !session.targetDirs?.[target]);
+    if (missingPreviewTargets.length > 0) {
+        return {
+            success: false,
+            code: 'QUICK_PREVIEW_TARGET_MISSING',
+            message: `${missingPreviewTargets.join(', ')} 대상은 생성된 preview가 없습니다. 미리보기를 다시 생성해 주세요.`
+        };
+    }
     const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
     const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
     const scheduleDate = String(requestBody?.scheduleDate || '').trim();
@@ -2077,7 +2096,7 @@ async function executeQuickPreviewPublish(requestBody = {}) {
         return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
     }
 
-    if (targets.includes('naver')) {
+    if (selectedTargets.includes('naver')) {
         const sessionCheck = await checkAuthSessionValid();
         if (!sessionCheck.ok) {
             return {
@@ -2090,13 +2109,13 @@ async function executeQuickPreviewPublish(requestBody = {}) {
 
     const results = {};
     try {
-        if (targets.includes('naver') && session.targetDirs?.naver) {
+        if (selectedTargets.includes('naver') && session.targetDirs?.naver) {
             const naverRes = await Core.publishToBlog(session.targetDirs.naver, {
                 headless,
                 category: requestBody?.naverCategory || '',
                 postStatus,
                 scheduleDate,
-                isLast: !targets.includes('wordpress')
+                isLast: !selectedTargets.includes('wordpress')
             }) || { success: false, message: 'Naver publish returned no response' };
             results.naver = {
                 success: Boolean(naverRes.success),
@@ -2110,7 +2129,7 @@ async function executeQuickPreviewPublish(requestBody = {}) {
             }
         }
 
-        if (targets.includes('wordpress') && session.targetDirs?.wordpress) {
+        if (selectedTargets.includes('wordpress') && session.targetDirs?.wordpress) {
             const wpRes = await Core.publishToWordPress(session.targetDirs.wordpress, {
                 category: requestBody?.wordpressCategory || '',
                 postStatus,
@@ -2155,7 +2174,7 @@ async function executeQuickPreviewPublish(requestBody = {}) {
                 rowIndex: session.rowIndex,
                 status: failedTargets.length > 0 ? '발행 준비 완료' : '발행 완료',
                 published: failedTargets.length === 0,
-                targetDir: session.targetDirs?.[session.primaryTarget] || session.targetDirs?.naver || session.targetDirs?.wordpress || null,
+                targetDir: session.targetDirs?.[selectedTargets[0]] || session.targetDirs?.[session.primaryTarget] || session.targetDirs?.naver || session.targetDirs?.wordpress || null,
                 updatedAtMs: Date.now()
             });
         }
@@ -2191,17 +2210,22 @@ async function executeQuickPreviewPublish(requestBody = {}) {
     }
 }
 
-function getQuickPreviewImagePayload({ previewId, index } = {}) {
+function getQuickPreviewImagePayload({ previewId, target, index } = {}) {
     const session = getQuickPublishPreviewSession(previewId);
     if (!session) {
         throw new Error('빠른 포스팅 preview를 찾지 못했습니다.');
+    }
+    const normalizedTarget = String(target || '').trim().toLowerCase();
+    if (!normalizedTarget) {
+        throw new Error('preview target이 필요합니다.');
     }
     const imageIndex = parseIntSafe(index, null, 0);
     if (imageIndex === null) {
         throw new Error('image index가 올바르지 않습니다.');
     }
-    const image = Array.isArray(session.previewData?.images)
-        ? session.previewData.images.find((item) => Number(item.index) === imageIndex)
+    const previewData = session.previewsByTarget?.[normalizedTarget] || null;
+    const image = Array.isArray(previewData?.images)
+        ? previewData.images.find((item) => Number(item.index) === imageIndex)
         : null;
     if (!image?.exists || !image.imagePath || !fs.existsSync(image.imagePath)) {
         throw new Error('preview 이미지를 찾지 못했습니다.');
@@ -2422,15 +2446,47 @@ async function executeQuickPublish(requestBody) {
         }
 
         const previewId = crypto.randomUUID();
-        const previewData = buildQuickPreviewDataFromDirectory({
-            directoryPath: primaryTargetDir,
-            previewId,
-            primaryTarget,
-            targets,
-            postStatus: requestBody?.postStatus || 'draft',
-            scheduleDate: requestBody?.scheduleDate || '',
-            imageGeneration: imageGenerationFinal
-        });
+        const previewsByTarget = {};
+        if (targetDirs.naver) {
+            const previewData = buildQuickPreviewDataFromDirectory({
+                directoryPath: targetDirs.naver,
+                previewId,
+                target: 'naver',
+                targets,
+                postStatus: requestBody?.postStatus || 'draft',
+                scheduleDate: requestBody?.scheduleDate || '',
+                imageGeneration: imageGenerationFinal
+            });
+            previewsByTarget.naver = {
+                ...previewData,
+                images: Array.isArray(previewData.images)
+                    ? previewData.images.map((image) => ({
+                        ...image,
+                        previewUrl: ''
+                    }))
+                    : []
+            };
+        }
+        if (targetDirs.wordpress) {
+            const previewData = buildQuickPreviewDataFromDirectory({
+                directoryPath: targetDirs.wordpress,
+                previewId,
+                target: 'wordpress',
+                targets,
+                postStatus: requestBody?.postStatus || 'draft',
+                scheduleDate: requestBody?.scheduleDate || '',
+                imageGeneration: imageGenerationFinal
+            });
+            previewsByTarget.wordpress = {
+                ...previewData,
+                images: Array.isArray(previewData.images)
+                    ? previewData.images.map((image) => ({
+                        ...image,
+                        previewUrl: ''
+                    }))
+                    : []
+            };
+        }
         const previewResponse = registerQuickPublishPreviewSession({
             previewId,
             rowIndex,
@@ -2440,15 +2496,7 @@ async function executeQuickPublish(requestBody) {
             targets,
             primaryTarget,
             targetDirs,
-            previewData: {
-                ...previewData,
-                images: Array.isArray(previewData.images)
-                    ? previewData.images.map((image) => ({
-                        ...image,
-                        previewUrl: ''
-                    }))
-                    : []
-            }
+            previewsByTarget
         });
 
         quickPublishRecentMap.set(dedupeKey, {

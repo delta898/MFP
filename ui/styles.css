@@ -884,6 +884,30 @@ h2 {
   color: #64748b;
 }
 
+.preview-target-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preview-target-tab {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.preview-target-tab.is-active {
+  border-color: var(--brand-primary);
+  background: #eff6ff;
+  color: var(--brand-primary);
+}
+
 .local-markdown-preview-sections {
   display: flex;
   flex-direction: column;

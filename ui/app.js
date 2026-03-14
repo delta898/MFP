@@ -193,7 +193,8 @@ let quickGeneratedPreviewState = {
   rowNumber: null,
   primaryTarget: '',
   targets: [],
-  data: null
+  activeTarget: '',
+  previews: {}
 };
 let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
@@ -5270,12 +5271,32 @@ function bindActions() {
 
   const buildQuickPreviewPublishPayload = () => ({
     previewId: quickGeneratedPreviewState.previewId,
+    targets: [
+      document.getElementById('quick-target-naver')?.checked ? 'naver' : '',
+      document.getElementById('quick-target-wordpress')?.checked ? 'wordpress' : ''
+    ].filter(Boolean),
     naverCategory: (document.getElementById('quick-naver-category')?.value || '').trim(),
     wordpressCategory: (document.getElementById('quick-wp-category')?.value || '').trim(),
     postStatus: (document.getElementById('quick-wp-post-status')?.value || 'publish').trim(),
     scheduleDate: (document.getElementById('quick-wp-schedule-date')?.value || '').trim(),
     headless: Boolean(document.getElementById('quick-headless')?.checked)
   });
+
+  function getQuickPreviewActiveTarget() {
+    const stateTarget = String(quickGeneratedPreviewState.activeTarget || '').trim();
+    if (stateTarget && quickGeneratedPreviewState.previews?.[stateTarget]) return stateTarget;
+    const primaryTarget = String(quickGeneratedPreviewState.primaryTarget || '').trim();
+    if (primaryTarget && quickGeneratedPreviewState.previews?.[primaryTarget]) return primaryTarget;
+    const previewTargets = Object.keys(quickGeneratedPreviewState.previews || {});
+    return previewTargets[0] || '';
+  }
+
+  function setQuickPreviewActiveTarget(target) {
+    const normalized = String(target || '').trim().toLowerCase();
+    if (!normalized || !quickGeneratedPreviewState.previews?.[normalized]) return;
+    quickGeneratedPreviewState.activeTarget = normalized;
+    renderQuickGeneratedPreview();
+  }
 
   function renderQuickPreviewValidation(validation = null) {
     const el = document.getElementById('quick-preview-validation');
@@ -5372,20 +5393,27 @@ function bindActions() {
     return fragments.join('') || '<div class="local-markdown-empty">본문 preview를 표시할 내용이 없습니다.</div>';
   }
 
-  function renderQuickGeneratedPreview(data = null) {
+  function renderQuickGeneratedPreview(data) {
     const emptyEl = document.getElementById('quick-preview-empty');
     const panelEl = document.getElementById('quick-preview-panel');
+    const tabsEl = document.getElementById('quick-preview-tabs');
+    const tabButtons = Array.from(document.querySelectorAll('#quick-preview-tabs .preview-target-tab'));
     const titleEl = document.getElementById('quick-preview-title');
     const metaEl = document.getElementById('quick-preview-meta');
     const badgeEl = document.getElementById('quick-preview-target-badge');
     const bodyEl = document.getElementById('quick-body-preview');
     const imageListEl = document.getElementById('quick-image-list');
 
-    if (!data) {
-      quickGeneratedPreviewState.data = null;
+    const activeTarget = getQuickPreviewActiveTarget();
+    const resolvedData = typeof data === 'undefined'
+      ? (quickGeneratedPreviewState.previews?.[activeTarget] || null)
+      : data;
+
+    if (!resolvedData) {
       renderQuickPreviewValidation(null);
       if (emptyEl) emptyEl.hidden = false;
       if (panelEl) panelEl.hidden = true;
+      if (tabsEl) tabsEl.hidden = true;
       if (bodyEl) bodyEl.innerHTML = '';
       if (imageListEl) imageListEl.innerHTML = '';
       if (badgeEl) badgeEl.textContent = '미리보기 기준: -';
@@ -5393,14 +5421,22 @@ function bindActions() {
       return;
     }
 
-    quickGeneratedPreviewState.data = data;
-    renderQuickPreviewValidation(data.validation || null);
+    const activePreview = quickGeneratedPreviewState.previews?.[activeTarget] || resolvedData;
+    const previewTargets = Object.keys(quickGeneratedPreviewState.previews || {});
+
+    renderQuickPreviewValidation(activePreview.validation || null);
     if (emptyEl) emptyEl.hidden = true;
     if (panelEl) panelEl.hidden = false;
-    if (titleEl) titleEl.textContent = data.title || '제목 없음';
+    if (tabsEl) tabsEl.hidden = previewTargets.length <= 1;
+    tabButtons.forEach((button) => {
+      const target = String(button.dataset.target || '').trim();
+      button.hidden = !previewTargets.includes(target);
+      button.classList.toggle('is-active', target === activeTarget);
+    });
+    if (titleEl) titleEl.textContent = activePreview.title || '제목 없음';
     if (metaEl) {
-      const source = data.source || {};
-      const stats = data.stats || {};
+      const source = activePreview.source || {};
+      const stats = activePreview.stats || {};
       metaEl.textContent = [
         source.fileName || '',
         source.folderName || source.directoryPath || '',
@@ -5409,12 +5445,12 @@ function bindActions() {
       ].filter(Boolean).join(' | ');
     }
     if (badgeEl) {
-      const label = quickGeneratedPreviewState.primaryTarget === 'wordpress' ? '워드프레스' : '네이버 블로그';
+      const label = activeTarget === 'wordpress' ? '워드프레스' : '네이버 블로그';
       badgeEl.textContent = `미리보기 기준: ${label}`;
     }
-    if (bodyEl) bodyEl.innerHTML = renderQuickPreviewBodyHtml(data);
+    if (bodyEl) bodyEl.innerHTML = renderQuickPreviewBodyHtml(activePreview);
     if (imageListEl) {
-      const images = Array.isArray(data.images) ? data.images : [];
+      const images = Array.isArray(activePreview.images) ? activePreview.images : [];
       imageListEl.innerHTML = images.length === 0
         ? '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>'
         : images.map((image) => {
@@ -5448,7 +5484,8 @@ function bindActions() {
       rowNumber: null,
       primaryTarget: '',
       targets: [],
-      data: null
+      activeTarget: '',
+      previews: {}
     };
     renderQuickGeneratedPreview(null);
   }
@@ -5515,13 +5552,17 @@ function bindActions() {
         requestLabel: actionText,
         requestFn: () => postJson('/api/v1/blog/quick-publish', buildQuickPayload(mode))
       });
-      if (mode === 'append_and_generate' && data?.preview) {
+      if (mode === 'append_and_generate' && data?.previews) {
         quickGeneratedPreviewState.previewId = data.previewId || '';
         quickGeneratedPreviewState.rowIndex = Number.isFinite(Number(data.rowIndex)) ? Number(data.rowIndex) : null;
         quickGeneratedPreviewState.rowNumber = Number.isFinite(Number(data.rowNumber)) ? Number(data.rowNumber) : null;
         quickGeneratedPreviewState.primaryTarget = String(data.primaryTarget || '').trim();
         quickGeneratedPreviewState.targets = Array.isArray(data.targets) ? data.targets.slice() : [];
-        renderQuickGeneratedPreview(data.preview);
+        quickGeneratedPreviewState.activeTarget = quickGeneratedPreviewState.primaryTarget || quickGeneratedPreviewState.targets[0] || '';
+        quickGeneratedPreviewState.previews = typeof data.previews === 'object' && data.previews
+          ? data.previews
+          : {};
+        renderQuickGeneratedPreview(data.previews?.[quickGeneratedPreviewState.activeTarget] || null);
       } else if (mode !== 'append_and_generate') {
         clearQuickGeneratedPreview();
       }
@@ -5541,7 +5582,7 @@ function bindActions() {
     if (!resultEl) return;
     if (!guardUiConfigReady('빠른발행')) return;
     if (!quickGeneratedPreviewState.previewId) {
-      showUiPopup('먼저 `저장 및 생성`을 실행해 주세요.');
+      showUiPopup('먼저 `미리보기 생성`을 실행해 주세요.');
       return;
     }
     if (quickPublishInFlight) {
@@ -5549,6 +5590,15 @@ function bindActions() {
       return;
     }
     const payload = buildQuickPreviewPublishPayload();
+    if (!Array.isArray(payload.targets) || payload.targets.length === 0) {
+      showUiPopup('포스팅할 대상을 하나 이상 선택해 주세요.');
+      return;
+    }
+    const missingTargets = payload.targets.filter((target) => !quickGeneratedPreviewState.previews?.[target]);
+    if (missingTargets.length > 0) {
+      showUiPopup(`${missingTargets.join(', ')} 대상의 생성 preview가 없습니다. 미리보기 생성을 다시 해주세요.`);
+      return;
+    }
     if (payload.postStatus === 'schedule' && !payload.scheduleDate) {
       showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
       return;
@@ -5567,7 +5617,6 @@ function bindActions() {
           : (payload.postStatus === 'schedule' ? '빠른 포스팅 예약 등록' : '빠른 포스팅 실행'),
         requestFn: () => postJson('/api/v1/blog/quick-preview/publish', payload)
       });
-      clearQuickGeneratedPreview();
       await loadDashboard();
     } catch (_error) {
       // runWithLiveProgress already renders logs/errors
@@ -5592,6 +5641,11 @@ function bindActions() {
   if (previewPublishBtn) {
     previewPublishBtn.addEventListener('click', () => runQuickGeneratedPublish());
   }
+  document.querySelectorAll('#quick-preview-tabs .preview-target-tab').forEach((button) => {
+    button.addEventListener('click', () => {
+      setQuickPreviewActiveTarget(button.dataset.target || '');
+    });
+  });
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       const subjectEl = document.getElementById('quick-subject');
