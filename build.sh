@@ -335,21 +335,28 @@ fi
 
 # 🛠 [Utility] 수동 업로드용 스크립트 생성
 UPLOAD_SH="dist/upload.sh"
-BUILT_ZIP_NAMES=""
-for zip_file in "${BUILT_ZIPS[@]}"; do
-    BUILT_ZIP_NAMES="${BUILT_ZIP_NAMES} ./$(basename "$zip_file")"
-done
 cat <<EOF > "${UPLOAD_SH}"
 #!/bin/bash
+set -euo pipefail
+
 echo "🚀 [Manual] 서버로 업로드 중..."
-scp${BUILT_ZIP_NAMES} ./update.json "${UPLOAD_TARGET}"
-if [ \$? -eq 0 ]; then
-    echo "✅ 업로드 성공!"
-    echo "🧹 구버전 파일 정리 중..."
-    ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
-else
-    echo "❌ 업로드 실패!"
+
+SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
+cd "\$SCRIPT_DIR"
+
+shopt -s nullglob
+ZIP_FILES=(./*.zip)
+shopt -u nullglob
+
+if [ \${#ZIP_FILES[@]} -eq 0 ]; then
+    echo "❌ 업로드할 ZIP 파일이 없습니다."
+    exit 1
 fi
+
+scp "\${ZIP_FILES[@]}" ./update.json "${UPLOAD_TARGET}"
+echo "✅ 업로드 성공!"
+echo "🧹 구버전 파일 정리 중..."
+ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
 EOF
 chmod +x "${UPLOAD_SH}"
 echo "   ✅ 수동 업로드용 스크립트 생성 완료: ${UPLOAD_SH}"

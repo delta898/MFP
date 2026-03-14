@@ -27,7 +27,7 @@ jobs:
           APP_VERSION="${GITHUB_REF_NAME}"
           VERSION_CLEAN="${GITHUB_REF_NAME#v}"
           PRERELEASE=false
-          if [[ "${GITHUB_REF_NAME}" == *"-beta"* || "${GITHUB_REF_NAME}" == *"-alpha"* || "${GITHUB_REF_NAME}" == *"-dev"* ]]; then
+          if [[ "${GITHUB_REF_NAME}" == *"-beta"* || "${GITHUB_REF_NAME}" == *"-alpha"* || "${GITHUB_REF_NAME}" == *"-dev"* || "${GITHUB_REF_NAME}" == *"-rc"* ]]; then
             PRERELEASE=true
           fi
           DETAILS_JSON=$(node scripts/release-details.js "${VERSION_CLEAN}")

@@ -74,58 +74,105 @@ class Updater {
             .slice(0, 5);
     }
 
+    async fetchReleases() {
+        if (this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
+            Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
+            const response = await axios.get(this.customUpdateCheckUrl, {
+                timeout: 5000
+            });
+            return Array.isArray(response.data) ? response.data : [response.data];
+        }
+
+        const url = `https://api.github.com/repos/${this.repo}/releases`;
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'BlogGenius-Updater' },
+            timeout: 5000
+        });
+        return Array.isArray(response.data) ? response.data : [];
+    }
+
+    async enrichReleaseWithManifest(release = null) {
+        if (!release || typeof release !== 'object') return release;
+        if (this.updateServerType !== 'github') return release;
+
+        const manifestAsset = Array.isArray(release.assets)
+            ? release.assets.find((asset) => String(asset?.name || '').trim().toLowerCase() === 'update.json')
+            : null;
+        if (!manifestAsset?.browser_download_url) {
+            return release;
+        }
+
+        try {
+            Logger.debug(`📂 [Updater] release asset update.json 로드: ${manifestAsset.browser_download_url}`);
+            const response = await axios.get(manifestAsset.browser_download_url, {
+                headers: { 'User-Agent': 'BlogGenius-Updater' },
+                timeout: 5000
+            });
+            const manifest = response?.data;
+            if (!manifest || typeof manifest !== 'object') {
+                return release;
+            }
+
+            const merged = {
+                ...release,
+                tag_name: String(manifest.tag_name || release.tag_name || '').trim() || release.tag_name,
+                published_at: String(manifest.published_at || release.published_at || '').trim() || release.published_at,
+                prerelease: typeof manifest.prerelease === 'boolean' ? manifest.prerelease : release.prerelease,
+                body: String(manifest.body || release.body || '').trim() || release.body,
+                details: manifest.details && typeof manifest.details === 'object'
+                    ? { ...manifest.details, url: String(manifest.details.url || release.html_url || '').trim() }
+                    : release.details,
+                assets: Array.isArray(manifest.assets) && manifest.assets.length > 0
+                    ? manifest.assets.map((asset) => ({ ...asset }))
+                    : release.assets,
+                html_url: release.html_url
+            };
+            Logger.debug(`✅ [Updater] update.json 메타데이터 병합 완료: ${merged.tag_name}`);
+            return merged;
+        } catch (error) {
+            Logger.warn(`⚠️ [Updater] release asset update.json 로드 실패: ${error.message}`);
+            return release;
+        }
+    }
+
+    selectReleaseForChannel(releases = [], userRole = 'User') {
+        if (!Array.isArray(releases) || releases.length === 0) return null;
+
+        const sorted = [...releases].sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
+
+        let channel = String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase();
+        if (!channel) {
+            const role = String(userRole || 'User').trim().toLowerCase();
+            if (role === 'developer') channel = 'dev';
+            else if (role === 'tester') channel = 'beta';
+            else channel = 'stable';
+        }
+
+        if (channel === 'dev') {
+            return sorted[0];
+        }
+
+        if (channel === 'beta') {
+            return sorted.find(r =>
+                !r.prerelease ||
+                (r.tag_name.toLowerCase().includes('beta') || r.tag_name.toLowerCase().includes('rc')) &&
+                !r.tag_name.toLowerCase().includes('alpha') && !r.tag_name.toLowerCase().includes('dev')
+            ) || null;
+        }
+
+        return sorted.find(r => !r.prerelease) || null;
+    }
+
     /**
      * Get the latest release information from the server (GitHub or Custom)
      */
     async getLatestRelease(userRole = 'User') {
         try {
-            let releases = [];
-
-            if (this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
-                Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
-                const response = await axios.get(this.customUpdateCheckUrl, {
-                    timeout: 5000
-                });
-                // 단일 객체 혹은 배열 모두 지원
-                releases = Array.isArray(response.data) ? response.data : [response.data];
-            } else {
-                // GitHub API
-                const url = `https://api.github.com/repos/${this.repo}/releases`;
-                const response = await axios.get(url, {
-                    headers: { 'User-Agent': 'BlogGenius-Updater' },
-                    timeout: 5000
-                });
-                releases = Array.isArray(response.data) ? response.data : [];
-            }
+            const releases = await this.fetchReleases();
 
             if (releases.length === 0 || !releases[0]) return null;
-
-            // 추가: GitHub API 결과가 가끔 사전식(dev9 > dev10)으로 오기 때문에, 세부 버전 규칙으로 전체 정렬
-            releases.sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
-
-            // 채널 결정 (Explicit 'update_channel' 우선, 없으면 'USER_ROLE' 기반 매핑)
-            let channel = String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase();
-            if (!channel) {
-                const role = String(userRole || 'User').trim().toLowerCase();
-                if (role === 'developer') channel = 'dev';
-                else if (role === 'tester') channel = 'beta';
-                else channel = 'stable';
-            }
-
-            if (channel === 'dev') {
-                // Dev: 무조건 가장 최신(첫 번째) 릴리즈 반환 (Alpha, Dev 등 포함)
-                return releases[0];
-            } else if (channel === 'beta') {
-                // Beta: 정식 버전 또는 Beta/RC 버전 중 최신 반환 (Alpha, Dev 제외)
-                return releases.find(r =>
-                    !r.prerelease ||
-                    (r.tag_name.toLowerCase().includes('beta') || r.tag_name.toLowerCase().includes('rc')) &&
-                    !r.tag_name.toLowerCase().includes('alpha') && !r.tag_name.toLowerCase().includes('dev')
-                ) || null;
-            } else {
-                // Stable (Default): 오직 정식 버전(prerelease: false)만 반환
-                return releases.find(r => !r.prerelease) || null;
-            }
+            const selected = this.selectReleaseForChannel(releases, userRole);
+            return this.enrichReleaseWithManifest(selected);
         } catch (e) {
             Logger.error(`❌ [Updater] 버전 체크 실패: ${e.message}`);
             return null;
@@ -145,8 +192,22 @@ class Updater {
             Logger.info('🔄 [Updater] 강제 업데이트 체크 모드 활성화');
         }
 
-        // config.json의 USER_ROLE 설정(User/Tester/Developer)에 따라 판단
-        const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
+        let latest = null;
+        if (force) {
+            const releases = await this.fetchReleases();
+            const currentTag = `v${this.currentVersion}`;
+            const exactCurrentRaw = releases.find((release) => String(release?.tag_name || '').trim() === currentTag) || null;
+            const exactCurrent = await this.enrichReleaseWithManifest(exactCurrentRaw);
+            const exactCurrentAsset = exactCurrent ? this.getPlatformAsset(exactCurrent.assets) : null;
+            if (exactCurrentAsset) {
+                latest = exactCurrent;
+            } else {
+                const selected = this.selectReleaseForChannel(releases, CONFIG.USER_ROLE);
+                latest = await this.enrichReleaseWithManifest(selected);
+            }
+        } else {
+            latest = await this.getLatestRelease(CONFIG.USER_ROLE);
+        }
 
         if (!latest) return null;
 
