@@ -180,6 +180,7 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
+let localMarkdownPreviewState = { directoryPath: '', data: null };
 let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
@@ -1217,7 +1218,7 @@ async function runTrendsToTopics() {
 
 function activateBlogTab(tabName, options = {}) {
   console.log("=== activateBlogTab CALLED ===", tabName);
-  const allowed = ['quick', 'trends', 'topics', 'comment-draft', 'collect', 'auto'];
+  const allowed = ['quick', 'trends', 'topics', 'manuscript', 'comment-draft', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -1241,6 +1242,12 @@ function activateBlogTab(tabName, options = {}) {
       populateFilterWpCategoryDropdown('blog-status-filter-wp-category', globalWpCategoryCache || categoryCache);
       console.log("activateBlogTab: categories populated");
     }).catch(e => console.error("WP Category Load Error:", e));
+    return;
+  }
+  if (target === 'manuscript') {
+    if (typeof window.renderLocalMarkdownPreview === 'function') {
+      window.renderLocalMarkdownPreview(localMarkdownPreviewState.data);
+    }
     return;
   }
   if (target === 'comment-draft') {
@@ -5338,6 +5345,207 @@ function bindActions() {
     });
   }
 
+  function buildLocalMarkdownPreviewPayload() {
+    const targets = [];
+    if (document.getElementById('local-markdown-target-naver')?.checked) targets.push('naver');
+    if (document.getElementById('local-markdown-target-wordpress')?.checked) targets.push('wordpress');
+
+    return {
+      directoryPath: (document.getElementById('local-markdown-path')?.value || '').trim(),
+      targets,
+      postStatus: (document.getElementById('local-markdown-post-status')?.value || 'publish').trim(),
+      scheduleDate: (document.getElementById('local-markdown-schedule-date')?.value || '').trim(),
+      imageGeneration: Boolean(document.getElementById('local-markdown-image-generation')?.checked)
+    };
+  }
+
+  window.toggleLocalMarkdownScheduleDate = function () {
+    const input = document.getElementById('local-markdown-schedule-date');
+    const status = document.getElementById('local-markdown-post-status')?.value || 'publish';
+    if (!input) return;
+    input.disabled = status !== 'schedule';
+    if (status === 'schedule' && !input.value) {
+      const now = new Date(Date.now() + 10 * 60 * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      input.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      localStorage.setItem('local_markdown_schedule_date', input.value);
+    }
+  };
+
+  function renderLocalMarkdownValidation(validation = null) {
+    const el = document.getElementById('local-markdown-validation');
+    if (!el) return;
+
+    el.classList.remove('has-error', 'has-warning', 'is-ok');
+    if (!validation) {
+      el.textContent = '아직 원고 폴더를 선택하지 않았습니다.';
+      return;
+    }
+
+    const lines = [];
+    if (Array.isArray(validation.errors) && validation.errors.length > 0) {
+      el.classList.add('has-error');
+      lines.push('[오류]');
+      validation.errors.forEach((item) => lines.push(`- ${item}`));
+    }
+    if (Array.isArray(validation.warnings) && validation.warnings.length > 0) {
+      if (!el.classList.contains('has-error')) el.classList.add('has-warning');
+      if (lines.length > 0) lines.push('');
+      lines.push('[경고]');
+      validation.warnings.forEach((item) => lines.push(`- ${item}`));
+    }
+    if (lines.length === 0) {
+      el.classList.add('is-ok');
+      lines.push('검증 통과: 현재 입력값 기준으로 preview/validation 문제가 없습니다.');
+    }
+    el.textContent = lines.join('\n');
+  }
+
+  window.renderLocalMarkdownPreview = function (data = null) {
+    const emptyEl = document.getElementById('local-markdown-preview-empty');
+    const panelEl = document.getElementById('local-markdown-preview-panel');
+    const titleEl = document.getElementById('local-markdown-preview-title');
+    const metaEl = document.getElementById('local-markdown-preview-meta');
+    const bodyEl = document.getElementById('local-markdown-body-preview');
+    const imageListEl = document.getElementById('local-markdown-image-list');
+
+    if (!data) {
+      localMarkdownPreviewState.data = null;
+      renderLocalMarkdownValidation(null);
+      if (emptyEl) emptyEl.hidden = false;
+      if (panelEl) panelEl.hidden = true;
+      if (bodyEl) bodyEl.textContent = '';
+      if (imageListEl) imageListEl.innerHTML = '';
+      return;
+    }
+
+    localMarkdownPreviewState.data = data;
+    renderLocalMarkdownValidation(data.validation || null);
+    if (emptyEl) emptyEl.hidden = true;
+    if (panelEl) panelEl.hidden = false;
+    if (titleEl) titleEl.textContent = data.title || '제목 없음';
+    if (metaEl) {
+      const source = data.source || {};
+      const stats = data.stats || {};
+      metaEl.textContent = [
+        source.fileName || '',
+        source.directoryPath || '',
+        `${stats.contentCount || 0}개 블록`,
+        `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
+      ].filter(Boolean).join(' | ');
+    }
+    if (bodyEl) bodyEl.textContent = data.bodyPreview || data.rawMarkdown || '';
+    if (imageListEl) {
+      const images = Array.isArray(data.images) ? data.images : [];
+      imageListEl.innerHTML = images.length === 0
+        ? '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>'
+        : images.map((image) => {
+          const statusClass = image.exists ? 'ok' : 'missing';
+          const statusText = image.exists ? '매칭됨' : '누락';
+          const preview = image.exists
+            ? `<div class="local-markdown-image-card-preview"><img src="/api/v1/blog/local-markdown/image?path=${encodeURIComponent(image.imagePath)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
+            : '<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div></div>';
+          return `
+            <article class="local-markdown-image-card">
+              <div class="local-markdown-image-card-header">
+                <div>
+                  <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
+                  <div class="local-markdown-image-card-meta">${escapeHtml(image.fileName || '파일 미매칭')}</div>
+                </div>
+                <span class="local-markdown-image-card-status ${statusClass}">${statusText}</span>
+              </div>
+              ${preview}
+              <p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt || '')}</p>
+            </article>
+          `;
+        }).join('');
+    }
+  };
+
+  async function loadLocalMarkdownPreview() {
+    const payload = buildLocalMarkdownPreviewPayload();
+    if (!payload.directoryPath) {
+      window.renderLocalMarkdownPreview(null);
+      const pathEl = document.getElementById('local-markdown-path');
+      if (pathEl) pathEl.focus();
+      return;
+    }
+
+    const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
+    window.renderLocalMarkdownPreview(data);
+  }
+
+  async function selectLocalMarkdownFolder() {
+    const selected = await postJson('/api/v1/blog/local-markdown/select', {});
+    if (selected?.canceled) return;
+    const pathEl = document.getElementById('local-markdown-path');
+    if (pathEl) pathEl.value = selected.directoryPath || '';
+    localMarkdownPreviewState.directoryPath = selected.directoryPath || '';
+    await loadLocalMarkdownPreview();
+  }
+
+  function clearLocalMarkdownSelection() {
+    const pathEl = document.getElementById('local-markdown-path');
+    if (pathEl) pathEl.value = '';
+    localMarkdownPreviewState = { directoryPath: '', data: null };
+    window.renderLocalMarkdownPreview(null);
+  }
+
+  const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
+  const localMarkdownRefreshBtn = document.getElementById('local-markdown-refresh-btn');
+  const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
+  const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
+
+  if (localMarkdownSelectBtn) {
+    localMarkdownSelectBtn.addEventListener('click', async () => {
+        try {
+        await selectLocalMarkdownFolder();
+      } catch (e) {
+        showUiPopup(`원고 폴더 선택 실패: ${e.message}`);
+      }
+    });
+  }
+  if (localMarkdownRefreshBtn) {
+    localMarkdownRefreshBtn.addEventListener('click', async () => {
+      try {
+        await loadLocalMarkdownPreview();
+      } catch (e) {
+        showUiPopup(`원고 미리보기 실패: ${e.message}`);
+      }
+    });
+  }
+  if (localMarkdownClearBtn) {
+    localMarkdownClearBtn.addEventListener('click', () => {
+      clearLocalMarkdownSelection();
+    });
+  }
+  if (localMarkdownPostStatusEl) {
+    localMarkdownPostStatusEl.addEventListener('change', () => {
+      window.toggleLocalMarkdownScheduleDate();
+      if ((document.getElementById('local-markdown-path')?.value || '').trim()) {
+        loadLocalMarkdownPreview().catch((e) => {
+          showUiPopup(`원고 미리보기 실패: ${e.message}`);
+        });
+      }
+    });
+  }
+  [
+    'local-markdown-target-naver',
+    'local-markdown-target-wordpress',
+    'local-markdown-image-generation',
+    'local-markdown-schedule-date'
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if ((document.getElementById('local-markdown-path')?.value || '').trim()) {
+        loadLocalMarkdownPreview().catch((e) => {
+          showUiPopup(`원고 미리보기 실패: ${e.message}`);
+        });
+      }
+    });
+  });
+
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
@@ -6786,25 +6994,25 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
+      ids: ['quick-headless', 'local-markdown-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
+      ids: ['quick-target-naver', 'local-markdown-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
+      ids: ['quick-target-wordpress', 'local-markdown-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },
     {
       key: 'pub_pref_image_generation',
-      ids: ['quick-image-generation'], // extensible
+      ids: ['quick-image-generation', 'local-markdown-image-generation'], // extensible
       type: 'checkbox',
       default: false
     },
@@ -6816,13 +7024,13 @@ function initGlobalPublishSettingsSync() {
     },
     {
       key: 'last_quick_naver_category',
-      ids: ['quick-naver-category'],
+      ids: ['quick-naver-category', 'local-markdown-naver-category'],
       type: 'input',
       default: ''
     },
     {
       key: 'last_quick_wp_category',
-      ids: ['quick-wp-category'],
+      ids: ['quick-wp-category', 'local-markdown-wp-category'],
       type: 'input',
       default: ''
     }
@@ -6874,6 +7082,8 @@ function initGlobalPublishSettingsSync() {
   const quickSpecific = [
     { key: 'last_quick_wp_post_status', id: 'quick-wp-post-status', type: 'select', default: 'publish' },
     { key: 'last_quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' },
+    { key: 'local_markdown_post_status', id: 'local-markdown-post-status', type: 'select', default: 'publish' },
+    { key: 'local_markdown_schedule_date', id: 'local-markdown-schedule-date', type: 'input', default: '' },
     { key: 'shopping_quick_wp_post_status', id: 'shopping-quick-wp-post-status', type: 'select', default: 'publish' },
     { key: 'shopping_quick_wp_schedule_date', id: 'shopping-quick-wp-schedule-date', type: 'input', default: '' }
   ];
@@ -6892,6 +7102,8 @@ function initGlobalPublishSettingsSync() {
       localStorage.setItem(item.key, el.value);
       if (item.id === 'quick-wp-post-status' && typeof toggleQuickWpScheduleDate === 'function') {
         toggleQuickWpScheduleDate();
+      } else if (item.id === 'local-markdown-post-status' && typeof window.toggleLocalMarkdownScheduleDate === 'function') {
+        window.toggleLocalMarkdownScheduleDate();
       } else if (item.id === 'shopping-quick-wp-post-status' && typeof toggleShoppingQuickWpScheduleDate === 'function') {
         toggleShoppingQuickWpScheduleDate();
       }
@@ -6900,6 +7112,7 @@ function initGlobalPublishSettingsSync() {
 
   // Initial dependency sync
   if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
+  if (typeof window.toggleLocalMarkdownScheduleDate === 'function') window.toggleLocalMarkdownScheduleDate();
 }
 
 // Shopping Connect Quick Publish WP Helpers

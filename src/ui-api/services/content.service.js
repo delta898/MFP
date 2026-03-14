@@ -1,4 +1,5 @@
 const { createApiError } = require('../errors');
+const { buildLocalMarkdownPreview } = require('../../content/local-markdown-preview');
 
 function createContentService(deps = {}) {
     const {
@@ -257,6 +258,53 @@ function createContentService(deps = {}) {
             throw new Error('댓글 초안 생성 응답을 해석하지 못했습니다.');
         }
         return drafts.slice(0, 3);
+    }
+
+    function getElectronDialog() {
+        if (process.env.BLOG_GENIUS_GUI_MODE !== 'true') return null;
+        try {
+            return require('electron').dialog || null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    async function openLocalMarkdownFolderDialog() {
+        const dialog = getElectronDialog();
+        if (!dialog || typeof dialog.showOpenDialog !== 'function') {
+            throw createApiError(409, 'GUI_DIALOG_UNAVAILABLE', '원고 폴더 선택은 데스크톱 앱에서만 지원됩니다.');
+        }
+
+        const result = await dialog.showOpenDialog({
+            title: '원고 포스팅용 폴더 선택',
+            properties: ['openDirectory']
+        });
+
+        if (result.canceled || !Array.isArray(result.filePaths) || result.filePaths.length === 0) {
+            return {
+                canceled: true,
+                directoryPath: ''
+            };
+        }
+
+        return {
+            canceled: false,
+            directoryPath: result.filePaths[0]
+        };
+    }
+
+    function buildLocalMarkdownPreviewPayload(requestBody = {}) {
+        return buildLocalMarkdownPreview({
+            directoryPath: requestBody?.directoryPath,
+            targets: requestBody?.targets,
+            postStatus: requestBody?.postStatus,
+            scheduleDate: requestBody?.scheduleDate,
+            imageGeneration: requestBody?.imageGeneration === true
+        }, {
+            fs,
+            path,
+            Utils
+        });
     }
 
     async function collectNaverCommentDraftCandidates({ fetchLimit, headless }) {
@@ -786,6 +834,33 @@ function createContentService(deps = {}) {
                 throw createApiError(400, result.code || 'QUICK_PUBLISH_FAILED', result.message || '빠른발행 요청에 실패했습니다.');
             }
             return result.data;
+        },
+
+        async selectLocalMarkdownFolder() {
+            return openLocalMarkdownFolderDialog();
+        },
+
+        async previewLocalMarkdown(requestBody = {}) {
+            return buildLocalMarkdownPreviewPayload(requestBody);
+        },
+
+        async getLocalMarkdownImagePreview({ pathRaw }) {
+            const imagePath = String(pathRaw || '').trim();
+            if (!imagePath) {
+                throw createApiError(400, 'INVALID_LOCAL_MARKDOWN_IMAGE_PATH', '이미지 경로가 필요합니다.');
+            }
+            if (!fs.existsSync(imagePath)) {
+                throw createApiError(404, 'LOCAL_MARKDOWN_IMAGE_NOT_FOUND', '이미지 파일을 찾을 수 없습니다.');
+            }
+            const contentType = getContentType(imagePath);
+            if (!String(contentType || '').startsWith('image/')) {
+                throw createApiError(400, 'INVALID_LOCAL_MARKDOWN_IMAGE_TYPE', '이미지 파일만 미리보기할 수 있습니다.');
+            }
+            return {
+                binary: true,
+                contentType,
+                body: fs.readFileSync(imagePath)
+            };
         },
 
         async shoppingQuickPublish(requestBody = {}) {

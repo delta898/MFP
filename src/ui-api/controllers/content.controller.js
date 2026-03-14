@@ -134,6 +134,50 @@ function createContentController(deps = {}) {
             }
         },
 
+        async localMarkdownSelect({ requestId, method, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.selectLocalMarkdownFolder());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LOCAL_MARKDOWN_SELECT_FAILED', '원고 폴더 선택에 실패했습니다.', e);
+            }
+        },
+
+        async localMarkdownPreview({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.previewLocalMarkdown(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LOCAL_MARKDOWN_PREVIEW_FAILED', '원고 미리보기에 실패했습니다.', e);
+            }
+        },
+
+        async localMarkdownImagePreview({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                const data = await service.getLocalMarkdownImagePreview({
+                    pathRaw: searchParams.get('path')
+                });
+                if (data?.binary) {
+                    res.writeHead(200, {
+                        'Content-Type': data.contentType || 'application/octet-stream',
+                        'Cache-Control': 'no-store'
+                    });
+                    res.end(data.body);
+                    return true;
+                }
+                return sendSuccess(res, requestId, data || {});
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LOCAL_MARKDOWN_IMAGE_PREVIEW_FAILED', '원고 이미지 미리보기에 실패했습니다.', e);
+            }
+        },
+
         async shoppingQuickPublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

@@ -312,6 +312,7 @@
           <!-- [DISABLED] Trends tab - removed from production UI (2026-03-04). Code kept for reference. -->
           <!-- <button class="blog-tab-btn" data-blog-tab="trends">Trends</button> -->
           <button class="blog-tab-btn" data-blog-tab="topics">일괄 포스팅</button>
+          <button class="blog-tab-btn" data-blog-tab="manuscript">원고 포스팅</button>
           <button class="blog-tab-btn" data-blog-tab="comment-draft">스마트 댓글(네이버)</button>
           <span class="blog-tab-gap" aria-hidden="true"></span>
           <button class="blog-tab-btn" data-blog-tab="collect">자동글감 설정</button>
@@ -416,6 +417,98 @@
           </div>
 
           <pre id="quick-result" class="blog-quick-result"></pre>
+        </div>
+
+        <div class="card form-card blog-tab-panel blog-quick-panel" id="blog-tab-manuscript">
+          <div class="blog-quick-head">
+            <h3>원고 포스팅</h3>
+            <p>로컬 markdown 원고와 같은 폴더의 이미지 자산을 기준으로 포스팅 전 미리보기와 검증을 수행합니다.</p>
+          </div>
+
+          <div class="local-markdown-toolbar">
+            <button id="local-markdown-select-btn" class="secondary" type="button">원고 폴더 선택</button>
+            <button id="local-markdown-refresh-btn" class="secondary" type="button">미리보기 갱신</button>
+            <button id="local-markdown-clear-btn" class="secondary" type="button">선택 지우기</button>
+          </div>
+
+          <label class="blog-quick-field blog-quick-field-full">
+            <span class="blog-quick-label">선택한 원고 폴더</span>
+            <input id="local-markdown-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
+          </label>
+
+          <div class="blog-quick-grid">
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">네이버 카테고리</span>
+              <input id="local-markdown-naver-category" type="text" placeholder="예: 일상/생각">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">워드프레스 카테고리</span>
+              <input id="local-markdown-wp-category" type="text" placeholder="예: Daily">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">포스팅 옵션</span>
+              <select id="local-markdown-post-status">
+                <option value="publish">즉시 발행</option>
+                <option value="draft">임시 저장</option>
+                <option value="schedule">예약 발행</option>
+              </select>
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">예약 일시</span>
+              <input id="local-markdown-schedule-date" type="datetime-local" disabled>
+            </label>
+          </div>
+
+          <div class="blog-quick-options">
+            <div class="blog-quick-options-header">
+              <div class="target-platforms">
+                <span class="blog-quick-label">포스팅 대상:</span>
+                <label class="blog-quick-check"><input id="local-markdown-target-naver" type="checkbox"> 네이버 블로그</label>
+                <label class="blog-quick-check"><input id="local-markdown-target-wordpress" type="checkbox"> 워드프레스</label>
+              </div>
+
+              <div class="quick-common-checks">
+                <label class="blog-quick-check" title="포스팅 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                  <input id="local-markdown-headless" type="checkbox" checked> 보이지 않게 실행
+                </label>
+                <label class="blog-quick-check">
+                  <input id="local-markdown-image-generation" type="checkbox"> 이미지 생성
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div id="local-markdown-validation" class="local-markdown-validation">
+            아직 원고 폴더를 선택하지 않았습니다.
+          </div>
+
+          <div id="local-markdown-preview-empty" class="local-markdown-empty">
+            원고 폴더를 선택하면 제목, 본문 preview, 이미지 매칭 결과를 확인할 수 있습니다.
+          </div>
+
+          <div id="local-markdown-preview-panel" class="local-markdown-preview-panel" hidden>
+            <div class="local-markdown-preview-head">
+              <div>
+                <h4 id="local-markdown-preview-title">제목 없음</h4>
+                <div id="local-markdown-preview-meta" class="local-markdown-preview-meta">-</div>
+              </div>
+            </div>
+
+            <div class="local-markdown-preview-sections">
+              <section class="local-markdown-preview-section">
+                <h5>본문 Preview</h5>
+                <pre id="local-markdown-body-preview" class="blog-quick-result local-markdown-body-preview"></pre>
+              </section>
+
+              <section class="local-markdown-preview-section">
+                <h5>이미지 매칭</h5>
+                <div id="local-markdown-image-list" class="local-markdown-image-list"></div>
+              </section>
+            </div>
+          </div>
         </div>
 
 
