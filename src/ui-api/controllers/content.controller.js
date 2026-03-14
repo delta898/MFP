@@ -134,6 +134,40 @@ function createContentController(deps = {}) {
             }
         },
 
+        async blogQuickPreviewPublish({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.blogQuickPreviewPublish(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'QUICK_PREVIEW_PUBLISH_FAILED', '빠른 포스팅 실행에 실패했습니다.', e);
+            }
+        },
+
+        async blogQuickPreviewImage({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                const data = await service.getBlogQuickPreviewImage({
+                    previewIdRaw: searchParams.get('previewId'),
+                    indexRaw: searchParams.get('index')
+                });
+                if (data?.binary) {
+                    res.writeHead(200, {
+                        'Content-Type': data.contentType || 'application/octet-stream',
+                        'Cache-Control': 'no-store'
+                    });
+                    res.end(data.body);
+                    return true;
+                }
+                return sendSuccess(res, requestId, data || {});
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'QUICK_PREVIEW_IMAGE_FAILED', '빠른 포스팅 미리보기 이미지 조회에 실패했습니다.', e);
+            }
+        },
+
         async localMarkdownPreview({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

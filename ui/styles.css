@@ -658,6 +658,10 @@ h2 {
   margin-top: 10px;
 }
 
+.blog-quick-actions-centered {
+  justify-content: center;
+}
+
 .comment-draft-list {
   display: flex;
   flex-direction: column;
@@ -802,6 +806,13 @@ h2 {
   letter-spacing: -0.01em;
 }
 
+.blog-quick-wide-action {
+  min-width: min(520px, 92vw);
+  padding-left: 28px;
+  padding-right: 28px;
+  justify-content: center;
+}
+
 .local-markdown-toolbar {
   display: flex;
   gap: 10px;
@@ -853,6 +864,13 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.local-markdown-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .local-markdown-preview-head h4 {

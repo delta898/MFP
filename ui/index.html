@@ -420,11 +420,46 @@
 
           <div class="blog-quick-actions">
             <button id="quick-save-btn" class="secondary" type="button">글감 저장</button>
-            <button id="quick-publish-btn" class="primary" type="button">글감 저장 &amp; 포스팅</button>
+            <button id="quick-direct-publish-btn" class="primary" type="button">바로 포스팅</button>
+            <button id="quick-generate-btn" class="primary" type="button">미리보기 생성</button>
             <button id="quick-clear-btn" class="secondary" type="button">내용 지우기</button>
           </div>
 
           <pre id="quick-result" class="blog-quick-result"></pre>
+
+          <div id="quick-preview-validation" class="local-markdown-validation">
+            아직 생성된 preview가 없습니다.
+          </div>
+
+          <div id="quick-preview-empty" class="local-markdown-empty">
+            `저장 및 생성`을 실행하면 생성된 본문과 이미지를 여기에서 미리 볼 수 있습니다.
+          </div>
+
+          <div id="quick-preview-panel" class="local-markdown-preview-panel" hidden>
+            <div class="local-markdown-preview-head">
+              <div>
+                <h4 id="quick-preview-title">제목 없음</h4>
+                <div id="quick-preview-meta" class="local-markdown-preview-meta">-</div>
+              </div>
+              <span id="quick-preview-target-badge" class="status-badge">미리보기 기준: -</span>
+            </div>
+
+            <div class="local-markdown-preview-sections">
+              <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                <h5>본문 Preview</h5>
+                <div id="quick-body-preview" class="local-markdown-body-preview"></div>
+              </section>
+
+              <section class="local-markdown-preview-section">
+                <h5>이미지 매칭</h5>
+                <div id="quick-image-list" class="local-markdown-image-list"></div>
+              </section>
+            </div>
+
+            <div class="blog-quick-actions blog-quick-actions-centered">
+              <button id="quick-preview-publish-btn" class="primary blog-quick-wide-action" type="button" disabled>이 내용으로 포스팅</button>
+            </div>
+          </div>
         </div>
 
         <div class="card form-card blog-tab-panel blog-quick-panel" id="blog-tab-manuscript">

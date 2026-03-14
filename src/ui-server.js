@@ -111,6 +111,7 @@ const rssRuntimeState = {
     lastRunTimes: {} // feedUrl -> timestamp
 };
 const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastInterval: null, lastStartTime: null, lastEndTime: null };
+const QUICK_PUBLISH_PREVIEW_TTL_MS = 6 * 60 * 60 * 1000;
 
 const shoppingAutoRuntimeState = {
     enabled: false,
@@ -156,6 +157,7 @@ const uiSheetsPreflightState = {
 };
 const QUICK_PUBLISH_DEDUPE_TTL_MS = 90 * 1000;
 const quickPublishRecentMap = new Map();
+const quickPublishPreviewMap = new Map();
 let blogAutoRouteHandler = null;
 let settingsRouteHandler = null;
 let legacyApiRouteHandler = null;
@@ -448,6 +450,8 @@ function normalizeKeywords(input) {
 
 function normalizePublishMode(input) {
     const mode = String(input || '').trim().toLowerCase();
+    if (mode === 'publish') return 'publish';
+    if (mode === 'append_and_generate') return 'append_and_generate';
     if (mode === 'append_and_publish') return 'append_and_publish';
     return 'append_only';
 }
@@ -477,6 +481,88 @@ function cleanupQuickPublishDedupeCache(nowMs = Date.now()) {
             quickPublishRecentMap.delete(key);
         }
     }
+}
+
+function cleanupQuickPublishPreviewCache(nowMs = Date.now()) {
+    for (const [previewId, entry] of quickPublishPreviewMap.entries()) {
+        if (!entry || !Number.isFinite(entry.expiresAtMs) || entry.expiresAtMs <= nowMs) {
+            quickPublishPreviewMap.delete(previewId);
+        }
+    }
+}
+
+function getQuickPublishPreviewSession(previewId) {
+    cleanupQuickPublishPreviewCache();
+    const normalizedId = String(previewId || '').trim();
+    if (!normalizedId) return null;
+    return quickPublishPreviewMap.get(normalizedId) || null;
+}
+
+function buildQuickPublishPreviewResponse(session = {}) {
+    const previewData = session.previewData || {};
+    return {
+        previewId: session.previewId,
+        rowIndex: session.rowIndex,
+        rowNumber: session.rowNumber,
+        primaryTarget: session.primaryTarget,
+        targets: Array.isArray(session.targets) ? session.targets.slice() : [],
+        expiresAt: session.expiresAtMs ? new Date(session.expiresAtMs).toISOString() : '',
+        preview: {
+            ...previewData,
+            source: {
+                ...(previewData.source || {}),
+                type: 'generated_quick_post'
+            },
+            images: Array.isArray(previewData.images)
+                ? previewData.images.map((image) => ({
+                    ...image,
+                    imagePath: '',
+                    previewUrl: image.exists
+                        ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(session.previewId)}&index=${encodeURIComponent(String(image.index))}`
+                        : ''
+                }))
+                : []
+        }
+    };
+}
+
+function registerQuickPublishPreviewSession({
+    previewId,
+    rowIndex,
+    rowNumber,
+    dedupeKey,
+    imageGenerationRequested,
+    targets,
+    primaryTarget,
+    targetDirs,
+    previewData
+} = {}) {
+    cleanupQuickPublishPreviewCache();
+    const normalizedPreviewId = String(previewId || '').trim() || crypto.randomUUID();
+    const expiresAtMs = Date.now() + QUICK_PUBLISH_PREVIEW_TTL_MS;
+    const session = {
+        previewId: normalizedPreviewId,
+        rowIndex,
+        rowNumber,
+        dedupeKey: String(dedupeKey || '').trim(),
+        imageGenerationRequested: imageGenerationRequested === true,
+        targets: Array.isArray(targets) ? targets.slice() : [],
+        primaryTarget: String(primaryTarget || '').trim(),
+        targetDirs: targetDirs || {},
+        previewData: previewData || null,
+        expiresAtMs
+    };
+    quickPublishPreviewMap.set(normalizedPreviewId, session);
+    return buildQuickPublishPreviewResponse(session);
+}
+
+function selectQuickPublishPreviewTarget(targets = [], targetDirs = {}) {
+    const normalizedTargets = Array.isArray(targets) ? targets : [];
+    if (normalizedTargets.includes('naver') && targetDirs?.naver) return 'naver';
+    if (normalizedTargets.includes('wordpress') && targetDirs?.wordpress) return 'wordpress';
+    if (targetDirs?.naver) return 'naver';
+    if (targetDirs?.wordpress) return 'wordpress';
+    return '';
 }
 
 function parseIntSafe(input, fallback = null, min = null) {
@@ -1744,11 +1830,10 @@ async function runNaverLoginFlowForUi() {
         await closeBrowserResources(context, browser);
     }
 }
-async function processMultiPlatformPublish(params = {}, options = {}) {
+async function buildMultiPlatformGeneratedContent(params = {}, options = {}) {
     const {
-        context, // { subject, keywords, instruction, referenceUrls, useExternalRef, imageOptions, category, naverCategory, wordpressCategory, postStatus, scheduleDate }
+        context,
         targets,
-        headless,
         features,
         enableRelatedPostsAutoLink
     } = params;
@@ -1834,7 +1919,35 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             });
         }
 
-        // 3. License Verification (Crucial step after generation)
+        return { success: true, results };
+    } catch (e) {
+        Logger.error(`❌ [MultiPlatformGenerate] 오류: ${e.message}`);
+        return { success: false, message: e.message, results };
+    }
+}
+
+async function processMultiPlatformPublish(params = {}, options = {}) {
+    const {
+        context,
+        targets,
+        headless
+    } = params;
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const emitProgress = (msg) => onProgress && onProgress(msg);
+
+    const generated = await buildMultiPlatformGeneratedContent(params, options);
+    if (!generated.success) {
+        return generated;
+    }
+
+    const results = generated.results || {
+        naver: { success: false, message: '', targetDir: null },
+        wordpress: { success: false, message: '', targetDir: null }
+    };
+    const imageGenerationEnabledByPlan = getFeatureBool(params.features || {}, 'image_generation', true);
+    const imageGenerationFinal = (context.imageOptions?.generate === true) && imageGenerationEnabledByPlan;
+
+    try {
         emitProgress('라이선스 확인 중...');
         const verify = await License.verifyLicense();
         if (!verify.success) {
@@ -1895,6 +2008,210 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
     }
 }
 
+function buildQuickPreviewDataFromDirectory({
+    directoryPath,
+    previewId,
+    primaryTarget,
+    targets,
+    postStatus,
+    scheduleDate,
+    imageGeneration
+} = {}) {
+    const preview = buildLocalMarkdownPreview({
+        directoryPath,
+        targets,
+        postStatus,
+        scheduleDate,
+        imageGeneration
+    }, {
+        fs,
+        path,
+        Utils
+    });
+
+    preview.source = {
+        ...(preview.source || {}),
+        type: 'generated_quick_post'
+    };
+    preview.previewId = String(previewId || '').trim();
+    preview.primaryTarget = String(primaryTarget || '').trim();
+    preview.images = Array.isArray(preview.images)
+        ? preview.images.map((image) => ({
+            ...image,
+            previewUrl: image.exists
+                ? `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(String(previewId || ''))}&index=${encodeURIComponent(String(image.index))}`
+                : ''
+        }))
+        : [];
+    return preview;
+}
+
+async function executeQuickPreviewPublish(requestBody = {}) {
+    const previewId = String(requestBody?.previewId || '').trim();
+    const session = getQuickPublishPreviewSession(previewId);
+    if (!session) {
+        return { success: false, code: 'QUICK_PREVIEW_NOT_FOUND', message: '빠른 포스팅 preview를 찾지 못했습니다. 다시 생성해 주세요.' };
+    }
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'batch')) {
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+    }
+
+    const targets = Array.isArray(session.targets) ? session.targets.slice() : [];
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
+    const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
+    const scheduleDate = String(requestBody?.scheduleDate || '').trim();
+    if (postStatus === 'schedule' && !scheduleDate) {
+        return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필수입니다.' };
+    }
+
+    const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
+    const imageGenerationFinal = session.imageGenerationRequested === true && imageGenerationEnabledByPlan;
+    const verify = await License.verifyLicense();
+    if (!verify.success) {
+        return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+    }
+
+    if (targets.includes('naver')) {
+        const sessionCheck = await checkAuthSessionValid();
+        if (!sessionCheck.ok) {
+            return {
+                success: false,
+                code: 'NAVER_SESSION_INVALID',
+                message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+            };
+        }
+    }
+
+    const results = {};
+    try {
+        if (targets.includes('naver') && session.targetDirs?.naver) {
+            const naverRes = await Core.publishToBlog(session.targetDirs.naver, {
+                headless,
+                category: requestBody?.naverCategory || '',
+                postStatus,
+                scheduleDate,
+                isLast: !targets.includes('wordpress')
+            }) || { success: false, message: 'Naver publish returned no response' };
+            results.naver = {
+                success: Boolean(naverRes.success),
+                message: naverRes.message || '',
+                postUrl: naverRes.postUrl || ''
+            };
+            if (naverRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                const statusLabel = postStatus === 'draft' ? '저장' : '발행';
+                const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+            }
+        }
+
+        if (targets.includes('wordpress') && session.targetDirs?.wordpress) {
+            const wpRes = await Core.publishToWordPress(session.targetDirs.wordpress, {
+                category: requestBody?.wordpressCategory || '',
+                postStatus,
+                wpScheduleDate: scheduleDate || '',
+                imageGeneration: imageGenerationFinal
+            }) || { success: false, message: 'WordPress publish returned no response' };
+            results.wordpress = {
+                success: Boolean(wpRes.success),
+                message: wpRes.message || '',
+                postUrl: wpRes.postUrl || ''
+            };
+            if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                const statusLabel = postStatus === 'draft' ? '저장' : '발행';
+                const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
+            }
+        }
+
+        const failedTargets = Object.entries(results)
+            .filter(([, value]) => value && value.success === false)
+            .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
+
+        if (Number.isInteger(session.rowIndex)) {
+            if (failedTargets.length > 0) {
+                await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', failedTargets.join(' / '));
+            } else {
+                const logArr = [];
+                if (results.naver?.success) {
+                    logArr.push(results.naver.postUrl ? `네이버 완료(${results.naver.postUrl})` : '네이버 완료');
+                }
+                if (results.wordpress?.success) {
+                    logArr.push(results.wordpress.postUrl ? `워드프레스 완료(${results.wordpress.postUrl})` : '워드프레스 완료');
+                }
+                await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 완료', logArr.join('/') || '발행 완료');
+            }
+        }
+
+        if (session.dedupeKey && quickPublishRecentMap.has(session.dedupeKey)) {
+            quickPublishRecentMap.set(session.dedupeKey, {
+                ...(quickPublishRecentMap.get(session.dedupeKey) || {}),
+                rowNumber: session.rowNumber,
+                rowIndex: session.rowIndex,
+                status: failedTargets.length > 0 ? '발행 준비 완료' : '발행 완료',
+                published: failedTargets.length === 0,
+                targetDir: session.targetDirs?.[session.primaryTarget] || session.targetDirs?.naver || session.targetDirs?.wordpress || null,
+                updatedAtMs: Date.now()
+            });
+        }
+
+        if (failedTargets.length > 0) {
+            return {
+                success: false,
+                code: 'QUICK_PREVIEW_PUBLISH_FAILED',
+                message: failedTargets.join(' / '),
+                data: {
+                    status: '일부 포스팅 실패',
+                    results
+                }
+            };
+        }
+
+        quickPublishPreviewMap.delete(previewId);
+        return {
+            success: true,
+            data: {
+                status: postStatus === 'draft' ? '임시 저장 완료' : (postStatus === 'schedule' ? '예약 포스팅 등록 완료' : '포스팅 완료'),
+                rowIndex: session.rowIndex,
+                rowNumber: session.rowNumber,
+                results
+            }
+        };
+    } catch (e) {
+        Logger.error(`❌ [QuickPreviewPublish] 오류: ${e.message}`);
+        if (Number.isInteger(session.rowIndex)) {
+            await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', e.message || '포스팅 실패');
+        }
+        return { success: false, code: 'QUICK_PREVIEW_PUBLISH_FAILED', message: e.message || '빠른 포스팅 실행에 실패했습니다.' };
+    }
+}
+
+function getQuickPreviewImagePayload({ previewId, index } = {}) {
+    const session = getQuickPublishPreviewSession(previewId);
+    if (!session) {
+        throw new Error('빠른 포스팅 preview를 찾지 못했습니다.');
+    }
+    const imageIndex = parseIntSafe(index, null, 0);
+    if (imageIndex === null) {
+        throw new Error('image index가 올바르지 않습니다.');
+    }
+    const image = Array.isArray(session.previewData?.images)
+        ? session.previewData.images.find((item) => Number(item.index) === imageIndex)
+        : null;
+    if (!image?.exists || !image.imagePath || !fs.existsSync(image.imagePath)) {
+        throw new Error('preview 이미지를 찾지 못했습니다.');
+    }
+    return {
+        binary: true,
+        contentType: getContentType(image.imagePath) || 'application/octet-stream',
+        body: fs.readFileSync(image.imagePath)
+    };
+}
 
 async function executeQuickPublish(requestBody) {
     const subject = String(requestBody?.subject || '').trim();
@@ -1909,6 +2226,13 @@ async function executeQuickPublish(requestBody) {
     }
     const publishMode = normalizePublishMode(requestBody?.publishMode);
     const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+    if (publishMode !== 'append_only' && publishMode !== 'append_and_generate' && publishMode !== 'publish') {
+        return {
+            success: false,
+            code: 'INVALID_QUICK_PUBLISH_MODE',
+            message: '빠른 포스팅은 append_only, append_and_generate, publish만 지원합니다.'
+        };
+    }
 
     if (!subject && (!keywords || keywords.length === 0) && !referenceUrl) {
         return { success: false, code: 'INVALID_INPUT', message: 'Subject, Keywords, 참고 URL 중 최소 하나는 입력해야 합니다.' };
@@ -1934,10 +2258,6 @@ async function executeQuickPublish(requestBody) {
     }
 
     const features = toFeatureMap(precheck.features);
-    if (publishMode === 'append_and_publish' && !isCommandEnabled(features, 'batch')) {
-        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
-    }
-
     const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
     const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
     const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
@@ -1956,7 +2276,7 @@ async function executeQuickPublish(requestBody) {
 
     await Utils.ensureAllSheetsExist();
 
-    let appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '대기';
+    let appendStatus = (publishMode === 'append_and_generate' || publishMode === 'publish') ? '발행 준비 완료' : '대기';
     let rowNumber = null;
     let rowIndex = null;
     let deduplicated = false;
@@ -1981,22 +2301,9 @@ async function executeQuickPublish(requestBody) {
             };
         }
 
-        if (existingEntry.published) {
-            return {
-                success: true,
-                data: {
-                    mode: publishMode,
-                    sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
-                    rowNumber,
-                    rowIndex,
-                    status: '발행 완료',
-                    deduplicated,
-                    targetDir: existingEntry.targetDir || null
-                }
-            };
-        }
-
-        if (appendStatus !== '발행 준비 완료' && Number.isInteger(rowIndex)) {
+        if ((publishMode === 'append_and_generate' || publishMode === 'publish')
+            && appendStatus !== '발행 준비 완료'
+            && Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '기존 글감 재사용');
             appendStatus = '발행 준비 완료';
         }
@@ -2064,30 +2371,114 @@ async function executeQuickPublish(requestBody) {
         };
     }
 
-    try {
-        const publishParams = {
-            context: {
-                subject,
-                keywords,
-                instruction,
-                referenceUrls: referenceUrl ? [referenceUrl] : [],
-                useExternalRef: externalReference,
-                imageOptions: {
-                    generate: imageGenerationFinal,
-                    count: 4
-                },
-                category: requestBody?.category || '',
-                naverCategory: requestBody?.naverCategory || '',
-                wordpressCategory: requestBody?.wordpressCategory || '',
-                postStatus: requestBody?.postStatus || 'draft',
-                scheduleDate: requestBody?.scheduleDate || ''
+    const publishParams = {
+        context: {
+            subject,
+            keywords,
+            instruction,
+            referenceUrls: referenceUrl ? [referenceUrl] : [],
+            useExternalRef: externalReference,
+            imageOptions: {
+                generate: imageGenerationFinal,
+                count: 4
             },
-            targets,
-            headless,
-            features,
-            enableRelatedPostsAutoLink
-        };
+            category: requestBody?.category || '',
+            naverCategory: requestBody?.naverCategory || '',
+            wordpressCategory: requestBody?.wordpressCategory || '',
+            postStatus: requestBody?.postStatus || 'draft',
+            scheduleDate: requestBody?.scheduleDate || ''
+        },
+        targets,
+        headless,
+        features,
+        enableRelatedPostsAutoLink
+    };
 
+    if (publishMode === 'append_and_generate') {
+        const generated = await buildMultiPlatformGeneratedContent(publishParams);
+        if (!generated.success) {
+            if (Number.isInteger(rowIndex)) {
+                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');
+            }
+            quickPublishRecentMap.set(dedupeKey, {
+                rowNumber,
+                rowIndex,
+                status: '발행 준비 완료',
+                published: false,
+                targetDir: null,
+                updatedAtMs: Date.now()
+            });
+            return { success: false, code: 'GENERATE_FAILED', message: generated.message || '저장 및 생성에 실패했습니다.' };
+        }
+
+        const targetDirs = {
+            naver: generated.results?.naver?.targetDir || null,
+            wordpress: generated.results?.wordpress?.targetDir || null
+        };
+        const primaryTarget = selectQuickPublishPreviewTarget(targets, targetDirs);
+        const primaryTargetDir = primaryTarget ? targetDirs[primaryTarget] : '';
+        if (!primaryTargetDir) {
+            return { success: false, code: 'QUICK_PREVIEW_TARGET_MISSING', message: '미리보기에 사용할 생성 결과를 찾지 못했습니다.' };
+        }
+
+        const previewId = crypto.randomUUID();
+        const previewData = buildQuickPreviewDataFromDirectory({
+            directoryPath: primaryTargetDir,
+            previewId,
+            primaryTarget,
+            targets,
+            postStatus: requestBody?.postStatus || 'draft',
+            scheduleDate: requestBody?.scheduleDate || '',
+            imageGeneration: imageGenerationFinal
+        });
+        const previewResponse = registerQuickPublishPreviewSession({
+            previewId,
+            rowIndex,
+            rowNumber,
+            dedupeKey,
+            imageGenerationRequested: imageGenerationFinal,
+            targets,
+            primaryTarget,
+            targetDirs,
+            previewData: {
+                ...previewData,
+                images: Array.isArray(previewData.images)
+                    ? previewData.images.map((image) => ({
+                        ...image,
+                        previewUrl: ''
+                    }))
+                    : []
+            }
+        });
+
+        quickPublishRecentMap.set(dedupeKey, {
+            rowNumber,
+            rowIndex,
+            status: '발행 준비 완료',
+            published: false,
+            targetDir: primaryTargetDir,
+            updatedAtMs: Date.now()
+        });
+
+        if (Number.isInteger(rowIndex)) {
+            await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
+        }
+
+        return {
+            success: true,
+            data: {
+                mode: publishMode,
+                sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
+                rowNumber,
+                rowIndex,
+                status: '생성 완료',
+                deduplicated,
+                ...previewResponse
+            }
+        };
+    }
+
+    try {
         const publishRes = await processMultiPlatformPublish(publishParams, {
             isLast: true
         });
@@ -2099,8 +2490,9 @@ async function executeQuickPublish(requestBody) {
             quickPublishRecentMap.set(dedupeKey, {
                 rowNumber,
                 rowIndex,
-                status: '발행 리허설 실패',
+                status: '발행 준비 완료',
                 published: false,
+                targetDir: null,
                 updatedAtMs: Date.now()
             });
             return { success: false, code: 'PUBLISH_FAILED', message: publishRes.message };
@@ -2111,12 +2503,10 @@ async function executeQuickPublish(requestBody) {
         const naverDir = publishRes.results.naver.targetDir;
         const wpDir = publishRes.results.wordpress.targetDir;
 
-        // 5. 시트 업데이트 및 결과 반환
         if (Number.isInteger(rowIndex)) {
-            const statusArr = [];
             const logArr = [];
-            if (naverPubSuccess) { statusArr.push('발행 완료'); logArr.push('네이버 완료'); }
-            if (wpPubSuccess) { statusArr.push('발행 완료'); logArr.push('워드프레스 완료'); }
+            if (naverPubSuccess) logArr.push('네이버 완료');
+            if (wpPubSuccess) logArr.push('워드프레스 완료');
 
             const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
             const finalLogStr = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
@@ -5305,6 +5695,8 @@ function createLegacyApiDeps() {
 
     const actionDeps = {
         executeQuickPublish,
+        executeQuickPreviewPublish,
+        getQuickPreviewImagePayload,
         executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,

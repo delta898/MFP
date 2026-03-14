@@ -85,6 +85,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         buildMajorSettings: deps.buildMajorSettings,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeQuickPublish: deps.executeQuickPublish,
+        executeQuickPreviewPublish: deps.executeQuickPreviewPublish,
+        getQuickPreviewImagePayload: deps.getQuickPreviewImagePayload,
         executeLocalMarkdownPublish: deps.executeLocalMarkdownPublish,
         executeShoppingQuickPublish: deps.executeShoppingQuickPublish,
         sortTopicItems: deps.sortTopicItems,

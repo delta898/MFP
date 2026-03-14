@@ -31,6 +31,8 @@ function createContentService(deps = {}) {
         buildMajorSettings,
         ensureSheetsReadyForUi,
         executeQuickPublish,
+        executeQuickPreviewPublish,
+        getQuickPreviewImagePayload,
         executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,
@@ -803,6 +805,25 @@ function createContentService(deps = {}) {
                 throw createApiError(400, result.code || 'QUICK_PUBLISH_FAILED', result.message || '빠른발행 요청에 실패했습니다.');
             }
             return result.data;
+        },
+
+        async blogQuickPreviewPublish(requestBody = {}) {
+            const result = await executeQuickPreviewPublish(requestBody || {});
+            if (!result.success) {
+                throw createApiError(400, result.code || 'QUICK_PREVIEW_PUBLISH_FAILED', result.message || '빠른 포스팅 실행에 실패했습니다.');
+            }
+            return result.data;
+        },
+
+        async getBlogQuickPreviewImage({ previewIdRaw, indexRaw }) {
+            try {
+                return getQuickPreviewImagePayload({
+                    previewId: previewIdRaw,
+                    index: indexRaw
+                });
+            } catch (e) {
+                throw createApiError(404, 'QUICK_PREVIEW_IMAGE_FAILED', e.message || '빠른 포스팅 미리보기 이미지를 찾지 못했습니다.');
+            }
         },
 
         async previewLocalMarkdown(requestBody = {}) {
