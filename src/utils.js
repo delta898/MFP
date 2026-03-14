@@ -3374,6 +3374,7 @@ const Utils = {
     // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가
     callGeminiImage: async function (prompt, savePath, retries = 3) {
         if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
+        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 60000);
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -3382,7 +3383,7 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => axios.post(endpoint,
                         { contents: [{ parts: [{ text: prompt }] }] },
-                        { headers: { 'Content-Type': 'application/json' }, timeout: 180000 }
+                        { headers: { 'Content-Type': 'application/json' }, timeout: imageTimeoutMs }
                     )
                 );
                 const candidates = response.data.candidates;
