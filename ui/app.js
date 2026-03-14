@@ -1928,8 +1928,45 @@ async function loadDashboardLogs() {
   if (!dashList && !logsList) return;
 
   try {
-    const res = await fetchJson('/api/v1/dashboard/logs?limit=200');
-    const logs = Array.isArray(res?.logs) ? res.logs : [];
+    const [activityRes, logsRes] = await Promise.all([
+      dashList ? fetchJson('/api/v1/dashboard/activities?limit=60') : Promise.resolve(null),
+      logsList ? fetchJson('/api/v1/dashboard/logs?limit=200') : Promise.resolve(null)
+    ]);
+    const activities = Array.isArray(activityRes?.activities) ? activityRes.activities : [];
+    const logs = Array.isArray(logsRes?.logs) ? logsRes.logs : [];
+
+    const renderActivities = (list, items) => {
+      if (!list) return;
+      if (!items || items.length === 0) {
+        list.innerHTML = '<li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">최근 활동 내역이 없습니다.</li>';
+        return;
+      }
+      list.innerHTML = '';
+      items.forEach(activity => {
+        const title = String(activity.title || '').trim() || '활동';
+        const detail = String(activity.detail || '').trim();
+        const level = String(activity.level || 'info').trim().toLowerCase();
+        const icon = level === 'error' ? '❌' : (level === 'warn' ? '⚠️' : '✅');
+        const timestamp = String(activity.timestamp || '').trim();
+        const timeLabel = timestamp ? new Date(timestamp).toLocaleTimeString('ko-KR', { hour12: false }) : '-';
+
+        const li = document.createElement('li');
+        li.style.padding = '10px 12px';
+        li.style.borderBottom = '1px solid #f1f5f9';
+        li.style.fontSize = '14px';
+        li.style.color = '#334155';
+        li.style.display = 'flex';
+        li.style.alignItems = 'flex-start';
+        li.innerHTML = `
+          <span style="color:#94a3b8; font-size:12px; margin-right:8px; white-space: nowrap;">${timeLabel}</span>
+          <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${title.replace(/"/g, '&quot;')}">${icon} ${title}</span>
+            ${detail ? `<span style="color:#64748b; font-size:12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${detail.replace(/"/g, '&quot;')}">${detail}</span>` : ''}
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    };
 
     const renderLogs = (list, items) => {
       if (!list) return;
@@ -1970,17 +2007,8 @@ async function loadDashboardLogs() {
       });
     };
 
-    // 대시보드용 활동 이력 필터링: debug 제외 및 시스템성 접두사 제외
-    const activityLogs = logs.filter(log => {
-      if (log.level === 'debug') return false;
-      const msg = String(log.message || '').trim();
-      // 기술 용어([xx])가 포함된 메시지나 특정 접두사 필터링
-      const sysPrefixes = ['[', '📡', '✅ 세션 확인 완료'];
-      return !sysPrefixes.some(p => msg.startsWith(p));
-    });
-
-    renderLogs(dashList, activityLogs.slice(0, 100));   // 대시보드: 필터링된 최신 100건
-    renderLogs(logsList, logs.slice(0, 50));        // 로그/이력: 원본 최신 50건 (debug 제외 원하면 추가 필터 가능)
+    renderActivities(dashList, activities.slice(0, 60));
+    renderLogs(logsList, logs.slice(0, 50));
     syncDashboardBottomColumnHeights();
   } catch (err) {
     if (err.status === 503 || String(err.message).includes('fetch failed')) return;

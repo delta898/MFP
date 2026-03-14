@@ -2,6 +2,7 @@ const Logger = require('../logger');
 const CONFIG = require('../config-loader');
 const { startHttpMcpServer, resolveRemoteMcpConfig } = require('./http-server');
 const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
+const { recordDashboardActivity } = require('../activity/dashboard-activity-store');
 
 let activeRemoteService = null;
 
@@ -45,6 +46,12 @@ async function stopRemoteMcpService() {
     activeRemoteService = null;
     await instance.close();
     Logger.info('MCP remote service stopped.');
+    recordDashboardActivity({
+        category: 'system',
+        type: 'mcp_remote_stopped',
+        title: 'MCP 서버 중지',
+        detail: instance.endpoint || `${instance.host}:${instance.port}${instance.path || '/mcp'}`
+    });
     return true;
 }
 
@@ -53,6 +60,12 @@ async function startRemoteMcpService(overrides = {}) {
     if (!options.enabled) {
         await stopRemoteMcpService();
         Logger.info('MCP remote service is disabled by configuration.');
+        recordDashboardActivity({
+            category: 'system',
+            type: 'mcp_remote_disabled',
+            title: 'MCP 서버 비활성화',
+            detail: '설정에 따라 원격 MCP 서버를 실행하지 않습니다.'
+        });
         return {
             enabled: false,
             running: false
@@ -83,10 +96,22 @@ async function startRemoteMcpService(overrides = {}) {
         await stopRemoteMcpService();
     }
 
-    const server = await startHttpMcpServer({
-        ...options,
-        logger: Logger
-    });
+    let server;
+    try {
+        server = await startHttpMcpServer({
+            ...options,
+            logger: Logger
+        });
+    } catch (error) {
+        recordDashboardActivity({
+            category: 'system',
+            type: 'mcp_remote_start_failed',
+            level: 'error',
+            title: 'MCP 서버 시작 실패',
+            detail: error.message || '원격 MCP 서버를 시작하지 못했습니다.'
+        });
+        throw error;
+    }
 
     activeRemoteService = {
         ...server,
@@ -94,6 +119,13 @@ async function startRemoteMcpService(overrides = {}) {
         authToken: options.authToken,
         allowedOrigins: options.allowedOrigins
     };
+
+    recordDashboardActivity({
+        category: 'system',
+        type: 'mcp_remote_started',
+        title: 'MCP 서버 시작',
+        detail: activeRemoteService.endpoint
+    });
 
     return {
         enabled: true,

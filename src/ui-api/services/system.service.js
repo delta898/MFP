@@ -1,4 +1,5 @@
 const { createApiError } = require('../errors');
+const { listRecentDashboardActivities } = require('../../activity/dashboard-activity-store');
 
 function createSystemService(deps = {}) {
     const {
@@ -86,6 +87,12 @@ function createSystemService(deps = {}) {
         const value = Number(raw);
         if (!Number.isFinite(value)) return 80;
         return Math.max(10, Math.min(200, Math.floor(value)));
+    }
+
+    function clampDashboardActivityLimit(raw) {
+        const value = Number(raw);
+        if (!Number.isFinite(value)) return 40;
+        return Math.max(5, Math.min(100, Math.floor(value)));
     }
 
     function getDashboardFeedState(sourceKey) {
@@ -471,6 +478,13 @@ function createSystemService(deps = {}) {
             });
 
             return { logs: merged.slice(0, limit) };
+        },
+
+        async getDashboardActivities({ limitRaw } = {}) {
+            const limit = clampDashboardActivityLimit(limitRaw);
+            return {
+                activities: listRecentDashboardActivities(limit)
+            };
         },
 
         async getLogFiles() {

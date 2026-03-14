@@ -14,6 +14,7 @@ const { APP_VERSION } = Constants;
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 Logger.debug(`Application version: ${APP_VERSION}`);
+const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 const { checkAuthSessionValid } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
@@ -580,6 +581,24 @@ function parseIntSafe(input, fallback = null, min = null) {
 function parseBoolQuery(input) {
     const value = String(input || '').trim().toLowerCase();
     return ['1', 'true', 'yes', 'y', 'on'].includes(value);
+}
+
+function formatActivityTargets(targets = []) {
+    return (Array.isArray(targets) ? targets : [])
+        .map((target) => {
+            if (target === 'naver') return '네이버 블로그';
+            if (target === 'wordpress') return '워드프레스';
+            if (target === 'shopping') return '쇼핑커넥트';
+            return String(target || '').trim();
+        })
+        .filter(Boolean)
+        .join(', ');
+}
+
+function recordUiActivity(input = {}) {
+    try {
+        recordDashboardActivity(input);
+    } catch (_error) { }
 }
 
 function normalizeSortDir(input, fallback = 'desc') {
@@ -1951,8 +1970,24 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
     };
     const imageGenerationEnabledByPlan = getFeatureBool(params.features || {}, 'image_generation', true);
     const imageGenerationFinal = (context.imageOptions?.generate === true) && imageGenerationEnabledByPlan;
+    const subjectLabel = String(results.finalSubject || context.subject || '').trim() || '제목 미지정';
+    const targetLabel = formatActivityTargets(targets);
+    const publishLabel = context.postStatus === 'draft'
+        ? '임시 저장'
+        : (context.postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
     try {
+        recordUiActivity({
+            category: 'publish',
+            type: 'blog_publish_started',
+            title: `${publishLabel} 시작`,
+            detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+            meta: {
+                source: options.source || 'blog',
+                postStatus: context.postStatus || 'publish',
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         emitProgress('라이선스 확인 중...');
         const verify = await License.verifyLicense();
         if (!verify.success) {
@@ -2005,10 +2040,35 @@ async function processMultiPlatformPublish(params = {}, options = {}) {
             }
         }
 
-
+        const failedTargets = targets.filter((target) => results?.[target]?.success === false);
+        recordUiActivity({
+            category: 'publish',
+            type: failedTargets.length > 0 ? 'blog_publish_completed_with_failures' : 'blog_publish_completed',
+            level: failedTargets.length > 0 ? 'warn' : 'info',
+            title: failedTargets.length > 0 ? `${publishLabel} 일부 실패` : `${publishLabel} 완료`,
+            detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+            meta: {
+                source: options.source || 'blog',
+                postStatus: context.postStatus || 'publish',
+                targets: Array.isArray(targets) ? targets.slice() : [],
+                failedTargets
+            }
+        });
         return { success: true, results };
     } catch (e) {
         Logger.error(`❌ [CommonPublish] 오류: ${e.message}`);
+        recordUiActivity({
+            category: 'publish',
+            type: 'blog_publish_failed',
+            level: 'error',
+            title: `${publishLabel} 실패`,
+            detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}${e.message ? ` · ${e.message}` : ''}`,
+            meta: {
+                source: options.source || 'blog',
+                postStatus: context.postStatus || 'publish',
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         return { success: false, message: e.message, results };
     }
 }
@@ -2424,6 +2484,13 @@ async function executeQuickPublish(requestBody) {
             if (Number.isInteger(rowIndex)) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');
             }
+            recordUiActivity({
+                category: 'publish',
+                type: 'quick_preview_generate_failed',
+                level: 'error',
+                title: '빠른 포스팅 미리보기 생성 실패',
+                detail: generated.message || finalSubject
+            });
             quickPublishRecentMap.set(dedupeKey, {
                 rowNumber,
                 rowIndex,
@@ -2511,6 +2578,13 @@ async function executeQuickPublish(requestBody) {
         if (Number.isInteger(rowIndex)) {
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
         }
+
+        recordUiActivity({
+            category: 'publish',
+            type: 'quick_preview_generated',
+            title: '빠른 포스팅 미리보기 생성 완료',
+            detail: `${finalSubject} · ${formatActivityTargets(targets)}`
+        });
 
         return {
             success: true,
@@ -2661,6 +2735,11 @@ async function executeLocalMarkdownPublish(requestBody = {}) {
 
     const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
     const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
+    const sourceLabel = String(requestBody?.folderName || '').trim() || '원고 폴더';
+    const targetLabel = formatActivityTargets(targets);
+    const publishLabel = postStatus === 'draft'
+        ? '임시 저장'
+        : (postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
     let previewData;
     try {
@@ -2690,6 +2769,17 @@ async function executeLocalMarkdownPublish(requestBody = {}) {
 
     let workspace = null;
     try {
+        recordUiActivity({
+            category: 'publish',
+            type: 'local_markdown_publish_started',
+            title: `원고 ${publishLabel} 시작`,
+            detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+            meta: {
+                source: 'local_markdown',
+                postStatus,
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         workspace = materializeSelectedFilesToWorkspace({ selectedFiles }, { fs, path });
         await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {
             imageGenerationEnabled: imageGenerationFinal
@@ -2745,6 +2835,18 @@ async function executeLocalMarkdownPublish(requestBody = {}) {
             .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
 
         if (failedTargets.length > 0) {
+            recordUiActivity({
+                category: 'publish',
+                type: 'local_markdown_publish_failed',
+                level: 'error',
+                title: `원고 ${publishLabel} 실패`,
+                detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''} · ${failedTargets.join(' / ')}`,
+                meta: {
+                    source: 'local_markdown',
+                    postStatus,
+                    targets: Array.isArray(targets) ? targets.slice() : []
+                }
+            });
             return {
                 success: false,
                 code: 'LOCAL_MARKDOWN_PUBLISH_FAILED',
@@ -2756,6 +2858,17 @@ async function executeLocalMarkdownPublish(requestBody = {}) {
             };
         }
 
+        recordUiActivity({
+            category: 'publish',
+            type: 'local_markdown_publish_completed',
+            title: `원고 ${publishLabel} 완료`,
+            detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+            meta: {
+                source: 'local_markdown',
+                postStatus,
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         return {
             success: true,
             data: {
@@ -2769,6 +2882,18 @@ async function executeLocalMarkdownPublish(requestBody = {}) {
         };
     } catch (error) {
         Logger.error(`❌ [LocalMarkdownPublish] 오류: ${error.message}`);
+        recordUiActivity({
+            category: 'publish',
+            type: 'local_markdown_publish_failed',
+            level: 'error',
+            title: `원고 ${publishLabel} 실패`,
+            detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}${error.message ? ` · ${error.message}` : ''}`,
+            meta: {
+                source: 'local_markdown',
+                postStatus,
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         return { success: false, code: 'LOCAL_MARKDOWN_PUBLISH_FAILED', message: error.message || '원고 포스팅에 실패했습니다.' };
     } finally {
         if (workspace?.tempDir) {
@@ -2804,6 +2929,8 @@ async function executeShoppingQuickPublish(requestBody = {}) {
 
     await Utils.ensureAllSheetsExist();
     const appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '준비';
+    const targetLabel = formatActivityTargets(targets);
+    const productLabel = product || shortUrl || '쇼핑 포스팅';
     const naverCategory = (requestBody?.naverCategory || '').trim();
     const wordpressCategory = (requestBody?.wordpressCategory || requestBody?.category || '').trim();
     let categoryField = '';
@@ -2868,7 +2995,31 @@ async function executeShoppingQuickPublish(requestBody = {}) {
     );
 
     if (!result.success) {
+        recordUiActivity({
+            category: 'publish',
+            type: 'shopping_publish_failed',
+            level: 'error',
+            title: '쇼핑 포스팅 실패',
+            detail: `${productLabel}${targetLabel ? ` · ${targetLabel}` : ''}${result.message ? ` · ${result.message}` : ''}`,
+            meta: {
+                source: 'shopping_quick',
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
         return result;
+    }
+
+    if (publishMode === 'append_and_publish') {
+        recordUiActivity({
+            category: 'publish',
+            type: 'shopping_publish_completed',
+            title: '쇼핑 포스팅 완료',
+            detail: `${productLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+            meta: {
+                source: 'shopping_quick',
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
     }
 
     return {
@@ -3791,6 +3942,12 @@ async function executeBlogTopicUpdate(requestBody) {
 }
 
 async function executeTrendCollectAction(requestBody = {}) {
+    recordUiActivity({
+        category: 'collection',
+        type: 'trends_collect_started',
+        title: '트렌드 수집 시작',
+        detail: String(requestBody?.date || requestBody?.trendDate || '').trim() || '최근 데이터 기준'
+    });
     try {
         await ensureSheetsReadyForUi();
     } catch (e) {
@@ -3867,6 +4024,12 @@ async function executeTrendCollectAction(requestBody = {}) {
         const dupCount = Number(mapResult?.duplicateCount || 0);
         const reuseCount = Number(mapResult?.reuseBlockedCount || 0);
         const addedCount = Number(mapResult?.appendedCount || 0);
+        recordUiActivity({
+            category: 'collection',
+            type: 'trends_collect_completed',
+            title: '트렌드 수집 완료',
+            detail: `수집 ${trendKeywords.length}건 · 토픽 추가 ${addedCount}건`
+        });
 
         return {
             success: true,
@@ -3882,6 +4045,13 @@ async function executeTrendCollectAction(requestBody = {}) {
         };
     } catch (e) {
         Logger.error(`❌ [AUTO][Producer] trends->topics 직접 이관 실패: ${e.message}`);
+        recordUiActivity({
+            category: 'collection',
+            type: 'trends_collect_failed',
+            level: 'error',
+            title: '트렌드 수집 실패',
+            detail: e.message || '알 수 없는 오류'
+        });
         return { success: false, code: 'TRENDS_DIRECT_APPEND_FAILED', message: `topics 직접 추가에 실패했습니다: ${e.message}` };
     }
 }
@@ -5256,6 +5426,12 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
 
     const feedUrls = enabledConfigs.map(c => String(c.url || '').trim()).filter(Boolean);
     Logger.info(`🚀 [AUTO][Producer] RSS 수집 시작 (Trigger: ${trigger}, Feeds: ${enabledConfigs.length}개)`);
+    recordUiActivity({
+        category: 'collection',
+        type: 'rss_collect_started',
+        title: 'RSS 수집 시작',
+        detail: `피드 ${enabledConfigs.length}개`
+    });
     if (feedUrls.length > 0) {
         Logger.info(`   📝 수집 대상 피드: ${feedUrls.join(', ')}`);
     } else if (isManual) {
@@ -5367,6 +5543,12 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
         } else {
             Logger.info(`ℹ️ [AUTO][Producer] RSS 수집 완료: 새로운 항목이 없습니다.`);
         }
+        recordUiActivity({
+            category: 'collection',
+            type: 'rss_collect_completed',
+            title: 'RSS 수집 완료',
+            detail: `수집 ${totalRssCollected}건 · 토픽 추가 ${totalRssToTopics}건`
+        });
 
         return {
             success: true,
@@ -5377,6 +5559,13 @@ async function runRssCollectCycle(trigger = 'manual', requestBody = {}) {
         };
     } catch (e) {
         Logger.error(`❌ [AUTO][Producer] RSS 수집 중 시스템 오류: ${e.message}`);
+        recordUiActivity({
+            category: 'collection',
+            type: 'rss_collect_failed',
+            level: 'error',
+            title: 'RSS 수집 실패',
+            detail: e.message || '알 수 없는 오류'
+        });
         return { success: false, message: `RSS 수집 실패: ${e.message}` };
     }
 }
@@ -5397,6 +5586,12 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
     }
 
     Logger.info(`🚀 [AUTO][Consumer] 자동 발행 시작 (Trigger: ${trigger})`);
+    recordUiActivity({
+        category: 'publish',
+        type: 'auto_publish_started',
+        title: '자동 포스팅 시작',
+        detail: String(trigger || '').trim() || 'manual'
+    });
 
     try {
         const topicsRes = await Utils.readGoogleSheetTopicsAll({
@@ -5470,6 +5665,13 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
         const finalFailCount = Number(blogResult?.data?.failCount || 0);
 
         Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${finalSuccessCount}건, 실패 ${finalFailCount}건`);
+        recordUiActivity({
+            category: 'publish',
+            type: finalFailCount > 0 ? 'auto_publish_completed_with_failures' : 'auto_publish_completed',
+            level: finalFailCount > 0 ? 'warn' : 'info',
+            title: finalFailCount > 0 ? '자동 포스팅 일부 실패' : '자동 포스팅 완료',
+            detail: `성공 ${finalSuccessCount}건 · 실패 ${finalFailCount}건`
+        });
 
         // 알림 전송 (성공 또는 실패가 있을 때)
         // [De-duplicate Fix] 발행 건수가 1건이고 성공한 경우라면 개별 플랫폼 알림이 이미 갔으므로 요약 알림은 생략합니다.
@@ -5535,6 +5737,13 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
 
     } catch (e) {
         Logger.error(`❌ [AUTO][Consumer] 자동 발행 실패: ${e.message}`);
+        recordUiActivity({
+            category: 'publish',
+            type: 'auto_publish_failed',
+            level: 'error',
+            title: '자동 포스팅 실패',
+            detail: e.message || '알 수 없는 오류'
+        });
         return { success: false, message: `자동 발행 실행 오류: ${e.message}` };
     }
 }
@@ -5941,6 +6150,12 @@ async function startUiServer(options = {}) {
 
     const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
     Logger.info(`✅ UI 서버가 성공적으로 시작되었습니다: http://${openHost}:${port}`);
+    recordUiActivity({
+        category: 'system',
+        type: 'ui_server_started',
+        title: 'UI 서버 시작',
+        detail: `http://${openHost}:${port}`
+    });
     return { server, host, port, openHost };
 }
 
@@ -5961,6 +6176,12 @@ async function reloadUiServer(newHost, newPort) {
     // 주의: 실제 변경된 환경변수/설정이 startUiServer에서 똑같이 쓰이도록 보장해야 합니다.
     const started = await startUiServer({ host: newHost, port: newPort });
     Logger.info(`✅ UI 서버 재시작 완료: http://${started.openHost}:${started.port}`);
+    recordUiActivity({
+        category: 'system',
+        type: 'ui_server_restarted',
+        title: 'UI 서버 재시작 완료',
+        detail: `http://${started.openHost}:${started.port}`
+    });
     return started;
 }
 

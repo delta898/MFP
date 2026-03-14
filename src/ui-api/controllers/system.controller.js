@@ -123,6 +123,19 @@ function createSystemController(deps = {}) {
             }
         },
 
+        async dashboardActivities({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.getDashboardActivities({
+                    limitRaw: searchParams?.get('limit')
+                }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'DASHBOARD_ACTIVITIES_ERROR', '대시보드 활동 조회에 실패했습니다.', e);
+            }
+        },
+
         async dashboardExternalContent({ requestId, method, searchParams, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);

@@ -9,6 +9,7 @@ const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken
 } = require('../../mcp/remote-config');
+const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 
 function createSettingsService(deps = {}) {
     const {
@@ -350,6 +351,22 @@ function createSettingsService(deps = {}) {
             const remoteMcpStatus = typeof getRemoteServiceStatus === 'function'
                 ? getRemoteServiceStatus()
                 : null;
+            const detailParts = [];
+            if (requiresRestart) {
+                detailParts.push(`UI 서버 재시작 예정: ${fields.LISTEN_HOST}:${normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT)}`);
+            }
+            if (telegramSettingsChanged) {
+                detailParts.push(`텔레그램 ${fields.NOTIFY_TELEGRAM_ENABLED ? '재적용' : '비활성화'}`);
+            }
+            if (mcpSettingsChanged) {
+                detailParts.push(`MCP ${fields.MCP_REMOTE_ENABLED ? '적용' : '비활성화'}`);
+            }
+            recordDashboardActivity({
+                category: 'settings',
+                type: 'major_settings_saved',
+                title: '설정 저장 완료',
+                detail: detailParts.join(' · ') || '주요 설정이 저장되었습니다.'
+            });
 
             return {
                 requiresRestart,
@@ -472,6 +489,12 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
             const revision = createConfigRevision(content);
+            recordDashboardActivity({
+                category: 'settings',
+                type: 'advanced_settings_saved',
+                title: '고급 설정 저장 완료',
+                detail: path.basename(writablePath)
+            });
             return {
                 configPath: writablePath,
                 configSourceType: 'config',

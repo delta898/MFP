@@ -19,6 +19,7 @@ const {
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
+const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 
 class TelegramBotService {
     static bot = null;
@@ -173,10 +174,23 @@ class TelegramBotService {
             this.bot = new TelegramBot(botToken, { polling: true });
             this.isInitialized = true;
             Logger.info('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
+            recordDashboardActivity({
+                category: 'system',
+                type: 'telegram_bot_started',
+                title: '텔레그램 봇 시작',
+                detail: 'Long Polling 수신 봇이 활성화되었습니다.'
+            });
 
             this.setupListeners(chatId);
         } catch (error) {
             Logger.error(`❌ [TelegramBot] 텔레그램 수신 봇 시작 실패: ${error.message}`);
+            recordDashboardActivity({
+                category: 'system',
+                type: 'telegram_bot_start_failed',
+                level: 'error',
+                title: '텔레그램 봇 시작 실패',
+                detail: error.message || '텔레그램 봇을 시작하지 못했습니다.'
+            });
         }
     }
 
@@ -1151,8 +1165,21 @@ class TelegramBotService {
                 this.bot = null;
                 this.isInitialized = false;
                 Logger.info('🛑 [TelegramBot] 텔레그램 수신 봇 데몬을 중지했습니다.');
+                recordDashboardActivity({
+                    category: 'system',
+                    type: 'telegram_bot_stopped',
+                    title: '텔레그램 봇 중지',
+                    detail: '텔레그램 수신 봇이 중지되었습니다.'
+                });
             } catch (err) {
                 Logger.error(`❌ [TelegramBot] 봇 중지 실패: ${err.message}`);
+                recordDashboardActivity({
+                    category: 'system',
+                    type: 'telegram_bot_stop_failed',
+                    level: 'error',
+                    title: '텔레그램 봇 중지 실패',
+                    detail: err.message || '텔레그램 봇을 중지하지 못했습니다.'
+                });
                 // 에러가 발생해도 상태는 초기화
                 this.bot = null;
                 this.isInitialized = false;
