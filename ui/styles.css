@@ -889,6 +889,101 @@ h2 {
   margin-top: 0;
   min-height: 240px;
   max-height: 480px;
+  overflow: auto;
+  border: 1px solid #d8e2f1;
+  border-radius: 12px;
+  background: #fcfdff;
+  padding: 18px 20px;
+  color: #1e293b;
+  line-height: 1.8;
+}
+
+.local-markdown-body-preview h1,
+.local-markdown-body-preview h2,
+.local-markdown-body-preview h3,
+.local-markdown-body-preview p,
+.local-markdown-body-preview blockquote,
+.local-markdown-body-preview ul,
+.local-markdown-body-preview ol,
+.local-markdown-body-preview figure {
+  margin: 0 0 16px;
+}
+
+.local-markdown-body-preview h2 {
+  font-size: 22px;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.local-markdown-body-preview h3 {
+  font-size: 18px;
+  line-height: 1.4;
+  color: #1e293b;
+}
+
+.local-markdown-body-preview p {
+  font-size: 15px;
+  white-space: pre-wrap;
+}
+
+.local-markdown-body-preview blockquote {
+  border-left: 4px solid #bfdbfe;
+  background: #f8fbff;
+  padding: 14px 16px;
+  border-radius: 0 12px 12px 0;
+  color: #334155;
+}
+
+.local-markdown-body-preview ul,
+.local-markdown-body-preview ol {
+  padding-left: 22px;
+}
+
+.local-markdown-body-preview li {
+  margin-bottom: 8px;
+}
+
+.local-markdown-body-preview figure {
+  border: 1px solid #d8e2f1;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.local-markdown-body-preview figure img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: block;
+}
+
+.local-markdown-body-preview figcaption {
+  margin-top: 10px;
+}
+
+.local-markdown-body-preview .image-caption-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.local-markdown-body-preview .image-caption-prompt {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+  white-space: pre-wrap;
+}
+
+.local-markdown-body-preview .local-markdown-inline-image-missing {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .local-markdown-image-list {

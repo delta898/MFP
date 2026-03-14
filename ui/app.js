@@ -5503,6 +5503,74 @@ function bindActions() {
     if (panelEl) panelEl.hidden = true;
   }
 
+  function renderLocalMarkdownBodyHtml(data = null) {
+    const items = Array.isArray(data?.contentItems) ? data.contentItems : [];
+    const images = Array.isArray(data?.images) ? data.images : [];
+    const imageMap = new Map(images.map((image) => [Number(image.index), image]));
+    const fragments = [];
+    let activeListType = '';
+
+    const closeList = () => {
+      if (!activeListType) return;
+      fragments.push(activeListType === 'ordered' ? '</ol>' : '</ul>');
+      activeListType = '';
+    };
+
+    const renderImageFigure = (item = {}) => {
+      const image = imageMap.get(Number(item.index));
+      const previewUrl = image?.exists ? getLocalMarkdownImageObjectUrl(image.imagePath) : '';
+      const imageBody = previewUrl
+        ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy">`
+        : `<div class="local-markdown-inline-image-missing">매칭되는 로컬 이미지가 없습니다.</div>`;
+      return `
+        <figure>
+          ${imageBody}
+          <figcaption>
+            <div class="image-caption-title">${escapeHtml(image?.title || item.text || `IMAGE_${item.index}`)}</div>
+            ${image?.prompt || item.prompt ? `<div class="image-caption-prompt">${escapeHtml(image?.prompt || item.prompt || '')}</div>` : ''}
+          </figcaption>
+        </figure>
+      `;
+    };
+
+    items.forEach((item) => {
+      const type = String(item?.type || 'paragraph');
+      const text = escapeHtml(item?.text || '');
+      if (type !== 'list-item') closeList();
+
+      if (type === 'header-h2') {
+        fragments.push(`<h2>${text}</h2>`);
+        return;
+      }
+      if (type === 'quote') {
+        fragments.push(`<blockquote><p>${text}</p></blockquote>`);
+        return;
+      }
+      if (type === 'list-item') {
+        const nextListType = item?.listType === 'ordered' ? 'ordered' : 'unordered';
+        if (activeListType !== nextListType) {
+          closeList();
+          fragments.push(nextListType === 'ordered' ? '<ol>' : '<ul>');
+          activeListType = nextListType;
+        }
+        fragments.push(`<li>${text}</li>`);
+        return;
+      }
+      if (type === 'image') {
+        fragments.push(renderImageFigure(item));
+        return;
+      }
+      if (type === 'newline') {
+        fragments.push('<div style="height:8px"></div>');
+        return;
+      }
+      fragments.push(`<p>${text}</p>`);
+    });
+
+    closeList();
+    return fragments.join('') || '<div class="local-markdown-empty">본문 preview를 표시할 내용이 없습니다.</div>';
+  }
+
   window.renderLocalMarkdownPreview = function (data = null) {
     const emptyEl = document.getElementById('local-markdown-preview-empty');
     const panelEl = document.getElementById('local-markdown-preview-panel');
@@ -5516,7 +5584,7 @@ function bindActions() {
       renderLocalMarkdownValidation(null);
       if (emptyEl) emptyEl.hidden = false;
       if (panelEl) panelEl.hidden = true;
-      if (bodyEl) bodyEl.textContent = '';
+      if (bodyEl) bodyEl.innerHTML = '';
       if (imageListEl) imageListEl.innerHTML = '';
       return;
     }
@@ -5536,7 +5604,7 @@ function bindActions() {
         `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
       ].filter(Boolean).join(' | ');
     }
-    if (bodyEl) bodyEl.textContent = data.bodyPreview || data.rawMarkdown || '';
+    if (bodyEl) bodyEl.innerHTML = renderLocalMarkdownBodyHtml(data);
     if (imageListEl) {
       const images = Array.isArray(data.images) ? data.images : [];
       imageListEl.innerHTML = images.length === 0
