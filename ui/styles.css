@@ -867,8 +867,8 @@ h2 {
 }
 
 .local-markdown-preview-sections {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -1001,8 +1001,8 @@ h2 {
 }
 
 .local-markdown-image-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
 
