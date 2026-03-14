@@ -5439,7 +5439,9 @@ async function startUiServer(options = {}) {
                 if (method === 'POST') {
                     const limitBytes = pathname === '/api/v1/settings/shopping-image'
                         ? 15 * 1024 * 1024
-                        : 1024 * 1024;
+                        : (pathname === '/api/v1/blog/local-markdown/publish'
+                            ? 40 * 1024 * 1024
+                            : 1024 * 1024);
                     requestBody = await readJsonBody(req, limitBytes);
                 }
                 const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
