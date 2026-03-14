@@ -887,8 +887,8 @@ h2 {
 
 .local-markdown-body-preview {
   margin-top: 0;
-  min-height: 240px;
-  max-height: 480px;
+  min-height: 420px;
+  max-height: 720px;
   overflow: auto;
   border: 1px solid #d8e2f1;
   border-radius: 12px;
