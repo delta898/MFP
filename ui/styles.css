@@ -960,7 +960,7 @@ h2 {
 
 .local-markdown-body-preview figure img {
   width: auto;
-  max-width: min(100%, 1024px);
+  max-width: min(100%, 800px);
   height: auto;
   max-height: none;
   object-fit: initial;
