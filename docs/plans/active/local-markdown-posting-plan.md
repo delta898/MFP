@@ -176,9 +176,9 @@ fallback 규칙:
 1. Blog 탭에 `원고 포스팅` 탭과 기본 폼 추가
 2. localStorage persistence 연결
 3. 브라우저 폴더 선택 / preview / validation API 추가
-4. `Core.publishToBlog` / WordPress publish 경로가 선택된 폴더 file set을 source로 받을 수 있도록 확장
-5. 로컬 이미지 해석 + fallback 처리 연결
-6. 실제 포스팅 실행 API 연결
+4. 선택된 원고 file set을 임시 작업 디렉터리로 복원하는 bridge 추가
+5. `Core.publishToBlog` / WordPress publish 경로에 원고 포스팅 실행 API 연결
+6. 로컬 이미지 해석 + missing image fallback 처리 연결
 7. 문서화 및 사용자 smoke test
 
 ## Open Questions

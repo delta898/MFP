@@ -31,6 +31,7 @@ function createContentService(deps = {}) {
         buildMajorSettings,
         ensureSheetsReadyForUi,
         executeQuickPublish,
+        executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,
         getBlogRuntimeLogMap,
@@ -806,6 +807,14 @@ function createContentService(deps = {}) {
 
         async previewLocalMarkdown(requestBody = {}) {
             return buildLocalMarkdownPreviewPayload(requestBody);
+        },
+
+        async localMarkdownPublish(requestBody = {}) {
+            const result = await executeLocalMarkdownPublish(requestBody || {});
+            if (!result.success) {
+                throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
+            }
+            return result.data;
         },
 
         async shoppingQuickPublish(requestBody = {}) {

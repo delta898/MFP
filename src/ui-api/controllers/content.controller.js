@@ -145,6 +145,17 @@ function createContentController(deps = {}) {
             }
         },
 
+        async localMarkdownPublish({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.localMarkdownPublish(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LOCAL_MARKDOWN_PUBLISH_FAILED', '원고 포스팅 실행에 실패했습니다.', e);
+            }
+        },
+
         async shoppingQuickPublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

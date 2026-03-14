@@ -195,6 +195,7 @@ let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.'
 let blogTrendsCollectInFlight = false;
 let blogAutoManualRunInFlight = false;
 let shoppingAutoManualRunInFlight = false;
+let localMarkdownPublishInFlight = false;
 const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
 const SETTINGS_SHOPPING_SLOT_META = {
   ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
@@ -5425,6 +5426,48 @@ function bindActions() {
     };
   }
 
+  async function buildLocalMarkdownPublishPayload() {
+    const selectedFiles = Array.isArray(localMarkdownPreviewState.selectedFiles)
+      ? localMarkdownPreviewState.selectedFiles
+      : [];
+    const serializedFiles = [];
+
+    for (const entry of selectedFiles) {
+      if (!entry?.file) continue;
+      if (!isLocalMarkdownFileName(entry.name) && !isLocalMarkdownImageEntry(entry)) continue;
+
+      const serialized = {
+        relativePath: entry.relativePath,
+        name: entry.name,
+        contentType: entry.type,
+        size: entry.size
+      };
+
+      if (isLocalMarkdownFileName(entry.name)) {
+        serialized.textContent = await entry.file.text();
+      } else if (isLocalMarkdownImageEntry(entry)) {
+        serialized.base64Data = await readFileAsDataUrl(entry.file);
+      }
+
+      serializedFiles.push(serialized);
+    }
+
+    return {
+      folderName: localMarkdownPreviewState.folderLabel || '',
+      selectedFiles: serializedFiles,
+      targets: [
+        document.getElementById('local-markdown-target-naver')?.checked ? 'naver' : '',
+        document.getElementById('local-markdown-target-wordpress')?.checked ? 'wordpress' : ''
+      ].filter(Boolean),
+      naverCategory: (document.getElementById('local-markdown-naver-category')?.value || '').trim(),
+      wordpressCategory: (document.getElementById('local-markdown-wp-category')?.value || '').trim(),
+      postStatus: (document.getElementById('local-markdown-post-status')?.value || 'publish').trim(),
+      scheduleDate: (document.getElementById('local-markdown-schedule-date')?.value || '').trim(),
+      headless: Boolean(document.getElementById('local-markdown-headless')?.checked),
+      imageGeneration: Boolean(document.getElementById('local-markdown-image-generation')?.checked)
+    };
+  }
+
   function revokeLocalMarkdownObjectUrls() {
     const urlMap = localMarkdownPreviewState.imageObjectUrls || {};
     Object.keys(urlMap).forEach((key) => {
@@ -5672,6 +5715,7 @@ function bindActions() {
   const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
   const localMarkdownFolderInput = document.getElementById('local-markdown-folder-input');
   const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
+  const localMarkdownPublishBtn = document.getElementById('local-markdown-publish-btn');
   const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
 
   if (localMarkdownSelectBtn) {
@@ -5703,6 +5747,56 @@ function bindActions() {
   if (localMarkdownClearBtn) {
     localMarkdownClearBtn.addEventListener('click', () => {
       clearLocalMarkdownSelection();
+    });
+  }
+  if (localMarkdownPublishBtn) {
+    localMarkdownPublishBtn.addEventListener('click', async () => {
+      const resultEl = document.getElementById('local-markdown-result');
+      if (!guardUiConfigReady('원고 포스팅')) return;
+      if (localMarkdownPublishInFlight) return;
+      if (!localMarkdownPreviewState.data) {
+        showUiPopup('먼저 원고 폴더를 선택해 주세요.');
+        return;
+      }
+      if (!localMarkdownPreviewState.data.validation?.ok) {
+        showUiPopup('현재 validation 오류가 있어 실행할 수 없습니다. 원고와 옵션을 먼저 확인해 주세요.');
+        return;
+      }
+
+      const publishPayload = await buildLocalMarkdownPublishPayload();
+      const preCheck = checkPublishPrerequisites(publishPayload.targets);
+      if (!preCheck.ok) {
+        if (resultEl) resultEl.textContent = preCheck.message;
+        return;
+      }
+
+      const actionLabel = publishPayload.postStatus === 'draft'
+        ? '원고 임시 저장'
+        : (publishPayload.postStatus === 'schedule' ? '원고 예약 포스팅' : '원고 포스팅');
+      const confirmed = await showUiConfirm(`${actionLabel}을 진행하시겠습니까?`, {
+        title: '실행 확인',
+        confirmText: '진행',
+        cancelText: '취소'
+      });
+      if (confirmed === false) {
+        if (resultEl) resultEl.textContent = '원고 포스팅 실행이 취소되었습니다.';
+        return;
+      }
+
+      localMarkdownPublishInFlight = true;
+      localMarkdownPublishBtn.disabled = true;
+      try {
+        await runWithLiveProgress({
+          targetEl: resultEl,
+          requestLabel: actionLabel,
+          requestFn: () => postJson('/api/v1/blog/local-markdown/publish', publishPayload)
+        });
+      } catch (_error) {
+        // runWithLiveProgress already renders logs/errors
+      } finally {
+        localMarkdownPublishInFlight = false;
+        localMarkdownPublishBtn.disabled = false;
+      }
     });
   }
   if (localMarkdownPostStatusEl) {

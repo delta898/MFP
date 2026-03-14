@@ -15,6 +15,7 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/blog/naver-comment-draft/redraft') return controller.naverCommentDraftRedraft(ctx);
         if (pathname === '/api/v1/blog/quick-publish') return controller.blogQuickPublish(ctx);
         if (pathname === '/api/v1/blog/local-markdown/preview') return controller.localMarkdownPreview(ctx);
+        if (pathname === '/api/v1/blog/local-markdown/publish') return controller.localMarkdownPublish(ctx);
         if (pathname === '/api/v1/shopping/quick-publish') return controller.shoppingQuickPublish(ctx);
         if (pathname === '/api/v1/shopping/preview') return controller.shoppingPreview(ctx);
         if (pathname === '/api/v1/blog/topics') return controller.blogTopics(ctx);

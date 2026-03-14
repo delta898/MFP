@@ -31,6 +31,8 @@ const {
     normalizeRemoteMcpPort
 } = require('./mcp/remote-config');
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
+const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
+const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
 const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
@@ -2160,6 +2162,182 @@ async function executeQuickPublish(requestBody) {
             code: 'QUICK_PUBLISH_FAILED',
             message: e.message
         };
+    }
+}
+
+async function prepareMissingImagesForLocalMarkdown(tempDir, previewData, runtimeOptions = {}) {
+    if (runtimeOptions.imageGenerationEnabled === false) return;
+
+    const missingImages = Array.isArray(previewData?.images)
+        ? previewData.images.filter((item) => !item.exists)
+        : [];
+    if (missingImages.length === 0) return;
+
+    let lastCall = 0;
+    for (const image of missingImages) {
+        const prompt = String(image.prompt || '').trim();
+        if (!prompt) continue;
+
+        const now = Date.now();
+        if (lastCall > 0 && (now - lastCall) < 1000) {
+            await Utils.sleep(1000);
+        }
+
+        Logger.info(`   🎨 [LocalMarkdown] 누락 이미지 생성 중 (Index ${image.index})`);
+        try {
+            await Utils.callGeminiImage(prompt, path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`));
+        } catch (imageError) {
+            Logger.warn(`⚠️ [LocalMarkdown] 누락 이미지 생성 실패 (Index ${image.index}): ${imageError.message}`);
+        }
+        lastCall = Date.now();
+    }
+}
+
+async function executeLocalMarkdownPublish(requestBody = {}) {
+    const selectedFiles = Array.isArray(requestBody?.selectedFiles) ? requestBody.selectedFiles : [];
+    const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+    const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
+    const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
+    const scheduleDate = String(requestBody?.scheduleDate || '').trim();
+    const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+
+    if (selectedFiles.length === 0) {
+        return { success: false, code: 'INVALID_LOCAL_MARKDOWN_SOURCE', message: '선택된 원고 파일이 없습니다.' };
+    }
+    if (!Array.isArray(targets) || targets.length === 0) {
+        return { success: false, code: 'INVALID_TARGETS', message: '포스팅 대상을 1개 이상 선택해야 합니다.' };
+    }
+    if (postStatus === 'schedule' && !scheduleDate) {
+        return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필요합니다.' };
+    }
+
+    const precheck = await License.checkLicenseStatus();
+    if (!precheck.success) {
+        return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+    }
+
+    const features = toFeatureMap(precheck.features);
+    if (!isCommandEnabled(features, 'batch')) {
+        return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+    }
+
+    const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
+    const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
+
+    let previewData;
+    try {
+        previewData = buildLocalMarkdownPreview({
+            folderName: requestBody?.folderName,
+            selectedFiles,
+            targets,
+            postStatus,
+            scheduleDate,
+            imageGeneration: imageGenerationFinal
+        }, {
+            fs,
+            path,
+            Utils
+        });
+    } catch (error) {
+        return { success: false, code: 'LOCAL_MARKDOWN_PREVIEW_INVALID', message: error.message || '원고 검증에 실패했습니다.' };
+    }
+
+    if (!previewData?.validation?.ok) {
+        return {
+            success: false,
+            code: 'LOCAL_MARKDOWN_VALIDATION_FAILED',
+            message: previewData.validation.errors.join(' / ') || '원고 검증에 실패했습니다.'
+        };
+    }
+
+    let workspace = null;
+    try {
+        workspace = materializeSelectedFilesToWorkspace({ selectedFiles }, { fs, path });
+        await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {
+            imageGenerationEnabled: imageGenerationFinal
+        });
+
+        const verify = await License.verifyLicense();
+        if (!verify.success) {
+            return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+        }
+
+        const results = {};
+        const statusLabel = postStatus === 'draft' ? '저장' : '발행';
+
+        if (targets.includes('naver')) {
+            const naverRes = await Core.publishToBlog(workspace.tempDir, {
+                headless,
+                category: requestBody?.naverCategory || '',
+                postStatus,
+                scheduleDate,
+                isLast: !targets.includes('wordpress')
+            }) || { success: false, message: '네이버 포스팅 응답이 비어 있습니다.' };
+            results.naver = {
+                success: Boolean(naverRes.success),
+                message: naverRes.message || '',
+                postUrl: naverRes.postUrl || ''
+            };
+            if (naverRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+            }
+        }
+
+        if (targets.includes('wordpress')) {
+            const wpRes = await Core.publishToWordPress(workspace.tempDir, {
+                category: requestBody?.wordpressCategory || '',
+                postStatus,
+                wpScheduleDate: scheduleDate || '',
+                imageGeneration: imageGenerationFinal
+            }) || { success: false, message: '워드프레스 포스팅 응답이 비어 있습니다.' };
+            results.wordpress = {
+                success: Boolean(wpRes.success),
+                message: wpRes.message || '',
+                postUrl: wpRes.postUrl || ''
+            };
+            if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+                const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
+                await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
+            }
+        }
+
+        const failedTargets = Object.entries(results)
+            .filter(([, value]) => value && value.success === false)
+            .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
+
+        if (failedTargets.length > 0) {
+            return {
+                success: false,
+                code: 'LOCAL_MARKDOWN_PUBLISH_FAILED',
+                message: failedTargets.join(' / '),
+                data: {
+                    status: '일부 포스팅 실패',
+                    results
+                }
+            };
+        }
+
+        return {
+            success: true,
+            data: {
+                status: postStatus === 'draft' ? '임시 저장 완료' : (postStatus === 'schedule' ? '예약 포스팅 등록 완료' : '포스팅 완료'),
+                results,
+                source: {
+                    folderName: previewData?.source?.folderName || '',
+                    fileName: previewData?.source?.fileName || ''
+                }
+            }
+        };
+    } catch (error) {
+        Logger.error(`❌ [LocalMarkdownPublish] 오류: ${error.message}`);
+        return { success: false, code: 'LOCAL_MARKDOWN_PUBLISH_FAILED', message: error.message || '원고 포스팅에 실패했습니다.' };
+    } finally {
+        if (workspace?.tempDir) {
+            try {
+                fs.rmSync(workspace.tempDir, { recursive: true, force: true });
+            } catch (_cleanupError) { }
+        }
     }
 }
 
@@ -5127,6 +5305,7 @@ function createLegacyApiDeps() {
 
     const actionDeps = {
         executeQuickPublish,
+        executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,
         getBlogRuntimeLogMap,
