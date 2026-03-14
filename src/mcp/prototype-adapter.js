@@ -1,4 +1,4 @@
-const { normalizeRuntimeContext } = require('../agent/runtime-contract');
+const { normalizeRuntimeContext, buildClarificationResult } = require('../agent/runtime-contract');
 const { buildConfirmationToken, resolveConfirmationId } = require('../internal-api/confirmation-schema');
 const { validateContentRequestBundle } = require('../internal-api/content-request-schema');
 const {
@@ -13,10 +13,10 @@ function buildMcpToolDefinitions() {
         {
             name: 'content_request_prepare',
             title: 'Prepare Content Request',
-            description: 'Prepare a blog topic register/publish request. Use only for blog content registration or publish preparation. Do not use for file creation, note writing, or generic document editing.',
+            description: 'Prepare a blog topic register/publish request. Prefer the simple top-level fields: theme (주제), keywords, instruction, naver_category, wordpress_category, platforms, image_gen, external_reference, and publish. The request should only be executed after an explicit user approve/confirm message.',
             inputSchema: {
                 type: 'object',
-                description: 'At least one of register_request or publish_request is required.',
+                description: 'Use simple top-level fields when possible. theme/topic is required for topic registration. The server appends to the spreadsheet only after explicit confirmation approval.',
                 properties: {
                     conversation_id: {
                         type: 'string',
@@ -29,6 +29,51 @@ function buildMcpToolDefinitions() {
                     message_id: {
                         type: 'string',
                         description: 'Optional client message id.'
+                    },
+                    theme: {
+                        type: 'string',
+                        description: 'Topic or subject (주제). Required for topic registration.'
+                    },
+                    topic: {
+                        type: 'string',
+                        description: 'Alias of theme (주제).'
+                    },
+                    keywords: {
+                        type: 'array',
+                        items: { type: 'string' }
+                    },
+                    instruction: {
+                        type: 'string',
+                        description: 'Optional writing instruction or reference note.'
+                    },
+                    naver_category: {
+                        type: 'string'
+                    },
+                    wordpress_category: {
+                        type: 'string'
+                    },
+                    platforms: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                            enum: ['naver', 'wordpress']
+                        }
+                    },
+                    image_gen: {
+                        type: 'boolean',
+                        description: 'Whether to generate images. Defaults to true.'
+                    },
+                    external_reference: {
+                        type: 'boolean',
+                        description: 'Whether to use external references. Defaults to true.'
+                    },
+                    post_status: {
+                        type: 'string',
+                        enum: ['draft', 'publish']
+                    },
+                    publish: {
+                        type: 'boolean',
+                        description: 'When true, prepare register + publish flow together.'
                     },
                     register_request: {
                         type: 'object',
@@ -65,11 +110,9 @@ function buildMcpToolDefinitions() {
                                                 type: 'string',
                                                 enum: ['draft', 'publish']
                                             },
-                                            category: { type: 'string' },
                                             naver_category: { type: 'string' },
                                             wordpress_category: { type: 'string' },
-                                            instruction: { type: 'string' },
-                                            schedule_date: { type: 'string' }
+                                            instruction: { type: 'string' }
                                         }
                                     }
                                 },
@@ -162,6 +205,27 @@ function buildMcpToolDefinitions() {
     ];
 }
 
+function normalizeString(value = '') {
+    return String(value || '').trim();
+}
+
+function normalizeKeywordList(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => normalizeString(item)).filter(Boolean);
+    }
+    const single = normalizeString(value);
+    return single ? [single] : [];
+}
+
+function normalizePlatforms(value) {
+    const list = Array.isArray(value) ? value : [value];
+    const normalized = list
+        .map((item) => normalizeString(item).toLowerCase())
+        .filter(Boolean)
+        .map((item) => (item.includes('wordpress') ? 'wordpress' : 'naver'));
+    return Array.from(new Set(normalized));
+}
+
 function normalizeRequestWrapper(request = null, intent = '') {
     if (!request || typeof request !== 'object' || Array.isArray(request)) return null;
 
@@ -183,10 +247,55 @@ function normalizeRequestWrapper(request = null, intent = '') {
 }
 
 function coercePrepareInput(input = {}) {
+    const explicitTheme = normalizeString(input.theme || input.topic);
+    const explicitKeywords = normalizeKeywordList(input.keywords);
+    const explicitPlatforms = normalizePlatforms(input.platforms);
+    const explicitInstruction = normalizeString(input.instruction);
+    const explicitNaverCategory = normalizeString(input.naver_category);
+    const explicitWordpressCategory = normalizeString(input.wordpress_category);
+    const explicitImageGen = typeof input.image_gen === 'boolean' ? input.image_gen : undefined;
+    const explicitExternalReference = typeof input.external_reference === 'boolean' ? input.external_reference : undefined;
+    const explicitPostStatus = normalizeString(input.post_status);
+    const publishRequested = input.publish === true;
+
+    const registerRequest = normalizeRequestWrapper(input.register_request, 'content.register_topic')
+        || (explicitTheme
+            ? {
+                intent: 'content.register_topic',
+                payload: {
+                    theme: explicitTheme,
+                    ...(explicitKeywords.length > 0 ? { keywords: explicitKeywords } : {}),
+                    ...(explicitPlatforms.length > 0 ? { platforms: explicitPlatforms } : {}),
+                    options: {
+                        ...(explicitInstruction ? { instruction: explicitInstruction } : {}),
+                        ...(explicitNaverCategory ? { naver_category: explicitNaverCategory } : {}),
+                        ...(explicitWordpressCategory ? { wordpress_category: explicitWordpressCategory } : {}),
+                        ...(explicitImageGen !== undefined ? { image_gen: explicitImageGen } : {}),
+                        ...(explicitExternalReference !== undefined ? { external_reference: explicitExternalReference } : {}),
+                        ...(explicitPostStatus ? { post_status: explicitPostStatus } : {})
+                    }
+                }
+            }
+            : null);
+
+    const publishRequest = normalizeRequestWrapper(input.publish_request, 'content.publish')
+        || (publishRequested
+            ? {
+                intent: 'content.publish',
+                payload: {
+                    ...(explicitPlatforms.length > 0 ? { platforms: explicitPlatforms } : {}),
+                    auto_trigger: true,
+                    options: {
+                        ...(explicitPostStatus ? { post_status: explicitPostStatus } : {})
+                    }
+                }
+            }
+            : null);
+
     return {
         ...input,
-        register_request: normalizeRequestWrapper(input.register_request, 'content.register_topic'),
-        publish_request: normalizeRequestWrapper(input.publish_request, 'content.publish')
+        register_request: registerRequest,
+        publish_request: publishRequest
     };
 }
 
@@ -253,6 +362,12 @@ function createMcpPrototypeAdapter(options = {}) {
 
     async function prepareTool(input = {}, callOptions = {}) {
         const coercedInput = coercePrepareInput(input);
+        if (!coercedInput.register_request && !coercedInput.publish_request) {
+            return buildClarificationResult('주제를 먼저 알려주세요.', {
+                question: '어떤 주제로 글감을 등록하거나 발행할까요?',
+                missing_fields: ['theme']
+            });
+        }
         const context = buildMcpContext(coercedInput, callOptions.contextOverride || {});
         const bundle = await prepareContentRequestBundle({
             source: 'mcp_tool',

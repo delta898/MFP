@@ -18,6 +18,14 @@ npm run mcp:http
 - `content_request_prepare`
 - `confirmation_decide`
 
+핵심 입력 철학:
+- MCP는 글감 등록/발행에 필요한 핵심 필드만 다룬다
+- 주로 사용하는 입력은 `theme(주제)`, `keywords`, `instruction(참고/지시사항)`, `naver_category`, `wordpress_category`, `platforms`, `image_gen`, `external_reference`
+- `image_gen` 기본값은 `true`
+- `external_reference` 기본값은 `true`
+- spreadsheet append는 `content_request_prepare` 시점이 아니라 `confirmation_decide approve` 이후 실행 시점에만 일어난다
+- `theme(주제)`가 없으면 서버는 바로 append하지 않고 `needs_clarification` 결과를 반환해 host가 추가 질문을 하도록 유도한다
+
 ## What This Supports Today
 - `initialize`
 - `notifications/initialized`

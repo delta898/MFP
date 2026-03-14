@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createRegisterTopicCapabilities } = require('./register-topic');
+const {
+    createRegisterTopicCapabilities,
+    normalizeRegisterTopicParams
+} = require('./register-topic');
 
 function getExecuteCapability(options = {}) {
     const capabilities = createRegisterTopicCapabilities(options);
@@ -47,4 +50,13 @@ test('register topic execute returns row indices when sheet append succeeds', as
     assert.equal(result.success, true);
     assert.deepEqual(result.data.rowIndices, [12]);
     assert.equal(result.data.rowCount, 1);
+});
+
+test('register topic defaults image generation and external reference to true', () => {
+    const normalized = normalizeRegisterTopicParams({
+        theme: '기본값 테스트'
+    });
+
+    assert.equal(normalized.options.image_gen, true);
+    assert.equal(normalized.options.external_reference, true);
 });

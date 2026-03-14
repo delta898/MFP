@@ -35,9 +35,15 @@ function buildJsonRpcError(id, code, message, data = undefined) {
 
 function buildToolResultPayload(result = {}) {
     const ok = result?.ok !== false;
-    const summary = ok
-        ? `Tool completed: ${result.status || 'ok'}`
-        : `Tool failed: ${Array.isArray(result?.errors) ? result.errors.join('; ') : (result?.message || 'error')}`;
+    const summary = (() => {
+        if (ok && result?.status === 'needs_clarification') {
+            return String(result?.message || 'More information is needed before execution.').trim();
+        }
+        if (ok) {
+            return `Tool completed: ${result.status || 'ok'}`;
+        }
+        return `Tool failed: ${Array.isArray(result?.errors) ? result.errors.join('; ') : (result?.message || 'error')}`;
+    })();
 
     return {
         content: [

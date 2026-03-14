@@ -51,9 +51,20 @@ function buildConfirmationResult(confirmation = null, previews = [], meta = {}) 
     };
 }
 
+function buildClarificationResult(message = '', clarification = {}, meta = {}) {
+    return {
+        ok: true,
+        status: 'needs_clarification',
+        message: String(message || '').trim(),
+        clarification: clarification && typeof clarification === 'object' ? clarification : {},
+        meta
+    };
+}
+
 module.exports = {
     normalizeRuntimeContext,
     buildInvalidResult,
     buildCompletedResult,
-    buildConfirmationResult
+    buildConfirmationResult,
+    buildClarificationResult
 };

@@ -208,6 +208,53 @@ test('mcp prototype adapter infers request wrappers when host omits intent and p
     assert.equal(result.bundle.publish_request.payload.auto_trigger, false);
 });
 
+test('mcp prototype adapter accepts simplified top-level fields for core register flow', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    const result = await adapter.callTool({
+        name: 'content_request_prepare',
+        arguments: {
+            topic: '단순 입력 주제',
+            keywords: ['키워드1', '키워드2'],
+            instruction: '초보자 친화적으로 작성',
+            platforms: ['naver', 'wordpress'],
+            naver_category: '기술',
+            wordpress_category: 'Tech'
+        }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 'confirmation_required');
+    assert.equal(result.bundle.register_request.payload.theme, '단순 입력 주제');
+    assert.deepEqual(result.bundle.register_request.payload.keywords, ['키워드1', '키워드2']);
+    assert.deepEqual(result.bundle.register_request.payload.platforms, ['naver', 'wordpress']);
+    assert.equal(result.bundle.register_request.payload.options.instruction, '초보자 친화적으로 작성');
+    assert.equal(result.bundle.register_request.payload.options.naver_category, '기술');
+    assert.equal(result.bundle.register_request.payload.options.wordpress_category, 'Tech');
+    assert.equal(result.bundle.register_request.payload.options.image_gen, true);
+    assert.equal(result.bundle.register_request.payload.options.external_reference, true);
+});
+
+test('mcp prototype adapter requests clarification when topic is missing', async () => {
+    const capabilityRegistry = createStubCapabilityRegistry();
+    const runtime = createAgentRuntime({ capabilityRegistry });
+    const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
+
+    const result = await adapter.callTool({
+        name: 'content_request_prepare',
+        arguments: {
+            keywords: ['주제없음']
+        }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 'needs_clarification');
+    assert.equal(result.clarification.question, '어떤 주제로 글감을 등록하거나 발행할까요?');
+    assert.deepEqual(result.clarification.missing_fields, ['theme']);
+});
+
 test('mcp prototype adapter resolves latest pending confirmation when host omits confirmation id', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
     const runtime = createAgentRuntime({ capabilityRegistry });

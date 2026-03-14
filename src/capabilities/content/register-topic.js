@@ -30,7 +30,7 @@ function buildTopicRegistrationPreview(params = {}) {
         keywords: normalizeKeywordList(params.keywords),
         platforms: normalizePlatforms(params.platforms),
         options: {
-            image_gen: normalizeBoolean(params.options?.image_gen, false),
+            image_gen: normalizeBoolean(params.options?.image_gen, true),
             external_reference: normalizeBoolean(params.options?.external_reference, true)
         }
     };
@@ -62,7 +62,7 @@ function buildRowsFromParams(params = {}, context = {}) {
             subject: normalizeString(params.theme) || '주제 없음',
             keywords: normalizeKeywordList(params.keywords),
             category,
-            image_generation: normalizeBoolean(options.image_gen, false),
+            image_generation: normalizeBoolean(options.image_gen, true),
             use_external_ref: normalizeBoolean(options.external_reference, true),
             post_status: normalizeString(options.post_status),
             options: {
@@ -81,7 +81,7 @@ function normalizeRegisterTopicParams(params = {}, context = {}) {
         ? { ...params.options }
         : {};
 
-    options.image_gen = normalizeBoolean(options.image_gen, false);
+    options.image_gen = normalizeBoolean(options.image_gen, true);
     options.external_reference = normalizeBoolean(options.external_reference, true);
     options.post_status = normalizeString(options.post_status);
     options.category = normalizeString(options.category);
