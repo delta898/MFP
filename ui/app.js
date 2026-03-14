@@ -5671,7 +5671,6 @@ function bindActions() {
 
   const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
   const localMarkdownFolderInput = document.getElementById('local-markdown-folder-input');
-  const localMarkdownRefreshBtn = document.getElementById('local-markdown-refresh-btn');
   const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
   const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
 
@@ -5698,15 +5697,6 @@ function bindActions() {
         showUiPopup(`원고 폴더 선택 실패: ${e.message}`);
       } finally {
         event.target.value = '';
-      }
-    });
-  }
-  if (localMarkdownRefreshBtn) {
-    localMarkdownRefreshBtn.addEventListener('click', async () => {
-      try {
-        await loadLocalMarkdownPreview();
-      } catch (e) {
-        showUiPopup(`원고 미리보기 실패: ${e.message}`);
       }
     });
   }
