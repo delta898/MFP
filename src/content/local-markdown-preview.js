@@ -19,8 +19,60 @@ function isMarkdownFilePath(filePath = '') {
     return /\.(md|markdown)$/i.test(normalizeString(filePath));
 }
 
+function isImageFilePath(filePath = '') {
+    return /\.(png|jpg|jpeg|webp|avif)$/i.test(normalizeString(filePath));
+}
+
 function compareByNameAsc(left = '', right = '') {
     return String(left || '').localeCompare(String(right || ''), 'en', { sensitivity: 'base' });
+}
+
+function normalizeRelativePath(value = '') {
+    return normalizeString(value).replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function splitRootRelativePath(relativePath = '') {
+    const normalized = normalizeRelativePath(relativePath);
+    if (!normalized) {
+        return {
+            rootFolderName: '',
+            childPath: ''
+        };
+    }
+
+    const parts = normalized.split('/').filter(Boolean);
+    if (parts.length <= 1) {
+        return {
+            rootFolderName: '',
+            childPath: parts[0] || ''
+        };
+    }
+
+    return {
+        rootFolderName: parts[0],
+        childPath: parts.slice(1).join('/')
+    };
+}
+
+function normalizeSelectedFiles(selectedFiles = []) {
+    const list = Array.isArray(selectedFiles) ? selectedFiles : [];
+    return list
+        .map((item) => {
+            const relativePath = normalizeRelativePath(item?.relativePath || item?.webkitRelativePath || item?.path || item?.name);
+            const { rootFolderName, childPath } = splitRootRelativePath(relativePath);
+            const fileName = normalizeString(item?.name) || normalizeString(childPath ? path.basename(childPath) : relativePath);
+            const rootRelativePath = childPath || relativePath;
+            return {
+                relativePath,
+                rootFolderName,
+                rootRelativePath,
+                fileName,
+                contentType: normalizeString(item?.contentType || item?.type),
+                textContent: typeof item?.textContent === 'string' ? item.textContent : '',
+                size: Number.isFinite(Number(item?.size)) ? Number(item.size) : 0
+            };
+        })
+        .filter((item) => item.relativePath && item.fileName);
 }
 
 function resolveMarkdownPathFromDirectory(directoryPath = '', deps = {}) {
@@ -52,6 +104,26 @@ function resolveMarkdownPathFromDirectory(directoryPath = '', deps = {}) {
         || markdownFiles[0];
 
     return pathImpl.join(normalizedDirectoryPath, preferredFileName);
+}
+
+function resolveMarkdownEntryFromSelectedFiles(selectedFiles = []) {
+    const normalizedEntries = normalizeSelectedFiles(selectedFiles);
+    const rootLevelMarkdownEntries = normalizedEntries
+        .filter((entry) => entry.rootRelativePath && !entry.rootRelativePath.includes('/'))
+        .filter((entry) => isMarkdownFilePath(entry.fileName))
+        .sort((left, right) => compareByNameAsc(left.fileName, right.fileName));
+
+    if (rootLevelMarkdownEntries.length === 0) {
+        throw new Error('선택한 폴더 안에 markdown 파일(.md, .markdown)이 없습니다.');
+    }
+
+    const preferredEntry = rootLevelMarkdownEntries.find((entry) => entry.fileName.toLowerCase() === 'contents.md')
+        || rootLevelMarkdownEntries[0];
+
+    return {
+        preferredEntry,
+        normalizedEntries
+    };
 }
 
 function formatContentItem(item = {}) {
@@ -110,6 +182,27 @@ function buildValidation({ title, rawMarkdown, targets, postStatus, scheduleDate
     };
 }
 
+function findImageEntryByPrefix(entries = [], index) {
+    const prefix = String(index).padStart(2, '0');
+    const priority = ['.avif', '.webp', '.png', '.jpg', '.jpeg'];
+    const candidates = (Array.isArray(entries) ? entries : [])
+        .filter((entry) => entry.rootRelativePath && !entry.rootRelativePath.includes('/'))
+        .filter((entry) => entry.fileName.startsWith(`${prefix}_`))
+        .filter((entry) => isImageFilePath(entry.fileName));
+
+    if (candidates.length === 0) return null;
+
+    candidates.sort((left, right) => {
+        const extLeft = path.extname(left.fileName).toLowerCase();
+        const extRight = path.extname(right.fileName).toLowerCase();
+        const indexLeft = priority.indexOf(extLeft);
+        const indexRight = priority.indexOf(extRight);
+        return (indexLeft < 0 ? 99 : indexLeft) - (indexRight < 0 ? 99 : indexRight);
+    });
+
+    return candidates[0];
+}
+
 function buildLocalMarkdownPreview(input = {}, deps = {}) {
     const fsImpl = deps.fs || fs;
     const pathImpl = deps.path || path;
@@ -118,28 +211,54 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
         throw new Error('Utils.parseMarkdown and Utils.findImageByPrefix are required.');
     }
 
+    const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
+    const usingSelectedFiles = selectedFiles.length > 0;
     const directoryPathInput = normalizeString(input.directoryPath);
     const markdownPathInput = normalizeString(input.markdownPath);
-    const markdownPath = markdownPathInput
-        ? markdownPathInput
-        : resolveMarkdownPathFromDirectory(directoryPathInput, { fs: fsImpl, path: pathImpl });
+    let rawMarkdown = '';
+    let markdownPath = '';
+    let directoryPath = '';
+    let fileName = '';
+    let folderName = normalizeString(input.folderName);
+    let availableFileEntries = [];
 
-    if (!isMarkdownFilePath(markdownPath)) {
-        throw new Error('markdown 파일(.md, .markdown)만 지원합니다.');
-    }
-    if (!fsImpl.existsSync(markdownPath)) {
-        throw new Error(`markdown 파일을 찾을 수 없습니다: ${markdownPath}`);
+    if (usingSelectedFiles) {
+        const { preferredEntry, normalizedEntries } = resolveMarkdownEntryFromSelectedFiles(selectedFiles);
+        rawMarkdown = preferredEntry.textContent;
+        markdownPath = preferredEntry.relativePath;
+        directoryPath = preferredEntry.rootFolderName || folderName;
+        fileName = preferredEntry.fileName;
+        folderName = preferredEntry.rootFolderName || folderName;
+        availableFileEntries = normalizedEntries;
+
+        if (!rawMarkdown) {
+            throw new Error(`markdown 파일을 읽지 못했습니다: ${fileName || markdownPath}`);
+        }
+    } else {
+        markdownPath = markdownPathInput
+            ? markdownPathInput
+            : resolveMarkdownPathFromDirectory(directoryPathInput, { fs: fsImpl, path: pathImpl });
+
+        if (!isMarkdownFilePath(markdownPath)) {
+            throw new Error('markdown 파일(.md, .markdown)만 지원합니다.');
+        }
+        if (!fsImpl.existsSync(markdownPath)) {
+            throw new Error(`markdown 파일을 찾을 수 없습니다: ${markdownPath}`);
+        }
+
+        const stat = fsImpl.statSync(markdownPath);
+        if (!stat.isFile || !stat.isFile()) {
+            throw new Error('선택한 경로가 파일이 아닙니다.');
+        }
+
+        rawMarkdown = fsImpl.readFileSync(markdownPath, 'utf-8');
+        directoryPath = pathImpl.dirname(markdownPath);
+        fileName = pathImpl.basename(markdownPath);
+        folderName = pathImpl.basename(directoryPath);
     }
 
-    const stat = fsImpl.statSync(markdownPath);
-    if (!stat.isFile || !stat.isFile()) {
-        throw new Error('선택한 경로가 파일이 아닙니다.');
-    }
-
-    const rawMarkdown = fsImpl.readFileSync(markdownPath, 'utf-8');
     const parsed = utils.parseMarkdown(rawMarkdown);
     const contents = Array.isArray(parsed?.contents) ? parsed.contents : [];
-    const directoryPath = pathImpl.dirname(markdownPath);
     const targets = normalizeTargets(input.targets);
     const postStatus = normalizeString(input.postStatus || 'publish') || 'publish';
     const scheduleDate = normalizeString(input.scheduleDate);
@@ -149,15 +268,24 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
     const imageEntries = contents
         .filter((item) => item?.type === 'image')
         .map((item) => {
-            const imagePath = utils.findImageByPrefix(directoryPath, item.index);
-            const exists = !!(imagePath && fsImpl.existsSync(imagePath));
+            const selectedImageEntry = usingSelectedFiles
+                ? findImageEntryByPrefix(availableFileEntries, item.index)
+                : null;
+            const imagePath = usingSelectedFiles
+                ? normalizeString(selectedImageEntry?.relativePath)
+                : utils.findImageByPrefix(directoryPath, item.index);
+            const exists = usingSelectedFiles
+                ? Boolean(selectedImageEntry)
+                : !!(imagePath && fsImpl.existsSync(imagePath));
             return {
                 index: Number(item.index || 0),
                 title: normalizeString(item.text),
                 prompt: normalizeString(item.prompt),
                 exists,
                 imagePath: exists ? imagePath : '',
-                fileName: exists ? pathImpl.basename(imagePath) : ''
+                fileName: exists
+                    ? (usingSelectedFiles ? normalizeString(selectedImageEntry?.fileName) : pathImpl.basename(imagePath))
+                    : ''
             };
         });
 
@@ -176,7 +304,8 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
             type: 'local_markdown',
             markdownPath,
             directoryPath,
-            fileName: pathImpl.basename(markdownPath)
+            folderName,
+            fileName: fileName || pathImpl.basename(markdownPath)
         },
         title,
         rawMarkdown,
@@ -201,6 +330,8 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
 
 module.exports = {
     isMarkdownFilePath,
+    normalizeSelectedFiles,
     resolveMarkdownPathFromDirectory,
+    resolveMarkdownEntryFromSelectedFiles,
     buildLocalMarkdownPreview
 };

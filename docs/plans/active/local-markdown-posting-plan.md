@@ -54,11 +54,10 @@
 
 ## UX Direction
 ### 1. 입력
-- 사용자는 File Dialog로 원고 폴더 1개를 선택한다.
+- 사용자는 브라우저 파일 선택기(`webkitdirectory`)로 원고 폴더 1개를 선택한다.
 - 선택 직후 다음 정보가 로드된다:
-  - 선택한 폴더 경로
+  - 선택한 폴더 이름
   - 자동 선택된 markdown 파일명
-  - 파일 경로
   - 제목(H1)
   - 본문 preview
   - 이미지 블록 목록
@@ -99,6 +98,7 @@ validation 정책:
   - 마지막 보이지 않게 실행 여부
   - 마지막 이미지 생성 여부
 - 선택한 파일 경로 자체는 localStorage에 강하게 의존하지 않는다
+- 선택된 폴더의 파일 집합은 브라우저 메모리 상태로만 유지한다
 
 ## Processing Rules
 ### Markdown
@@ -143,8 +143,20 @@ fallback 규칙:
 ```json
 {
   "source": {
-    "type": "local_markdown",
-    "directory_path": "/absolute/path/post-folder"
+    "type": "local_markdown_folder",
+    "folder_name": "post-folder",
+    "selected_files": [
+      {
+        "relative_path": "post-folder/contents.md",
+        "name": "contents.md",
+        "text_content": "# 제목\n\n본문"
+      },
+      {
+        "relative_path": "post-folder/00_image.png",
+        "name": "00_image.png",
+        "content_type": "image/png"
+      }
+    ]
   },
   "targets": ["naver", "wordpress"],
   "options": {
@@ -163,8 +175,8 @@ fallback 규칙:
 ## First Implementation Steps
 1. Blog 탭에 `원고 포스팅` 탭과 기본 폼 추가
 2. localStorage persistence 연결
-3. 폴더 선택 / preview / validation API 추가
-4. `Core.publishToBlog` / WordPress publish 경로가 arbitrary directory path를 받을 수 있도록 확장
+3. 브라우저 폴더 선택 / preview / validation API 추가
+4. `Core.publishToBlog` / WordPress publish 경로가 선택된 폴더 file set을 source로 받을 수 있도록 확장
 5. 로컬 이미지 해석 + fallback 처리 연결
 6. 실제 포스팅 실행 API 연결
 7. 문서화 및 사용자 smoke test

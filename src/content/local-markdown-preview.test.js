@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const {
     buildLocalMarkdownPreview,
     isMarkdownFilePath,
+    normalizeSelectedFiles,
+    resolveMarkdownEntryFromSelectedFiles,
     resolveMarkdownPathFromDirectory
 } = require('./local-markdown-preview');
 
@@ -100,6 +102,61 @@ test('resolveMarkdownPathFromDirectory prefers contents.md, then alphabetical fa
     assert.equal(fallback, '/workspace/posts/golf/a-post.markdown');
 });
 
+test('normalizeSelectedFiles keeps root folder and relative path metadata', () => {
+    const files = normalizeSelectedFiles([
+        {
+            relativePath: 'golf-post/contents.md',
+            name: 'contents.md',
+            textContent: '# 골프존'
+        },
+        {
+            relativePath: 'golf-post/00_image.png',
+            name: '00_image.png'
+        }
+    ]);
+
+    assert.equal(files.length, 2);
+    assert.equal(files[0].rootFolderName, 'golf-post');
+    assert.equal(files[0].rootRelativePath, 'contents.md');
+});
+
+test('resolveMarkdownEntryFromSelectedFiles prefers contents.md, then alphabetical fallback', () => {
+    const { preferredEntry } = resolveMarkdownEntryFromSelectedFiles([
+        {
+            relativePath: 'golf-post/b-post.md',
+            name: 'b-post.md',
+            textContent: '# B'
+        },
+        {
+            relativePath: 'golf-post/contents.md',
+            name: 'contents.md',
+            textContent: '# Contents'
+        },
+        {
+            relativePath: 'golf-post/a-post.markdown',
+            name: 'a-post.markdown',
+            textContent: '# A'
+        }
+    ]);
+
+    assert.equal(preferredEntry.fileName, 'contents.md');
+
+    const fallback = resolveMarkdownEntryFromSelectedFiles([
+        {
+            relativePath: 'golf-post/b-post.md',
+            name: 'b-post.md',
+            textContent: '# B'
+        },
+        {
+            relativePath: 'golf-post/a-post.markdown',
+            name: 'a-post.markdown',
+            textContent: '# A'
+        }
+    ]);
+
+    assert.equal(fallback.preferredEntry.fileName, 'a-post.markdown');
+});
+
 test('buildLocalMarkdownPreview returns resolved image info and warnings when fallback is allowed', () => {
     const directoryPath = '/workspace/posts/golf';
     const preview = buildLocalMarkdownPreview({
@@ -188,4 +245,33 @@ test('buildLocalMarkdownPreview throws when directory has no markdown files', ()
         }),
         /markdown 파일/
     );
+});
+
+test('buildLocalMarkdownPreview supports selected folder files from browser input', () => {
+    const preview = buildLocalMarkdownPreview({
+        selectedFiles: [
+            {
+                relativePath: 'golf-post/contents.md',
+                name: 'contents.md',
+                textContent: '# 골프존\n\n본문'
+            },
+            {
+                relativePath: 'golf-post/00_image.png',
+                name: '00_image.png',
+                contentType: 'image/png'
+            }
+        ],
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils: createUtilsStub()
+    });
+
+    assert.equal(preview.source.folderName, 'golf-post');
+    assert.equal(preview.source.fileName, 'contents.md');
+    assert.equal(preview.images[0].exists, true);
+    assert.equal(preview.images[0].imagePath, 'golf-post/00_image.png');
+    assert.equal(preview.validation.ok, true);
 });

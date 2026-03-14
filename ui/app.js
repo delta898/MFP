@@ -180,7 +180,13 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
-let localMarkdownPreviewState = { directoryPath: '', data: null };
+let localMarkdownPreviewState = {
+  folderLabel: '',
+  selectedFiles: [],
+  selectedFilesPayload: [],
+  imageObjectUrls: {},
+  data: null
+};
 let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
@@ -5351,12 +5357,96 @@ function bindActions() {
     if (document.getElementById('local-markdown-target-wordpress')?.checked) targets.push('wordpress');
 
     return {
-      directoryPath: (document.getElementById('local-markdown-path')?.value || '').trim(),
+      folderName: localMarkdownPreviewState.folderLabel || (document.getElementById('local-markdown-path')?.value || '').trim(),
+      selectedFiles: Array.isArray(localMarkdownPreviewState.selectedFilesPayload)
+        ? localMarkdownPreviewState.selectedFilesPayload
+        : [],
       targets,
       postStatus: (document.getElementById('local-markdown-post-status')?.value || 'publish').trim(),
       scheduleDate: (document.getElementById('local-markdown-schedule-date')?.value || '').trim(),
       imageGeneration: Boolean(document.getElementById('local-markdown-image-generation')?.checked)
     };
+  }
+
+  function normalizeLocalMarkdownRelativePath(value) {
+    return String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  }
+
+  function isLocalMarkdownFileName(fileName) {
+    return /\.(md|markdown)$/i.test(String(fileName || '').trim());
+  }
+
+  function isLocalMarkdownImageEntry(entry = {}) {
+    const fileName = String(entry?.name || '').trim();
+    const contentType = String(entry?.type || '').trim().toLowerCase();
+    if (contentType.startsWith('image/')) return true;
+    return /\.(png|jpg|jpeg|webp|avif)$/i.test(fileName);
+  }
+
+  function getLocalMarkdownFolderLabelFromFiles(files = []) {
+    const firstRelativePath = normalizeLocalMarkdownRelativePath(files?.[0]?.webkitRelativePath || files?.[0]?.name);
+    if (!firstRelativePath) return '';
+    const parts = firstRelativePath.split('/').filter(Boolean);
+    return parts.length > 1 ? parts[0] : '';
+  }
+
+  async function buildLocalMarkdownSelectedFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) {
+      return {
+        folderLabel: '',
+        selectedFiles: [],
+        selectedFilesPayload: []
+      };
+    }
+
+    const selectedFiles = files.map((file) => ({
+      file,
+      name: file.name || '',
+      type: file.type || '',
+      size: Number.isFinite(Number(file.size)) ? Number(file.size) : 0,
+      relativePath: normalizeLocalMarkdownRelativePath(file.webkitRelativePath || file.name)
+    }));
+    const folderLabel = getLocalMarkdownFolderLabelFromFiles(files);
+    const selectedFilesPayload = await Promise.all(selectedFiles.map(async (entry) => ({
+      relativePath: entry.relativePath,
+      name: entry.name,
+      contentType: entry.type,
+      size: entry.size,
+      textContent: isLocalMarkdownFileName(entry.name) ? await entry.file.text() : ''
+    })));
+
+    return {
+      folderLabel,
+      selectedFiles,
+      selectedFilesPayload
+    };
+  }
+
+  function revokeLocalMarkdownObjectUrls() {
+    const urlMap = localMarkdownPreviewState.imageObjectUrls || {};
+    Object.keys(urlMap).forEach((key) => {
+      try {
+        URL.revokeObjectURL(urlMap[key]);
+      } catch (_error) { }
+    });
+    localMarkdownPreviewState.imageObjectUrls = {};
+  }
+
+  function getLocalMarkdownImageObjectUrl(relativePath) {
+    const normalizedPath = normalizeLocalMarkdownRelativePath(relativePath);
+    if (!normalizedPath) return '';
+    if (localMarkdownPreviewState.imageObjectUrls?.[normalizedPath]) {
+      return localMarkdownPreviewState.imageObjectUrls[normalizedPath];
+    }
+
+    const fileEntry = (Array.isArray(localMarkdownPreviewState.selectedFiles) ? localMarkdownPreviewState.selectedFiles : [])
+      .find((entry) => normalizeLocalMarkdownRelativePath(entry.relativePath) === normalizedPath);
+    if (!fileEntry || !isLocalMarkdownImageEntry(fileEntry)) return '';
+
+    const objectUrl = URL.createObjectURL(fileEntry.file);
+    localMarkdownPreviewState.imageObjectUrls[normalizedPath] = objectUrl;
+    return objectUrl;
   }
 
   window.toggleLocalMarkdownScheduleDate = function () {
@@ -5401,6 +5491,18 @@ function bindActions() {
     el.textContent = lines.join('\n');
   }
 
+  function renderLocalMarkdownPreviewError(message) {
+    const emptyEl = document.getElementById('local-markdown-preview-empty');
+    const panelEl = document.getElementById('local-markdown-preview-panel');
+    localMarkdownPreviewState.data = null;
+    renderLocalMarkdownValidation({
+      errors: [String(message || '원고 미리보기에 실패했습니다.')],
+      warnings: []
+    });
+    if (emptyEl) emptyEl.hidden = false;
+    if (panelEl) panelEl.hidden = true;
+  }
+
   window.renderLocalMarkdownPreview = function (data = null) {
     const emptyEl = document.getElementById('local-markdown-preview-empty');
     const panelEl = document.getElementById('local-markdown-preview-panel');
@@ -5429,7 +5531,7 @@ function bindActions() {
       const stats = data.stats || {};
       metaEl.textContent = [
         source.fileName || '',
-        source.directoryPath || '',
+        source.folderName || source.directoryPath || '',
         `${stats.contentCount || 0}개 블록`,
         `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
       ].filter(Boolean).join(' | ');
@@ -5442,8 +5544,9 @@ function bindActions() {
         : images.map((image) => {
           const statusClass = image.exists ? 'ok' : 'missing';
           const statusText = image.exists ? '매칭됨' : '누락';
+          const previewUrl = image.exists ? getLocalMarkdownImageObjectUrl(image.imagePath) : '';
           const preview = image.exists
-            ? `<div class="local-markdown-image-card-preview"><img src="/api/v1/blog/local-markdown/image?path=${encodeURIComponent(image.imagePath)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
+            ? `<div class="local-markdown-image-card-preview"><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
             : '<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div></div>';
           return `
             <article class="local-markdown-image-card">
@@ -5464,44 +5567,67 @@ function bindActions() {
 
   async function loadLocalMarkdownPreview() {
     const payload = buildLocalMarkdownPreviewPayload();
-    if (!payload.directoryPath) {
+    if (!Array.isArray(payload.selectedFiles) || payload.selectedFiles.length === 0) {
       window.renderLocalMarkdownPreview(null);
       const pathEl = document.getElementById('local-markdown-path');
       if (pathEl) pathEl.focus();
       return;
     }
 
-    const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
-    window.renderLocalMarkdownPreview(data);
-  }
-
-  async function selectLocalMarkdownFolder() {
-    const selected = await postJson('/api/v1/blog/local-markdown/select', {});
-    if (selected?.canceled) return;
-    const pathEl = document.getElementById('local-markdown-path');
-    if (pathEl) pathEl.value = selected.directoryPath || '';
-    localMarkdownPreviewState.directoryPath = selected.directoryPath || '';
-    await loadLocalMarkdownPreview();
+    try {
+      const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
+      window.renderLocalMarkdownPreview(data);
+    } catch (e) {
+      renderLocalMarkdownPreviewError(e.message);
+      throw e;
+    }
   }
 
   function clearLocalMarkdownSelection() {
+    revokeLocalMarkdownObjectUrls();
     const pathEl = document.getElementById('local-markdown-path');
     if (pathEl) pathEl.value = '';
-    localMarkdownPreviewState = { directoryPath: '', data: null };
+    const inputEl = document.getElementById('local-markdown-folder-input');
+    if (inputEl) inputEl.value = '';
+    localMarkdownPreviewState = {
+      folderLabel: '',
+      selectedFiles: [],
+      selectedFilesPayload: [],
+      imageObjectUrls: {},
+      data: null
+    };
     window.renderLocalMarkdownPreview(null);
   }
 
   const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
+  const localMarkdownFolderInput = document.getElementById('local-markdown-folder-input');
   const localMarkdownRefreshBtn = document.getElementById('local-markdown-refresh-btn');
   const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
   const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
 
   if (localMarkdownSelectBtn) {
-    localMarkdownSelectBtn.addEventListener('click', async () => {
-        try {
-        await selectLocalMarkdownFolder();
+    localMarkdownSelectBtn.addEventListener('click', () => {
+      localMarkdownFolderInput?.click();
+    });
+  }
+  if (localMarkdownFolderInput) {
+    localMarkdownFolderInput.addEventListener('change', async (event) => {
+      try {
+        const nextSelection = await buildLocalMarkdownSelectedFiles(event.target?.files);
+        if (!Array.isArray(nextSelection.selectedFiles) || nextSelection.selectedFiles.length === 0) return;
+        revokeLocalMarkdownObjectUrls();
+        localMarkdownPreviewState.folderLabel = nextSelection.folderLabel;
+        localMarkdownPreviewState.selectedFiles = nextSelection.selectedFiles;
+        localMarkdownPreviewState.selectedFilesPayload = nextSelection.selectedFilesPayload;
+        localMarkdownPreviewState.data = null;
+        const pathEl = document.getElementById('local-markdown-path');
+        if (pathEl) pathEl.value = nextSelection.folderLabel || '';
+        await loadLocalMarkdownPreview();
       } catch (e) {
+        renderLocalMarkdownPreviewError(e.message);
         showUiPopup(`원고 폴더 선택 실패: ${e.message}`);
+      } finally {
+        event.target.value = '';
       }
     });
   }
@@ -5522,7 +5648,7 @@ function bindActions() {
   if (localMarkdownPostStatusEl) {
     localMarkdownPostStatusEl.addEventListener('change', () => {
       window.toggleLocalMarkdownScheduleDate();
-      if ((document.getElementById('local-markdown-path')?.value || '').trim()) {
+      if (Array.isArray(localMarkdownPreviewState.selectedFilesPayload) && localMarkdownPreviewState.selectedFilesPayload.length > 0) {
         loadLocalMarkdownPreview().catch((e) => {
           showUiPopup(`원고 미리보기 실패: ${e.message}`);
         });
@@ -5538,7 +5664,7 @@ function bindActions() {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('change', () => {
-      if ((document.getElementById('local-markdown-path')?.value || '').trim()) {
+      if (Array.isArray(localMarkdownPreviewState.selectedFilesPayload) && localMarkdownPreviewState.selectedFilesPayload.length > 0) {
         loadLocalMarkdownPreview().catch((e) => {
           showUiPopup(`원고 미리보기 실패: ${e.message}`);
         });
