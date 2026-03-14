@@ -5715,7 +5715,10 @@ function bindActions() {
   const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
   const localMarkdownFolderInput = document.getElementById('local-markdown-folder-input');
   const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
-  const localMarkdownPublishBtn = document.getElementById('local-markdown-publish-btn');
+  const localMarkdownPublishButtons = [
+    document.getElementById('local-markdown-publish-btn'),
+    document.getElementById('local-markdown-publish-inline-btn')
+  ].filter(Boolean);
   const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
 
   if (localMarkdownSelectBtn) {
@@ -5749,8 +5752,7 @@ function bindActions() {
       clearLocalMarkdownSelection();
     });
   }
-  if (localMarkdownPublishBtn) {
-    localMarkdownPublishBtn.addEventListener('click', async () => {
+  const runLocalMarkdownPublishAction = async () => {
       const resultEl = document.getElementById('local-markdown-result');
       if (!guardUiConfigReady('원고 포스팅')) return;
       if (localMarkdownPublishInFlight) return;
@@ -5784,7 +5786,7 @@ function bindActions() {
       }
 
       localMarkdownPublishInFlight = true;
-      localMarkdownPublishBtn.disabled = true;
+      localMarkdownPublishButtons.forEach((button) => { button.disabled = true; });
       try {
         await runWithLiveProgress({
           targetEl: resultEl,
@@ -5795,10 +5797,17 @@ function bindActions() {
         // runWithLiveProgress already renders logs/errors
       } finally {
         localMarkdownPublishInFlight = false;
-        localMarkdownPublishBtn.disabled = false;
+        localMarkdownPublishButtons.forEach((button) => { button.disabled = false; });
       }
+  };
+
+  localMarkdownPublishButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      runLocalMarkdownPublishAction().catch((e) => {
+        showUiPopup(`원고 포스팅 실행 실패: ${e.message}`);
+      });
     });
-  }
+  });
   if (localMarkdownPostStatusEl) {
     localMarkdownPostStatusEl.addEventListener('change', () => {
       window.toggleLocalMarkdownScheduleDate();
