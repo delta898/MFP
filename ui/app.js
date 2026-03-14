@@ -701,6 +701,7 @@ function syncPlatformUiState(platform, isReady) {
   const targetIds = {
     naver: [
       'quick-target-naver',
+      'local-markdown-target-naver',
       'blog-batch-target-naver',
       'shopping-quick-target-naver',
       'shopping-batch-target-naver',
@@ -709,6 +710,7 @@ function syncPlatformUiState(platform, isReady) {
     ],
     wordpress: [
       'quick-target-wordpress',
+      'local-markdown-target-wordpress',
       'blog-batch-target-wordpress',
       'shopping-quick-target-wordpress',
       'shopping-batch-target-wordpress',
