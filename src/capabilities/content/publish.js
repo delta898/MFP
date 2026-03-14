@@ -1,6 +1,6 @@
 function normalizeArray(value) {
     if (!Array.isArray(value)) return [];
-    return value.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0);
+    return value.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 0);
 }
 
 function normalizeString(value) {
@@ -113,19 +113,6 @@ function createPublishCapabilities(deps = {}) {
                 const CONFIG = deps.CONFIG || require('../../config-loader');
                 const port = CONFIG.UI_SERVER_PORT || 4577;
 
-                const statusRes = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
-                const isRunning = statusRes.data?.data?.running === true;
-                if (isRunning) {
-                    return {
-                        success: false,
-                        message: '이미 다른 발행 작업이 실행 중입니다.',
-                        data: {
-                            running: true
-                        },
-                        sideEffects: []
-                    };
-                }
-
                 const postData = {
                     settingsOverrides: normalizedParams.settingsOverrides
                 };
@@ -133,12 +120,28 @@ function createPublishCapabilities(deps = {}) {
                     postData.targetRowIndices = normalizedParams.targetRowIndices;
                 }
 
-                await axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/run`, postData);
+                let startResponse = null;
+                try {
+                    startResponse = await axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/start`, postData);
+                } catch (error) {
+                    if (error?.response?.status === 409) {
+                        return {
+                            success: false,
+                            message: '이미 다른 발행 작업이 실행 중입니다.',
+                            data: {
+                                running: true
+                            },
+                            sideEffects: []
+                        };
+                    }
+                    throw error;
+                }
 
                 return {
                     success: true,
                     message: '발행 작업을 시작했습니다.',
                     data: {
+                        startedAt: startResponse?.data?.data?.startedAt || '',
                         targetRowIndices: normalizedParams.targetRowIndices,
                         targetRowCount: normalizedParams.targetRowIndices.length,
                         platforms: normalizedParams.platforms,

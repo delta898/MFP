@@ -25,16 +25,54 @@ function createAgentRuntime(options = {}) {
         } catch (_ignore) { }
     }
 
+    function extractSuccessfulRegisterRowIndices(results = []) {
+        return Array.from(new Set(
+            (Array.isArray(results) ? results : [])
+                .filter((item) => item?.action_domain === 'content.register_topic' && item?.action_name === 'execute')
+                .flatMap((item) => (Array.isArray(item?.result?.data?.rowIndices) ? item.result.data.rowIndices : []))
+                .map((item) => Number(item))
+                .filter((item) => Number.isInteger(item) && item >= 0)
+        ));
+    }
+
+    function hydrateActionFromPreviousResults(action = {}, previousResults = []) {
+        if (action?.domain !== 'content.publish' || action?.name !== 'execute') {
+            return action;
+        }
+
+        const currentTargets = Array.isArray(action?.params?.targetRowIndices)
+            ? action.params.targetRowIndices
+            : [];
+        const hasExplicitTargets = currentTargets.some((item) => Number.isInteger(Number(item)) && Number(item) >= 0);
+        if (hasExplicitTargets) {
+            return action;
+        }
+
+        const inferredRowIndices = extractSuccessfulRegisterRowIndices(previousResults);
+        if (inferredRowIndices.length === 0) {
+            return action;
+        }
+
+        return {
+            ...action,
+            params: {
+                ...(action.params || {}),
+                targetRowIndices: inferredRowIndices
+            }
+        };
+    }
+
     async function executeActions(actions = [], context = {}, plan = null) {
         const results = [];
         for (const action of actions) {
-            const result = await capabilityRegistry.executeAction(action, context);
+            const hydratedAction = hydrateActionFromPreviousResults(action, results);
+            const result = await capabilityRegistry.executeAction(hydratedAction, context);
             results.push({
-                action_id: action.id,
-                action_type: action.type,
-                action_domain: action.domain,
-                action_name: action.name,
-                capability_id: buildCapabilityId(action.domain, action.name),
+                action_id: hydratedAction.id,
+                action_type: hydratedAction.type,
+                action_domain: hydratedAction.domain,
+                action_name: hydratedAction.name,
+                capability_id: buildCapabilityId(hydratedAction.domain, hydratedAction.name),
                 result
             });
             await recordEvent({
@@ -44,7 +82,7 @@ function createAgentRuntime(options = {}) {
                 conversation_id: context?.conversation?.id || '',
                 message_id: context?.messageId || '',
                 payload: {
-                    action,
+                    action: hydratedAction,
                     result,
                     plan
                 },

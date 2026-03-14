@@ -44,6 +44,11 @@ function createBlogAutoRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/auto/publish/start') {
+            await controller.startAutoPublish(ctx);
+            return true;
+        }
+
         return false;
     };
 }

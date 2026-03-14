@@ -134,6 +134,24 @@ function createBlogAutoController(deps = {}) {
                 return sendError(res, requestId, 400, 'PUBLISH_AUTO_FAILED', result?.message || '자동 발행 처리에 실패했습니다.');
             }
             return sendSuccess(res, requestId, result?.data || {});
+        },
+
+        async startAutoPublish({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
+            }
+            Logger.info(`[UI][AUTO] API 진입: 자동발행 비동기 시작 (/api/v1/auto/publish/start)`);
+            const result = await service.startAutoPublish({ requestBody });
+            if (!result?.success) {
+                return sendError(
+                    res,
+                    requestId,
+                    Number(result?.statusCode || 400),
+                    result?.code || 'PUBLISH_AUTO_START_FAILED',
+                    result?.message || '자동 발행 시작에 실패했습니다.'
+                );
+            }
+            return sendSuccess(res, requestId, result?.data || {});
         }
     };
 }

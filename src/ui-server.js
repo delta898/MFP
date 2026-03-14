@@ -3496,6 +3496,14 @@ function getAutoStatusPayload() {
     };
 }
 
+function refreshLegacyAutoRuntimeState() {
+    autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled;
+    autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running;
+    autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status}`;
+    autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
+    if (publishRuntimeState.nextRunAt) autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt;
+}
+
 function syncTrendsRunner() {
     const isEnabled = Boolean(CONFIG.COLLECT_TRENDS_ENABLED);
     const targetTime = String(CONFIG.COLLECT_TRENDS_TIME || '07:30').trim();
@@ -3736,13 +3744,7 @@ function syncAutoRunnerWithConfig() {
     syncTrendsRunner();
     syncRssRunner();
     syncPublishRunner();
-
-    // Fallback UI State computation for backward compatibility
-    autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled;
-    autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running;
-    autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status}`;
-    autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
-    if (publishRuntimeState.nextRunAt) autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt;
+    refreshLegacyAutoRuntimeState();
 }
 
 // ──────────────────────────────────────────────
@@ -4921,6 +4923,81 @@ async function runAutoPublishCycle(trigger = 'manual', options = {}) {
     }
 }
 
+function normalizeManualPublishTargetRowIndices(value) {
+    if (!Array.isArray(value)) return [];
+    return Array.from(new Set(
+        value
+            .map((item) => Number(item))
+            .filter((item) => Number.isInteger(item) && item >= 0)
+    ));
+}
+
+async function triggerAutoPublishCycle(trigger = 'manual', options = {}) {
+    if (publishRuntimeState.running) {
+        return {
+            success: false,
+            code: 'PUBLISH_AUTO_ALREADY_RUNNING',
+            message: '이미 다른 발행 작업이 실행 중입니다.'
+        };
+    }
+
+    const normalizedOptions = {
+        ...options,
+        targetRowIndices: normalizeManualPublishTargetRowIndices(options?.targetRowIndices)
+    };
+    const startedAt = new Date().toISOString();
+
+    publishRuntimeState.running = true;
+    publishRuntimeState.status = 'running';
+    publishRuntimeState.message = '발행 작업을 시작했습니다.';
+    autoRuntimeState.startedAt = startedAt;
+    autoRuntimeState.lastRunAt = startedAt;
+    refreshLegacyAutoRuntimeState();
+
+    Promise.resolve()
+        .then(async () => {
+            const result = await runAutoPublishCycle(trigger, normalizedOptions);
+            publishRuntimeState.lastSummary = result || null;
+            if (result?.success === false) {
+                publishRuntimeState.status = 'error';
+                publishRuntimeState.message = result?.message || '발행 작업 처리 중 오류가 발생했습니다.';
+            } else {
+                publishRuntimeState.message = '발행 작업이 백그라운드에서 완료되었습니다.';
+                autoRuntimeState.cycleCount = Number(autoRuntimeState.cycleCount || 0) + 1;
+            }
+            autoRuntimeState.lastSummary = result?.data || result || null;
+        })
+        .catch((error) => {
+            Logger.error(`❌ [AUTO][Consumer] 비동기 자동 발행 시작 실패: ${error.message}`);
+            publishRuntimeState.status = 'error';
+            publishRuntimeState.message = error.message || '발행 작업 처리 중 오류가 발생했습니다.';
+            publishRuntimeState.lastSummary = {
+                success: false,
+                message: publishRuntimeState.message
+            };
+            autoRuntimeState.lastSummary = publishRuntimeState.lastSummary;
+        })
+        .finally(() => {
+            publishRuntimeState.running = false;
+            if (publishRuntimeState.status !== 'error') {
+                publishRuntimeState.status = publishRuntimeState.enabled ? 'waiting' : 'stopped';
+            }
+            autoRuntimeState.lastRunAt = new Date().toISOString();
+            refreshLegacyAutoRuntimeState();
+        });
+
+    return {
+        success: true,
+        data: {
+            started: true,
+            trigger,
+            startedAt,
+            targetRowIndices: normalizedOptions.targetRowIndices,
+            targetRowCount: normalizedOptions.targetRowIndices.length
+        }
+    };
+}
+
 function getBlogAutoRouteHandler() {
     if (!blogAutoRouteHandler) {
         const service = createBlogAutoService({
@@ -4931,7 +5008,8 @@ function getBlogAutoRouteHandler() {
             runAutoCycle,
             runTrendCollectCycle,
             runRssCollectCycle,
-            runAutoPublishCycle
+            runAutoPublishCycle,
+            triggerAutoPublishCycle
         });
         const validators = {
             parseForceQuery: UiValidators.parseForceQuery,

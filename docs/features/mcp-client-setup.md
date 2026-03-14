@@ -24,6 +24,8 @@ npm run mcp:http
 - `image_gen` 기본값은 `true`
 - `external_reference` 기본값은 `true`
 - spreadsheet append는 `content_request_prepare` 시점이 아니라 `confirmation_decide approve` 이후 실행 시점에만 일어난다
+- register + publish를 함께 승인한 경우, publish는 방금 append된 row를 우선 대상으로 삼는다
+- publish approval은 전체 발행 로그가 끝날 때까지 동기 대기하지 않고, `발행 시작` acknowledgement를 먼저 반환한다
 - `theme(주제)`가 없으면 서버는 바로 append하지 않고 `needs_clarification` 결과를 반환해 host가 추가 질문을 하도록 유도한다
 
 ## What This Supports Today

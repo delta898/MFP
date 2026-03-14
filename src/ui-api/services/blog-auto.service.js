@@ -7,7 +7,8 @@ function createBlogAutoService(deps = {}) {
         runAutoCycle,
         runTrendCollectCycle,
         runRssCollectCycle,
-        runAutoPublishCycle
+        runAutoPublishCycle,
+        triggerAutoPublishCycle
     } = deps;
 
     return {
@@ -107,6 +108,28 @@ function createBlogAutoService(deps = {}) {
             } catch (e) {
                 Logger.error(`⚠️ [UI][AUTO] 자동발행 수동 실행 오류:`, e);
                 return { success: false, message: e.message || '알 수 없는 오류' };
+            }
+        },
+
+        async startAutoPublish({ requestBody = {} } = {}) {
+            Logger.info(`🚀 [UI][AUTO] 자동발행 비동기 시작 요청 수신`);
+            try {
+                const result = await triggerAutoPublishCycle('ui-manual', {
+                    targetRowIndices: requestBody?.targetRowIndices || [],
+                    settingsOverrides: requestBody?.settingsOverrides || {}
+                });
+                if (!result?.success) {
+                    return {
+                        success: false,
+                        statusCode: result?.code === 'PUBLISH_AUTO_ALREADY_RUNNING' ? 409 : 400,
+                        code: result?.code || 'PUBLISH_AUTO_START_FAILED',
+                        message: result?.message || '자동 발행 시작에 실패했습니다.'
+                    };
+                }
+                return result;
+            } catch (e) {
+                Logger.error(`⚠️ [UI][AUTO] 자동발행 비동기 시작 오류:`, e);
+                return { success: false, statusCode: 400, message: e.message || '알 수 없는 오류' };
             }
         },
 
