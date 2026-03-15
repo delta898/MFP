@@ -131,6 +131,15 @@ function formatDateTimeAbsolute(value) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours()}시 ${pad(d.getMinutes())}분`;
 }
 
+function formatDashboardActivityTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '-';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 function parseBoolLike(value) {
   if (typeof value === 'boolean') return value;
   const raw = String(value ?? '').trim().toLowerCase();
@@ -1542,7 +1551,7 @@ function truncateText(value, maxLen = 120) {
 function renderDashboardFeedList(containerId, source) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  const items = Array.isArray(source?.items) ? source.items : [];
+  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 3);
   if (!items.length) {
     const message = source?.error ? `불러오기 실패: ${escapeHtml(source.error)}` : '콘텐츠가 없습니다.';
     container.innerHTML = `<p class="dash-feed-empty">${message}</p>`;
@@ -1577,7 +1586,7 @@ function renderDashboardShortsList(containerId, source) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 5);
+  const items = (Array.isArray(source?.items) ? source.items : []).slice(0, 3);
   if (!items.length) {
     const message = source?.error ? `불러오기 실패: ${escapeHtml(source.error)}` : '콘텐츠가 없습니다.';
     container.innerHTML = `<p class="dash-feed-empty">${message}</p>`;
@@ -1954,7 +1963,7 @@ async function loadDashboardLogs() {
         const level = String(activity.level || 'info').trim().toLowerCase();
         const icon = level === 'error' ? '❌' : (level === 'warn' ? '⚠️' : '✅');
         const timestamp = String(activity.timestamp || '').trim();
-        const timeLabel = timestamp ? new Date(timestamp).toLocaleTimeString('ko-KR', { hour12: false }) : '-';
+        const timeLabel = formatDashboardActivityTime(timestamp);
 
         const li = document.createElement('li');
         li.style.padding = '10px 12px';
@@ -1964,7 +1973,7 @@ async function loadDashboardLogs() {
         li.style.display = 'flex';
         li.style.alignItems = 'flex-start';
         li.innerHTML = `
-          <span style="color:#94a3b8; font-size:12px; margin-right:8px; white-space: nowrap;">${timeLabel}</span>
+          <span style="color:#94a3b8; font-size:12px; margin-right:8px; white-space: nowrap; width:64px; flex:0 0 64px; font-variant-numeric: tabular-nums;">${timeLabel}</span>
           <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
             <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${title.replace(/"/g, '&quot;')}">${icon} ${title}</span>
             ${detail ? `<span style="color:#64748b; font-size:12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${detail.replace(/"/g, '&quot;')}">${detail}</span>` : ''}

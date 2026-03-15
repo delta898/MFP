@@ -2252,7 +2252,7 @@ h2 {
   padding: 0;
   margin: 0;
   flex: 1;
-  max-height: 480px; /* Aligned with YouTube block */
+  max-height: 420px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--brand-primary) transparent;
@@ -2282,8 +2282,8 @@ h2 {
 .dash-shorts-list {
   min-height: 0;
   flex: 1;
-  max-height: 480px; /* Matches activity timeline */
-  overflow-y: auto;
+  max-height: 420px;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2558,7 +2558,9 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 140px;
+  min-height: 0;
+  max-height: 388px;
+  overflow: hidden;
 }
 
 .dash-feed-empty {
