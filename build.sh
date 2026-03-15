@@ -128,6 +128,18 @@ echo "---------------------------------------------------"
 BUILT_ROOTS=()
 BUILT_ZIPS=()
 
+clean_platform_artifacts() {
+    local suffix=$1
+    if [ -z "$suffix" ]; then
+        return
+    fi
+
+    find dist -maxdepth 1 -mindepth 1 \
+        \( -type d -o -type f \) \
+        \( -name "*-${suffix}" -o -name "*-${suffix}.zip" \) \
+        -exec rm -rf {} +
+}
+
 # ---------------------------------------------------
 # 📦 통합 빌드 함수 (CLI + GUI)
 # ---------------------------------------------------
@@ -144,10 +156,9 @@ build_platform() {
     echo "---------------------------------------------------"
     echo "🚀 [Build] ${suffix} 통합 패키징 시작..."
 
-    # 해당 타깃 산출물만 정리
+    # 해당 타깃 플랫폼 산출물 전체 정리 (이전 버전 포함)
     echo "   🧹 이전 ${suffix} 산출물 정리 중..."
-    rm -rf "${ROOT_OUT}"
-    rm -f "${ROOT_ZIP}"
+    clean_platform_artifacts "${suffix}"
 
     # 실제 빌드 과정 시작
     mkdir -p "${ROOT_OUT}"

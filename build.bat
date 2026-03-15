@@ -31,8 +31,12 @@ echo 🚀 [Build] %APP_NAME% v%VERSION% Windows 패키징을 시작합니다...
 echo ---------------------------------------------------
 
 echo    🧹 이전 win-x64 산출물 정리 중...
-if exist "%ROOT_OUT%" rmdir /s /q "%ROOT_OUT%"
-if exist "%ROOT_ZIP%" del /f /q "%ROOT_ZIP%"
+for /d %%D in ("dist\*-win-x64") do (
+    if exist "%%~fD" rmdir /s /q "%%~fD"
+)
+for %%F in ("dist\*-win-x64.zip") do (
+    if exist "%%~fF" del /f /q "%%~fF"
+)
 if exist "dist\gui-temp" rmdir /s /q "dist\gui-temp"
 
 mkdir "%ROOT_OUT%"
