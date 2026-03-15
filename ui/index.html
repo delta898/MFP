@@ -312,7 +312,6 @@
           <!-- [DISABLED] Trends tab - removed from production UI (2026-03-04). Code kept for reference. -->
           <!-- <button class="blog-tab-btn" data-blog-tab="trends">Trends</button> -->
           <button class="blog-tab-btn" data-blog-tab="topics">일괄 포스팅</button>
-          <button class="blog-tab-btn" data-blog-tab="manuscript">원고 포스팅</button>
           <button class="blog-tab-btn" data-blog-tab="comment-draft">스마트 댓글(네이버)</button>
           <span class="blog-tab-gap" aria-hidden="true"></span>
           <button class="blog-tab-btn" data-blog-tab="collect">자동글감 설정</button>
@@ -580,114 +579,6 @@
             <pre id="quick-manuscript-result" class="blog-quick-result"></pre>
           </div>
         </div>
-
-        <div class="card form-card blog-tab-panel blog-quick-panel" id="blog-tab-manuscript">
-          <div class="blog-quick-head">
-            <h3>원고 포스팅</h3>
-            <p>로컬 markdown 원고와 같은 폴더의 이미지 자산을 기준으로 포스팅 전 미리보기와 검증을 수행합니다.</p>
-          </div>
-
-          <div class="local-markdown-toolbar">
-            <button id="local-markdown-select-btn" class="secondary" type="button">원고 폴더 선택</button>
-            <button id="local-markdown-clear-btn" class="secondary" type="button">선택 지우기</button>
-            <input id="local-markdown-folder-input" type="file" webkitdirectory directory multiple hidden>
-          </div>
-
-          <label class="blog-quick-field blog-quick-field-full blog-quick-field-spaced">
-            <span class="blog-quick-label">선택한 원고 폴더</span>
-            <input id="local-markdown-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
-          </label>
-
-          <div class="blog-quick-grid">
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">네이버 카테고리</span>
-              <input id="local-markdown-naver-category" type="text" placeholder="예: 일상/생각">
-            </label>
-
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">워드프레스 카테고리</span>
-              <input id="local-markdown-wp-category" type="text" placeholder="예: Daily">
-            </label>
-
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">포스팅 옵션</span>
-              <select id="local-markdown-post-status">
-                <option value="publish">즉시 발행</option>
-                <option value="draft">임시 저장</option>
-                <option value="schedule">예약 발행</option>
-              </select>
-            </label>
-
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">예약 일시</span>
-              <input id="local-markdown-schedule-date" type="datetime-local" disabled>
-            </label>
-          </div>
-
-          <div class="blog-quick-options">
-            <div class="blog-quick-options-header">
-              <div class="target-platforms">
-                <span class="blog-quick-label">포스팅 대상:</span>
-                <label class="blog-quick-check"><input id="local-markdown-target-naver" type="checkbox"> 네이버 블로그</label>
-                <label class="blog-quick-check"><input id="local-markdown-target-wordpress" type="checkbox"> 워드프레스</label>
-              </div>
-
-              <div class="quick-common-checks">
-                <label class="blog-quick-check">
-                  <input id="local-markdown-headless" type="checkbox" checked> 보이지 않게 실행
-                  <span class="tooltip-container">
-                    <span class="tooltip-icon">?</span>
-                    <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
-                  </span>
-                </label>
-                <label class="blog-quick-check">
-                  <input id="local-markdown-image-generation" type="checkbox"> 이미지 생성
-                  <span class="tooltip-container">
-                    <span class="tooltip-icon">?</span>
-                    <span class="tooltip-text">원고 안에 이미지 블록은 있지만 폴더에 실제 이미지 파일이 없을 때 보완용 이미지를 생성합니다.</span>
-                  </span>
-                </label>
-                <button id="local-markdown-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>
-              </div>
-            </div>
-          </div>
-
-          <div id="local-markdown-validation" class="local-markdown-validation">
-            아직 원고 폴더를 선택하지 않았습니다.
-          </div>
-
-          <div id="local-markdown-preview-empty" class="local-markdown-empty">
-            원고 폴더를 선택하면 제목, 본문 preview, 이미지 매칭 결과를 확인할 수 있습니다.
-          </div>
-
-          <div id="local-markdown-preview-panel" class="local-markdown-preview-panel" hidden>
-            <div class="local-markdown-preview-head">
-              <div>
-                <h4 id="local-markdown-preview-title">제목 없음</h4>
-                <div id="local-markdown-preview-meta" class="local-markdown-preview-meta">-</div>
-              </div>
-            </div>
-
-            <div class="local-markdown-preview-sections">
-              <section class="local-markdown-preview-section local-markdown-preview-section-main">
-                <h5>본문 Preview</h5>
-                <div id="local-markdown-body-preview" class="local-markdown-body-preview"></div>
-              </section>
-
-              <section class="local-markdown-preview-section">
-                <h5>이미지 매칭</h5>
-                <div id="local-markdown-image-list" class="local-markdown-image-list"></div>
-              </section>
-            </div>
-          </div>
-
-          <div class="blog-quick-actions blog-quick-actions-centered">
-            <button id="local-markdown-publish-btn" class="primary blog-quick-wide-action" type="button">포스팅 실행</button>
-          </div>
-
-          <pre id="local-markdown-result" class="blog-quick-result"></pre>
-        </div>
-
 
         <!-- [DISABLED] Trends tab panel - removed from production UI (2026-03-04).
              All JS logic for this tab is preserved in app.js.

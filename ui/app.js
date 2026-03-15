@@ -188,7 +188,6 @@ const createLocalMarkdownPreviewState = () => ({
   imageObjectUrls: {},
   data: null
 });
-let localMarkdownPreviewState = createLocalMarkdownPreviewState();
 let quickManuscriptPreviewState = createLocalMarkdownPreviewState();
 let quickGeneratedPreviewState = {
   previewId: '',
@@ -1238,7 +1237,7 @@ async function runTrendsToTopics() {
 
 function activateBlogTab(tabName, options = {}) {
   console.log("=== activateBlogTab CALLED ===", tabName);
-  const allowed = ['quick', 'trends', 'topics', 'manuscript', 'comment-draft', 'collect', 'auto'];
+  const allowed = ['quick', 'trends', 'topics', 'comment-draft', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -1262,12 +1261,6 @@ function activateBlogTab(tabName, options = {}) {
       populateFilterWpCategoryDropdown('blog-status-filter-wp-category', globalWpCategoryCache || categoryCache);
       console.log("activateBlogTab: categories populated");
     }).catch(e => console.error("WP Category Load Error:", e));
-    return;
-  }
-  if (target === 'manuscript') {
-    if (typeof window.renderLocalMarkdownPreview === 'function') {
-      window.renderLocalMarkdownPreview(localMarkdownPreviewState.data);
-    }
     return;
   }
   if (target === 'comment-draft') {
@@ -6262,39 +6255,6 @@ function bindActions() {
     };
   }
 
-  const localMarkdownController = createLocalMarkdownController({
-    featureLabel: '원고 포스팅',
-    actionPrefix: '원고',
-    scheduleStorageKey: 'local_markdown_schedule_date',
-    getState: () => localMarkdownPreviewState,
-    setState: (nextState) => {
-      localMarkdownPreviewState = nextState;
-    },
-    ids: {
-      selectBtn: 'local-markdown-select-btn',
-      clearBtn: 'local-markdown-clear-btn',
-      folderInput: 'local-markdown-folder-input',
-      pathInput: 'local-markdown-path',
-      naverCategory: 'local-markdown-naver-category',
-      wpCategory: 'local-markdown-wp-category',
-      postStatus: 'local-markdown-post-status',
-      scheduleDate: 'local-markdown-schedule-date',
-      targetNaver: 'local-markdown-target-naver',
-      targetWordpress: 'local-markdown-target-wordpress',
-      headless: 'local-markdown-headless',
-      imageGeneration: 'local-markdown-image-generation',
-      validation: 'local-markdown-validation',
-      previewEmpty: 'local-markdown-preview-empty',
-      previewPanel: 'local-markdown-preview-panel',
-      previewTitle: 'local-markdown-preview-title',
-      previewMeta: 'local-markdown-preview-meta',
-      bodyPreview: 'local-markdown-body-preview',
-      imageList: 'local-markdown-image-list',
-      result: 'local-markdown-result',
-      publishButtons: ['local-markdown-publish-btn', 'local-markdown-publish-inline-btn']
-    }
-  });
-
   const quickManuscriptController = createLocalMarkdownController({
     featureLabel: '빠른 포스팅 원고 모드',
     actionPrefix: '원고',
@@ -6329,9 +6289,7 @@ function bindActions() {
     }
   });
 
-  window.toggleLocalMarkdownScheduleDate = localMarkdownController.toggleScheduleDate;
   window.toggleQuickManuscriptScheduleDate = quickManuscriptController.toggleScheduleDate;
-  window.renderLocalMarkdownPreview = localMarkdownController.renderPreview;
   window.renderQuickManuscriptPreview = quickManuscriptController.renderPreview;
 
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
@@ -7787,25 +7745,25 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'local-markdown-headless', 'quick-manuscript-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
+      ids: ['quick-headless', 'quick-manuscript-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'local-markdown-target-naver', 'quick-manuscript-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
+      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'local-markdown-target-wordpress', 'quick-manuscript-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
+      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },
     {
       key: 'pub_pref_image_generation',
-      ids: ['quick-image-generation', 'local-markdown-image-generation', 'quick-manuscript-image-generation'], // extensible
+      ids: ['quick-image-generation', 'quick-manuscript-image-generation'], // extensible
       type: 'checkbox',
       default: false
     },
@@ -7817,13 +7775,13 @@ function initGlobalPublishSettingsSync() {
     },
     {
       key: 'last_quick_naver_category',
-      ids: ['quick-naver-category', 'local-markdown-naver-category', 'quick-manuscript-naver-category'],
+      ids: ['quick-naver-category', 'quick-manuscript-naver-category'],
       type: 'input',
       default: ''
     },
     {
       key: 'last_quick_wp_category',
-      ids: ['quick-wp-category', 'local-markdown-wp-category', 'quick-manuscript-wp-category'],
+      ids: ['quick-wp-category', 'quick-manuscript-wp-category'],
       type: 'input',
       default: ''
     }
@@ -7875,8 +7833,6 @@ function initGlobalPublishSettingsSync() {
   const quickSpecific = [
     { key: 'last_quick_wp_post_status', id: 'quick-wp-post-status', type: 'select', default: 'publish' },
     { key: 'last_quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' },
-    { key: 'local_markdown_post_status', id: 'local-markdown-post-status', type: 'select', default: 'publish' },
-    { key: 'local_markdown_schedule_date', id: 'local-markdown-schedule-date', type: 'input', default: '' },
     { key: 'quick_manuscript_post_status', id: 'quick-manuscript-post-status', type: 'select', default: 'publish' },
     { key: 'quick_manuscript_schedule_date', id: 'quick-manuscript-schedule-date', type: 'input', default: '' },
     { key: 'shopping_quick_wp_post_status', id: 'shopping-quick-wp-post-status', type: 'select', default: 'publish' },
@@ -7897,8 +7853,6 @@ function initGlobalPublishSettingsSync() {
       localStorage.setItem(item.key, el.value);
       if (item.id === 'quick-wp-post-status' && typeof toggleQuickWpScheduleDate === 'function') {
         toggleQuickWpScheduleDate();
-      } else if (item.id === 'local-markdown-post-status' && typeof window.toggleLocalMarkdownScheduleDate === 'function') {
-        window.toggleLocalMarkdownScheduleDate();
       } else if (item.id === 'quick-manuscript-post-status' && typeof window.toggleQuickManuscriptScheduleDate === 'function') {
         window.toggleQuickManuscriptScheduleDate();
       } else if (item.id === 'shopping-quick-wp-post-status' && typeof toggleShoppingQuickWpScheduleDate === 'function') {
@@ -7909,7 +7863,6 @@ function initGlobalPublishSettingsSync() {
 
   // Initial dependency sync
   if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
-  if (typeof window.toggleLocalMarkdownScheduleDate === 'function') window.toggleLocalMarkdownScheduleDate();
   if (typeof window.toggleQuickManuscriptScheduleDate === 'function') window.toggleQuickManuscriptScheduleDate();
 }
 
