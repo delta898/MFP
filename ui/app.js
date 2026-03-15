@@ -262,6 +262,9 @@ const systemLogRenderState = {
   fileName: '',
   lastRaw: ''
 };
+const MOBILE_QUICK_MODE_BREAKPOINT = 960;
+let isMobileQuickMode = false;
+let hasInitializedMobileQuickEntry = false;
 
 function formatUpdatePublishDate(value) {
   const raw = String(value || '').trim();
@@ -1491,6 +1494,23 @@ function normalizeCommaListText(input) {
     .join(', ');
 }
 
+function setLocalMarkdownPreviewDensity(panelEl, bodyEl, imageListEl, stats = {}) {
+  if (!panelEl || !bodyEl) return;
+  const contentCount = Number(stats?.contentCount || 0);
+  const imageBlockCount = Number(stats?.imageBlockCount || 0);
+  const imageResolvedCount = Number(stats?.imageResolvedCount || 0);
+  const bodyHasRenderableContent = contentCount > 0 && !bodyEl.querySelector('.local-markdown-empty');
+  const hasImages = imageBlockCount > 0 || imageResolvedCount > 0;
+
+  panelEl.classList.toggle('is-expanded', bodyHasRenderableContent);
+  panelEl.classList.toggle('is-compact', !bodyHasRenderableContent);
+
+  const imageSection = imageListEl?.closest('.local-markdown-preview-section');
+  if (imageSection) {
+    imageSection.classList.toggle('is-hidden', !hasImages);
+  }
+}
+
 function renderDashboardAutoSchedule() {
   const blog = dashboardAutoScheduleState.blog;
   const shopping = dashboardAutoScheduleState.shopping;
@@ -2229,6 +2249,17 @@ function initClockWidget() {
 
 
 async function navigateTo(viewName, subTab) {
+  const requestedView = String(viewName || '').trim();
+  const requestedSubTab = String(subTab || '').trim();
+  if (isMobileQuickMode) {
+    if (!['dashboard', 'blog'].includes(requestedView)) {
+      viewName = 'blog';
+      subTab = 'quick';
+    } else if (requestedView === 'blog') {
+      subTab = 'quick';
+    }
+  }
+
   if (viewName !== 'settings' && isSettingsViewActive() && settingsMajorHasPendingBasicChanges) {
     const canLeaveSettings = await confirmDiscardUnsavedSettings();
     if (!canLeaveSettings) return;
@@ -2288,6 +2319,39 @@ function bindNavigation() {
       void navigateTo(btn.dataset.view);
     });
   });
+}
+
+function applyMobileQuickMode() {
+  const nextMobileMode = window.innerWidth <= MOBILE_QUICK_MODE_BREAKPOINT;
+  isMobileQuickMode = nextMobileMode;
+  document.body.classList.toggle('mobile-quick-mode', nextMobileMode);
+
+  if (!nextMobileMode) {
+    hasInitializedMobileQuickEntry = false;
+    return;
+  }
+
+  blogActiveTab = 'quick';
+
+  const activeView = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
+  const activeBlogTab = document.querySelector('.blog-tab-panel.active')?.id?.replace(/^blog-tab-/, '') || '';
+
+  if (!hasInitializedMobileQuickEntry) {
+    hasInitializedMobileQuickEntry = true;
+    if (activeView !== 'blog' || activeBlogTab !== 'quick') {
+      void navigateTo('blog', 'quick');
+    }
+    return;
+  }
+
+  if (activeView === 'blog' && activeBlogTab !== 'quick') {
+    activateBlogTab('quick', { forceReload: false });
+    return;
+  }
+
+  if (activeView && !['dashboard', 'blog'].includes(activeView)) {
+    void navigateTo('blog', 'quick');
+  }
 }
 
 function getSelectedBlogRowIndices() {
@@ -5499,6 +5563,7 @@ function bindActions() {
       renderQuickPreviewValidation(null);
       if (emptyEl) emptyEl.hidden = false;
       if (panelEl) panelEl.hidden = true;
+      if (panelEl) panelEl.classList.remove('is-expanded', 'is-compact');
       if (tabsEl) tabsEl.hidden = true;
       if (bodyEl) bodyEl.innerHTML = '';
       if (imageListEl) imageListEl.innerHTML = '';
@@ -5560,6 +5625,7 @@ function bindActions() {
           `;
         }).join('');
     }
+    setLocalMarkdownPreviewDensity(panelEl, bodyEl, imageListEl, activePreview.stats || {});
     if (previewPublishBtn) previewPublishBtn.disabled = false;
   }
 
@@ -6048,6 +6114,7 @@ function bindActions() {
         renderValidation(null);
         if (emptyEl) emptyEl.hidden = false;
         if (panelEl) panelEl.hidden = true;
+        if (panelEl) panelEl.classList.remove('is-expanded', 'is-compact');
         if (bodyEl) bodyEl.innerHTML = '';
         if (imageListEl) imageListEl.innerHTML = '';
         return;
@@ -6098,6 +6165,7 @@ function bindActions() {
             `;
           }).join('');
       }
+      setLocalMarkdownPreviewDensity(panelEl, bodyEl, imageListEl, data.stats || {});
     };
 
     const renderPreviewError = (message) => {
@@ -7280,6 +7348,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
   try { checkUpdate(false); } catch (e) { console.warn('checkUpdate error:', e); }
+  try { applyMobileQuickMode(); } catch (e) { console.warn('applyMobileQuickMode error:', e); }
+  window.addEventListener('resize', applyMobileQuickMode);
 
   // Sidebar Toggle (Desktop)
   try {
