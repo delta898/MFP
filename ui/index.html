@@ -1304,7 +1304,6 @@
           <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
           <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
           <button class="settings-tab-btn" data-settings-tab="ai" type="button">AI</button>
-          <button class="settings-tab-btn" data-settings-tab="mcp" type="button">MCP</button>
           <div class="settings-save-actions">
             <button id="settings-major-save-btn" class="settings-major-save-btn" type="button" disabled>저장 및 적용</button>
             <div id="settings-major-save-status" class="settings-major-save-status">저장됨</div>
@@ -1391,62 +1390,12 @@
                   <small class="muted">사용자 지정 업데이트 서버 기본 주소입니다. 필요한 메타 파일 경로는 앱이 내부적으로 처리합니다.</small>
                 </label>
               </div>
-              <div class="input-with-action" style="margin-top: 16px;">
-                <div
-                  style="flex-grow: 1; padding: 10px 12px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">저장 후 해당 소스로 업데이트를 확인합니다.</div>
+              <small class="muted" style="display:block; margin-top: 16px;">저장 후 해당 소스로 업데이트를 확인합니다.</small>
+              <div class="form-actions" style="margin-top: 12px;">
                 <button id="settings-check-update-btn" class="secondary" type="button">최신 버전 확인</button>
                 <button id="settings-force-update-btn" class="secondary" type="button"
                   style="color: #ef4444; border-color: #fca5a5;">강제 업데이트</button>
               </div>
-            </div>
-          </div>
-
-          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-          <pre class="settings-major-result"></pre>
-        </div>
-
-        <div class="card form-card settings-tab-panel" id="settings-tab-mcp">
-          <h2>MCP 설정</h2>
-          <div class="form-grid">
-            <div class="form-field-block"
-              style="grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 8px;">
-              <span class="field-label-text">Remote MCP Server</span>
-              <label class="settings-checkbox-label" style="margin-top: 8px;">
-                <input id="settings-mcp-remote-enabled" type="checkbox">
-                <span>MCP 서버 활성화</span>
-              </label>
-              <small class="muted" style="display:block; margin-top:8px;">
-                같은 컴퓨터, 동일 네트워크, reverse proxy 공개 시나리오를 위한 별도 MCP endpoint 설정입니다.
-              </small>
-            </div>
-            <label>MCP Remote Host
-              <select id="settings-mcp-remote-host">
-                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
-                <option value="0.0.0.0">0.0.0.0 (동일 네트워크/프록시 허용)</option>
-              </select>
-            </label>
-            <label>MCP Remote Port
-              <input id="settings-mcp-remote-port" type="number" min="1" max="65535" step="1" placeholder="4578">
-            </label>
-            <label>MCP Remote Path
-              <input id="settings-mcp-remote-path" type="text" placeholder="/mcp">
-            </label>
-            <label style="grid-column: 1 / -1;">Bearer Token
-              <div class="input-with-action">
-                <input id="settings-mcp-remote-auth-token-display" type="text" placeholder="Bearer token" autocomplete="off" spellcheck="false">
-                <input id="settings-mcp-remote-auth-token" type="hidden">
-                <button id="settings-mcp-remote-auth-toggle-btn" class="secondary" type="button">보기</button>
-                <button id="settings-mcp-remote-auth-copy-btn" class="secondary" type="button">복사</button>
-                <button id="settings-mcp-remote-auth-regenerate-btn" class="secondary" type="button">재발급</button>
-              </div>
-              <small class="muted">
-                값을 비우면 인증 없음으로 저장됩니다. 최초 설정 시 저장 전 임시 token이 표시될 수 있으며, 저장하면 `config/config.json`에 기록됩니다.
-              </small>
-            </label>
-            <div class="settings-auth-section"
-              style="grid-column: 1 / -1; margin-top: 4px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
-              <div style="font-weight: 600; margin-bottom: 6px;">접속 미리보기</div>
-              <pre id="settings-mcp-remote-endpoint-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
             </div>
           </div>
 
@@ -1534,10 +1483,9 @@
 
         <div class="card form-card settings-tab-panel" id="settings-tab-shopping-connect">
           <div class="settings-image-section">
-            <div class="settings-image-header">
-              <h3>쇼핑 이미지 설정</h3>
-              <p class="muted">공정위 이미지와 구매 독려 이미지 1은 필수입니다. 구매 독려 이미지 2, 3은 선택입니다.</p>
-            </div>
+            <h2>쇼핑 이미지 설정</h2>
+            <div class="settings-section-divider" style="margin-top: 4px;">선택된 파일 업로드</div>
+            <p class="muted">공정위 이미지와 구매 독려 이미지 1은 필수입니다. 구매 독려 이미지 2, 3은 선택입니다.</p>
             <div class="settings-image-grid">
               <div class="settings-image-card" id="settings-image-card-ftc">
                 <div class="settings-image-card-title">
@@ -1618,6 +1566,7 @@
         <div class="card form-card settings-tab-panel" id="settings-tab-notification">
           <h2>알림 설정</h2>
           <div class="form-grid">
+            <div class="settings-section-divider">텔레그램</div>
             <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
               <label class="settings-checkbox-label">
                 <input id="settings-notify-telegram-enabled" type="checkbox">
@@ -1652,8 +1601,8 @@
               <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
             </div>
 
-            <div class="form-field-block" style="grid-column: 1 / -1; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-              <span class="field-label-text">텔레그램 채팅 모델</span>
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-top: 20px;">
+              <div style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">텔레그램 채팅 모델</div>
               <small class="muted">텔레그램 자연어 해석에 사용할 모델을 선택하세요. 글 작성용 메인 모델에는 영향을 주지 않습니다.</small>
             </div>
 
@@ -1666,9 +1615,8 @@
             </label>
           </div>
 
-          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
-
           <div class="form-grid">
+            <div class="settings-section-divider" style="margin-top: 12px;">Slack</div>
             <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
               <label class="settings-checkbox-label">
                 <input id="settings-notify-slack-enabled" type="checkbox">
@@ -1695,7 +1643,7 @@
           <h2>AI 설정</h2>
           <div class="form-grid">
             <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
-              <span class="field-label-text">Custom AI</span>
+              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">Custom AI</div>
               <small class="muted">Custom AI는 글 작성용 메인 모델이 아니라, 텔레그램 같은 가벼운 채팅/보조 해석 작업에 사용하는 OpenAI-compatible 모델입니다.</small>
             </div>
 
@@ -1718,6 +1666,48 @@
               style="grid-column: 1 / -1; margin-top: 8px; display: flex; gap: 12px; align-items: center;">
               <button id="settings-custom-ai-test-btn" class="secondary" type="button">AI 연결 테스트</button>
               <span id="settings-custom-ai-test-result" style="font-size: 0.9rem;"></span>
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">MCP 설정</div>
+            <div class="form-field-block"
+              style="grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 8px;">
+              <span class="field-label-text">Remote MCP Server</span>
+              <label class="settings-checkbox-label" style="margin-top: 8px;">
+                <input id="settings-mcp-remote-enabled" type="checkbox">
+                <span>MCP 서버 활성화</span>
+              </label>
+              <small class="muted" style="display:block; margin-top:8px;">
+                같은 컴퓨터, 동일 네트워크, reverse proxy 공개 시나리오를 위한 별도 MCP endpoint 설정입니다.
+              </small>
+            </div>
+            <label>MCP Remote Host
+              <select id="settings-mcp-remote-host">
+                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
+                <option value="0.0.0.0">0.0.0.0 (동일 네트워크/프록시 허용)</option>
+              </select>
+            </label>
+            <label>MCP Remote Port
+              <input id="settings-mcp-remote-port" type="number" min="1" max="65535" step="1" placeholder="4578">
+            </label>
+            <label>MCP Remote Path
+              <input id="settings-mcp-remote-path" type="text" placeholder="/mcp">
+            </label>
+            <label style="grid-column: 1 / -1;">Bearer Token
+              <div class="input-with-action input-with-compact-actions">
+                <input id="settings-mcp-remote-auth-token-display" type="text" placeholder="Bearer token" autocomplete="off" spellcheck="false">
+                <input id="settings-mcp-remote-auth-token" type="hidden">
+                <button id="settings-mcp-remote-auth-toggle-btn" class="secondary" type="button">보기</button>
+                <button id="settings-mcp-remote-auth-copy-btn" class="secondary" type="button">복사</button>
+                <button id="settings-mcp-remote-auth-regenerate-btn" class="secondary" type="button">재발급</button>
+              </div>
+              <small class="muted">
+                값을 비우면 인증 없음으로 저장됩니다. 최초 설정 시 저장 전 임시 token이 표시될 수 있으며, 저장하면 `config/config.json`에 기록됩니다.
+              </small>
+            </label>
+            <div class="settings-auth-section"
+              style="grid-column: 1 / -1; margin-top: 4px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
+              <div style="font-weight: 600; margin-bottom: 6px;">접속 미리보기</div>
+              <pre id="settings-mcp-remote-endpoint-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
             </div>
           </div>
 

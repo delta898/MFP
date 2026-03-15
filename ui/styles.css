@@ -1709,14 +1709,8 @@ h2 {
   gap: 10px;
 }
 
-.settings-image-header h3 {
+.settings-image-section > .muted {
   margin: 0 0 4px;
-  font-size: 15px;
-  color: #0f172a;
-}
-
-.settings-image-header .muted {
-  margin: 0;
   font-size: 12px;
 }
 
@@ -2742,6 +2736,19 @@ h2 {
   background: #475569;
   color: #fff;
   white-space: nowrap;
+}
+
+.input-with-action.input-with-compact-actions {
+  align-items: stretch;
+}
+
+.input-with-action.input-with-compact-actions input[type="text"] {
+  flex: 0 1 72%;
+  min-width: 0;
+}
+
+.input-with-action.input-with-compact-actions button {
+  flex: 0 0 auto;
 }
 
 .tab-selected-count {

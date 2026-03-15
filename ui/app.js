@@ -1450,7 +1450,8 @@ function activateShoppingTab(tabName, options = {}) {
 
 function activateSettingsTab(tabName, options = {}) {
   const allowed = ['general', 'mcp', 'naver-blog', 'shopping-connect', 'notification', 'ai'];
-  const target = allowed.includes(String(tabName)) ? String(tabName) : 'general';
+  const requested = allowed.includes(String(tabName)) ? String(tabName) : 'general';
+  const target = requested === 'mcp' ? 'ai' : requested;
   settingsActiveTab = target;
 
   const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
