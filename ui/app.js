@@ -3260,6 +3260,10 @@ function applySettingsMajorToForm(data, options = {}) {
   const wordpressAppPasswordEl = document.getElementById('settings-wordpress-app-password');
   const geminiKeyEl = document.getElementById('settings-gemini-api-key');
   const sheetUrlEl = document.getElementById('settings-google-sheet-url');
+  const updateServerTypeEl = document.getElementById('settings-update-server-type');
+  const updateMirrorRepoEl = document.getElementById('settings-update-mirror-repo');
+  const customUpdateCheckUrlEl = document.getElementById('settings-custom-update-check-url');
+  const updateChannelDisplayEl = document.getElementById('settings-update-channel-display');
 
   const typingEl = document.getElementById('settings-typing-speed');
   const blogCollectTrendsEnabledEl = document.getElementById('blog-collect-trends-enabled');
@@ -3311,6 +3315,12 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
   sv(geminiKeyEl, fields.GEMINI_API_KEY || '');
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
+  sv(updateServerTypeEl, fields.UPDATE_SERVER_TYPE || 'github');
+  sv(updateMirrorRepoEl, fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases');
+  sv(customUpdateCheckUrlEl, fields.CUSTOM_UPDATE_CHECK_URL || '');
+  if (updateChannelDisplayEl) {
+    updateChannelDisplayEl.textContent = `현재 채널: ${fields.UPDATE_CHANNEL || 'stable'}`;
+  }
   settingsTelegramRuntimeStatus = data?.telegramBotStatus || null;
 
   const imageOptimizationEl = document.getElementById('settings-image-optimization');
@@ -3435,6 +3445,7 @@ function applySettingsMajorToForm(data, options = {}) {
   settingsMajorLoadedOnce = true;
   syncSettingsTelegramUi();
   syncSettingsMcpUi();
+  syncSettingsUpdateSourceUi();
   playSettingsTypingPreview();
 
   settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
@@ -3466,6 +3477,9 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
     GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
+    UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
+    CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),
+    UPDATE_MIRROR_REPO: (document.getElementById('settings-update-mirror-repo')?.value || 'delta898/NaverAutoBlog-Releases').trim(),
 
     IMAGE_OPTIMIZATION_ENABLED: Boolean(document.getElementById('settings-image-optimization')?.checked),
 
@@ -3707,6 +3721,18 @@ function syncSettingsMcpUi() {
   const previewEl = document.getElementById('settings-mcp-remote-endpoint-preview');
   if (previewEl) {
     previewEl.textContent = buildSettingsMcpPreviewLines().join('\n');
+  }
+}
+
+function syncSettingsUpdateSourceUi() {
+  const updateServerType = (document.getElementById('settings-update-server-type')?.value || 'github').trim();
+  const githubField = document.getElementById('settings-update-mirror-repo-field');
+  const customField = document.getElementById('settings-custom-update-url-field');
+  if (githubField) {
+    githubField.style.display = updateServerType === 'github' ? '' : 'none';
+  }
+  if (customField) {
+    customField.style.display = updateServerType === 'custom' ? '' : 'none';
   }
 }
 
@@ -6806,6 +6832,8 @@ function bindActions() {
     document.getElementById('settings-wordpress-app-password'),
     document.getElementById('settings-gemini-api-key'),
     document.getElementById('settings-google-sheet-url'),
+    document.getElementById('settings-update-mirror-repo'),
+    document.getElementById('settings-custom-update-check-url'),
     document.getElementById('blog-collect-trends-time'),
     document.getElementById('blog-collect-trends-filter-min'),
     document.getElementById('blog-collect-trends-filter-top'),
@@ -6830,6 +6858,7 @@ function bindActions() {
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
+    document.getElementById('settings-update-server-type'),
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-telegram-chat-ai-mode'),
     document.getElementById('settings-typing-speed'),
@@ -6864,12 +6893,14 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-mcp-remote-port'),
     document.getElementById('settings-mcp-remote-path'),
-    document.getElementById('settings-mcp-remote-auth-token-display')
+    document.getElementById('settings-mcp-remote-auth-token-display'),
+    document.getElementById('settings-update-server-type')
   ].filter(Boolean).forEach((el) => {
     const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(eventName, () => {
       syncSettingsTelegramUi();
       syncSettingsMcpUi();
+      syncSettingsUpdateSourceUi();
     });
   });
   const settingsMcpRemoteAuthTokenDisplay = document.getElementById('settings-mcp-remote-auth-token-display');

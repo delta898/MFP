@@ -1359,6 +1359,11 @@ h2 {
   white-space: pre-line;
 }
 
+.settings-google-auth-section .muted {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .form-grid input,
 .form-grid textarea,
 .form-grid select {

@@ -389,8 +389,8 @@ const CONFIG = {
     COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
     COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
 
-    // Automation - General
-    IMAGE_OPTIMIZATION_ENABLED: structuredConfig.automation.image_optimization_enabled !== false,
+    // Publish
+    IMAGE_OPTIMIZATION_ENABLED: structuredConfig.publish?.image_optimization_enabled !== false,
 
     // Automation - Publish (Blog)
     PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.blog.enabled,

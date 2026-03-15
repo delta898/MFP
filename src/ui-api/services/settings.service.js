@@ -218,7 +218,11 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.collect.blog.rss.enabled = fields.COLLECT_RSS_ENABLED;
             structuredConfig.automation.collect.blog.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
 
-            structuredConfig.automation.image_optimization_enabled = fields.IMAGE_OPTIMIZATION_ENABLED !== false;
+            if (!structuredConfig.publish) structuredConfig.publish = {};
+            structuredConfig.publish.image_optimization_enabled = fields.IMAGE_OPTIMIZATION_ENABLED !== false;
+            if (structuredConfig.automation && Object.prototype.hasOwnProperty.call(structuredConfig.automation, 'image_optimization_enabled')) {
+                delete structuredConfig.automation.image_optimization_enabled;
+            }
 
             // Publish
             if (!structuredConfig.automation.publish) structuredConfig.automation.publish = {};
@@ -263,6 +267,11 @@ function createSettingsService(deps = {}) {
                 api_key: fields.CUSTOM_AI_API_KEY,
                 model: fields.CUSTOM_AI_MODEL
             };
+            if (!structuredConfig.system) structuredConfig.system = {};
+            structuredConfig.system.update_channel = String(structuredConfig.system.update_channel || 'stable').trim() || 'stable';
+            structuredConfig.system.update_server_type = fields.UPDATE_SERVER_TYPE;
+            structuredConfig.system.custom_update_check_url = fields.CUSTOM_UPDATE_CHECK_URL;
+            structuredConfig.system.update_mirror_repo = fields.UPDATE_MIRROR_REPO;
             if (!structuredConfig.notification.slack) structuredConfig.notification.slack = {};
             structuredConfig.notification.slack.enabled = fields.NOTIFY_SLACK_ENABLED;
             structuredConfig.notification.slack.webhook_url = fields.NOTIFY_SLACK_WEBHOOK_URL;

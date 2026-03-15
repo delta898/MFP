@@ -1287,6 +1287,9 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_CTA_IMAGE_URL2: CONFIG.SHOPPING_CTA_IMAGE_URL2,
         SHOPPING_CTA_IMAGE_URL3: CONFIG.SHOPPING_CTA_IMAGE_URL3,
         UPDATE_CHANNEL: CONFIG.UPDATE_CHANNEL || 'stable',
+        UPDATE_SERVER_TYPE: CONFIG.UPDATE_SERVER_TYPE || 'github',
+        CUSTOM_UPDATE_CHECK_URL: CONFIG.CUSTOM_UPDATE_CHECK_URL || '',
+        UPDATE_MIRROR_REPO: CONFIG.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases',
 
         // Automation - Trends
         COLLECT_TRENDS_ENABLED: CONFIG.COLLECT_TRENDS_ENABLED,
@@ -1399,6 +1402,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.GOOGLE_SHEET_ID = googleSheetId;
     CONFIG.HEADLESS = headless;
     CONFIG.IMAGE_OPTIMIZATION_ENABLED = normalizeBool(fields.IMAGE_OPTIMIZATION_ENABLED, true);
+    CONFIG.UPDATE_SERVER_TYPE = String(fields.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
+    CONFIG.CUSTOM_UPDATE_CHECK_URL = String(fields.CUSTOM_UPDATE_CHECK_URL || '').trim();
+    CONFIG.UPDATE_MIRROR_REPO = String(fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
     CONFIG.TYPING_SPEED = typingSpeed;
     CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
     CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;
@@ -1511,6 +1517,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     })();
     const collectRssEnabled = normalizeBool(requestBody.COLLECT_RSS_ENABLED, false);
     const imageOptimizationEnabled = normalizeBool(requestBody.IMAGE_OPTIMIZATION_ENABLED, true);
+    const updateServerType = String(requestBody.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
+    const customUpdateCheckUrl = String(requestBody.CUSTOM_UPDATE_CHECK_URL || '').trim();
+    const updateMirrorRepo = String(requestBody.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
@@ -1526,6 +1535,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
         IMAGE_OPTIMIZATION_ENABLED: imageOptimizationEnabled,
+        UPDATE_SERVER_TYPE: updateServerType,
+        CUSTOM_UPDATE_CHECK_URL: customUpdateCheckUrl,
+        UPDATE_MIRROR_REPO: updateMirrorRepo,
         TYPING_SPEED: typingSpeed,
         FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,

@@ -74,10 +74,18 @@ class Updater {
             .slice(0, 5);
     }
 
+    getCustomManifestUrl() {
+        const raw = String(this.customUpdateCheckUrl || '').trim();
+        if (!raw) return '';
+        if (/\.json(\?.*)?$/i.test(raw)) return raw;
+        return `${raw.replace(/\/+$/, '')}/update.json`;
+    }
+
     async fetchReleases() {
-        if (this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
-            Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${this.customUpdateCheckUrl}`);
-            const response = await axios.get(this.customUpdateCheckUrl, {
+        const customManifestUrl = this.getCustomManifestUrl();
+        if (this.updateServerType === 'custom' && customManifestUrl) {
+            Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${customManifestUrl}`);
+            const response = await axios.get(customManifestUrl, {
                 timeout: 5000
             });
             return Array.isArray(response.data) ? response.data : [response.data];
@@ -376,9 +384,10 @@ class Updater {
 
             let downloadUrl = asset.browser_download_url;
             // 커스텀 서버일 경우 상대 경로(파일명만 있는 경우 등) 지원
-            if (!/^https?:\/\//i.test(downloadUrl) && this.updateServerType === 'custom' && this.customUpdateCheckUrl) {
+            const customManifestUrl = this.getCustomManifestUrl();
+            if (!/^https?:\/\//i.test(downloadUrl) && this.updateServerType === 'custom' && customManifestUrl) {
                 try {
-                    const baseUrl = new URL('.', this.customUpdateCheckUrl).href;
+                    const baseUrl = new URL('.', customManifestUrl).href;
                     downloadUrl = new URL(downloadUrl, baseUrl).href;
                     Logger.info(`🔗 [Updater] 상대 경로 다운로드 URL 변환: ${downloadUrl}`);
                 } catch (e) {

@@ -74,7 +74,6 @@
     }
   },
   "automation": {
-    "image_optimization_enabled": true,
     "collect": {
       "blog": {
         "trends": {
@@ -134,10 +133,13 @@
       }
     }
   },
+  "publish": {
+    "image_optimization_enabled": true
+  },
   "system": {
     "update_channel": "stable",
-    "update_server_type": "custom",
-    "custom_update_check_url": "https://hangadac.com/dist/BlogGenius/update.json",
+    "update_server_type": "github",
+    "custom_update_check_url": "",
     "update_mirror_repo": "delta898/NaverAutoBlog-Releases"
   },
   "notification": {
