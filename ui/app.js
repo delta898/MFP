@@ -180,13 +180,16 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
-let localMarkdownPreviewState = {
+let quickInputMode = localStorage.getItem('quick_input_mode') === 'manuscript' ? 'manuscript' : 'ai';
+const createLocalMarkdownPreviewState = () => ({
   folderLabel: '',
   selectedFiles: [],
   selectedFilesPayload: [],
   imageObjectUrls: {},
   data: null
-};
+});
+let localMarkdownPreviewState = createLocalMarkdownPreviewState();
+let quickManuscriptPreviewState = createLocalMarkdownPreviewState();
 let quickGeneratedPreviewState = {
   previewId: '',
   rowIndex: null,
@@ -204,7 +207,6 @@ let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.'
 let blogTrendsCollectInFlight = false;
 let blogAutoManualRunInFlight = false;
 let shoppingAutoManualRunInFlight = false;
-let localMarkdownPublishInFlight = false;
 const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
 const SETTINGS_SHOPPING_SLOT_META = {
   ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
@@ -5283,6 +5285,23 @@ function bindActions() {
     });
   }
 
+  const quickModeAiBtn = document.getElementById('quick-mode-ai-btn');
+  const quickModeManuscriptBtn = document.getElementById('quick-mode-manuscript-btn');
+  const quickAiModePanel = document.getElementById('quick-ai-mode-panel');
+  const quickManuscriptModePanel = document.getElementById('quick-manuscript-mode-panel');
+  const setQuickInputMode = (mode) => {
+    const nextMode = mode === 'manuscript' ? 'manuscript' : 'ai';
+    quickInputMode = nextMode;
+    localStorage.setItem('quick_input_mode', quickInputMode);
+    quickModeAiBtn?.classList.toggle('is-active', quickInputMode === 'ai');
+    quickModeManuscriptBtn?.classList.toggle('is-active', quickInputMode === 'manuscript');
+    if (quickAiModePanel) quickAiModePanel.hidden = quickInputMode !== 'ai';
+    if (quickManuscriptModePanel) quickManuscriptModePanel.hidden = quickInputMode !== 'manuscript';
+  };
+  quickModeAiBtn?.addEventListener('click', () => setQuickInputMode('ai'));
+  quickModeManuscriptBtn?.addEventListener('click', () => setQuickInputMode('manuscript'));
+  setQuickInputMode(quickInputMode);
+
   const saveBtn = document.getElementById('quick-save-btn');
   const directPublishBtn = document.getElementById('quick-direct-publish-btn');
   const generateBtn = document.getElementById('quick-generate-btn');
@@ -5729,23 +5748,6 @@ function bindActions() {
     });
   }
 
-  function buildLocalMarkdownPreviewPayload() {
-    const targets = [];
-    if (document.getElementById('local-markdown-target-naver')?.checked) targets.push('naver');
-    if (document.getElementById('local-markdown-target-wordpress')?.checked) targets.push('wordpress');
-
-    return {
-      folderName: localMarkdownPreviewState.folderLabel || (document.getElementById('local-markdown-path')?.value || '').trim(),
-      selectedFiles: Array.isArray(localMarkdownPreviewState.selectedFilesPayload)
-        ? localMarkdownPreviewState.selectedFilesPayload
-        : [],
-      targets,
-      postStatus: (document.getElementById('local-markdown-post-status')?.value || 'publish').trim(),
-      scheduleDate: (document.getElementById('local-markdown-schedule-date')?.value || '').trim(),
-      imageGeneration: Boolean(document.getElementById('local-markdown-image-generation')?.checked)
-    };
-  }
-
   function normalizeLocalMarkdownRelativePath(value) {
     return String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
   }
@@ -5801,129 +5803,7 @@ function bindActions() {
     };
   }
 
-  async function buildLocalMarkdownPublishPayload() {
-    const selectedFiles = Array.isArray(localMarkdownPreviewState.selectedFiles)
-      ? localMarkdownPreviewState.selectedFiles
-      : [];
-    const serializedFiles = [];
-
-    for (const entry of selectedFiles) {
-      if (!entry?.file) continue;
-      if (!isLocalMarkdownFileName(entry.name) && !isLocalMarkdownImageEntry(entry)) continue;
-
-      const serialized = {
-        relativePath: entry.relativePath,
-        name: entry.name,
-        contentType: entry.type,
-        size: entry.size
-      };
-
-      if (isLocalMarkdownFileName(entry.name)) {
-        serialized.textContent = await entry.file.text();
-      } else if (isLocalMarkdownImageEntry(entry)) {
-        serialized.base64Data = await readFileAsDataUrl(entry.file);
-      }
-
-      serializedFiles.push(serialized);
-    }
-
-    return {
-      folderName: localMarkdownPreviewState.folderLabel || '',
-      selectedFiles: serializedFiles,
-      targets: [
-        document.getElementById('local-markdown-target-naver')?.checked ? 'naver' : '',
-        document.getElementById('local-markdown-target-wordpress')?.checked ? 'wordpress' : ''
-      ].filter(Boolean),
-      naverCategory: (document.getElementById('local-markdown-naver-category')?.value || '').trim(),
-      wordpressCategory: (document.getElementById('local-markdown-wp-category')?.value || '').trim(),
-      postStatus: (document.getElementById('local-markdown-post-status')?.value || 'publish').trim(),
-      scheduleDate: (document.getElementById('local-markdown-schedule-date')?.value || '').trim(),
-      headless: Boolean(document.getElementById('local-markdown-headless')?.checked),
-      imageGeneration: Boolean(document.getElementById('local-markdown-image-generation')?.checked)
-    };
-  }
-
-  function revokeLocalMarkdownObjectUrls() {
-    const urlMap = localMarkdownPreviewState.imageObjectUrls || {};
-    Object.keys(urlMap).forEach((key) => {
-      try {
-        URL.revokeObjectURL(urlMap[key]);
-      } catch (_error) { }
-    });
-    localMarkdownPreviewState.imageObjectUrls = {};
-  }
-
-  function getLocalMarkdownImageObjectUrl(relativePath) {
-    const normalizedPath = normalizeLocalMarkdownRelativePath(relativePath);
-    if (!normalizedPath) return '';
-    if (localMarkdownPreviewState.imageObjectUrls?.[normalizedPath]) {
-      return localMarkdownPreviewState.imageObjectUrls[normalizedPath];
-    }
-
-    const fileEntry = (Array.isArray(localMarkdownPreviewState.selectedFiles) ? localMarkdownPreviewState.selectedFiles : [])
-      .find((entry) => normalizeLocalMarkdownRelativePath(entry.relativePath) === normalizedPath);
-    if (!fileEntry || !isLocalMarkdownImageEntry(fileEntry)) return '';
-
-    const objectUrl = URL.createObjectURL(fileEntry.file);
-    localMarkdownPreviewState.imageObjectUrls[normalizedPath] = objectUrl;
-    return objectUrl;
-  }
-
-  window.toggleLocalMarkdownScheduleDate = function () {
-    const input = document.getElementById('local-markdown-schedule-date');
-    const status = document.getElementById('local-markdown-post-status')?.value || 'publish';
-    if (!input) return;
-    input.disabled = status !== 'schedule';
-    if (status === 'schedule' && !input.value) {
-      const now = new Date(Date.now() + 10 * 60 * 1000);
-      const pad = (n) => String(n).padStart(2, '0');
-      input.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      localStorage.setItem('local_markdown_schedule_date', input.value);
-    }
-  };
-
-  function renderLocalMarkdownValidation(validation = null) {
-    const el = document.getElementById('local-markdown-validation');
-    if (!el) return;
-
-    el.classList.remove('has-error', 'has-warning', 'is-ok');
-    if (!validation) {
-      el.textContent = '아직 원고 폴더를 선택하지 않았습니다.';
-      return;
-    }
-
-    const lines = [];
-    if (Array.isArray(validation.errors) && validation.errors.length > 0) {
-      el.classList.add('has-error');
-      lines.push('[오류]');
-      validation.errors.forEach((item) => lines.push(`- ${item}`));
-    }
-    if (Array.isArray(validation.warnings) && validation.warnings.length > 0) {
-      if (!el.classList.contains('has-error')) el.classList.add('has-warning');
-      if (lines.length > 0) lines.push('');
-      lines.push('[경고]');
-      validation.warnings.forEach((item) => lines.push(`- ${item}`));
-    }
-    if (lines.length === 0) {
-      el.classList.add('is-ok');
-      lines.push('검증 통과: 현재 입력값 기준으로 preview/validation 문제가 없습니다.');
-    }
-    el.textContent = lines.join('\n');
-  }
-
-  function renderLocalMarkdownPreviewError(message) {
-    const emptyEl = document.getElementById('local-markdown-preview-empty');
-    const panelEl = document.getElementById('local-markdown-preview-panel');
-    localMarkdownPreviewState.data = null;
-    renderLocalMarkdownValidation({
-      errors: [String(message || '원고 미리보기에 실패했습니다.')],
-      warnings: []
-    });
-    if (emptyEl) emptyEl.hidden = false;
-    if (panelEl) panelEl.hidden = true;
-  }
-
-  function renderLocalMarkdownBodyHtml(data = null) {
+  function renderLocalMarkdownBodyHtml(data = null, getImageObjectUrl = () => '') {
     const items = Array.isArray(data?.contentItems) ? data.contentItems : [];
     const images = Array.isArray(data?.images) ? data.images : [];
     const imageMap = new Map(images.map((image) => [Number(image.index), image]));
@@ -5938,7 +5818,7 @@ function bindActions() {
 
     const renderImageFigure = (item = {}) => {
       const image = imageMap.get(Number(item.index));
-      const previewUrl = image?.exists ? getLocalMarkdownImageObjectUrl(image.imagePath) : '';
+      const previewUrl = image?.exists ? getImageObjectUrl(image.imagePath) : '';
       const imageBody = previewUrl
         ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy">`
         : `<div class="local-markdown-inline-image-missing">매칭되는 로컬 이미지가 없습니다.</div>`;
@@ -5991,156 +5871,279 @@ function bindActions() {
     return fragments.join('') || '<div class="local-markdown-empty">본문 preview를 표시할 내용이 없습니다.</div>';
   }
 
-  window.renderLocalMarkdownPreview = function (data = null) {
-    const emptyEl = document.getElementById('local-markdown-preview-empty');
-    const panelEl = document.getElementById('local-markdown-preview-panel');
-    const titleEl = document.getElementById('local-markdown-preview-title');
-    const metaEl = document.getElementById('local-markdown-preview-meta');
-    const bodyEl = document.getElementById('local-markdown-body-preview');
-    const imageListEl = document.getElementById('local-markdown-image-list');
+  function createLocalMarkdownController(config) {
+    let publishInFlight = false;
+    const ids = config.ids || {};
+    const getState = config.getState;
+    const setState = config.setState;
 
-    if (!data) {
-      localMarkdownPreviewState.data = null;
-      renderLocalMarkdownValidation(null);
+    const getEl = (key) => document.getElementById(ids[key]);
+    const getPathEl = () => getEl('pathInput');
+    const getFolderInputEl = () => getEl('folderInput');
+
+    const buildPreviewPayload = () => {
+      const state = getState();
+      const targets = [];
+      if (getEl('targetNaver')?.checked) targets.push('naver');
+      if (getEl('targetWordpress')?.checked) targets.push('wordpress');
+
+      return {
+        folderName: state.folderLabel || (getPathEl()?.value || '').trim(),
+        selectedFiles: Array.isArray(state.selectedFilesPayload) ? state.selectedFilesPayload : [],
+        targets,
+        postStatus: (getEl('postStatus')?.value || 'publish').trim(),
+        scheduleDate: (getEl('scheduleDate')?.value || '').trim(),
+        imageGeneration: Boolean(getEl('imageGeneration')?.checked)
+      };
+    };
+
+    const buildPublishPayload = async () => {
+      const state = getState();
+      const selectedFiles = Array.isArray(state.selectedFiles) ? state.selectedFiles : [];
+      const serializedFiles = [];
+
+      for (const entry of selectedFiles) {
+        if (!entry?.file) continue;
+        if (!isLocalMarkdownFileName(entry.name) && !isLocalMarkdownImageEntry(entry)) continue;
+
+        const serialized = {
+          relativePath: entry.relativePath,
+          name: entry.name,
+          contentType: entry.type,
+          size: entry.size
+        };
+
+        if (isLocalMarkdownFileName(entry.name)) {
+          serialized.textContent = await entry.file.text();
+        } else if (isLocalMarkdownImageEntry(entry)) {
+          serialized.base64Data = await readFileAsDataUrl(entry.file);
+        }
+
+        serializedFiles.push(serialized);
+      }
+
+      return {
+        folderName: state.folderLabel || '',
+        selectedFiles: serializedFiles,
+        targets: [
+          getEl('targetNaver')?.checked ? 'naver' : '',
+          getEl('targetWordpress')?.checked ? 'wordpress' : ''
+        ].filter(Boolean),
+        naverCategory: (getEl('naverCategory')?.value || '').trim(),
+        wordpressCategory: (getEl('wpCategory')?.value || '').trim(),
+        postStatus: (getEl('postStatus')?.value || 'publish').trim(),
+        scheduleDate: (getEl('scheduleDate')?.value || '').trim(),
+        headless: Boolean(getEl('headless')?.checked),
+        imageGeneration: Boolean(getEl('imageGeneration')?.checked)
+      };
+    };
+
+    const revokeObjectUrls = () => {
+      const state = getState();
+      const urlMap = state.imageObjectUrls || {};
+      Object.keys(urlMap).forEach((key) => {
+        try {
+          URL.revokeObjectURL(urlMap[key]);
+        } catch (_error) { }
+      });
+      setState({
+        ...state,
+        imageObjectUrls: {}
+      });
+    };
+
+    const getImageObjectUrl = (relativePath) => {
+      const normalizedPath = normalizeLocalMarkdownRelativePath(relativePath);
+      if (!normalizedPath) return '';
+      const state = getState();
+      if (state.imageObjectUrls?.[normalizedPath]) {
+        return state.imageObjectUrls[normalizedPath];
+      }
+
+      const fileEntry = (Array.isArray(state.selectedFiles) ? state.selectedFiles : [])
+        .find((entry) => normalizeLocalMarkdownRelativePath(entry.relativePath) === normalizedPath);
+      if (!fileEntry || !isLocalMarkdownImageEntry(fileEntry)) return '';
+
+      const objectUrl = URL.createObjectURL(fileEntry.file);
+      setState({
+        ...state,
+        imageObjectUrls: {
+          ...(state.imageObjectUrls || {}),
+          [normalizedPath]: objectUrl
+        }
+      });
+      return objectUrl;
+    };
+
+    const toggleScheduleDate = () => {
+      const input = getEl('scheduleDate');
+      const status = getEl('postStatus')?.value || 'publish';
+      if (!input) return;
+      input.disabled = status !== 'schedule';
+      if (status === 'schedule' && !input.value) {
+        const now = new Date(Date.now() + 10 * 60 * 1000);
+        const pad = (n) => String(n).padStart(2, '0');
+        input.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        if (config.scheduleStorageKey) {
+          localStorage.setItem(config.scheduleStorageKey, input.value);
+        }
+      }
+    };
+
+    const renderValidation = (validation = null) => {
+      const el = getEl('validation');
+      if (!el) return;
+
+      el.classList.remove('has-error', 'has-warning', 'is-ok');
+      if (!validation) {
+        el.textContent = config.emptyValidationText || '아직 원고 폴더를 선택하지 않았습니다.';
+        return;
+      }
+
+      const lines = [];
+      if (Array.isArray(validation.errors) && validation.errors.length > 0) {
+        el.classList.add('has-error');
+        lines.push('[오류]');
+        validation.errors.forEach((item) => lines.push(`- ${item}`));
+      }
+      if (Array.isArray(validation.warnings) && validation.warnings.length > 0) {
+        if (!el.classList.contains('has-error')) el.classList.add('has-warning');
+        if (lines.length > 0) lines.push('');
+        lines.push('[경고]');
+        validation.warnings.forEach((item) => lines.push(`- ${item}`));
+      }
+      if (lines.length === 0) {
+        el.classList.add('is-ok');
+        lines.push('검증 통과: 현재 입력값 기준으로 preview/validation 문제가 없습니다.');
+      }
+      el.textContent = lines.join('\n');
+    };
+
+    const renderPreview = (data = null) => {
+      const state = getState();
+      const emptyEl = getEl('previewEmpty');
+      const panelEl = getEl('previewPanel');
+      const titleEl = getEl('previewTitle');
+      const metaEl = getEl('previewMeta');
+      const bodyEl = getEl('bodyPreview');
+      const imageListEl = getEl('imageList');
+
+      if (!data) {
+        setState({
+          ...state,
+          data: null
+        });
+        renderValidation(null);
+        if (emptyEl) emptyEl.hidden = false;
+        if (panelEl) panelEl.hidden = true;
+        if (bodyEl) bodyEl.innerHTML = '';
+        if (imageListEl) imageListEl.innerHTML = '';
+        return;
+      }
+
+      setState({
+        ...state,
+        data
+      });
+      renderValidation(data.validation || null);
+      if (emptyEl) emptyEl.hidden = true;
+      if (panelEl) panelEl.hidden = false;
+      if (titleEl) titleEl.textContent = data.title || '제목 없음';
+      if (metaEl) {
+        const source = data.source || {};
+        const stats = data.stats || {};
+        metaEl.textContent = [
+          source.fileName || '',
+          source.folderName || source.directoryPath || '',
+          `${stats.contentCount || 0}개 블록`,
+          `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
+        ].filter(Boolean).join(' | ');
+      }
+      if (bodyEl) bodyEl.innerHTML = renderLocalMarkdownBodyHtml(data, getImageObjectUrl);
+      if (imageListEl) {
+        const images = Array.isArray(data.images) ? data.images : [];
+        imageListEl.innerHTML = images.length === 0
+          ? '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>'
+          : images.map((image) => {
+            const statusClass = image.exists ? 'ok' : 'missing';
+            const statusText = image.exists ? '매칭됨' : '누락';
+            const previewUrl = image.exists ? getImageObjectUrl(image.imagePath) : '';
+            const preview = image.exists
+              ? `<div class="local-markdown-image-card-preview"><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
+              : '<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div></div>';
+            return `
+              <article class="local-markdown-image-card">
+                <div class="local-markdown-image-card-header">
+                  <div>
+                    <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
+                    <div class="local-markdown-image-card-meta">${escapeHtml(image.fileName || '파일 미매칭')}</div>
+                  </div>
+                  <span class="local-markdown-image-card-status ${statusClass}">${statusText}</span>
+                </div>
+                ${preview}
+                <p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt || '')}</p>
+              </article>
+            `;
+          }).join('');
+      }
+    };
+
+    const renderPreviewError = (message) => {
+      const state = getState();
+      const emptyEl = getEl('previewEmpty');
+      const panelEl = getEl('previewPanel');
+      setState({
+        ...state,
+        data: null
+      });
+      renderValidation({
+        errors: [String(message || '원고 미리보기에 실패했습니다.')],
+        warnings: []
+      });
       if (emptyEl) emptyEl.hidden = false;
       if (panelEl) panelEl.hidden = true;
-      if (bodyEl) bodyEl.innerHTML = '';
-      if (imageListEl) imageListEl.innerHTML = '';
-      return;
-    }
-
-    localMarkdownPreviewState.data = data;
-    renderLocalMarkdownValidation(data.validation || null);
-    if (emptyEl) emptyEl.hidden = true;
-    if (panelEl) panelEl.hidden = false;
-    if (titleEl) titleEl.textContent = data.title || '제목 없음';
-    if (metaEl) {
-      const source = data.source || {};
-      const stats = data.stats || {};
-      metaEl.textContent = [
-        source.fileName || '',
-        source.folderName || source.directoryPath || '',
-        `${stats.contentCount || 0}개 블록`,
-        `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
-      ].filter(Boolean).join(' | ');
-    }
-    if (bodyEl) bodyEl.innerHTML = renderLocalMarkdownBodyHtml(data);
-    if (imageListEl) {
-      const images = Array.isArray(data.images) ? data.images : [];
-      imageListEl.innerHTML = images.length === 0
-        ? '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>'
-        : images.map((image) => {
-          const statusClass = image.exists ? 'ok' : 'missing';
-          const statusText = image.exists ? '매칭됨' : '누락';
-          const previewUrl = image.exists ? getLocalMarkdownImageObjectUrl(image.imagePath) : '';
-          const preview = image.exists
-            ? `<div class="local-markdown-image-card-preview"><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
-            : '<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div></div>';
-          return `
-            <article class="local-markdown-image-card">
-              <div class="local-markdown-image-card-header">
-                <div>
-                  <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
-                  <div class="local-markdown-image-card-meta">${escapeHtml(image.fileName || '파일 미매칭')}</div>
-                </div>
-                <span class="local-markdown-image-card-status ${statusClass}">${statusText}</span>
-              </div>
-              ${preview}
-              <p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt || '')}</p>
-            </article>
-          `;
-        }).join('');
-    }
-  };
-
-  async function loadLocalMarkdownPreview() {
-    const payload = buildLocalMarkdownPreviewPayload();
-    if (!Array.isArray(payload.selectedFiles) || payload.selectedFiles.length === 0) {
-      window.renderLocalMarkdownPreview(null);
-      const pathEl = document.getElementById('local-markdown-path');
-      if (pathEl) pathEl.focus();
-      return;
-    }
-
-    try {
-      const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
-      window.renderLocalMarkdownPreview(data);
-    } catch (e) {
-      renderLocalMarkdownPreviewError(e.message);
-      throw e;
-    }
-  }
-
-  function clearLocalMarkdownSelection() {
-    revokeLocalMarkdownObjectUrls();
-    const pathEl = document.getElementById('local-markdown-path');
-    if (pathEl) pathEl.value = '';
-    const inputEl = document.getElementById('local-markdown-folder-input');
-    if (inputEl) inputEl.value = '';
-    localMarkdownPreviewState = {
-      folderLabel: '',
-      selectedFiles: [],
-      selectedFilesPayload: [],
-      imageObjectUrls: {},
-      data: null
     };
-    window.renderLocalMarkdownPreview(null);
-  }
 
-  const localMarkdownSelectBtn = document.getElementById('local-markdown-select-btn');
-  const localMarkdownFolderInput = document.getElementById('local-markdown-folder-input');
-  const localMarkdownClearBtn = document.getElementById('local-markdown-clear-btn');
-  const localMarkdownPublishButtons = [
-    document.getElementById('local-markdown-publish-btn'),
-    document.getElementById('local-markdown-publish-inline-btn')
-  ].filter(Boolean);
-  const localMarkdownPostStatusEl = document.getElementById('local-markdown-post-status');
-
-  if (localMarkdownSelectBtn) {
-    localMarkdownSelectBtn.addEventListener('click', () => {
-      localMarkdownFolderInput?.click();
-    });
-  }
-  if (localMarkdownFolderInput) {
-    localMarkdownFolderInput.addEventListener('change', async (event) => {
-      try {
-        const nextSelection = await buildLocalMarkdownSelectedFiles(event.target?.files);
-        if (!Array.isArray(nextSelection.selectedFiles) || nextSelection.selectedFiles.length === 0) return;
-        revokeLocalMarkdownObjectUrls();
-        localMarkdownPreviewState.folderLabel = nextSelection.folderLabel;
-        localMarkdownPreviewState.selectedFiles = nextSelection.selectedFiles;
-        localMarkdownPreviewState.selectedFilesPayload = nextSelection.selectedFilesPayload;
-        localMarkdownPreviewState.data = null;
-        const pathEl = document.getElementById('local-markdown-path');
-        if (pathEl) pathEl.value = nextSelection.folderLabel || '';
-        await loadLocalMarkdownPreview();
-      } catch (e) {
-        renderLocalMarkdownPreviewError(e.message);
-        showUiPopup(`원고 폴더 선택 실패: ${e.message}`);
-      } finally {
-        event.target.value = '';
+    const loadPreview = async () => {
+      const payload = buildPreviewPayload();
+      if (!Array.isArray(payload.selectedFiles) || payload.selectedFiles.length === 0) {
+        renderPreview(null);
+        getPathEl()?.focus();
+        return;
       }
-    });
-  }
-  if (localMarkdownClearBtn) {
-    localMarkdownClearBtn.addEventListener('click', () => {
-      clearLocalMarkdownSelection();
-    });
-  }
-  const runLocalMarkdownPublishAction = async () => {
-      const resultEl = document.getElementById('local-markdown-result');
-      if (!guardUiConfigReady('원고 포스팅')) return;
-      if (localMarkdownPublishInFlight) return;
-      if (!localMarkdownPreviewState.data) {
+
+      try {
+        const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
+        renderPreview(data);
+      } catch (e) {
+        renderPreviewError(e.message);
+        throw e;
+      }
+    };
+
+    const clearSelection = () => {
+      revokeObjectUrls();
+      if (getPathEl()) getPathEl().value = '';
+      if (getFolderInputEl()) getFolderInputEl().value = '';
+      setState(createLocalMarkdownPreviewState());
+      renderPreview(null);
+    };
+
+    const runPublishAction = async () => {
+      const resultEl = getEl('result');
+      if (!guardUiConfigReady(config.featureLabel || '원고 포스팅')) return;
+      if (publishInFlight) return;
+      const state = getState();
+      if (!state.data) {
         showUiPopup('먼저 원고 폴더를 선택해 주세요.');
         return;
       }
-      if (!localMarkdownPreviewState.data.validation?.ok) {
+      if (!state.data.validation?.ok) {
         showUiPopup('현재 validation 오류가 있어 실행할 수 없습니다. 원고와 옵션을 먼저 확인해 주세요.');
         return;
       }
 
-      const publishPayload = await buildLocalMarkdownPublishPayload();
+      const publishPayload = await buildPublishPayload();
       const preCheck = checkPublishPrerequisites(publishPayload.targets);
       if (!preCheck.ok) {
         if (resultEl) resultEl.textContent = preCheck.message;
@@ -6148,20 +6151,22 @@ function bindActions() {
       }
 
       const actionLabel = publishPayload.postStatus === 'draft'
-        ? '원고 임시 저장'
-        : (publishPayload.postStatus === 'schedule' ? '원고 예약 포스팅' : '원고 포스팅');
-      const confirmed = await showUiConfirm(`${actionLabel}을 진행하시겠습니까?`, {
+        ? `${config.actionPrefix || '원고'} 임시 저장`
+        : (publishPayload.postStatus === 'schedule' ? `${config.actionPrefix || '원고'} 예약 포스팅` : `${config.actionPrefix || '원고'} 포스팅`);
+      const confirmMessage = config.confirmMessage || `${actionLabel}을 진행하시겠습니까?`;
+      const confirmed = await showUiConfirm(confirmMessage, {
         title: '실행 확인',
         confirmText: '진행',
         cancelText: '취소'
       });
       if (confirmed === false) {
-        if (resultEl) resultEl.textContent = '원고 포스팅 실행이 취소되었습니다.';
+        if (resultEl) resultEl.textContent = `${config.actionPrefix || '원고'} 포스팅 실행이 취소되었습니다.`;
         return;
       }
 
-      localMarkdownPublishInFlight = true;
-      localMarkdownPublishButtons.forEach((button) => { button.disabled = true; });
+      publishInFlight = true;
+      const publishButtons = (ids.publishButtons || []).map((id) => document.getElementById(id)).filter(Boolean);
+      publishButtons.forEach((button) => { button.disabled = true; });
       try {
         await runWithLiveProgress({
           targetEl: resultEl,
@@ -6171,44 +6176,163 @@ function bindActions() {
       } catch (_error) {
         // runWithLiveProgress already renders logs/errors
       } finally {
-        localMarkdownPublishInFlight = false;
-        localMarkdownPublishButtons.forEach((button) => { button.disabled = false; });
+        publishInFlight = false;
+        publishButtons.forEach((button) => { button.disabled = false; });
       }
-  };
+    };
 
-  localMarkdownPublishButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      runLocalMarkdownPublishAction().catch((e) => {
-        showUiPopup(`원고 포스팅 실행 실패: ${e.message}`);
+    const selectBtn = getEl('selectBtn');
+    const folderInput = getFolderInputEl();
+    const clearBtn = getEl('clearBtn');
+    const postStatusEl = getEl('postStatus');
+
+    selectBtn?.addEventListener('click', () => {
+      folderInput?.click();
+    });
+
+    folderInput?.addEventListener('change', async (event) => {
+      try {
+        const nextSelection = await buildLocalMarkdownSelectedFiles(event.target?.files);
+        if (!Array.isArray(nextSelection.selectedFiles) || nextSelection.selectedFiles.length === 0) return;
+        revokeObjectUrls();
+        setState({
+          ...getState(),
+          folderLabel: nextSelection.folderLabel,
+          selectedFiles: nextSelection.selectedFiles,
+          selectedFilesPayload: nextSelection.selectedFilesPayload,
+          data: null,
+          imageObjectUrls: {}
+        });
+        if (getPathEl()) getPathEl().value = nextSelection.folderLabel || '';
+        await loadPreview();
+      } catch (e) {
+        renderPreviewError(e.message);
+        showUiPopup(`${config.selectErrorLabel || '원고 폴더 선택 실패'}: ${e.message}`);
+      } finally {
+        event.target.value = '';
+      }
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      clearSelection();
+    });
+
+    (ids.publishButtons || []).forEach((id) => {
+      const button = document.getElementById(id);
+      button?.addEventListener('click', () => {
+        runPublishAction().catch((e) => {
+          showUiPopup(`${config.publishErrorLabel || '원고 포스팅 실행 실패'}: ${e.message}`);
+        });
       });
     });
-  });
-  if (localMarkdownPostStatusEl) {
-    localMarkdownPostStatusEl.addEventListener('change', () => {
-      window.toggleLocalMarkdownScheduleDate();
-      if (Array.isArray(localMarkdownPreviewState.selectedFilesPayload) && localMarkdownPreviewState.selectedFilesPayload.length > 0) {
-        loadLocalMarkdownPreview().catch((e) => {
-          showUiPopup(`원고 미리보기 실패: ${e.message}`);
+
+    postStatusEl?.addEventListener('change', () => {
+      toggleScheduleDate();
+      const state = getState();
+      if (Array.isArray(state.selectedFilesPayload) && state.selectedFilesPayload.length > 0) {
+        loadPreview().catch((e) => {
+          showUiPopup(`${config.previewErrorLabel || '원고 미리보기 실패'}: ${e.message}`);
         });
       }
     });
+
+    [
+      ids.targetNaver,
+      ids.targetWordpress,
+      ids.imageGeneration,
+      ids.scheduleDate
+    ].filter(Boolean).forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        const state = getState();
+        if (Array.isArray(state.selectedFilesPayload) && state.selectedFilesPayload.length > 0) {
+          loadPreview().catch((e) => {
+            showUiPopup(`${config.previewErrorLabel || '원고 미리보기 실패'}: ${e.message}`);
+          });
+        }
+      });
+    });
+
+    return {
+      toggleScheduleDate,
+      renderPreview,
+      loadPreview,
+      clearSelection
+    };
   }
-  [
-    'local-markdown-target-naver',
-    'local-markdown-target-wordpress',
-    'local-markdown-image-generation',
-    'local-markdown-schedule-date'
-  ].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('change', () => {
-      if (Array.isArray(localMarkdownPreviewState.selectedFilesPayload) && localMarkdownPreviewState.selectedFilesPayload.length > 0) {
-        loadLocalMarkdownPreview().catch((e) => {
-          showUiPopup(`원고 미리보기 실패: ${e.message}`);
-        });
-      }
-    });
+
+  const localMarkdownController = createLocalMarkdownController({
+    featureLabel: '원고 포스팅',
+    actionPrefix: '원고',
+    scheduleStorageKey: 'local_markdown_schedule_date',
+    getState: () => localMarkdownPreviewState,
+    setState: (nextState) => {
+      localMarkdownPreviewState = nextState;
+    },
+    ids: {
+      selectBtn: 'local-markdown-select-btn',
+      clearBtn: 'local-markdown-clear-btn',
+      folderInput: 'local-markdown-folder-input',
+      pathInput: 'local-markdown-path',
+      naverCategory: 'local-markdown-naver-category',
+      wpCategory: 'local-markdown-wp-category',
+      postStatus: 'local-markdown-post-status',
+      scheduleDate: 'local-markdown-schedule-date',
+      targetNaver: 'local-markdown-target-naver',
+      targetWordpress: 'local-markdown-target-wordpress',
+      headless: 'local-markdown-headless',
+      imageGeneration: 'local-markdown-image-generation',
+      validation: 'local-markdown-validation',
+      previewEmpty: 'local-markdown-preview-empty',
+      previewPanel: 'local-markdown-preview-panel',
+      previewTitle: 'local-markdown-preview-title',
+      previewMeta: 'local-markdown-preview-meta',
+      bodyPreview: 'local-markdown-body-preview',
+      imageList: 'local-markdown-image-list',
+      result: 'local-markdown-result',
+      publishButtons: ['local-markdown-publish-btn', 'local-markdown-publish-inline-btn']
+    }
   });
+
+  const quickManuscriptController = createLocalMarkdownController({
+    featureLabel: '빠른 포스팅 원고 모드',
+    actionPrefix: '원고',
+    confirmMessage: '포스팅을 실행하겠습니까?',
+    scheduleStorageKey: 'quick_manuscript_schedule_date',
+    getState: () => quickManuscriptPreviewState,
+    setState: (nextState) => {
+      quickManuscriptPreviewState = nextState;
+    },
+    ids: {
+      selectBtn: 'quick-manuscript-select-btn',
+      clearBtn: 'quick-manuscript-clear-btn',
+      folderInput: 'quick-manuscript-folder-input',
+      pathInput: 'quick-manuscript-path',
+      naverCategory: 'quick-manuscript-naver-category',
+      wpCategory: 'quick-manuscript-wp-category',
+      postStatus: 'quick-manuscript-post-status',
+      scheduleDate: 'quick-manuscript-schedule-date',
+      targetNaver: 'quick-manuscript-target-naver',
+      targetWordpress: 'quick-manuscript-target-wordpress',
+      headless: 'quick-manuscript-headless',
+      imageGeneration: 'quick-manuscript-image-generation',
+      validation: 'quick-manuscript-validation',
+      previewEmpty: 'quick-manuscript-preview-empty',
+      previewPanel: 'quick-manuscript-preview-panel',
+      previewTitle: 'quick-manuscript-preview-title',
+      previewMeta: 'quick-manuscript-preview-meta',
+      bodyPreview: 'quick-manuscript-body-preview',
+      imageList: 'quick-manuscript-image-list',
+      result: 'quick-manuscript-result',
+      publishButtons: ['quick-manuscript-publish-btn', 'quick-manuscript-publish-inline-btn']
+    }
+  });
+
+  window.toggleLocalMarkdownScheduleDate = localMarkdownController.toggleScheduleDate;
+  window.toggleQuickManuscriptScheduleDate = quickManuscriptController.toggleScheduleDate;
+  window.renderLocalMarkdownPreview = localMarkdownController.renderPreview;
+  window.renderQuickManuscriptPreview = quickManuscriptController.renderPreview;
 
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
@@ -7663,25 +7787,25 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'local-markdown-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
+      ids: ['quick-headless', 'local-markdown-headless', 'quick-manuscript-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'local-markdown-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
+      ids: ['quick-target-naver', 'local-markdown-target-naver', 'quick-manuscript-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'local-markdown-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
+      ids: ['quick-target-wordpress', 'local-markdown-target-wordpress', 'quick-manuscript-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },
     {
       key: 'pub_pref_image_generation',
-      ids: ['quick-image-generation', 'local-markdown-image-generation'], // extensible
+      ids: ['quick-image-generation', 'local-markdown-image-generation', 'quick-manuscript-image-generation'], // extensible
       type: 'checkbox',
       default: false
     },
@@ -7693,13 +7817,13 @@ function initGlobalPublishSettingsSync() {
     },
     {
       key: 'last_quick_naver_category',
-      ids: ['quick-naver-category', 'local-markdown-naver-category'],
+      ids: ['quick-naver-category', 'local-markdown-naver-category', 'quick-manuscript-naver-category'],
       type: 'input',
       default: ''
     },
     {
       key: 'last_quick_wp_category',
-      ids: ['quick-wp-category', 'local-markdown-wp-category'],
+      ids: ['quick-wp-category', 'local-markdown-wp-category', 'quick-manuscript-wp-category'],
       type: 'input',
       default: ''
     }
@@ -7753,6 +7877,8 @@ function initGlobalPublishSettingsSync() {
     { key: 'last_quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' },
     { key: 'local_markdown_post_status', id: 'local-markdown-post-status', type: 'select', default: 'publish' },
     { key: 'local_markdown_schedule_date', id: 'local-markdown-schedule-date', type: 'input', default: '' },
+    { key: 'quick_manuscript_post_status', id: 'quick-manuscript-post-status', type: 'select', default: 'publish' },
+    { key: 'quick_manuscript_schedule_date', id: 'quick-manuscript-schedule-date', type: 'input', default: '' },
     { key: 'shopping_quick_wp_post_status', id: 'shopping-quick-wp-post-status', type: 'select', default: 'publish' },
     { key: 'shopping_quick_wp_schedule_date', id: 'shopping-quick-wp-schedule-date', type: 'input', default: '' }
   ];
@@ -7773,6 +7899,8 @@ function initGlobalPublishSettingsSync() {
         toggleQuickWpScheduleDate();
       } else if (item.id === 'local-markdown-post-status' && typeof window.toggleLocalMarkdownScheduleDate === 'function') {
         window.toggleLocalMarkdownScheduleDate();
+      } else if (item.id === 'quick-manuscript-post-status' && typeof window.toggleQuickManuscriptScheduleDate === 'function') {
+        window.toggleQuickManuscriptScheduleDate();
       } else if (item.id === 'shopping-quick-wp-post-status' && typeof toggleShoppingQuickWpScheduleDate === 'function') {
         toggleShoppingQuickWpScheduleDate();
       }
@@ -7782,6 +7910,7 @@ function initGlobalPublishSettingsSync() {
   // Initial dependency sync
   if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
   if (typeof window.toggleLocalMarkdownScheduleDate === 'function') window.toggleLocalMarkdownScheduleDate();
+  if (typeof window.toggleQuickManuscriptScheduleDate === 'function') window.toggleQuickManuscriptScheduleDate();
 }
 
 // Shopping Connect Quick Publish WP Helpers
