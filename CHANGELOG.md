@@ -3,6 +3,27 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.6-dev3] - 2026-03-15
+
+### Added
+- **Remote MCP Server (1차)**: 앱 내 별도 MCP remote service를 추가하고, localhost/LAN/reverse proxy 시나리오를 위한 HTTP 기반 MCP endpoint를 지원. `initialize`, `tools/list`, `tools/call`, bearer token 인증, 세션 관리, 설정 화면 제어를 포함.
+- **원고 포스팅 미리보기/실행**: 로컬 markdown 원고 폴더를 선택해 제목/본문/이미지 매칭을 미리보고, 기존 `contents.md + image` 발행 엔진을 재사용해 포스팅할 수 있는 흐름 추가.
+- **대시보드 Activity Feed**: 원시 로그 필터 대신 별도 Dashboard Activity/Event 저장 모듈을 도입해, 포스팅/설정 저장/서비스 시작·중지 같은 굵직한 활동만 최근 활동 이력에 표시하도록 개선.
+
+### Changed
+- **빠른 포스팅 확장**: `빠른 포스팅` 안에 `바로 생성` / `원고 선택` 모드를 추가하고, 원고 기반 포스팅을 quick 흐름 안으로 통합. 이후 별도 `원고 포스팅` 탭은 제거.
+- **빠른 포스팅 Preview 강화**: `글감 저장 / 바로 포스팅 / 미리보기 생성` 흐름을 분리하고, 플랫폼별(네이버/워드프레스) preview 탭과 preview 기반 재포스팅 흐름을 추가.
+- **설정 화면 재구성**: `설정 > 일반`을 `일반 설정 / Google 계정 연결 / 서버 설정 / 앱 업데이트` 섹션으로 정리하고, `MCP` 설정을 `AI` 탭으로 통합. `이미지 용량 최적화`는 `설정 > 블로그`의 발행 옵션으로 이동.
+- **Self-update 메타데이터 정리**: `custom`과 `github` 업데이트 경로 모두 `update.json` 기반 메타데이터(`details`, `sha256`)를 활용하도록 정리하고, `custom_update_check_url`은 base URL 기준으로 단순화.
+- **릴리즈 워크플로 parity**: `build.sh`, `build.yml`, `update.json` 생성 규칙을 맞추고, `rc` 태그도 prerelease로 처리하도록 CI/CD 릴리즈 동작을 정리.
+
+### Fixed
+- **강제 업데이트 회귀 수정**: `설정 > 일반 > 강제 업데이트`가 단순 최신 버전 확인처럼 동작하던 문제를 수정해, 현재 버전 재설치 흐름을 정상 지원.
+- **WordPress 접속 확인 오류 수정**: 설정 화면에서 워드프레스 접속 확인 시 `requestBody is not defined` 오류가 나던 회귀 수정.
+- **원고 포스팅 payload 제한 수정**: 원고 포스팅 실행 시 대용량 이미지 파일 전송으로 UI 서버 본문 제한에 걸리던 문제를 보완.
+- **빠른 포스팅 preview/포스팅 안정화**: 플랫폼 탭 전환 시 preview가 사라지거나 포스팅 완료 후 preview가 불필요하게 지워지던 문제를 수정.
+- **Gemini 이미지 호출 timeout 조정**: 지연이 긴 이미지 생성 요청에 대해 60초 timeout을 적용해 실패 감지와 재시도가 더 빠르게 이루어지도록 개선.
+
 ## [0.1.6-dev2] - 2026-03-12
 
 ### Added
