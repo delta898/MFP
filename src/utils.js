@@ -147,6 +147,87 @@ function truncateText(value, maxLength) {
     return text.slice(0, Math.max(0, maxLength - 1)).trimEnd() + '…';
 }
 
+function stripCodeFence(rawText) {
+    return String(rawText || '')
+        .replace(/^\s*```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/i, '')
+        .trim();
+}
+
+function extractBalancedJsonCandidate(rawText) {
+    const text = stripCodeFence(rawText);
+    if (!text) return '';
+
+    const starts = [];
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '{' || ch === '[') starts.push(i);
+    }
+
+    for (const start of starts) {
+        const opening = text[start];
+        const closing = opening === '{' ? '}' : ']';
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+
+        for (let i = start; i < text.length; i++) {
+            const ch = text[i];
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+                if (ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (ch === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (ch === '"') {
+                inString = true;
+                continue;
+            }
+
+            if (ch === opening) {
+                depth += 1;
+                continue;
+            }
+
+            if (ch === closing) {
+                depth -= 1;
+                if (depth === 0) {
+                    return text.slice(start, i + 1).trim();
+                }
+            }
+        }
+    }
+
+    return text;
+}
+
+function parseStructuredJsonResponse(rawText) {
+    const direct = stripCodeFence(rawText);
+    if (!direct) {
+        throw new Error('AI 응답이 비어 있습니다.');
+    }
+
+    try {
+        return JSON.parse(direct);
+    } catch (_ignore) { }
+
+    const extracted = extractBalancedJsonCandidate(direct);
+    if (!extracted) {
+        throw new Error('AI 응답에서 JSON 블록을 찾지 못했습니다.');
+    }
+
+    return JSON.parse(extracted);
+}
+
 function cleanTitleText(value) {
     const raw = normalizeTextWhitespace(String(value || '').replace(/\s+/g, ' '));
     if (!raw) return '';
@@ -3260,6 +3341,7 @@ const Utils = {
         const usageLabel = String(options?.usageLabel || 'Gemini Text API').trim() || 'Gemini Text API';
         const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
         const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
+        const responseMimeType = String(options?.responseMimeType || '').trim();
         const logStart = options?.logStart !== false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -3269,10 +3351,11 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => {
                         const body = { contents: [{ parts: [{ text: prompt }] }] };
-                        if (maxTokens || temperature !== null) {
+                        if (maxTokens || temperature !== null || responseMimeType) {
                             body.generationConfig = {};
                             if (maxTokens) body.generationConfig.maxOutputTokens = maxTokens;
                             if (temperature !== null) body.generationConfig.temperature = temperature;
+                            if (responseMimeType) body.generationConfig.responseMimeType = responseMimeType;
                         }
                         return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
                         body,
@@ -3370,6 +3453,8 @@ const Utils = {
             usageLabel: 'Agent Memory AI'
         });
     },
+
+    parseStructuredJsonResponse,
 
     // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가
     callGeminiImage: async function (prompt, savePath, retries = 3) {

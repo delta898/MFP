@@ -286,6 +286,16 @@ function buildUpdateDetailsMessage(info) {
   return lines.join('\n');
 }
 
+async function openUpdateDetailsDialog() {
+  if (!uiUpdateInfo) return;
+  await showUiDialog({
+    title: `v${uiUpdateInfo.latestVersion} 업데이트 안내`,
+    message: buildUpdateDetailsMessage(uiUpdateInfo),
+    showCancel: false,
+    confirmText: '확인'
+  });
+}
+
 async function checkUpdate(isManual = false, isForce = false) {
   try {
     if (isManual) {
@@ -7373,14 +7383,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const updateDetailsBtn = document.getElementById('update-details-btn');
     if (updateDetailsBtn) {
-      updateDetailsBtn.addEventListener('click', async () => {
-        if (!uiUpdateInfo) return;
-        await showUiDialog({
-          title: `v${uiUpdateInfo.latestVersion} 업데이트 안내`,
-          message: buildUpdateDetailsMessage(uiUpdateInfo),
-          showCancel: false,
-          confirmText: '확인'
-        });
+      updateDetailsBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void openUpdateDetailsDialog();
       });
     }
 
@@ -7391,6 +7397,16 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     }
   } catch (e) { console.warn('Update banner init error:', e); }
+
+  document.addEventListener('click', (event) => {
+    const detailsButton = event.target instanceof Element
+      ? event.target.closest('#update-details-btn')
+      : null;
+    if (!detailsButton) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void openUpdateDetailsDialog();
+  });
 
   try {
     const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');

@@ -1666,14 +1666,15 @@ ${scrapedContext}`;
 
 		// 3) Gemini 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
-		const rawResult = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt);
+		const rawResult = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt, 3, {
+			responseMimeType: 'application/json'
+		});
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
 
 		// 4) JSON 파싱
 		let parsedData;
 		try {
-			const jsonString = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
-			parsedData = JSON.parse(jsonString);
+			parsedData = Utils.parseStructuredJsonResponse(rawResult);
 		} catch (e) {
 			// 🔧 [Fixed] 디버깅을 위해 원본 AI 응답 로깅
 			const preview = rawResult.substring(0, 500);
