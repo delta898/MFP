@@ -2239,15 +2239,19 @@ function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
   if (!displays.length) return;
 
-  const styles = ['digital', 'analog', 'flip'];
-  let currentStyle = localStorage.getItem('bloggenius_clock_style') || 'digital';
-  if (!styles.includes(currentStyle)) currentStyle = 'digital';
+  const styles = ['digital', 'analog', 'flip', 'heart', 'split', 'neon', 'soft'];
+  let currentStyle = styles[Math.floor(Math.random() * styles.length)] || 'digital';
+  let previousValue = null;
 
   displays.forEach((display) => {
     display.addEventListener('click', () => {
       const nextIndex = (styles.indexOf(currentStyle) + 1) % styles.length;
       currentStyle = styles[nextIndex];
-      localStorage.setItem('bloggenius_clock_style', currentStyle);
+      displays.forEach((item) => {
+        item.classList.remove('clock-display-pulse');
+        void item.offsetWidth;
+        item.classList.add('clock-display-pulse');
+      });
       renderClock();
     });
   });
@@ -2258,6 +2262,9 @@ function initClockWidget() {
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
+    const hourChanged = previousValue && previousValue.h !== h;
+    const minuteChanged = previousValue && previousValue.m !== m;
+    const secondChanged = previousValue && previousValue.s !== s;
 
     if (style === 'digital') {
       const html = `<div style="font-size: 32px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a; line-height: 1;">
@@ -2304,7 +2311,68 @@ function initClockWidget() {
       displays.forEach((display) => {
         display.innerHTML = html;
       });
+    } else if (style === 'heart') {
+      const secDeg = now.getSeconds() * 6;
+      const minDeg = now.getMinutes() * 6 + now.getSeconds() * 0.1;
+      const hourDeg = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
+      const html = `
+        <div style="position:relative; width:112px; height:102px; margin-right:6px;">
+          <div style="position:absolute; inset:0; clip-path:polygon(50% 100%, 8% 63%, 8% 26%, 26% 26%, 26% 8%, 40% 8%, 40% 0, 60% 0, 60% 8%, 74% 8%, 74% 26%, 92% 26%, 92% 63%); background:linear-gradient(180deg,#fb923c 0%,#f97316 42%,#f43f5e 100%); border:4px solid rgba(255,255,255,0.72); box-shadow:0 12px 28px rgba(244,63,94,0.24), inset 0 1px 0 rgba(255,255,255,0.4);"></div>
+          <div style="position:absolute; inset:10px 12px 14px; clip-path:polygon(50% 100%, 8% 63%, 8% 26%, 26% 26%, 26% 8%, 40% 8%, 40% 0, 60% 0, 60% 8%, 74% 8%, 74% 26%, 92% 26%, 92% 63%); background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.02));"></div>
+          <div style="position:absolute; top:50%; left:50%; width:10px; height:10px; background:#334155; border:2px solid rgba(255,255,255,0.88); border-radius:999px; transform:translate(-50%, -50%); z-index:10; box-shadow:0 2px 4px rgba(15,23,42,0.18);"></div>
+          <div style="position:absolute; top:26%; bottom:50%; left:50%; width:5px; background:rgba(255,255,255,0.92); transform-origin:bottom center; transform:translateX(-50%) rotate(${hourDeg}deg); border-radius:999px; z-index:7;"></div>
+          <div style="position:absolute; top:16%; bottom:50%; left:50%; width:3px; background:rgba(241,245,249,0.95); transform-origin:bottom center; transform:translateX(-50%) rotate(${minDeg}deg); border-radius:999px; z-index:8;"></div>
+          <div style="position:absolute; top:12%; bottom:46%; left:50%; width:2px; background:#ffffff; transform-origin:bottom center; transform:translateX(-50%) rotate(${secDeg}deg); z-index:9; border-radius:999px; opacity:0.92;"></div>
+        </div>
+      `;
+      displays.forEach((display) => {
+        display.innerHTML = html;
+      });
+    } else if (style === 'split') {
+      const html = `
+        <div class="clock-split">
+          <div class="clock-split-block${hourChanged ? ' clock-split-flip' : ''}">
+            <span class="clock-split-label">Hour</span>
+            <span class="clock-split-value">${h}</span>
+          </div>
+          <div class="clock-split-block${minuteChanged ? ' clock-split-flip' : ''}">
+            <span class="clock-split-label">Min</span>
+            <span class="clock-split-value">${m}</span>
+          </div>
+          <div class="clock-split-block clock-split-block-accent${secondChanged ? ' clock-split-flip' : ''}">
+            <span class="clock-split-label">Sec</span>
+            <span class="clock-split-value">${s}</span>
+          </div>
+        </div>
+      `;
+      displays.forEach((display) => {
+        display.innerHTML = html;
+      });
+    } else if (style === 'neon') {
+      const html = `
+        <div style="display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border-radius:18px; background:linear-gradient(135deg,#020617,#111827 55%,#1e1b4b); box-shadow:0 0 0 1px rgba(34,211,238,0.18), 0 12px 28px rgba(15,23,42,0.32);">
+          <span style="font-size:30px; font-weight:800; font-family:monospace; letter-spacing:0.12em; color:#67e8f9; text-shadow:0 0 8px rgba(103,232,249,0.55); font-variant-numeric:tabular-nums;">${h}:${m}</span>
+          <span style="font-size:16px; font-weight:800; color:#c4b5fd; text-shadow:0 0 8px rgba(196,181,253,0.45); min-width:24px; text-align:center; font-variant-numeric:tabular-nums;">${s}</span>
+        </div>
+      `;
+      displays.forEach((display) => {
+        display.innerHTML = html;
+      });
+    } else if (style === 'soft') {
+      const html = `
+        <div style="display:inline-flex; align-items:center; gap:12px; padding:10px 16px; border-radius:20px; background:linear-gradient(135deg,#fdf2f8,#eef2ff); border:1px solid rgba(216,180,254,0.55); box-shadow:0 10px 24px rgba(148,163,184,0.14);">
+          <span style="display:inline-flex; width:10px; height:10px; border-radius:999px; background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,0.12);"></span>
+          <div style="display:flex; flex-direction:column; gap:2px; line-height:1;">
+            <span style="font-size:28px; font-weight:800; color:#1f2937; font-variant-numeric:tabular-nums;">${h}:${m}:${s}</span>
+          </div>
+        </div>
+      `;
+      displays.forEach((display) => {
+        display.innerHTML = html;
+      });
     }
+
+    previousValue = { h, m, s };
   }
 
   if (clockInterval) clearInterval(clockInterval);

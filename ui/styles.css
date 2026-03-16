@@ -2447,6 +2447,90 @@ h2 {
   user-select: none;
 }
 
+.clock-display.clock-display-pulse {
+  animation: clockDisplayPulse 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes clockDisplayPulse {
+  0% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+
+  45% {
+    transform: scale(1.035);
+    filter: saturate(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+}
+
+.clock-split {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clock-split-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #eef4ff);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.10);
+  border: 1px solid rgba(191, 219, 254, 0.85);
+  transform-origin: bottom center;
+  backface-visibility: hidden;
+}
+
+.clock-split-block-accent .clock-split-value {
+  color: #2563eb;
+}
+
+.clock-split-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.clock-split-value {
+  font-size: 24px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-split-flip {
+  animation: clockSplitFlipUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes clockSplitFlipUp {
+  0% {
+    opacity: 0.58;
+    transform: translateY(10px) rotateX(52deg) scaleY(0.9);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) rotateX(-10deg) scaleY(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg) scaleY(1);
+  }
+}
+
 .dash-badges {
   margin-top: 12px;
   display: flex;
