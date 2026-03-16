@@ -258,6 +258,8 @@ const DASHBOARD_EXTERNAL_CONTENT_REFRESH_MS = 5 * 60 * 1000;
 const SETTINGS_TYPING_PREVIEW_DEFAULT_TEXT = "나 보기가 역겨워 가실 때에는\n말없이 고이 보내 드리우리다\n영변에 약산 진달래꽃\n아름 따다 가실 길에 뿌리우리다";
 
 let uiUpdateInfo = null;
+let uiUpdateLastCheckedAt = 0;
+let uiUpdateCheckInFlight = false;
 const systemLogRenderState = {
   fileName: '',
   lastRaw: ''
@@ -265,6 +267,8 @@ const systemLogRenderState = {
 const MOBILE_QUICK_MODE_BREAKPOINT = 960;
 let isMobileQuickMode = false;
 let hasInitializedMobileQuickEntry = false;
+const UPDATE_AUTO_CHECK_STALE_MS = 6 * 60 * 60 * 1000;
+const UPDATE_AUTO_CHECK_POLL_MS = 30 * 60 * 1000;
 
 function formatUpdatePublishDate(value) {
   const raw = String(value || '').trim();
@@ -308,8 +312,59 @@ async function openUpdateDetailsDialog() {
   });
 }
 
+function highlightUpdateBanner() {
+  const banner = document.getElementById('update-banner');
+  if (!banner) return;
+  banner.classList.remove('update-banner-attention');
+  void banner.offsetWidth;
+  banner.classList.add('update-banner-attention');
+  window.setTimeout(() => {
+    banner.classList.remove('update-banner-attention');
+  }, 1800);
+}
+
+function scrollToUpdateBanner({ emphasize = false } = {}) {
+  const banner = document.getElementById('update-banner');
+  if (!banner || banner.classList.contains('hidden')) return;
+  banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (emphasize) highlightUpdateBanner();
+}
+
+function clearUpdateBannerState() {
+  uiUpdateInfo = null;
+  const banner = document.getElementById('update-banner');
+  const normalSection = document.getElementById('update-banner-normal');
+  const progressSection = document.getElementById('update-banner-progress');
+  const updateNowBtn = document.getElementById('update-now-btn');
+  const updateCloseBtn = document.getElementById('update-close-btn');
+  const updateCancelBtn = document.getElementById('update-cancel-btn');
+  if (banner) banner.classList.add('hidden');
+  if (normalSection) normalSection.style.display = '';
+  if (progressSection) progressSection.style.display = 'none';
+  if (updateNowBtn) updateNowBtn.style.display = '';
+  if (updateCloseBtn) updateCloseBtn.style.display = '';
+  if (updateCancelBtn) updateCancelBtn.style.display = 'none';
+}
+
+function shouldRefreshUpdateCheck() {
+  return !uiUpdateLastCheckedAt || (Date.now() - uiUpdateLastCheckedAt) >= UPDATE_AUTO_CHECK_STALE_MS;
+}
+
+async function ensureUpdateCheckFresh(options = {}) {
+  const { silent = true, force = false } = options;
+  if (uiUpdateCheckInFlight) return;
+  if (!force && !shouldRefreshUpdateCheck()) return;
+  uiUpdateCheckInFlight = true;
+  try {
+    await checkUpdate(!silent, force);
+  } finally {
+    uiUpdateCheckInFlight = false;
+  }
+}
+
 async function checkUpdate(isManual = false, isForce = false) {
   try {
+    uiUpdateLastCheckedAt = Date.now();
     if (isManual) {
       showUiPopup(isForce ? '전체 환경을 다시 점검하며 강제 업데이트를 확인 중입니다...' : '최신 버전을 확인하고 있습니다...');
     }
@@ -330,9 +385,12 @@ async function checkUpdate(isManual = false, isForce = false) {
         const msg = isForce
           ? `현재 버전과 동일하더라도 업데이트가 가능합니다.\n상단 알림 배너의 '지금 업데이트'를 눌러 재설치를 진행하세요.`
           : `새로운 버전 v${info.latestVersion}을 찾았습니다!\n상단 알림 배너의 '지금 업데이트'를 눌러 진행하세요.`;
-        showUiPopup(msg);
+        showUiPopup(msg).then(() => {
+          scrollToUpdateBanner({ emphasize: true });
+        });
       }
     } else {
+      clearUpdateBannerState();
       if (isManual) showUiPopup('현재 최신 버전을 사용 중입니다.');
     }
   } catch (e) {
@@ -642,8 +700,8 @@ function showUiDialog(options = {}) {
 
 function showUiPopup(message) {
   const text = String(message || '').trim();
-  if (!text) return;
-  void showUiDialog({
+  if (!text) return Promise.resolve(true);
+  return showUiDialog({
     title: '알림',
     message: text,
     showCancel: false
@@ -2270,6 +2328,7 @@ async function navigateTo(viewName, subTab) {
   navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
   views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
   if (viewName === 'dashboard') {
+    void ensureUpdateCheckFresh({ silent: true });
     loadDashboard();
     return;
   }
@@ -2301,6 +2360,7 @@ async function navigateTo(viewName, subTab) {
     return;
   }
   if (viewName === 'settings') {
+    void ensureUpdateCheckFresh({ silent: true });
     const tab = subTab || settingsActiveTab;
     if (isSettingsViewActive()) {
       activateSettingsTab(tab, { forceReload: false });
@@ -7347,9 +7407,20 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
-  try { checkUpdate(false); } catch (e) { console.warn('checkUpdate error:', e); }
+  try { ensureUpdateCheckFresh({ silent: true }); } catch (e) { console.warn('checkUpdate error:', e); }
   try { applyMobileQuickMode(); } catch (e) { console.warn('applyMobileQuickMode error:', e); }
   window.addEventListener('resize', applyMobileQuickMode);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void ensureUpdateCheckFresh({ silent: true });
+    }
+  });
+  window.addEventListener('focus', () => {
+    void ensureUpdateCheckFresh({ silent: true });
+  });
+  setInterval(() => {
+    void ensureUpdateCheckFresh({ silent: true });
+  }, UPDATE_AUTO_CHECK_POLL_MS);
 
   // Sidebar Toggle (Desktop)
   try {

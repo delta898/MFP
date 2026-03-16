@@ -28,6 +28,51 @@ const Logger = require('../logger');
 let win = null;
 let uiServer = null;
 
+function getUiRootUrl() {
+    if (!uiServer) return null;
+    return `http://${uiServer.openHost}:${uiServer.port}`;
+}
+
+function reloadWindowToRoot(ignoreCache = false) {
+    if (!win || win.isDestroyed()) return;
+    const rootUrl = getUiRootUrl();
+    if (!rootUrl) return;
+    if (ignoreCache) {
+        win.webContents.reloadIgnoringCache();
+        win.loadURL(rootUrl);
+        return;
+    }
+    win.loadURL(rootUrl);
+}
+
+async function recoverWindowFromBrokenRoute() {
+    if (!win || win.isDestroyed()) return;
+    const rootUrl = getUiRootUrl();
+    if (!rootUrl) return;
+    const currentUrl = win.webContents.getURL();
+    if (!currentUrl) return;
+    try {
+        const current = new URL(currentUrl);
+        const root = new URL(rootUrl);
+        const sameOrigin = current.origin === root.origin;
+        const isRootPath = current.pathname === '/' || current.pathname === '';
+        const pageText = await win.webContents.executeJavaScript(`
+            (() => ({
+                text: (document.body?.innerText || '').trim(),
+                title: document.title || ''
+            }))();
+        `, true);
+        const looksLikePlainNotFound = pageText
+            && String(pageText.text || '') === 'Not Found'
+            && !String(pageText.title || '');
+        if ((sameOrigin && !isRootPath) || looksLikePlainNotFound) {
+            reloadWindowToRoot(false);
+        }
+    } catch (_) {
+        // Ignore recovery probe failures and keep current page.
+    }
+}
+
 // Electron의 기본 메뉴를 제거하거나 커스터마이징합니다.
 function createMenu() {
     const template = [
@@ -54,8 +99,16 @@ function createMenu() {
         {
             label: '보기',
             submenu: [
-                { label: '새로고침', role: 'reload' },
-                { label: '강제 새로고침', role: 'forceReload' },
+                {
+                    label: '새로고침',
+                    accelerator: 'CmdOrCtrl+R',
+                    click: () => reloadWindowToRoot(false)
+                },
+                {
+                    label: '강제 새로고침',
+                    accelerator: 'Shift+CmdOrCtrl+R',
+                    click: () => reloadWindowToRoot(true)
+                },
                 { label: '개발자 도구', role: 'toggleDevTools' },
                 { type: 'separator' },
                 { label: '최대화', role: 'resetZoom' },
@@ -156,7 +209,7 @@ async function createWindow() {
     });
 
     // 3. 내장 서버 주소 로드
-    win.loadURL(`http://${uiServer.openHost}:${uiServer.port}`);
+    reloadWindowToRoot(false);
 
     win.on('closed', () => {
         win = null;
@@ -165,6 +218,19 @@ async function createWindow() {
     // 페이지 제목이 바뀌어도 앱 제목 고정
     win.on('page-title-updated', (e) => {
         e.preventDefault();
+    });
+
+    win.webContents.on('before-input-event', (event, input) => {
+        const isReloadKey = input.type === 'keyDown'
+            && input.key.toLowerCase() === 'r'
+            && (input.meta || input.control);
+        if (!isReloadKey) return;
+        event.preventDefault();
+        reloadWindowToRoot(Boolean(input.shift));
+    });
+
+    win.webContents.on('did-finish-load', () => {
+        void recoverWindowFromBrokenRoute();
     });
 }
 

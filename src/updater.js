@@ -22,6 +22,7 @@ class Updater {
         this.isUpdating = false;
         this.lastCheck = 0;
         this.updateInfo = null;
+        this.lastCheckWasForced = false;
 
         // 보존할 대상 (업데이트 시 절대 건드리지 않음)
         this.preserveList = ['config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store'];
@@ -194,7 +195,9 @@ class Updater {
     async checkForUpdate(options = {}) {
         const force = options.force === true;
         const now = Date.now();
-        if (!force && this.updateInfo && (now - this.lastCheck < 60000)) return this.updateInfo;
+        if (!force && this.updateInfo && !this.lastCheckWasForced && (now - this.lastCheck < 60000)) {
+            return this.updateInfo;
+        }
 
         if (force) {
             Logger.info('🔄 [Updater] 강제 업데이트 체크 모드 활성화');
@@ -225,6 +228,7 @@ class Updater {
         if (!force && !isNewer) {
             Logger.info(`✅ [Updater] 현재 최신 버전(v${this.currentVersion})을 사용 중입니다.`);
             this.lastCheck = now;
+            this.lastCheckWasForced = false;
             this.updateInfo = { hasUpdate: false, latestVersion };
             return this.updateInfo;
         }
@@ -234,6 +238,7 @@ class Updater {
         const hasUpdate = !!matchingAsset;
 
         this.lastCheck = now;
+        this.lastCheckWasForced = force;
         this.updateInfo = {
             hasUpdate,
             isNewer, // 버전 자체는 높지만 에셋이 없을 수 있음

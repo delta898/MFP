@@ -417,6 +417,12 @@ function sanitizePathname(pathname) {
     return normalized.startsWith('/') ? normalized.slice(1) : normalized;
 }
 
+function shouldServeUiShell(pathname, safePath) {
+    if (pathname === '/') return true;
+    if (!safePath) return true;
+    return path.extname(safePath) === '';
+}
+
 function createRequestId() {
     return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -6119,8 +6125,11 @@ async function startUiServer(options = {}) {
                 return sendError(res, requestId, 405, 'METHOD_NOT_ALLOWED', '지원하지 않는 메서드입니다.');
             }
 
-            const safePath = sanitizePathname(pathname === '/' ? 'index.html' : pathname);
-            const fullPath = path.join(uiRoot, safePath);
+            const safePath = sanitizePathname(pathname);
+            const requestedPath = shouldServeUiShell(pathname, safePath)
+                ? 'index.html'
+                : safePath;
+            const fullPath = path.join(uiRoot, requestedPath);
             const rootPrefix = `${uiRoot}${path.sep}`;
             if (!(fullPath === uiRoot || fullPath.startsWith(rootPrefix))) {
                 return sendError(res, requestId, 403, 'FORBIDDEN_PATH', '허용되지 않은 경로입니다.');
