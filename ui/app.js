@@ -97,6 +97,11 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
+function syncFooterVersion(version) {
+  const el = document.getElementById('footer-version-display');
+  if (el && version) el.textContent = `v${version}`;
+}
+
 function setPre(id, data) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -758,6 +763,7 @@ async function loadConfigStatus() {
     if (versionBadge) {
       const v = status?.version || '0.0.0';
       versionBadge.textContent = `v${v}`;
+      syncFooterVersion(v);
       console.log('[UI] Version badge updated to:', v);
     }
 
@@ -1851,6 +1857,7 @@ async function loadDashboard() {
       const versionBadge = document.getElementById('badge-version');
       if (versionBadge && health.version) {
         versionBadge.textContent = `v${health.version}`;
+        syncFooterVersion(health.version);
       }
       const settingsVersionDisplay = document.getElementById('settings-current-version-display');
       if (settingsVersionDisplay && health.version) {
