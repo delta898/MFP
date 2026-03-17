@@ -1574,6 +1574,8 @@ ${messageText}
 		Logger.info(`│ 🔗 참고 URL   : ${hasRef ? jobData.content_guide.reference_urls.join(', ') : '(없음)'}`);
 		Logger.info(`│ 🌐 외부 참고  : ${useExternalRef ? '✅ 예' : '❌ 아니오'}`);
 		Logger.info(`│ 🖼️  이미지 생성: ${jobData.image_options?.generate !== false ? '✅ 예' : '❌ 아니오'}`);
+		Logger.info(`│ 🤖 TEXT 모델  : ${String(CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
+		Logger.info(`│ 🎨 IMG 모델   : ${String(CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
 		Logger.info(`│ 📤 발행 옵션  : ${jobData.post_status || runtimeOptions.postStatus || '임시저장'}`);
 		Logger.info("└─────────────────────────────────────────");
 
@@ -1666,7 +1668,7 @@ ${scrapedContext}`;
 
 		// 3) Gemini 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
-		const rawResult = await Utils.callGeminiText(systemPrompt + '\n' + userPrompt, 3, {
+		const rawResult = await Utils.callWritingText(systemPrompt + '\n' + userPrompt, 3, {
 			responseMimeType: 'application/json'
 		});
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
@@ -1777,7 +1779,7 @@ ${scrapedContext}`;
 			const prompt = `${item.prompt}, ${style}, high quality, no text`;
 
 			try {
-				await Utils.callGeminiImage(prompt, path.join(dirPath, `${prefix}_image`));
+				await Utils.callWritingImage(prompt, path.join(dirPath, `${prefix}_image`));
 			} catch (imageErr) {
 				Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
 			}

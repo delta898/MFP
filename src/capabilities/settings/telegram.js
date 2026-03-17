@@ -55,8 +55,9 @@ function createTelegramCapabilities(deps = {}) {
             async execute(params = {}) {
                 const config = configState.loadStructuredConfig();
                 if (params.mode === 'custom') {
-                    const baseUrl = String(config.ai_settings.custom.base_url || '').trim();
-                    const model = String(config.ai_settings.custom.model || '').trim();
+                    const chatModel = config.ai_settings.CHAT_MODEL || {};
+                    const baseUrl = String(chatModel.base_url || '').trim();
+                    const model = String(chatModel.model || '').trim();
                     if (!baseUrl || !model) {
                         throw new Error('Custom AI를 사용하려면 AI 설정에 Base URL과 Model이 필요합니다.');
                     }

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
+const { getAiPresets, resolveAiModelConfig } = require('./ai-model-config');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -226,6 +227,12 @@ delete structuredConfig.__CONFIG_SOURCE_TYPE;
 delete structuredConfig.__CONFIG_READY;
 delete structuredConfig.__CONFIG_ERROR_MESSAGE;
 
+const aiPresets = getAiPresets(structuredConfig);
+const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');
+const resolvedImageModelConfig = resolveAiModelConfig(structuredConfig, 'image');
+const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';
+const geminiImageModelCode = resolvedImageModelConfig.provider === 'gemini' ? resolvedImageModelConfig.code : '';
+
 const licenseKeyInfo = loadLicenseKey();
 
 const activeConfigDir = (() => {
@@ -283,7 +290,7 @@ function resolveRuntimePath(rawPath, options = {}) {
 }
 
 // 💡 [환경변수 및 동적 경로 처리]
-const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.essential.google_oauth_tokens_json || '').trim();
+const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.general?.google_oauth_tokens_json || '').trim();
 const googleOauthTokensPath = resolveRuntimePath(googleOauthTokensRaw || './config/google_oauth_tokens.json', { mustExist: false });
 const googleOauthClientId = String(
     process.env.GOOGLE_OAUTH_CLIENT_ID
@@ -296,7 +303,7 @@ const googleOauthClientSecret = String(
     || ''
 ).trim();
 
-const workspaceRaw = String(structuredConfig.essential.workspace_dir || '').trim();
+const workspaceRaw = String(structuredConfig.general?.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw
     ? resolveRuntimePath(workspaceRaw)
     : path.join(activeAppRoot, 'workspace');
@@ -317,7 +324,7 @@ if (fs.existsSync(oldAuthPath) && !fs.existsSync(resolvedAuthPath)) {
 
 const resolvedLicenseKeyPath = licenseKeyInfo.path || path.join(activeConfigDir, 'license.key');
 
-const userSheetUrl = String(structuredConfig.essential.google_sheet_url || '').trim();
+const userSheetUrl = String(structuredConfig.general?.google_sheet_url || '').trim();
 const resolvedSheetId = extractGoogleSheetId(userSheetUrl);
 const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
@@ -340,15 +347,14 @@ const CONFIG = {
     ROOT_DIR: ROOT_DIR,
 
     // 🔧 [Essential Resolved]
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY || structuredConfig.essential.gemini_api_key,
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
     GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
     GOOGLE_OAUTH_TOKENS_JSON: googleOauthTokensRaw,
     GOOGLE_OAUTH_TOKENS_JSON_PATH: googleOauthTokensPath,
     GOOGLE_SHEET_URL: resolvedSheetUrl,
     GOOGLE_SHEET_ID: resolvedSheetId,
-    LISTEN_HOST: structuredConfig.essential.listen_host || '127.0.0.1',
-    LISTEN_PORT: structuredConfig.essential.listen_port || 4577,
+    LISTEN_HOST: structuredConfig.general?.listen_host || '127.0.0.1',
+    LISTEN_PORT: structuredConfig.general?.listen_port || 4577,
     WORKSPACE_DIR: resolvedWorkspaceDir,
     LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
 
@@ -363,8 +369,19 @@ const CONFIG = {
     CONFIG_DIR: activeConfigDir,
 
     // 🔧 [More Flat Keys for Backward Compatibility]
-    TEXT_MODEL: structuredConfig.ai_settings.text_model,
-    IMAGE_MODEL: structuredConfig.ai_settings.image_model,
+    TEXT_MODEL: resolvedTextModelConfig.code,
+    IMAGE_MODEL: resolvedImageModelConfig.code,
+    TEXT_MODEL_CONFIG: resolvedTextModelConfig,
+    IMAGE_MODEL_CONFIG: resolvedImageModelConfig,
+    AI_PRESETS: aiPresets,
+    TEXT_MODEL_NAME: resolvedTextModelConfig.name,
+    TEXT_MODEL_PROVIDER: resolvedTextModelConfig.provider,
+    TEXT_MODEL_BASE_URL: resolvedTextModelConfig.base_url,
+    TEXT_MODEL_API_KEY: resolvedTextModelConfig.api_key,
+    IMAGE_MODEL_NAME: resolvedImageModelConfig.name,
+    IMAGE_MODEL_PROVIDER: resolvedImageModelConfig.provider,
+    IMAGE_MODEL_BASE_URL: resolvedImageModelConfig.base_url,
+    IMAGE_MODEL_API_KEY: resolvedImageModelConfig.api_key,
     IMAGE_STYLE: structuredConfig.ai_settings.image_style,
     FTC_DISCLOSURE_IMAGE_URL: structuredConfig.platforms.naver.assets.ftc_image,
     SHOPPING_CTA_IMAGE_URL1: structuredConfig.platforms.naver.assets.cta_images?.[0] || '',
@@ -435,8 +452,12 @@ const CONFIG = {
     },
 
     // 🔧 [AI/Dynamic]
-    GEMINI_TEXT_ENDPOINT: `https://generativelanguage.googleapis.com/v1beta/models/${structuredConfig.ai_settings.text_model || 'gemini-3.1-flash-lite-preview'}:generateContent`,
-    GEMINI_IMAGE_ENDPOINT: `https://generativelanguage.googleapis.com/v1beta/models/${structuredConfig.ai_settings.image_model || 'gemini-2.5-flash-image'}:generateContent`,
+    GEMINI_TEXT_ENDPOINT: geminiTextModelCode
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${geminiTextModelCode}:generateContent`
+        : '',
+    GEMINI_IMAGE_ENDPOINT: geminiImageModelCode
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${geminiImageModelCode}:generateContent`
+        : '',
     TYPING_SPEED: typingMode,
     TYPING: typingDelay,
     CLOSE_DELAY: (structuredConfig.platforms.naver.close_delay_seconds || 10) * 1000,
@@ -451,9 +472,9 @@ const CONFIG = {
     NOTIFY_TELEGRAM_CHAT_ID: structuredConfig.notification?.telegram?.chat_id || '',
     NOTIFY_BITLY_TOKEN: structuredConfig.notification?.telegram?.bitly_token || '',
     TELEGRAM_CHAT_AI_MODE: structuredConfig.notification?.telegram?.chat_ai_mode === 'custom' ? 'custom' : 'default',
-    CUSTOM_AI_BASE_URL: structuredConfig.ai_settings?.custom?.base_url || '',
-    CUSTOM_AI_API_KEY: structuredConfig.ai_settings?.custom?.api_key || '',
-    CUSTOM_AI_MODEL: structuredConfig.ai_settings?.custom?.model || '',
+    CHAT_MODEL_BASE_URL: structuredConfig.ai_settings?.CHAT_MODEL?.base_url || '',
+    CHAT_MODEL_API_KEY: structuredConfig.ai_settings?.CHAT_MODEL?.api_key || '',
+    CHAT_MODEL_CODE: structuredConfig.ai_settings?.CHAT_MODEL?.model || '',
     KNOWLEDGE_PROVIDERS: Array.isArray(structuredConfig.knowledge?.providers) ? structuredConfig.knowledge.providers : [],
     KNOWLEDGE_ROUTING: structuredConfig.knowledge?.routing && typeof structuredConfig.knowledge.routing === 'object' ? structuredConfig.knowledge.routing : {},
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,
@@ -474,7 +495,7 @@ const CONFIG = {
 
     // 🆕 필수 설정 완료 여부 (UX 개선용)
     get CONFIG_IS_ESSENTIAL_SET() {
-        const apiKey = String(this.GEMINI_API_KEY || '').trim();
+        const apiKey = String(this.TEXT_MODEL_API_KEY || '').trim();
         const sheetId = String(this.GOOGLE_SHEET_ID || '').trim();
         const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
 

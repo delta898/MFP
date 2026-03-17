@@ -82,12 +82,12 @@ Logger.debug('[Init] Core modules loaded.');
 // 이를 실제 API 호출 주소(URL)로 변환하여 상수를 덮어씁니다.
 const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-if (CONFIG.TEXT_MODEL) {
+if (CONFIG.TEXT_MODEL_PROVIDER === 'gemini' && CONFIG.TEXT_MODEL) {
     Constants.GEMINI_TEXT_ENDPOINT = `${BASE_API_URL}/${CONFIG.TEXT_MODEL}:generateContent`;
     // console.log(`🧠 텍스트 모델 적용: ${CONFIG.TEXT_MODEL}`);
 }
 
-if (CONFIG.IMAGE_MODEL) {
+if (CONFIG.IMAGE_MODEL_PROVIDER === 'gemini' && CONFIG.IMAGE_MODEL) {
     Constants.GEMINI_IMAGE_ENDPOINT = `${BASE_API_URL}/${CONFIG.IMAGE_MODEL}:generateContent`;
     // console.log(`🎨 이미지 모델 적용: ${CONFIG.IMAGE_MODEL}`);
 }

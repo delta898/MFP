@@ -4463,6 +4463,46 @@ select.inline-editor {
   border-left: 4px solid #3b82f6;
 }
 
+.settings-model-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 18px 18px 16px;
+}
+
+.settings-model-card + .settings-model-card {
+  margin-top: 4px;
+}
+
+.settings-model-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.settings-model-grid {
+  gap: 16px 18px;
+  align-items: start;
+}
+
+.settings-model-grid label {
+  display: grid;
+  grid-template-rows: auto auto minmax(16px, auto);
+  align-content: start;
+  gap: 6px;
+}
+
+.settings-model-grid label > small {
+  display: block;
+  min-height: 16px;
+  line-height: 1.35;
+}
+
+.settings-model-grid .settings-model-helper-spacer {
+  visibility: hidden;
+}
+
 .blog-quick-options {
   display: flex;
   flex-direction: column;

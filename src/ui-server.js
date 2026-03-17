@@ -34,6 +34,7 @@ const {
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
+const { getAiPresets, buildModelSelectionFromFields } = require('./ai-model-config');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
 const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
@@ -761,7 +762,6 @@ function buildDefaultConfigTemplate() {
     return [
         '# BlogGenius config (auto-generated)',
         'NAVER_ID = ',
-        'GEMINI_API_KEY = ',
         'GOOGLE_SHEET_URL = ',
         'WORDPRESS_USER_ID = ' + (CONFIG.WORDPRESS_USER_ID || ''),
         'WORDPRESS_APP_PASSWORD = ',
@@ -1283,7 +1283,6 @@ function buildMajorSettings(raw, configSource) {
         WORDPRESS_URL: CONFIG.WORDPRESS_URL,
         WORDPRESS_USER_ID: CONFIG.WORDPRESS_USER_ID,
         WORDPRESS_APP_PASSWORD: CONFIG.WORDPRESS_APP_PASSWORD,
-        GEMINI_API_KEY: CONFIG.GEMINI_API_KEY,
         GOOGLE_SHEET_URL: CONFIG.GOOGLE_SHEET_URL,
         HEADLESS: CONFIG.HEADLESS,
         IMAGE_OPTIMIZATION_ENABLED: CONFIG.IMAGE_OPTIMIZATION_ENABLED,
@@ -1296,6 +1295,16 @@ function buildMajorSettings(raw, configSource) {
         UPDATE_SERVER_TYPE: CONFIG.UPDATE_SERVER_TYPE || 'github',
         CUSTOM_UPDATE_CHECK_URL: CONFIG.CUSTOM_UPDATE_CHECK_URL || '',
         UPDATE_MIRROR_REPO: CONFIG.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases',
+        TEXT_MODEL_PROVIDER: CONFIG.TEXT_MODEL_CONFIG?.provider || 'gemini',
+        TEXT_MODEL_PRESET_CODE: CONFIG.TEXT_MODEL_CONFIG?.provider === 'direct' ? '' : (CONFIG.TEXT_MODEL_CONFIG?.code || ''),
+        TEXT_MODEL_NAME: CONFIG.TEXT_MODEL_CONFIG?.name || '',
+        TEXT_MODEL_BASE_URL: CONFIG.TEXT_MODEL_CONFIG?.base_url || '',
+        TEXT_MODEL_API_KEY: CONFIG.TEXT_MODEL_CONFIG?.api_key || '',
+        IMAGE_MODEL_PROVIDER: CONFIG.IMAGE_MODEL_CONFIG?.provider || 'gemini',
+        IMAGE_MODEL_PRESET_CODE: CONFIG.IMAGE_MODEL_CONFIG?.provider === 'direct' ? '' : (CONFIG.IMAGE_MODEL_CONFIG?.code || ''),
+        IMAGE_MODEL_NAME: CONFIG.IMAGE_MODEL_CONFIG?.name || '',
+        IMAGE_MODEL_BASE_URL: CONFIG.IMAGE_MODEL_CONFIG?.base_url || '',
+        IMAGE_MODEL_API_KEY: CONFIG.IMAGE_MODEL_CONFIG?.api_key || '',
 
         // Automation - Trends
         COLLECT_TRENDS_ENABLED: CONFIG.COLLECT_TRENDS_ENABLED,
@@ -1341,10 +1350,10 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN,
         TELEGRAM_CHAT_AI_MODE: CONFIG.TELEGRAM_CHAT_AI_MODE || 'default',
 
-        // Custom AI
-        CUSTOM_AI_BASE_URL: CONFIG.CUSTOM_AI_BASE_URL,
-        CUSTOM_AI_API_KEY: CONFIG.CUSTOM_AI_API_KEY,
-        CUSTOM_AI_MODEL: CONFIG.CUSTOM_AI_MODEL,
+        // Chat Model (Custom AI)
+        CHAT_MODEL_BASE_URL: CONFIG.CHAT_MODEL_BASE_URL,
+        CHAT_MODEL_API_KEY: CONFIG.CHAT_MODEL_API_KEY,
+        CHAT_MODEL_CODE: CONFIG.CHAT_MODEL_CODE,
 
         // Slack Notification
         NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
@@ -1366,6 +1375,7 @@ function buildMajorSettings(raw, configSource) {
             : null,
         remoteMcpStatus: getRemoteServiceStatus(),
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
+        aiPresets: getAiPresets(CONFIG),
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
         shoppingImageSlots: buildShoppingImageSlots(fields)
     };
@@ -1378,7 +1388,6 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const wordpressUrl = String(fields.WORDPRESS_URL || '').trim();
     const wordpressUserId = String(fields.WORDPRESS_USER_ID || '').trim();
     const wordpressAppPassword = String(fields.WORDPRESS_APP_PASSWORD || '').trim();
-    const geminiApiKey = String(fields.GEMINI_API_KEY || '').trim();
     const googleSheetUrl = normalizeGoogleSheetUrl(fields.GOOGLE_SHEET_URL, CONFIG.GOOGLE_SHEET_ID);
     const googleSheetId = extractGoogleSheetId(googleSheetUrl);
     const headless = Boolean(fields.HEADLESS);
@@ -1387,6 +1396,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl1 = String(fields.SHOPPING_CTA_IMAGE_URL1 || '').trim();
     const ctaImageUrl2 = String(fields.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
+    const aiPresets = getAiPresets(CONFIG);
+    const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
+    const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
     const autoSettings = normalizeBlogAutoSettings(fields);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
     const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG, {
@@ -1403,7 +1415,6 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.WORDPRESS_APP_PASSWORD = wordpressAppPassword;
     CONFIG.LISTEN_HOST = listenHost;
     CONFIG.LISTEN_PORT = listenPort;
-    CONFIG.GEMINI_API_KEY = geminiApiKey;
     CONFIG.GOOGLE_SHEET_URL = googleSheetUrl;
     CONFIG.GOOGLE_SHEET_ID = googleSheetId;
     CONFIG.HEADLESS = headless;
@@ -1411,6 +1422,24 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.UPDATE_SERVER_TYPE = String(fields.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
     CONFIG.CUSTOM_UPDATE_CHECK_URL = String(fields.CUSTOM_UPDATE_CHECK_URL || '').trim();
     CONFIG.UPDATE_MIRROR_REPO = String(fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
+    CONFIG.TEXT_MODEL_CONFIG = textModelConfig;
+    CONFIG.IMAGE_MODEL_CONFIG = imageModelConfig;
+    CONFIG.TEXT_MODEL = textModelConfig.code;
+    CONFIG.IMAGE_MODEL = imageModelConfig.code;
+    CONFIG.TEXT_MODEL_NAME = textModelConfig.name;
+    CONFIG.IMAGE_MODEL_NAME = imageModelConfig.name;
+    CONFIG.TEXT_MODEL_PROVIDER = textModelConfig.provider;
+    CONFIG.IMAGE_MODEL_PROVIDER = imageModelConfig.provider;
+    CONFIG.TEXT_MODEL_BASE_URL = textModelConfig.base_url;
+    CONFIG.IMAGE_MODEL_BASE_URL = imageModelConfig.base_url;
+    CONFIG.TEXT_MODEL_API_KEY = textModelConfig.api_key;
+    CONFIG.IMAGE_MODEL_API_KEY = imageModelConfig.api_key;
+    CONFIG.GEMINI_TEXT_ENDPOINT = textModelConfig.provider === 'gemini' && textModelConfig.code
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${textModelConfig.code}:generateContent`
+        : '';
+    CONFIG.GEMINI_IMAGE_ENDPOINT = imageModelConfig.provider === 'gemini' && imageModelConfig.code
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModelConfig.code}:generateContent`
+        : '';
     CONFIG.TYPING_SPEED = typingSpeed;
     CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
     CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;
@@ -1460,10 +1489,10 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.NOTIFY_BITLY_TOKEN = String(fields.NOTIFY_BITLY_TOKEN || '').trim();
     CONFIG.TELEGRAM_CHAT_AI_MODE = String(fields.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default';
 
-    // Custom AI
-    CONFIG.CUSTOM_AI_BASE_URL = String(fields.CUSTOM_AI_BASE_URL || '').trim();
-    CONFIG.CUSTOM_AI_API_KEY = String(fields.CUSTOM_AI_API_KEY || '').trim();
-    CONFIG.CUSTOM_AI_MODEL = String(fields.CUSTOM_AI_MODEL || '').trim();
+    // Chat Model (Custom AI)
+    CONFIG.CHAT_MODEL_BASE_URL = String(fields.CHAT_MODEL_BASE_URL || '').trim();
+    CONFIG.CHAT_MODEL_API_KEY = String(fields.CHAT_MODEL_API_KEY || '').trim();
+    CONFIG.CHAT_MODEL_CODE = String(fields.CHAT_MODEL_CODE || '').trim();
 
     // Slack Notify
     CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
@@ -1485,7 +1514,6 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const wordpressUrl = String(requestBody.WORDPRESS_URL || '').trim();
     const wordpressUserId = String(requestBody.WORDPRESS_USER_ID || '').trim();
     const wordpressAppPassword = String(requestBody.WORDPRESS_APP_PASSWORD || '').trim();
-    const geminiApiKey = String(requestBody.GEMINI_API_KEY || '').trim();
     const googleSheetUrl = normalizeGoogleSheetUrl(requestBody.GOOGLE_SHEET_URL, requestBody.GOOGLE_SHEET_ID);
     const headless = normalizeBool(requestBody.HEADLESS, false);
     const typingSpeed = normalizeTypingSpeed(requestBody.TYPING_SPEED, 'NORMAL');
@@ -1526,6 +1554,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const updateServerType = String(requestBody.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
     const customUpdateCheckUrl = String(requestBody.CUSTOM_UPDATE_CHECK_URL || '').trim();
     const updateMirrorRepo = String(requestBody.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
+    const aiPresets = getAiPresets(CONFIG);
+    const textModelConfig = buildModelSelectionFromFields('text', requestBody, aiPresets);
+    const imageModelConfig = buildModelSelectionFromFields('image', requestBody, aiPresets);
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
@@ -1537,13 +1568,22 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         WORDPRESS_URL: wordpressUrl,
         WORDPRESS_USER_ID: wordpressUserId,
         WORDPRESS_APP_PASSWORD: wordpressAppPassword,
-        GEMINI_API_KEY: geminiApiKey,
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
         IMAGE_OPTIMIZATION_ENABLED: imageOptimizationEnabled,
         UPDATE_SERVER_TYPE: updateServerType,
         CUSTOM_UPDATE_CHECK_URL: customUpdateCheckUrl,
         UPDATE_MIRROR_REPO: updateMirrorRepo,
+        TEXT_MODEL_PROVIDER: textModelConfig.provider,
+        TEXT_MODEL_PRESET_CODE: textModelConfig.provider === 'direct' ? '' : textModelConfig.code,
+        TEXT_MODEL_NAME: textModelConfig.name,
+        TEXT_MODEL_BASE_URL: textModelConfig.base_url,
+        TEXT_MODEL_API_KEY: textModelConfig.api_key,
+        IMAGE_MODEL_PROVIDER: imageModelConfig.provider,
+        IMAGE_MODEL_PRESET_CODE: imageModelConfig.provider === 'direct' ? '' : imageModelConfig.code,
+        IMAGE_MODEL_NAME: imageModelConfig.name,
+        IMAGE_MODEL_BASE_URL: imageModelConfig.base_url,
+        IMAGE_MODEL_API_KEY: imageModelConfig.api_key,
         TYPING_SPEED: typingSpeed,
         FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,
@@ -1563,9 +1603,9 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim(),
         TELEGRAM_CHAT_AI_MODE: String(requestBody.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default',
 
-        CUSTOM_AI_BASE_URL: String(requestBody.CUSTOM_AI_BASE_URL || '').trim(),
-        CUSTOM_AI_API_KEY: String(requestBody.CUSTOM_AI_API_KEY || '').trim(),
-        CUSTOM_AI_MODEL: String(requestBody.CUSTOM_AI_MODEL || '').trim(),
+        CHAT_MODEL_BASE_URL: String(requestBody.CHAT_MODEL_BASE_URL || '').trim(),
+        CHAT_MODEL_API_KEY: String(requestBody.CHAT_MODEL_API_KEY || '').trim(),
+        CHAT_MODEL_CODE: String(requestBody.CHAT_MODEL_CODE || '').trim(),
 
         NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
         NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),
@@ -2715,7 +2755,7 @@ async function prepareMissingImagesForLocalMarkdown(tempDir, previewData, runtim
 
         Logger.info(`   🎨 [LocalMarkdown] 누락 이미지 생성 중 (Index ${image.index})`);
         try {
-            await Utils.callGeminiImage(prompt, path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`));
+            await Utils.callWritingImage(prompt, path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`));
         } catch (imageError) {
             Logger.warn(`⚠️ [LocalMarkdown] 누락 이미지 생성 실패 (Index ${image.index}): ${imageError.message}`);
         }

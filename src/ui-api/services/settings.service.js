@@ -9,6 +9,10 @@ const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken
 } = require('../../mcp/remote-config');
+const {
+    getAiPresets,
+    buildModelSelectionFromFields
+} = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 
 function createSettingsService(deps = {}) {
@@ -147,15 +151,30 @@ function createSettingsService(deps = {}) {
 
             // 계층 구조에 맞춰 필드 업데이트
             // 1. Essential
-            if (!structuredConfig.essential) structuredConfig.essential = {};
-            structuredConfig.essential.gemini_api_key = fields.GEMINI_API_KEY;
-            structuredConfig.essential.google_sheet_url = fields.GOOGLE_SHEET_URL;
-            structuredConfig.essential.listen_host = fields.LISTEN_HOST;
-            structuredConfig.essential.listen_port = Number(fields.LISTEN_PORT);
+            if (!structuredConfig.general) structuredConfig.general = {};
+            structuredConfig.general.google_sheet_url = fields.GOOGLE_SHEET_URL;
+            structuredConfig.general.listen_host = fields.LISTEN_HOST;
+            structuredConfig.general.listen_port = Number(fields.LISTEN_PORT);
 
             // 2. AI Settings
             if (!structuredConfig.ai_settings) structuredConfig.ai_settings = {};
-            // text_model, image_model 등은 고급 설정에서 관리하거나 기본값 유지
+            const aiPresets = getAiPresets(structuredConfig);
+            const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
+            const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
+            if (!String(textModelConfig.api_key || '').trim()) {
+                throw createApiError(400, 'INVALID_TEXT_MODEL', '텍스트 모델의 API Key를 입력해주세요.');
+            }
+            if (textModelConfig.provider === 'direct' && (!String(textModelConfig.name || '').trim() || !String(textModelConfig.base_url || '').trim())) {
+                throw createApiError(400, 'INVALID_TEXT_MODEL', '텍스트 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
+            }
+            if (!String(imageModelConfig.api_key || '').trim()) {
+                throw createApiError(400, 'INVALID_IMAGE_MODEL', '이미지 모델의 API Key를 입력해주세요.');
+            }
+            if (imageModelConfig.provider === 'direct' && (!String(imageModelConfig.name || '').trim() || !String(imageModelConfig.base_url || '').trim())) {
+                throw createApiError(400, 'INVALID_IMAGE_MODEL', '이미지 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
+            }
+            structuredConfig.ai_settings.TEXT_MODEL = textModelConfig;
+            structuredConfig.ai_settings.IMAGE_MODEL = imageModelConfig;
 
             // 3. Platforms
             if (!structuredConfig.platforms) structuredConfig.platforms = {};
@@ -254,19 +273,22 @@ function createSettingsService(deps = {}) {
             structuredConfig.notification.telegram.bot_token = fields.NOTIFY_TELEGRAM_BOT_TOKEN;
             structuredConfig.notification.telegram.chat_id = fields.NOTIFY_TELEGRAM_CHAT_ID;
             structuredConfig.notification.telegram.bitly_token = fields.NOTIFY_BITLY_TOKEN;
-            const hasCustomAiBaseUrl = Boolean(String(fields.CUSTOM_AI_BASE_URL || '').trim());
-            const hasCustomAiModel = Boolean(String(fields.CUSTOM_AI_MODEL || '').trim());
+            const hasCustomAiBaseUrl = Boolean(String(fields.CHAT_MODEL_BASE_URL || '').trim());
+            const hasCustomAiModel = Boolean(String(fields.CHAT_MODEL_CODE || '').trim());
             const hasCustomAiConfig = hasCustomAiBaseUrl && hasCustomAiModel;
             if (fields.TELEGRAM_CHAT_AI_MODE === 'custom' && !hasCustomAiConfig) {
                 throw createApiError(400, 'INVALID_CUSTOM_AI', '텔레그램 채팅 모델로 Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
             }
             structuredConfig.notification.telegram.chat_ai_mode = fields.TELEGRAM_CHAT_AI_MODE || 'default';
             if (!structuredConfig.ai_settings) structuredConfig.ai_settings = {};
-            structuredConfig.ai_settings.custom = {
-                base_url: fields.CUSTOM_AI_BASE_URL,
-                api_key: fields.CUSTOM_AI_API_KEY,
-                model: fields.CUSTOM_AI_MODEL
+            structuredConfig.ai_settings.CHAT_MODEL = {
+                base_url: fields.CHAT_MODEL_BASE_URL,
+                api_key: fields.CHAT_MODEL_API_KEY,
+                model: fields.CHAT_MODEL_CODE
             };
+            if ('custom' in structuredConfig.ai_settings) {
+                delete structuredConfig.ai_settings.custom;
+            }
             if (!structuredConfig.system) structuredConfig.system = {};
             structuredConfig.system.update_channel = String(structuredConfig.system.update_channel || 'stable').trim() || 'stable';
             structuredConfig.system.update_server_type = fields.UPDATE_SERVER_TYPE;
@@ -386,6 +408,7 @@ function createSettingsService(deps = {}) {
                     ? '주요 설정 저장 완료. 서버가 재시작됩니다...'
                     : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서버 설정이 적용되었습니다.' : '주요 설정 저장 완료'),
                 fields: updatedSettings.fields,
+                aiPresets: updatedSettings.aiPresets,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
                 shoppingImageDefaults: updatedSettings.shoppingImageDefaults,
                 remoteMcpStatus
@@ -446,7 +469,6 @@ function createSettingsService(deps = {}) {
                 LISTEN_HOST: parseConfigValue(content, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
                 LISTEN_PORT: parseConfigValue(content, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
                 NAVER_ID: parseConfigValue(content, 'NAVER_ID') || CONFIG.NAVER_ID,
-                GEMINI_API_KEY: parseConfigValue(content, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
                 GOOGLE_SHEET_URL: parseConfigValue(content, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
                 HEADLESS: parseConfigValue(content, 'HEADLESS'),
                 TYPING_SPEED: parseConfigValue(content, 'TYPING_SPEED'),

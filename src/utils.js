@@ -118,6 +118,19 @@ function normalizeTelegramCustomAiBaseUrl(rawBaseUrl) {
     return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
 }
 
+function normalizeOpenAiCompatibleBaseUrl(rawBaseUrl) {
+    return String(rawBaseUrl || '').trim().replace(/\/+$/, '');
+}
+
+function formatReadableErrorMessage(error) {
+    const raw = String(error?.message || error || '').trim();
+    if (!raw) return '알 수 없는 오류';
+    return raw.replace(/timeout of (\d+)ms exceeded/gi, (_, ms) => {
+        const seconds = Math.max(1, Math.round(Number(ms) / 1000));
+        return `timeout (${seconds}초 초과)`;
+    });
+}
+
 function extractOpenAIChatContent(data) {
     const content = data?.choices?.[0]?.message?.content;
     if (typeof content === 'string') return content;
@@ -131,6 +144,15 @@ function extractOpenAIChatContent(data) {
         })
         .join('')
         .trim();
+}
+
+function extractOpenAIImageBuffer(data) {
+    const item = Array.isArray(data?.data) ? data.data[0] : null;
+    if (!item) return null;
+    if (typeof item.b64_json === 'string' && item.b64_json.trim()) {
+        return Buffer.from(item.b64_json, 'base64');
+    }
+    return null;
 }
 
 function normalizeTextWhitespace(value) {
@@ -3337,7 +3359,8 @@ const Utils = {
 
     // 🔧 [Fixed] Gemini API 재시도 로직 추가 (지수 백오프)
     callGeminiText: async function (prompt, retries = 3, options = {}) {
-        if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
+        const apiKey = String(options?.apiKey || '').trim();
+        if (!apiKey) throw new Error('API Key 누락');
         const usageLabel = String(options?.usageLabel || 'Gemini Text API').trim() || 'Gemini Text API';
         const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
         const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
@@ -3357,7 +3380,7 @@ const Utils = {
                             if (temperature !== null) body.generationConfig.temperature = temperature;
                             if (responseMimeType) body.generationConfig.responseMimeType = responseMimeType;
                         }
-                        return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`,
+                        return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${apiKey}`,
                         body,
                         { headers: { 'Content-Type': 'application/json' }, timeout: 120000 }
                     );
@@ -3384,9 +3407,9 @@ const Utils = {
 
     callCustomAiText: async function (prompt, retries = 3, options = {}) {
         const usageLabel = String(options?.usageLabel || 'Custom AI').trim() || 'Custom AI';
-        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.CUSTOM_AI_BASE_URL);
-        const model = String(CONFIG.CUSTOM_AI_MODEL || '').trim();
-        const apiKey = String(CONFIG.CUSTOM_AI_API_KEY || '').trim();
+        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.CHAT_MODEL_BASE_URL);
+        const model = String(CONFIG.CHAT_MODEL_CODE || '').trim();
+        const apiKey = String(CONFIG.CHAT_MODEL_API_KEY || '').trim();
         const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
         const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
         const logStart = options?.logStart !== false;
@@ -3442,6 +3465,74 @@ const Utils = {
         return this.callGeminiText(prompt, retries, options);
     },
 
+    callOpenAiCompatibleTextByConfig: async function (modelConfig = {}, prompt, retries = 3, options = {}) {
+        const usageLabel = String(options?.usageLabel || 'Writing Text Model').trim() || 'Writing Text Model';
+        const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
+        const model = String(modelConfig.code || '').trim();
+        const apiKey = String(modelConfig.api_key || '').trim();
+        const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
+        const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
+        const logStart = options?.logStart !== false;
+
+        if (!baseUrl || !model) throw new Error(`${usageLabel} 설정에 Base URL과 Model Code가 필요합니다.`);
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                if (logStart) Logger.info(`🧠 [${usageLabel}] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
+                const response = await this.runWithHeartbeat(
+                    `(시도 ${attempt})`,
+                    () => {
+                        const body = {
+                            model,
+                            messages: [{ role: 'user', content: prompt }]
+                        };
+                        if (maxTokens) body.max_tokens = maxTokens;
+                        if (temperature !== null) body.temperature = temperature;
+                        return axios.post(`${baseUrl}/chat/completions`, body, {
+                            headers,
+                            timeout: 120000
+                        });
+                    }
+                );
+                const text = extractOpenAIChatContent(response.data);
+                if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
+                return text;
+            } catch (e) {
+                Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                if (attempt === retries) {
+                    Logger.error(`❌ [${usageLabel}] 최대 재시도 횟수 초과`);
+                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${e.message}`);
+                }
+                const waitTime = 1000 * Math.pow(2, attempt - 1);
+                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
+                await this.sleep(waitTime);
+            }
+        }
+    },
+
+    callWritingText: async function (prompt, retries = 3, options = {}) {
+        const modelConfig = CONFIG.TEXT_MODEL_CONFIG || {};
+        const provider = String(modelConfig.provider || '').trim().toLowerCase();
+        const usageLabel = String(options?.usageLabel || modelConfig.name || '글쓰기 텍스트 모델').trim();
+        const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
+        const modelCode = String(modelConfig.code || '').trim();
+        Logger.info(`🤖 [${usageLabel}] 텍스트 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'}`);
+        if (provider === 'gemini') {
+            return this.callGeminiText(prompt, retries, {
+                ...options,
+                usageLabel,
+                apiKey: String(modelConfig.api_key || '').trim()
+            });
+        }
+        return this.callOpenAiCompatibleTextByConfig(modelConfig, prompt, retries, {
+            ...options,
+            usageLabel
+        });
+    },
+
     callTelegramChatModel: async function (prompt, retries = 3) {
         return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
             usageLabel: 'Custom AI'
@@ -3457,13 +3548,14 @@ const Utils = {
     parseStructuredJsonResponse,
 
     // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가
-    callGeminiImage: async function (prompt, savePath, retries = 3) {
-        if (!CONFIG.GEMINI_API_KEY) throw new Error('API Key 누락');
-        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 60000);
+    callGeminiImage: async function (prompt, savePath, retries = 3, options = {}) {
+        const apiKey = String(options?.apiKey || '').trim();
+        if (!apiKey) throw new Error('API Key 누락');
+        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const endpoint = `${CONFIG.GEMINI_IMAGE_ENDPOINT}?key=${CONFIG.GEMINI_API_KEY}`;
+                const endpoint = `${CONFIG.GEMINI_IMAGE_ENDPOINT}?key=${apiKey}`;
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => axios.post(endpoint,
@@ -3495,7 +3587,7 @@ const Utils = {
 
                 return fullPath;
             } catch (e) {
-                Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
 
                 if (attempt === retries) {
                     Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
@@ -3508,6 +3600,70 @@ const Utils = {
                 await this.sleep(waitTime);
             }
         }
+    },
+
+    callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3) {
+        const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
+        const model = String(modelConfig.code || '').trim();
+        const apiKey = String(modelConfig.api_key || '').trim();
+        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
+        if (!baseUrl || !model) throw new Error('이미지 모델 설정에 Base URL과 Model Code가 필요합니다.');
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const response = await this.runWithHeartbeat(
+                    `(시도 ${attempt})`,
+                    () => axios.post(`${baseUrl}/images/generations`, {
+                        model,
+                        prompt,
+                        size: '1024x1024',
+                        response_format: 'b64_json'
+                    }, {
+                        headers,
+                        timeout: imageTimeoutMs
+                    })
+                );
+                let imageBuffer = extractOpenAIImageBuffer(response.data);
+                if (!imageBuffer) {
+                    const imageUrl = String(response.data?.data?.[0]?.url || '').trim();
+                    if (imageUrl) {
+                        const downloaded = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: imageTimeoutMs });
+                        imageBuffer = Buffer.from(downloaded.data);
+                    }
+                }
+                if (!imageBuffer) throw new Error('OpenAI-compatible 이미지 응답에서 b64_json 또는 url을 찾지 못했습니다.');
+                const fullPath = `${savePath}.png`;
+                fs.writeFileSync(fullPath, imageBuffer);
+                Logger.info(`   ✅ 이미지 저장 완료: ${path.basename(fullPath)}`);
+                return fullPath;
+            } catch (e) {
+                Logger.warn(`⚠️ OpenAI-compatible Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
+                if (attempt === retries) {
+                    Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
+                    throw e;
+                }
+                const waitTime = 1000 * Math.pow(2, attempt - 1);
+                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
+                await this.sleep(waitTime);
+            }
+        }
+    },
+
+    callWritingImage: async function (prompt, savePath, retries = 3) {
+        const modelConfig = CONFIG.IMAGE_MODEL_CONFIG || {};
+        const provider = String(modelConfig.provider || '').trim().toLowerCase();
+        const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
+        const modelCode = String(modelConfig.code || '').trim();
+        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'}`);
+        if (provider === 'gemini') {
+            return this.callGeminiImage(prompt, savePath, retries, {
+                apiKey: String(modelConfig.api_key || '').trim()
+            });
+        }
+        return this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries);
     },
 
     parseMarkdown: function (raw) {

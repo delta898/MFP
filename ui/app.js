@@ -108,6 +108,102 @@ function setPre(id, data) {
   el.textContent = JSON.stringify(data, null, 2);
 }
 
+function scrollLogTargetIntoView(targetEl) {
+  if (!targetEl || typeof targetEl.scrollIntoView !== 'function') return;
+  requestAnimationFrame(() => {
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+const SETTINGS_SECRET_FIELD_IDS = [
+  'settings-wordpress-app-password',
+  'settings-notify-telegram-bot-token',
+  'settings-notify-bitly-token',
+  'settings-text-model-api-key',
+  'settings-image-model-api-key',
+  'settings-custom-ai-api-key',
+  'settings-notify-slack-webhook-url'
+];
+
+function maskPartialSecret(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  if (raw.length <= 8) return '•'.repeat(raw.length);
+
+  const headCount = Math.min(5, Math.max(3, Math.floor(raw.length * 0.12)));
+  const tailCount = Math.min(4, Math.max(2, Math.floor(raw.length * 0.08)));
+  const maskCount = Math.max(4, raw.length - headCount - tailCount);
+
+  return `${raw.slice(0, headCount)}${'•'.repeat(maskCount)}${raw.slice(raw.length - tailCount)}`;
+}
+
+function isManagedSettingsSecretField(el) {
+  return Boolean(el?.dataset?.secretManaged === 'true');
+}
+
+function getManagedSettingsSecretValue(el) {
+  if (!el) return '';
+  return String(el.dataset.secretRaw ?? el.value ?? '');
+}
+
+function syncManagedSettingsSecretDisplay(el) {
+  if (!el) return;
+  const raw = getManagedSettingsSecretValue(el);
+  const isFocused = el.dataset.secretFocused === 'true';
+  el.type = 'text';
+  el.autocomplete = 'off';
+  el.spellcheck = false;
+  el.value = isFocused ? raw : maskPartialSecret(raw);
+}
+
+function setManagedSettingsSecretValue(el, value = '') {
+  if (!el) return;
+  el.dataset.secretRaw = String(value ?? '');
+  syncManagedSettingsSecretDisplay(el);
+}
+
+function bindManagedSettingsSecretField(el) {
+  if (!el || isManagedSettingsSecretField(el)) return;
+
+  el.dataset.secretManaged = 'true';
+  el.dataset.secretFocused = 'false';
+  el.dataset.secretRaw = String(el.value || '');
+  syncManagedSettingsSecretDisplay(el);
+
+  el.addEventListener('focus', () => {
+    el.dataset.secretFocused = 'true';
+    syncManagedSettingsSecretDisplay(el);
+    requestAnimationFrame(() => {
+      try { el.select(); } catch (_) {}
+    });
+  });
+
+  el.addEventListener('input', () => {
+    el.dataset.secretRaw = String(el.value || '');
+  });
+
+  el.addEventListener('blur', () => {
+    el.dataset.secretFocused = 'false';
+    el.dataset.secretRaw = String(el.value || '');
+    syncManagedSettingsSecretDisplay(el);
+  });
+}
+
+function initManagedSettingsSecretFields() {
+  SETTINGS_SECRET_FIELD_IDS
+    .map((id) => document.getElementById(id))
+    .filter(Boolean)
+    .forEach(bindManagedSettingsSecretField);
+}
+
+function getSettingsInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  return isManagedSettingsSecretField(el)
+    ? getManagedSettingsSecretValue(el)
+    : String(el.value || '');
+}
+
 function parsePositiveInt(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -215,6 +311,7 @@ let quickGeneratedPreviewState = {
 let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
+let settingsAiPresets = { text: [], image: [] };
 let naverCommentDraftItems = [];
 let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;
@@ -1548,6 +1645,46 @@ function escapeHtml(input) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function isSafePreviewHref(href) {
+  const normalized = String(href || '').trim();
+  return /^https?:\/\//i.test(normalized);
+}
+
+function renderInlinePreviewHtml(input) {
+  const source = String(input ?? '');
+  if (!source) return '';
+
+  const parts = [];
+  const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\b(https?:\/\/[^\s<]+)/gi;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = markdownLinkPattern.exec(source)) !== null) {
+    const [fullMatch, markdownLabel = '', markdownHref = '', bareHref = ''] = match;
+    const matchIndex = match.index;
+    if (matchIndex > lastIndex) {
+      parts.push(escapeHtml(source.slice(lastIndex, matchIndex)));
+    }
+
+    const href = markdownHref || bareHref;
+    if (isSafePreviewHref(href)) {
+      const label = markdownLabel || bareHref;
+      parts.push(
+        `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`
+      );
+    } else {
+      parts.push(escapeHtml(fullMatch));
+    }
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  if (lastIndex < source.length) {
+    parts.push(escapeHtml(source.slice(lastIndex)));
+  }
+
+  return parts.join('');
 }
 
 function normalizeCommaListText(input) {
@@ -3460,6 +3597,10 @@ function applySettingsMajorToForm(data, options = {}) {
   const sv = (el, val) => {
     if (!el) return;
     if (skipFocused && document.activeElement === el) return;
+    if (isManagedSettingsSecretField(el)) {
+      setManagedSettingsSecretValue(el, val);
+      return;
+    }
     el.value = String(val);
   };
   const sc = (el, val) => {
@@ -3479,7 +3620,6 @@ function applySettingsMajorToForm(data, options = {}) {
   const wordpressUrlEl = document.getElementById('settings-wordpress-url');
   const wordpressUserIdEl = document.getElementById('settings-wordpress-user-id');
   const wordpressAppPasswordEl = document.getElementById('settings-wordpress-app-password');
-  const geminiKeyEl = document.getElementById('settings-gemini-api-key');
   const sheetUrlEl = document.getElementById('settings-google-sheet-url');
   const updateServerTypeEl = document.getElementById('settings-update-server-type');
   const updateMirrorRepoEl = document.getElementById('settings-update-mirror-repo');
@@ -3513,6 +3653,16 @@ function applySettingsMajorToForm(data, options = {}) {
   const telegramChatIdEl = document.getElementById('settings-notify-telegram-chat-id');
   const bitlyTokenEl = document.getElementById('settings-notify-bitly-token');
   const telegramChatAiModeEl = document.getElementById('settings-telegram-chat-ai-mode');
+  const textModelPresetProviderEl = document.getElementById('settings-text-model-preset-provider');
+  const textModelPresetCodeEl = document.getElementById('settings-text-model-preset-code');
+  const textModelNameEl = document.getElementById('settings-text-model-name');
+  const textModelBaseUrlEl = document.getElementById('settings-text-model-base-url');
+  const textModelApiKeyEl = document.getElementById('settings-text-model-api-key');
+  const imageModelPresetProviderEl = document.getElementById('settings-image-model-preset-provider');
+  const imageModelPresetCodeEl = document.getElementById('settings-image-model-preset-code');
+  const imageModelNameEl = document.getElementById('settings-image-model-name');
+  const imageModelBaseUrlEl = document.getElementById('settings-image-model-base-url');
+  const imageModelApiKeyEl = document.getElementById('settings-image-model-api-key');
   const customAiBaseUrlEl = document.getElementById('settings-custom-ai-base-url');
   const customAiApiKeyEl = document.getElementById('settings-custom-ai-api-key');
   const customAiModelEl = document.getElementById('settings-custom-ai-model');
@@ -3534,11 +3684,31 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
-  sv(geminiKeyEl, fields.GEMINI_API_KEY || '');
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
   sv(updateServerTypeEl, fields.UPDATE_SERVER_TYPE || 'github');
   sv(updateMirrorRepoEl, fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases');
   sv(customUpdateCheckUrlEl, fields.CUSTOM_UPDATE_CHECK_URL || '');
+  if (data?.aiPresets) {
+    settingsAiPresets = data.aiPresets;
+  }
+  if (textModelPresetProviderEl) {
+    textModelPresetProviderEl.dataset.desiredValue = fields.TEXT_MODEL_PROVIDER || 'gemini';
+  }
+  if (textModelPresetCodeEl) {
+    textModelPresetCodeEl.dataset.desiredValue = fields.TEXT_MODEL_PRESET_CODE || '';
+  }
+  sv(textModelNameEl, fields.TEXT_MODEL_NAME || '');
+  sv(textModelBaseUrlEl, fields.TEXT_MODEL_BASE_URL || '');
+  sv(textModelApiKeyEl, fields.TEXT_MODEL_API_KEY || '');
+  if (imageModelPresetProviderEl) {
+    imageModelPresetProviderEl.dataset.desiredValue = fields.IMAGE_MODEL_PROVIDER || 'gemini';
+  }
+  if (imageModelPresetCodeEl) {
+    imageModelPresetCodeEl.dataset.desiredValue = fields.IMAGE_MODEL_PRESET_CODE || '';
+  }
+  sv(imageModelNameEl, fields.IMAGE_MODEL_NAME || '');
+  sv(imageModelBaseUrlEl, fields.IMAGE_MODEL_BASE_URL || '');
+  sv(imageModelApiKeyEl, fields.IMAGE_MODEL_API_KEY || '');
   if (updateChannelDisplayEl) {
     updateChannelDisplayEl.textContent = `현재 채널: ${fields.UPDATE_CHANNEL || 'stable'}`;
   }
@@ -3637,9 +3807,9 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(telegramChatIdEl, fields.NOTIFY_TELEGRAM_CHAT_ID || '');
   sv(bitlyTokenEl, fields.NOTIFY_BITLY_TOKEN || '');
   sv(telegramChatAiModeEl, fields.TELEGRAM_CHAT_AI_MODE || 'default');
-  sv(customAiBaseUrlEl, fields.CUSTOM_AI_BASE_URL || '');
-  sv(customAiApiKeyEl, fields.CUSTOM_AI_API_KEY || '');
-  sv(customAiModelEl, fields.CUSTOM_AI_MODEL || '');
+  sv(customAiBaseUrlEl, fields.CHAT_MODEL_BASE_URL || '');
+  sv(customAiApiKeyEl, fields.CHAT_MODEL_API_KEY || '');
+  sv(customAiModelEl, fields.CHAT_MODEL_CODE || '');
   sc(slackEnabledEl, fields.NOTIFY_SLACK_ENABLED);
   sv(slackWebhookUrlEl, fields.NOTIFY_SLACK_WEBHOOK_URL || '');
 
@@ -3667,6 +3837,8 @@ function applySettingsMajorToForm(data, options = {}) {
   syncSettingsTelegramUi();
   syncSettingsMcpUi();
   syncSettingsUpdateSourceUi();
+  syncSettingsAiModelUi('text');
+  syncSettingsAiModelUi('image');
   playSettingsTypingPreview();
 
   settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
@@ -3695,12 +3867,21 @@ function getSettingsMajorBasicValuesFromDom() {
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
-    WORDPRESS_APP_PASSWORD: (document.getElementById('settings-wordpress-app-password')?.value || '').trim(),
-    GEMINI_API_KEY: (document.getElementById('settings-gemini-api-key')?.value || '').trim(),
+    WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
     CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),
     UPDATE_MIRROR_REPO: (document.getElementById('settings-update-mirror-repo')?.value || 'delta898/NaverAutoBlog-Releases').trim(),
+    TEXT_MODEL_PROVIDER: (document.getElementById('settings-text-model-preset-provider')?.value || 'gemini').trim(),
+    TEXT_MODEL_PRESET_CODE: (document.getElementById('settings-text-model-preset-code')?.value || '').trim(),
+    TEXT_MODEL_NAME: (document.getElementById('settings-text-model-name')?.value || '').trim(),
+    TEXT_MODEL_BASE_URL: (document.getElementById('settings-text-model-base-url')?.value || '').trim(),
+    TEXT_MODEL_API_KEY: getSettingsInputValue('settings-text-model-api-key').trim(),
+    IMAGE_MODEL_PROVIDER: (document.getElementById('settings-image-model-preset-provider')?.value || 'gemini').trim(),
+    IMAGE_MODEL_PRESET_CODE: (document.getElementById('settings-image-model-preset-code')?.value || '').trim(),
+    IMAGE_MODEL_NAME: (document.getElementById('settings-image-model-name')?.value || '').trim(),
+    IMAGE_MODEL_BASE_URL: (document.getElementById('settings-image-model-base-url')?.value || '').trim(),
+    IMAGE_MODEL_API_KEY: getSettingsInputValue('settings-image-model-api-key').trim(),
 
     IMAGE_OPTIMIZATION_ENABLED: Boolean(document.getElementById('settings-image-optimization')?.checked),
 
@@ -3746,17 +3927,17 @@ function getSettingsMajorBasicValuesFromDom() {
 
     // Notification (Telegram)
     NOTIFY_TELEGRAM_ENABLED: Boolean(document.getElementById('settings-notify-telegram-enabled')?.checked),
-    NOTIFY_TELEGRAM_BOT_TOKEN: (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim(),
+    NOTIFY_TELEGRAM_BOT_TOKEN: getSettingsInputValue('settings-notify-telegram-bot-token').trim(),
     NOTIFY_TELEGRAM_CHAT_ID: (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim(),
-    NOTIFY_BITLY_TOKEN: (document.getElementById('settings-notify-bitly-token')?.value || '').trim(),
+    NOTIFY_BITLY_TOKEN: getSettingsInputValue('settings-notify-bitly-token').trim(),
     TELEGRAM_CHAT_AI_MODE: (document.getElementById('settings-telegram-chat-ai-mode')?.value || 'default').trim(),
-    CUSTOM_AI_BASE_URL: (document.getElementById('settings-custom-ai-base-url')?.value || '').trim(),
-    CUSTOM_AI_API_KEY: (document.getElementById('settings-custom-ai-api-key')?.value || '').trim(),
-    CUSTOM_AI_MODEL: (document.getElementById('settings-custom-ai-model')?.value || '').trim(),
+    CHAT_MODEL_BASE_URL: (document.getElementById('settings-custom-ai-base-url')?.value || '').trim(),
+    CHAT_MODEL_API_KEY: getSettingsInputValue('settings-custom-ai-api-key').trim(),
+    CHAT_MODEL_CODE: (document.getElementById('settings-custom-ai-model')?.value || '').trim(),
 
     // Notification (Slack)
     NOTIFY_SLACK_ENABLED: Boolean(document.getElementById('settings-notify-slack-enabled')?.checked),
-    NOTIFY_SLACK_WEBHOOK_URL: (document.getElementById('settings-notify-slack-webhook-url')?.value || '').trim(),
+    NOTIFY_SLACK_WEBHOOK_URL: getSettingsInputValue('settings-notify-slack-webhook-url').trim(),
   };
 }
 
@@ -3859,7 +4040,7 @@ function syncSettingsMcpTokenDisplay() {
 
 function buildSettingsTelegramPreviewLines() {
   const enabled = Boolean(document.getElementById('settings-notify-telegram-enabled')?.checked);
-  const botToken = String(document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim();
+  const botToken = getSettingsInputValue('settings-notify-telegram-bot-token').trim();
   const chatId = String(document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim();
   const runtimeRunning = settingsTelegramRuntimeStatus?.running === true;
   const runtimeEnabled = settingsTelegramRuntimeStatus?.enabled === true;
@@ -3954,6 +4135,123 @@ function syncSettingsUpdateSourceUi() {
   }
   if (customField) {
     customField.style.display = updateServerType === 'custom' ? '' : 'none';
+  }
+}
+
+function getSettingsAiPresetCatalog(kind) {
+  return Array.isArray(settingsAiPresets?.[kind]) ? settingsAiPresets[kind] : [];
+}
+
+function getSettingsAiPresetProviders(kind) {
+  const presetProviders = getSettingsAiPresetCatalog(kind)
+    .map((item) => String(item.provider || '').trim())
+    .filter(Boolean);
+  return Array.from(new Set([...presetProviders, 'direct']));
+}
+
+function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
+  if (!selectEl) return;
+  const providers = getSettingsAiPresetProviders(kind);
+  const labels = {
+    gemini: 'Gemini',
+    anthropic: 'Claude',
+    direct: '직접 입력'
+  };
+  const resolvedProvider = providers.includes(selectedProvider) ? selectedProvider : (providers[0] || '');
+  selectEl.innerHTML = providers
+    .map((provider) => `<option value="${provider}">${labels[provider] || provider}</option>`)
+    .join('');
+  if (resolvedProvider) {
+    selectEl.value = resolvedProvider;
+  }
+}
+
+function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl, selectedCode) {
+  if (!selectEl) return;
+  const presets = getSettingsAiPresetCatalog(kind).filter((item) => String(item.provider || '') === String(provider || ''));
+  const fallback = presets[0] || null;
+  const selected = presets.find((item) => item.code === selectedCode) || fallback;
+  selectEl.innerHTML = presets
+    .map((item) => `<option value="${item.code}">${item.name || item.code}</option>`)
+    .join('');
+  if (selected?.code) {
+    selectEl.value = selected.code;
+  }
+  if (summaryEl) {
+    summaryEl.textContent = selected?.base_url
+      ? `기본 Base URL: ${selected.base_url}`
+      : '';
+  }
+  return selected;
+}
+
+function syncSettingsAiModelUi(kind) {
+  const prefix = kind === 'image' ? 'image' : 'text';
+  const providerWrapEl = document.getElementById(`settings-${prefix}-model-provider-wrap`);
+  const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
+  const presetWrapEl = document.getElementById(`settings-${prefix}-model-preset-code-wrap`);
+  const presetEl = document.getElementById(`settings-${prefix}-model-preset-code`);
+  const summaryEl = document.getElementById(`settings-${prefix}-model-preset-summary`);
+  const nameEl = document.getElementById(`settings-${prefix}-model-name`);
+  const nameWrapEl = document.getElementById(`settings-${prefix}-model-name-wrap`);
+  const baseUrlEl = document.getElementById(`settings-${prefix}-model-base-url`);
+  const baseUrlWrapEl = document.getElementById(`settings-${prefix}-model-base-url-wrap`);
+  if (!providerEl) return;
+
+  const desiredProvider = String(providerEl?.dataset?.desiredValue || providerEl?.value || 'gemini').trim();
+  const selectedCode = String(presetEl?.dataset?.desiredValue || presetEl?.value || '').trim();
+
+  populateSettingsAiProviderSelect(kind, providerEl, desiredProvider);
+  const resolvedProvider = String(providerEl.value || desiredProvider || 'gemini').trim();
+  const isDirect = resolvedProvider === 'direct';
+
+  if (providerWrapEl) providerWrapEl.style.display = '';
+  if (presetWrapEl) presetWrapEl.style.display = isDirect ? 'none' : '';
+  if (nameWrapEl) nameWrapEl.style.display = isDirect ? '' : 'none';
+  if (baseUrlWrapEl) baseUrlWrapEl.style.display = '';
+  providerEl.dataset.desiredValue = resolvedProvider;
+
+  if (presetEl) {
+    presetEl.disabled = isDirect;
+  }
+  if (nameEl) {
+    nameEl.disabled = !isDirect;
+  }
+
+  if (!isDirect && providerEl) {
+    const selected = populateSettingsAiPresetModelSelect(kind, resolvedProvider, presetEl, summaryEl, selectedCode);
+    if (presetEl) presetEl.dataset.desiredValue = presetEl.value || '';
+    if (baseUrlEl) {
+      baseUrlEl.value = selected?.base_url || '';
+      baseUrlEl.readOnly = true;
+    }
+    if (nameEl) {
+      nameEl.readOnly = false;
+    }
+  } else {
+    if (summaryEl) summaryEl.textContent = '';
+    if (presetEl) {
+      presetEl.innerHTML = '';
+      presetEl.dataset.desiredValue = '';
+    }
+    if (baseUrlEl) {
+      baseUrlEl.readOnly = false;
+    }
+    if (nameEl) {
+      nameEl.readOnly = false;
+    }
+  }
+}
+
+function captureSettingsAiModelDesiredState(kind) {
+  const prefix = kind === 'image' ? 'image' : 'text';
+  const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
+  const presetEl = document.getElementById(`settings-${prefix}-model-preset-code`);
+  if (providerEl) {
+    providerEl.dataset.desiredValue = String(providerEl.value || '').trim();
+  }
+  if (presetEl) {
+    presetEl.dataset.desiredValue = String(presetEl.value || '').trim();
   }
 }
 
@@ -4573,7 +4871,7 @@ async function verifyWordPressAuthFromUi() {
 
   const wordpressUrl = (document.getElementById('settings-wordpress-url')?.value || '').trim();
   const wordpressUserId = (document.getElementById('settings-wordpress-user-id')?.value || '').trim();
-  const wordpressAppPassword = (document.getElementById('settings-wordpress-app-password')?.value || '').trim();
+  const wordpressAppPassword = getSettingsInputValue('settings-wordpress-app-password').trim();
 
   updateSettingsStatus('#settings-wordpress-verify-result', '연동 확인 중...', 'info');
   if (btn) btn.disabled = true;
@@ -5649,7 +5947,7 @@ function bindActions() {
 
     items.forEach((item) => {
       const type = String(item?.type || 'paragraph');
-      const text = escapeHtml(item?.text || '');
+      const text = renderInlinePreviewHtml(item?.text || '');
       if (type !== 'list-item') closeList();
 
       if (type === 'header-h2') {
@@ -5838,6 +6136,7 @@ function bindActions() {
     }
 
     try {
+      scrollLogTargetIntoView(resultEl);
       const actionText = mode === 'append_and_generate'
         ? '미리보기 생성'
         : (mode === 'publish' ? '바로 포스팅' : '글감 저장');
@@ -5898,6 +6197,7 @@ function bindActions() {
       return;
     }
 
+    scrollLogTargetIntoView(resultEl);
     quickPublishInFlight = true;
     if (saveBtn) saveBtn.disabled = true;
     if (directPublishBtn) directPublishBtn.disabled = true;
@@ -6055,7 +6355,7 @@ function bindActions() {
 
     items.forEach((item) => {
       const type = String(item?.type || 'paragraph');
-      const text = escapeHtml(item?.text || '');
+      const text = renderInlinePreviewHtml(item?.text || '');
       if (type !== 'list-item') closeList();
 
       if (type === 'header-h2') {
@@ -6386,6 +6686,7 @@ function bindActions() {
         return;
       }
 
+      scrollLogTargetIntoView(resultEl);
       publishInFlight = true;
       const publishButtons = (ids.publishButtons || []).map((id) => document.getElementById(id)).filter(Boolean);
       publishButtons.forEach((button) => { button.disabled = true; });
@@ -7142,10 +7443,15 @@ function bindActions() {
     document.getElementById('settings-wordpress-url'),
     document.getElementById('settings-wordpress-user-id'),
     document.getElementById('settings-wordpress-app-password'),
-    document.getElementById('settings-gemini-api-key'),
     document.getElementById('settings-google-sheet-url'),
     document.getElementById('settings-update-mirror-repo'),
     document.getElementById('settings-custom-update-check-url'),
+    document.getElementById('settings-text-model-name'),
+    document.getElementById('settings-text-model-base-url'),
+    document.getElementById('settings-text-model-api-key'),
+    document.getElementById('settings-image-model-name'),
+    document.getElementById('settings-image-model-base-url'),
+    document.getElementById('settings-image-model-api-key'),
     document.getElementById('blog-collect-trends-time'),
     document.getElementById('blog-collect-trends-filter-min'),
     document.getElementById('blog-collect-trends-filter-top'),
@@ -7171,6 +7477,10 @@ function bindActions() {
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
     document.getElementById('settings-update-server-type'),
+    document.getElementById('settings-text-model-preset-provider'),
+    document.getElementById('settings-text-model-preset-code'),
+    document.getElementById('settings-image-model-preset-provider'),
+    document.getElementById('settings-image-model-preset-code'),
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-telegram-chat-ai-mode'),
     document.getElementById('settings-typing-speed'),
@@ -7206,13 +7516,25 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-port'),
     document.getElementById('settings-mcp-remote-path'),
     document.getElementById('settings-mcp-remote-auth-token-display'),
-    document.getElementById('settings-update-server-type')
+    document.getElementById('settings-update-server-type'),
+    document.getElementById('settings-text-model-preset-provider'),
+    document.getElementById('settings-text-model-preset-code'),
+    document.getElementById('settings-image-model-preset-provider'),
+    document.getElementById('settings-image-model-preset-code')
   ].filter(Boolean).forEach((el) => {
     const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(eventName, () => {
+      if (el.id === 'settings-text-model-preset-provider' || el.id === 'settings-text-model-preset-code') {
+        captureSettingsAiModelDesiredState('text');
+      }
+      if (el.id === 'settings-image-model-preset-provider' || el.id === 'settings-image-model-preset-code') {
+        captureSettingsAiModelDesiredState('image');
+      }
       syncSettingsTelegramUi();
       syncSettingsMcpUi();
       syncSettingsUpdateSourceUi();
+      syncSettingsAiModelUi('text');
+      syncSettingsAiModelUi('image');
     });
   });
   const settingsMcpRemoteAuthTokenDisplay = document.getElementById('settings-mcp-remote-auth-token-display');
@@ -7294,7 +7616,7 @@ function bindActions() {
   const settingsNotifyTelegramTestBtn = document.getElementById('settings-notify-telegram-test-btn');
   if (settingsNotifyTelegramTestBtn) {
     settingsNotifyTelegramTestBtn.addEventListener('click', async () => {
-      const botToken = (document.getElementById('settings-notify-telegram-bot-token')?.value || '').trim();
+      const botToken = getSettingsInputValue('settings-notify-telegram-bot-token').trim();
       const chatId = (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim();
       const resultEl = document.getElementById('settings-notify-telegram-test-result');
 
@@ -7333,7 +7655,7 @@ function bindActions() {
   if (settingsCustomAiTestBtn) {
     settingsCustomAiTestBtn.addEventListener('click', async () => {
       const baseUrl = (document.getElementById('settings-custom-ai-base-url')?.value || '').trim();
-      const apiKey = (document.getElementById('settings-custom-ai-api-key')?.value || '').trim();
+      const apiKey = getSettingsInputValue('settings-custom-ai-api-key').trim();
       const model = (document.getElementById('settings-custom-ai-model')?.value || '').trim();
       const resultEl = document.getElementById('settings-custom-ai-test-result');
 
@@ -7371,7 +7693,7 @@ function bindActions() {
   const settingsNotifySlackTestBtn = document.getElementById('settings-notify-slack-test-btn');
   if (settingsNotifySlackTestBtn) {
     settingsNotifySlackTestBtn.addEventListener('click', async () => {
-      const webhookUrl = (document.getElementById('settings-notify-slack-webhook-url')?.value || '').trim();
+      const webhookUrl = getSettingsInputValue('settings-notify-slack-webhook-url').trim();
       const resultEl = document.getElementById('settings-notify-slack-test-result');
 
       if (!webhookUrl) {
@@ -7473,6 +7795,7 @@ window.addEventListener('DOMContentLoaded', () => {
     event.returnValue = '';
   });
 
+  try { initManagedSettingsSecretFields(); } catch (e) { console.warn('initManagedSettingsSecretFields error:', e); }
   checkSetupBanner();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
@@ -8033,7 +8356,7 @@ function initGlobalPublishSettingsSync() {
       type: 'input',
       default: ''
     }
-  ];
+  ].filter(Boolean);
 
   // Helper to update all elements in a group
   const updateGroupUi = (group, value) => {

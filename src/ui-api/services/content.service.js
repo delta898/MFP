@@ -530,7 +530,6 @@ function createContentService(deps = {}) {
                 LISTEN_HOST: parseConfigValue(nextRaw, 'LISTEN_HOST') || CONFIG.LISTEN_HOST,
                 LISTEN_PORT: parseConfigValue(nextRaw, 'LISTEN_PORT') || CONFIG.LISTEN_PORT,
                 NAVER_ID: parseConfigValue(nextRaw, 'NAVER_ID') || CONFIG.NAVER_ID,
-                GEMINI_API_KEY: parseConfigValue(nextRaw, 'GEMINI_API_KEY') || CONFIG.GEMINI_API_KEY,
                 GOOGLE_SHEET_URL: parseConfigValue(nextRaw, 'GOOGLE_SHEET_URL') || CONFIG.GOOGLE_SHEET_URL,
                 HEADLESS: parseConfigValue(nextRaw, 'HEADLESS'),
                 TYPING_SPEED: parseConfigValue(nextRaw, 'TYPING_SPEED'),
@@ -741,7 +740,7 @@ function createContentService(deps = {}) {
 
         async runNaverCommentDraft(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
-            if (settings.aiMode === 'custom' && (!String(CONFIG.CUSTOM_AI_BASE_URL || '').trim() || !String(CONFIG.CUSTOM_AI_MODEL || '').trim())) {
+            if (settings.aiMode === 'custom' && (!String(CONFIG.CHAT_MODEL_BASE_URL || '').trim() || !String(CONFIG.CHAT_MODEL_CODE || '').trim())) {
                 throw createApiError(400, 'INVALID_CUSTOM_AI', 'Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
             }
 
@@ -778,7 +777,7 @@ function createContentService(deps = {}) {
 
         async redraftNaverCommentDraft(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
-            if (settings.aiMode === 'custom' && (!String(CONFIG.CUSTOM_AI_BASE_URL || '').trim() || !String(CONFIG.CUSTOM_AI_MODEL || '').trim())) {
+            if (settings.aiMode === 'custom' && (!String(CONFIG.CHAT_MODEL_BASE_URL || '').trim() || !String(CONFIG.CHAT_MODEL_CODE || '').trim())) {
                 throw createApiError(400, 'INVALID_CUSTOM_AI', 'Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
             }
 

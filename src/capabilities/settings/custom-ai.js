@@ -12,20 +12,22 @@ function createCustomAiCapabilities(deps = {}) {
             },
             async preview() {
                 const config = configState.loadStructuredConfig();
+                const chatModel = config.ai_settings.CHAT_MODEL || {};
                 return {
                     summary: 'Custom AI 설정 요약을 조회합니다.',
                     before: {
-                        configured: Boolean(String(config.ai_settings.custom.base_url || '').trim() && String(config.ai_settings.custom.model || '').trim()),
-                        base_url: String(config.ai_settings.custom.base_url || '').trim(),
-                        model: String(config.ai_settings.custom.model || '').trim()
+                        configured: Boolean(String(chatModel.base_url || '').trim() && String(chatModel.model || '').trim()),
+                        base_url: String(chatModel.base_url || '').trim(),
+                        model: String(chatModel.model || '').trim()
                     },
                     after: {}
                 };
             },
             async execute() {
                 const config = configState.loadStructuredConfig();
-                const baseUrl = String(config.ai_settings.custom.base_url || '').trim();
-                const model = String(config.ai_settings.custom.model || '').trim();
+                const chatModel = config.ai_settings.CHAT_MODEL || {};
+                const baseUrl = String(chatModel.base_url || '').trim();
+                const model = String(chatModel.model || '').trim();
                 const configured = Boolean(baseUrl && model);
                 return {
                     success: true,
@@ -36,7 +38,7 @@ function createCustomAiCapabilities(deps = {}) {
                         configured,
                         baseUrl,
                         model,
-                        hasApiKey: Boolean(String(config.ai_settings.custom.api_key || '').trim())
+                        hasApiKey: Boolean(String(chatModel.api_key || '').trim())
                     },
                     sideEffects: []
                 };

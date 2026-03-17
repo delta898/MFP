@@ -19,7 +19,7 @@ function createConfigStateManager(deps = {}) {
         if (!config.notification) config.notification = {};
         if (!config.notification.telegram) config.notification.telegram = {};
         if (!config.ai_settings) config.ai_settings = {};
-        if (!config.ai_settings.custom) config.ai_settings.custom = {};
+        if (!config.ai_settings.CHAT_MODEL) config.ai_settings.CHAT_MODEL = {};
         if (!config.knowledge) config.knowledge = {};
         if (!Array.isArray(config.knowledge.providers)) config.knowledge.providers = [];
         if (!config.knowledge.routing || typeof config.knowledge.routing !== 'object' || Array.isArray(config.knowledge.routing)) {

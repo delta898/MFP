@@ -750,8 +750,8 @@
             <div class="form-grid">
               <label>AI 선택
                 <select id="naver-comment-draft-ai-mode">
-                  <option value="default">기본 AI (Gemini)</option>
-                  <option value="custom">Custom AI</option>
+                  <option value="default">글쓰기 모델 차용</option>
+                  <option value="custom">CHAT_MODEL 사용</option>
                 </select>
               </label>
 
@@ -1305,10 +1305,10 @@
         </div>
         <div class="settings-tabs">
           <button class="settings-tab-btn active" data-settings-tab="general" type="button">일반</button>
+          <button class="settings-tab-btn" data-settings-tab="ai" type="button">AI</button>
           <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
           <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
           <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
-          <button class="settings-tab-btn" data-settings-tab="ai" type="button">AI</button>
           <div class="settings-save-actions">
             <button id="settings-major-save-btn" class="settings-major-save-btn" type="button" disabled>저장 및 적용</button>
             <div id="settings-major-save-status" class="settings-major-save-status">저장됨</div>
@@ -1318,17 +1318,6 @@
         <div class="card form-card settings-tab-panel active" id="settings-tab-general">
           <h2>일반 설정</h2>
           <div class="form-grid">
-            <div class="settings-section-divider">일반 설정</div>
-            <label>GEMINI_API_KEY
-              <input id="settings-gemini-api-key" type="text" placeholder="Gemini API Key">
-              <small class="muted">
-                API 키가 없으면
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI
-                  Studio</a>
-                에서 발급하세요.
-              </small>
-            </label>
-            <div></div>
             <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">Google 계정 연결</div>
             <label>GOOGLE_SHEET_URL
               <div class="input-with-action">
@@ -1613,10 +1602,10 @@
 
             <label style="grid-column: 1 / -1;">텔레그램 채팅 모델 선택
               <select id="settings-telegram-chat-ai-mode">
-                <option value="default">기본 AI (Gemini)</option>
-                <option value="custom">Custom AI</option>
+                <option value="default">글쓰기 모델 차용</option>
+                <option value="custom">CHAT_MODEL 사용</option>
               </select>
-              <small class="muted">Custom AI를 선택하면 AI 탭에 설정한 OpenAI-compatible 서버를 사용합니다.</small>
+              <small class="muted">CHAT_MODEL 사용을 선택하면 AI 탭에 설정한 채팅용 OpenAI-compatible 모델을 사용합니다.</small>
             </label>
           </div>
 
@@ -1648,21 +1637,86 @@
           <h2>AI 설정</h2>
           <div class="form-grid">
             <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
-              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">Custom AI</div>
-              <small class="muted">Custom AI는 글 작성용 메인 모델이 아니라, 텔레그램 같은 가벼운 채팅/보조 해석 작업에 사용하는 OpenAI-compatible 모델입니다.</small>
+              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">글쓰기 모델</div>
+              <small class="muted">블로그 글 작성과 이미지 생성에 사용할 메인 모델을 선택합니다. 프리셋을 쓰거나 OpenAI-compatible 모델을 직접 입력할 수 있습니다.</small>
             </div>
 
-            <label>Custom AI Base URL
+            <div class="settings-model-card" style="grid-column: 1 / -1;">
+              <div class="settings-model-card-title">텍스트 모델</div>
+              <div class="form-grid settings-model-grid">
+                <label id="settings-text-model-provider-wrap">AI 선택
+                  <select id="settings-text-model-preset-provider"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-text-model-preset-code-wrap">모델 선택
+                  <select id="settings-text-model-preset-code"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-text-model-name-wrap">모델 이름
+                  <input id="settings-text-model-name" type="text" placeholder="예: gpt-4.1-mini">
+                  <small class="muted">직접 입력 시 OpenAI-compatible 호출에 사용할 모델 이름 또는 코드를 입력합니다.</small>
+                </label>
+
+                <label id="settings-text-model-base-url-wrap">Base URL
+                  <input id="settings-text-model-base-url" type="text" placeholder="예: https://api.example.com/v1">
+                  <small id="settings-text-model-preset-summary" class="muted"></small>
+                </label>
+
+                <label id="settings-text-model-api-key-wrap">API Key
+                  <input id="settings-text-model-api-key" type="password" placeholder="선택한 AI 모델의 API Key">
+                  <small class="muted">텍스트 글쓰기에 사용할 API Key를 입력하세요.</small>
+                </label>
+              </div>
+            </div>
+
+            <div class="settings-model-card" style="grid-column: 1 / -1;">
+              <div class="settings-model-card-title">이미지 모델</div>
+              <div class="form-grid settings-model-grid">
+                <label id="settings-image-model-provider-wrap">AI 선택
+                  <select id="settings-image-model-preset-provider"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-image-model-preset-code-wrap">모델 선택
+                  <select id="settings-image-model-preset-code"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-image-model-name-wrap">모델 이름
+                  <input id="settings-image-model-name" type="text" placeholder="예: gpt-image-1">
+                  <small class="muted">직접 입력 시 OpenAI-compatible 이미지 모델 이름 또는 코드를 입력합니다.</small>
+                </label>
+
+                <label id="settings-image-model-base-url-wrap">Base URL
+                  <input id="settings-image-model-base-url" type="text" placeholder="예: https://api.example.com/v1">
+                  <small id="settings-image-model-preset-summary" class="muted"></small>
+                </label>
+
+                <label id="settings-image-model-api-key-wrap">API Key
+                  <input id="settings-image-model-api-key" type="password" placeholder="선택한 AI 모델의 API Key">
+                  <small class="muted">이미지 생성에 사용할 API Key를 입력하세요.</small>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
+              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">CHAT_MODEL</div>
+              <small class="muted">CHAT_MODEL은 글 작성용 메인 모델이 아니라, 텔레그램 같은 가벼운 채팅/보조 해석 작업에 사용하는 OpenAI-compatible 모델입니다.</small>
+            </div>
+
+            <label>CHAT_MODEL Base URL
               <input id="settings-custom-ai-base-url" type="text" placeholder="http://127.0.0.1:1234/v1">
               <small class="muted">OpenAI-compatible LLM 서버 주소를 입력하세요. /v1 포함 여부는 자동 보정합니다.</small>
             </label>
 
-            <label>Custom AI API Key (옵션)
+            <label>CHAT_MODEL API Key (옵션)
               <input id="settings-custom-ai-api-key" type="password" placeholder="Bearer token (optional)">
               <small class="muted">비워두면 Authorization 헤더를 보내지 않습니다.</small>
             </label>
 
-            <label style="grid-column: 1 / -1;">Custom AI Model
+            <label style="grid-column: 1 / -1;">CHAT_MODEL Model
               <input id="settings-custom-ai-model" type="text" placeholder="qwen/qwen3-coder-30b">
               <small class="muted">모델명을 입력하세요.</small>
             </label>

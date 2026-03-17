@@ -3210,7 +3210,9 @@ const ShoppingManager = {
             reviewData: productData.reviewData
         }, platform);
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
-        const aiRaw = await Utils.callGeminiText(aiPrompt);
+        const aiRaw = await Utils.callWritingText(aiPrompt, 3, {
+            usageLabel: `Shopping/${platform}`
+        });
         const aiData = parseAiJson(aiRaw, titleBase);
         const blockCountBefore = Array.isArray(aiData.blocks) ? aiData.blocks.length : 0;
         enrichShoppingAiData(aiData, titleBase, productData.commerceData, productData.reviewData);
