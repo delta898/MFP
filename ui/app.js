@@ -4154,6 +4154,7 @@ function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
   const providers = getSettingsAiPresetProviders(kind);
   const labels = {
     gemini: 'Gemini',
+    imagen4: 'Imagen 4',
     anthropic: 'Claude',
     direct: '직접 입력'
   };
@@ -4180,6 +4181,8 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
   if (summaryEl) {
     if (String(provider || '') === 'gemini') {
       summaryEl.textContent = 'Gemini Native API를 사용합니다.';
+    } else if (String(provider || '') === 'imagen4') {
+      summaryEl.textContent = 'Imagen Predict API를 사용합니다.';
     } else {
       summaryEl.textContent = selected?.base_url
         ? `기본 Base URL: ${selected.base_url}`
@@ -4215,8 +4218,10 @@ function syncSettingsAiModelUi(kind) {
   if (nameWrapEl) nameWrapEl.style.display = isDirect ? '' : 'none';
   if (baseUrlWrapEl) baseUrlWrapEl.style.display = '';
   if (baseUrlLabelEl) {
-    baseUrlLabelEl.textContent = (!isDirect && resolvedProvider === 'gemini')
-      ? 'Gemini Native API'
+    baseUrlLabelEl.textContent = !isDirect
+      ? (resolvedProvider === 'gemini'
+        ? 'Gemini Native API'
+        : (resolvedProvider === 'imagen4' ? 'Imagen Predict API' : 'Base URL'))
       : 'Base URL';
   }
   providerEl.dataset.desiredValue = resolvedProvider;
@@ -4232,7 +4237,7 @@ function syncSettingsAiModelUi(kind) {
     const selected = populateSettingsAiPresetModelSelect(kind, resolvedProvider, presetEl, summaryEl, selectedCode);
     if (presetEl) presetEl.dataset.desiredValue = presetEl.value || '';
     if (baseUrlEl) {
-      baseUrlEl.value = resolvedProvider === 'gemini' ? '' : (selected?.base_url || '');
+      baseUrlEl.value = (resolvedProvider === 'gemini' || resolvedProvider === 'imagen4') ? '' : (selected?.base_url || '');
       baseUrlEl.readOnly = true;
     }
     if (nameEl) {

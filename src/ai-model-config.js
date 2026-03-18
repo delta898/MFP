@@ -17,7 +17,10 @@ const DEFAULT_TEXT_PRESETS = [
 const DEFAULT_IMAGE_PRESETS = [
     { name: 'Nano Banana 2', code: 'gemini-3.1-flash-image-preview', provider: 'gemini', base_url: '' },
     { name: 'Nano Banana Pro', code: 'gemini-3-pro-image-preview', provider: 'gemini', base_url: '' },
-    { name: 'Nano Banana', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: '' }
+    { name: 'Nano Banana', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: '' },
+    { name: 'Imagen 4', code: 'imagen-4.0-generate-001', provider: 'imagen4', base_url: '' },
+    { name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', base_url: '' },
+    { name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', base_url: '' }
 ];
 
 const DEFAULT_MODEL_CODES = {
@@ -28,12 +31,14 @@ const DEFAULT_MODEL_CODES = {
 function normalizeProvider(value) {
     const raw = trimString(value).toLowerCase();
     if (raw === 'openai_compatible') return 'direct';
+    if (raw === 'imagen') return 'imagen4';
     return raw || 'gemini';
 }
 
 function getProviderDefaultBaseUrl(provider) {
     const normalized = normalizeProvider(provider);
     if (normalized === 'gemini') return '';
+    if (normalized === 'imagen4') return '';
     if (normalized === 'anthropic') return CLAUDE_OPENAI_BASE_URL;
     return '';
 }

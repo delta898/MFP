@@ -92,6 +92,24 @@
         "code": "gemini-2.5-flash-image",
         "provider": "gemini",
         "base_url": ""
+      },
+      {
+        "name": "Imagen 4",
+        "code": "imagen-4.0-generate-001",
+        "provider": "imagen4",
+        "base_url": ""
+      },
+      {
+        "name": "Imagen 4 Ultra",
+        "code": "imagen-4.0-ultra-generate-001",
+        "provider": "imagen4",
+        "base_url": ""
+      },
+      {
+        "name": "Imagen 4 Fast",
+        "code": "imagen-4.0-fast-generate-001",
+        "provider": "imagen4",
+        "base_url": ""
       }
     ]
   },
