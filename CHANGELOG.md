@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev2] - 2026-03-18
+
+### Added
+- **Google Imagen 4 이미지 프리셋 추가**: `설정 > AI > 이미지 모델`에서 `Imagen 4`, `Imagen 4 Ultra`, `Imagen 4 Fast`를 선택할 수 있도록 확장했습니다. 기본 이미지 모델은 계속 Gemini(`Nano Banana 2`)를 유지합니다.
+
+### Changed
+- **Imagen 이미지 생성 지원**: Imagen 선택 시 Google Imagen native `predict` API를 사용하도록 연결하고, 기본 파라미터를 `sampleCount=1`, `imageSize=1K`, `aspectRatio=블로그 4:3 / 쇼핑 1:1` 기준으로 정리했습니다.
+- **이미지 모델 API 설명 정리**: Gemini 프리셋은 `Gemini Native API`, Imagen 프리셋은 `Imagen Predict API`를 사용한다는 점이 설정 화면에 더 명확히 보이도록 다듬었습니다.
+
 ## [0.1.8-dev1] - 2026-03-18
 
 ### Changed
