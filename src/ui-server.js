@@ -2755,7 +2755,12 @@ async function prepareMissingImagesForLocalMarkdown(tempDir, previewData, runtim
 
         Logger.info(`   🎨 [LocalMarkdown] 누락 이미지 생성 중 (Index ${image.index})`);
         try {
-            await Utils.callWritingImage(prompt, path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`));
+            await Utils.callWritingImage(
+                prompt,
+                path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`),
+                3,
+                { useCase: 'blog' }
+            );
         } catch (imageError) {
             Logger.warn(`⚠️ [LocalMarkdown] 누락 이미지 생성 실패 (Index ${image.index}): ${imageError.message}`);
         }

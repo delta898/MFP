@@ -163,6 +163,20 @@ function normalizeTextWhitespace(value) {
         .trim();
 }
 
+function normalizeAspectRatio(value) {
+    const raw = String(value || '').trim();
+    return /^[0-9]+:[0-9]+$/.test(raw) ? raw : '';
+}
+
+function resolveWritingImageAspectRatio(options = {}) {
+    const explicit = normalizeAspectRatio(options.aspectRatio);
+    if (explicit) return explicit;
+
+    const useCase = String(options.useCase || '').trim().toLowerCase();
+    if (useCase === 'shopping') return '1:1';
+    return '4:3';
+}
+
 function truncateText(value, maxLength) {
     const text = String(value || '').trim();
     if (!text || text.length <= maxLength) return text;
@@ -3552,6 +3566,7 @@ const Utils = {
         const apiKey = String(options?.apiKey || '').trim();
         if (!apiKey) throw new Error('API Key 누락');
         const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
+        const aspectRatio = resolveWritingImageAspectRatio(options);
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -3559,7 +3574,13 @@ const Utils = {
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => axios.post(endpoint,
-                        { contents: [{ parts: [{ text: prompt }] }] },
+                        {
+                            contents: [{ parts: [{ text: prompt }] }],
+                            generationConfig: {
+                                responseModalities: ['IMAGE'],
+                                imageConfig: aspectRatio ? { aspectRatio } : undefined
+                            }
+                        },
                         { headers: { 'Content-Type': 'application/json' }, timeout: imageTimeoutMs }
                     )
                 );
@@ -3652,15 +3673,18 @@ const Utils = {
         }
     },
 
-    callWritingImage: async function (prompt, savePath, retries = 3) {
+    callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
         const modelConfig = CONFIG.IMAGE_MODEL_CONFIG || {};
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
         const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
-        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'}`);
+        const aspectRatio = resolveWritingImageAspectRatio(options);
+        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / aspect=${aspectRatio || 'default'}`);
         if (provider === 'gemini') {
             return this.callGeminiImage(prompt, savePath, retries, {
-                apiKey: String(modelConfig.api_key || '').trim()
+                apiKey: String(modelConfig.api_key || '').trim(),
+                aspectRatio,
+                useCase: options.useCase
             });
         }
         return this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries);

@@ -6089,6 +6089,7 @@ function bindActions() {
       resultEl.textContent = '이미 요청이 진행 중입니다. 잠시만 기다려주세요.';
       return;
     }
+    clearQuickGeneratedPreview();
     quickPublishInFlight = true;
     if (saveBtn) saveBtn.disabled = true;
     if (directPublishBtn) directPublishBtn.disabled = true;
@@ -6156,8 +6157,6 @@ function bindActions() {
           ? data.previews
           : {};
         renderQuickGeneratedPreview(data.previews?.[quickGeneratedPreviewState.activeTarget] || null);
-      } else if (mode !== 'append_and_generate') {
-        clearQuickGeneratedPreview();
       }
       await loadDashboard();
     } catch (e) {
@@ -6263,7 +6262,8 @@ function bindActions() {
         localStorage.setItem('last_quick_wp_category', '');
       }
 
-      if (resultEl) resultEl.textContent = '입력 내용을 지웠습니다. 마지막 생성 preview는 유지됩니다.';
+      clearQuickGeneratedPreview();
+      if (resultEl) resultEl.textContent = '입력 내용과 생성 preview를 지웠습니다.';
       subjectEl?.focus();
     });
   }

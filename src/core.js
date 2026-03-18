@@ -1779,10 +1779,15 @@ ${scrapedContext}`;
 			const prompt = `${item.prompt}, ${style}, high quality, no text`;
 
 			try {
-				await Utils.callWritingImage(prompt, path.join(dirPath, `${prefix}_image`));
-			} catch (imageErr) {
-				Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
-			}
+                await Utils.callWritingImage(
+                    prompt,
+                    path.join(dirPath, `${prefix}_image`),
+                    3,
+                    { useCase: 'blog' }
+                );
+            } catch (imageErr) {
+                Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
+            }
 			lastCall = Date.now();
 		}
 	},

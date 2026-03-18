@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev1] - 2026-03-18
+
+### Changed
+- **빠른 포스팅 preview 초기화 정리**: `글감 저장`, `바로 포스팅`, `미리보기 생성`, `내용 지우기`를 누르면 이전 생성 preview를 먼저 비워 새 작업 흐름이 더 명확하게 보이도록 정리했습니다.
+- **필수 설정 안내 문구 최신화**: 대시보드 onboarding 문구를 현재 설정 구조에 맞춰 `Google Sheet`, `텍스트 모델 API Key`, `블로그 플랫폼` 기준으로 업데이트했습니다.
+
+### Fixed
+- **Gemini 이미지 생성 요청 보강**: Gemini native 이미지 생성 호출에 `responseModalities`와 `aspectRatio`를 반영하고, 블로그/원고 선택 기본 비율을 `4:3`으로 맞춰 출력 일관성을 높였습니다.
+
 ## [0.1.7-dev1] - 2026-03-18
 
 ### Added
