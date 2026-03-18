@@ -42,18 +42,13 @@ if exist "dist\gui-temp" rmdir /s /q "dist\gui-temp"
 mkdir "%ROOT_OUT%"
 mkdir "%ROOT_OUT%\config"
 mkdir "%ROOT_OUT%\config\images"
-mkdir "%ROOT_OUT%\scripts"
 mkdir "%ROOT_OUT%\data"
 
 if exist "config\config.json.sample" copy /y "config\config.json.sample" "%ROOT_OUT%\config\config.json.sample" >nul
 if exist "config\images" xcopy /e /i /y "config\images" "%ROOT_OUT%\config\images" >nul
-if exist "scripts\google_apps_script.js" copy /y "scripts\google_apps_script.js" "%ROOT_OUT%\scripts\google_apps_script.js" >nul
 if exist "README.md" (
     copy /y "README.md" "%ROOT_OUT%\README.md" >nul
 )
-
-echo    💻 CLI 빌드 중...
-call npx --yes @yao-pkg/pkg package.json --targets node20-win-x64 --output "%ROOT_OUT%\%APP_NAME%-cli.exe" || exit /b 1
 
 echo    📦 GUI 빌드 중...
 call npx electron-packager . "%APP_NAME%" ^
@@ -61,7 +56,7 @@ call npx electron-packager . "%APP_NAME%" ^
     --out=dist\gui-temp --overwrite ^
     --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" ^
     --icon=assets/icons/icon ^
-    --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" ^
+    --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" ^
     --quiet
 if errorlevel 1 (
     echo    ❌ [Error] GUI 빌드 실패 (win-x64)

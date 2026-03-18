@@ -5,7 +5,6 @@
 # ==========================================
 APP_NAME="BlogGenius"
 VERSION=$(node -p "require('./package.json').version")
-NODE_TARGET="node20"   # build.yml: node20
 # ==========================================
 
 # 📥 인수 처리
@@ -36,13 +35,7 @@ else
 fi
 
 # ---------------------------------------------------
-# 2. @yao-pkg/pkg 확인 (npx로 실행하므로 별도 전역 설치 불필요)
-# ---------------------------------------------------
-PKG_CMD="npx --yes @yao-pkg/pkg"
-echo "   ✅ pkg 실행: npx @yao-pkg/pkg (node20 지원)"
-
-# ---------------------------------------------------
-# 3. 필수 비밀 파일(secret.js) 확인
+# 2. 필수 비밀 파일(secret.js) 확인
 # ---------------------------------------------------
 if [ ! -f "src/config/secret.js" ]; then
     echo ""
@@ -55,7 +48,7 @@ if [ ! -f "src/config/secret.js" ]; then
 fi
 
 # ---------------------------------------------------
-# 4. dist 폴더 준비
+# 3. dist 폴더 준비
 # ---------------------------------------------------
 echo "🧹 [Prepare] dist 폴더를 준비합니다..."
 mkdir -p dist
@@ -68,7 +61,6 @@ copy_assets() {
 
     mkdir -p "$TARGET_DIR/config"
     mkdir -p "$TARGET_DIR/config/images"
-    mkdir -p "$TARGET_DIR/scripts"
     mkdir -p "$TARGET_DIR/data"
 
     if [ -f "config/config.json.sample" ]; then
@@ -81,12 +73,6 @@ copy_assets() {
         find config/images -maxdepth 1 -type f ! -name '.*' -exec cp {} "$TARGET_DIR/config/images/" \;
     else
         echo "⚠️ [Warning] config/images 폴더가 없습니다! 기본 쇼핑 이미지가 누락될 수 있습니다."
-    fi
-
-    if [ -f "scripts/google_apps_script.js" ]; then
-        cp scripts/google_apps_script.js "$TARGET_DIR/scripts/google_apps_script.js"
-    else
-        echo "⚠️ [Warning] scripts/google_apps_script.js 파일이 없습니다!"
     fi
 
     # README 복사
@@ -166,18 +152,7 @@ build_platform() {
     # 1. 공통 자산 복사
     copy_assets "${ROOT_OUT}"
 
-    # 2. CLI 빌드 (BlogGenius-cli)
-    echo "   💻 CLI 빌드 중..."
-    local cli_suffix=""
-    if [ "$e_plat" == "win32" ]; then cli_suffix=".exe"; fi
-    $PKG_CMD package.json --targets ${NODE_TARGET}-${plat}-${arch} --output "${ROOT_OUT}/${APP_NAME}-cli${cli_suffix}"
-    
-    # macOS 코드사인 (CLI)
-    if [ "$e_plat" == "darwin" ]; then
-        codesign --sign - --force "${ROOT_OUT}/${APP_NAME}-cli" 2>/dev/null && echo "   🔏 CLI 코드사인 완료"
-    fi
-
-    # 3. GUI 빌드 (BlogGenius)
+    # 2. GUI 빌드 (BlogGenius)
     echo "   📦 GUI 빌드 중..."
     
     ICON_OPT="--icon=assets/icons/icon"
@@ -186,7 +161,7 @@ build_platform() {
         --out=dist/gui-temp --overwrite \
         --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
         $ICON_OPT \
-        --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
+        --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
         --quiet
 
     if [ $? -ne 0 ]; then

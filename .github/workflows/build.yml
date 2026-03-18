@@ -107,22 +107,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#           - os: ubuntu-latest
-#             target: node20-linux-x64
-#             suffix: linux-x64
-#             output_binary: BlogGenius-cli
-#           - os: macos-latest
-#             target: node20-macos-x64
-#             suffix: mac-intel
-#             output_binary: BlogGenius-cli
+          - os: ubuntu-latest
+            suffix: linux-x64
           - os: macos-latest
-            target: node20-macos-arm64
+            suffix: mac-intel
+          - os: macos-latest
             suffix: mac-arm64
-            output_binary: BlogGenius-cli
           - os: windows-latest
-            target: node20-win-x64
             suffix: win-x64
-            output_binary: BlogGenius-cli.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -132,17 +124,13 @@ jobs:
           node-version: 20
       - name: Install Dependencies
         run: npm install
-      - name: Install yao-pkg and electron-packager
-        run: npm install -g @yao-pkg/pkg @yao-pkg/pkg-fetch electron-packager
+      - name: Install electron-packager
+        run: npm install -g electron-packager
       - name: Create secret.js
         shell: bash
         run: |
           mkdir -p src/config
           echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
-
-      - name: Build CLI Executable
-        run: |
-          pkg package.json --targets ${{ matrix.target }} --output dist/${{ matrix.output_binary }}
 
       - name: Build GUI App
         shell: bash
@@ -157,12 +145,11 @@ jobs:
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
           fi
-          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
+          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          codesign --sign - --force dist/${{ matrix.output_binary }}
           APP_PATH=$(find dist/gui-temp -name "BlogGenius.app" -type d | head -n 1)
           if [ -d "$APP_PATH" ]; then codesign --sign - --force --deep "$APP_PATH"; fi
 
@@ -172,16 +159,14 @@ jobs:
           # 1. 로컬 빌드와 동일한 명명 규칙 적용 (BlogGenius-vX.X.X-platform-arch)
           ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
           ROOT_OUT="dist/${ROOT_NAME}"
-          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/scripts" "${ROOT_OUT}/data"
+          mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/data"
 
           # 2. 필수 리소스 복사
           cp config/config.json.sample "${ROOT_OUT}/config/config.json.sample"
           cp -r config/images/* "${ROOT_OUT}/config/images/" || true
-          cp scripts/google_apps_script.js "${ROOT_OUT}/scripts/"
           [ -f "README.md" ] && cp README.md "${ROOT_OUT}/README.md" || echo "# BlogGenius" > "${ROOT_OUT}/README.md"
           
-          # 3. CLI 및 GUI 배치
-          mv "dist/${{ matrix.output_binary }}" "${ROOT_OUT}/"
+          # 3. GUI 배치
           APP_NAME="BlogGenius"
           TEMP_DIR=$(ls dist/gui-temp | head -n 1)
           if [[ "${{ matrix.suffix }}" == "mac-"* ]]; then
