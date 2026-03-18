@@ -3,6 +3,14 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev3] - 2026-03-18
+
+### Changed
+- **패키징 산출물 경량화**: 앱 패키징 과정에서 더 이상 CLI 바이너리와 `scripts/` 디렉터리를 포함하지 않도록 정리하고, CI 빌드 대상에 `linux-x64`와 `mac-intel`을 다시 포함했습니다.
+
+### Removed
+- **저장소 garbage 정리**: 루트에 남아 있던 trend/debug 스크린샷·HTML 산출물, 오래된 `setup.js`, 임시 pytrends 테스트 스크립트, 샘플 XLSX 파일을 제거하고 `.gitignore`에 재추적 방지 규칙을 추가했습니다.
+
 ## [0.1.8-dev2] - 2026-03-18
 
 ### Added
