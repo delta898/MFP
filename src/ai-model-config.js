@@ -1,13 +1,12 @@
-const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 const CLAUDE_OPENAI_BASE_URL = 'https://api.anthropic.com/v1';
 
 const DEFAULT_TEXT_PRESETS = [
-    { name: 'Gemini 3.1 Pro Preview', code: 'gemini-3.1-pro-preview', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Gemini 3 Flash Preview', code: 'gemini-3-flash-preview', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Gemini 3.1 Flash Lite Preview', code: 'gemini-3.1-flash-lite-preview', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Gemini 2.5 Flash', code: 'gemini-2.5-flash', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Gemini 2.5 Flash Lite', code: 'gemini-2.5-flash-lite', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Gemini 2.5 Pro', code: 'gemini-2.5-pro', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
+    { name: 'Gemini 3.1 Pro Preview', code: 'gemini-3.1-pro-preview', provider: 'gemini', base_url: '' },
+    { name: 'Gemini 3 Flash Preview', code: 'gemini-3-flash-preview', provider: 'gemini', base_url: '' },
+    { name: 'Gemini 3.1 Flash Lite Preview', code: 'gemini-3.1-flash-lite-preview', provider: 'gemini', base_url: '' },
+    { name: 'Gemini 2.5 Flash', code: 'gemini-2.5-flash', provider: 'gemini', base_url: '' },
+    { name: 'Gemini 2.5 Flash Lite', code: 'gemini-2.5-flash-lite', provider: 'gemini', base_url: '' },
+    { name: 'Gemini 2.5 Pro', code: 'gemini-2.5-pro', provider: 'gemini', base_url: '' },
     { name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
     { name: 'Claude Sonnet 4.6', code: 'claude-sonnet-4-6', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
     { name: 'Claude Haiku 4.5', code: 'claude-haiku-4-5', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
@@ -16,9 +15,9 @@ const DEFAULT_TEXT_PRESETS = [
 ];
 
 const DEFAULT_IMAGE_PRESETS = [
-    { name: 'Nano Banana 2', code: 'gemini-3.1-flash-image-preview', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Nano Banana Pro', code: 'gemini-3-pro-image-preview', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL },
-    { name: 'Nano Banana', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: GEMINI_OPENAI_BASE_URL }
+    { name: 'Nano Banana 2', code: 'gemini-3.1-flash-image-preview', provider: 'gemini', base_url: '' },
+    { name: 'Nano Banana Pro', code: 'gemini-3-pro-image-preview', provider: 'gemini', base_url: '' },
+    { name: 'Nano Banana', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: '' }
 ];
 
 const DEFAULT_MODEL_CODES = {
@@ -34,7 +33,7 @@ function normalizeProvider(value) {
 
 function getProviderDefaultBaseUrl(provider) {
     const normalized = normalizeProvider(provider);
-    if (normalized === 'gemini') return GEMINI_OPENAI_BASE_URL;
+    if (normalized === 'gemini') return '';
     if (normalized === 'anthropic') return CLAUDE_OPENAI_BASE_URL;
     return '';
 }
@@ -182,7 +181,6 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
 }
 
 module.exports = {
-    GEMINI_OPENAI_BASE_URL,
     CLAUDE_OPENAI_BASE_URL,
     DEFAULT_TEXT_PRESETS,
     DEFAULT_IMAGE_PRESETS,

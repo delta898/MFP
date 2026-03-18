@@ -4178,9 +4178,13 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
     selectEl.value = selected.code;
   }
   if (summaryEl) {
-    summaryEl.textContent = selected?.base_url
-      ? `기본 Base URL: ${selected.base_url}`
-      : '';
+    if (String(provider || '') === 'gemini') {
+      summaryEl.textContent = 'Gemini Native API를 사용합니다.';
+    } else {
+      summaryEl.textContent = selected?.base_url
+        ? `기본 Base URL: ${selected.base_url}`
+        : '';
+    }
   }
   return selected;
 }
@@ -4196,6 +4200,7 @@ function syncSettingsAiModelUi(kind) {
   const nameWrapEl = document.getElementById(`settings-${prefix}-model-name-wrap`);
   const baseUrlEl = document.getElementById(`settings-${prefix}-model-base-url`);
   const baseUrlWrapEl = document.getElementById(`settings-${prefix}-model-base-url-wrap`);
+  const baseUrlLabelEl = baseUrlWrapEl?.querySelector('.settings-model-base-url-label');
   if (!providerEl) return;
 
   const desiredProvider = String(providerEl?.dataset?.desiredValue || providerEl?.value || 'gemini').trim();
@@ -4209,6 +4214,11 @@ function syncSettingsAiModelUi(kind) {
   if (presetWrapEl) presetWrapEl.style.display = isDirect ? 'none' : '';
   if (nameWrapEl) nameWrapEl.style.display = isDirect ? '' : 'none';
   if (baseUrlWrapEl) baseUrlWrapEl.style.display = '';
+  if (baseUrlLabelEl) {
+    baseUrlLabelEl.textContent = (!isDirect && resolvedProvider === 'gemini')
+      ? 'Gemini Native API'
+      : 'Base URL';
+  }
   providerEl.dataset.desiredValue = resolvedProvider;
 
   if (presetEl) {
@@ -4222,7 +4232,7 @@ function syncSettingsAiModelUi(kind) {
     const selected = populateSettingsAiPresetModelSelect(kind, resolvedProvider, presetEl, summaryEl, selectedCode);
     if (presetEl) presetEl.dataset.desiredValue = presetEl.value || '';
     if (baseUrlEl) {
-      baseUrlEl.value = selected?.base_url || '';
+      baseUrlEl.value = resolvedProvider === 'gemini' ? '' : (selected?.base_url || '');
       baseUrlEl.readOnly = true;
     }
     if (nameEl) {
