@@ -13,6 +13,7 @@ dist/
 .DS_Store
 failed_updates.log
 topics.xlsx
+topics.xlsx.sample.xlsx
 keywords.xlsx
 job.json
 jobs.xlsx
@@ -48,3 +49,10 @@ Videos/
 NaverBlogAutoTool/
 supabase/.temp/
 video.tar.gz
+setup.js
+debug_*.png
+debug_*.html
+trend_structure_dump.html
+tmp/test_pytrends.py
+tmp/test_pytrends_related.py
+tmp/test_pytrends_robust.py
