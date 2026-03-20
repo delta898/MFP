@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev4] - 2026-03-20
+
+### Fixed
+- **자동/일괄 포스팅 생성 로그 정합성 수정**: 생성 시작 요약 블록의 `발행 옵션`이 실제 실행값과 다르게 `임시저장`으로 보이던 문제를 수정해, `즉시 발행 / 임시저장 / 예약 발행`이 실제 적용값 기준으로 정확히 표시되도록 했습니다.
+
 ## [0.1.8-dev3] - 2026-03-18
 
 ### Changed
