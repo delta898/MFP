@@ -1566,6 +1566,18 @@ ${messageText}
 		const hasInstructions = jobData.content_guide?.additional_instructions;
 		const hasRef = jobData.content_guide?.reference_urls && jobData.content_guide.reference_urls.length > 0;
 		const useExternalRef = jobData.use_external_ref === true;
+		const effectivePostStatusRaw = String(
+			jobData.post_status
+			|| jobData.postStatus
+			|| runtimeOptions.postStatus
+			|| runtimeOptions.post_status
+			|| 'draft'
+		).trim().toLowerCase();
+		const effectivePostStatusLabel = effectivePostStatusRaw === 'publish'
+			? '즉시 발행'
+			: effectivePostStatusRaw === 'schedule'
+				? '예약 발행'
+				: '임시저장';
 
 		// 📋 요청 파라미터 요약 로그 (디버깅용)
 		Logger.info("┌─────────────────────────────────────────");
@@ -1576,7 +1588,7 @@ ${messageText}
 		Logger.info(`│ 🖼️  이미지 생성: ${jobData.image_options?.generate !== false ? '✅ 예' : '❌ 아니오'}`);
 		Logger.info(`│ 🤖 TEXT 모델  : ${String(CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
 		Logger.info(`│ 🎨 IMG 모델   : ${String(CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
-		Logger.info(`│ 📤 발행 옵션  : ${jobData.post_status || runtimeOptions.postStatus || '임시저장'}`);
+		Logger.info(`│ 📤 발행 옵션  : ${effectivePostStatusLabel}`);
 		Logger.info("└─────────────────────────────────────────");
 
 		if (!hasSubject && !hasKeywords && !hasRef && !hasInstructions) {
