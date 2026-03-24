@@ -838,8 +838,25 @@ async function confirmDiscardUnsavedSettings() {
   );
 
   if (!shouldDiscard) return false;
-  await loadSettingsMajor();
+  await loadSettingsMajor({ force: true, skipPendingConfirm: true });
   return true;
+}
+
+async function shouldProceedWithMajorSettingsReload({ force = false, skipPendingConfirm = false, contextLabel = '설정' } = {}) {
+  if (!settingsMajorHasPendingBasicChanges) return true;
+  if (!force) return false;
+  if (skipPendingConfirm) return true;
+
+  const shouldDiscard = await showUiConfirm(
+    `저장되지 않은 변경사항이 있습니다.\n${contextLabel}을 다시 불러오면 화면의 임시 변경사항이 사라집니다.`,
+    {
+      title: '변경사항 새로고침',
+      confirmText: '버리고 불러오기',
+      cancelText: '취소'
+    }
+  );
+
+  return shouldDiscard === true;
 }
 
 async function loadConfigStatus() {
@@ -4410,7 +4427,14 @@ function scheduleSettingsMajorAutoSave({ immediate = false } = {}) {
   setSettingsMajorResultText('저장되지 않은 변경사항이 있습니다.');
 }
 
-async function loadSettingsMajor() {
+async function loadSettingsMajor({ force = false, skipPendingConfirm = false } = {}) {
+  const canReload = await shouldProceedWithMajorSettingsReload({
+    force,
+    skipPendingConfirm,
+    contextLabel: '설정 화면'
+  });
+  if (!canReload) return false;
+
   const refreshBtns = document.querySelectorAll('.settings-major-refresh-btn');
   const resultEls = document.querySelectorAll('.settings-major-result');
 
@@ -4420,8 +4444,10 @@ async function loadSettingsMajor() {
     const data = await fetchJson('/api/v1/settings/major');
     applySettingsMajorToForm(data);
     updateSettingsStatus('.settings-major-result', `불러오기 완료: ${data.configPath || '-'}`, 'success');
+    return true;
   } catch (e) {
     updateSettingsStatus('.settings-major-result', `오류: ${e.message}`, 'error');
+    return false;
   } finally {
     refreshBtns.forEach(btn => btn.disabled = false);
   }
@@ -5374,7 +5400,14 @@ function normalizeBlogAutoVariationNumberEnabledValue(rawValue, fallback = true)
 }
 
 
-async function loadBlogCollectSettings() {
+async function loadBlogCollectSettings({ force = false, skipPendingConfirm = false } = {}) {
+  const canReload = await shouldProceedWithMajorSettingsReload({
+    force,
+    skipPendingConfirm,
+    contextLabel: '블로그 자동글감 설정'
+  });
+  if (!canReload) return false;
+
   const modeEl = document.getElementById('blog-collect-trends-enabled');
   const trendsTimeEl = document.getElementById('blog-collect-trends-time');
   const variationNewEl = document.getElementById('blog-collect-trends-filter-new');
@@ -5453,8 +5486,10 @@ async function loadBlogCollectSettings() {
       '- 수집 기준을 확인했습니다.',
       '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
+    return true;
   } catch (e) {
     setBlogCollectResultText(`오류: ${e.message}`);
+    return false;
   }
 }
 
@@ -5484,7 +5519,14 @@ async function saveBlogCollectSettings() {
   }
 }
 
-async function loadBlogAutoSettings() {
+async function loadBlogAutoSettings({ force = false, skipPendingConfirm = false } = {}) {
+  const canReload = await shouldProceedWithMajorSettingsReload({
+    force,
+    skipPendingConfirm,
+    contextLabel: '블로그 자동 포스팅 설정'
+  });
+  if (!canReload) return false;
+
   const publishEnabledEl = document.getElementById('blog-publish-auto-enabled');
   const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
   const publishBatchEl = document.getElementById('blog-publish-auto-batch');
@@ -5513,8 +5555,10 @@ async function loadBlogAutoSettings() {
       '- 자동발행 기준을 확인했습니다.',
       '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
+    return true;
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
+    return false;
   }
 }
 
@@ -5601,12 +5645,21 @@ async function runBlogCollectRssManual() {
   }
 }
 
-async function loadShoppingAutoSettings() {
-  const modeEl = document.getElementById('shopping-auto-mode');
-  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
-  const timeEl = document.getElementById('shopping-auto-time');
-  const notifyEnabledEl = document.getElementById('shopping-auto-notify-enabled');
-  const headlessEl = document.getElementById('shopping-auto-headless');
+async function loadShoppingAutoSettings({ force = false, skipPendingConfirm = false } = {}) {
+  const canReload = await shouldProceedWithMajorSettingsReload({
+    force,
+    skipPendingConfirm,
+    contextLabel: '쇼핑 자동 포스팅 설정'
+  });
+  if (!canReload) return false;
+
+  const publishEnabledEl = document.getElementById('shopping-publish-auto-enabled');
+  const publishIntervalEl = document.getElementById('shopping-publish-auto-interval');
+  const publishBatchEl = document.getElementById('shopping-publish-auto-batch');
+  const startTimeEl = document.getElementById('shopping-publish-auto-start-time');
+  const endTimeEl = document.getElementById('shopping-publish-auto-end-time');
+  const notifyEnabledEl = document.getElementById('shopping-publish-auto-notify-enabled');
+  const headlessEl = document.getElementById('shopping-publish-auto-headless');
   setShoppingAutoResultText('불러오는 중...');
   try {
     const [data] = await Promise.all([
@@ -5614,51 +5667,73 @@ async function loadShoppingAutoSettings() {
       loadShoppingAutoPlanLimit({ silent: true })
     ]);
     const fields = data?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(fields.SHOPPING_AUTO_MODE);
-    if (headlessEl) headlessEl.checked = Boolean(fields.BLOG_AUTO_HEADLESS ?? fields.HEADLESS ?? true);
-    if (dailyPostsEl) dailyPostsEl.value = String(fields.SHOPPING_AUTO_DAILY_POSTS ?? 3);
-    applyShoppingAutoDailyPostsLimitUi();
-    if (timeEl) timeEl.value = String(fields.SHOPPING_AUTO_TIME || '07:50');
-    if (notifyEnabledEl) {
-      notifyEnabledEl.checked = false;
-      notifyEnabledEl.disabled = true;
-    }
+    if (publishEnabledEl) publishEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_ENABLED);
+    if (publishIntervalEl) publishIntervalEl.value = String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
+    if (publishBatchEl) publishBatchEl.value = String(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
+    if (startTimeEl) startTimeEl.value = String(fields.SHOPPING_PUBLISH_AUTO_START_TIME || '00:00');
+    if (endTimeEl) endTimeEl.value = String(fields.SHOPPING_PUBLISH_AUTO_END_TIME || '23:59');
+    if (headlessEl) headlessEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
+    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
+
+    const targetChannels = Array.isArray(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
+      ? fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
+      : String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
+    document.querySelectorAll('[data-shopping-publish-target]').forEach((el) => {
+      el.checked = targetChannels.includes(el.getAttribute('data-shopping-publish-target'));
+    });
+
     setShoppingAutoResultText([
       '불러오기 완료',
       '- 자동발행 기준을 확인했습니다.',
       '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
+    return true;
   } catch (e) {
     setShoppingAutoResultText(`오류: ${e.message}`);
+    return false;
   }
 }
 
 async function saveShoppingAutoSettings() {
-  const modeEl = document.getElementById('shopping-auto-mode');
-  const dailyPostsEl = document.getElementById('shopping-auto-daily-posts');
-  const timeEl = document.getElementById('shopping-auto-time');
-  const headlessEl = document.getElementById('shopping-auto-headless');
+  const publishEnabledEl = document.getElementById('shopping-publish-auto-enabled');
+  const publishIntervalEl = document.getElementById('shopping-publish-auto-interval');
+  const publishBatchEl = document.getElementById('shopping-publish-auto-batch');
+  const startTimeEl = document.getElementById('shopping-publish-auto-start-time');
+  const endTimeEl = document.getElementById('shopping-publish-auto-end-time');
+  const headlessEl = document.getElementById('shopping-publish-auto-headless');
+  const notifyEnabledEl = document.getElementById('shopping-publish-auto-notify-enabled');
   setShoppingAutoResultText('저장 중...');
   try {
     const major = await fetchJson('/api/v1/settings/major');
     const fields = { ...(major?.fields || {}) };
-    const dailyPosts = normalizeShoppingAutoDailyPostsValue(dailyPostsEl?.value || '3');
-    if (dailyPostsEl) dailyPostsEl.value = String(dailyPosts);
     const payload = {
       ...fields,
-      SHOPPING_AUTO_MODE: Boolean(modeEl?.checked),
-      SHOPPING_AUTO_DAILY_POSTS: dailyPosts,
-      SHOPPING_AUTO_TIME: (timeEl?.value || '07:50').trim(),
-      SHOPPING_AUTO_NOTIFY_ENABLED: false,
-      BLOG_AUTO_HEADLESS: Boolean(headlessEl?.checked)
+      SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(publishEnabledEl?.checked),
+      SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseInt(publishIntervalEl?.value || '60', 10),
+      SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(publishBatchEl?.value || '1', 10),
+      SHOPPING_PUBLISH_AUTO_START_TIME: (startTimeEl?.value || '00:00').trim(),
+      SHOPPING_PUBLISH_AUTO_END_TIME: (endTimeEl?.value || '23:59').trim(),
+      SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')).join(','),
+      SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(headlessEl?.checked),
+      SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(notifyEnabledEl?.checked)
     };
     const saved = await postJson('/api/v1/settings/major', payload);
     const savedFields = saved?.fields || {};
-    if (modeEl) modeEl.checked = Boolean(savedFields.SHOPPING_AUTO_MODE);
-    if (headlessEl) headlessEl.checked = Boolean(savedFields.BLOG_AUTO_HEADLESS ?? savedFields.HEADLESS ?? true);
-    if (dailyPostsEl) dailyPostsEl.value = String(savedFields.SHOPPING_AUTO_DAILY_POSTS ?? 3);
-    applyShoppingAutoDailyPostsLimitUi();
-    if (timeEl) timeEl.value = String(savedFields.SHOPPING_AUTO_TIME || '07:50');
+    if (publishEnabledEl) publishEnabledEl.checked = Boolean(savedFields.SHOPPING_PUBLISH_AUTO_ENABLED);
+    if (publishIntervalEl) publishIntervalEl.value = String(savedFields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
+    if (publishBatchEl) publishBatchEl.value = String(savedFields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
+    if (startTimeEl) startTimeEl.value = String(savedFields.SHOPPING_PUBLISH_AUTO_START_TIME || '00:00');
+    if (endTimeEl) endTimeEl.value = String(savedFields.SHOPPING_PUBLISH_AUTO_END_TIME || '23:59');
+    if (headlessEl) headlessEl.checked = Boolean(savedFields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
+    if (notifyEnabledEl) notifyEnabledEl.checked = Boolean(savedFields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
+
+    const targetChannels = Array.isArray(savedFields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
+      ? savedFields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
+      : String(savedFields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
+    document.querySelectorAll('[data-shopping-publish-target]').forEach((el) => {
+      el.checked = targetChannels.includes(el.getAttribute('data-shopping-publish-target'));
+    });
+
     setShoppingAutoResultText([
       '저장 완료',
       '- 쇼핑 자동 포스팅 설정이 반영되었습니다.',
@@ -7544,7 +7619,7 @@ function bindActions() {
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
 
-  settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', loadSettingsMajor));
+  settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', () => loadSettingsMajor({ force: true })));
   settingsMajorSaveBtns.forEach(btn => btn.addEventListener('click', () => saveSettingsMajor({ mode: 'manual' })));
   [
     document.getElementById('settings-notify-telegram-enabled'),
@@ -7604,11 +7679,11 @@ function bindActions() {
   if (settingsGoogleOauthDisconnectBtn) settingsGoogleOauthDisconnectBtn.addEventListener('click', disconnectGoogleOauth);
   if (settingsGoogleOauthTestBtn) settingsGoogleOauthTestBtn.addEventListener('click', testGoogleOauth);
   if (settingsTypingSpeedEl) settingsTypingSpeedEl.addEventListener('change', playSettingsTypingPreview);
-  if (blogCollectRefreshBtn) blogCollectRefreshBtn.addEventListener('click', loadBlogCollectSettings);
+  if (blogCollectRefreshBtn) blogCollectRefreshBtn.addEventListener('click', () => loadBlogCollectSettings({ force: true }));
   if (blogCollectTrendsRunBtn) blogCollectTrendsRunBtn.addEventListener('click', runBlogCollectTrendsManual);
   if (blogCollectRssRunBtn) blogCollectRssRunBtn.addEventListener('click', runBlogCollectRssManual);
   if (blogCollectRssAddBtn) blogCollectRssAddBtn.addEventListener('click', window.addRssConfig);
-  if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', loadBlogAutoSettings);
+  if (blogAutoRefreshBtn) blogAutoRefreshBtn.addEventListener('click', () => loadBlogAutoSettings({ force: true }));
   if (blogAutoSaveBtn) blogAutoSaveBtn.addEventListener('click', saveBlogAutoSettings);
   if (blogAutoRunBtn) blogAutoRunBtn.addEventListener('click', runBlogPublishAutoManual);
   if (blogAutoVariationNumberEnabledEl) {
@@ -7617,7 +7692,7 @@ function bindActions() {
   if (blogAutoVariationTypeEl) {
     blogAutoVariationTypeEl.addEventListener('change', syncBlogAutoVariationTypeUi);
   }
-  if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', loadShoppingAutoSettings);
+  if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', () => loadShoppingAutoSettings({ force: true }));
   if (shoppingAutoSaveBtn) shoppingAutoSaveBtn.addEventListener('click', saveShoppingAutoSettings);
   if (shoppingAutoRunBtn) shoppingAutoRunBtn.addEventListener('click', runShoppingAutoManual);
   blogAutoCategoryOptionsEls.forEach((containerEl) => {

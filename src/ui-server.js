@@ -969,6 +969,71 @@ function normalizeTimeHHmm(input, fallback = '07:30') {
     return `${m[1]}:${m[2]}`;
 }
 
+function parseTimeToMinutes(input) {
+    const normalized = normalizeTimeHHmm(input, '');
+    if (!normalized) return null;
+    const [hour, minute] = normalized.split(':').map((value) => parseInt(value, 10));
+    if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+    return (hour * 60) + minute;
+}
+
+function isWithinRuntimeTimeWindow(start, end, referenceDate = new Date()) {
+    const startMin = parseTimeToMinutes(start);
+    const endMin = parseTimeToMinutes(end);
+    if (startMin === null || endMin === null) return true;
+
+    const date = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+    if (!Number.isFinite(date.getTime())) return true;
+
+    const currentMin = (date.getHours() * 60) + date.getMinutes();
+    if (startMin <= endMin) {
+        return currentMin >= startMin && currentMin <= endMin;
+    }
+    return currentMin >= startMin || currentMin <= endMin;
+}
+
+function getNextTimeWindowStart(referenceDate, start, end) {
+    const startMin = parseTimeToMinutes(start);
+    const endMin = parseTimeToMinutes(end);
+    const date = referenceDate instanceof Date ? new Date(referenceDate.getTime()) : new Date(referenceDate);
+    if (!Number.isFinite(date.getTime()) || startMin === null || endMin === null) return date;
+    if (isWithinRuntimeTimeWindow(start, end, date)) return date;
+
+    const next = new Date(date);
+    next.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0);
+
+    if (startMin <= endMin) {
+        const currentMin = (date.getHours() * 60) + date.getMinutes();
+        if (currentMin > endMin) next.setDate(next.getDate() + 1);
+    }
+
+    return next;
+}
+
+function computeNextWindowedRunAt({
+    delayMs,
+    intervalMs,
+    startTime,
+    endTime,
+    baseTimeMs = Date.now(),
+    preferWindowStartIfBaseOutside = false
+}) {
+    const baseDelayMs = Number.isFinite(delayMs)
+        ? Math.max(500, Number(delayMs))
+        : Math.max(500, Number(intervalMs) || 500);
+    const baseDate = new Date(baseTimeMs);
+    const candidateAt = new Date(baseTimeMs + baseDelayMs);
+    const baseOutsideWindow = !isWithinRuntimeTimeWindow(startTime, endTime, baseDate);
+    const runAt = preferWindowStartIfBaseOutside && baseOutsideWindow
+        ? getNextTimeWindowStart(baseDate, startTime, endTime)
+        : getNextTimeWindowStart(candidateAt, startTime, endTime);
+    return {
+        runAt,
+        candidateAt,
+        adjustedByWindow: runAt.getTime() !== candidateAt.getTime()
+    };
+}
+
 function parseVariationMeta(raw) {
     const text = String(raw || '').trim();
     const lower = text.toLowerCase();
@@ -1224,6 +1289,15 @@ function normalizePublishAutoSettings(input = {}) {
         PUBLISH_AUTO_DEFAULTS.headless
     );
 
+    const startTime = normalizeTimeHHmm(
+        input.PUBLISH_AUTO_START_TIME ?? CONFIG.PUBLISH_AUTO_START_TIME,
+        PUBLISH_AUTO_DEFAULTS.startTime
+    );
+    const endTime = normalizeTimeHHmm(
+        input.PUBLISH_AUTO_END_TIME ?? CONFIG.PUBLISH_AUTO_END_TIME,
+        PUBLISH_AUTO_DEFAULTS.endTime
+    );
+
     return {
         PUBLISH_AUTO_ENABLED: enabled,
         PUBLISH_AUTO_INTERVAL_MIN: intervalMin,
@@ -1231,8 +1305,8 @@ function normalizePublishAutoSettings(input = {}) {
         PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
         PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
         PUBLISH_AUTO_HEADLESS: headless,
-        PUBLISH_AUTO_START_TIME: input.PUBLISH_AUTO_START_TIME ?? CONFIG.PUBLISH_AUTO_START_TIME ?? PUBLISH_AUTO_DEFAULTS.startTime,
-        PUBLISH_AUTO_END_TIME: input.PUBLISH_AUTO_END_TIME ?? CONFIG.PUBLISH_AUTO_END_TIME ?? PUBLISH_AUTO_DEFAULTS.endTime
+        PUBLISH_AUTO_START_TIME: startTime,
+        PUBLISH_AUTO_END_TIME: endTime
     };
 }
 
@@ -1244,15 +1318,43 @@ function normalizeBlogAutoSettings(input = {}) {
     };
 }
 function normalizeShoppingAutoSettings(input = {}) {
-    const enabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_ENABLED ?? input.SHOPPING_AUTO_MODE, CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED);
-    const interval = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN, CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN);
-    const batchSize = normalizeNonNegativeInt(input.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? input.SHOPPING_AUTO_DAILY_POSTS, CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE);
-    const headless = toBoolLike(input.SHOPPING_PUBLISH_AUTO_HEADLESS ?? input.SHOPPING_AUTO_HEADLESS, CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS);
-    const targets = input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
+    const enabled = toBoolLike(
+        input.SHOPPING_PUBLISH_AUTO_ENABLED ?? input.SHOPPING_AUTO_MODE,
+        toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED ?? CONFIG.SHOPPING_AUTO_MODE, SHOPPING_AUTO_DEFAULTS.mode)
+    );
+    const interval = normalizeNonNegativeInt(
+        input.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN ?? CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN,
+        PUBLISH_AUTO_DEFAULTS.intervalMin
+    );
+    const batchSize = normalizePositiveInt(
+        input.SHOPPING_PUBLISH_AUTO_BATCH_SIZE
+        ?? input.SHOPPING_AUTO_DAILY_POSTS
+        ?? CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE
+        ?? CONFIG.SHOPPING_AUTO_DAILY_POSTS,
+        PUBLISH_AUTO_DEFAULTS.batchSize
+    );
+    const headless = toBoolLike(
+        input.SHOPPING_PUBLISH_AUTO_HEADLESS ?? input.SHOPPING_AUTO_HEADLESS,
+        toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS ?? CONFIG.SHOPPING_AUTO_HEADLESS ?? CONFIG.HEADLESS, PUBLISH_AUTO_DEFAULTS.headless)
+    );
+    const targets = input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? PUBLISH_AUTO_DEFAULTS.targetChannels;
     const targetsArray = Array.isArray(targets) ? targets : String(targets).split(',').map(v => v.trim()).filter(Boolean);
-    const notifyEnabled = toBoolLike(input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED, CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
-    const startTime = input.SHOPPING_PUBLISH_AUTO_START_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME ?? '00:00';
-    const endTime = input.SHOPPING_PUBLISH_AUTO_END_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME ?? '23:59';
+    const notifyEnabled = toBoolLike(
+        input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED,
+        toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED, SHOPPING_AUTO_DEFAULTS.notifyEnabled)
+    );
+    const startTime = normalizeTimeHHmm(
+        input.SHOPPING_PUBLISH_AUTO_START_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME,
+        PUBLISH_AUTO_DEFAULTS.startTime
+    );
+    const endTime = normalizeTimeHHmm(
+        input.SHOPPING_PUBLISH_AUTO_END_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME,
+        PUBLISH_AUTO_DEFAULTS.endTime
+    );
+    const legacyTime = normalizeTimeHHmm(
+        input.SHOPPING_AUTO_TIME ?? CONFIG.SHOPPING_AUTO_TIME,
+        SHOPPING_AUTO_DEFAULTS.time
+    );
 
     return {
         SHOPPING_PUBLISH_AUTO_ENABLED: enabled,
@@ -1262,7 +1364,12 @@ function normalizeShoppingAutoSettings(input = {}) {
         SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targetsArray,
         SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
         SHOPPING_PUBLISH_AUTO_START_TIME: startTime,
-        SHOPPING_PUBLISH_AUTO_END_TIME: endTime
+        SHOPPING_PUBLISH_AUTO_END_TIME: endTime,
+        SHOPPING_AUTO_MODE: enabled,
+        SHOPPING_AUTO_DAILY_POSTS: batchSize,
+        SHOPPING_AUTO_HEADLESS: headless,
+        SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
+        SHOPPING_AUTO_TIME: legacyTime
     };
 }
 
@@ -1341,6 +1448,8 @@ function buildMajorSettings(raw, configSource) {
         SHOPPING_PUBLISH_AUTO_HEADLESS: CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS,
         SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS,
         SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED,
+        SHOPPING_PUBLISH_AUTO_START_TIME: CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME,
+        SHOPPING_PUBLISH_AUTO_END_TIME: CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME,
         SHOPPING_AUTO_TIME: CONFIG.SHOPPING_AUTO_TIME,
 
         // Telegram Notification
@@ -1464,9 +1573,11 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizePositiveInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
     CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
-    CONFIG.PUBLISH_AUTO_TARGET_CHANNELS = String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').trim();
+    CONFIG.PUBLISH_AUTO_TARGET_CHANNELS = autoSettings.PUBLISH_AUTO_TARGET_CHANNELS;
     CONFIG.PUBLISH_AUTO_HEADLESS = normalizeBool(fields.PUBLISH_AUTO_HEADLESS, true);
     CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.PUBLISH_AUTO_NOTIFY_ENABLED, false);
+    CONFIG.PUBLISH_AUTO_START_TIME = autoSettings.PUBLISH_AUTO_START_TIME;
+    CONFIG.PUBLISH_AUTO_END_TIME = autoSettings.PUBLISH_AUTO_END_TIME;
 
     try {
         const rawRss = String(fields.COLLECT_RSS_CONFIGS || '').trim();
@@ -1480,7 +1591,19 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizeNonNegativeInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
 
+    CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_ENABLED;
+    CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN;
+    CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE;
+    CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_HEADLESS;
+    CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS;
     CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED, false);
+    CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_START_TIME;
+    CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_END_TIME;
+    CONFIG.SHOPPING_AUTO_MODE = shoppingAutoSettings.SHOPPING_AUTO_MODE;
+    CONFIG.SHOPPING_AUTO_DAILY_POSTS = shoppingAutoSettings.SHOPPING_AUTO_DAILY_POSTS;
+    CONFIG.SHOPPING_AUTO_HEADLESS = shoppingAutoSettings.SHOPPING_AUTO_HEADLESS;
+    CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED = shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED;
+    CONFIG.SHOPPING_AUTO_TIME = shoppingAutoSettings.SHOPPING_AUTO_TIME;
 
     // Telegram Notify
     CONFIG.NOTIFY_TELEGRAM_ENABLED = normalizeBool(fields.NOTIFY_TELEGRAM_ENABLED, false);
@@ -3820,7 +3943,7 @@ async function executeShoppingAutoManualAction(requestBody = {}) {
     const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
         ? requestBody.settingsOverrides
         : {};
-    const settings = normalizeNaverShoppingAutoSettings({
+    const settings = normalizeShoppingAutoSettings({
         ...CONFIG,
         ...settingsOverrides
     });
@@ -3832,8 +3955,8 @@ async function executeShoppingAutoManualAction(requestBody = {}) {
     };
 
     const targetLimit = normalizeNonNegativeInt(
-        settings.SHOPPING_AUTO_DAILY_POSTS,
-        SHOPPING_AUTO_DEFAULTS.dailyPosts
+        settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE,
+        PUBLISH_AUTO_DEFAULTS.batchSize
     );
     if (targetLimit <= 0) {
         summary.skipped.push('1회 최대 발행수가 0건으로 설정되어 실행을 건너뜁니다.');
@@ -4350,7 +4473,7 @@ function refreshLegacyAutoRuntimeState() {
     autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running;
     autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status}`;
     autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
-    if (publishRuntimeState.nextRunAt) autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt;
+    autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt || trendsRuntimeState.nextRunAt || null;
 }
 
 function syncTrendsRunner() {
@@ -4498,12 +4621,71 @@ function syncRssRunner() {
     scheduleRss();
 }
 
+function clearPublishTimer() {
+    if (publishRuntimeState.timer) {
+        clearTimeout(publishRuntimeState.timer);
+        publishRuntimeState.timer = null;
+    }
+}
+
+function scheduleNextPublishCycle(delayMs = null, options = {}) {
+    clearPublishTimer();
+    if (!publishRuntimeState.enabled) {
+        publishRuntimeState.nextRunAt = null;
+        refreshLegacyAutoRuntimeState();
+        return;
+    }
+
+    const intervalMin = Math.max(1, normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, PUBLISH_AUTO_DEFAULTS.intervalMin));
+    const intervalMs = intervalMin * 60 * 1000;
+    const startTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_START_TIME, PUBLISH_AUTO_DEFAULTS.startTime);
+    const endTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_END_TIME, PUBLISH_AUTO_DEFAULTS.endTime);
+    const parsedDelay = (delayMs === null || delayMs === undefined || delayMs === '')
+        ? null
+        : Math.max(500, parseInt(delayMs, 10) || 0);
+    const nextSchedule = computeNextWindowedRunAt({
+        delayMs: parsedDelay,
+        intervalMs,
+        startTime,
+        endTime,
+        preferWindowStartIfBaseOutside: options.preferWindowStartIfBaseOutside === true
+    });
+    const waitMs = Math.max(500, nextSchedule.runAt.getTime() - Date.now());
+
+    publishRuntimeState.nextRunAt = nextSchedule.runAt.toISOString();
+    publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
+    refreshLegacyAutoRuntimeState();
+
+    if (nextSchedule.adjustedByWindow) {
+        Logger.info(
+            `ℹ️ [AUTO][Consumer] 자동 발행 예약이 허용 시간대에 맞춰 조정되었습니다: `
+            + `${nextSchedule.runAt.toLocaleString()} `
+            + `(원래 후보: ${nextSchedule.candidateAt.toLocaleString()}, 허용시간: ${startTime}~${endTime})`
+        );
+    } else {
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 예약: ${nextSchedule.runAt.toLocaleString()} (간격: ${intervalMin}분)`);
+    }
+
+    publishRuntimeState.timer = setTimeout(() => {
+        publishRuntimeState.timer = null;
+        if (!publishRuntimeState.enabled || publishRuntimeState.running) return;
+
+        publishRuntimeState.running = true;
+        publishRuntimeState.status = 'running';
+        refreshLegacyAutoRuntimeState();
+        runAutoPublishCycle('auto').finally(() => {
+            publishRuntimeState.running = false;
+            scheduleNextPublishCycle();
+        });
+    }, waitMs);
+}
+
 function syncPublishRunner() {
     const isEnabled = Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
     let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
     if (intervalMin < 1) intervalMin = 60;
-    const startTime = String(CONFIG.PUBLISH_AUTO_START_TIME || '00:00').trim();
-    const endTime = String(CONFIG.PUBLISH_AUTO_END_TIME || '23:59').trim();
+    const startTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_START_TIME, PUBLISH_AUTO_DEFAULTS.startTime);
+    const endTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_END_TIME, PUBLISH_AUTO_DEFAULTS.endTime);
 
     const isIntervalChanged = publishRuntimeState.lastInterval !== intervalMin;
     const isStatusChanged = publishRuntimeState.enabled !== isEnabled;
@@ -4512,6 +4694,7 @@ function syncPublishRunner() {
     // 변경사항이 아예 없으면 즉시 반환
     if (!isStatusChanged && !isIntervalChanged && !isTimeRangeChanged && publishRuntimeState.nextRunAt) {
         publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
+        refreshLegacyAutoRuntimeState();
         return;
     }
 
@@ -4526,19 +4709,14 @@ function syncPublishRunner() {
     publishRuntimeState.lastStartTime = startTime;
     publishRuntimeState.lastEndTime = endTime;
 
-    // 💡 [단순화] 시간대만 바뀐 경우: 예약된 타이머를 리셋하지 않고 실행 시점에 범위 판단 (사용자 요청)
-    if (!isStatusChanged && !isIntervalChanged && isTimeRangeChanged && publishRuntimeState.nextRunAt) {
-        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시간대 설정이 변경되었습니다. (${oldStartTime}~${oldEndTime} -> ${startTime}~${endTime}) - 기존 예약 유지`);
-        return;
-    }
-
     // 여기부터는 실질적인 리셋(setInterval 재설정)이 필요한 경우 (상태 변경 or 간격 변경)
-    if (publishRuntimeState.timer) clearInterval(publishRuntimeState.timer);
+    clearPublishTimer();
 
     if (!isEnabled) {
         if (wasEnabled) Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시스템이 OFF 되었습니다. (기존 예약 취소)`);
         publishRuntimeState.status = 'stopped';
         publishRuntimeState.nextRunAt = null;
+        refreshLegacyAutoRuntimeState();
         return;
     }
 
@@ -4546,47 +4724,12 @@ function syncPublishRunner() {
         Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 시스템이 ON 되었습니다.`);
     } else if (isIntervalChanged) {
         Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 주기가 변경되어 예약을 갱신합니다. (${oldInterval}분 -> ${intervalMin}분)`);
+    } else if (isTimeRangeChanged) {
+        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 허용 시간대가 변경되어 예약을 다시 계산합니다. (${oldStartTime}~${oldEndTime} -> ${startTime}~${endTime})`);
     }
 
     publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
-    const intervalMs = intervalMin * 60 * 1000;
-
-    const isWithinTimeRange = (start, end) => {
-        if (!start || !end) return true;
-        const now = new Date();
-        const currentMin = now.getHours() * 60 + now.getMinutes();
-        const [sH, sM] = start.split(':').map(Number);
-        const [eH, eM] = end.split(':').map(Number);
-        const startMin = sH * 60 + sM;
-        const endMin = eH * 60 + eM;
-        if (startMin <= endMin) return currentMin >= startMin && currentMin <= endMin;
-        return currentMin >= startMin || currentMin <= endMin;
-    };
-
-    const schedulePublish = () => {
-        publishRuntimeState.nextRunAt = new Date(Date.now() + intervalMs).toISOString();
-        Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 예약: ${new Date(publishRuntimeState.nextRunAt).toLocaleString()} (간격: ${intervalMin}분)`);
-        if (publishRuntimeState.timer) clearInterval(publishRuntimeState.timer);
-        publishRuntimeState.timer = setInterval(() => {
-            if (!publishRuntimeState.enabled || publishRuntimeState.running) return;
-            if (Date.now() >= new Date(publishRuntimeState.nextRunAt).getTime()) {
-                // 시간 범위 체크
-                if (!isWithinTimeRange(CONFIG.PUBLISH_AUTO_START_TIME, CONFIG.PUBLISH_AUTO_END_TIME)) {
-                    publishRuntimeState.status = 'waiting_time_window';
-                    return;
-                }
-
-                publishRuntimeState.status = 'waiting';
-                publishRuntimeState.running = true;
-                publishRuntimeState.status = 'running';
-                runAutoPublishCycle('auto').finally(() => {
-                    publishRuntimeState.running = false;
-                    schedulePublish();
-                });
-            }
-        }, 10000);
-    };
-    schedulePublish();
+    scheduleNextPublishCycle(null, { preferWindowStartIfBaseOutside: true });
 }
 
 function syncAutoRunnerWithConfig() {
@@ -4601,12 +4744,12 @@ function syncAutoRunnerWithConfig() {
 // ──────────────────────────────────────────────
 function clearShoppingAutoTimer() {
     if (shoppingAutoRuntimeState.timer) {
-        clearInterval(shoppingAutoRuntimeState.timer);
+        clearTimeout(shoppingAutoRuntimeState.timer);
         shoppingAutoRuntimeState.timer = null;
     }
 }
 
-function scheduleNextShoppingAutoCycle(delayMs = null) {
+function scheduleNextShoppingAutoCycle(delayMs = null, options = {}) {
     clearShoppingAutoTimer();
     if (!shoppingAutoRuntimeState.enabled) {
         shoppingAutoRuntimeState.nextRunAt = null;
@@ -4619,39 +4762,44 @@ function scheduleNextShoppingAutoCycle(delayMs = null) {
         const parsed = parseInt(delayMs, 10);
         waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
     } else {
-        const intervalMin = parseInt(settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60, 10);
+        const intervalMin = Math.max(1, parseInt(settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60, 10));
         waitMs = intervalMin * 60 * 1000;
         waitMs = Math.max(60 * 1000, waitMs);
+    }
+    const nextSchedule = computeNextWindowedRunAt({
+        delayMs: waitMs,
+        intervalMs: waitMs,
+        startTime: settings.SHOPPING_PUBLISH_AUTO_START_TIME,
+        endTime: settings.SHOPPING_PUBLISH_AUTO_END_TIME,
+        preferWindowStartIfBaseOutside: options.preferWindowStartIfBaseOutside === true
+    });
+    const delayUntilRun = Math.max(500, nextSchedule.runAt.getTime() - Date.now());
 
-        const waitMinutes = Math.floor(waitMs / (60 * 1000));
-        Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: 약 ${waitMinutes}분 후 실행`);
+    shoppingAutoRuntimeState.nextRunAt = nextSchedule.runAt.toISOString();
+    shoppingAutoRuntimeState.status = shoppingAutoRuntimeState.running ? 'running' : 'waiting';
+    shoppingAutoRuntimeState.message = nextSchedule.adjustedByWindow
+        ? `허용 시간대에 맞춰 다음 실행을 조정했습니다. (${settings.SHOPPING_PUBLISH_AUTO_START_TIME} ~ ${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`
+        : '다음 쇼핑 자동발행을 대기 중입니다.';
+
+    if (nextSchedule.adjustedByWindow) {
+        Logger.info(
+            `ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약이 허용 시간대에 맞춰 조정되었습니다: `
+            + `${nextSchedule.runAt.toLocaleString()} `
+            + `(원래 후보: ${nextSchedule.candidateAt.toLocaleString()}, 허용시간: ${settings.SHOPPING_PUBLISH_AUTO_START_TIME}~${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`
+        );
+    } else {
+        const waitMinutes = Math.max(1, Math.round(delayUntilRun / (60 * 1000)));
+        Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: ${nextSchedule.runAt.toLocaleString()} (약 ${waitMinutes}분 후 실행)`);
     }
 
-    shoppingAutoRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
-
-    // 30초마다 현재 시간과 예약 시간을 비교하여, 목표 시간이 경과했다면 실행
-    shoppingAutoRuntimeState.timer = setInterval(() => {
+    shoppingAutoRuntimeState.timer = setTimeout(() => {
+        shoppingAutoRuntimeState.timer = null;
         if (!shoppingAutoRuntimeState.enabled || shoppingAutoRuntimeState.running) return;
 
-        const nowMs = Date.now();
-        const targetMs = new Date(shoppingAutoRuntimeState.nextRunAt).getTime();
-
-        if (nowMs >= targetMs) {
-            // 시간 범위 체크
-            const settings = normalizeShoppingAutoSettings(CONFIG);
-            if (!isWithinTimeRange(settings.SHOPPING_PUBLISH_AUTO_START_TIME, settings.SHOPPING_PUBLISH_AUTO_END_TIME)) {
-                shoppingAutoRuntimeState.status = 'waiting_time_window';
-                shoppingAutoRuntimeState.message = `발행 허용 시간대가 아닙니다. (${settings.SHOPPING_PUBLISH_AUTO_START_TIME} ~ ${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`;
-                return;
-            }
-
-            clearInterval(shoppingAutoRuntimeState.timer);
-            shoppingAutoRuntimeState.timer = null;
-            executeShoppingAutoCycle('timer').catch((e) => {
-                Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
-            });
-        }
-    }, 30000); // 30초마다 체크
+        executeShoppingAutoCycle('timer').catch((e) => {
+            Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
+        });
+    }, delayUntilRun);
 }
 
 function stopShoppingAutoRunner(reason = '쇼핑 자동 모드 중지') {
@@ -4667,7 +4815,7 @@ function startShoppingAutoRunner(reason = '쇼핑 자동 모드 시작') {
     if (!shoppingAutoRuntimeState.startedAt) shoppingAutoRuntimeState.startedAt = new Date().toISOString();
     shoppingAutoRuntimeState.status = shoppingAutoRuntimeState.running ? 'running' : 'waiting';
     shoppingAutoRuntimeState.message = reason;
-    scheduleNextShoppingAutoCycle();
+    scheduleNextShoppingAutoCycle(null, { preferWindowStartIfBaseOutside: true });
 }
 
 function syncShoppingAutoRunnerWithConfig() {
@@ -4741,7 +4889,7 @@ async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
         if (!isCommandEnabled(features, 'shopping')) {
             summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
         } else {
-            const cycleCap = settings.SHOPPING_AUTO_DAILY_POSTS;
+            const cycleCap = settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE;
             const effectiveCycleCap = cycleCap > 0 ? cycleCap : Number.MAX_SAFE_INTEGER;
             const remaining = cycleCap > 0 ? Math.max(0, cycleCap - shoppingAutoRuntimeState.shoppingPublishedToday) : Number.MAX_SAFE_INTEGER;
             const targetLimit = Math.max(0, Math.min(effectiveCycleCap, planShoppingLimit, remaining));

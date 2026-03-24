@@ -428,7 +428,8 @@ const CONFIG = {
     SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.shopping.notify_enabled,
     SHOPPING_PUBLISH_AUTO_START_TIME: structuredConfig.automation.publish.shopping.start_time || '00:00',
     SHOPPING_PUBLISH_AUTO_END_TIME: structuredConfig.automation.publish.shopping.end_time || '23:59',
-    SHOPPING_AUTO_TIME: structuredConfig.automation.publish.shopping.scheduled_time,
+    SHOPPING_AUTO_TIME: structuredConfig.automation.publish.shopping.scheduled_time
+        || structuredConfig.automation.publish.shopping.time,
 
     // System & Constants
     UPDATE_CHANNEL: structuredConfig.system.update_channel,

@@ -1246,9 +1246,9 @@ program
                         break;
                     }
 
-                    const publishTargets = Array.isArray(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS)
-                        ? CONFIG.PUBLISH_AUTO_TARGET_CHANNELS.map(t => String(t).trim().toLowerCase())
-                        : String(CONFIG.PUBLISH_AUTO_TARGET_CHANNELS || 'naver')
+                    const publishTargets = Array.isArray(CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
+                        ? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS.map(t => String(t).trim().toLowerCase())
+                        : String(CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver')
                             .split(',')
                             .map(t => t.trim().toLowerCase());
 
@@ -1257,7 +1257,7 @@ program
                         await Core.publishToBlog(result.targetDir, {
                             affiliateUrl: job.shortUrl,
                             requireAffiliateUrl: true,
-                            headless: typeof CONFIG.BLOG_AUTO_HEADLESS === 'boolean' ? CONFIG.BLOG_AUTO_HEADLESS : CONFIG.HEADLESS,
+                            headless: typeof CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS === 'boolean' ? CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS : CONFIG.HEADLESS,
                             postStatus: job.postStatus || 'publish',
                             scheduleDate: job.scheduleDate || null,
                             isLast: (i === targetJobs.length - 1)
