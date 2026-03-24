@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
@@ -56,6 +57,21 @@ function logSessionStateTransition(result) {
     Logger.warn(`🔄 [AuthSession] 세션 상태 변경: ${stateKeyToLabel(nextStateKey)}`);
 }
 
+async function persistAuthSessionState(context, options = {}) {
+    const authPath = String(options.authPath || CONFIG.AUTH_FILE_PATH || '').trim();
+    if (!context || !authPath) return false;
+
+    try {
+        fs.mkdirSync(path.dirname(authPath), { recursive: true });
+        await context.storageState({ path: authPath });
+        Logger.debug(`💾 [AuthSession] 최신 인증 상태 저장: ${authPath}`);
+        return true;
+    } catch (e) {
+        Logger.warn(`⚠️ [AuthSession] 인증 상태 저장 실패: ${e.message}`);
+        return false;
+    }
+}
+
 async function performAuthSessionCheck(options = {}) {
     const authPath = CONFIG.AUTH_FILE_PATH;
     if (!authPath || !fs.existsSync(authPath)) {
@@ -81,6 +97,7 @@ async function performAuthSessionCheck(options = {}) {
         if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {
             return { ok: false, reason: 'expired' };
         }
+        await persistAuthSessionState(context, { authPath });
         return { ok: true };
     } catch (e) {
         return { ok: false, reason: 'check_failed', message: e.message };
@@ -119,5 +136,6 @@ async function checkAuthSessionValid(options = {}) {
 }
 
 module.exports = {
-    checkAuthSessionValid
+    checkAuthSessionValid,
+    persistAuthSessionState
 };

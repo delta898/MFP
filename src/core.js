@@ -8,6 +8,7 @@ const Constants = require('./constants');    // 🔥 [필수] 기본 설정 상�
 const Utils = require('./utils');
 const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
+const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 
@@ -2388,14 +2389,19 @@ ${scrapedContext}`;
 				return { success: false, message: 'Failed to click top publish button' };
 			}
 
-		} catch (e) {
-			Logger.error(`❌ 에러 발생: ${e.message}`);
-			throw e;
-		} finally {
-			// 🔧 [Fixed] 브라우저 종료 로직 개선 (좀비 프로세스 방지 + 마지막 글 유지 기능)
-			const closeDelaySeconds = parseInt(CONFIG.CLOSE_DELAY_SECONDS, 10) || 10;
-			const closeDelayMs = closeDelaySeconds * 1000;
-			const isHeadless = options.headless === true;
+			} catch (e) {
+				Logger.error(`❌ 에러 발생: ${e.message}`);
+				throw e;
+			} finally {
+				const currentUrl = String(page?.url?.() || '');
+				if (context && currentUrl && !/nid\.naver\.com/i.test(currentUrl) && !/nidlogin\.login/i.test(currentUrl)) {
+					await persistAuthSessionState(context, { authPath });
+				}
+
+				// 🔧 [Fixed] 브라우저 종료 로직 개선 (좀비 프로세스 방지 + 마지막 글 유지 기능)
+				const closeDelaySeconds = parseInt(CONFIG.CLOSE_DELAY_SECONDS, 10) || 10;
+				const closeDelayMs = closeDelaySeconds * 1000;
+				const isHeadless = options.headless === true;
 			const isLast = options.isLast === true;
 
 			// 헤드리스 모드가 아니면서 마지막 글인 경우, 사용자가 검토할 수 있도록 브라우저를 닫지 않음

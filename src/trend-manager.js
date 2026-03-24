@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const moment = require('moment-timezone');
 const { launchBrowser } = require('./browser-launcher');
+const { persistAuthSessionState } = require('./auth-session');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 
@@ -555,13 +556,17 @@ const TrendManager = {
                 date: resolvedTrendDate
             };
 
-        } catch (error) {
-            Logger.error(`❌ 트렌드 수집 중 오류 발생: ${error.message}`);
-            throw error;
-        } finally {
-            if (browser) await browser.close();
-        }
-    }
+	        } catch (error) {
+	            Logger.error(`❌ 트렌드 수집 중 오류 발생: ${error.message}`);
+	            throw error;
+	        } finally {
+	            const currentUrl = String(page?.url?.() || '');
+	            if (context && authPath && fs.existsSync(authPath) && currentUrl && !/nid\.naver\.com/i.test(currentUrl) && !/nidlogin\.login/i.test(currentUrl)) {
+	                await persistAuthSessionState(context, { authPath });
+	            }
+	            if (browser) await browser.close();
+	        }
+	    }
 };
 
 module.exports = TrendManager;

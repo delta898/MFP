@@ -1428,6 +1428,7 @@ function activateBlogTab(tabName, options = {}) {
   const tabPanels = Array.from(document.querySelectorAll('.blog-tab-panel'));
   tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.blogTab === target));
   tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `blog-tab-${target}`));
+  syncScopedMajorSaveActions();
 
   const forceReload = options.forceReload !== false;
   if (!forceReload) return;
@@ -1613,6 +1614,7 @@ function activateShoppingTab(tabName, options = {}) {
   const tabPanels = Array.from(document.querySelectorAll('.shopping-tab-panel'));
   tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shoppingTab === target));
   tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `shopping-tab-${target}`));
+  syncScopedMajorSaveActions();
 
   const forceReload = options.forceReload !== false;
   if (!forceReload) return;
@@ -4277,26 +4279,48 @@ function markSettingsMajorPendingChanges(pending = true) {
 
 function updateSettingsMajorSaveUi() {
   const saveBtns = document.querySelectorAll('#settings-major-save-btn, .settings-major-save-btn');
-  const statusEl = document.getElementById('settings-major-save-status');
+  const statusEls = Array.from(document.querySelectorAll('.settings-major-save-status'));
   const isDirty = settingsMajorHasPendingBasicChanges === true;
 
   saveBtns.forEach((btn) => {
     btn.disabled = !isDirty || settingsMajorSaveInFlight;
   });
 
-  if (!statusEl) return;
+  if (statusEls.length === 0) return;
   if (settingsMajorSaveInFlight) {
-    statusEl.textContent = '저장 중...';
-    statusEl.style.color = 'var(--text-muted)';
+    statusEls.forEach((statusEl) => {
+      statusEl.textContent = '저장 중...';
+      statusEl.style.color = 'var(--text-muted)';
+    });
     return;
   }
   if (isDirty) {
-    statusEl.textContent = '저장되지 않은 변경사항';
-    statusEl.style.color = 'var(--warning, #d97706)';
+    statusEls.forEach((statusEl) => {
+      statusEl.textContent = '저장되지 않은 변경사항';
+      statusEl.style.color = 'var(--warning, #d97706)';
+    });
     return;
   }
-  statusEl.textContent = '저장됨';
-  statusEl.style.color = 'var(--success, #16a34a)';
+  statusEls.forEach((statusEl) => {
+    statusEl.textContent = '저장됨';
+    statusEl.style.color = 'var(--success, #16a34a)';
+  });
+}
+
+function syncScopedMajorSaveActions() {
+  const blogSaveActionsEl = document.getElementById('blog-major-save-actions');
+  if (blogSaveActionsEl) {
+    const shouldShow = ['collect', 'auto'].includes(String(blogActiveTab || ''));
+    blogSaveActionsEl.hidden = !shouldShow;
+    blogSaveActionsEl.style.display = shouldShow ? 'inline-flex' : 'none';
+  }
+
+  const shoppingSaveActionsEl = document.getElementById('shopping-major-save-actions');
+  if (shoppingSaveActionsEl) {
+    const shouldShow = String(shoppingActiveTab || '') === 'auto';
+    shoppingSaveActionsEl.hidden = !shouldShow;
+    shoppingSaveActionsEl.style.display = shouldShow ? 'inline-flex' : 'none';
+  }
 }
 
 function setSettingsMajorResultText(message) {
@@ -5427,7 +5451,7 @@ async function loadBlogCollectSettings() {
     setBlogCollectResultText([
       '불러오기 완료',
       '- 수집 기준을 확인했습니다.',
-      '- 변경사항은 즉시 반영됩니다.'
+      '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
     setBlogCollectResultText(`오류: ${e.message}`);
@@ -5487,7 +5511,7 @@ async function loadBlogAutoSettings() {
     setBlogAutoResultText([
       '불러오기 완료',
       '- 자동발행 기준을 확인했습니다.',
-      '- 변경사항은 즉시 반영됩니다.'
+      '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
     setBlogAutoResultText(`오류: ${e.message}`);
@@ -5602,7 +5626,7 @@ async function loadShoppingAutoSettings() {
     setShoppingAutoResultText([
       '불러오기 완료',
       '- 자동발행 기준을 확인했습니다.',
-      '- 변경사항은 즉시 반영됩니다.'
+      '- 변경 후 상단의 저장 및 적용 버튼으로 반영할 수 있습니다.'
     ].join('\n'));
   } catch (e) {
     setShoppingAutoResultText(`오류: ${e.message}`);
@@ -8008,6 +8032,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   try { bindNavigation(); } catch (e) { console.warn('bindNavigation error:', e); }
   try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
+  try { syncScopedMajorSaveActions(); } catch (e) { console.warn('syncScopedMajorSaveActions error:', e); }
   try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }
   try { loadGoogleAuthStatus(); } catch (e) { console.warn('loadGoogleAuthStatus error:', e); }
 

@@ -8,6 +8,7 @@ const Utils = require('./utils');
 const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
 const RuntimeConfig = require('./runtime-config');
+const { persistAuthSessionState } = require('./auth-session');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
@@ -2053,6 +2054,10 @@ async function resolveCandidateUrlWithBrowser(url, headless = true) {
             reviewHtml = await page.content();
         } catch (ignore) { }
 
+        if (contextOptions.storageState) {
+            await persistAuthSessionState(context, { authPath: contextOptions.storageState });
+        }
+
         await context.close();
         await browser.close();
 
@@ -2112,6 +2117,10 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
 
         const finalUrl = page.url() || url;
         const html = await page.content();
+
+        if (contextOptions.storageState) {
+            await persistAuthSessionState(context, { authPath: contextOptions.storageState });
+        }
 
         await context.close();
         await browser.close();

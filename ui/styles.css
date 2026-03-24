@@ -2065,6 +2065,8 @@ h2 {
 .blog-tabs,
 .shopping-tabs {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -2928,6 +2930,11 @@ h2 {
   margin-left: 48px;
 }
 
+.tab-save-actions {
+  margin-left: 48px;
+  flex: 0 0 auto;
+}
+
 .settings-major-save-status {
   margin: 0;
   font-size: 12px;
@@ -2964,6 +2971,12 @@ h2 {
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
+}
+
+#blog-major-save-actions .settings-major-save-btn,
+#shopping-major-save-actions .settings-major-save-btn {
+  min-height: 38px;
+  padding: 9px 16px;
 }
 
 .settings-tab-panel {
