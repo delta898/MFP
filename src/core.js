@@ -746,7 +746,7 @@ async function waitForBlogEditorReady(page, timeoutMs = 30000) {
 		// 로그인 페이지로 튄 경우는 즉시 실패 처리 (기존 상위 로직과 동일한 의도)
 		const currentUrl = String(page.url() || '');
 		if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
-			throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
+			throw new Error("Login Session Expired - Please re-authenticate from the app settings screen");
 		}
 
 		const titleReady = await hasVisible(
@@ -1867,9 +1867,9 @@ ${scrapedContext}`;
 			// 🔧 [Fixed] 세션 만료 처리 개선 (더 명확한 안내)
 			if (page.url().includes('nid.naver.com') || page.url().includes('login')) {
 				Logger.error("🚨 [Critical] 로그인 정보가 만료되었습니다.");
-				Logger.info("   💡 해결 방법: 터미널에서 'npm run login' 명령어를 실행하여 다시 로그인하세요.");
+				Logger.info("   💡 해결 방법: 앱의 설정 화면에서 다시 로그인하세요.");
 				await browser.close();
-				throw new Error("Login Session Expired - Please run 'npm run login' to re-authenticate");
+				throw new Error("Login Session Expired - Please re-authenticate from the app settings screen");
 			}
 
 			await waitForBlogEditorReady(page, PUBLISH_EDITOR_READY_TIMEOUT_MS);

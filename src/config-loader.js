@@ -30,7 +30,7 @@ const ACTIVE_ROOT = (() => {
     if (IS_PACKAGED) {
         return path.dirname(EXEC_PATH);
     }
-    // C. 개발 환경 (node src/main.js 등 - 현재 작업 디렉토리 기준)
+    // C. 개발 환경 (node src/main.js UI launcher 등 - 현재 작업 디렉토리 기준)
     return process.cwd();
 })();
 

@@ -11,23 +11,23 @@
 - `free`: 일부 기능, 월 15회(`quota_cycle=monthly`)
 - `pro`: 모든 기능 허용, 월 100회
 - `ultra`: 모든 기능 허용, 무제한
-- 날짜 지정 트렌드(`trends --date`)는 feature flag(`enable_trends_date_override`)로 제어합니다.
+- 날짜 지정 트렌드는 feature flag(`enable_trends_date_override`)로 제어합니다.
 - test 1회성 규칙:
   - `test -> 만료` 후에는 자동 전환하지 않음
-  - 계속 사용하려면 `license upgrade` 실행
-  - `license register`는 플랜 변경 없이 이메일 연결만 수행
-  - `license upgrade`는 플랜 전환만 수행(현재는 `free`만 지원)
+  - 계속 사용하려면 앱의 라이선스 화면에서 업그레이드 진행
+  - 이메일 등록은 플랜 변경 없이 이메일 연결만 수행
+  - 업그레이드는 플랜 전환만 수행(현재는 `free`만 지원)
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
   - `test` 소진 후에는 다시 `test` 사용 불가
 - 차감 대상:
-  - `pub` (실행 1회당 1차감)
-  - `trends` (트렌드 시트 반영 직전 1차감)
-  - `batch` (포스트 건당 차감)
-  - `shopping` (포스트 건당 차감)
+  - 단건 발행 (실행 1회당 1차감)
+  - 트렌드 수집 (트렌드 시트 반영 직전 1차감)
+  - 일괄/자동 블로그 발행 (포스트 건당 차감)
+  - 쇼핑 포스팅 (포스트 건당 차감)
 - 미차감:
-  - `login`
-  - `gen`
-  - `keywords`
+  - 앱 로그인
+  - 초안/생성 준비 작업
+  - 키워드 조사
 
 ## 2. 구조
 
@@ -41,9 +41,9 @@
 - `LICENSE_KEY`가 비어 있으면 `issue_test_license(p_hwid)`로 test 키 자동 발급 시도
 - 발급 성공 시 `config/license.key`에 자동 저장
 - HWID와 함께 RPC 호출
-- `license register` 명령으로 이메일 인증 후 현재 키에 이메일 연결
-- `license recover` 명령으로 이메일 인증 후 기존 키 복구
-- `license upgrade` 명령으로 플랜 전환
+- 앱의 라이선스 화면에서 이메일 인증 후 현재 키에 이메일 연결
+- 앱의 라이선스 화면에서 이메일 인증 후 기존 키 복구
+- 앱의 라이선스 화면에서 플랜 전환
 
 서버 역할:
 - 입력된 `license_key`로 라이선스 단건 조회
@@ -140,14 +140,14 @@
   - 포함 RPC: `issue_test_license`, `check_license_status`, `check_and_use_license`
 - v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.
 
-## 8. 라이선스 CLI 운영 원칙
+## 8. 라이선스 UI 운영 원칙
 
-현재 사용자 노출 라이선스 명령은 아래 4종입니다.
+현재 사용자 노출 라이선스 흐름은 앱 UI에서 제공합니다.
 
-- `license status`: 현재 플랜/한도/사용/잔여 확인
-- `license register`: 이메일 연결(등록) 전용, 플랜 변경 없음
-- `license recover`: 등록된 이메일 기준 라이선스 복구
-- `license upgrade`: 플랜 전환 전용(현재 정책/구성에 따라 가능한 플랜만 노출)
+- 상태 조회: 현재 플랜/한도/사용/잔여 확인
+- 등록: 이메일 연결(등록) 전용, 플랜 변경 없음
+- 복구: 등록된 이메일 기준 라이선스 복구
+- 업그레이드: 플랜 전환 전용(현재 정책/구성에 따라 가능한 플랜만 노출)
 
 운영 정책:
 

@@ -4,6 +4,7 @@ const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
 const Logger = require('./logger');
+const { NAVER_DEFAULT_USER_AGENT } = require('./naver-auth-flow');
 
 let cachedSession = null;
 let cachedAtMs = 0;
@@ -85,7 +86,7 @@ async function performAuthSessionCheck(options = {}) {
         browser = await BrowserLauncher.launchBrowser({ headless: true });
         context = await browser.newContext({
             storageState: authPath,
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            userAgent: NAVER_DEFAULT_USER_AGENT
         });
         const page = await context.newPage();
         const checkUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;

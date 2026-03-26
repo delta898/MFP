@@ -56,7 +56,7 @@ call npx electron-packager . "%APP_NAME%" ^
     --out=dist\gui-temp --overwrite ^
     --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" ^
     --icon=assets/icons/icon ^
-    --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" ^
+    --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" ^
     --quiet
 if errorlevel 1 (
     echo    ❌ [Error] GUI 빌드 실패 (win-x64)

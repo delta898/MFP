@@ -34,5 +34,6 @@
 - `architecture/agent-runtime.md`
 - `architecture/memory-graph.md`
 - `architecture/knowledge-providers.md`
+- `architecture/ui-runtime-boundaries.md`
 - `features/mcp-client-setup.md`
 - `plans/active/agent-redesign-plan.md`

@@ -28,7 +28,7 @@
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
-6. test 사용량 소진 시에는 자동 전환하지 않고, `license upgrade`로 플랜 전환을 진행합니다.
+6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 라이선스 화면에서 업그레이드를 진행합니다.
 
 ## 3. 운영 시나리오
 
@@ -39,7 +39,7 @@
 - 운영자 개입은 기본적으로 필요하지 않습니다.
 - 실패 시(네트워크/DB/RPC 오류)만 운영자가 키를 수동 발급해 전달합니다.
 
-### 3.-2 등록(license register) 절차
+### 3.-2 등록 절차
 
 - 목적: 현재 사용 중인 라이선스에 이메일 연결 (플랜 변경 없음)
 - 흐름:
@@ -57,7 +57,7 @@
   - `app_runtime_configs.config_key='license_registration_code_ttl_seconds'`
   - 값이 없으면 기본값 `300초(5분)` 사용
 
-### 3.-3 복구(license recover) 절차
+### 3.-3 복구 절차
 
 - 목적: 재설치/신규 기기에서 이메일 인증으로 기존 키 복구
 - 흐름:
@@ -72,14 +72,14 @@
 - 참고:
   - 등록 이메일이 없으면 메일을 발송하지 않고 `등록된 이메일이 없습니다` 메시지를 반환합니다.
 
-### 3.-4 업그레이드(license upgrade) 절차
+### 3.-4 업그레이드 절차
 
 - 목적: 플랜 전환만 수행 (`register`와 분리)
 - 현재 정책: `free` 업그레이드만 지원
 - 구현 RPC:
   - `upgrade_license_plan(p_license_key text, p_hwid text, p_target_plan text, p_email text)`
 - 참고:
-  - 이메일 미연결 상태에서 `upgrade` 실행 시 앱이 `register` 절차를 먼저 진행한 뒤 업그레이드를 재시도합니다.
+  - 이메일 미연결 상태에서 업그레이드 실행 시 앱이 등록 절차를 먼저 진행한 뒤 업그레이드를 재시도합니다.
 
 #### 3.-2-a 메일 발송 함수 설정(1회)
 
@@ -95,7 +95,7 @@ supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" -
 - `send-license-code` 함수는 앱에서 익명 호출하므로 `--no-verify-jwt`로 배포해야 합니다.
 - Brevo 발신 도메인/발신자(sender)가 인증되어 있어야 합니다.
 - `BREVO_API_KEY`는 Brevo API 키(`xkeysib-...`)를 사용합니다.
-- 시크릿 누락 시 `license register`는 실패해야 정상입니다(보안상 코드 미노출).
+- 시크릿 누락 시 앱의 등록 흐름은 실패해야 정상입니다(보안상 코드 미노출).
 
 #### 3.-2-b 장애 대응 가이드
 
