@@ -812,7 +812,7 @@
             <div class="auto-mode-inline">
               <label class="settings-checkbox-label settings-checkbox-inline">
                 <input id="blog-collect-trends-enabled" type="checkbox">
-                <span>트렌드 자동 수집 사용</span>
+                <span class="auto-mode-title">트렌드 자동 수집 사용</span>
               </label>
             </div>
             <div class="form-grid" style="align-items: stretch;">
@@ -921,7 +921,7 @@
             <div class="auto-mode-inline" style="margin-bottom: 6px;">
               <label class="settings-checkbox-label" style="font-weight: 600; color: var(--primary-color);">
                 <input id="blog-collect-rss-enabled" type="checkbox" onchange="syncRssRunner()">
-                <span>RSS 수집 사용</span>
+                <span class="auto-mode-title">RSS 수집 사용</span>
               </label>
             </div>
             <div class="rss-table-wrapper"
@@ -971,7 +971,7 @@
             <div class="auto-mode-inline" style="margin-bottom: 20px;">
               <label class="settings-checkbox-label settings-checkbox-inline">
                 <input id="blog-publish-auto-enabled" type="checkbox">
-                <span style="font-weight: 600; font-size: 1.1rem;">자동 포스팅 사용</span>
+                <span class="auto-mode-title">자동 포스팅 사용</span>
               </label>
               <div class="tooltip-container" style="display: inline-block; margin-left: 6px; vertical-align: middle;">
                 <span class="tooltip-icon">?</span>
@@ -1215,7 +1215,7 @@
             <div class="auto-mode-inline" style="margin-bottom: 20px;">
               <label class="settings-checkbox-label settings-checkbox-inline">
                 <input id="shopping-publish-auto-enabled" type="checkbox">
-                <span style="font-weight: 600; font-size: 1.1rem;">자동 포스팅 사용</span>
+                <span class="auto-mode-title">자동 포스팅 사용</span>
               </label>
               <div class="tooltip-container" style="display: inline-block; margin-left: 6px; vertical-align: middle;">
                 <span class="tooltip-icon">?</span>
@@ -2023,6 +2023,8 @@
       </div>
     </div>
   </div>
+
+  <div id="ui-toast-container" class="ui-toast-container" aria-live="polite" aria-atomic="true"></div>
 
       <div id="ui-dialog-backdrop" class="ui-dialog-backdrop hidden" aria-hidden="true">
     <div class="ui-dialog" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title"
