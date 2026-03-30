@@ -8,6 +8,13 @@ const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
 const { getAgentEventStore } = require('./memory/store');
 const GoogleOAuth = require('./google-oauth');
+const {
+    mergeShoppingSheetOptions,
+    mergeTopicSheetOptions,
+    resolveShoppingSheetState,
+    resolveTopicSheetState,
+    stringifySheetOptionsValue
+} = require('./content/publish-sheet-options');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -1125,8 +1132,8 @@ const Utils = {
                     }
                 });
             } else if (type === 'shopping') {
-                // 헤더: category, post_status, schedule_date, URL, 상품, 상태, 발행 시간, 로그
-                headerRow = [['category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그']];
+                // 헤더: category, post_status, schedule_date, URL, 상품, 상태, 발행 시간, 로그, options
+                headerRow = [['category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그', 'options']];
 
                 // Dropdown: B열 (Index 1) -> publish, draft, schedule (발행 옵션)
                 validationRequests.push({
@@ -1313,38 +1320,39 @@ const Utils = {
                     const source = getVal(['소스', 'source']);
                     const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
 
-                    let optionsObj = {};
-                    if (optionsStr) {
-                        try {
-                            optionsObj = JSON.parse(optionsStr);
-                        } catch (e) {
-                            // If not JSON, it might be a legacy string like 'draft' from early refactoring
-                            optionsObj = { post_status: optionsStr };
-                            Logger.warn(`ℹ️ [Utils] Row ${index + 2} options is not JSON, treating as post_status: ${optionsStr}`);
-                        }
-                    }
-
                     const explicitImgGen = imgGenStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(imgGenStr).toLowerCase()) : undefined;
                     const explicitExtRef = extRefStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(extRefStr).toLowerCase()) : undefined;
+                    const resolvedState = resolveTopicSheetState({
+                        subject,
+                        keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
+                        instruction,
+                        referenceUrls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : [],
+                        category: ctgRaw || '',
+                        postStatus: postStatus || 'publish',
+                        scheduleDate: scheduleDate || '',
+                        imageGeneration: explicitImgGen !== undefined ? explicitImgGen : false,
+                        externalReference: explicitExtRef !== undefined ? explicitExtRef : true,
+                        options: optionsStr
+                    });
 
                     return {
                         rowIndex: index,
                         rowNumber: index + 2,
-                        category: ctgRaw || '',
-                        postStatus: postStatus || 'publish',
-                        scheduleDate: scheduleDate || '',
-                        subject: subject || '',
-                        keywords: kwStr ? kwStr.split(',').map(k => k.trim()).filter(k => k) : [],
-                        keywordsRaw: kwStr || '',
+                        category: resolvedState.category || '',
+                        postStatus: resolvedState.postStatus || 'publish',
+                        scheduleDate: resolvedState.scheduleDate || '',
+                        subject: resolvedState.subject || '',
+                        keywords: resolvedState.keywords,
+                        keywordsRaw: resolvedState.keywords.join(', ') || kwStr || '',
                         content_guide: {
-                            additional_instructions: instruction || '',
-                            reference_urls: urlStr ? urlStr.split(',').map(u => u.trim()).filter(u => u) : []
+                            additional_instructions: resolvedState.instruction || '',
+                            reference_urls: resolvedState.referenceUrls
                         },
                         status: status || '',
-                        image_gen: explicitImgGen !== undefined ? explicitImgGen : (optionsObj.image_gen !== undefined ? !!optionsObj.image_gen : false),
-                        image_count: parseInt(imgCountStr, 10) || (optionsObj.image_count !== undefined ? parseInt(optionsObj.image_count, 10) : 4),
-                        external_reference: explicitExtRef !== undefined ? explicitExtRef : (optionsObj.external_reference !== undefined ? !!optionsObj.external_reference : false),
-                        options: optionsObj, // [Added] 원본 옵션 객체 유지
+                        image_gen: resolvedState.imageGeneration,
+                        image_count: parseInt(imgCountStr, 10) || (resolvedState.options.image_count !== undefined ? parseInt(resolvedState.options.image_count, 10) : 4),
+                        external_reference: resolvedState.externalReference,
+                        options: resolvedState.options,
                         log: logStr || '',
                         published_at: publishedAt || '',
                         created_at: addedAt || '',
@@ -1454,13 +1462,14 @@ const Utils = {
             headers.forEach((h, i) => {
                 const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
                 if ((clean.includes('category') || clean.includes('카테고리')) && map.category === undefined) map.category = i;
-                if ((clean.includes('poststatus') || clean.includes('옵션') || clean.includes('발행상태')) && map.postStatus === undefined) map.postStatus = i;
+                if ((clean.includes('poststatus') || clean.includes('발행옵션') || clean.includes('발행상태')) && map.postStatus === undefined) map.postStatus = i;
                 if ((clean.includes('scheduledate') || clean.includes('예약')) && map.scheduleDate === undefined) map.scheduleDate = i;
                 if ((clean.includes('url') || clean.includes('링크')) && map.shortUrl === undefined) map.shortUrl = i;
                 if ((clean.includes('상품') || clean.includes('product')) && map.product === undefined) map.product = i;
                 if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && map.status === undefined) map.status = i;
                 if ((clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간') || clean.includes('작업시간')) && !clean.includes('예약') && map.publishedAt === undefined) map.publishedAt = i;
                 if ((clean.includes('로그') || clean.includes('log')) && map.log === undefined) map.log = i;
+                if ((clean === 'options' || clean === '옵션') && map.options === undefined) map.options = i;
             });
 
             // Fallbacks for the default structure if not found
@@ -1473,7 +1482,17 @@ const Utils = {
             if (map.publishedAt === undefined) map.publishedAt = 6;
             if (map.log === undefined) map.log = 7;
 
-            const maxCol = Math.max(map.category, map.postStatus, map.scheduleDate, map.shortUrl, map.product, map.status, map.publishedAt, map.log);
+            const maxCol = Math.max(
+                map.category,
+                map.postStatus,
+                map.scheduleDate,
+                map.shortUrl,
+                map.product,
+                map.status,
+                map.publishedAt,
+                map.log,
+                map.options ?? 0
+            );
             const defaultStatus = String(options.defaultStatus || '준비').trim() || '준비';
 
             const rowsToAdd = newItems.map((item) => {
@@ -1485,6 +1504,11 @@ const Utils = {
                 const shortUrl = String(item?.shortUrl || item?.url || '').trim();
                 const product = String(item?.product || '').trim();
                 const rowStatus = String(item?.status || defaultStatus).trim() || defaultStatus;
+                const syncedOptions = mergeShoppingSheetOptions(item?.options, {
+                    category,
+                    postStatus,
+                    scheduleDate
+                });
 
                 row[map.category] = category;
                 row[map.postStatus] = postStatus;
@@ -1494,6 +1518,7 @@ const Utils = {
                 row[map.status] = rowStatus;
                 if (map.publishedAt !== undefined) row[map.publishedAt] = '';
                 if (map.log !== undefined) row[map.log] = '';
+                if (map.options !== undefined) row[map.options] = stringifySheetOptionsValue(syncedOptions);
 
                 return row;
             });
@@ -1581,7 +1606,10 @@ const Utils = {
 
             headers.forEach((h, i) => {
                 if (h.includes('url') || h.includes('링크')) urlIdx = i;
-                if (h.includes('상태') || h.includes('status')) statusIdx = i;
+                if (
+                    (h.includes('상태') && !h.includes('발행상태') && !h.includes('poststatus'))
+                    || (h.includes('status') && !h.includes('poststatus'))
+                ) statusIdx = i;
             });
 
             if (urlIdx === -1 || statusIdx === -1) {
@@ -1612,9 +1640,20 @@ const Utils = {
                         rowIndex: index,
                         shortUrl,
                         status,
-                        category: getVal(['category', '카테고리']),
-                        postStatus: getVal(['poststatus', '발행상태']),
-                        scheduleDate: getVal(['scheduledate', '예약일시']),
+                        ...(() => {
+                            const resolvedState = resolveShoppingSheetState({
+                                category: getVal(['category', '카테고리']),
+                                postStatus: getVal(['poststatus', 'post_status', '발행옵션', '발행상태']),
+                                scheduleDate: getVal(['scheduledate', 'schedule_date', '예약일시']),
+                                options: getVal(['options', '옵션', 'extra_options'])
+                            });
+                            return {
+                                category: resolvedState.category || '',
+                                postStatus: resolvedState.postStatus || 'publish',
+                                scheduleDate: resolvedState.scheduleDate || '',
+                                options: resolvedState.options
+                            };
+                        })(),
                         log: getVal(['log', '로그'])
                     });
                 }
@@ -1669,9 +1708,12 @@ const Utils = {
                     const publishedAt = getVal(['발행시간', '발행시간', 'publish_time', 'time', '작업시간', '작업시간']);
                     const product = getVal(['상품', 'product']);
                     const logStr = getVal(['로그', 'log']);
-                    const category = getVal(['category', '카테고리']);
-                    const postStatus = getVal(['poststatus', '발행상태']);
-                    const scheduleDate = getVal(['scheduledate', '예약일시']);
+                    const resolvedState = resolveShoppingSheetState({
+                        category: getVal(['category', '카테고리']),
+                        postStatus: getVal(['poststatus', 'post_status', '발행옵션', '발행상태']),
+                        scheduleDate: getVal(['scheduledate', 'schedule_date', '예약일시']),
+                        options: getVal(['options', '옵션', 'extra_options'])
+                    });
 
                     return {
                         rowIndex: index,
@@ -1681,9 +1723,10 @@ const Utils = {
                         publishedAt: publishedAt || '',
                         product: product || '',
                         log: logStr || '',
-                        category: category || '',
-                        postStatus: postStatus || 'publish',
-                        scheduleDate: scheduleDate || ''
+                        category: resolvedState.category || '',
+                        postStatus: resolvedState.postStatus || 'publish',
+                        scheduleDate: resolvedState.scheduleDate || '',
+                        options: resolvedState.options
                     };
                 });
 
@@ -1825,15 +1868,17 @@ const Utils = {
             let categoryColIndex = -1;
             let postStatusColIndex = -1;
             let scheduleDateColIndex = -1;
+            let optionsColIndex = -1;
 
             headers.forEach((h, i) => {
                 const clean = String(h || '').toLowerCase().replace(/[\s\/_]/g, '');
                 if ((clean.includes('category') || clean.includes('카테고리')) && categoryColIndex === -1) categoryColIndex = i;
-                if ((clean.includes('poststatus') || clean.includes('발행상태')) && postStatusColIndex === -1) postStatusColIndex = i;
+                if ((clean.includes('poststatus') || clean.includes('발행옵션') || clean.includes('발행상태')) && postStatusColIndex === -1) postStatusColIndex = i;
                 if ((clean.includes('scheduledate') || clean.includes('예약')) && scheduleDateColIndex === -1) scheduleDateColIndex = i;
                 if ((clean.includes('url') || clean.includes('링크')) && urlColIndex === -1) urlColIndex = i;
                 if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && statusColIndex === -1) statusColIndex = i;
                 if ((clean.includes('상품') || clean.includes('product')) && productColIndex === -1) productColIndex = i;
+                if ((clean === 'options' || clean === '옵션') && optionsColIndex === -1) optionsColIndex = i;
             });
 
             const targetRow = rowIndex + 2;
@@ -1848,6 +1893,15 @@ const Utils = {
             };
 
             const dataToUpdate = [];
+            let existingOptionsRaw = '';
+            if (optionsColIndex !== -1) {
+                const rowReadUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!${targetRow}:${targetRow}`;
+                const rowRes = await this.callWithRetry(() => axios.get(rowReadUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }));
+                const rowValues = Array.isArray(rowRes?.data?.values?.[0]) ? rowRes.data.values[0] : [];
+                existingOptionsRaw = rowValues[optionsColIndex] !== undefined ? rowValues[optionsColIndex] : '';
+            }
             if (fields.category !== undefined && categoryColIndex !== -1) {
                 dataToUpdate.push({
                     range: `${sheetName}!${toA1(categoryColIndex)}${targetRow}`,
@@ -1882,6 +1936,17 @@ const Utils = {
                 dataToUpdate.push({
                     range: `${sheetName}!${toA1(statusColIndex)}${targetRow}`,
                     values: [[String(fields.status || '').trim()]]
+                });
+            }
+            if (optionsColIndex !== -1) {
+                const syncedOptions = mergeShoppingSheetOptions(existingOptionsRaw, {
+                    category: fields.category,
+                    postStatus: fields.postStatus,
+                    scheduleDate: fields.scheduleDate
+                });
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(optionsColIndex)}${targetRow}`,
+                    values: [[stringifySheetOptionsValue(syncedOptions)]]
                 });
             }
 
@@ -2195,11 +2260,6 @@ const Utils = {
                     || options.addedAt
                     || this.formatKstDateTime()
                 ).trim();
-                const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
-
-                if (map.subject !== undefined) row[map.subject] = topic.subject;
-                if (map.keyword !== undefined) row[map.keyword] = keywordValue;
-                if (map.instruction !== undefined) row[map.instruction] = instructionValue;
                 const externalReference = (typeof topic.use_external_ref === 'boolean')
                     ? topic.use_external_ref
                     : (
@@ -2211,6 +2271,32 @@ const Utils = {
                                     : true
                             )
                     );
+                const rowStatus = String(topic.status || defaultStatus).trim() || defaultStatus;
+                const rowCategory = topic.wp_category || topic.category || '';
+                const rowPostStatus = topic.postStatus || topic.post_status || '';
+                const rowScheduleDate = topic.scheduleDate || topic.schedule_date || '';
+                const syncedOptions = mergeTopicSheetOptions(topic.options, {
+                    subject: topic.subject,
+                    keywords: Array.isArray(topic.keywords) ? topic.keywords : keywordValue,
+                    instruction: instructionValue,
+                    referenceUrls: Array.isArray(topic.content_guide?.reference_urls)
+                        ? topic.content_guide.reference_urls
+                        : (
+                            Array.isArray(topic.reference_urls)
+                                ? topic.reference_urls
+                                : referenceUrlValue
+                        ),
+                    category: rowCategory,
+                    postStatus: rowPostStatus,
+                    scheduleDate: rowScheduleDate,
+                    imageGeneration: imageGenerate,
+                    externalReference,
+                    platforms: topic.platforms || topic.targets || topic.options?.platforms
+                });
+
+                if (map.subject !== undefined) row[map.subject] = topic.subject;
+                if (map.keyword !== undefined) row[map.keyword] = keywordValue;
+                if (map.instruction !== undefined) row[map.instruction] = instructionValue;
                 if (map.extRef !== undefined) row[map.extRef] = externalReference ? 'Yes' : 'No';
                 if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
                 if (map.status !== undefined) row[map.status] = rowStatus;
@@ -2218,12 +2304,12 @@ const Utils = {
                 if (map.addedAt !== undefined) row[map.addedAt] = addedAtValue;
                 if (map.source !== undefined) row[map.source] = sourceValue;
                 if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;
-                if (map.options !== undefined) row[map.options] = topic.options ? (typeof topic.options === 'string' ? topic.options : JSON.stringify(topic.options)) : '';
+                if (map.options !== undefined) row[map.options] = stringifySheetOptionsValue(syncedOptions);
 
                 // WP 전용 필드들
-                if (map.category !== undefined) row[map.category] = topic.wp_category || topic.category || '';
-                if (map.postStatus !== undefined) row[map.postStatus] = topic.postStatus || topic.post_status || topic.options?.post_status || '';
-                if (map.scheduleDate !== undefined) row[map.scheduleDate] = topic.scheduleDate || '';
+                if (map.category !== undefined) row[map.category] = rowCategory;
+                if (map.postStatus !== undefined) row[map.postStatus] = rowPostStatus || syncedOptions.post_status || '';
+                if (map.scheduleDate !== undefined) row[map.scheduleDate] = rowScheduleDate;
 
                 return row;
             });
@@ -3333,6 +3419,7 @@ const Utils = {
             else if (clean.includes('상태') || clean.includes('status')) map.status = i;
             else if (clean.includes('이미지생성') || clean.includes('imagegen') || clean.includes('imggen')) map.imgGen = i;
             else if (clean.includes('외부참고') || clean.includes('external') || clean.includes('extref')) map.extRef = i;
+            else if (clean === 'options' || clean === '옵션') map.options = i;
         });
 
         if (map.subject === undefined) map.subject = 1;
@@ -3350,6 +3437,15 @@ const Utils = {
         };
 
         const dataToUpdate = [];
+        let existingOptionsRaw = '';
+        if (map.options !== undefined) {
+            const rowReadUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!${targetRow}:${targetRow}`;
+            const rowRes = await this.callWithRetry(() => axios.get(rowReadUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const rowValues = Array.isArray(rowRes?.data?.values?.[0]) ? rowRes.data.values[0] : [];
+            existingOptionsRaw = rowValues[map.options] !== undefined ? rowValues[map.options] : '';
+        }
         if (map.category !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.category)}${targetRow}`, values: [[normalized.category]] });
         if (map.postStatus !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.postStatus)}${targetRow}`, values: [[normalized.postStatus]] });
         if (map.scheduleDate !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.scheduleDate)}${targetRow}`, values: [[normalized.scheduleDate]] });
@@ -3360,6 +3456,23 @@ const Utils = {
         if (map.status !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.status)}${targetRow}`, values: [[normalized.status]] });
         if (map.imgGen !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.imgGen)}${targetRow}`, values: [[normalized.imageGeneration]] });
         if (map.extRef !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.extRef)}${targetRow}`, values: [[normalized.externalReference]] });
+        if (map.options !== undefined) {
+            const syncedOptions = mergeTopicSheetOptions(existingOptionsRaw, {
+                subject: normalized.subject,
+                keywords: normalized.keywords,
+                instruction: normalized.instruction,
+                referenceUrls: normalized.referenceUrl,
+                category: normalized.category,
+                postStatus: normalized.postStatus,
+                scheduleDate: normalized.scheduleDate,
+                imageGeneration: normalized.imageGeneration === 'Yes',
+                externalReference: normalized.externalReference === 'Yes'
+            });
+            dataToUpdate.push({
+                range: `${sheetName}!${toA1(map.options)}${targetRow}`,
+                values: [[stringifySheetOptionsValue(syncedOptions)]]
+            });
+        }
 
         if (dataToUpdate.length === 0) {
             throw new Error('수정 가능한 컬럼을 찾지 못했습니다.');

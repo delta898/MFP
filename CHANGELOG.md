@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev7] - 2026-03-30
+
+### Fixed
+- **일괄 포스팅 발행옵션 정합성 보강**: 블로그/쇼핑커넥트 일괄 포스팅에서 숨겨진 `options` 컬럼과 화면에 보이는 발행옵션/예약일시/카테고리 값이 어긋나도 실제 실행값과 UI가 다시 일치하도록 동기화 규칙을 보완했습니다. 자동 수집·빠른 저장·inline 수정 모두 같은 규칙으로 `options`를 갱신하고, 임시저장/예약 포스팅은 완료 상태도 실제 동작 기준으로 표시되게 맞췄습니다.
+
 ## [0.1.8-dev6] - 2026-03-26
 
 ### Added

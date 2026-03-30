@@ -34,6 +34,13 @@ function createPublishActionsRuntime(deps = {}) {
         getExecuteShoppingRowAction
     } = deps;
 
+    function getCompletionStatusLabel(postStatus) {
+        const normalized = String(postStatus || '').trim().toLowerCase();
+        if (normalized === 'draft') return '임시 저장 완료';
+        if (normalized === 'schedule') return '예약 포스팅 등록 완료';
+        return '발행 완료';
+    }
+
     async function buildMultiPlatformGeneratedContent(params = {}, options = {}) {
         const {
             context,
@@ -797,12 +804,12 @@ function createPublishActionsRuntime(deps = {}) {
                 if (naverPubSuccess) logArr.push('네이버 완료');
                 if (wpPubSuccess) logArr.push('워드프레스 완료');
 
-                const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
+                const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(requestBody?.postStatus) : '실패';
                 const finalLogStr = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
                 await Utils.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
             }
 
-            const summaryStatus = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '발행 실패';
+            const summaryStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(requestBody?.postStatus) : '발행 실패';
             setQuickPublishRecentEntry(dedupeKey, {
                 rowNumber,
                 rowIndex,

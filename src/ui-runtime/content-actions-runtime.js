@@ -36,6 +36,13 @@ function createContentActionsRuntime(deps = {}) {
         ));
     }
 
+    function getCompletionStatusLabel(postStatus) {
+        const normalized = String(postStatus || '').trim().toLowerCase();
+        if (normalized === 'draft') return '임시 저장 완료';
+        if (normalized === 'schedule') return '예약 포스팅 등록 완료';
+        return '발행 완료';
+    }
+
     async function deleteSheetRows(rowIndices, sheetName) {
         const sortedIndices = [...rowIndices].sort((a, b) => b - a);
         const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
@@ -246,7 +253,7 @@ function createContentActionsRuntime(deps = {}) {
                 logArr.push('워드프레스 완료');
             }
 
-            const finalStatus = (naverPubSuccess || wpPubSuccess) ? '발행 완료' : '실패';
+            const finalStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(effectivePostStatus) : '실패';
             const finalLog = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
             await Utils.updateGoogleSheetStatus(rowIndex, finalStatus, finalLog);
 
@@ -531,7 +538,7 @@ function createContentActionsRuntime(deps = {}) {
                 results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 완료' : '워드프레스 실패');
             }
 
-            const finalStatus = (results.naver.success || results.wordpress.success) ? '발행 완료' : '실패';
+            const finalStatus = (results.naver.success || results.wordpress.success) ? getCompletionStatusLabel(target.postStatus) : '실패';
             const logArr = [];
             if (targets.includes('naver') && results.naver.success) logArr.push('네이버 완료');
             if (targets.includes('wordpress') && results.wordpress.success) logArr.push('워드프레스 완료');
