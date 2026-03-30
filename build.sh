@@ -5,6 +5,9 @@
 # ==========================================
 APP_NAME="BlogGenius"
 VERSION=$(node -p "require('./package.json').version")
+REMOTE_DEPLOY_HOST="hangadac"
+REMOTE_DEPLOY_DIR="/home/ubuntu/Project/Docker/Wordpress/wordpress_webroot/dist/BlogGenius/"
+REMOTE_DEPLOY_TARGET="${REMOTE_DEPLOY_HOST}:${REMOTE_DEPLOY_DIR}"
 # ==========================================
 
 # 📥 인수 처리
@@ -300,18 +303,17 @@ if [ "$BUILD_ONLY" == "true" ]; then
     echo ""
     echo "⏭ [Skip] --build-only 옵션에 의해 업로드를 스킵합니다."
 else
-    UPLOAD_TARGET="hangadac:/usr/local/www/com/hangadac/wordpress/dist/BlogGenius/"
     echo ""
-    echo "🚀 서버로 업로드 중... (target: ${UPLOAD_TARGET})"
+    echo "🚀 서버로 업로드 중... (target: ${REMOTE_DEPLOY_TARGET})"
 
     # 이번 실행에서 생성한 ZIP 파일들과 update.json만 업로드
-    scp "${BUILT_ZIPS[@]}" "${UPDATE_JSON}" "${UPLOAD_TARGET}"
+    scp "${BUILT_ZIPS[@]}" "${UPDATE_JSON}" "${REMOTE_DEPLOY_TARGET}"
 
     if [ $? -eq 0 ]; then
         echo "   ✅ 서버 업로드 완료!"
         # 🧹 [Cleanup] 서버 용량 관리를 위해 각 플랫폼별 최신 3개만 남기고 삭제
         echo "   🧹 [Cleanup] 구버전 파일 정리 중 (최신 3개 유지)..."
-        ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
+        ssh "${REMOTE_DEPLOY_HOST}" "cd ${REMOTE_DEPLOY_DIR} && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
         echo "   ✅ 서버 정리 완료"
     else
         echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
@@ -324,6 +326,10 @@ UPLOAD_SH="dist/upload.sh"
 cat <<EOF > "${UPLOAD_SH}"
 #!/bin/bash
 set -euo pipefail
+
+REMOTE_DEPLOY_HOST="${REMOTE_DEPLOY_HOST}"
+REMOTE_DEPLOY_DIR="${REMOTE_DEPLOY_DIR}"
+REMOTE_DEPLOY_TARGET="\${REMOTE_DEPLOY_HOST}:\${REMOTE_DEPLOY_DIR}"
 
 echo "🚀 [Manual] 서버로 업로드 중..."
 
@@ -339,10 +345,10 @@ if [ \${#ZIP_FILES[@]} -eq 0 ]; then
     exit 1
 fi
 
-scp "\${ZIP_FILES[@]}" ./update.json "${UPLOAD_TARGET}"
+scp "\${ZIP_FILES[@]}" ./update.json "\${REMOTE_DEPLOY_TARGET}"
 echo "✅ 업로드 성공!"
 echo "🧹 구버전 파일 정리 중..."
-ssh hangadac "cd /usr/local/www/com/hangadac/wordpress/dist/BlogGenius/ && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
+ssh "\${REMOTE_DEPLOY_HOST}" "cd \${REMOTE_DEPLOY_DIR} && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
 EOF
 chmod +x "${UPLOAD_SH}"
 echo "   ✅ 수동 업로드용 스크립트 생성 완료: ${UPLOAD_SH}"
