@@ -265,6 +265,7 @@ function createContentActionsRuntime(deps = {}) {
                     rowIndex,
                     rowNumber: rowIndex + 2,
                     status: finalStatus,
+                    postStatus: effectivePostStatus,
                     targetDir: naverDir || wpDir,
                     title: publishRes.results.finalSubject || topicData.subject,
                     results: publishRes.results
@@ -551,6 +552,7 @@ function createContentActionsRuntime(deps = {}) {
                     rowIndex,
                     rowNumber: rowIndex + 2,
                     status: finalStatus,
+                    postStatus: target.postStatus || 'publish',
                     shortUrl,
                     targetDir: results.naver.targetDir || results.wordpress.targetDir
                 }
@@ -760,7 +762,7 @@ function createContentActionsRuntime(deps = {}) {
         const postStatus = requestBody?.postStatus !== undefined ? String(requestBody.postStatus || '').trim() : undefined;
         const scheduleDate = requestBody?.scheduleDate !== undefined ? String(requestBody.scheduleDate || '').trim() : undefined;
 
-        const allowedStatus = new Set(['준비', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
+        const allowedStatus = new Set(['준비', '발행 준비 완료', '발행 중', '발행 완료', '임시 저장 완료', '예약 포스팅 등록 완료', '실패']);
 
         if (shortUrl && !/^https?:\/\//i.test(shortUrl)) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: 'URL 형식이 올바르지 않습니다. (http/https)' };
@@ -813,10 +815,12 @@ function createContentActionsRuntime(deps = {}) {
         const rawStatus = String(requestBody?.status || '').trim();
         const statusAliases = {
             '블로그 발행 준비 완료': '발행 준비 완료',
-            '블로그 발행 완료': '발행 완료'
+            '블로그 발행 완료': '발행 완료',
+            '블로그 임시 저장 완료': '임시 저장 완료',
+            '블로그 예약 포스팅 등록 완료': '예약 포스팅 등록 완료'
         };
         const status = statusAliases[rawStatus] || rawStatus;
-        const allowedStatus = new Set(['대기', '발행 준비 완료', '발행 중', '발행 완료', '실패']);
+        const allowedStatus = new Set(['대기', '발행 준비 완료', '발행 중', '발행 완료', '임시 저장 완료', '예약 포스팅 등록 완료', '실패']);
         if (referenceUrl) {
             const urls = referenceUrl
                 .split(',')

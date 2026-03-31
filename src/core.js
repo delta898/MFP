@@ -1706,26 +1706,34 @@ ${scrapedContext}`;
 		let relatedPostsMarkdown = "";
 
 		if (enableRelatedPostsAutoLink) {
-			if (platform === 'wordpress') {
-				Logger.info("🔎 [WordPress] 하이브리드 관련 글 수집 중...");
-				try {
-					const wpRandomPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
-					const naverRandomPosts = await Utils.fetchOwnBlogRandomPosts(2);
-					const combinedPosts = Utils._shuffleArray([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
+				if (platform === 'wordpress') {
+					Logger.info("🔎 [WordPress] 하이브리드 관련 글 수집 중...");
+					try {
+						const wpRandomPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+						const naverRandomPosts = await Utils.fetchOwnBlogRelatedPosts({
+							title: finalSubject,
+							content: finalContent,
+							keywords: jobData.keywords || []
+						}, 2);
+						const combinedPosts = Utils._shuffleArray([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
 
-					if (combinedPosts.length > 0) {
-						relatedPostsMarkdown = Utils.generateRelatedPostsMarkdown(combinedPosts);
+						if (combinedPosts.length > 0) {
+							relatedPostsMarkdown = Utils.generateRelatedPostsMarkdown(combinedPosts);
 						Logger.info(`🔗 [WordPress] 관련 글 ${combinedPosts.length}개 자동 생성 완료`);
 					}
 				} catch (e) {
 					Logger.error(`⚠️ [WordPress] 관련 글 수집 중 오류: ${e.message}`);
 				}
-			} else {
-				Logger.info("🔎 [Blog] 네이버 관련 글 자동 수집 중...");
-				const relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
-				if (relatedPosts.length > 0) {
-					const relatedHeading = Utils.pickRelatedPostsHeading();
-					relatedPostsMarkdown = "\n\n" + Core.buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
+				} else {
+					Logger.info("🔎 [Blog] 네이버 관련 글 자동 수집 중...");
+					const relatedPosts = await Utils.fetchOwnBlogRelatedPosts({
+						title: finalSubject,
+						content: finalContent,
+						keywords: jobData.keywords || []
+					}, 3);
+					if (relatedPosts.length > 0) {
+						const relatedHeading = Utils.pickRelatedPostsHeading();
+						relatedPostsMarkdown = "\n\n" + Core.buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
 					Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
 				} else {
 					Logger.info("ℹ️ [Blog] 관련 글 수집 결과 없음");
@@ -2402,34 +2410,26 @@ ${scrapedContext}`;
 				const closeDelaySeconds = parseInt(CONFIG.CLOSE_DELAY_SECONDS, 10) || 10;
 				const closeDelayMs = closeDelaySeconds * 1000;
 				const isHeadless = options.headless === true;
-			const isLast = options.isLast === true;
+				const isLast = options.isLast === true;
 
-			// 헤드리스 모드가 아니면서 마지막 글인 경우, 사용자가 검토할 수 있도록 브라우저를 닫지 않음
-			if (!isHeadless && isLast) {
-				// 🔧 [Fixed] 자동화 종료 후 사용자의 수동 브라우저 닫기를 방해하지 않도록 리스너 제거
-				if (page) page.off('dialog', dialogHandler);
-				Logger.info("   📌 마지막 발행 건이므로 브라우저를 닫지 않고 대기합니다. (이제 수동 종료가 가능합니다)");
-				return;
-			}
+				// 마지막 비헤드리스 발행은 사용자가 직접 검토할 수 있도록 창을 유지한다.
+				if (!isHeadless && isLast) {
+					if (page) page.off('dialog', dialogHandler);
+					Logger.info("   📌 마지막 발행 건이므로 브라우저를 닫지 않고 대기합니다. (이제 수동 종료가 가능합니다)");
+				} else if (closeDelayMs === 0) {
+					Logger.info("   🔒 브라우저를 닫지 않고 유지합니다.");
+				} else {
+					if (!isHeadless && closeDelayMs > 0) {
+						Logger.info(`   👋 (${closeDelaySeconds}초 뒤 브라우저를 닫습니다...)`);
+						await Utils.sleep(closeDelayMs);
+					}
 
-			// CLOSE_DELAY_SECONDS=0 이면 브라우저를 닫지 않고 유지 (모든 건에 대해)
-			if (closeDelayMs === 0) {
-				Logger.info("   🔒 브라우저를 닫지 않고 유지합니다.");
-				return;
+					if (browser) {
+						await browser.close();
+						Logger.info("   🔒 브라우저 세션 종료");
+					}
+				}
 			}
-
-			// 비헤드리스 모드(브라우저가 보이는 모드)에서는 사용자가 볼 수 있도록 대기
-			if (!isHeadless && closeDelayMs > 0) {
-				Logger.info(`   👋 (${closeDelaySeconds}초 뒤 브라우저를 닫습니다...)`);
-				await Utils.sleep(closeDelayMs);
-			}
-
-			// 모든 경우에 브라우저 닫기 (위의 리턴 조건에 걸리지 않은 경우)
-			if (browser) {
-				await browser.close();
-				Logger.info("   🔒 브라우저 세션 종료");
-			}
-		}
 	},
 
 	/**

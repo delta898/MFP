@@ -870,13 +870,15 @@ let uiDialogResolver = null;
 
 // ─── Logging & Progress Utilities ──────────────────────────────────
 const QUICK_PROGRESS_POLL_MS = 1500;
-const QUICK_PROGRESS_MAX_LINES = 26;
+const QUICK_PROGRESS_MAX_LINES = 300;
+const QUICK_PROGRESS_FETCH_LIMIT = 600;
 
 const buildDashboardLogKey = (log) => `${String(log?.timestamp || '').trim()}__${String(log?.level || '').trim()}__${String(log?.message || '').trim()}`;
 
 const fetchDashboardLogsSafe = async (limit = 160) => {
   try {
-    const res = await fetchJson(`/api/v1/dashboard/logs?limit=${Math.max(20, Math.min(200, Number(limit) || 160))}`);
+    const safeLimit = Math.max(50, Math.min(1000, Number(limit) || QUICK_PROGRESS_FETCH_LIMIT));
+    const res = await fetchJson(`/api/v1/dashboard/logs?limit=${safeLimit}`);
     return Array.isArray(res?.logs) ? res.logs : [];
   } catch (_e) {
     return [];
@@ -896,13 +898,16 @@ const appendProgressLine = (targetEl, lines, line) => {
   if (!targetEl) return;
   const text = String(line || '').trim();
   if (!text) return;
+  const distanceFromBottom = targetEl.scrollHeight - targetEl.clientHeight - targetEl.scrollTop;
+  const shouldStickToBottom = distanceFromBottom <= 24;
   lines.push(text);
   if (lines.length > QUICK_PROGRESS_MAX_LINES) {
     lines.splice(0, lines.length - QUICK_PROGRESS_MAX_LINES);
   }
   targetEl.textContent = lines.join('\n');
-  // Auto-scroll to bottom
-  targetEl.scrollTop = targetEl.scrollHeight;
+  if (shouldStickToBottom) {
+    targetEl.scrollTop = targetEl.scrollHeight;
+  }
 };
 
 const runWithLiveProgress = async ({ targetEl, requestLabel, requestFn, onTick }) => {
@@ -912,13 +917,13 @@ const runWithLiveProgress = async ({ targetEl, requestLabel, requestFn, onTick }
   const seenLogKeys = new Set();
   const push = (line) => appendProgressLine(targetEl, progressLines, line);
 
-  const seedLogs = await fetchDashboardLogsSafe(160);
+  const seedLogs = await fetchDashboardLogsSafe(QUICK_PROGRESS_FETCH_LIMIT);
   seedLogs.forEach((log) => {
     seenLogKeys.add(buildDashboardLogKey(log));
   });
 
   const flushNewLogs = async () => {
-    const currentLogs = await fetchDashboardLogsSafe(160);
+    const currentLogs = await fetchDashboardLogsSafe(QUICK_PROGRESS_FETCH_LIMIT);
     if (typeof onTick === 'function') {
       try { await onTick(); } catch (e) { }
     }
@@ -949,10 +954,12 @@ const runWithLiveProgress = async ({ targetEl, requestLabel, requestFn, onTick }
     push('[완료] 요청 처리 완료');
     if (data && typeof data === 'object') {
       const statusText = String(data.status || '').trim();
-      const modeText = String(data.mode || '').trim();
+      const postStatusText = String(data.postStatus || '').trim();
+      const executionModeText = String(data.executionMode || data.mode || '').trim();
       const rowNumber = Number(data.rowNumber);
       if (statusText) push(`[상태] ${statusText}`);
-      if (modeText) push(`[모드] ${modeText}`);
+      if (postStatusText) push(`[포스팅 옵션] ${getPostStatusLabel(postStatusText)}`);
+      if (executionModeText) push(`[실행 모드] ${getExecutionModeLabel(executionModeText)}`);
       if (Number.isFinite(rowNumber) && rowNumber > 0) push(`[Row] ${rowNumber}`);
     }
     return data;
@@ -2947,6 +2954,17 @@ function getPostStatusLabel(val) {
   return map[norm] || val || '-';
 }
 
+function getExecutionModeLabel(val) {
+  const norm = String(val || '').trim().toLowerCase();
+  const map = {
+    'append_only': '시트 추가만',
+    'append_and_generate': '시트 추가 + 생성',
+    'append_and_publish': '시트 추가 + 실행',
+    'publish': '즉시 실행'
+  };
+  return map[norm] || val || '-';
+}
+
 function renderBlogTable(items) {
   const tbody = document.getElementById('blog-table-body');
   if (!tbody) return;
@@ -3720,7 +3738,7 @@ async function startShoppingInlineEdit(cell) {
     editorEl.className = 'inline-editor';
     let options = [];
     if (field === 'status') {
-      options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '실패'];
+      options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '임시 저장 완료', '예약 포스팅 등록 완료', '실패'];
     } else if (field === 'postStatus') {
       options = ['publish', 'draft', 'schedule'];
     } else if (field === 'category') {
@@ -6210,13 +6228,10 @@ function bindActions() {
       publishMode: mode,
       targets,
       naverCategory: naverCat,
-      wordpressCategory: wpCat
+      wordpressCategory: wpCat,
+      postStatus: (document.getElementById('quick-wp-post-status')?.value || 'publish').trim(),
+      scheduleDate: (document.getElementById('quick-wp-schedule-date')?.value || '').trim()
     };
-
-    if (targets.includes('wordpress')) {
-      payload.postStatus = (document.getElementById('quick-wp-post-status')?.value || 'publish').trim();
-      payload.scheduleDate = (document.getElementById('quick-wp-schedule-date')?.value || '').trim();
-    }
 
     // [Consolidated] Individual options are now persisted via initGlobalPublishSettingsSync change listeners.
 
@@ -6462,8 +6477,7 @@ function bindActions() {
 
     const dummyPayload = buildQuickPayload(mode);
 
-    // [New] WordPress 예약 일시 검증
-    if (dummyPayload.targets.includes('wordpress') && dummyPayload.postStatus === 'schedule') {
+    if (dummyPayload.postStatus === 'schedule') {
       if (!dummyPayload.scheduleDate) {
         if (resultEl) resultEl.textContent = '⚠️ 예약 발행을 위해서는 예약 일시를 선택해야 합니다.';
         showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
@@ -6504,11 +6518,15 @@ function bindActions() {
       scrollLogTargetIntoView(resultEl);
       const actionText = mode === 'append_and_generate'
         ? '미리보기 생성'
-        : (mode === 'publish' ? '바로 포스팅' : '글감 저장');
+        : (mode === 'publish'
+          ? (dummyPayload.postStatus === 'draft'
+            ? '빠른 포스팅 임시 저장'
+            : (dummyPayload.postStatus === 'schedule' ? '빠른 포스팅 예약 등록' : '빠른 포스팅 실행'))
+          : '글감 저장');
       const data = await runWithLiveProgress({
         targetEl: resultEl,
         requestLabel: actionText,
-        requestFn: () => postJson('/api/v1/blog/quick-publish', buildQuickPayload(mode))
+        requestFn: () => postJson('/api/v1/blog/quick-publish', dummyPayload)
       });
       if (mode === 'append_and_generate' && data?.previews) {
         quickGeneratedPreviewState.previewId = data.previewId || '';
@@ -7206,16 +7224,13 @@ function bindActions() {
       publishMode: mode,
       targets,
       naverCategory: naverCat,
-      wordpressCategory: wpCat
+      wordpressCategory: wpCat,
+      postStatus: (document.getElementById('shopping-quick-wp-post-status')?.value || 'publish').trim(),
+      scheduleDate: (document.getElementById('shopping-quick-wp-schedule-date')?.value || '').trim()
     };
 
     // category 필드는 하위 호환성을 위해 유지
     payload.category = wpCat;
-
-    if (targets.includes('wordpress')) {
-      payload.postStatus = (document.getElementById('shopping-quick-wp-post-status')?.value || 'publish').trim();
-      payload.scheduleDate = (document.getElementById('shopping-quick-wp-schedule-date')?.value || '').trim();
-    }
 
     return payload;
   };
@@ -7240,12 +7255,25 @@ function bindActions() {
       return;
     }
 
+    if (dummyPayload.postStatus === 'schedule' && !dummyPayload.scheduleDate) {
+      shoppingQuickResultEl.textContent = '⚠️ 예약 발행을 위해서는 예약 일시를 선택해야 합니다.';
+      showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
+      shoppingQuickPublishInFlight = false;
+      if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+      if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+      return;
+    }
+
     try {
-      const actionText = mode === 'append_and_publish' ? '쇼핑 글감 저장 & 포스팅' : '쇼핑 글감 저장';
+      const actionText = mode === 'append_and_publish'
+        ? (dummyPayload.postStatus === 'draft'
+          ? '쇼핑 글감 저장 & 임시 저장'
+          : (dummyPayload.postStatus === 'schedule' ? '쇼핑 글감 저장 & 예약 등록' : '쇼핑 글감 저장 & 즉시 발행'))
+        : '쇼핑 글감 저장';
       await runWithLiveProgress({
         targetEl: shoppingQuickResultEl,
         requestLabel: actionText,
-        requestFn: () => postJson('/api/v1/shopping/quick-publish', buildShoppingQuickPayload(mode))
+        requestFn: () => postJson('/api/v1/shopping/quick-publish', dummyPayload)
       });
       await Promise.all([loadDashboard(), loadBlogShopping({ silent: true })]);
     } catch (e) {

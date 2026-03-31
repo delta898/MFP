@@ -3252,7 +3252,11 @@ const ShoppingManager = {
                 Logger.info('🔎 [Shopping/WordPress] 하이브리드 관련 글 수집 중...');
                 try {
                     const wpPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
-                    const naverPosts = await Utils.fetchOwnBlogRandomPosts(2);
+                    const naverPosts = await Utils.fetchOwnBlogRelatedPosts({
+                        title: aiData.title || titleBase,
+                        content: `${productData.description || ''} ${productData.body || ''}`.trim(),
+                        keywords: [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean)
+                    }, 2);
                     relatedPosts = Utils._shuffleArray([...wpPosts, ...naverPosts]).slice(0, 3);
                     if (relatedPosts.length > 0) {
                         Logger.info(`🔗 [Shopping/WordPress] 관련 글 ${relatedPosts.length}개 수집 완료`);
@@ -3264,7 +3268,11 @@ const ShoppingManager = {
                 }
             } else {
                 Logger.info('🔎 [Shopping] 네이버 관련 글 자동 수집 중...');
-                relatedPosts = await Utils.fetchOwnBlogRandomPosts(3);
+                relatedPosts = await Utils.fetchOwnBlogRelatedPosts({
+                    title: aiData.title || titleBase,
+                    content: `${productData.description || ''} ${productData.body || ''}`.trim(),
+                    keywords: [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean)
+                }, 3);
                 if (relatedPosts.length > 0) {
                     Logger.info(`🔗 [Shopping] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
                 } else {

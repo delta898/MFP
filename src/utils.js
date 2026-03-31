@@ -15,6 +15,10 @@ const {
     resolveTopicSheetState,
     stringifySheetOptionsValue
 } = require('./content/publish-sheet-options');
+const {
+    buildRelatedPostContext,
+    selectRelatedPosts
+} = require('./content/related-post-selection');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -907,6 +911,8 @@ const Utils = {
                                     { userEnteredValue: '발행 중' },
                                     { userEnteredValue: '발행 준비 완료' },
                                     { userEnteredValue: '발행 완료' },
+                                    { userEnteredValue: '임시 저장 완료' },
+                                    { userEnteredValue: '예약 포스팅 등록 완료' },
                                     { userEnteredValue: '실패' }
                                 ]
                             },
@@ -1067,7 +1073,9 @@ const Utils = {
                                 values: [
                                     { userEnteredValue: '대기' },
                                     { userEnteredValue: '발행 준비 완료' },
-                                    { userEnteredValue: '발행 완료' }
+                                    { userEnteredValue: '발행 완료' },
+                                    { userEnteredValue: '임시 저장 완료' },
+                                    { userEnteredValue: '예약 포스팅 등록 완료' }
                                 ]
                             },
                             showCustomUi: true, strict: true
@@ -1165,6 +1173,8 @@ const Utils = {
                                     { userEnteredValue: '발행 중' },
                                     { userEnteredValue: '발행 준비 완료' },
                                     { userEnteredValue: '발행 완료' },
+                                    { userEnteredValue: '임시 저장 완료' },
+                                    { userEnteredValue: '예약 포스팅 등록 완료' },
                                     { userEnteredValue: '실패' }
                                 ]
                             },
@@ -3140,19 +3150,24 @@ const Utils = {
         return markdown;
     },
 
-    fetchOwnBlogRandomPosts: async function (count = 3) {
+    fetchOwnBlogRelatedPosts: async function (context = {}, count = 3) {
         const targetCount = Math.max(1, Math.min(10, parseInt(count, 10) || 3));
         const blogId = this._resolveOwnBlogId();
         if (!blogId) return [];
 
         const collected = [];
         const seen = new Set();
-        const addPost = (title, link) => {
+        const addPost = (title, link, extra = {}) => {
             const cleanTitle = String(title || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
             const cleanLink = this._normalizeNaverBlogPostUrl(link, blogId);
             if (!cleanTitle || !cleanLink || seen.has(cleanLink)) return;
             seen.add(cleanLink);
-            collected.push({ title: cleanTitle, url: cleanLink });
+            collected.push({
+                title: cleanTitle,
+                url: cleanLink,
+                description: String(extra.description || extra.summary || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+                publishedAt: String(extra.publishedAt || extra.pubDate || '').trim()
+            });
         };
 
         // 1) RSS 우선 수집
@@ -3173,7 +3188,9 @@ const Utils = {
                 $('item').each((_, el) => {
                     const title = $(el).find('title').first().text();
                     const link = $(el).find('link').first().text();
-                    addPost(title, link);
+                    const description = $(el).find('description').first().text();
+                    const publishedAt = $(el).find('pubDate').first().text();
+                    addPost(title, link, { description, publishedAt });
                 });
             }
         } catch (e) {
@@ -3209,7 +3226,19 @@ const Utils = {
             }
         }
 
-        return this._shuffleArray(collected).slice(0, targetCount);
+        const selection = selectRelatedPosts(
+            collected,
+            buildRelatedPostContext(context),
+            targetCount,
+            { shuffle: (items) => this._shuffleArray(items) }
+        );
+
+        Logger.info(`🔎 [관련글] 후보 ${selection.totalCandidates}건 중 연관 선택 ${selection.heuristicCount}건, 랜덤 보강 ${selection.fallbackCount}건`);
+        return selection.posts;
+    },
+
+    fetchOwnBlogRandomPosts: async function (count = 3) {
+        return this.fetchOwnBlogRelatedPosts({}, count);
     },
 
     /**

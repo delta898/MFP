@@ -41,6 +41,20 @@ function createPublishActionsRuntime(deps = {}) {
         return '발행 완료';
     }
 
+    function getPostActionLabel(postStatus) {
+        const normalized = String(postStatus || '').trim().toLowerCase();
+        if (normalized === 'draft') return '저장';
+        if (normalized === 'schedule') return '예약 등록';
+        return '발행';
+    }
+
+    function getPlatformCompletionLabel(platformLabel, postStatus) {
+        const normalized = String(postStatus || '').trim().toLowerCase();
+        if (normalized === 'draft') return `${platformLabel} 임시 저장 완료`;
+        if (normalized === 'schedule') return `${platformLabel} 예약 포스팅 등록 완료`;
+        return `${platformLabel} 발행 완료`;
+    }
+
     async function buildMultiPlatformGeneratedContent(params = {}, options = {}) {
         const {
             context,
@@ -176,6 +190,8 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (targets.includes('naver') && results.naver.targetDir) {
                 emitProgress('네이버 발행 중...');
+                const naverActionLabel = getPostActionLabel(context.postStatus);
+                const naverCompletionLabel = getPlatformCompletionLabel('네이버', context.postStatus);
                 const naverRes = await Core.publishToBlog(results.naver.targetDir, {
                     headless,
                     category: context.naverCategory || context.category || '',
@@ -185,18 +201,19 @@ function createPublishActionsRuntime(deps = {}) {
                 }) || { success: false, message: 'Naver publish returned no response' };
                 results.naver.success = naverRes.success;
                 results.naver.postUrl = naverRes.postUrl;
-                results.naver.message = naverRes.message || (naverRes.postUrl ? `네이버 발행 완료: ${naverRes.postUrl}` : '네이버 발행 완료');
-                emitProgress(naverRes.success ? '네이버 발행 완료' : `네이버 발행 실패: ${naverRes.message}`);
+                results.naver.message = naverRes.message || (naverRes.postUrl ? `${naverCompletionLabel}: ${naverRes.postUrl}` : naverCompletionLabel);
+                emitProgress(naverRes.success ? naverCompletionLabel : `네이버 ${naverActionLabel} 실패: ${naverRes.message}`);
 
                 if (naverRes.success) {
-                    const statusLabel = context.postStatus === 'draft' ? '저장' : '발행';
                     const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${naverActionLabel} 완료!*${urlMsg}`);
                 }
             }
 
             if (targets.includes('wordpress') && results.wordpress.targetDir) {
                 emitProgress('워드프레스 발행 중...');
+                const wpActionLabel = getPostActionLabel(context.postStatus);
+                const wpCompletionLabel = getPlatformCompletionLabel('워드프레스', context.postStatus);
                 const wpOptions = {
                     category: context.wordpressCategory || context.category || '',
                     postStatus: context.postStatus || 'draft',
@@ -206,14 +223,13 @@ function createPublishActionsRuntime(deps = {}) {
                 const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, wpOptions);
                 results.wordpress.success = pubRes.success;
                 results.wordpress.postUrl = pubRes.postUrl;
-                results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 발행 성공' : '워드프레스 발행 실패');
+                results.wordpress.message = pubRes.message || (pubRes.success ? wpCompletionLabel : `워드프레스 ${wpActionLabel} 실패`);
                 if (pubRes.success) {
-                    emitProgress('워드프레스 완료');
-                    const statusLabel = context.postStatus === 'draft' ? '저장' : '발행';
+                    emitProgress(wpCompletionLabel);
                     const urlMsg = pubRes.postUrl ? `\n\n🔗 [글 보기](${pubRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${wpActionLabel} 완료!*${urlMsg}`);
                 } else {
-                    emitProgress(`워드프레스 실패: ${pubRes.message}`);
+                    emitProgress(`워드프레스 ${wpActionLabel} 실패: ${pubRes.message}`);
                 }
             }
 
@@ -348,6 +364,7 @@ function createPublishActionsRuntime(deps = {}) {
         const results = {};
         try {
             if (selectedTargets.includes('naver') && session.targetDirs?.naver) {
+                const naverActionLabel = getPostActionLabel(postStatus);
                 const naverRes = await Core.publishToBlog(session.targetDirs.naver, {
                     headless,
                     category: requestBody?.naverCategory || '',
@@ -361,13 +378,13 @@ function createPublishActionsRuntime(deps = {}) {
                     postUrl: naverRes.postUrl || ''
                 };
                 if (naverRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
-                    const statusLabel = postStatus === 'draft' ? '저장' : '발행';
                     const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${naverActionLabel} 완료!*${urlMsg}`);
                 }
             }
 
             if (selectedTargets.includes('wordpress') && session.targetDirs?.wordpress) {
+                const wpActionLabel = getPostActionLabel(postStatus);
                 const wpRes = await Core.publishToWordPress(session.targetDirs.wordpress, {
                     category: requestBody?.wordpressCategory || '',
                     postStatus,
@@ -380,9 +397,8 @@ function createPublishActionsRuntime(deps = {}) {
                     postUrl: wpRes.postUrl || ''
                 };
                 if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
-                    const statusLabel = postStatus === 'draft' ? '저장' : '발행';
                     const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${wpActionLabel} 완료!*${urlMsg}`);
                 }
             }
 
@@ -394,6 +410,7 @@ function createPublishActionsRuntime(deps = {}) {
                 if (failedTargets.length > 0) {
                     await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', failedTargets.join(' / '));
                 } else {
+                    const completionStatus = getCompletionStatusLabel(postStatus);
                     const logArr = [];
                     if (results.naver?.success) {
                         logArr.push(results.naver.postUrl ? `네이버 완료(${results.naver.postUrl})` : '네이버 완료');
@@ -401,16 +418,17 @@ function createPublishActionsRuntime(deps = {}) {
                     if (results.wordpress?.success) {
                         logArr.push(results.wordpress.postUrl ? `워드프레스 완료(${results.wordpress.postUrl})` : '워드프레스 완료');
                     }
-                    await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 완료', logArr.join('/') || '발행 완료');
+                    await Utils.updateGoogleSheetStatus(session.rowIndex, completionStatus, logArr.join('/') || completionStatus);
                 }
             }
 
             if (session.dedupeKey && hasQuickPublishRecentEntry(session.dedupeKey)) {
+                const completionStatus = getCompletionStatusLabel(postStatus);
                 setQuickPublishRecentEntry(session.dedupeKey, {
                     ...(getQuickPublishRecentEntry(session.dedupeKey) || {}),
                     rowNumber: session.rowNumber,
                     rowIndex: session.rowIndex,
-                    status: failedTargets.length > 0 ? '발행 준비 완료' : '발행 완료',
+                    status: failedTargets.length > 0 ? '발행 준비 완료' : completionStatus,
                     published: failedTargets.length === 0,
                     targetDir: session.targetDirs?.[selectedTargets[0]] || session.targetDirs?.[session.primaryTarget] || session.targetDirs?.naver || session.targetDirs?.wordpress || null,
                     updatedAtMs: Date.now()
@@ -433,7 +451,8 @@ function createPublishActionsRuntime(deps = {}) {
             return {
                 success: true,
                 data: {
-                    status: postStatus === 'draft' ? '임시 저장 완료' : (postStatus === 'schedule' ? '예약 포스팅 등록 완료' : '포스팅 완료'),
+                    status: getCompletionStatusLabel(postStatus),
+                    postStatus,
                     rowIndex: session.rowIndex,
                     rowNumber: session.rowNumber,
                     results
@@ -506,9 +525,12 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_REFERENCE_URL', message: '참고 URL 형식이 올바르지 않습니다. (http/https)' };
         }
 
-        const postStatus = String(requestBody?.postStatus || 'publish').trim();
+        const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
-        if (targets.includes('wordpress') && postStatus === 'schedule' && !scheduleDate) {
+        if (!['publish', 'draft', 'schedule'].includes(postStatus)) {
+            return { success: false, code: 'INVALID_POST_STATUS', message: `postStatus 값이 올바르지 않습니다: ${postStatus}` };
+        }
+        if (postStatus === 'schedule' && !scheduleDate) {
             return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필수입니다.' };
         }
 
@@ -552,6 +574,8 @@ function createPublishActionsRuntime(deps = {}) {
                     success: true,
                     data: {
                         mode: publishMode,
+                        executionMode: publishMode,
+                        postStatus,
                         sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                         rowNumber,
                         rowIndex,
@@ -591,8 +615,8 @@ function createPublishActionsRuntime(deps = {}) {
                 category: (requestBody?.naverCategory || requestBody?.wordpressCategory)
                     ? `N:${requestBody.naverCategory || ''}, W:${requestBody.wordpressCategory || ''}`
                     : (requestBody?.category || ''),
-                postStatus: requestBody?.postStatus || 'publish',
-                scheduleDate: requestBody?.scheduleDate || '',
+                postStatus,
+                scheduleDate,
                 targets: targets.join(', ')
             }], {
                 defaultStatus: appendStatus
@@ -620,6 +644,8 @@ function createPublishActionsRuntime(deps = {}) {
                 success: true,
                 data: {
                     mode: publishMode,
+                    executionMode: publishMode,
+                    postStatus,
                     sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                     rowNumber,
                     rowIndex,
@@ -643,8 +669,8 @@ function createPublishActionsRuntime(deps = {}) {
                 category: requestBody?.category || '',
                 naverCategory: requestBody?.naverCategory || '',
                 wordpressCategory: requestBody?.wordpressCategory || '',
-                postStatus: requestBody?.postStatus || 'draft',
-                scheduleDate: requestBody?.scheduleDate || ''
+                postStatus,
+                scheduleDate
             },
             targets,
             headless,
@@ -694,8 +720,8 @@ function createPublishActionsRuntime(deps = {}) {
                     previewId,
                     target: 'naver',
                     targets,
-                    postStatus: requestBody?.postStatus || 'draft',
-                    scheduleDate: requestBody?.scheduleDate || '',
+                    postStatus,
+                    scheduleDate,
                     imageGeneration: imageGenerationFinal
                 });
                 previewsByTarget.naver = {
@@ -714,8 +740,8 @@ function createPublishActionsRuntime(deps = {}) {
                     previewId,
                     target: 'wordpress',
                     targets,
-                    postStatus: requestBody?.postStatus || 'draft',
-                    scheduleDate: requestBody?.scheduleDate || '',
+                    postStatus,
+                    scheduleDate,
                     imageGeneration: imageGenerationFinal
                 });
                 previewsByTarget.wordpress = {
@@ -764,6 +790,8 @@ function createPublishActionsRuntime(deps = {}) {
                 success: true,
                 data: {
                     mode: publishMode,
+                    executionMode: publishMode,
+                    postStatus,
                     sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                     rowNumber,
                     rowIndex,
@@ -804,12 +832,12 @@ function createPublishActionsRuntime(deps = {}) {
                 if (naverPubSuccess) logArr.push('네이버 완료');
                 if (wpPubSuccess) logArr.push('워드프레스 완료');
 
-                const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(requestBody?.postStatus) : '실패';
+                const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(postStatus) : '실패';
                 const finalLogStr = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
                 await Utils.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
             }
 
-            const summaryStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(requestBody?.postStatus) : '발행 실패';
+            const summaryStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(postStatus) : '발행 실패';
             setQuickPublishRecentEntry(dedupeKey, {
                 rowNumber,
                 rowIndex,
@@ -823,6 +851,8 @@ function createPublishActionsRuntime(deps = {}) {
                 success: true,
                 data: {
                     mode: publishMode,
+                    executionMode: publishMode,
+                    postStatus,
                     sheet: CONFIG.GOOGLE_TOPICS_SHEET || 'topics',
                     rowNumber,
                     rowIndex,
@@ -970,7 +1000,7 @@ function createPublishActionsRuntime(deps = {}) {
             }
 
             const results = {};
-            const statusLabel = postStatus === 'draft' ? '저장' : '발행';
+            const actionLabel = getPostActionLabel(postStatus);
 
             if (targets.includes('naver')) {
                 const naverRes = await Core.publishToBlog(workspace.tempDir, {
@@ -987,7 +1017,7 @@ function createPublishActionsRuntime(deps = {}) {
                 };
                 if (naverRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
                     const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${actionLabel} 완료!*${urlMsg}`);
                 }
             }
 
@@ -1005,7 +1035,7 @@ function createPublishActionsRuntime(deps = {}) {
                 };
                 if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
                     const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${statusLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${actionLabel} 완료!*${urlMsg}`);
                 }
             }
 
@@ -1051,7 +1081,8 @@ function createPublishActionsRuntime(deps = {}) {
             return {
                 success: true,
                 data: {
-                    status: postStatus === 'draft' ? '임시 저장 완료' : (postStatus === 'schedule' ? '예약 포스팅 등록 완료' : '포스팅 완료'),
+                    status: getCompletionStatusLabel(postStatus),
+                    postStatus,
                     results,
                     source: {
                         folderName: previewData?.source?.folderName || '',
@@ -1089,12 +1120,20 @@ function createPublishActionsRuntime(deps = {}) {
         const publishMode = normalizePublishMode(requestBody?.publishMode);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
+        const scheduleDate = String(requestBody?.scheduleDate || '').trim();
 
         if (!shortUrl) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL은 필수입니다.' };
         }
         if (!/^https?:\/\//i.test(shortUrl)) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL 형식이 올바르지 않습니다. (http/https)' };
+        }
+        if (!['publish', 'draft', 'schedule'].includes(postStatus)) {
+            return { success: false, code: 'INVALID_POST_STATUS', message: `postStatus 값이 올바르지 않습니다: ${postStatus}` };
+        }
+        if (postStatus === 'schedule' && !scheduleDate) {
+            return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필수입니다.' };
         }
 
         const precheck = await License.checkLicenseStatus();
@@ -1121,8 +1160,8 @@ function createPublishActionsRuntime(deps = {}) {
             product,
             status: appendStatus,
             category: categoryField,
-            postStatus: (requestBody?.postStatus || 'publish').trim(),
-            scheduleDate: (requestBody?.scheduleDate || '').trim()
+            postStatus,
+            scheduleDate
         }], {
             defaultStatus: appendStatus
         });
@@ -1143,6 +1182,8 @@ function createPublishActionsRuntime(deps = {}) {
                 success: true,
                 data: {
                     mode: publishMode,
+                    executionMode: publishMode,
+                    postStatus,
                     sheet: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping',
                     rowNumber,
                     rowIndex,
@@ -1212,6 +1253,8 @@ function createPublishActionsRuntime(deps = {}) {
             success: true,
             data: {
                 mode: publishMode,
+                executionMode: publishMode,
+                postStatus,
                 sheet: CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping',
                 rowNumber,
                 rowIndex,
