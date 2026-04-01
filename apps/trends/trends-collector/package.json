@@ -1,0 +1,11 @@
+{
+  "name": "trends-collector",
+  "private": true,
+  "main": "./bin/collect.js",
+  "scripts": {
+    "collect": "node ./bin/collect.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
