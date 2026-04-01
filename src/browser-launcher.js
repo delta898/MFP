@@ -3,14 +3,44 @@ const { chromium } = require('playwright');
 // 💡 config-loader를 통해 config/config.json 값을 로딩합니다.
 const CONFIG = require('./config-loader');
 
+const DEFAULT_BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
+
+function normalizeWindowSize(windowSize) {
+    const width = parseInt(windowSize?.width, 10);
+    const height = parseInt(windowSize?.height, 10);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        return null;
+    }
+    return { width, height };
+}
+
+function buildBrowserLaunchOptions(overrides = {}) {
+    const baseArgs = Array.isArray(overrides.args) ? overrides.args.slice() : DEFAULT_BROWSER_ARGS.slice();
+    const filteredArgs = baseArgs.filter(arg => (
+        !String(arg || '').startsWith('--window-size=')
+        && String(arg || '') !== '--start-maximized'
+    ));
+
+    if (overrides.startMaximized === true) {
+        filteredArgs.push('--start-maximized');
+    }
+
+    const windowSize = normalizeWindowSize(overrides.windowSize);
+    if (windowSize) {
+        filteredArgs.push(`--window-size=${windowSize.width},${windowSize.height}`);
+    }
+
+    return {
+        headless: typeof overrides.headless === 'boolean' ? overrides.headless : CONFIG.HEADLESS,
+        args: filteredArgs
+    };
+}
+
 async function launchBrowser(overrides = {}) {
     // 사용자가 설정한 값 가져오기 (없으면 기본값 'chrome')
     const channel = overrides.channel || CONFIG.BROWSER_CHANNEL || 'chrome';
 
-    const launchOptions = {
-        headless: typeof overrides.headless === 'boolean' ? overrides.headless : CONFIG.HEADLESS,
-        args: overrides.args || ['--no-sandbox', '--disable-setuid-sandbox'] // 호환성 옵션
-    };
+    const launchOptions = buildBrowserLaunchOptions(overrides);
 
     // 🔧 [Fixed] 브라우저 채널 자동 복구 개선 (여러 옵션 시도)
     const channelsToTry = channel === 'chrome'
@@ -38,4 +68,8 @@ async function launchBrowser(overrides = {}) {
     }
 }
 
-module.exports = { launchBrowser };
+module.exports = {
+    DEFAULT_BROWSER_ARGS,
+    buildBrowserLaunchOptions,
+    launchBrowser
+};

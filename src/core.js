@@ -15,6 +15,7 @@ const { marked } = require('marked');
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
 const SAFE_EDITOR_VIEWPORT = { width: 1280, height: 800 };
+const HEADED_EDITOR_WINDOW_SIZE = { width: 1680, height: 1200 };
 const PUBLISH_EDITOR_READY_TIMEOUT_MS = 45000;
 
 async function autoScrollAndClick(locator) {
@@ -1052,6 +1053,10 @@ function resolvePublishViewport() {
 	return { ...SAFE_EDITOR_VIEWPORT };
 }
 
+function resolvePublishWindowSize() {
+	return { ...HEADED_EDITOR_WINDOW_SIZE };
+}
+
 async function getEditorLinkSnapshot(page, targetUrl = '') {
 	try {
 		return await page.evaluate((rawUrl) => {
@@ -1837,9 +1842,12 @@ ${scrapedContext}`;
 		const speedKey = String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
 		const typingPreset = Constants.TYPING_PRESETS[speedKey] || Constants.TYPING_PRESETS.NORMAL;
 
-		const viewport = resolvePublishViewport();
-
-		const browser = await BrowserLauncher.launchBrowser({ headless: options.headless });
+		const headless = typeof options.headless === 'boolean' ? options.headless : CONFIG.HEADLESS;
+		const viewport = headless ? resolvePublishViewport() : null;
+		const browser = await BrowserLauncher.launchBrowser({
+			headless,
+			windowSize: headless ? null : resolvePublishWindowSize()
+		});
 		const context = await browser.newContext({
 			storageState: authPath,
 			viewport: viewport,
@@ -1863,8 +1871,26 @@ ${scrapedContext}`;
 		};
 		page.on('dialog', dialogHandler);
 
-		try {
-			Logger.info("   🔄 블로그 에디터 접속 중...");
+			let browserCloseHandled = false;
+			const closeBrowserSession = async (reason = '') => {
+				if (browserCloseHandled) return false;
+				browserCloseHandled = true;
+				try {
+					if (!browser || (typeof browser.isConnected === 'function' && !browser.isConnected())) {
+						Logger.info("   🔒 브라우저가 이미 닫혀 있어 종료를 생략합니다.");
+						return false;
+					}
+					await browser.close();
+					Logger.info(reason ? `   🔒 브라우저 세션 종료 (${reason})` : "   🔒 브라우저 세션 종료");
+					return true;
+				} catch (closeError) {
+					Logger.warn(`⚠️ 브라우저 종료 중 예외가 발생했지만 계속 진행합니다: ${closeError.message}`);
+					return false;
+				}
+			};
+
+			try {
+				Logger.info("   🔄 블로그 에디터 접속 중...");
 			const writeUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
 			Logger.info(`   🔗 접속 URL: ${writeUrl}`);
 			await page.goto(writeUrl, { waitUntil: 'domcontentloaded' });
@@ -2406,16 +2432,23 @@ ${scrapedContext}`;
 					await persistAuthSessionState(context, { authPath });
 				}
 
-				// 🔧 [Fixed] 브라우저 종료 로직 개선 (좀비 프로세스 방지 + 마지막 글 유지 기능)
+				// 브라우저 종료 정책:
+				// - 마지막 headed 작업은 사용자가 검토/수정할 수 있도록 창을 유지
+				// - 사용자가 창을 닫으면 Playwright 세션도 함께 정리
+				// - 그 외에는 close_delay_seconds를 따른다
 				const closeDelaySeconds = parseInt(CONFIG.CLOSE_DELAY_SECONDS, 10) || 10;
 				const closeDelayMs = closeDelaySeconds * 1000;
-				const isHeadless = options.headless === true;
+				const isHeadless = headless === true;
 				const isLast = options.isLast === true;
 
-				// 마지막 비헤드리스 발행은 사용자가 직접 검토할 수 있도록 창을 유지한다.
 				if (!isHeadless && isLast) {
-					if (page) page.off('dialog', dialogHandler);
-					Logger.info("   📌 마지막 발행 건이므로 브라우저를 닫지 않고 대기합니다. (이제 수동 종료가 가능합니다)");
+					if (page) {
+						page.off('dialog', dialogHandler);
+						page.once('close', () => {
+							void closeBrowserSession('사용자 창 닫음');
+						});
+					}
+					Logger.info("   📌 마지막 발행 건이므로 브라우저를 열어둡니다. 검토/수정 후 창을 닫으면 세션도 함께 종료됩니다.");
 				} else if (closeDelayMs === 0) {
 					Logger.info("   🔒 브라우저를 닫지 않고 유지합니다.");
 				} else {
@@ -2424,10 +2457,7 @@ ${scrapedContext}`;
 						await Utils.sleep(closeDelayMs);
 					}
 
-					if (browser) {
-						await browser.close();
-						Logger.info("   🔒 브라우저 세션 종료");
-					}
+					await closeBrowserSession();
 				}
 			}
 	},

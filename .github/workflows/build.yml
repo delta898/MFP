@@ -108,12 +108,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            platform_name: Linux x64
             suffix: linux-x64
-          - os: macos-latest
+          - os: macos-15-intel
+            platform_name: macOS Intel
             suffix: mac-intel
-          - os: macos-latest
+          - os: macos-15
+            platform_name: macOS Apple Silicon
             suffix: mac-arm64
-          - os: windows-latest
+          - os: windows-2025
+            platform_name: Windows x64
             suffix: win-x64
 
     steps:
@@ -189,12 +193,12 @@ jobs:
           echo "ZIP_DIR=${ROOT_NAME}" >> $GITHUB_ENV
 
       - name: Create ZIP (non-Windows)
-        if: matrix.os != 'windows-latest'
+        if: startsWith(matrix.os, 'windows') == false
         shell: bash
         run: cd dist && zip -r "../${ZIP_NAME}" "${ZIP_DIR}" && cd ..
 
       - name: Create ZIP (Windows)
-        if: matrix.os == 'windows-latest'
+        if: startsWith(matrix.os, 'windows')
         shell: pwsh
         run: Compress-Archive -Path "dist\*" -DestinationPath "${env:ZIP_NAME}" -Force
 

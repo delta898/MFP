@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev9] - 2026-04-01
+
+### Changed
+- **Headed 네이버 작성 창 작업성 개선**: Playwright가 띄운 네이버 블로그 작성 창을 headed 모드에서 더 넓은 창 크기와 실제 client viewport 기준으로 열도록 조정해, 창을 키워도 본문 작업 영역이 답답하게 고정되던 문제를 줄였습니다.
+
+### Fixed
+- **Headed 브라우저 handoff 종료 정리**: 마지막 네이버 발행/작성 건은 사용자가 수동으로 검토·편집·발행할 수 있도록 계속 열어두되, 사용자가 창을 닫으면 Playwright 세션도 함께 정리되어 macOS에서 Chrome 프로세스를 강제 종료해야 하던 문제를 완화했습니다.
+- **GitHub Actions 크로스플랫폼 빌드 안정화**: 릴리즈 빌드 워크플로가 실제 Intel Mac 러너와 고정 Windows 러너를 사용하도록 정리해, Intel macOS와 Windows x64 패키징 결과가 더 예측 가능하게 동작하도록 보강했습니다.
+
 ## [0.1.8-dev8] - 2026-03-31
 
 ### Added
