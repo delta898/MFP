@@ -20,7 +20,7 @@ jobs:
       release_body: ${{ steps.release_meta.outputs.release_body }}
       release_details_json: ${{ steps.release_meta.outputs.release_details_json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: release_meta
         shell: bash
         run: |
@@ -121,11 +121,11 @@ jobs:
             suffix: win-x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Install Dependencies
         run: npm install
       - name: Install electron-packager
@@ -224,19 +224,34 @@ jobs:
       - name: Build Asset Metadata
         shell: bash
         run: |
-          FILE_NAME=$(basename "${ZIP_NAME}")
-          FILE_SHA256=$(shasum -a 256 "${ZIP_NAME}" | awk '{print $1}')
-          FILE_SIZE=$(stat -f%z "${ZIP_NAME}" 2>/dev/null || stat --printf="%s" "${ZIP_NAME}" 2>/dev/null || echo "0")
-          cat <<EOF > "asset-meta-${{ matrix.suffix }}.json"
-          {
-            "name": "${FILE_NAME}",
-            "sha256": "${FILE_SHA256}",
-            "size": ${FILE_SIZE}
+          META_FILE="asset-meta-${{ matrix.suffix }}.json"
+          ZIP_PATH="${ZIP_NAME}" META_FILE="${META_FILE}" node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const crypto = require('crypto');
+
+          const zipPath = String(process.env.ZIP_PATH || '').trim();
+          const metaFile = String(process.env.META_FILE || '').trim();
+
+          if (!zipPath) {
+            throw new Error('ZIP_NAME is empty');
           }
-          EOF
+          if (!metaFile) {
+            throw new Error('META_FILE is empty');
+          }
+
+          const buffer = fs.readFileSync(zipPath);
+          const payload = {
+            name: path.basename(zipPath),
+            sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
+            size: fs.statSync(zipPath).size
+          };
+
+          fs.writeFileSync(metaFile, JSON.stringify(payload, null, 2));
+          NODE
 
       - name: Upload Asset Metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: asset-meta-${{ matrix.suffix }}
           path: asset-meta-${{ matrix.suffix }}.json
@@ -247,7 +262,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, create_release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: |
           VERSION="${GITHUB_REF_NAME#v}"
           README_OUT="README_v${VERSION}.md"
@@ -268,8 +283,8 @@ jobs:
       RELEASE_DETAILS_JSON: ${{ needs.setup.outputs.release_details_json }}
       RELEASE_BODY: ${{ needs.setup.outputs.release_body }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
         with:
           path: .asset-meta
 

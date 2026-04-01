@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.8-dev10] - 2026-04-01
+
+### Changed
+- **GitHub Actions Node 24 전환**: 릴리즈 워크플로의 주요 공식 액션을 Node 24 대응 버전으로 올리고, 빌드 잡의 Node 런타임도 24로 고정해 GitHub의 Node 20 deprecation 경고에 맞춰 릴리즈 체인을 정리했습니다.
+- **로컬 build parity 보강**: `build.sh`가 릴리즈 빌드 시작 전에 Node 24 이상을 확인하도록 보완해, 로컬 빌드 환경이 GitHub Actions 릴리즈 환경과 크게 어긋나지 않도록 맞췄습니다.
+
+### Fixed
+- **Windows 릴리즈 metadata 생성 실패 수정**: GitHub Actions의 Windows runner에서 `shasum` 부재로 `Build Asset Metadata` 단계가 실패하던 문제를 수정해, ZIP checksum/size 계산을 Node 내장 `crypto`와 `fs.stat` 기반의 cross-platform 방식으로 통일했습니다.
+
 ## [0.1.8-dev9] - 2026-04-01
 
 ### Changed

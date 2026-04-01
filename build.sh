@@ -8,6 +8,7 @@ VERSION=$(node -p "require('./package.json').version")
 REMOTE_DEPLOY_HOST="hangadac"
 REMOTE_DEPLOY_DIR="/home/ubuntu/Project/Docker/Wordpress/wordpress_webroot/dist/BlogGenius/"
 REMOTE_DEPLOY_TARGET="${REMOTE_DEPLOY_HOST}:${REMOTE_DEPLOY_DIR}"
+REQUIRED_NODE_MAJOR=24
 # ==========================================
 
 # 📥 인수 처리
@@ -23,6 +24,24 @@ if [ "$BUILD_ONLY" == "true" ]; then
 fi
 
 echo "🔍 [Check] 빌드 환경을 점검합니다..."
+
+# ---------------------------------------------------
+# 0. Node.js 버전 확인 (CI 릴리즈와 parity 유지)
+# ---------------------------------------------------
+NODE_VERSION=$(node -p "process.versions.node")
+NODE_MAJOR=$(node -p "parseInt(process.versions.node.split('.')[0], 10)")
+
+if [ "${NODE_MAJOR}" -lt "${REQUIRED_NODE_MAJOR}" ]; then
+    echo "🚨 [Error] Node.js ${REQUIRED_NODE_MAJOR}+ 가 필요합니다. 현재 버전: v${NODE_VERSION}"
+    echo "   👉 로컬 릴리즈 빌드는 GitHub Actions와 동일하게 Node.js 24 이상에서 실행해 주세요."
+    exit 1
+fi
+
+if [ "${NODE_MAJOR}" -ne "${REQUIRED_NODE_MAJOR}" ]; then
+    echo "   ℹ️ Node.js v${NODE_VERSION} 감지 (권장 기준: v${REQUIRED_NODE_MAJOR}.x, 계속 진행)"
+else
+    echo "   ✅ Node.js v${NODE_VERSION} 확인"
+fi
 
 # ---------------------------------------------------
 # 1. 라이브러리(node_modules) 설치 확인
@@ -109,6 +128,36 @@ copy_assets() {
 
     # 📄 필수 파일 복사 (이미 dist/ 에 복사됨)
     echo "   📄 필수 파일 복사 완료"
+}
+
+get_file_sha256() {
+    local target_file=$1
+    ZIP_PATH="${target_file}" node <<'NODE'
+const fs = require('fs');
+const crypto = require('crypto');
+
+const zipPath = String(process.env.ZIP_PATH || '').trim();
+if (!zipPath) {
+    process.exit(1);
+}
+
+const digest = crypto.createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex');
+process.stdout.write(digest);
+NODE
+}
+
+get_file_size() {
+    local target_file=$1
+    ZIP_PATH="${target_file}" node <<'NODE'
+const fs = require('fs');
+
+const zipPath = String(process.env.ZIP_PATH || '').trim();
+if (!zipPath) {
+    process.exit(1);
+}
+
+process.stdout.write(String(fs.statSync(zipPath).size));
+NODE
 }
 
 echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
@@ -281,8 +330,8 @@ for zip_file in "${BUILT_ZIPS[@]}"; do
     FIRST_ASSET=false
     
     FILE_NAME=$(basename "$zip_file")
-    FILE_SHA256=$(shasum -a 256 "$zip_file" | awk '{print $1}')
-    FILE_SIZE=$(stat -f%z "$zip_file" 2>/dev/null || stat --printf="%s" "$zip_file" 2>/dev/null || echo "0")
+    FILE_SHA256=$(get_file_sha256 "$zip_file")
+    FILE_SIZE=$(get_file_size "$zip_file")
     echo "    {" >> "${UPDATE_JSON}"
     echo "      \"name\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
     echo "      \"browser_download_url\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
