@@ -9,6 +9,7 @@ logs/
 *.log
 video.tar.gz
 *.bak
+*.swp
 dist/
 .DS_Store
 failed_updates.log
