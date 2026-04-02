@@ -212,6 +212,50 @@ function dedupeTrendRows(rows = []) {
     return deduped;
 }
 
+function buildTrendConflictKey(row = {}) {
+    return [
+        String(row?.source || '').trim(),
+        String(row?.trend_date || '').trim(),
+        String(row?.category || '').trim(),
+        String(row?.keyword || '').trim()
+    ].join('\u0001');
+}
+
+function countExistingTrendRows(rows = [], existingRows = []) {
+    const existingKeys = new Set(existingRows.map((row) => buildTrendConflictKey(row)));
+    return rows.reduce((count, row) => (
+        existingKeys.has(buildTrendConflictKey(row)) ? count + 1 : count
+    ), 0);
+}
+
+async function fetchExistingTrendRows(config = {}, rows = []) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+
+    const source = String(rows[0]?.source || '').trim();
+    const trendDate = String(rows[0]?.trend_date || '').trim();
+    const categories = Array.from(new Set(
+        rows.map((row) => String(row?.category || '').trim()).filter(Boolean)
+    ));
+
+    let query = getTrendItemsQuery(config)
+        .select('source, trend_date, category, keyword')
+        .eq('source', source)
+        .eq('trend_date', trendDate);
+
+    if (categories.length === 1) {
+        query = query.eq('category', categories[0]);
+    } else if (categories.length > 1) {
+        query = query.in('category', categories);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+        throw error;
+    }
+
+    return Array.isArray(data) ? data : [];
+}
+
 function escapeCsvCell(value) {
     const text = String(value ?? '');
     if (/[",\n]/.test(text)) {
@@ -236,6 +280,70 @@ function buildTrendExportFileName(filters = {}, extension = 'csv') {
         ? `-${filters.categories[0].replace(/\s+/g, '-')}`
         : (Array.isArray(filters.categories) && filters.categories.length > 1 ? '-multi' : '');
     return `naver-trends-${from}-${to}${category}.${extension}`;
+}
+
+function toAsciiDownloadFileName(fileName, fallback = 'naver-trends.csv') {
+    const normalized = String(fileName || '').normalize('NFKD');
+    const ascii = normalized
+        .replace(/[^\x20-\x7E]+/g, '-')
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^[-.]+|[-.]+$/g, '');
+    return ascii || fallback;
+}
+
+function encodeContentDispositionFilename(fileName) {
+    return encodeURIComponent(String(fileName || ''))
+        .replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function buildDownloadContentDisposition(fileName) {
+    const safeFileName = String(fileName || 'naver-trends.csv');
+    const asciiFileName = toAsciiDownloadFileName(safeFileName, 'naver-trends.csv');
+    return `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeContentDispositionFilename(safeFileName)}`;
+}
+
+async function collectPagedRows(fetchPage, scanLimit, pageSize = 1000) {
+    const limit = Math.max(0, Number(scanLimit) || 0);
+    if (limit === 0) return [];
+
+    const batchSize = Math.max(1, Math.min(Number(pageSize) || 1000, limit));
+    const rows = [];
+
+    for (let offset = 0; offset < limit; offset += batchSize) {
+        const end = Math.min(limit - 1, offset + batchSize - 1);
+        const batch = await fetchPage(offset, end);
+        const normalizedBatch = Array.isArray(batch) ? batch : [];
+        rows.push(...normalizedBatch);
+
+        if (normalizedBatch.length < (end - offset + 1)) {
+            break;
+        }
+    }
+
+    return rows;
+}
+
+function buildTrendMetaSummary(rows = []) {
+    const categories = Array.from(new Set(
+        rows.map((row) => String(row?.category || '').trim()).filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b, 'ko'));
+    const sources = Array.from(new Set(
+        rows.map((row) => String(row?.source || '').trim()).filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b, 'en'));
+    const availableDates = Array.from(new Set(
+        rows.map((row) => String(row?.trend_date || '').trim()).filter(Boolean)
+    )).sort();
+
+    return {
+        categories,
+        sources,
+        availableDates,
+        dateRange: {
+            min: availableDates[0] || null,
+            max: availableDates[availableDates.length - 1] || null
+        }
+    };
 }
 
 function sendJson(res, statusCode, payload) {
@@ -299,13 +407,18 @@ async function handleIngest(req, res, config) {
         return sendJson(res, 200, {
             success: true,
             accepted: 0,
-            upserted: 0,
+            uniqueRows: 0,
+            inserted: 0,
+            updated: 0,
             duplicatesCollapsed: 0,
             trendDate: normalized.trendDate || null
         });
     }
 
     try {
+        const existingRows = await fetchExistingTrendRows(config, rows);
+        const updated = countExistingTrendRows(rows, existingRows);
+        const inserted = Math.max(0, rows.length - updated);
         const { error } = await getTrendItemsQuery(config)
             .upsert(rows, {
                 onConflict: config.onConflict,
@@ -319,7 +432,9 @@ async function handleIngest(req, res, config) {
         return sendJson(res, 200, {
             success: true,
             accepted: mappedRows.length,
-            upserted: rows.length,
+            uniqueRows: rows.length,
+            inserted,
+            updated,
             duplicatesCollapsed,
             trendDate: normalized.trendDate
         });
@@ -370,7 +485,7 @@ async function handleQuery(res, queryUrl, config, asCsv = false) {
             const fileName = buildTrendExportFileName(filters, 'csv');
             return sendText(res, 200, csv, {
                 'Content-Type': 'text/csv; charset=utf-8',
-                'Content-Disposition': `attachment; filename="${fileName}"`
+                'Content-Disposition': buildDownloadContentDisposition(fileName)
             });
         }
 
@@ -392,37 +507,33 @@ async function handleMeta(res, queryUrl, config) {
             exportMaxRows: config.metaScanLimit
         });
 
-        let categoryQuery = getTrendItemsQuery(config)
-            .select('category, source, trend_date')
-            .order('trend_date', { ascending: false })
-            .limit(config.metaScanLimit);
+        const rows = await collectPagedRows(async (offset, end) => {
+            let categoryQuery = getTrendItemsQuery(config)
+                .select('category, source, trend_date, keyword')
+                .order('trend_date', { ascending: false })
+                .order('category', { ascending: true })
+                .order('keyword', { ascending: true })
+                .range(offset, end);
 
-        if (filters.source) categoryQuery = categoryQuery.eq('source', filters.source);
-        if (filters.trendDate) categoryQuery = categoryQuery.eq('trend_date', filters.trendDate);
-        if (filters.dateFrom) categoryQuery = categoryQuery.gte('trend_date', filters.dateFrom);
-        if (filters.dateTo) categoryQuery = categoryQuery.lte('trend_date', filters.dateTo);
+            if (filters.source) categoryQuery = categoryQuery.eq('source', filters.source);
+            if (filters.trendDate) categoryQuery = categoryQuery.eq('trend_date', filters.trendDate);
+            if (filters.dateFrom) categoryQuery = categoryQuery.gte('trend_date', filters.dateFrom);
+            if (filters.dateTo) categoryQuery = categoryQuery.lte('trend_date', filters.dateTo);
 
-        const { data, error } = await categoryQuery;
-        if (error) {
-            throw error;
-        }
-
-        const rows = Array.isArray(data) ? data : [];
-        const categories = Array.from(new Set(rows.map((row) => String(row?.category || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'));
-        const sources = Array.from(new Set(rows.map((row) => String(row?.source || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'en'));
-        const trendDates = rows
-            .map((row) => String(row?.trend_date || '').trim())
-            .filter(Boolean)
-            .sort();
+            const { data, error } = await categoryQuery;
+            if (error) {
+                throw error;
+            }
+            return data;
+        }, config.metaScanLimit);
+        const summary = buildTrendMetaSummary(rows);
 
         return sendJson(res, 200, {
             success: true,
-            categories,
-            sources,
-            dateRange: {
-                min: trendDates[0] || null,
-                max: trendDates[trendDates.length - 1] || null
-            },
+            categories: summary.categories,
+            sources: summary.sources,
+            availableDates: summary.availableDates,
+            dateRange: summary.dateRange,
             scannedRows: rows.length,
             scanLimit: config.metaScanLimit
         });
@@ -483,10 +594,16 @@ if (require.main === module) {
 }
 
 module.exports = {
+    buildTrendConflictKey,
+    buildTrendMetaSummary,
     createServer,
     createSupabaseAdminClient,
     buildTrendExportFileName,
+    buildDownloadContentDisposition,
+    collectPagedRows,
+    countExistingTrendRows,
     dedupeTrendRows,
+    fetchExistingTrendRows,
     getTrendItemsQuery,
     mapPayloadToTrendRows,
     normalizeIngestPayload,

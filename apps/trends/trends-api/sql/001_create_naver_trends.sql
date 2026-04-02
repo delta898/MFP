@@ -1,13 +1,20 @@
 create schema if not exists trends;
 create extension if not exists pgcrypto;
 
-grant usage on schema trends to anon, authenticated, service_role;
-grant all on all tables in schema trends to anon, authenticated, service_role;
-grant all on all routines in schema trends to anon, authenticated, service_role;
-grant all on all sequences in schema trends to anon, authenticated, service_role;
-alter default privileges for role postgres in schema trends grant all on tables to anon, authenticated, service_role;
-alter default privileges for role postgres in schema trends grant all on routines to anon, authenticated, service_role;
-alter default privileges for role postgres in schema trends grant all on sequences to anon, authenticated, service_role;
+revoke all on schema trends from anon, authenticated;
+grant usage on schema trends to service_role;
+grant all on all tables in schema trends to service_role;
+grant all on all routines in schema trends to service_role;
+grant all on all sequences in schema trends to service_role;
+revoke all on all tables in schema trends from anon, authenticated;
+revoke all on all routines in schema trends from anon, authenticated;
+revoke all on all sequences in schema trends from anon, authenticated;
+alter default privileges for role postgres in schema trends revoke all on tables from anon, authenticated;
+alter default privileges for role postgres in schema trends revoke all on routines from anon, authenticated;
+alter default privileges for role postgres in schema trends revoke all on sequences from anon, authenticated;
+alter default privileges for role postgres in schema trends grant all on tables to service_role;
+alter default privileges for role postgres in schema trends grant all on routines to service_role;
+alter default privileges for role postgres in schema trends grant all on sequences to service_role;
 
 create table if not exists trends.items (
     id uuid primary key default gen_random_uuid(),
@@ -34,6 +41,8 @@ create table if not exists trends.items (
     constraint trends_items_display_order_check
         check (display_order > 0)
 );
+
+alter table trends.items enable row level security;
 
 create unique index if not exists trends_items_source_date_category_keyword_idx
     on trends.items (source, trend_date, category, keyword);

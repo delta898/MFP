@@ -2,7 +2,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    buildTrendConflictKey,
+    buildTrendMetaSummary,
     buildTrendExportFileName,
+    buildDownloadContentDisposition,
+    collectPagedRows,
+    countExistingTrendRows,
     dedupeTrendRows,
     mapPayloadToTrendRows,
     normalizeIngestPayload,
@@ -87,6 +92,83 @@ test('dedupeTrendRows collapses rows that share the upsert conflict key', () => 
 
     assert.equal(rows.length, 2);
     assert.equal(rows[0].display_order, 1);
+});
+
+test('buildTrendConflictKey matches the upsert uniqueness contract', () => {
+    const key = buildTrendConflictKey({
+        source: 'naver_creator_advisor',
+        trend_date: '2026-04-01',
+        category: '맛집',
+        keyword: '버거킹 와퍼'
+    });
+
+    assert.equal(key, 'naver_creator_advisor\u00012026-04-01\u0001맛집\u0001버거킹 와퍼');
+});
+
+test('countExistingTrendRows separates inserts from updates using conflict keys', () => {
+    const rows = [
+        {
+            source: 'naver_creator_advisor',
+            trend_date: '2026-04-01',
+            category: '맛집',
+            keyword: '버거킹 와퍼'
+        },
+        {
+            source: 'naver_creator_advisor',
+            trend_date: '2026-04-01',
+            category: '국내여행',
+            keyword: '서울 벚꽃'
+        }
+    ];
+    const existingRows = [
+        {
+            source: 'naver_creator_advisor',
+            trend_date: '2026-04-01',
+            category: '맛집',
+            keyword: '버거킹 와퍼'
+        }
+    ];
+
+    assert.equal(countExistingTrendRows(rows, existingRows), 1);
+});
+
+test('collectPagedRows keeps scanning until a short page is returned', async () => {
+    const calls = [];
+    const rows = await collectPagedRows(async (offset, end) => {
+        calls.push([offset, end]);
+        if (offset === 0) {
+            return Array.from({ length: 1000 }, (_, index) => ({ id: index + 1 }));
+        }
+        if (offset === 1000) {
+            return Array.from({ length: 1000 }, (_, index) => ({ id: index + 1001 }));
+        }
+        return Array.from({ length: 560 }, (_, index) => ({ id: index + 2001 }));
+    }, 20000, 1000);
+
+    assert.deepEqual(calls, [
+        [0, 999],
+        [1000, 1999],
+        [2000, 2999]
+    ]);
+    assert.equal(rows.length, 2560);
+});
+
+test('buildTrendMetaSummary preserves the full available date range', () => {
+    const summary = buildTrendMetaSummary([
+        { source: 'naver_creator_advisor', trend_date: '2026-04-01', category: '맛집' },
+        { source: 'naver_creator_advisor', trend_date: '2026-03-31', category: '국내여행' },
+        { source: 'naver_creator_advisor', trend_date: '2026-03-30', category: '맛집' },
+        { source: 'naver_creator_advisor', trend_date: '2026-03-29', category: 'IT·컴퓨터' }
+    ]);
+
+    assert.deepEqual(summary.availableDates, [
+        '2026-03-29',
+        '2026-03-30',
+        '2026-03-31',
+        '2026-04-01'
+    ]);
+    assert.equal(summary.dateRange.min, '2026-03-29');
+    assert.equal(summary.dateRange.max, '2026-04-01');
 });
 
 test('toTrendCsv serializes rows with a header line', () => {
@@ -190,4 +272,11 @@ test('buildTrendExportFileName reflects filters for downloads', () => {
 
     assert.equal(singleCategory, 'naver-trends-2026-04-01-2026-04-02-국내여행.csv');
     assert.equal(multiCategory, 'naver-trends-2026-04-01-2026-04-02-multi.csv');
+});
+
+test('buildDownloadContentDisposition keeps headers ASCII-safe while preserving UTF-8 filename', () => {
+    const header = buildDownloadContentDisposition('naver-trends-2026-04-01-2026-04-02-국내여행.csv');
+
+    assert.match(header, /^attachment; filename="[^"]+"; filename\*=UTF-8''/);
+    assert.match(header, /filename\*=UTF-8''naver-trends-2026-04-01-2026-04-02-%EA%B5%AD%EB%82%B4%EC%97%AC%ED%96%89\.csv$/);
 });

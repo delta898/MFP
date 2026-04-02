@@ -16,10 +16,10 @@ function resolveToolScript(toolName) {
     return path.resolve(__dirname, '..', scriptRelativePath);
 }
 
-function runTool(toolName) {
+function runTool(toolName, extraArgs = process.argv.slice(2)) {
     const scriptPath = resolveToolScript(toolName);
     const repoRoot = path.resolve(__dirname, '..');
-    const child = spawn(process.execPath, [scriptPath], {
+    const child = spawn(process.execPath, [scriptPath, ...extraArgs], {
         cwd: repoRoot,
         env: process.env,
         stdio: 'inherit'
@@ -40,7 +40,7 @@ function runTool(toolName) {
 }
 
 if (require.main === module) {
-    runTool(process.argv[2]);
+    runTool(process.argv[2], process.argv.slice(3));
 }
 
 module.exports = {

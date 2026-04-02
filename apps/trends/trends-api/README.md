@@ -36,7 +36,9 @@ Compatibility note:
 
 Supabase note:
 - because the default storage target is the custom schema `trends.items`, add `trends` to Supabase `API Settings -> Exposed schemas`
-- run the grant statements in `apps/trends/trends-api/sql/001_create_naver_trends.sql` so the Data API can access that schema
+- run `apps/trends/trends-api/sql/001_create_naver_trends.sql` for a fresh install
+- if the table already exists and Supabase shows `RLS disabled` / `UNRESTRICTED`, run `apps/trends/trends-api/sql/002_harden_trends_access.sql`
+- the intended production posture is backend-only access via `SUPABASE_SECRET_KEY`; `anon` / `authenticated` should not have direct access to `trends.items`
 
 ## Endpoints
 

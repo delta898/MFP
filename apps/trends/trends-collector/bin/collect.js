@@ -29,6 +29,64 @@ function createLogger() {
     };
 }
 
+function formatCollectorHelp() {
+    return [
+        'Usage:',
+        '  node bin/trends-collector [options]',
+        '  npm run trends:collector -- [options]',
+        '',
+        'Options:',
+        '  -h, --help           Show this help message',
+        '  -d, --date <value>   Collect trends for a specific date',
+        '                       Supported: YYYY-MM-DD, YYYYMMDD, yesterday, 어제, -1d, -3d',
+        '',
+        'Environment:',
+        '  apps/trends/.env is loaded automatically.',
+        '  If --date is omitted, TRENDS_TARGET_DATE is used when present.',
+        '  If neither is set, the collector uses the provider default date.',
+    ].join('\n');
+}
+
+function parseCollectorCliArgs(argv = process.argv.slice(2)) {
+    const options = {
+        help: false,
+        date: ''
+    };
+
+    for (let index = 0; index < argv.length; index += 1) {
+        const argument = String(argv[index] || '').trim();
+        if (!argument) continue;
+
+        if (argument === '-h' || argument === '--help') {
+            options.help = true;
+            continue;
+        }
+
+        if (argument === '-d' || argument === '--date') {
+            const nextValue = String(argv[index + 1] || '').trim();
+            if (!nextValue) {
+                throw new Error(`${argument} 옵션에는 날짜 값이 필요합니다.`);
+            }
+            options.date = nextValue;
+            index += 1;
+            continue;
+        }
+
+        if (argument.startsWith('--date=')) {
+            const value = argument.slice('--date='.length).trim();
+            if (!value) {
+                throw new Error('--date 옵션에는 날짜 값이 필요합니다.');
+            }
+            options.date = value;
+            continue;
+        }
+
+        throw new Error(`알 수 없는 collector 옵션입니다: ${argument}`);
+    }
+
+    return options;
+}
+
 function toBool(value, fallback = false) {
     if (typeof value === 'boolean') return value;
     const normalized = String(value || '').trim().toLowerCase();
@@ -95,7 +153,7 @@ async function persistAuthSessionState(context, options = {}) {
     return true;
 }
 
-function resolveCollectorConfig(env = process.env) {
+function resolveCollectorConfig(env = process.env, cliOptions = {}) {
     const rootDir = DEFAULT_REPO_ROOT;
     const apiHost = String(env.TRENDS_API_HOST || '127.0.0.1').trim() || '127.0.0.1';
     const apiPort = Math.max(1, parseInt(String(env.TRENDS_API_PORT || '4581').trim(), 10) || 4581);
@@ -105,7 +163,7 @@ function resolveCollectorConfig(env = process.env) {
         rootDir,
         naverId: String(env.TRENDS_NAVER_ID || env.NAVER_ID || '').trim(),
         authPath: path.isAbsolute(authPathValue) ? authPathValue : path.resolve(rootDir, authPathValue),
-        date: String(env.TRENDS_TARGET_DATE || env.TREND_DATE || '').trim(),
+        date: String(cliOptions.date || env.TRENDS_TARGET_DATE || env.TREND_DATE || '').trim(),
         headless: toBool(env.TRENDS_HEADLESS, true),
         apiHost,
         apiPort,
@@ -158,10 +216,23 @@ async function pushPayloadToApi(payload, config, logger) {
     }
 }
 
+function formatApiResultSummary(apiResult = {}) {
+    const parts = [];
+    if (Number.isFinite(apiResult.accepted)) parts.push(`accepted=${apiResult.accepted}`);
+    if (Number.isFinite(apiResult.uniqueRows)) parts.push(`uniqueRows=${apiResult.uniqueRows}`);
+    if (Number.isFinite(apiResult.inserted)) parts.push(`inserted=${apiResult.inserted}`);
+    if (Number.isFinite(apiResult.updated)) parts.push(`updated=${apiResult.updated}`);
+    if (Number.isFinite(apiResult.duplicatesCollapsed)) parts.push(`duplicatesCollapsed=${apiResult.duplicatesCollapsed}`);
+    if (apiResult.trendDate) parts.push(`trendDate=${apiResult.trendDate}`);
+    if (parts.length > 0) return parts.join(', ');
+    return JSON.stringify(apiResult);
+}
+
 async function runCollector(inputConfig = {}) {
     const logger = inputConfig.logger || createLogger();
+    const cliOptions = inputConfig.cliOptions || {};
     const config = {
-        ...resolveCollectorConfig(process.env),
+        ...resolveCollectorConfig(process.env, cliOptions),
         ...inputConfig
     };
 
@@ -194,7 +265,7 @@ async function runCollector(inputConfig = {}) {
 
     logger.info(`📦 수집 payload 준비 완료: trendDate=${payload.trendDate || '-'}, items=${payload.itemCount}`);
     const apiResult = await pushPayloadToApi(payload, config, logger);
-    logger.info(`✅ collector 완료: ${JSON.stringify(apiResult)}`);
+    logger.info(`✅ collector 완료: ${formatApiResultSummary(apiResult)}`);
     return {
         payload,
         apiResult
@@ -202,7 +273,20 @@ async function runCollector(inputConfig = {}) {
 }
 
 if (require.main === module) {
-    runCollector().catch((error) => {
+    let cliOptions;
+    try {
+        cliOptions = parseCollectorCliArgs(process.argv.slice(2));
+        if (cliOptions.help) {
+            process.stdout.write(`${formatCollectorHelp()}\n`);
+            process.exit(0);
+        }
+    } catch (error) {
+        console.error(`❌ trends collector failed: ${error.message}`);
+        console.error('ℹ️ 사용법은 "node bin/trends-collector --help" 로 확인할 수 있습니다.');
+        process.exit(1);
+    }
+
+    runCollector({ cliOptions }).catch((error) => {
         console.error(`❌ trends collector failed: ${error.message}`);
         process.exitCode = 1;
     });
@@ -210,6 +294,9 @@ if (require.main === module) {
 
 module.exports = {
     createLogger,
+    formatApiResultSummary,
+    formatCollectorHelp,
+    parseCollectorCliArgs,
     resolveCollectorConfig,
     runCollector
 };

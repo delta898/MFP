@@ -150,8 +150,13 @@ Legacy compatibility:
 
 ## Supabase Schema
 - Reference SQL lives at [apps/trends/trends-api/sql/001_create_naver_trends.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/001_create_naver_trends.sql).
+- Existing installs can be hardened with [apps/trends/trends-api/sql/002_harden_trends_access.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/002_harden_trends_access.sql).
 - Default schema/table: `trends.items`
 - Supabase project setup must also expose the `trends` schema in `API Settings -> Exposed schemas`.
+- Security posture:
+  - `trends.items` is intended for backend-only access through `SUPABASE_SECRET_KEY`
+  - `anon` and `authenticated` should not have direct table privileges
+  - RLS should remain enabled on `trends.items`
 - Default upsert conflict key:
   - `source`
   - `trend_date`

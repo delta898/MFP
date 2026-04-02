@@ -14,3 +14,7 @@ test('resolveToolScript maps collector launcher to trends-collector entrypoint',
 
     assert.match(scriptPath, /apps\/trends\/trends-collector\/bin\/collect\.js$/);
 });
+
+test('resolveToolScript rejects unknown launchers', () => {
+    assert.throws(() => resolveToolScript('unknown'), /unknown trends tool/);
+});

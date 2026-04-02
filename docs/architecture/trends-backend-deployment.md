@@ -19,7 +19,7 @@ The current operating model is:
 - clone this repository onto the WordPress server at a separate path
 - run `trends-api` on that server as a local Node service
 - run `trends-collector` on that server on demand or by schedule
-- let WordPress PHP call `trends-api` over `127.0.0.1`
+- let WordPress PHP call `trends-api` locally when possible, or through a host-reachable address when WordPress itself runs in Docker
 
 Preferred shape:
 
@@ -37,7 +37,7 @@ WordPress server
 
 - It avoids creating a separate packaging pipeline for the trends runtime too early.
 - It keeps WordPress and the Node trends runtime operationally separate while still colocating them on one machine.
-- It lets WordPress use `127.0.0.1`, so the trends API does not need to be public.
+- It keeps the trends API local to one server, so it does not need to be public just to satisfy WordPress integration.
 - It keeps the Supabase secret key on the Node backend only.
 - It preserves shared-code reuse with the main desktop app.
 
@@ -45,7 +45,8 @@ WordPress server
 
 ### `trends-api`
 - Runs as a long-lived local service on the WordPress server.
-- Binds to `127.0.0.1` by default.
+- Binds to `127.0.0.1` by default for non-Docker WordPress setups.
+- Should bind to `0.0.0.0` when WordPress runs in Docker and must reach the host Node service over a bridge/host address.
 - Owns Supabase read/write access.
 - Serves ingest, metadata, and export endpoints.
 
@@ -70,7 +71,8 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector
 ### WordPress plugin
 - Stays in WordPress only.
 - Calls `trends-api` from server-side PHP with `wp_remote_get()`.
-- Should point to `http://127.0.0.1:4581` unless a different local bind is intentionally chosen.
+- Should point to `http://127.0.0.1:4581` only when WordPress itself runs directly on the host.
+- When WordPress runs in Docker, it must use a host-reachable address or a reverse-proxied HTTPS URL instead.
 
 ## Server Setup
 
@@ -109,7 +111,8 @@ Important values:
 - `TRENDS_NAVER_ID`
 - `TRENDS_AUTH_FILE_PATH`
 - `TRENDS_API_TOKEN`
-- `TRENDS_API_HOST=127.0.0.1`
+- `TRENDS_API_HOST=127.0.0.1` for host-only WordPress
+- `TRENDS_API_HOST=0.0.0.0` for Docker WordPress that must reach the host service
 - `TRENDS_API_PORT=4581`
 
 Recommended auth path on the server:
@@ -131,12 +134,19 @@ define('BG_TRENDS_API_BASE_URL', 'http://127.0.0.1:4581');
 define('BG_TRENDS_API_TOKEN', '<same-internal-token-if-used>');
 ```
 
+If WordPress runs in Docker, `127.0.0.1` is the container itself, not the host Node service.
+
+In that case use one of:
+- a host-reachable bridge/gateway address
+- a server private IP
+- a reverse-proxied HTTPS URL on the same domain/server
+
 Expected flow:
 
 ```text
 WordPress UI
   -> WordPress plugin / shortcode
-  -> trends-api (127.0.0.1)
+  -> trends-api
   -> Supabase
 ```
 
@@ -149,6 +159,59 @@ trends-collector
   -> trends-api
   -> Supabase
 ```
+
+## Docker WordPress Networking Notes
+
+If WordPress runs inside Docker while `trends-api` runs on the host:
+- `127.0.0.1` inside the container does not reach the host Node process
+- `extra_hosts` such as `host.docker.internal:host-gateway` help with name resolution only
+- host reachability may still depend on host firewall or `iptables` policy
+
+Observed working pattern:
+- run `trends-api` on the host with `TRENDS_API_HOST=0.0.0.0`
+- allow Docker bridge traffic to TCP `4581` on the host
+- point WordPress at a host-reachable address instead of `127.0.0.1`
+
+Conservative `iptables` rule:
+
+```bash
+sudo iptables -I INPUT 1 -i br+ -p tcp --dport 4581 -j ACCEPT
+```
+
+Meaning:
+- only Docker bridge interfaces
+- only TCP port `4581`
+- only host INPUT traffic to the API
+
+Useful inspection commands:
+
+```bash
+sudo iptables -L INPUT -n --line-numbers
+docker network ls
+docker network inspect <network-name>
+ss -ltnp | grep 4581
+```
+
+If broad or temporary rules were added during debugging, remove them after narrowing policy:
+
+```bash
+sudo iptables -D INPUT <line-number>
+sudo iptables -D FORWARD <line-number>
+```
+
+Replace `<line-number>` with the actual number shown by `iptables -L --line-numbers`.
+
+To keep the final rule after reboot on Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y iptables-persistent
+sudo netfilter-persistent save
+```
+
+Current recommendation:
+- if Docker-to-host networking is already working with a narrow `iptables` rule, that is acceptable
+- if Docker host reachability keeps being fragile, prefer a reverse-proxied HTTPS URL for WordPress instead of raw bridge/host addresses
 
 ## Service Management
 

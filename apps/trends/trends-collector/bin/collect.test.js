@@ -1,7 +1,63 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { resolveCollectorConfig } = require('./collect');
+const {
+    formatApiResultSummary,
+    formatCollectorHelp,
+    parseCollectorCliArgs,
+    resolveCollectorConfig
+} = require('./collect');
+
+test('parseCollectorCliArgs supports help and explicit date options', () => {
+    assert.deepEqual(parseCollectorCliArgs(['--help']), {
+        help: true,
+        date: ''
+    });
+    assert.deepEqual(parseCollectorCliArgs(['--date', '2026-04-02']), {
+        help: false,
+        date: '2026-04-02'
+    });
+    assert.deepEqual(parseCollectorCliArgs(['--date=20260402']), {
+        help: false,
+        date: '20260402'
+    });
+    assert.deepEqual(parseCollectorCliArgs(['-d', '2026-04-03']), {
+        help: false,
+        date: '2026-04-03'
+    });
+});
+
+test('parseCollectorCliArgs rejects unknown options and missing date values', () => {
+    assert.throws(() => parseCollectorCliArgs(['--unknown']), /알 수 없는 collector 옵션/);
+    assert.throws(() => parseCollectorCliArgs(['--date']), /날짜 값이 필요합니다/);
+});
+
+test('formatCollectorHelp mentions help and date flags', () => {
+    const output = formatCollectorHelp();
+
+    assert.match(output, /--help/);
+    assert.match(output, /--date <value>/);
+    assert.match(output, /TRENDS_TARGET_DATE/);
+    assert.match(output, /-1d/);
+    assert.match(output, /yesterday/);
+});
+
+test('formatApiResultSummary prefers insert and update counts over raw json', () => {
+    const summary = formatApiResultSummary({
+        accepted: 640,
+        uniqueRows: 640,
+        inserted: 0,
+        updated: 640,
+        duplicatesCollapsed: 0,
+        trendDate: '2026-04-01'
+    });
+
+    assert.match(summary, /accepted=640/);
+    assert.match(summary, /uniqueRows=640/);
+    assert.match(summary, /inserted=0/);
+    assert.match(summary, /updated=640/);
+    assert.match(summary, /trendDate=2026-04-01/);
+});
 
 test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
     const config = resolveCollectorConfig({
@@ -59,4 +115,14 @@ test('resolveCollectorConfig keeps absolute auth path unchanged', () => {
     });
 
     assert.equal(config.authPath, '/tmp/naver-auth.json');
+});
+
+test('resolveCollectorConfig prefers cli date over env date', () => {
+    const config = resolveCollectorConfig({
+        TRENDS_TARGET_DATE: '2026-04-01'
+    }, {
+        date: '2026-04-02'
+    });
+
+    assert.equal(config.date, '2026-04-02');
 });
