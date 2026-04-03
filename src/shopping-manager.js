@@ -341,6 +341,74 @@ function collectProductFromJson(node, productNodes = []) {
     return productNodes;
 }
 
+function sanitizeExtractedTitleCandidate(title = '') {
+    const clean = normalizeWhitespace(String(title || ''))
+        .replace(/\s*[:|-]\s*네이버\s*(?:스마트)?스토어$/i, '')
+        .replace(/\s*[:|-]\s*브랜드스토어$/i, '')
+        .trim();
+
+    const genericStoreSuffix = clean.match(/^(.{12,}?)\s*[:|-]\s*([A-Za-z0-9가-힣&\s]{2,20})$/);
+    if (genericStoreSuffix) {
+        const left = normalizeWhitespace(genericStoreSuffix[1]);
+        const right = normalizeWhitespace(genericStoreSuffix[2]);
+        if (
+            left.length >= 12 &&
+            right.length <= 20 &&
+            !/[원%]/.test(right) &&
+            !/무료|배송|할인|적립|쿠폰|리뷰|후기|이벤트|상품|가격|공식|정가/.test(right)
+        ) {
+            return left;
+        }
+    }
+
+    return clean;
+}
+
+function isStorefrontLikeTitle(title = '') {
+    const clean = normalizeWhitespace(String(title || ''));
+    if (!clean) return false;
+    if (/^\S.{0,60}\s*[:|-]\s*네이버\s*(?:스마트)?스토어$/i.test(clean)) return true;
+    if (/^\S.{0,60}\s*[:|-]\s*브랜드스토어$/i.test(clean)) return true;
+    if (/^(?:네이버\s*)?(?:스마트)?스토어$/i.test(clean)) return true;
+    if (/^브랜드스토어$/i.test(clean)) return true;
+    return false;
+}
+
+function isUiNoiseTitle(title = '') {
+    const clean = normalizeWhitespace(String(title || ''));
+    if (!clean) return false;
+    return /(?:^안녕하세요[.!]?\s*|관심고객수|검색어를\s*입력해?주세요|도움말|로그아웃|프로필\s*사진|알림\s*읽은|내\s*페이포인트|네이버ID|판매자\s*개인정보|상세정보\s*확인|인기\/신규서비스|즐겨찾기\s*설정)/i.test(clean);
+}
+
+function scoreStructuredProductCandidate(node = {}) {
+    let score = 0;
+    const name = normalizeWhitespace(node?.name || node?.headline || '');
+    const offers = Array.isArray(node?.offers) ? node.offers[0] : node?.offers || null;
+    const price = parseKrwNumber(offers?.price || offers?.lowPrice);
+    const highPrice = parseKrwNumber(offers?.highPrice);
+    const reviewCount = parseKrwNumber(node?.aggregateRating?.ratingCount || node?.aggregateRating?.reviewCount);
+    const imageCount = Array.isArray(node?.image) ? node.image.length : (node?.image ? 1 : 0);
+
+    if (name) score += 15;
+    if (name && name.length >= 8) score += 20;
+    if (price) score += 18;
+    if (highPrice && highPrice > (price || 0)) score += 12;
+    if (reviewCount) score += 4;
+    if (imageCount > 0) score += Math.min(imageCount, 5) * 3;
+    if (isStorefrontLikeTitle(name) || isGenericShoppingTitle(name)) score -= 40;
+    if (isUiNoiseTitle(name)) score -= 120;
+
+    return score;
+}
+
+function pickBestStructuredProduct(productNodes = []) {
+    if (!Array.isArray(productNodes) || productNodes.length === 0) return null;
+    const ranked = productNodes
+        .map(node => ({ node, score: scoreStructuredProductCandidate(node) }))
+        .sort((a, b) => b.score - a.score);
+    return ranked[0]?.node || null;
+}
+
 function guessExtension(url, contentType) {
     const type = (contentType || '').toLowerCase();
     if (type.includes('jpeg') || type.includes('jpg')) return 'jpg';
@@ -428,6 +496,44 @@ function getConfiguredCtaImageUrls() {
 
 function normalizeWhitespace(text) {
     return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function extractReadableTextFromDomNode(node, chunks = []) {
+    if (!node) return chunks;
+
+    if (node.type === 'text') {
+        if (node.data) chunks.push(node.data);
+        return chunks;
+    }
+
+    if (node.type !== 'tag' && node.type !== 'root') return chunks;
+
+    const tagName = String(node.name || '').toLowerCase();
+    if (['script', 'style', 'noscript', 'iframe', 'svg', 'path'].includes(tagName)) {
+        return chunks;
+    }
+
+    for (const child of node.children || []) {
+        extractReadableTextFromDomNode(child, chunks);
+    }
+
+    if (['br', 'hr', 'div', 'p', 'section', 'article', 'li', 'ul', 'ol', 'dl', 'dt', 'dd', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'tr', 'td', 'th', 'a', 'button', 'span'].includes(tagName)) {
+        chunks.push(' ');
+    }
+
+    return chunks;
+}
+
+function getReadableTextFromElement($, element) {
+    if (!element) return '';
+    const chunks = extractReadableTextFromDomNode(element, []);
+    return normalizeWhitespace(chunks.join(' '));
+}
+
+function buildVisiblePageText(html = '') {
+    const $ = cheerio.load(html || '');
+    $('script, style, noscript, iframe, svg, path, meta, link, head').remove();
+    return getReadableTextFromElement($, $('body').get(0));
 }
 
 function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
@@ -563,10 +669,470 @@ function extractPriceMentionsFromText(text) {
 
         const idx = match.index || 0;
         const context = source.slice(Math.max(0, idx - 24), Math.min(source.length, idx + match[0].length + 24));
-        mentions.push({ value, context });
+        mentions.push({ value, context, index: idx });
     }
 
     return mentions;
+}
+
+function extractDiscountRateFromText(text = '') {
+    const candidate = extractDiscountRateCandidateFromText(text);
+    return candidate?.value || null;
+}
+
+function extractDiscountRateCandidateFromText(text = '') {
+    const source = normalizeWhitespace(text);
+    if (!source) return null;
+
+    const discountRegex = /([1-9]\d?)\s*%/g;
+    let matched;
+    while ((matched = discountRegex.exec(source)) !== null) {
+        const value = parseInt(matched[1], 10);
+        if (Number.isNaN(value) || value <= 0 || value >= 90) continue;
+
+        const idx = matched.index || 0;
+        const context = source.slice(Math.max(0, idx - 18), Math.min(source.length, idx + matched[0].length + 18));
+        if (/적립|포인트|카드|추가/.test(context) && !/할인/.test(context)) continue;
+        return {
+            value,
+            matchText: matched[0],
+            context,
+            index: idx
+        };
+    }
+
+    return null;
+}
+
+function collectDiscountCandidatesFromText(text = '', maxCount = 10) {
+    const source = normalizeWhitespace(text);
+    if (!source) return [];
+
+    const discountRegex = /([1-9]\d?)\s*%/g;
+    const candidates = [];
+    let matched;
+    while ((matched = discountRegex.exec(source)) !== null) {
+        const value = parseInt(matched[1], 10);
+        if (Number.isNaN(value) || value <= 0 || value >= 90) continue;
+
+        const idx = matched.index || 0;
+        const context = source.slice(Math.max(0, idx - 18), Math.min(source.length, idx + matched[0].length + 18));
+        let reason = 'accepted';
+        if (/적립|포인트|카드|추가/.test(context) && !/할인/.test(context)) {
+            reason = 'rejected_benefit_context';
+        }
+
+        candidates.push({
+            value,
+            matchText: matched[0],
+            context,
+            index: idx,
+            accepted: reason === 'accepted',
+            reason
+        });
+        if (candidates.length >= maxCount) break;
+    }
+
+    return candidates;
+}
+
+function scorePriceMentionContext(context = '') {
+    const clean = normalizeWhitespace(context);
+    if (!clean) return 0;
+
+    let score = 0;
+    if (/판매가|할인가|현재가|최종가|구매가|즉시할인가|최저가/.test(clean)) score += 12;
+    if (/정가|기존가|소비자가|원가/.test(clean)) score += 10;
+    if (/상품\s*가격|상품가/.test(clean)) score += 20;
+    if (/할인\s*전\s*가격/.test(clean)) score += 18;
+    if (/할인/.test(clean)) score += 6;
+    if (/적립|포인트|혜택|쿠폰|카드|멤버십|사은품|증정|이벤트/.test(clean)) score -= 18;
+    if (/배송비|배송|할부|무이자/.test(clean)) score -= 16;
+    if (/리뷰|평점|후기|관심고객/.test(clean)) score -= 12;
+    if (/총\s*상품\s*금액|총수량|옵션|추가금|선택/.test(clean)) score -= 14;
+    if (/원\s*상당/.test(clean)) score -= 20;
+    if (/나의\s*할인가|첫구매|상품중복할인|회원가|쿠폰가|복수구매|추가할인/.test(clean)) score -= 42;
+
+    return score;
+}
+
+function extractOfferSectionFallback($) {
+    const candidates = [];
+    const selectors = ['section', 'article', 'div'];
+
+    selectors.forEach((selector) => {
+        $(selector).each((index, el) => {
+            if (index > 400) return false;
+            const text = getReadableTextFromElement($, el);
+            if (!text || text.length < 30 || text.length > 1800) return;
+
+            const priceMatches = text.match(/\d{1,3}(?:,\d{3})+\s*원/g) || [];
+            if (priceMatches.length < 2) return;
+
+            const firstPriceIdx = text.search(/\d{1,3}(?:,\d{3})+\s*원/);
+            const titlePrefix = normalizeWhitespace(text.slice(0, Math.max(0, firstPriceIdx)));
+            let score = 0;
+            if (titlePrefix.length >= 10 && titlePrefix.length <= 120) score += 20;
+            if (/[가-힣]/.test(titlePrefix)) score += 8;
+            if (/[1-9]\d?\s*%/.test(text)) score += 10;
+            if (/배송비|오늘도착|무료교환반품|무이자|네이버플러스/.test(text)) score += 8;
+            if (isStorefrontLikeTitle(titlePrefix) || isGenericShoppingTitle(titlePrefix)) score -= 40;
+            if (isUiNoiseTitle(titlePrefix)) score -= 120;
+            if (/구매하기|선물하기|총\s*상품\s*금액|총수량|로그인|리뷰\s*이벤트/.test(titlePrefix)) score -= 20;
+
+            candidates.push({
+                selector,
+                tagName: el.tagName || selector,
+                text,
+                titlePrefix,
+                score
+            });
+        });
+    });
+
+    const ranked = candidates
+        .filter(candidate => candidate.score >= 18)
+        .sort((a, b) => b.score - a.score);
+
+    return ranked[0] || null;
+}
+
+function selectPrimaryPricePair(priceMentions = [], discountRate = null) {
+    if (!Array.isArray(priceMentions) || priceMentions.length === 0) return null;
+
+    let filtered = priceMentions
+        .map(item => ({
+            ...item,
+            score: (item.score ?? scorePriceMentionContext(item.context || ''))
+        }))
+        .filter(item => item.score >= -16);
+
+    if (filtered.length === 0) return null;
+
+    if (filtered.some(item => item.value >= 5000)) {
+        filtered = filtered.filter(item => item.value >= 5000 || item.score >= 8);
+    }
+
+    if (filtered.length === 0) return null;
+
+    let best = null;
+    for (let i = 0; i < filtered.length; i++) {
+        for (let j = 0; j < filtered.length; j++) {
+            if (i === j) continue;
+            const sale = filtered[i];
+            const original = filtered[j];
+            if (original.value <= sale.value) continue;
+
+            const computedDiscount = Math.round((1 - (sale.value / original.value)) * 100);
+            if (computedDiscount <= 0 || computedDiscount >= 90) continue;
+
+            let score = sale.score + original.score + 8;
+            if (sale.index > original.index) score += 2;
+            if (original.value / Math.max(sale.value, 1) > 6) score -= 10;
+            if (sale.value < 2000 && original.value >= 10000) score -= 18;
+
+            if (discountRate) {
+                const diff = Math.abs(computedDiscount - discountRate);
+                if (diff <= 1) score += 32;
+                else if (diff <= 3) score += 18;
+                else if (diff >= 10) score -= 22;
+            }
+
+            if (!best || score > best.score) {
+                best = {
+                    salePrice: sale.value,
+                    originalPrice: original.value,
+                    discountRate: discountRate && Math.abs(computedDiscount - discountRate) <= 3 ? discountRate : computedDiscount,
+                    score
+                };
+            }
+        }
+    }
+
+    if (best) return best;
+
+    const fallback = [...filtered].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.value - a.value;
+    })[0];
+
+    if (!fallback) return null;
+
+    return {
+        salePrice: fallback.value,
+        originalPrice: null,
+        discountRate: null,
+        score: fallback.score
+    };
+}
+
+function extractVisibleProductTitle($) {
+    const selectors = [
+        '[data-shp-area*="title"] h1',
+        '[class*="ProductTitle"]',
+        '[class*="product_title"]',
+        '[class*="Title_title"]',
+        'h1'
+    ];
+
+    for (const selector of selectors) {
+        const matched = $(selector).filter((_, el) => {
+            const text = getReadableTextFromElement($, el);
+            return text.length >= 6;
+        }).first();
+        if (!matched.length) continue;
+
+        const text = sanitizeExtractedTitleCandidate(getReadableTextFromElement($, matched.get(0)));
+        if (!text) continue;
+        if (isStorefrontLikeTitle(text) || isGenericShoppingTitle(text) || isErrorLikePageTitle(text) || isUiNoiseTitle(text)) continue;
+        return text;
+    }
+
+    return extractVisibleProductTitleFallback($).value || '';
+}
+
+function scoreVisibleTitleCandidate($, element, text = '') {
+    const clean = normalizeWhitespace(text);
+    if (!clean) return -999;
+
+    let score = 0;
+    if (clean.length >= 12 && clean.length <= 120) score += 12;
+    if (clean.length >= 20 && clean.length <= 90) score += 14;
+    if (/[가-힣]/.test(clean)) score += 8;
+    if (/[A-Za-z]/.test(clean)) score += 4;
+    if (!/[원%]/.test(clean)) score += 10;
+    if (clean.split(/\s+/).length >= 3) score += 8;
+    if (isStorefrontLikeTitle(clean) || isGenericShoppingTitle(clean) || isErrorLikePageTitle(clean)) score -= 80;
+    if (isUiNoiseTitle(clean)) score -= 140;
+    if (/알림받기|구매하기|선물하기|총\s*상품\s*금액|총수량|로그인|스토어|브랜드스토어|스마트스토어|리뷰\s*이벤트|무료배송|배송비|적립|쿠폰|혜택|오늘도착|네이버플러스/.test(clean)) score -= 36;
+
+    const parent = element?.parent || null;
+    const parentText = parent ? getReadableTextFromElement($, parent) : '';
+    if (/\d{1,3}(?:,\d{3})+\s*원/.test(parentText)) score += 25;
+    if (/[1-9]\d?\s*%/.test(parentText)) score += 10;
+    if (/배송비|오늘도착|무료교환반품|네이버플러스|무이자/.test(parentText)) score += 6;
+
+    return score;
+}
+
+function extractVisibleProductTitleFallback($) {
+    const candidates = [];
+    const selector = 'h1, h2, h3, strong, p, span, div';
+
+    $(selector).each((index, el) => {
+        if (index > 500) return false;
+        const clean = sanitizeExtractedTitleCandidate(getReadableTextFromElement($, el));
+        if (!clean || clean.length < 8 || clean.length > 140) return;
+
+        const score = scoreVisibleTitleCandidate($, el, clean);
+        const candidate = {
+            selector: el.tagName || selector,
+            rawText: clean,
+            sanitizedText: clean,
+            accepted: false,
+            reason: 'fallback_candidate',
+            score
+        };
+        candidates.push(candidate);
+    });
+
+    const ranked = candidates
+        .filter(candidate => candidate.score > 10)
+        .sort((a, b) => b.score - a.score);
+
+    if (ranked.length === 0) {
+        return { value: '', selector: '', candidates };
+    }
+
+    const selected = ranked[0];
+    selected.accepted = true;
+    selected.reason = 'fallback_selected';
+
+    return {
+        value: selected.sanitizedText,
+        selector: selected.selector,
+        candidates: ranked.slice(0, 12)
+    };
+}
+
+function extractPrimaryOfferText($) {
+    const selectors = [
+        '[data-shp-area*="title"] h1',
+        '[class*="ProductTitle"]',
+        '[class*="product_title"]',
+        '[class*="Title_title"]',
+        'h1'
+    ];
+
+    for (const selector of selectors) {
+        const matched = $(selector).filter((_, el) => {
+            const text = normalizeWhitespace($(el).text() || '');
+            return text.length >= 6;
+        }).first();
+        if (!matched.length) continue;
+
+        let current = matched;
+        for (let depth = 0; depth < 4 && current.length; depth++) {
+            const text = getReadableTextFromElement($, current.get(0));
+            if (text.length >= 20 && text.length <= 1800 && /\d{1,3}(?:,\d{3})+\s*원/.test(text)) {
+                return text;
+            }
+            current = current.parent();
+        }
+    }
+
+    const fallback = extractOfferSectionFallback($);
+    if (fallback?.text) return fallback.text;
+
+    return '';
+}
+
+function extractPrimaryOfferTextDebug($) {
+    const selectors = [
+        '[data-shp-area*="title"] h1',
+        '[class*="ProductTitle"]',
+        '[class*="product_title"]',
+        '[class*="Title_title"]',
+        'h1'
+    ];
+
+    const candidates = [];
+    for (const selector of selectors) {
+        const matched = $(selector).filter((_, el) => {
+            const text = normalizeWhitespace($(el).text() || '');
+            return text.length >= 6;
+        }).first();
+        if (!matched.length) continue;
+
+        let current = matched;
+        for (let depth = 0; depth < 4 && current.length; depth++) {
+            const text = getReadableTextFromElement($, current.get(0));
+            const candidate = {
+                selector,
+                depth,
+                tagName: current.get(0)?.tagName || '',
+                text: text.substring(0, 260),
+                hasPrice: /\d{1,3}(?:,\d{3})+\s*원/.test(text),
+                accepted: false
+            };
+            if (text.length >= 20 && text.length <= 1800 && /\d{1,3}(?:,\d{3})+\s*원/.test(text)) {
+                candidate.accepted = true;
+                candidates.push(candidate);
+                return {
+                    text,
+                    selector,
+                    depth,
+                    tagName: current.get(0)?.tagName || '',
+                    candidates
+                };
+            }
+            candidates.push(candidate);
+            current = current.parent();
+        }
+    }
+
+    const fallback = extractOfferSectionFallback($);
+    if (fallback?.text) {
+        candidates.push({
+            selector: fallback.selector,
+            depth: 'fallback',
+            tagName: fallback.tagName,
+            text: fallback.text.substring(0, 260),
+            hasPrice: true,
+            accepted: true,
+            score: fallback.score
+        });
+        return {
+            text: fallback.text,
+            selector: fallback.selector,
+            depth: 'fallback',
+            tagName: fallback.tagName,
+            candidates
+        };
+    }
+
+    return {
+        text: '',
+        selector: '',
+        depth: null,
+        tagName: '',
+        candidates
+    };
+}
+
+function extractVisibleProductTitleDebug($) {
+    const selectors = [
+        '[data-shp-area*="title"] h1',
+        '[class*="ProductTitle"]',
+        '[class*="product_title"]',
+        '[class*="Title_title"]',
+        'h1'
+    ];
+
+    const candidates = [];
+    for (const selector of selectors) {
+        const matched = $(selector).filter((_, el) => {
+            const text = getReadableTextFromElement($, el);
+            return text.length >= 6;
+        }).first();
+        if (!matched.length) continue;
+
+        const rawText = getReadableTextFromElement($, matched.get(0));
+        const sanitizedText = sanitizeExtractedTitleCandidate(rawText);
+        let reason = 'selected';
+        if (!sanitizedText) reason = 'empty_after_sanitize';
+        else if (isStorefrontLikeTitle(sanitizedText)) reason = 'rejected_storefront_like';
+        else if (isGenericShoppingTitle(sanitizedText)) reason = 'rejected_generic';
+        else if (isErrorLikePageTitle(sanitizedText)) reason = 'rejected_error_like';
+        else if (isUiNoiseTitle(sanitizedText)) reason = 'rejected_ui_noise';
+
+        const candidate = {
+            selector,
+            rawText,
+            sanitizedText,
+            accepted: reason === 'selected',
+            reason
+        };
+        candidates.push(candidate);
+
+        if (candidate.accepted) {
+            return {
+                value: sanitizedText,
+                selector,
+                candidates
+            };
+        }
+    }
+
+    const fallback = extractVisibleProductTitleFallback($);
+    if (fallback.value) {
+        return fallback;
+    }
+
+    return { value: '', selector: '', candidates };
+}
+
+function summarizeStructuredProductCandidate(node = {}, index = 0) {
+    const offers = Array.isArray(node?.offers) ? node.offers[0] : node?.offers || null;
+    return {
+        index,
+        score: scoreStructuredProductCandidate(node),
+        name: normalizeWhitespace(node?.name || node?.headline || ''),
+        price: parseKrwNumber(offers?.price || offers?.lowPrice),
+        highPrice: parseKrwNumber(offers?.highPrice),
+        discountRate: parseKrwNumber(offers?.discountRate),
+        reviewCount: parseKrwNumber(node?.aggregateRating?.ratingCount || node?.aggregateRating?.reviewCount),
+        imageCount: Array.isArray(node?.image) ? node.image.length : (node?.image ? 1 : 0)
+    };
+}
+
+function simplifyPriceMentionsForDebug(items = [], maxCount = 15) {
+    return (Array.isArray(items) ? items : []).slice(0, maxCount).map(item => ({
+        value: item.value,
+        score: item.score,
+        context: normalizeWhitespace(item.context || ''),
+        index: item.index
+    }));
 }
 
 function buildCommerceFacts(commerceData) {
@@ -586,6 +1152,38 @@ function buildCommerceFacts(commerceData) {
     if (commerceData.benefitHighlights?.length > 0) facts.push(...commerceData.benefitHighlights.slice(0, 4));
 
     return uniqStrings(facts).map(normalizeFactText).filter(Boolean).slice(0, 10);
+}
+
+function buildOfficialProductData(productTitle = '', commerceData = {}) {
+    return {
+        title: normalizeWhitespace(productTitle || ''),
+        salePrice: commerceData.salePrice || null,
+        originalPrice: commerceData.originalPrice || null,
+        discountRate: commerceData.discountRate || null,
+        freeShipping: !!commerceData.freeShipping,
+        deliveryFee: normalizeWhitespace(commerceData.deliveryFee || ''),
+        deliveryDateNotice: normalizeWhitespace(commerceData.deliveryDateNotice || ''),
+        deliveryMethods: uniqStrings(commerceData.deliveryMethods || []),
+        installment: normalizeWhitespace(commerceData.installment || ''),
+        benefitHighlights: uniqStrings(commerceData.benefitHighlights || []).slice(0, 7)
+    };
+}
+
+function buildOfficialProductFacts(productTitle = '', commerceData = {}) {
+    const officialData = buildOfficialProductData(productTitle, commerceData);
+    const facts = [];
+    if (officialData.title) facts.push(`상품명 ${officialData.title}`);
+    if (officialData.salePrice) facts.push(`판매가 ${formatKrw(officialData.salePrice)}`);
+    if (officialData.originalPrice && officialData.originalPrice > (officialData.salePrice || 0)) {
+        facts.push(`정가 ${formatKrw(officialData.originalPrice)}`);
+    }
+    if (officialData.discountRate) facts.push(`공식 할인율 ${officialData.discountRate}%`);
+    if (officialData.freeShipping) facts.push('공식 배송 조건: 무료배송');
+    if (officialData.deliveryFee && !officialData.freeShipping) facts.push(`공식 배송비 ${officialData.deliveryFee}`);
+    if (officialData.deliveryDateNotice) facts.push(`공식 배송 안내 ${officialData.deliveryDateNotice}`);
+    if (officialData.installment) facts.push(`공식 결제 혜택 ${officialData.installment}`);
+    if (officialData.benefitHighlights.length > 0) facts.push(...officialData.benefitHighlights.map(item => `공식 혜택 ${item}`));
+    return uniqStrings(facts).slice(0, 12);
 }
 
 function parseRatingValue(input) {
@@ -913,10 +1511,59 @@ function mergeReviewData(baseData = {}, extraData = {}) {
     return merged;
 }
 
-function extractCommerceData(pageText, rawHtml, structuredProduct) {
+function scoreResolvedProductTitle(title = '') {
+    const clean = normalizeWhitespace(String(title || ''));
+    if (!clean) return -999;
+
+    let score = 0;
+    if (clean.length >= 12 && clean.length <= 100) score += 18;
+    if (clean.length >= 20 && clean.length <= 80) score += 10;
+    if (/[가-힣]/.test(clean)) score += 10;
+    if (/[A-Za-z]/.test(clean)) score += 4;
+    if (clean.split(/\s+/).length >= 3) score += 8;
+    if (/\d+(?:단|종|개|L|ml|cm|mm|W|kg)?/.test(clean)) score += 4;
+
+    if (isStorefrontLikeTitle(clean)) score -= 80;
+    if (isGenericShoppingTitle(clean)) score -= 70;
+    if (isErrorLikePageTitle(clean)) score -= 90;
+    if (isUiNoiseTitle(clean)) score -= 140;
+    if (/스토어|브랜드스토어|스마트스토어|로그인|관심고객|도움말|검색어/.test(clean)) score -= 50;
+    if (/안녕하세요|입니다/.test(clean)) score -= 28;
+
+    return score;
+}
+
+function choosePreferredProductTitle(baseTitle = '', extraTitle = '') {
+    const base = normalizeWhitespace(baseTitle);
+    const extra = normalizeWhitespace(extraTitle);
+    const baseScore = scoreResolvedProductTitle(base);
+    const extraScore = scoreResolvedProductTitle(extra);
+
+    if (!base && !extra) {
+        return { title: '', source: '', baseScore, extraScore, reason: 'both_empty' };
+    }
+
+    if (!base) {
+        return { title: extra, source: 'extra', baseScore, extraScore, reason: 'base_missing' };
+    }
+
+    if (!extra) {
+        return { title: base, source: 'base', baseScore, extraScore, reason: 'extra_missing' };
+    }
+
+    if (extraScore >= baseScore + 8) {
+        return { title: extra, source: 'extra', baseScore, extraScore, reason: 'extra_score_better' };
+    }
+
+    return { title: base, source: 'base', baseScore, extraScore, reason: 'base_preserved' };
+}
+
+function extractCommerceData(pageText, rawHtml, structuredProduct, debugContext = {}) {
     const text = normalizeWhitespace(pageText);
     const html = String(rawHtml || '');
     const $ = cheerio.load(html);
+    const heroText = typeof debugContext.heroText === 'string' ? debugContext.heroText : extractPrimaryOfferText($);
+    const heroTextDebug = debugContext.heroTextDebug || null;
 
     const offers = Array.isArray(structuredProduct?.offers)
         ? structuredProduct.offers[0]
@@ -924,20 +1571,45 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
 
     let salePrice = parseKrwNumber(offers?.price || offers?.lowPrice);
     let originalPrice = parseKrwNumber(offers?.highPrice);
-    let discountRate = null;
+    const heroDiscountCandidate = extractDiscountRateCandidateFromText(heroText);
+    let discountRate = heroDiscountCandidate?.value || null;
+    let salePriceSource = salePrice ? 'structured_offer' : null;
+    let originalPriceSource = originalPrice ? 'structured_offer' : null;
+    let discountRateSource = heroDiscountCandidate?.value ? 'hero_text' : null;
 
-    const mentions = extractPriceMentionsFromText(text);
-    const nonPointPrices = mentions.filter(m => !/적립|포인트|혜택|캐시백|쿠폰/.test(m.context)).map(m => m.value);
-
-    if (!salePrice && nonPointPrices.length > 0) {
-        salePrice = Math.min(...nonPointPrices);
+    const heroPriceMentions = extractPriceMentionsFromText(heroText).map(item => ({
+        ...item,
+        score: scorePriceMentionContext(item.context || '')
+    }));
+    const heroPricePair = selectPrimaryPricePair(heroPriceMentions, discountRate);
+    if (heroPricePair?.salePrice) {
+        salePrice = heroPricePair.salePrice;
+        salePriceSource = 'hero_price_pair';
+        originalPrice = heroPricePair.originalPrice || originalPrice || null;
+        if (heroPricePair.originalPrice) originalPriceSource = 'hero_price_pair';
+        discountRate = heroPricePair.discountRate || discountRate || null;
+        if (heroPricePair.discountRate) discountRateSource = 'hero_price_pair';
     }
 
-    if (!originalPrice && nonPointPrices.length > 0) {
-        const candidates = nonPointPrices.filter(v => !salePrice || v > salePrice);
-        if (candidates.length > 0) {
-            originalPrice = Math.max(...candidates);
-        }
+    const mentions = extractPriceMentionsFromText(text).map(item => ({
+        ...item,
+        score: scorePriceMentionContext(item.context || '')
+    }));
+    const pagePricePair = selectPrimaryPricePair(mentions, discountRate);
+
+    if (!salePrice && pagePricePair?.salePrice) {
+        salePrice = pagePricePair.salePrice;
+        salePriceSource = 'page_price_pair';
+    }
+
+    if (!originalPrice && pagePricePair?.originalPrice) {
+        originalPrice = pagePricePair.originalPrice;
+        originalPriceSource = 'page_price_pair';
+    }
+
+    if (!discountRate && pagePricePair?.discountRate) {
+        discountRate = pagePricePair.discountRate;
+        discountRateSource = 'page_price_pair';
     }
 
     // 찜하기 수 (wishlistCount) 추출 (지연 로드 대응 셀렉터 보강)
@@ -949,45 +1621,78 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
     );
 
     // 배송비 및 배송 예정일
-    const deliveryFee = normalizeWhitespace(
+    const rawDeliveryFeeSelectorText =
         $('span._2_nBaYvofS:contains("배송비")').nextAll('span.XmPOfshMvY').first().text()
         || $('dt:contains("배송비")').next().text()
-        || ''
+        || '';
+    let deliveryFee = sanitizeDeliveryFeeText(
+        rawDeliveryFeeSelectorText
     );
-    const deliveryDateNotice = normalizeWhitespace(
+    const rawDeliveryDateSelectorText =
         $('span._2_nBaYvofS:contains("배송일")').nextAll().find('span.XmPOfshMvY').first().text()
         || $('span:contains("도착보장")').parent().text()
         || $('[class*="DeliveryNotice"]').text()
-        || ''
+        || '';
+    const deliveryDateNotice = normalizeWhitespace(
+        rawDeliveryDateSelectorText
     );
 
-    const discountRegex = /([1-9]\d?)\s*%/g;
-    let dMatch;
-    while ((dMatch = discountRegex.exec(text)) !== null) {
-        const value = parseInt(dMatch[1], 10);
-        if (Number.isNaN(value) || value <= 0 || value >= 90) continue;
-
-        const idx = dMatch.index || 0;
-        const context = text.slice(Math.max(0, idx - 16), Math.min(text.length, idx + dMatch[0].length + 16));
-        if (/적립|포인트|카드|추가/.test(context) && !/할인/.test(context)) continue;
-        discountRate = value;
-        if (/할인/.test(context)) break;
+    if (!deliveryFee) {
+        const deliveryMatch = (heroText || text).match(/배송비\s*([0-9,]+\s*원(?:\s*\([^)]*\))?)/);
+        if (deliveryMatch?.[1]) {
+            deliveryFee = sanitizeDeliveryFeeText(deliveryMatch[1]);
+        }
     }
 
+    const pageDiscountCandidate = extractDiscountRateCandidateFromText(text);
+    if (!discountRate) {
+        discountRate = pageDiscountCandidate?.value || null;
+        if (pageDiscountCandidate?.value) discountRateSource = 'page_text';
+    }
+
+    let htmlDiscountCandidate = null;
     if (!discountRate) {
         const htmlDiscount = html.match(/"discountRate"\s*:\s*"?(\d{1,2})"?/i);
         if (htmlDiscount?.[1]) {
             const num = parseInt(htmlDiscount[1], 10);
-            if (!Number.isNaN(num) && num > 0 && num < 90) discountRate = num;
+            if (!Number.isNaN(num) && num > 0 && num < 90) {
+                htmlDiscountCandidate = {
+                    value: num,
+                    matchText: htmlDiscount[0],
+                    context: html.slice(Math.max(0, htmlDiscount.index - 30), Math.min(html.length, htmlDiscount.index + htmlDiscount[0].length + 30))
+                };
+                discountRate = num;
+                discountRateSource = 'html_discount_field';
+            }
         }
     }
 
+    let computedDiscount = null;
     if (!discountRate && salePrice && originalPrice && originalPrice > salePrice) {
         const computed = Math.round((1 - (salePrice / originalPrice)) * 100);
-        if (computed > 0 && computed < 90) discountRate = computed;
+        computedDiscount = computed;
+        if (computed > 0 && computed < 90) {
+            discountRate = computed;
+            discountRateSource = 'computed_from_prices';
+        }
     }
 
-    const freeShipping = /무료배송/.test(text) || deliveryFee.includes('무료');
+    let discountRateDroppedAsInconsistent = false;
+    if (salePrice && originalPrice && originalPrice > salePrice && discountRate) {
+        const computed = Math.round((1 - (salePrice / originalPrice)) * 100);
+        computedDiscount = computed;
+        if (Math.abs(computed - discountRate) >= 10) {
+            discountRateDroppedAsInconsistent = true;
+            discountRate = computed > 0 && computed < 90 ? computed : null;
+            discountRateSource = discountRate ? 'recomputed_from_inconsistent_prices' : 'dropped_due_to_inconsistent_prices';
+        }
+    }
+
+    const normalizedDeliveryFee = normalizeWhitespace(deliveryFee);
+    const explicitDeliveryFee = parseKrwNumber(normalizedDeliveryFee);
+    const freeShipping = normalizedDeliveryFee
+        ? (normalizedDeliveryFee.includes('무료') && !explicitDeliveryFee)
+        : /배송비[^.]{0,12}무료|무료배송/.test(heroText || text);
     const deliveryMethods = [];
     if (/택배배송/.test(text)) deliveryMethods.push('택배배송');
     if (/우체국택배/.test(text)) deliveryMethods.push('우체국택배');
@@ -1027,6 +1732,69 @@ function extractCommerceData(pageText, rawHtml, structuredProduct) {
         benefitHighlights: eventHighlights
     };
     commerceData.facts = buildCommerceFacts(commerceData);
+    commerceData.debugTrace = {
+        structuredOffer: {
+            price: parseKrwNumber(offers?.price || offers?.lowPrice),
+            highPrice: parseKrwNumber(offers?.highPrice),
+            discountRate: parseKrwNumber(offers?.discountRate)
+        },
+        heroTextDebug: heroTextDebug || {
+            selector: '',
+            depth: null,
+            tagName: '',
+            text: heroText.substring(0, 260),
+            candidates: []
+        },
+        priceCandidates: {
+            heroMentions: simplifyPriceMentionsForDebug(heroPriceMentions),
+            heroPair: heroPricePair ? {
+                salePrice: heroPricePair.salePrice,
+                originalPrice: heroPricePair.originalPrice,
+                discountRate: heroPricePair.discountRate,
+                score: heroPricePair.score
+            } : null,
+            pageMentions: simplifyPriceMentionsForDebug(
+                [...mentions].sort((a, b) => (b.score || 0) - (a.score || 0))
+            ),
+            pagePair: pagePricePair ? {
+                salePrice: pagePricePair.salePrice,
+                originalPrice: pagePricePair.originalPrice,
+                discountRate: pagePricePair.discountRate,
+                score: pagePricePair.score
+            } : null
+        },
+        discountCandidates: {
+            heroSelected: heroDiscountCandidate,
+            heroCandidates: collectDiscountCandidatesFromText(heroText),
+            pageSelected: pageDiscountCandidate,
+            pageCandidates: collectDiscountCandidatesFromText(text),
+            htmlCandidate: htmlDiscountCandidate,
+            computedFromFinalPrices: computedDiscount
+        },
+        delivery: {
+            rawDeliveryFeeSelectorText,
+            rawDeliveryDateSelectorText,
+            normalizedDeliveryFee,
+            explicitDeliveryFee,
+            freeShippingReason: normalizedDeliveryFee
+                ? (normalizedDeliveryFee.includes('무료') && !explicitDeliveryFee ? 'delivery_fee_text_contains_free' : 'explicit_delivery_fee_present')
+                : (/배송비[^.]{0,12}무료|무료배송/.test(heroText || text) ? 'free_shipping_phrase_in_page_text' : 'no_free_shipping_signal')
+        },
+        finalSelection: {
+            salePrice,
+            salePriceSource,
+            originalPrice,
+            originalPriceSource,
+            discountRate,
+            discountRateSource,
+            discountRateDroppedAsInconsistent,
+            freeShipping,
+            deliveryFee
+        },
+        thresholds: {
+            minimumPriceMentionScore: -16
+        }
+    };
     return commerceData;
 }
 
@@ -1327,9 +2095,30 @@ function hasAggressiveClickbait(title = '') {
 
     const hardBanned = [
         '절대 사지', '무조건 사', '역대급', '충격', '폭로', '망합니다', '사기', '최저가 보장',
-        '인생템 확정', '오늘만', '지금 안 사면', '비밀 공개', '소름', '0원'
+        '인생템 확정', '오늘만', '지금 안 사면', '비밀 공개', '소름', '0원', '압도적 가성비'
     ];
-    return hardBanned.some(token => clean.includes(token));
+    if (hardBanned.some(token => clean.includes(token))) return true;
+    if (/\d[\d,.\s만천]*?(?:명|개).*(?:선택|극찬|인증).*(?:지금|지금 바로)$/.test(clean)) return true;
+    return false;
+}
+
+const SHOPPING_TITLE_MAX_LEN = 50;
+
+function looksLikeDanglingShoppingTitle(title = '') {
+    const clean = normalizeWhitespace(title);
+    if (!clean) return false;
+    if (/[!?\.]$/.test(clean)) return false;
+    if (/[,:-]$/.test(clean)) return true;
+
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    const lastToken = tokens[tokens.length - 1] || '';
+    if (!lastToken) return false;
+
+    if (/^[가-힣A-Za-z0-9]{2,8}(?:이|가|은|는|을|를|의|와|과|도|만|로|으로)$/.test(lastToken)) {
+        return true;
+    }
+
+    return false;
 }
 
 function isWeakShoppingTitle(title, productTitle = '') {
@@ -1340,9 +2129,21 @@ function isWeakShoppingTitle(title, productTitle = '') {
     const normalizedProduct = normalizeWhitespace(productTitle).toLowerCase().replace(/\s+/g, '');
     if (normalizedProduct && (normalizedClean === normalizedProduct || normalizedClean.includes(normalizedProduct))) return true;
 
-    if (clean.length < 12 || clean.length > 35) return true;
+    const coreKeyword = extractCoreTitleKeyword(productTitle);
+    if (coreKeyword) {
+        const keywordTokens = coreKeyword
+            .split(/\s+/)
+            .map(token => token.trim().toLowerCase())
+            .filter(token => token.length >= 2);
+        if (keywordTokens.length > 0 && !keywordTokens.some(token => normalizedClean.includes(token))) {
+            return true;
+        }
+    }
+
+    if (clean.length < 12 || clean.length > SHOPPING_TITLE_MAX_LEN) return true;
     if ((clean.match(/[,/|]/g) || []).length >= 3) return true;
     if (hasAggressiveClickbait(clean)) return true;
+    if (looksLikeDanglingShoppingTitle(clean)) return true;
 
     const hookPattern = /(써보|사용|후기|체감|고민|선택|이유|추천|정리|달라|만족|궁금|왜|느낀)/;
     if (!hookPattern.test(clean)) return true;
@@ -1375,9 +2176,65 @@ function normalizeTitleForPublish(title = '') {
         .replace(/\s*[|/]\s*/g, ' ')
         .trim();
 
-    // 네이버 노출 효율을 위해 최종 길이는 35자 이하로 강제한다.
-    clean = truncateTitle(clean, 35);
+    // 쇼핑 글 제목은 검색 가독성과 자연스러움 균형을 위해 50자 이하로 맞춘다.
+    clean = truncateTitle(clean, SHOPPING_TITLE_MAX_LEN);
     return clean;
+}
+
+function explainShoppingTitleRejection(aiTitle, productTitle = '') {
+    const rawAiTitle = normalizeWhitespace(String(aiTitle || '').replace(/["']/g, ''));
+    const normalizedAiTitle = normalizeTitleForPublish(rawAiTitle);
+    const result = {
+        rawAiTitle,
+        normalizedAiTitle,
+        accepted: false,
+        reason: 'missing_title'
+    };
+
+    if (!normalizedAiTitle) return result;
+    if (normalizedAiTitle.length < 10) {
+        result.reason = 'too_short';
+        return result;
+    }
+    if (hasAggressiveClickbait(normalizedAiTitle)) {
+        result.reason = 'clickbait_title';
+        return result;
+    }
+    if (isStorefrontLikeTitle(normalizedAiTitle) || isGenericShoppingTitle(normalizedAiTitle) || isUiNoiseTitle(normalizedAiTitle)) {
+        result.reason = 'ui_noise_title';
+        return result;
+    }
+    if (looksLikeClippedShoppingTitle(normalizedAiTitle, rawAiTitle)) {
+        result.reason = 'clipped_title';
+        return result;
+    }
+    result.accepted = true;
+    result.reason = 'accepted';
+    return result;
+}
+
+function looksLikeClippedShoppingTitle(finalTitle = '', originalTitle = '') {
+    const finalClean = normalizeWhitespace(finalTitle);
+    const originalClean = normalizeWhitespace(originalTitle);
+    if (!finalClean || !originalClean) return false;
+    if (originalClean.length <= finalClean.length + 1) return false;
+    return looksLikeDanglingShoppingTitle(finalClean);
+}
+
+function buildSafeFallbackShoppingTitle(productTitle, commerceData = {}) {
+    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
+    const facts = buildCommerceFacts(commerceData);
+    const factText = facts.join(' ');
+
+    if (/\d+%|할인|현재가|기존가/.test(factText)) {
+        return normalizeTitleForPublish(`${keyword} 지금 사기 괜찮을까?`);
+    }
+
+    if (/무료배송|배송|오늘출발|내일도착/.test(factText)) {
+        return normalizeTitleForPublish(`${keyword} 구매 전에 볼 조건은?`);
+    }
+
+    return normalizeTitleForPublish(`${keyword} 선택 전에 볼 핵심은?`);
 }
 
 function ensureTitleStartsWithKeyword(title, mainKeyword) {
@@ -1386,12 +2243,12 @@ function ensureTitleStartsWithKeyword(title, mainKeyword) {
     if (!keyword) return cleanTitle;
 
     if (cleanTitle.startsWith(keyword)) {
-        return truncateTitle(cleanTitle, 35);
+        return truncateTitle(cleanTitle, SHOPPING_TITLE_MAX_LEN);
     }
 
     const stripped = cleanTitle.replace(/^[,:\-\s]+/, '');
     const candidate = normalizeTitleForPublish(`${keyword} ${stripped}`.trim());
-    if (candidate.length >= 12) return truncateTitle(candidate, 35);
+    if (candidate.length >= 12) return truncateTitle(candidate, SHOPPING_TITLE_MAX_LEN);
     return normalizeTitleForPublish(`${keyword} 써보니 달라진 점`);
 }
 
@@ -1459,16 +2316,44 @@ function reinforceSeoKeywordUsage(aiData, seoPlan) {
 }
 
 function buildEngagingShoppingTitle(aiTitle, productTitle, commerceData = {}, platform = 'naver') {
-    const cleanAiTitle = normalizeTitleForPublish(String(aiTitle || '').replace(/["']/g, ''));
+    const titleDecision = explainShoppingTitleRejection(aiTitle, productTitle);
 
     // AI가 생성한 제목을 최대한 존중하되, 최소한의 유효성만 체크합니다.
-    if (cleanAiTitle && cleanAiTitle.length >= 10) {
-        return truncateTitle(cleanAiTitle, 35);
+    if (titleDecision.accepted) {
+        return truncateTitle(titleDecision.normalizedAiTitle, SHOPPING_TITLE_MAX_LEN);
     }
 
-    // AI 제목이 너무 짧거나 없는 경우에만 최소한의 폴백을 적용합니다.
-    const keyword = extractCoreTitleKeyword(productTitle) || '이 제품';
-    return truncateTitle(normalizeTitleForPublish(`${keyword} 고를 때 보게 되는 포인트`), 35);
+    // AI 제목이 비어 있거나, UI 노이즈/클릭베이트/잘림처럼
+    // 정말 위험한 경우에만 최소한의 폴백을 적용합니다.
+    return truncateTitle(buildSafeFallbackShoppingTitle(productTitle, commerceData), SHOPPING_TITLE_MAX_LEN);
+}
+
+function sanitizeDeliveryFeeText(value = '') {
+    const clean = normalizeWhitespace(value);
+    if (!clean) return '';
+
+    const stopMarkers = [
+        '네이버플러스',
+        '멤버십',
+        '무료배송 적용',
+        '도움말',
+        '선물하기',
+        '정기구독',
+        '착불',
+        '제주,도서지역',
+        '배송/출고'
+    ];
+
+    let end = clean.length;
+    for (const marker of stopMarkers) {
+        const idx = clean.indexOf(marker);
+        if (idx >= 0) end = Math.min(end, idx);
+    }
+
+    const trimmed = normalizeWhitespace(clean.slice(0, end));
+    const priceMatch = trimmed.match(/[0-9,]+\s*원(?:\s*\([^)]*\))?/);
+    if (priceMatch?.[0]) return normalizeWhitespace(priceMatch[0]);
+    return trimmed;
 }
 
 function joinNaturalFacts(items = []) {
@@ -1595,11 +2480,12 @@ function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewDat
 }
 
 function buildAiPrompt(product, platform = 'naver') {
-    const commerceFacts = (product.commerceData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 가격/혜택 정보 없음';
+    const officialProductData = buildOfficialProductData(product.title || '', product.commerceData || {});
+    const officialFacts = buildOfficialProductFacts(product.title || '', product.commerceData || {}).map(item => `- ${item}`).join('\n') || '- 추출된 공식 상품 정보 없음';
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
     const reviewSamples = (product.reviewData?.reviewSamples || []).map((item, idx) => `${idx + 1}. ${item}`).join('\n') || '1. 대표 리뷰를 추출하지 못했습니다.';
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
-    const commerceJson = JSON.stringify(product.commerceData || {}, null, 2);
+    const officialJson = JSON.stringify(officialProductData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
 
     // 플랫폼별 특화 지시사항
@@ -1622,8 +2508,8 @@ function buildAiPrompt(product, platform = 'naver') {
         .replace(/{{\s*PRODUCT_TITLE\s*}}/g, product.title || '상품명 미확인')
         .replace(/{{\s*PRODUCT_DESCRIPTION\s*}}/g, product.description || '요약 정보 없음')
         .replace(/{{\s*PRODUCT_BODY\s*}}/g, (product.body || '').substring(0, 5000))
-        .replace(/{{\s*COMMERCE_FACTS\s*}}/g, commerceFacts)
-        .replace(/{{\s*COMMERCE_JSON\s*}}/g, commerceJson)
+        .replace(/{{\s*OFFICIAL_FACTS\s*}}/g, officialFacts)
+        .replace(/{{\s*OFFICIAL_JSON\s*}}/g, officialJson)
         .replace(/{{\s*REVIEW_FACTS\s*}}/g, reviewFacts)
         .replace(/{{\s*REVIEW_JSON\s*}}/g, reviewJson)
         .replace(/{{\s*REVIEW_SAMPLES\s*}}/g, reviewSamples)
@@ -1705,9 +2591,13 @@ function mergeProductData(baseData, extraData) {
 
     const mergedImages = sortedMeta.map(item => item.url);
     const mergedImageMeta = sortedMeta;
+    const titleSelection = choosePreferredProductTitle(baseData.title, extraData.title);
+    const selectedTitleDebug = titleSelection.source === 'extra'
+        ? (extraData.debugTrace?.title || baseData.debugTrace?.title || null)
+        : (baseData.debugTrace?.title || extraData.debugTrace?.title || null);
 
     return {
-        title: extraData.title || baseData.title,
+        title: titleSelection.title,
         description: extraData.description || baseData.description,
         body: (extraData.body && extraData.body.length > (baseData.body || '').length) ? extraData.body : baseData.body,
         imageUrls: mergedImages,
@@ -1715,13 +2605,24 @@ function mergeProductData(baseData, extraData) {
         structuredProduct: extraData.structuredProduct || baseData.structuredProduct,
 
         commerceData: mergeCommerceData(baseData.commerceData, extraData.commerceData),
-        reviewData: mergeReviewData(baseData.reviewData, extraData.reviewData)
+        reviewData: mergeReviewData(baseData.reviewData, extraData.reviewData),
+        debugTrace: {
+            ...(baseData.debugTrace || {}),
+            ...(extraData.debugTrace || {})
+            ,
+            title: selectedTitleDebug,
+            mergeDecisions: {
+                ...(baseData.debugTrace?.mergeDecisions || {}),
+                ...(extraData.debugTrace?.mergeDecisions || {}),
+                title: titleSelection
+            }
+        }
     };
 }
 
 function extractProductData(finalUrl, html) {
     const $ = cheerio.load(html || '');
-    const pageText = normalizeWhitespace($('body').text() || '');
+    const pageText = buildVisiblePageText(html || '');
 
     const structuredProducts = [];
     $('script[type="application/ld+json"]').each((_, el) => {
@@ -1733,9 +2634,16 @@ function extractProductData(finalUrl, html) {
         }
     });
 
-    const structuredProduct = structuredProducts[0] || null;
+    const structuredProduct = pickBestStructuredProduct(structuredProducts);
+    const structuredCandidates = structuredProducts.map((node, index) => summarizeStructuredProductCandidate(node, index));
+    const selectedStructuredCandidate = structuredProduct
+        ? structuredCandidates.find(candidate => candidate.name === normalizeWhitespace(structuredProduct?.name || structuredProduct?.headline || '')
+            && candidate.price === parseKrwNumber((Array.isArray(structuredProduct?.offers) ? structuredProduct.offers[0] : structuredProduct?.offers || null)?.price
+                || (Array.isArray(structuredProduct?.offers) ? structuredProduct.offers[0] : structuredProduct?.offers || null)?.lowPrice)
+            && candidate.highPrice === parseKrwNumber((Array.isArray(structuredProduct?.offers) ? structuredProduct.offers[0] : structuredProduct?.offers || null)?.highPrice))
+        : null;
 
-    const structuredTitle = structuredProduct?.name || structuredProduct?.headline || '';
+    const structuredTitle = sanitizeExtractedTitleCandidate(structuredProduct?.name || structuredProduct?.headline || '');
     const structuredDescription = structuredProduct?.description || '';
     const structuredImages = [];
     if (structuredProduct?.image) {
@@ -1743,14 +2651,34 @@ function extractProductData(finalUrl, html) {
         else structuredImages.push(structuredProduct.image);
     }
 
-    const title = (
-        structuredTitle ||
+    const visibleTitleDebug = extractVisibleProductTitleDebug($);
+    const visibleTitle = visibleTitleDebug.value;
+    const metaTitle = sanitizeExtractedTitleCandidate(
         $('meta[property="og:title"]').attr('content') ||
         $('meta[name="twitter:title"]').attr('content') ||
-        $('h1').first().text() ||
         $('title').text() ||
         ''
-    ).trim();
+    );
+
+    let title = '';
+    let titleSource = '';
+    if (structuredTitle && !isStorefrontLikeTitle(structuredTitle)) {
+        title = structuredTitle;
+        titleSource = 'structured_product';
+    } else if (visibleTitle) {
+        title = visibleTitle;
+        titleSource = 'visible_title';
+    } else if (metaTitle && !isStorefrontLikeTitle(metaTitle)) {
+        title = metaTitle;
+        titleSource = 'meta_title';
+    } else if (structuredTitle) {
+        title = structuredTitle;
+        titleSource = 'structured_product_storefront_fallback';
+    } else if (metaTitle) {
+        title = metaTitle;
+        titleSource = 'meta_title_storefront_fallback';
+    }
+    title = title.trim();
 
     const description = (
         structuredDescription ||
@@ -1760,12 +2688,7 @@ function extractProductData(finalUrl, html) {
     ).trim();
 
     ['script', 'style', 'noscript', 'iframe', 'nav', 'footer', 'header'].forEach(sel => $(sel).remove());
-    const bodyText = (
-        $('article').text() ||
-        $('main').text() ||
-        $('body').text() ||
-        ''
-    ).replace(/\s+/g, ' ').trim().substring(0, 7000);
+    const bodyText = pageText.substring(0, 7000);
 
     const imageCandidates = [];
     imageCandidates.push(...structuredImages.map(url => ({ url, source: 'structured' })));
@@ -1897,8 +2820,14 @@ function extractProductData(finalUrl, html) {
 
     const rankedImageMeta = refineImageCandidates(imageCandidates, finalUrl, { withMeta: true });
     const imageUrls = rankedImageMeta.map(item => item.url);
-    const commerceData = extractCommerceData(pageText, html, structuredProduct);
+    const heroTextDebug = extractPrimaryOfferTextDebug($);
+    const commerceData = extractCommerceData(pageText, html, structuredProduct, {
+        heroText: heroTextDebug.text,
+        heroTextDebug
+    });
     const reviewData = extractReviewData(pageText, html, structuredProduct);
+    const commerceDebug = commerceData.debugTrace || null;
+    delete commerceData.debugTrace;
 
     return {
         title,
@@ -1908,7 +2837,20 @@ function extractProductData(finalUrl, html) {
         imageMeta: rankedImageMeta,
         structuredProduct,
         commerceData,
-        reviewData
+        reviewData,
+        debugTrace: {
+            title: {
+                structuredCandidates,
+                selectedStructuredCandidate,
+                structuredTitle,
+                visibleTitle,
+                visibleTitleDebug,
+                metaTitle,
+                finalTitle: title,
+                finalTitleSource: titleSource
+            },
+            commerce: commerceDebug
+        }
     };
 }
 
@@ -1922,6 +2864,7 @@ function isLikelyInvalidLanding(productData, finalUrl) {
 
     if (!title && bodyLen < 120 && imageCount === 0) return true;
     if (isErrorLikePageTitle(rawTitle)) return true;
+    if (isStorefrontLikeTitle(rawTitle)) return true;
     if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead) && imageCount === 0) return true;
     if ((host.includes('brand.naver.com') || host.includes('brandconnect.naver.com')) && imageCount === 0 && bodyLen < 250) return true;
     if (title.includes('브랜드 커넥트') && imageCount === 0) return true;
@@ -2987,7 +3930,7 @@ const ShoppingManager = {
 
     scrapeShoppingProduct: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
-        const scrapingHeadless = typeof runtimeOptions.headless === 'boolean' ? runtimeOptions.headless : true;
+        const scrapingHeadless = true;
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
         const initial = await resolveUrlAndHtml(shortUrl);
@@ -3037,11 +3980,11 @@ const ShoppingManager = {
         const needsReviewEnrichment = true;
 
         if (needsReviewEnrichment) {
-            Logger.info('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
+            Logger.debug('🛍️ [Shopping] 리뷰 데이터 보강 수집 시작');
             const reviewTargetUrl = String(finalUrl || '').replace(/#.*$/, '');
             let reviewResolved;
             if (browserResolvedReviewHtml) {
-                Logger.info('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
+                Logger.debug('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
                 reviewResolved = { finalUrl: reviewTargetUrl, html: browserResolvedReviewHtml };
             } else {
                 reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless);
@@ -3049,13 +3992,33 @@ const ShoppingManager = {
 
             if (reviewResolved?.html) {
                 const reviewCandidate = extractProductData(reviewResolved.finalUrl || reviewTargetUrl || finalUrl, reviewResolved.html);
-                const mergedReviewData = mergeProductData(productData, reviewCandidate);
+                const mergedReviewData = {
+                    ...productData,
+                    reviewData: mergeReviewData(productData.reviewData, reviewCandidate.reviewData),
+                    debugTrace: {
+                        ...(productData.debugTrace || {}),
+                        reviewEnrichment: {
+                            candidateTitle: reviewCandidate.title || '',
+                            candidateTitleScore: scoreResolvedProductTitle(reviewCandidate.title || ''),
+                            preservedOfficialTitle: productData.title || '',
+                            preservedOfficialTitleScore: scoreResolvedProductTitle(productData.title || ''),
+                            candidateCommerceData: {
+                                salePrice: reviewCandidate.commerceData?.salePrice || null,
+                                originalPrice: reviewCandidate.commerceData?.originalPrice || null,
+                                discountRate: reviewCandidate.commerceData?.discountRate || null,
+                                deliveryFee: reviewCandidate.commerceData?.deliveryFee || ''
+                            },
+                            reviewFactsBefore: (productData.reviewData?.facts || []).length,
+                            reviewFactsAfter: (reviewCandidate.reviewData?.facts || []).length
+                        }
+                    }
+                };
                 const beforeSamples = (productData.reviewData?.reviewSamples || []).length;
                 const afterSamples = (mergedReviewData.reviewData?.reviewSamples || []).length;
                 const beforeFacts = (productData.reviewData?.facts || []).length;
                 const afterFacts = (mergedReviewData.reviewData?.facts || []).length;
 
-                Logger.info(`🛍️ [Shopping] 리뷰 데이터 추출 완료 (샘플: ${afterSamples}건, 요약: ${afterFacts}건)`);
+                Logger.debug(`🛍️ [Shopping] 리뷰 데이터 추출 완료 (샘플: ${afterSamples}건, 요약: ${afterFacts}건)`);
 
                 productData = mergedReviewData;
                 if (reviewResolved.finalUrl) finalUrl = reviewResolved.finalUrl;
@@ -3077,11 +4040,11 @@ const ShoppingManager = {
         const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
         const ctaImageUrls = getConfiguredCtaImageUrls();
 
-        Logger.info(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
+        Logger.debug(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
 
         let productData, finalUrl, resolvedSource, channelProductNo, reviewEnrichedWithBrowser;
         if (runtimeOptions.preScrapedData) {
-            Logger.info('♻️ [Shopping] 기수집된 쇼핑 데이터를 재사용합니다.');
+            Logger.debug('♻️ [Shopping] 기수집된 쇼핑 데이터를 재사용합니다.');
             productData = runtimeOptions.preScrapedData.productData;
             finalUrl = runtimeOptions.preScrapedData.finalUrl;
             resolvedSource = runtimeOptions.preScrapedData.resolvedSource || 'pre_scraped';
@@ -3232,16 +4195,18 @@ const ShoppingManager = {
         const seoMentionsAfter = countSeoMentionsInAiData(aiData, seoPlan);
 
         const originalAiTitle = aiData.title;
+        const titleDecision = explainShoppingTitleRejection(originalAiTitle, titleBase);
+        const fallbackTitle = buildSafeFallbackShoppingTitle(titleBase, productData.commerceData);
         aiData.title = buildEngagingShoppingTitle(aiData.title, titleBase, productData.commerceData, platform);
         aiData.title = ensureTitleStartsWithKeyword(aiData.title, seoPlan.mainKeyword);
         if (aiData.title !== originalAiTitle) {
-            Logger.info(`📝 [Shopping/${platform}] 제목 보정 적용: "${originalAiTitle}" -> "${aiData.title}"`);
+            Logger.debug(`📝 [Shopping/${platform}] 제목 보정 적용: "${originalAiTitle}" -> "${aiData.title}"`);
         }
         if (blockCountAfter !== blockCountBefore) {
-            Logger.info(`🧱 [Shopping] 본문 블록 보강 적용 (${blockCountBefore}→${blockCountAfter})`);
+            Logger.debug(`🧱 [Shopping] 본문 블록 보강 적용 (${blockCountBefore}→${blockCountAfter})`);
         }
         if (seoMentionsAfter !== seoMentionsBefore) {
-            Logger.info(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
+            Logger.debug(`🔎 [Shopping] SEO 키워드 보강 적용 (${seoMentionsBefore}→${seoMentionsAfter})`);
         }
         const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
         const shoppingPlatform = String(runtimeOptions.platform || 'naver').toLowerCase();
@@ -3303,6 +4268,8 @@ const ShoppingManager = {
             resolvedSource,
             channelProductNo,
             extractedTitle: productData.title,
+            titleDebug: productData.debugTrace?.title || null,
+            officialProductData: buildOfficialProductData(productData.title, productData.commerceData),
             descriptionLength: (productData.description || '').length,
             bodyLength: (productData.body || '').length,
             imageCount: productData.imageUrls.length,
@@ -3310,6 +4277,15 @@ const ShoppingManager = {
             sampleImageMeta: (productData.imageMeta || []).slice(0, 10),
             structuredProductFound: !!productData.structuredProduct,
             commerceData: productData.commerceData,
+            commerceDebug: productData.debugTrace?.commerce || null,
+            aiTitleDebug: {
+                rawAiTitle: originalAiTitle,
+                normalizedAiTitle: titleDecision.normalizedAiTitle,
+                acceptedOriginalAiTitle: titleDecision.accepted,
+                rejectionReason: titleDecision.accepted ? null : titleDecision.reason,
+                fallbackTitle,
+                finalPublishedTitle: aiData.title
+            },
             reviewData: productData.reviewData,
             reviewEnrichedWithBrowser,
             ctaImageConfigured: ctaImageUrls.length > 0,
@@ -3321,6 +4297,18 @@ const ShoppingManager = {
 
         return { targetDir, title: aiData.title, finalUrl };
     }
+};
+
+ShoppingManager.__test = {
+    extractProductData,
+    extractCommerceData,
+    buildEngagingShoppingTitle,
+    isStorefrontLikeTitle,
+    pickBestStructuredProduct,
+    selectPrimaryPricePair,
+    extractDiscountRateFromText,
+    mergeProductData,
+    choosePreferredProductTitle
 };
 
 module.exports = ShoppingManager;

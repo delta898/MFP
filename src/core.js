@@ -352,6 +352,51 @@ async function centerAlignFocusedImage(page, options = {}) {
 	return false;
 }
 
+async function leftAlignActiveTextBlock(page) {
+	for (let attempt = 0; attempt < 4; attempt++) {
+		const leftOptionSelectors = [
+			'button.se-toolbar-option-align-left-button[data-value="left"]',
+			'div.se-toolbar-option.se-toolbar-option-align button[data-value="left"]',
+			'.se-toolbar-option-align button[data-value="left"]',
+			'[role="listbox"] button[data-value="left"]',
+			'button[data-name="align-drop-down-with-justify"][data-value="left"]',
+			'button[data-value="left"][title*="왼쪽"]'
+		];
+		for (const selector of leftOptionSelectors) {
+			const clicked = await clickIfVisible(page.locator(selector).last());
+			if (clicked) {
+				await Utils.sleep(120);
+				return true;
+			}
+		}
+
+		const alignTriggerSelectors = [
+			'li.se-toolbar-item-align button[data-name="align-drop-down-with-justify"]',
+			'button[data-name="align-drop-down-with-justify"]',
+			'button[title*="정렬"]',
+			'button[aria-label*="정렬"]'
+		];
+		for (const selector of alignTriggerSelectors) {
+			const clicked = await clickIfVisible(page.locator(selector).last());
+			if (clicked) {
+				await Utils.sleep(120);
+				break;
+			}
+		}
+
+		for (const selector of leftOptionSelectors) {
+			const clicked = await clickIfVisible(page.locator(selector).last());
+			if (clicked) {
+				await Utils.sleep(120);
+				return true;
+			}
+		}
+
+		await Utils.sleep(120);
+	}
+	return false;
+}
+
 async function setFocusedImageAsRepresentative(page) {
 	// 에디터 버전에 따라 대표 버튼이 이미지 툴바 내부가 아니라 이미지 오버레이에 직접 뜨기도 한다.
 	const selectors = [
@@ -1345,7 +1390,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			// pkg 환경(런타임/렌더 타이밍 차이)에서 실제 삽입됐는데도 스냅샷 검증이 늦게 반영되는 경우가 있어
 			// 중복 URL 텍스트 입력을 막기 위해 "팝업 정상 닫힘 + 확인 시도"는 성공으로 간주한다.
 			if (closed && confirmAttempted) {
-				Logger.warn(`       ⚠️ 링크 카드 삽입 검증 지연: 성공으로 간주(중복 URL 대체 방지): ${url}`);
+				Logger.debug(`       ⚠️ 링크 카드 삽입 검증 지연: 성공으로 간주(중복 URL 대체 방지): ${url}`);
 				inserted = true;
 			}
 		}
@@ -1362,7 +1407,7 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 			}
 			const centered = await centerAlignFocusedImage(page, { refocusImage: false });
 			if (centered) {
-				Logger.info(`       ↔️ 링크 카드 가운데 정렬 적용: ${url}`);
+				Logger.debug(`       ↔️ 링크 카드 가운데 정렬 적용: ${url}`);
 				break;
 			}
 			await Utils.sleep(180);
@@ -2033,10 +2078,24 @@ ${scrapedContext}`;
 							const movedToBottom = await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
 							if (!movedToBottom) {
 								await focusEditorTypingArea(page);
+								}
+								await ensureCaretOutsideQuoteBlock(page, 4, { allowEnter: false });
 							}
-							await ensureCaretOutsideQuoteBlock(page, 4, { allowEnter: false });
+							const outsideQuote = !(await isCaretInsideQuoteBlock(page));
+							if (outsideQuote) {
+								try {
+									await page.keyboard.press('Enter');
+									await Utils.sleep(80);
+									Logger.debug('       ↩️ 인용구 뒤 빈 문단 생성(Enter x1)');
+								} catch (e) { }
+							}
+							await collapseEditorSelectionToCaretEnd(page);
+							const leftAligned = await leftAlignActiveTextBlock(page);
+							if (leftAligned) {
+								Logger.debug('       ↔️ 인용구 직후 좌정렬 초기화');
+							} else {
+							Logger.debug('       ⚠️ 인용구 직후 좌정렬 초기화 실패');
 						}
-						await collapseEditorSelectionToCaretEnd(page);
 					}
 				}
 				else if (item.type === 'list-item') {
@@ -2138,9 +2197,9 @@ ${scrapedContext}`;
 								? await centerAlignFocusedImage(page)
 								: false;
 							if (centered) {
-								Logger.info("       ↔️ 이미지 가운데 정렬 적용");
+								Logger.debug("       ↔️ 이미지 가운데 정렬 적용");
 							} else if (imageFocused && shouldTryCenterAlign) {
-								Logger.warn("       ⚠️ 이미지 가운데 정렬 버튼을 찾지 못했습니다.");
+								Logger.debug("       ⚠️ 이미지 가운데 정렬 버튼을 찾지 못했습니다.");
 							}
 
 							// 대표 이미지는 공정위/CTA 이미지를 제외한 첫 일반 이미지로 지정한다.
@@ -2155,11 +2214,11 @@ ${scrapedContext}`;
 								const repSet = await setFocusedImageAsRepresentative(page);
 								if (repSet) {
 									representativeImageSet = true;
-									Logger.info("       🏷️ 대표 이미지 지정 완료");
+									Logger.debug("       🏷️ 대표 이미지 지정 완료");
 								} else if (representativeAttemptCount >= representativeMaxAttempts) {
-									Logger.warn("       ⚠️ 대표 이미지 버튼을 찾지 못했습니다.");
+									Logger.debug("       ⚠️ 대표 이미지 버튼을 찾지 못했습니다.");
 								} else {
-									Logger.info("       ℹ️ 대표 이미지 지정 재시도 예정");
+									Logger.debug("       ℹ️ 대표 이미지 지정 재시도 예정");
 								}
 							}
 
@@ -2171,9 +2230,9 @@ ${scrapedContext}`;
 							) {
 								const linked = await applyLinkToFocusedImage(page, primaryAffiliateUrl);
 								if (linked) {
-									Logger.info(`       🔗 CTA 이미지 링크 적용: ${primaryAffiliateUrl}`);
+									Logger.debug(`       🔗 CTA 이미지 링크 적용: ${primaryAffiliateUrl}`);
 								} else {
-									Logger.warn("       ⚠️ CTA 이미지 링크 버튼을 찾지 못했습니다.");
+									Logger.debug("       ⚠️ CTA 이미지 링크 버튼을 찾지 못했습니다.");
 								}
 							}
 
@@ -2184,7 +2243,7 @@ ${scrapedContext}`;
 								try {
 									await page.keyboard.press('Enter');
 									await Utils.sleep(70);
-									Logger.info('       ↩️ 이미지 뒤 커서 이동(Enter x1)');
+									Logger.debug('       ↩️ 이미지 뒤 커서 이동(Enter x1)');
 								} catch (e) { }
 							}
 						}

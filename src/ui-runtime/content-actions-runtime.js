@@ -466,9 +466,10 @@ function createContentActionsRuntime(deps = {}) {
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
 
             const blogAutoSettings = getBlogAutoSettingsSnapshot();
-            const batchHeadless = typeof requestBody?.headless === 'boolean'
+            const publishHeadless = typeof requestBody?.headless === 'boolean'
                 ? requestBody.headless
                 : blogAutoSettings.BLOG_AUTO_HEADLESS;
+            const scrapingHeadless = true;
             const enableRelatedPostsAutoLink = options.enableRelatedPostsAutoLink !== false;
 
             const results = {
@@ -480,7 +481,7 @@ function createContentActionsRuntime(deps = {}) {
             if (targets.length > 0) {
                 report('쇼핑 상품 데이터 수집 시작');
                 preScrapedData = await ShoppingManager.scrapeShoppingProduct(shortUrl, {
-                    headless: batchHeadless
+                    headless: scrapingHeadless
                 });
             }
 
@@ -489,7 +490,7 @@ function createContentActionsRuntime(deps = {}) {
                 const naverBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
-                    headless: batchHeadless,
+                    headless: publishHeadless,
                     preScrapedData
                 });
                 results.naver.targetDir = naverBuildResult.targetDir;
@@ -500,7 +501,7 @@ function createContentActionsRuntime(deps = {}) {
                 const wpBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
-                    headless: batchHeadless,
+                    headless: publishHeadless,
                     preScrapedData
                 });
                 results.wordpress.targetDir = wpBuildResult.targetDir;
@@ -518,7 +519,7 @@ function createContentActionsRuntime(deps = {}) {
                 await Core.publishToBlog(results.naver.targetDir, {
                     affiliateUrl: shortUrl,
                     requireAffiliateUrl: true,
-                    headless: batchHeadless,
+                    headless: publishHeadless,
                     postStatus: target.postStatus || 'publish',
                     scheduleDate: target.scheduleDate || '',
                     isLast: requestBody.isLast === true
@@ -533,7 +534,7 @@ function createContentActionsRuntime(deps = {}) {
                     category: target.category || 'Shopping',
                     postStatus: target.postStatus || 'publish',
                     wpScheduleDate: target.scheduleDate || null,
-                    headless: batchHeadless
+                    headless: publishHeadless
                 });
                 results.wordpress.success = pubRes.success;
                 results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 완료' : '워드프레스 실패');

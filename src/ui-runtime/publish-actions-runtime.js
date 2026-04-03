@@ -1217,7 +1217,7 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const result = await executeShoppingRowAction(
-            { rowIndex, headless, targets },
+            { rowIndex, headless, targets, isLast: true },
             { enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', true) }
         );
 
