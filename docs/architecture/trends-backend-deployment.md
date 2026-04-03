@@ -18,7 +18,7 @@ The trends backend is not packaged like `BlogGenius.app`.
 The current operating model is:
 - clone this repository onto the WordPress server at a separate path
 - run `trends-api` on that server as a local Node service
-- run `trends-collector` on that server on demand or by schedule
+- run `trends-collector` either on that server or from an operator desktop against the server API
 - let WordPress PHP call `trends-api` locally when possible, or through a host-reachable address when WordPress itself runs in Docker
 
 Preferred shape:
@@ -57,10 +57,11 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
 ```
 
 ### `trends-collector`
-- Runs on the same server.
+- Can run on the same server or on an operator desktop.
 - Uses Playwright and the shared Naver auth session file.
 - Posts collected rows to `trends-api`.
-- Should be run by `cron` or `systemd timer`, not as a long-lived daemon.
+- Should be run by `cron` or `systemd timer`, not as a long-lived daemon, when it is server-hosted.
+- Current preferred operational model is desktop-driven collection when the server Playwright/browser environment is not yet fully stabilized.
 
 Recommended command:
 
@@ -90,6 +91,18 @@ cd /home/ubuntu/Project/NaverAutoBlog
 ### Node runtime
 
 Use Node 24 or newer.
+
+The current recommended install path on Ubuntu is `nvm`, not the distro `apt` package for `nodejs`/`npm`.
+
+Example:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+nvm install 24
+nvm alias default 24
+nvm use 24
+```
 
 Install dependencies from the repo root:
 
@@ -217,21 +230,41 @@ Current recommendation:
 
 ### `systemd` for `trends-api`
 
+When Node is installed with `nvm`, `systemd` does not automatically inherit the interactive shell environment.
+
+Before writing the unit, resolve the real Node path:
+
+```bash
+which node
+```
+
+Example output:
+
+```bash
+/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node
+```
+
+Use that absolute path in `ExecStart`.
+
 Recommended unit file:
 
 ```ini
+# /etc/systemd/system/trends-api.service
 [Unit]
 Description=BlogGenius Trends API
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/ubuntu/Project/NaverAutoBlog
-ExecStart=/usr/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
-Restart=always
-RestartSec=5
 User=ubuntu
-Environment=NODE_ENV=production
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Project/NaverAutoBlog
+Environment=HOME=/home/ubuntu
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
 
 [Install]
 WantedBy=multi-user.target
@@ -241,17 +274,29 @@ Recommended commands:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable bloggenius-trends-api
-sudo systemctl start bloggenius-trends-api
-sudo systemctl status bloggenius-trends-api
+sudo systemctl enable --now trends-api
+sudo systemctl status trends-api
+journalctl -u trends-api -f
+```
+
+Operational notes:
+- keep `apps/trends/.env` as the runtime source of truth; `trends-api` already reads it directly
+- if WordPress in Docker must reach the host API, keep `TRENDS_API_HOST=0.0.0.0`
+- if the Node version changes under `nvm`, update the `ExecStart` path in the unit file and reload `systemd`
+- manual restart after deploy:
+
+```bash
+sudo systemctl restart trends-api
 ```
 
 ### `cron` for `trends-collector`
 
+If the collector is hosted on the server, prefer the same absolute Node path discovered with `which node`.
+
 Example once-per-day run:
 
 ```cron
-15 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && /usr/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector >> /home/ubuntu/Project/NaverAutoBlog/logs/trends-collector.log 2>&1
+15 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && /home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector >> /home/ubuntu/Project/NaverAutoBlog/logs/trends-collector.log 2>&1
 ```
 
 This keeps the collector stateless and easy to retry.
@@ -294,7 +339,7 @@ Recommended update flow on the server:
 cd /home/ubuntu/Project/NaverAutoBlog
 git pull
 npm ci
-sudo systemctl restart bloggenius-trends-api
+sudo systemctl restart trends-api
 ```
 
 If collector behavior changed materially, run one manual collection after update:
