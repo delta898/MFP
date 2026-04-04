@@ -134,6 +134,10 @@ jobs:
         run: npm install
       - name: Install electron-packager
         run: npm install -g electron-packager
+      - name: Install Inno Setup (Windows)
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
       - name: Create secret.js
         shell: bash
         run: |
@@ -193,6 +197,8 @@ jobs:
           mv "${ROOT_OUT}" "dist-final"
           rm -rf dist/*
           mv "dist-final" "dist/${ROOT_NAME}"
+          echo "ROOT_NAME=${ROOT_NAME}" >> $GITHUB_ENV
+          echo "ROOT_OUT=dist/${ROOT_NAME}" >> $GITHUB_ENV
           echo "ZIP_NAME=${ROOT_NAME}.zip" >> $GITHUB_ENV
           echo "ZIP_DIR=${ROOT_NAME}" >> $GITHUB_ENV
 
@@ -206,13 +212,45 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path "dist\*" -DestinationPath "${env:ZIP_NAME}" -Force
 
+      - name: Build Windows Installer
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          $setupName = "BlogGenius-Setup-${env:APP_VERSION}-win-x64"
+          $sourceDir = (Resolve-Path $env:ROOT_OUT).Path
+          $outputDir = (Resolve-Path ".").Path
+          $setupIcon = (Resolve-Path "assets/icons/icon.ico").Path
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            throw "ISCC.exe not found at $iscc"
+          }
+          & $iscc `
+            "/DMyAppVersion=${env:APP_VERSION}" `
+            "/DMySourceDir=$sourceDir" `
+            "/DMyOutputDir=$outputDir" `
+            "/DMyOutputBaseFilename=$setupName" `
+            "/DMySetupIcon=$setupIcon" `
+            "scripts/windows/BlogGeniusSetup.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup build failed with exit code $LASTEXITCODE"
+          }
+          "SETUP_EXE_NAME=${setupName}.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Create stable latest alias ZIP
-        if: needs.setup.outputs.prerelease != 'true'
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64'
         shell: bash
         run: |
           LATEST_ZIP_NAME="BlogGenius-${{ matrix.suffix }}-latest.zip"
           cp "${ZIP_NAME}" "${LATEST_ZIP_NAME}"
           echo "LATEST_ZIP_NAME=${LATEST_ZIP_NAME}" >> "$GITHUB_ENV"
+
+      - name: Create stable latest alias Windows installer
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          $latestSetup = "BlogGenius-win-x64-latest.exe"
+          Copy-Item $env:SETUP_EXE_NAME $latestSetup -Force
+          "LATEST_SETUP_EXE_NAME=$latestSetup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Upload versioned asset to Release
         uses: softprops/action-gh-release@v2
@@ -224,11 +262,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload stable latest alias to Release
-        if: needs.setup.outputs.prerelease != 'true'
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: ${{ env.LATEST_ZIP_NAME }}
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload versioned Windows installer to Release
+        if: matrix.suffix == 'win-x64'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.SETUP_EXE_NAME }}
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload stable latest Windows installer to Release
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.LATEST_SETUP_EXE_NAME }}
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -244,13 +302,33 @@ jobs:
           overwrite_files: true
 
       - name: Upload stable latest alias to Mirror
-        if: needs.setup.outputs.prerelease != 'true' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
           repository: ${{ env.MIRROR_REPO }}
           token: ${{ env.MIRROR_REPO_PAT }}
           tag_name: ${{ github.ref_name }}
           files: ${{ env.LATEST_ZIP_NAME }}
+          overwrite_files: true
+
+      - name: Upload versioned Windows installer to Mirror
+        if: matrix.suffix == 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.MIRROR_REPO }}
+          token: ${{ env.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.SETUP_EXE_NAME }}
+          overwrite_files: true
+
+      - name: Upload stable latest Windows installer to Mirror
+        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.MIRROR_REPO }}
+          token: ${{ env.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.LATEST_SETUP_EXE_NAME }}
           overwrite_files: true
 
       - name: Build Asset Metadata
