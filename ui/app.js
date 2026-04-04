@@ -4128,9 +4128,7 @@ function applySettingsMajorToForm(data, options = {}) {
   syncSettingsAiModelUi('image');
   playSettingsTypingPreview();
 
-  settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
-  settingsMajorHasPendingBasicChanges = false;
-  updateSettingsMajorSaveUi();
+  commitSettingsMajorSavedState();
 }
 
 function getSettingsMajorBasicValuesFromDom() {
@@ -4268,6 +4266,12 @@ function buildSettingsMajorBasicSignature() {
     basic: getSettingsMajorBasicValuesFromDom(),
     shoppingImages: buildSettingsShoppingImageDraftState()
   });
+}
+
+function commitSettingsMajorSavedState() {
+  settingsMajorLastSavedSignature = buildSettingsMajorBasicSignature();
+  settingsMajorHasPendingBasicChanges = false;
+  updateSettingsMajorSaveUi();
 }
 
 function normalizeSettingsMcpPath(rawValue) {
@@ -4898,6 +4902,7 @@ function ensureRequiredSettingsShoppingImages() {
 async function saveSettingsMajor({ mode = 'manual' } = {}) {
   const saveBtns = document.querySelectorAll('#settings-major-save-btn, .settings-major-save-btn');
   const resultEls = document.querySelectorAll('.settings-major-result');
+  let savedResponse = null;
 
   if (settingsMajorSaveInFlight) {
     return;
@@ -4915,9 +4920,11 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
 
     const payload = buildSettingsMajorPayload();
     const data = await postJson('/api/v1/settings/major', payload);
+    savedResponse = data;
 
     console.log('[Settings] Save successful');
     applySettingsMajorToForm(data);
+    commitSettingsMajorSavedState();
     uiSheetsReady = false;
     invalidateWpCategoryCache();
 
@@ -4933,13 +4940,53 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       ? `\nMCP: ${data.remoteMcpStatus.endpoint || '-'}`
       : (data?.remoteMcpStatus?.enabled === false ? '\nMCP: 비활성화' : '');
     updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${mcpStatusLine}`, 'success');
-    await Promise.all([loadConfigStatus(), loadDashboard()]);
-    if (uiConfigReady) {
-      await ensureSheetsPreflightUi({ force: true, silent: true });
+    try {
+      await Promise.all([loadConfigStatus(), loadDashboard()]);
+      if (uiConfigReady) {
+        await ensureSheetsPreflightUi({ force: true, silent: true });
+      }
+      commitSettingsMajorSavedState();
+    } catch (refreshError) {
+      console.warn('[Settings] Post-save refresh failed:', refreshError);
+      updateSettingsStatus(
+        '.settings-major-result',
+        `${data.message || '주요 설정 저장 완료'}\n일부 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요.`,
+        'success'
+      );
+      showUiToast({
+        level: 'warn',
+        title: '설정 저장 후 확인 필요',
+        message: '설정은 저장됐지만 일부 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요.',
+        dedupeKey: 'settings-major-refresh-failed',
+        timeoutMs: 9000
+      });
     }
   } catch (e) {
     console.error('[Settings] Save failed:', e);
-    updateSettingsStatus('.settings-major-result', `오류: ${e.message}`, 'error');
+    if (savedResponse) {
+      commitSettingsMajorSavedState();
+      updateSettingsStatus(
+        '.settings-major-result',
+        `${savedResponse.message || '주요 설정 저장 완료'}\n일부 후속 작업에 실패했습니다: ${e.message}`,
+        'success'
+      );
+      showUiToast({
+        level: 'warn',
+        title: '설정 저장 후 확인 필요',
+        message: `설정은 저장됐지만 후속 작업 중 오류가 있었습니다: ${e.message}`,
+        dedupeKey: 'settings-major-post-save-failed',
+        timeoutMs: 9000
+      });
+    } else {
+      updateSettingsStatus('.settings-major-result', `오류: ${e.message}`, 'error');
+      showUiToast({
+        level: 'error',
+        title: '설정 저장 실패',
+        message: `설정을 저장하지 못했습니다: ${e.message}`,
+        dedupeKey: 'settings-major-save-failed',
+        timeoutMs: 10000
+      });
+    }
   } finally {
     settingsMajorSaveInFlight = false;
     updateSettingsMajorSaveUi();
