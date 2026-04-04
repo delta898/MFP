@@ -1,8 +1,27 @@
-const kuzu = require('kuzu');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
+
+let cachedKuzu = null;
+let cachedKuzuLoadError = null;
+
+function loadKuzu() {
+    if (cachedKuzu) return cachedKuzu;
+    if (cachedKuzuLoadError) throw cachedKuzuLoadError;
+
+    try {
+        cachedKuzu = require('kuzu');
+        return cachedKuzu;
+    } catch (error) {
+        cachedKuzuLoadError = error;
+        throw error;
+    }
+}
+
+function getKuzuLoadError() {
+    return cachedKuzuLoadError;
+}
 
 class KuzuEventStore {
     constructor(options = {}) {
@@ -36,6 +55,7 @@ class KuzuEventStore {
                 }
             } catch (_ignore) { }
 
+            const kuzu = loadKuzu();
             this.db = new kuzu.Database(this.dbPath);
             this.conn = new kuzu.Connection(this.db);
 
@@ -1461,5 +1481,7 @@ class KuzuEventStore {
 }
 
 module.exports = {
-    KuzuEventStore
+    KuzuEventStore,
+    loadKuzu,
+    getKuzuLoadError
 };
