@@ -164,7 +164,9 @@ echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
 echo "---------------------------------------------------"
 
 BUILT_ROOTS=()
+BUILT_SUFFIXES=()
 BUILT_ZIPS=()
+BUILT_LATEST_ZIPS=()
 
 clean_platform_artifacts() {
     local suffix=$1
@@ -174,7 +176,7 @@ clean_platform_artifacts() {
 
     find dist -maxdepth 1 -mindepth 1 \
         \( -type d -o -type f \) \
-        \( -name "*-${suffix}" -o -name "*-${suffix}.zip" \) \
+        \( -name "*-${suffix}" -o -name "*-${suffix}.zip" -o -name "${APP_NAME}-${suffix}-latest.zip" \) \
         -exec rm -rf {} +
 }
 
@@ -258,6 +260,7 @@ EOF
 
     echo "   ✅ ${suffix} 빌드 완료"
     BUILT_ROOTS+=("${ROOT_OUT}")
+    BUILT_SUFFIXES+=("${suffix}")
 }
 
 # ---------------------------------------------------
@@ -268,11 +271,20 @@ build_platform "macos" "darwin" "arm64" "mac-arm64"
 # build_platform "macos" "darwin" "x64"   "mac-intel"
 # build_platform "linux" "linux"  "x64"   "linux-x64"
 
+# Prerelease 여부 판별 (버전에 - 접미사가 있는 경우)
+IS_PRERELEASE=false
+if [[ $VERSION == *"-"* ]]; then
+    IS_PRERELEASE=true
+    echo "🧪 [Prerelease] 버전이 감지되었습니다. (${VERSION})"
+fi
+
 # ---------------------------------------------------
 # 5. ZIP 생성 (이번 실행 대상만)
 # ---------------------------------------------------
 echo "📦 이번 실행에서 생성한 플랫폼 폴더만 ZIP 생성 중..."
-for root_out in "${BUILT_ROOTS[@]}"; do
+for idx in "${!BUILT_ROOTS[@]}"; do
+    root_out="${BUILT_ROOTS[$idx]}"
+    suffix="${BUILT_SUFFIXES[$idx]}"
     [ -d "${root_out}" ] || continue
     platform_dir=$(basename "${root_out}")
     zip_name="${platform_dir}.zip"
@@ -281,19 +293,19 @@ for root_out in "${BUILT_ROOTS[@]}"; do
         mv "${root_out}/${zip_name}" "dist/${zip_name}"
         BUILT_ZIPS+=("dist/${zip_name}")
         echo "   ✅ dist/${zip_name} 생성 완료"
+
+        if [ "$IS_PRERELEASE" == "false" ]; then
+            latest_zip_name="${APP_NAME}-${suffix}-latest.zip"
+            cp "dist/${zip_name}" "dist/${latest_zip_name}"
+            BUILT_LATEST_ZIPS+=("dist/${latest_zip_name}")
+            echo "   🔗 dist/${latest_zip_name} 최신 stable 별칭 생성"
+        fi
     fi
 done
 
 # 📄 자가 업데이트용 update.json 생성 중...
 UPDATE_JSON="dist/update.json"
 PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-# Prerelease 여부 판별 (버전에 - 접미사가 있는 경우)
-IS_PRERELEASE=false
-if [[ $VERSION == *"-"* ]]; then
-    IS_PRERELEASE=true
-    echo "🧪 [Prerelease] 버전이 감지되었습니다. (${VERSION})"
-fi
 
 RELEASE_DETAILS_JSON=$(node scripts/release-details.js "$VERSION")
 
@@ -355,8 +367,9 @@ else
     echo ""
     echo "🚀 서버로 업로드 중... (target: ${REMOTE_DEPLOY_TARGET})"
 
-    # 이번 실행에서 생성한 ZIP 파일들과 update.json만 업로드
-    scp "${BUILT_ZIPS[@]}" "${UPDATE_JSON}" "${REMOTE_DEPLOY_TARGET}"
+    # 이번 실행에서 생성한 ZIP 파일들과 stable latest 별칭, update.json만 업로드
+    UPLOAD_FILES=("${BUILT_ZIPS[@]}" "${BUILT_LATEST_ZIPS[@]}" "${UPDATE_JSON}")
+    scp "${UPLOAD_FILES[@]}" "${REMOTE_DEPLOY_TARGET}"
 
     if [ $? -eq 0 ]; then
         echo "   ✅ 서버 업로드 완료!"

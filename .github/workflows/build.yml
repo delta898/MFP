@@ -83,6 +83,7 @@ jobs:
           body: ${{ needs.setup.outputs.release_body }}
           overwrite_files: true
           prerelease: ${{ needs.setup.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.setup.outputs.prerelease != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -205,7 +206,15 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path "dist\*" -DestinationPath "${env:ZIP_NAME}" -Force
 
-      - name: Upload to Release
+      - name: Create stable latest alias ZIP
+        if: needs.setup.outputs.prerelease != 'true'
+        shell: bash
+        run: |
+          LATEST_ZIP_NAME="BlogGenius-${{ matrix.suffix }}-latest.zip"
+          cp "${ZIP_NAME}" "${LATEST_ZIP_NAME}"
+          echo "LATEST_ZIP_NAME=${LATEST_ZIP_NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload versioned asset to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -214,7 +223,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload to Mirror
+      - name: Upload stable latest alias to Release
+        if: needs.setup.outputs.prerelease != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.LATEST_ZIP_NAME }}
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload versioned asset to Mirror
         if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -222,6 +241,16 @@ jobs:
           token: ${{ env.MIRROR_REPO_PAT }}
           tag_name: ${{ github.ref_name }}
           files: ${{ env.ZIP_NAME }}
+          overwrite_files: true
+
+      - name: Upload stable latest alias to Mirror
+        if: needs.setup.outputs.prerelease != 'true' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.MIRROR_REPO }}
+          token: ${{ env.MIRROR_REPO_PAT }}
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.LATEST_ZIP_NAME }}
           overwrite_files: true
 
       - name: Build Asset Metadata
@@ -335,7 +364,10 @@ jobs:
             body,
             details,
             assets: assets
-              .filter((asset) => String(asset.name || '').toLowerCase().endsWith('.zip'))
+              .filter((asset) => {
+                const name = String(asset.name || '').toLowerCase();
+                return name.endsWith('.zip') && !name.endsWith('-latest.zip');
+              })
               .map((asset) => {
                 const meta = metaMap.get(asset.name) || {};
                 return {
@@ -405,7 +437,10 @@ jobs:
             body,
             details,
             assets: assets
-              .filter((asset) => String(asset.name || '').toLowerCase().endsWith('.zip'))
+              .filter((asset) => {
+                const name = String(asset.name || '').toLowerCase();
+                return name.endsWith('.zip') && !name.endsWith('-latest.zip');
+              })
               .map((asset) => {
                 const meta = metaMap.get(asset.name) || {};
                 return {

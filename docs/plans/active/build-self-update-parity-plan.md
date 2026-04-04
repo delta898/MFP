@@ -15,6 +15,8 @@
 ## Desired Result
 - CI release uploads ZIP assets and `update.json`.
 - CI release metadata is derived from `CHANGELOG.md` in the same spirit as local build output.
+- Stable releases additionally publish platform-fixed alias assets such as `BlogGenius-mac-arm64-latest.zip`.
+- `-latest.zip` aliases are user-facing convenience links only and must not be treated as updater assets.
 - `update.json` contains:
   - `tag_name`
   - `published_at`
@@ -30,6 +32,7 @@
 ## Scope
 - Update `.github/workflows/build.yml`
 - Keep `build.sh` behavior as reference
+- Mirror stable-only latest alias behavior in both local deploy and GitHub Actions release uploads
 - Do not change updater protocol unless required
 
 ## Non-Goals
@@ -40,4 +43,7 @@
 ## Validation
 - Confirm workflow now generates `update.json`
 - Confirm uploaded ZIP names still match updater platform selection rules
+- Confirm stable releases publish `BlogGenius-<platform>-latest.zip` aliases
+- Confirm prereleases do not overwrite stable `-latest` links
+- Confirm `update.json` excludes `-latest.zip` alias assets
 - Confirm metadata shape matches what `src/updater.js` expects
