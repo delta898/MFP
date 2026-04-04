@@ -168,9 +168,10 @@ jobs:
       - name: Finalize Directory Structure (Naming Rule)
         shell: bash
         run: |
-          # 1. 로컬 빌드와 동일한 명명 규칙 적용 (BlogGenius-vX.X.X-platform-arch)
+          # 1. 압축 내부 루트는 버전별로 유지, 릴리즈 asset 파일명은 플랫폼 고정 이름 사용
           ROOT_NAME="BlogGenius-${APP_VERSION}-${{ matrix.suffix }}"
           ROOT_OUT="dist/${ROOT_NAME}"
+          PORTABLE_ZIP_NAME="BlogGenius-${{ matrix.suffix }}.zip"
           mkdir -p "${ROOT_OUT}/config/images" "${ROOT_OUT}/data"
 
           # 2. 필수 리소스 복사
@@ -199,7 +200,7 @@ jobs:
           mv "dist-final" "dist/${ROOT_NAME}"
           echo "ROOT_NAME=${ROOT_NAME}" >> $GITHUB_ENV
           echo "ROOT_OUT=dist/${ROOT_NAME}" >> $GITHUB_ENV
-          echo "ZIP_NAME=${ROOT_NAME}.zip" >> $GITHUB_ENV
+          echo "ZIP_NAME=${PORTABLE_ZIP_NAME}" >> $GITHUB_ENV
           echo "ZIP_DIR=${ROOT_NAME}" >> $GITHUB_ENV
 
       - name: Create ZIP (non-Windows)
@@ -216,7 +217,7 @@ jobs:
         if: matrix.suffix == 'win-x64'
         shell: pwsh
         run: |
-          $setupName = "BlogGenius-Setup-${env:APP_VERSION}-win-x64"
+          $setupName = "BlogGenius-win-x64"
           $sourceDir = (Resolve-Path $env:ROOT_OUT).Path
           $outputDir = (Resolve-Path ".").Path
           $setupIcon = (Resolve-Path "assets/icons/icon.ico").Path
@@ -236,23 +237,7 @@ jobs:
           }
           "SETUP_EXE_NAME=${setupName}.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Create stable latest alias ZIP
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64'
-        shell: bash
-        run: |
-          LATEST_ZIP_NAME="BlogGenius-${{ matrix.suffix }}-latest.zip"
-          cp "${ZIP_NAME}" "${LATEST_ZIP_NAME}"
-          echo "LATEST_ZIP_NAME=${LATEST_ZIP_NAME}" >> "$GITHUB_ENV"
-
-      - name: Create stable latest alias Windows installer
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64'
-        shell: pwsh
-        run: |
-          $latestSetup = "BlogGenius-win-x64-latest.exe"
-          Copy-Item $env:SETUP_EXE_NAME $latestSetup -Force
-          "LATEST_SETUP_EXE_NAME=$latestSetup" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Upload versioned asset to Release
+      - name: Upload portable asset to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -261,17 +246,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload stable latest alias to Release
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: ${{ env.LATEST_ZIP_NAME }}
-          overwrite_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload versioned Windows installer to Release
+      - name: Upload Windows installer to Release
         if: matrix.suffix == 'win-x64'
         uses: softprops/action-gh-release@v2
         with:
@@ -281,17 +256,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload stable latest Windows installer to Release
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: ${{ env.LATEST_SETUP_EXE_NAME }}
-          overwrite_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload versioned asset to Mirror
+      - name: Upload portable asset to Mirror
         if: needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -301,17 +266,7 @@ jobs:
           files: ${{ env.ZIP_NAME }}
           overwrite_files: true
 
-      - name: Upload stable latest alias to Mirror
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix != 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: ${{ env.MIRROR_REPO }}
-          token: ${{ env.MIRROR_REPO_PAT }}
-          tag_name: ${{ github.ref_name }}
-          files: ${{ env.LATEST_ZIP_NAME }}
-          overwrite_files: true
-
-      - name: Upload versioned Windows installer to Mirror
+      - name: Upload Windows installer to Mirror
         if: matrix.suffix == 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -319,16 +274,6 @@ jobs:
           token: ${{ env.MIRROR_REPO_PAT }}
           tag_name: ${{ github.ref_name }}
           files: ${{ env.SETUP_EXE_NAME }}
-          overwrite_files: true
-
-      - name: Upload stable latest Windows installer to Mirror
-        if: needs.setup.outputs.prerelease != 'true' && matrix.suffix == 'win-x64' && needs.setup.outputs.mirror_repo != '' && needs.setup.outputs.mirror_repo_pat == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: ${{ env.MIRROR_REPO }}
-          token: ${{ env.MIRROR_REPO_PAT }}
-          tag_name: ${{ github.ref_name }}
-          files: ${{ env.LATEST_SETUP_EXE_NAME }}
           overwrite_files: true
 
       - name: Build Asset Metadata
@@ -444,7 +389,7 @@ jobs:
             assets: assets
               .filter((asset) => {
                 const name = String(asset.name || '').toLowerCase();
-                return name.endsWith('.zip') && !name.endsWith('-latest.zip');
+                return name.endsWith('.zip');
               })
               .map((asset) => {
                 const meta = metaMap.get(asset.name) || {};
@@ -517,7 +462,7 @@ jobs:
             assets: assets
               .filter((asset) => {
                 const name = String(asset.name || '').toLowerCase();
-                return name.endsWith('.zip') && !name.endsWith('-latest.zip');
+                return name.endsWith('.zip');
               })
               .map((asset) => {
                 const meta = metaMap.get(asset.name) || {};

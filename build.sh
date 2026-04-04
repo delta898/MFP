@@ -166,7 +166,8 @@ echo "---------------------------------------------------"
 BUILT_ROOTS=()
 BUILT_SUFFIXES=()
 BUILT_ZIPS=()
-BUILT_LATEST_ZIPS=()
+VERSION_DIR_NAME="v${VERSION}"
+VERSION_DIR="dist/${VERSION_DIR_NAME}"
 
 clean_platform_artifacts() {
     local suffix=$1
@@ -176,8 +177,12 @@ clean_platform_artifacts() {
 
     find dist -maxdepth 1 -mindepth 1 \
         \( -type d -o -type f \) \
-        \( -name "*-${suffix}" -o -name "*-${suffix}.zip" -o -name "${APP_NAME}-${suffix}-latest.zip" \) \
+        \( -name "*-${suffix}" -o -name "${APP_NAME}-${suffix}.zip" -o -name "${APP_NAME}-${suffix}.exe" \) \
         -exec rm -rf {} +
+
+    find dist -mindepth 2 -maxdepth 2 -type f \
+        \( -name "${APP_NAME}-${suffix}.zip" -o -name "${APP_NAME}-${suffix}.exe" \) \
+        -exec rm -f {} +
 }
 
 # ---------------------------------------------------
@@ -282,24 +287,16 @@ fi
 # 5. ZIP 생성 (이번 실행 대상만)
 # ---------------------------------------------------
 echo "📦 이번 실행에서 생성한 플랫폼 폴더만 ZIP 생성 중..."
+mkdir -p "${VERSION_DIR}"
 for idx in "${!BUILT_ROOTS[@]}"; do
     root_out="${BUILT_ROOTS[$idx]}"
     suffix="${BUILT_SUFFIXES[$idx]}"
     [ -d "${root_out}" ] || continue
     platform_dir=$(basename "${root_out}")
-    zip_name="${platform_dir}.zip"
-    (cd "${root_out}" && zip -r "${zip_name}" . -x "*.DS_Store")
-    if [ -f "${root_out}/${zip_name}" ]; then
-        mv "${root_out}/${zip_name}" "dist/${zip_name}"
-        BUILT_ZIPS+=("dist/${zip_name}")
-        echo "   ✅ dist/${zip_name} 생성 완료"
-
-        if [ "$IS_PRERELEASE" == "false" ]; then
-            latest_zip_name="${APP_NAME}-${suffix}-latest.zip"
-            cp "dist/${zip_name}" "dist/${latest_zip_name}"
-            BUILT_LATEST_ZIPS+=("dist/${latest_zip_name}")
-            echo "   🔗 dist/${latest_zip_name} 최신 stable 별칭 생성"
-        fi
+    zip_name="${APP_NAME}-${suffix}.zip"
+    if (cd dist && zip -r "${VERSION_DIR_NAME}/${zip_name}" "${platform_dir}" -x "*.DS_Store"); then
+        BUILT_ZIPS+=("${VERSION_DIR}/${zip_name}")
+        echo "   ✅ ${VERSION_DIR}/${zip_name} 생성 완료"
     fi
 done
 
@@ -346,7 +343,7 @@ for zip_file in "${BUILT_ZIPS[@]}"; do
     FILE_SIZE=$(get_file_size "$zip_file")
     echo "    {" >> "${UPDATE_JSON}"
     echo "      \"name\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
-    echo "      \"browser_download_url\": \"${FILE_NAME}\"," >> "${UPDATE_JSON}"
+    echo "      \"browser_download_url\": \"${VERSION_DIR_NAME}/${FILE_NAME}\"," >> "${UPDATE_JSON}"
     echo "      \"sha256\": \"${FILE_SHA256}\"," >> "${UPDATE_JSON}"
     echo "      \"size\": ${FILE_SIZE}" >> "${UPDATE_JSON}"
     echo "    }" >> "${UPDATE_JSON}"
@@ -367,15 +364,14 @@ else
     echo ""
     echo "🚀 서버로 업로드 중... (target: ${REMOTE_DEPLOY_TARGET})"
 
-    # 이번 실행에서 생성한 ZIP 파일들과 stable latest 별칭, update.json만 업로드
-    UPLOAD_FILES=("${BUILT_ZIPS[@]}" "${BUILT_LATEST_ZIPS[@]}" "${UPDATE_JSON}")
-    scp "${UPLOAD_FILES[@]}" "${REMOTE_DEPLOY_TARGET}"
-
-    if [ $? -eq 0 ]; then
+    REMOTE_VERSION_DIR="${REMOTE_DEPLOY_DIR%/}/${VERSION_DIR_NAME}"
+    if ssh "${REMOTE_DEPLOY_HOST}" "mkdir -p '${REMOTE_VERSION_DIR}'" && \
+       scp "${BUILT_ZIPS[@]}" "${REMOTE_DEPLOY_HOST}:${REMOTE_VERSION_DIR}/" && \
+       scp "${UPDATE_JSON}" "${REMOTE_DEPLOY_TARGET}"; then
         echo "   ✅ 서버 업로드 완료!"
-        # 🧹 [Cleanup] 서버 용량 관리를 위해 각 플랫폼별 최신 3개만 남기고 삭제
-        echo "   🧹 [Cleanup] 구버전 파일 정리 중 (최신 3개 유지)..."
-        ssh "${REMOTE_DEPLOY_HOST}" "cd ${REMOTE_DEPLOY_DIR} && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
+        # 🧹 [Cleanup] 서버 용량 관리를 위해 최신 3개 버전 디렉터리만 유지
+        echo "   🧹 [Cleanup] 구버전 디렉터리 정리 중 (최신 3개 유지)..."
+        ssh "${REMOTE_DEPLOY_HOST}" "cd '${REMOTE_DEPLOY_DIR}' && ls -1d v* 2>/dev/null | sort -V | head -n -3 | xargs -r rm -rf --"
         echo "   ✅ 서버 정리 완료"
     else
         echo "   ❌ [Error] 서버 업로드 실패 (SSH 설정을 확인하세요)"
@@ -392,25 +388,24 @@ set -euo pipefail
 REMOTE_DEPLOY_HOST="${REMOTE_DEPLOY_HOST}"
 REMOTE_DEPLOY_DIR="${REMOTE_DEPLOY_DIR}"
 REMOTE_DEPLOY_TARGET="\${REMOTE_DEPLOY_HOST}:\${REMOTE_DEPLOY_DIR}"
+VERSION_DIR_NAME="${VERSION_DIR_NAME}"
 
 echo "🚀 [Manual] 서버로 업로드 중..."
 
 SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 cd "\$SCRIPT_DIR"
 
-shopt -s nullglob
-ZIP_FILES=(./*.zip)
-shopt -u nullglob
-
-if [ \${#ZIP_FILES[@]} -eq 0 ]; then
-    echo "❌ 업로드할 ZIP 파일이 없습니다."
+if [ ! -d "./\${VERSION_DIR_NAME}" ]; then
+    echo "❌ 업로드할 버전 디렉터리(./\${VERSION_DIR_NAME})가 없습니다."
     exit 1
 fi
 
-scp "\${ZIP_FILES[@]}" ./update.json "\${REMOTE_DEPLOY_TARGET}"
+ssh "\${REMOTE_DEPLOY_HOST}" "mkdir -p '${REMOTE_DEPLOY_DIR%/}/\${VERSION_DIR_NAME}'"
+scp "./\${VERSION_DIR_NAME}"/*.zip "\${REMOTE_DEPLOY_HOST}:${REMOTE_DEPLOY_DIR%/}/\${VERSION_DIR_NAME}/"
+scp ./update.json "\${REMOTE_DEPLOY_TARGET}"
 echo "✅ 업로드 성공!"
-echo "🧹 구버전 파일 정리 중..."
-ssh "\${REMOTE_DEPLOY_HOST}" "cd \${REMOTE_DEPLOY_DIR} && for suffix in mac-arm64 mac-intel win-x64 linux-x64; do ls -t *-\$suffix.zip 2>/dev/null | tail -n +4 | xargs -I {} rm -- {} 2>/dev/null; done"
+echo "🧹 구버전 디렉터리 정리 중..."
+ssh "\${REMOTE_DEPLOY_HOST}" "cd \${REMOTE_DEPLOY_DIR} && ls -1d v* 2>/dev/null | sort -V | head -n -3 | xargs -r rm -rf --"
 EOF
 chmod +x "${UPLOAD_SH}"
 echo "   ✅ 수동 업로드용 스크립트 생성 완료: ${UPLOAD_SH}"
