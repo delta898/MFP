@@ -39,6 +39,7 @@ class Updater {
 
         // 다운로드 취소용 AbortController
         this._cancelController = null;
+        this._pendingExternalRestart = null;
     }
 
     normalizeUpdateDetails(release = {}) {
@@ -465,22 +466,31 @@ class Updater {
                 Logger.info(`📂 [Updater] 중첩 폴더 발견: ${entries[0]}`);
             }
 
-            Logger.info('📂 [Updater] 전체 폴더 동기화 업데이트 시작...');
-            this.progress.stage = 'syncing';
-            this.progress.message = '파일 동기화 중...';
-            this.syncFolders(sourceDir, this.appRootDir);
+            if (process.platform === 'win32') {
+                Logger.info('🪟 [Updater] Windows 지연 적용 준비 중...');
+                this.progress.stage = 'syncing';
+                this.progress.message = '재시작 후 업데이트 적용 준비 중...';
+                this.prepareWindowsDeferredApply(sourceDir);
+            } else {
+                Logger.info('📂 [Updater] 전체 폴더 동기화 업데이트 시작...');
+                this.progress.stage = 'syncing';
+                this.progress.message = '파일 동기화 중...';
+                this.syncFolders(sourceDir, this.appRootDir);
 
-            // 업데이트 성공 시 tmp_update 임시 폴더 정리
-            try {
-                if (fs.existsSync(this.tempDir)) {
-                    fs.rmSync(this.tempDir, { recursive: true, force: true });
-                    Logger.info('🧹 [Updater] tmp_update 임시 폴더 정리 완료');
+                // 업데이트 성공 시 tmp_update 임시 폴더 정리
+                try {
+                    if (fs.existsSync(this.tempDir)) {
+                        fs.rmSync(this.tempDir, { recursive: true, force: true });
+                        Logger.info('🧹 [Updater] tmp_update 임시 폴더 정리 완료');
+                    }
+                } catch (cleanupErr) {
+                    Logger.warn(`⚠️ [Updater] tmp_update 정리 실패 (무시됨): ${cleanupErr.message}`);
                 }
-            } catch (cleanupErr) {
-                Logger.warn(`⚠️ [Updater] tmp_update 정리 실패 (무시됨): ${cleanupErr.message}`);
             }
 
-            Logger.info('✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
+            Logger.info(process.platform === 'win32'
+                ? '✅ [Updater] 업데이트 적용 준비 완료! 재시작 후 Windows helper가 파일을 교체합니다.'
+                : '✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
             this.progress = { active: true, stage: 'done', message: '업데이트 완료! 재시작 중...', percent: 100, totalSize, downloadedSize };
             return true;
         } catch (e) {
@@ -490,6 +500,128 @@ class Updater {
         } finally {
             this.isUpdating = false;
         }
+    }
+
+    prepareWindowsDeferredApply(sourceDir) {
+        if (process.platform !== 'win32') return;
+
+        const helperScriptPath = path.join(this.tempDir, 'apply-update.ps1');
+        const helperLogPath = path.join(this.tempDir, 'apply-update.log');
+        const scriptBody = `
+param(
+    [Parameter(Mandatory = $true)][string]$SourceDir,
+    [Parameter(Mandatory = $true)][string]$AppDir,
+    [Parameter(Mandatory = $true)][string]$ExePath,
+    [Parameter(Mandatory = $true)][int]$WaitPid,
+    [Parameter(Mandatory = $true)][string]$LogPath
+)
+
+$ErrorActionPreference = 'Continue'
+$preserve = @('config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store')
+
+function Write-Log {
+    param([string]$Message)
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -LiteralPath $LogPath -Value "[$timestamp] $Message"
+}
+
+function Remove-BackupArtifacts {
+    param([string]$RootPath)
+    Get-ChildItem -LiteralPath $RootPath -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like '*.old' } |
+        ForEach-Object {
+            try {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+            } catch {
+                Write-Log "backup cleanup failed: $($_.FullName) - $($_.Exception.Message)"
+            }
+        }
+}
+
+try {
+    Write-Log "helper started (pid=$PID, waitingFor=$WaitPid)"
+    for ($i = 0; $i -lt 600; $i++) {
+        $target = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
+        if (-not $target) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    Start-Sleep -Milliseconds 500
+
+    Get-ChildItem -LiteralPath $SourceDir -Force | ForEach-Object {
+        $name = $_.Name
+        if ($preserve -contains $name) {
+            Write-Log "preserve skip: $name"
+            return
+        }
+
+        $srcPath = $_.FullName
+        $destPath = Join-Path $AppDir $name
+        $backupPath = "$destPath.old"
+
+        if (Test-Path -LiteralPath $backupPath) {
+            Remove-Item -LiteralPath $backupPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        if (Test-Path -LiteralPath $destPath) {
+            try {
+                Rename-Item -LiteralPath $destPath -NewName ([System.IO.Path]::GetFileName($backupPath)) -ErrorAction Stop
+                Write-Log "backup created: $name"
+            } catch {
+                Write-Log "backup rename failed, deleting directly: $name - $($_.Exception.Message)"
+                Remove-Item -LiteralPath $destPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        if ($_.PSIsContainer) {
+            Copy-Item -LiteralPath $srcPath -Destination $destPath -Recurse -Force -ErrorAction Stop
+        } else {
+            Copy-Item -LiteralPath $srcPath -Destination $destPath -Force -ErrorAction Stop
+        }
+
+        Write-Log "replaced: $name"
+    }
+
+    Remove-BackupArtifacts -RootPath $AppDir
+    Write-Log "relaunch: $ExePath"
+    Start-Process -FilePath $ExePath | Out-Null
+} catch {
+    Write-Log "fatal: $($_.Exception.Message)"
+}
+`.trimStart();
+
+        fs.writeFileSync(helperScriptPath, scriptBody, 'utf8');
+
+        const args = [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            helperScriptPath,
+            '-SourceDir',
+            sourceDir,
+            '-AppDir',
+            this.appRootDir,
+            '-ExePath',
+            process.execPath,
+            '-WaitPid',
+            String(process.pid),
+            '-LogPath',
+            helperLogPath
+        ];
+
+        const child = spawn('powershell.exe', args, {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true
+        });
+        child.unref();
+
+        this._pendingExternalRestart = {
+            mode: 'windows-update-helper',
+            helperScriptPath,
+            helperLogPath
+        };
+        Logger.info(`🪟 [Updater] Windows helper 준비 완료: ${helperScriptPath}`);
     }
 
     /**
@@ -620,6 +752,12 @@ class Updater {
     }
 
     restart() {
+        if (process.platform === 'win32' && this._pendingExternalRestart?.mode === 'windows-update-helper') {
+            Logger.info('🪟 [Updater] Windows helper가 업데이트 적용을 이어서 진행합니다. 현재 프로세스를 종료합니다.');
+            process.exit(0);
+            return;
+        }
+
         const bin = process.execPath;
         const args = process.argv.slice(1).filter(arg => arg !== 'ui'); // UI 모드면 UI로 다시 뜨게 하거나, CMD면 CMD로
 

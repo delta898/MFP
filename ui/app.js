@@ -4921,6 +4921,12 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     const payload = buildSettingsMajorPayload();
     const data = await postJson('/api/v1/settings/major', payload);
     savedResponse = data;
+    const warningMessages = Array.isArray(data?.warnings)
+      ? data.warnings.map((item) => String(item || '').trim()).filter(Boolean)
+      : [];
+    const warningSuffix = warningMessages.length > 0
+      ? `\n확인 필요: ${warningMessages.join(' / ')}`
+      : '';
 
     console.log('[Settings] Save successful');
     applySettingsMajorToForm(data);
@@ -4929,7 +4935,20 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     invalidateWpCategoryCache();
 
     if (data.restarting) {
-      updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.`, 'success');
+      updateSettingsStatus(
+        '.settings-major-result',
+        `${data.message || '주요 설정 저장 완료'}\n주소/포트 변경으로 인해 서버를 재시작 중입니다... 새 주소로 이동합니다.${warningSuffix}`,
+        'success'
+      );
+      if (warningMessages.length > 0) {
+        showUiToast({
+          level: 'warn',
+          title: '설정 저장 후 확인 필요',
+          message: warningMessages.join(' / '),
+          dedupeKey: 'settings-major-save-warnings',
+          timeoutMs: 10000
+        });
+      }
       setTimeout(() => {
         window.location.href = `http://${data.newHost === '0.0.0.0' ? '127.0.0.1' : data.newHost}:${data.newPort}`;
       }, 1500);
@@ -4939,7 +4958,20 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     const mcpStatusLine = data?.remoteMcpStatus?.running
       ? `\nMCP: ${data.remoteMcpStatus.endpoint || '-'}`
       : (data?.remoteMcpStatus?.enabled === false ? '\nMCP: 비활성화' : '');
-    updateSettingsStatus('.settings-major-result', `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${mcpStatusLine}`, 'success');
+    updateSettingsStatus(
+      '.settings-major-result',
+      `${data.message || '주요 설정 저장 완료'}\n${data.configPath || '-'}${mcpStatusLine}${warningSuffix}`,
+      'success'
+    );
+    if (warningMessages.length > 0) {
+      showUiToast({
+        level: 'warn',
+        title: '설정 저장 후 확인 필요',
+        message: warningMessages.join(' / '),
+        dedupeKey: 'settings-major-save-warnings',
+        timeoutMs: 10000
+      });
+    }
     try {
       await Promise.all([loadConfigStatus(), loadDashboard()]);
       if (uiConfigReady) {
@@ -4950,7 +4982,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       console.warn('[Settings] Post-save refresh failed:', refreshError);
       updateSettingsStatus(
         '.settings-major-result',
-        `${data.message || '주요 설정 저장 완료'}\n일부 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요.`,
+        `${data.message || '주요 설정 저장 완료'}\n일부 화면 갱신에 실패했습니다. 새로고침 후 다시 확인해 주세요.${warningSuffix}`,
         'success'
       );
       showUiToast({

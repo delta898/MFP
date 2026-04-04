@@ -161,17 +161,18 @@ function createSettingsService(deps = {}) {
             const aiPresets = getAiPresets(structuredConfig);
             const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
             const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
+            const warnings = [];
             if (!String(textModelConfig.api_key || '').trim()) {
-                throw createApiError(400, 'INVALID_TEXT_MODEL', '텍스트 모델의 API Key를 입력해주세요.');
+                warnings.push('텍스트 모델의 API Key가 비어 있습니다. AI 기능을 사용하려면 입력이 필요합니다.');
             }
             if (textModelConfig.provider === 'direct' && (!String(textModelConfig.name || '').trim() || !String(textModelConfig.base_url || '').trim())) {
-                throw createApiError(400, 'INVALID_TEXT_MODEL', '텍스트 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
+                warnings.push('텍스트 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
             }
             if (!String(imageModelConfig.api_key || '').trim()) {
-                throw createApiError(400, 'INVALID_IMAGE_MODEL', '이미지 모델의 API Key를 입력해주세요.');
+                warnings.push('이미지 모델의 API Key가 비어 있습니다. 이미지 생성 기능을 사용하려면 입력이 필요합니다.');
             }
             if (imageModelConfig.provider === 'direct' && (!String(imageModelConfig.name || '').trim() || !String(imageModelConfig.base_url || '').trim())) {
-                throw createApiError(400, 'INVALID_IMAGE_MODEL', '이미지 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
+                warnings.push('이미지 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
             }
             structuredConfig.ai_settings.TEXT_MODEL = textModelConfig;
             structuredConfig.ai_settings.IMAGE_MODEL = imageModelConfig;
@@ -407,6 +408,7 @@ function createSettingsService(deps = {}) {
                 message: requiresRestart
                     ? '주요 설정 저장 완료. 서버가 재시작됩니다...'
                     : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서버 설정이 적용되었습니다.' : '주요 설정 저장 완료'),
+                warnings,
                 fields: updatedSettings.fields,
                 aiPresets: updatedSettings.aiPresets,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
