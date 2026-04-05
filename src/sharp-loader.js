@@ -7,7 +7,16 @@ function resolvePackagedModuleDir(moduleName, resourcesPath = process.resourcesP
     }
 
     const candidate = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', moduleName);
-    return fs.existsSync(path.join(candidate, 'package.json')) ? candidate : '';
+    return fs.existsSync(path.join(candidate, 'lib', 'index.js')) ? candidate : '';
+}
+
+function resolvePackagedSharpEntry(resourcesPath = process.resourcesPath) {
+    const moduleDir = resolvePackagedModuleDir('sharp', resourcesPath);
+    if (moduleDir === '') {
+        return '';
+    }
+    const entry = path.join(moduleDir, 'lib', 'index.js');
+    return fs.existsSync(entry) ? entry : '';
 }
 
 function formatAttempt(source, error) {
@@ -17,16 +26,16 @@ function formatAttempt(source, error) {
 
 function loadSharp() {
     const attempts = [];
-    const packagedSharpDir = resolvePackagedModuleDir('sharp');
+    const packagedSharpEntry = resolvePackagedSharpEntry();
 
-    if (packagedSharpDir !== '') {
+    if (packagedSharpEntry !== '') {
         try {
             return {
-                sharp: require(packagedSharpDir),
-                source: packagedSharpDir,
+                sharp: require(packagedSharpEntry),
+                source: packagedSharpEntry,
             };
         } catch (error) {
-            attempts.push(formatAttempt(`packaged:${packagedSharpDir}`, error));
+            attempts.push(formatAttempt(`packaged:${packagedSharpEntry}`, error));
         }
     }
 
@@ -47,4 +56,5 @@ function loadSharp() {
 module.exports = {
     loadSharp,
     resolvePackagedModuleDir,
+    resolvePackagedSharpEntry,
 };
