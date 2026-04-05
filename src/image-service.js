@@ -1,7 +1,34 @@
-const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 const Logger = require('./logger');
+const { loadSharp } = require('./sharp-loader');
+
+let sharpInstance = null;
+let sharpLoadError = null;
+let sharpLoadLogged = false;
+
+function getSharp() {
+    if (sharpInstance) {
+        return sharpInstance;
+    }
+
+    if (sharpLoadError) {
+        return null;
+    }
+
+    try {
+        const loaded = loadSharp();
+        sharpInstance = loaded.sharp;
+        return sharpInstance;
+    } catch (error) {
+        sharpLoadError = error;
+        if (!sharpLoadLogged) {
+            sharpLoadLogged = true;
+            Logger.warn(`   ⚠️ sharp 로드 실패: ${error.message}`);
+        }
+        return null;
+    }
+}
 
 /**
  * ImageService: 플랫폼별 최적화된 이미지 포맷 변환 서비스
@@ -19,6 +46,8 @@ const ImageService = {
         const CONFIG = require('./config-loader');
         if (!CONFIG.IMAGE_OPTIMIZATION_ENABLED) return filePath;
         if (!filePath || !fs.existsSync(filePath)) return filePath;
+        const sharp = getSharp();
+        if (!sharp) return filePath;
 
         const ext = path.extname(filePath).toLowerCase();
         // Naver -> WebP, WordPress -> AVIF
@@ -72,6 +101,10 @@ const ImageService = {
     optimizeBufferForPlatform: async function (buffer, platform, options = {}) {
         const CONFIG = require('./config-loader');
         if (!CONFIG.IMAGE_OPTIMIZATION_ENABLED || !buffer) {
+            return { buffer, ext: options.fallbackExt || '' };
+        }
+        const sharp = getSharp();
+        if (!sharp) {
             return { buffer, ext: options.fallbackExt || '' };
         }
 
