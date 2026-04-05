@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-04-06
+
+### Fixed
+- **macOS sharp 런타임 안정화**: 패키징된 macOS 앱에서 `sharp`가 `libvips-cpp`를 찾지 못해 이미지 최적화 단계에서 앱이 바로 종료되던 문제를 수정했습니다. 패키징 환경에서는 unpacked `sharp` 경로를 우선 로드하고, 그래도 실패하면 앱 전체를 중단하지 않고 이미지 최적화만 건너뛰도록 보완했습니다.
+
 ## [0.1.8] - 2026-04-04
 
 ### Added
