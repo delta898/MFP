@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-04-06
+
+### Fixed
+- **macOS packaged sharp 경로 해석 보강**: 패키징된 앱에서 `sharp`가 unpacked 모듈을 찾고도 기본 경로로 떨어지던 문제를 수정해, `app.asar.unpacked/node_modules/sharp/lib/index.js`를 직접 우선 로드하도록 보완했습니다. 이로써 macOS 빌드에서 이미지 최적화가 더 안정적으로 동작하도록 정리했습니다.
+
 ## [0.1.9] - 2026-04-06
 
 ### Fixed
