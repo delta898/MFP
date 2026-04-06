@@ -15,12 +15,23 @@ const BG_TRENDS_SHORTCODE = 'trends_download_ui';
 const BG_TRENDS_MAX_CATEGORY_SELECTION = 3;
 const BG_TRENDS_ITEMS_PER_CATEGORY = 20;
 const BG_TRENDS_PREVIEW_LIMIT = BG_TRENDS_MAX_CATEGORY_SELECTION * BG_TRENDS_ITEMS_PER_CATEGORY;
+const BG_TRENDS_META_CACHE_TTL = 600;
+const BG_TRENDS_META_REQUEST_TIMEOUT = 8;
+const BG_TRENDS_PREVIEW_REQUEST_TIMEOUT = 10;
+const BG_TRENDS_EXPORT_REQUEST_TIMEOUT = 60;
 
 function bg_trends_api_base_url() {
     if (defined('BG_TRENDS_API_BASE_URL') && is_string(BG_TRENDS_API_BASE_URL) && BG_TRENDS_API_BASE_URL !== '') {
         return rtrim(BG_TRENDS_API_BASE_URL, '/');
     }
     return '';
+}
+
+function bg_trends_api_request_base_url() {
+    if (defined('BG_TRENDS_API_INTERNAL_BASE_URL') && is_string(BG_TRENDS_API_INTERNAL_BASE_URL) && BG_TRENDS_API_INTERNAL_BASE_URL !== '') {
+        return rtrim(BG_TRENDS_API_INTERNAL_BASE_URL, '/');
+    }
+    return bg_trends_api_base_url();
 }
 
 function bg_trends_api_token() {
@@ -49,11 +60,11 @@ function bg_trends_clean_redirect_url($url) {
     return remove_query_arg(array('bg_trends_error', 'trend_date', 'category', 'categories', 'preview'), $url);
 }
 
-function bg_trends_request_args() {
+function bg_trends_request_args($timeout = 30, $accept = 'application/json') {
     $args = array(
-        'timeout' => 30,
+        'timeout' => max(1, (int) $timeout),
         'headers' => array(
-            'Accept' => 'application/json',
+            'Accept' => $accept,
         ),
     );
     $token = bg_trends_api_token();
@@ -63,8 +74,12 @@ function bg_trends_request_args() {
     return $args;
 }
 
+function bg_trends_meta_cache_key() {
+    return 'bg_trends_meta_' . md5(bg_trends_api_request_base_url());
+}
+
 function bg_trends_fetch_meta() {
-    $base_url = bg_trends_api_base_url();
+    $base_url = bg_trends_api_request_base_url();
     if ($base_url === '') {
         return array(
             'success' => false,
@@ -74,7 +89,16 @@ function bg_trends_fetch_meta() {
         );
     }
 
-    $response = wp_remote_get($base_url . '/api/v1/trends/meta', bg_trends_request_args());
+    $cache_key = bg_trends_meta_cache_key();
+    $cached = get_transient($cache_key);
+    if (is_array($cached) && !empty($cached['success'])) {
+        return $cached;
+    }
+
+    $response = wp_remote_get(
+        $base_url . '/api/v1/trends/meta',
+        bg_trends_request_args(BG_TRENDS_META_REQUEST_TIMEOUT)
+    );
     if (is_wp_error($response)) {
         return array(
             'success' => false,
@@ -95,7 +119,7 @@ function bg_trends_fetch_meta() {
         );
     }
 
-    return array(
+    $result = array(
         'success' => true,
         'message' => '',
         'categories' => array_values(array_filter(array_map('strval', isset($body['categories']) && is_array($body['categories']) ? $body['categories'] : array()))),
@@ -104,6 +128,9 @@ function bg_trends_fetch_meta() {
             'max' => isset($body['dateRange']['max']) ? strval($body['dateRange']['max']) : '',
         ),
     );
+
+    set_transient($cache_key, $result, BG_TRENDS_META_CACHE_TTL);
+    return $result;
 }
 
 function bg_trends_selected_categories_from_request() {
@@ -171,7 +198,7 @@ function bg_trends_redirect_with_error($error_code, $trend_date, $categories, $r
 }
 
 function bg_trends_fetch_preview($trend_date, $categories, $limit = BG_TRENDS_PREVIEW_LIMIT) {
-    $base_url = bg_trends_api_base_url();
+    $base_url = bg_trends_api_request_base_url();
     if ($base_url === '') {
         return array(
             'success' => false,
@@ -189,7 +216,7 @@ function bg_trends_fetch_preview($trend_date, $categories, $limit = BG_TRENDS_PR
 
     $response = wp_remote_get(
         add_query_arg($query, $base_url . '/api/v1/trends'),
-        bg_trends_request_args()
+        bg_trends_request_args(BG_TRENDS_PREVIEW_REQUEST_TIMEOUT)
     );
 
     if (is_wp_error($response)) {
@@ -252,7 +279,7 @@ function bg_trends_build_export_url($trend_date, $categories) {
         $query['categories'] = implode(',', array_values($categories));
     }
 
-    return add_query_arg($query, bg_trends_api_base_url() . '/exports/trends.csv');
+    return add_query_arg($query, bg_trends_api_request_base_url() . '/exports/trends.csv');
 }
 
 function bg_trends_render_shortcode() {
@@ -931,7 +958,7 @@ function bg_trends_handle_download() {
         wp_die('잘못된 요청입니다.', 'Trends Download', array('response' => 403));
     }
 
-    $base_url = bg_trends_api_base_url();
+    $base_url = bg_trends_api_request_base_url();
     if ($base_url === '') {
         wp_die('BG_TRENDS_API_BASE_URL is not configured.', 'Trends Download', array('response' => 500));
     }
@@ -952,7 +979,7 @@ function bg_trends_handle_download() {
     }
 
     $response = wp_remote_get(bg_trends_build_export_url($trend_date, $categories), array(
-        'timeout' => 60,
+        'timeout' => BG_TRENDS_EXPORT_REQUEST_TIMEOUT,
         'headers' => bg_trends_request_args()['headers'],
     ));
 
