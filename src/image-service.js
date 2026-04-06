@@ -6,6 +6,7 @@ const { loadSharp } = require('./sharp-loader');
 let sharpInstance = null;
 let sharpLoadError = null;
 let sharpLoadLogged = false;
+let sharpLoadSource = '';
 
 function getSharp() {
     if (sharpInstance) {
@@ -19,6 +20,10 @@ function getSharp() {
     try {
         const loaded = loadSharp();
         sharpInstance = loaded.sharp;
+        sharpLoadSource = loaded.source || '';
+        if (sharpLoadSource) {
+            Logger.debug(`   ℹ️ sharp 로드 성공: ${sharpLoadSource}`);
+        }
         return sharpInstance;
     } catch (error) {
         sharpLoadError = error;

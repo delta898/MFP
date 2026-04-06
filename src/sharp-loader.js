@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const Module = require('module');
 
 function resolvePackagedModuleDir(moduleName, resourcesPath = process.resourcesPath) {
     if (!resourcesPath || typeof resourcesPath !== 'string') {
@@ -19,6 +20,42 @@ function resolvePackagedSharpEntry(resourcesPath = process.resourcesPath) {
     return fs.existsSync(entry) ? entry : '';
 }
 
+function listCandidateResourcesPaths(resourcesPath = process.resourcesPath, execPath = process.execPath) {
+    const candidates = [];
+    const seen = new Set();
+
+    const addCandidate = (value) => {
+        if (!value || typeof value !== 'string') {
+            return;
+        }
+        const normalized = path.resolve(value);
+        if (seen.has(normalized)) {
+            return;
+        }
+        seen.add(normalized);
+        candidates.push(normalized);
+    };
+
+    addCandidate(resourcesPath);
+
+    if (execPath && typeof execPath === 'string') {
+        addCandidate(path.resolve(path.dirname(execPath), '..', 'Resources'));
+        addCandidate(path.resolve(path.dirname(execPath), '..', '..', 'Resources'));
+    }
+
+    if (__dirname) {
+        addCandidate(path.resolve(__dirname, '..'));
+    }
+
+    return candidates;
+}
+
+function resolvePackagedSharpEntries(resourcesPath = process.resourcesPath, execPath = process.execPath) {
+    return listCandidateResourcesPaths(resourcesPath, execPath)
+        .map((candidateResourcesPath) => resolvePackagedSharpEntry(candidateResourcesPath))
+        .filter(Boolean);
+}
+
 function formatAttempt(source, error) {
     const reason = error && error.message ? error.message : 'unknown error';
     return `${source}: ${reason}`;
@@ -26,13 +63,20 @@ function formatAttempt(source, error) {
 
 function loadSharp() {
     const attempts = [];
-    const packagedSharpEntry = resolvePackagedSharpEntry();
+    const packagedSharpEntries = resolvePackagedSharpEntries();
 
-    if (packagedSharpEntry !== '') {
+    if (packagedSharpEntries.length === 0) {
+        attempts.push(
+            `packaged:none: checked=${listCandidateResourcesPaths().join(', ')}`
+        );
+    }
+
+    for (const packagedSharpEntry of packagedSharpEntries) {
         try {
+            const packagedRequire = Module.createRequire(packagedSharpEntry);
             return {
-                sharp: require(packagedSharpEntry),
-                source: packagedSharpEntry,
+                sharp: packagedRequire('sharp'),
+                source: `packaged:${packagedSharpEntry}`,
             };
         } catch (error) {
             attempts.push(formatAttempt(`packaged:${packagedSharpEntry}`, error));
@@ -55,6 +99,8 @@ function loadSharp() {
 
 module.exports = {
     loadSharp,
+    listCandidateResourcesPaths,
     resolvePackagedModuleDir,
     resolvePackagedSharpEntry,
+    resolvePackagedSharpEntries,
 };

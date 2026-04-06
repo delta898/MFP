@@ -4,7 +4,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { resolvePackagedModuleDir, resolvePackagedSharpEntry } = require('./sharp-loader');
+const {
+    listCandidateResourcesPaths,
+    resolvePackagedModuleDir,
+    resolvePackagedSharpEntries,
+    resolvePackagedSharpEntry
+} = require('./sharp-loader');
 
 test('resolvePackagedModuleDir returns unpacked module path when package.json exists', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sharp-loader-'));
@@ -30,6 +35,36 @@ test('resolvePackagedSharpEntry returns unpacked lib index path', () => {
         fs.writeFileSync(entry, 'module.exports = {};');
 
         assert.equal(resolvePackagedSharpEntry(resourcesPath), entry);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('resolvePackagedSharpEntries searches fallback resources path derived from execPath', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sharp-loader-fallback-'));
+    try {
+        const resourcesPath = path.join(root, 'BlogGenius.app', 'Contents', 'Resources');
+        const execPath = path.join(root, 'BlogGenius.app', 'Contents', 'MacOS', 'BlogGenius');
+        const entry = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', 'sharp', 'lib', 'index.js');
+        fs.mkdirSync(path.dirname(entry), { recursive: true });
+        fs.writeFileSync(entry, 'module.exports = {};');
+
+        const entries = resolvePackagedSharpEntries('', execPath);
+        assert.deepEqual(entries, [entry]);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('listCandidateResourcesPaths deduplicates equivalent resource directories', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sharp-loader-candidates-'));
+    try {
+        const resourcesPath = path.join(root, 'BlogGenius.app', 'Contents', 'Resources');
+        const execPath = path.join(root, 'BlogGenius.app', 'Contents', 'MacOS', 'BlogGenius');
+        const candidates = listCandidateResourcesPaths(resourcesPath, execPath);
+
+        assert.equal(candidates[0], path.resolve(resourcesPath));
+        assert.equal(candidates.filter((value) => value === path.resolve(resourcesPath)).length, 1);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
