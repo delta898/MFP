@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-04-06
+
+### Fixed
+- **macOS packaged sharp 로더 추가 보강**: 패키징된 앱이 `sharp`의 unpacked 경로를 더 안정적으로 찾도록 `process.resourcesPath`뿐 아니라 실행 파일 기준 `Contents/Resources` 후보도 함께 탐색하고, packaged 경로 기준 `createRequire`로 로드하도록 보완했습니다. 실패 시에는 실제로 확인한 후보 경로가 로그에 남아 원인 추적도 더 쉬워졌습니다.
+
 ## [0.1.10] - 2026-04-06
 
 ### Fixed
