@@ -78,10 +78,10 @@ validation 정책:
   - 첫 H1 제목이 없음
   - 포스팅 대상이 하나도 선택되지 않음
   - 예약 발행인데 예약 일시가 없음
-  - image block이 있는데 필수 이미지 파일을 찾지 못함
 - `warning`
   - markdown 형식은 읽히지만 일부 block이 애매함
   - 일부 이미지는 fallback 생성이 필요함
+  - image block에 대응하는 파일이 없으면 placeholder를 유지하고 기존 발행 엔진의 임시 저장 안전장치를 사용함
 
 ### 3. 실행
 - preview / validation 통과 후 `포스팅` 실행 가능
@@ -119,7 +119,7 @@ validation 정책:
 fallback 규칙:
 - 로컬 이미지 존재 -> 업로드 사용
 - 로컬 이미지 없음 + `이미지 생성=true` -> 기존 생성 흐름 사용 가능
-- 로컬 이미지 없음 + `이미지 생성=false` -> validation error 또는 warning 후 실행 차단
+- 로컬 이미지 없음 + `이미지 생성=false` -> warning 후 실행 허용, 기존 엔진에서 임시 저장으로 전환
 
 ## Architecture Direction
 - UI 전용 임시 기능이 아니라, 기존 포스팅 파이프라인이 받을 수 있는 새로운 source type으로 설계한다
@@ -183,7 +183,6 @@ fallback 규칙:
 
 ## Open Questions
 - preview에서 본문 전체를 다 보여줄지, 요약 + raw 보기 토글을 둘지
-- 이미지 누락을 1차에서 hard error로 둘지, warning + 실행 허용으로 둘지
 - 예약 발행의 경우 네이버/워드프레스별 지원 정책 차이를 UI에서 어떻게 드러낼지
 
 ## Validation Target

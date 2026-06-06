@@ -180,7 +180,26 @@ test('buildLocalMarkdownPreview returns resolved image info and warnings when fa
     assert.equal(preview.validation.ok, true);
 });
 
-test('buildLocalMarkdownPreview returns errors when title or required image is missing', () => {
+test('buildLocalMarkdownPreview keeps missing images as warnings when generation is disabled', () => {
+    const directoryPath = '/workspace/posts/golf';
+    const preview = buildLocalMarkdownPreview({
+        directoryPath,
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({
+            '/workspace/posts/golf/contents.md': '# 골프존\n\n본문'
+        }, [directoryPath]),
+        path: require('path'),
+        Utils: createUtilsStub()
+    });
+
+    assert.equal(preview.validation.ok, true);
+    assert.equal(preview.validation.errors.length, 0);
+    assert.equal(preview.validation.warnings.some((item) => item.includes('임시 저장')), true);
+});
+
+test('buildLocalMarkdownPreview still returns an error when the title is missing', () => {
     const directoryPath = '/workspace/posts/golf';
     const preview = buildLocalMarkdownPreview({
         directoryPath,
@@ -208,7 +227,8 @@ test('buildLocalMarkdownPreview returns errors when title or required image is m
 
     assert.equal(preview.validation.ok, false);
     assert.equal(preview.validation.errors.some((item) => item.includes('첫 번째 H1')), true);
-    assert.equal(preview.validation.errors.some((item) => item.includes('이미지 파일을 찾지 못했습니다')), true);
+    assert.equal(preview.validation.errors.some((item) => item.includes('이미지 파일을 찾지 못했습니다')), false);
+    assert.equal(preview.validation.warnings.some((item) => item.includes('이미지 파일을 찾지 못했습니다')), true);
 });
 
 test('buildLocalMarkdownPreview validates targets and schedule date', () => {

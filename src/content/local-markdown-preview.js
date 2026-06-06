@@ -171,7 +171,7 @@ function buildValidation({ title, rawMarkdown, targets, postStatus, scheduleDate
         if (imageGeneration) {
             warnings.push(`${message} 이미지 생성 fallback이 필요합니다.`);
         } else {
-            errors.push(`${message} 이미지 생성이 꺼져 있어 진행할 수 없습니다.`);
+            warnings.push(`${message} 이미지 블록을 유지한 채 임시 저장될 수 있습니다.`);
         }
     });
 

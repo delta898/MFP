@@ -8,6 +8,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Fixed
 - **사용자 지정 업데이트 서버 즉시 반영**: 앱 실행 중 업데이트 서버 URL 또는 채널을 변경해도 Updater가 시작 시점 설정과 이전 조회 캐시를 계속 사용하던 문제를 수정했습니다.
+- **원고 이미지 누락 시 임시 저장 허용**: 빠른 포스팅의 원고 선택에서 이미지 블록에 대응하는 파일이 없어도 실행을 차단하지 않고 경고만 표시하며, 기존 네이버·워드프레스 발행 안전장치에 따라 원고 본문을 임시 저장할 수 있도록 수정했습니다.
 
 ### Changed
 - **Google AI 모델 카탈로그 최신화**: Gemini 글쓰기 모델을 `Gemini 3.5 Flash`, `Gemini 3.1 Flash-Lite`, `Gemini 3.1 Pro Preview` 중심으로 정리하고, 이미지 모델을 안정화된 `Nano Banana 2`, `Nano Banana Pro` 코드로 전환했습니다. 종료된 Gemini 2.5 글쓰기 모델과 preview 모델은 신규 선택 목록에서 제거하되 기존 사용자 선택은 명시적으로 변경하기 전까지 보존됩니다. 아직 충분한 지원 기간이 남은 `Nano Banana (Gemini 2.5)`는 이미지 모델 선택지로 유지합니다.
