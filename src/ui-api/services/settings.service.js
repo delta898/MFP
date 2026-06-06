@@ -10,8 +10,9 @@ const {
     generateRemoteMcpBearerToken
 } = require('../../mcp/remote-config');
 const {
-    getAiPresets,
-    buildModelSelectionFromFields
+    getAiModelCatalog,
+    buildModelSelectionFromFields,
+    toStoredModelSelection
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 
@@ -158,7 +159,7 @@ function createSettingsService(deps = {}) {
 
             // 2. AI Settings
             if (!structuredConfig.ai_settings) structuredConfig.ai_settings = {};
-            const aiPresets = getAiPresets(structuredConfig);
+            const aiPresets = getAiModelCatalog();
             const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
             const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
             const warnings = [];
@@ -174,8 +175,9 @@ function createSettingsService(deps = {}) {
             if (imageModelConfig.provider === 'direct' && (!String(imageModelConfig.name || '').trim() || !String(imageModelConfig.base_url || '').trim())) {
                 warnings.push('이미지 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
             }
-            structuredConfig.ai_settings.TEXT_MODEL = textModelConfig;
-            structuredConfig.ai_settings.IMAGE_MODEL = imageModelConfig;
+            structuredConfig.ai_settings.TEXT_MODEL = toStoredModelSelection(textModelConfig, aiPresets);
+            structuredConfig.ai_settings.IMAGE_MODEL = toStoredModelSelection(imageModelConfig, aiPresets);
+            delete structuredConfig.ai_presets;
 
             // 3. Platforms
             if (!structuredConfig.platforms) structuredConfig.platforms = {};

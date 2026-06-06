@@ -38,5 +38,6 @@
 - `architecture/trends-backend-deployment.md`
 - `architecture/workspace-layout.md`
 - `architecture/ui-runtime-boundaries.md`
+- `architecture/ai-model-management.md`
 - `features/mcp-client-setup.md`
 - `plans/active/agent-redesign-plan.md`

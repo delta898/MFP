@@ -4442,7 +4442,10 @@ function getSettingsAiPresetProviders(kind) {
 
 function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
   if (!selectEl) return;
-  const providers = getSettingsAiPresetProviders(kind);
+  const catalogProviders = getSettingsAiPresetProviders(kind);
+  const providers = selectedProvider && !catalogProviders.includes(selectedProvider)
+    ? [selectedProvider, ...catalogProviders]
+    : catalogProviders;
   const labels = {
     gemini: 'Gemini',
     imagen4: 'Imagen 4',
@@ -4451,7 +4454,11 @@ function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
   };
   const resolvedProvider = providers.includes(selectedProvider) ? selectedProvider : (providers[0] || '');
   selectEl.innerHTML = providers
-    .map((provider) => `<option value="${provider}">${labels[provider] || provider}</option>`)
+    .map((provider) => {
+      const isUnavailable = provider === selectedProvider && !catalogProviders.includes(provider);
+      const label = labels[provider] || provider;
+      return `<option value="${provider}">${isUnavailable ? `${label} (현재 설정, 카탈로그에 없음)` : label}</option>`;
+    })
     .join('');
   if (resolvedProvider) {
     selectEl.value = resolvedProvider;
@@ -4462,15 +4469,21 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
   if (!selectEl) return;
   const presets = getSettingsAiPresetCatalog(kind).filter((item) => String(item.provider || '') === String(provider || ''));
   const fallback = presets[0] || null;
-  const selected = presets.find((item) => item.code === selectedCode) || fallback;
-  selectEl.innerHTML = presets
+  const configured = presets.find((item) => item.code === selectedCode) || null;
+  const unavailable = selectedCode && !configured
+    ? { code: selectedCode, name: `${selectedCode} (현재 설정, 카탈로그에 없음)`, unavailable: true }
+    : null;
+  const selected = configured || unavailable || fallback;
+  selectEl.innerHTML = [...(unavailable ? [unavailable] : []), ...presets]
     .map((item) => `<option value="${item.code}">${item.name || item.code}</option>`)
     .join('');
   if (selected?.code) {
     selectEl.value = selected.code;
   }
   if (summaryEl) {
-    if (String(provider || '') === 'gemini') {
+    if (selected?.unavailable) {
+      summaryEl.textContent = '현재 선택한 모델은 제품 카탈로그에 없습니다. 설정을 유지하거나 지원 모델로 변경할 수 있습니다.';
+    } else if (String(provider || '') === 'gemini') {
       summaryEl.textContent = 'Gemini Native API를 사용합니다.';
     } else if (String(provider || '') === 'imagen4') {
       summaryEl.textContent = 'Imagen Predict API를 사용합니다.';

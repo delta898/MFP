@@ -34,7 +34,7 @@ const {
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
-const { getAiPresets, buildModelSelectionFromFields } = require('./ai-model-config');
+const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
@@ -1015,7 +1015,7 @@ function buildMajorSettings(raw, configSource) {
             : null,
         remoteMcpStatus: getRemoteServiceStatus(),
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
-        aiPresets: getAiPresets(CONFIG),
+        aiPresets: getAiModelCatalog(),
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
         shoppingImageSlots: buildShoppingImageSlots(fields)
     };
@@ -1036,7 +1036,7 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const ctaImageUrl1 = String(fields.SHOPPING_CTA_IMAGE_URL1 || '').trim();
     const ctaImageUrl2 = String(fields.SHOPPING_CTA_IMAGE_URL2 || '').trim();
     const ctaImageUrl3 = String(fields.SHOPPING_CTA_IMAGE_URL3 || '').trim();
-    const aiPresets = getAiPresets(CONFIG);
+    const aiPresets = getAiModelCatalog();
     const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
     const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
     const autoSettings = normalizeBlogAutoSettings(fields);
@@ -1208,7 +1208,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const updateServerType = String(requestBody.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
     const customUpdateCheckUrl = String(requestBody.CUSTOM_UPDATE_CHECK_URL || '').trim();
     const updateMirrorRepo = String(requestBody.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
-    const aiPresets = getAiPresets(CONFIG);
+    const aiPresets = getAiModelCatalog();
     const textModelConfig = buildModelSelectionFromFields('text', requestBody, aiPresets);
     const imageModelConfig = buildModelSelectionFromFields('image', requestBody, aiPresets);
 

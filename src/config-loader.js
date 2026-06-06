@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
-const { getAiPresets, resolveAiModelConfig } = require('./ai-model-config');
+const { getAiModelCatalog, resolveAiModelConfig } = require('./ai-model-config');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -227,7 +227,7 @@ delete structuredConfig.__CONFIG_SOURCE_TYPE;
 delete structuredConfig.__CONFIG_READY;
 delete structuredConfig.__CONFIG_ERROR_MESSAGE;
 
-const aiPresets = getAiPresets(structuredConfig);
+const aiPresets = getAiModelCatalog();
 const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');
 const resolvedImageModelConfig = resolveAiModelConfig(structuredConfig, 'image');
 const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';

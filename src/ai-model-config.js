@@ -1,32 +1,8 @@
-const CLAUDE_OPENAI_BASE_URL = 'https://api.anthropic.com/v1';
-
-const DEFAULT_TEXT_PRESETS = [
-    { name: 'Gemini 3.1 Pro Preview', code: 'gemini-3.1-pro-preview', provider: 'gemini', base_url: '' },
-    { name: 'Gemini 3 Flash Preview', code: 'gemini-3-flash-preview', provider: 'gemini', base_url: '' },
-    { name: 'Gemini 3.1 Flash Lite Preview', code: 'gemini-3.1-flash-lite-preview', provider: 'gemini', base_url: '' },
-    { name: 'Gemini 2.5 Flash', code: 'gemini-2.5-flash', provider: 'gemini', base_url: '' },
-    { name: 'Gemini 2.5 Flash Lite', code: 'gemini-2.5-flash-lite', provider: 'gemini', base_url: '' },
-    { name: 'Gemini 2.5 Pro', code: 'gemini-2.5-pro', provider: 'gemini', base_url: '' },
-    { name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
-    { name: 'Claude Sonnet 4.6', code: 'claude-sonnet-4-6', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
-    { name: 'Claude Haiku 4.5', code: 'claude-haiku-4-5', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
-    { name: 'Claude Opus 4.5', code: 'claude-opus-4-5', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL },
-    { name: 'Claude Sonnet 4.5', code: 'claude-sonnet-4-5', provider: 'anthropic', base_url: CLAUDE_OPENAI_BASE_URL }
-];
-
-const DEFAULT_IMAGE_PRESETS = [
-    { name: 'Nano Banana 2', code: 'gemini-3.1-flash-image-preview', provider: 'gemini', base_url: '' },
-    { name: 'Nano Banana Pro', code: 'gemini-3-pro-image-preview', provider: 'gemini', base_url: '' },
-    { name: 'Nano Banana', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: '' },
-    { name: 'Imagen 4', code: 'imagen-4.0-generate-001', provider: 'imagen4', base_url: '' },
-    { name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', base_url: '' },
-    { name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', base_url: '' }
-];
-
-const DEFAULT_MODEL_CODES = {
-    text: 'gemini-3.1-flash-lite-preview',
-    image: 'gemini-3.1-flash-image-preview'
-};
+const {
+    CLAUDE_OPENAI_BASE_URL,
+    DEFAULT_MODEL_CODES,
+    getAiModelCatalog
+} = require('./ai-model-catalog');
 
 function normalizeProvider(value) {
     const raw = trimString(value).toLowerCase();
@@ -67,38 +43,9 @@ function deriveModelDisplayName(code) {
         .join(' ');
 }
 
-function normalizePresetEntry(entry = {}) {
-    const code = trimString(entry.code);
-    const provider = trimString(entry.provider || 'gemini').toLowerCase() || 'gemini';
-    return {
-        name: trimString(entry.name) || deriveModelDisplayName(code),
-        code,
-        provider,
-        base_url: normalizeBaseUrl(entry.base_url),
-        api_key: trimString(entry.api_key)
-    };
-}
-
-function normalizePresetList(list = []) {
-    if (!Array.isArray(list)) return [];
-    return list
-        .map((item) => normalizePresetEntry(item))
-        .filter((item) => item.code);
-}
-
-function getAiPresets(structuredConfig = {}) {
-    const configured = structuredConfig?.ai_presets || {};
-    const text = normalizePresetList(configured.text);
-    const image = normalizePresetList(configured.image);
-    return {
-        text: text.length > 0 ? text : normalizePresetList(DEFAULT_TEXT_PRESETS),
-        image: image.length > 0 ? image : normalizePresetList(DEFAULT_IMAGE_PRESETS)
-    };
-}
-
 function findPresetByCode(presets = [], code = '', provider = '') {
     const normalizedCode = trimString(code);
-    const normalizedProvider = normalizeProvider(provider);
+    const normalizedProvider = trimString(provider) ? normalizeProvider(provider) : '';
     if (!normalizedCode) return null;
     return presets.find((item) => {
         if (item.code !== normalizedCode) return false;
@@ -117,10 +64,11 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
     const legacyApiKey = trimString(options.legacyApiKey);
     const provider = normalizeProvider(raw.provider || fallbackPreset?.provider || 'gemini');
     const code = trimString(raw.code || raw.name || fallbackPreset?.code);
-    const preset = findPresetByCode(presets, code, provider) || findPresetByCode(presets, code) || fallbackPreset;
+    const exactPreset = findPresetByCode(presets, code, provider) || findPresetByCode(presets, code);
     const isDirect = provider === 'direct';
 
     if (!isDirect) {
+        const preset = exactPreset || (!code ? fallbackPreset : null);
         const resolvedProvider = normalizeProvider(preset?.provider || provider);
         const resolvedCode = trimString(preset?.code || code || fallbackPreset?.code);
         const resolvedBaseUrl = normalizeBaseUrl(
@@ -132,7 +80,8 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
             name: trimString(raw.name) || trimString(preset?.name) || deriveModelDisplayName(resolvedCode),
             code: resolvedCode,
             base_url: resolvedBaseUrl,
-            api_key: apiKey
+            api_key: apiKey,
+            catalog_status: exactPreset || preset ? 'available' : 'unavailable'
         };
     }
 
@@ -146,7 +95,7 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
 }
 
 function resolveAiModelConfig(structuredConfig = {}, kind = 'text') {
-    const presets = getAiPresets(structuredConfig);
+    const presets = getAiModelCatalog();
     const presetList = kind === 'image' ? presets.image : presets.text;
     const fallbackPreset = getDefaultPreset(kind, presetList);
     const key = kind === 'image' ? 'IMAGE_MODEL' : 'TEXT_MODEL';
@@ -158,7 +107,7 @@ function resolveAiModelConfig(structuredConfig = {}, kind = 'text') {
 }
 
 function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = null) {
-    const presetCatalog = presets || getAiPresets({});
+    const presetCatalog = presets || getAiModelCatalog();
     const presetList = kind === 'image' ? presetCatalog.image : presetCatalog.text;
     const fallbackPreset = getDefaultPreset(kind, presetList);
     const prefix = kind === 'image' ? 'IMAGE_MODEL' : 'TEXT_MODEL';
@@ -166,12 +115,12 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
 
     if (provider !== 'direct') {
         const code = trimString(fields[`${prefix}_PRESET_CODE`] || fallbackPreset?.code);
-        const preset = findPresetByCode(presetList, code, provider) || findPresetByCode(presetList, code) || fallbackPreset;
+        const preset = findPresetByCode(presetList, code, provider) || findPresetByCode(presetList, code);
         return normalizeModelSelection({
-            name: preset?.name,
-            code: preset?.code,
-            provider: preset?.provider,
-            base_url: preset?.base_url,
+            name: preset?.name || trimString(fields[`${prefix}_NAME`]),
+            code: preset?.code || code,
+            provider: preset?.provider || provider,
+            base_url: preset?.base_url || trimString(fields[`${prefix}_BASE_URL`]),
             api_key: trimString(fields[`${prefix}_API_KEY`])
         }, presetList, fallbackPreset);
     }
@@ -185,14 +134,49 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
     }, presetList, fallbackPreset);
 }
 
+function toStoredModelSelection(modelConfig = {}, presets = null) {
+    const normalized = modelConfig && typeof modelConfig === 'object' ? modelConfig : {};
+    const provider = normalizeProvider(normalized.provider);
+    const code = trimString(normalized.code);
+    const apiKey = trimString(normalized.api_key);
+
+    if (provider === 'direct') {
+        return {
+            provider,
+            name: trimString(normalized.name),
+            code,
+            base_url: normalizeBaseUrl(normalized.base_url),
+            api_key: apiKey
+        };
+    }
+
+    const catalog = presets || getAiModelCatalog();
+    const allPresets = [...catalog.text, ...catalog.image];
+    const knownPreset = findPresetByCode(allPresets, code, provider);
+    if (knownPreset) {
+        return {
+            provider: knownPreset.provider,
+            code: knownPreset.code,
+            api_key: apiKey
+        };
+    }
+
+    return {
+        provider,
+        name: trimString(normalized.name) || deriveModelDisplayName(code),
+        code,
+        base_url: normalizeBaseUrl(normalized.base_url || getProviderDefaultBaseUrl(provider)),
+        api_key: apiKey
+    };
+}
+
 module.exports = {
     CLAUDE_OPENAI_BASE_URL,
-    DEFAULT_TEXT_PRESETS,
-    DEFAULT_IMAGE_PRESETS,
     deriveModelDisplayName,
-    getAiPresets,
+    getAiModelCatalog,
     resolveAiModelConfig,
     buildModelSelectionFromFields,
+    toStoredModelSelection,
     normalizeBaseUrl,
     getProviderDefaultBaseUrl
 };

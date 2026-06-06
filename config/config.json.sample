@@ -5,127 +5,15 @@
     "listen_port": 4577,
     "workspace_dir": "./workspace"
   },
-  "ai_presets": {
-    "text": [
-      {
-        "name": "Gemini 3.1 Pro Preview",
-        "code": "gemini-3.1-pro-preview",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Gemini 3 Flash Preview",
-        "code": "gemini-3-flash-preview",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Gemini 3.1 Flash Lite Preview",
-        "code": "gemini-3.1-flash-lite-preview",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Gemini 2.5 Flash",
-        "code": "gemini-2.5-flash",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Gemini 2.5 Flash Lite",
-        "code": "gemini-2.5-flash-lite",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Gemini 2.5 Pro",
-        "code": "gemini-2.5-pro",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Claude Opus 4.6",
-        "code": "claude-opus-4-6",
-        "provider": "anthropic",
-        "base_url": "https://api.anthropic.com/v1"
-      },
-      {
-        "name": "Claude Sonnet 4.6",
-        "code": "claude-sonnet-4-6",
-        "provider": "anthropic",
-        "base_url": "https://api.anthropic.com/v1"
-      },
-      {
-        "name": "Claude Haiku 4.5",
-        "code": "claude-haiku-4-5",
-        "provider": "anthropic",
-        "base_url": "https://api.anthropic.com/v1"
-      },
-      {
-        "name": "Claude Opus 4.5",
-        "code": "claude-opus-4-5",
-        "provider": "anthropic",
-        "base_url": "https://api.anthropic.com/v1"
-      },
-      {
-        "name": "Claude Sonnet 4.5",
-        "code": "claude-sonnet-4-5",
-        "provider": "anthropic",
-        "base_url": "https://api.anthropic.com/v1"
-      }
-    ],
-    "image": [
-      {
-        "name": "Nano Banana 2",
-        "code": "gemini-3.1-flash-image-preview",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Nano Banana Pro",
-        "code": "gemini-3-pro-image-preview",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Nano Banana",
-        "code": "gemini-2.5-flash-image",
-        "provider": "gemini",
-        "base_url": ""
-      },
-      {
-        "name": "Imagen 4",
-        "code": "imagen-4.0-generate-001",
-        "provider": "imagen4",
-        "base_url": ""
-      },
-      {
-        "name": "Imagen 4 Ultra",
-        "code": "imagen-4.0-ultra-generate-001",
-        "provider": "imagen4",
-        "base_url": ""
-      },
-      {
-        "name": "Imagen 4 Fast",
-        "code": "imagen-4.0-fast-generate-001",
-        "provider": "imagen4",
-        "base_url": ""
-      }
-    ]
-  },
   "ai_settings": {
     "TEXT_MODEL": {
       "provider": "gemini",
-      "name": "Gemini 3.1 Flash Lite Preview",
-      "code": "gemini-3.1-flash-lite-preview",
-      "base_url": "",
+      "code": "gemini-3.1-flash-lite",
       "api_key": ""
     },
     "IMAGE_MODEL": {
       "provider": "gemini",
-      "name": "Nano Banana 2",
-      "code": "gemini-3.1-flash-image-preview",
-      "base_url": "",
+      "code": "gemini-3.1-flash-image",
       "api_key": ""
     },
     "image_style": "photorealistic",

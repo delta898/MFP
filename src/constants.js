@@ -33,9 +33,9 @@ module.exports = {
     PROMPT_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
 
     // 🔒 API 엔드포인트 (변경 없음)
-    GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+    GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
 
-    GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
+    GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent',
 
     // 🔒 기본 대기 시간 (변경 없음)
     WAIT: {
