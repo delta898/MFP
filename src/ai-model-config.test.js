@@ -19,7 +19,7 @@ test('AI model catalog is code-owned and returned as an isolated copy', () => {
     assert.notEqual(second.text[0].name, 'changed');
 });
 
-test('AI model catalog contains current Google models and excludes obsolete selections', () => {
+test('AI model catalog contains supported Google models and excludes unavailable selections', () => {
     const catalog = getAiModelCatalog();
     const textCodes = catalog.text.map((item) => item.code);
     const imageCodes = catalog.image.map((item) => item.code);
@@ -31,7 +31,8 @@ test('AI model catalog contains current Google models and excludes obsolete sele
     ]);
     assert.deepEqual(imageCodes.filter((code) => code.startsWith('gemini-')), [
         'gemini-3.1-flash-image',
-        'gemini-3-pro-image'
+        'gemini-3-pro-image',
+        'gemini-2.5-flash-image'
     ]);
 
     const obsoleteCodes = [
@@ -41,8 +42,7 @@ test('AI model catalog contains current Google models and excludes obsolete sele
         'gemini-2.5-flash-lite',
         'gemini-2.5-pro',
         'gemini-3.1-flash-image-preview',
-        'gemini-3-pro-image-preview',
-        'gemini-2.5-flash-image'
+        'gemini-3-pro-image-preview'
     ];
     const supportedCodes = new Set([...textCodes, ...imageCodes]);
     obsoleteCodes.forEach((code) => assert.equal(supportedCodes.has(code), false));

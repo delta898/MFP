@@ -14,6 +14,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
 const IMAGE_MODEL_PRESETS = Object.freeze([
     { name: 'Nano Banana 2', code: 'gemini-3.1-flash-image', provider: 'gemini', base_url: '' },
     { name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'gemini', base_url: '' },
+    { name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'gemini', base_url: '' },
     { name: 'Imagen 4', code: 'imagen-4.0-generate-001', provider: 'imagen4', base_url: '' },
     { name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', base_url: '' },
     { name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', base_url: '' }
