@@ -40,4 +40,5 @@
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
 - `features/mcp-client-setup.md`
+- `features/blog-writing-style.md`
 - `plans/active/agent-redesign-plan.md`

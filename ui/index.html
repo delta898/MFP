@@ -1438,6 +1438,43 @@
               style="grid-column: 1 / -1; font-size: 0.85rem; color: #666; margin-top: -12px; margin-bottom: 8px;">
             </div>
 
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">콘텐츠 문체</div>
+            <div class="form-field-block">
+              <span class="field-label-text">표현 방식</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 표현 방식">
+                <label>
+                  <input id="settings-blog-writing-mode-conversational" type="radio" name="settings-blog-writing-mode"
+                    value="conversational">
+                  <span>구어체</span>
+                </label>
+                <label>
+                  <input id="settings-blog-writing-mode-written" type="radio" name="settings-blog-writing-mode"
+                    value="written">
+                  <span>문어체</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-field-block">
+              <span class="field-label-text">높임 방식</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 높임 방식">
+                <label>
+                  <input id="settings-blog-speech-level-polite" type="radio" name="settings-blog-speech-level"
+                    value="polite">
+                  <span>존댓말</span>
+                </label>
+                <label>
+                  <input id="settings-blog-speech-level-plain" type="radio" name="settings-blog-speech-level"
+                    value="plain">
+                  <span>평어(반말)</span>
+                </label>
+              </div>
+            </div>
+            <div id="settings-blog-writing-style-description" class="settings-writing-style-description"
+              style="grid-column: 1 / -1;" aria-live="polite">
+              <span class="settings-writing-style-label">예상 문체</span>
+              <strong>친근하고 자연스러운 후기형 문체</strong>
+            </div>
+
             <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">발행 옵션</div>
             <div class="form-field-block">
               <span class="field-label-text">이미지 용량 최적화</span>

@@ -3,6 +3,9 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **블로그 문체 개인화 설정**: 블로그 설정에서 구어체/문어체와 존댓말/평어를 선택하고, 네 가지 조합의 예상 문체를 확인한 뒤 콘텐츠 생성 프롬프트에 반영할 수 있습니다.
+
 ### Fixed
 - **사용자 지정 업데이트 서버 즉시 반영**: 앱 실행 중 업데이트 서버 URL 또는 채널을 변경해도 Updater가 시작 시점 설정과 이전 조회 캐시를 계속 사용하던 문제를 수정했습니다.
 

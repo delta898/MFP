@@ -11,6 +11,7 @@ const BrowserLauncher = require('./browser-launcher');
 const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
+const { buildWritingStylePrompt } = require('./content/writing-style');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1702,6 +1703,10 @@ ${messageText}
 			throw new Error(`시스템 프롬프트 파일이 없습니다: ${promptPath}`);
 		}
 		const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
+		const writingStylePrompt = buildWritingStylePrompt({
+			writing_mode: CONFIG.BLOG_WRITING_MODE,
+			speech_level: CONFIG.BLOG_SPEECH_LEVEL
+		});
 
 		// 4) 참고 컨텍스트 구성
 		let referenceSection = "(No reference provided)";
@@ -1731,9 +1736,13 @@ ${scrapedContext}`;
 
 		// 3) Gemini 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
-		const rawResult = await Utils.callWritingText(systemPrompt + '\n' + userPrompt, 3, {
-			responseMimeType: 'application/json'
-		});
+		const rawResult = await Utils.callWritingText(
+			`${systemPrompt}\n\n${writingStylePrompt}\n${userPrompt}`,
+			3,
+			{
+				responseMimeType: 'application/json'
+			}
+		);
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
 
 		// 4) JSON 파싱

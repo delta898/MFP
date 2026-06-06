@@ -35,6 +35,7 @@ const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remot
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
 const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
+const { normalizeWritingStyle } = require('./content/writing-style');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
@@ -921,6 +922,8 @@ function buildMajorSettings(raw, configSource) {
         WORDPRESS_URL: CONFIG.WORDPRESS_URL,
         WORDPRESS_USER_ID: CONFIG.WORDPRESS_USER_ID,
         WORDPRESS_APP_PASSWORD: CONFIG.WORDPRESS_APP_PASSWORD,
+        BLOG_WRITING_MODE: CONFIG.BLOG_WRITING_MODE || 'conversational',
+        BLOG_SPEECH_LEVEL: CONFIG.BLOG_SPEECH_LEVEL || 'polite',
         GOOGLE_SHEET_URL: CONFIG.GOOGLE_SHEET_URL,
         HEADLESS: CONFIG.HEADLESS,
         IMAGE_OPTIMIZATION_ENABLED: CONFIG.IMAGE_OPTIMIZATION_ENABLED,
@@ -1028,6 +1031,10 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const wordpressUrl = String(fields.WORDPRESS_URL || '').trim();
     const wordpressUserId = String(fields.WORDPRESS_USER_ID || '').trim();
     const wordpressAppPassword = String(fields.WORDPRESS_APP_PASSWORD || '').trim();
+    const writingStyle = normalizeWritingStyle({
+        writing_mode: fields.BLOG_WRITING_MODE,
+        speech_level: fields.BLOG_SPEECH_LEVEL
+    });
     const googleSheetUrl = normalizeGoogleSheetUrl(fields.GOOGLE_SHEET_URL, CONFIG.GOOGLE_SHEET_ID);
     const googleSheetId = extractGoogleSheetId(googleSheetUrl);
     const headless = Boolean(fields.HEADLESS);
@@ -1053,6 +1060,8 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.WORDPRESS_URL = wordpressUrl;
     CONFIG.WORDPRESS_USER_ID = wordpressUserId;
     CONFIG.WORDPRESS_APP_PASSWORD = wordpressAppPassword;
+    CONFIG.BLOG_WRITING_MODE = writingStyle.writing_mode;
+    CONFIG.BLOG_SPEECH_LEVEL = writingStyle.speech_level;
     CONFIG.LISTEN_HOST = listenHost;
     CONFIG.LISTEN_PORT = listenPort;
     CONFIG.GOOGLE_SHEET_URL = googleSheetUrl;
@@ -1168,6 +1177,10 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const wordpressUrl = String(requestBody.WORDPRESS_URL || '').trim();
     const wordpressUserId = String(requestBody.WORDPRESS_USER_ID || '').trim();
     const wordpressAppPassword = String(requestBody.WORDPRESS_APP_PASSWORD || '').trim();
+    const writingStyle = normalizeWritingStyle({
+        writing_mode: requestBody.BLOG_WRITING_MODE,
+        speech_level: requestBody.BLOG_SPEECH_LEVEL
+    });
     const googleSheetUrl = normalizeGoogleSheetUrl(requestBody.GOOGLE_SHEET_URL, requestBody.GOOGLE_SHEET_ID);
     const headless = normalizeBool(requestBody.HEADLESS, false);
     const typingSpeed = normalizeTypingSpeed(requestBody.TYPING_SPEED, 'NORMAL');
@@ -1222,6 +1235,8 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         WORDPRESS_URL: wordpressUrl,
         WORDPRESS_USER_ID: wordpressUserId,
         WORDPRESS_APP_PASSWORD: wordpressAppPassword,
+        BLOG_WRITING_MODE: writingStyle.writing_mode,
+        BLOG_SPEECH_LEVEL: writingStyle.speech_level,
         GOOGLE_SHEET_URL: googleSheetUrl,
         HEADLESS: headless,
         IMAGE_OPTIMIZATION_ENABLED: imageOptimizationEnabled,

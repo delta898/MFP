@@ -197,7 +197,15 @@ function createSettingsService(deps = {}) {
             structuredConfig.platforms.wordpress.user_id = fields.WORDPRESS_USER_ID;
             structuredConfig.platforms.wordpress.app_password = fields.WORDPRESS_APP_PASSWORD;
 
-            // 4. Automation
+            // 4. Content preferences
+            if (!structuredConfig.content) structuredConfig.content = {};
+            if (!structuredConfig.content.blog) structuredConfig.content.blog = {};
+            structuredConfig.content.blog.writing_style = {
+                writing_mode: fields.BLOG_WRITING_MODE,
+                speech_level: fields.BLOG_SPEECH_LEVEL
+            };
+
+            // 5. Automation
             if (!structuredConfig.automation) structuredConfig.automation = {};
             if (!structuredConfig.automation.collect) structuredConfig.automation.collect = {};
 

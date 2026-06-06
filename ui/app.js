@@ -3876,6 +3876,33 @@ async function runBlogBatchAction() {
   }
 }
 
+const BLOG_WRITING_STYLE_DESCRIPTIONS = {
+  'conversational:polite': '친근하고 자연스러운 후기형 문체',
+  'conversational:plain': '편안하고 자유로운 일기·SNS형 문체',
+  'written:polite': '정돈되고 신뢰감 있는 정보·전문형 문체',
+  'written:plain': '간결하고 객관적인 설명문·칼럼형 문체'
+};
+
+function getSelectedSettingsRadioValue(name, fallback) {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+}
+
+function setSelectedSettingsRadioValue(name, value, fallback) {
+  const targetValue = String(value || fallback);
+  const target = document.querySelector(`input[name="${name}"][value="${targetValue}"]`)
+    || document.querySelector(`input[name="${name}"][value="${fallback}"]`);
+  if (target) target.checked = true;
+}
+
+function syncSettingsBlogWritingStyleDescription() {
+  const writingMode = getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational');
+  const speechLevel = getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite');
+  const description = BLOG_WRITING_STYLE_DESCRIPTIONS[`${writingMode}:${speechLevel}`]
+    || BLOG_WRITING_STYLE_DESCRIPTIONS['conversational:polite'];
+  const target = document.querySelector('#settings-blog-writing-style-description strong');
+  if (target) target.textContent = description;
+}
+
 function applySettingsMajorToForm(data, options = {}) {
   const fields = data?.fields || {};
   const skipFocused = options.skipFocused === true;
@@ -3971,6 +3998,9 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
+  setSelectedSettingsRadioValue('settings-blog-writing-mode', fields.BLOG_WRITING_MODE, 'conversational');
+  setSelectedSettingsRadioValue('settings-blog-speech-level', fields.BLOG_SPEECH_LEVEL, 'polite');
+  syncSettingsBlogWritingStyleDescription();
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
   sv(updateServerTypeEl, fields.UPDATE_SERVER_TYPE || 'github');
   sv(updateMirrorRepoEl, fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases');
@@ -4153,6 +4183,8 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
+    BLOG_WRITING_MODE: getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational'),
+    BLOG_SPEECH_LEVEL: getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite'),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
     CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),
@@ -7985,6 +8017,8 @@ function bindActions() {
     document.getElementById('shopping-publish-auto-notify-enabled'),
     document.getElementById('settings-notify-telegram-enabled'),
     document.getElementById('settings-notify-slack-enabled'),
+    ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-mode"]')),
+    ...Array.from(document.querySelectorAll('input[name="settings-blog-speech-level"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
@@ -8237,7 +8271,12 @@ function bindActions() {
     selectEl.addEventListener('change', () => scheduleSettingsMajorAutoSave({ immediate: true }));
   });
   settingsMajorAutoSaveChecks.forEach((checkEl) => {
-    checkEl.addEventListener('change', () => scheduleSettingsMajorAutoSave({ immediate: true }));
+    checkEl.addEventListener('change', () => {
+      if (checkEl.name === 'settings-blog-writing-mode' || checkEl.name === 'settings-blog-speech-level') {
+        syncSettingsBlogWritingStyleDescription();
+      }
+      scheduleSettingsMajorAutoSave({ immediate: true });
+    });
   });
   SETTINGS_SHOPPING_SLOT_ORDER.forEach((slot) => {
     const fileInput = document.getElementById(`settings-image-file-${slot}`);

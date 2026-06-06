@@ -3,6 +3,7 @@ const path = require('path');
 const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
 const { getAiModelCatalog, resolveAiModelConfig } = require('./ai-model-config');
+const { normalizeWritingStyle } = require('./content/writing-style');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -230,6 +231,7 @@ delete structuredConfig.__CONFIG_ERROR_MESSAGE;
 const aiPresets = getAiModelCatalog();
 const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');
 const resolvedImageModelConfig = resolveAiModelConfig(structuredConfig, 'image');
+const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
 const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';
 const geminiImageModelCode = resolvedImageModelConfig.provider === 'gemini' ? resolvedImageModelConfig.code : '';
 
@@ -364,6 +366,8 @@ const CONFIG = {
     WORDPRESS_URL: structuredConfig.platforms.wordpress.url,
     WORDPRESS_USER_ID: structuredConfig.platforms.wordpress.user_id,
     WORDPRESS_APP_PASSWORD: structuredConfig.platforms.wordpress.app_password,
+    BLOG_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
+    BLOG_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
     AUTH_FILE_PATH: resolvedAuthPath,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,

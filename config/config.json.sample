@@ -5,6 +5,14 @@
     "listen_port": 4577,
     "workspace_dir": "./workspace"
   },
+  "content": {
+    "blog": {
+      "writing_style": {
+        "writing_mode": "conversational",
+        "speech_level": "polite"
+      }
+    }
+  },
   "ai_settings": {
     "TEXT_MODEL": {
       "provider": "gemini",

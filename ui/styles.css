@@ -1341,6 +1341,78 @@ h2 {
   height: 16px;
 }
 
+.settings-segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-height: 40px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+}
+
+.settings-segmented-control label {
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.settings-segmented-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-segmented-control span {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  transition: var(--transition);
+}
+
+.settings-segmented-control input:checked + span {
+  color: #1d4ed8;
+  background: var(--surface-solid);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
+}
+
+.settings-segmented-control input:focus-visible + span {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 1px;
+}
+
+.settings-writing-style-description {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d8e2f1;
+  border-radius: var(--radius-sm);
+  background: #f8fbff;
+  color: #334155;
+  font-size: 13px;
+}
+
+.settings-writing-style-label {
+  flex: 0 0 auto;
+  color: #64748b;
+}
+
+.settings-writing-style-description strong {
+  font-size: 13px;
+  color: #1e3a5f;
+}
+
 #blog-tab-auto label,
 #blog-tab-auto .form-field-block,
 #blog-tab-auto .field-label-text {
