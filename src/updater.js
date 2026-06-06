@@ -14,15 +14,13 @@ const { APP_VERSION } = require('./constants');
 class Updater {
     constructor() {
         this.currentVersion = APP_VERSION;
-        this.repo = CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO;
-        this.updateServerType = CONFIG.UPDATE_SERVER_TYPE || 'github';
-        this.customUpdateCheckUrl = CONFIG.CUSTOM_UPDATE_CHECK_URL;
         this.appRootDir = CONFIG.APP_ROOT_DIR;
         this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
         this.isUpdating = false;
         this.lastCheck = 0;
         this.updateInfo = null;
         this.lastCheckWasForced = false;
+        this.lastUpdateSourceKey = '';
 
         // 보존할 대상 (업데이트 시 절대 건드리지 않음)
         this.preserveList = ['config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store'];
@@ -40,6 +38,14 @@ class Updater {
         // 다운로드 취소용 AbortController
         this._cancelController = null;
         this._pendingExternalRestart = null;
+    }
+
+    getUpdateServerType() {
+        return String(CONFIG.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
+    }
+
+    getUpdateMirrorRepo() {
+        return String(CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO || '').trim();
     }
 
     normalizeUpdateDetails(release = {}) {
@@ -77,15 +83,25 @@ class Updater {
     }
 
     getCustomManifestUrl() {
-        const raw = String(this.customUpdateCheckUrl || '').trim();
+        const raw = String(CONFIG.CUSTOM_UPDATE_CHECK_URL || '').trim();
         if (!raw) return '';
         if (/\.json(\?.*)?$/i.test(raw)) return raw;
         return `${raw.replace(/\/+$/, '')}/update.json`;
     }
 
+    getUpdateSourceKey() {
+        return JSON.stringify({
+            type: this.getUpdateServerType(),
+            manifestUrl: this.getCustomManifestUrl(),
+            repo: this.getUpdateMirrorRepo(),
+            channel: String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase(),
+            role: String(CONFIG.USER_ROLE || '').trim().toLowerCase()
+        });
+    }
+
     async fetchReleases() {
         const customManifestUrl = this.getCustomManifestUrl();
-        if (this.updateServerType === 'custom' && customManifestUrl) {
+        if (this.getUpdateServerType() === 'custom' && customManifestUrl) {
             Logger.debug(`📂 [Updater] 커스텀 서버에서 업데이트 체크: ${customManifestUrl}`);
             const response = await axios.get(customManifestUrl, {
                 timeout: 5000
@@ -93,7 +109,7 @@ class Updater {
             return Array.isArray(response.data) ? response.data : [response.data];
         }
 
-        const url = `https://api.github.com/repos/${this.repo}/releases`;
+        const url = `https://api.github.com/repos/${this.getUpdateMirrorRepo()}/releases`;
         const response = await axios.get(url, {
             headers: { 'User-Agent': 'BlogGenius-Updater' },
             timeout: 5000
@@ -103,7 +119,7 @@ class Updater {
 
     async enrichReleaseWithManifest(release = null) {
         if (!release || typeof release !== 'object') return release;
-        if (this.updateServerType !== 'github') return release;
+        if (this.getUpdateServerType() !== 'github') return release;
 
         const manifestAsset = Array.isArray(release.assets)
             ? release.assets.find((asset) => String(asset?.name || '').trim().toLowerCase() === 'update.json')
@@ -196,6 +212,15 @@ class Updater {
     async checkForUpdate(options = {}) {
         const force = options.force === true;
         const now = Date.now();
+        const updateSourceKey = this.getUpdateSourceKey();
+        if (this.lastUpdateSourceKey && this.lastUpdateSourceKey !== updateSourceKey) {
+            Logger.info('🔄 [Updater] 업데이트 소스 또는 채널 변경 감지: 이전 조회 캐시를 초기화합니다.');
+            this.lastCheck = 0;
+            this.updateInfo = null;
+            this.lastCheckWasForced = false;
+        }
+        this.lastUpdateSourceKey = updateSourceKey;
+
         if (!force && this.updateInfo && !this.lastCheckWasForced && (now - this.lastCheck < 60000)) {
             return this.updateInfo;
         }
@@ -391,7 +416,7 @@ class Updater {
             let downloadUrl = asset.browser_download_url;
             // 커스텀 서버일 경우 상대 경로(파일명만 있는 경우 등) 지원
             const customManifestUrl = this.getCustomManifestUrl();
-            if (!/^https?:\/\//i.test(downloadUrl) && this.updateServerType === 'custom' && customManifestUrl) {
+            if (!/^https?:\/\//i.test(downloadUrl) && this.getUpdateServerType() === 'custom' && customManifestUrl) {
                 try {
                     const baseUrl = new URL('.', customManifestUrl).href;
                     downloadUrl = new URL(downloadUrl, baseUrl).href;
@@ -773,3 +798,4 @@ try {
 }
 
 module.exports = new Updater();
+module.exports.Updater = Updater;
