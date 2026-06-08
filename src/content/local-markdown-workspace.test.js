@@ -67,3 +67,16 @@ test('materializeSelectedFilesToWorkspace writes preferred markdown as contents.
         fs.rmSync(workspace.tempDir, { recursive: true, force: true });
     }
 });
+
+test('materializeSelectedFilesToWorkspace writes pasted markdown as contents.md', () => {
+    const workspace = materializeSelectedFilesToWorkspace({
+        markdownText: '# 붙여넣은 제목\n\n본문'
+    });
+
+    try {
+        assert.equal(fs.readFileSync(path.join(workspace.tempDir, 'contents.md'), 'utf-8'), '# 붙여넣은 제목\n\n본문');
+        assert.equal(workspace.markdownFileName, '붙여넣은 원고');
+    } finally {
+        fs.rmSync(workspace.tempDir, { recursive: true, force: true });
+    }
+});

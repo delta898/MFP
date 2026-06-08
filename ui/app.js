@@ -527,7 +527,9 @@ function populateFilterWpCategoryDropdown(selectId, categories) {
 let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
-let quickInputMode = localStorage.getItem('quick_input_mode') === 'manuscript' ? 'manuscript' : 'ai';
+let quickInputMode = ['ai', 'manuscript', 'pasted'].includes(localStorage.getItem('quick_input_mode'))
+  ? localStorage.getItem('quick_input_mode')
+  : 'ai';
 const createLocalMarkdownPreviewState = () => ({
   folderLabel: '',
   selectedFiles: [],
@@ -536,6 +538,7 @@ const createLocalMarkdownPreviewState = () => ({
   data: null
 });
 let quickManuscriptPreviewState = createLocalMarkdownPreviewState();
+let quickPastedPreviewState = createLocalMarkdownPreviewState();
 let quickGeneratedPreviewState = {
   previewId: '',
   rowIndex: null,
@@ -6309,19 +6312,24 @@ function bindActions() {
 
   const quickModeAiBtn = document.getElementById('quick-mode-ai-btn');
   const quickModeManuscriptBtn = document.getElementById('quick-mode-manuscript-btn');
+  const quickModePastedBtn = document.getElementById('quick-mode-pasted-btn');
   const quickAiModePanel = document.getElementById('quick-ai-mode-panel');
   const quickManuscriptModePanel = document.getElementById('quick-manuscript-mode-panel');
+  const quickPastedModePanel = document.getElementById('quick-pasted-mode-panel');
   const setQuickInputMode = (mode) => {
-    const nextMode = mode === 'manuscript' ? 'manuscript' : 'ai';
+    const nextMode = ['ai', 'manuscript', 'pasted'].includes(mode) ? mode : 'ai';
     quickInputMode = nextMode;
     localStorage.setItem('quick_input_mode', quickInputMode);
     quickModeAiBtn?.classList.toggle('is-active', quickInputMode === 'ai');
     quickModeManuscriptBtn?.classList.toggle('is-active', quickInputMode === 'manuscript');
+    quickModePastedBtn?.classList.toggle('is-active', quickInputMode === 'pasted');
     if (quickAiModePanel) quickAiModePanel.hidden = quickInputMode !== 'ai';
     if (quickManuscriptModePanel) quickManuscriptModePanel.hidden = quickInputMode !== 'manuscript';
+    if (quickPastedModePanel) quickPastedModePanel.hidden = quickInputMode !== 'pasted';
   };
   quickModeAiBtn?.addEventListener('click', () => setQuickInputMode('ai'));
   quickModeManuscriptBtn?.addEventListener('click', () => setQuickInputMode('manuscript'));
+  quickModePastedBtn?.addEventListener('click', () => setQuickInputMode('pasted'));
   setQuickInputMode(quickInputMode);
 
   const saveBtn = document.getElementById('quick-save-btn');
@@ -6899,13 +6907,22 @@ function bindActions() {
 
   function createLocalMarkdownController(config) {
     let publishInFlight = false;
+    let previewTimer = null;
+    let previewRequestId = 0;
     const ids = config.ids || {};
     const getState = config.getState;
     const setState = config.setState;
+    const sourceType = config.sourceType === 'pasted' ? 'pasted' : 'folder';
 
     const getEl = (key) => document.getElementById(ids[key]);
     const getPathEl = () => getEl('pathInput');
     const getFolderInputEl = () => getEl('folderInput');
+    const getMarkdownInputEl = () => getEl('markdownInput');
+    const hasSource = () => {
+      if (sourceType === 'pasted') return Boolean((getMarkdownInputEl()?.value || '').trim());
+      const state = getState();
+      return Array.isArray(state.selectedFilesPayload) && state.selectedFilesPayload.length > 0;
+    };
 
     const buildPreviewPayload = () => {
       const state = getState();
@@ -6913,14 +6930,27 @@ function bindActions() {
       if (getEl('targetNaver')?.checked) targets.push('naver');
       if (getEl('targetWordpress')?.checked) targets.push('wordpress');
 
-      return {
+      const payload = {
         folderName: state.folderLabel || (getPathEl()?.value || '').trim(),
-        selectedFiles: Array.isArray(state.selectedFilesPayload) ? state.selectedFilesPayload : [],
         targets,
         postStatus: (getEl('postStatus')?.value || 'publish').trim(),
         scheduleDate: (getEl('scheduleDate')?.value || '').trim(),
         imageGeneration: Boolean(getEl('imageGeneration')?.checked)
       };
+      if (sourceType === 'pasted') {
+        const markdownText = getMarkdownInputEl()?.value || '';
+        payload.markdownText = markdownText;
+        payload.selectedFiles = [{
+          relativePath: 'pasted-manuscript/contents.md',
+          name: 'contents.md',
+          contentType: 'text/markdown',
+          size: new Blob([markdownText]).size,
+          textContent: markdownText
+        }];
+      } else {
+        payload.selectedFiles = Array.isArray(state.selectedFilesPayload) ? state.selectedFilesPayload : [];
+      }
+      return payload;
     };
 
     const buildPublishPayload = async () => {
@@ -6948,9 +6978,8 @@ function bindActions() {
         serializedFiles.push(serialized);
       }
 
-      return {
+      const payload = {
         folderName: state.folderLabel || '',
-        selectedFiles: serializedFiles,
         targets: [
           getEl('targetNaver')?.checked ? 'naver' : '',
           getEl('targetWordpress')?.checked ? 'wordpress' : ''
@@ -6962,6 +6991,20 @@ function bindActions() {
         headless: Boolean(getEl('headless')?.checked),
         imageGeneration: Boolean(getEl('imageGeneration')?.checked)
       };
+      if (sourceType === 'pasted') {
+        const markdownText = getMarkdownInputEl()?.value || '';
+        payload.markdownText = markdownText;
+        payload.selectedFiles = [{
+          relativePath: 'pasted-manuscript/contents.md',
+          name: 'contents.md',
+          contentType: 'text/markdown',
+          size: new Blob([markdownText]).size,
+          textContent: markdownText
+        }];
+      } else {
+        payload.selectedFiles = serializedFiles;
+      }
+      return payload;
     };
 
     const revokeObjectUrls = () => {
@@ -7063,6 +7106,8 @@ function bindActions() {
         if (emptyEl) emptyEl.hidden = false;
         if (panelEl) panelEl.hidden = true;
         if (panelEl) panelEl.classList.remove('is-expanded', 'is-compact');
+        if (titleEl) titleEl.textContent = '제목 없음';
+        if (metaEl) metaEl.textContent = '-';
         if (bodyEl) bodyEl.innerHTML = '';
         if (imageListEl) imageListEl.innerHTML = '';
         return;
@@ -7097,7 +7142,7 @@ function bindActions() {
             const previewUrl = image.exists ? getImageObjectUrl(image.imagePath) : '';
             const preview = image.exists
               ? `<div class="local-markdown-image-card-preview"><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy"></div>`
-              : '<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div></div>';
+              : `<div class="local-markdown-image-card-preview"><div class="local-markdown-image-card-placeholder">${escapeHtml(config.missingImageText || '매칭되는 로컬 이미지가 없습니다.')}</div></div>`;
             return `
               <article class="local-markdown-image-card">
                 <div class="local-markdown-image-card-header">
@@ -7133,26 +7178,38 @@ function bindActions() {
     };
 
     const loadPreview = async () => {
+      const requestId = ++previewRequestId;
       const payload = buildPreviewPayload();
-      if (!Array.isArray(payload.selectedFiles) || payload.selectedFiles.length === 0) {
+      const sourceReady = sourceType === 'pasted'
+        ? Boolean(String(payload.markdownText || '').trim())
+        : (Array.isArray(payload.selectedFiles) && payload.selectedFiles.length > 0);
+      if (!sourceReady) {
         renderPreview(null);
-        getPathEl()?.focus();
         return;
       }
 
       try {
         const data = await postJson('/api/v1/blog/local-markdown/preview', payload);
+        if (requestId !== previewRequestId) return;
         renderPreview(data);
       } catch (e) {
+        if (requestId !== previewRequestId) return;
         renderPreviewError(e.message);
         throw e;
       }
     };
 
     const clearSelection = () => {
+      previewRequestId++;
+      if (previewTimer) {
+        clearTimeout(previewTimer);
+        previewTimer = null;
+      }
       revokeObjectUrls();
       if (getPathEl()) getPathEl().value = '';
       if (getFolderInputEl()) getFolderInputEl().value = '';
+      if (getMarkdownInputEl()) getMarkdownInputEl().value = '';
+      if (config.draftStorageKey) localStorage.removeItem(config.draftStorageKey);
       setState(createLocalMarkdownPreviewState());
       renderPreview(null);
     };
@@ -7163,7 +7220,7 @@ function bindActions() {
       if (publishInFlight) return;
       const state = getState();
       if (!state.data) {
-        showUiPopup('먼저 원고 폴더를 선택해 주세요.');
+        showUiPopup(config.emptySourceMessage || '먼저 원고 폴더를 선택해 주세요.');
         return;
       }
       if (!state.data.validation?.ok) {
@@ -7214,6 +7271,7 @@ function bindActions() {
     const folderInput = getFolderInputEl();
     const clearBtn = getEl('clearBtn');
     const postStatusEl = getEl('postStatus');
+    const markdownInputEl = getMarkdownInputEl();
 
     selectBtn?.addEventListener('click', () => {
       folderInput?.click();
@@ -7242,6 +7300,29 @@ function bindActions() {
       }
     });
 
+    if (markdownInputEl) {
+      const savedDraft = config.draftStorageKey ? localStorage.getItem(config.draftStorageKey) : '';
+      if (savedDraft) {
+        markdownInputEl.value = savedDraft;
+      }
+      markdownInputEl.addEventListener('input', () => {
+        if (config.draftStorageKey) {
+          localStorage.setItem(config.draftStorageKey, markdownInputEl.value);
+        }
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => {
+          loadPreview().catch((e) => {
+            showUiPopup(`${config.previewErrorLabel || '원고 미리보기 실패'}: ${e.message}`);
+          });
+        }, 350);
+      });
+      if (markdownInputEl.value.trim()) {
+        setTimeout(() => {
+          loadPreview().catch(() => {});
+        }, 0);
+      }
+    }
+
     clearBtn?.addEventListener('click', () => {
       clearSelection();
     });
@@ -7257,8 +7338,7 @@ function bindActions() {
 
     postStatusEl?.addEventListener('change', () => {
       toggleScheduleDate();
-      const state = getState();
-      if (Array.isArray(state.selectedFilesPayload) && state.selectedFilesPayload.length > 0) {
+      if (hasSource()) {
         loadPreview().catch((e) => {
           showUiPopup(`${config.previewErrorLabel || '원고 미리보기 실패'}: ${e.message}`);
         });
@@ -7274,8 +7354,7 @@ function bindActions() {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('change', () => {
-        const state = getState();
-        if (Array.isArray(state.selectedFilesPayload) && state.selectedFilesPayload.length > 0) {
+        if (hasSource()) {
           loadPreview().catch((e) => {
             showUiPopup(`${config.previewErrorLabel || '원고 미리보기 실패'}: ${e.message}`);
           });
@@ -7327,6 +7406,45 @@ function bindActions() {
 
   window.toggleQuickManuscriptScheduleDate = quickManuscriptController.toggleScheduleDate;
   window.renderQuickManuscriptPreview = quickManuscriptController.renderPreview;
+
+  const quickPastedController = createLocalMarkdownController({
+    sourceType: 'pasted',
+    featureLabel: '빠른 포스팅 원고 붙여넣기',
+    actionPrefix: '붙여넣은 원고',
+    confirmMessage: '붙여넣은 원고로 포스팅을 실행하겠습니까?',
+    emptySourceMessage: '먼저 Markdown 원고를 붙여넣어 주세요.',
+    emptyValidationText: 'Markdown 원고를 붙여넣어 주세요.',
+    missingImageText: '붙여넣기 원고에는 매칭된 로컬 이미지가 없습니다.',
+    draftStorageKey: 'quick_pasted_markdown_draft',
+    scheduleStorageKey: 'quick_pasted_schedule_date',
+    getState: () => quickPastedPreviewState,
+    setState: (nextState) => {
+      quickPastedPreviewState = nextState;
+    },
+    ids: {
+      clearBtn: 'quick-pasted-clear-btn',
+      markdownInput: 'quick-pasted-markdown',
+      naverCategory: 'quick-pasted-naver-category',
+      wpCategory: 'quick-pasted-wp-category',
+      postStatus: 'quick-pasted-post-status',
+      scheduleDate: 'quick-pasted-schedule-date',
+      targetNaver: 'quick-pasted-target-naver',
+      targetWordpress: 'quick-pasted-target-wordpress',
+      headless: 'quick-pasted-headless',
+      imageGeneration: 'quick-pasted-image-generation',
+      validation: 'quick-pasted-validation',
+      previewEmpty: 'quick-pasted-preview-empty',
+      previewPanel: 'quick-pasted-preview-panel',
+      previewTitle: 'quick-pasted-preview-title',
+      previewMeta: 'quick-pasted-preview-meta',
+      bodyPreview: 'quick-pasted-body-preview',
+      imageList: 'quick-pasted-image-list',
+      result: 'quick-pasted-result',
+      publishButtons: ['quick-pasted-publish-btn', 'quick-pasted-publish-inline-btn']
+    }
+  });
+
+  window.toggleQuickPastedScheduleDate = quickPastedController.toggleScheduleDate;
 
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
@@ -8840,25 +8958,25 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'quick-manuscript-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
+      ids: ['quick-headless', 'quick-manuscript-headless', 'quick-pasted-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
+      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'quick-pasted-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
+      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'quick-pasted-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },
     {
       key: 'pub_pref_image_generation',
-      ids: ['quick-image-generation', 'quick-manuscript-image-generation'], // extensible
+      ids: ['quick-image-generation', 'quick-manuscript-image-generation', 'quick-pasted-image-generation'], // extensible
       type: 'checkbox',
       default: false
     },
@@ -8870,13 +8988,13 @@ function initGlobalPublishSettingsSync() {
     },
     {
       key: 'last_quick_naver_category',
-      ids: ['quick-naver-category', 'quick-manuscript-naver-category'],
+      ids: ['quick-naver-category', 'quick-manuscript-naver-category', 'quick-pasted-naver-category'],
       type: 'input',
       default: ''
     },
     {
       key: 'last_quick_wp_category',
-      ids: ['quick-wp-category', 'quick-manuscript-wp-category'],
+      ids: ['quick-wp-category', 'quick-manuscript-wp-category', 'quick-pasted-wp-category'],
       type: 'input',
       default: ''
     }
@@ -8930,6 +9048,8 @@ function initGlobalPublishSettingsSync() {
     { key: 'last_quick_wp_schedule_date', id: 'quick-wp-schedule-date', type: 'input', default: '' },
     { key: 'quick_manuscript_post_status', id: 'quick-manuscript-post-status', type: 'select', default: 'publish' },
     { key: 'quick_manuscript_schedule_date', id: 'quick-manuscript-schedule-date', type: 'input', default: '' },
+    { key: 'quick_pasted_post_status', id: 'quick-pasted-post-status', type: 'select', default: 'publish' },
+    { key: 'quick_pasted_schedule_date', id: 'quick-pasted-schedule-date', type: 'input', default: '' },
     { key: 'shopping_quick_wp_post_status', id: 'shopping-quick-wp-post-status', type: 'select', default: 'publish' },
     { key: 'shopping_quick_wp_schedule_date', id: 'shopping-quick-wp-schedule-date', type: 'input', default: '' }
   ];
@@ -8950,6 +9070,8 @@ function initGlobalPublishSettingsSync() {
         toggleQuickWpScheduleDate();
       } else if (item.id === 'quick-manuscript-post-status' && typeof window.toggleQuickManuscriptScheduleDate === 'function') {
         window.toggleQuickManuscriptScheduleDate();
+      } else if (item.id === 'quick-pasted-post-status' && typeof window.toggleQuickPastedScheduleDate === 'function') {
+        window.toggleQuickPastedScheduleDate();
       } else if (item.id === 'shopping-quick-wp-post-status' && typeof toggleShoppingQuickWpScheduleDate === 'function') {
         toggleShoppingQuickWpScheduleDate();
       }
@@ -8959,6 +9081,7 @@ function initGlobalPublishSettingsSync() {
   // Initial dependency sync
   if (typeof toggleQuickWpScheduleDate === 'function') toggleQuickWpScheduleDate();
   if (typeof window.toggleQuickManuscriptScheduleDate === 'function') window.toggleQuickManuscriptScheduleDate();
+  if (typeof window.toggleQuickPastedScheduleDate === 'function') window.toggleQuickPastedScheduleDate();
 }
 
 // Shopping Connect Quick Publish WP Helpers

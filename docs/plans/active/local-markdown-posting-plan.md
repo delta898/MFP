@@ -1,10 +1,10 @@
 # Local Markdown Posting Plan
 
 ## Goal
-로컬에 준비된 markdown 원고와 같은 폴더의 이미지 자산을 기반으로, BlogGenius의 기존 포스팅 엔진을 재사용해 네이버 블로그 / 워드프레스로 포스팅할 수 있게 한다.
+로컬에 준비된 markdown 원고 폴더 또는 UI에 붙여넣은 markdown 원고를 기반으로, BlogGenius의 기존 포스팅 엔진을 재사용해 네이버 블로그 / 워드프레스로 포스팅할 수 있게 한다.
 
 핵심 사용자 경험:
-1. 사용자가 Blog > `원고 포스팅` 탭에서 원고 폴더를 선택한다.
+1. 사용자가 빠른 포스팅에서 원고 폴더를 선택하거나 markdown 원고를 붙여넣는다.
 2. 앱이 제목 / 본문 / 이미지 블록 / 이미지 파일 존재 여부를 preview와 validation으로 보여준다.
 3. 사용자는 포스팅 대상, 포스팅 옵션, 카테고리, 예약 일시를 조정한다.
 4. 검증을 통과하면 기존 포스팅 엔진을 통해 임시저장 / 즉시 발행 / 예약 발행을 실행한다.
@@ -22,6 +22,7 @@
 ## Scope
 1차 구현 범위:
 - 단일 원고 폴더 선택
+- Markdown 원고 직접 붙여넣기
 - 폴더 안의 대표 markdown 자동 선택
 - 지원 확장자: `.md`, `.markdown`
 - 제목은 첫 `# H1`에서 추출
@@ -54,7 +55,7 @@
 
 ## UX Direction
 ### 1. 입력
-- 사용자는 브라우저 파일 선택기(`webkitdirectory`)로 원고 폴더 1개를 선택한다.
+- 사용자는 브라우저 파일 선택기(`webkitdirectory`)로 원고 폴더 1개를 선택하거나, Markdown 입력창에 원고를 붙여넣는다.
 - 선택 직후 다음 정보가 로드된다:
   - 선택한 폴더 이름
   - 자동 선택된 markdown 파일명
@@ -99,6 +100,7 @@ validation 정책:
   - 마지막 이미지 생성 여부
 - 선택한 파일 경로 자체는 localStorage에 강하게 의존하지 않는다
 - 선택된 폴더의 파일 집합은 브라우저 메모리 상태로만 유지한다
+- 붙여넣은 Markdown은 작성 중 유실을 막기 위해 browser localStorage에 임시 보존한다
 
 ## Processing Rules
 ### Markdown
@@ -121,11 +123,20 @@ fallback 규칙:
 - 로컬 이미지 없음 + `이미지 생성=true` -> 기존 생성 흐름 사용 가능
 - 로컬 이미지 없음 + `이미지 생성=false` -> warning 후 실행 허용, 기존 엔진에서 임시 저장으로 전환
 
+### Pasted Markdown Related Posts
+- 붙여넣은 원고는 발행 직전에 제목과 본문을 기준으로 자체 블로그 RSS 후보를 평가한다
+- 연관도가 있는 글을 먼저 선택하고, 3개가 부족하면 RSS 후보에서 임의 보충한다
+- 제목은 `함께 보면 좋은 글`, `이어서 보면 좋은 글` 등의 기존 가변 heading 정책을 사용한다
+- 관련 글 섹션은 원고 맨 아래에 배치한다
+- 기존 관련 글 섹션이 감지되면 중복 삽입하지 않고 새 선택 결과로 교체한다
+- 관련 글 수집 실패는 원고 발행 자체를 차단하지 않는다
+
 ## Architecture Direction
 - UI 전용 임시 기능이 아니라, 기존 포스팅 파이프라인이 받을 수 있는 새로운 source type으로 설계한다
 - 개념:
   - 기존 source: sheet topic / generated content directory
-  - 신규 source: `local_markdown`
+  - 원고 폴더 source: `local_markdown`
+  - 붙여넣기 source: `pasted_markdown`
 
 권장 구조:
 - UI:

@@ -268,6 +268,9 @@ function createContentService(deps = {}) {
         return buildLocalMarkdownPreview({
             folderName: requestBody?.folderName,
             selectedFiles: requestBody?.selectedFiles,
+            ...(Object.prototype.hasOwnProperty.call(requestBody, 'markdownText')
+                ? { markdownText: requestBody.markdownText }
+                : {}),
             targets: requestBody?.targets,
             postStatus: requestBody?.postStatus,
             scheduleDate: requestBody?.scheduleDate,

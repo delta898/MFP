@@ -719,6 +719,18 @@ h2 {
   box-shadow: 0 8px 20px rgba(14, 165, 233, 0.18);
 }
 
+.quick-pasted-markdown-input {
+  min-height: 300px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.65;
+  tab-size: 2;
+}
+
+.quick-pasted-toolbar {
+  margin-top: 12px;
+}
+
 .blog-quick-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -4472,7 +4484,7 @@ select.inline-editor {
 
   body.mobile-quick-mode .blog-quick-mode-switch {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     margin-top: 10px;
     margin-bottom: 18px;
@@ -4487,7 +4499,7 @@ select.inline-editor {
     min-height: 50px;
     width: 100%;
     padding: 0 14px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     border-radius: 14px;
     justify-content: center;

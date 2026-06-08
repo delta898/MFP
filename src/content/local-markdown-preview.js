@@ -213,6 +213,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
 
     const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
     const usingSelectedFiles = selectedFiles.length > 0;
+    const usingPastedMarkdown = Object.prototype.hasOwnProperty.call(input, 'markdownText');
     const directoryPathInput = normalizeString(input.directoryPath);
     const markdownPathInput = normalizeString(input.markdownPath);
     let rawMarkdown = '';
@@ -222,7 +223,12 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
     let folderName = normalizeString(input.folderName);
     let availableFileEntries = [];
 
-    if (usingSelectedFiles) {
+    if (usingPastedMarkdown) {
+        rawMarkdown = String(input.markdownText || '');
+        markdownPath = 'contents.md';
+        fileName = '붙여넣은 원고';
+        folderName = normalizeString(input.folderName) || '붙여넣기';
+    } else if (usingSelectedFiles) {
         const { preferredEntry, normalizedEntries } = resolveMarkdownEntryFromSelectedFiles(selectedFiles);
         rawMarkdown = preferredEntry.textContent;
         markdownPath = preferredEntry.relativePath;
@@ -301,7 +307,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
 
     return {
         source: {
-            type: 'local_markdown',
+            type: usingPastedMarkdown ? 'pasted_markdown' : 'local_markdown',
             markdownPath,
             directoryPath,
             folderName,

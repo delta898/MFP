@@ -34,6 +34,7 @@ const {
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
+const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdown-related-posts');
 const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
@@ -1481,6 +1482,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     TelegramBotService,
     buildLocalMarkdownPreview,
     materializeSelectedFilesToWorkspace,
+    appendRelatedPostsToPastedMarkdown,
     formatActivityTargets,
     recordUiActivity,
     getContentType,

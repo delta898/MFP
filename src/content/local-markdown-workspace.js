@@ -34,13 +34,20 @@ function materializeSelectedFilesToWorkspace(input = {}, deps = {}) {
     const fsImpl = deps.fs || fs;
     const pathImpl = deps.path || path;
     const osImpl = deps.os || os;
+    const usingPastedMarkdown = Object.prototype.hasOwnProperty.call(input, 'markdownText');
+    const markdownText = String(input.markdownText || '');
     const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
-    if (selectedFiles.length === 0) {
+    if (!usingPastedMarkdown && selectedFiles.length === 0) {
         throw new Error('선택된 원고 파일이 없습니다.');
     }
+    if (usingPastedMarkdown && !markdownText.trim()) {
+        throw new Error('붙여넣은 markdown 원고가 비어 있습니다.');
+    }
 
-    const normalizedEntries = normalizeSelectedFiles(selectedFiles);
-    const { preferredEntry } = resolveMarkdownEntryFromSelectedFiles(selectedFiles);
+    const normalizedEntries = usingPastedMarkdown ? [] : normalizeSelectedFiles(selectedFiles);
+    const preferredEntry = usingPastedMarkdown
+        ? null
+        : resolveMarkdownEntryFromSelectedFiles(selectedFiles).preferredEntry;
     const sourceByRelativePath = new Map(
         selectedFiles.map((item) => [normalizeRelativePath(item?.relativePath || item?.webkitRelativePath || item?.path || item?.name), item])
     );
@@ -49,6 +56,16 @@ function materializeSelectedFilesToWorkspace(input = {}, deps = {}) {
     const tempDir = fsImpl.mkdtempSync(pathImpl.join(tempRoot, 'bloggenius-manuscript-'));
 
     try {
+        if (usingPastedMarkdown) {
+            const canonicalMarkdownPath = pathImpl.join(tempDir, 'contents.md');
+            fsImpl.writeFileSync(canonicalMarkdownPath, markdownText, 'utf-8');
+            return {
+                tempDir,
+                markdownPath: canonicalMarkdownPath,
+                markdownFileName: '붙여넣은 원고'
+            };
+        }
+
         normalizedEntries.forEach((entry) => {
             const source = sourceByRelativePath.get(entry.relativePath) || {};
             const outputRelativePath = entry.rootRelativePath || entry.fileName;

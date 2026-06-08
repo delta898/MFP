@@ -295,3 +295,34 @@ test('buildLocalMarkdownPreview supports selected folder files from browser inpu
     assert.equal(preview.images[0].imagePath, 'golf-post/00_image.png');
     assert.equal(preview.validation.ok, true);
 });
+
+test('buildLocalMarkdownPreview supports pasted markdown without selected files', () => {
+    const preview = buildLocalMarkdownPreview({
+        markdownText: '# 붙여넣은 제목\n\n본문입니다.',
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils: createUtilsStub()
+    });
+
+    assert.equal(preview.source.type, 'pasted_markdown');
+    assert.equal(preview.source.fileName, '붙여넣은 원고');
+    assert.equal(preview.title, '붙여넣은 제목');
+    assert.equal(preview.validation.ok, true);
+});
+
+test('buildLocalMarkdownPreview validates empty pasted markdown', () => {
+    const preview = buildLocalMarkdownPreview({
+        markdownText: '',
+        targets: ['naver']
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils: createUtilsStub()
+    });
+
+    assert.equal(preview.validation.ok, false);
+    assert.equal(preview.validation.errors.some((item) => item.includes('본문이 비어')), true);
+});

@@ -330,7 +330,8 @@
 
           <div class="blog-quick-mode-switch" role="tablist" aria-label="빠른 포스팅 입력 방식">
             <button id="quick-mode-ai-btn" class="blog-quick-mode-btn is-active" type="button" data-mode="ai">바로 생성</button>
-            <button id="quick-mode-manuscript-btn" class="blog-quick-mode-btn" type="button" data-mode="manuscript">원고 선택</button>
+            <button id="quick-mode-manuscript-btn" class="blog-quick-mode-btn" type="button" data-mode="manuscript">원고 폴더</button>
+            <button id="quick-mode-pasted-btn" class="blog-quick-mode-btn" type="button" data-mode="pasted">원고 붙여넣기</button>
           </div>
 
           <div id="quick-ai-mode-panel">
@@ -478,8 +479,8 @@
 
           <div id="quick-manuscript-mode-panel" hidden>
             <div class="blog-quick-head blog-quick-subhead">
-              <h3>원고 선택 기반 포스팅</h3>
-              <p>원고를 선택하면 같은 quick 탭 안에서 미리보기와 포스팅까지 이어서 확인할 수 있습니다.</p>
+              <h3>원고 폴더 기반 포스팅</h3>
+              <p>Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.</p>
             </div>
 
             <div class="local-markdown-toolbar">
@@ -581,6 +582,112 @@
             </div>
 
             <pre id="quick-manuscript-result" class="blog-quick-result"></pre>
+          </div>
+
+          <div id="quick-pasted-mode-panel" hidden>
+            <div class="blog-quick-head blog-quick-subhead">
+              <h3>Markdown 원고 붙여넣기</h3>
+              <p>제목과 본문이 포함된 Markdown 원고를 바로 입력합니다.</p>
+            </div>
+
+            <label class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label">Markdown 원고</span>
+              <textarea id="quick-pasted-markdown" class="quick-pasted-markdown-input"
+                placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
+            </label>
+
+            <div class="local-markdown-toolbar quick-pasted-toolbar">
+              <button id="quick-pasted-clear-btn" class="secondary" type="button">내용 지우기</button>
+            </div>
+
+            <div class="blog-quick-grid">
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">네이버 카테고리</span>
+                <input id="quick-pasted-naver-category" type="text" placeholder="예: 일상/생각">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">워드프레스 카테고리</span>
+                <input id="quick-pasted-wp-category" type="text" placeholder="예: Daily">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">포스팅 옵션</span>
+                <select id="quick-pasted-post-status">
+                  <option value="publish">즉시 발행</option>
+                  <option value="draft">임시 저장</option>
+                  <option value="schedule">예약 발행</option>
+                </select>
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">예약 일시</span>
+                <input id="quick-pasted-schedule-date" type="datetime-local" disabled>
+              </label>
+            </div>
+
+            <div class="blog-quick-options">
+              <div class="blog-quick-options-header">
+                <div class="target-platforms">
+                  <span class="blog-quick-label">포스팅 대상:</span>
+                  <label class="blog-quick-check"><input id="quick-pasted-target-naver" type="checkbox"> 네이버 블로그</label>
+                  <label class="blog-quick-check"><input id="quick-pasted-target-wordpress" type="checkbox"> 워드프레스</label>
+                </div>
+
+                <div class="quick-common-checks">
+                  <label class="blog-quick-check">
+                    <input id="quick-pasted-headless" type="checkbox" checked> 보이지 않게 실행
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
+                    </span>
+                  </label>
+                  <label class="blog-quick-check">
+                    <input id="quick-pasted-image-generation" type="checkbox"> 이미지 생성
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">원고 안에 이미지 블록이 있으면 보완용 이미지를 생성합니다.</span>
+                    </span>
+                  </label>
+                  <button id="quick-pasted-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="quick-pasted-validation" class="local-markdown-validation">
+              Markdown 원고를 붙여넣어 주세요.
+            </div>
+
+            <div id="quick-pasted-preview-empty" class="local-markdown-empty">
+              원고를 입력하면 제목과 본문 preview를 확인할 수 있습니다.
+            </div>
+
+            <div id="quick-pasted-preview-panel" class="local-markdown-preview-panel" hidden>
+              <div class="local-markdown-preview-head">
+                <div>
+                  <h4 id="quick-pasted-preview-title">제목 없음</h4>
+                  <div id="quick-pasted-preview-meta" class="local-markdown-preview-meta">-</div>
+                </div>
+              </div>
+
+              <div class="local-markdown-preview-sections">
+                <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                  <h5>본문 Preview</h5>
+                  <div id="quick-pasted-body-preview" class="local-markdown-body-preview"></div>
+                </section>
+
+                <section class="local-markdown-preview-section">
+                  <h5>이미지 블록</h5>
+                  <div id="quick-pasted-image-list" class="local-markdown-image-list"></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="blog-quick-actions blog-quick-actions-centered">
+              <button id="quick-pasted-publish-btn" class="primary blog-quick-wide-action" type="button">포스팅 실행</button>
+            </div>
+
+            <pre id="quick-pasted-result" class="blog-quick-result"></pre>
           </div>
         </div>
 

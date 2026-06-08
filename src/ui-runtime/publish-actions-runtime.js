@@ -11,6 +11,7 @@ function createPublishActionsRuntime(deps = {}) {
         TelegramBotService,
         buildLocalMarkdownPreview,
         materializeSelectedFilesToWorkspace,
+        appendRelatedPostsToPastedMarkdown,
         formatActivityTargets,
         recordUiActivity,
         getContentType,
@@ -916,14 +917,16 @@ function createPublishActionsRuntime(deps = {}) {
 
     async function executeLocalMarkdownPublish(requestBody = {}) {
         const selectedFiles = Array.isArray(requestBody?.selectedFiles) ? requestBody.selectedFiles : [];
+        const hasPastedMarkdown = Object.prototype.hasOwnProperty.call(requestBody, 'markdownText');
+        const markdownText = hasPastedMarkdown ? String(requestBody.markdownText || '') : '';
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
         const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
 
-        if (selectedFiles.length === 0) {
-            return { success: false, code: 'INVALID_LOCAL_MARKDOWN_SOURCE', message: '선택된 원고 파일이 없습니다.' };
+        if (selectedFiles.length === 0 && !markdownText.trim()) {
+            return { success: false, code: 'INVALID_LOCAL_MARKDOWN_SOURCE', message: '선택하거나 붙여넣은 원고가 없습니다.' };
         }
         if (!Array.isArray(targets) || targets.length === 0) {
             return { success: false, code: 'INVALID_TARGETS', message: '포스팅 대상을 1개 이상 선택해야 합니다.' };
@@ -944,17 +947,23 @@ function createPublishActionsRuntime(deps = {}) {
 
         const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
         const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
-        const sourceLabel = String(requestBody?.folderName || '').trim() || '원고 폴더';
+        const relatedPostsEnabled = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+        const sourceType = hasPastedMarkdown ? 'pasted_markdown' : 'local_markdown';
+        const sourceLabel = hasPastedMarkdown
+            ? '붙여넣은 원고'
+            : (String(requestBody?.folderName || '').trim() || '원고 폴더');
         const targetLabel = formatActivityTargets(targets);
         const publishLabel = postStatus === 'draft'
             ? '임시 저장'
             : (postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
+        let effectiveMarkdownText = markdownText;
         let previewData;
         try {
             previewData = buildLocalMarkdownPreview({
                 folderName: requestBody?.folderName,
                 selectedFiles,
+                ...(hasPastedMarkdown ? { markdownText } : {}),
                 targets,
                 postStatus,
                 scheduleDate,
@@ -976,6 +985,42 @@ function createPublishActionsRuntime(deps = {}) {
             };
         }
 
+        if (hasPastedMarkdown && relatedPostsEnabled) {
+            try {
+                Logger.info('🔎 [PastedMarkdown] 관련 글 자동 수집 중...');
+                const relatedPosts = await Utils.fetchOwnBlogRelatedPosts({
+                    title: previewData.title,
+                    content: previewData.rawMarkdown,
+                    keywords: []
+                }, 3);
+                if (relatedPosts.length > 0) {
+                    const heading = Utils.pickRelatedPostsHeading();
+                    const relatedSection = Core.buildRelatedPostsSectionMarkdown(relatedPosts, heading, true);
+                    effectiveMarkdownText = appendRelatedPostsToPastedMarkdown(
+                        markdownText,
+                        relatedSection,
+                        Core.stripAiRelatedPostsSection
+                    );
+                    previewData = buildLocalMarkdownPreview({
+                        markdownText: effectiveMarkdownText,
+                        targets,
+                        postStatus,
+                        scheduleDate,
+                        imageGeneration: imageGenerationFinal
+                    }, {
+                        fs,
+                        path,
+                        Utils
+                    });
+                    Logger.info(`🔗 [PastedMarkdown] 관련 글 ${relatedPosts.length}개 자동 추가 완료`);
+                } else {
+                    Logger.info('ℹ️ [PastedMarkdown] 추가할 관련 글을 찾지 못했습니다.');
+                }
+            } catch (relatedError) {
+                Logger.warn(`⚠️ [PastedMarkdown] 관련 글 자동 추가 실패: ${relatedError.message}`);
+            }
+        }
+
         let workspace = null;
         try {
             recordUiActivity({
@@ -984,12 +1029,15 @@ function createPublishActionsRuntime(deps = {}) {
                 title: `원고 ${publishLabel} 시작`,
                 detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
                 meta: {
-                    source: 'local_markdown',
+                    source: sourceType,
                     postStatus,
                     targets: Array.isArray(targets) ? targets.slice() : []
                 }
             });
-            workspace = materializeSelectedFilesToWorkspace({ selectedFiles }, { fs, path });
+            workspace = materializeSelectedFilesToWorkspace({
+                selectedFiles,
+                ...(hasPastedMarkdown ? { markdownText: effectiveMarkdownText } : {})
+            }, { fs, path });
             await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {
                 imageGenerationEnabled: imageGenerationFinal
             });
@@ -1051,7 +1099,7 @@ function createPublishActionsRuntime(deps = {}) {
                     title: `원고 ${publishLabel} 실패`,
                     detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''} · ${failedTargets.join(' / ')}`,
                     meta: {
-                        source: 'local_markdown',
+                        source: sourceType,
                         postStatus,
                         targets: Array.isArray(targets) ? targets.slice() : []
                     }
@@ -1073,7 +1121,7 @@ function createPublishActionsRuntime(deps = {}) {
                 title: `원고 ${publishLabel} 완료`,
                 detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
                 meta: {
-                    source: 'local_markdown',
+                    source: sourceType,
                     postStatus,
                     targets: Array.isArray(targets) ? targets.slice() : []
                 }
@@ -1099,7 +1147,7 @@ function createPublishActionsRuntime(deps = {}) {
                 title: `원고 ${publishLabel} 실패`,
                 detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}${error.message ? ` · ${error.message}` : ''}`,
                 meta: {
-                    source: 'local_markdown',
+                    source: sourceType,
                     postStatus,
                     targets: Array.isArray(targets) ? targets.slice() : []
                 }
