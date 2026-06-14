@@ -84,7 +84,7 @@
     "undici": "6.19.2"
   },
   "devDependencies": {
-    "electron": "^40.6.1",
-    "electron-packager": "^17.1.2"
+    "@electron/packager": "^20.0.1",
+    "electron": "^40.6.1"
   }
 }

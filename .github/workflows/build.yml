@@ -148,14 +148,18 @@ jobs:
           APP_NAME="BlogGenius"
           if [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
             E_PLAT="linux"; E_ARCH="x64"
+            APP_ICON="assets/icons/icon.png"
           elif [[ "${{ matrix.suffix }}" == "mac-intel" ]]; then
             E_PLAT="darwin"; E_ARCH="x64"
+            APP_ICON="assets/icons/icon.icns"
           elif [[ "${{ matrix.suffix }}" == "mac-arm64" ]]; then
             E_PLAT="darwin"; E_ARCH="arm64"
+            APP_ICON="assets/icons/icon.icns"
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
+            APP_ICON="assets/icons/icon.ico"
           fi
-          npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
+          npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --icon="${APP_ICON}" --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
 
           PACKAGED_APP_DIR=$(find dist/gui-temp -mindepth 1 -maxdepth 1 -type d -name "${APP_NAME}-*" -print -quit)
           if [[ -z "${PACKAGED_APP_DIR}" || ! -d "${PACKAGED_APP_DIR}" ]]; then
