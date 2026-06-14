@@ -131,9 +131,7 @@ jobs:
         with:
           node-version: 24
       - name: Install Dependencies
-        run: npm install
-      - name: Install electron-packager
-        run: npm install -g electron-packager
+        run: npm ci
       - name: Install Inno Setup (Windows)
         if: matrix.suffix == 'win-x64'
         shell: pwsh
@@ -157,13 +155,24 @@ jobs:
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
           fi
-          electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
+          npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --icon=assets/icons/icon --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
+
+          PACKAGED_APP_DIR=$(find dist/gui-temp -mindepth 1 -maxdepth 1 -type d -name "${APP_NAME}-*" -print -quit)
+          if [[ -z "${PACKAGED_APP_DIR}" || ! -d "${PACKAGED_APP_DIR}" ]]; then
+            echo "::error::electron-packager completed without creating an application directory."
+            exit 1
+          fi
+          echo "PACKAGED_APP_DIR=${PACKAGED_APP_DIR}" >> "$GITHUB_ENV"
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          APP_PATH=$(find dist/gui-temp -name "BlogGenius.app" -type d | head -n 1)
-          if [ -d "$APP_PATH" ]; then codesign --sign - --force --deep "$APP_PATH"; fi
+          APP_PATH="${PACKAGED_APP_DIR}/BlogGenius.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::Packaged macOS application not found: ${APP_PATH}"
+            exit 1
+          fi
+          codesign --sign - --force --deep "$APP_PATH"
 
       - name: Finalize Directory Structure (Naming Rule)
         shell: bash
@@ -181,17 +190,16 @@ jobs:
           
           # 3. GUI 배치
           APP_NAME="BlogGenius"
-          TEMP_DIR=$(ls dist/gui-temp | head -n 1)
           if [[ "${{ matrix.suffix }}" == "mac-"* ]]; then
-            cp -r dist/gui-temp/${TEMP_DIR}/${APP_NAME}.app "${ROOT_OUT}/"
+            cp -r "${PACKAGED_APP_DIR}/${APP_NAME}.app" "${ROOT_OUT}/"
           elif [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
             mkdir -p "${ROOT_OUT}/lib"
-            cp -a dist/gui-temp/${TEMP_DIR}/* "${ROOT_OUT}/lib/"
+            cp -a "${PACKAGED_APP_DIR}/." "${ROOT_OUT}/lib/"
             mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
             echo -e "#!/bin/bash\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\nexport LD_LIBRARY_PATH=\"\$HERE/lib:\$LD_LIBRARY_PATH\"\n\"\$HERE/lib/${APP_NAME}-bin\" \"\$@\"" > "${ROOT_OUT}/${APP_NAME}"
             chmod +x "${ROOT_OUT}/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
-            cp -a dist/gui-temp/${TEMP_DIR}/* "${ROOT_OUT}/"
+            cp -a "${PACKAGED_APP_DIR}/." "${ROOT_OUT}/"
           fi
           
           # 4. ZIP 생성을 위해 원본 dist 정리 (ROOT_OUT만 남김)
