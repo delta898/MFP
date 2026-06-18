@@ -3,6 +3,11 @@
 ## Goal
 Keep the user-facing desktop app and the operator-only trends backend in the same repository without mixing their release artifacts, runtime responsibilities, or deployment chains.
 
+## Runtime Baseline
+- The repository-wide development and build baseline is Node.js 24 or newer.
+- `.nvmrc`, root package metadata, standalone app manifests, local build scripts, and GitHub Actions must remain aligned with this baseline.
+- Node.js 24.x is the recommended version for reproducible local and release builds.
+
 ## Adopted Layout
 ```text
 src/                        # existing BlogGenius app

@@ -2,12 +2,28 @@
 setlocal enabledelayedexpansion
 
 set APP_NAME=BlogGenius
+set REQUIRED_NODE_MAJOR=24
 for /f "usebackq delims=" %%i in (`node -p "require('./package.json').version"`) do set VERSION=%%i
 set ROOT_DIR_NAME=%APP_NAME%-v%VERSION%-win-x64
 set ROOT_OUT=dist\%ROOT_DIR_NAME%
 set ROOT_ZIP=dist\%ROOT_DIR_NAME%.zip
 
 echo 🔍 [Check] 빌드 환경을 점검합니다...
+
+for /f "usebackq delims=" %%i in (`node -p "process.versions.node"`) do set NODE_VERSION=%%i
+for /f "usebackq delims=" %%i in (`node -p "parseInt(process.versions.node.split('.')[0], 10)"`) do set NODE_MAJOR=%%i
+
+if !NODE_MAJOR! LSS !REQUIRED_NODE_MAJOR! (
+    echo 🚨 [Error] Node.js !REQUIRED_NODE_MAJOR!+ 가 필요합니다. 현재 버전: v!NODE_VERSION!
+    echo    GitHub Actions와 동일하게 Node.js 24 이상에서 빌드해 주세요.
+    exit /b 1
+)
+
+if not !NODE_MAJOR! EQU !REQUIRED_NODE_MAJOR! (
+    echo    ℹ️ Node.js v!NODE_VERSION! 감지 ^(권장 기준: v!REQUIRED_NODE_MAJOR!.x, 계속 진행^)
+) else (
+    echo    ✅ Node.js v!NODE_VERSION! 확인
+)
 
 if not exist node_modules (
     echo    📦 라이브러리가 없습니다. 지금 설치합니다... (npm install)

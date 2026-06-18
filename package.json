@@ -1,6 +1,6 @@
 {
   "name": "blog-genius",
-  "version": "0.1.12",
+  "version": "0.1.13-dev1",
   "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
   "main": "src/gui/electron-main.js",
   "scripts": {
@@ -54,8 +54,8 @@
     ],
     "//": "👇 targets는 build.sh에서 지정하므로 여기선 기본값으로 둡니다.",
     "targets": [
-      "node20-macos-arm64",
-      "node20-win-x64"
+      "node24-macos-arm64",
+      "node24-win-x64"
     ],
     "outputPath": "dist"
   },
@@ -75,11 +75,11 @@
     "sharp": "^0.34.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "author": "amadejjs",
   "license": "Commercial",
-  "//": "👇 [필수] GitHub Actions(Node 18)에서도 안정적인 빌드를 위해 추가",
+  "//": "👇 [필수] 로컬 및 GitHub Actions 의존성 해석을 일관되게 유지",
   "overrides": {
     "undici": "6.19.2"
   },

@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.13-dev1] - 2026-06-18
+
+### Changed
+- **Node.js 24 런타임 기준 통일**: 루트 개발 환경, 패키지 엔진, 잠금 파일, 레거시 `pkg` 기본 타깃, Windows 로컬 빌드 검사를 Node.js 24 기준으로 맞춰 GitHub Actions 및 트렌드 하위 앱과 동일한 런타임을 사용하도록 정리했습니다.
+
 ## [0.1.12] - 2026-06-10
 
 ### Added
