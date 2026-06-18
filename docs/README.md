@@ -39,6 +39,9 @@
 - `architecture/workspace-layout.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
+- `license-policy.md`
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
+- `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `plans/active/agent-redesign-plan.md`
+- `plans/active/account-subscription-billing-foundation-plan.md`

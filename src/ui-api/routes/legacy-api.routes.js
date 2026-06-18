@@ -2,6 +2,7 @@ const { createSystemRouteHandler } = require('./system.routes');
 const { createSessionLicenseRouteHandler } = require('./session-license.routes');
 const { createContentRouteHandler } = require('./content.routes');
 const { createTrendsRouteHandler } = require('./trends.routes');
+const { createAccountRouteHandler } = require('./account.routes');
 const { createSystemService } = require('../services/system.service');
 const { createSessionLicenseService } = require('../services/session-license.service');
 const { createContentService } = require('../services/content.service');
@@ -10,6 +11,8 @@ const { createSystemController } = require('../controllers/system.controller');
 const { createSessionLicenseController } = require('../controllers/session-license.controller');
 const { createContentController } = require('../controllers/content.controller');
 const { createTrendsController } = require('../controllers/trends.controller');
+const { createAccountController } = require('../controllers/account.controller');
+const { createAccountOverviewService } = require('../../account/overview-service');
 const WordPressClient = require('../../wordpress-client');
 
 function createLegacyApiRouteHandler(deps = {}) {
@@ -53,6 +56,22 @@ function createLegacyApiRouteHandler(deps = {}) {
         sendSuccess: deps.sendSuccess,
         sendError: deps.sendError,
         logger: deps.Logger
+    });
+
+    const accountService = createAccountOverviewService({
+        License: deps.License,
+        CONFIG: deps.CONFIG,
+        APP_VERSION: deps.APP_VERSION,
+        toFeatureMap: deps.toFeatureMap,
+        getFeatureInt: deps.getFeatureInt,
+        resolveMaxBlogPostsPerRun: deps.resolveMaxBlogPostsPerRun,
+        resolveMaxShoppingPostsPerRun: deps.resolveMaxShoppingPostsPerRun,
+        checkNaverSessionForUi: deps.checkNaverSessionForUi
+    });
+    const accountController = createAccountController({
+        service: accountService,
+        sendSuccess: deps.sendSuccess,
+        sendError: deps.sendError
     });
 
     const contentService = createContentService({
@@ -130,6 +149,7 @@ function createLegacyApiRouteHandler(deps = {}) {
     const handlers = [
         createSystemRouteHandler({ controller: systemController }),
         createSessionLicenseRouteHandler({ controller: sessionLicenseController }),
+        createAccountRouteHandler({ controller: accountController }),
         createContentRouteHandler({ controller: contentController }),
         createTrendsRouteHandler({ controller: trendsController })
     ];

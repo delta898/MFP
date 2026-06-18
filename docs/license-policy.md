@@ -1,6 +1,6 @@
 # License Policy (BlogGenius v4)
 
-이 문서는 BlogGenius의 플랜 기반 라이선스 정책(v4, 고유키 통합)을 정리합니다.
+이 문서는 BlogGenius의 플랜 기반 라이선스 정책(v4, 고유키 통합)과 2026-06-19에 확정한 feature/quota 목표 계약을 정리합니다. 현재 구현과 목표 계약의 차이는 9절에 기록합니다.
 
 ## 1. 정책 요약
 
@@ -11,7 +11,6 @@
 - `free`: 일부 기능, 월 15회(`quota_cycle=monthly`)
 - `pro`: 모든 기능 허용, 월 100회
 - `ultra`: 모든 기능 허용, 무제한
-- 날짜 지정 트렌드는 feature flag(`enable_trends_date_override`)로 제어합니다.
 - test 1회성 규칙:
   - `test -> 만료` 후에는 자동 전환하지 않음
   - 계속 사용하려면 앱의 라이선스 화면에서 업그레이드 진행
@@ -19,15 +18,10 @@
   - 업그레이드는 플랜 전환만 수행(현재는 `free`만 지원)
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
   - `test` 소진 후에는 다시 `test` 사용 불가
-- 차감 대상:
-  - 단건 발행 (실행 1회당 1차감)
-  - 트렌드 수집 (트렌드 시트 반영 직전 1차감)
-  - 일괄/자동 블로그 발행 (포스트 건당 차감)
-  - 쇼핑 포스팅 (포스트 건당 차감)
-- 미차감:
-  - 앱 로그인
-  - 초안/생성 준비 작업
-  - 키워드 조사
+- quota 단위는 콘텐츠 발행 작업 1건이다.
+- 네이버와 WordPress에 함께 발행해도 동일 콘텐츠 작업이면 1회만 사용한다.
+- `draft`, `schedule`, `publish`는 대상 플랫폼 중 하나 이상이 정상 처리되면 1회 사용한다.
+- 모든 플랫폼 실패, 콘텐츠 생성만 수행, 트렌드/RSS 수집, 앱 로그인, 키워드 조사는 사용량을 차감하지 않는다.
 
 ## 2. 구조
 
@@ -115,23 +109,33 @@
 
 ## 6. 기능 제한(Feature Flags)
 
-`license_plans.features`에 json으로 저장합니다.
+`license_plans.features`에는 플랜별 차이가 있는 필수 boolean만 저장합니다. 필수 키 누락이나 boolean이 아닌 값은 정책 오류입니다.
 
-예시:
+목표 계약:
 
 ```json
 {
-  "cmd_pub": true,
   "cmd_batch": true,
   "cmd_trends": false,
   "cmd_shopping": false,
-  "image_generation": true,
-  "max_blog_posts_per_run": 3,
-  "max_shopping_posts_per_run": 3,
-  "enable_related_posts_auto_link": false,
-  "enable_trends_date_override": false
+  "enable_related_posts_auto_link": false
 }
 ```
+
+- `cmd_batch`: 수동 다중/자동 발행. 현재 모든 플랜에서 `true`.
+- `cmd_trends`: 네이버 트렌드 수집. 허용 시 날짜 지정도 기본 허용. RSS에는 적용하지 않음.
+- `cmd_shopping`: 쇼핑 콘텐츠 수집·생성·발행 실행. 데이터와 대기열은 보존.
+- `enable_related_posts_auto_link`: 연관 글 자동 연결. pro 이상 활성화.
+
+라이선스 feature에서 제거할 키:
+
+- `cmd_pub`
+- `image_generation`
+- `max_blog_posts_per_run`
+- `max_shopping_posts_per_run`
+- `enable_trends_date_override`
+
+`image_generation`이라는 콘텐츠 옵션은 유지한다. 이는 사용자가 해당 글에서 이미지를 생성할지 선택하는 값이며 라이선스 entitlement가 아니다.
 
 ## 7. SQL 반영 메모
 
@@ -154,3 +158,17 @@
 - 등록(`register`)과 플랜 변경(`upgrade`)은 분리합니다.
 - `register` 성공 시에도 현재 플랜/쿼터는 즉시 변경되지 않습니다.
 - 플랜 전환은 `upgrade` 경로로만 처리합니다.
+
+## 9. Usage 처리 목표와 현재 차이
+
+목표 처리:
+
+1. 최신 잔여량으로 `선택 A건 · 잔여 B회 · 최대 C건 실행`을 계산한다.
+2. 콘텐츠 작업별 고유 `operation_id`로 quota 1회를 예약한다.
+3. 대상 플랫폼 중 하나 이상 성공하면 commit한다.
+4. 모든 플랫폼이 실패하면 release한다.
+5. 동일 operation id 재시도는 추가 차감하지 않는다.
+
+현재 v4 `check_and_use_license`는 발행 전에 즉시 `usage_count + 1`을 수행한다. 따라서 실패·재시도·다중 플랫폼 정책이 목표 계약과 다르며 코드/RPC 마이그레이션이 필요하다. 트렌드 수집 경로도 현재 차감 RPC를 호출하므로 제거해야 한다.
+
+Supabase 반영 순서에 주의한다. 현재 앱은 `enable_trends_date_override`가 없으면 날짜 지정을 차단하므로 새 앱 코드 배포 전에는 이 키를 삭제하지 않는다.

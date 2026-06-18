@@ -29,6 +29,41 @@
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
 6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 라이선스 화면에서 업그레이드를 진행합니다.
+7. feature JSON은 필수 키 네 개를 모두 포함하며 누락을 허용하지 않습니다.
+
+### 2.1 목표 feature JSON
+
+권장 초기 운영값은 다음과 같습니다.
+
+| Plan | cmd_batch | cmd_trends | cmd_shopping | enable_related_posts_auto_link |
+|---|---:|---:|---:|---:|
+| test | true | true | true | true |
+| free | true | false | false | false |
+| pro | true | true | true | true |
+| ultra | true | true | true | true |
+
+`test`는 유료 기능을 체험할 수 있도록 전체 허용하고, `free`는 기본 발행 중심으로 운영하는 권장안이다. 실제 상품 정책은 `license_plans`가 기준이다.
+
+각 플랜의 `features` 예시:
+
+```json
+{
+  "cmd_batch": true,
+  "cmd_trends": false,
+  "cmd_shopping": false,
+  "enable_related_posts_auto_link": false
+}
+```
+
+제거 대상 키:
+
+- `cmd_pub`
+- `image_generation`
+- `max_blog_posts_per_run`
+- `max_shopping_posts_per_run`
+- `enable_trends_date_override`
+
+주의: 현재 배포 코드에서는 `enable_trends_date_override`를 먼저 삭제하면 날짜 지정 트렌드가 차단된다. 앱이 새 feature 계약을 지원한 뒤 제거 대상 키를 Supabase에서 삭제한다.
 
 ## 3. 운영 시나리오
 

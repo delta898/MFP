@@ -30,6 +30,21 @@ function goToSettings() {
   if (settingsBtn) settingsBtn.click();
 }
 
+async function navigateToSettingsTarget(tabName, targetId) {
+  await navigateTo('settings', tabName);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(String(targetId || '').trim());
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.remove('settings-navigation-target');
+      void target.offsetWidth;
+      target.classList.add('settings-navigation-target');
+      setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
+    });
+  });
+}
+
 function dismissSetupBanner() {
   const banner = document.getElementById('setup-guide-banner');
   if (banner) banner.style.display = 'none';
@@ -2213,6 +2228,163 @@ async function loadDashboardExternalContent(options = {}) {
 let isDashboardLoading = false;
 let lastDashboardLoadTime = 0;
 
+let isAccountOverviewLoading = false;
+let lastAccountOverview = null;
+
+function formatAccountDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function getAccountAction(overview, actionId) {
+  const actions = Array.isArray(overview?.actions) ? overview.actions : [];
+  return actions.find((item) => String(item?.id || '') === actionId) || null;
+}
+
+function renderAccountConnection(elementId, connection) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  const status = String(connection?.status || 'unknown');
+  const connected = status === 'connected' || status === 'configured';
+  element.textContent = connected ? '연결됨' : (status === 'not_configured' ? '미설정' : '로그인 필요');
+  element.className = connected ? 'state-ok' : (status === 'not_configured' ? 'state-muted' : 'state-warning');
+}
+
+function renderAccountOverview(overview) {
+  lastAccountOverview = overview;
+  const subscription = overview?.subscription || {};
+  const usage = overview?.usage || {};
+  const device = overview?.device || {};
+  const identity = overview?.identity || {};
+
+  const planName = String(subscription.plan_name || subscription.plan_code || '-').trim() || '-';
+  const status = String(subscription.status || 'unavailable').trim();
+  const statusLabels = {
+    active: '활성',
+    quota_exhausted: '사용량 소진',
+    unavailable: '확인 필요'
+  };
+  const statusClass = status === 'active' ? 'active' : (status === 'quota_exhausted' ? 'warning' : 'error');
+
+  setText('account-plan-name', planName);
+  const statusEl = document.getElementById('account-plan-status');
+  if (statusEl) {
+    statusEl.textContent = statusLabels[status] || status;
+    statusEl.className = `account-status-badge ${statusClass}`;
+  }
+
+  const unlimited = usage.mode === 'unlimited' || Number(usage.limit) < 0 || Number(usage.remaining) < 0;
+  const used = Number.isFinite(Number(usage.used)) ? Number(usage.used) : null;
+  const limit = Number.isFinite(Number(usage.limit)) ? Number(usage.limit) : null;
+  const remaining = Number.isFinite(Number(usage.remaining)) ? Number(usage.remaining) : null;
+  setText('account-usage-used', unlimited ? '제한 없음' : (used == null || limit == null ? '-' : `${used} / ${limit}회`));
+  setText('account-usage-remaining', unlimited ? '무제한' : (remaining == null ? '-' : `${remaining}회`));
+
+  const progress = unlimited || limit == null || limit <= 0 || used == null
+    ? 100
+    : Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
+  const progressBar = document.getElementById('account-progress-bar');
+  if (progressBar) {
+    progressBar.style.width = `${progress}%`;
+    progressBar.classList.toggle('warning', status === 'quota_exhausted' || (!unlimited && remaining != null && remaining <= 3));
+  }
+
+  setText('account-license-created', `라이선스 생성일 ${formatAccountDate(subscription.created_at)}`);
+
+  setText('account-identity-label', identity.label || '기기 라이선스로 사용 중');
+  setText('account-identity-detail', identity.email_verified && identity.email
+    ? `${identity.email} 계정에 연결되어 있습니다.`
+    : '로그인 없이 현재 기기에 연결된 라이선스를 사용합니다.');
+  const registerAction = getAccountAction(overview, 'register_email');
+  const registerButton = document.getElementById('account-register-email-btn');
+  if (registerButton) {
+    registerButton.textContent = registerAction?.label || '계정 연결 준비 중';
+    registerButton.disabled = registerAction?.enabled !== true;
+    registerButton.title = registerAction?.reason || '';
+  }
+
+  const platformLabels = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' };
+  setText('account-device-platform', `${platformLabels[device.platform] || device.platform || '-'}${device.os_release ? ` ${device.os_release}` : ''}`);
+  setText('account-device-arch', device.arch || '-');
+  setText('account-device-hw-id', device.hw_id || '-');
+  setText('account-device-app-version', device.app_version ? `v${device.app_version}` : '-');
+
+  const featureList = document.getElementById('account-feature-list');
+  if (featureList) {
+    featureList.innerHTML = '';
+    const items = Array.isArray(overview?.capabilities?.items) ? overview.capabilities.items.slice(0, 7) : [];
+    if (items.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent = '플랜 기능 정보가 없습니다.';
+      featureList.appendChild(empty);
+    } else {
+      items.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'account-state-row';
+        const label = document.createElement('span');
+        label.textContent = item.label || item.id;
+        const value = document.createElement('strong');
+        if (item.unit && Number.isFinite(Number(item.value))) {
+          value.textContent = `회당 ${Number(item.value)}${item.unit}`;
+          value.className = Number(item.value) > 0 ? 'state-ok' : 'state-muted';
+        } else {
+          value.textContent = item.enabled ? '사용 가능' : '제한됨';
+          value.className = item.enabled ? 'state-ok' : 'state-muted';
+        }
+        row.append(label, value);
+        featureList.appendChild(row);
+      });
+    }
+  }
+
+  renderAccountConnection('account-connection-naver', overview?.connections?.naver);
+  renderAccountConnection('account-connection-google', overview?.connections?.google_sheets);
+  renderAccountConnection('account-connection-wordpress', overview?.connections?.wordpress);
+}
+
+async function loadAccountOverview({ force = false } = {}) {
+  const loadingEl = document.getElementById('account-overview-loading');
+  const errorEl = document.getElementById('account-overview-error');
+  const contentEl = document.getElementById('account-overview-content');
+
+  if (isAccountOverviewLoading) return lastAccountOverview;
+  if (!force && lastAccountOverview) {
+    renderAccountOverview(lastAccountOverview);
+    loadingEl?.classList.add('hidden');
+    errorEl?.classList.add('hidden');
+    contentEl?.classList.remove('hidden');
+    return lastAccountOverview;
+  }
+
+  isAccountOverviewLoading = true;
+  loadingEl?.classList.remove('hidden');
+  errorEl?.classList.add('hidden');
+  contentEl?.classList.add('hidden');
+
+  try {
+    const overview = await fetchJson('/api/v1/account/overview?quiet=1');
+    renderAccountOverview(overview);
+    loadingEl?.classList.add('hidden');
+    contentEl?.classList.remove('hidden');
+    return overview;
+  } catch (error) {
+    loadingEl?.classList.add('hidden');
+    errorEl?.classList.remove('hidden');
+    setText('account-overview-error-message', error.message || '잠시 후 다시 시도해 주세요.');
+    throw error;
+  } finally {
+    isAccountOverviewLoading = false;
+  }
+}
+
 async function loadDashboard() {
   if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
     return; // Throttle: prevent concurrent or overly frequent calls (5s cooldown)
@@ -2225,12 +2397,11 @@ async function loadDashboard() {
     return null;
   };
 
-  let healthResult, licenseResult, sessionResult, summaryResult, autoResult;
+  let healthResult, accountResult, summaryResult, autoResult;
   try {
-    [healthResult, licenseResult, sessionResult, summaryResult, autoResult] = await Promise.allSettled([
+    [healthResult, accountResult, summaryResult, autoResult] = await Promise.allSettled([
       fetchJson('/api/v1/health').catch(quietCatch),
-      fetchJson('/api/v1/license/status?quiet=1').catch(quietCatch),
-      fetchJson('/api/v1/session/naver').catch(quietCatch),
+      fetchJson('/api/v1/account/overview?quiet=1').catch(quietCatch),
       fetchJson('/api/v1/dashboard/summary').catch(quietCatch),
       fetchJson('/api/v1/auto/status').catch(quietCatch)
     ]);
@@ -2240,14 +2411,25 @@ async function loadDashboard() {
   }
 
   const healthOk = healthResult.status === 'fulfilled';
-  const licenseOk = licenseResult.status === 'fulfilled';
-  const sessionOk = sessionResult.status === 'fulfilled';
+  const accountOk = accountResult.status === 'fulfilled' && Boolean(accountResult.value);
+  const licenseOk = accountOk;
+  const sessionOk = accountOk;
   const summaryOk = summaryResult.status === 'fulfilled';
   const autoOk = autoResult.status === 'fulfilled';
 
   const health = healthOk ? healthResult.value : null;
-  const license = licenseOk ? licenseResult.value : null;
-  const session = sessionOk ? sessionResult.value : null;
+  const accountOverview = accountOk ? accountResult.value : null;
+  const license = accountOverview ? {
+    planCode: accountOverview.subscription?.plan_code,
+    planName: accountOverview.subscription?.plan_name,
+    remaining: accountOverview.usage?.remaining
+  } : null;
+  const naverConnection = accountOverview?.connections?.naver || null;
+  const session = naverConnection ? {
+    valid: naverConnection.status === 'connected',
+    reason: naverConnection.reason || '',
+    message: naverConnection.message || ''
+  } : null;
   const summary = summaryOk ? summaryResult.value : null;
   const auto = autoOk ? autoResult.value : null;
 
@@ -2317,7 +2499,16 @@ async function loadDashboard() {
       licenseBadge.textContent = 'Plan: 확인불가';
       licenseBadge.style.background = '#fee2e2'; licenseBadge.style.color = '#991b1b';
     }
-    licenseBadge.style.cursor = 'default';
+    licenseBadge.style.cursor = 'pointer';
+    if (!licenseBadge._navBound) {
+      licenseBadge._navBound = true;
+      licenseBadge.addEventListener('click', () => void navigateTo('account'));
+    }
+  }
+
+  if (accountOverview) {
+    lastAccountOverview = accountOverview;
+    renderAccountOverview(accountOverview);
   }
 
   // Update Summary Stats
@@ -2808,7 +2999,7 @@ async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'blog'].includes(requestedView)) {
+    if (!['dashboard', 'blog', 'account'].includes(requestedView)) {
       viewName = 'blog';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -2837,6 +3028,10 @@ async function navigateTo(viewName, subTab) {
     } else {
       loadDashboardLogs();
     }
+    return;
+  }
+  if (viewName === 'account') {
+    loadAccountOverview().catch((error) => console.warn('[Account Overview]', error.message));
     return;
   }
   if (viewName === 'blog') {
@@ -8467,6 +8662,23 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     void ensureUpdateCheckFresh({ silent: true });
   }, UPDATE_AUTO_CHECK_POLL_MS);
+
+  const accountRefreshBtn = document.getElementById('account-refresh-btn');
+  accountRefreshBtn?.addEventListener('click', () => {
+    loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Refresh]', error.message));
+  });
+  const accountRetryBtn = document.getElementById('account-retry-btn');
+  accountRetryBtn?.addEventListener('click', () => {
+    loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Retry]', error.message));
+  });
+  document.querySelectorAll('[data-account-settings-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      void navigateToSettingsTarget(
+        button.getAttribute('data-account-settings-tab') || 'general',
+        button.getAttribute('data-account-settings-target') || ''
+      );
+    });
+  });
 
   // Sidebar Toggle (Desktop)
   try {

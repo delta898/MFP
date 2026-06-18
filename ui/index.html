@@ -22,6 +22,7 @@
         </button>
       </div>
       <nav>
+        <div class="nav-section-label">홈</div>
         <button class="nav-btn active" data-view="dashboard">
           <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -30,6 +31,8 @@
           </svg>
           <span class="nav-label">대시보드</span>
         </button>
+        <div class="nav-separator" role="separator"></div>
+        <div class="nav-section-label">콘텐츠</div>
         <button class="nav-btn" data-view="blog">
           <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -47,6 +50,18 @@
           </svg>
           <span class="nav-label">쇼핑커넥트</span>
         </button>
+        <div class="nav-separator" role="separator"></div>
+        <div class="nav-section-label">계정</div>
+        <button class="nav-btn" data-view="account">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21a8 8 0 0 0-16 0" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span class="nav-label">내 정보</span>
+        </button>
+        <div class="nav-separator" role="separator"></div>
+        <div class="nav-section-label">시스템</div>
         <button class="nav-btn" data-view="settings">
           <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -64,6 +79,7 @@
           </svg>
           <span class="nav-label">로그/이력</span>
         </button>
+        <div class="nav-separator" role="separator"></div>
         <a class="nav-link-btn nav-help-link" href="https://open.kakao.com/o/gZWL25Zh" target="_blank"
           rel="noopener noreferrer">
           <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1401,13 +1417,108 @@
           </div>
         </div>
       </section>
-      <section class="view" id="view-license">
-        <div class="view-title-block">
-          <div class="view-title-row">
-            <h1>라이선스 (예정)</h1>
-            <div class="page-clock-widget">
-              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+      <section class="view" id="view-account">
+        <div class="view-title-block account-view-header">
+          <div>
+            <div class="view-title-row account-title-row">
+              <h1>계정 및 구독</h1>
+              <button id="account-refresh-btn" class="secondary compact" type="button">새로고침</button>
             </div>
+            <p class="muted account-view-description">이 기기의 라이선스, 사용량과 서비스 연결 상태를 확인합니다.</p>
+          </div>
+        </div>
+
+        <div id="account-overview-loading" class="account-loading-card card">
+          계정 및 구독 정보를 불러오는 중입니다.
+        </div>
+        <div id="account-overview-error" class="account-error-card card hidden" role="alert">
+          <strong>정보를 불러오지 못했습니다.</strong>
+          <span id="account-overview-error-message">잠시 후 다시 시도해 주세요.</span>
+          <button id="account-retry-btn" class="secondary compact" type="button">다시 시도</button>
+        </div>
+
+        <div id="account-overview-content" class="account-overview hidden">
+          <article class="account-subscription-card card">
+            <div class="account-card-heading">
+              <div>
+                <span class="account-eyebrow">현재 플랜</span>
+                <div class="account-plan-line">
+                  <strong id="account-plan-name">-</strong>
+                  <span id="account-plan-status" class="account-status-badge">확인 중</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="account-usage-summary">
+              <div>
+                <span class="account-usage-label">사용량</span>
+                <strong id="account-usage-used">-</strong>
+              </div>
+              <div class="account-usage-remaining-wrap">
+                <span class="account-usage-label">남은 발행 횟수</span>
+                <strong id="account-usage-remaining">-</strong>
+              </div>
+            </div>
+            <div class="account-progress-track" aria-hidden="true">
+              <div id="account-progress-bar" class="account-progress-bar"></div>
+            </div>
+            <div class="account-subscription-meta">
+              <span id="account-license-created">라이선스 생성일 -</span>
+            </div>
+          </article>
+
+          <div class="account-card-grid">
+            <article class="account-info-card card">
+              <div class="account-info-card-title">
+                <span class="account-info-icon" aria-hidden="true">ID</span>
+                <h2>계정</h2>
+              </div>
+              <strong id="account-identity-label">기기 라이선스로 사용 중</strong>
+              <p id="account-identity-detail" class="muted">로그인 없이 현재 기기에 연결된 라이선스를 사용합니다.</p>
+              <button id="account-register-email-btn" class="secondary compact" type="button" disabled>계정 연결 준비 중</button>
+            </article>
+
+            <article class="account-info-card card">
+              <div class="account-info-card-title">
+                <span class="account-info-icon" aria-hidden="true">HW</span>
+                <h2>기기</h2>
+              </div>
+              <dl class="account-detail-list">
+                <div><dt>운영체제</dt><dd id="account-device-platform">-</dd></div>
+                <div><dt>아키텍처</dt><dd id="account-device-arch">-</dd></div>
+                <div><dt>HW ID</dt><dd id="account-device-hw-id">-</dd></div>
+                <div><dt>앱 버전</dt><dd id="account-device-app-version">-</dd></div>
+              </dl>
+            </article>
+
+            <article class="account-info-card card">
+              <div class="account-info-card-title">
+                <span class="account-info-icon" aria-hidden="true">✓</span>
+                <h2>포함 기능</h2>
+              </div>
+              <div id="account-feature-list" class="account-state-list"></div>
+            </article>
+
+            <article class="account-info-card card">
+              <div class="account-info-card-title">
+                <span class="account-info-icon" aria-hidden="true">↗</span>
+                <h2>연결 상태</h2>
+              </div>
+              <div class="account-state-list">
+                <button class="account-state-row" type="button" data-account-settings-tab="naver-blog"
+                  data-account-settings-target="settings-naver-id">
+                  <span>네이버</span><strong id="account-connection-naver">-</strong>
+                </button>
+                <button class="account-state-row" type="button" data-account-settings-tab="general"
+                  data-account-settings-target="settings-google-sheet-url">
+                  <span>Google Sheets</span><strong id="account-connection-google">-</strong>
+                </button>
+                <button class="account-state-row" type="button" data-account-settings-tab="naver-blog"
+                  data-account-settings-target="settings-wordpress-url">
+                  <span>WordPress</span><strong id="account-connection-wordpress">-</strong>
+                </button>
+              </div>
+            </article>
           </div>
         </div>
       </section>
