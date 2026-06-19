@@ -20,9 +20,10 @@ function createService(overrides = {}) {
                     usageCount: 3,
                     remaining: 12,
                     features: {
-                        cmd_pub: true,
+                        cmd_batch: true,
+                        cmd_trends: false,
                         cmd_shopping: false,
-                        max_blog_posts_per_run: 3
+                        enable_related_posts_auto_link: false
                     }
                 };
             }
@@ -33,9 +34,6 @@ function createService(overrides = {}) {
         },
         APP_VERSION: '0.1.13-dev1',
         toFeatureMap: (value) => ({ ...value }),
-        getFeatureInt: (features, key, fallback) => Number(features[key] ?? fallback),
-        resolveMaxBlogPostsPerRun: () => 1,
-        resolveMaxShoppingPostsPerRun: () => 1,
         checkNaverSessionForUi: async () => ({ ok: true, reason: '', message: 'valid' }),
         resolveMachineId: () => 'raw-machine-id-must-not-leak',
         runtimeVersions: { node: '24.16.0', electron: '40.6.1' },
@@ -71,6 +69,12 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.connections.naver.status, 'connected');
     assert.equal(overview.connections.google_sheets.status, 'configured');
     assert.equal(overview.connections.wordpress.status, 'not_configured');
+    assert.deepEqual(overview.capabilities.items.map((item) => item.id), [
+        'cmd_batch',
+        'cmd_trends',
+        'cmd_shopping',
+        'enable_related_posts_auto_link'
+    ]);
     assert.equal(overview.actions.find((item) => item.id === 'upgrade').enabled, false);
 });
 
@@ -107,4 +111,22 @@ test('account overview rejects failures with no usable license context', async (
     });
 
     await assert.rejects(() => service.getOverview(), /서버 연결 실패/);
+});
+
+test('account overview rejects invalid feature policy even with plan context', async () => {
+    const service = createService({
+        License: {
+            async checkLicenseStatus() {
+                return {
+                    success: false,
+                    code: 'LICENSE_FEATURE_POLICY_INVALID',
+                    message: '라이선스 기능 정책이 올바르지 않습니다.',
+                    planCode: 'free',
+                    remaining: 10
+                };
+            }
+        }
+    });
+
+    await assert.rejects(() => service.getOverview(), /기능 정책이 올바르지 않습니다/);
 });

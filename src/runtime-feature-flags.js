@@ -1,5 +1,3 @@
-const CONFIG = require('./config-loader');
-
 function toFeatureMap(rawFeatures) {
     return (rawFeatures && typeof rawFeatures === 'object' && !Array.isArray(rawFeatures))
         ? rawFeatures
@@ -20,36 +18,19 @@ function getFeatureBool(features, key, fallback = true) {
     return fallback;
 }
 
-function getFeatureInt(features, key, fallback = null) {
-    const map = toFeatureMap(features);
-    if (!(key in map)) return fallback;
-    const num = parseInt(map[key], 10);
-    if (Number.isNaN(num) || num < 0) return fallback;
-    return num;
-}
-
 function getEnableRelatedPostsAutoLink(features) {
-    return getFeatureBool(features, 'enable_related_posts_auto_link', true);
-}
-
-function getEnableTrendsDateOverride(features, planCode = '') {
-    const map = toFeatureMap(features);
-    if (Object.prototype.hasOwnProperty.call(map, 'enable_trends_date_override')) {
-        return getFeatureBool(map, 'enable_trends_date_override', false);
-    }
-    return String(planCode || '').toLowerCase() !== 'free';
+    return getFeatureBool(features, 'enable_related_posts_auto_link', false);
 }
 
 function isCommandEnabled(features, command) {
     const keyMap = {
-        pub: 'cmd_pub',
         batch: 'cmd_batch',
         trends: 'cmd_trends',
         shopping: 'cmd_shopping'
     };
     const key = keyMap[command];
     if (!key) return true;
-    return getFeatureBool(features, key, true);
+    return getFeatureBool(features, key, false);
 }
 
 function parseMaxPosts(value, fallback = 10) {
@@ -58,22 +39,10 @@ function parseMaxPosts(value, fallback = 10) {
     return parsed;
 }
 
-function resolveMaxBlogPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_BLOG_POSTS_PER_RUN, 10);
-}
-
-function resolveMaxShoppingPostsPerRun() {
-    return parseMaxPosts(CONFIG.MAX_SHOPPING_POSTS_PER_RUN, 10);
-}
-
 module.exports = {
     toFeatureMap,
     getFeatureBool,
-    getFeatureInt,
     getEnableRelatedPostsAutoLink,
-    getEnableTrendsDateOverride,
     isCommandEnabled,
-    parseMaxPosts,
-    resolveMaxBlogPostsPerRun,
-    resolveMaxShoppingPostsPerRun
+    parseMaxPosts
 };

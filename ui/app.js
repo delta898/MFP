@@ -882,8 +882,6 @@ let blogAutoCategoryCatalogMeta = {
   trendCount: 0,
   updatedAt: ''
 };
-let shoppingAutoPlanMaxPosts = null;
-let shoppingAutoPlanName = '현재';
 let uiDialogResolver = null;
 
 // ─── Logging & Progress Utilities ──────────────────────────────────
@@ -2319,7 +2317,7 @@ function renderAccountOverview(overview) {
   const featureList = document.getElementById('account-feature-list');
   if (featureList) {
     featureList.innerHTML = '';
-    const items = Array.isArray(overview?.capabilities?.items) ? overview.capabilities.items.slice(0, 7) : [];
+    const items = Array.isArray(overview?.capabilities?.items) ? overview.capabilities.items : [];
     if (items.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'muted';
@@ -2332,13 +2330,8 @@ function renderAccountOverview(overview) {
         const label = document.createElement('span');
         label.textContent = item.label || item.id;
         const value = document.createElement('strong');
-        if (item.unit && Number.isFinite(Number(item.value))) {
-          value.textContent = `회당 ${Number(item.value)}${item.unit}`;
-          value.className = Number(item.value) > 0 ? 'state-ok' : 'state-muted';
-        } else {
-          value.textContent = item.enabled ? '사용 가능' : '제한됨';
-          value.className = item.enabled ? 'state-ok' : 'state-muted';
-        }
+        value.textContent = item.enabled ? '사용 가능' : '제한됨';
+        value.className = item.enabled ? 'state-ok' : 'state-muted';
         row.append(label, value);
         featureList.appendChild(row);
       });
@@ -4334,7 +4327,6 @@ function applySettingsMajorToForm(data, options = {}) {
     const normalizedReuseGap = normalizeBlogAutoKeywordReuseGapValue(rawReuseGap, 15);
     blogCollectTrendsReuseGapEl.value = String(normalizedReuseGap);
   }
-  applyShoppingAutoDailyPostsLimitUi();
   syncBlogAutoVariationNumberUi();
 
   // 이미지 슬롯을 applyingForm 플래그 해제 전에 먼저 채웁니다.
@@ -5838,56 +5830,9 @@ function setShoppingAutoResultText(message) {
   if (resultEl) resultEl.textContent = String(message || '');
 }
 
-function applyShoppingAutoDailyPostsLimitUi() {
-  const inputEl = document.getElementById('shopping-auto-daily-posts');
-  const hintEl = document.getElementById('shopping-auto-daily-posts-hint');
-  if (!inputEl) return;
-
-  const planLabelRaw = String(shoppingAutoPlanName || '').trim();
-  const planLabel = planLabelRaw
-    ? planLabelRaw.replace(/\s+plan$/i, '').trim() || planLabelRaw
-    : '현재';
-
-  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts) && shoppingAutoPlanMaxPosts > 0) {
-    inputEl.max = String(shoppingAutoPlanMaxPosts);
-    const current = parseInt((inputEl.value || '').trim(), 10);
-    if (Number.isInteger(current) && current > shoppingAutoPlanMaxPosts) {
-      inputEl.value = String(shoppingAutoPlanMaxPosts);
-    }
-    if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: ${shoppingAutoPlanMaxPosts}건`;
-    return;
-  }
-
-  inputEl.removeAttribute('max');
-  if (hintEl) hintEl.textContent = `${planLabel} 플랜 1회 최대 발행: 제한 없음`;
-}
-
-async function loadShoppingAutoPlanLimit(options = {}) {
-  const silent = options?.silent === true;
-  try {
-    const capabilities = await fetchJson('/api/v1/capabilities?quiet=1');
-    shoppingAutoPlanName = String(capabilities?.planName || capabilities?.planCode || '현재').trim() || '현재';
-    const raw = capabilities?.limits?.max_shopping_posts_per_run;
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed) && parsed >= 0) {
-      shoppingAutoPlanMaxPosts = parsed;
-    } else {
-      shoppingAutoPlanMaxPosts = null;
-    }
-    applyShoppingAutoDailyPostsLimitUi();
-  } catch (e) {
-    shoppingAutoPlanMaxPosts = null;
-    applyShoppingAutoDailyPostsLimitUi();
-    if (!silent) setShoppingAutoResultText(`플랜 제한 조회 실패: ${e.message}`);
-  }
-}
-
 function normalizeShoppingAutoDailyPostsValue(rawValue) {
   let value = parseInt(String(rawValue || '').trim(), 10);
   if (!Number.isInteger(value) || value < 0) value = 0;
-  if (typeof shoppingAutoPlanMaxPosts === 'number' && Number.isFinite(shoppingAutoPlanMaxPosts) && shoppingAutoPlanMaxPosts > 0) {
-    value = Math.min(value, shoppingAutoPlanMaxPosts);
-  }
   return value;
 }
 
@@ -6252,10 +6197,7 @@ async function loadShoppingAutoSettings({ force = false, skipPendingConfirm = fa
   const headlessEl = document.getElementById('shopping-publish-auto-headless');
   setShoppingAutoResultText('불러오는 중...');
   try {
-    const [data] = await Promise.all([
-      fetchJson('/api/v1/settings/major'),
-      loadShoppingAutoPlanLimit({ silent: true })
-    ]);
+    const data = await fetchJson('/api/v1/settings/major');
     const fields = data?.fields || {};
     if (publishEnabledEl) publishEnabledEl.checked = Boolean(fields.SHOPPING_PUBLISH_AUTO_ENABLED);
     if (publishIntervalEl) publishIntervalEl.value = String(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
@@ -8441,7 +8383,6 @@ function bindActions() {
     });
     shoppingAutoDailyPostsInputEl.addEventListener('blur', () => {
       clampShoppingAutoDailyPostsInputValue({ force: true });
-      applyShoppingAutoDailyPostsLimitUi();
     });
   }
   const settingsNotifyTelegramTestBtn = document.getElementById('settings-notify-telegram-test-btn');

@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { machineIdSync } = require('node-machine-id');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const { validateLicenseFeaturePolicy } = require('./license-feature-policy');
 
 // Supabase 클라이언트 초기화 (설정 누락 시 null 처리하여 안전하게 기동)
 let supabase = null;
@@ -540,6 +541,22 @@ const License = {
             }
 
             if (data && data.success) {
+                const featurePolicy = validateLicenseFeaturePolicy(data.features);
+                if (!featurePolicy.success) {
+                    Logger.error(`[License] ${featurePolicy.message}`);
+                    return {
+                        success: false,
+                        code: featurePolicy.code,
+                        message: featurePolicy.message,
+                        remaining: data.remaining,
+                        planCode: data.plan_code,
+                        planDisplayName: data.plan_display_name,
+                        createdAt: data.created_at || '',
+                        usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
+                        usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
+                        features: featurePolicy.features
+                    };
+                }
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
                 const result = {
                     success: true,
@@ -550,7 +567,7 @@ const License = {
                     createdAt: data.created_at || '',
                     usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                     usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
-                    features: (data.features && typeof data.features === 'object') ? data.features : {}
+                    features: featurePolicy.features
                 };
 
                 // 🚀 캐시 업데이트
@@ -619,6 +636,19 @@ const License = {
 
             // data 구조: { success: true/false, message: '...', remaining: N }
             if (data && data.success) {
+                const featurePolicy = validateLicenseFeaturePolicy(data.features);
+                if (!featurePolicy.success) {
+                    Logger.error(`[License] ${featurePolicy.message}`);
+                    return {
+                        success: false,
+                        code: featurePolicy.code,
+                        message: featurePolicy.message,
+                        remaining: data.remaining,
+                        planCode: data.plan_code,
+                        planDisplayName: data.plan_display_name,
+                        features: featurePolicy.features
+                    };
+                }
                 const remainingLabel = formatPlanRemaining(data.plan_code, data.plan_display_name, data.remaining);
                 Logger.info(`✅ 라이선스 승인 (${remainingLabel})`);
                 return {
@@ -627,7 +657,7 @@ const License = {
                     remaining: data.remaining,
                     planCode: data.plan_code,
                     planDisplayName: data.plan_display_name,
-                    features: (data.features && typeof data.features === 'object') ? data.features : {}
+                    features: featurePolicy.features
                 };
             } else {
                 return {

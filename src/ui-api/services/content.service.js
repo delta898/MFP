@@ -1,6 +1,7 @@
 const { createApiError } = require('../errors');
 const { buildLocalMarkdownPreview } = require('../../content/local-markdown-preview');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
+const { isCommandEnabled } = require('../../runtime-feature-flags');
 
 function createContentService(deps = {}) {
     const {
@@ -10,6 +11,7 @@ function createContentService(deps = {}) {
         axios,
         RuntimeConfig,
         CONFIG,
+        License,
         GoogleOAuth,
         BrowserLauncher,
         ShoppingManager,
@@ -51,6 +53,16 @@ function createContentService(deps = {}) {
         executeBlogTopicsDelete,
         executeShoppingTopicsDelete
     } = deps;
+
+    async function requireShoppingExecution() {
+        const status = await License.checkLicenseStatus({ quiet: true });
+        if (!status.success) {
+            throw createApiError(400, status.code || 'LICENSE_STATUS_FAILED', status.message);
+        }
+        if (!isCommandEnabled(status.features, 'shopping')) {
+            throw createApiError(403, 'FEATURE_DISABLED', '현재 플랜에서 쇼핑커넥트 실행 기능을 사용할 수 없습니다.');
+        }
+    }
 
     let wordpressCategoryConfigLogState = '';
 
@@ -879,6 +891,7 @@ function createContentService(deps = {}) {
             if (!/^https?:\/\//i.test(shortUrl)) {
                 throw createApiError(400, 'INVALID_SHOPPING_URL', '쇼핑 URL 형식이 올바르지 않습니다. (http/https)');
             }
+            await requireShoppingExecution();
             try {
                 return await ShoppingManager.previewFromShortUrl(shortUrl);
             } catch (e) {

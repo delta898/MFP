@@ -80,6 +80,6 @@ preflight -> reserve -> platform execution -> commit or release
 - Supabase feature JSON 변경과 앱 코드 배포 순서를 맞춰야 한다.
 
 ## Rollout Constraint
-- 현재 앱은 `enable_trends_date_override` 누락을 비활성으로 해석한다.
-- 앱 코드가 새 계약을 지원하기 전에 이 키를 Supabase에서 삭제하면 날짜 지정 트렌드가 차단된다.
-- 먼저 앱의 feature 평가와 quota 흐름을 배포하고, 이후 제거 대상 키를 Supabase에서 삭제한다.
+- 저장소 코드는 새 네 개 키 계약을 검증하고 제거 대상 키를 무시한다.
+- 원격 Supabase에서는 이 앱 버전이 배포된 뒤 제거 대상 키를 삭제한다.
+- quota reserve/commit/release 전환은 별도 단계이며 기존 `check_and_use_license`와 혼동하지 않는다.

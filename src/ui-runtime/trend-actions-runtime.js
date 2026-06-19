@@ -11,7 +11,6 @@ function createTrendActionsRuntime(deps = {}) {
         checkAuthSessionValid,
         toFeatureMap,
         isCommandEnabled,
-        getFeatureBool,
         getBlogAutoSettingsSnapshot,
         normalizeYmdToken,
         toBoolLike,
@@ -307,13 +306,6 @@ function createTrendActionsRuntime(deps = {}) {
         }
 
         const dateInput = String(requestBody?.date || requestBody?.trendDate || '').trim();
-        if (dateInput && !getFeatureBool(features, 'enable_trends_date_override', false)) {
-            return {
-                success: false,
-                code: 'FEATURE_DISABLED',
-                message: '현재 플랜에서 날짜 지정 트렌드 기능이 비활성화되어 있습니다. (enable_trends_date_override=false)'
-            };
-        }
 
         const session = await checkAuthSessionValid();
         if (!session.ok) {
@@ -341,12 +333,6 @@ function createTrendActionsRuntime(deps = {}) {
                     message: '수집된 트렌드가 없습니다.'
                 }
             };
-        }
-
-        const verify = await License.verifyLicense();
-        if (!verify.success) {
-            Logger.error(`❌ [AUTO][Producer] 라이선스 검증 실패: ${verify.message}`);
-            return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
         }
 
         const trendsWithDate = trendKeywords.map((item, index) => ({

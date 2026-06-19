@@ -63,7 +63,7 @@
 - `max_shopping_posts_per_run`
 - `enable_trends_date_override`
 
-주의: 현재 배포 코드에서는 `enable_trends_date_override`를 먼저 삭제하면 날짜 지정 트렌드가 차단된다. 앱이 새 feature 계약을 지원한 뒤 제거 대상 키를 Supabase에서 삭제한다.
+주의: 저장소 코드는 새 feature 계약을 지원한다. 원격 Supabase에서는 이 앱 버전을 배포한 뒤 제거 대상 키를 삭제한다.
 
 ## 3. 운영 시나리오
 

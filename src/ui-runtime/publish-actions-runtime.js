@@ -67,8 +67,7 @@ function createPublishActionsRuntime(deps = {}) {
         const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
         const emitProgress = (message) => onProgress && onProgress(message);
 
-        const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
-        const imageGenerationFinal = (context.imageOptions?.generate === true) && imageGenerationEnabledByPlan;
+        const imageGenerationFinal = context.imageOptions?.generate === true;
 
         const results = {
             naver: { success: false, message: '', targetDir: null },
@@ -163,8 +162,7 @@ function createPublishActionsRuntime(deps = {}) {
             naver: { success: false, message: '', targetDir: null },
             wordpress: { success: false, message: '', targetDir: null }
         };
-        const imageGenerationEnabledByPlan = getFeatureBool(params.features || {}, 'image_generation', true);
-        const imageGenerationFinal = (context.imageOptions?.generate === true) && imageGenerationEnabledByPlan;
+        const imageGenerationFinal = context.imageOptions?.generate === true;
         const subjectLabel = String(results.finalSubject || context.subject || '').trim() || '제목 미지정';
         const targetLabel = formatActivityTargets(targets);
         const publishLabel = context.postStatus === 'draft'
@@ -317,10 +315,6 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
         }
         const features = toFeatureMap(precheck.features);
-        if (!isCommandEnabled(features, 'batch')) {
-            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
-        }
-
         const generatedTargets = Array.isArray(session.targets) ? session.targets.slice() : [];
         const selectedTargets = Array.isArray(requestBody?.targets)
             ? requestBody.targets.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
@@ -344,8 +338,7 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필수입니다.' };
         }
 
-        const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
-        const imageGenerationFinal = session.imageGenerationRequested === true && imageGenerationEnabledByPlan;
+        const imageGenerationFinal = session.imageGenerationRequested === true;
         const verify = await License.verifyLicense();
         if (!verify.success) {
             return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
@@ -541,9 +534,8 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const features = toFeatureMap(precheck.features);
-        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
-        const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
-        const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
+        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
+        const imageGenerationFinal = imageGenerationRequested;
 
         const nowMs = Date.now();
         cleanupQuickPublishDedupeCache(nowMs);
@@ -941,13 +933,8 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const features = toFeatureMap(precheck.features);
-        if (!isCommandEnabled(features, 'batch')) {
-            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 즉시 발행 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
-        }
-
-        const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
-        const imageGenerationFinal = imageGenerationRequested && imageGenerationEnabledByPlan;
-        const relatedPostsEnabled = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+        const imageGenerationFinal = imageGenerationRequested;
+        const relatedPostsEnabled = getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const sourceType = hasPastedMarkdown ? 'pasted_markdown' : 'local_markdown';
         const sourceLabel = hasPastedMarkdown
             ? '붙여넣은 원고'
@@ -1266,7 +1253,10 @@ function createPublishActionsRuntime(deps = {}) {
 
         const result = await executeShoppingRowAction(
             { rowIndex, headless, targets, isLast: true },
-            { enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', true) }
+            {
+                features,
+                enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', false)
+            }
         );
 
         if (!result.success) {

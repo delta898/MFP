@@ -52,12 +52,9 @@ const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const {
     toFeatureMap,
-    getFeatureInt,
     getFeatureBool,
     isCommandEnabled,
-    parseMaxPosts,
-    resolveMaxBlogPostsPerRun,
-    resolveMaxShoppingPostsPerRun
+    parseMaxPosts
 } = require('./runtime-feature-flags');
 const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
@@ -1527,10 +1524,7 @@ const contentActionsRuntime = createContentActionsRuntime({
     checkAuthSessionValid,
     toFeatureMap,
     getFeatureBool,
-    getFeatureInt,
     isCommandEnabled,
-    resolveMaxBlogPostsPerRun,
-    resolveMaxShoppingPostsPerRun,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     processMultiPlatformPublish,
     normalizeShoppingAutoSettings,
@@ -1608,11 +1602,8 @@ const autoCycleRuntime = createAutoCycleRuntime({
     normalizeShoppingAutoSettings,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     toFeatureMap,
-    getFeatureInt,
     isCommandEnabled,
     parseMaxPosts,
-    resolveMaxBlogPostsPerRun,
-    resolveMaxShoppingPostsPerRun,
     collectTrendsDefaults: COLLECT_TRENDS_DEFAULTS,
     blogAutoDefaults: PUBLISH_AUTO_DEFAULTS,
     autoRuntimeState,
@@ -1681,9 +1672,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     parseBoolQuery,
     ensureSheetsReadyForUi,
     toFeatureMap,
-    getFeatureInt,
-    resolveMaxBlogPostsPerRun,
-    resolveMaxShoppingPostsPerRun,
     checkNaverSessionForUi,
     getNaverLoginStatus,
     getNaverLoginState,

@@ -12,10 +12,7 @@ function createContentActionsRuntime(deps = {}) {
         checkAuthSessionValid,
         toFeatureMap,
         getFeatureBool,
-        getFeatureInt,
         isCommandEnabled,
-        resolveMaxBlogPostsPerRun,
-        resolveMaxShoppingPostsPerRun,
         getBlogAutoSettingsSnapshot,
         processMultiPlatformPublish,
         normalizeShoppingAutoSettings,
@@ -106,8 +103,7 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
         }
         const features = toFeatureMap(precheck.features);
-        const imageGenerationEnabledByPlan = getFeatureBool(features, 'image_generation', true);
-        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
 
         const rowOptions = topicData.options || {};
         const getVal = (key, fallback) => {
@@ -126,7 +122,7 @@ function createContentActionsRuntime(deps = {}) {
         const effectiveImgGenRequested = topicData.image_gen === true;
         const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
         const effectiveExtRef = topicData.external_reference === true;
-        const effectiveImgGen = effectiveImgGenRequested && imageGenerationEnabledByPlan;
+        const effectiveImgGen = effectiveImgGenRequested;
 
         const autoSettingsSnapshot = getBlogAutoSettingsSnapshot();
         const resolvedHeadless = typeof requestBody?.headless === 'boolean'
@@ -366,10 +362,7 @@ function createContentActionsRuntime(deps = {}) {
             };
         }
 
-        const featureMax = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
-        const effectiveMax = featureMax === 0 ? rowIndices.length : Math.max(1, featureMax);
-        const targetRowIndices = rowIndices.slice(0, effectiveMax);
-        const skippedByLimit = rowIndices.slice(effectiveMax);
+        const targetRowIndices = rowIndices;
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
@@ -431,8 +424,6 @@ function createContentActionsRuntime(deps = {}) {
                 attemptedCount: targetRowIndices.length,
                 successCount,
                 failCount,
-                maxPerRun: effectiveMax,
-                skippedByLimit,
                 results
             }
         };
@@ -443,6 +434,18 @@ function createContentActionsRuntime(deps = {}) {
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
         if (rowIndex === null) {
             return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+        }
+
+        let features = options.features ? toFeatureMap(options.features) : null;
+        if (!features) {
+            const precheck = await License.checkLicenseStatus();
+            if (!precheck.success) {
+                return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
+            }
+            features = toFeatureMap(precheck.features);
+        }
+        if (!isCommandEnabled(features, 'shopping')) {
+            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 쇼핑커넥트 실행 기능을 사용할 수 없습니다.' };
         }
 
         const progress = typeof options.onProgress === 'function' ? options.onProgress : null;
@@ -470,7 +473,7 @@ function createContentActionsRuntime(deps = {}) {
                 ? requestBody.headless
                 : blogAutoSettings.BLOG_AUTO_HEADLESS;
             const scrapingHeadless = true;
-            const enableRelatedPostsAutoLink = options.enableRelatedPostsAutoLink !== false;
+            const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
 
             const results = {
                 naver: { success: false, message: '', targetDir: null },
@@ -596,6 +599,12 @@ function createContentActionsRuntime(deps = {}) {
             });
             return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 shopping 기능이 비활성화되어 있습니다. (cmd_shopping=false)' };
         }
+        if (!isCommandEnabled(features, 'batch')) {
+            rowIndices.forEach((rowIndex) => {
+                setShoppingRuntimeLog(rowIndex, '중단: 현재 플랜에서 batch 사용 불가');
+            });
+            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 일괄·자동 발행 기능을 사용할 수 없습니다.' };
+        }
 
         const initialSession = await checkAuthSessionValid();
         if (!initialSession.ok) {
@@ -609,11 +618,8 @@ function createContentActionsRuntime(deps = {}) {
             };
         }
 
-        const featureMax = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
-        const effectiveMax = featureMax === 0 ? rowIndices.length : Math.max(1, featureMax);
-        const targetRowIndices = rowIndices.slice(0, effectiveMax);
-        const skippedByLimit = rowIndices.slice(effectiveMax);
-        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', true);
+        const targetRowIndices = rowIndices;
+        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
@@ -631,6 +637,7 @@ function createContentActionsRuntime(deps = {}) {
             const result = await executeShoppingRowAction(
                 { rowIndex, targets, headless, isLast: index === targetRowIndices.length - 1 },
                 {
+                    features,
                     enableRelatedPostsAutoLink,
                     onProgress: (message) => setShoppingRuntimeLog(rowIndex, message)
                 }
@@ -675,8 +682,6 @@ function createContentActionsRuntime(deps = {}) {
                 attemptedCount: targetRowIndices.length,
                 successCount,
                 failCount,
-                maxPerRun: effectiveMax,
-                skippedByLimit,
                 results
             }
         };

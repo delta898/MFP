@@ -2,13 +2,10 @@ const os = require('os');
 const { machineIdSync } = require('node-machine-id');
 
 const FEATURE_LABELS = {
-    cmd_pub: '블로그 발행',
     cmd_batch: '일괄·자동 발행',
     cmd_trends: '트렌드 수집',
     cmd_shopping: '쇼핑커넥트',
-    image_generation: 'AI 이미지 생성',
-    enable_related_posts_auto_link: '연관 글 자동 연결',
-    enable_trends_date_override: '트렌드 날짜 지정'
+    enable_related_posts_auto_link: '연관 글 자동 연결'
 };
 
 function maskHardwareId(machineId, visibleSuffixLength = 8) {
@@ -25,7 +22,7 @@ function normalizeConnection(status, extra = {}) {
     };
 }
 
-function buildFeatureItems(features = {}, limits = {}) {
+function buildFeatureItems(features = {}) {
     const items = [];
     Object.entries(FEATURE_LABELS).forEach(([key, label]) => {
         if (!Object.prototype.hasOwnProperty.call(features, key)) return;
@@ -38,24 +35,6 @@ function buildFeatureItems(features = {}, limits = {}) {
         });
     });
 
-    if (Number.isFinite(Number(limits.max_blog_posts_per_run))) {
-        items.push({
-            id: 'max_blog_posts_per_run',
-            label: '블로그 회당 발행',
-            enabled: Number(limits.max_blog_posts_per_run) > 0,
-            value: Number(limits.max_blog_posts_per_run),
-            unit: '건'
-        });
-    }
-    if (Number.isFinite(Number(limits.max_shopping_posts_per_run))) {
-        items.push({
-            id: 'max_shopping_posts_per_run',
-            label: '쇼핑 회당 발행',
-            enabled: Number(limits.max_shopping_posts_per_run) > 0,
-            value: Number(limits.max_shopping_posts_per_run),
-            unit: '건'
-        });
-    }
     return items;
 }
 
@@ -65,9 +44,6 @@ function createAccountOverviewService(deps = {}) {
         CONFIG = {},
         APP_VERSION = '',
         toFeatureMap = (value) => value || {},
-        getFeatureInt = (_features, _key, fallback) => fallback,
-        resolveMaxBlogPostsPerRun = () => 1,
-        resolveMaxShoppingPostsPerRun = () => 1,
         checkNaverSessionForUi = async () => ({ ok: false, reason: 'unknown', message: '' }),
         resolveMachineId = () => machineIdSync({ original: true }),
         runtimeVersions = process.versions,
@@ -93,15 +69,14 @@ function createAccountOverviewService(deps = {}) {
             || licenseStatus?.planDisplayName
             || Number.isFinite(Number(licenseStatus?.remaining))
         );
+        if (licenseStatus?.code === 'LICENSE_FEATURE_POLICY_INVALID') {
+            throw new Error(licenseStatus.message || '라이선스 기능 정책이 올바르지 않습니다.');
+        }
         if (!licenseStatus?.success && !hasLicenseContext) {
             throw new Error(licenseStatus?.message || '라이선스 상태를 확인하지 못했습니다.');
         }
 
         const features = toFeatureMap(licenseStatus?.features || {});
-        const limits = {
-            max_blog_posts_per_run: getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun()),
-            max_shopping_posts_per_run: getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun())
-        };
         const usageLimit = Number.isFinite(Number(licenseStatus?.usageLimit)) ? Number(licenseStatus.usageLimit) : null;
         const usageCount = Number.isFinite(Number(licenseStatus?.usageCount)) ? Number(licenseStatus.usageCount) : null;
         const remaining = Number.isFinite(Number(licenseStatus?.remaining)) ? Number(licenseStatus.remaining) : null;
@@ -149,8 +124,7 @@ function createAccountOverviewService(deps = {}) {
             },
             capabilities: {
                 features,
-                limits,
-                items: buildFeatureItems(features, limits)
+                items: buildFeatureItems(features)
             },
             device: {
                 hw_id: hardwareId,

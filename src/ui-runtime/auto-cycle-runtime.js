@@ -19,11 +19,8 @@ function createAutoCycleRuntime(deps = {}) {
         normalizeShoppingAutoSettings,
         getBlogAutoSettingsSnapshot,
         toFeatureMap,
-        getFeatureInt,
         isCommandEnabled,
         parseMaxPosts,
-        resolveMaxBlogPostsPerRun,
-        resolveMaxShoppingPostsPerRun,
         collectTrendsDefaults,
         blogAutoDefaults,
         autoRuntimeState,
@@ -117,11 +114,6 @@ function createAutoCycleRuntime(deps = {}) {
                 return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message, data: { trigger, summary } };
             }
             const features = toFeatureMap(precheck.features);
-            const maxShoppingByPlan = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
-            const planShoppingLimit = (Number.isFinite(maxShoppingByPlan) && maxShoppingByPlan > 0)
-                ? maxShoppingByPlan
-                : Number.MAX_SAFE_INTEGER;
-
             const session = await checkAuthSessionValid();
             if (!session.ok) {
                 shoppingAutoRuntimeState.status = 'waiting';
@@ -138,7 +130,7 @@ function createAutoCycleRuntime(deps = {}) {
                 const remaining = cycleCap > 0
                     ? Math.max(0, cycleCap - shoppingAutoRuntimeState.shoppingPublishedToday)
                     : Number.MAX_SAFE_INTEGER;
-                const targetLimit = Math.max(0, Math.min(effectiveCycleCap, planShoppingLimit, remaining));
+                const targetLimit = Math.max(0, Math.min(effectiveCycleCap, remaining));
 
                 if (targetLimit > 0) {
                     await ensureSheetsReadyForUi();
@@ -176,7 +168,7 @@ function createAutoCycleRuntime(deps = {}) {
                 } else {
                     summary.skipped.push(
                         `쇼핑 발행 한도가 0건이라 건너뜁니다. `
-                        + `(설정=${cycleCap}, 플랜=${Number.isFinite(planShoppingLimit) ? planShoppingLimit : '무제한'}, 잔여=${Number.isFinite(remaining) ? remaining : '무제한'})`
+                        + `(설정=${cycleCap}, 잔여=${Number.isFinite(remaining) ? remaining : '무제한'})`
                     );
                 }
             }
@@ -285,9 +277,6 @@ function createAutoCycleRuntime(deps = {}) {
                 };
             }
             const features = toFeatureMap(precheck.features);
-            const maxBlogByPlan = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
-            const planBlogLimit = (Number.isFinite(maxBlogByPlan) && maxBlogByPlan > 0) ? maxBlogByPlan : Number.MAX_SAFE_INTEGER;
-
             const session = await checkAuthSessionValid();
             if (!session.ok) {
                 autoRuntimeState.status = 'waiting';
@@ -309,8 +298,7 @@ function createAutoCycleRuntime(deps = {}) {
             if (skipTrendsCollect) {
                 summary.skipped.push('요청 옵션에 따라 트렌드 수집을 건너뜁니다. (기존 trends 데이터 사용)');
             } else if (!isCommandEnabled(features, 'trends')) {
-                proceedAfterTrends = false;
-                summary.skipped.push('트렌드 수집 권한이 없어 자동 발행 단계를 건너뜁니다.');
+                summary.skipped.push('트렌드 수집 권한이 없어 수집만 건너뜁니다. 기존 준비 글의 자동 발행은 계속합니다.');
             } else {
                 const includeCategories = parseCsvTokens(settings.BLOG_AUTO_CATEGORIES);
                 const trendsRetryResult = await executeTrendCollectWithRetry({
@@ -378,7 +366,7 @@ function createAutoCycleRuntime(deps = {}) {
             const effectiveCycleBlogCap = maxPosts > 0 ? maxPosts : Number.MAX_SAFE_INTEGER;
 
             if (proceedAfterTrends && gapAllowed && isCommandEnabled(features, 'batch')) {
-                const targetLimit = Math.max(0, Math.min(effectiveCycleBlogCap, planBlogLimit));
+                const targetLimit = Math.max(0, effectiveCycleBlogCap);
                 if (targetLimit > 0) {
                     const freshTopicRowSet = new Set(
                         appendedTopicRowIndices.filter((value) => Number.isInteger(value) && value >= 0)
@@ -437,7 +425,7 @@ function createAutoCycleRuntime(deps = {}) {
                 } else {
                     summary.skipped.push(
                         `블로그 발행 한도가 0건이라 건너뜁니다. `
-                        + `(설정=${maxPosts}, 플랜=${Number.isFinite(planBlogLimit) ? planBlogLimit : '무제한'})`
+                        + `(설정=${maxPosts})`
                     );
                 }
             } else if (proceedAfterTrends && gapAllowed && !isCommandEnabled(features, 'batch')) {
@@ -564,11 +552,6 @@ function createAutoCycleRuntime(deps = {}) {
 
         const precheck = await License.checkLicenseStatus({ quiet: true });
         if (!precheck.success) return { success: false, message: `라이선스 오류: ${precheck.message}` };
-        const features = toFeatureMap(precheck.features);
-        if (!isCommandEnabled(features, 'trends')) {
-            return { success: false, message: '현재 플랜에서 외부 피드 수집 기능이 비활성화되어 있습니다.' };
-        }
-
         const feedUrls = enabledConfigs.map((config) => String(config.url || '').trim()).filter(Boolean);
         Logger.info(`🚀 [AUTO][Producer] RSS 수집 시작 (Trigger: ${trigger}, Feeds: ${enabledConfigs.length}개)`);
         recordUiActivity({

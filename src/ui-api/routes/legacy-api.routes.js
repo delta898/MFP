@@ -40,9 +40,6 @@ function createLegacyApiRouteHandler(deps = {}) {
         License: deps.License,
         parseBoolQuery: deps.parseBoolQuery,
         toFeatureMap: deps.toFeatureMap,
-        getFeatureInt: deps.getFeatureInt,
-        resolveMaxBlogPostsPerRun: deps.resolveMaxBlogPostsPerRun,
-        resolveMaxShoppingPostsPerRun: deps.resolveMaxShoppingPostsPerRun,
         checkNaverSessionForUi: deps.checkNaverSessionForUi,
         getNaverLoginStatus: deps.getNaverLoginStatus,
         getNaverLoginState: deps.getNaverLoginState,
@@ -63,9 +60,6 @@ function createLegacyApiRouteHandler(deps = {}) {
         CONFIG: deps.CONFIG,
         APP_VERSION: deps.APP_VERSION,
         toFeatureMap: deps.toFeatureMap,
-        getFeatureInt: deps.getFeatureInt,
-        resolveMaxBlogPostsPerRun: deps.resolveMaxBlogPostsPerRun,
-        resolveMaxShoppingPostsPerRun: deps.resolveMaxShoppingPostsPerRun,
         checkNaverSessionForUi: deps.checkNaverSessionForUi
     });
     const accountController = createAccountController({
@@ -81,6 +75,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         axios: deps.axios,
         RuntimeConfig: deps.RuntimeConfig,
         CONFIG: deps.CONFIG,
+        License: deps.License,
         GoogleOAuth: require('../../google-oauth'),
         BrowserLauncher: deps.BrowserLauncher,
         ShoppingManager: deps.ShoppingManager,

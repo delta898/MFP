@@ -39,12 +39,7 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "cmd_pub": true,
-            "enable_trends_date_override": true,
-            "image_generation": true,
-            "enable_related_posts_auto_link": true,
-            "max_blog_posts_per_run": 999,
-            "max_shopping_posts_per_run": 999
+            "enable_related_posts_auto_link": true
         }'::jsonb,
         '테스트용 1회성 플랜'
     ),
@@ -57,14 +52,9 @@ values
         'monthly',
         '{
             "cmd_batch": true,
-            "cmd_shopping": true,
-            "cmd_trends": true,
-            "cmd_pub": true,
-            "enable_trends_date_override": false,
-            "image_generation": true,
-            "enable_related_posts_auto_link": true,
-            "max_blog_posts_per_run": 3,
-            "max_shopping_posts_per_run": 3
+            "cmd_shopping": false,
+            "cmd_trends": false,
+            "enable_related_posts_auto_link": false
         }'::jsonb,
         '정식 무료 플랜'
     ),
@@ -79,12 +69,7 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "cmd_pub": true,
-            "enable_trends_date_override": true,
-            "image_generation": true,
-            "enable_related_posts_auto_link": true,
-            "max_blog_posts_per_run": 9999,
-            "max_shopping_posts_per_run": 9999
+            "enable_related_posts_auto_link": true
         }'::jsonb,
         '월 100회 기준'
     ),
@@ -99,12 +84,7 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "cmd_pub": true,
-            "enable_trends_date_override": true,
-            "image_generation": true,
-            "enable_related_posts_auto_link": true,
-            "max_blog_posts_per_run": 999999,
-            "max_shopping_posts_per_run": 999999
+            "enable_related_posts_auto_link": true
         }'::jsonb,
         '무제한 플랜'
     )

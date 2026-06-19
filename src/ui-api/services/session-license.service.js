@@ -5,9 +5,6 @@ function createSessionLicenseService(deps = {}) {
         License,
         parseBoolQuery,
         toFeatureMap,
-        getFeatureInt,
-        resolveMaxBlogPostsPerRun,
-        resolveMaxShoppingPostsPerRun,
         checkNaverSessionForUi,
         getNaverLoginStatus,
         getNaverLoginState,
@@ -41,18 +38,10 @@ function createSessionLicenseService(deps = {}) {
             if (!status.success) {
                 throw createApiError(400, 'CAPABILITY_RESOLVE_FAILED', status.message);
             }
-            const features = toFeatureMap(status.features);
-            const maxBlogPosts = getFeatureInt(features, 'max_blog_posts_per_run', resolveMaxBlogPostsPerRun());
-            const maxShoppingPosts = getFeatureInt(features, 'max_shopping_posts_per_run', resolveMaxShoppingPostsPerRun());
-
             return {
                 planCode: status.planCode || '',
                 planName: status.planDisplayName || status.planCode || '',
-                features,
-                limits: {
-                    max_blog_posts_per_run: maxBlogPosts,
-                    max_shopping_posts_per_run: maxShoppingPosts
-                }
+                features: toFeatureMap(status.features)
             };
         },
 
