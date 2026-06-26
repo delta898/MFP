@@ -61,6 +61,11 @@ function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function normalizeOptionalEmail(email) {
+    const normalized = sanitizeEmail(email);
+    return isValidEmail(normalized) ? normalized : '';
+}
+
 async function sendLicenseRegistrationEmail(email, code, ttlSeconds, expiresAt = '') {
     if (!supabase) {
         return { success: false, message: '라이선스 서버 설정 오류' };
@@ -638,6 +643,7 @@ const License = {
                         remaining: data.remaining,
                         planCode: data.plan_code,
                         planDisplayName: data.plan_display_name,
+                        email: normalizeOptionalEmail(data.email),
                         createdAt: data.created_at || '',
                         usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                         usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
@@ -651,6 +657,7 @@ const License = {
                     remaining: data.remaining,
                     planCode: data.plan_code,
                     planDisplayName: data.plan_display_name,
+                    email: normalizeOptionalEmail(data.email),
                     createdAt: data.created_at || '',
                     usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                     usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
@@ -674,6 +681,7 @@ const License = {
                 remaining: data?.remaining,
                 planCode: data?.plan_code,
                 planDisplayName: data?.plan_display_name,
+                email: normalizeOptionalEmail(data?.email),
                 createdAt: data?.created_at || '',
                 usageLimit: Number.isFinite(Number(data?.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                 usageCount: Number.isFinite(Number(data?.usage_count)) ? parseInt(data.usage_count, 10) : null,

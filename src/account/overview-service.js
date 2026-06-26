@@ -15,6 +15,15 @@ function maskHardwareId(machineId, visibleSuffixLength = 8) {
     return `******${raw.slice(-suffixLength)}`;
 }
 
+function maskEmail(email) {
+    const raw = String(email || '').trim().toLowerCase();
+    if (!raw || !raw.includes('@')) return '';
+    const [localPart, domainPart] = raw.split('@');
+    if (!localPart || !domainPart) return '';
+    const visibleLocal = localPart.length <= 2 ? localPart.slice(0, 1) : localPart.slice(0, 2);
+    return `${visibleLocal}***@${domainPart}`;
+}
+
 function normalizeConnection(status, extra = {}) {
     return {
         status: String(status || 'unknown').trim() || 'unknown',
@@ -68,9 +77,18 @@ function normalizeUsageReadModel(licenseStatus = {}) {
     };
 }
 
-function buildAccountActions({ planCode, usage } = {}) {
+function buildAccountActions({ planCode, usage, hasVerifiedEmail = false } = {}) {
     const actions = [
-        { id: 'register_email', enabled: false, label: '이메일 등록', reason: '계정 연결 기능을 준비 중입니다.' },
+        {
+            id: 'register_email',
+            enabled: true,
+            label: hasVerifiedEmail ? '이메일 변경' : '이메일 등록',
+            reason: hasVerifiedEmail
+                ? '새 이메일 인증 후 라이선스 복구 이메일을 변경합니다.'
+                : '이메일 인증 후 라이선스 복구와 플랜 관리에 사용합니다.',
+            mode: hasVerifiedEmail ? 'change' : 'register',
+            requires_email: true
+        },
         { id: 'upgrade', enabled: false, label: '유료 플랜 준비 중', reason: '외부 결제 연동 후 제공됩니다.' },
         { id: 'manage_subscription', enabled: false, label: '구독 관리', reason: '결제 관리 기능을 준비 중입니다.' }
     ];
@@ -130,7 +148,9 @@ function createAccountOverviewService(deps = {}) {
         const features = toFeatureMap(licenseStatus?.features || {});
         const usage = normalizeUsageReadModel(licenseStatus);
         const planCode = String(licenseStatus?.planCode || '').trim().toLowerCase();
-        const actions = buildAccountActions({ planCode, usage });
+        const email = String(licenseStatus?.email || '').trim().toLowerCase();
+        const hasVerifiedEmail = Boolean(email);
+        const actions = buildAccountActions({ planCode, usage, hasVerifiedEmail });
 
         let hardwareId = '';
         try {
@@ -148,9 +168,11 @@ function createAccountOverviewService(deps = {}) {
             identity: {
                 type: 'device_license',
                 account_id: null,
-                email: null,
-                email_verified: false,
-                label: '기기 라이선스로 사용 중'
+                email,
+                email_masked: maskEmail(email),
+                email_verified: hasVerifiedEmail,
+                label: hasVerifiedEmail ? '이메일 연결됨' : '기기 라이선스로 사용 중',
+                purpose: '라이선스 복구와 플랜 관리에 사용됩니다.'
             },
             subscription: {
                 plan_code: planCode,
@@ -203,6 +225,7 @@ function createAccountOverviewService(deps = {}) {
 module.exports = {
     FEATURE_LABELS,
     maskHardwareId,
+    maskEmail,
     buildFeatureItems,
     normalizeUsageReadModel,
     buildAccountActions,

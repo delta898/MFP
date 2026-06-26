@@ -2376,8 +2376,8 @@ function renderAccountOverview(overview) {
   }
 
   setText('account-identity-label', identity.label || '기기 라이선스로 사용 중');
-  setText('account-identity-detail', identity.email_verified && identity.email
-    ? `${identity.email} 계정에 연결되어 있습니다.`
+  setText('account-identity-detail', identity.email_verified && (identity.email_masked || identity.email)
+    ? `${identity.email_masked || identity.email}\n${identity.purpose || '라이선스 복구와 플랜 관리에 사용됩니다.'}`
     : '로그인 없이 현재 기기에 연결된 라이선스를 사용합니다.');
   const registerAction = getAccountAction(overview, 'register_email');
   const registerButton = document.getElementById('account-register-email-btn');
@@ -2420,6 +2420,57 @@ function renderAccountOverview(overview) {
   renderAccountConnection('account-connection-naver', overview?.connections?.naver);
   renderAccountConnection('account-connection-google', overview?.connections?.google_sheets);
   renderAccountConnection('account-connection-wordpress', overview?.connections?.wordpress);
+}
+
+function isValidAccountEmail(value) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value || '').trim());
+}
+
+async function runLicenseEmailVerification({ email, title = '이메일 인증', button = null } = {}) {
+  const normalizedEmail = String(email || '').trim();
+  if (!isValidAccountEmail(normalizedEmail)) {
+    await showUiPopup('유효한 이메일 주소를 입력해 주세요.');
+    return null;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = '인증 요청 중...';
+  }
+
+  const requestResult = await postJson('/api/v1/license/registration/request', {
+    email: normalizedEmail
+  });
+  const code = await showUiPrompt(`${requestResult?.message || '인증 코드가 발송되었습니다.'}\n메일로 받은 6자리 인증 코드를 입력해 주세요.`, {
+    title,
+    type: 'text',
+    placeholder: '123456',
+    confirmText: '인증',
+    cancelText: '취소'
+  });
+  if (code == null) {
+    await loadAccountOverview({ force: true }).catch(() => {});
+    return null;
+  }
+
+  const normalizedCode = String(code || '').trim();
+  if (!/^\d{6}$/.test(normalizedCode)) {
+    await showUiPopup('6자리 인증 코드를 입력해 주세요.');
+    await loadAccountOverview({ force: true }).catch(() => {});
+    return null;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = '인증 확인 중...';
+  }
+
+  await postJson('/api/v1/license/registration/verify', {
+    email: normalizedEmail,
+    code: normalizedCode
+  });
+
+  return normalizedEmail;
 }
 
 async function loadAccountOverview({ force = false } = {}) {
@@ -2473,45 +2524,19 @@ async function upgradeAccountToFreePlan() {
   });
   if (email == null) return;
   const normalizedEmail = String(email || '').trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
+  if (!isValidAccountEmail(normalizedEmail)) {
     await showUiPopup('유효한 이메일 주소를 입력해 주세요.');
     return;
   }
 
   const button = document.getElementById('account-upgrade-free-btn');
-  if (button) {
-    button.disabled = true;
-    button.textContent = '인증 요청 중...';
-  }
   try {
-    const requestResult = await postJson('/api/v1/license/registration/request', {
-      email: normalizedEmail
-    });
-    const code = await showUiPrompt(`${requestResult?.message || '인증 코드가 발송되었습니다.'}\n메일로 받은 6자리 인증 코드를 입력해 주세요.`, {
-      title: '이메일 인증',
-      type: 'text',
-      placeholder: '123456',
-      confirmText: '인증',
-      cancelText: '취소'
-    });
-    if (code == null) {
-      await loadAccountOverview({ force: true }).catch(() => {});
-      return;
-    }
-    const normalizedCode = String(code || '').trim();
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      await showUiPopup('6자리 인증 코드를 입력해 주세요.');
-      await loadAccountOverview({ force: true }).catch(() => {});
-      return;
-    }
-    if (button) {
-      button.disabled = true;
-      button.textContent = '인증 확인 중...';
-    }
-    await postJson('/api/v1/license/registration/verify', {
+    const verifiedEmail = await runLicenseEmailVerification({
       email: normalizedEmail,
-      code: normalizedCode
+      title: '이메일 인증',
+      button
     });
+    if (!verifiedEmail) return;
 
     if (button) {
       button.disabled = true;
@@ -2519,7 +2544,7 @@ async function upgradeAccountToFreePlan() {
     }
     const result = await postJson('/api/v1/license/upgrade', {
       targetPlan: 'free',
-      email: normalizedEmail
+      email: verifiedEmail
     });
     await showUiPopup(result?.message || 'Free Plan으로 전환되었습니다.');
     lastAccountOverview = null;
@@ -2527,6 +2552,48 @@ async function upgradeAccountToFreePlan() {
     await loadDashboard();
   } catch (error) {
     await showUiPopup(`전환 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
+    await loadAccountOverview({ force: true }).catch(() => {});
+  }
+}
+
+async function registerOrChangeAccountEmail() {
+  const action = getAccountAction(lastAccountOverview, 'register_email');
+  if (action?.enabled !== true) {
+    await showUiPopup(action?.reason || '현재 이메일을 등록할 수 없습니다.');
+    return;
+  }
+
+  const isChange = action.mode === 'change' || Boolean(lastAccountOverview?.identity?.email_verified);
+  const currentEmail = String(lastAccountOverview?.identity?.email_masked || '').trim();
+  const email = await showUiPrompt(
+    isChange
+      ? `새 이메일을 입력해 주세요.\n현재 연결: ${currentEmail || '-'}\n새 이메일 인증 후 라이선스 복구 이메일이 변경됩니다.`
+      : '라이선스 복구와 플랜 관리에 사용할 이메일을 입력해 주세요.\n인증 코드를 보내고, 확인 후 현재 라이선스에 연결합니다.',
+    {
+      title: isChange ? '이메일 변경' : '이메일 등록',
+      type: 'email',
+      placeholder: 'you@example.com',
+      confirmText: '인증 코드 받기',
+      cancelText: '취소'
+    }
+  );
+  if (email == null) return;
+
+  const button = document.getElementById('account-register-email-btn');
+  try {
+    const verifiedEmail = await runLicenseEmailVerification({
+      email,
+      title: isChange ? '이메일 변경 인증' : '이메일 등록 인증',
+      button
+    });
+    if (!verifiedEmail) return;
+
+    await showUiPopup(isChange ? '이메일이 변경되었습니다.' : '이메일이 등록되었습니다.');
+    lastAccountOverview = null;
+    await loadAccountOverview({ force: true });
+    await loadDashboard();
+  } catch (error) {
+    await showUiPopup(`이메일 처리 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
     await loadAccountOverview({ force: true }).catch(() => {});
   }
 }
@@ -2544,6 +2611,20 @@ function bindAccountUpgradeFreeClick() {
 }
 
 bindAccountUpgradeFreeClick();
+
+let accountEmailClickBound = false;
+function bindAccountEmailClick() {
+  if (accountEmailClickBound || typeof document === 'undefined') return;
+  accountEmailClickBound = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('#account-register-email-btn');
+    if (!button) return;
+    event.preventDefault();
+    registerOrChangeAccountEmail().catch((error) => console.warn('[Account Email]', error.message));
+  });
+}
+
+bindAccountEmailClick();
 
 async function loadDashboard() {
   if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
@@ -8927,6 +9008,7 @@ window.addEventListener('DOMContentLoaded', () => {
     loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Retry]', error.message));
   });
   bindAccountUpgradeFreeClick();
+  bindAccountEmailClick();
   document.querySelectorAll('[data-account-settings-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       void navigateToSettingsTarget(

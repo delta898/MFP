@@ -5,7 +5,7 @@
 -- 목적:
 -- - 운영 데이터와 license_plans row는 건드리지 않는다.
 -- - check_license_status 실패 응답에도 UI read model에 필요한
---   usage_limit, usage_count, features, created_at을 포함한다.
+--   usage_limit, usage_count, features, created_at, email을 포함한다.
 -- - 특히 test 플랜의 test_exhausted_at 분기에서 0/0회로 표시되는
 --   문제를 막는다.
 
@@ -29,6 +29,7 @@ declare
     v_license_id uuid;
     v_license_status text;
     v_license_hwid text;
+    v_license_email text;
     v_license_mode text;
     v_license_created_at timestamptz;
     v_license_expires_at timestamptz;
@@ -58,9 +59,9 @@ begin
         return jsonb_build_object('success', false, 'message', 'LICENSE_KEY가 비어 있습니다.');
     end if;
 
-    select id, status, hwid, coalesce(license_mode, ''), created_at, expires_at,
+    select id, status, hwid, lower(trim(coalesce(email, ''))), coalesce(license_mode, ''), created_at, expires_at,
            coalesce(usage_limit, 0), coalesce(usage_count, 0), reset_date, coalesce(plan_code, 'pro')
-      into v_license_id, v_license_status, v_license_hwid, v_license_mode, v_license_created_at, v_license_expires_at,
+      into v_license_id, v_license_status, v_license_hwid, v_license_email, v_license_mode, v_license_created_at, v_license_expires_at,
            v_usage_limit, v_usage_count, v_license_reset_date, v_plan_code
       from public.licenses
      where license_key = v_key
@@ -74,7 +75,8 @@ begin
         return jsonb_build_object(
             'success', false,
             'message', '비활성화된 라이선스입니다.',
-            'plan_code', v_plan_code
+            'plan_code', v_plan_code,
+            'email', nullif(v_license_email, '')
         );
     end if;
 
@@ -82,7 +84,8 @@ begin
         return jsonb_build_object(
             'success', false,
             'message', '만료된 라이선스입니다.',
-            'plan_code', v_plan_code
+            'plan_code', v_plan_code,
+            'email', nullif(v_license_email, '')
         );
     end if;
 
@@ -90,7 +93,8 @@ begin
         return jsonb_build_object(
             'success', false,
             'message', '다른 기기에 등록된 라이선스입니다.',
-            'plan_code', v_plan_code
+            'plan_code', v_plan_code,
+            'email', nullif(v_license_email, '')
         );
     end if;
 
@@ -105,7 +109,8 @@ begin
             'success', false,
             'message', '비활성화된 플랜입니다.',
             'plan_code', v_plan_code,
-            'plan_display_name', coalesce(v_plan_display_name, v_plan_code)
+            'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
+            'email', nullif(v_license_email, '')
         );
     end if;
 
@@ -126,6 +131,7 @@ begin
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
                 'features', coalesce(v_plan_features, '{}'::jsonb),
+                'email', nullif(v_license_email, ''),
                 'created_at', v_license_created_at,
                 'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
                 'usage_count', greatest(coalesce(v_usage_count, 0), 0),
@@ -140,6 +146,7 @@ begin
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
                 'features', coalesce(v_plan_features, '{}'::jsonb),
+                'email', nullif(v_license_email, ''),
                 'created_at', v_license_created_at,
                 'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
                 'usage_count', greatest(coalesce(v_usage_count, 0), 0),
@@ -155,6 +162,7 @@ begin
             'plan_code', v_plan_code,
             'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
+            'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
             'usage_limit', -1,
             'usage_count', coalesce(v_usage_count, 0),
@@ -172,6 +180,7 @@ begin
             'message', '사용 가능 횟수가 0으로 설정된 라이선스입니다.',
             'plan_code', v_plan_code,
             'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
+            'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
             'usage_limit', greatest(v_effective_limit, 0),
             'usage_count', greatest(v_effective_count, 0),
@@ -193,6 +202,7 @@ begin
             'plan_code', v_plan_code,
             'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'features', coalesce(v_plan_features, '{}'::jsonb),
+            'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
             'usage_limit', greatest(v_effective_limit, 0),
             'usage_count', greatest(v_effective_count, 0),
@@ -206,6 +216,7 @@ begin
         'plan_code', v_plan_code,
         'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
         'features', coalesce(v_plan_features, '{}'::jsonb),
+        'email', nullif(v_license_email, ''),
         'created_at', v_license_created_at,
         'usage_limit', greatest(v_effective_limit, 0),
         'usage_count', greatest(v_effective_count, 0),
