@@ -166,6 +166,13 @@ jobs:
             echo "::error::electron-packager completed without creating an application directory."
             exit 1
           fi
+
+          # Kuzu ships its full source tree, tests, and datasets inside the npm package.
+          # The install step already copies the runtime JS files and native module to
+          # node_modules/kuzu, so the source tree is not needed in packaged apps. Keeping
+          # it also creates very long Windows installer paths that Inno Setup cannot handle.
+          find "${PACKAGED_APP_DIR}" -path "*/app.asar.unpacked/node_modules/kuzu/kuzu-source" -prune -exec rm -rf {} +
+
           echo "PACKAGED_APP_DIR=${PACKAGED_APP_DIR}" >> "$GITHUB_ENV"
 
       - name: Code Sign (macOS)
