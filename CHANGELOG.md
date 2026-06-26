@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.13-dev4] - 2026-06-26
+
+### Changed
+- **개발 프리릴리스 버전 갱신**: 다음 개발 배포를 위해 앱 버전을 `0.1.13-dev4`로 올렸습니다.
+
 ## [0.1.13-dev3] - 2026-06-26
 
 ### Fixed
