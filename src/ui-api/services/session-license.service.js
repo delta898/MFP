@@ -45,6 +45,52 @@ function createSessionLicenseService(deps = {}) {
             };
         },
 
+        async upgradeLicense(requestBody = {}) {
+            const targetPlan = String(requestBody?.targetPlan || 'free').trim().toLowerCase() || 'free';
+            const email = String(requestBody?.email || '').trim();
+            const result = await License.upgradeLicense(targetPlan, email);
+            if (!result.success) {
+                throw createApiError(400, 'LICENSE_UPGRADE_FAILED', result.message || '플랜 전환에 실패했습니다.');
+            }
+            return {
+                planCode: result.planCode || targetPlan,
+                planName: result.planDisplayName || result.planCode || targetPlan,
+                remaining: result.remaining,
+                features: toFeatureMap(result.features),
+                message: result.message || '플랜 전환이 완료되었습니다.'
+            };
+        },
+
+        async requestLicenseRegistration(requestBody = {}) {
+            const email = String(requestBody?.email || '').trim();
+            const result = await License.requestLicenseRegistration(email);
+            if (!result.success) {
+                throw createApiError(400, 'LICENSE_REGISTRATION_REQUEST_FAILED', result.message || '인증 코드 요청에 실패했습니다.');
+            }
+            return {
+                email: result.email || email,
+                ttlSeconds: result.ttlSeconds,
+                expiresAt: result.expiresAt || '',
+                message: result.message || '인증 코드가 발송되었습니다.'
+            };
+        },
+
+        async verifyLicenseRegistration(requestBody = {}) {
+            const email = String(requestBody?.email || '').trim();
+            const code = String(requestBody?.code || '').trim();
+            const result = await License.verifyLicenseRegistration(email, code);
+            if (!result.success) {
+                throw createApiError(400, 'LICENSE_REGISTRATION_VERIFY_FAILED', result.message || '이메일 인증에 실패했습니다.');
+            }
+            return {
+                planCode: result.planCode || '',
+                planName: result.planDisplayName || result.planCode || '',
+                remaining: result.remaining,
+                features: toFeatureMap(result.features),
+                message: result.message || '이메일 인증이 완료되었습니다.'
+            };
+        },
+
         async getNaverSession() {
             const session = await checkNaverSessionForUi();
             return {

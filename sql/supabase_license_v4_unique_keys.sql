@@ -400,14 +400,45 @@ create table if not exists public.license_registration_codes (
     expires_at timestamptz not null,
     consumed_at timestamptz,
     attempt_count integer not null default 0,
+    send_status text not null default 'created',
+    send_attempted_at timestamptz,
+    sent_at timestamptz,
+    send_error text,
+    send_provider_status text,
+    updated_at timestamptz not null default timezone('utc', now()),
     created_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.license_registration_codes
+    add column if not exists send_status text not null default 'created',
+    add column if not exists send_attempted_at timestamptz,
+    add column if not exists sent_at timestamptz,
+    add column if not exists send_error text,
+    add column if not exists send_provider_status text,
+    add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+do $$
+begin
+    if not exists (
+        select 1
+          from pg_constraint
+         where conname = 'license_registration_codes_send_status_check'
+           and conrelid = 'public.license_registration_codes'::regclass
+    ) then
+        alter table public.license_registration_codes
+            add constraint license_registration_codes_send_status_check
+            check (send_status in ('created', 'sent', 'failed'));
+    end if;
+end $$;
 
 create index if not exists idx_license_registration_codes_email_created
     on public.license_registration_codes (email, created_at desc);
 
 create index if not exists idx_license_registration_codes_expires
     on public.license_registration_codes (expires_at);
+
+create index if not exists idx_license_registration_codes_send_status
+    on public.license_registration_codes (send_status, created_at desc);
 
 alter table public.license_registration_codes enable row level security;
 revoke all on table public.license_registration_codes from anon, authenticated;
@@ -457,7 +488,8 @@ begin
 
     -- 최근 미사용 코드 무효화
     update public.license_registration_codes
-       set consumed_at = v_now
+       set consumed_at = v_now,
+           updated_at = v_now
      where email = v_email
        and consumed_at is null;
 
@@ -465,9 +497,11 @@ begin
     v_code_hash := encode(digest(convert_to(v_code, 'UTF8'), 'sha256'), 'hex');
 
     insert into public.license_registration_codes (
-        email, code_hash, expires_at, consumed_at, attempt_count, created_at
+        email, code_hash, expires_at, consumed_at, attempt_count,
+        send_status, updated_at, created_at
     ) values (
-        v_email, v_code_hash, v_expires_at, null, 0, v_now
+        v_email, v_code_hash, v_expires_at, null, 0,
+        'created', v_now, v_now
     );
 
     -- 인증 코드는 앱에서 Edge Function(send-license-code) 호출 시 메일 본문으로 사용합니다.
@@ -544,7 +578,8 @@ begin
 
     -- 최근 미사용 코드 무효화
     update public.license_registration_codes
-       set consumed_at = v_now
+       set consumed_at = v_now,
+           updated_at = v_now
      where email = v_email
        and consumed_at is null;
 
@@ -552,9 +587,11 @@ begin
     v_code_hash := encode(digest(convert_to(v_code, 'UTF8'), 'sha256'), 'hex');
 
     insert into public.license_registration_codes (
-        email, code_hash, expires_at, consumed_at, attempt_count, created_at
+        email, code_hash, expires_at, consumed_at, attempt_count,
+        send_status, updated_at, created_at
     ) values (
-        v_email, v_code_hash, v_expires_at, null, 0, v_now
+        v_email, v_code_hash, v_expires_at, null, 0,
+        'created', v_now, v_now
     );
 
     return jsonb_build_object(
@@ -569,6 +606,78 @@ $$;
 
 grant execute on function public.request_license_recovery(text) to anon, authenticated, service_role;
 revoke all on function public.request_license_recovery(text) from public;
+
+drop function if exists public.mark_license_registration_code_send_status(text, text, text, text, text);
+
+create or replace function public.mark_license_registration_code_send_status(
+    p_email text,
+    p_code text,
+    p_send_status text,
+    p_error text default null,
+    p_provider_status text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+    v_now timestamptz := timezone('utc', now());
+    v_email text := lower(trim(coalesce(p_email, '')));
+    v_code text := trim(coalesce(p_code, ''));
+    v_status text := lower(trim(coalesce(p_send_status, '')));
+    v_code_hash text;
+    v_row_id bigint;
+begin
+    if v_email = '' or v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+        return jsonb_build_object('success', false, 'message', '유효한 이메일 주소를 입력해 주세요.');
+    end if;
+
+    if v_code !~ '^[0-9]{6}$' then
+        return jsonb_build_object('success', false, 'message', '유효한 인증 코드가 아닙니다.');
+    end if;
+
+    if v_status not in ('sent', 'failed') then
+        return jsonb_build_object('success', false, 'message', '유효한 발송 상태가 아닙니다.');
+    end if;
+
+    v_code_hash := encode(digest(convert_to(v_code, 'UTF8'), 'sha256'), 'hex');
+
+    select id
+      into v_row_id
+      from public.license_registration_codes
+     where email = v_email
+       and code_hash = v_code_hash
+     order by created_at desc
+     limit 1
+     for update;
+
+    if v_row_id is null then
+        return jsonb_build_object('success', false, 'message', '발송 상태를 기록할 인증 코드가 없습니다.');
+    end if;
+
+    update public.license_registration_codes
+       set send_status = v_status,
+           send_attempted_at = v_now,
+           sent_at = case when v_status = 'sent' then v_now else sent_at end,
+           send_error = case
+               when v_status = 'failed' then nullif(left(trim(coalesce(p_error, '')), 1000), '')
+               else null
+           end,
+           send_provider_status = nullif(left(trim(coalesce(p_provider_status, '')), 120), ''),
+           updated_at = v_now
+     where id = v_row_id;
+
+    return jsonb_build_object(
+        'success', true,
+        'id', v_row_id,
+        'send_status', v_status
+    );
+end;
+$$;
+
+grant execute on function public.mark_license_registration_code_send_status(text, text, text, text, text) to anon, authenticated, service_role;
+revoke all on function public.mark_license_registration_code_send_status(text, text, text, text, text) from public;
 
 drop function if exists public.verify_license_registration(text, text, text);
 drop function if exists public.verify_license_registration(text, text, text, text);
@@ -648,13 +757,15 @@ begin
     if v_row_hash is distinct from v_code_hash then
         update public.license_registration_codes
            set attempt_count = coalesce(attempt_count, 0) + 1,
-               consumed_at = case when coalesce(attempt_count, 0) + 1 >= 5 then v_now else consumed_at end
+               consumed_at = case when coalesce(attempt_count, 0) + 1 >= 5 then v_now else consumed_at end,
+               updated_at = v_now
          where id = v_row_id;
         return jsonb_build_object('success', false, 'message', '인증 코드가 올바르지 않습니다.');
     end if;
 
     update public.license_registration_codes
-       set consumed_at = v_now
+       set consumed_at = v_now,
+           updated_at = v_now
      where id = v_row_id;
 
     select id, status, hwid, license_key, coalesce(plan_code, 'test'),
@@ -802,13 +913,15 @@ begin
     if v_row_hash is distinct from v_code_hash then
         update public.license_registration_codes
            set attempt_count = coalesce(attempt_count, 0) + 1,
-               consumed_at = case when coalesce(attempt_count, 0) + 1 >= 5 then v_now else consumed_at end
+               consumed_at = case when coalesce(attempt_count, 0) + 1 >= 5 then v_now else consumed_at end,
+               updated_at = v_now
          where id = v_row_id;
         return jsonb_build_object('success', false, 'message', '인증 코드가 올바르지 않습니다.');
     end if;
 
     update public.license_registration_codes
-       set consumed_at = v_now
+       set consumed_at = v_now,
+           updated_at = v_now
      where id = v_row_id;
 
     select l.id, l.license_key, coalesce(l.plan_code, 'free'),

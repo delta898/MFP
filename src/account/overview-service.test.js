@@ -99,6 +99,7 @@ test('account overview keeps exhausted license context available to the UI', asy
     const overview = await service.getOverview();
     assert.equal(overview.subscription.status, 'quota_exhausted');
     assert.equal(overview.usage.remaining, 0);
+    assert.equal(overview.actions.find((item) => item.id === 'upgrade_free')?.enabled, true);
 });
 
 test('account overview does not render a zero usage limit as a real quota', async () => {

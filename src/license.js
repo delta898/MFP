@@ -78,14 +78,16 @@ async function sendLicenseRegistrationEmail(email, code, ttlSeconds, expiresAt =
 
         if (error) {
             let detail = '';
+            let providerStatus = '';
             try {
                 if (error.context) {
                     const cloned = error.context.clone ? error.context.clone() : error.context;
                     const parsed = await cloned.json();
                     if (parsed && typeof parsed === 'object') {
-                        const providerStatus = parsed.provider_status ? `status=${parsed.provider_status}` : '';
+                        providerStatus = parsed.provider_status ? String(parsed.provider_status) : '';
+                        const providerStatusLabel = providerStatus ? `status=${providerStatus}` : '';
                         const providerMessage = parsed.provider_response?.message || parsed.message || '';
-                        detail = [providerStatus, providerMessage].filter(Boolean).join(' ');
+                        detail = [providerStatusLabel, providerMessage].filter(Boolean).join(' ');
                     }
                 }
             } catch (_e) {
@@ -100,26 +102,70 @@ async function sendLicenseRegistrationEmail(email, code, ttlSeconds, expiresAt =
                 success: false,
                 message: detail
                     ? `인증 메일 전송에 실패했습니다. (${detail})`
-                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+                sendError: detail || error.message || 'Edge Function returned an error',
+                providerStatus
             };
         }
 
         if (!data || data.success !== true) {
-            const providerStatus = data?.provider_status ? `status=${data.provider_status}` : '';
+            const providerStatus = data?.provider_status ? String(data.provider_status) : '';
+            const providerStatusLabel = providerStatus ? `status=${providerStatus}` : '';
             const providerMessage = data?.provider_response?.message || data?.message || '';
-            const detail = [providerStatus, providerMessage].filter(Boolean).join(' ');
+            const detail = [providerStatusLabel, providerMessage].filter(Boolean).join(' ');
             return {
                 success: false,
                 message: detail
                     ? `인증 메일 전송에 실패했습니다. (${detail})`
-                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+                    : '인증 메일 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+                sendError: detail || 'Edge Function returned an unsuccessful response',
+                providerStatus
             };
         }
 
-        return { success: true };
+        return {
+            success: true,
+            providerStatus: data?.provider_status ? String(data.provider_status) : ''
+        };
     } catch (e) {
         Logger.error(`❌ 인증 메일 발송 모듈 에러: ${e.message}`);
-        return { success: false, message: '인증 메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+        return {
+            success: false,
+            message: '인증 메일 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+            sendError: e.message || 'Mail send module error',
+            providerStatus: ''
+        };
+    }
+}
+
+async function markEmailVerificationSendStatus(email, code, sendResult) {
+    if (!supabase) return;
+
+    const sendStatus = sendResult?.success ? 'sent' : 'failed';
+    const sendError = sendStatus === 'failed'
+        ? String(sendResult?.sendError || sendResult?.message || '').trim()
+        : '';
+    const providerStatus = String(sendResult?.providerStatus || '').trim();
+
+    try {
+        const { data, error } = await supabase.rpc('mark_license_registration_code_send_status', {
+            p_email: email,
+            p_code: code,
+            p_send_status: sendStatus,
+            p_error: sendError || null,
+            p_provider_status: providerStatus || null
+        });
+
+        if (error) {
+            Logger.warn(`⚠️ 인증 메일 발송 상태 기록 실패: ${sanitizeErrorMessage(error.message)}`);
+            return;
+        }
+
+        if (!data?.success) {
+            Logger.warn(`⚠️ 인증 메일 발송 상태 기록 실패: ${data?.message || 'unknown response'}`);
+        }
+    } catch (e) {
+        Logger.warn(`⚠️ 인증 메일 발송 상태 기록 중 오류: ${e.message}`);
     }
 }
 
@@ -158,6 +204,7 @@ async function requestEmailVerificationCode(
     }
 
     const mailSent = await sendLicenseRegistrationEmail(email, verificationCode, ttlSeconds, data.expires_at || '');
+    await markEmailVerificationSendStatus(email, verificationCode, mailSent);
     if (!mailSent.success) return mailSent;
 
     return {

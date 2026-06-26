@@ -68,6 +68,27 @@ function normalizeUsageReadModel(licenseStatus = {}) {
     };
 }
 
+function buildAccountActions({ planCode, usage } = {}) {
+    const actions = [
+        { id: 'register_email', enabled: false, label: '이메일 등록', reason: '계정 연결 기능을 준비 중입니다.' },
+        { id: 'upgrade', enabled: false, label: '유료 플랜 준비 중', reason: '외부 결제 연동 후 제공됩니다.' },
+        { id: 'manage_subscription', enabled: false, label: '구독 관리', reason: '결제 관리 기능을 준비 중입니다.' }
+    ];
+
+    if (planCode === 'test' && usage?.exhausted) {
+        actions.push({
+            id: 'upgrade_free',
+            enabled: true,
+            label: 'Free Plan으로 전환',
+            reason: 'Tester Plan 사용량을 모두 사용했습니다. 이메일 확인 후 Free Plan으로 전환할 수 있습니다.',
+            target_plan: 'free',
+            requires_email: true
+        });
+    }
+
+    return actions;
+}
+
 function createAccountOverviewService(deps = {}) {
     const {
         License,
@@ -109,6 +130,7 @@ function createAccountOverviewService(deps = {}) {
         const features = toFeatureMap(licenseStatus?.features || {});
         const usage = normalizeUsageReadModel(licenseStatus);
         const planCode = String(licenseStatus?.planCode || '').trim().toLowerCase();
+        const actions = buildAccountActions({ planCode, usage });
 
         let hardwareId = '';
         try {
@@ -170,11 +192,7 @@ function createAccountOverviewService(deps = {}) {
                 google_sheets: normalizeConnection(googleConfigured ? 'configured' : 'not_configured'),
                 wordpress: normalizeConnection(wordpressConfigured ? 'configured' : 'not_configured')
             },
-            actions: [
-                { id: 'register_email', enabled: false, label: '이메일 등록', reason: '계정 연결 기능을 준비 중입니다.' },
-                { id: 'upgrade', enabled: false, label: '유료 플랜 준비 중', reason: '외부 결제 연동 후 제공됩니다.' },
-                { id: 'manage_subscription', enabled: false, label: '구독 관리', reason: '결제 관리 기능을 준비 중입니다.' }
-            ],
+            actions,
             generated_at: new Date().toISOString()
         };
     }
@@ -187,5 +205,6 @@ module.exports = {
     maskHardwareId,
     buildFeatureItems,
     normalizeUsageReadModel,
+    buildAccountActions,
     createAccountOverviewService
 };

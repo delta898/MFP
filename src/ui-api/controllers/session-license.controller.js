@@ -29,6 +29,45 @@ function createSessionLicenseController(deps = {}) {
             }
         },
 
+        async licenseUpgrade({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                logger.info('🔑 [UI] 라이선스 플랜 전환 요청 수신');
+                const data = await service.upgradeLicense(requestBody || {});
+                return sendSuccess(res, requestId, data);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LICENSE_UPGRADE_FAILED', '플랜 전환에 실패했습니다.', e);
+            }
+        },
+
+        async licenseRegistrationRequest({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                logger.info('📨 [UI] 라이선스 이메일 인증 코드 요청 수신');
+                const data = await service.requestLicenseRegistration(requestBody || {});
+                return sendSuccess(res, requestId, data);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LICENSE_REGISTRATION_REQUEST_FAILED', '인증 코드 요청에 실패했습니다.', e);
+            }
+        },
+
+        async licenseRegistrationVerify({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                logger.info('🔐 [UI] 라이선스 이메일 인증 확인 요청 수신');
+                const data = await service.verifyLicenseRegistration(requestBody || {});
+                return sendSuccess(res, requestId, data);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'LICENSE_REGISTRATION_VERIFY_FAILED', '이메일 인증에 실패했습니다.', e);
+            }
+        },
+
         async naverSession({ requestId, method, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);

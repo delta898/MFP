@@ -13,7 +13,7 @@
 - `ultra`: 모든 기능 허용, 무제한
 - test 1회성 규칙:
   - `test -> 만료` 후에는 자동 전환하지 않음
-  - 계속 사용하려면 앱의 라이선스 화면에서 업그레이드 진행
+  - 계속 사용하려면 앱의 계정 화면에서 이메일을 입력해 Free Plan으로 전환
   - 이메일 등록은 플랜 변경 없이 이메일 연결만 수행
   - 업그레이드는 플랜 전환만 수행(현재는 `free`만 지원)
   - `test -> (free/pro/ultra) 사용 이력 발생 -> test` 재진입은 차단
@@ -80,14 +80,24 @@
 
 이 테이블을 통해 test 재진입 차단을 강제합니다.
 
-### 3.4 `public.payment_events` (구독 운영 시 권장)
+### 3.4 `public.license_registration_codes`
+
+이메일 등록/복구 인증 코드와 메일 발송 감사 상태를 저장합니다.
+
+- `email`, `code_hash`, `expires_at`, `consumed_at`, `attempt_count`
+- `send_status`: `created`, `sent`, `failed`
+- `send_attempted_at`, `sent_at`, `send_error`, `send_provider_status`
+
+인증 코드 row는 코드 생성 시점에 먼저 만들어지고, 앱이 Edge Function/Brevo 발송 결과를 다시 기록합니다. 발송 실패 row도 삭제하지 않고 보존해 운영자가 API key, IP allowlist, provider 오류를 추적할 수 있게 합니다.
+
+### 3.5 `public.payment_events` (구독 운영 시 권장)
 
 결제 웹훅 중복 처리 및 감사 로그용
 
 - `provider`, `event_id` (UNIQUE)
 - `event_type`, `payload_json`, `processed_at`
 
-### 3.5 `public.license_usage_operations`
+### 3.6 `public.license_usage_operations`
 
 콘텐츠 발행 작업별 quota ledger
 
@@ -158,6 +168,9 @@
 - v5 quota migration:
   - `sql/supabase_license_quota_v5.sql`
   - v4 적용 후 실행하며 ledger와 reserve/commit/release RPC를 추가합니다.
+- registration email send audit hotfix:
+  - `sql/supabase_license_registration_send_audit.sql`
+  - 기존 `license_registration_codes` 데이터를 보존하면서 메일 발송 성공/실패 상태 컬럼과 기록 RPC를 추가합니다.
 
 ## 8. 라이선스 UI 운영 원칙
 
@@ -173,6 +186,9 @@
 - 등록(`register`)과 플랜 변경(`upgrade`)은 분리합니다.
 - `register` 성공 시에도 현재 플랜/쿼터는 즉시 변경되지 않습니다.
 - 플랜 전환은 `upgrade` 경로로만 처리합니다.
+- `test` 소진 후 `free` 전환은 사용자 액션이며, 자동 배치나 대기 시간이 없습니다.
+- 현재 `free` 전환의 이메일은 인증 코드 발송/확인 후 `upgrade_license_plan` RPC에 전달되어 라이선스 row에 저장됩니다.
+- 인증 메일 발송은 Supabase Edge Function `send-license-code`가 Brevo API를 호출해 처리합니다.
 
 ## 9. Usage 처리
 

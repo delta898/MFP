@@ -410,6 +410,36 @@ body {
   font-size: 13px;
 }
 
+.account-plan-guidance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 14px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.account-plan-guidance.hidden {
+  display: none;
+}
+
+.account-plan-guidance strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #78350f;
+  font-size: 14px;
+}
+
+.account-plan-guidance p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .account-card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -527,7 +557,8 @@ button.account-state-row:hover {
 
   .account-card-heading,
   .account-usage-summary,
-  .account-subscription-meta {
+  .account-subscription-meta,
+  .account-plan-guidance {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -4282,6 +4313,26 @@ select.inline-editor {
   white-space: pre-wrap;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+.ui-dialog-input {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 15px;
+  outline: none;
+}
+
+.ui-dialog-input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
+}
+
+.ui-dialog-input.hidden {
+  display: none;
 }
 
 .ui-dialog-actions {

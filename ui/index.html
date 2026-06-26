@@ -1465,6 +1465,13 @@
             <div class="account-subscription-meta">
               <span id="account-license-created">라이선스 생성일 -</span>
             </div>
+            <div id="account-plan-guidance" class="account-plan-guidance hidden">
+              <div>
+                <strong id="account-plan-guidance-title">다음 단계</strong>
+                <p id="account-plan-guidance-message">플랜 전환 안내를 확인합니다.</p>
+              </div>
+              <button id="account-upgrade-free-btn" class="secondary compact" type="button">Free Plan으로 전환</button>
+            </div>
           </article>
 
           <div class="account-card-grid">
@@ -2294,6 +2301,7 @@
       aria-describedby="ui-dialog-message">
       <h3 id="ui-dialog-title">알림</h3>
       <p id="ui-dialog-message"></p>
+      <input id="ui-dialog-input" class="ui-dialog-input hidden" type="text" autocomplete="email">
       <div class="ui-dialog-actions">
         <button id="ui-dialog-cancel" class="secondary hidden" type="button">취소</button>
         <button id="ui-dialog-confirm" type="button">확인</button>

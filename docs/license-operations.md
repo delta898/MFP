@@ -30,7 +30,7 @@
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
-6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 라이선스 화면에서 업그레이드를 진행합니다.
+6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 계정 화면에서 이메일을 입력해 Free Plan으로 전환합니다.
 7. feature JSON은 필수 키 네 개를 모두 포함하며 누락을 허용하지 않습니다.
 8. 발행 사용량은 `reserve_publish_quota -> commit_publish_quota|release_publish_quota` 순서로 처리합니다.
 9. `license_usage_operations`가 동일 operation ID의 중복 차감과 부분 성공 재발행을 방지합니다.
@@ -92,6 +92,12 @@
 - 메일 발송:
   - Edge Function `send-license-code` 호출
   - 함수 내부에서 Brevo Transactional Email API를 통해 인증 코드 메일 발송
+  - 인증 코드 row는 RPC 요청 시 먼저 생성되고, 앱이 메일 발송 결과를 다시 기록합니다.
+  - `license_registration_codes.send_status`:
+    - `created`: 코드 생성 후 아직 발송 결과가 기록되지 않음
+    - `sent`: Edge Function/Brevo 발송 성공
+    - `failed`: Edge Function/Brevo 발송 실패
+  - `failed` row는 운영 감사 로그로 보존합니다. `send_error`, `send_provider_status`로 실패 원인을 확인합니다.
 - 유효시간 설정:
   - `app_runtime_configs.config_key='license_registration_code_ttl_seconds'`
   - 값이 없으면 기본값 `300초(5분)` 사용
@@ -110,6 +116,7 @@
   - `verify_license_recovery(p_email text, p_code text, p_hwid text)`
 - 참고:
   - 등록 이메일이 없으면 메일을 발송하지 않고 `등록된 이메일이 없습니다` 메시지를 반환합니다.
+  - 등록과 같은 `license_registration_codes` 테이블을 사용하며, 메일 발송 성공/실패 상태를 동일하게 기록합니다.
 
 ### 3.-4 업그레이드 절차
 

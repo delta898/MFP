@@ -883,6 +883,7 @@ let blogAutoCategoryCatalogMeta = {
   updatedAt: ''
 };
 let uiDialogResolver = null;
+let uiDialogMode = 'default';
 
 // ─── Logging & Progress Utilities ──────────────────────────────────
 const QUICK_PROGRESS_POLL_MS = 1500;
@@ -1006,19 +1007,29 @@ function closeUiDialog(result = false) {
   const backdrop = document.getElementById('ui-dialog-backdrop');
   const confirmBtn = document.getElementById('ui-dialog-confirm');
   const cancelBtn = document.getElementById('ui-dialog-cancel');
+  const inputEl = document.getElementById('ui-dialog-input');
+  const resolvedValue = uiDialogMode === 'prompt'
+    ? (result ? String(inputEl?.value || '') : null)
+    : Boolean(result);
   if (backdrop) {
     backdrop.classList.add('hidden');
     backdrop.setAttribute('aria-hidden', 'true');
+  }
+  if (inputEl) {
+    inputEl.value = '';
+    inputEl.placeholder = '';
+    inputEl.classList.add('hidden');
   }
   if (confirmBtn) confirmBtn.textContent = '확인';
   if (cancelBtn) {
     cancelBtn.textContent = '취소';
     cancelBtn.classList.add('hidden');
   }
+  uiDialogMode = 'default';
   if (uiDialogResolver) {
     const resolver = uiDialogResolver;
     uiDialogResolver = null;
-    resolver(Boolean(result));
+    resolver(resolvedValue);
   }
 }
 
@@ -1032,6 +1043,7 @@ function showUiDialog(options = {}) {
   const backdrop = document.getElementById('ui-dialog-backdrop');
   const titleEl = document.getElementById('ui-dialog-title');
   const messageEl = document.getElementById('ui-dialog-message');
+  const inputEl = document.getElementById('ui-dialog-input');
   const confirmBtn = document.getElementById('ui-dialog-confirm');
   const cancelBtn = document.getElementById('ui-dialog-cancel');
   if (!backdrop || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
@@ -1048,12 +1060,53 @@ function showUiDialog(options = {}) {
 
   titleEl.textContent = title;
   messageEl.textContent = message;
+  if (inputEl) {
+    inputEl.value = '';
+    inputEl.placeholder = '';
+    inputEl.classList.add('hidden');
+  }
+  uiDialogMode = 'default';
   confirmBtn.textContent = confirmText;
   cancelBtn.textContent = cancelText;
   cancelBtn.classList.toggle('hidden', !showCancel);
 
   backdrop.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
+
+  return new Promise((resolve) => {
+    uiDialogResolver = resolve;
+  });
+}
+
+function showUiPrompt(message, options = {}) {
+  const backdrop = document.getElementById('ui-dialog-backdrop');
+  const titleEl = document.getElementById('ui-dialog-title');
+  const messageEl = document.getElementById('ui-dialog-message');
+  const inputEl = document.getElementById('ui-dialog-input');
+  const confirmBtn = document.getElementById('ui-dialog-confirm');
+  const cancelBtn = document.getElementById('ui-dialog-cancel');
+  if (!backdrop || !titleEl || !messageEl || !inputEl || !confirmBtn || !cancelBtn) {
+    return Promise.resolve(window.prompt(String(message || ''), String(options?.defaultValue || '')));
+  }
+
+  if (uiDialogResolver) {
+    closeUiDialog(false);
+  }
+
+  uiDialogMode = 'prompt';
+  titleEl.textContent = String(options?.title || '입력').trim() || '입력';
+  messageEl.textContent = String(message || '');
+  inputEl.type = String(options?.type || 'text').trim() || 'text';
+  inputEl.value = String(options?.defaultValue || '');
+  inputEl.placeholder = String(options?.placeholder || '');
+  inputEl.classList.remove('hidden');
+  confirmBtn.textContent = String(options?.confirmText || '확인').trim() || '확인';
+  cancelBtn.textContent = String(options?.cancelText || '취소').trim() || '취소';
+  cancelBtn.classList.remove('hidden');
+
+  backdrop.classList.remove('hidden');
+  backdrop.setAttribute('aria-hidden', 'false');
+  setTimeout(() => inputEl.focus(), 0);
 
   return new Promise((resolve) => {
     uiDialogResolver = resolve;
@@ -2296,6 +2349,32 @@ function renderAccountOverview(overview) {
 
   setText('account-license-created', `라이선스 생성일 ${formatAccountDate(subscription.created_at)}`);
 
+  const upgradeFreeAction = getAccountAction(overview, 'upgrade_free');
+  const guidanceEl = document.getElementById('account-plan-guidance');
+  const guidanceTitleEl = document.getElementById('account-plan-guidance-title');
+  const guidanceMessageEl = document.getElementById('account-plan-guidance-message');
+  const upgradeFreeBtn = document.getElementById('account-upgrade-free-btn');
+  const normalizedPlanCode = String(subscription.plan_code || '').trim().toLowerCase();
+  const shouldShowFreeUpgrade = normalizedPlanCode === 'test'
+    && status === 'quota_exhausted'
+    && upgradeFreeAction?.enabled === true;
+  if (guidanceEl) {
+    guidanceEl.classList.toggle('hidden', !shouldShowFreeUpgrade);
+  }
+  if (guidanceTitleEl) {
+    guidanceTitleEl.textContent = shouldShowFreeUpgrade ? 'Tester Plan 사용량을 모두 사용했습니다' : '';
+  }
+  if (guidanceMessageEl) {
+    guidanceMessageEl.textContent = shouldShowFreeUpgrade
+      ? 'Free Plan은 자동으로 전환되지 않습니다. 이메일 인증 후 월간 무료 발행 횟수로 계속 사용할 수 있습니다.'
+      : '';
+  }
+  if (upgradeFreeBtn) {
+    upgradeFreeBtn.textContent = shouldShowFreeUpgrade ? (upgradeFreeAction?.label || 'Free Plan으로 전환') : '';
+    upgradeFreeBtn.disabled = !shouldShowFreeUpgrade;
+    upgradeFreeBtn.title = upgradeFreeAction?.reason || '';
+  }
+
   setText('account-identity-label', identity.label || '기기 라이선스로 사용 중');
   setText('account-identity-detail', identity.email_verified && identity.email
     ? `${identity.email} 계정에 연결되어 있습니다.`
@@ -2377,6 +2456,94 @@ async function loadAccountOverview({ force = false } = {}) {
     isAccountOverviewLoading = false;
   }
 }
+
+async function upgradeAccountToFreePlan() {
+  const action = getAccountAction(lastAccountOverview, 'upgrade_free');
+  if (action?.enabled !== true) {
+    await showUiPopup(action?.reason || '현재 Free Plan으로 전환할 수 없습니다.');
+    return;
+  }
+
+  const email = await showUiPrompt('Free Plan 전환에 사용할 이메일을 입력해 주세요.\n인증 코드를 보내고, 확인 후 Free Plan으로 전환합니다.', {
+    title: 'Free Plan 전환',
+    type: 'email',
+    placeholder: 'you@example.com',
+    confirmText: '인증 코드 받기',
+    cancelText: '취소'
+  });
+  if (email == null) return;
+  const normalizedEmail = String(email || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
+    await showUiPopup('유효한 이메일 주소를 입력해 주세요.');
+    return;
+  }
+
+  const button = document.getElementById('account-upgrade-free-btn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '인증 요청 중...';
+  }
+  try {
+    const requestResult = await postJson('/api/v1/license/registration/request', {
+      email: normalizedEmail
+    });
+    const code = await showUiPrompt(`${requestResult?.message || '인증 코드가 발송되었습니다.'}\n메일로 받은 6자리 인증 코드를 입력해 주세요.`, {
+      title: '이메일 인증',
+      type: 'text',
+      placeholder: '123456',
+      confirmText: '인증',
+      cancelText: '취소'
+    });
+    if (code == null) {
+      await loadAccountOverview({ force: true }).catch(() => {});
+      return;
+    }
+    const normalizedCode = String(code || '').trim();
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      await showUiPopup('6자리 인증 코드를 입력해 주세요.');
+      await loadAccountOverview({ force: true }).catch(() => {});
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = '인증 확인 중...';
+    }
+    await postJson('/api/v1/license/registration/verify', {
+      email: normalizedEmail,
+      code: normalizedCode
+    });
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = '전환 중...';
+    }
+    const result = await postJson('/api/v1/license/upgrade', {
+      targetPlan: 'free',
+      email: normalizedEmail
+    });
+    await showUiPopup(result?.message || 'Free Plan으로 전환되었습니다.');
+    lastAccountOverview = null;
+    await loadAccountOverview({ force: true });
+    await loadDashboard();
+  } catch (error) {
+    await showUiPopup(`전환 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
+    await loadAccountOverview({ force: true }).catch(() => {});
+  }
+}
+
+let accountUpgradeFreeClickBound = false;
+function bindAccountUpgradeFreeClick() {
+  if (accountUpgradeFreeClickBound || typeof document === 'undefined') return;
+  accountUpgradeFreeClickBound = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('#account-upgrade-free-btn');
+    if (!button) return;
+    event.preventDefault();
+    upgradeAccountToFreePlan().catch((error) => console.warn('[Account Upgrade Free]', error.message));
+  });
+}
+
+bindAccountUpgradeFreeClick();
 
 async function loadDashboard() {
   if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
@@ -6484,6 +6651,7 @@ function bindActions() {
   const dialogBackdrop = document.getElementById('ui-dialog-backdrop');
   const dialogConfirmBtn = document.getElementById('ui-dialog-confirm');
   const dialogCancelBtn = document.getElementById('ui-dialog-cancel');
+  const dialogInputEl = document.getElementById('ui-dialog-input');
   if (dialogConfirmBtn) {
     dialogConfirmBtn.addEventListener('click', () => closeUiDialog(true));
   }
@@ -6493,6 +6661,14 @@ function bindActions() {
   if (dialogBackdrop) {
     dialogBackdrop.addEventListener('click', (e) => {
       if (e.target === dialogBackdrop) closeUiDialog(false);
+    });
+  }
+  if (dialogInputEl) {
+    dialogInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        closeUiDialog(true);
+      }
     });
   }
   document.querySelectorAll('.label-help').forEach((helpEl) => {
@@ -8750,6 +8926,7 @@ window.addEventListener('DOMContentLoaded', () => {
   accountRetryBtn?.addEventListener('click', () => {
     loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Retry]', error.message));
   });
+  bindAccountUpgradeFreeClick();
   document.querySelectorAll('[data-account-settings-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       void navigateToSettingsTarget(
