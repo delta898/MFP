@@ -232,6 +232,139 @@ UI 문구 방향:
 - `이번 달 기본 제공량을 먼저 사용하고, 모두 사용하면 충전 크레딧이 사용됩니다.`
 - `크레딧은 환불되지 않습니다.`
 
+## Account Page UI Direction
+`계정 및 구독` 화면을 paid plan 진입의 중심 허브로 유지한다. 현재 플랜이 `free`, `pro`, `ultra` 중 무엇이든 사용자가 이해해야 할 공통 action은 세 가지다.
+
+1. `플랜 안내`
+2. `크레딧 충전`
+3. `구독 / 플랜 변경`
+
+Ultra처럼 크레딧이 필요 없는 플랜에서는 `크레딧 충전` action을 숨기거나 비활성화할 수 있지만, action의 개념 자체는 동일한 위치와 계약으로 유지한다.
+
+### Subscription Summary Card
+상단 `현재 플랜` 카드는 사용량을 다음처럼 분리해서 보여준다.
+
+```text
+현재 플랜                         [플랜 안내]
+Free Plan        활성
+
+이번 달 사용량                    남은 기본 횟수
+3 / 20회                         17회
+
+충전 크레딧                       총 사용 가능 횟수
+30회                             47회
+
+이번 달 기본 제공량을 먼저 사용하고, 모두 사용하면 충전 크레딧이 사용됩니다.
+                         [구독/플랜 변경] [크레딧 충전]
+```
+
+표시 원칙:
+- 월 기본 quota와 충전 크레딧을 섞어서 하나의 숫자로만 보여주지 않는다.
+- 총 사용 가능 횟수는 보조 정보로 표시한다.
+- 주요 action은 카드 우측 하단에 둔다.
+- 결제 기능이 아직 활성화되지 않은 action은 server-provided `actions`에 따라 숨기거나 disabled로 표시한다.
+
+### Plan Guide Modal
+플랜 안내는 설명 중심으로 짧게 유지한다.
+
+```text
+플랜 안내
+
+Free
+- 월 기본 발행 횟수
+- 기본 블로그 발행
+
+Pro
+- 더 많은 월 기본 발행 횟수
+- 트렌드, 쇼핑, 연관글 등 고급 기능
+
+Ultra
+- 가장 높은 사용량
+- 상위 기능
+
+크레딧
+- 현재 플랜 권한 안에서 사용하는 추가 발행 횟수
+- 만료 없음
+- 환불 불가
+```
+
+이 모달은 결제 전환을 강하게 유도하지 않는다. 제품 구조를 설명하고, 실제 구매 action은 별도 `구독/플랜 변경` 또는 `크레딧 충전` 흐름에서 제공한다.
+
+### Credit Purchase Modal Skeleton
+초기 UI skeleton은 결제 provider 없이도 렌더링 가능해야 한다. 실제 결제 버튼은 서버가 checkout action을 제공할 때만 활성화한다.
+
+```text
+크레딧 충전
+
+크레딧은 현재 플랜 권한 안에서 사용할 수 있는 추가 발행 횟수입니다.
+이번 달 기본 제공량을 먼저 사용하고, 모두 사용하면 크레딧이 사용됩니다.
+
+[+10회]  가격 준비 중
+[+50회]  가격 준비 중
+[+100회] 가격 준비 중
+
+크레딧은 만료되지 않으며 환불되지 않습니다.
+
+                         [닫기] [결제하기]
+```
+
+Free 사용자가 크레딧 충전 모달을 열면 다음 문구를 함께 표시한다.
+
+```text
+Free Plan에서는 기본 블로그 발행에만 크레딧을 사용할 수 있습니다.
+Pro 기능은 구독 변경 후 사용할 수 있습니다.
+```
+
+### Subscription Change Modal Skeleton
+구독 변경은 크레딧과 완전히 분리한다.
+
+```text
+구독 / 플랜 변경
+
+구독은 기능 권한과 월 기본 발행 횟수를 변경합니다.
+크레딧은 플랜을 변경하지 않습니다.
+
+Free     월 기본 횟수 + 기본 발행
+Pro      더 많은 월 기본 횟수 + 고급 기능
+Ultra    가장 높은 사용량 + 상위 기능
+
+                         [닫기] [선택한 플랜으로 변경]
+```
+
+결제 연동 전에는 `선택한 플랜으로 변경`을 숨기거나 `결제 준비 중`으로 표시한다. 결제 연동 후에는 server-provided checkout action을 사용한다.
+
+### Publish Quota Preview
+발행 실행 전에는 quota 차감 예상치를 보여준다. 이 UI는 결제와 별개로 먼저 설계하고, 실제 reserve/commit/release와 연결한다.
+
+```text
+이번 실행은 1회 차감됩니다.
+
+사용 순서:
+이번 달 기본 제공량 17회 남음 -> 먼저 사용
+충전 크레딧 30회 보유
+
+실행 후 예상:
+이번 달 사용량 4 / 20회
+충전 크레딧 30회
+```
+
+월 기본 quota가 없는 경우:
+
+```text
+이번 달 기본 제공량을 모두 사용했습니다.
+이번 실행은 충전 크레딧 1회를 사용합니다.
+
+충전 크레딧: 30회 -> 29회
+```
+
+월 기본 quota와 크레딧이 모두 없는 경우:
+
+```text
+사용 가능한 발행 횟수가 없습니다.
+
+[크레딧 충전] [플랜 보기]
+```
+
 ## Non-Goals for First Paid Slice
 - 소셜 로그인 도입
 - 계정 병합
@@ -243,30 +376,52 @@ UI 문구 방향:
 
 ## Phased Delivery
 
-### Phase 1: Policy and Read Model
+### Phase 1: Account UI Read Model
 - plan/credit 정책 문서화
 - account overview에 credit read model 추가
-- UI는 설명 중심으로 표시
+- 계정 및 구독 상단 카드에 credit balance와 total available 표시
+- 플랜 안내 모달을 구독/크레딧 정책 기준으로 정리
 
-### Phase 2: Credit Ledger Foundation
+### Phase 2: Payment Action Skeletons
+- 크레딧 충전 모달 UI skeleton 추가
+- 구독/플랜 변경 모달 UI skeleton 추가
+- 실제 결제 버튼은 server action이 열릴 때만 활성화
+
+### Phase 3: Publish Quota Preview
+- 발행 실행 전 quota preview 계약 정의
+- monthly quota와 credit 차감 예상 표시
+- 차감 불가 상태에서 `크레딧 충전`, `플랜 보기` action 제공
+
+### Phase 4: Credit Ledger Foundation
 - `credit_ledger`와 balance projection 추가
 - 발행 quota 계산에 monthly + credit 반영
 - 실패 release와 성공 commit 테스트 추가
 
-### Phase 3: Billing Provider Adapter
+### Phase 5: Billing Provider Adapter
 - PortOne adapter contract 추가
 - checkout 생성 Edge Function 추가
 - webhook event inbox와 idempotency 구현
 
-### Phase 4: Subscription Upgrade
+### Phase 6: Subscription Upgrade
 - Pro/Ultra 상품 mapping
 - 구독 성공 시 entitlement projection 갱신
 - 구독 상태 변경 webhook 처리
 
-### Phase 5: Credit Purchase
+### Phase 7: Credit Purchase
 - credit pack 상품 mapping
 - 1회 결제 성공 시 credit ledger 적립
 - 결제 전 환불 불가 고지와 구매 후 account overview refresh
+
+## Branching Plan
+작업 단위가 커지면 `codex/paid-plans-and-credits` 아래에서 sub feature branch를 만든다.
+
+- `codex/paid-plans-ui-read-model`: account overview와 상단 카드 credit 표시
+- `codex/paid-plans-ui-skeletons`: 플랜 안내, 크레딧 충전, 구독 변경 모달 skeleton
+- `codex/paid-plans-quota-preview`: 발행 전 quota preview
+- `codex/paid-plans-credit-ledger`: Supabase/RPC credit ledger foundation
+- `codex/paid-plans-portone-adapter`: PortOne checkout/webhook adapter
+
+각 sub branch는 작은 PR 또는 fast-forward merge 가능한 커밋 단위로 유지한다.
 
 ## Open Decisions
 - Pro/Ultra 월 quota 숫자
