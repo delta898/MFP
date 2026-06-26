@@ -3,6 +3,20 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-06-27
+
+### Added
+- **계정 및 구독 화면 개선**: 플랜 사용량, 이메일 연결 상태, 기기 정보, 포함 기능, 서비스 연결 상태를 한 화면에서 확인할 수 있도록 정리했습니다.
+- **Tester Plan 소진 후 Free Plan 전환**: 이메일 인증 후 Free Plan으로 전환할 수 있는 흐름을 추가하고, 인증 메일 발송 성공/실패 상태를 서버에 기록하도록 개선했습니다.
+- **플랜 주기 안내**: Free Plan의 이번 달 사용량, 현재 주기 시작일, 다음 무료 사용량 갱신일과 간단한 플랜 안내를 표시합니다.
+
+### Fixed
+- **Windows 설치 파일 빌드 안정화**: Kuzu npm 패키지에 포함된 소스/테스트 데이터 트리를 배포 산출물에서 제거해, Windows Inno Setup 단계에서 긴 경로 때문에 설치 파일 생성이 실패하던 문제를 수정했습니다.
+
+### Changed
+- **라이선스 feature/quota 정책 정리**: 기본 기능과 유료 기능의 구분을 단순화하고, 발행 quota는 실제 발행 작업 기준으로 reserve/commit/release 흐름을 사용하도록 정리했습니다.
+- **이메일 정책 정리**: 이메일을 로그인 계정이 아닌 라이선스 복구와 플랜 관리용 verified contact로 정의하고, 등록/변경 흐름을 통일했습니다.
+
 ## [0.1.13-dev4] - 2026-06-26
 
 ### Changed

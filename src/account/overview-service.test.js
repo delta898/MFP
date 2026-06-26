@@ -33,7 +33,7 @@ function createService(overrides = {}) {
             GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
             WORDPRESS_URL: ''
         },
-        APP_VERSION: '0.1.13-dev3',
+        APP_VERSION: '0.1.13',
         toFeatureMap: (value) => ({ ...value }),
         checkNaverSessionForUi: async () => ({ ok: true, reason: '', message: 'valid' }),
         resolveMachineId: () => 'raw-machine-id-must-not-leak',
