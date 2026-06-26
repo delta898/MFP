@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.13-dev3] - 2026-06-26
+
+### Fixed
+- **Windows 설치 파일 빌드 안정화**: Kuzu npm 패키지에 포함된 소스/테스트 데이터 트리를 배포 산출물에서 제거해, Windows Inno Setup 단계에서 긴 경로 때문에 설치 파일 생성이 실패하던 문제를 수정했습니다.
+
 ## [0.1.13-dev2] - 2026-06-26
 
 ### Added
