@@ -17,7 +17,7 @@ function createSessionLicenseService(deps = {}) {
     return {
         async getLicenseStatus({ quietRaw }) {
             const quiet = parseBoolQuery(quietRaw);
-            const status = await License.checkLicenseStatus({ quiet });
+            const status = await License.checkLicenseStatus({ quiet, force: true });
             if (!status.success) {
                 throw createApiError(400, 'LICENSE_STATUS_FAILED', status.message);
             }

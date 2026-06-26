@@ -1163,6 +1163,10 @@ begin
                 'message', 'test 플랜은 1회성입니다. 다른 플랜 사용 후에는 재사용할 수 없습니다.',
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                'features', coalesce(v_plan_features, '{}'::jsonb),
+                'created_at', v_license_created_at,
+                'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
+                'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
             );
         end if;
@@ -1173,6 +1177,10 @@ begin
                 'message', 'test 플랜 1회 사용이 종료되었습니다. 계속 이용하려면 license upgrade를 진행해 주세요.',
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                'features', coalesce(v_plan_features, '{}'::jsonb),
+                'created_at', v_license_created_at,
+                'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
+                'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
             );
         end if;
@@ -1379,6 +1387,9 @@ begin
                 'message', 'test 플랜은 1회성입니다. 다른 플랜 사용 후에는 재사용할 수 없습니다.',
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                'features', coalesce(v_plan_features, '{}'::jsonb),
+                'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
+                'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
             );
         end if;
@@ -1389,6 +1400,9 @@ begin
                 'message', 'test 플랜 1회 사용이 종료되었습니다. 계속 이용하려면 license upgrade를 진행해 주세요.',
                 'plan_code', 'test',
                 'plan_display_name', coalesce(v_plan_display_name, 'test'),
+                'features', coalesce(v_plan_features, '{}'::jsonb),
+                'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
+                'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
             );
         end if;

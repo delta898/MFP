@@ -101,6 +101,31 @@ test('account overview keeps exhausted license context available to the UI', asy
     assert.equal(overview.usage.remaining, 0);
 });
 
+test('account overview does not render a zero usage limit as a real quota', async () => {
+    const service = createService({
+        License: {
+            async checkLicenseStatus() {
+                return {
+                    success: false,
+                    message: 'test 플랜 1회 사용이 종료되었습니다.',
+                    planCode: 'test',
+                    planDisplayName: 'Tester',
+                    usageLimit: 0,
+                    usageCount: 0,
+                    remaining: 0,
+                    features: {}
+                };
+            }
+        }
+    });
+
+    const overview = await service.getOverview();
+    assert.equal(overview.subscription.status, 'quota_exhausted');
+    assert.equal(overview.usage.limit, null);
+    assert.equal(overview.usage.used, 0);
+    assert.equal(overview.usage.remaining, 0);
+});
+
 test('account overview rejects failures with no usable license context', async () => {
     const service = createService({
         License: {

@@ -3478,6 +3478,7 @@ function renderBlogLastBatchResult(data) {
   const total = Number(data.requestedCount || data.results.length || 0);
   const success = Number(data.successCount || 0);
   const fail = Number(data.failCount || 0);
+  const quotaMessage = String(data?.quotaPreflight?.message || '').trim();
   const lines = data.results.slice(0, 12).map((rowResult) => {
     const rowNo = Number.isInteger(Number(rowResult.rowIndex)) ? Number(rowResult.rowIndex) + 2 : '-';
     const label = rowResult.success ? '성공' : '실패';
@@ -3490,10 +3491,27 @@ function renderBlogLastBatchResult(data) {
 
   box.innerHTML = `
     <div class="title">이번 실행 결과 (${nowText})</div>
+    ${quotaMessage ? `<div>${escapeHtml(quotaMessage)}</div>` : ''}
     <div>요청 ${total}건 / 성공 ${success}건 / 실패 ${fail}건</div>
     <ul>${lines || '<li>결과 없음</li>'}</ul>
   `;
   box.classList.remove('hidden');
+}
+
+async function getPublishQuotaPreflight(selectedCount) {
+  const license = await fetchJson('/api/v1/license/status?quiet=true');
+  const selected = Math.max(0, Number(selectedCount || 0));
+  const remainingValue = Number(license?.remaining);
+  const unlimited = remainingValue === -1;
+  const remaining = unlimited ? -1 : Math.max(0, Number.isFinite(remainingValue) ? remainingValue : 0);
+  const executable = unlimited ? selected : Math.min(selected, remaining);
+  return {
+    selected,
+    remaining,
+    executable,
+    unlimited,
+    message: `${selected}건 선택 · 잔여 ${unlimited ? '무제한' : `${remaining}회`} · 최대 ${executable}건 실행`
+  };
 }
 
 function findTopicByRowIndex(rowIndex) {
@@ -3756,8 +3774,6 @@ async function runShoppingBatchAction() {
   }
 
   const selectedSnapshot = [...rowIndices];
-  clearShoppingSelections();
-  pauseDashboardPolling();
 
   const headless = Boolean(document.getElementById('shopping-batch-headless')?.checked);
   const targets = [];
@@ -3769,6 +3785,24 @@ async function runShoppingBatchAction() {
     resultBox.textContent = preCheck.message;
     return;
   }
+
+  try {
+    const quota = await getPublishQuotaPreflight(selectedSnapshot.length);
+    if (quota.executable === 0) {
+      resultBox.textContent = quota.message;
+      return;
+    }
+    if (await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) {
+      resultBox.textContent = '발행이 취소되었습니다.';
+      return;
+    }
+  } catch (error) {
+    resultBox.textContent = `사용량 확인 실패: ${error.message}`;
+    return;
+  }
+
+  clearShoppingSelections();
+  pauseDashboardPolling();
 
   try {
     await runWithLiveProgress({
@@ -4030,9 +4064,6 @@ async function runBlogBatchAction() {
   }
 
   const selectedSnapshot = [...rowIndices];
-  clearBlogSelections();
-  clearPreviousBatchVisualState();
-  pauseDashboardPolling();
 
   const headless = Boolean(document.getElementById('blog-batch-headless')?.checked);
   const targets = [];
@@ -4044,6 +4075,25 @@ async function runBlogBatchAction() {
     resultBox.textContent = preCheck.message;
     return;
   }
+
+  try {
+    const quota = await getPublishQuotaPreflight(selectedSnapshot.length);
+    if (quota.executable === 0) {
+      resultBox.textContent = quota.message;
+      return;
+    }
+    if (await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) {
+      resultBox.textContent = '발행이 취소되었습니다.';
+      return;
+    }
+  } catch (error) {
+    resultBox.textContent = `사용량 확인 실패: ${error.message}`;
+    return;
+  }
+
+  clearBlogSelections();
+  clearPreviousBatchVisualState();
+  pauseDashboardPolling();
 
   try {
     const data = await runWithLiveProgress({
@@ -6284,7 +6334,18 @@ async function runShoppingAutoManual() {
   const batchEl = document.getElementById('shopping-publish-auto-batch');
   const headlessEl = document.getElementById('shopping-publish-auto-headless');
 
-  const shouldProceed = await showUiConfirm('쇼핑커넥트 자동발행 파이프라인을 수동 실행하시겠습니까?', {
+  let quota;
+  try {
+    quota = await getPublishQuotaPreflight(parseInt((batchEl?.value || '1').trim(), 10) || 1);
+  } catch (error) {
+    if (resultEl) resultEl.textContent = `사용량 확인 실패: ${error.message}`;
+    return;
+  }
+  if (quota.executable === 0) {
+    if (resultEl) resultEl.textContent = quota.message;
+    return;
+  }
+  const shouldProceed = await showUiConfirm(quota.message, {
     title: '수동 실행 확인',
     confirmText: '진행',
     cancelText: '취소'
@@ -6336,11 +6397,21 @@ async function runBlogPublishAutoManual() {
   const batchEl = document.getElementById('blog-publish-auto-batch');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
   const resultEl = document.getElementById('blog-publish-auto-result');
-  if (await showUiConfirm('수동 발행을 진행하시겠습니까?') === false) return;
-
   const batchSize = parseInt((batchEl?.value || '1').trim(), 10) || 1;
   const targets = Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(',');
   const headless = Boolean(headlessEl?.checked);
+
+  try {
+    const quota = await getPublishQuotaPreflight(batchSize);
+    if (quota.executable === 0) {
+      if (resultEl) resultEl.textContent = quota.message;
+      return;
+    }
+    if (await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) return;
+  } catch (error) {
+    if (resultEl) resultEl.textContent = `사용량 확인 실패: ${error.message}`;
+    return;
+  }
 
   blogAutoManualRunInFlight = true;
 
@@ -6745,6 +6816,7 @@ function bindActions() {
     if (previewPublishBtn) previewPublishBtn.disabled = true;
 
     const dummyPayload = buildQuickPayload(mode);
+    if (mode === 'publish') dummyPayload.operationId = crypto.randomUUID();
 
     if (dummyPayload.postStatus === 'schedule') {
       if (!dummyPayload.scheduleDate) {
@@ -6781,6 +6853,29 @@ function bindActions() {
       if (generateBtn) generateBtn.disabled = false;
       if (previewPublishBtn) previewPublishBtn.disabled = !quickGeneratedPreviewState.previewId;
       return;
+    }
+
+    if (mode === 'publish') {
+      try {
+        const quota = await getPublishQuotaPreflight(1);
+        if (quota.executable === 0 || await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) {
+          resultEl.textContent = quota.executable === 0 ? quota.message : '발행이 취소되었습니다.';
+          quickPublishInFlight = false;
+          if (saveBtn) saveBtn.disabled = false;
+          if (directPublishBtn) directPublishBtn.disabled = false;
+          if (generateBtn) generateBtn.disabled = false;
+          if (previewPublishBtn) previewPublishBtn.disabled = !quickGeneratedPreviewState.previewId;
+          return;
+        }
+      } catch (error) {
+        resultEl.textContent = `사용량 확인 실패: ${error.message}`;
+        quickPublishInFlight = false;
+        if (saveBtn) saveBtn.disabled = false;
+        if (directPublishBtn) directPublishBtn.disabled = false;
+        if (generateBtn) generateBtn.disabled = false;
+        if (previewPublishBtn) previewPublishBtn.disabled = !quickGeneratedPreviewState.previewId;
+        return;
+      }
     }
 
     try {
@@ -6844,6 +6939,18 @@ function bindActions() {
     }
     if (payload.postStatus === 'schedule' && !payload.scheduleDate) {
       showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
+      return;
+    }
+
+    try {
+      const quota = await getPublishQuotaPreflight(1);
+      if (quota.executable === 0) {
+        resultEl.textContent = quota.message;
+        return;
+      }
+      if (await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) return;
+    } catch (error) {
+      resultEl.textContent = `사용량 확인 실패: ${error.message}`;
       return;
     }
 
@@ -7375,7 +7482,18 @@ function bindActions() {
       const actionLabel = publishPayload.postStatus === 'draft'
         ? `${config.actionPrefix || '원고'} 임시 저장`
         : (publishPayload.postStatus === 'schedule' ? `${config.actionPrefix || '원고'} 예약 포스팅` : `${config.actionPrefix || '원고'} 포스팅`);
-      const confirmMessage = config.confirmMessage || `${actionLabel}을 진행하시겠습니까?`;
+      let quota;
+      try {
+        quota = await getPublishQuotaPreflight(1);
+      } catch (error) {
+        if (resultEl) resultEl.textContent = `사용량 확인 실패: ${error.message}`;
+        return;
+      }
+      if (quota.executable === 0) {
+        if (resultEl) resultEl.textContent = quota.message;
+        return;
+      }
+      const confirmMessage = `${config.confirmMessage || `${actionLabel}을 진행하시겠습니까?`}\n\n${quota.message}`;
       const confirmed = await showUiConfirm(confirmMessage, {
         title: '실행 확인',
         confirmText: '진행',
@@ -7625,6 +7743,7 @@ function bindActions() {
     if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = true;
 
     const dummyPayload = buildShoppingQuickPayload(mode);
+    if (mode === 'append_and_publish') dummyPayload.operationId = crypto.randomUUID();
     const preCheck = checkPublishPrerequisites(dummyPayload.targets);
     if (!preCheck.ok) {
       shoppingQuickResultEl.textContent = preCheck.message;
@@ -7641,6 +7760,25 @@ function bindActions() {
       if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
       if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
       return;
+    }
+
+    if (mode === 'append_and_publish') {
+      try {
+        const quota = await getPublishQuotaPreflight(1);
+        if (quota.executable === 0 || await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) {
+          shoppingQuickResultEl.textContent = quota.executable === 0 ? quota.message : '발행이 취소되었습니다.';
+          shoppingQuickPublishInFlight = false;
+          if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+          if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+          return;
+        }
+      } catch (error) {
+        shoppingQuickResultEl.textContent = `사용량 확인 실패: ${error.message}`;
+        shoppingQuickPublishInFlight = false;
+        if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+        if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+        return;
+      }
     }
 
     try {

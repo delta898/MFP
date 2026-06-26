@@ -25,10 +25,12 @@
 
 ## 2. 구조
 
-라이선스 검증/차감은 Supabase RPC에서 처리합니다.
+라이선스 검증과 발행 quota lifecycle은 Supabase RPC에서 처리합니다.
 
 - 사전 검증(무차감): `check_license_status`
-- 실제 차감: `check_and_use_license`
+- 발행 예약: `reserve_publish_quota`
+- 성공 확정: `commit_publish_quota`
+- 전 플랫폼 실패 반환: `release_publish_quota`
 
 앱 역할:
 - `LICENSE_KEY`를 읽어 RPC에 전달
@@ -84,6 +86,16 @@
 
 - `provider`, `event_id` (UNIQUE)
 - `event_type`, `payload_json`, `processed_at`
+
+### 3.5 `public.license_usage_operations`
+
+콘텐츠 발행 작업별 quota ledger
+
+- `license_id`, `operation_id` (UNIQUE)
+- `state`: `reserved`, `committed`, `released`
+- `quota_units`: metered는 `1`, unlimited는 `0`
+- `metadata.successful_targets`: 부분 성공 재시도 시 이미 성공한 플랫폼 기록
+- `reservation_expires_at`: 중단된 실행의 예약 자동 회수 기준
 
 ## 4. RPC 동작
 
@@ -143,6 +155,9 @@
   - `sql/supabase_license_v4_unique_keys.sql` (권장)
   - 포함 RPC: `issue_test_license`, `check_license_status`, `check_and_use_license`
 - v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.
+- v5 quota migration:
+  - `sql/supabase_license_quota_v5.sql`
+  - v4 적용 후 실행하며 ledger와 reserve/commit/release RPC를 추가합니다.
 
 ## 8. 라이선스 UI 운영 원칙
 
@@ -159,16 +174,17 @@
 - `register` 성공 시에도 현재 플랜/쿼터는 즉시 변경되지 않습니다.
 - 플랜 전환은 `upgrade` 경로로만 처리합니다.
 
-## 9. Usage 처리 목표와 현재 차이
+## 9. Usage 처리
 
-목표 처리:
+현재 앱 처리:
 
 1. 최신 잔여량으로 `선택 A건 · 잔여 B회 · 최대 C건 실행`을 계산한다.
 2. 콘텐츠 작업별 고유 `operation_id`로 quota 1회를 예약한다.
 3. 대상 플랫폼 중 하나 이상 성공하면 commit한다.
 4. 모든 플랫폼이 실패하면 release한다.
 5. 동일 operation id 재시도는 추가 차감하지 않는다.
+6. 부분 성공한 operation 재시도에서는 이미 성공한 플랫폼을 다시 발행하지 않는다.
 
-현재 v4 `check_and_use_license`는 발행 전에 즉시 `usage_count + 1`을 수행한다. 따라서 실패·재시도·다중 플랫폼 정책이 목표 계약과 다르며 코드/RPC 마이그레이션이 필요하다. 트렌드 수집 경로도 현재 차감 RPC를 호출하므로 제거해야 한다.
+새 발행 경로는 v5 RPC만 사용한다. 기존 `check_and_use_license`는 이전 앱 호환용으로 남아 있으며 트렌드/RSS 수집과 콘텐츠 생성 전용 경로는 quota RPC를 호출하지 않는다.
 
-Supabase 반영 순서에 주의한다. 저장소 코드는 새 계약을 지원하지만, 원격 Supabase의 제거 대상 키는 이 앱 버전이 배포된 뒤 삭제한다.
+Supabase에 `sql/supabase_license_quota_v5.sql`을 먼저 적용한 뒤 이 앱 버전을 실행해야 한다.

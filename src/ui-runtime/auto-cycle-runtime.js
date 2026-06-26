@@ -1,3 +1,5 @@
+const { buildPublishQuotaPreflight } = require('../publish-quota');
+
 function createAutoCycleRuntime(deps = {}) {
     const {
         CONFIG,
@@ -734,11 +736,21 @@ function createAutoCycleRuntime(deps = {}) {
             let batchSize = normalizeNonNegativeInt(settingsOverrides.PUBLISH_AUTO_BATCH_SIZE ?? CONFIG.PUBLISH_AUTO_BATCH_SIZE, 1);
             if (batchSize === 0) batchSize = 1;
 
-            const targetCandidates = candidates.slice(0, batchSize);
+            const selectedCandidates = candidates.slice(0, batchSize);
+            const quotaPreflight = buildPublishQuotaPreflight(selectedCandidates.length, precheck);
+            const targetCandidates = selectedCandidates.slice(0, quotaPreflight.executable);
             if (targetCandidates.length === 0) {
-                Logger.info('ℹ️ [AUTO][Consumer] 발행 대기 상태인 토픽이 없습니다.');
-                return { success: true, data: { published: 0 } };
+                Logger.info(quotaPreflight.selected > 0
+                    ? `[AUTO][Consumer] ${quotaPreflight.message}`
+                    : 'ℹ️ [AUTO][Consumer] 발행 대기 상태인 토픽이 없습니다.');
+                return {
+                    success: quotaPreflight.selected === 0,
+                    code: quotaPreflight.selected > 0 ? 'QUOTA_EXHAUSTED' : undefined,
+                    message: quotaPreflight.selected > 0 ? quotaPreflight.message : undefined,
+                    data: { published: 0, quotaPreflight }
+                };
             }
+            Logger.info(`[AUTO][Consumer] ${quotaPreflight.message}`);
 
             const rawTargets = String(settingsOverrides.PUBLISH_AUTO_TARGET_CHANNELS ?? CONFIG.PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver')
                 .split(',')
@@ -841,7 +853,9 @@ function createAutoCycleRuntime(deps = {}) {
                 success: true,
                 data: {
                     published: successCount,
-                    failed: failCount
+                    failed: failCount,
+                    skipped: selectedCandidates.length - targetCandidates.length,
+                    quotaPreflight
                 }
             };
         } catch (error) {

@@ -38,6 +38,36 @@ function buildFeatureItems(features = {}) {
     return items;
 }
 
+function normalizeUsageReadModel(licenseStatus = {}) {
+    const rawLimit = Number(licenseStatus?.usageLimit);
+    const rawUsed = Number(licenseStatus?.usageCount);
+    const rawRemaining = Number(licenseStatus?.remaining);
+    const remaining = Number.isFinite(rawRemaining) ? rawRemaining : null;
+    const unlimited = rawLimit === -1 || remaining === -1;
+    const exhausted = !unlimited && remaining === 0 && licenseStatus?.success !== true;
+
+    if (unlimited) {
+        return {
+            mode: 'unlimited',
+            limit: -1,
+            used: Number.isFinite(rawUsed) ? rawUsed : null,
+            remaining: -1,
+            exhausted
+        };
+    }
+
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : null;
+    const used = Number.isFinite(rawUsed) && rawUsed >= 0 ? rawUsed : null;
+
+    return {
+        mode: 'metered',
+        limit,
+        used,
+        remaining,
+        exhausted
+    };
+}
+
 function createAccountOverviewService(deps = {}) {
     const {
         License,
@@ -77,11 +107,7 @@ function createAccountOverviewService(deps = {}) {
         }
 
         const features = toFeatureMap(licenseStatus?.features || {});
-        const usageLimit = Number.isFinite(Number(licenseStatus?.usageLimit)) ? Number(licenseStatus.usageLimit) : null;
-        const usageCount = Number.isFinite(Number(licenseStatus?.usageCount)) ? Number(licenseStatus.usageCount) : null;
-        const remaining = Number.isFinite(Number(licenseStatus?.remaining)) ? Number(licenseStatus.remaining) : null;
-        const unlimited = usageLimit === -1 || remaining === -1;
-        const quotaExhausted = !unlimited && remaining === 0 && licenseStatus?.success !== true;
+        const usage = normalizeUsageReadModel(licenseStatus);
         const planCode = String(licenseStatus?.planCode || '').trim().toLowerCase();
 
         let hardwareId = '';
@@ -107,7 +133,7 @@ function createAccountOverviewService(deps = {}) {
             subscription: {
                 plan_code: planCode,
                 plan_name: String(licenseStatus?.planDisplayName || licenseStatus?.planCode || '').trim(),
-                status: quotaExhausted ? 'quota_exhausted' : (licenseStatus?.success ? 'active' : 'unavailable'),
+                status: usage.exhausted ? 'quota_exhausted' : (licenseStatus?.success ? 'active' : 'unavailable'),
                 billing_managed: false,
                 created_at: String(licenseStatus?.createdAt || '').trim(),
                 current_period_end: '',
@@ -115,10 +141,10 @@ function createAccountOverviewService(deps = {}) {
                 message: String(licenseStatus?.message || '').trim()
             },
             usage: {
-                mode: unlimited ? 'unlimited' : 'metered',
-                limit: usageLimit,
-                used: usageCount,
-                remaining,
+                mode: usage.mode,
+                limit: usage.limit,
+                used: usage.used,
+                remaining: usage.remaining,
                 resets_at: '',
                 cycle: planCode === 'free' ? 'monthly' : 'none'
             },
@@ -160,5 +186,6 @@ module.exports = {
     FEATURE_LABELS,
     maskHardwareId,
     buildFeatureItems,
+    normalizeUsageReadModel,
     createAccountOverviewService
 };

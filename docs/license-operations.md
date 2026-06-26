@@ -10,11 +10,13 @@
 
 1. Supabase SQL Editor에서 v4 SQL 적용
   - `sql/supabase_license_v4_unique_keys.sql`
-2. 운영용 발급/갱신 SQL 사용
+2. 발행 quota v5 migration 적용
+  - `sql/supabase_license_quota_v5.sql`
+3. 운영용 발급/갱신 SQL 사용
   - `sql/supabase_license_operations.sql`
   - `sql/supabase_issue_pro_license.sql`
   - `sql/supabase_issue_test_free_license.sql`
-3. 라이선스 등록 메일 발송 함수 배포
+4. 라이선스 등록 메일 발송 함수 배포
   - `supabase/functions/send-license-code/index.ts`
   - 함수 시크릿: `BREVO_API_KEY`, `LICENSE_EMAIL_FROM`
 
@@ -30,6 +32,8 @@
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
 6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 라이선스 화면에서 업그레이드를 진행합니다.
 7. feature JSON은 필수 키 네 개를 모두 포함하며 누락을 허용하지 않습니다.
+8. 발행 사용량은 `reserve_publish_quota -> commit_publish_quota|release_publish_quota` 순서로 처리합니다.
+9. `license_usage_operations`가 동일 operation ID의 중복 차감과 부분 성공 재발행을 방지합니다.
 
 ### 2.1 목표 feature JSON
 

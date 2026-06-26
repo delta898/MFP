@@ -1,3 +1,9 @@
+const {
+    createPublishOperationId,
+    hasSuccessfulPlatformResult,
+    settlePublishQuota
+} = require('../publish-quota');
+
 function createPublishActionsRuntime(deps = {}) {
     const {
         fs,
@@ -54,6 +60,38 @@ function createPublishActionsRuntime(deps = {}) {
         if (normalized === 'draft') return `${platformLabel} 임시 저장 완료`;
         if (normalized === 'schedule') return `${platformLabel} 예약 포스팅 등록 완료`;
         return `${platformLabel} 발행 완료`;
+    }
+
+    async function reserveQuota(operationId, metadata) {
+        const reservation = await License.reservePublishQuota(operationId, metadata);
+        if (!reservation.success) {
+            const error = new Error(`라이선스 사용량 예약 실패: ${reservation.message}`);
+            error.code = reservation.code || 'QUOTA_RESERVE_FAILED';
+            throw error;
+        }
+        return reservation;
+    }
+
+    async function settleQuota(operationId, results, metadata) {
+        const settlement = await settlePublishQuota({ License, operationId, results, metadata });
+        if (!settlement.success) {
+            Logger.error(`[PublishQuota] 사용량 확정 동기화 실패 (${operationId}): ${settlement.message}`);
+        }
+        return settlement;
+    }
+
+    function applyPreviouslySuccessfulTargets(results, targets, reservation) {
+        const successfulTargets = Array.isArray(reservation?.metadata?.successful_targets)
+            ? reservation.metadata.successful_targets
+            : [];
+        for (const target of successfulTargets) {
+            if (!targets.includes(target)) continue;
+            if (!results[target]) results[target] = {};
+            results[target].success = true;
+            results[target].message = '이전 시도에서 완료';
+            results[target].reused = true;
+        }
+        return targets.filter((target) => !successfulTargets.includes(target));
     }
 
     async function buildMultiPlatformGeneratedContent(params = {}, options = {}) {
@@ -169,6 +207,12 @@ function createPublishActionsRuntime(deps = {}) {
             ? '임시 저장'
             : (context.postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
+        const operationId = options.operationId || createPublishOperationId({
+            scope: options.source || 'blog',
+            stableKey: options.stableKey || '',
+            postStatus: context.postStatus
+        });
+        let quotaReserved = false;
         try {
             recordUiActivity({
                 category: 'publish',
@@ -181,13 +225,16 @@ function createPublishActionsRuntime(deps = {}) {
                     targets: Array.isArray(targets) ? targets.slice() : []
                 }
             });
-            emitProgress('라이선스 확인 중...');
-            const verify = await License.verifyLicense();
-            if (!verify.success) {
-                throw new Error(`라이선스 확인 실패: ${verify.message}`);
-            }
+            emitProgress('라이선스 사용량 예약 중...');
+            const reservation = await reserveQuota(operationId, {
+                source: options.source || 'blog',
+                post_status: context.postStatus || 'publish',
+                targets
+            });
+            quotaReserved = true;
+            const executionTargets = applyPreviouslySuccessfulTargets(results, targets, reservation);
 
-            if (targets.includes('naver') && results.naver.targetDir) {
+            if (executionTargets.includes('naver') && results.naver.targetDir) {
                 emitProgress('네이버 발행 중...');
                 const naverActionLabel = getPostActionLabel(context.postStatus);
                 const naverCompletionLabel = getPlatformCompletionLabel('네이버', context.postStatus);
@@ -209,7 +256,7 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
-            if (targets.includes('wordpress') && results.wordpress.targetDir) {
+            if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
                 emitProgress('워드프레스 발행 중...');
                 const wpActionLabel = getPostActionLabel(context.postStatus);
                 const wpCompletionLabel = getPlatformCompletionLabel('워드프레스', context.postStatus);
@@ -232,6 +279,11 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
+            const quotaSettlement = await settleQuota(operationId, results, {
+                targets,
+                successful_targets: targets.filter((target) => results?.[target]?.success === true)
+            });
+            quotaReserved = false;
             const failedTargets = targets.filter((target) => results?.[target]?.success === false);
             recordUiActivity({
                 category: 'publish',
@@ -246,8 +298,16 @@ function createPublishActionsRuntime(deps = {}) {
                     failedTargets
                 }
             });
-            return { success: true, results };
+            return {
+                success: hasSuccessfulPlatformResult(results),
+                results,
+                operationId,
+                quotaSettlement
+            };
         } catch (error) {
+            if (quotaReserved) {
+                await settleQuota(operationId, results, { error: error.message });
+            }
             Logger.error(`❌ [CommonPublish] 오류: ${error.message}`);
             recordUiActivity({
                 category: 'publish',
@@ -261,7 +321,7 @@ function createPublishActionsRuntime(deps = {}) {
                     targets: Array.isArray(targets) ? targets.slice() : []
                 }
             });
-            return { success: false, message: error.message, results };
+            return { success: false, code: error.code || 'PUBLISH_FAILED', message: error.message, results, operationId };
         }
     }
 
@@ -339,10 +399,6 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const imageGenerationFinal = session.imageGenerationRequested === true;
-        const verify = await License.verifyLicense();
-        if (!verify.success) {
-            return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
-        }
 
         if (selectedTargets.includes('naver')) {
             const sessionCheck = await checkAuthSessionValid();
@@ -356,8 +412,13 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const results = {};
+        const operationId = createPublishOperationId({ scope: 'quick-preview', stableKey: previewId, postStatus });
+        let quotaReserved = false;
         try {
-            if (selectedTargets.includes('naver') && session.targetDirs?.naver) {
+            const reservation = await reserveQuota(operationId, { source: 'quick-preview', preview_id: previewId, post_status: postStatus, targets: selectedTargets });
+            quotaReserved = true;
+            const executionTargets = applyPreviouslySuccessfulTargets(results, selectedTargets, reservation);
+            if (executionTargets.includes('naver') && session.targetDirs?.naver) {
                 const naverActionLabel = getPostActionLabel(postStatus);
                 const naverRes = await Core.publishToBlog(session.targetDirs.naver, {
                     headless,
@@ -377,7 +438,7 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
-            if (selectedTargets.includes('wordpress') && session.targetDirs?.wordpress) {
+            if (executionTargets.includes('wordpress') && session.targetDirs?.wordpress) {
                 const wpActionLabel = getPostActionLabel(postStatus);
                 const wpRes = await Core.publishToWordPress(session.targetDirs.wordpress, {
                     category: requestBody?.wordpressCategory || '',
@@ -396,6 +457,8 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
+            const quotaSettlement = await settleQuota(operationId, results, { successful_targets: Object.keys(results).filter((target) => results[target]?.success) });
+            quotaReserved = false;
             const failedTargets = Object.entries(results)
                 .filter(([, value]) => value && value.success === false)
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
@@ -436,7 +499,9 @@ function createPublishActionsRuntime(deps = {}) {
                     message: failedTargets.join(' / '),
                     data: {
                         status: '일부 포스팅 실패',
-                        results
+                        results,
+                        operationId,
+                        quotaSettlement
                     }
                 };
             }
@@ -449,10 +514,15 @@ function createPublishActionsRuntime(deps = {}) {
                     postStatus,
                     rowIndex: session.rowIndex,
                     rowNumber: session.rowNumber,
-                    results
+                    results,
+                    operationId,
+                    quotaSettlement
                 }
             };
         } catch (error) {
+            if (quotaReserved) {
+                await settleQuota(operationId, results, { error: error.message });
+            }
             Logger.error(`❌ [QuickPreviewPublish] 오류: ${error.message}`);
             if (Number.isInteger(session.rowIndex)) {
                 await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', error.message || '포스팅 실패');
@@ -797,7 +867,10 @@ function createPublishActionsRuntime(deps = {}) {
 
         try {
             const publishRes = await processMultiPlatformPublish(publishParams, {
-                isLast: true
+                isLast: true,
+                source: 'quick-publish',
+                stableKey: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
+                operationId: requestBody?.operationId
             });
 
             if (!publishRes.success) {
@@ -812,7 +885,7 @@ function createPublishActionsRuntime(deps = {}) {
                     targetDir: null,
                     updatedAtMs: Date.now()
                 });
-                return { success: false, code: 'PUBLISH_FAILED', message: publishRes.message };
+                return { success: false, code: publishRes.code || 'PUBLISH_FAILED', message: publishRes.message };
             }
 
             const naverPubSuccess = publishRes.results.naver.success;
@@ -1009,6 +1082,13 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         let workspace = null;
+        const operationId = requestBody?.operationId || createPublishOperationId({
+            scope: sourceType,
+            stableKey: requestBody?.requestId || '',
+            postStatus
+        });
+        const results = {};
+        let quotaReserved = false;
         try {
             recordUiActivity({
                 category: 'publish',
@@ -1029,15 +1109,12 @@ function createPublishActionsRuntime(deps = {}) {
                 imageGenerationEnabled: imageGenerationFinal
             });
 
-            const verify = await License.verifyLicense();
-            if (!verify.success) {
-                return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
-            }
-
-            const results = {};
+            const reservation = await reserveQuota(operationId, { source: sourceType, post_status: postStatus, targets });
+            quotaReserved = true;
+            const executionTargets = applyPreviouslySuccessfulTargets(results, targets, reservation);
             const actionLabel = getPostActionLabel(postStatus);
 
-            if (targets.includes('naver')) {
+            if (executionTargets.includes('naver')) {
                 const naverRes = await Core.publishToBlog(workspace.tempDir, {
                     headless,
                     category: requestBody?.naverCategory || '',
@@ -1056,7 +1133,7 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
-            if (targets.includes('wordpress')) {
+            if (executionTargets.includes('wordpress')) {
                 const wpRes = await Core.publishToWordPress(workspace.tempDir, {
                     category: requestBody?.wordpressCategory || '',
                     postStatus,
@@ -1074,6 +1151,10 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             }
 
+            const quotaSettlement = await settleQuota(operationId, results, {
+                successful_targets: Object.keys(results).filter((target) => results[target]?.success)
+            });
+            quotaReserved = false;
             const failedTargets = Object.entries(results)
                 .filter(([, value]) => value && value.success === false)
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
@@ -1097,7 +1178,9 @@ function createPublishActionsRuntime(deps = {}) {
                     message: failedTargets.join(' / '),
                     data: {
                         status: '일부 포스팅 실패',
-                        results
+                        results,
+                        operationId,
+                        quotaSettlement
                     }
                 };
             }
@@ -1119,6 +1202,8 @@ function createPublishActionsRuntime(deps = {}) {
                     status: getCompletionStatusLabel(postStatus),
                     postStatus,
                     results,
+                    operationId,
+                    quotaSettlement,
                     source: {
                         folderName: previewData?.source?.folderName || '',
                         fileName: previewData?.source?.fileName || ''
@@ -1126,6 +1211,9 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             };
         } catch (error) {
+            if (quotaReserved) {
+                await settleQuota(operationId, results, { error: error.message });
+            }
             Logger.error(`❌ [LocalMarkdownPublish] 오류: ${error.message}`);
             recordUiActivity({
                 category: 'publish',
@@ -1252,7 +1340,7 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const result = await executeShoppingRowAction(
-            { rowIndex, headless, targets, isLast: true },
+            { rowIndex, headless, targets, isLast: true, operationId: requestBody?.operationId },
             {
                 features,
                 enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', false)

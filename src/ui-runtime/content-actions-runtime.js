@@ -1,3 +1,10 @@
+const {
+    buildPublishQuotaPreflight,
+    createPublishOperationId,
+    hasSuccessfulPlatformResult,
+    settlePublishQuota
+} = require('../publish-quota');
+
 function createContentActionsRuntime(deps = {}) {
     const {
         path,
@@ -226,12 +233,15 @@ function createContentActionsRuntime(deps = {}) {
             emitProgress('발행 처리 시작...');
             const publishRes = await processMultiPlatformPublish(publishParams, {
                 onProgress: emitProgress,
-                isLast: options.isLast === true
+                isLast: options.isLast === true,
+                source: options.isAutoCycle === true ? 'auto-publish' : 'sheet-publish',
+                stableKey: `topics-row-${rowIndex}`,
+                operationId: options.operationId
             });
 
             if (!publishRes.success) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', publishRes.message || '발행 실패');
-                return { success: false, code: 'PUBLISH_FAILED', message: publishRes.message };
+                return { success: false, code: publishRes.code || 'PUBLISH_FAILED', message: publishRes.message };
             }
 
             const naverPubSuccess = publishRes.results.naver.success;
@@ -362,16 +372,26 @@ function createContentActionsRuntime(deps = {}) {
             };
         }
 
-        const targetRowIndices = rowIndices;
+        const quotaPreflight = buildPublishQuotaPreflight(rowIndices.length, precheck);
+        const targetRowIndices = rowIndices.slice(0, quotaPreflight.executable);
+        if (targetRowIndices.length === 0) {
+            rowIndices.forEach((rowIndex) => setBlogRuntimeLog(rowIndex, `중단: ${quotaPreflight.message}`));
+            return { success: false, code: 'QUOTA_EXHAUSTED', message: quotaPreflight.message, data: { quotaPreflight } };
+        }
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
         const results = [];
         let successCount = 0;
         let failCount = 0;
+        const batchOperationId = String(requestBody?.operationId || '').trim()
+            || createPublishOperationId({ scope: 'blog-batch', postStatus: 'publish' });
 
         targetRowIndices.forEach((rowIndex, index) => {
             setBlogRuntimeLog(rowIndex, `대기열 등록 (${index + 1}/${targetRowIndices.length})`);
+        });
+        rowIndices.slice(targetRowIndices.length).forEach((rowIndex) => {
+            setBlogRuntimeLog(rowIndex, `건너뜀: ${quotaPreflight.message}`);
         });
 
         for (let index = 0; index < targetRowIndices.length; index += 1) {
@@ -381,7 +401,8 @@ function createContentActionsRuntime(deps = {}) {
                 { action: 'batch', rowIndex, headless, targets, isLast: index === targetRowIndices.length - 1 },
                 {
                     onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
-                    isAutoCycle: requestBody?.isAutoCycle === true
+                    isAutoCycle: requestBody?.isAutoCycle === true,
+                    operationId: `${batchOperationId}:row-${rowIndex}`
                 }
             );
 
@@ -401,7 +422,7 @@ function createContentActionsRuntime(deps = {}) {
                 message: result.message || '블로그 발행 처리에 실패했습니다.'
             });
 
-            const shouldStop = ['LICENSE_VERIFY_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
+            const shouldStop = ['QUOTA_EXHAUSTED', 'QUOTA_RESERVE_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
             if (shouldStop) {
                 const remaining = targetRowIndices.slice(index + 1);
                 for (const restRowIndex of remaining) {
@@ -422,6 +443,8 @@ function createContentActionsRuntime(deps = {}) {
             data: {
                 requestedCount: rowIndices.length,
                 attemptedCount: targetRowIndices.length,
+                quotaPreflight,
+                skippedCount: rowIndices.length - targetRowIndices.length,
                 successCount,
                 failCount,
                 results
@@ -453,6 +476,16 @@ function createContentActionsRuntime(deps = {}) {
             if (progress) progress(String(message || '').trim());
         };
 
+        const results = {
+            naver: { success: false, message: '', targetDir: null },
+            wordpress: { success: false, message: '', targetDir: null }
+        };
+        const operationId = String(requestBody?.operationId || '').trim() || createPublishOperationId({
+            scope: 'shopping-publish',
+            postStatus: requestBody?.postStatus || 'publish'
+        });
+        let quotaReserved = false;
+
         try {
             const shoppingResult = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0 });
             const allItems = Array.isArray(shoppingResult.items) ? shoppingResult.items : [];
@@ -474,11 +507,6 @@ function createContentActionsRuntime(deps = {}) {
                 : blogAutoSettings.BLOG_AUTO_HEADLESS;
             const scrapingHeadless = true;
             const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
-
-            const results = {
-                naver: { success: false, message: '', targetDir: null },
-                wordpress: { success: false, message: '', targetDir: null }
-            };
 
             let preScrapedData = null;
             if (targets.length > 0) {
@@ -510,28 +538,44 @@ function createContentActionsRuntime(deps = {}) {
                 results.wordpress.targetDir = wpBuildResult.targetDir;
             }
 
-            report('라이선스 확인 중');
-            const verify = await License.verifyLicense();
-            if (!verify.success) {
+            report('라이선스 사용량 예약 중');
+            const reservation = await License.reservePublishQuota(operationId, {
+                source: 'shopping-publish',
+                row_index: rowIndex,
+                post_status: target.postStatus || 'publish',
+                targets
+            });
+            if (!reservation.success) {
                 await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
-                return { success: false, code: 'LICENSE_VERIFY_FAILED', message: verify.message };
+                return { success: false, code: reservation.code || 'QUOTA_RESERVE_FAILED', message: reservation.message };
             }
+            quotaReserved = true;
+            const previouslySuccessfulTargets = Array.isArray(reservation?.metadata?.successful_targets)
+                ? reservation.metadata.successful_targets
+                : [];
+            previouslySuccessfulTargets.forEach((targetName) => {
+                if (!targets.includes(targetName) || !results[targetName]) return;
+                results[targetName].success = true;
+                results[targetName].message = '이전 시도에서 완료';
+                results[targetName].reused = true;
+            });
+            const executionTargets = targets.filter((targetName) => !previouslySuccessfulTargets.includes(targetName));
 
-            if (targets.includes('naver') && results.naver.targetDir) {
+            if (executionTargets.includes('naver') && results.naver.targetDir) {
                 report('네이버 발행 단계 진행 중');
-                await Core.publishToBlog(results.naver.targetDir, {
+                const pubRes = await Core.publishToBlog(results.naver.targetDir, {
                     affiliateUrl: shortUrl,
                     requireAffiliateUrl: true,
                     headless: publishHeadless,
                     postStatus: target.postStatus || 'publish',
                     scheduleDate: target.scheduleDate || '',
                     isLast: requestBody.isLast === true
-                });
-                results.naver.success = true;
-                results.naver.message = '네이버 완료';
+                }) || { success: false, message: '네이버 포스팅 응답이 비어 있습니다.' };
+                results.naver.success = pubRes.success === true;
+                results.naver.message = pubRes.message || (pubRes.success ? '네이버 완료' : '네이버 실패');
             }
 
-            if (targets.includes('wordpress') && results.wordpress.targetDir) {
+            if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
                 report('워드프레스 발행 단계 진행 중');
                 const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, {
                     category: target.category || 'Shopping',
@@ -543,7 +587,19 @@ function createContentActionsRuntime(deps = {}) {
                 results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 완료' : '워드프레스 실패');
             }
 
-            const finalStatus = (results.naver.success || results.wordpress.success) ? getCompletionStatusLabel(target.postStatus) : '실패';
+            const quotaSettlement = await settlePublishQuota({
+                License,
+                operationId,
+                results,
+                metadata: { successful_targets: Object.keys(results).filter((targetName) => results[targetName]?.success) }
+            });
+            quotaReserved = false;
+            if (!quotaSettlement.success) {
+                report(`사용량 동기화 실패: ${quotaSettlement.message}`);
+            }
+
+            const anySuccess = hasSuccessfulPlatformResult(results);
+            const finalStatus = anySuccess ? getCompletionStatusLabel(target.postStatus) : '실패';
             const logArr = [];
             if (targets.includes('naver') && results.naver.success) logArr.push('네이버 완료');
             if (targets.includes('wordpress') && results.wordpress.success) logArr.push('워드프레스 완료');
@@ -551,17 +607,23 @@ function createContentActionsRuntime(deps = {}) {
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, finalStatus, false, finalLog);
 
             return {
-                success: true,
+                success: anySuccess,
                 data: {
                     rowIndex,
                     rowNumber: rowIndex + 2,
                     status: finalStatus,
                     postStatus: target.postStatus || 'publish',
                     shortUrl,
-                    targetDir: results.naver.targetDir || results.wordpress.targetDir
+                    targetDir: results.naver.targetDir || results.wordpress.targetDir,
+                    results,
+                    operationId,
+                    quotaSettlement
                 }
             };
         } catch (error) {
+            if (quotaReserved) {
+                await settlePublishQuota({ License, operationId, results, metadata: { error: error.message } });
+            }
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, '실패');
             return { success: false, code: 'SHOPPING_ACTION_FAILED', message: error.message };
         }
@@ -618,7 +680,12 @@ function createContentActionsRuntime(deps = {}) {
             };
         }
 
-        const targetRowIndices = rowIndices;
+        const quotaPreflight = buildPublishQuotaPreflight(rowIndices.length, precheck);
+        const targetRowIndices = rowIndices.slice(0, quotaPreflight.executable);
+        if (targetRowIndices.length === 0) {
+            rowIndices.forEach((rowIndex) => setShoppingRuntimeLog(rowIndex, `중단: ${quotaPreflight.message}`));
+            return { success: false, code: 'QUOTA_EXHAUSTED', message: quotaPreflight.message, data: { quotaPreflight } };
+        }
         const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
@@ -626,16 +693,21 @@ function createContentActionsRuntime(deps = {}) {
         targetRowIndices.forEach((rowIndex, index) => {
             setShoppingRuntimeLog(rowIndex, `대기열 등록 (${index + 1}/${targetRowIndices.length})`);
         });
+        rowIndices.slice(targetRowIndices.length).forEach((rowIndex) => {
+            setShoppingRuntimeLog(rowIndex, `건너뜀: ${quotaPreflight.message}`);
+        });
 
         const results = [];
         let successCount = 0;
         let failCount = 0;
+        const batchOperationId = String(requestBody?.operationId || '').trim()
+            || createPublishOperationId({ scope: 'shopping-batch', postStatus: 'publish' });
 
         for (let index = 0; index < targetRowIndices.length; index += 1) {
             const rowIndex = targetRowIndices[index];
             setShoppingRuntimeLog(rowIndex, `처리 시작 (${index + 1}/${targetRowIndices.length})`);
             const result = await executeShoppingRowAction(
-                { rowIndex, targets, headless, isLast: index === targetRowIndices.length - 1 },
+                { rowIndex, targets, headless, isLast: index === targetRowIndices.length - 1, operationId: `${batchOperationId}:row-${rowIndex}` },
                 {
                     features,
                     enableRelatedPostsAutoLink,
@@ -659,7 +731,7 @@ function createContentActionsRuntime(deps = {}) {
                 message: result.message || '쇼핑 발행 처리에 실패했습니다.'
             });
 
-            const shouldStop = ['LICENSE_VERIFY_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
+            const shouldStop = ['QUOTA_EXHAUSTED', 'QUOTA_RESERVE_FAILED', 'LICENSE_STATUS_FAILED', 'NAVER_SESSION_INVALID'].includes(result.code);
             if (shouldStop) {
                 const remaining = targetRowIndices.slice(index + 1);
                 for (const restRowIndex of remaining) {
@@ -680,6 +752,8 @@ function createContentActionsRuntime(deps = {}) {
             data: {
                 requestedCount: rowIndices.length,
                 attemptedCount: targetRowIndices.length,
+                quotaPreflight,
+                skippedCount: rowIndices.length - targetRowIndices.length,
                 successCount,
                 failCount,
                 results

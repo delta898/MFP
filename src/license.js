@@ -271,6 +271,46 @@ async function ensureLicenseKey(hwid) {
     }
 }
 
+async function callPublishQuotaRpc(rpcName, operationId, metadata = {}) {
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류' };
+    }
+
+    const normalizedOperationId = String(operationId || '').trim();
+    if (!normalizedOperationId) {
+        return { success: false, code: 'INVALID_OPERATION_ID', message: '발행 작업 ID가 비어 있습니다.' };
+    }
+
+    try {
+        const hwid = machineIdSync({ original: true });
+        const keyReady = await ensureLicenseKey(hwid);
+        if (!keyReady.success) return keyReady;
+
+        const { data, error } = await supabase.rpc(rpcName, {
+            p_license_key: keyReady.licenseKey,
+            p_hwid: hwid,
+            p_operation_id: normalizedOperationId,
+            p_metadata: (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) ? metadata : {}
+        });
+
+        if (error) {
+            Logger.error(`[LicenseQuota] ${rpcName} failed: ${sanitizeErrorMessage(error.message)}`);
+            return { success: false, message: '사용량 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+
+        licenseStatusCache.timestamp = 0;
+        return {
+            ...(data && typeof data === 'object' ? data : {}),
+            success: data?.success === true,
+            operationId: data?.operation_id || normalizedOperationId,
+            remaining: data?.remaining
+        };
+    } catch (error) {
+        Logger.error(`[LicenseQuota] ${rpcName} error: ${error.message}`);
+        return { success: false, message: '사용량 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+}
+
 const License = {
     requestLicenseRegistration: async function (email) {
         try {
@@ -596,6 +636,31 @@ const License = {
             Logger.error(`❌ [License] 사전 검증 모듈 에러: ${e.message} (${Date.now() - startTime}ms)`);
             return { success: false, message: '라이선스 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
         }
+    },
+
+    reservePublishQuota: async function (operationId, metadata = {}) {
+        const result = await callPublishQuotaRpc('reserve_publish_quota', operationId, metadata);
+        if (!result.success) return result;
+
+        const featurePolicy = validateLicenseFeaturePolicy(result.features);
+        if (!featurePolicy.success) {
+            return {
+                ...result,
+                success: false,
+                code: featurePolicy.code,
+                message: featurePolicy.message,
+                features: featurePolicy.features
+            };
+        }
+        return { ...result, features: featurePolicy.features };
+    },
+
+    commitPublishQuota: async function (operationId, metadata = {}) {
+        return callPublishQuotaRpc('commit_publish_quota', operationId, metadata);
+    },
+
+    releasePublishQuota: async function (operationId, metadata = {}) {
+        return callPublishQuotaRpc('release_publish_quota', operationId, metadata);
     },
 
     /**
