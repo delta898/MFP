@@ -66,6 +66,10 @@ function normalizeOptionalEmail(email) {
     return isValidEmail(normalized) ? normalized : '';
 }
 
+function normalizeOptionalString(value) {
+    return String(value || '').trim();
+}
+
 async function sendLicenseRegistrationEmail(email, code, ttlSeconds, expiresAt = '') {
     if (!supabase) {
         return { success: false, message: '라이선스 서버 설정 오류' };
@@ -645,6 +649,9 @@ const License = {
                         planDisplayName: data.plan_display_name,
                         email: normalizeOptionalEmail(data.email),
                         createdAt: data.created_at || '',
+                        quotaCycle: normalizeOptionalString(data.quota_cycle),
+                        currentPeriodStartAt: normalizeOptionalString(data.current_period_start_at),
+                        nextResetAt: normalizeOptionalString(data.next_reset_at),
                         usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                         usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
                         features: featurePolicy.features
@@ -659,6 +666,9 @@ const License = {
                     planDisplayName: data.plan_display_name,
                     email: normalizeOptionalEmail(data.email),
                     createdAt: data.created_at || '',
+                    quotaCycle: normalizeOptionalString(data.quota_cycle),
+                    currentPeriodStartAt: normalizeOptionalString(data.current_period_start_at),
+                    nextResetAt: normalizeOptionalString(data.next_reset_at),
                     usageLimit: Number.isFinite(Number(data.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                     usageCount: Number.isFinite(Number(data.usage_count)) ? parseInt(data.usage_count, 10) : null,
                     features: featurePolicy.features
@@ -683,6 +693,9 @@ const License = {
                 planDisplayName: data?.plan_display_name,
                 email: normalizeOptionalEmail(data?.email),
                 createdAt: data?.created_at || '',
+                quotaCycle: normalizeOptionalString(data?.quota_cycle),
+                currentPeriodStartAt: normalizeOptionalString(data?.current_period_start_at),
+                nextResetAt: normalizeOptionalString(data?.next_reset_at),
                 usageLimit: Number.isFinite(Number(data?.usage_limit)) ? parseInt(data.usage_limit, 10) : null,
                 usageCount: Number.isFinite(Number(data?.usage_count)) ? parseInt(data.usage_count, 10) : null,
                 features: (data?.features && typeof data.features === 'object') ? data.features : {}

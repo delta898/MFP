@@ -1447,11 +1447,12 @@
                   <span id="account-plan-status" class="account-status-badge">확인 중</span>
                 </div>
               </div>
+              <button id="account-plan-info-btn" class="secondary compact" type="button">플랜 안내</button>
             </div>
 
             <div class="account-usage-summary">
               <div>
-                <span class="account-usage-label">사용량</span>
+                <span id="account-usage-used-label" class="account-usage-label">사용량</span>
                 <strong id="account-usage-used">-</strong>
               </div>
               <div class="account-usage-remaining-wrap">
@@ -1464,6 +1465,8 @@
             </div>
             <div class="account-subscription-meta">
               <span id="account-license-created">라이선스 생성일 -</span>
+              <span id="account-period-start" class="hidden">현재 주기 시작일 -</span>
+              <span id="account-next-reset" class="hidden">다음 갱신일 -</span>
             </div>
             <div id="account-plan-guidance" class="account-plan-guidance hidden">
               <div>

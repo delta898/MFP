@@ -2294,6 +2294,21 @@ function formatAccountDate(value) {
   }).format(date);
 }
 
+function setAccountMetaItem(elementId, label, value) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  const formatted = formatAccountDate(value);
+  element.textContent = `${label} ${formatted}`;
+  element.classList.toggle('hidden', formatted === '-');
+}
+
+function setAccountMetaText(elementId, text, visible = true) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  element.textContent = String(text || '').trim();
+  element.classList.toggle('hidden', !visible || !element.textContent);
+}
+
 function getAccountAction(overview, actionId) {
   const actions = Array.isArray(overview?.actions) ? overview.actions : [];
   return actions.find((item) => String(item?.id || '') === actionId) || null;
@@ -2316,6 +2331,7 @@ function renderAccountOverview(overview) {
   const identity = overview?.identity || {};
 
   const planName = String(subscription.plan_name || subscription.plan_code || '-').trim() || '-';
+  const normalizedPlanCode = String(subscription.plan_code || '').trim().toLowerCase();
   const status = String(subscription.status || 'unavailable').trim();
   const statusLabels = {
     active: '활성',
@@ -2335,6 +2351,11 @@ function renderAccountOverview(overview) {
   const used = Number.isFinite(Number(usage.used)) ? Number(usage.used) : null;
   const limit = Number.isFinite(Number(usage.limit)) ? Number(usage.limit) : null;
   const remaining = Number.isFinite(Number(usage.remaining)) ? Number(usage.remaining) : null;
+  const quotaCycle = String(usage.cycle || '').trim().toLowerCase();
+  const usageLabel = quotaCycle === 'monthly'
+    ? '이번 달 사용량'
+    : (quotaCycle === 'none' && normalizedPlanCode === 'test' ? '체험 사용량' : '사용량');
+  setText('account-usage-used-label', usageLabel);
   setText('account-usage-used', unlimited ? '제한 없음' : (used == null || limit == null ? '-' : `${used} / ${limit}회`));
   setText('account-usage-remaining', unlimited ? '무제한' : (remaining == null ? '-' : `${remaining}회`));
 
@@ -2348,13 +2369,21 @@ function renderAccountOverview(overview) {
   }
 
   setText('account-license-created', `라이선스 생성일 ${formatAccountDate(subscription.created_at)}`);
+  if (quotaCycle === 'monthly') {
+    const periodStart = formatAccountDate(usage.current_period_start_at);
+    const nextReset = formatAccountDate(usage.resets_at);
+    setAccountMetaText('account-period-start', `현재 주기 시작일 ${periodStart === '-' ? '확인 중' : periodStart}`);
+    setAccountMetaText('account-next-reset', `다음 무료 사용량 갱신일 ${nextReset === '-' ? '확인 중' : nextReset}`);
+  } else {
+    setAccountMetaItem('account-period-start', '사용 시작일', usage.current_period_start_at);
+    setAccountMetaItem('account-next-reset', '다음 갱신일', usage.resets_at);
+  }
 
   const upgradeFreeAction = getAccountAction(overview, 'upgrade_free');
   const guidanceEl = document.getElementById('account-plan-guidance');
   const guidanceTitleEl = document.getElementById('account-plan-guidance-title');
   const guidanceMessageEl = document.getElementById('account-plan-guidance-message');
   const upgradeFreeBtn = document.getElementById('account-upgrade-free-btn');
-  const normalizedPlanCode = String(subscription.plan_code || '').trim().toLowerCase();
   const shouldShowFreeUpgrade = normalizedPlanCode === 'test'
     && status === 'quota_exhausted'
     && upgradeFreeAction?.enabled === true;
@@ -2493,7 +2522,7 @@ async function loadAccountOverview({ force = false } = {}) {
   contentEl?.classList.add('hidden');
 
   try {
-    const overview = await fetchJson('/api/v1/account/overview?quiet=1');
+    const overview = await fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`);
     renderAccountOverview(overview);
     loadingEl?.classList.add('hidden');
     contentEl?.classList.remove('hidden');
@@ -2598,6 +2627,22 @@ async function registerOrChangeAccountEmail() {
   }
 }
 
+function showAccountPlanInfo() {
+  return showUiDialog({
+    title: '플랜 안내',
+    message: [
+      'Tester: 1회성 체험',
+      'Free: 월간 무료 발행 + 기본 기능',
+      'Pro: 더 많은 월간 발행 + 고급 기능 (준비 중)',
+      'Ultra: 발행 제한 없는 상위 플랜 (준비 중)',
+      '',
+      '결제 기능은 준비되면 별도로 안내합니다.'
+    ].join('\n'),
+    showCancel: false,
+    confirmText: '확인'
+  });
+}
+
 let accountUpgradeFreeClickBound = false;
 function bindAccountUpgradeFreeClick() {
   if (accountUpgradeFreeClickBound || typeof document === 'undefined') return;
@@ -2625,6 +2670,20 @@ function bindAccountEmailClick() {
 }
 
 bindAccountEmailClick();
+
+let accountPlanInfoClickBound = false;
+function bindAccountPlanInfoClick() {
+  if (accountPlanInfoClickBound || typeof document === 'undefined') return;
+  accountPlanInfoClickBound = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target?.closest?.('#account-plan-info-btn');
+    if (!button) return;
+    event.preventDefault();
+    showAccountPlanInfo().catch((error) => console.warn('[Account Plan Info]', error.message));
+  });
+}
+
+bindAccountPlanInfoClick();
 
 async function loadDashboard() {
   if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
@@ -9009,6 +9068,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   bindAccountUpgradeFreeClick();
   bindAccountEmailClick();
+  bindAccountPlanInfoClick();
   document.querySelectorAll('[data-account-settings-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       void navigateToSettingsTarget(

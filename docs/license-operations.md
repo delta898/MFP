@@ -29,6 +29,7 @@
 2. `email`을 항상 함께 기록합니다.
 3. 기기 변경 대응은 `licenses.hwid = null` 재바인딩 방식으로 처리합니다.
 4. 월 차감형은 `usage_count/reset_date`를 기준으로 운영합니다.
+   - 계정 화면은 `current_period_start_at`과 `next_reset_at`을 표시해 현재 주기와 다음 갱신일을 설명합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
 6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 계정 화면에서 이메일을 입력해 Free Plan으로 전환합니다.
 7. feature JSON은 필수 키 네 개를 모두 포함하며 누락을 허용하지 않습니다.

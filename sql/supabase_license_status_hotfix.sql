@@ -47,6 +47,8 @@ declare
     v_effective_count integer := 0;
     v_effective_limit integer := 0;
     v_remaining integer := 0;
+    v_period_start_at timestamptz;
+    v_next_reset_at timestamptz;
 
     v_non_test_used boolean := false;
     v_test_exhausted_at timestamptz;
@@ -115,6 +117,25 @@ begin
     end if;
 
     v_plan_mode := lower(coalesce(nullif(trim(v_license_mode), ''), v_plan_mode, 'metered'));
+    if coalesce(v_plan_cycle, 'none') <> 'none' then
+        if v_license_reset_date is not null and v_license_reset_date > v_now then
+            v_next_reset_at := v_license_reset_date;
+            v_period_start_at := case
+                when v_plan_cycle = 'monthly' then v_license_reset_date - interval '1 month'
+                when v_plan_cycle = 'weekly' then v_license_reset_date - interval '1 week'
+                when v_plan_cycle = 'daily' then v_license_reset_date - interval '1 day'
+                else null
+            end;
+        else
+            v_period_start_at := v_now;
+            v_next_reset_at := case
+                when v_plan_cycle = 'monthly' then v_now + interval '1 month'
+                when v_plan_cycle = 'weekly' then v_now + interval '1 week'
+                when v_plan_cycle = 'daily' then v_now + interval '1 day'
+                else null
+            end;
+        end if;
+    end if;
 
     if lower(v_plan_code) = 'test' then
         v_hwid_hash := encode(digest(convert_to(v_hwid, 'UTF8'), 'sha256'), 'hex');
@@ -133,6 +154,9 @@ begin
                 'features', coalesce(v_plan_features, '{}'::jsonb),
                 'email', nullif(v_license_email, ''),
                 'created_at', v_license_created_at,
+                'quota_cycle', coalesce(v_plan_cycle, 'none'),
+                'current_period_start_at', v_period_start_at,
+                'next_reset_at', v_next_reset_at,
                 'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
                 'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
@@ -148,6 +172,9 @@ begin
                 'features', coalesce(v_plan_features, '{}'::jsonb),
                 'email', nullif(v_license_email, ''),
                 'created_at', v_license_created_at,
+                'quota_cycle', coalesce(v_plan_cycle, 'none'),
+                'current_period_start_at', v_period_start_at,
+                'next_reset_at', v_next_reset_at,
                 'usage_limit', greatest(coalesce(nullif(v_usage_limit, 0), v_plan_limit, 0), 0),
                 'usage_count', greatest(coalesce(v_usage_count, 0), 0),
                 'remaining', 0
@@ -164,6 +191,9 @@ begin
             'features', coalesce(v_plan_features, '{}'::jsonb),
             'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
+            'quota_cycle', coalesce(v_plan_cycle, 'none'),
+            'current_period_start_at', v_period_start_at,
+            'next_reset_at', v_next_reset_at,
             'usage_limit', -1,
             'usage_count', coalesce(v_usage_count, 0),
             'remaining', -1
@@ -182,6 +212,9 @@ begin
             'plan_display_name', coalesce(v_plan_display_name, v_plan_code),
             'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
+            'quota_cycle', coalesce(v_plan_cycle, 'none'),
+            'current_period_start_at', v_period_start_at,
+            'next_reset_at', v_next_reset_at,
             'usage_limit', greatest(v_effective_limit, 0),
             'usage_count', greatest(v_effective_count, 0),
             'remaining', 0
@@ -204,6 +237,9 @@ begin
             'features', coalesce(v_plan_features, '{}'::jsonb),
             'email', nullif(v_license_email, ''),
             'created_at', v_license_created_at,
+            'quota_cycle', coalesce(v_plan_cycle, 'none'),
+            'current_period_start_at', v_period_start_at,
+            'next_reset_at', v_next_reset_at,
             'usage_limit', greatest(v_effective_limit, 0),
             'usage_count', greatest(v_effective_count, 0),
             'remaining', 0
@@ -218,6 +254,9 @@ begin
         'features', coalesce(v_plan_features, '{}'::jsonb),
         'email', nullif(v_license_email, ''),
         'created_at', v_license_created_at,
+        'quota_cycle', coalesce(v_plan_cycle, 'none'),
+        'current_period_start_at', v_period_start_at,
+        'next_reset_at', v_next_reset_at,
         'usage_limit', greatest(v_effective_limit, 0),
         'usage_count', greatest(v_effective_count, 0),
         'remaining', v_remaining

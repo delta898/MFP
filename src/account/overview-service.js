@@ -77,6 +77,12 @@ function normalizeUsageReadModel(licenseStatus = {}) {
     };
 }
 
+function normalizeQuotaCycle(licenseStatus = {}, planCode = '') {
+    const raw = String(licenseStatus?.quotaCycle || '').trim().toLowerCase();
+    if (raw) return raw;
+    return planCode === 'free' ? 'monthly' : 'none';
+}
+
 function buildAccountActions({ planCode, usage, hasVerifiedEmail = false } = {}) {
     const actions = [
         {
@@ -125,9 +131,9 @@ function createAccountOverviewService(deps = {}) {
         throw new Error('License.checkLicenseStatus is required');
     }
 
-    async function getOverview({ quiet = true } = {}) {
+    async function getOverview({ quiet = true, force = false } = {}) {
         const [licenseStatus, naverSession] = await Promise.all([
-            License.checkLicenseStatus({ quiet }),
+            License.checkLicenseStatus({ quiet, force }),
             Promise.resolve()
                 .then(() => checkNaverSessionForUi())
                 .catch((error) => ({ ok: false, reason: 'check_failed', message: error.message }))
@@ -148,6 +154,7 @@ function createAccountOverviewService(deps = {}) {
         const features = toFeatureMap(licenseStatus?.features || {});
         const usage = normalizeUsageReadModel(licenseStatus);
         const planCode = String(licenseStatus?.planCode || '').trim().toLowerCase();
+        const quotaCycle = normalizeQuotaCycle(licenseStatus, planCode);
         const email = String(licenseStatus?.email || '').trim().toLowerCase();
         const hasVerifiedEmail = Boolean(email);
         const actions = buildAccountActions({ planCode, usage, hasVerifiedEmail });
@@ -189,8 +196,9 @@ function createAccountOverviewService(deps = {}) {
                 limit: usage.limit,
                 used: usage.used,
                 remaining: usage.remaining,
-                resets_at: '',
-                cycle: planCode === 'free' ? 'monthly' : 'none'
+                resets_at: String(licenseStatus?.nextResetAt || '').trim(),
+                current_period_start_at: String(licenseStatus?.currentPeriodStartAt || '').trim(),
+                cycle: quotaCycle
             },
             capabilities: {
                 features,
@@ -228,6 +236,7 @@ module.exports = {
     maskEmail,
     buildFeatureItems,
     normalizeUsageReadModel,
+    normalizeQuotaCycle,
     buildAccountActions,
     createAccountOverviewService
 };

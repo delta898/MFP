@@ -69,6 +69,7 @@ test('account overview exposes subscription, usage, device, and connection read 
         used: 3,
         remaining: 12,
         resets_at: '',
+        current_period_start_at: '',
         cycle: 'monthly'
     });
     assert.equal(overview.device.hw_id, '******not-leak');
@@ -97,6 +98,9 @@ test('account overview exposes a verified email contact when license has email',
                     planCode: 'free',
                     planDisplayName: 'Free',
                     email: 'delta898@gmail.com',
+                    quotaCycle: 'monthly',
+                    currentPeriodStartAt: '2026-06-01T00:00:00Z',
+                    nextResetAt: '2026-07-01T00:00:00Z',
                     usageLimit: 20,
                     usageCount: 0,
                     remaining: 20,
@@ -116,8 +120,41 @@ test('account overview exposes a verified email contact when license has email',
     assert.equal(overview.identity.email, 'delta898@gmail.com');
     assert.equal(overview.identity.email_masked, 'de***@gmail.com');
     assert.equal(overview.identity.email_verified, true);
+    assert.equal(overview.usage.cycle, 'monthly');
+    assert.equal(overview.usage.current_period_start_at, '2026-06-01T00:00:00Z');
+    assert.equal(overview.usage.resets_at, '2026-07-01T00:00:00Z');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 변경');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').mode, 'change');
+});
+
+test('account overview forwards force refresh to license status', async () => {
+    const calls = [];
+    const service = createService({
+        License: {
+            async checkLicenseStatus(options) {
+                calls.push(options);
+                return {
+                    success: true,
+                    message: 'ok',
+                    planCode: 'free',
+                    planDisplayName: 'Free',
+                    usageLimit: 20,
+                    usageCount: 0,
+                    remaining: 20,
+                    features: {
+                        cmd_batch: true,
+                        cmd_trends: false,
+                        cmd_shopping: false,
+                        enable_related_posts_auto_link: false
+                    }
+                };
+            }
+        }
+    });
+
+    await service.getOverview({ quiet: true, force: true });
+    assert.equal(calls[0].force, true);
+    assert.equal(calls[0].quiet, true);
 });
 
 test('account overview keeps exhausted license context available to the UI', async () => {
