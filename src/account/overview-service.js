@@ -51,9 +51,17 @@ function normalizeUsageReadModel(licenseStatus = {}) {
     const rawLimit = Number(licenseStatus?.usageLimit);
     const rawUsed = Number(licenseStatus?.usageCount);
     const rawRemaining = Number(licenseStatus?.remaining);
+    const rawCreditBalance = Number(
+        licenseStatus?.creditBalance
+        ?? licenseStatus?.credit_balance
+        ?? licenseStatus?.creditUnits
+        ?? licenseStatus?.credit_units
+        ?? 0
+    );
     const remaining = Number.isFinite(rawRemaining) ? rawRemaining : null;
     const unlimited = rawLimit === -1 || remaining === -1;
     const exhausted = !unlimited && remaining === 0 && licenseStatus?.success !== true;
+    const creditBalance = Number.isFinite(rawCreditBalance) && rawCreditBalance > 0 ? rawCreditBalance : 0;
 
     if (unlimited) {
         return {
@@ -61,18 +69,23 @@ function normalizeUsageReadModel(licenseStatus = {}) {
             limit: -1,
             used: Number.isFinite(rawUsed) ? rawUsed : null,
             remaining: -1,
+            creditBalance,
+            totalAvailable: -1,
             exhausted
         };
     }
 
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : null;
     const used = Number.isFinite(rawUsed) && rawUsed >= 0 ? rawUsed : null;
+    const monthlyRemaining = Number.isFinite(remaining) && remaining > 0 ? remaining : 0;
 
     return {
         mode: 'metered',
         limit,
         used,
         remaining,
+        creditBalance,
+        totalAvailable: monthlyRemaining + creditBalance,
         exhausted
     };
 }
@@ -96,7 +109,9 @@ function buildAccountActions({ planCode, usage, hasVerifiedEmail = false } = {})
             requires_email: true
         },
         { id: 'upgrade', enabled: false, label: '유료 플랜 준비 중', reason: '외부 결제 연동 후 제공됩니다.' },
-        { id: 'manage_subscription', enabled: false, label: '구독 관리', reason: '결제 관리 기능을 준비 중입니다.' }
+        { id: 'manage_subscription', enabled: false, label: '구독 관리', reason: '결제 관리 기능을 준비 중입니다.' },
+        { id: 'change_plan', enabled: false, label: '구독 / 플랜 변경', reason: '구독 결제 기능을 준비 중입니다.' },
+        { id: 'purchase_credits', enabled: false, label: '크레딧 충전', reason: '크레딧 결제 기능을 준비 중입니다.' }
     ];
 
     if (planCode === 'test' && usage?.exhausted) {
@@ -196,6 +211,11 @@ function createAccountOverviewService(deps = {}) {
                 limit: usage.limit,
                 used: usage.used,
                 remaining: usage.remaining,
+                monthly_limit: quotaCycle === 'monthly' ? usage.limit : null,
+                monthly_used: quotaCycle === 'monthly' ? usage.used : null,
+                monthly_remaining: quotaCycle === 'monthly' ? usage.remaining : null,
+                credit_balance: usage.creditBalance,
+                total_available: usage.totalAvailable,
                 resets_at: String(licenseStatus?.nextResetAt || '').trim(),
                 current_period_start_at: String(licenseStatus?.currentPeriodStartAt || '').trim(),
                 cycle: quotaCycle

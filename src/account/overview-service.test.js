@@ -68,6 +68,11 @@ test('account overview exposes subscription, usage, device, and connection read 
         limit: 15,
         used: 3,
         remaining: 12,
+        monthly_limit: 15,
+        monthly_used: 3,
+        monthly_remaining: 12,
+        credit_balance: 0,
+        total_available: 12,
         resets_at: '',
         current_period_start_at: '',
         cycle: 'monthly'
@@ -84,6 +89,8 @@ test('account overview exposes subscription, usage, device, and connection read 
         'enable_related_posts_auto_link'
     ]);
     assert.equal(overview.actions.find((item) => item.id === 'upgrade').enabled, false);
+    assert.equal(overview.actions.find((item) => item.id === 'change_plan').enabled, false);
+    assert.equal(overview.actions.find((item) => item.id === 'purchase_credits').enabled, false);
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 등록');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
 });
@@ -125,6 +132,39 @@ test('account overview exposes a verified email contact when license has email',
     assert.equal(overview.usage.resets_at, '2026-07-01T00:00:00Z');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 변경');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').mode, 'change');
+});
+
+test('account overview separates monthly quota from purchased credits', async () => {
+    const service = createService({
+        License: {
+            async checkLicenseStatus() {
+                return {
+                    success: true,
+                    message: 'ok',
+                    planCode: 'pro',
+                    planDisplayName: 'Pro',
+                    quotaCycle: 'monthly',
+                    usageLimit: 100,
+                    usageCount: 8,
+                    remaining: 92,
+                    creditBalance: 30,
+                    features: {
+                        cmd_batch: true,
+                        cmd_trends: true,
+                        cmd_shopping: true,
+                        enable_related_posts_auto_link: true
+                    }
+                };
+            }
+        }
+    });
+
+    const overview = await service.getOverview();
+    assert.equal(overview.usage.monthly_limit, 100);
+    assert.equal(overview.usage.monthly_used, 8);
+    assert.equal(overview.usage.monthly_remaining, 92);
+    assert.equal(overview.usage.credit_balance, 30);
+    assert.equal(overview.usage.total_available, 122);
 });
 
 test('account overview forwards force refresh to license status', async () => {

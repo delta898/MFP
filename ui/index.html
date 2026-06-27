@@ -1439,34 +1439,71 @@
 
         <div id="account-overview-content" class="account-overview hidden">
           <article class="account-subscription-card card">
-            <div class="account-card-heading">
-              <div>
-                <span class="account-eyebrow">현재 플랜</span>
-                <div class="account-plan-line">
-                  <strong id="account-plan-name">-</strong>
-                  <span id="account-plan-status" class="account-status-badge">확인 중</span>
+            <div class="account-quota-grid">
+              <section class="account-quota-panel account-plan-panel">
+                <div class="account-quota-heading">
+                  <div class="account-quota-title">
+                    <strong id="account-plan-name">-</strong>
+                    <button id="account-plan-cycle-help" class="account-help-dot hidden" type="button"
+                      data-tooltip="매월 1일 갱신" aria-label="현재 플랜의 기본 제공량은 매월 1일 갱신됩니다.">?</button>
+                    <span id="account-plan-status" class="account-status-badge">확인 중</span>
+                  </div>
+                  <button id="account-plan-info-btn" class="secondary compact" type="button">플랜 안내</button>
                 </div>
-              </div>
-              <button id="account-plan-info-btn" class="secondary compact" type="button">플랜 안내</button>
+                <div class="account-usage-summary account-quota-metrics">
+                  <div>
+                    <span id="account-usage-used-label" class="account-usage-label">사용량</span>
+                    <strong id="account-usage-used">-</strong>
+                  </div>
+                  <div class="account-usage-remaining-wrap">
+                    <span class="account-usage-label">남은 기본 횟수</span>
+                    <strong id="account-usage-remaining">-</strong>
+                  </div>
+                </div>
+                <div class="account-subscription-meta">
+                  <span id="account-license-created">라이선스 생성일: -</span>
+                  <span id="account-period-start" class="hidden">현재 주기 시작일 -</span>
+                  <span id="account-next-reset" class="hidden">다음 갱신일 -</span>
+                </div>
+              </section>
+
+              <section class="account-quota-panel account-credit-panel">
+                <div class="account-quota-heading">
+                  <div class="account-quota-title">
+                    <strong>크레딧</strong>
+                    <button id="account-credit-help" class="account-help-dot" type="button"
+                      data-tooltip="기본 제공량 소진 후 충전 크레딧이 사용됩니다."
+                      aria-label="기본 제공량 소진 후 충전 크레딧이 사용됩니다.">?</button>
+                  </div>
+                </div>
+                <div class="account-credit-metrics account-quota-metrics">
+                  <div>
+                    <span class="account-usage-label">사용 가능 크레딧</span>
+                    <strong id="account-credit-balance">-</strong>
+                  </div>
+                </div>
+              </section>
             </div>
 
-            <div class="account-usage-summary">
-              <div>
-                <span id="account-usage-used-label" class="account-usage-label">사용량</span>
-                <strong id="account-usage-used">-</strong>
+            <div class="account-total-summary">
+              <div class="account-total-copy">
+                <div class="account-quota-heading">
+                  <div class="account-quota-title">
+                    <strong>총 사용 가능 횟수</strong>
+                  </div>
+                </div>
+                <div class="account-total-metrics account-quota-metrics">
+                  <div>
+                    <span class="account-usage-label">가용 횟수</span>
+                    <strong id="account-total-available">-</strong>
+                    <p id="account-total-breakdown" class="account-total-breakdown">기본 제공량 - + 크레딧 -</p>
+                  </div>
+                </div>
               </div>
-              <div class="account-usage-remaining-wrap">
-                <span class="account-usage-label">남은 발행 횟수</span>
-                <strong id="account-usage-remaining">-</strong>
+              <div class="account-plan-actions">
+                <button id="account-change-plan-btn" class="secondary compact" type="button" disabled>구독 / 플랜 변경</button>
+                <button id="account-purchase-credits-btn" class="secondary compact" type="button" disabled>크레딧 충전</button>
               </div>
-            </div>
-            <div class="account-progress-track" aria-hidden="true">
-              <div id="account-progress-bar" class="account-progress-bar"></div>
-            </div>
-            <div class="account-subscription-meta">
-              <span id="account-license-created">라이선스 생성일 -</span>
-              <span id="account-period-start" class="hidden">현재 주기 시작일 -</span>
-              <span id="account-next-reset" class="hidden">다음 갱신일 -</span>
             </div>
             <div id="account-plan-guidance" class="account-plan-guidance hidden">
               <div>
