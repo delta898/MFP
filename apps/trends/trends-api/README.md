@@ -38,6 +38,7 @@ Supabase note:
 - because the default storage target is the custom schema `trends.items`, add `trends` to Supabase `API Settings -> Exposed schemas`
 - run `apps/trends/trends-api/sql/001_create_naver_trends.sql` for a fresh install
 - if the table already exists and Supabase shows `RLS disabled` / `UNRESTRICTED`, run `apps/trends/trends-api/sql/002_harden_trends_access.sql`
+- run `apps/trends/trends-api/sql/003_add_trends_meta_function.sql` to install the database-side metadata aggregate
 - the intended production posture is backend-only access via `SUPABASE_SECRET_KEY`; `anon` / `authenticated` should not have direct access to `trends.items`
 
 ## Endpoints
@@ -48,6 +49,25 @@ Supabase note:
 - `GET /api/v1/trends/meta`
 - `GET /exports/trends.csv`
 - `GET /exports/trends.xlsx`
+
+All endpoints except `GET /health` require `Authorization: Bearer <token>` when
+`TRENDS_API_TOKEN` is configured.
+
+## Resource Protection
+
+- Metadata is aggregated by one Supabase RPC instead of scanning rows through the API.
+- Identical metadata requests use a five-minute in-process cache and share refresh work.
+- Concurrent HTTP requests default to 8 and excess requests receive `503`.
+- Ingest request bodies default to a 1 MiB limit.
+- Incoming request timeout defaults to 30 seconds.
+- Supabase requests time out after 7 seconds by default.
+
+These limits can be adjusted with:
+- `TRENDS_META_CACHE_TTL_MS`
+- `TRENDS_API_MAX_CONCURRENT_REQUESTS`
+- `TRENDS_API_MAX_BODY_BYTES`
+- `TRENDS_API_REQUEST_TIMEOUT_MS`
+- `TRENDS_API_UPSTREAM_TIMEOUT_MS`
 
 ## Example
 

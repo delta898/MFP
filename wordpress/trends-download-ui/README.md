@@ -12,6 +12,9 @@ Preferred integration mode:
   A minimal WordPress plugin that:
   - registers `[trends_download_ui]`
   - fetches category/date metadata from `GET /api/v1/trends/meta`
+  - keeps a 10-minute fresh metadata cache and a 24-hour stale fallback
+  - serializes metadata refreshes so concurrent PHP workers do not stampede the API
+  - backs off metadata retries for 60 seconds after an API failure
   - renders category chips instead of a raw multi-select box
   - shows a preview section from `GET /api/v1/trends`
   - submits server-side download requests to `GET /exports/trends.csv`
@@ -26,6 +29,9 @@ Add these in `wp-config.php` or another secure config layer:
 define('BG_TRENDS_API_BASE_URL', 'https://your-trends-api.example.com');
 define('BG_TRENDS_API_TOKEN', 'optional-internal-token');
 ```
+
+When `TRENDS_API_TOKEN` is set on the API, the same value is required here for
+metadata, preview, and export requests.
 
 ## Docker Note
 

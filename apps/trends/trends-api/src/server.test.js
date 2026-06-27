@@ -1,17 +1,21 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { Readable } = require('node:stream');
 
 const {
     buildTrendConflictKey,
-    buildTrendMetaSummary,
     buildTrendExportFileName,
     buildDownloadContentDisposition,
-    collectPagedRows,
     countExistingTrendRows,
+    createConcurrencyGate,
+    createExpiringSingleFlightCache,
+    createServer,
     dedupeTrendRows,
     mapPayloadToTrendRows,
     normalizeIngestPayload,
     normalizeCategoryList,
+    normalizeMetaPayload,
+    readJsonBody,
     resolveTrendQueryParams,
     resolveApiConfig,
     toTrendCsv
@@ -132,45 +136,6 @@ test('countExistingTrendRows separates inserts from updates using conflict keys'
     assert.equal(countExistingTrendRows(rows, existingRows), 1);
 });
 
-test('collectPagedRows keeps scanning until a short page is returned', async () => {
-    const calls = [];
-    const rows = await collectPagedRows(async (offset, end) => {
-        calls.push([offset, end]);
-        if (offset === 0) {
-            return Array.from({ length: 1000 }, (_, index) => ({ id: index + 1 }));
-        }
-        if (offset === 1000) {
-            return Array.from({ length: 1000 }, (_, index) => ({ id: index + 1001 }));
-        }
-        return Array.from({ length: 560 }, (_, index) => ({ id: index + 2001 }));
-    }, 20000, 1000);
-
-    assert.deepEqual(calls, [
-        [0, 999],
-        [1000, 1999],
-        [2000, 2999]
-    ]);
-    assert.equal(rows.length, 2560);
-});
-
-test('buildTrendMetaSummary preserves the full available date range', () => {
-    const summary = buildTrendMetaSummary([
-        { source: 'naver_creator_advisor', trend_date: '2026-04-01', category: '맛집' },
-        { source: 'naver_creator_advisor', trend_date: '2026-03-31', category: '국내여행' },
-        { source: 'naver_creator_advisor', trend_date: '2026-03-30', category: '맛집' },
-        { source: 'naver_creator_advisor', trend_date: '2026-03-29', category: 'IT·컴퓨터' }
-    ]);
-
-    assert.deepEqual(summary.availableDates, [
-        '2026-03-29',
-        '2026-03-30',
-        '2026-03-31',
-        '2026-04-01'
-    ]);
-    assert.equal(summary.dateRange.min, '2026-03-29');
-    assert.equal(summary.dateRange.max, '2026-04-01');
-});
-
 test('toTrendCsv serializes rows with a header line', () => {
     const csv = toTrendCsv([
         {
@@ -196,7 +161,12 @@ test('resolveApiConfig defaults to trends.items and sensible scan limits', () =>
     assert.equal(config.supabaseSchema, 'trends');
     assert.equal(config.supabaseTable, 'items');
     assert.equal(config.exportMaxRows, 5000);
-    assert.equal(config.metaScanLimit, 20000);
+    assert.equal(config.metaFunction, 'get_items_meta');
+    assert.equal(config.metaCacheTtlMs, 300000);
+    assert.equal(config.maxConcurrentRequests, 8);
+    assert.equal(config.requestBodyMaxBytes, 1048576);
+    assert.equal(config.requestTimeoutMs, 30000);
+    assert.equal(config.upstreamTimeoutMs, 7000);
     assert.equal(config.supabaseAdminKey, '');
 });
 
@@ -279,4 +249,83 @@ test('buildDownloadContentDisposition keeps headers ASCII-safe while preserving 
 
     assert.match(header, /^attachment; filename="[^"]+"; filename\*=UTF-8''/);
     assert.match(header, /filename\*=UTF-8''naver-trends-2026-04-01-2026-04-02-%EA%B5%AD%EB%82%B4%EC%97%AC%ED%96%89\.csv$/);
+});
+
+test('normalizeMetaPayload accepts the database aggregate shape', () => {
+    const summary = normalizeMetaPayload({
+        categories: ['맛집', ' 국내여행 ', ''],
+        sources: ['naver_creator_advisor'],
+        availableDates: ['2026-04-01', '2026-04-02'],
+        dateRange: {
+            min: '2026-04-01',
+            max: '2026-04-02'
+        },
+        totalRows: 48120
+    });
+
+    assert.deepEqual(summary.categories, ['맛집', '국내여행']);
+    assert.equal(summary.dateRange.max, '2026-04-02');
+    assert.equal(summary.totalRows, 48120);
+});
+
+test('createExpiringSingleFlightCache shares concurrent loads', async () => {
+    const cache = createExpiringSingleFlightCache(10000);
+    let loadCount = 0;
+    const loader = async () => {
+        loadCount += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return { categories: ['맛집'] };
+    };
+
+    const [first, second] = await Promise.all([
+        cache.getOrLoad(loader),
+        cache.getOrLoad(loader)
+    ]);
+    const third = await cache.getOrLoad(loader);
+
+    assert.equal(loadCount, 1);
+    assert.deepEqual(first.value, second.value);
+    assert.equal(second.cacheStatus, 'shared');
+    assert.equal(third.cacheStatus, 'hit');
+});
+
+test('createConcurrencyGate rejects work above its limit', () => {
+    const gate = createConcurrencyGate(2);
+
+    assert.equal(gate.tryEnter(), true);
+    assert.equal(gate.tryEnter(), true);
+    assert.equal(gate.tryEnter(), false);
+    gate.leave();
+    assert.equal(gate.tryEnter(), true);
+});
+
+test('readJsonBody rejects payloads above the configured limit', async () => {
+    const request = Readable.from([Buffer.from('{"value":"too large"}')]);
+    request.headers = {
+        'content-length': String(Buffer.byteLength('{"value":"too large"}'))
+    };
+
+    await assert.rejects(
+        readJsonBody(request, 8),
+        (error) => error.code === 'BODY_TOO_LARGE'
+    );
+});
+
+test('createServer leaves health public and protects data endpoints with the configured token', async (t) => {
+    const config = resolveApiConfig({
+        TRENDS_API_HOST: '127.0.0.1',
+        TRENDS_API_PORT: '4581',
+        TRENDS_API_TOKEN: 'secret-token'
+    });
+    const server = createServer(config);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+
+    const address = server.address();
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+    const healthResponse = await fetch(`${baseUrl}/health`);
+    const protectedResponse = await fetch(`${baseUrl}/api/v1/trends/meta`);
+
+    assert.equal(healthResponse.status, 200);
+    assert.equal(protectedResponse.status, 401);
 });

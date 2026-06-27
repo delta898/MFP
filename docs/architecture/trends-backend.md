@@ -112,7 +112,12 @@ Operationally, the current preferred topology is:
 - `TRENDS_SUPABASE_TABLE`
 - `TRENDS_SUPABASE_ON_CONFLICT`
 - `TRENDS_EXPORT_MAX_ROWS`
-- `TRENDS_META_SCAN_LIMIT`
+- `TRENDS_SUPABASE_META_FUNCTION`
+- `TRENDS_META_CACHE_TTL_MS`
+- `TRENDS_API_MAX_CONCURRENT_REQUESTS`
+- `TRENDS_API_MAX_BODY_BYTES`
+- `TRENDS_API_REQUEST_TIMEOUT_MS`
+- `TRENDS_API_UPSTREAM_TIMEOUT_MS`
 
 Legacy compatibility:
 - `SUPABASE_SERVICE_ROLE_KEY` is still accepted as a fallback during migration
@@ -151,6 +156,7 @@ Legacy compatibility:
 ## Supabase Schema
 - Reference SQL lives at [apps/trends/trends-api/sql/001_create_naver_trends.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/001_create_naver_trends.sql).
 - Existing installs can be hardened with [apps/trends/trends-api/sql/002_harden_trends_access.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/002_harden_trends_access.sql).
+- Metadata aggregation is installed with [apps/trends/trends-api/sql/003_add_trends_meta_function.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/003_add_trends_meta_function.sql).
 - Default schema/table: `trends.items`
 - Supabase project setup must also expose the `trends` schema in `API Settings -> Exposed schemas`.
 - Security posture:
@@ -162,6 +168,8 @@ Legacy compatibility:
   - `trend_date`
   - `category`
   - `keyword`
+- Metadata reads use the backend-only `trends.get_items_meta` aggregate function.
+- The API keeps a short in-process metadata cache and collapses concurrent refreshes.
 
 ### Row Shape
 - `source`

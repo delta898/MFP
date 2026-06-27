@@ -1,5 +1,6 @@
 const http = require('http');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 const { createClient } = require('@supabase/supabase-js');
 const { loadEnvFiles } = require('../../shared/lib/load-env');
@@ -33,7 +34,12 @@ function resolveApiConfig(env = process.env) {
         supabaseTable: String(env.TRENDS_SUPABASE_TABLE || 'items').trim() || 'items',
         onConflict: String(env.TRENDS_SUPABASE_ON_CONFLICT || 'source,trend_date,category,keyword').trim() || 'source,trend_date,category,keyword',
         exportMaxRows: Math.max(1, toInt(env.TRENDS_EXPORT_MAX_ROWS, 5000)),
-        metaScanLimit: Math.max(100, toInt(env.TRENDS_META_SCAN_LIMIT, 20000))
+        metaFunction: String(env.TRENDS_SUPABASE_META_FUNCTION || 'get_items_meta').trim() || 'get_items_meta',
+        metaCacheTtlMs: Math.max(1000, toInt(env.TRENDS_META_CACHE_TTL_MS, 300000)),
+        maxConcurrentRequests: Math.max(1, toInt(env.TRENDS_API_MAX_CONCURRENT_REQUESTS, 8)),
+        requestBodyMaxBytes: Math.max(1024, toInt(env.TRENDS_API_MAX_BODY_BYTES, 1048576)),
+        requestTimeoutMs: Math.max(1000, toInt(env.TRENDS_API_REQUEST_TIMEOUT_MS, 30000)),
+        upstreamTimeoutMs: Math.max(1000, toInt(env.TRENDS_API_UPSTREAM_TIMEOUT_MS, 7000))
     };
 }
 
@@ -45,6 +51,18 @@ function createSupabaseAdminClient(config = {}) {
         auth: {
             persistSession: false,
             autoRefreshToken: false
+        },
+        global: {
+            fetch: (input, init = {}) => {
+                const timeoutSignal = AbortSignal.timeout(config.upstreamTimeoutMs || 7000);
+                const signal = init.signal
+                    ? AbortSignal.any([init.signal, timeoutSignal])
+                    : timeoutSignal;
+                return fetch(input, {
+                    ...init,
+                    signal
+                });
+            }
         }
     });
 }
@@ -303,45 +321,71 @@ function buildDownloadContentDisposition(fileName) {
     return `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeContentDispositionFilename(safeFileName)}`;
 }
 
-async function collectPagedRows(fetchPage, scanLimit, pageSize = 1000) {
-    const limit = Math.max(0, Number(scanLimit) || 0);
-    if (limit === 0) return [];
-
-    const batchSize = Math.max(1, Math.min(Number(pageSize) || 1000, limit));
-    const rows = [];
-
-    for (let offset = 0; offset < limit; offset += batchSize) {
-        const end = Math.min(limit - 1, offset + batchSize - 1);
-        const batch = await fetchPage(offset, end);
-        const normalizedBatch = Array.isArray(batch) ? batch : [];
-        rows.push(...normalizedBatch);
-
-        if (normalizedBatch.length < (end - offset + 1)) {
-            break;
-        }
-    }
-
-    return rows;
-}
-
-function buildTrendMetaSummary(rows = []) {
-    const categories = Array.from(new Set(
-        rows.map((row) => String(row?.category || '').trim()).filter(Boolean)
-    )).sort((a, b) => a.localeCompare(b, 'ko'));
-    const sources = Array.from(new Set(
-        rows.map((row) => String(row?.source || '').trim()).filter(Boolean)
-    )).sort((a, b) => a.localeCompare(b, 'en'));
-    const availableDates = Array.from(new Set(
-        rows.map((row) => String(row?.trend_date || '').trim()).filter(Boolean)
-    )).sort();
+function normalizeMetaPayload(payload = {}) {
+    const value = Array.isArray(payload) ? payload[0] : payload;
+    const normalized = value && typeof value === 'object' ? value : {};
+    const categories = Array.isArray(normalized.categories) ? normalized.categories : [];
+    const sources = Array.isArray(normalized.sources) ? normalized.sources : [];
+    const availableDates = Array.isArray(normalized.availableDates)
+        ? normalized.availableDates
+        : (Array.isArray(normalized.available_dates) ? normalized.available_dates : []);
+    const dateRange = normalized.dateRange && typeof normalized.dateRange === 'object'
+        ? normalized.dateRange
+        : (normalized.date_range && typeof normalized.date_range === 'object' ? normalized.date_range : {});
 
     return {
-        categories,
-        sources,
-        availableDates,
+        categories: categories.map((value) => String(value || '').trim()).filter(Boolean),
+        sources: sources.map((value) => String(value || '').trim()).filter(Boolean),
+        availableDates: availableDates.map((value) => String(value || '').trim()).filter(Boolean),
         dateRange: {
-            min: availableDates[0] || null,
-            max: availableDates[availableDates.length - 1] || null
+            min: dateRange.min ? String(dateRange.min) : null,
+            max: dateRange.max ? String(dateRange.max) : null
+        },
+        totalRows: Math.max(0, toInt(normalized.totalRows ?? normalized.total_rows, 0))
+    };
+}
+
+function createExpiringSingleFlightCache(ttlMs) {
+    let cachedValue = null;
+    let expiresAt = 0;
+    let pending = null;
+
+    return {
+        async getOrLoad(loader) {
+            const now = Date.now();
+            if (cachedValue !== null && now < expiresAt) {
+                return { value: cachedValue, cacheStatus: 'hit' };
+            }
+            if (pending) {
+                return { value: await pending, cacheStatus: 'shared' };
+            }
+
+            pending = Promise.resolve().then(loader);
+            try {
+                cachedValue = await pending;
+                expiresAt = Date.now() + ttlMs;
+                return { value: cachedValue, cacheStatus: 'miss' };
+            } finally {
+                pending = null;
+            }
+        },
+        clear() {
+            cachedValue = null;
+            expiresAt = 0;
+        }
+    };
+}
+
+function createConcurrencyGate(limit) {
+    let active = 0;
+    return {
+        tryEnter() {
+            if (active >= limit) return false;
+            active += 1;
+            return true;
+        },
+        leave() {
+            active = Math.max(0, active - 1);
         }
     };
 }
@@ -365,9 +409,23 @@ function sendText(res, statusCode, body, headers = {}) {
     res.end(text);
 }
 
-async function readJsonBody(req) {
+async function readJsonBody(req, maxBytes = 1048576) {
+    const contentLength = toInt(req.headers['content-length'], 0);
+    if (contentLength > maxBytes) {
+        const error = new Error(`Request body exceeds ${maxBytes} bytes`);
+        error.code = 'BODY_TOO_LARGE';
+        throw error;
+    }
+
     const chunks = [];
+    let receivedBytes = 0;
     for await (const chunk of req) {
+        receivedBytes += chunk.length;
+        if (receivedBytes > maxBytes) {
+            const error = new Error(`Request body exceeds ${maxBytes} bytes`);
+            error.code = 'BODY_TOO_LARGE';
+            throw error;
+        }
         chunks.push(chunk);
     }
     const raw = Buffer.concat(chunks).toString('utf8').trim();
@@ -375,22 +433,30 @@ async function readJsonBody(req) {
     return JSON.parse(raw);
 }
 
+function safeTokenEquals(actual, expected) {
+    const actualBuffer = Buffer.from(String(actual || ''));
+    const expectedBuffer = Buffer.from(String(expected || ''));
+    return actualBuffer.length === expectedBuffer.length
+        && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
 function ensureInternalAccess(req, config) {
     if (!config.internalToken) return true;
     const authHeader = String(req.headers.authorization || '').trim();
-    return authHeader === `Bearer ${config.internalToken}`;
+    return safeTokenEquals(authHeader, `Bearer ${config.internalToken}`);
 }
 
-async function handleIngest(req, res, config) {
+async function handleIngest(req, res, config, onMutation = () => {}) {
     if (!ensureInternalAccess(req, config)) {
         return sendJson(res, 401, { success: false, message: 'Unauthorized' });
     }
 
     let body;
     try {
-        body = await readJsonBody(req);
+        body = await readJsonBody(req, config.requestBodyMaxBytes);
     } catch (error) {
-        return sendJson(res, 400, { success: false, message: `Invalid JSON body: ${error.message}` });
+        const statusCode = error.code === 'BODY_TOO_LARGE' ? 413 : 400;
+        return sendJson(res, statusCode, { success: false, message: `Invalid JSON body: ${error.message}` });
     }
 
     let normalized;
@@ -428,6 +494,7 @@ async function handleIngest(req, res, config) {
         if (error) {
             throw error;
         }
+        onMutation();
 
         return sendJson(res, 200, {
             success: true,
@@ -500,42 +567,47 @@ async function handleQuery(res, queryUrl, config, asCsv = false) {
     }
 }
 
-async function handleMeta(res, queryUrl, config) {
+async function fetchTrendMeta(config, filters) {
+    const client = createSupabaseAdminClient(config).schema(config.supabaseSchema);
+    const { data, error } = await client.rpc(config.metaFunction, {
+        p_source: filters.source || null,
+        p_trend_date: filters.trendDate || null,
+        p_date_from: filters.dateFrom || null,
+        p_date_to: filters.dateTo || null
+    });
+    if (error) {
+        throw error;
+    }
+    return normalizeMetaPayload(data);
+}
+
+async function handleMeta(res, queryUrl, config, metaCache) {
     try {
-        const filters = resolveTrendQueryParams(queryUrl.searchParams, {
-            ...config,
-            exportMaxRows: config.metaScanLimit
+        const filters = resolveTrendQueryParams(queryUrl.searchParams, config);
+        const cacheKey = JSON.stringify({
+            source: filters.source,
+            trendDate: filters.trendDate,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo
         });
-
-        const rows = await collectPagedRows(async (offset, end) => {
-            let categoryQuery = getTrendItemsQuery(config)
-                .select('category, source, trend_date, keyword')
-                .order('trend_date', { ascending: false })
-                .order('category', { ascending: true })
-                .order('keyword', { ascending: true })
-                .range(offset, end);
-
-            if (filters.source) categoryQuery = categoryQuery.eq('source', filters.source);
-            if (filters.trendDate) categoryQuery = categoryQuery.eq('trend_date', filters.trendDate);
-            if (filters.dateFrom) categoryQuery = categoryQuery.gte('trend_date', filters.dateFrom);
-            if (filters.dateTo) categoryQuery = categoryQuery.lte('trend_date', filters.dateTo);
-
-            const { data, error } = await categoryQuery;
-            if (error) {
-                throw error;
+        let cache = metaCache.get(cacheKey);
+        if (!cache) {
+            if (metaCache.size >= 64) {
+                metaCache.delete(metaCache.keys().next().value);
             }
-            return data;
-        }, config.metaScanLimit);
-        const summary = buildTrendMetaSummary(rows);
+            cache = createExpiringSingleFlightCache(config.metaCacheTtlMs);
+            metaCache.set(cacheKey, cache);
+        }
+        const { value: summary, cacheStatus } = await cache.getOrLoad(() => fetchTrendMeta(config, filters));
 
+        res.setHeader('X-Trends-Cache', cacheStatus);
         return sendJson(res, 200, {
             success: true,
             categories: summary.categories,
             sources: summary.sources,
             availableDates: summary.availableDates,
             dateRange: summary.dateRange,
-            scannedRows: rows.length,
-            scanLimit: config.metaScanLimit
+            totalRows: summary.totalRows
         });
     } catch (error) {
         const statusCode = /must be|earlier than|less than or equal/.test(String(error.message || '')) ? 400 : 500;
@@ -544,41 +616,70 @@ async function handleMeta(res, queryUrl, config) {
 }
 
 function createServer(config = resolveApiConfig()) {
-    return http.createServer(async (req, res) => {
-        const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `${config.host}:${config.port}`}`);
+    const requestGate = createConcurrencyGate(config.maxConcurrentRequests);
+    const metaCache = new Map();
+    const server = http.createServer(async (req, res) => {
+        if (!requestGate.tryEnter()) {
+            res.setHeader('Retry-After', '1');
+            return sendJson(res, 503, { success: false, message: 'Server is busy. Retry shortly.' });
+        }
 
-        if (req.method === 'GET' && requestUrl.pathname === '/health') {
-            return sendJson(res, 200, {
-                success: true,
-                service: 'trends-api'
+        try {
+            const requestUrl = new URL(req.url || '/', `http://${req.headers.host || `${config.host}:${config.port}`}`);
+
+            if (req.method === 'GET' && requestUrl.pathname === '/health') {
+                return sendJson(res, 200, {
+                    success: true,
+                    service: 'trends-api'
+                });
+            }
+
+            if (!ensureInternalAccess(req, config)) {
+                return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+            }
+
+            if (req.method === 'POST' && requestUrl.pathname === '/internal/ingest/naver-trends') {
+                return handleIngest(req, res, config, () => metaCache.clear());
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends') {
+                return handleQuery(res, requestUrl, config, false);
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends/meta') {
+                return handleMeta(res, requestUrl, config, metaCache);
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.csv') {
+                return handleQuery(res, requestUrl, config, true);
+            }
+
+            if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.xlsx') {
+                return sendJson(res, 501, {
+                    success: false,
+                    message: 'XLSX export is not implemented yet. Use /exports/trends.csv for now.'
+                });
+            }
+
+            return sendJson(res, 404, { success: false, message: 'Not found' });
+        } catch (error) {
+            console.error('[trends-api] unhandled request error', {
+                method: req.method,
+                url: req.url,
+                message: error?.message
             });
+            if (!res.headersSent) {
+                return sendJson(res, 500, { success: false, message: 'Internal server error' });
+            }
+            return res.end();
+        } finally {
+            requestGate.leave();
         }
-
-        if (req.method === 'POST' && requestUrl.pathname === '/internal/ingest/naver-trends') {
-            return handleIngest(req, res, config);
-        }
-
-        if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends') {
-            return handleQuery(res, requestUrl, config, false);
-        }
-
-        if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends/meta') {
-            return handleMeta(res, requestUrl, config);
-        }
-
-        if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.csv') {
-            return handleQuery(res, requestUrl, config, true);
-        }
-
-        if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.xlsx') {
-            return sendJson(res, 501, {
-                success: false,
-                message: 'XLSX export is not implemented yet. Use /exports/trends.csv for now.'
-            });
-        }
-
-        return sendJson(res, 404, { success: false, message: 'Not found' });
     });
+    server.requestTimeout = config.requestTimeoutMs;
+    server.headersTimeout = Math.min(config.requestTimeoutMs, 15000);
+    server.keepAliveTimeout = 5000;
+    return server;
 }
 
 function startServer(config = resolveApiConfig()) {
@@ -595,19 +696,22 @@ if (require.main === module) {
 
 module.exports = {
     buildTrendConflictKey,
-    buildTrendMetaSummary,
     createServer,
     createSupabaseAdminClient,
     buildTrendExportFileName,
     buildDownloadContentDisposition,
-    collectPagedRows,
     countExistingTrendRows,
+    createConcurrencyGate,
+    createExpiringSingleFlightCache,
     dedupeTrendRows,
+    fetchTrendMeta,
     fetchExistingTrendRows,
     getTrendItemsQuery,
     mapPayloadToTrendRows,
     normalizeIngestPayload,
     normalizeCategoryList,
+    normalizeMetaPayload,
+    readJsonBody,
     resolveTrendQueryParams,
     resolveApiConfig,
     startServer,

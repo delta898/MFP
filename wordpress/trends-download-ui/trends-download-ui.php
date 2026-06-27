@@ -16,6 +16,9 @@ const BG_TRENDS_MAX_CATEGORY_SELECTION = 3;
 const BG_TRENDS_ITEMS_PER_CATEGORY = 20;
 const BG_TRENDS_PREVIEW_LIMIT = BG_TRENDS_MAX_CATEGORY_SELECTION * BG_TRENDS_ITEMS_PER_CATEGORY;
 const BG_TRENDS_META_CACHE_TTL = 600;
+const BG_TRENDS_META_STALE_CACHE_TTL = 86400;
+const BG_TRENDS_META_REFRESH_LOCK_TTL = 30;
+const BG_TRENDS_META_FAILURE_BACKOFF_TTL = 60;
 const BG_TRENDS_META_REQUEST_TIMEOUT = 8;
 const BG_TRENDS_PREVIEW_REQUEST_TIMEOUT = 10;
 const BG_TRENDS_EXPORT_REQUEST_TIMEOUT = 60;
@@ -78,21 +81,73 @@ function bg_trends_meta_cache_key() {
     return 'bg_trends_meta_' . md5(bg_trends_api_request_base_url());
 }
 
+function bg_trends_meta_stale_cache_key() {
+    return 'bg_trends_meta_stale_' . md5(bg_trends_api_request_base_url());
+}
+
+function bg_trends_meta_refresh_lock_key() {
+    return 'bg_trends_meta_lock_' . md5(bg_trends_api_request_base_url());
+}
+
+function bg_trends_meta_failure_cache_key() {
+    return 'bg_trends_meta_failure_' . md5(bg_trends_api_request_base_url());
+}
+
+function bg_trends_acquire_meta_refresh_lock() {
+    $lock_key = bg_trends_meta_refresh_lock_key();
+    $now = time();
+    if (add_option($lock_key, $now, '', false)) {
+        return true;
+    }
+
+    $started_at = (int) get_option($lock_key, 0);
+    if ($started_at > 0 && ($now - $started_at) > BG_TRENDS_META_REFRESH_LOCK_TTL) {
+        delete_option($lock_key);
+        return add_option($lock_key, $now, '', false);
+    }
+    return false;
+}
+
+function bg_trends_release_meta_refresh_lock() {
+    delete_option(bg_trends_meta_refresh_lock_key());
+}
+
+function bg_trends_meta_error($message) {
+    return array(
+        'success' => false,
+        'message' => $message,
+        'categories' => array(),
+        'dateRange' => array('min' => '', 'max' => ''),
+    );
+}
+
 function bg_trends_fetch_meta() {
     $base_url = bg_trends_api_request_base_url();
     if ($base_url === '') {
-        return array(
-            'success' => false,
-            'message' => 'BG_TRENDS_API_BASE_URL is not configured.',
-            'categories' => array(),
-            'dateRange' => array('min' => '', 'max' => ''),
-        );
+        return bg_trends_meta_error('BG_TRENDS_API_BASE_URL is not configured.');
     }
 
     $cache_key = bg_trends_meta_cache_key();
+    $stale_cache_key = bg_trends_meta_stale_cache_key();
     $cached = get_transient($cache_key);
     if (is_array($cached) && !empty($cached['success'])) {
         return $cached;
+    }
+
+    $stale = get_transient($stale_cache_key);
+    $recent_failure = get_transient(bg_trends_meta_failure_cache_key());
+    if ($recent_failure !== false) {
+        if (is_array($stale) && !empty($stale['success'])) {
+            return $stale;
+        }
+        return bg_trends_meta_error((string) $recent_failure);
+    }
+
+    if (!bg_trends_acquire_meta_refresh_lock()) {
+        if (is_array($stale) && !empty($stale['success'])) {
+            return $stale;
+        }
+        return bg_trends_meta_error('트렌드 정보를 갱신 중입니다. 잠시 후 다시 시도해주세요.');
     }
 
     $response = wp_remote_get(
@@ -100,23 +155,32 @@ function bg_trends_fetch_meta() {
         bg_trends_request_args(BG_TRENDS_META_REQUEST_TIMEOUT)
     );
     if (is_wp_error($response)) {
-        return array(
-            'success' => false,
-            'message' => $response->get_error_message(),
-            'categories' => array(),
-            'dateRange' => array('min' => '', 'max' => ''),
+        bg_trends_release_meta_refresh_lock();
+        set_transient(
+            bg_trends_meta_failure_cache_key(),
+            $response->get_error_message(),
+            BG_TRENDS_META_FAILURE_BACKOFF_TTL
         );
+        if (is_array($stale) && !empty($stale['success'])) {
+            return $stale;
+        }
+        return bg_trends_meta_error($response->get_error_message());
     }
 
     $status_code = wp_remote_retrieve_response_code($response);
     $body = json_decode(wp_remote_retrieve_body($response), true);
     if ($status_code !== 200 || !is_array($body) || empty($body['success'])) {
-        return array(
-            'success' => false,
-            'message' => is_array($body) && !empty($body['message']) ? $body['message'] : 'Failed to fetch trends metadata.',
-            'categories' => array(),
-            'dateRange' => array('min' => '', 'max' => ''),
+        bg_trends_release_meta_refresh_lock();
+        $message = is_array($body) && !empty($body['message']) ? $body['message'] : 'Failed to fetch trends metadata.';
+        set_transient(
+            bg_trends_meta_failure_cache_key(),
+            $message,
+            BG_TRENDS_META_FAILURE_BACKOFF_TTL
         );
+        if (is_array($stale) && !empty($stale['success'])) {
+            return $stale;
+        }
+        return bg_trends_meta_error($message);
     }
 
     $result = array(
@@ -130,6 +194,9 @@ function bg_trends_fetch_meta() {
     );
 
     set_transient($cache_key, $result, BG_TRENDS_META_CACHE_TTL);
+    set_transient($stale_cache_key, $result, BG_TRENDS_META_STALE_CACHE_TTL);
+    delete_transient(bg_trends_meta_failure_cache_key());
+    bg_trends_release_meta_refresh_lock();
     return $result;
 }
 
