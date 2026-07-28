@@ -1573,7 +1573,7 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
 	}
 
 	validPosts.slice(0, 3).forEach(post => {
-		const postUrl = String(post?.url || '').trim();
+		const postUrl = Utils.toMobileNaverBlogPostUrl(post?.url);
 		lines.push(postUrl);
 	});
 	return lines.join('\n').trim();

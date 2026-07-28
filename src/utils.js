@@ -3079,6 +3079,23 @@ const Utils = {
         }
     },
 
+    toMobileNaverBlogPostUrl: function (rawUrl) {
+        const originalUrl = String(rawUrl || '').trim();
+        if (!originalUrl) return '';
+
+        const canonicalUrl = this._normalizeNaverBlogPostUrl(originalUrl);
+        if (!canonicalUrl) return originalUrl;
+
+        try {
+            const parsed = new URL(canonicalUrl);
+            const [blogId, logNo] = parsed.pathname.split('/').filter(Boolean);
+            if (!blogId || !logNo) return originalUrl;
+            return `https://m.blog.naver.com/${blogId}/${logNo}`;
+        } catch (e) {
+            return originalUrl;
+        }
+    },
+
     _shuffleArray: function (list) {
         const arr = Array.isArray(list) ? [...list] : [];
         for (let i = arr.length - 1; i > 0; i--) {
@@ -3144,7 +3161,8 @@ const Utils = {
         let markdown = `\n\n## ${heading}\n\n`;
 
         posts.forEach(post => {
-            markdown += `* [${post.title}](${post.url})\n`;
+            const postUrl = this.toMobileNaverBlogPostUrl(post.url);
+            markdown += `* [${post.title}](${postUrl})\n`;
         });
 
         return markdown;
