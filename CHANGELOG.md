@@ -3,6 +3,12 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.14-dev1] - 2026-07-28
+
+### Added
+- **Markdown 구분선 및 굵게 발행**: 단독 줄 `---`를 네이버 SmartEditor의 가운데 정렬된 구분선 4로 발행하고, `**굵게**` 표시는 네이버 에디터와 본문 미리보기에서 실제 굵게로 반영합니다.
+- **모바일 연관글 링크**: 자동 삽입되는 본인 네이버 블로그 연관글은 네이버와 WordPress 발행 모두 모바일 크롤링 주소(`m.blog.naver.com`)로 연결합니다.
+
 ## [0.1.13] - 2026-06-27
 
 ### Added
