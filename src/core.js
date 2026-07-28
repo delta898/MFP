@@ -229,7 +229,40 @@ async function focusLatestOglinkCard(page) {
 	return false;
 }
 
-async function getVisibleImageToolbars(page) {
+async function focusLatestHorizontalSeparator(page) {
+	const selectors = [
+		'.se-component.se-horizontal-line',
+		'.se-component.se-horizontalLine',
+		'.se-component[class*="horizontal-line"]',
+		'.se-component[class*="horizontalLine"]',
+		'.se-component[class*="separator"]',
+		'.se-horizontal-line',
+		'[class*="horizontal-line"]'
+	];
+
+	for (const selector of selectors) {
+		const separators = page.locator(selector);
+		const count = await separators.count();
+		if (count === 0) continue;
+
+		for (let i = count - 1; i >= 0; i--) {
+			const candidate = separators.nth(i);
+			try {
+				if (!(await candidate.isVisible())) continue;
+				const content = candidate.locator('.se-component-content').first();
+				const target = (await content.count() > 0 && await content.isVisible())
+					? content
+					: candidate;
+				await autoScrollAndClick(target);
+				await Utils.sleep(120);
+				return true;
+			} catch (e) { }
+		}
+	}
+	return false;
+}
+
+async function getVisibleComponentToolbars(page) {
 	const selectors = [
 		'.se-image-toolbar',
 		'.se-context-toolbar',
@@ -278,6 +311,69 @@ async function getVisibleEditorToolbars(page) {
 	return toolbars;
 }
 
+async function centerAlignFocusedComponent(page) {
+	const toolbars = await getVisibleComponentToolbars(page);
+	const selectors = [
+		'button[data-name="cycle-align"][data-value="center"]',
+		'button[data-type="cycle-toggle"][data-name="cycle-align"][data-value="center"]',
+		'.se-context-toolbar-cycle-toggle-container button[data-value="center"]',
+		'.se-context-toolbar-cycle-toggle-container button.se-center-tool-bar-button',
+		'li.se-toolbar-item-align button[data-value="center"]',
+		'li.se-toolbar-item-line-image-center button',
+		'li[class*="line-image-center"] button',
+		'button[data-name*="line-image-center"]',
+		'button[data-name*="image-center"]',
+		'button[data-name*="alignCenter"]',
+		'button[data-name*="align-center"]',
+		'button[class*="align-center"]',
+		'button[class*="image-center"]',
+		'button[class*="center"]',
+		'button[aria-label*="가운데"]',
+		'button[aria-label*="중앙"]',
+		'button[title*="가운데"]',
+		'button[title*="중앙"]',
+		'button:has-text("가운데")',
+		'button:has-text("중앙")'
+	];
+	for (const toolbar of toolbars) {
+		for (const selector of selectors) {
+			const clicked = await clickIfVisible(toolbar.locator(selector));
+			if (clicked) {
+				await Utils.sleep(120);
+				return true;
+			}
+		}
+
+		// 에디터 버전에 따라 정렬 버튼이 object-arrangement 그룹(좌/중/우 3버튼)으로만 노출된다.
+		const arrangementGroups = toolbar.locator('li.se-toolbar-item-object-arrangement, [class*="object-arrangement"]');
+		const groupCount = await arrangementGroups.count();
+		for (let i = groupCount - 1; i >= 0; i--) {
+			const group = arrangementGroups.nth(i);
+			try {
+				if (!(await group.isVisible())) continue;
+				const centerByClass = group.locator('li[class*="center"] button, button[data-name*="center"], button[class*="center"]').first();
+				if (await centerByClass.count() > 0 && await centerByClass.isVisible()) {
+					await autoScrollAndClick(centerByClass);
+					await Utils.sleep(120);
+					return true;
+				}
+
+				const buttons = group.locator('button');
+				const btnCount = await buttons.count();
+				if (btnCount >= 2) {
+					const centerBtn = buttons.nth(1); // 일반적으로 가운데 버튼이 두 번째
+					if (await centerBtn.isVisible()) {
+						await autoScrollAndClick(centerBtn);
+						await Utils.sleep(120);
+						return true;
+					}
+				}
+			} catch (e) { }
+		}
+	}
+	return false;
+}
+
 async function centerAlignFocusedImage(page, options = {}) {
 	const shouldRefocusImage = options.refocusImage !== false;
 	for (let attempt = 0; attempt < 4; attempt++) {
@@ -288,74 +384,24 @@ async function centerAlignFocusedImage(page, options = {}) {
 			await Utils.sleep(120);
 		}
 
-		const toolbars = await getVisibleImageToolbars(page);
-		if (toolbars.length === 0) continue;
-
-		const selectors = [
-			'button[data-name="cycle-align"][data-value="center"]',
-			'button[data-type="cycle-toggle"][data-name="cycle-align"][data-value="center"]',
-			'.se-context-toolbar-cycle-toggle-container button[data-value="center"]',
-			'.se-context-toolbar-cycle-toggle-container button.se-center-tool-bar-button',
-			'li.se-toolbar-item-align button[data-value="center"]',
-			'li.se-toolbar-item-line-image-center button',
-			'li[class*="line-image-center"] button',
-			'button[data-name*="line-image-center"]',
-			'button[data-name*="image-center"]',
-			'button[data-name*="alignCenter"]',
-			'button[data-name*="align-center"]',
-			'button[class*="align-center"]',
-			'button[class*="image-center"]',
-			'button[class*="center"]',
-			'button[aria-label*="가운데"]',
-			'button[aria-label*="중앙"]',
-			'button[title*="가운데"]',
-			'button[title*="중앙"]',
-			'button:has-text("가운데")',
-			'button:has-text("중앙")'
-		];
-		for (const toolbar of toolbars) {
-			for (const selector of selectors) {
-				const clicked = await clickIfVisible(toolbar.locator(selector));
-				if (clicked) {
-					await Utils.sleep(120);
-					return true;
-				}
-			}
-
-			// 에디터 버전에 따라 정렬 버튼이 object-arrangement 그룹(좌/중/우 3버튼)으로만 노출된다.
-			const arrangementGroups = toolbar.locator('li.se-toolbar-item-object-arrangement, [class*="object-arrangement"]');
-			const groupCount = await arrangementGroups.count();
-			for (let i = groupCount - 1; i >= 0; i--) {
-				const group = arrangementGroups.nth(i);
-				try {
-					if (!(await group.isVisible())) continue;
-					const centerByClass = group.locator('li[class*="center"] button, button[data-name*="center"], button[class*="center"]').first();
-					if (await centerByClass.count() > 0 && await centerByClass.isVisible()) {
-						await autoScrollAndClick(centerByClass);
-						await Utils.sleep(120);
-						return true;
-					}
-
-					const buttons = group.locator('button');
-					const btnCount = await buttons.count();
-					if (btnCount >= 2) {
-						const centerBtn = buttons.nth(1); // 일반적으로 가운데 버튼이 두 번째
-						if (await centerBtn.isVisible()) {
-							await autoScrollAndClick(centerBtn);
-							await Utils.sleep(120);
-							return true;
-						}
-					}
-				} catch (e) { }
-			}
-		}
+		if (await centerAlignFocusedComponent(page)) return true;
 	}
 	return false;
 }
 
-async function leftAlignActiveTextBlock(page) {
-	for (let attempt = 0; attempt < 4; attempt++) {
-		const leftOptionSelectors = [
+async function alignActiveTextBlock(page, alignment) {
+	const isCenter = alignment === 'center';
+	const optionSelectors = isCenter
+		? [
+			'button.se-toolbar-option-align-center-button[data-value="center"]',
+			'div.se-toolbar-option.se-toolbar-option-align button[data-value="center"]',
+			'.se-toolbar-option-align button[data-value="center"]',
+			'[role="listbox"] button[data-value="center"]',
+			'button[data-name="align-drop-down-with-justify"][data-value="center"]',
+			'button[data-value="center"][title*="가운데"]',
+			'button[data-value="center"][aria-label*="가운데"]'
+		]
+		: [
 			'button.se-toolbar-option-align-left-button[data-value="left"]',
 			'div.se-toolbar-option.se-toolbar-option-align button[data-value="left"]',
 			'.se-toolbar-option-align button[data-value="left"]',
@@ -363,7 +409,9 @@ async function leftAlignActiveTextBlock(page) {
 			'button[data-name="align-drop-down-with-justify"][data-value="left"]',
 			'button[data-value="left"][title*="왼쪽"]'
 		];
-		for (const selector of leftOptionSelectors) {
+
+	for (let attempt = 0; attempt < 4; attempt++) {
+		for (const selector of optionSelectors) {
 			const clicked = await clickIfVisible(page.locator(selector).last());
 			if (clicked) {
 				await Utils.sleep(120);
@@ -385,7 +433,7 @@ async function leftAlignActiveTextBlock(page) {
 			}
 		}
 
-		for (const selector of leftOptionSelectors) {
+		for (const selector of optionSelectors) {
 			const clicked = await clickIfVisible(page.locator(selector).last());
 			if (clicked) {
 				await Utils.sleep(120);
@@ -396,6 +444,14 @@ async function leftAlignActiveTextBlock(page) {
 		await Utils.sleep(120);
 	}
 	return false;
+}
+
+async function leftAlignActiveTextBlock(page) {
+	return alignActiveTextBlock(page, 'left');
+}
+
+async function centerAlignActiveTextBlock(page) {
+	return alignActiveTextBlock(page, 'center');
 }
 
 async function setFocusedImageAsRepresentative(page) {
@@ -1423,6 +1479,54 @@ async function insertOglinkCardAtCursor(page, linkUrl) {
 	}
 }
 
+async function insertHorizontalSeparatorAtCursor(page) {
+	await placeCaretAtDocumentEnd(page, { skipRangeSelection: true });
+	await ensureCaretOutsideQuoteBlock(page, 3);
+	await collapseEditorSelectionToCaretEnd(page);
+
+	let menuOpened = await clickIfVisible(page.getByRole('button', { name: '구분선 선택' }).last());
+	if (!menuOpened) {
+		const triggerSelectors = [
+			'button.se-document-toolbar-select-option-button[aria-label*="구분선"]',
+			'button.se-document-toolbar-select-option-button[title*="구분선"]',
+			'button[class*="se-document-toolbar-select-option"][aria-label*="구분선"]'
+		];
+		for (const selector of triggerSelectors) {
+			if (await clickIfVisible(page.locator(selector).last())) {
+				menuOpened = true;
+				break;
+			}
+		}
+	}
+	if (!menuOpened) return false;
+	await Utils.sleep(120);
+
+	const separatorOptions = page.locator('button[class*="se-toolbar-option-insert-horizontal"]');
+	const separatorOptionCount = await separatorOptions.count();
+	const separatorStyleIndex = 3; // SmartEditor 메뉴의 네 번째 항목: 구분선 4
+	if (separatorOptionCount <= separatorStyleIndex) {
+		Logger.warn(`       ⚠️ 구분선 4 옵션을 찾지 못했습니다. (확인된 옵션: ${separatorOptionCount}개)`);
+		return false;
+	}
+
+	if (await clickIfVisible(separatorOptions.nth(separatorStyleIndex))) {
+		await Utils.sleep(160);
+		const separatorFocused = await focusLatestHorizontalSeparator(page);
+		if (!separatorFocused) {
+			Logger.warn('       ⚠️ 삽입한 구분선 블록을 선택하지 못했습니다. 다음 문단 정렬은 변경하지 않습니다.');
+			return true;
+		}
+		const centered = (await centerAlignFocusedComponent(page)) ||
+			(await centerAlignActiveTextBlock(page));
+		if (!centered) {
+			Logger.warn('       ⚠️ 구분선 가운데 정렬 적용 실패');
+		}
+		return true;
+	}
+
+	return false;
+}
+
 function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true) {
 	const title = String(heading || '함께 보면 좋은 글').trim() || '함께 보면 좋은 글';
 	const lines = [];
@@ -2102,70 +2206,85 @@ ${scrapedContext}`;
 							const leftAligned = await leftAlignActiveTextBlock(page);
 							if (leftAligned) {
 								Logger.debug('       ↔️ 인용구 직후 좌정렬 초기화');
-							} else {
-							Logger.debug('       ⚠️ 인용구 직후 좌정렬 초기화 실패');
-						}
-					}
+				} else {
+					Logger.debug('       ⚠️ 인용구 직후 좌정렬 초기화 실패');
 				}
-				else if (item.type === 'list-item') {
-					const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
-					const listText = String(item.text || '')
-						.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
-						.trim();
-					if (!listText) {
-						await page.keyboard.press('Enter');
-						inListMode = false;
-						currentListType = null;
-					} else {
-						// 리스트 종류가 바뀌면 기존 자동 리스트를 종료한 뒤 새 리스트를 시작한다.
-						if (inListMode && currentListType !== listType) {
-							await page.keyboard.press('Enter');
-							inListMode = false;
-							currentListType = null;
-						}
+			}
+		}
+		else if (item.type === 'list-item') {
+			const listType = item.listType === 'ordered' ? 'ordered' : 'unordered';
+			const listText = String(item.text || '')
+				.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, '')
+				.trim();
+			if (!listText) {
+				await page.keyboard.press('Enter');
+				inListMode = false;
+				currentListType = null;
+			} else {
+				// 리스트 종류가 바뀌면 기존 자동 리스트를 종료한 뒤 새 리스트를 시작한다.
+				if (inListMode && currentListType !== listType) {
+					await page.keyboard.press('Enter');
+					inListMode = false;
+					currentListType = null;
+				}
 
-						// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
-						const textToType = inListMode
-							? listText
-							: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
-						await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
-						if (textToType.includes('http')) await page.keyboard.press('Space');
-						await page.keyboard.press('Enter');
-						inListMode = true;
-						currentListType = listType;
+				// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
+				const textToType = inListMode
+					? listText
+					: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
+				await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
+				if (textToType.includes('http')) await page.keyboard.press('Space');
+				await page.keyboard.press('Enter');
+				inListMode = true;
+				currentListType = listType;
+			}
+		}
+		else if (item.type === 'separator') {
+			Logger.info('       ─ 구분선 삽입');
+			needsExtraGapAfterList = false;
+			if (inListMode) {
+				await page.keyboard.press('Enter');
+				inListMode = false;
+				currentListType = null;
+			}
+			const inserted = await insertHorizontalSeparatorAtCursor(page);
+			if (!inserted) {
+				Logger.warn('       ⚠️ 구분선 삽입 실패: 텍스트 구분선으로 대체합니다.');
+				await page.keyboard.type('────────────', { delay: getRandomTypingDelay() });
+				await page.keyboard.press('Enter');
+			}
+		}
+		else if (item.type === 'paragraph') {
+			const paragraphText = String(item.text || '');
+			if (needsExtraGapAfterList && paragraphText.trim()) {
+				await page.keyboard.press('Enter');
+			}
+			needsExtraGapAfterList = false;
+			let ogLinkInserted = false;
+			if (isUrlOnlyParagraph(paragraphText)) {
+				ogLinkInserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
+				if (ogLinkInserted) {
+					Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
+				} else {
+					await closeVisibleOglinkPopup(page);
+					const movedToEnd = await placeCaretAtDocumentEnd(page);
+					if (!movedToEnd) {
+						await focusEditorTypingArea(page);
 					}
+					Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
+					await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+					await page.keyboard.press('Space');
 				}
-				else if (item.type === 'paragraph') {
-					const paragraphText = String(item.text || '');
-					if (needsExtraGapAfterList && paragraphText.trim()) {
-						await page.keyboard.press('Enter');
-					}
-					needsExtraGapAfterList = false;
-					let ogLinkInserted = false;
-					if (isUrlOnlyParagraph(paragraphText)) {
-						ogLinkInserted = await insertOglinkCardAtCursor(page, paragraphText.trim());
-						if (ogLinkInserted) {
-							Logger.info(`       🔗 링크 카드 삽입: ${paragraphText.trim()}`);
-						} else {
-							await closeVisibleOglinkPopup(page);
-							const movedToEnd = await placeCaretAtDocumentEnd(page);
-							if (!movedToEnd) {
-								await focusEditorTypingArea(page);
-							}
-							Logger.warn(`       ⚠️ 링크 카드 삽입 실패(일반 URL 텍스트로 대체): ${paragraphText.trim()}`);
-							await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
-							await page.keyboard.press('Space');
-						}
-					} else {
-						await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
-						if (paragraphText.includes('http')) await page.keyboard.press('Space');
-					}
+			} else {
+				await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+				if (paragraphText.includes('http')) await page.keyboard.press('Space');
+			}
 
-					// 링크 카드가 삽입된 경우 에디터가 자동으로 다음 줄로 넘어가므로 추가 Enter를 생략한다.
-					if (!ogLinkInserted) {
-						await page.keyboard.press('Enter');
-					}
-				}
+			// 링크 카드가 삽입된 경우 에디터가 자동으로 다음 줄로 넘어가므로 추가 Enter를 생략한다.
+			if (!ogLinkInserted) {
+				await page.keyboard.press('Enter');
+			}
+		}
 				else if (item.type === 'newline') {
 					needsExtraGapAfterList = false;
 					await page.keyboard.press('Enter');

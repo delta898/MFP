@@ -3988,6 +3988,10 @@ const Utils = {
                 continue;
             }
             if (trimmedLine === '') { contents.push({ type: 'newline' }); continue; }
+            if (/^-{3,}$/.test(trimmedLine)) {
+                contents.push({ type: 'separator' });
+                continue;
+            }
             if (/^##\s+/.test(trimmedLine)) {
                 contents.push({ type: 'header-h2', text: trimmedLine.replace(/^##\s+/, '').trim() });
                 continue;

@@ -134,6 +134,7 @@ function formatContentItem(item = {}) {
             ? `1. ${item.text || ''}`.trim()
             : `- ${item.text || ''}`.trim();
     }
+    if (item.type === 'separator') return '---';
     if (item.type === 'image') return `[[IMAGE_${item.index || 0}]] ${item.text || ''}`.trim();
     if (item.type === 'newline') return '';
     return normalizeString(item.text);
