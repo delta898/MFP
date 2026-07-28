@@ -2355,25 +2355,42 @@ function renderAccountOverview(overview) {
   const usageLabel = quotaCycle === 'monthly'
     ? '이번 달 사용량'
     : (quotaCycle === 'none' && normalizedPlanCode === 'test' ? '체험 사용량' : '사용량');
+  const planCycleHelpEl = document.getElementById('account-plan-cycle-help');
+  if (planCycleHelpEl) {
+    const showCycleHelp = quotaCycle === 'monthly';
+    planCycleHelpEl.classList.toggle('hidden', !showCycleHelp);
+    const cycleHelpText = normalizedPlanCode === 'free'
+      ? 'Free Plan은 매월 1일 갱신됩니다.'
+      : '월 기본 제공량은 매월 1일 갱신됩니다.';
+    planCycleHelpEl.dataset.tooltip = cycleHelpText;
+    planCycleHelpEl.setAttribute('aria-label', cycleHelpText);
+  }
   setText('account-usage-used-label', usageLabel);
   setText('account-usage-used', unlimited ? '제한 없음' : (used == null || limit == null ? '-' : `${used} / ${limit}회`));
   setText('account-usage-remaining', unlimited ? '무제한' : (remaining == null ? '-' : `${remaining}회`));
 
-  const progress = unlimited || limit == null || limit <= 0 || used == null
-    ? 100
-    : Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
-  const progressBar = document.getElementById('account-progress-bar');
-  if (progressBar) {
-    progressBar.style.width = `${progress}%`;
-    progressBar.classList.toggle('warning', status === 'quota_exhausted' || (!unlimited && remaining != null && remaining <= 3));
+  const creditBalance = Number.isFinite(Number(usage.credit_balance)) ? Math.max(0, Number(usage.credit_balance)) : 0;
+  const totalAvailable = Number.isFinite(Number(usage.total_available)) ? Number(usage.total_available) : null;
+  setText('account-credit-balance', `${creditBalance}회`);
+  setText('account-total-available', unlimited ? '무제한' : (totalAvailable == null ? '-' : `${Math.max(0, totalAvailable)}회`));
+  const basicAvailableLabel = unlimited ? '무제한' : (remaining == null ? '-' : `${Math.max(0, remaining)}회`);
+  const creditAvailableLabel = `${creditBalance}회`;
+  setText('account-total-breakdown', unlimited
+    ? '현재 플랜에서 발행 횟수 제한 없이 사용할 수 있습니다.'
+    : `기본 제공량 ${basicAvailableLabel} + 크레딧 ${creditAvailableLabel}`);
+  const creditHelpEl = document.getElementById('account-credit-help');
+  if (creditHelpEl) {
+    const creditHelpText = quotaCycle === 'monthly'
+      ? '기본 제공량 소진 후 충전 크레딧이 사용됩니다.'
+      : '충전 크레딧은 현재 플랜 권한 안에서 사용할 수 있는 추가 발행 횟수입니다.';
+    creditHelpEl.dataset.tooltip = creditHelpText;
+    creditHelpEl.setAttribute('aria-label', creditHelpText);
   }
 
-  setText('account-license-created', `라이선스 생성일 ${formatAccountDate(subscription.created_at)}`);
+  setText('account-license-created', `라이선스 생성일: ${formatAccountDate(subscription.created_at)}`);
   if (quotaCycle === 'monthly') {
-    const periodStart = formatAccountDate(usage.current_period_start_at);
-    const nextReset = formatAccountDate(usage.resets_at);
-    setAccountMetaText('account-period-start', `현재 주기 시작일 ${periodStart === '-' ? '확인 중' : periodStart}`);
-    setAccountMetaText('account-next-reset', `다음 무료 사용량 갱신일 ${nextReset === '-' ? '확인 중' : nextReset}`);
+    setAccountMetaText('account-period-start', '', false);
+    setAccountMetaText('account-next-reset', '', false);
   } else {
     setAccountMetaItem('account-period-start', '사용 시작일', usage.current_period_start_at);
     setAccountMetaItem('account-next-reset', '다음 갱신일', usage.resets_at);
@@ -2402,6 +2419,23 @@ function renderAccountOverview(overview) {
     upgradeFreeBtn.textContent = shouldShowFreeUpgrade ? (upgradeFreeAction?.label || 'Free Plan으로 전환') : '';
     upgradeFreeBtn.disabled = !shouldShowFreeUpgrade;
     upgradeFreeBtn.title = upgradeFreeAction?.reason || '';
+  }
+
+  const changePlanAction = getAccountAction(overview, 'change_plan') || getAccountAction(overview, 'upgrade');
+  const changePlanButton = document.getElementById('account-change-plan-btn');
+  if (changePlanButton) {
+    changePlanButton.textContent = changePlanAction?.label || '구독 / 플랜 변경';
+    changePlanButton.disabled = changePlanAction?.enabled !== true;
+    changePlanButton.title = changePlanAction?.reason || '';
+  }
+  const purchaseCreditsAction = getAccountAction(overview, 'purchase_credits');
+  const purchaseCreditsButton = document.getElementById('account-purchase-credits-btn');
+  if (purchaseCreditsButton) {
+    purchaseCreditsButton.textContent = purchaseCreditsAction?.label || '크레딧 충전';
+    purchaseCreditsButton.disabled = purchaseCreditsAction?.enabled !== true || unlimited;
+    purchaseCreditsButton.title = unlimited
+      ? '무제한 플랜에서는 크레딧 충전이 필요하지 않습니다.'
+      : (purchaseCreditsAction?.reason || '');
   }
 
   setText('account-identity-label', identity.label || '기기 라이선스로 사용 중');
@@ -2631,12 +2665,24 @@ function showAccountPlanInfo() {
   return showUiDialog({
     title: '플랜 안내',
     message: [
-      'Tester: 1회성 체험',
-      'Free: 월간 무료 발행 + 기본 기능',
-      'Pro: 더 많은 월간 발행 + 고급 기능 (준비 중)',
-      'Ultra: 발행 제한 없는 상위 플랜 (준비 중)',
+      'Free',
+      '- 월 기본 발행 횟수',
+      '- 기본 블로그 발행',
       '',
-      '결제 기능은 준비되면 별도로 안내합니다.'
+      'Pro',
+      '- 더 많은 월 기본 발행 횟수',
+      '- 트렌드, 쇼핑, 연관글 등 고급 기능',
+      '',
+      'Ultra',
+      '- 가장 높은 사용량',
+      '- 상위 기능',
+      '',
+      '크레딧',
+      '- 현재 플랜 권한 안에서 사용하는 추가 발행 횟수',
+      '- 만료 없음',
+      '- 환불 불가',
+      '',
+      '구독은 기능과 월 기본 횟수를 바꾸고, 크레딧은 현재 플랜 안에서 발행 횟수만 늘립니다.'
     ].join('\n'),
     showCancel: false,
     confirmText: '확인'
