@@ -313,6 +313,34 @@ test('buildLocalMarkdownPreview supports pasted markdown without selected files'
     assert.equal(preview.validation.ok, true);
 });
 
+test('buildLocalMarkdownPreview preserves inline bold ranges for the UI preview', () => {
+    const preview = buildLocalMarkdownPreview({
+        markdownText: '# 제목\n\n굵은 문단',
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils: {
+            parseMarkdown() {
+                return {
+                    title: '제목',
+                    contents: [{
+                        type: 'paragraph',
+                        text: '굵은 문단',
+                        boldRanges: [{ start: 0, end: 2 }]
+                    }]
+                };
+            },
+            findImageByPrefix() {
+                return null;
+            }
+        }
+    });
+
+    assert.deepEqual(preview.contentItems[0].boldRanges, [{ start: 0, end: 2 }]);
+});
+
 test('buildLocalMarkdownPreview validates empty pasted markdown', () => {
     const preview = buildLocalMarkdownPreview({
         markdownText: '',

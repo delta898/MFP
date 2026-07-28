@@ -1985,7 +1985,7 @@ function isSafePreviewHref(href) {
   return /^https?:\/\//i.test(normalized);
 }
 
-function renderInlinePreviewHtml(input) {
+function renderInlinePreviewLinksHtml(input) {
   const source = String(input ?? '');
   if (!source) return '';
 
@@ -2017,6 +2017,32 @@ function renderInlinePreviewHtml(input) {
     parts.push(escapeHtml(source.slice(lastIndex)));
   }
 
+  return parts.join('');
+}
+
+function renderInlinePreviewHtml(input, boldRanges = []) {
+  const source = String(input ?? '');
+  const ranges = Array.isArray(boldRanges)
+    ? boldRanges
+      .map((range) => ({
+        start: Math.max(0, Number(range?.start) || 0),
+        end: Math.min(source.length, Number(range?.end) || 0)
+      }))
+      .filter((range) => range.end > range.start)
+      .sort((a, b) => a.start - b.start)
+    : [];
+
+  if (ranges.length === 0) return renderInlinePreviewLinksHtml(source);
+
+  const parts = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start < cursor) continue;
+    parts.push(renderInlinePreviewLinksHtml(source.slice(cursor, range.start)));
+    parts.push(`<strong>${renderInlinePreviewLinksHtml(source.slice(range.start, range.end))}</strong>`);
+    cursor = range.end;
+  }
+  parts.push(renderInlinePreviewLinksHtml(source.slice(cursor)));
   return parts.join('');
 }
 
@@ -7028,7 +7054,7 @@ function bindActions() {
 
     items.forEach((item) => {
       const type = String(item?.type || 'paragraph');
-      const text = renderInlinePreviewHtml(item?.text || '');
+      const text = renderInlinePreviewHtml(item?.text || '', item?.boldRanges);
       if (type !== 'list-item') closeList();
 
       if (type === 'header-h2') {
@@ -7479,7 +7505,7 @@ function bindActions() {
 
     items.forEach((item) => {
       const type = String(item?.type || 'paragraph');
-      const text = renderInlinePreviewHtml(item?.text || '');
+      const text = renderInlinePreviewHtml(item?.text || '', item?.boldRanges);
       if (type !== 'list-item') closeList();
 
       if (type === 'header-h2') {

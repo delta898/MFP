@@ -3941,6 +3941,31 @@ const Utils = {
         let currentImageIndex = null;
         let currentImageLines = [];
 
+        const createTextContent = (type, source, extra = {}) => {
+            const rawText = String(source || '');
+            const boldRanges = [];
+            let text = '';
+            let cursor = 0;
+            const boldPattern = /\*\*([^*\n]+)\*\*/g;
+            let match;
+
+            while ((match = boldPattern.exec(rawText)) !== null) {
+                text += rawText.slice(cursor, match.index);
+                const start = text.length;
+                text += match[1];
+                boldRanges.push({ start, end: text.length });
+                cursor = match.index + match[0].length;
+            }
+            text += rawText.slice(cursor);
+
+            return {
+                type,
+                ...extra,
+                text,
+                ...(boldRanges.length > 0 ? { boldRanges } : {})
+            };
+        };
+
         for (const line of lines) {
             const trimmedLine = line.trim();
             if (!title && trimmedLine.startsWith('# ')) {
@@ -3993,33 +4018,30 @@ const Utils = {
                 continue;
             }
             if (/^##\s+/.test(trimmedLine)) {
-                contents.push({ type: 'header-h2', text: trimmedLine.replace(/^##\s+/, '').trim() });
+                contents.push(createTextContent('header-h2', trimmedLine.replace(/^##\s+/, '').trim()));
                 continue;
             }
             if (/^>\s*/.test(trimmedLine)) {
-                contents.push({
-                    type: 'quote',
-                    text: trimmedLine.replace(/^>\s*/, '').trim()
-                });
+                contents.push(createTextContent('quote', trimmedLine.replace(/^>\s*/, '').trim()));
                 continue;
             }
             if (/^[-*]\s+/.test(trimmedLine)) {
-                contents.push({
-                    type: 'list-item',
-                    listType: 'unordered',
-                    text: trimmedLine.replace(/^[-*]\s+/, '').trim()
-                });
+                contents.push(createTextContent(
+                    'list-item',
+                    trimmedLine.replace(/^[-*]\s+/, '').trim(),
+                    { listType: 'unordered' }
+                ));
                 continue;
             }
             if (/^\d+[.)]\s+/.test(trimmedLine)) {
-                contents.push({
-                    type: 'list-item',
-                    listType: 'ordered',
-                    text: trimmedLine.replace(/^\d+[.)]\s+/, '').trim()
-                });
+                contents.push(createTextContent(
+                    'list-item',
+                    trimmedLine.replace(/^\d+[.)]\s+/, '').trim(),
+                    { listType: 'ordered' }
+                ));
                 continue;
             }
-            contents.push({ type: 'paragraph', text: line.replace(/\*\*(.*?)\*\*/g, '$1') });
+            contents.push(createTextContent('paragraph', line));
         }
         return { title, contents };
     },

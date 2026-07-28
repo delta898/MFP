@@ -322,7 +322,15 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
             text: normalizeString(item.text),
             prompt: normalizeString(item.prompt),
             index: Number.isInteger(Number(item.index)) ? Number(item.index) : null,
-            listType: normalizeString(item.listType)
+            listType: normalizeString(item.listType),
+            boldRanges: Array.isArray(item.boldRanges)
+                ? item.boldRanges
+                    .map((range) => ({
+                        start: Number(range?.start),
+                        end: Number(range?.end)
+                    }))
+                    .filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.end > range.start)
+                : []
         })),
         images: imageEntries,
         stats: {

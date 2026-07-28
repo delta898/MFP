@@ -35,8 +35,38 @@ test('parseMarkdown keeps inline hyphen runs as paragraph text', () => {
     });
 });
 
+test('parseMarkdown preserves inline bold ranges while normalizing paragraph text', () => {
+    const parsed = Utils.parseMarkdown('첫 **굵은 글자**와 **두 번째** 문장');
+
+    assert.deepEqual(parsed.contents[0], {
+        type: 'paragraph',
+        text: '첫 굵은 글자와 두 번째 문장',
+        boldRanges: [
+            { start: 2, end: 7 },
+            { start: 9, end: 13 }
+        ]
+    });
+});
+
+test('parseMarkdown preserves inline bold ranges in list items', () => {
+    const parsed = Utils.parseMarkdown('- **중요** 항목');
+
+    assert.deepEqual(parsed.contents[0], {
+        type: 'list-item',
+        listType: 'unordered',
+        text: '중요 항목',
+        boldRanges: [{ start: 0, end: 2 }]
+    });
+});
+
 test('marked renders standalone hyphen rules as horizontal rules for WordPress', () => {
     const html = marked('첫 문단\n\n---\n\n다음 문단');
 
     assert.match(html, /<hr>/);
+});
+
+test('marked renders inline Markdown bold for WordPress', () => {
+    const html = marked('**굵은 글자**');
+
+    assert.match(html, /<strong>굵은 글자<\/strong>/);
 });

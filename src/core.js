@@ -1151,6 +1151,32 @@ async function selectCurrentParagraphContents(page) {
 	}
 }
 
+async function typeTextWithInlineBold(page, text, boldRanges, delay) {
+	const source = String(text || '');
+	const ranges = Array.isArray(boldRanges)
+		? boldRanges
+			.map((range) => ({ start: Number(range?.start), end: Number(range?.end) }))
+			.filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.start >= 0 && range.end <= source.length && range.end > range.start)
+			.sort((a, b) => a.start - b.start)
+		: [];
+
+	if (ranges.length === 0) {
+		await page.keyboard.type(source, { delay });
+		return;
+	}
+
+	let cursor = 0;
+	for (const range of ranges) {
+		if (range.start < cursor) continue;
+		await page.keyboard.type(source.slice(cursor, range.start), { delay });
+		await page.keyboard.press(`${CMD_KEY}+B`);
+		await page.keyboard.type(source.slice(range.start, range.end), { delay });
+		await page.keyboard.press(`${CMD_KEY}+B`);
+		cursor = range.end;
+	}
+	await page.keyboard.type(source.slice(cursor), { delay });
+}
+
 function resolvePublishViewport() {
 	return { ...SAFE_EDITOR_VIEWPORT };
 }
@@ -2229,11 +2255,10 @@ ${scrapedContext}`;
 				}
 
 				// 첫 항목만 마커를 입력하고, 이후 항목은 에디터 자동 마커를 사용한다.
-				const textToType = inListMode
-					? listText
-					: (listType === 'ordered' ? `1. ${listText}` : `- ${listText}`);
-				await page.keyboard.type(textToType, { delay: getRandomTypingDelay() });
-				if (textToType.includes('http')) await page.keyboard.press('Space');
+				const listMarker = inListMode ? '' : (listType === 'ordered' ? '1. ' : '- ');
+				if (listMarker) await page.keyboard.type(listMarker, { delay: getRandomTypingDelay() });
+				await typeTextWithInlineBold(page, listText, item.boldRanges, getRandomTypingDelay());
+				if (listText.includes('http')) await page.keyboard.press('Space');
 				await page.keyboard.press('Enter');
 				inListMode = true;
 				currentListType = listType;
@@ -2276,7 +2301,7 @@ ${scrapedContext}`;
 					await page.keyboard.press('Space');
 				}
 			} else {
-				await page.keyboard.type(paragraphText, { delay: getRandomTypingDelay() });
+				await typeTextWithInlineBold(page, paragraphText, item.boldRanges, getRandomTypingDelay());
 				if (paragraphText.includes('http')) await page.keyboard.press('Space');
 			}
 
