@@ -24,7 +24,7 @@ Markdown 원고의 단독 줄 `---`를 네이버 블로그 발행 시 SmartEdito
 
 ## Validation
 - parser: 단독 줄 `---`만 `separator`로 분류한다.
-- preview: `separator`를 다시 `---`로 직렬화한다.
+- preview: `separator`를 실제 발행 구분선이 있음을 알리는 일관된 중앙 구분선으로 렌더링한다.
 - WordPress: `marked()` 결과에 `<hr>`가 포함되는지 확인한다.
 - Naver: 임시저장 smoke test에서 구분선이 실제 블록으로 가운데 정렬되고, 다음 문단이 기본 좌측 정렬을 유지하는지 확인한다.
 

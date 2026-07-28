@@ -7053,6 +7053,10 @@ function bindActions() {
         fragments.push(renderImageFigure(item));
         return;
       }
+      if (type === 'separator') {
+        fragments.push('<div class="local-markdown-preview-separator" role="separator" aria-label="구분선"></div>');
+        return;
+      }
       if (type === 'newline') {
         fragments.push('<div style="height:8px"></div>');
         return;
@@ -7498,6 +7502,10 @@ function bindActions() {
       }
       if (type === 'image') {
         fragments.push(renderImageFigure(item));
+        return;
+      }
+      if (type === 'separator') {
+        fragments.push('<div class="local-markdown-preview-separator" role="separator" aria-label="구분선"></div>');
         return;
       }
       if (type === 'newline') {

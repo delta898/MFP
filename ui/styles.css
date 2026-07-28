@@ -1632,6 +1632,20 @@ h2 {
   white-space: pre-wrap;
 }
 
+.local-markdown-preview-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  margin: 4px 0 20px;
+}
+
+.local-markdown-preview-separator::before {
+  content: '';
+  width: min(42%, 280px);
+  border-top: 1px solid #94a3b8;
+}
+
 .local-markdown-body-preview blockquote {
   border-left: 4px solid #bfdbfe;
   background: #f8fbff;
