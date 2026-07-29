@@ -1,4 +1,4 @@
-# Buffer SNS Distribution Plan
+# Buffer SNS Distribution Plan (Completed)
 
 ## Current Status
 

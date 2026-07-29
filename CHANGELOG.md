@@ -3,6 +3,14 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.14-dev2] - 2026-07-29
+
+### Added
+- **Buffer 기반 SNS 자동 발행**: 네이버 블로그와 WordPress RSS에서 발견한 글을 공유 Google Spreadsheet의 `SNS` 시트에 채널별로 기록하고, 설정 주기마다 같은 원문 글을 선택한 Buffer 채널 최대 3개에 즉시 발행합니다.
+- **SNS 콘텐츠 자동 구성**: RSS 글 요약, 선택형 AI 해시태그 생성·시트 저장, Bitly URL 단축, 플랫폼별 글자 수 조정과 Instagram 대표 이미지 필수 정책을 적용합니다.
+- **SNS 운영 상태 및 실패 처리**: 설정 화면에서 Buffer 연결·조직·채널과 RSS/발행 상태를 확인하고 수동 실행할 수 있으며, 채널별 결과 기록, 일시 오류 재시도, 최종 실패 Telegram 알림을 지원합니다.
+- **SNS capability와 공통 시트 준비**: `enable_sns_distribution` capability로 RSS 수집과 외부 발행을 함께 제어하고, 모든 플랜의 공통 초기화에서 canonical `SNS` 시트를 준비합니다.
+
 ## [0.1.14-dev1] - 2026-07-28
 
 ### Added
