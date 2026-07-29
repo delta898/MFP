@@ -1,8 +1,11 @@
 const { isTransientBufferError } = require('./gateways/buffer-client');
-
-const IMAGE_REQUIRED_SERVICES = Object.freeze(new Set([
-    'instagram'
-]));
+const {
+    formatSnsPost,
+    isSnsServiceSupported,
+    isSnsServiceDisabled,
+    normalizeHashtagTokens,
+    requiresImageAsset
+} = require('./sns-content-formatter');
 
 function normalizeTokens(value) {
     return [...new Set((Array.isArray(value) ? value : [])
@@ -10,14 +13,44 @@ function normalizeTokens(value) {
         .filter(Boolean))];
 }
 
-function requiresImageAsset(service) {
-    return IMAGE_REQUIRED_SERVICES.has(String(service || '').trim().toLowerCase());
+function composeSnsPostText(row = {}, options = {}) {
+    const formatted = formatSnsPost({
+        service: row.service || options.service || 'facebook',
+        title: row.title,
+        summary: row.summary,
+        url: options.url || row.originalUrl,
+        hashtags: options.hashtags ?? row.hashtags
+    });
+    return formatted.success ? formatted.text : '';
 }
 
-function composeSnsPostText(row = {}) {
-    const title = String(row.title || '').trim();
-    const originalUrl = String(row.originalUrl || '').trim();
-    return [title, originalUrl].filter(Boolean).join('\n\n');
+function escapeTelegramHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function buildSnsFailureNotification(group = {}, failures = []) {
+    const first = Array.isArray(group.rows) ? group.rows[0] || {} : {};
+    const title = escapeTelegramHtml(first.title || '(제목 없음)');
+    const originalUrl = String(first.originalUrl || '').trim();
+    const lines = failures.map((failure) => {
+        const row = failure.row || {};
+        const channel = escapeTelegramHtml(row.channelName || row.service || row.channelId || '알 수 없는 채널');
+        return `• <b>${channel}</b>: ${escapeTelegramHtml(failure.message || '알 수 없는 오류')}`;
+    });
+    return [
+        '<b>❌ BlogGenius SNS 발행 실패</b>',
+        '',
+        `<b>글:</b> ${title}`,
+        ...(originalUrl
+            ? [`<b>원문:</b> <a href="${escapeTelegramHtml(originalUrl)}">${escapeTelegramHtml(originalUrl)}</a>`]
+            : []),
+        `<b>실패 채널:</b> ${failures.length}개`,
+        ...lines
+    ].join('\n');
 }
 
 function createSnsDistributionRunner(options = {}) {
@@ -26,6 +59,9 @@ function createSnsDistributionRunner(options = {}) {
         License,
         store,
         bufferClient,
+        aiService,
+        urlService,
+        notificationService,
         getEnableSnsDistribution,
         Logger
     } = options;
@@ -41,10 +77,70 @@ function createSnsDistributionRunner(options = {}) {
         || typeof store.findFirstPendingGroup !== 'function'
         || typeof store.markGroupProcessing !== 'function'
         || typeof store.applyDeliveryResults !== 'function'
+        || typeof store.saveEntryHashtags !== 'function'
         || !bufferClient
         || typeof bufferClient.shareNowMany !== 'function'
+        || !aiService
+        || typeof aiService.generateHashtags !== 'function'
+        || !urlService
+        || typeof urlService.shorten !== 'function'
+        || !notificationService
+        || typeof notificationService.sendNotification !== 'function'
         || typeof getEnableSnsDistribution !== 'function') {
         throw new Error('SNS Distribution Runner 의존성이 올바르지 않습니다.');
+    }
+
+    async function notifyFinalFailures(group, failures) {
+        if (failures.length === 0
+            || CONFIG.NOTIFY_TELEGRAM_ENABLED !== true
+            || !String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()
+            || !String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()) {
+            return { attempted: false, success: false };
+        }
+        try {
+            const result = await notificationService.sendNotification(
+                buildSnsFailureNotification(group, failures),
+                {
+                    enabled: true,
+                    botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                    chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID
+                }
+            );
+            return { attempted: true, success: result?.success === true };
+        } catch (error) {
+            Logger?.warn?.(`⚠️ [SNS] 최종 실패 Telegram 알림 전송 실패: ${error.message}`);
+            return { attempted: true, success: false };
+        }
+    }
+
+    async function applyPreparationFailure(group, rows, error, trigger, skippedCount) {
+        const message = `SNS 발행 준비 실패: ${error.message}`;
+        const deliveryResults = rows.map((row) => ({
+            rowNumber: row.rowNumber,
+            status: '실패',
+            log: message
+        }));
+        await store.applyDeliveryResults(deliveryResults);
+        const notification = await notifyFinalFailures(
+            group,
+            rows.map((row) => ({ row, message }))
+        );
+        return {
+            success: false,
+            code: 'SNS_DISTRIBUTION_PREPARATION_FAILED',
+            message,
+            data: {
+                trigger,
+                entryKey: group.entryKey,
+                attemptedCount: rows.length,
+                completedCount: 0,
+                failedCount: rows.length,
+                skippedCount,
+                attempts: 0,
+                notification,
+                rowNumbers: group.rows.map((row) => row.rowNumber)
+            }
+        };
     }
 
     async function run(trigger = 'auto') {
@@ -124,6 +220,16 @@ function createSnsDistributionRunner(options = {}) {
                 });
                 continue;
             }
+            if (!isSnsServiceSupported(row.service)) {
+                skipped.push({
+                    rowNumber: row.rowNumber,
+                    status: '건너뜀',
+                    log: isSnsServiceDisabled(row.service)
+                        ? `${row.service || '해당 채널'}은(는) SNS 자동 발행 지원 대상에서 제외됨`
+                        : `${row.service || '해당 채널'}은(는) SNS 자동 발행에서 지원하지 않음`
+                });
+                continue;
+            }
             if (requiresImageAsset(row.service) && !String(row.imageUrl || '').trim()) {
                 skipped.push({
                     rowNumber: row.rowNumber,
@@ -154,45 +260,106 @@ function createSnsDistributionRunner(options = {}) {
             };
         }
 
-        await store.markGroupProcessing(
-            publishable,
-            `원문 글 묶음 발행 시작 · 채널 ${publishable.length}개`
+        const firstRow = publishable[0];
+        let publishUrl = String(firstRow.originalUrl || '').trim();
+        try {
+            publishUrl = await urlService.shorten(publishUrl, CONFIG.NOTIFY_BITLY_TOKEN) || publishUrl;
+        } catch (error) {
+            Logger?.warn?.(`⚠️ [SNS] Bitly URL 단축 실패, 원문 URL을 사용합니다: ${error.message}`);
+        }
+
+        let hashtags = normalizeHashtagTokens(
+            publishable.find((row) => String(row.hashtags || '').trim())?.hashtags
+        );
+        if (hashtags.length === 0) {
+            const aiResult = await aiService.generateHashtags({
+                mode: CONFIG.SNS_AI_MODE,
+                title: firstRow.title,
+                summary: firstRow.summary
+            });
+            hashtags = normalizeHashtagTokens(aiResult?.hashtags);
+        }
+
+        if (hashtags.length > 0) {
+            try {
+                await store.saveEntryHashtags(group.entryKey, hashtags.join(' '));
+            } catch (error) {
+                return applyPreparationFailure(group, publishable, error, trigger, skipped.length);
+            }
+        }
+
+        const deliveries = [];
+        const formattingFailures = [];
+        for (const row of publishable) {
+            const formatted = formatSnsPost({
+                service: row.service,
+                title: row.title,
+                summary: row.summary,
+                url: publishUrl,
+                hashtags
+            });
+            if (!formatted.success) {
+                formattingFailures.push({
+                    row,
+                    message: formatted.message
+                });
+                continue;
+            }
+            deliveries.push({
+                deliveryKey: row.deliveryKey,
+                channelId: row.channelId,
+                text: formatted.text,
+                imageUrl: row.imageUrl
+            });
+        }
+
+        if (formattingFailures.length > 0) {
+            await store.applyDeliveryResults(formattingFailures.map(({ row, message }) => ({
+                rowNumber: row.rowNumber,
+                status: '실패',
+                log: message
+            })));
+        }
+        const formattedRows = publishable.filter(
+            (row) => !formattingFailures.some((failure) => failure.row.rowNumber === row.rowNumber)
         );
 
-        const deliveries = publishable.map((row) => ({
-            deliveryKey: row.deliveryKey,
-            channelId: row.channelId,
-            text: composeSnsPostText(row),
-            imageUrl: row.imageUrl
-        }));
+        if (deliveries.length > 0) {
+            await store.markGroupProcessing(
+                formattedRows,
+                `원문 글 묶음 발행 시작 · 채널 ${formattedRows.length}개`
+            );
+        }
+
         let attempts = 0;
         let publishResults = [];
         let finalError = null;
-
-        while (attempts < maxAttempts) {
-            attempts += 1;
-            try {
-                publishResults = await bufferClient.shareNowMany(apiKey, deliveries);
-                finalError = null;
-                break;
-            } catch (error) {
-                finalError = error;
-                const canRetry = isTransientBufferError(error) && attempts < maxAttempts;
-                Logger?.warn?.(
-                    `⚠️ [SNS] Buffer 묶음 발행 ${attempts}차 실패`
-                    + `${canRetry ? `, ${Math.round(retryDelayMs / 1000)}초 후 재시도` : ''}: ${error.message}`
-                );
-                if (!canRetry) break;
-                await sleep(retryDelayMs);
+        if (deliveries.length > 0) {
+            while (attempts < maxAttempts) {
+                attempts += 1;
+                try {
+                    publishResults = await bufferClient.shareNowMany(apiKey, deliveries);
+                    finalError = null;
+                    break;
+                } catch (error) {
+                    finalError = error;
+                    const canRetry = isTransientBufferError(error) && attempts < maxAttempts;
+                    Logger?.warn?.(
+                        `⚠️ [SNS] Buffer 묶음 발행 ${attempts}차 실패`
+                        + `${canRetry ? `, ${Math.round(retryDelayMs / 1000)}초 후 재시도` : ''}: ${error.message}`
+                    );
+                    if (!canRetry) break;
+                    await sleep(retryDelayMs);
+                }
             }
         }
 
         const rowsByDeliveryKey = new Map(
-            publishable.map((row) => [String(row.deliveryKey || '').trim(), row])
+            formattedRows.map((row) => [String(row.deliveryKey || '').trim(), row])
         );
         const deliveryResults = [];
         if (finalError) {
-            for (const row of publishable) {
+            for (const row of formattedRows) {
                 deliveryResults.push({
                     rowNumber: row.rowNumber,
                     status: '실패',
@@ -217,7 +384,7 @@ function createSnsDistributionRunner(options = {}) {
                     });
             }
             const resolvedRows = new Set(deliveryResults.map((item) => item.rowNumber));
-            for (const row of publishable) {
+            for (const row of formattedRows) {
                 if (resolvedRows.has(row.rowNumber)) continue;
                 deliveryResults.push({
                     rowNumber: row.rowNumber,
@@ -227,9 +394,21 @@ function createSnsDistributionRunner(options = {}) {
             }
         }
 
-        await store.applyDeliveryResults(deliveryResults);
+        if (deliveryResults.length > 0) {
+            await store.applyDeliveryResults(deliveryResults);
+        }
+        const allFailures = [
+            ...formattingFailures,
+            ...deliveryResults
+                .filter((item) => item.status === '실패')
+                .map((item) => ({
+                    row: formattedRows.find((row) => row.rowNumber === item.rowNumber) || {},
+                    message: item.log
+                }))
+        ];
+        const notification = await notifyFinalFailures(group, allFailures);
         const completedCount = deliveryResults.filter((item) => item.status === '완료').length;
-        const failedCount = deliveryResults.filter((item) => item.status === '실패').length;
+        const failedCount = allFailures.length;
         const result = {
             success: failedCount === 0,
             code: failedCount === 0 ? 'SNS_DISTRIBUTION_COMPLETED' : 'SNS_DISTRIBUTION_PARTIAL',
@@ -242,6 +421,7 @@ function createSnsDistributionRunner(options = {}) {
                 failedCount,
                 skippedCount: skipped.length,
                 attempts,
+                notification,
                 rowNumbers: group.rows.map((row) => row.rowNumber)
             }
         };
@@ -258,9 +438,10 @@ function createSnsDistributionRunner(options = {}) {
 }
 
 module.exports = {
-    IMAGE_REQUIRED_SERVICES,
     normalizeTokens,
     requiresImageAsset,
     composeSnsPostText,
+    escapeTelegramHtml,
+    buildSnsFailureNotification,
     createSnsDistributionRunner
 };

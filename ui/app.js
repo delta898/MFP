@@ -4549,9 +4549,17 @@ function normalizeSettingsBufferChannels(value) {
     });
 }
 
+function isSettingsBufferChannelUnsupported(channel) {
+  const service = String(channel?.service || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ['tiktok', 'youtube', 'youtubeshorts'].includes(service);
+}
+
 function getSelectedSettingsBufferChannels() {
   return settingsBufferChannels
-    .filter((channel) => settingsBufferSelectedChannelIds.has(channel.id))
+    .filter((channel) => (
+      settingsBufferSelectedChannelIds.has(channel.id)
+      && !isSettingsBufferChannelUnsupported(channel)
+    ))
     .slice(0, 3)
     .map((channel) => ({
       id: channel.id,
@@ -4605,12 +4613,14 @@ function renderSettingsBufferChannels() {
   }
 
   settingsBufferChannels.forEach((channel) => {
+    const unsupported = isSettingsBufferChannelUnsupported(channel);
+    if (unsupported) settingsBufferSelectedChannelIds.delete(channel.id);
     const labelEl = document.createElement('label');
     labelEl.className = 'settings-checkbox-label';
     const checkEl = document.createElement('input');
     checkEl.type = 'checkbox';
     checkEl.checked = settingsBufferSelectedChannelIds.has(channel.id);
-    checkEl.disabled = channel.is_disconnected || channel.is_locked;
+    checkEl.disabled = channel.is_disconnected || channel.is_locked || unsupported;
     checkEl.addEventListener('change', () => {
       if (checkEl.checked && settingsBufferSelectedChannelIds.size >= 3) {
         checkEl.checked = false;
@@ -4630,7 +4640,7 @@ function renderSettingsBufferChannels() {
     const textEl = document.createElement('span');
     const stateLabel = channel.is_disconnected
       ? ' · 연결 끊김'
-      : (channel.is_locked ? ' · 잠김' : '');
+      : (channel.is_locked ? ' · 잠김' : (unsupported ? ' · 지원 제외' : ''));
     textEl.textContent = `${channel.display_name || channel.name || channel.id} · ${channel.service || 'unknown'}${stateLabel}`;
     labelEl.append(checkEl, textEl);
     containerEl.appendChild(labelEl);
@@ -4832,7 +4842,11 @@ async function inspectSettingsBufferConnection(organizationId = '') {
     renderSettingsBufferOrganizations(data.organization_id || organizationId);
 
     settingsBufferChannels = normalizeSettingsBufferChannels(data.channels);
-    const availableIds = new Set(settingsBufferChannels.map((channel) => channel.id));
+    const availableIds = new Set(
+      settingsBufferChannels
+        .filter((channel) => !isSettingsBufferChannelUnsupported(channel))
+        .map((channel) => channel.id)
+    );
     settingsBufferSelectedChannelIds = new Set(
       Array.from(settingsBufferSelectedChannelIds).filter((id) => availableIds.has(id))
     );
@@ -5096,7 +5110,12 @@ function applySettingsMajorToForm(data, options = {}) {
   sc(document.getElementById('settings-sns-source-wordpress'), snsSourceBlogs.includes('wordpress'));
   settingsBufferOrganizations = [];
   settingsBufferChannels = normalizeSettingsBufferChannels(fields.BUFFER_CHANNELS);
-  settingsBufferSelectedChannelIds = new Set(settingsBufferChannels.map((channel) => channel.id).slice(0, 3));
+  settingsBufferSelectedChannelIds = new Set(
+    settingsBufferChannels
+      .filter((channel) => !isSettingsBufferChannelUnsupported(channel))
+      .map((channel) => channel.id)
+      .slice(0, 3)
+  );
   renderSettingsBufferOrganizations(fields.BUFFER_ORGANIZATION_ID || '');
   if (bufferOrganizationEl) bufferOrganizationEl.value = fields.BUFFER_ORGANIZATION_ID || '';
   renderSettingsBufferChannels();

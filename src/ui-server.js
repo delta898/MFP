@@ -42,6 +42,7 @@ const { createSnsSheetStore } = require('./social/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
+const { createSnsAiService } = require('./social/sns-ai-service');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
@@ -223,11 +224,19 @@ const snsRssDiscovery = createSnsRssDiscovery({
     Logger,
     httpClient: axios
 });
+const snsAiService = createSnsAiService({
+    CONFIG,
+    Utils,
+    Logger
+});
 const snsDistributionRunner = createSnsDistributionRunner({
     CONFIG,
     License,
     store: snsSheetStore,
     bufferClient: new BufferClient({ axios }),
+    aiService: snsAiService,
+    urlService: UrlService,
+    notificationService: TelegramService,
     getEnableSnsDistribution,
     Logger
 });

@@ -6,6 +6,7 @@
 - Phase 2의 `SNS` 시트 schema, 공통 초기화, queue/ledger store 구현 완료
 - Phase 3 네이버·WordPress RSS Discovery와 자동 주기 연결 완료
 - Phase 4 `entry_key` 단위 Buffer 즉시 발행과 채널별 결과 기록 구현 완료
+- Phase 4 SNS 콘텐츠 포맷, 선택형 AI 해시태그, Bitly, 최종 실패 Telegram 알림 구현 완료
 
 ## Goal
 
@@ -277,6 +278,40 @@ chat
 - AI를 사용하지 않더라도 사용자가 `해시태그` 컬럼에 입력한 값은 발행 콘텐츠에 사용한다.
 - 플랫폼 길이 제한에 따라 해시태그 개수는 줄일 수 있다.
 
+## SNS Content and Integration Contract
+
+채널에 전달하는 기본 텍스트 블록 순서는 다음과 같다.
+
+```text
+제목
+
+글 요약
+
+URL
+
+해시태그
+```
+
+- URL은 Bitly token이 설정되어 있으면 원문 글당 한 번 단축하고 모든 채널이 같은 단축 URL을 사용한다.
+- Bitly가 미설정이거나 단축 호출에 실패하면 원문 URL로 계속 발행한다.
+- URL은 플랫폼 글자 수 조정 과정에서 자르거나 제거하지 않는다.
+- 제한을 넘으면 글 요약을 먼저 축약하고, 해시태그를 뒤에서부터 제거한 뒤, 마지막으로 제목을 축약한다.
+- URL만으로 플랫폼 제한을 맞출 수 없으면 해당 채널을 `실패`로 기록한다.
+- 글자 수는 Unicode code point 기준으로 계산한다. Bluesky URL은 실제 길이와 무관하게 22자로 계산한다.
+- 현재 적용하는 보수적 제한은 Bluesky 300, X 280, Threads 500, Instagram 2,200,
+  LinkedIn 3,000, Facebook 5,000, Pinterest 500, Mastodon 500,
+  Google Business 1,500, Start Page 5,000자다.
+- Instagram은 대표 이미지가 없으면 `건너뜀`으로 기록한다.
+- TikTok과 YouTube/YouTube Shorts는 현재 콘텐츠 형태와 맞지 않아 설정 UI에서 선택할 수 없고 runner에서도 `건너뜀` 처리한다.
+
+Telegram 설정이 활성화되어 있고 bot token과 chat ID가 모두 있으면 원문 글 묶음
+처리가 끝난 뒤 최종 실패 채널을 한 메시지로 알린다.
+
+- Buffer의 채널별 영구 실패, 재시도 소진, 포맷 실패, 해시태그 시트 저장 실패를 알림 대상으로 본다.
+- 이미지 누락, 선택 해제, 미지원 플랫폼 같은 `건너뜀`은 알림 대상으로 보지 않는다.
+- 성공한 채널이 일부 있어도 실패 채널이 있으면 한 번 알린다.
+- Telegram 전송 실패는 SNS 시트의 완료/실패 결과를 변경하지 않는다.
+
 ## Multi-Computer Policy
 
 - 중앙 상태는 로컬 파일이 아니라 공유 `SNS` 시트에 저장한다.
@@ -296,9 +331,10 @@ distribution lane으로 둔다.
 src/social/
   feed-entry.js
   sns-distribution-runner.js
+  sns-ai-service.js
+  sns-content-formatter.js
   sns-sheet-store.js
   google-sheets-sns-gateway.js
-  content-composer.js
   gateways/
     buffer-client.js
 ```
@@ -363,6 +399,11 @@ runner는 Buffer 응답 구조에 직접 의존하지 않는다.
 - Buffer `shareNow` (완료)
 - 일시 오류 총 3회 시도와 10초 간격 (완료)
 - 채널별 완료/실패/건너뜀 및 Buffer Post ID 기록 (완료)
+- 제목·요약·URL·해시태그 콘텐츠 구성과 플랫폼별 길이 조정 (완료)
+- 선택한 AI 역할로 원문당 해시태그 최대 5개 생성 및 시트 저장 (완료)
+- Bitly 설정 시 원문당 URL 단축 1회와 실패 시 원문 URL fallback (완료)
+- TikTok·YouTube 계열 발행 채널 선택 차단과 runner 방어 (완료)
+- 원문 글 묶음의 최종 실패 Telegram 알림 (완료)
 
 ### Phase 5: Operational Visibility
 
@@ -389,7 +430,6 @@ runner는 Buffer 응답 구조에 직접 의존하지 않는다.
 - Buffer queue와 예약 발행
 - SNS별 성과 분석
 - AI 기반 SNS 문구 재작성
-- 해시태그 추천
 - 자동 영구 재시도
 - 24시간 발행 상한
 - Spreadsheet 분산 lock
