@@ -43,7 +43,8 @@ function createSettingsService(deps = {}) {
         getRemoteServiceStatus,
         createConfigRevision,
         parseConfigValue,
-        TelegramService
+        TelegramService,
+        BufferClient
     } = deps;
 
     const normalizeTelegramCustomAiBaseUrl = (rawBaseUrl) => {
@@ -80,7 +81,22 @@ function createSettingsService(deps = {}) {
 
         async saveMajorSettings(requestBody = {}) {
             const writablePath = resolveWritableConfigPath();
+            const requestedBufferChannels = Array.isArray(requestBody.BUFFER_CHANNELS)
+                ? requestBody.BUFFER_CHANNELS
+                : [];
+            if (requestedBufferChannels.length > 3) {
+                throw createApiError(400, 'BUFFER_CHANNEL_LIMIT_EXCEEDED', 'Buffer 채널은 최대 3개까지 선택할 수 있습니다.');
+            }
             const fields = parseMajorFieldsFromRequest(requestBody || {});
+            if (fields.SNS_PUBLISH_ENABLED && !String(fields.BUFFER_API_KEY || '').trim()) {
+                throw createApiError(400, 'BUFFER_API_KEY_REQUIRED', 'SNS 자동 발행을 사용하려면 Buffer API Key가 필요합니다.');
+            }
+            if (fields.SNS_PUBLISH_ENABLED && !String(fields.BUFFER_ORGANIZATION_ID || '').trim()) {
+                throw createApiError(400, 'BUFFER_ORGANIZATION_REQUIRED', 'SNS 자동 발행을 사용하려면 Buffer Organization을 선택해야 합니다.');
+            }
+            if (fields.SNS_PUBLISH_ENABLED && (!Array.isArray(fields.BUFFER_CHANNELS) || fields.BUFFER_CHANNELS.length === 0)) {
+                throw createApiError(400, 'BUFFER_CHANNEL_REQUIRED', 'SNS 자동 발행을 사용하려면 Buffer 채널을 1개 이상 선택해야 합니다.');
+            }
             const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
             const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
             const prevTelegramEnabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
@@ -205,6 +221,13 @@ function createSettingsService(deps = {}) {
                 speech_level: fields.BLOG_SPEECH_LEVEL
             };
 
+            if (!structuredConfig.integrations) structuredConfig.integrations = {};
+            if (!structuredConfig.integrations.buffer) structuredConfig.integrations.buffer = {};
+            structuredConfig.integrations.buffer.api_key = fields.BUFFER_API_KEY;
+            structuredConfig.integrations.buffer.organization_id = fields.BUFFER_ORGANIZATION_ID;
+            structuredConfig.integrations.buffer.channels = fields.BUFFER_CHANNELS;
+            structuredConfig.integrations.buffer.help_url = fields.BUFFER_HELP_URL;
+
             // 5. Automation
             if (!structuredConfig.automation) structuredConfig.automation = {};
             if (!structuredConfig.automation.collect) structuredConfig.automation.collect = {};
@@ -276,6 +299,11 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.shopping.start_time = fields.SHOPPING_PUBLISH_AUTO_START_TIME;
             structuredConfig.automation.publish.shopping.end_time = fields.SHOPPING_PUBLISH_AUTO_END_TIME;
             structuredConfig.automation.publish.shopping.time = fields.SHOPPING_AUTO_TIME;
+
+            if (!structuredConfig.automation.publish.social) structuredConfig.automation.publish.social = {};
+            structuredConfig.automation.publish.social.enabled = fields.SNS_PUBLISH_ENABLED;
+            structuredConfig.automation.publish.social.interval_min = Number(fields.SNS_PUBLISH_INTERVAL_MIN);
+            structuredConfig.automation.publish.social.sheet_name = 'sns';
 
             // Notification
             if (!structuredConfig.notification) structuredConfig.notification = {};
@@ -425,6 +453,28 @@ function createSettingsService(deps = {}) {
                 shoppingImageDefaults: updatedSettings.shoppingImageDefaults,
                 remoteMcpStatus
             };
+        },
+
+        async inspectBufferConnection(requestBody = {}) {
+            if (typeof BufferClient !== 'function') {
+                throw createApiError(500, 'BUFFER_CLIENT_UNAVAILABLE', 'Buffer 연결 모듈을 사용할 수 없습니다.');
+            }
+            const apiKey = String(requestBody.apiKey || requestBody.BUFFER_API_KEY || '').trim();
+            const organizationId = String(requestBody.organizationId || requestBody.BUFFER_ORGANIZATION_ID || '').trim();
+            if (!apiKey) {
+                throw createApiError(400, 'BUFFER_API_KEY_REQUIRED', 'Buffer API Key를 입력해 주세요.');
+            }
+
+            try {
+                const client = new BufferClient();
+                return await client.inspectConnection(apiKey, organizationId);
+            } catch (error) {
+                throw createApiError(
+                    error?.code === 'BUFFER_AUTH_INVALID' ? 401 : 400,
+                    error?.code || 'BUFFER_CONNECTION_FAILED',
+                    error?.message || 'Buffer 연결 확인에 실패했습니다.'
+                );
+            }
         },
 
         async regenerateMcpToken() {

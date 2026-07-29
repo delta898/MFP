@@ -1585,6 +1585,7 @@
           <button class="settings-tab-btn" data-settings-tab="ai" type="button">AI</button>
           <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
           <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
+          <button class="settings-tab-btn" data-settings-tab="sns" type="button">SNS</button>
           <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
           <div class="settings-save-actions">
             <button id="settings-major-save-btn" class="settings-major-save-btn" type="button" disabled>저장 및 적용</button>
@@ -1945,6 +1946,62 @@
             <button id="settings-notify-slack-test-btn" class="secondary" type="button">연결 테스트</button>
             <span id="settings-notify-slack-test-result" style="font-size: 0.9rem;"></span>
           </div>
+        </div>
+
+        <div class="card form-card settings-tab-panel" id="settings-tab-sns">
+          <h2>SNS 자동 발행</h2>
+          <div class="form-grid">
+            <div class="settings-section-divider">Buffer 연결</div>
+            <div class="form-field-block" style="grid-column: 1 / -1;">
+              <label class="settings-checkbox-label">
+                <input id="settings-sns-publish-enabled" type="checkbox">
+                <span style="font-size: 1rem; font-weight: 700;">SNS 자동 발행 활성화</span>
+              </label>
+              <small class="muted">블로그 RSS에서 발견한 글을 Google Spreadsheet의 sns 시트에 등록하고 Buffer로 즉시 발행합니다.</small>
+            </div>
+
+            <label style="grid-column: 1 / -1;">Buffer API Key
+              <div class="input-with-action">
+                <input id="settings-buffer-api-key" type="password" placeholder="Buffer Settings > API에서 발급한 Personal API Key">
+                <button id="settings-buffer-connect-btn" class="secondary" type="button">연결 확인</button>
+              </div>
+              <small class="muted">API Key는 로컬 설정에만 저장하며 Google Spreadsheet에는 기록하지 않습니다.</small>
+            </label>
+
+            <label>Buffer Organization
+              <select id="settings-buffer-organization">
+                <option value="">API Key 연결 확인이 필요합니다</option>
+              </select>
+            </label>
+
+            <label>발행 확인 주기
+              <div class="input-with-unit">
+                <input id="settings-sns-publish-interval" type="number" min="10" step="1" value="10">
+                <span>분</span>
+              </div>
+              <small class="muted">최소 10분이며, 매 주기 sns 시트의 첫 번째 대기 행 한 건을 처리합니다.</small>
+            </label>
+
+            <div class="form-field-block" style="grid-column: 1 / -1;">
+              <span class="field-label-text">발행 채널</span>
+              <small class="muted">Buffer에서 조회한 채널 중 최대 3개를 선택할 수 있습니다.</small>
+              <div id="settings-buffer-channel-list" style="display:grid; gap:8px; margin-top:10px;">
+                <div class="muted">API Key 연결 확인 후 채널이 표시됩니다.</div>
+              </div>
+            </div>
+
+            <div class="settings-auth-section" style="grid-column: 1 / -1;">
+              <div class="field-label-text" style="margin-bottom:8px;">Buffer 연결 상태</div>
+              <pre id="settings-buffer-connection-result" class="settings-google-auth-result" style="margin:0;">연결 확인 전</pre>
+            </div>
+
+            <div id="settings-buffer-help-wrap" class="form-field-block" style="grid-column: 1 / -1; display:none;">
+              <a id="settings-buffer-help-link" class="secondary" href="#" target="_blank" rel="noreferrer">Buffer 연동 방법 보기</a>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
         </div>
 
         <div class="card form-card settings-tab-panel" id="settings-tab-ai">

@@ -86,6 +86,7 @@ function createUiApiRouteRuntime(deps = {}) {
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
+        BufferClient,
         createConfigRevision,
         sendSuccess,
         sendError
@@ -154,7 +155,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 getRemoteServiceStatus,
                 createConfigRevision,
                 parseConfigValue,
-                TelegramService
+                TelegramService,
+                BufferClient
             });
             const controller = createSettingsController({
                 service,

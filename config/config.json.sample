@@ -59,6 +59,14 @@
       ]
     }
   },
+  "integrations": {
+    "buffer": {
+      "api_key": "",
+      "organization_id": "",
+      "channels": [],
+      "help_url": ""
+    }
+  },
   "platforms": {
     "naver": {
       "user_id": "",
@@ -145,6 +153,11 @@
         "notify_enabled": false,
         "start_time": "00:00",
         "end_time": "23:59"
+      },
+      "social": {
+        "enabled": false,
+        "interval_min": 10,
+        "sheet_name": "sns"
       }
     }
   },

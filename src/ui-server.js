@@ -37,6 +37,7 @@ const { materializeSelectedFilesToWorkspace } = require('./content/local-markdow
 const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdown-related-posts');
 const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
+const { BufferClient } = require('./social/gateways/buffer-client');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
@@ -363,6 +364,34 @@ function normalizeNonNegativeInt(input, fallback) {
     const parsed = parseInt(String(input ?? ''), 10);
     if (!Number.isInteger(parsed) || parsed < 0) return fallback;
     return parsed;
+}
+
+function normalizeBufferChannels(input) {
+    let channels = [];
+    if (Array.isArray(input)) {
+        channels = input;
+    } else if (typeof input === 'string' && input.trim()) {
+        try {
+            const parsed = JSON.parse(input);
+            channels = Array.isArray(parsed) ? parsed : [];
+        } catch (_error) {
+            channels = [];
+        }
+    }
+
+    const seen = new Set();
+    return channels
+        .map((item) => ({
+            id: String(item?.id || '').trim(),
+            service: String(item?.service || '').trim().toLowerCase(),
+            display_name: String(item?.display_name || item?.displayName || item?.name || '').trim()
+        }))
+        .filter((item) => {
+            if (!item.id || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        })
+        .slice(0, 3);
 }
 
 function normalizeIntegerOrBlank(input, fallback = '') {
@@ -963,6 +992,14 @@ function buildMajorSettings(raw, configSource) {
         COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
         COLLECT_RSS_CONFIGS: CONFIG.COLLECT_RSS_CONFIGS || [],
 
+        // Buffer SNS Distribution
+        BUFFER_API_KEY: CONFIG.BUFFER_API_KEY || '',
+        BUFFER_ORGANIZATION_ID: CONFIG.BUFFER_ORGANIZATION_ID || '',
+        BUFFER_CHANNELS: normalizeBufferChannels(CONFIG.BUFFER_CHANNELS),
+        BUFFER_HELP_URL: CONFIG.BUFFER_HELP_URL || '',
+        SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
+        SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(CONFIG.SNS_PUBLISH_INTERVAL_MIN) || 10),
+
         // Automation - Publish
         PUBLISH_AUTO_ENABLED: CONFIG.PUBLISH_AUTO_ENABLED,
         PUBLISH_AUTO_INTERVAL_MIN: CONFIG.PUBLISH_AUTO_INTERVAL_MIN,
@@ -1108,6 +1145,14 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.COLLECT_TRENDS_NAVER_CATEGORY = String(fields.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
     CONFIG.COLLECT_TRENDS_WP_CATEGORY = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
 
+    CONFIG.BUFFER_API_KEY = String(fields.BUFFER_API_KEY || '').trim();
+    CONFIG.BUFFER_ORGANIZATION_ID = String(fields.BUFFER_ORGANIZATION_ID || '').trim();
+    CONFIG.BUFFER_CHANNELS = normalizeBufferChannels(fields.BUFFER_CHANNELS);
+    CONFIG.BUFFER_HELP_URL = String(fields.BUFFER_HELP_URL || '').trim();
+    CONFIG.SNS_PUBLISH_ENABLED = normalizeBool(fields.SNS_PUBLISH_ENABLED, false);
+    CONFIG.SNS_PUBLISH_INTERVAL_MIN = Math.max(10, normalizePositiveInt(fields.SNS_PUBLISH_INTERVAL_MIN, 10));
+    CONFIG.SNS_SHEET_NAME = 'sns';
+
     CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizePositiveInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
     CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
@@ -1225,6 +1270,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
+    const bufferChannels = normalizeBufferChannels(requestBody.BUFFER_CHANNELS);
 
     return {
         LISTEN_HOST: listenHost,
@@ -1260,6 +1306,13 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         ...collectTrendsSettings,
         COLLECT_RSS_ENABLED: collectRssEnabled,
         COLLECT_RSS_CONFIGS: rssConfigs,
+
+        BUFFER_API_KEY: String(requestBody.BUFFER_API_KEY || '').trim(),
+        BUFFER_ORGANIZATION_ID: String(requestBody.BUFFER_ORGANIZATION_ID || '').trim(),
+        BUFFER_CHANNELS: bufferChannels,
+        BUFFER_HELP_URL: String(requestBody.BUFFER_HELP_URL || CONFIG.BUFFER_HELP_URL || '').trim(),
+        SNS_PUBLISH_ENABLED: normalizeBool(requestBody.SNS_PUBLISH_ENABLED, false),
+        SNS_PUBLISH_INTERVAL_MIN: Math.max(10, normalizePositiveInt(requestBody.SNS_PUBLISH_INTERVAL_MIN, 10)),
 
         ...publishAutoSettings,
         ...shoppingAutoSettings,
@@ -1738,6 +1791,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     scheduleUiReload,
     restartRemoteMcpService,
     getRemoteServiceStatus,
+    BufferClient,
     createConfigRevision,
     sendSuccess,
     sendError

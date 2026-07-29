@@ -410,6 +410,17 @@ const CONFIG = {
     COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
     COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
 
+    // Buffer SNS Distribution
+    BUFFER_API_KEY: process.env.BUFFER_API_KEY || structuredConfig.integrations?.buffer?.api_key || '',
+    BUFFER_ORGANIZATION_ID: structuredConfig.integrations?.buffer?.organization_id || '',
+    BUFFER_CHANNELS: Array.isArray(structuredConfig.integrations?.buffer?.channels)
+        ? structuredConfig.integrations.buffer.channels
+        : [],
+    BUFFER_HELP_URL: structuredConfig.integrations?.buffer?.help_url || '',
+    SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
+    SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),
+    SNS_SHEET_NAME: String(structuredConfig.automation.publish?.social?.sheet_name || 'sns').trim() || 'sns',
+
     // Publish
     IMAGE_OPTIMIZATION_ENABLED: structuredConfig.publish?.image_optimization_enabled !== false,
 

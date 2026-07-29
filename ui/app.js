@@ -374,7 +374,8 @@ const SETTINGS_SECRET_FIELD_IDS = [
   'settings-text-model-api-key',
   'settings-image-model-api-key',
   'settings-custom-ai-api-key',
-  'settings-notify-slack-webhook-url'
+  'settings-notify-slack-webhook-url',
+  'settings-buffer-api-key'
 ];
 
 function maskPartialSecret(value) {
@@ -567,6 +568,9 @@ let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
 let settingsAiPresets = { text: [], image: [] };
+let settingsBufferOrganizations = [];
+let settingsBufferChannels = [];
+let settingsBufferSelectedChannelIds = new Set();
 let naverCommentDraftItems = [];
 let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;
@@ -1960,7 +1964,7 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'mcp', 'naver-blog', 'shopping-connect', 'notification', 'ai'];
+  const allowed = ['general', 'mcp', 'naver-blog', 'shopping-connect', 'sns', 'notification', 'ai'];
   const requested = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   const target = requested === 'mcp' ? 'ai' : requested;
   settingsActiveTab = target;
@@ -4523,6 +4527,163 @@ function syncSettingsBlogWritingStyleDescription() {
   if (target) target.textContent = description;
 }
 
+function normalizeSettingsBufferChannels(value) {
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  return source
+    .map((item) => ({
+      id: String(item?.id || '').trim(),
+      name: String(item?.display_name || item?.name || item?.descriptor || '').trim(),
+      display_name: String(item?.display_name || item?.name || item?.descriptor || '').trim(),
+      service: String(item?.service || '').trim().toLowerCase(),
+      avatar: String(item?.avatar || '').trim(),
+      is_disconnected: item?.is_disconnected === true,
+      is_locked: item?.is_locked === true
+    }))
+    .filter((item) => {
+      if (!item.id || seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+}
+
+function getSelectedSettingsBufferChannels() {
+  return settingsBufferChannels
+    .filter((channel) => settingsBufferSelectedChannelIds.has(channel.id))
+    .slice(0, 3)
+    .map((channel) => ({
+      id: channel.id,
+      name: channel.name,
+      display_name: channel.display_name,
+      service: channel.service,
+      avatar: channel.avatar
+    }));
+}
+
+function renderSettingsBufferOrganizations(selectedId = '') {
+  const selectEl = document.getElementById('settings-buffer-organization');
+  if (!selectEl) return;
+  const targetId = String(selectedId || '').trim();
+  selectEl.innerHTML = '';
+
+  if (settingsBufferOrganizations.length === 0) {
+    const option = document.createElement('option');
+    option.value = targetId;
+    option.textContent = targetId ? `저장된 Organization (${targetId})` : 'API Key 연결 확인이 필요합니다';
+    selectEl.appendChild(option);
+    return;
+  }
+
+  if (settingsBufferOrganizations.length > 1) {
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Organization을 선택하세요';
+    selectEl.appendChild(placeholder);
+  }
+  settingsBufferOrganizations.forEach((organization) => {
+    const option = document.createElement('option');
+    option.value = organization.id;
+    option.textContent = organization.name || organization.id;
+    selectEl.appendChild(option);
+  });
+  selectEl.value = settingsBufferOrganizations.some((item) => item.id === targetId) ? targetId : '';
+}
+
+function renderSettingsBufferChannels() {
+  const containerEl = document.getElementById('settings-buffer-channel-list');
+  if (!containerEl) return;
+  containerEl.innerHTML = '';
+
+  if (settingsBufferChannels.length === 0) {
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'muted';
+    emptyEl.textContent = 'Organization을 선택하고 연결 확인을 완료하면 채널이 표시됩니다.';
+    containerEl.appendChild(emptyEl);
+    return;
+  }
+
+  settingsBufferChannels.forEach((channel) => {
+    const labelEl = document.createElement('label');
+    labelEl.className = 'settings-checkbox-label';
+    const checkEl = document.createElement('input');
+    checkEl.type = 'checkbox';
+    checkEl.checked = settingsBufferSelectedChannelIds.has(channel.id);
+    checkEl.disabled = channel.is_disconnected || channel.is_locked;
+    checkEl.addEventListener('change', () => {
+      if (checkEl.checked && settingsBufferSelectedChannelIds.size >= 3) {
+        checkEl.checked = false;
+        showUiToast({
+          level: 'warning',
+          title: '채널 선택 제한',
+          message: 'SNS 발행 채널은 최대 3개까지 선택할 수 있습니다.',
+          dedupeKey: 'buffer-channel-limit'
+        });
+        return;
+      }
+      if (checkEl.checked) settingsBufferSelectedChannelIds.add(channel.id);
+      else settingsBufferSelectedChannelIds.delete(channel.id);
+      scheduleSettingsMajorAutoSave({ immediate: true });
+    });
+
+    const textEl = document.createElement('span');
+    const stateLabel = channel.is_disconnected
+      ? ' · 연결 끊김'
+      : (channel.is_locked ? ' · 잠김' : '');
+    textEl.textContent = `${channel.display_name || channel.name || channel.id} · ${channel.service || 'unknown'}${stateLabel}`;
+    labelEl.append(checkEl, textEl);
+    containerEl.appendChild(labelEl);
+  });
+}
+
+function syncSettingsBufferHelpLink(url = '') {
+  const wrapEl = document.getElementById('settings-buffer-help-wrap');
+  const linkEl = document.getElementById('settings-buffer-help-link');
+  const normalizedUrl = String(url || '').trim();
+  if (linkEl) linkEl.href = normalizedUrl || '#';
+  if (wrapEl) wrapEl.style.display = normalizedUrl ? '' : 'none';
+}
+
+async function inspectSettingsBufferConnection(organizationId = '') {
+  const apiKey = getSettingsInputValue('settings-buffer-api-key').trim();
+  const connectBtn = document.getElementById('settings-buffer-connect-btn');
+  const resultEl = document.getElementById('settings-buffer-connection-result');
+  if (!apiKey) {
+    if (resultEl) resultEl.textContent = 'Buffer API Key를 입력해 주세요.';
+    return;
+  }
+
+  if (connectBtn) connectBtn.disabled = true;
+  if (resultEl) resultEl.textContent = 'Buffer 연결을 확인하는 중...';
+  try {
+    const data = await postJson('/api/v1/settings/buffer-connection', {
+      apiKey,
+      organizationId: String(organizationId || '').trim()
+    });
+    settingsBufferOrganizations = Array.isArray(data.organizations) ? data.organizations : [];
+    renderSettingsBufferOrganizations(data.organization_id || organizationId);
+
+    settingsBufferChannels = normalizeSettingsBufferChannels(data.channels);
+    const availableIds = new Set(settingsBufferChannels.map((channel) => channel.id));
+    settingsBufferSelectedChannelIds = new Set(
+      Array.from(settingsBufferSelectedChannelIds).filter((id) => availableIds.has(id))
+    );
+    renderSettingsBufferChannels();
+
+    if (resultEl) {
+      resultEl.textContent = data.organization_id
+        ? `연결됨 · Organization ${settingsBufferOrganizations.find((item) => item.id === data.organization_id)?.name || data.organization_id} · 채널 ${settingsBufferChannels.length}개`
+        : `연결됨 · Organization ${settingsBufferOrganizations.length}개 중 하나를 선택해 주세요.`;
+    }
+    if (data.organization_id) scheduleSettingsMajorAutoSave({ immediate: true });
+  } catch (error) {
+    settingsBufferChannels = [];
+    renderSettingsBufferChannels();
+    if (resultEl) resultEl.textContent = `연결 실패: ${error.message}`;
+  } finally {
+    if (connectBtn) connectBtn.disabled = false;
+  }
+}
+
 function applySettingsMajorToForm(data, options = {}) {
   const fields = data?.fields || {};
   const skipFocused = options.skipFocused === true;
@@ -4602,6 +4763,10 @@ function applySettingsMajorToForm(data, options = {}) {
   const customAiModelEl = document.getElementById('settings-custom-ai-model');
   const slackEnabledEl = document.getElementById('settings-notify-slack-enabled');
   const slackWebhookUrlEl = document.getElementById('settings-notify-slack-webhook-url');
+  const bufferApiKeyEl = document.getElementById('settings-buffer-api-key');
+  const bufferOrganizationEl = document.getElementById('settings-buffer-organization');
+  const snsPublishEnabledEl = document.getElementById('settings-sns-publish-enabled');
+  const snsPublishIntervalEl = document.getElementById('settings-sns-publish-interval');
 
   settingsMajorApplyingForm = true;
 
@@ -4749,6 +4914,16 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(customAiModelEl, fields.CHAT_MODEL_CODE || '');
   sc(slackEnabledEl, fields.NOTIFY_SLACK_ENABLED);
   sv(slackWebhookUrlEl, fields.NOTIFY_SLACK_WEBHOOK_URL || '');
+  sv(bufferApiKeyEl, fields.BUFFER_API_KEY || '');
+  sc(snsPublishEnabledEl, fields.SNS_PUBLISH_ENABLED);
+  sv(snsPublishIntervalEl, Math.max(10, Number(fields.SNS_PUBLISH_INTERVAL_MIN) || 10));
+  settingsBufferOrganizations = [];
+  settingsBufferChannels = normalizeSettingsBufferChannels(fields.BUFFER_CHANNELS);
+  settingsBufferSelectedChannelIds = new Set(settingsBufferChannels.map((channel) => channel.id).slice(0, 3));
+  renderSettingsBufferOrganizations(fields.BUFFER_ORGANIZATION_ID || '');
+  if (bufferOrganizationEl) bufferOrganizationEl.value = fields.BUFFER_ORGANIZATION_ID || '';
+  renderSettingsBufferChannels();
+  syncSettingsBufferHelpLink(fields.BUFFER_HELP_URL || '');
 
   syncBlogAutoVariationTypeUi();
   if (blogCollectTrendsReuseGapEl && !(skipFocused && document.activeElement === blogCollectTrendsReuseGapEl)) {
@@ -4874,6 +5049,20 @@ function getSettingsMajorBasicValuesFromDom() {
     // Notification (Slack)
     NOTIFY_SLACK_ENABLED: Boolean(document.getElementById('settings-notify-slack-enabled')?.checked),
     NOTIFY_SLACK_WEBHOOK_URL: getSettingsInputValue('settings-notify-slack-webhook-url').trim(),
+
+    // SNS publishing (Buffer)
+    BUFFER_API_KEY: getSettingsInputValue('settings-buffer-api-key').trim(),
+    BUFFER_ORGANIZATION_ID: (document.getElementById('settings-buffer-organization')?.value || '').trim(),
+    BUFFER_CHANNELS: getSelectedSettingsBufferChannels(),
+    BUFFER_HELP_URL: (() => {
+      const href = document.getElementById('settings-buffer-help-link')?.getAttribute('href') || '';
+      return href === '#' ? '' : href.trim();
+    })(),
+    SNS_PUBLISH_ENABLED: Boolean(document.getElementById('settings-sns-publish-enabled')?.checked),
+    SNS_PUBLISH_INTERVAL_MIN: Math.max(
+      10,
+      parseInt(document.getElementById('settings-sns-publish-interval')?.value || '10', 10) || 10
+    ),
   };
 }
 
@@ -8778,6 +8967,8 @@ function bindActions() {
     document.getElementById('settings-custom-ai-api-key'),
     document.getElementById('settings-custom-ai-model'),
     document.getElementById('settings-notify-slack-webhook-url'),
+    document.getElementById('settings-buffer-api-key'),
+    document.getElementById('settings-sns-publish-interval'),
   ].filter(Boolean);
   const settingsMajorAutoSaveSelects = [
     document.getElementById('settings-listen-host'),
@@ -8806,6 +8997,7 @@ function bindActions() {
     document.getElementById('shopping-publish-auto-notify-enabled'),
     document.getElementById('settings-notify-telegram-enabled'),
     document.getElementById('settings-notify-slack-enabled'),
+    document.getElementById('settings-sns-publish-enabled'),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-mode"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-speech-level"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
@@ -8867,6 +9059,21 @@ function bindActions() {
   if (settingsNaverLoginBtn) settingsNaverLoginBtn.addEventListener('click', startNaverLoginFromUi);
   const settingsWordPressVerifyBtn = document.getElementById('settings-wordpress-verify-btn');
   if (settingsWordPressVerifyBtn) settingsWordPressVerifyBtn.addEventListener('click', verifyWordPressAuthFromUi);
+  const settingsBufferConnectBtn = document.getElementById('settings-buffer-connect-btn');
+  const settingsBufferOrganizationEl = document.getElementById('settings-buffer-organization');
+  if (settingsBufferConnectBtn) {
+    settingsBufferConnectBtn.addEventListener('click', () => {
+      inspectSettingsBufferConnection(settingsBufferOrganizationEl?.value || '');
+    });
+  }
+  if (settingsBufferOrganizationEl) {
+    settingsBufferOrganizationEl.addEventListener('change', () => {
+      settingsBufferChannels = [];
+      settingsBufferSelectedChannelIds = new Set();
+      renderSettingsBufferChannels();
+      inspectSettingsBufferConnection(settingsBufferOrganizationEl.value);
+    });
+  }
   if (settingsOpenGoogleSheetBtn) settingsOpenGoogleSheetBtn.addEventListener('click', openGoogleSheetFromUi);
   if (settingsGoogleOauthConnectBtn) settingsGoogleOauthConnectBtn.addEventListener('click', startGoogleOauth);
   if (settingsGoogleOauthDisconnectBtn) settingsGoogleOauthDisconnectBtn.addEventListener('click', disconnectGoogleOauth);

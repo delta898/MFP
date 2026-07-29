@@ -85,6 +85,18 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
+        async handleBufferConnection({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.inspectBufferConnection(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'BUFFER_CONNECTION_FAILED', 'Buffer 연결 확인에 실패했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
         async handleRegenerateMcpToken({ requestId, method, res }) {
             if (method === 'POST') {
                 try {
