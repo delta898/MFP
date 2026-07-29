@@ -1957,7 +1957,7 @@
                 <input id="settings-sns-publish-enabled" type="checkbox">
                 <span style="font-size: 1rem; font-weight: 700;">SNS 자동 발행 활성화</span>
               </label>
-              <small class="muted">블로그 RSS에서 발견한 글을 Google Spreadsheet의 sns 시트에 등록하고 Buffer로 즉시 발행합니다.</small>
+              <small class="muted">발행한 블로그 글을 Google Spreadsheet의 SNS 시트에 등록하고 Buffer로 즉시 발행합니다.</small>
             </div>
 
             <label style="grid-column: 1 / -1;">Buffer API Key
@@ -1965,7 +1965,7 @@
                 <input id="settings-buffer-api-key" type="password" placeholder="Buffer Settings > API에서 발급한 Personal API Key">
                 <button id="settings-buffer-connect-btn" class="secondary" type="button">연결 확인</button>
               </div>
-              <small class="muted">API Key는 로컬 설정에만 저장하며 Google Spreadsheet에는 기록하지 않습니다.</small>
+              <small class="muted">API Key는 로컬 설정에만 저장합니다.</small>
             </label>
 
             <label>Buffer Organization
@@ -1974,7 +1974,7 @@
               </select>
             </label>
 
-            <label>발행 확인 주기
+            <label>발행 확인 주기 (분)
               <div class="input-with-unit">
                 <input id="settings-sns-publish-interval" type="number" min="10" step="1" value="10">
                 <span>분</span>
