@@ -37,6 +37,16 @@ function createAutoRunnerRuntime(deps = {}) {
         lastConfigsJson: null,
         lastRunTimes: {}
     };
+    const snsRuntimeState = {
+        enabled: false,
+        running: false,
+        status: 'stopped',
+        nextRunAt: null,
+        timer: null,
+        lastInterval: null,
+        lastRunAt: null,
+        lastResult: null
+    };
     const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastInterval: null, lastStartTime: null, lastEndTime: null };
     const shoppingAutoRuntimeState = {
         enabled: false,
@@ -56,9 +66,13 @@ function createAutoRunnerRuntime(deps = {}) {
     const handlers = {
         runTrendCollectCycle: null,
         runRssCollectCycle: null,
+        runSnsDiscoveryCycle: null,
+        runSnsDistributionCycle: null,
+        runSnsAutomationCycle: null,
         runAutoPublishCycle: null,
         executeShoppingAutoCycle: null
     };
+    let snsStartupDiscoveryRequested = false;
 
     function requireHandler(name) {
         const handler = handlers[name];
@@ -117,6 +131,14 @@ function createAutoRunnerRuntime(deps = {}) {
                 shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday,
                 settings: shoppingSettings
             },
+            sns: {
+                enabled: snsRuntimeState.enabled,
+                running: snsRuntimeState.running,
+                status: snsRuntimeState.status,
+                lastRunAt: snsRuntimeState.lastRunAt,
+                nextRunAt: snsRuntimeState.nextRunAt,
+                lastResult: snsRuntimeState.lastResult
+            },
             enabled: autoRuntimeState.enabled || shoppingAutoRuntimeState.enabled,
             running: autoRuntimeState.running || shoppingAutoRuntimeState.running,
             status: (autoRuntimeState.running || shoppingAutoRuntimeState.running) ? 'running'
@@ -127,11 +149,11 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function refreshLegacyAutoRuntimeState() {
-        autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled;
-        autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running;
-        autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status}`;
+        autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled || snsRuntimeState.enabled;
+        autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running || snsRuntimeState.running;
+        autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status} | SNS: ${snsRuntimeState.status}`;
         autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
-        autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt || trendsRuntimeState.nextRunAt || null;
+        autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt || snsRuntimeState.nextRunAt || trendsRuntimeState.nextRunAt || null;
     }
 
     function syncTrendsRunner() {
@@ -380,10 +402,142 @@ function createAutoRunnerRuntime(deps = {}) {
         scheduleNextPublishCycle(null, { preferWindowStartIfBaseOutside: true });
     }
 
+    function clearSnsTimer() {
+        if (snsRuntimeState.timer) {
+            clearTimeout(snsRuntimeState.timer);
+            snsRuntimeState.timer = null;
+        }
+    }
+
+    async function triggerSnsHandler(handlerName, trigger = 'ui-manual') {
+        if (snsRuntimeState.running) {
+            return {
+                success: false,
+                code: 'SNS_CYCLE_ALREADY_RUNNING',
+                message: 'SNS RSS 확인 또는 발행이 이미 진행 중입니다.'
+            };
+        }
+
+        snsRuntimeState.running = true;
+        snsRuntimeState.status = 'running';
+        snsRuntimeState.lastRunAt = new Date().toISOString();
+        refreshLegacyAutoRuntimeState();
+        try {
+            const result = await requireHandler(handlerName)(trigger);
+            snsRuntimeState.lastResult = result || null;
+            return result;
+        } catch (error) {
+            const result = {
+                success: false,
+                code: 'SNS_CYCLE_FAILED',
+                message: error.message
+            };
+            snsRuntimeState.lastResult = result;
+            Logger.error(`❌ [SNS] 자동 처리 실패: ${error.message}`);
+            return result;
+        } finally {
+            snsRuntimeState.running = false;
+            snsRuntimeState.status = snsRuntimeState.enabled ? 'waiting' : 'stopped';
+            refreshLegacyAutoRuntimeState();
+        }
+    }
+
+    function triggerSnsDiscoveryCycle(trigger = 'ui-manual') {
+        return triggerSnsHandler('runSnsDiscoveryCycle', trigger);
+    }
+
+    async function triggerSnsStartupDiscovery() {
+        if (snsStartupDiscoveryRequested) {
+            return {
+                success: true,
+                code: 'SNS_STARTUP_DISCOVERY_ALREADY_REQUESTED',
+                message: '앱 시작 시 SNS RSS 확인을 이미 요청했습니다.'
+            };
+        }
+        snsStartupDiscoveryRequested = true;
+        if (!snsRuntimeState.enabled) {
+            return {
+                success: true,
+                code: 'SNS_STARTUP_DISCOVERY_DISABLED',
+                message: 'SNS 자동 발행이 비활성화되어 앱 시작 시 RSS 확인을 건너뜁니다.'
+            };
+        }
+
+        Logger.info('ℹ️ [SNS] 앱 시작 시 RSS 확인을 실행합니다. Buffer 발행은 예약 주기부터 시작합니다.');
+        return triggerSnsDiscoveryCycle('startup');
+    }
+
+    function triggerSnsDistributionCycle(trigger = 'ui-manual') {
+        return triggerSnsHandler('runSnsDistributionCycle', trigger);
+    }
+
+    function triggerSnsAutomationCycle(trigger = 'auto') {
+        return triggerSnsHandler('runSnsAutomationCycle', trigger);
+    }
+
+    function scheduleNextSnsCycle(delayMs = null) {
+        clearSnsTimer();
+        if (!snsRuntimeState.enabled) {
+            snsRuntimeState.nextRunAt = null;
+            refreshLegacyAutoRuntimeState();
+            return;
+        }
+
+        const intervalMin = Math.max(10, Number.parseInt(CONFIG.SNS_PUBLISH_INTERVAL_MIN, 10) || 10);
+        const waitMs = delayMs === null || delayMs === undefined
+            ? intervalMin * 60 * 1000
+            : Math.max(500, Number.parseInt(delayMs, 10) || 500);
+        snsRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
+        snsRuntimeState.status = snsRuntimeState.running ? 'running' : 'waiting';
+        refreshLegacyAutoRuntimeState();
+        Logger.info(`ℹ️ [SNS] 다음 자동 처리 예약: ${new Date(snsRuntimeState.nextRunAt).toLocaleString()} (주기: ${intervalMin}분)`);
+
+        snsRuntimeState.timer = setTimeout(() => {
+            snsRuntimeState.timer = null;
+            if (!snsRuntimeState.enabled) return;
+            if (snsRuntimeState.running) {
+                scheduleNextSnsCycle();
+                return;
+            }
+
+            triggerSnsAutomationCycle('auto')
+                .finally(() => {
+                    scheduleNextSnsCycle();
+                });
+        }, waitMs);
+    }
+
+    function syncSnsRunner() {
+        const isEnabled = CONFIG.SNS_PUBLISH_ENABLED === true;
+        const intervalMin = Math.max(10, Number.parseInt(CONFIG.SNS_PUBLISH_INTERVAL_MIN, 10) || 10);
+        const statusChanged = snsRuntimeState.enabled !== isEnabled;
+        const intervalChanged = snsRuntimeState.lastInterval !== intervalMin;
+
+        if (!statusChanged && !intervalChanged && snsRuntimeState.nextRunAt) {
+            snsRuntimeState.status = snsRuntimeState.running ? 'running' : 'waiting';
+            refreshLegacyAutoRuntimeState();
+            return;
+        }
+
+        snsRuntimeState.enabled = isEnabled;
+        snsRuntimeState.lastInterval = intervalMin;
+        clearSnsTimer();
+        if (!isEnabled) {
+            snsRuntimeState.status = 'stopped';
+            snsRuntimeState.nextRunAt = null;
+            refreshLegacyAutoRuntimeState();
+            return;
+        }
+
+        Logger.info(`ℹ️ [SNS] RSS 확인 및 자동 발행 활성화 (주기: ${intervalMin}분)`);
+        scheduleNextSnsCycle();
+    }
+
     function syncAutoRunnerWithConfig() {
         syncTrendsRunner();
         syncRssRunner();
         syncPublishRunner();
+        syncSnsRunner();
         refreshLegacyAutoRuntimeState();
     }
 
@@ -476,6 +630,7 @@ function createAutoRunnerRuntime(deps = {}) {
         autoRuntimeState,
         trendsRuntimeState,
         rssRuntimeState,
+        snsRuntimeState,
         publishRuntimeState,
         shoppingAutoRuntimeState,
         setHandlers,
@@ -488,6 +643,13 @@ function createAutoRunnerRuntime(deps = {}) {
         clearPublishTimer,
         scheduleNextPublishCycle,
         syncPublishRunner,
+        clearSnsTimer,
+        triggerSnsDiscoveryCycle,
+        triggerSnsStartupDiscovery,
+        triggerSnsDistributionCycle,
+        triggerSnsAutomationCycle,
+        scheduleNextSnsCycle,
+        syncSnsRunner,
         syncAutoRunnerWithConfig,
         clearShoppingAutoTimer,
         scheduleNextShoppingAutoCycle,

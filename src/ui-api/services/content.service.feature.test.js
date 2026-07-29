@@ -13,7 +13,8 @@ function createService(cmdShopping, state = {}) {
                         cmd_batch: true,
                         cmd_trends: false,
                         cmd_shopping: cmdShopping,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false
                     }
                 };
             }

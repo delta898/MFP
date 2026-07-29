@@ -154,7 +154,8 @@
   "cmd_batch": true,
   "cmd_trends": false,
   "cmd_shopping": false,
-  "enable_related_posts_auto_link": false
+  "enable_related_posts_auto_link": false,
+  "enable_sns_distribution": false
 }
 ```
 
@@ -162,6 +163,7 @@
 - `cmd_trends`: 네이버 트렌드 수집. 허용 시 날짜 지정도 기본 허용. RSS에는 적용하지 않음.
 - `cmd_shopping`: 쇼핑 콘텐츠 수집·생성·발행 실행. 데이터와 대기열은 보존.
 - `enable_related_posts_auto_link`: 연관 글 자동 연결. pro 이상 활성화.
+- `enable_sns_distribution`: RSS 확인, `SNS` ledger 등록, Buffer 발행을 하나의 경계로 제어.
 
 라이선스 feature에서 제거할 키:
 
@@ -172,6 +174,26 @@
 - `enable_trends_date_override`
 
 `image_generation`이라는 콘텐츠 옵션은 유지한다. 이는 사용자가 해당 글에서 이미지를 생성할지 선택하는 값이며 라이선스 entitlement가 아니다.
+
+### 6.1 SNS distribution entitlement
+
+Buffer 기반 SNS 연동은 `enable_sns_distribution` capability 하나로 RSS 확인,
+Google Spreadsheet의 `SNS` 행 추가, Buffer 발행을 함께 제어한다.
+
+- 실행 코드는 `plan_code`를 비교하지 않고 전용 capability의 boolean만 검사한다.
+- 어떤 플랜에 capability를 부여할지는 `license_plans.features`의 서버 정책으로 결정한다.
+- 현재 운영 정책은 tester, pro, ultra에 `true`, free에 `false`다.
+- capability가 없어도 설정 화면, Buffer 연결 확인, 빈 `SNS` 시트 구조를 노출할 수 있다.
+- capability가 없으면 RSS를 확인하거나 `SNS` record를 추가하거나 Buffer로 발행하지 않는다.
+- `SNS` 시트는 플랜과 무관하게 `topics`, `shopping` 공통 초기화 시 준비한다.
+- 이 키는 필수 feature JSON 계약에 포함하며 누락되거나 boolean이 아니면 정책 오류로 처리한다.
+- RSS 수집과 Buffer 발행 실행부는 후속 구현에서 이 capability만 검사한다.
+
+상세 결정은 `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`를 따른다.
+
+배포 시에는 앱보다 먼저 `sql/supabase_add_sns_distribution_capability.sql`을 적용한다.
+앱의 필수 feature 검증은 누락된 키를 허용하지 않으므로 순서를 바꾸면 기존
+라이선스가 일시적으로 정책 오류가 될 수 있다.
 
 ## 7. SQL 반영 메모
 

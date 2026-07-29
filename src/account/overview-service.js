@@ -5,7 +5,8 @@ const FEATURE_LABELS = {
     cmd_batch: '일괄·자동 발행',
     cmd_trends: '트렌드 수집',
     cmd_shopping: '쇼핑커넥트',
-    enable_related_posts_auto_link: '연관 글 자동 연결'
+    enable_related_posts_auto_link: '연관 글 자동 연결',
+    enable_sns_distribution: 'SNS 자동 발행'
 };
 
 function maskHardwareId(machineId, visibleSuffixLength = 8) {

@@ -2,7 +2,8 @@ const REQUIRED_LICENSE_FEATURE_KEYS = Object.freeze([
     'cmd_batch',
     'cmd_trends',
     'cmd_shopping',
-    'enable_related_posts_auto_link'
+    'enable_related_posts_auto_link',
+    'enable_sns_distribution'
 ]);
 
 function validateLicenseFeaturePolicy(rawFeatures) {

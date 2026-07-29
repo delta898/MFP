@@ -30,6 +30,7 @@ Credit = additional publish units
 - `cmd_trends`
 - `cmd_shopping`
 - `enable_related_posts_auto_link`
+- `enable_sns_distribution`
 
 ### Credit
 - 콘텐츠 발행 횟수만 늘린다.

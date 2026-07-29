@@ -16,7 +16,8 @@ test('shopping batch requires both shopping and batch capabilities', async () =>
                         cmd_batch: false,
                         cmd_trends: false,
                         cmd_shopping: true,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false
                     }
                 };
             }
@@ -59,7 +60,8 @@ test('blog batch preflight executes only rows covered by remaining quota', async
                         cmd_batch: true,
                         cmd_trends: false,
                         cmd_shopping: false,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false
                     }
                 };
             }

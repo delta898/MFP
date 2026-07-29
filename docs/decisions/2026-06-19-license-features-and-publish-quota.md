@@ -12,14 +12,15 @@
 ### Feature contract
 `license_plans.features`는 플랜별 차이가 있는 기능만 제어한다.
 
-필수 feature는 다음 네 개다.
+필수 feature는 다음 다섯 개다.
 
 ```json
 {
   "cmd_batch": true,
   "cmd_trends": false,
   "cmd_shopping": false,
-  "enable_related_posts_auto_link": false
+  "enable_related_posts_auto_link": false,
+  "enable_sns_distribution": false
 }
 ```
 
@@ -27,6 +28,7 @@
 - `cmd_trends`: 네이버 트렌드 수집 기능만 제어한다. RSS 수집은 제어하지 않는다. 트렌드가 허용되면 날짜 지정도 함께 허용한다.
 - `cmd_shopping`: 쇼핑 콘텐츠 수집·생성·발행 실행을 제어한다. 쇼핑 시트의 기존 데이터와 대기열은 보존한다.
 - `enable_related_posts_auto_link`: 연관 글 자동 연결을 제어하며 pro 이상에서 활성화한다.
+- `enable_sns_distribution`: RSS 확인, `SNS` ledger 등록, Buffer 발행을 함께 제어한다.
 - 필수 feature가 누락되거나 boolean이 아니면 허용으로 추정하지 않고 정책 오류로 처리한다.
 
 다음 키는 라이선스 feature에서 제거한다.

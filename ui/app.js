@@ -571,6 +571,8 @@ let settingsAiPresets = { text: [], image: [] };
 let settingsBufferOrganizations = [];
 let settingsBufferChannels = [];
 let settingsBufferSelectedChannelIds = new Set();
+let settingsSnsCheckInFlight = false;
+let settingsSnsPublishInFlight = false;
 let naverCommentDraftItems = [];
 let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;
@@ -4596,7 +4598,7 @@ function renderSettingsBufferChannels() {
 
   if (settingsBufferChannels.length === 0) {
     const emptyEl = document.createElement('div');
-    emptyEl.className = 'muted';
+    emptyEl.className = 'sns-empty-message';
     emptyEl.textContent = 'Organization을 선택하고 연결 확인을 완료하면 채널이 표시됩니다.';
     containerEl.appendChild(emptyEl);
     return;
@@ -4641,6 +4643,173 @@ function syncSettingsBufferHelpLink(url = '') {
   const normalizedUrl = String(url || '').trim();
   if (linkEl) linkEl.href = normalizedUrl || '#';
   if (wrapEl) wrapEl.style.display = normalizedUrl ? '' : 'none';
+}
+
+function syncSettingsSnsAiHint() {
+  const modeEl = document.getElementById('settings-sns-ai-mode');
+  const hintEl = document.getElementById('settings-sns-ai-hint');
+  if (!modeEl || !hintEl) return;
+
+  if (modeEl.value === 'blog_text') {
+    const modelName = (
+      document.getElementById('settings-text-model-name')?.value
+      || document.getElementById('settings-text-model-preset-code')?.value
+      || ''
+    ).trim();
+    const hasApiKey = Boolean(getSettingsInputValue('settings-text-model-api-key').trim());
+    hintEl.textContent = hasApiKey
+      ? `설정된 Text Model${modelName ? ` (${modelName})` : ''}을 SNS 콘텐츠 처리에 사용합니다. 현재는 글당 해시태그 생성에 사용합니다.`
+      : 'Text Model API Key가 없어 현재 SNS AI 작업을 실행하지 않습니다. AI 설정에서 확인해 주세요.';
+    return;
+  }
+
+  if (modeEl.value === 'chat') {
+    const baseUrl = (document.getElementById('settings-custom-ai-base-url')?.value || '').trim();
+    const modelName = (document.getElementById('settings-custom-ai-model')?.value || '').trim();
+    hintEl.textContent = baseUrl && modelName
+      ? `설정된 Chat Model (${modelName})을 SNS 콘텐츠 처리에 사용합니다. 현재는 글당 해시태그 생성에 사용합니다.`
+      : 'Chat Model 설정이 없어 현재 SNS AI 작업을 실행하지 않습니다. AI 설정에서 Base URL과 Model을 확인해 주세요.';
+    return;
+  }
+
+  hintEl.textContent = 'SNS 콘텐츠 처리에 AI를 사용하지 않습니다.';
+}
+
+function formatSettingsSnsRuntimeStatus(sns = {}) {
+  const lines = [];
+  if (sns.running) {
+    lines.push('현재 RSS 확인 또는 SNS 발행을 처리하고 있습니다.');
+  } else if (sns.enabled) {
+    lines.push('자동 처리 대기 중');
+  } else {
+    lines.push('SNS 자동 발행이 비활성화되어 있습니다.');
+  }
+
+  if (sns.nextRunAt) {
+    lines.push(`다음 자동 처리: ${formatDateTimeAbsolute(sns.nextRunAt)} (${formatNextRunText(sns.nextRunAt)})`);
+  } else if (sns.enabled && !sns.running) {
+    lines.push('다음 자동 처리 시각이 아직 예약되지 않았습니다.');
+  }
+
+  if (sns.lastRunAt) {
+    lines.push(`마지막 실행: ${formatDateTimeAbsolute(sns.lastRunAt)}`);
+  } else {
+    lines.push('마지막 실행: 아직 실행되지 않음');
+  }
+
+  const lastResult = sns.lastResult;
+  const automationData = lastResult?.data?.discovery || lastResult?.data?.distribution
+    ? lastResult.data
+    : null;
+  const discoveryResult = automationData?.discovery || (
+    String(lastResult?.code || '').startsWith('SNS_DISCOVERY_') ? lastResult : null
+  );
+  const distributionResult = automationData?.distribution || (
+    String(lastResult?.code || '').startsWith('SNS_DISTRIBUTION_') ? lastResult : null
+  );
+
+  if (discoveryResult?.success) {
+    const data = discoveryResult.data || {};
+    lines.push(
+      `RSS 결과: 발견 ${Number(data.discoveredCount || 0)}건 · 신규 원문 ${Number(data.newEntryCount || 0)}건 · SNS 행 ${Number(data.addedDeliveryCount || 0)}건 · 중복 ${Number(data.duplicateCount || 0)}건`
+    );
+    const unavailableSources = Array.isArray(data.unavailableSourceBlogs)
+      ? data.unavailableSourceBlogs
+      : [];
+    if (unavailableSources.length > 0) {
+      const labels = unavailableSources.map((source) => source === 'naver' ? '네이버 블로그' : 'WordPress');
+      lines.push(`미설정으로 제외: ${labels.join(', ')}`);
+    }
+  }
+  if (distributionResult) {
+    const data = distributionResult.data || {};
+    if (distributionResult.code === 'SNS_DISTRIBUTION_EMPTY') {
+      lines.push('발행 결과: 대기 중인 원문 글 없음');
+    } else {
+      lines.push(
+        `발행 결과: 성공 ${Number(data.completedCount || 0)}건 · 실패 ${Number(data.failedCount || 0)}건 · 건너뜀 ${Number(data.skippedCount || 0)}건`
+      );
+    }
+  }
+  if (!discoveryResult && !distributionResult && lastResult?.message) {
+    lines.push(`마지막 결과: ${lastResult.message}`);
+  }
+  return lines.join('\n');
+}
+
+async function loadSettingsSnsRuntimeStatus() {
+  const resultEl = document.getElementById('settings-sns-runtime-result');
+  if (!resultEl) return null;
+  try {
+    const data = await fetchJson('/api/v1/auto/status');
+    resultEl.textContent = formatSettingsSnsRuntimeStatus(data?.sns || {});
+    return data?.sns || {};
+  } catch (error) {
+    resultEl.textContent = `상태 확인 실패: ${error.message}`;
+    return null;
+  }
+}
+
+async function runSettingsSnsCheckNow() {
+  if (settingsSnsCheckInFlight) return;
+  const buttonEl = document.getElementById('settings-sns-check-now-btn');
+  const resultEl = document.getElementById('settings-sns-runtime-result');
+  if (settingsMajorHasPendingBasicChanges) {
+    if (resultEl) resultEl.textContent = '변경한 설정을 먼저 저장한 뒤 확인해 주세요.';
+    return;
+  }
+
+  settingsSnsCheckInFlight = true;
+  if (buttonEl) buttonEl.disabled = true;
+  if (resultEl) resultEl.textContent = 'RSS를 확인하는 중입니다...';
+  try {
+    const result = await postJson('/api/v1/auto/collect/sns/run', {});
+    const data = result?.data || {};
+    if (resultEl) {
+      resultEl.textContent = [
+        'RSS 확인 완료',
+        `발견 ${Number(data.discoveredCount || 0)}건 · 신규 원문 ${Number(data.newEntryCount || 0)}건 · SNS 행 ${Number(data.addedDeliveryCount || 0)}건 · 중복 ${Number(data.duplicateCount || 0)}건`
+      ].join('\n');
+    }
+    await loadSettingsSnsRuntimeStatus();
+  } catch (error) {
+    if (resultEl) resultEl.textContent = `RSS 확인 실패: ${error.message}`;
+  } finally {
+    settingsSnsCheckInFlight = false;
+    if (buttonEl) buttonEl.disabled = false;
+  }
+}
+
+async function runSettingsSnsPublishNow() {
+  if (settingsSnsPublishInFlight) return;
+  const buttonEl = document.getElementById('settings-sns-publish-now-btn');
+  const resultEl = document.getElementById('settings-sns-runtime-result');
+  if (settingsMajorHasPendingBasicChanges) {
+    if (resultEl) resultEl.textContent = '변경한 설정을 먼저 저장한 뒤 발행해 주세요.';
+    return;
+  }
+  const confirmed = window.confirm(
+    'SNS 시트에서 가장 앞선 대기 원문 글 1건을 선택된 모든 Buffer 채널에 즉시 발행할까요?'
+  );
+  if (!confirmed) return;
+
+  settingsSnsPublishInFlight = true;
+  if (buttonEl) buttonEl.disabled = true;
+  if (resultEl) resultEl.textContent = '대기 중인 원문 글을 SNS에 발행하는 중입니다...';
+  try {
+    const result = await postJson('/api/v1/auto/publish/sns/run', {});
+    const data = result?.data || {};
+    if (resultEl) {
+      resultEl.textContent = `발행 완료: 성공 ${Number(data.completedCount || 0)}건 · 실패 ${Number(data.failedCount || 0)}건 · 건너뜀 ${Number(data.skippedCount || 0)}건`;
+    }
+    await loadSettingsSnsRuntimeStatus();
+  } catch (error) {
+    if (resultEl) resultEl.textContent = `SNS 발행 확인 필요: ${error.message}`;
+    await loadSettingsSnsRuntimeStatus();
+  } finally {
+    settingsSnsPublishInFlight = false;
+    if (buttonEl) buttonEl.disabled = false;
+  }
 }
 
 async function inspectSettingsBufferConnection(organizationId = '') {
@@ -4767,6 +4936,7 @@ function applySettingsMajorToForm(data, options = {}) {
   const bufferOrganizationEl = document.getElementById('settings-buffer-organization');
   const snsPublishEnabledEl = document.getElementById('settings-sns-publish-enabled');
   const snsPublishIntervalEl = document.getElementById('settings-sns-publish-interval');
+  const snsAiModeEl = document.getElementById('settings-sns-ai-mode');
 
   settingsMajorApplyingForm = true;
 
@@ -4917,6 +5087,13 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(bufferApiKeyEl, fields.BUFFER_API_KEY || '');
   sc(snsPublishEnabledEl, fields.SNS_PUBLISH_ENABLED);
   sv(snsPublishIntervalEl, Math.max(10, Number(fields.SNS_PUBLISH_INTERVAL_MIN) || 10));
+  sv(snsAiModeEl, fields.SNS_AI_MODE || 'none');
+  syncSettingsSnsAiHint();
+  const snsSourceBlogs = Array.isArray(fields.SNS_SOURCE_BLOGS)
+    ? fields.SNS_SOURCE_BLOGS
+    : ['naver', 'wordpress'];
+  sc(document.getElementById('settings-sns-source-naver'), snsSourceBlogs.includes('naver'));
+  sc(document.getElementById('settings-sns-source-wordpress'), snsSourceBlogs.includes('wordpress'));
   settingsBufferOrganizations = [];
   settingsBufferChannels = normalizeSettingsBufferChannels(fields.BUFFER_CHANNELS);
   settingsBufferSelectedChannelIds = new Set(settingsBufferChannels.map((channel) => channel.id).slice(0, 3));
@@ -5059,6 +5236,11 @@ function getSettingsMajorBasicValuesFromDom() {
       return href === '#' ? '' : href.trim();
     })(),
     SNS_PUBLISH_ENABLED: Boolean(document.getElementById('settings-sns-publish-enabled')?.checked),
+    SNS_AI_MODE: (document.getElementById('settings-sns-ai-mode')?.value || 'none').trim(),
+    SNS_SOURCE_BLOGS: [
+      document.getElementById('settings-sns-source-naver')?.checked ? 'naver' : '',
+      document.getElementById('settings-sns-source-wordpress')?.checked ? 'wordpress' : ''
+    ].filter(Boolean),
     SNS_PUBLISH_INTERVAL_MIN: Math.max(
       10,
       parseInt(document.getElementById('settings-sns-publish-interval')?.value || '10', 10) || 10
@@ -5568,6 +5750,7 @@ async function loadSettingsMajor({ force = false, skipPendingConfirm = false } =
   try {
     const data = await fetchJson('/api/v1/settings/major');
     applySettingsMajorToForm(data);
+    await loadSettingsSnsRuntimeStatus();
     updateSettingsStatus('.settings-major-result', `불러오기 완료: ${data.configPath || '-'}`, 'success');
     return true;
   } catch (e) {
@@ -5827,6 +6010,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     }
     try {
       await Promise.all([loadConfigStatus(), loadDashboard()]);
+      await loadSettingsSnsRuntimeStatus();
       if (uiConfigReady) {
         await ensureSheetsPreflightUi({ force: true, silent: true });
       }
@@ -8979,6 +9163,7 @@ function bindActions() {
     document.getElementById('settings-image-model-preset-code'),
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-telegram-chat-ai-mode'),
+    document.getElementById('settings-sns-ai-mode'),
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);
@@ -8998,6 +9183,8 @@ function bindActions() {
     document.getElementById('settings-notify-telegram-enabled'),
     document.getElementById('settings-notify-slack-enabled'),
     document.getElementById('settings-sns-publish-enabled'),
+    document.getElementById('settings-sns-source-naver'),
+    document.getElementById('settings-sns-source-wordpress'),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-mode"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-speech-level"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
@@ -9074,6 +9261,28 @@ function bindActions() {
       inspectSettingsBufferConnection(settingsBufferOrganizationEl.value);
     });
   }
+  const settingsSnsCheckNowBtn = document.getElementById('settings-sns-check-now-btn');
+  if (settingsSnsCheckNowBtn) {
+    settingsSnsCheckNowBtn.addEventListener('click', runSettingsSnsCheckNow);
+  }
+  const settingsSnsPublishNowBtn = document.getElementById('settings-sns-publish-now-btn');
+  if (settingsSnsPublishNowBtn) {
+    settingsSnsPublishNowBtn.addEventListener('click', runSettingsSnsPublishNow);
+  }
+  const settingsSnsAiModeEl = document.getElementById('settings-sns-ai-mode');
+  if (settingsSnsAiModeEl) {
+    settingsSnsAiModeEl.addEventListener('change', syncSettingsSnsAiHint);
+  }
+  [
+    document.getElementById('settings-text-model-preset-code'),
+    document.getElementById('settings-text-model-name'),
+    document.getElementById('settings-text-model-api-key'),
+    document.getElementById('settings-custom-ai-base-url'),
+    document.getElementById('settings-custom-ai-model')
+  ].filter(Boolean).forEach((element) => {
+    element.addEventListener('input', syncSettingsSnsAiHint);
+    element.addEventListener('change', syncSettingsSnsAiHint);
+  });
   if (settingsOpenGoogleSheetBtn) settingsOpenGoogleSheetBtn.addEventListener('click', openGoogleSheetFromUi);
   if (settingsGoogleOauthConnectBtn) settingsGoogleOauthConnectBtn.addEventListener('click', startGoogleOauth);
   if (settingsGoogleOauthDisconnectBtn) settingsGoogleOauthDisconnectBtn.addEventListener('click', disconnectGoogleOauth);

@@ -7,6 +7,8 @@ function createBlogAutoService(deps = {}) {
         runAutoCycle,
         runTrendCollectCycle,
         runRssCollectCycle,
+        triggerSnsDiscoveryCycle,
+        triggerSnsDistributionCycle,
         runAutoPublishCycle,
         triggerAutoPublishCycle
     } = deps;
@@ -95,6 +97,36 @@ function createBlogAutoService(deps = {}) {
                 Logger.error(`⚠️ [UI][AUTO] RSS 수동 수집 오류:`, e);
                 return { success: false, message: e.message || '알 수 없는 오류' };
             }
+        },
+
+        async runCollectSns() {
+            Logger.info(`🚀 [UI][AUTO] SNS RSS 수동 확인 요청 수신`);
+            const result = await triggerSnsDiscoveryCycle('ui-manual');
+            if (!result?.success) {
+                return {
+                    success: false,
+                    statusCode: result?.code === 'SNS_CYCLE_ALREADY_RUNNING' ? 409 : 400,
+                    code: result?.code || 'SNS_DISCOVERY_FAILED',
+                    message: result?.message || 'SNS RSS 확인에 실패했습니다.',
+                    data: result || {}
+                };
+            }
+            return { success: true, data: result || {} };
+        },
+
+        async runPublishSns() {
+            Logger.info(`🚀 [UI][AUTO] SNS 원문 글 수동 발행 요청 수신`);
+            const result = await triggerSnsDistributionCycle('ui-manual');
+            if (!result?.success) {
+                return {
+                    success: false,
+                    statusCode: result?.code === 'SNS_CYCLE_ALREADY_RUNNING' ? 409 : 400,
+                    code: result?.code || 'SNS_DISTRIBUTION_FAILED',
+                    message: result?.message || 'SNS 원문 글 발행에 실패했습니다.',
+                    data: result || {}
+                };
+            }
+            return { success: true, data: result || {} };
         },
 
         async runAutoPublish({ requestBody = {} } = {}) {

@@ -37,7 +37,9 @@ function createAutoCycleRuntime(deps = {}) {
         processAndAppendTrendsToTopics,
         filterAutoTopicCandidates,
         executeBlogBatchRowsAction,
-        executeShoppingBatchRowsAction
+        executeShoppingBatchRowsAction,
+        snsRssDiscovery,
+        snsDistributionRunner
     } = deps;
 
     function getTodayYmdSeoul() {
@@ -692,6 +694,77 @@ function createAutoCycleRuntime(deps = {}) {
         }
     }
 
+    async function runSnsDiscoveryCycle(trigger = 'manual') {
+        if (!snsRssDiscovery || typeof snsRssDiscovery.run !== 'function') {
+            return {
+                success: false,
+                code: 'SNS_DISCOVERY_NOT_CONFIGURED',
+                message: 'SNS RSS Discovery가 구성되지 않았습니다.'
+            };
+        }
+
+        const result = await snsRssDiscovery.run(trigger);
+        const data = result?.data || {};
+        recordUiActivity({
+            category: 'collection',
+            type: result?.success ? 'sns_discovery_completed' : 'sns_discovery_skipped',
+            level: result?.success ? 'info' : 'warning',
+            title: result?.success ? 'SNS RSS 확인 완료' : 'SNS RSS 확인 건너뜀',
+            detail: result?.success
+                ? `신규 원문 ${Number(data.newEntryCount || 0)}건 · 채널별 행 ${Number(data.addedDeliveryCount || 0)}건`
+                : String(result?.message || '실행 조건을 충족하지 못했습니다.')
+        });
+        return result;
+    }
+
+    async function runSnsDistributionCycle(trigger = 'manual') {
+        if (!snsDistributionRunner || typeof snsDistributionRunner.run !== 'function') {
+            return {
+                success: false,
+                code: 'SNS_DISTRIBUTION_NOT_CONFIGURED',
+                message: 'SNS Distribution Runner가 구성되지 않았습니다.'
+            };
+        }
+
+        const result = await snsDistributionRunner.run(trigger);
+        const data = result?.data || {};
+        recordUiActivity({
+            category: 'publish',
+            type: result?.success ? 'sns_distribution_completed' : 'sns_distribution_failed',
+            level: result?.success ? 'info' : 'warning',
+            title: result?.success ? 'SNS 원문 글 발행 완료' : 'SNS 원문 글 발행 확인 필요',
+            detail: result?.code === 'SNS_DISTRIBUTION_EMPTY'
+                ? '발행 대기 중인 원문 글이 없습니다.'
+                : `성공 ${Number(data.completedCount || 0)}건 · 실패 ${Number(data.failedCount || 0)}건 · 건너뜀 ${Number(data.skippedCount || 0)}건`
+        });
+        return result;
+    }
+
+    async function runSnsAutomationCycle(trigger = 'auto') {
+        const discovery = await runSnsDiscoveryCycle(trigger);
+        if (!discovery?.success) {
+            return {
+                success: false,
+                code: discovery?.code || 'SNS_DISCOVERY_FAILED',
+                message: discovery?.message || 'SNS RSS 확인에 실패했습니다.',
+                data: { discovery, distribution: null }
+            };
+        }
+
+        const distribution = await runSnsDistributionCycle(trigger);
+        return {
+            success: distribution?.success === true,
+            code: distribution?.success
+                ? 'SNS_AUTOMATION_COMPLETED'
+                : (distribution?.code || 'SNS_DISTRIBUTION_FAILED'),
+            message: distribution?.message || '',
+            data: {
+                discovery,
+                distribution
+            }
+        };
+    }
+
     async function runAutoPublishCycle(trigger = 'manual', options = {}) {
         const settingsOverrides = options?.settingsOverrides || {};
         const isManual = String(trigger || '').toLowerCase().includes('manual');
@@ -951,6 +1024,9 @@ function createAutoCycleRuntime(deps = {}) {
         runAutoCycle,
         runTrendCollectCycle,
         runRssCollectCycle,
+        runSnsDiscoveryCycle,
+        runSnsDistributionCycle,
+        runSnsAutomationCycle,
         runAutoPublishCycle,
         normalizeManualPublishTargetRowIndices,
         triggerAutoPublishCycle

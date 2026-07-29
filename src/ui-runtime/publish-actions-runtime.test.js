@@ -26,6 +26,7 @@ test('quick publish keeps the user image option independent from legacy license 
                         cmd_trends: false,
                         cmd_shopping: false,
                         enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false,
                         image_generation: false
                     }
                 };

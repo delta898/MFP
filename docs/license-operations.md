@@ -32,7 +32,7 @@
    - 계정 화면은 `current_period_start_at`과 `next_reset_at`을 표시해 현재 주기와 다음 갱신일을 설명합니다.
 5. 최초 실행의 test 플랜은 앱이 `issue_test_license` RPC로 자동 발급/저장합니다.
 6. test 사용량 소진 시에는 자동 전환하지 않고, 앱의 계정 화면에서 이메일을 입력해 Free Plan으로 전환합니다.
-7. feature JSON은 필수 키 네 개를 모두 포함하며 누락을 허용하지 않습니다.
+7. feature JSON은 필수 키 다섯 개를 모두 포함하며 누락을 허용하지 않습니다.
 8. 발행 사용량은 `reserve_publish_quota -> commit_publish_quota|release_publish_quota` 순서로 처리합니다.
 9. `license_usage_operations`가 동일 operation ID의 중복 차감과 부분 성공 재발행을 방지합니다.
 
@@ -40,12 +40,12 @@
 
 권장 초기 운영값은 다음과 같습니다.
 
-| Plan | cmd_batch | cmd_trends | cmd_shopping | enable_related_posts_auto_link |
-|---|---:|---:|---:|---:|
-| test | true | true | true | true |
-| free | true | false | false | false |
-| pro | true | true | true | true |
-| ultra | true | true | true | true |
+| Plan | cmd_batch | cmd_trends | cmd_shopping | enable_related_posts_auto_link | enable_sns_distribution |
+|---|---:|---:|---:|---:|---:|
+| test | true | true | true | true | true |
+| free | true | false | false | false | false |
+| pro | true | true | true | true | true |
+| ultra | true | true | true | true | true |
 
 `test`는 유료 기능을 체험할 수 있도록 전체 허용하고, `free`는 기본 발행 중심으로 운영하는 권장안이다. 실제 상품 정책은 `license_plans`가 기준이다.
 
@@ -56,9 +56,13 @@
   "cmd_batch": true,
   "cmd_trends": false,
   "cmd_shopping": false,
-  "enable_related_posts_auto_link": false
+  "enable_related_posts_auto_link": false,
+  "enable_sns_distribution": false
 }
 ```
+
+기존 Supabase 환경에는 `sql/supabase_add_sns_distribution_capability.sql`을 적용해
+필수 SNS capability를 추가합니다.
 
 제거 대상 키:
 
@@ -270,6 +274,8 @@ where license_key = 'LICENSE-KEY-REPLACE-ME';
 
 ## 6. SQL 파일 역할 요약
 
+- `sql/supabase_add_sns_distribution_capability.sql`
+  - 기존 플랜에 필수 SNS capability를 추가할 때 앱 배포보다 먼저 적용
 - `sql/supabase_issue_pro_license.sql`
   - 운영자가 빠르게 pro 키를 발급할 때 사용
 - `sql/supabase_issue_test_free_license.sql`

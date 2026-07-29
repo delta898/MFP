@@ -36,6 +36,40 @@ function normalizeChannel(item = {}) {
     };
 }
 
+function normalizePublishDelivery(item = {}, index = 0) {
+    const channelId = String(item.channelId || item.channel_id || '').trim();
+    const text = String(item.text || '').trim();
+    const imageUrl = String(item.imageUrl || item.image_url || '').trim();
+    if (!channelId) throw new BufferApiError(`Buffer 발행 채널 ID가 비어 있습니다. (${index + 1}번째)`, {
+        code: 'BUFFER_CHANNEL_REQUIRED'
+    });
+    if (!text) throw new BufferApiError(`Buffer 발행 내용이 비어 있습니다. (${index + 1}번째)`, {
+        code: 'BUFFER_POST_TEXT_REQUIRED'
+    });
+    return {
+        deliveryKey: String(item.deliveryKey || item.delivery_key || channelId).trim(),
+        channelId,
+        text,
+        imageUrl
+    };
+}
+
+function isTransientBufferError(error) {
+    const status = Number(error?.status) || 0;
+    const code = String(error?.code || '').trim().toUpperCase();
+    return status === 429
+        || status >= 500
+        || [
+            'BUFFER_CONNECTION_FAILED',
+            'INTERNAL_SERVER_ERROR',
+            'SERVICE_UNAVAILABLE',
+            'TIMEOUT',
+            'GATEWAY_TIMEOUT',
+            'RATE_LIMITED',
+            'TOO_MANY_REQUESTS'
+        ].includes(code);
+}
+
 class BufferClient {
     constructor(options = {}) {
         this.axios = options.axios || require('axios');
@@ -170,11 +204,85 @@ class BufferClient {
             channels
         };
     }
+
+    async shareNowMany(apiKey, deliveries = []) {
+        const normalized = (Array.isArray(deliveries) ? deliveries : [])
+            .map(normalizePublishDelivery);
+        if (normalized.length === 0) {
+            return [];
+        }
+        if (normalized.length > 3) {
+            throw new BufferApiError('Buffer 즉시 발행은 한 원문당 최대 3개 채널까지 지원합니다.', {
+                code: 'BUFFER_CHANNEL_LIMIT_EXCEEDED'
+            });
+        }
+
+        const variableDefinitions = normalized
+            .map((_, index) => `$input${index}: CreatePostInput!`)
+            .join(', ');
+        const mutationFields = normalized
+            .map((_, index) => `
+                delivery${index}: createPost(input: $input${index}) {
+                    __typename
+                    ... on PostActionSuccess {
+                        post {
+                            id
+                            channelId
+                        }
+                    }
+                    ... on MutationError {
+                        message
+                    }
+                }
+            `)
+            .join('\n');
+        const variables = {};
+        normalized.forEach((delivery, index) => {
+            variables[`input${index}`] = {
+                text: delivery.text,
+                channelId: delivery.channelId,
+                schedulingType: 'automatic',
+                mode: 'shareNow',
+                ...(delivery.imageUrl
+                    ? { assets: [{ image: { url: delivery.imageUrl } }] }
+                    : {})
+            };
+        });
+
+        const data = await this.request(apiKey, `
+            mutation ShareNowMany(${variableDefinitions}) {
+                ${mutationFields}
+            }
+        `, variables);
+
+        return normalized.map((delivery, index) => {
+            const payload = data?.[`delivery${index}`] || {};
+            const bufferPostId = String(payload?.post?.id || '').trim();
+            if (bufferPostId) {
+                return {
+                    success: true,
+                    deliveryKey: delivery.deliveryKey,
+                    channelId: delivery.channelId,
+                    bufferPostId
+                };
+            }
+            return {
+                success: false,
+                deliveryKey: delivery.deliveryKey,
+                channelId: delivery.channelId,
+                code: 'BUFFER_POST_REJECTED',
+                message: String(payload?.message || 'Buffer가 발행 요청을 거부했습니다.').trim(),
+                retriable: false
+            };
+        });
+    }
 }
 
 module.exports = {
     BufferClient,
     BufferApiError,
     normalizeOrganization,
-    normalizeChannel
+    normalizeChannel,
+    normalizePublishDelivery,
+    isTransientBufferError
 };

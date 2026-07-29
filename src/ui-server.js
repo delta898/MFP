@@ -38,6 +38,11 @@ const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdow
 const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { BufferClient } = require('./social/gateways/buffer-client');
+const { createSnsSheetStore } = require('./social/sns-sheet-store');
+const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
+const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
+const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
+const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
@@ -54,6 +59,7 @@ const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime'
 const {
     toFeatureMap,
     getFeatureBool,
+    getEnableSnsDistribution,
     isCommandEnabled,
     parseMaxPosts
 } = require('./runtime-feature-flags');
@@ -200,6 +206,31 @@ const {
     registerPreviewSession: registerQuickPublishPreviewSession,
     selectPreviewTarget: selectQuickPublishPreviewTarget
 } = quickPublishRuntime;
+const snsSheetGateway = createGoogleSheetsSnsGateway({
+    Utils,
+    CONFIG,
+    httpClient: axios
+});
+const snsSheetStore = createSnsSheetStore({
+    gateway: snsSheetGateway
+});
+const snsRssDiscovery = createSnsRssDiscovery({
+    CONFIG,
+    License,
+    Utils,
+    store: snsSheetStore,
+    getEnableSnsDistribution,
+    Logger,
+    httpClient: axios
+});
+const snsDistributionRunner = createSnsDistributionRunner({
+    CONFIG,
+    License,
+    store: snsSheetStore,
+    bufferClient: new BufferClient({ axios }),
+    getEnableSnsDistribution,
+    Logger
+});
 const autoRunnerRuntime = createAutoRunnerRuntime({
     CONFIG,
     Logger,
@@ -222,6 +253,9 @@ const {
     getAutoStatusPayload,
     refreshLegacyAutoRuntimeState,
     syncAutoRunnerWithConfig,
+    triggerSnsDiscoveryCycle,
+    triggerSnsStartupDiscovery,
+    triggerSnsDistributionCycle,
     scheduleNextShoppingAutoCycle,
     stopShoppingAutoRunner,
     syncShoppingAutoRunnerWithConfig
@@ -392,6 +426,14 @@ function normalizeBufferChannels(input) {
             return true;
         })
         .slice(0, 3);
+}
+
+function normalizeSnsSourceBlogs(input, fallback = ['naver', 'wordpress']) {
+    const source = Array.isArray(input)
+        ? input
+        : (input == null ? fallback : String(input).split(','));
+    return [...new Set(source.map((item) => String(item || '').trim().toLowerCase()))]
+        .filter((item) => item === 'naver' || item === 'wordpress');
 }
 
 function normalizeIntegerOrBlank(input, fallback = '') {
@@ -999,6 +1041,8 @@ function buildMajorSettings(raw, configSource) {
         BUFFER_HELP_URL: CONFIG.BUFFER_HELP_URL || '',
         SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
         SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(CONFIG.SNS_PUBLISH_INTERVAL_MIN) || 10),
+        SNS_AI_MODE: normalizeSnsAiMode(CONFIG.SNS_AI_MODE),
+        SNS_SOURCE_BLOGS: normalizeSnsSourceBlogs(CONFIG.SNS_SOURCE_BLOGS),
 
         // Automation - Publish
         PUBLISH_AUTO_ENABLED: CONFIG.PUBLISH_AUTO_ENABLED,
@@ -1151,7 +1195,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.BUFFER_HELP_URL = String(fields.BUFFER_HELP_URL || '').trim();
     CONFIG.SNS_PUBLISH_ENABLED = normalizeBool(fields.SNS_PUBLISH_ENABLED, false);
     CONFIG.SNS_PUBLISH_INTERVAL_MIN = Math.max(10, normalizePositiveInt(fields.SNS_PUBLISH_INTERVAL_MIN, 10));
-    CONFIG.SNS_SHEET_NAME = 'sns';
+    CONFIG.SNS_AI_MODE = normalizeSnsAiMode(fields.SNS_AI_MODE);
+    CONFIG.SNS_SHEET_NAME = 'SNS';
+    CONFIG.SNS_SOURCE_BLOGS = normalizeSnsSourceBlogs(fields.SNS_SOURCE_BLOGS);
 
     CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
     CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizePositiveInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
@@ -1271,6 +1317,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
     const bufferChannels = normalizeBufferChannels(requestBody.BUFFER_CHANNELS);
+    const snsSourceBlogs = normalizeSnsSourceBlogs(requestBody.SNS_SOURCE_BLOGS);
 
     return {
         LISTEN_HOST: listenHost,
@@ -1313,6 +1360,8 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         BUFFER_HELP_URL: String(requestBody.BUFFER_HELP_URL || CONFIG.BUFFER_HELP_URL || '').trim(),
         SNS_PUBLISH_ENABLED: normalizeBool(requestBody.SNS_PUBLISH_ENABLED, false),
         SNS_PUBLISH_INTERVAL_MIN: Math.max(10, normalizePositiveInt(requestBody.SNS_PUBLISH_INTERVAL_MIN, 10)),
+        SNS_AI_MODE: normalizeSnsAiMode(requestBody.SNS_AI_MODE),
+        SNS_SOURCE_BLOGS: snsSourceBlogs,
 
         ...publishAutoSettings,
         ...shoppingAutoSettings,
@@ -1671,13 +1720,18 @@ const autoCycleRuntime = createAutoCycleRuntime({
     processAndAppendTrendsToTopics,
     filterAutoTopicCandidates,
     executeBlogBatchRowsAction,
-    executeShoppingBatchRowsAction
+    executeShoppingBatchRowsAction,
+    snsRssDiscovery,
+    snsDistributionRunner
 });
 const {
     executeShoppingAutoCycle,
     runAutoCycle,
     runTrendCollectCycle,
     runRssCollectCycle,
+    runSnsDiscoveryCycle,
+    runSnsDistributionCycle,
+    runSnsAutomationCycle,
     runAutoPublishCycle,
     triggerAutoPublishCycle
 } = autoCycleRuntime;
@@ -1772,6 +1826,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     runAutoCycle,
     runTrendCollectCycle,
     runRssCollectCycle,
+    triggerSnsDiscoveryCycle,
+    triggerSnsDistributionCycle,
     runAutoPublishCycle,
     triggerAutoPublishCycle,
     createBlogAutoService,
@@ -1801,6 +1857,9 @@ const { handleApi } = uiApiRouteRuntime;
 setAutoRunnerHandlers({
     runTrendCollectCycle,
     runRssCollectCycle,
+    runSnsDiscoveryCycle,
+    runSnsDistributionCycle,
+    runSnsAutomationCycle,
     runAutoPublishCycle,
     executeShoppingAutoCycle
 });
@@ -1846,6 +1905,7 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     sendError,
     getContentType,
     syncAutoRunnerWithConfig,
+    triggerSnsStartupDiscovery,
     syncShoppingAutoRunnerWithConfig,
     recordUiActivity,
     handleGoogleOAuthCallback,

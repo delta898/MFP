@@ -38,7 +38,8 @@ test('trend date selection follows cmd_trends and does not consume publish quota
         cmd_batch: true,
         cmd_trends: true,
         cmd_shopping: false,
-        enable_related_posts_auto_link: false
+        enable_related_posts_auto_link: false,
+        enable_sns_distribution: false
     }, state);
 
     const result = await runtime.executeTrendCollectAction({ date: '2026-06-19' });
@@ -54,7 +55,8 @@ test('trend collection is blocked when cmd_trends is false', async () => {
         cmd_batch: true,
         cmd_trends: false,
         cmd_shopping: false,
-        enable_related_posts_auto_link: false
+        enable_related_posts_auto_link: false,
+        enable_sns_distribution: false
     }, state);
 
     const result = await runtime.executeTrendCollectAction({ date: '2026-06-19' });

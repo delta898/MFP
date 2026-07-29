@@ -15,6 +15,7 @@ const {
     toStoredModelSelection
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
+const { isSnsAiMode } = require('../../social/sns-ai-policy');
 
 function createSettingsService(deps = {}) {
     const {
@@ -87,6 +88,13 @@ function createSettingsService(deps = {}) {
             if (requestedBufferChannels.length > 3) {
                 throw createApiError(400, 'BUFFER_CHANNEL_LIMIT_EXCEEDED', 'Buffer 채널은 최대 3개까지 선택할 수 있습니다.');
             }
+            if (!isSnsAiMode(requestBody.SNS_AI_MODE ?? 'none')) {
+                throw createApiError(
+                    400,
+                    'SNS_AI_MODE_INVALID',
+                    'SNS AI 설정값이 올바르지 않습니다.'
+                );
+            }
             const fields = parseMajorFieldsFromRequest(requestBody || {});
             if (fields.SNS_PUBLISH_ENABLED && !String(fields.BUFFER_API_KEY || '').trim()) {
                 throw createApiError(400, 'BUFFER_API_KEY_REQUIRED', 'SNS 자동 발행을 사용하려면 Buffer API Key가 필요합니다.');
@@ -96,6 +104,9 @@ function createSettingsService(deps = {}) {
             }
             if (fields.SNS_PUBLISH_ENABLED && (!Array.isArray(fields.BUFFER_CHANNELS) || fields.BUFFER_CHANNELS.length === 0)) {
                 throw createApiError(400, 'BUFFER_CHANNEL_REQUIRED', 'SNS 자동 발행을 사용하려면 Buffer 채널을 1개 이상 선택해야 합니다.');
+            }
+            if (fields.SNS_PUBLISH_ENABLED && (!Array.isArray(fields.SNS_SOURCE_BLOGS) || fields.SNS_SOURCE_BLOGS.length === 0)) {
+                throw createApiError(400, 'SNS_SOURCE_BLOG_REQUIRED', 'SNS 자동 발행을 사용하려면 발행 대상 블로그를 1개 이상 선택해야 합니다.');
             }
             const prevListenHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
             const prevListenPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
@@ -303,7 +314,9 @@ function createSettingsService(deps = {}) {
             if (!structuredConfig.automation.publish.social) structuredConfig.automation.publish.social = {};
             structuredConfig.automation.publish.social.enabled = fields.SNS_PUBLISH_ENABLED;
             structuredConfig.automation.publish.social.interval_min = Number(fields.SNS_PUBLISH_INTERVAL_MIN);
-            structuredConfig.automation.publish.social.sheet_name = 'sns';
+            structuredConfig.automation.publish.social.ai_mode = fields.SNS_AI_MODE;
+            structuredConfig.automation.publish.social.sheet_name = 'SNS';
+            structuredConfig.automation.publish.social.source_blogs = fields.SNS_SOURCE_BLOGS;
 
             // Notification
             if (!structuredConfig.notification) structuredConfig.notification = {};

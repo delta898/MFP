@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>BlogGenius WebUI</title>
   <link rel="icon" type="image/png" href="./favicon.png">
-  <link rel="stylesheet" href="./styles.css?v=2">
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 
 <body>
@@ -1953,11 +1953,25 @@
           <div class="form-grid">
             <div class="settings-section-divider">Buffer 연결</div>
             <div class="form-field-block" style="grid-column: 1 / -1;">
-              <label class="settings-checkbox-label">
+              <label class="settings-checkbox-label sns-activation-label">
                 <input id="settings-sns-publish-enabled" type="checkbox">
-                <span style="font-size: 1rem; font-weight: 700;">SNS 자동 발행 활성화</span>
+                <span class="sns-setting-heading">SNS 자동 발행 활성화</span>
               </label>
-              <small class="muted">발행한 블로그 글을 Google Spreadsheet의 SNS 시트에 등록하고 Buffer로 즉시 발행합니다.</small>
+              <small class="sns-field-hint">발행한 블로그 글을 Google Spreadsheet의 SNS 시트에 등록하고 Buffer로 즉시 발행합니다.</small>
+            </div>
+
+            <div class="form-field-block" style="grid-column: 1 / -1;">
+              <span class="field-label-text">SNS 발행 대상 블로그</span>
+              <div class="sns-source-options">
+                <label class="settings-checkbox-label">
+                  <input id="settings-sns-source-naver" type="checkbox" checked>
+                  <span>네이버 블로그</span>
+                </label>
+                <label class="settings-checkbox-label">
+                  <input id="settings-sns-source-wordpress" type="checkbox" checked>
+                  <span>워드프레스</span>
+                </label>
+              </div>
             </div>
 
             <label style="grid-column: 1 / -1;">Buffer API Key
@@ -1965,7 +1979,7 @@
                 <input id="settings-buffer-api-key" type="password" placeholder="Buffer Settings > API에서 발급한 Personal API Key">
                 <button id="settings-buffer-connect-btn" class="secondary" type="button">연결 확인</button>
               </div>
-              <small class="muted">API Key는 로컬 설정에만 저장합니다.</small>
+              <small class="sns-field-hint">API Key는 로컬 설정에만 저장합니다.</small>
             </label>
 
             <label>Buffer Organization
@@ -1977,22 +1991,40 @@
             <label>발행 확인 주기 (분)
               <div class="input-with-unit">
                 <input id="settings-sns-publish-interval" type="number" min="10" step="1" value="10">
-                <span>분</span>
               </div>
-              <small class="muted">최소 10분이며, 매 주기 sns 시트의 첫 번째 대기 행 한 건을 처리합니다.</small>
+            </label>
+
+            <label style="grid-column: 1 / -1;">SNS 콘텐츠 AI
+              <select id="settings-sns-ai-mode">
+                <option value="none">사용 안 함</option>
+                <option value="blog_text">블로그 글쓰기 Text Model</option>
+                <option value="chat">Chat Model</option>
+              </select>
+              <small id="settings-sns-ai-hint" class="sns-field-hint">SNS 콘텐츠 처리에 AI를 사용하지 않습니다.</small>
             </label>
 
             <div class="form-field-block" style="grid-column: 1 / -1;">
               <span class="field-label-text">발행 채널</span>
-              <small class="muted">Buffer에서 조회한 채널 중 최대 3개를 선택할 수 있습니다.</small>
-              <div id="settings-buffer-channel-list" style="display:grid; gap:8px; margin-top:10px;">
-                <div class="muted">API Key 연결 확인 후 채널이 표시됩니다.</div>
+              <small class="sns-field-hint">Buffer에서 조회한 채널 중 최대 3개를 선택할 수 있습니다.</small>
+              <div id="settings-buffer-channel-list" class="sns-channel-list">
+                <div class="sns-empty-message">API Key 연결 확인 후 채널이 표시됩니다.</div>
               </div>
             </div>
 
-            <div class="settings-auth-section" style="grid-column: 1 / -1;">
-              <div class="field-label-text" style="margin-bottom:8px;">Buffer 연결 상태</div>
-              <pre id="settings-buffer-connection-result" class="settings-google-auth-result" style="margin:0;">연결 확인 전</pre>
+            <div class="settings-auth-section sns-connection-status" style="grid-column: 1 / -1;">
+              <div class="field-label-text">Buffer 연결 상태</div>
+              <div id="settings-buffer-connection-result" class="settings-sns-status">연결 확인 전</div>
+            </div>
+
+            <div class="settings-auth-section sns-connection-status" style="grid-column: 1 / -1;">
+              <div class="sns-status-heading">
+                <div class="field-label-text">SNS 자동 발행 상태</div>
+                <div class="sns-status-actions">
+                  <button id="settings-sns-check-now-btn" class="secondary" type="button">RSS 지금 확인</button>
+                  <button id="settings-sns-publish-now-btn" class="secondary" type="button">대기 글 지금 발행</button>
+                </div>
+              </div>
+              <div id="settings-sns-runtime-result" class="settings-sns-status">상태 확인 중...</div>
             </div>
 
             <div id="settings-buffer-help-wrap" class="form-field-block" style="grid-column: 1 / -1; display:none;">
@@ -2406,7 +2438,7 @@
     </div>
   </div>
 
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 
 </html>

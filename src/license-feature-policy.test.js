@@ -12,6 +12,7 @@ test('license feature policy accepts required booleans and ignores legacy keys',
         cmd_trends: false,
         cmd_shopping: false,
         enable_related_posts_auto_link: true,
+        enable_sns_distribution: true,
         cmd_pub: true,
         image_generation: false,
         max_blog_posts_per_run: 3,
@@ -24,7 +25,8 @@ test('license feature policy accepts required booleans and ignores legacy keys',
         cmd_batch: true,
         cmd_trends: false,
         cmd_shopping: false,
-        enable_related_posts_auto_link: true
+        enable_related_posts_auto_link: true,
+        enable_sns_distribution: true
     });
 });
 
@@ -39,4 +41,5 @@ test('license feature policy rejects missing or non-boolean required values', ()
     assert.equal(result.code, 'LICENSE_FEATURE_POLICY_INVALID');
     assert.match(result.message, /cmd_trends must be boolean/);
     assert.match(result.message, /enable_related_posts_auto_link is required/);
+    assert.match(result.message, /enable_sns_distribution is required/);
 });

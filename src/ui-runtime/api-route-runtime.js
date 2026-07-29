@@ -67,6 +67,8 @@ function createUiApiRouteRuntime(deps = {}) {
         runAutoCycle,
         runTrendCollectCycle,
         runRssCollectCycle,
+        triggerSnsDiscoveryCycle,
+        triggerSnsDistributionCycle,
         runAutoPublishCycle,
         triggerAutoPublishCycle,
         createBlogAutoService,
@@ -107,6 +109,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 runAutoCycle,
                 runTrendCollectCycle,
                 runRssCollectCycle,
+                triggerSnsDiscoveryCycle,
+                triggerSnsDistributionCycle,
                 runAutoPublishCycle,
                 triggerAutoPublishCycle
             });

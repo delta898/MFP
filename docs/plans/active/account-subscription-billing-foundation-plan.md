@@ -100,7 +100,7 @@ External Checkout / Customer Portal
 
 콘텐츠 발행 작업 한 건을 quota 한 건으로 계산한다. 같은 작업을 네이버와 WordPress에 함께 처리해도 한 건이며, `draft`, `schedule`, `publish` 중 하나 이상의 대상 플랫폼이 정상 처리되면 commit한다. 모든 대상 실패 시 release하고 같은 operation id 재시도는 추가 차감하지 않는다. 트렌드/RSS 수집과 생성 전용 작업은 quota를 사용하지 않는다.
 
-라이선스 feature는 `cmd_batch`, `cmd_trends`, `cmd_shopping`, `enable_related_posts_auto_link` 네 개의 필수 boolean으로 단순화한다. 기본 발행, 이미지 생성 옵션, 회당 최대 발행 수, 트렌드 날짜 지정은 별도 entitlement로 두지 않는다.
+라이선스 feature는 `cmd_batch`, `cmd_trends`, `cmd_shopping`, `enable_related_posts_auto_link`, `enable_sns_distribution` 다섯 개의 필수 boolean으로 단순화한다. 기본 발행, 이미지 생성 옵션, 회당 최대 발행 수, 트렌드 날짜 지정은 별도 entitlement로 두지 않는다.
 
 ## Provider-Neutral Billing Model
 외부 결제 연동은 아래 세 축으로 정의한다.

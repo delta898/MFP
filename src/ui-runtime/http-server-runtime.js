@@ -18,6 +18,7 @@ function createUiHttpServerRuntime(deps = {}) {
         sendError,
         getContentType,
         syncAutoRunnerWithConfig,
+        triggerSnsStartupDiscovery,
         syncShoppingAutoRunnerWithConfig,
         recordUiActivity,
         handleGoogleOAuthCallback,
@@ -125,6 +126,11 @@ function createUiHttpServerRuntime(deps = {}) {
             title: 'UI 서버 시작',
             detail: `http://${openHost}:${port}`
         });
+        if (typeof triggerSnsStartupDiscovery === 'function') {
+            triggerSnsStartupDiscovery().catch((error) => {
+                Logger.error(`❌ [SNS] 앱 시작 시 RSS 확인 요청 실패: ${error.message}`);
+            });
+        }
         return { server, host, port, openHost };
     }
 

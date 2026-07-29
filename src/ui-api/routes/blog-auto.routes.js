@@ -39,6 +39,16 @@ function createBlogAutoRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/auto/collect/sns/run') {
+            await controller.runCollectSns(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/auto/publish/sns/run') {
+            await controller.runPublishSns(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/auto/publish/run') {
             await controller.runAutoPublish(ctx);
             return true;

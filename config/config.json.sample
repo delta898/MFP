@@ -157,7 +157,12 @@
       "social": {
         "enabled": false,
         "interval_min": 10,
-        "sheet_name": "sns"
+        "ai_mode": "none",
+        "sheet_name": "SNS",
+        "source_blogs": [
+          "naver",
+          "wordpress"
+        ]
       }
     }
   },

@@ -2,7 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     BufferClient,
-    BufferApiError
+    BufferApiError,
+    isTransientBufferError
 } = require('./buffer-client');
 
 function createAxiosMock(responses = []) {
@@ -108,4 +109,79 @@ test('request converts GraphQL authorization errors to a stable error code', asy
         () => client.listOrganizations('bad-key'),
         (error) => error instanceof BufferApiError && error.code === 'BUFFER_AUTH_INVALID'
     );
+});
+
+test('shareNowMany sends channel posts as aliased mutations and preserves per-channel results', async () => {
+    const axios = createAxiosMock([{
+        status: 200,
+        data: {
+            data: {
+                delivery0: {
+                    __typename: 'PostActionSuccess',
+                    post: { id: 'post-1', channelId: 'channel-1' }
+                },
+                delivery1: {
+                    __typename: 'MutationError',
+                    message: 'Channel is disconnected'
+                }
+            }
+        }
+    }]);
+    const client = new BufferClient({ axios });
+
+    const result = await client.shareNowMany('secret-key', [
+        {
+            deliveryKey: 'delivery-1',
+            channelId: 'channel-1',
+            text: '새 글\nhttps://blog.example/1',
+            imageUrl: 'https://blog.example/image.jpg'
+        },
+        {
+            deliveryKey: 'delivery-2',
+            channelId: 'channel-2',
+            text: '새 글\nhttps://blog.example/1'
+        }
+    ]);
+
+    assert.equal(axios.calls.length, 1);
+    assert.match(axios.calls[0].body.query, /delivery0: createPost/);
+    assert.match(axios.calls[0].body.query, /delivery1: createPost/);
+    assert.equal(axios.calls[0].body.variables.input0.mode, 'shareNow');
+    assert.deepEqual(axios.calls[0].body.variables.input0.assets, [{
+        image: { url: 'https://blog.example/image.jpg' }
+    }]);
+    assert.equal(axios.calls[0].body.variables.input1.assets, undefined);
+    assert.deepEqual(result, [
+        {
+            success: true,
+            deliveryKey: 'delivery-1',
+            channelId: 'channel-1',
+            bufferPostId: 'post-1'
+        },
+        {
+            success: false,
+            deliveryKey: 'delivery-2',
+            channelId: 'channel-2',
+            code: 'BUFFER_POST_REJECTED',
+            message: 'Channel is disconnected',
+            retriable: false
+        }
+    ]);
+});
+
+test('transient Buffer errors include connection, rate limit, and server failures', () => {
+    assert.equal(isTransientBufferError(new BufferApiError('network', {
+        code: 'BUFFER_CONNECTION_FAILED'
+    })), true);
+    assert.equal(isTransientBufferError(new BufferApiError('limited', {
+        code: 'BUFFER_CONNECTION_FAILED',
+        status: 429
+    })), true);
+    assert.equal(isTransientBufferError(new BufferApiError('server', {
+        status: 503
+    })), true);
+    assert.equal(isTransientBufferError(new BufferApiError('invalid', {
+        code: 'BUFFER_AUTH_INVALID',
+        status: 401
+    })), false);
 });

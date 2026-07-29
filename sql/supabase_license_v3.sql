@@ -39,7 +39,8 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "enable_related_posts_auto_link": true
+            "enable_related_posts_auto_link": true,
+            "enable_sns_distribution": true
         }'::jsonb,
         '테스트용 1회성 플랜'
     ),
@@ -54,7 +55,8 @@ values
             "cmd_batch": true,
             "cmd_shopping": false,
             "cmd_trends": false,
-            "enable_related_posts_auto_link": false
+            "enable_related_posts_auto_link": false,
+            "enable_sns_distribution": false
         }'::jsonb,
         '정식 무료 플랜'
     ),
@@ -69,7 +71,8 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "enable_related_posts_auto_link": true
+            "enable_related_posts_auto_link": true,
+            "enable_sns_distribution": true
         }'::jsonb,
         '월 100회 기준'
     ),
@@ -84,7 +87,8 @@ values
             "cmd_batch": true,
             "cmd_shopping": true,
             "cmd_trends": true,
-            "enable_related_posts_auto_link": true
+            "enable_related_posts_auto_link": true,
+            "enable_sns_distribution": true
         }'::jsonb,
         '무제한 플랜'
     )

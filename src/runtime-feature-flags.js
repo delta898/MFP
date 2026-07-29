@@ -22,6 +22,10 @@ function getEnableRelatedPostsAutoLink(features) {
     return getFeatureBool(features, 'enable_related_posts_auto_link', false);
 }
 
+function getEnableSnsDistribution(features) {
+    return getFeatureBool(features, 'enable_sns_distribution', false);
+}
+
 function isCommandEnabled(features, command) {
     const keyMap = {
         batch: 'cmd_batch',
@@ -43,6 +47,7 @@ module.exports = {
     toFeatureMap,
     getFeatureBool,
     getEnableRelatedPostsAutoLink,
+    getEnableSnsDistribution,
     isCommandEnabled,
     parseMaxPosts
 };

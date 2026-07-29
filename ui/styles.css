@@ -5229,6 +5229,118 @@ select.inline-editor {
   border-left: 4px solid #3b82f6;
 }
 
+#settings-tab-sns {
+  gap: 16px;
+}
+
+#settings-tab-sns > h2 {
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+#settings-tab-sns .form-grid {
+  column-gap: 16px;
+  row-gap: 18px;
+}
+
+#settings-tab-sns .form-grid > label,
+#settings-tab-sns .form-field-block,
+#settings-tab-sns .field-label-text {
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #334155;
+}
+
+#settings-tab-sns .settings-checkbox-label {
+  min-height: 32px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+#settings-tab-sns .sns-activation-label {
+  min-height: 36px;
+}
+
+#settings-tab-sns .sns-setting-heading {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+#settings-tab-sns .sns-field-hint,
+#settings-tab-sns .sns-empty-message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #64748b;
+}
+
+#settings-tab-sns .sns-source-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 2px;
+}
+
+#settings-tab-sns .sns-channel-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+#settings-tab-sns .form-grid input,
+#settings-tab-sns .form-grid select,
+#settings-tab-sns .input-with-action button {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#settings-tab-sns .sns-connection-status {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#settings-tab-sns .sns-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#settings-tab-sns .sns-status-heading button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+#settings-tab-sns .sns-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#settings-tab-sns .settings-sns-status {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #475569;
+  white-space: pre-wrap;
+}
+
 .settings-model-card {
   border: 1px solid var(--border-color);
   border-radius: 12px;

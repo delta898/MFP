@@ -4,6 +4,7 @@ const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
 const { getAiModelCatalog, resolveAiModelConfig } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
+const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -419,7 +420,16 @@ const CONFIG = {
     BUFFER_HELP_URL: structuredConfig.integrations?.buffer?.help_url || '',
     SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
     SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),
-    SNS_SHEET_NAME: String(structuredConfig.automation.publish?.social?.sheet_name || 'sns').trim() || 'sns',
+    SNS_AI_MODE: normalizeSnsAiMode(
+        structuredConfig.automation.publish?.social?.ai_mode
+    ),
+    SNS_SHEET_NAME: 'SNS',
+    SNS_SOURCE_BLOGS: (() => {
+        const configured = structuredConfig.automation.publish?.social?.source_blogs;
+        const source = Array.isArray(configured) ? configured : ['naver', 'wordpress'];
+        return [...new Set(source.map((item) => String(item || '').trim().toLowerCase()))]
+            .filter((item) => item === 'naver' || item === 'wordpress');
+    })(),
 
     // Publish
     IMAGE_OPTIMIZATION_ENABLED: structuredConfig.publish?.image_optimization_enabled !== false,

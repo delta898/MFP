@@ -19,6 +19,12 @@ const {
     buildRelatedPostContext,
     selectRelatedPosts
 } = require('./content/related-post-selection');
+const {
+    SNS_SHEET_NAME,
+    SNS_SHEET_HEADERS,
+    buildSnsStatusValidationRequest
+} = require('./social/sns-sheet-schema');
+const { parseFeedXml } = require('./social/feed-entry');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -662,6 +668,19 @@ const Utils = {
         return this._ensureAllSheetsExistInternal({ spreadsheetId, suppressError: false });
     },
 
+    ensureSnsSheetReadyStrict: async function (spreadsheetId = CONFIG.GOOGLE_SHEET_ID) {
+        const accessToken = await this.getGoogleAccessToken();
+        const targetSpreadsheetId = String(spreadsheetId || '').trim();
+        if (!targetSpreadsheetId) throw new Error('GOOGLE_SHEET_ID가 비어 있습니다.');
+
+        await this._ensureSnsSheetReady(accessToken, targetSpreadsheetId, { suppressError: false });
+        return {
+            success: true,
+            spreadsheetId: targetSpreadsheetId,
+            sheetName: SNS_SHEET_NAME
+        };
+    },
+
     readGoogleSheetTrends: async function (options = {}) {
         const result = [];
         try {
@@ -762,6 +781,10 @@ const Utils = {
                 await this.ensureShoppingSheetValidation(accessToken, targetSpreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
             }
 
+            // SNS는 모든 플랜에 공통으로 준비하되, 준비 실패가 topics/shopping 사용을 막지는 않는다.
+            // 실제 SNS 수집/발행 경로에서는 ensureSnsSheetReadyStrict()로 다시 확인한다.
+            const snsResult = await this._ensureSnsSheetReady(accessToken, targetSpreadsheetId, { suppressError: true });
+
             if (this._sheetsHealthLogState?.hasIssue === true) {
                 Logger.info("✅ 필수 시트 준비 이슈 해지");
             }
@@ -770,7 +793,12 @@ const Utils = {
                 lastIssueMessage: '',
                 updatedAt: new Date().toISOString()
             };
-            return { success: true, spreadsheetId: targetSpreadsheetId };
+            return {
+                success: true,
+                spreadsheetId: targetSpreadsheetId,
+                snsReady: snsResult.success,
+                snsMessage: snsResult.message || ''
+            };
 
         } catch (e) {
             const errMessage = String(e?.message || e || 'unknown');
@@ -933,10 +961,99 @@ const Utils = {
         }
     },
 
+    _ensureSnsSheetReady: async function (accessToken, spreadsheetId, options = {}) {
+        const suppressError = options.suppressError !== false;
+        try {
+            const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+            let metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            let snsSheet = (metaRes.data.sheets || []).find(
+                (sheet) => sheet.properties?.title === SNS_SHEET_NAME
+            );
+
+            if (!snsSheet) {
+                Logger.info(`✨ '${SNS_SHEET_NAME}' 시트가 없어서 생성을 시작합니다...`);
+                await this.createSheetIfMissing(accessToken, spreadsheetId, SNS_SHEET_NAME, 'sns');
+                metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }));
+                snsSheet = (metaRes.data.sheets || []).find(
+                    (sheet) => sheet.properties?.title === SNS_SHEET_NAME
+                );
+            }
+
+            if (snsSheet?.properties?.sheetId === undefined) {
+                throw new Error(`'${SNS_SHEET_NAME}' 시트의 sheetId를 확인하지 못했습니다.`);
+            }
+
+            await this.ensureSnsSheetValidation(
+                accessToken,
+                spreadsheetId,
+                snsSheet.properties.sheetId,
+                SNS_SHEET_NAME,
+                { suppressError: false }
+            );
+
+            return { success: true, sheetName: SNS_SHEET_NAME };
+        } catch (e) {
+            const message = String(e?.message || e || 'unknown');
+            Logger.warn(`⚠️ '${SNS_SHEET_NAME}' 시트 준비 실패: ${message}`);
+            if (!suppressError) throw e;
+            return { success: false, sheetName: SNS_SHEET_NAME, message };
+        }
+    },
+
+    ensureSnsSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName, options = {}) {
+        const suppressError = options.suppressError !== false;
+        try {
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const headers = Array.isArray(headerRes?.data?.values?.[0])
+                ? headerRes.data.values[0]
+                : [];
+            const normalizedHeaders = new Set(
+                headers.map((header) => String(header || '').toLowerCase().replace(/[\s/_]/g, '').trim())
+            );
+            const missingHeaders = SNS_SHEET_HEADERS.filter(
+                (header) => !normalizedHeaders.has(
+                    String(header || '').toLowerCase().replace(/[\s/_]/g, '').trim()
+                )
+            );
+            if (missingHeaders.length > 0) {
+                throw new Error(`'${sheetName}' 시트 필수 헤더가 없습니다: ${missingHeaders.join(', ')}`);
+            }
+            const statusColumnIndex = headers.findIndex(
+                (header) => String(header || '').toLowerCase().replace(/[\s\/_]/g, '').trim() === '상태'
+            );
+            if (statusColumnIndex < 0) {
+                throw new Error(`'${sheetName}' 시트에서 상태 컬럼을 찾지 못했습니다.`);
+            }
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+            await this.callWithRetry(() => axios.post(
+                updateUrl,
+                { requests: [buildSnsStatusValidationRequest(sheetId, statusColumnIndex)] },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            ));
+        } catch (e) {
+            if (!suppressError) throw e;
+            Logger.warn(`⚠️ SNS 시트 검증 규칙 업데이트 실패: ${e.message}`);
+        }
+    },
+
     /**
      * 0-2. 기존 시트에 필수 헤더가 빠져있으면 추가 (Sync)
      */
-    _syncSheetHeadersIfMissing: async function (accessToken, spreadsheetId, sheetName, type) {
+    _syncSheetHeadersIfMissing: async function (accessToken, spreadsheetId, sheetName, type, options = {}) {
+        const suppressError = options.suppressError !== false;
         try {
             const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
             const headerRes = await this.callWithRetry(() => axios.get(readUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } }));
@@ -975,6 +1092,7 @@ const Utils = {
                 Logger.info(`   ✅ '${sheetName}' 시트 헤더 동기화 완료`);
             }
         } catch (e) {
+            if (!suppressError) throw e;
             Logger.warn(`⚠️ '${sheetName}' 헤더 동기화 중 오류 (무시 가능): ${e.message}`);
         }
     },
@@ -1182,6 +1300,9 @@ const Utils = {
                         }
                     }
                 });
+            } else if (type === 'sns') {
+                headerRow = [[...SNS_SHEET_HEADERS]];
+                validationRequests.push(buildSnsStatusValidationRequest(newSheetId));
             }
 
             // 3. 드롭다운 적용
@@ -3264,10 +3385,7 @@ const Utils = {
      */
     fetchAndParseRss: async function (url) {
         if (!url) return [];
-        const collected = [];
         try {
-            const cheerio = require('cheerio');
-            const axios = require('axios');
             const res = await this.runWithHeartbeat(
                 `RSS 수집 (${url})`,
                 () => axios.get(url, {
@@ -3278,52 +3396,12 @@ const Utils = {
             );
 
             if (res.status >= 200 && res.status < 300 && typeof res.data === 'string') {
-                const $ = cheerio.load(res.data, { xmlMode: true, decodeEntities: true });
-
-                // RSS 2.0
-                if ($('rss').length > 0 || $('channel').length > 0) {
-                    $('item').each((_, el) => {
-                        const title = $(el).find('title').first().text().trim();
-                        let link = $(el).find('link').first().text().trim();
-                        if (!link) {
-                            link = $(el).find('guid').first().text().trim();
-                        }
-                        const pubDate = $(el).find('pubDate').first().text().trim();
-                        const description = $(el).find('description').first().text().trim();
-                        if (title && link) {
-                            collected.push({
-                                title,
-                                link,
-                                pubDate,
-                                description,
-                                source: 'rss'
-                            });
-                        }
-                    });
-                }
-                // Atom
-                else if ($('feed').length > 0) {
-                    $('entry').each((_, el) => {
-                        const title = $(el).find('title').first().text().trim();
-                        let link = $(el).find('link[rel="alternate"]').attr('href') || $(el).find('link').attr('href') || $(el).find('link').text().trim();
-                        const updated = $(el).find('updated').first().text().trim() || $(el).find('published').first().text().trim();
-                        const summary = $(el).find('summary').first().text().trim() || $(el).find('content').first().text().trim();
-                        if (title && link) {
-                            collected.push({
-                                title,
-                                link,
-                                pubDate: updated,
-                                description: summary,
-                                source: 'rss'
-                            });
-                        }
-                    });
-                }
+                return parseFeedXml(res.data, { feedUrl: url });
             }
         } catch (e) {
             Logger.warn(`⚠️ RSS 수집 실패 (${url}): ${e.message}`);
         }
-        return collected;
+        return [];
     },
 
     /**

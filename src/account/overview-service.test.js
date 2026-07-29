@@ -24,7 +24,8 @@ function createService(overrides = {}) {
                         cmd_batch: true,
                         cmd_trends: false,
                         cmd_shopping: false,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false
                     }
                 };
             }
@@ -86,7 +87,8 @@ test('account overview exposes subscription, usage, device, and connection read 
         'cmd_batch',
         'cmd_trends',
         'cmd_shopping',
-        'enable_related_posts_auto_link'
+        'enable_related_posts_auto_link',
+        'enable_sns_distribution'
     ]);
     assert.equal(overview.actions.find((item) => item.id === 'upgrade').enabled, false);
     assert.equal(overview.actions.find((item) => item.id === 'change_plan').enabled, false);
@@ -115,7 +117,8 @@ test('account overview exposes a verified email contact when license has email',
                         cmd_batch: true,
                         cmd_trends: false,
                         cmd_shopping: false,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: true
                     }
                 };
             }
@@ -152,7 +155,8 @@ test('account overview separates monthly quota from purchased credits', async ()
                         cmd_batch: true,
                         cmd_trends: true,
                         cmd_shopping: true,
-                        enable_related_posts_auto_link: true
+                        enable_related_posts_auto_link: true,
+                        enable_sns_distribution: true
                     }
                 };
             }
@@ -185,7 +189,8 @@ test('account overview forwards force refresh to license status', async () => {
                         cmd_batch: true,
                         cmd_trends: false,
                         cmd_shopping: false,
-                        enable_related_posts_auto_link: false
+                        enable_related_posts_auto_link: false,
+                        enable_sns_distribution: false
                     }
                 };
             }
