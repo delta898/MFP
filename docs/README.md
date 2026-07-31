@@ -45,6 +45,7 @@
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
+- `decisions/2026-07-31-buffer-publish-result-reconciliation.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`

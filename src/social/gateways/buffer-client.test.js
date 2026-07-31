@@ -169,6 +169,56 @@ test('shareNowMany sends channel posts as aliased mutations and preserves per-ch
     ]);
 });
 
+test('listRecentPosts queries recent scheduled, sending, and sent posts by channel', async () => {
+    const axios = createAxiosMock([{
+        status: 200,
+        data: {
+            data: {
+                posts: {
+                    edges: [
+                        {
+                            node: {
+                                id: 'post-1',
+                                channelId: 'channel-1',
+                                text: '새 글',
+                                status: 'sent',
+                                createdAt: '2026-07-29T07:01:00.000Z',
+                                sentAt: '2026-07-29T07:01:05.000Z',
+                                externalLink: 'https://social.example/post-1'
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    }]);
+    const client = new BufferClient({ axios });
+
+    const result = await client.listRecentPosts('secret-key', {
+        organizationId: 'org-1',
+        channelIds: ['channel-1', 'channel-1'],
+        startDate: '2026-07-29T06:56:00.000Z',
+        first: 20
+    });
+
+    assert.match(axios.calls[0].body.query, /status: \[scheduled, sending, sent\]/);
+    assert.deepEqual(axios.calls[0].body.variables, {
+        organizationId: 'org-1',
+        channelIds: ['channel-1'],
+        startDate: '2026-07-29T06:56:00.000Z',
+        first: 20
+    });
+    assert.deepEqual(result, [{
+        id: 'post-1',
+        channelId: 'channel-1',
+        text: '새 글',
+        status: 'sent',
+        createdAt: '2026-07-29T07:01:00.000Z',
+        sentAt: '2026-07-29T07:01:05.000Z',
+        externalLink: 'https://social.example/post-1'
+    }]);
+});
+
 test('transient Buffer errors include connection, rate limit, and server failures', () => {
     assert.equal(isTransientBufferError(new BufferApiError('network', {
         code: 'BUFFER_CONNECTION_FAILED'

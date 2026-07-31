@@ -13,6 +13,22 @@ function normalizeTokens(value) {
         .filter(Boolean))];
 }
 
+function normalizeBufferPostText(value) {
+    return String(value || '')
+        .replace(/\r\n?/g, '\n')
+        .trim();
+}
+
+function buildBufferPostMatchKey(channelId, text) {
+    return `${String(channelId || '').trim()}\n${normalizeBufferPostText(text)}`;
+}
+
+function isBufferDuplicatePostError(value) {
+    const message = String(value?.message || value || '').trim().toLowerCase();
+    return message.includes('already got this one scheduled or posted')
+        || (message.includes('same thing') && message.includes('too close together'));
+}
+
 function composeSnsPostText(row = {}, options = {}) {
     const formatted = formatSnsPost({
         service: row.service || options.service || 'facebook',
@@ -80,6 +96,7 @@ function createSnsDistributionRunner(options = {}) {
         || typeof store.saveEntryHashtags !== 'function'
         || !bufferClient
         || typeof bufferClient.shareNowMany !== 'function'
+        || typeof bufferClient.listRecentPosts !== 'function'
         || !aiService
         || typeof aiService.generateHashtags !== 'function'
         || !urlService
@@ -88,6 +105,39 @@ function createSnsDistributionRunner(options = {}) {
         || typeof notificationService.sendNotification !== 'function'
         || typeof getEnableSnsDistribution !== 'function') {
         throw new Error('SNS Distribution Runner 의존성이 올바르지 않습니다.');
+    }
+
+    async function reconcilePublishedDeliveries(apiKey, deliveries, startedAt) {
+        const targets = Array.isArray(deliveries) ? deliveries : [];
+        if (targets.length === 0) {
+            return { success: true, matches: new Map(), posts: [] };
+        }
+        const startedAtMs = Date.parse(String(startedAt || ''));
+        const startDate = new Date(
+            (Number.isFinite(startedAtMs) ? startedAtMs : Date.now()) - (5 * 60 * 1000)
+        ).toISOString();
+        try {
+            const posts = await bufferClient.listRecentPosts(apiKey, {
+                organizationId: CONFIG.BUFFER_ORGANIZATION_ID,
+                channelIds: targets.map((delivery) => delivery.channelId),
+                startDate,
+                first: Math.max(20, targets.length * 10)
+            });
+            const postsByKey = new Map();
+            for (const post of Array.isArray(posts) ? posts : []) {
+                const key = buildBufferPostMatchKey(post?.channelId, post?.text);
+                if (!postsByKey.has(key)) postsByKey.set(key, post);
+            }
+            const matches = new Map();
+            for (const delivery of targets) {
+                const post = postsByKey.get(buildBufferPostMatchKey(delivery.channelId, delivery.text));
+                if (post?.id) matches.set(delivery.deliveryKey, post);
+            }
+            return { success: true, matches, posts };
+        } catch (error) {
+            Logger?.warn?.(`⚠️ [SNS] Buffer 최근 게시물 확인 실패: ${error.message}`);
+            return { success: false, matches: new Map(), posts: [], error };
+        }
     }
 
     async function notifyFinalFailures(group, failures) {
@@ -332,13 +382,74 @@ function createSnsDistributionRunner(options = {}) {
         }
 
         let attempts = 0;
-        let publishResults = [];
+        let pendingDeliveries = [...deliveries];
+        const confirmedPublishResults = new Map();
+        const terminalPublishResults = new Map();
         let finalError = null;
-        if (deliveries.length > 0) {
-            while (attempts < maxAttempts) {
+        const publishStartedAt = new Date().toISOString();
+        if (pendingDeliveries.length > 0) {
+            while (attempts < maxAttempts && pendingDeliveries.length > 0) {
                 attempts += 1;
                 try {
-                    publishResults = await bufferClient.shareNowMany(apiKey, deliveries);
+                    const attemptDeliveries = [...pendingDeliveries];
+                    const publishResults = await bufferClient.shareNowMany(apiKey, attemptDeliveries);
+                    const deliveriesByKey = new Map(
+                        attemptDeliveries.map((delivery) => [delivery.deliveryKey, delivery])
+                    );
+                    const duplicateDeliveries = [];
+                    for (const result of publishResults) {
+                        const deliveryKey = String(result?.deliveryKey || '').trim();
+                        if (!deliveryKey || !deliveriesByKey.has(deliveryKey)) continue;
+                        if (result.success) {
+                            confirmedPublishResults.set(deliveryKey, result);
+                        } else if (isBufferDuplicatePostError(result)) {
+                            duplicateDeliveries.push(deliveriesByKey.get(deliveryKey));
+                        } else {
+                            terminalPublishResults.set(deliveryKey, result);
+                        }
+                    }
+                    const resolvedKeys = new Set(publishResults
+                        .map((result) => String(result?.deliveryKey || '').trim())
+                        .filter(Boolean));
+                    for (const delivery of attemptDeliveries) {
+                        if (resolvedKeys.has(delivery.deliveryKey)) continue;
+                        terminalPublishResults.set(delivery.deliveryKey, {
+                            success: false,
+                            deliveryKey: delivery.deliveryKey,
+                            channelId: delivery.channelId,
+                            message: 'Buffer 응답에서 채널별 결과를 찾지 못함'
+                        });
+                    }
+
+                    if (duplicateDeliveries.length > 0) {
+                        const reconciliation = await reconcilePublishedDeliveries(
+                            apiKey,
+                            duplicateDeliveries,
+                            publishStartedAt
+                        );
+                        for (const delivery of duplicateDeliveries) {
+                            const post = reconciliation.matches.get(delivery.deliveryKey);
+                            if (post) {
+                                confirmedPublishResults.set(delivery.deliveryKey, {
+                                    success: true,
+                                    deliveryKey: delivery.deliveryKey,
+                                    channelId: delivery.channelId,
+                                    bufferPostId: post.id,
+                                    reconciled: true
+                                });
+                            } else {
+                                confirmedPublishResults.set(delivery.deliveryKey, {
+                                    success: true,
+                                    deliveryKey: delivery.deliveryKey,
+                                    channelId: delivery.channelId,
+                                    bufferPostId: '',
+                                    duplicateConfirmed: true,
+                                    reconciliationFailed: !reconciliation.success
+                                });
+                            }
+                        }
+                    }
+                    pendingDeliveries = [];
                     finalError = null;
                     break;
                 } catch (error) {
@@ -348,8 +459,41 @@ function createSnsDistributionRunner(options = {}) {
                         `⚠️ [SNS] Buffer 묶음 발행 ${attempts}차 실패`
                         + `${canRetry ? `, ${Math.round(retryDelayMs / 1000)}초 후 재시도` : ''}: ${error.message}`
                     );
-                    if (!canRetry) break;
-                    await sleep(retryDelayMs);
+                    if (isTransientBufferError(error)) {
+                        await sleep(retryDelayMs);
+                        const reconciliation = await reconcilePublishedDeliveries(
+                            apiKey,
+                            pendingDeliveries,
+                            publishStartedAt
+                        );
+                        if (!reconciliation.success) {
+                            if (canRetry) continue;
+                            break;
+                        }
+
+                        const unresolved = [];
+                        for (const delivery of pendingDeliveries) {
+                            const post = reconciliation.matches.get(delivery.deliveryKey);
+                            if (post) {
+                                confirmedPublishResults.set(delivery.deliveryKey, {
+                                    success: true,
+                                    deliveryKey: delivery.deliveryKey,
+                                    channelId: delivery.channelId,
+                                    bufferPostId: post.id,
+                                    reconciled: true
+                                });
+                            } else {
+                                unresolved.push(delivery);
+                            }
+                        }
+                        pendingDeliveries = unresolved;
+                        if (pendingDeliveries.length === 0) {
+                            finalError = null;
+                            break;
+                        }
+                        if (canRetry) continue;
+                    }
+                    break;
                 }
             }
         }
@@ -358,38 +502,39 @@ function createSnsDistributionRunner(options = {}) {
             formattedRows.map((row) => [String(row.deliveryKey || '').trim(), row])
         );
         const deliveryResults = [];
-        if (finalError) {
-            for (const row of formattedRows) {
-                deliveryResults.push({
-                    rowNumber: row.rowNumber,
-                    status: '실패',
-                    log: `Buffer 발행 실패 (${attempts}회 시도): ${finalError.message}`
-                });
-            }
-        } else {
-            for (const result of publishResults) {
-                const row = rowsByDeliveryKey.get(String(result?.deliveryKey || '').trim());
+        for (const result of confirmedPublishResults.values()) {
+            const row = rowsByDeliveryKey.get(String(result?.deliveryKey || '').trim());
+            if (!row) continue;
+            deliveryResults.push({
+                rowNumber: row.rowNumber,
+                status: '완료',
+                bufferPostId: result.bufferPostId,
+                log: result.reconciled
+                    ? `Buffer 최근 게시물 조회로 발행 완료 확인 (${attempts}차 시도 후)`
+                    : result.duplicateConfirmed
+                        ? `Buffer 중복 방지 응답으로 기존 발행 확인${result.reconciliationFailed ? ' (게시물 ID 조회 실패)' : ''}`
+                    : `Buffer 즉시 발행 완료 (${attempts}차 시도)`
+            });
+        }
+        for (const result of terminalPublishResults.values()) {
+            const row = rowsByDeliveryKey.get(String(result?.deliveryKey || '').trim());
+            if (!row) continue;
+            deliveryResults.push({
+                rowNumber: row.rowNumber,
+                status: '실패',
+                log: `Buffer 발행 실패: ${result.message || '알 수 없는 오류'}`
+            });
+        }
+        if (pendingDeliveries.length > 0) {
+            for (const delivery of pendingDeliveries) {
+                const row = rowsByDeliveryKey.get(String(delivery.deliveryKey || '').trim());
                 if (!row) continue;
-                deliveryResults.push(result.success
-                    ? {
-                        rowNumber: row.rowNumber,
-                        status: '완료',
-                        bufferPostId: result.bufferPostId,
-                        log: `Buffer 즉시 발행 완료 (${attempts}차 시도)`
-                    }
-                    : {
-                        rowNumber: row.rowNumber,
-                        status: '실패',
-                        log: `Buffer 발행 실패: ${result.message || '알 수 없는 오류'}`
-                    });
-            }
-            const resolvedRows = new Set(deliveryResults.map((item) => item.rowNumber));
-            for (const row of formattedRows) {
-                if (resolvedRows.has(row.rowNumber)) continue;
                 deliveryResults.push({
                     rowNumber: row.rowNumber,
                     status: '실패',
-                    log: 'Buffer 응답에서 채널별 결과를 찾지 못함'
+                    log: isTransientBufferError(finalError)
+                        ? `Buffer 발행 여부 확인 실패 (${attempts}회 시도, 자동 재시도 중단): ${finalError.message}`
+                        : `Buffer 발행 실패 (${attempts}회 시도): ${finalError?.message || '알 수 없는 오류'}`
                 });
             }
         }
@@ -439,6 +584,9 @@ function createSnsDistributionRunner(options = {}) {
 
 module.exports = {
     normalizeTokens,
+    normalizeBufferPostText,
+    buildBufferPostMatchKey,
+    isBufferDuplicatePostError,
     requiresImageAsset,
     composeSnsPostText,
     escapeTelegramHtml,

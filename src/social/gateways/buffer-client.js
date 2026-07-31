@@ -54,6 +54,18 @@ function normalizePublishDelivery(item = {}, index = 0) {
     };
 }
 
+function normalizePost(item = {}) {
+    return {
+        id: String(item.id || '').trim(),
+        channelId: String(item.channelId || '').trim(),
+        text: String(item.text || '').trim(),
+        status: String(item.status || '').trim().toLowerCase(),
+        createdAt: String(item.createdAt || '').trim(),
+        sentAt: String(item.sentAt || '').trim(),
+        externalLink: String(item.externalLink || '').trim()
+    };
+}
+
 function isTransientBufferError(error) {
     const status = Number(error?.status) || 0;
     const code = String(error?.code || '').trim().toUpperCase();
@@ -205,6 +217,64 @@ class BufferClient {
         };
     }
 
+    async listRecentPosts(apiKey, input = {}) {
+        const organizationId = String(input.organizationId || '').trim();
+        const channelIds = [...new Set((Array.isArray(input.channelIds) ? input.channelIds : [])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean))];
+        const startDate = String(input.startDate || '').trim();
+        const first = Math.max(1, Math.min(50, Number.parseInt(input.first, 10) || 20));
+        if (!organizationId) {
+            throw new BufferApiError('최근 Buffer 게시물 조회에는 Organization ID가 필요합니다.', {
+                code: 'BUFFER_ORGANIZATION_REQUIRED'
+            });
+        }
+        if (channelIds.length === 0) return [];
+
+        const data = await this.request(apiKey, `
+            query GetRecentPosts(
+                $organizationId: OrganizationId!,
+                $channelIds: [ChannelId!],
+                $startDate: DateTime,
+                $first: Int
+            ) {
+                posts(
+                    first: $first,
+                    input: {
+                        organizationId: $organizationId,
+                        filter: {
+                            channelIds: $channelIds,
+                            status: [scheduled, sending, sent],
+                            startDate: $startDate
+                        },
+                        sort: [{ field: createdAt, direction: desc }]
+                    }
+                ) {
+                    edges {
+                        node {
+                            id
+                            channelId
+                            text
+                            status
+                            createdAt
+                            sentAt
+                            externalLink
+                        }
+                    }
+                }
+            }
+        `, {
+            organizationId,
+            channelIds,
+            startDate: startDate || null,
+            first
+        });
+
+        return (Array.isArray(data?.posts?.edges) ? data.posts.edges : [])
+            .map((edge) => normalizePost(edge?.node))
+            .filter((post) => post.id && post.channelId);
+    }
+
     async shareNowMany(apiKey, deliveries = []) {
         const normalized = (Array.isArray(deliveries) ? deliveries : [])
             .map(normalizePublishDelivery);
@@ -284,5 +354,6 @@ module.exports = {
     normalizeOrganization,
     normalizeChannel,
     normalizePublishDelivery,
+    normalizePost,
     isTransientBufferError
 };
