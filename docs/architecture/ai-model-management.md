@@ -53,6 +53,7 @@ The current trusted transports are:
 - `openai_chat_completions`
 - `anthropic_openai_compat`
 - `kie_openai_chat`
+- `kie_responses`
 - `openai_images`
 
 Adding a model that uses one of these transports can be done through the remote
@@ -145,8 +146,16 @@ one path segment; it cannot supply a host, arbitrary URL, authentication header,
 parser. Responses are parsed as OpenAI chat responses with a narrowly scoped
 Gemini-shaped fallback for the inconsistency in KIE's published examples.
 
-Responses/Claude Messages/other KIE contracts require their own transports before
-those models become selectable.
+Claude Messages and other KIE contracts require their own transports before those
+models become selectable.
+
+KIE GPT 5.6 Sol, Terra, and Luna use the separate `kie_responses` transport.
+The adapter owns the fixed `POST https://api.kie.ai/codex/v1/responses` endpoint,
+Bearer authentication, non-streaming Responses request shape, and extraction of
+`output_text` blocks. The initial BlogGenius contract is text-only, uses low
+reasoning effort, and does not enable tools, web search, or structured output.
+All three routes were verified through the real BlogGenius adapter with minimal
+requests: Luna and Terra consumed 0.01 credit each, while Sol consumed 0.02.
 
 The initial three KIE Gemini routes were verified against the real API with
 non-streaming, text-only, minimal-token requests. All returned OpenAI chat response

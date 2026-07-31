@@ -35,6 +35,12 @@ const TRANSPORTS = Object.freeze({
         kinds: Object.freeze(['text']),
         base_url: KIE_BASE_URL
     }),
+    kie_responses: Object.freeze({
+        id: 'kie_responses',
+        providers: Object.freeze(['kie']),
+        kinds: Object.freeze(['text']),
+        base_url: KIE_BASE_URL
+    }),
     openai_images: Object.freeze({
         id: 'openai_images',
         providers: Object.freeze(['openai']),

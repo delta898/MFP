@@ -35,6 +35,11 @@ const {
     extractKieOpenAiChatContent,
     getKieOpenAiChatEndpoint
 } = require('./ai/kie-openai-chat');
+const {
+    KIE_RESPONSES_ENDPOINT,
+    buildKieResponsesRequest,
+    extractKieResponsesText
+} = require('./ai/kie-responses');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -156,6 +161,20 @@ function formatReadableErrorMessage(error) {
         const seconds = Math.max(1, Math.round(Number(ms) / 1000));
         return `timeout (${seconds}초 초과)`;
     });
+}
+
+function formatAiRemoteErrorMessage(error) {
+    const responseData = error?.response?.data;
+    const remoteMessage = responseData?.error?.message
+        || responseData?.error
+        || responseData?.message
+        || responseData?.msg
+        || (typeof responseData === 'string' ? responseData : '');
+    const raw = typeof remoteMessage === 'object'
+        ? JSON.stringify(remoteMessage)
+        : String(remoteMessage || '').trim();
+    const readable = formatReadableErrorMessage(raw || error);
+    return readable.length > 500 ? `${readable.slice(0, 500)}…` : readable;
 }
 
 function extractOpenAIChatContent(data) {
@@ -3785,10 +3804,16 @@ const Utils = {
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => {
-                        const { definition, body } = buildOpenAiChatRequest(modelConfig, prompt, options);
-                        const endpoint = definition.transport === 'kie_openai_chat'
-                            ? getKieOpenAiChatEndpoint(model)
-                            : `${baseUrl}/chat/completions`;
+                        const runtimeDefinition = getModelRuntimeDefinition('text', modelConfig);
+                        const request = runtimeDefinition.transport === 'kie_responses'
+                            ? buildKieResponsesRequest(modelConfig, prompt, options)
+                            : buildOpenAiChatRequest(modelConfig, prompt, options);
+                        const { definition, body } = request;
+                        const endpoint = definition.transport === 'kie_responses'
+                            ? KIE_RESPONSES_ENDPOINT
+                            : (definition.transport === 'kie_openai_chat'
+                                ? getKieOpenAiChatEndpoint(model)
+                                : `${baseUrl}/chat/completions`);
                         return axios.post(endpoint, body, {
                             headers,
                             timeout: 120000
@@ -3796,16 +3821,19 @@ const Utils = {
                     }
                 );
                 const definition = getModelRuntimeDefinition('text', modelConfig);
-                const text = definition.transport === 'kie_openai_chat'
-                    ? extractKieOpenAiChatContent(response.data)
-                    : extractOpenAIChatContent(response.data);
+                const text = definition.transport === 'kie_responses'
+                    ? extractKieResponsesText(response.data)
+                    : (definition.transport === 'kie_openai_chat'
+                        ? extractKieOpenAiChatContent(response.data)
+                        : extractOpenAIChatContent(response.data));
                 if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
                 return text;
             } catch (e) {
-                Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                const readableError = formatAiRemoteErrorMessage(e);
+                Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${readableError}`);
                 if (attempt === retries) {
                     Logger.error(`❌ [${usageLabel}] 최대 재시도 횟수 초과`);
-                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${e.message}`);
+                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${readableError}`);
                 }
                 const waitTime = 1000 * Math.pow(2, attempt - 1);
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);

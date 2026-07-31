@@ -128,6 +128,39 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: true, structured_output: false, image_input: true }
     },
     {
+        key: 'kie:gpt-5-6-sol',
+        name: 'GPT 5.6 Sol',
+        code: 'gpt-5-6-sol',
+        provider: 'kie',
+        transport: 'kie_responses',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: { temperature: false, structured_output: false, image_input: false }
+    },
+    {
+        key: 'kie:gpt-5-6-terra',
+        name: 'GPT 5.6 Terra',
+        code: 'gpt-5-6-terra',
+        provider: 'kie',
+        transport: 'kie_responses',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 20,
+        capabilities: { temperature: false, structured_output: false, image_input: false }
+    },
+    {
+        key: 'kie:gpt-5-6-luna',
+        name: 'GPT 5.6 Luna',
+        code: 'gpt-5-6-luna',
+        provider: 'kie',
+        transport: 'kie_responses',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 30,
+        capabilities: { temperature: false, structured_output: false, image_input: false }
+    },
+    {
         key: 'kie:gemini-3-6-flash-openai',
         name: 'Gemini 3.6 Flash',
         code: 'gemini-3-6-flash-openai',
@@ -135,7 +168,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'kie_openai_chat',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 10,
+        sort_order: 40,
         capabilities: { temperature: false, structured_output: false, image_input: false }
     },
     {
@@ -146,7 +179,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'kie_openai_chat',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 20,
+        sort_order: 50,
         capabilities: { temperature: true, structured_output: false, image_input: false }
     },
     {
@@ -157,7 +190,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'kie_openai_chat',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 30,
+        sort_order: 60,
         capabilities: { temperature: true, structured_output: false, image_input: false }
     },
     { key: 'anthropic:claude-opus-4-6', name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 40, capabilities: { temperature: true, structured_output: false, image_input: true } },

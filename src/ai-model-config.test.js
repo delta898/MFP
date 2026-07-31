@@ -90,6 +90,9 @@ test('provider and model presets follow explicit product sort order', () => {
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
+            'gpt-5-6-sol',
+            'gpt-5-6-terra',
+            'gpt-5-6-luna',
             'gemini-3-6-flash-openai',
             'gemini-3-5-flash-openai',
             'gemini-3.1-pro'
@@ -99,18 +102,22 @@ test('provider and model presets follow explicit product sort order', () => {
 
 test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {
     const catalog = getAiModelCatalog();
-    const byCode = new Map([...catalog.text, ...catalog.image].map((item) => [item.code, item]));
+    const findModel = (provider, code) => [...catalog.text, ...catalog.image]
+        .find((item) => item.provider === provider && item.code === code);
 
-    assert.equal(byCode.get('gpt-5.6-sol').transport, 'openai_chat_completions');
-    assert.equal(byCode.get('gpt-5.6-terra').provider, 'openai');
-    assert.equal(byCode.get('gpt-5.6-luna').base_url, 'https://api.openai.com/v1');
-    assert.equal(byCode.get('claude-fable-5').transport, 'anthropic_openai_compat');
-    assert.equal(byCode.get('claude-opus-5').provider, 'anthropic');
-    assert.equal(byCode.get('claude-sonnet-5').code, 'claude-sonnet-5');
-    assert.equal(byCode.get('gpt-image-2').transport, 'openai_images');
-    assert.equal(byCode.get('gemini-3-6-flash-openai').transport, 'kie_openai_chat');
-    assert.equal(byCode.get('gemini-3-5-flash-openai').provider, 'kie');
-    assert.equal(byCode.get('gemini-3.1-pro').base_url, 'https://api.kie.ai');
+    assert.equal(findModel('openai', 'gpt-5.6-sol').transport, 'openai_chat_completions');
+    assert.equal(findModel('openai', 'gpt-5.6-terra').provider, 'openai');
+    assert.equal(findModel('openai', 'gpt-5.6-luna').base_url, 'https://api.openai.com/v1');
+    assert.equal(findModel('anthropic', 'claude-fable-5').transport, 'anthropic_openai_compat');
+    assert.equal(findModel('anthropic', 'claude-opus-5').provider, 'anthropic');
+    assert.equal(findModel('anthropic', 'claude-sonnet-5').code, 'claude-sonnet-5');
+    assert.equal(findModel('openai', 'gpt-image-2').transport, 'openai_images');
+    assert.equal(findModel('kie', 'gpt-5-6-sol').transport, 'kie_responses');
+    assert.equal(findModel('kie', 'gpt-5-6-terra').provider, 'kie');
+    assert.equal(findModel('kie', 'gpt-5-6-luna').base_url, 'https://api.kie.ai');
+    assert.equal(findModel('kie', 'gemini-3-6-flash-openai').transport, 'kie_openai_chat');
+    assert.equal(findModel('kie', 'gemini-3-5-flash-openai').provider, 'kie');
+    assert.equal(findModel('kie', 'gemini-3.1-pro').base_url, 'https://api.kie.ai');
 });
 
 test('legacy ai_presets config cannot override the product catalog', () => {

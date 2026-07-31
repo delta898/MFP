@@ -11,6 +11,11 @@ const {
     extractKieOpenAiChatContent,
     getKieOpenAiChatEndpoint
 } = require('./kie-openai-chat');
+const {
+    KIE_RESPONSES_ENDPOINT,
+    buildKieResponsesRequest,
+    extractKieResponsesText
+} = require('./kie-responses');
 
 test('Gemini 3.6 strips deprecated temperature while older Gemini keeps it', () => {
     const latest = applyTextRuntimePolicy({
@@ -105,6 +110,50 @@ test('KIE adapter accepts OpenAI responses and the documented Gemini-shaped fall
             }
         }]
     }), 'Gemini response');
+});
+
+test('KIE Responses adapter builds the documented non-streaming GPT request', () => {
+    const request = buildKieResponsesRequest({
+        provider: 'kie',
+        code: 'gpt-5-6-terra'
+    }, 'Write', {
+        maxTokens: 300,
+        temperature: 0.2,
+        reasoningEffort: 'medium',
+        responseMimeType: 'application/json'
+    });
+
+    assert.equal(request.definition.transport, 'kie_responses');
+    assert.equal(KIE_RESPONSES_ENDPOINT, 'https://api.kie.ai/codex/v1/responses');
+    assert.deepEqual(request.body, {
+        model: 'gpt-5-6-terra',
+        stream: false,
+        input: 'Write',
+        reasoning: { effort: 'medium' }
+    });
+});
+
+test('KIE Responses adapter defaults reasoning low and extracts message output text', () => {
+    const request = buildKieResponsesRequest({
+        provider: 'kie',
+        code: 'gpt-5-6-luna'
+    }, 'Write');
+    assert.deepEqual(request.body.reasoning, { effort: 'low' });
+
+    assert.equal(extractKieResponsesText({
+        output: [
+            { type: 'reasoning', summary: [] },
+            {
+                type: 'message',
+                content: [
+                    { type: 'output_text', text: 'Hello ' },
+                    { type: 'refusal', refusal: 'ignored' },
+                    { type: 'output_text', text: 'world' }
+                ]
+            }
+        ]
+    }), 'Hello world');
+    assert.equal(extractKieResponsesText({ output_text: 'Top level' }), 'Top level');
 });
 
 test('direct OpenAI-compatible text keeps max_tokens and removed presets remain callable', () => {

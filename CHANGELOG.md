@@ -3,6 +3,9 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **KIE.ai GPT 5.6 연동**: KIE.ai 글쓰기 모델에 GPT 5.6 Sol, Terra, Luna를 추가하고 고정된 Responses API endpoint를 사용하는 전용 transport로 요청·응답 형식을 분리했습니다.
+
 ## [0.1.15-dev1] - 2026-07-31
 
 ### Added

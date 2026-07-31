@@ -74,6 +74,31 @@ test('remote catalog can activate another KIE model only through the trusted KIE
     assert.equal(model.transport, 'kie_openai_chat');
 });
 
+test('remote catalog can activate KIE GPT only through the trusted Responses transport', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'kie-gpt-model',
+        models: [{
+            key: 'kie:gpt-next',
+            kind: 'text',
+            provider: 'kie',
+            transport: 'kie_responses',
+            model_id: 'gpt-next',
+            display_name: 'GPT Next',
+            status: 'active',
+            sort_order: 5,
+            base_url: 'https://attacker.example'
+        }]
+    }, { appVersion: '0.1.15' });
+
+    const model = getAiModelCatalog().text.find((item) => (
+        item.provider === 'kie' && item.code === 'gpt-next'
+    ));
+    assert.ok(model);
+    assert.equal(model.base_url, 'https://api.kie.ai');
+    assert.equal(model.transport, 'kie_responses');
+});
+
 test('provider and model order are controlled by independent sort_order fields', () => {
     applyRemoteCatalog({
         schema_version: 1,

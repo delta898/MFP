@@ -88,13 +88,13 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.3',
+    '2026-07-31.4',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.3",
+      "version": "2026-07-31.4",
       "generated_at": "2026-07-31T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
@@ -184,6 +184,39 @@ values (
           "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
         },
         {
+          "key": "kie:gpt-5-6-sol",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_responses",
+          "model_id": "gpt-5-6-sol",
+          "display_name": "GPT 5.6 Sol",
+          "status": "active",
+          "sort_order": 10,
+          "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
+        },
+        {
+          "key": "kie:gpt-5-6-terra",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_responses",
+          "model_id": "gpt-5-6-terra",
+          "display_name": "GPT 5.6 Terra",
+          "status": "active",
+          "sort_order": 20,
+          "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
+        },
+        {
+          "key": "kie:gpt-5-6-luna",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_responses",
+          "model_id": "gpt-5-6-luna",
+          "display_name": "GPT 5.6 Luna",
+          "status": "active",
+          "sort_order": 30,
+          "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
+        },
+        {
           "key": "kie:gemini-3-6-flash-openai",
           "kind": "text",
           "provider": "kie",
@@ -191,7 +224,7 @@ values (
           "model_id": "gemini-3-6-flash-openai",
           "display_name": "Gemini 3.6 Flash",
           "status": "active",
-          "sort_order": 10,
+          "sort_order": 40,
           "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
         },
         {
@@ -202,7 +235,7 @@ values (
           "model_id": "gemini-3-5-flash-openai",
           "display_name": "Gemini 3.5 Flash",
           "status": "active",
-          "sort_order": 20,
+          "sort_order": 50,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
         },
         {
@@ -213,7 +246,7 @@ values (
           "model_id": "gemini-3.1-pro",
           "display_name": "Gemini 3.1 Pro",
           "status": "active",
-          "sort_order": 30,
+          "sort_order": 60,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
         },
         {
