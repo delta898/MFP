@@ -137,8 +137,16 @@ request, `max_tokens`, non-streaming response, OpenAI response parser, and credi
 accounting. It does not activate structured output or image input; those
 capabilities remain conservative until separately required and tested.
 
+After publishing catalog `2026-07-31.3`, the restarted `0.1.15-dev1` app loaded
+the remote snapshot from its local cache with 7 providers and 11 models. A final
+smoke test through BlogGenius `callWritingText` resolved Gemini 3.6 Flash to
+`kie_openai_chat`, returned `BLOGGENIUS_OK` in 3.96 seconds, and consumed 0.01
+credit. This validates the real application dispatch path in addition to the
+direct protocol checks.
+
 ## Release Gate
 
-The SQL seed marks KIE models with `minimum_app_version: 0.1.15`. The first
-implementation release is `0.1.15-dev1`; both the app and Supabase semantic-version
-comparators intentionally use the numeric `0.1.15` compatibility floor.
+The first Model Catalog consumer is `0.1.15-dev1`; deployed `0.1.14` builds do not
+load the catalog. The initial published snapshot therefore uses one catalog-level
+`minimum_app_version: 0.1.15` floor and does not maintain a legacy snapshot or
+repeat the same floor on individual KIE models.

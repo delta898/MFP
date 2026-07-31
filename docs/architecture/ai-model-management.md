@@ -154,6 +154,10 @@ objects and reported 0.01 credit for the validation request. Structured output a
 image input remain disabled in the catalog because they were outside that verified
 contract.
 
+The released catalog path was also verified end to end: catalog `2026-07-31.3`
+loaded from cache after app restart, and BlogGenius `callWritingText` successfully
+dispatched the selected KIE Gemini 3.6 model through `kie_openai_chat`.
+
 ## Configuration Boundary
 
 `ai_settings.TEXT_MODEL` and `ai_settings.IMAGE_MODEL` store the user's selection.
@@ -179,6 +183,11 @@ Telegram and Agent support tasks.
 
 Apply `sql/supabase_ai_model_catalog.sql` to create the version table and read-only
 `get_ai_model_catalog(channel, app_version)` RPC.
+
+The initial remote catalog is consumed from app `0.1.15` onward. Deployed `0.1.14`
+builds do not load it, so the initial rollout uses one catalog-level compatibility
+floor rather than maintaining a legacy snapshot. Version-specific parallel
+snapshots are needed only after a future transport contract becomes incompatible.
 
 Catalog rows move through:
 

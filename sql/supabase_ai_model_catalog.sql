@@ -191,7 +191,6 @@ values (
           "model_id": "gemini-3-6-flash-openai",
           "display_name": "Gemini 3.6 Flash",
           "status": "active",
-          "minimum_app_version": "0.1.15",
           "sort_order": 10,
           "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
         },
@@ -203,7 +202,6 @@ values (
           "model_id": "gemini-3-5-flash-openai",
           "display_name": "Gemini 3.5 Flash",
           "status": "active",
-          "minimum_app_version": "0.1.15",
           "sort_order": 20,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
         },
@@ -215,7 +213,6 @@ values (
           "model_id": "gemini-3.1-pro",
           "display_name": "Gemini 3.1 Pro",
           "status": "active",
-          "minimum_app_version": "0.1.15",
           "sort_order": 30,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
         },
@@ -237,7 +234,7 @@ values (
         }
       ]
     }'::jsonb,
-    '0.0.0',
+    '0.1.15',
     timezone('utc', now())
 )
 on conflict (version) do nothing;
@@ -258,8 +255,8 @@ commit;
 -- );
 --
 -- 2) publish
--- 같은 minimum_app_version 범위의 이전 snapshot은 retire하고,
--- 신규 snapshot이 더 높은 앱 버전을 요구하면 구버전용 published row를 유지합니다.
+-- 초기 Model Catalog 소비 버전은 0.1.15 이상입니다.
+-- 이후 호환 계약이 바뀌는 경우에만 minimum_app_version별 snapshot을 분리합니다.
 -- update public.ai_model_catalog_versions
 --    set status = 'retired'
 --  where channel = 'stable' and status = 'published';
