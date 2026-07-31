@@ -1,5 +1,6 @@
 const {
     CLAUDE_OPENAI_BASE_URL,
+    KIE_BASE_URL,
     OPENAI_BASE_URL,
     DEFAULT_MODEL_CODES
 } = require('./ai-model-catalog');
@@ -24,6 +25,7 @@ function getProviderDefaultBaseUrl(provider) {
     if (normalized === 'imagen4') return '';
     if (normalized === 'anthropic') return CLAUDE_OPENAI_BASE_URL;
     if (normalized === 'openai') return OPENAI_BASE_URL;
+    if (normalized === 'kie') return KIE_BASE_URL;
     return '';
 }
 
@@ -190,6 +192,7 @@ function toStoredModelSelection(modelConfig = {}, presets = null) {
 
 module.exports = {
     CLAUDE_OPENAI_BASE_URL,
+    KIE_BASE_URL,
     OPENAI_BASE_URL,
     deriveModelDisplayName,
     getAiModelCatalog,

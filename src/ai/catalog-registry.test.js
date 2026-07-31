@@ -48,6 +48,32 @@ test('remote catalog can add a model through an allowlisted transport', () => {
     });
 });
 
+test('remote catalog can activate another KIE model only through the trusted KIE transport', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'kie-model',
+        providers: [
+            { kind: 'text', id: 'kie', display_name: 'KIE.ai', sort_order: 40 }
+        ],
+        models: [{
+            key: 'kie:gemini-next-openai',
+            kind: 'text',
+            provider: 'kie',
+            transport: 'kie_openai_chat',
+            model_id: 'gemini-next-openai',
+            display_name: 'Gemini Next',
+            status: 'active',
+            sort_order: 5,
+            base_url: 'https://attacker.example'
+        }]
+    }, { appVersion: '0.1.15' });
+
+    const model = getAiModelCatalog().text.find((item) => item.code === 'gemini-next-openai');
+    assert.ok(model);
+    assert.equal(model.base_url, 'https://api.kie.ai');
+    assert.equal(model.transport, 'kie_openai_chat');
+});
+
 test('provider and model order are controlled by independent sort_order fields', () => {
     applyRemoteCatalog({
         schema_version: 1,
@@ -85,7 +111,8 @@ test('provider and model order are controlled by independent sort_order fields',
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
         'openai',
         'anthropic',
-        'gemini'
+        'gemini',
+        'kie'
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),

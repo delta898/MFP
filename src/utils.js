@@ -31,6 +31,10 @@ const {
     getModelRuntimeDefinition,
     resolveOpenAiImageRequest
 } = require('./ai/model-runtime-policy');
+const {
+    extractKieOpenAiChatContent,
+    getKieOpenAiChatEndpoint
+} = require('./ai/kie-openai-chat');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -3781,14 +3785,20 @@ const Utils = {
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => {
-                        const { body } = buildOpenAiChatRequest(modelConfig, prompt, options);
-                        return axios.post(`${baseUrl}/chat/completions`, body, {
+                        const { definition, body } = buildOpenAiChatRequest(modelConfig, prompt, options);
+                        const endpoint = definition.transport === 'kie_openai_chat'
+                            ? getKieOpenAiChatEndpoint(model)
+                            : `${baseUrl}/chat/completions`;
+                        return axios.post(endpoint, body, {
                             headers,
                             timeout: 120000
                         });
                     }
                 );
-                const text = extractOpenAIChatContent(response.data);
+                const definition = getModelRuntimeDefinition('text', modelConfig);
+                const text = definition.transport === 'kie_openai_chat'
+                    ? extractKieOpenAiChatContent(response.data)
+                    : extractOpenAIChatContent(response.data);
                 if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
                 return text;
             } catch (e) {

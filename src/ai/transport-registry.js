@@ -1,5 +1,6 @@
 const {
     CLAUDE_OPENAI_BASE_URL,
+    KIE_BASE_URL,
     OPENAI_BASE_URL
 } = require('../ai-model-catalog');
 
@@ -27,6 +28,12 @@ const TRANSPORTS = Object.freeze({
         providers: Object.freeze(['anthropic']),
         kinds: Object.freeze(['text']),
         base_url: CLAUDE_OPENAI_BASE_URL
+    }),
+    kie_openai_chat: Object.freeze({
+        id: 'kie_openai_chat',
+        providers: Object.freeze(['kie']),
+        kinds: Object.freeze(['text']),
+        base_url: KIE_BASE_URL
     }),
     openai_images: Object.freeze({
         id: 'openai_images',
@@ -68,6 +75,7 @@ function inferTransport(kind, provider) {
     if (normalizedProvider === 'anthropic' && normalizedKind === 'text') return 'anthropic_openai_compat';
     if (normalizedProvider === 'openai' && normalizedKind === 'text') return 'openai_chat_completions';
     if (normalizedProvider === 'openai' && normalizedKind === 'image') return 'openai_images';
+    if (normalizedProvider === 'kie' && normalizedKind === 'text') return 'kie_openai_chat';
     if (normalizedProvider === 'direct' && normalizedKind === 'text') return 'openai_chat_completions';
     if (normalizedProvider === 'direct' && normalizedKind === 'image') return 'openai_images';
     return '';

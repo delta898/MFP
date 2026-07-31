@@ -50,3 +50,4 @@
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
+- `plans/archive/kie-ai-provider-integration-plan.md`

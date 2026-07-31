@@ -22,9 +22,12 @@ test('AI model catalog is code-owned and returned as an isolated copy', () => {
 test('AI model catalog contains supported Google models and excludes unavailable selections', () => {
     const catalog = getAiModelCatalog();
     const textCodes = catalog.text.map((item) => item.code);
+    const geminiTextCodes = catalog.text
+        .filter((item) => item.provider === 'gemini')
+        .map((item) => item.code);
     const imageCodes = catalog.image.map((item) => item.code);
 
-    assert.deepEqual(textCodes.filter((code) => code.startsWith('gemini-')), [
+    assert.deepEqual(geminiTextCodes, [
         'gemini-3.6-flash',
         'gemini-3.5-flash',
         'gemini-3.1-pro-preview',
@@ -55,7 +58,8 @@ test('provider and model presets follow explicit product sort order', () => {
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
         'openai',
         'anthropic',
-        'gemini'
+        'gemini',
+        'kie'
     ]);
     assert.deepEqual(catalog.providers.image.map((item) => item.id), [
         'openai',
@@ -83,6 +87,14 @@ test('provider and model presets follow explicit product sort order', () => {
             'imagen-4.0-fast-generate-001'
         ]
     );
+    assert.deepEqual(
+        catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
+        [
+            'gemini-3-6-flash-openai',
+            'gemini-3-5-flash-openai',
+            'gemini-3.1-pro'
+        ]
+    );
 });
 
 test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {
@@ -96,6 +108,9 @@ test('AI model catalog contains current OpenAI and Anthropic models with trusted
     assert.equal(byCode.get('claude-opus-5').provider, 'anthropic');
     assert.equal(byCode.get('claude-sonnet-5').code, 'claude-sonnet-5');
     assert.equal(byCode.get('gpt-image-2').transport, 'openai_images');
+    assert.equal(byCode.get('gemini-3-6-flash-openai').transport, 'kie_openai_chat');
+    assert.equal(byCode.get('gemini-3-5-flash-openai').provider, 'kie');
+    assert.equal(byCode.get('gemini-3.1-pro').base_url, 'https://api.kie.ai');
 });
 
 test('legacy ai_presets config cannot override the product catalog', () => {
@@ -135,6 +150,22 @@ test('known presets are stored as selection and secret values only', () => {
         provider: 'anthropic',
         code: 'claude-sonnet-4-6',
         api_key: 'secret'
+    });
+});
+
+test('known KIE presets persist only provider, route code, and API key', () => {
+    const stored = toStoredModelSelection({
+        provider: 'kie',
+        code: 'gemini-3-6-flash-openai',
+        name: 'Ignore copied display name',
+        base_url: 'https://attacker.example',
+        api_key: 'kie-secret'
+    });
+
+    assert.deepEqual(stored, {
+        provider: 'kie',
+        code: 'gemini-3-6-flash-openai',
+        api_key: 'kie-secret'
     });
 });
 

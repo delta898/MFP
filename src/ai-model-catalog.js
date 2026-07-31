@@ -1,11 +1,13 @@
 const CLAUDE_OPENAI_BASE_URL = 'https://api.anthropic.com/v1';
+const KIE_BASE_URL = 'https://api.kie.ai';
 const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 
 const PROVIDER_PRESETS = Object.freeze({
     text: Object.freeze([
         Object.freeze({ id: 'openai', name: 'ChatGPT', sort_order: 10 }),
         Object.freeze({ id: 'anthropic', name: 'Claude', sort_order: 20 }),
-        Object.freeze({ id: 'gemini', name: 'Gemini', sort_order: 30 })
+        Object.freeze({ id: 'gemini', name: 'Gemini', sort_order: 30 }),
+        Object.freeze({ id: 'kie', name: 'KIE.ai', sort_order: 40 })
     ]),
     image: Object.freeze([
         Object.freeze({ id: 'openai', name: 'ChatGPT', sort_order: 10 }),
@@ -125,6 +127,39 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         sort_order: 30,
         capabilities: { temperature: true, structured_output: false, image_input: true }
     },
+    {
+        key: 'kie:gemini-3-6-flash-openai',
+        name: 'Gemini 3.6 Flash',
+        code: 'gemini-3-6-flash-openai',
+        provider: 'kie',
+        transport: 'kie_openai_chat',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: { temperature: false, structured_output: false, image_input: false }
+    },
+    {
+        key: 'kie:gemini-3-5-flash-openai',
+        name: 'Gemini 3.5 Flash',
+        code: 'gemini-3-5-flash-openai',
+        provider: 'kie',
+        transport: 'kie_openai_chat',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 20,
+        capabilities: { temperature: true, structured_output: false, image_input: false }
+    },
+    {
+        key: 'kie:gemini-3.1-pro',
+        name: 'Gemini 3.1 Pro',
+        code: 'gemini-3.1-pro',
+        provider: 'kie',
+        transport: 'kie_openai_chat',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 30,
+        capabilities: { temperature: true, structured_output: false, image_input: false }
+    },
     { key: 'anthropic:claude-opus-4-6', name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 40, capabilities: { temperature: true, structured_output: false, image_input: true } },
     { key: 'anthropic:claude-sonnet-4-6', name: 'Claude Sonnet 4.6', code: 'claude-sonnet-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 50, capabilities: { temperature: true, structured_output: false, image_input: true } },
     { key: 'anthropic:claude-haiku-4-5', name: 'Claude Haiku 4.5', code: 'claude-haiku-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 80, capabilities: { temperature: true, structured_output: false, image_input: true } },
@@ -179,6 +214,7 @@ function getBundledAiModelCatalog() {
 
 module.exports = {
     CLAUDE_OPENAI_BASE_URL,
+    KIE_BASE_URL,
     OPENAI_BASE_URL,
     DEFAULT_MODEL_CODES,
     getBundledAiModelCatalog

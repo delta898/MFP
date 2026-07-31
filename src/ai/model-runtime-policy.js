@@ -60,6 +60,9 @@ function buildOpenAiChatRequest(modelConfig = {}, prompt = '', options = {}) {
     ) {
         body.response_format = { type: 'json_object' };
     }
+    if (definition.transport === 'kie_openai_chat') {
+        delete body.model;
+    }
 
     return { definition, body };
 }

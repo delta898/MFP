@@ -96,6 +96,54 @@ test('checks Claude through its native model metadata endpoint', async () => {
     assert.equal(calls[0].config.headers['anthropic-version'], '2023-06-01');
 });
 
+test('checks KIE at provider account level without generation', async () => {
+    const calls = [];
+    const result = await testModelConnection({
+        kind: 'text',
+        modelConfig: {
+            provider: 'kie',
+            code: 'gemini-3-6-flash-openai',
+            base_url: 'https://api.kie.ai',
+            api_key: 'kie-secret'
+        },
+        httpClient: createHttpClient({
+            code: 200,
+            msg: 'success',
+            data: 123.45
+        }, calls),
+        now: (() => {
+            const values = [100, 118];
+            return () => values.shift();
+        })()
+    });
+
+    assert.equal(calls[0].url, 'https://api.kie.ai/api/v1/chat/credit');
+    assert.equal(calls[0].config.headers.Authorization, 'Bearer kie-secret');
+    assert.equal(result.check_type, 'account_credit');
+    assert.equal(result.generation_performed, false);
+    assert.equal(result.credit_balance, 123.45);
+    assert.equal(result.latency_ms, 18);
+});
+
+test('rejects malformed KIE credit responses instead of claiming success', async () => {
+    await assert.rejects(
+        testModelConnection({
+            kind: 'text',
+            modelConfig: {
+                provider: 'kie',
+                code: 'gemini-3-6-flash-openai',
+                api_key: 'kie-secret'
+            },
+            httpClient: createHttpClient({
+                code: 200,
+                msg: 'success',
+                data: null
+            }, [])
+        }),
+        /잔여 크레딧 응답을 확인하지 못했습니다/
+    );
+});
+
 test('checks a direct OpenAI-compatible model through its model list', async () => {
     const calls = [];
     await testModelConnection({
@@ -192,4 +240,35 @@ test('settings service resolves the unsaved catalog selection before checking', 
     assert.equal(received.modelConfig.api_key, 'unsaved-secret');
     assert.equal(result.display_name, 'GPT-5.6 Terra');
     assert.equal(result.generation_performed, false);
+});
+
+test('settings service labels a KIE provider-level connection check accurately', async () => {
+    const service = createSettingsService({
+        ModelConnectionTester: {
+            async testModelConnection(options) {
+                return {
+                    success: true,
+                    check_type: 'account_credit',
+                    generation_performed: false,
+                    kind: options.kind,
+                    provider: options.modelConfig.provider,
+                    model: options.modelConfig.code,
+                    transport: options.modelConfig.transport,
+                    credit_balance: 88,
+                    latency_ms: 9
+                };
+            }
+        }
+    });
+
+    const result = await service.testAiModelConnection({
+        kind: 'text',
+        provider: 'kie',
+        presetCode: 'gemini-3-6-flash-openai',
+        apiKey: 'unsaved-kie-secret'
+    });
+
+    assert.equal(result.display_name, 'KIE.ai');
+    assert.equal(result.check_type, 'account_credit');
+    assert.equal(result.credit_balance, 88);
 });

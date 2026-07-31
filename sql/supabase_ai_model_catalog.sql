@@ -88,18 +88,19 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.2',
+    '2026-07-31.3',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.2",
+      "version": "2026-07-31.3",
       "generated_at": "2026-07-31T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
         {"kind": "text", "id": "anthropic", "display_name": "Claude", "sort_order": 20},
         {"kind": "text", "id": "gemini", "display_name": "Gemini", "sort_order": 30},
+        {"kind": "text", "id": "kie", "display_name": "KIE.ai", "sort_order": 40},
         {"kind": "image", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
         {"kind": "image", "id": "gemini", "display_name": "Gemini", "sort_order": 20},
         {"kind": "image", "id": "imagen4", "display_name": "Imagen 4", "sort_order": 30}
@@ -183,6 +184,42 @@ values (
           "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
         },
         {
+          "key": "kie:gemini-3-6-flash-openai",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_openai_chat",
+          "model_id": "gemini-3-6-flash-openai",
+          "display_name": "Gemini 3.6 Flash",
+          "status": "active",
+          "minimum_app_version": "0.1.15",
+          "sort_order": 10,
+          "capabilities": {"temperature": false, "structured_output": false, "image_input": false}
+        },
+        {
+          "key": "kie:gemini-3-5-flash-openai",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_openai_chat",
+          "model_id": "gemini-3-5-flash-openai",
+          "display_name": "Gemini 3.5 Flash",
+          "status": "active",
+          "minimum_app_version": "0.1.15",
+          "sort_order": 20,
+          "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
+        },
+        {
+          "key": "kie:gemini-3.1-pro",
+          "kind": "text",
+          "provider": "kie",
+          "transport": "kie_openai_chat",
+          "model_id": "gemini-3.1-pro",
+          "display_name": "Gemini 3.1 Pro",
+          "status": "active",
+          "minimum_app_version": "0.1.15",
+          "sort_order": 30,
+          "capabilities": {"temperature": true, "structured_output": false, "image_input": false}
+        },
+        {
           "key": "openai:gpt-image-2",
           "kind": "image",
           "provider": "openai",
@@ -212,12 +249,12 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-07-31.2',
+--     '2026-07-31.3',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-07-31.2","models":[]}'::jsonb,
---     '0.1.14'
+--     '{"schema_version":1,"version":"2026-07-31.3","models":[]}'::jsonb,
+--     '0.1.15'
 -- );
 --
 -- 2) publish
@@ -229,4 +266,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-07-31.2';
+--  where version = '2026-07-31.3';

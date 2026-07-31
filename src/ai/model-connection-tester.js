@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { KIE_BASE_URL } = require('../ai-model-catalog');
 const { getModelRuntimeDefinition } = require('./model-runtime-policy');
 
 function normalizeBaseUrl(value) {
@@ -16,6 +17,7 @@ function getRemoteErrorMessage(error) {
     return String(
         error?.response?.data?.error?.message
         || error?.response?.data?.message
+        || error?.response?.data?.msg
         || error?.message
         || '알 수 없는 오류'
     ).trim();
@@ -123,6 +125,31 @@ async function checkDirectModel(httpClient, modelConfig, timeoutMs) {
     }
 }
 
+async function checkKieAccount(httpClient, modelConfig, timeoutMs) {
+    const response = await httpClient.get(`${KIE_BASE_URL}/api/v1/chat/credit`, {
+        headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${String(modelConfig.api_key || '').trim()}`
+        },
+        timeout: timeoutMs
+    });
+    const responseCode = Number(response?.data?.code);
+    if (Number.isFinite(responseCode) && responseCode !== 200) {
+        throw createCheckError(String(response?.data?.msg || 'KIE.ai 계정 정보를 확인하지 못했습니다.'));
+    }
+    const rawCreditBalance = response?.data?.data;
+    const creditBalance = Number(rawCreditBalance);
+    if (
+        rawCreditBalance === null
+        || rawCreditBalance === undefined
+        || String(rawCreditBalance).trim() === ''
+        || !Number.isFinite(creditBalance)
+    ) {
+        throw createCheckError('KIE.ai 잔여 크레딧 응답을 확인하지 못했습니다.');
+    }
+    return { credit_balance: creditBalance };
+}
+
 async function testModelConnection(options = {}) {
     const kind = String(options.kind || '').trim().toLowerCase();
     const modelConfig = options.modelConfig && typeof options.modelConfig === 'object'
@@ -135,6 +162,7 @@ async function testModelConnection(options = {}) {
 
     assertModelConfig(kind, modelConfig, definition);
     const startedAt = now();
+    let checkDetails = {};
     try {
         if (definition.provider === 'gemini' || definition.provider === 'imagen4') {
             await checkGoogleModel(httpClient, modelConfig, timeoutMs);
@@ -142,6 +170,8 @@ async function testModelConnection(options = {}) {
             await checkAnthropicModel(httpClient, modelConfig, timeoutMs);
         } else if (definition.provider === 'openai') {
             await checkOpenAiModel(httpClient, modelConfig, timeoutMs);
+        } else if (definition.provider === 'kie') {
+            checkDetails = await checkKieAccount(httpClient, modelConfig, timeoutMs);
         } else if (definition.provider === 'direct') {
             await checkDirectModel(httpClient, modelConfig, timeoutMs);
         } else {
@@ -156,13 +186,14 @@ async function testModelConnection(options = {}) {
 
     return {
         success: true,
-        check_type: 'metadata',
+        check_type: definition.provider === 'kie' ? 'account_credit' : 'metadata',
         generation_performed: false,
         kind,
         provider: definition.provider,
         model: String(modelConfig.code || '').trim(),
         transport: definition.transport,
-        latency_ms: Math.max(0, now() - startedAt)
+        latency_ms: Math.max(0, now() - startedAt),
+        ...checkDetails
     };
 }
 

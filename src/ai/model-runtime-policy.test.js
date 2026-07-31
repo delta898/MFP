@@ -7,6 +7,10 @@ const {
     getModelRuntimeDefinition,
     resolveOpenAiImageRequest
 } = require('./model-runtime-policy');
+const {
+    extractKieOpenAiChatContent,
+    getKieOpenAiChatEndpoint
+} = require('./kie-openai-chat');
 
 test('Gemini 3.6 strips deprecated temperature while older Gemini keeps it', () => {
     const latest = applyTextRuntimePolicy({
@@ -62,6 +66,45 @@ test('Anthropic compatibility keeps its supported legacy chat fields', () => {
         max_tokens: 300,
         temperature: 0.2
     });
+});
+
+test('KIE OpenAI chat uses its route-selected model contract', () => {
+    const request = buildOpenAiChatRequest({
+        provider: 'kie',
+        code: 'gemini-3-5-flash-openai'
+    }, 'Write', {
+        maxTokens: 300,
+        temperature: 0.2,
+        responseMimeType: 'application/json'
+    });
+
+    assert.equal(request.definition.transport, 'kie_openai_chat');
+    assert.deepEqual(request.body, {
+        messages: [{ role: 'user', content: 'Write' }],
+        max_tokens: 300,
+        temperature: 0.2
+    });
+    assert.equal(
+        getKieOpenAiChatEndpoint('gemini-3-5-flash-openai'),
+        'https://api.kie.ai/gemini-3-5-flash-openai/v1/chat/completions'
+    );
+    assert.throws(
+        () => getKieOpenAiChatEndpoint('../foreign-host'),
+        /모델 경로가 올바르지 않습니다/
+    );
+});
+
+test('KIE adapter accepts OpenAI responses and the documented Gemini-shaped fallback', () => {
+    assert.equal(extractKieOpenAiChatContent({
+        choices: [{ message: { content: 'OpenAI response' } }]
+    }), 'OpenAI response');
+    assert.equal(extractKieOpenAiChatContent({
+        candidates: [{
+            content: {
+                parts: [{ text: 'Gemini ' }, { text: 'response' }]
+            }
+        }]
+    }), 'Gemini response');
 });
 
 test('direct OpenAI-compatible text keeps max_tokens and removed presets remain callable', () => {

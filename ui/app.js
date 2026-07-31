@@ -5489,6 +5489,18 @@ function getSettingsAiPresetProviders(kind) {
   return Array.from(new Set([...configuredProviders, ...presetProviders, 'direct']));
 }
 
+function getSettingsAiProviderLabels(kind) {
+  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[kind])
+    ? settingsAiPresets.providers[kind]
+    : [];
+  return Object.fromEntries(configuredProviders
+    .map((item) => [
+      String(item?.id || '').trim(),
+      String(item?.name || item?.display_name || item?.id || '').trim()
+    ])
+    .filter(([id, name]) => id && name));
+}
+
 function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
   if (!selectEl) return;
   const catalogProviders = getSettingsAiPresetProviders(kind);
@@ -5500,6 +5512,8 @@ function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
     imagen4: 'Imagen 4',
     openai: 'ChatGPT',
     anthropic: 'Claude',
+    kie: 'KIE.ai',
+    ...getSettingsAiProviderLabels(kind),
     direct: '직접 입력'
   };
   const resolvedProvider = providers.includes(selectedProvider) ? selectedProvider : (providers[0] || '');
@@ -5581,7 +5595,9 @@ function syncSettingsAiModelUi(kind) {
         ? 'Gemini Native API'
         : (resolvedProvider === 'imagen4'
           ? 'Imagen Predict API'
-          : (resolvedProvider === 'openai' ? 'OpenAI API' : 'Base URL')))
+          : (resolvedProvider === 'openai'
+            ? 'OpenAI API'
+            : (resolvedProvider === 'kie' ? 'KIE.ai API' : 'Base URL'))))
       : 'Base URL';
   }
   providerEl.dataset.desiredValue = resolvedProvider;
@@ -5646,7 +5662,7 @@ function resetSettingsAiModelTestResult(kind) {
   const prefix = kind === 'image' ? 'image' : 'text';
   const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
   if (!resultEl) return;
-  resultEl.textContent = 'API Key와 모델 정보를 확인합니다.';
+  resultEl.textContent = 'API Key와 연결 정보를 확인합니다.';
   resultEl.style.color = 'var(--text-muted)';
 }
 
@@ -5681,7 +5697,7 @@ async function runSettingsAiModelTest(kind) {
 
   if (buttonEl) buttonEl.disabled = true;
   if (resultEl) {
-    resultEl.textContent = '⏳ API Key와 모델 정보 확인 중...';
+    resultEl.textContent = '⏳ API Key와 연결 정보 확인 중...';
     resultEl.style.color = 'var(--text-muted)';
   }
 
@@ -5690,8 +5706,11 @@ async function runSettingsAiModelTest(kind) {
     const elapsed = Number.isFinite(Number(result?.latency_ms))
       ? ` · ${(Number(result.latency_ms) / 1000).toFixed(2)}초`
       : '';
+    const credit = Number.isFinite(Number(result?.credit_balance))
+      ? ` · 잔여 크레딧 ${Number(result.credit_balance).toLocaleString()}`
+      : '';
     if (resultEl) {
-      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 성공${elapsed}`;
+      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 성공${credit}${elapsed}`;
       resultEl.style.color = 'var(--success)';
     }
   } catch (error) {

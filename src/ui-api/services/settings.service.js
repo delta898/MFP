@@ -700,8 +700,12 @@ function createSettingsService(deps = {}) {
                 });
                 return {
                     ...result,
-                    display_name: modelConfig.name || modelConfig.code,
-                    message: `${modelConfig.name || modelConfig.code} API Key와 모델 정보를 확인했습니다.`
+                    display_name: modelConfig.provider === 'kie'
+                        ? 'KIE.ai'
+                        : (modelConfig.name || modelConfig.code),
+                    message: modelConfig.provider === 'kie'
+                        ? 'KIE.ai API Key와 계정 연결을 확인했습니다.'
+                        : `${modelConfig.name || modelConfig.code} API Key와 모델 정보를 확인했습니다.`
                 };
             } catch (error) {
                 throw createApiError(

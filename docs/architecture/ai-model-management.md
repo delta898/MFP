@@ -52,6 +52,7 @@ The current trusted transports are:
 - `imagen_predict`
 - `openai_chat_completions`
 - `anthropic_openai_compat`
+- `kie_openai_chat`
 - `openai_images`
 
 Adding a model that uses one of these transports can be done through the remote
@@ -113,6 +114,9 @@ catalog selection used by normal runtime configuration and delegates the request
   advertised generation methods when available.
 - Anthropic models use the native Claude model metadata endpoint.
 - Direct OpenAI-compatible servers use `/models` and must expose the selected ID.
+- KIE.ai uses its account credit endpoint because it does not expose a free
+  per-model metadata endpoint. The result confirms provider account connectivity
+  and returns the remaining credit; it does not claim selected-model verification.
 - The checker dispatches by the trusted catalog provider/transport boundary, not
   by arbitrary remote URLs.
 - API keys are used only in the outbound request and are never included in the
@@ -123,6 +127,32 @@ catalog selection used by normal runtime configuration and delegates the request
 This check verifies authentication, connectivity, and model discovery. It does
 not prove generation quota, billing balance, request-option compatibility, or
 successful content generation.
+
+For KIE.ai, the narrower provider-account check verifies authentication,
+connectivity, and the credit response only. Model route compatibility requires an
+explicitly approved minimal generation call.
+
+## KIE.ai Boundary
+
+KIE.ai is presented as one text provider. Its upstream Gemini, GPT, Claude, and
+other families remain models under that provider rather than becoming new provider
+names.
+
+KIE protocols are split by trusted local transport. The initial
+`kie_openai_chat` adapter supports route-selected Gemini OpenAI-compatible models
+at the fixed `https://api.kie.ai` host. A validated catalog model ID supplies only
+one path segment; it cannot supply a host, arbitrary URL, authentication header, or
+parser. Responses are parsed as OpenAI chat responses with a narrowly scoped
+Gemini-shaped fallback for the inconsistency in KIE's published examples.
+
+Responses/Claude Messages/other KIE contracts require their own transports before
+those models become selectable.
+
+The initial three KIE Gemini routes were verified against the real API with
+non-streaming, text-only, minimal-token requests. All returned OpenAI chat response
+objects and reported 0.01 credit for the validation request. Structured output and
+image input remain disabled in the catalog because they were outside that verified
+contract.
 
 ## Configuration Boundary
 

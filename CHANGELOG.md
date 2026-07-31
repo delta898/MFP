@@ -3,7 +3,10 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.15-dev1] - 2026-07-31
+
 ### Added
+- **KIE.ai 글쓰기 모델 1차 연동**: KIE.ai를 글쓰기 AI 공급자로 추가하고 전용 OpenAI-compatible transport로 Gemini 3.6 Flash, 3.5 Flash, 3.1 Pro를 지원합니다. 무료 연결 확인은 콘텐츠를 생성하지 않고 KIE 계정과 잔여 크레딧을 확인합니다.
 - **최신 AI 모델 지원**: 글쓰기 모델에 GPT-5.6 Sol/Terra/Luna, Gemini 3.6 Flash, Claude Fable/Opus/Sonnet 5를 추가하고 이미지 모델에 GPT Image 2를 추가했습니다.
 - **원격 AI 모델 카탈로그**: Supabase에서 검증된 모델 목록과 capability 정책을 갱신하고 마지막 snapshot을 로컬에 보관해, 기존 transport로 지원 가능한 새 모델을 앱 업데이트 없이 제공할 수 있습니다.
 - **AI 모델 무료 연결 확인**: 실제 콘텐츠를 생성하지 않고 선택한 Text/Image 모델의 API Key, 서버 연결, 모델 ID와 소요 시간을 확인할 수 있습니다.
