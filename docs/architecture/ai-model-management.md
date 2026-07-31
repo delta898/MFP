@@ -165,9 +165,19 @@ repeated because a timeout can occur after KIE accepted the paid task. Query and
 download retries cannot create another generation. A minimal atomic local journal
 keeps task identity and state without prompts or secrets.
 
-The first KIE image request profile supports only Nano Banana 2 text-to-image.
-Additional Market models require a reviewed local request profile even when they
-share the same task endpoints.
+Polling itself is intentionally quieter than the generic synchronous-request
+heartbeat. User-visible logs record submission once, summarize a pending task no
+more than once per 60 seconds, report meaningful 25% progress milestones when KIE
+provides them, and then record the terminal result. Poll-query retry warnings remain
+unthrottled because at most five consecutive retries are allowed and each is useful
+for diagnosis.
+
+KIE image request profiles are held in a trusted local registry. The registry
+currently supports GPT Image 2, Nano Banana 2, and Seedream 5 Pro text-to-image. A
+remote catalog entry is selectable only when its model ID has a shipped local
+profile, even if it uses the same Market task transport. This prevents a
+catalog-only change from exposing a model whose input contract the installed app
+cannot build.
 
 The initial three KIE Gemini routes were verified against the real API with
 non-streaming, text-only, minimal-token requests. All returned OpenAI chat response

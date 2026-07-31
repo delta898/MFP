@@ -101,7 +101,11 @@ test('provider and model presets follow explicit product sort order', () => {
     );
     assert.deepEqual(
         catalog.image.filter((item) => item.provider === 'kie').map((item) => item.code),
-        ['nano-banana-2']
+        [
+            'gpt-image-2-text-to-image',
+            'nano-banana-2',
+            'seedream/5-pro-text-to-image'
+        ]
     );
 });
 
@@ -123,6 +127,14 @@ test('AI model catalog contains current OpenAI and Anthropic models with trusted
     assert.equal(findModel('kie', 'gemini-3-6-flash-openai').transport, 'kie_openai_chat');
     assert.equal(findModel('kie', 'gemini-3-5-flash-openai').provider, 'kie');
     assert.equal(findModel('kie', 'gemini-3.1-pro').base_url, 'https://api.kie.ai');
+    assert.equal(
+        findModel('kie', 'seedream/5-pro-text-to-image').transport,
+        'kie_market_image_jobs'
+    );
+    assert.equal(
+        findModel('kie', 'gpt-image-2-text-to-image').transport,
+        'kie_market_image_jobs'
+    );
     assert.equal(findModel('kie', 'nano-banana-2').transport, 'kie_market_image_jobs');
 });
 

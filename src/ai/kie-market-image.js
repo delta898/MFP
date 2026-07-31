@@ -9,6 +9,61 @@ const KIE_MARKET_SUBMIT_TIMEOUT_MS = 30000;
 const KIE_MARKET_POLL_REQUEST_TIMEOUT_MS = 15000;
 const KIE_MARKET_TOTAL_TIMEOUT_MS = 15 * 60 * 1000;
 const KIE_MARKET_DOWNLOAD_TIMEOUT_MS = 120000;
+const KIE_MARKET_PROGRESS_LOG_INTERVAL_MS = 60 * 1000;
+const KIE_MARKET_PROGRESS_MILESTONE = 25;
+
+function createKieMarketImageProgressReporter(options = {}) {
+    const now = typeof options.now === 'function' ? options.now : Date.now;
+    const logInfo = typeof options.logInfo === 'function' ? options.logInfo : () => {};
+    const logWarn = typeof options.logWarn === 'function' ? options.logWarn : () => {};
+    const intervalMs = Math.max(
+        1000,
+        Number(options.intervalMs) || KIE_MARKET_PROGRESS_LOG_INTERVAL_MS
+    );
+    let submittedAt = null;
+    let lastSummaryAt = 0;
+    let lastProgressMilestone = 0;
+
+    return function reportKieMarketImageProgress(event = {}) {
+        const state = String(event.state || '').trim().toLowerCase();
+        const timestamp = now();
+        if (state === 'submitted') {
+            submittedAt = timestamp;
+            lastSummaryAt = timestamp;
+            lastProgressMilestone = 0;
+            logInfo(`   🧾 KIE 이미지 작업 생성 완료: ${event.taskId}`);
+            return;
+        }
+        if (state === 'poll_retry') {
+            logWarn(`   ⚠️ KIE 작업 상태 조회 재시도: ${event.consecutivePollErrors}/5`);
+            return;
+        }
+        if (state === 'journal_error') {
+            logWarn(`   ⚠️ KIE 작업 journal 저장 실패: ${event.error}`);
+            return;
+        }
+        if (!['waiting', 'queuing', 'generating'].includes(state)) return;
+
+        const rawProgress = Number(event.progress);
+        const progress = Number.isFinite(rawProgress)
+            ? Math.max(0, Math.min(100, rawProgress))
+            : null;
+        const milestone = progress > 0
+            ? Math.floor(progress / KIE_MARKET_PROGRESS_MILESTONE) * KIE_MARKET_PROGRESS_MILESTONE
+            : 0;
+        const reachedNewMilestone = milestone > lastProgressMilestone;
+        const summaryDue = (timestamp - lastSummaryAt) >= intervalMs;
+        if (!reachedNewMilestone && !summaryDue) return;
+
+        lastProgressMilestone = Math.max(lastProgressMilestone, milestone);
+        lastSummaryAt = timestamp;
+        const elapsedSec = submittedAt !== null
+            ? Math.max(0, Math.floor((timestamp - submittedAt) / 1000))
+            : 0;
+        const progressLabel = progress > 0 ? ` · ${progress}%` : '';
+        logInfo(`   🎨 KIE 이미지 생성 중 · ${elapsedSec}초 경과${progressLabel}`);
+    };
+}
 
 function buildKieMarketHeaders(apiKey = '') {
     const normalized = String(apiKey || '').trim();
@@ -19,15 +74,19 @@ function buildKieMarketHeaders(apiKey = '') {
     };
 }
 
-function buildNanoBanana2TaskRequest(modelConfig = {}, prompt = '', options = {}) {
+function assertKieMarketImageTransport(modelConfig = {}) {
     const definition = getModelRuntimeDefinition('image', modelConfig);
     if (definition.transport !== 'kie_market_image_jobs') {
-        throw new Error(`Nano Banana 2에 사용할 수 없는 transport입니다: ${definition.transport || 'missing'}`);
+        throw new Error(`KIE Market 이미지에 사용할 수 없는 transport입니다: ${definition.transport || 'missing'}`);
     }
-    if (String(modelConfig.code || '').trim() !== 'nano-banana-2') {
-        throw new Error('지원하지 않는 KIE Market 이미지 request profile입니다.');
-    }
+    return definition;
+}
 
+function buildNanoBanana2TaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'nano-banana-2') {
+        throw new Error('Nano Banana 2 request profile의 모델 코드가 일치하지 않습니다.');
+    }
     const aspectRatio = String(options.aspectRatio || '4:3').trim();
     const resolution = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
         ? '2K'
@@ -45,6 +104,67 @@ function buildNanoBanana2TaskRequest(modelConfig = {}, prompt = '', options = {}
             }
         }
     };
+}
+
+function buildSeedream5ProTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'seedream/5-pro-text-to-image') {
+        throw new Error('Seedream 5 Pro request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    const quality = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
+        ? 'high'
+        : 'basic';
+    return {
+        definition,
+        body: {
+            model: 'seedream/5-pro-text-to-image',
+            input: {
+                prompt: String(prompt || ''),
+                aspect_ratio: aspectRatio,
+                quality,
+                output_format: 'png',
+                nsfw_checker: true
+            }
+        }
+    };
+}
+
+function buildGptImage2TaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'gpt-image-2-text-to-image') {
+        throw new Error('GPT Image 2 request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    const resolution = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
+        ? '2K'
+        : '1K';
+    return {
+        definition,
+        body: {
+            model: 'gpt-image-2-text-to-image',
+            input: {
+                prompt: String(prompt || ''),
+                aspect_ratio: aspectRatio,
+                resolution
+            }
+        }
+    };
+}
+
+const KIE_MARKET_IMAGE_REQUEST_PROFILES = Object.freeze({
+    'gpt-image-2-text-to-image': buildGptImage2TaskRequest,
+    'nano-banana-2': buildNanoBanana2TaskRequest,
+    'seedream/5-pro-text-to-image': buildSeedream5ProTaskRequest
+});
+
+function buildKieMarketTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const modelCode = String(modelConfig.code || '').trim();
+    const buildRequest = KIE_MARKET_IMAGE_REQUEST_PROFILES[modelCode];
+    if (!buildRequest) {
+        throw new Error(`지원하지 않는 KIE Market 이미지 request profile입니다: ${modelCode || 'missing'}`);
+    }
+    return buildRequest(modelConfig, prompt, options);
 }
 
 function extractKieMarketTaskId(data) {
@@ -158,7 +278,7 @@ function createKieMarketImageClient(options = {}) {
         const modelConfig = params.modelConfig || {};
         const apiKey = String(modelConfig.api_key || '').trim();
         if (!apiKey) throw new Error('KIE API Key 누락');
-        const request = buildNanoBanana2TaskRequest(
+        const request = buildKieMarketTaskRequest(
             modelConfig,
             params.prompt,
             params.options
@@ -256,12 +376,17 @@ module.exports = {
     KIE_MARKET_CREATE_TASK_ENDPOINT,
     KIE_MARKET_DOWNLOAD_TIMEOUT_MS,
     KIE_MARKET_POLL_REQUEST_TIMEOUT_MS,
+    KIE_MARKET_PROGRESS_LOG_INTERVAL_MS,
     KIE_MARKET_SUBMIT_TIMEOUT_MS,
     KIE_MARKET_TASK_INFO_ENDPOINT,
     KIE_MARKET_TOTAL_TIMEOUT_MS,
     assertSafeKieResultUrl,
+    buildGptImage2TaskRequest,
+    buildKieMarketTaskRequest,
     buildKieMarketHeaders,
     buildNanoBanana2TaskRequest,
+    buildSeedream5ProTaskRequest,
+    createKieMarketImageProgressReporter,
     createKieMarketImageClient,
     extractKieMarketTaskId,
     isRetryableKieMarketPollError,

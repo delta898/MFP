@@ -6,6 +6,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 ### Added
 - **KIE.ai GPT 5.6 연동**: KIE.ai 글쓰기 모델에 GPT 5.6 Sol, Terra, Luna를 추가하고 고정된 Responses API endpoint를 사용하는 전용 transport로 요청·응답 형식을 분리했습니다.
 - **KIE.ai 비동기 이미지 기반**: KIE.ai 이미지 공급자에 Nano Banana 2를 추가하고 단일 제출, task polling, 로컬 작업 journal, 안전한 결과 다운로드를 제공하는 재사용 가능한 async job 구조를 도입했습니다.
+- **KIE.ai Seedream 5 Pro 이미지 모델**: 로컬 request profile registry에 Seedream 5 Pro Text to Image를 추가하고 1K/2K 품질 및 화면 비율 설정을 KIE Market 요청으로 안전하게 변환합니다.
+- **KIE.ai GPT Image 2 이미지 모델**: GPT Image 2 Text to Image를 로컬 request profile registry와 Model Catalog에 추가하고 1K/2K 해상도 및 화면 비율을 지원합니다.
 
 ## [0.1.15-dev1] - 2026-07-31
 
@@ -16,6 +18,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **AI 모델 무료 연결 확인**: 실제 콘텐츠를 생성하지 않고 선택한 Text/Image 모델의 API Key, 서버 연결, 모델 ID와 소요 시간을 확인할 수 있습니다.
 
 ### Changed
+- **KIE.ai 이미지 진행 로그 간소화**: polling 응답마다 중복 기록되던 0% 진행 로그와 7초 heartbeat를 제거하고, 작업 접수·60초 진행 요약·25% 진행 milestone·완료/실패 중심으로 기록합니다.
 - **AI 모델 transport/capability 분리**: 공급자 이름에 직접 의존하던 호출 분기를 신뢰된 transport registry와 모델 capability 정책으로 분리했습니다. API endpoint와 인증 경계는 계속 앱이 소유하며 원격 카탈로그는 임의 URL이나 실행 코드를 지정할 수 없습니다.
 - **AI 공급자·모델 순서 명시화**: 원격 catalog의 독립된 `sort_order`로 공급자는 표시명 오름차순, 모델은 최신 버전과 성능 등급 우선순으로 안정적으로 표시합니다.
 

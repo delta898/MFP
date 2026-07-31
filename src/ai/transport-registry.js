@@ -45,7 +45,12 @@ const TRANSPORTS = Object.freeze({
         id: 'kie_market_image_jobs',
         providers: Object.freeze(['kie']),
         kinds: Object.freeze(['image']),
-        base_url: KIE_BASE_URL
+        base_url: KIE_BASE_URL,
+        model_ids: Object.freeze([
+            'gpt-image-2-text-to-image',
+            'nano-banana-2',
+            'seedream/5-pro-text-to-image'
+        ])
     }),
     openai_images: Object.freeze({
         id: 'openai_images',
@@ -68,6 +73,13 @@ function isSupportedTransportRoute({ kind, provider, transport } = {}) {
 
 function getTransportBaseUrl(transport) {
     return String(getTransportDefinition(transport)?.base_url || '').trim();
+}
+
+function isSupportedTransportModel(transport, modelCode) {
+    const definition = getTransportDefinition(transport);
+    if (!definition) return false;
+    if (!Array.isArray(definition.model_ids)) return true;
+    return definition.model_ids.includes(String(modelCode || '').trim());
 }
 
 function isSupportedProviderKind(kind, provider) {
@@ -100,5 +112,6 @@ module.exports = {
     getTransportBaseUrl,
     inferTransport,
     isSupportedProviderKind,
+    isSupportedTransportModel,
     isSupportedTransportRoute
 };

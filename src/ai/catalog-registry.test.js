@@ -99,7 +99,7 @@ test('remote catalog can activate KIE GPT only through the trusted Responses tra
     assert.equal(model.transport, 'kie_responses');
 });
 
-test('remote catalog can activate a KIE image only through the trusted Market job transport', () => {
+test('remote catalog can activate a shipped KIE image profile only through the trusted Market job transport', () => {
     applyRemoteCatalog({
         schema_version: 1,
         version: 'kie-image-model',
@@ -110,22 +110,40 @@ test('remote catalog can activate a KIE image only through the trusted Market jo
             sort_order: 40
         }],
         models: [{
-            key: 'kie:future-image',
+            key: 'kie:seedream/5-pro-text-to-image',
             kind: 'image',
             provider: 'kie',
             transport: 'kie_market_image_jobs',
-            model_id: 'future-image',
-            display_name: 'Future Image',
+            model_id: 'seedream/5-pro-text-to-image',
+            display_name: 'Seedream 5 Pro',
             status: 'active',
             sort_order: 5,
             base_url: 'https://attacker.example'
         }]
     }, { appVersion: '0.1.15' });
 
-    const model = getAiModelCatalog().image.find((item) => item.code === 'future-image');
+    const model = getAiModelCatalog().image.find((item) => (
+        item.code === 'seedream/5-pro-text-to-image'
+    ));
     assert.ok(model);
     assert.equal(model.base_url, 'https://api.kie.ai');
     assert.equal(model.transport, 'kie_market_image_jobs');
+});
+
+test('remote catalog cannot expose a KIE image without a shipped local request profile', () => {
+    assert.throws(() => validateRemoteCatalog({
+        schema_version: 1,
+        version: 'unsupported-kie-image',
+        models: [{
+            key: 'kie:future-image',
+            kind: 'image',
+            provider: 'kie',
+            transport: 'kie_market_image_jobs',
+            model_id: 'future-image',
+            display_name: 'Future Image',
+            status: 'active'
+        }]
+    }, { appVersion: '0.1.15' }), /호환 가능한 AI model catalog 항목이 없습니다/);
 });
 
 test('provider and model order are controlled by independent sort_order fields', () => {

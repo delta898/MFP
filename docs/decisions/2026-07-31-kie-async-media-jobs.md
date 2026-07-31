@@ -20,6 +20,10 @@ Introduce a provider-independent async job runner and provider-specific adapters
 The runner owns polling and deadlines; the adapter owns trusted endpoints,
 authentication, state normalization, and result extraction.
 
+Keep model-specific request builders in a local profile registry. The remote
+catalog may expose only model IDs already present in that registry; it cannot
+define request fields or activate an unknown Market model.
+
 Paid task submission is single-attempt. Once a task ID exists, retries apply only
 to task queries and result downloads. The foreground polling deadline is 15
 minutes and does not trigger automatic resubmission.

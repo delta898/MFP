@@ -41,7 +41,10 @@ const {
     extractKieResponsesText
 } = require('./ai/kie-responses');
 const { createAsyncJobStore } = require('./ai/async-job-store');
-const { createKieMarketImageClient } = require('./ai/kie-market-image');
+const {
+    createKieMarketImageClient,
+    createKieMarketImageProgressReporter
+} = require('./ai/kie-market-image');
 
 const asyncAiJobStore = createAsyncJobStore({
     filePath: path.join(CONFIG.APP_ROOT_DIR || process.cwd(), 'data', 'async-ai-jobs.json')
@@ -4053,32 +4056,19 @@ const Utils = {
     },
 
     callKieMarketImageByConfig: async function (modelConfig = {}, prompt, savePath, options = {}) {
+        const reportProgress = createKieMarketImageProgressReporter({
+            logInfo: (message) => Logger.info(message),
+            logWarn: (message) => Logger.warn(message)
+        });
         const client = createKieMarketImageClient({
             jobStore: asyncAiJobStore,
-            onProgress(event = {}) {
-                const state = String(event.state || '').trim();
-                if (state === 'submitted') {
-                    Logger.info(`   🧾 KIE 이미지 작업 생성 완료: ${event.taskId}`);
-                } else if (state === 'generating') {
-                    const progress = Number.isFinite(Number(event.progress))
-                        ? ` (${Number(event.progress)}%)`
-                        : '';
-                    Logger.info(`   🎨 KIE 이미지 생성 중${progress}`);
-                } else if (state === 'poll_retry') {
-                    Logger.warn(`   ⚠️ KIE 작업 상태 조회 재시도: ${event.consecutivePollErrors}/5`);
-                } else if (state === 'journal_error') {
-                    Logger.warn(`   ⚠️ KIE 작업 journal 저장 실패: ${event.error}`);
-                }
-            }
+            onProgress: reportProgress
         });
-        const result = await this.runWithHeartbeat(
-            '(KIE 비동기 이미지 작업)',
-            () => client.generate({
-                modelConfig,
-                prompt,
-                options
-            })
-        );
+        const result = await client.generate({
+            modelConfig,
+            prompt,
+            options
+        });
         const fullPath = `${savePath}.png`;
         fs.writeFileSync(fullPath, result.imageBuffer);
         const credit = Number.isFinite(Number(result.creditsConsumed))

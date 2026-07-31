@@ -225,6 +225,20 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
     { key: 'imagen4:imagen-4.0-ultra-generate-001', name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] } },
     { key: 'imagen4:imagen-4.0-fast-generate-001', name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true, image_size: ['1K'] } },
     {
+        key: 'kie:gpt-image-2-text-to-image',
+        name: 'GPT Image 2',
+        code: 'gpt-image-2-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K', '2K']
+        }
+    },
+    {
         key: 'kie:nano-banana-2',
         name: 'Nano Banana 2',
         code: 'nano-banana-2',
@@ -232,7 +246,22 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 10,
+        sort_order: 20,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K', '2K'],
+            output_format: ['png']
+        }
+    },
+    {
+        key: 'kie:seedream/5-pro-text-to-image',
+        name: 'Seedream 5 Pro',
+        code: 'seedream/5-pro-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 30,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K'],

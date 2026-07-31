@@ -2,6 +2,7 @@ const { getBundledAiModelCatalog } = require('../ai-model-catalog');
 const {
     getTransportBaseUrl,
     isSupportedProviderKind,
+    isSupportedTransportModel,
     isSupportedTransportRoute
 } = require('./transport-registry');
 
@@ -78,6 +79,7 @@ function normalizeRemoteModel(raw, appVersion) {
     if (key !== `${provider}:${code}`) return null;
     if (!MODEL_STATUSES.has(status)) return null;
     if (!isSupportedTransportRoute({ kind, provider, transport })) return null;
+    if (!isSupportedTransportModel(transport, code)) return null;
     if (minimumAppVersion && compareVersions(appVersion, minimumAppVersion) < 0) return null;
 
     return {

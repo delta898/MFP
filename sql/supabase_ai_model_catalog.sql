@@ -88,13 +88,13 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.5',
+    '2026-07-31.7',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.5",
+      "version": "2026-07-31.7",
       "generated_at": "2026-07-31T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
@@ -267,6 +267,20 @@ values (
           }
         },
         {
+          "key": "kie:gpt-image-2-text-to-image",
+          "kind": "image",
+          "provider": "kie",
+          "transport": "kie_market_image_jobs",
+          "model_id": "gpt-image-2-text-to-image",
+          "display_name": "GPT Image 2",
+          "status": "active",
+          "sort_order": 10,
+          "capabilities": {
+            "aspect_ratio": true,
+            "image_size": ["1K", "2K"]
+          }
+        },
+        {
           "key": "kie:nano-banana-2",
           "kind": "image",
           "provider": "kie",
@@ -274,7 +288,22 @@ values (
           "model_id": "nano-banana-2",
           "display_name": "Nano Banana 2",
           "status": "active",
-          "sort_order": 10,
+          "sort_order": 20,
+          "capabilities": {
+            "aspect_ratio": true,
+            "image_size": ["1K", "2K"],
+            "output_format": ["png"]
+          }
+        },
+        {
+          "key": "kie:seedream/5-pro-text-to-image",
+          "kind": "image",
+          "provider": "kie",
+          "transport": "kie_market_image_jobs",
+          "model_id": "seedream/5-pro-text-to-image",
+          "display_name": "Seedream 5 Pro",
+          "status": "active",
+          "sort_order": 30,
           "capabilities": {
             "aspect_ratio": true,
             "image_size": ["1K", "2K"],
@@ -295,11 +324,11 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-07-31.5',
+--     '2026-07-31.7',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-07-31.5","models":[]}'::jsonb,
+--     '{"schema_version":1,"version":"2026-07-31.7","models":[]}'::jsonb,
 --     '0.1.15'
 -- );
 --
@@ -312,4 +341,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-07-31.5';
+--  where version = '2026-07-31.7';
