@@ -101,6 +101,24 @@ model may remain selectable during a useful migration window when it is still
 operational and provides distinct value. Existing selections remain readable after
 the model is hidden.
 
+## Connection Testing
+
+The AI settings screen can test the currently entered selection before it is
+saved. The settings API resolves the same catalog selection used by normal
+runtime configuration and delegates the request to
+`src/ai/model-connection-tester.js`.
+
+- Text tests request a minimal response and validate that response content exists.
+- Image tests generate one minimal 1:1 image and validate image data without
+  persisting it.
+- The tester dispatches by trusted catalog `transport`, not by provider-specific
+  UI conditionals.
+- API keys are used only in the outbound request and are never included in the
+  test result.
+- Successful results expose the resolved model, transport, and elapsed time.
+- Image tests may incur a small provider charge because they perform a real
+  generation request.
+
 ## Configuration Boundary
 
 `ai_settings.TEXT_MODEL` and `ai_settings.IMAGE_MODEL` store the user's selection.

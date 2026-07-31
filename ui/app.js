@@ -5630,6 +5630,82 @@ function captureSettingsAiModelDesiredState(kind) {
   }
 }
 
+function getSettingsAiModelTestPayload(kind) {
+  const prefix = kind === 'image' ? 'image' : 'text';
+  return {
+    kind,
+    provider: (document.getElementById(`settings-${prefix}-model-preset-provider`)?.value || '').trim(),
+    presetCode: (document.getElementById(`settings-${prefix}-model-preset-code`)?.value || '').trim(),
+    name: (document.getElementById(`settings-${prefix}-model-name`)?.value || '').trim(),
+    baseUrl: (document.getElementById(`settings-${prefix}-model-base-url`)?.value || '').trim(),
+    apiKey: getSettingsInputValue(`settings-${prefix}-model-api-key`).trim()
+  };
+}
+
+function resetSettingsAiModelTestResult(kind) {
+  const prefix = kind === 'image' ? 'image' : 'text';
+  const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
+  if (!resultEl) return;
+  resultEl.textContent = kind === 'image'
+    ? '실제 최소 이미지 1장을 생성하므로 소량의 API 비용이 발생할 수 있습니다.'
+    : '';
+  resultEl.style.color = 'var(--text-muted)';
+}
+
+async function runSettingsAiModelTest(kind) {
+  const prefix = kind === 'image' ? 'image' : 'text';
+  const buttonEl = document.getElementById(`settings-${prefix}-model-test-btn`);
+  const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
+  const payload = getSettingsAiModelTestPayload(kind);
+  const modelCode = payload.provider === 'direct' ? payload.name : payload.presetCode;
+
+  if (!modelCode) {
+    if (resultEl) {
+      resultEl.textContent = '❌ 테스트할 모델을 선택하거나 입력해 주세요.';
+      resultEl.style.color = 'var(--danger)';
+    }
+    return;
+  }
+  if (payload.provider !== 'direct' && !payload.apiKey) {
+    if (resultEl) {
+      resultEl.textContent = '❌ 선택한 모델의 API Key를 입력해 주세요.';
+      resultEl.style.color = 'var(--danger)';
+    }
+    return;
+  }
+  if (payload.provider === 'direct' && !payload.baseUrl) {
+    if (resultEl) {
+      resultEl.textContent = '❌ 직접 입력 모델의 Base URL을 입력해 주세요.';
+      resultEl.style.color = 'var(--danger)';
+    }
+    return;
+  }
+
+  if (buttonEl) buttonEl.disabled = true;
+  if (resultEl) {
+    resultEl.textContent = kind === 'image' ? '⏳ 테스트 이미지 생성 중...' : '⏳ 연결 및 응답 확인 중...';
+    resultEl.style.color = 'var(--text-muted)';
+  }
+
+  try {
+    const result = await postJson('/api/v1/settings/test-ai-model', payload);
+    const elapsed = Number.isFinite(Number(result?.latency_ms))
+      ? ` · ${(Number(result.latency_ms) / 1000).toFixed(2)}초`
+      : '';
+    if (resultEl) {
+      resultEl.textContent = `✅ ${result?.display_name || modelCode} 정상${elapsed}`;
+      resultEl.style.color = 'var(--success)';
+    }
+  } catch (error) {
+    if (resultEl) {
+      resultEl.textContent = `❌ ${error.message}`;
+      resultEl.style.color = 'var(--danger)';
+    }
+  } finally {
+    if (buttonEl) buttonEl.disabled = false;
+  }
+}
+
 function markSettingsMajorPendingChanges(pending = true) {
   settingsMajorHasPendingBasicChanges = Boolean(pending);
   updateSettingsMajorSaveUi();
@@ -9516,6 +9592,24 @@ function bindActions() {
       }
     });
   }
+
+  ['text', 'image'].forEach((kind) => {
+    const prefix = kind === 'image' ? 'image' : 'text';
+    const testButtonEl = document.getElementById(`settings-${prefix}-model-test-btn`);
+    if (testButtonEl) {
+      testButtonEl.addEventListener('click', () => runSettingsAiModelTest(kind));
+    }
+    [
+      document.getElementById(`settings-${prefix}-model-preset-provider`),
+      document.getElementById(`settings-${prefix}-model-preset-code`),
+      document.getElementById(`settings-${prefix}-model-name`),
+      document.getElementById(`settings-${prefix}-model-base-url`),
+      document.getElementById(`settings-${prefix}-model-api-key`)
+    ].filter(Boolean).forEach((element) => {
+      element.addEventListener('input', () => resetSettingsAiModelTestResult(kind));
+      element.addEventListener('change', () => resetSettingsAiModelTestResult(kind));
+    });
+  });
 
   const settingsCustomAiTestBtn = document.getElementById('settings-custom-ai-test-btn');
   if (settingsCustomAiTestBtn) {

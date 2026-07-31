@@ -5432,6 +5432,20 @@ select.inline-editor {
   visibility: hidden;
 }
 
+.settings-model-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 14px;
+}
+
+.settings-model-test-result {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 .blog-quick-options {
   display: flex;
   flex-direction: column;

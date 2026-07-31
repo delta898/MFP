@@ -8,7 +8,8 @@ function createHarness(overrides = {}) {
         getMajorSettings: overrides.getMajorSettings || (async () => ({ ok: 'major:get' })),
         saveMajorSettings: overrides.saveMajorSettings || (async (body) => ({ ok: 'major:post', body })),
         getAdvancedSettings: overrides.getAdvancedSettings || (async () => ({ ok: 'adv:get' })),
-        saveAdvancedSettings: overrides.saveAdvancedSettings || (async (body) => ({ ok: 'adv:post', body }))
+        saveAdvancedSettings: overrides.saveAdvancedSettings || (async (body) => ({ ok: 'adv:post', body })),
+        testAiModelConnection: overrides.testAiModelConnection || (async (body) => ({ ok: 'ai-model:test', body }))
     };
 
     let lastResponse = null;
@@ -81,6 +82,15 @@ async function run() {
         assert.strictEqual(response.ok, false);
         assert.strictEqual(response.status, 405);
         assert.strictEqual(response.code, 'METHOD_NOT_ALLOWED');
+    }
+
+    {
+        const payload = { kind: 'text', provider: 'openai', presetCode: 'gpt-5.6-sol' };
+        const { handled, response } = await h.call('/api/v1/settings/test-ai-model', 'POST', payload);
+        assert.strictEqual(handled, true);
+        assert.strictEqual(response.ok, true);
+        assert.strictEqual(response.data.ok, 'ai-model:test');
+        assert.deepStrictEqual(response.data.body, payload);
     }
 
     {

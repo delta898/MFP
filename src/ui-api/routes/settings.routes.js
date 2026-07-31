@@ -29,6 +29,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/test-ai-model') {
+            await controller.handleTestAiModel(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/buffer-connection') {
             await controller.handleBufferConnection(ctx);
             return true;

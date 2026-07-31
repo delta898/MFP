@@ -17,6 +17,7 @@ const {
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
 const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
+const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 
 function createSettingsService(deps = {}) {
     const {
@@ -47,7 +48,8 @@ function createSettingsService(deps = {}) {
         parseConfigValue,
         TelegramService,
         BufferClient,
-        RemoteModelCatalog = DefaultRemoteModelCatalog
+        RemoteModelCatalog = DefaultRemoteModelCatalog,
+        ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
 
     const normalizeTelegramCustomAiBaseUrl = (rawBaseUrl) => {
@@ -673,6 +675,41 @@ function createSettingsService(deps = {}) {
             }
 
             return { message: 'Custom AI 연결에 성공했습니다.' };
+        },
+
+        async testAiModelConnection(requestBody = {}) {
+            const kind = String(requestBody.kind || '').trim().toLowerCase();
+            if (!['text', 'image'].includes(kind)) {
+                throw createApiError(400, 'AI_MODEL_KIND_INVALID', 'Text 또는 Image 모델을 선택해 주세요.');
+            }
+
+            const prefix = kind === 'image' ? 'IMAGE_MODEL' : 'TEXT_MODEL';
+            const fields = {
+                [`${prefix}_PROVIDER`]: requestBody.provider,
+                [`${prefix}_PRESET_CODE`]: requestBody.presetCode,
+                [`${prefix}_NAME`]: requestBody.name,
+                [`${prefix}_BASE_URL`]: requestBody.baseUrl,
+                [`${prefix}_API_KEY`]: requestBody.apiKey
+            };
+            const modelConfig = buildModelSelectionFromFields(kind, fields, getAiModelCatalog());
+
+            try {
+                const result = await ModelConnectionTester.testModelConnection({
+                    kind,
+                    modelConfig
+                });
+                return {
+                    ...result,
+                    display_name: modelConfig.name || modelConfig.code,
+                    message: `${modelConfig.name || modelConfig.code} 연결 및 응답을 확인했습니다.`
+                };
+            } catch (error) {
+                throw createApiError(
+                    400,
+                    'AI_MODEL_TEST_FAILED',
+                    `${modelConfig.name || modelConfig.code || 'AI 모델'} 테스트에 실패했습니다: ${error.message}`
+                );
+            }
         },
 
         async testSlackConnection(requestBody = {}) {
