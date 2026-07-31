@@ -51,6 +51,15 @@ function getTransportBaseUrl(transport) {
     return String(getTransportDefinition(transport)?.base_url || '').trim();
 }
 
+function isSupportedProviderKind(kind, provider) {
+    const normalizedKind = String(kind || '').trim();
+    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    return Object.values(TRANSPORTS).some((definition) => (
+        definition.kinds.includes(normalizedKind)
+        && definition.providers.includes(normalizedProvider)
+    ));
+}
+
 function inferTransport(kind, provider) {
     const normalizedKind = String(kind || '').trim();
     const normalizedProvider = String(provider || '').trim().toLowerCase();
@@ -69,5 +78,6 @@ module.exports = {
     getTransportDefinition,
     getTransportBaseUrl,
     inferTransport,
+    isSupportedProviderKind,
     isSupportedTransportRoute
 };

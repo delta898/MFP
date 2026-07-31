@@ -30,6 +30,22 @@ Each supported model is described using:
 - `capabilities`: request-policy inputs
 - `minimum_app_version`: optional compatibility floor
 
+Provider presentation is described separately for each model kind:
+
+- `kind`: `text` or `image`
+- `id`: provider identifier
+- `display_name`: UI label
+- `sort_order`: explicit provider position
+
+Provider and model ordering are independent. The app does not infer semantic
+versions or performance tiers from model names:
+
+- provider `sort_order` follows user-facing provider-name ascending order
+- model `sort_order` is assigned newest version first
+- within the same version, model `sort_order` is assigned high, medium, then
+  low-cost/performance tier
+- `direct` remains a UI-owned final option
+
 The current trusted transports are:
 
 - `gemini_generate_content`
@@ -56,6 +72,7 @@ The registry rejects:
 - entries requiring a newer app
 - stable keys that do not match their provider/model ID
 - unsupported capability keys
+- malformed or unsupported provider ordering entries
 
 Direct-input models remain an explicit user-controlled OpenAI-compatible exception.
 Their Base URL is entered and confirmed by the user rather than supplied remotely.

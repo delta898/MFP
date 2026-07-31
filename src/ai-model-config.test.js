@@ -26,8 +26,8 @@ test('AI model catalog contains supported Google models and excludes unavailable
 
     assert.deepEqual(textCodes.filter((code) => code.startsWith('gemini-')), [
         'gemini-3.6-flash',
-        'gemini-3.1-pro-preview',
         'gemini-3.5-flash',
+        'gemini-3.1-pro-preview',
         'gemini-3.1-flash-lite'
     ]);
     assert.deepEqual(imageCodes.filter((code) => code.startsWith('gemini-')), [
@@ -47,6 +47,42 @@ test('AI model catalog contains supported Google models and excludes unavailable
     ];
     const supportedCodes = new Set([...textCodes, ...imageCodes]);
     obsoleteCodes.forEach((code) => assert.equal(supportedCodes.has(code), false));
+});
+
+test('provider and model presets follow explicit product sort order', () => {
+    const catalog = getAiModelCatalog();
+
+    assert.deepEqual(catalog.providers.text.map((item) => item.id), [
+        'openai',
+        'anthropic',
+        'gemini'
+    ]);
+    assert.deepEqual(catalog.providers.image.map((item) => item.id), [
+        'openai',
+        'gemini',
+        'imagen4'
+    ]);
+    assert.deepEqual(
+        catalog.text.filter((item) => item.provider === 'anthropic').map((item) => item.code),
+        [
+            'claude-fable-5',
+            'claude-opus-5',
+            'claude-sonnet-5',
+            'claude-opus-4-6',
+            'claude-sonnet-4-6',
+            'claude-opus-4-5',
+            'claude-sonnet-4-5',
+            'claude-haiku-4-5'
+        ]
+    );
+    assert.deepEqual(
+        catalog.image.filter((item) => item.provider === 'imagen4').map((item) => item.code),
+        [
+            'imagen-4.0-ultra-generate-001',
+            'imagen-4.0-generate-001',
+            'imagen-4.0-fast-generate-001'
+        ]
+    );
 });
 
 test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {

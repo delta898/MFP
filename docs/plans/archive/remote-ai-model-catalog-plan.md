@@ -166,4 +166,6 @@ Implemented on `codex/remote-ai-model-catalog`.
 - Added validated local cache and bundled fallback behavior.
 - Updated settings UI provider labels and API summaries.
 - Added catalog, request-policy, cache, and compatibility tests.
-- Full unit suite passed: 250 tests.
+- Separated provider and model `sort_order` so presentation order is explicit
+  catalog policy rather than a side effect of model names.
+- Full unit suite passed: 253 tests.

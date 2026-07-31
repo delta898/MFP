@@ -9,6 +9,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Changed
 - **AI 모델 transport/capability 분리**: 공급자 이름에 직접 의존하던 호출 분기를 신뢰된 transport registry와 모델 capability 정책으로 분리했습니다. API endpoint와 인증 경계는 계속 앱이 소유하며 원격 카탈로그는 임의 URL이나 실행 코드를 지정할 수 없습니다.
+- **AI 공급자·모델 순서 명시화**: 원격 catalog의 독립된 `sort_order`로 공급자는 표시명 오름차순, 모델은 최신 버전과 성능 등급 우선순으로 안정적으로 표시합니다.
 
 ## [0.1.14] - 2026-07-31
 

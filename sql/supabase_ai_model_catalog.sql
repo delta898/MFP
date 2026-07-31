@@ -88,14 +88,22 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.1',
+    '2026-07-31.2',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.1",
+      "version": "2026-07-31.2",
       "generated_at": "2026-07-31T00:00:00Z",
+      "providers": [
+        {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
+        {"kind": "text", "id": "anthropic", "display_name": "Claude", "sort_order": 20},
+        {"kind": "text", "id": "gemini", "display_name": "Gemini", "sort_order": 30},
+        {"kind": "image", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
+        {"kind": "image", "id": "gemini", "display_name": "Gemini", "sort_order": 20},
+        {"kind": "image", "id": "imagen4", "display_name": "Imagen 4", "sort_order": 30}
+      ],
       "models": [
         {
           "key": "openai:gpt-5.6-sol",
@@ -105,7 +113,7 @@ values (
           "model_id": "gpt-5.6-sol",
           "display_name": "GPT-5.6 Sol",
           "status": "active",
-          "sort_order": 0,
+          "sort_order": 10,
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
@@ -116,7 +124,7 @@ values (
           "model_id": "gpt-5.6-terra",
           "display_name": "GPT-5.6 Terra",
           "status": "active",
-          "sort_order": 1,
+          "sort_order": 20,
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
@@ -127,7 +135,7 @@ values (
           "model_id": "gpt-5.6-luna",
           "display_name": "GPT-5.6 Luna",
           "status": "active",
-          "sort_order": 2,
+          "sort_order": 30,
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
@@ -138,7 +146,7 @@ values (
           "model_id": "gemini-3.6-flash",
           "display_name": "Gemini 3.6 Flash",
           "status": "active",
-          "sort_order": 0,
+          "sort_order": 10,
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
@@ -149,7 +157,7 @@ values (
           "model_id": "claude-fable-5",
           "display_name": "Claude Fable 5",
           "status": "active",
-          "sort_order": 0,
+          "sort_order": 10,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
         },
         {
@@ -160,7 +168,7 @@ values (
           "model_id": "claude-opus-5",
           "display_name": "Claude Opus 5",
           "status": "active",
-          "sort_order": 1,
+          "sort_order": 20,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
         },
         {
@@ -171,7 +179,7 @@ values (
           "model_id": "claude-sonnet-5",
           "display_name": "Claude Sonnet 5",
           "status": "active",
-          "sort_order": 2,
+          "sort_order": 30,
           "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
         },
         {
@@ -182,7 +190,7 @@ values (
           "model_id": "gpt-image-2",
           "display_name": "GPT Image 2",
           "status": "active",
-          "sort_order": 0,
+          "sort_order": 10,
           "capabilities": {
             "response_format": false,
             "arbitrary_size": true,
@@ -204,11 +212,11 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-07-31.1',
+--     '2026-07-31.2',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-07-31.1","models":[]}'::jsonb,
+--     '{"schema_version":1,"version":"2026-07-31.2","models":[]}'::jsonb,
 --     '0.1.14'
 -- );
 --
@@ -221,4 +229,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-07-31.1';
+--  where version = '2026-07-31.2';

@@ -1,6 +1,7 @@
 const { getBundledAiModelCatalog } = require('../ai-model-catalog');
 const {
     getTransportBaseUrl,
+    isSupportedProviderKind,
     isSupportedTransportRoute
 } = require('./transport-registry');
 
@@ -94,6 +95,22 @@ function normalizeRemoteModel(raw, appVersion) {
     };
 }
 
+function normalizeRemoteProvider(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const kind = String(raw.kind || '').trim().toLowerCase();
+    const id = String(raw.id || raw.provider || '').trim().toLowerCase();
+    const name = String(raw.display_name || raw.name || '').trim();
+    const sortOrder = Number(raw.sort_order);
+    if (!MODEL_KINDS.has(kind) || !id || !name || !Number.isFinite(sortOrder)) return null;
+    if (!isSupportedProviderKind(kind, id)) return null;
+    return {
+        kind,
+        id,
+        name,
+        sort_order: sortOrder
+    };
+}
+
 function validateRemoteCatalog(payload, options = {}) {
     const raw = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
     const schemaVersion = Number(raw.schema_version);
@@ -121,13 +138,37 @@ function validateRemoteCatalog(payload, options = {}) {
         unique.set(routeKey, model);
     }
 
+    const rawProviders = Array.isArray(raw.providers) ? raw.providers : [];
+    const providers = rawProviders.map(normalizeRemoteProvider).filter(Boolean);
+    if (rawProviders.length > 0 && providers.length === 0) {
+        throw new Error('호환 가능한 AI provider catalog 항목이 없습니다.');
+    }
+    const uniqueProviders = new Set();
+    for (const provider of providers) {
+        const providerKey = `${provider.kind}:${provider.id}`;
+        if (uniqueProviders.has(providerKey)) throw new Error(`중복 AI provider catalog key: ${providerKey}`);
+        uniqueProviders.add(providerKey);
+    }
+
     return {
         schema_version: CATALOG_SCHEMA_VERSION,
         version: String(raw.version || '').trim() || 'unversioned',
         generated_at: String(raw.generated_at || '').trim(),
         minimum_app_version: minimumAppVersion,
+        providers,
         models
     };
+}
+
+function normalizeBundledProviders() {
+    const bundled = getBundledAiModelCatalog();
+    return ['text', 'image'].flatMap((kind) => (
+        Array.isArray(bundled.providers?.[kind]) ? bundled.providers[kind] : []
+    ).map((provider, index) => ({
+        ...clone(provider),
+        kind,
+        sort_order: Number.isFinite(Number(provider.sort_order)) ? Number(provider.sort_order) : index
+    })));
 }
 
 function normalizeBundledCatalog() {
@@ -139,13 +180,13 @@ function normalizeBundledCatalog() {
     })));
 }
 
-function getMergedDefinitions() {
+function getMergedProviders() {
     const merged = new Map();
-    for (const model of normalizeBundledCatalog()) {
-        merged.set(`${model.kind}:${model.key}`, model);
+    for (const provider of normalizeBundledProviders()) {
+        merged.set(`${provider.kind}:${provider.id}`, provider);
     }
-    for (const model of remoteSnapshot?.models || []) {
-        merged.set(`${model.kind}:${model.key}`, clone(model));
+    for (const provider of remoteSnapshot?.providers || []) {
+        merged.set(`${provider.kind}:${provider.id}`, clone(provider));
     }
     return Array.from(merged.values()).sort((left, right) => {
         if (left.kind !== right.kind) return left.kind.localeCompare(right.kind);
@@ -155,9 +196,38 @@ function getMergedDefinitions() {
     });
 }
 
+function getMergedDefinitions() {
+    const merged = new Map();
+    for (const model of normalizeBundledCatalog()) {
+        merged.set(`${model.kind}:${model.key}`, model);
+    }
+    for (const model of remoteSnapshot?.models || []) {
+        merged.set(`${model.kind}:${model.key}`, clone(model));
+    }
+    const providerOrder = new Map(getMergedProviders().map((provider) => [
+        `${provider.kind}:${provider.id}`,
+        Number(provider.sort_order || 0)
+    ]));
+    return Array.from(merged.values()).sort((left, right) => {
+        if (left.kind !== right.kind) return left.kind.localeCompare(right.kind);
+        const providerOrderDelta = Number(providerOrder.get(`${left.kind}:${left.provider}`) ?? 1000)
+            - Number(providerOrder.get(`${right.kind}:${right.provider}`) ?? 1000);
+        if (providerOrderDelta !== 0) return providerOrderDelta;
+        if (left.provider !== right.provider) return left.provider.localeCompare(right.provider);
+        const orderDelta = Number(left.sort_order || 0) - Number(right.sort_order || 0);
+        if (orderDelta !== 0) return orderDelta;
+        return String(left.name || '').localeCompare(String(right.name || ''));
+    });
+}
+
 function getAiModelCatalog() {
     const definitions = getMergedDefinitions();
+    const providers = getMergedProviders();
     return {
+        providers: {
+            text: providers.filter((item) => item.kind === 'text').map(clone),
+            image: providers.filter((item) => item.kind === 'image').map(clone)
+        },
         text: definitions.filter((item) => item.kind === 'text' && SELECTABLE_STATUSES.has(item.status)).map(clone),
         image: definitions.filter((item) => item.kind === 'image' && SELECTABLE_STATUSES.has(item.status)).map(clone)
     };
@@ -188,7 +258,8 @@ function getCatalogStatus() {
         source: remoteSnapshot ? 'remote' : 'bundled',
         version: remoteSnapshot?.version || 'bundled',
         schema_version: CATALOG_SCHEMA_VERSION,
-        remote_model_count: remoteSnapshot?.models?.length || 0
+        remote_model_count: remoteSnapshot?.models?.length || 0,
+        remote_provider_count: remoteSnapshot?.providers?.length || 0
     };
 }
 
@@ -201,5 +272,6 @@ module.exports = {
     getAiModelCatalog,
     getCatalogStatus,
     getMergedDefinitions,
+    getMergedProviders,
     validateRemoteCatalog
 };

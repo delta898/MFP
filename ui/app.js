@@ -5478,10 +5478,15 @@ function getSettingsAiPresetCatalog(kind) {
 }
 
 function getSettingsAiPresetProviders(kind) {
+  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[kind])
+    ? settingsAiPresets.providers[kind]
+      .map((item) => String(item?.id || '').trim())
+      .filter(Boolean)
+    : [];
   const presetProviders = getSettingsAiPresetCatalog(kind)
     .map((item) => String(item.provider || '').trim())
     .filter(Boolean);
-  return Array.from(new Set([...presetProviders, 'direct']));
+  return Array.from(new Set([...configuredProviders, ...presetProviders, 'direct']));
 }
 
 function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {

@@ -43,8 +43,54 @@ test('remote catalog can add a model through an allowlisted transport', () => {
         source: 'remote',
         version: '2026-08-01.1',
         schema_version: 1,
-        remote_model_count: 1
+        remote_model_count: 1,
+        remote_provider_count: 0
     });
+});
+
+test('provider and model order are controlled by independent sort_order fields', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'ordered',
+        providers: [
+            { kind: 'text', id: 'gemini', display_name: 'Gemini', sort_order: 30 },
+            { kind: 'text', id: 'openai', display_name: 'ChatGPT', sort_order: 10 },
+            { kind: 'text', id: 'anthropic', display_name: 'Claude', sort_order: 20 }
+        ],
+        models: [
+            {
+                key: 'openai:gpt-future-low',
+                kind: 'text',
+                provider: 'openai',
+                transport: 'openai_chat_completions',
+                model_id: 'gpt-future-low',
+                display_name: 'GPT Future Low',
+                status: 'active',
+                sort_order: 35
+            },
+            {
+                key: 'openai:gpt-future-high',
+                kind: 'text',
+                provider: 'openai',
+                transport: 'openai_chat_completions',
+                model_id: 'gpt-future-high',
+                display_name: 'GPT Future High',
+                status: 'active',
+                sort_order: 5
+            }
+        ]
+    }, { appVersion: '0.1.14' });
+
+    const catalog = getAiModelCatalog();
+    assert.deepEqual(catalog.providers.text.map((item) => item.id), [
+        'openai',
+        'anthropic',
+        'gemini'
+    ]);
+    assert.deepEqual(
+        catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
+        ['gpt-future-high', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-future-low']
+    );
 });
 
 test('remote catalog rejects unknown provider transport routes', () => {
