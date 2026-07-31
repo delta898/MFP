@@ -16,6 +16,7 @@ const {
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
+const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 
 function createSettingsService(deps = {}) {
     const {
@@ -45,7 +46,8 @@ function createSettingsService(deps = {}) {
         createConfigRevision,
         parseConfigValue,
         TelegramService,
-        BufferClient
+        BufferClient,
+        RemoteModelCatalog = DefaultRemoteModelCatalog
     } = deps;
 
     const normalizeTelegramCustomAiBaseUrl = (rawBaseUrl) => {
@@ -56,6 +58,9 @@ function createSettingsService(deps = {}) {
 
     return {
         async getMajorSettings() {
+            const aiCatalogStatus = typeof RemoteModelCatalog?.refresh === 'function'
+                ? await RemoteModelCatalog.refresh()
+                : null;
             ensureRuntimeRemoteMcpConfig(CONFIG);
             const configSource = {
                 path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
@@ -77,7 +82,10 @@ function createSettingsService(deps = {}) {
                 data.fields.MCP_REMOTE_AUTH_TOKEN = generateRemoteMcpBearerToken();
             }
 
-            return data;
+            return {
+                ...data,
+                aiCatalogStatus
+            };
         },
 
         async saveMajorSettings(requestBody = {}) {

@@ -5493,6 +5493,7 @@ function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
   const labels = {
     gemini: 'Gemini',
     imagen4: 'Imagen 4',
+    openai: 'ChatGPT',
     anthropic: 'Claude',
     direct: '직접 입력'
   };
@@ -5531,6 +5532,10 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
       summaryEl.textContent = 'Gemini Native API를 사용합니다.';
     } else if (String(provider || '') === 'imagen4') {
       summaryEl.textContent = 'Imagen Predict API를 사용합니다.';
+    } else if (String(provider || '') === 'openai') {
+      summaryEl.textContent = kind === 'image'
+        ? 'OpenAI Images API를 사용합니다.'
+        : 'OpenAI Chat Completions API를 사용합니다.';
     } else {
       summaryEl.textContent = selected?.base_url
         ? `기본 Base URL: ${selected.base_url}`
@@ -5569,7 +5574,9 @@ function syncSettingsAiModelUi(kind) {
     baseUrlLabelEl.textContent = !isDirect
       ? (resolvedProvider === 'gemini'
         ? 'Gemini Native API'
-        : (resolvedProvider === 'imagen4' ? 'Imagen Predict API' : 'Base URL'))
+        : (resolvedProvider === 'imagen4'
+          ? 'Imagen Predict API'
+          : (resolvedProvider === 'openai' ? 'OpenAI API' : 'Base URL')))
       : 'Base URL';
   }
   providerEl.dataset.desiredValue = resolvedProvider;

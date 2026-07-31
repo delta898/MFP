@@ -3,6 +3,7 @@ const path = require('path');
 const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
 const { getAiModelCatalog, resolveAiModelConfig } = require('./ai-model-config');
+const { applyRemoteCatalog } = require('./ai/catalog-registry');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { APP_VERSION } = Constants;
@@ -228,6 +229,16 @@ delete structuredConfig.__CONFIG_SOURCE_PATH;
 delete structuredConfig.__CONFIG_SOURCE_TYPE;
 delete structuredConfig.__CONFIG_READY;
 delete structuredConfig.__CONFIG_ERROR_MESSAGE;
+
+try {
+    const cachedCatalogPath = path.join(ROOT_DIR, 'data', 'cache', 'ai-model-catalog.json');
+    if (fs.existsSync(cachedCatalogPath)) {
+        const cachedCatalog = JSON.parse(fs.readFileSync(cachedCatalogPath, 'utf8'));
+        applyRemoteCatalog(cachedCatalog, { appVersion: APP_VERSION });
+    }
+} catch (_error) {
+    // Bundled catalog remains the startup fallback when the cache is invalid.
+}
 
 const aiPresets = getAiModelCatalog();
 const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');

@@ -3,6 +3,13 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **최신 AI 모델 지원**: 글쓰기 모델에 GPT-5.6 Sol/Terra/Luna, Gemini 3.6 Flash, Claude Fable/Opus/Sonnet 5를 추가하고 이미지 모델에 GPT Image 2를 추가했습니다.
+- **원격 AI 모델 카탈로그**: Supabase에서 검증된 모델 목록과 capability 정책을 갱신하고 마지막 snapshot을 로컬에 보관해, 기존 transport로 지원 가능한 새 모델을 앱 업데이트 없이 제공할 수 있습니다.
+
+### Changed
+- **AI 모델 transport/capability 분리**: 공급자 이름에 직접 의존하던 호출 분기를 신뢰된 transport registry와 모델 capability 정책으로 분리했습니다. API endpoint와 인증 경계는 계속 앱이 소유하며 원격 카탈로그는 임의 URL이나 실행 코드를 지정할 수 없습니다.
+
 ## [0.1.14] - 2026-07-31
 
 ### Added

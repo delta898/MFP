@@ -1,8 +1,15 @@
 const {
     CLAUDE_OPENAI_BASE_URL,
-    DEFAULT_MODEL_CODES,
-    getAiModelCatalog
+    OPENAI_BASE_URL,
+    DEFAULT_MODEL_CODES
 } = require('./ai-model-catalog');
+const {
+    findModelDefinition,
+    getAiModelCatalog
+} = require('./ai/catalog-registry');
+const {
+    inferTransport
+} = require('./ai/transport-registry');
 
 function normalizeProvider(value) {
     const raw = trimString(value).toLowerCase();
@@ -16,6 +23,7 @@ function getProviderDefaultBaseUrl(provider) {
     if (normalized === 'gemini') return '';
     if (normalized === 'imagen4') return '';
     if (normalized === 'anthropic') return CLAUDE_OPENAI_BASE_URL;
+    if (normalized === 'openai') return OPENAI_BASE_URL;
     return '';
 }
 
@@ -79,6 +87,11 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
             provider: resolvedProvider,
             name: trimString(raw.name) || trimString(preset?.name) || deriveModelDisplayName(resolvedCode),
             code: resolvedCode,
+            model_ref: trimString(preset?.key || raw.model_ref || `${resolvedProvider}:${resolvedCode}`),
+            transport: trimString(preset?.transport || raw.transport || inferTransport(options.kind, resolvedProvider)),
+            capabilities: preset?.capabilities && typeof preset.capabilities === 'object'
+                ? { ...preset.capabilities }
+                : {},
             base_url: resolvedBaseUrl,
             api_key: apiKey,
             catalog_status: exactPreset || preset ? 'available' : 'unavailable'
@@ -89,6 +102,9 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
         provider: 'direct',
         name: trimString(raw.name),
         code,
+        model_ref: '',
+        transport: inferTransport(options.kind, 'direct'),
+        capabilities: {},
         base_url: normalizeBaseUrl(raw.base_url),
         api_key: trimString(raw.api_key)
     };
@@ -101,9 +117,9 @@ function resolveAiModelConfig(structuredConfig = {}, kind = 'text') {
     const key = kind === 'image' ? 'IMAGE_MODEL' : 'TEXT_MODEL';
     const rawObject = structuredConfig?.ai_settings?.[key];
     if (rawObject && typeof rawObject === 'object' && !Array.isArray(rawObject)) {
-        return normalizeModelSelection(rawObject, presetList, fallbackPreset);
+        return normalizeModelSelection(rawObject, presetList, fallbackPreset, { kind });
     }
-    return normalizeModelSelection({}, presetList, fallbackPreset);
+    return normalizeModelSelection({}, presetList, fallbackPreset, { kind });
 }
 
 function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = null) {
@@ -122,7 +138,7 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
             provider: preset?.provider || provider,
             base_url: preset?.base_url || trimString(fields[`${prefix}_BASE_URL`]),
             api_key: trimString(fields[`${prefix}_API_KEY`])
-        }, presetList, fallbackPreset);
+        }, presetList, fallbackPreset, { kind });
     }
 
     return normalizeModelSelection({
@@ -131,7 +147,7 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
         provider: 'direct',
         base_url: trimString(fields[`${prefix}_BASE_URL`]),
         api_key: trimString(fields[`${prefix}_API_KEY`])
-    }, presetList, fallbackPreset);
+    }, presetList, fallbackPreset, { kind });
 }
 
 function toStoredModelSelection(modelConfig = {}, presets = null) {
@@ -152,7 +168,9 @@ function toStoredModelSelection(modelConfig = {}, presets = null) {
 
     const catalog = presets || getAiModelCatalog();
     const allPresets = [...catalog.text, ...catalog.image];
-    const knownPreset = findPresetByCode(allPresets, code, provider);
+    const knownPreset = findPresetByCode(allPresets, code, provider)
+        || findModelDefinition('text', provider, code)
+        || findModelDefinition('image', provider, code);
     if (knownPreset) {
         return {
             provider: knownPreset.provider,
@@ -172,8 +190,10 @@ function toStoredModelSelection(modelConfig = {}, presets = null) {
 
 module.exports = {
     CLAUDE_OPENAI_BASE_URL,
+    OPENAI_BASE_URL,
     deriveModelDisplayName,
     getAiModelCatalog,
+    findModelDefinition,
     resolveAiModelConfig,
     buildModelSelectionFromFields,
     toStoredModelSelection,

@@ -25,6 +25,12 @@ const {
     buildSnsStatusValidationRequest
 } = require('./social/sns-sheet-schema');
 const { parseFeedXml } = require('./social/feed-entry');
+const {
+    applyTextRuntimePolicy,
+    buildOpenAiChatRequest,
+    getModelRuntimeDefinition,
+    resolveOpenAiImageRequest
+} = require('./ai/model-runtime-policy');
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -3762,8 +3768,6 @@ const Utils = {
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
         const model = String(modelConfig.code || '').trim();
         const apiKey = String(modelConfig.api_key || '').trim();
-        const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
-        const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
         const logStart = options?.logStart !== false;
 
         if (!baseUrl || !model) throw new Error(`${usageLabel} 설정에 Base URL과 Model Code가 필요합니다.`);
@@ -3777,12 +3781,7 @@ const Utils = {
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
                     () => {
-                        const body = {
-                            model,
-                            messages: [{ role: 'user', content: prompt }]
-                        };
-                        if (maxTokens) body.max_tokens = maxTokens;
-                        if (temperature !== null) body.temperature = temperature;
+                        const { body } = buildOpenAiChatRequest(modelConfig, prompt, options);
                         return axios.post(`${baseUrl}/chat/completions`, body, {
                             headers,
                             timeout: 120000
@@ -3808,19 +3807,24 @@ const Utils = {
     callWritingText: async function (prompt, retries = 3, options = {}) {
         const modelConfig = CONFIG.TEXT_MODEL_CONFIG || {};
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
+        const runtimePolicy = applyTextRuntimePolicy(modelConfig, options);
+        const transport = runtimePolicy.definition.transport;
         const usageLabel = String(options?.usageLabel || modelConfig.name || '글쓰기 텍스트 모델').trim();
         const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
-        Logger.info(`🤖 [${usageLabel}] 텍스트 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'}`);
-        if (provider === 'gemini') {
+        Logger.info(`🤖 [${usageLabel}] 텍스트 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'}`);
+        if (runtimePolicy.definition.status === 'unavailable') {
+            throw new Error(`${modelName} 모델은 현재 사용할 수 없습니다. 설정에서 다른 모델을 선택해 주세요.`);
+        }
+        if (transport === 'gemini_generate_content') {
             return this.callGeminiText(prompt, retries, {
-                ...options,
+                ...runtimePolicy.options,
                 usageLabel,
                 apiKey: String(modelConfig.api_key || '').trim()
             });
         }
         return this.callOpenAiCompatibleTextByConfig(modelConfig, prompt, retries, {
-            ...options,
+            ...runtimePolicy.options,
             usageLabel
         });
     },
@@ -3955,7 +3959,7 @@ const Utils = {
         }
     },
 
-    callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3) {
+    callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3, options = {}) {
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
         const model = String(modelConfig.code || '').trim();
         const apiKey = String(modelConfig.api_key || '').trim();
@@ -3967,14 +3971,13 @@ const Utils = {
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
+                const imageRequest = resolveOpenAiImageRequest(modelConfig, {
+                    ...options,
+                    prompt
+                });
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
-                    () => axios.post(`${baseUrl}/images/generations`, {
-                        model,
-                        prompt,
-                        size: '1024x1024',
-                        response_format: 'b64_json'
-                    }, {
+                    () => axios.post(`${baseUrl}/images/generations`, imageRequest.body, {
                         headers,
                         timeout: imageTimeoutMs
                     })
@@ -4011,22 +4014,32 @@ const Utils = {
         const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
         const aspectRatio = resolveWritingImageAspectRatio(options);
-        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / aspect=${aspectRatio || 'default'}`);
-        if (provider === 'gemini') {
+        const imageSize = resolveWritingImageSize(options);
+        const runtimeDefinition = getModelRuntimeDefinition('image', modelConfig);
+        const transport = runtimeDefinition.transport;
+        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'} / aspect=${aspectRatio || 'default'}`);
+        if (runtimeDefinition.status === 'unavailable') {
+            throw new Error(`${modelName} 모델은 현재 사용할 수 없습니다. 설정에서 다른 모델을 선택해 주세요.`);
+        }
+        if (transport === 'gemini_generate_content') {
             return this.callGeminiImage(prompt, savePath, retries, {
                 apiKey: String(modelConfig.api_key || '').trim(),
                 aspectRatio,
                 useCase: options.useCase
             });
         }
-        if (provider === 'imagen4') {
+        if (transport === 'imagen_predict') {
             return this.callImagenImage(modelConfig, prompt, savePath, retries, {
                 aspectRatio,
-                imageSize: options.imageSize,
+                imageSize,
                 useCase: options.useCase
             });
         }
-        return this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries);
+        return this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries, {
+            aspectRatio,
+            imageSize,
+            useCase: options.useCase
+        });
     },
 
     parseMarkdown: function (raw) {

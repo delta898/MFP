@@ -25,6 +25,7 @@ test('AI model catalog contains supported Google models and excludes unavailable
     const imageCodes = catalog.image.map((item) => item.code);
 
     assert.deepEqual(textCodes.filter((code) => code.startsWith('gemini-')), [
+        'gemini-3.6-flash',
         'gemini-3.1-pro-preview',
         'gemini-3.5-flash',
         'gemini-3.1-flash-lite'
@@ -46,6 +47,19 @@ test('AI model catalog contains supported Google models and excludes unavailable
     ];
     const supportedCodes = new Set([...textCodes, ...imageCodes]);
     obsoleteCodes.forEach((code) => assert.equal(supportedCodes.has(code), false));
+});
+
+test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {
+    const catalog = getAiModelCatalog();
+    const byCode = new Map([...catalog.text, ...catalog.image].map((item) => [item.code, item]));
+
+    assert.equal(byCode.get('gpt-5.6-sol').transport, 'openai_chat_completions');
+    assert.equal(byCode.get('gpt-5.6-terra').provider, 'openai');
+    assert.equal(byCode.get('gpt-5.6-luna').base_url, 'https://api.openai.com/v1');
+    assert.equal(byCode.get('claude-fable-5').transport, 'anthropic_openai_compat');
+    assert.equal(byCode.get('claude-opus-5').provider, 'anthropic');
+    assert.equal(byCode.get('claude-sonnet-5').code, 'claude-sonnet-5');
+    assert.equal(byCode.get('gpt-image-2').transport, 'openai_images');
 });
 
 test('legacy ai_presets config cannot override the product catalog', () => {

@@ -1,0 +1,224 @@
+-- ============================================================
+-- BlogGenius Versioned AI Model Catalog
+-- 대상: Supabase SQL Editor
+-- ============================================================
+-- 앱은 published snapshot만 RPC로 읽습니다.
+-- draft 작성/publish/rollback은 service_role 또는 SQL Editor에서 수행합니다.
+
+begin;
+
+create table if not exists public.ai_model_catalog_versions (
+    version text primary key,
+    schema_version integer not null default 1 check (schema_version > 0),
+    channel text not null default 'stable',
+    status text not null default 'draft'
+        check (status in ('draft', 'published', 'retired')),
+    payload jsonb not null,
+    minimum_app_version text not null default '0.0.0',
+    created_at timestamptz not null default timezone('utc', now()),
+    published_at timestamptz
+);
+
+create index if not exists ai_model_catalog_versions_published_idx
+    on public.ai_model_catalog_versions (channel, published_at desc)
+    where status = 'published';
+
+alter table public.ai_model_catalog_versions enable row level security;
+revoke all on table public.ai_model_catalog_versions from anon, authenticated;
+grant all on table public.ai_model_catalog_versions to service_role;
+
+drop function if exists public.get_ai_model_catalog(text, text);
+drop function if exists public.ai_catalog_version_tuple(text);
+
+create or replace function public.ai_catalog_version_tuple(p_version text)
+returns integer[]
+language sql
+immutable
+set search_path = public
+as $$
+    with parsed as (
+        select regexp_match(coalesce(p_version, ''), '^([0-9]+)[.]([0-9]+)[.]([0-9]+)') as parts
+    )
+    select array[
+        coalesce((parts)[1]::integer, 0),
+        coalesce((parts)[2]::integer, 0),
+        coalesce((parts)[3]::integer, 0)
+    ]
+      from parsed;
+$$;
+
+create or replace function public.get_ai_model_catalog(
+    p_channel text default 'stable',
+    p_app_version text default '0.0.0'
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select jsonb_build_object(
+        'version', version,
+        'schema_version', schema_version,
+        'payload', payload,
+        'minimum_app_version', minimum_app_version,
+        'published_at', published_at
+    )
+      from public.ai_model_catalog_versions
+     where status = 'published'
+       and channel = coalesce(nullif(trim(p_channel), ''), 'stable')
+       and public.ai_catalog_version_tuple(minimum_app_version)
+           <= public.ai_catalog_version_tuple(p_app_version)
+     order by published_at desc nulls last, created_at desc
+     limit 1;
+$$;
+
+grant execute on function public.get_ai_model_catalog(text, text)
+    to anon, authenticated, service_role;
+revoke all on function public.get_ai_model_catalog(text, text) from public;
+revoke all on function public.ai_catalog_version_tuple(text) from public;
+
+insert into public.ai_model_catalog_versions (
+    version,
+    schema_version,
+    channel,
+    status,
+    payload,
+    minimum_app_version,
+    published_at
+)
+values (
+    '2026-07-31.1',
+    1,
+    'stable',
+    'published',
+    '{
+      "schema_version": 1,
+      "version": "2026-07-31.1",
+      "generated_at": "2026-07-31T00:00:00Z",
+      "models": [
+        {
+          "key": "openai:gpt-5.6-sol",
+          "kind": "text",
+          "provider": "openai",
+          "transport": "openai_chat_completions",
+          "model_id": "gpt-5.6-sol",
+          "display_name": "GPT-5.6 Sol",
+          "status": "active",
+          "sort_order": 0,
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+        },
+        {
+          "key": "openai:gpt-5.6-terra",
+          "kind": "text",
+          "provider": "openai",
+          "transport": "openai_chat_completions",
+          "model_id": "gpt-5.6-terra",
+          "display_name": "GPT-5.6 Terra",
+          "status": "active",
+          "sort_order": 1,
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+        },
+        {
+          "key": "openai:gpt-5.6-luna",
+          "kind": "text",
+          "provider": "openai",
+          "transport": "openai_chat_completions",
+          "model_id": "gpt-5.6-luna",
+          "display_name": "GPT-5.6 Luna",
+          "status": "active",
+          "sort_order": 2,
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+        },
+        {
+          "key": "gemini:gemini-3.6-flash",
+          "kind": "text",
+          "provider": "gemini",
+          "transport": "gemini_generate_content",
+          "model_id": "gemini-3.6-flash",
+          "display_name": "Gemini 3.6 Flash",
+          "status": "active",
+          "sort_order": 0,
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+        },
+        {
+          "key": "anthropic:claude-fable-5",
+          "kind": "text",
+          "provider": "anthropic",
+          "transport": "anthropic_openai_compat",
+          "model_id": "claude-fable-5",
+          "display_name": "Claude Fable 5",
+          "status": "active",
+          "sort_order": 0,
+          "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
+        },
+        {
+          "key": "anthropic:claude-opus-5",
+          "kind": "text",
+          "provider": "anthropic",
+          "transport": "anthropic_openai_compat",
+          "model_id": "claude-opus-5",
+          "display_name": "Claude Opus 5",
+          "status": "active",
+          "sort_order": 1,
+          "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
+        },
+        {
+          "key": "anthropic:claude-sonnet-5",
+          "kind": "text",
+          "provider": "anthropic",
+          "transport": "anthropic_openai_compat",
+          "model_id": "claude-sonnet-5",
+          "display_name": "Claude Sonnet 5",
+          "status": "active",
+          "sort_order": 2,
+          "capabilities": {"temperature": true, "structured_output": false, "image_input": true}
+        },
+        {
+          "key": "openai:gpt-image-2",
+          "kind": "image",
+          "provider": "openai",
+          "transport": "openai_images",
+          "model_id": "gpt-image-2",
+          "display_name": "GPT Image 2",
+          "status": "active",
+          "sort_order": 0,
+          "capabilities": {
+            "response_format": false,
+            "arbitrary_size": true,
+            "output_format": ["png", "jpeg", "webp"],
+            "quality": ["low", "medium", "high", "auto"]
+          }
+        }
+      ]
+    }'::jsonb,
+    '0.0.0',
+    timezone('utc', now())
+)
+on conflict (version) do nothing;
+
+commit;
+
+-- 운영 예시:
+-- 1) draft insert
+-- insert into public.ai_model_catalog_versions (
+--     version, schema_version, channel, status, payload, minimum_app_version
+-- ) values (
+--     '2026-07-31.1',
+--     1,
+--     'stable',
+--     'draft',
+--     '{"schema_version":1,"version":"2026-07-31.1","models":[]}'::jsonb,
+--     '0.1.14'
+-- );
+--
+-- 2) publish
+-- 같은 minimum_app_version 범위의 이전 snapshot은 retire하고,
+-- 신규 snapshot이 더 높은 앱 버전을 요구하면 구버전용 published row를 유지합니다.
+-- update public.ai_model_catalog_versions
+--    set status = 'retired'
+--  where channel = 'stable' and status = 'published';
+--
+-- update public.ai_model_catalog_versions
+--    set status = 'published', published_at = timezone('utc', now())
+--  where version = '2026-07-31.1';
