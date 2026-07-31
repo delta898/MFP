@@ -106,15 +106,15 @@ function createAutoRunnerRuntime(deps = {}) {
         const shoppingSettings = getShoppingAutoSettingsSnapshot();
         return {
             blog: {
-                enabled: autoRuntimeState.enabled,
-                running: autoRuntimeState.running,
-                status: autoRuntimeState.status,
-                message: autoRuntimeState.message,
+                enabled: publishRuntimeState.enabled,
+                running: publishRuntimeState.running,
+                status: publishRuntimeState.status,
+                message: publishRuntimeState.message || '',
                 startedAt: autoRuntimeState.startedAt,
                 lastRunAt: autoRuntimeState.lastRunAt,
-                nextRunAt: autoRuntimeState.nextRunAt,
+                nextRunAt: publishRuntimeState.nextRunAt,
                 cycleCount: autoRuntimeState.cycleCount,
-                lastSummary: autoRuntimeState.lastSummary,
+                lastSummary: publishRuntimeState.lastSummary || autoRuntimeState.lastSummary,
                 settings: blogSettings
             },
             shopping: {

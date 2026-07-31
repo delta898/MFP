@@ -34,6 +34,48 @@ function createRuntime(CONFIG) {
     });
 }
 
+test('auto status payload keeps blog, shopping, and SNS schedules independent', () => {
+    const runtime = createRuntime({});
+    const snsNextRunAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const shoppingNextRunAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const blogNextRunAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    runtime.snsRuntimeState.enabled = true;
+    runtime.snsRuntimeState.status = 'waiting';
+    runtime.snsRuntimeState.nextRunAt = snsNextRunAt;
+    runtime.refreshLegacyAutoRuntimeState();
+
+    let status = runtime.getAutoStatusPayload();
+    assert.equal(status.blog.enabled, false);
+    assert.equal(status.blog.status, 'stopped');
+    assert.equal(status.blog.nextRunAt, null);
+    assert.equal(status.shopping.enabled, false);
+    assert.equal(status.shopping.nextRunAt, null);
+    assert.equal(status.sns.enabled, true);
+    assert.equal(status.sns.nextRunAt, snsNextRunAt);
+
+    runtime.shoppingAutoRuntimeState.enabled = true;
+    runtime.shoppingAutoRuntimeState.status = 'waiting';
+    runtime.shoppingAutoRuntimeState.nextRunAt = shoppingNextRunAt;
+
+    status = runtime.getAutoStatusPayload();
+    assert.equal(status.blog.enabled, false);
+    assert.equal(status.shopping.enabled, true);
+    assert.equal(status.shopping.nextRunAt, shoppingNextRunAt);
+    assert.equal(status.sns.nextRunAt, snsNextRunAt);
+
+    runtime.publishRuntimeState.enabled = true;
+    runtime.publishRuntimeState.status = 'waiting';
+    runtime.publishRuntimeState.nextRunAt = blogNextRunAt;
+    runtime.refreshLegacyAutoRuntimeState();
+
+    status = runtime.getAutoStatusPayload();
+    assert.equal(status.blog.enabled, true);
+    assert.equal(status.blog.nextRunAt, blogNextRunAt);
+    assert.equal(status.shopping.nextRunAt, shoppingNextRunAt);
+    assert.equal(status.sns.nextRunAt, snsNextRunAt);
+});
+
 test('SNS runner schedules only when app activation is enabled and enforces ten minutes', () => {
     const CONFIG = {
         SNS_PUBLISH_ENABLED: true,
