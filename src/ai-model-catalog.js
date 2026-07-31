@@ -12,7 +12,8 @@ const PROVIDER_PRESETS = Object.freeze({
     image: Object.freeze([
         Object.freeze({ id: 'openai', name: 'ChatGPT', sort_order: 10 }),
         Object.freeze({ id: 'gemini', name: 'Gemini', sort_order: 20 }),
-        Object.freeze({ id: 'imagen4', name: 'Imagen 4', sort_order: 30 })
+        Object.freeze({ id: 'imagen4', name: 'Imagen 4', sort_order: 30 }),
+        Object.freeze({ id: 'kie', name: 'KIE.ai', sort_order: 40 })
     ])
 });
 
@@ -222,7 +223,22 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
     { key: 'gemini:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'gemini', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
     { key: 'imagen4:imagen-4.0-generate-001', name: 'Imagen 4', code: 'imagen-4.0-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] } },
     { key: 'imagen4:imagen-4.0-ultra-generate-001', name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] } },
-    { key: 'imagen4:imagen-4.0-fast-generate-001', name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true, image_size: ['1K'] } }
+    { key: 'imagen4:imagen-4.0-fast-generate-001', name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true, image_size: ['1K'] } },
+    {
+        key: 'kie:nano-banana-2',
+        name: 'Nano Banana 2',
+        code: 'nano-banana-2',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K', '2K'],
+            output_format: ['png']
+        }
+    }
 ].map((item) => Object.freeze(item)));
 
 const DEFAULT_MODEL_CODES = {

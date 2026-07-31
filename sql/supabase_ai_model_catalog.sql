@@ -88,13 +88,13 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.4',
+    '2026-07-31.5',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.4",
+      "version": "2026-07-31.5",
       "generated_at": "2026-07-31T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
@@ -103,7 +103,8 @@ values (
         {"kind": "text", "id": "kie", "display_name": "KIE.ai", "sort_order": 40},
         {"kind": "image", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
         {"kind": "image", "id": "gemini", "display_name": "Gemini", "sort_order": 20},
-        {"kind": "image", "id": "imagen4", "display_name": "Imagen 4", "sort_order": 30}
+        {"kind": "image", "id": "imagen4", "display_name": "Imagen 4", "sort_order": 30},
+        {"kind": "image", "id": "kie", "display_name": "KIE.ai", "sort_order": 40}
       ],
       "models": [
         {
@@ -264,6 +265,21 @@ values (
             "output_format": ["png", "jpeg", "webp"],
             "quality": ["low", "medium", "high", "auto"]
           }
+        },
+        {
+          "key": "kie:nano-banana-2",
+          "kind": "image",
+          "provider": "kie",
+          "transport": "kie_market_image_jobs",
+          "model_id": "nano-banana-2",
+          "display_name": "Nano Banana 2",
+          "status": "active",
+          "sort_order": 10,
+          "capabilities": {
+            "aspect_ratio": true,
+            "image_size": ["1K", "2K"],
+            "output_format": ["png"]
+          }
         }
       ]
     }'::jsonb,
@@ -279,11 +295,11 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-07-31.3',
+--     '2026-07-31.5',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-07-31.3","models":[]}'::jsonb,
+--     '{"schema_version":1,"version":"2026-07-31.5","models":[]}'::jsonb,
 --     '0.1.15'
 -- );
 --
@@ -296,4 +312,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-07-31.3';
+--  where version = '2026-07-31.5';

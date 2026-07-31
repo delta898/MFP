@@ -125,6 +125,29 @@ test('checks KIE at provider account level without generation', async () => {
     assert.equal(result.latency_ms, 18);
 });
 
+test('checks a KIE image selection at provider account level without generation', async () => {
+    const calls = [];
+    const result = await testModelConnection({
+        kind: 'image',
+        modelConfig: {
+            provider: 'kie',
+            code: 'nano-banana-2',
+            base_url: 'https://api.kie.ai',
+            api_key: 'kie-secret'
+        },
+        httpClient: createHttpClient({
+            code: 200,
+            msg: 'success',
+            data: 79.9
+        }, calls)
+    });
+
+    assert.equal(calls[0].url, 'https://api.kie.ai/api/v1/chat/credit');
+    assert.equal(result.check_type, 'account_credit');
+    assert.equal(result.generation_performed, false);
+    assert.equal(result.credit_balance, 79.9);
+});
+
 test('rejects malformed KIE credit responses instead of claiming success', async () => {
     await assert.rejects(
         testModelConnection({

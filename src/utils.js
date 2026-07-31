@@ -40,6 +40,12 @@ const {
     buildKieResponsesRequest,
     extractKieResponsesText
 } = require('./ai/kie-responses');
+const { createAsyncJobStore } = require('./ai/async-job-store');
+const { createKieMarketImageClient } = require('./ai/kie-market-image');
+
+const asyncAiJobStore = createAsyncJobStore({
+    filePath: path.join(CONFIG.APP_ROOT_DIR || process.cwd(), 'data', 'async-ai-jobs.json')
+});
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -4046,6 +4052,42 @@ const Utils = {
         }
     },
 
+    callKieMarketImageByConfig: async function (modelConfig = {}, prompt, savePath, options = {}) {
+        const client = createKieMarketImageClient({
+            jobStore: asyncAiJobStore,
+            onProgress(event = {}) {
+                const state = String(event.state || '').trim();
+                if (state === 'submitted') {
+                    Logger.info(`   🧾 KIE 이미지 작업 생성 완료: ${event.taskId}`);
+                } else if (state === 'generating') {
+                    const progress = Number.isFinite(Number(event.progress))
+                        ? ` (${Number(event.progress)}%)`
+                        : '';
+                    Logger.info(`   🎨 KIE 이미지 생성 중${progress}`);
+                } else if (state === 'poll_retry') {
+                    Logger.warn(`   ⚠️ KIE 작업 상태 조회 재시도: ${event.consecutivePollErrors}/5`);
+                } else if (state === 'journal_error') {
+                    Logger.warn(`   ⚠️ KIE 작업 journal 저장 실패: ${event.error}`);
+                }
+            }
+        });
+        const result = await this.runWithHeartbeat(
+            '(KIE 비동기 이미지 작업)',
+            () => client.generate({
+                modelConfig,
+                prompt,
+                options
+            })
+        );
+        const fullPath = `${savePath}.png`;
+        fs.writeFileSync(fullPath, result.imageBuffer);
+        const credit = Number.isFinite(Number(result.creditsConsumed))
+            ? ` · ${Number(result.creditsConsumed)} credits`
+            : '';
+        Logger.info(`   ✅ KIE 이미지 저장 완료: ${path.basename(fullPath)}${credit}`);
+        return fullPath;
+    },
+
     callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
         const modelConfig = CONFIG.IMAGE_MODEL_CONFIG || {};
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
@@ -4068,6 +4110,13 @@ const Utils = {
         }
         if (transport === 'imagen_predict') {
             return this.callImagenImage(modelConfig, prompt, savePath, retries, {
+                aspectRatio,
+                imageSize,
+                useCase: options.useCase
+            });
+        }
+        if (transport === 'kie_market_image_jobs') {
+            return this.callKieMarketImageByConfig(modelConfig, prompt, savePath, {
                 aspectRatio,
                 imageSize,
                 useCase: options.useCase

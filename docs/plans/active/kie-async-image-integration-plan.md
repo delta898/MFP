@@ -1,0 +1,149 @@
+# KIE.ai Async Image Integration Plan
+
+## Goal
+
+Add KIE.ai as an image provider through a reusable asynchronous task boundary.
+Phase 1 supports one model only:
+
+- display name: `Nano Banana 2`
+- model ID: `nano-banana-2`
+- transport: `kie_market_image_jobs`
+
+The implementation must preserve the existing `callWritingImage()` contract:
+callers await one Promise and receive a local image path.
+
+## KIE Contract
+
+Phase 1 uses the KIE Market job API:
+
+- submit: `POST https://api.kie.ai/api/v1/jobs/createTask`
+- query: `GET https://api.kie.ai/api/v1/jobs/recordInfo?taskId=...`
+- authentication: `Authorization: Bearer <KIE API key>`
+- result: temporary URL in the successful task's `resultJson`
+
+Nano Banana 2 uses:
+
+```json
+{
+  "model": "nano-banana-2",
+  "input": {
+    "prompt": "...",
+    "image_input": [],
+    "aspect_ratio": "4:3",
+    "resolution": "1K",
+    "output_format": "png"
+  }
+}
+```
+
+Only text-to-image is enabled. Reference images, callbacks, editing, and multiple
+outputs are outside phase 1.
+
+## Runtime Boundary
+
+The runtime is split into three layers:
+
+1. A provider-independent async job runner owns polling intervals, terminal-state
+   handling, transient query retries, and the 15-minute total deadline.
+2. The KIE Market image adapter owns fixed endpoints, authentication, request and
+   response shapes, task-state normalization, and result download.
+3. The Nano Banana request profile owns model-specific input fields.
+
+The remote Model Catalog may select `kind=image + provider=kie +
+transport=kie_market_image_jobs`. It cannot change the KIE host, endpoints,
+headers, state parser, polling policy, or request profile.
+
+## Retry and Billing Safety
+
+Paid task submission is not treated like a synchronous request retry:
+
+- `createTask` is submitted once with a 30-second HTTP timeout.
+- A submission timeout or server error is ambiguous and is not automatically
+  resubmitted.
+- After a task ID is received, only that task ID is queried.
+- Poll-query network errors, HTTP 429, and HTTP 5xx may be retried without creating
+  another generation.
+- Authentication, not-found, and validation failures are terminal.
+- Result download may be retried three times because it does not create a new task.
+- A failed or timed-out task is never regenerated automatically.
+
+This prevents the existing `retries=3` image argument from creating two or more
+billable KIE tasks for one image.
+
+## Polling and Timeout
+
+The foreground task deadline is 15 minutes and is not multiplied by three.
+
+Polling intervals:
+
+- elapsed below 30 seconds: 2 seconds
+- elapsed below 60 seconds: 3 seconds
+- elapsed below 3 minutes: 5 seconds
+- remaining time: 10 seconds
+
+Each query has a 15-second HTTP timeout. A maximum of five consecutive transient
+query errors is allowed. The result download has a 120-second timeout and up to
+three safe retries.
+
+Reaching the deadline means BlogGenius stopped waiting; it does not mean KIE
+cancelled the task.
+
+## Local Job Journal
+
+Once a task ID is received, BlogGenius writes an atomic local journal at:
+
+`data/async-ai-jobs.json`
+
+The journal stores only operational recovery data:
+
+- task ID
+- provider, transport, and model ID
+- normalized state
+- created/updated timestamps
+- failure summary when present
+
+It never stores API keys, prompts, authorization headers, or image bytes. Timeout
+records keep the task ID so a future recovery UI or command can query the task
+without submitting another paid generation.
+
+## Catalog and UI
+
+KIE.ai becomes selectable under both text and image provider lists. Phase 1 adds
+only Nano Banana 2 to the KIE image list. The existing provider-level free
+connection check continues to call the KIE credit endpoint and must not claim
+model-generation verification.
+
+Future KIE image models are added only after their local request profiles and real
+API compatibility are verified.
+
+## Validation
+
+Before a real paid request:
+
+1. Unit-test the async runner's interval, timeout, retry, success, and failure paths.
+2. Unit-test KIE submit/query parsing and safe download retries.
+3. Unit-test Nano Banana 2 request fields and fixed endpoints.
+4. Verify the trusted remote-catalog route and provider/model order.
+5. Run the relevant regression suite.
+
+The first real API test requires explicit approval and records the credit balance
+before and after one 1K image generation.
+
+## Real API Validation
+
+Validated on 2026-07-31 with an explicitly approved paid request:
+
+- model: `nano-banana-2`
+- request: text-to-image, `4:3`, `1K`, PNG
+- submission count: one
+- terminal state: `downloaded`
+- elapsed time: 52.05 seconds
+- output size: 2,271,492 bytes
+- KIE credit balance: 79.9 before, 71.9 after
+- charged amount: 8 credits
+- journal: task ID and `downloaded` state persisted without prompt or API key
+
+The generated PNG was opened successfully and visually inspected. This validates
+the production `callWritingImage()` dispatch, one-time submission, adaptive
+polling, KIE result parsing, safe result download, local file write, and job
+journal path together.

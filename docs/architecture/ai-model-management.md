@@ -54,6 +54,7 @@ The current trusted transports are:
 - `anthropic_openai_compat`
 - `kie_openai_chat`
 - `kie_responses`
+- `kie_market_image_jobs`
 - `openai_images`
 
 Adding a model that uses one of these transports can be done through the remote
@@ -135,9 +136,9 @@ explicitly approved minimal generation call.
 
 ## KIE.ai Boundary
 
-KIE.ai is presented as one text provider. Its upstream Gemini, GPT, Claude, and
-other families remain models under that provider rather than becoming new provider
-names.
+KIE.ai is presented as one provider in both text and image model settings. Its
+upstream model families remain models under that provider rather than becoming new
+provider names.
 
 KIE protocols are split by trusted local transport. The initial
 `kie_openai_chat` adapter supports route-selected Gemini OpenAI-compatible models
@@ -157,13 +158,24 @@ reasoning effort, and does not enable tools, web search, or structured output.
 All three routes were verified through the real BlogGenius adapter with minimal
 requests: Luna and Terra consumed 0.01 credit each, while Sol consumed 0.02.
 
+KIE Market image models use the separate `kie_market_image_jobs` transport. It
+submits one paid task, polls only the returned task ID for up to 15 minutes, and
+downloads a successful result immediately. Submission is never automatically
+repeated because a timeout can occur after KIE accepted the paid task. Query and
+download retries cannot create another generation. A minimal atomic local journal
+keeps task identity and state without prompts or secrets.
+
+The first KIE image request profile supports only Nano Banana 2 text-to-image.
+Additional Market models require a reviewed local request profile even when they
+share the same task endpoints.
+
 The initial three KIE Gemini routes were verified against the real API with
 non-streaming, text-only, minimal-token requests. All returned OpenAI chat response
 objects and reported 0.01 credit for the validation request. Structured output and
 image input remain disabled in the catalog because they were outside that verified
 contract.
 
-The released catalog path was also verified end to end: catalog `2026-07-31.3`
+The released catalog path was also verified end to end: catalog `2026-07-31.4`
 loaded from cache after app restart, and BlogGenius `callWritingText` successfully
 dispatched the selected KIE Gemini 3.6 model through `kie_openai_chat`.
 

@@ -47,8 +47,10 @@
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
 - `decisions/2026-07-31-buffer-publish-result-reconciliation.md`
 - `decisions/2026-07-31-remote-ai-model-catalog.md`
+- `decisions/2026-07-31-kie-async-media-jobs.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
+- `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`

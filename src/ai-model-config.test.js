@@ -64,7 +64,8 @@ test('provider and model presets follow explicit product sort order', () => {
     assert.deepEqual(catalog.providers.image.map((item) => item.id), [
         'openai',
         'gemini',
-        'imagen4'
+        'imagen4',
+        'kie'
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'anthropic').map((item) => item.code),
@@ -98,6 +99,10 @@ test('provider and model presets follow explicit product sort order', () => {
             'gemini-3.1-pro'
         ]
     );
+    assert.deepEqual(
+        catalog.image.filter((item) => item.provider === 'kie').map((item) => item.code),
+        ['nano-banana-2']
+    );
 });
 
 test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {
@@ -118,6 +123,7 @@ test('AI model catalog contains current OpenAI and Anthropic models with trusted
     assert.equal(findModel('kie', 'gemini-3-6-flash-openai').transport, 'kie_openai_chat');
     assert.equal(findModel('kie', 'gemini-3-5-flash-openai').provider, 'kie');
     assert.equal(findModel('kie', 'gemini-3.1-pro').base_url, 'https://api.kie.ai');
+    assert.equal(findModel('kie', 'nano-banana-2').transport, 'kie_market_image_jobs');
 });
 
 test('legacy ai_presets config cannot override the product catalog', () => {

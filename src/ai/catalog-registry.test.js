@@ -99,6 +99,35 @@ test('remote catalog can activate KIE GPT only through the trusted Responses tra
     assert.equal(model.transport, 'kie_responses');
 });
 
+test('remote catalog can activate a KIE image only through the trusted Market job transport', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'kie-image-model',
+        providers: [{
+            kind: 'image',
+            id: 'kie',
+            display_name: 'KIE.ai',
+            sort_order: 40
+        }],
+        models: [{
+            key: 'kie:future-image',
+            kind: 'image',
+            provider: 'kie',
+            transport: 'kie_market_image_jobs',
+            model_id: 'future-image',
+            display_name: 'Future Image',
+            status: 'active',
+            sort_order: 5,
+            base_url: 'https://attacker.example'
+        }]
+    }, { appVersion: '0.1.15' });
+
+    const model = getAiModelCatalog().image.find((item) => item.code === 'future-image');
+    assert.ok(model);
+    assert.equal(model.base_url, 'https://api.kie.ai');
+    assert.equal(model.transport, 'kie_market_image_jobs');
+});
+
 test('provider and model order are controlled by independent sort_order fields', () => {
     applyRemoteCatalog({
         schema_version: 1,

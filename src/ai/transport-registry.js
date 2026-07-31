@@ -41,6 +41,12 @@ const TRANSPORTS = Object.freeze({
         kinds: Object.freeze(['text']),
         base_url: KIE_BASE_URL
     }),
+    kie_market_image_jobs: Object.freeze({
+        id: 'kie_market_image_jobs',
+        providers: Object.freeze(['kie']),
+        kinds: Object.freeze(['image']),
+        base_url: KIE_BASE_URL
+    }),
     openai_images: Object.freeze({
         id: 'openai_images',
         providers: Object.freeze(['openai']),
@@ -82,6 +88,7 @@ function inferTransport(kind, provider) {
     if (normalizedProvider === 'openai' && normalizedKind === 'text') return 'openai_chat_completions';
     if (normalizedProvider === 'openai' && normalizedKind === 'image') return 'openai_images';
     if (normalizedProvider === 'kie' && normalizedKind === 'text') return 'kie_openai_chat';
+    if (normalizedProvider === 'kie' && normalizedKind === 'image') return 'kie_market_image_jobs';
     if (normalizedProvider === 'direct' && normalizedKind === 'text') return 'openai_chat_completions';
     if (normalizedProvider === 'direct' && normalizedKind === 'image') return 'openai_images';
     return '';
