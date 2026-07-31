@@ -145,7 +145,7 @@ async function testModelConnection(options = {}) {
         } else if (definition.provider === 'direct') {
             await checkDirectModel(httpClient, modelConfig, timeoutMs);
         } else {
-            throw createCheckError('무료 연결 확인을 지원하지 않는 공급자입니다.');
+            throw createCheckError('연결 확인을 지원하지 않는 공급자입니다.');
         }
     } catch (error) {
         if (error?.code === 'AI_MODEL_CONNECTION_CHECK_FAILED') throw error;

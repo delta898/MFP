@@ -91,7 +91,7 @@ function createSettingsController(deps = {}) {
                     const data = await service.testAiModelConnection(requestBody || {});
                     return sendSuccess(res, requestId, data);
                 } catch (e) {
-                    return toErrorResponse(res, requestId, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 무료 연결 확인에 실패했습니다.', e);
+                    return toErrorResponse(res, requestId, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 연결 확인에 실패했습니다.', e);
                 }
             }
             return sendMethodNotAllowed(sendError, res, requestId);

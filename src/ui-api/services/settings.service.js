@@ -707,7 +707,7 @@ function createSettingsService(deps = {}) {
                 throw createApiError(
                     400,
                     'AI_MODEL_CONNECTION_CHECK_FAILED',
-                    `${modelConfig.name || modelConfig.code || 'AI 모델'} 무료 연결 확인에 실패했습니다: ${error.message}`
+                    `${modelConfig.name || modelConfig.code || 'AI 모델'} 연결 실패 · ${error.message}`
                 );
             }
         },

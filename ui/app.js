@@ -5646,9 +5646,7 @@ function resetSettingsAiModelTestResult(kind) {
   const prefix = kind === 'image' ? 'image' : 'text';
   const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
   if (!resultEl) return;
-  resultEl.textContent = kind === 'image'
-    ? '실제 이미지를 생성하지 않고 API Key와 모델 정보를 확인합니다.'
-    : '실제 콘텐츠를 생성하지 않고 API Key와 모델 정보를 확인합니다.';
+  resultEl.textContent = 'API Key와 모델 정보를 확인합니다.';
   resultEl.style.color = 'var(--text-muted)';
 }
 
@@ -5693,12 +5691,16 @@ async function runSettingsAiModelTest(kind) {
       ? ` · ${(Number(result.latency_ms) / 1000).toFixed(2)}초`
       : '';
     if (resultEl) {
-      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 확인${elapsed} · 실제 생성 미수행`;
+      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 성공${elapsed}`;
       resultEl.style.color = 'var(--success)';
     }
   } catch (error) {
     if (resultEl) {
-      resultEl.textContent = `❌ ${error.message}`;
+      const modelName = payload.name || modelCode || 'AI 모델';
+      const errorMessage = String(error?.message || '연결 중 오류가 발생했습니다.');
+      resultEl.textContent = errorMessage.includes('연결 실패')
+        ? `❌ ${errorMessage}`
+        : `❌ ${modelName} 연결 실패 · ${errorMessage}`;
       resultEl.style.color = 'var(--danger)';
     }
   } finally {
