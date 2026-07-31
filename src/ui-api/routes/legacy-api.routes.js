@@ -41,6 +41,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         parseBoolQuery: deps.parseBoolQuery,
         toFeatureMap: deps.toFeatureMap,
         checkNaverSessionForUi: deps.checkNaverSessionForUi,
+        logoutNaverSessionForUi: deps.logoutNaverSessionForUi,
         getNaverLoginStatus: deps.getNaverLoginStatus,
         getNaverLoginState: deps.getNaverLoginState,
         setNaverLoginState: deps.setNaverLoginState,

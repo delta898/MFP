@@ -4,6 +4,7 @@ function createUiSessionRuntime(deps = {}) {
         Utils,
         Logger,
         checkAuthSessionValid,
+        clearAuthSession,
         runInteractiveNaverLoginFlow,
         sessionCheckTtlMs = 120000,
         sheetsPreflightTtlMs = 10 * 60 * 1000
@@ -124,6 +125,21 @@ function createUiSessionRuntime(deps = {}) {
         });
     }
 
+    async function logoutNaverSessionForUi() {
+        const result = await clearAuthSession({
+            authPath: CONFIG.AUTH_FILE_PATH
+        });
+        setNaverLoginState({
+            status: 'idle',
+            message: '로그아웃됨',
+            startedAt: null,
+            finishedAt: new Date().toISOString(),
+            detectedBy: '',
+            error: ''
+        });
+        return result;
+    }
+
     async function runNaverLoginFlowForUi() {
         try {
             Logger.info('🔐 [UI] 네이버 로그인 프로세스 시작');
@@ -173,6 +189,7 @@ function createUiSessionRuntime(deps = {}) {
         getNaverLoginStatus,
         ensureSheetsReadyForUi,
         checkNaverSessionForUi,
+        logoutNaverSessionForUi,
         runNaverLoginFlowForUi
     };
 }

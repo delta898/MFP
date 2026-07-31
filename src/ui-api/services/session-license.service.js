@@ -6,6 +6,7 @@ function createSessionLicenseService(deps = {}) {
         parseBoolQuery,
         toFeatureMap,
         checkNaverSessionForUi,
+        logoutNaverSessionForUi,
         getNaverLoginStatus,
         getNaverLoginState,
         setNaverLoginState,
@@ -91,8 +92,10 @@ function createSessionLicenseService(deps = {}) {
             };
         },
 
-        async getNaverSession() {
-            const session = await checkNaverSessionForUi();
+        async getNaverSession({ forceRaw } = {}) {
+            const session = await checkNaverSessionForUi({
+                forceRefresh: parseBoolQuery(forceRaw)
+            });
             return {
                 valid: Boolean(session.ok),
                 reason: session.reason || '',
@@ -103,6 +106,15 @@ function createSessionLicenseService(deps = {}) {
 
         async getNaverLoginStatus() {
             return getNaverLoginStatus();
+        },
+
+        async logoutNaverSession() {
+            const result = await logoutNaverSessionForUi();
+            return {
+                loggedOut: true,
+                removed: Boolean(result?.removed),
+                message: 'BlogGenius에 저장된 네이버 로그인 정보를 삭제했습니다.'
+            };
         },
 
         async startNaverLogin() {

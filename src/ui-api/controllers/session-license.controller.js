@@ -68,12 +68,14 @@ function createSessionLicenseController(deps = {}) {
             }
         },
 
-        async naverSession({ requestId, method, res }) {
+        async naverSession({ requestId, method, searchParams, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             try {
-                return sendSuccess(res, requestId, await service.getNaverSession());
+                return sendSuccess(res, requestId, await service.getNaverSession({
+                    forceRaw: searchParams?.get('force')
+                }));
             } catch (e) {
                 return toErrorResponse(res, requestId, 'NAVER_SESSION_CHECK_FAILED', '네이버 세션 확인에 실패했습니다.', e);
             }
@@ -100,6 +102,18 @@ function createSessionLicenseController(deps = {}) {
                 return sendSuccess(res, requestId, data, 202);
             } catch (e) {
                 return toErrorResponse(res, requestId, 'NAVER_LOGIN_START_FAILED', '네이버 로그인 시작에 실패했습니다.', e);
+            }
+        },
+
+        async naverLoginLogout({ requestId, method, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                logger.info('🔓 [UI] 네이버 로그아웃 요청 수신');
+                return sendSuccess(res, requestId, await service.logoutNaverSession());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'NAVER_LOGOUT_FAILED', '네이버 로그아웃에 실패했습니다.', e);
             }
         },
 

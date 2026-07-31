@@ -10,6 +10,7 @@ let cachedSession = null;
 let cachedAtMs = 0;
 let sessionCheckInFlight = null;
 let lastSessionStateKey = null;
+let sessionStateGeneration = 0;
 
 function cloneSessionResult(result) {
     return result ? { ...result } : result;
@@ -121,8 +122,12 @@ async function checkAuthSessionValid(options = {}) {
         return cloneSessionResult(await sessionCheckInFlight);
     }
 
+    const checkGeneration = sessionStateGeneration;
     sessionCheckInFlight = (async () => {
         const result = await performAuthSessionCheck(options);
+        if (checkGeneration !== sessionStateGeneration) {
+            return { ok: false, reason: 'missing_auth' };
+        }
         logSessionStateTransition(result);
         cachedSession = cloneSessionResult(result);
         cachedAtMs = Date.now();
@@ -136,7 +141,35 @@ async function checkAuthSessionValid(options = {}) {
     }
 }
 
+async function clearAuthSession(options = {}) {
+    const authPath = String(options.authPath || CONFIG.AUTH_FILE_PATH || '').trim();
+    if (!authPath) {
+        throw new Error('네이버 인증 파일 경로가 설정되어 있지 않습니다.');
+    }
+
+    const inFlightCheck = sessionCheckInFlight;
+    sessionStateGeneration += 1;
+    if (inFlightCheck) {
+        try {
+            await inFlightCheck;
+        } catch (_ignore) {
+            // 확인 중이던 세션의 성공/실패와 관계없이 아래에서 인증 정보를 제거한다.
+        }
+    }
+
+    const removed = fs.existsSync(authPath);
+    if (removed) fs.unlinkSync(authPath);
+
+    sessionCheckInFlight = null;
+    cachedSession = { ok: false, reason: 'missing_auth' };
+    cachedAtMs = Date.now();
+    logSessionStateTransition(cachedSession);
+
+    return { ok: true, removed };
+}
+
 module.exports = {
     checkAuthSessionValid,
-    persistAuthSessionState
+    persistAuthSessionState,
+    clearAuthSession
 };

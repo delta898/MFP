@@ -12,6 +12,7 @@ function createSessionLicenseRouteHandler(deps = {}) {
         if (pathname === '/api/v1/session/naver') return controller.naverSession(ctx);
         if (pathname === '/api/v1/session/naver-login') return controller.naverLoginStatus(ctx);
         if (pathname === '/api/v1/session/naver-login/start') return controller.naverLoginStart(ctx);
+        if (pathname === '/api/v1/session/naver-login/logout') return controller.naverLoginLogout(ctx);
         if (pathname === '/api/v1/session/wordpress-verify') return controller.wordpressVerify(ctx);
 
         return false;
