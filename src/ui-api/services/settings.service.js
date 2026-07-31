@@ -701,13 +701,13 @@ function createSettingsService(deps = {}) {
                 return {
                     ...result,
                     display_name: modelConfig.name || modelConfig.code,
-                    message: `${modelConfig.name || modelConfig.code} 연결 및 응답을 확인했습니다.`
+                    message: `${modelConfig.name || modelConfig.code} API Key와 모델 정보를 확인했습니다.`
                 };
             } catch (error) {
                 throw createApiError(
                     400,
-                    'AI_MODEL_TEST_FAILED',
-                    `${modelConfig.name || modelConfig.code || 'AI 모델'} 테스트에 실패했습니다: ${error.message}`
+                    'AI_MODEL_CONNECTION_CHECK_FAILED',
+                    `${modelConfig.name || modelConfig.code || 'AI 모델'} 무료 연결 확인에 실패했습니다: ${error.message}`
                 );
             }
         },

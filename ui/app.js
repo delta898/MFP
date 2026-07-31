@@ -5647,8 +5647,8 @@ function resetSettingsAiModelTestResult(kind) {
   const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
   if (!resultEl) return;
   resultEl.textContent = kind === 'image'
-    ? '실제 최소 이미지 1장을 생성하므로 소량의 API 비용이 발생할 수 있습니다.'
-    : '';
+    ? '실제 이미지를 생성하지 않고 API Key와 모델 정보를 확인합니다.'
+    : '실제 콘텐츠를 생성하지 않고 API Key와 모델 정보를 확인합니다.';
   resultEl.style.color = 'var(--text-muted)';
 }
 
@@ -5683,7 +5683,7 @@ async function runSettingsAiModelTest(kind) {
 
   if (buttonEl) buttonEl.disabled = true;
   if (resultEl) {
-    resultEl.textContent = kind === 'image' ? '⏳ 테스트 이미지 생성 중...' : '⏳ 연결 및 응답 확인 중...';
+    resultEl.textContent = '⏳ API Key와 모델 정보 확인 중...';
     resultEl.style.color = 'var(--text-muted)';
   }
 
@@ -5693,7 +5693,7 @@ async function runSettingsAiModelTest(kind) {
       ? ` · ${(Number(result.latency_ms) / 1000).toFixed(2)}초`
       : '';
     if (resultEl) {
-      resultEl.textContent = `✅ ${result?.display_name || modelCode} 정상${elapsed}`;
+      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 확인${elapsed} · 실제 생성 미수행`;
       resultEl.style.color = 'var(--success)';
     }
   } catch (error) {

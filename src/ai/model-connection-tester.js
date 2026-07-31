@@ -1,54 +1,15 @@
 const axios = require('axios');
-const {
-    buildOpenAiChatRequest,
-    getModelRuntimeDefinition,
-    resolveOpenAiImageRequest
-} = require('./model-runtime-policy');
-
-const TEXT_TEST_PROMPT = 'Reply with exactly: OK';
-const IMAGE_TEST_PROMPT = 'A simple blue circle on a plain white background.';
+const { getModelRuntimeDefinition } = require('./model-runtime-policy');
 
 function normalizeBaseUrl(value) {
     return String(value || '').trim().replace(/\/+$/, '');
 }
 
-function hasOpenAiText(data) {
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content === 'string') return Boolean(content.trim());
-    return Array.isArray(content) && content.length > 0;
-}
-
-function hasGeminiText(data) {
-    return Boolean(data?.candidates?.[0]?.content?.parts?.some((part) => (
-        typeof part?.text === 'string' && part.text.trim()
-    )));
-}
-
-function hasOpenAiImage(data) {
-    const image = Array.isArray(data?.data) ? data.data[0] : null;
-    return Boolean(
-        (typeof image?.b64_json === 'string' && image.b64_json.trim())
-        || (typeof image?.url === 'string' && image.url.trim())
-    );
-}
-
-function hasGeminiImage(data) {
-    return Boolean(data?.candidates?.[0]?.content?.parts?.some((part) => (
-        typeof part?.inlineData?.data === 'string' && part.inlineData.data.trim()
-    )));
-}
-
-function hasImagenImage(data) {
-    const candidates = [
-        ...(Array.isArray(data?.predictions) ? data.predictions : []),
-        ...(Array.isArray(data?.generatedImages) ? data.generatedImages : [])
-    ];
-    return candidates.some((item) => [
-        item?.bytesBase64Encoded,
-        item?.image?.bytesBase64Encoded,
-        item?.imageBytes,
-        item?.image?.imageBytes
-    ].some((value) => typeof value === 'string' && value.trim()));
+function createCheckError(message, cause = null) {
+    const error = new Error(message);
+    error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
+    if (cause?.response?.status) error.remoteStatus = Number(cause.response.status);
+    return error;
 }
 
 function getRemoteErrorMessage(error) {
@@ -60,121 +21,105 @@ function getRemoteErrorMessage(error) {
     ).trim();
 }
 
-function createTestError(message, cause = null) {
-    const error = new Error(message);
-    error.code = 'AI_MODEL_TEST_FAILED';
-    if (cause?.response?.status) error.remoteStatus = Number(cause.response.status);
-    return error;
-}
-
 function assertModelConfig(kind, modelConfig, definition) {
     if (!['text', 'image'].includes(kind)) {
-        throw createTestError('지원하지 않는 AI 모델 종류입니다.');
+        throw createCheckError('지원하지 않는 AI 모델 종류입니다.');
     }
     if (!String(modelConfig?.code || '').trim()) {
-        throw createTestError('테스트할 모델을 선택해 주세요.');
+        throw createCheckError('확인할 모델을 선택해 주세요.');
     }
     if (!definition.transport) {
-        throw createTestError('선택한 모델의 호출 방식을 확인할 수 없습니다.');
+        throw createCheckError('선택한 모델의 연결 방식을 확인할 수 없습니다.');
     }
     if (modelConfig.provider !== 'direct' && !String(modelConfig.api_key || '').trim()) {
-        throw createTestError('선택한 모델의 API Key를 입력해 주세요.');
+        throw createCheckError('선택한 모델의 API Key를 입력해 주세요.');
     }
-    if (
-        modelConfig.provider === 'direct'
-        && !normalizeBaseUrl(modelConfig.base_url)
-    ) {
-        throw createTestError('직접 입력 모델의 Base URL을 입력해 주세요.');
+    if (modelConfig.provider === 'direct' && !normalizeBaseUrl(modelConfig.base_url)) {
+        throw createCheckError('직접 입력 모델의 Base URL을 입력해 주세요.');
     }
 }
 
-async function testTextModel(httpClient, modelConfig, definition, timeoutMs) {
-    const apiKey = String(modelConfig.api_key || '').trim();
-    if (definition.transport === 'gemini_generate_content') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelConfig.code)}:generateContent`;
-        const response = await httpClient.post(url, {
-            contents: [{ parts: [{ text: TEXT_TEST_PROMPT }] }],
-            generationConfig: { maxOutputTokens: 16 }
-        }, {
-            params: { key: apiKey },
-            headers: { 'Content-Type': 'application/json' },
-            timeout: timeoutMs
-        });
-        if (!hasGeminiText(response?.data)) {
-            throw createTestError('모델 응답에서 텍스트를 확인하지 못했습니다.');
-        }
-        return;
-    }
-
-    const baseUrl = normalizeBaseUrl(modelConfig.base_url);
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-    const { body } = buildOpenAiChatRequest(modelConfig, TEXT_TEST_PROMPT, { maxTokens: 16 });
-    const response = await httpClient.post(`${baseUrl}/chat/completions`, body, {
-        headers,
-        timeout: timeoutMs
-    });
-    if (!hasOpenAiText(response?.data)) {
-        throw createTestError('모델 응답에서 텍스트를 확인하지 못했습니다.');
+function assertMatchingModelId(data, requestedCode) {
+    const returnedId = String(data?.id || data?.name || '').replace(/^models\//, '').trim();
+    if (returnedId && returnedId !== requestedCode) {
+        throw createCheckError(`서버가 다른 모델 정보를 반환했습니다: ${returnedId}`);
     }
 }
 
-async function testImageModel(httpClient, modelConfig, definition, timeoutMs) {
-    const apiKey = String(modelConfig.api_key || '').trim();
-    if (definition.transport === 'gemini_generate_content') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelConfig.code)}:generateContent`;
-        const response = await httpClient.post(url, {
-            contents: [{ parts: [{ text: IMAGE_TEST_PROMPT }] }],
-            generationConfig: {
-                responseModalities: ['IMAGE'],
-                imageConfig: { aspectRatio: '1:1' }
-            }
-        }, {
-            params: { key: apiKey },
-            headers: { 'Content-Type': 'application/json' },
-            timeout: timeoutMs
-        });
-        if (!hasGeminiImage(response?.data)) {
-            throw createTestError('모델 응답에서 이미지 데이터를 확인하지 못했습니다.');
-        }
-        return;
-    }
+function findOpenAiCompatibleModel(data, requestedCode) {
+    const models = Array.isArray(data?.data)
+        ? data.data
+        : (Array.isArray(data?.models) ? data.models : (Array.isArray(data) ? data : []));
+    return models.find((item) => String(item?.id || item?.name || '').trim() === requestedCode) || null;
+}
 
-    if (definition.transport === 'imagen_predict') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelConfig.code)}:predict`;
-        const response = await httpClient.post(url, {
-            instances: [{ prompt: IMAGE_TEST_PROMPT }],
-            parameters: { sampleCount: 1, aspectRatio: '1:1' }
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey
-            },
+async function checkGoogleModel(httpClient, modelConfig, timeoutMs) {
+    const requestedCode = String(modelConfig.code || '').trim();
+    const response = await httpClient.get(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(requestedCode)}`,
+        {
+            params: { key: String(modelConfig.api_key || '').trim() },
+            headers: { Accept: 'application/json' },
             timeout: timeoutMs
-        });
-        if (!hasImagenImage(response?.data)) {
-            throw createTestError('모델 응답에서 이미지 데이터를 확인하지 못했습니다.');
         }
-        return;
-    }
+    );
+    assertMatchingModelId(response?.data, requestedCode);
 
+    const supportedMethods = [
+        ...(Array.isArray(response?.data?.supportedGenerationMethods)
+            ? response.data.supportedGenerationMethods
+            : []),
+        ...(Array.isArray(response?.data?.supportedActions)
+            ? response.data.supportedActions
+            : [])
+    ];
+    const requiredMethod = modelConfig.provider === 'imagen4'
+        ? 'predict'
+        : 'generateContent';
+    if (supportedMethods.length > 0 && !supportedMethods.includes(requiredMethod)) {
+        throw createCheckError(`${requestedCode} 모델이 ${requiredMethod} 기능을 지원하지 않습니다.`);
+    }
+}
+
+async function checkAnthropicModel(httpClient, modelConfig, timeoutMs) {
+    const requestedCode = String(modelConfig.code || '').trim();
     const baseUrl = normalizeBaseUrl(modelConfig.base_url);
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-    const { body } = resolveOpenAiImageRequest(modelConfig, {
-        prompt: IMAGE_TEST_PROMPT,
-        aspectRatio: '1:1',
-        imageSize: '1K'
+    const response = await httpClient.get(`${baseUrl}/models/${encodeURIComponent(requestedCode)}`, {
+        headers: {
+            Accept: 'application/json',
+            'x-api-key': String(modelConfig.api_key || '').trim(),
+            'anthropic-version': '2023-06-01'
+        },
+        timeout: timeoutMs
     });
-    if (Array.isArray(definition.capabilities.quality) && definition.capabilities.quality.includes('low')) {
-        body.quality = 'low';
-    }
-    const response = await httpClient.post(`${baseUrl}/images/generations`, body, {
+    assertMatchingModelId(response?.data, requestedCode);
+}
+
+async function checkOpenAiModel(httpClient, modelConfig, timeoutMs) {
+    const requestedCode = String(modelConfig.code || '').trim();
+    const baseUrl = normalizeBaseUrl(modelConfig.base_url);
+    const response = await httpClient.get(`${baseUrl}/models/${encodeURIComponent(requestedCode)}`, {
+        headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${String(modelConfig.api_key || '').trim()}`
+        },
+        timeout: timeoutMs
+    });
+    assertMatchingModelId(response?.data, requestedCode);
+}
+
+async function checkDirectModel(httpClient, modelConfig, timeoutMs) {
+    const requestedCode = String(modelConfig.code || '').trim();
+    const baseUrl = normalizeBaseUrl(modelConfig.base_url);
+    const apiKey = String(modelConfig.api_key || '').trim();
+    const headers = { Accept: 'application/json' };
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    const response = await httpClient.get(`${baseUrl}/models`, {
         headers,
         timeout: timeoutMs
     });
-    if (!hasOpenAiImage(response?.data)) {
-        throw createTestError('모델 응답에서 이미지 데이터를 확인하지 못했습니다.');
+    if (!findOpenAiCompatibleModel(response?.data, requestedCode)) {
+        throw createCheckError(`${requestedCode} 모델을 서버의 /models 목록에서 찾지 못했습니다.`);
     }
 }
 
@@ -185,26 +130,34 @@ async function testModelConnection(options = {}) {
         : {};
     const definition = getModelRuntimeDefinition(kind, modelConfig);
     const httpClient = options.httpClient || axios;
-    const timeoutMs = Math.max(1000, Number(options.timeoutMs) || (kind === 'image' ? 180000 : 45000));
+    const timeoutMs = Math.max(1000, Number(options.timeoutMs) || 15000);
     const now = typeof options.now === 'function' ? options.now : Date.now;
 
     assertModelConfig(kind, modelConfig, definition);
     const startedAt = now();
     try {
-        if (kind === 'text') {
-            await testTextModel(httpClient, modelConfig, definition, timeoutMs);
+        if (definition.provider === 'gemini' || definition.provider === 'imagen4') {
+            await checkGoogleModel(httpClient, modelConfig, timeoutMs);
+        } else if (definition.provider === 'anthropic') {
+            await checkAnthropicModel(httpClient, modelConfig, timeoutMs);
+        } else if (definition.provider === 'openai') {
+            await checkOpenAiModel(httpClient, modelConfig, timeoutMs);
+        } else if (definition.provider === 'direct') {
+            await checkDirectModel(httpClient, modelConfig, timeoutMs);
         } else {
-            await testImageModel(httpClient, modelConfig, definition, timeoutMs);
+            throw createCheckError('무료 연결 확인을 지원하지 않는 공급자입니다.');
         }
     } catch (error) {
-        if (error?.code === 'AI_MODEL_TEST_FAILED') throw error;
+        if (error?.code === 'AI_MODEL_CONNECTION_CHECK_FAILED') throw error;
         const status = Number(error?.response?.status || 0);
         const statusLabel = status ? `HTTP ${status}: ` : '';
-        throw createTestError(`${statusLabel}${getRemoteErrorMessage(error)}`, error);
+        throw createCheckError(`${statusLabel}${getRemoteErrorMessage(error)}`, error);
     }
 
     return {
         success: true,
+        check_type: 'metadata',
+        generation_performed: false,
         kind,
         provider: definition.provider,
         model: String(modelConfig.code || '').trim(),
@@ -214,7 +167,5 @@ async function testModelConnection(options = {}) {
 }
 
 module.exports = {
-    IMAGE_TEST_PROMPT,
-    TEXT_TEST_PROMPT,
     testModelConnection
 };

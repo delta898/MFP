@@ -101,23 +101,28 @@ model may remain selectable during a useful migration window when it is still
 operational and provides distinct value. Existing selections remain readable after
 the model is hidden.
 
-## Connection Testing
+## Generation-free Connection Checking
 
-The AI settings screen can test the currently entered selection before it is
-saved. The settings API resolves the same catalog selection used by normal
-runtime configuration and delegates the request to
+The AI settings screen can check the currently entered selection before it is
+saved without generating text or images. The settings API resolves the same
+catalog selection used by normal runtime configuration and delegates the request to
 `src/ai/model-connection-tester.js`.
 
-- Text tests request a minimal response and validate that response content exists.
-- Image tests generate one minimal 1:1 image and validate image data without
-  persisting it.
-- The tester dispatches by trusted catalog `transport`, not by provider-specific
-  UI conditionals.
+- OpenAI models use the model metadata endpoint.
+- Gemini and Imagen models use the Gemini model metadata endpoint and inspect
+  advertised generation methods when available.
+- Anthropic models use the native Claude model metadata endpoint.
+- Direct OpenAI-compatible servers use `/models` and must expose the selected ID.
+- The checker dispatches by the trusted catalog provider/transport boundary, not
+  by arbitrary remote URLs.
 - API keys are used only in the outbound request and are never included in the
-  test result.
-- Successful results expose the resolved model, transport, and elapsed time.
-- Image tests may incur a small provider charge because they perform a real
-  generation request.
+  check result.
+- Successful results expose the resolved model, transport, elapsed time,
+  `check_type: metadata`, and `generation_performed: false`.
+
+This check verifies authentication, connectivity, and model discovery. It does
+not prove generation quota, billing balance, request-option compatibility, or
+successful content generation.
 
 ## Configuration Boundary
 
