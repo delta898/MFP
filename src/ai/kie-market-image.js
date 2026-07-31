@@ -106,6 +106,30 @@ function buildNanoBanana2TaskRequest(modelConfig = {}, prompt = '', options = {}
     };
 }
 
+function buildNanoBananaProTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'nano-banana-pro') {
+        throw new Error('Nano Banana Pro request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    const resolution = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
+        ? '2K'
+        : '1K';
+    return {
+        definition,
+        body: {
+            model: 'nano-banana-pro',
+            input: {
+                prompt: String(prompt || ''),
+                image_input: [],
+                aspect_ratio: aspectRatio,
+                resolution,
+                output_format: 'png'
+            }
+        }
+    };
+}
+
 function buildSeedream5ProTaskRequest(modelConfig = {}, prompt = '', options = {}) {
     const definition = assertKieMarketImageTransport(modelConfig);
     if (String(modelConfig.code || '').trim() !== 'seedream/5-pro-text-to-image') {
@@ -125,6 +149,29 @@ function buildSeedream5ProTaskRequest(modelConfig = {}, prompt = '', options = {
                 quality,
                 output_format: 'png',
                 nsfw_checker: true
+            }
+        }
+    };
+}
+
+function buildSeedream45TaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'seedream/4.5-text-to-image') {
+        throw new Error('Seedream 4.5 request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    const quality = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
+        ? 'high'
+        : 'basic';
+    return {
+        definition,
+        body: {
+            model: 'seedream/4.5-text-to-image',
+            input: {
+                prompt: String(prompt || ''),
+                aspect_ratio: aspectRatio,
+                quality,
+                nsfw_checker: false
             }
         }
     };
@@ -155,6 +202,8 @@ function buildGptImage2TaskRequest(modelConfig = {}, prompt = '', options = {}) 
 const KIE_MARKET_IMAGE_REQUEST_PROFILES = Object.freeze({
     'gpt-image-2-text-to-image': buildGptImage2TaskRequest,
     'nano-banana-2': buildNanoBanana2TaskRequest,
+    'nano-banana-pro': buildNanoBananaProTaskRequest,
+    'seedream/4.5-text-to-image': buildSeedream45TaskRequest,
     'seedream/5-pro-text-to-image': buildSeedream5ProTaskRequest
 });
 
@@ -385,6 +434,8 @@ module.exports = {
     buildKieMarketTaskRequest,
     buildKieMarketHeaders,
     buildNanoBanana2TaskRequest,
+    buildNanoBananaProTaskRequest,
+    buildSeedream45TaskRequest,
     buildSeedream5ProTaskRequest,
     createKieMarketImageProgressReporter,
     createKieMarketImageClient,

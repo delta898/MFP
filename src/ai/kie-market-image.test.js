@@ -7,6 +7,8 @@ const {
     buildGptImage2TaskRequest,
     buildKieMarketTaskRequest,
     buildNanoBanana2TaskRequest,
+    buildNanoBananaProTaskRequest,
+    buildSeedream45TaskRequest,
     buildSeedream5ProTaskRequest,
     createKieMarketImageProgressReporter,
     createKieMarketImageClient,
@@ -36,6 +38,28 @@ test('Nano Banana 2 profile builds the documented Market request', () => {
     });
 });
 
+test('Nano Banana Pro profile builds the documented Market request', () => {
+    const request = buildNanoBananaProTaskRequest({
+        provider: 'kie',
+        code: 'nano-banana-pro',
+        transport: 'kie_market_image_jobs'
+    }, 'premium blog hero', {
+        aspectRatio: '16:9',
+        imageSize: '2K'
+    });
+
+    assert.deepEqual(request.body, {
+        model: 'nano-banana-pro',
+        input: {
+            prompt: 'premium blog hero',
+            image_input: [],
+            aspect_ratio: '16:9',
+            resolution: '2K',
+            output_format: 'png'
+        }
+    });
+});
+
 test('Seedream 5 Pro profile maps BlogGenius image options to the documented Market request', () => {
     const modelConfig = {
         provider: 'kie',
@@ -56,6 +80,32 @@ test('Seedream 5 Pro profile maps BlogGenius image options to the documented Mar
             quality: 'high',
             output_format: 'png',
             nsfw_checker: true
+        }
+    });
+    assert.equal(
+        buildKieMarketTaskRequest(modelConfig, 'basic image', { imageSize: '1K' }).body.input.quality,
+        'basic'
+    );
+});
+
+test('Seedream 4.5 profile maps BlogGenius image options to the documented Market request', () => {
+    const modelConfig = {
+        provider: 'kie',
+        code: 'seedream/4.5-text-to-image',
+        transport: 'kie_market_image_jobs'
+    };
+    const request = buildSeedream45TaskRequest(modelConfig, 'editorial blog hero', {
+        aspectRatio: '16:9',
+        imageSize: '2K'
+    });
+
+    assert.deepEqual(request.body, {
+        model: 'seedream/4.5-text-to-image',
+        input: {
+            prompt: 'editorial blog hero',
+            aspect_ratio: '16:9',
+            quality: 'high',
+            nsfw_checker: false
         }
     });
     assert.equal(

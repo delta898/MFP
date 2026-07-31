@@ -49,6 +49,8 @@ const TRANSPORTS = Object.freeze({
         model_ids: Object.freeze([
             'gpt-image-2-text-to-image',
             'nano-banana-2',
+            'nano-banana-pro',
+            'seedream/4.5-text-to-image',
             'seedream/5-pro-text-to-image'
         ])
     }),

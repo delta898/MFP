@@ -8,6 +8,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 - **KIE.ai 비동기 이미지 기반**: KIE.ai 이미지 공급자에 Nano Banana 2를 추가하고 단일 제출, task polling, 로컬 작업 journal, 안전한 결과 다운로드를 제공하는 재사용 가능한 async job 구조를 도입했습니다.
 - **KIE.ai Seedream 5 Pro 이미지 모델**: 로컬 request profile registry에 Seedream 5 Pro Text to Image를 추가하고 1K/2K 품질 및 화면 비율 설정을 KIE Market 요청으로 안전하게 변환합니다.
 - **KIE.ai GPT Image 2 이미지 모델**: GPT Image 2 Text to Image를 로컬 request profile registry와 Model Catalog에 추가하고 1K/2K 해상도 및 화면 비율을 지원합니다.
+- **KIE.ai 이미지 모델 확장**: Nano Banana Pro와 Seedream 4.5 Text to Image를 신뢰된 로컬 request profile registry 및 Model Catalog에 추가하고, 각 모델의 공식 KIE Market 요청 필드에 맞춰 1K/2K와 화면 비율을 변환합니다.
 
 ## [0.1.15-dev1] - 2026-07-31
 

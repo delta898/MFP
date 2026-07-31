@@ -254,9 +254,9 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         }
     },
     {
-        key: 'kie:seedream/5-pro-text-to-image',
-        name: 'Seedream 5 Pro',
-        code: 'seedream/5-pro-text-to-image',
+        key: 'kie:nano-banana-pro',
+        name: 'Nano Banana Pro',
+        code: 'nano-banana-pro',
         provider: 'kie',
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
@@ -266,6 +266,35 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
             aspect_ratio: true,
             image_size: ['1K', '2K'],
             output_format: ['png']
+        }
+    },
+    {
+        key: 'kie:seedream/5-pro-text-to-image',
+        name: 'Seedream 5 Pro',
+        code: 'seedream/5-pro-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 40,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K', '2K'],
+            output_format: ['png']
+        }
+    },
+    {
+        key: 'kie:seedream/4.5-text-to-image',
+        name: 'Seedream 4.5',
+        code: 'seedream/4.5-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 50,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K', '2K']
         }
     }
 ].map((item) => Object.freeze(item)));

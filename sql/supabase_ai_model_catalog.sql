@@ -88,14 +88,14 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-07-31.7',
+    '2026-08-01.1',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-07-31.7",
-      "generated_at": "2026-07-31T00:00:00Z",
+      "version": "2026-08-01.1",
+      "generated_at": "2026-08-01T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "ChatGPT", "sort_order": 10},
         {"kind": "text", "id": "anthropic", "display_name": "Claude", "sort_order": 20},
@@ -296,6 +296,21 @@ values (
           }
         },
         {
+          "key": "kie:nano-banana-pro",
+          "kind": "image",
+          "provider": "kie",
+          "transport": "kie_market_image_jobs",
+          "model_id": "nano-banana-pro",
+          "display_name": "Nano Banana Pro",
+          "status": "active",
+          "sort_order": 30,
+          "capabilities": {
+            "aspect_ratio": true,
+            "image_size": ["1K", "2K"],
+            "output_format": ["png"]
+          }
+        },
+        {
           "key": "kie:seedream/5-pro-text-to-image",
           "kind": "image",
           "provider": "kie",
@@ -303,11 +318,25 @@ values (
           "model_id": "seedream/5-pro-text-to-image",
           "display_name": "Seedream 5 Pro",
           "status": "active",
-          "sort_order": 30,
+          "sort_order": 40,
           "capabilities": {
             "aspect_ratio": true,
             "image_size": ["1K", "2K"],
             "output_format": ["png"]
+          }
+        },
+        {
+          "key": "kie:seedream/4.5-text-to-image",
+          "kind": "image",
+          "provider": "kie",
+          "transport": "kie_market_image_jobs",
+          "model_id": "seedream/4.5-text-to-image",
+          "display_name": "Seedream 4.5",
+          "status": "active",
+          "sort_order": 50,
+          "capabilities": {
+            "aspect_ratio": true,
+            "image_size": ["1K", "2K"]
           }
         }
       ]
@@ -324,11 +353,11 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-07-31.7',
+--     '2026-08-01.1',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-07-31.7","models":[]}'::jsonb,
+--     '{"schema_version":1,"version":"2026-08-01.1","models":[]}'::jsonb,
 --     '0.1.15'
 -- );
 --
@@ -341,4 +370,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-07-31.7';
+--  where version = '2026-08-01.1';

@@ -21,6 +21,14 @@ The second profile-registry extension adds:
 - model ID: `gpt-image-2-text-to-image`
 - transport: `kie_market_image_jobs`
 
+The third profile-registry extension adds:
+
+- display name: `Nano Banana Pro`
+- model ID: `nano-banana-pro`
+- display name: `Seedream 4.5`
+- model ID: `seedream/4.5-text-to-image`
+- transport: `kie_market_image_jobs`
+
 The implementation must preserve the existing `callWritingImage()` contract:
 callers await one Promise and receive a local image path.
 
@@ -81,6 +89,43 @@ GPT Image 2 uses:
 BlogGenius currently exposes 1K and 2K for this profile. KIE also documents 4K,
 but it remains outside the current BlogGenius image-size contract.
 
+Nano Banana Pro uses the same documented input shape as Nano Banana 2 but keeps
+its distinct Market model ID:
+
+```json
+{
+  "model": "nano-banana-pro",
+  "input": {
+    "prompt": "...",
+    "image_input": [],
+    "aspect_ratio": "4:3",
+    "resolution": "1K",
+    "output_format": "png"
+  }
+}
+```
+
+Seedream 4.5 uses:
+
+```json
+{
+  "model": "seedream/4.5-text-to-image",
+  "input": {
+    "prompt": "...",
+    "aspect_ratio": "4:3",
+    "quality": "basic",
+    "nsfw_checker": false
+  }
+}
+```
+
+BlogGenius maps 1K to `basic` and 2K to `high` for Seedream 4.5.
+
+Contract sources:
+
+- <https://docs.kie.ai/market/google/pro-image-to-image>
+- <https://docs.kie.ai/market/seedream/4-5-text-to-image>
+
 Only text-to-image is enabled. Reference images, callbacks, editing, and multiple
 outputs are outside phase 1.
 
@@ -94,9 +139,9 @@ The runtime is split into three layers:
    response shapes, task-state normalization, and result download.
 3. Each local request profile owns its model-specific input fields.
 
-The local request-profile registry now owns GPT Image 2, Nano Banana 2, and
-Seedream 5 Pro builders. The catalog may select only a model ID shipped in this
-registry.
+The local request-profile registry now owns GPT Image 2, Nano Banana 2, Nano
+Banana Pro, Seedream 5 Pro, and Seedream 4.5 builders. The catalog may select
+only a model ID shipped in this registry.
 
 The remote Model Catalog may select `kind=image + provider=kie +
 transport=kie_market_image_jobs`. It cannot change the KIE host, endpoints,

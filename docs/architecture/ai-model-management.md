@@ -173,7 +173,8 @@ unthrottled because at most five consecutive retries are allowed and each is use
 for diagnosis.
 
 KIE image request profiles are held in a trusted local registry. The registry
-currently supports GPT Image 2, Nano Banana 2, and Seedream 5 Pro text-to-image. A
+currently supports GPT Image 2, Nano Banana 2, Nano Banana Pro, Seedream 5 Pro,
+and Seedream 4.5 text-to-image. A
 remote catalog entry is selectable only when its model ID has a shipped local
 profile, even if it uses the same Market task transport. This prevents a
 catalog-only change from exposing a model whose input contract the installed app

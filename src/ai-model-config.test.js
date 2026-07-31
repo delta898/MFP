@@ -104,7 +104,9 @@ test('provider and model presets follow explicit product sort order', () => {
         [
             'gpt-image-2-text-to-image',
             'nano-banana-2',
-            'seedream/5-pro-text-to-image'
+            'nano-banana-pro',
+            'seedream/5-pro-text-to-image',
+            'seedream/4.5-text-to-image'
         ]
     );
 });
@@ -136,6 +138,8 @@ test('AI model catalog contains current OpenAI and Anthropic models with trusted
         'kie_market_image_jobs'
     );
     assert.equal(findModel('kie', 'nano-banana-2').transport, 'kie_market_image_jobs');
+    assert.equal(findModel('kie', 'nano-banana-pro').transport, 'kie_market_image_jobs');
+    assert.equal(findModel('kie', 'seedream/4.5-text-to-image').transport, 'kie_market_image_jobs');
 });
 
 test('legacy ai_presets config cannot override the product catalog', () => {
