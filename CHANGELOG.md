@@ -3,6 +3,21 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-07-31
+
+### Added
+- **Buffer 기반 SNS 자동 발행**: 네이버 블로그와 WordPress RSS에서 발견한 글을 공유 Google Spreadsheet의 `SNS` 시트에 채널별로 기록하고, 설정 주기마다 같은 원문 글을 선택한 Buffer 채널 최대 3개에 즉시 발행합니다.
+- **SNS 콘텐츠 자동 구성**: RSS 글 요약, 선택형 AI 해시태그 생성·시트 저장, Bitly URL 단축, 플랫폼별 글자 수 조정과 Instagram 대표 이미지 필수 정책을 적용합니다.
+- **SNS 운영 상태 및 실패 처리**: 설정 화면에서 Buffer 연결·조직·채널과 RSS/발행 상태를 확인하고 수동 실행할 수 있으며, 채널별 결과 기록, 일시 오류 재시도, 최종 실패 Telegram 알림을 지원합니다.
+- **SNS capability와 공통 시트 준비**: `enable_sns_distribution` capability로 RSS 수집과 외부 발행을 함께 제어하고, 모든 플랜의 공통 초기화에서 canonical `SNS` 시트를 준비합니다.
+- **네이버 로그인 상태 및 로그아웃**: 블로그 설정에서 현재 네이버 세션 상태를 확인하고, 저장된 로컬 인증 정보를 삭제해 로그아웃할 수 있습니다.
+- **Markdown 구분선 및 굵게 발행**: 단독 줄 `---`를 네이버 SmartEditor의 가운데 정렬된 구분선 4로 발행하고, `**굵게**` 표시는 네이버 에디터와 본문 미리보기에서 실제 굵게로 반영합니다.
+- **모바일 연관글 링크**: 자동 삽입되는 본인 네이버 블로그 연관글은 네이버와 WordPress 발행 모두 모바일 크롤링 주소(`m.blog.naver.com`)로 연결합니다.
+
+### Fixed
+- **Buffer 발행 결과 복구**: 발행 응답이 유실되거나 중복 방지 응답이 반환된 경우 최근 게시물 조회와 제한된 재시도로 실제 발행 결과를 복구해 SNS 시트의 오판을 줄였습니다.
+- **대시보드 자동발행 상태 분리**: SNS 자동발행이 켜져 있을 때 블로그 자동발행 카드가 잘못 ON으로 표시되고 SNS 예약 시각을 보여주던 문제를 수정했습니다.
+
 ## [0.1.14-dev3] - 2026-07-31
 
 ### Added
