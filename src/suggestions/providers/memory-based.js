@@ -35,22 +35,6 @@ function createMemoryBasedSuggestionProvider() {
                 : [];
             const feedbackMap = getFeedbackMap(preferences);
 
-            const aiModePref = preferences.find((item) => item.name === 'telegram_chat_ai_mode');
-            if (aiModePref?.value?.mode === 'custom' && shouldIncludeSuggestion(feedbackMap, 'preference_hint.telegram_chat_ai_mode')) {
-                suggestions.push({
-                    id: `sugg_${Date.now()}_custom_ai`,
-                    type: 'preference_hint',
-                    summary: 'Telegram 채팅에서는 Custom AI를 계속 사용 중입니다. 관련 제어/요약 작업은 Custom AI 기준으로 답변하는 편이 적합합니다.',
-                    payload: {
-                        source: 'preference',
-                        preference: 'telegram_chat_ai_mode',
-                        value: aiModePref.value,
-                        feedback_key: 'preference_hint.telegram_chat_ai_mode'
-                    },
-                    status: 'proposed'
-                });
-            }
-
             const trendsTimePref = preferences.find((item) => item.name === 'preferred_trends_collect_time');
             if (trendsTimePref?.value?.time && shouldIncludeSuggestion(feedbackMap, 'workflow_hint.preferred_trends_collect_time')) {
                 suggestions.push({

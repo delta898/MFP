@@ -4,8 +4,10 @@ const assert = require('node:assert/strict');
 const {
     getAiModelCatalog,
     resolveAiModelConfig,
+    resolveChatModelSettings,
     buildModelSelectionFromFields,
-    toStoredModelSelection
+    toStoredModelSelection,
+    toStoredChatModelSettings
 } = require('./ai-model-config');
 
 test('AI model catalog is code-owned and returned as an isolated copy', () => {
@@ -180,6 +182,86 @@ test('known presets are stored as selection and secret values only', () => {
         code: 'claude-sonnet-4-6',
         api_key: 'secret'
     });
+});
+
+test('Chat Model writing source resolves the current writing model without copying it', () => {
+    const settings = resolveChatModelSettings({
+        ai_settings: {
+            TEXT_MODEL: {
+                provider: 'anthropic',
+                code: 'claude-sonnet-4-6',
+                api_key: 'writing-secret'
+            },
+            CHAT_MODEL: {
+                source: 'writing',
+                selection: {
+                    provider: 'openai',
+                    code: 'gpt-5.6-luna',
+                    api_key: 'chat-secret'
+                }
+            }
+        }
+    });
+
+    assert.equal(settings.source, 'writing');
+    assert.equal(settings.resolved.provider, 'anthropic');
+    assert.equal(settings.resolved.code, 'claude-sonnet-4-6');
+    assert.equal(settings.selection.code, 'gpt-5.6-luna');
+});
+
+test('Chat Model dedicated source uses the text catalog selection and independent key', () => {
+    const catalog = getAiModelCatalog();
+    const selection = buildModelSelectionFromFields('chat', {
+        CHAT_MODEL_PROVIDER: 'kie',
+        CHAT_MODEL_PRESET_CODE: 'gemini-3-6-flash-openai',
+        CHAT_MODEL_API_KEY: 'chat-secret'
+    }, catalog);
+    const stored = toStoredChatModelSettings('dedicated', selection, catalog);
+    const settings = resolveChatModelSettings({
+        ai_settings: {
+            CHAT_MODEL: stored
+        }
+    });
+
+    assert.deepEqual(stored, {
+        source: 'dedicated',
+        selection: {
+            provider: 'kie',
+            code: 'gemini-3-6-flash-openai',
+            api_key: 'chat-secret'
+        }
+    });
+    assert.equal(settings.resolved.provider, 'kie');
+    assert.equal(settings.resolved.code, 'gemini-3-6-flash-openai');
+    assert.equal(settings.resolved.api_key, 'chat-secret');
+});
+
+test('legacy OpenAI-compatible Chat Model migrates to a dedicated direct selection', () => {
+    const settings = resolveChatModelSettings({
+        ai_settings: {
+            CHAT_MODEL: {
+                base_url: 'http://127.0.0.1:1234/v1/',
+                api_key: 'legacy-secret',
+                model: 'qwen/qwen3-coder-30b'
+            }
+        }
+    });
+
+    assert.equal(settings.source, 'dedicated');
+    assert.deepEqual(settings.selection, {
+        provider: 'direct',
+        name: 'qwen/qwen3-coder-30b',
+        code: 'qwen/qwen3-coder-30b',
+        model_ref: '',
+        transport: 'openai_chat_completions',
+        capabilities: {},
+        base_url: 'http://127.0.0.1:1234/v1',
+        api_key: 'legacy-secret'
+    });
+});
+
+test('missing legacy Chat Model defaults to the writing source', () => {
+    assert.equal(resolveChatModelSettings({ ai_settings: {} }).source, 'writing');
 });
 
 test('known KIE presets persist only provider, route code, and API key', () => {

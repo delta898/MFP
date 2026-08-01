@@ -1857,9 +1857,12 @@ h2 {
   font-weight: 500;
 }
 
-.settings-checkbox-label input[type="checkbox"] {
+.settings-checkbox-label input[type="checkbox"],
+.settings-checkbox-label input[type="radio"] {
   width: 16px;
   height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
 }
 
 .settings-segmented-control {
@@ -5411,7 +5414,7 @@ select.inline-editor {
 }
 
 .settings-model-grid {
-  gap: 16px 18px;
+  gap: 10px 18px;
   align-items: start;
 }
 
@@ -5426,6 +5429,7 @@ select.inline-editor {
   display: block;
   min-height: 16px;
   line-height: 1.35;
+  margin: 0;
 }
 
 .settings-model-grid .settings-model-helper-spacer {
@@ -5444,6 +5448,59 @@ select.inline-editor {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+#settings-tab-notification {
+  gap: 8px;
+}
+
+#settings-tab-notification > h2 {
+  margin-bottom: 0;
+}
+
+#settings-tab-notification > .form-grid {
+  gap: 10px 18px;
+}
+
+#settings-tab-notification .settings-section-divider {
+  margin: 6px 0 4px;
+}
+
+#settings-tab-notification .notification-section-divider-spaced {
+  margin-top: 20px;
+}
+
+#settings-tab-notification .form-grid label > small {
+  margin: 0;
+}
+
+.notification-toggle-block {
+  gap: 0 !important;
+}
+
+.notification-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.notification-toggle-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.notification-test-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.notification-test-row-separated {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
 }
 
 .blog-quick-options {

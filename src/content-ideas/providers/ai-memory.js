@@ -166,7 +166,7 @@ function createAiMemoryContentIdeaProvider() {
 [목표]
 - 사용자가 바로 글로 발전시킬 수 있는 실용적인 글감 추천
 - 너무 일반적인 운영 추천 금지
-- "Telegram 채팅에서 Custom AI를 사용 중..." 같은 운영 조언 금지
+- AI 모델 설정 자체를 글감으로 추천하는 운영 조언 금지
 - 최근 이미 추천한 제목과 같은 제목 반복 금지
 - 제목은 구체적이고, summary는 1~2문장
 - ideas는 정확히 ${limit}개 이하
@@ -202,7 +202,9 @@ ${recentArtifacts.length > 0 ? recentArtifacts.map((item) => `- ${item.title}: $
 ${trendKnowledge.length > 0 ? trendKnowledge.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}`;
 
             try {
-                const raw = await Utils.callTelegramChatModel(prompt);
+                const raw = await Utils.callChatText(prompt, 3, {
+                    usageLabel: 'Agent Content Idea AI'
+                });
                 const jsonText = extractFirstJsonObject(raw);
                 if (!jsonText) {
                     return { ideas: applyArtifactFeedback(removeRepeatedIdeas(normalizeIdeas(buildFallbackIdeas(input, context)), context, query), context).slice(0, limit) };

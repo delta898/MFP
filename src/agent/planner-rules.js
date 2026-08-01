@@ -75,18 +75,6 @@ function buildPreflightQueryAction(action = {}) {
         };
     }
 
-    if (domain === 'settings.telegram' && name === 'set_chat_ai_mode') {
-        return {
-            id: `${action.id}_precheck`,
-            type: 'setting.query',
-            domain,
-            name: 'get_chat_ai_mode',
-            params: {},
-            requires_confirmation: false,
-            reason: '현재 Telegram 채팅 AI 모드를 먼저 조회'
-        };
-    }
-
     return null;
 }
 

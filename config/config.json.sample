@@ -26,9 +26,8 @@
     },
     "image_style": "photorealistic",
     "CHAT_MODEL": {
-      "base_url": "",
-      "api_key": "",
-      "model": ""
+      "source": "writing",
+      "selection": null
     }
   },
   "knowledge": {
@@ -180,8 +179,7 @@
       "enabled": false,
       "bot_token": "",
       "chat_id": "",
-      "bitly_token": "",
-      "chat_ai_mode": "default"
+      "bitly_token": ""
     },
     "slack": {
       "enabled": false,

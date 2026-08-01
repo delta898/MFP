@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const Constants = require('./constants');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
-const { getAiModelCatalog, resolveAiModelConfig } = require('./ai-model-config');
+const {
+    getAiModelCatalog,
+    resolveAiModelConfig,
+    resolveChatModelSettings
+} = require('./ai-model-config');
 const { applyRemoteCatalog } = require('./ai/catalog-registry');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
@@ -243,6 +247,7 @@ try {
 const aiPresets = getAiModelCatalog();
 const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');
 const resolvedImageModelConfig = resolveAiModelConfig(structuredConfig, 'image');
+const resolvedChatModelSettings = resolveChatModelSettings(structuredConfig);
 const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
 const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';
 const geminiImageModelCode = resolvedImageModelConfig.provider === 'gemini' ? resolvedImageModelConfig.code : '';
@@ -508,10 +513,9 @@ const CONFIG = {
     NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',
     NOTIFY_TELEGRAM_CHAT_ID: structuredConfig.notification?.telegram?.chat_id || '',
     NOTIFY_BITLY_TOKEN: structuredConfig.notification?.telegram?.bitly_token || '',
-    TELEGRAM_CHAT_AI_MODE: structuredConfig.notification?.telegram?.chat_ai_mode === 'custom' ? 'custom' : 'default',
-    CHAT_MODEL_BASE_URL: structuredConfig.ai_settings?.CHAT_MODEL?.base_url || '',
-    CHAT_MODEL_API_KEY: structuredConfig.ai_settings?.CHAT_MODEL?.api_key || '',
-    CHAT_MODEL_CODE: structuredConfig.ai_settings?.CHAT_MODEL?.model || '',
+    CHAT_MODEL_SOURCE: resolvedChatModelSettings.source,
+    CHAT_MODEL_CONFIG: resolvedChatModelSettings.resolved,
+    CHAT_MODEL_SELECTION_CONFIG: resolvedChatModelSettings.selection,
     KNOWLEDGE_PROVIDERS: Array.isArray(structuredConfig.knowledge?.providers) ? structuredConfig.knowledge.providers : [],
     KNOWLEDGE_ROUTING: structuredConfig.knowledge?.routing && typeof structuredConfig.knowledge.routing === 'object' ? structuredConfig.knowledge.routing : {},
     NOTIFY_SLACK_ENABLED: structuredConfig.notification?.slack?.enabled || false,

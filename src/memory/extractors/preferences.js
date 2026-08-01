@@ -11,15 +11,6 @@ function buildPreferenceUpdatesFromEvent(event = {}) {
     const actionKey = `${String(action.domain || '').trim()}.${String(action.name || '').trim()}`;
     const data = result.data && typeof result.data === 'object' ? result.data : {};
 
-    if (actionKey === 'settings.telegram.set_chat_ai_mode' && data.mode) {
-        updates.push({
-            name: 'telegram_chat_ai_mode',
-            value: { mode: data.mode },
-            confidenceDelta: 0.2,
-            evidenceDelta: 1
-        });
-    }
-
     if (actionKey === 'settings.trends.set_time' && data.time) {
         updates.push({
             name: 'preferred_trends_collect_time',

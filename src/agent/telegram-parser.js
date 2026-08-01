@@ -130,30 +130,6 @@ function tryParseDeterministicEnvelope(messageText, context = {}) {
         }
     }
 
-    if ((lower.includes('telegram 채팅 ai') || lower.includes('텔레그램 채팅 ai'))
-        && /(바꿔|변경|설정)/.test(text)) {
-        if (lower.includes('custom ai') || lower.includes('custom')) {
-            return buildEnvelope(conversationId, messageId, [{
-                id: 'act_1',
-                type: 'setting.update',
-                domain: 'settings.telegram',
-                name: 'set_chat_ai_mode',
-                params: { mode: 'custom' },
-                reason: 'Telegram 채팅 AI 모드를 Custom AI로 변경'
-            }]);
-        }
-        if (lower.includes('기본 ai') || lower.includes('gemini') || lower.includes('default')) {
-            return buildEnvelope(conversationId, messageId, [{
-                id: 'act_1',
-                type: 'setting.update',
-                domain: 'settings.telegram',
-                name: 'set_chat_ai_mode',
-                params: { mode: 'default' },
-                reason: 'Telegram 채팅 AI 모드를 기본 AI로 변경'
-            }]);
-        }
-    }
-
     return null;
 }
 
@@ -243,9 +219,7 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 17. settings.blog_auto.set_enabled
 18. settings.blog_auto.get_time_window
 19. settings.blog_auto.set_time_window
-20. settings.telegram.get_chat_ai_mode
-21. settings.telegram.set_chat_ai_mode
-22. settings.custom_ai.get_summary
+20. settings.chat_model.get_summary
 
 [액션 매핑 규칙]
 - 확인 대기 요청 조회는 type: "agent.query"
@@ -261,7 +235,6 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 [파라미터 규칙]
 - 시간은 반드시 "HH:MM"
 - 블로그 자동 포스팅 시간대 변경은 params에 { "start_time": "09:00", "end_time": "18:00" }
-- Telegram 채팅 AI 변경은 params에 { "mode": "default" | "custom" }
 - 카테고리 추가/삭제는 params에 { "category": "..." }
 - 활성화 변경은 params에 { "enabled": true | false }
 - "지금 바꾸려는 설정이 뭐였지", "확인 대기 중인 요청 뭐야" 같은 질의는 agent.pending.get 으로 해석
@@ -307,8 +280,8 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
     {
       "id": "act_1",
       "type": "agent.query | agent.command | setting.query | setting.update | job.run | content.generate",
-      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | jobs.trends | settings.trends | settings.blog_auto | settings.telegram | settings.custom_ai",
-      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest | run_collect | get_time | set_time | get_categories | add_category | remove_category | get_enabled | set_enabled | get_time_window | set_time_window | get_chat_ai_mode | set_chat_ai_mode",
+      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | jobs.trends | settings.trends | settings.blog_auto | settings.chat_model",
+      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest | run_collect | get_time | set_time | get_categories | add_category | remove_category | get_enabled | set_enabled | get_time_window | set_time_window",
       "params": {},
       "reason": "간단한 한국어 설명"
     }

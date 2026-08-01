@@ -9,6 +9,12 @@
 > - `/Users/delta898/Project/NaverAutoBlog/docs/architecture/knowledge-providers.md`
 >
 > This file should track open work and sequencing. Stable conclusions should be promoted out of this plan.
+>
+> Note: older sections mentioning `settings.telegram.get_chat_ai_mode` or
+> `set_chat_ai_mode` are superseded by the common Chat Model role documented in
+> `docs/architecture/chat-model-role.md`; those Telegram-specific capabilities
+> have been removed. Older `settings.custom_ai` references now map conceptually
+> to the canonical `settings.chat_model.get_summary` capability.
 
 ## 현재 다음 작업 순서
 

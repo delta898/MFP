@@ -52,5 +52,5 @@ Typed retrieval currently builds a context packet with:
 ## Insight Generation
 - `InsightEngine` is retained as a lightweight long-term memory summary path.
 - It no longer assumes a Gemini-only model path.
-- For now, insight generation follows `TELEGRAM_CHAT_AI_MODE` so Telegram/Agent-related analysis stays on the same model selection as other Agent actions.
+- Insight generation uses the common Chat Model role, matching Telegram and other Agent support actions without a Telegram-specific model selector.
 - A separate `agent_memory_model` role can be introduced later if the memory lane needs its own model policy.

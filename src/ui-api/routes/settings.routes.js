@@ -24,11 +24,6 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
-        if (pathname === '/api/v1/settings/test-custom-ai') {
-            await controller.handleTestCustomAi(ctx);
-            return true;
-        }
-
         if (pathname === '/api/v1/settings/test-ai-model') {
             await controller.handleTestAiModel(ctx);
             return true;

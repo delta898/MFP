@@ -250,7 +250,7 @@ function createContentService(deps = {}) {
     async function generateCommentDrafts({ aiMode, authorName, title, excerpt, maxChars, tone }) {
         const prompt = buildCommentDraftPrompt({ authorName, title, excerpt, maxChars, tone });
         const raw = await Utils.callTextModelByMode(aiMode, prompt, 3, {
-            usageLabel: aiMode === 'custom' ? 'Custom AI' : '기본 AI',
+            usageLabel: aiMode === 'custom' ? 'Chat Model' : '글쓰기 모델',
             maxTokens: 240,
             temperature: 0.6,
             logStart: false
@@ -755,8 +755,8 @@ function createContentService(deps = {}) {
 
         async runNaverCommentDraft(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
-            if (settings.aiMode === 'custom' && (!String(CONFIG.CHAT_MODEL_BASE_URL || '').trim() || !String(CONFIG.CHAT_MODEL_CODE || '').trim())) {
-                throw createApiError(400, 'INVALID_CUSTOM_AI', 'Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
+            if (settings.aiMode === 'custom' && !String(CONFIG.CHAT_MODEL_CONFIG?.code || '').trim()) {
+                throw createApiError(400, 'INVALID_CHAT_MODEL', 'Chat Model을 사용하려면 AI 설정에서 사용할 모델을 선택해야 합니다.');
             }
 
             const candidates = await collectNaverCommentDraftCandidates({
@@ -764,7 +764,7 @@ function createContentService(deps = {}) {
                 headless: settings.headless
             });
 
-            Logger.info(`📝 [NaverCommentDraft] 댓글 초안 생성 시작 (${candidates.length}건, AI: ${settings.aiMode === 'custom' ? 'Custom AI' : '기본 AI'})`);
+            Logger.info(`📝 [NaverCommentDraft] 댓글 초안 생성 시작 (${candidates.length}건, AI: ${settings.aiMode === 'custom' ? 'Chat Model' : '글쓰기 모델'})`);
             const items = [];
             for (let index = 0; index < candidates.length; index += 1) {
                 const candidate = candidates[index];
@@ -792,8 +792,8 @@ function createContentService(deps = {}) {
 
         async redraftNaverCommentDraft(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
-            if (settings.aiMode === 'custom' && (!String(CONFIG.CHAT_MODEL_BASE_URL || '').trim() || !String(CONFIG.CHAT_MODEL_CODE || '').trim())) {
-                throw createApiError(400, 'INVALID_CUSTOM_AI', 'Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
+            if (settings.aiMode === 'custom' && !String(CONFIG.CHAT_MODEL_CONFIG?.code || '').trim()) {
+                throw createApiError(400, 'INVALID_CHAT_MODEL', 'Chat Model을 사용하려면 AI 설정에서 사용할 모델을 선택해야 합니다.');
             }
 
             const title = String(requestBody?.title || '').trim();

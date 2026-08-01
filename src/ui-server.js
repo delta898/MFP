@@ -35,7 +35,11 @@ const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remot
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
 const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdown-related-posts');
-const { getAiModelCatalog, buildModelSelectionFromFields } = require('./ai-model-config');
+const {
+    getAiModelCatalog,
+    buildModelSelectionFromFields,
+    normalizeChatModelSource
+} = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { BufferClient } = require('./social/gateways/buffer-client');
 const { createSnsSheetStore } = require('./social/sns-sheet-store');
@@ -1081,12 +1085,15 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_TELEGRAM_BOT_TOKEN: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
         NOTIFY_TELEGRAM_CHAT_ID: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
         NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN,
-        TELEGRAM_CHAT_AI_MODE: CONFIG.TELEGRAM_CHAT_AI_MODE || 'default',
-
-        // Chat Model (Custom AI)
-        CHAT_MODEL_BASE_URL: CONFIG.CHAT_MODEL_BASE_URL,
-        CHAT_MODEL_API_KEY: CONFIG.CHAT_MODEL_API_KEY,
-        CHAT_MODEL_CODE: CONFIG.CHAT_MODEL_CODE,
+        // Chat Model role
+        CHAT_MODEL_SOURCE: CONFIG.CHAT_MODEL_SOURCE || 'writing',
+        CHAT_MODEL_PROVIDER: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.provider || 'gemini',
+        CHAT_MODEL_PRESET_CODE: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.provider === 'direct'
+            ? ''
+            : (CONFIG.CHAT_MODEL_SELECTION_CONFIG?.code || ''),
+        CHAT_MODEL_NAME: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.name || '',
+        CHAT_MODEL_BASE_URL: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.base_url || '',
+        CHAT_MODEL_API_KEY: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.api_key || '',
 
         // Slack Notification
         NOTIFY_SLACK_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED,
@@ -1136,6 +1143,9 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     const aiPresets = getAiModelCatalog();
     const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
     const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
+    const chatModelSelection = buildModelSelectionFromFields('chat', fields, aiPresets);
+    const chatModelSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
+    const chatModelConfig = chatModelSource === 'writing' ? textModelConfig : chatModelSelection;
     const autoSettings = normalizeBlogAutoSettings(fields);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
     const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG, {
@@ -1250,12 +1260,10 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
     CONFIG.NOTIFY_TELEGRAM_CHAT_ID = String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
     CONFIG.NOTIFY_BITLY_TOKEN = String(fields.NOTIFY_BITLY_TOKEN || '').trim();
-    CONFIG.TELEGRAM_CHAT_AI_MODE = String(fields.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default';
-
-    // Chat Model (Custom AI)
-    CONFIG.CHAT_MODEL_BASE_URL = String(fields.CHAT_MODEL_BASE_URL || '').trim();
-    CONFIG.CHAT_MODEL_API_KEY = String(fields.CHAT_MODEL_API_KEY || '').trim();
-    CONFIG.CHAT_MODEL_CODE = String(fields.CHAT_MODEL_CODE || '').trim();
+    // Chat Model role
+    CONFIG.CHAT_MODEL_SOURCE = chatModelSource;
+    CONFIG.CHAT_MODEL_SELECTION_CONFIG = chatModelSelection;
+    CONFIG.CHAT_MODEL_CONFIG = chatModelConfig;
 
     // Slack Notify
     CONFIG.NOTIFY_SLACK_ENABLED = normalizeBool(fields.NOTIFY_SLACK_ENABLED, false);
@@ -1324,6 +1332,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const aiPresets = getAiModelCatalog();
     const textModelConfig = buildModelSelectionFromFields('text', requestBody, aiPresets);
     const imageModelConfig = buildModelSelectionFromFields('image', requestBody, aiPresets);
+    const chatModelConfig = buildModelSelectionFromFields('chat', requestBody, aiPresets);
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
@@ -1381,11 +1390,12 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         NOTIFY_TELEGRAM_BOT_TOKEN: String(requestBody.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
         NOTIFY_TELEGRAM_CHAT_ID: String(requestBody.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
         NOTIFY_BITLY_TOKEN: String(requestBody.NOTIFY_BITLY_TOKEN || '').trim(),
-        TELEGRAM_CHAT_AI_MODE: String(requestBody.TELEGRAM_CHAT_AI_MODE || 'default').trim() === 'custom' ? 'custom' : 'default',
-
-        CHAT_MODEL_BASE_URL: String(requestBody.CHAT_MODEL_BASE_URL || '').trim(),
-        CHAT_MODEL_API_KEY: String(requestBody.CHAT_MODEL_API_KEY || '').trim(),
-        CHAT_MODEL_CODE: String(requestBody.CHAT_MODEL_CODE || '').trim(),
+        CHAT_MODEL_SOURCE: normalizeChatModelSource(requestBody.CHAT_MODEL_SOURCE),
+        CHAT_MODEL_PROVIDER: chatModelConfig.provider,
+        CHAT_MODEL_PRESET_CODE: chatModelConfig.provider === 'direct' ? '' : chatModelConfig.code,
+        CHAT_MODEL_NAME: chatModelConfig.name,
+        CHAT_MODEL_BASE_URL: chatModelConfig.base_url,
+        CHAT_MODEL_API_KEY: chatModelConfig.api_key,
 
         NOTIFY_SLACK_ENABLED: normalizeBool(requestBody.NOTIFY_SLACK_ENABLED, false),
         NOTIFY_SLACK_WEBHOOK_URL: String(requestBody.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),

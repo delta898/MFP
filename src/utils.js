@@ -153,12 +153,6 @@ const REFERENCE_NOISE_LINE_PATTERNS = [
     /^(본문 바로가기|메뉴 바로가기|콘텐츠 바로가기)$/i
 ];
 
-function normalizeTelegramCustomAiBaseUrl(rawBaseUrl) {
-    const trimmed = String(rawBaseUrl || '').trim().replace(/\/+$/, '');
-    if (!trimmed) return '';
-    return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
-}
-
 function normalizeOpenAiCompatibleBaseUrl(rawBaseUrl) {
     return String(rawBaseUrl || '').trim().replace(/\/+$/, '');
 }
@@ -3735,64 +3729,12 @@ const Utils = {
         }
     },
 
-    callCustomAiText: async function (prompt, retries = 3, options = {}) {
-        const usageLabel = String(options?.usageLabel || 'Custom AI').trim() || 'Custom AI';
-        const baseUrl = normalizeTelegramCustomAiBaseUrl(CONFIG.CHAT_MODEL_BASE_URL);
-        const model = String(CONFIG.CHAT_MODEL_CODE || '').trim();
-        const apiKey = String(CONFIG.CHAT_MODEL_API_KEY || '').trim();
-        const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
-        const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
-        const logStart = options?.logStart !== false;
-
-        if (!baseUrl || !model) throw new Error(`${usageLabel}를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.`);
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                if (logStart) Logger.info(`🧠 [${usageLabel}] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
-                const response = await this.runWithHeartbeat(
-                    `(시도 ${attempt})`,
-                    () => {
-                        const body = {
-                        model,
-                        messages: [
-                            { role: 'user', content: prompt }
-                        ]
-                        };
-                        if (maxTokens) body.max_tokens = maxTokens;
-                        if (temperature !== null) body.temperature = temperature;
-                        return axios.post(`${baseUrl}/chat/completions`, body, {
-                        headers,
-                        timeout: 120000
-                        });
-                    }
-                );
-                const text = extractOpenAIChatContent(response.data);
-                if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
-                return text;
-            } catch (e) {
-                Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
-
-                if (attempt === retries) {
-                    Logger.error(`❌ [${usageLabel}] 최대 재시도 횟수 초과`);
-                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${e.message}`);
-                }
-
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
-                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await this.sleep(waitTime);
-            }
-        }
-    },
-
     callTextModelByMode: async function (mode, prompt, retries = 3, options = {}) {
         const normalizedMode = String(mode || 'default').trim().toLowerCase();
-        if (normalizedMode === 'custom') {
-            return this.callCustomAiText(prompt, retries, options);
+        if (normalizedMode === 'custom' || normalizedMode === 'chat') {
+            return this.callChatText(prompt, retries, options);
         }
-        return this.callGeminiText(prompt, retries, options);
+        return this.callWritingText(prompt, retries, options);
     },
 
     callOpenAiCompatibleTextByConfig: async function (modelConfig = {}, prompt, retries = 3, options = {}) {
@@ -3851,12 +3793,11 @@ const Utils = {
         }
     },
 
-    callWritingText: async function (prompt, retries = 3, options = {}) {
-        const modelConfig = CONFIG.TEXT_MODEL_CONFIG || {};
+    callTextByConfig: async function (modelConfig = {}, prompt, retries = 3, options = {}) {
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
         const runtimePolicy = applyTextRuntimePolicy(modelConfig, options);
         const transport = runtimePolicy.definition.transport;
-        const usageLabel = String(options?.usageLabel || modelConfig.name || '글쓰기 텍스트 모델').trim();
+        const usageLabel = String(options?.usageLabel || modelConfig.name || '텍스트 모델').trim();
         const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
         Logger.info(`🤖 [${usageLabel}] 텍스트 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'}`);
@@ -3876,14 +3817,28 @@ const Utils = {
         });
     },
 
+    callWritingText: async function (prompt, retries = 3, options = {}) {
+        return this.callTextByConfig(CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
+            ...options,
+            usageLabel: String(options?.usageLabel || '글쓰기 텍스트 모델').trim()
+        });
+    },
+
+    callChatText: async function (prompt, retries = 3, options = {}) {
+        return this.callTextByConfig(CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
+            ...options,
+            usageLabel: String(options?.usageLabel || 'Chat Model').trim()
+        });
+    },
+
     callTelegramChatModel: async function (prompt, retries = 3) {
-        return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
-            usageLabel: 'Custom AI'
+        return this.callChatText(prompt, retries, {
+            usageLabel: 'Telegram Chat Model'
         });
     },
 
     callAgentMemoryModel: async function (prompt, retries = 3) {
-        return this.callTextModelByMode(CONFIG.TELEGRAM_CHAT_AI_MODE || 'default', prompt, retries, {
+        return this.callChatText(prompt, retries, {
             usageLabel: 'Agent Memory AI'
         });
     },

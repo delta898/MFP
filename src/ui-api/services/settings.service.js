@@ -12,7 +12,9 @@ const {
 const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
-    toStoredModelSelection
+    toStoredModelSelection,
+    toStoredChatModelSettings,
+    normalizeChatModelSource
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
@@ -51,12 +53,6 @@ function createSettingsService(deps = {}) {
         RemoteModelCatalog = DefaultRemoteModelCatalog,
         ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
-
-    const normalizeTelegramCustomAiBaseUrl = (rawBaseUrl) => {
-        const trimmed = String(rawBaseUrl || '').trim().replace(/\/+$/, '');
-        if (!trimmed) return '';
-        return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
-    };
 
     return {
         async getMajorSettings() {
@@ -199,6 +195,8 @@ function createSettingsService(deps = {}) {
             const aiPresets = getAiModelCatalog();
             const textModelConfig = buildModelSelectionFromFields('text', fields, aiPresets);
             const imageModelConfig = buildModelSelectionFromFields('image', fields, aiPresets);
+            const chatModelConfig = buildModelSelectionFromFields('chat', fields, aiPresets);
+            const chatModelSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
             const warnings = [];
             if (!String(textModelConfig.api_key || '').trim()) {
                 warnings.push('텍스트 모델의 API Key가 비어 있습니다. AI 기능을 사용하려면 입력이 필요합니다.');
@@ -212,8 +210,19 @@ function createSettingsService(deps = {}) {
             if (imageModelConfig.provider === 'direct' && (!String(imageModelConfig.name || '').trim() || !String(imageModelConfig.base_url || '').trim())) {
                 warnings.push('이미지 모델을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
             }
+            if (chatModelSource === 'dedicated' && !String(chatModelConfig.api_key || '').trim() && chatModelConfig.provider !== 'direct') {
+                warnings.push('별도 Chat Model의 API Key가 비어 있습니다. Chat 기능을 사용하려면 입력이 필요합니다.');
+            }
+            if (chatModelSource === 'dedicated' && chatModelConfig.provider === 'direct' && (!String(chatModelConfig.name || '').trim() || !String(chatModelConfig.base_url || '').trim())) {
+                warnings.push('Chat Model을 직접 입력할 때는 모델 이름과 Base URL이 필요합니다.');
+            }
             structuredConfig.ai_settings.TEXT_MODEL = toStoredModelSelection(textModelConfig, aiPresets);
             structuredConfig.ai_settings.IMAGE_MODEL = toStoredModelSelection(imageModelConfig, aiPresets);
+            structuredConfig.ai_settings.CHAT_MODEL = toStoredChatModelSettings(
+                chatModelSource,
+                chatModelConfig,
+                aiPresets
+            );
             delete structuredConfig.ai_presets;
 
             // 3. Platforms
@@ -335,19 +344,7 @@ function createSettingsService(deps = {}) {
             structuredConfig.notification.telegram.bot_token = fields.NOTIFY_TELEGRAM_BOT_TOKEN;
             structuredConfig.notification.telegram.chat_id = fields.NOTIFY_TELEGRAM_CHAT_ID;
             structuredConfig.notification.telegram.bitly_token = fields.NOTIFY_BITLY_TOKEN;
-            const hasCustomAiBaseUrl = Boolean(String(fields.CHAT_MODEL_BASE_URL || '').trim());
-            const hasCustomAiModel = Boolean(String(fields.CHAT_MODEL_CODE || '').trim());
-            const hasCustomAiConfig = hasCustomAiBaseUrl && hasCustomAiModel;
-            if (fields.TELEGRAM_CHAT_AI_MODE === 'custom' && !hasCustomAiConfig) {
-                throw createApiError(400, 'INVALID_CUSTOM_AI', '텔레그램 채팅 모델로 Custom AI를 사용하려면 AI 탭에서 Base URL과 Model을 입력해야 합니다.');
-            }
-            structuredConfig.notification.telegram.chat_ai_mode = fields.TELEGRAM_CHAT_AI_MODE || 'default';
-            if (!structuredConfig.ai_settings) structuredConfig.ai_settings = {};
-            structuredConfig.ai_settings.CHAT_MODEL = {
-                base_url: fields.CHAT_MODEL_BASE_URL,
-                api_key: fields.CHAT_MODEL_API_KEY,
-                model: fields.CHAT_MODEL_CODE
-            };
+            delete structuredConfig.notification.telegram.chat_ai_mode;
             if ('custom' in structuredConfig.ai_settings) {
                 delete structuredConfig.ai_settings.custom;
             }
@@ -634,47 +631,6 @@ function createSettingsService(deps = {}) {
             }
 
             return { message: '테스트 메시지가 성공적으로 전송되었습니다.' };
-        },
-
-        async testCustomAiConnection(requestBody = {}) {
-            const baseUrl = normalizeTelegramCustomAiBaseUrl(requestBody.baseUrl);
-            const apiKey = String(requestBody.apiKey || '').trim();
-            const model = String(requestBody.model || '').trim();
-
-            if (!baseUrl) {
-                throw createApiError(400, 'MISSING_PARAMS', 'Base URL을 입력해주세요.');
-            }
-            if (!model) {
-                throw createApiError(400, 'MISSING_PARAMS', 'Model을 입력해주세요.');
-            }
-
-            const axios = require('axios');
-            const headers = { 'Content-Type': 'application/json' };
-            if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-            try {
-                const response = await axios.post(`${baseUrl}/chat/completions`, {
-                    model,
-                    messages: [
-                        { role: 'user', content: 'Return exactly this JSON: {"ok":true}' }
-                    ]
-                }, {
-                    headers,
-                    timeout: 30000
-                });
-                const content = response?.data?.choices?.[0]?.message?.content;
-                if (!content || (Array.isArray(content) && content.length === 0)) {
-                    throw new Error('응답 본문이 비어 있습니다.');
-                }
-            } catch (e) {
-                const remoteMessage =
-                    e?.response?.data?.error?.message ||
-                    e?.response?.data?.message ||
-                    e.message;
-                throw createApiError(400, 'TEST_FAILED', `Custom AI 연결에 실패했습니다: ${remoteMessage}`);
-            }
-
-            return { message: 'Custom AI 연결에 성공했습니다.' };
         },
 
         async testAiModelConnection(requestBody = {}) {

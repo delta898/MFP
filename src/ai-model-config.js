@@ -69,6 +69,11 @@ function getDefaultPreset(kind, presets = []) {
     return findPresetByCode(presets, fallbackCode) || presets[0] || null;
 }
 
+function normalizeChatModelSource(value, fallback = 'writing') {
+    const normalized = trimString(value).toLowerCase();
+    return normalized === 'dedicated' ? 'dedicated' : fallback;
+}
+
 function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = null, options = {}) {
     const raw = rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig) ? rawConfig : {};
     const legacyApiKey = trimString(options.legacyApiKey);
@@ -126,9 +131,12 @@ function resolveAiModelConfig(structuredConfig = {}, kind = 'text') {
 
 function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = null) {
     const presetCatalog = presets || getAiModelCatalog();
-    const presetList = kind === 'image' ? presetCatalog.image : presetCatalog.text;
-    const fallbackPreset = getDefaultPreset(kind, presetList);
-    const prefix = kind === 'image' ? 'IMAGE_MODEL' : 'TEXT_MODEL';
+    const catalogKind = kind === 'image' ? 'image' : 'text';
+    const presetList = catalogKind === 'image' ? presetCatalog.image : presetCatalog.text;
+    const fallbackPreset = getDefaultPreset(catalogKind, presetList);
+    const prefix = kind === 'image'
+        ? 'IMAGE_MODEL'
+        : (kind === 'chat' ? 'CHAT_MODEL' : 'TEXT_MODEL');
     const provider = normalizeProvider(fields[`${prefix}_PROVIDER`] || fallbackPreset?.provider || 'gemini');
 
     if (provider !== 'direct') {
@@ -140,7 +148,7 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
             provider: preset?.provider || provider,
             base_url: preset?.base_url || trimString(fields[`${prefix}_BASE_URL`]),
             api_key: trimString(fields[`${prefix}_API_KEY`])
-        }, presetList, fallbackPreset, { kind });
+        }, presetList, fallbackPreset, { kind: catalogKind });
     }
 
     return normalizeModelSelection({
@@ -149,7 +157,45 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
         provider: 'direct',
         base_url: trimString(fields[`${prefix}_BASE_URL`]),
         api_key: trimString(fields[`${prefix}_API_KEY`])
-    }, presetList, fallbackPreset, { kind });
+    }, presetList, fallbackPreset, { kind: catalogKind });
+}
+
+function resolveChatModelSettings(structuredConfig = {}) {
+    const raw = structuredConfig?.ai_settings?.CHAT_MODEL;
+    const chat = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const legacyBaseUrl = normalizeBaseUrl(chat.base_url);
+    const legacyModel = trimString(chat.model);
+    const hasLegacySelection = Boolean(legacyBaseUrl && legacyModel);
+    const hasCanonicalSource = ['writing', 'dedicated'].includes(trimString(chat.source).toLowerCase());
+    const source = hasCanonicalSource
+        ? normalizeChatModelSource(chat.source)
+        : (hasLegacySelection ? 'dedicated' : 'writing');
+    const selectionRaw = chat.selection && typeof chat.selection === 'object' && !Array.isArray(chat.selection)
+        ? chat.selection
+        : (hasLegacySelection
+            ? {
+                provider: 'direct',
+                name: legacyModel,
+                code: legacyModel,
+                base_url: legacyBaseUrl,
+                api_key: trimString(chat.api_key)
+            }
+            : {});
+    const presets = getAiModelCatalog().text;
+    const fallbackPreset = getDefaultPreset('text', presets);
+    const selection = normalizeModelSelection(selectionRaw, presets, fallbackPreset, { kind: 'text' });
+    const resolved = source === 'writing'
+        ? resolveAiModelConfig(structuredConfig, 'text')
+        : selection;
+
+    return { source, selection, resolved };
+}
+
+function toStoredChatModelSettings(source, selection = {}, presets = null) {
+    return {
+        source: normalizeChatModelSource(source),
+        selection: toStoredModelSelection(selection, presets)
+    };
 }
 
 function toStoredModelSelection(modelConfig = {}, presets = null) {
@@ -198,8 +244,11 @@ module.exports = {
     getAiModelCatalog,
     findModelDefinition,
     resolveAiModelConfig,
+    resolveChatModelSettings,
     buildModelSelectionFromFields,
     toStoredModelSelection,
+    toStoredChatModelSettings,
+    normalizeChatModelSource,
     normalizeBaseUrl,
     getProviderDefaultBaseUrl
 };

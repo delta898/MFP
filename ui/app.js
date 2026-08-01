@@ -373,7 +373,7 @@ const SETTINGS_SECRET_FIELD_IDS = [
   'settings-notify-bitly-token',
   'settings-text-model-api-key',
   'settings-image-model-api-key',
-  'settings-custom-ai-api-key',
+  'settings-chat-model-api-key',
   'settings-notify-slack-webhook-url',
   'settings-buffer-api-key'
 ];
@@ -4677,11 +4677,14 @@ function syncSettingsSnsAiHint() {
   }
 
   if (modeEl.value === 'chat') {
-    const baseUrl = (document.getElementById('settings-custom-ai-base-url')?.value || '').trim();
-    const modelName = (document.getElementById('settings-custom-ai-model')?.value || '').trim();
-    hintEl.textContent = baseUrl && modelName
-      ? `설정된 Chat Model (${modelName})을 SNS 콘텐츠 처리에 사용합니다. 현재는 글당 해시태그 생성에 사용합니다.`
-      : 'Chat Model 설정이 없어 현재 SNS AI 작업을 실행하지 않습니다. AI 설정에서 Base URL과 Model을 확인해 주세요.';
+    const source = getSelectedSettingsRadioValue('settings-chat-model-source', 'writing');
+    const prefix = source === 'writing' ? 'text' : 'chat';
+    const modelName = (
+      document.getElementById(`settings-${prefix}-model-name`)?.value
+      || document.getElementById(`settings-${prefix}-model-preset-code`)?.value
+      || ''
+    ).trim();
+    hintEl.textContent = `Chat Model${modelName ? ` (${modelName})` : ''}을 SNS 콘텐츠 처리에 사용합니다. 현재는 글당 해시태그 생성에 사용합니다.`;
     return;
   }
 
@@ -4933,7 +4936,6 @@ function applySettingsMajorToForm(data, options = {}) {
   const telegramBotTokenEl = document.getElementById('settings-notify-telegram-bot-token');
   const telegramChatIdEl = document.getElementById('settings-notify-telegram-chat-id');
   const bitlyTokenEl = document.getElementById('settings-notify-bitly-token');
-  const telegramChatAiModeEl = document.getElementById('settings-telegram-chat-ai-mode');
   const textModelPresetProviderEl = document.getElementById('settings-text-model-preset-provider');
   const textModelPresetCodeEl = document.getElementById('settings-text-model-preset-code');
   const textModelNameEl = document.getElementById('settings-text-model-name');
@@ -4944,9 +4946,11 @@ function applySettingsMajorToForm(data, options = {}) {
   const imageModelNameEl = document.getElementById('settings-image-model-name');
   const imageModelBaseUrlEl = document.getElementById('settings-image-model-base-url');
   const imageModelApiKeyEl = document.getElementById('settings-image-model-api-key');
-  const customAiBaseUrlEl = document.getElementById('settings-custom-ai-base-url');
-  const customAiApiKeyEl = document.getElementById('settings-custom-ai-api-key');
-  const customAiModelEl = document.getElementById('settings-custom-ai-model');
+  const chatModelPresetProviderEl = document.getElementById('settings-chat-model-preset-provider');
+  const chatModelPresetCodeEl = document.getElementById('settings-chat-model-preset-code');
+  const chatModelNameEl = document.getElementById('settings-chat-model-name');
+  const chatModelBaseUrlEl = document.getElementById('settings-chat-model-base-url');
+  const chatModelApiKeyEl = document.getElementById('settings-chat-model-api-key');
   const slackEnabledEl = document.getElementById('settings-notify-slack-enabled');
   const slackWebhookUrlEl = document.getElementById('settings-notify-slack-webhook-url');
   const bufferApiKeyEl = document.getElementById('settings-buffer-api-key');
@@ -5095,10 +5099,14 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(telegramBotTokenEl, fields.NOTIFY_TELEGRAM_BOT_TOKEN || '');
   sv(telegramChatIdEl, fields.NOTIFY_TELEGRAM_CHAT_ID || '');
   sv(bitlyTokenEl, fields.NOTIFY_BITLY_TOKEN || '');
-  sv(telegramChatAiModeEl, fields.TELEGRAM_CHAT_AI_MODE || 'default');
-  sv(customAiBaseUrlEl, fields.CHAT_MODEL_BASE_URL || '');
-  sv(customAiApiKeyEl, fields.CHAT_MODEL_API_KEY || '');
-  sv(customAiModelEl, fields.CHAT_MODEL_CODE || '');
+  setSelectedSettingsRadioValue('settings-chat-model-source', fields.CHAT_MODEL_SOURCE, 'writing');
+  sv(chatModelPresetProviderEl, fields.CHAT_MODEL_PROVIDER || 'direct');
+  if (chatModelPresetProviderEl) chatModelPresetProviderEl.dataset.desiredValue = fields.CHAT_MODEL_PROVIDER || 'direct';
+  sv(chatModelPresetCodeEl, fields.CHAT_MODEL_PRESET_CODE || '');
+  if (chatModelPresetCodeEl) chatModelPresetCodeEl.dataset.desiredValue = fields.CHAT_MODEL_PRESET_CODE || '';
+  sv(chatModelNameEl, fields.CHAT_MODEL_NAME || '');
+  sv(chatModelBaseUrlEl, fields.CHAT_MODEL_BASE_URL || '');
+  sv(chatModelApiKeyEl, fields.CHAT_MODEL_API_KEY || '');
   sc(slackEnabledEl, fields.NOTIFY_SLACK_ENABLED);
   sv(slackWebhookUrlEl, fields.NOTIFY_SLACK_WEBHOOK_URL || '');
   sv(bufferApiKeyEl, fields.BUFFER_API_KEY || '');
@@ -5149,6 +5157,7 @@ function applySettingsMajorToForm(data, options = {}) {
   syncSettingsUpdateSourceUi();
   syncSettingsAiModelUi('text');
   syncSettingsAiModelUi('image');
+  syncSettingsChatModelUi();
   playSettingsTypingPreview();
 
   commitSettingsMajorSavedState();
@@ -5240,10 +5249,12 @@ function getSettingsMajorBasicValuesFromDom() {
     NOTIFY_TELEGRAM_BOT_TOKEN: getSettingsInputValue('settings-notify-telegram-bot-token').trim(),
     NOTIFY_TELEGRAM_CHAT_ID: (document.getElementById('settings-notify-telegram-chat-id')?.value || '').trim(),
     NOTIFY_BITLY_TOKEN: getSettingsInputValue('settings-notify-bitly-token').trim(),
-    TELEGRAM_CHAT_AI_MODE: (document.getElementById('settings-telegram-chat-ai-mode')?.value || 'default').trim(),
-    CHAT_MODEL_BASE_URL: (document.getElementById('settings-custom-ai-base-url')?.value || '').trim(),
-    CHAT_MODEL_API_KEY: getSettingsInputValue('settings-custom-ai-api-key').trim(),
-    CHAT_MODEL_CODE: (document.getElementById('settings-custom-ai-model')?.value || '').trim(),
+    CHAT_MODEL_SOURCE: getSelectedSettingsRadioValue('settings-chat-model-source', 'writing'),
+    CHAT_MODEL_PROVIDER: (document.getElementById('settings-chat-model-preset-provider')?.value || 'direct').trim(),
+    CHAT_MODEL_PRESET_CODE: (document.getElementById('settings-chat-model-preset-code')?.value || '').trim(),
+    CHAT_MODEL_NAME: (document.getElementById('settings-chat-model-name')?.value || '').trim(),
+    CHAT_MODEL_BASE_URL: (document.getElementById('settings-chat-model-base-url')?.value || '').trim(),
+    CHAT_MODEL_API_KEY: getSettingsInputValue('settings-chat-model-api-key').trim(),
 
     // Notification (Slack)
     NOTIFY_SLACK_ENABLED: Boolean(document.getElementById('settings-notify-slack-enabled')?.checked),
@@ -5474,12 +5485,14 @@ function syncSettingsUpdateSourceUi() {
 }
 
 function getSettingsAiPresetCatalog(kind) {
-  return Array.isArray(settingsAiPresets?.[kind]) ? settingsAiPresets[kind] : [];
+  const catalogKind = kind === 'chat' ? 'text' : kind;
+  return Array.isArray(settingsAiPresets?.[catalogKind]) ? settingsAiPresets[catalogKind] : [];
 }
 
 function getSettingsAiPresetProviders(kind) {
-  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[kind])
-    ? settingsAiPresets.providers[kind]
+  const catalogKind = kind === 'chat' ? 'text' : kind;
+  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[catalogKind])
+    ? settingsAiPresets.providers[catalogKind]
       .map((item) => String(item?.id || '').trim())
       .filter(Boolean)
     : [];
@@ -5490,8 +5503,9 @@ function getSettingsAiPresetProviders(kind) {
 }
 
 function getSettingsAiProviderLabels(kind) {
-  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[kind])
-    ? settingsAiPresets.providers[kind]
+  const catalogKind = kind === 'chat' ? 'text' : kind;
+  const configuredProviders = Array.isArray(settingsAiPresets?.providers?.[catalogKind])
+    ? settingsAiPresets.providers[catalogKind]
     : [];
   return Object.fromEntries(configuredProviders
     .map((item) => [
@@ -5565,7 +5579,7 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
 }
 
 function syncSettingsAiModelUi(kind) {
-  const prefix = kind === 'image' ? 'image' : 'text';
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
   const providerWrapEl = document.getElementById(`settings-${prefix}-model-provider-wrap`);
   const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
   const presetWrapEl = document.getElementById(`settings-${prefix}-model-preset-code-wrap`);
@@ -5635,7 +5649,7 @@ function syncSettingsAiModelUi(kind) {
 }
 
 function captureSettingsAiModelDesiredState(kind) {
-  const prefix = kind === 'image' ? 'image' : 'text';
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
   const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
   const presetEl = document.getElementById(`settings-${prefix}-model-preset-code`);
   if (providerEl) {
@@ -5647,9 +5661,12 @@ function captureSettingsAiModelDesiredState(kind) {
 }
 
 function getSettingsAiModelTestPayload(kind) {
-  const prefix = kind === 'image' ? 'image' : 'text';
+  if (kind === 'chat' && getSelectedSettingsRadioValue('settings-chat-model-source', 'writing') === 'writing') {
+    return getSettingsAiModelTestPayload('text');
+  }
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
   return {
-    kind,
+    kind: kind === 'chat' ? 'text' : kind,
     provider: (document.getElementById(`settings-${prefix}-model-preset-provider`)?.value || '').trim(),
     presetCode: (document.getElementById(`settings-${prefix}-model-preset-code`)?.value || '').trim(),
     name: (document.getElementById(`settings-${prefix}-model-name`)?.value || '').trim(),
@@ -5659,7 +5676,7 @@ function getSettingsAiModelTestPayload(kind) {
 }
 
 function resetSettingsAiModelTestResult(kind) {
-  const prefix = kind === 'image' ? 'image' : 'text';
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
   const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
   if (!resultEl) return;
   resultEl.textContent = 'API Key와 연결 정보를 확인합니다.';
@@ -5667,7 +5684,7 @@ function resetSettingsAiModelTestResult(kind) {
 }
 
 async function runSettingsAiModelTest(kind) {
-  const prefix = kind === 'image' ? 'image' : 'text';
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
   const buttonEl = document.getElementById(`settings-${prefix}-model-test-btn`);
   const resultEl = document.getElementById(`settings-${prefix}-model-test-result`);
   const payload = getSettingsAiModelTestPayload(kind);
@@ -5710,7 +5727,8 @@ async function runSettingsAiModelTest(kind) {
       ? ` · 잔여 크레딧 ${Number(result.credit_balance).toLocaleString()}`
       : '';
     if (resultEl) {
-      resultEl.textContent = `✅ ${result?.display_name || modelCode} 연결 성공${credit}${elapsed}`;
+      const roleLabel = kind === 'chat' ? 'Chat Model · ' : '';
+      resultEl.textContent = `✅ ${roleLabel}${result?.display_name || modelCode} 연결 성공${credit}${elapsed}`;
       resultEl.style.color = 'var(--success)';
     }
   } catch (error) {
@@ -5725,6 +5743,27 @@ async function runSettingsAiModelTest(kind) {
   } finally {
     if (buttonEl) buttonEl.disabled = false;
   }
+}
+
+function syncSettingsChatModelUi() {
+  const source = getSelectedSettingsRadioValue('settings-chat-model-source', 'writing');
+  const dedicatedCardEl = document.getElementById('settings-chat-model-dedicated-card');
+  const writingSummaryEl = document.getElementById('settings-chat-model-writing-summary');
+  if (dedicatedCardEl) dedicatedCardEl.style.display = source === 'dedicated' ? '' : 'none';
+
+  const writingModelName = (
+    document.getElementById('settings-text-model-name')?.value
+    || document.getElementById('settings-text-model-preset-code')?.selectedOptions?.[0]?.textContent
+    || document.getElementById('settings-text-model-preset-code')?.value
+    || '현재 글쓰기 모델'
+  ).trim();
+  if (writingSummaryEl) {
+    writingSummaryEl.textContent = source === 'writing'
+      ? `현재 글쓰기 모델(${writingModelName})을 Chat Model 역할에도 사용합니다.`
+      : 'Chat Model을 글쓰기 모델과 별도로 설정합니다.';
+  }
+  if (source === 'dedicated') syncSettingsAiModelUi('chat');
+  syncSettingsSnsAiHint();
 }
 
 function markSettingsMajorPendingChanges(pending = true) {
@@ -9370,6 +9409,9 @@ function bindActions() {
     document.getElementById('settings-image-model-name'),
     document.getElementById('settings-image-model-base-url'),
     document.getElementById('settings-image-model-api-key'),
+    document.getElementById('settings-chat-model-name'),
+    document.getElementById('settings-chat-model-base-url'),
+    document.getElementById('settings-chat-model-api-key'),
     document.getElementById('blog-collect-trends-time'),
     document.getElementById('blog-collect-trends-filter-min'),
     document.getElementById('blog-collect-trends-filter-top'),
@@ -9387,9 +9429,6 @@ function bindActions() {
     document.getElementById('settings-notify-telegram-bot-token'),
     document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-notify-bitly-token'),
-    document.getElementById('settings-custom-ai-base-url'),
-    document.getElementById('settings-custom-ai-api-key'),
-    document.getElementById('settings-custom-ai-model'),
     document.getElementById('settings-notify-slack-webhook-url'),
     document.getElementById('settings-buffer-api-key'),
     document.getElementById('settings-sns-publish-interval'),
@@ -9401,8 +9440,9 @@ function bindActions() {
     document.getElementById('settings-text-model-preset-code'),
     document.getElementById('settings-image-model-preset-provider'),
     document.getElementById('settings-image-model-preset-code'),
+    document.getElementById('settings-chat-model-preset-provider'),
+    document.getElementById('settings-chat-model-preset-code'),
     document.getElementById('settings-mcp-remote-host'),
-    document.getElementById('settings-telegram-chat-ai-mode'),
     document.getElementById('settings-sns-ai-mode'),
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-collect-trends-filter-type')
@@ -9427,6 +9467,7 @@ function bindActions() {
     document.getElementById('settings-sns-source-wordpress'),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-mode"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-speech-level"]')),
+    ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
   ].filter(Boolean);
@@ -9446,7 +9487,10 @@ function bindActions() {
     document.getElementById('settings-text-model-preset-provider'),
     document.getElementById('settings-text-model-preset-code'),
     document.getElementById('settings-image-model-preset-provider'),
-    document.getElementById('settings-image-model-preset-code')
+    document.getElementById('settings-image-model-preset-code'),
+    document.getElementById('settings-chat-model-preset-provider'),
+    document.getElementById('settings-chat-model-preset-code'),
+    ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]'))
   ].filter(Boolean).forEach((el) => {
     const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(eventName, () => {
@@ -9456,11 +9500,16 @@ function bindActions() {
       if (el.id === 'settings-image-model-preset-provider' || el.id === 'settings-image-model-preset-code') {
         captureSettingsAiModelDesiredState('image');
       }
+      if (el.id === 'settings-chat-model-preset-provider' || el.id === 'settings-chat-model-preset-code') {
+        captureSettingsAiModelDesiredState('chat');
+      }
       syncSettingsTelegramUi();
       syncSettingsMcpUi();
       syncSettingsUpdateSourceUi();
       syncSettingsAiModelUi('text');
       syncSettingsAiModelUi('image');
+      syncSettingsChatModelUi();
+      if (el.name === 'settings-chat-model-source') resetSettingsAiModelTestResult('chat');
     });
   });
   const settingsMcpRemoteAuthTokenDisplay = document.getElementById('settings-mcp-remote-auth-token-display');
@@ -9518,8 +9567,8 @@ function bindActions() {
     document.getElementById('settings-text-model-preset-code'),
     document.getElementById('settings-text-model-name'),
     document.getElementById('settings-text-model-api-key'),
-    document.getElementById('settings-custom-ai-base-url'),
-    document.getElementById('settings-custom-ai-model')
+    document.getElementById('settings-chat-model-preset-code'),
+    document.getElementById('settings-chat-model-name')
   ].filter(Boolean).forEach((element) => {
     element.addEventListener('input', syncSettingsSnsAiHint);
     element.addEventListener('change', syncSettingsSnsAiHint);
@@ -9614,8 +9663,8 @@ function bindActions() {
     });
   }
 
-  ['text', 'image'].forEach((kind) => {
-    const prefix = kind === 'image' ? 'image' : 'text';
+  ['text', 'image', 'chat'].forEach((kind) => {
+    const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
     const testButtonEl = document.getElementById(`settings-${prefix}-model-test-btn`);
     if (testButtonEl) {
       testButtonEl.addEventListener('click', () => runSettingsAiModelTest(kind));
@@ -9627,49 +9676,20 @@ function bindActions() {
       document.getElementById(`settings-${prefix}-model-base-url`),
       document.getElementById(`settings-${prefix}-model-api-key`)
     ].filter(Boolean).forEach((element) => {
-      element.addEventListener('input', () => resetSettingsAiModelTestResult(kind));
-      element.addEventListener('change', () => resetSettingsAiModelTestResult(kind));
+      element.addEventListener('input', () => {
+        resetSettingsAiModelTestResult(kind);
+        if (kind === 'text' && getSelectedSettingsRadioValue('settings-chat-model-source', 'writing') === 'writing') {
+          resetSettingsAiModelTestResult('chat');
+        }
+      });
+      element.addEventListener('change', () => {
+        resetSettingsAiModelTestResult(kind);
+        if (kind === 'text' && getSelectedSettingsRadioValue('settings-chat-model-source', 'writing') === 'writing') {
+          resetSettingsAiModelTestResult('chat');
+        }
+      });
     });
   });
-
-  const settingsCustomAiTestBtn = document.getElementById('settings-custom-ai-test-btn');
-  if (settingsCustomAiTestBtn) {
-    settingsCustomAiTestBtn.addEventListener('click', async () => {
-      const baseUrl = (document.getElementById('settings-custom-ai-base-url')?.value || '').trim();
-      const apiKey = getSettingsInputValue('settings-custom-ai-api-key').trim();
-      const model = (document.getElementById('settings-custom-ai-model')?.value || '').trim();
-      const resultEl = document.getElementById('settings-custom-ai-test-result');
-
-      if (!baseUrl || !model) {
-        if (resultEl) {
-          resultEl.textContent = '❌ Base URL과 Model을 입력해주세요.';
-          resultEl.style.color = 'var(--danger)';
-        }
-        return;
-      }
-
-      settingsCustomAiTestBtn.disabled = true;
-      if (resultEl) {
-        resultEl.textContent = '⏳ 테스트 중...';
-        resultEl.style.color = 'var(--text-muted)';
-      }
-
-      try {
-        await postJson('/api/v1/settings/test-custom-ai', { baseUrl, apiKey, model });
-        if (resultEl) {
-          resultEl.textContent = '✅ 성공! Custom AI 연결이 확인되었습니다.';
-          resultEl.style.color = 'var(--success)';
-        }
-      } catch (e) {
-        if (resultEl) {
-          resultEl.textContent = '❌ 실패: ' + e.message;
-          resultEl.style.color = 'var(--danger)';
-        }
-      } finally {
-        settingsCustomAiTestBtn.disabled = false;
-      }
-    });
-  }
 
   const settingsNotifySlackTestBtn = document.getElementById('settings-notify-slack-test-btn');
   if (settingsNotifySlackTestBtn) {
@@ -9737,6 +9757,9 @@ function bindActions() {
     checkEl.addEventListener('change', () => {
       if (checkEl.name === 'settings-blog-writing-mode' || checkEl.name === 'settings-blog-speech-level') {
         syncSettingsBlogWritingStyleDescription();
+      }
+      if (checkEl.name === 'settings-chat-model-source') {
+        syncSettingsChatModelUi();
       }
       scheduleSettingsMajorAutoSave({ immediate: true });
     });

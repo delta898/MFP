@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **공통 Chat Model 역할**: 글쓰기 AI 모델을 그대로 적용하거나 동일한 Text Model 카탈로그에서 별도 Chat Model과 API Key를 설정할 수 있습니다.
+
+### Changed
+- **보조 AI 모델 선택 단순화**: Telegram, Agent Memory, MCP 보조 작업은 공통 Chat Model을 사용하고, 네이버 댓글과 SNS는 작업별 글쓰기/Chat 선택을 유지합니다. Telegram의 중복 모델 선택 설정은 제거했습니다.
+
+### Fixed
+- **글쓰기 모델 차용 경로 수정**: 보조 작업에서 글쓰기 모델을 선택해도 고정 Gemini 호출로 우회하던 문제를 수정해 실제 선택한 글쓰기 모델 transport를 사용합니다.
+
 ## [0.1.15-dev2] - 2026-08-01
 
 ### Added

@@ -2,8 +2,7 @@ const { buildCapabilityId } = require('../agent/action-schema');
 const { createConfigStateManager } = require('./config-state');
 const { createTrendsCapabilities } = require('./settings/trends');
 const { createBlogAutoCapabilities } = require('./settings/blog-auto');
-const { createTelegramCapabilities } = require('./settings/telegram');
-const { createCustomAiCapabilities } = require('./settings/custom-ai');
+const { createChatModelCapabilities } = require('./settings/chat-model');
 const { createAgentPendingCapabilities } = require('./agent/pending');
 const { createAgentMetaCapabilities } = require('./agent/meta');
 const { createAgentPreferenceCapabilities } = require('./agent/preferences');
@@ -70,8 +69,7 @@ function createCapabilityRegistry(deps = {}) {
         ...createTrendJobCapabilities(capabilityDeps),
         ...createTrendsCapabilities(capabilityDeps),
         ...createBlogAutoCapabilities(capabilityDeps),
-        ...createTelegramCapabilities(capabilityDeps),
-        ...createCustomAiCapabilities(capabilityDeps)
+        ...createChatModelCapabilities(capabilityDeps)
     ];
 
     const map = new Map();

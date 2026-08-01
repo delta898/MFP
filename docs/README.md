@@ -39,6 +39,7 @@
 - `architecture/workspace-layout.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
+- `architecture/chat-model-role.md`
 - `license-policy.md`
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
@@ -51,6 +52,7 @@
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
+- `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`

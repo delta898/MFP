@@ -73,18 +73,6 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
-        async handleTestCustomAi({ requestId, method, requestBody, res }) {
-            if (method === 'POST') {
-                try {
-                    const data = await service.testCustomAiConnection(requestBody || {});
-                    return sendSuccess(res, requestId, data);
-                } catch (e) {
-                    return toErrorResponse(res, requestId, 'CUSTOM_AI_TEST_FAILED', 'Custom AI 테스트에 실패했습니다.', e);
-                }
-            }
-            return sendMethodNotAllowed(sendError, res, requestId);
-        },
-
         async handleTestAiModel({ requestId, method, requestBody, res }) {
             if (method === 'POST') {
                 try {

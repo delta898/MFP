@@ -24,7 +24,7 @@ test('SNS AI service uses only the explicitly selected model role', async () => 
                 calls.push(['blog_text', retries]);
                 return '{"hashtags":["#하나","#둘"]}';
             },
-            async callCustomAiText() {
+            async callChatText() {
                 calls.push(['chat']);
                 return '';
             }
@@ -45,7 +45,7 @@ test('SNS AI service does not fall back or fail publishing when the selected mod
             async callWritingText() {
                 throw new Error('text model unavailable');
             },
-            async callCustomAiText() {
+            async callChatText() {
                 chatCalls += 1;
                 return '#fallback';
             }

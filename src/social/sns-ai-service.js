@@ -37,7 +37,7 @@ function createSnsAiService(options = {}) {
     const { CONFIG, Utils, Logger } = options;
     if (!CONFIG || !Utils
         || typeof Utils.callWritingText !== 'function'
-        || typeof Utils.callCustomAiText !== 'function') {
+        || typeof Utils.callChatText !== 'function') {
         throw new Error('SNS AI Service 의존성이 올바르지 않습니다.');
     }
 
@@ -55,7 +55,7 @@ function createSnsAiService(options = {}) {
                     maxTokens: 160,
                     temperature: 0.2
                 })
-                : await Utils.callCustomAiText(prompt, 1, {
+                : await Utils.callChatText(prompt, 1, {
                     usageLabel: 'SNS 콘텐츠 AI',
                     maxTokens: 160,
                     temperature: 0.2
