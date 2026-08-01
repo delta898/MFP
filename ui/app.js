@@ -3376,11 +3376,287 @@ function initClockWidget() {
 }
 
 
+let manualSnsConfig = { configured: false, channels: [] };
+let manualSnsConfigLoading = false;
+
+function getManualSnsSelectedChannels() {
+  const selectedIds = new Set(Array.from(document.querySelectorAll('[data-manual-sns-channel]:checked'))
+    .map((input) => String(input.value || '').trim()));
+  return (Array.isArray(manualSnsConfig.channels) ? manualSnsConfig.channels : [])
+    .filter((channel) => selectedIds.has(String(channel.id || '').trim()));
+}
+
+function getManualSnsImageValidation() {
+  const raw = String(document.getElementById('manual-sns-image-url')?.value || '').trim();
+  if (!raw) return { valid: true, url: '' };
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.username || url.password) {
+      return { valid: false, url: '', message: '공개 HTTPS 이미지 URL을 입력하세요.' };
+    }
+    return { valid: true, url: url.toString() };
+  } catch (_error) {
+    return { valid: false, url: '', message: '이미지 URL 형식을 확인하세요.' };
+  }
+}
+
+function syncManualSnsImagePreview() {
+  const inputEl = document.getElementById('manual-sns-image-url');
+  const removeBtn = document.getElementById('manual-sns-image-remove-btn');
+  const previewEl = document.getElementById('manual-sns-image-preview');
+  const imageEl = document.getElementById('manual-sns-image-preview-img');
+  const statusEl = document.getElementById('manual-sns-image-preview-status');
+  const raw = String(inputEl?.value || '').trim();
+  if (removeBtn) removeBtn.hidden = !raw;
+  if (!previewEl || !imageEl || !statusEl) return;
+
+  const validation = getManualSnsImageValidation();
+  if (!raw || !validation.valid) {
+    previewEl.hidden = true;
+    imageEl.removeAttribute('src');
+    return;
+  }
+  previewEl.hidden = false;
+  statusEl.textContent = '이미지 미리보기를 불러오는 중입니다.';
+  imageEl.onerror = () => {
+    statusEl.textContent = '미리보기를 불러오지 못했습니다. Buffer에서 접근 가능한 직접 이미지 URL인지 확인하세요.';
+  };
+  imageEl.onload = () => {
+    statusEl.textContent = '이미지 URL 1개가 함께 발행됩니다.';
+  };
+  imageEl.src = validation.url;
+}
+
+function syncManualSnsComposerState() {
+  const textEl = document.getElementById('manual-sns-text');
+  const countEl = document.getElementById('manual-sns-character-count');
+  const limitEl = document.getElementById('manual-sns-limit-status');
+  const summaryEl = document.getElementById('manual-sns-publish-summary');
+  const publishBtn = document.getElementById('manual-sns-publish-btn');
+  const selectAllEl = document.getElementById('manual-sns-select-all');
+  const text = String(textEl?.value || '').trim();
+  const characterCount = Array.from(text).length;
+  const selectedChannels = getManualSnsSelectedChannels();
+  const image = getManualSnsImageValidation();
+  let errorMessage = '';
+
+  const exceeded = selectedChannels.find((channel) => characterCount > Number(channel.limit || 0));
+  if (exceeded) {
+    errorMessage = `${exceeded.name || exceeded.service} 글자 수 제한을 ${characterCount - Number(exceeded.limit || 0)}자 초과했습니다. (${characterCount}/${exceeded.limit}자)`;
+  } else if (!image.valid) {
+    errorMessage = image.message;
+  } else {
+    const imageRequired = selectedChannels.find((channel) => channel.image_required === true);
+    if (imageRequired && !image.url) {
+      errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지 URL이 필요합니다.`;
+    }
+  }
+
+  if (countEl) {
+    const selectedLimits = selectedChannels.map((channel) => Number(channel.limit || 0)).filter((limit) => limit > 0);
+    const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : 0;
+    countEl.textContent = shortestLimit > 0 ? `${characterCount}/${shortestLimit}자` : `${characterCount}자`;
+    countEl.classList.toggle('is-over', Boolean(exceeded));
+  }
+  if (limitEl) {
+    limitEl.textContent = errorMessage || (selectedChannels.length > 0 ? '선택한 모든 채널의 글자 수 제한 안에 있습니다.' : '');
+    limitEl.classList.toggle('is-error', Boolean(errorMessage));
+  }
+  if (summaryEl) {
+    summaryEl.textContent = selectedChannels.length > 0
+      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.url ? ' · 이미지 포함' : ''}.`
+      : '발행할 채널을 선택하세요.';
+  }
+  if (publishBtn) {
+    publishBtn.textContent = selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
+    publishBtn.disabled = !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+  }
+
+  document.querySelectorAll('.social-channel-option').forEach((label) => {
+    const input = label.querySelector('[data-manual-sns-channel]');
+    label.classList.toggle('is-selected', Boolean(input?.checked));
+  });
+  if (selectAllEl) {
+    const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
+    const selectedCount = enabledInputs.filter((input) => input.checked).length;
+    selectAllEl.disabled = enabledInputs.length === 0;
+    selectAllEl.checked = enabledInputs.length > 0 && selectedCount === enabledInputs.length;
+    selectAllEl.indeterminate = selectedCount > 0 && selectedCount < enabledInputs.length;
+  }
+}
+
+function renderManualSnsChannels() {
+  const listEl = document.getElementById('manual-sns-channel-list');
+  const selectAllEl = document.getElementById('manual-sns-select-all');
+  if (!listEl) return;
+  listEl.replaceChildren();
+
+  const channels = Array.isArray(manualSnsConfig.channels) ? manualSnsConfig.channels : [];
+  if (!manualSnsConfig.configured || channels.length === 0) {
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'social-channel-empty';
+    const messageEl = document.createElement('span');
+    messageEl.textContent = 'Buffer 연결 또는 발행 채널 설정이 필요합니다.';
+    const settingsButton = document.createElement('button');
+    settingsButton.type = 'button';
+    settingsButton.className = 'text-btn';
+    settingsButton.textContent = '설정 > SNS로 이동';
+    settingsButton.addEventListener('click', () => void navigateTo('settings', 'sns'));
+    emptyEl.append(messageEl, settingsButton);
+    listEl.appendChild(emptyEl);
+    if (selectAllEl) selectAllEl.disabled = true;
+    syncManualSnsComposerState();
+    return;
+  }
+
+  if (selectAllEl) selectAllEl.disabled = false;
+  channels.forEach((channel) => {
+    const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
+    const label = document.createElement('label');
+    label.className = `social-channel-option${unavailable ? ' is-disabled' : ''}`;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = channel.id;
+    input.dataset.manualSnsChannel = 'true';
+    input.disabled = unavailable;
+    input.addEventListener('change', syncManualSnsComposerState);
+    const copy = document.createElement('span');
+    copy.className = 'social-channel-copy';
+    const name = document.createElement('strong');
+    name.textContent = channel.name || channel.service || 'Buffer 채널';
+    const detail = document.createElement('span');
+    detail.textContent = unavailable
+      ? '현재 수동 발행 미지원'
+      : `${channel.service} · 최대 ${Number(channel.limit || 0).toLocaleString('ko-KR')}자${channel.image_required ? ' · 이미지 필수' : ''}`;
+    copy.append(name, detail);
+    label.append(input, copy);
+    listEl.appendChild(label);
+  });
+  syncManualSnsComposerState();
+}
+
+async function loadManualSnsComposer({ force = false } = {}) {
+  if (manualSnsConfigLoading) return;
+  if (!force && Array.isArray(manualSnsConfig.channels) && manualSnsConfig.channels.length > 0) {
+    renderManualSnsChannels();
+    return;
+  }
+  const listEl = document.getElementById('manual-sns-channel-list');
+  if (listEl) {
+    listEl.replaceChildren();
+    const loadingEl = document.createElement('p');
+    loadingEl.className = 'muted';
+    loadingEl.textContent = 'Buffer 채널을 불러오는 중입니다.';
+    listEl.appendChild(loadingEl);
+  }
+  manualSnsConfigLoading = true;
+  try {
+    const data = await fetchJson('/api/v1/social/manual/config');
+    manualSnsConfig = {
+      configured: data?.configured === true,
+      channels: Array.isArray(data?.channels) ? data.channels : []
+    };
+    renderManualSnsChannels();
+  } catch (error) {
+    manualSnsConfig = { configured: false, channels: [] };
+    renderManualSnsChannels();
+  } finally {
+    manualSnsConfigLoading = false;
+  }
+}
+
+function renderManualSnsPublishResult(data = {}) {
+  const resultEl = document.getElementById('manual-sns-publish-result');
+  if (!resultEl) return;
+  resultEl.replaceChildren();
+  resultEl.classList.add('is-visible');
+  const heading = document.createElement('strong');
+  heading.textContent = data.success
+    ? `발행 완료 · ${Number(data.success_count || 0)}개 채널 성공`
+    : `일부 발행 실패 · 성공 ${Number(data.success_count || 0)}개 / 실패 ${Number(data.failure_count || 0)}개`;
+  resultEl.appendChild(heading);
+  (Array.isArray(data.results) ? data.results : []).forEach((result) => {
+    const row = document.createElement('div');
+    row.className = `social-result-row ${result.success ? 'is-success' : 'is-error'}`;
+    row.textContent = result.success
+      ? `✅ ${result.channel_name || result.service} 발행 요청 성공`
+      : `❌ ${result.channel_name || result.service} 실패${result.message ? ` · ${result.message}` : ''}`;
+    resultEl.appendChild(row);
+  });
+}
+
+async function publishManualSns() {
+  syncManualSnsComposerState();
+  const publishBtn = document.getElementById('manual-sns-publish-btn');
+  if (!publishBtn || publishBtn.disabled) return;
+  const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
+  const selectedChannels = getManualSnsSelectedChannels();
+  const image = getManualSnsImageValidation();
+  const confirmed = await showUiDialog({
+    title: 'SNS 즉시 발행',
+    message: `${selectedChannels.map((channel) => channel.name || channel.service).join(', ')}에 지금 발행할까요?`,
+    showCancel: true,
+    confirmText: '지금 발행',
+    cancelText: '취소'
+  });
+  if (!confirmed) return;
+
+  const resultEl = document.getElementById('manual-sns-publish-result');
+  publishBtn.disabled = true;
+  publishBtn.textContent = '발행 중...';
+  if (resultEl) {
+    resultEl.classList.add('is-visible');
+    resultEl.textContent = 'Buffer로 즉시 발행하고 있습니다.';
+  }
+  try {
+    const data = await postJson('/api/v1/social/manual/publish', {
+      channelIds: selectedChannels.map((channel) => channel.id),
+      text,
+      imageUrl: image.url
+    });
+    renderManualSnsPublishResult(data);
+  } catch (error) {
+    if (resultEl) {
+      resultEl.classList.add('is-visible');
+      resultEl.textContent = `❌ 발행 실패: ${error.message}`;
+    }
+  } finally {
+    syncManualSnsComposerState();
+  }
+}
+
+function initManualSnsComposer() {
+  const textEl = document.getElementById('manual-sns-text');
+  const imageUrlEl = document.getElementById('manual-sns-image-url');
+  const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
+  const selectAllEl = document.getElementById('manual-sns-select-all');
+  const publishBtn = document.getElementById('manual-sns-publish-btn');
+  textEl?.addEventListener('input', syncManualSnsComposerState);
+  imageUrlEl?.addEventListener('input', () => {
+    syncManualSnsImagePreview();
+    syncManualSnsComposerState();
+  });
+  imageRemoveBtn?.addEventListener('click', () => {
+    if (imageUrlEl) imageUrlEl.value = '';
+    syncManualSnsImagePreview();
+    syncManualSnsComposerState();
+    imageUrlEl?.focus();
+  });
+  selectAllEl?.addEventListener('change', () => {
+    const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
+    const shouldSelect = selectAllEl.checked;
+    enabledInputs.forEach((input) => { input.checked = shouldSelect; });
+    syncManualSnsComposerState();
+  });
+  publishBtn?.addEventListener('click', () => void publishManualSns());
+  syncManualSnsComposerState();
+}
+
 async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'blog', 'account'].includes(requestedView)) {
+    if (!['dashboard', 'blog', 'social', 'account'].includes(requestedView)) {
       viewName = 'blog';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -3413,6 +3689,10 @@ async function navigateTo(viewName, subTab) {
   }
   if (viewName === 'account') {
     loadAccountOverview().catch((error) => console.warn('[Account Overview]', error.message));
+    return;
+  }
+  if (viewName === 'social') {
+    await loadManualSnsComposer({ force: true });
     return;
   }
   if (viewName === 'blog') {
@@ -9805,6 +10085,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   try { initManagedSettingsSecretFields(); } catch (e) { console.warn('initManagedSettingsSecretFields error:', e); }
+  try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {

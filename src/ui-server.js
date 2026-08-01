@@ -47,6 +47,7 @@ const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gat
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
 const { createSnsAiService } = require('./social/sns-ai-service');
+const { createManualSnsService } = require('./social/manual-sns-service');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
@@ -74,6 +75,8 @@ const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes
 const { createSettingsService } = require('./ui-api/services/settings.service');
 const { createSettingsController } = require('./ui-api/controllers/settings.controller');
 const { createSettingsRouteHandler } = require('./ui-api/routes/settings.routes');
+const { createManualSnsController } = require('./ui-api/controllers/manual-sns.controller');
+const { createManualSnsRouteHandler } = require('./ui-api/routes/manual-sns.routes');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
@@ -1858,6 +1861,9 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createSettingsService,
     createSettingsController,
     createSettingsRouteHandler,
+    createManualSnsService,
+    createManualSnsController,
+    createManualSnsRouteHandler,
     createLegacyApiRouteHandler,
     createApiRouteHub,
     UiValidators,

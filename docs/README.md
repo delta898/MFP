@@ -53,6 +53,7 @@
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
+- `plans/active/manual-sns-publishing-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`

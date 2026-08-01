@@ -78,6 +78,9 @@ function createUiApiRouteRuntime(deps = {}) {
         createSettingsService,
         createSettingsController,
         createSettingsRouteHandler,
+        createManualSnsService,
+        createManualSnsController,
+        createManualSnsRouteHandler,
         createLegacyApiRouteHandler,
         createApiRouteHub,
         UiValidators,
@@ -97,6 +100,7 @@ function createUiApiRouteRuntime(deps = {}) {
 
     let blogAutoRouteHandler = null;
     let settingsRouteHandler = null;
+    let manualSnsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let apiRouteHub = null;
 
@@ -171,6 +175,23 @@ function createUiApiRouteRuntime(deps = {}) {
             settingsRouteHandler = createSettingsRouteHandler({ controller });
         }
         return settingsRouteHandler;
+    }
+
+    function getManualSnsRouteHandlerInstance() {
+        if (!manualSnsRouteHandler) {
+            const service = createManualSnsService({
+                CONFIG,
+                bufferClient: new BufferClient({ axios }),
+                Logger
+            });
+            const controller = createManualSnsController({
+                service,
+                sendSuccess,
+                sendError
+            });
+            manualSnsRouteHandler = createManualSnsRouteHandler({ controller });
+        }
+        return manualSnsRouteHandler;
     }
 
     function createLegacyApiDeps() {
@@ -268,6 +289,7 @@ function createUiApiRouteRuntime(deps = {}) {
             apiRouteHub = createApiRouteHub([
                 getBlogAutoRouteHandlerInstance(),
                 getSettingsRouteHandlerInstance(),
+                getManualSnsRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }
@@ -292,6 +314,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getBlogAutoRouteHandler: getBlogAutoRouteHandlerInstance,
         getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
+        getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         handleApi
     };
 }
