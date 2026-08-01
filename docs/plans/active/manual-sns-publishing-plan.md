@@ -2,7 +2,8 @@
 
 ## Status
 
-Phase 1 implementation in progress on `codex/feature/manual-sns-publish`.
+Phase 1 implementation and runtime verification are complete. Phase 2 Chat
+Model optimization remains planned as an optional enhancement.
 
 ## Goal
 

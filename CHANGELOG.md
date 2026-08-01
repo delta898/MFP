@@ -3,11 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.15-dev3] - 2026-08-01
+
 ### Added
 - **공통 Chat Model 역할**: 글쓰기 AI 모델을 그대로 적용하거나 동일한 Text Model 카탈로그에서 별도 Chat Model과 API Key를 설정할 수 있습니다.
+- **수동 SNS 즉시 발행**: 콘텐츠 메뉴에서 설정된 Buffer 채널을 여러 개 선택해 짧은 글과 공개 HTTPS 이미지 URL 1개를 즉시 발행할 수 있습니다. 채널별 글자 수와 이미지 필수 조건을 발행 전에 검증하고 결과를 채널별로 표시합니다.
 
 ### Changed
 - **보조 AI 모델 선택 단순화**: Telegram, Agent Memory, MCP 보조 작업은 공통 Chat Model을 사용하고, 네이버 댓글과 SNS는 작업별 글쓰기/Chat 선택을 유지합니다. Telegram의 중복 모델 선택 설정은 제거했습니다.
+- **SNS 수동·자동 발행 분리**: 수동 SNS 발행은 RSS, Google Sheet, SNS 자동 발행 활성화 및 라이선스 capability와 독립적으로 동작하며 저장된 Buffer 연결 정보만 사용합니다.
 
 ### Fixed
 - **글쓰기 모델 차용 경로 수정**: 보조 작업에서 글쓰기 모델을 선택해도 고정 Gemini 호출로 우회하던 문제를 수정해 실제 선택한 글쓰기 모델 transport를 사용합니다.
