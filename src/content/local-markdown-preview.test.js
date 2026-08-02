@@ -341,6 +341,30 @@ test('buildLocalMarkdownPreview preserves inline bold ranges for the UI preview'
     assert.deepEqual(preview.contentItems[0].boldRanges, [{ start: 0, end: 2 }]);
 });
 
+test('buildLocalMarkdownPreview preserves H3 Markdown in the body preview', () => {
+    const preview = buildLocalMarkdownPreview({
+        markdownText: '# 제목\n### foobar',
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils: {
+            parseMarkdown() {
+                return {
+                    title: '제목',
+                    contents: [{ type: 'header-h3', text: 'foobar' }]
+                };
+            },
+            findImageByPrefix() {
+                return null;
+            }
+        }
+    });
+
+    assert.equal(preview.bodyPreview, '### foobar');
+});
+
 test('buildLocalMarkdownPreview validates empty pasted markdown', () => {
     const preview = buildLocalMarkdownPreview({
         markdownText: '',

@@ -128,6 +128,7 @@ function resolveMarkdownEntryFromSelectedFiles(selectedFiles = []) {
 
 function formatContentItem(item = {}) {
     if (item.type === 'header-h2') return `## ${item.text || ''}`.trim();
+    if (item.type === 'header-h3') return `### ${item.text || ''}`.trim();
     if (item.type === 'quote') return `> ${item.text || ''}`.trim();
     if (item.type === 'list-item') {
         return item.listType === 'ordered'

@@ -111,6 +111,11 @@ validation 정책:
 - 폴더 안에 markdown 파일이 하나도 없으면 validation 이전 단계에서 즉시 error
 - 내부 파싱 규칙은 기존 `contents.md` 포맷과 최대한 동일하게 유지
 - 제목은 첫 `# ...` 라인에서 추출
+- 플랫폼별 제목 블록 매핑:
+  - `## ...`: 네이버는 기존 `소제목`, WordPress는 기존 HTML `h2`
+  - `### ...`: 네이버는 `인용구 2`, WordPress는 기존 HTML `h3`
+  - `> ...`: 네이버는 기존 일반 `인용구`, WordPress는 기존 HTML `blockquote`
+- 공통 Markdown 파서는 `###`를 `header-h3` 블록으로 보존하고, 네이버 발행 단계에서만 `인용구 2` 표현으로 변환한다.
 
 ### Image Resolution
 - asset root는 선택한 원고 폴더

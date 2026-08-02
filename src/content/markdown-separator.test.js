@@ -59,6 +59,30 @@ test('parseMarkdown preserves inline bold ranges in list items', () => {
     });
 });
 
+test('parseMarkdown preserves Markdown ### headings as dedicated H3 blocks', () => {
+    const parsed = Utils.parseMarkdown('# 제목\n### foobar');
+
+    assert.deepEqual(parsed.contents, [{
+        type: 'header-h3',
+        text: 'foobar'
+    }]);
+});
+
+test('parseMarkdown keeps H2, H3, and quote blocks distinct', () => {
+    const parsed = Utils.parseMarkdown([
+        '# 제목',
+        '## H2',
+        '### H3',
+        '> quote'
+    ].join('\n'));
+
+    assert.deepEqual(parsed.contents, [
+        { type: 'header-h2', text: 'H2' },
+        { type: 'header-h3', text: 'H3' },
+        { type: 'quote', text: 'quote' }
+    ]);
+});
+
 test('marked renders standalone hyphen rules as horizontal rules for WordPress', () => {
     const html = marked('첫 문단\n\n---\n\n다음 문단');
 
@@ -69,4 +93,10 @@ test('marked renders inline Markdown bold for WordPress', () => {
     const html = marked('**굵은 글자**');
 
     assert.match(html, /<strong>굵은 글자<\/strong>/);
+});
+
+test('marked keeps Markdown ### headings as H3 tags for WordPress', () => {
+    const html = marked('### foobar');
+
+    assert.match(html, /<h3>foobar<\/h3>/);
 });

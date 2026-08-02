@@ -7992,6 +7992,10 @@ function bindActions() {
         fragments.push(`<h2>${text}</h2>`);
         return;
       }
+      if (type === 'header-h3') {
+        fragments.push(`<h3>${text}</h3>`);
+        return;
+      }
       if (type === 'quote') {
         fragments.push(`<blockquote><p>${text}</p></blockquote>`);
         return;
@@ -8441,6 +8445,10 @@ function bindActions() {
 
       if (type === 'header-h2') {
         fragments.push(`<h2>${text}</h2>`);
+        return;
+      }
+      if (type === 'header-h3') {
+        fragments.push(`<h3>${text}</h3>`);
         return;
       }
       if (type === 'quote') {

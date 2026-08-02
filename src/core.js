@@ -1053,6 +1053,68 @@ async function applyTextFormatAtCursor(page, formatName, options = {}) {
 	return false;
 }
 
+async function applyQuoteVariantAtCursor(page, variantNumber = 2) {
+	const variant = Number(variantNumber);
+	if (!Number.isInteger(variant) || variant < 1) return false;
+
+	const variantLabelPattern = new RegExp(`인용구\\s*${variant}`);
+	const variantClassPattern = new RegExp(`quotation(?:[-_\\s]*)${variant}(?:\\b|$)`, 'i');
+	const preferredSelectors = [
+		`button[data-name="quotation-${variant}"]`,
+		`button[data-name="quotation${variant}"]`,
+		`button[class*="quotation-${variant}"]`,
+		`button[class*="quotation${variant}"]`
+	];
+
+	const clickMatchingButton = async () => {
+		for (const selector of preferredSelectors) {
+			const buttons = page.locator(selector);
+			const count = await buttons.count();
+			for (let index = 0; index < count; index++) {
+				const button = buttons.nth(index);
+				try {
+					if (!(await button.isVisible())) continue;
+					await autoScrollAndClick(button);
+					return true;
+				} catch (e) { }
+			}
+		}
+
+		const buttons = page.locator('button');
+		const count = await buttons.count();
+		for (let index = 0; index < count; index++) {
+			const button = buttons.nth(index);
+			try {
+				if (!(await button.isVisible())) continue;
+				const signature = [
+					String(await button.innerText() || ''),
+					String(await button.textContent() || ''),
+					String(await button.getAttribute('aria-label') || ''),
+					String(await button.getAttribute('title') || ''),
+					String(await button.getAttribute('data-name') || ''),
+					String(await button.getAttribute('class') || '')
+				].join(' ');
+				if (!variantLabelPattern.test(signature) && !variantClassPattern.test(signature)) continue;
+				await autoScrollAndClick(button);
+				return true;
+			} catch (e) { }
+		}
+		return false;
+	};
+
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			const clicked = await clickMatchingButton();
+			if (clicked) {
+				await Utils.sleep(140);
+				return true;
+			}
+		} catch (e) { }
+		await Utils.sleep(120);
+	}
+	return false;
+}
+
 async function isCaretInsideQuoteBlock(page) {
 	try {
 		return await page.evaluate(() => {
@@ -2154,11 +2216,11 @@ ${scrapedContext}`;
 					// 에디터 자동 리스트 종료: 빈 항목 Enter 한 번으로 리스트 모드를 해제한다.
 					await page.keyboard.press('Enter');
 					// 리스트 뒤 문단/빈줄은 한 줄 공백이 보이도록 다음 블록에서 Enter 1회를 추가한다.
-					needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline' || item.type === 'quote');
+					needsExtraGapAfterList = (item.type === 'paragraph' || item.type === 'newline' || item.type === 'quote' || item.type === 'header-h3');
 					inListMode = false;
 					currentListType = null;
 				}
-				if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline' && item.type !== 'quote') {
+				if (needsExtraGapAfterList && item.type !== 'paragraph' && item.type !== 'newline' && item.type !== 'quote' && item.type !== 'header-h3') {
 					needsExtraGapAfterList = false;
 				}
 
@@ -2180,10 +2242,13 @@ ${scrapedContext}`;
 					await Utils.sleep(80);
 					await page.keyboard.press('Enter'); // 다음 줄(본문)로 이동
 				}
-				else if (item.type === 'quote') {
+				else if (item.type === 'quote' || item.type === 'header-h3') {
+					const isMarkdownH3 = item.type === 'header-h3';
 					const quoteText = String(item.text || '').trim();
 					if (quoteText) {
-						Logger.info(`       💬 인용구: ${quoteText}`);
+						Logger.info(isMarkdownH3
+							? `       💬 인용구 2(###): ${quoteText}`
+							: `       💬 인용구: ${quoteText}`);
 						if (needsExtraGapAfterList) {
 							await page.keyboard.press('Enter');
 						}
@@ -2206,6 +2271,12 @@ ${scrapedContext}`;
 						}
 						if (!quoteApplied) {
 							Logger.warn(`       ⚠️ 인용구 서식 적용 실패: ${quoteText}`);
+						}
+						if (quoteApplied && isMarkdownH3) {
+							const quote2Applied = await applyQuoteVariantAtCursor(page, 2);
+							if (!quote2Applied) {
+								Logger.warn(`       ⚠️ 인용구 2 스타일 적용 실패: ${quoteText}`);
+							}
 						}
 
 						// 인용구 적용 직후에는 사용자 수동 편집과 동일하게 탈출한다.

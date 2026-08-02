@@ -4158,6 +4158,10 @@ const Utils = {
                 contents.push({ type: 'separator' });
                 continue;
             }
+            if (/^###\s+/.test(trimmedLine)) {
+                contents.push(createTextContent('header-h3', trimmedLine.replace(/^###\s+/, '').trim()));
+                continue;
+            }
             if (/^##\s+/.test(trimmedLine)) {
                 contents.push(createTextContent('header-h2', trimmedLine.replace(/^##\s+/, '').trim()));
                 continue;
