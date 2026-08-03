@@ -6,6 +6,7 @@ const Logger = require('./logger');
  */
 class WordPressClient {
     constructor(config = {}) {
+        this.axios = config.axios || axios;
         this.url = String(config.url || '').replace(/\/$/, '');
         this.userId = config.userId;
         this.appPassword = config.appPassword;
@@ -32,19 +33,20 @@ class WordPressClient {
      * @param {Buffer} buffer Image buffer
      * @param {string} fileName Desired file name
      * @param {string} altText Alt text for the image
+     * @param {string} mimeType Image MIME type
      * @returns {Promise<Object|null>} { id, url, link }
      */
-    async uploadMedia(buffer, fileName, altText = '') {
+    async uploadMedia(buffer, fileName, altText = '', mimeType = 'image/jpeg') {
         if (!this.isConfigured()) return null;
         try {
             const url = `${this.apiBase}/media`;
             // 1. Upload using multipart/form-data (Node 18+ built-in)
             // This bypasses header encoding issues by putting the filename in the form-data part.
             const formData = new FormData();
-            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const blob = new Blob([buffer], { type: String(mimeType || 'image/jpeg') });
             formData.append('file', blob, fileName);
 
-            const response = await axios.post(url, formData, {
+            const response = await this.axios.post(url, formData, {
                 headers: {
                     ...this.authHeader,
                 },
@@ -56,7 +58,7 @@ class WordPressClient {
             // 2. Set metadata (alt text, title, caption)
             if (altText || fileName) {
                 try {
-                    await axios.post(`${url}/${mediaId}`, {
+                    await this.axios.post(`${url}/${mediaId}`, {
                         alt_text: altText,
                         title: altText || fileName.split('.')[0],
                         caption: altText
@@ -74,6 +76,32 @@ class WordPressClient {
         } catch (e) {
             Logger.error(`❌ WordPress 미디어 업로드 실패: ${e.response?.data?.message || e.message}`);
             return null;
+        }
+    }
+
+    /**
+     * Permanently delete an uploaded media item.
+     * Cleanup is best effort so callers can keep the publish result even when
+     * WordPress cannot remove the temporary asset.
+     * @param {number|string} mediaId WordPress media ID
+     * @returns {Promise<boolean>}
+     */
+    async deleteMedia(mediaId) {
+        const normalizedMediaId = Number.parseInt(mediaId, 10);
+        if (!this.isConfigured() || !Number.isInteger(normalizedMediaId) || normalizedMediaId <= 0) {
+            return false;
+        }
+        try {
+            await this.axios.delete(`${this.apiBase}/media/${normalizedMediaId}`, {
+                headers: this.authHeader,
+                params: { force: true },
+                timeout: 15000
+            });
+            Logger.info(`🧹 WordPress 임시 미디어 삭제 완료: ID=${normalizedMediaId}`);
+            return true;
+        } catch (e) {
+            Logger.warn(`⚠️ WordPress 임시 미디어 삭제 실패 (ID=${normalizedMediaId}): ${e.response?.data?.message || e.message}`);
+            return false;
         }
     }
 

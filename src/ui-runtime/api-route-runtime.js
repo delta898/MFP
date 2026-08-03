@@ -94,6 +94,7 @@ function createUiApiRouteRuntime(deps = {}) {
         restartRemoteMcpService,
         getRemoteServiceStatus,
         BufferClient,
+        WordPressClient,
         createConfigRevision,
         sendSuccess,
         sendError
@@ -184,6 +185,13 @@ function createUiApiRouteRuntime(deps = {}) {
                 CONFIG,
                 bufferClient: new BufferClient({ axios }),
                 aiService: snsAiService,
+                parseImagePayload: parseBase64ImagePayload,
+                createWordPressClient: () => new WordPressClient({
+                    url: CONFIG.WORDPRESS_URL,
+                    userId: CONFIG.WORDPRESS_USER_ID,
+                    appPassword: CONFIG.WORDPRESS_APP_PASSWORD,
+                    axios
+                }),
                 Logger
             });
             const controller = createManualSnsController({

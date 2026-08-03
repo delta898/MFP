@@ -9,6 +9,18 @@ const {
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 10000;
+const BUFFER_STATUS_POLL_TIMEOUT_MS = 3 * 60 * 1000;
+const BUFFER_STATUS_POLL_INTERVAL_MS = 5000;
+const BUFFER_RECOVERY_MAX_ATTEMPTS = 3;
+const BUFFER_RECOVERY_INTERVAL_MS = 5000;
+
+const IMAGE_MIME_BY_EXT = Object.freeze({
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif'
+});
 
 function createManualSnsError(status, code, message) {
     const error = new Error(message || '수동 SNS 요청을 처리하지 못했습니다.');
@@ -67,13 +79,36 @@ function normalizeImageUrl(value) {
 }
 
 function createManualSnsService(deps = {}) {
-    const { CONFIG = {}, bufferClient, aiService, Logger } = deps;
+    const {
+        CONFIG = {},
+        bufferClient,
+        aiService,
+        Logger,
+        parseImagePayload,
+        createWordPressClient,
+        sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+        now = () => Date.now(),
+        pollTimeoutMs = BUFFER_STATUS_POLL_TIMEOUT_MS,
+        pollIntervalMs = BUFFER_STATUS_POLL_INTERVAL_MS,
+        recoveryMaxAttempts = BUFFER_RECOVERY_MAX_ATTEMPTS,
+        recoveryIntervalMs = BUFFER_RECOVERY_INTERVAL_MS
+    } = deps;
     if (!bufferClient || typeof bufferClient.shareNowMany !== 'function') {
         throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
     }
 
     function getChannels() {
         return normalizeConfiguredChannels(CONFIG.BUFFER_CHANNELS);
+    }
+
+    function isWordPressMediaAvailable() {
+        return Boolean(
+            String(CONFIG.WORDPRESS_URL || '').trim()
+            && String(CONFIG.WORDPRESS_USER_ID || '').trim()
+            && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
+            && typeof parseImagePayload === 'function'
+            && typeof createWordPressClient === 'function'
+        );
     }
 
     function getComposerConfig() {
@@ -83,6 +118,7 @@ function createManualSnsService(deps = {}) {
             : { available: false, model_name: '' };
         return {
             configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
+            local_media_available: isWordPressMediaAvailable(),
             channels,
             ai
         };
@@ -163,6 +199,131 @@ function createManualSnsService(deps = {}) {
         }
     }
 
+    async function waitForTerminalPosts(apiKey, publishResults) {
+        const accepted = (Array.isArray(publishResults) ? publishResults : [])
+            .filter((result) => result?.success === true && String(result.bufferPostId || '').trim());
+        if (accepted.length === 0) {
+            return { results: publishResults, allTerminal: true };
+        }
+        if (typeof bufferClient.getPostsByIds !== 'function') {
+            return { results: publishResults, allTerminal: false };
+        }
+
+        const postIds = accepted.map((result) => String(result.bufferPostId).trim());
+        const postById = new Map();
+        const deadline = now() + Math.max(0, Number(pollTimeoutMs) || 0);
+
+        while (true) {
+            try {
+                const posts = await bufferClient.getPostsByIds(apiKey, postIds);
+                (Array.isArray(posts) ? posts : []).forEach((post) => {
+                    const id = String(post?.id || '').trim();
+                    if (id) postById.set(id, post);
+                });
+            } catch (error) {
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 게시 상태 확인 재시도: ${error?.message || 'unknown error'}`);
+            }
+
+            const allTerminal = postIds.every((postId) => {
+                const status = String(postById.get(postId)?.status || '').trim().toLowerCase();
+                return status === 'sent' || status === 'error';
+            });
+            if (allTerminal) {
+                return {
+                    allTerminal: true,
+                    results: publishResults.map((result) => {
+                        if (result?.success !== true) return result;
+                        const post = postById.get(String(result.bufferPostId || '').trim()) || {};
+                        if (post.status === 'sent') {
+                            return {
+                                ...result,
+                                status: 'sent',
+                                externalLink: String(post.externalLink || '').trim()
+                            };
+                        }
+                        return {
+                            ...result,
+                            success: false,
+                            status: 'error',
+                            code: 'BUFFER_POST_PUBLISH_FAILED',
+                            message: String(post.error?.message || 'Buffer 게시물 발행에 실패했습니다.').trim()
+                        };
+                    })
+                };
+            }
+            if (now() >= deadline) break;
+            await sleep(Math.max(0, Number(pollIntervalMs) || 0));
+        }
+
+        return {
+            allTerminal: false,
+            results: publishResults.map((result) => {
+                if (result?.success !== true) return result;
+                const post = postById.get(String(result.bufferPostId || '').trim()) || {};
+                if (post.status === 'sent') return { ...result, status: 'sent' };
+                if (post.status === 'error') {
+                    return {
+                        ...result,
+                        success: false,
+                        status: 'error',
+                        code: 'BUFFER_POST_PUBLISH_FAILED',
+                        message: String(post.error?.message || 'Buffer 게시물 발행에 실패했습니다.').trim()
+                    };
+                }
+                return {
+                    ...result,
+                    success: false,
+                    status: String(post.status || 'unknown').trim().toLowerCase(),
+                    code: 'BUFFER_POST_STATUS_TIMEOUT',
+                    message: 'Buffer 발행 상태 확인 시간이 초과되었습니다.'
+                };
+            })
+        };
+    }
+
+    async function recoverTimedOutPublish(apiKey, selectedChannels, text, startedAt) {
+        const organizationId = String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
+        if (!organizationId || typeof bufferClient.listRecentPosts !== 'function') return null;
+
+        const startedAtMs = Date.parse(String(startedAt || ''));
+        const startDate = new Date(
+            (Number.isFinite(startedAtMs) ? startedAtMs : now()) - (5 * 60 * 1000)
+        ).toISOString();
+        const attempts = Math.max(1, Number.parseInt(recoveryMaxAttempts, 10) || 1);
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+            try {
+                const posts = await bufferClient.listRecentPosts(apiKey, {
+                    organizationId,
+                    channelIds: selectedChannels.map((channel) => channel.id),
+                    startDate,
+                    first: 50
+                });
+                const postByKey = new Map();
+                for (const post of Array.isArray(posts) ? posts : []) {
+                    const key = `${String(post?.channelId || '').trim()}\n${String(post?.text || '').trim()}`;
+                    if (!postByKey.has(key) && post?.id) postByKey.set(key, post);
+                }
+                const recovered = selectedChannels.map((channel) => {
+                    const post = postByKey.get(`${channel.id}\n${text}`);
+                    if (!post?.id) return null;
+                    return {
+                        success: true,
+                        deliveryKey: channel.id,
+                        channelId: channel.id,
+                        bufferPostId: String(post.id).trim(),
+                        reconciled: true
+                    };
+                });
+                if (recovered.every(Boolean)) return recovered;
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 타임아웃 복구 대기 (${attempt}/${attempts})`);
+            } catch (error) {
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 타임아웃 복구 조회 실패 (${attempt}/${attempts}): ${error?.message || 'unknown error'}`);
+            }
+            if (attempt < attempts) await sleep(Math.max(0, Number(recoveryIntervalMs) || 0));
+        }
+        return null;
+    }
+
     async function publish(input = {}) {
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
         if (!apiKey) {
@@ -177,13 +338,20 @@ function createManualSnsService(deps = {}) {
             throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `발행 내용은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
         }
 
-        const imageUrl = normalizeImageUrl(input.imageUrl || input.image_url);
+        const requestedImageUrl = normalizeImageUrl(input.imageUrl || input.image_url);
+        const localImage = input.localImage || input.local_image || null;
+        if (requestedImageUrl && localImage) {
+            throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_SOURCE_CONFLICT', '이미지 URL과 로컬 이미지는 동시에 사용할 수 없습니다.');
+        }
+        if (localImage && !isWordPressMediaAvailable()) {
+            throw createManualSnsError(400, 'MANUAL_SNS_WORDPRESS_REQUIRED', '로컬 이미지를 사용하려면 설정 > 블로그에서 WordPress 연결 정보를 먼저 저장해 주세요.');
+        }
         const selectedChannels = resolveSelectedChannels(input);
 
         for (const channel of selectedChannels) {
             const label = channel.name || channel.service || '선택한 채널';
-            if (channel.image_required && !imageUrl) {
-                throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_REQUIRED', `${label} 채널은 이미지 URL이 필요합니다.`);
+            if (channel.image_required && !requestedImageUrl && !localImage) {
+                throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_REQUIRED', `${label} 채널은 이미지가 필요합니다.`);
             }
             const characterCount = measurePost(text, channel.service);
             if (characterCount > channel.limit) {
@@ -195,7 +363,63 @@ function createManualSnsService(deps = {}) {
             }
         }
 
+        let imageUrl = requestedImageUrl;
+        let temporaryMedia = null;
+        let wordpressClient = null;
+        if (localImage) {
+            let parsedImage;
+            try {
+                parsedImage = parseImagePayload({ ...localImage });
+            } catch (error) {
+                throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', error?.message || '로컬 이미지 파일을 확인해 주세요.');
+            }
+            const ext = String(parsedImage?.ext || '').trim().toLowerCase();
+            const mimeType = IMAGE_MIME_BY_EXT[ext];
+            if (!mimeType) {
+                throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', '지원하지 않는 이미지 형식입니다.');
+            }
+            wordpressClient = createWordPressClient();
+            if (
+                !wordpressClient
+                || typeof wordpressClient.uploadMedia !== 'function'
+                || typeof wordpressClient.deleteMedia !== 'function'
+                || !wordpressClient.isConfigured?.()
+            ) {
+                throw createManualSnsError(400, 'MANUAL_SNS_WORDPRESS_REQUIRED', 'WordPress 연결 정보를 확인해 주세요.');
+            }
+            const fileName = `manual-sns-${now()}${ext}`;
+            try {
+                temporaryMedia = await wordpressClient.uploadMedia(parsedImage.buffer, fileName, 'SNS 임시 이미지', mimeType);
+            } catch (error) {
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] WordPress 임시 이미지 업로드 실패: ${error?.message || 'unknown error'}`);
+                temporaryMedia = null;
+            }
+            if (!temporaryMedia?.id || !temporaryMedia?.url) {
+                if (temporaryMedia?.id && typeof wordpressClient.deleteMedia === 'function') {
+                    await wordpressClient.deleteMedia(temporaryMedia.id);
+                }
+                throw createManualSnsError(
+                    502,
+                    'MANUAL_SNS_WORDPRESS_UPLOAD_FAILED',
+                    'WordPress에 이미지를 업로드하지 못했습니다. 이미지 URL을 사용하거나 이미지를 제거한 후 다시 발행해 주세요.'
+                );
+            }
+            try {
+                imageUrl = normalizeImageUrl(temporaryMedia.url);
+            } catch (_error) {
+                if (typeof wordpressClient.deleteMedia === 'function') {
+                    await wordpressClient.deleteMedia(temporaryMedia.id);
+                }
+                throw createManualSnsError(
+                    502,
+                    'MANUAL_SNS_WORDPRESS_MEDIA_URL_INVALID',
+                    'WordPress가 공개 HTTPS 이미지 URL을 반환하지 않았습니다. WordPress 사이트 주소를 확인해 주세요.'
+                );
+            }
+        }
+
         let publishResults;
+        const publishStartedAt = new Date(now()).toISOString();
         try {
             publishResults = await bufferClient.shareNowMany(apiKey, selectedChannels.map((channel) => ({
                 deliveryKey: channel.id,
@@ -204,12 +428,37 @@ function createManualSnsService(deps = {}) {
                 imageUrl
             })));
         } catch (error) {
-            Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 즉시 발행 실패: ${error?.message || 'unknown error'}`);
-            throw createManualSnsError(
-                error?.code === 'BUFFER_AUTH_INVALID' ? 401 : 502,
-                error?.code || 'MANUAL_SNS_PUBLISH_FAILED',
-                error?.message || 'Buffer 즉시 발행에 실패했습니다.'
-            );
+            const requestTimedOut = String(error?.code || '').trim() === 'BUFFER_REQUEST_TIMEOUT';
+            if (requestTimedOut) {
+                publishResults = await recoverTimedOutPublish(apiKey, selectedChannels, text, publishStartedAt);
+            }
+            if (publishResults) {
+                Logger?.info?.('✅ [MANUAL_SNS] Buffer 응답 유실 게시물을 최근 게시물 조회로 복구했습니다.');
+            } else {
+                if (!requestTimedOut && temporaryMedia?.id && typeof wordpressClient?.deleteMedia === 'function') {
+                    await wordpressClient.deleteMedia(temporaryMedia.id);
+                }
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 즉시 발행 실패: ${error?.message || 'unknown error'}`);
+                throw createManualSnsError(
+                    error?.code === 'BUFFER_AUTH_INVALID' ? 401 : requestTimedOut ? 504 : 502,
+                    error?.code || 'MANUAL_SNS_PUBLISH_FAILED',
+                    requestTimedOut && temporaryMedia?.id
+                        ? 'Buffer 응답 시간이 초과되어 발행 여부를 확인하지 못했습니다. 중복 발행 방지를 위해 즉시 다시 시도하지 마세요. 임시 이미지는 WordPress 미디어에 남겨두었습니다.'
+                        : error?.message || 'Buffer 즉시 발행에 실패했습니다.'
+                );
+            }
+        }
+
+
+        let allTerminal = true;
+        let cleanupSucceeded = false;
+        if (temporaryMedia?.id) {
+            const reconciliation = await waitForTerminalPosts(apiKey, publishResults);
+            publishResults = reconciliation.results;
+            allTerminal = reconciliation.allTerminal;
+            if (allTerminal && typeof wordpressClient?.deleteMedia === 'function') {
+                cleanupSucceeded = await wordpressClient.deleteMedia(temporaryMedia.id) === true;
+            }
         }
 
         const resultByChannelId = new Map((Array.isArray(publishResults) ? publishResults : [])
@@ -222,6 +471,8 @@ function createManualSnsService(deps = {}) {
                 channel_name: channel.name,
                 service: channel.service,
                 buffer_post_id: String(result.bufferPostId || '').trim(),
+                status: String(result.status || '').trim(),
+                external_link: String(result.externalLink || '').trim(),
                 code: String(result.code || '').trim(),
                 message: String(result.message || '').trim()
             };
@@ -233,6 +484,9 @@ function createManualSnsService(deps = {}) {
             success: failureCount === 0,
             success_count: successCount,
             failure_count: failureCount,
+            media_cleanup: temporaryMedia?.id
+                ? { attempted: allTerminal, retained: !allTerminal || !cleanupSucceeded }
+                : null,
             results
         };
     }
@@ -247,6 +501,8 @@ function createManualSnsService(deps = {}) {
 module.exports = {
     MAX_CHANNELS,
     MAX_TEXT_LENGTH,
+    BUFFER_STATUS_POLL_TIMEOUT_MS,
+    BUFFER_STATUS_POLL_INTERVAL_MS,
     createManualSnsError,
     normalizeConfiguredChannel,
     normalizeConfiguredChannels,

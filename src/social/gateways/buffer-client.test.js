@@ -151,6 +151,7 @@ test('shareNowMany sends channel posts as aliased mutations and preserves per-ch
         image: { url: 'https://blog.example/image.jpg' }
     }]);
     assert.equal(axios.calls[0].body.variables.input1.assets, undefined);
+    assert.equal(axios.calls[0].options.timeout, 60000);
     assert.deepEqual(result, [
         {
             success: true,
@@ -169,7 +170,44 @@ test('shareNowMany sends channel posts as aliased mutations and preserves per-ch
     ]);
 });
 
-test('listRecentPosts queries recent scheduled, sending, and sent posts by channel', async () => {
+test('shareNowMany keeps the short timeout for text-only posts', async () => {
+    const axios = createAxiosMock([{
+        status: 200,
+        data: {
+            data: {
+                delivery0: {
+                    __typename: 'PostActionSuccess',
+                    post: { id: 'post-1', channelId: 'channel-1' }
+                }
+            }
+        }
+    }]);
+    const client = new BufferClient({ axios });
+
+    await client.shareNowMany('secret-key', [{ channelId: 'channel-1', text: '텍스트만 발행' }]);
+
+    assert.equal(axios.calls[0].options.timeout, 15000);
+});
+
+test('request exposes an explicit timeout error code', async () => {
+    const timeoutError = new Error('timeout of 60000ms exceeded');
+    timeoutError.code = 'ECONNABORTED';
+    const axios = createAxiosMock([timeoutError]);
+    const client = new BufferClient({ axios });
+
+    await assert.rejects(
+        () => client.shareNowMany('secret-key', [{
+            channelId: 'channel-1',
+            text: '이미지 발행',
+            imageUrl: 'https://blog.example/image.jpg'
+        }]),
+        (error) => error instanceof BufferApiError
+            && error.code === 'BUFFER_REQUEST_TIMEOUT'
+            && /60초/.test(error.message)
+    );
+});
+
+test('listRecentPosts queries recent posts without the unreliable API startDate filter', async () => {
     const axios = createAxiosMock([{
         status: 200,
         data: {
@@ -185,6 +223,16 @@ test('listRecentPosts queries recent scheduled, sending, and sent posts by chann
                                 createdAt: '2026-07-29T07:01:00.000Z',
                                 sentAt: '2026-07-29T07:01:05.000Z',
                                 externalLink: 'https://social.example/post-1'
+                            }
+                        },
+                        {
+                            node: {
+                                id: 'old-post',
+                                channelId: 'channel-1',
+                                text: '이전 글',
+                                status: 'sent',
+                                createdAt: '2026-07-29T06:55:59.000Z',
+                                sentAt: '2026-07-29T06:56:00.000Z'
                             }
                         }
                     ]
@@ -202,12 +250,13 @@ test('listRecentPosts queries recent scheduled, sending, and sent posts by chann
     });
 
     assert.match(axios.calls[0].body.query, /status: \[scheduled, sending, sent\]/);
+    assert.doesNotMatch(axios.calls[0].body.query, /startDate/);
     assert.deepEqual(axios.calls[0].body.variables, {
         organizationId: 'org-1',
         channelIds: ['channel-1'],
-        startDate: '2026-07-29T06:56:00.000Z',
         first: 20
     });
+    assert.equal(axios.calls[0].options.timeout, 30000);
     assert.deepEqual(result, [{
         id: 'post-1',
         channelId: 'channel-1',
@@ -215,13 +264,52 @@ test('listRecentPosts queries recent scheduled, sending, and sent posts by chann
         status: 'sent',
         createdAt: '2026-07-29T07:01:00.000Z',
         sentAt: '2026-07-29T07:01:05.000Z',
-        externalLink: 'https://social.example/post-1'
+        externalLink: 'https://social.example/post-1',
+        error: null
     }]);
+});
+
+test('getPostsByIds fetches terminal post state and publishing errors in one query', async () => {
+    const axios = createAxiosMock([{
+        status: 200,
+        data: {
+            data: {
+                post0: {
+                    id: 'post-1',
+                    channelId: 'channel-1',
+                    status: 'sent',
+                    sentAt: '2026-08-03T01:02:03.000Z',
+                    externalLink: 'https://social.example/1'
+                },
+                post1: {
+                    id: 'post-2',
+                    channelId: 'channel-2',
+                    status: 'error',
+                    error: { message: 'Image fetch failed', supportUrl: 'https://support.buffer.com/help' }
+                }
+            }
+        }
+    }]);
+    const client = new BufferClient({ axios });
+
+    const result = await client.getPostsByIds('secret-key', ['post-1', 'post-2']);
+
+    assert.match(axios.calls[0].body.query, /post0: post\(input: \$input0\)/);
+    assert.deepEqual(axios.calls[0].body.variables, {
+        input0: { id: 'post-1' },
+        input1: { id: 'post-2' }
+    });
+    assert.equal(result[0].status, 'sent');
+    assert.equal(result[1].status, 'error');
+    assert.equal(result[1].error.message, 'Image fetch failed');
 });
 
 test('transient Buffer errors include connection, rate limit, and server failures', () => {
     assert.equal(isTransientBufferError(new BufferApiError('network', {
         code: 'BUFFER_CONNECTION_FAILED'
+    })), true);
+    assert.equal(isTransientBufferError(new BufferApiError('timeout', {
+        code: 'BUFFER_REQUEST_TIMEOUT'
     })), true);
     assert.equal(isTransientBufferError(new BufferApiError('limited', {
         code: 'BUFFER_CONNECTION_FAILED',

@@ -55,11 +55,15 @@ function createUiHttpServerRuntime(deps = {}) {
                     Logger.debug(`[API][${requestId}] Request: ${method} ${pathname}`);
                     let requestBody = {};
                     if (method === 'POST') {
-                        const limitBytes = pathname === '/api/v1/settings/shopping-image'
-                            ? 15 * 1024 * 1024
-                            : (pathname === '/api/v1/blog/local-markdown/publish'
-                                ? 40 * 1024 * 1024
-                                : 1024 * 1024);
+                        let limitBytes = 1024 * 1024;
+                        if (
+                            pathname === '/api/v1/settings/shopping-image'
+                            || pathname === '/api/v1/social/manual/publish'
+                        ) {
+                            limitBytes = 15 * 1024 * 1024;
+                        } else if (pathname === '/api/v1/blog/local-markdown/publish') {
+                            limitBytes = 40 * 1024 * 1024;
+                        }
                         requestBody = await readJsonBody(req, limitBytes);
                     }
                     const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);

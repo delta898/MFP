@@ -1434,6 +1434,11 @@
             <div>
               <h1>SNS</h1>
               <p class="muted social-view-description">짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.</p>
+              <div class="buffer-resource-links social-view-resource-links" aria-label="Buffer 관련 링크">
+                <a href="https://m.blog.naver.com/amadejjs/223940980574" target="_blank" rel="noopener noreferrer">Buffer 알아보기</a>
+                <span aria-hidden="true">·</span>
+                <a href="https://join.buffer.com/delta898-gmail-com" target="_blank" rel="noopener noreferrer">Buffer 가입</a>
+              </div>
             </div>
             <div class="page-clock-widget">
               <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
@@ -1481,13 +1486,39 @@
           <section class="social-composer-section" aria-labelledby="manual-sns-image-title">
             <div class="social-section-heading">
               <div>
-                <h2 id="manual-sns-image-title">이미지 URL <span class="social-optional-label">선택</span></h2>
-                <p>외부에서 직접 접근할 수 있는 공개 HTTPS 이미지 URL 1개를 입력하세요.</p>
+                <h2 id="manual-sns-image-title">이미지 <span class="social-optional-label">선택</span></h2>
+                <p>공개 이미지 URL 또는 로컬 이미지 파일 1개를 사용할 수 있습니다.</p>
               </div>
             </div>
-            <div class="social-image-row">
+            <div class="social-image-source-options" role="radiogroup" aria-label="SNS 이미지 입력 방식">
+              <label>
+                <input id="manual-sns-image-source-url" type="radio" name="manual-sns-image-source" value="url" checked>
+                이미지 URL
+              </label>
+              <label id="manual-sns-image-source-local-label">
+                <input id="manual-sns-image-source-local" type="radio" name="manual-sns-image-source" value="local">
+                로컬 이미지 파일
+              </label>
+              <span class="tooltip-container social-media-help">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">로컬 파일은 WordPress에 임시 업로드한 뒤 Buffer 발행이 성공하거나 실패하면 삭제합니다. 상태 확인 시간 초과 또는 앱 종료 시 WordPress 미디어에 남을 수 있습니다.</span>
+              </span>
+            </div>
+            <div id="manual-sns-image-url-panel" class="social-image-row">
               <input id="manual-sns-image-url" type="url" inputmode="url" placeholder="https://example.com/image.jpg">
               <button id="manual-sns-image-remove-btn" class="secondary" type="button" hidden>제거</button>
+            </div>
+            <div id="manual-sns-image-local-panel" class="social-image-row social-local-image-row" hidden>
+              <label id="manual-sns-image-file-picker" class="social-local-image-picker" for="manual-sns-image-file">
+                <input id="manual-sns-image-file" class="social-local-image-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                <span class="social-local-image-icon" aria-hidden="true">＋</span>
+                <span class="social-local-image-copy">
+                  <strong id="manual-sns-image-file-name">이미지 파일 선택</strong>
+                  <small>PNG, JPG, WEBP, GIF · 최대 10MB</small>
+                </span>
+                <span id="manual-sns-image-file-action" class="social-local-image-action">파일 찾기</span>
+              </label>
+              <button id="manual-sns-image-file-remove-btn" class="secondary" type="button" hidden>제거</button>
             </div>
             <div id="manual-sns-image-preview" class="social-image-preview" hidden>
               <img id="manual-sns-image-preview-img" alt="선택한 SNS 이미지 미리보기">
@@ -2034,7 +2065,14 @@
         <div class="card form-card settings-tab-panel" id="settings-tab-sns">
           <h2>SNS 자동 발행</h2>
           <div class="form-grid">
-            <div class="settings-section-divider">Buffer 연결</div>
+            <div class="settings-section-divider settings-section-divider-with-links">
+              <span>Buffer 연결</span>
+              <span id="settings-buffer-help-wrap" class="buffer-resource-links" aria-label="Buffer 관련 링크">
+                <a id="settings-buffer-help-link" href="https://m.blog.naver.com/amadejjs/223940980574" target="_blank" rel="noopener noreferrer">Buffer 알아보기</a>
+                <span aria-hidden="true">·</span>
+                <a href="https://join.buffer.com/delta898-gmail-com" target="_blank" rel="noopener noreferrer">Buffer 가입</a>
+              </span>
+            </div>
             <div class="form-field-block" style="grid-column: 1 / -1;">
               <label class="settings-checkbox-label sns-activation-label">
                 <input id="settings-sns-publish-enabled" type="checkbox">
@@ -2110,9 +2148,6 @@
               <div id="settings-sns-runtime-result" class="settings-sns-status">상태 확인 중...</div>
             </div>
 
-            <div id="settings-buffer-help-wrap" class="form-field-block" style="grid-column: 1 / -1; display:none;">
-              <a id="settings-buffer-help-link" class="secondary" href="#" target="_blank" rel="noreferrer">Buffer 연동 방법 보기</a>
-            </div>
           </div>
 
           <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">

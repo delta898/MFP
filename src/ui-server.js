@@ -44,6 +44,7 @@ const {
 } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { BufferClient } = require('./social/gateways/buffer-client');
+const WordPressClient = require('./wordpress-client');
 const { createSnsSheetStore } = require('./social/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
@@ -1897,6 +1898,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     restartRemoteMcpService,
     getRemoteServiceStatus,
     BufferClient,
+    WordPressClient,
     createConfigRevision,
     sendSuccess,
     sendError

@@ -1,4 +1,6 @@
 const DEFAULT_ENDPOINT = 'https://api.buffer.com';
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+const DEFAULT_MEDIA_REQUEST_TIMEOUT_MS = 60000;
 
 class BufferApiError extends Error {
     constructor(message, options = {}) {
@@ -55,6 +57,12 @@ function normalizePublishDelivery(item = {}, index = 0) {
 }
 
 function normalizePost(item = {}) {
+    const publishingError = item?.error && typeof item.error === 'object'
+        ? {
+            message: String(item.error.message || '').trim(),
+            supportUrl: String(item.error.supportUrl || '').trim()
+        }
+        : null;
     return {
         id: String(item.id || '').trim(),
         channelId: String(item.channelId || '').trim(),
@@ -62,7 +70,8 @@ function normalizePost(item = {}) {
         status: String(item.status || '').trim().toLowerCase(),
         createdAt: String(item.createdAt || '').trim(),
         sentAt: String(item.sentAt || '').trim(),
-        externalLink: String(item.externalLink || '').trim()
+        externalLink: String(item.externalLink || '').trim(),
+        error: publishingError
     };
 }
 
@@ -73,6 +82,7 @@ function isTransientBufferError(error) {
         || status >= 500
         || [
             'BUFFER_CONNECTION_FAILED',
+            'BUFFER_REQUEST_TIMEOUT',
             'INTERNAL_SERVER_ERROR',
             'SERVICE_UNAVAILABLE',
             'TIMEOUT',
@@ -86,10 +96,11 @@ class BufferClient {
     constructor(options = {}) {
         this.axios = options.axios || require('axios');
         this.endpoint = String(options.endpoint || DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT;
-        this.timeoutMs = Number(options.timeoutMs) || 15000;
+        this.timeoutMs = Number(options.timeoutMs) || DEFAULT_REQUEST_TIMEOUT_MS;
+        this.mediaTimeoutMs = Number(options.mediaTimeoutMs) || DEFAULT_MEDIA_REQUEST_TIMEOUT_MS;
     }
 
-    async request(apiKey, query, variables = {}) {
+    async request(apiKey, query, variables = {}, options = {}) {
         const token = normalizeApiKey(apiKey);
         if (!token) {
             throw new BufferApiError('Buffer API Key를 입력해 주세요.', {
@@ -98,12 +109,13 @@ class BufferClient {
         }
 
         let response;
+        const timeoutMs = Number(options.timeoutMs) || this.timeoutMs;
         try {
             response = await this.axios.post(
                 this.endpoint,
                 { query, variables },
                 {
-                    timeout: this.timeoutMs,
+                    timeout: timeoutMs,
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -112,10 +124,18 @@ class BufferClient {
             );
         } catch (error) {
             const status = Number(error?.response?.status) || 0;
-            const code = status === 401 ? 'BUFFER_AUTH_INVALID' : 'BUFFER_CONNECTION_FAILED';
+            const timeout = ['ECONNABORTED', 'ETIMEDOUT'].includes(String(error?.code || '').toUpperCase())
+                || /timeout/i.test(String(error?.message || ''));
+            const code = status === 401
+                ? 'BUFFER_AUTH_INVALID'
+                : timeout
+                    ? 'BUFFER_REQUEST_TIMEOUT'
+                    : 'BUFFER_CONNECTION_FAILED';
             throw new BufferApiError(
                 status === 401
                     ? 'Buffer API Key가 유효하지 않습니다.'
+                    : timeout
+                        ? `Buffer가 ${Math.round(timeoutMs / 1000)}초 안에 응답하지 않았습니다.`
                     : `Buffer API 연결에 실패했습니다: ${error?.message || 'unknown error'}`,
                 { code, status, details: error?.response?.data || null }
             );
@@ -235,7 +255,6 @@ class BufferClient {
             query GetRecentPosts(
                 $organizationId: OrganizationId!,
                 $channelIds: [ChannelId!],
-                $startDate: DateTime,
                 $first: Int
             ) {
                 posts(
@@ -244,8 +263,7 @@ class BufferClient {
                         organizationId: $organizationId,
                         filter: {
                             channelIds: $channelIds,
-                            status: [scheduled, sending, sent],
-                            startDate: $startDate
+                            status: [scheduled, sending, sent]
                         },
                         sort: [{ field: createdAt, direction: desc }]
                     }
@@ -266,13 +284,67 @@ class BufferClient {
         `, {
             organizationId,
             channelIds,
-            startDate: startDate || null,
             first
+        }, {
+            timeoutMs: Math.max(this.timeoutMs, 30000)
         });
 
+        const earliestCreatedAt = Date.parse(startDate);
         return (Array.isArray(data?.posts?.edges) ? data.posts.edges : [])
             .map((edge) => normalizePost(edge?.node))
-            .filter((post) => post.id && post.channelId);
+            .filter((post) => post.id && post.channelId)
+            .filter((post) => {
+                if (!Number.isFinite(earliestCreatedAt)) return true;
+                const createdAt = Date.parse(post.createdAt);
+                return Number.isFinite(createdAt) && createdAt >= earliestCreatedAt;
+            });
+    }
+
+    async getPostsByIds(apiKey, postIds = []) {
+        const normalizedIds = [...new Set((Array.isArray(postIds) ? postIds : [])
+            .map((value) => String(value || '').trim())
+            .filter(Boolean))];
+        if (normalizedIds.length === 0) return [];
+        if (normalizedIds.length > 3) {
+            throw new BufferApiError('Buffer 게시물 상태는 한 번에 최대 3개까지 확인합니다.', {
+                code: 'BUFFER_POST_QUERY_LIMIT_EXCEEDED'
+            });
+        }
+
+        const variableDefinitions = normalizedIds
+            .map((_, index) => `$input${index}: PostInput!`)
+            .join(', ');
+        const queryFields = normalizedIds
+            .map((_, index) => `
+                post${index}: post(input: $input${index}) {
+                    id
+                    channelId
+                    text
+                    status
+                    createdAt
+                    sentAt
+                    externalLink
+                    error {
+                        message
+                        supportUrl
+                    }
+                }
+            `)
+            .join('\n');
+        const variables = {};
+        normalizedIds.forEach((postId, index) => {
+            variables[`input${index}`] = { id: postId };
+        });
+
+        const data = await this.request(apiKey, `
+            query GetPostsByIds(${variableDefinitions}) {
+                ${queryFields}
+            }
+        `, variables);
+
+        return normalizedIds
+            .map((_, index) => normalizePost(data?.[`post${index}`]))
+            .filter((post) => post.id);
     }
 
     async shareNowMany(apiKey, deliveries = []) {
@@ -323,7 +395,11 @@ class BufferClient {
             mutation ShareNowMany(${variableDefinitions}) {
                 ${mutationFields}
             }
-        `, variables);
+        `, variables, {
+            timeoutMs: normalized.some((delivery) => delivery.imageUrl)
+                ? this.mediaTimeoutMs
+                : this.timeoutMs
+        });
 
         return normalized.map((delivery, index) => {
             const payload = data?.[`delivery${index}`] || {};

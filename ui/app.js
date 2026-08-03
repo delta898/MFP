@@ -3377,10 +3377,37 @@ function initClockWidget() {
 }
 
 
-let manualSnsConfig = { configured: false, channels: [], ai: { available: false, model_name: '' } };
+let manualSnsConfig = { configured: false, local_media_available: false, channels: [], ai: { available: false, model_name: '' } };
 let manualSnsConfigLoading = false;
 let manualSnsOptimizationSnapshot = null;
 let manualSnsOptimizationInFlight = false;
+let manualSnsLocalImageFile = null;
+let manualSnsLocalImagePreviewUrl = '';
+const MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY = 'manual_sns_selected_channel_ids_v1';
+const DEFAULT_BUFFER_HELP_URL = 'https://m.blog.naver.com/amadejjs/223940980574';
+
+function loadManualSnsSelectedChannelIds() {
+  try {
+    const raw = localStorage.getItem(MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return new Set(parsed.map((id) => String(id || '').trim()).filter(Boolean));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function persistManualSnsSelectedChannels() {
+  const selectedIds = Array.from(document.querySelectorAll('[data-manual-sns-channel]:checked'))
+    .map((input) => String(input.value || '').trim())
+    .filter(Boolean);
+  try {
+    localStorage.setItem(MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY, JSON.stringify(selectedIds));
+  } catch (_error) {
+    // Local Storage가 차단되어도 SNS 발행 자체는 계속 사용할 수 있어야 합니다.
+  }
+}
 
 function getManualSnsSelectedChannels() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('[data-manual-sns-channel]:checked'))
@@ -3390,36 +3417,91 @@ function getManualSnsSelectedChannels() {
 }
 
 function getManualSnsImageValidation() {
+  const localMode = document.getElementById('manual-sns-image-source-local')?.checked === true;
+  if (localMode) {
+    if (manualSnsConfig.local_media_available !== true) {
+      return { valid: false, mode: 'local', hasImage: false, message: '로컬 이미지를 사용하려면 WordPress 연결 설정이 필요합니다.' };
+    }
+    if (!manualSnsLocalImageFile) return { valid: true, mode: 'local', hasImage: false, file: null, url: '' };
+    const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+    if (!allowedTypes.has(String(manualSnsLocalImageFile.type || '').toLowerCase())) {
+      return { valid: false, mode: 'local', hasImage: false, message: 'png, jpg, webp, gif 이미지만 사용할 수 있습니다.' };
+    }
+    if (manualSnsLocalImageFile.size > 10 * 1024 * 1024) {
+      return { valid: false, mode: 'local', hasImage: false, message: '이미지 파일은 최대 10MB까지 사용할 수 있습니다.' };
+    }
+    return { valid: true, mode: 'local', hasImage: true, file: manualSnsLocalImageFile, url: '' };
+  }
   const raw = String(document.getElementById('manual-sns-image-url')?.value || '').trim();
-  if (!raw) return { valid: true, url: '' };
+  if (!raw) return { valid: true, mode: 'url', hasImage: false, url: '' };
   try {
     const url = new URL(raw);
     if (url.protocol !== 'https:' || url.username || url.password) {
-      return { valid: false, url: '', message: '공개 HTTPS 이미지 URL을 입력하세요.' };
+      return { valid: false, mode: 'url', hasImage: false, url: '', message: '공개 HTTPS 이미지 URL을 입력하세요.' };
     }
-    return { valid: true, url: url.toString() };
+    return { valid: true, mode: 'url', hasImage: true, url: url.toString() };
   } catch (_error) {
-    return { valid: false, url: '', message: '이미지 URL 형식을 확인하세요.' };
+    return { valid: false, mode: 'url', hasImage: false, url: '', message: '이미지 URL 형식을 확인하세요.' };
   }
+}
+
+function setManualSnsLocalImageFile(file = null) {
+  if (manualSnsLocalImagePreviewUrl) URL.revokeObjectURL(manualSnsLocalImagePreviewUrl);
+  manualSnsLocalImageFile = file || null;
+  manualSnsLocalImagePreviewUrl = file ? URL.createObjectURL(file) : '';
+}
+
+function syncManualSnsImageSourceUi() {
+  const localRadio = document.getElementById('manual-sns-image-source-local');
+  const localLabel = document.getElementById('manual-sns-image-source-local-label');
+  const urlRadio = document.getElementById('manual-sns-image-source-url');
+  const urlPanel = document.getElementById('manual-sns-image-url-panel');
+  const localPanel = document.getElementById('manual-sns-image-local-panel');
+  const localAvailable = manualSnsConfig.local_media_available === true;
+  if (localRadio) localRadio.disabled = !localAvailable;
+  if (localLabel) {
+    localLabel.classList.toggle('is-disabled', !localAvailable);
+    localLabel.title = localAvailable ? '' : '설정 > 블로그에서 WordPress 연결 정보를 먼저 저장해 주세요.';
+  }
+  if (!localAvailable && localRadio?.checked && urlRadio) urlRadio.checked = true;
+  const localMode = localRadio?.checked === true;
+  if (urlPanel) urlPanel.hidden = localMode;
+  if (localPanel) localPanel.hidden = !localMode;
 }
 
 function syncManualSnsImagePreview() {
   const inputEl = document.getElementById('manual-sns-image-url');
   const removeBtn = document.getElementById('manual-sns-image-remove-btn');
+  const fileRemoveBtn = document.getElementById('manual-sns-image-file-remove-btn');
+  const filePickerEl = document.getElementById('manual-sns-image-file-picker');
+  const fileNameEl = document.getElementById('manual-sns-image-file-name');
+  const fileActionEl = document.getElementById('manual-sns-image-file-action');
   const previewEl = document.getElementById('manual-sns-image-preview');
   const imageEl = document.getElementById('manual-sns-image-preview-img');
   const statusEl = document.getElementById('manual-sns-image-preview-status');
   const raw = String(inputEl?.value || '').trim();
+  syncManualSnsImageSourceUi();
+  const validation = getManualSnsImageValidation();
   if (removeBtn) removeBtn.hidden = !raw;
+  if (fileRemoveBtn) fileRemoveBtn.hidden = !manualSnsLocalImageFile;
+  if (filePickerEl) filePickerEl.classList.toggle('has-file', Boolean(manualSnsLocalImageFile));
+  if (fileNameEl) fileNameEl.textContent = manualSnsLocalImageFile?.name || '이미지 파일 선택';
+  if (fileActionEl) fileActionEl.textContent = manualSnsLocalImageFile ? '변경' : '파일 찾기';
   if (!previewEl || !imageEl || !statusEl) return;
 
-  const validation = getManualSnsImageValidation();
-  if (!raw || !validation.valid) {
+  if (!validation.hasImage || !validation.valid) {
     previewEl.hidden = true;
     imageEl.removeAttribute('src');
     return;
   }
   previewEl.hidden = false;
+  if (validation.mode === 'local') {
+    imageEl.onload = null;
+    imageEl.onerror = null;
+    imageEl.src = manualSnsLocalImagePreviewUrl;
+    statusEl.textContent = `${validation.file.name} · WordPress를 통해 임시 업로드됩니다.`;
+    return;
+  }
   statusEl.textContent = '이미지 미리보기를 불러오는 중입니다.';
   imageEl.onerror = () => {
     statusEl.textContent = '미리보기를 불러오지 못했습니다. Buffer에서 접근 가능한 직접 이미지 URL인지 확인하세요.';
@@ -3431,6 +3513,7 @@ function syncManualSnsImagePreview() {
 }
 
 function syncManualSnsComposerState() {
+  syncManualSnsImageSourceUi();
   const textEl = document.getElementById('manual-sns-text');
   const countEl = document.getElementById('manual-sns-character-count');
   const limitEl = document.getElementById('manual-sns-limit-status');
@@ -3453,8 +3536,8 @@ function syncManualSnsComposerState() {
     errorMessage = image.message;
   } else {
     const imageRequired = selectedChannels.find((channel) => channel.image_required === true);
-    if (imageRequired && !image.url) {
-      errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지 URL이 필요합니다.`;
+    if (imageRequired && !image.hasImage) {
+      errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지가 필요합니다.`;
     }
   }
 
@@ -3470,7 +3553,7 @@ function syncManualSnsComposerState() {
   }
   if (summaryEl) {
     summaryEl.textContent = selectedChannels.length > 0
-      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.url ? ' · 이미지 포함' : ''}.`
+      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ' · 이미지 포함' : ''}.`
       : '발행할 채널을 선택하세요.';
   }
   if (publishBtn) {
@@ -3526,6 +3609,7 @@ function renderManualSnsChannels() {
   }
 
   if (selectAllEl) selectAllEl.disabled = false;
+  const savedChannelIds = loadManualSnsSelectedChannelIds();
   channels.forEach((channel) => {
     const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
     const label = document.createElement('label');
@@ -3535,7 +3619,11 @@ function renderManualSnsChannels() {
     input.value = channel.id;
     input.dataset.manualSnsChannel = 'true';
     input.disabled = unavailable;
-    input.addEventListener('change', syncManualSnsComposerState);
+    input.checked = !unavailable && savedChannelIds?.has(String(channel.id || '').trim()) === true;
+    input.addEventListener('change', () => {
+      persistManualSnsSelectedChannels();
+      syncManualSnsComposerState();
+    });
     const copy = document.createElement('span');
     copy.className = 'social-channel-copy';
     const name = document.createElement('strong');
@@ -3548,6 +3636,7 @@ function renderManualSnsChannels() {
     label.append(input, copy);
     listEl.appendChild(label);
   });
+  if (savedChannelIds !== null) persistManualSnsSelectedChannels();
   syncManualSnsComposerState();
 }
 
@@ -3570,6 +3659,7 @@ async function loadManualSnsComposer({ force = false } = {}) {
     const data = await fetchJson('/api/v1/social/manual/config');
     manualSnsConfig = {
       configured: data?.configured === true,
+      local_media_available: data?.local_media_available === true,
       channels: Array.isArray(data?.channels) ? data.channels : [],
       ai: data?.ai && typeof data.ai === 'object'
         ? { available: data.ai.available === true, model_name: String(data.ai.model_name || '') }
@@ -3577,7 +3667,7 @@ async function loadManualSnsComposer({ force = false } = {}) {
     };
     renderManualSnsChannels();
   } catch (error) {
-    manualSnsConfig = { configured: false, channels: [], ai: { available: false, model_name: '' } };
+    manualSnsConfig = { configured: false, local_media_available: false, channels: [], ai: { available: false, model_name: '' } };
     renderManualSnsChannels();
   } finally {
     manualSnsConfigLoading = false;
@@ -3652,9 +3742,24 @@ function renderManualSnsPublishResult(data = {}) {
     const row = document.createElement('div');
     row.className = `social-result-row ${result.success ? 'is-success' : 'is-error'}`;
     row.textContent = result.success
-      ? `✅ ${result.channel_name || result.service} 발행 요청 성공`
+      ? `✅ ${result.channel_name || result.service} ${result.status === 'sent' ? '발행 성공' : '발행 요청 성공'}`
       : `❌ ${result.channel_name || result.service} 실패${result.message ? ` · ${result.message}` : ''}`;
     resultEl.appendChild(row);
+  });
+  if (data.media_cleanup?.retained === true) {
+    const cleanupRow = document.createElement('div');
+    cleanupRow.className = 'social-result-row is-error';
+    cleanupRow.textContent = '⚠️ 발행 상태를 확인하지 못해 임시 이미지가 WordPress 미디어에 남아 있습니다.';
+    resultEl.appendChild(cleanupRow);
+  }
+}
+
+function readManualSnsFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('이미지 파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
   });
 }
 
@@ -3679,13 +3784,23 @@ async function publishManualSns() {
   publishBtn.textContent = '발행 중...';
   if (resultEl) {
     resultEl.classList.add('is-visible');
-    resultEl.textContent = 'Buffer로 즉시 발행하고 있습니다.';
+    resultEl.textContent = image.mode === 'local'
+      ? 'WordPress에 이미지를 임시 업로드하고 Buffer로 발행하고 있습니다.'
+      : 'Buffer로 즉시 발행하고 있습니다.';
   }
   try {
+    const localImage = image.mode === 'local' && image.file
+      ? {
+          fileName: image.file.name,
+          mimeType: image.file.type,
+          base64Data: await readManualSnsFileAsDataUrl(image.file)
+        }
+      : null;
     const data = await postJson('/api/v1/social/manual/publish', {
       channelIds: selectedChannels.map((channel) => channel.id),
       text,
-      imageUrl: image.url
+      imageUrl: image.url,
+      localImage
     });
     renderManualSnsPublishResult(data);
   } catch (error) {
@@ -3702,6 +3817,10 @@ function initManualSnsComposer() {
   const textEl = document.getElementById('manual-sns-text');
   const imageUrlEl = document.getElementById('manual-sns-image-url');
   const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
+  const imageFileEl = document.getElementById('manual-sns-image-file');
+  const imageFileRemoveBtn = document.getElementById('manual-sns-image-file-remove-btn');
+  const imageSourceUrlEl = document.getElementById('manual-sns-image-source-url');
+  const imageSourceLocalEl = document.getElementById('manual-sns-image-source-local');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
@@ -3717,15 +3836,35 @@ function initManualSnsComposer() {
     syncManualSnsComposerState();
     imageUrlEl?.focus();
   });
+  imageFileEl?.addEventListener('change', () => {
+    setManualSnsLocalImageFile(imageFileEl.files?.[0] || null);
+    syncManualSnsImagePreview();
+    syncManualSnsComposerState();
+  });
+  imageFileRemoveBtn?.addEventListener('click', () => {
+    setManualSnsLocalImageFile(null);
+    if (imageFileEl) imageFileEl.value = '';
+    syncManualSnsImagePreview();
+    syncManualSnsComposerState();
+    imageFileEl?.focus();
+  });
+  [imageSourceUrlEl, imageSourceLocalEl].forEach((radio) => {
+    radio?.addEventListener('change', () => {
+      syncManualSnsImagePreview();
+      syncManualSnsComposerState();
+    });
+  });
   selectAllEl?.addEventListener('change', () => {
     const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
     const shouldSelect = selectAllEl.checked;
     enabledInputs.forEach((input) => { input.checked = shouldSelect; });
+    persistManualSnsSelectedChannels();
     syncManualSnsComposerState();
   });
   publishBtn?.addEventListener('click', () => void publishManualSns());
   optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());
   undoBtn?.addEventListener('click', undoManualSnsOptimization);
+  syncManualSnsImageSourceUi();
   syncManualSnsComposerState();
 }
 
@@ -5010,9 +5149,9 @@ function renderSettingsBufferChannels() {
 function syncSettingsBufferHelpLink(url = '') {
   const wrapEl = document.getElementById('settings-buffer-help-wrap');
   const linkEl = document.getElementById('settings-buffer-help-link');
-  const normalizedUrl = String(url || '').trim();
-  if (linkEl) linkEl.href = normalizedUrl || '#';
-  if (wrapEl) wrapEl.style.display = normalizedUrl ? '' : 'none';
+  const normalizedUrl = String(url || '').trim() || DEFAULT_BUFFER_HELP_URL;
+  if (linkEl) linkEl.href = normalizedUrl;
+  if (wrapEl) wrapEl.style.display = '';
 }
 
 function syncSettingsSnsAiHint() {

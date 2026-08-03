@@ -4,8 +4,9 @@
 
 Phase 1 implementation and runtime verification are complete. Phase 2 Chat
 Model optimization is implemented and has passed unit and responsive UI
-verification. A saved real Chat Model must still be used for the final runtime
-call and undo verification before this plan is archived.
+verification. Phase 3 adds optional local-image delivery through the user's
+configured WordPress media library without introducing a persistent cleanup
+queue.
 
 ## Goal
 
@@ -67,13 +68,30 @@ integration, but not their activation or workflow state.
 - Use exactly one model attempt. Optimization failure leaves the editor and the
   manual publish path unchanged; there is no automatic model fallback.
 
-### Phase 3: Optional Enhancements
+### Phase 3: WordPress-backed Local Image
+
+- Keep a public HTTPS URL as the default image input.
+- Enable a one-file local image input only when WordPress URL, user ID, and
+  application password are all configured.
+- Upload the selected image to the WordPress media library before calling
+  Buffer. If upload fails, stop without attempting any SNS post and tell the
+  user to use a URL or remove the image.
+- Send the returned public WordPress media URL to Buffer.
+- For each accepted Buffer post ID, poll the Buffer post query until every post
+  reaches `sent` or `error`.
+- Delete the temporary WordPress media after all Buffer posts reach either
+  terminal state. Buffer success and Buffer failure use the same cleanup path.
+- If status polling times out, the app exits, or WordPress deletion itself
+  fails, accept that an orphaned media item may remain. Do not add a database,
+  local job journal, startup recovery, or scheduled garbage collector.
+- Support one local image up to 10 MB in png, jpg/jpeg, webp, or gif format.
+
+### Later Optional Enhancements
 
 - Failed-channel-only retry.
 - Draft autosave or a manual recent-drafts list.
 - More AI optimization modes.
 - Channel-specific post variants.
-- Local media upload only after a managed public media-storage contract exists.
 
 ## API Contract
 
@@ -84,6 +102,7 @@ Returns only public composer configuration:
 ```json
 {
   "configured": true,
+  "local_media_available": true,
   "ai": {
     "available": true,
     "model_name": "Gemini 3.6 Flash"
@@ -145,6 +164,24 @@ Request:
 }
 ```
 
+For a local image, `imageUrl` is omitted and `localImage` is sent instead:
+
+```json
+{
+  "channelIds": ["buffer-channel-id"],
+  "text": "Post body",
+  "localImage": {
+    "fileName": "photo.png",
+    "mimeType": "image/png",
+    "base64Data": "data:image/png;base64,..."
+  }
+}
+```
+
+Local media is accepted only while WordPress is fully configured. The response
+may include `media_cleanup` for user-visible cleanup diagnostics, but never
+returns WordPress credentials.
+
 Response contains normalized per-channel results. A mixed result is a successful
 API response with `success: false` and both success and failure entries; transport
 or validation failures use an API error response.
@@ -157,7 +194,11 @@ UI manual SNS composer
   -> Manual SNS Service
        -> configured Buffer channel allow-list
        -> optimize: SNS AI Service -> resolved Chat Model role
-       -> publish: SNS service policy validation -> BufferClient.shareNowMany()
+       -> publish: SNS service policy validation
+            -> optional WordPressClient.uploadMedia()
+            -> BufferClient.shareNowMany()
+            -> BufferClient.getPostsByIds() polling
+            -> WordPressClient.deleteMedia()
 ```
 
 The manual service owns user-input validation and channel authorization.
@@ -173,8 +214,25 @@ and Chat Model execution but has no Buffer publishing authority.
 - The service validates again; browser validation is only guidance.
 - Image URLs must use HTTPS. The UI explains that Buffer needs a public, direct
   image URL.
+- Local image upload failure never silently degrades into text-only publishing.
+- Temporary media cleanup is best effort. A status timeout intentionally leaves
+  the media in WordPress because Buffer delivery is not known to be terminal.
+- Buffer post creation keeps the normal 15-second transport timeout for
+  text-only requests but allows 60 seconds when Buffer must fetch remote media.
+  After a create-request timeout, the service queries recent posts without
+  Buffer's unreliable server-side start-date filter and matches every selected
+  channel by exact text. Recovery lookup runs up to three times without ever
+  resending the create mutation. Complete recovery resumes status polling and
+  cleanup; an unresolved timeout retains the WordPress media instead of risking
+  a broken or duplicate post.
 - Manual text is never silently shortened. The UI and API identify every channel
   whose limit is exceeded.
+- The browser stores the manual composer's selected Buffer channel IDs in Local
+  Storage. On reload it restores only IDs that still exist and are available in
+  the current Buffer channel catalog; an explicitly empty selection is retained.
+- Buffer introduction and signup links remain available as subdued text links
+  in both the SNS composer header and the Buffer connection section. They do not
+  occupy a banner or interrupt the publishing workflow.
 - AI optimization replaces the single editor only after a successful response.
   The UI stores the immediately preceding value and exposes an explicit one-step
   restore action; browser keyboard undo is supplementary rather than required.
