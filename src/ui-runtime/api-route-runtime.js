@@ -14,6 +14,7 @@ function createUiApiRouteRuntime(deps = {}) {
         cheerio,
         RuntimeConfig,
         TelegramService,
+        snsAiService,
         DEFAULT_HOST,
         DEFAULT_PORT,
         SHOPPING_IMAGE_SLOT_MAP,
@@ -182,6 +183,7 @@ function createUiApiRouteRuntime(deps = {}) {
             const service = createManualSnsService({
                 CONFIG,
                 bufferClient: new BufferClient({ axios }),
+                aiService: snsAiService,
                 Logger
             });
             const controller = createManualSnsController({

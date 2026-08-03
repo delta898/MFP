@@ -1797,6 +1797,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     cheerio,
     RuntimeConfig,
     TelegramService,
+    snsAiService,
     DEFAULT_HOST,
     DEFAULT_PORT,
     SHOPPING_IMAGE_SLOT_MAP,

@@ -3,7 +3,9 @@
 ## Status
 
 Phase 1 implementation and runtime verification are complete. Phase 2 Chat
-Model optimization remains planned as an optional enhancement.
+Model optimization is implemented and has passed unit and responsive UI
+verification. A saved real Chat Model must still be used for the final runtime
+call and undo verification before this plan is archived.
 
 ## Goal
 
@@ -62,6 +64,8 @@ integration, but not their activation or workflow state.
   - add up to five directly relevant, non-duplicated hashtags;
   - return only the final post text.
 - AI execution is user-triggered and may incur model cost.
+- Use exactly one model attempt. Optimization failure leaves the editor and the
+  manual publish path unchanged; there is no automatic model fallback.
 
 ### Phase 3: Optional Enhancements
 
@@ -71,7 +75,7 @@ integration, but not their activation or workflow state.
 - Channel-specific post variants.
 - Local media upload only after a managed public media-storage contract exists.
 
-## Phase 1 API Contract
+## API Contract
 
 ### `GET /api/v1/social/manual/config`
 
@@ -80,6 +84,10 @@ Returns only public composer configuration:
 ```json
 {
   "configured": true,
+  "ai": {
+    "available": true,
+    "model_name": "Gemini 3.6 Flash"
+  },
   "channels": [
     {
       "id": "buffer-channel-id",
@@ -97,6 +105,33 @@ Returns only public composer configuration:
 ```
 
 The API key is never returned to the browser.
+
+### `POST /api/v1/social/manual/optimize`
+
+Request:
+
+```json
+{
+  "channelIds": ["buffer-channel-id"],
+  "text": "Original post body"
+}
+```
+
+The service authorizes the selected IDs against the saved Buffer channel list,
+then uses the shortest selected channel limit for the Chat Model prompt. The
+response contains only public result metadata:
+
+```json
+{
+  "success": true,
+  "optimized_text": "Optimized post body #관련태그",
+  "model_name": "Gemini 3.6 Flash",
+  "max_length": 300,
+  "within_limit": true
+}
+```
+
+This endpoint neither publishes to Buffer nor mutates the saved draft.
 
 ### `POST /api/v1/social/manual/publish`
 
@@ -121,13 +156,14 @@ UI manual SNS composer
   -> manual SNS UI API route
   -> Manual SNS Service
        -> configured Buffer channel allow-list
-       -> SNS service policy validation
-       -> BufferClient.shareNowMany()
+       -> optimize: SNS AI Service -> resolved Chat Model role
+       -> publish: SNS service policy validation -> BufferClient.shareNowMany()
 ```
 
 The manual service owns user-input validation and channel authorization.
 `BufferClient` remains a transport gateway and must not learn about UI state,
-RSS rows, Google Sheets, or licensing.
+RSS rows, Google Sheets, or licensing. `SNS AI Service` owns prompt construction
+and Chat Model execution but has no Buffer publishing authority.
 
 ## Safety and UX Decisions
 
@@ -139,6 +175,13 @@ RSS rows, Google Sheets, or licensing.
   image URL.
 - Manual text is never silently shortened. The UI and API identify every channel
   whose limit is exceeded.
+- AI optimization replaces the single editor only after a successful response.
+  The UI stores the immediately preceding value and exposes an explicit one-step
+  restore action; browser keyboard undo is supplementary rather than required.
+- The optimization prompt treats the draft as editing material, not executable
+  instructions, and prohibits invented facts, links, numbers, and clickbait.
+- AI availability and model name may be exposed to the browser; API keys and
+  connection config remain server-side.
 - The editor remains intact after partial or total failure.
 
 ## Verification
@@ -148,5 +191,9 @@ RSS rows, Google Sheets, or licensing.
 - Unit-test character limits, image-required services, unsupported services,
   HTTPS image validation, and the three-channel limit.
 - Unit-test per-channel Buffer payloads and partial results.
+- Unit-test Chat Model availability, prompt constraints, response parsing, one
+  attempt execution, shortest-channel limit delegation, and secret exclusion.
 - Verify desktop and narrow layouts, empty configuration, image preview removal,
   confirmation, success, and partial failure states.
+- Verify a real user-triggered optimization, explicit restore, and subsequent
+  manual publishing before archiving this plan.

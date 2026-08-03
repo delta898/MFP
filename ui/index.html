@@ -1461,10 +1461,20 @@
                 <h2 id="manual-sns-text-title">내용</h2>
                 <p>발행할 글을 입력하세요. 채널별 글자 수 제한을 넘으면 발행되지 않습니다.</p>
               </div>
+              <div class="social-editor-tools">
+                <span id="manual-sns-ai-action" class="social-ai-action" hidden>
+                  <button id="manual-sns-ai-optimize-btn" class="secondary compact" type="button">AI 최적화</button>
+                  <span class="social-ai-tooltip">공통 Chat Model로 오탈자, 가독성, 검색 키워드와 해시태그를 다듬습니다. 선택 채널의 가장 짧은 글자 수에 맞추며, 공급자 정책에 따라 비용이 발생할 수 있습니다.</span>
+                </span>
+                <button id="manual-sns-ai-undo-btn" class="text-btn" type="button" hidden>최적화 전으로 되돌리기</button>
+              </div>
+            </div>
+            <div class="social-editor-shell">
+              <textarea id="manual-sns-text" class="social-editor" rows="9"
+                placeholder="오늘의 생각이나 기록을 자유롭게 작성해 보세요."></textarea>
               <span id="manual-sns-character-count" class="social-character-count">0자</span>
             </div>
-            <textarea id="manual-sns-text" class="social-editor" rows="9"
-              placeholder="오늘의 생각이나 기록을 자유롭게 작성해 보세요."></textarea>
+            <div id="manual-sns-ai-status" class="social-ai-status" aria-live="polite"></div>
             <div id="manual-sns-limit-status" class="social-limit-status" aria-live="polite"></div>
           </section>
 

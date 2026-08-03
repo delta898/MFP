@@ -67,7 +67,7 @@ function normalizeImageUrl(value) {
 }
 
 function createManualSnsService(deps = {}) {
-    const { CONFIG = {}, bufferClient, Logger } = deps;
+    const { CONFIG = {}, bufferClient, aiService, Logger } = deps;
     if (!bufferClient || typeof bufferClient.shareNowMany !== 'function') {
         throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
     }
@@ -78,18 +78,17 @@ function createManualSnsService(deps = {}) {
 
     function getComposerConfig() {
         const channels = getChannels();
+        const ai = typeof aiService?.getManualOptimizationAvailability === 'function'
+            ? aiService.getManualOptimizationAvailability()
+            : { available: false, model_name: '' };
         return {
             configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
-            channels
+            channels,
+            ai
         };
     }
 
-    async function publish(input = {}) {
-        const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
-        if (!apiKey) {
-            throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정 > SNS에서 Buffer API Key를 먼저 저장해 주세요.');
-        }
-
+    function resolveSelectedChannels(input = {}) {
         const configuredChannels = getChannels();
         if (configuredChannels.length === 0) {
             throw createManualSnsError(400, 'BUFFER_CHANNEL_REQUIRED', '설정 > SNS에서 Buffer 채널을 먼저 선택해 주세요.');
@@ -97,31 +96,18 @@ function createManualSnsService(deps = {}) {
 
         const channelIds = normalizeSelectedChannelIds(input.channelIds || input.channel_ids);
         if (channelIds.length === 0) {
-            throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_REQUIRED', '발행할 SNS 채널을 하나 이상 선택해 주세요.');
+            throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_REQUIRED', 'SNS 채널을 하나 이상 선택해 주세요.');
         }
         if (channelIds.length > MAX_CHANNELS) {
             throw createManualSnsError(400, 'BUFFER_CHANNEL_LIMIT_EXCEEDED', `SNS 채널은 최대 ${MAX_CHANNELS}개까지 선택할 수 있습니다.`);
         }
 
-        const text = String(input.text || '').trim();
-        if (!text) {
-            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_REQUIRED', '발행할 내용을 입력해 주세요.');
-        }
-        if (text.length > MAX_TEXT_LENGTH) {
-            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `발행 내용은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
-        }
-
-        const imageUrl = normalizeImageUrl(input.imageUrl || input.image_url);
         const channelById = new Map(configuredChannels.map((channel) => [channel.id, channel]));
-        const selectedChannels = channelIds.map((channelId) => {
+        return channelIds.map((channelId) => {
             const channel = channelById.get(channelId);
             if (!channel) {
                 throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_NOT_CONFIGURED', '설정에 저장되지 않은 Buffer 채널이 포함되어 있습니다.');
             }
-            return channel;
-        });
-
-        for (const channel of selectedChannels) {
             const label = channel.name || channel.service || '선택한 채널';
             if (channel.is_disconnected || channel.is_locked) {
                 throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_UNAVAILABLE', `${label} 채널은 현재 Buffer에서 사용할 수 없습니다.`);
@@ -133,6 +119,69 @@ function createManualSnsService(deps = {}) {
                     `${label} 채널은 현재 수동 SNS 발행을 지원하지 않습니다.`
                 );
             }
+            return channel;
+        });
+    }
+
+    async function optimize(input = {}) {
+        if (typeof aiService?.optimizeManualPost !== 'function') {
+            throw createManualSnsError(400, 'MANUAL_SNS_AI_UNAVAILABLE', '설정에서 Chat Model을 먼저 구성해 주세요.');
+        }
+        const text = String(input.text || '').trim();
+        if (!text) {
+            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_REQUIRED', 'AI로 다듬을 내용을 입력해 주세요.');
+        }
+        if (text.length > MAX_TEXT_LENGTH) {
+            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `AI 최적화 원문은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
+        }
+
+        const selectedChannels = resolveSelectedChannels(input);
+        const maxLength = Math.min(...selectedChannels
+            .map((channel) => Number(channel.limit || 0))
+            .filter((limit) => limit > 0));
+        try {
+            const result = await aiService.optimizeManualPost({
+                text,
+                maxLength: Number.isFinite(maxLength) ? maxLength : MAX_TEXT_LENGTH,
+                services: selectedChannels.map((channel) => channel.service)
+            });
+            return {
+                success: true,
+                optimized_text: String(result?.text || '').trim(),
+                model_name: String(result?.model_name || '').trim(),
+                max_length: Number(result?.max_length) || maxLength,
+                within_limit: result?.within_limit === true
+            };
+        } catch (error) {
+            Logger?.warn?.(`⚠️ [MANUAL_SNS] AI 최적화 실패: ${error?.message || 'unknown error'}`);
+            const unavailable = error?.code === 'CHAT_MODEL_UNAVAILABLE';
+            throw createManualSnsError(
+                unavailable ? 400 : 502,
+                unavailable ? 'MANUAL_SNS_AI_UNAVAILABLE' : (error?.code || 'MANUAL_SNS_AI_FAILED'),
+                error?.message || 'SNS 글 AI 최적화에 실패했습니다.'
+            );
+        }
+    }
+
+    async function publish(input = {}) {
+        const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
+        if (!apiKey) {
+            throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정 > SNS에서 Buffer API Key를 먼저 저장해 주세요.');
+        }
+
+        const text = String(input.text || '').trim();
+        if (!text) {
+            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_REQUIRED', '발행할 내용을 입력해 주세요.');
+        }
+        if (text.length > MAX_TEXT_LENGTH) {
+            throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `발행 내용은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
+        }
+
+        const imageUrl = normalizeImageUrl(input.imageUrl || input.image_url);
+        const selectedChannels = resolveSelectedChannels(input);
+
+        for (const channel of selectedChannels) {
+            const label = channel.name || channel.service || '선택한 채널';
             if (channel.image_required && !imageUrl) {
                 throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_REQUIRED', `${label} 채널은 이미지 URL이 필요합니다.`);
             }
@@ -190,6 +239,7 @@ function createManualSnsService(deps = {}) {
 
     return {
         getComposerConfig,
+        optimize,
         publish
     };
 }

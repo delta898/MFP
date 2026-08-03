@@ -14,6 +14,15 @@ function createManualSnsController(deps = {}) {
             }
         },
 
+        async handleOptimize({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.optimize(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'MANUAL_SNS_AI_FAILED', 'SNS 글 AI 최적화에 실패했습니다.', error);
+            }
+        },
+
         async handlePublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

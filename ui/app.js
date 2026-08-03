@@ -3376,8 +3376,10 @@ function initClockWidget() {
 }
 
 
-let manualSnsConfig = { configured: false, channels: [] };
+let manualSnsConfig = { configured: false, channels: [], ai: { available: false, model_name: '' } };
 let manualSnsConfigLoading = false;
+let manualSnsOptimizationSnapshot = null;
+let manualSnsOptimizationInFlight = false;
 
 function getManualSnsSelectedChannels() {
   const selectedIds = new Set(Array.from(document.querySelectorAll('[data-manual-sns-channel]:checked'))
@@ -3434,6 +3436,9 @@ function syncManualSnsComposerState() {
   const summaryEl = document.getElementById('manual-sns-publish-summary');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const selectAllEl = document.getElementById('manual-sns-select-all');
+  const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
+  const optimizeActionEl = document.getElementById('manual-sns-ai-action');
+  const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const text = String(textEl?.value || '').trim();
   const characterCount = Array.from(text).length;
   const selectedChannels = getManualSnsSelectedChannels();
@@ -3469,7 +3474,17 @@ function syncManualSnsComposerState() {
   }
   if (publishBtn) {
     publishBtn.textContent = selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
-    publishBtn.disabled = !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+    publishBtn.disabled = manualSnsOptimizationInFlight || !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+  }
+  if (optimizeBtn) {
+    const aiAvailable = manualSnsConfig.ai?.available === true;
+    if (optimizeActionEl) optimizeActionEl.hidden = !aiAvailable;
+    optimizeBtn.disabled = manualSnsOptimizationInFlight || selectedChannels.length === 0 || !text;
+    optimizeBtn.textContent = manualSnsOptimizationInFlight ? 'AI 최적화 중...' : 'AI 최적화';
+  }
+  if (undoBtn) {
+    undoBtn.hidden = manualSnsOptimizationSnapshot === null;
+    undoBtn.disabled = manualSnsOptimizationInFlight;
   }
 
   document.querySelectorAll('.social-channel-option').forEach((label) => {
@@ -3554,15 +3569,72 @@ async function loadManualSnsComposer({ force = false } = {}) {
     const data = await fetchJson('/api/v1/social/manual/config');
     manualSnsConfig = {
       configured: data?.configured === true,
-      channels: Array.isArray(data?.channels) ? data.channels : []
+      channels: Array.isArray(data?.channels) ? data.channels : [],
+      ai: data?.ai && typeof data.ai === 'object'
+        ? { available: data.ai.available === true, model_name: String(data.ai.model_name || '') }
+        : { available: false, model_name: '' }
     };
     renderManualSnsChannels();
   } catch (error) {
-    manualSnsConfig = { configured: false, channels: [] };
+    manualSnsConfig = { configured: false, channels: [], ai: { available: false, model_name: '' } };
     renderManualSnsChannels();
   } finally {
     manualSnsConfigLoading = false;
   }
+}
+
+function renderManualSnsAiStatus(message = '', isError = false) {
+  const statusEl = document.getElementById('manual-sns-ai-status');
+  if (!statusEl) return;
+  statusEl.textContent = String(message || '');
+  statusEl.classList.toggle('is-error', isError);
+}
+
+async function optimizeManualSnsText() {
+  const textEl = document.getElementById('manual-sns-text');
+  const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
+  if (!textEl || !optimizeBtn || optimizeBtn.disabled || manualSnsOptimizationInFlight) return;
+
+  const originalValue = String(textEl.value || '');
+  const selectedChannels = getManualSnsSelectedChannels();
+  manualSnsOptimizationInFlight = true;
+  renderManualSnsAiStatus('Chat Model이 글과 해시태그를 다듬고 있습니다.');
+  syncManualSnsComposerState();
+  try {
+    const data = await postJson('/api/v1/social/manual/optimize', {
+      channelIds: selectedChannels.map((channel) => channel.id),
+      text: originalValue.trim()
+    });
+    const optimizedText = String(data?.optimized_text || '').trim();
+    if (!optimizedText) throw new Error('AI 최적화 결과가 비어 있습니다.');
+    if (String(textEl.value || '') !== originalValue) {
+      throw new Error('최적화 중 내용이 변경되어 결과를 반영하지 않았습니다. 다시 실행해 주세요.');
+    }
+
+    manualSnsOptimizationSnapshot = originalValue;
+    textEl.value = optimizedText;
+    textEl.dispatchEvent(new Event('input', { bubbles: true }));
+    renderManualSnsAiStatus(data?.within_limit === true
+      ? 'AI 최적화를 완료했습니다. 내용을 확인하고 필요하면 직접 수정하세요.'
+      : 'AI 최적화를 완료했지만 선택한 채널의 글자 수 제한을 넘었습니다. 내용을 줄여 주세요.',
+    data?.within_limit !== true);
+    textEl.focus();
+  } catch (error) {
+    renderManualSnsAiStatus(`AI 최적화 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`, true);
+  } finally {
+    manualSnsOptimizationInFlight = false;
+    syncManualSnsComposerState();
+  }
+}
+
+function undoManualSnsOptimization() {
+  const textEl = document.getElementById('manual-sns-text');
+  if (!textEl || manualSnsOptimizationSnapshot === null || manualSnsOptimizationInFlight) return;
+  textEl.value = manualSnsOptimizationSnapshot;
+  manualSnsOptimizationSnapshot = null;
+  textEl.dispatchEvent(new Event('input', { bubbles: true }));
+  renderManualSnsAiStatus('AI 최적화 전 내용으로 되돌렸습니다.');
+  textEl.focus();
 }
 
 function renderManualSnsPublishResult(data = {}) {
@@ -3631,6 +3703,8 @@ function initManualSnsComposer() {
   const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
+  const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
+  const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   textEl?.addEventListener('input', syncManualSnsComposerState);
   imageUrlEl?.addEventListener('input', () => {
     syncManualSnsImagePreview();
@@ -3649,6 +3723,8 @@ function initManualSnsComposer() {
     syncManualSnsComposerState();
   });
   publishBtn?.addEventListener('click', () => void publishManualSns());
+  optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());
+  undoBtn?.addEventListener('click', undoManualSnsOptimization);
   syncManualSnsComposerState();
 }
 

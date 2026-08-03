@@ -26,8 +26,57 @@ test('composer config exposes channels but never the Buffer key or automation st
     assert.equal(result.channels.length, 3);
     assert.equal(result.channels[0].limit, 500);
     assert.equal(result.channels[1].image_required, true);
+    assert.equal(result.ai.available, false);
     assert.equal(JSON.stringify(result).includes('buffer-secret'), false);
     assert.equal(Object.hasOwn(result, 'SNS_PUBLISH_ENABLED'), false);
+});
+
+test('composer config exposes only public Chat Model availability', () => {
+    const service = createManualSnsService({
+        CONFIG: createConfig(),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            getManualOptimizationAvailability() {
+                return { available: true, model_name: 'Chat Model' };
+            }
+        }
+    });
+
+    const result = service.getComposerConfig();
+    assert.deepEqual(result.ai, { available: true, model_name: 'Chat Model' });
+    assert.equal(JSON.stringify(result).includes('buffer-secret'), false);
+});
+
+test('manual optimization delegates to Chat Model with the shortest selected channel limit', async () => {
+    const calls = [];
+    const service = createManualSnsService({
+        CONFIG: createConfig(),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            getManualOptimizationAvailability() {
+                return { available: true, model_name: 'Chat Model' };
+            },
+            async optimizeManualPost(input) {
+                calls.push(input);
+                return {
+                    text: '다듬은 글 #태그',
+                    model_name: 'Chat Model',
+                    max_length: input.maxLength,
+                    within_limit: true
+                };
+            }
+        }
+    });
+
+    const result = await service.optimize({
+        channelIds: ['threads-1', 'x-1'],
+        text: '초안'
+    });
+
+    assert.equal(result.optimized_text, '다듬은 글 #태그');
+    assert.equal(result.max_length, 280);
+    assert.equal(calls[0].maxLength, 280);
+    assert.deepEqual(calls[0].services, ['threads', 'twitter']);
 });
 
 test('manual publish works while SNS automation is disabled', async () => {
