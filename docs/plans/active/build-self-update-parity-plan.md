@@ -61,3 +61,14 @@
 - Confirm local/custom build output uses `vX.Y.Z/<fixed-asset-name>` paths in `update.json`
 - Confirm `update.json` includes ZIP assets only and excludes `.exe` installer assets
 - Confirm metadata shape matches what `src/updater.js` expects
+
+## Release Retention
+
+- Keep the three most recently published non-draft releases.
+- Always keep the most recently published stable release even when three newer
+  prereleases exist. The mirror may therefore retain four releases.
+- Never delete drafts automatically.
+- Apply the same retention policy to the private source repository and the
+  public release mirror.
+- Compute deletion candidates from structured `gh release list --json` output;
+  do not infer release type or ordering from the CLI's tabular text output.

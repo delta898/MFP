@@ -516,13 +516,23 @@ jobs:
       MIRROR_REPO: delta898/NaverAutoBlog-Releases
       MIRROR_REPO_PAT: ${{ secrets.MIRROR_REPO_PAT }}
     steps:
+      - uses: actions/checkout@v6
       - name: Cleanup Private
         run: |
-          RELEASES=$(gh release list --limit 100 | tail -n +4 | awk '{print $1}')
-          for tag in $RELEASES; do gh release delete "$tag" --yes --cleanup-tag; done
+          gh release list -R "${GITHUB_REPOSITORY}" --limit 100 \
+            --json tagName,isDraft,isPrerelease,createdAt,publishedAt \
+            | node scripts/release-retention.js - 3 \
+            | while IFS= read -r tag; do
+              [ -n "${tag}" ] && gh release delete "${tag}" -R "${GITHUB_REPOSITORY}" --yes --cleanup-tag
+            done
       - name: Cleanup Mirror
         if: needs.setup.outputs.mirror_repo_pat == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.MIRROR_REPO_PAT }}
         run: |
-          export GITHUB_TOKEN=${{ secrets.MIRROR_REPO_PAT }}
-          RELEASES=$(gh release list -R ${{ env.MIRROR_REPO }} --limit 100 | tail -n +4 | awk '{print $1}')
-          for tag in $RELEASES; do gh release delete "$tag" -R ${{ env.MIRROR_REPO }} --yes --cleanup-tag; done
+          gh release list -R "${MIRROR_REPO}" --limit 100 \
+            --json tagName,isDraft,isPrerelease,createdAt,publishedAt \
+            | node scripts/release-retention.js - 3 \
+            | while IFS= read -r tag; do
+              [ -n "${tag}" ] && gh release delete "${tag}" -R "${MIRROR_REPO}" --yes --cleanup-tag
+            done
