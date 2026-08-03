@@ -3,11 +3,26 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-03
+
 ### Added
+- **공통 Chat Model 역할**: 글쓰기 AI 모델을 그대로 적용하거나 동일한 Text Model 카탈로그에서 별도 Chat Model과 API Key를 설정할 수 있습니다. Telegram, Agent Memory와 MCP 보조 작업은 공통 Chat Model을 사용하며 네이버 댓글과 SNS는 작업별 모델을 선택할 수 있습니다.
+- **수동 SNS 즉시 발행 및 AI 최적화**: 설정된 Buffer 채널을 여러 개 선택해 짧은 글을 즉시 발행하고, 공통 Chat Model로 오탈자, 가독성, 검색 키워드와 관련 해시태그를 다듬은 뒤 원문으로 되돌릴 수 있습니다.
 - **수동 SNS 로컬 이미지 발행**: WordPress 연결이 설정된 경우 로컬 이미지 1개를 임시 미디어로 업로드해 Buffer 즉시 발행에 사용할 수 있습니다. Buffer 게시물이 성공 또는 실패 상태에 도달하면 임시 미디어를 삭제하며, WordPress 업로드 실패 시 SNS 발행을 시작하지 않습니다.
+- **KIE.ai 텍스트·이미지 모델 연동**: Gemini 및 GPT 5.6 글쓰기 모델과 비동기 이미지 생성 구조를 추가하고 Nano Banana 2/Pro, Seedream 5 Pro/4.5, GPT Image 2를 지원합니다.
+- **원격 AI 모델 카탈로그와 최신 모델**: Supabase에서 검증된 모델 목록과 capability 정책을 갱신할 수 있으며 GPT 5.6, Gemini 3.6, Claude 5와 GPT Image 2를 지원합니다.
+- **AI 모델 무료 연결 확인**: 실제 콘텐츠를 생성하지 않고 선택한 Text/Image 모델의 API Key, 서버 연결, 모델 ID와 소요 시간을 확인할 수 있습니다.
+- **공급자별 AI 연결 기억**: Text, Image, Chat 역할을 분리해 공급자별 API Key와 마지막 모델을 기억하고, 직접 입력 모델은 Base URL과 모델 이름도 함께 복원합니다.
+- **수동 SNS 사용성 개선**: 마지막 발행 채널을 브라우저에 저장하고 설정과 수동 SNS 화면에서 Buffer 소개 및 가입 링크를 확인할 수 있습니다.
+
+### Changed
+- **AI 모델 구조 및 순서 정리**: 공급자 호출을 transport registry와 capability 정책으로 분리하고, 원격 catalog의 `sort_order`에 따라 공급자와 모델을 안정적으로 표시합니다.
+- **네이버 Markdown H3 표현 개선**: `###` 제목을 WordPress에서는 H3로 유지하고, 네이버 SmartEditor에서는 인용구 2 스타일로 발행합니다.
+- **KIE.ai 이미지 진행 로그 간소화**: 비동기 이미지 작업 로그를 접수, 장기 진행 요약, milestone과 완료·실패 중심으로 정리했습니다.
+
+### Fixed
 - **Buffer 이미지 발행 안정성**: 이미지 포함 게시 요청의 응답 제한을 60초로 확장하고, 응답이 유실되면 생성 요청을 재전송하지 않은 채 최근 게시물을 최대 3회 조회하여 채널·본문이 일치하는 발행을 복구합니다. 복구되지 않은 타임아웃만 중복 발행을 경고하며 WordPress 임시 이미지를 보존합니다.
-- **수동 SNS 채널 선택 유지**: 마지막으로 선택한 발행 채널을 브라우저에 저장하여 앱을 재시작해도 복원합니다. 현재 Buffer 설정에서 제거되거나 사용할 수 없는 채널은 자동으로 제외합니다.
-- **Buffer 안내 링크**: 설정과 수동 SNS 화면에 Buffer 소개 및 가입 링크를 작은 텍스트 링크로 제공하여 발행 UI를 방해하지 않고 언제든 참고할 수 있습니다.
+- **글쓰기 모델 차용 경로 수정**: 보조 작업에서 글쓰기 모델을 선택하면 실제 선택한 글쓰기 모델 transport를 사용하도록 수정했습니다.
 
 ## [0.1.15-dev4] - 2026-08-03
 
