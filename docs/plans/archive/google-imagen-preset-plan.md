@@ -1,5 +1,11 @@
 # Google Imagen Preset Plan
 
+## Status
+
+Superseded on 2026-08-04. Google deprecated Imagen in the Gemini API and announced
+shutdown on 2026-08-17, so BlogGenius removed the preset and native predict
+transport in favor of Nano Banana.
+
 ## Goal
 - Add Google Imagen 4 presets to the image model selection flow.
 - Keep Gemini as the default image model.

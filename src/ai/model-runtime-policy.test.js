@@ -19,14 +19,14 @@ const {
 
 test('Gemini 3.6 strips deprecated temperature while older Gemini keeps it', () => {
     const latest = applyTextRuntimePolicy({
-        provider: 'gemini',
+        provider: 'google',
         code: 'gemini-3.6-flash'
     }, {
         temperature: 0.2,
         maxTokens: 160
     });
     const older = applyTextRuntimePolicy({
-        provider: 'gemini',
+        provider: 'google',
         code: 'gemini-3.5-flash'
     }, {
         temperature: 0.2

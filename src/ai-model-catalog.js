@@ -4,16 +4,15 @@ const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 
 const PROVIDER_PRESETS = Object.freeze({
     text: Object.freeze([
-        Object.freeze({ id: 'openai', name: 'ChatGPT', sort_order: 10 }),
-        Object.freeze({ id: 'anthropic', name: 'Claude', sort_order: 20 }),
-        Object.freeze({ id: 'gemini', name: 'Gemini', sort_order: 30 }),
+        Object.freeze({ id: 'openai', name: 'OpenAI', sort_order: 10 }),
+        Object.freeze({ id: 'anthropic', name: 'Anthropic', sort_order: 20 }),
+        Object.freeze({ id: 'google', name: 'Google', sort_order: 30 }),
         Object.freeze({ id: 'kie', name: 'KIE.ai', sort_order: 40 })
     ]),
     image: Object.freeze([
-        Object.freeze({ id: 'openai', name: 'ChatGPT', sort_order: 10 }),
-        Object.freeze({ id: 'gemini', name: 'Gemini', sort_order: 20 }),
-        Object.freeze({ id: 'imagen4', name: 'Imagen 4', sort_order: 30 }),
-        Object.freeze({ id: 'kie', name: 'KIE.ai', sort_order: 40 })
+        Object.freeze({ id: 'openai', name: 'OpenAI', sort_order: 10 }),
+        Object.freeze({ id: 'google', name: 'Google', sort_order: 20 }),
+        Object.freeze({ id: 'kie', name: 'KIE.ai', sort_order: 30 })
     ])
 });
 
@@ -52,10 +51,10 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: false, structured_output: true, image_input: true }
     },
     {
-        key: 'gemini:gemini-3.6-flash',
+        key: 'google:gemini-3.6-flash',
         name: 'Gemini 3.6 Flash',
         code: 'gemini-3.6-flash',
-        provider: 'gemini',
+        provider: 'google',
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
@@ -63,10 +62,10 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: false, structured_output: true, image_input: true }
     },
     {
-        key: 'gemini:gemini-3.1-pro-preview',
+        key: 'google:gemini-3.1-pro-preview',
         name: 'Gemini 3.1 Pro Preview',
         code: 'gemini-3.1-pro-preview',
-        provider: 'gemini',
+        provider: 'google',
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'preview',
@@ -74,10 +73,10 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
-        key: 'gemini:gemini-3.5-flash',
+        key: 'google:gemini-3.5-flash',
         name: 'Gemini 3.5 Flash',
         code: 'gemini-3.5-flash',
-        provider: 'gemini',
+        provider: 'google',
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
@@ -85,10 +84,10 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
-        key: 'gemini:gemini-3.1-flash-lite',
+        key: 'google:gemini-3.1-flash-lite',
         name: 'Gemini 3.1 Flash-Lite',
         code: 'gemini-3.1-flash-lite',
-        provider: 'gemini',
+        provider: 'google',
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
@@ -218,12 +217,9 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
             quality: ['low', 'medium', 'high', 'auto']
         }
     },
-    { key: 'gemini:gemini-3.1-flash-image', name: 'Nano Banana 2', code: 'gemini-3.1-flash-image', provider: 'gemini', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true } },
-    { key: 'gemini:gemini-3-pro-image', name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'gemini', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true } },
-    { key: 'gemini:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'gemini', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
-    { key: 'imagen4:imagen-4.0-generate-001', name: 'Imagen 4', code: 'imagen-4.0-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] } },
-    { key: 'imagen4:imagen-4.0-ultra-generate-001', name: 'Imagen 4 Ultra', code: 'imagen-4.0-ultra-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] } },
-    { key: 'imagen4:imagen-4.0-fast-generate-001', name: 'Imagen 4 Fast', code: 'imagen-4.0-fast-generate-001', provider: 'imagen4', transport: 'imagen_predict', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true, image_size: ['1K'] } },
+    { key: 'google:gemini-3.1-flash-image', name: 'Nano Banana 2', code: 'gemini-3.1-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true } },
+    { key: 'google:gemini-3-pro-image', name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true } },
+    { key: 'google:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
     {
         key: 'kie:gpt-image-2-text-to-image',
         name: 'GPT Image 2',

@@ -11,18 +11,15 @@ const {
 const {
     inferTransport
 } = require('./ai/transport-registry');
+const { normalizeProviderId } = require('./ai/provider-id');
 
 function normalizeProvider(value) {
-    const raw = trimString(value).toLowerCase();
-    if (raw === 'openai_compatible') return 'direct';
-    if (raw === 'imagen') return 'imagen4';
-    return raw || 'gemini';
+    return normalizeProviderId(value, 'google');
 }
 
 function getProviderDefaultBaseUrl(provider) {
     const normalized = normalizeProvider(provider);
-    if (normalized === 'gemini') return '';
-    if (normalized === 'imagen4') return '';
+    if (normalized === 'google') return '';
     if (normalized === 'anthropic') return CLAUDE_OPENAI_BASE_URL;
     if (normalized === 'openai') return OPENAI_BASE_URL;
     if (normalized === 'kie') return KIE_BASE_URL;
@@ -77,7 +74,7 @@ function normalizeChatModelSource(value, fallback = 'writing') {
 function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = null, options = {}) {
     const raw = rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig) ? rawConfig : {};
     const legacyApiKey = trimString(options.legacyApiKey);
-    const provider = normalizeProvider(raw.provider || fallbackPreset?.provider || 'gemini');
+    const provider = normalizeProvider(raw.provider || fallbackPreset?.provider || 'google');
     const code = trimString(raw.code || raw.name || fallbackPreset?.code);
     const exactPreset = findPresetByCode(presets, code, provider) || findPresetByCode(presets, code);
     const isDirect = provider === 'direct';
@@ -89,7 +86,7 @@ function normalizeModelSelection(rawConfig = {}, presets = [], fallbackPreset = 
         const resolvedBaseUrl = normalizeBaseUrl(
             preset?.base_url || raw.base_url || getProviderDefaultBaseUrl(resolvedProvider)
         );
-        const apiKey = trimString(raw.api_key) || (resolvedProvider === 'gemini' ? legacyApiKey : '');
+        const apiKey = trimString(raw.api_key) || (resolvedProvider === 'google' ? legacyApiKey : '');
         return {
             provider: resolvedProvider,
             name: trimString(raw.name) || trimString(preset?.name) || deriveModelDisplayName(resolvedCode),
@@ -137,7 +134,7 @@ function buildModelSelectionFromFields(kind = 'text', fields = {}, presets = nul
     const prefix = kind === 'image'
         ? 'IMAGE_MODEL'
         : (kind === 'chat' ? 'CHAT_MODEL' : 'TEXT_MODEL');
-    const provider = normalizeProvider(fields[`${prefix}_PROVIDER`] || fallbackPreset?.provider || 'gemini');
+    const provider = normalizeProvider(fields[`${prefix}_PROVIDER`] || fallbackPreset?.provider || 'google');
 
     if (provider !== 'direct') {
         const code = trimString(fields[`${prefix}_PRESET_CODE`] || fallbackPreset?.code);

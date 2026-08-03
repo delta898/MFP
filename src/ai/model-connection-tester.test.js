@@ -18,7 +18,7 @@ test('checks Gemini text through model metadata without generation', async () =>
     const result = await testModelConnection({
         kind: 'text',
         modelConfig: {
-            provider: 'gemini',
+            provider: 'google',
             code: 'gemini-3.6-flash',
             api_key: 'gemini-secret'
         },
@@ -37,25 +37,6 @@ test('checks Gemini text through model metadata without generation', async () =>
     assert.equal(result.generation_performed, false);
     assert.equal(result.check_type, 'metadata');
     assert.equal(result.latency_ms, 45);
-});
-
-test('checks Imagen metadata and required predict capability', async () => {
-    const calls = [];
-    await testModelConnection({
-        kind: 'image',
-        modelConfig: {
-            provider: 'imagen4',
-            code: 'imagen-4.0-generate-001',
-            api_key: 'gemini-secret'
-        },
-        httpClient: createHttpClient({
-            name: 'models/imagen-4.0-generate-001',
-            supportedActions: ['predict']
-        }, calls)
-    });
-
-    assert.match(calls[0].url, /models\/imagen-4\.0-generate-001$/);
-    assert.equal(calls[0].config.params.key, 'gemini-secret');
 });
 
 test('checks OpenAI text and image models through the metadata endpoint', async () => {
@@ -185,21 +166,21 @@ test('checks a direct OpenAI-compatible model through its model list', async () 
     assert.equal(calls[0].config.headers.Authorization, undefined);
 });
 
-test('rejects metadata that does not expose the selected model capability', async () => {
+test('rejects metadata that does not expose generateContent', async () => {
     await assert.rejects(
         testModelConnection({
             kind: 'image',
             modelConfig: {
-                provider: 'imagen4',
-                code: 'imagen-4.0-generate-001',
+                provider: 'google',
+                code: 'gemini-3.1-flash-image',
                 api_key: 'gemini-secret'
             },
             httpClient: createHttpClient({
-                name: 'models/imagen-4.0-generate-001',
-                supportedActions: ['generateContent']
+                name: 'models/gemini-3.1-flash-image',
+                supportedActions: ['predict']
             }, [])
         }),
-        /predict 기능을 지원하지 않습니다/
+        /generateContent 기능을 지원하지 않습니다/
     );
 });
 

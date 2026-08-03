@@ -28,6 +28,6 @@ test('Chat Model summary capability reports the resolved writing-model role', as
     const result = await capability.execute();
     assert.equal(result.success, true);
     assert.equal(result.data.source, 'writing');
-    assert.equal(result.data.provider, 'gemini');
+    assert.equal(result.data.provider, 'google');
     assert.match(result.message, /Gemini 3\.6 Flash/);
 });

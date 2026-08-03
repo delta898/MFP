@@ -256,8 +256,12 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
     chatSelection: resolvedChatModelSettings.selection
 });
 const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
-const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';
-const geminiImageModelCode = resolvedImageModelConfig.provider === 'gemini' ? resolvedImageModelConfig.code : '';
+const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
+    ? resolvedTextModelConfig.code
+    : '';
+const geminiImageModelCode = resolvedImageModelConfig.transport === 'gemini_generate_content'
+    ? resolvedImageModelConfig.code
+    : '';
 
 const licenseKeyInfo = loadLicenseKey();
 

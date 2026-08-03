@@ -1026,12 +1026,12 @@ function buildMajorSettings(raw, configSource) {
         UPDATE_SERVER_TYPE: CONFIG.UPDATE_SERVER_TYPE || 'github',
         CUSTOM_UPDATE_CHECK_URL: CONFIG.CUSTOM_UPDATE_CHECK_URL || '',
         UPDATE_MIRROR_REPO: CONFIG.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases',
-        TEXT_MODEL_PROVIDER: CONFIG.TEXT_MODEL_CONFIG?.provider || 'gemini',
+        TEXT_MODEL_PROVIDER: CONFIG.TEXT_MODEL_CONFIG?.provider || 'google',
         TEXT_MODEL_PRESET_CODE: CONFIG.TEXT_MODEL_CONFIG?.provider === 'direct' ? '' : (CONFIG.TEXT_MODEL_CONFIG?.code || ''),
         TEXT_MODEL_NAME: CONFIG.TEXT_MODEL_CONFIG?.name || '',
         TEXT_MODEL_BASE_URL: CONFIG.TEXT_MODEL_CONFIG?.base_url || '',
         TEXT_MODEL_API_KEY: CONFIG.TEXT_MODEL_CONFIG?.api_key || '',
-        IMAGE_MODEL_PROVIDER: CONFIG.IMAGE_MODEL_CONFIG?.provider || 'gemini',
+        IMAGE_MODEL_PROVIDER: CONFIG.IMAGE_MODEL_CONFIG?.provider || 'google',
         IMAGE_MODEL_PRESET_CODE: CONFIG.IMAGE_MODEL_CONFIG?.provider === 'direct' ? '' : (CONFIG.IMAGE_MODEL_CONFIG?.code || ''),
         IMAGE_MODEL_NAME: CONFIG.IMAGE_MODEL_CONFIG?.name || '',
         IMAGE_MODEL_BASE_URL: CONFIG.IMAGE_MODEL_CONFIG?.base_url || '',
@@ -1093,7 +1093,7 @@ function buildMajorSettings(raw, configSource) {
         NOTIFY_BITLY_TOKEN: CONFIG.NOTIFY_BITLY_TOKEN,
         // Chat Model role
         CHAT_MODEL_SOURCE: CONFIG.CHAT_MODEL_SOURCE || 'writing',
-        CHAT_MODEL_PROVIDER: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.provider || 'gemini',
+        CHAT_MODEL_PROVIDER: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.provider || 'google',
         CHAT_MODEL_PRESET_CODE: CONFIG.CHAT_MODEL_SELECTION_CONFIG?.provider === 'direct'
             ? ''
             : (CONFIG.CHAT_MODEL_SELECTION_CONFIG?.code || ''),
@@ -1195,10 +1195,10 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.IMAGE_MODEL_BASE_URL = imageModelConfig.base_url;
     CONFIG.TEXT_MODEL_API_KEY = textModelConfig.api_key;
     CONFIG.IMAGE_MODEL_API_KEY = imageModelConfig.api_key;
-    CONFIG.GEMINI_TEXT_ENDPOINT = textModelConfig.provider === 'gemini' && textModelConfig.code
+    CONFIG.GEMINI_TEXT_ENDPOINT = textModelConfig.transport === 'gemini_generate_content' && textModelConfig.code
         ? `https://generativelanguage.googleapis.com/v1beta/models/${textModelConfig.code}:generateContent`
         : '';
-    CONFIG.GEMINI_IMAGE_ENDPOINT = imageModelConfig.provider === 'gemini' && imageModelConfig.code
+    CONFIG.GEMINI_IMAGE_ENDPOINT = imageModelConfig.transport === 'gemini_generate_content' && imageModelConfig.code
         ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModelConfig.code}:generateContent`
         : '';
     CONFIG.TYPING_SPEED = typingSpeed;

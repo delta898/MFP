@@ -5482,7 +5482,7 @@ function applySettingsMajorToForm(data, options = {}) {
   }
   settingsAiProviderProfiles = normalizeSettingsAiProviderProfiles(data?.aiProviderProfiles);
   if (textModelPresetProviderEl) {
-    textModelPresetProviderEl.dataset.desiredValue = fields.TEXT_MODEL_PROVIDER || 'gemini';
+    textModelPresetProviderEl.dataset.desiredValue = fields.TEXT_MODEL_PROVIDER || 'google';
   }
   if (textModelPresetCodeEl) {
     textModelPresetCodeEl.dataset.desiredValue = fields.TEXT_MODEL_PRESET_CODE || '';
@@ -5491,7 +5491,7 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(textModelBaseUrlEl, fields.TEXT_MODEL_BASE_URL || '');
   sv(textModelApiKeyEl, fields.TEXT_MODEL_API_KEY || '');
   if (imageModelPresetProviderEl) {
-    imageModelPresetProviderEl.dataset.desiredValue = fields.IMAGE_MODEL_PROVIDER || 'gemini';
+    imageModelPresetProviderEl.dataset.desiredValue = fields.IMAGE_MODEL_PROVIDER || 'google';
   }
   if (imageModelPresetCodeEl) {
     imageModelPresetCodeEl.dataset.desiredValue = fields.IMAGE_MODEL_PRESET_CODE || '';
@@ -5688,12 +5688,12 @@ function getSettingsMajorBasicValuesFromDom() {
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
     CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),
     UPDATE_MIRROR_REPO: (document.getElementById('settings-update-mirror-repo')?.value || 'delta898/NaverAutoBlog-Releases').trim(),
-    TEXT_MODEL_PROVIDER: (document.getElementById('settings-text-model-preset-provider')?.value || 'gemini').trim(),
+    TEXT_MODEL_PROVIDER: (document.getElementById('settings-text-model-preset-provider')?.value || 'google').trim(),
     TEXT_MODEL_PRESET_CODE: (document.getElementById('settings-text-model-preset-code')?.value || '').trim(),
     TEXT_MODEL_NAME: (document.getElementById('settings-text-model-name')?.value || '').trim(),
     TEXT_MODEL_BASE_URL: (document.getElementById('settings-text-model-base-url')?.value || '').trim(),
     TEXT_MODEL_API_KEY: getSettingsInputValue('settings-text-model-api-key').trim(),
-    IMAGE_MODEL_PROVIDER: (document.getElementById('settings-image-model-preset-provider')?.value || 'gemini').trim(),
+    IMAGE_MODEL_PROVIDER: (document.getElementById('settings-image-model-preset-provider')?.value || 'google').trim(),
     IMAGE_MODEL_PRESET_CODE: (document.getElementById('settings-image-model-preset-code')?.value || '').trim(),
     IMAGE_MODEL_NAME: (document.getElementById('settings-image-model-name')?.value || '').trim(),
     IMAGE_MODEL_BASE_URL: (document.getElementById('settings-image-model-base-url')?.value || '').trim(),
@@ -6020,10 +6020,9 @@ function populateSettingsAiProviderSelect(kind, selectEl, selectedProvider) {
     ? [selectedProvider, ...catalogProviders]
     : catalogProviders;
   const labels = {
-    gemini: 'Gemini',
-    imagen4: 'Imagen 4',
-    openai: 'ChatGPT',
-    anthropic: 'Claude',
+    google: 'Google',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
     kie: 'KIE.ai',
     ...getSettingsAiProviderLabels(kind),
     direct: '직접 입력'
@@ -6059,10 +6058,8 @@ function populateSettingsAiPresetModelSelect(kind, provider, selectEl, summaryEl
   if (summaryEl) {
     if (selected?.unavailable) {
       summaryEl.textContent = '현재 선택한 모델은 제품 카탈로그에 없습니다. 설정을 유지하거나 지원 모델로 변경할 수 있습니다.';
-    } else if (String(provider || '') === 'gemini') {
-      summaryEl.textContent = 'Gemini Native API를 사용합니다.';
-    } else if (String(provider || '') === 'imagen4') {
-      summaryEl.textContent = 'Imagen Predict API를 사용합니다.';
+    } else if (selected?.transport === 'gemini_generate_content') {
+      summaryEl.textContent = 'Google Gemini API를 사용합니다.';
     } else if (String(provider || '') === 'openai') {
       summaryEl.textContent = kind === 'image'
         ? 'OpenAI Images API를 사용합니다.'
@@ -6090,11 +6087,11 @@ function syncSettingsAiModelUi(kind) {
   const baseUrlLabelEl = baseUrlWrapEl?.querySelector('.settings-model-base-url-label');
   if (!providerEl) return;
 
-  const desiredProvider = String(providerEl?.dataset?.desiredValue ?? providerEl?.value ?? 'gemini').trim();
+  const desiredProvider = String(providerEl?.dataset?.desiredValue ?? providerEl?.value ?? 'google').trim();
   const selectedCode = String(presetEl?.dataset?.desiredValue ?? presetEl?.value ?? '').trim();
 
   populateSettingsAiProviderSelect(kind, providerEl, desiredProvider);
-  const resolvedProvider = String(providerEl.value || desiredProvider || 'gemini').trim();
+  const resolvedProvider = String(providerEl.value || desiredProvider || 'google').trim();
   const isDirect = resolvedProvider === 'direct';
 
   if (providerWrapEl) providerWrapEl.style.display = '';
@@ -6103,13 +6100,11 @@ function syncSettingsAiModelUi(kind) {
   if (baseUrlWrapEl) baseUrlWrapEl.style.display = '';
   if (baseUrlLabelEl) {
     baseUrlLabelEl.textContent = !isDirect
-      ? (resolvedProvider === 'gemini'
-        ? 'Gemini Native API'
-        : (resolvedProvider === 'imagen4'
-          ? 'Imagen Predict API'
-          : (resolvedProvider === 'openai'
-            ? 'OpenAI API'
-            : (resolvedProvider === 'kie' ? 'KIE.ai API' : 'Base URL'))))
+      ? (resolvedProvider === 'google'
+        ? 'Google AI API'
+        : (resolvedProvider === 'openai'
+          ? 'OpenAI API'
+          : (resolvedProvider === 'kie' ? 'KIE.ai API' : 'Base URL')))
       : 'Base URL';
   }
   providerEl.dataset.desiredValue = resolvedProvider;
@@ -6126,7 +6121,7 @@ function syncSettingsAiModelUi(kind) {
     const selected = populateSettingsAiPresetModelSelect(kind, resolvedProvider, presetEl, summaryEl, selectedCode);
     if (presetEl) presetEl.dataset.desiredValue = presetEl.value || '';
     if (baseUrlEl) {
-      baseUrlEl.value = (resolvedProvider === 'gemini' || resolvedProvider === 'imagen4') ? '' : (selected?.base_url || '');
+      baseUrlEl.value = resolvedProvider === 'google' ? '' : (selected?.base_url || '');
       baseUrlEl.readOnly = true;
     }
     if (nameEl) {

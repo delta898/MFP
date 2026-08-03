@@ -27,12 +27,12 @@ test('AI model catalog is code-owned and returned as an isolated copy', () => {
 test('AI model catalog contains supported Google models and excludes unavailable selections', () => {
     const catalog = getAiModelCatalog();
     const textCodes = catalog.text.map((item) => item.code);
-    const geminiTextCodes = catalog.text
-        .filter((item) => item.provider === 'gemini')
+    const googleTextCodes = catalog.text
+        .filter((item) => item.provider === 'google')
         .map((item) => item.code);
     const imageCodes = catalog.image.map((item) => item.code);
 
-    assert.deepEqual(geminiTextCodes, [
+    assert.deepEqual(googleTextCodes, [
         'gemini-3.6-flash',
         'gemini-3.5-flash',
         'gemini-3.1-pro-preview',
@@ -63,14 +63,19 @@ test('provider and model presets follow explicit product sort order', () => {
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
         'openai',
         'anthropic',
-        'gemini',
+        'google',
         'kie'
     ]);
     assert.deepEqual(catalog.providers.image.map((item) => item.id), [
         'openai',
-        'gemini',
-        'imagen4',
+        'google',
         'kie'
+    ]);
+    assert.deepEqual(catalog.providers.text.map((item) => item.name), [
+        'OpenAI',
+        'Anthropic',
+        'Google',
+        'KIE.ai'
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'anthropic').map((item) => item.code),
@@ -85,14 +90,7 @@ test('provider and model presets follow explicit product sort order', () => {
             'claude-haiku-4-5'
         ]
     );
-    assert.deepEqual(
-        catalog.image.filter((item) => item.provider === 'imagen4').map((item) => item.code),
-        [
-            'imagen-4.0-ultra-generate-001',
-            'imagen-4.0-generate-001',
-            'imagen-4.0-fast-generate-001'
-        ]
-    );
+    assert.equal(catalog.image.some((item) => item.code.startsWith('imagen-')), false);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
@@ -116,7 +114,7 @@ test('provider and model presets follow explicit product sort order', () => {
     );
 });
 
-test('AI model catalog contains current OpenAI and Anthropic models with trusted transports', () => {
+test('AI model catalog contains current models with trusted transports', () => {
     const catalog = getAiModelCatalog();
     const findModel = (provider, code) => [...catalog.text, ...catalog.image]
         .find((item) => item.provider === provider && item.code === code);
@@ -167,7 +165,7 @@ test('legacy ai_presets config cannot override the product catalog', () => {
         }
     }, 'text');
 
-    assert.equal(resolved.provider, 'gemini');
+    assert.equal(resolved.provider, 'google');
     assert.equal(resolved.code, 'gemini-3.1-flash-lite');
     assert.equal(resolved.name, 'Gemini 3.1 Flash-Lite');
 });
@@ -316,7 +314,7 @@ test('models removed from the catalog remain selected until the user changes the
     assert.equal(resolved.code, 'retired-model');
     assert.equal(resolved.catalog_status, 'unavailable');
     assert.deepEqual(toStoredModelSelection(resolved), {
-        provider: 'gemini',
+        provider: 'google',
         name: 'Retired Model',
         code: 'retired-model',
         base_url: '',
@@ -337,9 +335,9 @@ test('provider profiles keep Text, Image, and Chat credentials independent', () 
         }
     });
 
-    assert.equal(profiles.text.gemini.api_key, 'text-key');
-    assert.equal(profiles.image.gemini.api_key, 'image-key');
-    assert.equal(profiles.chat.gemini.api_key, 'chat-key');
+    assert.equal(profiles.text.google.api_key, 'text-key');
+    assert.equal(profiles.image.google.api_key, 'image-key');
+    assert.equal(profiles.chat.google.api_key, 'chat-key');
 });
 
 test('provider profiles retain direct connection tuples per role', () => {
@@ -407,9 +405,9 @@ test('active selections replace only their matching role and provider profile', 
         text: { provider: 'gemini', code: 'gemini-3.6-flash', api_key: 'new-text' }
     });
 
-    assert.equal(profiles.text.gemini.api_key, 'new-text');
+    assert.equal(profiles.text.google.api_key, 'new-text');
     assert.equal(profiles.text.openai.api_key, 'keep-openai');
-    assert.equal(profiles.image.gemini.api_key, 'keep-image');
+    assert.equal(profiles.image.google.api_key, 'keep-image');
 });
 
 test('mismatched and unsupported provider profile entries are ignored', () => {

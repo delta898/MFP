@@ -75,9 +75,7 @@ async function checkGoogleModel(httpClient, modelConfig, timeoutMs) {
             ? response.data.supportedActions
             : [])
     ];
-    const requiredMethod = modelConfig.provider === 'imagen4'
-        ? 'predict'
-        : 'generateContent';
+    const requiredMethod = 'generateContent';
     if (supportedMethods.length > 0 && !supportedMethods.includes(requiredMethod)) {
         throw createCheckError(`${requestedCode} 모델이 ${requiredMethod} 기능을 지원하지 않습니다.`);
     }
@@ -164,7 +162,7 @@ async function testModelConnection(options = {}) {
     const startedAt = now();
     let checkDetails = {};
     try {
-        if (definition.provider === 'gemini' || definition.provider === 'imagen4') {
+        if (definition.provider === 'google') {
             await checkGoogleModel(httpClient, modelConfig, timeoutMs);
         } else if (definition.provider === 'anthropic') {
             await checkAnthropicModel(httpClient, modelConfig, timeoutMs);

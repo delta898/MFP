@@ -1,8 +1,9 @@
 const { findModelDefinition } = require('./catalog-registry');
 const { inferTransport } = require('./transport-registry');
+const { normalizeProviderId } = require('./provider-id');
 
 function getModelRuntimeDefinition(kind, modelConfig = {}) {
-    const provider = String(modelConfig.provider || '').trim().toLowerCase();
+    const provider = normalizeProviderId(modelConfig.provider);
     const code = String(modelConfig.code || '').trim();
     const catalogDefinition = findModelDefinition(kind, provider, code);
     return {

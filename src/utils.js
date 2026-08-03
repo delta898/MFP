@@ -232,40 +232,6 @@ function resolveWritingImageSize(options = {}) {
     return '1K';
 }
 
-function extractImagenImageBuffer(data) {
-    const predictions = Array.isArray(data?.predictions) ? data.predictions : [];
-    for (const item of predictions) {
-        const candidates = [
-            item?.bytesBase64Encoded,
-            item?.image?.bytesBase64Encoded,
-            item?.imageBytes,
-            item?.image?.imageBytes,
-            item?.bytesBase64Encoded?.data
-        ];
-        for (const candidate of candidates) {
-            if (typeof candidate === 'string' && candidate.trim()) {
-                return Buffer.from(candidate, 'base64');
-            }
-        }
-    }
-
-    const generatedImages = Array.isArray(data?.generatedImages) ? data.generatedImages : [];
-    for (const item of generatedImages) {
-        const candidates = [
-            item?.image?.imageBytes,
-            item?.imageBytes,
-            item?.bytesBase64Encoded
-        ];
-        for (const candidate of candidates) {
-            if (typeof candidate === 'string' && candidate.trim()) {
-                return Buffer.from(candidate, 'base64');
-            }
-        }
-    }
-
-    return null;
-}
-
 function truncateText(value, maxLength) {
     const text = String(value || '').trim();
     if (!text || text.length <= maxLength) return text;
@@ -3907,60 +3873,6 @@ const Utils = {
         }
     },
 
-    callImagenImage: async function (modelConfig = {}, prompt, savePath, retries = 3, options = {}) {
-        const apiKey = String(modelConfig.api_key || options?.apiKey || '').trim();
-        const modelCode = String(modelConfig.code || '').trim();
-        if (!apiKey) throw new Error('API Key 누락');
-        if (!modelCode) throw new Error('Imagen 모델 코드 누락');
-
-        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
-        const aspectRatio = resolveWritingImageAspectRatio(options);
-        const imageSize = resolveWritingImageSize(options);
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCode}:predict`;
-        const parameters = {
-            sampleCount: 1
-        };
-        if (aspectRatio) parameters.aspectRatio = aspectRatio;
-        if (!/fast/i.test(modelCode) && imageSize) {
-            parameters.imageSize = imageSize;
-        }
-
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                const response = await this.runWithHeartbeat(
-                    `(시도 ${attempt})`,
-                    () => axios.post(endpoint, {
-                        instances: [{ prompt }],
-                        parameters
-                    }, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-goog-api-key': apiKey
-                        },
-                        timeout: imageTimeoutMs
-                    })
-                );
-
-                const imageBuffer = extractImagenImageBuffer(response.data);
-                if (!imageBuffer) throw new Error('Imagen 응답에서 이미지 바이트를 찾지 못했습니다.');
-
-                const fullPath = `${savePath}.png`;
-                fs.writeFileSync(fullPath, imageBuffer);
-                Logger.info(`   ✅ 이미지 저장 완료: ${path.basename(fullPath)}`);
-                return fullPath;
-            } catch (e) {
-                Logger.warn(`⚠️ Imagen Predict API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
-                if (attempt === retries) {
-                    Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
-                    throw e;
-                }
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
-                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await this.sleep(waitTime);
-            }
-        }
-    },
-
     callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3, options = {}) {
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
         const model = String(modelConfig.code || '').trim();
@@ -4050,13 +3962,6 @@ const Utils = {
             return this.callGeminiImage(prompt, savePath, retries, {
                 apiKey: String(modelConfig.api_key || '').trim(),
                 aspectRatio,
-                useCase: options.useCase
-            });
-        }
-        if (transport === 'imagen_predict') {
-            return this.callImagenImage(modelConfig, prompt, savePath, retries, {
-                aspectRatio,
-                imageSize,
                 useCase: options.useCase
             });
         }

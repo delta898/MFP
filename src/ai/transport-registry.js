@@ -7,14 +7,8 @@ const {
 const TRANSPORTS = Object.freeze({
     gemini_generate_content: Object.freeze({
         id: 'gemini_generate_content',
-        providers: Object.freeze(['gemini']),
+        providers: Object.freeze(['google']),
         kinds: Object.freeze(['text', 'image']),
-        base_url: ''
-    }),
-    imagen_predict: Object.freeze({
-        id: 'imagen_predict',
-        providers: Object.freeze(['imagen4']),
-        kinds: Object.freeze(['image']),
         base_url: ''
     }),
     openai_chat_completions: Object.freeze({
@@ -96,8 +90,7 @@ function isSupportedProviderKind(kind, provider) {
 function inferTransport(kind, provider) {
     const normalizedKind = String(kind || '').trim();
     const normalizedProvider = String(provider || '').trim().toLowerCase();
-    if (normalizedProvider === 'gemini') return 'gemini_generate_content';
-    if (normalizedProvider === 'imagen4' && normalizedKind === 'image') return 'imagen_predict';
+    if (normalizedProvider === 'google') return 'gemini_generate_content';
     if (normalizedProvider === 'anthropic' && normalizedKind === 'text') return 'anthropic_openai_compat';
     if (normalizedProvider === 'openai' && normalizedKind === 'text') return 'openai_chat_completions';
     if (normalizedProvider === 'openai' && normalizedKind === 'image') return 'openai_images';

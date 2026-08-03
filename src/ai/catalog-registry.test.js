@@ -48,6 +48,22 @@ test('remote catalog can add a model through an allowlisted transport', () => {
     });
 });
 
+test('remote catalog rejects the retired Imagen transport', () => {
+    assert.throws(() => validateRemoteCatalog({
+        schema_version: 1,
+        version: 'google-imagen',
+        models: [{
+            key: 'google:imagen-4.0-generate-001',
+            kind: 'image',
+            provider: 'google',
+            transport: 'imagen_predict',
+            model_id: 'imagen-4.0-generate-001',
+            display_name: 'Imagen 4',
+            status: 'active'
+        }]
+    }, { appVersion: '0.1.15' }), /호환 가능한 AI model catalog 항목이 없습니다/);
+});
+
 test('remote catalog can activate another KIE model only through the trusted KIE transport', () => {
     applyRemoteCatalog({
         schema_version: 1,
@@ -151,9 +167,9 @@ test('provider and model order are controlled by independent sort_order fields',
         schema_version: 1,
         version: 'ordered',
         providers: [
-            { kind: 'text', id: 'gemini', display_name: 'Gemini', sort_order: 30 },
-            { kind: 'text', id: 'openai', display_name: 'ChatGPT', sort_order: 10 },
-            { kind: 'text', id: 'anthropic', display_name: 'Claude', sort_order: 20 }
+            { kind: 'text', id: 'google', display_name: 'Google', sort_order: 30 },
+            { kind: 'text', id: 'openai', display_name: 'OpenAI', sort_order: 10 },
+            { kind: 'text', id: 'anthropic', display_name: 'Anthropic', sort_order: 20 }
         ],
         models: [
             {
@@ -183,7 +199,7 @@ test('provider and model order are controlled by independent sort_order fields',
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
         'openai',
         'anthropic',
-        'gemini',
+        'google',
         'kie'
     ]);
     assert.deepEqual(

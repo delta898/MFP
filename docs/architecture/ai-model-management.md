@@ -37,6 +37,15 @@ Provider presentation is described separately for each model kind:
 - `display_name`: UI label
 - `sort_order`: explicit provider position
 
+Provider IDs represent the API vendor, not a product or model family. The canonical
+IDs are `openai`, `anthropic`, `google`, `kie`, and `direct`. Product families such
+as GPT, Claude, Gemini, and Nano Banana remain model names under those vendors.
+Google Gemini and Nano Banana models use the `gemini_generate_content` transport.
+The retired Imagen API is not a supported product transport.
+
+Legacy local selections using `gemini` are normalized to `google` when read. New
+catalog keys and saved selections use `google` only.
+
 Provider and model ordering are independent. The app does not infer semantic
 versions or performance tiers from model names:
 
@@ -49,7 +58,6 @@ versions or performance tiers from model names:
 The current trusted transports are:
 
 - `gemini_generate_content`
-- `imagen_predict`
 - `openai_chat_completions`
 - `anthropic_openai_compat`
 - `kie_openai_chat`
@@ -112,8 +120,8 @@ catalog selection used by normal runtime configuration and delegates the request
 `src/ai/model-connection-tester.js`.
 
 - OpenAI models use the model metadata endpoint.
-- Gemini and Imagen models use the Gemini model metadata endpoint and inspect
-  advertised generation methods when available.
+- Google Gemini and Nano Banana models use the Gemini model metadata endpoint and
+  inspect advertised generation methods when available.
 - Anthropic models use the native Claude model metadata endpoint.
 - Direct OpenAI-compatible servers use `/models` and must expose the selected ID.
 - KIE.ai uses its account credit endpoint because it does not expose a free
