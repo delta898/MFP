@@ -236,6 +236,85 @@ function toStoredModelSelection(modelConfig = {}, presets = null) {
     };
 }
 
+const MODEL_PROFILE_ROLES = Object.freeze(['text', 'image', 'chat']);
+
+function getModelProfilePresetList(role, catalog) {
+    return role === 'image' ? catalog.image : catalog.text;
+}
+
+function getAllowedModelProfileProviders(role, catalog) {
+    const kind = role === 'image' ? 'image' : 'text';
+    return new Set([
+        'direct',
+        ...(Array.isArray(catalog.providers?.[kind])
+            ? catalog.providers[kind].map((item) => normalizeProvider(item?.id))
+            : []),
+        ...getModelProfilePresetList(role, catalog).map((item) => normalizeProvider(item?.provider))
+    ].filter(Boolean));
+}
+
+function normalizeStoredModelProfiles(rawProfiles = {}, presets = null) {
+    const source = rawProfiles && typeof rawProfiles === 'object' && !Array.isArray(rawProfiles)
+        ? rawProfiles
+        : {};
+    const catalog = presets || getAiModelCatalog();
+    const normalized = { text: {}, image: {}, chat: {} };
+
+    for (const role of MODEL_PROFILE_ROLES) {
+        const roleProfiles = source[role] && typeof source[role] === 'object' && !Array.isArray(source[role])
+            ? source[role]
+            : {};
+        const allowedProviders = getAllowedModelProfileProviders(role, catalog);
+        for (const [profileKey, rawProfile] of Object.entries(roleProfiles).slice(0, 30)) {
+            if (!rawProfile || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) continue;
+            const rawProfileKey = trimString(profileKey);
+            if (!rawProfileKey) continue;
+            const keyProvider = normalizeProvider(rawProfileKey);
+            const profileProvider = normalizeProvider(rawProfile.provider || profileKey);
+            if (!keyProvider || keyProvider !== profileProvider || !allowedProviders.has(profileProvider)) continue;
+            normalized[role][profileProvider] = toStoredModelSelection({
+                ...rawProfile,
+                provider: profileProvider
+            }, catalog);
+        }
+    }
+    return normalized;
+}
+
+function seedModelProfile(profiles, role, selection, presets) {
+    if (!selection || typeof selection !== 'object' || Array.isArray(selection)) return;
+    const provider = normalizeProvider(selection.provider);
+    if (!provider) return;
+    const allowedProviders = getAllowedModelProfileProviders(role, presets);
+    if (!allowedProviders.has(provider)) return;
+    profiles[role][provider] = toStoredModelSelection({ ...selection, provider }, presets);
+}
+
+function resolveStoredModelProfiles(structuredConfig = {}, options = {}) {
+    const presets = options.presets || getAiModelCatalog();
+    const profiles = normalizeStoredModelProfiles(
+        structuredConfig?.ai_settings?.MODEL_PROFILES,
+        presets
+    );
+    const textSelection = options.textSelection || resolveAiModelConfig(structuredConfig, 'text');
+    const imageSelection = options.imageSelection || resolveAiModelConfig(structuredConfig, 'image');
+    const chatSelection = options.chatSelection || resolveChatModelSettings(structuredConfig).selection;
+
+    seedModelProfile(profiles, 'text', textSelection, presets);
+    seedModelProfile(profiles, 'image', imageSelection, presets);
+    seedModelProfile(profiles, 'chat', chatSelection, presets);
+    return profiles;
+}
+
+function mergeActiveSelectionsIntoProfiles(rawProfiles = {}, selections = {}, presets = null) {
+    const catalog = presets || getAiModelCatalog();
+    const profiles = normalizeStoredModelProfiles(rawProfiles, catalog);
+    seedModelProfile(profiles, 'text', selections.text, catalog);
+    seedModelProfile(profiles, 'image', selections.image, catalog);
+    seedModelProfile(profiles, 'chat', selections.chat, catalog);
+    return profiles;
+}
+
 module.exports = {
     CLAUDE_OPENAI_BASE_URL,
     KIE_BASE_URL,
@@ -248,6 +327,9 @@ module.exports = {
     buildModelSelectionFromFields,
     toStoredModelSelection,
     toStoredChatModelSettings,
+    normalizeStoredModelProfiles,
+    resolveStoredModelProfiles,
+    mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource,
     normalizeBaseUrl,
     getProviderDefaultBaseUrl

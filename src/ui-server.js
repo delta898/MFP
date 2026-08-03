@@ -38,6 +38,8 @@ const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdow
 const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
+    normalizeStoredModelProfiles,
+    mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource
 } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
@@ -1119,6 +1121,7 @@ function buildMajorSettings(raw, configSource) {
         remoteMcpStatus: getRemoteServiceStatus(),
         typingSpeedOptions: ALLOWED_TYPING_SPEEDS,
         aiPresets: getAiModelCatalog(),
+        aiProviderProfiles: normalizeStoredModelProfiles(CONFIG.AI_MODEL_PROFILES, getAiModelCatalog()),
         shoppingImageDefaults: { ...DEFAULT_SHOPPING_IMAGE_SOURCES },
         shoppingImageSlots: buildShoppingImageSlots(fields)
     };
@@ -1176,6 +1179,11 @@ function applyRuntimeConfigFromMajor(fields = {}) {
     CONFIG.UPDATE_MIRROR_REPO = String(fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases').trim() || 'delta898/NaverAutoBlog-Releases';
     CONFIG.TEXT_MODEL_CONFIG = textModelConfig;
     CONFIG.IMAGE_MODEL_CONFIG = imageModelConfig;
+    CONFIG.AI_MODEL_PROFILES = mergeActiveSelectionsIntoProfiles(fields.AI_MODEL_PROFILES, {
+        text: textModelConfig,
+        image: imageModelConfig,
+        chat: chatModelSelection
+    }, aiPresets);
     CONFIG.TEXT_MODEL = textModelConfig.code;
     CONFIG.IMAGE_MODEL = imageModelConfig.code;
     CONFIG.TEXT_MODEL_NAME = textModelConfig.name;
@@ -1336,6 +1344,17 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
     const textModelConfig = buildModelSelectionFromFields('text', requestBody, aiPresets);
     const imageModelConfig = buildModelSelectionFromFields('image', requestBody, aiPresets);
     const chatModelConfig = buildModelSelectionFromFields('chat', requestBody, aiPresets);
+    const aiModelProfiles = mergeActiveSelectionsIntoProfiles(
+        Object.prototype.hasOwnProperty.call(requestBody, 'AI_MODEL_PROFILES')
+            ? requestBody.AI_MODEL_PROFILES
+            : CONFIG.AI_MODEL_PROFILES,
+        {
+            text: textModelConfig,
+            image: imageModelConfig,
+            chat: chatModelConfig
+        },
+        aiPresets
+    );
 
     const publishAutoSettings = normalizePublishAutoSettings(requestBody);
     const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
@@ -1367,6 +1386,7 @@ function parseMajorFieldsFromRequest(requestBody = {}) {
         IMAGE_MODEL_NAME: imageModelConfig.name,
         IMAGE_MODEL_BASE_URL: imageModelConfig.base_url,
         IMAGE_MODEL_API_KEY: imageModelConfig.api_key,
+        AI_MODEL_PROFILES: aiModelProfiles,
         TYPING_SPEED: typingSpeed,
         FTC_DISCLOSURE_IMAGE_URL: ftcImageUrl,
         SHOPPING_CTA_IMAGE_URL1: ctaImageUrl1,

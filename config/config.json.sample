@@ -28,6 +28,11 @@
     "CHAT_MODEL": {
       "source": "writing",
       "selection": null
+    },
+    "MODEL_PROFILES": {
+      "text": {},
+      "image": {},
+      "chat": {}
     }
   },
   "knowledge": {

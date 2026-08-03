@@ -208,8 +208,18 @@ Direct OpenAI-compatible models additionally persist:
 Catalog display names, transport IDs, provider endpoints, and capabilities are
 resolved at runtime and are not duplicated into user configuration.
 
-`ai_settings.CHAT_MODEL` remains a separate OpenAI-compatible configuration for
-Telegram and Agent support tasks.
+`ai_settings.CHAT_MODEL` selects whether common Chat work reuses the writing model
+or uses an independent Text Model catalog selection.
+
+`ai_settings.MODEL_PROFILES` is UI connection history. It stores one normalized
+profile per role (`text`, `image`, `chat`) and provider. Roles never share API keys
+implicitly. Catalog profiles retain the API key and last model code, while a
+`direct` profile also retains its model name and Base URL. The currently active
+selection is duplicated into its profile during settings save, but runtime model
+resolution continues to use `TEXT_MODEL`, `IMAGE_MODEL`, and `CHAT_MODEL` only.
+
+Unsaved provider changes exist only in the settings page memory. They are not put
+in browser storage, the remote Model Catalog, logs, or activity history.
 
 ## Supabase Operations
 

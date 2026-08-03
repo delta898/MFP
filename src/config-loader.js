@@ -5,7 +5,8 @@ const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
 const {
     getAiModelCatalog,
     resolveAiModelConfig,
-    resolveChatModelSettings
+    resolveChatModelSettings,
+    resolveStoredModelProfiles
 } = require('./ai-model-config');
 const { applyRemoteCatalog } = require('./ai/catalog-registry');
 const { normalizeWritingStyle } = require('./content/writing-style');
@@ -248,6 +249,12 @@ const aiPresets = getAiModelCatalog();
 const resolvedTextModelConfig = resolveAiModelConfig(structuredConfig, 'text');
 const resolvedImageModelConfig = resolveAiModelConfig(structuredConfig, 'image');
 const resolvedChatModelSettings = resolveChatModelSettings(structuredConfig);
+const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
+    presets: aiPresets,
+    textSelection: resolvedTextModelConfig,
+    imageSelection: resolvedImageModelConfig,
+    chatSelection: resolvedChatModelSettings.selection
+});
 const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
 const geminiTextModelCode = resolvedTextModelConfig.provider === 'gemini' ? resolvedTextModelConfig.code : '';
 const geminiImageModelCode = resolvedImageModelConfig.provider === 'gemini' ? resolvedImageModelConfig.code : '';
@@ -394,6 +401,7 @@ const CONFIG = {
     IMAGE_MODEL: resolvedImageModelConfig.code,
     TEXT_MODEL_CONFIG: resolvedTextModelConfig,
     IMAGE_MODEL_CONFIG: resolvedImageModelConfig,
+    AI_MODEL_PROFILES: resolvedAiModelProfiles,
     AI_PRESETS: aiPresets,
     TEXT_MODEL_NAME: resolvedTextModelConfig.name,
     TEXT_MODEL_PROVIDER: resolvedTextModelConfig.provider,

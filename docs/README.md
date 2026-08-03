@@ -57,3 +57,4 @@
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`
+- `plans/archive/ai-provider-profiles-plan.md`

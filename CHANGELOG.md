@@ -5,6 +5,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ### Added
 - **수동 SNS AI 최적화**: 공통 Chat Model로 원문의 의도와 사실을 유지하면서 오탈자, 가독성, 첫 문장, 검색 키워드와 관련 해시태그를 다듬을 수 있습니다. 선택한 채널 중 가장 짧은 글자 수 제한을 적용하며, 최적화 직전 글로 한 번에 되돌릴 수 있습니다.
+- **공급자별 AI 연결 기억**: Text, Image, Chat 역할을 서로 분리해 공급자별 API Key와 마지막 모델을 기억하며, 직접 입력 모델은 Base URL과 모델 이름도 함께 복원합니다.
 
 ## [0.1.15-dev3] - 2026-08-01
 

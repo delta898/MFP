@@ -223,6 +223,7 @@ function createSettingsService(deps = {}) {
                 chatModelConfig,
                 aiPresets
             );
+            structuredConfig.ai_settings.MODEL_PROFILES = fields.AI_MODEL_PROFILES;
             delete structuredConfig.ai_presets;
 
             // 3. Platforms
@@ -469,6 +470,7 @@ function createSettingsService(deps = {}) {
                 warnings,
                 fields: updatedSettings.fields,
                 aiPresets: updatedSettings.aiPresets,
+                aiProviderProfiles: updatedSettings.aiProviderProfiles,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
                 shoppingImageDefaults: updatedSettings.shoppingImageDefaults,
                 remoteMcpStatus

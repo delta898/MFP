@@ -568,6 +568,7 @@ let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
 let settingsAiPresets = { text: [], image: [] };
+let settingsAiProviderProfiles = { text: {}, image: {}, chat: {} };
 let settingsBufferOrganizations = [];
 let settingsBufferChannels = [];
 let settingsBufferSelectedChannelIds = new Set();
@@ -5340,6 +5341,7 @@ function applySettingsMajorToForm(data, options = {}) {
   if (data?.aiPresets) {
     settingsAiPresets = data.aiPresets;
   }
+  settingsAiProviderProfiles = normalizeSettingsAiProviderProfiles(data?.aiProviderProfiles);
   if (textModelPresetProviderEl) {
     textModelPresetProviderEl.dataset.desiredValue = fields.TEXT_MODEL_PROVIDER || 'gemini';
   }
@@ -5557,6 +5559,7 @@ function getSettingsMajorBasicValuesFromDom() {
     IMAGE_MODEL_NAME: (document.getElementById('settings-image-model-name')?.value || '').trim(),
     IMAGE_MODEL_BASE_URL: (document.getElementById('settings-image-model-base-url')?.value || '').trim(),
     IMAGE_MODEL_API_KEY: getSettingsInputValue('settings-image-model-api-key').trim(),
+    AI_MODEL_PROFILES: serializeSettingsAiProviderProfiles(),
 
     IMAGE_OPTIMIZATION_ENABLED: Boolean(document.getElementById('settings-image-optimization')?.checked),
 
@@ -5948,8 +5951,8 @@ function syncSettingsAiModelUi(kind) {
   const baseUrlLabelEl = baseUrlWrapEl?.querySelector('.settings-model-base-url-label');
   if (!providerEl) return;
 
-  const desiredProvider = String(providerEl?.dataset?.desiredValue || providerEl?.value || 'gemini').trim();
-  const selectedCode = String(presetEl?.dataset?.desiredValue || presetEl?.value || '').trim();
+  const desiredProvider = String(providerEl?.dataset?.desiredValue ?? providerEl?.value ?? 'gemini').trim();
+  const selectedCode = String(presetEl?.dataset?.desiredValue ?? presetEl?.value ?? '').trim();
 
   populateSettingsAiProviderSelect(kind, providerEl, desiredProvider);
   const resolvedProvider = String(providerEl.value || desiredProvider || 'gemini').trim();
@@ -5971,6 +5974,7 @@ function syncSettingsAiModelUi(kind) {
       : 'Base URL';
   }
   providerEl.dataset.desiredValue = resolvedProvider;
+  providerEl.dataset.activeProvider = resolvedProvider;
 
   if (presetEl) {
     presetEl.disabled = isDirect;
@@ -6014,6 +6018,105 @@ function captureSettingsAiModelDesiredState(kind) {
   if (presetEl) {
     presetEl.dataset.desiredValue = String(presetEl.value || '').trim();
   }
+}
+
+function createEmptySettingsAiProviderProfiles() {
+  return { text: {}, image: {}, chat: {} };
+}
+
+function normalizeSettingsAiProviderProfiles(rawProfiles) {
+  const normalized = createEmptySettingsAiProviderProfiles();
+  const source = rawProfiles && typeof rawProfiles === 'object' && !Array.isArray(rawProfiles)
+    ? rawProfiles
+    : {};
+  ['text', 'image', 'chat'].forEach((role) => {
+    const roleProfiles = source[role] && typeof source[role] === 'object' && !Array.isArray(source[role])
+      ? source[role]
+      : {};
+    Object.entries(roleProfiles).slice(0, 30).forEach(([profileKey, rawProfile]) => {
+      if (!rawProfile || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) return;
+      const provider = String(rawProfile.provider || profileKey || '').trim().toLowerCase();
+      if (!provider || provider !== String(profileKey || '').trim().toLowerCase()) return;
+      normalized[role][provider] = {
+        provider,
+        code: String(rawProfile.code || '').trim(),
+        name: String(rawProfile.name || '').trim(),
+        base_url: String(rawProfile.base_url || '').trim(),
+        api_key: String(rawProfile.api_key || '').trim()
+      };
+    });
+  });
+  return normalized;
+}
+
+function cloneSettingsAiProviderProfiles(rawProfiles = settingsAiProviderProfiles) {
+  return normalizeSettingsAiProviderProfiles(rawProfiles);
+}
+
+function readSettingsAiProviderProfile(kind, providerOverride = '') {
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
+  const provider = String(
+    providerOverride || document.getElementById(`settings-${prefix}-model-preset-provider`)?.value || ''
+  ).trim().toLowerCase();
+  if (!provider) return null;
+  const presetCode = String(document.getElementById(`settings-${prefix}-model-preset-code`)?.value || '').trim();
+  const name = String(document.getElementById(`settings-${prefix}-model-name`)?.value || '').trim();
+  return {
+    provider,
+    code: provider === 'direct' ? name : presetCode,
+    name: provider === 'direct' ? name : '',
+    base_url: String(document.getElementById(`settings-${prefix}-model-base-url`)?.value || '').trim(),
+    api_key: getSettingsInputValue(`settings-${prefix}-model-api-key`).trim()
+  };
+}
+
+function snapshotSettingsAiProviderProfile(kind, providerOverride = '', targetProfiles = settingsAiProviderProfiles) {
+  const profile = readSettingsAiProviderProfile(kind, providerOverride);
+  if (!profile) return;
+  if (!targetProfiles[kind]) targetProfiles[kind] = {};
+  targetProfiles[kind][profile.provider] = profile;
+}
+
+function restoreSettingsAiProviderProfile(kind, provider) {
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
+  const normalizedProvider = String(provider || '').trim().toLowerCase();
+  const profile = settingsAiProviderProfiles?.[kind]?.[normalizedProvider] || null;
+  const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
+  const presetEl = document.getElementById(`settings-${prefix}-model-preset-code`);
+  const nameEl = document.getElementById(`settings-${prefix}-model-name`);
+  const baseUrlEl = document.getElementById(`settings-${prefix}-model-base-url`);
+  const apiKeyEl = document.getElementById(`settings-${prefix}-model-api-key`);
+
+  if (providerEl) providerEl.dataset.desiredValue = normalizedProvider;
+  if (presetEl) presetEl.dataset.desiredValue = profile?.code || '';
+  syncSettingsAiModelUi(kind);
+
+  setManagedSettingsSecretValue(apiKeyEl, profile?.api_key || '');
+  if (normalizedProvider === 'direct') {
+    if (nameEl) nameEl.value = profile?.name || profile?.code || '';
+    if (baseUrlEl) baseUrlEl.value = profile?.base_url || '';
+  } else if (profile?.base_url && presetEl?.selectedOptions?.[0]?.textContent?.includes('카탈로그에 없음')) {
+    if (baseUrlEl) baseUrlEl.value = profile.base_url;
+  }
+  resetSettingsAiModelTestResult(kind);
+}
+
+function handleSettingsAiProviderChange(kind) {
+  const prefix = kind === 'image' ? 'image' : (kind === 'chat' ? 'chat' : 'text');
+  const providerEl = document.getElementById(`settings-${prefix}-model-preset-provider`);
+  if (!providerEl) return;
+  const previousProvider = String(providerEl.dataset.activeProvider || '').trim().toLowerCase();
+  const nextProvider = String(providerEl.value || '').trim().toLowerCase();
+  if (previousProvider && previousProvider !== nextProvider) {
+    snapshotSettingsAiProviderProfile(kind, previousProvider);
+  }
+  restoreSettingsAiProviderProfile(kind, nextProvider);
+}
+
+function serializeSettingsAiProviderProfiles() {
+  const profiles = cloneSettingsAiProviderProfiles();
+  ['text', 'image', 'chat'].forEach((kind) => snapshotSettingsAiProviderProfile(kind, '', profiles));
+  return profiles;
 }
 
 function getSettingsAiModelTestPayload(kind) {
@@ -9858,13 +9961,19 @@ function bindActions() {
   ].filter(Boolean).forEach((el) => {
     const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(eventName, () => {
-      if (el.id === 'settings-text-model-preset-provider' || el.id === 'settings-text-model-preset-code') {
+      if (el.id === 'settings-text-model-preset-provider') {
+        handleSettingsAiProviderChange('text');
+      } else if (el.id === 'settings-text-model-preset-code') {
         captureSettingsAiModelDesiredState('text');
       }
-      if (el.id === 'settings-image-model-preset-provider' || el.id === 'settings-image-model-preset-code') {
+      if (el.id === 'settings-image-model-preset-provider') {
+        handleSettingsAiProviderChange('image');
+      } else if (el.id === 'settings-image-model-preset-code') {
         captureSettingsAiModelDesiredState('image');
       }
-      if (el.id === 'settings-chat-model-preset-provider' || el.id === 'settings-chat-model-preset-code') {
+      if (el.id === 'settings-chat-model-preset-provider') {
+        handleSettingsAiProviderChange('chat');
+      } else if (el.id === 'settings-chat-model-preset-code') {
         captureSettingsAiModelDesiredState('chat');
       }
       syncSettingsTelegramUi();

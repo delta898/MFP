@@ -7,7 +7,10 @@ const {
     resolveChatModelSettings,
     buildModelSelectionFromFields,
     toStoredModelSelection,
-    toStoredChatModelSettings
+    toStoredChatModelSettings,
+    normalizeStoredModelProfiles,
+    resolveStoredModelProfiles,
+    mergeActiveSelectionsIntoProfiles
 } = require('./ai-model-config');
 
 test('AI model catalog is code-owned and returned as an isolated copy', () => {
@@ -319,4 +322,103 @@ test('models removed from the catalog remain selected until the user changes the
         base_url: '',
         api_key: 'secret'
     });
+});
+
+test('provider profiles keep Text, Image, and Chat credentials independent', () => {
+    const profiles = normalizeStoredModelProfiles({
+        text: {
+            gemini: { provider: 'gemini', code: 'gemini-3.6-flash', api_key: 'text-key' }
+        },
+        image: {
+            gemini: { provider: 'gemini', code: 'gemini-3.1-flash-image', api_key: 'image-key' }
+        },
+        chat: {
+            gemini: { provider: 'gemini', code: 'gemini-3.5-flash', api_key: 'chat-key' }
+        }
+    });
+
+    assert.equal(profiles.text.gemini.api_key, 'text-key');
+    assert.equal(profiles.image.gemini.api_key, 'image-key');
+    assert.equal(profiles.chat.gemini.api_key, 'chat-key');
+});
+
+test('provider profiles retain direct connection tuples per role', () => {
+    const profiles = normalizeStoredModelProfiles({
+        text: {
+            direct: {
+                provider: 'direct',
+                name: 'local-writing',
+                code: 'local-writing',
+                base_url: 'http://127.0.0.1:11434/v1/',
+                api_key: 'local-key'
+            }
+        }
+    });
+
+    assert.deepEqual(profiles.text.direct, {
+        provider: 'direct',
+        name: 'local-writing',
+        code: 'local-writing',
+        base_url: 'http://127.0.0.1:11434/v1',
+        api_key: 'local-key'
+    });
+});
+
+test('existing active selections seed provider profiles without crossing roles', () => {
+    const profiles = resolveStoredModelProfiles({
+        ai_settings: {
+            TEXT_MODEL: {
+                provider: 'openai',
+                code: 'gpt-5.6-sol',
+                api_key: 'writing-key'
+            },
+            IMAGE_MODEL: {
+                provider: 'openai',
+                code: 'gpt-image-2',
+                api_key: 'image-key'
+            },
+            CHAT_MODEL: {
+                source: 'dedicated',
+                selection: {
+                    provider: 'openai',
+                    code: 'gpt-5.6-luna',
+                    api_key: 'chat-key'
+                }
+            }
+        }
+    });
+
+    assert.equal(profiles.text.openai.api_key, 'writing-key');
+    assert.equal(profiles.image.openai.api_key, 'image-key');
+    assert.equal(profiles.chat.openai.api_key, 'chat-key');
+});
+
+test('active selections replace only their matching role and provider profile', () => {
+    const profiles = mergeActiveSelectionsIntoProfiles({
+        text: {
+            gemini: { provider: 'gemini', code: 'gemini-3.5-flash', api_key: 'old-text' },
+            openai: { provider: 'openai', code: 'gpt-5.6-luna', api_key: 'keep-openai' }
+        },
+        image: {
+            gemini: { provider: 'gemini', code: 'gemini-3.1-flash-image', api_key: 'keep-image' }
+        },
+        chat: {}
+    }, {
+        text: { provider: 'gemini', code: 'gemini-3.6-flash', api_key: 'new-text' }
+    });
+
+    assert.equal(profiles.text.gemini.api_key, 'new-text');
+    assert.equal(profiles.text.openai.api_key, 'keep-openai');
+    assert.equal(profiles.image.gemini.api_key, 'keep-image');
+});
+
+test('mismatched and unsupported provider profile entries are ignored', () => {
+    const profiles = normalizeStoredModelProfiles({
+        text: {
+            gemini: { provider: 'openai', code: 'gpt-5.6-sol', api_key: 'wrong-slot' },
+            attacker: { provider: 'attacker', code: 'remote-code', api_key: 'bad' }
+        }
+    });
+
+    assert.deepEqual(profiles.text, {});
 });
