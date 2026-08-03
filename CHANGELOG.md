@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-08-04
+
+### Changed
+- **AI 공급자 명칭 통일**: Text, Image, Chat 모델의 공급자를 제품명이 아닌 API 운영사 기준인 OpenAI, Anthropic, Google, KIE.ai로 표시하고 내부 설정도 동일한 공급자 namespace로 정리했습니다.
+- **Google 이미지 모델 구성 단순화**: Google 이미지 모델을 지원 중인 Nano Banana 계열로 통합하고 Gemini Native API transport를 공통으로 사용합니다.
+
+### Removed
+- **Imagen 모델 지원 종료**: Google이 Imagen API 지원 중단과 2026년 8월 17일 종료를 공지함에 따라 Imagen 4 프리셋, 연결 확인 및 Predict API 호출 경로를 제거했습니다.
+
 ## [0.1.15] - 2026-08-03
 
 ### Added
