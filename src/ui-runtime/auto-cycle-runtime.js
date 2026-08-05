@@ -834,6 +834,11 @@ function createAutoCycleRuntime(deps = {}) {
             const headless = settingsOverrides.PUBLISH_AUTO_HEADLESS !== undefined
                 ? settingsOverrides.PUBLISH_AUTO_HEADLESS
                 : (CONFIG.PUBLISH_AUTO_HEADLESS !== undefined ? CONFIG.PUBLISH_AUTO_HEADLESS : CONFIG.HEADLESS);
+            const postStatus = String(
+                settingsOverrides.PUBLISH_AUTO_POST_STATUS
+                ?? CONFIG.PUBLISH_AUTO_POST_STATUS
+                ?? 'publish'
+            ).trim().toLowerCase() === 'draft' ? 'draft' : 'publish';
 
             let successCount = 0;
             let failCount = 0;
@@ -851,6 +856,7 @@ function createAutoCycleRuntime(deps = {}) {
                     rowIndices: [candidate.rowIndex],
                     headless,
                     targets: rowTargets,
+                    postStatus,
                     isAutoCycle: true
                 });
 

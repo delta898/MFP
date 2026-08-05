@@ -140,6 +140,7 @@
         "enabled": false,
         "interval_min": 60,
         "batch_size": 1,
+        "post_status": "publish",
         "target_channels": [
         ],
         "headless": true,

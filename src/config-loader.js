@@ -466,6 +466,7 @@ const CONFIG = {
     PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.blog.enabled,
     PUBLISH_AUTO_INTERVAL_MIN: structuredConfig.automation.publish.blog.interval_min,
     PUBLISH_AUTO_BATCH_SIZE: structuredConfig.automation.publish.blog.batch_size,
+    PUBLISH_AUTO_POST_STATUS: structuredConfig.automation.publish.blog.post_status === 'draft' ? 'draft' : 'publish',
     PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.blog.target_channels) ? structuredConfig.automation.publish.blog.target_channels : [structuredConfig.automation.publish.blog.target_channels || 'naver'],
     PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.blog.headless,
     PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,

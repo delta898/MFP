@@ -3,6 +3,9 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **자동 포스팅 저장 방식 선택**: 블로그 자동 포스팅 설정에서 즉시 발행 또는 임시 저장을 선택하고 예약 실행과 수동 실행에 동일하게 적용할 수 있습니다.
+
 ## [0.1.16] - 2026-08-04
 
 ### Changed

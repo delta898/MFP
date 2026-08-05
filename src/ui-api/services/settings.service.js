@@ -314,6 +314,7 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.blog.enabled = fields.PUBLISH_AUTO_ENABLED;
             structuredConfig.automation.publish.blog.interval_min = Number(fields.PUBLISH_AUTO_INTERVAL_MIN);
             structuredConfig.automation.publish.blog.batch_size = Number(fields.PUBLISH_AUTO_BATCH_SIZE);
+            structuredConfig.automation.publish.blog.post_status = fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish';
             structuredConfig.automation.publish.blog.notify_enabled = fields.PUBLISH_AUTO_NOTIFY_ENABLED;
             structuredConfig.automation.publish.blog.target_channels = fields.PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
             structuredConfig.automation.publish.blog.headless = fields.PUBLISH_AUTO_HEADLESS;
@@ -594,7 +595,8 @@ function createSettingsService(deps = {}) {
                 COLLECT_RSS_CONFIGS: parseConfigValue(content, 'COLLECT_RSS_CONFIGS'),
                 PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'PUBLISH_AUTO_ENABLED'),
                 PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'PUBLISH_AUTO_INTERVAL_MIN'),
-                PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'PUBLISH_AUTO_BATCH_SIZE')
+                PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'PUBLISH_AUTO_BATCH_SIZE'),
+                PUBLISH_AUTO_POST_STATUS: parseConfigValue(content, 'PUBLISH_AUTO_POST_STATUS')
             });
             applyRuntimeConfigFromMajor(fields);
             syncAutoRunnerWithConfig();

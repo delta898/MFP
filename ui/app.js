@@ -5432,6 +5432,7 @@ function applySettingsMajorToForm(data, options = {}) {
   const blogPublishAutoEnabledEl = document.getElementById('blog-publish-auto-enabled');
   const blogPublishAutoBatchEl = document.getElementById('blog-publish-auto-batch');
   const blogPublishAutoIntervalEl = document.getElementById('blog-publish-auto-interval');
+  const blogPublishAutoPostStatusEl = document.getElementById('blog-publish-auto-post-status');
   const blogPublishAutoHeadlessEl = document.getElementById('blog-publish-auto-headless');
   const shoppingPublishAutoEnabledEl = document.getElementById('shopping-publish-auto-enabled');
   const shoppingPublishAutoBatchEl = document.getElementById('shopping-publish-auto-batch');
@@ -5564,6 +5565,7 @@ function applySettingsMajorToForm(data, options = {}) {
   sc(blogPublishAutoEnabledEl, fields.PUBLISH_AUTO_ENABLED);
   sv(blogPublishAutoBatchEl, fields.PUBLISH_AUTO_BATCH_SIZE || 1);
   sv(blogPublishAutoIntervalEl, fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
+  sv(blogPublishAutoPostStatusEl, fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish');
   sc(blogPublishAutoHeadlessEl, fields.PUBLISH_AUTO_HEADLESS ?? true);
   sc(blogPublishAutoNotifyEnabledEl, fields.PUBLISH_AUTO_NOTIFY_ENABLED);
 
@@ -5738,6 +5740,7 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('blog-publish-auto-enabled')?.checked),
     PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('blog-publish-auto-interval')?.value || '60', 10),
     PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('blog-publish-auto-batch')?.value || '1', 10),
+    PUBLISH_AUTO_POST_STATUS: document.getElementById('blog-publish-auto-post-status')?.value === 'draft' ? 'draft' : 'publish',
     PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
     PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-publish-auto-notify-enabled')?.checked),
@@ -7750,6 +7753,7 @@ async function loadBlogAutoSettings({ force = false, skipPendingConfirm = false 
   const publishEnabledEl = document.getElementById('blog-publish-auto-enabled');
   const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
   const publishBatchEl = document.getElementById('blog-publish-auto-batch');
+  const postStatusEl = document.getElementById('blog-publish-auto-post-status');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
 
   setBlogAutoResultText('불러오는 중...');
@@ -7760,6 +7764,7 @@ async function loadBlogAutoSettings({ force = false, skipPendingConfirm = false 
     if (publishEnabledEl) publishEnabledEl.checked = Boolean(fields.PUBLISH_AUTO_ENABLED);
     if (publishIntervalEl) publishIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
     if (publishBatchEl) publishBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE || 1);
+    if (postStatusEl) postStatusEl.value = fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish';
 
     const targetChannels = String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
     document.querySelectorAll('[data-publish-target]').forEach(el => {
@@ -7786,6 +7791,7 @@ async function saveBlogAutoSettings() {
   const publishEnabledEl = document.getElementById('blog-publish-auto-enabled');
   const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
   const publishBatchEl = document.getElementById('blog-publish-auto-batch');
+  const postStatusEl = document.getElementById('blog-publish-auto-post-status');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
 
   setBlogAutoResultText('저장 중...');
@@ -7798,6 +7804,7 @@ async function saveBlogAutoSettings() {
       PUBLISH_AUTO_ENABLED: Boolean(publishEnabledEl?.checked),
       PUBLISH_AUTO_INTERVAL_MIN: parseInt(publishIntervalEl?.value || '60', 10),
       PUBLISH_AUTO_BATCH_SIZE: parseInt(publishBatchEl?.value || '1', 10),
+      PUBLISH_AUTO_POST_STATUS: postStatusEl?.value === 'draft' ? 'draft' : 'publish',
       PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(','),
       PUBLISH_AUTO_HEADLESS: Boolean(headlessEl?.checked),
       PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
@@ -8030,9 +8037,11 @@ async function runBlogPublishAutoManual() {
   if (blogAutoManualRunInFlight) return;
 
   const batchEl = document.getElementById('blog-publish-auto-batch');
+  const postStatusEl = document.getElementById('blog-publish-auto-post-status');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
   const resultEl = document.getElementById('blog-publish-auto-result');
   const batchSize = parseInt((batchEl?.value || '1').trim(), 10) || 1;
+  const postStatus = postStatusEl?.value === 'draft' ? 'draft' : 'publish';
   const targets = Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(',');
   const headless = Boolean(headlessEl?.checked);
 
@@ -8057,6 +8066,7 @@ async function runBlogPublishAutoManual() {
       requestFn: () => postJson('/api/v1/auto/publish/run', {
         settingsOverrides: {
           PUBLISH_AUTO_BATCH_SIZE: batchSize,
+          PUBLISH_AUTO_POST_STATUS: postStatus,
           PUBLISH_AUTO_TARGET_CHANNELS: targets,
           PUBLISH_AUTO_HEADLESS: headless
         }
@@ -10058,6 +10068,7 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-host'),
     document.getElementById('settings-sns-ai-mode'),
     document.getElementById('settings-typing-speed'),
+    document.getElementById('blog-publish-auto-post-status'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);
   const settingsMajorAutoSaveChecks = [

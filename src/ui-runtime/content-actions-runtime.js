@@ -124,7 +124,8 @@ function createContentActionsRuntime(deps = {}) {
         const effectiveInstruction = getVal('instruction', topicData.content_guide?.additional_instructions || '');
         const effectiveRefUrls = getVal('reference_urls', topicData.content_guide?.reference_urls || []);
         const effectiveCategory = getVal('category', topicData.category || '');
-        const effectivePostStatus = getVal('post_status', topicData.postStatus || 'publish');
+        const requestedPostStatus = String(requestBody?.postStatus || '').trim().toLowerCase();
+        const effectivePostStatus = requestedPostStatus || getVal('post_status', topicData.postStatus || 'publish');
         const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
         const effectiveImgGenRequested = topicData.image_gen === true;
         const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
@@ -380,12 +381,16 @@ function createContentActionsRuntime(deps = {}) {
         }
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const requestedPostStatus = String(requestBody?.postStatus || '').trim().toLowerCase();
+        if (requestedPostStatus && !['publish', 'draft', 'schedule'].includes(requestedPostStatus)) {
+            return { success: false, code: 'INVALID_POST_STATUS', message: `postStatus 값이 올바르지 않습니다: ${requestedPostStatus}` };
+        }
 
         const results = [];
         let successCount = 0;
         let failCount = 0;
         const batchOperationId = String(requestBody?.operationId || '').trim()
-            || createPublishOperationId({ scope: 'blog-batch', postStatus: 'publish' });
+            || createPublishOperationId({ scope: 'blog-batch', postStatus: requestedPostStatus || 'publish' });
 
         targetRowIndices.forEach((rowIndex, index) => {
             setBlogRuntimeLog(rowIndex, `대기열 등록 (${index + 1}/${targetRowIndices.length})`);
@@ -398,7 +403,7 @@ function createContentActionsRuntime(deps = {}) {
             const rowIndex = targetRowIndices[index];
             setBlogRuntimeLog(rowIndex, `처리 시작 (${index + 1}/${targetRowIndices.length})`);
             const result = await executeBlogRowAction(
-                { action: 'batch', rowIndex, headless, targets, isLast: index === targetRowIndices.length - 1 },
+                { action: 'batch', rowIndex, headless, targets, postStatus: requestedPostStatus, isLast: index === targetRowIndices.length - 1 },
                 {
                     onProgress: (message) => setBlogRuntimeLog(rowIndex, message),
                     isAutoCycle: requestBody?.isAutoCycle === true,

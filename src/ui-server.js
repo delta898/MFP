@@ -110,6 +110,7 @@ const PUBLISH_AUTO_DEFAULTS = {
     enabled: false,
     intervalMin: 60,
     batchSize: 1,
+    postStatus: 'publish',
     notifyEnabled: false,
     targetChannels: 'naver',
     headless: true,
@@ -892,6 +893,12 @@ function normalizePublishAutoSettings(input = {}) {
         ?? PUBLISH_AUTO_DEFAULTS.batchSize;
     const batchSize = normalizePositiveInt(batchSizeSource, PUBLISH_AUTO_DEFAULTS.batchSize);
 
+    const postStatus = String(
+        input.PUBLISH_AUTO_POST_STATUS
+        ?? CONFIG.PUBLISH_AUTO_POST_STATUS
+        ?? PUBLISH_AUTO_DEFAULTS.postStatus
+    ).trim().toLowerCase() === 'draft' ? 'draft' : 'publish';
+
     const notifyEnabled = toBoolLike(
         input.PUBLISH_AUTO_NOTIFY_ENABLED,
         toBoolLike(CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED, PUBLISH_AUTO_DEFAULTS.notifyEnabled)
@@ -924,6 +931,7 @@ function normalizePublishAutoSettings(input = {}) {
         PUBLISH_AUTO_ENABLED: enabled,
         PUBLISH_AUTO_INTERVAL_MIN: intervalMin,
         PUBLISH_AUTO_BATCH_SIZE: batchSize,
+        PUBLISH_AUTO_POST_STATUS: postStatus,
         PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
         PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
         PUBLISH_AUTO_HEADLESS: headless,
@@ -1069,6 +1077,7 @@ function buildMajorSettings(raw, configSource) {
         PUBLISH_AUTO_ENABLED: CONFIG.PUBLISH_AUTO_ENABLED,
         PUBLISH_AUTO_INTERVAL_MIN: CONFIG.PUBLISH_AUTO_INTERVAL_MIN,
         PUBLISH_AUTO_BATCH_SIZE: CONFIG.PUBLISH_AUTO_BATCH_SIZE,
+        PUBLISH_AUTO_POST_STATUS: CONFIG.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish',
         PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.PUBLISH_AUTO_TARGET_CHANNELS,
         PUBLISH_AUTO_HEADLESS: CONFIG.PUBLISH_AUTO_HEADLESS,
         PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED,
@@ -1973,5 +1982,8 @@ const { startUiServer, reloadUiServer } = uiHttpServerRuntime;
 
 module.exports = {
     startUiServer,
-    reloadUiServer
+    reloadUiServer,
+    __testing: {
+        buildMajorSettings
+    }
 };
