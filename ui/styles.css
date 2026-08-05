@@ -1132,18 +1132,14 @@ h2 {
 }
 
 .buffer-resource-links a {
-  color: inherit;
-  text-decoration: none;
+  color: var(--brand-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .buffer-resource-links a:hover,
 .buffer-resource-links a:focus-visible {
-  color: var(--brand-primary);
-  text-decoration: underline;
-}
-
-.social-view-resource-links {
-  margin-top: 6px;
+  color: #1d4ed8;
 }
 
 .social-composer-card {
@@ -1213,6 +1209,24 @@ h2 {
   line-height: 1.45;
 }
 
+.social-inline-nav-link {
+  color: var(--brand-primary);
+  font-size: inherit;
+  margin-left: 0;
+  text-underline-offset: 3px;
+}
+
+.social-inline-nav-link:hover,
+.social-inline-nav-link:focus-visible {
+  color: #1d4ed8;
+}
+
+.social-channel-help-links {
+  margin-top: 6px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
 .social-channel-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1222,8 +1236,9 @@ h2 {
 .social-channel-empty {
   grid-column: 1 / -1;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 13px;
 }
@@ -5826,6 +5841,9 @@ select.inline-editor {
 
 .settings-section-divider .buffer-resource-links {
   font-weight: 500;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  white-space: normal;
 }
 
 #settings-tab-sns {
