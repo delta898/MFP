@@ -3,7 +3,10 @@ const { buildLocalMarkdownPreview } = require('../../content/local-markdown-prev
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isCommandEnabled } = require('../../runtime-feature-flags');
 const { createNaverSmartCommentCollector } = require('../../naver/smart-comment-candidate-collector');
-const { generateSmartCommentDrafts } = require('../../naver/smart-comment-draft-generator');
+const {
+    generateSmartCommentDraftBatch,
+    generateSmartCommentDrafts
+} = require('../../naver/smart-comment-draft-generator');
 
 function createContentService(deps = {}) {
     const {
@@ -69,6 +72,46 @@ function createContentService(deps = {}) {
 
     let wordpressCategoryConfigLogState = '';
     let smartCommentCollector = deps.smartCommentCollector || null;
+    let smartCommentProgress = {
+        state: 'idle',
+        phase: 'idle',
+        message: '대기 중',
+        completedCount: 0,
+        totalCount: 0,
+        batchIndex: 0,
+        batchTotal: 0,
+        retryAt: '',
+        updatedAt: new Date().toISOString()
+    };
+
+    function updateSmartCommentProgress(patch = {}) {
+        smartCommentProgress = {
+            ...smartCommentProgress,
+            ...patch,
+            updatedAt: new Date().toISOString()
+        };
+        return smartCommentProgress;
+    }
+
+    function getSmartCommentProgressSnapshot() {
+        const progress = { ...smartCommentProgress };
+        if (progress.phase === 'rate_limited' && progress.retryAt) {
+            const remainingSeconds = Math.max(0, Math.ceil((Date.parse(progress.retryAt) - Date.now()) / 1000));
+            progress.retryRemainingSeconds = remainingSeconds;
+            progress.message = `AI 요청 한도 대기 중 · 약 ${remainingSeconds}초 후 재시도`;
+        }
+        return progress;
+    }
+
+    function markSmartCommentFailed(error) {
+        updateSmartCommentProgress({
+            state: 'failed',
+            phase: 'failed',
+            retryAt: '',
+            message: `오류: ${error?.message || '스마트 댓글 실행에 실패했습니다.'}`
+        });
+        return error;
+    }
 
     function getSmartCommentCollector() {
         if (!smartCommentCollector) {
@@ -121,6 +164,23 @@ function createContentService(deps = {}) {
         CONFIG.NAVER_COMMENT_DRAFT_HEADLESS = settings.headless;
     }
 
+    function callCommentDraftModel(mode, prompt, maxTokens = 768) {
+        return Utils.callTextModelByMode(mode, prompt, 3, {
+            usageLabel: mode === 'custom' ? 'Chat Model' : '글쓰기 모델',
+            maxTokens,
+            temperature: 0.6,
+            responseMimeType: 'application/json',
+            reasoningEffort: 'low',
+            logStart: false,
+            onRetry: ({ delayMs = 0 } = {}) => {
+                updateSmartCommentProgress({
+                    phase: 'rate_limited',
+                    retryAt: new Date(Date.now() + Math.max(0, Number(delayMs) || 0)).toISOString()
+                });
+            }
+        });
+    }
+
     async function generateCommentDrafts({ aiMode, authorName, title, excerpt, maxChars, tone }) {
         return generateSmartCommentDrafts({
             aiMode,
@@ -130,14 +190,18 @@ function createContentService(deps = {}) {
             maxChars,
             tone,
             logger: Logger,
-            callModel: (mode, prompt) => Utils.callTextModelByMode(mode, prompt, 3, {
-                usageLabel: mode === 'custom' ? 'Chat Model' : '글쓰기 모델',
-                maxTokens: 768,
-                temperature: 0.6,
-                responseMimeType: 'application/json',
-                reasoningEffort: 'low',
-                logStart: false
-            })
+            callModel: callCommentDraftModel
+        });
+    }
+
+    async function generateCommentDraftBatch({ aiMode, candidates, maxChars, tone }) {
+        return generateSmartCommentDraftBatch({
+            aiMode,
+            items: candidates,
+            maxChars,
+            tone,
+            logger: Logger,
+            callModel: callCommentDraftModel
         });
     }
 
@@ -428,6 +492,12 @@ function createContentService(deps = {}) {
             };
         },
 
+        async getNaverCommentDraftProgress() {
+            return {
+                progress: getSmartCommentProgressSnapshot()
+            };
+        },
+
         async saveNaverCommentDraftSettings(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
             const writablePath = resolveWritableConfigPath();
@@ -460,12 +530,22 @@ function createContentService(deps = {}) {
 
         async runNaverCommentDraft(requestBody = {}) {
             const settings = normalizeCommentDraftSettings(requestBody || {});
+            updateSmartCommentProgress({
+                state: 'running',
+                phase: 'session',
+                message: '네이버 로그인 상태를 확인하고 있습니다.',
+                completedCount: 0,
+                totalCount: 0,
+                batchIndex: 0,
+                batchTotal: 0,
+                retryAt: ''
+            });
             if (settings.aiMode === 'custom' && !String(CONFIG.CHAT_MODEL_CONFIG?.code || '').trim()) {
-                throw createApiError(400, 'INVALID_CHAT_MODEL', 'Chat Model을 사용하려면 AI 설정에서 사용할 모델을 선택해야 합니다.');
+                throw markSmartCommentFailed(createApiError(400, 'INVALID_CHAT_MODEL', 'Chat Model을 사용하려면 AI 설정에서 사용할 모델을 선택해야 합니다.'));
             }
 
             if (typeof checkNaverSessionForUi !== 'function') {
-                throw createApiError(500, 'NAVER_SESSION_CHECK_UNAVAILABLE', '네이버 로그인 상태를 확인할 수 없습니다.');
+                throw markSmartCommentFailed(createApiError(500, 'NAVER_SESSION_CHECK_UNAVAILABLE', '네이버 로그인 상태를 확인할 수 없습니다.'));
             }
             const session = await checkNaverSessionForUi({ forceRefresh: true });
             if (!session?.ok) {
@@ -477,16 +557,30 @@ function createContentService(deps = {}) {
                         : '네이버 로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
                 const error = createApiError(401, 'NAVER_SESSION_INVALID', message);
                 error.reason = reason || 'check_failed';
-                throw error;
+                throw markSmartCommentFailed(error);
             }
 
-            const candidates = await getSmartCommentCollector().collect({
-                fetchLimit: settings.fetchLimit,
-                headless: settings.headless
+            updateSmartCommentProgress({
+                phase: 'collecting',
+                message: '이웃새글 후보를 수집하고 있습니다.'
             });
+            let candidates;
+            try {
+                candidates = await getSmartCommentCollector().collect({
+                    fetchLimit: settings.fetchLimit,
+                    headless: settings.headless
+                });
+            } catch (error) {
+                throw markSmartCommentFailed(error);
+            }
 
             if (candidates.length === 0) {
                 Logger.info('ℹ️ [NaverCommentDraft] 조건에 맞는 이웃새글 후보가 없습니다.');
+                updateSmartCommentProgress({
+                    state: 'completed',
+                    phase: 'completed',
+                    message: '조건에 맞는 이웃새글 후보가 없습니다.'
+                });
                 return {
                     items: [],
                     settings,
@@ -501,32 +595,101 @@ function createContentService(deps = {}) {
 
             Logger.info(`📝 [NaverCommentDraft] 댓글 초안 생성 시작 (${candidates.length}건, AI: ${settings.aiMode === 'custom' ? 'Chat Model' : '글쓰기 모델'})`);
             const items = [];
-            for (let index = 0; index < candidates.length; index += 1) {
-                const candidate = candidates[index];
+            const batchSize = 3;
+            const batchTotal = Math.ceil(candidates.length / batchSize);
+            updateSmartCommentProgress({
+                phase: 'generating',
+                message: `댓글 초안 생성 준비 중 · 0/${candidates.length}건`,
+                totalCount: candidates.length,
+                batchTotal
+            });
+            let stoppedByRateLimit = false;
+            for (let offset = 0; offset < candidates.length; offset += batchSize) {
+                const batchIndex = Math.floor(offset / batchSize) + 1;
+                updateSmartCommentProgress({
+                    phase: 'generating',
+                    retryAt: '',
+                    batchIndex,
+                    message: `댓글 초안 생성 중 · ${batchIndex}/${batchTotal} 배치 · ${offset}/${candidates.length}건 완료`
+                });
+                const batchCandidates = candidates.slice(offset, offset + batchSize)
+                    .map((candidate, index) => ({ ...candidate, id: String(offset + index) }));
                 try {
-                    const drafts = await generateCommentDrafts({
+                    const batchResults = await generateCommentDraftBatch({
                         aiMode: settings.aiMode,
-                        authorName: candidate.authorName,
-                        title: candidate.title,
-                        excerpt: candidate.excerpt,
+                        candidates: batchCandidates,
                         maxChars: settings.maxChars,
                         tone: settings.tone
                     });
-                    items.push({ ...candidate, drafts, error: '' });
+                    batchCandidates.forEach((candidate, index) => {
+                        const result = batchResults[index] || {};
+                        const { id: _id, ...candidateWithoutId } = candidate;
+                        items.push({
+                            ...candidateWithoutId,
+                            drafts: Array.isArray(result.drafts) ? result.drafts : [],
+                            error: String(result.error || '')
+                        });
+                    });
                 } catch (e) {
-                    items.push({ ...candidate, drafts: [], error: e.message || '댓글 초안 생성 실패' });
+                    const rateLimited = e?.code === 'AI_RATE_LIMITED' || Number(e?.status) === 429;
+                    const partialResults = Array.isArray(e?.partialResults) ? e.partialResults : [];
+                    batchCandidates.forEach((candidate, index) => {
+                        const { id: _id, ...candidateWithoutId } = candidate;
+                        const partial = partialResults[index] || {};
+                        items.push({
+                            ...candidateWithoutId,
+                            drafts: Array.isArray(partial.drafts) ? partial.drafts : [],
+                            error: String(partial.error || e.message || '댓글 초안 생성 실패')
+                        });
+                    });
+                    if (rateLimited) {
+                        const remainingCandidates = candidates.slice(offset + batchCandidates.length);
+                        remainingCandidates.forEach((candidate) => {
+                            items.push({
+                                ...candidate,
+                                drafts: [],
+                                error: 'AI 요청 한도로 이해 실행을 중단했습니다.'
+                            });
+                        });
+                        stoppedByRateLimit = true;
+                    }
                 }
-                if ((index + 1) < candidates.length) {
-                    Logger.debug(`📝 [NaverCommentDraft] 댓글 초안 생성 진행 ${index + 1}/${candidates.length}`);
+                const completedCount = stoppedByRateLimit
+                    ? items.filter((item) => item.drafts.length > 0).length
+                    : offset + batchCandidates.length;
+                updateSmartCommentProgress({
+                    phase: stoppedByRateLimit ? 'rate_limit_stopped' : 'generating',
+                    retryAt: '',
+                    completedCount,
+                    message: stoppedByRateLimit
+                        ? `AI 요청 한도로 실행 중단 · ${completedCount}/${candidates.length}건 생성`
+                        : `댓글 초안 생성 중 · ${batchIndex}/${batchTotal} 배치 · ${completedCount}/${candidates.length}건 완료`
+                });
+                if (stoppedByRateLimit) break;
+                if (completedCount < candidates.length) {
+                    Logger.debug(`📝 [NaverCommentDraft] 댓글 초안 생성 진행 ${completedCount}/${candidates.length}`);
                 }
             }
             const successCount = items.filter((item) => item.drafts.length > 0).length;
             const failureCount = items.length - successCount;
-            const status = successCount === 0
-                ? 'draft_generation_failed'
-                : (failureCount > 0 ? 'partial_success' : 'success');
+            const status = stoppedByRateLimit
+                ? 'rate_limited'
+                : (successCount === 0
+                    ? 'draft_generation_failed'
+                    : (failureCount > 0 ? 'partial_success' : 'success'));
             const log = failureCount > 0 ? Logger.warn.bind(Logger) : Logger.info.bind(Logger);
             log(`${failureCount > 0 ? '⚠️' : '✅'} [NaverCommentDraft] 댓글 초안 생성 완료 (성공 ${successCount}건, 실패 ${failureCount}건)`);
+            updateSmartCommentProgress({
+                state: 'completed',
+                phase: 'completed',
+                retryAt: '',
+                message: stoppedByRateLimit
+                    ? `AI 요청 한도로 실행 중단 · ${successCount}/${candidates.length}건 생성`
+                    : (failureCount > 0
+                        ? `일부 완료 · ${successCount}건 생성, ${failureCount}건 실패`
+                    : `완료 · ${successCount}건의 댓글 초안을 생성했습니다.`
+                    )
+            });
 
             return {
                 items,

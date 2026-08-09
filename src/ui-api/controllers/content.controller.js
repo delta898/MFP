@@ -112,6 +112,17 @@ function createContentController(deps = {}) {
             }
         },
 
+        async naverCommentDraftProgress({ requestId, method, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.getNaverCommentDraftProgress());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'NAVER_COMMENT_DRAFT_PROGRESS_FAILED', '스마트 댓글 진행 상태 조회에 실패했습니다.', e);
+            }
+        },
+
         async naverCommentDraftRedraft({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

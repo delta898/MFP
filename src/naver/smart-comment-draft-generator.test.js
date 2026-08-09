@@ -2,11 +2,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    buildCommentDraftBatchPrompt,
     buildCommentDraftPrompt,
+    generateSmartCommentDraftBatch,
     generateSmartCommentDrafts,
+    parseBatchDraftResponse,
     parseDraftResponse,
     validateDrafts
 } = require('./smart-comment-draft-generator');
+
+const VALID_DRAFTS = [
+    '하카타 간식 조합이 여행 분위기와 잘 어울리네요.',
+    '달걀 김밥을 기다린 과정도 좋은 추억이 된 것 같아요.',
+    '신선샌드를 포기한 대목이 현실적이라 공감돼요.'
+];
 
 test('prompt uses the visible title and excerpt and forbids invented experience', () => {
     const prompt = buildCommentDraftPrompt({
@@ -79,4 +88,51 @@ test('generation stops after one quality regeneration', async () => {
         (error) => error.code === 'COMMENT_DRAFT_QUALITY_FAILED'
     );
     assert.equal(calls, 2);
+});
+
+test('batch prompt keeps candidate ids and requests one structured response', () => {
+    const prompt = buildCommentDraftBatchPrompt({
+        items: [
+            { id: '0', title: '첫 글', excerpt: '첫 글 본문입니다.' },
+            { id: '1', title: '둘째 글', excerpt: '둘째 글 본문입니다.' }
+        ],
+        maxChars: 80
+    });
+    assert.match(prompt, /"id":"0"/);
+    assert.match(prompt, /"id":"1"/);
+    assert.match(prompt, /"items"/);
+});
+
+test('batch parser validates each candidate independently', () => {
+    const parsed = parseBatchDraftResponse(JSON.stringify({
+        items: [
+            { id: '0', drafts: VALID_DRAFTS },
+            { id: '1', drafts: ['No', '좋네요', '좋네요'] }
+        ]
+    }), [{ id: '0' }, { id: '1' }], 80);
+    assert.equal(parsed[0].errors.length, 0);
+    assert.ok(parsed[1].errors.length > 0);
+});
+
+test('batch generation creates three candidates with one model request', async () => {
+    let calls = 0;
+    let requestedMaxTokens = 0;
+    const items = ['0', '1', '2'].map((id) => ({
+        id,
+        title: `후보 ${id}`,
+        excerpt: `후보 ${id}의 공개 본문 일부입니다.`
+    }));
+    const results = await generateSmartCommentDraftBatch({
+        items,
+        maxChars: 80,
+        callModel: async (_mode, _prompt, maxTokens) => {
+            calls += 1;
+            requestedMaxTokens = maxTokens;
+            return JSON.stringify({ items: items.map((item) => ({ id: item.id, drafts: VALID_DRAFTS })) });
+        }
+    });
+    assert.equal(calls, 1);
+    assert.equal(requestedMaxTokens, 3072);
+    assert.equal(results.length, 3);
+    assert.ok(results.every((result) => result.drafts.length === 3));
 });

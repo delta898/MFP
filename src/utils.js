@@ -36,6 +36,7 @@ const {
     getKieOpenAiChatEndpoint
 } = require('./ai/kie-openai-chat');
 const { extractGeminiText, resolveGeminiThinkingConfig } = require('./ai/gemini-response');
+const { resolveAiRetryDecision } = require('./ai/request-retry-policy');
 const {
     KIE_RESPONSES_ENDPOINT,
     buildKieResponsesRequest,
@@ -3688,16 +3689,37 @@ const Utils = {
                 if (!text) throw new Error('Empty response from Gemini');
                 return text;
             } catch (e) {
-                Logger.warn(`⚠️ [${usageLabel}] Gemini 호출 실패 (시도 ${attempt}/${retries}): ${e.message}`);
+                const readableError = formatAiRemoteErrorMessage(e);
+                const retryDecision = resolveAiRetryDecision(e, attempt);
+                Logger.warn(`⚠️ [${usageLabel}] Gemini 호출 실패 (시도 ${attempt}/${retries}): ${readableError}`);
 
-                if (attempt === retries) {
-                    Logger.error(`❌ [${usageLabel}] Gemini 최대 재시도 횟수 초과`);
-                    throw e; // null 대신 에러 throw
+                if (attempt === retries || !retryDecision.retryable) {
+                    Logger.error(`❌ [${usageLabel}] Gemini 호출 중단`);
+                    if (retryDecision.isRateLimited) {
+                        const rateLimitError = new Error('AI 공급자의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.');
+                        rateLimitError.code = 'AI_RATE_LIMITED';
+                        rateLimitError.status = 429;
+                        throw rateLimitError;
+                    }
+                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${readableError}`);
                 }
 
-                // 지수 백오프 (1초, 2초, 4초...)
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
+                const waitTime = retryDecision.delayMs;
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
+                if (typeof options?.onRetry === 'function') {
+                    try {
+                        await options.onRetry({
+                            attempt,
+                            retries,
+                            delayMs: waitTime,
+                            isRateLimited: retryDecision.isRateLimited,
+                            status: Number(e?.response?.status || 0),
+                            message: readableError
+                        });
+                    } catch (callbackError) {
+                        Logger.debug(`🛠️ [${usageLabel}] 재시도 상태 콜백 실패: ${callbackError.message}`);
+                    }
+                }
                 await this.sleep(waitTime);
             }
         }
@@ -3755,13 +3777,34 @@ const Utils = {
                 return text;
             } catch (e) {
                 const readableError = formatAiRemoteErrorMessage(e);
+                const retryDecision = resolveAiRetryDecision(e, attempt);
                 Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${readableError}`);
-                if (attempt === retries) {
-                    Logger.error(`❌ [${usageLabel}] 최대 재시도 횟수 초과`);
+                if (attempt === retries || !retryDecision.retryable) {
+                    Logger.error(`❌ [${usageLabel}] 호출 중단`);
+                    if (retryDecision.isRateLimited) {
+                        const rateLimitError = new Error('AI 공급자의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.');
+                        rateLimitError.code = 'AI_RATE_LIMITED';
+                        rateLimitError.status = 429;
+                        throw rateLimitError;
+                    }
                     throw new Error(`${usageLabel} 호출에 실패했습니다: ${readableError}`);
                 }
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
+                const waitTime = retryDecision.delayMs;
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
+                if (typeof options?.onRetry === 'function') {
+                    try {
+                        await options.onRetry({
+                            attempt,
+                            retries,
+                            delayMs: waitTime,
+                            isRateLimited: retryDecision.isRateLimited,
+                            status: Number(e?.response?.status || 0),
+                            message: readableError
+                        });
+                    } catch (callbackError) {
+                        Logger.debug(`🛠️ [${usageLabel}] 재시도 상태 콜백 실패: ${callbackError.message}`);
+                    }
+                }
                 await this.sleep(waitTime);
             }
         }

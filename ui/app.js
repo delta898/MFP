@@ -1912,6 +1912,21 @@ async function runNaverCommentDraft() {
   setNaverCommentDraftResultText('후보 글을 수집하고 댓글 초안을 생성 중...');
   const listEl = document.getElementById('naver-comment-draft-list');
   if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 중...</p>';
+  let progressPolling = true;
+  let progressTimer = null;
+  const pollProgress = async () => {
+    if (!progressPolling) return;
+    try {
+      const data = await fetchJson('/api/v1/blog/naver-comment-draft/progress');
+      if (progressPolling && data?.progress?.message) {
+        setNaverCommentDraftResultText(data.progress.message);
+      }
+    } catch (_e) {
+      // 실행 성공/실패는 본 요청으로 판정하며, 진행 상태 조회 실패는 현재 표시를 유지한다.
+    }
+    if (progressPolling) progressTimer = window.setTimeout(pollProgress, 1000);
+  };
+  progressTimer = window.setTimeout(pollProgress, 250);
   try {
     const payload = getNaverCommentDraftSettingsFromUi();
     const data = await postJson('/api/v1/blog/naver-comment-draft/run', payload);
@@ -1919,6 +1934,8 @@ async function runNaverCommentDraft() {
     const summary = data?.summary || {};
     if (summary.status === 'no_candidates') {
       setNaverCommentDraftResultText('조건에 맞는 이웃새글 후보가 없습니다.');
+    } else if (summary.status === 'rate_limited') {
+      setNaverCommentDraftResultText(`AI 요청 한도로 실행을 중단했습니다. ${summary.successCount || 0}/${summary.candidateCount || 0}건 생성`);
     } else if (summary.status === 'draft_generation_failed') {
       setNaverCommentDraftResultText(`후보 ${summary.candidateCount || 0}건을 찾았지만 댓글 초안을 생성하지 못했습니다.`);
     } else if (summary.status === 'partial_success') {
@@ -1930,6 +1947,8 @@ async function runNaverCommentDraft() {
     if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 결과가 없습니다.</p>';
     setNaverCommentDraftResultText(`오류: ${e.message}`);
   } finally {
+    progressPolling = false;
+    if (progressTimer) window.clearTimeout(progressTimer);
     if (runBtn) runBtn.disabled = false;
     if (saveBtn) saveBtn.disabled = false;
   }

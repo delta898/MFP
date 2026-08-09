@@ -133,6 +133,130 @@ function buildCommentDraftPrompt({ authorName = '', title = '', excerpt = '', to
     return lines.join('\n');
 }
 
+function buildCommentDraftBatchPrompt({ items = [], tone = 'empathetic', maxChars = 60, feedbackById = {} }) {
+    const lines = [
+        `프롬프트 버전: ${SMART_COMMENT_PROMPT_VERSION}-batch`,
+        '당신은 네이버 블로그 이웃새글 카드의 제목과 공개된 본문 일부를 보고 자연스러운 한국어 댓글 초안을 만드는 도우미입니다.',
+        `댓글 톤: ${TONE_LABELS[tone] || TONE_LABELS.empathetic}`,
+        `최대 글자수: ${maxChars}자`,
+        '각 입력 글마다 다음 조건을 독립적으로 적용한다:',
+        '- 제목이나 본문 일부에 실제로 나온 구체적인 주제 또는 세부 내용을 언급한다.',
+        '- 보이지 않은 내용을 읽었다고 가정하거나 방문, 구매, 사용 경험을 지어내지 않는다.',
+        '- 한국어 존댓말로 된 완결된 댓글을 정확히 3개 만든다.',
+        '- 단순 감탄이나 어디에나 붙일 수 있는 상투적인 문장만 쓰지 않는다.',
+        '- 댓글 3개는 관점과 표현을 서로 다르게 한다.',
+        `- 각 댓글은 공백을 포함해 ${maxChars}자 이내의 1~2문장이다.`,
+        '- 입력 id를 변경하거나 누락하지 않는다.',
+        '- 반드시 {"items":[{"id":"...","drafts":["...","...","..."]}]} 형태의 JSON만 반환한다.',
+        '- JSON 앞뒤에 설명, 주석, 코드 블록을 붙이지 않는다.',
+        '',
+        '입력 글:'
+    ];
+    items.forEach((item) => {
+        const id = String(item?.id || '').trim();
+        lines.push(JSON.stringify({
+            id,
+            authorName: String(item?.authorName || '알 수 없음').trim(),
+            title: String(item?.title || '').trim(),
+            excerpt: String(item?.excerpt || '').replace(/\s+/g, ' ').trim().slice(0, 400),
+            previousErrors: Array.isArray(feedbackById[id]) ? feedbackById[id] : []
+        }));
+    });
+    return lines.join('\n');
+}
+
+function parseBatchDraftResponse(raw, expectedItems, maxChars) {
+    let parsed;
+    try {
+        const jsonText = extractFirstJsonObject(raw);
+        if (!jsonText) throw new Error('JSON object not found');
+        parsed = JSON.parse(jsonText);
+    } catch (_error) {
+        return expectedItems.map((item) => ({
+            id: String(item.id),
+            drafts: [],
+            errors: ['응답이 올바른 JSON 형식이 아닙니다.']
+        }));
+    }
+
+    const responseItems = Array.isArray(parsed?.items) ? parsed.items : [];
+    return expectedItems.map((item) => {
+        const id = String(item.id);
+        const matched = responseItems.find((entry) => String(entry?.id) === id);
+        if (!matched || !Array.isArray(matched.drafts)) {
+            return { id, drafts: [], errors: ['해당 글의 drafts 배열이 없습니다.'] };
+        }
+        const drafts = matched.drafts.map((draft) => sanitizeDraftText(draft, maxChars)).filter(Boolean);
+        return { id, drafts, errors: validateDrafts(drafts, maxChars) };
+    });
+}
+
+async function generateSmartCommentDraftBatch(options = {}) {
+    const {
+        callModel,
+        aiMode,
+        items = [],
+        maxChars = 60,
+        tone = 'empathetic',
+        logger
+    } = options;
+    if (typeof callModel !== 'function') throw new Error('댓글 초안 생성 모델 호출기가 없습니다.');
+    const normalizedItems = items.map((item, index) => ({ ...item, id: String(item?.id ?? index) }));
+    const completed = new Map();
+    let pending = normalizedItems;
+    let feedbackById = {};
+
+    for (let attempt = 0; attempt < 2 && pending.length > 0; attempt += 1) {
+        const prompt = buildCommentDraftBatchPrompt({ items: pending, tone, maxChars, feedbackById });
+        const perItemMaxTokens = Math.max(1024, maxChars * 8);
+        const maxTokens = Math.min(8192, pending.length * perItemMaxTokens);
+        let raw;
+        try {
+            raw = await callModel(aiMode, prompt, maxTokens);
+        } catch (error) {
+            if (error?.code === 'AI_RATE_LIMITED' || Number(error?.status) === 429) {
+                error.partialResults = normalizedItems.map((item) => completed.get(item.id) || ({
+                    id: item.id,
+                    drafts: [],
+                    error: error.message || 'AI 공급자의 요청 한도를 초과했습니다.'
+                }));
+                throw error;
+            }
+            if (completed.size === 0) throw error;
+            feedbackById = Object.fromEntries(pending.map((item) => [
+                item.id,
+                [error?.message || '댓글 초안 생성 요청에 실패했습니다.']
+            ]));
+            break;
+        }
+        const parsedItems = parseBatchDraftResponse(raw, pending, maxChars);
+        const nextPending = [];
+        const nextFeedback = {};
+        parsedItems.forEach((result) => {
+            if (result.errors.length === 0) {
+                completed.set(result.id, { id: result.id, drafts: result.drafts, error: '' });
+                return;
+            }
+            const source = pending.find((item) => item.id === result.id);
+            if (source) nextPending.push(source);
+            nextFeedback[result.id] = result.errors;
+            logger?.debug?.(`⚠️ [NaverCommentDraft] 배치 초안 품질 검증 실패 (${attempt + 1}/2, id=${result.id}): ${result.errors.join(' / ')}`);
+        });
+        pending = nextPending;
+        feedbackById = nextFeedback;
+    }
+
+    pending.forEach((item) => {
+        const errors = feedbackById[item.id] || ['댓글 초안 품질 기준을 충족하지 못했습니다.'];
+        completed.set(item.id, {
+            id: item.id,
+            drafts: [],
+            error: `댓글 초안 품질 기준을 충족하지 못했습니다: ${errors.join(' ')}`
+        });
+    });
+    return normalizedItems.map((item) => completed.get(item.id));
+}
+
 async function generateSmartCommentDrafts(options = {}) {
     const {
         callModel,
@@ -149,7 +273,7 @@ async function generateSmartCommentDrafts(options = {}) {
     let feedback = [];
     for (let attempt = 0; attempt < 2; attempt += 1) {
         const prompt = buildCommentDraftPrompt({ authorName, title, excerpt, tone, maxChars, feedback });
-        const raw = await callModel(aiMode, prompt);
+        const raw = await callModel(aiMode, prompt, Math.max(768, maxChars * 8));
         const parsed = parseDraftResponse(raw, maxChars);
         const errors = parsed.errors.length > 0
             ? parsed.errors
@@ -167,9 +291,12 @@ async function generateSmartCommentDrafts(options = {}) {
 
 module.exports = {
     SMART_COMMENT_PROMPT_VERSION,
+    buildCommentDraftBatchPrompt,
     buildCommentDraftPrompt,
     extractFirstJsonObject,
+    generateSmartCommentDraftBatch,
     generateSmartCommentDrafts,
+    parseBatchDraftResponse,
     parseDraftResponse,
     sanitizeDraftText,
     validateDrafts
