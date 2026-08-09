@@ -2,6 +2,8 @@ const { createApiError } = require('../errors');
 const { buildLocalMarkdownPreview } = require('../../content/local-markdown-preview');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isCommandEnabled } = require('../../runtime-feature-flags');
+const { createNaverSmartCommentCollector } = require('../../naver/smart-comment-candidate-collector');
+const { generateSmartCommentDrafts } = require('../../naver/smart-comment-draft-generator');
 
 function createContentService(deps = {}) {
     const {
@@ -16,6 +18,7 @@ function createContentService(deps = {}) {
         BrowserLauncher,
         ShoppingManager,
         Logger,
+        checkNaverSessionForUi,
         SHOPPING_IMAGE_SLOT_MAP,
         parseBase64ImagePayload,
         resolveWritableConfigPath,
@@ -65,6 +68,18 @@ function createContentService(deps = {}) {
     }
 
     let wordpressCategoryConfigLogState = '';
+    let smartCommentCollector = deps.smartCommentCollector || null;
+
+    function getSmartCommentCollector() {
+        if (!smartCommentCollector) {
+            smartCommentCollector = createNaverSmartCommentCollector({
+                BrowserLauncher,
+                CONFIG,
+                Logger
+            });
+        }
+        return smartCommentCollector;
+    }
 
     const COMMENT_DRAFT_DEFAULTS = {
         aiMode: 'default',
@@ -106,174 +121,24 @@ function createContentService(deps = {}) {
         CONFIG.NAVER_COMMENT_DRAFT_HEADLESS = settings.headless;
     }
 
-    function stripCodeFence(raw) {
-        return String(raw || '')
-            .trim()
-            .replace(/^```json\s*/i, '')
-            .replace(/^```\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .trim();
-    }
-
-    function extractFirstJsonObject(raw) {
-        const text = stripCodeFence(raw);
-        const start = text.indexOf('{');
-        if (start < 0) return '';
-
-        let depth = 0;
-        let inString = false;
-        let escaped = false;
-
-        for (let index = start; index < text.length; index += 1) {
-            const char = text[index];
-
-            if (inString) {
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                if (char === '\\') {
-                    escaped = true;
-                    continue;
-                }
-                if (char === '"') {
-                    inString = false;
-                }
-                continue;
-            }
-
-            if (char === '"') {
-                inString = true;
-                continue;
-            }
-
-            if (char === '{') {
-                depth += 1;
-                continue;
-            }
-
-            if (char === '}') {
-                depth -= 1;
-                if (depth === 0) {
-                    return text.slice(start, index + 1);
-                }
-            }
-        }
-
-        return '';
-    }
-
-    function sanitizeDraftText(raw, maxChars) {
-        const text = String(raw || '')
-            .replace(/^[\s"'`•\-–—*\d.)\]]+/, '')
-            .replace(/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-        if (!text) return '';
-        if (text.length <= maxChars) return text;
-
-        const sliced = text.slice(0, maxChars).trim();
-        const sentenceCut = Math.max(
-            sliced.lastIndexOf('.'),
-            sliced.lastIndexOf('!'),
-            sliced.lastIndexOf('?'),
-            sliced.lastIndexOf('。')
-        );
-        if (sentenceCut >= Math.floor(maxChars * 0.6)) {
-            return sliced.slice(0, sentenceCut + 1).trim();
-        }
-
-        const wordCut = sliced.lastIndexOf(' ');
-        if (wordCut >= Math.floor(maxChars * 0.6)) {
-            return sliced.slice(0, wordCut).trim();
-        }
-
-        return sliced;
-    }
-
-    function fallbackDraftsFromText(raw, maxChars) {
-        const text = String(raw || '');
-        const quoted = [];
-        const regex = /"((?:[^"\\]|\\.)*)"/g;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            const value = String(match[1] || '').trim();
-            if (!value || value === 'drafts') continue;
-            quoted.push(sanitizeDraftText(value, maxChars));
-            if (quoted.length >= 3) break;
-        }
-        if (quoted.filter(Boolean).length > 0) {
-            return quoted.filter(Boolean).slice(0, 3);
-        }
-
-        return text
-            .split(/\r?\n+/)
-            .map((line) => line.replace(/^drafts?\s*:\s*/i, '').trim())
-            .map((line) => sanitizeDraftText(line, maxChars))
-            .filter(Boolean)
-            .filter((line) => !/^\{.*\}$/.test(line))
-            .slice(0, 3);
-    }
-
-    function buildCommentDraftPrompt({ authorName = '', title = '', excerpt = '', tone = 'empathetic', maxChars = 60 }) {
-        const excerptText = String(excerpt || '').replace(/\s+/g, ' ').trim().slice(0, 240);
-        const toneLabelMap = {
-            empathetic: '공감형',
-            friendly: '친근형',
-            calm: '담백형'
-        };
-        const toneLabel = toneLabelMap[tone] || toneLabelMap.empathetic;
-        return [
-            '당신은 네이버 블로그 글을 읽고 자연스럽고 짧은 댓글 초안을 제안하는 한국어 도우미입니다.',
-            `댓글 톤: ${toneLabel}`,
-            `최대 글자수: ${maxChars}자`,
-            '조건:',
-            '- 한국어 댓글 초안 3개를 만든다.',
-            '- 모든 초안은 자연스러운 현대 한국어만 사용한다.',
-            '- 한자, 일본어, 중국어, 영어 단어를 섞지 않는다. 꼭 필요한 고유명사만 예외로 한다.',
-            '- 반말 금지, 과장 금지, 홍보성 금지, 자동화 티 금지.',
-            '- 글을 실제로 읽은 느낌이 나야 한다.',
-            '- 초안 3개는 서로 표현을 조금씩 다르게 한다.',
-            '- 이모지는 넣지 않거나 최소화한다.',
-            '- 반드시 JSON만 반환한다.',
-            '- JSON 앞뒤에 설명, 주석, 코드블록, 추가 문장을 붙이지 않는다.',
-            '- 각 초안은 1문장 또는 2문장으로 짧게 쓴다.',
-            `- 각 초안은 반드시 ${maxChars}자 이내로 끝맺는다. 문장 중간에서 끊지 않는다.`,
-            '반환 형식: {"drafts":["...","...","..."]}',
-            '',
-            `작성자: ${authorName}`,
-            `제목: ${title}`,
-            `본문 일부: ${excerptText}`
-        ].join('\n');
-    }
-
     async function generateCommentDrafts({ aiMode, authorName, title, excerpt, maxChars, tone }) {
-        const prompt = buildCommentDraftPrompt({ authorName, title, excerpt, maxChars, tone });
-        const raw = await Utils.callTextModelByMode(aiMode, prompt, 3, {
-            usageLabel: aiMode === 'custom' ? 'Chat Model' : '글쓰기 모델',
-            maxTokens: 240,
-            temperature: 0.6,
-            logStart: false
+        return generateSmartCommentDrafts({
+            aiMode,
+            authorName,
+            title,
+            excerpt,
+            maxChars,
+            tone,
+            logger: Logger,
+            callModel: (mode, prompt) => Utils.callTextModelByMode(mode, prompt, 3, {
+                usageLabel: mode === 'custom' ? 'Chat Model' : '글쓰기 모델',
+                maxTokens: 768,
+                temperature: 0.6,
+                responseMimeType: 'application/json',
+                reasoningEffort: 'low',
+                logStart: false
+            })
         });
-        let drafts = [];
-        try {
-            const jsonText = extractFirstJsonObject(raw) || stripCodeFence(raw);
-            const parsed = JSON.parse(jsonText);
-            drafts = Array.isArray(parsed?.drafts)
-                ? parsed.drafts.map((item) => sanitizeDraftText(item, maxChars)).filter(Boolean).slice(0, 3)
-                : [];
-        } catch (parseError) {
-            Logger.debug(`⚠️ [NaverCommentDraft] JSON 파싱 실패, 텍스트 복구 시도: ${parseError.message}`);
-            try {
-                const rawPreview = stripCodeFence(raw).replace(/\s+/g, ' ').trim().slice(0, 400);
-                Logger.debug(`⚠️ [NaverCommentDraft] 원본 응답 일부: ${rawPreview}`);
-            } catch (_ignore) { }
-            drafts = fallbackDraftsFromText(raw, maxChars);
-        }
-        if (drafts.length === 0) {
-            throw new Error('댓글 초안 생성 응답을 해석하지 못했습니다.');
-        }
-        return drafts.slice(0, 3);
     }
 
     function buildLocalMarkdownPreviewPayload(requestBody = {}) {
@@ -292,166 +157,6 @@ function createContentService(deps = {}) {
             path,
             Utils
         });
-    }
-
-    async function collectNaverCommentDraftCandidates({ fetchLimit, headless }) {
-        let browser = null;
-        try {
-            browser = await BrowserLauncher.launchBrowser({ headless });
-            const context = await browser.newContext({
-                userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            });
-            const page = await context.newPage();
-            await page.goto('https://blog.naver.com', { waitUntil: 'domcontentloaded', timeout: 45000 });
-            await page.waitForTimeout(2500);
-
-            const rawItems = await page.evaluate((maxCount) => {
-                const textOf = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
-                const imageUrlOf = (node) => {
-                    const normalizeUrl = (rawValue) => {
-                        const value = String(rawValue || '').trim();
-                        if (!value) return '';
-                        try {
-                            return new URL(value, document.baseURI).toString();
-                        } catch (_e) {
-                            return value;
-                        }
-                    };
-                    const candidates = [
-                        node.querySelector('.thumbnail_post img[bg-image]'),
-                        node.querySelector('.thumbnail_post img[data-src]'),
-                        node.querySelector('.thumbnail_post img[data-lazy-src]'),
-                        node.querySelector('.thumbnail_post img'),
-                        node.querySelector('.thumbnail_inner img[bg-image]'),
-                        node.querySelector('.thumbnail_inner img[data-src]'),
-                        node.querySelector('.thumbnail_inner img[data-lazy-src]'),
-                        node.querySelector('.thumbnail_inner img'),
-                        node.querySelector('img[src]'),
-                        node.querySelector('img[bg-image]')
-                    ].filter(Boolean);
-
-                    for (const img of candidates) {
-                        const bgImage = normalizeUrl(img.getAttribute('bg-image'));
-                        const dataSrc = normalizeUrl(img.getAttribute('data-src'));
-                        const lazySrc = normalizeUrl(img.getAttribute('data-lazy-src'));
-                        const currentSrc = normalizeUrl(img.currentSrc);
-                        const src = normalizeUrl(img.getAttribute('src'));
-                        const picked = bgImage || dataSrc || lazySrc || currentSrc || src;
-                        if (picked) return picked;
-                    }
-
-                    const thumbArea = node.querySelector('.thumbnail_area, .thumbnail_post, .thumbnail_inner');
-                    const style = String(thumbArea?.getAttribute('style') || '').trim();
-                    const match = style.match(/background-image\s*:\s*url\((['"]?)(.*?)\1\)/i);
-                    return normalizeUrl(match?.[2] || '');
-                };
-                const containers = Array.from(document.querySelectorAll('article, li, div'));
-                const results = [];
-                const seen = new Set();
-
-                for (const node of containers) {
-                    const linkEl = node.querySelector('a[href*="blog.naver.com"], a[href*="PostView.naver"]');
-                    if (!linkEl) continue;
-                    const href = linkEl.getAttribute('href') || '';
-                    if (!href || seen.has(href)) continue;
-
-                    const titleEl = node.querySelector('strong, h2, h3, [class*="title"], [class*="tit"]');
-                    const excerptEl = node.querySelector('p, [class*="text"], [class*="desc"], [class*="summary"], [class*="content"]');
-                    const authorEl = node.querySelector('[class*="nick"], [class*="name"], [class*="author"]');
-                    const title = textOf(titleEl);
-                    const excerpt = textOf(excerptEl);
-                    const authorName = textOf(authorEl);
-                    const combined = textOf(node);
-                    const thumbnailUrl = imageUrlOf(node);
-                    const commentLinkEl = node.querySelector('a[href*="open=1"], a[ng-href*="open=1"]');
-                    const commentHref = commentLinkEl?.getAttribute('href') || commentLinkEl?.getAttribute('ng-href') || '';
-                    if (!title || combined.length < 20) continue;
-
-                    let liked = false;
-                    let likedStateKnown = false;
-                    const likeButtonEl = node.querySelector('.u_likeit_button[aria-pressed], [aria-pressed], button[class*="sympathy"], button[class*="like"], a[class*="sympathy"], a[class*="like"]');
-                    const likeIconEl = node.querySelector('.u_likeit_icon[class*="__reaction__"], .u_likeit_icon');
-
-                    if (likeButtonEl) {
-                        const ariaPressed = String(likeButtonEl.getAttribute('aria-pressed') || '').trim().toLowerCase();
-                        const buttonClassName = String(likeButtonEl.className || '').toLowerCase();
-                        if (ariaPressed === 'true' || ariaPressed === 'false') {
-                            likedStateKnown = true;
-                            liked = ariaPressed === 'true';
-                        } else if (/\b_face\s+on\b|\bon\b|\bactive\b|\bselected\b|\bchecked\b|likeon|sympathyon/.test(buttonClassName)) {
-                            likedStateKnown = true;
-                            liked = true;
-                        } else if (/\b_face\s+off\b|\boff\b/.test(buttonClassName)) {
-                            likedStateKnown = true;
-                            liked = false;
-                        }
-                    }
-
-                    if (!likedStateKnown && likeIconEl) {
-                        const iconClassName = String(likeIconEl.className || '').toLowerCase();
-                        if (iconClassName.includes('__reaction__like')) {
-                            likedStateKnown = true;
-                            liked = true;
-                        } else if (iconClassName.includes('__reaction__zeroface')) {
-                            likedStateKnown = true;
-                            liked = false;
-                        }
-                    }
-
-                    seen.add(href);
-                    results.push({
-                        href,
-                        commentHref,
-                        thumbnailUrl,
-                        authorName,
-                        title,
-                        excerpt: excerpt || combined.slice(0, 200),
-                        liked,
-                        likedStateKnown
-                    });
-
-                    if (results.length >= maxCount * 4) break;
-                }
-
-                return results;
-            }, fetchLimit);
-
-            await context.close();
-            await browser.close();
-            browser = null;
-
-            const deduped = [];
-            const seenUrls = new Set();
-            for (const item of (Array.isArray(rawItems) ? rawItems : [])) {
-                const normalizedUrl = Utils._normalizeNaverBlogPostUrl(item?.href || '', CONFIG.NAVER_ID || '');
-                if (!normalizedUrl || seenUrls.has(normalizedUrl)) continue;
-                seenUrls.add(normalizedUrl);
-                const rawCommentHref = String(item?.commentHref || '').trim();
-                const commentUrl = rawCommentHref
-                    ? new URL(rawCommentHref.replace('open=1', 'copen=1'), 'https://blog.naver.com').toString()
-                    : `${normalizedUrl}?copen=1`;
-                const thumbnailUrl = String(item?.thumbnailUrl || '').trim();
-                deduped.push({
-                    authorName: String(item?.authorName || '').trim() || '작성자 미상',
-                    title: String(item?.title || '').trim(),
-                    excerpt: String(item?.excerpt || '').trim(),
-                    postUrl: normalizedUrl,
-                    commentUrl,
-                    thumbnailUrl,
-                    liked: item?.liked === true,
-                    likedStateKnown: item?.likedStateKnown === true
-                });
-            }
-
-            return deduped
-                .filter((item) => !(item.likedStateKnown && item.liked))
-                .slice(0, fetchLimit);
-        } catch (e) {
-            if (browser) {
-                try { await browser.close(); } catch (_ignore) { }
-            }
-            throw e;
-        }
     }
 
     async function hydrateTopicItemsWithRuntimeLogs(result, sortBy, sortDir) {
@@ -759,10 +464,40 @@ function createContentService(deps = {}) {
                 throw createApiError(400, 'INVALID_CHAT_MODEL', 'Chat Model을 사용하려면 AI 설정에서 사용할 모델을 선택해야 합니다.');
             }
 
-            const candidates = await collectNaverCommentDraftCandidates({
+            if (typeof checkNaverSessionForUi !== 'function') {
+                throw createApiError(500, 'NAVER_SESSION_CHECK_UNAVAILABLE', '네이버 로그인 상태를 확인할 수 없습니다.');
+            }
+            const session = await checkNaverSessionForUi({ forceRefresh: true });
+            if (!session?.ok) {
+                const reason = String(session?.reason || '').trim().toLowerCase();
+                const message = reason === 'missing_auth'
+                    ? '스마트 댓글을 사용하려면 설정에서 네이버 로그인을 먼저 진행해 주세요.'
+                    : (reason === 'expired'
+                        ? '네이버 로그인 세션이 만료되었습니다. 설정에서 다시 로그인해 주세요.'
+                        : '네이버 로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+                const error = createApiError(401, 'NAVER_SESSION_INVALID', message);
+                error.reason = reason || 'check_failed';
+                throw error;
+            }
+
+            const candidates = await getSmartCommentCollector().collect({
                 fetchLimit: settings.fetchLimit,
                 headless: settings.headless
             });
+
+            if (candidates.length === 0) {
+                Logger.info('ℹ️ [NaverCommentDraft] 조건에 맞는 이웃새글 후보가 없습니다.');
+                return {
+                    items: [],
+                    settings,
+                    summary: {
+                        status: 'no_candidates',
+                        candidateCount: 0,
+                        successCount: 0,
+                        failureCount: 0
+                    }
+                };
+            }
 
             Logger.info(`📝 [NaverCommentDraft] 댓글 초안 생성 시작 (${candidates.length}건, AI: ${settings.aiMode === 'custom' ? 'Chat Model' : '글쓰기 모델'})`);
             const items = [];
@@ -785,9 +520,24 @@ function createContentService(deps = {}) {
                     Logger.debug(`📝 [NaverCommentDraft] 댓글 초안 생성 진행 ${index + 1}/${candidates.length}`);
                 }
             }
-            Logger.info(`✅ [NaverCommentDraft] 댓글 초안 생성 완료 (${items.length}건)`);
+            const successCount = items.filter((item) => item.drafts.length > 0).length;
+            const failureCount = items.length - successCount;
+            const status = successCount === 0
+                ? 'draft_generation_failed'
+                : (failureCount > 0 ? 'partial_success' : 'success');
+            const log = failureCount > 0 ? Logger.warn.bind(Logger) : Logger.info.bind(Logger);
+            log(`${failureCount > 0 ? '⚠️' : '✅'} [NaverCommentDraft] 댓글 초안 생성 완료 (성공 ${successCount}건, 실패 ${failureCount}건)`);
 
-            return { items, settings };
+            return {
+                items,
+                settings,
+                summary: {
+                    status,
+                    candidateCount: candidates.length,
+                    successCount,
+                    failureCount
+                }
+            };
         },
 
         async redraftNaverCommentDraft(requestBody = {}) {

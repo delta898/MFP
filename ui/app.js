@@ -1904,6 +1904,11 @@ async function saveNaverCommentDraftSettings() {
 }
 
 async function runNaverCommentDraft() {
+  const runBtn = document.getElementById('naver-comment-draft-run-btn');
+  const saveBtn = document.getElementById('naver-comment-draft-save-btn');
+  if (runBtn?.disabled) return;
+  if (runBtn) runBtn.disabled = true;
+  if (saveBtn) saveBtn.disabled = true;
   setNaverCommentDraftResultText('후보 글을 수집하고 댓글 초안을 생성 중...');
   const listEl = document.getElementById('naver-comment-draft-list');
   if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 중...</p>';
@@ -1911,16 +1916,31 @@ async function runNaverCommentDraft() {
     const payload = getNaverCommentDraftSettingsFromUi();
     const data = await postJson('/api/v1/blog/naver-comment-draft/run', payload);
     renderNaverCommentDraftItems(data?.items || []);
-    setNaverCommentDraftResultText(`완료: ${Array.isArray(data?.items) ? data.items.length : 0}건 후보를 확인했습니다.`);
+    const summary = data?.summary || {};
+    if (summary.status === 'no_candidates') {
+      setNaverCommentDraftResultText('조건에 맞는 이웃새글 후보가 없습니다.');
+    } else if (summary.status === 'draft_generation_failed') {
+      setNaverCommentDraftResultText(`후보 ${summary.candidateCount || 0}건을 찾았지만 댓글 초안을 생성하지 못했습니다.`);
+    } else if (summary.status === 'partial_success') {
+      setNaverCommentDraftResultText(`일부 완료: ${summary.successCount || 0}건 생성, ${summary.failureCount || 0}건 실패`);
+    } else {
+      setNaverCommentDraftResultText(`완료: ${summary.successCount ?? (Array.isArray(data?.items) ? data.items.length : 0)}건의 댓글 초안을 생성했습니다.`);
+    }
   } catch (e) {
     if (listEl) listEl.innerHTML = '<p class="dash-feed-empty">실행 결과가 없습니다.</p>';
     setNaverCommentDraftResultText(`오류: ${e.message}`);
+  } finally {
+    if (runBtn) runBtn.disabled = false;
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 
 async function redraftNaverCommentDraft(itemIndex) {
   const item = naverCommentDraftItems[itemIndex];
   if (!item) return;
+  const redraftBtn = document.querySelector(`[data-comment-draft-redraft="${itemIndex}"]`);
+  if (redraftBtn?.disabled) return;
+  if (redraftBtn) redraftBtn.disabled = true;
   const payload = {
     ...getNaverCommentDraftSettingsFromUi(),
     title: item.title || '',
@@ -1940,6 +1960,9 @@ async function redraftNaverCommentDraft(itemIndex) {
     setNaverCommentDraftResultText('초안을 다시 생성했습니다.');
   } catch (e) {
     setNaverCommentDraftResultText(`오류: ${e.message}`);
+  } finally {
+    const currentRedraftBtn = document.querySelector(`[data-comment-draft-redraft="${itemIndex}"]`);
+    if (currentRedraftBtn) currentRedraftBtn.disabled = false;
   }
 }
 

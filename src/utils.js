@@ -35,6 +35,7 @@ const {
     extractKieOpenAiChatContent,
     getKieOpenAiChatEndpoint
 } = require('./ai/kie-openai-chat');
+const { extractGeminiText, resolveGeminiThinkingConfig } = require('./ai/gemini-response');
 const {
     KIE_RESPONSES_ENDPOINT,
     buildKieResponsesRequest,
@@ -3655,6 +3656,8 @@ const Utils = {
         const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
         const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
         const responseMimeType = String(options?.responseMimeType || '').trim();
+        const modelCode = String(options?.modelCode || '').trim();
+        const thinkingConfig = resolveGeminiThinkingConfig(modelCode, options?.reasoningEffort);
         const logStart = options?.logStart !== false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -3664,11 +3667,12 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => {
                         const body = { contents: [{ parts: [{ text: prompt }] }] };
-                        if (maxTokens || temperature !== null || responseMimeType) {
+                        if (maxTokens || temperature !== null || responseMimeType || thinkingConfig) {
                             body.generationConfig = {};
                             if (maxTokens) body.generationConfig.maxOutputTokens = maxTokens;
                             if (temperature !== null) body.generationConfig.temperature = temperature;
                             if (responseMimeType) body.generationConfig.responseMimeType = responseMimeType;
+                            if (thinkingConfig) body.generationConfig.thinkingConfig = thinkingConfig;
                         }
                         return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${apiKey}`,
                         body,
@@ -3676,7 +3680,11 @@ const Utils = {
                     );
                     }
                 );
-                const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const candidate = response.data?.candidates?.[0];
+                if (String(candidate?.finishReason || '').toUpperCase() === 'MAX_TOKENS') {
+                    Logger.warn(`⚠️ [${usageLabel}] Gemini 응답이 최대 출력 토큰에서 중단되었습니다.`);
+                }
+                const text = extractGeminiText(response.data);
                 if (!text) throw new Error('Empty response from Gemini');
                 return text;
             } catch (e) {
@@ -3774,7 +3782,8 @@ const Utils = {
             return this.callGeminiText(prompt, retries, {
                 ...runtimePolicy.options,
                 usageLabel,
-                apiKey: String(modelConfig.api_key || '').trim()
+                apiKey: String(modelConfig.api_key || '').trim(),
+                modelCode
             });
         }
         return this.callOpenAiCompatibleTextByConfig(modelConfig, prompt, retries, {
