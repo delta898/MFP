@@ -6,7 +6,8 @@ const {
     normalizeWritingStrategy,
     normalizeWritingStrategyOverride,
     resolveWritingStrategy,
-    getWritingStrategyDescription
+    getWritingStrategyDescription,
+    buildShoppingWritingStrategyPrompt
 } = require('./writing-strategy');
 
 test('writing strategy defaults invalid or missing values to search', () => {
@@ -32,4 +33,15 @@ test('per-post strategy overrides global strategy without changing inheritance s
 test('strategy descriptions remain platform-neutral', () => {
     assert.match(getWritingStrategyDescription('search'), /검색 의도/);
     assert.match(getWritingStrategyDescription('discovery'), /피드/);
+});
+
+test('shopping strategy prompt separates search intent from feed discovery flow', () => {
+    const searchPrompt = buildShoppingWritingStrategyPrompt('search');
+    const discoveryPrompt = buildShoppingWritingStrategyPrompt('discovery');
+
+    assert.match(searchPrompt, /검색 중심 전략/);
+    assert.match(searchPrompt, /상품명과 모델·규격/);
+    assert.match(discoveryPrompt, /발견 중심\(피드\) 전략/);
+    assert.match(discoveryPrompt, /장면 → 근거 → 선택 기준/);
+    assert.match(discoveryPrompt, /근거 없는 어그로/);
 });

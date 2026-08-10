@@ -9,6 +9,8 @@ const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
 const RuntimeConfig = require('./runtime-config');
 const { persistAuthSessionState } = require('./auth-session');
+const { normalizeWritingStyle, buildShoppingWritingStylePrompt } = require('./content/writing-style');
+const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
@@ -2520,7 +2522,19 @@ function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewDat
     return aiData;
 }
 
-function buildAiPrompt(product, platform = 'naver') {
+function resolveShoppingWritingPreferences(input = {}) {
+    return {
+        style: normalizeWritingStyle({
+            writing_mode: input.writing_mode || input.writingMode || CONFIG.CONTENT_WRITING_MODE || CONFIG.BLOG_WRITING_MODE,
+            speech_level: input.speech_level || input.speechLevel || CONFIG.CONTENT_SPEECH_LEVEL || CONFIG.BLOG_SPEECH_LEVEL
+        }),
+        strategy: normalizeWritingStrategy(
+            input.writing_strategy || input.writingStrategy || CONFIG.CONTENT_WRITING_STRATEGY || CONFIG.BLOG_WRITING_STRATEGY
+        )
+    };
+}
+
+function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const officialProductData = buildOfficialProductData(product.title || '', product.commerceData || {});
     const officialFacts = buildOfficialProductFacts(product.title || '', product.commerceData || {}).map(item => `- ${item}`).join('\n') || '- 추출된 공식 상품 정보 없음';
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
@@ -2528,12 +2542,15 @@ function buildAiPrompt(product, platform = 'naver') {
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
     const officialJson = JSON.stringify(officialProductData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
+    const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences);
+    const writingStyleRules = buildShoppingWritingStylePrompt(resolvedWritingPreferences.style);
+    const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
 
     // 플랫폼별 특화 지시사항
     const platformLabel = platform === 'wordpress' ? '워드프레스(WordPress)' : '네이버 블로그(Naver Blog)';
     const platformStyle = platform === 'wordpress'
-        ? '정보 중심의 깔끔하고 구조적인 문체와 객관적인 톤을 유지하세요.'
-        : '이웃에게 유용한 정보를 정리해주듯 친근하고 자연스럽게 작성하되, 상품을 직접 구매하거나 사용한 것처럼 경험을 꾸미지 마세요.';
+        ? '짧은 문단과 명확한 소제목으로 정보를 구조화하고 워드프레스에서 읽기 쉬운 흐름을 유지하세요.'
+        : '모바일에서 읽기 쉬운 문단과 소제목으로 구성하고, 상품을 직접 구매하거나 사용한 것처럼 경험을 꾸미지 마세요.';
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -2557,6 +2574,8 @@ function buildAiPrompt(product, platform = 'naver') {
         .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
         .replace(/{{\s*PLATFORM_NAME\s*}}/g, platformLabel)
         .replace(/{{\s*PLATFORM_STYLE\s*}}/g, platformStyle)
+        .replace(/{{\s*WRITING_STYLE_RULES\s*}}/g, writingStyleRules)
+        .replace(/{{\s*WRITING_STRATEGY_RULES\s*}}/g, writingStrategyRules)
         .trim();
 }
 
@@ -4221,7 +4240,7 @@ const ShoppingManager = {
             body: productData.body,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
-        }, platform);
+        }, platform, runtimeOptions.writingPreferences);
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
         const aiRaw = await Utils.callWritingText(aiPrompt, 3, {
             usageLabel: `Shopping/${platform}`

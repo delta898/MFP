@@ -75,9 +75,39 @@ function buildWritingStylePrompt(input = {}) {
     ].join('\n');
 }
 
+function buildShoppingWritingStylePrompt(input = {}) {
+    const style = normalizeWritingStyle(input);
+    const rules = {
+        'conversational:polite': [
+            '- 독자에게 상품 선택 기준을 설명하듯 친근하고 자연스러운 구어체 존댓말로 작성하세요.',
+            '- 문장 종결은 ~요를 중심으로 하되 필요한 곳에 ~습니다를 섞어 반복감을 줄이세요.'
+        ],
+        'conversational:plain': [
+            '- 독자에게 편안하게 이야기하듯 자연스러운 구어체 평어로 작성하세요.',
+            '- 문장 종결은 ~해, ~했어, ~지 등을 사용하고 존댓말 종결은 사용하지 마세요.'
+        ],
+        'written:polite': [
+            '- 상품의 조건과 판단 근거를 정돈된 문어체 존댓말로 설명하세요.',
+            '- 문장 종결은 ~합니다, ~입니다를 중심으로 일관되게 작성하세요.'
+        ],
+        'written:plain': [
+            '- 상품의 조건과 판단 근거를 간결하고 객관적인 문어체 평어로 설명하세요.',
+            '- 문장 종결은 ~다, ~했다 형태를 중심으로 일관되게 작성하세요.'
+        ]
+    };
+
+    return [
+        '[공통 콘텐츠 문체 설정]',
+        `- ${getWritingStyleDescription(style)}`,
+        ...rules[`${style.writing_mode}:${style.speech_level}`],
+        '- 문체 설정과 관계없이 작성자가 상품을 직접 사용한 것처럼 경험을 꾸미지 마세요.'
+    ].join('\n');
+}
+
 module.exports = {
     DEFAULT_WRITING_STYLE,
     normalizeWritingStyle,
     getWritingStyleDescription,
-    buildWritingStylePrompt
+    buildWritingStylePrompt,
+    buildShoppingWritingStylePrompt
 };

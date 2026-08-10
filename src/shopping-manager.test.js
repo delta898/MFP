@@ -56,8 +56,28 @@ test('shopping prompt forbids fabricated experience and unsupported urgency on e
         assert.doesNotMatch(prompt, /{{\s*[A-Z_]+\s*}}/);
     }
 
-    assert.match(naverPrompt, /친근하고 자연스럽게 작성하되/);
-    assert.match(wordpressPrompt, /정보 중심의 깔끔하고 구조적인 문체/);
+    assert.match(naverPrompt, /모바일에서 읽기 쉬운 문단과 소제목/);
+    assert.match(wordpressPrompt, /워드프레스에서 읽기 쉬운 흐름/);
+});
+
+test('shopping prompt applies common writing style and strategy with explicit overrides', () => {
+    const searchPrompt = buildAiPrompt(createPromptProduct(), 'naver', {
+        writing_mode: 'written',
+        speech_level: 'plain',
+        writing_strategy: 'search'
+    });
+    const discoveryPrompt = buildAiPrompt(createPromptProduct(), 'wordpress', {
+        writing_mode: 'conversational',
+        speech_level: 'polite',
+        writing_strategy: 'discovery'
+    });
+
+    assert.match(searchPrompt, /간결하고 객관적인 설명문·칼럼형 문체/);
+    assert.match(searchPrompt, /문어체 평어/);
+    assert.match(searchPrompt, /검색 중심 전략/);
+    assert.match(discoveryPrompt, /친근하고 자연스러운 후기형 문체/);
+    assert.match(discoveryPrompt, /발견 중심\(피드\) 전략/);
+    assert.doesNotMatch(discoveryPrompt, /{{\s*[A-Z_]+\s*}}/);
 });
 
 test('shopping prompt and title normalization prevent repeated product identity keywords', () => {

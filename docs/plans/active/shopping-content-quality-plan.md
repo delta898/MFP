@@ -29,14 +29,19 @@ Improve Shopping Connect article quality without adding new UI controls. The wor
 - Add prompt contract tests for both Naver and WordPress shopping content.
 
 ### Phase 2: Shared writing preferences
-- Promote writing mode and speech level to a content-wide preference.
-- Apply the preference to shopping prompt generation without changing the shopping fact contract.
-- Preserve blog per-post overrides; shopping uses only the global preference in this release.
+- [x] Promote writing mode and speech level to a content-wide runtime preference with legacy config fallback.
+- [x] Apply the preference to shopping prompt generation without changing the shopping fact contract.
+- [x] Preserve blog per-post overrides; shopping uses only the global preference in this release.
 
 ### Phase 3: Shopping search/discovery strategy
-- Keep the shopping prompt separate from blog strategy prompts.
-- Inject a shopping-specific search or discovery strategy block.
-- Apply the global strategy to quick, batch, and automatic shopping publishing without adding per-product UI.
+- [x] Keep the shopping prompt separate from blog strategy prompts.
+- [x] Inject a shopping-specific search or discovery strategy block.
+- [x] Apply the global strategy to quick, batch, and automatic shopping publishing without adding per-product UI.
+
+## Configuration Compatibility
+- New saves persist `content.writing_style` and `content.writing_strategy` as the common preference.
+- Existing `content.blog.*` values remain readable and are mirrored on save during the transition.
+- Existing `CONFIG.BLOG_*` keys remain aliases so blog generation and per-post strategy overrides are unchanged.
 
 ## Validation
 - Prompt contract unit tests must verify fact attribution, anti-fabrication rules, selective number usage, and internally consistent volume guidance.

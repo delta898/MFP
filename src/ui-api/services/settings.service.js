@@ -246,6 +246,14 @@ function createSettingsService(deps = {}) {
 
             // 4. Content preferences
             if (!structuredConfig.content) structuredConfig.content = {};
+            structuredConfig.content.writing_style = {
+                writing_mode: fields.BLOG_WRITING_MODE,
+                speech_level: fields.BLOG_SPEECH_LEVEL
+            };
+            structuredConfig.content.writing_strategy = fields.BLOG_WRITING_STRATEGY;
+
+            // Older configurations and runtimes used the blog namespace. Keep a
+            // mirrored value while the common content preference is adopted.
             if (!structuredConfig.content.blog) structuredConfig.content.blog = {};
             structuredConfig.content.blog.writing_style = {
                 writing_mode: fields.BLOG_WRITING_MODE,
