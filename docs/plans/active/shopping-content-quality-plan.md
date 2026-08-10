@@ -10,6 +10,7 @@ Improve Shopping Connect article quality while keeping the shopping prompt indep
 - Strong scarcity and purchase-pressure language can overstate facts that are not present in official product data.
 - Search keywords are important, but mechanical repetition reduces readability and trust.
 - Noisy source product names can repeat the same brand, model, capacity, or sales modifier and leak that duplication into the generated title.
+- Generic landing-page titles such as `네이버 브랜드 커넥트` can replace the actual product identity unless title resolution and final-title validation are independent from deduplication.
 
 ## Principles
 - Official product data is the only authority for price, discount, shipping, payment, and benefit facts.
@@ -20,6 +21,8 @@ Improve Shopping Connect article quality while keeping the shopping prompt indep
 - Without an explicit instruction, the article does not fabricate urgency, ownership, purchase, or use experience.
 - When a user explicitly supplies an experience or requests experience-style narration, the draft may reflect it faithfully, but it must not invent additional concrete details beyond the instruction.
 - Blog and shopping prompt files remain separate because their data contracts and conversion goals differ.
+- Product-name deduplication never removes the requirement that the final title identify the actual product.
+- The optional user-entered product name has precedence; otherwise a validated extracted product title is used. If neither is usable, generation stops with an actionable message.
 
 ## Delivery Phases
 
@@ -50,9 +53,13 @@ Improve Shopping Connect article quality while keeping the shopping prompt indep
 - [x] Limit the field to 1,000 characters in both UI and server validation.
 
 ### Phase 5: Editorial variation (separate sub-feature)
-- Select an evidence-based editorial angle from available product facts and review data.
-- Vary introductions, section order, headings, and conclusions without random factual invention.
-- Let an explicit per-item instruction override the default angle.
+- [x] Select an evidence-based editorial angle from available product facts and review data.
+- [x] Choose the angle deterministically from product identity and eligible evidence so retries remain reproducible.
+- [x] Vary introductions, section order, headings, and conclusions without random factual invention.
+- [x] Avoid forcing a frame whose required evidence is absent, and merge unsupported steps instead of filling them with invented details.
+- [x] Let an explicit per-item instruction override the default angle and ordering.
+- [x] Keep Naver and WordPress versions of the same product on the same editorial angle while retaining their platform-specific rendering guidance.
+- [x] Preserve product identity independently from editorial variation: reject generic service titles and AI titles that omit the resolved core product keyword.
 
 ## Configuration Compatibility
 - New saves persist `content.writing_style` and `content.writing_strategy` as the common preference.

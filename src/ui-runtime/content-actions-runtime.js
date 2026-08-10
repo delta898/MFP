@@ -501,6 +501,7 @@ function createContentActionsRuntime(deps = {}) {
                 return { success: false, code: 'SHOPPING_ROW_NOT_FOUND', message: `shopping row(${rowIndex + 2})를 찾지 못했습니다.` };
             }
             const shortUrl = String(target.shortUrl || '').trim();
+            const productName = String(target.product || '').trim();
             const instruction = String(target.instruction || target.options?.instruction || '').trim();
             if (!shortUrl) {
                 return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL이 비어 있습니다.' };
@@ -523,7 +524,8 @@ function createContentActionsRuntime(deps = {}) {
             if (targets.length > 0) {
                 report('쇼핑 상품 데이터 수집 시작');
                 preScrapedData = await ShoppingManager.scrapeShoppingProduct(shortUrl, {
-                    headless: scrapingHeadless
+                    headless: scrapingHeadless,
+                    productName
                 });
             }
 
@@ -533,6 +535,7 @@ function createContentActionsRuntime(deps = {}) {
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
                     headless: publishHeadless,
+                    productName,
                     instruction,
                     preScrapedData
                 });
@@ -545,6 +548,7 @@ function createContentActionsRuntime(deps = {}) {
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
                     headless: publishHeadless,
+                    productName,
                     instruction,
                     preScrapedData
                 });

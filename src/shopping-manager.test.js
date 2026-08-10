@@ -7,8 +7,11 @@ const {
     extractProductData,
     buildAiPrompt,
     buildShoppingInstructionPrompt,
+    selectShoppingEditorialPlan,
+    buildShoppingEditorialPlanPrompt,
     dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
+    resolveShoppingProductTitle,
     selectPrimaryPricePair,
     mergeProductData,
     choosePreferredProductTitle
@@ -80,6 +83,43 @@ test('shopping instruction prompt keeps the no-fabrication default when instruct
     assert.match(rules, /사용자 참고\/지시사항/);
     assert.match(rules, /없음/);
     assert.match(rules, /사용자가 제공하지 않은 구매·사용·체험 경험/);
+});
+
+test('shopping editorial plan is deterministic and uses only eligible evidence frames', () => {
+    const product = createPromptProduct();
+    const first = selectShoppingEditorialPlan(product);
+    const second = selectShoppingEditorialPlan(product);
+
+    assert.equal(first, second);
+    assert.ok([
+        'conditions_first',
+        'reaction_first',
+        'situation_first',
+        'decision_checklist',
+        'balanced_guide'
+    ].includes(first));
+});
+
+test('shopping editorial plans vary across products without random output', () => {
+    const selected = new Set();
+    for (const title of ['미니 가습기', '무선 청소기', '여행용 캐리어', '원목 식탁', '러닝화', '캠핑 의자']) {
+        selected.add(selectShoppingEditorialPlan({
+            ...createPromptProduct(),
+            title
+        }));
+    }
+
+    assert.ok(selected.size > 1);
+});
+
+test('shopping editorial prompt yields to explicit user instructions', () => {
+    const prompt = buildShoppingEditorialPlanPrompt(createPromptProduct(), {
+        instruction: '아이와 함께 쓴 경험을 중심으로 작성'
+    });
+
+    assert.match(prompt, /이번 글의 편집 구성/);
+    assert.match(prompt, /사용자 참고\/지시사항과 충돌하는 부분은 버리고/);
+    assert.match(prompt, /전체 5~6개 블록 계약은 유지하세요/);
 });
 
 test('shopping prompt applies common writing style and strategy with explicit overrides', () => {
@@ -372,6 +412,40 @@ test('buildEngagingShoppingTitle preserves ai-crafted title when it is descripti
     );
 
     assert.equal(title, 'Bear 올스텐 미니 계란찜기, 1만 9천 개 리뷰가 증명한 아침의 혁신');
+});
+
+test('user-entered product name overrides a generic or extracted page title', () => {
+    const resolved = resolveShoppingProductTitle(
+        '애플 아이폰 17 프로 맥스 자급제 2TB, 실버',
+        '네이버 브랜드 커넥트'
+    );
+
+    assert.equal(resolved.source, 'user_input');
+    assert.equal(resolved.title, '애플 아이폰 17 프로 맥스 자급제 2TB, 실버');
+});
+
+test('extracted product title is used when optional user product name is empty', () => {
+    const resolved = resolveShoppingProductTitle('', 'Bear 올스텐 미니 계란찜기 1단 타이머');
+
+    assert.equal(resolved.source, 'extracted');
+    assert.equal(resolved.title, 'Bear 올스텐 미니 계란찜기 1단 타이머');
+});
+
+test('generic page title cannot become the product identity', () => {
+    const resolved = resolveShoppingProductTitle('', '네이버 브랜드 커넥트');
+
+    assert.equal(resolved.source, 'missing');
+    assert.equal(resolved.title, '');
+});
+
+test('shopping title falls back when AI omits the product identity', () => {
+    const title = buildEngagingShoppingTitle(
+        '감성적인 비주얼과 디자인의 매력',
+        '애플 아이폰 17 프로 맥스 자급제 2TB, 실버'
+    );
+
+    assert.match(title, /애플 아이폰 17 프로/);
+    assert.doesNotMatch(title, /네이버 브랜드 커넥트/);
 });
 
 test('choosePreferredProductTitle preserves official product title over ui noise title', () => {
