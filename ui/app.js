@@ -5100,10 +5100,9 @@ function getWritingStrategyLabel(value) {
 
 function syncWritingStrategyInheritanceLabels() {
   const label = `기본 설정 사용 (현재: ${getWritingStrategyLabel(currentBlogWritingStrategy)})`;
-  ['quick-writing-strategy', 'blog-edit-writing-strategy'].forEach((id) => {
-    const option = document.querySelector(`#${id} option[value="inherit"]`);
-    if (option) option.textContent = label;
-  });
+  const inheritOption = document.querySelector('#blog-edit-writing-strategy option[value="inherit"]');
+  if (inheritOption) inheritOption.textContent = label;
+  setSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy, 'search');
 }
 
 function syncSettingsBlogWritingStrategyDescription() {
@@ -8297,7 +8296,10 @@ function bindActions() {
       subject: (document.getElementById('quick-subject')?.value || '').trim(),
       keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
       instruction: (document.getElementById('quick-instruction')?.value || '').trim(),
-      writingStrategy: (document.getElementById('quick-writing-strategy')?.value || 'inherit').trim(),
+      writingStrategy: getSelectedSettingsRadioValue(
+        'quick-writing-strategy',
+        currentBlogWritingStrategy
+      ),
       referenceUrl: (document.getElementById('quick-reference-url')?.value || '').trim(),
       imageGeneration: Boolean(document.getElementById('quick-image-generation')?.checked),
       externalReference: Boolean(document.getElementById('quick-external-reference')?.checked),
@@ -8752,8 +8754,7 @@ function bindActions() {
       if (keywordsEl) keywordsEl.value = '';
       if (instructionEl) instructionEl.value = '';
       if (referenceUrlEl) referenceUrlEl.value = '';
-      const writingStrategyEl = document.getElementById('quick-writing-strategy');
-      if (writingStrategyEl) writingStrategyEl.value = 'inherit';
+      setSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy, 'search');
 
       // [New] Clear Categories
       const naverCatEl = document.getElementById('quick-naver-category');

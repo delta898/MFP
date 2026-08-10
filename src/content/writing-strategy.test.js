@@ -6,8 +6,7 @@ const {
     normalizeWritingStrategy,
     normalizeWritingStrategyOverride,
     resolveWritingStrategy,
-    getWritingStrategyDescription,
-    buildWritingStrategyPrompt
+    getWritingStrategyDescription
 } = require('./writing-strategy');
 
 test('writing strategy defaults invalid or missing values to search', () => {
@@ -30,17 +29,7 @@ test('per-post strategy overrides global strategy without changing inheritance s
     assert.equal(resolveWritingStrategy({ global: 'invalid' }), 'search');
 });
 
-test('strategy descriptions and prompts remain platform-neutral', () => {
+test('strategy descriptions remain platform-neutral', () => {
     assert.match(getWritingStrategyDescription('search'), /검색 의도/);
     assert.match(getWritingStrategyDescription('discovery'), /피드/);
-
-    const searchPrompt = buildWritingStrategyPrompt('search');
-    assert.match(searchPrompt, /검색 중심/);
-    assert.match(searchPrompt, /키워드/);
-
-    const discoveryPrompt = buildWritingStrategyPrompt('discovery');
-    assert.match(discoveryPrompt, /발견 중심 \(피드\)/);
-    assert.match(discoveryPrompt, /과장하지 말고/);
-    assert.doesNotMatch(discoveryPrompt, /네이버|워드프레스/);
 });
-

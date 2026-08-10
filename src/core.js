@@ -12,7 +12,8 @@ const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildWritingStylePrompt } = require('./content/writing-style');
-const { buildWritingStrategyPrompt, resolveWritingStrategy } = require('./content/writing-strategy');
+const { buildBlogSystemPrompt } = require('./content/blog-prompt');
+const { resolveWritingStrategy } = require('./content/writing-strategy');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1890,21 +1891,20 @@ ${messageText}
 			}
 		}
 
-		// 3) 프롬프트 로딩 (Priority: Config > Constants)
-		const promptPath = CONFIG.BLOG_PROMPT_PATH || Constants.PROMPT_FILE;
-		if (!promptPath || !fs.existsSync(promptPath)) {
-			throw new Error(`시스템 프롬프트 파일이 없습니다: ${promptPath}`);
-		}
-		const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
-		const writingStylePrompt = buildWritingStylePrompt({
-			writing_mode: CONFIG.BLOG_WRITING_MODE,
-			speech_level: CONFIG.BLOG_SPEECH_LEVEL
-		});
+		// 3) 프롬프트 로딩 (공통 계약 + 선택 전략 + 사용자 문체)
 		const writingStrategy = resolveWritingStrategy({
 			override: jobData.writing_strategy || jobData.writingStrategy || jobData.options?.writing_strategy,
 			global: CONFIG.BLOG_WRITING_STRATEGY
 		});
-		const writingStrategyPrompt = buildWritingStrategyPrompt(writingStrategy);
+		const systemPrompt = buildBlogSystemPrompt({
+			strategy: writingStrategy,
+			config: CONFIG,
+			constants: Constants
+		});
+		const writingStylePrompt = buildWritingStylePrompt({
+			writing_mode: CONFIG.BLOG_WRITING_MODE,
+			speech_level: CONFIG.BLOG_SPEECH_LEVEL
+		});
 
 		// 4) 참고 컨텍스트 구성
 		let referenceSection = "(No reference provided)";
@@ -1935,7 +1935,7 @@ ${scrapedContext}`;
 		// 3) Gemini 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
 		const rawResult = await Utils.callWritingText(
-			`${systemPrompt}\n\n${writingStylePrompt}\n\n${writingStrategyPrompt}\n${userPrompt}`,
+			`${systemPrompt}\n\n${writingStylePrompt}\n\n${userPrompt}`,
 			3,
 			{
 				responseMimeType: 'application/json'

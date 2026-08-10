@@ -28,8 +28,11 @@ module.exports = {
     // 2. 워크스페이스: 실행 위치 하위에 'workspace' 폴더 생성/사용
     WORKSPACE_DIR: path.join(RUNTIME_ROOT, 'workspace'),
 
-    // 3. 블로그 기본 프롬프트(내부 파일)
-    // 사용자 오버라이드는 config-loader에서 config/blog_prompt.md 우선 적용
+    // 3. 블로그 프롬프트(공통 계약 + 선택 전략)
+    BLOG_PROMPT_COMMON_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
+    BLOG_PROMPT_SEARCH_FILE: path.join(__dirname, 'config', 'blog_prompt_search.md'),
+    BLOG_PROMPT_DISCOVERY_FILE: path.join(__dirname, 'config', 'blog_prompt_discovery.md'),
+    // 이전 내부 참조를 위한 공통 프롬프트 별칭
     PROMPT_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
 
     // 🔒 API 엔드포인트 (변경 없음)

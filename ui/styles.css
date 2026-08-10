@@ -1810,6 +1810,13 @@ h2 {
   letter-spacing: 0.02em;
 }
 
+.blog-quick-label-with-help {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+}
+
 .blog-quick-field input,
 .blog-quick-field textarea,
 .blog-quick-field select {

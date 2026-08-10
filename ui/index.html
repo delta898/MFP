@@ -387,14 +387,27 @@
                 style="height: 80px; min-height: 80px;"></textarea>
             </label>
 
-            <label class="blog-quick-field blog-quick-field-full">
-              <span class="blog-quick-label">글 작성 전략</span>
-              <select id="quick-writing-strategy">
-                <option value="inherit">기본 설정 사용 (현재: 검색 중심)</option>
-                <option value="search">검색 중심</option>
-                <option value="discovery">발견 중심 (피드)</option>
-              </select>
-            </label>
+            <div class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label blog-quick-label-with-help">
+                글 작성 전략
+                <span class="tooltip-container">
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-text">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다. 여기서 바꾼 전략은 이 글에만 적용됩니다.</span>
+                </span>
+              </span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="빠른 글 작성 전략">
+                <label>
+                  <input id="quick-writing-strategy-search" type="radio" name="quick-writing-strategy"
+                    value="search" checked>
+                  <span>검색 중심</span>
+                </label>
+                <label>
+                  <input id="quick-writing-strategy-discovery" type="radio" name="quick-writing-strategy"
+                    value="discovery">
+                  <span>발견 중심 (피드)</span>
+                </label>
+              </div>
+            </div>
 
             <!-- Row 3: Categories (Half + Half) -->
             <label class="blog-quick-field blog-quick-field-half">
