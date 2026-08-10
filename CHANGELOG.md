@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.1.17-dev2] - 2026-08-10
+
+### Changed
+- **블로그 문체 예시 제공**: 표현 방식과 높임 방식의 조합에 따라 예상 문체 설명과 실제 문장 예시를 함께 표시해 구어체·문어체와 존댓말·평어의 차이를 바로 비교할 수 있습니다.
+
 ## [0.1.17-dev1] - 2026-08-10
 
 ### Added
