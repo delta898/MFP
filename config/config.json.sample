@@ -10,7 +10,8 @@
       "writing_style": {
         "writing_mode": "conversational",
         "speech_level": "polite"
-      }
+      },
+      "writing_strategy": "search"
     }
   },
   "ai_settings": {

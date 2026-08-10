@@ -12,6 +12,7 @@ const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildWritingStylePrompt } = require('./content/writing-style');
+const { buildWritingStrategyPrompt, resolveWritingStrategy } = require('./content/writing-strategy');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1899,6 +1900,11 @@ ${messageText}
 			writing_mode: CONFIG.BLOG_WRITING_MODE,
 			speech_level: CONFIG.BLOG_SPEECH_LEVEL
 		});
+		const writingStrategy = resolveWritingStrategy({
+			override: jobData.writing_strategy || jobData.writingStrategy || jobData.options?.writing_strategy,
+			global: CONFIG.BLOG_WRITING_STRATEGY
+		});
+		const writingStrategyPrompt = buildWritingStrategyPrompt(writingStrategy);
 
 		// 4) 참고 컨텍스트 구성
 		let referenceSection = "(No reference provided)";
@@ -1929,7 +1935,7 @@ ${scrapedContext}`;
 		// 3) Gemini 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
 		const rawResult = await Utils.callWritingText(
-			`${systemPrompt}\n\n${writingStylePrompt}\n${userPrompt}`,
+			`${systemPrompt}\n\n${writingStylePrompt}\n\n${writingStrategyPrompt}\n${userPrompt}`,
 			3,
 			{
 				responseMimeType: 'application/json'

@@ -251,6 +251,7 @@ function createSettingsService(deps = {}) {
                 writing_mode: fields.BLOG_WRITING_MODE,
                 speech_level: fields.BLOG_SPEECH_LEVEL
             };
+            structuredConfig.content.blog.writing_strategy = fields.BLOG_WRITING_STRATEGY;
 
             if (!structuredConfig.integrations) structuredConfig.integrations = {};
             if (!structuredConfig.integrations.buffer) structuredConfig.integrations.buffer = {};

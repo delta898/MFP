@@ -1483,6 +1483,7 @@ const Utils = {
                         image_gen: resolvedState.imageGeneration,
                         image_count: parseInt(imgCountStr, 10) || (resolvedState.options.image_count !== undefined ? parseInt(resolvedState.options.image_count, 10) : 4),
                         external_reference: resolvedState.externalReference,
+                        writing_strategy: resolvedState.writingStrategy,
                         options: resolvedState.options,
                         log: logStr || '',
                         published_at: publishedAt || '',
@@ -2422,6 +2423,7 @@ const Utils = {
                     scheduleDate: rowScheduleDate,
                     imageGeneration: imageGenerate,
                     externalReference,
+                    writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
                     platforms: topic.platforms || topic.targets || topic.options?.platforms
                 });
 
@@ -3510,7 +3512,8 @@ const Utils = {
                 : String(fields.referenceUrl || '').trim(),
             status: String(fields.status || '').trim(),
             imageGeneration: toYesNo(Boolean(fields.imageGeneration)),
-            externalReference: toYesNo(Boolean(fields.externalReference))
+            externalReference: toYesNo(Boolean(fields.externalReference)),
+            writingStrategy: String(fields.writingStrategy || '').trim()
         };
 
         if (!normalized.subject) {
@@ -3591,7 +3594,8 @@ const Utils = {
                 postStatus: normalized.postStatus,
                 scheduleDate: normalized.scheduleDate,
                 imageGeneration: normalized.imageGeneration === 'Yes',
-                externalReference: normalized.externalReference === 'Yes'
+                externalReference: normalized.externalReference === 'Yes',
+                writingStrategy: normalized.writingStrategy
             });
             dataToUpdate.push({
                 range: `${sheetName}!${toA1(map.options)}${targetRow}`,

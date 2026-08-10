@@ -43,6 +43,7 @@
 - `license-policy.md`
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
+- `features/blog-writing-strategy.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
@@ -56,6 +57,7 @@
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/manual-sns-publishing-plan.md`
 - `plans/active/naver-smart-comment-improvement-plan.md`
+- `plans/active/blog-writing-strategy-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`

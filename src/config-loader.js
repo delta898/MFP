@@ -10,6 +10,7 @@ const {
 } = require('./ai-model-config');
 const { applyRemoteCatalog } = require('./ai/catalog-registry');
 const { normalizeWritingStyle } = require('./content/writing-style');
+const { normalizeWritingStrategy } = require('./content/writing-strategy');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { APP_VERSION } = Constants;
 
@@ -256,6 +257,7 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
     chatSelection: resolvedChatModelSettings.selection
 });
 const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
+const resolvedBlogWritingStrategy = normalizeWritingStrategy(structuredConfig.content?.blog?.writing_strategy);
 const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
     ? resolvedTextModelConfig.code
     : '';
@@ -396,6 +398,7 @@ const CONFIG = {
     WORDPRESS_APP_PASSWORD: structuredConfig.platforms.wordpress.app_password,
     BLOG_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
     BLOG_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
+    BLOG_WRITING_STRATEGY: resolvedBlogWritingStrategy,
     AUTH_FILE_PATH: resolvedAuthPath,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,

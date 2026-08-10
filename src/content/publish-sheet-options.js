@@ -1,3 +1,5 @@
+const { normalizeWritingStrategyOverride } = require('./writing-strategy');
+
 function normalizeString(value) {
     return String(value || '').trim();
 }
@@ -112,7 +114,8 @@ function resolveTopicSheetState(input = {}) {
             : input.imageGeneration === true,
         externalReference: typeof parsedOptions.external_reference === 'boolean'
             ? parsedOptions.external_reference
-            : input.externalReference !== false
+            : input.externalReference !== false,
+        writingStrategy: normalizeWritingStrategyOverride(parsedOptions.writing_strategy)
     };
 }
 
@@ -157,6 +160,9 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
     if (fields.referenceUrls !== undefined) applyArrayOption(next, 'reference_urls', fields.referenceUrls);
     if (fields.postStatus !== undefined) applyStringOption(next, 'post_status', fields.postStatus);
     if (fields.scheduleDate !== undefined) applyStringOption(next, 'schedule_date', fields.scheduleDate);
+    if (fields.writingStrategy !== undefined) {
+        applyStringOption(next, 'writing_strategy', normalizeWritingStrategyOverride(fields.writingStrategy));
+    }
 
     if (fields.imageGeneration !== undefined) next.image_gen = fields.imageGeneration === true;
     if (fields.externalReference !== undefined) next.external_reference = fields.externalReference === true;

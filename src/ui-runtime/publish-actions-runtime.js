@@ -3,6 +3,7 @@ const {
     hasSuccessfulPlatformResult,
     settlePublishQuota
 } = require('../publish-quota');
+const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
 
 function createPublishActionsRuntime(deps = {}) {
     const {
@@ -562,6 +563,11 @@ function createPublishActionsRuntime(deps = {}) {
         const subject = String(requestBody?.subject || '').trim();
         const keywords = normalizeKeywords(requestBody?.keywords);
         const instruction = String(requestBody?.instruction || '').trim();
+        const rawWritingStrategy = String(requestBody?.writingStrategy || '').trim().toLowerCase();
+        if (rawWritingStrategy && !['inherit', 'search', 'discovery'].includes(rawWritingStrategy)) {
+            return { success: false, code: 'INVALID_WRITING_STRATEGY', message: '글 작성 전략 값이 올바르지 않습니다.' };
+        }
+        const writingStrategy = normalizeWritingStrategyOverride(rawWritingStrategy);
         const externalReference = normalizeBool(requestBody?.externalReference, true);
         const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
@@ -615,7 +621,8 @@ function createPublishActionsRuntime(deps = {}) {
             instruction,
             referenceUrl,
             imageGeneration: imageGenerationFinal,
-            externalReference
+            externalReference,
+            writingStrategy
         });
         const existingEntry = getQuickPublishRecentEntry(dedupeKey) || null;
 
@@ -680,7 +687,8 @@ function createPublishActionsRuntime(deps = {}) {
                     : (requestBody?.category || ''),
                 postStatus,
                 scheduleDate,
-                targets: targets.join(', ')
+                targets: targets.join(', '),
+                writing_strategy: writingStrategy
             }], {
                 defaultStatus: appendStatus
             });
@@ -733,7 +741,8 @@ function createPublishActionsRuntime(deps = {}) {
                 naverCategory: requestBody?.naverCategory || '',
                 wordpressCategory: requestBody?.wordpressCategory || '',
                 postStatus,
-                scheduleDate
+                scheduleDate,
+                writingStrategy
             },
             targets,
             headless,

@@ -4195,6 +4195,7 @@ async function openBlogTopicEditor(rowIndex) {
   document.getElementById('blog-edit-keywords').value = Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
   document.getElementById('blog-edit-instruction').value = item.content_guide?.additional_instructions || '';
   document.getElementById('blog-edit-reference-url').value = Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join('\n') : '';
+  document.getElementById('blog-edit-writing-strategy').value = item.writing_strategy || item.options?.writing_strategy || 'inherit';
   document.getElementById('blog-edit-schedule-date').value = (item.scheduleDate || '').replace(' ', 'T').substring(0, 16);
 
   // Category Parsing (N:..., W:...)
@@ -4366,6 +4367,7 @@ async function saveBlogTopicModifications() {
   const keywords = document.getElementById('blog-edit-keywords').value.trim();
   const instruction = document.getElementById('blog-edit-instruction').value.trim();
   const referenceUrl = document.getElementById('blog-edit-reference-url').value.trim();
+  const writingStrategy = document.getElementById('blog-edit-writing-strategy').value;
   const scheduleDate = document.getElementById('blog-edit-schedule-date').value.replace('T', ' ');
   const naverCategory = document.getElementById('blog-edit-naver-category').value.trim();
   const wordpressCategory = document.getElementById('blog-edit-wordpress-category').value.trim();
@@ -4380,6 +4382,7 @@ async function saveBlogTopicModifications() {
     keywords: normalizeCommaListText(keywords),
     instruction,
     referenceUrl: normalizeCommaListText(referenceUrl),
+    writingStrategy,
     category: `N:${naverCategory}, W:${wordpressCategory}`,
     naverCategory,
     wordpressCategory,
@@ -4469,7 +4472,8 @@ function buildBlogUpdatePayload(baseItem, patch = {}) {
     postStatus: String((patch.postStatus !== undefined ? patch.postStatus : safeItem.postStatus) || '').trim(),
     scheduleDate: String((patch.scheduleDate !== undefined ? patch.scheduleDate : safeItem.scheduleDate) || '').trim(),
     imageGeneration: (patch.imageGeneration !== undefined ? patch.imageGeneration : Boolean(safeItem.image_gen)) === true,
-    externalReference: (patch.externalReference !== undefined ? patch.externalReference : Boolean(safeItem.external_reference)) === true
+    externalReference: (patch.externalReference !== undefined ? patch.externalReference : Boolean(safeItem.external_reference)) === true,
+    writingStrategy: String((patch.writingStrategy !== undefined ? patch.writingStrategy : safeItem.writing_strategy) || 'inherit').trim()
   };
 }
 
@@ -4540,6 +4544,13 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
   if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
   if (patch.scheduleDate !== undefined) item.scheduleDate = patch.scheduleDate;
   if (patch.category !== undefined) item.category = patch.category;
+  if (patch.writingStrategy !== undefined) {
+    const value = ['search', 'discovery'].includes(patch.writingStrategy) ? patch.writingStrategy : '';
+    item.writing_strategy = value;
+    item.options = { ...(item.options || {}) };
+    if (value) item.options.writing_strategy = value;
+    else delete item.options.writing_strategy;
+  }
 
   // 2. 즉시 재렌더링 (낙관적 업데이트)
   renderBlogTable(blogTopicsCache);
@@ -5061,6 +5072,7 @@ const BLOG_WRITING_STYLE_DESCRIPTIONS = {
   'written:polite': '정돈되고 신뢰감 있는 정보·전문형 문체',
   'written:plain': '간결하고 객관적인 설명문·칼럼형 문체'
 };
+let currentBlogWritingStrategy = 'search';
 
 function getSelectedSettingsRadioValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
@@ -5080,6 +5092,31 @@ function syncSettingsBlogWritingStyleDescription() {
     || BLOG_WRITING_STYLE_DESCRIPTIONS['conversational:polite'];
   const target = document.querySelector('#settings-blog-writing-style-description strong');
   if (target) target.textContent = description;
+}
+
+function getWritingStrategyLabel(value) {
+  return value === 'discovery' ? '발견 중심 (피드)' : '검색 중심';
+}
+
+function syncWritingStrategyInheritanceLabels() {
+  const label = `기본 설정 사용 (현재: ${getWritingStrategyLabel(currentBlogWritingStrategy)})`;
+  ['quick-writing-strategy', 'blog-edit-writing-strategy'].forEach((id) => {
+    const option = document.querySelector(`#${id} option[value="inherit"]`);
+    if (option) option.textContent = label;
+  });
+}
+
+function syncSettingsBlogWritingStrategyDescription() {
+  currentBlogWritingStrategy = getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search') === 'discovery'
+    ? 'discovery'
+    : 'search';
+  const target = document.querySelector('#settings-blog-writing-strategy-description strong');
+  if (target) {
+    target.textContent = currentBlogWritingStrategy === 'discovery'
+      ? '피드에서 발견한 독자의 관심과 읽기 흐름을 고려합니다.'
+      : '검색 의도와 핵심 정보를 명확하게 전달합니다.';
+  }
+  syncWritingStrategyInheritanceLabels();
 }
 
 function normalizeSettingsBufferChannels(value) {
@@ -5527,7 +5564,9 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
   setSelectedSettingsRadioValue('settings-blog-writing-mode', fields.BLOG_WRITING_MODE, 'conversational');
   setSelectedSettingsRadioValue('settings-blog-speech-level', fields.BLOG_SPEECH_LEVEL, 'polite');
+  setSelectedSettingsRadioValue('settings-blog-writing-strategy', fields.BLOG_WRITING_STRATEGY, 'search');
   syncSettingsBlogWritingStyleDescription();
+  syncSettingsBlogWritingStrategyDescription();
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
   sv(updateServerTypeEl, fields.UPDATE_SERVER_TYPE || 'github');
   sv(updateMirrorRepoEl, fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases');
@@ -5740,6 +5779,7 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
     BLOG_WRITING_MODE: getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational'),
     BLOG_SPEECH_LEVEL: getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite'),
+    BLOG_WRITING_STRATEGY: getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search'),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
     CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),
@@ -8257,6 +8297,7 @@ function bindActions() {
       subject: (document.getElementById('quick-subject')?.value || '').trim(),
       keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
       instruction: (document.getElementById('quick-instruction')?.value || '').trim(),
+      writingStrategy: (document.getElementById('quick-writing-strategy')?.value || 'inherit').trim(),
       referenceUrl: (document.getElementById('quick-reference-url')?.value || '').trim(),
       imageGeneration: Boolean(document.getElementById('quick-image-generation')?.checked),
       externalReference: Boolean(document.getElementById('quick-external-reference')?.checked),
@@ -8711,6 +8752,8 @@ function bindActions() {
       if (keywordsEl) keywordsEl.value = '';
       if (instructionEl) instructionEl.value = '';
       if (referenceUrlEl) referenceUrlEl.value = '';
+      const writingStrategyEl = document.getElementById('quick-writing-strategy');
+      if (writingStrategyEl) writingStrategyEl.value = 'inherit';
 
       // [New] Clear Categories
       const naverCatEl = document.getElementById('quick-naver-category');
@@ -10133,6 +10176,7 @@ function bindActions() {
     document.getElementById('settings-sns-source-wordpress'),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-mode"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-blog-speech-level"]')),
+    ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-strategy"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
@@ -10429,6 +10473,9 @@ function bindActions() {
     checkEl.addEventListener('change', () => {
       if (checkEl.name === 'settings-blog-writing-mode' || checkEl.name === 'settings-blog-speech-level') {
         syncSettingsBlogWritingStyleDescription();
+      }
+      if (checkEl.name === 'settings-blog-writing-strategy') {
+        syncSettingsBlogWritingStrategyDescription();
       }
       if (checkEl.name === 'settings-chat-model-source') {
         syncSettingsChatModelUi();

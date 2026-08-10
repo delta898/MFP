@@ -387,6 +387,15 @@
                 style="height: 80px; min-height: 80px;"></textarea>
             </label>
 
+            <label class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label">글 작성 전략</span>
+              <select id="quick-writing-strategy">
+                <option value="inherit">기본 설정 사용 (현재: 검색 중심)</option>
+                <option value="search">검색 중심</option>
+                <option value="discovery">발견 중심 (피드)</option>
+              </select>
+            </label>
+
             <!-- Row 3: Categories (Half + Half) -->
             <label class="blog-quick-field blog-quick-field-half">
               <span class="blog-quick-label">네이버 카테고리</span>
@@ -1863,6 +1872,32 @@
               <strong>친근하고 자연스러운 후기형 문체</strong>
             </div>
 
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">글 작성 전략</div>
+            <div class="form-field-block" style="grid-column: 1 / -1;">
+              <span class="field-label-text">기본 전략</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 글 작성 기본 전략">
+                <label>
+                  <input id="settings-blog-writing-strategy-search" type="radio" name="settings-blog-writing-strategy"
+                    value="search">
+                  <span>검색 중심</span>
+                </label>
+                <label>
+                  <input id="settings-blog-writing-strategy-discovery" type="radio" name="settings-blog-writing-strategy"
+                    value="discovery">
+                  <span>발견 중심 (피드)</span>
+                </label>
+              </div>
+            </div>
+            <div id="settings-blog-writing-strategy-description" class="settings-writing-style-description"
+              style="grid-column: 1 / -1;" aria-live="polite">
+              <span class="settings-writing-style-label">작성 방향</span>
+              <strong>검색 의도와 핵심 정보를 명확하게 전달합니다.</strong>
+              <span class="tooltip-container">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다. 어떤 전략도 검색 또는 피드 노출을 보장하지 않습니다.</span>
+              </span>
+            </div>
+
             <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">발행 옵션</div>
             <div class="form-field-block">
               <span class="field-label-text">이미지 용량 최적화</span>
@@ -2443,6 +2478,14 @@
           <div class="field-item full">
             <label>참고 URL</label>
             <textarea id="blog-edit-reference-url" rows="2" placeholder="URL을 콤마(,)나 줄바꿈으로 구분하여 입력"></textarea>
+          </div>
+          <div class="field-item full">
+            <label>글 작성 전략</label>
+            <select id="blog-edit-writing-strategy">
+              <option value="inherit">기본 설정 사용 (현재: 검색 중심)</option>
+              <option value="search">검색 중심</option>
+              <option value="discovery">발견 중심 (피드)</option>
+            </select>
           </div>
           <div class="field-item">
             <label>네이버 카테고리</label>

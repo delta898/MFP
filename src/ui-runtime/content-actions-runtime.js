@@ -127,6 +127,7 @@ function createContentActionsRuntime(deps = {}) {
         const requestedPostStatus = String(requestBody?.postStatus || '').trim().toLowerCase();
         const effectivePostStatus = requestedPostStatus || getVal('post_status', topicData.postStatus || 'publish');
         const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
+        const effectiveWritingStrategy = getVal('writing_strategy', topicData.writing_strategy || '');
         const effectiveImgGenRequested = topicData.image_gen === true;
         const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
         const effectiveExtRef = topicData.external_reference === true;
@@ -166,7 +167,8 @@ function createContentActionsRuntime(deps = {}) {
                 naverCategory: naverCat,
                 wordpressCategory: wpCat,
                 postStatus: effectivePostStatus,
-                scheduleDate: effectiveScheduleDate
+                scheduleDate: effectiveScheduleDate,
+                writingStrategy: effectiveWritingStrategy
             },
             targets: effectiveTargets,
             headless: resolvedHeadless,
@@ -896,6 +898,11 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_SUBJECT', message: 'Subject는 비워둘 수 없습니다.' };
         }
 
+        const writingStrategy = String(requestBody?.writingStrategy || '').trim().toLowerCase();
+        if (writingStrategy && !['inherit', 'search', 'discovery'].includes(writingStrategy)) {
+            return { success: false, code: 'INVALID_WRITING_STRATEGY', message: '글 작성 전략 값이 올바르지 않습니다.' };
+        }
+
         const referenceUrl = String(requestBody?.referenceUrl || '').trim();
         const rawStatus = String(requestBody?.status || '').trim();
         const statusAliases = {
@@ -941,7 +948,8 @@ function createContentActionsRuntime(deps = {}) {
                 referenceUrl,
                 status,
                 imageGeneration: normalizeBool(requestBody?.imageGeneration, false),
-                externalReference: normalizeBool(requestBody?.externalReference, true)
+                externalReference: normalizeBool(requestBody?.externalReference, true),
+                writingStrategy
             });
 
             return {

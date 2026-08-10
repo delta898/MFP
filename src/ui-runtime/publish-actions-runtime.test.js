@@ -6,6 +6,7 @@ const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-f
 
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
+    let dedupeInput = null;
     const runtime = createPublishActionsRuntime({
         CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
         Logger: { info() { }, warn() { }, error() { } },
@@ -38,7 +39,10 @@ test('quick publish keeps the user image option independent from legacy license 
         toFeatureMap,
         isCommandEnabled,
         getFeatureBool,
-        buildQuickPublishDedupeKey: () => 'dedupe-key',
+        buildQuickPublishDedupeKey: (input) => {
+            dedupeInput = input;
+            return 'dedupe-key';
+        },
         cleanupQuickPublishDedupeCache() { },
         getQuickPublishRecentEntry: () => null,
         setQuickPublishRecentEntry() { },
@@ -48,12 +52,15 @@ test('quick publish keeps the user image option independent from legacy license 
     const result = await runtime.executeQuickPublish({
         subject: '테스트 글',
         imageGeneration: true,
+        writingStrategy: 'discovery',
         publishMode: 'append_only',
         targets: ['naver']
     });
 
     assert.equal(result.success, true);
     assert.equal(appendedTopics[0].image_options.generate, true);
+    assert.equal(appendedTopics[0].writing_strategy, 'discovery');
+    assert.equal(dedupeInput.writingStrategy, 'discovery');
 });
 
 function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserveSuccess = true, reservationMetadata } = {}) {
