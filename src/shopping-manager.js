@@ -2164,6 +2164,45 @@ function pickTitleHook(commerceData = {}) {
     return '구매 기준이 또렷해지는 이유';
 }
 
+function dedupeShoppingTitleSubject(title = '') {
+    const clean = normalizeWhitespace(title);
+    if (!clean) return '';
+
+    const separatorMatch = clean.match(/^(.+?)(\s*[,，:：]\s*)(.+)$/);
+    if (!separatorMatch) return clean;
+
+    const [, rawSubject, rawSeparator, rawHook] = separatorMatch;
+    const sellerNoise = new Set(['공식', '공식파트너', '공식인증점', '파트너', '브랜드스토어', '스토어']);
+    const seen = new Set();
+    const subjectTokens = normalizeWhitespace(rawSubject)
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter((token) => {
+            const key = token.toLowerCase().replace(/[^\w가-힣-]/g, '');
+            if (!key) return false;
+            if (sellerNoise.has(key)) return false;
+            if (key.length >= 2 && seen.has(key)) return false;
+            if (key.length >= 2) seen.add(key);
+            return true;
+        });
+
+    const selfPurchaseIndex = subjectTokens.findIndex(token => token.toLowerCase() === '자급제');
+    if (selfPurchaseIndex >= 0) {
+        const [selfPurchaseToken] = subjectTokens.splice(selfPurchaseIndex, 1);
+        let capacityIndex = -1;
+        for (let i = 0; i < subjectTokens.length; i++) {
+            if (/^\d+(?:gb|tb|mb)$/i.test(subjectTokens[i])) capacityIndex = i;
+        }
+        subjectTokens.splice(capacityIndex >= 0 ? capacityIndex + 1 : subjectTokens.length, 0, selfPurchaseToken);
+    }
+
+    const subject = normalizeWhitespace(subjectTokens.join(' '));
+    const hook = normalizeWhitespace(rawHook);
+    if (!subject || !hook) return clean;
+    const separator = rawSeparator.includes(':') || rawSeparator.includes('：') ? ': ' : ', ';
+    return `${subject}${separator}${hook}`;
+}
+
 function normalizeTitleForPublish(title = '') {
     let clean = normalizeWhitespace(String(title || ''));
     if (!clean) return '';
@@ -2175,6 +2214,8 @@ function normalizeTitleForPublish(title = '') {
         .replace(/[?]{2,}/g, '?')
         .replace(/\s*[|/]\s*/g, ' ')
         .trim();
+
+    clean = dedupeShoppingTitleSubject(clean);
 
     // 쇼핑 글 제목은 검색 가독성과 자연스러움 균형을 위해 50자 이하로 맞춘다.
     clean = truncateTitle(clean, SHOPPING_TITLE_MAX_LEN);
@@ -2492,7 +2533,7 @@ function buildAiPrompt(product, platform = 'naver') {
     const platformLabel = platform === 'wordpress' ? '워드프레스(WordPress)' : '네이버 블로그(Naver Blog)';
     const platformStyle = platform === 'wordpress'
         ? '정보 중심의 깔끔하고 구조적인 문체와 객관적인 톤을 유지하세요.'
-        : '이웃과 대화하듯 친근하고 개인적인 경험이 묻어나는 "블로그 나수" 스타일로 작성하세요.';
+        : '이웃에게 유용한 정보를 정리해주듯 친근하고 자연스럽게 작성하되, 상품을 직접 구매하거나 사용한 것처럼 경험을 꾸미지 마세요.';
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -4301,7 +4342,9 @@ const ShoppingManager = {
 
 ShoppingManager.__test = {
     extractProductData,
+    buildAiPrompt,
     extractCommerceData,
+    dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
     isStorefrontLikeTitle,
     pickBestStructuredProduct,

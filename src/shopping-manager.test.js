@@ -5,11 +5,78 @@ const ShoppingManager = require('./shopping-manager');
 
 const {
     extractProductData,
+    buildAiPrompt,
+    dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
     selectPrimaryPricePair,
     mergeProductData,
     choosePreferredProductTitle
 } = ShoppingManager.__test;
+
+function createPromptProduct() {
+    return {
+        title: 'Bear 올스텐 미니 계란찜기',
+        description: '1단 타이머를 지원하는 미니 계란찜기',
+        body: '계란과 간단한 찜 요리에 사용할 수 있는 상품',
+        commerceData: {
+            salePrice: 32800,
+            originalPrice: 54000,
+            discountRate: 39,
+            deliveryFee: '3,000원 (주문시 결제)'
+        },
+        reviewData: {
+            facts: ['리뷰 19,306개'],
+            reviewSamples: ['아침 식사 준비가 간편하다는 반응이 있습니다.']
+        }
+    };
+}
+
+test('shopping prompt uses numbers selectively and keeps volume requirements consistent', () => {
+    const prompt = buildAiPrompt(createPromptProduct(), 'naver');
+
+    assert.match(prompt, /모든 블록에 숫자를 넣지 말고/);
+    assert.match(prompt, /1,400~2,000자/);
+    assert.match(prompt, /본문 5~6개 블록/);
+    assert.match(prompt, /각 본문 블록은 2~4문장/);
+    assert.doesNotMatch(prompt, /모든 본문 블록에는 반드시/);
+    assert.doesNotMatch(prompt, /7~8개/);
+    assert.doesNotMatch(prompt, /최소 \*\*4~5문장 이상\*\*/);
+});
+
+test('shopping prompt forbids fabricated experience and unsupported urgency on every platform', () => {
+    const naverPrompt = buildAiPrompt(createPromptProduct(), 'naver');
+    const wordpressPrompt = buildAiPrompt(createPromptProduct(), 'wordpress');
+
+    for (const prompt of [naverPrompt, wordpressPrompt]) {
+        assert.match(prompt, /직접 구매·사용·체험했다고 말하지 마세요/);
+        assert.match(prompt, /긴급성 표현을 사용하지 마세요/);
+        assert.match(prompt, /독자의 불안이나 조급함을 자극해 구매를 압박하지 말고/);
+        assert.doesNotMatch(prompt, /지금 이 조건은 놓치면 안 되겠다/);
+        assert.doesNotMatch(prompt, /개인적인 경험이 묻어나는/);
+        assert.doesNotMatch(prompt, /{{\s*[A-Z_]+\s*}}/);
+    }
+
+    assert.match(naverPrompt, /친근하고 자연스럽게 작성하되/);
+    assert.match(wordpressPrompt, /정보 중심의 깔끔하고 구조적인 문체/);
+});
+
+test('shopping prompt and title normalization prevent repeated product identity keywords', () => {
+    const prompt = buildAiPrompt({
+        ...createPromptProduct(),
+        title: '삼성 갤럭시 S26 자급제 삼성 공식 갤럭시 S26 256GB 자급제'
+    }, 'naver');
+    const rawTitle = '삼성 갤럭시 S26 자급제 삼성 공식 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에';
+
+    assert.match(prompt, /같은 브랜드, 모델, 규격 키워드를 각각 한 번만 사용하세요/);
+    assert.equal(
+        dedupeShoppingTitleSubject(rawTitle),
+        '삼성 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에'
+    );
+    assert.equal(
+        buildEngagingShoppingTitle(rawTitle, '삼성 갤럭시 S26 256GB 자급제'),
+        '삼성 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에'
+    );
+});
 
 test('extractProductData prefers real product title and hero prices over storefront metadata', () => {
     const html = `
