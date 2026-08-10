@@ -1,7 +1,7 @@
-# Blog Writing Style
+# Content Writing Style
 
 ## Scope
-Blog content generation supports two user-controlled Korean writing style axes:
+BlogGenius content generation supports two user-controlled Korean writing style axes:
 
 - `writing_mode`: `conversational` or `written`
 - `speech_level`: `polite` or `plain`
@@ -9,20 +9,20 @@ Blog content generation supports two user-controlled Korean writing style axes:
 The default is conversational polite writing.
 
 ## Configuration
-The persisted configuration lives at:
+The canonical persisted configuration lives at:
 
 ```json
 {
   "content": {
-    "blog": {
-      "writing_style": {
-        "writing_mode": "conversational",
-        "speech_level": "polite"
-      }
+    "writing_style": {
+      "writing_mode": "conversational",
+      "speech_level": "polite"
     }
   }
 }
 ```
+
+Existing `content.blog.writing_style` values remain a supported fallback and are mirrored during settings saves. Runtime aliases expose both `CONFIG.CONTENT_*` and the existing `CONFIG.BLOG_*` keys during the transition.
 
 Invalid or missing values fall back independently to `conversational` and `polite`.
 
@@ -42,6 +42,11 @@ The UI shows both the expected style description and a live sentence example for
 Changes use the existing major settings save flow and are written to `config/config.json`.
 
 ## Prompt Application
-`src/content/writing-style.js` converts the selected values into concrete Korean writing rules. `Core.generateContent` appends those rules to the blog writing system prompt for both Naver and WordPress blog content.
+`src/content/writing-style.js` converts the selected values into concrete Korean writing rules.
+
+- `Core.generateContent` appends the blog rules to the blog writing system prompt for both Naver and WordPress.
+- `ShoppingManager` appends shopping-specific rules to the independent shopping prompt for quick, batch, and automatic shopping content.
+
+Shopping content follows the selected expression and speech level, but the anti-fabrication rule remains stronger than a conversational or review-like tone. The AI must not claim that the writer bought or used the product unless such an instruction is explicitly supported by input data.
 
 An explicit instruction for the current post takes precedence over the saved global style.

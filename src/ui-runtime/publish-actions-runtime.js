@@ -1249,6 +1249,7 @@ function createPublishActionsRuntime(deps = {}) {
     async function executeShoppingQuickPublish(requestBody = {}) {
         const shortUrl = String(requestBody?.shortUrl || requestBody?.url || '').trim();
         const product = String(requestBody?.product || '').trim();
+        const instruction = String(requestBody?.instruction || '').trim();
         const publishMode = normalizePublishMode(requestBody?.publishMode);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
@@ -1260,6 +1261,9 @@ function createPublishActionsRuntime(deps = {}) {
         }
         if (!/^https?:\/\//i.test(shortUrl)) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL 형식이 올바르지 않습니다. (http/https)' };
+        }
+        if (instruction.length > 1000) {
+            return { success: false, code: 'INVALID_SHOPPING_INSTRUCTION', message: '참고/지시사항은 1,000자 이내로 입력해 주세요.' };
         }
         if (!['publish', 'draft', 'schedule'].includes(postStatus)) {
             return { success: false, code: 'INVALID_POST_STATUS', message: `postStatus 값이 올바르지 않습니다: ${postStatus}` };
@@ -1290,6 +1294,7 @@ function createPublishActionsRuntime(deps = {}) {
         const appendResult = await Utils.appendGoogleSheetShopping([{
             shortUrl,
             product,
+            instruction,
             status: appendStatus,
             category: categoryField,
             postStatus,

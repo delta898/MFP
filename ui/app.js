@@ -4283,6 +4283,7 @@ function openShoppingEditor(rowIndex) {
 
   document.getElementById('shopping-edit-product').value = item.product || '';
   document.getElementById('shopping-edit-url').value = item.shortUrl || '';
+  document.getElementById('shopping-edit-instruction').value = item.instruction || item.options?.instruction || '';
   document.getElementById('shopping-edit-schedule-date').value = (item.scheduleDate || '').replace(' ', 'T').substring(0, 16);
 
   // 카테고리 파싱 (N:..., W:...)
@@ -4327,6 +4328,7 @@ async function saveShoppingModifications() {
 
   const product = document.getElementById('shopping-edit-product').value.trim();
   const shortUrl = document.getElementById('shopping-edit-url').value.trim();
+  const instruction = document.getElementById('shopping-edit-instruction').value.trim();
   const naverCategory = document.getElementById('shopping-edit-naver-category').value.trim();
   const wordpressCategory = document.getElementById('shopping-edit-wordpress-category').value.trim();
   const scheduleDate = document.getElementById('shopping-edit-schedule-date').value.replace('T', ' ');
@@ -4338,7 +4340,7 @@ async function saveShoppingModifications() {
     : '';
 
   const patch = {
-    product, shortUrl, category, postStatus, status,
+    product, shortUrl, instruction, category, postStatus, status,
     scheduleDate: scheduleDate ? (scheduleDate.length === 16 ? scheduleDate + ':00' : scheduleDate) : ''
   };
 
@@ -4803,6 +4805,12 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   // 1. 캐시를 즉시 업데이트 (race condition 방지)
   if (patch.product !== undefined) item.product = patch.product;
   if (patch.shortUrl !== undefined) item.shortUrl = patch.shortUrl;
+  if (patch.instruction !== undefined) {
+    item.instruction = patch.instruction;
+    item.options = { ...(item.options || {}) };
+    if (patch.instruction) item.options.instruction = patch.instruction;
+    else delete item.options.instruction;
+  }
   if (patch.status !== undefined) item.status = patch.status;
   if (patch.category !== undefined) item.category = patch.category;
   if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
@@ -4815,6 +4823,7 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
     rowIndex,
     product: patch.product !== undefined ? String(patch.product || '').trim() : item.product,
     shortUrl: patch.shortUrl !== undefined ? String(patch.shortUrl || '').trim() : item.shortUrl,
+    instruction: patch.instruction !== undefined ? String(patch.instruction || '').trim() : String(item.instruction || ''),
     status: patch.status !== undefined ? String(patch.status || '').trim() : item.status,
     category: patch.category !== undefined ? String(patch.category || '').trim() : item.category,
     postStatus: patch.postStatus !== undefined ? String(patch.postStatus || '').trim() : item.postStatus,
@@ -9487,6 +9496,7 @@ function bindActions() {
     const payload = {
       shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
       product: (shoppingQuickProductInput?.value || '').trim(),
+      instruction: (document.getElementById('shopping-quick-instruction')?.value || '').trim(),
       headless: Boolean(document.getElementById('shopping-quick-headless')?.checked),
       publishMode: mode,
       targets,

@@ -9,6 +9,8 @@ const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
 const RuntimeConfig = require('./runtime-config');
 const { persistAuthSessionState } = require('./auth-session');
+const { normalizeWritingStyle, buildShoppingWritingStylePrompt } = require('./content/writing-style');
+const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
@@ -378,6 +380,29 @@ function isUiNoiseTitle(title = '') {
     const clean = normalizeWhitespace(String(title || ''));
     if (!clean) return false;
     return /(?:^안녕하세요[.!]?\s*|관심고객수|검색어를\s*입력해?주세요|도움말|로그아웃|프로필\s*사진|알림\s*읽은|내\s*페이포인트|네이버ID|판매자\s*개인정보|상세정보\s*확인|인기\/신규서비스|즐겨찾기\s*설정)/i.test(clean);
+}
+
+function normalizeShoppingProductNameHint(value = '') {
+    const clean = sanitizeExtractedTitleCandidate(value);
+    if (!clean) return '';
+    if (isStorefrontLikeTitle(clean) || isGenericShoppingTitle(clean) || isUiNoiseTitle(clean) || isErrorLikePageTitle(clean)) {
+        return '';
+    }
+    return clean;
+}
+
+function resolveShoppingProductTitle(userProductName = '', extractedTitle = '') {
+    const userTitle = normalizeShoppingProductNameHint(userProductName);
+    if (userTitle) {
+        return { title: userTitle, source: 'user_input' };
+    }
+
+    const extracted = normalizeShoppingProductNameHint(extractedTitle);
+    if (extracted) {
+        return { title: extracted, source: 'extracted' };
+    }
+
+    return { title: '', source: 'missing' };
 }
 
 function scoreStructuredProductCandidate(node = {}) {
@@ -2164,6 +2189,45 @@ function pickTitleHook(commerceData = {}) {
     return '구매 기준이 또렷해지는 이유';
 }
 
+function dedupeShoppingTitleSubject(title = '') {
+    const clean = normalizeWhitespace(title);
+    if (!clean) return '';
+
+    const separatorMatch = clean.match(/^(.+?)(\s*[,，:：]\s*)(.+)$/);
+    if (!separatorMatch) return clean;
+
+    const [, rawSubject, rawSeparator, rawHook] = separatorMatch;
+    const sellerNoise = new Set(['공식', '공식파트너', '공식인증점', '파트너', '브랜드스토어', '스토어']);
+    const seen = new Set();
+    const subjectTokens = normalizeWhitespace(rawSubject)
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter((token) => {
+            const key = token.toLowerCase().replace(/[^\w가-힣-]/g, '');
+            if (!key) return false;
+            if (sellerNoise.has(key)) return false;
+            if (key.length >= 2 && seen.has(key)) return false;
+            if (key.length >= 2) seen.add(key);
+            return true;
+        });
+
+    const selfPurchaseIndex = subjectTokens.findIndex(token => token.toLowerCase() === '자급제');
+    if (selfPurchaseIndex >= 0) {
+        const [selfPurchaseToken] = subjectTokens.splice(selfPurchaseIndex, 1);
+        let capacityIndex = -1;
+        for (let i = 0; i < subjectTokens.length; i++) {
+            if (/^\d+(?:gb|tb|mb)$/i.test(subjectTokens[i])) capacityIndex = i;
+        }
+        subjectTokens.splice(capacityIndex >= 0 ? capacityIndex + 1 : subjectTokens.length, 0, selfPurchaseToken);
+    }
+
+    const subject = normalizeWhitespace(subjectTokens.join(' '));
+    const hook = normalizeWhitespace(rawHook);
+    if (!subject || !hook) return clean;
+    const separator = rawSeparator.includes(':') || rawSeparator.includes('：') ? ': ' : ', ';
+    return `${subject}${separator}${hook}`;
+}
+
 function normalizeTitleForPublish(title = '') {
     let clean = normalizeWhitespace(String(title || ''));
     if (!clean) return '';
@@ -2175,6 +2239,8 @@ function normalizeTitleForPublish(title = '') {
         .replace(/[?]{2,}/g, '?')
         .replace(/\s*[|/]\s*/g, ' ')
         .trim();
+
+    clean = dedupeShoppingTitleSubject(clean);
 
     // 쇼핑 글 제목은 검색 가독성과 자연스러움 균형을 위해 50자 이하로 맞춘다.
     clean = truncateTitle(clean, SHOPPING_TITLE_MAX_LEN);
@@ -2203,6 +2269,20 @@ function explainShoppingTitleRejection(aiTitle, productTitle = '') {
     if (isStorefrontLikeTitle(normalizedAiTitle) || isGenericShoppingTitle(normalizedAiTitle) || isUiNoiseTitle(normalizedAiTitle)) {
         result.reason = 'ui_noise_title';
         return result;
+    }
+    const coreProductTokens = extractCoreTitleKeyword(productTitle)
+        .toLowerCase()
+        .split(/\s+/)
+        .map(token => token.replace(/[^a-z0-9가-힣]/g, ''))
+        .filter(Boolean);
+    if (coreProductTokens.length > 0) {
+        const normalizedTitleIdentity = normalizedAiTitle.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        const matchedTokenCount = coreProductTokens.filter(token => normalizedTitleIdentity.includes(token)).length;
+        const requiredTokenCount = Math.min(2, coreProductTokens.length);
+        if (matchedTokenCount < requiredTokenCount) {
+            result.reason = 'missing_product_identity';
+            return result;
+        }
     }
     if (looksLikeClippedShoppingTitle(normalizedAiTitle, rawAiTitle)) {
         result.reason = 'clipped_title';
@@ -2479,7 +2559,134 @@ function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewDat
     return aiData;
 }
 
-function buildAiPrompt(product, platform = 'naver') {
+function resolveShoppingWritingPreferences(input = {}) {
+    return {
+        style: normalizeWritingStyle({
+            writing_mode: input.writing_mode || input.writingMode || CONFIG.CONTENT_WRITING_MODE || CONFIG.BLOG_WRITING_MODE,
+            speech_level: input.speech_level || input.speechLevel || CONFIG.CONTENT_SPEECH_LEVEL || CONFIG.BLOG_SPEECH_LEVEL
+        }),
+        strategy: normalizeWritingStrategy(
+            input.writing_strategy || input.writingStrategy || CONFIG.CONTENT_WRITING_STRATEGY || CONFIG.BLOG_WRITING_STRATEGY
+        )
+    };
+}
+
+function buildShoppingInstructionPrompt(input) {
+    const instruction = String(input || '').trim();
+    if (!instruction) {
+        return [
+            '[사용자 참고/지시사항]',
+            '- 없음.',
+            '- 사용자가 제공하지 않은 구매·사용·체험 경험이나 구체적인 생활 배경을 만들지 마세요.'
+        ].join('\n');
+    }
+
+    return [
+        '[사용자 참고/지시사항 - 우선 반영]',
+        instruction,
+        '- 위 내용은 사용자가 제공한 초안 작성 방향·경험·의견입니다. 기본 문체와 글 작성 전략이 충돌하면 사용자 지시를 우선하세요.',
+        '- 사용자가 직접 경험 서술을 요청하거나 경험을 제공했다면 1인칭 후기 표현을 충실히 반영할 수 있습니다.',
+        '- 다만 사용자가 제공하거나 요청하지 않은 구체적인 사용 기간, 가족, 직업, 효과, 비교 경험은 추가로 만들지 마세요.',
+        '- 공식 상품 정보와 가격·혜택·배송 조건은 제공된 Official Product Data의 범위를 벗어나지 마세요.',
+        '- 최종 응답은 지정된 JSON 출력 규격을 유지하세요.'
+    ].join('\n');
+}
+
+function hashShoppingEditorialSeed(input) {
+    const text = String(input || 'shopping').normalize('NFKC');
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function hasShoppingValue(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    return String(value).trim().length > 0;
+}
+
+function selectShoppingEditorialPlan(product = {}) {
+    const commerceData = product.commerceData || {};
+    const reviewData = product.reviewData || {};
+    const eligible = [];
+
+    const hasConditions = [
+        commerceData.salePrice,
+        commerceData.originalPrice,
+        commerceData.discountRate,
+        commerceData.deliveryFee,
+        commerceData.paymentBenefit,
+        commerceData.pointBenefit
+    ].some(hasShoppingValue);
+    const hasReviewEvidence = hasShoppingValue(reviewData.facts) || hasShoppingValue(reviewData.reviewSamples);
+    const hasUsageContext = hasShoppingValue(product.description) || hasShoppingValue(product.body);
+
+    if (hasConditions) eligible.push('conditions_first');
+    if (hasReviewEvidence) eligible.push('reaction_first');
+    if (hasUsageContext) eligible.push('situation_first');
+    eligible.push('decision_checklist', 'balanced_guide');
+
+    const uniqueEligible = [...new Set(eligible)];
+    const seed = [
+        product.title,
+        hasConditions ? 'conditions' : '',
+        hasReviewEvidence ? 'reviews' : '',
+        hasUsageContext ? 'usage' : ''
+    ].join('|');
+    return uniqueEligible[hashShoppingEditorialSeed(seed) % uniqueEligible.length];
+}
+
+function buildShoppingEditorialPlanPrompt(product = {}, options = {}) {
+    const selectedPlan = selectShoppingEditorialPlan(product);
+    const hasInstruction = Boolean(String(options.instruction || '').trim());
+    const plans = {
+        conditions_first: {
+            label: '조건부터 판단하는 구성',
+            intro: '가격·할인·배송 등 구매 조건에서 독자가 먼저 확인할 질문을 짚으세요.',
+            flow: '핵심 조건 → 조건의 의미 → 적합한 사용 상황 → 사용자 반응 → 확인할 점 → 선택 정리'
+        },
+        reaction_first: {
+            label: '사용자 반응에서 출발하는 구성',
+            intro: '반복해서 확인되는 사용자 반응을 소개하되 공식 사실과 명확히 구분하세요.',
+            flow: '사용자 반응 → 반응을 설명하는 공식 정보 → 적합한 상황 → 구매 조건 → 주의점 → 선택 정리'
+        },
+        situation_first: {
+            label: '사용 상황에서 출발하는 구성',
+            intro: '독자가 겪을 법한 선택 상황이나 용도를 조건형 문장으로 제시하세요.',
+            flow: '사용 상황 → 관련 기능 → 기대할 수 있는 편의 → 구매 조건 → 사용자 반응 → 확인할 점'
+        },
+        decision_checklist: {
+            label: '비교 체크리스트 구성',
+            intro: '이 상품을 비교할 때 확인할 핵심 질문 두세 가지를 자연스럽게 제시하세요.',
+            flow: '상품 식별 → 핵심 판단 기준 → 장점 → 조건과 제약 → 사용자 반응 → 최종 체크리스트'
+        },
+        balanced_guide: {
+            label: '균형 잡힌 선택 가이드 구성',
+            intro: '상품의 핵심 특징과 선택 전에 확인할 조건을 함께 예고하세요.',
+            flow: '핵심 특징 → 유용한 상황 → 구매 조건 → 사용자 반응 → 장점과 확인점 → 선택 정리'
+        }
+    };
+    const plan = plans[selectedPlan];
+
+    return [
+        '[이번 글의 편집 구성]',
+        `- 선택 구성: ${plan.label}`,
+        `- 도입 방향: ${plan.intro}`,
+        `- 권장 흐름: ${plan.flow}`,
+        '- 권장 흐름의 각 항목을 기계적으로 같은 이름의 소제목으로 쓰지 말고, 실제 데이터에 맞는 자연스러운 소제목으로 바꾸세요.',
+        '- 근거가 없는 단계는 억지로 채우지 말고 인접 단계와 합치며, 전체 5~6개 블록 계약은 유지하세요.',
+        '- 같은 가격·리뷰 수·혜택을 도입과 여러 블록에서 반복해 구성 차이를 숫자 반복으로 대신하지 마세요.',
+        hasInstruction
+            ? '- 사용자 참고/지시사항과 충돌하는 부분은 버리고 사용자 지시에 맞게 구성 순서와 관점을 조정하세요.'
+            : '- 사용자 지시가 없으므로 직접 사용한 후기처럼 꾸미지 말고 조건형·근거형 서술을 유지하세요.'
+    ].join('\n');
+}
+
+function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const officialProductData = buildOfficialProductData(product.title || '', product.commerceData || {});
     const officialFacts = buildOfficialProductFacts(product.title || '', product.commerceData || {}).map(item => `- ${item}`).join('\n') || '- 추출된 공식 상품 정보 없음';
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
@@ -2487,12 +2694,19 @@ function buildAiPrompt(product, platform = 'naver') {
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
     const officialJson = JSON.stringify(officialProductData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
+    const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences);
+    const writingStyleRules = buildShoppingWritingStylePrompt(resolvedWritingPreferences.style);
+    const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
+    const editorialPlanRules = buildShoppingEditorialPlanPrompt(product, writingPreferences);
+    const userInstructionRules = buildShoppingInstructionPrompt(
+        writingPreferences.instruction || writingPreferences.userInstruction
+    );
 
     // 플랫폼별 특화 지시사항
     const platformLabel = platform === 'wordpress' ? '워드프레스(WordPress)' : '네이버 블로그(Naver Blog)';
     const platformStyle = platform === 'wordpress'
-        ? '정보 중심의 깔끔하고 구조적인 문체와 객관적인 톤을 유지하세요.'
-        : '이웃과 대화하듯 친근하고 개인적인 경험이 묻어나는 "블로그 나수" 스타일로 작성하세요.';
+        ? '짧은 문단과 명확한 소제목으로 정보를 구조화하고 워드프레스에서 읽기 쉬운 흐름을 유지하세요.'
+        : '모바일에서 읽기 쉬운 문단과 소제목으로 정보를 구조화하세요.';
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -2516,6 +2730,10 @@ function buildAiPrompt(product, platform = 'naver') {
         .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
         .replace(/{{\s*PLATFORM_NAME\s*}}/g, platformLabel)
         .replace(/{{\s*PLATFORM_STYLE\s*}}/g, platformStyle)
+        .replace(/{{\s*WRITING_STYLE_RULES\s*}}/g, writingStyleRules)
+        .replace(/{{\s*WRITING_STRATEGY_RULES\s*}}/g, writingStrategyRules)
+        .replace(/{{\s*EDITORIAL_PLAN_RULES\s*}}/g, editorialPlanRules)
+        .replace(/{{\s*USER_INSTRUCTION_RULES\s*}}/g, userInstructionRules)
         .trim();
 }
 
@@ -2529,7 +2747,11 @@ function getHostLabel(url) {
 
 function isGenericShoppingTitle(title) {
     const normalized = String(title || '').toLowerCase().replace(/\s+/g, '');
-    return normalized === '네이버쇼핑' || normalized === 'navershopping' || normalized === '쇼핑';
+    return normalized === '네이버쇼핑'
+        || normalized === 'navershopping'
+        || normalized === '쇼핑'
+        || normalized === '네이버브랜드커넥트'
+        || normalized === 'naverbrandconnect';
 }
 
 function isErrorLikePageTitle(title) {
@@ -2867,10 +3089,28 @@ function isLikelyInvalidLanding(productData, finalUrl) {
     if (isStorefrontLikeTitle(rawTitle)) return true;
     if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead) && imageCount === 0) return true;
     if ((host.includes('brand.naver.com') || host.includes('brandconnect.naver.com')) && imageCount === 0 && bodyLen < 250) return true;
-    if (title.includes('브랜드 커넥트') && imageCount === 0) return true;
+    if (title.includes('브랜드 커넥트')) return true;
     if (host.includes('search.shopping.naver.com') && imageCount === 0 && (isGenericShoppingTitle(rawTitle) || bodyLen < 800)) return true;
     if (isGenericShoppingTitle(rawTitle) && imageCount === 0) return true;
     return false;
+}
+
+function canApplyProductNameHint(productData = {}) {
+    const rawTitle = productData.title || '';
+    if (isErrorLikePageTitle(rawTitle)) return false;
+    const bodyHead = String(productData.body || '').slice(0, 700).toLowerCase().replace(/\s+/g, '');
+    if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead)) return false;
+
+    const bodyLen = String(productData.body || '').length;
+    const imageCount = Array.isArray(productData.imageUrls) ? productData.imageUrls.length : 0;
+    const commerceData = productData.commerceData || {};
+    const hasCommerceEvidence = [
+        commerceData.salePrice,
+        commerceData.originalPrice,
+        commerceData.discountRate,
+        commerceData.deliveryFee
+    ].some(hasShoppingValue);
+    return imageCount > 0 || bodyLen >= 250 || hasCommerceEvidence;
 }
 
 /**
@@ -3931,6 +4171,7 @@ const ShoppingManager = {
     scrapeShoppingProduct: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
         const scrapingHeadless = true;
+        const productNameHint = normalizeShoppingProductNameHint(runtimeOptions.productName);
 
         Logger.info(`🛍️ [Shopping] URL 분석 시작: ${shortUrl}`);
         const initial = await resolveUrlAndHtml(shortUrl);
@@ -3973,6 +4214,27 @@ const ShoppingManager = {
         }
 
         if (isLikelyInvalidLanding(productData, finalUrl)) {
+            if (productNameHint && canApplyProductNameHint(productData)) {
+                productData = {
+                    ...productData,
+                    title: productNameHint,
+                    debugTrace: {
+                        ...(productData.debugTrace || {}),
+                        productNameResolution: {
+                            source: 'user_input_fallback',
+                            extractedTitle: productData.title || '',
+                            effectiveTitle: productNameHint
+                        }
+                    }
+                };
+                resolvedSource = `${resolvedSource}_user_title`;
+            }
+        }
+
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            if (isGenericShoppingTitle(productData.title) || String(productData.title || '').toLowerCase().includes('브랜드 커넥트')) {
+                throw new Error('상품명을 자동으로 확인하지 못했습니다. 빠른 상품 등록의 상품명 입력란에 정확한 상품명을 입력해 주세요.');
+            }
             throw new Error(`상품 정보를 추출하지 못했습니다. 단축 URL이 상품 페이지를 가리키는지 확인해주세요. (resolved: ${finalUrl})`);
         }
 
@@ -4059,7 +4321,11 @@ const ShoppingManager = {
             reviewEnrichedWithBrowser = scraped.reviewEnrichedWithBrowser;
         }
 
-        const titleBase = productData.title || `쇼핑 리뷰 (${getHostLabel(finalUrl)})`;
+        const productTitleResolution = resolveShoppingProductTitle(runtimeOptions.productName, productData.title);
+        if (!productTitleResolution.title) {
+            throw new Error('상품명을 확인하지 못했습니다. 상품명 입력란에 정확한 상품명을 입력해 주세요.');
+        }
+        const titleBase = productTitleResolution.title;
 
         const wsDir = Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform);
         const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
@@ -4180,7 +4446,10 @@ const ShoppingManager = {
             body: productData.body,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
-        }, platform);
+        }, platform, {
+            ...(runtimeOptions.writingPreferences || {}),
+            instruction: runtimeOptions.instruction
+        });
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
         const aiRaw = await Utils.callWritingText(aiPrompt, 3, {
             usageLabel: `Shopping/${platform}`
@@ -4190,14 +4459,14 @@ const ShoppingManager = {
         enrichShoppingAiData(aiData, titleBase, productData.commerceData, productData.reviewData);
         const blockCountAfter = Array.isArray(aiData.blocks) ? aiData.blocks.length : 0;
         const seoPlan = deriveSeoKeywordPlan(titleBase);
+        const originalAiTitle = aiData.title;
+        const titleDecision = explainShoppingTitleRejection(originalAiTitle, titleBase);
+        const fallbackTitle = buildSafeFallbackShoppingTitle(titleBase, productData.commerceData);
+        aiData.title = buildEngagingShoppingTitle(originalAiTitle, titleBase, productData.commerceData, platform);
         const seoMentionsBefore = countSeoMentionsInAiData(aiData, seoPlan);
         reinforceSeoKeywordUsage(aiData, seoPlan);
         const seoMentionsAfter = countSeoMentionsInAiData(aiData, seoPlan);
 
-        const originalAiTitle = aiData.title;
-        const titleDecision = explainShoppingTitleRejection(originalAiTitle, titleBase);
-        const fallbackTitle = buildSafeFallbackShoppingTitle(titleBase, productData.commerceData);
-        aiData.title = buildEngagingShoppingTitle(aiData.title, titleBase, productData.commerceData, platform);
         aiData.title = ensureTitleStartsWithKeyword(aiData.title, seoPlan.mainKeyword);
         if (aiData.title !== originalAiTitle) {
             Logger.debug(`📝 [Shopping/${platform}] 제목 보정 적용: "${originalAiTitle}" -> "${aiData.title}"`);
@@ -4268,6 +4537,9 @@ const ShoppingManager = {
             resolvedSource,
             channelProductNo,
             extractedTitle: productData.title,
+            requestedProductName: normalizeShoppingProductNameHint(runtimeOptions.productName),
+            effectiveProductTitle: titleBase,
+            productTitleSource: productTitleResolution.source,
             titleDebug: productData.debugTrace?.title || null,
             officialProductData: buildOfficialProductData(productData.title, productData.commerceData),
             descriptionLength: (productData.description || '').length,
@@ -4301,8 +4573,14 @@ const ShoppingManager = {
 
 ShoppingManager.__test = {
     extractProductData,
+    buildAiPrompt,
+    buildShoppingInstructionPrompt,
+    selectShoppingEditorialPlan,
+    buildShoppingEditorialPlanPrompt,
     extractCommerceData,
+    dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
+    resolveShoppingProductTitle,
     isStorefrontLikeTitle,
     pickBestStructuredProduct,
     selectPrimaryPricePair,

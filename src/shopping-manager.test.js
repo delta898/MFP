@@ -5,11 +5,160 @@ const ShoppingManager = require('./shopping-manager');
 
 const {
     extractProductData,
+    buildAiPrompt,
+    buildShoppingInstructionPrompt,
+    selectShoppingEditorialPlan,
+    buildShoppingEditorialPlanPrompt,
+    dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
+    resolveShoppingProductTitle,
     selectPrimaryPricePair,
     mergeProductData,
     choosePreferredProductTitle
 } = ShoppingManager.__test;
+
+function createPromptProduct() {
+    return {
+        title: 'Bear 올스텐 미니 계란찜기',
+        description: '1단 타이머를 지원하는 미니 계란찜기',
+        body: '계란과 간단한 찜 요리에 사용할 수 있는 상품',
+        commerceData: {
+            salePrice: 32800,
+            originalPrice: 54000,
+            discountRate: 39,
+            deliveryFee: '3,000원 (주문시 결제)'
+        },
+        reviewData: {
+            facts: ['리뷰 19,306개'],
+            reviewSamples: ['아침 식사 준비가 간편하다는 반응이 있습니다.']
+        }
+    };
+}
+
+test('shopping prompt uses numbers selectively and keeps volume requirements consistent', () => {
+    const prompt = buildAiPrompt(createPromptProduct(), 'naver');
+
+    assert.match(prompt, /모든 블록에 숫자를 넣지 말고/);
+    assert.match(prompt, /1,400~2,000자/);
+    assert.match(prompt, /본문 5~6개 블록/);
+    assert.match(prompt, /각 본문 블록은 2~4문장/);
+    assert.doesNotMatch(prompt, /모든 본문 블록에는 반드시/);
+    assert.doesNotMatch(prompt, /7~8개/);
+    assert.doesNotMatch(prompt, /최소 \*\*4~5문장 이상\*\*/);
+});
+
+test('shopping prompt forbids fabricated experience and unsupported urgency on every platform', () => {
+    const naverPrompt = buildAiPrompt(createPromptProduct(), 'naver');
+    const wordpressPrompt = buildAiPrompt(createPromptProduct(), 'wordpress');
+
+    for (const prompt of [naverPrompt, wordpressPrompt]) {
+        assert.match(prompt, /직접 구매·사용·체험했다고 말하지 마세요/);
+        assert.match(prompt, /긴급성 표현을 사용하지 마세요/);
+        assert.match(prompt, /독자의 불안이나 조급함을 자극해 구매를 압박하지 말고/);
+        assert.doesNotMatch(prompt, /지금 이 조건은 놓치면 안 되겠다/);
+        assert.doesNotMatch(prompt, /개인적인 경험이 묻어나는/);
+        assert.doesNotMatch(prompt, /{{\s*[A-Z_]+\s*}}/);
+    }
+
+    assert.match(naverPrompt, /모바일에서 읽기 쉬운 문단과 소제목/);
+    assert.match(wordpressPrompt, /워드프레스에서 읽기 쉬운 흐름/);
+});
+
+test('shopping prompt prioritizes explicit user instructions without inventing extra experience', () => {
+    const instruction = '직접 일주일 동안 사용한 후기처럼 1인칭으로 쓰고, 세척이 편했던 점을 강조해 주세요.';
+    const prompt = buildAiPrompt(createPromptProduct(), 'naver', {
+        instruction
+    });
+
+    assert.match(prompt, /\[사용자 참고\/지시사항 - 우선 반영\]/);
+    assert.match(prompt, new RegExp(instruction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(prompt, /1인칭 후기 표현을 충실히 반영할 수 있습니다/);
+    assert.match(prompt, /사용자가 제공하거나 요청하지 않은 구체적인 사용 기간, 가족, 직업, 효과, 비교 경험은 추가로 만들지 마세요/);
+    assert.doesNotMatch(prompt, /{{\s*[A-Z_]+\s*}}/);
+});
+
+test('shopping instruction prompt keeps the no-fabrication default when instruction is empty', () => {
+    const rules = buildShoppingInstructionPrompt('');
+
+    assert.match(rules, /사용자 참고\/지시사항/);
+    assert.match(rules, /없음/);
+    assert.match(rules, /사용자가 제공하지 않은 구매·사용·체험 경험/);
+});
+
+test('shopping editorial plan is deterministic and uses only eligible evidence frames', () => {
+    const product = createPromptProduct();
+    const first = selectShoppingEditorialPlan(product);
+    const second = selectShoppingEditorialPlan(product);
+
+    assert.equal(first, second);
+    assert.ok([
+        'conditions_first',
+        'reaction_first',
+        'situation_first',
+        'decision_checklist',
+        'balanced_guide'
+    ].includes(first));
+});
+
+test('shopping editorial plans vary across products without random output', () => {
+    const selected = new Set();
+    for (const title of ['미니 가습기', '무선 청소기', '여행용 캐리어', '원목 식탁', '러닝화', '캠핑 의자']) {
+        selected.add(selectShoppingEditorialPlan({
+            ...createPromptProduct(),
+            title
+        }));
+    }
+
+    assert.ok(selected.size > 1);
+});
+
+test('shopping editorial prompt yields to explicit user instructions', () => {
+    const prompt = buildShoppingEditorialPlanPrompt(createPromptProduct(), {
+        instruction: '아이와 함께 쓴 경험을 중심으로 작성'
+    });
+
+    assert.match(prompt, /이번 글의 편집 구성/);
+    assert.match(prompt, /사용자 참고\/지시사항과 충돌하는 부분은 버리고/);
+    assert.match(prompt, /전체 5~6개 블록 계약은 유지하세요/);
+});
+
+test('shopping prompt applies common writing style and strategy with explicit overrides', () => {
+    const searchPrompt = buildAiPrompt(createPromptProduct(), 'naver', {
+        writing_mode: 'written',
+        speech_level: 'plain',
+        writing_strategy: 'search'
+    });
+    const discoveryPrompt = buildAiPrompt(createPromptProduct(), 'wordpress', {
+        writing_mode: 'conversational',
+        speech_level: 'polite',
+        writing_strategy: 'discovery'
+    });
+
+    assert.match(searchPrompt, /간결하고 객관적인 설명문·칼럼형 문체/);
+    assert.match(searchPrompt, /문어체 평어/);
+    assert.match(searchPrompt, /검색 중심 전략/);
+    assert.match(discoveryPrompt, /친근하고 자연스러운 후기형 문체/);
+    assert.match(discoveryPrompt, /발견 중심\(피드\) 전략/);
+    assert.doesNotMatch(discoveryPrompt, /{{\s*[A-Z_]+\s*}}/);
+});
+
+test('shopping prompt and title normalization prevent repeated product identity keywords', () => {
+    const prompt = buildAiPrompt({
+        ...createPromptProduct(),
+        title: '삼성 갤럭시 S26 자급제 삼성 공식 갤럭시 S26 256GB 자급제'
+    }, 'naver');
+    const rawTitle = '삼성 갤럭시 S26 자급제 삼성 공식 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에';
+
+    assert.match(prompt, /같은 브랜드, 모델, 규격 키워드를 각각 한 번만 사용하세요/);
+    assert.equal(
+        dedupeShoppingTitleSubject(rawTitle),
+        '삼성 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에'
+    );
+    assert.equal(
+        buildEngagingShoppingTitle(rawTitle, '삼성 갤럭시 S26 256GB 자급제'),
+        '삼성 갤럭시 S26 256GB 자급제, 혜택과 조건 한눈에'
+    );
+});
 
 test('extractProductData prefers real product title and hero prices over storefront metadata', () => {
     const html = `
@@ -263,6 +412,40 @@ test('buildEngagingShoppingTitle preserves ai-crafted title when it is descripti
     );
 
     assert.equal(title, 'Bear 올스텐 미니 계란찜기, 1만 9천 개 리뷰가 증명한 아침의 혁신');
+});
+
+test('user-entered product name overrides a generic or extracted page title', () => {
+    const resolved = resolveShoppingProductTitle(
+        '애플 아이폰 17 프로 맥스 자급제 2TB, 실버',
+        '네이버 브랜드 커넥트'
+    );
+
+    assert.equal(resolved.source, 'user_input');
+    assert.equal(resolved.title, '애플 아이폰 17 프로 맥스 자급제 2TB, 실버');
+});
+
+test('extracted product title is used when optional user product name is empty', () => {
+    const resolved = resolveShoppingProductTitle('', 'Bear 올스텐 미니 계란찜기 1단 타이머');
+
+    assert.equal(resolved.source, 'extracted');
+    assert.equal(resolved.title, 'Bear 올스텐 미니 계란찜기 1단 타이머');
+});
+
+test('generic page title cannot become the product identity', () => {
+    const resolved = resolveShoppingProductTitle('', '네이버 브랜드 커넥트');
+
+    assert.equal(resolved.source, 'missing');
+    assert.equal(resolved.title, '');
+});
+
+test('shopping title falls back when AI omits the product identity', () => {
+    const title = buildEngagingShoppingTitle(
+        '감성적인 비주얼과 디자인의 매력',
+        '애플 아이폰 17 프로 맥스 자급제 2TB, 실버'
+    );
+
+    assert.match(title, /애플 아이폰 17 프로/);
+    assert.doesNotMatch(title, /네이버 브랜드 커넥트/);
 });
 
 test('choosePreferredProductTitle preserves official product title over ui noise title', () => {

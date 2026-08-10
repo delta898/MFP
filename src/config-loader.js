@@ -9,8 +9,7 @@ const {
     resolveStoredModelProfiles
 } = require('./ai-model-config');
 const { applyRemoteCatalog } = require('./ai/catalog-registry');
-const { normalizeWritingStyle } = require('./content/writing-style');
-const { normalizeWritingStrategy } = require('./content/writing-strategy');
+const { resolveContentWritingPreferences } = require('./content/writing-preferences');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { APP_VERSION } = Constants;
 
@@ -256,8 +255,9 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
     imageSelection: resolvedImageModelConfig,
     chatSelection: resolvedChatModelSettings.selection
 });
-const resolvedBlogWritingStyle = normalizeWritingStyle(structuredConfig.content?.blog?.writing_style);
-const resolvedBlogWritingStrategy = normalizeWritingStrategy(structuredConfig.content?.blog?.writing_strategy);
+const resolvedContentWritingPreferences = resolveContentWritingPreferences(structuredConfig.content);
+const resolvedBlogWritingStyle = resolvedContentWritingPreferences.style;
+const resolvedBlogWritingStrategy = resolvedContentWritingPreferences.strategy;
 const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
     ? resolvedTextModelConfig.code
     : '';
@@ -399,6 +399,9 @@ const CONFIG = {
     BLOG_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
     BLOG_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
     BLOG_WRITING_STRATEGY: resolvedBlogWritingStrategy,
+    CONTENT_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
+    CONTENT_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
+    CONTENT_WRITING_STRATEGY: resolvedBlogWritingStrategy,
     AUTH_FILE_PATH: resolvedAuthPath,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,

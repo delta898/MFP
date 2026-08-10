@@ -1069,7 +1069,7 @@ const Utils = {
                 ];
             } else if (type === 'shopping') {
                 requiredHeaders = [
-                    'category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그', 'options'
+                    'category', 'post_status', 'schedule_date', 'URL', '상품', '참고/지시 사항', '상태', '발행 시간', '로그', 'options'
                 ];
             }
 
@@ -1258,8 +1258,8 @@ const Utils = {
                     }
                 });
             } else if (type === 'shopping') {
-                // 헤더: category, post_status, schedule_date, URL, 상품, 상태, 발행 시간, 로그, options
-                headerRow = [['category', 'post_status', 'schedule_date', 'URL', '상품', '상태', '발행 시간', '로그', 'options']];
+                // 헤더: category, post_status, schedule_date, URL, 상품, 참고/지시 사항, 상태, 발행 시간, 로그, options
+                headerRow = [['category', 'post_status', 'schedule_date', 'URL', '상품', '참고/지시 사항', '상태', '발행 시간', '로그', 'options']];
 
                 // Dropdown: B열 (Index 1) -> publish, draft, schedule (발행 옵션)
                 validationRequests.push({
@@ -1598,6 +1598,7 @@ const Utils = {
                 if ((clean.includes('scheduledate') || clean.includes('예약')) && map.scheduleDate === undefined) map.scheduleDate = i;
                 if ((clean.includes('url') || clean.includes('링크')) && map.shortUrl === undefined) map.shortUrl = i;
                 if ((clean.includes('상품') || clean.includes('product')) && map.product === undefined) map.product = i;
+                if ((clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) && map.instruction === undefined) map.instruction = i;
                 if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && map.status === undefined) map.status = i;
                 if ((clean.includes('발행') || clean.includes('time') || clean.includes('date') || clean.includes('시간') || clean.includes('작업시간')) && !clean.includes('예약') && map.publishedAt === undefined) map.publishedAt = i;
                 if ((clean.includes('로그') || clean.includes('log')) && map.log === undefined) map.log = i;
@@ -1620,6 +1621,7 @@ const Utils = {
                 map.scheduleDate,
                 map.shortUrl,
                 map.product,
+                map.instruction ?? 0,
                 map.status,
                 map.publishedAt,
                 map.log,
@@ -1635,8 +1637,10 @@ const Utils = {
                 const scheduleDate = String(item?.scheduleDate || item?.schedule_date || '').trim();
                 const shortUrl = String(item?.shortUrl || item?.url || '').trim();
                 const product = String(item?.product || '').trim();
+                const instruction = String(item?.instruction || item?.options?.instruction || '').trim();
                 const rowStatus = String(item?.status || defaultStatus).trim() || defaultStatus;
                 const syncedOptions = mergeShoppingSheetOptions(item?.options, {
+                    instruction,
                     category,
                     postStatus,
                     scheduleDate
@@ -1647,6 +1651,7 @@ const Utils = {
                 row[map.scheduleDate] = scheduleDate;
                 row[map.shortUrl] = shortUrl;
                 row[map.product] = product;
+                if (map.instruction !== undefined) row[map.instruction] = instruction;
                 row[map.status] = rowStatus;
                 if (map.publishedAt !== undefined) row[map.publishedAt] = '';
                 if (map.log !== undefined) row[map.log] = '';
@@ -1774,12 +1779,14 @@ const Utils = {
                         status,
                         ...(() => {
                             const resolvedState = resolveShoppingSheetState({
+                                instruction: getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항']),
                                 category: getVal(['category', '카테고리']),
                                 postStatus: getVal(['poststatus', 'post_status', '발행옵션', '발행상태']),
                                 scheduleDate: getVal(['scheduledate', 'schedule_date', '예약일시']),
                                 options: getVal(['options', '옵션', 'extra_options'])
                             });
                             return {
+                                instruction: resolvedState.instruction || '',
                                 category: resolvedState.category || '',
                                 postStatus: resolvedState.postStatus || 'publish',
                                 scheduleDate: resolvedState.scheduleDate || '',
@@ -1841,6 +1848,7 @@ const Utils = {
                     const product = getVal(['상품', 'product']);
                     const logStr = getVal(['로그', 'log']);
                     const resolvedState = resolveShoppingSheetState({
+                        instruction: getVal(['참고지시사항', '참고/지시사항', 'instruction', '지시사항']),
                         category: getVal(['category', '카테고리']),
                         postStatus: getVal(['poststatus', 'post_status', '발행옵션', '발행상태']),
                         scheduleDate: getVal(['scheduledate', 'schedule_date', '예약일시']),
@@ -1855,6 +1863,7 @@ const Utils = {
                         publishedAt: publishedAt || '',
                         product: product || '',
                         log: logStr || '',
+                        instruction: resolvedState.instruction || '',
                         category: resolvedState.category || '',
                         postStatus: resolvedState.postStatus || 'publish',
                         scheduleDate: resolvedState.scheduleDate || '',
@@ -1876,7 +1885,8 @@ const Utils = {
                             item.shortUrl,
                             item.status,
                             item.publishedAt,
-                            item.log
+                            item.log,
+                            item.instruction
                         ].join(' ').toLowerCase();
                         return haystack.includes(q);
                     });
@@ -1997,6 +2007,7 @@ const Utils = {
             let urlColIndex = -1;
             let statusColIndex = -1;
             let productColIndex = -1;
+            let instructionColIndex = -1;
             let categoryColIndex = -1;
             let postStatusColIndex = -1;
             let scheduleDateColIndex = -1;
@@ -2010,6 +2021,7 @@ const Utils = {
                 if ((clean.includes('url') || clean.includes('링크')) && urlColIndex === -1) urlColIndex = i;
                 if ((clean.includes('상태') && !clean.includes('발행상태') && !clean.includes('poststatus') || clean.includes('status') && !clean.includes('poststatus')) && statusColIndex === -1) statusColIndex = i;
                 if ((clean.includes('상품') || clean.includes('product')) && productColIndex === -1) productColIndex = i;
+                if ((clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) && instructionColIndex === -1) instructionColIndex = i;
                 if ((clean === 'options' || clean === '옵션') && optionsColIndex === -1) optionsColIndex = i;
             });
 
@@ -2058,6 +2070,12 @@ const Utils = {
                     values: [[String(fields.product || '').trim()]]
                 });
             }
+            if (fields.instruction !== undefined && instructionColIndex !== -1) {
+                dataToUpdate.push({
+                    range: `${sheetName}!${toA1(instructionColIndex)}${targetRow}`,
+                    values: [[String(fields.instruction || '').trim()]]
+                });
+            }
             if (fields.shortUrl !== undefined && urlColIndex !== -1) {
                 dataToUpdate.push({
                     range: `${sheetName}!${toA1(urlColIndex)}${targetRow}`,
@@ -2072,6 +2090,7 @@ const Utils = {
             }
             if (optionsColIndex !== -1) {
                 const syncedOptions = mergeShoppingSheetOptions(existingOptionsRaw, {
+                    instruction: fields.instruction,
                     category: fields.category,
                     postStatus: fields.postStatus,
                     scheduleDate: fields.scheduleDate

@@ -39,6 +39,28 @@ test('shopping batch requires both shopping and batch capabilities', async () =>
     assert.match(result.message, /일괄·자동 발행/);
 });
 
+test('shopping row update rejects an overlong instruction before sheet mutation', async () => {
+    let updated = false;
+    const runtime = createContentActionsRuntime({
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        Utils: {
+            async updateGoogleSheetShoppingEditableFields() { updated = true; }
+        }
+    });
+
+    const result = await runtime.executeShoppingRowUpdate({
+        rowIndex: 0,
+        instruction: '가'.repeat(1001)
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'INVALID_SHOPPING_INSTRUCTION');
+    assert.equal(updated, false);
+});
+
 test('blog batch preflight executes only rows covered by remaining quota', async () => {
     const processedRows = [];
     const processedPostStatuses = [];

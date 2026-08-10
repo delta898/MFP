@@ -127,6 +127,7 @@ function resolveShoppingSheetState(input = {}) {
 
     return {
         options: parsedOptions,
+        instruction: normalizeString(parsedOptions.instruction) || normalizeString(input.instruction),
         category: buildStructuredCategory({
             category: normalizeString(parsedOptions.category) || normalizeString(input.category),
             naverCategory: optionNaverCategory || parsedCategory.naverCategory,
@@ -208,6 +209,7 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
 function mergeShoppingSheetOptions(existingOptions = {}, fields = {}) {
     const next = parseSheetOptionsValue(existingOptions);
 
+    if (fields.instruction !== undefined) applyStringOption(next, 'instruction', fields.instruction);
     if (fields.postStatus !== undefined) applyStringOption(next, 'post_status', fields.postStatus);
     if (fields.scheduleDate !== undefined) applyStringOption(next, 'schedule_date', fields.scheduleDate);
 

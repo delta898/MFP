@@ -5,8 +5,10 @@ const {
     DEFAULT_WRITING_STYLE,
     normalizeWritingStyle,
     getWritingStyleDescription,
-    buildWritingStylePrompt
+    buildWritingStylePrompt,
+    buildShoppingWritingStylePrompt
 } = require('./writing-style');
+const { resolveContentWritingPreferences } = require('./writing-preferences');
 
 test('writing style defaults to conversational polite', () => {
     assert.deepEqual(normalizeWritingStyle({}), DEFAULT_WRITING_STYLE);
@@ -40,4 +42,45 @@ test('writing style prompt contains concrete mode and speech rules', () => {
     assert.match(prompt, /~다, ~했다 형태를 중심/);
     assert.match(prompt, /~요, ~습니다, ~세요와 구어적 종결/);
     assert.match(prompt, /Instructions.*우선/);
+});
+
+test('shopping writing style prompt maps every common preference without fabricated experience', () => {
+    const conversationalPolite = buildShoppingWritingStylePrompt({
+        writing_mode: 'conversational',
+        speech_level: 'polite'
+    });
+    const writtenPlain = buildShoppingWritingStylePrompt({
+        writing_mode: 'written',
+        speech_level: 'plain'
+    });
+
+    assert.match(conversationalPolite, /구어체 존댓말/);
+    assert.match(conversationalPolite, /~요를 중심/);
+    assert.match(writtenPlain, /문어체 평어/);
+    assert.match(writtenPlain, /~다, ~했다/);
+    assert.match(writtenPlain, /직접 사용한 것처럼 경험을 꾸미지 마세요/);
+});
+
+test('content writing preferences prefer common keys and support legacy blog settings', () => {
+    assert.deepEqual(resolveContentWritingPreferences({
+        blog: {
+            writing_style: { writing_mode: 'written', speech_level: 'plain' },
+            writing_strategy: 'discovery'
+        }
+    }), {
+        style: { writing_mode: 'written', speech_level: 'plain' },
+        strategy: 'discovery'
+    });
+
+    assert.deepEqual(resolveContentWritingPreferences({
+        writing_style: { writing_mode: 'conversational', speech_level: 'polite' },
+        writing_strategy: 'search',
+        blog: {
+            writing_style: { writing_mode: 'written', speech_level: 'plain' },
+            writing_strategy: 'discovery'
+        }
+    }), {
+        style: { writing_mode: 'conversational', speech_level: 'polite' },
+        strategy: 'search'
+    });
 });
