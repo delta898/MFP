@@ -5066,11 +5066,23 @@ async function runBlogBatchAction() {
   }
 }
 
-const BLOG_WRITING_STYLE_DESCRIPTIONS = {
-  'conversational:polite': '친근하고 자연스러운 후기형 문체',
-  'conversational:plain': '편안하고 자유로운 일기·SNS형 문체',
-  'written:polite': '정돈되고 신뢰감 있는 정보·전문형 문체',
-  'written:plain': '간결하고 객관적인 설명문·칼럼형 문체'
+const BLOG_WRITING_STYLE_PREVIEWS = {
+  'conversational:polite': {
+    description: '친근하고 자연스러운 후기형 문체',
+    example: '직접 써보니 생각보다 편했고, 처음 쓰는 분도 금방 익힐 수 있어요.'
+  },
+  'conversational:plain': {
+    description: '편안하고 자유로운 일기·SNS형 문체',
+    example: '직접 써보니 생각보다 편했고, 처음 써도 금방 익힐 수 있어.'
+  },
+  'written:polite': {
+    description: '정돈되고 신뢰감 있는 정보·전문형 문체',
+    example: '직접 사용해 본 결과 편의성이 높았으며, 처음 사용하는 경우에도 쉽게 익힐 수 있습니다.'
+  },
+  'written:plain': {
+    description: '간결하고 객관적인 설명문·칼럼형 문체',
+    example: '직접 사용해 본 결과 편의성이 높았고, 처음 사용하는 경우에도 쉽게 익힐 수 있다.'
+  }
 };
 let currentBlogWritingStrategy = 'search';
 
@@ -5088,10 +5100,12 @@ function setSelectedSettingsRadioValue(name, value, fallback) {
 function syncSettingsBlogWritingStyleDescription() {
   const writingMode = getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational');
   const speechLevel = getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite');
-  const description = BLOG_WRITING_STYLE_DESCRIPTIONS[`${writingMode}:${speechLevel}`]
-    || BLOG_WRITING_STYLE_DESCRIPTIONS['conversational:polite'];
-  const target = document.querySelector('#settings-blog-writing-style-description strong');
-  if (target) target.textContent = description;
+  const preview = BLOG_WRITING_STYLE_PREVIEWS[`${writingMode}:${speechLevel}`]
+    || BLOG_WRITING_STYLE_PREVIEWS['conversational:polite'];
+  const descriptionTarget = document.querySelector('#settings-blog-writing-style-description strong');
+  const exampleTarget = document.getElementById('settings-blog-writing-style-example');
+  if (descriptionTarget) descriptionTarget.textContent = preview.description;
+  if (exampleTarget) exampleTarget.textContent = `(예시: ${preview.example})`;
 }
 
 function getWritingStrategyLabel(value) {
