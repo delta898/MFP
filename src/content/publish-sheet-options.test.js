@@ -96,10 +96,12 @@ test('inherited writing strategy removes the explicit option', () => {
 
 test('shopping sheet state also applies options override for visible publish fields', () => {
     const resolved = resolveShoppingSheetState({
+        instruction: '컬럼 지시',
         category: 'N:컬럼네이버, W:컬럼워드',
         postStatus: 'draft',
         scheduleDate: '2026-03-30 09:00:00',
         options: JSON.stringify({
+            instruction: '옵션 지시',
             category: 'N:옵션네이버, W:옵션워드',
             naver_category: '옵션네이버',
             wordpress_category: '옵션워드',
@@ -108,6 +110,7 @@ test('shopping sheet state also applies options override for visible publish fie
         })
     });
 
+    assert.equal(resolved.instruction, '옵션 지시');
     assert.equal(resolved.category, 'N:옵션네이버, W:옵션워드');
     assert.equal(resolved.postStatus, 'publish');
     assert.equal(resolved.scheduleDate, '2026-04-02 07:00:00');
@@ -118,12 +121,14 @@ test('shopping option merge keeps options column in sync with inline publish edi
         custom_flag: 'keep-me',
         post_status: 'publish'
     }, {
+        instruction: '초보자 관점으로 작성',
         category: 'N:쇼핑네이버, W:쇼핑워드',
         postStatus: 'draft',
         scheduleDate: '2026-03-31 11:00:00'
     });
 
     assert.equal(merged.custom_flag, 'keep-me');
+    assert.equal(merged.instruction, '초보자 관점으로 작성');
     assert.equal(merged.category, 'N:쇼핑네이버, W:쇼핑워드');
     assert.equal(merged.naver_category, '쇼핑네이버');
     assert.equal(merged.wordpress_category, '쇼핑워드');

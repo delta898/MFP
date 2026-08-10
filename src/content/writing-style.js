@@ -100,7 +100,7 @@ function buildShoppingWritingStylePrompt(input = {}) {
         '[공통 콘텐츠 문체 설정]',
         `- ${getWritingStyleDescription(style)}`,
         ...rules[`${style.writing_mode}:${style.speech_level}`],
-        '- 문체 설정과 관계없이 작성자가 상품을 직접 사용한 것처럼 경험을 꾸미지 마세요.'
+        '- 사용자 참고/지시사항에 직접 경험 서술이 없다면 작성자가 상품을 직접 사용한 것처럼 경험을 꾸미지 마세요.'
     ].join('\n');
 }
 

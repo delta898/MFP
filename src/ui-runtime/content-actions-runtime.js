@@ -501,8 +501,12 @@ function createContentActionsRuntime(deps = {}) {
                 return { success: false, code: 'SHOPPING_ROW_NOT_FOUND', message: `shopping row(${rowIndex + 2})를 찾지 못했습니다.` };
             }
             const shortUrl = String(target.shortUrl || '').trim();
+            const instruction = String(target.instruction || target.options?.instruction || '').trim();
             if (!shortUrl) {
                 return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL이 비어 있습니다.' };
+            }
+            if (instruction.length > 1000) {
+                return { success: false, code: 'INVALID_SHOPPING_INSTRUCTION', message: '참고/지시사항은 1,000자 이내로 입력해 주세요.' };
             }
 
             report('상태 업데이트: 발행 중');
@@ -529,6 +533,7 @@ function createContentActionsRuntime(deps = {}) {
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
                     headless: publishHeadless,
+                    instruction,
                     preScrapedData
                 });
                 results.naver.targetDir = naverBuildResult.targetDir;
@@ -540,6 +545,7 @@ function createContentActionsRuntime(deps = {}) {
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
                     headless: publishHeadless,
+                    instruction,
                     preScrapedData
                 });
                 results.wordpress.targetDir = wpBuildResult.targetDir;
@@ -844,6 +850,7 @@ function createContentActionsRuntime(deps = {}) {
 
         const product = requestBody?.product !== undefined ? String(requestBody.product || '').trim() : undefined;
         const shortUrl = requestBody?.shortUrl !== undefined ? String(requestBody.shortUrl || '').trim() : undefined;
+        const instruction = requestBody?.instruction !== undefined ? String(requestBody.instruction || '').trim() : undefined;
         const status = requestBody?.status !== undefined ? String(requestBody.status || '').trim() : undefined;
         const category = requestBody?.category !== undefined ? String(requestBody.category || '').trim() : undefined;
         const postStatus = requestBody?.postStatus !== undefined ? String(requestBody.postStatus || '').trim() : undefined;
@@ -853,6 +860,9 @@ function createContentActionsRuntime(deps = {}) {
 
         if (shortUrl && !/^https?:\/\//i.test(shortUrl)) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: 'URL 형식이 올바르지 않습니다. (http/https)' };
+        }
+        if (instruction !== undefined && instruction.length > 1000) {
+            return { success: false, code: 'INVALID_SHOPPING_INSTRUCTION', message: '참고/지시사항은 1,000자 이내로 입력해 주세요.' };
         }
         if (status && !allowedStatus.has(status)) {
             return { success: false, code: 'INVALID_STATUS', message: '상태 값이 올바르지 않습니다.' };
@@ -865,6 +875,7 @@ function createContentActionsRuntime(deps = {}) {
             await Utils.updateGoogleSheetShoppingEditableFields(rowIndex, {
                 product,
                 shortUrl,
+                instruction,
                 status,
                 category,
                 postStatus,

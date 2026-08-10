@@ -6,6 +6,7 @@ const ShoppingManager = require('./shopping-manager');
 const {
     extractProductData,
     buildAiPrompt,
+    buildShoppingInstructionPrompt,
     dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
     selectPrimaryPricePair,
@@ -58,6 +59,27 @@ test('shopping prompt forbids fabricated experience and unsupported urgency on e
 
     assert.match(naverPrompt, /모바일에서 읽기 쉬운 문단과 소제목/);
     assert.match(wordpressPrompt, /워드프레스에서 읽기 쉬운 흐름/);
+});
+
+test('shopping prompt prioritizes explicit user instructions without inventing extra experience', () => {
+    const instruction = '직접 일주일 동안 사용한 후기처럼 1인칭으로 쓰고, 세척이 편했던 점을 강조해 주세요.';
+    const prompt = buildAiPrompt(createPromptProduct(), 'naver', {
+        instruction
+    });
+
+    assert.match(prompt, /\[사용자 참고\/지시사항 - 우선 반영\]/);
+    assert.match(prompt, new RegExp(instruction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(prompt, /1인칭 후기 표현을 충실히 반영할 수 있습니다/);
+    assert.match(prompt, /사용자가 제공하거나 요청하지 않은 구체적인 사용 기간, 가족, 직업, 효과, 비교 경험은 추가로 만들지 마세요/);
+    assert.doesNotMatch(prompt, /{{\s*[A-Z_]+\s*}}/);
+});
+
+test('shopping instruction prompt keeps the no-fabrication default when instruction is empty', () => {
+    const rules = buildShoppingInstructionPrompt('');
+
+    assert.match(rules, /사용자 참고\/지시사항/);
+    assert.match(rules, /없음/);
+    assert.match(rules, /사용자가 제공하지 않은 구매·사용·체험 경험/);
 });
 
 test('shopping prompt applies common writing style and strategy with explicit overrides', () => {

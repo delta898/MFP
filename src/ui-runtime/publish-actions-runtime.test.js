@@ -63,6 +63,22 @@ test('quick publish keeps the user image option independent from legacy license 
     assert.equal(dedupeInput.writingStrategy, 'discovery');
 });
 
+test('shopping quick publish rejects an overlong instruction before external work', async () => {
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        normalizePublishMode: (value) => value
+    });
+
+    const result = await runtime.executeShoppingQuickPublish({
+        shortUrl: 'https://naver.me/example',
+        instruction: '가'.repeat(1001),
+        publishMode: 'append_only'
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'INVALID_SHOPPING_INSTRUCTION');
+});
+
 function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserveSuccess = true, reservationMetadata } = {}) {
     const calls = [];
     const runtime = createPublishActionsRuntime({

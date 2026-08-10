@@ -2534,6 +2534,27 @@ function resolveShoppingWritingPreferences(input = {}) {
     };
 }
 
+function buildShoppingInstructionPrompt(input) {
+    const instruction = String(input || '').trim();
+    if (!instruction) {
+        return [
+            '[사용자 참고/지시사항]',
+            '- 없음.',
+            '- 사용자가 제공하지 않은 구매·사용·체험 경험이나 구체적인 생활 배경을 만들지 마세요.'
+        ].join('\n');
+    }
+
+    return [
+        '[사용자 참고/지시사항 - 우선 반영]',
+        instruction,
+        '- 위 내용은 사용자가 제공한 초안 작성 방향·경험·의견입니다. 기본 문체와 글 작성 전략이 충돌하면 사용자 지시를 우선하세요.',
+        '- 사용자가 직접 경험 서술을 요청하거나 경험을 제공했다면 1인칭 후기 표현을 충실히 반영할 수 있습니다.',
+        '- 다만 사용자가 제공하거나 요청하지 않은 구체적인 사용 기간, 가족, 직업, 효과, 비교 경험은 추가로 만들지 마세요.',
+        '- 공식 상품 정보와 가격·혜택·배송 조건은 제공된 Official Product Data의 범위를 벗어나지 마세요.',
+        '- 최종 응답은 지정된 JSON 출력 규격을 유지하세요.'
+    ].join('\n');
+}
+
 function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const officialProductData = buildOfficialProductData(product.title || '', product.commerceData || {});
     const officialFacts = buildOfficialProductFacts(product.title || '', product.commerceData || {}).map(item => `- ${item}`).join('\n') || '- 추출된 공식 상품 정보 없음';
@@ -2545,12 +2566,15 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences);
     const writingStyleRules = buildShoppingWritingStylePrompt(resolvedWritingPreferences.style);
     const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
+    const userInstructionRules = buildShoppingInstructionPrompt(
+        writingPreferences.instruction || writingPreferences.userInstruction
+    );
 
     // 플랫폼별 특화 지시사항
     const platformLabel = platform === 'wordpress' ? '워드프레스(WordPress)' : '네이버 블로그(Naver Blog)';
     const platformStyle = platform === 'wordpress'
         ? '짧은 문단과 명확한 소제목으로 정보를 구조화하고 워드프레스에서 읽기 쉬운 흐름을 유지하세요.'
-        : '모바일에서 읽기 쉬운 문단과 소제목으로 구성하고, 상품을 직접 구매하거나 사용한 것처럼 경험을 꾸미지 마세요.';
+        : '모바일에서 읽기 쉬운 문단과 소제목으로 정보를 구조화하세요.';
 
     const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
@@ -2576,6 +2600,7 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
         .replace(/{{\s*PLATFORM_STYLE\s*}}/g, platformStyle)
         .replace(/{{\s*WRITING_STYLE_RULES\s*}}/g, writingStyleRules)
         .replace(/{{\s*WRITING_STRATEGY_RULES\s*}}/g, writingStrategyRules)
+        .replace(/{{\s*USER_INSTRUCTION_RULES\s*}}/g, userInstructionRules)
         .trim();
 }
 
@@ -4240,7 +4265,10 @@ const ShoppingManager = {
             body: productData.body,
             commerceData: productData.commerceData,
             reviewData: productData.reviewData
-        }, platform, runtimeOptions.writingPreferences);
+        }, platform, {
+            ...(runtimeOptions.writingPreferences || {}),
+            instruction: runtimeOptions.instruction
+        });
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
         const aiRaw = await Utils.callWritingText(aiPrompt, 3, {
             usageLabel: `Shopping/${platform}`
@@ -4362,6 +4390,7 @@ const ShoppingManager = {
 ShoppingManager.__test = {
     extractProductData,
     buildAiPrompt,
+    buildShoppingInstructionPrompt,
     extractCommerceData,
     dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,

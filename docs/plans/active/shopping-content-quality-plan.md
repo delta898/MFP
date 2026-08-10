@@ -1,7 +1,7 @@
 # Shopping Content Quality Improvement Plan
 
 ## Goal
-Improve Shopping Connect article quality without adding new UI controls. The work keeps the shopping prompt independent from blog prompts while sharing only user-facing writing preferences in a later phase.
+Improve Shopping Connect article quality while keeping the shopping prompt independent from blog prompts. Common writing preferences remain shared, and each shopping item may optionally carry a user instruction that is treated as draft-authoring direction.
 
 ## Problems
 - Requiring a number in every content block causes the same price, discount, review count, or shipping value to be repeated.
@@ -16,7 +16,9 @@ Improve Shopping Connect article quality without adding new UI controls. The wor
 - Review data is attributed as user reaction and is never promoted to an official product fact.
 - Missing information is omitted rather than inferred.
 - Numbers appear only where they help a purchase decision, and the same fact is not repeated across blocks without a clear reason.
-- The article helps the reader decide; it does not fabricate urgency, ownership, purchase, or use experience.
+- BlogGenius is an assistant that produces a draft. Explicit user instructions take precedence over default editorial style and strategy.
+- Without an explicit instruction, the article does not fabricate urgency, ownership, purchase, or use experience.
+- When a user explicitly supplies an experience or requests experience-style narration, the draft may reflect it faithfully, but it must not invent additional concrete details beyond the instruction.
 - Blog and shopping prompt files remain separate because their data contracts and conversion goals differ.
 
 ## Delivery Phases
@@ -38,12 +40,26 @@ Improve Shopping Connect article quality without adding new UI controls. The wor
 - [x] Inject a shopping-specific search or discovery strategy block.
 - [x] Apply the global strategy to quick, batch, and automatic shopping publishing without adding per-product UI.
 
+### Phase 4: Per-item reference and instruction
+- [x] Add an optional `참고/지시 사항` field to quick registration and row editing.
+- [x] Add the same visible column to the shopping sheet and mirror it into `options.instruction` for extensible compatibility.
+- [x] Resolve `options.instruction` first and fall back to the visible column.
+- [x] Pass the instruction through the shared row executor so quick, batch, and automatic publishing behave consistently.
+- [x] Give explicit user instructions precedence over default writing style and search/discovery strategy while retaining the JSON and official-product-data contracts.
+- [x] Keep anti-fabrication as the default when no instruction exists, and prevent unrequested extra personal details when one does exist.
+- [x] Limit the field to 1,000 characters in both UI and server validation.
+
+### Phase 5: Editorial variation (separate sub-feature)
+- Select an evidence-based editorial angle from available product facts and review data.
+- Vary introductions, section order, headings, and conclusions without random factual invention.
+- Let an explicit per-item instruction override the default angle.
+
 ## Configuration Compatibility
 - New saves persist `content.writing_style` and `content.writing_strategy` as the common preference.
 - Existing `content.blog.*` values remain readable and are mirrored on save during the transition.
 - Existing `CONFIG.BLOG_*` keys remain aliases so blog generation and per-post strategy overrides are unchanged.
 
 ## Validation
-- Prompt contract unit tests must verify fact attribution, anti-fabrication rules, selective number usage, and internally consistent volume guidance.
+- Prompt contract unit tests must verify fact attribution, conditional anti-fabrication, explicit instruction precedence, selective number usage, and internally consistent volume guidance.
 - Existing shopping extraction, title, publishing, and writing preference tests must continue to pass.
 - UI verification is performed by the user.
