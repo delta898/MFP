@@ -129,7 +129,13 @@ GET /api/v1/trend-posting/keywords
 
 ## Delivery Branches
 
-통합 브랜치는 `feature/trend-posting-main`이다. 모든 서브 브랜치는 이 브랜치에서 시작하고 완료 후 fast-forward 또는 검토된 병합으로 되돌아온다.
+브랜치 계층과 병합 방향은 다음으로 고정한다.
+
+```text
+main -> dev -> feature/trend-posting-main -> feature sub branches
+```
+
+`feature/trend-posting-main`은 항상 `dev`에서 분기한다. 모든 서브 브랜치는 이 통합 브랜치에서 시작하고 완료 후 fast-forward 또는 검토된 병합으로 `feature/trend-posting-main`에 되돌아온다. 기능 전체가 완료된 뒤 통합 브랜치를 `dev`에 병합하고, 검증된 릴리스만 `dev`에서 `main`으로 병합한다.
 
 1. `feature/trend-posting-access`
    - Edge Function 토큰 발급, trends API 사용자 토큰 검증, 보안 테스트와 운영 문서
