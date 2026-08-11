@@ -28,6 +28,10 @@ function resolveApiConfig(env = process.env) {
         host: String(env.TRENDS_API_HOST || '127.0.0.1').trim() || '127.0.0.1',
         port: Math.max(1, toInt(env.TRENDS_API_PORT, 4581)),
         internalToken: String(env.TRENDS_API_TOKEN || '').trim(),
+        readTokenSecret: String(env.TRENDS_READ_TOKEN_SECRET || '').trim(),
+        readTokenIssuer: String(env.TRENDS_READ_TOKEN_ISSUER || 'bloggenius-license').trim() || 'bloggenius-license',
+        readTokenAudience: String(env.TRENDS_READ_TOKEN_AUDIENCE || 'trends-api').trim() || 'trends-api',
+        readRateLimitPerMinute: Math.max(1, toInt(env.TRENDS_API_READ_RATE_LIMIT_PER_MINUTE, 120)),
         supabaseUrl: String(env.SUPABASE_URL || '').trim(),
         supabaseAdminKey: String(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
         supabaseSchema: String(env.TRENDS_SUPABASE_SCHEMA || 'trends').trim() || 'trends',
@@ -434,20 +438,130 @@ async function readJsonBody(req, maxBytes = 1048576) {
 }
 
 function safeTokenEquals(actual, expected) {
-    const actualBuffer = Buffer.from(String(actual || ''));
-    const expectedBuffer = Buffer.from(String(expected || ''));
+    const actualBuffer = Buffer.isBuffer(actual) ? actual : Buffer.from(String(actual || ''));
+    const expectedBuffer = Buffer.isBuffer(expected) ? expected : Buffer.from(String(expected || ''));
     return actualBuffer.length === expectedBuffer.length
         && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
-function ensureInternalAccess(req, config) {
-    if (!config.internalToken) return true;
-    const authHeader = String(req.headers.authorization || '').trim();
-    return safeTokenEquals(authHeader, `Bearer ${config.internalToken}`);
+function extractBearerToken(req) {
+    const authHeader = String(req?.headers?.authorization || '').trim();
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    return match ? String(match[1] || '').trim() : '';
+}
+
+function toBase64Url(value) {
+    return Buffer.from(value).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function fromBase64Url(value) {
+    const normalized = String(value || '').trim();
+    if (!/^[A-Za-z0-9_-]+$/.test(normalized)) return null;
+    try {
+        return Buffer.from(normalized.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    } catch (_error) {
+        return null;
+    }
+}
+
+function createTrendReadToken(claims = {}, secret = '') {
+    const normalizedSecret = String(secret || '').trim();
+    if (!normalizedSecret) throw new Error('read token secret is required');
+
+    const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = toBase64Url(JSON.stringify(claims || {}));
+    const signingInput = `${header}.${payload}`;
+    const signature = crypto.createHmac('sha256', normalizedSecret).update(signingInput).digest();
+    return `${signingInput}.${toBase64Url(signature)}`;
+}
+
+function verifyTrendReadToken(token, config = {}, nowSeconds = Math.floor(Date.now() / 1000)) {
+    const secret = String(config.readTokenSecret || '').trim();
+    if (!secret) return null;
+
+    const parts = String(token || '').split('.');
+    if (parts.length !== 3 || parts.some((part) => !part)) return null;
+
+    const [headerPart, payloadPart, signaturePart] = parts;
+    const headerBuffer = fromBase64Url(headerPart);
+    const payloadBuffer = fromBase64Url(payloadPart);
+    const providedSignature = fromBase64Url(signaturePart);
+    if (!headerBuffer || !payloadBuffer || !providedSignature) return null;
+
+    let header;
+    let claims;
+    try {
+        header = JSON.parse(headerBuffer.toString('utf8'));
+        claims = JSON.parse(payloadBuffer.toString('utf8'));
+    } catch (_error) {
+        return null;
+    }
+
+    if (!header || header.alg !== 'HS256' || !claims || typeof claims !== 'object' || Array.isArray(claims)) return null;
+
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(`${headerPart}.${payloadPart}`)
+        .digest();
+    if (!safeTokenEquals(providedSignature, expectedSignature)) return null;
+
+    const expiresAt = Number(claims.exp);
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds) return null;
+    if (String(claims.iss || '') !== String(config.readTokenIssuer || 'bloggenius-license')) return null;
+
+    const expectedAudience = String(config.readTokenAudience || 'trends-api');
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!audiences.some((audience) => String(audience || '') === expectedAudience)) return null;
+
+    const scopes = Array.isArray(claims.scope)
+        ? claims.scope
+        : String(claims.scope || '').split(/\s+/);
+    if (!scopes.some((scope) => String(scope || '') === 'trends:read')) return null;
+
+    return claims;
+}
+
+function hasInternalAccess(req, config) {
+    const expectedToken = String(config.internalToken || '').trim();
+    if (!expectedToken) return false;
+    return safeTokenEquals(extractBearerToken(req), expectedToken);
+}
+
+function hasTrendReadAccess(req, config) {
+    return hasInternalAccess(req, config) || Boolean(verifyTrendReadToken(extractBearerToken(req), config));
+}
+
+function createFixedWindowRateLimiter(limitPerMinute = 120, now = () => Date.now()) {
+    const limit = Math.max(1, Number(limitPerMinute) || 120);
+    const entries = new Map();
+
+    return {
+        tryConsume(key) {
+            const currentTime = now();
+            const windowStart = Math.floor(currentTime / 60000) * 60000;
+            const normalizedKey = String(key || 'unknown');
+            const current = entries.get(normalizedKey);
+            const next = current && current.windowStart === windowStart
+                ? { windowStart, count: current.count + 1 }
+                : { windowStart, count: 1 };
+            entries.set(normalizedKey, next);
+
+            if (entries.size > 10000) {
+                for (const [entryKey, entry] of entries) {
+                    if (entry.windowStart < windowStart) entries.delete(entryKey);
+                }
+            }
+
+            return {
+                allowed: next.count <= limit,
+                retryAfterSeconds: Math.max(1, Math.ceil((windowStart + 60000 - currentTime) / 1000))
+            };
+        }
+    };
 }
 
 async function handleIngest(req, res, config, onMutation = () => {}) {
-    if (!ensureInternalAccess(req, config)) {
+    if (!hasInternalAccess(req, config)) {
         return sendJson(res, 401, { success: false, message: 'Unauthorized' });
     }
 
@@ -618,6 +732,7 @@ async function handleMeta(res, queryUrl, config, metaCache) {
 function createServer(config = resolveApiConfig()) {
     const requestGate = createConcurrencyGate(config.maxConcurrentRequests);
     const metaCache = new Map();
+    const readRateLimiter = createFixedWindowRateLimiter(config.readRateLimitPerMinute);
     const server = http.createServer(async (req, res) => {
         if (!requestGate.tryEnter()) {
             res.setHeader('Retry-After', '1');
@@ -634,27 +749,52 @@ function createServer(config = resolveApiConfig()) {
                 });
             }
 
-            if (!ensureInternalAccess(req, config)) {
-                return sendJson(res, 401, { success: false, message: 'Unauthorized' });
-            }
-
             if (req.method === 'POST' && requestUrl.pathname === '/internal/ingest/naver-trends') {
+                if (!hasInternalAccess(req, config)) {
+                    return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
                 return handleIngest(req, res, config, () => metaCache.clear());
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends') {
+                if (!hasTrendReadAccess(req, config)) {
+                    return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
+                if (!hasInternalAccess(req, config)) {
+                    const rateLimit = readRateLimiter.tryConsume(req.socket?.remoteAddress);
+                    if (!rateLimit.allowed) {
+                        res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+                        return sendJson(res, 429, { success: false, message: 'Too many requests' });
+                    }
+                }
                 return handleQuery(res, requestUrl, config, false);
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends/meta') {
+                if (!hasTrendReadAccess(req, config)) {
+                    return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
+                if (!hasInternalAccess(req, config)) {
+                    const rateLimit = readRateLimiter.tryConsume(req.socket?.remoteAddress);
+                    if (!rateLimit.allowed) {
+                        res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+                        return sendJson(res, 429, { success: false, message: 'Too many requests' });
+                    }
+                }
                 return handleMeta(res, requestUrl, config, metaCache);
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.csv') {
+                if (!hasInternalAccess(req, config)) {
+                    return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
                 return handleQuery(res, requestUrl, config, true);
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/exports/trends.xlsx') {
+                if (!hasInternalAccess(req, config)) {
+                    return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
                 return sendJson(res, 501, {
                     success: false,
                     message: 'XLSX export is not implemented yet. Use /exports/trends.csv for now.'
@@ -702,6 +842,8 @@ module.exports = {
     buildDownloadContentDisposition,
     countExistingTrendRows,
     createConcurrencyGate,
+    createFixedWindowRateLimiter,
+    createTrendReadToken,
     createExpiringSingleFlightCache,
     dedupeTrendRows,
     fetchTrendMeta,
@@ -714,6 +856,7 @@ module.exports = {
     readJsonBody,
     resolveTrendQueryParams,
     resolveApiConfig,
+    verifyTrendReadToken,
     startServer,
     toTrendCsv
 };

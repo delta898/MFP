@@ -8,7 +8,9 @@ const {
     buildDownloadContentDisposition,
     countExistingTrendRows,
     createConcurrencyGate,
+    createFixedWindowRateLimiter,
     createExpiringSingleFlightCache,
+    createTrendReadToken,
     createServer,
     dedupeTrendRows,
     mapPayloadToTrendRows,
@@ -18,7 +20,8 @@ const {
     readJsonBody,
     resolveTrendQueryParams,
     resolveApiConfig,
-    toTrendCsv
+    toTrendCsv,
+    verifyTrendReadToken
 } = require('./server');
 
 test('normalizeIngestPayload keeps only valid trend items', () => {
@@ -168,6 +171,9 @@ test('resolveApiConfig defaults to trends.items and sensible scan limits', () =>
     assert.equal(config.requestTimeoutMs, 30000);
     assert.equal(config.upstreamTimeoutMs, 7000);
     assert.equal(config.supabaseAdminKey, '');
+    assert.equal(config.readTokenIssuer, 'bloggenius-license');
+    assert.equal(config.readTokenAudience, 'trends-api');
+    assert.equal(config.readRateLimitPerMinute, 120);
 });
 
 test('resolveApiConfig prefers new secret key over legacy service role key', () => {
@@ -297,6 +303,49 @@ test('createConcurrencyGate rejects work above its limit', () => {
     assert.equal(gate.tryEnter(), false);
     gate.leave();
     assert.equal(gate.tryEnter(), true);
+});
+
+test('verifyTrendReadToken accepts only an unexpired token with the expected issuer, audience, and scope', () => {
+    const config = resolveApiConfig({
+        TRENDS_READ_TOKEN_SECRET: 'read-secret',
+        TRENDS_READ_TOKEN_ISSUER: 'license-service',
+        TRENDS_READ_TOKEN_AUDIENCE: 'trends-api'
+    });
+    const validToken = createTrendReadToken({
+        iss: 'license-service',
+        aud: 'trends-api',
+        scope: 'trends:read',
+        exp: 2000
+    }, 'read-secret');
+    const wrongScope = createTrendReadToken({
+        iss: 'license-service',
+        aud: 'trends-api',
+        scope: 'trends:write',
+        exp: 2000
+    }, 'read-secret');
+    const expired = createTrendReadToken({
+        iss: 'license-service',
+        aud: 'trends-api',
+        scope: 'trends:read',
+        exp: 1000
+    }, 'read-secret');
+
+    assert.equal(verifyTrendReadToken(validToken, config, 1500)?.scope, 'trends:read');
+    assert.equal(verifyTrendReadToken(wrongScope, config, 1500), null);
+    assert.equal(verifyTrendReadToken(expired, config, 1000), null);
+    assert.equal(verifyTrendReadToken(`${validToken}tampered`, config, 1500), null);
+});
+
+test('createFixedWindowRateLimiter resets usage at the next minute window', () => {
+    let currentTime = 1000;
+    const limiter = createFixedWindowRateLimiter(2, () => currentTime);
+
+    assert.equal(limiter.tryConsume('127.0.0.1').allowed, true);
+    assert.equal(limiter.tryConsume('127.0.0.1').allowed, true);
+    assert.equal(limiter.tryConsume('127.0.0.1').allowed, false);
+
+    currentTime = 60000;
+    assert.equal(limiter.tryConsume('127.0.0.1').allowed, true);
 });
 
 test('readJsonBody rejects payloads above the configured limit', async () => {

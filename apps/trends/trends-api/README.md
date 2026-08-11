@@ -26,6 +26,7 @@ Important env keys:
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `TRENDS_API_TOKEN`
+- `TRENDS_READ_TOKEN_SECRET` (when desktop-user read access is enabled)
 - `TRENDS_API_HOST`
 - `TRENDS_API_PORT`
 
@@ -50,8 +51,16 @@ Supabase note:
 - `GET /exports/trends.csv`
 - `GET /exports/trends.xlsx`
 
-All endpoints except `GET /health` require `Authorization: Bearer <token>` when
-`TRENDS_API_TOKEN` is configured.
+All endpoints except `GET /health` require authorization. The service no longer
+falls back to unauthenticated access when `TRENDS_API_TOKEN` is absent.
+
+- Collector, WordPress, and CSV export requests require
+  `Authorization: Bearer <TRENDS_API_TOKEN>`.
+- `GET /api/v1/trends` and `GET /api/v1/trends/meta` also accept a short-lived
+  user read token with `scope=trends:read`, issued by the
+  `issue-trends-access-token` Supabase Edge Function.
+- User read tokens require a matching `TRENDS_READ_TOKEN_SECRET`, issuer, and
+  audience. They cannot access ingest or export endpoints.
 
 ## Resource Protection
 
@@ -61,6 +70,7 @@ All endpoints except `GET /health` require `Authorization: Bearer <token>` when
 - Ingest request bodies default to a 1 MiB limit.
 - Incoming request timeout defaults to 30 seconds.
 - Supabase requests time out after 7 seconds by default.
+- User-token read requests are limited per source IP, defaulting to 120 per minute.
 
 These limits can be adjusted with:
 - `TRENDS_META_CACHE_TTL_MS`
@@ -68,6 +78,9 @@ These limits can be adjusted with:
 - `TRENDS_API_MAX_BODY_BYTES`
 - `TRENDS_API_REQUEST_TIMEOUT_MS`
 - `TRENDS_API_UPSTREAM_TIMEOUT_MS`
+- `TRENDS_API_READ_RATE_LIMIT_PER_MINUTE`
+- `TRENDS_READ_TOKEN_ISSUER`
+- `TRENDS_READ_TOKEN_AUDIENCE`
 
 ## Example
 

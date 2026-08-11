@@ -74,6 +74,9 @@ Operationally, the current preferred topology is:
 - `TRENDS_HEADLESS`
 - `TRENDS_API_BASE_URL`
 - `TRENDS_API_TOKEN`
+- `TRENDS_READ_TOKEN_SECRET`
+- `TRENDS_READ_TOKEN_ISSUER`
+- `TRENDS_READ_TOKEN_AUDIENCE`
 - `TRENDS_SOURCE`
 - `TRENDS_DRY_RUN`
 - `TRENDS_BROWSER_CHANNEL`
@@ -129,6 +132,16 @@ Legacy compatibility:
 - `GET /api/v1/trends/meta`
 - `GET /exports/trends.csv`
 - `GET /exports/trends.xlsx`
+
+### Access Classes
+- `TRENDS_API_TOKEN` is an internal shared secret for collector, WordPress, and export access.
+- Desktop-user reads use short-lived signed tokens issued by the
+  `issue-trends-access-token` Supabase Edge Function after the existing license
+  and HWID check succeeds.
+- User tokens must include `aud=trends-api`, `scope=trends:read`, a valid issuer,
+  and a non-expired `exp`. They may read only `/api/v1/trends` and
+  `/api/v1/trends/meta`.
+- All non-health endpoints fail closed when neither access class is valid.
 
 ### Query Filters
 - `trend_date`

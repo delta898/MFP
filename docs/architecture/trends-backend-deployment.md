@@ -124,6 +124,7 @@ Important values:
 - `TRENDS_NAVER_ID`
 - `TRENDS_AUTH_FILE_PATH`
 - `TRENDS_API_TOKEN`
+- `TRENDS_READ_TOKEN_SECRET`
 - `TRENDS_API_HOST=127.0.0.1` for host-only WordPress
 - `TRENDS_API_HOST=0.0.0.0` for Docker WordPress that must reach the host service
 - `TRENDS_API_PORT=4581`
@@ -135,6 +136,37 @@ TRENDS_AUTH_FILE_PATH=/home/ubuntu/Project/NaverAutoBlog/config/naver_auth.json
 ```
 
 Using an absolute path is preferred in production, even though relative paths are supported.
+
+### Desktop User Read Access
+
+The desktop app must not receive `TRENDS_API_TOKEN`, `SUPABASE_SECRET_KEY`, or
+any other long-lived backend secret.
+
+Deploy the `issue-trends-access-token` Supabase Edge Function in the license
+project. Configure these function secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`
+- `TRENDS_READ_TOKEN_SECRET`
+- optional `TRENDS_READ_TOKEN_ISSUER=bloggenius-license`
+- optional `TRENDS_READ_TOKEN_AUDIENCE=trends-api`
+- optional `TRENDS_READ_TOKEN_TTL_SECONDS=900`
+
+Configure the same `TRENDS_READ_TOKEN_SECRET`, issuer, and audience in the
+server-side `apps/trends/.env`. The secret is shared only between the Edge
+Function and `trends-api`; it is never packaged into the desktop app.
+
+Expose only the read endpoints through an HTTPS reverse proxy:
+
+```text
+GET /api/v1/trends
+GET /api/v1/trends/meta
+```
+
+The proxy must preserve the `Authorization` header. Do not expose ingest or
+export endpoints publicly. `trends-api` independently validates the signed
+read token and rate-limits user-token reads, so proxy access control is a
+defense in depth layer rather than the sole authorization mechanism.
 
 ## WordPress Integration
 
