@@ -517,6 +517,7 @@ function verifyTrendReadToken(token, config = {}, nowSeconds = Math.floor(Date.n
         ? claims.scope
         : String(claims.scope || '').split(/\s+/);
     if (!scopes.some((scope) => String(scope || '') === 'trends:read')) return null;
+    if (!String(claims.sub || '').trim()) return null;
 
     return claims;
 }
@@ -527,8 +528,12 @@ function hasInternalAccess(req, config) {
     return safeTokenEquals(extractBearerToken(req), expectedToken);
 }
 
-function hasTrendReadAccess(req, config) {
-    return hasInternalAccess(req, config) || Boolean(verifyTrendReadToken(extractBearerToken(req), config));
+function resolveTrendReadAccess(req, config) {
+    if (hasInternalAccess(req, config)) {
+        return { type: 'internal', claims: null };
+    }
+    const claims = verifyTrendReadToken(extractBearerToken(req), config);
+    return claims ? { type: 'user', claims } : null;
 }
 
 function createFixedWindowRateLimiter(limitPerMinute = 120, now = () => Date.now()) {
@@ -757,11 +762,12 @@ function createServer(config = resolveApiConfig()) {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends') {
-                if (!hasTrendReadAccess(req, config)) {
+                const access = resolveTrendReadAccess(req, config);
+                if (!access) {
                     return sendJson(res, 401, { success: false, message: 'Unauthorized' });
                 }
-                if (!hasInternalAccess(req, config)) {
-                    const rateLimit = readRateLimiter.tryConsume(req.socket?.remoteAddress);
+                if (access.type === 'user') {
+                    const rateLimit = readRateLimiter.tryConsume(`license:${access.claims.sub}`);
                     if (!rateLimit.allowed) {
                         res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
                         return sendJson(res, 429, { success: false, message: 'Too many requests' });
@@ -771,11 +777,12 @@ function createServer(config = resolveApiConfig()) {
             }
 
             if (req.method === 'GET' && requestUrl.pathname === '/api/v1/trends/meta') {
-                if (!hasTrendReadAccess(req, config)) {
+                const access = resolveTrendReadAccess(req, config);
+                if (!access) {
                     return sendJson(res, 401, { success: false, message: 'Unauthorized' });
                 }
-                if (!hasInternalAccess(req, config)) {
-                    const rateLimit = readRateLimiter.tryConsume(req.socket?.remoteAddress);
+                if (access.type === 'user') {
+                    const rateLimit = readRateLimiter.tryConsume(`license:${access.claims.sub}`);
                     if (!rateLimit.allowed) {
                         res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
                         return sendJson(res, 429, { success: false, message: 'Too many requests' });
@@ -854,6 +861,7 @@ module.exports = {
     normalizeCategoryList,
     normalizeMetaPayload,
     readJsonBody,
+    resolveTrendReadAccess,
     resolveTrendQueryParams,
     resolveApiConfig,
     verifyTrendReadToken,

@@ -18,6 +18,7 @@ const {
     normalizeCategoryList,
     normalizeMetaPayload,
     readJsonBody,
+    resolveTrendReadAccess,
     resolveTrendQueryParams,
     resolveApiConfig,
     toTrendCsv,
@@ -314,18 +315,21 @@ test('verifyTrendReadToken accepts only an unexpired token with the expected iss
     const validToken = createTrendReadToken({
         iss: 'license-service',
         aud: 'trends-api',
+        sub: 'license-hash-a',
         scope: 'trends:read',
         exp: 2000
     }, 'read-secret');
     const wrongScope = createTrendReadToken({
         iss: 'license-service',
         aud: 'trends-api',
+        sub: 'license-hash-a',
         scope: 'trends:write',
         exp: 2000
     }, 'read-secret');
     const expired = createTrendReadToken({
         iss: 'license-service',
         aud: 'trends-api',
+        sub: 'license-hash-a',
         scope: 'trends:read',
         exp: 1000
     }, 'read-secret');
@@ -334,6 +338,27 @@ test('verifyTrendReadToken accepts only an unexpired token with the expected iss
     assert.equal(verifyTrendReadToken(wrongScope, config, 1500), null);
     assert.equal(verifyTrendReadToken(expired, config, 1000), null);
     assert.equal(verifyTrendReadToken(`${validToken}tampered`, config, 1500), null);
+});
+
+test('resolveTrendReadAccess keeps internal and licensed user access classes separate', () => {
+    const config = resolveApiConfig({
+        TRENDS_API_TOKEN: 'internal-secret',
+        TRENDS_READ_TOKEN_SECRET: 'read-secret'
+    });
+    const userToken = createTrendReadToken({
+        iss: 'bloggenius-license',
+        aud: 'trends-api',
+        sub: 'license-hash-a',
+        scope: 'trends:read',
+        exp: Math.floor(Date.now() / 1000) + 60
+    }, 'read-secret');
+
+    assert.equal(resolveTrendReadAccess({ headers: { authorization: 'Bearer internal-secret' } }, config)?.type, 'internal');
+    assert.deepEqual(
+        resolveTrendReadAccess({ headers: { authorization: `Bearer ${userToken}` } }, config),
+        { type: 'user', claims: verifyTrendReadToken(userToken, config) }
+    );
+    assert.equal(resolveTrendReadAccess({ headers: {} }, config), null);
 });
 
 test('createFixedWindowRateLimiter resets usage at the next minute window', () => {
@@ -346,6 +371,14 @@ test('createFixedWindowRateLimiter resets usage at the next minute window', () =
 
     currentTime = 60000;
     assert.equal(limiter.tryConsume('127.0.0.1').allowed, true);
+});
+
+test('createFixedWindowRateLimiter isolates licensed users behind the same reverse proxy', () => {
+    const limiter = createFixedWindowRateLimiter(1, () => 1000);
+
+    assert.equal(limiter.tryConsume('license:a').allowed, true);
+    assert.equal(limiter.tryConsume('license:a').allowed, false);
+    assert.equal(limiter.tryConsume('license:b').allowed, true);
 });
 
 test('readJsonBody rejects payloads above the configured limit', async () => {

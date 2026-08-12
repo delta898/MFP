@@ -70,7 +70,8 @@ falls back to unauthenticated access when `TRENDS_API_TOKEN` is absent.
 - Ingest request bodies default to a 1 MiB limit.
 - Incoming request timeout defaults to 30 seconds.
 - Supabase requests time out after 7 seconds by default.
-- User-token read requests are limited per source IP, defaulting to 120 per minute.
+- User-token read requests are limited per anonymized license subject, defaulting to 120 per minute.
+- The HTTPS reverse proxy should apply a separate source-IP rate limit.
 
 These limits can be adjusted with:
 - `TRENDS_META_CACHE_TTL_MS`
