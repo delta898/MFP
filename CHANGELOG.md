@@ -3,7 +3,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
-## [0.1.18-dev1] - 2026-08-12
+## [0.1.18] - 2026-08-12
 
 ### Added
 - **네이버 트렌드에서 글감 찾기**: 조회 기간과 관심 카테고리를 선택해 최신 트렌드 키워드를 찾아볼 수 있습니다. 키워드 검색과 상승·하락·신규 등의 필터, 항목별 정렬로 원하는 글감을 빠르게 좁힐 수 있습니다.
