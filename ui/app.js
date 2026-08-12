@@ -570,6 +570,9 @@ const trendPostingState = {
   items: [],
   itemsById: new Map(),
   savedIds: new Set(),
+  recentTopicKeys: new Set(),
+  recentTopicsLoaded: false,
+  recentTopicsLoading: false,
   queryRange: null,
   loading: false
 };
@@ -1959,14 +1962,17 @@ function getTrendPostingFilterValues() {
     .trim()
     .toLocaleLowerCase('ko-KR');
   const view = String(document.getElementById('trend-posting-filter-view')?.value || 'all');
-  return { keyword, view };
+  const excludeRecent = Boolean(document.getElementById('trend-posting-filter-exclude-recent')?.checked);
+  return { keyword, view, excludeRecent };
 }
 
 function filterTrendPostingItems(items) {
-  const { keyword, view } = getTrendPostingFilterValues();
+  const { keyword, view, excludeRecent } = getTrendPostingFilterValues();
   let filtered = items.filter((item) => {
     const changeType = String(item?.change?.type || 'steady');
+    const itemKey = String(item?.keyword || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR');
     if (keyword && !String(item?.keyword || '').toLocaleLowerCase('ko-KR').includes(keyword)) return false;
+    if (excludeRecent && trendPostingState.recentTopicKeys.has(itemKey)) return false;
     if (view === 'all') return true;
     if (view === 'top10') return changeType === 'up' && Number.isFinite(Number(item?.change?.amount));
     return changeType === view;
@@ -1982,6 +1988,28 @@ function filterTrendPostingItems(items) {
       .map(({ item }) => item);
   }
   return filtered;
+}
+
+async function loadRecentTrendPostingTopics() {
+  if (trendPostingState.recentTopicsLoaded || trendPostingState.recentTopicsLoading) return;
+  const checkbox = document.getElementById('trend-posting-filter-exclude-recent');
+  const statusEl = document.getElementById('trend-posting-status');
+  trendPostingState.recentTopicsLoading = true;
+  if (checkbox) checkbox.disabled = true;
+  try {
+    const result = await fetchJson('/api/v1/trend-posting/recent-topics?days=15');
+    trendPostingState.recentTopicKeys = new Set((Array.isArray(result?.keywords) ? result.keywords : [])
+      .map((value) => String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR'))
+      .filter(Boolean));
+    trendPostingState.recentTopicsLoaded = true;
+  } catch (error) {
+    if (checkbox) checkbox.checked = false;
+    if (statusEl) statusEl.textContent = `최근 저장 글감을 불러오지 못했습니다: ${error.message}`;
+  } finally {
+    trendPostingState.recentTopicsLoading = false;
+    if (checkbox) checkbox.disabled = false;
+    renderTrendPostingResults();
+  }
 }
 
 function updateTrendPostingFilterCount(visibleCount) {
@@ -2049,14 +2077,14 @@ function renderTrendPostingResults(items) {
       .join('');
     return `
       <tr data-trend-posting-id="${escapeHtml(id)}">
-        <td class="trend-keyword-cell">${escapeHtml(item.keyword)}</td>
         <td><div class="trend-category-tags">${categories}</div></td>
         <td>${escapeHtml(item.latestTrendDate)}</td>
+        <td class="trend-keyword-cell">${escapeHtml(item.keyword)}</td>
         <td>${renderTrendPostingChange(item.change)}</td>
         <td>
           <div class="trend-posting-action-cell">
             <div class="trend-posting-row-actions">
-              <button type="button" class="primary" data-trend-posting-action="write" data-item-id="${escapeHtml(id)}">빠른 포스팅에서 작성</button>
+              <button type="button" class="primary" data-trend-posting-action="write" data-item-id="${escapeHtml(id)}">빠른 포스팅</button>
               <button type="button" class="secondary" data-trend-posting-action="save" data-item-id="${escapeHtml(id)}"${saved ? ' disabled' : ''}>${saved ? '저장됨' : '글감 저장'}</button>
             </div>
             <span class="trend-topic-save-feedback${saved ? ' is-success' : ''}"
@@ -2199,6 +2227,8 @@ async function saveTrendPostingTopic(item, button) {
       trendDate: item.latestTrendDate
     });
     trendPostingState.savedIds.add(`${String(item.id)}:${String(item.latestTrendDate || '')}`);
+    const savedKey = String(item.keyword || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR');
+    if (savedKey) trendPostingState.recentTopicKeys.add(savedKey);
     button.textContent = '저장됨';
     row?.classList.add('trend-topic-save-success');
     if (feedbackEl) {
@@ -2207,6 +2237,9 @@ async function saveTrendPostingTopic(item, button) {
     }
     const statusEl = document.getElementById('trend-posting-status');
     if (statusEl) statusEl.textContent = `“${item.keyword}” 글감을 대기 상태로 저장했습니다.`;
+    if (document.getElementById('trend-posting-filter-exclude-recent')?.checked) {
+      renderTrendPostingResults();
+    }
   } catch (error) {
     button.disabled = false;
     button.textContent = '다시 시도';
@@ -10041,6 +10074,7 @@ function bindActions() {
   const trendPostingQueryBtn = document.getElementById('trend-posting-query-btn');
   const trendPostingResultFilters = document.getElementById('trend-posting-result-filters');
   const trendPostingFilterReset = document.getElementById('trend-posting-filter-reset');
+  const trendPostingExcludeRecent = document.getElementById('trend-posting-filter-exclude-recent');
   const trendPostingTableBody = document.getElementById('trend-posting-table-body');
   const blogTopicsTableBody = document.getElementById('blog-table-body');
   const shoppingTableBody = document.getElementById('shopping-table-body');
@@ -10062,12 +10096,23 @@ function bindActions() {
     syncTrendPostingCategoryLimit();
   });
   trendPostingQueryBtn?.addEventListener('click', queryTrendPostingKeywords);
-  trendPostingResultFilters?.addEventListener('input', () => renderTrendPostingResults());
+  trendPostingResultFilters?.addEventListener('input', (event) => {
+    if (event.target === trendPostingExcludeRecent) return;
+    renderTrendPostingResults();
+  });
+  trendPostingExcludeRecent?.addEventListener('change', () => {
+    if (trendPostingExcludeRecent.checked && !trendPostingState.recentTopicsLoaded) {
+      void loadRecentTrendPostingTopics();
+      return;
+    }
+    renderTrendPostingResults();
+  });
   trendPostingFilterReset?.addEventListener('click', () => {
     const keywordEl = document.getElementById('trend-posting-filter-keyword');
     const viewEl = document.getElementById('trend-posting-filter-view');
     if (keywordEl) keywordEl.value = '';
     if (viewEl) viewEl.value = 'all';
+    if (trendPostingExcludeRecent) trendPostingExcludeRecent.checked = false;
     renderTrendPostingResults();
   });
   trendPostingTableBody?.addEventListener('click', (event) => {

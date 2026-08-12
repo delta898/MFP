@@ -4192,7 +4192,7 @@ h2 {
   align-items: baseline;
   flex: 0 0 auto;
   gap: 8px;
-  min-width: 190px;
+  min-width: 230px;
   white-space: nowrap;
 }
 
@@ -4202,6 +4202,7 @@ h2 {
 
 .trend-posting-result-filters button {
   flex: 0 0 auto;
+  min-height: 36px;
   padding: 6px 10px;
   font-size: 12px;
 }
@@ -4213,13 +4214,30 @@ h2 {
 }
 
 .trend-posting-filter-keyword {
-  flex: 1 1 320px;
-  max-width: 520px;
-  min-width: 220px;
+  flex: 0 1 360px;
+  width: min(360px, 28vw);
+  max-width: 360px;
+  min-width: 200px;
 }
 
 .trend-posting-filter-view {
-  flex: 0 0 210px;
+  flex: 0 0 180px;
+}
+
+.trend-posting-filter-recent {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px !important;
+  min-height: 36px;
+  padding: 0 4px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.trend-posting-filter-recent input {
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .trend-posting-panel .trend-posting-table-wrap {
@@ -4257,6 +4275,30 @@ h2 {
 .trend-posting-table th,
 .trend-posting-table td {
   padding: 8px 12px;
+}
+
+.trend-posting-table {
+  table-layout: fixed;
+}
+
+.trend-posting-col-keyword {
+  width: 34%;
+}
+
+.trend-posting-col-category {
+  width: 190px;
+}
+
+.trend-posting-col-date {
+  width: 145px;
+}
+
+.trend-posting-col-change {
+  width: 95px;
+}
+
+.trend-posting-col-actions {
+  width: 250px;
 }
 
 .trend-keyword-cell {
@@ -4302,7 +4344,7 @@ h2 {
 
 .trend-posting-row-actions {
   flex-wrap: nowrap;
-  min-width: 270px;
+  min-width: 0;
 }
 
 .trend-posting-row-actions button {
@@ -4398,7 +4440,8 @@ h2 {
 
   .trend-posting-filter-summary,
   .trend-posting-filter-keyword,
-  .trend-posting-filter-view {
+  .trend-posting-filter-view,
+  .trend-posting-filter-recent {
     flex: 0 0 auto;
     width: 100%;
     max-width: none;

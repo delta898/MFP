@@ -23,13 +23,17 @@ function createHarness(service) {
     };
 }
 
-test('trend posting route exposes metadata, keyword reads, and topic saves', async () => {
+test('trend posting route exposes metadata, keyword reads, recent topics, and topic saves', async () => {
     const searchParams = new URLSearchParams({ categories: '맛집' });
     const harness = createHarness({
         async getMeta() { return { categories: ['맛집'] }; },
         async getKeywords(input) {
             assert.equal(input.searchParams, searchParams);
             return { count: 1, items: [{ keyword: '성수 맛집' }] };
+        },
+        async getRecentTopicKeywords(input) {
+            assert.equal(input.searchParams.get('days'), '15');
+            return { days: 15, keywords: ['성수 맛집'] };
         },
         async saveTopic(input) {
             assert.deepEqual(input.body, { keyword: '성수 맛집', trendDate: '2026-08-11' });
@@ -53,19 +57,28 @@ test('trend posting route exposes metadata, keyword reads, and topic saves', asy
     assert.equal(harness.responses[0].data.categories[0], '맛집');
     assert.equal(harness.responses[1].data.items[0].keyword, '성수 맛집');
     assert.equal(await harness.route({
+        pathname: '/api/v1/trend-posting/recent-topics',
+        requestId: 'recent-1',
+        method: 'GET',
+        searchParams: new URLSearchParams({ days: '15' }),
+        res: {}
+    }), true);
+    assert.equal(harness.responses[2].data.keywords[0], '성수 맛집');
+    assert.equal(await harness.route({
         pathname: '/api/v1/trend-posting/topics',
         requestId: 'topic-1',
         method: 'POST',
         requestBody: { keyword: '성수 맛집', trendDate: '2026-08-11' },
         res: {}
     }), true);
-    assert.equal(harness.responses[2].data.status, '대기');
+    assert.equal(harness.responses[3].data.status, '대기');
 });
 
 test('trend posting route rejects mutation methods and ignores unrelated paths', async () => {
     const harness = createHarness({
         async getMeta() { return {}; },
         async getKeywords() { return {}; },
+        async getRecentTopicKeywords() { return {}; },
         async saveTopic() { return {}; }
     });
 

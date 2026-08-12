@@ -810,16 +810,27 @@
               <option value="down">하락</option>
               <option value="steady">변화 없음</option>
             </select>
+            <label class="settings-checkbox-label compact trend-posting-filter-recent">
+              <input id="trend-posting-filter-exclude-recent" type="checkbox">
+              <span>최근 저장 글감 제외</span>
+            </label>
             <button id="trend-posting-filter-reset" class="secondary compact" type="button">초기화</button>
           </div>
           <div class="table-responsive">
             <div class="table-wrap trend-posting-table-wrap">
               <table class="data-table trend-posting-table">
+                <colgroup>
+                  <col class="trend-posting-col-category">
+                  <col class="trend-posting-col-date">
+                  <col class="trend-posting-col-keyword">
+                  <col class="trend-posting-col-change">
+                  <col class="trend-posting-col-actions">
+                </colgroup>
                 <thead>
                   <tr>
-                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="keyword">키워드</th>
                     <th class="sortable" data-sort-table="trendPosting" data-sort-key="categories">트렌드 카테고리</th>
                     <th class="sortable" data-sort-table="trendPosting" data-sort-key="latestTrendDate">최신 반영일</th>
+                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="keyword">키워드</th>
                     <th class="sortable" data-sort-table="trendPosting" data-sort-key="change">변화</th>
                     <th>작업</th>
                   </tr>

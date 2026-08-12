@@ -100,11 +100,11 @@ Trend Posting 탭은 다음 순서로 구성한다.
 
 결과 테이블은 집계된 unique keyword만 표시한다.
 
-- 키워드
 - 트렌드 카테고리
 - 최신 반영일
+- 키워드
 - 상승/변화 지표
-- `빠른 포스팅에서 작성`
+- `빠른 포스팅`
 - `글감 저장`
 
 등장 횟수나 절대 검색량처럼 해석될 수 있는 값은 표시하지 않는다.
@@ -117,11 +117,16 @@ Trend Posting 탭은 다음 순서로 구성한다.
 ```text
 GET /api/v1/trend-posting/meta
 GET /api/v1/trend-posting/keywords
+GET /api/v1/trend-posting/recent-topics?days=15
+POST /api/v1/trend-posting/topics
 ```
 
 `keywords`는 `categories[]`, `dateFrom`, `dateTo`를 받는다. 서버는 최대
 31일 범위, 최대 5개 카테고리, 5,000 raw rows 상한을 검증하고 중복
 키워드를 집계한다.
+
+`recent-topics`는 기존 topics 저장소에서 최근 15일의 주제와 키워드를
+정규화해 중복 제외용 최소 데이터만 반환한다.
 
 글감 저장과 Quick Posting 실행은 기존 `appendGoogleSheetTopics`와
 quick-publish contract를 사용한다. 별도의 Spreadsheet schema를 추가하지
@@ -213,7 +218,9 @@ UI 개선은 한 번에 합치지 않고 다음 순서로 진행한다.
    적용하고 전체 결과 대비 표시 건수를 함께 보여준다. 보기 preset은 전체,
    상승 전체, 급상승 Top 10, new, 하락, 변화 없음만 제공한다. 복잡도를
    높이는 최소 상승값과 급상승 Top 30은 제공하지 않는다.
-7. 대기: `topics`를 기준으로 최근 저장된 글감을 제외하는 필터를 추가한다.
+7. 완료: `topics`의 최근 15일 주제·키워드를 기준으로 결과에서 최근 저장
+   글감을 제외하는 선택 옵션을 추가한다. 글감 저장 성공 시 현재 제외
+   목록에도 즉시 반영한다.
 
 각 단계의 기본 구현이 완료되면 사용자에게 알린다. UI 확인은 사용자가
 수행하며, 단위·회귀 테스트는 개발 중 매 단계마다 실행하지 않고 전체 개발

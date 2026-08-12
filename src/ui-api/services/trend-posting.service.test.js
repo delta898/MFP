@@ -182,6 +182,22 @@ test('trend posting service saves a selected keyword as a waiting topics row', a
     });
 });
 
+test('trend posting service returns normalized topic keys saved within the recent window', async () => {
+    const service = createWritableService({
+        async readGoogleSheetTopicsAll() {
+            return {
+                items: [
+                    { subject: ' 성수  맛집 ', keywords: ['서울 맛집'], created_at: new Date().toISOString() },
+                    { subject: '오래된 글감', keywords: [], created_at: '2020-01-01 00:00:00' }
+                ]
+            };
+        }
+    });
+    const result = await service.getRecentTopicKeywords({ searchParams: new URLSearchParams({ days: '15' }) });
+    assert.equal(result.days, 15);
+    assert.deepEqual(result.keywords.sort(), ['서울 맛집', '성수 맛집']);
+});
+
 test('trend posting service rejects missing keywords and impossible dates before append', async () => {
     let appendCalls = 0;
     const service = createWritableService({

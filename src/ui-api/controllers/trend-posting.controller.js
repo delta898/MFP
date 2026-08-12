@@ -23,6 +23,15 @@ function createTrendPostingController(deps = {}) {
             }
         },
 
+        async recentTopics({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getRecentTopicKeywords({ searchParams }));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'TREND_POSTING_RECENT_TOPICS_FAILED', '최근 저장 글감을 불러오지 못했습니다.', error);
+            }
+        },
+
         async saveTopic({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

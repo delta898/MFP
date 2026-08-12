@@ -29,6 +29,17 @@ function createTrendPostingService(deps = {}) {
         return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
     }
 
+    function normalizeTopicKey(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR');
+    }
+
+    function parseTopicCreatedAt(value) {
+        const text = String(value || '').trim();
+        if (!text) return NaN;
+        const kstMatch = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)$/);
+        return Date.parse(kstMatch ? `${kstMatch[1]}T${kstMatch[2]}+09:00` : text);
+    }
+
     function translateError(error, fallbackCode, fallbackMessage) {
         if (error?.apiCode) throw error;
         if (error?.code === 'LICENSE_NOT_ACTIVE') {
@@ -95,6 +106,43 @@ function createTrendPostingService(deps = {}) {
             } catch (error) {
                 return translateError(error, 'TREND_POSTING_KEYWORDS_FAILED', '트렌드 키워드를 불러오지 못했습니다.');
             }
+        },
+
+        async getRecentTopicKeywords({ searchParams } = {}) {
+            if (!Utils || typeof Utils.readGoogleSheetTopicsAll !== 'function') {
+                throw createApiError(500, 'TREND_POSTING_TOPIC_STORE_UNAVAILABLE', '글감 저장소를 사용할 수 없습니다.');
+            }
+            const requestedDays = Number.parseInt(searchParams?.get?.('days') || '15', 10);
+            const days = Number.isInteger(requestedDays) && requestedDays >= 1 && requestedDays <= 365
+                ? requestedDays
+                : 15;
+            if (typeof License.checkLicenseStatus !== 'function') {
+                throw createApiError(500, 'TREND_POSTING_LICENSE_CHECK_UNAVAILABLE', '라이선스 상태를 확인할 수 없습니다.');
+            }
+
+            const licenseStatus = await License.checkLicenseStatus();
+            if (!licenseStatus?.success) {
+                throw createApiError(401, 'LICENSE_NOT_ACTIVE', licenseStatus?.message || '유효한 라이선스가 필요합니다.');
+            }
+            const result = await Utils.readGoogleSheetTopicsAll({
+                limit: 100000,
+                offset: 0,
+                sortBy: 'rowNumber',
+                sortDir: 'desc'
+            });
+            const cutoffMs = Date.now() - (days * 86400000);
+            const keys = new Set();
+            for (const topic of Array.isArray(result?.items) ? result.items : []) {
+                const createdAtMs = parseTopicCreatedAt(topic?.created_at);
+                if (!Number.isFinite(createdAtMs) || createdAtMs < cutoffMs) continue;
+                const values = [topic?.subject, ...(Array.isArray(topic?.keywords) ? topic.keywords : [])];
+                values.map(normalizeTopicKey).filter(Boolean).forEach((value) => keys.add(value));
+            }
+            return {
+                days,
+                count: keys.size,
+                keywords: Array.from(keys)
+            };
         },
 
         async saveTopic({ body } = {}) {

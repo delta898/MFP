@@ -263,17 +263,26 @@ Implemented in the uncommitted working tree:
     Rising Top 30 and custom minimum-rise values are intentionally excluded. On
     desktop, summary, search, view, and reset follow one left-to-right toolbar
     flow instead of occupying separate label rows.
+14. An optional `최근 저장 글감 제외` control lazily loads normalized subject
+    and keyword values from topics rows added within the last 15 days. It does
+    not add a new store, and a successful direct save joins the exclusion set
+    immediately. The row handoff action is labeled simply `빠른 포스팅` to match
+    its destination tab. The desktop filter controls use bounded widths and
+    left-to-right alignment, while the result table reserves only a compact
+    fixed action column and gives remaining space to keyword discovery data.
+    Result columns follow context-to-decision order: category, latest date,
+    keyword, change, then actions. This keeps keyword, change, and the primary
+    actions adjacent.
 
 Remaining work:
 
-1. Add the separately queued topics-aware recent-save exclusion filter.
-2. Report when each increment has a basic implementation ready. The user owns
+1. Report when each increment has a basic implementation ready. The user owns
    UI validation; do not spend development turns driving or visually testing
    the running UI unless the user asks.
-3. During incremental development, use only lightweight static checks where
+2. During incremental development, use only lightweight static checks where
    needed. Batch unit and regression test execution after the development scope
    stabilizes in the pre-release/release validation phase.
-4. Ask before commit. After approval, merge this child into
+3. Ask before commit. After approval, merge this child into
    `feature/trend-posting-main`, then delete the child branch.
 
 ## Suggested First Message In A New Conversation
