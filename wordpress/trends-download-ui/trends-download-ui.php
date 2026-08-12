@@ -935,7 +935,11 @@ function bg_trends_render_shortcode() {
                     renderHiddenInputs(stateHiddenInputs, 'category[]', selectedCategories);
                     renderHiddenInputs(downloadHiddenInputs, 'category[]', selectedCategories);
                     downloadTrendDate.value = dateInput.value;
-                    dateInput.disabled = isBusy();
+                    // A disabled control is excluded from GET form submission.
+                    // Keep the selected trend_date successful while the preview
+                    // request is being submitted; the action buttons and category
+                    // chips already prevent duplicate work.
+                    dateInput.setAttribute('aria-busy', isBusy() ? 'true' : 'false');
 
                     chipButtons.forEach((button) => {
                         const selected = button.classList.contains('is-selected');

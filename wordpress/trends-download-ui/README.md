@@ -69,5 +69,7 @@ TRENDS_API_HOST=0.0.0.0
 - Preview rows colorize change markers: `up/new` red, `down` blue, `steady` dark
 - The preview section includes a second CSV download button at the bottom
 - Preview and download actions show a lightweight loading state
+- The selected date remains part of preview GET submissions while the loading
+  state is active; do not disable the named date input before form serialization
 - Preview shows up to 60 rows for the selected date and categories
 - The API remains more flexible than the public WordPress UI
