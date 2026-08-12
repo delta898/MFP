@@ -4177,8 +4177,30 @@ h2 {
   font-size: 13px;
 }
 
-.trend-posting-table-wrap {
-  max-height: calc(100vh - 500px);
+.trend-posting-panel .trend-posting-table-wrap {
+  max-height: none;
+  overflow: visible;
+}
+
+.trend-posting-panel > .table-responsive {
+  overflow: visible;
+}
+
+.trend-posting-panel .trend-posting-table th {
+  top: 0;
+  z-index: 30;
+  box-shadow: 0 2px 0 var(--line);
+}
+
+@media (min-width: 961px) {
+  .trend-posting-panel .trend-posting-table th {
+    top: -32px;
+  }
+}
+
+.trend-posting-table th,
+.trend-posting-table td {
+  padding: 8px 12px;
 }
 
 .trend-keyword-cell {
@@ -4197,13 +4219,13 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 7px;
+  gap: 4px;
 }
 
 .trend-category-tag,
 .trend-change {
   display: inline-flex;
-  padding: 4px 8px;
+  padding: 3px 7px;
   border-radius: var(--radius-full);
   background: #f1f5f9;
   color: #475569;
@@ -4228,6 +4250,8 @@ h2 {
 }
 
 .trend-posting-row-actions button {
+  padding: 7px 10px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -4239,6 +4263,10 @@ h2 {
   font-size: 12px;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.trend-topic-save-feedback:empty {
+  display: none;
 }
 
 .trend-topic-save-feedback.is-pending {
@@ -4278,6 +4306,15 @@ h2 {
 
   .trend-posting-categories {
     min-height: 0;
+  }
+
+  .trend-posting-panel > .table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .trend-posting-table {
+    min-width: 900px;
   }
 }
 

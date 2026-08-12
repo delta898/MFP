@@ -250,21 +250,23 @@ Implemented in the uncommitted working tree:
 11. Keyword, category, latest-date, and change headers now reuse the existing
     accessible sortable-header interaction. The initial order is latest trend
     date descending, and repeated header activation toggles direction locally.
+12. The Trend Posting result table no longer creates a second vertical scroll
+    area on desktop. The app page scroll carries the query section away, then
+    keeps the table header sticky while compact result rows pass underneath.
+    Narrow layouts retain horizontal overflow so action columns are not clipped.
 
 Remaining work:
 
-1. Increase visible result density with compact rows and a collapsible query
-   section that yields vertical space to the result table after discovery.
-2. Add the queued discovery filters: keyword search, change kinds, minimum rise,
+1. Add the queued discovery filters: keyword search, change kinds, minimum rise,
    and Top N. Do not combine this with the table usability increments.
-3. Add the separately queued topics-aware recent-save exclusion filter.
-4. Report when each increment has a basic implementation ready. The user owns
+2. Add the separately queued topics-aware recent-save exclusion filter.
+3. Report when each increment has a basic implementation ready. The user owns
    UI validation; do not spend development turns driving or visually testing
    the running UI unless the user asks.
-5. During incremental development, use only lightweight static checks where
+4. During incremental development, use only lightweight static checks where
    needed. Batch unit and regression test execution after the development scope
    stabilizes in the pre-release/release validation phase.
-6. Ask before commit. After approval, merge this child into
+5. Ask before commit. After approval, merge this child into
    `feature/trend-posting-main`, then delete the child branch.
 
 ## Suggested First Message In A New Conversation
