@@ -80,7 +80,7 @@ GET /api/v1/trend-posting/meta
 GET /api/v1/trend-posting/keywords
 ```
 
-`keywords` 요청은 `categories[]`, `dateFrom`, `dateTo`를 받으며, 서버에서 범위를 검증하고 중복 키워드를 집계한다. 응답에는 UI에 필요한 필드만 포함한다.
+`keywords` 요청은 `categories[]`, `dateFrom`, `dateTo`를 받으며, 서버에서 범위를 검증하고 중복 키워드를 집계한다. 직접 지정 기간은 최대 31일로 제한한다. 원격 API의 단일 조회 상한인 5,000행에 도달하면 일부 결과를 조용히 표시하지 않고, 기간이나 주제를 줄이라는 오류를 반환한다. 응답에는 UI에 필요한 필드만 포함한다.
 
 ```json
 {
@@ -120,7 +120,9 @@ GET /api/v1/trend-posting/keywords
 ## App Architecture
 
 - `src/trend-posting/`: 필터 정규화, 원시 행 집계, 표시 모델, 요청 검증
-- `src/ui-api/services/trend-posting.service.js`: 라이선스 상태 확인, 사용자 토큰 수명 관리, 원격 trends API 호출
+- `src/trend-posting/access-token-cache.js`: 15분 읽기 토큰을 메모리에만 보관하고, 만료 1분 전 갱신 및 동시 발급 단일화를 담당
+- `src/trend-posting/remote-client.js`: `https://trendapi.hangadac.com` 읽기 endpoint 호출과 401 발생 시 단 한 번의 토큰 갱신을 담당
+- `src/ui-api/services/trend-posting.service.js`: 사용자 토큰 발급 경계, 원격 trends API 호출, 집계 결과와 안정적인 로컬 오류 계약을 제공
 - `src/ui-api/controllers/trend-posting.controller.js` 및 route: 로컬 UI API 경계
 - `src/content/` 또는 기존 quick publish 경계: 선택 키워드를 AI 생성 요청으로 변환하고 기존 미리보기·발행 경로 재사용
 - `ui/index.html`, `ui/app.js`: 트렌드 포스팅 탭 및 상태 제어
@@ -129,26 +131,30 @@ GET /api/v1/trend-posting/keywords
 
 ## Delivery Branches
 
-브랜치 계층과 병합 방향은 다음으로 고정한다.
+이 기능은 동시에 여러 sibling 브랜치를 진행하지 않고 `dev`를 기준으로 순차적으로 통합한다.
 
 ```text
-main -> dev -> feature/trend-posting-main -> feature sub branches
+main -> dev -> current feature branch
+                 │
+                 └─ 완료·검증 후 dev에 병합
+                              │
+                              └─ next feature branch
 ```
 
-`feature/trend-posting-main`은 항상 `dev`에서 분기한다. 모든 서브 브랜치는 이 통합 브랜치에서 시작하고 완료 후 fast-forward 또는 검토된 병합으로 `feature/trend-posting-main`에 되돌아온다. 기능 전체가 완료된 뒤 통합 브랜치를 `dev`에 병합하고, 검증된 릴리스만 `dev`에서 `main`으로 병합한다.
+현재 `feature/trend-posting-access`에서 다음 범위를 함께 완료한다.
 
-1. `feature/trend-posting-access`
-   - Edge Function 토큰 발급, trends API 사용자 토큰 검증, 보안 테스트와 운영 문서
-2. `feature/trend-posting-query`
-   - 앱의 trend posting 서비스, 로컬 API, 필터 검증, 기간별 중복 집계와 단위 테스트
-3. `feature/trend-posting-composer`
-   - 빠른 포스팅의 공통 작성 payload/미리보기/발행 흐름 추출과 회귀 테스트
-4. `feature/trend-posting-ui`
-   - 탭, 필터, 결과 테이블, 선택 상태, 작성 옵션 UI 및 UI 통합
-5. `feature/trend-posting-integration`
-   - 실제 API 연결, 오류 상태, 보안/회귀 테스트, 문서 정리
+- Edge Function 토큰 발급과 trends API 사용자 토큰 검증
+- 보안 테스트와 운영 문서
+- 앱의 trend posting service와 로컬 API
+- 필터 검증, 기간별 중복 집계, 토큰 캐시와 단위 테스트
 
-`access`와 `query`는 독립적으로 시작할 수 있다. `composer`와 `ui`는 `query`의 응답 계약이 확정된 뒤 진행한다. `integration`은 앞의 네 작업이 모두 통합된 뒤 시작한다.
+이 범위를 실제 환경에서 검증하고 `dev`에 병합한 뒤에만 다음 작업 브랜치를 `dev`에서 만든다.
+
+1. 다음 브랜치: 빠른 포스팅의 공통 작성 payload·미리보기·발행 흐름 추출과 회귀 테스트
+2. 이후 브랜치: 탭, 필터, 결과 테이블, 선택 상태, 작성 옵션 UI
+3. 마지막 브랜치: 실제 API 연결 오류 상태, 보안·회귀 테스트와 문서 정리
+
+검증된 릴리스만 `dev`에서 `main`으로 병합한다.
 
 ## Validation
 

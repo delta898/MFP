@@ -2,15 +2,18 @@ const { createSystemRouteHandler } = require('./system.routes');
 const { createSessionLicenseRouteHandler } = require('./session-license.routes');
 const { createContentRouteHandler } = require('./content.routes');
 const { createTrendsRouteHandler } = require('./trends.routes');
+const { createTrendPostingRouteHandler } = require('./trend-posting.routes');
 const { createAccountRouteHandler } = require('./account.routes');
 const { createSystemService } = require('../services/system.service');
 const { createSessionLicenseService } = require('../services/session-license.service');
 const { createContentService } = require('../services/content.service');
 const { createTrendsService } = require('../services/trends.service');
+const { createTrendPostingService } = require('../services/trend-posting.service');
 const { createSystemController } = require('../controllers/system.controller');
 const { createSessionLicenseController } = require('../controllers/session-license.controller');
 const { createContentController } = require('../controllers/content.controller');
 const { createTrendsController } = require('../controllers/trends.controller');
+const { createTrendPostingController } = require('../controllers/trend-posting.controller');
 const { createAccountController } = require('../controllers/account.controller');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const WordPressClient = require('../../wordpress-client');
@@ -142,12 +145,24 @@ function createLegacyApiRouteHandler(deps = {}) {
         sendError: deps.sendError
     });
 
+    const trendPostingService = createTrendPostingService({
+        License: deps.License,
+        Logger: deps.Logger,
+        axios: deps.axios
+    });
+    const trendPostingController = createTrendPostingController({
+        service: trendPostingService,
+        sendSuccess: deps.sendSuccess,
+        sendError: deps.sendError
+    });
+
     const handlers = [
         createSystemRouteHandler({ controller: systemController }),
         createSessionLicenseRouteHandler({ controller: sessionLicenseController }),
         createAccountRouteHandler({ controller: accountController }),
         createContentRouteHandler({ controller: contentController }),
-        createTrendsRouteHandler({ controller: trendsController })
+        createTrendsRouteHandler({ controller: trendsController }),
+        createTrendPostingRouteHandler({ controller: trendPostingController })
     ];
 
     return async function tryHandleLegacyApi(ctx = {}) {

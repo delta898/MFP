@@ -18,9 +18,9 @@ Do not merge or commit changes automatically. Tell the user when a logical commi
 
 Current work branch: `feature/trend-posting-access`
 
-Integration branch: `feature/trend-posting-main`
+Previous planning branch: `feature/trend-posting-main`
 
-The integration branch currently contains planning commits only:
+The previous planning branch contains planning commits only:
 
 - `46ed528 docs: plan trend posting feature`
 - `cc609f8 docs: define trend posting branch flow`
@@ -31,9 +31,11 @@ The access foundation was committed as:
 564a1e5 feat: secure trends read access
 ```
 
-Follow-up hardening and production-topology documentation are currently being
-prepared on the same access branch. Do not merge it into the integration branch
-until the Oracle HTTPS endpoint and Edge Function have been validated together.
+Follow-up hardening, production-topology documentation, and the desktop query
+foundation are being prepared on the same access branch. Do not create a sibling
+feature branch before this work is committed, validated, and merged into `dev`.
+Do not merge it into `dev` until the Oracle HTTPS endpoint and Edge Function have
+been validated together.
 
 ## Confirmed Production Topology
 
@@ -142,17 +144,27 @@ git diff --check
 
 The full `npm run test:unit` ran 387 tests: 386 passed. The only failure was the pre-existing `apps/trends/trends-api/src/server.test.js` HTTP listener test because the local sandbox rejected binding `127.0.0.1` with `EPERM`. The exact same targeted trends API test passed when run with permission to open a local listener.
 
+## Desktop Query Foundation
+
+The following query work now continues on this access branch rather than a new
+sibling branch:
+
+1. Desktop-local read endpoints:
+   - `GET /api/v1/trend-posting/meta`
+   - `GET /api/v1/trend-posting/keywords`
+2. In-memory caching of the 15-minute read token with a one-minute refresh margin.
+3. Oracle HTTPS reads through `https://trendapi.hangadac.com`.
+4. A single token refresh and retry after an HTTP 401 response.
+5. Multiple-category and date-range validation, with a maximum 31-day range.
+6. Duplicate-keyword aggregation and stable UI-only response fields.
+7. Explicit rejection when a remote query reaches the 5,000-row ceiling.
+8. Focused tests for filters, aggregation, token cache, remote transport, service,
+   and local routes.
+
 ## Next Work
 
-After the user validates the Oracle HTTPS endpoint, deploys the Edge Function,
-and merges the access branch into `feature/trend-posting-main`, continue with
-`feature/trend-posting-query`:
-
-1. Add desktop-local trend posting API endpoints.
-2. Acquire and cache the short-lived read token through the new Edge Function.
-3. Query Oracle `trends-api` over the HTTPS read proxy.
-4. Validate multiple categories and today/7-day/custom date ranges.
-5. Aggregate normalized duplicate keywords into one display row.
-6. Add focused unit tests before UI work.
-
-Do not begin UI implementation until the query response contract is tested and merged into the integration branch.
+1. Commit the desktop query foundation on this branch without pushing it.
+2. Deploy the access changes to the Oracle trends API and Supabase Edge Function.
+3. Validate token issuance and authenticated reads with a real active license.
+4. Merge this branch into `dev`.
+5. Only then create the next composer branch from the updated `dev`.
