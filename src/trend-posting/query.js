@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const MAX_CATEGORY_COUNT = 32;
+const MAX_CATEGORY_COUNT = 5;
 const MAX_DATE_RANGE_DAYS = 31;
 
 function normalizeYmd(value, fieldName) {

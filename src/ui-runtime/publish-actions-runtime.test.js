@@ -60,7 +60,55 @@ test('quick publish keeps the user image option independent from legacy license 
     assert.equal(result.success, true);
     assert.equal(appendedTopics[0].image_options.generate, true);
     assert.equal(appendedTopics[0].writing_strategy, 'discovery');
+    assert.equal(appendedTopics[0].source, 'manual');
+    assert.equal(appendedTopics[0].trendDate, '');
     assert.equal(dedupeInput.writingStrategy, 'discovery');
+});
+
+test('quick publish preserves trend provenance in the topics row and dedupe input', async () => {
+    let appendedTopic;
+    let dedupeInput;
+    const runtime = createPublishActionsRuntime({
+        CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
+        Logger: { info() {}, warn() {}, error() {} },
+        Utils: {
+            convertToMobileNaverBlogUrl: (value) => value,
+            async ensureAllSheetsExist() {},
+            async appendGoogleSheetTopics(topics) {
+                [appendedTopic] = topics;
+                return { success: true, rowNumbers: [2], rowIndices: [0] };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: {} }; }
+        },
+        normalizeKeywords: (value) => Array.isArray(value) ? value : [value],
+        normalizeBool: (value, fallback) => typeof value === 'boolean' ? value : fallback,
+        normalizePublishMode: (value) => value,
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool,
+        buildQuickPublishDedupeKey: (input) => { dedupeInput = input; return 'trend-key'; },
+        cleanupQuickPublishDedupeCache() {},
+        getQuickPublishRecentEntry: () => null,
+        setQuickPublishRecentEntry() {},
+        recordUiActivity() {}
+    });
+
+    const result = await runtime.executeQuickPublish({
+        subject: '성수 맛집',
+        keywords: ['성수 맛집'],
+        source: 'naver_trend',
+        trendDate: '2026-08-11',
+        publishMode: 'append_only'
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(appendedTopic.source, 'naver_trend');
+    assert.equal(appendedTopic.trendDate, '2026-08-11');
+    assert.equal(appendedTopic.status, '대기');
+    assert.equal(dedupeInput.source, 'naver_trend');
+    assert.equal(dedupeInput.trendDate, '2026-08-11');
 });
 
 test('shopping quick publish rejects an overlong instruction before external work', async () => {

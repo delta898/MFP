@@ -8,6 +8,7 @@ const {
 
 function createTrendPostingService(deps = {}) {
     const License = deps.License;
+    const Utils = deps.Utils;
     const Logger = deps.Logger || console;
     if (!License || typeof License.issueTrendsAccessToken !== 'function') {
         throw new Error('License.issueTrendsAccessToken is required');
@@ -21,6 +22,12 @@ function createTrendPostingService(deps = {}) {
         tokenCache,
         baseUrl: deps.baseUrl || DEFAULT_TRENDS_API_BASE_URL
     });
+
+    function isValidYmd(value) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const parsed = new Date(`${value}T00:00:00.000Z`);
+        return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }
 
     function translateError(error, fallbackCode, fallbackMessage) {
         if (error?.apiCode) throw error;
@@ -87,6 +94,64 @@ function createTrendPostingService(deps = {}) {
                 };
             } catch (error) {
                 return translateError(error, 'TREND_POSTING_KEYWORDS_FAILED', '트렌드 키워드를 불러오지 못했습니다.');
+            }
+        },
+
+        async saveTopic({ body } = {}) {
+            const keyword = String(body?.keyword || '').replace(/\s+/g, ' ').trim();
+            const trendDate = String(body?.trendDate || '').trim();
+            if (!keyword) {
+                throw createApiError(400, 'TREND_POSTING_TOPIC_INVALID', '저장할 트렌드 키워드가 필요합니다.');
+            }
+            if (!isValidYmd(trendDate)) {
+                throw createApiError(400, 'TREND_POSTING_TOPIC_INVALID', '트렌드 날짜가 올바르지 않습니다.');
+            }
+            if (!Utils || typeof Utils.appendGoogleSheetTopics !== 'function') {
+                throw createApiError(500, 'TREND_POSTING_TOPIC_STORE_UNAVAILABLE', '글감 저장소를 사용할 수 없습니다.');
+            }
+            if (typeof License.checkLicenseStatus !== 'function') {
+                throw createApiError(500, 'TREND_POSTING_LICENSE_CHECK_UNAVAILABLE', '라이선스 상태를 확인할 수 없습니다.');
+            }
+
+            try {
+                const licenseStatus = await License.checkLicenseStatus();
+                if (!licenseStatus?.success) {
+                    throw createApiError(401, 'LICENSE_NOT_ACTIVE', licenseStatus?.message || '유효한 라이선스가 필요합니다.');
+                }
+                const appendResult = await Utils.appendGoogleSheetTopics([{
+                    subject: keyword,
+                    keywords: [keyword],
+                    source: 'naver_trend',
+                    trendDate,
+                    status: '대기'
+                }], {
+                    defaultStatus: '대기',
+                    postAppendDelayMs: 0
+                });
+                if (!appendResult?.success) {
+                    throw createApiError(
+                        502,
+                        'TREND_POSTING_TOPIC_SAVE_FAILED',
+                        String(appendResult?.message || 'Google Spreadsheet topics 행을 추가하지 못했습니다.')
+                    );
+                }
+                return {
+                    keyword,
+                    trendDate,
+                    source: 'naver_trend',
+                    status: '대기',
+                    rowNumber: Array.isArray(appendResult.rowNumbers) ? appendResult.rowNumbers[0] ?? null : null,
+                    rowIndex: Array.isArray(appendResult.rowIndices) ? appendResult.rowIndices[0] ?? null : null
+                };
+            } catch (error) {
+                if (error?.apiCode) throw error;
+                Logger.warn?.(`[TrendPosting] TREND_POSTING_TOPIC_SAVE_FAILED: ${String(error?.message || error)}`);
+                const detail = String(error?.message || '').trim();
+                throw createApiError(
+                    502,
+                    'TREND_POSTING_TOPIC_SAVE_FAILED',
+                    detail ? `글감 저장에 실패했습니다: ${detail}` : '글감을 저장하지 못했습니다.'
+                );
             }
         },
 

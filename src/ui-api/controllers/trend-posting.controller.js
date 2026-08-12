@@ -21,6 +21,15 @@ function createTrendPostingController(deps = {}) {
             } catch (error) {
                 return toErrorResponse(res, requestId, 'TREND_POSTING_KEYWORDS_FAILED', '트렌드 키워드를 불러오지 못했습니다.', error);
             }
+        },
+
+        async saveTopic({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.saveTopic({ body: requestBody || {} }));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'TREND_POSTING_TOPIC_SAVE_FAILED', '글감을 저장하지 못했습니다.', error);
+            }
         }
     };
 }

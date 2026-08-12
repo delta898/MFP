@@ -23,13 +23,17 @@ function createHarness(service) {
     };
 }
 
-test('trend posting route exposes metadata and keyword read endpoints', async () => {
+test('trend posting route exposes metadata, keyword reads, and topic saves', async () => {
     const searchParams = new URLSearchParams({ categories: '맛집' });
     const harness = createHarness({
         async getMeta() { return { categories: ['맛집'] }; },
         async getKeywords(input) {
             assert.equal(input.searchParams, searchParams);
             return { count: 1, items: [{ keyword: '성수 맛집' }] };
+        },
+        async saveTopic(input) {
+            assert.deepEqual(input.body, { keyword: '성수 맛집', trendDate: '2026-08-11' });
+            return { keyword: '성수 맛집', status: '대기' };
         }
     });
 
@@ -48,12 +52,21 @@ test('trend posting route exposes metadata and keyword read endpoints', async ()
     }), true);
     assert.equal(harness.responses[0].data.categories[0], '맛집');
     assert.equal(harness.responses[1].data.items[0].keyword, '성수 맛집');
+    assert.equal(await harness.route({
+        pathname: '/api/v1/trend-posting/topics',
+        requestId: 'topic-1',
+        method: 'POST',
+        requestBody: { keyword: '성수 맛집', trendDate: '2026-08-11' },
+        res: {}
+    }), true);
+    assert.equal(harness.responses[2].data.status, '대기');
 });
 
 test('trend posting route rejects mutation methods and ignores unrelated paths', async () => {
     const harness = createHarness({
         async getMeta() { return {}; },
-        async getKeywords() { return {}; }
+        async getKeywords() { return {}; },
+        async saveTopic() { return {}; }
     });
 
     assert.equal(await harness.route({

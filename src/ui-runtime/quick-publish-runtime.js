@@ -15,7 +15,7 @@ function createQuickPublishRuntime(options = {}) {
         return `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(String(previewId || ''))}&target=${encodeURIComponent(String(target || ''))}&index=${encodeURIComponent(String(index))}`;
     }
 
-    function buildQuickPublishDedupeKey({ subject, keywords, instruction, referenceUrl, imageGeneration, externalReference, writingStrategy }) {
+    function buildQuickPublishDedupeKey({ subject, keywords, instruction, referenceUrl, imageGeneration, externalReference, writingStrategy, source, trendDate }) {
         const normalizedSubject = String(subject || '').trim().toLowerCase();
         const normalizedKeywords = Array.isArray(keywords)
             ? keywords.map(v => String(v || '').trim().toLowerCase()).filter(Boolean).join(',')
@@ -25,6 +25,8 @@ function createQuickPublishRuntime(options = {}) {
         const normalizedImageGeneration = imageGeneration ? '1' : '0';
         const normalizedExternalReference = externalReference ? '1' : '0';
         const normalizedWritingStrategy = String(writingStrategy || '').trim().toLowerCase();
+        const normalizedSource = String(source || 'manual').trim().toLowerCase();
+        const normalizedTrendDate = String(trendDate || '').trim();
         return [
             normalizedSubject,
             normalizedKeywords,
@@ -32,7 +34,9 @@ function createQuickPublishRuntime(options = {}) {
             normalizedReferenceUrl,
             normalizedImageGeneration,
             normalizedExternalReference,
-            normalizedWritingStrategy
+            normalizedWritingStrategy,
+            normalizedSource,
+            normalizedTrendDate
         ].join('|');
     }
 

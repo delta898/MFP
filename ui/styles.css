@@ -4053,6 +4053,254 @@ h2 {
   display: flex;
 }
 
+.quick-topic-origin {
+  width: fit-content;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  background: #e8f3ff;
+  color: #0b4f9f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-posting-panel {
+  gap: 18px;
+}
+
+.trend-posting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trend-posting-head h3,
+.trend-posting-head p {
+  margin: 0;
+}
+
+.trend-posting-head p {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
+.trend-posting-latest-badge {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border-radius: var(--radius-full);
+  background: #eef7ee;
+  color: #28743b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-posting-query-section {
+  gap: 16px;
+  padding: 16px;
+}
+
+.trend-posting-query-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.trend-posting-panel .field-label-text {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trend-posting-panel .field-hint {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#trend-posting-category-count {
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+
+.trend-posting-categories {
+  min-height: 164px;
+  max-height: 220px;
+  align-content: flex-start;
+}
+
+.trend-posting-categories .category-option-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.trend-posting-period-field {
+  min-width: 0;
+}
+
+.trend-posting-custom-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.trend-posting-custom-dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.trend-posting-custom-dates[hidden] {
+  display: none;
+}
+
+.trend-posting-query-row {
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.trend-posting-query-summary {
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.trend-posting-query-row button {
+  margin-left: auto;
+}
+
+.trend-posting-status {
+  min-height: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.trend-posting-table-wrap {
+  max-height: calc(100vh - 500px);
+}
+
+.trend-keyword-cell {
+  min-width: 180px;
+  font-weight: 700;
+}
+
+.trend-category-tags,
+.trend-posting-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trend-posting-action-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.trend-category-tag,
+.trend-change {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trend-change-up,
+.trend-change-new {
+  background: #fff1f1;
+  color: #bf2c2c;
+}
+
+.trend-change-down {
+  background: #eef5ff;
+  color: #2563a8;
+}
+
+.trend-posting-row-actions {
+  flex-wrap: nowrap;
+  min-width: 270px;
+}
+
+.trend-posting-row-actions button {
+  white-space: nowrap;
+}
+
+.trend-topic-save-feedback {
+  display: block;
+  min-height: 16px;
+  max-width: 360px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.trend-topic-save-feedback.is-pending {
+  color: #64748b;
+}
+
+.trend-topic-save-feedback.is-success {
+  color: #16803c;
+  font-weight: 600;
+}
+
+.trend-topic-save-feedback.is-error {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.trend-posting-table tr.trend-topic-save-success td {
+  background: #f3fff5;
+}
+
+.trend-posting-table tr.trend-topic-save-error td {
+  background: #fff6f6;
+}
+
+.trend-posting-row-actions button:disabled,
+.trend-posting-query-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 1100px) {
+  .trend-posting-query-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-posting-categories {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .trend-posting-head {
+    flex-direction: column;
+  }
+
+  .trend-posting-custom-dates {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-posting-query-row button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .trend-posting-row-actions {
+    flex-wrap: wrap;
+    min-width: 220px;
+  }
+}
+
 .settings-tabs {
   display: flex;
   align-items: center;

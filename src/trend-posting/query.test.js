@@ -49,6 +49,17 @@ test('resolveTrendPostingFilters rejects ranges above the query boundary', () =>
     );
 });
 
+test('resolveTrendPostingFilters limits discovery to five categories', () => {
+    assert.throws(
+        () => resolveTrendPostingFilters(new URLSearchParams({
+            categories: '1,2,3,4,5,6',
+            dateFrom: '2026-08-11',
+            dateTo: '2026-08-11'
+        })),
+        /categories cannot exceed 5/
+    );
+});
+
 test('aggregateTrendKeywords merges normalized keywords and keeps newest row metadata', () => {
     const items = aggregateTrendKeywords([
         {

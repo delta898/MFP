@@ -2491,8 +2491,14 @@ const Utils = {
             }
             const rowIndices = rowNumbers.map((rowNum) => rowNum - 2).filter((idx) => idx >= 0);
 
-            // ⏳ 사용자 요청: API 호출 간 안전한 대기 시간 추가
-            await this.sleep(1000);
+            // 연속 작업의 기존 안전 간격은 유지하되, 단건 UI 저장처럼 후속
+            // Sheets 호출이 없는 경로는 명시적으로 생략할 수 있다.
+            const postAppendDelayMs = options.postAppendDelayMs === undefined
+                ? 1000
+                : Math.max(0, Math.min(60000, Number(options.postAppendDelayMs) || 0));
+            if (postAppendDelayMs > 0) {
+                await this.sleep(postAppendDelayMs);
+            }
             this.clearSheetCache('topics_all');
 
             // [Universal Memory] Kuzu DB에 토픽 기록

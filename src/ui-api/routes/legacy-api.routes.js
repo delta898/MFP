@@ -147,6 +147,7 @@ function createLegacyApiRouteHandler(deps = {}) {
 
     const trendPostingService = createTrendPostingService({
         License: deps.License,
+        Utils: deps.Utils,
         Logger: deps.Logger,
         axios: deps.axios
     });

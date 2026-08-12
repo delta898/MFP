@@ -564,6 +564,14 @@ let quickGeneratedPreviewState = {
   activeTarget: '',
   previews: {}
 };
+let quickTrendTopicContext = null;
+const trendPostingState = {
+  meta: null,
+  items: [],
+  itemsById: new Map(),
+  savedIds: new Set(),
+  loading: false
+};
 let settingsTelegramRuntimeStatus = null;
 let settingsMcpRuntimeStatus = null;
 let settingsMcpTokenVisible = false;
@@ -596,6 +604,7 @@ const blogPageState = {
   shopping: { limit: 50, offset: 0, total: 0 }
 };
 const tableSortState = {
+  trendPosting: { key: 'latestTrendDate', direction: 'desc' },
   trends: { key: 'rowNumber', direction: 'desc' },
   topics: { key: 'rowNumber', direction: 'desc' },
   shopping: { key: 'rowNumber', direction: 'desc' }
@@ -1488,6 +1497,10 @@ function toggleTableSort(tableName, key) {
   if (tableName === 'shopping') {
     setPageInfo('shopping', { offset: 0 });
     loadBlogShopping();
+    return;
+  }
+  if (tableName === 'trendPosting') {
+    renderTrendPostingResults();
   }
 }
 
@@ -1758,7 +1771,7 @@ async function runTrendsToTopics() {
 
 function activateBlogTab(tabName, options = {}) {
   console.log("=== activateBlogTab CALLED ===", tabName);
-  const allowed = ['quick', 'trends', 'topics', 'comment-draft', 'collect', 'auto'];
+  const allowed = ['quick', 'trend-posting', 'trends', 'topics', 'comment-draft', 'collect', 'auto'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   blogActiveTab = target;
 
@@ -1771,6 +1784,10 @@ function activateBlogTab(tabName, options = {}) {
   const forceReload = options.forceReload !== false;
   if (!forceReload) return;
 
+  if (target === 'trend-posting') {
+    void loadTrendPostingMeta();
+    return;
+  }
   if (target === 'trends') {
     loadBlogTrends();
     return;
@@ -1796,6 +1813,343 @@ function activateBlogTab(tabName, options = {}) {
   if (target === 'auto') {
     loadBlogAutoSettings();
     return;
+  }
+}
+
+function applyQuickInputMode(mode) {
+  const nextMode = ['ai', 'manuscript', 'pasted'].includes(mode) ? mode : 'ai';
+  quickInputMode = nextMode;
+  localStorage.setItem('quick_input_mode', quickInputMode);
+  document.getElementById('quick-mode-ai-btn')?.classList.toggle('is-active', quickInputMode === 'ai');
+  document.getElementById('quick-mode-manuscript-btn')?.classList.toggle('is-active', quickInputMode === 'manuscript');
+  document.getElementById('quick-mode-pasted-btn')?.classList.toggle('is-active', quickInputMode === 'pasted');
+  const aiPanel = document.getElementById('quick-ai-mode-panel');
+  const manuscriptPanel = document.getElementById('quick-manuscript-mode-panel');
+  const pastedPanel = document.getElementById('quick-pasted-mode-panel');
+  if (aiPanel) aiPanel.hidden = quickInputMode !== 'ai';
+  if (manuscriptPanel) manuscriptPanel.hidden = quickInputMode !== 'manuscript';
+  if (pastedPanel) pastedPanel.hidden = quickInputMode !== 'pasted';
+}
+
+function getActiveQuickTrendContext() {
+  if (!quickTrendTopicContext) return null;
+  const subject = String(document.getElementById('quick-subject')?.value || '').trim();
+  const keywords = String(document.getElementById('quick-keywords')?.value || '').trim();
+  if (subject !== quickTrendTopicContext.subject || keywords !== quickTrendTopicContext.keyword) return null;
+  return quickTrendTopicContext;
+}
+
+function syncQuickTopicOrigin() {
+  const originEl = document.getElementById('quick-topic-origin');
+  if (!originEl) return;
+  const context = getActiveQuickTrendContext();
+  originEl.hidden = !context;
+  originEl.textContent = context
+    ? `네이버 트렌드 글감 · ${context.trendDate}`
+    : '';
+}
+
+function handleQuickTopicIdentityInput() {
+  if (quickTrendTopicContext && !getActiveQuickTrendContext()) {
+    quickTrendTopicContext = null;
+  }
+  syncQuickTopicOrigin();
+}
+
+function formatTrendPostingDateLabel(value) {
+  const parts = String(value || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return String(value || '');
+  return `${parts[1]}월 ${parts[2]}일`;
+}
+
+function subtractTrendPostingDays(ymd, days) {
+  const date = new Date(`${ymd}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getSelectedTrendPostingCategories() {
+  return Array.from(document.querySelectorAll('[data-trend-posting-category].active'))
+    .map((button) => String(button.dataset.category || '').trim())
+    .filter(Boolean);
+}
+
+function syncTrendPostingCategoryLimit() {
+  const selected = getSelectedTrendPostingCategories();
+  const atLimit = selected.length >= 5;
+  document.querySelectorAll('[data-trend-posting-category]').forEach((button) => {
+    button.disabled = atLimit && !button.classList.contains('active');
+  });
+  const countEl = document.getElementById('trend-posting-category-count');
+  const hintEl = document.getElementById('trend-posting-category-hint');
+  if (countEl) countEl.textContent = `${selected.length}/5`;
+  if (hintEl) hintEl.textContent = atLimit
+    ? '최대 5개를 선택했습니다. 다른 카테고리를 선택하려면 하나를 해제하세요.'
+    : '최대 5개까지 선택할 수 있습니다.';
+}
+
+function syncTrendPostingPeriodUi() {
+  const isCustom = document.getElementById('trend-posting-period')?.value === 'custom';
+  const customEl = document.getElementById('trend-posting-custom-dates');
+  if (customEl) customEl.hidden = !isCustom;
+}
+
+function resolveTrendPostingDateRange() {
+  const latest = String(trendPostingState.meta?.dateRange?.max || '').trim();
+  const period = document.getElementById('trend-posting-period')?.value || 'latest';
+  if (period === 'custom') {
+    return {
+      dateFrom: String(document.getElementById('trend-posting-date-from')?.value || '').trim(),
+      dateTo: String(document.getElementById('trend-posting-date-to')?.value || '').trim()
+    };
+  }
+  return {
+    dateFrom: period === '7days' ? subtractTrendPostingDays(latest, 6) : latest,
+    dateTo: latest
+  };
+}
+
+function renderTrendPostingCategories(categories) {
+  const container = document.getElementById('trend-posting-categories');
+  if (!container) return;
+  container.innerHTML = (Array.isArray(categories) ? categories : []).map((category, index) => `
+    <button type="button" class="category-option-btn${index === 0 ? ' active' : ''}"
+      data-trend-posting-category data-category="${escapeHtml(category)}"
+      aria-pressed="${index === 0 ? 'true' : 'false'}">${escapeHtml(category)}</button>
+  `).join('') || '<span class="category-hint">선택할 수 있는 카테고리가 없습니다.</span>';
+  syncTrendPostingCategoryLimit();
+}
+
+function renderTrendPostingChange(change = {}) {
+  const type = ['up', 'down', 'new', 'steady'].includes(change.type) ? change.type : 'steady';
+  const fallback = { up: '상승', down: '하락', new: '신규', steady: '유지' }[type];
+  return `<span class="trend-change trend-change-${type}">${escapeHtml(change.raw || fallback)}</span>`;
+}
+
+function getTrendPostingChangeSortValue(change = {}) {
+  const type = String(change?.type || 'steady');
+  const amount = Number(change?.amount);
+  if (type === 'new') return Number.POSITIVE_INFINITY;
+  if (type === 'up') return Number.isFinite(amount) ? Math.abs(amount) : 0;
+  if (type === 'down') return Number.isFinite(amount) ? -Math.abs(amount) : 0;
+  return 0;
+}
+
+function compareTrendPostingItems(left, right, key) {
+  if (key === 'change') {
+    const leftValue = getTrendPostingChangeSortValue(left?.change);
+    const rightValue = getTrendPostingChangeSortValue(right?.change);
+    if (leftValue !== rightValue) return leftValue < rightValue ? -1 : 1;
+    return String(left?.change?.raw || '').localeCompare(String(right?.change?.raw || ''), 'ko');
+  }
+  if (key === 'categories') {
+    const leftCategories = Array.isArray(left?.categories) ? left.categories.join(', ') : '';
+    const rightCategories = Array.isArray(right?.categories) ? right.categories.join(', ') : '';
+    return leftCategories.localeCompare(rightCategories, 'ko');
+  }
+  const leftValue = String(left?.[key] || '');
+  const rightValue = String(right?.[key] || '');
+  return leftValue.localeCompare(rightValue, 'ko');
+}
+
+function getSortedTrendPostingItems() {
+  const sortState = getSortState('trendPosting');
+  const direction = sortState.direction === 'desc' ? -1 : 1;
+  return trendPostingState.items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const compared = compareTrendPostingItems(left.item, right.item, sortState.key);
+      return compared === 0 ? left.index - right.index : compared * direction;
+    })
+    .map(({ item }) => item);
+}
+
+function renderTrendPostingResults(items) {
+  const body = document.getElementById('trend-posting-table-body');
+  if (!body) return;
+  if (Array.isArray(items)) {
+    trendPostingState.items = items.slice();
+    trendPostingState.itemsById = new Map(trendPostingState.items.map((item) => [String(item.id), item]));
+  }
+  if (trendPostingState.itemsById.size === 0) {
+    body.innerHTML = '<tr><td colspan="5">조건에 맞는 트렌드 키워드가 없습니다.</td></tr>';
+    return;
+  }
+  body.innerHTML = getSortedTrendPostingItems().map((item) => {
+    const id = String(item.id || '');
+    const saved = trendPostingState.savedIds.has(`${id}:${String(item.latestTrendDate || '')}`);
+    const categories = (Array.isArray(item.categories) ? item.categories : [])
+      .map((category) => `<span class="trend-category-tag">${escapeHtml(category)}</span>`)
+      .join('');
+    return `
+      <tr data-trend-posting-id="${escapeHtml(id)}">
+        <td class="trend-keyword-cell">${escapeHtml(item.keyword)}</td>
+        <td><div class="trend-category-tags">${categories}</div></td>
+        <td>${escapeHtml(item.latestTrendDate)}</td>
+        <td>${renderTrendPostingChange(item.change)}</td>
+        <td>
+          <div class="trend-posting-action-cell">
+            <div class="trend-posting-row-actions">
+              <button type="button" class="primary" data-trend-posting-action="write" data-item-id="${escapeHtml(id)}">빠른 포스팅에서 작성</button>
+              <button type="button" class="secondary" data-trend-posting-action="save" data-item-id="${escapeHtml(id)}"${saved ? ' disabled' : ''}>${saved ? '저장됨' : '글감 저장'}</button>
+            </div>
+            <span class="trend-topic-save-feedback${saved ? ' is-success' : ''}"
+              data-trend-topic-save-feedback aria-live="polite">${saved ? '대기 상태로 저장됨' : ''}</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+async function loadTrendPostingMeta(options = {}) {
+  if (trendPostingState.loading) return;
+  if (trendPostingState.meta && options.force !== true) return;
+  const statusEl = document.getElementById('trend-posting-status');
+  trendPostingState.loading = true;
+  if (statusEl) statusEl.textContent = '트렌드 조회 정보를 불러오는 중...';
+  try {
+    const meta = await fetchJson('/api/v1/trend-posting/meta');
+    trendPostingState.meta = meta;
+    const latest = String(meta?.dateRange?.max || '');
+    const latestLabel = formatTrendPostingDateLabel(latest);
+    const badge = document.getElementById('trend-posting-latest-badge');
+    const period = document.getElementById('trend-posting-period');
+    if (badge) badge.textContent = latestLabel ? `최신 데이터 ${latestLabel}` : '최신 날짜 없음';
+    const latestOption = period?.querySelector('option[value="latest"]');
+    if (latestOption) latestOption.textContent = latestLabel ? `최신 데이터 (${latestLabel})` : '최신 데이터';
+    const fromEl = document.getElementById('trend-posting-date-from');
+    const toEl = document.getElementById('trend-posting-date-to');
+    if (fromEl) {
+      fromEl.min = String(meta?.dateRange?.min || '');
+      fromEl.max = latest;
+      fromEl.value = latest;
+    }
+    if (toEl) {
+      toEl.min = String(meta?.dateRange?.min || '');
+      toEl.max = latest;
+      toEl.value = latest;
+    }
+    renderTrendPostingCategories(meta?.categories || []);
+    const queryBtn = document.getElementById('trend-posting-query-btn');
+    if (queryBtn) queryBtn.disabled = !latest || !Array.isArray(meta?.categories) || meta.categories.length === 0;
+    if (statusEl) statusEl.textContent = '기간과 트렌드 카테고리를 선택한 뒤 조회하세요.';
+  } catch (error) {
+    if (statusEl) statusEl.textContent = `조회 정보를 불러오지 못했습니다: ${error.message}`;
+  } finally {
+    trendPostingState.loading = false;
+  }
+}
+
+async function queryTrendPostingKeywords() {
+  if (trendPostingState.loading) return;
+  const statusEl = document.getElementById('trend-posting-status');
+  const queryBtn = document.getElementById('trend-posting-query-btn');
+  const categories = getSelectedTrendPostingCategories();
+  if (categories.length === 0) {
+    await showUiPopup('트렌드 카테고리를 하나 이상 선택해 주세요.');
+    return;
+  }
+  const { dateFrom, dateTo } = resolveTrendPostingDateRange();
+  if (!dateFrom || !dateTo) {
+    await showUiPopup('조회 기간을 입력해 주세요.');
+    return;
+  }
+  const fromTime = Date.parse(`${dateFrom}T00:00:00.000Z`);
+  const toTime = Date.parse(`${dateTo}T00:00:00.000Z`);
+  const inclusiveDays = Math.floor((toTime - fromTime) / 86400000) + 1;
+  if (!Number.isFinite(inclusiveDays) || inclusiveDays < 1) {
+    await showUiPopup('시작일은 종료일보다 늦을 수 없습니다.');
+    return;
+  }
+  if (inclusiveDays > 31) {
+    await showUiPopup('직접 지정 기간은 최대 31일까지 조회할 수 있습니다.');
+    return;
+  }
+  trendPostingState.loading = true;
+  if (queryBtn) queryBtn.disabled = true;
+  if (statusEl) statusEl.textContent = '트렌드 키워드를 조회하는 중...';
+  try {
+    const params = new URLSearchParams({ dateFrom, dateTo });
+    categories.forEach((category) => params.append('categories[]', category));
+    const result = await fetchJson(`/api/v1/trend-posting/keywords?${params.toString()}`);
+    renderTrendPostingResults(result?.items || []);
+    if (statusEl) statusEl.textContent = `${Number(result?.count || 0)}개의 키워드를 찾았습니다. (${dateFrom} ~ ${dateTo})`;
+  } catch (error) {
+    if (statusEl) statusEl.textContent = `트렌드 조회에 실패했습니다: ${error.message}`;
+  } finally {
+    trendPostingState.loading = false;
+    if (queryBtn) queryBtn.disabled = false;
+  }
+}
+
+async function openTrendTopicInQuickPosting(item) {
+  if (!item) return;
+  const perTopicValues = ['quick-subject', 'quick-keywords', 'quick-instruction', 'quick-reference-url']
+    .map((id) => String(document.getElementById(id)?.value || '').trim());
+  const activeContext = getActiveQuickTrendContext();
+  const alreadyShowingSameTrend = activeContext?.id === String(item.id || '')
+    && activeContext?.trendDate === String(item.latestTrendDate || '');
+  if (!alreadyShowingSameTrend && perTopicValues.some(Boolean)) {
+    const confirmed = await showUiConfirm(
+      '빠른 포스팅에 작성 중인 글감이 있습니다. 선택한 트렌드 키워드로 교체할까요?',
+      { title: '빠른 포스팅 글감 교체', confirmText: '교체', cancelText: '취소' }
+    );
+    if (!confirmed) return;
+  }
+  await navigateTo('blog', 'quick');
+  if (!document.getElementById('blog-tab-quick')?.classList.contains('active')) return;
+  applyQuickInputMode('ai');
+  const keyword = String(item.keyword || '').trim();
+  document.getElementById('quick-subject').value = keyword;
+  document.getElementById('quick-keywords').value = keyword;
+  document.getElementById('quick-instruction').value = '';
+  document.getElementById('quick-reference-url').value = '';
+  quickTrendTopicContext = {
+    id: String(item.id || ''),
+    subject: keyword,
+    keyword,
+    source: 'naver_trend',
+    trendDate: String(item.latestTrendDate || '')
+  };
+  syncQuickTopicOrigin();
+  document.getElementById('quick-subject')?.focus();
+}
+
+async function saveTrendPostingTopic(item, button) {
+  if (!item || !button || button.disabled) return;
+  const row = button.closest('tr');
+  const feedbackEl = row?.querySelector('[data-trend-topic-save-feedback]');
+  row?.classList.remove('trend-topic-save-success', 'trend-topic-save-error');
+  button.disabled = true;
+  button.textContent = '저장 중...';
+  if (feedbackEl) {
+    feedbackEl.className = 'trend-topic-save-feedback is-pending';
+    feedbackEl.textContent = 'Google Spreadsheet에 저장하는 중...';
+  }
+  try {
+    await postJson('/api/v1/trend-posting/topics', {
+      keyword: item.keyword,
+      trendDate: item.latestTrendDate
+    });
+    trendPostingState.savedIds.add(`${String(item.id)}:${String(item.latestTrendDate || '')}`);
+    button.textContent = '저장됨';
+    row?.classList.add('trend-topic-save-success');
+    if (feedbackEl) {
+      feedbackEl.className = 'trend-topic-save-feedback is-success';
+      feedbackEl.textContent = 'topics에 대기 상태로 저장됨';
+    }
+    const statusEl = document.getElementById('trend-posting-status');
+    if (statusEl) statusEl.textContent = `“${item.keyword}” 글감을 대기 상태로 저장했습니다.`;
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = '다시 시도';
+    row?.classList.add('trend-topic-save-error');
+    if (feedbackEl) {
+      feedbackEl.className = 'trend-topic-save-feedback is-error';
+      feedbackEl.textContent = `저장 실패: ${error.message}`;
+    }
+    const statusEl = document.getElementById('trend-posting-status');
+    if (statusEl) statusEl.textContent = `글감 저장에 실패했습니다: ${error.message}`;
   }
 }
 
@@ -8279,24 +8633,14 @@ function bindActions() {
   const quickModeAiBtn = document.getElementById('quick-mode-ai-btn');
   const quickModeManuscriptBtn = document.getElementById('quick-mode-manuscript-btn');
   const quickModePastedBtn = document.getElementById('quick-mode-pasted-btn');
-  const quickAiModePanel = document.getElementById('quick-ai-mode-panel');
-  const quickManuscriptModePanel = document.getElementById('quick-manuscript-mode-panel');
-  const quickPastedModePanel = document.getElementById('quick-pasted-mode-panel');
-  const setQuickInputMode = (mode) => {
-    const nextMode = ['ai', 'manuscript', 'pasted'].includes(mode) ? mode : 'ai';
-    quickInputMode = nextMode;
-    localStorage.setItem('quick_input_mode', quickInputMode);
-    quickModeAiBtn?.classList.toggle('is-active', quickInputMode === 'ai');
-    quickModeManuscriptBtn?.classList.toggle('is-active', quickInputMode === 'manuscript');
-    quickModePastedBtn?.classList.toggle('is-active', quickInputMode === 'pasted');
-    if (quickAiModePanel) quickAiModePanel.hidden = quickInputMode !== 'ai';
-    if (quickManuscriptModePanel) quickManuscriptModePanel.hidden = quickInputMode !== 'manuscript';
-    if (quickPastedModePanel) quickPastedModePanel.hidden = quickInputMode !== 'pasted';
-  };
-  quickModeAiBtn?.addEventListener('click', () => setQuickInputMode('ai'));
-  quickModeManuscriptBtn?.addEventListener('click', () => setQuickInputMode('manuscript'));
-  quickModePastedBtn?.addEventListener('click', () => setQuickInputMode('pasted'));
-  setQuickInputMode(quickInputMode);
+  const quickSubjectInput = document.getElementById('quick-subject');
+  const quickKeywordsInput = document.getElementById('quick-keywords');
+  quickModeAiBtn?.addEventListener('click', () => applyQuickInputMode('ai'));
+  quickModeManuscriptBtn?.addEventListener('click', () => applyQuickInputMode('manuscript'));
+  quickModePastedBtn?.addEventListener('click', () => applyQuickInputMode('pasted'));
+  applyQuickInputMode(quickInputMode);
+  quickSubjectInput?.addEventListener('input', handleQuickTopicIdentityInput);
+  quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
 
   const saveBtn = document.getElementById('quick-save-btn');
   const directPublishBtn = document.getElementById('quick-direct-publish-btn');
@@ -8315,6 +8659,7 @@ function bindActions() {
     const naverCat = (document.getElementById('quick-naver-category')?.value || '').trim();
     const wpCat = (document.getElementById('quick-wp-category')?.value || '').trim();
 
+    const trendContext = getActiveQuickTrendContext();
     const payload = {
       subject: (document.getElementById('quick-subject')?.value || '').trim(),
       keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
@@ -8334,6 +8679,10 @@ function bindActions() {
       postStatus: (document.getElementById('quick-wp-post-status')?.value || 'publish').trim(),
       scheduleDate: (document.getElementById('quick-wp-schedule-date')?.value || '').trim()
     };
+    if (trendContext) {
+      payload.source = trendContext.source;
+      payload.trendDate = trendContext.trendDate;
+    }
 
     // [Consolidated] Individual options are now persisted via initGlobalPublishSettingsSync change listeners.
 
@@ -8777,6 +9126,8 @@ function bindActions() {
       if (keywordsEl) keywordsEl.value = '';
       if (instructionEl) instructionEl.value = '';
       if (referenceUrlEl) referenceUrlEl.value = '';
+      quickTrendTopicContext = null;
+      syncQuickTopicOrigin();
       setSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy, 'search');
 
       // [New] Clear Categories
@@ -9618,6 +9969,10 @@ function bindActions() {
   const blogStatusFilter = document.getElementById('blog-status-filter');
   const blogQFilter = document.getElementById('blog-q-filter');
   const blogTrendsTableBody = document.getElementById('blog-trends-table-body');
+  const trendPostingPeriod = document.getElementById('trend-posting-period');
+  const trendPostingCategories = document.getElementById('trend-posting-categories');
+  const trendPostingQueryBtn = document.getElementById('trend-posting-query-btn');
+  const trendPostingTableBody = document.getElementById('trend-posting-table-body');
   const blogTopicsTableBody = document.getElementById('blog-table-body');
   const shoppingTableBody = document.getElementById('shopping-table-body');
   const sortableHeaders = Array.from(document.querySelectorAll('.data-table th.sortable'));
@@ -9627,6 +9982,27 @@ function bindActions() {
       const tabName = String(btn.dataset.blogTab || '');
       activateBlogTab(tabName, { forceReload: true });
     });
+  });
+  trendPostingPeriod?.addEventListener('change', syncTrendPostingPeriodUi);
+  trendPostingCategories?.addEventListener('click', (event) => {
+    const button = event.target?.closest('[data-trend-posting-category]');
+    if (!button || button.disabled) return;
+    const nextActive = !button.classList.contains('active');
+    button.classList.toggle('active', nextActive);
+    button.setAttribute('aria-pressed', nextActive ? 'true' : 'false');
+    syncTrendPostingCategoryLimit();
+  });
+  trendPostingQueryBtn?.addEventListener('click', queryTrendPostingKeywords);
+  trendPostingTableBody?.addEventListener('click', (event) => {
+    const button = event.target?.closest('[data-trend-posting-action]');
+    if (!button) return;
+    const item = trendPostingState.itemsById.get(String(button.dataset.itemId || ''));
+    if (!item) return;
+    if (button.dataset.trendPostingAction === 'write') {
+      void openTrendTopicInQuickPosting(item);
+    } else if (button.dataset.trendPostingAction === 'save') {
+      void saveTrendPostingTopic(item, button);
+    }
   });
   shoppingTabButtons.forEach(btn => {
     btn.addEventListener('click', () => {

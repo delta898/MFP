@@ -12,6 +12,19 @@ function createService(remoteClient) {
     });
 }
 
+function createWritableService(Utils) {
+    return createTrendPostingService({
+        License: {
+            async issueTrendsAccessToken() { throw new Error('not used'); },
+            async checkLicenseStatus() { return { success: true }; }
+        },
+        tokenCache: { clear() {} },
+        remoteClient: {},
+        Utils,
+        Logger: { warn() {} }
+    });
+}
+
 test('trend posting service exposes only the metadata required by the UI', async () => {
     const service = createService({
         async getMeta() {
@@ -131,4 +144,79 @@ test('trend posting service rejects queries that reach the remote row cap', asyn
         }),
         (error) => error.status === 400 && error.apiCode === 'TREND_POSTING_QUERY_TOO_BROAD'
     );
+});
+
+test('trend posting service saves a selected keyword as a waiting topics row', async () => {
+    let appended;
+    let appendOptions;
+    let ensureCalls = 0;
+    const service = createWritableService({
+        async ensureAllSheetsExist() { ensureCalls += 1; },
+        async appendGoogleSheetTopics(topics, options) {
+            appended = topics;
+            appendOptions = options;
+            return { success: true, rowNumbers: [12], rowIndices: [10] };
+        }
+    });
+
+    const result = await service.saveTopic({
+        body: { keyword: '  성수   맛집 ', trendDate: '2026-08-11' }
+    });
+
+    assert.deepEqual(appended, [{
+        subject: '성수 맛집',
+        keywords: ['성수 맛집'],
+        source: 'naver_trend',
+        trendDate: '2026-08-11',
+        status: '대기'
+    }]);
+    assert.deepEqual(appendOptions, { defaultStatus: '대기', postAppendDelayMs: 0 });
+    assert.equal(ensureCalls, 0);
+    assert.deepEqual(result, {
+        keyword: '성수 맛집',
+        trendDate: '2026-08-11',
+        source: 'naver_trend',
+        status: '대기',
+        rowNumber: 12,
+        rowIndex: 10
+    });
+});
+
+test('trend posting service rejects missing keywords and impossible dates before append', async () => {
+    let appendCalls = 0;
+    const service = createWritableService({
+        async appendGoogleSheetTopics() { appendCalls += 1; }
+    });
+
+    await assert.rejects(
+        service.saveTopic({ body: { keyword: '', trendDate: '2026-08-11' } }),
+        (error) => error.status === 400 && error.apiCode === 'TREND_POSTING_TOPIC_INVALID'
+    );
+    await assert.rejects(
+        service.saveTopic({ body: { keyword: '성수 맛집', trendDate: '2026-02-31' } }),
+        (error) => error.status === 400 && error.apiCode === 'TREND_POSTING_TOPIC_INVALID'
+    );
+    assert.equal(appendCalls, 0);
+});
+
+test('trend posting service checks the active license before saving', async () => {
+    let appendCalls = 0;
+    const service = createTrendPostingService({
+        License: {
+            async issueTrendsAccessToken() { throw new Error('not used'); },
+            async checkLicenseStatus() { return { success: false, message: '만료됨' }; }
+        },
+        tokenCache: { clear() {} },
+        remoteClient: {},
+        Utils: {
+            async appendGoogleSheetTopics() { appendCalls += 1; }
+        },
+        Logger: { warn() {} }
+    });
+
+    await assert.rejects(
+        service.saveTopic({ body: { keyword: '성수 맛집', trendDate: '2026-08-11' } }),
+        (error) => error.status === 401 && error.apiCode === 'LICENSE_NOT_ACTIVE'
+    );
+    assert.equal(appendCalls, 0);
 });

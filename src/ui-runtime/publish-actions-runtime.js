@@ -568,6 +568,16 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_WRITING_STRATEGY', message: '글 작성 전략 값이 올바르지 않습니다.' };
         }
         const writingStrategy = normalizeWritingStrategyOverride(rawWritingStrategy);
+        const source = requestBody?.source === 'naver_trend' ? 'naver_trend' : 'manual';
+        const trendDate = source === 'naver_trend' ? String(requestBody?.trendDate || '').trim() : '';
+        const parsedTrendDate = new Date(`${trendDate}T00:00:00.000Z`);
+        if (source === 'naver_trend' && (
+            !/^\d{4}-\d{2}-\d{2}$/.test(trendDate)
+            || Number.isNaN(parsedTrendDate.getTime())
+            || parsedTrendDate.toISOString().slice(0, 10) !== trendDate
+        )) {
+            return { success: false, code: 'INVALID_TREND_DATE', message: '트렌드 날짜가 올바르지 않습니다.' };
+        }
         const externalReference = normalizeBool(requestBody?.externalReference, true);
         const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
@@ -622,7 +632,9 @@ function createPublishActionsRuntime(deps = {}) {
             referenceUrl,
             imageGeneration: imageGenerationFinal,
             externalReference,
-            writingStrategy
+            writingStrategy,
+            source,
+            trendDate
         });
         const existingEntry = getQuickPublishRecentEntry(dedupeKey) || null;
 
@@ -679,8 +691,8 @@ function createPublishActionsRuntime(deps = {}) {
                     generate: imageGenerationFinal,
                     count: 4
                 },
-                source: 'manual',
-                trendDate: '',
+                source,
+                trendDate,
                 status: appendStatus,
                 category: (requestBody?.naverCategory || requestBody?.wordpressCategory)
                     ? `N:${requestBody.naverCategory || ''}, W:${requestBody.wordpressCategory || ''}`
