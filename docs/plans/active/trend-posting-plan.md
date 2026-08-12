@@ -113,7 +113,7 @@ GET /api/v1/trend-posting/keywords
 4. 앱의 trend posting service가 HTTPS trends API 호출에 토큰을 붙인다.
 5. trends API는 서명, audience, expiry, scope를 검증하고 읽기 endpoint만 허용한다.
 
-권장 만료 시간은 15분이며, 앱은 만료 전에 한 번만 갱신을 시도한다. 모든 사용자용 endpoint에는 요청 크기 제한, 동시성 제한, HTTPS reverse proxy, IP 단위 rate limit을 적용한다.
+권장 만료 시간은 15분이며, 앱은 토큰을 메모리에만 보관하고 만료 전에 한 번 갱신을 시도한다. Oracle API는 익명화된 라이선스 식별자(`sub`) 단위 요청 제한을 적용하고, HTTPS reverse proxy는 IP 단위 요청 제한을 적용한다. 두 제한은 서로 대체하지 않는다.
 
 내부 bearer 토큰과 사용자 읽기 토큰은 서로 대체할 수 없다. ingest endpoint는 내부 bearer 토큰만 허용한다.
 

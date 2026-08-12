@@ -25,11 +25,15 @@ The integration branch currently contains planning commits only:
 - `46ed528 docs: plan trend posting feature`
 - `cc609f8 docs: define trend posting branch flow`
 
-The access branch has uncommitted changes. They are intentionally ready for the user to review and commit as one logical change. Suggested commit message:
+The access foundation was committed as:
 
 ```text
-feat: secure trends read access
+564a1e5 feat: secure trends read access
 ```
+
+Follow-up hardening and production-topology documentation are currently being
+prepared on the same access branch. Do not merge it into the integration branch
+until the Oracle HTTPS endpoint and Edge Function have been validated together.
 
 ## Confirmed Production Topology
 
@@ -40,6 +44,8 @@ Mac Studio
 
 Oracle Cloud
   trends-api Node systemd service (currently listens on 0.0.0.0:4581)
+  public HTTPS hostname: trendapi.hangadac.com
+  Caddy Docker container -> host.docker.internal:4581
   WordPress plugin
   -> Supabase trends data
 
@@ -50,12 +56,34 @@ Supabase
 
 The WordPress plugin source is `wordpress/trends-download-ui/trends-download-ui.php`. Its `BG_TRENDS_API_BASE_URL` points to the Oracle Cloud server, confirming that the Oracle trends API is the intended central gateway.
 
+Production HTTPS verification completed on 2026-08-12:
+
+- `https://trendapi.hangadac.com/health` returned HTTP/2 200
+- Caddy obtained a valid public certificate
+- the Caddy Docker container reaches the host Node service through
+  `host.docker.internal:4581`
+- an unauthenticated request to `/api/v1/trends/meta` returned HTTP/2 401
+- the same metadata endpoint returned HTTP/2 200 with the existing internal
+  token and read the production Supabase trend metadata successfully
+- the Caddy Compose service maps `host.docker.internal:host-gateway`
+- WordPress now uses `https://trendapi.hangadac.com` as
+  `BG_TRENDS_API_BASE_URL` while retaining the existing internal token
+
+During the WordPress migration check, a pre-existing preview form defect was
+identified: the JavaScript loading state disabled the named `trend_date` input
+before the browser serialized the GET form. The selected date was therefore
+omitted and the server silently fell back to the latest metadata date. The
+plugin now keeps the date control submit-capable while the preview request is
+in progress.
+
 The current recommended production hardening is:
 
-- expose only HTTPS reverse-proxy routes for `GET /api/v1/trends` and `GET /api/v1/trends/meta`
-- keep port `4581` inaccessible from the public Internet where possible
+- expose the Oracle API through an HTTPS reverse proxy and let endpoint-level
+  authorization distinguish user reads from internal operations
+- keep port `4581` inaccessible from the public Internet after the proxy works
 - preserve `Authorization` through the reverse proxy
-- keep ingest and CSV export endpoints internal-token-only
+- keep ingest and CSV export endpoints internal-token-only even though the
+  WordPress plugin and collector reach them through the same HTTPS hostname
 
 ## Access Branch Changes
 
@@ -84,7 +112,7 @@ Implemented behavior:
 5. `TRENDS_API_TOKEN` authorizes ingest, WordPress, and exports.
 6. User read tokens authorize only `GET /api/v1/trends` and `GET /api/v1/trends/meta`.
 7. Read tokens are verified for HMAC signature, issuer, audience, scope, and expiry.
-8. User-token reads use an in-process per-source-IP fixed-window rate limit, default 120 requests per minute.
+8. User-token reads use an in-process per-license-subject fixed-window rate limit, default 120 requests per minute. The reverse proxy owns the separate IP rate limit.
 
 Required deployment secrets, never commit them:
 
@@ -116,7 +144,9 @@ The full `npm run test:unit` ran 387 tests: 386 passed. The only failure was the
 
 ## Next Work
 
-After the user commits the access branch and it is merged into `feature/trend-posting-main`, continue with `feature/trend-posting-query`:
+After the user validates the Oracle HTTPS endpoint, deploys the Edge Function,
+and merges the access branch into `feature/trend-posting-main`, continue with
+`feature/trend-posting-query`:
 
 1. Add desktop-local trend posting API endpoints.
 2. Acquire and cache the short-lived read token through the new Edge Function.

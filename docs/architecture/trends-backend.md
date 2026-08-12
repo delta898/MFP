@@ -40,13 +40,15 @@ wordpress/
 - Serves filtered JSON/CSV exports.
 - Stores operational scrape history in file logs, not in a database `collection_runs` table.
 - Auto-loads the shared environment file from `apps/trends/.env`.
-- Is expected to run as a local Node service on the WordPress server.
+- Runs as the central Node service on Oracle Cloud Free Tier.
+- Is reached by the WordPress plugin with the internal token and by BlogGenius
+  desktop clients with short-lived user read tokens.
 
 ### `wordpress/trends-download-ui`
 - Hosts WordPress integration assets only.
-- Should call `apps/trends/trends-api` from WordPress server-side PHP.
+- Calls the Oracle Cloud `trends-api` from WordPress server-side PHP.
 - Must not hold Supabase service-role credentials.
-- Should normally call `trends-api` over `127.0.0.1`, not over a public Internet endpoint.
+- Holds only the internal trends API token needed by the server-side plugin.
 - Current starter asset: `wordpress/trends-download-ui/trends-download-ui.php`
   - shortcode: `[trends_download_ui]`
   - config constants: `BG_TRENDS_API_BASE_URL`, `BG_TRENDS_API_TOKEN`
@@ -59,11 +61,19 @@ wordpress/
 5. WordPress requests filtered exports from the API.
    Category selection is multi-select; missing category means all categories.
 
-Operationally, the current preferred topology is:
-- `trends-api` on the WordPress server
-- WordPress PHP -> `127.0.0.1`
-- collector on the same server
-- auth refreshed from desktop and copied to the server
+Operationally, the current topology is:
+
+```text
+Mac Studio collector --internal token--> Oracle Cloud trends-api --> Supabase trends.items
+WordPress plugin ----internal token-----> Oracle Cloud trends-api
+BlogGenius app --15-minute user token---> Oracle Cloud HTTPS read endpoints
+                         ^
+                         |
+               Supabase license Edge Function
+```
+
+Oracle Cloud is the only public trends data gateway. Direct Supabase access is
+never given to WordPress or the desktop app.
 
 ## Collector Contract
 
@@ -142,6 +152,22 @@ Legacy compatibility:
   and a non-expired `exp`. They may read only `/api/v1/trends` and
   `/api/v1/trends/meta`.
 - All non-health endpoints fail closed when neither access class is valid.
+- User request limits are keyed by the token's anonymized license subject, not
+  by the reverse proxy socket address. IP-level abuse protection belongs at the
+  HTTPS reverse proxy.
+
+### Desktop Token Lifecycle
+
+The 15-minute token is not user-managed configuration.
+
+1. BlogGenius reads its already saved license key and current HWID.
+2. The app requests a token from `issue-trends-access-token`.
+3. The Edge Function validates the license and returns a signed read token.
+4. The app keeps the token in memory only and reuses it until shortly before
+   expiry.
+5. The app refreshes once before expiry or once after an authentication failure.
+6. App exit discards the token. No long-lived server secret is persisted in the
+   desktop configuration.
 
 ### Query Filters
 - `trend_date`

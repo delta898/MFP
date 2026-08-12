@@ -16,37 +16,42 @@ This document does not replace the structural contracts in [trends-backend.md](/
 The trends backend is not packaged like `BlogGenius.app`.
 
 The current operating model is:
-- clone this repository onto the WordPress server at a separate path
-- run `trends-api` on that server as a local Node service
-- run `trends-collector` either on that server or from an operator desktop against the server API
-- let WordPress PHP call `trends-api` locally when possible, or through a host-reachable address when WordPress itself runs in Docker
+- run `trends-api` as a systemd Node service on Oracle Cloud Free Tier
+- run `trends-collector` on the operator Mac Studio against the Oracle API
+- let the WordPress plugin call the Oracle API with the internal token
+- let BlogGenius desktop clients call only the HTTPS read endpoints with
+  short-lived licensed-user tokens
 
 Preferred shape:
 
 ```text
-WordPress server
-  /var/www/html/                 # WordPress web root
+Oracle Cloud
   /home/ubuntu/Project/NaverAutoBlog/
     apps/trends/
     shared/naver-trends-core/
     bin/
-    config/naver_auth.json
+
+Mac Studio
+  trends-collector + Naver auth
+
+WordPress
+  trends-download-ui plugin -> Oracle HTTPS API
 ```
 
 ## Why This Model
 
 - It avoids creating a separate packaging pipeline for the trends runtime too early.
-- It keeps WordPress and the Node trends runtime operationally separate while still colocating them on one machine.
-- It keeps the trends API local to one server, so it does not need to be public just to satisfy WordPress integration.
+- It keeps WordPress and the Node trends runtime operationally separate.
+- It gives WordPress and BlogGenius one central, policy-enforcing data gateway.
 - It keeps the Supabase secret key on the Node backend only.
 - It preserves shared-code reuse with the main desktop app.
 
 ## Runtime Topology
 
 ### `trends-api`
-- Runs as a long-lived local service on the WordPress server.
-- Binds to `127.0.0.1` by default for non-Docker WordPress setups.
-- Should bind to `0.0.0.0` when WordPress runs in Docker and must reach the host Node service over a bridge/host address.
+- Runs as a long-lived service on Oracle Cloud.
+- Binds to `0.0.0.0:4581` so the Docker bridge can reach the host service.
+- Must not expose port `4581` directly to the public Internet.
 - Owns Supabase read/write access.
 - Serves ingest, metadata, and export endpoints.
 
@@ -57,11 +62,10 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
 ```
 
 ### `trends-collector`
-- Can run on the same server or on an operator desktop.
+- Runs on the operator Mac Studio in the current topology.
 - Uses Playwright and the shared Naver auth session file.
 - Posts collected rows to `trends-api`.
-- Should be run by `cron` or `systemd timer`, not as a long-lived daemon, when it is server-hosted.
-- Current preferred operational model is desktop-driven collection when the server Playwright/browser environment is not yet fully stabilized.
+- Uses the internal token to call the Oracle ingest endpoint.
 
 Recommended command:
 
@@ -71,9 +75,9 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector
 
 ### WordPress plugin
 - Stays in WordPress only.
-- Calls `trends-api` from server-side PHP with `wp_remote_get()`.
-- Should point to `http://127.0.0.1:4581` only when WordPress itself runs directly on the host.
-- When WordPress runs in Docker, it must use a host-reachable address or a reverse-proxied HTTPS URL instead.
+- Calls Oracle `trends-api` from server-side PHP with `wp_remote_get()`.
+- Uses the HTTPS hostname and internal token.
+- Never receives a Supabase key or the user-token signing secret.
 
 ## Server Setup
 
@@ -125,8 +129,7 @@ Important values:
 - `TRENDS_AUTH_FILE_PATH`
 - `TRENDS_API_TOKEN`
 - `TRENDS_READ_TOKEN_SECRET`
-- `TRENDS_API_HOST=127.0.0.1` for host-only WordPress
-- `TRENDS_API_HOST=0.0.0.0` for Docker WordPress that must reach the host service
+- `TRENDS_API_HOST=0.0.0.0` because Caddy runs in Docker
 - `TRENDS_API_PORT=4581`
 
 Recommended auth path on the server:
@@ -156,35 +159,29 @@ Configure the same `TRENDS_READ_TOKEN_SECRET`, issuer, and audience in the
 server-side `apps/trends/.env`. The secret is shared only between the Edge
 Function and `trends-api`; it is never packaged into the desktop app.
 
-Expose only the read endpoints through an HTTPS reverse proxy:
+BlogGenius desktop clients call only these read endpoints:
 
 ```text
 GET /api/v1/trends
 GET /api/v1/trends/meta
 ```
 
-The proxy must preserve the `Authorization` header. Do not expose ingest or
-export endpoints publicly. `trends-api` independently validates the signed
-read token and rate-limits user-token reads, so proxy access control is a
-defense in depth layer rather than the sole authorization mechanism.
+The proxy must preserve the `Authorization` header. In the current topology the
+collector and WordPress plugin also reach ingest and export routes through the
+same HTTPS hostname with `TRENDS_API_TOKEN`. `trends-api` independently rejects
+user read tokens on those routes. Source-IP allowlists or a private network can
+be added later without changing the desktop token contract.
 
 ## WordPress Integration
 
 WordPress should not call Supabase directly.
 
-It should call the local API service:
+It should call the Oracle HTTPS API:
 
 ```php
-define('BG_TRENDS_API_BASE_URL', 'http://127.0.0.1:4581');
-define('BG_TRENDS_API_TOKEN', '<same-internal-token-if-used>');
+define('BG_TRENDS_API_BASE_URL', 'https://trendapi.hangadac.com');
+define('BG_TRENDS_API_TOKEN', '<same-internal-token>');
 ```
-
-If WordPress runs in Docker, `127.0.0.1` is the container itself, not the host Node service.
-
-In that case use one of:
-- a host-reachable bridge/gateway address
-- a server private IP
-- a reverse-proxied HTTPS URL on the same domain/server
 
 Expected flow:
 
@@ -205,62 +202,175 @@ trends-collector
   -> Supabase
 ```
 
-## Docker WordPress Networking Notes
+## Public HTTPS Boundary
 
-If WordPress runs inside Docker while `trends-api` runs on the host:
-- `127.0.0.1` inside the container does not reach the host Node process
-- `extra_hosts` such as `host.docker.internal:host-gateway` help with name resolution only
-- host reachability may still depend on host firewall or `iptables` policy
+The Oracle instance currently has only a public IP. Before desktop integration:
 
-Observed working pattern:
-- run `trends-api` on the host with `TRENDS_API_HOST=0.0.0.0`
-- allow Docker bridge traffic to TCP `4581` on the host
-- point WordPress at a host-reachable address instead of `127.0.0.1`
+1. Point the `trendapi.hangadac.com` DNS `A` record to the Oracle public IP.
+2. Open TCP 80 and 443 in the Oracle VCN security rules and host firewall.
+3. Install an HTTPS reverse proxy with automatic certificate renewal.
+4. Proxy the approved routes to `host.docker.internal:4581` and preserve the
+   `Authorization` header.
+5. Apply an IP-based request limit at the proxy. The Node API separately limits
+   licensed users by token subject.
+6. Keep `TRENDS_API_HOST=0.0.0.0` for Docker bridge access, but remove Oracle
+   public ingress to TCP 4581 after HTTPS verification succeeds.
 
-Conservative `iptables` rule:
+Proxied routes in the first operational phase:
 
-```bash
-sudo iptables -I INPUT 1 -i br+ -p tcp --dport 4581 -j ACCEPT
+```text
+GET /health
+GET /api/v1/trends
+GET /api/v1/trends/meta
+POST /internal/ingest/naver-trends       # internal token only
+GET /exports/trends.csv                  # internal token only
+GET /exports/trends.xlsx                 # internal token only
 ```
 
-Meaning:
-- only Docker bridge interfaces
-- only TCP port `4581`
-- only host INPUT traffic to the API
+The collector and WordPress use the same HTTPS hostname with the internal token.
+The API authorization layer keeps ingest and export unavailable to user read
+tokens. A later hardening step may restrict these routes by source IP or a
+separate private hostname.
 
-Useful inspection commands:
+## Operator Action Checklist
 
-```bash
-sudo iptables -L INPUT -n --line-numbers
-docker network ls
-docker network inspect <network-name>
-ss -ltnp | grep 4581
+The operator performs these steps once. BlogGenius users never copy or manage a
+trends access token.
+
+### Phase 1: hostname and HTTPS
+
+- Use the dedicated hostname `trendapi.hangadac.com`.
+- Add a DNS `A` record pointing that hostname to the Oracle public IP.
+- Allow inbound TCP 80 and 443 in both Oracle VCN rules and the instance
+  firewall.
+- Install Caddy as the HTTPS reverse proxy. The public fully qualified domain
+  name `trendapi.hangadac.com` lets Caddy obtain and renew the certificate
+  automatically.
+- Confirm `https://<hostname>/health` returns the trends API health response.
+- Add `host.docker.internal:host-gateway` to the Caddy container and proxy to
+  `host.docker.internal:4581`.
+- Keep Node on `0.0.0.0:4581`, remove public ingress for 4581, and allow only
+  the Docker bridge path to reach the host port.
+
+### Phase 2: secrets and token issuer
+
+- Generate two different high-entropy values:
+  - `TRENDS_API_TOKEN`: collector and WordPress internal operations
+  - `TRENDS_READ_TOKEN_SECRET`: Edge Function signing and Oracle verification
+- Put both values in Oracle `apps/trends/.env`.
+- Put only `TRENDS_READ_TOKEN_SECRET` in the Supabase Edge Function secrets.
+- Deploy `issue-trends-access-token` in the same Supabase project that owns the
+  license RPC.
+- Restart `trends-api` and verify that missing or invalid authorization receives
+  `401`.
+
+### Phase 3: existing clients
+
+- Change the Mac Studio collector base URL to the HTTPS hostname; keep its
+  existing internal token.
+- Change `BG_TRENDS_API_BASE_URL` in WordPress to the HTTPS hostname; keep
+  `BG_TRENDS_API_TOKEN` equal to Oracle `TRENDS_API_TOKEN`.
+- Verify WordPress preview and CSV download before enabling desktop reads.
+
+Operational status on 2026-08-12:
+
+- WordPress was changed from the Docker host gateway URL to
+  `https://trendapi.hangadac.com`.
+- Caddy continues to proxy through `host.docker.internal:4581`, with the
+  Compose `host-gateway` mapping in place.
+- Metadata authentication and retrieval were verified through the HTTPS
+  hostname.
+- WordPress preview validation must confirm that the selected `trend_date`
+  remains in the GET query string; named controls must not be disabled before
+  the browser serializes the form.
+
+### Phase 4: BlogGenius integration
+
+- The app requests a user token with its existing license key and HWID.
+- The app stores the token in memory only and refreshes it near expiry.
+- The app calls only `/api/v1/trends` and `/api/v1/trends/meta` with that token.
+- Validate active, expired, and invalid license cases before merging the access
+  branch.
+
+## Secret Ownership
+
+| Value | Oracle | Supabase Edge Function | WordPress | Mac collector | BlogGenius app |
+| --- | --- | --- | --- | --- | --- |
+| Supabase secret key | yes | platform secret | no | no | no |
+| `TRENDS_API_TOKEN` | yes | no | yes | yes | no |
+| `TRENDS_READ_TOKEN_SECRET` | yes | yes | no | no | no |
+| 15-minute user token | verifies | issues | no | no | memory only |
+
+The user token contains no license key. Its `sub` is a one-way hash used for
+per-license request limiting and operational correlation.
+
+## Caddy Configuration
+
+The production hostname is `trendapi.hangadac.com`. Its DNS `A` record must
+point to the Oracle public IP before Caddy requests the certificate.
+
+```caddyfile
+trendapi.hangadac.com {
+    encode zstd gzip
+
+    @trends_routes {
+        path /health /api/v1/trends /api/v1/trends/meta /internal/ingest/naver-trends /exports/trends.csv /exports/trends.xlsx
+    }
+
+    handle @trends_routes {
+        reverse_proxy host.docker.internal:4581
+    }
+
+    handle {
+        respond "Not found" 404
+    }
+
+    log {
+        output file /var/log/caddy/trendapi-access.log {
+            roll_size 20MiB
+            roll_keep 5
+        }
+        format json
+    }
+}
 ```
 
-If broad or temporary rules were added during debugging, remove them after narrowing policy:
+Caddy preserves the incoming `Authorization` header for `reverse_proxy` by
+default. Do not copy either trends secret into the Caddyfile. Node remains the
+authorization boundary for internal and user tokens.
 
-```bash
-sudo iptables -D INPUT <line-number>
-sudo iptables -D FORWARD <line-number>
+The Caddy container must map the Linux host gateway. For Docker Compose:
+
+```yaml
+services:
+  caddy:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
-Replace `<line-number>` with the actual number shown by `iptables -L --line-numbers`.
+Recreate the Caddy service after changing `extra_hosts`; a configuration reload
+alone does not update the container's `/etc/hosts` mapping.
 
-To keep the final rule after reboot on Ubuntu:
+The stock Caddy package does not provide a standard `rate_limit` directive. The
+Node API therefore enforces the required per-license limit. Add proxy-level IP
+rate limiting only through a deliberately selected Caddy module or an upstream
+firewall/CDN; do not paste an unsupported directive into the base Caddyfile.
+
+Validate and reload after editing:
 
 ```bash
-sudo apt update
-sudo apt install -y iptables-persistent
-sudo netfilter-persistent save
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+sudo systemctl status caddy
 ```
 
-Current recommendation:
-- if Docker-to-host networking is already working with a narrow `iptables` rule, that is acceptable
-- if Docker host reachability keeps being fragile, prefer a reverse-proxied HTTPS URL for WordPress instead of raw bridge/host addresses
+Keep `TRENDS_API_HOST=0.0.0.0` because the Caddy container reaches the host
+through the Docker bridge. After HTTPS health verification succeeds, remove
+public ingress for TCP 4581 while retaining Docker bridge access.
 
 ## Service Management
 
-### `systemd` for `trends-api`
+### `systemd` for Oracle `trends-api`
 
 When Node is installed with `nvm`, `systemd` does not automatically inherit the interactive shell environment.
 
@@ -313,7 +423,8 @@ journalctl -u trends-api -f
 
 Operational notes:
 - keep `apps/trends/.env` as the runtime source of truth; `trends-api` already reads it directly
-- if WordPress in Docker must reach the host API, keep `TRENDS_API_HOST=0.0.0.0`
+- keep `TRENDS_API_HOST=0.0.0.0` while Caddy runs in Docker; protect 4581 at the
+  Oracle ingress and host firewall boundaries
 - if the Node version changes under `nvm`, update the `ExecStart` path in the unit file and reload `systemd`
 - manual restart after deploy:
 
@@ -384,7 +495,7 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector
 
 - Do not package the trends backend into the desktop app release artifact.
 - Do not place Supabase secrets in WordPress PHP code beyond the internal API token.
-- Do not expose `trends-api` publicly unless there is a specific networking reason.
+- Expose only the HTTPS reverse proxy; never expose the Node port directly.
 - Do not treat the collector as part of request/response web traffic.
 
 ## Maintenance Note
