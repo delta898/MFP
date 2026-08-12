@@ -4177,6 +4177,51 @@ h2 {
   font-size: 13px;
 }
 
+.trend-posting-result-filters {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 10px;
+  padding: 10px 12px;
+  z-index: 35;
+  background: var(--surface-solid);
+}
+
+.trend-posting-filter-summary {
+  display: flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  gap: 8px;
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+.trend-posting-filter-summary .field-label-text {
+  font-weight: 700;
+}
+
+.trend-posting-result-filters button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.trend-posting-filter-keyword,
+.trend-posting-filter-view {
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.trend-posting-filter-keyword {
+  flex: 1 1 320px;
+  max-width: 520px;
+  min-width: 220px;
+}
+
+.trend-posting-filter-view {
+  flex: 0 0 210px;
+}
+
 .trend-posting-panel .trend-posting-table-wrap {
   max-height: none;
   overflow: visible;
@@ -4187,14 +4232,25 @@ h2 {
 }
 
 .trend-posting-panel .trend-posting-table th {
-  top: 0;
-  z-index: 30;
-  box-shadow: 0 2px 0 var(--line);
+  position: static;
+  top: auto;
+  z-index: auto;
 }
 
 @media (min-width: 961px) {
+  .trend-posting-result-filters {
+    position: sticky;
+    top: -22px;
+    box-shadow:
+      0 -12px 0 var(--surface-solid),
+      0 6px 16px rgba(15, 23, 42, 0.1);
+  }
+
   .trend-posting-panel .trend-posting-table th {
-    top: -32px;
+    position: sticky;
+    top: calc(-22px + var(--trend-posting-filter-height, 58px));
+    z-index: 34;
+    box-shadow: 0 2px 0 var(--line);
   }
 }
 
@@ -4308,6 +4364,14 @@ h2 {
     min-height: 0;
   }
 
+  .trend-posting-result-filters {
+    flex-wrap: wrap;
+  }
+
+  .trend-posting-filter-summary {
+    flex: 1 0 100%;
+  }
+
   .trend-posting-panel > .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
@@ -4325,6 +4389,24 @@ h2 {
 
   .trend-posting-custom-dates {
     grid-template-columns: 1fr;
+  }
+
+  .trend-posting-result-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trend-posting-filter-summary,
+  .trend-posting-filter-keyword,
+  .trend-posting-filter-view {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .trend-posting-result-filters button {
+    align-self: flex-end;
   }
 
   .trend-posting-query-row button {

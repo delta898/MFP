@@ -570,6 +570,7 @@ const trendPostingState = {
   items: [],
   itemsById: new Map(),
   savedIds: new Set(),
+  queryRange: null,
   loading: false
 };
 let settingsTelegramRuntimeStatus = null;
@@ -1952,10 +1953,66 @@ function compareTrendPostingItems(left, right, key) {
   return leftValue.localeCompare(rightValue, 'ko');
 }
 
+function getTrendPostingFilterValues() {
+  const keyword = String(document.getElementById('trend-posting-filter-keyword')?.value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('ko-KR');
+  const view = String(document.getElementById('trend-posting-filter-view')?.value || 'all');
+  return { keyword, view };
+}
+
+function filterTrendPostingItems(items) {
+  const { keyword, view } = getTrendPostingFilterValues();
+  let filtered = items.filter((item) => {
+    const changeType = String(item?.change?.type || 'steady');
+    if (keyword && !String(item?.keyword || '').toLocaleLowerCase('ko-KR').includes(keyword)) return false;
+    if (view === 'all') return true;
+    if (view === 'top10') return changeType === 'up' && Number.isFinite(Number(item?.change?.amount));
+    return changeType === view;
+  });
+  if (view === 'top10') {
+    filtered = filtered
+      .map((item, index) => ({ item, index }))
+      .sort((left, right) => {
+        const difference = getTrendPostingChangeSortValue(right.item?.change) - getTrendPostingChangeSortValue(left.item?.change);
+        return difference === 0 ? left.index - right.index : difference;
+      })
+      .slice(0, 10)
+      .map(({ item }) => item);
+  }
+  return filtered;
+}
+
+function updateTrendPostingFilterCount(visibleCount) {
+  const countEl = document.getElementById('trend-posting-filter-count');
+  if (!countEl) return;
+  const total = trendPostingState.items.length;
+  countEl.textContent = total > 0
+    ? `${total}개 중 ${visibleCount}개 표시`
+    : (trendPostingState.queryRange ? '0개 중 0개 표시' : '조회 후 사용할 수 있습니다.');
+}
+
+function initTrendPostingStickyStack() {
+  const panel = document.getElementById('blog-tab-trend-posting');
+  const filters = document.getElementById('trend-posting-result-filters');
+  if (!panel || !filters) return;
+  const syncHeight = () => {
+    panel.style.setProperty('--trend-posting-filter-height', `${filters.offsetHeight}px`);
+  };
+  syncHeight();
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(filters);
+  } else {
+    window.addEventListener('resize', syncHeight);
+  }
+}
+
 function getSortedTrendPostingItems() {
   const sortState = getSortState('trendPosting');
   const direction = sortState.direction === 'desc' ? -1 : 1;
-  return trendPostingState.items
+  return filterTrendPostingItems(trendPostingState.items)
     .map((item, index) => ({ item, index }))
     .sort((left, right) => {
       const compared = compareTrendPostingItems(left.item, right.item, sortState.key);
@@ -1971,11 +2028,20 @@ function renderTrendPostingResults(items) {
     trendPostingState.items = items.slice();
     trendPostingState.itemsById = new Map(trendPostingState.items.map((item) => [String(item.id), item]));
   }
-  if (trendPostingState.itemsById.size === 0) {
-    body.innerHTML = '<tr><td colspan="5">조건에 맞는 트렌드 키워드가 없습니다.</td></tr>';
+  if (trendPostingState.items.length === 0) {
+    updateTrendPostingFilterCount(0);
+    body.innerHTML = trendPostingState.queryRange
+      ? '<tr><td colspan="5">조건에 맞는 트렌드 키워드가 없습니다.</td></tr>'
+      : '<tr><td colspan="5">아직 조회하지 않았습니다.</td></tr>';
     return;
   }
-  body.innerHTML = getSortedTrendPostingItems().map((item) => {
+  const visibleItems = getSortedTrendPostingItems();
+  updateTrendPostingFilterCount(visibleItems.length);
+  if (visibleItems.length === 0) {
+    body.innerHTML = '<tr><td colspan="5">현재 결과 필터에 맞는 키워드가 없습니다.</td></tr>';
+    return;
+  }
+  body.innerHTML = visibleItems.map((item) => {
     const id = String(item.id || '');
     const saved = trendPostingState.savedIds.has(`${id}:${String(item.latestTrendDate || '')}`);
     const categories = (Array.isArray(item.categories) ? item.categories : [])
@@ -2072,6 +2138,7 @@ async function queryTrendPostingKeywords() {
     const params = new URLSearchParams({ dateFrom, dateTo });
     categories.forEach((category) => params.append('categories[]', category));
     const result = await fetchJson(`/api/v1/trend-posting/keywords?${params.toString()}`);
+    trendPostingState.queryRange = { dateFrom, dateTo };
     renderTrendPostingResults(result?.items || []);
     if (statusEl) statusEl.textContent = `${Number(result?.count || 0)}개의 키워드를 찾았습니다. (${dateFrom} ~ ${dateTo})`;
   } catch (error) {
@@ -9972,6 +10039,8 @@ function bindActions() {
   const trendPostingPeriod = document.getElementById('trend-posting-period');
   const trendPostingCategories = document.getElementById('trend-posting-categories');
   const trendPostingQueryBtn = document.getElementById('trend-posting-query-btn');
+  const trendPostingResultFilters = document.getElementById('trend-posting-result-filters');
+  const trendPostingFilterReset = document.getElementById('trend-posting-filter-reset');
   const trendPostingTableBody = document.getElementById('trend-posting-table-body');
   const blogTopicsTableBody = document.getElementById('blog-table-body');
   const shoppingTableBody = document.getElementById('shopping-table-body');
@@ -9993,6 +10062,14 @@ function bindActions() {
     syncTrendPostingCategoryLimit();
   });
   trendPostingQueryBtn?.addEventListener('click', queryTrendPostingKeywords);
+  trendPostingResultFilters?.addEventListener('input', () => renderTrendPostingResults());
+  trendPostingFilterReset?.addEventListener('click', () => {
+    const keywordEl = document.getElementById('trend-posting-filter-keyword');
+    const viewEl = document.getElementById('trend-posting-filter-view');
+    if (keywordEl) keywordEl.value = '';
+    if (viewEl) viewEl.value = 'all';
+    renderTrendPostingResults();
+  });
   trendPostingTableBody?.addEventListener('click', (event) => {
     const button = event.target?.closest('[data-trend-posting-action]');
     if (!button) return;
@@ -11189,6 +11266,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateTrendsSelectionUi();
   updateShoppingSelectionUi();
   updateSortableHeadersUi();
+  initTrendPostingStickyStack();
   renderTrendsPagination();
   renderTopicsPagination();
   renderShoppingPagination();

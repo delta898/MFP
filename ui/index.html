@@ -795,6 +795,23 @@
           </div>
 
           <div id="trend-posting-status" class="trend-posting-status">조회 조건을 선택해 주세요.</div>
+          <div id="trend-posting-result-filters" class="auto-section trend-posting-result-filters">
+            <div class="trend-posting-filter-summary">
+              <span class="field-label-text">결과 필터</span>
+              <span id="trend-posting-filter-count" class="category-meta">조회 후 사용할 수 있습니다.</span>
+            </div>
+            <input id="trend-posting-filter-keyword" class="trend-posting-filter-keyword" type="search"
+              aria-label="결과 내 키워드 검색" placeholder="결과 내 키워드 검색">
+            <select id="trend-posting-filter-view" class="trend-posting-filter-view" aria-label="결과 보기">
+              <option value="all">전체</option>
+              <option value="up">상승 전체</option>
+              <option value="top10">급상승 Top 10</option>
+              <option value="new">new</option>
+              <option value="down">하락</option>
+              <option value="steady">변화 없음</option>
+            </select>
+            <button id="trend-posting-filter-reset" class="secondary compact" type="button">초기화</button>
+          </div>
           <div class="table-responsive">
             <div class="table-wrap trend-posting-table-wrap">
               <table class="data-table trend-posting-table">
