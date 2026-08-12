@@ -18,9 +18,9 @@ Do not merge or commit changes automatically. Tell the user when a logical commi
 
 Current work branch: `feature/trend-posting-access`
 
-Previous planning branch: `feature/trend-posting-main`
+Integration branch: `feature/trend-posting-main`
 
-The previous planning branch contains planning commits only:
+The integration branch currently contains planning commits only:
 
 - `46ed528 docs: plan trend posting feature`
 - `cc609f8 docs: define trend posting branch flow`
@@ -33,9 +33,9 @@ The access foundation was committed as:
 
 Follow-up hardening, production-topology documentation, and the desktop query
 foundation are being prepared on the same access branch. Do not create a sibling
-feature branch before this work is committed, validated, and merged into `dev`.
-Do not merge it into `dev` until the Oracle HTTPS endpoint and Edge Function have
-been validated together.
+feature branch before this work is committed, validated, and merged into
+`feature/trend-posting-main`. Do not merge it into the integration branch until
+the Oracle HTTPS endpoint and Edge Function have been validated together.
 
 ## Confirmed Production Topology
 
@@ -70,6 +70,13 @@ Production HTTPS verification completed on 2026-08-12:
 - the Caddy Compose service maps `host.docker.internal:host-gateway`
 - WordPress now uses `https://trendapi.hangadac.com` as
   `BG_TRENDS_API_BASE_URL` while retaining the existing internal token
+- `issue-trends-access-token` is deployed in the production license project
+- Oracle and Supabase use the same read-token signing secret; compare their
+  SHA-256 digests when troubleshooting without printing the secret itself
+- the desktop local metadata endpoint returned HTTP 200 using a real active
+  license, proving the license/HWID -> Edge Function -> Oracle token flow
+- the desktop keyword endpoint returned and aggregated 20 production `맛집`
+  rows for `2026-08-11`
 
 During the WordPress migration check, a pre-existing preview form defect was
 identified: the JavaScript loading state disabled the named `trend_date` input
@@ -163,8 +170,6 @@ sibling branch:
 
 ## Next Work
 
-1. Commit the desktop query foundation on this branch without pushing it.
-2. Deploy the access changes to the Oracle trends API and Supabase Edge Function.
-3. Validate token issuance and authenticated reads with a real active license.
-4. Merge this branch into `dev`.
-5. Only then create the next composer branch from the updated `dev`.
+1. Commit this production validation record without pushing it.
+2. Merge this branch into `feature/trend-posting-main` after user approval.
+3. Only then create the next composer branch from the updated integration branch.

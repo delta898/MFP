@@ -280,6 +280,14 @@ Operational status on 2026-08-12:
   Compose `host-gateway` mapping in place.
 - Metadata authentication and retrieval were verified through the HTTPS
   hostname.
+- `issue-trends-access-token` was deployed to the production license project.
+- A real active BlogGenius license successfully received a short-lived token
+  and used it through the Oracle HTTPS gateway for both metadata and keyword
+  reads.
+- The local app API returned 20 aggregated `맛집` keywords for `2026-08-11`.
+- If a user read token receives `401`, compare SHA-256 digests of
+  `TRENDS_READ_TOKEN_SECRET` in Supabase and Oracle before inspecting claims;
+  never print or paste the secret into logs.
 - WordPress preview validation must confirm that the selected `trend_date`
   remains in the GET query string; named controls must not be disabled before
   the browser serializes the form.

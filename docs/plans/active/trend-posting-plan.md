@@ -131,14 +131,15 @@ GET /api/v1/trend-posting/keywords
 
 ## Delivery Branches
 
-이 기능은 동시에 여러 sibling 브랜치를 진행하지 않고 `dev`를 기준으로 순차적으로 통합한다.
+이 기능은 동시에 여러 sibling 브랜치를 진행하지 않고 전용 통합 브랜치인
+`feature/trend-posting-main`을 기준으로 순차적으로 통합한다.
 
 ```text
-main -> dev -> current feature branch
-                 │
-                 └─ 완료·검증 후 dev에 병합
-                              │
-                              └─ next feature branch
+main -> dev -> feature/trend-posting-main -> current feature branch
+                                                │
+                                                └─ 완료·검증 후 feature main에 병합
+                                                                      │
+                                                                      └─ next feature branch
 ```
 
 현재 `feature/trend-posting-access`에서 다음 범위를 함께 완료한다.
@@ -148,13 +149,15 @@ main -> dev -> current feature branch
 - 앱의 trend posting service와 로컬 API
 - 필터 검증, 기간별 중복 집계, 토큰 캐시와 단위 테스트
 
-이 범위를 실제 환경에서 검증하고 `dev`에 병합한 뒤에만 다음 작업 브랜치를 `dev`에서 만든다.
+이 범위를 실제 환경에서 검증하고 `feature/trend-posting-main`에 병합한 뒤에만
+다음 작업 브랜치를 갱신된 `feature/trend-posting-main`에서 만든다.
 
 1. 다음 브랜치: 빠른 포스팅의 공통 작성 payload·미리보기·발행 흐름 추출과 회귀 테스트
 2. 이후 브랜치: 탭, 필터, 결과 테이블, 선택 상태, 작성 옵션 UI
 3. 마지막 브랜치: 실제 API 연결 오류 상태, 보안·회귀 테스트와 문서 정리
 
-검증된 릴리스만 `dev`에서 `main`으로 병합한다.
+Trend Posting 전체 기능이 완료되면 `feature/trend-posting-main`을 `dev`에
+병합한다. 검증된 릴리스만 `dev`에서 `main`으로 병합한다.
 
 ## Validation
 
