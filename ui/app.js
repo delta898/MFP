@@ -3728,6 +3728,10 @@ function formatSystemLogHtml(rawText) {
 
 let clockInterval = null;
 const CLOCK_STYLE_STORAGE_KEY = 'blog_genius_clock_style_v1';
+const CLOCK_MODE_STORAGE_KEY = 'blog_genius_clock_mode_v1';
+const POMODORO_STYLE_STORAGE_KEY = 'blog_genius_pomodoro_style_v1';
+const POMODORO_STATE_STORAGE_KEY = 'blog_genius_pomodoro_state_v1';
+const POMODORO_DURATIONS = Object.freeze({ focus: 25 * 60 * 1000, break: 5 * 60 * 1000 });
 
 function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
@@ -3744,17 +3748,92 @@ function initClockWidget() {
     { value: 'soft', label: '소프트', icon: '●' }
   ];
   const styles = styleOptions.filter((option) => option.value !== 'random').map((option) => option.value);
+  const timerStyleOptions = [
+    { value: 'tomato', label: '토마토', icon: '🍅' },
+    { value: 'ring', label: '포커스 링', icon: '◯' },
+    { value: 'flip', label: '플립', icon: '▣' },
+    { value: 'soft', label: '소프트', icon: '●' }
+  ];
+  const timerStyles = timerStyleOptions.map((option) => option.value);
   const randomStyle = () => styles[Math.floor(Math.random() * styles.length)] || 'digital';
   let preferredStyle = 'random';
+  let displayMode = 'clock';
+  let timerStyle = 'tomato';
+  let timerState = { phase: 'focus', status: 'idle', remainingMs: POMODORO_DURATIONS.focus, endsAt: null };
   try {
     const savedStyle = localStorage.getItem(CLOCK_STYLE_STORAGE_KEY);
     if (savedStyle === 'random' || styles.includes(savedStyle)) preferredStyle = savedStyle;
+    const savedMode = localStorage.getItem(CLOCK_MODE_STORAGE_KEY);
+    if (savedMode === 'clock' || savedMode === 'timer') displayMode = savedMode;
+    const savedTimerStyle = localStorage.getItem(POMODORO_STYLE_STORAGE_KEY);
+    if (timerStyles.includes(savedTimerStyle)) timerStyle = savedTimerStyle;
+    const savedTimerState = JSON.parse(localStorage.getItem(POMODORO_STATE_STORAGE_KEY) || 'null');
+    if (savedTimerState && POMODORO_DURATIONS[savedTimerState.phase]) {
+      const status = ['idle', 'running', 'paused', 'completed'].includes(savedTimerState.status)
+        ? savedTimerState.status
+        : 'idle';
+      timerState = {
+        phase: savedTimerState.phase,
+        status,
+        remainingMs: Number.isFinite(Number(savedTimerState.remainingMs))
+          ? Math.max(0, Number(savedTimerState.remainingMs))
+          : POMODORO_DURATIONS[savedTimerState.phase],
+        endsAt: status === 'running' && Number.isFinite(Number(savedTimerState.endsAt))
+          ? Number(savedTimerState.endsAt)
+          : null
+      };
+    }
   } catch (_) {
     preferredStyle = 'random';
   }
   let currentStyle = preferredStyle === 'random' ? randomStyle() : preferredStyle;
   let previousValue = null;
+  let timerCompletionPulseUntil = 0;
   const widgetUnits = [];
+
+  function persistTimerState() {
+    try {
+      localStorage.setItem(POMODORO_STATE_STORAGE_KEY, JSON.stringify(timerState));
+    } catch (_) {
+      // 저장소를 사용할 수 없어도 현재 실행 중 타이머는 유지합니다.
+    }
+  }
+
+  function getTimerSnapshot(nowMs = Date.now()) {
+    let remainingMs = timerState.remainingMs;
+    if (timerState.status === 'running') {
+      remainingMs = Math.max(0, Number(timerState.endsAt) - nowMs);
+      if (remainingMs <= 0) {
+        timerState = { ...timerState, status: 'completed', remainingMs: 0, endsAt: null };
+        timerCompletionPulseUntil = nowMs + 2400;
+        persistTimerState();
+      }
+    }
+    const durationMs = POMODORO_DURATIONS[timerState.phase];
+    return {
+      ...timerState,
+      durationMs,
+      remainingMs,
+      progress: Math.min(1, Math.max(0, 1 - (remainingMs / durationMs)))
+    };
+  }
+
+  function formatTimerValue(remainingMs) {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return { minutes, seconds, text: `${minutes}:${seconds}` };
+  }
+
+  function saveDisplayMode(mode) {
+    displayMode = mode;
+    try { localStorage.setItem(CLOCK_MODE_STORAGE_KEY, mode); } catch (_) { /* noop */ }
+  }
+
+  function saveTimerStyle(style) {
+    timerStyle = style;
+    try { localStorage.setItem(POMODORO_STYLE_STORAGE_KEY, style); } catch (_) { /* noop */ }
+  }
 
   function getSeasonMood(now) {
     const month = now.getMonth() + 1;
@@ -3806,11 +3885,52 @@ function initClockWidget() {
 
   function refreshStyleMenus() {
     widgetUnits.forEach(({ menu }) => {
+      menu.querySelectorAll('[data-clock-mode]').forEach((item) => {
+        const isSelected = item.dataset.clockMode === displayMode;
+        item.classList.toggle('active', isSelected);
+        item.setAttribute('aria-pressed', String(isSelected));
+      });
+      const clockStyles = menu.querySelector('[data-clock-style-section]');
+      const timerStylesSection = menu.querySelector('[data-timer-style-section]');
+      if (clockStyles) clockStyles.hidden = displayMode !== 'clock';
+      if (timerStylesSection) timerStylesSection.hidden = displayMode !== 'timer';
       menu.querySelectorAll('[data-clock-style]').forEach((item) => {
         const isSelected = item.dataset.clockStyle === preferredStyle;
         item.classList.toggle('active', isSelected);
         item.setAttribute('aria-checked', String(isSelected));
       });
+      menu.querySelectorAll('[data-timer-style]').forEach((item) => {
+        const isSelected = item.dataset.timerStyle === timerStyle;
+        item.classList.toggle('active', isSelected);
+        item.setAttribute('aria-checked', String(isSelected));
+      });
+    });
+  }
+
+  function refreshTimerControls(snapshot) {
+    const phaseLabel = snapshot.phase === 'focus' ? '집중' : '휴식';
+    const statusLabel = {
+      idle: '동작을 선택하세요',
+      running: `${phaseLabel} 중 · ${formatTimerValue(snapshot.remainingMs).text} 남음`,
+      paused: `${phaseLabel} 일시정지 · ${formatTimerValue(snapshot.remainingMs).text} 남음`,
+      completed: `${phaseLabel} 완료!`
+    }[snapshot.status];
+    widgetUnits.forEach(({ menu }) => {
+      const status = menu.querySelector('[data-pomodoro-status]');
+      if (status) status.textContent = statusLabel;
+      const isActive = snapshot.status === 'running' || snapshot.status === 'paused';
+      menu.querySelectorAll('[data-timer-action="start-focus"], [data-timer-action="start-break"]').forEach((item) => {
+        item.disabled = isActive;
+      });
+      const pauseButton = menu.querySelector('[data-timer-action="toggle-pause"]');
+      const stopButton = menu.querySelector('[data-timer-action="stop"]');
+      const runningActions = menu.querySelector('.pomodoro-running-actions');
+      if (runningActions) runningActions.hidden = !isActive;
+      if (pauseButton) {
+        pauseButton.hidden = !isActive;
+        pauseButton.textContent = snapshot.status === 'paused' ? '▶ 계속' : 'Ⅱ 일시정지';
+      }
+      if (stopButton) stopButton.hidden = !isActive;
     });
   }
 
@@ -3829,6 +3949,53 @@ function initClockWidget() {
     renderClock();
   }
 
+  function selectDisplayMode(mode) {
+    if (mode !== 'clock' && mode !== 'timer') return;
+    saveDisplayMode(mode);
+    previousValue = null;
+    refreshStyleMenus();
+    renderClock();
+  }
+
+  function selectTimerStyle(style) {
+    if (!timerStyles.includes(style)) return;
+    saveTimerStyle(style);
+    refreshStyleMenus();
+    renderClock();
+  }
+
+  function startTimer(phase) {
+    const durationMs = POMODORO_DURATIONS[phase];
+    if (!durationMs) return;
+    timerState = {
+      phase,
+      status: 'running',
+      remainingMs: durationMs,
+      endsAt: Date.now() + durationMs
+    };
+    persistTimerState();
+    renderClock();
+  }
+
+  function toggleTimerPause() {
+    const snapshot = getTimerSnapshot();
+    if (snapshot.status === 'running') {
+      timerState = { ...timerState, status: 'paused', remainingMs: snapshot.remainingMs, endsAt: null };
+    } else if (snapshot.status === 'paused') {
+      timerState = { ...timerState, status: 'running', endsAt: Date.now() + snapshot.remainingMs };
+    } else {
+      return;
+    }
+    persistTimerState();
+    renderClock();
+  }
+
+  function stopTimer() {
+    timerState = { phase: 'focus', status: 'idle', remainingMs: POMODORO_DURATIONS.focus, endsAt: null };
+    persistTimerState();
+    renderClock();
+  }
+
   displays.forEach((display) => {
     const unit = document.createElement('div');
     unit.className = 'clock-widget-unit';
@@ -3837,24 +4004,64 @@ function initClockWidget() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'clock-style-button';
-    button.title = '시계 스타일 선택';
-    button.setAttribute('aria-label', '시계 스타일 선택');
+    button.title = '시계 및 타이머 메뉴';
+    button.setAttribute('aria-label', '시계 및 타이머 메뉴');
     button.setAttribute('aria-haspopup', 'menu');
     button.setAttribute('aria-expanded', 'false');
-    button.textContent = '🎨';
+    button.innerHTML = `
+      <svg class="clock-menu-trigger-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
+      </svg>
+    `;
     const meta = document.createElement('div');
     meta.className = 'clock-ambient-meta';
     meta.setAttribute('aria-live', 'polite');
     const menu = document.createElement('div');
     menu.className = 'clock-style-menu';
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', '시계 스타일');
-    menu.innerHTML = styleOptions.map((option) => `
-      <button type="button" class="clock-style-option" role="menuitemradio" aria-checked="false" data-clock-style="${option.value}">
-        <span class="clock-style-option-icon">${option.icon}</span>
-        <span>${option.label}</span>
-      </button>
-    `).join('');
+    menu.setAttribute('role', 'dialog');
+    menu.setAttribute('aria-label', '시계와 집중 타이머');
+    menu.innerHTML = `
+      <div class="clock-mode-switch" aria-label="메인 표시 모드">
+        <button type="button" data-clock-mode="clock" aria-pressed="false">시계</button>
+        <button type="button" data-clock-mode="timer" aria-pressed="false">타이머</button>
+      </div>
+      <div class="clock-style-section" data-clock-style-section>
+        <span class="clock-menu-section-label">시계 스타일</span>
+        <div class="clock-style-grid">
+          ${styleOptions.map((option) => `
+            <button type="button" class="clock-style-option" role="radio" aria-checked="false" data-clock-style="${option.value}">
+              <span class="clock-style-option-icon">${option.icon}</span>
+              <span>${option.label}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="clock-style-section" data-timer-style-section hidden>
+        <span class="clock-menu-section-label">타이머 스타일</span>
+        <div class="clock-style-grid">
+          ${timerStyleOptions.map((option) => `
+            <button type="button" class="clock-style-option" role="radio" aria-checked="false" data-timer-style="${option.value}">
+              <span class="clock-style-option-icon">${option.icon}</span>
+              <span>${option.label}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pomodoro-menu-control">
+        <div class="pomodoro-menu-heading">
+          <span class="clock-menu-section-label">집중 타이머</span>
+          <span data-pomodoro-status></span>
+        </div>
+        <div class="pomodoro-preset-actions">
+          <button type="button" data-timer-action="start-focus">🍅 25분 집중</button>
+          <button type="button" data-timer-action="start-break">☕ 5분 휴식</button>
+        </div>
+        <div class="pomodoro-running-actions">
+          <button type="button" data-timer-action="toggle-pause" hidden>Ⅱ 일시정지</button>
+          <button type="button" data-timer-action="stop" hidden>종료</button>
+        </div>
+      </div>
+    `;
 
     const serverControl = display.closest('.dash-clock-widget')?.querySelector('#server-control');
     if (serverControl) {
@@ -3871,7 +4078,7 @@ function initClockWidget() {
     unit.appendChild(main);
     main.appendChild(display);
     main.appendChild(button);
-    unit.appendChild(meta);
+    main.appendChild(meta);
     unit.appendChild(menu);
     widgetUnits.push({ unit, button, meta, menu });
 
@@ -3884,15 +4091,41 @@ function initClockWidget() {
     });
     menu.addEventListener('click', (event) => {
       event.stopPropagation();
-      const option = event.target.closest('[data-clock-style]');
-      if (option) selectStyle(option.dataset.clockStyle);
+      const modeOption = event.target.closest('button[data-clock-mode]');
+      const clockOption = event.target.closest('[data-clock-style]');
+      const timerOption = event.target.closest('[data-timer-style]');
+      const timerAction = event.target.closest('[data-timer-action]');
+      if (modeOption) selectDisplayMode(modeOption.dataset.clockMode);
+      else if (clockOption) selectStyle(clockOption.dataset.clockStyle);
+      else if (timerOption) selectTimerStyle(timerOption.dataset.timerStyle);
+      else if (timerAction && !timerAction.disabled) {
+        const action = timerAction.dataset.timerAction;
+        if (action === 'start-focus') startTimer('focus');
+        else if (action === 'start-break') startTimer('break');
+        else if (action === 'toggle-pause') toggleTimerPause();
+        else if (action === 'stop') stopTimer();
+      }
     });
   });
 
   displays.forEach((display) => {
-    display.addEventListener('click', () => {
-      const nextIndex = (styles.indexOf(currentStyle) + 1) % styles.length;
-      selectStyle(styles[nextIndex]);
+    display.addEventListener('click', (event) => {
+      const timerAction = event.target.closest('[data-timer-inline-action]');
+      if (timerAction) {
+        event.stopPropagation();
+        const action = timerAction.dataset.timerInlineAction;
+        if (action === 'start') startTimer(timerAction.dataset.timerPhase || timerState.phase);
+        else if (action === 'toggle-pause') toggleTimerPause();
+        else if (action === 'stop') stopTimer();
+        return;
+      }
+      if (displayMode === 'timer') {
+        const nextIndex = (timerStyles.indexOf(timerStyle) + 1) % timerStyles.length;
+        selectTimerStyle(timerStyles[nextIndex]);
+      } else {
+        const nextIndex = (styles.indexOf(currentStyle) + 1) % styles.length;
+        selectStyle(styles[nextIndex]);
+      }
     });
   });
 
@@ -3900,6 +4133,79 @@ function initClockWidget() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeStyleMenus();
   });
+
+  function renderTimerFace(snapshot) {
+    const value = formatTimerValue(snapshot.remainingMs);
+    const phaseLabel = snapshot.phase === 'focus' ? '25분 집중' : '5분 휴식';
+    const phaseIcon = snapshot.phase === 'focus' ? '🍅' : '☕';
+    const faceLabel = snapshot.status === 'completed' ? `✓ ${phaseLabel} 완료` : `${phaseIcon} ${phaseLabel}`;
+    const progressDegrees = Math.round(snapshot.progress * 360);
+    const progressPercent = Math.round(snapshot.progress * 100);
+    const inlineControls = snapshot.status === 'running'
+      ? `<button type="button" data-timer-inline-action="toggle-pause" title="일시정지" aria-label="일시정지">Ⅱ</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`
+      : snapshot.status === 'paused'
+        ? `<button type="button" data-timer-inline-action="toggle-pause" title="계속" aria-label="계속">▶</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`
+        : snapshot.status === 'completed'
+          ? `<button type="button" class="pomodoro-inline-next" data-timer-inline-action="start" data-timer-phase="${snapshot.phase === 'focus' ? 'break' : 'focus'}">${snapshot.phase === 'focus' ? '☕ 5분 휴식' : '🍅 25분 집중'}</button>`
+          : `<button type="button" class="pomodoro-inline-start" data-timer-inline-action="start" data-timer-phase="${snapshot.phase}">▶ 시작</button>`;
+    const controlsHtml = `<div class="pomodoro-inline-actions">${inlineControls}</div>`;
+
+    if (timerStyle === 'ring') {
+      return `
+        <div class="pomodoro-face-shell">
+          <div class="pomodoro-face pomodoro-face-ring" style="--pomodoro-progress:${progressDegrees}deg">
+            <div class="pomodoro-ring-center">
+              <span class="pomodoro-face-label">${faceLabel}</span>
+              <span class="pomodoro-face-time">${value.text}</span>
+            </div>
+          </div>
+          ${controlsHtml}
+        </div>
+      `;
+    }
+    if (timerStyle === 'flip') {
+      return `
+        <div class="pomodoro-face-shell">
+          <div class="pomodoro-face pomodoro-face-flip">
+            <span class="pomodoro-face-label">${faceLabel}</span>
+            <div class="pomodoro-flip-values">
+              <span>${value.minutes}</span><b>:</b><span>${value.seconds}</span>
+            </div>
+            <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
+          </div>
+          ${controlsHtml}
+        </div>
+      `;
+    }
+    if (timerStyle === 'soft') {
+      return `
+        <div class="pomodoro-face-shell">
+          <div class="pomodoro-face pomodoro-face-soft">
+            <span class="pomodoro-soft-orb">${phaseIcon}</span>
+            <div>
+              <span class="pomodoro-face-label">${faceLabel}</span>
+              <span class="pomodoro-face-time">${value.text}</span>
+            </div>
+            <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
+          </div>
+          ${controlsHtml}
+        </div>
+      `;
+    }
+    return `
+      <div class="pomodoro-face-shell">
+        <div class="pomodoro-face pomodoro-face-tomato">
+          <span class="pomodoro-tomato-icon">${phaseIcon}</span>
+          <div>
+            <span class="pomodoro-face-label">${faceLabel}</span>
+            <span class="pomodoro-face-time">${value.text}</span>
+          </div>
+          <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
+        </div>
+        ${controlsHtml}
+      </div>
+    `;
+  }
 
   function renderClock() {
     const style = currentStyle;
@@ -3911,17 +4217,48 @@ function initClockWidget() {
     const minuteChanged = previousValue && previousValue.m !== m;
     const secondChanged = previousValue && previousValue.s !== s;
     const mood = getSeasonMood(now);
-
-    widgetUnits.forEach(({ unit, meta }) => {
-      unit.dataset.clockSeason = mood.season;
-      const moodKey = `${mood.season}|${mood.text}|${mood.message}`;
-      if (meta.dataset.clockMoodKey !== moodKey) {
-        meta.dataset.clockMoodKey = moodKey;
-        meta.innerHTML = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-message">${mood.message}</span>`;
-      }
+    const timerSnapshot = getTimerSnapshot(now.getTime());
+    const timerValue = formatTimerValue(timerSnapshot.remainingMs);
+    const timerPhaseLabel = timerSnapshot.phase === 'focus' ? '집중' : '휴식';
+    const timerPhaseIcon = timerSnapshot.phase === 'focus' ? '🍅' : '☕';
+    displays.forEach((display) => {
+      display.title = displayMode === 'timer'
+        ? '클릭하여 타이머 스타일 변경'
+        : '클릭하여 시계 스타일 변경';
     });
 
-    if (style === 'digital') {
+    widgetUnits.forEach(({ unit, button, meta }) => {
+      unit.dataset.clockSeason = mood.season;
+      unit.dataset.clockDisplayMode = displayMode;
+      unit.dataset.pomodoroPhase = timerSnapshot.phase;
+      unit.classList.toggle('pomodoro-complete', timerCompletionPulseUntil > now.getTime());
+      button.title = '시계 및 타이머 메뉴';
+      button.setAttribute('aria-label', button.title);
+      let metaHtml = '';
+      if (displayMode === 'timer') {
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-message">${mood.text}</span>`;
+      } else {
+        const timerStatus = timerSnapshot.status === 'paused'
+          ? ' · 일시정지'
+          : timerSnapshot.status === 'completed'
+            ? ' 완료!'
+            : '';
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
+      }
+      const moodKey = `${displayMode}|${mood.season}|${metaHtml}`;
+      if (meta.dataset.clockMoodKey !== moodKey) {
+        meta.dataset.clockMoodKey = moodKey;
+        meta.innerHTML = metaHtml;
+      }
+    });
+    refreshTimerControls(timerSnapshot);
+
+    if (displayMode === 'timer') {
+      const html = renderTimerFace(timerSnapshot);
+      displays.forEach((display) => {
+        display.innerHTML = html;
+      });
+    } else if (style === 'digital') {
       const html = `<div style="font-size: 32px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a; line-height: 1;">
         ${h}<span style="opacity:0.5;">:</span>${m}<span style="opacity:0.5;">:</span>${s}
       </div>`;
