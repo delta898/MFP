@@ -1,9 +1,9 @@
 -- ============================================================
--- BlogGenius Configurable Sidebar Content PoC Seed
+-- BlogGenius Sidebar Resource: 개발자 블로그
 -- 대상: Supabase SQL Editor
 -- 전제: supabase_surface_content.sql 적용 완료
 -- ============================================================
--- 첫 end-to-end 검증용 텍스트 링크 하나만 등록합니다.
+-- 운영용 텍스트 링크를 재실행 가능한 upsert로 등록합니다.
 -- - Tester / Free 대상
 -- - sidebar.utility
 -- - Help(sort 500) 위쪽 sort 400

@@ -44,6 +44,7 @@
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
 - `features/blog-writing-strategy.md`
+- `features/configurable-sidebar-content.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
@@ -60,9 +61,9 @@
 - `plans/active/blog-writing-strategy-plan.md`
 - `plans/active/shopping-content-quality-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
-- `plans/active/configurable-sidebar-content-plan.md`
 - `plans/active/trend-posting-plan.md`
 - `plans/active/trend-posting-handoff.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`
 - `plans/archive/kie-gpt-integration-plan.md`
 - `plans/archive/ai-provider-profiles-plan.md`
+- `plans/archive/configurable-sidebar-content-plan.md`

@@ -1,8 +1,8 @@
--- Configurable Sidebar Content PoC: 운영 정책 복구
--- 홍보 resource는 Tester / Free에만 노출합니다.
+-- Configurable Sidebar Content: Pro 미리보기 임시 허용 (검증 전용)
+-- UI 검증이 끝나면 supabase_surface_content_restore_production_policy.sql을 실행합니다.
 
 update public.app_surface_campaigns
-   set plan_codes = array['test', 'free'],
+   set plan_codes = array['test', 'free', 'pro'],
        policy_revision = policy_revision + 1
  where campaign_key in (
        'developer-blog-sidebar-v1',
