@@ -60,6 +60,7 @@
 - `plans/active/blog-writing-strategy-plan.md`
 - `plans/active/shopping-content-quality-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
+- `plans/active/configurable-sidebar-content-plan.md`
 - `plans/active/trend-posting-plan.md`
 - `plans/active/trend-posting-handoff.md`
 - `plans/archive/kie-ai-provider-integration-plan.md`

@@ -368,6 +368,30 @@ async function callPublishQuotaRpc(rpcName, operationId, metadata = {}) {
 }
 
 const License = {
+    /**
+     * 라이선스 서버의 인증된 read-only provider가 사용할 실행 컨텍스트입니다.
+     * UI 응답이나 일반 domain payload로 전달하지 않습니다.
+     */
+    resolveAuthenticatedServerContext: async function () {
+        if (!supabase) {
+            return { success: false, message: '라이선스 서버 설정 오류' };
+        }
+
+        try {
+            const hwid = machineIdSync({ original: true });
+            const keyReady = await ensureLicenseKey(hwid);
+            if (!keyReady.success) return keyReady;
+            return {
+                success: true,
+                licenseKey: keyReady.licenseKey,
+                hwid
+            };
+        } catch (error) {
+            Logger.warn(`[License] 서버 인증 컨텍스트 준비 실패: ${sanitizeErrorMessage(error.message)}`);
+            return { success: false, message: '라이선스 인증 정보를 준비하지 못했습니다.' };
+        }
+    },
+
     issueTrendsAccessToken: async function () {
         if (!supabase) {
             return {

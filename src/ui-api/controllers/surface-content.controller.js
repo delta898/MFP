@@ -1,0 +1,27 @@
+const { createControllerErrorResponder, sendMethodNotAllowed } = require('./controller-common');
+
+function createSurfaceContentController(deps = {}) {
+    const { service, sendSuccess, sendError } = deps;
+    const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 500 });
+
+    return {
+        async sidebar({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getSidebar());
+            } catch (error) {
+                return toErrorResponse(
+                    res,
+                    requestId,
+                    'SURFACE_CONTENT_FAILED',
+                    '동적 콘텐츠를 불러오지 못했습니다.',
+                    error
+                );
+            }
+        }
+    };
+}
+
+module.exports = {
+    createSurfaceContentController
+};

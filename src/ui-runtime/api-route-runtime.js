@@ -82,6 +82,10 @@ function createUiApiRouteRuntime(deps = {}) {
         createManualSnsService,
         createManualSnsController,
         createManualSnsRouteHandler,
+        createSurfaceContentService,
+        createSupabaseSurfaceContentProvider,
+        createSurfaceContentController,
+        createSurfaceContentRouteHandler,
         createLegacyApiRouteHandler,
         createApiRouteHub,
         UiValidators,
@@ -103,6 +107,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let blogAutoRouteHandler = null;
     let settingsRouteHandler = null;
     let manualSnsRouteHandler = null;
+    let surfaceContentRouteHandler = null;
     let legacyApiRouteHandler = null;
     let apiRouteHub = null;
 
@@ -204,6 +209,28 @@ function createUiApiRouteRuntime(deps = {}) {
         return manualSnsRouteHandler;
     }
 
+    function getSurfaceContentRouteHandlerInstance() {
+        if (!surfaceContentRouteHandler) {
+            const provider = createSupabaseSurfaceContentProvider({
+                config: CONFIG,
+                License,
+                logger: Logger
+            });
+            const service = createSurfaceContentService({
+                provider,
+                appVersion: APP_VERSION,
+                logger: Logger
+            });
+            const controller = createSurfaceContentController({
+                service,
+                sendSuccess,
+                sendError
+            });
+            surfaceContentRouteHandler = createSurfaceContentRouteHandler({ controller });
+        }
+        return surfaceContentRouteHandler;
+    }
+
     function createLegacyApiDeps() {
         const baseDeps = {
             APP_VERSION,
@@ -300,6 +327,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getBlogAutoRouteHandlerInstance(),
                 getSettingsRouteHandlerInstance(),
                 getManualSnsRouteHandlerInstance(),
+                getSurfaceContentRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }
@@ -325,6 +353,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
+        getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
         handleApi
     };
 }

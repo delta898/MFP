@@ -81,6 +81,10 @@ const { createSettingsController } = require('./ui-api/controllers/settings.cont
 const { createSettingsRouteHandler } = require('./ui-api/routes/settings.routes');
 const { createManualSnsController } = require('./ui-api/controllers/manual-sns.controller');
 const { createManualSnsRouteHandler } = require('./ui-api/routes/manual-sns.routes');
+const { createSurfaceContentService } = require('./surface-content/service');
+const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
+const { createSurfaceContentController } = require('./ui-api/controllers/surface-content.controller');
+const { createSurfaceContentRouteHandler } = require('./ui-api/routes/surface-content.routes');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
@@ -1904,6 +1908,10 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createManualSnsService,
     createManualSnsController,
     createManualSnsRouteHandler,
+    createSurfaceContentService,
+    createSupabaseSurfaceContentProvider,
+    createSurfaceContentController,
+    createSurfaceContentRouteHandler,
     createLegacyApiRouteHandler,
     createApiRouteHub,
     UiValidators,
