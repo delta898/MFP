@@ -3727,25 +3727,178 @@ function formatSystemLogHtml(rawText) {
 }
 
 let clockInterval = null;
+const CLOCK_STYLE_STORAGE_KEY = 'blog_genius_clock_style_v1';
+
 function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
   if (!displays.length) return;
 
-  const styles = ['digital', 'analog', 'flip', 'heart', 'split', 'neon', 'soft'];
-  let currentStyle = styles[Math.floor(Math.random() * styles.length)] || 'digital';
+  const styleOptions = [
+    { value: 'random', label: '랜덤', icon: '✨' },
+    { value: 'digital', label: '디지털', icon: '12:34' },
+    { value: 'analog', label: '아날로그', icon: '◷' },
+    { value: 'flip', label: '플립', icon: '▣' },
+    { value: 'heart', label: '하트', icon: '♥' },
+    { value: 'split', label: '분할', icon: 'H M S' },
+    { value: 'neon', label: '네온', icon: '✦' },
+    { value: 'soft', label: '소프트', icon: '●' }
+  ];
+  const styles = styleOptions.filter((option) => option.value !== 'random').map((option) => option.value);
+  const randomStyle = () => styles[Math.floor(Math.random() * styles.length)] || 'digital';
+  let preferredStyle = 'random';
+  try {
+    const savedStyle = localStorage.getItem(CLOCK_STYLE_STORAGE_KEY);
+    if (savedStyle === 'random' || styles.includes(savedStyle)) preferredStyle = savedStyle;
+  } catch (_) {
+    preferredStyle = 'random';
+  }
+  let currentStyle = preferredStyle === 'random' ? randomStyle() : preferredStyle;
   let previousValue = null;
+  const widgetUnits = [];
+
+  function getSeasonMood(now) {
+    const month = now.getMonth() + 1;
+    const season = month >= 3 && month <= 5
+      ? 'spring'
+      : month >= 6 && month <= 8
+        ? 'summer'
+        : month >= 9 && month <= 11
+          ? 'autumn'
+          : 'winter';
+    const seasonLabel = {
+      1: '한겨울', 2: '늦겨울', 3: '초봄', 4: '봄', 5: '늦봄', 6: '초여름',
+      7: '한여름', 8: '늦여름', 9: '초가을', 10: '가을', 11: '늦가을', 12: '초겨울'
+    }[month];
+    const hour = now.getHours();
+    const message = hour >= 5 && hour < 11
+      ? '좋은 아침이에요'
+      : hour >= 11 && hour < 14
+        ? '잠시 숨을 고르기 좋은 시간이에요'
+        : hour >= 14 && hour < 18
+          ? '좋은 오후예요'
+          : hour >= 18 && hour < 22
+            ? '오늘도 수고했어요'
+            : '조용한 밤이에요';
+    const dateText = new Intl.DateTimeFormat('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    }).format(now);
+    return { season, text: `${dateText} · ${seasonLabel}`, message };
+  }
+
+  function closeStyleMenus(exceptUnit = null) {
+    widgetUnits.forEach(({ unit, button }) => {
+      if (unit === exceptUnit) return;
+      unit.classList.remove('clock-style-menu-open');
+      button.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function savePreferredStyle(style) {
+    preferredStyle = style;
+    try {
+      localStorage.setItem(CLOCK_STYLE_STORAGE_KEY, style);
+    } catch (_) {
+      // 저장소를 사용할 수 없어도 현재 실행 중 선택은 유지합니다.
+    }
+  }
+
+  function refreshStyleMenus() {
+    widgetUnits.forEach(({ menu }) => {
+      menu.querySelectorAll('[data-clock-style]').forEach((item) => {
+        const isSelected = item.dataset.clockStyle === preferredStyle;
+        item.classList.toggle('active', isSelected);
+        item.setAttribute('aria-checked', String(isSelected));
+      });
+    });
+  }
+
+  function selectStyle(style) {
+    if (style !== 'random' && !styles.includes(style)) return;
+    savePreferredStyle(style);
+    currentStyle = style === 'random' ? randomStyle() : style;
+    previousValue = null;
+    refreshStyleMenus();
+    closeStyleMenus();
+    displays.forEach((item) => {
+      item.classList.remove('clock-display-pulse');
+      void item.offsetWidth;
+      item.classList.add('clock-display-pulse');
+    });
+    renderClock();
+  }
+
+  displays.forEach((display) => {
+    const unit = document.createElement('div');
+    unit.className = 'clock-widget-unit';
+    const main = document.createElement('div');
+    main.className = 'clock-widget-main';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'clock-style-button';
+    button.title = '시계 스타일 선택';
+    button.setAttribute('aria-label', '시계 스타일 선택');
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
+    button.textContent = '🎨';
+    const meta = document.createElement('div');
+    meta.className = 'clock-ambient-meta';
+    meta.setAttribute('aria-live', 'polite');
+    const menu = document.createElement('div');
+    menu.className = 'clock-style-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', '시계 스타일');
+    menu.innerHTML = styleOptions.map((option) => `
+      <button type="button" class="clock-style-option" role="menuitemradio" aria-checked="false" data-clock-style="${option.value}">
+        <span class="clock-style-option-icon">${option.icon}</span>
+        <span>${option.label}</span>
+      </button>
+    `).join('');
+
+    const serverControl = display.closest('.dash-clock-widget')?.querySelector('#server-control');
+    if (serverControl) {
+      const serverControlLabel = document.createElement('span');
+      serverControlLabel.className = 'clock-server-control-label';
+      serverControlLabel.textContent = '앱 제어';
+      serverControl.classList.add('clock-server-control');
+      serverControl.setAttribute('aria-label', '앱 제어');
+      serverControl.prepend(serverControlLabel);
+      menu.appendChild(serverControl);
+    }
+
+    display.parentNode.insertBefore(unit, display);
+    unit.appendChild(main);
+    main.appendChild(display);
+    main.appendChild(button);
+    unit.appendChild(meta);
+    unit.appendChild(menu);
+    widgetUnits.push({ unit, button, meta, menu });
+
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const willOpen = !unit.classList.contains('clock-style-menu-open');
+      closeStyleMenus();
+      unit.classList.toggle('clock-style-menu-open', willOpen);
+      button.setAttribute('aria-expanded', String(willOpen));
+    });
+    menu.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const option = event.target.closest('[data-clock-style]');
+      if (option) selectStyle(option.dataset.clockStyle);
+    });
+  });
 
   displays.forEach((display) => {
     display.addEventListener('click', () => {
       const nextIndex = (styles.indexOf(currentStyle) + 1) % styles.length;
-      currentStyle = styles[nextIndex];
-      displays.forEach((item) => {
-        item.classList.remove('clock-display-pulse');
-        void item.offsetWidth;
-        item.classList.add('clock-display-pulse');
-      });
-      renderClock();
+      selectStyle(styles[nextIndex]);
     });
+  });
+
+  document.addEventListener('click', () => closeStyleMenus());
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeStyleMenus();
   });
 
   function renderClock() {
@@ -3757,6 +3910,16 @@ function initClockWidget() {
     const hourChanged = previousValue && previousValue.h !== h;
     const minuteChanged = previousValue && previousValue.m !== m;
     const secondChanged = previousValue && previousValue.s !== s;
+    const mood = getSeasonMood(now);
+
+    widgetUnits.forEach(({ unit, meta }) => {
+      unit.dataset.clockSeason = mood.season;
+      const moodKey = `${mood.season}|${mood.text}|${mood.message}`;
+      if (meta.dataset.clockMoodKey !== moodKey) {
+        meta.dataset.clockMoodKey = moodKey;
+        meta.innerHTML = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-message">${mood.message}</span>`;
+      }
+    });
 
     if (style === 'digital') {
       const html = `<div style="font-size: 32px; font-weight: bold; font-family: monospace; letter-spacing: 2px; color: #0f172a; line-height: 1;">
@@ -3868,6 +4031,7 @@ function initClockWidget() {
   }
 
   if (clockInterval) clearInterval(clockInterval);
+  refreshStyleMenus();
   renderClock();
   clockInterval = setInterval(renderClock, 1000);
 }

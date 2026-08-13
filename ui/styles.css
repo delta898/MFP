@@ -3695,6 +3695,211 @@ h2 {
   user-select: none;
 }
 
+.clock-widget-unit {
+  --clock-season: #0ea5e9;
+  --clock-season-soft: rgba(14, 165, 233, 0.12);
+  --clock-season-glow: rgba(14, 165, 233, 0.18);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.clock-widget-unit[data-clock-season="spring"] {
+  --clock-season: #ec4899;
+  --clock-season-soft: rgba(244, 114, 182, 0.13);
+  --clock-season-glow: rgba(236, 72, 153, 0.18);
+}
+
+.clock-widget-unit[data-clock-season="summer"] {
+  --clock-season: #0ea5e9;
+  --clock-season-soft: rgba(56, 189, 248, 0.14);
+  --clock-season-glow: rgba(14, 165, 233, 0.2);
+}
+
+.clock-widget-unit[data-clock-season="autumn"] {
+  --clock-season: #ea580c;
+  --clock-season-soft: rgba(251, 146, 60, 0.14);
+  --clock-season-glow: rgba(234, 88, 12, 0.18);
+}
+
+.clock-widget-unit[data-clock-season="winter"] {
+  --clock-season: #6366f1;
+  --clock-season-soft: rgba(129, 140, 248, 0.13);
+  --clock-season-glow: rgba(99, 102, 241, 0.18);
+}
+
+.clock-widget-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--clock-season) 22%, transparent);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), var(--clock-season-soft));
+  box-shadow: 0 10px 24px var(--clock-season-glow);
+}
+
+.clock-style-button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--clock-season) 28%, #ffffff);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-main);
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.clock-style-button:hover,
+.clock-style-button:focus-visible,
+.clock-widget-unit.clock-style-menu-open .clock-style-button {
+  transform: translateY(-1px);
+  background: var(--surface-solid);
+  box-shadow: 0 5px 14px var(--clock-season-glow);
+  outline: none;
+}
+
+.clock-ambient-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 18px;
+  padding-right: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.clock-season-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--clock-season);
+  box-shadow: 0 0 0 4px var(--clock-season-soft);
+}
+
+.clock-ambient-message {
+  color: var(--clock-season);
+}
+
+.clock-style-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  width: 238px;
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.clock-widget-unit.clock-style-menu-open .clock-style-menu {
+  display: grid;
+  animation: clockStyleMenuIn 150ms ease-out;
+}
+
+@keyframes clockStyleMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-display.clock-display-pulse,
+  .clock-split-flip,
+  .clock-widget-unit.clock-style-menu-open .clock-style-menu {
+    animation: none;
+  }
+}
+
+.clock-style-option {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.clock-style-option:hover,
+.clock-style-option:focus-visible {
+  border-color: var(--line);
+  background: #f8fafc;
+  color: var(--text-main);
+  outline: none;
+}
+
+.clock-style-option.active {
+  border-color: color-mix(in srgb, var(--clock-season) 30%, transparent);
+  background: var(--clock-season-soft);
+  color: var(--clock-season);
+}
+
+.clock-style-option-icon {
+  min-width: 32px;
+  color: inherit;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.server-control.clock-server-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.clock-server-control-label {
+  grid-column: 1 / -1;
+  color: var(--text-light);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.clock-server-control .server-control-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
 .clock-display.clock-display-pulse {
   animation: clockDisplayPulse 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -5888,6 +6093,18 @@ select.inline-editor {
 
   .clock-display {
     min-width: 120px;
+  }
+
+  .clock-widget-main {
+    padding-left: 7px;
+  }
+
+  .clock-ambient-message {
+    display: none;
+  }
+
+  .clock-style-menu {
+    width: 220px;
   }
 
   #logs-tab-system .terminal-container {
