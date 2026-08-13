@@ -437,12 +437,17 @@ Dynamic content는 비핵심 기능이다.
 
 - 사이드바 Core 메뉴를 먼저 즉시 렌더링
 - 페이지 초기화 후 비동기로 동적 콘텐츠 조회
+- 앱 창 focus 또는 browser tab visibility 복귀 시 재조회
 - RPC timeout 적용
 - PoC에서는 disk cache를 사용하지 않음
-- 동일 앱 세션에서만 짧은 memory cache 허용
-- 조회 실패, invalid schema, unsupported version이면 Dynamic Block 전체 숨김
+- 동일 앱 세션에서만 2분 memory cache 사용
+- 첫 조회 실패, invalid schema, unsupported version이면 Dynamic Block 전체 숨김
 - 실패 문구나 retry UI를 사이드바에 표시하지 않음
 - 앱 주요 기능과 account overview 요청에 영향을 주지 않음
+
+첫 조회가 실패하면 Core 메뉴만 표시한다. 한 번 이상 정상 조회한 뒤의 refresh가 실패하면 마지막 정상
+메모리 응답과 현재 DOM을 유지한다. 정상 응답의 block signature가 같으면 DOM을 다시 만들지 않아
+focus 전환 시 메뉴 깜빡임을 방지한다.
 
 이 정책은 오래된 홍보나 중단된 링크를 offline cache에서 계속 노출하는 위험을 피한다. 실제 운영에서 네트워크 비용이 문제가 될 때 versioned snapshot cache를 별도로 검토한다.
 
@@ -596,6 +601,16 @@ RPC를 호환 경계로 사용하도록 수정했다.
 - sort 600으로 Help 아래 배치 확인
 - Pro plan에서 노출 및 외부 페이지 이동 확인
 - 현재 및 향후 plan 전체에 적용하는 `all` audience 경로 검증 완료
+
+### 2026-08-13 — Focus-based automatic refresh
+
+- 앱 최초 실행 후 2분 session memory cache 적용
+- 앱 창 focus 및 browser tab visibility 복귀 시 local API 재조회
+- 동일 block signature에서는 DOM을 다시 만들지 않도록 처리
+- 후속 조회 실패 시 마지막 정상 payload와 현재 메뉴 유지
+- `개발자 응원하기`, sort 600을 `커피 한 잔 응원`, sort 350으로 원격 변경
+- 앱 재시작 없이 focus 복귀만으로 문구와 위치 변경 확인
+- 원격 운영값을 원복한 뒤 앱 재시작 없이 원래 문구와 Help 아래 위치 복구 확인
 
 ## Operator/User Tasks
 

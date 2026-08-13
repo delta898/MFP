@@ -75,6 +75,8 @@ const SIDEBAR_DYNAMIC_ICON_PATHS = {
     { tag: 'path', d: 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71' }
   ]
 };
+let sidebarDynamicContentSignature = null;
+let sidebarDynamicRefreshPromise = null;
 
 function createSidebarDynamicIcon(iconKey) {
   const namespace = 'http://www.w3.org/2000/svg';
@@ -151,32 +153,49 @@ function createSidebarDynamicBlock(block) {
   return link;
 }
 
-async function initSidebarDynamicContent() {
+async function refreshSidebarDynamicContent() {
   const region = document.getElementById('sidebar-utility-region');
   if (!region) return;
+  if (sidebarDynamicRefreshPromise) return sidebarDynamicRefreshPromise;
+
+  sidebarDynamicRefreshPromise = (async () => {
+    try {
+      const payload = await fetchJson('/api/v1/surface-content/sidebar');
+      const blocks = Array.isArray(payload?.regions?.utility?.blocks)
+        ? payload.regions.utility.blocks
+        : [];
+      const nextSignature = JSON.stringify(blocks);
+      if (nextSignature === sidebarDynamicContentSignature) return;
+
+      region.querySelectorAll('[data-dynamic-block]').forEach((node) => node.remove());
+      blocks.forEach((block) => region.appendChild(createSidebarDynamicBlock(block)));
+
+      const nodes = Array.from(region.children);
+      nodes.sort((left, right) => {
+        const orderDiff = Number(left.dataset.sortOrder || 500) - Number(right.dataset.sortOrder || 500);
+        if (orderDiff !== 0) return orderDiff;
+        const leftCore = left.hasAttribute('data-core-block') ? 0 : 1;
+        const rightCore = right.hasAttribute('data-core-block') ? 0 : 1;
+        if (leftCore !== rightCore) return leftCore - rightCore;
+        return String(left.dataset.dynamicBlock || left.dataset.coreBlock || '')
+          .localeCompare(String(right.dataset.dynamicBlock || right.dataset.coreBlock || ''));
+      });
+      nodes.forEach((node) => region.appendChild(node));
+      sidebarDynamicContentSignature = nextSignature;
+    } catch (error) {
+      console.debug('[SurfaceContent] Dynamic sidebar content unavailable:', error.message);
+    }
+  })();
 
   try {
-    const payload = await fetchJson('/api/v1/surface-content/sidebar');
-    const blocks = Array.isArray(payload?.regions?.utility?.blocks)
-      ? payload.regions.utility.blocks
-      : [];
-    region.querySelectorAll('[data-dynamic-block]').forEach((node) => node.remove());
-    blocks.forEach((block) => region.appendChild(createSidebarDynamicBlock(block)));
-
-    const nodes = Array.from(region.children);
-    nodes.sort((left, right) => {
-      const orderDiff = Number(left.dataset.sortOrder || 500) - Number(right.dataset.sortOrder || 500);
-      if (orderDiff !== 0) return orderDiff;
-      const leftCore = left.hasAttribute('data-core-block') ? 0 : 1;
-      const rightCore = right.hasAttribute('data-core-block') ? 0 : 1;
-      if (leftCore !== rightCore) return leftCore - rightCore;
-      return String(left.dataset.dynamicBlock || left.dataset.coreBlock || '')
-        .localeCompare(String(right.dataset.dynamicBlock || right.dataset.coreBlock || ''));
-    });
-    nodes.forEach((node) => region.appendChild(node));
-  } catch (error) {
-    console.debug('[SurfaceContent] Dynamic sidebar content unavailable:', error.message);
+    return await sidebarDynamicRefreshPromise;
+  } finally {
+    sidebarDynamicRefreshPromise = null;
   }
+}
+
+function initSidebarDynamicContent() {
+  void refreshSidebarDynamicContent();
 }
 
 function getUiToastContainer() {
@@ -11828,10 +11847,12 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       void ensureUpdateCheckFresh({ silent: true });
+      void refreshSidebarDynamicContent();
     }
   });
   window.addEventListener('focus', () => {
     void ensureUpdateCheckFresh({ silent: true });
+    void refreshSidebarDynamicContent();
   });
   setInterval(() => {
     void ensureUpdateCheckFresh({ silent: true });

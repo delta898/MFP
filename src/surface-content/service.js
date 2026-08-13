@@ -34,15 +34,15 @@ function createSurfaceContentService(options = {}) {
                     storageOrigin: provider.getStorageOrigin?.() || ''
                 });
                 if (!normalized) {
-                    logger.warn?.('[SurfaceContent] 지원하지 않거나 잘못된 원격 응답을 숨깁니다.');
-                    return emptySidebarPayload();
+                    logger.warn?.('[SurfaceContent] 잘못된 원격 응답을 무시하고 마지막 정상 콘텐츠를 유지합니다.');
+                    return cachedSidebar || emptySidebarPayload();
                 }
                 cachedSidebar = normalized;
                 cachedAt = Date.now();
                 return normalized;
             } catch (error) {
-                logger.debug?.(`[SurfaceContent] 동적 사이드바 콘텐츠를 숨깁니다: ${error.message}`);
-                return emptySidebarPayload();
+                logger.debug?.(`[SurfaceContent] 마지막 정상 사이드바 콘텐츠를 유지합니다: ${error.message}`);
+                return cachedSidebar || emptySidebarPayload();
             } finally {
                 pendingSidebar = null;
             }
