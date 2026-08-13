@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: implementation (sidebar text resource and managed media end-to-end verified)
+- Phase: implementation (sidebar resource, support, audience, and managed media verified)
 - Branch: `codex/feature/configurable-sidebar-content`
 - First surface: sidebar only
 - Expansion to Dashboard and Account is explicitly deferred until the sidebar PoC is operated and reviewed.
@@ -587,6 +587,15 @@ RPC를 호환 경계로 사용하도록 수정했다.
 - Pro 임시 audience에서 Storage thumbnail 로딩 확인
 - sort 400 개발자 블로그, sort 450 전자책, sort 500 Help 순서 확인
 - 앱 배포 없이 media와 콘텐츠 참조를 운영하는 경로 검증 완료
+
+### 2026-08-13 — All-plan developer support
+
+- `developer-support`를 `support` kind와 `audience_mode = all`로 등록
+- 크티 후원 페이지 `https://ctee.kr/place/amadejjs/donation` 연결
+- bundled `heart` icon과 `개발자 응원하기` 문구 표시 확인
+- sort 600으로 Help 아래 배치 확인
+- Pro plan에서 노출 및 외부 페이지 이동 확인
+- 현재 및 향후 plan 전체에 적용하는 `all` audience 경로 검증 완료
 
 ## Operator/User Tasks
 
