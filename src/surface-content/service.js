@@ -1,4 +1,4 @@
-const { normalizeSidebarPayload } = require('./schema');
+const { normalizeSidebarPayload, normalizeDashboardPayload } = require('./schema');
 
 const MEMORY_CACHE_TTL_MS = 60 * 1000;
 
@@ -12,51 +12,63 @@ function emptySidebarPayload() {
     };
 }
 
+function emptyDashboardPayload() {
+    return {
+        schemaVersion: 1,
+        policyRevision: 0,
+        surface: 'dashboard',
+        regions: { supporting: { blocks: [] } },
+        generatedAt: ''
+    };
+}
+
 function createSurfaceContentService(options = {}) {
     const provider = options.provider;
     const appVersion = String(options.appVersion || '0.0.0').trim();
     const logger = options.logger || console;
     const cacheTtlMs = Math.max(0, Number(options.cacheTtlMs ?? MEMORY_CACHE_TTL_MS));
-    let cachedSidebar = null;
-    let cachedAt = 0;
-    let pendingSidebar = null;
+    const states = new Map();
 
-    async function loadSidebar() {
+    async function loadSurface(surface, normalize, empty) {
         const now = Date.now();
-        if (cachedSidebar && now - cachedAt < cacheTtlMs) return cachedSidebar;
-        if (pendingSidebar) return pendingSidebar;
+        const state = states.get(surface) || { cached: null, cachedAt: 0, pending: null };
+        states.set(surface, state);
+        if (state.cached && now - state.cachedAt < cacheTtlMs) return state.cached;
+        if (state.pending) return state.pending;
 
-        pendingSidebar = (async () => {
+        state.pending = (async () => {
             try {
-                if (!provider || typeof provider.fetch !== 'function') return emptySidebarPayload();
-                const remote = await provider.fetch('sidebar', appVersion);
-                const normalized = normalizeSidebarPayload(remote, {
+                if (!provider || typeof provider.fetch !== 'function') return empty();
+                const remote = await provider.fetch(surface, appVersion);
+                const normalized = normalize(remote, {
                     storageOrigin: provider.getStorageOrigin?.() || ''
                 });
                 if (!normalized) {
                     logger.warn?.('[SurfaceContent] 잘못된 원격 응답을 무시하고 마지막 정상 콘텐츠를 유지합니다.');
-                    return cachedSidebar || emptySidebarPayload();
+                    return state.cached || empty();
                 }
-                cachedSidebar = normalized;
-                cachedAt = Date.now();
+                state.cached = normalized;
+                state.cachedAt = Date.now();
                 return normalized;
             } catch (error) {
-                logger.debug?.(`[SurfaceContent] 마지막 정상 사이드바 콘텐츠를 유지합니다: ${error.message}`);
-                return cachedSidebar || emptySidebarPayload();
+                logger.debug?.(`[SurfaceContent] 마지막 정상 ${surface} 콘텐츠를 유지합니다: ${error.message}`);
+                return state.cached || empty();
             } finally {
-                pendingSidebar = null;
+                state.pending = null;
             }
         })();
 
-        return pendingSidebar;
+        return state.pending;
     }
 
     return {
-        getSidebar: loadSidebar
+        getSidebar: () => loadSurface('sidebar', normalizeSidebarPayload, emptySidebarPayload),
+        getDashboard: () => loadSurface('dashboard', normalizeDashboardPayload, emptyDashboardPayload)
     };
 }
 
 module.exports = {
     createSurfaceContentService,
-    emptySidebarPayload
+    emptySidebarPayload,
+    emptyDashboardPayload
 };

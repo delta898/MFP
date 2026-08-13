@@ -9,12 +9,12 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 - surface: `sidebar`
 - region: `utility`
 - presentation: `nav_item`
-- supported content kinds: `resource`, `support`
+- supported content kinds: `resource`, `support`, `affiliate`
 - supported bundled icons: `heart`, `coffee`, `book`, `link`, `sparkles`
 - 한 번에 표시하는 동적 항목: 최대 3개
 - Core 메뉴와 Help는 원격 설정과 무관하게 앱이 항상 렌더링한다.
 
-새로운 `resource` 또는 `support` 항목은 아래 계약 안에서 Supabase 데이터만으로 추가할 수 있다. 새로운 surface, region, presentation, content kind, 아이콘 또는 상호작용을 추가하려면 앱 변경과 배포가 필요하다.
+새로운 `resource`, `support` 또는 disclosure가 포함된 `affiliate` 항목은 아래 계약 안에서 Supabase 데이터만으로 추가할 수 있다. 새로운 surface, region, presentation, content kind, 아이콘 또는 상호작용을 추가하려면 앱 변경과 배포가 필요하다.
 
 ## Placement Model
 
@@ -59,7 +59,7 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 
 1. 이미지가 있다면 Storage에 최적화된 파생본을 업로드한다.
 2. `app_surface_assets`에 이미지 메타데이터를 등록한다.
-3. `app_surface_contents`에 `resource` 또는 `support` 콘텐츠를 등록한다.
+3. `app_surface_contents`에 `resource`, `support` 또는 `affiliate` 콘텐츠를 등록한다.
 4. `app_surface_campaigns`에 audience와 게시 상태를 등록한다.
 5. `app_surface_campaign_placements`에 `sidebar.utility`, `nav_item`, `sort_order`를 등록한다.
 6. 실제 라이선스로 resolved RPC와 앱 표시를 확인한다.
@@ -109,7 +109,9 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
    - Tester/Free 대상 전자책 리소스와 Storage asset
 4. `sql/supabase_surface_content_support_seed.sql`
    - 전체 플랜 대상 개발자 후원
-5. `sql/supabase_surface_content_restore_production_policy.sql`
+5. `sql/supabase_surface_content_dashboard_seed.sql`
+   - 기존 세 campaign을 Dashboard supporting region에 배치
+6. `sql/supabase_surface_content_restore_production_policy.sql`
    - 세 콘텐츠의 audience를 운영 정책으로 복원
 
 ### Validation only — 운영값을 잠시 변경하고 반드시 복원

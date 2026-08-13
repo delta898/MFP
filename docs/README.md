@@ -56,6 +56,7 @@
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
+- `plans/active/configurable-content-surfaces-plan.md`
 - `plans/active/manual-sns-publishing-plan.md`
 - `plans/active/naver-smart-comment-improvement-plan.md`
 - `plans/active/blog-writing-strategy-plan.md`

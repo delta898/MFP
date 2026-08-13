@@ -77,6 +77,9 @@ const SIDEBAR_DYNAMIC_ICON_PATHS = {
 };
 let sidebarDynamicContentSignature = null;
 let sidebarDynamicRefreshPromise = null;
+let dashboardDynamicContentSignature = null;
+let dashboardDynamicRefreshPromise = null;
+const SURFACE_ROTATION_SEED_KEY = 'blog_genius_surface_rotation_seed_v1';
 
 function createSidebarDynamicIcon(iconKey) {
   const namespace = 'http://www.w3.org/2000/svg';
@@ -196,6 +199,123 @@ async function refreshSidebarDynamicContent() {
 
 function initSidebarDynamicContent() {
   void refreshSidebarDynamicContent();
+}
+
+function getSurfaceRotationSeed() {
+  try {
+    let seed = localStorage.getItem(SURFACE_ROTATION_SEED_KEY);
+    if (!seed) {
+      seed = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+      localStorage.setItem(SURFACE_ROTATION_SEED_KEY, seed);
+    }
+    return seed;
+  } catch (_) {
+    return 'default-installation';
+  }
+}
+
+function selectDailySurfaceBlock(blocks, surface, region) {
+  if (!Array.isArray(blocks) || !blocks.length) return null;
+  const today = new Date();
+  const dateKey = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0')
+  ].join('-');
+  const source = `${getSurfaceRotationSeed()}|${dateKey}|${surface}|${region}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return blocks[Math.abs(hash >>> 0) % blocks.length] || blocks[0];
+}
+
+function createDashboardSupportingCard(block) {
+  const link = document.createElement('a');
+  link.className = `dashboard-supporting-card dashboard-supporting-card-${block.kind}`;
+  link.href = block.targetUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.dataset.dynamicBlock = block.id;
+  link.title = block.disclosure ? `${block.title} · ${block.disclosure}` : block.title;
+
+  const visual = document.createElement('span');
+  visual.className = 'dashboard-supporting-visual';
+  if (block.media?.url && block.kind !== 'support') {
+    const image = document.createElement('img');
+    image.src = block.media.url;
+    image.alt = block.media.alt || '';
+    image.width = 64;
+    image.height = 64;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => {
+      image.remove();
+      visual.appendChild(createSidebarDynamicIcon(block.icon));
+    }, { once: true });
+    visual.appendChild(image);
+  } else {
+    visual.appendChild(createSidebarDynamicIcon(block.icon));
+  }
+
+  const copy = document.createElement('span');
+  copy.className = 'dashboard-supporting-copy';
+  const typeLabel = document.createElement('span');
+  typeLabel.className = 'dashboard-supporting-type';
+  typeLabel.textContent = block.kind === 'support'
+    ? '개발자 지원'
+    : block.kind === 'affiliate' ? '제휴 추천' : '추천 자료';
+  const title = document.createElement('strong');
+  title.textContent = block.title;
+  copy.append(typeLabel, title);
+  if (block.disclosure) {
+    const disclosure = document.createElement('small');
+    disclosure.textContent = block.disclosure;
+    copy.appendChild(disclosure);
+  }
+
+  const cta = document.createElement('span');
+  cta.className = 'dashboard-supporting-cta';
+  cta.textContent = block.ctaLabel || '자세히 보기';
+  cta.insertAdjacentHTML('beforeend', '<span aria-hidden="true">↗</span>');
+
+  link.append(visual, copy, cta);
+  return link;
+}
+
+async function refreshDashboardDynamicContent() {
+  const region = document.getElementById('dashboard-supporting-region');
+  if (!region) return;
+  if (dashboardDynamicRefreshPromise) return dashboardDynamicRefreshPromise;
+
+  dashboardDynamicRefreshPromise = (async () => {
+    try {
+      const payload = await fetchJson('/api/v1/surface-content/dashboard');
+      const blocks = Array.isArray(payload?.regions?.supporting?.blocks)
+        ? payload.regions.supporting.blocks
+        : [];
+      const selected = selectDailySurfaceBlock(blocks, 'dashboard', 'supporting');
+      const nextSignature = JSON.stringify(selected);
+      if (nextSignature === dashboardDynamicContentSignature) return;
+
+      region.replaceChildren();
+      if (selected) region.appendChild(createDashboardSupportingCard(selected));
+      region.hidden = !selected;
+      dashboardDynamicContentSignature = nextSignature;
+    } catch (error) {
+      console.debug('[SurfaceContent] Dynamic dashboard content unavailable:', error.message);
+    }
+  })();
+
+  try {
+    return await dashboardDynamicRefreshPromise;
+  } finally {
+    dashboardDynamicRefreshPromise = null;
+  }
+}
+
+function initDashboardDynamicContent() {
+  void refreshDashboardDynamicContent();
 }
 
 function getUiToastContainer() {
@@ -11842,6 +11962,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
+  void initDashboardDynamicContent();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
@@ -11864,11 +11985,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.visibilityState === 'visible') {
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
+      void refreshDashboardDynamicContent();
     }
   });
   window.addEventListener('focus', () => {
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
+    void refreshDashboardDynamicContent();
   });
   setInterval(() => {
     void ensureUpdateCheckFresh({ silent: true });
