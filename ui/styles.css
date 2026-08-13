@@ -3829,11 +3829,11 @@ h2 {
 }
 
 .clock-widget-main {
-  width: clamp(330px, 29vw, 400px);
+  width: clamp(310px, 24vw, 320px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px;
   grid-template-areas:
-    "face trigger"
+    "face controls"
     "meta meta";
   align-items: center;
   column-gap: 10px;
@@ -3867,8 +3867,17 @@ h2 {
   --pomodoro-soft: #fff1f2;
 }
 
+.clock-control-rail {
+  grid-area: controls;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
 .clock-style-button {
-  grid-area: trigger;
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
@@ -3918,7 +3927,7 @@ h2 {
   font-weight: 600;
   line-height: 1.2;
   flex-wrap: wrap;
-  row-gap: 4px;
+  row-gap: 8px;
   white-space: nowrap;
 }
 
@@ -3939,7 +3948,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
-  margin-left: 3px;
+  margin: 2px 0 2px 7px;
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
@@ -4209,7 +4218,7 @@ h2 {
 }
 
 .pomodoro-face-shell {
-  min-width: 270px;
+  min-width: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4229,7 +4238,7 @@ h2 {
 .pomodoro-face-time {
   display: block;
   font-family: monospace;
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.04em;
@@ -4256,7 +4265,7 @@ h2 {
 
 .pomodoro-face-tomato,
 .pomodoro-face-soft {
-  width: 270px;
+  width: 240px;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -4272,7 +4281,7 @@ h2 {
 
 .pomodoro-tomato-icon,
 .pomodoro-soft-orb {
-  font-size: 36px;
+  font-size: 40px;
   filter: drop-shadow(0 5px 8px rgba(225, 29, 72, 0.18));
 }
 
@@ -4299,11 +4308,11 @@ h2 {
 }
 
 .pomodoro-ring-center .pomodoro-face-time {
-  font-size: 28px;
+  font-size: 31px;
 }
 
 .pomodoro-face-flip {
-  width: 260px;
+  width: 232px;
   padding: 9px 11px 17px;
   color: #f8fafc;
   text-align: center;
@@ -4325,7 +4334,7 @@ h2 {
   border-radius: 8px;
   background: #1e293b;
   font-family: monospace;
-  font-size: 32px;
+  font-size: 35px;
   font-weight: 900;
   box-shadow: 0 7px 14px rgba(15, 23, 42, 0.2);
 }
@@ -4360,20 +4369,25 @@ h2 {
 }
 
 .pomodoro-inline-actions {
-  min-height: 30px;
-  display: flex;
+  display: none;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
 
+.clock-widget-unit[data-clock-display-mode="timer"] .pomodoro-inline-actions {
+  display: flex;
+}
+
 .pomodoro-inline-actions button {
+  width: 32px;
   min-width: 32px;
-  height: 30px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
@@ -4396,9 +4410,14 @@ h2 {
 
 .pomodoro-inline-actions .pomodoro-inline-start,
 .pomodoro-inline-actions .pomodoro-inline-next {
-  min-width: 86px;
+  min-width: 32px;
   border-color: color-mix(in srgb, var(--pomodoro-accent) 28%, transparent);
   color: var(--pomodoro-accent);
+}
+
+.clock-widget-unit[data-clock-display-mode="clock"] .clock-display > :first-child {
+  transform: scale(1.1);
+  transform-origin: center;
 }
 
 @keyframes pomodoroCompletePulse {

@@ -4280,6 +4280,11 @@ function initClockWidget() {
         <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
       </svg>
     `;
+    const controlRail = document.createElement('div');
+    controlRail.className = 'clock-control-rail';
+    const inlineActions = document.createElement('div');
+    inlineActions.className = 'pomodoro-inline-actions';
+    inlineActions.setAttribute('aria-label', '타이머 제어');
     const meta = document.createElement('div');
     meta.className = 'clock-ambient-meta';
     meta.setAttribute('aria-live', 'polite');
@@ -4348,10 +4353,12 @@ function initClockWidget() {
     display.parentNode.insertBefore(unit, display);
     unit.appendChild(main);
     main.appendChild(display);
-    main.appendChild(button);
+    main.appendChild(controlRail);
+    controlRail.appendChild(button);
+    controlRail.appendChild(inlineActions);
     main.appendChild(meta);
     unit.appendChild(menu);
-    widgetUnits.push({ unit, button, meta, menu });
+    widgetUnits.push({ unit, button, inlineActions, meta, menu });
 
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -4379,19 +4386,19 @@ function initClockWidget() {
         else if (action === 'stop') stopTimer();
       }
     });
+    inlineActions.addEventListener('click', (event) => {
+      const timerAction = event.target.closest('[data-timer-inline-action]');
+      if (!timerAction) return;
+      event.stopPropagation();
+      const action = timerAction.dataset.timerInlineAction;
+      if (action === 'start') startTimer(timerAction.dataset.timerPhase || timerState.phase);
+      else if (action === 'toggle-pause') toggleTimerPause();
+      else if (action === 'stop') stopTimer();
+    });
   });
 
   displays.forEach((display) => {
     display.addEventListener('click', (event) => {
-      const timerAction = event.target.closest('[data-timer-inline-action]');
-      if (timerAction) {
-        event.stopPropagation();
-        const action = timerAction.dataset.timerInlineAction;
-        if (action === 'start') startTimer(timerAction.dataset.timerPhase || timerState.phase);
-        else if (action === 'toggle-pause') toggleTimerPause();
-        else if (action === 'stop') stopTimer();
-        return;
-      }
       if (displayMode === 'timer') {
         const nextIndex = (timerStyles.indexOf(timerStyle) + 1) % timerStyles.length;
         selectTimerStyle(timerStyles[nextIndex]);
@@ -4414,15 +4421,6 @@ function initClockWidget() {
     const faceLabel = snapshot.status === 'completed' ? `✓ ${phaseLabel} 완료` : `${phaseIcon} ${phaseLabel}`;
     const progressDegrees = Math.round(snapshot.progress * 360);
     const progressPercent = Math.round(snapshot.progress * 100);
-    const inlineControls = snapshot.status === 'running'
-      ? `<button type="button" data-timer-inline-action="toggle-pause" title="일시정지" aria-label="일시정지">Ⅱ</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`
-      : snapshot.status === 'paused'
-        ? `<button type="button" data-timer-inline-action="toggle-pause" title="계속" aria-label="계속">▶</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`
-        : snapshot.status === 'completed'
-          ? `<button type="button" class="pomodoro-inline-next" data-timer-inline-action="start" data-timer-phase="${snapshot.phase === 'focus' ? 'break' : 'focus'}">${snapshot.phase === 'focus' ? '☕ 5분 휴식' : '🍅 25분 집중'}</button>`
-          : `<button type="button" class="pomodoro-inline-start" data-timer-inline-action="start" data-timer-phase="${snapshot.phase}">▶ 시작</button>`;
-    const controlsHtml = `<div class="pomodoro-inline-actions">${inlineControls}</div>`;
-
     if (timerStyle === 'ring') {
       return `
         <div class="pomodoro-face-shell">
@@ -4432,7 +4430,6 @@ function initClockWidget() {
               <span class="pomodoro-face-time">${value.text}</span>
             </div>
           </div>
-          ${controlsHtml}
         </div>
       `;
     }
@@ -4446,7 +4443,6 @@ function initClockWidget() {
             </div>
             <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
           </div>
-          ${controlsHtml}
         </div>
       `;
     }
@@ -4461,7 +4457,6 @@ function initClockWidget() {
             </div>
             <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
           </div>
-          ${controlsHtml}
         </div>
       `;
     }
@@ -4475,9 +4470,25 @@ function initClockWidget() {
           </div>
           <div class="pomodoro-progress-track"><i style="width:${progressPercent}%"></i></div>
         </div>
-        ${controlsHtml}
       </div>
     `;
+  }
+
+  function renderInlineTimerControls(snapshot) {
+    if (snapshot.status === 'running') {
+      return `<button type="button" data-timer-inline-action="toggle-pause" title="일시정지" aria-label="일시정지">Ⅱ</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`;
+    }
+    if (snapshot.status === 'paused') {
+      return `<button type="button" data-timer-inline-action="toggle-pause" title="계속" aria-label="계속">▶</button><button type="button" data-timer-inline-action="stop" title="종료" aria-label="타이머 종료">■</button>`;
+    }
+    if (snapshot.status === 'completed') {
+      const nextPhase = snapshot.phase === 'focus' ? 'break' : 'focus';
+      const nextLabel = snapshot.phase === 'focus' ? '5분 휴식 시작' : '25분 집중 시작';
+      const nextIcon = snapshot.phase === 'focus' ? '☕' : '🍅';
+      return `<button type="button" class="pomodoro-inline-next" data-timer-inline-action="start" data-timer-phase="${nextPhase}" title="${nextLabel}" aria-label="${nextLabel}">${nextIcon}</button>`;
+    }
+    const startLabel = snapshot.phase === 'focus' ? '25분 집중 시작' : '5분 휴식 시작';
+    return `<button type="button" class="pomodoro-inline-start" data-timer-inline-action="start" data-timer-phase="${snapshot.phase}" title="${startLabel}" aria-label="${startLabel}">▶</button>`;
   }
 
   function renderClock() {
@@ -4500,7 +4511,7 @@ function initClockWidget() {
         : '클릭하여 시계 스타일 변경';
     });
 
-    widgetUnits.forEach(({ unit, button, meta }) => {
+    widgetUnits.forEach(({ unit, button, inlineActions, meta }) => {
       const completionEffectActive = timerCompletionPulseUntil > now.getTime();
       unit.dataset.clockSeason = mood.season;
       unit.dataset.clockDisplayMode = displayMode;
@@ -4509,6 +4520,11 @@ function initClockWidget() {
       unit.classList.toggle('pomodoro-break-complete', completionEffectActive && timerCompletionPhase === 'break');
       button.title = '시계 및 타이머 메뉴';
       button.setAttribute('aria-label', button.title);
+      const inlineControlsHtml = displayMode === 'timer' ? renderInlineTimerControls(timerSnapshot) : '';
+      if (inlineActions.dataset.controlsHtml !== inlineControlsHtml) {
+        inlineActions.dataset.controlsHtml = inlineControlsHtml;
+        inlineActions.innerHTML = inlineControlsHtml;
+      }
       let metaHtml = '';
       if (displayMode === 'timer') {
         metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-message">${mood.text}</span>`;
