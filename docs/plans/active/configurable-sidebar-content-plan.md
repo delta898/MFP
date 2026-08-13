@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: implementation (sidebar text-link end-to-end verified, managed media pending)
+- Phase: implementation (sidebar text resource and managed media end-to-end verified)
 - Branch: `codex/feature/configurable-sidebar-content`
 - First surface: sidebar only
 - Expansion to Dashboard and Account is explicitly deferred until the sidebar PoC is operated and reviewed.
@@ -576,6 +576,17 @@ PoC가 안정화되면 현재 구조를 `docs/architecture/`에 승격하고 장
 검증 중 저장소의 migration SQL과 실제 운영 Supabase schema가 완전히 동일하지 않음을 확인했다.
 Surface RPC는 라이선스 내부 테이블을 직접 참조하지 않고, 운영 중인 `check_license_status`
 RPC를 호환 경계로 사용하도록 수정했다.
+
+### 2026-08-13 — Managed ebook thumbnail
+
+- 원본 1024×1024 JPEG에서 sidebar용 256×256 WebP 파생본 생성
+- 232,755 bytes에서 20,178 bytes로 최적화
+- `app-public-content/surface-content/ebooks/oracle-cloud-guide/sidebar-v1.webp`에 업로드
+- asset metadata와 `oracle-cloud-guide` resource를 분리 등록
+- Latpeed 전자책 URL과 `무료 오라클 가이드` 문구 연결
+- Pro 임시 audience에서 Storage thumbnail 로딩 확인
+- sort 400 개발자 블로그, sort 450 전자책, sort 500 Help 순서 확인
+- 앱 배포 없이 media와 콘텐츠 참조를 운영하는 경로 검증 완료
 
 ## Operator/User Tasks
 

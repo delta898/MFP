@@ -1,15 +1,70 @@
 -- ============================================================
--- BlogGenius Configurable Sidebar Content PoC Seed
+-- BlogGenius Sidebar Resource: 무료 오라클 가이드
 -- 대상: Supabase SQL Editor
--- 전제: supabase_surface_content.sql 적용 완료
+-- 전제:
+-- 1) supabase_surface_content.sql 적용 완료
+-- 2) 아래 Storage object upload 완료
+--    bucket: app-public-content
+--    path: surface-content/ebooks/oracle-cloud-guide/sidebar-v1.webp
 -- ============================================================
--- 첫 end-to-end 검증용 텍스트 링크 하나만 등록합니다.
--- - Tester / Free 대상
--- - sidebar.utility
--- - Help(sort 500) 위쪽 sort 400
--- - 이미지 없음: 앱 내장 sparkles icon 사용
 
 begin;
+
+do $$
+begin
+    if not exists (
+        select 1
+          from storage.objects
+         where bucket_id = 'app-public-content'
+           and name = 'surface-content/ebooks/oracle-cloud-guide/sidebar-v1.webp'
+    ) then
+        raise exception using
+            message = '전자책 thumbnail이 Storage에 없습니다.',
+            hint = 'app-public-content/surface-content/ebooks/oracle-cloud-guide/sidebar-v1.webp 경로를 확인하세요.';
+    end if;
+end;
+$$;
+
+insert into public.app_surface_assets (
+    asset_key,
+    kind,
+    transport,
+    bucket_name,
+    object_path,
+    mime_type,
+    width,
+    height,
+    byte_size,
+    alt_text,
+    revision,
+    status
+)
+values (
+    'oracle-cloud-guide-sidebar-v1',
+    'image',
+    'supabase_storage',
+    'app-public-content',
+    'surface-content/ebooks/oracle-cloud-guide/sidebar-v1.webp',
+    'image/webp',
+    256,
+    256,
+    20178,
+    '평생 무료 오라클 클라우드 호스팅 전자책 표지',
+    1,
+    'active'
+)
+on conflict (asset_key) do update
+set kind = excluded.kind,
+    transport = excluded.transport,
+    bucket_name = excluded.bucket_name,
+    object_path = excluded.object_path,
+    mime_type = excluded.mime_type,
+    width = excluded.width,
+    height = excluded.height,
+    byte_size = excluded.byte_size,
+    alt_text = excluded.alt_text,
+    revision = excluded.revision,
+    status = excluded.status;
 
 insert into public.app_surface_contents (
     content_key,
@@ -23,14 +78,14 @@ insert into public.app_surface_contents (
     status
 )
 values (
-    'developer-blog',
+    'oracle-cloud-guide',
     'resource',
-    '개발자 블로그',
-    'https://blog.naver.com/amadejjs',
-    'sparkles',
-    '블로그 보기',
+    '무료 오라클 가이드',
+    'https://www.latpeed.com/products/wfZro',
+    'book',
+    '전자책 보기',
     null,
-    null,
+    'oracle-cloud-guide-sidebar-v1',
     'active'
 )
 on conflict (content_key) do update
@@ -57,8 +112,8 @@ insert into public.app_surface_campaigns (
     published_at
 )
 values (
-    'developer-blog-sidebar-v1',
-    'developer-blog',
+    'oracle-cloud-guide-sidebar-v1',
+    'oracle-cloud-guide',
     'include',
     array['test', 'free'],
     null,
@@ -90,11 +145,11 @@ insert into public.app_surface_campaign_placements (
     is_active
 )
 values (
-    'developer-blog-sidebar-v1',
+    'oracle-cloud-guide-sidebar-v1',
     'sidebar',
     'utility',
     'nav_item',
-    400,
+    450,
     true
 )
 on conflict (campaign_key, surface_key, region_key) do update
@@ -108,6 +163,9 @@ commit;
 select
     c.content_key,
     c.title,
+    c.target_url,
+    a.bucket_name,
+    a.object_path,
     campaign.audience_mode,
     campaign.plan_codes,
     campaign.status as campaign_status,
@@ -115,8 +173,10 @@ select
     placement.region_key,
     placement.sort_order
 from public.app_surface_contents c
+join public.app_surface_assets a
+  on a.asset_key = c.primary_asset_key
 join public.app_surface_campaigns campaign
   on campaign.content_key = c.content_key
 join public.app_surface_campaign_placements placement
   on placement.campaign_key = campaign.campaign_key
-where c.content_key = 'developer-blog';
+where c.content_key = 'oracle-cloud-guide';

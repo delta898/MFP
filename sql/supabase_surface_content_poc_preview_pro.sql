@@ -4,7 +4,10 @@
 update public.app_surface_campaigns
    set plan_codes = array['test', 'free', 'pro'],
        policy_revision = policy_revision + 1
- where campaign_key = 'developer-blog-sidebar-v1'
+ where campaign_key in (
+       'developer-blog-sidebar-v1',
+       'oracle-cloud-guide-sidebar-v1'
+   )
    and audience_mode = 'include';
 
 select
@@ -14,4 +17,8 @@ select
     status,
     policy_revision
   from public.app_surface_campaigns
- where campaign_key = 'developer-blog-sidebar-v1';
+ where campaign_key in (
+       'developer-blog-sidebar-v1',
+       'oracle-cloud-guide-sidebar-v1'
+   )
+ order by campaign_key;

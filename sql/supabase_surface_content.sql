@@ -523,10 +523,10 @@ commit;
 --        policy_revision = policy_revision + 1
 --  where campaign_key = 'affiliate-guide-sidebar-v1';
 
--- 7) RPC smoke check: 실제 앱과 같은 공용 test key 경로
+-- 7) RPC smoke check: 실제 발급된 license key와 해당 기기의 HWID를 사용합니다.
 -- select public.get_app_surface_content(
---     'test',
---     'surface-content-poc-check',
+--     '<actual-license-key>',
+--     '<actual-hwid>',
 --     'sidebar',
 --     '0.1.18'
 -- );
