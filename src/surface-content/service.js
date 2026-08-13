@@ -1,6 +1,6 @@
 const { normalizeSidebarPayload } = require('./schema');
 
-const MEMORY_CACHE_TTL_MS = 2 * 60 * 1000;
+const MEMORY_CACHE_TTL_MS = 60 * 1000;
 
 function emptySidebarPayload() {
     return {
