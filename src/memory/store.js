@@ -29,6 +29,7 @@ function buildDisabledEventStore(reason) {
         async getUserInsight() { return null; },
         async recordMessage() { return null; },
         async recordInteractionMessage() { return null; },
+        async getFeedbackTarget() { return null; },
         async recordShoppingItem() { return null; },
         async recordTopic() { return null; },
         async recordActivityLifecycle() { return null; },

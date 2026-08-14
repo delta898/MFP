@@ -170,6 +170,13 @@ artifacts while retaining whether each signal came from an event or artifact.
 Product integrations must record terminal evidence only after platform-confirmed
 success, and GraphDB failure must not reverse the business operation.
 
+Feedback becomes lifecycle evidence only when its target carries a controlled
+content domain. Content ideas and topics map to blog feedback; shopping item
+artifacts map to shopping feedback. Generic workflow suggestions and ordinary
+confirmation decisions remain outside content lifecycle scoring. Telegram
+callback identity makes repeated delivery idempotent while preserving the
+existing suggestion/artifact preference projections.
+
 Topic registration preserves subject, category, platform, keywords, instruction,
 and source in compact event/artifact payloads. Migration `003_topic_semantics`
 materializes deterministic keyword/category/platform values as facets while

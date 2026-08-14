@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { normalizeInteractionProvenance } = require('./interaction-provenance');
+const { resolveArtifactFeedbackTarget } = require('./feedback-target');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
 const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
@@ -850,6 +851,14 @@ class KuzuEventStore {
             summary: row.summary,
             payload: (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })()
         };
+    }
+
+    async getFeedbackTarget(kind = '', targetId = '') {
+        const normalizedKind = String(kind || '').trim().toLowerCase();
+        if (normalizedKind !== 'artifact') return null;
+        const artifact = await this._getArtifactById(targetId);
+        if (!artifact) return null;
+        return resolveArtifactFeedbackTarget(artifact);
     }
 
     async _upsertSuggestionFeedbackPreference(input = {}, meta = {}) {

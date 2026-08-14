@@ -62,6 +62,7 @@
 - `plans/active/intelligent-memory-shopping-lifecycle-plan.md`
 - `plans/active/intelligent-memory-sns-lifecycle-plan.md`
 - `plans/active/intelligent-memory-telegram-provenance-plan.md`
+- `plans/active/intelligent-memory-feedback-provenance-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`

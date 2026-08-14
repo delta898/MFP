@@ -41,7 +41,8 @@
 - Shopping lifecycle 연결 진행: 단건·일괄·자동·빠른 쇼핑 실행의 선택과 플랫폼별 초안/발행 성공 근거 수집
 - SNS lifecycle 연결 진행: 수동 작성과 RSS/Buffer 자동 배포의 선택 및 채널별 확인된 발행 성공 근거 수집
 - Telegram provenance 정규화 진행: canonical request의 owner/actor/channel/conversation/message/request 출처를 content registration까지 유지
-- 다음 선행 작업: Telegram 메시지 수집 누락 감사를 마친 뒤 기존 feedback callback을 명확한 domain/entity 근거에 연결하고, 저장 토픽과 facet을 retrieval context에 포함
+- Feedback provenance 정규화 진행: 명확한 artifact 유형만 blog/shopping lifecycle feedback으로 연결하고 일반 suggestion/confirmation은 분리
+- 다음 선행 작업: Telegram 메시지 수집 누락·중복·orphan 감사를 마친 뒤 저장 토픽과 facet을 retrieval context에 포함
 - 단순 반복 횟수뿐 아니라 최근성, 직접 선택·발행 여부, 추천 수락/거절을 구분해 점수화
 - 제안 결과에서 추천 이유와 근거 신호를 사용자가 이해할 수 있게 표시
 

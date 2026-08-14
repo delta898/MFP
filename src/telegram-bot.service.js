@@ -456,6 +456,7 @@ class TelegramBotService {
                         ? 'suggestion.helpful'
                         : 'suggestion.not_helpful';
             await this.agentEventStore.appendEvent({
+                id: query?.id ? `telegram_feedback_${String(query.id).trim()}` : undefined,
                 event_type: eventType,
                 actor_type: 'user',
                 actor_id: context.user.id,
@@ -486,6 +487,7 @@ class TelegramBotService {
             const feedback = String(parts[1] || '').trim();
             const eventType = feedback === 'helpful' ? 'artifact.helpful' : 'artifact.not_helpful';
             await this.agentEventStore.appendEvent({
+                id: query?.id ? `telegram_feedback_${String(query.id).trim()}` : undefined,
                 event_type: eventType,
                 actor_type: 'user',
                 actor_id: context.user.id,
@@ -498,6 +500,33 @@ class TelegramBotService {
                 user: context.user,
                 conversation: context.conversation
             }).catch(() => { });
+
+            const feedbackTarget = typeof this.agentEventStore.getFeedbackTarget === 'function'
+                ? await this.agentEventStore.getFeedbackTarget('artifact', targetId).catch(() => null)
+                : null;
+            if (feedbackTarget?.domain) {
+                await this.agentEventStore.recordActivityLifecycle({
+                    domain: feedbackTarget.domain,
+                    stage: 'feedback',
+                    subject: feedbackTarget.subject,
+                    source: 'telegram-artifact-feedback',
+                    entity_ref: feedbackTarget.entity_ref,
+                    evidence_id: `telegram-feedback:${String(query?.id || `${messageId}:${targetId}:${feedback}`).trim()}`,
+                    provenance: {
+                        channel: context.channel,
+                        actor_type: 'user',
+                        actor_id: context.user.id,
+                        conversation_id: context.conversation.id,
+                        message_id: context.messageId,
+                        request_id: String(query?.id || '').trim()
+                    },
+                    metadata: {
+                        feedback,
+                        artifact_type: feedbackTarget.artifact_type,
+                        target_kind: 'artifact'
+                    }
+                }).catch(() => { });
+            }
 
             await this.bot.answerCallbackQuery(query.id, {
                 text: feedback === 'helpful' ? '도움됨으로 기록했습니다.' : '별로로 기록했습니다.'
