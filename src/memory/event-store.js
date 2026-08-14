@@ -10,6 +10,7 @@ const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./t
 const { normalizeActivityEvidence } = require('./activity-lifecycle');
 const { buildMemoryCollectionAudit } = require('./collection-audit');
 const { buildOwnerProfileProjection } = require('./owner-profile');
+const { normalizeRecommendationContext } = require('../recommendations/topic-recommendation-learning');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -489,13 +490,15 @@ class KuzuEventStore {
     }
 
     _summarizeArtifactPayload(payload = {}) {
+        const recommendation = normalizeRecommendationContext(payload?.recommendation);
         return {
             title: this._compactString(payload?.title || '', 180),
             summary: this._compactString(payload?.summary || '', 260),
             reason: this._compactString(payload?.reason || '', 220),
             keywords: Array.isArray(payload?.keywords) ? payload.keywords.slice(0, 8).map((item) => this._compactString(item, 60)).filter(Boolean) : [],
             source: String(payload?.source || '').trim(),
-            feedback_key: String(payload?.feedback_key || '').trim()
+            feedback_key: String(payload?.feedback_key || '').trim(),
+            recommendation: recommendation.run_id || recommendation.candidate_id ? recommendation : null
         };
     }
 

@@ -55,8 +55,11 @@ function similarity(left, right) {
 
 function feedbackForCandidate(candidate = {}, profile = {}) {
     const key = normalizeKey(candidate.topic_seed);
+    const candidateId = String(candidate.id || '').trim();
     const recent = Array.isArray(profile?.feedback?.recent) ? profile.feedback.recent : [];
     return recent.filter((item) => {
+        const feedbackCandidateId = String(item?.recommendation?.candidate_id || '').trim();
+        if (candidateId && feedbackCandidateId && candidateId === feedbackCandidateId) return true;
         const subjectKey = normalizeKey(item?.subject);
         return key && subjectKey && (key.includes(subjectKey) || subjectKey.includes(key));
     });

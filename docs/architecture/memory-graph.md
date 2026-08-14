@@ -80,6 +80,18 @@ explicit feedback, then applies category and token-similarity diversity as a
 separate selection pass. Deferred candidates retain their reason. Ranking output
 is a rebuildable service projection and is not persisted as owner truth.
 
+Generated ideas now retain bounded recommendation provenance: run, candidate,
+ranking policy, rank, score breakdown, and source references. This provenance is
+stored on the `content_idea` artifact as a production trace, not a preference.
+Candidate-specific learning is created only when a later selected/saved/drafted/
+published/feedback outcome is recorded. The shared outcome contract uses stable
+evidence ids for retry safety and intentionally has no exposure stage.
+
+Artifact feedback carries that recommendation context into owner activity and
+the owner-profile projection. Ranking can therefore connect explicit feedback
+to the original candidate even if the generated title differs from its seed.
+Historic feedback without context continues to use subject matching.
+
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.
@@ -171,10 +183,8 @@ structural work is:
 2. include owner-scoped saved topics in recommendation retrieval context;
 3. distinguish weak signals (collected/saved) from strong signals
    (selected, drafted, published, accepted recommendation);
-4. persist recommendation provenance and subsequent outcome evidence without
-   treating exposure or generation as user preference;
-5. expose the grounded, ranked recommendation lane through a deliberately small
-   product UI.
+4. expose the grounded, ranked recommendation lane through a deliberately small
+   product UI and connect successful UI actions to the outcome contract.
 
 ## Owner Activity Signals
 

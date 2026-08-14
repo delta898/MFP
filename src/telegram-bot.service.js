@@ -526,7 +526,8 @@ class TelegramBotService {
                     metadata: {
                         feedback,
                         artifact_type: feedbackTarget.artifact_type,
-                        target_kind: 'artifact'
+                        target_kind: 'artifact',
+                        ...(feedbackTarget.recommendation ? { recommendation: feedbackTarget.recommendation } : {})
                     }
                 }).catch(() => { });
             }

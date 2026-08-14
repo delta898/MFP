@@ -76,6 +76,23 @@ test('applies explicit negative feedback as a replaceable ranking signal', () =>
     assert.equal(scored.breakdown[0].code, 'negative_feedback');
 });
 
+test('matches recommendation feedback by candidate id when the generated title changed', () => {
+    const scored = scoreCandidate(candidate('candidate-1', '무료 홈서버'), {
+        ownerProfile: {
+            feedback: {
+                recent: [{
+                    subject: '노트북으로 만드는 공짜 서버',
+                    feedback: 'helpful',
+                    recommendation: { candidate_id: 'candidate-1' }
+                }]
+            }
+        }
+    });
+
+    assert.equal(scored.score, 12);
+    assert.equal(scored.breakdown[0].code, 'positive_feedback');
+});
+
 test('defers excessive same-category candidates but keeps unrelated profile seeds', () => {
     const sameCategory = (id, seed, evidence) => candidate(id, seed, {
         candidate_type: 'trend_seed',

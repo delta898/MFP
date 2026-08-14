@@ -28,7 +28,8 @@ function collectFeedback(signals = []) {
             subject: text(signal.subject),
             feedback: feedback || 'unknown',
             timestamp: signal.timestamp || null,
-            evidence: signal.evidence || null
+            evidence: signal.evidence || null,
+            recommendation: signal.payload?.metadata?.recommendation || null
         });
     }
     return { counts, recent: evidence.slice(0, 20) };

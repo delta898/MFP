@@ -20,7 +20,7 @@ test('passes owner/trend candidates to content idea providers', async () => {
         providers: [{
             async generate(_input, context) {
                 providerContext = context;
-                return { ideas: [{ title: 'AI 트렌드를 실무에 적용하는 법', summary: '', reason: '', keywords: ['AI'] }] };
+                return { ideas: [{ candidate_id: 'candidate-1', title: 'AI 트렌드를 실무에 적용하는 법', summary: '', reason: '', keywords: ['AI'] }] };
             }
         }]
     });
@@ -39,4 +39,7 @@ test('passes owner/trend candidates to content idea providers', async () => {
     assert.equal(providerContext.recommendationCandidates[0].id, 'candidate-1');
     assert.equal(result.candidates[0].id, 'candidate-1');
     assert.equal(result.ideas[0].title, 'AI 트렌드를 실무에 적용하는 법');
+    assert.equal(result.ideas[0].recommendation.candidate_id, 'candidate-1');
+    assert.equal(result.ideas[0].recommendation.policy_id, 'topic-ranking-v1');
+    assert.match(result.recommendation_run.id, /^topic_recommendation_run_/);
 });

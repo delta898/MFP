@@ -59,7 +59,11 @@ function createContentIdeaCapabilities(deps = {}) {
                 return {
                     success: true,
                     message: `글감 추천입니다.\n${lines.join('\n')}`,
-                    data: { ideas },
+                    data: {
+                        ideas,
+                        recommendation_run: result.recommendation_run || null,
+                        ranking: result.ranking || null
+                    },
                     sideEffects: []
                 };
             }

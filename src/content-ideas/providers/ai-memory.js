@@ -61,7 +61,8 @@ function buildFallbackIdeas(input = {}, context = {}) {
             summary: `${topicSeed}을(를) 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
             reason: String(candidate?.explanation || '사용자 기억과 최신 지식 근거를 반영했습니다.'),
             keywords: [topicSeed],
-            source: 'candidate_fallback'
+            source: 'candidate_fallback',
+            candidate_id: String(candidate?.id || '').trim()
         });
     }
 
@@ -106,7 +107,8 @@ function normalizeIdeas(rawIdeas = []) {
         summary: String(item?.summary || '').trim(),
         reason: String(item?.reason || '').trim(),
         keywords: Array.isArray(item?.keywords) ? item.keywords.map((keyword) => String(keyword || '').trim()).filter(Boolean) : [],
-        source: String(item?.source || 'memory_ai').trim()
+        source: String(item?.source || 'memory_ai').trim(),
+        candidate_id: String(item?.candidate_id || '').trim()
     })).filter((item) => item.title);
 }
 
@@ -191,6 +193,7 @@ function createAiMemoryContentIdeaProvider() {
 {
   "ideas": [
     {
+      "candidate_id": "설명 가능한 추천 후보의 id (해당 후보를 사용한 경우)",
       "title": "구체적인 글감 제목",
       "summary": "어떤 관점으로 풀어쓸지 짧은 설명",
       "reason": "왜 이 글감을 추천하는지",
@@ -215,7 +218,7 @@ ${recentSettingChanges.length > 0 ? recentSettingChanges.map((item) => `- ${item
 ${recentArtifacts.length > 0 ? recentArtifacts.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}
 
 [설명 가능한 추천 후보]
-${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- ${item.topic_seed} | ${item.explanation} | 점수 ${Number(item?.ranking?.score || 0)} | 근거 ${Array.isArray(item?.ranking?.breakdown) ? item.ranking.breakdown.map((entry) => `${entry.code}:${entry.points}`).join(', ') : '없음'}`).join('\n') : '- 없음'}
+${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- id=${item.id} | ${item.topic_seed} | ${item.explanation} | 점수 ${Number(item?.ranking?.score || 0)} | 근거 ${Array.isArray(item?.ranking?.breakdown) ? item.ranking.breakdown.map((entry) => `${entry.code}:${entry.points}`).join(', ') : '없음'}`).join('\n') : '- 없음'}
 
 [외부 트렌드 신호]
 ${trendKnowledge.length > 0 ? trendKnowledge.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}`;
