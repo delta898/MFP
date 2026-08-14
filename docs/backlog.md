@@ -33,7 +33,8 @@
 7. 개인화 글감 추천
 - 사용자가 등록·선택·발행한 주제와 키워드를 장기 신호로 축적하고, 네이버 트렌드 등 최신 외부 신호와 결합해 글감을 제안
 - 기존 `content.idea.suggest` capability와 `kind + transport + config` knowledge provider 구조를 확장하며 별도 추천 체계를 중복 구축하지 않음
-- 선행 작업: UI/자동 작업의 `SYSTEM` 귀속 해소, topic/publish 이력의 사용자 연결, 저장 토픽을 retrieval context에 포함, 추천 피드백의 주제 선호 반영
+- Owner Identity 기반 완료: UI/자동 작업도 durable local owner에 귀속하며 actor는 별도 유지
+- 다음 선행 작업: topic/publish 이력의 owner 연결 조회, 저장 토픽을 retrieval context에 포함, 추천 피드백의 주제 선호 반영
 - 단순 반복 횟수뿐 아니라 최근성, 직접 선택·발행 여부, 추천 수락/거절을 구분해 점수화
 - 제안 결과에서 추천 이유와 근거 신호를 사용자가 이해할 수 있게 표시
 

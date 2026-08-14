@@ -64,6 +64,7 @@ const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtim
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
+const { initializeAgentMemory } = require('./memory/store');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const {
@@ -1995,7 +1996,12 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
         await TelegramBotService.stop();
     }
 });
-const { startUiServer, reloadUiServer } = uiHttpServerRuntime;
+const { startUiServer: startUiServerRuntime, reloadUiServer } = uiHttpServerRuntime;
+
+async function startUiServer(options = {}) {
+    await initializeAgentMemory();
+    return startUiServerRuntime(options);
+}
 
 module.exports = {
     startUiServer,

@@ -2,6 +2,10 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
+const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
+
+const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
+const OWNER_IDENTITY_MIGRATION_VERSION = 2;
 
 let cachedKuzu = null;
 let cachedKuzuLoadError = null;
@@ -28,10 +32,20 @@ class KuzuEventStore {
         this.Logger = options.Logger || console;
         this.baseDir = String(options.baseDir || process.cwd());
         this.dbPath = String(options.dbPath || path.join(this.baseDir, 'data', 'agent_memory_db'));
+        this.ownerIdentity = options.ownerIdentity || new LocalOwnerIdentity({ baseDir: this.baseDir });
+        this.owner = null;
         this.db = null;
         this.conn = null;
         this.isInitialized = false;
         this.initPromise = null;
+    }
+
+    async _executeQuery(query, params = {}) {
+        if (!params || Object.keys(params).length === 0) {
+            return this.conn.query(query);
+        }
+        const prepared = await this.conn.prepare(query);
+        return this.conn.execute(prepared, params);
     }
 
     async initialize() {
@@ -71,6 +85,8 @@ class KuzuEventStore {
                 'CREATE NODE TABLE PreferenceNode(id STRING, name STRING, value_json STRING, confidence DOUBLE, evidence_count INT64, updated_at TIMESTAMP, PRIMARY KEY(id))',
                 'CREATE NODE TABLE SuggestionNode(id STRING, type STRING, summary STRING, payload_json STRING, status STRING, created_at TIMESTAMP, PRIMARY KEY(id))',
                 'CREATE NODE TABLE DomainKnowledgeNode(id STRING, domain STRING, canonical_value STRING, aliases_json STRING, confidence DOUBLE, evidence_count INT64, updated_at TIMESTAMP, PRIMARY KEY(id))',
+                'CREATE NODE TABLE OwnerNode(id STRING, identity_kind STRING, created_at TIMESTAMP, PRIMARY KEY(id))',
+                'CREATE NODE TABLE MemoryMigrationNode(id STRING, version INT64, status STRING, applied_at TIMESTAMP, details_json STRING, PRIMARY KEY(id))',
                 'CREATE REL TABLE UserHAS_CONVERSATION(FROM AgentUserNode TO ConversationNode)',
                 'CREATE REL TABLE ConversationHAS_EVENT(FROM ConversationNode TO EventNode)',
                 'CREATE REL TABLE UserTRIGGERED_EVENT(FROM AgentUserNode TO EventNode)',
@@ -88,17 +104,22 @@ class KuzuEventStore {
                 'CREATE REL TABLE DomainKnowledgeDERIVED_FROM_ACTION(FROM DomainKnowledgeNode TO ActionNode)',
                 'CREATE REL TABLE SuggestionDERIVED_FROM_ACTION(FROM SuggestionNode TO ActionNode)',
                 'CREATE REL TABLE EventHAS_ACTION(FROM EventNode TO ActionNode)',
-                'CREATE REL TABLE EventHAS_SUGGESTION(FROM EventNode TO SuggestionNode)'
+                'CREATE REL TABLE EventHAS_SUGGESTION(FROM EventNode TO SuggestionNode)',
+                'CREATE REL TABLE OwnerHAS_ACTOR(FROM OwnerNode TO AgentUserNode)',
+                'CREATE REL TABLE OwnerOWNS_EVENT(FROM OwnerNode TO EventNode)',
+                'CREATE REL TABLE OwnerOWNS_ARTIFACT(FROM OwnerNode TO ArtifactNode)'
             ];
 
             for (const query of queries) {
                 try {
-                    await this.conn.query(query);
+                    await this._executeQuery(query);
                 } catch (error) {
                     if (!String(error.message || '').includes('already exists')) throw error;
                 }
             }
 
+            this.owner = await this._resolveOwnerIdentityDirect();
+            await this._runOwnerIdentityMigrationDirect(this.owner);
             this.isInitialized = true;
         })();
 
@@ -107,11 +128,112 @@ class KuzuEventStore {
 
     async _runQuery(query, params = {}) {
         await this.initialize();
-        if (!params || Object.keys(params).length === 0) {
-            return this.conn.query(query);
+        return this._executeQuery(query, params);
+    }
+
+    async _resolveOwnerIdentityDirect() {
+        if (typeof this.ownerIdentity.hasStoredIdentity !== 'function' || this.ownerIdentity.hasStoredIdentity()) {
+            return this.ownerIdentity.resolve();
         }
-        const prepared = await this.conn.prepare(query);
-        return this.conn.execute(prepared, params);
+
+        const res = await this._executeQuery(
+            'MATCH (o:OwnerNode {identity_kind: $identity_kind}) RETURN o.id AS id, o.created_at AS created_at ORDER BY o.created_at ASC',
+            { identity_kind: 'local' }
+        );
+        const owners = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            owners.push({ id: String(row.id || '').trim(), created_at: String(row.created_at || '').trim() });
+        }
+
+        if (owners.length > 1) {
+            throw new Error('로컬 Owner가 여러 개이므로 identity 파일을 자동 복구할 수 없습니다.');
+        }
+        if (owners.length === 1 && owners[0].id) {
+            const parsedCreatedAt = new Date(owners[0].created_at);
+            const recovered = this.ownerIdentity.adopt({
+                owner_user_id: owners[0].id,
+                created_at: Number.isNaN(parsedCreatedAt.getTime()) ? new Date().toISOString() : parsedCreatedAt.toISOString()
+            });
+            if (this.Logger && typeof this.Logger.info === 'function') {
+                this.Logger.info('✅ [AgentMemory] GraphDB의 기존 Local Owner에서 identity 파일을 복구했습니다.');
+            }
+            return recovered;
+        }
+        return this.ownerIdentity.resolve();
+    }
+
+    async _ensureOwnerDirect(owner = {}) {
+        const ownerUserId = String(owner.owner_user_id || '').trim();
+        if (!ownerUserId) throw new Error('owner_user_id가 필요합니다.');
+        const createdAt = String(owner.created_at || new Date().toISOString()).replace('T', ' ').replace('Z', '');
+        await this._executeQuery(
+            'MERGE (o:OwnerNode {id: $id}) ON CREATE SET o.identity_kind = $identity_kind, o.created_at = CAST($created_at AS TIMESTAMP) ON MATCH SET o.identity_kind = $identity_kind',
+            {
+                id: ownerUserId,
+                identity_kind: String(owner.identity_kind || 'local').trim() || 'local',
+                created_at: createdAt
+            }
+        );
+        return ownerUserId;
+    }
+
+    async _isMigrationCompleteDirect(migrationId) {
+        const res = await this._executeQuery(
+            'MATCH (m:MemoryMigrationNode {id: $id}) RETURN m.status AS status LIMIT 1',
+            { id: String(migrationId || '').trim() }
+        );
+        if (!res.hasNext()) return false;
+        const row = await res.getNext();
+        return String(row.status || '').trim() === 'completed';
+    }
+
+    async _countDirect(query, params = {}) {
+        const res = await this._executeQuery(query, params);
+        if (!res.hasNext()) return 0;
+        const row = await res.getNext();
+        return Number(row.count || row[0] || 0);
+    }
+
+    async _runOwnerIdentityMigrationDirect(owner = {}) {
+        const ownerUserId = await this._ensureOwnerDirect(owner);
+        if (await this._isMigrationCompleteDirect(OWNER_IDENTITY_MIGRATION_ID)) return;
+
+        await this._executeQuery(
+            'MATCH (o:OwnerNode {id: $owner_id}), (u:AgentUserNode) MERGE (o)-[:OwnerHAS_ACTOR]->(u)',
+            { owner_id: ownerUserId }
+        );
+        await this._executeQuery(
+            'MATCH (o:OwnerNode {id: $owner_id}), (e:EventNode) MERGE (o)-[:OwnerOWNS_EVENT]->(e)',
+            { owner_id: ownerUserId }
+        );
+        await this._executeQuery(
+            'MATCH (o:OwnerNode {id: $owner_id}), (a:ArtifactNode) MERGE (o)-[:OwnerOWNS_ARTIFACT]->(a)',
+            { owner_id: ownerUserId }
+        );
+
+        const eventCount = await this._countDirect(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) RETURN count(e) AS count',
+            { owner_id: ownerUserId }
+        );
+        const artifactCount = await this._countDirect(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode) RETURN count(a) AS count',
+            { owner_id: ownerUserId }
+        );
+        const appliedAt = new Date().toISOString().replace('T', ' ').replace('Z', '');
+        await this._executeQuery(
+            'MERGE (m:MemoryMigrationNode {id: $id}) ON CREATE SET m.version = $version, m.status = $status, m.applied_at = CAST($applied_at AS TIMESTAMP), m.details_json = $details_json ON MATCH SET m.version = $version, m.status = $status, m.applied_at = CAST($applied_at AS TIMESTAMP), m.details_json = $details_json',
+            {
+                id: OWNER_IDENTITY_MIGRATION_ID,
+                version: OWNER_IDENTITY_MIGRATION_VERSION,
+                status: 'completed',
+                applied_at: appliedAt,
+                details_json: JSON.stringify({ owner_user_id: ownerUserId, event_count: eventCount, artifact_count: artifactCount })
+            }
+        );
+        if (this.Logger && typeof this.Logger.info === 'function') {
+            this.Logger.info(`✅ [AgentMemory] Owner identity migration 완료 (events=${eventCount}, artifacts=${artifactCount})`);
+        }
     }
 
     async ensureUser(user = {}) {
@@ -534,6 +656,12 @@ class KuzuEventStore {
             await this._runQuery(
                 'MATCH (n:ActionNode {id: $action_id}), (a:ArtifactNode {id: $artifact_id}) MERGE (n)-[:ActionPRODUCED_ARTIFACT]->(a)',
                 { action_id: String(meta.actionId || '').trim(), artifact_id: id }
+            );
+        }
+        if (meta.ownerUserId) {
+            await this._runQuery(
+                'MATCH (o:OwnerNode {id: $owner_id}), (a:ArtifactNode {id: $artifact_id}) MERGE (o)-[:OwnerOWNS_ARTIFACT]->(a)',
+                { owner_id: String(meta.ownerUserId || '').trim(), artifact_id: id }
             );
         }
         return id;
@@ -1035,6 +1163,7 @@ class KuzuEventStore {
                         payload: this._summarizeArtifactPayload(idea)
                     }, {
                         actionId,
+                        ownerUserId: meta.ownerUserId,
                         timestamp
                     });
                 }
@@ -1089,7 +1218,7 @@ class KuzuEventStore {
                     ? { summary: String(payload.summary || '').trim() }
                     : this._compactValue(payload, { maxDepth: 2, maxArray: 6, maxString: 180 })
             };
-            await this._createArtifactNode(artifact, { timestamp });
+            await this._createArtifactNode(artifact, { ownerUserId: meta.ownerUserId, timestamp });
             if (meta.eventId) {
                 await this._runQuery(
                     'MATCH (e:EventNode {id: $event_id}), (a:ArtifactNode {id: $artifact_id}) MERGE (e)-[:EventHAS_ARTIFACT]->(a)',
@@ -1100,6 +1229,7 @@ class KuzuEventStore {
     }
 
     async appendEvent(event = {}) {
+        await this.initialize();
         const id = String(event.id || `evt_${crypto.randomUUID()}`);
         const timestamp = String(event.timestamp || new Date().toISOString()).replace('T', ' ').replace('Z', '');
         const actorType = String(event.actor_type || 'user').trim();
@@ -1109,6 +1239,15 @@ class KuzuEventStore {
         const payloadJson = this._normalizeJson(this._summarizeEventPayload(String(event.event_type || '').trim(), event.payload || {}));
         const user = event.user || { id: actorId, channel: event.channel || 'telegram', username: event.username || '' };
         const conversation = event.conversation || { id: conversationId, channel: event.channel || 'telegram' };
+        const ownerUserId = String(event.owner_user_id || event.ownerUserId || this.owner?.owner_user_id || '').trim();
+        if (!ownerUserId) throw new Error('이벤트 소유자를 확인할 수 없습니다.');
+        await this._ensureOwnerDirect(ownerUserId === this.owner?.owner_user_id
+            ? this.owner
+            : {
+                owner_user_id: ownerUserId,
+                identity_kind: String(event.owner_identity_kind || event.ownerIdentityKind || ownerUserId.split(':')[0] || 'external').trim(),
+                created_at: new Date().toISOString()
+            });
 
         if (conversationId) await this.ensureConversation(conversation, user);
         else if (user?.id) await this.ensureUser(user);
@@ -1138,11 +1277,19 @@ class KuzuEventStore {
                 'MATCH (u:AgentUserNode {id: $actor_id}), (e:EventNode {id: $event_id}) MERGE (u)-[:UserTRIGGERED_EVENT]->(e)',
                 { actor_id: actorId, event_id: id }
             );
+            await this._runQuery(
+                'MATCH (o:OwnerNode {id: $owner_id}), (u:AgentUserNode {id: $actor_id}) MERGE (o)-[:OwnerHAS_ACTOR]->(u)',
+                { owner_id: ownerUserId, actor_id: actorId }
+            );
         }
+        await this._runQuery(
+            'MATCH (o:OwnerNode {id: $owner_id}), (e:EventNode {id: $event_id}) MERGE (o)-[:OwnerOWNS_EVENT]->(e)',
+            { owner_id: ownerUserId, event_id: id }
+        );
 
-        await this._materializeTypedNodes(event, { eventId: id });
+        await this._materializeTypedNodes(event, { eventId: id, ownerUserId });
 
-        return { id };
+        return { id, owner_user_id: ownerUserId };
     }
 
     async listConversationEvents(conversationId, limit = 20) {
@@ -1477,6 +1624,37 @@ class KuzuEventStore {
             });
         }
         return items;
+    }
+
+    getLocalOwnerIdentity() {
+        return this.owner ? { ...this.owner } : this.ownerIdentity.resolve();
+    }
+
+    async getOwnerMemoryStats(ownerUserId = '') {
+        await this.initialize();
+        const resolvedOwnerUserId = String(ownerUserId || this.owner?.owner_user_id || '').trim();
+        if (!resolvedOwnerUserId) throw new Error('owner_user_id가 필요합니다.');
+
+        const eventCount = await this._countDirect(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) RETURN count(e) AS count',
+            { owner_id: resolvedOwnerUserId }
+        );
+        const artifactCount = await this._countDirect(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode) RETURN count(a) AS count',
+            { owner_id: resolvedOwnerUserId }
+        );
+        const totalEventCount = await this._countDirect('MATCH (e:EventNode) RETURN count(e) AS count');
+        const totalArtifactCount = await this._countDirect('MATCH (a:ArtifactNode) RETURN count(a) AS count');
+        const ownedEventCount = await this._countDirect('MATCH (:OwnerNode)-[:OwnerOWNS_EVENT]->(e:EventNode) RETURN count(DISTINCT e) AS count');
+        const ownedArtifactCount = await this._countDirect('MATCH (:OwnerNode)-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode) RETURN count(DISTINCT a) AS count');
+
+        return {
+            owner_user_id: resolvedOwnerUserId,
+            event_count: eventCount,
+            artifact_count: artifactCount,
+            orphan_event_count: Math.max(0, totalEventCount - ownedEventCount),
+            orphan_artifact_count: Math.max(0, totalArtifactCount - ownedArtifactCount)
+        };
     }
 }
 

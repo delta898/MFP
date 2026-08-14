@@ -54,6 +54,7 @@
 - `decisions/2026-08-04-google-ai-provider-normalization.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
+- `plans/active/intelligent-memory-owner-identity-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`

@@ -12,12 +12,15 @@ Memory is event-first. Facts are stored first; preferences, suggestions, aliases
 - `SuggestionNode`
 - `PreferenceNode`
 - `DomainKnowledgeNode`
+- `OwnerNode`
+- `MemoryMigrationNode`
 
 ## Current Roles
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
 - Preference memory: accumulated user tendencies from accepted actions and feedback.
 - Suggestion memory: suggested items and their user feedback.
 - Domain knowledge: canonical values and learned aliases.
+- Owner identity: durable ownership across UI, automation, Telegram, and future channels while preserving each actor separately.
 
 ## Retrieval
 Typed retrieval currently builds a context packet with:
@@ -32,9 +35,11 @@ Typed retrieval currently builds a context packet with:
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.
-The store is opened lazily when a memory write or read is first requested. If the
-native Kuzu module cannot be loaded, memory is disabled and the main application
-continues to operate.
+The store is proactively initialized when the UI server starts so schema and
+persistent migrations do not depend on a Telegram session or the first memory
+write. Later reads and writes reuse that process-local store. If the native Kuzu
+module cannot be loaded or startup initialization fails, memory is disabled or
+warned about while the main application continues to operate.
 
 Current write paths are:
 
@@ -54,10 +59,11 @@ Collection happens after a successful row append for topics and shopping items.
 It does not currently backfill existing Sheets rows, track later row edits or
 status changes, or record a completed publish as a dedicated publish artifact.
 
-User attribution depends on the caller supplying a channel user id. Telegram
-capability calls do this, but UI and automatic collection paths commonly omit it
-and are therefore stored under the shared `SYSTEM` actor. This preserves an audit
-event but is not sufficient for per-user personalization.
+Every local event and materialized artifact is now related to a durable
+installation-local `OwnerNode`. Telegram, UI, and automation actors remain
+separate: callers that do not supply a channel identity may still appear as the
+`SYSTEM` actor, but their data ownership is no longer lost. Future account support
+should map the local owner to an account instead of rewriting historic ownership.
 
 ## Content Idea Recommendation Readiness
 
@@ -79,15 +85,14 @@ The first external trends provider is structurally connected through the
 The application's Naver trend rows are not currently exposed as a knowledge
 provider snapshot for this lane.
 
-Before personalized topic recommendations are presented in the product, the
-minimum structural work is:
+Owner identity is the first completed prerequisite. Before personalized topic
+recommendations are presented in the product, the remaining structural work is:
 
-1. attach UI and automatic topic activity to a stable local user identity;
-2. retrieve topic and publish artifacts by user, not only by conversation/action;
-3. distinguish weak signals (collected/saved) from strong signals
+1. retrieve topic and publish artifacts by owner, not only by conversation/action;
+2. distinguish weak signals (collected/saved) from strong signals
    (selected, drafted, published, accepted recommendation);
-4. connect Naver trends through the existing knowledge-provider contract;
-5. add recency, frequency, and explicit feedback to preference scoring.
+3. connect Naver trends through the existing knowledge-provider contract;
+4. add recency, frequency, and explicit feedback to preference scoring.
 
 ## Current Gaps
 - Preference scoring is still simple accumulation.
@@ -102,11 +107,12 @@ minimum structural work is:
   - compact summaries
   - ids / references to related nodes when needed
 
-## Reset Policy
-- Existing oversized `data/agent_memory_db*` files are treated as disposable experimental state.
-- Legacy `/Users/delta898/Project/NaverAutoBlog/src/kuzu-service.js` is now a thin compatibility wrapper over the shared agent event store, so new writes no longer target `data/memory_db*`.
-- After persistence policy changes, reset the DB instead of migrating old recursive payloads.
-- Reset helper:
+## Preservation and Migration Policy
+- `data/agent_memory_db*` is persistent user data and must not be reset automatically during startup or update.
+- Schema changes use additive, idempotent migrations recorded in `MemoryMigrationNode`.
+- A migration is marked complete only after its nodes and relationships are fully materialized. Interrupted migrations must be safe to run again.
+- Legacy `/Users/delta898/Project/NaverAutoBlog/src/kuzu-service.js` remains a thin compatibility wrapper over the shared agent event store, so new writes do not target `data/memory_db*`.
+- The manual reset helper remains a developer/recovery tool and requires explicit confirmation:
   - `/Users/delta898/Project/NaverAutoBlog/scripts/reset_agent_memory_db.sh`
 
 ## Insight Generation
