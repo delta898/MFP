@@ -4216,7 +4216,7 @@ h2 {
   .clock-widget-unit.clock-style-menu-open .clock-style-menu,
   .clock-widget-unit.pomodoro-complete .clock-widget-main,
   .clock-widget-unit.pomodoro-break-complete .clock-widget-main,
-  .pomodoro-celebration-message {
+  .app-celebration-message {
     animation: none;
   }
 }
@@ -4583,7 +4583,7 @@ h2 {
   }
 }
 
-.pomodoro-celebration {
+.app-celebration {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -4591,7 +4591,7 @@ h2 {
   pointer-events: none;
 }
 
-.pomodoro-celebration > i {
+.app-celebration > i {
   position: absolute;
   top: -9vh;
   left: 0;
@@ -4604,18 +4604,18 @@ h2 {
   animation: pomodoroConfettiFall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.28, 1) var(--confetti-delay) forwards;
 }
 
-.pomodoro-celebration > i:nth-child(3n) {
+.app-celebration > i:nth-child(3n) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
 }
 
-.pomodoro-celebration > i:nth-child(4n) {
+.app-celebration > i:nth-child(4n) {
   width: 14px;
   height: 7px;
 }
 
-.pomodoro-celebration-message {
+.app-celebration-message {
   position: absolute;
   top: 42%;
   left: 50%;
@@ -4636,12 +4636,12 @@ h2 {
   animation: pomodoroCelebrationMessage 3.25s ease forwards;
 }
 
-.pomodoro-celebration-message strong {
+.app-celebration-message strong {
   font-size: 23px;
   font-weight: 900;
 }
 
-.pomodoro-celebration-message span {
+.app-celebration-message span {
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;

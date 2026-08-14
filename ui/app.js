@@ -4057,6 +4057,67 @@ const POMODORO_STYLE_STORAGE_KEY = 'blog_genius_pomodoro_style_v1';
 const POMODORO_STATE_STORAGE_KEY = 'blog_genius_pomodoro_state_v1';
 const POMODORO_SOUND_STORAGE_KEY = 'blog_genius_pomodoro_sound_v1';
 const POMODORO_DURATIONS = Object.freeze({ focus: 25 * 60 * 1000, break: 5 * 60 * 1000 });
+const QUICK_POSTING_CELEBRATION_MAX_WAIT_MS = 10 * 60 * 1000;
+let celebrationCleanupTimer = null;
+let pendingQuickPostingCelebrationAt = 0;
+
+function showAppCelebration({ title, message } = {}) {
+  document.querySelectorAll('.app-celebration').forEach((item) => item.remove());
+  if (celebrationCleanupTimer) clearTimeout(celebrationCleanupTimer);
+  const celebration = document.createElement('div');
+  celebration.className = 'app-celebration';
+  celebration.setAttribute('aria-hidden', 'true');
+  const colors = ['#38bdf8', '#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#a855f7'];
+  const particleCount = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 64;
+  for (let index = 0; index < particleCount; index += 1) {
+    const particle = document.createElement('i');
+    particle.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
+    particle.style.setProperty('--confetti-drift', `${Math.round((Math.random() - 0.5) * 34)}vw`);
+    particle.style.setProperty('--confetti-delay', `${(Math.random() * 0.7).toFixed(2)}s`);
+    particle.style.setProperty('--confetti-duration', `${(2.1 + Math.random() * 1.2).toFixed(2)}s`);
+    particle.style.setProperty('--confetti-rotation', `${Math.round(Math.random() * 720 - 360)}deg`);
+    particle.style.setProperty('--confetti-color', colors[index % colors.length]);
+    celebration.appendChild(particle);
+  }
+  const messageBox = document.createElement('div');
+  messageBox.className = 'app-celebration-message';
+  const titleEl = document.createElement('strong');
+  titleEl.textContent = String(title || '완료! 🎉');
+  const messageEl = document.createElement('span');
+  messageEl.textContent = String(message || '잘 해냈어요.');
+  messageBox.append(titleEl, messageEl);
+  celebration.appendChild(messageBox);
+  document.body.appendChild(celebration);
+  celebrationCleanupTimer = setTimeout(() => celebration.remove(), 3600);
+}
+
+function showQuickPostingCelebration() {
+  showAppCelebration({
+    title: '글쓰기 완료! 🎉',
+    message: '새 글을 안전하게 저장했어요.'
+  });
+}
+
+function isQuickPostingCelebrationStatus(postStatus) {
+  return postStatus === 'publish' || postStatus === 'draft';
+}
+
+function showOrQueueQuickPostingCelebration() {
+  if (document.visibilityState === 'visible' && document.hasFocus()) {
+    pendingQuickPostingCelebrationAt = 0;
+    showQuickPostingCelebration();
+    return;
+  }
+  pendingQuickPostingCelebrationAt = Date.now();
+}
+
+function flushPendingQuickPostingCelebration() {
+  if (!pendingQuickPostingCelebrationAt) return;
+  if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
+  const waitedMs = Date.now() - pendingQuickPostingCelebrationAt;
+  pendingQuickPostingCelebrationAt = 0;
+  if (waitedMs <= QUICK_POSTING_CELEBRATION_MAX_WAIT_MS) showQuickPostingCelebration();
+}
 
 function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
@@ -4126,7 +4187,6 @@ function initClockWidget() {
   let timerCompletionPhase = null;
   let lastHandledCompletionId = timerState.completionId;
   let completionAudioContext = null;
-  let celebrationCleanupTimer = null;
   const widgetUnits = [];
 
   function getCompletionAudioContext() {
@@ -4173,29 +4233,10 @@ function initClockWidget() {
   }
 
   function showFocusCelebration() {
-    document.querySelectorAll('.pomodoro-celebration').forEach((item) => item.remove());
-    if (celebrationCleanupTimer) clearTimeout(celebrationCleanupTimer);
-    const celebration = document.createElement('div');
-    celebration.className = 'pomodoro-celebration';
-    celebration.setAttribute('aria-hidden', 'true');
-    const colors = ['#38bdf8', '#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#a855f7'];
-    const particleCount = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 64;
-    for (let index = 0; index < particleCount; index += 1) {
-      const particle = document.createElement('i');
-      particle.style.setProperty('--confetti-x', `${Math.round(Math.random() * 100)}vw`);
-      particle.style.setProperty('--confetti-drift', `${Math.round((Math.random() - 0.5) * 34)}vw`);
-      particle.style.setProperty('--confetti-delay', `${(Math.random() * 0.7).toFixed(2)}s`);
-      particle.style.setProperty('--confetti-duration', `${(2.1 + Math.random() * 1.2).toFixed(2)}s`);
-      particle.style.setProperty('--confetti-rotation', `${Math.round(Math.random() * 720 - 360)}deg`);
-      particle.style.setProperty('--confetti-color', colors[index % colors.length]);
-      celebration.appendChild(particle);
-    }
-    const message = document.createElement('div');
-    message.className = 'pomodoro-celebration-message';
-    message.innerHTML = '<strong>집중 완료! 🎉</strong><span>잘 해냈어요. 5분 쉬어갈까요?</span>';
-    celebration.appendChild(message);
-    document.body.appendChild(celebration);
-    celebrationCleanupTimer = setTimeout(() => celebration.remove(), 3600);
+    showAppCelebration({
+      title: '집중 완료! 🎉',
+      message: '잘 해냈어요. 5분 쉬어갈까요?'
+    });
   }
 
   function handleTimerCompletion(phase, completionId) {
@@ -10081,6 +10122,9 @@ function bindActions() {
         requestLabel: actionText,
         requestFn: () => postJson('/api/v1/blog/quick-publish', dummyPayload)
       });
+      if (mode === 'publish' && isQuickPostingCelebrationStatus(dummyPayload.postStatus)) {
+        showOrQueueQuickPostingCelebration();
+      }
       if (mode === 'append_and_generate' && data?.previews) {
         quickGeneratedPreviewState.previewId = data.previewId || '';
         quickGeneratedPreviewState.rowIndex = Number.isFinite(Number(data.rowIndex)) ? Number(data.rowIndex) : null;
@@ -10157,6 +10201,7 @@ function bindActions() {
           : (payload.postStatus === 'schedule' ? '빠른 포스팅 예약 등록' : '빠른 포스팅 실행'),
         requestFn: () => postJson('/api/v1/blog/quick-preview/publish', payload)
       });
+      if (isQuickPostingCelebrationStatus(payload.postStatus)) showOrQueueQuickPostingCelebration();
       await loadDashboard();
     } catch (_error) {
       // runWithLiveProgress already renders logs/errors
@@ -10714,6 +10759,7 @@ function bindActions() {
           requestLabel: actionLabel,
           requestFn: () => postJson('/api/v1/blog/local-markdown/publish', publishPayload)
         });
+        if (isQuickPostingCelebrationStatus(publishPayload.postStatus)) showOrQueueQuickPostingCelebration();
       } catch (_error) {
         // runWithLiveProgress already renders logs/errors
       } finally {
@@ -12042,6 +12088,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', applyMobileQuickMode);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      flushPendingQuickPostingCelebration();
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
       void initDashboardDynamicContent();
@@ -12049,6 +12096,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   window.addEventListener('focus', () => {
+    flushPendingQuickPostingCelebration();
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
     void initDashboardDynamicContent();
