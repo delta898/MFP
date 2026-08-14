@@ -72,14 +72,22 @@ Current write paths are:
 - Successful Google Sheets appends
   - topic rows become `content.topic.registered` events and `topic` artifacts
   - shopping rows become `shopping.item.recorded` events and `shopping_item` artifacts
+- Blog writing lifecycle
+  - validated quick posting, preview publishing, local manuscript, and pasted
+    Markdown operations record `selected`
+  - confirmed platform draft/publish success records `drafted` or `published`
+    per platform
+  - scheduled registration is not misclassified as publication
 - Derived memory
   - selected setting actions update preference nodes
   - accepted aliases update domain knowledge
   - suggestion and content-idea feedback update preference nodes
 
 Collection happens after a successful row append for topics and shopping items.
-It does not currently backfill existing Sheets rows, track later row edits or
-status changes, or record a completed publish as a dedicated publish artifact.
+It does not currently backfill existing Sheets rows or track later row edits.
+Shopping and SNS lifecycle integration remains pending. Blog lifecycle records
+new events only and does not infer historic draft or publication state from
+Sheet status text.
 
 Every local event and materialized artifact is now related to a durable
 installation-local `OwnerNode`. Telegram, UI, and automation actors remain

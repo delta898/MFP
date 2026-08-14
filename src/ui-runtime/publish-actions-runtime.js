@@ -39,8 +39,53 @@ function createPublishActionsRuntime(deps = {}) {
         deleteQuickPublishPreviewSession,
         registerQuickPublishPreviewSession,
         selectQuickPublishPreviewTarget,
-        getExecuteShoppingRowAction
+        getExecuteShoppingRowAction,
+        recordActivityLifecycle = async () => null
     } = deps;
+
+    async function recordBlogSelection({ operationId, subject, source, targets, entityRef = '' }) {
+        return recordActivityLifecycle({
+            domain: 'blog',
+            stage: 'selected',
+            subject,
+            source,
+            entity_ref: entityRef || operationId,
+            evidence_id: `${operationId}:blog:selected`,
+            metadata: {
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
+    }
+
+    async function recordBlogTerminalResults({ operationId, subject, source, postStatus, results }) {
+        const normalizedStatus = String(postStatus || '').trim().toLowerCase();
+        const stage = normalizedStatus === 'draft'
+            ? 'drafted'
+            : normalizedStatus === 'publish'
+                ? 'published'
+                : '';
+        if (!stage) return [];
+
+        const recorded = [];
+        for (const [platform, result] of Object.entries(results || {})) {
+            if (result?.success !== true) continue;
+            recorded.push(await recordActivityLifecycle({
+                domain: 'blog',
+                stage,
+                subject,
+                source,
+                entity_ref: operationId,
+                platform,
+                result_ref: result.postUrl || '',
+                evidence_id: `${operationId}:blog:${platform}:${stage}`,
+                metadata: {
+                    post_status: normalizedStatus,
+                    reused: result.reused === true
+                }
+            }));
+        }
+        return recorded;
+    }
 
     function getCompletionStatusLabel(postStatus) {
         const normalized = String(postStatus || '').trim().toLowerCase();
@@ -192,6 +237,20 @@ function createPublishActionsRuntime(deps = {}) {
         const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
         const emitProgress = (message) => onProgress && onProgress(message);
 
+        const operationId = options.operationId || createPublishOperationId({
+            scope: options.source || 'blog',
+            stableKey: options.stableKey || '',
+            postStatus: context.postStatus
+        });
+        const requestedSubject = String(context.subject || '').trim() || '제목 미지정';
+        await recordBlogSelection({
+            operationId,
+            subject: requestedSubject,
+            source: options.source || 'blog',
+            targets,
+            entityRef: options.stableKey || operationId
+        });
+
         const generated = await buildMultiPlatformGeneratedContent(params, options);
         if (!generated.success) {
             return generated;
@@ -208,11 +267,6 @@ function createPublishActionsRuntime(deps = {}) {
             ? '임시 저장'
             : (context.postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
-        const operationId = options.operationId || createPublishOperationId({
-            scope: options.source || 'blog',
-            stableKey: options.stableKey || '',
-            postStatus: context.postStatus
-        });
         let quotaReserved = false;
         try {
             recordUiActivity({
@@ -285,6 +339,13 @@ function createPublishActionsRuntime(deps = {}) {
                 successful_targets: targets.filter((target) => results?.[target]?.success === true)
             });
             quotaReserved = false;
+            await recordBlogTerminalResults({
+                operationId,
+                subject: subjectLabel,
+                source: options.source || 'blog',
+                postStatus: context.postStatus || 'publish',
+                results
+            });
             const failedTargets = targets.filter((target) => results?.[target]?.success === false);
             recordUiActivity({
                 category: 'publish',
@@ -416,6 +477,13 @@ function createPublishActionsRuntime(deps = {}) {
         const operationId = createPublishOperationId({ scope: 'quick-preview', stableKey: previewId, postStatus });
         let quotaReserved = false;
         try {
+            await recordBlogSelection({
+                operationId,
+                subject: session.subject || '빠른 포스팅 원고',
+                source: 'quick-preview',
+                targets: selectedTargets,
+                entityRef: previewId
+            });
             const reservation = await reserveQuota(operationId, { source: 'quick-preview', preview_id: previewId, post_status: postStatus, targets: selectedTargets });
             quotaReserved = true;
             const executionTargets = applyPreviouslySuccessfulTargets(results, selectedTargets, reservation);
@@ -460,6 +528,13 @@ function createPublishActionsRuntime(deps = {}) {
 
             const quotaSettlement = await settleQuota(operationId, results, { successful_targets: Object.keys(results).filter((target) => results[target]?.success) });
             quotaReserved = false;
+            await recordBlogTerminalResults({
+                operationId,
+                subject: session.subject || '빠른 포스팅 원고',
+                source: 'quick-preview',
+                postStatus,
+                results
+            });
             const failedTargets = Object.entries(results)
                 .filter(([, value]) => value && value.success === false)
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
@@ -847,7 +922,8 @@ function createPublishActionsRuntime(deps = {}) {
                 targets,
                 primaryTarget,
                 targetDirs,
-                previewsByTarget
+                previewsByTarget,
+                subject: finalSubject
             });
 
             setQuickPublishRecentEntry(dedupeKey, {
@@ -1111,6 +1187,13 @@ function createPublishActionsRuntime(deps = {}) {
         const results = {};
         let quotaReserved = false;
         try {
+            await recordBlogSelection({
+                operationId,
+                subject: previewData.title || sourceLabel,
+                source: sourceType,
+                targets,
+                entityRef: previewData?.source?.fileName || operationId
+            });
             recordUiActivity({
                 category: 'publish',
                 type: 'local_markdown_publish_started',
@@ -1176,6 +1259,13 @@ function createPublishActionsRuntime(deps = {}) {
                 successful_targets: Object.keys(results).filter((target) => results[target]?.success)
             });
             quotaReserved = false;
+            await recordBlogTerminalResults({
+                operationId,
+                subject: previewData.title || sourceLabel,
+                source: sourceType,
+                postStatus,
+                results
+            });
             const failedTargets = Object.entries(results)
                 .filter(([, value]) => value && value.success === false)
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);

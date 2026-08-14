@@ -124,7 +124,8 @@ function createQuickPublishRuntime(options = {}) {
         targets,
         primaryTarget,
         targetDirs,
-        previewsByTarget
+        previewsByTarget,
+        subject
     } = {}) {
         cleanupPreviewSessions();
         const normalizedPreviewId = String(previewId || '').trim() || crypto.randomUUID();
@@ -139,6 +140,7 @@ function createQuickPublishRuntime(options = {}) {
             primaryTarget: String(primaryTarget || '').trim(),
             targetDirs: targetDirs || {},
             previewsByTarget: previewsByTarget || {},
+            subject: String(subject || '').trim(),
             expiresAtMs
         };
         previewMap.set(normalizedPreviewId, session);

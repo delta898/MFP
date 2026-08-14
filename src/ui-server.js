@@ -64,7 +64,8 @@ const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtim
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
-const { initializeAgentMemory } = require('./memory/store');
+const { getAgentEventStore, initializeAgentMemory } = require('./memory/store');
+const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const {
@@ -1637,6 +1638,11 @@ function parseBase64ImagePayload(requestBody = {}) {
     return { buffer, ext };
 }
 
+const recordActivityLifecycle = createActivityLifecycleRecorder({
+    eventStore: getAgentEventStore(),
+    Logger
+});
+
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
     path,
@@ -1670,6 +1676,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     deleteQuickPublishPreviewSession,
     registerQuickPublishPreviewSession,
     selectQuickPublishPreviewTarget,
+    recordActivityLifecycle,
     getExecuteShoppingRowAction: () => executeShoppingRowAction
 });
 const {
