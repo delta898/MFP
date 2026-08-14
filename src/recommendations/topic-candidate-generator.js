@@ -1,0 +1,191 @@
+const crypto = require('crypto');
+
+const TOPIC_CANDIDATE_SCHEMA_VERSION = 1;
+
+function compact(value, maxLength = 240) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function normalizeKey(value) {
+    return compact(value, 300).toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
+}
+
+function stableCandidateId(type, key) {
+    return `topic_candidate_${crypto.createHash('sha256').update(`${TOPIC_CANDIDATE_SCHEMA_VERSION}:${type}:${key}`).digest('hex')}`;
+}
+
+function listProfileFacets(profile = {}, kind = '') {
+    const values = profile?.interests?.[kind];
+    return (Array.isArray(values) ? values : [])
+        .map((item) => ({
+            value: compact(item?.value || item?.normalized_value, 120),
+            normalized_value: compact(item?.normalized_value || item?.value, 120).toLocaleLowerCase('ko-KR'),
+            evidence_count: Number(item?.evidence_count || 0),
+            last_used_at: item?.last_used_at || null,
+            evidence: item?.evidence || null
+        }))
+        .filter((item) => item.value);
+}
+
+function collectRecentKeys(artifacts = []) {
+    const keys = new Set();
+    for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
+        [artifact?.title, artifact?.payload?.subject, artifact?.payload?.name]
+            .map(normalizeKey)
+            .filter(Boolean)
+            .forEach((key) => keys.add(key));
+    }
+    return keys;
+}
+
+function flattenTrendKnowledge(knowledge = []) {
+    return (Array.isArray(knowledge) ? knowledge : [])
+        .filter((entry) => compact(entry?.kind, 40) === 'trends')
+        .flatMap((entry) => (Array.isArray(entry?.items) ? entry.items : []).map((item) => ({
+            provider_id: compact(entry?.provider_id, 120),
+            transport: compact(entry?.transport, 80),
+            item
+        })));
+}
+
+function matchesFacet(textValue, facets = []) {
+    const key = normalizeKey(textValue);
+    if (!key) return [];
+    return facets.filter((facet) => {
+        const facetKey = normalizeKey(facet.normalized_value || facet.value);
+        return facetKey && (key.includes(facetKey) || facetKey.includes(key));
+    });
+}
+
+function buildCandidate(input = {}) {
+    const type = compact(input.candidate_type, 60);
+    const topicSeed = compact(input.topic_seed, 180);
+    const key = normalizeKey(topicSeed);
+    if (!type || !key) return null;
+    return {
+        schema_version: TOPIC_CANDIDATE_SCHEMA_VERSION,
+        id: stableCandidateId(type, key),
+        candidate_type: type,
+        topic_seed: topicSeed,
+        source_refs: Array.isArray(input.source_refs) ? input.source_refs : [],
+        owner_matches: input.owner_matches && typeof input.owner_matches === 'object'
+            ? input.owner_matches
+            : { keywords: [], categories: [] },
+        trend: input.trend && typeof input.trend === 'object' ? input.trend : null,
+        evidence_features: input.evidence_features && typeof input.evidence_features === 'object'
+            ? input.evidence_features
+            : {},
+        explanation: compact(input.explanation, 300)
+    };
+}
+
+function createTopicCandidateGenerator() {
+    return {
+        generate(input = {}) {
+            const query = compact(input.query, 180);
+            const profile = input.ownerProfile && typeof input.ownerProfile === 'object' ? input.ownerProfile : {};
+            const keywords = listProfileFacets(profile, 'keywords');
+            const categories = listProfileFacets(profile, 'categories');
+            const recentKeys = collectRecentKeys(input.recentArtifacts);
+            const limit = Math.max(1, Math.min(50, Number(input.limit || 20)));
+            const candidates = [];
+            const seen = new Set(recentKeys);
+            let excludedRecentCount = 0;
+
+            function append(candidate) {
+                if (!candidate) return;
+                const key = normalizeKey(candidate.topic_seed);
+                if (!key) return;
+                if (recentKeys.has(key)) {
+                    excludedRecentCount += 1;
+                    return;
+                }
+                if (seen.has(key)) return;
+                seen.add(key);
+                candidates.push(candidate);
+            }
+
+            if (query) {
+                append(buildCandidate({
+                    candidate_type: 'request_seed',
+                    topic_seed: query,
+                    source_refs: [{ kind: 'request', id: 'current_request' }],
+                    evidence_features: { explicit_request: true },
+                    explanation: '현재 사용자가 직접 요청한 주제입니다.'
+                }));
+            }
+
+            for (const entry of flattenTrendKnowledge(input.knowledge)) {
+                const item = entry.item || {};
+                const title = compact(item.title || item?.metadata?.keyword, 180);
+                if (!title) continue;
+                const categoryText = Array.isArray(item?.metadata?.categories) ? item.metadata.categories.join(' ') : '';
+                const keywordMatches = matchesFacet(title, keywords);
+                const categoryMatches = matchesFacet(categoryText, categories);
+                append(buildCandidate({
+                    candidate_type: 'trend_seed',
+                    topic_seed: title,
+                    source_refs: [{
+                        kind: 'knowledge',
+                        provider_id: entry.provider_id,
+                        transport: entry.transport,
+                        source: compact(item?.metadata?.source, 80),
+                        timestamp: item.timestamp || null
+                    }],
+                    owner_matches: {
+                        keywords: keywordMatches,
+                        categories: categoryMatches
+                    },
+                    trend: {
+                        categories: Array.isArray(item?.metadata?.categories) ? item.metadata.categories : [],
+                        trend_date: item?.metadata?.trend_date || null,
+                        change_type: compact(item?.metadata?.change_type, 40),
+                        change_amount: item?.metadata?.change_amount ?? null,
+                        display_order: item?.metadata?.display_order ?? null
+                    },
+                    evidence_features: {
+                        owner_keyword_evidence: keywordMatches.reduce((sum, match) => sum + match.evidence_count, 0),
+                        owner_category_evidence: categoryMatches.reduce((sum, match) => sum + match.evidence_count, 0),
+                        external_observation: true
+                    },
+                    explanation: keywordMatches.length + categoryMatches.length > 0
+                        ? '최근 트렌드이며 기존 관심 근거와 연결됩니다.'
+                        : '최근 외부 트렌드에서 발견된 주제입니다.'
+                }));
+            }
+
+            for (const facet of keywords) {
+                append(buildCandidate({
+                    candidate_type: 'profile_seed',
+                    topic_seed: facet.value,
+                    source_refs: [facet.evidence].filter(Boolean),
+                    owner_matches: { keywords: [facet], categories: [] },
+                    evidence_features: {
+                        owner_keyword_evidence: facet.evidence_count,
+                        last_used_at: facet.last_used_at
+                    },
+                    explanation: '저장된 글감에서 반복 확인된 사용자 키워드입니다.'
+                }));
+            }
+
+            return {
+                schema_version: TOPIC_CANDIDATE_SCHEMA_VERSION,
+                owner_user_id: compact(profile.owner_user_id, 240),
+                candidates: candidates.slice(0, limit),
+                excluded_recent_count: excludedRecentCount,
+                source_counts: candidates.reduce((counts, item) => {
+                    counts[item.candidate_type] = (counts[item.candidate_type] || 0) + 1;
+                    return counts;
+                }, {})
+            };
+        }
+    };
+}
+
+module.exports = {
+    TOPIC_CANDIDATE_SCHEMA_VERSION,
+    createTopicCandidateGenerator,
+    flattenTrendKnowledge,
+    normalizeKey,
+    stableCandidateId
+};

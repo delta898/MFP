@@ -1,0 +1,57 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createTopicCandidateGenerator } = require('./topic-candidate-generator');
+
+function profile() {
+    return {
+        owner_user_id: 'local:test',
+        interests: {
+            keywords: [
+                { value: 'AI', normalized_value: 'ai', evidence_count: 4, last_used_at: '2026-08-14', evidence: { kind: 'topic_facet', id: 'f1' } },
+                { value: '워드프레스', normalized_value: '워드프레스', evidence_count: 2, last_used_at: '2026-08-10', evidence: { kind: 'topic_facet', id: 'f2' } }
+            ],
+            categories: [{ value: 'IT', normalized_value: 'it', evidence_count: 3, evidence: { kind: 'topic_facet', id: 'c1' } }],
+            platforms: []
+        }
+    };
+}
+
+test('combines request, trend, and owner profile evidence without scoring', () => {
+    const result = createTopicCandidateGenerator().generate({
+        query: '블로그 자동화',
+        ownerProfile: profile(),
+        knowledge: [{
+            provider_id: 'naver-trends',
+            kind: 'trends',
+            transport: 'builtin_api',
+            items: [{
+                title: 'AI 블로그 도구',
+                timestamp: '2026-08-14T00:00:00+09:00',
+                metadata: { source: 'naver_trend', categories: ['IT'], trend_date: '2026-08-14', change_type: 'up', change_amount: 7, display_order: 1 }
+            }]
+        }]
+    });
+
+    assert.deepEqual(result.candidates.map((item) => item.candidate_type), [
+        'request_seed', 'trend_seed', 'profile_seed', 'profile_seed'
+    ]);
+    const trend = result.candidates[1];
+    assert.equal(trend.owner_matches.keywords[0].normalized_value, 'ai');
+    assert.equal(trend.owner_matches.categories[0].normalized_value, 'it');
+    assert.equal(trend.source_refs[0].provider_id, 'naver-trends');
+    assert.equal(Object.hasOwn(trend, 'score'), false);
+});
+
+test('excludes exact recent seeds and keeps stable candidate ids', () => {
+    const generator = createTopicCandidateGenerator();
+    const input = {
+        ownerProfile: profile(),
+        recentArtifacts: [{ title: 'AI' }]
+    };
+    const first = generator.generate(input);
+    const second = generator.generate(input);
+
+    assert.equal(first.excluded_recent_count, 1);
+    assert.equal(first.candidates.some((item) => item.topic_seed === 'AI'), false);
+    assert.deepEqual(first.candidates.map((item) => item.id), second.candidates.map((item) => item.id));
+});

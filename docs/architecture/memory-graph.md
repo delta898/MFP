@@ -68,6 +68,12 @@ and explicit feedback while retaining evidence references. It intentionally has
 no opaque aggregate interest score: recommendation weighting and recency decay
 remain replaceable service policy rather than persisted user truth.
 
+Topic recommendation candidate generation consumes the owner profile and
+normalized knowledge snapshots without writing either back as new preference.
+Candidates preserve request/provider/facet references, matched owner evidence,
+and external trend facts. They intentionally carry no aggregate score; ranking
+and diversity are a separate versioned policy layer.
+
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.

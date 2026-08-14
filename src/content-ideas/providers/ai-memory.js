@@ -51,9 +51,22 @@ function buildFallbackIdeas(input = {}, context = {}) {
     const preferences = Array.isArray(context?.memory?.preferences) ? context.memory.preferences : [];
     const recentArtifacts = Array.isArray(context?.memory?.recent_artifacts) ? context.memory.recent_artifacts : [];
     const ideas = [];
+    const candidates = Array.isArray(context?.recommendationCandidates) ? context.recommendationCandidates : [];
+
+    for (const candidate of candidates.slice(0, 5)) {
+        const topicSeed = String(candidate?.topic_seed || '').trim();
+        if (!topicSeed) continue;
+        ideas.push({
+            title: `${topicSeed}을(를) 지금 써볼 만한 관점`,
+            summary: `${topicSeed}을(를) 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
+            reason: String(candidate?.explanation || '사용자 기억과 최신 지식 근거를 반영했습니다.'),
+            keywords: [topicSeed],
+            source: 'candidate_fallback'
+        });
+    }
 
     const trendsTimePref = preferences.find((item) => item.name === 'preferred_trends_collect_time');
-    if (query) {
+    if (query && ideas.length === 0) {
         ideas.push({
             title: `${query} 관점에서 바로 써볼 수 있는 글`,
             summary: `${query}와 관련된 실전형 팁이나 경험 정리를 중심으로 짧게 정리하는 글감입니다.`,
@@ -159,6 +172,9 @@ function createAiMemoryContentIdeaProvider() {
                     .flatMap((entry) => Array.isArray(entry.items) ? entry.items : [])
                     .slice(0, 8)
                 : [];
+            const recommendationCandidates = Array.isArray(context?.recommendationCandidates)
+                ? context.recommendationCandidates.slice(0, 12)
+                : [];
 
             const prompt = `당신은 블로그 글감 추천기입니다.
 사용자 요청과 현재 기억을 바탕으로 한국어 글감 아이디어를 JSON으로만 반환하세요.
@@ -197,6 +213,9 @@ ${recentSettingChanges.length > 0 ? recentSettingChanges.map((item) => `- ${item
 
 [최근 추천된 글감]
 ${recentArtifacts.length > 0 ? recentArtifacts.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}
+
+[설명 가능한 추천 후보]
+${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- ${item.topic_seed} | ${item.explanation} | 관심 키워드 근거 ${Number(item?.evidence_features?.owner_keyword_evidence || 0)}`).join('\n') : '- 없음'}
 
 [외부 트렌드 신호]
 ${trendKnowledge.length > 0 ? trendKnowledge.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}`;

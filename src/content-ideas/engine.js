@@ -1,6 +1,9 @@
+const { createTopicCandidateGenerator } = require('../recommendations/topic-candidate-generator');
+
 function createContentIdeaEngine(options = {}) {
     const providers = Array.isArray(options.providers) ? options.providers.filter(Boolean) : [];
     const knowledgeRegistry = options.knowledgeRegistry || null;
+    const candidateGenerator = options.candidateGenerator || createTopicCandidateGenerator();
 
     return {
         async generateIdeas(input = {}, context = {}) {
@@ -13,12 +16,23 @@ function createContentIdeaEngine(options = {}) {
                     purpose: 'content_ideas'
                 }, context).catch(() => [])
                 : [];
+            const ownerMemory = context?.memory?.owner_memory && typeof context.memory.owner_memory === 'object'
+                ? context.memory.owner_memory
+                : {};
+            const candidateSet = candidateGenerator.generate({
+                query: input.query || '',
+                ownerProfile: ownerMemory.profile || {},
+                recentArtifacts: ownerMemory.recent_artifacts || [],
+                knowledge,
+                limit: Math.max(10, Number(input.limit || 5) * 4)
+            });
 
             for (const provider of providers) {
                 if (!provider || typeof provider.generate !== 'function') continue;
                 const result = await provider.generate(input, {
                     ...context,
-                    knowledge
+                    knowledge,
+                    recommendationCandidates: candidateSet.candidates
                 });
                 if (Array.isArray(result?.ideas)) {
                     ideas.push(...result.ideas);
@@ -45,7 +59,8 @@ function createContentIdeaEngine(options = {}) {
 
             return {
                 ideas: deduped.slice(0, Math.max(1, Math.min(5, Number(input.limit || 3)))),
-                knowledge
+                knowledge,
+                candidates: candidateSet.candidates
             };
         }
     };
