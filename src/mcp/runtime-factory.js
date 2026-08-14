@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 
 const CONFIG = require('../config-loader');
+const License = require('../license');
 const { createAgentRuntime } = require('../agent/runtime');
 const { ConfirmationStore } = require('../agent/confirmation-store');
 const { createCapabilityRegistry } = require('../capabilities');
@@ -33,6 +34,7 @@ function createMcpPrototypeRuntime() {
         axios,
         Logger: NullLogger,
         CONFIG,
+        License,
         eventStore: null,
         resolveWritableConfigPath,
         buildDefaultConfigTemplate,

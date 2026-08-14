@@ -13,6 +13,11 @@ const { createBuiltinApiTransport } = require('../knowledge/transports/builtin-a
 const { createMcpToolTransport } = require('../knowledge/transports/mcp-tool');
 const { createInternalQueryTransport } = require('../knowledge/transports/internal-query');
 const { createSerpApiTrendsProvider } = require('../knowledge/providers/trends-serpapi');
+const {
+    DEFAULT_PROVIDER_ID: DEFAULT_NAVER_TRENDS_PROVIDER_ID,
+    createDefaultNaverTrendsDefinition,
+    createNaverTrendsProvider
+} = require('../knowledge/providers/trends-naver');
 const { createSuggestionEngine } = require('../suggestions/engine');
 const { createMemoryBasedSuggestionProvider } = require('../suggestions/providers/memory-based');
 const { createContentIdeaEngine } = require('../content-ideas/engine');
@@ -23,12 +28,22 @@ const { createPublishCapabilities } = require('./content/publish');
 
 function createCapabilityRegistry(deps = {}) {
     const configState = createConfigStateManager(deps);
-    const providerDefinitions = Array.isArray(deps.CONFIG?.knowledge?.providers)
+    const configuredProviderDefinitions = Array.isArray(deps.CONFIG?.knowledge?.providers)
         ? deps.CONFIG.knowledge.providers
         : (Array.isArray(deps.CONFIG?.KNOWLEDGE_PROVIDERS) ? deps.CONFIG.KNOWLEDGE_PROVIDERS : []);
-    const routing = deps.CONFIG?.knowledge?.routing && typeof deps.CONFIG.knowledge.routing === 'object'
+    const providerDefinitions = configuredProviderDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_TRENDS_PROVIDER_ID)
+        ? configuredProviderDefinitions
+        : [...configuredProviderDefinitions, createDefaultNaverTrendsDefinition()];
+    const configuredRouting = deps.CONFIG?.knowledge?.routing && typeof deps.CONFIG.knowledge.routing === 'object'
         ? deps.CONFIG.knowledge.routing
         : (deps.CONFIG?.KNOWLEDGE_ROUTING && typeof deps.CONFIG.KNOWLEDGE_ROUTING === 'object' ? deps.CONFIG.KNOWLEDGE_ROUTING : {});
+    const contentIdeaRoute = Array.isArray(configuredRouting.content_ideas) ? configuredRouting.content_ideas : [];
+    const routing = {
+        ...configuredRouting,
+        content_ideas: contentIdeaRoute.includes(DEFAULT_NAVER_TRENDS_PROVIDER_ID)
+            ? contentIdeaRoute
+            : [...contentIdeaRoute, DEFAULT_NAVER_TRENDS_PROVIDER_ID]
+    };
     const knowledgeRegistry = deps.knowledgeRegistry || createKnowledgeRegistry({
         providerDefinitions,
         routing,
@@ -37,7 +52,11 @@ function createCapabilityRegistry(deps = {}) {
             builtin_api: createBuiltinApiTransport({
                 httpClient: deps.axios,
                 handlers: {
-                    'trends:serpapi': createSerpApiTrendsProvider()
+                    'trends:serpapi': createSerpApiTrendsProvider(),
+                    'trends:naver_trend_posting': createNaverTrendsProvider({
+                        axios: deps.axios,
+                        License: deps.License
+                    })
                 }
             }),
             mcp_tool: createMcpToolTransport(),
@@ -80,6 +99,8 @@ function createCapabilityRegistry(deps = {}) {
 
     return {
         configState,
+        knowledgeRegistry,
+        knowledgeRouting: routing,
         list() {
             return Array.from(map.values());
         },

@@ -25,7 +25,10 @@ function createPlanner(options = {}) {
                 envelope: validation.envelope,
                 plan: buildPlanFromActions({
                     ...validation.envelope,
-                    routing: config?.knowledge?.routing || config?.KNOWLEDGE_ROUTING || {},
+                    routing: capabilityRegistry.knowledgeRouting
+                        || config?.knowledge?.routing
+                        || config?.KNOWLEDGE_ROUTING
+                        || {},
                     pending_confirmations: Array.isArray(context?.memory?.pending_confirmations)
                         ? context.memory.pending_confirmations
                         : []

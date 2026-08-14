@@ -20,6 +20,7 @@ const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
+const License = require('./license');
 
 class TelegramBotService {
     static bot = null;
@@ -213,6 +214,7 @@ class TelegramBotService {
             axios,
             Logger,
             CONFIG,
+            License,
             eventStore: this.agentEventStore,
             resolveWritableConfigPath,
             buildDefaultConfigTemplate,

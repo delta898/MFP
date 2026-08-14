@@ -39,6 +39,18 @@
   "knowledge": {
     "providers": [
       {
+        "id": "naver-trends",
+        "kind": "trends",
+        "transport": "builtin_api",
+        "enabled": true,
+        "label": "Naver Trend Posting",
+        "config": {
+          "vendor": "naver_trend_posting",
+          "categories": [],
+          "limit": 10
+        }
+      },
+      {
         "id": "trends-main",
         "kind": "trends",
         "transport": "builtin_api",
@@ -60,6 +72,7 @@
         "trends-main"
       ],
       "content_ideas": [
+        "naver-trends",
         "trends-main"
       ]
     }

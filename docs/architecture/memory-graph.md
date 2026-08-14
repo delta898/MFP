@@ -146,10 +146,10 @@ while Sheet-appended `topic` artifacts are connected directly to their event.
 Consequently, stored topic subjects, categories, and keywords do not currently
 teach the idea provider what the user usually writes about.
 
-The first external trends provider is structurally connected through the
-`content_ideas` route, but it must be enabled and configured to return data.
-The application's Naver trend rows are not currently exposed as a knowledge
-provider snapshot for this lane.
+The application's licensed Naver Trend Posting data is exposed through the
+`content_ideas` knowledge route as a normalized latest-day snapshot. Snapshot
+items remain `observed / weak` external knowledge and are not written as owner
+activity merely because they were fetched.
 
 Owner identity and owner-scoped retrieval are completed prerequisites. Before
 personalized topic recommendations are presented in the product, the remaining
@@ -159,8 +159,8 @@ structural work is:
 2. include owner-scoped saved topics in recommendation retrieval context;
 3. distinguish weak signals (collected/saved) from strong signals
    (selected, drafted, published, accepted recommendation);
-4. connect Naver trends through the existing knowledge-provider contract;
-5. add recency, frequency, and explicit feedback to preference scoring.
+4. combine Naver trends and the owner profile in a replaceable candidate policy;
+5. add recency, frequency, diversity, and explicit feedback to recommendation scoring.
 
 ## Owner Activity Signals
 

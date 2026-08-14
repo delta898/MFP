@@ -66,6 +66,7 @@
 - `plans/active/intelligent-memory-collection-audit-plan.md`
 - `plans/active/intelligent-memory-retrieval-v2-plan.md`
 - `plans/active/intelligent-memory-owner-profile-plan.md`
+- `plans/active/intelligent-memory-naver-trends-knowledge-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`
