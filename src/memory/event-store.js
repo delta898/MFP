@@ -9,6 +9,7 @@ const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./topic-semantics');
 const { normalizeActivityEvidence } = require('./activity-lifecycle');
 const { buildMemoryCollectionAudit } = require('./collection-audit');
+const { buildOwnerProfileProjection } = require('./owner-profile');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -1662,6 +1663,22 @@ class KuzuEventStore {
             categories: await this.listOwnerTopicFacets(resolvedOwnerUserId, { kind: 'category', limit }),
             platforms: await this.listOwnerTopicFacets(resolvedOwnerUserId, { kind: 'platform', limit })
         };
+    }
+
+    async getOwnerProfileProjection(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const limit = Math.max(1, Math.min(50, parseInt(options.limit, 10) || 20));
+        const scanLimit = Math.max(1, Math.min(500, parseInt(options.scanLimit || options.scan_limit, 10) || 300));
+        const [activity, topicSemantics] = await Promise.all([
+            this.getOwnerActivitySignalSummary(resolvedOwnerUserId, { limit: Math.max(30, limit * 3), scanLimit }),
+            this.getOwnerTopicSemanticSummary(resolvedOwnerUserId, { limit })
+        ]);
+        return buildOwnerProfileProjection({
+            owner_user_id: resolvedOwnerUserId,
+            activity,
+            topic_semantics: topicSemantics
+        });
     }
 
     async recordMessage(chatId, text, intent = 'UNKNOWN', sender = 'USER') {

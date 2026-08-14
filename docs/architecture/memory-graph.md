@@ -62,6 +62,12 @@ This separation prevents a Telegram chat id from becoming the durable user
 identity and gives UI, automation, and future recommendation services the same
 owner-scoped read contract.
 
+The first derived owner profile is a read-time projection over activity signals
+and topic facets. It exposes frequency, recency, stage, strength, recent subjects,
+and explicit feedback while retaining evidence references. It intentionally has
+no opaque aggregate interest score: recommendation weighting and recency decay
+remain replaceable service policy rather than persisted user truth.
+
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.

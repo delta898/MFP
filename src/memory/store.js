@@ -69,6 +69,18 @@ function buildDisabledEventStore(reason) {
                 platforms: []
             };
         },
+        async getOwnerProfileProjection(ownerUserId = '') {
+            return {
+                schema_version: 1,
+                projection_kind: 'owner_profile',
+                owner_user_id: String(ownerUserId || '').trim(),
+                generated_at: new Date().toISOString(),
+                interests: { keywords: [], categories: [], platforms: [] },
+                activity: { counts_by_domain: {}, counts_by_stage: {}, counts_by_strength: {}, recent_subjects: [] },
+                feedback: { counts: { helpful: 0, not_helpful: 0, accepted: 0, rejected: 0, unknown: 0 }, recent: [] },
+                evidence_summary: { scanned_count: 0, supported_count: 0, excluded_count: 0, truncated: false }
+            };
+        },
         async listDomainKnowledge() { return []; },
         async listUserPreferences() { return []; },
         getLocalOwnerIdentity() { return null; },

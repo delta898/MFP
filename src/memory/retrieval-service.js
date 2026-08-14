@@ -1,3 +1,5 @@
+const { buildOwnerProfileProjection } = require('./owner-profile');
+
 function createMemoryRetrievalService(options = {}) {
     const eventStore = options.eventStore || null;
     const confirmationStore = options.confirmationStore || null;
@@ -59,6 +61,7 @@ function createMemoryRetrievalService(options = {}) {
             let ownerActivity = null;
             let ownerTopics = null;
             let ownerArtifacts = [];
+            let ownerProfile = null;
             if (eventStore && ownerUserId) {
                 ownerActivity = typeof eventStore.getOwnerActivitySignalSummary === 'function'
                     ? await readOr(null, () => eventStore.getOwnerActivitySignalSummary(ownerUserId, {
@@ -76,6 +79,13 @@ function createMemoryRetrievalService(options = {}) {
                         limit: Math.min(20, limit * 2)
                     }))
                     : [];
+                if (ownerActivity && ownerTopics) {
+                    ownerProfile = buildOwnerProfileProjection({
+                        owner_user_id: ownerUserId,
+                        activity: ownerActivity,
+                        topic_semantics: ownerTopics
+                    });
+                }
             }
 
             let pendingConfirmations = [];
@@ -105,7 +115,8 @@ function createMemoryRetrievalService(options = {}) {
                     owner_user_id: ownerUserId,
                     activity: ownerActivity,
                     topic_semantics: ownerTopics,
-                    recent_artifacts: Array.isArray(ownerArtifacts) ? ownerArtifacts : []
+                    recent_artifacts: Array.isArray(ownerArtifacts) ? ownerArtifacts : [],
+                    profile: ownerProfile
                 }
             };
         }
