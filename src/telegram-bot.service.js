@@ -344,6 +344,7 @@ class TelegramBotService {
         context.memory = await this.agentRetrieval.buildContextPacket({
             conversationId: context.conversation.id,
             userId: context.user.id,
+            ownerUserId: this.agentEventStore?.getLocalOwnerIdentity?.()?.owner_user_id || '',
             limit: 8
         });
         Logger.info(`⏱️ [TelegramAgent] retrieval ${Date.now() - retrievalStartedAt}ms`);

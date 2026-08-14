@@ -7,6 +7,16 @@ function createMemoryRetrievalService(options = {}) {
             const conversationId = String(input.conversationId || '').trim();
             const userId = String(input.userId || '').trim();
             const limit = Number.isFinite(Number(input.limit)) ? Math.max(1, Math.min(20, Number(input.limit))) : 8;
+            const requestedOwnerUserId = String(input.ownerUserId || input.owner_user_id || '').trim();
+
+            async function readOr(fallback, reader) {
+                try {
+                    const value = await reader();
+                    return value ?? fallback;
+                } catch (_ignore) {
+                    return fallback;
+                }
+            }
 
             let recentEvents = [];
             let recentMessages = [];
@@ -42,6 +52,32 @@ function createMemoryRetrievalService(options = {}) {
                 } catch (_ignore) { }
             }
 
+            const localOwner = eventStore && typeof eventStore.getLocalOwnerIdentity === 'function'
+                ? eventStore.getLocalOwnerIdentity()
+                : null;
+            const ownerUserId = requestedOwnerUserId || String(localOwner?.owner_user_id || '').trim();
+            let ownerActivity = null;
+            let ownerTopics = null;
+            let ownerArtifacts = [];
+            if (eventStore && ownerUserId) {
+                ownerActivity = typeof eventStore.getOwnerActivitySignalSummary === 'function'
+                    ? await readOr(null, () => eventStore.getOwnerActivitySignalSummary(ownerUserId, {
+                        limit: Math.min(40, limit * 4),
+                        scanLimit: 300
+                    }))
+                    : null;
+                ownerTopics = typeof eventStore.getOwnerTopicSemanticSummary === 'function'
+                    ? await readOr(null, () => eventStore.getOwnerTopicSemanticSummary(ownerUserId, {
+                        limit: Math.min(20, limit * 2)
+                    }))
+                    : null;
+                ownerArtifacts = typeof eventStore.listOwnerArtifacts === 'function'
+                    ? await readOr([], () => eventStore.listOwnerArtifacts(ownerUserId, {
+                        limit: Math.min(20, limit * 2)
+                    }))
+                    : [];
+            }
+
             let pendingConfirmations = [];
             if (confirmationStore && typeof confirmationStore.getPendingByUser === 'function' && userId) {
                 try {
@@ -50,6 +86,7 @@ function createMemoryRetrievalService(options = {}) {
             }
 
             return {
+                schema_version: 2,
                 recent_events: Array.isArray(recentEvents) ? recentEvents : [],
                 recent_messages: Array.isArray(recentMessages) ? recentMessages : [],
                 recent_actions: Array.isArray(recentActions) ? recentActions : [],
@@ -63,7 +100,13 @@ function createMemoryRetrievalService(options = {}) {
                     createdAt: item.createdAt,
                     previews: item.previews || [],
                     plan: item.plan && typeof item.plan === 'object' ? item.plan : null
-                })) : []
+                })) : [],
+                owner_memory: {
+                    owner_user_id: ownerUserId,
+                    activity: ownerActivity,
+                    topic_semantics: ownerTopics,
+                    recent_artifacts: Array.isArray(ownerArtifacts) ? ownerArtifacts : []
+                }
             };
         }
     };

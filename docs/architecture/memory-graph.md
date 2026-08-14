@@ -54,6 +54,14 @@ Typed retrieval currently builds a context packet with:
 - pending confirmations
 - preference summary
 
+Context packet schema version 2 keeps those conversation-scoped fields and adds
+a separate `owner_memory` section. It contains owner activity signals, topic
+semantics and recent owner artifacts. Collection-health auditing remains an
+explicit diagnostic so normal retrieval does not pay for global integrity scans.
+This separation prevents a Telegram chat id from becoming the durable user
+identity and gives UI, automation, and future recommendation services the same
+owner-scoped read contract.
+
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.
