@@ -72,7 +72,24 @@ function buildDisabledEventStore(reason) {
         async listDomainKnowledge() { return []; },
         async listUserPreferences() { return []; },
         getLocalOwnerIdentity() { return null; },
-        async getOwnerMemoryStats() { return { owner_user_id: '', event_count: 0, artifact_count: 0, orphan_event_count: 0, orphan_artifact_count: 0 }; }
+        async getOwnerMemoryStats() { return { owner_user_id: '', event_count: 0, artifact_count: 0, orphan_event_count: 0, orphan_artifact_count: 0 }; },
+        async getOwnerCollectionAudit(ownerUserId = '') {
+            return {
+                schema_version: 1,
+                owner_user_id: String(ownerUserId || '').trim(),
+                scanned_event_count: 0,
+                scanned_artifact_count: 0,
+                event_types: {},
+                channels: {},
+                missing_provenance_count: 0,
+                incomplete_provenance_count: 0,
+                duplicate_logical_event_count: 0,
+                duplicate_logical_keys: [],
+                orphan_event_count: 0,
+                orphan_artifact_count: 0,
+                truncated: false
+            };
+        }
     };
 }
 

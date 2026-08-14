@@ -110,6 +110,13 @@ message, actor, channel, and request identity through confirmed topic
 registration. Owner-only UI/system topic writes no longer inherit a synthetic
 Telegram channel when no Telegram actor exists.
 
+All newly appended events also keep a compact provenance envelope inside
+`payload_json`. This preserves channel, actor, conversation, message, request,
+and source identity even when an event-specific summary intentionally drops the
+original payload. Historic events are not rewritten; an owner-scoped collection
+audit reports legacy provenance gaps, bounded logical duplicates, scan
+truncation, and graph ownership orphans.
+
 ## Content Idea Recommendation Readiness
 
 An initial recommendation lane already exists:

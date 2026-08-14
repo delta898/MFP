@@ -8,6 +8,7 @@ const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
 const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./topic-semantics');
 const { normalizeActivityEvidence } = require('./activity-lifecycle');
+const { buildMemoryCollectionAudit } = require('./collection-audit');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -1339,7 +1340,15 @@ class KuzuEventStore {
         const actorId = String(event.actor_id || '').trim();
         const conversationId = String(event.conversation_id || '').trim();
         const messageId = String(event.message_id || '').trim();
-        const payloadJson = this._normalizeJson(this._summarizeEventPayload(String(event.event_type || '').trim(), event.payload || {}));
+        const summarizedPayload = this._summarizeEventPayload(String(event.event_type || '').trim(), event.payload || {});
+        const provenance = normalizeInteractionProvenance(event, {
+            request_id: event.payload?.request_id,
+            source: event.payload?.source
+        });
+        const payloadJson = this._normalizeJson({
+            ...(summarizedPayload && typeof summarizedPayload === 'object' ? summarizedPayload : {}),
+            provenance
+        });
         const user = event.user || { id: actorId, channel: event.channel || 'telegram', username: event.username || '' };
         const conversation = event.conversation || { id: conversationId, channel: event.channel || 'telegram' };
         const ownerUserId = String(event.owner_user_id || event.ownerUserId || this.owner?.owner_user_id || '').trim();
@@ -1997,6 +2006,22 @@ class KuzuEventStore {
             orphan_event_count: Math.max(0, totalEventCount - ownedEventCount),
             orphan_artifact_count: Math.max(0, totalArtifactCount - ownedArtifactCount)
         };
+    }
+
+    async getOwnerCollectionAudit(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const scanLimit = Math.max(1, Math.min(500, parseInt(options.scanLimit || options.scan_limit, 10) || 500));
+        const stats = await this.getOwnerMemoryStats(resolvedOwnerUserId);
+        const events = await this.listOwnerEvents(resolvedOwnerUserId, { limit: scanLimit });
+        const artifacts = await this.listOwnerArtifacts(resolvedOwnerUserId, { limit: scanLimit });
+        return buildMemoryCollectionAudit({
+            owner_user_id: resolvedOwnerUserId,
+            events,
+            artifacts,
+            stats,
+            truncated: stats.event_count > events.length || stats.artifact_count > artifacts.length
+        });
     }
 }
 
