@@ -37,6 +37,26 @@ function buildDisabledEventStore(reason) {
         async listRecentSettingChanges() { return []; },
         async listRecentJobRuns() { return []; },
         async listRecentArtifacts() { return []; },
+        async listOwnerEvents() { return []; },
+        async listOwnerArtifacts() { return []; },
+        async getOwnerActivitySignalSummary(ownerUserId = '', options = {}) {
+            const requestedDomains = Array.isArray(options.domains)
+                ? options.domains.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+                : [];
+            return {
+                owner_user_id: String(ownerUserId || '').trim(),
+                domains: requestedDomains.length > 0 ? requestedDomains : ['blog', 'shopping', 'sns'],
+                signals: [],
+                counts_by_domain: { blog: 0, shopping: 0, sns: 0 },
+                counts_by_stage: { observed: 0, generated: 0, saved: 0, selected: 0, drafted: 0, published: 0, feedback: 0 },
+                counts_by_strength: { weak: 0, medium: 0, strong: 0, explicit: 0 },
+                scanned_evidence_count: 0,
+                supported_evidence_count: 0,
+                filtered_evidence_count: 0,
+                excluded_evidence_count: 0,
+                truncated: false
+            };
+        },
         async listDomainKnowledge() { return []; },
         async listUserPreferences() { return []; },
         getLocalOwnerIdentity() { return null; },

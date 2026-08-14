@@ -3,6 +3,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
+const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -1413,6 +1414,85 @@ class KuzuEventStore {
             });
         }
         return items;
+    }
+
+    _resolveOwnerUserId(ownerUserId = '') {
+        const resolved = String(ownerUserId || this.owner?.owner_user_id || '').trim();
+        if (!resolved) throw new Error('owner_user_id가 필요합니다.');
+        return resolved;
+    }
+
+    async listOwnerEvents(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const eventType = String(options.eventType || options.event_type || '').trim();
+        const limit = Math.max(1, Math.min(500, parseInt(options.limit, 10) || 100));
+        const query = eventType
+            ? 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode {event_type: $event_type}) RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.actor_type AS actor_type, e.actor_id AS actor_id, e.conversation_id AS conversation_id, e.message_id AS message_id, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit'
+            : 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.actor_type AS actor_type, e.actor_id AS actor_id, e.conversation_id AS conversation_id, e.message_id AS message_id, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit';
+        const params = {
+            owner_id: resolvedOwnerUserId,
+            limit
+        };
+        if (eventType) params.event_type = eventType;
+        const res = await this._runQuery(query, params);
+        const items = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            items.push({
+                id: row.id,
+                event_type: row.event_type,
+                timestamp: row.timestamp,
+                actor_type: row.actor_type,
+                actor_id: row.actor_id,
+                conversation_id: row.conversation_id,
+                message_id: row.message_id,
+                payload: (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })()
+            });
+        }
+        return items;
+    }
+
+    async listOwnerArtifacts(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const artifactType = String(options.artifactType || options.artifact_type || '').trim();
+        const limit = Math.max(1, Math.min(500, parseInt(options.limit, 10) || 100));
+        const query = artifactType
+            ? 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type}) RETURN a.id AS id, a.artifact_type AS artifact_type, a.title AS title, a.summary AS summary, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT $limit'
+            : 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode) RETURN a.id AS id, a.artifact_type AS artifact_type, a.title AS title, a.summary AS summary, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp DESC LIMIT $limit';
+        const params = {
+            owner_id: resolvedOwnerUserId,
+            limit
+        };
+        if (artifactType) params.artifact_type = artifactType;
+        const res = await this._runQuery(query, params);
+        const items = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            items.push({
+                id: row.id,
+                artifact_type: row.artifact_type,
+                title: row.title,
+                summary: row.summary,
+                timestamp: row.timestamp,
+                payload: (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })()
+            });
+        }
+        return items;
+    }
+
+    async getOwnerActivitySignalSummary(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const scanLimit = Math.max(1, Math.min(500, parseInt(options.scanLimit || options.scan_limit, 10) || 200));
+        const artifacts = await this.listOwnerArtifacts(resolvedOwnerUserId, { limit: scanLimit });
+        return buildOwnerActivitySignalSummary({
+            owner_user_id: resolvedOwnerUserId,
+            artifacts,
+            domains: options.domains,
+            limit: options.limit
+        });
     }
 
     async recordMessage(chatId, text, intent = 'UNKNOWN', sender = 'USER') {

@@ -85,14 +85,42 @@ The first external trends provider is structurally connected through the
 The application's Naver trend rows are not currently exposed as a knowledge
 provider snapshot for this lane.
 
-Owner identity is the first completed prerequisite. Before personalized topic
-recommendations are presented in the product, the remaining structural work is:
+Owner identity and owner-scoped retrieval are completed prerequisites. Before
+personalized topic recommendations are presented in the product, the remaining
+structural work is:
 
-1. retrieve topic and publish artifacts by owner, not only by conversation/action;
-2. distinguish weak signals (collected/saved) from strong signals
+1. record explicit selection, draft, and publish evidence under the owner;
+2. include owner-scoped saved topics in recommendation retrieval context;
+3. distinguish weak signals (collected/saved) from strong signals
    (selected, drafted, published, accepted recommendation);
-3. connect Naver trends through the existing knowledge-provider contract;
-4. add recency, frequency, and explicit feedback to preference scoring.
+4. connect Naver trends through the existing knowledge-provider contract;
+5. add recency, frequency, and explicit feedback to preference scoring.
+
+## Owner Activity Signals
+
+Owner-scoped activity is separated into `blog`, `shopping`, and `sns` domains.
+This keeps each product path explicit while allowing later cross-domain insight.
+Evidence uses categorical stages before any numeric recommendation policy is
+applied:
+
+- `observed`: surfaced or collected only;
+- `generated`: proposed by the system;
+- `saved`: durably registered as a topic;
+- `selected`: explicitly chosen for writing;
+- `drafted`: successfully stored as a draft;
+- `published`: successfully published;
+- `feedback`: an explicit positive or negative response.
+
+A stage is never inferred from weaker evidence. Current `topic` and
+`shopping_item` artifacts mean only `saved` in their respective domains; they do
+not imply selection, drafting, or publication. Strength is kept as `weak`,
+`medium`, `strong`, or `explicit` so future scoring can evolve without rewriting
+stored facts.
+
+Topic registration preserves subject, category, platform, keywords, instruction,
+and source in compact event/artifact payloads. These fields are not yet
+materialized as normalized keyword/category/platform nodes. SNS discovery,
+drafting, and publishing are also not yet recorded in GraphDB.
 
 ## Current Gaps
 - Preference scoring is still simple accumulation.
