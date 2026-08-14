@@ -57,6 +57,7 @@
 - `plans/active/intelligent-memory-owner-identity-plan.md`
 - `plans/active/intelligent-memory-owner-retrieval-plan.md`
 - `plans/active/intelligent-memory-topic-semantics-plan.md`
+- `plans/active/intelligent-memory-activity-lifecycle-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`

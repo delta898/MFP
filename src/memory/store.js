@@ -30,6 +30,7 @@ function buildDisabledEventStore(reason) {
         async recordMessage() { return null; },
         async recordShoppingItem() { return null; },
         async recordTopic() { return null; },
+        async recordActivityLifecycle() { return null; },
         async updateUserInsight() { return null; },
         async listConversationEvents() { return []; },
         async listRecentMessages() { return []; },

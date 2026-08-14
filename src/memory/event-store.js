@@ -5,6 +5,7 @@ const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
 const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./topic-semantics');
+const { normalizeActivityEvidence } = require('./activity-lifecycle');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -1514,15 +1515,19 @@ class KuzuEventStore {
         await this.initialize();
         const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
         const eventType = String(options.eventType || options.event_type || '').trim();
+        const eventTypePrefix = String(options.eventTypePrefix || options.event_type_prefix || '').trim();
         const limit = Math.max(1, Math.min(500, parseInt(options.limit, 10) || 100));
         const query = eventType
             ? 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode {event_type: $event_type}) RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.actor_type AS actor_type, e.actor_id AS actor_id, e.conversation_id AS conversation_id, e.message_id AS message_id, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit'
+            : eventTypePrefix
+                ? 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) WHERE e.event_type STARTS WITH $event_type_prefix RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.actor_type AS actor_type, e.actor_id AS actor_id, e.conversation_id AS conversation_id, e.message_id AS message_id, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit'
             : 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.actor_type AS actor_type, e.actor_id AS actor_id, e.conversation_id AS conversation_id, e.message_id AS message_id, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit';
         const params = {
             owner_id: resolvedOwnerUserId,
             limit
         };
         if (eventType) params.event_type = eventType;
+        if (!eventType && eventTypePrefix) params.event_type_prefix = eventTypePrefix;
         const res = await this._runQuery(query, params);
         const items = [];
         while (res.hasNext()) {
@@ -1575,9 +1580,14 @@ class KuzuEventStore {
         const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
         const scanLimit = Math.max(1, Math.min(500, parseInt(options.scanLimit || options.scan_limit, 10) || 200));
         const artifacts = await this.listOwnerArtifacts(resolvedOwnerUserId, { limit: scanLimit });
+        const events = await this.listOwnerEvents(resolvedOwnerUserId, {
+            eventTypePrefix: 'activity.lifecycle.',
+            limit: scanLimit
+        });
         return buildOwnerActivitySignalSummary({
             owner_user_id: resolvedOwnerUserId,
             artifacts,
+            events,
             domains: options.domains,
             limit: options.limit
         });
@@ -1733,6 +1743,34 @@ class KuzuEventStore {
                 source: itemData.source || 'manual'
             }
         });
+    }
+
+    async recordActivityLifecycle(input = {}) {
+        await this.initialize();
+        const evidence = normalizeActivityEvidence(input);
+        if (evidence.id) {
+            const existing = await this._runQuery(
+                'MATCH (e:EventNode {id: $event_id}) RETURN e.id AS id LIMIT 1',
+                { event_id: evidence.id }
+            );
+            if (existing.hasNext()) {
+                const row = await existing.getNext();
+                return { id: row.id, owner_user_id: this._resolveOwnerUserId(evidence.owner_user_id), deduplicated: true };
+            }
+        }
+
+        const result = await this.appendEvent({
+            ...(evidence.id ? { id: evidence.id } : {}),
+            event_type: evidence.event_type,
+            actor_type: evidence.actor_type,
+            actor_id: evidence.actor_id,
+            conversation_id: evidence.conversation_id,
+            channel: evidence.channel,
+            timestamp: evidence.timestamp,
+            owner_user_id: evidence.owner_user_id,
+            payload: evidence.payload
+        });
+        return { ...result, deduplicated: false };
     }
 
     async getTopicSummary(chatId, options = {}) {

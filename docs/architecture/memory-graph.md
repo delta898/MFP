@@ -139,6 +139,14 @@ not imply selection, drafting, or publication. Strength is kept as `weak`,
 `medium`, `strong`, or `explicit` so future scoring can evolve without rewriting
 stored facts.
 
+Explicit lifecycle facts use `activity.lifecycle.<domain>.<stage>` events. Their
+payload preserves subject/entity reference, source, platform, result reference,
+and a caller-supplied evidence id. A deterministic event id makes retries
+idempotent. Owner activity retrieval combines these events with existing saved
+artifacts while retaining whether each signal came from an event or artifact.
+Product integrations must record terminal evidence only after platform-confirmed
+success, and GraphDB failure must not reverse the business operation.
+
 Topic registration preserves subject, category, platform, keywords, instruction,
 and source in compact event/artifact payloads. Migration `003_topic_semantics`
 materializes deterministic keyword/category/platform values as facets while
