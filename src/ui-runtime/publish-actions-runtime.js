@@ -1459,7 +1459,8 @@ function createPublishActionsRuntime(deps = {}) {
             { rowIndex, headless, targets, isLast: true, operationId: requestBody?.operationId },
             {
                 features,
-                enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', false)
+                enableRelatedPostsAutoLink: getFeatureBool(features, 'enable_related_posts_auto_link', false),
+                lifecycleSource: 'shopping-quick'
             }
         );
 

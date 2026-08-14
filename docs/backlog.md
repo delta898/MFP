@@ -38,7 +38,8 @@
 - Topic semantics 기반 완료: 기존 payload를 보존하며 keyword/category/platform facet과 Owner별 빈도·최근성 조회를 제공
 - Activity lifecycle 공통 계약 기반 완료: domain/stage/근거 출처/멱등키를 갖춘 owner-scoped event를 기존 artifact 신호와 함께 조회
 - Blog lifecycle 연결 진행: 빠른 포스팅·미리보기 발행·원고 폴더·원고 붙여넣기의 선택과 플랫폼별 초안/발행 성공 근거 수집
-- 다음 선행 작업: shopping·SNS 실제 선택·초안·발행 성공 지점을 순차 연결하고, 저장 토픽과 facet을 retrieval context에 포함
+- Shopping lifecycle 연결 진행: 단건·일괄·자동·빠른 쇼핑 실행의 선택과 플랫폼별 초안/발행 성공 근거 수집
+- 다음 선행 작업: SNS 실제 선택·발행 성공 지점을 연결하고, 저장 토픽과 facet을 retrieval context에 포함
 - 단순 반복 횟수뿐 아니라 최근성, 직접 선택·발행 여부, 추천 수락/거절을 구분해 점수화
 - 제안 결과에서 추천 이유와 근거 신호를 사용자가 이해할 수 있게 표시
 

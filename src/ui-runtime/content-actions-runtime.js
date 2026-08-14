@@ -28,8 +28,55 @@ function createContentActionsRuntime(deps = {}) {
         clearAllBlogRuntimeLogs,
         setBlogRuntimeLog,
         clearAllShoppingRuntimeLogs,
-        setShoppingRuntimeLog
+        setShoppingRuntimeLog,
+        recordActivityLifecycle = async () => null
     } = deps;
+
+    async function recordShoppingSelection({ operationId, subject, source, rowIndex, targets }) {
+        return recordActivityLifecycle({
+            domain: 'shopping',
+            stage: 'selected',
+            subject,
+            source,
+            entity_ref: `shopping-row-${rowIndex}`,
+            evidence_id: `${operationId}:shopping:selected`,
+            metadata: {
+                row_index: rowIndex,
+                targets: Array.isArray(targets) ? targets.slice() : []
+            }
+        });
+    }
+
+    async function recordShoppingTerminalResults({ operationId, subject, source, rowIndex, postStatus, results }) {
+        const normalizedStatus = String(postStatus || '').trim().toLowerCase();
+        const stage = normalizedStatus === 'draft'
+            ? 'drafted'
+            : normalizedStatus === 'publish'
+                ? 'published'
+                : '';
+        if (!stage) return [];
+
+        const recorded = [];
+        for (const [platform, result] of Object.entries(results || {})) {
+            if (result?.success !== true) continue;
+            recorded.push(await recordActivityLifecycle({
+                domain: 'shopping',
+                stage,
+                subject,
+                source,
+                entity_ref: `shopping-row-${rowIndex}`,
+                platform,
+                result_ref: result.postUrl || '',
+                evidence_id: `${operationId}:shopping:${platform}:${stage}`,
+                metadata: {
+                    row_index: rowIndex,
+                    post_status: normalizedStatus,
+                    reused: result.reused === true
+                }
+            }));
+        }
+        return recorded;
+    }
 
     function parseUniqueRowIndices(rawValue) {
         const rowValues = Array.isArray(rawValue) ? rawValue : [];
@@ -509,6 +556,15 @@ function createContentActionsRuntime(deps = {}) {
             if (instruction.length > 1000) {
                 return { success: false, code: 'INVALID_SHOPPING_INSTRUCTION', message: '참고/지시사항은 1,000자 이내로 입력해 주세요.' };
             }
+            const lifecycleSource = String(options.lifecycleSource || 'shopping-row').trim();
+            const postStatus = target.postStatus || 'publish';
+            await recordShoppingSelection({
+                operationId,
+                subject: productName || shortUrl,
+                source: lifecycleSource,
+                rowIndex,
+                targets
+            });
 
             report('상태 업데이트: 발행 중');
             await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
@@ -590,6 +646,7 @@ function createContentActionsRuntime(deps = {}) {
                 }) || { success: false, message: '네이버 포스팅 응답이 비어 있습니다.' };
                 results.naver.success = pubRes.success === true;
                 results.naver.message = pubRes.message || (pubRes.success ? '네이버 완료' : '네이버 실패');
+                results.naver.postUrl = pubRes.postUrl || '';
             }
 
             if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
@@ -602,6 +659,7 @@ function createContentActionsRuntime(deps = {}) {
                 });
                 results.wordpress.success = pubRes.success;
                 results.wordpress.message = pubRes.message || (pubRes.success ? '워드프레스 완료' : '워드프레스 실패');
+                results.wordpress.postUrl = pubRes.postUrl || '';
             }
 
             const quotaSettlement = await settlePublishQuota({
@@ -614,9 +672,17 @@ function createContentActionsRuntime(deps = {}) {
             if (!quotaSettlement.success) {
                 report(`사용량 동기화 실패: ${quotaSettlement.message}`);
             }
+            await recordShoppingTerminalResults({
+                operationId,
+                subject: productName || shortUrl,
+                source: lifecycleSource,
+                rowIndex,
+                postStatus,
+                results
+            });
 
             const anySuccess = hasSuccessfulPlatformResult(results);
-            const finalStatus = anySuccess ? getCompletionStatusLabel(target.postStatus) : '실패';
+            const finalStatus = anySuccess ? getCompletionStatusLabel(postStatus) : '실패';
             const logArr = [];
             if (targets.includes('naver') && results.naver.success) logArr.push('네이버 완료');
             if (targets.includes('wordpress') && results.wordpress.success) logArr.push('워드프레스 완료');
@@ -629,7 +695,7 @@ function createContentActionsRuntime(deps = {}) {
                     rowIndex,
                     rowNumber: rowIndex + 2,
                     status: finalStatus,
-                    postStatus: target.postStatus || 'publish',
+                    postStatus,
                     shortUrl,
                     targetDir: results.naver.targetDir || results.wordpress.targetDir,
                     results,
@@ -728,6 +794,7 @@ function createContentActionsRuntime(deps = {}) {
                 {
                     features,
                     enableRelatedPostsAutoLink,
+                    lifecycleSource: String(requestBody?.source || 'shopping-batch').trim(),
                     onProgress: (message) => setShoppingRuntimeLog(rowIndex, message)
                 }
             );
@@ -829,7 +896,7 @@ function createContentActionsRuntime(deps = {}) {
             return { success: true, data: { summary } };
         }
 
-        const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices });
+        const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices, source: 'shopping-auto' });
         if (!batchResult.success) {
             return batchResult;
         }

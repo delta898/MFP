@@ -1710,7 +1710,8 @@ const contentActionsRuntime = createContentActionsRuntime({
     clearAllBlogRuntimeLogs,
     setBlogRuntimeLog,
     clearAllShoppingRuntimeLogs,
-    setShoppingRuntimeLog
+    setShoppingRuntimeLog,
+    recordActivityLifecycle
 });
 const {
     executeBlogBatchRowsAction,
