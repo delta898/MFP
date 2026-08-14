@@ -35,7 +35,8 @@
 - 기존 `content.idea.suggest` capability와 `kind + transport + config` knowledge provider 구조를 확장하며 별도 추천 체계를 중복 구축하지 않음
 - Owner Identity 기반 완료: UI/자동 작업도 durable local owner에 귀속하며 actor는 별도 유지
 - Owner 기반 조회와 도메인 신호 분류 완료: blog·shopping·sns를 분리하고 약한 근거에서 선택·초안·발행을 추정하지 않음
-- 다음 선행 작업: 토픽 필드의 keyword/category 관계 구조화, blog·shopping·SNS 선택·초안·발행 성공 이벤트 수집, 저장 토픽을 retrieval context에 포함
+- Topic semantics 기반 완료: 기존 payload를 보존하며 keyword/category/platform facet과 Owner별 빈도·최근성 조회를 제공
+- 다음 선행 작업: blog·shopping·SNS 선택·초안·발행 성공 이벤트 수집, 저장 토픽과 facet을 retrieval context에 포함
 - 단순 반복 횟수뿐 아니라 최근성, 직접 선택·발행 여부, 추천 수락/거절을 구분해 점수화
 - 제안 결과에서 추천 이유와 근거 신호를 사용자가 이해할 수 있게 표시
 

@@ -4,9 +4,12 @@ const crypto = require('crypto');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
 const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
+const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./topic-semantics');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
+const TOPIC_SEMANTICS_MIGRATION_ID = '003_topic_semantics';
+const TOPIC_SEMANTICS_MIGRATION_VERSION = 3;
 
 let cachedKuzu = null;
 let cachedKuzuLoadError = null;
@@ -88,6 +91,7 @@ class KuzuEventStore {
                 'CREATE NODE TABLE DomainKnowledgeNode(id STRING, domain STRING, canonical_value STRING, aliases_json STRING, confidence DOUBLE, evidence_count INT64, updated_at TIMESTAMP, PRIMARY KEY(id))',
                 'CREATE NODE TABLE OwnerNode(id STRING, identity_kind STRING, created_at TIMESTAMP, PRIMARY KEY(id))',
                 'CREATE NODE TABLE MemoryMigrationNode(id STRING, version INT64, status STRING, applied_at TIMESTAMP, details_json STRING, PRIMARY KEY(id))',
+                'CREATE NODE TABLE TopicFacetNode(id STRING, kind STRING, scope STRING, normalized_value STRING, display_value STRING, created_at TIMESTAMP, PRIMARY KEY(id))',
                 'CREATE REL TABLE UserHAS_CONVERSATION(FROM AgentUserNode TO ConversationNode)',
                 'CREATE REL TABLE ConversationHAS_EVENT(FROM ConversationNode TO EventNode)',
                 'CREATE REL TABLE UserTRIGGERED_EVENT(FROM AgentUserNode TO EventNode)',
@@ -108,7 +112,8 @@ class KuzuEventStore {
                 'CREATE REL TABLE EventHAS_SUGGESTION(FROM EventNode TO SuggestionNode)',
                 'CREATE REL TABLE OwnerHAS_ACTOR(FROM OwnerNode TO AgentUserNode)',
                 'CREATE REL TABLE OwnerOWNS_EVENT(FROM OwnerNode TO EventNode)',
-                'CREATE REL TABLE OwnerOWNS_ARTIFACT(FROM OwnerNode TO ArtifactNode)'
+                'CREATE REL TABLE OwnerOWNS_ARTIFACT(FROM OwnerNode TO ArtifactNode)',
+                'CREATE REL TABLE ArtifactHAS_TOPIC_FACET(FROM ArtifactNode TO TopicFacetNode)'
             ];
 
             for (const query of queries) {
@@ -121,6 +126,7 @@ class KuzuEventStore {
 
             this.owner = await this._resolveOwnerIdentityDirect();
             await this._runOwnerIdentityMigrationDirect(this.owner);
+            await this._runTopicSemanticsMigrationDirect();
             this.isInitialized = true;
         })();
 
@@ -234,6 +240,85 @@ class KuzuEventStore {
         );
         if (this.Logger && typeof this.Logger.info === 'function') {
             this.Logger.info(`✅ [AgentMemory] Owner identity migration 완료 (events=${eventCount}, artifacts=${artifactCount})`);
+        }
+    }
+
+    async _upsertTopicFacetDirect(artifactId, facet = {}, createdAt = '') {
+        const resolvedArtifactId = String(artifactId || '').trim();
+        const facetId = String(facet.id || '').trim();
+        if (!resolvedArtifactId || !facetId) return false;
+        const timestamp = String(createdAt || new Date().toISOString()).replace('T', ' ').replace('Z', '');
+        await this._executeQuery(
+            'MERGE (f:TopicFacetNode {id: $id}) ON CREATE SET f.kind = $kind, f.scope = $scope, f.normalized_value = $normalized_value, f.display_value = $display_value, f.created_at = CAST($created_at AS TIMESTAMP)',
+            {
+                id: facetId,
+                kind: String(facet.kind || '').trim(),
+                scope: String(facet.scope || '').trim(),
+                normalized_value: String(facet.normalized_value || '').trim(),
+                display_value: String(facet.display_value || '').trim(),
+                created_at: timestamp
+            }
+        );
+        await this._executeQuery(
+            'MATCH (a:ArtifactNode {id: $artifact_id}), (f:TopicFacetNode {id: $facet_id}) MERGE (a)-[:ArtifactHAS_TOPIC_FACET]->(f)',
+            { artifact_id: resolvedArtifactId, facet_id: facetId }
+        );
+        return true;
+    }
+
+    async _materializeTopicFacetsDirect(artifactId, payload = {}, createdAt = '') {
+        const facets = buildTopicFacets(payload);
+        for (const facet of facets) {
+            await this._upsertTopicFacetDirect(artifactId, facet, createdAt);
+        }
+        return facets;
+    }
+
+    async _runTopicSemanticsMigrationDirect() {
+        if (await this._isMigrationCompleteDirect(TOPIC_SEMANTICS_MIGRATION_ID)) return;
+
+        const res = await this._executeQuery(
+            'MATCH (a:ArtifactNode {artifact_type: $artifact_type}) RETURN a.id AS id, a.payload_json AS payload_json, a.timestamp AS timestamp ORDER BY a.timestamp ASC, a.id ASC',
+            { artifact_type: 'topic' }
+        );
+        const topicRows = [];
+        while (res.hasNext()) topicRows.push(await res.getNext());
+
+        let topicArtifactCount = 0;
+        let materializedArtifactCount = 0;
+        for (const row of topicRows) {
+            topicArtifactCount += 1;
+            let payload = {};
+            try { payload = JSON.parse(row.payload_json || '{}') || {}; } catch (_ignore) { payload = {}; }
+            const facets = await this._materializeTopicFacetsDirect(row.id, payload);
+            if (facets.length > 0) materializedArtifactCount += 1;
+        }
+
+        const facetCount = await this._countDirect(
+            'MATCH (f:TopicFacetNode) RETURN count(f) AS count'
+        );
+        const relationshipCount = await this._countDirect(
+            'MATCH (:ArtifactNode)-[r:ArtifactHAS_TOPIC_FACET]->(:TopicFacetNode) RETURN count(r) AS count'
+        );
+        const appliedAt = new Date().toISOString().replace('T', ' ').replace('Z', '');
+        const details = {
+            topic_artifact_count: topicArtifactCount,
+            materialized_artifact_count: materializedArtifactCount,
+            facet_count: facetCount,
+            relationship_count: relationshipCount
+        };
+        await this._executeQuery(
+            'MERGE (m:MemoryMigrationNode {id: $id}) ON CREATE SET m.version = $version, m.status = $status, m.applied_at = CAST($applied_at AS TIMESTAMP), m.details_json = $details_json ON MATCH SET m.version = $version, m.status = $status, m.applied_at = CAST($applied_at AS TIMESTAMP), m.details_json = $details_json',
+            {
+                id: TOPIC_SEMANTICS_MIGRATION_ID,
+                version: TOPIC_SEMANTICS_MIGRATION_VERSION,
+                status: 'completed',
+                applied_at: appliedAt,
+                details_json: JSON.stringify(details)
+            }
+        );
+        if (this.Logger && typeof this.Logger.info === 'function') {
+            this.Logger.info(`✅ [AgentMemory] Topic semantics migration 완료 (topics=${topicArtifactCount}, facets=${facetCount}, relations=${relationshipCount})`);
         }
     }
 
@@ -1220,6 +1305,9 @@ class KuzuEventStore {
                     : this._compactValue(payload, { maxDepth: 2, maxArray: 6, maxString: 180 })
             };
             await this._createArtifactNode(artifact, { ownerUserId: meta.ownerUserId, timestamp });
+            if (artifactType === 'topic') {
+                await this._materializeTopicFacetsDirect(artifactId, artifact.payload, timestamp);
+            }
             if (meta.eventId) {
                 await this._runQuery(
                     'MATCH (e:EventNode {id: $event_id}), (a:ArtifactNode {id: $artifact_id}) MERGE (e)-[:EventHAS_ARTIFACT]->(a)',
@@ -1493,6 +1581,55 @@ class KuzuEventStore {
             domains: options.domains,
             limit: options.limit
         });
+    }
+
+    async listOwnerTopicFacets(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const kind = String(options.kind || '').trim().toLowerCase();
+        const scope = String(options.scope || '').trim().toLowerCase();
+        if (kind && !TOPIC_FACET_KINDS.includes(kind)) throw new Error(`지원하지 않는 topic facet kind입니다: ${kind}`);
+        if (scope && !TOPIC_FACET_SCOPES.includes(scope)) throw new Error(`지원하지 않는 topic facet scope입니다: ${scope}`);
+        const limit = Math.max(1, Math.min(100, parseInt(options.limit, 10) || 20));
+        const conditions = [];
+        const params = { owner_id: resolvedOwnerUserId, artifact_type: 'topic', limit };
+        if (kind) {
+            conditions.push('f.kind = $kind');
+            params.kind = kind;
+        }
+        if (scope) {
+            conditions.push('f.scope = $scope');
+            params.scope = scope;
+        }
+        const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+        const query = `MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type})-[:ArtifactHAS_TOPIC_FACET]->(f:TopicFacetNode)${whereClause} RETURN f.id AS id, f.kind AS kind, f.scope AS scope, f.normalized_value AS normalized_value, f.display_value AS display_value, count(a) AS evidence_count, max(a.timestamp) AS last_used_at ORDER BY evidence_count DESC, last_used_at DESC, normalized_value ASC LIMIT $limit`;
+        const res = await this._runQuery(query, params);
+        const items = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            items.push({
+                id: row.id,
+                kind: row.kind,
+                scope: row.scope,
+                normalized_value: row.normalized_value,
+                display_value: row.display_value,
+                evidence_count: Number(row.evidence_count || 0),
+                last_used_at: row.last_used_at
+            });
+        }
+        return items;
+    }
+
+    async getOwnerTopicSemanticSummary(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const limit = Math.max(1, Math.min(50, parseInt(options.limit, 10) || 10));
+        return {
+            owner_user_id: resolvedOwnerUserId,
+            keywords: await this.listOwnerTopicFacets(resolvedOwnerUserId, { kind: 'keyword', limit }),
+            categories: await this.listOwnerTopicFacets(resolvedOwnerUserId, { kind: 'category', limit }),
+            platforms: await this.listOwnerTopicFacets(resolvedOwnerUserId, { kind: 'platform', limit })
+        };
     }
 
     async recordMessage(chatId, text, intent = 'UNKNOWN', sender = 'USER') {

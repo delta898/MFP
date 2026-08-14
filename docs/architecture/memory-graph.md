@@ -3,6 +3,27 @@
 ## Principle
 Memory is event-first. Facts are stored first; preferences, suggestions, aliases, and domain knowledge are derived later.
 
+The memory graph is a reusable intelligence foundation, not a recommendation
+database. Its layers are intentionally separated:
+
+```text
+source fact -> semantic materialization -> derived insight/projection -> service
+```
+
+- Source facts preserve what happened, who owned it, and where it came from.
+- Semantic materialization makes explicit fields consistently queryable without
+  changing their meaning.
+- Derived insights add confidence, recency, scoring, or interpretation and must
+  remain rebuildable from their supporting facts.
+- Services such as topic recommendation, duplicate avoidance, cross-channel
+  reuse, and automation personalization consume projections instead of writing
+  service-specific conclusions back into source facts.
+
+Exposure, generation, saving, selection, drafting, publication, and feedback are
+different evidence. A weaker stage must never be silently promoted to a stronger
+one. This boundary keeps future policies replaceable without migrating the
+underlying user history.
+
 ## Current Node Types
 - `MessageNode`
 - `ActionNode`
@@ -14,6 +35,7 @@ Memory is event-first. Facts are stored first; preferences, suggestions, aliases
 - `DomainKnowledgeNode`
 - `OwnerNode`
 - `MemoryMigrationNode`
+- `TopicFacetNode`
 
 ## Current Roles
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
@@ -118,9 +140,17 @@ not imply selection, drafting, or publication. Strength is kept as `weak`,
 stored facts.
 
 Topic registration preserves subject, category, platform, keywords, instruction,
-and source in compact event/artifact payloads. These fields are not yet
-materialized as normalized keyword/category/platform nodes. SNS discovery,
-drafting, and publishing are also not yet recorded in GraphDB.
+and source in compact event/artifact payloads. Migration `003_topic_semantics`
+materializes deterministic keyword/category/platform values as facets while
+leaving the original payload unchanged. SNS discovery, drafting, and publishing
+are not yet recorded in GraphDB.
+
+Topic semantics use a generic `TopicFacetNode` with `kind`, `scope`, and a
+normalized/display value pair. `ArtifactHAS_TOPIC_FACET` retains provenance from
+each saved topic. Owner-level frequency and recency are derived through
+`OwnerNode -> ArtifactNode(topic) -> TopicFacetNode`; no duplicate direct
+Owner-to-facet edge is stored. Subject remains the artifact title and instruction
+remains raw payload until a confidence-bearing derived-insight phase is added.
 
 ## Current Gaps
 - Preference scoring is still simple accumulation.

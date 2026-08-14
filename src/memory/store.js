@@ -57,6 +57,15 @@ function buildDisabledEventStore(reason) {
                 truncated: false
             };
         },
+        async listOwnerTopicFacets() { return []; },
+        async getOwnerTopicSemanticSummary(ownerUserId = '') {
+            return {
+                owner_user_id: String(ownerUserId || '').trim(),
+                keywords: [],
+                categories: [],
+                platforms: []
+            };
+        },
         async listDomainKnowledge() { return []; },
         async listUserPreferences() { return []; },
         getLocalOwnerIdentity() { return null; },

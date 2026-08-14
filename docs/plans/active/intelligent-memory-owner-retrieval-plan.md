@@ -86,11 +86,9 @@ Successful topic registration currently preserves `subject`, `category`,
 The subject is also promoted to the artifact title and category/subject appear in
 its compact summary.
 
-These values are preserved facts, not graph-native concepts yet. Keywords remain
-a compact string and category/instruction values do not have dedicated nodes or
-relationships. A later additive materialization phase may introduce normalized
-keyword/category/platform relations and derived instruction facets while keeping
-the original event payload as provenance.
+These values remain preserved facts. The subsequent topic-semantics phase adds
+normalized keyword/category/platform facet relations while keeping the original
+event payload as provenance. Instruction interpretation remains deferred.
 
 ## Summary Contract
 
