@@ -79,7 +79,8 @@ function createSnsDistributionRunner(options = {}) {
         urlService,
         notificationService,
         getEnableSnsDistribution,
-        Logger
+        Logger,
+        recordActivityLifecycle = async () => null
     } = options;
     const sleep = typeof options.sleep === 'function'
         ? options.sleep
@@ -379,6 +380,23 @@ function createSnsDistributionRunner(options = {}) {
                 formattedRows,
                 `원문 글 묶음 발행 시작 · 채널 ${formattedRows.length}개`
             );
+            for (const row of formattedRows) {
+                await recordActivityLifecycle({
+                    domain: 'sns',
+                    stage: 'selected',
+                    subject: row.title || row.summary || row.originalUrl,
+                    source: `sns-distribution:${trigger}`,
+                    entity_ref: String(row.deliveryKey || `sns-row-${row.rowNumber}`),
+                    platform: row.service,
+                    evidence_id: `sns-distribution:${row.deliveryKey || row.rowNumber}:selected`,
+                    metadata: {
+                        entry_key: group.entryKey,
+                        row_number: row.rowNumber,
+                        channel_id: row.channelId,
+                        source_platform: row.sourcePlatform
+                    }
+                });
+            }
         }
 
         let attempts = 0;
@@ -505,6 +523,23 @@ function createSnsDistributionRunner(options = {}) {
         for (const result of confirmedPublishResults.values()) {
             const row = rowsByDeliveryKey.get(String(result?.deliveryKey || '').trim());
             if (!row) continue;
+            await recordActivityLifecycle({
+                domain: 'sns',
+                stage: 'published',
+                subject: row.title || row.summary || row.originalUrl,
+                source: `sns-distribution:${trigger}`,
+                entity_ref: String(row.deliveryKey || `sns-row-${row.rowNumber}`),
+                platform: row.service,
+                result_ref: result.bufferPostId || '',
+                evidence_id: `sns-distribution:${row.deliveryKey || row.rowNumber}:published`,
+                metadata: {
+                    entry_key: group.entryKey,
+                    row_number: row.rowNumber,
+                    channel_id: row.channelId,
+                    reconciled: result.reconciled === true,
+                    duplicate_confirmed: result.duplicateConfirmed === true
+                }
+            });
             deliveryResults.push({
                 rowNumber: row.rowNumber,
                 status: '완료',

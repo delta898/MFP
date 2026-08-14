@@ -26,7 +26,10 @@ function createManualSnsController(deps = {}) {
         async handlePublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
-                return sendSuccess(res, requestId, await service.publish(requestBody || {}));
+                return sendSuccess(res, requestId, await service.publish({
+                    ...(requestBody || {}),
+                    requestId
+                }));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'MANUAL_SNS_PUBLISH_FAILED', 'SNS 즉시 발행에 실패했습니다.', error);
             }

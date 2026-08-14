@@ -15,6 +15,7 @@ function createUiApiRouteRuntime(deps = {}) {
         RuntimeConfig,
         TelegramService,
         snsAiService,
+        recordActivityLifecycle,
         DEFAULT_HOST,
         DEFAULT_PORT,
         SHOPPING_IMAGE_SLOT_MAP,
@@ -197,7 +198,8 @@ function createUiApiRouteRuntime(deps = {}) {
                     appPassword: CONFIG.WORDPRESS_APP_PASSWORD,
                     axios
                 }),
-                Logger
+                Logger,
+                recordActivityLifecycle
             });
             const controller = createManualSnsController({
                 service,

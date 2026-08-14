@@ -60,6 +60,7 @@
 - `plans/active/intelligent-memory-activity-lifecycle-plan.md`
 - `plans/active/intelligent-memory-blog-lifecycle-plan.md`
 - `plans/active/intelligent-memory-shopping-lifecycle-plan.md`
+- `plans/active/intelligent-memory-sns-lifecycle-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`

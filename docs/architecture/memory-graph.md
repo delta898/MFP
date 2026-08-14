@@ -82,6 +82,11 @@ Current write paths are:
   - validated row, batch, automatic, and quick execution records `selected`
   - confirmed platform draft/publish success records `drafted` or `published`
     per platform; append-only remains `saved`
+- SNS distribution lifecycle
+  - validated manual requests and policy/format-qualified automatic deliveries
+    record `selected`
+  - direct, reconciled, or duplicate-confirmed Buffer success records
+    channel-specific `published`; skipped and failed rows do not
 - Derived memory
   - selected setting actions update preference nodes
   - accepted aliases update domain knowledge
@@ -89,9 +94,8 @@ Current write paths are:
 
 Collection happens after a successful row append for topics and shopping items.
 It does not currently backfill existing Sheets rows or track later row edits.
-SNS lifecycle integration remains pending. Blog and Shopping lifecycle records
-new events only and do not infer historic draft or publication state from Sheet
-status text.
+Blog, Shopping, and SNS lifecycle integrations record new events only and do not
+infer historic draft or publication state from Sheet status text.
 
 Every local event and materialized artifact is now related to a durable
 installation-local `OwnerNode`. Telegram, UI, and automation actors remain

@@ -249,6 +249,10 @@ const snsAiService = createSnsAiService({
     Utils,
     Logger
 });
+const recordActivityLifecycle = createActivityLifecycleRecorder({
+    eventStore: getAgentEventStore(),
+    Logger
+});
 const snsDistributionRunner = createSnsDistributionRunner({
     CONFIG,
     License,
@@ -258,7 +262,8 @@ const snsDistributionRunner = createSnsDistributionRunner({
     urlService: UrlService,
     notificationService: TelegramService,
     getEnableSnsDistribution,
-    Logger
+    Logger,
+    recordActivityLifecycle
 });
 const autoRunnerRuntime = createAutoRunnerRuntime({
     CONFIG,
@@ -1638,11 +1643,6 @@ function parseBase64ImagePayload(requestBody = {}) {
     return { buffer, ext };
 }
 
-const recordActivityLifecycle = createActivityLifecycleRecorder({
-    eventStore: getAgentEventStore(),
-    Logger
-});
-
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
     path,
@@ -1850,6 +1850,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     RuntimeConfig,
     TelegramService,
     snsAiService,
+    recordActivityLifecycle,
     DEFAULT_HOST,
     DEFAULT_PORT,
     SHOPPING_IMAGE_SLOT_MAP,

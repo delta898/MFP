@@ -91,7 +91,8 @@ function createManualSnsService(deps = {}) {
         pollTimeoutMs = BUFFER_STATUS_POLL_TIMEOUT_MS,
         pollIntervalMs = BUFFER_STATUS_POLL_INTERVAL_MS,
         recoveryMaxAttempts = BUFFER_RECOVERY_MAX_ATTEMPTS,
-        recoveryIntervalMs = BUFFER_RECOVERY_INTERVAL_MS
+        recoveryIntervalMs = BUFFER_RECOVERY_INTERVAL_MS,
+        recordActivityLifecycle = async () => null
     } = deps;
     if (!bufferClient || typeof bufferClient.shareNowMany !== 'function') {
         throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
@@ -347,6 +348,7 @@ function createManualSnsService(deps = {}) {
             throw createManualSnsError(400, 'MANUAL_SNS_WORDPRESS_REQUIRED', '로컬 이미지를 사용하려면 설정 > 블로그에서 WordPress 연결 정보를 먼저 저장해 주세요.');
         }
         const selectedChannels = resolveSelectedChannels(input);
+        const operationId = String(input.requestId || input.request_id || '').trim() || `manual-sns-${now()}`;
 
         for (const channel of selectedChannels) {
             const label = channel.name || channel.service || '선택한 채널';
@@ -362,6 +364,21 @@ function createManualSnsService(deps = {}) {
                 );
             }
         }
+
+        await recordActivityLifecycle({
+            domain: 'sns',
+            stage: 'selected',
+            subject: text,
+            source: 'manual-sns',
+            entity_ref: operationId,
+            evidence_id: `${operationId}:sns:selected`,
+            metadata: {
+                channels: selectedChannels.map((channel) => ({
+                    id: channel.id,
+                    service: channel.service
+                }))
+            }
+        });
 
         let imageUrl = requestedImageUrl;
         let temporaryMedia = null;
@@ -479,6 +496,25 @@ function createManualSnsService(deps = {}) {
         });
         const successCount = results.filter((result) => result.success).length;
         const failureCount = results.length - successCount;
+        for (const result of results) {
+            if (!result.success) continue;
+            const resultIdentity = result.buffer_post_id || `${operationId}:${result.channel_id}`;
+            await recordActivityLifecycle({
+                domain: 'sns',
+                stage: 'published',
+                subject: text,
+                source: 'manual-sns',
+                entity_ref: operationId,
+                platform: result.service,
+                result_ref: result.external_link || result.buffer_post_id,
+                evidence_id: `manual-sns:${resultIdentity}:published`,
+                metadata: {
+                    channel_id: result.channel_id,
+                    channel_name: result.channel_name,
+                    buffer_status: result.status
+                }
+            });
+        }
         Logger?.info?.(`✅ [MANUAL_SNS] 즉시 발행 완료: 성공 ${successCount}개, 실패 ${failureCount}개`);
         return {
             success: failureCount === 0,
