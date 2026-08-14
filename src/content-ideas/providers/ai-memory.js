@@ -215,7 +215,7 @@ ${recentSettingChanges.length > 0 ? recentSettingChanges.map((item) => `- ${item
 ${recentArtifacts.length > 0 ? recentArtifacts.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}
 
 [설명 가능한 추천 후보]
-${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- ${item.topic_seed} | ${item.explanation} | 관심 키워드 근거 ${Number(item?.evidence_features?.owner_keyword_evidence || 0)}`).join('\n') : '- 없음'}
+${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- ${item.topic_seed} | ${item.explanation} | 점수 ${Number(item?.ranking?.score || 0)} | 근거 ${Array.isArray(item?.ranking?.breakdown) ? item.ranking.breakdown.map((entry) => `${entry.code}:${entry.points}`).join(', ') : '없음'}`).join('\n') : '- 없음'}
 
 [외부 트렌드 신호]
 ${trendKnowledge.length > 0 ? trendKnowledge.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}`;

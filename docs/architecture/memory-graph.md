@@ -74,6 +74,12 @@ Candidates preserve request/provider/facet references, matched owner evidence,
 and external trend facts. They intentionally carry no aggregate score; ranking
 and diversity are a separate versioned policy layer.
 
+`topic-ranking-v1` is the first such policy. It produces an auditable score
+breakdown from explicit request, owner evidence, trend freshness/direction, and
+explicit feedback, then applies category and token-similarity diversity as a
+separate selection pass. Deferred candidates retain their reason. Ranking output
+is a rebuildable service projection and is not persisted as owner truth.
+
 ## Current Collection Boundary
 
 Kuzu persists local application memory under `data/agent_memory_db`.
@@ -165,8 +171,10 @@ structural work is:
 2. include owner-scoped saved topics in recommendation retrieval context;
 3. distinguish weak signals (collected/saved) from strong signals
    (selected, drafted, published, accepted recommendation);
-4. combine Naver trends and the owner profile in a replaceable candidate policy;
-5. add recency, frequency, diversity, and explicit feedback to recommendation scoring.
+4. persist recommendation provenance and subsequent outcome evidence without
+   treating exposure or generation as user preference;
+5. expose the grounded, ranked recommendation lane through a deliberately small
+   product UI.
 
 ## Owner Activity Signals
 

@@ -68,6 +68,7 @@
 - `plans/active/intelligent-memory-owner-profile-plan.md`
 - `plans/active/intelligent-memory-naver-trends-knowledge-plan.md`
 - `plans/active/intelligent-memory-topic-candidate-plan.md`
+- `plans/active/intelligent-memory-topic-ranking-plan.md`
 - `plans/active/kie-async-image-integration-plan.md`
 - `plans/active/chat-model-source-selection-plan.md`
 - `plans/active/configurable-content-surfaces-plan.md`
