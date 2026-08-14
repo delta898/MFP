@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Dashboard completed; Account resource card implementation
+- Phase: Dashboard recommendations and Account resource card completed
 - Initial surfaces: `dashboard`, `account`
 - Dependency: sidebar surface content PoC completed
 - Implementation principle: begin with `single`; enable other display modes only after real operating need is confirmed
@@ -206,3 +206,25 @@ Account contract는 `support`와 `affiliate`를 거부한다. 운영 DB에 잘�
 - 카탈로그 seed 재실행은 이미 게시된 콘텐츠의 lifecycle 상태와 asset 연결을 되돌리지 않는다.
 
 초기 draft 카탈로그는 전자책 2개와 블로그 글 3개이며 `sql/supabase_surface_content_draft_resource_catalog_seed.sql`에서 관리한다.
+
+## Dashboard Recommendations Region
+
+Dashboard에는 기존 `supporting`과 독립된 `recommendations` region을 둔다.
+
+- 위치: `최신 콘텐츠` 제목 바로 위
+- 사용자 표시명: `오늘의 추천 자료`
+- eligible kind: `resource` only
+- audience: Tester / Free
+- display policy: `single + daily_cycle`
+- 후보: draft 카탈로그에서 게시한 전자책 2개와 블로그 글 3개
+- 기존 `dashboard.supporting` region과 콘텐츠 선택 상태를 공유하지 않음
+
+`daily_cycle`은 로컬 날짜, installation seed, surface와 region으로 시작 offset을 정하고, 정렬된 후보에서 하루에 한 칸씩 이동한다. 후보 목록이 유지되는 동안 모든 콘텐츠를 한 번씩 보여주기 전에는 같은 콘텐츠가 반복되지 않는다. 새로고침이나 focus 복귀로는 당일 선택이 바뀌지 않는다.
+
+### 2026-08-14 — Free plan verification
+
+- draft resource 5개의 active 전환과 Tester/Free campaign 게시 확인
+- `dashboard.recommendations`가 `최신 콘텐츠` 제목 바로 위에 표시되는 것 확인
+- 기존 `dashboard.supporting` 배너의 위치와 동작이 유지되는 것 확인
+- 현재 날짜와 installation seed에 따른 추천 자료 1개 표시 확인
+- Pro에서는 recommendations가 미노출되는 운영 audience 확인

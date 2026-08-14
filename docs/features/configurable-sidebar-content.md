@@ -116,8 +116,11 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 7. `sql/supabase_surface_content_draft_resource_catalog_seed.sql`
    - 향후 운영 후보인 전자책·블로그 resource를 비노출 `draft` 카탈로그로 등록
    - campaign과 placement는 만들지 않으며, 재실행 시 기존 lifecycle 상태를 보존
-8. `sql/supabase_surface_content_restore_production_policy.sql`
-   - 세 콘텐츠의 audience를 운영 정책으로 복원
+8. `sql/supabase_surface_content_dashboard_recommendations_seed.sql`
+   - draft resource 5개를 Tester/Free 대상 Dashboard 일일 추천 자료로 게시
+   - `dashboard.recommendations` region에 배치
+9. `sql/supabase_surface_content_restore_production_policy.sql`
+   - 운영 중인 resource와 support campaign의 audience를 운영 정책으로 복원
 
 ### Validation only — 운영값을 잠시 변경하고 반드시 복원
 

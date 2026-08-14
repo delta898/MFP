@@ -167,12 +167,9 @@ function normalizeSidebarPayload(rawPayload, options = {}) {
     };
 }
 
-function normalizeCompactCardPayload(rawPayload, options, surface, allowedKinds) {
-    if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) return null;
-    if (Number(rawPayload.schema_version) !== SUPPORTED_SCHEMA_VERSION) return null;
-    if (String(rawPayload.surface || '').trim() !== surface) return null;
-
-    const rawBlocks = rawPayload.regions?.supporting?.blocks;
+function normalizeCompactCardRegion(rawRegion, options, allowedKinds) {
+    if (rawRegion != null && (typeof rawRegion !== 'object' || Array.isArray(rawRegion))) return null;
+    const rawBlocks = rawRegion?.blocks;
     if (rawBlocks != null && !Array.isArray(rawBlocks)) return null;
 
     const seen = new Set();
@@ -187,23 +184,41 @@ function normalizeCompactCardPayload(rawPayload, options, surface, allowedKinds)
         })
         .slice(0, 10);
 
+    return { blocks };
+}
+
+function normalizeCompactCardPayload(rawPayload, options, surface, regionKinds) {
+    if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) return null;
+    if (Number(rawPayload.schema_version) !== SUPPORTED_SCHEMA_VERSION) return null;
+    if (String(rawPayload.surface || '').trim() !== surface) return null;
+
+    const regions = {};
+    for (const [region, allowedKinds] of Object.entries(regionKinds)) {
+        const normalized = normalizeCompactCardRegion(rawPayload.regions?.[region], options, allowedKinds);
+        if (!normalized) return null;
+        regions[region] = normalized;
+    }
+
     return {
         schemaVersion: SUPPORTED_SCHEMA_VERSION,
         policyRevision: Math.max(0, Number(rawPayload.policy_revision) || 0),
         surface,
-        regions: {
-            supporting: { blocks }
-        },
+        regions,
         generatedAt: String(rawPayload.generated_at || '').trim()
     };
 }
 
 function normalizeDashboardPayload(rawPayload, options = {}) {
-    return normalizeCompactCardPayload(rawPayload, options, 'dashboard', ALLOWED_KINDS);
+    return normalizeCompactCardPayload(rawPayload, options, 'dashboard', {
+        supporting: ALLOWED_KINDS,
+        recommendations: new Set(['resource'])
+    });
 }
 
 function normalizeAccountPayload(rawPayload, options = {}) {
-    return normalizeCompactCardPayload(rawPayload, options, 'account', new Set(['resource']));
+    return normalizeCompactCardPayload(rawPayload, options, 'account', {
+        supporting: new Set(['resource'])
+    });
 }
 
 module.exports = {

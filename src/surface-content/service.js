@@ -17,7 +17,10 @@ function emptyDashboardPayload() {
         schemaVersion: 1,
         policyRevision: 0,
         surface: 'dashboard',
-        regions: { supporting: { blocks: [] } },
+        regions: {
+            supporting: { blocks: [] },
+            recommendations: { blocks: [] }
+        },
         generatedAt: ''
     };
 }

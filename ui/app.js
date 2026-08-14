@@ -230,6 +230,24 @@ function selectDailySurfaceBlock(blocks, surface, region) {
   return blocks[Math.abs(hash >>> 0) % blocks.length] || blocks[0];
 }
 
+function selectDailyCycleSurfaceBlock(blocks, surface, region) {
+  if (!Array.isArray(blocks) || !blocks.length) return null;
+  const today = new Date();
+  const localDayNumber = Math.floor(Date.UTC(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ) / 86400000);
+  const source = `${getSurfaceRotationSeed()}|${surface}|${region}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const installationOffset = Math.abs(hash >>> 0) % blocks.length;
+  return blocks[(installationOffset + localDayNumber) % blocks.length] || blocks[0];
+}
+
 function createSupportingContentCard(block) {
   const link = document.createElement('a');
   link.className = `surface-supporting-card surface-supporting-card-${block.kind}`;
@@ -282,9 +300,9 @@ function createSupportingContentCard(block) {
   return link;
 }
 
-async function refreshSupportingSurfaceContent(surface, regionElementId) {
-  const region = document.getElementById(regionElementId);
-  if (!region) return;
+async function refreshSupportingSurfaceContent(surface, regionConfigs) {
+  const configs = Array.isArray(regionConfigs) ? regionConfigs : [];
+  if (!configs.some((config) => document.getElementById(config.elementId))) return;
   const state = supportingSurfaceStates.get(surface) || { signature: null, pending: null };
   supportingSurfaceStates.set(surface, state);
   if (state.pending) return state.pending;
@@ -292,16 +310,31 @@ async function refreshSupportingSurfaceContent(surface, regionElementId) {
   state.pending = (async () => {
     try {
       const payload = await fetchJson(`/api/v1/surface-content/${surface}`);
-      const blocks = Array.isArray(payload?.regions?.supporting?.blocks)
-        ? payload.regions.supporting.blocks
-        : [];
-      const selected = selectDailySurfaceBlock(blocks, surface, 'supporting');
-      const nextSignature = JSON.stringify(selected);
+      const selections = configs.map((config) => {
+        const blocks = Array.isArray(payload?.regions?.[config.region]?.blocks)
+          ? payload.regions[config.region].blocks
+          : [];
+        return {
+          config,
+          selected: config.selection === 'daily_cycle'
+            ? selectDailyCycleSurfaceBlock(blocks, surface, config.region)
+            : selectDailySurfaceBlock(blocks, surface, config.region)
+        };
+      });
+      const nextSignature = JSON.stringify(selections.map(({ config, selected }) => ({
+        region: config.region,
+        selected
+      })));
       if (nextSignature === state.signature) return;
 
-      region.replaceChildren();
-      if (selected) region.appendChild(createSupportingContentCard(selected));
-      region.hidden = !selected;
+      selections.forEach(({ config, selected }) => {
+        const region = document.getElementById(config.elementId);
+        if (!region) return;
+        region.replaceChildren();
+        if (selected) region.appendChild(createSupportingContentCard(selected));
+        const visibilityTarget = document.getElementById(config.visibilityElementId || config.elementId);
+        if (visibilityTarget) visibilityTarget.hidden = !selected;
+      });
       state.signature = nextSignature;
     } catch (error) {
       console.debug(`[SurfaceContent] Dynamic ${surface} content unavailable:`, error.message);
@@ -316,11 +349,27 @@ async function refreshSupportingSurfaceContent(surface, regionElementId) {
 }
 
 function initDashboardDynamicContent() {
-  void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+  return refreshSupportingSurfaceContent('dashboard', [
+    {
+      region: 'supporting',
+      elementId: 'dashboard-supporting-region',
+      selection: 'daily_rotate'
+    },
+    {
+      region: 'recommendations',
+      elementId: 'dashboard-recommendations-region',
+      visibilityElementId: 'dashboard-recommendations-section',
+      selection: 'daily_cycle'
+    }
+  ]);
 }
 
 function refreshAccountDynamicContent() {
-  return refreshSupportingSurfaceContent('account', 'account-supporting-region');
+  return refreshSupportingSurfaceContent('account', [{
+    region: 'supporting',
+    elementId: 'account-supporting-region',
+    selection: 'daily_rotate'
+  }]);
 }
 
 function initAccountDynamicContent() {
@@ -11995,14 +12044,14 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.visibilityState === 'visible') {
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
-      void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+      void initDashboardDynamicContent();
       void refreshAccountDynamicContent();
     }
   });
   window.addEventListener('focus', () => {
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
-    void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+    void initDashboardDynamicContent();
     void refreshAccountDynamicContent();
   });
   setInterval(() => {

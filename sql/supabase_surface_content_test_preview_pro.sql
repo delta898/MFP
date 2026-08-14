@@ -7,7 +7,12 @@ update public.app_surface_campaigns
        policy_revision = policy_revision + 1
  where campaign_key in (
        'developer-blog-sidebar-v1',
-       'oracle-cloud-guide-sidebar-v1'
+       'oracle-cloud-guide-sidebar-v1',
+       'ebook-30-day-blog-monetization-dashboard-v1',
+       'ebook-early-riser-dashboard-v1',
+       'blog-buffer-sns-burnout-dashboard-v1',
+       'blog-opendock-wordpress-dashboard-v1',
+       'blog-laptop-home-server-dashboard-v1'
    )
    and audience_mode = 'include';
 
@@ -20,6 +25,11 @@ select
   from public.app_surface_campaigns
  where campaign_key in (
        'developer-blog-sidebar-v1',
-       'oracle-cloud-guide-sidebar-v1'
+       'oracle-cloud-guide-sidebar-v1',
+       'ebook-30-day-blog-monetization-dashboard-v1',
+       'ebook-early-riser-dashboard-v1',
+       'blog-buffer-sns-burnout-dashboard-v1',
+       'blog-opendock-wordpress-dashboard-v1',
+       'blog-laptop-home-server-dashboard-v1'
    )
  order by campaign_key;

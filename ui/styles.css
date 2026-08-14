@@ -3358,6 +3358,22 @@ h2 {
   margin: 0 0 20px;
 }
 
+.dashboard-recommendations-section {
+  margin: 22px 0 0;
+}
+
+.dashboard-recommendations-section[hidden] {
+  display: none;
+}
+
+.dashboard-recommendations-section .dashboard-recommendations-head {
+  margin: 0 0 10px;
+}
+
+.dashboard-recommendations-section:not([hidden]) + .dash-section-head {
+  margin-top: 16px;
+}
+
 .account-supporting-region {
   margin: 0;
 }
