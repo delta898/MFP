@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Dashboard single-card completed; Account pending
+- Phase: Dashboard completed; Account resource card implementation
 - Initial surfaces: `dashboard`, `account`
 - Dependency: sidebar surface content PoC completed
 - Implementation principle: begin with `single`; enable other display modes only after real operating need is confirmed
@@ -106,7 +106,7 @@ Content
 | surface | display_mode | selection_mode | 대상 콘텐츠 |
 | --- | --- | --- | --- |
 | Dashboard | `single` | `daily_rotate` | 플랜 정책을 통과한 추천 자료 또는 후원 |
-| Account | `single` | `priority` | 계정 맥락에 맞는 후원 또는 운영 메시지 |
+| Account | `single` | `daily_rotate` | Tester/Free 대상 resource |
 
 - Tester/Free: 자체 홍보 resource 및 대상 affiliate 허용
 - Pro 이상: 홍보 resource 제외, support만 허용
@@ -130,7 +130,7 @@ Content
 ## Progressive Delivery
 
 1. Dashboard `single + daily_rotate` 구현과 운영 검증
-2. Account `single + priority` 구현과 운영 검증
+2. Account resource-only `single + daily_rotate` 구현과 운영 검증
 3. 실제 콘텐츠가 지속적으로 두 개 이상 필요할 때 `pair` 검토
 4. 실제 콘텐츠가 세 개 이상 유지되고 탐색 요구가 확인될 때 manual carousel 검토
 5. 자동 전환은 별도 UX·접근성 검토 없이는 추가하지 않음
@@ -179,3 +179,30 @@ DB와 앱은 현재 지원하는 mode만 허용한다. 미래 mode를 문서에 
 - 크티 후원 페이지 외부 이동 확인
 - 기존 Dashboard 핵심 작업 영역을 밀어내거나 가리지 않음을 확인
 - Account surface, pair, carousel과 자동 전환은 이번 범위에서 제외
+
+## Account Phase 1 Implementation
+
+- region: `account.supporting`
+- presentation: `compact_card`
+- display policy: `single + daily_rotate`
+- placement: 플랜·사용량 카드 다음, 계정·기기 상세 카드 이전
+- eligible kind: `resource` only
+- eligible 후보: 기존 developer blog, oracle cloud guide campaign
+- audience: Tester / Free; Pro 이상은 빈 region
+- 선택 안정성: Dashboard와 다른 surface seed를 사용하여 같은 날짜에도 독립 선택
+- refresh: 공통 1분 cache 및 focus/visibility 재조회
+- failure behavior: 영역을 숨기고 Account overview를 정상 유지
+
+Account contract는 `support`와 `affiliate`를 거부한다. 운영 DB에 잘못된 placement가 추가되어도 Account에는 resource만 렌더링한다.
+
+## Draft Resource Catalog
+
+운영 후보 콘텐츠는 바로 노출하지 않고 `app_surface_contents.status = 'draft'`인 카탈로그 항목으로 먼저 등록한다.
+
+- draft 콘텐츠에는 campaign과 placement를 만들지 않는다.
+- 따라서 surface, plan 및 display policy와 무관하게 resolved payload에 포함되지 않는다.
+- 이미지가 준비되면 별도 asset을 등록해 `primary_asset_key`로 연결할 수 있다.
+- 실제 활용 시에는 대상 surface와 audience를 검토한 별도 campaign/placement SQL로 게시한다.
+- 카탈로그 seed 재실행은 이미 게시된 콘텐츠의 lifecycle 상태와 asset 연결을 되돌리지 않는다.
+
+초기 draft 카탈로그는 전자책 2개와 블로그 글 3개이며 `sql/supabase_surface_content_draft_resource_catalog_seed.sql`에서 관리한다.

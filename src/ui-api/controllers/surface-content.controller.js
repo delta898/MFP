@@ -33,6 +33,21 @@ function createSurfaceContentController(deps = {}) {
                     error
                 );
             }
+        },
+
+        async account({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getAccount());
+            } catch (error) {
+                return toErrorResponse(
+                    res,
+                    requestId,
+                    'SURFACE_CONTENT_FAILED',
+                    '동적 콘텐츠를 불러오지 못했습니다.',
+                    error
+                );
+            }
         }
     };
 }

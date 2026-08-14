@@ -103,7 +103,7 @@ function normalizeBlock(rawBlock, options = {}) {
     };
 }
 
-function normalizeDashboardBlock(rawBlock, options = {}) {
+function normalizeCompactCardBlock(rawBlock, options = {}, allowedKinds = ALLOWED_KINDS) {
     if (!rawBlock || typeof rawBlock !== 'object' || Array.isArray(rawBlock)) return null;
 
     const id = normalizeText(rawBlock.id, 80);
@@ -112,7 +112,7 @@ function normalizeDashboardBlock(rawBlock, options = {}) {
     const presentation = String(rawBlock.presentation || '').trim();
     const targetUrl = normalizeHttpsUrl(rawBlock.target_url);
     const sortOrder = Number(rawBlock.sort_order);
-    if (!id || !title || !ALLOWED_KINDS.has(kind)) return null;
+    if (!id || !title || !allowedKinds.has(kind)) return null;
     if (presentation !== 'compact_card' || !targetUrl) return null;
     if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 10000) return null;
 
@@ -167,17 +167,17 @@ function normalizeSidebarPayload(rawPayload, options = {}) {
     };
 }
 
-function normalizeDashboardPayload(rawPayload, options = {}) {
+function normalizeCompactCardPayload(rawPayload, options, surface, allowedKinds) {
     if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) return null;
     if (Number(rawPayload.schema_version) !== SUPPORTED_SCHEMA_VERSION) return null;
-    if (String(rawPayload.surface || '').trim() !== 'dashboard') return null;
+    if (String(rawPayload.surface || '').trim() !== surface) return null;
 
     const rawBlocks = rawPayload.regions?.supporting?.blocks;
     if (rawBlocks != null && !Array.isArray(rawBlocks)) return null;
 
     const seen = new Set();
     const blocks = (Array.isArray(rawBlocks) ? rawBlocks : [])
-        .map((block) => normalizeDashboardBlock(block, options))
+        .map((block) => normalizeCompactCardBlock(block, options, allowedKinds))
         .filter(Boolean)
         .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
         .filter((block) => {
@@ -190,7 +190,7 @@ function normalizeDashboardPayload(rawPayload, options = {}) {
     return {
         schemaVersion: SUPPORTED_SCHEMA_VERSION,
         policyRevision: Math.max(0, Number(rawPayload.policy_revision) || 0),
-        surface: 'dashboard',
+        surface,
         regions: {
             supporting: { blocks }
         },
@@ -198,7 +198,16 @@ function normalizeDashboardPayload(rawPayload, options = {}) {
     };
 }
 
+function normalizeDashboardPayload(rawPayload, options = {}) {
+    return normalizeCompactCardPayload(rawPayload, options, 'dashboard', ALLOWED_KINDS);
+}
+
+function normalizeAccountPayload(rawPayload, options = {}) {
+    return normalizeCompactCardPayload(rawPayload, options, 'account', new Set(['resource']));
+}
+
 module.exports = {
     normalizeSidebarPayload,
-    normalizeDashboardPayload
+    normalizeDashboardPayload,
+    normalizeAccountPayload
 };

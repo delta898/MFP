@@ -1,4 +1,4 @@
--- Configurable Sidebar Content: 운영 audience 정책 복원
+-- Configurable Surface Content: 운영 audience 정책 복원
 -- 홍보 resource는 Tester / Free, 후원은 모든 플랜에 노출합니다.
 
 begin;

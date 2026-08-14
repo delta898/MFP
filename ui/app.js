@@ -77,8 +77,7 @@ const SIDEBAR_DYNAMIC_ICON_PATHS = {
 };
 let sidebarDynamicContentSignature = null;
 let sidebarDynamicRefreshPromise = null;
-let dashboardDynamicContentSignature = null;
-let dashboardDynamicRefreshPromise = null;
+const supportingSurfaceStates = new Map();
 const SURFACE_ROTATION_SEED_KEY = 'blog_genius_surface_rotation_seed_v1';
 
 function createSidebarDynamicIcon(iconKey) {
@@ -231,9 +230,9 @@ function selectDailySurfaceBlock(blocks, surface, region) {
   return blocks[Math.abs(hash >>> 0) % blocks.length] || blocks[0];
 }
 
-function createDashboardSupportingCard(block) {
+function createSupportingContentCard(block) {
   const link = document.createElement('a');
-  link.className = `dashboard-supporting-card dashboard-supporting-card-${block.kind}`;
+  link.className = `surface-supporting-card surface-supporting-card-${block.kind}`;
   link.href = block.targetUrl;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
@@ -241,7 +240,7 @@ function createDashboardSupportingCard(block) {
   link.title = block.disclosure ? `${block.title} · ${block.disclosure}` : block.title;
 
   const visual = document.createElement('span');
-  visual.className = 'dashboard-supporting-visual';
+  visual.className = 'surface-supporting-visual';
   if (block.media?.url && block.kind !== 'support') {
     const image = document.createElement('img');
     image.src = block.media.url;
@@ -259,9 +258,9 @@ function createDashboardSupportingCard(block) {
   }
 
   const copy = document.createElement('span');
-  copy.className = 'dashboard-supporting-copy';
+  copy.className = 'surface-supporting-copy';
   const typeLabel = document.createElement('span');
-  typeLabel.className = 'dashboard-supporting-type';
+  typeLabel.className = 'surface-supporting-type';
   typeLabel.textContent = block.kind === 'support'
     ? '개발자 지원'
     : block.kind === 'affiliate' ? '제휴 추천' : '추천 자료';
@@ -275,7 +274,7 @@ function createDashboardSupportingCard(block) {
   }
 
   const cta = document.createElement('span');
-  cta.className = 'dashboard-supporting-cta';
+  cta.className = 'surface-supporting-cta';
   cta.textContent = block.ctaLabel || '자세히 보기';
   cta.insertAdjacentHTML('beforeend', '<span aria-hidden="true">↗</span>');
 
@@ -283,39 +282,49 @@ function createDashboardSupportingCard(block) {
   return link;
 }
 
-async function refreshDashboardDynamicContent() {
-  const region = document.getElementById('dashboard-supporting-region');
+async function refreshSupportingSurfaceContent(surface, regionElementId) {
+  const region = document.getElementById(regionElementId);
   if (!region) return;
-  if (dashboardDynamicRefreshPromise) return dashboardDynamicRefreshPromise;
+  const state = supportingSurfaceStates.get(surface) || { signature: null, pending: null };
+  supportingSurfaceStates.set(surface, state);
+  if (state.pending) return state.pending;
 
-  dashboardDynamicRefreshPromise = (async () => {
+  state.pending = (async () => {
     try {
-      const payload = await fetchJson('/api/v1/surface-content/dashboard');
+      const payload = await fetchJson(`/api/v1/surface-content/${surface}`);
       const blocks = Array.isArray(payload?.regions?.supporting?.blocks)
         ? payload.regions.supporting.blocks
         : [];
-      const selected = selectDailySurfaceBlock(blocks, 'dashboard', 'supporting');
+      const selected = selectDailySurfaceBlock(blocks, surface, 'supporting');
       const nextSignature = JSON.stringify(selected);
-      if (nextSignature === dashboardDynamicContentSignature) return;
+      if (nextSignature === state.signature) return;
 
       region.replaceChildren();
-      if (selected) region.appendChild(createDashboardSupportingCard(selected));
+      if (selected) region.appendChild(createSupportingContentCard(selected));
       region.hidden = !selected;
-      dashboardDynamicContentSignature = nextSignature;
+      state.signature = nextSignature;
     } catch (error) {
-      console.debug('[SurfaceContent] Dynamic dashboard content unavailable:', error.message);
+      console.debug(`[SurfaceContent] Dynamic ${surface} content unavailable:`, error.message);
     }
   })();
 
   try {
-    return await dashboardDynamicRefreshPromise;
+    return await state.pending;
   } finally {
-    dashboardDynamicRefreshPromise = null;
+    state.pending = null;
   }
 }
 
 function initDashboardDynamicContent() {
-  void refreshDashboardDynamicContent();
+  void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+}
+
+function refreshAccountDynamicContent() {
+  return refreshSupportingSurfaceContent('account', 'account-supporting-region');
+}
+
+function initAccountDynamicContent() {
+  void refreshAccountDynamicContent();
 }
 
 function getUiToastContainer() {
@@ -11963,6 +11972,7 @@ window.addEventListener('DOMContentLoaded', () => {
   checkSetupBanner();
   void initSidebarDynamicContent();
   void initDashboardDynamicContent();
+  void initAccountDynamicContent();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
@@ -11985,13 +11995,15 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.visibilityState === 'visible') {
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
-      void refreshDashboardDynamicContent();
+      void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+      void refreshAccountDynamicContent();
     }
   });
   window.addEventListener('focus', () => {
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
-    void refreshDashboardDynamicContent();
+    void refreshSupportingSurfaceContent('dashboard', 'dashboard-supporting-region');
+    void refreshAccountDynamicContent();
   });
   setInterval(() => {
     void ensureUpdateCheckFresh({ silent: true });
@@ -11999,10 +12011,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const accountRefreshBtn = document.getElementById('account-refresh-btn');
   accountRefreshBtn?.addEventListener('click', () => {
+    void refreshAccountDynamicContent();
     loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Refresh]', error.message));
   });
   const accountRetryBtn = document.getElementById('account-retry-btn');
   accountRetryBtn?.addEventListener('click', () => {
+    void refreshAccountDynamicContent();
     loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Retry]', error.message));
   });
   bindAccountUpgradeFreeClick();

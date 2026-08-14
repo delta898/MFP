@@ -1,4 +1,5 @@
--- Configurable Sidebar Content: Pro 미리보기 임시 허용 (검증 전용)
+-- Configurable Surface Content: resource의 Pro 미리보기 임시 허용 (검증 전용)
+-- campaign audience를 공유하는 Sidebar, Dashboard, Account에 함께 적용됩니다.
 -- UI 검증이 끝나면 supabase_surface_content_restore_production_policy.sql을 실행합니다.
 
 update public.app_surface_campaigns
