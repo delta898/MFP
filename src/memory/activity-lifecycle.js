@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { normalizeInteractionProvenance } = require('./interaction-provenance');
 
 const ACTIVITY_LIFECYCLE_VERSION = 1;
 const ACTIVITY_EVENT_PREFIX = 'activity.lifecycle';
@@ -79,6 +80,7 @@ function normalizeActivityEvidence(input = {}) {
     if (!source) throw new Error('activity evidence에는 source가 필요합니다.');
 
     const evidenceId = compactText(input.evidence_id || input.evidenceId, 500);
+    const provenance = normalizeInteractionProvenance(input.provenance || input, input);
     const payload = {
         schema_version: ACTIVITY_LIFECYCLE_VERSION,
         domain,
@@ -90,6 +92,7 @@ function normalizeActivityEvidence(input = {}) {
         platform: compactText(input.platform, 80),
         result_ref: compactText(input.result_ref || input.resultRef, 500),
         evidence_id: evidenceId,
+        request_id: provenance.request_id,
         metadata: input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
             ? input.metadata
             : {}
@@ -98,10 +101,11 @@ function normalizeActivityEvidence(input = {}) {
     return {
         id: buildStableActivityEventId(evidenceId),
         event_type: eventType,
-        actor_type: compactText(input.actor_type || input.actorType || 'system', 40),
-        actor_id: compactText(input.actor_id || input.actorId || 'SYSTEM', 160),
-        channel: compactText(input.channel || 'local', 80),
-        conversation_id: compactText(input.conversation_id || input.conversationId, 240),
+        actor_type: provenance.actor_type,
+        actor_id: provenance.actor_id,
+        channel: provenance.channel,
+        conversation_id: provenance.conversation_id,
+        message_id: provenance.message_id,
         timestamp: input.timestamp || undefined,
         owner_user_id: compactText(input.owner_user_id || input.ownerUserId, 240),
         payload

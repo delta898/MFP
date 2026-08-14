@@ -1,3 +1,5 @@
+const { provenanceFromRuntimeContext } = require('../../memory/interaction-provenance');
+
 function normalizeString(value) {
     return String(value || '').trim();
 }
@@ -166,7 +168,10 @@ function createRegisterTopicCapabilities(deps = {}) {
                         const Utils = require('../../utils');
                         return Utils.appendGoogleSheetTopics(topics, options);
                     });
-                const appendRes = await appendGoogleSheetTopics(rows, { defaultStatus: '발행 준비 완료' });
+                const appendRes = await appendGoogleSheetTopics(rows, {
+                    defaultStatus: '발행 준비 완료',
+                    memoryProvenance: provenanceFromRuntimeContext(context)
+                });
                 if (!appendRes || appendRes.success === false) {
                     throw new Error(appendRes?.message || '글감 시트 등록에 실패했습니다.');
                 }

@@ -256,6 +256,21 @@ class TelegramBotService {
         };
     }
 
+    static buildContentExecutionContext(chatId, msgOrQuery = {}, canonicalRequest = {}) {
+        const context = this.buildAgentContext(chatId, msgOrQuery);
+        const conversationId = String(canonicalRequest?.conversation_id || '').trim();
+        const sourceMessageId = String(canonicalRequest?.context_refs?.message_id || '').trim();
+        if (conversationId) context.conversation.id = conversationId;
+        if (sourceMessageId) context.messageId = sourceMessageId;
+        context.metadata = {
+            ...(context.metadata || {}),
+            request_id: String(canonicalRequest?.request_id || '').trim(),
+            source: 'telegram_legacy_parser',
+            transport_message_id: String(msgOrQuery?.message_id || msgOrQuery?.id || '').trim()
+        };
+        return context;
+    }
+
     static isAgentCapabilityHelpRequest(text) {
         const normalized = String(text || '').trim().toLowerCase();
         if (!normalized) return false;
@@ -303,21 +318,6 @@ class TelegramBotService {
 
         if (earlyDeterministicEnvelope?.actions?.length === 1
             && String(earlyDeterministicEnvelope.actions[0]?.domain || '').trim() === 'agent.meta') {
-            if (this.agentEventStore) {
-                this.agentEventStore.appendEvent({
-                    event_type: 'user.message.received',
-                    actor_type: 'user',
-                    actor_id: baseContext.user.id,
-                    conversation_id: baseContext.conversation.id,
-                    message_id: baseContext.messageId,
-                    payload: {
-                        text
-                    },
-                    user: baseContext.user,
-                    conversation: baseContext.conversation
-                }).catch(() => { });
-            }
-
             const planResult = await this.agentPlanner.buildPlan(earlyDeterministicEnvelope, baseContext);
             if (!planResult.ok) {
                 await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(planResult.errors || []).join('\n')}`);
@@ -347,23 +347,6 @@ class TelegramBotService {
             limit: 8
         });
         Logger.info(`⏱️ [TelegramAgent] retrieval ${Date.now() - retrievalStartedAt}ms`);
-
-        if (this.agentEventStore) {
-            const eventAppendStartedAt = Date.now();
-            await this.agentEventStore.appendEvent({
-                event_type: 'user.message.received',
-                actor_type: 'user',
-                actor_id: context.user.id,
-                conversation_id: context.conversation.id,
-                message_id: context.messageId,
-                payload: {
-                    text
-                },
-                user: context.user,
-                conversation: context.conversation
-            }).catch(() => { });
-            Logger.info(`⏱️ [TelegramAgent] event append ${Date.now() - eventAppendStartedAt}ms`);
-        }
 
         const parserStartedAt = Date.now();
         const envelope = earlyDeterministicEnvelope || await parseTelegramAgentEnvelope(text, {
@@ -592,6 +575,16 @@ class TelegramBotService {
             // 메시지 수신 성공 시 에러 카운터 리셋
             TelegramBotService._pollingErrorCount = 0;
 
+            const incomingContext = this.buildAgentContext(chatId, msg);
+            if (this.agentEventStore && typeof this.agentEventStore.recordInteractionMessage === 'function') {
+                await this.agentEventStore.recordInteractionMessage(
+                    incomingContext,
+                    text,
+                    text.startsWith('/') ? 'COMMAND' : 'UNKNOWN',
+                    'USER'
+                ).catch(() => { });
+            }
+
             // 2. 명령어 처리 (/help 등)
             if (text.startsWith('/')) {
                 await this.handleCommand(chatId, text);
@@ -639,18 +632,6 @@ class TelegramBotService {
 
                 const parsedData = await Core.parseTelegramRequest(text, context);
                 const { actions, meta } = parsedData;
-
-                // For simple message recording, decide a primary intent
-                let primaryIntent = 'UNKNOWN';
-                if (actions && actions.length > 0) {
-                    if (actions.some(a => a.action === 'register_topic' || a.action === 'publish_article')) primaryIntent = 'PUBLISH';
-                    else if (actions.some(a => a.action === 'update_config')) primaryIntent = 'UPDATE_CONFIG';
-                    else if (actions.some(a => a.action === 'run_job')) primaryIntent = 'RUN_JOB';
-                    else if (actions.some(a => a.action === 'query_data')) primaryIntent = 'QUERY_DATA';
-                }
-
-                // 2. 메시지 기록 (추후 분석을 위해 인텐트 포함)
-                await this.agentEventStore.recordMessage(chatId, text, primaryIntent);
 
                 if (!actions || actions.length === 0) {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
@@ -814,12 +795,16 @@ class TelegramBotService {
 
                     if (registerPayload) {
                         const pData = registerPayload;
-                        const registerContext = this.buildAgentContext(chatId, query.message);
+                        const registerContext = this.buildContentExecutionContext(
+                            chatId,
+                            query.message,
+                            requestBundle.register_request
+                        );
                         let registerResult = null;
 
                         if (this.agentCapabilityRegistry) {
                             registerResult = await this.agentCapabilityRegistry.executeAction({
-                                id: `register_${Date.now()}`,
+                                id: `${requestBundle.register_request.request_id}:execute`,
                                 type: 'content.register',
                                 domain: 'content.register_topic',
                                 name: 'execute',
@@ -845,7 +830,15 @@ class TelegramBotService {
                                         ...(pData.options || {})
                                     },
                                     source: 'telegram',
-                                    chatId: chatId
+                                    chatId: chatId,
+                                    memory_provenance: {
+                                        channel: registerContext.channel,
+                                        actor_type: 'user',
+                                        actor_id: registerContext.user.id,
+                                        conversation_id: registerContext.conversation.id,
+                                        message_id: registerContext.messageId,
+                                        request_id: registerContext.metadata.request_id
+                                    }
                                 });
                             }
                             const appendRes = await Utils.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
@@ -887,7 +880,11 @@ class TelegramBotService {
 
                     if (shouldExecutePublish && publishPayload) {
                         try {
-                            const publishContext = this.buildAgentContext(chatId, query.message);
+                            const publishContext = this.buildContentExecutionContext(
+                                chatId,
+                                query.message,
+                                requestBundle.publish_request
+                            );
                             let publishResult = null;
                             const publishParams = {
                                 ...publishPayload,
@@ -898,7 +895,7 @@ class TelegramBotService {
 
                             if (this.agentCapabilityRegistry) {
                                 publishResult = await this.agentCapabilityRegistry.executeAction({
-                                    id: `publish_${Date.now()}`,
+                                    id: `${requestBundle.publish_request.request_id}:execute`,
                                     type: 'content.publish',
                                     domain: 'content.publish',
                                     name: 'execute',

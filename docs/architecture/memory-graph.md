@@ -103,6 +103,13 @@ separate: callers that do not supply a channel identity may still appear as the
 `SYSTEM` actor, but their data ownership is no longer lost. Future account support
 should map the local owner to an account instead of rewriting historic ownership.
 
+Content domain and transport provenance are orthogonal. `blog`, `shopping`, and
+`sns` describe the activity; `telegram`, `ui`, and automation sources describe
+where it originated. Canonical Telegram content requests retain conversation,
+message, actor, channel, and request identity through confirmed topic
+registration. Owner-only UI/system topic writes no longer inherit a synthetic
+Telegram channel when no Telegram actor exists.
+
 ## Content Idea Recommendation Readiness
 
 An initial recommendation lane already exists:

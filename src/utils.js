@@ -1697,7 +1697,11 @@ const Utils = {
                         mall: item.mall || '',
                         source: item.source || options.source || 'manual'
                     };
-                    await getAgentEventStore().recordShoppingItem(item.chatId || null, kuzuData);
+                    await getAgentEventStore().recordShoppingItem(
+                        item.chatId || options.chatId || null,
+                        kuzuData,
+                        item.memory_provenance || options.memoryProvenance || {}
+                    );
                 } catch (kuzuErr) {
                     Logger.error(`⚠️ [Utils] Kuzu 쇼핑 기록 실패: ${kuzuErr.message}`);
                 }
@@ -2519,7 +2523,11 @@ const Utils = {
                         instruction: instructionValue,
                         source: topic.source || options.source || 'manual'
                     };
-                    await getAgentEventStore().recordTopic(topic.chatId || options.chatId || null, kuzuData);
+                    await getAgentEventStore().recordTopic(
+                        topic.chatId || options.chatId || null,
+                        kuzuData,
+                        topic.memory_provenance || options.memoryProvenance || {}
+                    );
                 } catch (kuzuErr) {
                     Logger.error(`⚠️ [Utils] Kuzu 토픽 기록 실패: ${kuzuErr.message}`);
                 }

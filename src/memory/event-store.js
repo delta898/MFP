@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { normalizeInteractionProvenance } = require('./interaction-provenance');
 const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
 const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
@@ -548,7 +549,8 @@ class KuzuEventStore {
 
         if (eventType === 'user.message.received') {
             return {
-                text: this._compactString(payload.text || '', 500)
+                text: this._compactString(payload.text || '', 500),
+                intent: String(payload.intent || '').trim()
             };
         }
 
@@ -572,7 +574,8 @@ class KuzuEventStore {
                 platform: this._compactString(payload.platform || '', 80),
                 keywords: this._compactString(payload.keywords || '', 200),
                 instruction: this._compactString(payload.instruction || '', 240),
-                source: this._compactString(payload.source || '', 80)
+                source: this._compactString(payload.source || '', 80),
+                request_id: this._compactString(payload.request_id || '', 300)
             };
         }
 
@@ -581,7 +584,8 @@ class KuzuEventStore {
                 name: this._compactString(payload.name || '', 180),
                 price: this._compactString(payload.price || '', 80),
                 mall: this._compactString(payload.mall || '', 120),
-                source: this._compactString(payload.source || '', 80)
+                source: this._compactString(payload.source || '', 80),
+                request_id: this._compactString(payload.request_id || '', 300)
             };
         }
 
@@ -1665,6 +1669,51 @@ class KuzuEventStore {
         return result?.id || null;
     }
 
+    async recordInteractionMessage(provenanceInput = {}, text = '', intent = 'UNKNOWN', sender = 'USER') {
+        const messageText = String(text || '').trim();
+        if (!messageText) return null;
+        const provenance = normalizeInteractionProvenance(provenanceInput);
+        const isAgent = String(sender || 'USER').trim().toUpperCase() === 'AGENT';
+        const identity = [
+            provenance.channel,
+            provenance.conversation_id,
+            provenance.message_id,
+            isAgent ? 'agent' : 'user'
+        ].join(':');
+        const eventId = provenance.message_id
+            ? `message_${crypto.createHash('sha256').update(identity).digest('hex')}`
+            : '';
+
+        if (eventId) {
+            await this.initialize();
+            const existing = await this._runQuery(
+                'MATCH (e:EventNode {id: $event_id}) RETURN e.id AS id LIMIT 1',
+                { event_id: eventId }
+            );
+            if (existing.hasNext()) return eventId;
+        }
+
+        const result = await this.appendEvent({
+            ...(eventId ? { id: eventId } : {}),
+            event_type: isAgent ? 'agent.message.sent' : 'user.message.received',
+            actor_type: isAgent ? 'agent' : provenance.actor_type,
+            actor_id: isAgent ? 'AGENT' : provenance.actor_id,
+            conversation_id: provenance.conversation_id,
+            message_id: provenance.message_id,
+            channel: provenance.channel,
+            user: { id: isAgent ? 'AGENT' : provenance.actor_id, channel: provenance.channel, username: '' },
+            conversation: provenance.conversation_id
+                ? { id: provenance.conversation_id, channel: provenance.channel }
+                : null,
+            payload: {
+                text: messageText,
+                intent: String(intent || 'UNKNOWN').trim(),
+                request_id: provenance.request_id
+            }
+        });
+        return result?.id || null;
+    }
+
     async getHistory(chatId, limit = 10) {
         const items = await this.listRecentMessages(`telegram:${String(chatId || '').trim()}`, limit);
         return items.map((item) => ({
@@ -1705,42 +1754,70 @@ class KuzuEventStore {
         return '';
     }
 
-    async recordTopic(chatId, topicData = {}) {
-        const userId = String(chatId || 'SYSTEM').trim();
+    async recordTopic(chatId, topicData = {}, provenanceInput = {}) {
+        const legacyUserId = String(chatId || '').trim();
+        const provenance = normalizeInteractionProvenance(provenanceInput, legacyUserId ? {
+            channel: 'telegram',
+            actor_type: 'user',
+            actor_id: legacyUserId,
+            conversation_id: `telegram:${legacyUserId}`
+        } : {
+            channel: 'local',
+            actor_type: 'system',
+            actor_id: 'SYSTEM'
+        });
         return this.appendEvent({
             event_type: 'content.topic.registered',
-            actor_type: 'user',
-            actor_id: userId,
-            conversation_id: userId === 'SYSTEM' ? '' : `telegram:${userId}`,
-            channel: 'telegram',
-            user: { id: userId, channel: 'telegram', username: '' },
-            conversation: userId === 'SYSTEM' ? null : { id: `telegram:${userId}`, channel: 'telegram' },
+            actor_type: provenance.actor_type,
+            actor_id: provenance.actor_id,
+            conversation_id: provenance.conversation_id,
+            message_id: provenance.message_id,
+            channel: provenance.channel,
+            user: { id: provenance.actor_id, channel: provenance.channel, username: '' },
+            conversation: provenance.conversation_id
+                ? { id: provenance.conversation_id, channel: provenance.channel }
+                : null,
             payload: {
                 subject: topicData.subject || '',
                 platform: topicData.platform || '',
                 category: topicData.category || '',
                 keywords: topicData.keywords || '',
                 instruction: topicData.instruction || '',
-                source: topicData.source || 'manual'
+                source: topicData.source || 'manual',
+                request_id: provenance.request_id
             }
         });
     }
 
-    async recordShoppingItem(chatId, itemData = {}) {
-        const userId = String(chatId || 'SYSTEM').trim();
+    async recordShoppingItem(chatId, itemData = {}, provenanceInput = {}) {
+        const legacyUserId = String(chatId || '').trim();
+        const provenance = normalizeInteractionProvenance(provenanceInput, legacyUserId ? {
+            channel: 'telegram',
+            actor_type: 'user',
+            actor_id: legacyUserId,
+            conversation_id: `telegram:${legacyUserId}`
+        } : {
+            channel: 'local',
+            actor_type: 'system',
+            actor_id: 'SYSTEM'
+        });
         return this.appendEvent({
             event_type: 'shopping.item.recorded',
-            actor_type: 'user',
-            actor_id: userId,
-            conversation_id: userId === 'SYSTEM' ? '' : `telegram:${userId}`,
-            channel: 'telegram',
-            user: { id: userId, channel: 'telegram', username: '' },
-            conversation: userId === 'SYSTEM' ? null : { id: `telegram:${userId}`, channel: 'telegram' },
+            actor_type: provenance.actor_type,
+            actor_id: provenance.actor_id,
+            conversation_id: provenance.conversation_id,
+            message_id: provenance.message_id,
+            channel: provenance.channel,
+            user: { id: provenance.actor_id, channel: provenance.channel, username: '' },
+            conversation: provenance.conversation_id
+                ? { id: provenance.conversation_id, channel: provenance.channel }
+                : null,
             payload: {
                 name: itemData.name || '',
                 price: itemData.price || '',
                 mall: itemData.mall || '',
-                source: itemData.source || 'manual'
+                source: itemData.source || 'manual',
+                request_id: provenance.request_id
             }
         });
     }
@@ -1765,6 +1842,7 @@ class KuzuEventStore {
             actor_type: evidence.actor_type,
             actor_id: evidence.actor_id,
             conversation_id: evidence.conversation_id,
+            message_id: evidence.message_id,
             channel: evidence.channel,
             timestamp: evidence.timestamp,
             owner_user_id: evidence.owner_user_id,
