@@ -186,6 +186,14 @@ structural work is:
 4. expose the grounded, ranked recommendation lane through a deliberately small
    product UI and connect successful UI actions to the outcome contract.
 
+The first product lane is now implemented in Quick Posting. Its UI API composes
+Memory Retrieval v2 with the Agent Runtime and `content.idea.suggest`; it does
+not bypass the capability path or duplicate candidate/ranking logic in the UI.
+The lane caches generated responses briefly, supports an explicit refresh, and
+records no passive exposure event. Selection, successful topics save, confirmed
+draft/publish, and explicit negative feedback retain the compact recommendation
+context for later policy learning.
+
 ## Owner Activity Signals
 
 Owner-scoped activity is separated into `blog`, `shopping`, and `sns` domains.

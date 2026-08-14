@@ -66,6 +66,10 @@ const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { getAgentEventStore, initializeAgentMemory } = require('./memory/store');
 const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
+const { createMemoryRetrievalService } = require('./memory/retrieval-service');
+const { createCapabilityRegistry } = require('./capabilities');
+const { createAgentRuntime } = require('./agent/runtime');
+const { createTopicRecommendationLearningService } = require('./recommendations/topic-recommendation-learning');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const {
@@ -87,6 +91,9 @@ const { createSurfaceContentService } = require('./surface-content/service');
 const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
 const { createSurfaceContentController } = require('./ui-api/controllers/surface-content.controller');
 const { createSurfaceContentRouteHandler } = require('./ui-api/routes/surface-content.routes');
+const { createTopicRecommendationsService } = require('./ui-api/services/topic-recommendations.service');
+const { createTopicRecommendationsController } = require('./ui-api/controllers/topic-recommendations.controller');
+const { createTopicRecommendationsRouteHandler } = require('./ui-api/routes/topic-recommendations.routes');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
@@ -252,6 +259,25 @@ const snsAiService = createSnsAiService({
 const recordActivityLifecycle = createActivityLifecycleRecorder({
     eventStore: getAgentEventStore(),
     Logger
+});
+const topicRecommendationEventStore = getAgentEventStore();
+const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
+    CONFIG,
+    Logger,
+    Utils,
+    License,
+    axios,
+    eventStore: topicRecommendationEventStore
+});
+const topicRecommendationAgentRuntime = createAgentRuntime({
+    capabilityRegistry: topicRecommendationCapabilityRegistry,
+    eventStore: topicRecommendationEventStore
+});
+const topicRecommendationRetrievalService = createMemoryRetrievalService({
+    eventStore: topicRecommendationEventStore
+});
+const topicRecommendationLearningService = createTopicRecommendationLearningService({
+    recordActivityLifecycle
 });
 const snsDistributionRunner = createSnsDistributionRunner({
     CONFIG,
@@ -1922,6 +1948,13 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createSupabaseSurfaceContentProvider,
     createSurfaceContentController,
     createSurfaceContentRouteHandler,
+    createTopicRecommendationsService,
+    createTopicRecommendationsController,
+    createTopicRecommendationsRouteHandler,
+    topicRecommendationAgentRuntime,
+    topicRecommendationRetrievalService,
+    topicRecommendationEventStore,
+    topicRecommendationLearningService,
     createLegacyApiRouteHandler,
     createApiRouteHub,
     UiValidators,

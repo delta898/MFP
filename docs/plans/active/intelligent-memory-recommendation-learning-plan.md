@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: implemented backend foundation
+- Phase: implemented backend foundation and first product UI
 - Integration branch: `codex/feature/intelligent-memory`
 - Work branch: `codex/feature/intelligent-memory-recommendation-learning`
 
@@ -49,15 +49,21 @@ ranking policy to match feedback by candidate id even when the generated article
 title differs from the original topic seed. Legacy feedback still falls back to
 bounded subject matching.
 
-## Step 10 Handoff
+## Step 10 Product UI
 
-The future UI must:
+The Quick Posting screen now:
 
-1. retain the returned recommendation context with each visible idea;
-2. call the outcome service only after an actual user action succeeds;
-3. use a unique result/click reference as the outcome discriminator;
-4. avoid recording passive visibility as interest;
-5. keep recommendation failure non-blocking for the writing workflow.
+1. shows up to three compact grounded recommendations above the existing input
+   mode switch;
+2. retains the returned recommendation context with each idea;
+3. fills the existing subject, keyword, and instruction fields rather than
+   creating a second writing workflow;
+4. reuses the existing topics append action for `글감 저장`;
+5. records explicit selection, successful save, draft, publish, and negative
+   feedback outcomes while avoiding passive exposure events;
+6. keeps recommendation loading and outcome failures non-blocking for the
+   writing workflow.
 
-The first UI iteration should expose a small recommendation lane and validate
-the selected/saved handoff before adding richer feedback controls.
+Trend Posting remains the manual discovery surface. Recommendations may contain
+Naver trend evidence through the knowledge route, but the same recommendation
+panel is not duplicated in the Trend Posting tab.

@@ -4,6 +4,7 @@ const {
     settlePublishQuota
 } = require('../publish-quota');
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
+const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
 
 function createPublishActionsRuntime(deps = {}) {
     const {
@@ -42,6 +43,48 @@ function createPublishActionsRuntime(deps = {}) {
         getExecuteShoppingRowAction,
         recordActivityLifecycle = async () => null
     } = deps;
+    const topicRecommendationLearning = createTopicRecommendationLearningService({ recordActivityLifecycle });
+
+    async function recordTopicRecommendationOutcome({ requestBody, stage, subject, entityRef, resultRef, platform = '' }) {
+        const recommendation = requestBody?.recommendation;
+        if (!recommendation || requestBody?.source !== 'topic_recommendation') return null;
+        try {
+            return await topicRecommendationLearning.recordOutcome({
+                stage,
+                subject,
+                source: 'topic-recommendation-ui',
+                recommendation,
+                entity_ref: entityRef,
+                result_ref: resultRef,
+                platform,
+                provenance: {
+                    channel: 'ui',
+                    surface: 'blog.quick',
+                    action: stage
+                }
+            });
+        } catch (error) {
+            Logger.warn(`[TopicRecommendation] ${stage} outcome 저장 실패: ${error.message}`);
+            return null;
+        }
+    }
+
+    async function recordTopicRecommendationTerminalResults({ requestBody, subject, postStatus, results, operationId }) {
+        const normalizedStatus = String(postStatus || '').trim().toLowerCase();
+        const stage = normalizedStatus === 'draft' ? 'drafted' : (normalizedStatus === 'publish' ? 'published' : '');
+        if (!stage) return;
+        for (const [platform, result] of Object.entries(results || {})) {
+            if (result?.success !== true) continue;
+            await recordTopicRecommendationOutcome({
+                requestBody,
+                stage,
+                subject,
+                entityRef: operationId,
+                resultRef: result.postUrl || operationId,
+                platform
+            });
+        }
+    }
 
     async function recordBlogSelection({ operationId, subject, source, targets, entityRef = '' }) {
         return recordActivityLifecycle({
@@ -535,6 +578,15 @@ function createPublishActionsRuntime(deps = {}) {
                 postStatus,
                 results
             });
+            await recordTopicRecommendationTerminalResults({
+                requestBody: session.recommendation
+                    ? { source: 'topic_recommendation', recommendation: session.recommendation }
+                    : {},
+                subject: session.subject || '빠른 포스팅 원고',
+                postStatus,
+                results,
+                operationId
+            });
             const failedTargets = Object.entries(results)
                 .filter(([, value]) => value && value.success === false)
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
@@ -643,7 +695,9 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_WRITING_STRATEGY', message: '글 작성 전략 값이 올바르지 않습니다.' };
         }
         const writingStrategy = normalizeWritingStrategyOverride(rawWritingStrategy);
-        const source = requestBody?.source === 'naver_trend' ? 'naver_trend' : 'manual';
+        const source = requestBody?.source === 'naver_trend'
+            ? 'naver_trend'
+            : (requestBody?.source === 'topic_recommendation' ? 'topic_recommendation' : 'manual');
         const trendDate = source === 'naver_trend' ? String(requestBody?.trendDate || '').trim() : '';
         const parsedTrendDate = new Date(`${trendDate}T00:00:00.000Z`);
         if (source === 'naver_trend' && (
@@ -727,6 +781,13 @@ function createPublishActionsRuntime(deps = {}) {
             appendStatus = existingEntry.status || appendStatus;
 
             if (publishMode === 'append_only') {
+                await recordTopicRecommendationOutcome({
+                    requestBody,
+                    stage: 'saved',
+                    subject: finalSubject,
+                    entityRef: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
+                    resultRef: String(rowNumber || rowIndex || dedupeKey)
+                });
                 return {
                     success: true,
                     data: {
@@ -798,6 +859,13 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         if (publishMode === 'append_only') {
+            await recordTopicRecommendationOutcome({
+                requestBody,
+                stage: 'saved',
+                subject: finalSubject,
+                entityRef: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
+                resultRef: String(rowNumber || rowIndex || dedupeKey)
+            });
             return {
                 success: true,
                 data: {
@@ -836,6 +904,14 @@ function createPublishActionsRuntime(deps = {}) {
             features,
             enableRelatedPostsAutoLink
         };
+
+        await recordTopicRecommendationOutcome({
+            requestBody,
+            stage: 'saved',
+            subject: finalSubject,
+            entityRef: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
+            resultRef: String(rowNumber || rowIndex || dedupeKey)
+        });
 
         if (publishMode === 'append_and_generate') {
             const generated = await buildMultiPlatformGeneratedContent(publishParams);
@@ -923,7 +999,8 @@ function createPublishActionsRuntime(deps = {}) {
                 primaryTarget,
                 targetDirs,
                 previewsByTarget,
-                subject: finalSubject
+                subject: finalSubject,
+                recommendation: requestBody?.recommendation || null
             });
 
             setQuickPublishRecentEntry(dedupeKey, {
@@ -1008,6 +1085,14 @@ function createPublishActionsRuntime(deps = {}) {
                 published: true,
                 targetDir: naverDir || wpDir,
                 updatedAtMs: Date.now()
+            });
+
+            await recordTopicRecommendationTerminalResults({
+                requestBody,
+                subject: finalSubject,
+                postStatus,
+                results: publishRes.results,
+                operationId: publishRes.operationId
             });
 
             return {

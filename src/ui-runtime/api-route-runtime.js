@@ -87,6 +87,13 @@ function createUiApiRouteRuntime(deps = {}) {
         createSupabaseSurfaceContentProvider,
         createSurfaceContentController,
         createSurfaceContentRouteHandler,
+        createTopicRecommendationsService,
+        createTopicRecommendationsController,
+        createTopicRecommendationsRouteHandler,
+        topicRecommendationAgentRuntime,
+        topicRecommendationRetrievalService,
+        topicRecommendationEventStore,
+        topicRecommendationLearningService,
         createLegacyApiRouteHandler,
         createApiRouteHub,
         UiValidators,
@@ -109,6 +116,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let settingsRouteHandler = null;
     let manualSnsRouteHandler = null;
     let surfaceContentRouteHandler = null;
+    let topicRecommendationsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let apiRouteHub = null;
 
@@ -233,6 +241,24 @@ function createUiApiRouteRuntime(deps = {}) {
         return surfaceContentRouteHandler;
     }
 
+    function getTopicRecommendationsRouteHandlerInstance() {
+        if (!topicRecommendationsRouteHandler) {
+            const service = createTopicRecommendationsService({
+                agentRuntime: topicRecommendationAgentRuntime,
+                retrievalService: topicRecommendationRetrievalService,
+                eventStore: topicRecommendationEventStore,
+                learningService: topicRecommendationLearningService
+            });
+            const controller = createTopicRecommendationsController({
+                service,
+                sendSuccess,
+                sendError
+            });
+            topicRecommendationsRouteHandler = createTopicRecommendationsRouteHandler({ controller });
+        }
+        return topicRecommendationsRouteHandler;
+    }
+
     function createLegacyApiDeps() {
         const baseDeps = {
             APP_VERSION,
@@ -330,6 +356,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getSettingsRouteHandlerInstance(),
                 getManualSnsRouteHandlerInstance(),
                 getSurfaceContentRouteHandlerInstance(),
+                getTopicRecommendationsRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }
@@ -356,6 +383,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
+        getTopicRecommendationsRouteHandler: getTopicRecommendationsRouteHandlerInstance,
         handleApi
     };
 }

@@ -111,6 +111,57 @@ test('quick publish preserves trend provenance in the topics row and dedupe inpu
     assert.equal(dedupeInput.trendDate, '2026-08-11');
 });
 
+test('quick publish records a grounded recommendation as saved after topics append', async () => {
+    const lifecycleCalls = [];
+    let appendedTopic;
+    const runtime = createPublishActionsRuntime({
+        CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
+        Logger: { info() {}, warn() {}, error() {} },
+        Utils: {
+            convertToMobileNaverBlogUrl: (value) => value,
+            async ensureAllSheetsExist() {},
+            async appendGoogleSheetTopics(topics) {
+                [appendedTopic] = topics;
+                return { success: true, rowNumbers: [4], rowIndices: [2] };
+            }
+        },
+        License: { async checkLicenseStatus() { return { success: true, features: {} }; } },
+        normalizeKeywords: (value) => Array.isArray(value) ? value : [value],
+        normalizeBool: (value, fallback) => typeof value === 'boolean' ? value : fallback,
+        normalizePublishMode: (value) => value,
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool,
+        buildQuickPublishDedupeKey: () => 'recommendation-key',
+        cleanupQuickPublishDedupeCache() {},
+        getQuickPublishRecentEntry: () => null,
+        setQuickPublishRecentEntry() {},
+        recordUiActivity() {},
+        async recordActivityLifecycle(input) {
+            lifecycleCalls.push(input);
+            return input;
+        }
+    });
+
+    const result = await runtime.executeQuickPublish({
+        subject: '추천으로 고른 글감',
+        keywords: ['추천'],
+        source: 'topic_recommendation',
+        recommendation: {
+            run_id: 'run-1',
+            candidate_id: 'candidate-1',
+            topic_seed: '추천'
+        },
+        publishMode: 'append_only'
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(appendedTopic.source, 'topic_recommendation');
+    assert.equal(lifecycleCalls.length, 1);
+    assert.equal(lifecycleCalls[0].stage, 'saved');
+    assert.equal(lifecycleCalls[0].metadata.recommendation.candidate_id, 'candidate-1');
+});
+
 test('shopping quick publish rejects an overlong instruction before external work', async () => {
     const runtime = createPublishActionsRuntime({
         CONFIG: {},

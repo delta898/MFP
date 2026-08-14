@@ -45,6 +45,7 @@
 - `features/blog-writing-style.md`
 - `features/blog-writing-strategy.md`
 - `features/configurable-sidebar-content.md`
+- `features/personalized-topic-recommendations.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
