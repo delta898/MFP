@@ -45,7 +45,8 @@ function collectRecentSubjects(signals = []) {
             stage: text(signal.stage),
             strength: text(signal.strength),
             timestamp: signal.timestamp || null,
-            evidence: signal.evidence || null
+            evidence: signal.evidence || null,
+            recommendation_candidate_id: text(signal.payload?.metadata?.recommendation?.candidate_id)
         }));
 }
 

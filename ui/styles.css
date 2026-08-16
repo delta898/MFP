@@ -7983,11 +7983,11 @@ select.inline-editor {
 }
 
 .quick-topic-recommendations-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(160px, 1fr);
+  align-items: start;
   gap: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .quick-topic-recommendations-head h4 {
@@ -8000,23 +8000,59 @@ select.inline-editor {
   margin: 0;
   color: #71829a;
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .quick-topic-recommendations-refresh {
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-height: 44px;
+  margin-top: 22px;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.quick-topic-recommendations-refresh:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
 }
 
 .quick-topic-recommendations-status {
-  padding: 18px 4px 22px;
+  padding: 10px 4px 18px;
   color: #71829a;
   font-size: 14px;
 }
 
+.quick-topic-recommendations-progress {
+  position: relative;
+  height: 6px;
+  margin: 18px 4px 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.quick-topic-recommendations-progress span {
+  position: absolute;
+  inset: 0 auto 0 -35%;
+  width: 35%;
+  border-radius: inherit;
+  background: var(--brand-primary);
+  animation: quick-topic-progress 1.35s ease-in-out infinite;
+}
+
+@keyframes quick-topic-progress {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(385%); }
+}
+
 .quick-topic-recommendation-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 4fr) minmax(160px, 1fr);
   align-items: center;
   gap: 18px;
   padding: 13px 4px;
@@ -8076,10 +8112,11 @@ select.inline-editor {
 .quick-topic-recommendation-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: flex-start;
+  gap: 5px;
 }
 
-.quick-topic-recommendation-actions .btn {
+.quick-topic-recommendation-actions button.primary {
   min-height: 36px;
   padding: 7px 12px;
   white-space: nowrap;
@@ -8118,7 +8155,11 @@ select.inline-editor {
   }
 
   .quick-topic-recommendations-head {
-    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .quick-topic-recommendations-refresh {
+    margin-top: 12px;
   }
 
   .quick-topic-recommendations-head p {

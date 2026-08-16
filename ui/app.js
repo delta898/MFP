@@ -2209,37 +2209,57 @@ function handleQuickTopicIdentityInput() {
 }
 
 function getQuickRecommendationSourceLabel(item = {}) {
+  if (String(item?.source || '').trim() === 'fallback') return '기본 추천';
   const refs = Array.isArray(item?.recommendation?.source_refs) ? item.recommendation.source_refs : [];
   if (refs.some((ref) => ['trends', 'knowledge'].includes(String(ref?.kind || '').toLowerCase()))) return '트렌드와 연결';
   if (refs.some((ref) => ['topic', 'facet'].includes(String(ref?.kind || '').toLowerCase()))) return '관심 주제와 연결';
   return '내 글쓰기 기반';
 }
 
+function diversifyQuickTopicRecommendations(items = [], limit = 3) {
+  const sourceOrder = ['트렌드와 연결', '관심 주제와 연결', '내 글쓰기 기반'];
+  const remaining = Array.isArray(items) ? items.slice() : [];
+  const selected = [];
+
+  sourceOrder.forEach((source) => {
+    const index = remaining.findIndex((item) => getQuickRecommendationSourceLabel(item) === source);
+    if (index < 0) return;
+    selected.push(remaining.splice(index, 1)[0]);
+  });
+
+  return selected.concat(remaining).slice(0, Math.max(1, Number(limit) || 3));
+}
+
 function renderQuickTopicRecommendations() {
   const statusEl = document.getElementById('quick-topic-recommendations-status');
+  const progressEl = document.getElementById('quick-topic-recommendations-progress');
   const listEl = document.getElementById('quick-topic-recommendations-list');
   const refreshBtn = document.getElementById('quick-topic-recommendations-refresh');
   if (!statusEl || !listEl) return;
-  refreshBtn?.toggleAttribute('disabled', quickTopicRecommendationState.loading);
+  if (refreshBtn) {
+    refreshBtn.disabled = quickTopicRecommendationState.loading;
+    refreshBtn.setAttribute('aria-busy', String(quickTopicRecommendationState.loading));
+  }
   if (quickTopicRecommendationState.loading) {
-    statusEl.hidden = false;
-    statusEl.textContent = '기억과 최신 신호를 살펴 추천을 만들고 있습니다...';
+    statusEl.hidden = true;
+    if (progressEl) progressEl.hidden = false;
     listEl.innerHTML = '';
     return;
   }
-  const items = quickTopicRecommendationState.items;
+  if (progressEl) progressEl.hidden = true;
+  const items = diversifyQuickTopicRecommendations(quickTopicRecommendationState.items);
   if (items.length === 0) {
     statusEl.hidden = false;
-    if (refreshBtn) refreshBtn.textContent = quickTopicRecommendationState.loaded ? '다른 추천' : '추천 받기';
+    if (refreshBtn) refreshBtn.textContent = quickTopicRecommendationState.loaded ? '다른 글감 추천' : '글감 추천';
     statusEl.textContent = quickTopicRecommendationState.error
       ? `추천을 불러오지 못했습니다: ${quickTopicRecommendationState.error}`
       : (quickTopicRecommendationState.loaded
       ? '지금 바로 드릴 추천이 없습니다. 다른 추천을 눌러 다시 살펴보세요.'
-      : '추천 받기를 누르면 최근 글쓰기와 관심 주제를 바탕으로 글감을 찾아드립니다.');
+      : '버튼을 누르면 최근 글쓰기와 관심 주제를 바탕으로 글감을 찾아드립니다.');
     listEl.innerHTML = '';
     return;
   }
-  if (refreshBtn) refreshBtn.textContent = '다른 추천';
+  if (refreshBtn) refreshBtn.textContent = '다른 글감 추천';
   statusEl.hidden = true;
   listEl.innerHTML = items.map((item, index) => {
     const keywords = Array.isArray(item.keywords) ? item.keywords.slice(0, 4).join(' · ') : '';
@@ -2253,8 +2273,7 @@ function renderQuickTopicRecommendations() {
           <p class="quick-topic-recommendation-reason" hidden>${escapeHtml(item.reason || item.summary || '최근 활동과 관심 신호를 바탕으로 추천했습니다.')}</p>
         </div>
         <div class="quick-topic-recommendation-actions">
-          <button class="btn btn-primary" type="button" data-recommendation-action="quick">빠른 포스팅</button>
-          <button class="btn btn-secondary" type="button" data-recommendation-action="save">글감 저장</button>
+          <button class="primary" type="button" data-recommendation-action="quick">글감 선택</button>
           <button class="quick-topic-recommendation-dismiss" type="button" data-recommendation-action="dismiss" aria-label="이 추천이 도움되지 않음">×</button>
         </div>
       </article>`;
@@ -2264,6 +2283,7 @@ function renderQuickTopicRecommendations() {
 async function loadQuickTopicRecommendations({ refresh = false } = {}) {
   if (quickTopicRecommendationState.loading || (quickTopicRecommendationState.loaded && !refresh)) return;
   quickTopicRecommendationState.loading = true;
+  document.getElementById('quick-topic-recommendations-refresh')?.setAttribute('disabled', '');
   quickTopicRecommendationState.error = '';
   renderQuickTopicRecommendations();
   try {
@@ -9923,8 +9943,7 @@ function bindActions() {
     }
     actionButton.disabled = true;
     try {
-      const applied = await applyQuickTopicRecommendation(item);
-      if (applied && action === 'save') document.getElementById('quick-save-btn')?.click();
+      await applyQuickTopicRecommendation(item);
     } finally {
       actionButton.disabled = false;
     }

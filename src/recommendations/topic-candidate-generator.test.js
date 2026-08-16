@@ -52,6 +52,73 @@ test('excludes exact recent seeds and keeps stable candidate ids', () => {
     const second = generator.generate(input);
 
     assert.equal(first.excluded_recent_count, 1);
-    assert.equal(first.candidates.some((item) => item.topic_seed === 'AI'), false);
+    assert.equal(first.candidates.some((item) => item.topic_seed === 'AI' && item.candidate_type !== 'activity_seed'), false);
     assert.deepEqual(first.candidates.map((item) => item.id), second.candidates.map((item) => item.id));
+});
+
+test('does not promote generated recommendation artifacts into activity candidates', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: profile(),
+        recentArtifacts: [{ id: 'artifact-1', title: '최근 작성한 글감', artifact_type: 'content_idea' }]
+    });
+
+    const activity = result.candidates.find((item) => item.candidate_type === 'activity_seed');
+    assert.equal(activity, undefined);
+});
+
+test('adds recent writing activity as an explicit candidate source', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: {
+            ...profile(),
+            activity: {
+                recent_subjects: [{ subject: '최근 작성한 여행 정리', domain: 'blog', stage: 'published' }]
+            }
+        }
+    });
+
+    const activity = result.candidates.find((item) => item.candidate_type === 'activity_seed');
+    assert.equal(activity.topic_seed, '최근 작성한 여행 정리');
+    assert.equal(activity.source_refs[0].kind, 'activity');
+});
+
+test('does not use generated activity signals but keeps selected writing activity', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: {
+            ...profile(),
+            activity: {
+                recent_subjects: [
+                    { subject: '단순 추천 결과', domain: 'blog', stage: 'generated' },
+                    { subject: '사용자가 선택한 글감', domain: 'blog', stage: 'selected' }
+                ]
+            }
+        }
+    });
+
+    assert.equal(result.candidates.some((item) => item.topic_seed === '단순 추천 결과'), false);
+    assert.equal(result.candidates.some((item) => item.topic_seed === '사용자가 선택한 글감'), true);
+});
+
+test('excludes candidate ids that were recommended in previous runs', () => {
+    const generator = createTopicCandidateGenerator();
+    const initial = generator.generate({
+        ownerProfile: profile(),
+        knowledge: [{
+            provider_id: 'naver-trends',
+            kind: 'trends',
+            items: [{ title: 'AI 블로그 도구' }]
+        }]
+    });
+    const previousId = initial.candidates.find((item) => item.topic_seed === 'AI 블로그 도구').id;
+    const result = generator.generate({
+        ownerProfile: profile(),
+        excludedCandidateIds: [previousId],
+        knowledge: [{
+            provider_id: 'naver-trends',
+            kind: 'trends',
+            items: [{ title: 'AI 블로그 도구' }]
+        }]
+    });
+
+    assert.equal(result.candidates.some((item) => item.id === previousId), false);
+    assert.equal(result.excluded_previous_count, 1);
 });

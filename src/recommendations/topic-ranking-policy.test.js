@@ -123,3 +123,41 @@ test('similarity and tie ordering are deterministic', () => {
     });
     assert.deepEqual(result.selected.map((item) => item.id), ['first', 'second']);
 });
+
+test('preferred candidate types reserve one slot per recommendation source', () => {
+    const result = rankTopicCandidates({
+        limit: 3,
+        preferredCandidateTypes: ['trend_seed', 'profile_seed', 'activity_seed'],
+        candidates: [
+            candidate('trend-1', '트렌드 1', { candidate_type: 'trend_seed', trend: { categories: ['A'] } }),
+            candidate('trend-2', '트렌드 2', { candidate_type: 'trend_seed', trend: { categories: ['B'] } }),
+            candidate('profile-1', '관심 주제', { candidate_type: 'profile_seed' }),
+            candidate('activity-1', '최근 활동', { candidate_type: 'activity_seed' })
+        ]
+    });
+
+    assert.deepEqual(result.selected.map((item) => item.candidate_type), [
+        'trend_seed', 'profile_seed', 'activity_seed'
+    ]);
+});
+
+test('chooses randomly among candidates within the high-score band for each source', () => {
+    const result = rankTopicCandidates({
+        limit: 1,
+        preferredCandidateTypes: ['profile_seed'],
+        random: () => 0.99,
+        candidates: [
+            candidate('profile-high', '높은 관심 주제', {
+                evidence_features: { owner_keyword_evidence: 6 }
+            }),
+            candidate('profile-close', '비슷하게 좋은 관심 주제', {
+                evidence_features: { owner_keyword_evidence: 5 }
+            }),
+            candidate('profile-low', '낮은 관심 주제', {
+                evidence_features: { owner_keyword_evidence: 1 }
+            })
+        ]
+    });
+
+    assert.equal(result.selected[0].id, 'profile-close');
+});

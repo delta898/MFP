@@ -86,17 +86,31 @@ function createTopicCandidateGenerator() {
             const profile = input.ownerProfile && typeof input.ownerProfile === 'object' ? input.ownerProfile : {};
             const keywords = listProfileFacets(profile, 'keywords');
             const categories = listProfileFacets(profile, 'categories');
+            const recentSubjects = Array.isArray(profile?.activity?.recent_subjects)
+                ? profile.activity.recent_subjects
+                : [];
             const recentKeys = collectRecentKeys(input.recentArtifacts);
+            const excludedCandidateIds = new Set(
+                (Array.isArray(input.excludedCandidateIds) ? input.excludedCandidateIds : [])
+                    .map((value) => compact(value, 240))
+                    .filter(Boolean)
+            );
             const limit = Math.max(1, Math.min(50, Number(input.limit || 20)));
+            const recentArtifacts = Array.isArray(input.recentArtifacts) ? input.recentArtifacts : [];
             const candidates = [];
-            const seen = new Set(recentKeys);
+            const seen = new Set();
             let excludedRecentCount = 0;
+            let excludedPreviousCount = 0;
 
-            function append(candidate) {
+            function append(candidate, options = {}) {
                 if (!candidate) return;
                 const key = normalizeKey(candidate.topic_seed);
                 if (!key) return;
-                if (recentKeys.has(key)) {
+                if (excludedCandidateIds.has(candidate.id) || excludedCandidateIds.has(compact(options.relatedCandidateId, 240))) {
+                    excludedPreviousCount += 1;
+                    return;
+                }
+                if (recentKeys.has(key) && options.allowRecent !== true) {
                     excludedRecentCount += 1;
                     return;
                 }
@@ -168,12 +182,51 @@ function createTopicCandidateGenerator() {
                 }));
             }
 
+            const activityCandidates = [
+                ...recentArtifacts
+                    .filter((artifact) => compact(artifact?.artifact_type, 80).toLowerCase() !== 'content_idea')
+                    .map((artifact) => ({
+                    subject: artifact?.title || artifact?.payload?.subject,
+                    id: artifact?.id,
+                    domain: artifact?.artifact_type || 'blog',
+                    stage: 'recent_artifact',
+                    timestamp: artifact?.timestamp,
+                    relatedCandidateId: artifact?.payload?.recommendation?.candidate_id
+                })),
+                ...recentSubjects.filter((recent) => compact(recent?.stage, 80) !== 'generated')
+            ];
+            for (const recent of activityCandidates.slice(0, 12)) {
+                const subject = compact(recent?.subject, 180);
+                if (!subject) continue;
+                append(buildCandidate({
+                    candidate_type: 'activity_seed',
+                    topic_seed: subject,
+                    source_refs: [{
+                        kind: 'activity',
+                        id: compact(recent?.id, 240),
+                        domain: compact(recent?.domain, 80),
+                        stage: compact(recent?.stage, 80),
+                        timestamp: recent?.timestamp || null
+                    }],
+                    evidence_features: {
+                        recent_activity: true
+                    },
+                    explanation: '최근 글쓰기와 활동 이력을 바탕으로 확장할 수 있는 주제입니다.'
+                }), {
+                    allowRecent: true,
+                    relatedCandidateId: recent?.relatedCandidateId || recent?.recommendation_candidate_id
+                });
+            }
+
+            const limitedCandidates = candidates.slice(0, limit);
+
             return {
                 schema_version: TOPIC_CANDIDATE_SCHEMA_VERSION,
                 owner_user_id: compact(profile.owner_user_id, 240),
-                candidates: candidates.slice(0, limit),
+                candidates: limitedCandidates,
                 excluded_recent_count: excludedRecentCount,
-                source_counts: candidates.reduce((counts, item) => {
+                excluded_previous_count: excludedPreviousCount,
+                source_counts: limitedCandidates.reduce((counts, item) => {
                     counts[item.candidate_type] = (counts[item.candidate_type] || 0) + 1;
                     return counts;
                 }, {})

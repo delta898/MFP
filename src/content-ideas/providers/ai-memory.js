@@ -1,4 +1,5 @@
 const Utils = require('../../utils');
+const Logger = require('../../logger');
 
 function stripCodeFence(raw) {
     return String(raw || '')
@@ -57,8 +58,8 @@ function buildFallbackIdeas(input = {}, context = {}) {
         const topicSeed = String(candidate?.topic_seed || '').trim();
         if (!topicSeed) continue;
         ideas.push({
-            title: `${topicSeed}을(를) 지금 써볼 만한 관점`,
-            summary: `${topicSeed}을(를) 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
+            title: `${topicSeed} 관련해서 지금 정리해볼 핵심 포인트`,
+            summary: `${topicSeed} 관련 정보를 독자가 바로 활용할 수 있는 경험과 실전 팁 중심으로 풀어내는 글감입니다.`,
             reason: String(candidate?.explanation || '사용자 기억과 최신 지식 근거를 반영했습니다.'),
             keywords: [topicSeed],
             source: 'candidate_fallback',
@@ -110,6 +111,57 @@ function normalizeIdeas(rawIdeas = []) {
         source: String(item?.source || 'memory_ai').trim(),
         candidate_id: String(item?.candidate_id || '').trim()
     })).filter((item) => item.title);
+}
+
+function buildContentIdeaResponseSchema(candidates = []) {
+    const candidateIds = candidates.map((candidate) => String(candidate?.id || '').trim()).filter(Boolean);
+    if (candidateIds.length === 0) return null;
+
+    return {
+        type: 'object',
+        additionalProperties: false,
+        required: ['ideas'],
+        properties: {
+            ideas: {
+                type: 'array',
+                minItems: candidateIds.length,
+                maxItems: candidateIds.length,
+                items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['candidate_id', 'title', 'summary', 'reason', 'keywords'],
+                    properties: {
+                        candidate_id: { type: 'string', enum: candidateIds },
+                        title: { type: 'string' },
+                        summary: { type: 'string' },
+                        reason: { type: 'string' },
+                        keywords: {
+                            type: 'array',
+                            minItems: 2,
+                            maxItems: 3,
+                            items: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        }
+    };
+}
+
+function keepIdeasWithinCandidates(ideas = [], candidates = [], input = {}, context = {}) {
+    const allowedCandidates = Array.isArray(candidates) ? candidates : [];
+    if (allowedCandidates.length === 0) return ideas;
+    const allowedIds = new Set(allowedCandidates.map((candidate) => String(candidate?.id || '').trim()).filter(Boolean));
+    const accepted = ideas.filter((idea) => idea.candidate_id && allowedIds.has(idea.candidate_id));
+    const acceptedIds = new Set(accepted.map((idea) => idea.candidate_id));
+    const missingCandidates = allowedCandidates.filter((candidate) => !acceptedIds.has(String(candidate?.id || '').trim()));
+    if (missingCandidates.length === 0) return accepted;
+
+    const fallbackIdeas = normalizeIdeas(buildFallbackIdeas(input, {
+        ...context,
+        recommendationCandidates: missingCandidates
+    }));
+    return [...accepted, ...fallbackIdeas];
 }
 
 function removeRepeatedIdeas(ideas = [], context = {}, query = '') {
@@ -164,83 +216,67 @@ function createAiMemoryContentIdeaProvider() {
         async generate(input = {}, context = {}) {
             const query = String(input.query || '').trim();
             const limit = Math.max(1, Math.min(5, Number(input.limit || 3)));
-            const preferences = Array.isArray(context?.memory?.preferences) ? context.memory.preferences.slice(0, 6) : [];
-            const recentActions = Array.isArray(context?.memory?.recent_actions) ? context.memory.recent_actions.slice(0, 5) : [];
-            const recentSettingChanges = Array.isArray(context?.memory?.recent_setting_changes) ? context.memory.recent_setting_changes.slice(0, 5) : [];
-            const recentArtifacts = Array.isArray(context?.memory?.recent_artifacts) ? context.memory.recent_artifacts.slice(0, 8) : [];
-            const trendKnowledge = Array.isArray(context?.knowledge)
-                ? context.knowledge
-                    .filter((entry) => String(entry?.kind || '').trim() === 'trends')
-                    .flatMap((entry) => Array.isArray(entry.items) ? entry.items : [])
-                    .slice(0, 8)
-                : [];
             const recommendationCandidates = Array.isArray(context?.recommendationCandidates)
-                ? context.recommendationCandidates.slice(0, 12)
+                ? context.recommendationCandidates.slice(0, limit)
                 : [];
+            const selectedCandidates = recommendationCandidates.filter((candidate) => String(candidate?.id || '').trim());
+            const responseSchema = buildContentIdeaResponseSchema(selectedCandidates);
 
-            const prompt = `당신은 블로그 글감 추천기입니다.
-사용자 요청과 현재 기억을 바탕으로 한국어 글감 아이디어를 JSON으로만 반환하세요.
+            const prompt = `당신은 블로그 글감 문구 편집기입니다.
+주제 선택은 프로그램이 이미 끝냈습니다. 후보를 추가, 교체, 병합하거나 순서를 바꾸지 마세요.
 
-[목표]
-- 사용자가 바로 글로 발전시킬 수 있는 실용적인 글감 추천
-- 너무 일반적인 운영 추천 금지
-- AI 모델 설정 자체를 글감으로 추천하는 운영 조언 금지
-- 최근 이미 추천한 제목과 같은 제목 반복 금지
-- 제목은 구체적이고, summary는 1~2문장
-- ideas는 정확히 ${limit}개 이하
+각 후보마다 정확히 한 개씩 한국어 글감 문구를 작성하세요.
+- candidate_id는 입력값을 그대로 한 번씩 사용
+- title: 24~52자, 구체적인 블로그 제목
+- summary: 한 문장, 90자 이내
+- reason: 추천 근거 한 문장, 70자 이내
+- keywords: 2~3개
+- 자연스러운 한국어만 사용하고 '을(를)' 같은 placeholder는 사용 금지
+- JSON 외의 텍스트와 Markdown은 금지
 
-[출력 형식]
-{
-  "ideas": [
-    {
-      "candidate_id": "설명 가능한 추천 후보의 id (해당 후보를 사용한 경우)",
-      "title": "구체적인 글감 제목",
-      "summary": "어떤 관점으로 풀어쓸지 짧은 설명",
-      "reason": "왜 이 글감을 추천하는지",
-      "keywords": ["키워드1", "키워드2"]
-    }
-  ]
-}
+[선택된 후보]
+${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.id} | 주제=${item.topic_seed} | 선별 근거=${item.explanation}`).join('\n') : `- id 없음 | 주제=${query || '새 글감'}`}`;
 
-[사용자 요청]
-${query || '새로운 글감 추천'}
-
-[선호 요약]
-${preferences.length > 0 ? preferences.map((item) => `- ${item.name}: ${JSON.stringify(item.value)}`).join('\n') : '- 없음'}
-
-[최근 action]
-${recentActions.length > 0 ? recentActions.map((item) => `- ${item.domain}.${item.name}`).join('\n') : '- 없음'}
-
-[최근 설정 변경]
-${recentSettingChanges.length > 0 ? recentSettingChanges.map((item) => `- ${item.setting_key}: ${JSON.stringify(item.after)}`).join('\n') : '- 없음'}
-
-[최근 추천된 글감]
-${recentArtifacts.length > 0 ? recentArtifacts.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}
-
-[설명 가능한 추천 후보]
-${recommendationCandidates.length > 0 ? recommendationCandidates.map((item) => `- id=${item.id} | ${item.topic_seed} | ${item.explanation} | 점수 ${Number(item?.ranking?.score || 0)} | 근거 ${Array.isArray(item?.ranking?.breakdown) ? item.ranking.breakdown.map((entry) => `${entry.code}:${entry.points}`).join(', ') : '없음'}`).join('\n') : '- 없음'}
-
-[외부 트렌드 신호]
-${trendKnowledge.length > 0 ? trendKnowledge.map((item) => `- ${item.title}: ${String(item.summary || '').slice(0, 100)}`).join('\n') : '- 없음'}`;
+            const buildFallbackResult = (reason) => {
+                const ideas = applyArtifactFeedback(
+                    removeRepeatedIdeas(normalizeIdeas(buildFallbackIdeas(input, context)), context, query),
+                    context
+                ).slice(0, limit);
+                Logger.warn(`⚠️ [Agent Content Idea AI] 기본 추천으로 전환 (${reason}, ${ideas.length}건)`);
+                return { ideas };
+            };
 
             try {
-                const raw = await Utils.callChatText(prompt, 3, {
-                    usageLabel: 'Agent Content Idea AI'
+                // Interactive recommendations should fall back quickly when the provider is rate-limited.
+                const raw = await Utils.callChatText(prompt, 1, {
+                    usageLabel: 'Agent Content Idea AI',
+                    maxTokens: 1024,
+                    temperature: 0.4,
+                    responseMimeType: 'application/json',
+                    responseJsonSchema: responseSchema,
+                    reasoningEffort: 'minimal',
+                    logTokenUsage: true
                 });
                 const jsonText = extractFirstJsonObject(raw);
                 if (!jsonText) {
-                    return { ideas: applyArtifactFeedback(removeRepeatedIdeas(normalizeIdeas(buildFallbackIdeas(input, context)), context, query), context).slice(0, limit) };
+                    return buildFallbackResult('JSON 응답 없음');
                 }
                 const parsed = JSON.parse(jsonText);
                 const ideas = Array.isArray(parsed?.ideas) ? parsed.ideas : [];
                 if (ideas.length === 0) {
-                    return { ideas: applyArtifactFeedback(removeRepeatedIdeas(normalizeIdeas(buildFallbackIdeas(input, context)), context, query), context).slice(0, limit) };
+                    return buildFallbackResult('추천 결과 없음');
                 }
-                return {
-                    ideas: applyArtifactFeedback(removeRepeatedIdeas(normalizeIdeas(ideas), context, query), context).slice(0, limit)
-                };
-            } catch (_error) {
-                return { ideas: applyArtifactFeedback(removeRepeatedIdeas(normalizeIdeas(buildFallbackIdeas(input, context)), context, query), context).slice(0, limit) };
+                const candidateBoundIdeas = keepIdeasWithinCandidates(
+                    normalizeIdeas(ideas),
+                    recommendationCandidates,
+                    input,
+                    context
+                );
+                const normalizedIdeas = applyArtifactFeedback(removeRepeatedIdeas(candidateBoundIdeas, context, query), context).slice(0, limit);
+                Logger.info(`✅ [Agent Content Idea AI] 글감 추천 완료 (${normalizedIdeas.length}건)`);
+                return { ideas: normalizedIdeas };
+            } catch (error) {
+                return buildFallbackResult(`AI 호출 실패: ${String(error?.message || '알 수 없는 오류').slice(0, 120)}`);
             }
         }
     };

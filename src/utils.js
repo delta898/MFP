@@ -35,7 +35,11 @@ const {
     extractKieOpenAiChatContent,
     getKieOpenAiChatEndpoint
 } = require('./ai/kie-openai-chat');
-const { extractGeminiText, resolveGeminiThinkingConfig } = require('./ai/gemini-response');
+const {
+    extractGeminiText,
+    resolveGeminiThinkingConfig,
+    resolveGeminiTextEndpoint
+} = require('./ai/gemini-response');
 const { resolveAiRetryDecision } = require('./ai/request-retry-policy');
 const {
     KIE_RESPONSES_ENDPOINT,
@@ -3694,8 +3698,12 @@ const Utils = {
         const maxTokens = Number.isFinite(Number(options?.maxTokens)) ? Math.max(32, parseInt(options.maxTokens, 10)) : null;
         const temperature = Number.isFinite(Number(options?.temperature)) ? Number(options.temperature) : null;
         const responseMimeType = String(options?.responseMimeType || '').trim();
+        const responseJsonSchema = options?.responseJsonSchema && typeof options.responseJsonSchema === 'object'
+            ? options.responseJsonSchema
+            : null;
         const modelCode = String(options?.modelCode || '').trim();
         const thinkingConfig = resolveGeminiThinkingConfig(modelCode, options?.reasoningEffort);
+        const endpoint = resolveGeminiTextEndpoint(CONFIG.GEMINI_TEXT_ENDPOINT, modelCode);
         const logStart = options?.logStart !== false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -3705,20 +3713,25 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => {
                         const body = { contents: [{ parts: [{ text: prompt }] }] };
-                        if (maxTokens || temperature !== null || responseMimeType || thinkingConfig) {
+                        if (maxTokens || temperature !== null || responseMimeType || responseJsonSchema || thinkingConfig) {
                             body.generationConfig = {};
                             if (maxTokens) body.generationConfig.maxOutputTokens = maxTokens;
                             if (temperature !== null) body.generationConfig.temperature = temperature;
                             if (responseMimeType) body.generationConfig.responseMimeType = responseMimeType;
+                            if (responseJsonSchema) body.generationConfig.responseJsonSchema = responseJsonSchema;
                             if (thinkingConfig) body.generationConfig.thinkingConfig = thinkingConfig;
                         }
-                        return axios.post(`${CONFIG.GEMINI_TEXT_ENDPOINT}?key=${apiKey}`,
+                        return axios.post(`${endpoint}?key=${apiKey}`,
                         body,
                         { headers: { 'Content-Type': 'application/json' }, timeout: 120000 }
                     );
                     }
                 );
                 const candidate = response.data?.candidates?.[0];
+                if (options?.logTokenUsage === true && response.data?.usageMetadata) {
+                    const usage = response.data.usageMetadata;
+                    Logger.info(`📊 [${usageLabel}] 토큰 사용량: prompt=${Number(usage.promptTokenCount || 0)}, output=${Number(usage.candidatesTokenCount || 0)}, thoughts=${Number(usage.thoughtsTokenCount || 0)}, total=${Number(usage.totalTokenCount || 0)}`);
+                }
                 if (String(candidate?.finishReason || '').toUpperCase() === 'MAX_TOKENS') {
                     Logger.warn(`⚠️ [${usageLabel}] Gemini 응답이 최대 출력 토큰에서 중단되었습니다.`);
                 }

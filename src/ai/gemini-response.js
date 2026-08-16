@@ -22,7 +22,15 @@ function resolveGeminiThinkingConfig(modelCode, reasoningEffort) {
     return { thinkingLevel: effort };
 }
 
+function resolveGeminiTextEndpoint(configuredEndpoint, modelCode) {
+    const endpoint = String(configuredEndpoint || '').trim();
+    const code = String(modelCode || '').trim();
+    if (!endpoint || !code) return endpoint;
+    return endpoint.replace(/(\/models\/)[^:]+(:generateContent(?:\?.*)?$)/, `$1${code}$2`);
+}
+
 module.exports = {
     extractGeminiText,
-    resolveGeminiThinkingConfig
+    resolveGeminiThinkingConfig,
+    resolveGeminiTextEndpoint
 };

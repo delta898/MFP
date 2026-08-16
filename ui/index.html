@@ -370,11 +370,14 @@
             <div class="quick-topic-recommendations-head">
               <div>
                 <h4 id="quick-topic-recommendations-title">나를 위한 글감 추천</h4>
-                <p>최근 글쓰기와 관심 주제, 트렌드를 함께 살펴 골랐어요.</p>
+                <p>최근 글쓰기와 관심 주제, 트렌드를 AI가 함께 살펴 글감을 골라요. 설정된 AI 모델에 따라 사용량이 발생할 수 있어요.</p>
               </div>
-              <button id="quick-topic-recommendations-refresh" class="btn btn-secondary quick-topic-recommendations-refresh" type="button">추천 받기</button>
+              <button id="quick-topic-recommendations-refresh" class="primary quick-topic-recommendations-refresh" type="button">글감 추천</button>
             </div>
-            <div id="quick-topic-recommendations-status" class="quick-topic-recommendations-status">추천 받기를 누르면 최근 글쓰기와 관심 주제를 바탕으로 글감을 찾아드립니다.</div>
+            <div id="quick-topic-recommendations-status" class="quick-topic-recommendations-status">버튼을 누르면 최근 글쓰기와 관심 주제를 바탕으로 글감을 찾아드립니다.</div>
+            <div id="quick-topic-recommendations-progress" class="quick-topic-recommendations-progress" role="progressbar" aria-label="글감 추천을 준비하는 중" hidden>
+              <span></span>
+            </div>
             <div id="quick-topic-recommendations-list" class="quick-topic-recommendations-list" aria-live="polite"></div>
           </section>
 
@@ -401,7 +404,7 @@
               <span class="blog-quick-label">Title (제목, 선택)</span>
               <div class="blog-quick-title-row">
                 <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
-                <button id="quick-title-recommend-btn" class="btn btn-secondary" type="button">
+                <button id="quick-title-recommend-btn" class="secondary" type="button">
                   <span>추천</span>
                 </button>
               </div>

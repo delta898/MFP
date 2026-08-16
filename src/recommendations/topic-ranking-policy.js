@@ -167,16 +167,21 @@ function rankTopicCandidates(input = {}) {
         };
     }).sort((left, right) => right.ranking.score - left.ranking.score || left.ranking.original_index - right.ranking.original_index);
 
+    const preferredCandidateTypes = Array.isArray(input.preferredCandidateTypes)
+        ? input.preferredCandidateTypes.map((value) => String(value || '').trim()).filter(Boolean)
+        : [];
     const selected = [];
     const deferred = [];
     const groupCounts = new Map();
     const maxPerGroup = Math.max(1, finite(policy?.diversity?.max_per_group, 2));
     const threshold = Math.max(0, Math.min(1, finite(policy?.diversity?.similarity_threshold, 0.75)));
+    const random = typeof input.random === 'function' ? input.random : Math.random;
+    const highScoreRatio = Math.max(0, Math.min(1, finite(input.highScoreRatio, 0.8)));
 
-    for (const candidate of scored) {
+    function trySelect(candidate) {
         if (selected.length >= limit) {
             deferred.push({ ...candidate, ranking: { ...candidate.ranking, deferred_reason: 'limit' } });
-            continue;
+            return;
         }
         const isExplicit = candidate.candidate_type === 'request_seed';
         const group = candidate.ranking.diversity_group;
@@ -191,14 +196,48 @@ function rankTopicCandidates(input = {}) {
                     similar_to: similar?.id || null
                 }
             });
-            continue;
+            return;
         }
         selected.push({ ...candidate, ranking: { ...candidate.ranking, rank: selected.length + 1 } });
         groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
     }
 
+    function chooseHighScoreCandidate(items) {
+        if (items.length === 0) return null;
+        const highestScore = items[0].ranking.score;
+        const minimumScore = highestScore > 0 ? highestScore * highScoreRatio : highestScore;
+        const eligible = items.filter((item) => item.ranking.score >= minimumScore);
+        const index = Math.min(eligible.length - 1, Math.floor(Math.max(0, Math.min(0.999999, random())) * eligible.length));
+        return {
+            candidate: eligible[index] || eligible[0],
+            eligibleCount: eligible.length,
+            minimumScore
+        };
+    }
+
+    const preferred = [];
+    for (const candidateType of preferredCandidateTypes) {
+        const candidatesForType = scored.filter((item) => item.candidate_type === candidateType
+            && !selected.some((selectedItem) => selectedItem.id === item.id));
+        const choice = chooseHighScoreCandidate(candidatesForType);
+        if (choice?.candidate) {
+            preferred.push({
+                ...choice.candidate,
+                ranking: {
+                    ...choice.candidate.ranking,
+                    selection_reason: 'random_high_score_band',
+                    high_score_band_count: choice.eligibleCount,
+                    high_score_minimum: choice.minimumScore
+                }
+            });
+        }
+    }
+    const preferredIds = new Set(preferred.map((candidate) => candidate.id));
+    preferred.forEach(trySelect);
+    scored.filter((candidate) => !preferredIds.has(candidate.id)).forEach(trySelect);
+
     return {
-        policy: { id: policy.id, version: policy.version },
+            policy: { id: policy.id, version: policy.version },
         selected,
         deferred,
         input_count: candidates.length,
