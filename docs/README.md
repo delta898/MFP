@@ -36,12 +36,13 @@
 - `architecture/knowledge-providers.md`
 - `architecture/trends-backend.md`
 - `architecture/trends-backend-deployment.md`
-- `architecture/keyword-gateway.md`
+- `architecture/keyword-research-backend.md`
 - `architecture/workspace-layout.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
 - `architecture/chat-model-role.md`
 - `license-policy.md`
+- `keyword-research-operations.md`
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
 - `features/blog-writing-strategy.md`

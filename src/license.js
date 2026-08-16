@@ -450,57 +450,6 @@ const License = {
         }
     },
 
-    issueKeywordAccessToken: async function () {
-        if (!supabase) {
-            return {
-                success: false,
-                code: 'KEYWORD_TOKEN_ISSUE_FAILED',
-                message: '라이선스 서버 설정 오류'
-            };
-        }
-
-        try {
-            const hwid = machineIdSync({ original: true });
-            const keyReady = await ensureLicenseKey(hwid);
-            if (!keyReady.success) {
-                return { ...keyReady, code: keyReady.code || 'KEYWORD_TOKEN_ISSUE_FAILED' };
-            }
-
-            const { data, error } = await supabase.functions.invoke('issue-keyword-access-token', {
-                body: { licenseKey: keyReady.licenseKey, hwid }
-            });
-            if (error) {
-                Logger.warn(`[License] 키워드 접근 토큰 발급 실패: ${sanitizeErrorMessage(error.message)}`);
-                return {
-                    success: false,
-                    code: 'KEYWORD_TOKEN_ISSUE_FAILED',
-                    message: '키워드 분석 접근 권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-                };
-            }
-            if (!data?.success || !data?.accessToken || !data?.expiresAt) {
-                return {
-                    success: false,
-                    code: data?.message === 'license_not_active' ? 'LICENSE_NOT_ACTIVE' : 'KEYWORD_TOKEN_ISSUE_FAILED',
-                    message: data?.message === 'license_not_active'
-                        ? '유효한 라이선스가 필요합니다.'
-                        : '키워드 접근 토큰을 발급하지 못했습니다.'
-                };
-            }
-            return {
-                success: true,
-                accessToken: String(data.accessToken),
-                expiresAt: String(data.expiresAt)
-            };
-        } catch (error) {
-            Logger.warn(`[License] 키워드 접근 토큰 발급 오류: ${sanitizeErrorMessage(error.message)}`);
-            return {
-                success: false,
-                code: 'KEYWORD_TOKEN_ISSUE_FAILED',
-                message: '키워드 접근 권한 확인 중 오류가 발생했습니다.'
-            };
-        }
-    },
-
     requestLicenseRegistration: async function (email) {
         try {
             const normalizedEmail = sanitizeEmail(email);

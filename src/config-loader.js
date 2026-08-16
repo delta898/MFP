@@ -460,8 +460,7 @@ const CONFIG = {
     NAVER_SEARCHAD_CUSTOMER_ID: process.env.NAVER_SEARCHAD_CUSTOMER_ID || '',
     NAVER_API_HUB_CLIENT_ID: process.env.NAVER_API_HUB_CLIENT_ID || '',
     NAVER_API_HUB_CLIENT_SECRET: process.env.NAVER_API_HUB_CLIENT_SECRET || '',
-    KEYWORD_RESEARCH_TRANSPORT: process.env.KEYWORD_RESEARCH_TRANSPORT || 'remote_api',
-    KEYWORD_GATEWAY_BASE_URL: process.env.KEYWORD_GATEWAY_BASE_URL || 'https://keywordapi.hangadac.com',
+    KEYWORD_RESEARCH_TRANSPORT: process.env.KEYWORD_RESEARCH_TRANSPORT || 'supabase_function',
 
     SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
     SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),

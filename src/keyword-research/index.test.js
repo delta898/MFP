@@ -9,11 +9,11 @@ function localClients() {
     };
 }
 
-test('remote transport uses gateway analysis and local title generation', async () => {
+test('Supabase transport uses server analysis and local title generation', async () => {
     const service = createKeywordResearchService({
         ...localClients(),
-        transport: 'remote_api',
-        remoteClient: {
+        transport: 'supabase_function',
+        supabaseClient: {
             analyze: async () => ({
                 selected_keyword: '제주 가족 여행',
                 input_keywords: [],
@@ -37,12 +37,12 @@ test('remote transport uses gateway analysis and local title generation', async 
     assert.equal(result.analysis_note, null);
 });
 
-test('remote analysis failure falls back to title generation with the input keyword', async () => {
+test('Supabase analysis failure falls back to title generation with the input keyword', async () => {
     const service = createKeywordResearchService({
         ...localClients(),
-        transport: 'remote_api',
+        transport: 'supabase_function',
         Logger: { warn() {} },
-        remoteClient: {
+        supabaseClient: {
             analyze: async () => {
                 throw new Error('검색량 지표를 불러오지 못했습니다. 입력한 키워드로 제목을 추천합니다.');
             }

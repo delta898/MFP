@@ -3,16 +3,13 @@ const { createNaverBlogSearchClient } = require('./naver-blog-search-client');
 const { analyzeKeywords, parseKeywords } = require('./keyword-analyzer');
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
 const { createQuickPublishSuggestionService } = require('./quick-publish-suggestion');
-const {
-    DEFAULT_KEYWORD_GATEWAY_BASE_URL,
-    createKeywordResearchRemoteClient
-} = require('./remote-client');
+const { createKeywordResearchSupabaseClient } = require('./supabase-client');
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
     const utils = options.Utils || require('../utils');
     const logger = options.Logger || require('../logger');
-    const transport = String(options.transport || config.KEYWORD_RESEARCH_TRANSPORT || 'remote_api').trim();
+    const transport = String(options.transport || config.KEYWORD_RESEARCH_TRANSPORT || 'supabase_function').trim();
 
     const searchAdClient = options.searchAdClient || createNaverSearchAdClient({
         apiKey: config.NAVER_SEARCHAD_API_KEY,
@@ -34,17 +31,16 @@ function createKeywordResearchService(options = {}) {
         Utils: utils,
         Logger: logger
     });
-    let remoteClient = options.remoteClient || null;
+    let supabaseClient = options.supabaseClient || null;
 
-    function getRemoteClient() {
-        if (remoteClient) return remoteClient;
+    function getSupabaseClient() {
+        if (supabaseClient) return supabaseClient;
         const License = options.License || require('../license');
-        remoteClient = createKeywordResearchRemoteClient({
-            httpClient: options.httpClient,
-            baseUrl: options.gatewayBaseUrl || config.KEYWORD_GATEWAY_BASE_URL || DEFAULT_KEYWORD_GATEWAY_BASE_URL,
-            issueToken: () => License.issueKeywordAccessToken()
+        supabaseClient = createKeywordResearchSupabaseClient({
+            config,
+            License
         });
-        return remoteClient;
+        return supabaseClient;
     }
     const quickPublishSuggestionService = options.quickPublishSuggestionService || createQuickPublishSuggestionService({
         keywordResearchService: {
@@ -53,12 +49,12 @@ function createKeywordResearchService(options = {}) {
     });
 
     function isConfigured() {
-        return transport === 'remote_api'
+        return transport === 'supabase_function'
             || (searchAdClient.isConfigured() && blogSearchClient.isConfigured());
     }
 
     async function analyze(request = {}) {
-        if (transport === 'remote_api') return getRemoteClient().analyze(request);
+        if (transport === 'supabase_function') return getSupabaseClient().analyze(request);
         return analyzeKeywords(request, {
             searchAdClient,
             blogSearchClient
@@ -145,6 +141,6 @@ module.exports = {
     analyzeKeywords,
     createTitleGenerator,
     createQuickPublishSuggestionService,
-    createKeywordResearchRemoteClient,
+    createKeywordResearchSupabaseClient,
     createKeywordResearchService
 };

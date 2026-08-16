@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: keyword gateway implementation and deployment verification
+- Phase: Supabase keyword backend implementation and deployment verification
 - Runtime: BlogGenius JavaScript modules
 - Credential model: BlogGenius-managed remote provider
 
@@ -33,12 +33,13 @@
 
 ```text
 kind: keyword_research
-transport: remote_api
-provider: BlogGenius Keyword Gateway
+transport: supabase_function
+provider: BlogGenius Supabase
 ```
 
-데스크톱 앱은 주제와 키워드를 게이트웨이에 전달하고 정규화된 분석 결과만
-받는다. Search Ads/API HUB 자격증명과 HMAC 서명은 게이트웨이 내부에만 둔다.
+데스크톱 앱은 주제와 키워드를 Supabase Edge Function에 전달하고 정규화된
+분석 결과만 받는다. Search Ads/API HUB 자격증명과 HMAC 서명은 Edge Function
+내부에만 둔다.
 로컬 개발은 환경변수 기반 직접 호출을 fallback으로 허용한다.
 
 ## Quota Policy
@@ -49,7 +50,7 @@ provider: BlogGenius Keyword Gateway
 - Search Ads 응답에서 검색량 기준 미달 후보를 먼저 제외한다.
 - 주제 관련성과 검색량으로 후보를 정렬한 뒤 Blog Search API를 호출한다.
 - 입력 키워드 1개 기준 Blog Search 호출은 최대 9회다.
-- 게이트웨이는 키워드별 결과 cache, 요청 병합, 429 backoff를 제공한다.
+- Supabase Postgres는 키워드별 TTL cache와 라이선스별 rate limit을 제공한다.
 - API HUB 일 25,000회 한도와 별도로 라이선스별 요청 한도를 둔다.
 
 ## Secret Policy
@@ -57,10 +58,10 @@ provider: BlogGenius Keyword Gateway
 - 사용자는 네이버 API 자격증명을 입력하지 않는다.
 - 자격증명을 `config.json`, UI, Git, Electron/ASAR 번들에 저장하지 않는다.
 - Supabase runtime config RPC로 원문 자격증명을 데스크톱에 전달하지 않는다.
-- 운영 네이버 자격증명은 Gateway secret store에서 동적으로 관리한다.
-- Supabase Edge Function은 라이선스 검증과 단기 접근 토큰 발급만 담당한다.
-- 키 교체는 서버 secret 갱신과 gateway 재배포/재시작만으로 처리한다.
-- 데스크톱은 기존 라이선스와 HWID를 사용해 짧은 수명의 접근 권한을 얻는다.
+- 운영 네이버 자격증명은 Supabase Edge Function Secrets에서 동적으로 관리한다.
+- Supabase Edge Function은 라이선스 검증과 네이버 API orchestration을 담당한다.
+- 키 교체는 Supabase secret 갱신만으로 처리한다.
+- 데스크톱은 기존 라이선스와 HWID를 Edge Function 요청에 직접 사용한다.
 - 응답, 오류, 로그에는 credential 또는 서명 헤더를 포함하지 않는다.
 
 ## Current Implementation
@@ -68,17 +69,17 @@ provider: BlogGenius Keyword Gateway
 - `src/keyword-research/keyword-analyzer.js`: 후보 선별과 결정적 점수 계산
 - `src/keyword-research/title-generator.js`: 제목 후보 최대 3개 생성
 - `src/keyword-research/quick-publish-suggestion.js`: 빠른 포스팅 review DTO
-- `src/keyword-research/remote-client.js`: 단기 토큰 기반 Gateway transport
-- `apps/keyword-gateway/`: 인증, 정책 상한, cache, rate limit을 소유하는 서버
-- `supabase/functions/issue-keyword-access-token/`: 라이선스 기반 단기 토큰 발급
+- `src/keyword-research/supabase-client.js`: 라이선스 기반 Edge Function transport
+- `supabase/functions/keyword-research/`: 인증, 정책 상한, 네이버 호출 orchestration
+- `sql/supabase_keyword_research_backend.sql`: cache와 rate limit 저장 계약
 - `/api/v1/blog/quick-publish/smart-suggestions`: UI-facing API
 - 환경변수 직접 호출은 개발용 fallback이며 사용자 config 로딩은 지원하지 않는다.
 
 ## Next Steps
 
-1. Supabase에 `issue-keyword-access-token`을 배포하고 signing secret을 설정한다.
-2. 운영 Gateway에 네이버 secret을 설정하고 HTTPS endpoint를 배포한다.
-3. 실제 라이선스로 token 발급부터 네이버 분석까지 end-to-end 확인한다.
+1. keyword research SQL 계약을 Supabase에 적용한다.
+2. Supabase Secrets에 네이버 자격증명을 설정하고 Edge Function을 배포한다.
+3. 실제 라이선스로 네이버 분석까지 end-to-end 확인한다.
 4. 운영 호출량과 cache hit 비율을 관찰해 3/8 정책값을 조정한다.
 5. 추천 모달 UI를 키워드와 제목 선택 중심으로 정리한다.
 
