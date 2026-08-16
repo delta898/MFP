@@ -276,6 +276,15 @@ body {
   position: relative;
 }
 
+#sidebar-utility-region [data-dynamic-block="developer-support"] .nav-icon {
+  color: #b91c1c;
+}
+
+#sidebar-utility-region [data-dynamic-block="developer-support"]:hover .nav-icon,
+#sidebar-utility-region [data-dynamic-block="developer-support"]:focus-visible .nav-icon {
+  color: #991b1b;
+}
+
 .nav-dynamic-icon-wrap {
   width: 20px;
   height: 20px;
