@@ -130,7 +130,7 @@ function createContentIdeaEngine(options = {}) {
                 };
             });
 
-            Logger.info(`✅ [Content Ideas] 추천 완료 (run=${recommendationRunId}, 최종=${enrichedIdeas.length}건): ${enrichedIdeas.map((idea) => `${compactLog(idea.title)} -> ${idea.candidate_id || '후보 미연결'}`).join(' || ') || '없음'}`);
+            Logger.debug(`✅ [Content Ideas] 추천 완료 (run=${recommendationRunId}, 최종=${enrichedIdeas.length}건): ${enrichedIdeas.map((idea) => `${compactLog(idea.title)} -> ${idea.candidate_id || '후보 미연결'}`).join(' || ') || '없음'}`);
 
             return {
                 ideas: enrichedIdeas.slice(0, requestedLimit),
