@@ -8133,6 +8133,50 @@ select.inline-editor {
   background: var(--bg-card, #ffffff);
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  width: min(960px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(860px, calc(100vh - 32px));
+}
+
+.keyword-research-modal-body {
+  min-height: 0;
+  max-height: none;
+  padding: 20px 24px;
+}
+
+.keyword-modal-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.keyword-modal-search-row .primary {
+  min-width: 112px;
+  white-space: nowrap;
+}
+
+.keyword-modal-loading {
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.keyword-modal-loading.hidden {
+  display: none;
+}
+
+.keyword-modal-loading .spinner {
+  margin: 0;
+}
+
+.keyword-modal-loading p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .keyword-section-title {
@@ -8196,8 +8240,9 @@ select.inline-editor {
 
 .keyword-metrics-table th,
 .keyword-metrics-table td {
-  padding: 10px 14px;
+  padding: 9px 11px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
+  vertical-align: middle;
 }
 
 .keyword-metrics-table th {
@@ -8248,7 +8293,7 @@ select.inline-editor {
   background: var(--bg-surface, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   transition: all 0.2s ease;
   position: relative;
 }
@@ -8311,6 +8356,7 @@ select.inline-editor {
   color: var(--text-main, #0f172a);
   margin-bottom: 8px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .title-details {
@@ -8322,6 +8368,38 @@ select.inline-editor {
   background: var(--bg-surface-secondary, #f8fafc);
   padding: 8px 12px;
   border-radius: 6px;
+}
+
+@media (max-width: 720px) {
+  .keyword-research-modal-container {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .keyword-research-modal-body {
+    padding: 16px;
+  }
+
+  .keyword-modal-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .keyword-modal-search-row .primary {
+    width: 100%;
+  }
+
+  .keyword-metrics-table {
+    min-width: 680px;
+  }
+
+  .title-card-header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .title-apply-btn {
+    flex: 0 0 auto;
+  }
 }
 
 .title-detail-row {

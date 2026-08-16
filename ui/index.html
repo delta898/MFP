@@ -2803,21 +2803,21 @@
 
   <!-- Keyword Research & SEO Title Generator Modal -->
   <div id="keyword-research-modal" class="modal-backdrop hidden" aria-hidden="true">
-    <div class="modal-container keyword-research-modal-container" role="dialog" aria-modal="true" aria-labelledby="keyword-research-modal-title" style="max-width: 780px; width: 95%;">
+    <div class="modal-container keyword-research-modal-container" role="dialog" aria-modal="true" aria-labelledby="keyword-research-modal-title">
       <div class="modal-header">
         <h3 id="keyword-research-modal-title" style="display: flex; align-items: center; gap: 8px;">
           <span>🔍 키워드 분석 &amp; AI SEO 제목 추천</span>
         </h3>
         <button id="keyword-research-modal-close" class="close-btn" type="button" aria-label="닫기">✕</button>
       </div>
-      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-        <div class="keyword-modal-search-row" style="display: flex; gap: 8px; margin-bottom: 16px;">
-          <input id="keyword-modal-input" type="text" placeholder="주제 또는 키워드 입력 (예: 제주도 여행 코스, 블로그 자동화)" class="premium-input" style="flex: 1;">
-          <button id="keyword-modal-search-btn" class="primary" type="button" style="white-space: nowrap; padding: 0 18px;">분석 &amp; 추천</button>
+      <div class="modal-body keyword-research-modal-body">
+        <div class="keyword-modal-search-row">
+          <input id="keyword-modal-input" type="text" placeholder="분석할 주제 입력 (예: 제주도 여행 코스)" class="premium-input">
+          <button id="keyword-modal-search-btn" class="primary" type="button">분석 &amp; 추천</button>
         </div>
-        <div id="keyword-modal-loading" class="keyword-modal-loading hidden" style="text-align: center; padding: 32px 0;">
-          <div class="spinner" style="margin: 0 auto 12px;"></div>
-          <p class="muted" style="font-size: 0.95rem;">네이버 검색량과 블로그 경쟁도를 분석하고 최적의 AI 제목 3종을 생성 중입니다...</p>
+        <div id="keyword-modal-loading" class="keyword-modal-loading hidden">
+          <div class="spinner"></div>
+          <p class="muted">검색량과 경쟁도를 분석하고 제목을 만드는 중입니다...</p>
         </div>
         <div id="keyword-modal-content" class="keyword-modal-content">
           <!-- Populated dynamically by app.js -->
@@ -2846,7 +2846,7 @@
     </div>
   </div>
 
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 
 </html>

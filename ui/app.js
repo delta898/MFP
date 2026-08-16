@@ -12475,13 +12475,20 @@ function initKeywordResearchModal() {
       showUiPopup('분석할 주제나 키워드를 입력해 주세요.');
       return;
     }
+    const subject = String(document.getElementById('quick-subject')?.value || q).trim() || q;
+    const keywords = String(document.getElementById('quick-keywords')?.value || '')
+      .split(',')
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
+    const analysisKeywords = keywords.length > 0 ? keywords : [q];
     if (keywordModalLoading) keywordModalLoading.classList.remove('hidden');
     if (keywordModalContent) keywordModalContent.innerHTML = '';
+    if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = true;
 
     try {
       const data = await postJson('/api/v1/keywords/pipeline', {
-        subject: q,
-        keywords: [q],
+        subject,
+        keywords: analysisKeywords,
         related_assist: true
       });
 
@@ -12496,6 +12503,7 @@ function initKeywordResearchModal() {
       }
     } finally {
       if (keywordModalLoading) keywordModalLoading.classList.add('hidden');
+      if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = false;
     }
   };
 
