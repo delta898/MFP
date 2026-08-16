@@ -96,7 +96,7 @@ function createKeywordResearchService(options = {}) {
                 });
                 selectedKeyword = analysisResult.selected_keyword || selectedKeyword;
             } else {
-                analysisError = '검색량 지표는 아직 연결되지 않았습니다. 입력한 주제와 키워드를 기준으로 제목을 추천합니다.';
+                analysisError = '검색량 지표를 조회하지 못해 입력한 주제와 키워드를 기준으로 제목을 추천합니다.';
             }
         } catch (err) {
             analysisError = err.message;
