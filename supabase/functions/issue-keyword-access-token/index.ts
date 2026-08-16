@@ -24,13 +24,13 @@ serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim()
     || Deno.env.get("SUPABASE_SECRET_KEY")?.trim()
     || "";
-  const signingSecret = Deno.env.get("TRENDS_READ_TOKEN_SECRET")?.trim() || "";
-  const issuer = Deno.env.get("TRENDS_READ_TOKEN_ISSUER")?.trim() || "bloggenius-license";
-  const audience = Deno.env.get("TRENDS_READ_TOKEN_AUDIENCE")?.trim() || "trends-api";
+  const signingSecret = Deno.env.get("KEYWORD_ACCESS_TOKEN_SECRET")?.trim() || "";
+  const issuer = Deno.env.get("KEYWORD_ACCESS_TOKEN_ISSUER")?.trim() || "bloggenius-license";
+  const audience = Deno.env.get("KEYWORD_ACCESS_TOKEN_AUDIENCE")?.trim() || "keyword-gateway";
 
   if (!supabaseUrl || !serviceRoleKey || !signingSecret) {
-    console.error("TRENDS_ACCESS_TOKEN_NOT_CONFIGURED");
-    return json(500, { success: false, message: "trends_access_not_configured" });
+    console.error("KEYWORD_ACCESS_TOKEN_NOT_CONFIGURED");
+    return json(500, { success: false, message: "keyword_access_not_configured" });
   }
 
   let body: Record<string, unknown>;
@@ -55,7 +55,7 @@ serve(async (req: Request) => {
   });
 
   if (error) {
-    console.error("TRENDS_ACCESS_LICENSE_CHECK_FAILED", { code: error.code, message: error.message });
+    console.error("KEYWORD_ACCESS_LICENSE_CHECK_FAILED", { code: error.code, message: error.message });
     return json(503, { success: false, message: "license_service_unavailable" });
   }
   if (!data?.success) {
@@ -67,12 +67,9 @@ serve(async (req: Request) => {
     secret: signingSecret,
     issuer,
     audience,
-    scope: "trends:read",
-    ttlSeconds: parseAccessTokenTtlSeconds(Deno.env.get("TRENDS_READ_TOKEN_TTL_SECONDS")),
+    scope: "keyword:analyze",
+    ttlSeconds: parseAccessTokenTtlSeconds(Deno.env.get("KEYWORD_ACCESS_TOKEN_TTL_SECONDS")),
   });
 
-  return json(200, {
-    success: true,
-    ...token,
-  });
+  return json(200, { success: true, ...token });
 });
