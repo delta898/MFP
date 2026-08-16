@@ -401,11 +401,11 @@
             </label>
 
             <label class="blog-quick-field blog-quick-field-full">
-              <span class="blog-quick-label">Title (제목, 선택)</span>
+              <span class="blog-quick-label">Title (제목) <span class="blog-quick-label-optional">(선택)</span></span>
               <div class="blog-quick-title-row">
                 <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
-                <button id="quick-title-recommend-btn" class="secondary" type="button">
-                  <span>추천</span>
+                <button id="quick-title-recommend-btn" class="primary" type="button">
+                  <span>AI 제목 추천</span>
                 </button>
               </div>
             </label>
@@ -2807,20 +2807,24 @@
   <!-- Keyword Research & SEO Title Generator Modal -->
   <div id="keyword-research-modal" class="modal-backdrop hidden" aria-hidden="true">
     <div class="modal-container keyword-research-modal-container" role="dialog" aria-modal="true" aria-labelledby="keyword-research-modal-title">
-      <div class="modal-header">
-        <h3 id="keyword-research-modal-title" style="display: flex; align-items: center; gap: 8px;">
-          <span>🔍 키워드 분석 &amp; AI SEO 제목 추천</span>
+      <div class="modal-header keyword-modal-header">
+        <h3 id="keyword-research-modal-title">
+          <span>키워드 분석 · AI 제목 추천</span>
         </h3>
         <button id="keyword-research-modal-close" class="close-btn" type="button" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body keyword-research-modal-body">
-        <div class="keyword-modal-search-row">
-          <input id="keyword-modal-input" type="text" placeholder="분석할 주제 입력 (예: 제주도 여행 코스)" class="premium-input">
-          <button id="keyword-modal-search-btn" class="primary" type="button">분석 &amp; 추천</button>
+        <div class="keyword-modal-search-row" role="group" aria-label="글감 분석">
+          <label class="keyword-modal-subject-field">
+            <span>글감 (주제)</span>
+            <input id="keyword-modal-input" type="text" placeholder="예: 제주도 여행 코스" class="premium-input">
+          </label>
+          <button id="keyword-modal-search-btn" class="primary" type="button">키워드 분석</button>
         </div>
         <div id="keyword-modal-loading" class="keyword-modal-loading hidden">
           <div class="spinner"></div>
-          <p class="muted">검색량과 경쟁도를 분석하고 제목을 만드는 중입니다...</p>
+          <p id="keyword-modal-loading-text" class="muted">키워드 지표를 분석하는 중입니다...</p>
+          <div class="keyword-modal-progress" role="progressbar" aria-label="작업 진행 중"><span></span></div>
         </div>
         <div id="keyword-modal-content" class="keyword-modal-content">
           <!-- Populated dynamically by app.js -->

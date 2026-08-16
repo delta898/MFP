@@ -2,49 +2,48 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createKeywordResearchService } = require('./index');
 
-function localClients() {
+function createGatewayStub() {
     return {
-        searchAdClient: { isConfigured: () => false, fetchKeywordRows: async () => [] },
-        blogSearchClient: { isConfigured: () => false, fetchBlogTotal: async () => ({ total: null, error: null }) }
+        fetchSearchAdCandidates: async () => [{
+            keyword: '경주국립박물관',
+            rows: [
+                { relKeyword: '경주국립박물관', monthlyPcQcCnt: '1840', monthlyMobileQcCnt: '18500' },
+                { relKeyword: '경주여행코스', monthlyPcQcCnt: '1270', monthlyMobileQcCnt: '4320' }
+            ]
+        }],
+        fetchWeeklyDocuments: async () => [
+            { keyword: '경주국립박물관', result: { count: 16, status: 'complete', capped: false } },
+            { keyword: '경주여행코스', result: { count: 263, status: 'complete', capped: false } }
+        ]
     };
 }
 
-test('Supabase transport uses server analysis and local title generation', async () => {
+test('BlogGenius combines gateway observations without selecting a representative keyword', async () => {
     const service = createKeywordResearchService({
-        ...localClients(),
-        transport: 'supabase_function',
-        supabaseClient: {
-            analyze: async () => ({
-                selected_keyword: '제주 가족 여행',
-                input_keywords: [],
-                related_candidates: []
-            })
-        },
-        titleGenerator: {
-            suggestTitles: async (input) => ({
-                titles: [{ title: `${input.keyword} 완벽 가이드` }],
-                title_mode: input.title_mode
-            })
-        }
+        CONFIG: { LICENSE_CHK_URL: 'https://example.supabase.co', LICENSE_CHK_KEY: 'publishable-key' },
+        supabaseClient: createGatewayStub()
     });
 
-    const result = await service.researchAndSuggestTitles({
-        subject: '제주 여행',
-        keywords: ['제주 여행']
+    const analysis = await service.analyze({
+        subject: '경주 국립박물관 신라미술관 관람 팁',
+        keywords: ['경주국립박물관'],
+        related_assist: true
     });
-    assert.equal(result.selected_keyword, '제주 가족 여행');
-    assert.equal(result.titles[0].title, '제주 가족 여행 완벽 가이드');
-    assert.equal(result.analysis_note, null);
+
+    assert.equal(analysis.input_keywords[0].weekly_new_blog_documents.count, 16);
+    assert.equal(analysis.related_candidates.length, 1);
+    assert.equal(analysis.related_candidates[0].keyword, '경주여행코스');
+    assert.equal(Object.hasOwn(analysis, 'selected_keyword'), false);
 });
 
-test('Supabase analysis failure falls back to title generation with the input keyword', async () => {
+test('title generation uses the first input keyword without requesting keyword analysis', async () => {
+    let analysisRequested = false;
     const service = createKeywordResearchService({
-        ...localClients(),
-        transport: 'supabase_function',
-        Logger: { warn() {} },
+        CONFIG: { LICENSE_CHK_URL: 'https://example.supabase.co', LICENSE_CHK_KEY: 'publishable-key' },
         supabaseClient: {
-            analyze: async () => {
-                throw new Error('검색량 지표를 불러오지 못했습니다. 입력한 키워드로 제목을 추천합니다.');
+            fetchSearchAdCandidates: async () => {
+                analysisRequested = true;
+                return [];
             }
         },
         titleGenerator: {
@@ -59,7 +58,7 @@ test('Supabase analysis failure falls back to title generation with the input ke
         subject: '제주 여행',
         keywords: ['제주 여행']
     });
-    assert.equal(result.selected_keyword, '제주 여행');
-    assert.match(result.analysis_note, /검색량 지표/);
-    assert.equal(result.titles[0].title, '제주 여행 기본 제목');
+    assert.equal(result.input_keyword, '제주 여행');
+    assert.equal(result.analysis, null);
+    assert.equal(analysisRequested, false);
 });

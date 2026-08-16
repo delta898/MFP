@@ -5,7 +5,8 @@
 ### 1. Install Database Objects
 
 Supabase Dashboard에서 프로젝트를 열고 `SQL Editor -> New query`로 이동한다.
-`sql/supabase_keyword_research_backend.sql` 전체를 실행한다.
+최초 설치에서는 `sql/supabase_keyword_research_backend.sql` 전체를 실행한다.
+기존 설치에서는 `sql/supabase_keyword_research_weekly_documents.sql`도 이어서 실행한다.
 
 성공 후 `Table Editor`에 다음 테이블이 보인다.
 
@@ -57,23 +58,24 @@ supabase functions deploy keyword-research --no-verify-jwt
 
 ```text
 KEYWORD_MAX_INPUT_COUNT=3
-KEYWORD_MAX_RELATED_CANDIDATES=8
-KEYWORD_DEFAULT_RELATED_CANDIDATES=8
-KEYWORD_MIN_SEARCH_VOLUME=300
+KEYWORD_MAX_WEEKLY_DOCUMENT_KEYWORDS=11
 KEYWORD_RATE_LIMIT_PER_MINUTE=20
 KEYWORD_SEARCHAD_CACHE_TTL_SECONDS=21600
-KEYWORD_BLOG_CACHE_TTL_SECONDS=3600
+KEYWORD_WEEKLY_DOCUMENT_CACHE_TTL_SECONDS=3600
+KEYWORD_WEEKLY_DOCUMENT_MAX_PAGES=3
 KEYWORD_UPSTREAM_TIMEOUT_MS=10000
 KEYWORD_BLOG_CONCURRENCY=3
 ```
 
-연관 후보는 입력 키워드별 8개가 아니라 모든 입력 키워드를 합쳐 총 8개다.
-secret과 정책값 변경은 함수 재배포 없이 적용된다.
+현재 BlogGenius 제품 정책은 입력 3개와 연관 후보 총 8개를 측정한다. 입력 키워드는
+검색량과 무관하게 모두 표에 표시하며, 연관 후보는 의미 적합성으로 자동 제외하지 않는다.
+이는 사용자 선택을 돕기 위한 표시 정책이므로 데스크톱 코드가 관리한다. Edge 환경변수는
+요청량과 외부 API 비용을 보호하는 상한만 관리하며, secret과 정책값 변경은 함수 재배포 없이 적용된다.
 
 ## Verification
 
 1. BlogGenius에서 주제와 키워드를 입력하고 `추천`을 누른다.
-2. 추천 모달에 월간 검색량, 블로그 문서 수와 경쟁강도가 표시되는지 확인한다.
+2. 추천 모달에 입력 키워드 표기, 월간/주간 검색량, 최근 7일 신규 문서와 경쟁강도가 표시되는지 확인한다.
 3. 같은 키워드를 다시 요청하고 `keyword_research_cache.updated_at`이 불필요하게
    갱신되지 않는지 확인한다.
 4. Edge Function 로그에 credential, signature, license key가 출력되지 않는지

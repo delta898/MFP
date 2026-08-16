@@ -453,15 +453,6 @@ const CONFIG = {
         : [],
     BUFFER_HELP_URL: structuredConfig.integrations?.buffer?.help_url || '',
 
-    // Local-development fallback only. Production credentials remain in the
-    // BlogGenius keyword gateway and are never loaded from user config.json.
-    NAVER_SEARCHAD_API_KEY: process.env.NAVER_SEARCHAD_API_KEY || '',
-    NAVER_SEARCHAD_SECRET_KEY: process.env.NAVER_SEARCHAD_SECRET_KEY || '',
-    NAVER_SEARCHAD_CUSTOMER_ID: process.env.NAVER_SEARCHAD_CUSTOMER_ID || '',
-    NAVER_API_HUB_CLIENT_ID: process.env.NAVER_API_HUB_CLIENT_ID || '',
-    NAVER_API_HUB_CLIENT_SECRET: process.env.NAVER_API_HUB_CLIENT_SECRET || '',
-    KEYWORD_RESEARCH_TRANSPORT: process.env.KEYWORD_RESEARCH_TRANSPORT || 'supabase_function',
-
     SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
     SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),
     SNS_AI_MODE: normalizeSnsAiMode(
@@ -597,16 +588,6 @@ const CONFIG = {
             wpPass && !isPlaceholder(wpPass));
     },
 
-    // 🆕 네이버 검색광고 설정 완료 여부
-    get CONFIG_IS_SEARCHAD_SET() {
-        const apiKey = String(this.NAVER_SEARCHAD_API_KEY || '').trim();
-        const secretKey = String(this.NAVER_SEARCHAD_SECRET_KEY || '').trim();
-        const customerId = String(this.NAVER_SEARCHAD_CUSTOMER_ID || '').trim();
-        const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
-        return Boolean(apiKey && !isPlaceholder(apiKey) &&
-            secretKey && !isPlaceholder(secretKey) &&
-            customerId && !isPlaceholder(customerId));
-    }
 };
 
 ensureRuntimeRemoteMcpConfig(CONFIG);

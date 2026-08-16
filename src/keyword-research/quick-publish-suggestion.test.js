@@ -37,17 +37,16 @@ test('buildQuickPublishSuggestionResponse returns reviewable apply payloads', ()
         },
         {
             subject: '블로그 자동화 시작법',
-            selected_keyword: '네이버 블로그 자동화',
+            input_keyword: '네이버 블로그 자동화',
             analysis: {
-                selection_reason: '연관 키워드 중 공략 우선순위가 높습니다.',
                 input_keywords: [],
                 related_candidates: [{
                     keyword: '네이버 블로그 자동화',
                     monthly_search_volume: { total: 1200, pc: 200, mobile: 1000 },
-                    blog_document_count: 500,
+                    estimated_weekly_search_volume: 270.97,
+                    weekly_new_blog_documents: { count: 12, status: 'complete', capped: false },
                     competition_strength: { level: '낮음' },
-                    opportunity: { monthly_searches_per_document: 2.4 },
-                    recommendation_eligibility: { eligible: true }
+                    opportunity: { estimated_weekly_searches_per_new_document: 22.58 }
                 }]
             },
             titles: [{
@@ -63,7 +62,7 @@ test('buildQuickPublishSuggestionResponse returns reviewable apply payloads', ()
     assert.equal(response.mode, 'review');
     assert.equal(response.suggestions.length, 1);
     assert.equal(response.suggestions[0].keyword, '네이버 블로그 자동화');
-    assert.equal(response.suggestions[0].metrics.blog_document_count, 500);
+    assert.equal(response.suggestions[0].metrics.weekly_new_blog_documents.count, 12);
     assert.equal(response.suggestions[0].title_candidates.length, 1);
     assert.equal(response.suggestions[0].title_candidates[0].apply_payload.subject, '네이버 블로그 자동화 시작 전 확인할 기본 설정');
     assert.deepEqual(response.suggestions[0].title_candidates[0].apply_payload.keywords, ['네이버 블로그 자동화']);
@@ -78,7 +77,7 @@ test('createQuickPublishSuggestionService delegates to keyword pipeline', async 
                 calls.push(input);
                 return {
                     subject: input.subject,
-                    selected_keyword: 'AI 블로그 글쓰기',
+                    input_keyword: 'AI 블로그 글쓰기',
                     titles: [{
                         role: '구체 범위형',
                         title: 'AI 블로그 글쓰기 초보자가 먼저 정할 것'

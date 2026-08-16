@@ -1,47 +1,47 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-    createKeywordResearchSupabaseClient,
-    readFunctionError
-} = require('./supabase-client');
+const { createKeywordResearchSupabaseClient, readFunctionError } = require('./supabase-client');
 
-test('Supabase keyword client adds authenticated license context to one function invocation', async () => {
-    let captured;
+test('Supabase keyword gateway adds authenticated context to each observation request', async () => {
+    const calls = [];
     const client = createKeywordResearchSupabaseClient({
-        License: {
-            resolveAuthenticatedServerContext: async () => ({
-                success: true,
-                licenseKey: 'license-key',
-                hwid: 'hardware-id'
-            })
-        },
+        License: { resolveAuthenticatedServerContext: async () => ({ success: true, licenseKey: 'license-key', hwid: 'hardware-id' }) },
         client: {
             functions: {
                 invoke: async (...args) => {
-                    captured = args;
-                    return { data: { success: true, analysis: { selected_keyword: '제주 여행' } }, error: null };
+                    calls.push(args);
+                    const operation = args[1].body.operation;
+                    return {
+                        data: operation === 'search_ad'
+                            ? { success: true, search_ad: [{ keyword: '제주 여행', rows: [] }] }
+                            : { success: true, weekly_documents: [{ keyword: '제주 여행', result: { count: 1 } }] },
+                        error: null
+                    };
                 }
             }
         }
     });
-    const result = await client.analyze({
-        subject: '제주 여행',
-        keywords: ['제주 여행'],
-        licenseKey: 'caller-value'
-    });
-    assert.equal(result.selected_keyword, '제주 여행');
-    assert.equal(captured[0], 'keyword-research');
-    assert.equal(captured[1].body.licenseKey, 'license-key');
-    assert.equal(captured[1].body.hwid, 'hardware-id');
+
+    const searchAd = await client.fetchSearchAdCandidates({ keywords: ['제주 여행'] });
+    const weeklyDocuments = await client.fetchWeeklyDocuments({ keywords: ['제주 여행'] });
+
+    assert.equal(searchAd[0].keyword, '제주 여행');
+    assert.equal(weeklyDocuments[0].result.count, 1);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0][0], 'keyword-research');
+    assert.equal(calls[0][1].body.operation, 'search_ad');
+    assert.equal(calls[1][1].body.operation, 'weekly_documents');
+    assert.equal(calls[0][1].body.licenseKey, 'license-key');
+    assert.equal(calls[0][1].body.hwid, 'hardware-id');
 });
 
-test('Supabase keyword client stops before invocation when license context is unavailable', async () => {
+test('Supabase keyword gateway stops before invocation when license context is unavailable', async () => {
     let invoked = false;
     const client = createKeywordResearchSupabaseClient({
         License: { resolveAuthenticatedServerContext: async () => ({ success: false, message: 'inactive' }) },
         client: { functions: { invoke: async () => { invoked = true; } } }
     });
-    await assert.rejects(client.analyze({}), /inactive/);
+    await assert.rejects(client.fetchSearchAdCandidates({}), /inactive/);
     assert.equal(invoked, false);
 });
 

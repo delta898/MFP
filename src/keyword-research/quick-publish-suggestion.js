@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { parseKeywords } = require('./keyword-analyzer');
+const { parseKeywords } = require('./input');
 const { normalizeTitleMode } = require('./title-generator');
 
 const QUICK_PUBLISH_SUGGESTION_SCHEMA_VERSION = 1;
@@ -39,10 +39,10 @@ function summarizeKeywordMetrics(candidate = null) {
     return {
         keyword: compact(candidate.keyword, 120),
         monthly_search_volume: candidate.monthly_search_volume || null,
-        blog_document_count: candidate.blog_document_count ?? null,
+        estimated_weekly_search_volume: candidate.estimated_weekly_search_volume ?? null,
+        weekly_new_blog_documents: candidate.weekly_new_blog_documents || null,
         competition_strength: candidate.competition_strength || null,
-        opportunity: candidate.opportunity || null,
-        recommendation_eligibility: candidate.recommendation_eligibility || null
+        opportunity: candidate.opportunity || null
     };
 }
 
@@ -87,7 +87,7 @@ function normalizeTitleCandidates(titles = [], suggestion = {}) {
 }
 
 function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {}) {
-    const selectedKeyword = compact(pipelineResult.selected_keyword || original.keywords?.[0] || original.subject, 120);
+    const selectedKeyword = compact(pipelineResult.input_keyword || original.keywords?.[0] || original.subject, 120);
     const selectedCandidate = findSelectedCandidate(pipelineResult.analysis, selectedKeyword);
     const suggestion = {
         id: stableId('quick_suggestion', `${original.subject}:${selectedKeyword}:${pipelineResult.title_mode || original.title_mode}`),
@@ -95,12 +95,7 @@ function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {})
         topic: compact(pipelineResult.subject || original.subject, 180),
         keyword: selectedKeyword,
         keywords: selectedKeyword ? [selectedKeyword] : original.keywords,
-        reason: compact(
-            pipelineResult.analysis?.selection_reason
-            || pipelineResult.selection_reason
-            || '입력한 주제와 키워드를 바탕으로 생성한 추천 조합입니다.',
-            260
-        ),
+        reason: '입력한 주제와 키워드를 바탕으로 생성한 조합입니다.',
         analysis_note: compact(pipelineResult.analysis_note || '', 260),
         metrics: summarizeKeywordMetrics(selectedCandidate)
     };
@@ -140,7 +135,6 @@ function createQuickPublishSuggestionService(options = {}) {
                 subject: original.subject,
                 content: original.instruction,
                 related_assist: input.related_assist ?? true,
-                min_search_volume: input.min_search_volume ?? 300,
                 title_mode: original.title_mode,
                 count: input.count ?? 3
             });

@@ -1,11 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import {
-  buildKeywordAnalysis,
-  normalizeKeyword,
-  prepareKeywordRows,
-  type SearchAdRow,
-} from "../_shared/keyword-analysis.ts";
+
+type SearchAdRow = Record<string, unknown>;
 
 const encoder = new TextEncoder();
 
@@ -26,18 +22,21 @@ function intEnv(name: string, fallback: number, min: number, max: number) {
 }
 
 function resolvePolicy() {
-  const maxRelatedCandidates = intEnv("KEYWORD_MAX_RELATED_CANDIDATES", 8, 1, 100);
   return {
     maxInputCount: intEnv("KEYWORD_MAX_INPUT_COUNT", 3, 1, 10),
-    maxRelatedCandidates,
-    defaultRelatedCandidates: intEnv("KEYWORD_DEFAULT_RELATED_CANDIDATES", 8, 1, maxRelatedCandidates),
-    minSearchVolume: intEnv("KEYWORD_MIN_SEARCH_VOLUME", 300, 0, 100000000),
+    // Security/cost ceiling only. BlogGenius decides its product candidate count.
+    maxWeeklyDocumentKeywords: intEnv("KEYWORD_MAX_WEEKLY_DOCUMENT_KEYWORDS", 11, 1, 30),
     rateLimitPerMinute: intEnv("KEYWORD_RATE_LIMIT_PER_MINUTE", 20, 1, 10000),
     searchAdCacheTtlSeconds: intEnv("KEYWORD_SEARCHAD_CACHE_TTL_SECONDS", 21600, 60, 86400),
-    blogCacheTtlSeconds: intEnv("KEYWORD_BLOG_CACHE_TTL_SECONDS", 3600, 60, 86400),
+    weeklyDocumentCacheTtlSeconds: intEnv("KEYWORD_WEEKLY_DOCUMENT_CACHE_TTL_SECONDS", 3600, 60, 86400),
+    weeklyDocumentMaxPages: intEnv("KEYWORD_WEEKLY_DOCUMENT_MAX_PAGES", 3, 1, 10),
     upstreamTimeoutMs: intEnv("KEYWORD_UPSTREAM_TIMEOUT_MS", 10000, 1000, 30000),
     blogConcurrency: intEnv("KEYWORD_BLOG_CONCURRENCY", 3, 1, 5),
   };
+}
+
+function normalizeKeyword(value: unknown) {
+  return String(value || "").replace(/\s+/g, "").toLocaleLowerCase("ko-KR");
 }
 
 function parseKeywords(value: unknown) {
@@ -89,7 +88,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 // Generated database types are not available in the Edge Function bundle.
 function createCache(supabase: any) {
   return {
-    async get(kind: "search_ad" | "blog_total", key: string) {
+    async get(kind: "search_ad" | "blog_weekly", key: string) {
       const { data, error } = await supabase
         .from("keyword_research_cache")
         .select("payload, expires_at")
@@ -103,7 +102,7 @@ function createCache(supabase: any) {
       }
       return data?.payload ?? null;
     },
-    async set(kind: "search_ad" | "blog_total", key: string, payload: unknown, ttlSeconds: number) {
+    async set(kind: "search_ad" | "blog_weekly", key: string, payload: unknown, ttlSeconds: number) {
       const { error } = await supabase.from("keyword_research_cache").upsert({
         cache_kind: kind,
         cache_key: key,
@@ -114,6 +113,31 @@ function createCache(supabase: any) {
       if (error) console.warn("KEYWORD_CACHE_WRITE_FAILED", { code: error.code });
     },
   };
+}
+
+function kstDateKey(value = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${pick("year")}${pick("month")}${pick("day")}`;
+}
+
+function subtractCalendarDays(dateKey: string, days: number) {
+  const date = new Date(Date.UTC(
+    Number(dateKey.slice(0, 4)),
+    Number(dateKey.slice(4, 6)) - 1,
+    Number(dateKey.slice(6, 8)) - days,
+  ));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function postDateKey(value: unknown) {
+  const match = String(value || "").match(/^(\d{8})$/);
+  return match ? match[1] : null;
 }
 
 function createNaverClients(config: Record<string, string>, cache: ReturnType<typeof createCache>, policy: ReturnType<typeof resolvePolicy>) {
@@ -156,19 +180,15 @@ function createNaverClients(config: Record<string, string>, cache: ReturnType<ty
     throw new Error("search_ad_upstream_failed");
   }
 
-  async function fetchBlogTotal(keyword: string) {
-    const key = normalizeKeyword(keyword);
-    const cached = await cache.get("blog_total", key);
-    if (cached && typeof cached === "object" && "total" in cached) {
-      return cached as { total: number | null; error: string | null };
-    }
-
+  async function fetchWeeklyDocuments(keyword: string) {
+    const cutoffDate = subtractCalendarDays(kstDateKey(), 6);
+    const key = `${normalizeKeyword(keyword)}:${cutoffDate}:p${policy.weeklyDocumentMaxPages}`;
+    const cached = await cache.get("blog_weekly", key);
+    if (cached && typeof cached === "object" && "count" in cached) return cached;
     const useApiHub = Boolean(config.apiHubClientId && config.apiHubClientSecret);
     const url = new URL(useApiHub
       ? "https://naverapihub.apigw.ntruss.com/search/v1/blog"
       : "https://openapi.naver.com/v1/search/blog.json");
-    url.searchParams.set("query", keyword);
-    url.searchParams.set("display", "1");
     const headers: Record<string, string> = useApiHub
       ? {
         "X-NCP-APIGW-API-KEY-ID": config.apiHubClientId,
@@ -178,23 +198,49 @@ function createNaverClients(config: Record<string, string>, cache: ReturnType<ty
         "X-Naver-Client-Id": config.naverClientId,
         "X-Naver-Client-Secret": config.naverClientSecret,
       };
-    const response = await fetchWithTimeout(url.toString(), { headers }, policy.upstreamTimeoutMs);
-    if (!response.ok) {
-      console.warn("KEYWORD_BLOG_SEARCH_FAILED", { status: response.status });
-      const error = response.status === 401 || response.status === 403
-        ? "blog_search_auth_failed"
-        : (response.status === 429 ? "blog_search_rate_limited" : "blog_search_upstream_failed");
-      return { total: null, error };
+    let count = 0;
+    let pagesFetched = 0;
+    for (let page = 0; page < policy.weeklyDocumentMaxPages; page += 1) {
+      url.search = "";
+      url.searchParams.set("query", keyword);
+      url.searchParams.set("display", "100");
+      url.searchParams.set("start", String(page * 100 + 1));
+      url.searchParams.set("sort", "date");
+      const response = await fetchWithTimeout(url.toString(), { headers }, policy.upstreamTimeoutMs);
+      if (!response.ok) {
+        console.warn("KEYWORD_BLOG_SEARCH_FAILED", { status: response.status });
+        const error = response.status === 401 || response.status === 403
+          ? "blog_search_auth_failed"
+          : (response.status === 429 ? "blog_search_rate_limited" : "blog_search_upstream_failed");
+        return { count: null, status: "incomplete", capped: false, cutoff_date: cutoffDate, pages_fetched: pagesFetched, error };
+      }
+      const payload = await response.json();
+      const items = Array.isArray(payload?.items) ? payload.items : null;
+      if (!items) {
+        return { count: null, status: "incomplete", capped: false, cutoff_date: cutoffDate, pages_fetched: pagesFetched, error: "invalid_blog_search_response" };
+      }
+      pagesFetched += 1;
+      let reachedOlderDocument = false;
+      for (const item of items) {
+        const date = postDateKey(item?.postdate);
+        if (!date || date < cutoffDate) {
+          reachedOlderDocument = true;
+          break;
+        }
+        count += 1;
+      }
+      if (reachedOlderDocument || items.length < 100) {
+        const result = { count, status: "complete", capped: false, cutoff_date: cutoffDate, pages_fetched: pagesFetched, error: null };
+        await cache.set("blog_weekly", key, result, policy.weeklyDocumentCacheTtlSeconds);
+        return result;
+      }
     }
-    const payload = await response.json();
-    const result = typeof payload?.total === "number"
-      ? { total: Math.floor(payload.total), error: null }
-      : { total: null, error: "invalid_blog_search_response" };
-    if (result.total !== null) await cache.set("blog_total", key, result, policy.blogCacheTtlSeconds);
+    const result = { count, status: "lower_bound", capped: true, cutoff_date: cutoffDate, pages_fetched: pagesFetched, error: null };
+    await cache.set("blog_weekly", key, result, policy.weeklyDocumentCacheTtlSeconds);
     return result;
   }
 
-  return { fetchKeywordRows, fetchBlogTotal };
+  return { fetchKeywordRows, fetchWeeklyDocuments };
 }
 
 async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>) {
@@ -245,13 +291,17 @@ serve(async (req: Request) => {
 
   const licenseKey = String(body.licenseKey || "").trim();
   const hwid = String(body.hwid || "").trim();
-  const subject = String(body.subject || "").replace(/\s+/g, " ").trim();
+  const operation = String(body.operation || "").trim();
   const keywords = parseKeywords(body.keywords || body.keyword);
   const policy = resolvePolicy();
   if (!licenseKey || licenseKey.length > 256 || !hwid || hwid.length > 256) {
     return json(400, { success: false, code: "INVALID_LICENSE_CONTEXT", message: "invalid_license_context" });
   }
-  if (!subject || keywords.length === 0 || keywords.length > policy.maxInputCount) {
+  const maxKeywords = operation === "weekly_documents"
+    ? policy.maxWeeklyDocumentKeywords
+    : policy.maxInputCount;
+  if (!["search_ad", "weekly_documents"].includes(operation)
+    || keywords.length === 0 || keywords.length > maxKeywords) {
     return json(400, { success: false, code: "INVALID_REQUEST", message: "invalid_keyword_request" });
   }
 
@@ -289,47 +339,21 @@ serve(async (req: Request) => {
   try {
     const cache = createCache(supabase);
     const naver = createNaverClients(config, cache, policy);
-    const rowsByKeyword = new Map<string, SearchAdRow[]>();
-    for (const keyword of keywords) {
-      rowsByKeyword.set(normalizeKeyword(keyword), await naver.fetchKeywordRows(keyword));
+    if (operation === "search_ad") {
+      const searchAd = await mapConcurrent(
+        keywords,
+        policy.blogConcurrency,
+        async (keyword) => ({ keyword, rows: await naver.fetchKeywordRows(keyword) }),
+      );
+      return json(200, { success: true, search_ad: searchAd });
     }
-    const requestedRelated = Number.parseInt(String(body.related_limit ?? body.relatedLimit ?? policy.defaultRelatedCandidates), 10);
-    const relatedLimit = Math.min(
-      policy.maxRelatedCandidates,
-      Math.max(1, Number.isFinite(requestedRelated) ? requestedRelated : policy.defaultRelatedCandidates),
-    );
-    const prepared = prepareKeywordRows({
+
+    const weeklyDocuments = await mapConcurrent(
       keywords,
-      subject,
-      rowsByKeyword,
-      relatedAssist: (body.related_assist ?? body.relatedAssist) !== false,
-      relatedLimit,
-      minSearchVolume: policy.minSearchVolume,
-    });
-    const blogKeywords = [
-      ...keywords,
-      ...prepared.relatedRows.map((item) => String(item.row?.relKeyword || "")),
-    ];
-    const blogResults = await mapConcurrent(
-      blogKeywords,
       policy.blogConcurrency,
-      (keyword) => naver.fetchBlogTotal(keyword),
+      async (keyword) => ({ keyword, result: await naver.fetchWeeklyDocuments(keyword) }),
     );
-    const blogTotals = new Map(blogKeywords.map((keyword, index) => [
-      normalizeKeyword(keyword),
-      blogResults[index],
-    ]));
-    const analysis = buildKeywordAnalysis({
-      keywords,
-      subject,
-      inputRows: prepared.inputRows,
-      relatedRows: prepared.relatedRows,
-      blogTotals,
-      minSearchVolume: policy.minSearchVolume,
-      relatedAssist: (body.related_assist ?? body.relatedAssist) !== false,
-      relatedLimit,
-    });
-    return json(200, { success: true, analysis });
+    return json(200, { success: true, weekly_documents: weeklyDocuments });
   } catch (error) {
     console.error("KEYWORD_RESEARCH_FAILED", { name: error instanceof Error ? error.name : "Error" });
     return json(502, { success: false, code: "UPSTREAM_FAILED", message: "keyword_upstream_failed" });

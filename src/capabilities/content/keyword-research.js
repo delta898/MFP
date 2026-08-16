@@ -26,9 +26,7 @@ function createKeywordResearchCapabilities(deps = {}) {
                         keywords: keywords.length > 0 ? keywords : [subject],
                         subject,
                         related_assist: params.related_assist ?? true,
-                        related_limit: params.related_limit ?? 8,
-                        candidate_limit: params.candidate_limit ?? 8,
-                        min_search_volume: params.min_search_volume ?? 300
+                        related_limit: params.related_limit ?? 8
                     }
                 };
             },
@@ -41,12 +39,16 @@ function createKeywordResearchCapabilities(deps = {}) {
             },
             async execute(params = {}) {
                 const result = await keywordResearchService.analyze(params);
-                const inputInfo = (result.input_keywords || []).map((k) => `• ${k.keyword}: 월간검색 ${k.monthly_search_volume?.total || 0}회 / 문서수 ${k.blog_document_count || 0}건 (경쟁강도: ${k.competition_strength?.level || '미확인'})`).join('\n');
-                const selected = result.selected_keyword ? `\n\n🎯 추천 대표 키워드: ${result.selected_keyword} (${result.selection_reason || ''})` : '';
-
+                const inputInfo = (result.input_keywords || []).map((k) => {
+                    const recent = k.weekly_new_blog_documents?.count;
+                    const recentLabel = recent === null || recent === undefined
+                        ? '측정 불가'
+                        : `${recent}${k.weekly_new_blog_documents?.capped ? '+' : ''}건`;
+                    return `• ${k.keyword}: 월간검색 ${k.monthly_search_volume?.total || 0}회 / 최근 7일 신규 문서 ${recentLabel} (경쟁강도: ${k.competition_strength?.level || '미확인'})`;
+                }).join('\n');
                 return {
                     success: true,
-                    message: `📊 키워드 분석 결과:\n${inputInfo}${selected}`,
+                    message: `📊 키워드 분석 결과:\n${inputInfo}`,
                     data: result,
                     sideEffects: []
                 };

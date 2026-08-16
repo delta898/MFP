@@ -2317,7 +2317,7 @@ async function recordQuickTopicRecommendationOutcome(item, stage, extra = {}) {
 
 async function applyQuickTopicRecommendation(item) {
   if (!item) return false;
-  const values = ['quick-subject', 'quick-keywords', 'quick-instruction', 'quick-reference-url']
+  const values = ['quick-subject', 'quick-keywords', 'quick-title', 'quick-instruction', 'quick-reference-url']
     .map((id) => String(document.getElementById(id)?.value || '').trim());
   const activeContext = getActiveQuickRecommendationContext();
   const same = activeContext?.id === String(item.id || '');
@@ -2330,6 +2330,8 @@ async function applyQuickTopicRecommendation(item) {
   }
   applyQuickInputMode('ai');
   const keywordsText = Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
+  // A newly selected topic starts a new draft; do not keep a title from the previous one.
+  document.getElementById('quick-title').value = '';
   document.getElementById('quick-subject').value = String(item.title || '').trim();
   document.getElementById('quick-keywords').value = keywordsText;
   document.getElementById('quick-instruction').value = String(item.summary || '').trim();
@@ -12469,20 +12471,58 @@ function initKeywordResearchModal() {
   const keywordModalInput = document.getElementById('keyword-modal-input');
   const keywordModalSearchBtn = document.getElementById('keyword-modal-search-btn');
   const keywordModalLoading = document.getElementById('keyword-modal-loading');
+  const keywordModalLoadingText = document.getElementById('keyword-modal-loading-text');
   const keywordModalContent = document.getElementById('keyword-modal-content');
+  const keywordModalState = {
+    analysis: null,
+    selectedKeywords: [],
+    titles: [],
+    isGeneratingTitles: false,
+    titleRequestId: 0
+  };
 
   if (!keywordModal) return;
+
+  const normalizeKeywordKey = (value) => String(value || '').replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
+  const splitKeywords = (value) => String(value || '')
+    .split(',')
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+
+  const collectAnalysisKeywords = (analysis) => {
+    const seen = new Set();
+    return [...(analysis?.input_keywords || []), ...(analysis?.related_candidates || [])]
+      .filter((item) => String(item?.keyword || '').trim())
+      .filter((item) => {
+        const key = normalizeKeywordKey(item.keyword);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  const setKeywordModalLoading = (isLoading, message = '') => {
+    if (keywordModalLoading) keywordModalLoading.classList.toggle('hidden', !isLoading);
+    if (keywordModalLoadingText && message) keywordModalLoadingText.textContent = message;
+    if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = isLoading;
+    if (isLoading && keywordModalContent) keywordModalContent.innerHTML = '';
+  };
 
   const openKeywordModal = () => {
     const currentSubject = (document.getElementById('quick-subject')?.value || '').trim();
     const currentKeywords = (document.getElementById('quick-keywords')?.value || '').trim();
     const currentTitle = (document.getElementById('quick-title')?.value || '').trim();
     const initialQuery = currentSubject || currentKeywords || currentTitle;
+    keywordModalState.analysis = null;
+    keywordModalState.selectedKeywords = [];
+    keywordModalState.titles = [];
+    keywordModalState.isGeneratingTitles = false;
+    keywordModalState.titleRequestId += 1;
     if (keywordModalInput) keywordModalInput.value = initialQuery;
     keywordModal.classList.remove('hidden');
     keywordModal.setAttribute('aria-hidden', 'false');
     if (initialQuery) {
-      runKeywordPipeline(initialQuery);
+      void runKeywordAnalysis(initialQuery);
     }
   };
 
@@ -12491,83 +12531,103 @@ function initKeywordResearchModal() {
     keywordModal.setAttribute('aria-hidden', 'true');
   };
 
-  const runKeywordPipeline = async (query) => {
+  const runKeywordAnalysis = async (query) => {
     const q = String(query || keywordModalInput?.value || '').trim();
     if (!q) {
-      showUiPopup('분석할 주제나 키워드를 입력해 주세요.');
+      showUiPopup('분석할 글감(주제)을 입력해 주세요.');
       return;
     }
-    const subject = String(document.getElementById('quick-subject')?.value || q).trim() || q;
-    const keywords = String(document.getElementById('quick-keywords')?.value || '')
-      .split(',')
-      .map((keyword) => keyword.trim())
-      .filter(Boolean);
-    const analysisKeywords = keywords.length > 0 ? keywords : [q];
-    if (keywordModalLoading) keywordModalLoading.classList.remove('hidden');
-    if (keywordModalContent) keywordModalContent.innerHTML = '';
-    if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = true;
+    const enteredKeywords = splitKeywords(document.getElementById('quick-keywords')?.value);
+    // A subject is not a keyword when the user has already supplied keywords.
+    // It remains a fallback so a subject-only workflow still works.
+    const seedKeywords = (enteredKeywords.length > 0 ? enteredKeywords : [q])
+      .filter((keyword, index, values) => values.findIndex((item) => normalizeKeywordKey(item) === normalizeKeywordKey(keyword)) === index)
+      .slice(0, 3);
+    keywordModalState.analysis = null;
+    keywordModalState.selectedKeywords = [];
+    keywordModalState.titles = [];
+    keywordModalState.isGeneratingTitles = false;
+    keywordModalState.titleRequestId += 1;
+    setKeywordModalLoading(true, '키워드 검색량과 경쟁도를 분석하는 중입니다...');
 
     try {
-      const data = await postJson('/api/v1/keywords/pipeline', {
-        subject,
-        keywords: analysisKeywords,
+      const analysis = await postJson('/api/v1/keywords/analyze', {
+        subject: q,
+        keywords: seedKeywords,
         related_assist: true
       });
 
-      if (!data) {
-        throw new Error('키워드 분석 및 제목 추천 실패');
+      if (!analysis) {
+        throw new Error('키워드 분석 실패');
       }
 
-      renderKeywordPipelineResult(data);
+      keywordModalState.analysis = analysis;
+      renderKeywordAnalysisResult();
     } catch (err) {
-      if (keywordModalContent) {
-        keywordModalContent.innerHTML = `<div class="alert alert-error" style="color: #dc2626; padding: 12px; background: #fee2e2; border-radius: 6px;">⚠️ 오류: ${escapeHtml(err.message)}</div>`;
-      }
+      keywordModalState.analysis = {
+        analysis_note: String(err?.message || '검색 지표를 불러오지 못했습니다.'),
+        input_keywords: seedKeywords.map((keyword) => ({ keyword })),
+        related_candidates: []
+      };
+      renderKeywordAnalysisResult();
     } finally {
-      if (keywordModalLoading) keywordModalLoading.classList.add('hidden');
-      if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = false;
+      setKeywordModalLoading(false);
     }
   };
 
-  const renderKeywordPipelineResult = (data) => {
-    if (!keywordModalContent || !data) return;
-    const selectedKeyword = data.selected_keyword || '';
-    const analysis = data.analysis || null;
-    const titles = Array.isArray(data.titles) ? data.titles : [];
+  const renderKeywordAnalysisResult = () => {
+    if (!keywordModalContent || !keywordModalState.analysis) return;
+    const analysis = keywordModalState.analysis;
+    const titles = keywordModalState.titles;
+    const allKeywords = collectAnalysisKeywords(analysis);
+    const keywordIndexByKey = new Map(allKeywords.map((item, index) => [normalizeKeywordKey(item.keyword), index]));
 
     let html = '';
 
-    // 1. Selected Keyword Banner
-    if (selectedKeyword) {
+    const selectedKeywordText = keywordModalState.selectedKeywords.join(' · ');
+    html += `
+      <div class="keyword-title-action-row keyword-title-action-row-top">
+        <div>
+          <strong>AI 제목 추천</strong>
+          <p>${selectedKeywordText ? escapeHtml(selectedKeywordText) : '표에서 키워드를 1~3개 선택해 제목 추천에 사용합니다.'}</p>
+        </div>
+        <button id="keyword-generate-titles-btn" class="primary" type="button" ${keywordModalState.isGeneratingTitles ? 'disabled' : ''}>선택 키워드로 제목 추천</button>
+      </div>
+    `;
+
+    if (analysis.analysis_note) {
+      html += `<div class="keyword-analysis-note" role="status">${escapeHtml(analysis.analysis_note)}</div>`;
+    }
+
+    if (keywordModalState.isGeneratingTitles) {
       html += `
-        <div class="keyword-selected-banner">
-          <div><span class="badge">추천 대표 키워드</span> <span class="keyword-text">${escapeHtml(selectedKeyword)}</span></div>
-          ${analysis?.selection_reason ? `<div class="reason-text">💡 ${escapeHtml(analysis.selection_reason)}</div>` : ''}
-          ${data.analysis_note ? `<div class="reason-text" style="color: #ca8a04;">ℹ️ ${escapeHtml(data.analysis_note)}</div>` : ''}
+        <div class="keyword-title-generation-status" role="status">
+          <span>선택한 글감과 키워드로 제목을 준비하고 있습니다.</span>
+          <div class="keyword-modal-progress" role="progressbar" aria-label="AI 제목 추천 진행 중"><span></span></div>
         </div>
       `;
     }
 
-    // 2. Keyword Metrics Table (if analysis data exists)
-    const allKeywords = [...(analysis?.input_keywords || []), ...(analysis?.related_candidates || [])];
-    if (allKeywords.length > 0) {
-      html += `
-        <div class="keyword-section-title">📊 키워드 검색량 &amp; 경쟁도 지표</div>
-        <div class="keyword-metrics-table-wrap">
-          <table class="keyword-metrics-table">
-            <thead>
-              <tr>
-                <th>키워드</th>
-                <th>월간 검색수 (PC / 모바일 / 합계)</th>
-                <th>블로그 문서수</th>
-                <th>경쟁강도</th>
-                <th>기회지수</th>
-              </tr>
-            </thead>
-            <tbody>
+    const renderMetricsTable = (items) => {
+      if (items.length === 0) return '';
+      let section = `
+          <div class="keyword-metrics-table-wrap">
+            <table class="keyword-metrics-table">
+              <thead>
+                <tr>
+                  <th class="keyword-selection-column">선택</th>
+                  <th>키워드</th>
+                  <th>월간 검색수 (모바일 / PC)</th>
+                  <th>주간 검색수 (추정)</th>
+                  <th>최근 7일 신규 문서</th>
+                  <th>경쟁강도</th>
+                  <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 높을수록 추정 검색 수요 대비 신규 문서가 적습니다.">기회지수</th>
+                </tr>
+              </thead>
+              <tbody>
       `;
 
-      allKeywords.slice(0, 10).forEach((item) => {
+      items.forEach((item) => {
         const totalVol = item.monthly_search_volume?.total !== null && item.monthly_search_volume?.total !== undefined
           ? item.monthly_search_volume.total.toLocaleString()
           : '-';
@@ -12577,21 +12637,34 @@ function initKeywordResearchModal() {
         const mobVol = item.monthly_search_volume?.mobile !== null && item.monthly_search_volume?.mobile !== undefined
           ? item.monthly_search_volume.mobile.toLocaleString()
           : '-';
-        const docCount = item.blog_document_count !== null && item.blog_document_count !== undefined
-          ? item.blog_document_count.toLocaleString() + '건'
+        const weeklySearch = item.estimated_weekly_search_volume !== null && item.estimated_weekly_search_volume !== undefined
+          ? Math.round(item.estimated_weekly_search_volume).toLocaleString()
           : '-';
-        const compLevel = item.competition_strength?.level || '미확인';
-        const compClass = compLevel === '낮음' ? 'low' : (compLevel === '높음' ? 'high' : 'medium');
-        const oppScore = item.opportunity?.monthly_searches_per_document !== null && item.opportunity?.monthly_searches_per_document !== undefined
-          ? item.opportunity.monthly_searches_per_document
+        const weeklyDocuments = item.weekly_new_blog_documents || {};
+        let docCount = weeklyDocuments.count !== null && weeklyDocuments.count !== undefined
+          ? `${Number(weeklyDocuments.count).toLocaleString()}${weeklyDocuments.capped ? '+' : ''}건`
+          : '-';
+        let compLevel = item.competition_strength?.level || '측정 불가';
+        let compClass = compLevel === '낮음' ? 'low' : (compLevel === '높음' ? 'high' : 'medium');
+        if (weeklyDocuments.capped) {
+          compLevel = '300+ 제외';
+          compClass = 'capped';
+        } else if (!item.competition_strength?.level) {
+          compClass = 'incomplete';
+        }
+        const oppScore = item.opportunity?.estimated_weekly_searches_per_new_document !== null && item.opportunity?.estimated_weekly_searches_per_new_document !== undefined
+          ? Number(item.opportunity.estimated_weekly_searches_per_new_document).toFixed(1)
           : '-';
 
-        const isPrimary = item.keyword === selectedKeyword;
+        const isChecked = keywordModalState.selectedKeywords.some((keyword) => normalizeKeywordKey(keyword) === normalizeKeywordKey(item.keyword));
+        const keywordIndex = keywordIndexByKey.get(normalizeKeywordKey(item.keyword));
 
-        html += `
-          <tr style="${isPrimary ? 'background: #f0fdf4; font-weight: 600;' : ''}">
-            <td>${escapeHtml(item.keyword)} ${isPrimary ? '<span style="color: #16a34a; font-size: 0.75rem;">(선정)</span>' : ''}</td>
-            <td>${pcVol} / ${mobVol} / <strong>${totalVol}</strong></td>
+        section += `
+          <tr>
+            <td class="keyword-selection-column"><input class="keyword-selection-checkbox" type="checkbox" data-keyword-index="${keywordIndex}" ${isChecked ? 'checked' : ''} aria-label="${escapeHtml(item.keyword)} 선택"></td>
+            <td>${escapeHtml(item.keyword)} ${item.is_input_keyword ? '<span class="keyword-input-badge">입력</span>' : ''}</td>
+            <td><strong>${totalVol}</strong> (${mobVol} / ${pcVol})</td>
+            <td>${weeklySearch}</td>
             <td>${docCount}</td>
             <td><span class="comp-badge ${compClass}">${compLevel}</span></td>
             <td>${oppScore}</td>
@@ -12599,14 +12672,21 @@ function initKeywordResearchModal() {
         `;
       });
 
+      section += `</tbody></table></div>`;
+      return section;
+    };
+
+    if (allKeywords.length > 0) {
       html += `
-            </tbody>
-          </table>
-        </div>
+        <section class="keyword-metrics-section">
+          <div class="keyword-section-title">📊 키워드 지표 <span class="keyword-selection-count">${keywordModalState.selectedKeywords.length}/3 선택</span></div>
+          <p class="keyword-section-description">주간 검색수(추정)와 최근 7일 신규 문서 수를 함께 표시합니다.</p>
+          ${renderMetricsTable(allKeywords)}
+        </section>
       `;
     }
 
-    // 3. AI Generated SEO Titles
+    // 3. AI title results are generated only after the user confirms selected keywords.
     if (titles.length > 0) {
       html += `
         <div class="keyword-section-title">✨ AI SEO 추천 제목 (3종)</div>
@@ -12621,7 +12701,7 @@ function initKeywordResearchModal() {
           <div class="title-card">
             <div class="title-card-header">
               <span class="title-role-badge ${roleClass}">${escapeHtml(role)}</span>
-              <button class="title-apply-btn" type="button" data-title="${escapeHtml(t.title)}" data-keyword="${escapeHtml(selectedKeyword)}">이 제목과 키워드 적용</button>
+              <button class="title-apply-btn" type="button" data-title="${escapeHtml(t.title)}">이 제목과 선택 키워드 적용</button>
             </div>
             <div class="title-text">${escapeHtml(t.title)}</div>
             <div class="title-details">
@@ -12638,32 +12718,95 @@ function initKeywordResearchModal() {
 
     keywordModalContent.innerHTML = html;
 
+    keywordModalContent.querySelectorAll('.keyword-selection-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        const item = allKeywords[Number(checkbox.dataset.keywordIndex)];
+        const keyword = String(item?.keyword || '').trim();
+        if (!keyword) return;
+        const key = normalizeKeywordKey(keyword);
+        const selected = keywordModalState.selectedKeywords.filter((value) => normalizeKeywordKey(value) !== key);
+        if (checkbox.checked) {
+          if (selected.length >= 3) {
+            showToast('제목 추천 키워드는 최대 3개까지 선택할 수 있습니다.', { title: '키워드 선택' });
+          } else {
+            selected.push(keyword);
+          }
+        }
+        keywordModalState.selectedKeywords = selected;
+        keywordModalState.titles = [];
+        keywordModalState.isGeneratingTitles = false;
+        keywordModalState.titleRequestId += 1;
+        renderKeywordAnalysisResult();
+      });
+    });
+
+    const generateTitlesBtn = document.getElementById('keyword-generate-titles-btn');
+    if (generateTitlesBtn) generateTitlesBtn.addEventListener('click', () => void runTitleRecommendations());
+
     // Attach apply handlers
     keywordModalContent.querySelectorAll('.title-apply-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const chosenTitle = btn.dataset.title || '';
-        const chosenKw = btn.dataset.keyword || '';
         const titleInput = document.getElementById('quick-title');
         const keywordInput = document.getElementById('quick-keywords');
+        const subjectInput = document.getElementById('quick-subject');
 
         if (titleInput) titleInput.value = chosenTitle;
-        if (keywordInput) keywordInput.value = chosenKw;
+        if (keywordInput) keywordInput.value = keywordModalState.selectedKeywords.join(', ');
+        if (subjectInput && keywordModalInput) subjectInput.value = keywordModalInput.value.trim();
 
         closeKeywordModal();
-        showToast('선택한 제목과 키워드가 입력되었습니다.', { title: '적용 완료' });
+        showToast('선택한 글감, 제목, 키워드가 입력되었습니다.', { title: '적용 완료' });
       });
     });
+  };
+
+  const runTitleRecommendations = async () => {
+    const subject = String(keywordModalInput?.value || '').trim();
+    const keywords = keywordModalState.selectedKeywords.slice(0, 3);
+    if (!subject) {
+      showUiPopup('제목 추천에 사용할 글감(주제)을 입력해 주세요.');
+      return;
+    }
+    if (keywords.length === 0) {
+      showUiPopup('제목 추천에 사용할 키워드를 1개 이상 선택해 주세요.');
+      return;
+    }
+
+    const requestId = keywordModalState.titleRequestId + 1;
+    keywordModalState.titleRequestId = requestId;
+    keywordModalState.isGeneratingTitles = true;
+    renderKeywordAnalysisResult();
+    try {
+      const result = await postJson('/api/v1/keywords/suggest-titles', {
+        subject,
+        keywords,
+        count: 3
+      });
+      if (keywordModalState.titleRequestId === requestId) {
+        keywordModalState.titles = Array.isArray(result?.titles) ? result.titles : [];
+      }
+    } catch (err) {
+      if (keywordModalState.titleRequestId === requestId) {
+        showToast(`제목 추천에 실패했습니다: ${err.message}`, { title: 'AI 제목 추천' });
+      }
+    } finally {
+      if (keywordModalState.titleRequestId === requestId) {
+        keywordModalState.isGeneratingTitles = false;
+        renderKeywordAnalysisResult();
+      }
+    }
   };
 
   if (titleRecommendBtn) titleRecommendBtn.addEventListener('click', openKeywordModal);
   if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
   if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
-  if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => runKeywordPipeline());
+  if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => void runKeywordAnalysis());
   if (keywordModalInput) {
     keywordModalInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        runKeywordPipeline();
+        void runKeywordAnalysis();
       }
     });
   }

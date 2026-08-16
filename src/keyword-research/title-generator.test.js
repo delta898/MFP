@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     normalizeTitleMode,
+    normalizeTitleKeywords,
     buildTitlePrompt,
     parseTitleResponse,
     createTitleGenerator
@@ -12,6 +13,13 @@ test('normalizeTitleMode defaults to balanced', () => {
     assert.equal(normalizeTitleMode('discovery'), 'discovery');
     assert.equal(normalizeTitleMode('invalid'), 'balanced');
     assert.equal(normalizeTitleMode(null), 'balanced');
+});
+
+test('normalizeTitleKeywords deduplicates and limits title context to three keywords', () => {
+    assert.deepEqual(
+        normalizeTitleKeywords(['아이폰17, 아이폰 17', '애플 신제품', '아이폰 루머', '추가 키워드']),
+        ['아이폰17', '애플 신제품', '아이폰 루머']
+    );
 });
 
 test('buildTitlePrompt constructs structured prompt with guidelines', () => {
@@ -26,6 +34,17 @@ test('buildTitlePrompt constructs structured prompt with guidelines', () => {
     assert.ok(prompt.includes('검색 의도형'));
     assert.ok(prompt.includes('상황 공감형'));
     assert.ok(prompt.includes('구체 범위형'));
+});
+
+test('buildTitlePrompt keeps one primary keyword and treats other selected keywords as optional context', () => {
+    const prompt = buildTitlePrompt({
+        keywords: ['아이폰17', '애플 신제품', '아이폰 루머'],
+        subject: '아이폰17 출시일과 스펙 변화'
+    });
+
+    assert.match(prompt, /핵심 키워드: 아이폰17/);
+    assert.match(prompt, /함께 고려할 키워드: 애플 신제품, 아이폰 루머/);
+    assert.match(prompt, /억지로 모두 넣지 말고/);
 });
 
 test('parseTitleResponse parses JSON response with roles and tradeoffs', () => {
@@ -94,7 +113,7 @@ test('createTitleGenerator requests concise structured output and returns at mos
 
     const generator = createTitleGenerator({ Utils: mockUtils });
     const result = await generator.suggestTitles({
-        keyword: '테스트 키워드',
+        keywords: ['테스트 키워드', '보조 키워드'],
         subject: '테스트 주제'
     });
 
@@ -102,7 +121,9 @@ test('createTitleGenerator requests concise structured output and returns at mos
     assert.equal(result.titles.length, 3);
     assert.equal(result.titles[0].title, '테스트 생성된 완벽한 제목');
     assert.equal(receivedRetries, 2);
-    assert.equal(receivedOptions.maxTokens, 1600);
+    assert.deepEqual(result.keywords, ['테스트 키워드', '보조 키워드']);
+    assert.equal(receivedOptions.maxTokens, 1024);
     assert.equal(receivedOptions.reasoningEffort, 'minimal');
     assert.equal(receivedOptions.responseMimeType, 'application/json');
+    assert.equal(receivedOptions.responseJsonSchema.properties.titles.maxItems, 3);
 });

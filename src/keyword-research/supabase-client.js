@@ -53,8 +53,7 @@ function createKeywordResearchSupabaseClient(options = {}) {
         return client;
     }
 
-    return {
-        async analyze(request = {}) {
+    async function invokeGateway(operation, request = {}) {
             if (!License || typeof License.resolveAuthenticatedServerContext !== 'function') {
                 throw new Error('라이선스 인증 기능을 사용할 수 없습니다.');
             }
@@ -68,16 +67,33 @@ function createKeywordResearchSupabaseClient(options = {}) {
             const invocation = getClient().functions.invoke('keyword-research', {
                 body: {
                     ...request,
+                    operation,
                     licenseKey: auth.licenseKey,
                     hwid: auth.hwid
                 }
             });
             const { data, error } = await withTimeout(invocation, timeoutMs);
             if (error) throw await readFunctionError(error);
-            if (!data?.success || !data?.analysis) {
+            if (!data?.success) {
                 throw new Error('키워드 분석 서버 응답이 올바르지 않습니다.');
             }
-            return data.analysis;
+            return data;
+    }
+
+    return {
+        async fetchSearchAdCandidates(request = {}) {
+            const data = await invokeGateway('search_ad', request);
+            if (!Array.isArray(data.search_ad)) {
+                throw new Error('키워드 후보 서버 응답이 올바르지 않습니다.');
+            }
+            return data.search_ad;
+        },
+        async fetchWeeklyDocuments(request = {}) {
+            const data = await invokeGateway('weekly_documents', request);
+            if (!Array.isArray(data.weekly_documents)) {
+                throw new Error('최근 문서 서버 응답이 올바르지 않습니다.');
+            }
+            return data.weekly_documents;
         }
     };
 }

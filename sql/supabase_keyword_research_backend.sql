@@ -8,7 +8,7 @@ create table if not exists public.keyword_research_cache (
     updated_at timestamptz not null default now(),
     primary key (cache_kind, cache_key),
     constraint keyword_research_cache_kind_check
-        check (cache_kind in ('search_ad', 'blog_total')),
+        check (cache_kind in ('search_ad', 'blog_weekly')),
     constraint keyword_research_cache_key_check
         check (length(cache_key) between 1 and 300)
 );
