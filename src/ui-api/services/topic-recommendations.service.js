@@ -5,6 +5,10 @@ function clampLimit(value, fallback = 3) {
     return Number.isFinite(parsed) ? Math.max(1, Math.min(5, Math.floor(parsed))) : fallback;
 }
 
+function normalizeQuery(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+}
+
 function createTopicRecommendationsService(options = {}) {
     const {
         agentRuntime,
@@ -14,7 +18,7 @@ function createTopicRecommendationsService(options = {}) {
         cacheTtlMs = 30 * 60 * 1000,
         now = () => Date.now()
     } = options;
-    let cache = null;
+    const cacheByQuery = new Map();
 
     if (!agentRuntime || typeof agentRuntime.handleParsedEnvelope !== 'function') {
         throw new Error('agentRuntime is required');
@@ -30,7 +34,7 @@ function createTopicRecommendationsService(options = {}) {
         return String(owner?.owner_user_id || '').trim();
     }
 
-    async function generate({ limit, requestId }) {
+    async function generate({ limit, query, requestId }) {
         const messageId = String(requestId || crypto.randomUUID());
         const ownerUserId = getOwnerUserId();
         const userId = ownerUserId || 'ui:local';
@@ -49,7 +53,7 @@ function createTopicRecommendationsService(options = {}) {
                 domain: 'content.idea',
                 name: 'suggest',
                 requires_confirmation: false,
-                params: { limit, query: '' }
+                params: { limit, query }
             }]
         }, {
             channel: 'ui',
@@ -80,7 +84,13 @@ function createTopicRecommendationsService(options = {}) {
         async getRecommendations(input = {}) {
             const limit = clampLimit(input.limit);
             const refresh = input.refresh === true;
-            const cacheValid = cache && (now() - cache.createdAt) < cacheTtlMs;
+            const query = normalizeQuery(input.query);
+            const currentTime = now();
+            for (const [cacheKey, entry] of cacheByQuery.entries()) {
+                if ((currentTime - entry.createdAt) >= cacheTtlMs) cacheByQuery.delete(cacheKey);
+            }
+            const cache = cacheByQuery.get(query) || null;
+            const cacheValid = cache && (currentTime - cache.createdAt) < cacheTtlMs;
             if (!refresh && cacheValid && cache.limit >= limit) {
                 return {
                     ...cache.data,
@@ -88,8 +98,8 @@ function createTopicRecommendationsService(options = {}) {
                     cached: true
                 };
             }
-            const data = await generate({ limit, requestId: input.requestId });
-            cache = { createdAt: now(), limit, data };
+            const data = await generate({ limit, query, requestId: input.requestId });
+            cacheByQuery.set(query, { createdAt: currentTime, limit, data });
             return { ...data, cached: false };
         },
 
@@ -117,5 +127,6 @@ function createTopicRecommendationsService(options = {}) {
 }
 
 module.exports = {
-    createTopicRecommendationsService
+    createTopicRecommendationsService,
+    normalizeQuery
 };

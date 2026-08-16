@@ -894,7 +894,15 @@ const quickTopicRecommendationState = {
   items: [],
   loaded: false,
   loading: false,
-  error: ''
+  error: '',
+  query: ''
+};
+const quickKeywordDiscoveryState = {
+  analysis: null,
+  loaded: false,
+  loading: false,
+  error: '',
+  selectedKeywordKeys: []
 };
 const trendPostingState = {
   meta: null,
@@ -2211,13 +2219,34 @@ function handleQuickTopicIdentityInput() {
 function getQuickRecommendationSourceLabel(item = {}) {
   if (String(item?.source || '').trim() === 'fallback') return '기본 추천';
   const refs = Array.isArray(item?.recommendation?.source_refs) ? item.recommendation.source_refs : [];
+  if (refs.some((ref) => String(ref?.kind || '').toLowerCase() === 'request')) return '입력 힌트 기반';
   if (refs.some((ref) => ['trends', 'knowledge'].includes(String(ref?.kind || '').toLowerCase()))) return '트렌드와 연결';
   if (refs.some((ref) => ['topic', 'facet'].includes(String(ref?.kind || '').toLowerCase()))) return '관심 주제와 연결';
   return '내 글쓰기 기반';
 }
 
+function setQuickDiscoveryModalOpen(open) {
+  const modal = document.getElementById('quick-discovery-modal');
+  if (!modal) return;
+  modal.classList.toggle('hidden', !open);
+  modal.setAttribute('aria-hidden', String(!open));
+}
+
+function setQuickDiscoveryTab(tab) {
+  const activeTab = tab === 'keyword' ? 'keyword' : 'topic';
+  document.querySelectorAll('[data-quick-discovery-tab]').forEach((button) => {
+    const selected = button.dataset.quickDiscoveryTab === activeTab;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-selected', String(selected));
+  });
+  const topicPanel = document.getElementById('quick-discovery-topic-panel');
+  const keywordPanel = document.getElementById('quick-discovery-keyword-panel');
+  if (topicPanel) topicPanel.hidden = activeTab !== 'topic';
+  if (keywordPanel) keywordPanel.hidden = activeTab !== 'keyword';
+}
+
 function diversifyQuickTopicRecommendations(items = [], limit = 3) {
-  const sourceOrder = ['트렌드와 연결', '관심 주제와 연결', '내 글쓰기 기반'];
+  const sourceOrder = ['입력 힌트 기반', '트렌드와 연결', '관심 주제와 연결', '내 글쓰기 기반'];
   const remaining = Array.isArray(items) ? items.slice() : [];
   const selected = [];
 
@@ -2280,20 +2309,228 @@ function renderQuickTopicRecommendations() {
   }).join('');
 }
 
+function formatQuickKeywordMetric(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value))
+    ? Number(value).toLocaleString()
+    : '-';
+}
+
+function formatQuickKeywordRoundedMetric(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value))
+    ? Math.round(Number(value)).toLocaleString()
+    : '-';
+}
+
+function getQuickKeywordSelectionKey(item = {}) {
+  return String(item?.keyword || '').replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
+}
+
+function getQuickKeywordCompetition(item = {}) {
+  const documents = item.weekly_new_blog_documents || {};
+  if (documents.capped) return { label: '300+ 제외', className: 'capped' };
+  const level = item.competition_strength?.level;
+  if (!level) return { label: '측정 불가', className: 'incomplete' };
+  return {
+    label: level,
+    className: level === '낮음' ? 'low' : (level === '높음' ? 'high' : 'medium')
+  };
+}
+
+function renderQuickKeywordDiscovery() {
+  const statusEl = document.getElementById('quick-keyword-discovery-status');
+  const progressEl = document.getElementById('quick-keyword-discovery-progress');
+  const contentEl = document.getElementById('quick-keyword-discovery-content');
+  const startBtn = document.getElementById('quick-keyword-discovery-start');
+  if (!statusEl || !contentEl) return;
+  if (startBtn) {
+    startBtn.disabled = quickKeywordDiscoveryState.loading;
+    startBtn.setAttribute('aria-busy', String(quickKeywordDiscoveryState.loading));
+    startBtn.textContent = quickKeywordDiscoveryState.loaded ? '다른 키워드 탐색' : '키워드 탐색';
+  }
+  if (quickKeywordDiscoveryState.loading) {
+    statusEl.hidden = true;
+    if (progressEl) progressEl.hidden = false;
+    contentEl.innerHTML = '';
+    return;
+  }
+  if (progressEl) progressEl.hidden = true;
+  const analysis = quickKeywordDiscoveryState.analysis;
+  const items = analysis
+    ? [...(analysis.input_keywords || []), ...(analysis.related_candidates || [])]
+    : [];
+  if (items.length === 0) {
+    statusEl.hidden = false;
+    statusEl.textContent = quickKeywordDiscoveryState.error
+      ? `키워드 지표를 불러오지 못했습니다: ${quickKeywordDiscoveryState.error}`
+      : (quickKeywordDiscoveryState.loaded
+        ? '지금은 살펴볼 키워드가 없습니다. 잠시 후 다시 시도해 주세요.'
+        : '키워드 탐색을 누르면 최근 신호와 네이버 지표를 불러옵니다.');
+    contentEl.innerHTML = '';
+    return;
+  }
+  statusEl.hidden = true;
+  const selectedKeys = new Set(quickKeywordDiscoveryState.selectedKeywordKeys);
+  const selectedItems = items.filter((item) => selectedKeys.has(getQuickKeywordSelectionKey(item)));
+  contentEl.innerHTML = `
+    <section class="quick-keyword-discovery-results">
+      <div class="quick-keyword-discovery-selection-bar">
+        <div>
+          <strong>선택 키워드 <span>${selectedItems.length}/3</span></strong>
+          <p>최근 7일 검색 수요와 신규 문서 수를 비교해 최대 3개까지 고를 수 있어요.</p>
+        </div>
+        <button id="quick-keyword-discovery-apply" class="primary" type="button" ${selectedItems.length === 0 ? 'disabled' : ''}>선택 키워드 적용</button>
+      </div>
+      <div class="keyword-metrics-table-wrap">
+        <table class="keyword-metrics-table">
+          <thead>
+            <tr>
+              <th class="quick-keyword-discovery-select-column">선택</th>
+              <th>키워드</th>
+              <th>출처</th>
+              <th>월간 검색수 (모바일 / PC)</th>
+              <th>주간 검색수 (추정)</th>
+              <th>최근 7일 신규 문서</th>
+              <th>경쟁강도</th>
+              <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 높을수록 수요 대비 신규 문서가 적습니다.">기회지수</th>
+              <th class="quick-keyword-discovery-action-column">탐색</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item, index) => {
+              const volume = item.monthly_search_volume || {};
+              const documents = item.weekly_new_blog_documents || {};
+              const competition = getQuickKeywordCompetition(item);
+              const opportunity = item.opportunity?.estimated_weekly_searches_per_new_document;
+              const selectionKey = getQuickKeywordSelectionKey(item);
+              return `
+                <tr data-quick-discovery-keyword-index="${index}">
+                  <td class="quick-keyword-discovery-select-column"><input class="quick-keyword-discovery-checkbox" type="checkbox" data-quick-discovery-keyword-index="${index}" ${selectedKeys.has(selectionKey) ? 'checked' : ''} aria-label="${escapeHtml(item.keyword || '')} 선택"></td>
+                  <td><strong>${escapeHtml(item.keyword || '')}</strong>${item.is_input_keyword ? ' <span class="keyword-input-badge">시작</span>' : ''}</td>
+                  <td><span class="quick-keyword-discovery-source">${item.is_input_keyword ? '직접' : '연관'}</span></td>
+                  <td><strong>${formatQuickKeywordMetric(volume.total)}</strong> (${formatQuickKeywordMetric(volume.mobile)} / ${formatQuickKeywordMetric(volume.pc)})</td>
+                  <td>${formatQuickKeywordRoundedMetric(item.estimated_weekly_search_volume)}</td>
+                  <td>${documents.count !== null && documents.count !== undefined ? `${formatQuickKeywordMetric(documents.count)}${documents.capped ? '+' : ''}건` : '-'}</td>
+                  <td><span class="comp-badge ${competition.className}">${escapeHtml(competition.label)}</span></td>
+                  <td>${opportunity !== null && opportunity !== undefined ? Number(opportunity).toFixed(1) : '-'}</td>
+                  <td class="quick-keyword-discovery-action-column">
+                    <div class="quick-keyword-discovery-actions">
+                      <button class="quick-keyword-discovery-research" type="button" data-quick-discovery-keyword-index="${index}">재탐색</button>
+                    </div>
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+  contentEl.querySelectorAll('.quick-keyword-discovery-checkbox').forEach((checkbox) => {
+    checkbox.addEventListener('change', (event) => {
+      const index = Number(event.currentTarget.dataset.quickDiscoveryKeywordIndex);
+      const item = items[index];
+      const key = getQuickKeywordSelectionKey(item);
+      if (!key) return;
+      const nextKeys = new Set(quickKeywordDiscoveryState.selectedKeywordKeys);
+      if (event.currentTarget.checked) {
+        if (nextKeys.size >= 3) {
+          event.currentTarget.checked = false;
+          showUiPopup('키워드는 최대 3개까지 선택할 수 있습니다.');
+          return;
+        }
+        nextKeys.add(key);
+      } else {
+        nextKeys.delete(key);
+      }
+      quickKeywordDiscoveryState.selectedKeywordKeys = [...nextKeys];
+      renderQuickKeywordDiscovery();
+    });
+  });
+  contentEl.querySelector('#quick-keyword-discovery-apply')?.addEventListener('click', async (event) => {
+    const applyButton = event.currentTarget;
+    if (selectedItems.length === 0) return;
+    applyButton.disabled = true;
+    try {
+      const applied = await applyQuickKeywordDiscovery(selectedItems);
+      if (applied) setQuickDiscoveryModalOpen(false);
+    } finally {
+      applyButton.disabled = false;
+    }
+  });
+  contentEl.querySelectorAll('.quick-keyword-discovery-research').forEach((button) => {
+    button.addEventListener('click', () => {
+      const item = items[Number(button.dataset.quickDiscoveryKeywordIndex)];
+      const keyword = String(item?.keyword || '').trim();
+      if (!keyword) return;
+      const input = document.getElementById('quick-keyword-discovery-query');
+      if (input) input.value = keyword;
+      void loadQuickKeywordDiscovery({ keywords: [keyword] });
+    });
+  });
+}
+
+function parseQuickKeywordDiscoveryInput(value) {
+  const seen = new Set();
+  return String(value || '')
+    .split(',')
+    .map((keyword) => keyword.trim())
+    .filter((keyword) => {
+      const key = keyword.replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
+}
+
+async function loadQuickKeywordDiscovery({ keywords = [], refresh = false } = {}) {
+  if (quickKeywordDiscoveryState.loading) return;
+  quickKeywordDiscoveryState.loading = true;
+  quickKeywordDiscoveryState.error = '';
+  quickKeywordDiscoveryState.selectedKeywordKeys = [];
+  renderQuickKeywordDiscovery();
+  try {
+    const params = new URLSearchParams();
+    const requestedKeywords = parseQuickKeywordDiscoveryInput(keywords);
+    if (requestedKeywords.length > 0) {
+      params.set('keywords', requestedKeywords.join(','));
+    } else if (refresh) {
+      const previousSeeds = Array.isArray(quickKeywordDiscoveryState.analysis?.discovery_seeds)
+        ? quickKeywordDiscoveryState.analysis.discovery_seeds.map((seed) => String(seed?.keyword || '').trim()).filter(Boolean)
+        : [];
+      if (previousSeeds.length > 0) params.set('exclude', previousSeeds.join(','));
+    }
+    const query = params.toString();
+    quickKeywordDiscoveryState.analysis = await fetchJson(`/api/v1/blog/keyword-discovery${query ? `?${query}` : ''}`);
+    quickKeywordDiscoveryState.loaded = true;
+  } catch (error) {
+    quickKeywordDiscoveryState.analysis = null;
+    quickKeywordDiscoveryState.loaded = true;
+    quickKeywordDiscoveryState.error = error.message;
+  } finally {
+    quickKeywordDiscoveryState.loading = false;
+    renderQuickKeywordDiscovery();
+  }
+}
+
 async function loadQuickTopicRecommendations({ refresh = false } = {}) {
-  if (quickTopicRecommendationState.loading || (quickTopicRecommendationState.loaded && !refresh)) return;
+  const topicQuery = String(document.getElementById('quick-topic-recommendations-query')?.value || '').trim();
+  if (quickTopicRecommendationState.loading
+    || (quickTopicRecommendationState.loaded && !refresh && quickTopicRecommendationState.query === topicQuery)) return;
   quickTopicRecommendationState.loading = true;
   document.getElementById('quick-topic-recommendations-refresh')?.setAttribute('disabled', '');
   quickTopicRecommendationState.error = '';
   renderQuickTopicRecommendations();
   try {
-    const query = refresh ? '?limit=3&refresh=1' : '?limit=3';
-    const result = await fetchJson(`/api/v1/blog/topic-recommendations${query}`);
+    const params = new URLSearchParams({ limit: '3' });
+    if (refresh) params.set('refresh', '1');
+    if (topicQuery) params.set('query', topicQuery);
+    const result = await fetchJson(`/api/v1/blog/topic-recommendations?${params.toString()}`);
     quickTopicRecommendationState.items = Array.isArray(result?.ideas) ? result.ideas.slice(0, 3) : [];
     quickTopicRecommendationState.loaded = true;
+    quickTopicRecommendationState.query = topicQuery;
   } catch (error) {
     quickTopicRecommendationState.items = [];
     quickTopicRecommendationState.loaded = true;
+    quickTopicRecommendationState.query = topicQuery;
     quickTopicRecommendationState.error = error.message;
   } finally {
     quickTopicRecommendationState.loading = false;
@@ -2346,6 +2583,37 @@ async function applyQuickTopicRecommendation(item) {
   };
   syncQuickTopicOrigin();
   await recordQuickTopicRecommendationOutcome(item, 'selected');
+  document.getElementById('quick-subject')?.focus();
+  return true;
+}
+
+async function applyQuickKeywordDiscovery(input) {
+  const selectedItems = (Array.isArray(input) ? input : [input])
+    .filter((item, index, values) => {
+      const key = getQuickKeywordSelectionKey(item);
+      return key && values.findIndex((value) => getQuickKeywordSelectionKey(value) === key) === index;
+    })
+    .slice(0, 3);
+  const keywords = selectedItems.map((item) => String(item?.keyword || '').trim()).filter(Boolean);
+  if (keywords.length === 0) return false;
+  const values = ['quick-subject', 'quick-keywords', 'quick-title', 'quick-instruction', 'quick-reference-url']
+    .map((id) => String(document.getElementById(id)?.value || '').trim());
+  if (values.some(Boolean)) {
+    const confirmed = await showUiConfirm(
+      '빠른 포스팅에 작성 중인 내용이 있습니다. 선택한 키워드로 새 글을 시작할까요?',
+      { title: '선택 키워드로 교체', confirmText: '교체', cancelText: '취소' }
+    );
+    if (!confirmed) return false;
+  }
+  applyQuickInputMode('ai');
+  document.getElementById('quick-title').value = '';
+  document.getElementById('quick-subject').value = keywords[0];
+  document.getElementById('quick-keywords').value = keywords.join(', ');
+  document.getElementById('quick-instruction').value = '';
+  document.getElementById('quick-reference-url').value = '';
+  quickTrendTopicContext = null;
+  quickRecommendationTopicContext = null;
+  syncQuickTopicOrigin();
   document.getElementById('quick-subject')?.focus();
   return true;
 }
@@ -9914,12 +10182,49 @@ function bindActions() {
   const quickKeywordsInput = document.getElementById('quick-keywords');
   const quickRecommendationList = document.getElementById('quick-topic-recommendations-list');
   const quickRecommendationRefresh = document.getElementById('quick-topic-recommendations-refresh');
+  const quickDiscoveryOpenBtn = document.getElementById('quick-discovery-open-btn');
+  const quickDiscoveryCloseBtn = document.getElementById('quick-discovery-modal-close');
+  const quickDiscoveryCloseFooter = document.getElementById('quick-discovery-modal-close-footer');
+  const quickKeywordDiscoveryStartBtn = document.getElementById('quick-keyword-discovery-start');
+  const quickKeywordDiscoverySearchBtn = document.getElementById('quick-keyword-discovery-search');
+  const quickKeywordDiscoveryQuery = document.getElementById('quick-keyword-discovery-query');
+  const quickTopicRecommendationQuery = document.getElementById('quick-topic-recommendations-query');
   quickModeAiBtn?.addEventListener('click', () => applyQuickInputMode('ai'));
   quickModeManuscriptBtn?.addEventListener('click', () => applyQuickInputMode('manuscript'));
   quickModePastedBtn?.addEventListener('click', () => applyQuickInputMode('pasted'));
   applyQuickInputMode(quickInputMode);
   quickSubjectInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
+  quickDiscoveryOpenBtn?.addEventListener('click', () => {
+    setQuickDiscoveryTab('topic');
+    setQuickDiscoveryModalOpen(true);
+  });
+  quickDiscoveryCloseBtn?.addEventListener('click', () => setQuickDiscoveryModalOpen(false));
+  quickDiscoveryCloseFooter?.addEventListener('click', () => setQuickDiscoveryModalOpen(false));
+  document.querySelectorAll('[data-quick-discovery-tab]').forEach((button) => {
+    button.addEventListener('click', () => setQuickDiscoveryTab(button.dataset.quickDiscoveryTab));
+  });
+  quickKeywordDiscoveryStartBtn?.addEventListener('click', () => void loadQuickKeywordDiscovery({
+    refresh: quickKeywordDiscoveryState.loaded
+  }));
+  quickKeywordDiscoverySearchBtn?.addEventListener('click', () => {
+    const keywords = parseQuickKeywordDiscoveryInput(quickKeywordDiscoveryQuery?.value);
+    if (keywords.length === 0) {
+      showUiPopup('검색할 키워드를 입력해 주세요.');
+      return;
+    }
+    void loadQuickKeywordDiscovery({ keywords });
+  });
+  quickKeywordDiscoveryQuery?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    quickKeywordDiscoverySearchBtn?.click();
+  });
+  quickTopicRecommendationQuery?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    quickRecommendationRefresh?.click();
+  });
   quickRecommendationRefresh?.addEventListener('click', () => loadQuickTopicRecommendations({
     refresh: quickTopicRecommendationState.loaded
   }));
@@ -9945,7 +10250,8 @@ function bindActions() {
     }
     actionButton.disabled = true;
     try {
-      await applyQuickTopicRecommendation(item);
+      const applied = await applyQuickTopicRecommendation(item);
+      if (applied) setQuickDiscoveryModalOpen(false);
     } finally {
       actionButton.disabled = false;
     }
@@ -12727,7 +13033,7 @@ function initKeywordResearchModal() {
         const selected = keywordModalState.selectedKeywords.filter((value) => normalizeKeywordKey(value) !== key);
         if (checkbox.checked) {
           if (selected.length >= 3) {
-            showToast('제목 추천 키워드는 최대 3개까지 선택할 수 있습니다.', { title: '키워드 선택' });
+            showUiPopup('제목 추천 키워드는 최대 3개까지 선택할 수 있습니다.');
           } else {
             selected.push(keyword);
           }
@@ -12756,7 +13062,6 @@ function initKeywordResearchModal() {
         if (subjectInput && keywordModalInput) subjectInput.value = keywordModalInput.value.trim();
 
         closeKeywordModal();
-        showToast('선택한 글감, 제목, 키워드가 입력되었습니다.', { title: '적용 완료' });
       });
     });
   };
@@ -12788,7 +13093,7 @@ function initKeywordResearchModal() {
       }
     } catch (err) {
       if (keywordModalState.titleRequestId === requestId) {
-        showToast(`제목 추천에 실패했습니다: ${err.message}`, { title: 'AI 제목 추천' });
+        showUiPopup(`제목 추천에 실패했습니다: ${err.message}`);
       }
     } finally {
       if (keywordModalState.titleRequestId === requestId) {

@@ -122,3 +122,26 @@ test('excludes candidate ids that were recommended in previous runs', () => {
     assert.equal(result.candidates.some((item) => item.id === previousId), false);
     assert.equal(result.excluded_previous_count, 1);
 });
+
+test('uses a topic hint to prioritize matching graph-derived profile and activity signals', () => {
+    const result = createTopicCandidateGenerator().generate({
+        query: '워드프레스',
+        ownerProfile: {
+            ...profile(),
+            activity: {
+                recent_subjects: [
+                    { subject: '워드프레스 블로그 운영 기록', domain: 'blog', stage: 'published' },
+                    { subject: '주말 오사카 여행 계획', domain: 'blog', stage: 'published' }
+                ]
+            }
+        }
+    });
+
+    assert.equal(result.focus.matched_profile_keyword_count, 1);
+    assert.equal(result.focus.matched_activity_count, 1);
+    assert.equal(result.candidates.some((item) => item.candidate_type === 'request_seed' && item.topic_seed === '워드프레스'), true);
+    const request = result.candidates.find((item) => item.candidate_type === 'request_seed');
+    assert.equal(request.owner_matches.keywords[0].value, '워드프레스');
+    assert.equal(result.candidates.some((item) => item.candidate_type === 'activity_seed' && item.topic_seed === '워드프레스 블로그 운영 기록'), true);
+    assert.equal(result.candidates.some((item) => item.topic_seed === '주말 오사카 여행 계획'), false);
+});

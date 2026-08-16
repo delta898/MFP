@@ -57,6 +57,33 @@ function matchesFacet(textValue, facets = []) {
     });
 }
 
+function focusTerms(value) {
+    const normalized = normalizeKey(value);
+    const terms = String(value || '')
+        .toLocaleLowerCase('ko-KR')
+        .split(/[^\p{L}\p{N}]+/u)
+        .map((item) => normalizeKey(item))
+        .filter((item) => item.length >= 2);
+    return [...new Set([normalized, ...terms].filter(Boolean))];
+}
+
+function focusMatch(value, query) {
+    const valueKey = normalizeKey(value);
+    const terms = focusTerms(query);
+    if (!valueKey || terms.length === 0) return { matched: false, terms: [] };
+    const matchedTerms = terms.filter((term) => valueKey.includes(term) || term.includes(valueKey));
+    return { matched: matchedTerms.length > 0, terms: matchedTerms };
+}
+
+function activityText(item = {}) {
+    const payload = item?.payload && typeof item.payload === 'object' ? item.payload : {};
+    const keywordText = Array.isArray(payload.keywords) ? payload.keywords.join(' ') : payload.keywords;
+    return [item?.subject, item?.title, item?.summary, payload.subject, payload.name, keywordText]
+        .map((value) => compact(value, 240))
+        .filter(Boolean)
+        .join(' ');
+}
+
 function buildCandidate(input = {}) {
     const type = compact(input.candidate_type, 60);
     const topicSeed = compact(input.topic_seed, 180);
@@ -97,6 +124,9 @@ function createTopicCandidateGenerator() {
             );
             const limit = Math.max(1, Math.min(50, Number(input.limit || 20)));
             const recentArtifacts = Array.isArray(input.recentArtifacts) ? input.recentArtifacts : [];
+            const focusedKeywords = query
+                ? keywords.filter((facet) => focusMatch(`${facet.value} ${facet.normalized_value}`, query).matched)
+                : [];
             const candidates = [];
             const seen = new Set();
             let excludedRecentCount = 0;
@@ -124,9 +154,15 @@ function createTopicCandidateGenerator() {
                     candidate_type: 'request_seed',
                     topic_seed: query,
                     source_refs: [{ kind: 'request', id: 'current_request' }],
-                    evidence_features: { explicit_request: true },
-                    explanation: '현재 사용자가 직접 요청한 주제입니다.'
-                }));
+                    owner_matches: { keywords: focusedKeywords, categories: [] },
+                    evidence_features: {
+                        explicit_request: true,
+                        owner_keyword_evidence: focusedKeywords.reduce((sum, facet) => sum + facet.evidence_count, 0)
+                    },
+                    explanation: focusedKeywords.length > 0
+                        ? '현재 요청한 주제이며 저장된 관심 글감 신호와 연결됩니다.'
+                        : '현재 사용자가 직접 요청한 주제입니다.'
+                }), { allowRecent: true });
             }
 
             for (const entry of flattenTrendKnowledge(input.knowledge)) {
@@ -168,7 +204,9 @@ function createTopicCandidateGenerator() {
                 }));
             }
 
-            for (const facet of keywords) {
+            const profileKeywordPool = query && focusedKeywords.length > 0 ? focusedKeywords : keywords;
+            for (const facet of profileKeywordPool) {
+                const isFocused = query && focusedKeywords.includes(facet);
                 append(buildCandidate({
                     candidate_type: 'profile_seed',
                     topic_seed: facet.value,
@@ -178,7 +216,9 @@ function createTopicCandidateGenerator() {
                         owner_keyword_evidence: facet.evidence_count,
                         last_used_at: facet.last_used_at
                     },
-                    explanation: '저장된 글감에서 반복 확인된 사용자 키워드입니다.'
+                    explanation: isFocused
+                        ? '입력한 힌트와 연결된 저장 글감 키워드입니다.'
+                        : '저장된 글감에서 반복 확인된 사용자 키워드입니다.'
                 }));
             }
 
@@ -195,9 +235,14 @@ function createTopicCandidateGenerator() {
                 })),
                 ...recentSubjects.filter((recent) => compact(recent?.stage, 80) !== 'generated')
             ];
-            for (const recent of activityCandidates.slice(0, 12)) {
+            const focusedActivities = query
+                ? activityCandidates.filter((recent) => focusMatch(activityText(recent), query).matched)
+                : [];
+            const activityPool = query && focusedActivities.length > 0 ? focusedActivities : activityCandidates;
+            for (const recent of activityPool.slice(0, 12)) {
                 const subject = compact(recent?.subject, 180);
                 if (!subject) continue;
+                const isFocused = query && focusedActivities.includes(recent);
                 append(buildCandidate({
                     candidate_type: 'activity_seed',
                     topic_seed: subject,
@@ -211,7 +256,9 @@ function createTopicCandidateGenerator() {
                     evidence_features: {
                         recent_activity: true
                     },
-                    explanation: '최근 글쓰기와 활동 이력을 바탕으로 확장할 수 있는 주제입니다.'
+                    explanation: isFocused
+                        ? '입력한 힌트와 연결된 최근 글쓰기·활동 이력입니다.'
+                        : '최근 글쓰기와 활동 이력을 바탕으로 확장할 수 있는 주제입니다.'
                 }), {
                     allowRecent: true,
                     relatedCandidateId: recent?.relatedCandidateId || recent?.recommendation_candidate_id
@@ -226,6 +273,13 @@ function createTopicCandidateGenerator() {
                 candidates: limitedCandidates,
                 excluded_recent_count: excludedRecentCount,
                 excluded_previous_count: excludedPreviousCount,
+                focus: query ? {
+                    query,
+                    matched_profile_keyword_count: focusedKeywords.length,
+                    matched_activity_count: focusedActivities.length,
+                    profile_fallback_used: focusedKeywords.length === 0,
+                    activity_fallback_used: focusedActivities.length === 0
+                } : null,
                 source_counts: limitedCandidates.reduce((counts, item) => {
                     counts[item.candidate_type] = (counts[item.candidate_type] || 0) + 1;
                     return counts;
@@ -239,6 +293,7 @@ module.exports = {
     TOPIC_CANDIDATE_SCHEMA_VERSION,
     createTopicCandidateGenerator,
     flattenTrendKnowledge,
+    focusMatch,
     normalizeKey,
     stableCandidateId
 };

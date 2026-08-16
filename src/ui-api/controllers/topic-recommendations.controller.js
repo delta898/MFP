@@ -10,7 +10,8 @@ function createTopicRecommendationsController(deps = {}) {
             try {
                 const limit = Number(searchParams?.get('limit') || 3);
                 const refresh = searchParams?.get('refresh') === '1';
-                return sendSuccess(res, requestId, await service.getRecommendations({ limit, refresh, requestId }));
+                const query = String(searchParams?.get('query') || '').trim();
+                return sendSuccess(res, requestId, await service.getRecommendations({ limit, refresh, query, requestId }));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'TOPIC_RECOMMENDATIONS_FAILED', '글감 추천을 불러오지 못했습니다.', error);
             }

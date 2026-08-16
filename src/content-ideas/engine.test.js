@@ -114,3 +114,32 @@ test('keeps the candidate pool broad but sends one recommendation per source to 
     );
     assert.equal(result.ideas.length, 3);
 });
+
+test('keeps a user topic hint in the AI candidate set before the source-balanced candidates', async () => {
+    let providerCandidates = [];
+    const engine = createContentIdeaEngine({
+        candidateGenerator: {
+            generate() {
+                return {
+                    candidates: [
+                        { id: 'request', candidate_type: 'request_seed', topic_seed: '아이폰 17', evidence_features: { explicit_request: true }, explanation: '입력 힌트' },
+                        { id: 'trend', candidate_type: 'trend_seed', topic_seed: '스마트폰 트렌드', explanation: '트렌드' },
+                        { id: 'profile', candidate_type: 'profile_seed', topic_seed: '아이폰 루머', explanation: '관심 주제' },
+                        { id: 'activity', candidate_type: 'activity_seed', topic_seed: '최근 여행 글', explanation: '최근 활동' }
+                    ]
+                };
+            }
+        },
+        providers: [{
+            async generate(_input, context) {
+                providerCandidates = context.recommendationCandidates;
+                return { ideas: providerCandidates.map((candidate) => ({ candidate_id: candidate.id, title: candidate.topic_seed })) };
+            }
+        }]
+    });
+
+    await engine.generateIdeas({ query: '아이폰 17', limit: 3 });
+
+    assert.equal(providerCandidates[0].id, 'request');
+    assert.equal(providerCandidates.some((candidate) => candidate.id === 'request'), true);
+});

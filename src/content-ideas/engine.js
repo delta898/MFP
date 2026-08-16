@@ -66,12 +66,17 @@ function createContentIdeaEngine(options = {}) {
             });
             Logger.debug(`🧭 [Content Ideas] 추천 후보 pool 구성 시작 (run=${recommendationRunId}, query=${compactLog(input.query || '새로운 글감 추천', 120)})`);
             Logger.debug(`🧭 [Content Ideas] 후보 pool=${candidateSet.candidates.length}건, 외부 지식=${knowledge.length}건, source_counts=${JSON.stringify(candidateSet.source_counts || {})}, 최근 글 제외=${Number(candidateSet.excluded_recent_count || 0)}건, 이전 추천 후보 제외=${Number(candidateSet.excluded_previous_count || 0)}건`);
+            if (candidateSet.focus) {
+                Logger.debug(`🧭 [Content Ideas] 글감 힌트 연결 (run=${recommendationRunId}, hint=${compactLog(candidateSet.focus.query, 120)}, graph_profile_matches=${candidateSet.focus.matched_profile_keyword_count}, graph_activity_matches=${candidateSet.focus.matched_activity_count}, profile_fallback=${candidateSet.focus.profile_fallback_used}, activity_fallback=${candidateSet.focus.activity_fallback_used})`);
+            }
             Logger.debug(`🧭 [Content Ideas] 후보 pool 상세 (run=${recommendationRunId}): ${candidateSet.candidates.map(formatCandidate).join(' || ') || '없음'}`);
             const ranking = candidateRanker({
                 candidates: candidateSet.candidates,
                 ownerProfile: ownerMemory.profile || {},
                 limit: requestedLimit,
-                preferredCandidateTypes: ['trend_seed', 'profile_seed', 'activity_seed']
+                preferredCandidateTypes: input.query
+                    ? ['request_seed', 'trend_seed', 'profile_seed', 'activity_seed']
+                    : ['trend_seed', 'profile_seed', 'activity_seed']
             });
             Logger.debug(`🎯 [Content Ideas] 최종 선별 (run=${recommendationRunId}, policy=${ranking.policy?.id || 'unknown'}, pool=${ranking.input_count}건 -> selected=${ranking.selected_count}건, deferred=${ranking.deferred_count}건)`);
             Logger.debug(`🎯 [Content Ideas] 선별 결과 (run=${recommendationRunId}): ${ranking.selected.map((candidate) => `#${candidate.ranking?.rank || '-'} ${formatCandidate(candidate)}`).join(' || ') || '없음'}`);

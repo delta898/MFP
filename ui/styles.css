@@ -7981,18 +7981,18 @@ select.inline-editor {
 /* Quick posting: memory and trend grounded topic recommendations */
 .quick-topic-recommendations {
   margin: 18px 0 20px;
-  padding: 18px 20px 8px;
+  padding: 18px 20px;
   border: 1px solid #d7e5f5;
   border-radius: 18px;
   background: linear-gradient(135deg, #f8fbff 0%, #f4fbf8 100%);
 }
 
 .quick-topic-recommendations-head {
-  display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(160px, 1fr);
-  align-items: start;
-  gap: 16px;
-  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  margin-bottom: 0;
 }
 
 .quick-topic-recommendations-head h4 {
@@ -8014,7 +8014,7 @@ select.inline-editor {
   justify-content: center;
   justify-self: start;
   min-height: 44px;
-  margin-top: 22px;
+  margin-top: 0;
   padding: 10px 22px;
   font-size: 14px;
   font-weight: 700;
@@ -8160,7 +8160,9 @@ select.inline-editor {
   }
 
   .quick-topic-recommendations-head {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .quick-topic-recommendations-refresh {
@@ -8182,6 +8184,215 @@ select.inline-editor {
   width: min(960px, calc(100vw - 32px));
   max-width: none;
   max-height: min(860px, calc(100vh - 32px));
+}
+
+.quick-discovery-modal-container {
+  width: min(1040px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(860px, calc(100vh - 32px));
+}
+
+.quick-discovery-modal-body {
+  min-height: 0;
+  padding: 20px 24px;
+}
+
+.quick-discovery-tabs {
+  display: flex;
+  gap: 4px;
+  margin: -4px 0 18px;
+  padding: 4px;
+  border: 1px solid #dbe7f5;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.quick-discovery-tab {
+  min-height: 38px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quick-discovery-tab.is-active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  color: var(--brand-primary, #0ea5e9);
+}
+
+.quick-discovery-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 0 12px;
+}
+
+.quick-discovery-action-row h4 {
+  margin: 0 0 5px;
+  color: #142039;
+  font-size: 1rem;
+}
+
+.quick-discovery-action-row p {
+  margin: 0;
+  color: #71829a;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.quick-discovery-action-row .primary {
+  min-width: 118px;
+  min-height: 42px;
+  padding: 9px 16px;
+  white-space: nowrap;
+}
+
+.quick-topic-discovery-query-field {
+  display: grid;
+  gap: 5px;
+  margin: 2px 0 10px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.quick-topic-discovery-query-field span {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.quick-topic-discovery-query-field em {
+  color: #94a3b8;
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.quick-topic-discovery-query-field input {
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+}
+
+.quick-keyword-discovery-query-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 2px 0 10px;
+}
+
+.quick-keyword-discovery-query-field {
+  display: grid;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.quick-keyword-discovery-query-field input {
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+}
+
+.quick-keyword-discovery-query-row .secondary {
+  min-height: 40px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.quick-discovery-panel .quick-topic-recommendations-status {
+  padding: 10px 0 16px;
+}
+
+.quick-discovery-panel .quick-topic-recommendations-progress {
+  margin: 18px 0 22px;
+}
+
+.quick-keyword-discovery-results {
+  padding-top: 4px;
+}
+
+.quick-keyword-discovery-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #dbe7f5;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.quick-keyword-discovery-selection-bar strong {
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.quick-keyword-discovery-selection-bar strong span {
+  margin-left: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.quick-keyword-discovery-selection-bar p {
+  margin: 3px 0 0;
+  color: #71829a;
+  font-size: 0.78rem;
+}
+
+.quick-keyword-discovery-source {
+  color: #475569;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.quick-keyword-discovery-select-column {
+  width: 52px;
+  text-align: center;
+}
+
+.quick-keyword-discovery-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.quick-keyword-discovery-action-column {
+  width: 88px;
+  text-align: center;
+}
+
+.quick-keyword-discovery-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quick-keyword-discovery-research {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.quick-keyword-discovery-research {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
 }
 
 .keyword-modal-header {
@@ -8567,6 +8778,42 @@ select.inline-editor {
   .keyword-research-modal-container {
     width: calc(100vw - 20px);
     max-height: calc(100vh - 20px);
+  }
+
+  .quick-discovery-modal-container {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .quick-discovery-modal-body {
+    padding: 16px;
+  }
+
+  .quick-discovery-action-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .quick-discovery-action-row .primary {
+    align-self: flex-start;
+  }
+
+  .quick-keyword-discovery-query-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-keyword-discovery-query-row .secondary {
+    justify-self: start;
+  }
+
+  .quick-keyword-discovery-selection-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quick-keyword-discovery-selection-bar .primary {
+    align-self: flex-start;
   }
 
   .keyword-research-modal-body {

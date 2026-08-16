@@ -44,6 +44,7 @@
       "src/naver/**/*.js",
       "src/ai/**/*.js",
       "src/social/**/*.js",
+      "src/keyword-discovery/**/*.js",
       "src/ui-api/**/*.js"
     ],
     "assets": [

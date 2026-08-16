@@ -22,6 +22,7 @@ test('추천 목록은 지능형 런타임을 호출하고 TTL 동안 재사용�
             async handleParsedEnvelope(envelope, context) {
                 runtimeCalls += 1;
                 assert.equal(envelope.actions[0].domain, 'content.idea');
+                assert.equal(envelope.actions[0].params.query, '워드프레스');
                 assert.equal(context.channel, 'ui');
                 return {
                     status: 'completed',
@@ -36,8 +37,8 @@ test('추천 목록은 지능형 런타임을 호출하고 TTL 동안 재사용�
         }
     });
 
-    const first = await service.getRecommendations({ limit: 2, requestId: 'req-1' });
-    const second = await service.getRecommendations({ limit: 1, requestId: 'req-2' });
+    const first = await service.getRecommendations({ limit: 2, query: ' 워드프레스 ', requestId: 'req-1' });
+    const second = await service.getRecommendations({ limit: 1, query: '워드프레스', requestId: 'req-2' });
     assert.equal(first.cached, false);
     assert.equal(second.cached, true);
     assert.equal(second.ideas.length, 1);
@@ -45,8 +46,27 @@ test('추천 목록은 지능형 런타임을 호출하고 TTL 동안 재사용�
     assert.equal(retrievalInput.ownerUserId, 'local:owner-1');
 
     nowMs = 1200;
-    await service.getRecommendations({ limit: 2, requestId: 'req-3' });
+    await service.getRecommendations({ limit: 2, query: '워드프레스', requestId: 'req-3' });
     assert.equal(runtimeCalls, 2);
+});
+
+test('different topic hints do not share a recommendation cache entry', async () => {
+    const queries = [];
+    const service = createTopicRecommendationsService({
+        retrievalService: { buildContextPacket: async () => ({}) },
+        agentRuntime: {
+            async handleParsedEnvelope(envelope) {
+                queries.push(envelope.actions[0].params.query);
+                return { status: 'completed', results: [{ result: { success: true, data: { ideas: [] } } }] };
+            }
+        }
+    });
+
+    await service.getRecommendations({ query: '오사카 여행' });
+    await service.getRecommendations({ query: '아이폰 17' });
+    await service.getRecommendations({ query: '오사카 여행' });
+
+    assert.deepEqual(queries, ['오사카 여행', '아이폰 17']);
 });
 
 test('refresh는 캐시를 우회하고 outcome만 명시적 학습 신호로 기록한다', async () => {
