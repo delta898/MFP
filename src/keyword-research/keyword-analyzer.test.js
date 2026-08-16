@@ -33,6 +33,20 @@ test('validateRequest validates keyword count, subject, and bounds', () => {
     assert.doesNotThrow(() => validateRequest({ keywords: ['1'], subject: '유효 주제', related_limit: 20, candidate_limit: 30, min_search_volume: 300 }));
 });
 
+test('validateRequest accepts gateway-managed input and candidate limits', () => {
+    assert.doesNotThrow(() => validateRequest({
+        keywords: ['1', '2', '3', '4', '5'],
+        subject: '주제',
+        related_assist: true,
+        related_limit: 12,
+        candidate_limit: 12,
+        min_search_volume: 300
+    }, {
+        maxInputCount: 5,
+        maxRelatedCandidates: 12
+    }));
+});
+
 test('competitionLevel calculates correct levels', () => {
     assert.equal(competitionLevel(0.5), '낮음');
     assert.equal(competitionLevel(3.2), '보통');

@@ -1,0 +1,12 @@
+{
+  "name": "bloggenius-keyword-gateway",
+  "private": true,
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "test": "node --test ./src/server.test.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

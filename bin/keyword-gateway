@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+const {
+    createKeywordGatewayServer,
+    resolveGatewayConfig,
+    validateGatewayConfig
+} = require('../apps/keyword-gateway/src/server');
+
+const config = validateGatewayConfig(resolveGatewayConfig());
+createKeywordGatewayServer({ config }).listen(config.port, config.host, () => {
+    console.log(`[KeywordGateway] listening on http://${config.host}:${config.port}`);
+});

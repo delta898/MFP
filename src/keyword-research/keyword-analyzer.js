@@ -70,23 +70,25 @@ function parseKeywords(values) {
     return keywords;
 }
 
-function validateRequest(request) {
+function validateRequest(request, policy = {}) {
+    const maxInputCount = Math.max(1, Number(policy.maxInputCount) || 3);
+    const maxRelatedCandidates = Math.max(1, Number(policy.maxRelatedCandidates) || 100);
     if (!request || !Array.isArray(request.keywords) || request.keywords.length === 0) {
         throw new Error('최소 1개의 키워드가 필요합니다.');
     }
-    if (request.keywords.length > 3) {
-        throw new Error('최대 3개의 고유 키워드만 지원됩니다.');
+    if (request.keywords.length > maxInputCount) {
+        throw new Error(`최대 ${maxInputCount}개의 고유 키워드만 지원됩니다.`);
     }
     if (!request.subject || !String(request.subject).trim()) {
         throw new Error('주제(subject)가 필요합니다.');
     }
     const relatedLimit = request.related_limit ?? DEFAULT_RELATED_LIMIT;
-    if (relatedLimit < 1 || relatedLimit > 100) {
-        throw new Error('related_limit는 1에서 100 사이여야 합니다.');
+    if (relatedLimit < 1 || relatedLimit > maxRelatedCandidates) {
+        throw new Error(`related_limit는 1에서 ${maxRelatedCandidates} 사이여야 합니다.`);
     }
     const candidateLimit = request.candidate_limit ?? DEFAULT_CANDIDATE_LIMIT;
-    if (candidateLimit < 1 || candidateLimit > 100) {
-        throw new Error('candidate_limit는 1에서 100 사이여야 합니다.');
+    if (candidateLimit < 1 || candidateLimit > maxRelatedCandidates) {
+        throw new Error(`candidate_limit는 1에서 ${maxRelatedCandidates} 사이여야 합니다.`);
     }
     const minSearchVolume = request.min_search_volume ?? 300;
     if (minSearchVolume < 0) {
@@ -232,7 +234,7 @@ function compareCandidates(a, b) {
 /**
  * Main keyword research analysis orchestrator
  */
-async function analyzeKeywords(request, clients = {}) {
+async function analyzeKeywords(request, clients = {}, policy = {}) {
     const searchAdClient = clients.searchAdClient;
     const blogSearchClient = clients.blogSearchClient;
 
@@ -252,7 +254,7 @@ async function analyzeKeywords(request, clients = {}) {
         candidate_limit: request.candidate_limit ?? DEFAULT_CANDIDATE_LIMIT,
         min_search_volume: request.min_search_volume ?? 300
     };
-    validateRequest(normalizedRequest);
+    validateRequest(normalizedRequest, policy);
 
     const inputKeywordLookup = new Set(keywords.map(normalizedKeyword));
     const inputRowsByKeyword = new Map();
