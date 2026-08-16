@@ -181,7 +181,10 @@ function createNaverClients(config: Record<string, string>, cache: ReturnType<ty
     const response = await fetchWithTimeout(url.toString(), { headers }, policy.upstreamTimeoutMs);
     if (!response.ok) {
       console.warn("KEYWORD_BLOG_SEARCH_FAILED", { status: response.status });
-      return { total: null, error: "blog_search_upstream_failed" };
+      const error = response.status === 401 || response.status === 403
+        ? "blog_search_auth_failed"
+        : (response.status === 429 ? "blog_search_rate_limited" : "blog_search_upstream_failed");
+      return { total: null, error };
     }
     const payload = await response.json();
     const result = typeof payload?.total === "number"
