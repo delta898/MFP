@@ -452,6 +452,14 @@ const CONFIG = {
         ? structuredConfig.integrations.buffer.channels
         : [],
     BUFFER_HELP_URL: structuredConfig.integrations?.buffer?.help_url || '',
+
+    // Naver Search Ads & API Hub (Keyword Research)
+    NAVER_SEARCHAD_API_KEY: process.env.NAVER_SEARCHAD_API_KEY || structuredConfig.integrations?.naver_searchad?.api_key || structuredConfig.platforms?.naver?.searchad_api_key || '',
+    NAVER_SEARCHAD_SECRET_KEY: process.env.NAVER_SEARCHAD_SECRET_KEY || structuredConfig.integrations?.naver_searchad?.secret_key || structuredConfig.platforms?.naver?.searchad_secret_key || '',
+    NAVER_SEARCHAD_CUSTOMER_ID: process.env.NAVER_SEARCHAD_CUSTOMER_ID || structuredConfig.integrations?.naver_searchad?.customer_id || structuredConfig.platforms?.naver?.searchad_customer_id || '',
+    NAVER_API_HUB_CLIENT_ID: process.env.NAVER_API_HUB_CLIENT_ID || structuredConfig.integrations?.naver_api_hub?.client_id || '',
+    NAVER_API_HUB_CLIENT_SECRET: process.env.NAVER_API_HUB_CLIENT_SECRET || structuredConfig.integrations?.naver_api_hub?.client_secret || '',
+
     SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
     SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),
     SNS_AI_MODE: normalizeSnsAiMode(
@@ -585,6 +593,17 @@ const CONFIG = {
         return Boolean(wpUrl && !isPlaceholder(wpUrl) &&
             wpUser && !isPlaceholder(wpUser) &&
             wpPass && !isPlaceholder(wpPass));
+    },
+
+    // 🆕 네이버 검색광고 설정 완료 여부
+    get CONFIG_IS_SEARCHAD_SET() {
+        const apiKey = String(this.NAVER_SEARCHAD_API_KEY || '').trim();
+        const secretKey = String(this.NAVER_SEARCHAD_SECRET_KEY || '').trim();
+        const customerId = String(this.NAVER_SEARCHAD_CUSTOMER_ID || '').trim();
+        const isPlaceholder = (v) => !v || v.includes('본인의_') || v.includes('your_') || v.startsWith('xxxxxxx');
+        return Boolean(apiKey && !isPlaceholder(apiKey) &&
+            secretKey && !isPlaceholder(secretKey) &&
+            customerId && !isPlaceholder(customerId));
     }
 };
 

@@ -8125,3 +8125,213 @@ select.inline-editor {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Keyword Research & SEO Title Generator Modal Styles
+   ========================================================================== */
+.keyword-research-modal-container {
+  background: var(--bg-card, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.keyword-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main, #1e293b);
+  margin: 20px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.keyword-section-title:first-child {
+  margin-top: 0;
+}
+
+.keyword-selected-banner {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.keyword-selected-banner .badge {
+  display: inline-block;
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.keyword-selected-banner .keyword-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.keyword-selected-banner .reason-text {
+  font-size: 0.85rem;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.keyword-metrics-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.keyword-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.keyword-metrics-table th,
+.keyword-metrics-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.keyword-metrics-table th {
+  background: var(--bg-surface-secondary, #f8fafc);
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.keyword-metrics-table tr:last-child td {
+  border-bottom: none;
+}
+
+.keyword-metrics-table tr:hover {
+  background: var(--bg-surface-hover, #f1f5f9);
+}
+
+.comp-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.comp-badge.low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.comp-badge.medium {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.comp-badge.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.title-suggestions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.title-card {
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.title-card:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.08);
+}
+
+.title-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.title-role-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.title-role-badge.intent {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.title-role-badge.empathy {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.title-role-badge.scope {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.title-apply-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.title-apply-btn:hover {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+}
+
+.title-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.title-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-surface-secondary, #f8fafc);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.title-detail-row {
+  display: flex;
+  gap: 6px;
+}
+
+.title-detail-label {
+  font-weight: 600;
+  color: #475569;
+  flex-shrink: 0;
+}
+

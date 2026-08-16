@@ -94,6 +94,9 @@ const { createSurfaceContentRouteHandler } = require('./ui-api/routes/surface-co
 const { createTopicRecommendationsService } = require('./ui-api/services/topic-recommendations.service');
 const { createTopicRecommendationsController } = require('./ui-api/controllers/topic-recommendations.controller');
 const { createTopicRecommendationsRouteHandler } = require('./ui-api/routes/topic-recommendations.routes');
+const { createKeywordsService } = require('./ui-api/services/keywords.service');
+const { createKeywordsController } = require('./ui-api/controllers/keywords.controller');
+const { createKeywordsRouteHandler } = require('./ui-api/routes/keywords.routes');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
@@ -1951,6 +1954,9 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createTopicRecommendationsService,
     createTopicRecommendationsController,
     createTopicRecommendationsRouteHandler,
+    createKeywordsService,
+    createKeywordsController,
+    createKeywordsRouteHandler,
     topicRecommendationAgentRuntime,
     topicRecommendationRetrievalService,
     topicRecommendationEventStore,

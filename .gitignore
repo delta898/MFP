@@ -1,7 +1,10 @@
 node_modules/
+__pycache__/
+*.pyc
 .env
 config/config.txt
 config/config.json
+tools/keywordmaster-cli/config.env
 config/config.json.delta*
 config/config.json.bak
 !config/config.json.sample

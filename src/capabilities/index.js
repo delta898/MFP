@@ -25,6 +25,7 @@ const { createAiMemoryContentIdeaProvider } = require('../content-ideas/provider
 const { createContentIdeaCapabilities } = require('./content/ideas');
 const { createRegisterTopicCapabilities } = require('./content/register-topic');
 const { createPublishCapabilities } = require('./content/publish');
+const { createKeywordResearchCapabilities } = require('./content/keyword-research');
 
 function createCapabilityRegistry(deps = {}) {
     const configState = createConfigStateManager(deps);
@@ -85,6 +86,7 @@ function createCapabilityRegistry(deps = {}) {
         ...createRegisterTopicCapabilities(capabilityDeps),
         ...createPublishCapabilities(capabilityDeps),
         ...createContentIdeaCapabilities(capabilityDeps),
+        ...createKeywordResearchCapabilities(capabilityDeps),
         ...createTrendJobCapabilities(capabilityDeps),
         ...createTrendsCapabilities(capabilityDeps),
         ...createBlogAutoCapabilities(capabilityDeps),

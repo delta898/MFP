@@ -90,6 +90,9 @@ function createUiApiRouteRuntime(deps = {}) {
         createTopicRecommendationsService,
         createTopicRecommendationsController,
         createTopicRecommendationsRouteHandler,
+        createKeywordsService,
+        createKeywordsController,
+        createKeywordsRouteHandler,
         topicRecommendationAgentRuntime,
         topicRecommendationRetrievalService,
         topicRecommendationEventStore,
@@ -117,6 +120,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let manualSnsRouteHandler = null;
     let surfaceContentRouteHandler = null;
     let topicRecommendationsRouteHandler = null;
+    let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let apiRouteHub = null;
 
@@ -259,6 +263,19 @@ function createUiApiRouteRuntime(deps = {}) {
         return topicRecommendationsRouteHandler;
     }
 
+    function getKeywordsRouteHandlerInstance() {
+        if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
+            const service = typeof createKeywordsService === 'function'
+                ? createKeywordsService({ CONFIG, Utils, Logger })
+                : null;
+            const controller = typeof createKeywordsController === 'function'
+                ? createKeywordsController({ service, sendSuccess, sendError })
+                : null;
+            keywordsRouteHandler = createKeywordsRouteHandler({ controller });
+        }
+        return keywordsRouteHandler;
+    }
+
     function createLegacyApiDeps() {
         const baseDeps = {
             APP_VERSION,
@@ -357,6 +374,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getManualSnsRouteHandlerInstance(),
                 getSurfaceContentRouteHandlerInstance(),
                 getTopicRecommendationsRouteHandlerInstance(),
+                getKeywordsRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }
@@ -384,6 +402,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
         getTopicRecommendationsRouteHandler: getTopicRecommendationsRouteHandlerInstance,
+        getKeywordsRouteHandler: getKeywordsRouteHandlerInstance,
         handleApi
     };
 }

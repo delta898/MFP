@@ -7189,6 +7189,9 @@ function applySettingsMajorToForm(data, options = {}) {
   settingsMcpRuntimeStatus = data?.remoteMcpStatus || null;
   settingsMcpTokenVisible = false;
   sv(naverIdEl, fields.NAVER_ID || '');
+  sv(document.getElementById('settings-naver-searchad-api-key'), fields.NAVER_SEARCHAD_API_KEY || '');
+  sv(document.getElementById('settings-naver-searchad-secret-key'), fields.NAVER_SEARCHAD_SECRET_KEY || '');
+  sv(document.getElementById('settings-naver-searchad-customer-id'), fields.NAVER_SEARCHAD_CUSTOMER_ID || '');
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
@@ -7404,6 +7407,9 @@ function getSettingsMajorBasicValuesFromDom() {
     MCP_REMOTE_PATH: normalizeSettingsMcpPath(document.getElementById('settings-mcp-remote-path')?.value || '/mcp'),
     MCP_REMOTE_AUTH_TOKEN: (document.getElementById('settings-mcp-remote-auth-token')?.value || '').trim(),
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
+    NAVER_SEARCHAD_API_KEY: getSettingsInputValue('settings-naver-searchad-api-key').trim(),
+    NAVER_SEARCHAD_SECRET_KEY: getSettingsInputValue('settings-naver-searchad-secret-key').trim(),
+    NAVER_SEARCHAD_CUSTOMER_ID: (document.getElementById('settings-naver-searchad-customer-id')?.value || '').trim(),
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
@@ -11823,6 +11829,9 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-path'),
     document.getElementById('settings-mcp-remote-auth-token-display'),
     document.getElementById('settings-naver-id'),
+    document.getElementById('settings-naver-searchad-api-key'),
+    document.getElementById('settings-naver-searchad-secret-key'),
+    document.getElementById('settings-naver-searchad-customer-id'),
     document.getElementById('settings-wordpress-url'),
     document.getElementById('settings-wordpress-user-id'),
     document.getElementById('settings-wordpress-app-password'),
@@ -12432,6 +12441,210 @@ window.addEventListener('DOMContentLoaded', () => {
       });
     }
   } catch (e) { console.warn('Update banner init error:', e); }
+
+// =========================================================================
+// Keyword Research & SEO Title Generator UI Handlers
+// =========================================================================
+function initKeywordResearchModal() {
+  const keywordModal = document.getElementById('keyword-research-modal');
+  const keywordAssistBtn = document.getElementById('quick-keyword-assist-btn');
+  const keywordModalCloseBtn = document.getElementById('keyword-research-modal-close');
+  const keywordModalCloseFooter = document.getElementById('keyword-research-modal-close-footer');
+  const keywordModalInput = document.getElementById('keyword-modal-input');
+  const keywordModalSearchBtn = document.getElementById('keyword-modal-search-btn');
+  const keywordModalLoading = document.getElementById('keyword-modal-loading');
+  const keywordModalContent = document.getElementById('keyword-modal-content');
+
+  if (!keywordModal) return;
+
+  const openKeywordModal = () => {
+    const currentSubject = (document.getElementById('quick-subject')?.value || '').trim();
+    const currentKeywords = (document.getElementById('quick-keywords')?.value || '').trim();
+    const initialQuery = currentSubject || currentKeywords;
+    if (keywordModalInput) keywordModalInput.value = initialQuery;
+    keywordModal.classList.remove('hidden');
+    keywordModal.setAttribute('aria-hidden', 'false');
+    if (initialQuery) {
+      runKeywordPipeline(initialQuery);
+    }
+  };
+
+  const closeKeywordModal = () => {
+    keywordModal.classList.add('hidden');
+    keywordModal.setAttribute('aria-hidden', 'true');
+  };
+
+  const runKeywordPipeline = async (query) => {
+    const q = String(query || keywordModalInput?.value || '').trim();
+    if (!q) {
+      showUiPopup('분석할 주제나 키워드를 입력해 주세요.');
+      return;
+    }
+    if (keywordModalLoading) keywordModalLoading.classList.remove('hidden');
+    if (keywordModalContent) keywordModalContent.innerHTML = '';
+
+    try {
+      const res = await postJson('/api/v1/keywords/pipeline', {
+        subject: q,
+        keywords: [q],
+        related_assist: true
+      });
+
+      if (!res || !res.success) {
+        throw new Error(res?.error?.message || '키워드 분석 및 제목 추천 실패');
+      }
+
+      renderKeywordPipelineResult(res.data);
+    } catch (err) {
+      if (keywordModalContent) {
+        keywordModalContent.innerHTML = `<div class="alert alert-error" style="color: #dc2626; padding: 12px; background: #fee2e2; border-radius: 6px;">⚠️ 오류: ${escapeHtml(err.message)}</div>`;
+      }
+    } finally {
+      if (keywordModalLoading) keywordModalLoading.classList.add('hidden');
+    }
+  };
+
+  const renderKeywordPipelineResult = (data) => {
+    if (!keywordModalContent || !data) return;
+    const selectedKeyword = data.selected_keyword || '';
+    const analysis = data.analysis || null;
+    const titles = Array.isArray(data.titles) ? data.titles : [];
+
+    let html = '';
+
+    // 1. Selected Keyword Banner
+    if (selectedKeyword) {
+      html += `
+        <div class="keyword-selected-banner">
+          <div><span class="badge">추천 대표 키워드</span> <span class="keyword-text">${escapeHtml(selectedKeyword)}</span></div>
+          ${analysis?.selection_reason ? `<div class="reason-text">💡 ${escapeHtml(analysis.selection_reason)}</div>` : ''}
+          ${data.analysis_note ? `<div class="reason-text" style="color: #ca8a04;">ℹ️ ${escapeHtml(data.analysis_note)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // 2. Keyword Metrics Table (if analysis data exists)
+    const allKeywords = [...(analysis?.input_keywords || []), ...(analysis?.related_candidates || [])];
+    if (allKeywords.length > 0) {
+      html += `
+        <div class="keyword-section-title">📊 키워드 검색량 &amp; 경쟁도 지표</div>
+        <div class="keyword-metrics-table-wrap">
+          <table class="keyword-metrics-table">
+            <thead>
+              <tr>
+                <th>키워드</th>
+                <th>월간 검색수 (PC / 모바일 / 합계)</th>
+                <th>블로그 문서수</th>
+                <th>경쟁강도</th>
+                <th>기회지수</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      allKeywords.slice(0, 10).forEach((item) => {
+        const totalVol = item.monthly_search_volume?.total !== null && item.monthly_search_volume?.total !== undefined
+          ? item.monthly_search_volume.total.toLocaleString()
+          : '-';
+        const pcVol = item.monthly_search_volume?.pc !== null && item.monthly_search_volume?.pc !== undefined
+          ? item.monthly_search_volume.pc.toLocaleString()
+          : '-';
+        const mobVol = item.monthly_search_volume?.mobile !== null && item.monthly_search_volume?.mobile !== undefined
+          ? item.monthly_search_volume.mobile.toLocaleString()
+          : '-';
+        const docCount = item.blog_document_count !== null && item.blog_document_count !== undefined
+          ? item.blog_document_count.toLocaleString() + '건'
+          : '-';
+        const compLevel = item.competition_strength?.level || '미확인';
+        const compClass = compLevel === '낮음' ? 'low' : (compLevel === '높음' ? 'high' : 'medium');
+        const oppScore = item.opportunity?.monthly_searches_per_document !== null && item.opportunity?.monthly_searches_per_document !== undefined
+          ? item.opportunity.monthly_searches_per_document
+          : '-';
+
+        const isPrimary = item.keyword === selectedKeyword;
+
+        html += `
+          <tr style="${isPrimary ? 'background: #f0fdf4; font-weight: 600;' : ''}">
+            <td>${escapeHtml(item.keyword)} ${isPrimary ? '<span style="color: #16a34a; font-size: 0.75rem;">(선정)</span>' : ''}</td>
+            <td>${pcVol} / ${mobVol} / <strong>${totalVol}</strong></td>
+            <td>${docCount}</td>
+            <td><span class="comp-badge ${compClass}">${compLevel}</span></td>
+            <td>${oppScore}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 3. AI Generated SEO Titles
+    if (titles.length > 0) {
+      html += `
+        <div class="keyword-section-title">✨ AI SEO 추천 제목 (3종)</div>
+        <div class="title-suggestions-grid">
+      `;
+
+      titles.forEach((t) => {
+        const role = t.role || '추천 제목';
+        const roleClass = role.includes('의도') ? 'intent' : (role.includes('공감') ? 'empathy' : 'scope');
+
+        html += `
+          <div class="title-card">
+            <div class="title-card-header">
+              <span class="title-role-badge ${roleClass}">${escapeHtml(role)}</span>
+              <button class="title-apply-btn" type="button" data-title="${escapeHtml(t.title)}" data-keyword="${escapeHtml(selectedKeyword)}">이 제목과 키워드 적용</button>
+            </div>
+            <div class="title-text">${escapeHtml(t.title)}</div>
+            <div class="title-details">
+              ${t.seo_reason ? `<div class="title-detail-row"><span class="title-detail-label">🎯 SEO:</span> <span>${escapeHtml(t.seo_reason)}</span></div>` : ''}
+              ${t.click_reason ? `<div class="title-detail-row"><span class="title-detail-label">👀 클릭:</span> <span>${escapeHtml(t.click_reason)}</span></div>` : ''}
+              ${t.tradeoff ? `<div class="title-detail-row"><span class="title-detail-label">⚖️ 유의점:</span> <span>${escapeHtml(t.tradeoff)}</span></div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    }
+
+    keywordModalContent.innerHTML = html;
+
+    // Attach apply handlers
+    keywordModalContent.querySelectorAll('.title-apply-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const chosenTitle = btn.dataset.title || '';
+        const chosenKw = btn.dataset.keyword || '';
+        const subjectInput = document.getElementById('quick-subject');
+        const keywordInput = document.getElementById('quick-keywords');
+
+        if (subjectInput) subjectInput.value = chosenTitle;
+        if (keywordInput) keywordInput.value = chosenKw;
+
+        closeKeywordModal();
+        showToast('선택한 제목과 키워드가 입력되었습니다.', { title: '적용 완료' });
+      });
+    });
+  };
+
+  if (keywordAssistBtn) keywordAssistBtn.addEventListener('click', openKeywordModal);
+  if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
+  if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
+  if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => runKeywordPipeline());
+  if (keywordModalInput) {
+    keywordModalInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runKeywordPipeline();
+      }
+    });
+  }
+}
+
+try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearchModal error:', e); }
 
   document.addEventListener('click', (event) => {
     const detailsButton = event.target instanceof Element
