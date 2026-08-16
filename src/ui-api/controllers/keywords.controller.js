@@ -39,6 +39,15 @@ function createKeywordsController(deps = {}) {
             } catch (error) {
                 return toErrorResponse(res, requestId, 'KEYWORD_PIPELINE_FAILED', '키워드 및 제목 추천 파이프라인 처리에 실패했습니다.', error, 400);
             }
+        },
+
+        async quickPublishSuggestions({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.quickPublishSuggestions(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'QUICK_PUBLISH_SMART_SUGGESTION_FAILED', '빠른 포스팅 스마트 추천을 만들지 못했습니다.', error, 400);
+            }
         }
     };
 }

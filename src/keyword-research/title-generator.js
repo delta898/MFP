@@ -16,11 +16,11 @@ function buildTitlePrompt(input = {}) {
     const subject = String(input.subject || '').trim();
     const content = String(input.content || '').trim();
     const titleMode = normalizeTitleMode(input.title_mode || input.titleMode);
-    const count = Math.max(1, Math.min(5, Number(input.count) || 3));
+    const count = Math.max(1, Math.min(3, Number(input.count) || 3));
 
     return [
-        '당신은 네이버 블로그 SEO 및 콘텐츠 발견에 정통한 한국어 블로그 제목 전문가입니다.',
-        '제공된 핵심 키워드와 주제(및 본문)를 바탕으로, 클릭률과 검색 품질을 모두 잡는 매력적이고 자연스러운 블로그 제목 후보를 생성하세요.',
+        '당신은 한국어 블로그 제목 편집자입니다.',
+        `아래 정보로 서로 다른 제목 ${count}개만 간결하게 생성하세요.`,
         '',
         '## 기본 정보',
         `- 핵심 키워드: ${keyword}`,
@@ -36,35 +36,12 @@ function buildTitlePrompt(input = {}) {
         '   - [상황 공감형]: 독자가 겪는 현실적인 고민, 문제 상황을 짚고 키워드로 연결.',
         '   - [구체 범위형]: 대상, 상황, 조건, 범위(초보자용, 단계별, 비교 등)를 좁혀 신뢰감 부여.',
         '4. 본문에 없는 근거 없는 수치(예: 7가지 꿀팁 등), 허위 보장, 과도한 특수문자, 낚시성 표현을 절대 사용하지 마세요.',
-        '5. 각 제목마다 SEO 관점의 장점, 클릭 유도 요인, 그리고 제목이 감수하는 트레이드오프(본문에서 입증해야 할 점)를 명확히 작성하세요.',
+        '5. 각 설명 필드는 한 문장, 35자 이내로 작성하세요.',
         '',
         '## 출력 형식',
         '반드시 아래 JSON 포맷으로만 응답하세요 (설명이나 마크다운 코드블록 제외):',
-        JSON.stringify({
-            titles: [
-                {
-                    role: "검색 의도형",
-                    title: "키워드가 포함된 자연스러운 제목 예시",
-                    seo_reason: "키워드 전면 배치로 검색 의도 일치도 극대화",
-                    click_reason: "명확한 해결책을 약속하여 검색 유입 클릭 유도",
-                    tradeoff: "독창성보다는 전형적인 가이드 형식으로 보일 수 있음"
-                },
-                {
-                    role: "상황 공감형",
-                    title: "문제 상황을 짚고 키워드로 연결하는 제목 예시",
-                    seo_reason: "문제 해결을 찾는 롱테일 검색 니즈 대응",
-                    click_reason: "공감대 형성을 통한 피드/검색 클릭율 상승",
-                    tradeoff: "직접적인 정답 검색자에게는 다소 길게 느껴질 수 있음"
-                },
-                {
-                    role: "구체 범위형",
-                    title: "대상과 조건을 좁힌 키워드 포함 제목 예시",
-                    seo_reason: "타겟 키워드와 조건어의 결합으로 유효 타겟 유입",
-                    click_reason: "자신에게 맞는 맞춤 정보라는 신뢰감 부여",
-                    tradeoff: "타겟 범위 외의 일반 독자 유입은 제한될 수 있음"
-                }
-            ]
-        }, null, 2)
+        '{"titles":[{"role":"검색 의도형","title":"...","seo_reason":"...","click_reason":"...","tradeoff":"..."}]}',
+        `titles 배열은 정확히 ${count}개이며 JSON 외의 텍스트는 출력하지 마세요.`
     ].join('\n');
 }
 
@@ -128,13 +105,16 @@ function createTitleGenerator(options = {}) {
 
         try {
             const callAi = typeof Utils.callChatText === 'function' ? Utils.callChatText.bind(Utils) : Utils.callWritingText.bind(Utils);
-            const responseText = await callAi(prompt, 1, {
+            const responseText = await callAi(prompt, 2, {
                 usageLabel: '키워드 및 SEO 제목 생성',
-                maxTokens: 1000,
-                temperature: 0.7
+                maxTokens: 1600,
+                temperature: 0.6,
+                reasoningEffort: 'minimal',
+                responseMimeType: 'application/json'
             });
 
-            const titles = parseTitleResponse(responseText);
+            const requestedCount = Math.max(1, Math.min(3, Number(input.count) || 3));
+            const titles = parseTitleResponse(responseText).slice(0, requestedCount);
             return {
                 success: true,
                 keyword,

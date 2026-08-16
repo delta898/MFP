@@ -397,11 +397,15 @@
               <input id="quick-keywords" type="text" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
             </label>
 
-            <div class="blog-quick-field blog-quick-field-full" style="display: flex; justify-content: flex-end; margin-top: -6px; margin-bottom: 6px;">
-              <button id="quick-keyword-assist-btn" class="btn btn-secondary" type="button" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
-                <span>🔍 키워드 분석 &amp; AI 제목 추천</span>
-              </button>
-            </div>
+            <label class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label">Title (제목, 선택)</span>
+              <div class="blog-quick-title-row">
+                <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
+                <button id="quick-title-recommend-btn" class="btn btn-secondary" type="button">
+                  <span>추천</span>
+                </button>
+              </div>
+            </label>
 
             <!-- Row 2: Instruction (Half) & Reference URL (Half) -->
             <label class="blog-quick-field blog-quick-field-half">
@@ -1976,17 +1980,6 @@
                   <span id="settings-naver-session-detail" class="muted">블로그 설정 탭을 열면 로그인 상태를 확인합니다.</span>
                 </span>
               </div>
-            </label>
-
-            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">네이버 검색광고 (키워드 연구 &amp; 검색량 분석)</div>
-            <label>NAVER_SEARCHAD_API_KEY
-              <input id="settings-naver-searchad-api-key" type="password" placeholder="검색광고 API 라이선스 키">
-            </label>
-            <label>NAVER_SEARCHAD_SECRET_KEY
-              <input id="settings-naver-searchad-secret-key" type="password" placeholder="검색광고 비밀키">
-            </label>
-            <label style="grid-column: 1 / -1;">NAVER_SEARCHAD_CUSTOMER_ID
-              <input id="settings-naver-searchad-customer-id" type="text" placeholder="검색광고 커스터머 ID (숫자)">
             </label>
 
             <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">워드프레스</div>

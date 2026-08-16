@@ -51,6 +51,7 @@ test('quick publish keeps the user image option independent from legacy license 
 
     const result = await runtime.executeQuickPublish({
         subject: '테스트 글',
+        title: '사용자가 정한 최종 제목',
         imageGeneration: true,
         writingStrategy: 'discovery',
         publishMode: 'append_only',
@@ -60,9 +61,12 @@ test('quick publish keeps the user image option independent from legacy license 
     assert.equal(result.success, true);
     assert.equal(appendedTopics[0].image_options.generate, true);
     assert.equal(appendedTopics[0].writing_strategy, 'discovery');
+    assert.equal(appendedTopics[0].title, '사용자가 정한 최종 제목');
+    assert.equal(appendedTopics[0].content_guide.title, '사용자가 정한 최종 제목');
     assert.equal(appendedTopics[0].source, 'manual');
     assert.equal(appendedTopics[0].trendDate, '');
     assert.equal(dedupeInput.writingStrategy, 'discovery');
+    assert.equal(dedupeInput.title, '사용자가 정한 최종 제목');
 });
 
 test('quick publish preserves trend provenance in the topics row and dedupe input', async () => {

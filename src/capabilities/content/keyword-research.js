@@ -26,6 +26,8 @@ function createKeywordResearchCapabilities(deps = {}) {
                         keywords: keywords.length > 0 ? keywords : [subject],
                         subject,
                         related_assist: params.related_assist ?? true,
+                        related_limit: params.related_limit ?? 8,
+                        candidate_limit: params.candidate_limit ?? 8,
                         min_search_volume: params.min_search_volume ?? 300
                     }
                 };

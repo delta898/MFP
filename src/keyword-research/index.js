@@ -2,6 +2,7 @@ const { createNaverSearchAdClient } = require('./naver-search-ad-client');
 const { createNaverBlogSearchClient } = require('./naver-blog-search-client');
 const { analyzeKeywords, parseKeywords } = require('./keyword-analyzer');
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
+const { createQuickPublishSuggestionService } = require('./quick-publish-suggestion');
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
@@ -27,6 +28,11 @@ function createKeywordResearchService(options = {}) {
     const titleGenerator = options.titleGenerator || createTitleGenerator({
         Utils: utils,
         Logger: logger
+    });
+    const quickPublishSuggestionService = options.quickPublishSuggestionService || createQuickPublishSuggestionService({
+        keywordResearchService: {
+            researchAndSuggestTitles
+        }
     });
 
     function isConfigured() {
@@ -69,11 +75,13 @@ function createKeywordResearchService(options = {}) {
                     keywords: effectiveKeywords,
                     subject: effectiveSubject,
                     related_assist: input.related_assist ?? true,
+                    related_limit: input.related_limit,
+                    candidate_limit: input.candidate_limit,
                     min_search_volume: input.min_search_volume ?? 300
                 });
                 selectedKeyword = analysisResult.selected_keyword || selectedKeyword;
             } else {
-                analysisError = '네이버 검색광고 API 설정이 없어 키워드 지표 조회를 건너뜁니다.';
+                analysisError = '검색량 지표는 아직 연결되지 않았습니다. 입력한 주제와 키워드를 기준으로 제목을 추천합니다.';
             }
         } catch (err) {
             analysisError = err.message;
@@ -105,6 +113,7 @@ function createKeywordResearchService(options = {}) {
         analyze,
         suggestTitles,
         researchAndSuggestTitles,
+        suggestQuickPublish: quickPublishSuggestionService.suggest,
         searchAdClient,
         blogSearchClient,
         titleGenerator
@@ -116,5 +125,6 @@ module.exports = {
     createNaverBlogSearchClient,
     analyzeKeywords,
     createTitleGenerator,
+    createQuickPublishSuggestionService,
     createKeywordResearchService
 };

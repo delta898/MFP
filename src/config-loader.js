@@ -453,12 +453,13 @@ const CONFIG = {
         : [],
     BUFFER_HELP_URL: structuredConfig.integrations?.buffer?.help_url || '',
 
-    // Naver Search Ads & API Hub (Keyword Research)
-    NAVER_SEARCHAD_API_KEY: process.env.NAVER_SEARCHAD_API_KEY || structuredConfig.integrations?.naver_searchad?.api_key || structuredConfig.platforms?.naver?.searchad_api_key || '',
-    NAVER_SEARCHAD_SECRET_KEY: process.env.NAVER_SEARCHAD_SECRET_KEY || structuredConfig.integrations?.naver_searchad?.secret_key || structuredConfig.platforms?.naver?.searchad_secret_key || '',
-    NAVER_SEARCHAD_CUSTOMER_ID: process.env.NAVER_SEARCHAD_CUSTOMER_ID || structuredConfig.integrations?.naver_searchad?.customer_id || structuredConfig.platforms?.naver?.searchad_customer_id || '',
-    NAVER_API_HUB_CLIENT_ID: process.env.NAVER_API_HUB_CLIENT_ID || structuredConfig.integrations?.naver_api_hub?.client_id || '',
-    NAVER_API_HUB_CLIENT_SECRET: process.env.NAVER_API_HUB_CLIENT_SECRET || structuredConfig.integrations?.naver_api_hub?.client_secret || '',
+    // Local-development fallback only. Production credentials remain in the
+    // BlogGenius keyword gateway and are never loaded from user config.json.
+    NAVER_SEARCHAD_API_KEY: process.env.NAVER_SEARCHAD_API_KEY || '',
+    NAVER_SEARCHAD_SECRET_KEY: process.env.NAVER_SEARCHAD_SECRET_KEY || '',
+    NAVER_SEARCHAD_CUSTOMER_ID: process.env.NAVER_SEARCHAD_CUSTOMER_ID || '',
+    NAVER_API_HUB_CLIENT_ID: process.env.NAVER_API_HUB_CLIENT_ID || '',
+    NAVER_API_HUB_CLIENT_SECRET: process.env.NAVER_API_HUB_CLIENT_SECRET || '',
 
     SNS_PUBLISH_ENABLED: structuredConfig.automation.publish?.social?.enabled === true,
     SNS_PUBLISH_INTERVAL_MIN: Math.max(10, Number(structuredConfig.automation.publish?.social?.interval_min) || 10),

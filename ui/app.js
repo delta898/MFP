@@ -7189,9 +7189,6 @@ function applySettingsMajorToForm(data, options = {}) {
   settingsMcpRuntimeStatus = data?.remoteMcpStatus || null;
   settingsMcpTokenVisible = false;
   sv(naverIdEl, fields.NAVER_ID || '');
-  sv(document.getElementById('settings-naver-searchad-api-key'), fields.NAVER_SEARCHAD_API_KEY || '');
-  sv(document.getElementById('settings-naver-searchad-secret-key'), fields.NAVER_SEARCHAD_SECRET_KEY || '');
-  sv(document.getElementById('settings-naver-searchad-customer-id'), fields.NAVER_SEARCHAD_CUSTOMER_ID || '');
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
@@ -7407,9 +7404,6 @@ function getSettingsMajorBasicValuesFromDom() {
     MCP_REMOTE_PATH: normalizeSettingsMcpPath(document.getElementById('settings-mcp-remote-path')?.value || '/mcp'),
     MCP_REMOTE_AUTH_TOKEN: (document.getElementById('settings-mcp-remote-auth-token')?.value || '').trim(),
     NAVER_ID: (document.getElementById('settings-naver-id')?.value || '').trim(),
-    NAVER_SEARCHAD_API_KEY: getSettingsInputValue('settings-naver-searchad-api-key').trim(),
-    NAVER_SEARCHAD_SECRET_KEY: getSettingsInputValue('settings-naver-searchad-secret-key').trim(),
-    NAVER_SEARCHAD_CUSTOMER_ID: (document.getElementById('settings-naver-searchad-customer-id')?.value || '').trim(),
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
@@ -9954,6 +9948,7 @@ function bindActions() {
     const recommendationContext = getActiveQuickRecommendationContext();
     const payload = {
       subject: (document.getElementById('quick-subject')?.value || '').trim(),
+      title: (document.getElementById('quick-title')?.value || '').trim(),
       keywords: (document.getElementById('quick-keywords')?.value || '').trim(),
       instruction: (document.getElementById('quick-instruction')?.value || '').trim(),
       writingStrategy: getSelectedSettingsRadioValue(
@@ -10215,7 +10210,7 @@ function bindActions() {
     renderQuickGeneratedPreview(null);
   }
 
-  const runQuickPublish = async (mode) => {
+  const runQuickPublish = async (mode, payloadOverride = null) => {
     if (!resultEl) return;
     if (!guardUiConfigReady('빠른발행')) return;
     if (quickPublishInFlight) {
@@ -10229,7 +10224,7 @@ function bindActions() {
     if (generateBtn) generateBtn.disabled = true;
     if (previewPublishBtn) previewPublishBtn.disabled = true;
 
-    const dummyPayload = buildQuickPayload(mode);
+    const dummyPayload = payloadOverride || buildQuickPayload(mode);
     if (mode === 'publish') dummyPayload.operationId = crypto.randomUUID();
 
     if (dummyPayload.postStatus === 'schedule') {
@@ -10419,10 +10414,12 @@ function bindActions() {
     clearBtn.addEventListener('click', () => {
       const subjectEl = document.getElementById('quick-subject');
       const keywordsEl = document.getElementById('quick-keywords');
+      const titleEl = document.getElementById('quick-title');
       const instructionEl = document.getElementById('quick-instruction');
       const referenceUrlEl = document.getElementById('quick-reference-url');
       if (subjectEl) subjectEl.value = '';
       if (keywordsEl) keywordsEl.value = '';
+      if (titleEl) titleEl.value = '';
       if (instructionEl) instructionEl.value = '';
       if (referenceUrlEl) referenceUrlEl.value = '';
       quickTrendTopicContext = null;
@@ -11829,9 +11826,6 @@ function bindActions() {
     document.getElementById('settings-mcp-remote-path'),
     document.getElementById('settings-mcp-remote-auth-token-display'),
     document.getElementById('settings-naver-id'),
-    document.getElementById('settings-naver-searchad-api-key'),
-    document.getElementById('settings-naver-searchad-secret-key'),
-    document.getElementById('settings-naver-searchad-customer-id'),
     document.getElementById('settings-wordpress-url'),
     document.getElementById('settings-wordpress-user-id'),
     document.getElementById('settings-wordpress-app-password'),
@@ -12447,7 +12441,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // =========================================================================
 function initKeywordResearchModal() {
   const keywordModal = document.getElementById('keyword-research-modal');
-  const keywordAssistBtn = document.getElementById('quick-keyword-assist-btn');
+  const titleRecommendBtn = document.getElementById('quick-title-recommend-btn');
   const keywordModalCloseBtn = document.getElementById('keyword-research-modal-close');
   const keywordModalCloseFooter = document.getElementById('keyword-research-modal-close-footer');
   const keywordModalInput = document.getElementById('keyword-modal-input');
@@ -12460,7 +12454,8 @@ function initKeywordResearchModal() {
   const openKeywordModal = () => {
     const currentSubject = (document.getElementById('quick-subject')?.value || '').trim();
     const currentKeywords = (document.getElementById('quick-keywords')?.value || '').trim();
-    const initialQuery = currentSubject || currentKeywords;
+    const currentTitle = (document.getElementById('quick-title')?.value || '').trim();
+    const initialQuery = currentSubject || currentKeywords || currentTitle;
     if (keywordModalInput) keywordModalInput.value = initialQuery;
     keywordModal.classList.remove('hidden');
     keywordModal.setAttribute('aria-hidden', 'false');
@@ -12484,17 +12479,17 @@ function initKeywordResearchModal() {
     if (keywordModalContent) keywordModalContent.innerHTML = '';
 
     try {
-      const res = await postJson('/api/v1/keywords/pipeline', {
+      const data = await postJson('/api/v1/keywords/pipeline', {
         subject: q,
         keywords: [q],
         related_assist: true
       });
 
-      if (!res || !res.success) {
-        throw new Error(res?.error?.message || '키워드 분석 및 제목 추천 실패');
+      if (!data) {
+        throw new Error('키워드 분석 및 제목 추천 실패');
       }
 
-      renderKeywordPipelineResult(res.data);
+      renderKeywordPipelineResult(data);
     } catch (err) {
       if (keywordModalContent) {
         keywordModalContent.innerHTML = `<div class="alert alert-error" style="color: #dc2626; padding: 12px; background: #fee2e2; border-radius: 6px;">⚠️ 오류: ${escapeHtml(err.message)}</div>`;
@@ -12618,10 +12613,10 @@ function initKeywordResearchModal() {
       btn.addEventListener('click', () => {
         const chosenTitle = btn.dataset.title || '';
         const chosenKw = btn.dataset.keyword || '';
-        const subjectInput = document.getElementById('quick-subject');
+        const titleInput = document.getElementById('quick-title');
         const keywordInput = document.getElementById('quick-keywords');
 
-        if (subjectInput) subjectInput.value = chosenTitle;
+        if (titleInput) titleInput.value = chosenTitle;
         if (keywordInput) keywordInput.value = chosenKw;
 
         closeKeywordModal();
@@ -12630,7 +12625,7 @@ function initKeywordResearchModal() {
     });
   };
 
-  if (keywordAssistBtn) keywordAssistBtn.addEventListener('click', openKeywordModal);
+  if (titleRecommendBtn) titleRecommendBtn.addEventListener('click', openKeywordModal);
   if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
   if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
   if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => runKeywordPipeline());

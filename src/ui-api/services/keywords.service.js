@@ -15,8 +15,8 @@ function createKeywordsService(deps = {}) {
                 keywords,
                 subject: subject || (Array.isArray(keywords) ? keywords[0] : keywords),
                 related_assist: related_assist ?? true,
-                related_limit: related_limit ?? 20,
-                candidate_limit: candidate_limit ?? 30,
+                related_limit: related_limit ?? 8,
+                candidate_limit: candidate_limit ?? 8,
                 min_search_volume: min_search_volume ?? 300
             });
         },
@@ -31,16 +31,22 @@ function createKeywordsService(deps = {}) {
             });
         },
 
-        async researchPipeline({ keywords, subject, content, related_assist, title_mode, min_search_volume, count } = {}) {
+        async researchPipeline({ keywords, subject, content, related_assist, related_limit, candidate_limit, title_mode, min_search_volume, count } = {}) {
             return keywordResearchService.researchAndSuggestTitles({
                 keywords,
                 subject,
                 content,
                 related_assist: related_assist ?? true,
+                related_limit: related_limit ?? 8,
+                candidate_limit: candidate_limit ?? 8,
                 title_mode,
                 min_search_volume: min_search_volume ?? 300,
                 count: count ?? 3
             });
+        },
+
+        async quickPublishSuggestions(requestBody = {}) {
+            return keywordResearchService.suggestQuickPublish(requestBody);
         }
     };
 }

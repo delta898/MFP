@@ -688,6 +688,7 @@ function createPublishActionsRuntime(deps = {}) {
 
     async function executeQuickPublish(requestBody) {
         const subject = String(requestBody?.subject || '').trim();
+        const title = String(requestBody?.title || '').trim();
         const keywords = normalizeKeywords(requestBody?.keywords);
         const instruction = String(requestBody?.instruction || '').trim();
         const rawWritingStrategy = String(requestBody?.writingStrategy || '').trim().toLowerCase();
@@ -729,6 +730,7 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const finalSubject = subject || '(제목 미지정)';
+        const finalTitle = title;
 
         if (referenceUrl && !/^https?:\/\//i.test(referenceUrl)) {
             return { success: false, code: 'INVALID_REFERENCE_URL', message: '참고 URL 형식이 올바르지 않습니다. (http/https)' };
@@ -756,6 +758,7 @@ function createPublishActionsRuntime(deps = {}) {
         cleanupQuickPublishDedupeCache(nowMs);
         const dedupeKey = buildQuickPublishDedupeKey({
             subject,
+            title: finalTitle,
             keywords,
             instruction,
             referenceUrl,
@@ -817,8 +820,10 @@ function createPublishActionsRuntime(deps = {}) {
         } else {
             const appendResult = await Utils.appendGoogleSheetTopics([{
                 subject,
+                title: finalTitle,
                 keywords,
                 content_guide: {
+                    title: finalTitle,
                     additional_instructions: instruction,
                     reference_urls: referenceUrl ? [referenceUrl] : []
                 },
@@ -884,6 +889,7 @@ function createPublishActionsRuntime(deps = {}) {
         const publishParams = {
             context: {
                 subject,
+                title: finalTitle,
                 keywords,
                 instruction,
                 referenceUrls: referenceUrl ? [referenceUrl] : [],

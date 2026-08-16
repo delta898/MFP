@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     parseCount,
+    DEFAULT_CANDIDATE_LIMIT,
     normalizedKeyword,
     parseKeywords,
     validateRequest,
@@ -96,4 +97,52 @@ test('analyzeKeywords orchestrates search ad and blog search clients correctly',
     assert.equal(result.related_candidates.length, 1);
     assert.equal(result.related_candidates[0].keyword, '제주도 맛집');
     assert.equal(result.related_candidates[0].monthly_search_volume.total, 10000);
+});
+
+test('analyzeKeywords shortlists eight eligible related keywords before blog lookups', async () => {
+    const relatedRows = Array.from({ length: 10 }, (_, index) => ({
+        relKeyword: `가전제품${index + 1}`,
+        monthlyPcQcCnt: String(1000 - index * 10),
+        monthlyMobileQcCnt: '1000',
+        compIdx: '중간'
+    }));
+    relatedRows.push({
+        relKeyword: '제주도 아이 여행',
+        monthlyPcQcCnt: '200',
+        monthlyMobileQcCnt: '200',
+        compIdx: '낮음'
+    });
+    relatedRows.push({
+        relKeyword: '제주도 저검색 후보',
+        monthlyPcQcCnt: '50',
+        monthlyMobileQcCnt: '50',
+        compIdx: '낮음'
+    });
+
+    const blogLookups = [];
+    const result = await analyzeKeywords({
+        keywords: ['제주 여행'],
+        subject: '아이와 함께하는 제주도 여행',
+        related_assist: true,
+        min_search_volume: 300
+    }, {
+        searchAdClient: {
+            fetchKeywordRows: async () => [
+                { relKeyword: '제주 여행', monthlyPcQcCnt: '500', monthlyMobileQcCnt: '1000', compIdx: '중간' },
+                ...relatedRows
+            ]
+        },
+        blogSearchClient: {
+            fetchBlogTotal: async (keyword) => {
+                blogLookups.push(keyword);
+                return { total: 1000, error: null };
+            }
+        }
+    });
+
+    assert.equal(DEFAULT_CANDIDATE_LIMIT, 8);
+    assert.equal(blogLookups.length, 9);
+    assert.equal(result.related_candidates.length, 8);
+    assert.ok(blogLookups.includes('제주도 아이 여행'));
+    assert.ok(!blogLookups.includes('제주도 저검색 후보'));
 });

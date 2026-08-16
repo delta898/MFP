@@ -1828,6 +1828,7 @@ ${messageText}
 		// 📋 요청 파라미터 요약 로그 (디버깅용)
 		Logger.info("┌─────────────────────────────────────────");
 		Logger.info(`│ 📌 주제       : ${jobData.subject || '(없음)'}`);
+		Logger.info(`│ 📝 제목       : ${jobData.title || jobData.content_guide?.title || '(AI 생성)'}`);
 		Logger.info(`│ 🏷️  키워드     : ${hasKeywords ? jobData.keywords.join(', ') : '(없음)'}`);
 		Logger.info(`│ 🔗 참고 URL   : ${hasRef ? jobData.content_guide.reference_urls.join(', ') : '(없음)'}`);
 		Logger.info(`│ 🌐 외부 참고  : ${useExternalRef ? '✅ 예' : '❌ 아니오'}`);
@@ -1923,9 +1924,16 @@ ${messageText}
 ${scrapedContext}`;
 		}
 
+		const requestedTitle = String(jobData.title || jobData.content_guide?.title || '').trim();
+		const titleInstruction = requestedTitle
+			? `- Requested Final Title: ${requestedTitle}
+			 - Title Rule: 출력 JSON의 title은 Requested Final Title을 그대로 사용하세요. 본문은 이 제목의 약속과 정확히 맞아야 합니다.`
+			: '- Requested Final Title: (None. Create a fitting title from Subject, Keywords, Instructions, and References.)';
+
 		const userPrompt = `
 				 [INPUT DATA]
 				 - Subject: ${jobData.subject || "(Context에 기반해 멋진 제목을 지어주세요)"}
+			 ${titleInstruction}
 			 - Keywords: ${jobData.keywords?.join(', ') || "(핵심 키워드 5개를 추출해주세요)"}
 			 - Instructions: ${jobData.content_guide?.additional_instructions || "None"}
 			 [REFERENCE CONTEXT]
@@ -1954,7 +1962,7 @@ ${scrapedContext}`;
 			throw new Error(`JSON 파싱 에러: ${e.message}. AI 응답이 올바른 JSON 형식이 아닙니다.`);
 		}
 
-		const finalSubject = parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
+		const finalSubject = requestedTitle || parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
 		const finalHashtags = normalizeHashtagTokens(parsedData.hashtags || [], 20);
 		// 5) 관련 글 수집 및 생성 (Platform에 따른 하이브리드 지원)

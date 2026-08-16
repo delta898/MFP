@@ -68,9 +68,13 @@ test('parseTitleResponse handles code fences and numbered fallback', () => {
     assert.equal(parsed[1].title, '두 번째 제목');
 });
 
-test('createTitleGenerator invokes AI service and returns structured result', async () => {
+test('createTitleGenerator requests concise structured output and returns at most three titles', async () => {
+    let receivedRetries = null;
+    let receivedOptions = null;
     const mockUtils = {
-        callChatText: async (prompt) => {
+        callChatText: async (prompt, retries, options) => {
+            receivedRetries = retries;
+            receivedOptions = options;
             return JSON.stringify({
                 titles: [
                     {
@@ -79,7 +83,10 @@ test('createTitleGenerator invokes AI service and returns structured result', as
                         seo_reason: '좋음',
                         click_reason: '클릭유도',
                         tradeoff: '약간 김'
-                    }
+                    },
+                    { role: '상황 공감형', title: '두 번째 제목' },
+                    { role: '구체 범위형', title: '세 번째 제목' },
+                    { role: '추가 제목', title: '네 번째 제목' }
                 ]
             });
         }
@@ -92,6 +99,10 @@ test('createTitleGenerator invokes AI service and returns structured result', as
     });
 
     assert.equal(result.success, true);
-    assert.equal(result.titles.length, 1);
+    assert.equal(result.titles.length, 3);
     assert.equal(result.titles[0].title, '테스트 생성된 완벽한 제목');
+    assert.equal(receivedRetries, 2);
+    assert.equal(receivedOptions.maxTokens, 1600);
+    assert.equal(receivedOptions.reasoningEffort, 'minimal');
+    assert.equal(receivedOptions.responseMimeType, 'application/json');
 });

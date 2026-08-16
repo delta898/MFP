@@ -3,6 +3,9 @@
  * Ported from KeywordMaster Core (Python) to Pure JavaScript.
  */
 
+const DEFAULT_RELATED_LIMIT = 8;
+const DEFAULT_CANDIDATE_LIMIT = 8;
+
 function parseCount(value) {
     if (value === null || value === undefined) {
         return { count: null, raw: null };
@@ -77,11 +80,11 @@ function validateRequest(request) {
     if (!request.subject || !String(request.subject).trim()) {
         throw new Error('주제(subject)가 필요합니다.');
     }
-    const relatedLimit = request.related_limit ?? 20;
+    const relatedLimit = request.related_limit ?? DEFAULT_RELATED_LIMIT;
     if (relatedLimit < 1 || relatedLimit > 100) {
         throw new Error('related_limit는 1에서 100 사이여야 합니다.');
     }
-    const candidateLimit = request.candidate_limit ?? 30;
+    const candidateLimit = request.candidate_limit ?? DEFAULT_CANDIDATE_LIMIT;
     if (candidateLimit < 1 || candidateLimit > 100) {
         throw new Error('candidate_limit는 1에서 100 사이여야 합니다.');
     }
@@ -102,6 +105,27 @@ function totalVolume(row) {
         total,
         raw: { pc: pc.raw, mobile: mobile.raw }
     };
+}
+
+function relatedSubjectScore(item, subject) {
+    const keyword = normalizedKeyword(item?.row?.relKeyword);
+    if (!keyword) return 0;
+
+    const subjectTokens = String(subject || '')
+        .toLowerCase()
+        .match(/[0-9a-z가-힣]{2,}/g) || [];
+    const sourceKeywords = Array.isArray(item?.source_input_keywords)
+        ? item.source_input_keywords.map(normalizedKeyword).filter(Boolean)
+        : [];
+
+    let score = 0;
+    for (const token of subjectTokens) {
+        if (keyword.includes(token.replace(/\s+/g, ''))) score += 2;
+    }
+    for (const sourceKeyword of sourceKeywords) {
+        if (keyword.includes(sourceKeyword) || sourceKeyword.includes(keyword)) score += 3;
+    }
+    return score;
 }
 
 function choosePrimaryRow(rows, keyword) {
@@ -224,8 +248,8 @@ async function analyzeKeywords(request, clients = {}) {
         keywords,
         subject: String(request.subject || '').trim(),
         related_assist: Boolean(request.related_assist),
-        related_limit: request.related_limit ?? 20,
-        candidate_limit: request.candidate_limit ?? 30,
+        related_limit: request.related_limit ?? DEFAULT_RELATED_LIMIT,
+        candidate_limit: request.candidate_limit ?? DEFAULT_CANDIDATE_LIMIT,
         min_search_volume: request.min_search_volume ?? 300
     };
     validateRequest(normalizedRequest);
@@ -277,9 +301,17 @@ async function analyzeKeywords(request, clients = {}) {
     }
 
     // Top related candidates up to candidate_limit
-    const relatedEntries = Array.from(relatedPoolMap.values());
-    // Sort related pool by volume first before fetching doc count
+    const relatedEntries = Array.from(relatedPoolMap.values())
+        .filter((item) => {
+            const volume = totalVolume(item.row).total;
+            return volume !== null && volume >= normalizedRequest.min_search_volume;
+        });
+    // Search Ads supplies volume for the whole pool, so shortlist before using
+    // the separately metered Blog Search API.
     relatedEntries.sort((a, b) => {
+        const relevanceA = relatedSubjectScore(a, normalizedRequest.subject);
+        const relevanceB = relatedSubjectScore(b, normalizedRequest.subject);
+        if (relevanceA !== relevanceB) return relevanceB - relevanceA;
         const volA = totalVolume(a.row).total ?? -1;
         const volB = totalVolume(b.row).total ?? -1;
         return volB - volA;
@@ -368,11 +400,14 @@ async function analyzeKeywords(request, clients = {}) {
 }
 
 module.exports = {
+    DEFAULT_RELATED_LIMIT,
+    DEFAULT_CANDIDATE_LIMIT,
     parseCount,
     normalizedKeyword,
     parseKeywords,
     validateRequest,
     totalVolume,
+    relatedSubjectScore,
     choosePrimaryRow,
     competitionLevel,
     buildCandidate,

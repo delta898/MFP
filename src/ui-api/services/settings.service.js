@@ -21,6 +21,30 @@ const { isSnsAiMode } = require('../../social/sns-ai-policy');
 const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 
+function removeManagedKeywordCredentials(structuredConfig = {}) {
+    for (const key of [
+        'NAVER_SEARCHAD_API_KEY',
+        'NAVER_SEARCHAD_SECRET_KEY',
+        'NAVER_SEARCHAD_CUSTOMER_ID',
+        'NAVER_API_HUB_CLIENT_ID',
+        'NAVER_API_HUB_CLIENT_SECRET'
+    ]) {
+        delete structuredConfig[key];
+    }
+    if (structuredConfig.integrations && typeof structuredConfig.integrations === 'object') {
+        delete structuredConfig.integrations.naver_searchad;
+        delete structuredConfig.integrations.naver_api_hub;
+    }
+    if (structuredConfig.platforms?.naver && typeof structuredConfig.platforms.naver === 'object') {
+        delete structuredConfig.platforms.naver.searchad_api_key;
+        delete structuredConfig.platforms.naver.searchad_secret_key;
+        delete structuredConfig.platforms.naver.searchad_customer_id;
+        delete structuredConfig.platforms.naver.api_hub_client_id;
+        delete structuredConfig.platforms.naver.api_hub_client_secret;
+    }
+    return structuredConfig;
+}
+
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -182,6 +206,7 @@ function createSettingsService(deps = {}) {
             } catch (e) {
                 console.error('Failed to read existing config.json for update:', e);
             }
+            removeManagedKeywordCredentials(structuredConfig);
 
             // 계층 구조에 맞춰 필드 업데이트
             // 1. Essential
@@ -705,5 +730,6 @@ function createSettingsService(deps = {}) {
 
 module.exports = {
     createSettingsService,
-    createApiError
+    createApiError,
+    removeManagedKeywordCredentials
 };
