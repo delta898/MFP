@@ -36,6 +36,7 @@
 - `architecture/knowledge-providers.md`
 - `architecture/trends-backend.md`
 - `architecture/trends-backend-deployment.md`
+- `architecture/keyword-gateway.md`
 - `architecture/workspace-layout.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`

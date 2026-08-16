@@ -7,6 +7,8 @@ function createAccessTokenCache(options = {}) {
     const issueToken = options.issueToken;
     const now = typeof options.now === 'function' ? options.now : () => Date.now();
     const refreshSkewMs = Math.max(0, Number(options.refreshSkewMs) || 60000);
+    const defaultErrorCode = String(options.defaultErrorCode || 'TRENDS_TOKEN_ISSUE_FAILED');
+    const defaultErrorMessage = String(options.defaultErrorMessage || '트렌드 접근 토큰을 발급하지 못했습니다.');
     if (typeof issueToken !== 'function') {
         throw new Error('issueToken is required');
     }
@@ -31,8 +33,8 @@ function createAccessTokenCache(options = {}) {
             const accessToken = String(result?.accessToken || '').trim();
             const expiresAtMs = parseExpiry(result?.expiresAt);
             if (!result?.success || !accessToken || expiresAtMs <= now()) {
-                const error = new Error(result?.message || '트렌드 접근 토큰을 발급하지 못했습니다.');
-                error.code = result?.code || 'TRENDS_TOKEN_ISSUE_FAILED';
+                const error = new Error(result?.message || defaultErrorMessage);
+                error.code = result?.code || defaultErrorCode;
                 throw error;
             }
             cached = { accessToken, expiresAtMs };

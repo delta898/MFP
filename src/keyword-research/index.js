@@ -3,11 +3,16 @@ const { createNaverBlogSearchClient } = require('./naver-blog-search-client');
 const { analyzeKeywords, parseKeywords } = require('./keyword-analyzer');
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
 const { createQuickPublishSuggestionService } = require('./quick-publish-suggestion');
+const {
+    DEFAULT_KEYWORD_GATEWAY_BASE_URL,
+    createKeywordResearchRemoteClient
+} = require('./remote-client');
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
     const utils = options.Utils || require('../utils');
     const logger = options.Logger || require('../logger');
+    const transport = String(options.transport || config.KEYWORD_RESEARCH_TRANSPORT || 'remote_api').trim();
 
     const searchAdClient = options.searchAdClient || createNaverSearchAdClient({
         apiKey: config.NAVER_SEARCHAD_API_KEY,
@@ -29,6 +34,18 @@ function createKeywordResearchService(options = {}) {
         Utils: utils,
         Logger: logger
     });
+    let remoteClient = options.remoteClient || null;
+
+    function getRemoteClient() {
+        if (remoteClient) return remoteClient;
+        const License = options.License || require('../license');
+        remoteClient = createKeywordResearchRemoteClient({
+            httpClient: options.httpClient,
+            baseUrl: options.gatewayBaseUrl || config.KEYWORD_GATEWAY_BASE_URL || DEFAULT_KEYWORD_GATEWAY_BASE_URL,
+            issueToken: () => License.issueKeywordAccessToken()
+        });
+        return remoteClient;
+    }
     const quickPublishSuggestionService = options.quickPublishSuggestionService || createQuickPublishSuggestionService({
         keywordResearchService: {
             researchAndSuggestTitles
@@ -36,10 +53,12 @@ function createKeywordResearchService(options = {}) {
     });
 
     function isConfigured() {
-        return searchAdClient.isConfigured() && blogSearchClient.isConfigured();
+        return transport === 'remote_api'
+            || (searchAdClient.isConfigured() && blogSearchClient.isConfigured());
     }
 
     async function analyze(request = {}) {
+        if (transport === 'remote_api') return getRemoteClient().analyze(request);
         return analyzeKeywords(request, {
             searchAdClient,
             blogSearchClient
@@ -126,5 +145,6 @@ module.exports = {
     analyzeKeywords,
     createTitleGenerator,
     createQuickPublishSuggestionService,
+    createKeywordResearchRemoteClient,
     createKeywordResearchService
 };

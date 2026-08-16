@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: quick-publish integration and provider hardening
+- Phase: keyword gateway implementation and deployment verification
 - Runtime: BlogGenius JavaScript modules
 - Credential model: BlogGenius-managed remote provider
 
@@ -43,8 +43,8 @@ provider: BlogGenius Keyword Gateway
 
 ## Quota Policy
 
-- 입력 키워드: 최대 3개
-- 연관 후보 기본값: 8개
+- 입력 키워드: 서버 정책 기본값 최대 3개
+- 연관 후보: 서버 정책 기본값 총 8개
 - 최소 월간 검색량 기본값: 300
 - Search Ads 응답에서 검색량 기준 미달 후보를 먼저 제외한다.
 - 주제 관련성과 검색량으로 후보를 정렬한 뒤 Blog Search API를 호출한다.
@@ -57,7 +57,8 @@ provider: BlogGenius Keyword Gateway
 - 사용자는 네이버 API 자격증명을 입력하지 않는다.
 - 자격증명을 `config.json`, UI, Git, Electron/ASAR 번들에 저장하지 않는다.
 - Supabase runtime config RPC로 원문 자격증명을 데스크톱에 전달하지 않는다.
-- 운영 자격증명은 Edge Function 또는 backend secret store에서 동적으로 관리한다.
+- 운영 네이버 자격증명은 Gateway secret store에서 동적으로 관리한다.
+- Supabase Edge Function은 라이선스 검증과 단기 접근 토큰 발급만 담당한다.
 - 키 교체는 서버 secret 갱신과 gateway 재배포/재시작만으로 처리한다.
 - 데스크톱은 기존 라이선스와 HWID를 사용해 짧은 수명의 접근 권한을 얻는다.
 - 응답, 오류, 로그에는 credential 또는 서명 헤더를 포함하지 않는다.
@@ -67,17 +68,19 @@ provider: BlogGenius Keyword Gateway
 - `src/keyword-research/keyword-analyzer.js`: 후보 선별과 결정적 점수 계산
 - `src/keyword-research/title-generator.js`: 제목 후보 최대 3개 생성
 - `src/keyword-research/quick-publish-suggestion.js`: 빠른 포스팅 review DTO
+- `src/keyword-research/remote-client.js`: 단기 토큰 기반 Gateway transport
+- `apps/keyword-gateway/`: 인증, 정책 상한, cache, rate limit을 소유하는 서버
+- `supabase/functions/issue-keyword-access-token/`: 라이선스 기반 단기 토큰 발급
 - `/api/v1/blog/quick-publish/smart-suggestions`: UI-facing API
 - 환경변수 직접 호출은 개발용 fallback이며 사용자 config 로딩은 지원하지 않는다.
 
 ## Next Steps
 
-1. 라이선스 검증이 포함된 BlogGenius Keyword Gateway를 구현한다.
-2. gateway secret으로 Search Ads와 NAVER API HUB를 연결한다.
-3. 키워드별 TTL cache와 라이선스별 rate limit을 추가한다.
-4. 데스크톱 provider transport를 `remote_api`로 전환한다.
-5. 실패 시 제목 추천만 제공하는 현재 fallback을 유지한다.
-6. 추천 모달 UI를 키워드와 제목 선택 중심으로 정리한다.
+1. Supabase에 `issue-keyword-access-token`을 배포하고 signing secret을 설정한다.
+2. 운영 Gateway에 네이버 secret을 설정하고 HTTPS endpoint를 배포한다.
+3. 실제 라이선스로 token 발급부터 네이버 분석까지 end-to-end 확인한다.
+4. 운영 호출량과 cache hit 비율을 관찰해 3/8 정책값을 조정한다.
+5. 추천 모달 UI를 키워드와 제목 선택 중심으로 정리한다.
 
 ## Non-goals
 
