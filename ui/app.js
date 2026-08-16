@@ -2120,7 +2120,6 @@ function activateBlogTab(tabName, options = {}) {
   if (!forceReload) return;
 
   if (target === 'quick') {
-    void loadQuickTopicRecommendations();
     return;
   }
 
@@ -2231,14 +2230,16 @@ function renderQuickTopicRecommendations() {
   const items = quickTopicRecommendationState.items;
   if (items.length === 0) {
     statusEl.hidden = false;
+    if (refreshBtn) refreshBtn.textContent = quickTopicRecommendationState.loaded ? '다른 추천' : '추천 받기';
     statusEl.textContent = quickTopicRecommendationState.error
       ? `추천을 불러오지 못했습니다: ${quickTopicRecommendationState.error}`
       : (quickTopicRecommendationState.loaded
       ? '지금 바로 드릴 추천이 없습니다. 다른 추천을 눌러 다시 살펴보세요.'
-      : '추천을 준비하고 있습니다...');
+      : '추천 받기를 누르면 최근 글쓰기와 관심 주제를 바탕으로 글감을 찾아드립니다.');
     listEl.innerHTML = '';
     return;
   }
+  if (refreshBtn) refreshBtn.textContent = '다른 추천';
   statusEl.hidden = true;
   listEl.innerHTML = items.map((item, index) => {
     const keywords = Array.isArray(item.keywords) ? item.keywords.slice(0, 4).join(' · ') : '';
@@ -9897,7 +9898,9 @@ function bindActions() {
   applyQuickInputMode(quickInputMode);
   quickSubjectInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
-  quickRecommendationRefresh?.addEventListener('click', () => loadQuickTopicRecommendations({ refresh: true }));
+  quickRecommendationRefresh?.addEventListener('click', () => loadQuickTopicRecommendations({
+    refresh: quickTopicRecommendationState.loaded
+  }));
   quickRecommendationList?.addEventListener('click', async (event) => {
     const actionButton = event.target.closest('[data-recommendation-action]');
     const row = event.target.closest('[data-recommendation-id]');
