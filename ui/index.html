@@ -396,7 +396,7 @@
             </label>
 
             <label class="blog-quick-field blog-quick-field-full">
-              <span class="blog-quick-label">Title (제목) <span class="blog-quick-label-optional">(선택)</span></span>
+              <span class="blog-quick-label">Title (제목) <span class="blog-quick-label-optional">(선택)</span> <span id="quick-title-smart-usage" class="smart-usage-hint"></span></span>
               <div class="blog-quick-title-row">
                 <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
                 <button id="quick-title-recommend-btn" class="primary" type="button">
@@ -1801,6 +1801,16 @@
             </div>
           </article>
 
+          <article class="account-smart-usage-card card">
+            <div class="account-quota-heading">
+              <div class="account-quota-title">
+                <strong>스마트 기능</strong>
+                <span class="muted">이번 달</span>
+              </div>
+            </div>
+            <div id="account-smart-usage-list" class="account-smart-usage-list" aria-live="polite"></div>
+          </article>
+
           <section id="account-supporting-region" class="account-supporting-region" aria-label="추천 자료" hidden></section>
 
           <div class="account-card-grid">
@@ -2847,9 +2857,9 @@
 
         <section id="quick-discovery-topic-panel" class="quick-discovery-panel" role="tabpanel">
           <div class="quick-discovery-action-row">
-            <div>
-              <h4>글감 추천</h4>
-              <p>최근 글쓰기와 관심 주제, 트렌드를 AI가 함께 살펴 글감을 제안합니다. 주제나 키워드를 힌트로 더할 수 있어요.</p>
+              <div>
+                <h4>글감 추천</h4>
+              <p>최근 글쓰기와 관심 주제, 트렌드를 AI가 함께 살펴 글감을 제안합니다. <span id="quick-topic-smart-usage" class="smart-usage-hint"></span></p>
             </div>
             <button id="quick-topic-recommendations-refresh" class="primary" type="button">글감 추천</button>
           </div>
@@ -2866,9 +2876,9 @@
 
         <section id="quick-discovery-keyword-panel" class="quick-discovery-panel" role="tabpanel" hidden>
           <div class="quick-discovery-action-row">
-            <div>
-              <h4>키워드 탐색 · 검색</h4>
-              <p>최근 트렌드, 관심 주제, 최근 글쓰기에서 출발한 키워드와 네이버 지표를 살펴봅니다.</p>
+              <div>
+                <h4>키워드 탐색 · 검색</h4>
+              <p>최근 트렌드, 관심 주제, 최근 글쓰기에서 출발한 키워드와 네이버 지표를 살펴봅니다. <span id="quick-keyword-smart-usage" class="smart-usage-hint"></span></p>
             </div>
             <button id="quick-keyword-discovery-start" class="primary" type="button">키워드 탐색</button>
           </div>

@@ -11,7 +11,9 @@ function createTopicRecommendationsController(deps = {}) {
                 const limit = Number(searchParams?.get('limit') || 3);
                 const refresh = searchParams?.get('refresh') === '1';
                 const query = String(searchParams?.get('query') || '').trim();
-                return sendSuccess(res, requestId, await service.getRecommendations({ limit, refresh, query, requestId }));
+                const sessionId = String(searchParams?.get('session_id') || '').trim();
+                const operationId = String(searchParams?.get('operation_id') || '').trim();
+                return sendSuccess(res, requestId, await service.getRecommendations({ limit, refresh, query, requestId, sessionId, operationId }));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'TOPIC_RECOMMENDATIONS_FAILED', '글감 추천을 불러오지 못했습니다.', error);
             }

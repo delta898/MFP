@@ -3,6 +3,10 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+### Added
+- **스마트 기능 월간 사용량 관리**: 글감 추천, 키워드 탐색, AI 제목 추천을 발행 횟수와 분리해 플랜별로 관리합니다. 한 번 시작한 추천 안의 재시도는 세션으로 묶으며, 실패한 외부 호출과 캐시 결과는 차감하지 않습니다.
+- **스마트 기능 잔여량 표시**: 새 글 시작과 제목 추천 흐름, 내 정보 화면에서 이번 달 기능별 남은 횟수를 확인할 수 있습니다.
+
 ## [0.1.18] - 2026-08-12
 
 ### Added

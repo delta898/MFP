@@ -96,6 +96,7 @@ function createUiApiRouteRuntime(deps = {}) {
         createKeywordsService,
         createKeywordsController,
         createKeywordsRouteHandler,
+        createSmartUsageService,
         topicRecommendationAgentRuntime,
         topicRecommendationCapabilityRegistry,
         topicRecommendationRetrievalService,
@@ -128,6 +129,14 @@ function createUiApiRouteRuntime(deps = {}) {
     let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let apiRouteHub = null;
+    let smartUsageService = null;
+
+    function getSmartUsageServiceInstance() {
+        if (!smartUsageService) {
+            smartUsageService = createSmartUsageService({ License });
+        }
+        return smartUsageService;
+    }
 
     function getBlogAutoRouteHandlerInstance() {
         if (!blogAutoRouteHandler) {
@@ -256,7 +265,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 agentRuntime: topicRecommendationAgentRuntime,
                 retrievalService: topicRecommendationRetrievalService,
                 eventStore: topicRecommendationEventStore,
-                learningService: topicRecommendationLearningService
+                learningService: topicRecommendationLearningService,
+                smartUsageService: getSmartUsageServiceInstance()
             });
             const controller = createTopicRecommendationsController({
                 service,
@@ -271,7 +281,7 @@ function createUiApiRouteRuntime(deps = {}) {
     function getKeywordsRouteHandlerInstance() {
         if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
             const service = typeof createKeywordsService === 'function'
-                ? createKeywordsService({ CONFIG, Utils, Logger })
+                ? createKeywordsService({ CONFIG, Utils, Logger, smartUsageService: getSmartUsageServiceInstance() })
                 : null;
             const controller = typeof createKeywordsController === 'function'
                 ? createKeywordsController({ service, sendSuccess, sendError })
@@ -290,7 +300,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 License,
                 knowledgeRegistry: topicRecommendationCapabilityRegistry?.knowledgeRegistry,
                 retrievalService: topicRecommendationRetrievalService,
-                eventStore: topicRecommendationEventStore
+                eventStore: topicRecommendationEventStore,
+                smartUsageService: getSmartUsageServiceInstance()
             });
             const controller = createKeywordDiscoveryController({
                 service,

@@ -97,6 +97,35 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
 });
 
+test('account overview exposes smart capability usage separately from publishing quota', async () => {
+    const service = createService({
+        License: {
+            async checkLicenseStatus() {
+                return { success: true, planCode: 'free', planDisplayName: 'Free', remaining: 12, usageLimit: 15, usageCount: 3, features: {} };
+            },
+            async getSmartUsageStatus() {
+                return {
+                    success: true,
+                    cycle: 'monthly',
+                    items: [{ capability: 'content_idea', limit: 20, used: 3, remaining: 17, request_limit: 2 }]
+                };
+            }
+        }
+    });
+
+    const overview = await service.getOverview();
+    assert.equal(overview.usage.remaining, 12);
+    assert.deepEqual(overview.smart_usage.items, [{
+        capability: 'content_idea',
+        label: '글감 추천',
+        limit: 20,
+        used: 3,
+        remaining: 17,
+        requestLimit: 2,
+        requestsRemaining: null
+    }]);
+});
+
 test('account overview exposes a verified email contact when license has email', async () => {
     const service = createService({
         License: {

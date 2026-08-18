@@ -15,6 +15,7 @@ function createTopicRecommendationsService(options = {}) {
         retrievalService,
         eventStore,
         learningService,
+        smartUsageService = null,
         cacheTtlMs = 30 * 60 * 1000,
         now = () => Date.now()
     } = options;
@@ -98,9 +99,22 @@ function createTopicRecommendationsService(options = {}) {
                     cached: true
                 };
             }
-            const data = await generate({ limit, query, requestId: input.requestId });
+            const createRecommendations = () => generate({ limit, query, requestId: input.requestId });
+            const usageResult = smartUsageService
+                ? await smartUsageService.run('content_idea', {
+                    sessionId: input.sessionId,
+                    operationId: input.operationId || input.requestId,
+                    metadata: { surface: 'blog.quick', query_present: Boolean(query) }
+                }, createRecommendations)
+                : { result: await createRecommendations(), sessionId: input.sessionId || '', usage: null };
+            const data = usageResult.result;
             cacheByQuery.set(query, { createdAt: currentTime, limit, data });
-            return { ...data, cached: false };
+            return {
+                ...data,
+                cached: false,
+                smart_usage: usageResult.usage,
+                smart_usage_session_id: usageResult.sessionId
+            };
         },
 
         async recordOutcome(input = {}) {

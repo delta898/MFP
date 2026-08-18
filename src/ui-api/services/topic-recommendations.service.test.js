@@ -106,3 +106,28 @@ test('refresh는 캐시를 우회하고 outcome만 명시적 학습 신호로 �
     assert.equal(recorded.owner_user_id, 'local:owner-2');
     assert.equal(recorded.provenance.surface, 'blog.quick');
 });
+
+test('캐시되지 않은 글감 생성만 스마트 사용량 세션으로 처리한다', async () => {
+    const usageCalls = [];
+    const service = createTopicRecommendationsService({
+        retrievalService: { buildContextPacket: async () => ({}) },
+        agentRuntime: {
+            async handleParsedEnvelope() {
+                return { status: 'completed', results: [{ result: { success: true, data: { ideas: [] } } }] };
+            }
+        },
+        smartUsageService: {
+            async run(capability, input, action) {
+                usageCalls.push({ capability, input });
+                return { result: await action(), sessionId: input.sessionId, usage: { capability, remaining: 19 } };
+            }
+        }
+    });
+
+    const first = await service.getRecommendations({ sessionId: 'topic-session', operationId: 'topic-op' });
+    await service.getRecommendations({ sessionId: 'topic-session', operationId: 'topic-op-2' });
+
+    assert.equal(first.smart_usage.remaining, 19);
+    assert.equal(usageCalls.length, 1);
+    assert.equal(usageCalls[0].capability, 'content_idea');
+});

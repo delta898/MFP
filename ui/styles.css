@@ -412,6 +412,53 @@ body {
     var(--surface-solid);
 }
 
+.account-smart-usage-card {
+  padding: 18px 20px;
+}
+
+.account-smart-usage-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.account-smart-usage-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.account-smart-usage-item span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-smart-usage-item strong {
+  flex: 0 0 auto;
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+.smart-usage-hint {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .account-usage-summary,
 .account-subscription-meta,
 .account-plan-actions,
@@ -791,7 +838,8 @@ button.account-state-row:hover {
 
 @media (max-width: 820px) {
   .account-card-grid,
-  .account-quota-grid {
+  .account-quota-grid,
+  .account-smart-usage-list {
     grid-template-columns: 1fr;
   }
 

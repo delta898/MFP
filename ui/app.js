@@ -895,14 +895,16 @@ const quickTopicRecommendationState = {
   loaded: false,
   loading: false,
   error: '',
-  query: ''
+  query: '',
+  smartUsageSessionId: ''
 };
 const quickKeywordDiscoveryState = {
   analysis: null,
   loaded: false,
   loading: false,
   error: '',
-  selectedKeywordKeys: []
+  selectedKeywordKeys: [],
+  smartUsageSessionId: ''
 };
 const trendPostingState = {
   meta: null,
@@ -2228,8 +2230,50 @@ function getQuickRecommendationSourceLabel(item = {}) {
 function setQuickDiscoveryModalOpen(open) {
   const modal = document.getElementById('quick-discovery-modal');
   if (!modal) return;
+  if (open) {
+    quickTopicRecommendationState.smartUsageSessionId = createSmartUsageSessionId();
+    quickKeywordDiscoveryState.smartUsageSessionId = createSmartUsageSessionId();
+    refreshSmartUsageHints();
+  }
   modal.classList.toggle('hidden', !open);
   modal.setAttribute('aria-hidden', String(!open));
+}
+
+function createSmartUsageSessionId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `smart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getSmartUsageItem(capability) {
+  const items = Array.isArray(lastAccountOverview?.smart_usage?.items)
+    ? lastAccountOverview.smart_usage.items
+    : [];
+  return items.find((item) => String(item?.capability || '') === capability) || null;
+}
+
+function formatSmartUsageHint(capability) {
+  const item = getSmartUsageItem(capability);
+  if (!item || !Number.isFinite(Number(item.limit))) return '';
+  return `${Math.max(0, Number(item.remaining) || 0)} / ${Math.max(0, Number(item.limit))}회 남음`;
+}
+
+function refreshSmartUsageHints() {
+  setText('quick-topic-smart-usage', formatSmartUsageHint('content_idea'));
+  setText('quick-keyword-smart-usage', formatSmartUsageHint('keyword_discovery'));
+  setText('quick-title-smart-usage', formatSmartUsageHint('title_recommendation'));
+}
+
+function applySmartUsageUpdate(usage) {
+  if (!usage?.capability || !lastAccountOverview?.smart_usage) return;
+  const items = Array.isArray(lastAccountOverview.smart_usage.items)
+    ? lastAccountOverview.smart_usage.items
+    : [];
+  const index = items.findIndex((item) => String(item?.capability || '') === String(usage.capability));
+  const next = { ...usage };
+  if (index >= 0) items[index] = { ...items[index], ...next };
+  else items.push(next);
+  lastAccountOverview.smart_usage.items = items;
+  refreshSmartUsageHints();
 }
 
 function setQuickDiscoveryTab(tab) {
@@ -2498,8 +2542,13 @@ async function loadQuickKeywordDiscovery({ keywords = [], refresh = false } = {}
         : [];
       if (previousSeeds.length > 0) params.set('exclude', previousSeeds.join(','));
     }
+    params.set('session_id', quickKeywordDiscoveryState.smartUsageSessionId || createSmartUsageSessionId());
+    params.set('operation_id', createSmartUsageSessionId());
     const query = params.toString();
     quickKeywordDiscoveryState.analysis = await fetchJson(`/api/v1/blog/keyword-discovery${query ? `?${query}` : ''}`);
+    quickKeywordDiscoveryState.smartUsageSessionId = quickKeywordDiscoveryState.analysis?.smart_usage_session_id
+      || quickKeywordDiscoveryState.smartUsageSessionId;
+    applySmartUsageUpdate(quickKeywordDiscoveryState.analysis?.smart_usage);
     quickKeywordDiscoveryState.loaded = true;
   } catch (error) {
     quickKeywordDiscoveryState.analysis = null;
@@ -2523,10 +2572,15 @@ async function loadQuickTopicRecommendations({ refresh = false } = {}) {
     const params = new URLSearchParams({ limit: '3' });
     if (refresh) params.set('refresh', '1');
     if (topicQuery) params.set('query', topicQuery);
+    params.set('session_id', quickTopicRecommendationState.smartUsageSessionId || createSmartUsageSessionId());
+    params.set('operation_id', createSmartUsageSessionId());
     const result = await fetchJson(`/api/v1/blog/topic-recommendations?${params.toString()}`);
     quickTopicRecommendationState.items = Array.isArray(result?.ideas) ? result.ideas.slice(0, 3) : [];
     quickTopicRecommendationState.loaded = true;
     quickTopicRecommendationState.query = topicQuery;
+    quickTopicRecommendationState.smartUsageSessionId = result?.smart_usage_session_id
+      || quickTopicRecommendationState.smartUsageSessionId;
+    applySmartUsageUpdate(result?.smart_usage);
   } catch (error) {
     quickTopicRecommendationState.items = [];
     quickTopicRecommendationState.loaded = true;
@@ -3619,6 +3673,7 @@ function renderAccountOverview(overview) {
   const usage = overview?.usage || {};
   const device = overview?.device || {};
   const identity = overview?.identity || {};
+  const smartUsageItems = Array.isArray(overview?.smart_usage?.items) ? overview.smart_usage.items : [];
 
   const planName = String(subscription.plan_name || subscription.plan_code || '-').trim() || '-';
   const normalizedPlanCode = String(subscription.plan_code || '').trim().toLowerCase();
@@ -3769,6 +3824,28 @@ function renderAccountOverview(overview) {
       });
     }
   }
+
+  const smartUsageList = document.getElementById('account-smart-usage-list');
+  if (smartUsageList) {
+    smartUsageList.innerHTML = '';
+    smartUsageItems.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'account-smart-usage-item';
+      const label = document.createElement('span');
+      label.textContent = item.label || item.capability || '스마트 기능';
+      const value = document.createElement('strong');
+      value.textContent = `${Math.max(0, Number(item.remaining) || 0)} / ${Math.max(0, Number(item.limit) || 0)}회 남음`;
+      row.append(label, value);
+      smartUsageList.append(row);
+    });
+    if (smartUsageItems.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'muted';
+      empty.textContent = '사용량 정보를 불러오는 중입니다.';
+      smartUsageList.append(empty);
+    }
+  }
+  refreshSmartUsageHints();
 
   renderAccountConnection('account-connection-naver', overview?.connections?.naver);
   renderAccountConnection('account-connection-google', overview?.connections?.google_sheets);
@@ -3955,16 +4032,22 @@ function showAccountPlanInfo() {
   return showUiDialog({
     title: '플랜 안내',
     message: [
+      '스마트 기능 (매월 1일 갱신)',
+      '- 글감 추천 / 키워드 탐색 / AI 제목 추천은 각각 별도 횟수로 관리됩니다.',
+      '- 한 번 시작한 추천 안에서는 정해진 재시도를 사용할 수 있습니다.',
+      '',
+      'Tester',
+      '- 스마트 기능 40 / 40 / 40회',
       'Free',
-      '- 월 기본 발행 횟수',
+      '- 스마트 기능 20 / 20 / 20회',
       '- 기본 블로그 발행',
       '',
       'Pro',
-      '- 더 많은 월 기본 발행 횟수',
+      '- 스마트 기능 80 / 80 / 80회',
       '- 트렌드, 쇼핑, 연관글 등 고급 기능',
       '',
       'Ultra',
-      '- 가장 높은 사용량',
+      '- 스마트 기능 200 / 200 / 200회',
       '- 상위 기능',
       '',
       '크레딧',
@@ -12784,7 +12867,8 @@ function initKeywordResearchModal() {
     selectedKeywords: [],
     titles: [],
     isGeneratingTitles: false,
-    titleRequestId: 0
+    titleRequestId: 0,
+    smartUsageSessionId: ''
   };
 
   if (!keywordModal) return;
@@ -12824,6 +12908,7 @@ function initKeywordResearchModal() {
     keywordModalState.titles = [];
     keywordModalState.isGeneratingTitles = false;
     keywordModalState.titleRequestId += 1;
+    keywordModalState.smartUsageSessionId = createSmartUsageSessionId();
     if (keywordModalInput) keywordModalInput.value = initialQuery;
     keywordModal.classList.remove('hidden');
     keywordModal.setAttribute('aria-hidden', 'false');
@@ -12895,7 +12980,7 @@ function initKeywordResearchModal() {
       <div class="keyword-title-action-row keyword-title-action-row-top">
         <div>
           <strong>AI 제목 추천</strong>
-          <p>${selectedKeywordText ? escapeHtml(selectedKeywordText) : '표에서 키워드를 1~3개 선택해 제목 추천에 사용합니다.'}</p>
+          <p>${selectedKeywordText ? escapeHtml(selectedKeywordText) : '표에서 키워드를 1~3개 선택해 제목 추천에 사용합니다.'} <span class="smart-usage-hint">${escapeHtml(formatSmartUsageHint('title_recommendation'))}</span></p>
         </div>
         <button id="keyword-generate-titles-btn" class="primary" type="button" ${keywordModalState.isGeneratingTitles ? 'disabled' : ''}>선택 키워드로 제목 추천</button>
       </div>
@@ -13086,10 +13171,14 @@ function initKeywordResearchModal() {
       const result = await postJson('/api/v1/keywords/suggest-titles', {
         subject,
         keywords,
-        count: 3
+        count: 3,
+        smart_usage_session_id: keywordModalState.smartUsageSessionId || createSmartUsageSessionId(),
+        smart_usage_operation_id: createSmartUsageSessionId()
       });
       if (keywordModalState.titleRequestId === requestId) {
         keywordModalState.titles = Array.isArray(result?.titles) ? result.titles : [];
+        keywordModalState.smartUsageSessionId = result?.smart_usage_session_id || keywordModalState.smartUsageSessionId;
+        applySmartUsageUpdate(result?.smart_usage);
       }
     } catch (err) {
       if (keywordModalState.titleRequestId === requestId) {

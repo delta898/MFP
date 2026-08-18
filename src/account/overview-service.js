@@ -1,5 +1,6 @@
 const os = require('os');
 const { machineIdSync } = require('node-machine-id');
+const { normalizeSmartUsageItems } = require('../smart-usage');
 
 const FEATURE_LABELS = {
     cmd_batch: '일괄·자동 발행',
@@ -148,11 +149,14 @@ function createAccountOverviewService(deps = {}) {
     }
 
     async function getOverview({ quiet = true, force = false } = {}) {
-        const [licenseStatus, naverSession] = await Promise.all([
+        const [licenseStatus, naverSession, smartUsageStatus] = await Promise.all([
             License.checkLicenseStatus({ quiet, force }),
             Promise.resolve()
                 .then(() => checkNaverSessionForUi())
-                .catch((error) => ({ ok: false, reason: 'check_failed', message: error.message }))
+                .catch((error) => ({ ok: false, reason: 'check_failed', message: error.message })),
+            typeof License.getSmartUsageStatus === 'function'
+                ? License.getSmartUsageStatus()
+                : Promise.resolve({ success: false, items: [] })
         ]);
 
         const hasLicenseContext = Boolean(
@@ -174,6 +178,9 @@ function createAccountOverviewService(deps = {}) {
         const email = String(licenseStatus?.email || '').trim().toLowerCase();
         const hasVerifiedEmail = Boolean(email);
         const actions = buildAccountActions({ planCode, usage, hasVerifiedEmail });
+        const smartUsageItems = smartUsageStatus?.success === true
+            ? normalizeSmartUsageItems(smartUsageStatus.items)
+            : [];
 
         let hardwareId = '';
         try {
@@ -224,6 +231,12 @@ function createAccountOverviewService(deps = {}) {
             capabilities: {
                 features,
                 items: buildFeatureItems(features)
+            },
+            smart_usage: {
+                cycle: String(smartUsageStatus?.cycle || 'monthly').trim() || 'monthly',
+                current_period_start_at: String(smartUsageStatus?.current_period_start_at || '').trim(),
+                next_reset_at: String(smartUsageStatus?.next_reset_at || '').trim(),
+                items: smartUsageItems
             },
             device: {
                 hw_id: hardwareId,

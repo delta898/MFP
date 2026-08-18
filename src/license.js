@@ -367,6 +367,76 @@ async function callPublishQuotaRpc(rpcName, operationId, metadata = {}) {
     }
 }
 
+async function callSmartUsageRpc(rpcName, input = {}) {
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류' };
+    }
+
+    const capability = String(input.capability || '').trim();
+    const sessionId = String(input.sessionId || '').trim();
+    const operationId = String(input.operationId || '').trim();
+    if (!capability || !sessionId || !operationId) {
+        return { success: false, code: 'INVALID_SMART_USAGE_INPUT', message: '스마트 기능 사용량 요청 정보가 올바르지 않습니다.' };
+    }
+
+    try {
+        const hwid = machineIdSync({ original: true });
+        const keyReady = await ensureLicenseKey(hwid);
+        if (!keyReady.success) return keyReady;
+        const { data, error } = await supabase.rpc(rpcName, {
+            p_license_key: keyReady.licenseKey,
+            p_hwid: hwid,
+            p_capability: capability,
+            p_session_id: sessionId,
+            p_operation_id: operationId,
+            p_metadata: (input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)) ? input.metadata : {}
+        });
+        if (error) {
+            Logger.error(`[SmartUsage] ${rpcName} failed: ${sanitizeErrorMessage(error.message)}`);
+            return { success: false, message: '스마트 기능 사용량 서버 통신에 실패했습니다. 잠시 후 다시 시도해 주세요.' };
+        }
+
+        licenseStatusCache.timestamp = 0;
+        return {
+            ...(data && typeof data === 'object' ? data : {}),
+            success: data?.success === true,
+            sessionId: data?.session_id || sessionId,
+            operationId: data?.operation_id || operationId,
+            usage: data?.usage || null
+        };
+    } catch (error) {
+        Logger.error(`[SmartUsage] ${rpcName} error: ${error.message}`);
+        return { success: false, message: '스마트 기능 사용량 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' };
+    }
+}
+
+async function getSmartUsageStatus() {
+    if (!supabase) {
+        return { success: false, message: '라이선스 서버 설정 오류', items: [] };
+    }
+    try {
+        const hwid = machineIdSync({ original: true });
+        const keyReady = await ensureLicenseKey(hwid);
+        if (!keyReady.success) return { ...keyReady, items: [] };
+        const { data, error } = await supabase.rpc('get_smart_usage_status', {
+            p_license_key: keyReady.licenseKey,
+            p_hwid: hwid
+        });
+        if (error) {
+            Logger.error(`[SmartUsage] get_smart_usage_status failed: ${sanitizeErrorMessage(error.message)}`);
+            return { success: false, message: '스마트 기능 사용량을 확인하지 못했습니다.', items: [] };
+        }
+        return {
+            ...(data && typeof data === 'object' ? data : {}),
+            success: data?.success === true,
+            items: Array.isArray(data?.items) ? data.items : []
+        };
+    } catch (error) {
+        Logger.error(`[SmartUsage] get_smart_usage_status error: ${error.message}`);
+        return { success: false, message: '스마트 기능 사용량을 확인하지 못했습니다.', items: [] };
+    }
+}
+
 const License = {
     /**
      * 라이선스 서버의 인증된 read-only provider가 사용할 실행 컨텍스트입니다.
@@ -811,6 +881,20 @@ const License = {
 
     releasePublishQuota: async function (operationId, metadata = {}) {
         return callPublishQuotaRpc('release_publish_quota', operationId, metadata);
+    },
+
+    getSmartUsageStatus,
+
+    reserveSmartUsage: async function (input = {}) {
+        return callSmartUsageRpc('reserve_smart_usage', input);
+    },
+
+    commitSmartUsage: async function (input = {}) {
+        return callSmartUsageRpc('commit_smart_usage', input);
+    },
+
+    releaseSmartUsage: async function (input = {}) {
+        return callSmartUsageRpc('release_smart_usage', input);
     },
 
     /**

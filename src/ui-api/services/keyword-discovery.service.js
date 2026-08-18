@@ -30,6 +30,7 @@ function createKeywordDiscoveryService(options = {}) {
         knowledgeRegistry,
         retrievalService,
         eventStore,
+        smartUsageService = null,
         keywordResearchService = createKeywordResearchService(options)
     } = options;
 
@@ -44,7 +45,8 @@ function createKeywordDiscoveryService(options = {}) {
     }
 
     return {
-        async explore({ requestId, keywords, excludedKeywords } = {}) {
+        async explore({ requestId, keywords, excludedKeywords, sessionId, operationId } = {}) {
+            const runExplore = async () => {
             const requestedKeywords = parseKeywords(keywords).slice(0, 3);
             const ownerUserId = getOwnerUserId(eventStore);
             const userId = ownerUserId || 'ui:local';
@@ -95,6 +97,22 @@ function createKeywordDiscoveryService(options = {}) {
             return {
                 ...decorateInputKeywords(analysis, seeds),
                 discovery_mode: requestedKeywords.length > 0 ? 'search' : 'explore'
+            };
+            };
+
+            if (!smartUsageService) return runExplore();
+            const usageResult = await smartUsageService.run('keyword_discovery', {
+                sessionId,
+                operationId: operationId || requestId,
+                metadata: {
+                    surface: 'blog.quick',
+                    mode: parseKeywords(keywords).length > 0 ? 'search' : 'explore'
+                }
+            }, runExplore);
+            return {
+                ...usageResult.result,
+                smart_usage: usageResult.usage,
+                smart_usage_session_id: usageResult.sessionId
             };
         }
     };

@@ -62,3 +62,25 @@ test('uses direct input as a seed without loading trend or memory candidates', a
     assert.equal(result.discovery_mode, 'search');
     assert.equal(result.input_keywords[0].discovery_source.source_label, '직접 검색');
 });
+
+test('records keyword exploration through the keyword discovery smart capability', async () => {
+    let usageInput = null;
+    const service = createKeywordDiscoveryService({
+        knowledgeRegistry: { async fetchForRoute() { throw new Error('should not load trends'); } },
+        retrievalService: { async buildContextPacket() { throw new Error('should not load memory'); } },
+        keywordResearchService: {
+            async analyze(input) { return { input_keywords: input.keywords.map((keyword) => ({ keyword })), related_candidates: [] }; }
+        },
+        smartUsageService: {
+            async run(capability, input, action) {
+                usageInput = { capability, input };
+                return { result: await action(), sessionId: input.sessionId, usage: { capability, remaining: 18 } };
+            }
+        }
+    });
+
+    const result = await service.explore({ keywords: '키보드 추천', sessionId: 'keyword-session', operationId: 'keyword-op' });
+    assert.equal(usageInput.capability, 'keyword_discovery');
+    assert.equal(usageInput.input.sessionId, 'keyword-session');
+    assert.equal(result.smart_usage.remaining, 18);
+});

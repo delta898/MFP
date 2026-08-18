@@ -13,7 +13,9 @@ function createKeywordDiscoveryController(deps = {}) {
                     .split(',')
                     .map((value) => value.trim())
                     .filter(Boolean);
-                return sendSuccess(res, requestId, await service.explore({ requestId, keywords, excludedKeywords }));
+                const sessionId = String(searchParams?.get('session_id') || '').trim();
+                const operationId = String(searchParams?.get('operation_id') || '').trim();
+                return sendSuccess(res, requestId, await service.explore({ requestId, keywords, excludedKeywords, sessionId, operationId }));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'KEYWORD_DISCOVERY_FAILED', '키워드 탐색을 불러오지 못했습니다.', error);
             }

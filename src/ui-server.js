@@ -100,6 +100,7 @@ const { createKeywordDiscoveryRouteHandler } = require('./ui-api/routes/keyword-
 const { createKeywordsService } = require('./ui-api/services/keywords.service');
 const { createKeywordsController } = require('./ui-api/controllers/keywords.controller');
 const { createKeywordsRouteHandler } = require('./ui-api/routes/keywords.routes');
+const { createSmartUsageService } = require('./smart-usage');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
@@ -1963,6 +1964,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createKeywordsService,
     createKeywordsController,
     createKeywordsRouteHandler,
+    createSmartUsageService,
     topicRecommendationAgentRuntime,
     topicRecommendationCapabilityRegistry,
     topicRecommendationRetrievalService,
