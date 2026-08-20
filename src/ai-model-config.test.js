@@ -33,6 +33,7 @@ test('AI model catalog contains supported Google models and excludes unavailable
     const imageCodes = catalog.image.map((item) => item.code);
 
     assert.deepEqual(googleTextCodes, [
+        'gemini-3.7-flash',
         'gemini-3.6-flash',
         'gemini-3.5-flash',
         'gemini-3.1-pro-preview',

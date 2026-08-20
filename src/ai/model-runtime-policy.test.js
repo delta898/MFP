@@ -17,7 +17,13 @@ const {
     extractKieResponsesText
 } = require('./kie-responses');
 
-test('Gemini 3.6 strips deprecated temperature while older Gemini keeps it', () => {
+test('current Gemini Flash models strip deprecated temperature while older Gemini keeps it', () => {
+    const newest = applyTextRuntimePolicy({
+        provider: 'google',
+        code: 'gemini-3.7-flash'
+    }, {
+        temperature: 0.2
+    });
     const latest = applyTextRuntimePolicy({
         provider: 'google',
         code: 'gemini-3.6-flash'
@@ -32,6 +38,7 @@ test('Gemini 3.6 strips deprecated temperature while older Gemini keeps it', () 
         temperature: 0.2
     });
 
+    assert.equal('temperature' in newest.options, false);
     assert.equal('temperature' in latest.options, false);
     assert.equal(latest.options.maxTokens, 160);
     assert.equal(older.options.temperature, 0.2);

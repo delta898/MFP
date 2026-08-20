@@ -88,14 +88,14 @@ insert into public.ai_model_catalog_versions (
     published_at
 )
 values (
-    '2026-08-04.1',
+    '2026-08-21.1',
     1,
     'stable',
     'published',
     '{
       "schema_version": 1,
-      "version": "2026-08-04.1",
-      "generated_at": "2026-08-04T00:00:00Z",
+      "version": "2026-08-21.1",
+      "generated_at": "2026-08-21T00:00:00Z",
       "providers": [
         {"kind": "text", "id": "openai", "display_name": "OpenAI", "sort_order": 10},
         {"kind": "text", "id": "anthropic", "display_name": "Anthropic", "sort_order": 20},
@@ -140,6 +140,17 @@ values (
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
+          "key": "google:gemini-3.7-flash",
+          "kind": "text",
+          "provider": "google",
+          "transport": "gemini_generate_content",
+          "model_id": "gemini-3.7-flash",
+          "display_name": "Gemini 3.7 Flash",
+          "status": "active",
+          "sort_order": 10,
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+        },
+        {
           "key": "google:gemini-3.6-flash",
           "kind": "text",
           "provider": "google",
@@ -147,7 +158,7 @@ values (
           "model_id": "gemini-3.6-flash",
           "display_name": "Gemini 3.6 Flash",
           "status": "active",
-          "sort_order": 10,
+          "sort_order": 20,
           "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
         },
         {
@@ -352,11 +363,11 @@ commit;
 -- insert into public.ai_model_catalog_versions (
 --     version, schema_version, channel, status, payload, minimum_app_version
 -- ) values (
---     '2026-08-04.1',
+--     '2026-08-21.1',
 --     1,
 --     'stable',
 --     'draft',
---     '{"schema_version":1,"version":"2026-08-04.1","models":[]}'::jsonb,
+--     '{"schema_version":1,"version":"2026-08-21.1","models":[]}'::jsonb,
 --     '0.1.16'
 -- );
 --
@@ -369,4 +380,4 @@ commit;
 --
 -- update public.ai_model_catalog_versions
 --    set status = 'published', published_at = timezone('utc', now())
---  where version = '2026-08-04.1';
+--  where version = '2026-08-21.1';

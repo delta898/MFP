@@ -37,7 +37,7 @@ test('Gemini response excludes thought parts when visible output exists', () => 
 
 test('Gemini 3 maps common reasoning effort to native thinking level', () => {
     assert.deepEqual(
-        resolveGeminiThinkingConfig('gemini-3.6-flash', 'low'),
+        resolveGeminiThinkingConfig('gemini-3.7-flash', 'low'),
         { thinkingLevel: 'low' }
     );
     assert.equal(resolveGeminiThinkingConfig('gemini-2.5-flash', 'low'), null);

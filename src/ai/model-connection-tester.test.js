@@ -19,11 +19,11 @@ test('checks Gemini text through model metadata without generation', async () =>
         kind: 'text',
         modelConfig: {
             provider: 'google',
-            code: 'gemini-3.6-flash',
+            code: 'gemini-3.7-flash',
             api_key: 'gemini-secret'
         },
         httpClient: createHttpClient({
-            name: 'models/gemini-3.6-flash',
+            name: 'models/gemini-3.7-flash',
             supportedGenerationMethods: ['generateContent', 'countTokens']
         }, calls),
         now: (() => {
@@ -32,7 +32,7 @@ test('checks Gemini text through model metadata without generation', async () =>
         })()
     });
 
-    assert.equal(calls[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash');
+    assert.equal(calls[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash');
     assert.equal(calls[0].config.params.key, 'gemini-secret');
     assert.equal(result.generation_performed, false);
     assert.equal(result.check_type, 'metadata');

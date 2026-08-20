@@ -51,6 +51,17 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: false, structured_output: true, image_input: true }
     },
     {
+        key: 'google:gemini-3.7-flash',
+        name: 'Gemini 3.7 Flash',
+        code: 'gemini-3.7-flash',
+        provider: 'google',
+        transport: 'gemini_generate_content',
+        base_url: '',
+        status: 'active',
+        sort_order: 10,
+        capabilities: { temperature: false, structured_output: true, image_input: true }
+    },
+    {
         key: 'google:gemini-3.6-flash',
         name: 'Gemini 3.6 Flash',
         code: 'gemini-3.6-flash',
@@ -58,7 +69,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
-        sort_order: 10,
+        sort_order: 20,
         capabilities: { temperature: false, structured_output: true, image_input: true }
     },
     {
@@ -69,7 +80,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'preview',
-        sort_order: 30,
+        sort_order: 40,
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
@@ -80,7 +91,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
-        sort_order: 20,
+        sort_order: 30,
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
@@ -91,7 +102,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'gemini_generate_content',
         base_url: '',
         status: 'active',
-        sort_order: 40,
+        sort_order: 50,
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
