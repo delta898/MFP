@@ -2313,6 +2313,11 @@ function renderQuickTopicRecommendations() {
     refreshBtn.disabled = quickTopicRecommendationState.loading;
     refreshBtn.setAttribute('aria-busy', String(quickTopicRecommendationState.loading));
   }
+  syncQuickDiscoveryClearControl({
+    inputId: 'quick-topic-recommendations-query',
+    clearId: 'quick-topic-recommendations-clear',
+    loading: quickTopicRecommendationState.loading
+  });
   if (quickTopicRecommendationState.loading) {
     statusEl.hidden = true;
     if (progressEl) progressEl.hidden = false;
@@ -2384,13 +2389,8 @@ function renderQuickKeywordDiscovery() {
   const statusEl = document.getElementById('quick-keyword-discovery-status');
   const progressEl = document.getElementById('quick-keyword-discovery-progress');
   const contentEl = document.getElementById('quick-keyword-discovery-content');
-  const startBtn = document.getElementById('quick-keyword-discovery-start');
   if (!statusEl || !contentEl) return;
-  if (startBtn) {
-    startBtn.disabled = quickKeywordDiscoveryState.loading;
-    startBtn.setAttribute('aria-busy', String(quickKeywordDiscoveryState.loading));
-    startBtn.textContent = quickKeywordDiscoveryState.loaded ? '다른 키워드 탐색' : '키워드 탐색';
-  }
+  syncQuickKeywordDiscoveryControls();
   if (quickKeywordDiscoveryState.loading) {
     statusEl.hidden = true;
     if (progressEl) progressEl.hidden = false;
@@ -2506,6 +2506,7 @@ function renderQuickKeywordDiscovery() {
       if (!keyword) return;
       const input = document.getElementById('quick-keyword-discovery-query');
       if (input) input.value = keyword;
+      syncQuickKeywordDiscoveryControls();
       void loadQuickKeywordDiscovery({ keywords: [keyword] });
     });
   });
@@ -2523,6 +2524,35 @@ function parseQuickKeywordDiscoveryInput(value) {
       return true;
     })
     .slice(0, 3);
+}
+
+function syncQuickDiscoveryClearControl({ inputId, clearId, loading = false } = {}) {
+  const input = document.getElementById(inputId);
+  const clearButton = document.getElementById(clearId);
+  const hasInput = Boolean(String(input?.value || '').trim());
+  if (!clearButton) return hasInput;
+  clearButton.disabled = Boolean(loading) || !hasInput;
+  clearButton.hidden = !hasInput;
+  return hasInput;
+}
+
+function syncQuickKeywordDiscoveryControls() {
+  const findButton = document.getElementById('quick-keyword-discovery-search');
+  const hasInput = syncQuickDiscoveryClearControl({
+    inputId: 'quick-keyword-discovery-query',
+    clearId: 'quick-keyword-discovery-clear',
+    loading: quickKeywordDiscoveryState.loading
+  });
+  if (findButton) {
+    findButton.disabled = quickKeywordDiscoveryState.loading;
+    findButton.setAttribute('aria-busy', String(quickKeywordDiscoveryState.loading));
+    findButton.textContent = hasInput
+      ? '키워드 검색'
+      : (quickKeywordDiscoveryState.loaded ? '다른 키워드 탐색' : '키워드 탐색');
+    findButton.title = hasInput
+      ? '입력한 키워드에서 연관 키워드와 네이버 지표를 찾습니다.'
+      : '최근 트렌드, 관심 주제, 최근 글쓰기에서 자동으로 키워드를 찾습니다.';
+  }
 }
 
 async function loadQuickKeywordDiscovery({ keywords = [], refresh = false } = {}) {
@@ -10268,10 +10298,11 @@ function bindActions() {
   const quickDiscoveryOpenBtn = document.getElementById('quick-discovery-open-btn');
   const quickDiscoveryCloseBtn = document.getElementById('quick-discovery-modal-close');
   const quickDiscoveryCloseFooter = document.getElementById('quick-discovery-modal-close-footer');
-  const quickKeywordDiscoveryStartBtn = document.getElementById('quick-keyword-discovery-start');
   const quickKeywordDiscoverySearchBtn = document.getElementById('quick-keyword-discovery-search');
+  const quickKeywordDiscoveryClearBtn = document.getElementById('quick-keyword-discovery-clear');
   const quickKeywordDiscoveryQuery = document.getElementById('quick-keyword-discovery-query');
   const quickTopicRecommendationQuery = document.getElementById('quick-topic-recommendations-query');
+  const quickTopicRecommendationClearBtn = document.getElementById('quick-topic-recommendations-clear');
   quickModeAiBtn?.addEventListener('click', () => applyQuickInputMode('ai'));
   quickModeManuscriptBtn?.addEventListener('click', () => applyQuickInputMode('manuscript'));
   quickModePastedBtn?.addEventListener('click', () => applyQuickInputMode('pasted'));
@@ -10287,26 +10318,49 @@ function bindActions() {
   document.querySelectorAll('[data-quick-discovery-tab]').forEach((button) => {
     button.addEventListener('click', () => setQuickDiscoveryTab(button.dataset.quickDiscoveryTab));
   });
-  quickKeywordDiscoveryStartBtn?.addEventListener('click', () => void loadQuickKeywordDiscovery({
-    refresh: quickKeywordDiscoveryState.loaded
-  }));
   quickKeywordDiscoverySearchBtn?.addEventListener('click', () => {
     const keywords = parseQuickKeywordDiscoveryInput(quickKeywordDiscoveryQuery?.value);
-    if (keywords.length === 0) {
-      showUiPopup('검색할 키워드를 입력해 주세요.');
-      return;
-    }
-    void loadQuickKeywordDiscovery({ keywords });
+    void loadQuickKeywordDiscovery(keywords.length > 0
+      ? { keywords }
+      : { refresh: quickKeywordDiscoveryState.loaded });
   });
+  quickKeywordDiscoveryClearBtn?.addEventListener('click', () => {
+    if (!quickKeywordDiscoveryQuery) return;
+    quickKeywordDiscoveryQuery.value = '';
+    syncQuickKeywordDiscoveryControls();
+    quickKeywordDiscoveryQuery.focus();
+  });
+  quickKeywordDiscoveryQuery?.addEventListener('input', syncQuickKeywordDiscoveryControls);
   quickKeywordDiscoveryQuery?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     quickKeywordDiscoverySearchBtn?.click();
   });
+  syncQuickKeywordDiscoveryControls();
   quickTopicRecommendationQuery?.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     quickRecommendationRefresh?.click();
+  });
+  quickTopicRecommendationQuery?.addEventListener('input', () => syncQuickDiscoveryClearControl({
+    inputId: 'quick-topic-recommendations-query',
+    clearId: 'quick-topic-recommendations-clear',
+    loading: quickTopicRecommendationState.loading
+  }));
+  quickTopicRecommendationClearBtn?.addEventListener('click', () => {
+    if (!quickTopicRecommendationQuery) return;
+    quickTopicRecommendationQuery.value = '';
+    syncQuickDiscoveryClearControl({
+      inputId: 'quick-topic-recommendations-query',
+      clearId: 'quick-topic-recommendations-clear',
+      loading: quickTopicRecommendationState.loading
+    });
+    quickTopicRecommendationQuery.focus();
+  });
+  syncQuickDiscoveryClearControl({
+    inputId: 'quick-topic-recommendations-query',
+    clearId: 'quick-topic-recommendations-clear',
+    loading: quickTopicRecommendationState.loading
   });
   quickRecommendationRefresh?.addEventListener('click', () => loadQuickTopicRecommendations({
     refresh: quickTopicRecommendationState.loaded
