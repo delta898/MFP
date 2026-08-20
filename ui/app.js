@@ -2370,6 +2370,18 @@ function formatQuickKeywordRoundedMetric(value) {
     : '-';
 }
 
+function formatKeywordOpportunityMetric(item = {}) {
+  const exact = item.opportunity?.estimated_weekly_searches_per_new_document;
+  if (exact !== null && exact !== undefined && Number.isFinite(Number(exact))) {
+    return Number(exact).toFixed(1);
+  }
+  const upperBound = item.opportunity?.max_estimated_weekly_searches_per_new_document;
+  if (upperBound !== null && upperBound !== undefined && Number.isFinite(Number(upperBound))) {
+    return `${Number(upperBound).toFixed(1)} 이하`;
+  }
+  return '-';
+}
+
 function getQuickKeywordSelectionKey(item = {}) {
   return String(item?.keyword || '').replace(/\s+/g, '').toLocaleLowerCase('ko-KR');
 }
@@ -2435,7 +2447,7 @@ function renderQuickKeywordDiscovery() {
               <th>주간 검색수 (추정)</th>
               <th>최근 7일 신규 문서</th>
               <th>경쟁강도</th>
-              <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 높을수록 수요 대비 신규 문서가 적습니다.">기회지수</th>
+              <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 문서 수가 300+이면 계산 가능한 최대값을 'N 이하'로 표시합니다.">기회지수</th>
               <th class="quick-keyword-discovery-action-column">탐색</th>
             </tr>
           </thead>
@@ -2444,7 +2456,6 @@ function renderQuickKeywordDiscovery() {
               const volume = item.monthly_search_volume || {};
               const documents = item.weekly_new_blog_documents || {};
               const competition = getQuickKeywordCompetition(item);
-              const opportunity = item.opportunity?.estimated_weekly_searches_per_new_document;
               const selectionKey = getQuickKeywordSelectionKey(item);
               return `
                 <tr data-quick-discovery-keyword-index="${index}">
@@ -2455,7 +2466,7 @@ function renderQuickKeywordDiscovery() {
                   <td>${formatQuickKeywordRoundedMetric(item.estimated_weekly_search_volume)}</td>
                   <td>${documents.count !== null && documents.count !== undefined ? `${formatQuickKeywordMetric(documents.count)}${documents.capped ? '+' : ''}건` : '-'}</td>
                   <td><span class="comp-badge ${competition.className}">${escapeHtml(competition.label)}</span></td>
-                  <td>${opportunity !== null && opportunity !== undefined ? Number(opportunity).toFixed(1) : '-'}</td>
+                  <td>${formatKeywordOpportunityMetric(item)}</td>
                   <td class="quick-keyword-discovery-action-column">
                     <div class="quick-keyword-discovery-actions">
                       <button class="quick-keyword-discovery-research" type="button" data-quick-discovery-keyword-index="${index}">재탐색</button>
@@ -13066,7 +13077,7 @@ function initKeywordResearchModal() {
                   <th>주간 검색수 (추정)</th>
                   <th>최근 7일 신규 문서</th>
                   <th>경쟁강도</th>
-                  <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 높을수록 추정 검색 수요 대비 신규 문서가 적습니다.">기회지수</th>
+                  <th title="추정 주간 검색 수를 최근 7일 신규 문서 수로 나눈 값입니다. 문서 수가 300+이면 계산 가능한 최대값을 'N 이하'로 표시합니다.">기회지수</th>
                 </tr>
               </thead>
               <tbody>
@@ -13097,9 +13108,7 @@ function initKeywordResearchModal() {
         } else if (!item.competition_strength?.level) {
           compClass = 'incomplete';
         }
-        const oppScore = item.opportunity?.estimated_weekly_searches_per_new_document !== null && item.opportunity?.estimated_weekly_searches_per_new_document !== undefined
-          ? Number(item.opportunity.estimated_weekly_searches_per_new_document).toFixed(1)
-          : '-';
+        const oppScore = formatKeywordOpportunityMetric(item);
 
         const isChecked = keywordModalState.selectedKeywords.some((keyword) => normalizeKeywordKey(keyword) === normalizeKeywordKey(item.keyword));
         const keywordIndex = keywordIndexByKey.get(normalizeKeywordKey(item.keyword));

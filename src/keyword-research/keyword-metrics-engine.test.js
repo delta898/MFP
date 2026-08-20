@@ -53,3 +53,26 @@ test('input keywords retain input order while related keywords are sorted only b
     assert.deepEqual(analysis.related_candidates.map((item) => item.keyword), ['경주여행코스', '경주국립박물관추천']);
     assert.equal(Object.hasOwn(analysis, 'selected_keyword'), false);
 });
+
+test('capped weekly documents expose an opportunity upper bound without claiming an exact score', () => {
+    const plan = prepareKeywordPlan({
+        subject: '검색 경쟁 확인',
+        keywords: ['테스트키워드'],
+        rowsByKeyword: new Map([['테스트키워드', rows(['테스트키워드', 1550, 1550])]])
+    });
+    const analysis = buildKeywordAnalysis({
+        plan,
+        weeklyDocuments: new Map([[
+            '테스트키워드',
+            { count: 300, status: 'lower_bound', capped: true, pages_fetched: 3 }
+        ]])
+    });
+
+    const candidate = analysis.input_keywords[0];
+    assert.equal(candidate.estimated_weekly_search_volume, 700);
+    assert.deepEqual(candidate.opportunity, {
+        status: 'upper_bound',
+        estimated_weekly_searches_per_new_document: null,
+        max_estimated_weekly_searches_per_new_document: 2.333333
+    });
+});

@@ -127,6 +127,9 @@ function buildCandidate(row, weeklyResult, sourceInputKeywords, isInputKeyword) 
     const documentsPerSearch = estimatedWeeklySearch !== null && weeklyDocuments.count !== null
         ? weeklyDocuments.count / Math.max(estimatedWeeklySearch, 1)
         : null;
+    const searchesPerDocument = estimatedWeeklySearch !== null && weeklyDocuments.count !== null
+        ? estimatedWeeklySearch / Math.max(weeklyDocuments.count, 1)
+        : null;
 
     return {
         keyword: String(row?.relKeyword || ''),
@@ -143,9 +146,23 @@ function buildCandidate(row, weeklyResult, sourceInputKeywords, isInputKeyword) 
                 new_documents_per_estimated_search: Number(documentsPerSearch.toFixed(6)),
                 level: weeklyDocuments.capped ? null : competitionLevel(documentsPerSearch)
             },
-        opportunity: documentsPerSearch === null || weeklyDocuments.capped
-            ? { status: weeklyDocuments.capped ? 'lower_bound' : 'incomplete', estimated_weekly_searches_per_new_document: null }
-            : { status: 'complete', estimated_weekly_searches_per_new_document: Number((estimatedWeeklySearch / Math.max(weeklyDocuments.count, 1)).toFixed(6)) },
+        opportunity: searchesPerDocument === null
+            ? {
+                status: 'incomplete',
+                estimated_weekly_searches_per_new_document: null,
+                max_estimated_weekly_searches_per_new_document: null
+            }
+            : (weeklyDocuments.capped
+                ? {
+                    status: 'upper_bound',
+                    estimated_weekly_searches_per_new_document: null,
+                    max_estimated_weekly_searches_per_new_document: Number(searchesPerDocument.toFixed(6))
+                }
+                : {
+                    status: 'complete',
+                    estimated_weekly_searches_per_new_document: Number(searchesPerDocument.toFixed(6)),
+                    max_estimated_weekly_searches_per_new_document: null
+                }),
         ad_competition_index: row?.compIdx || null
     };
 }
