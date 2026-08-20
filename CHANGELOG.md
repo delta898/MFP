@@ -3,6 +3,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.2.0-dev2] - 2026-08-21
+
 ### Added
 - **Gemini 3.7 Flash 지원**: Google AI 글쓰기 모델 목록에 Gemini 3.7 Flash를 추가하고 기존 Gemini 호출 경로와 연결 확인, reasoning 설정을 그대로 지원합니다.
 - **스마트 기능 월간 사용량 관리**: 글감 추천, 키워드 탐색, AI 제목 추천을 발행 횟수와 분리해 플랜별로 관리합니다. 한 번 시작한 추천 안의 재시도는 세션으로 묶으며, 실패한 외부 호출과 캐시 결과는 차감하지 않습니다.
