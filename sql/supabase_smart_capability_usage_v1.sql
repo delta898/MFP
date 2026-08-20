@@ -1,6 +1,8 @@
 -- ============================================================
--- BlogGenius: capability-scoped smart usage sessions
+-- BlogGenius: capability-scoped smart usage sessions (initial install)
 -- Prerequisite: supabase_license_v4_unique_keys.sql
+-- Runtime policy source of truth: public.license_plans
+-- Later policy changes: supabase_smart_capability_usage_policy.sql
 --
 -- This intentionally does not reuse license_usage_operations. That table
 -- belongs to post-publication quota backed by licenses.usage_count.
@@ -14,9 +16,9 @@ alter table public.license_plans
 
 update public.license_plans
    set smart_usage_limits = jsonb_build_object(
-           'content_idea', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 200 else 0 end,
-           'keyword_discovery', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 200 else 0 end,
-           'title_recommendation', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 200 else 0 end
+           'content_idea', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 300 else 0 end,
+           'keyword_discovery', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 300 else 0 end,
+           'title_recommendation', case plan_code when 'test' then 40 when 'free' then 20 when 'pro' then 80 when 'ultra' then 300 else 0 end
        ),
        smart_usage_rules = jsonb_build_object(
            'session_ttl_seconds', 900,

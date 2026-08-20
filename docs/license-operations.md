@@ -12,11 +12,15 @@
   - `sql/supabase_license_v4_unique_keys.sql`
 2. 발행 quota v5 migration 적용
   - `sql/supabase_license_quota_v5.sql`
-3. 운영용 발급/갱신 SQL 사용
+3. 스마트 기능 사용량 v1 migration 적용
+  - `sql/supabase_smart_capability_usage_v1.sql`
+  - 적용 후 Test 40 / Free 20 / Pro 80 / Ultra 300 정책과 RPC를 확인
+4. 운영용 발급/갱신·정책 SQL 사용
   - `sql/supabase_license_operations.sql`
   - `sql/supabase_issue_pro_license.sql`
   - `sql/supabase_issue_test_free_license.sql`
-4. 라이선스 등록 메일 발송 함수 배포
+  - `sql/supabase_smart_capability_usage_policy.sql`
+5. 라이선스 등록 메일 발송 함수 배포
   - `supabase/functions/send-license-code/index.ts`
   - 함수 시크릿: `BREVO_API_KEY`, `LICENSE_EMAIL_FROM`
 
@@ -35,6 +39,12 @@
 7. feature JSON은 필수 키 다섯 개를 모두 포함하며 누락을 허용하지 않습니다.
 8. 발행 사용량은 `reserve_publish_quota -> commit_publish_quota|release_publish_quota` 순서로 처리합니다.
 9. `license_usage_operations`가 동일 operation ID의 중복 차감과 부분 성공 재발행을 방지합니다.
+10. 스마트 기능 사용량은 발행 quota와 분리하고 `license_plans.smart_usage_limits`와
+    `smart_usage_rules`를 runtime source of truth로 사용합니다.
+11. 스마트 기능은 usable 외부 공급자 결과를 반환한 경우에만 commit합니다. 입력 오류,
+    cache hit, 공급자 실패는 release하며 월 사용량을 소비하지 않습니다.
+12. 공급자 성공 후 commit 통신 실패는 release하지 않습니다. 같은 operation ID로 commit을
+    재시도하고 사용자 결과는 성공으로 유지합니다.
 
 ### 2.1 목표 feature JSON
 
@@ -73,6 +83,40 @@
 - `enable_trends_date_override`
 
 주의: 저장소 코드는 새 feature 계약을 지원한다. 원격 Supabase에서는 이 앱 버전을 배포한 뒤 제거 대상 키를 삭제한다.
+
+### 2.2 스마트 기능 월 제공량
+
+스마트 기능 제공량은 발행 횟수와 별도이며 `license_plans`의 JSON 정책으로 관리합니다.
+
+| Plan | content_idea | keyword_discovery | title_recommendation |
+|---|---:|---:|---:|
+| test | 40 | 40 | 40 |
+| free | 20 | 20 | 20 |
+| pro | 80 | 80 | 80 |
+| ultra | 300 | 300 | 300 |
+
+세션 규칙은 다음과 같습니다.
+
+- `session_ttl_seconds`: 900초
+- `content_idea_requests_per_session`: 2회
+- `keyword_discovery_requests_per_session`: 5회
+- `title_recommendation_requests_per_session`: 2회
+
+정책 변경은 앱 코드나 migration을 다시 배포하지 않고
+`sql/supabase_smart_capability_usage_policy.sql`을 수정·실행합니다. 최초 설치 migration과
+운영 정책 SQL의 값은 항상 동일하게 유지합니다.
+
+적용 확인:
+
+```sql
+select plan_code, smart_usage_limits, smart_usage_rules
+from public.license_plans
+order by plan_code;
+```
+
+월 제공량 소진은 `SMART_USAGE_EXHAUSTED`, 세션 요청 소진은
+`SMART_SESSION_REQUEST_LIMIT`로 구분합니다. 월 제공량 소진 UI는 기능 실행을 차단하고
+플랜/업그레이드 action을 노출합니다.
 
 ## 3. 운영 시나리오
 
@@ -274,6 +318,10 @@ where license_key = 'LICENSE-KEY-REPLACE-ME';
 
 ## 6. SQL 파일 역할 요약
 
+- `sql/supabase_smart_capability_usage_v1.sql`
+  - 최초 설치 시 스마트 사용량 정책 컬럼, 세션·operation 원장, 조회·예약·확정·반환 RPC 생성
+- `sql/supabase_smart_capability_usage_policy.sql`
+  - 운영 중 플랜별 월 제공량과 세션 규칙을 재적용하거나 변경할 때 사용
 - `sql/supabase_add_sns_distribution_capability.sql`
   - 기존 플랜에 필수 SNS capability를 추가할 때 앱 배포보다 먼저 적용
 - `sql/supabase_issue_pro_license.sql`

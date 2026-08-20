@@ -56,6 +56,7 @@
 - `decisions/2026-07-31-kie-async-media-jobs.md`
 - `decisions/2026-08-04-google-ai-provider-normalization.md`
 - `decisions/2026-08-16-keyword-provider-credentials.md`
+- `decisions/2026-08-17-smart-capability-usage.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/intelligent-memory-owner-identity-plan.md`
@@ -82,6 +83,7 @@
 - `plans/active/blog-writing-strategy-plan.md`
 - `plans/active/shopping-content-quality-plan.md`
 - `plans/active/smart-keyword-topic-title-pipeline-plan.md`
+- `plans/active/smart-capability-usage-hardening-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/active/trend-posting-plan.md`
 - `plans/active/trend-posting-handoff.md`
