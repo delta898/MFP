@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: awaiting user UI validation for stage 2
+- Phase: stage 2 completed; ready for stage 3
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-02-ui-server-boundary`
+- Current child branch: none
 
 ## Goal
 
@@ -70,7 +70,7 @@
 - Full unit suite: 102 files, 501 tests passed
 - Product files under `ui/` and `src/` were not changed in this stage.
 
-## Current Stage: UI Server Boundary
+## Completed Stage: UI Server Boundary
 
 ### Scope
 
@@ -96,6 +96,7 @@
 - Browser UI smoke: passed with 28 fixture requests
 - Version display regression: static contract passed; browser rerun pending because execution approval was declined
 - Full UI API E2E: not run because local-server execution approval was declined
+- Manual UI validation: passed, including the corrected settings version display
 
 ## Non-Goals
 
