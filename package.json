@@ -9,6 +9,7 @@
     "test:ui-blog-auto": "node scripts/test-ui-blog-auto.js",
     "test:ui-settings": "node scripts/test-ui-settings.js",
     "test:ui-e2e": "node scripts/test-ui-e2e.js",
+    "test:ui-browser": "node scripts/test-ui-browser-smoke.js",
     "test:chat-model": "node --test src/utils.chat-model.test.js src/ai-model-config.test.js src/capabilities/settings/chat-model.test.js src/social/sns-ai-service.test.js",
     "test:unit": "node scripts/run-unit-tests.js",
     "mcp:stdio": "node src/mcp/stdio-server.js",
