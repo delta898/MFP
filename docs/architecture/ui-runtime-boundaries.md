@@ -27,6 +27,12 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - API route assembly, handler caching, legacy API bridge wiring.
 - `src/ui-runtime/config-file-runtime.js`
   - Config file source resolution, read/write helpers, revision helpers.
+- `src/ui-runtime/settings-fields-runtime.js`
+  - Major settings field projection, request parsing, runtime config application,
+    and shopping image/config persistence policy.
+- `src/ui-runtime/automation-policy-runtime.js`
+  - Automation schedule, trend/publish option, reuse-history, and shopping policy
+    normalization shared by the UI runners.
 - `src/ui-runtime/ui-helpers-runtime.js`
   - UI-focused sort/query/activity utilities.
 - `src/ui-runtime/quick-publish-runtime.js`
@@ -62,4 +68,6 @@ Not:
 - When a UI workflow grows beyond a few helpers, move it into `src/ui-runtime/`.
 - When multiple entry paths need the same behavior, extract a shared module before changing one side further.
 - `src/ui-server.js` should keep wiring, not full workflow implementations.
+- Keep `src/ui-server.js` below the enforced 1,200-line composition-root boundary;
+  move new policy or field-mapping behavior into a focused runtime module.
 - Shared modules should remain usable even if the launcher or packaging changes again later.

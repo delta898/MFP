@@ -678,6 +678,17 @@ function syncFooterVersion(version) {
   if (el && version) el.textContent = `v${version}`;
 }
 
+function syncAppVersionDisplays(version) {
+  const normalizedVersion = String(version || '').trim();
+  if (!normalizedVersion) return;
+
+  const versionBadge = document.getElementById('badge-version');
+  if (versionBadge) versionBadge.textContent = `v${normalizedVersion}`;
+  const settingsVersionDisplay = document.getElementById('settings-current-version-display');
+  if (settingsVersionDisplay) settingsVersionDisplay.textContent = `v${normalizedVersion}`;
+  syncFooterVersion(normalizedVersion);
+}
+
 function setPre(id, data) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -1548,12 +1559,9 @@ async function loadConfigStatus() {
     syncPlatformUiState('wordpress', uiWpReady);
 
     // 앱 버전 즉시 표시
-    const versionBadge = document.getElementById('badge-version');
-    if (versionBadge) {
-      const v = status?.version || '0.0.0';
-      versionBadge.textContent = `v${v}`;
-      syncFooterVersion(v);
-      console.log('[UI] Version badge updated to:', v);
+    if (status?.version) {
+      syncAppVersionDisplays(status.version);
+      console.log('[UI] Version displays updated to:', status.version);
     }
 
     if (!uiConfigReady && !uiConfigPopupShown) {
@@ -4200,15 +4208,7 @@ async function loadDashboard() {
       healthBadge.textContent = 'Health: OK';
       healthBadge.style.background = '#dcfce7'; healthBadge.style.color = '#166534';
 
-      const versionBadge = document.getElementById('badge-version');
-      if (versionBadge && health.version) {
-        versionBadge.textContent = `v${health.version}`;
-        syncFooterVersion(health.version);
-      }
-      const settingsVersionDisplay = document.getElementById('settings-current-version-display');
-      if (settingsVersionDisplay && health.version) {
-        settingsVersionDisplay.textContent = `v${health.version}`;
-      }
+      syncAppVersionDisplays(health.version);
     } else {
       healthBadge.textContent = 'Health: Error';
       healthBadge.style.background = '#fee2e2'; healthBadge.style.color = '#991b1b';

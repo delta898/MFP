@@ -325,6 +325,7 @@ function createContentService(deps = {}) {
                 WORDPRESS_USER_ID: parseConfigValue(nextRaw, 'WORDPRESS_USER_ID') || CONFIG.WORDPRESS_USER_ID,
                 WORDPRESS_APP_PASSWORD: parseConfigValue(nextRaw, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD
             };
+            mergedFields[slotInfo.key] = configValue;
             applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
             syncAutoRunnerWithConfig();
             syncShoppingAutoRunnerWithConfig();

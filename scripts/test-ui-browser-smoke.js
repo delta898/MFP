@@ -36,7 +36,9 @@ function createAccountOverviewFixture() {
 }
 
 function getApiFixture(pathname) {
-    if (pathname === '/api/v1/health') return { status: 'ok', version: '0.2.0' };
+    // Keep health versionless so config/status must initialize every version display.
+    // This guards the startup race where health can be temporarily unavailable.
+    if (pathname === '/api/v1/health') return { status: 'ok' };
     if (pathname === '/api/v1/config/status') {
         return {
             ready: true,
@@ -167,6 +169,8 @@ async function run() {
         assert.equal(await page.locator('#view-dashboard').count(), 1);
         assert.equal(await page.locator('#view-dashboard').evaluate((element) => element.classList.contains('active')), true);
         assert.equal(await page.locator('#badge-version').textContent(), 'v0.2.0');
+        assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
+        assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
