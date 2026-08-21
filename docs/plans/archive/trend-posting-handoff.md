@@ -289,8 +289,8 @@ Remaining work:
 
 ```text
 Trend Posting 작업을 이어갑시다.
-먼저 docs/plans/active/trend-posting-handoff.md와
-docs/plans/active/trend-posting-plan.md를 읽고, 현재 브랜치와 working tree를
+먼저 docs/plans/archive/trend-posting-handoff.md와
+docs/plans/archive/trend-posting-plan.md를 읽고, 현재 브랜치와 working tree를
 확인해 주세요. handoff의 최신 결정이 기존 plan과 충돌하면 handoff를
 우선하고, 바로 코딩하지 말고 다음 작업 범위를 먼저 요약해 주세요.
 ```

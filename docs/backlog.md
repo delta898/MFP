@@ -1,50 +1,55 @@
 # BlogGenius Backlog
 
+## 제안 우선순위 (0.2.0 이후)
+
+1. **개발 기반 정비** — 완료 (2026-08-22)
+   - backlog와 active plan을 현재 구현 상태에 맞춘다.
+   - 새 `*.test.js`가 릴리스 검증에 자동 포함되도록 테스트 실행 구조를 정리한다.
+   - 완료된 설계는 archive/canonical 문서로 이동한다.
+2. **오늘의 성과·이어서 하기**
+   - activity/memory event에서 오늘의 성과와 미완료 작업을 파생한다.
+   - 이미 완료된 단계와 안전하게 재개할 수 있는 다음 행동을 구분한다.
+3. **발행 준비 상태 점검**
+   - 로그인, 시트, AI 모델, 필수 설정과 발행 대상을 한 번에 진단한다.
+   - 경고에서 끝내지 않고 해결 화면이나 capability로 연결한다.
+4. **Internal API 통합**
+   - Telegram legacy 등록·발행 분기를 canonical request/capability 경로로 통합한다.
+   - UI, MCP와 Telegram이 같은 preview/confirmation/result 계약을 사용하게 한다.
+5. **UI 모듈 분리**
+   - `ui/app.js`를 quick discovery, settings, publishing, SNS 등 기능 controller로 분리한다.
+   - 기존 `ui-runtime` 경계를 유지하고 전면 재작성은 피한다.
+6. **Remote MCP 고도화**
+   - 내부 실행 계약 정리 후 인증, 재연결, confirmation 복구와 tool surface를 확장한다.
+7. **구독·결제 기반**
+   - 수익화 우선순위가 확정되면 provider-neutral subscription/entitlement 경계를 구현한다.
+
+## 0.2.0에서 완료되거나 대체된 항목
+
+- 기본 실행을 Electron UI로 전환하고 CLI 웹 UI도 브라우저 자동 열기와 `--no-open`을 지원했다.
+- `LISTEN_HOST`/`LISTEN_PORT`를 설정 UI와 실행 인자에서 지원했다. 포트 충돌 자동 대체 UX는 남아 있다.
+- Trends/Topics/Shopping 목록에 limit/offset 기반 페이지 이동을 적용했다.
+- 개인화 글감 추천, 근거 표시, 저장·선택·발행 outcome 학습과 네이버 트렌드 결합을 출시했다.
+
 ## P1 (다음 스프린트 우선)
 
-1. UI 포트 설정 지원
-- `UI_PORT`를 `config/config.json` 및 UI 실행 인자로 지원
-- 기본값 충돌 시 대체 포트 안내/재시도 UX 정리
-
-2. 기본 실행 모드 개선 (Windows 포함)
-- `BlogGenius(.exe)` 실행 시 기본 동작을 UI 모드로 시작
-- 브라우저 자동 오픈 옵션 제공
-
-3. 블로그 테이블 텍스트 컬럼 inline edit 고도화
+1. 블로그 테이블 텍스트 컬럼 inline edit 고도화
 - 현재 inline edit 안정화
 - 저장/실패 메시지 미세 조정
 - 진행 중(row runtime log 존재) 편집 잠금 유지
 
-4. 실행 로그/최근 실행 표시 UX 정리
+2. 실행 로그/최근 실행 표시 UX 정리
 - 새 배치 시작 시 이전 runtime 상태 초기화(적용됨)
 - 결과 요약 카드 유지 방식(필요 시 이력 탭으로 이전)
 
-5. 블로그 탭 대량 목록 처리
-- Trends/Keywords/Topics 공통 페이지네이션 도입 (server limit/offset 연동)
-- 현재 단건 조회(limit 확장) 방식에서 페이지 이동 UX(이전/다음/페이지 번호)로 전환
-- 매우 많은 행에서도 초기 렌더 지연 없이 동작하도록 최적화
-
-6. 최초 설치 UX 다듬기
+3. 최초 설치 UX 다듬기
 - Dashboard 라이선스 오류 시 전체 패널이 동시에 오류처럼 보이지 않도록 부분 상태 표시 강화
 - 테스트 플랜 소진/재사용 불가 메시지에 다음 행동(라이선스 화면 업그레이드) 안내를 명확히 표시
 - 설정 화면 초기값(sample placeholder)로 인한 버튼 오동작(구글 시트 열기) 방지
 - 설정 화면에서 Gemini API 키 발급 경로를 즉시 확인할 수 있는 도움 링크 제공
 
-7. 개인화 글감 추천
-- 사용자가 등록·선택·발행한 주제와 키워드를 장기 신호로 축적하고, 네이버 트렌드 등 최신 외부 신호와 결합해 글감을 제안
-- 기존 `content.idea.suggest` capability와 `kind + transport + config` knowledge provider 구조를 확장하며 별도 추천 체계를 중복 구축하지 않음
-- Owner Identity 기반 완료: UI/자동 작업도 durable local owner에 귀속하며 actor는 별도 유지
-- Owner 기반 조회와 도메인 신호 분류 완료: blog·shopping·sns를 분리하고 약한 근거에서 선택·초안·발행을 추정하지 않음
-- Topic semantics 기반 완료: 기존 payload를 보존하며 keyword/category/platform facet과 Owner별 빈도·최근성 조회를 제공
-- Activity lifecycle 공통 계약 기반 완료: domain/stage/근거 출처/멱등키를 갖춘 owner-scoped event를 기존 artifact 신호와 함께 조회
-- Blog lifecycle 연결 진행: 빠른 포스팅·미리보기 발행·원고 폴더·원고 붙여넣기의 선택과 플랫폼별 초안/발행 성공 근거 수집
-- Shopping lifecycle 연결 진행: 단건·일괄·자동·빠른 쇼핑 실행의 선택과 플랫폼별 초안/발행 성공 근거 수집
-- SNS lifecycle 연결 진행: 수동 작성과 RSS/Buffer 자동 배포의 선택 및 채널별 확인된 발행 성공 근거 수집
-- Telegram provenance 정규화 진행: canonical request의 owner/actor/channel/conversation/message/request 출처를 content registration까지 유지
-- Feedback provenance 정규화 진행: 명확한 artifact 유형만 blog/shopping lifecycle feedback으로 연결하고 일반 suggestion/confirmation은 분리
-- 다음 선행 작업: Telegram 메시지 수집 누락·중복·orphan 감사를 마친 뒤 저장 토픽과 facet을 retrieval context에 포함
-- 단순 반복 횟수뿐 아니라 최근성, 직접 선택·발행 여부, 추천 수락/거절을 구분해 점수화
-- 제안 결과에서 추천 이유와 근거 신호를 사용자가 이해할 수 있게 표시
+4. UI 포트 충돌 복구
+- 설정한 포트가 사용 중이면 원인과 현재 점유 상태를 안내한다.
+- 사용자가 확인할 수 있는 대체 포트 재시도 흐름을 제공한다.
 
 ## P2 (중기)
 

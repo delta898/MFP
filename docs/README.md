@@ -57,37 +57,16 @@
 - `decisions/2026-08-04-google-ai-provider-normalization.md`
 - `decisions/2026-08-16-keyword-provider-credentials.md`
 - `decisions/2026-08-17-smart-capability-usage.md`
+
+## Active Work
+
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
-- `plans/active/intelligent-memory-owner-identity-plan.md`
-- `plans/active/intelligent-memory-owner-retrieval-plan.md`
-- `plans/active/intelligent-memory-topic-semantics-plan.md`
-- `plans/active/intelligent-memory-activity-lifecycle-plan.md`
-- `plans/active/intelligent-memory-blog-lifecycle-plan.md`
-- `plans/active/intelligent-memory-shopping-lifecycle-plan.md`
-- `plans/active/intelligent-memory-sns-lifecycle-plan.md`
-- `plans/active/intelligent-memory-telegram-provenance-plan.md`
-- `plans/active/intelligent-memory-feedback-provenance-plan.md`
-- `plans/active/intelligent-memory-collection-audit-plan.md`
-- `plans/active/intelligent-memory-retrieval-v2-plan.md`
-- `plans/active/intelligent-memory-owner-profile-plan.md`
-- `plans/active/intelligent-memory-naver-trends-knowledge-plan.md`
-- `plans/active/intelligent-memory-topic-candidate-plan.md`
-- `plans/active/intelligent-memory-topic-ranking-plan.md`
-- `plans/active/intelligent-memory-recommendation-learning-plan.md`
-- `plans/active/kie-async-image-integration-plan.md`
-- `plans/active/chat-model-source-selection-plan.md`
-- `plans/active/configurable-content-surfaces-plan.md`
-- `plans/active/manual-sns-publishing-plan.md`
-- `plans/active/naver-smart-comment-improvement-plan.md`
-- `plans/active/blog-writing-strategy-plan.md`
-- `plans/active/shopping-content-quality-plan.md`
-- `plans/active/smart-keyword-topic-title-pipeline-plan.md`
-- `plans/active/smart-capability-usage-hardening-plan.md`
+- `plans/active/google-sheets-credentials-plan.md`
+- `plans/active/internal-api-redesign-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
-- `plans/active/trend-posting-plan.md`
-- `plans/active/trend-posting-handoff.md`
-- `plans/archive/kie-ai-provider-integration-plan.md`
-- `plans/archive/kie-gpt-integration-plan.md`
-- `plans/archive/ai-provider-profiles-plan.md`
-- `plans/archive/configurable-sidebar-content-plan.md`
+- `plans/active/remote-mcp-server-plan.md`
+
+Completed and superseded implementation plans are retained under
+`plans/archive/` for historical context. They are not current architecture or
+open-work sources of truth.

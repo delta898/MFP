@@ -73,8 +73,8 @@ operation does not invoke the external provider more than once.
   unless the prior reservation expires and the provider itself can safely
   accept the same idempotency key.
 
-The implementation and rollout work for this contract is tracked in
-`docs/plans/active/smart-capability-usage-hardening-plan.md`.
+The implementation and rollout history for this contract is retained in
+`docs/plans/archive/smart-capability-usage-hardening-plan.md`.
 
 ## Rationale
 
