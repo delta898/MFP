@@ -1,0 +1,4 @@
+const systemLogRenderState = {
+  fileName: '',
+  lastRaw: ''
+};

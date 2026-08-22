@@ -194,6 +194,26 @@ async function run() {
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
 
+        await page.locator('.nav-btn[data-view="account"]').click();
+        await page.waitForFunction(() => !document.getElementById('account-overview-content')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#account-plan-name').textContent())?.trim(), 'Free');
+        assert.equal(
+            await page.locator('#view-account [data-clock-display]').evaluate((element) => element.children.length > 0),
+            true
+        );
+
+        await page.locator('.nav-btn[data-view="logs"]').click();
+        await page.locator('.logs-tab-btn[data-logs-tab="system"]').click();
+        await page.waitForFunction(() => getComputedStyle(document.getElementById('logs-tab-system')).display !== 'none');
+        assert.equal(
+            await page.locator('.logs-tab-btn[data-logs-tab="system"]').evaluate((element) => element.classList.contains('active')),
+            true
+        );
+
+        await page.locator('.nav-btn[data-view="dashboard"]').click();
+        assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
+        await page.locator('.nav-btn[data-view="blog"]').click();
+
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
         await page.locator('#quick-discovery-modal-close').click();

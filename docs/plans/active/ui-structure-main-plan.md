@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 5 completed; ready for stage 6
+- Phase: stage 6 implementation and validation
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-06-dashboard-shell`
 
 ## Goal
 
@@ -127,6 +127,35 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
+
+## Current Stage: Dashboard Shell Controllers
+
+### Scope
+
+- setup banner, sidebar dynamic content, supporting surfaces의 소유 경계를 `features/shell/`로 모은다.
+- update, dashboard summary/feed, account overview/action, activity/system logs, clock/celebration을 독립 controller 파일로 분리한다.
+- discovery와 SNS 코드는 다음 단계에서 다룰 임시 feature 파일로 남기되 dashboard shell 책임을 포함하지 못하게 한다.
+- 기존 classic-script 선언 순서와 단일 `/app.js` 응답을 그대로 유지한다.
+- shell controller별 대표 함수의 단일 소유권과 legacy 파일 재유입을 구조 테스트로 보호한다.
+
+### Completion Gate
+
+- 조립 결과가 단계 시작 시점 JavaScript와 byte-for-byte 동일하다.
+- dashboard shell 소유권과 JavaScript 조합 구조 계약 테스트가 통과한다.
+- 실제 서버 E2E와 browser smoke에서 dashboard, account, logs, update, clock, sidebar 흐름이 유지된다.
+- 사용자가 실제 앱에서 해당 화면과 상호작용을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Stage-start/composed JavaScript: byte-for-byte identical, 13,812 lines
+- Dashboard shell: 12 explicit controller owners; largest shell module 765 lines
+- Focused composition, ownership, and structure tests: 12 passed
+- Full unit suite: 112 files, 524 tests passed
+- UI API E2E: passed; verifies the fully composed `/app.js` response
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 31 fixture requests, including account rendering, system logs, clock, update banner, and mobile sidebar
+- Manual UI validation: pending
 
 ## Completed Stage: CSS Modules
 
