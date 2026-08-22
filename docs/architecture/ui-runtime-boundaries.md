@@ -28,6 +28,9 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Rejects missing, escaping, non-HTML, and cyclic include paths before the server listens.
 - `src/ui-runtime/css-composition-runtime.js`
   - Synchronous composition of ordered base, layout, component, and feature CSS modules.
+- `src/ui-runtime/js-composition-runtime.js`
+  - Synchronous, ordered composition of foundation, shell, and feature JavaScript modules.
+  - Rejects invalid, escaping, missing, non-JavaScript, and cyclic include paths.
 - `src/ui-runtime/text-composition-runtime.js`
   - Shared safe path, extension, missing-file, and cycle enforcement for UI text assets.
 - `src/ui-runtime/api-route-runtime.js`
@@ -80,6 +83,14 @@ Not:
 - Keep `ui/styles.css` as the ordered CSS manifest. Add styles to the matching
   `ui/styles/{base,layout,components,features}/` module without reordering existing
   includes; every CSS module is guarded at 900 lines or fewer.
+- Keep `ui/app.js` as the ordered classic-script manifest. Place shared bootstrap
+  and utilities in `ui/scripts/foundation/`, navigation and view orchestration in
+  `ui/scripts/shell/`, and product behavior in `ui/scripts/features/`.
+- Do not introduce duplicate top-level function declarations in the composed UI
+  script. Keep one `DOMContentLoaded` bootstrap and one action-binding path.
+- Keep the remaining legacy action controller below its enforced 2,600-line
+  transition boundary; extract new behavior into a focused feature module instead
+  of extending that controller.
 - When multiple entry paths need the same behavior, extract a shared module before changing one side further.
 - `src/ui-server.js` should keep wiring, not full workflow implementations.
 - Keep `src/ui-server.js` below the enforced 1,200-line composition-root boundary;

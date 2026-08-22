@@ -2,8 +2,9 @@
 
 ## Status
 
-- Phase: stage 9 completed; ready for stage 10
+- Phase: completed
 - Started: 2026-08-22
+- Completed: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
 - Current child branch: none
 
@@ -299,6 +300,31 @@
 - UI API E2E: passed
 - Settings API smoke: passed
 - Browser UI smoke: passed with 35 fixture requests
+- Manual UI validation: passed
+
+## Current Stage: JavaScript Hardening
+
+### Scope
+
+- 중복 top-level 함수 선언을 제거하고 자동 구조 검사로 재유입을 차단한다.
+- 자동글감 결과 표시가 실제 DOM target을 사용하도록 수정한다.
+- lifecycle bootstrap과 action/preferences binding의 단일 등록 경로를 보호한다.
+- 남은 대형 action binding에 명시적 크기 상한을 적용한다.
+
+### Completion Gate
+
+- hardening 구조 계약과 전체 unit/API/browser 회귀 테스트가 통과한다.
+- 사용자가 자동글감 결과, 설정 이동, 주요 publishing/social 흐름을 확인하고 승인한다.
+
+### Automated Validation Result
+
+- 중복 top-level 함수 선언 3개 제거, 잔여 중복 0개
+- JavaScript hardening/structure focused suite: 13 tests passed
+- Full unit suite: 116 files, 534 tests passed
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- UI API E2E: passed
+- Browser UI smoke: passed with 39 fixture requests
 - Manual UI validation: passed
 
 ## Non-Goals

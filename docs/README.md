@@ -66,7 +66,6 @@
 - `plans/active/internal-api-redesign-plan.md`
 - `plans/active/paid-plans-and-credits-plan.md`
 - `plans/active/remote-mcp-server-plan.md`
-- `plans/active/ui-structure-main-plan.md`
 
 Completed and superseded implementation plans are retained under
 `plans/archive/` for historical context. They are not current architecture or
