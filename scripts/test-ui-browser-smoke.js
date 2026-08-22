@@ -6,6 +6,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -87,6 +88,8 @@ function getApiFixture(pathname) {
 function startFixtureServer(requests) {
     const composedUiShell = createHtmlCompositionRuntime({ fs, path })
         .composeHtmlFile({ uiRoot }).html;
+    const composedUiStyles = createCssCompositionRuntime({ fs, path })
+        .composeCssFile({ uiRoot }).css;
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         requests.push({ method: req.method || 'GET', pathname: url.pathname });
@@ -108,7 +111,10 @@ function startFixtureServer(requests) {
         }
 
         res.writeHead(200, { 'Content-Type': getContentType(fullPath), 'Cache-Control': 'no-store' });
-        res.end(requestedPath === 'index.html' ? composedUiShell : fs.readFileSync(fullPath));
+        const body = requestedPath === 'index.html'
+            ? composedUiShell
+            : (requestedPath === 'styles.css' ? composedUiStyles : fs.readFileSync(fullPath));
+        res.end(body);
     });
 
     return new Promise((resolve, reject) => {
@@ -171,6 +177,9 @@ async function run() {
 
         assert.equal(await page.locator('#view-dashboard').count(), 1);
         assert.equal(await page.locator('#view-dashboard').evaluate((element) => element.classList.contains('active')), true);
+        assert.notEqual(await page.locator('#view-dashboard').evaluate((element) => getComputedStyle(element).display), 'none');
+        assert.equal(await page.locator('#view-settings').evaluate((element) => getComputedStyle(element).display), 'none');
+        assert.equal(await page.locator('.sidebar').evaluate((element) => getComputedStyle(element).display), 'flex');
         assert.equal(await page.locator('#badge-version').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
@@ -184,6 +193,15 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
         await page.locator('#quick-discovery-modal-close').click();
         await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
+        assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
+        await page.locator('#mobile-menu-btn').click();
+        await page.waitForFunction(() => document.querySelector('.sidebar')?.classList.contains('open'));
+        assert.equal(await page.locator('#sidebar-overlay').evaluate((element) => element.classList.contains('active')), true);
+        await page.locator('#sidebar-overlay').click({ position: { x: 380, y: 420 } });
+        await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
         const unexpectedPosts = requests.filter((request) => request.method !== 'GET');
         assert.deepEqual(unexpectedPosts, []);

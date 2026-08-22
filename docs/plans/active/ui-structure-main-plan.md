@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 3 completed; ready for stage 4
+- Phase: awaiting user UI validation for stage 4
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-04-css-modules`
 
 ## Goal
 
@@ -127,6 +127,34 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
+
+## Current Stage: CSS Modules
+
+### Scope
+
+- `ui/styles.css`를 명시적인 cascade 순서만 보유하는 bounded manifest로 제한한다.
+- 기존 스타일을 base, layout, component, feature 모듈로 분리하되 selector와 선언 순서는 재배치하지 않는다.
+- 서버가 listen하기 전에 CSS를 동기 조립해 브라우저에는 기존과 같은 단일 `/styles.css`를 제공한다.
+- HTML/CSS 조립기가 경로·확장자·누락·순환 검증을 공유하도록 text composition 기반을 둔다.
+- CSS manifest 순서, 모든 모듈의 도달 가능성·유일성, 모듈당 900줄 상한을 구조 테스트로 보호한다.
+
+### Completion Gate
+
+- 조립 결과가 분리 전 `ui/styles.css`와 byte-for-byte 동일하다.
+- CSS composition과 cascade 구조 계약 테스트가 통과한다.
+- 실제 서버 E2E가 완성 CSS 응답을 확인하고 browser smoke가 computed style을 확인한다.
+- 사용자가 실제 앱의 desktop/mobile 주요 화면과 modal을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Pre-split/composed CSS: byte-for-byte identical, 9,046 lines
+- Manifest: 36 lines, 19 ordered modules; largest module 832 lines
+- Focused composition and structure tests: 13 passed
+- Full unit suite: 109 files, 518 tests passed
+- UI API E2E: passed; verifies the served stylesheet is fully composed
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 28 fixture requests, including desktop computed styles and mobile sidebar flow
 
 ## Non-Goals
 

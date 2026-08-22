@@ -9,6 +9,7 @@ function createUiHttpServerRuntime(deps = {}) {
         defaultPort,
         resolveUiRoot,
         composeUiShell,
+        composeUiStyles,
         normalizeListenHost,
         normalizeListenPort,
         createRequestId,
@@ -39,6 +40,7 @@ function createUiHttpServerRuntime(deps = {}) {
             throw new Error('UI 정적 파일 폴더를 찾을 수 없습니다. (ui/)');
         }
         const composedUiShell = composeUiShell(uiRoot);
+        const composedUiStyles = composeUiStyles(uiRoot);
 
         const server = http.createServer(async (req, res) => {
             const requestId = createRequestId();
@@ -97,7 +99,7 @@ function createUiHttpServerRuntime(deps = {}) {
 
                 const body = requestedPath === 'index.html'
                     ? composedUiShell
-                    : fs.readFileSync(fullPath);
+                    : (requestedPath === 'styles.css' ? composedUiStyles : fs.readFileSync(fullPath));
                 res.writeHead(200, {
                     'Content-Type': getContentType(fullPath),
                     'Cache-Control': 'no-store'

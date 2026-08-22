@@ -1,0 +1,245 @@
+.settings-section-divider {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  padding: 8px 12px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  margin: 12px 0 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.settings-section-divider-with-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-section-divider .buffer-resource-links {
+  font-weight: 500;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  white-space: normal;
+}
+
+#settings-tab-sns {
+  gap: 16px;
+}
+
+#settings-tab-sns > h2 {
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+#settings-tab-sns .form-grid {
+  column-gap: 16px;
+  row-gap: 18px;
+}
+
+#settings-tab-sns .form-grid > label,
+#settings-tab-sns .form-field-block,
+#settings-tab-sns .field-label-text {
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #334155;
+}
+
+#settings-tab-sns .settings-checkbox-label {
+  min-height: 32px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+#settings-tab-sns .sns-activation-label {
+  min-height: 36px;
+}
+
+#settings-tab-sns .sns-setting-heading {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+#settings-tab-sns .sns-field-hint,
+#settings-tab-sns .sns-empty-message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #64748b;
+}
+
+#settings-tab-sns .sns-source-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 2px;
+}
+
+#settings-tab-sns .sns-channel-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+#settings-tab-sns .form-grid input,
+#settings-tab-sns .form-grid select,
+#settings-tab-sns .input-with-action button {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#settings-tab-sns .sns-connection-status {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#settings-tab-sns .sns-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#settings-tab-sns .sns-status-heading button {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+#settings-tab-sns .sns-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#settings-tab-sns .settings-sns-status {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #475569;
+  white-space: pre-wrap;
+}
+
+.settings-model-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 18px 18px 16px;
+}
+
+.settings-model-card + .settings-model-card {
+  margin-top: 4px;
+}
+
+.settings-model-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.settings-model-grid {
+  gap: 10px 18px;
+  align-items: start;
+}
+
+.settings-model-grid label {
+  display: grid;
+  grid-template-rows: auto auto minmax(16px, auto);
+  align-content: start;
+  gap: 6px;
+}
+
+.settings-model-grid label > small {
+  display: block;
+  min-height: 16px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.settings-model-grid .settings-model-helper-spacer {
+  visibility: hidden;
+}
+
+.settings-model-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 14px;
+}
+
+.settings-model-test-result {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+#settings-tab-notification {
+  gap: 8px;
+}
+
+#settings-tab-notification > h2 {
+  margin-bottom: 0;
+}
+
+#settings-tab-notification > .form-grid {
+  gap: 10px 18px;
+}
+
+#settings-tab-notification .settings-section-divider {
+  margin: 6px 0 4px;
+}
+
+#settings-tab-notification .notification-section-divider-spaced {
+  margin-top: 20px;
+}
+
+#settings-tab-notification .form-grid label > small {
+  margin: 0;
+}
+
+.notification-toggle-block {
+  gap: 0 !important;
+}
+
+.notification-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.notification-toggle-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.notification-test-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.notification-test-row-separated {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}

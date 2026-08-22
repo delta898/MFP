@@ -1,0 +1,409 @@
+/* Modal Background Overlay */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  transition: var(--transition);
+}
+
+.modal-backdrop.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Modal Container */
+.modal-container {
+  background: var(--surface-solid);
+  width: 90%;
+  max-width: 650px;
+  max-height: 90vh;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modal-enter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.modal-header .close-btn {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: var(--transition);
+}
+
+.modal-header .close-btn:hover {
+  color: var(--danger);
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.modal-grid .field-item.full {
+  grid-column: span 2;
+}
+
+.modal-grid .field-item label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.modal-grid .field-item input,
+.modal-grid .field-item textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-main);
+  outline: none;
+  transition: var(--transition);
+}
+
+.modal-grid .field-item input:focus,
+.modal-grid .field-item textarea:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-footer .actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-footer button {
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.modal-footer button.primary {
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-footer button.primary:hover {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+}
+
+.modal-footer button.secondary {
+  background: white;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+.modal-footer button.secondary:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+/* Redefine/Improve Custom Select for Modal */
+.blog-edit-modal .custom-select-trigger {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.blog-edit-modal .custom-select-trigger:hover {
+  border-color: var(--brand-primary);
+}
+
+.blog-edit-modal .custom-select-container.open .custom-select-trigger {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.blog-edit-modal .custom-select-menu {
+  width: 100%;
+}
+
+select.inline-editor {
+  cursor: pointer;
+  appearance: auto;
+}
+
+/* Compact Custom Select for Table Cells */
+.inline-select-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  background: white;
+}
+
+.inline-select-trigger {
+  width: 100%;
+  height: 100%;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--brand-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+}
+
+.inline-select-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  max-width: 300px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  display: none;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.inline-select-container.open .inline-select-menu {
+  display: block;
+}
+
+.inline-select-search {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  background: #fcfdfe;
+}
+
+.inline-select-search input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d7e2f0;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.inline-select-options {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.inline-select-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.inline-select-option:hover {
+  background-color: var(--brand-light);
+  color: var(--brand-primary);
+}
+
+.inline-select-option.selected {
+  background-color: var(--brand-primary);
+  color: white;
+}
+
+.sticky-actions.hidden {
+  display: none;
+}
+
+.sticky-actions {
+  position: sticky;
+  bottom: 8px;
+  z-index: 5;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.sticky-actions button {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--brand-primary);
+  color: #fff;
+}
+
+/* Batch Publish Sticky Header Refinement */
+.blog-tab-panel,
+.shopping-tab-panel {
+  display: none;
+  flex-direction: column;
+}
+
+.blog-tab-panel.active,
+.shopping-tab-panel.active {
+  display: flex !important;
+}
+
+.blog-filter-grid,
+.blog-batch-actions,
+.shopping-batch-actions {
+  position: static;
+  /* Remove floating stickiness for simplicity */
+  background: var(--surface-solid);
+}
+
+.blog-filter-grid {
+  margin-bottom: 8px;
+}
+
+.blog-batch-actions,
+.shopping-batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.form-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+
+/* Fix for long content leading to alignment issues */
+.data-table td {
+  word-break: break-all;
+  max-width: 400px;
+}
+
+.data-table td:has(pre),
+.data-table td pre {
+  max-width: 500px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.batch-summary.hidden {
+  display: none;
+}
+
+.batch-summary {
+  border: 1px solid #d9e4f3;
+  background: #f8fbff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.batch-summary .title {
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.batch-summary ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.batch-summary li {
+  margin: 2px 0;
+}
+
+.recent-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.recent-badge.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.recent-badge.fail {
+  background: #fee2e2;
+  color: #991b1b;
+}

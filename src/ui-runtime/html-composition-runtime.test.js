@@ -39,10 +39,10 @@ test('HTML composition rejects missing, escaping, non-HTML, and cyclic includes'
     const cases = [
         { files: { 'index.html': '<!-- @include missing.html -->' }, pattern: /찾을 수 없습니다/ },
         { files: { 'index.html': '<!-- @include ../outside.html -->' }, pattern: /허용되지 않은/ },
-        { files: { 'index.html': '<!-- @include app.js -->', 'app.js': '' }, pattern: /HTML 파일만/ },
+        { files: { 'index.html': '<!-- @include app.js -->', 'app.js': '' }, pattern: /\.html 파일만/ },
         {
             files: { 'index.html': '<!-- @include partial.html -->', 'partial.html': '<!-- @include index.html -->' },
-            pattern: /순환 UI include/
+            pattern: /순환 UI HTML include/
         }
     ];
 

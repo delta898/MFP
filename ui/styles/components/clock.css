@@ -1,0 +1,832 @@
+.clock-widget-unit {
+  --clock-season: #0ea5e9;
+  --clock-season-soft: rgba(14, 165, 233, 0.12);
+  --clock-season-glow: rgba(14, 165, 233, 0.18);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.clock-widget-unit[data-clock-season="spring"] {
+  --clock-season: #ec4899;
+  --clock-season-soft: rgba(244, 114, 182, 0.13);
+  --clock-season-glow: rgba(236, 72, 153, 0.18);
+}
+
+.clock-widget-unit[data-clock-season="summer"] {
+  --clock-season: #0ea5e9;
+  --clock-season-soft: rgba(56, 189, 248, 0.14);
+  --clock-season-glow: rgba(14, 165, 233, 0.2);
+}
+
+.clock-widget-unit[data-clock-season="autumn"] {
+  --clock-season: #ea580c;
+  --clock-season-soft: rgba(251, 146, 60, 0.14);
+  --clock-season-glow: rgba(234, 88, 12, 0.18);
+}
+
+.clock-widget-unit[data-clock-season="winter"] {
+  --clock-season: #6366f1;
+  --clock-season-soft: rgba(129, 140, 248, 0.13);
+  --clock-season-glow: rgba(99, 102, 241, 0.18);
+}
+
+.clock-widget-main {
+  width: clamp(310px, 24vw, 320px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  grid-template-areas:
+    "face controls"
+    "meta meta";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 8px;
+  padding: 11px 12px 9px 16px;
+  border: 1px solid color-mix(in srgb, var(--clock-season) 22%, transparent);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), var(--clock-season-soft));
+  box-shadow: 0 10px 24px var(--clock-season-glow);
+}
+
+.clock-widget-main .clock-display {
+  grid-area: face;
+  min-width: 0;
+  min-height: 96px;
+  justify-content: center;
+}
+
+.clock-widget-unit[data-clock-display-mode="timer"] .clock-widget-main {
+  border-color: color-mix(in srgb, var(--clock-season) 32%, transparent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), var(--clock-season-soft));
+}
+
+.clock-widget-unit[data-pomodoro-phase="break"] {
+  --pomodoro-accent: #0d9488;
+  --pomodoro-soft: #ecfdf5;
+}
+
+.clock-widget-unit[data-pomodoro-phase="focus"] {
+  --pomodoro-accent: #e11d48;
+  --pomodoro-soft: #fff1f2;
+}
+
+.clock-control-rail {
+  grid-area: controls;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.clock-style-button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.46);
+  color: #64748b;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.clock-style-button:hover,
+.clock-style-button:focus-visible,
+.clock-widget-unit.clock-style-menu-open .clock-style-button {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--clock-season);
+  box-shadow: 0 5px 14px var(--clock-season-glow);
+  outline: none;
+}
+
+.clock-menu-trigger-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.clock-ambient-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 18px;
+  padding: 7px 4px 0;
+  border-top: 1px solid color-mix(in srgb, var(--clock-season) 12%, rgba(148, 163, 184, 0.18));
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  white-space: nowrap;
+}
+
+.clock-season-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--clock-season);
+  box-shadow: 0 0 0 4px var(--clock-season-soft);
+}
+
+.clock-ambient-message {
+  color: var(--clock-season);
+}
+
+.clock-sub-timer {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin: 2px 0 2px 7px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+
+.clock-sub-timer.running {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.clock-sub-timer.paused {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.clock-sub-timer.completed {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.clock-style-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 80;
+  width: min(292px, calc(100vw - 36px));
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.clock-mode-switch,
+.clock-style-section,
+.pomodoro-menu-control {
+  grid-column: 1 / -1;
+}
+
+.clock-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f1f5f9;
+}
+
+.clock-mode-switch button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clock-mode-switch button.active {
+  background: var(--surface-solid);
+  color: var(--clock-season);
+  box-shadow: var(--shadow-sm);
+}
+
+.clock-style-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.clock-style-section[hidden] {
+  display: none;
+}
+
+.clock-menu-section-label {
+  color: var(--text-light);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.clock-style-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.clock-widget-unit.clock-style-menu-open .clock-style-menu {
+  display: grid;
+  animation: clockStyleMenuIn 150ms ease-out;
+}
+
+@keyframes clockStyleMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-display.clock-display-pulse,
+  .clock-split-flip,
+  .clock-widget-unit.clock-style-menu-open .clock-style-menu,
+  .clock-widget-unit.pomodoro-complete .clock-widget-main,
+  .clock-widget-unit.pomodoro-break-complete .clock-widget-main,
+  .app-celebration-message {
+    animation: none;
+  }
+}
+
+.clock-style-option {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.clock-style-option:hover,
+.clock-style-option:focus-visible {
+  border-color: var(--line);
+  background: #f8fafc;
+  color: var(--text-main);
+  outline: none;
+}
+
+.clock-style-option.active {
+  border-color: color-mix(in srgb, var(--clock-season) 30%, transparent);
+  background: var(--clock-season-soft);
+  color: var(--clock-season);
+}
+
+.clock-style-option-icon {
+  min-width: 32px;
+  color: inherit;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pomodoro-menu-control {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.pomodoro-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pomodoro-menu-heading [data-pomodoro-status] {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pomodoro-preset-actions,
+.pomodoro-running-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.pomodoro-preset-actions button,
+.pomodoro-running-actions button {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pomodoro-preset-actions button:hover:not(:disabled),
+.pomodoro-running-actions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--clock-season) 40%, transparent);
+  background: var(--clock-season-soft);
+  color: var(--clock-season);
+}
+
+.pomodoro-preset-actions button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.pomodoro-running-actions[hidden] {
+  display: none;
+}
+
+.pomodoro-running-actions button[hidden] {
+  display: none;
+}
+
+.pomodoro-sound-toggle {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pomodoro-sound-toggle [data-pomodoro-sound-state] {
+  min-width: 32px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #64748b;
+  text-align: center;
+}
+
+.pomodoro-sound-toggle.active {
+  border-color: color-mix(in srgb, var(--clock-season) 30%, transparent);
+  background: var(--clock-season-soft);
+  color: var(--text-main);
+}
+
+.pomodoro-sound-toggle.active [data-pomodoro-sound-state] {
+  background: var(--clock-season);
+  color: #ffffff;
+}
+
+.pomodoro-face {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.pomodoro-face-shell {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.pomodoro-face-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.74;
+}
+
+.pomodoro-face-time {
+  display: block;
+  font-family: monospace;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.pomodoro-progress-track {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.pomodoro-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width 500ms linear;
+}
+
+.pomodoro-face-tomato,
+.pomodoro-face-soft {
+  width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px 17px;
+  border-radius: 18px;
+}
+
+.pomodoro-face-tomato {
+  background: linear-gradient(135deg, var(--pomodoro-soft), #ffffff);
+  color: var(--pomodoro-accent);
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.22);
+}
+
+.pomodoro-tomato-icon,
+.pomodoro-soft-orb {
+  font-size: 40px;
+  filter: drop-shadow(0 5px 8px rgba(225, 29, 72, 0.18));
+}
+
+.pomodoro-face-ring {
+  width: 124px;
+  height: 124px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--clock-season) var(--pomodoro-progress), rgba(148, 163, 184, 0.2) 0);
+  box-shadow: 0 12px 28px var(--clock-season-glow);
+}
+
+.pomodoro-ring-center {
+  width: 102px;
+  height: 102px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text-main);
+}
+
+.pomodoro-ring-center .pomodoro-face-time {
+  font-size: 31px;
+}
+
+.pomodoro-face-flip {
+  width: 232px;
+  padding: 9px 11px 17px;
+  color: #f8fafc;
+  text-align: center;
+}
+
+.pomodoro-face-flip > .pomodoro-face-label {
+  color: var(--text-muted);
+}
+
+.pomodoro-flip-values {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.pomodoro-flip-values span {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #1e293b;
+  font-family: monospace;
+  font-size: 35px;
+  font-weight: 900;
+  box-shadow: 0 7px 14px rgba(15, 23, 42, 0.2);
+}
+
+.pomodoro-flip-values b {
+  color: #64748b;
+  font-size: 24px;
+}
+
+.pomodoro-face-soft {
+  background: linear-gradient(135deg, #fdf2f8, #eef2ff);
+  color: #6366f1;
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.24);
+}
+
+.pomodoro-soft-orb {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.14);
+}
+
+.clock-widget-unit.pomodoro-complete .clock-widget-main {
+  animation: pomodoroCompletePulse 700ms ease-in-out 2;
+}
+
+.clock-widget-unit.pomodoro-break-complete .clock-widget-main {
+  animation: pomodoroBreakGlow 800ms ease-in-out 2;
+}
+
+.pomodoro-inline-actions {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.clock-widget-unit[data-clock-display-mode="timer"] .pomodoro-inline-actions {
+  display: flex;
+}
+
+.pomodoro-inline-actions button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.pomodoro-inline-actions button:hover,
+.pomodoro-inline-actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--pomodoro-accent) 38%, transparent);
+  background: var(--pomodoro-soft);
+  color: var(--pomodoro-accent);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.pomodoro-inline-actions .pomodoro-inline-start,
+.pomodoro-inline-actions .pomodoro-inline-next {
+  min-width: 32px;
+  border-color: color-mix(in srgb, var(--pomodoro-accent) 28%, transparent);
+  color: var(--pomodoro-accent);
+}
+
+.clock-widget-unit[data-clock-display-mode="clock"] .clock-display > :first-child {
+  transform: scale(1.1);
+  transform-origin: center;
+}
+
+@keyframes pomodoroCompletePulse {
+  50% {
+    transform: translateY(-2px) scale(1.025);
+    box-shadow: 0 0 0 7px rgba(16, 185, 129, 0.12), 0 14px 30px rgba(16, 185, 129, 0.18);
+  }
+}
+
+@keyframes pomodoroBreakGlow {
+  50% {
+    border-color: rgba(13, 148, 136, 0.58);
+    box-shadow: 0 0 0 8px rgba(20, 184, 166, 0.11), 0 16px 34px rgba(13, 148, 136, 0.22);
+  }
+}
+
+.app-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-celebration > i {
+  position: absolute;
+  top: -9vh;
+  left: 0;
+  width: 10px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--confetti-color);
+  opacity: 0;
+  transform: translate3d(var(--confetti-x), -10vh, 0) rotate(0deg);
+  animation: pomodoroConfettiFall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.28, 1) var(--confetti-delay) forwards;
+}
+
+.app-celebration > i:nth-child(3n) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.app-celebration > i:nth-child(4n) {
+  width: 14px;
+  height: 7px;
+}
+
+.app-celebration-message {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  min-width: min(320px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 18px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24), 0 0 0 8px rgba(56, 189, 248, 0.1);
+  color: var(--text-main);
+  text-align: center;
+  backdrop-filter: blur(14px);
+  transform: translate(-50%, -50%);
+  animation: pomodoroCelebrationMessage 3.25s ease forwards;
+}
+
+.app-celebration-message strong {
+  font-size: 23px;
+  font-weight: 900;
+}
+
+.app-celebration-message span {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@keyframes pomodoroConfettiFall {
+  8% { opacity: 1; }
+  100% {
+    opacity: 0.94;
+    transform: translate3d(calc(var(--confetti-x) + var(--confetti-drift)), 118vh, 0) rotate(var(--confetti-rotation));
+  }
+}
+
+@keyframes pomodoroCelebrationMessage {
+  0% { opacity: 0; transform: translate(-50%, -44%) scale(0.88); }
+  12%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -55%) scale(0.96); }
+}
+
+.server-control.clock-server-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.clock-server-control-label {
+  grid-column: 1 / -1;
+  color: var(--text-light);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.clock-server-control .server-control-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.clock-display.clock-display-pulse {
+  animation: clockDisplayPulse 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes clockDisplayPulse {
+  0% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+
+  45% {
+    transform: scale(1.035);
+    filter: saturate(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+}
+
+.clock-split {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clock-split-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #eef4ff);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.10);
+  border: 1px solid rgba(191, 219, 254, 0.85);
+  transform-origin: bottom center;
+  backface-visibility: hidden;
+}
+
+.clock-split-block-accent .clock-split-value {
+  color: #2563eb;
+}
+
+.clock-split-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.clock-split-value {
+  font-size: 24px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-split-flip {
+  animation: clockSplitFlipUp 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes clockSplitFlipUp {
+  0% {
+    opacity: 0.58;
+    transform: translateY(10px) rotateX(52deg) scaleY(0.9);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) rotateX(-10deg) scaleY(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg) scaleY(1);
+  }
+}
+
+.dash-badges {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}

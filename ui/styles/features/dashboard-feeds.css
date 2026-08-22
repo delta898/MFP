@@ -1,0 +1,232 @@
+.dash-content-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.dash-section-head {
+  margin: 24px 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dash-summary-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.dash-summary-column {
+  min-width: 0;
+}
+
+.dash-summary-column h3 {
+  margin: 0 0 12px !important;
+}
+
+.dash-summary-column .dash-summary-stats.grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dash-summary-column .stat-card {
+  min-height: 132px;
+  padding: 16px 16px 14px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.dash-summary-column .stat-card h4 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.dash-summary-column .stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+
+.dash-summary-column .stat-value span {
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.dash-summary-column .stat-value small {
+  font-size: 24px;
+  line-height: 1;
+  color: #334155;
+  font-weight: 700;
+}
+
+.dash-summary-column .stat-value.shopping span {
+  color: #059669;
+}
+
+.dash-summary-column .stat-value.pending span {
+  color: #d97706;
+}
+
+.dash-summary-column .stat-value.trend span {
+  color: #2563eb;
+}
+
+.dash-summary-column .stat-label {
+  margin-top: auto;
+  width: 100%;
+  text-align: right;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.dash-summary-column .stat-date {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  pointer-events: none;
+}
+
+.dash-summary-column .stat-date small {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.dash-feed-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dash-feed-header h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #334155;
+}
+
+.dash-feed-home-link {
+  font-size: 12px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.dash-feed-home-link:hover {
+  text-decoration: underline;
+}
+
+.dash-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  max-height: 388px;
+  overflow: hidden;
+}
+
+.dash-feed-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dash-feed-item {
+  display: flex;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 8px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.dash-feed-item:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.dash-feed-thumb {
+  width: 90px;
+  min-width: 90px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.dash-feed-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dash-feed-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0ea5e9;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.dash-feed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dash-feed-title {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #0f172a;
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dash-feed-meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.dash-feed-summary {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #475569;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

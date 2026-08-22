@@ -65,6 +65,7 @@ const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-ru
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
+const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
 const { getAgentEventStore, initializeAgentMemory } = require('./memory/store');
 const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
@@ -202,6 +203,8 @@ const {
 } = uiHttpUtils;
 const htmlCompositionRuntime = createHtmlCompositionRuntime({ fs, path });
 const composeUiShell = (uiRoot) => htmlCompositionRuntime.composeHtmlFile({ uiRoot }).html;
+const cssCompositionRuntime = createCssCompositionRuntime({ fs, path });
+const composeUiStyles = (uiRoot) => cssCompositionRuntime.composeCssFile({ uiRoot }).css;
 const uiHelpersRuntime = createUiHelpersRuntime({
     recordDashboardActivity
 });
@@ -1071,6 +1074,7 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     defaultPort: DEFAULT_PORT,
     resolveUiRoot,
     composeUiShell,
+    composeUiStyles,
     normalizeListenHost,
     normalizeListenPort,
     createRequestId,

@@ -31,6 +31,13 @@ async function run() {
         assert.match(shellHtml, /id="view-settings"/);
         assert.doesNotMatch(shellHtml, /<!--\s*@include\s+/);
 
+        const stylesResponse = await fetch(`${baseUrl}/styles.css`);
+        const stylesCss = await stylesResponse.text();
+        assert.strictEqual(stylesResponse.status, 200);
+        assert.match(stylesCss, /^@import url/);
+        assert.match(stylesCss, /\.quick-discovery-modal-container\s*\{/);
+        assert.doesNotMatch(stylesCss, /\/\*\s*@include\s+/);
+
         const health = await requestJson(baseUrl, '/api/v1/health');
         assert.strictEqual(health.status, 200);
         assert.ok(health.json?.success);
