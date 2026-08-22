@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 5 automated validation passed; awaiting manual UI validation
+- Phase: stage 5 completed; ready for stage 6
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-05-js-foundation`
+- Current child branch: none
 
 ## Goal
 
@@ -157,7 +157,7 @@
 - Browser UI smoke: passed with 28 fixture requests, including desktop computed styles and mobile sidebar flow
 - Manual UI validation: passed
 
-## Current Stage: JavaScript Foundation
+## Completed Stage: JavaScript Foundation
 
 ### Scope
 
@@ -185,7 +185,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
-- Manual UI validation: pending
+- Manual UI validation: passed
 
 ## Non-Goals
 
