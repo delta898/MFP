@@ -1,0 +1,36 @@
+      <section class="view" id="view-settings">
+        <div class="view-title-block">
+          <div class="view-title-row">
+            <h1>설정</h1>
+            <div class="settings-header-tools">
+              <div class="page-clock-widget">
+                <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-tabs">
+          <button class="settings-tab-btn active" data-settings-tab="general" type="button">일반</button>
+          <button class="settings-tab-btn" data-settings-tab="ai" type="button">AI</button>
+          <button class="settings-tab-btn" data-settings-tab="naver-blog" type="button">블로그</button>
+          <button class="settings-tab-btn" data-settings-tab="shopping-connect" type="button">쇼핑커넥트</button>
+          <button class="settings-tab-btn" data-settings-tab="sns" type="button">SNS</button>
+          <button class="settings-tab-btn" data-settings-tab="notification" type="button">알림</button>
+          <div class="settings-save-actions">
+            <button id="settings-major-save-btn" class="settings-major-save-btn" type="button" disabled>저장 및 적용</button>
+            <div id="settings-major-save-status" class="settings-major-save-status">저장됨</div>
+          </div>
+        </div>
+
+        <!-- @include settings/general.html -->
+
+        <!-- @include settings/naver-blog.html -->
+
+        <!-- @include settings/shopping-connect.html -->
+
+        <!-- @include settings/notification.html -->
+
+        <!-- @include settings/sns.html -->
+
+        <!-- @include settings/ai.html -->
+      </section>

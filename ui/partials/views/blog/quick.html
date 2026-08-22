@@ -1,0 +1,411 @@
+        <div class="card form-card blog-tab-panel active blog-quick-panel" id="blog-tab-quick">
+          <div class="blog-quick-head">
+            <h3>빠른 글 작성</h3>
+            <p>핵심 정보만 입력하면 바로 글 저장 또는 포스팅까지 진행합니다.</p>
+            <div id="quick-topic-origin" class="quick-topic-origin" hidden></div>
+          </div>
+
+          <section id="quick-topic-recommendations" class="quick-topic-recommendations" aria-labelledby="quick-topic-recommendations-title">
+            <div class="quick-topic-recommendations-head">
+              <div>
+                <h4 id="quick-topic-recommendations-title">나를 위한 글감 추천</h4>
+                <p>글감은 AI 제안으로, 키워드는 최근 트렌드와 네이버 지표로 살펴본 뒤 새 글을 시작할 수 있어요.</p>
+              </div>
+              <button id="quick-discovery-open-btn" class="primary quick-topic-recommendations-refresh" type="button">글감 추천</button>
+            </div>
+          </section>
+
+          <div class="blog-quick-mode-switch" role="tablist" aria-label="빠른 포스팅 입력 방식">
+            <button id="quick-mode-ai-btn" class="blog-quick-mode-btn is-active" type="button" data-mode="ai">바로 생성</button>
+            <button id="quick-mode-manuscript-btn" class="blog-quick-mode-btn" type="button" data-mode="manuscript">원고 폴더</button>
+            <button id="quick-mode-pasted-btn" class="blog-quick-mode-btn" type="button" data-mode="pasted">원고 붙여넣기</button>
+          </div>
+
+          <div id="quick-ai-mode-panel">
+          <div class="blog-quick-grid">
+            <!-- Row 1: Subject (Half) & Keywords (Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">Subject (주제)</span>
+              <input id="quick-subject" type="text" placeholder="예: 도전인생의 블로그 자동화 개발 후기">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">Keywords (키워드)</span>
+              <input id="quick-keywords" type="text" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label">Title (제목) <span class="blog-quick-label-optional">(선택)</span> <span id="quick-title-smart-usage" class="smart-usage-hint"></span></span>
+              <div class="blog-quick-title-row">
+                <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
+                <button id="quick-title-recommend-btn" class="primary" type="button">
+                  <span>AI 제목 추천</span>
+                </button>
+              </div>
+            </label>
+
+            <!-- Row 2: Instruction (Half) & Reference URL (Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">참고/지시사항</span>
+              <textarea id="quick-instruction" rows="2" placeholder="예: 초보자 친화, 가격/가성비 중심으로 작성"
+                style="height: 80px; min-height: 80px;"></textarea>
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">참고 URL</span>
+              <textarea id="quick-reference-url" rows="2" placeholder="https://..."
+                style="height: 80px; min-height: 80px;"></textarea>
+            </label>
+
+            <div class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label blog-quick-label-with-help">
+                글 작성 전략
+                <span class="tooltip-container">
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-text">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다. 여기서 바꾼 전략은 이 글에만 적용됩니다.</span>
+                </span>
+              </span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="빠른 글 작성 전략">
+                <label>
+                  <input id="quick-writing-strategy-search" type="radio" name="quick-writing-strategy"
+                    value="search" checked>
+                  <span>검색 중심</span>
+                </label>
+                <label>
+                  <input id="quick-writing-strategy-discovery" type="radio" name="quick-writing-strategy"
+                    value="discovery">
+                  <span>발견 중심 (피드)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Row 3: Categories (Half + Half) -->
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">네이버 카테고리</span>
+              <input id="quick-naver-category" type="text" placeholder="예: 일상/생각">
+            </label>
+
+            <label class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">워드프레스 카테고리</span>
+              <input id="quick-wp-category" type="text" placeholder="예: Daily">
+            </label>
+
+            <!-- Row 4: Publish Status & Schedule Date (Half + Half) -->
+            <div class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">포스팅 옵션</span>
+              <div class="custom-select-container" id="quick-wp-status-container">
+                <div class="custom-select-trigger" id="quick-wp-status-trigger">
+                  <span id="quick-wp-status-text">즉시 발행</span>
+                  <i class="chevron-down-icon"></i>
+                </div>
+                <div class="custom-select-menu" id="quick-wp-status-menu">
+                  <div class="custom-select-options" id="quick-wp-status-options">
+                    <div class="custom-select-option selected" data-value="publish">즉시 발행</div>
+                    <div class="custom-select-option" data-value="draft">임시 저장</div>
+                    <div class="custom-select-option" data-value="schedule">예약 발행</div>
+                  </div>
+                </div>
+                <input type="hidden" id="quick-wp-post-status" value="publish">
+              </div>
+            </div>
+
+            <label id="quick-wp-schedule-date-field" class="blog-quick-field blog-quick-field-half">
+              <span class="blog-quick-label">예약 일시</span>
+              <input id="quick-wp-schedule-date" type="datetime-local" disabled style="height: 48px;">
+            </label>
+          </div>
+
+          <div class="blog-quick-options">
+            <div class="blog-quick-options-header">
+              <div class="target-platforms">
+                <span class="blog-quick-label">포스팅 대상:</span>
+                <label class="blog-quick-check"><input id="quick-target-naver" type="checkbox"> 네이버 블로그</label>
+                <label class="blog-quick-check"><input id="quick-target-wordpress" type="checkbox"
+                    onchange="toggleQuickWpOptions()"> 워드프레스</label>
+              </div>
+
+              <div class="quick-common-checks">
+                <label class="blog-quick-check">
+                  <input id="quick-headless" type="checkbox" checked> 보이지 않게 실행
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
+                  </span>
+                </label>
+                <label class="blog-quick-check">
+                  <input id="quick-image-generation" type="checkbox"> 이미지 생성
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">본문 내용에 맞는 이미지를 AI로 자동 생성해 함께 넣습니다.</span>
+                  </span>
+                </label>
+                <label class="blog-quick-check">
+                  <input id="quick-external-reference" type="checkbox" checked> 외부 참고 사용
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="blog-quick-actions">
+            <button id="quick-save-btn" class="secondary" type="button">글감 저장</button>
+            <button id="quick-direct-publish-btn" class="primary" type="button">바로 포스팅</button>
+            <button id="quick-generate-btn" class="primary" type="button">미리보기 생성</button>
+            <button id="quick-clear-btn" class="secondary" type="button">내용 지우기</button>
+          </div>
+
+          <pre id="quick-result" class="blog-quick-result"></pre>
+
+          <div id="quick-preview-validation" class="local-markdown-validation">
+            아직 생성된 preview가 없습니다.
+          </div>
+
+          <div id="quick-preview-empty" class="local-markdown-empty">
+            `미리보기 생성`을 실행하면 생성된 본문과 이미지를 여기에서 미리 볼 수 있습니다.
+          </div>
+
+          <div id="quick-preview-panel" class="local-markdown-preview-panel" hidden>
+            <div class="local-markdown-preview-head">
+              <div>
+                <h4 id="quick-preview-title">제목 없음</h4>
+                <div id="quick-preview-meta" class="local-markdown-preview-meta">-</div>
+              </div>
+              <span id="quick-preview-target-badge" class="status-badge">미리보기 기준: -</span>
+            </div>
+
+            <div id="quick-preview-tabs" class="preview-target-tabs" hidden>
+              <button id="quick-preview-tab-naver" class="preview-target-tab" type="button" data-target="naver">네이버 블로그</button>
+              <button id="quick-preview-tab-wordpress" class="preview-target-tab" type="button" data-target="wordpress">워드프레스</button>
+            </div>
+
+            <div class="local-markdown-preview-sections">
+              <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                <h5>본문 Preview</h5>
+                <div id="quick-body-preview" class="local-markdown-body-preview"></div>
+              </section>
+
+              <section class="local-markdown-preview-section">
+                <h5>이미지 매칭</h5>
+                <div id="quick-image-list" class="local-markdown-image-list"></div>
+              </section>
+            </div>
+
+            <div class="blog-quick-actions blog-quick-actions-centered">
+              <button id="quick-preview-publish-btn" class="primary blog-quick-wide-action" type="button" disabled>이 내용으로 포스팅</button>
+            </div>
+          </div>
+          </div>
+
+          <div id="quick-manuscript-mode-panel" hidden>
+            <div class="blog-quick-head blog-quick-subhead">
+              <h3>원고 폴더 기반 포스팅</h3>
+              <p>Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.</p>
+            </div>
+
+            <div class="local-markdown-toolbar">
+              <button id="quick-manuscript-select-btn" class="secondary" type="button">원고 폴더 선택</button>
+              <button id="quick-manuscript-clear-btn" class="secondary" type="button">선택 지우기</button>
+              <input id="quick-manuscript-folder-input" type="file" webkitdirectory directory multiple hidden>
+            </div>
+
+            <label class="blog-quick-field blog-quick-field-full blog-quick-field-spaced">
+              <span class="blog-quick-label">선택한 원고 폴더</span>
+              <input id="quick-manuscript-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
+            </label>
+
+            <div class="blog-quick-grid">
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">네이버 카테고리</span>
+                <input id="quick-manuscript-naver-category" type="text" placeholder="예: 일상/생각">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">워드프레스 카테고리</span>
+                <input id="quick-manuscript-wp-category" type="text" placeholder="예: Daily">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">포스팅 옵션</span>
+                <select id="quick-manuscript-post-status">
+                  <option value="publish">즉시 발행</option>
+                  <option value="draft">임시 저장</option>
+                  <option value="schedule">예약 발행</option>
+                </select>
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">예약 일시</span>
+                <input id="quick-manuscript-schedule-date" type="datetime-local" disabled>
+              </label>
+            </div>
+
+            <div class="blog-quick-options">
+              <div class="blog-quick-options-header">
+                <div class="target-platforms">
+                  <span class="blog-quick-label">포스팅 대상:</span>
+                  <label class="blog-quick-check"><input id="quick-manuscript-target-naver" type="checkbox"> 네이버 블로그</label>
+                  <label class="blog-quick-check"><input id="quick-manuscript-target-wordpress" type="checkbox"> 워드프레스</label>
+                </div>
+
+                <div class="quick-common-checks">
+                  <label class="blog-quick-check">
+                    <input id="quick-manuscript-headless" type="checkbox" checked> 보이지 않게 실행
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
+                    </span>
+                  </label>
+                  <label class="blog-quick-check">
+                    <input id="quick-manuscript-image-generation" type="checkbox"> 이미지 생성
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">원고 안에 이미지 블록은 있지만 폴더에 실제 이미지 파일이 없을 때 보완용 이미지를 생성합니다.</span>
+                    </span>
+                  </label>
+                  <button id="quick-manuscript-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="quick-manuscript-validation" class="local-markdown-validation">
+              아직 원고 폴더를 선택하지 않았습니다.
+            </div>
+
+            <div id="quick-manuscript-preview-empty" class="local-markdown-empty">
+              원고 폴더를 선택하면 제목, 본문 preview, 이미지 매칭 결과를 확인할 수 있습니다.
+            </div>
+
+            <div id="quick-manuscript-preview-panel" class="local-markdown-preview-panel" hidden>
+              <div class="local-markdown-preview-head">
+                <div>
+                  <h4 id="quick-manuscript-preview-title">제목 없음</h4>
+                  <div id="quick-manuscript-preview-meta" class="local-markdown-preview-meta">-</div>
+                </div>
+              </div>
+
+              <div class="local-markdown-preview-sections">
+                <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                  <h5>본문 Preview</h5>
+                  <div id="quick-manuscript-body-preview" class="local-markdown-body-preview"></div>
+                </section>
+
+                <section class="local-markdown-preview-section">
+                  <h5>이미지 매칭</h5>
+                  <div id="quick-manuscript-image-list" class="local-markdown-image-list"></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="blog-quick-actions blog-quick-actions-centered">
+              <button id="quick-manuscript-publish-btn" class="primary blog-quick-wide-action" type="button">포스팅 실행</button>
+            </div>
+
+            <pre id="quick-manuscript-result" class="blog-quick-result"></pre>
+          </div>
+
+          <div id="quick-pasted-mode-panel" hidden>
+            <div class="blog-quick-head blog-quick-subhead">
+              <h3>Markdown 원고 붙여넣기</h3>
+              <p>제목과 본문이 포함된 Markdown 원고를 바로 입력합니다.</p>
+            </div>
+
+            <label class="blog-quick-field blog-quick-field-full">
+              <span class="blog-quick-label">Markdown 원고</span>
+              <textarea id="quick-pasted-markdown" class="quick-pasted-markdown-input"
+                placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
+            </label>
+
+            <div class="local-markdown-toolbar quick-pasted-toolbar">
+              <button id="quick-pasted-clear-btn" class="secondary" type="button">내용 지우기</button>
+            </div>
+
+            <div class="blog-quick-grid">
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">네이버 카테고리</span>
+                <input id="quick-pasted-naver-category" type="text" placeholder="예: 일상/생각">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">워드프레스 카테고리</span>
+                <input id="quick-pasted-wp-category" type="text" placeholder="예: Daily">
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">포스팅 옵션</span>
+                <select id="quick-pasted-post-status">
+                  <option value="publish">즉시 발행</option>
+                  <option value="draft">임시 저장</option>
+                  <option value="schedule">예약 발행</option>
+                </select>
+              </label>
+
+              <label class="blog-quick-field blog-quick-field-half">
+                <span class="blog-quick-label">예약 일시</span>
+                <input id="quick-pasted-schedule-date" type="datetime-local" disabled>
+              </label>
+            </div>
+
+            <div class="blog-quick-options">
+              <div class="blog-quick-options-header">
+                <div class="target-platforms">
+                  <span class="blog-quick-label">포스팅 대상:</span>
+                  <label class="blog-quick-check"><input id="quick-pasted-target-naver" type="checkbox"> 네이버 블로그</label>
+                  <label class="blog-quick-check"><input id="quick-pasted-target-wordpress" type="checkbox"> 워드프레스</label>
+                </div>
+
+                <div class="quick-common-checks">
+                  <label class="blog-quick-check">
+                    <input id="quick-pasted-headless" type="checkbox" checked> 보이지 않게 실행
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
+                    </span>
+                  </label>
+                  <label class="blog-quick-check">
+                    <input id="quick-pasted-image-generation" type="checkbox"> 이미지 생성
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">원고 안에 이미지 블록이 있으면 보완용 이미지를 생성합니다.</span>
+                    </span>
+                  </label>
+                  <button id="quick-pasted-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="quick-pasted-validation" class="local-markdown-validation">
+              Markdown 원고를 붙여넣어 주세요.
+            </div>
+
+            <div id="quick-pasted-preview-empty" class="local-markdown-empty">
+              원고를 입력하면 제목과 본문 preview를 확인할 수 있습니다.
+            </div>
+
+            <div id="quick-pasted-preview-panel" class="local-markdown-preview-panel" hidden>
+              <div class="local-markdown-preview-head">
+                <div>
+                  <h4 id="quick-pasted-preview-title">제목 없음</h4>
+                  <div id="quick-pasted-preview-meta" class="local-markdown-preview-meta">-</div>
+                </div>
+              </div>
+
+              <div class="local-markdown-preview-sections">
+                <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                  <h5>본문 Preview</h5>
+                  <div id="quick-pasted-body-preview" class="local-markdown-body-preview"></div>
+                </section>
+
+                <section class="local-markdown-preview-section">
+                  <h5>이미지 블록</h5>
+                  <div id="quick-pasted-image-list" class="local-markdown-image-list"></div>
+                </section>
+              </div>
+            </div>
+
+            <div class="blog-quick-actions blog-quick-actions-centered">
+              <button id="quick-pasted-publish-btn" class="primary blog-quick-wide-action" type="button">포스팅 실행</button>
+            </div>
+
+            <pre id="quick-pasted-result" class="blog-quick-result"></pre>
+          </div>
+        </div>

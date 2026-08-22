@@ -1,0 +1,92 @@
+        <div class="card form-card blog-tab-panel" id="blog-tab-topics">
+          <div class="form-grid blog-filter-grid">
+            <label>상태
+              <select id="blog-status-filter">
+                <option value="">전체</option>
+                <option value="대기">대기</option>
+                <option value="발행 준비 완료">발행 준비 완료</option>
+                <option value="발행 중">발행 중</option>
+                <option value="발행 완료">발행 완료</option>
+                <option value="임시 저장 완료">임시 저장 완료</option>
+                <option value="예약 포스팅 등록 완료">예약 포스팅 등록 완료</option>
+                <option value="실패">실패</option>
+              </select>
+            </label>
+            <label>검색
+              <div class="input-inline-clear">
+                <input id="blog-q-filter" type="text" placeholder="subject / keywords / 지시사항">
+                <button id="blog-topics-q-clear-btn" class="inline-clear-btn" type="button"
+                  aria-label="토픽 검색어 지우기">×</button>
+              </div>
+            </label>
+          </div>
+
+          <div class="form-actions blog-batch-actions">
+            <div class="form-actions-left">
+              <button id="blog-refresh-btn" class="secondary">새로고침</button>
+              <span class="action-separator" aria-hidden="true"></span>
+              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                <input id="blog-batch-headless" type="checkbox" checked> 보이지 않게 실행
+              </label>
+              <div class="target-platforms"
+                style="display: inline-flex; align-items: center; gap: 12px; margin-right: 16px;">
+                <span class="field-label-text" style="font-size: 13px; color: var(--text-secondary);">발행 대상:</span>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-naver"
+                    type="checkbox"> 네이버</label>
+                <label class="blog-quick-check" style="font-size: 13px;"><input id="blog-batch-target-wordpress"
+                    type="checkbox"> 워드프레스</label>
+              </div>
+              <button id="blog-batch-btn">선택 글감 포스팅</button>
+              <button id="blog-delete-batch-btn" class="secondary danger">선택 글감 삭제</button>
+            </div>
+            <div class="form-actions-right">
+              <span class="tab-selected-count" id="blog-selected-count">0건 선택</span>
+            </div>
+          </div>
+
+          <div id="blog-last-batch" class="batch-summary hidden"></div>
+
+          <div class="table-responsive">
+            <div class="table-wrap">
+              <table class="data-table" id="blog-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;"><input type="checkbox" id="blog-table-select-all" class="header-checkbox">
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="rowNumber" style="width:70px;">Row</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="postStatus" style="width:100px;">
+                      포스팅 옵션</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="subject" style="width:220px;">주제
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="keywords" style="width:200px;">키워드
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="instruction" style="width:240px;">
+                      참고/지시사항</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="referenceUrl" style="width:160px;">참고
+                      URL</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="imageGeneration" style="width:100px;">
+                      이미지</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="externalReference"
+                      style="width:100px;">외부참고</th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="runtimeLog" style="width:200px;">진행 로그
+                    </th>
+                    <th class="sortable" data-sort-table="topics" data-sort-key="status" style="width:150px;">상태</th>
+                  </tr>
+                </thead>
+                <tbody id="blog-table-body">
+                  <tr>
+                    <td colspan="10">로딩 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pagination-row">
+            <button id="blog-topics-page-prev" class="secondary">이전</button>
+            <span id="blog-topics-page-info">페이지 - / -</span>
+            <button id="blog-topics-page-next" class="secondary">다음</button>
+          </div>
+
+
+          <pre id="blog-action-result" class="scrollable-log"></pre>
+        </div>

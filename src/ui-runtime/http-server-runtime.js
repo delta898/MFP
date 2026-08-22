@@ -8,6 +8,7 @@ function createUiHttpServerRuntime(deps = {}) {
         defaultHost,
         defaultPort,
         resolveUiRoot,
+        composeUiShell,
         normalizeListenHost,
         normalizeListenPort,
         createRequestId,
@@ -37,6 +38,7 @@ function createUiHttpServerRuntime(deps = {}) {
         if (!uiRoot) {
             throw new Error('UI 정적 파일 폴더를 찾을 수 없습니다. (ui/)');
         }
+        const composedUiShell = composeUiShell(uiRoot);
 
         const server = http.createServer(async (req, res) => {
             const requestId = createRequestId();
@@ -93,7 +95,9 @@ function createUiHttpServerRuntime(deps = {}) {
                     return sendError(res, requestId, 404, 'NOT_FOUND', '요청한 리소스를 찾을 수 없습니다.');
                 }
 
-                const body = fs.readFileSync(fullPath);
+                const body = requestedPath === 'index.html'
+                    ? composedUiShell
+                    : fs.readFileSync(fullPath);
                 res.writeHead(200, {
                     'Content-Type': getContentType(fullPath),
                     'Cache-Control': 'no-store'

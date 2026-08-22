@@ -1,0 +1,81 @@
+        <div class="card form-card settings-tab-panel" id="settings-tab-shopping-connect">
+          <div class="settings-image-section">
+            <h2>쇼핑 이미지 설정</h2>
+            <div class="settings-section-divider" style="margin-top: 4px;">선택된 파일 업로드</div>
+            <p class="muted">공정위 이미지와 구매 독려 이미지 1은 필수입니다. 구매 독려 이미지 2, 3은 선택입니다.</p>
+            <div class="settings-image-grid">
+              <div class="settings-image-card" id="settings-image-card-ftc">
+                <div class="settings-image-card-title">
+                  <strong>공정위 이미지</strong>
+                  <span class="badge required">필수</span>
+                </div>
+                <input id="settings-image-source-ftc" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-ftc">
+                  <img id="settings-image-preview-ftc" alt="공정위 이미지 미리보기">
+                  <span id="settings-image-empty-ftc">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-ftc">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-ftc" type="file" accept="image/*">
+                  <button id="settings-image-reset-ftc" class="secondary" type="button">기본값 복원</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta1">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 1</strong>
+                  <span class="badge required">필수</span>
+                </div>
+                <input id="settings-image-source-cta1" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta1">
+                  <img id="settings-image-preview-cta1" alt="구매 독려 이미지 1 미리보기">
+                  <span id="settings-image-empty-cta1">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta1">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta1" type="file" accept="image/*">
+                  <button id="settings-image-reset-cta1" class="secondary" type="button">기본값 복원</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta2">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 2</strong>
+                  <span class="badge optional">선택</span>
+                </div>
+                <input id="settings-image-source-cta2" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta2">
+                  <img id="settings-image-preview-cta2" alt="구매 독려 이미지 2 미리보기">
+                  <span id="settings-image-empty-cta2">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta2">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta2" type="file" accept="image/*">
+                  <button id="settings-image-reset-cta2" class="secondary" type="button">기본값 복원</button>
+                  <button id="settings-image-clear-cta2" class="secondary" type="button">설정 삭제</button>
+                </div>
+              </div>
+
+              <div class="settings-image-card" id="settings-image-card-cta3">
+                <div class="settings-image-card-title">
+                  <strong>구매 독려 이미지 3</strong>
+                  <span class="badge optional">선택</span>
+                </div>
+                <input id="settings-image-source-cta3" type="hidden">
+                <div class="settings-image-preview" id="settings-image-preview-wrap-cta3">
+                  <img id="settings-image-preview-cta3" alt="구매 독려 이미지 3 미리보기">
+                  <span id="settings-image-empty-cta3">미리보기 없음</span>
+                </div>
+                <div class="settings-image-meta" id="settings-image-meta-cta3">현재 이미지: -</div>
+                <div class="settings-image-actions">
+                  <input id="settings-image-file-cta3" type="file" accept="image/*">
+                  <button id="settings-image-reset-cta3" class="secondary" type="button">기본값 복원</button>
+                  <button id="settings-image-clear-cta3" class="secondary" type="button">설정 삭제</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
+        </div>

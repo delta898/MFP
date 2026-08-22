@@ -1,0 +1,69 @@
+        <div class="card form-card settings-tab-panel" id="settings-tab-notification">
+          <h2>알림 설정</h2>
+          <div class="form-grid">
+            <div class="settings-section-divider">텔레그램</div>
+            <div class="form-field-block notification-toggle-block" style="grid-column: 1 / -1;">
+              <div class="notification-toggle-row">
+                <label class="settings-checkbox-label settings-checkbox-inline">
+                  <input id="settings-notify-telegram-enabled" type="checkbox">
+                  <span class="notification-toggle-title">텔레그램 알림 활성화</span>
+                </label>
+                <button type="button" class="label-help"
+                  data-help="자동 발행 완료 시 텔레그램으로 알림을 보냅니다."
+                  aria-label="텔레그램 알림 활성화 도움말">?</button>
+              </div>
+            </div>
+
+            <div class="settings-auth-section notification-status-card"
+              style="grid-column: 1 / -1; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
+              <div style="font-weight: 600; margin-bottom: 6px;">텔레그램 적용 상태</div>
+              <pre id="settings-telegram-status-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
+            </div>
+
+            <label>텔레그램 봇 토큰 (Bot Token)
+              <input id="settings-notify-telegram-bot-token" type="password"
+                placeholder="예: 123456789:ABCDefGhIjKlMnOpQrStUvWxYz">
+            </label>
+
+            <label>텔레그램 챗 ID (Chat ID)
+              <input id="settings-notify-telegram-chat-id" type="text" placeholder="예: 123456789">
+            </label>
+
+            <label>Bitly Access Token (옵션)
+              <input id="settings-notify-bitly-token" type="password" placeholder="Generic Access Token (URL 단축용)">
+              <small class="muted">블로그 발행 시 텔레그램 알림의 URL을 단축하는 데 사용됩니다.</small>
+            </label>
+
+            <div class="notification-test-row" style="grid-column: 1 / -1;">
+              <button id="settings-notify-telegram-test-btn" class="secondary" type="button">연결 테스트</button>
+              <span id="settings-notify-telegram-test-result" style="font-size: 0.9rem;"></span>
+            </div>
+
+          </div>
+
+          <div class="form-grid">
+            <div class="settings-section-divider notification-section-divider-spaced">Slack</div>
+            <div class="form-field-block notification-toggle-block" style="grid-column: 1 / -1;">
+              <div class="notification-toggle-row">
+                <label class="settings-checkbox-label settings-checkbox-inline">
+                  <input id="settings-notify-slack-enabled" type="checkbox">
+                  <span class="notification-toggle-title">Slack 알림 활성화</span>
+                </label>
+                <button type="button" class="label-help"
+                  data-help="자동 발행 완료 시 Slack으로 알림을 보냅니다."
+                  aria-label="Slack 알림 활성화 도움말">?</button>
+              </div>
+            </div>
+
+            <label style="grid-column: 1 / -1;">Slack Webhook URL
+              <input id="settings-notify-slack-webhook-url" type="password"
+                placeholder="예: https://hooks.slack.com/services/T00000/B00000/XXXXXXX">
+              <small class="muted">Slack 앱 > Incoming Webhooks에서 생성한 URL을 입력하세요.</small>
+            </label>
+          </div>
+
+          <div class="notification-test-row notification-test-row-separated">
+            <button id="settings-notify-slack-test-btn" class="secondary" type="button">연결 테스트</button>
+            <span id="settings-notify-slack-test-result" style="font-size: 0.9rem;"></span>
+          </div>
+        </div>

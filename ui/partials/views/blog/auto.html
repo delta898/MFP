@@ -1,0 +1,84 @@
+        <div class="card form-card blog-tab-panel" id="blog-tab-auto">
+          <div class="auto-section">
+            <div class="auto-mode-inline" style="margin-bottom: 20px;">
+              <label class="settings-checkbox-label settings-checkbox-inline">
+                <input id="blog-publish-auto-enabled" type="checkbox">
+                <span class="auto-mode-title">자동 포스팅 사용</span>
+              </label>
+              <div class="tooltip-container" style="display: inline-block; margin-left: 6px; vertical-align: middle;">
+                <span class="tooltip-icon">?</span>
+                <div class="tooltip-text">발행 준비 완료 상태인 글감을 정해진 주기에 맞춰 자동으로 발행합니다.</div>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <label>발행 주기 (분)
+                <input id="blog-publish-auto-interval" type="number" min="1" step="1" value="60" placeholder="예: 60">
+              </label>
+
+              <label>1회 실행 시 연속 발행 건수
+                <input id="blog-publish-auto-batch" type="number" min="1" step="1" value="1" placeholder="예: 1">
+              </label>
+
+              <label>포스팅 옵션
+                <select id="blog-publish-auto-post-status">
+                  <option value="publish">즉시 발행</option>
+                  <option value="draft">임시 저장</option>
+                </select>
+              </label>
+
+              <div class="form-field-block">
+                <span class="field-label-text">발행 허용 시간대</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input id="blog-publish-auto-start-time" type="time" value="00:00"
+                    style="width: auto; min-width: 120px;">
+                  <span style="color: var(--text-muted); font-weight: 500;">~</span>
+                  <input id="blog-publish-auto-end-time" type="time" value="23:59"
+                    style="width: auto; min-width: 120px;">
+                </div>
+              </div>
+
+
+              <div class="auto-toggle-row" style="margin-top: 20px; align-items: center;">
+                <label class="settings-checkbox-label compact" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                  <input id="blog-publish-auto-headless" type="checkbox" checked>
+                  <span>보이지 않게 실행</span>
+                </label>
+
+                <div class="target-channels-group"
+                  style="margin-left: 20px; padding: 4px 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 0.9rem; color: var(--text-secondary);">발행 대상:</span>
+                  <label class="settings-checkbox-label compact">
+                    <input id="blog-publish-auto-target-naver" type="checkbox" data-publish-target="naver" checked>
+                    <span>네이버</span>
+                  </label>
+                  <label class="settings-checkbox-label compact">
+                    <input id="blog-publish-auto-target-wordpress" type="checkbox" data-publish-target="wordpress">
+                    <span>워드프레스</span>
+                  </label>
+                </div>
+
+                <div style="flex: 1;"></div>
+
+                <label class="settings-checkbox-label compact">
+                  <input id="blog-publish-auto-notify-enabled" type="checkbox">
+                  <span>완료 알림</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="auto-manual-row"
+              style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+              <div class="auto-manual-inline">
+                <span class="field-label-text">수동 실행</span>
+              </div>
+              <button id="blog-publish-auto-run-btn" class="secondary" type="button">수동 실행</button>
+            </div>
+          </div>
+
+
+          <div class="auto-section auto-log-section">
+            <h3 class="auto-section-title">로그</h3>
+            <pre id="blog-publish-auto-result" class="settings-major-result"></pre>
+          </div>
+        </div>

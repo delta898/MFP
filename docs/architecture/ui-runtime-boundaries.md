@@ -23,6 +23,9 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Generic request/response/static file helpers.
 - `src/ui-runtime/http-server-runtime.js`
   - HTTP server lifecycle and request dispatch bootstrap.
+- `src/ui-runtime/html-composition-runtime.js`
+  - Synchronous, fail-fast composition of the UI shell and feature HTML partials.
+  - Rejects missing, escaping, non-HTML, and cyclic include paths before the server listens.
 - `src/ui-runtime/api-route-runtime.js`
   - API route assembly, handler caching, legacy API bridge wiring.
 - `src/ui-runtime/config-file-runtime.js`
@@ -66,6 +69,10 @@ Not:
 
 ## Practical Rules
 - When a UI workflow grows beyond a few helpers, move it into `src/ui-runtime/`.
+- Keep `ui/index.html` as the bounded document shell and place feature markup in
+  `ui/partials/views/`. Large views such as blog and settings use nested tab
+  partials, and every HTML partial is guarded at 500 lines or fewer.
+  Composition must finish before browser script execution.
 - When multiple entry paths need the same behavior, extract a shared module before changing one side further.
 - `src/ui-server.js` should keep wiring, not full workflow implementations.
 - Keep `src/ui-server.js` below the enforced 1,200-line composition-root boundary;

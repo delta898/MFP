@@ -1,0 +1,144 @@
+        <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">
+          <h2>블로그 설정</h2>
+          <div class="form-grid">
+            <div class="settings-section-divider">네이버 블로그</div>
+            <label class="settings-naver-auth-field">NAVER_ID
+              <div class="input-with-action settings-naver-auth-row">
+                <input id="settings-naver-id" type="text" placeholder="네이버 아이디">
+                <button id="settings-naver-login-btn" class="secondary" type="button">로그인</button>
+                <button id="settings-naver-logout-btn" class="secondary danger-outline" type="button" hidden>로그아웃</button>
+                <span class="settings-naver-session" role="status" aria-live="polite">
+                  <span id="settings-naver-session-badge" class="status-badge">확인 전</span>
+                  <span id="settings-naver-session-detail" class="muted">블로그 설정 탭을 열면 로그인 상태를 확인합니다.</span>
+                </span>
+              </div>
+            </label>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">워드프레스</div>
+            <label style="grid-column: 1 / -1;">WORDPRESS_URL
+              <input id="settings-wordpress-url" type="text" placeholder="https://your-wordpress-site.com">
+            </label>
+            <label>WORDPRESS_USER_ID
+              <input id="settings-wordpress-user-id" type="text" placeholder="User ID">
+            </label>
+            <label>WORDPRESS_APP_PASSWORD
+              <div class="input-with-action">
+                <input id="settings-wordpress-app-password" type="password" placeholder="Application Password">
+                <button id="settings-wordpress-verify-btn" class="secondary" type="button">접속 확인</button>
+              </div>
+            </label>
+            <div id="settings-wordpress-verify-result"
+              style="grid-column: 1 / -1; font-size: 0.85rem; color: #666; margin-top: -12px; margin-bottom: 8px;">
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">콘텐츠 문체</div>
+            <div class="form-field-block">
+              <span class="field-label-text">표현 방식</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 표현 방식">
+                <label>
+                  <input id="settings-blog-writing-mode-conversational" type="radio" name="settings-blog-writing-mode"
+                    value="conversational">
+                  <span>구어체</span>
+                </label>
+                <label>
+                  <input id="settings-blog-writing-mode-written" type="radio" name="settings-blog-writing-mode"
+                    value="written">
+                  <span>문어체</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-field-block">
+              <span class="field-label-text">높임 방식</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 높임 방식">
+                <label>
+                  <input id="settings-blog-speech-level-polite" type="radio" name="settings-blog-speech-level"
+                    value="polite">
+                  <span>존댓말</span>
+                </label>
+                <label>
+                  <input id="settings-blog-speech-level-plain" type="radio" name="settings-blog-speech-level"
+                    value="plain">
+                  <span>평어(반말)</span>
+                </label>
+              </div>
+            </div>
+            <div id="settings-blog-writing-style-description" class="settings-writing-style-description"
+              style="grid-column: 1 / -1;" aria-live="polite">
+              <strong>친근하고 자연스러운 후기형 문체</strong>
+              <span id="settings-blog-writing-style-example" class="settings-writing-style-example">(예시: 직접 써보니 생각보다 편했고, 처음 쓰는 분도 금방 익힐 수 있어요.)</span>
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">글 작성 전략</div>
+            <div class="form-field-block" style="grid-column: 1 / -1;">
+              <span class="field-label-text">기본 전략</span>
+              <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 글 작성 기본 전략">
+                <label>
+                  <input id="settings-blog-writing-strategy-search" type="radio" name="settings-blog-writing-strategy"
+                    value="search">
+                  <span>검색 중심</span>
+                </label>
+                <label>
+                  <input id="settings-blog-writing-strategy-discovery" type="radio" name="settings-blog-writing-strategy"
+                    value="discovery">
+                  <span>발견 중심 (피드)</span>
+                </label>
+              </div>
+            </div>
+            <div id="settings-blog-writing-strategy-description" class="settings-writing-style-description"
+              style="grid-column: 1 / -1;" aria-live="polite">
+              <span class="settings-writing-style-label">작성 방향</span>
+              <strong>검색 의도와 핵심 정보를 명확하게 전달합니다.</strong>
+              <span class="tooltip-container">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다. 어떤 전략도 검색 또는 피드 노출을 보장하지 않습니다.</span>
+              </span>
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">발행 옵션</div>
+            <div class="form-field-block">
+              <span class="field-label-text">이미지 용량 최적화</span>
+              <label class="settings-checkbox-label">
+                <input id="settings-image-optimization" type="checkbox">
+                <span>이미지를 플랫폼에 맞게 최적화 (네이버: WebP, WP: AVIF)</span>
+              </label>
+              <small class="muted" style="display:block; margin-top:8px;">
+                발행 시 최종 업로드 직전에 변환되어 원본 손실을 최소화합니다.
+              </small>
+            </div>
+            <label>TYPING_SPEED
+              <select id="settings-typing-speed">
+                <option value="QUICK">QUICK</option>
+                <option value="FAST">FAST</option>
+                <option value="NORMAL">NORMAL</option>
+                <option value="HUMAN">HUMAN</option>
+              </select>
+            </label>
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">타이핑 효과 미리보기</div>
+            <div class="settings-typing-preview">
+              <div class="settings-typing-grid">
+                <!-- Column 1: Input -->
+                <div class="settings-typing-col">
+                  <div class="typing-col-header">
+                    <span class="typing-col-label">미리보기 문구</span>
+                  </div>
+                  <textarea id="settings-typing-preview-input" class="typing-preview-textarea" rows="7"
+                    placeholder="나 보기가 역겨워 가실 때에는&#10;말없이 고이 보내 드리우리다&#10;영변에 약산 진달래꽃&#10;아름 따다 가실 길에 뿌리우리다"></textarea>
+                </div>
+                <!-- Column 2: Playback -->
+                <div class="settings-typing-col">
+                  <div class="typing-col-header">
+                    <span id="settings-typing-preview-meta" class="settings-typing-preview-meta">자동 재생: 3회</span>
+                    <button id="settings-typing-preview-replay" class="secondary compact" type="button">다시 재생</button>
+                  </div>
+                  <div class="playback-area">
+                    <p id="settings-typing-preview-text" class="settings-typing-preview-text" aria-live="polite">
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
+        </div>

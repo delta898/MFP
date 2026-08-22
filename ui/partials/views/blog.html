@@ -1,0 +1,38 @@
+      <section class="view" id="view-blog">
+        <div class="view-title-block">
+          <div class="view-title-row">
+            <h1>블로그</h1>
+            <div class="page-clock-widget">
+              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blog-tabs">
+          <button class="blog-tab-btn active" data-blog-tab="quick">빠른 포스팅</button>
+          <button class="blog-tab-btn" data-blog-tab="trend-posting">트렌드 포스팅</button>
+          <button class="blog-tab-btn" data-blog-tab="topics">일괄 포스팅</button>
+          <button class="blog-tab-btn" data-blog-tab="comment-draft">스마트 댓글(네이버)</button>
+          <span class="blog-tab-gap" aria-hidden="true"></span>
+          <button class="blog-tab-btn" data-blog-tab="collect">자동글감 설정</button>
+          <button class="blog-tab-btn" data-blog-tab="auto">자동 포스팅 설정</button>
+          <div id="blog-major-save-actions" class="settings-save-actions tab-save-actions" hidden>
+            <button class="settings-major-save-btn" type="button" disabled>저장 및 적용</button>
+            <div class="settings-major-save-status">저장됨</div>
+          </div>
+        </div>
+
+        <!-- @include blog/quick.html -->
+
+        <!-- @include blog/trend-posting.html -->
+
+        <!-- @include blog/trends-disabled.html -->
+
+        <!-- @include blog/topics.html -->
+
+        <!-- @include blog/comment-draft.html -->
+
+        <!-- @include blog/collect.html -->
+
+        <!-- @include blog/auto.html -->
+      </section>

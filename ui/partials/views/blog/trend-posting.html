@@ -1,0 +1,102 @@
+        <div class="card form-card blog-tab-panel trend-posting-panel" id="blog-tab-trend-posting">
+          <div class="trend-posting-head">
+            <div>
+              <h3>네이버 트렌드에서 글감 찾기</h3>
+              <p>관심 키워드를 빠른 포스팅으로 보내거나 나중에 사용할 글감으로 저장하세요.</p>
+            </div>
+            <span id="trend-posting-latest-badge" class="trend-posting-latest-badge">최신 데이터 확인 중</span>
+          </div>
+
+          <div class="auto-section trend-posting-query-section">
+            <div class="form-grid trend-posting-query-grid">
+              <div class="form-field-block trend-posting-category-field">
+                <span class="label-title-row">
+                  <span class="field-label-text">트렌드 카테고리</span>
+                  <span id="trend-posting-category-count" class="category-meta">0/5</span>
+                </span>
+                <div class="category-picker">
+                  <div id="trend-posting-categories" class="category-options trend-posting-categories">
+                    <span class="category-hint">카테고리를 불러오는 중...</span>
+                  </div>
+                  <span id="trend-posting-category-hint" class="field-hint">최대 5개까지 선택할 수 있습니다.</span>
+                </div>
+              </div>
+
+              <div class="form-field-block trend-posting-period-field">
+                <span class="field-label-text">조회 기간</span>
+                <select id="trend-posting-period">
+                  <option value="latest">최신 데이터</option>
+                  <option value="7days">최근 7일</option>
+                  <option value="custom">직접 지정</option>
+                </select>
+
+                <div id="trend-posting-custom-dates" class="trend-posting-custom-dates" hidden>
+                  <label>
+                    <span class="field-label-text">시작일</span>
+                    <input id="trend-posting-date-from" type="date">
+                  </label>
+                  <label>
+                    <span class="field-label-text">종료일</span>
+                    <input id="trend-posting-date-to" type="date">
+                  </label>
+                </div>
+                <span class="field-hint">최신 수집일을 기준으로 최대 31일까지 조회할 수 있습니다.</span>
+              </div>
+            </div>
+
+            <div class="auto-manual-row trend-posting-query-row">
+              <div class="auto-manual-inline trend-posting-query-summary">
+                <span>선택한 조건으로 네이버 트렌드 글감을 조회합니다.</span>
+              </div>
+              <button id="trend-posting-query-btn" class="primary" type="button" disabled>트렌드 조회</button>
+            </div>
+          </div>
+
+          <div id="trend-posting-status" class="trend-posting-status">조회 조건을 선택해 주세요.</div>
+          <div id="trend-posting-result-filters" class="auto-section trend-posting-result-filters">
+            <div class="trend-posting-filter-summary">
+              <span class="field-label-text">결과 필터</span>
+              <span id="trend-posting-filter-count" class="category-meta">조회 후 사용할 수 있습니다.</span>
+            </div>
+            <input id="trend-posting-filter-keyword" class="trend-posting-filter-keyword" type="search"
+              aria-label="결과 내 키워드 검색" placeholder="결과 내 키워드 검색">
+            <select id="trend-posting-filter-view" class="trend-posting-filter-view" aria-label="결과 보기">
+              <option value="all">전체</option>
+              <option value="up">상승 전체</option>
+              <option value="top10">급상승 Top 10</option>
+              <option value="new">new</option>
+              <option value="down">하락</option>
+              <option value="steady">변화 없음</option>
+            </select>
+            <label class="settings-checkbox-label compact trend-posting-filter-recent">
+              <input id="trend-posting-filter-exclude-recent" type="checkbox">
+              <span>최근 저장 글감 제외</span>
+            </label>
+            <button id="trend-posting-filter-reset" class="secondary compact" type="button">초기화</button>
+          </div>
+          <div class="table-responsive">
+            <div class="table-wrap trend-posting-table-wrap">
+              <table class="data-table trend-posting-table">
+                <colgroup>
+                  <col class="trend-posting-col-category">
+                  <col class="trend-posting-col-date">
+                  <col class="trend-posting-col-keyword">
+                  <col class="trend-posting-col-change">
+                  <col class="trend-posting-col-actions">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="categories">트렌드 카테고리</th>
+                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="latestTrendDate">최신 반영일</th>
+                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="keyword">키워드</th>
+                    <th class="sortable" data-sort-table="trendPosting" data-sort-key="change">변화</th>
+                    <th>작업</th>
+                  </tr>
+                </thead>
+                <tbody id="trend-posting-table-body">
+                  <tr><td colspan="5">아직 조회하지 않았습니다.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>

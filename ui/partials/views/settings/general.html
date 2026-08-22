@@ -1,0 +1,81 @@
+        <div class="card form-card settings-tab-panel active" id="settings-tab-general">
+          <h2>일반 설정</h2>
+          <div class="form-grid">
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">Google 계정 연결</div>
+            <label>GOOGLE_SHEET_URL
+              <div class="input-with-action">
+                <input id="settings-google-sheet-url" type="text"
+                  placeholder="https://docs.google.com/spreadsheets/d/...">
+                <button id="settings-open-google-sheet-btn" class="secondary" type="button">구글 스프레드시트 가기</button>
+              </div>
+              <small class="muted">
+                먼저 Google 계정을 연결한 뒤 스프레드시트 주소를 입력하세요.
+              </small>
+            </label>
+            <div class="settings-auth-section settings-google-auth-section"
+              style="grid-column: 1 / -1; margin-top: 8px;">
+              <div class="field-label-text" style="margin-bottom: 8px;">Google 계정 상태</div>
+              <p class="muted">Google 계정을 연결하면 현재 계정 권한으로 스프레드시트에 접근할 수 있습니다.</p>
+              <p class="muted" style="margin-top: 6px;">
+                연결 후에는 현재 Google 계정으로 접근 가능한 스프레드시트만 사용할 수 있습니다.
+              </p>
+              <div id="settings-google-auth-status" class="status-badge" style="margin: 12px 0;">상태 확인 중...</div>
+              <div id="settings-google-auth-details" class="settings-google-auth-details">연결 상태 확인 중...</div>
+
+              <div class="form-actions" style="margin-top: 12px;">
+                <button id="settings-google-oauth-connect-btn" type="button">Google 계정 연결</button>
+                <button id="settings-google-oauth-disconnect-btn" class="secondary" type="button">연결 해제</button>
+                <button id="settings-google-oauth-test-btn" class="secondary" type="button">연결 테스트</button>
+              </div>
+              <pre id="settings-google-auth-result" class="settings-google-auth-result" style="margin-top: 12px;"></pre>
+            </div>
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">서버 설정</div>
+            <label>LISTEN_HOST
+              <select id="settings-listen-host">
+                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
+                <option value="0.0.0.0">0.0.0.0 (동일 네트워크 허용)</option>
+              </select>
+            </label>
+            <label>LISTEN_PORT
+              <input id="settings-listen-port" type="number" min="1" max="65535" step="1" placeholder="4577">
+            </label>
+            <div class="form-field-block"
+              style="grid-column: 1 / -1; margin-top: 24px;">
+              <div class="settings-section-divider" style="margin-bottom: 16px;">앱 업데이트</div>
+              <span class="field-label-text">앱 업데이트</span>
+              <div class="form-grid" style="margin-top: 8px;">
+                <div class="form-field-block">
+                  <span class="field-label-text">현재 버전</span>
+                  <div
+                    style="padding: 10px 12px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                    <div>버전: <strong id="settings-current-version-display">확인 중</strong></div>
+                    <small id="settings-update-channel-display" class="muted" style="display:block; margin-top: 6px;">현재 채널: stable</small>
+                  </div>
+                </div>
+                <label>업데이트 소스
+                  <select id="settings-update-server-type">
+                    <option value="github">GitHub Releases</option>
+                    <option value="custom">사용자 지정 업데이트 서버</option>
+                  </select>
+                </label>
+                <label id="settings-update-mirror-repo-field" style="grid-column: 1 / -1;">GitHub 저장소
+                  <input id="settings-update-mirror-repo" type="text" placeholder="delta898/NaverAutoBlog-Releases">
+                  <small class="muted">릴리즈 mirror 저장소 경로를 입력하세요. 예: `owner/repo`</small>
+                </label>
+                <label id="settings-custom-update-url-field" style="grid-column: 1 / -1; display: none;">업데이트 서버 URL
+                  <input id="settings-custom-update-check-url" type="text" placeholder="https://example.com/dist/BlogGenius">
+                  <small class="muted">사용자 지정 업데이트 서버 기본 주소입니다. 필요한 메타 파일 경로는 앱이 내부적으로 처리합니다.</small>
+                </label>
+              </div>
+              <small class="muted" style="display:block; margin-top: 16px;">저장 후 해당 소스로 업데이트를 확인합니다.</small>
+              <div class="form-actions" style="margin-top: 12px;">
+                <button id="settings-check-update-btn" class="secondary" type="button">최신 버전 확인</button>
+                <button id="settings-force-update-btn" class="secondary" type="button"
+                  style="color: #ef4444; border-color: #fca5a5;">강제 업데이트</button>
+              </div>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
+        </div>

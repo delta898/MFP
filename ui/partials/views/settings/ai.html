@@ -1,0 +1,186 @@
+        <div class="card form-card settings-tab-panel" id="settings-tab-ai">
+          <h2>AI 설정</h2>
+          <div class="form-grid">
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
+              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">글쓰기 모델</div>
+              <small class="muted">블로그 글 작성과 이미지 생성에 사용할 메인 모델을 선택합니다. 프리셋을 쓰거나 OpenAI-compatible 모델을 직접 입력할 수 있습니다.</small>
+            </div>
+
+            <div class="settings-model-card" style="grid-column: 1 / -1;">
+              <div class="settings-model-card-title">텍스트 모델</div>
+              <div class="form-grid settings-model-grid">
+                <label id="settings-text-model-provider-wrap">공급자 선택
+                  <select id="settings-text-model-preset-provider"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-text-model-preset-code-wrap">모델 선택
+                  <select id="settings-text-model-preset-code"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-text-model-name-wrap">모델 이름
+                  <input id="settings-text-model-name" type="text" placeholder="예: gpt-4.1-mini">
+                  <small class="muted">직접 입력 시 OpenAI-compatible 호출에 사용할 모델 이름 또는 코드를 입력합니다.</small>
+                </label>
+
+                <label id="settings-text-model-base-url-wrap"><span class="settings-model-base-url-label">Base URL</span>
+                  <input id="settings-text-model-base-url" type="text" placeholder="예: https://api.example.com/v1">
+                  <small id="settings-text-model-preset-summary" class="muted"></small>
+                </label>
+
+                <label id="settings-text-model-api-key-wrap">API Key
+                  <input id="settings-text-model-api-key" type="password" placeholder="선택한 AI 모델의 API Key">
+                  <small class="muted">텍스트 글쓰기에 사용할 API Key를 입력하세요.</small>
+                </label>
+              </div>
+              <div class="settings-model-test-row">
+                <button id="settings-text-model-test-btn" class="secondary" type="button">연결 확인</button>
+                <button type="button" class="label-help"
+                  data-help="콘텐츠 생성 API는 호출하지 않습니다. 공급자에 따라 모델 정보 또는 계정 연결을 확인합니다. KIE.ai는 API Key, 계정 연결, 잔여 크레딧만 확인하며 선택 모델의 생성 가능 여부는 확인하지 않습니다. 공급자 정책에 따라 API 요청 제한에 포함되거나 직접 입력 서버에서 별도 비용이 발생할 수 있습니다."
+                  aria-label="AI 모델 연결 확인 도움말">?</button>
+                <span id="settings-text-model-test-result" class="settings-model-test-result">API Key와 연결 정보를 확인합니다.</span>
+              </div>
+            </div>
+
+            <div class="settings-model-card" style="grid-column: 1 / -1;">
+              <div class="settings-model-card-title">이미지 모델</div>
+              <div class="form-grid settings-model-grid">
+                <label id="settings-image-model-provider-wrap">공급자 선택
+                  <select id="settings-image-model-preset-provider"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-image-model-preset-code-wrap">모델 선택
+                  <select id="settings-image-model-preset-code"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-image-model-name-wrap">모델 이름
+                  <input id="settings-image-model-name" type="text" placeholder="예: gpt-image-1">
+                  <small class="muted">직접 입력 시 OpenAI-compatible 이미지 모델 이름 또는 코드를 입력합니다.</small>
+                </label>
+
+                <label id="settings-image-model-base-url-wrap"><span class="settings-model-base-url-label">Base URL</span>
+                  <input id="settings-image-model-base-url" type="text" placeholder="예: https://api.example.com/v1">
+                  <small id="settings-image-model-preset-summary" class="muted"></small>
+                </label>
+
+                <label id="settings-image-model-api-key-wrap">API Key
+                  <input id="settings-image-model-api-key" type="password" placeholder="선택한 AI 모델의 API Key">
+                  <small class="muted">이미지 생성에 사용할 API Key를 입력하세요.</small>
+                </label>
+              </div>
+              <div class="settings-model-test-row">
+                <button id="settings-image-model-test-btn" class="secondary" type="button">연결 확인</button>
+                <button type="button" class="label-help"
+                  data-help="콘텐츠 생성 API는 호출하지 않습니다. 공급자에 따라 모델 정보 또는 계정 연결을 확인합니다. 공급자 정책에 따라 API 요청 제한에 포함되거나 직접 입력 서버에서 별도 비용이 발생할 수 있습니다."
+                  aria-label="AI 모델 연결 확인 도움말">?</button>
+                <span id="settings-image-model-test-result" class="settings-model-test-result">API Key와 연결 정보를 확인합니다.</span>
+              </div>
+            </div>
+
+            <div class="form-field-block" style="grid-column: 1 / -1; margin-bottom: 8px;">
+              <div class="settings-section-divider" style="margin-top: 4px; margin-bottom: 12px;">Chat Model</div>
+              <small class="muted">텔레그램, Agent Memory, MCP 보조 작업 등 자주 사용하는 가벼운 AI 작업의 공통 모델을 선택합니다.</small>
+            </div>
+
+            <div class="settings-model-card" style="grid-column: 1 / -1;">
+              <div class="settings-model-card-title">Chat Model 소스</div>
+              <div class="form-field-block">
+                <label class="settings-checkbox-label">
+                  <input type="radio" name="settings-chat-model-source" value="writing" checked>
+                  <span>글쓰기 모델 사용</span>
+                </label>
+                <small id="settings-chat-model-writing-summary" class="muted" style="display:block; margin:6px 0 12px 28px;"></small>
+                <label class="settings-checkbox-label">
+                  <input type="radio" name="settings-chat-model-source" value="dedicated">
+                  <span>별도 Chat Model 사용</span>
+                </label>
+                <small class="muted" style="display:block; margin:6px 0 0 28px;">글쓰기 모델과 독립된 모델 및 API Key를 사용합니다.</small>
+              </div>
+            </div>
+
+            <div id="settings-chat-model-dedicated-card" class="settings-model-card" style="grid-column: 1 / -1; display:none;">
+              <div class="settings-model-card-title">별도 Chat Model</div>
+              <div class="form-grid settings-model-grid">
+                <label id="settings-chat-model-provider-wrap">공급자 선택
+                  <select id="settings-chat-model-preset-provider"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-chat-model-preset-code-wrap">모델 선택
+                  <select id="settings-chat-model-preset-code"></select>
+                  <small class="muted settings-model-helper-spacer"></small>
+                </label>
+
+                <label id="settings-chat-model-name-wrap">모델 이름
+                  <input id="settings-chat-model-name" type="text" placeholder="예: qwen/qwen3-coder-30b">
+                  <small class="muted">직접 입력 시 OpenAI-compatible 모델 이름 또는 코드를 입력합니다.</small>
+                </label>
+
+                <label id="settings-chat-model-base-url-wrap"><span class="settings-model-base-url-label">Base URL</span>
+                  <input id="settings-chat-model-base-url" type="text" placeholder="예: http://127.0.0.1:1234/v1">
+                  <small id="settings-chat-model-preset-summary" class="muted"></small>
+                </label>
+
+                <label id="settings-chat-model-api-key-wrap">API Key
+                  <input id="settings-chat-model-api-key" type="password" placeholder="선택한 Chat Model의 API Key">
+                  <small class="muted">직접 입력 서버는 API Key를 비워둘 수 있습니다.</small>
+                </label>
+              </div>
+            </div>
+            <div class="settings-model-test-row" style="grid-column: 1 / -1;">
+              <button id="settings-chat-model-test-btn" class="secondary" type="button">연결 확인</button>
+              <button type="button" class="label-help"
+                data-help="콘텐츠 생성 API는 호출하지 않습니다. 글쓰기 모델 사용 시 현재 글쓰기 모델 연결을 확인하고, 별도 사용 시 선택한 Chat Model의 모델 정보 또는 계정 연결을 확인합니다."
+                aria-label="Chat Model 연결 확인 도움말">?</button>
+              <span id="settings-chat-model-test-result" class="settings-model-test-result">API Key와 연결 정보를 확인합니다.</span>
+            </div>
+
+            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">MCP 설정</div>
+            <div class="form-field-block"
+              style="grid-column: 1 / -1; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 8px;">
+              <span class="field-label-text">Remote MCP Server</span>
+              <label class="settings-checkbox-label" style="margin-top: 8px;">
+                <input id="settings-mcp-remote-enabled" type="checkbox">
+                <span>MCP 서버 활성화</span>
+              </label>
+              <small class="muted" style="display:block; margin-top:8px;">
+                같은 컴퓨터, 동일 네트워크, reverse proxy 공개 시나리오를 위한 별도 MCP endpoint 설정입니다.
+              </small>
+            </div>
+            <label>MCP Remote Host
+              <select id="settings-mcp-remote-host">
+                <option value="127.0.0.1">127.0.0.1 (로컬 전용)</option>
+                <option value="0.0.0.0">0.0.0.0 (동일 네트워크/프록시 허용)</option>
+              </select>
+            </label>
+            <label>MCP Remote Port
+              <input id="settings-mcp-remote-port" type="number" min="1" max="65535" step="1" placeholder="4578">
+            </label>
+            <label>MCP Remote Path
+              <input id="settings-mcp-remote-path" type="text" placeholder="/mcp">
+            </label>
+            <label style="grid-column: 1 / -1;">Bearer Token
+              <div class="input-with-action input-with-compact-actions">
+                <input id="settings-mcp-remote-auth-token-display" type="text" placeholder="Bearer token" autocomplete="off" spellcheck="false">
+                <input id="settings-mcp-remote-auth-token" type="hidden">
+                <button id="settings-mcp-remote-auth-toggle-btn" class="secondary" type="button">보기</button>
+                <button id="settings-mcp-remote-auth-copy-btn" class="secondary" type="button">복사</button>
+                <button id="settings-mcp-remote-auth-regenerate-btn" class="secondary" type="button">재발급</button>
+              </div>
+              <small class="muted">
+                값을 비우면 인증 없음으로 저장됩니다. 최초 설정 시 저장 전 임시 token이 표시될 수 있으며, 저장하면 `config/config.json`에 기록됩니다.
+              </small>
+            </label>
+            <div class="settings-auth-section"
+              style="grid-column: 1 / -1; margin-top: 4px; padding: 12px; border: 1px solid var(--border-color); border-radius: 10px;">
+              <div style="font-weight: 600; margin-bottom: 6px;">접속 미리보기</div>
+              <pre id="settings-mcp-remote-endpoint-preview" class="settings-google-auth-result" style="margin: 0;"></pre>
+            </div>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
+        </div>

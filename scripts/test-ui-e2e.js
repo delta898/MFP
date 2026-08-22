@@ -24,6 +24,13 @@ async function run() {
     const baseUrl = `http://${started.openHost}:${started.port}`;
 
     try {
+        const shellResponse = await fetch(`${baseUrl}/`);
+        const shellHtml = await shellResponse.text();
+        assert.strictEqual(shellResponse.status, 200);
+        assert.match(shellHtml, /id="view-dashboard"/);
+        assert.match(shellHtml, /id="view-settings"/);
+        assert.doesNotMatch(shellHtml, /<!--\s*@include\s+/);
+
         const health = await requestJson(baseUrl, '/api/v1/health');
         assert.strictEqual(health.status, 200);
         assert.ok(health.json?.success);
@@ -47,7 +54,7 @@ async function run() {
         assert.ok(naverLoginStatus.json?.success);
         assert.ok(typeof naverLoginStatus.json?.data?.status === 'string');
 
-        const googleAuthStatus = await requestJson(baseUrl, '/api/v1/settings/google-auth/status');
+        const googleAuthStatus = await requestJson(baseUrl, '/api/v1/google-oauth/status');
         assert.strictEqual(googleAuthStatus.status, 200);
         assert.ok(googleAuthStatus.json?.success);
         assert.ok(Object.prototype.hasOwnProperty.call(googleAuthStatus.json?.data || {}, 'configured'));

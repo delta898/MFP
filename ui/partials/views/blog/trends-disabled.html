@@ -1,0 +1,73 @@
+        <!-- [DISABLED] Trends tab panel - removed from production UI (2026-03-04).
+             All JS logic for this tab is preserved in app.js.
+             To restore: uncomment below AND the tab button above.
+        <div class="card form-card blog-tab-panel" id="blog-tab-trends">
+          <div class="trends-collect-block">
+            <div class="form-grid trends-collect-grid">
+              <label>수집 날짜 (옵션)
+                <input id="blog-trends-date" type="text" placeholder="예: 20260218 / 2026-02-18 / -1d">
+              </label>
+              <div class="form-field-block">
+                <span class="field-label-text">네이버 카테고리</span>
+                <div class="category-picker">
+                  <div id="blog-trends-category-options" class="category-options" data-blog-category-options>
+                    <p class="category-hint">카테고리 목록을 불러오는 중...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions trends-collect-actions">
+              <label class="blog-quick-check" style="margin-right: 12px;"
+                title="수집 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다."><input id="blog-trends-headless" type="checkbox" checked>
+                보이지 않게 실행</label>
+              <button id="blog-trends-collect-btn" type="button">트렌드 수집</button>
+            </div>
+          </div>
+
+          <div class="form-actions form-actions-split">
+            <div class="form-actions-left">
+              <button id="blog-trends-refresh-btn" class="secondary">새로고침</button>
+              <span class="action-separator" aria-hidden="true"></span>
+              <button id="blog-trends-to-topics-btn">선택 글감 추가</button>
+              <span class="tab-selected-count" id="blog-trends-selected-count">0건 선택</span>
+            </div>
+            <div class="form-actions-right trends-search-actions">
+              <div class="input-inline-clear">
+                <input id="blog-trends-q-filter" type="text" placeholder="날짜 / 주제 / 키워드 / 상태">
+                <button id="blog-trends-q-clear-btn" class="inline-clear-btn" type="button"
+                  aria-label="트렌드 검색어 지우기">×</button>
+              </div>
+              <button id="blog-trends-search-btn" class="secondary" type="button">검색</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <div class="table-wrap">
+              <table class="data-table" id="blog-trends-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;"><input type="checkbox" id="blog-trends-table-select-all"
+                        class="header-checkbox"></th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="rowNumber" style="width:70px;">Row</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="date" style="width:130px;">날짜</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="category" style="width:180px;">주제</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="keyword" style="width:220px;">키워드</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="variation" style="width:90px;">증감</th>
+                    <th class="sortable" data-sort-table="trends" data-sort-key="status" style="width:160px;">상태</th>
+                  </tr>
+                </thead>
+                <tbody id="blog-trends-table-body">
+                  <tr>
+                    <td colspan="7">로딩 중...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pagination-row">
+            <button id="blog-trends-page-prev" class="secondary">이전</button>
+            <span id="blog-trends-page-info">페이지 - / -</span>
+            <button id="blog-trends-page-next" class="secondary">다음</button>
+          </div>
+          <pre id="blog-trends-result"></pre>
+        </div>
+        -->

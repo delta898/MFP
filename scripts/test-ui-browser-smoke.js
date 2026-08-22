@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -84,6 +85,8 @@ function getApiFixture(pathname) {
 }
 
 function startFixtureServer(requests) {
+    const composedUiShell = createHtmlCompositionRuntime({ fs, path })
+        .composeHtmlFile({ uiRoot }).html;
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         requests.push({ method: req.method || 'GET', pathname: url.pathname });
@@ -105,7 +108,7 @@ function startFixtureServer(requests) {
         }
 
         res.writeHead(200, { 'Content-Type': getContentType(fullPath), 'Cache-Control': 'no-store' });
-        res.end(fs.readFileSync(fullPath));
+        res.end(requestedPath === 'index.html' ? composedUiShell : fs.readFileSync(fullPath));
     });
 
     return new Promise((resolve, reject) => {

@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 2 completed; ready for stage 3
+- Phase: awaiting user UI validation for stage 3
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-03-html-composition`
 
 ## Goal
 
@@ -97,6 +97,35 @@
 - Version display regression: static contract passed; browser rerun pending because execution approval was declined
 - Full UI API E2E: not run because local-server execution approval was declined
 - Manual UI validation: passed, including the corrected settings version display
+
+## Current Stage: HTML Composition
+
+### Scope
+
+- `ui/index.html`은 document/sidebar/update banner/footer/script를 보유하는 bounded shell로 제한한다.
+- dashboard, blog, shopping, social, account, settings, logs 및 overlay markup을 feature partial로 분리한다.
+- blog와 settings는 탭 단위 nested partial로 한 번 더 분리하고 partial당 500줄 상한을 적용한다.
+- 서버가 listen하기 전에 partial을 동기적으로 한 번 조립하고 완성된 HTML만 브라우저에 제공한다.
+- include 경로 이탈, HTML 이외 파일, 누락 파일, 순환 참조는 서버 시작 전에 실패시킨다.
+- 구조 테스트와 browser fixture 모두 raw shell이 아니라 실제 조립 결과를 검증한다.
+
+### Completion Gate
+
+- 조립 결과가 분리 전 `ui/index.html`과 동일한 DOM source를 유지한다.
+- composition 단위 테스트와 UI shell 구조 계약이 통과한다.
+- 전체 unit/API/browser UI 회귀 테스트가 통과한다.
+- 사용자가 실제 앱에서 주요 화면과 modal을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Pre-split/composed HTML: byte-for-byte identical, 2,938 lines
+- Shell sizes: index 190 lines, blog 38 lines, settings 36 lines; largest partial 411 lines
+- Focused composition and structure tests: 9 passed
+- Full unit suite: 107 files, 514 tests passed
+- UI API E2E: passed; verifies the served shell is fully composed
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 28 fixture requests
 
 ## Non-Goals
 

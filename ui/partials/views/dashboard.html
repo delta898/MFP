@@ -1,0 +1,188 @@
+      <section class="view active" id="view-dashboard">
+        <div class="view-title-block dashboard-header">
+          <div class="dashboard-title-row">
+            <h1>Dashboard</h1>
+            <div class="dash-clock-widget">
+              <div class="server-control" id="server-control">
+                <button id="server-restart-btn" class="server-control-btn restart" title="서버 재시작">🔄 재시작</button>
+                <button id="server-stop-btn" class="server-control-btn stop" title="서버 종료">🛑 종료</button>
+              </div>
+              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+            </div>
+          </div>
+
+          <!-- Bottom Row: Badges -->
+          <div class="dash-badges" id="dash-badges">
+            <span class="badge badge-health" id="badge-health"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Health:
+              로딩중</span>
+            <span class="badge badge-session" id="badge-session"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Session:
+              확인중</span>
+            <span class="badge badge-license" id="badge-license"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #e2e8f0; color: #475569;">Plan:
+              조회중</span>
+            <span class="badge badge-version" id="badge-version"
+              style="padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #f1f5f9; color: #64748b;">버전 확인 중</span>
+          </div>
+        </div>
+
+        <!-- 🆕 첫 실행 안내 배너 (필수 설정 미완료 시 표시) -->
+        <div id="setup-guide-banner" style="display:none;" class="setup-guide-banner">
+          <div class="setup-guide-banner-icon">🚀</div>
+          <div class="setup-guide-banner-content">
+            <strong>BlogGenius에 오신 것을 환영합니다!</strong>
+            <p>Google Sheet, 텍스트 모델 API Key, 블로그 플랫폼 (네이버 블로그 혹은 워드프레스) 설정을 완료하면 모든 기능을 사용할 수 있습니다.</p>
+          </div>
+          <button class="setup-guide-banner-btn" onclick="goToSettings()">⚙️ 지금 설정하기</button>
+          <button class="setup-guide-banner-close" onclick="dismissSetupBanner()" title="닫기">✕</button>
+        </div>
+
+        <div class="dash-auto-actions-grid dash-desktop-only">
+          <section class="dash-auto-column">
+            <div class="dash-summary-stats grid dash-auto-cards">
+              <article id="dash-auto-blog-card" class="stat-card card dash-auto-card">
+                <div class="dash-auto-card-head">
+                  <h4>블로그 자동발행</h4>
+                  <span class="dash-auto-chip-dot" aria-hidden="true"></span>
+                </div>
+                <div class="dash-auto-card-grid">
+                  <div class="dash-auto-main">
+                    <div id="dash-auto-blog-enabled" class="dash-auto-chip dash-auto-chip-hidden">-</div>
+                    <div class="dash-auto-info-box">
+                      <div class="dash-auto-next-date" id="dash-auto-blog-next-date">-</div>
+                      <div class="dash-auto-next-relative" id="dash-auto-blog-next-relative"></div>
+                    </div>
+                  </div>
+                  <div class="dash-auto-meta-row" id="dash-auto-blog-meta"></div>
+                </div>
+              </article>
+              <article id="dash-auto-shopping-card" class="stat-card card dash-auto-card">
+                <div class="dash-auto-card-head">
+                  <h4>쇼핑 자동발행</h4>
+                  <span class="dash-auto-chip-dot" aria-hidden="true"></span>
+                </div>
+                <div class="dash-auto-card-grid">
+                  <div class="dash-auto-main">
+                    <div id="dash-auto-shopping-enabled" class="dash-auto-chip dash-auto-chip-hidden">-</div>
+                    <div class="dash-auto-info-box">
+                      <div class="dash-auto-next-date" id="dash-auto-shopping-next-date">-</div>
+                      <div class="dash-auto-next-relative" id="dash-auto-shopping-next-relative"></div>
+                    </div>
+                  </div>
+                  <div class="dash-auto-meta-row" id="dash-auto-shopping-meta"></div>
+                </div>
+              </article>
+            </div>
+          </section>
+          <section class="dash-quick-column">
+            <article class="card shortcuts-card dash-quick-card">
+              <div class="shortcut-buttons quick-grid">
+                <button class="quick-action-btn btn-blog"
+                  onclick="document.querySelector('.blog-tab-btn[data-blog-tab=\'quick\']').click(); document.querySelector('.nav-btn[data-view=\'blog\']').click();">
+                  🚀 블로그 빠른 발행
+                </button>
+                <button class="quick-action-btn btn-shopping"
+                  onclick="document.querySelector('.nav-btn[data-view=\'shopping\']').click();">
+                  🛒 쇼핑커넥트 빠른 발행
+                </button>
+                <button class="quick-action-btn btn-settings"
+                  onclick="document.querySelector('.nav-btn[data-view=\'settings\']').click();">
+                  ⚙️ 주요 설정 변경
+                </button>
+                <button class="quick-action-btn btn-logs"
+                  onclick="document.querySelector('.nav-btn[data-view=\'logs\']').click();">
+                  📜 로그/이력 보기
+                </button>
+              </div>
+            </article>
+          </section>
+        </div>
+
+        <!-- Summary blocks removed as requested -->
+
+        <section id="dashboard-supporting-region" class="dashboard-supporting-region" aria-label="추천 콘텐츠" hidden></section>
+
+        <!-- Layout for Timeline & YouTube Shorts -->
+        <div class="dash-bottom-grid dash-desktop-only">
+          <!-- Activity Timeline -->
+          <article class="card activity-card">
+            <h3 style="margin-bottom: 16px; font-size: 16px; display: flex; justify-content: space-between;">
+              최근 활동 이력
+            </h3>
+            <ul class="activity-timeline" id="activity-timeline">
+              <li class="timeline-empty" style="padding: 12px; color: #64748b; text-align: center; font-size: 14px;">로그를
+                불러오는 중입니다...</li>
+            </ul>
+          </article>
+
+          <!-- Smart Feed (YouTube RSS / Instagram Widget Fallback) -->
+          <article class="card dash-shorts-card">
+            <div class="dash-feed-header">
+              <h3 id="dash-smart-feed-title" style="margin: 0; font-size: 16px;">유튜브 / 인스타그램</h3>
+              <a href="#" id="dash-smart-feed-link" target="_blank" rel="noopener noreferrer"
+                class="dash-feed-home-link">채널 이동</a>
+            </div>
+            <div class="dash-feed-list" style="padding: 0; min-height: 200px;">
+              <!-- YouTube Layer -->
+              <div id="dash-smart-feed-youtube" class="dash-shorts-list" style="display: none;">
+                <!-- JS handles rendering here -->
+              </div>
+              <!-- Instagram Layer -->
+              <div id="dash-smart-feed-instagram" style="display: none;">
+                <rssapp-carousel id="r0RymD0NgNk92TX6"></rssapp-carousel>
+                <script src="https://widget.rss.app/v1/carousel.js" type="text/javascript" async></script>
+              </div>
+              <!-- Loading/Status Layer -->
+              <div id="dash-smart-feed-status"
+                style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                불러오는 중...
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <section id="dashboard-recommendations-section" class="dashboard-recommendations-section" aria-label="오늘의 추천 자료" hidden>
+          <div class="dash-section-head dashboard-recommendations-head">
+            <h3 style="margin: 0; font-size: 16px; color: #334155;">오늘의 추천 자료</h3>
+          </div>
+          <div id="dashboard-recommendations-region" class="dashboard-recommendations-region"></div>
+        </section>
+
+        <div class="dash-section-head">
+          <h3 style="margin: 0; font-size: 16px; color: #334155;">최신 콘텐츠</h3>
+          <button id="dash-content-refresh-btn" class="secondary">새로고침</button>
+        </div>
+        <div class="dash-content-grid">
+          <article class="card dash-feed-card">
+            <div class="dash-feed-header">
+              <h4>네이버 블로그</h4>
+              <a id="dash-feed-home-naver" class="dash-feed-home-link" href="https://blog.naver.com/amadejjs"
+                target="_blank" rel="noopener noreferrer">채널 이동</a>
+            </div>
+            <div id="dash-feed-list-naver" class="dash-feed-list">
+              <p class="dash-feed-empty">불러오는 중...</p>
+            </div>
+          </article>
+          <article class="card dash-feed-card">
+            <div class="dash-feed-header">
+              <h4>워드프레스</h4>
+              <a id="dash-feed-home-wordpress" class="dash-feed-home-link" href="https://itmania.hangadac.com"
+                target="_blank" rel="noopener noreferrer">채널 이동</a>
+            </div>
+            <div id="dash-feed-list-wordpress" class="dash-feed-list">
+              <p class="dash-feed-empty">불러오는 중...</p>
+            </div>
+          </article>
+          <article class="card dash-feed-card">
+            <div class="dash-feed-header">
+              <h4>IT Mania</h4>
+              <a id="dash-feed-home-itmania" class="dash-feed-home-link" href="https://itmania.hangadac.com"
+                target="_blank" rel="noopener noreferrer">채널 이동</a>
+            </div>
+            <div id="dash-feed-list-itmania" class="dash-feed-list">
+              <p class="dash-feed-empty">불러오는 중...</p>
+            </div>
+          </article>
+        </div>
+      </section>
