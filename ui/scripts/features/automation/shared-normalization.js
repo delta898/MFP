@@ -91,20 +91,3 @@ function syncBlogAutoVariationTypeUi() {
     topWrap.style.display = 'none';
   }
 }
-function normalizeBlogAutoVariationNumberValue(rawValue, fallback = 50) {
-  const raw = String(rawValue ?? '').trim();
-  if (!raw) return fallback;
-  const parsed = parseInt(raw, 10);
-  if (!Number.isInteger(parsed)) return fallback;
-  return parsed;
-}
-
-function normalizeBlogAutoVariationNumberEnabledValue(rawValue, fallback = true) {
-  if (typeof rawValue === 'boolean') return rawValue;
-  const str = String(rawValue ?? '').toLowerCase();
-  if (str === 'true') return true;
-  if (str === 'false') return false;
-  return fallback;
-}
-
-

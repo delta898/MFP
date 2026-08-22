@@ -8,11 +8,6 @@ function setBlogCollectResultText(message) {
   if (resultEl) resultEl.textContent = String(message || '');
 }
 
-function setBlogCollectResultText(message) {
-  const resultEl = document.getElementById('blog-collect-result');
-  if (resultEl) resultEl.textContent = String(message || '').replace(/\\n/g, '\n');
-}
-
 let currentRssConfigs = [];
 window.addRssConfig = function () {
   currentRssConfigs.push({ enabled: true, url: '', interval: 60, includeKeywords: '', excludeKeywords: '', naver_category: '', wordpress_category: '' });
@@ -277,4 +272,3 @@ function clearAllBlogAutoCategories() {
   renderBlogAutoCategoryUi();
   scheduleSettingsMajorAutoSave({ immediate: true });
 }
-

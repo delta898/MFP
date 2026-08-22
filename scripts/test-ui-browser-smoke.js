@@ -227,6 +227,11 @@ async function run() {
         await page.locator('.blog-tab-btn[data-blog-tab="trend-posting"]').click();
         await page.waitForFunction(() => document.getElementById('blog-tab-trend-posting')?.classList.contains('active'));
 
+        await page.locator('.blog-tab-btn[data-blog-tab="collect"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-tab-collect')?.classList.contains('active'));
+        await page.evaluate(() => setBlogCollectResultText('수집 설정 테스트'));
+        assert.equal((await page.locator('#blog-collect-trends-result').textContent())?.trim(), '수집 설정 테스트');
+
         await page.locator('.nav-btn[data-view="shopping"]').click();
         await page.locator('.shopping-tab-btn[data-shopping-tab="batch"]').click();
         await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
