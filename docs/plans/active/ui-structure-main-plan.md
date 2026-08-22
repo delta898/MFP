@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: awaiting user UI validation for stage 3
+- Phase: stage 3 completed; ready for stage 4
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-03-html-composition`
+- Current child branch: none
 
 ## Goal
 
@@ -98,7 +98,7 @@
 - Full UI API E2E: not run because local-server execution approval was declined
 - Manual UI validation: passed, including the corrected settings version display
 
-## Current Stage: HTML Composition
+## Completed Stage: HTML Composition
 
 ### Scope
 
@@ -126,6 +126,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
+- Manual UI validation: passed
 
 ## Non-Goals
 
