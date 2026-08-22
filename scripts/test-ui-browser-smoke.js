@@ -7,6 +7,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -90,6 +91,8 @@ function startFixtureServer(requests) {
         .composeHtmlFile({ uiRoot }).html;
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;
+    const composedUiScript = createJsCompositionRuntime({ fs, path })
+        .composeJsFile({ uiRoot }).js;
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         requests.push({ method: req.method || 'GET', pathname: url.pathname });
@@ -113,7 +116,9 @@ function startFixtureServer(requests) {
         res.writeHead(200, { 'Content-Type': getContentType(fullPath), 'Cache-Control': 'no-store' });
         const body = requestedPath === 'index.html'
             ? composedUiShell
-            : (requestedPath === 'styles.css' ? composedUiStyles : fs.readFileSync(fullPath));
+            : (requestedPath === 'styles.css'
+                ? composedUiStyles
+                : (requestedPath === 'app.js' ? composedUiScript : fs.readFileSync(fullPath)));
         res.end(body);
     });
 

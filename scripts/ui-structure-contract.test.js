@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -16,6 +17,10 @@ function readUiFile(filePath) {
 
 function readComposedUiShell() {
     return createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+}
+
+function readComposedUiScript() {
+    return createJsCompositionRuntime({ fs, path }).composeJsFile({ uiRoot }).js;
 }
 
 function collectAttributeValues(source, attributeName) {
@@ -75,7 +80,7 @@ test('local script, stylesheet, image, and icon assets referenced by the UI shel
 });
 
 test('browser entry script parses as a classic script', () => {
-    assert.doesNotThrow(() => new vm.Script(readUiFile(appPath), { filename: appPath }));
+    assert.doesNotThrow(() => new vm.Script(readComposedUiScript(), { filename: appPath }));
 });
 
 test('UI index remains a bounded shell composed from one partial per feature view', () => {

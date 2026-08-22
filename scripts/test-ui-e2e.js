@@ -38,6 +38,13 @@ async function run() {
         assert.match(stylesCss, /\.quick-discovery-modal-container\s*\{/);
         assert.doesNotMatch(stylesCss, /\/\*\s*@include\s+/);
 
+        const scriptResponse = await fetch(`${baseUrl}/app.js`);
+        const appJs = await scriptResponse.text();
+        assert.strictEqual(scriptResponse.status, 200);
+        assert.match(appJs, /const SETUP_BANNER_DISMISS_KEY/);
+        assert.match(appJs, /window\.addEventListener\('DOMContentLoaded'/);
+        assert.doesNotMatch(appJs, /^\s*\/\/\s*@include\s+/m);
+
         const health = await requestJson(baseUrl, '/api/v1/health');
         assert.strictEqual(health.status, 200);
         assert.ok(health.json?.success);

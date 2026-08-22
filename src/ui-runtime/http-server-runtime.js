@@ -10,6 +10,7 @@ function createUiHttpServerRuntime(deps = {}) {
         resolveUiRoot,
         composeUiShell,
         composeUiStyles,
+        composeUiScript,
         normalizeListenHost,
         normalizeListenPort,
         createRequestId,
@@ -41,6 +42,7 @@ function createUiHttpServerRuntime(deps = {}) {
         }
         const composedUiShell = composeUiShell(uiRoot);
         const composedUiStyles = composeUiStyles(uiRoot);
+        const composedUiScript = composeUiScript(uiRoot);
 
         const server = http.createServer(async (req, res) => {
             const requestId = createRequestId();
@@ -99,7 +101,9 @@ function createUiHttpServerRuntime(deps = {}) {
 
                 const body = requestedPath === 'index.html'
                     ? composedUiShell
-                    : (requestedPath === 'styles.css' ? composedUiStyles : fs.readFileSync(fullPath));
+                    : (requestedPath === 'styles.css'
+                        ? composedUiStyles
+                        : (requestedPath === 'app.js' ? composedUiScript : fs.readFileSync(fullPath)));
                 res.writeHead(200, {
                     'Content-Type': getContentType(fullPath),
                     'Cache-Control': 'no-store'

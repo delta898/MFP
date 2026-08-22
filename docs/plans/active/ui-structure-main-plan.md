@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 4 completed; ready for stage 5
+- Phase: stage 5 automated validation passed; awaiting manual UI validation
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-05-js-foundation`
 
 ## Goal
 
@@ -156,6 +156,36 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests, including desktop computed styles and mobile sidebar flow
 - Manual UI validation: passed
+
+## Current Stage: JavaScript Foundation
+
+### Scope
+
+- `ui/app.js`는 명시적인 classic-script 실행 순서만 보유하는 bounded manifest로 제한한다.
+- API client, notification, dialog, readiness, navigation, lifecycle 기반을 독립 파일로 분리한다.
+- 나머지 기능 코드는 6~9단계의 controller 분리를 위한 임시 feature 경계로 나눈다.
+- 서버가 listen하기 전에 JavaScript를 동기 조립해 브라우저에는 기존과 같은 단일 `/app.js`를 제공한다.
+- include 경로 이탈, JavaScript 이외 파일, 누락 파일, 순환 참조를 서버 시작 전에 실패시킨다.
+- manifest 순서와 모든 모듈의 도달 가능성·유일성·크기 상한을 구조 테스트로 보호한다.
+
+### Completion Gate
+
+- 조립 결과가 분리 전 `ui/app.js`와 byte-for-byte 동일하다.
+- JavaScript composition과 classic-script 구조 계약 테스트가 통과한다.
+- 실제 서버 E2E와 browser smoke가 완성된 단일 script 응답과 주요 UI 동작을 확인한다.
+- 사용자가 실제 앱의 navigation, dialog, notification, 설정 저장 경고를 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Pre-split/composed JavaScript: byte-for-byte identical, 13,812 lines
+- Manifest: 17 ordered modules; largest foundation module 669 lines, largest temporary feature module 2,825 lines
+- Focused composition and structure tests: 16 passed
+- Full unit suite: 111 files, 522 tests passed
+- UI API E2E: passed; verifies `/app.js` is fully composed and contains no raw include directive
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 28 fixture requests
+- Manual UI validation: pending
 
 ## Non-Goals
 
