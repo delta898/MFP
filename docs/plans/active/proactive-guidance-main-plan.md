@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 1 completion review
+- Phase: stage 1 completed; stage 2 design pending
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: `feature/proactive-guidance-01-contracts`
+- Current child branch: none
 - Release version: undecided until release preparation
 
 ## Product Goal
