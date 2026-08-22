@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 7 implementation and validation
+- Phase: stage 7 completed; ready for stage 8
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-07-discovery-content`
+- Current child branch: none
 
 ## Goal
 
@@ -128,7 +128,7 @@
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
 
-## Current Stage: Discovery and Content Controllers
+## Completed Stage: Discovery and Content Controllers
 
 ### Scope
 
@@ -157,7 +157,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 34 fixture requests, including trend posting, blog/shopping tables, quick discovery, and category loading
-- Manual UI validation: pending
+- Manual UI validation: passed
 
 ## Completed Stage: Dashboard Shell Controllers
 
