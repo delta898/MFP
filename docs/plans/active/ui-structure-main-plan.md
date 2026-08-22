@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: awaiting user UI validation for stage 4
+- Phase: stage 4 completed; ready for stage 5
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-04-css-modules`
+- Current child branch: none
 
 ## Goal
 
@@ -128,7 +128,7 @@
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
 
-## Current Stage: CSS Modules
+## Completed Stage: CSS Modules
 
 ### Scope
 
@@ -155,6 +155,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests, including desktop computed styles and mobile sidebar flow
+- Manual UI validation: passed
 
 ## Non-Goals
 
