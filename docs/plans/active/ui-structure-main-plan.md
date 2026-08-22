@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 9 implementation and validation
+- Phase: stage 9 completed; ready for stage 10
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-09-settings-automation`
+- Current child branch: none
 
 ## Goal
 
@@ -276,7 +276,7 @@
 - Browser UI smoke: passed with 35 fixture requests, including manual SNS input state and prior publishing/content flows
 - Manual UI validation: passed
 
-## Current Stage: Settings and Automation Controllers
+## Completed Stage: Settings and Automation Controllers
 
 ### Scope
 
@@ -299,7 +299,7 @@
 - UI API E2E: passed
 - Settings API smoke: passed
 - Browser UI smoke: passed with 35 fixture requests
-- Manual UI validation: pending
+- Manual UI validation: passed
 
 ## Non-Goals
 
