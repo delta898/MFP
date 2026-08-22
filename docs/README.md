@@ -57,9 +57,12 @@
 - `decisions/2026-08-04-google-ai-provider-normalization.md`
 - `decisions/2026-08-16-keyword-provider-credentials.md`
 - `decisions/2026-08-17-smart-capability-usage.md`
+- `decisions/2026-08-23-proactive-guidance-contract.md`
 
 ## Active Work
 
+- `plans/active/proactive-guidance-main-plan.md`
+- `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`
 - `plans/active/google-sheets-credentials-plan.md`
