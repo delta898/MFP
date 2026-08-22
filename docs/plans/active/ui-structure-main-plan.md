@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 8 completed; ready for stage 9
+- Phase: stage 9 implementation and validation
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-09-settings-automation`
 
 ## Goal
 
@@ -275,6 +275,31 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 35 fixture requests, including manual SNS input state and prior publishing/content flows
 - Manual UI validation: passed
+
+## Current Stage: Settings and Automation Controllers
+
+### Scope
+
+- major form, AI models, shopping images, MCP, Google/Naver/WordPress 인증을 settings controller로 분리한다.
+- blog collection/automation과 shopping automation을 독립 controller로 분리한다.
+- 기존 classic-script 실행 순서와 단일 `/app.js` 응답을 유지한다.
+- 발견된 중복 함수 정리는 10단계 hardening에서 회귀 테스트와 함께 수행한다.
+
+### Completion Gate
+
+- 조립 결과가 단계 시작 시점 JavaScript와 byte-for-byte 동일하다.
+- settings/automation 소유권 및 전체 회귀 테스트가 통과한다.
+- 사용자가 실제 설정과 자동화 화면을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Stage-start/composed JavaScript: byte-for-byte identical, 13,810 lines
+- Settings/automation: 17 ordered modules; largest module 607 lines
+- Full unit suite: 115 files, 530 tests passed
+- UI API E2E: passed
+- Settings API smoke: passed
+- Browser UI smoke: passed with 35 fixture requests
+- Manual UI validation: pending
 
 ## Non-Goals
 
