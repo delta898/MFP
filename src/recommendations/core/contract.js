@@ -23,6 +23,7 @@ const RECOMMENDATION_EVENT_TYPES = Object.freeze([
     'recommendation.delivered',
     'recommendation.opened',
     'recommendation.snoozed',
+    'recommendation.reactivated',
     'recommendation.dismissed',
     'recommendation.action_started',
     'recommendation.action_failed',

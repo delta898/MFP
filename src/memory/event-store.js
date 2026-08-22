@@ -11,6 +11,8 @@ const { normalizeActivityEvidence } = require('./activity-lifecycle');
 const { buildMemoryCollectionAudit } = require('./collection-audit');
 const { buildOwnerProfileProjection } = require('./owner-profile');
 const { normalizeRecommendationContext } = require('../recommendations/topic-recommendation-learning');
+const { KuzuRecommendationRepository } = require('./recommendation-repository');
+const { RecommendationLifecycleStore, createVolatileRecommendationStore } = require('../recommendations/lifecycle-store');
 
 const OWNER_IDENTITY_MIGRATION_ID = '002_owner_identity';
 const OWNER_IDENTITY_MIGRATION_VERSION = 2;
@@ -48,6 +50,8 @@ class KuzuEventStore {
         this.conn = null;
         this.isInitialized = false;
         this.initPromise = null;
+        this.recommendationStore = null;
+        this.recommendationFallbackReported = false;
     }
 
     async _executeQuery(query, params = {}) {
@@ -133,6 +137,12 @@ class KuzuEventStore {
             this.owner = await this._resolveOwnerIdentityDirect();
             await this._runOwnerIdentityMigrationDirect(this.owner);
             await this._runTopicSemanticsMigrationDirect();
+            const recommendationRepository = new KuzuRecommendationRepository({
+                executeQuery: this._executeQuery.bind(this),
+                ensureOwner: this._ensureOwnerDirect.bind(this)
+            });
+            await recommendationRepository.initializeSchema();
+            this.recommendationStore = new RecommendationLifecycleStore({ repository: recommendationRepository });
             this.isInitialized = true;
         })();
 
@@ -2042,6 +2052,56 @@ class KuzuEventStore {
             stats,
             truncated: stats.event_count > events.length || stats.artifact_count > artifacts.length
         });
+    }
+
+    async _getRecommendationStore() {
+        try {
+            await this.initialize();
+        } catch (error) {
+            if (!this.isInitialized && !this.recommendationStore) {
+                this.recommendationStore = createVolatileRecommendationStore({ reason: error.message });
+                if (!this.recommendationFallbackReported && this.Logger?.warn) {
+                    this.recommendationFallbackReported = true;
+                    this.Logger.warn(`⚠️ [Recommendation] Kuzu 초기화 실패로 process-local volatile 저장소를 사용합니다: ${error.message}`);
+                }
+            }
+        }
+        if (!this.recommendationStore) throw new Error('recommendation store를 초기화할 수 없습니다.');
+        return this.recommendationStore;
+    }
+
+    async createRecommendation(recommendation, context = {}) {
+        return (await this._getRecommendationStore()).createRecommendation(recommendation, context);
+    }
+
+    async transitionRecommendation(command = {}) {
+        return (await this._getRecommendationStore()).transitionRecommendation(command);
+    }
+
+    async getRecommendation(ownerUserId, recommendationId) {
+        return (await this._getRecommendationStore()).getRecommendation(ownerUserId, recommendationId);
+    }
+
+    async findActiveByDedupeKey(ownerUserId, dedupeKey, now) {
+        return (await this._getRecommendationStore()).findActiveByDedupeKey(ownerUserId, dedupeKey, now);
+    }
+
+    async listAvailableRecommendations(ownerUserId, options = {}) {
+        return (await this._getRecommendationStore()).listAvailableRecommendations(ownerUserId, options);
+    }
+
+    async listRecommendations(ownerUserId, options = {}) {
+        return (await this._getRecommendationStore()).listRecommendations(ownerUserId, options);
+    }
+
+    async reconcileDueRecommendations(ownerUserId, options = {}) {
+        return (await this._getRecommendationStore()).reconcileDueRecommendations(ownerUserId, options);
+    }
+
+    getRecommendationStoreStatus() {
+        return this.recommendationStore
+            ? this.recommendationStore.getRecommendationStoreStatus()
+            : { mode: 'unavailable', reason: 'not_initialized' };
     }
 }
 

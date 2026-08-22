@@ -31,6 +31,7 @@ underlying user history.
 - `JobRunNode`
 - `ArtifactNode`
 - `SuggestionNode`
+- `RecommendationNode`
 - `PreferenceNode`
 - `DomainKnowledgeNode`
 - `OwnerNode`
@@ -41,6 +42,7 @@ underlying user history.
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
 - Preference memory: accumulated user tendencies from accepted actions and feedback.
 - Suggestion memory: suggested items and their user feedback.
+- Recommendation lifecycle: owner-scoped, actionable product opportunities with event-backed current state.
 - Domain knowledge: canonical values and learned aliases.
 - Owner identity: durable ownership across UI, automation, Telegram, and future channels while preserving each actor separately.
 
@@ -100,6 +102,11 @@ persistent migrations do not depend on a Telegram session or the first memory
 write. Later reads and writes reuse that process-local store. If the native Kuzu
 module cannot be loaded or startup initialization fails, memory is disabled or
 warned about while the main application continues to operate.
+
+Recommendation lifecycle is the bounded exception to the disabled no-op behavior. If Kuzu is
+unavailable from initialization, it uses a process-local volatile repository so Recommendation
+producers do not block existing workflows. Volatile records are diagnostic, disappear at restart,
+and are never merged automatically. Persistent-mode failures never trigger a silent fallback.
 
 Current write paths are:
 
@@ -243,10 +250,30 @@ each saved topic. Owner-level frequency and recency are derived through
 Owner-to-facet edge is stored. Subject remains the artifact title and instruction
 remains raw payload until a confidence-bearing derived-insight phase is added.
 
+## Recommendation Lifecycle Projection
+
+Canonical proactive guidance uses immutable `recommendation.*` EventNodes as facts and a
+`RecommendationNode` as its rebuildable current-state projection. The projection retains indexed
+owner, identity, status, dedupe, availability and expiry fields plus the validated canonical JSON.
+Candidate and Policy snapshots are not promoted to independent graph truth.
+
+`OwnerOWNS_RECOMMENDATION` and `EventHAS_RECOMMENDATION` preserve ownership and event provenance.
+Reads are owner-scoped and ordinary list/get operations never change lifecycle state. A bounded
+reconciliation command records explicit `recommendation.reactivated` and `recommendation.expired`
+events; periodic scheduling is not yet connected.
+
+Each Recommendation command requires an operation identity and commits its EventNode, projection,
+owner relation and event relation in one Recommendation-specific transaction. Transaction access
+is serialized for the shared Kuzu connection. Existing memory writes retain their current behavior.
+Migration `004_recommendation_lifecycle` creates only the new schema and does not scan, copy or
+backfill historic `SuggestionNode` records.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.
 - Planner-aware memory retrieval is not yet implemented.
+- Recommendation reconciliation is service-driven until the proactive guidance scheduler stage.
+- Full event replay repair for a manually damaged Recommendation projection is deferred to memory hardening.
 
 ## Persistence Boundary
 - `runtimeContext.memory` is transient and must not be persisted into `EventNode.payload_json`.

@@ -1,6 +1,7 @@
 const Logger = require('../logger');
 const CONFIG = require('../config-loader');
 const { KuzuEventStore, loadKuzu, getKuzuLoadError } = require('./event-store');
+const { createVolatileRecommendationStore } = require('../recommendations/lifecycle-store');
 
 let store = null;
 let loggedDisabledReason = false;
@@ -8,6 +9,7 @@ let initializationReported = false;
 
 function buildDisabledEventStore(reason) {
     const message = String(reason?.message || 'unknown error');
+    const recommendationStore = createVolatileRecommendationStore({ reason: message });
 
     if (!loggedDisabledReason) {
         loggedDisabledReason = true;
@@ -101,7 +103,15 @@ function buildDisabledEventStore(reason) {
                 orphan_artifact_count: 0,
                 truncated: false
             };
-        }
+        },
+        createRecommendation: recommendationStore.createRecommendation.bind(recommendationStore),
+        transitionRecommendation: recommendationStore.transitionRecommendation.bind(recommendationStore),
+        getRecommendation: recommendationStore.getRecommendation.bind(recommendationStore),
+        findActiveByDedupeKey: recommendationStore.findActiveByDedupeKey.bind(recommendationStore),
+        listAvailableRecommendations: recommendationStore.listAvailableRecommendations.bind(recommendationStore),
+        listRecommendations: recommendationStore.listRecommendations.bind(recommendationStore),
+        reconcileDueRecommendations: recommendationStore.reconcileDueRecommendations.bind(recommendationStore),
+        getRecommendationStoreStatus: recommendationStore.getRecommendationStoreStatus.bind(recommendationStore)
     };
 }
 
@@ -138,6 +148,7 @@ async function initializeAgentMemory() {
         return true;
     } catch (error) {
         Logger.warn(`⚠️ [AgentMemory] 시작 시 초기화에 실패했습니다. UI는 계속 실행합니다: ${error.message}`);
+        store = buildDisabledEventStore(error);
         return false;
     }
 }

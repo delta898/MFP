@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: stage 1 completed; stage 2 design pending
+- Phase: stage 2 complete; stage 3 design pending
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
 - Current child branch: none
@@ -83,6 +83,7 @@ Agent Runtime -> outcome events -> Memory
 ### 2. Lifecycle Store
 
 - Branch: `feature/proactive-guidance-02-lifecycle-store`
+- Status: completed on 2026-08-23
 - owner-scoped recommendation projection
 - `recommendation.*` event facts
 - stable identity, dedupe, expiry, snooze와 상태 전이
