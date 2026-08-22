@@ -1,0 +1,69 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
+
+const controllerContracts = Object.freeze({
+    'features/content/trend-table.js': ['renderBlogTrendsTable', 'loadBlogTrends'],
+    'features/discovery/trend-collection.js': ['runBlogTrendsCollect', 'runTrendsToTopics'],
+    'features/content/blog-tabs.js': ['activateBlogTab'],
+    'features/discovery/quick-discovery.js': ['setQuickDiscoveryModalOpen', 'loadQuickKeywordDiscovery', 'loadQuickTopicRecommendations'],
+    'features/discovery/trend-posting.js': ['queryTrendPostingKeywords', 'saveTrendPostingTopic'],
+    'features/discovery/naver-comment-draft.js': ['runNaverCommentDraft', 'redraftNaverCommentDraft'],
+    'features/content/tab-navigation.js': ['activateShoppingTab'],
+    'features/content/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],
+    'features/content/shopping-items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'startShoppingInlineEdit'],
+    'features/content/blog-batch.js': ['runBlogBatchAction']
+});
+
+function readScript(relativePath) {
+    return fs.readFileSync(path.join(scriptsRoot, relativePath), 'utf8');
+}
+
+function functionDeclarationPattern(functionName) {
+    return new RegExp(`(?:async\\s+)?function\\s+${functionName}\\s*\\(`, 'g');
+}
+
+test('discovery and content controllers have one explicit feature owner', () => {
+    const sources = Object.fromEntries(
+        Object.keys(controllerContracts).map((relativePath) => [relativePath, readScript(relativePath)])
+    );
+    const combinedSource = Object.values(sources).join('\n');
+
+    Object.entries(controllerContracts).forEach(([ownerPath, functionNames]) => {
+        functionNames.forEach((functionName) => {
+            assert.match(sources[ownerPath], functionDeclarationPattern(functionName));
+            assert.equal(
+                Array.from(combinedSource.matchAll(functionDeclarationPattern(functionName))).length,
+                1,
+                `${functionName} must have one discovery/content owner`
+            );
+        });
+    });
+});
+
+test('temporary feature modules no longer own discovery and content controllers', () => {
+    const featureRoot = path.join(scriptsRoot, 'features');
+    const legacySource = fs.readdirSync(featureRoot)
+        .filter((name) => name.startsWith('legacy-') && name.endsWith('.js'))
+        .map((name) => readScript(`features/${name}`))
+        .join('\n');
+
+    Object.values(controllerContracts).flat().forEach((functionName) => {
+        assert.doesNotMatch(legacySource, functionDeclarationPattern(functionName));
+    });
+});
+
+test('WordPress category consumers use the shared lexical cache contract', () => {
+    const uiScripts = [
+        readScript('features/content/blog-tabs.js'),
+        readScript('features/content/blog-topics.js'),
+        readScript('features/legacy-publish-helpers.js')
+    ].join('\n');
+
+    assert.doesNotMatch(uiScripts, /\bglobalWpCategoryCache\b/);
+    assert.doesNotMatch(uiScripts, /window\.categoryCache\b/);
+});

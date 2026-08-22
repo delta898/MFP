@@ -102,7 +102,7 @@ async function initWpCategorySelector({ optionsContainerId, triggerTextId, conta
   // Search Input Bindings
   if (searchInput) {
     searchInput.addEventListener('input', () => {
-      renderOptions(window.categoryCache || [], searchInput.value);
+      renderOptions(categoryCache || [], searchInput.value);
     });
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -138,7 +138,7 @@ async function initWpCategorySelector({ optionsContainerId, triggerTextId, conta
         if (searchInput) setTimeout(() => searchInput.focus(), 50);
 
         const hasOptions = optionsContainer && optionsContainer.querySelectorAll('.custom-select-option').length > 0;
-        if (!hasOptions || !window.categoryCache) {
+        if (!hasOptions || !categoryCache) {
           if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-select-loading">불러오는 중...</div>';
           try {
             const categories = await window.fetchWpCategories();

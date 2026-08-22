@@ -214,6 +214,22 @@ async function run() {
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
         await page.locator('.nav-btn[data-view="blog"]').click();
 
+        await page.locator('.blog-tab-btn[data-blog-tab="topics"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-tab-topics')?.classList.contains('active'));
+        assert.equal(await page.locator('#blog-table').count(), 1);
+
+        await page.locator('.blog-tab-btn[data-blog-tab="trend-posting"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-tab-trend-posting')?.classList.contains('active'));
+
+        await page.locator('.nav-btn[data-view="shopping"]').click();
+        await page.locator('.shopping-tab-btn[data-shopping-tab="batch"]').click();
+        await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
+        assert.equal(await page.locator('#shopping-table').count(), 1);
+
+        await page.locator('.nav-btn[data-view="blog"]').click();
+        await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-tab-quick')?.classList.contains('active'));
+
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
         await page.locator('#quick-discovery-modal-close').click();

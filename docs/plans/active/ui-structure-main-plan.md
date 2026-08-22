@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 6 completed; ready for stage 7
+- Phase: stage 7 implementation and validation
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-07-discovery-content`
 
 ## Goal
 
@@ -127,6 +127,37 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
+
+## Current Stage: Discovery and Content Controllers
+
+### Scope
+
+- trend table/collection, quick discovery, trend posting, comment draft controller를 기능별 파일로 분리한다.
+- blog topics와 shopping items의 table, editor, pagination, batch controller를 `features/content/`로 모은다.
+- discovery/content 상태를 settings와 shell runtime 상태에서 분리한다.
+- preview 및 settings/SNS 잔여 코드는 8~9단계를 위한 임시 feature 파일로 남긴다.
+- 기존 classic-script 선언 순서와 단일 `/app.js` 응답을 그대로 유지한다.
+- content 탭 확장 검증에서 드러난 WordPress category cache 전역 참조 오류를 공용 lexical cache 계약으로 수정한다.
+- controller별 대표 함수의 단일 소유권과 legacy 파일 재유입을 구조 테스트로 보호한다.
+
+### Completion Gate
+
+- category cache 버그 수정 외 조립 결과가 단계 시작 시점 JavaScript와 동일하다.
+- discovery/content controller 소유권과 JavaScript 조합 구조 계약 테스트가 통과한다.
+- 실제 서버 E2E와 browser smoke에서 trend, discovery modal, blog/shopping table과 navigation 흐름이 유지된다.
+- 사용자가 실제 앱에서 해당 화면과 상호작용을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Refactor-only composition matched the stage-start JavaScript byte-for-byte before the targeted category cache fix
+- Discovery/content: 10 explicit controller owners; largest extracted module 595 lines
+- Focused composition, ownership, cache-contract, and structure tests: 13 passed
+- Full unit suite: 113 files, 527 tests passed
+- UI API E2E: passed; verifies the fully composed `/app.js` response
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 34 fixture requests, including trend posting, blog/shopping tables, quick discovery, and category loading
+- Manual UI validation: pending
 
 ## Completed Stage: Dashboard Shell Controllers
 
