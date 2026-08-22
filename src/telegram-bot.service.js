@@ -21,6 +21,7 @@ const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 const License = require('./license');
+const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
 
 class TelegramBotService {
     static bot = null;
@@ -446,6 +447,33 @@ class TelegramBotService {
         const verb = parts[0];
         const targetId = parts[parts.length - 1];
         if (!targetId) return false;
+
+        if (verb === 'rec_fb') {
+            const feedback = parts[1] === 'h' ? 'helpful' : parts[1] === 'n' ? 'not_helpful' : '';
+            if (!feedback) return false;
+            const owner = this.agentEventStore?.getLocalOwnerIdentity?.() || {};
+            let recorded = false;
+            try {
+                const result = await recordRecommendationFeedback({
+                    eventStore: this.agentEventStore,
+                    owner_user_id: owner.owner_user_id,
+                    recommendation_id: targetId,
+                    feedback,
+                    operation_id: String(query?.id || `telegram_${messageId}`),
+                    occurred_at: new Date().toISOString(),
+                    source: 'telegram'
+                });
+                recorded = result.recorded === true;
+            } catch (_error) { }
+            await this.bot.answerCallbackQuery(query.id, {
+                text: !recorded
+                    ? '피드백을 기록하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+                    : feedback === 'helpful'
+                        ? '도움됨으로 기록했습니다.'
+                        : '이 추천을 숨기고 별로로 기록했습니다.'
+            });
+            return true;
+        }
 
         if (verb === 'suggest_feedback') {
             const context = this.buildAgentContext(chatId, query?.message || {});

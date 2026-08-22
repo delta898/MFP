@@ -20,6 +20,7 @@ const {
 } = require('../knowledge/providers/trends-naver');
 const { createSuggestionEngine } = require('../suggestions/engine');
 const { createMemoryBasedSuggestionProvider } = require('../suggestions/providers/memory-based');
+const { createRecommendationMaterializer } = require('../recommendations/adapters/recommendation-materializer');
 const { createContentIdeaEngine } = require('../content-ideas/engine');
 const { createAiMemoryContentIdeaProvider } = require('../content-ideas/providers/ai-memory');
 const { createContentIdeaCapabilities } = require('./content/ideas');
@@ -64,8 +65,14 @@ function createCapabilityRegistry(deps = {}) {
             internal_query: createInternalQueryTransport()
         }
     });
+    const recommendationMaterializer = deps.recommendationMaterializer || createRecommendationMaterializer({
+        eventStore: deps.eventStore,
+        Logger: deps.Logger
+    });
     const suggestionEngine = deps.suggestionEngine || createSuggestionEngine({
         knowledgeRegistry,
+        recommendationMaterializer,
+        Logger: deps.Logger,
         providers: [
             createMemoryBasedSuggestionProvider()
         ]
@@ -76,7 +83,7 @@ function createCapabilityRegistry(deps = {}) {
             createAiMemoryContentIdeaProvider()
         ]
     });
-    const capabilityDeps = { ...deps, configState, knowledgeRegistry, suggestionEngine, contentIdeaEngine };
+    const capabilityDeps = { ...deps, configState, knowledgeRegistry, suggestionEngine, contentIdeaEngine, recommendationMaterializer };
 
     const allCapabilities = [
         ...createAgentMetaCapabilities(capabilityDeps),

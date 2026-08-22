@@ -1250,22 +1250,8 @@ class KuzuEventStore {
                 });
             }
 
-            if (actionId && action.type === 'agent.query' && String(action.domain || '').trim() === 'agent.suggestions') {
-                const suggestions = Array.isArray(payload.result?.data?.suggestions) ? payload.result.data.suggestions : [];
-                for (const suggestion of suggestions) {
-                    await this._upsertSuggestionNode({
-                        id: suggestion.id,
-                        type: suggestion.type || 'recommendation',
-                        summary: suggestion.summary || '',
-                        payload: this._summarizeSuggestionPayload(suggestion.payload || {}),
-                        status: suggestion.status || 'proposed'
-                    }, {
-                        eventId: meta.eventId,
-                        actionIds: [actionId],
-                        timestamp
-                    });
-                }
-            }
+            // Product recommendations are materialized through RecommendationLifecycleStore.
+            // SuggestionNode remains reserved for confirmation and historic feedback compatibility.
 
             if (actionId && action.type === 'content.generate') {
                 const ideas = Array.isArray(payload.result?.data?.ideas) ? payload.result.data.ideas : [];

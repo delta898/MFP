@@ -59,7 +59,12 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: '',
         status: 'active',
         sort_order: 10,
-        capabilities: { temperature: false, structured_output: true, image_input: true }
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            thinking_levels: ['low', 'medium', 'high']
+        }
     },
     {
         key: 'google:gemini-3.6-flash',
@@ -70,7 +75,12 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: '',
         status: 'active',
         sort_order: 20,
-        capabilities: { temperature: false, structured_output: true, image_input: true }
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            thinking_levels: ['minimal', 'low', 'medium', 'high']
+        }
     },
     {
         key: 'google:gemini-3.1-pro-preview',

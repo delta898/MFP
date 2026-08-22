@@ -22,6 +22,7 @@ const RECOMMENDATION_EVENT_TYPES = Object.freeze([
     'recommendation.created',
     'recommendation.delivered',
     'recommendation.opened',
+    'recommendation.feedback_recorded',
     'recommendation.snoozed',
     'recommendation.reactivated',
     'recommendation.dismissed',
@@ -37,6 +38,8 @@ const RECOMMENDATION_EVIDENCE_KINDS = Object.freeze([
     'system_state',
     'capability_state'
 ]);
+
+const RECOMMENDATION_FEEDBACK_VALUES = Object.freeze(['helpful', 'not_helpful']);
 
 const RECOMMENDATION_EVIDENCE_STAGES = Object.freeze([
     'observed',
@@ -278,6 +281,7 @@ module.exports = {
     RECOMMENDATION_STATES,
     RECOMMENDATION_EVENT_TYPES,
     RECOMMENDATION_EVIDENCE_KINDS,
+    RECOMMENDATION_FEEDBACK_VALUES,
     RECOMMENDATION_EVIDENCE_STAGES,
     RECOMMENDATION_EVIDENCE_STRENGTHS,
     RECOMMENDATION_SOURCE_REF_KINDS,

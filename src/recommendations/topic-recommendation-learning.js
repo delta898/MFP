@@ -41,9 +41,11 @@ function normalizeSourceRefs(values = []) {
 
 function normalizeRecommendationContext(value = {}) {
     const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const recommendationId = compact(input.recommendation_id || input.recommendationId, 240);
     return {
         schema_version: TOPIC_RECOMMENDATION_CONTEXT_VERSION,
         run_id: compact(input.run_id || input.runId, 240),
+        ...(recommendationId ? { recommendation_id: recommendationId } : {}),
         candidate_id: compact(input.candidate_id || input.candidateId, 240),
         topic_seed: compact(input.topic_seed || input.topicSeed, 180),
         policy_id: compact(input.policy_id || input.policyId, 120),
@@ -86,6 +88,9 @@ function createTopicRecommendationLearningService(options = {}) {
     const recordActivityLifecycle = typeof options.recordActivityLifecycle === 'function'
         ? options.recordActivityLifecycle
         : async () => null;
+    const recordRecommendationFeedback = typeof options.recordRecommendationFeedback === 'function'
+        ? options.recordRecommendationFeedback
+        : null;
 
     return {
         async recordOutcome(input = {}) {
@@ -125,7 +130,21 @@ function createTopicRecommendationLearningService(options = {}) {
                     recommendation
                 }
             });
-            return { recorded: Boolean(result), evidence_id: evidenceId, result };
+            let recommendationFeedback = null;
+            if (stage === 'feedback' && recommendation.recommendation_id && input.feedback && recordRecommendationFeedback) {
+                try {
+                    recommendationFeedback = await recordRecommendationFeedback({
+                        owner_user_id: compact(input.owner_user_id || input.ownerUserId, 240),
+                        recommendation_id: recommendation.recommendation_id,
+                        feedback: compact(input.feedback, 40),
+                        operation_id: evidenceId.replace(/[^A-Za-z0-9._:-]/g, '_').slice(0, 240),
+                        source: compact(input.source || 'topic-recommendation', 120)
+                    });
+                } catch (_error) {
+                    recommendationFeedback = { recorded: false, reason: 'recommendation_store_unavailable' };
+                }
+            }
+            return { recorded: Boolean(result), evidence_id: evidenceId, result, recommendation_feedback: recommendationFeedback };
         }
     };
 }

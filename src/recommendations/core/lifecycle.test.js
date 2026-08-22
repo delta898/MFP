@@ -54,6 +54,20 @@ test('observational event는 projection state를 변경하지 않는다', () => 
     assert.deepEqual(applyRecommendationEvent(current, event), current);
 });
 
+test('recommendation feedback event는 상태를 바꾸지 않는다', () => {
+    const current = createRecommendation();
+    const event = buildRecommendationEvent({
+        owner_user_id: current.owner_user_id,
+        recommendation_id: current.recommendation_id,
+        event_type: 'recommendation.feedback_recorded',
+        operation_id: 'feedback-1',
+        occurred_at: '2026-08-23T02:00:00.000Z',
+        feedback: 'helpful'
+    }, current);
+    assert.equal(event.payload.feedback, 'helpful');
+    assert.deepEqual(applyRecommendationEvent(current, event), current);
+});
+
 test('created event snapshot만으로 projection을 재생한다', () => {
     const recommendation = createRecommendation();
     const event = buildRecommendationEvent({

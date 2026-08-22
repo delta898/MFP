@@ -48,6 +48,32 @@ test('remote catalog can add a model through an allowlisted transport', () => {
     });
 });
 
+test('remote model overrides retain bundled runtime capabilities omitted by an older catalog', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'older-gemini-catalog',
+        models: [{
+            key: 'google:gemini-3.7-flash',
+            kind: 'text',
+            provider: 'google',
+            transport: 'gemini_generate_content',
+            model_id: 'gemini-3.7-flash',
+            display_name: 'Gemini 3.7 Flash',
+            status: 'active',
+            capabilities: {
+                temperature: false,
+                structured_output: true,
+                image_input: true
+            }
+        }]
+    }, { appVersion: '0.2.0' });
+
+    assert.deepEqual(
+        findModelDefinition('text', 'google', 'gemini-3.7-flash').capabilities.thinking_levels,
+        ['low', 'medium', 'high']
+    );
+});
+
 test('remote catalog rejects the retired Imagen transport', () => {
     assert.throws(() => validateRemoteCatalog({
         schema_version: 1,

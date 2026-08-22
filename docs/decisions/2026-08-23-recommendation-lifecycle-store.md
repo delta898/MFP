@@ -34,6 +34,10 @@ State-changing events use explicit transition rules. Snooze completion is record
 operation records due reactivation and expiry, while a later scheduler owns periodic execution.
 Recommendations in `action_in_progress` do not expire until the action resolves.
 
+Stage 3 extends the observational vocabulary with `recommendation.feedback_recorded`. It accepts
+only `helpful` and `not_helpful` and does not change projection state by itself; negative feedback
+uses a separate explicit dismiss transition.
+
 All commands and repeated observational events require a caller-supplied `operation_id`.
 The event id is a stable hash of owner, recommendation, event type and operation. Same-process
 commands are serialized per recommendation, and creates are serialized per owner/dedupe key.

@@ -77,6 +77,25 @@ test('records only meaningful recommendation outcomes with a stable evidence id'
     await assert.rejects(() => service.recordOutcome({ stage: 'observed', recommendation }), /지원하지 않는/);
 });
 
+test('canonical topic feedback records recommendation feedback without converting other outcomes', async () => {
+    const feedbackCalls = [];
+    const service = createTopicRecommendationLearningService({
+        recordActivityLifecycle: async () => ({ id: 'activity-1' }),
+        recordRecommendationFeedback: async (input) => { feedbackCalls.push(input); return { recorded: true }; }
+    });
+    await service.recordOutcome({
+        stage: 'feedback', feedback: 'not_helpful', owner_user_id: 'owner-local',
+        recommendation: { run_id: 'run-1', recommendation_id: 'rec_1', candidate_id: 'candidate-1' }
+    });
+    await service.recordOutcome({
+        stage: 'selected', owner_user_id: 'owner-local', result_ref: 'selection-1',
+        recommendation: { run_id: 'run-1', recommendation_id: 'rec_1', candidate_id: 'candidate-1' }
+    });
+    assert.equal(feedbackCalls.length, 1);
+    assert.equal(feedbackCalls[0].recommendation_id, 'rec_1');
+    assert.equal(feedbackCalls[0].feedback, 'not_helpful');
+});
+
 test('carries recommendation provenance from artifact feedback into owner feedback projection', () => {
     const target = resolveArtifactFeedbackTarget({
         id: 'idea-1',

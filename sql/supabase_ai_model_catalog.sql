@@ -148,7 +148,7 @@ values (
           "display_name": "Gemini 3.7 Flash",
           "status": "active",
           "sort_order": 10,
-          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true, "thinking_levels": ["low", "medium", "high"]}
         },
         {
           "key": "google:gemini-3.6-flash",
@@ -159,7 +159,7 @@ values (
           "display_name": "Gemini 3.6 Flash",
           "status": "active",
           "sort_order": 20,
-          "capabilities": {"temperature": false, "structured_output": true, "image_input": true}
+          "capabilities": {"temperature": false, "structured_output": true, "image_input": true, "thinking_levels": ["minimal", "low", "medium", "high"]}
         },
         {
           "key": "anthropic:claude-fable-5",

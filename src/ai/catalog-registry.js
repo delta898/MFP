@@ -19,7 +19,8 @@ const CAPABILITY_KEYS = new Set([
     'response_format',
     'arbitrary_size',
     'output_format',
-    'quality'
+    'quality',
+    'thinking_levels'
 ]);
 
 let remoteSnapshot = null;
@@ -204,7 +205,16 @@ function getMergedDefinitions() {
         merged.set(`${model.kind}:${model.key}`, model);
     }
     for (const model of remoteSnapshot?.models || []) {
-        merged.set(`${model.kind}:${model.key}`, clone(model));
+        const modelKey = `${model.kind}:${model.key}`;
+        const bundled = merged.get(modelKey);
+        merged.set(modelKey, {
+            ...(bundled || {}),
+            ...clone(model),
+            capabilities: {
+                ...(bundled?.capabilities || {}),
+                ...(model.capabilities || {})
+            }
+        });
     }
     const providerOrder = new Map(getMergedProviders().map((provider) => [
         `${provider.kind}:${provider.id}`,

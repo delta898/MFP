@@ -51,6 +51,15 @@
 - 설정한 포트가 사용 중이면 원인과 현재 점유 상태를 안내한다.
 - 사용자가 확인할 수 있는 대체 포트 재시도 흐름을 제공한다.
 
+5. AI runtime capability 자동 탐지와 자기복구
+- provider model metadata에서 모델 존재, 생성 방식, thinking 지원 여부와 토큰 한도를 우선 확인한다.
+- metadata가 제공하지 않는 모델별 thinking level은 trusted catalog policy로 보완한다.
+- 실제 호출이 구조화된 `unsupported thinking level` 오류로 실패하면 안전한 지원 단계로 한 번만
+  재시도하고, 확인된 runtime policy를 모델·API 버전 단위로 bounded cache한다.
+- 오류 문자열 일반 매칭이나 여러 단계 무차별 probe는 피하고, 인증·quota·일반 요청 오류와
+  capability 불일치를 엄격히 구분한다.
+- 자동 복구와 catalog 불일치가 관측 가능하도록 비밀정보 없는 진단 로그와 테스트를 둔다.
+
 ## P2 (중기)
 
 1. 모바일 UI 최적화

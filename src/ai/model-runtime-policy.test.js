@@ -16,6 +16,7 @@ const {
     buildKieResponsesRequest,
     extractKieResponsesText
 } = require('./kie-responses');
+const { resolveGeminiThinkingConfig } = require('./gemini-response');
 
 test('current Gemini Flash models strip deprecated temperature while older Gemini keeps it', () => {
     const newest = applyTextRuntimePolicy({
@@ -42,6 +43,26 @@ test('current Gemini Flash models strip deprecated temperature while older Gemin
     assert.equal('temperature' in latest.options, false);
     assert.equal(latest.options.maxTokens, 160);
     assert.equal(older.options.temperature, 0.2);
+});
+
+test('Gemini runtime capabilities adapt a common minimal effort per model', () => {
+    const gemini37 = getModelRuntimeDefinition('text', {
+        provider: 'google',
+        code: 'gemini-3.7-flash'
+    });
+    const gemini36 = getModelRuntimeDefinition('text', {
+        provider: 'google',
+        code: 'gemini-3.6-flash'
+    });
+
+    assert.deepEqual(
+        resolveGeminiThinkingConfig(gemini37.code, 'minimal', gemini37.capabilities),
+        { thinkingLevel: 'low' }
+    );
+    assert.deepEqual(
+        resolveGeminiThinkingConfig(gemini36.code, 'minimal', gemini36.capabilities),
+        { thinkingLevel: 'minimal' }
+    );
 });
 
 test('OpenAI chat policy uses current token and structured-output fields', () => {

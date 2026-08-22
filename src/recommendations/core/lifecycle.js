@@ -3,7 +3,8 @@ const { normalizeSafeValue } = require('./contract');
 
 const OBSERVATIONAL_EVENTS = Object.freeze([
     'recommendation.delivered',
-    'recommendation.opened'
+    'recommendation.opened',
+    'recommendation.feedback_recorded'
 ]);
 
 const TERMINAL_STATES = Object.freeze([
@@ -107,6 +108,7 @@ function buildRecommendationEvent(command = {}, current = null) {
                 : null,
             reason_code: String(command.reason_code || command.reasonCode || '').trim().slice(0, 120),
             error_code: String(command.error_code || command.errorCode || '').trim().slice(0, 120),
+            feedback: String(command.feedback || '').trim().toLowerCase(),
             recommendation: eventType === 'recommendation.created' ? current : null,
             metadata: normalizeSafeValue(command.metadata || {})
         }

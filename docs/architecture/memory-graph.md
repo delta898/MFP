@@ -268,6 +268,16 @@ is serialized for the shared Kuzu connection. Existing memory writes retain thei
 Migration `004_recommendation_lifecycle` creates only the new schema and does not scan, copy or
 backfill historic `SuggestionNode` records.
 
+Legacy Agent and topic paths now enter this lifecycle through adapters. New generic
+`agent.suggestions` results are not materialized as SuggestionNode; that node remains only for Agent
+confirmation and historic feedback compatibility. Existing `suggestion_feedback.*` preferences can
+temporarily suppress adapted legacy signals but are never copied into RecommendationNode.
+
+Canonical recommendation feedback is an observational `recommendation.feedback_recorded` fact with
+the strict values `helpful` and `not_helpful`. Negative feedback is followed by an explicit dismiss
+transition, while positive feedback does not imply action execution. Existing topic selection,
+save, draft and publish outcomes remain owner activity evidence until capability handoff is added.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.

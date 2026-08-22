@@ -90,6 +90,27 @@ test('민감 metadata와 잘못된 transition은 event 저장 전에 거부한�
     }), /허용되지/);
 });
 
+test('feedback event는 strict enum을 요구하고 projection state를 유지한다', async () => {
+    const { store, recommendation } = await createdStore();
+    await assert.rejects(store.transitionRecommendation({
+        owner_user_id: recommendation.owner_user_id,
+        recommendation_id: recommendation.recommendation_id,
+        event_type: 'recommendation.feedback_recorded',
+        operation_id: 'feedback-bad',
+        occurred_at: '2026-08-23T03:00:00.000Z',
+        feedback: 'accepted'
+    }), /helpful/);
+    const result = await store.transitionRecommendation({
+        owner_user_id: recommendation.owner_user_id,
+        recommendation_id: recommendation.recommendation_id,
+        event_type: 'recommendation.feedback_recorded',
+        operation_id: 'feedback-good',
+        occurred_at: '2026-08-23T03:00:00.000Z',
+        feedback: 'helpful'
+    });
+    assert.equal(result.recommendation.status, 'available');
+});
+
 test('ordinary list는 만료 상태를 쓰지 않고 노출만 차단한다', async () => {
     const { store, recommendation } = await createdStore();
     assert.equal((await store.listAvailableRecommendations('owner-local', { now: '2026-08-25T00:00:00.000Z' })).length, 0);

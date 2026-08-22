@@ -1,5 +1,6 @@
 const {
     RECOMMENDATION_EVENT_TYPES,
+    RECOMMENDATION_FEEDBACK_VALUES,
     RECOMMENDATION_SENSITIVE_DATA_KEY_PATTERN,
     isPlainObject
 } = require('./core/contract');
@@ -15,7 +16,7 @@ const COMMAND_KEYS = new Set([
     'owner_user_id', 'ownerUserId', 'recommendation_id', 'recommendationId',
     'event_type', 'eventType', 'operation_id', 'operationId', 'occurred_at',
     'occurredAt', 'previous_status', 'snoozed_until', 'snoozedUntil',
-    'reason_code', 'reasonCode', 'error_code', 'errorCode', 'metadata'
+    'reason_code', 'reasonCode', 'error_code', 'errorCode', 'feedback', 'metadata'
 ]);
 
 function assertIdentifier(value, fieldName) {
@@ -37,6 +38,13 @@ function validateCommand(command = {}) {
     const eventType = String(command.event_type || command.eventType || '').trim();
     if (!RECOMMENDATION_EVENT_TYPES.includes(eventType) || eventType === 'recommendation.created') {
         throw new Error('transition에 지원되지 않는 recommendation event입니다.');
+    }
+    const feedback = String(command.feedback || '').trim().toLowerCase();
+    if (eventType === 'recommendation.feedback_recorded' && !RECOMMENDATION_FEEDBACK_VALUES.includes(feedback)) {
+        throw new Error('recommendation feedback는 helpful 또는 not_helpful이어야 합니다.');
+    }
+    if (eventType !== 'recommendation.feedback_recorded' && feedback) {
+        throw new Error('feedback은 recommendation.feedback_recorded 이벤트에서만 허용됩니다.');
     }
     if (command.metadata !== undefined && !isPlainObject(command.metadata)) {
         throw new Error('metadata는 object여야 합니다.');

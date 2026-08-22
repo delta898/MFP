@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 
 const {
     formatContentRequestMessage,
-    buildContentRequestKeyboard
+    buildContentRequestKeyboard,
+    buildSuggestionKeyboard
 } = require('./renderer');
 
 test('renderer keeps register-only UI simple and hides publish controls', () => {
@@ -45,6 +46,18 @@ test('renderer keeps register-only UI simple and hides publish controls', () => 
     assert.doesNotMatch(message, /발행 형태/);
     assert.equal(keyboard.length, 3);
     assert.deepEqual(keyboard[1], [{ text: '✅ 네, 이대로 등록해 주세요', callback_data: 'publish_confirm' }]);
+});
+
+test('renderer uses bounded recommendation feedback callbacks and skips pending confirmations', () => {
+    const rows = buildSuggestionKeyboard([{ result: { data: { suggestions: [
+        { id: 'confirm-1', type: 'next_action', feedback_enabled: false },
+        { id: 'rec_1234567890abcdef', feedback_transport: 'recommendation', feedback_enabled: true }
+    ] } } }]);
+    assert.deepEqual(rows, [[
+        { text: '👍 도움됨 1.2', callback_data: 'rec_fb:h:rec_1234567890abcdef' },
+        { text: '👎 별로 1.2', callback_data: 'rec_fb:n:rec_1234567890abcdef' }
+    ]]);
+    rows.flat().forEach((button) => assert.equal(Buffer.byteLength(button.callback_data) <= 64, true));
 });
 
 test('renderer shows publish controls only when publish options are enabled', () => {

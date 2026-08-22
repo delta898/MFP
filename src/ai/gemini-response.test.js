@@ -44,6 +44,21 @@ test('Gemini 3 maps common reasoning effort to native thinking level', () => {
     assert.equal(resolveGeminiThinkingConfig('gemini-3.6-flash', 'unknown'), null);
 });
 
+test('Gemini thinking policy promotes unsupported minimal effort to the nearest supported level', () => {
+    assert.deepEqual(
+        resolveGeminiThinkingConfig('gemini-3.7-flash', 'minimal', {
+            thinking_levels: ['low', 'medium', 'high']
+        }),
+        { thinkingLevel: 'low' }
+    );
+    assert.deepEqual(
+        resolveGeminiThinkingConfig('gemini-3.6-flash', 'minimal', {
+            thinking_levels: ['minimal', 'low', 'medium', 'high']
+        }),
+        { thinkingLevel: 'minimal' }
+    );
+});
+
 test('Gemini text endpoint follows the model selected for the current request', () => {
     const configuredTextEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
     assert.equal(

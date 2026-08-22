@@ -73,6 +73,7 @@ const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createAgentRuntime } = require('./agent/runtime');
 const { createTopicRecommendationLearningService } = require('./recommendations/topic-recommendation-learning');
+const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const { createAutomationPolicyRuntime } = require('./ui-runtime/automation-policy-runtime');
@@ -295,7 +296,11 @@ const topicRecommendationRetrievalService = createMemoryRetrievalService({
     eventStore: topicRecommendationEventStore
 });
 const topicRecommendationLearningService = createTopicRecommendationLearningService({
-    recordActivityLifecycle
+    recordActivityLifecycle,
+    recordRecommendationFeedback: (input) => recordRecommendationFeedback({
+        ...input,
+        eventStore: topicRecommendationEventStore
+    })
 });
 const snsDistributionRunner = createSnsDistributionRunner({
     CONFIG,

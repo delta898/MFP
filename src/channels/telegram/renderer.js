@@ -218,8 +218,15 @@ function buildSuggestionKeyboard(results = []) {
         const suggestions = Array.isArray(item?.result?.data?.suggestions) ? item.result.data.suggestions : [];
         suggestions.forEach((suggestion, suggestionIndex) => {
             const id = String(suggestion?.id || '').trim();
-            if (!id) return;
+            if (!id || suggestion?.feedback_enabled === false) return;
             const labelIndex = `${index + 1}.${suggestionIndex + 1}`;
+            if (suggestion?.feedback_transport === 'recommendation') {
+                suggestionRows.push([
+                    { text: `👍 도움됨 ${labelIndex}`, callback_data: `rec_fb:h:${id}` },
+                    { text: `👎 별로 ${labelIndex}`, callback_data: `rec_fb:n:${id}` }
+                ]);
+                return;
+            }
             const type = String(suggestion?.type || '').trim();
             const isActionProposal = type === 'action_proposal' || type === 'next_action';
             const positiveLabel = isActionProposal ? `✅ 수락 ${labelIndex}` : `👍 도움됨 ${labelIndex}`;

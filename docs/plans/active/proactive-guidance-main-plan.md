@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 2 complete; stage 3 design pending
+- Phase: stage 3 complete; awaiting commit and parent merge approval
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: none
+- Current child branch: `feature/proactive-guidance-03-legacy-adapters`
 - Release version: undecided until release preparation
 
 ## Product Goal
@@ -93,6 +93,7 @@ Agent Runtime -> outcome events -> Memory
 ### 3. Legacy Adapters
 
 - Branch: `feature/proactive-guidance-03-legacy-adapters`
+- Status: implementation, automated regression and user UI smoke completed on 2026-08-23
 - 기존 generic suggestion을 canonical recommendation candidate로 변환
 - 기존 topic recommendation provenance와 outcome 계약 연결
 - `agent.suggestions.get`, Telegram renderer와 빠른 포스팅 UI 호환 유지
@@ -220,6 +221,7 @@ Agent Runtime -> outcome events -> Memory
 
 ## Deferred Work
 
+- Telegram-enabled environment에서 Stage 3 canonical recommendation feedback callback 실제 smoke test
 - Telegram recommendation delivery adapter
 - OS-level desktop push notification
 - email or Slack delivery

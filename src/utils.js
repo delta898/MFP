@@ -3702,7 +3702,11 @@ const Utils = {
             ? options.responseJsonSchema
             : null;
         const modelCode = String(options?.modelCode || '').trim();
-        const thinkingConfig = resolveGeminiThinkingConfig(modelCode, options?.reasoningEffort);
+        const thinkingConfig = resolveGeminiThinkingConfig(
+            modelCode,
+            options?.reasoningEffort,
+            options?.modelCapabilities
+        );
         const endpoint = resolveGeminiTextEndpoint(CONFIG.GEMINI_TEXT_ENDPOINT, modelCode);
         const logStart = options?.logStart !== false;
 
@@ -3876,7 +3880,8 @@ const Utils = {
                 ...runtimePolicy.options,
                 usageLabel,
                 apiKey: String(modelConfig.api_key || '').trim(),
-                modelCode
+                modelCode,
+                modelCapabilities: runtimePolicy.definition.capabilities
             });
         }
         return this.callOpenAiCompatibleTextByConfig(modelConfig, prompt, retries, {

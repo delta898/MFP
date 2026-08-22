@@ -1,5 +1,6 @@
 function createContentIdeaCapabilities(deps = {}) {
-    const { contentIdeaEngine } = deps;
+    const { contentIdeaEngine, recommendationMaterializer } = deps;
+    const { materializeTopicIdeas } = require('../../recommendations/adapters/topic-canonical-adapter');
 
     return [
         {
@@ -41,7 +42,15 @@ function createContentIdeaCapabilities(deps = {}) {
                     query: params.query || ''
                 }, context);
 
-                const ideas = Array.isArray(result?.ideas) ? result.ideas : [];
+                const ownerUserId = String(context?.memory?.owner_memory?.owner_user_id
+                    || deps.eventStore?.getLocalOwnerIdentity?.()?.owner_user_id || '').trim();
+                const ideas = await materializeTopicIdeas({
+                    ideas: Array.isArray(result?.ideas) ? result.ideas : [],
+                    candidates: Array.isArray(result?.candidates) ? result.candidates : [],
+                    run_id: result?.recommendation_run?.id,
+                    owner_user_id: ownerUserId,
+                    memory: context.memory
+                }, { materializer: recommendationMaterializer });
                 if (ideas.length === 0) {
                     return {
                         success: true,
