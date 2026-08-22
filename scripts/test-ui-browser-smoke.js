@@ -194,6 +194,12 @@ async function run() {
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
 
+        await page.locator('.nav-btn[data-view="social"]').click();
+        await page.locator('#manual-sns-text').fill('테스트 문구');
+        await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
+        assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);
+        await page.locator('#manual-sns-text').fill('');
+
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.waitForFunction(() => !document.getElementById('account-overview-content')?.classList.contains('hidden'));
         assert.equal((await page.locator('#account-plan-name').textContent())?.trim(), 'Free');

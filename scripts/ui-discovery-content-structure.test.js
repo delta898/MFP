@@ -61,7 +61,7 @@ test('WordPress category consumers use the shared lexical cache contract', () =>
     const uiScripts = [
         readScript('features/content/blog-tabs.js'),
         readScript('features/content/blog-topics.js'),
-        readScript('features/legacy-publish-helpers.js')
+        readScript('features/publishing/wordpress-controls.js')
     ].join('\n');
 
     assert.doesNotMatch(uiScripts, /\bglobalWpCategoryCache\b/);

@@ -26,7 +26,7 @@
 // @include scripts/features/discovery/trend-posting.js
 // @include scripts/features/discovery/naver-comment-draft.js
 // @include scripts/features/content/tab-navigation.js
-// @include scripts/features/legacy-preview-utils.js
+// @include scripts/features/publishing/preview-utils.js
 // @include scripts/features/shell/dashboard-content.js
 // @include scripts/features/shell/account-overview.js
 // @include scripts/features/shell/account-actions.js
@@ -35,7 +35,11 @@
 // @include scripts/features/shell/system-logs.js
 // @include scripts/features/shell/celebration.js
 // @include scripts/features/shell/clock.js
-// @include scripts/features/legacy-social.js
+// @include scripts/features/social/manual-state.js
+// @include scripts/features/social/manual-composer.js
+// @include scripts/features/social/manual-optimization.js
+// @include scripts/features/social/manual-publish.js
+// @include scripts/features/social/manual-lifecycle.js
 // @include scripts/foundation/navigation.js
 // @include scripts/features/content/blog-topics.js
 // @include scripts/features/content/shopping-items.js
@@ -44,4 +48,6 @@
 // @include scripts/features/legacy-settings.js
 // @include scripts/features/legacy-actions-controllers.js
 // @include scripts/foundation/lifecycle.js
-// @include scripts/features/legacy-publish-helpers.js
+// @include scripts/features/publishing/wordpress-controls.js
+// @include scripts/features/publishing/shared-preferences.js
+// @include scripts/features/publishing/shopping-controls.js

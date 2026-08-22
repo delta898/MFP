@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 7 completed; ready for stage 8
+- Phase: stage 8 implementation and validation
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: none
+- Current child branch: `feature/ui-structure-08-publishing-social`
 
 ## Goal
 
@@ -246,6 +246,35 @@
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
+
+## Current Stage: Publishing and Social Controllers
+
+### Scope
+
+- preview utility와 WordPress/shopping publish control을 `features/publishing/`으로 모은다.
+- manual SNS state, composer, optimization, publish, lifecycle을 `features/social/`로 분리한다.
+- 기존 classic-script 선언 순서와 단일 `/app.js` 응답을 그대로 유지한다.
+- publishing/settings listener가 함께 얽힌 대형 `bindActions()` 해체는 lifecycle 정리와 함께 10단계에서 수행한다.
+- controller별 대표 함수의 단일 소유권과 legacy 파일 재유입을 구조 테스트로 보호한다.
+
+### Completion Gate
+
+- 조립 결과가 단계 시작 시점 JavaScript와 byte-for-byte 동일하다.
+- publishing/social controller 소유권과 JavaScript 조합 구조 계약 테스트가 통과한다.
+- 실제 서버 E2E와 browser smoke에서 preview, WordPress controls, shopping quick, manual SNS 흐름이 유지된다.
+- 사용자가 실제 앱에서 해당 화면과 상호작용을 테스트하고 commit/merge를 승인한다.
+
+### Automated Validation Result
+
+- Stage-start/composed JavaScript: byte-for-byte identical, 13,810 lines
+- Publishing/social: 8 explicit controller owners; largest extracted module 301 lines
+- Focused composition, ownership, and structure tests: 13 passed
+- Full unit suite: 114 files, 529 tests passed
+- UI API E2E: passed; verifies the fully composed `/app.js` response
+- Settings API smoke: passed
+- Blog automation API smoke: passed
+- Browser UI smoke: passed with 35 fixture requests, including manual SNS input state and prior publishing/content flows
+- Manual UI validation: pending
 
 ## Non-Goals
 

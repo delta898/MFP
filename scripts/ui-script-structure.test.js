@@ -25,7 +25,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 50, true);
+    assert.equal(manifest.split('\n').length - 1 <= 80, true);
     assert.deepEqual(includePaths, [
         'scripts/foundation/ui-feedback-state.js',
         'scripts/features/shell/setup-banner.js',
@@ -55,7 +55,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/discovery/trend-posting.js',
         'scripts/features/discovery/naver-comment-draft.js',
         'scripts/features/content/tab-navigation.js',
-        'scripts/features/legacy-preview-utils.js',
+        'scripts/features/publishing/preview-utils.js',
         'scripts/features/shell/dashboard-content.js',
         'scripts/features/shell/account-overview.js',
         'scripts/features/shell/account-actions.js',
@@ -64,7 +64,11 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/shell/system-logs.js',
         'scripts/features/shell/celebration.js',
         'scripts/features/shell/clock.js',
-        'scripts/features/legacy-social.js',
+        'scripts/features/social/manual-state.js',
+        'scripts/features/social/manual-composer.js',
+        'scripts/features/social/manual-optimization.js',
+        'scripts/features/social/manual-publish.js',
+        'scripts/features/social/manual-lifecycle.js',
         'scripts/foundation/navigation.js',
         'scripts/features/content/blog-topics.js',
         'scripts/features/content/shopping-items.js',
@@ -73,7 +77,9 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/legacy-settings.js',
         'scripts/features/legacy-actions-controllers.js',
         'scripts/foundation/lifecycle.js',
-        'scripts/features/legacy-publish-helpers.js'
+        'scripts/features/publishing/wordpress-controls.js',
+        'scripts/features/publishing/shared-preferences.js',
+        'scripts/features/publishing/shopping-controls.js'
     ]);
 });
 
