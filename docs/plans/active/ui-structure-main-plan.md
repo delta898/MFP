@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 8 implementation and validation
+- Phase: stage 8 completed; ready for stage 9
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-08-publishing-social`
+- Current child branch: none
 
 ## Goal
 
@@ -247,7 +247,7 @@
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
 
-## Current Stage: Publishing and Social Controllers
+## Completed Stage: Publishing and Social Controllers
 
 ### Scope
 
@@ -274,7 +274,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 35 fixture requests, including manual SNS input state and prior publishing/content flows
-- Manual UI validation: pending
+- Manual UI validation: passed
 
 ## Non-Goals
 
