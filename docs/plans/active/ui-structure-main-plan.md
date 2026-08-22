@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 6 implementation and validation
+- Phase: stage 6 completed; ready for stage 7
 - Started: 2026-08-22
 - Integration branch: `feature/ui-structure-main`
-- Current child branch: `feature/ui-structure-06-dashboard-shell`
+- Current child branch: none
 
 ## Goal
 
@@ -128,7 +128,7 @@
 - Browser UI smoke: passed with 28 fixture requests
 - Manual UI validation: passed
 
-## Current Stage: Dashboard Shell Controllers
+## Completed Stage: Dashboard Shell Controllers
 
 ### Scope
 
@@ -155,7 +155,7 @@
 - Settings API smoke: passed
 - Blog automation API smoke: passed
 - Browser UI smoke: passed with 31 fixture requests, including account rendering, system logs, clock, update banner, and mobile sidebar
-- Manual UI validation: pending
+- Manual UI validation: passed
 
 ## Completed Stage: CSS Modules
 
