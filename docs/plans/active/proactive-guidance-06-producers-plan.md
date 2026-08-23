@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: 06c complete; 06d design next
+- Phase: stage 6 complete; stage 7 design next
 - Parent integration branch: `feature/proactive-guidance-main`
 - Current child branch: none
 - Version: unchanged during feature work
@@ -45,6 +45,8 @@ Candidate로 변환한다. Producer는 후보와 근거만 만들며 노출 여�
 - sanitized system facts and presentation-only handoff
 
 ### 06d Commerce Producer
+
+- Status: completed and user-approved on 2026-08-24
 
 - trend commerce opportunity
 - requires explicit product/shopping or measured commerce evidence

@@ -133,7 +133,7 @@ Agent Runtime -> outcome events -> Memory
   - `feature/proactive-guidance-06b-content-producers`
   - `feature/proactive-guidance-06c-operational-producers`
   - `feature/proactive-guidance-06d-commerce-producer`
-- Status: detailed design confirmed; 06a through 06c completed; 06d design next
+- Status: stages 1 through 6 completed; stage 7 design next
 - trend content opportunity
 - news content opportunity
 - trend commerce opportunity

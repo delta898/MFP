@@ -297,6 +297,20 @@ conversation-scoped list only as a fail-open fallback when the owner reader is u
 Recovery derivation groups runs by job name and evaluates only the latest run. A newer successful
 run therefore resolves an older failure instead of producing stale guidance.
 
+## Commerce Recommendation Grounding
+
+Commerce opportunity production joins two independent facts without promoting either one beyond its
+meaning: a fresh normalized Trends observation and an explicit or owner-backed shopping product
+anchor. Trends `score`, `change_type` and `change_amount` remain search-interest measurements; they
+are not represented as sales, conversion, purchase intent or revenue facts.
+
+Current commerce anchors are limited to a product explicitly supplied with `shopping_content`
+intent and owner `shopping` activity at `saved`, `selected`, `drafted` or `published` stage. General
+blog activity, generated-only shopping ideas and category-only overlap cannot ground a commerce
+candidate. Matching and candidate construction are separate modules so later measured commerce
+signals or reviewed matching rules can be introduced without weakening provenance and lifecycle
+boundaries.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.

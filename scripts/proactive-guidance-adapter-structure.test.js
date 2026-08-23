@@ -60,3 +60,17 @@ test('operational producers use sanitized state without policy, lifecycle or cha
     assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id|\.materialize\(/);
     assert.doesNotMatch(source, /result_json|raw_response/);
 });
+
+test('commerce producer uses canonical Knowledge and owner activity without policy or provider coupling', () => {
+    const files = [
+        'src/recommendations/producers/commerce-grounding.js',
+        'src/recommendations/producers/commerce-opportunity.js'
+    ];
+    const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
+    assert.match(source, /normalizeKnowledgeSnapshot/);
+    assert.doesNotMatch(source, /topic-ranking-policy|recommendation-materializer|lifecycle-store/);
+    assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
+    assert.doesNotMatch(source, /naver-news|naver-trends|serpapi/i);
+    assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id|\.materialize\(/);
+    assert.doesNotMatch(source, /판매량|전환율|매출|수익률/);
+});
