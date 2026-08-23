@@ -311,6 +311,20 @@ candidate. Matching and candidate construction are separate modules so later mea
 signals or reviewed matching rules can be introduced without weakening provenance and lifecycle
 boundaries.
 
+## Recommendation Policy Context
+
+Eligibility does not read raw config, License payloads or full Recommendation snapshots. An
+owner-scoped Policy Context projects registered capability ids, presentation surfaces, validated
+feature booleans, setting readiness booleans, quota counts and minimal Recommendation history.
+History retains only identity, kind, dedupe, status and lifecycle timestamps; Candidate evidence,
+Policy breakdown and lifecycle payloads are not copied.
+
+Requirement rules are server-owned by `kind + producer_id`. Candidate metadata cannot declare that
+an entitlement, setting, quota or capability check is unnecessary. A missing source closes only a
+Candidate that needs that source, except Recommendation history: without persistent or bounded
+volatile history, eligibility closes recommendation creation to prevent uncontrolled duplicates
+while leaving existing application workflows unaffected.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.

@@ -74,3 +74,17 @@ test('commerce producer uses canonical Knowledge and owner activity without poli
     assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id|\.materialize\(/);
     assert.doesNotMatch(source, /판매량|전환율|매출|수익률/);
 });
+
+test('recommendation policy reads sanitized injected facts without UI, provider or singleton coupling', () => {
+    const files = [
+        'src/recommendations/policy/context.js',
+        'src/recommendations/policy/requirements.js',
+        'src/recommendations/policy/eligibility.js'
+    ];
+    const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
+    assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/config-loader/);
+    assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/license['"]\)/);
+    assert.doesNotMatch(source, /telegram|ui-server|ui\//i);
+    assert.doesNotMatch(source, /naver-news|naver-trends|serpapi|raw_response/i);
+    assert.doesNotMatch(source, /recommendation\.created|\.materialize\(/);
+});

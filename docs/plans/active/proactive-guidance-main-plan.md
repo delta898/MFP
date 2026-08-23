@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 6c complete; stage 6d design next
+- Phase: stage 7 in progress; 07a complete and 07b next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: none
+- Current child branch: `feature/proactive-guidance-07-policy-ranking`
 - Release version: undecided until release preparation
 
 ## Product Goal
@@ -145,6 +145,11 @@ Agent Runtime -> outcome events -> Memory
 ### 7. Policy and Ranking
 
 - Branch: `feature/proactive-guidance-07-policy-ranking`
+- Child branches:
+  - `feature/proactive-guidance-07a-policy-eligibility`
+  - `feature/proactive-guidance-07b-ranking-diversity`
+  - `feature/proactive-guidance-07c-policy-evaluation`
+- Status: detailed design proposed; awaiting user confirmation
 - evidence strength/freshness와 owner relevance
 - capability availability, settings, entitlement와 quota eligibility
 - cooldown, dedupe, daily cap와 category diversity
