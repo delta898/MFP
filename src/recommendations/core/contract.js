@@ -77,6 +77,8 @@ const RECOMMENDATION_PRESENTATION_SURFACES = Object.freeze([
     'blog.trend_posting',
     'shopping.items',
     'shopping.batch',
+    'settings.general',
+    'settings.blog',
     'settings.wordpress',
     'settings.shopping_connect',
     'settings.ai',

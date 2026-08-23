@@ -1568,6 +1568,28 @@ class KuzuEventStore {
         return items;
     }
 
+    async listOwnerJobRuns(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const limit = Math.max(1, Math.min(200, parseInt(options.limit, 10) || 40));
+        const res = await this._runQuery(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode)-[:EventHAS_ACTION]->(a:ActionNode)-[:ActionTRIGGERED_JOB]->(j:JobRunNode) RETURN DISTINCT j.id AS id, j.job_name AS job_name, j.status AS status, j.started_at AS started_at, j.finished_at AS finished_at ORDER BY j.started_at DESC LIMIT $limit',
+            { owner_id: resolvedOwnerUserId, limit }
+        );
+        const items = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            items.push({
+                id: row.id,
+                job_name: row.job_name,
+                status: row.status,
+                started_at: row.started_at,
+                finished_at: row.finished_at
+            });
+        }
+        return items;
+    }
+
     async listOwnerArtifacts(ownerUserId = '', options = {}) {
         await this.initialize();
         const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);

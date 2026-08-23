@@ -5,6 +5,7 @@ const {
     RECOMMENDATION_KINDS,
     RECOMMENDATION_STATES,
     RECOMMENDATION_EVENT_TYPES,
+    RECOMMENDATION_PRESENTATION_SURFACES,
     normalizeRecommendationCandidate,
     normalizeRecommendation,
     toPublicRecommendationDto
@@ -22,6 +23,8 @@ test('exposes the canonical recommendation vocabulary', () => {
     ]);
     assert.equal(RECOMMENDATION_STATES.includes('action_failed'), true);
     assert.equal(RECOMMENDATION_EVENT_TYPES.includes('recommendation.action_completed'), true);
+    assert.equal(RECOMMENDATION_PRESENTATION_SURFACES.includes('settings.general'), true);
+    assert.equal(RECOMMENDATION_PRESENTATION_SURFACES.includes('settings.blog'), true);
 });
 
 test('normalizes a candidate without assigning policy or lifecycle state', () => {

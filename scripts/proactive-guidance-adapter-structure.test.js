@@ -44,3 +44,19 @@ test('content producer stays on canonical Knowledge and candidate boundaries', (
     assert.doesNotMatch(source, /naver-news|naver-trends|serpapi/i);
     assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id/);
 });
+
+test('operational producers use sanitized state without policy, lifecycle or channel coupling', () => {
+    const files = [
+        'src/recommendations/producers/operational-state-collector.js',
+        'src/recommendations/producers/operational-candidate.js',
+        'src/recommendations/producers/setup-guidance.js',
+        'src/recommendations/producers/job-recovery.js',
+        'src/recommendations/producers/pending-workflow.js'
+    ];
+    const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
+    assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/config-loader/);
+    assert.doesNotMatch(source, /topic-ranking-policy|recommendation-materializer|lifecycle-store/);
+    assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
+    assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id|\.materialize\(/);
+    assert.doesNotMatch(source, /result_json|raw_response/);
+});

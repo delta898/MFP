@@ -278,6 +278,25 @@ the strict values `helpful` and `not_helpful`. Negative feedback is followed by 
 transition, while positive feedback does not imply action execution. Existing topic selection,
 save, draft and publish outcomes remain owner activity evidence until capability handoff is added.
 
+## Owner-Scoped Operational Reads
+
+Operational recovery candidates read JobRun facts through the existing graph path:
+
+```text
+OwnerNode -> OwnerOWNS_EVENT -> EventNode
+          -> EventHAS_ACTION -> ActionNode
+          -> ActionTRIGGERED_JOB -> JobRunNode
+```
+
+This path provides owner isolation without adding a duplicate Owner-to-Job relation or migrating
+historic rows. The operational read model returns only job identity, name, status and timestamps;
+`result_json` remains inside Memory and cannot become Recommendation evidence, metadata or public
+presentation payload. Memory context prefers this owner-scoped read and keeps the older
+conversation-scoped list only as a fail-open fallback when the owner reader is unavailable.
+
+Recovery derivation groups runs by job name and evaluates only the latest run. A newer successful
+run therefore resolves an older failure instead of producing stale guidance.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.

@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: 06b complete; 06c design next
+- Phase: 06c complete; 06d design next
 - Parent integration branch: `feature/proactive-guidance-main`
 - Current child branch: none
 - Version: unchanged during feature work
@@ -36,6 +36,8 @@ Candidate로 변환한다. Producer는 후보와 근거만 만들며 노출 여�
 - article/event grouping without broad fallback queries
 
 ### 06c Operational Producers
+
+- Status: completed and user-approved on 2026-08-24
 
 - setup guidance
 - failed job recovery

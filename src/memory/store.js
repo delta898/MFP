@@ -43,6 +43,7 @@ function buildDisabledEventStore(reason) {
         async listRecentJobRuns() { return []; },
         async listRecentArtifacts() { return []; },
         async listOwnerEvents() { return []; },
+        async listOwnerJobRuns() { return []; },
         async listOwnerArtifacts() { return []; },
         async getOwnerActivitySignalSummary(ownerUserId = '', options = {}) {
             const requestedDomains = Array.isArray(options.domains)

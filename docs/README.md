@@ -74,6 +74,7 @@
 - `plans/active/proactive-guidance-06-producers-plan.md`
 - `plans/active/proactive-guidance-06a-producer-runtime-plan.md`
 - `plans/active/proactive-guidance-06b-content-producers-plan.md`
+- `plans/active/proactive-guidance-06c-operational-producers-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

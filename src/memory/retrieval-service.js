@@ -63,6 +63,11 @@ function createMemoryRetrievalService(options = {}) {
             let ownerArtifacts = [];
             let ownerProfile = null;
             if (eventStore && ownerUserId) {
+                if (typeof eventStore.listOwnerJobRuns === 'function') {
+                    recentJobRuns = await readOr(recentJobRuns, () => eventStore.listOwnerJobRuns(ownerUserId, {
+                        limit: Math.min(40, limit * 4)
+                    }));
+                }
                 ownerActivity = typeof eventStore.getOwnerActivitySignalSummary === 'function'
                     ? await readOr(null, () => eventStore.getOwnerActivitySignalSummary(ownerUserId, {
                         limit: Math.min(40, limit * 4),
