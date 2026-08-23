@@ -53,8 +53,9 @@ test('adds the built-in Naver provider to content idea routing', async () => {
 
     assert.equal(snapshots.length, 1);
     assert.equal(snapshots[0].provider_id, 'naver-trends');
-    assert.equal(snapshots[0].items[0].metadata.source, 'naver_trend');
-    assert.equal(snapshots[0].items[0].metadata.evidence_stage, 'observed');
+    assert.equal(snapshots[0].items[0].source, 'naver-trend-posting');
+    assert.equal(snapshots[0].items[0].keyword, 'AI 글쓰기');
+    assert.equal(snapshots[0].items[0].change_type, 'new');
     assert.equal(requests.length, 2);
 });
 

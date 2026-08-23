@@ -15,6 +15,7 @@ test('registers Naver news as a server gateway provider without enabling Stage 6
     assert.equal(definition.transport, 'server_gateway');
     assert.equal(definition.enabled, true);
     assert.deepEqual(registry.knowledgeRouting.content_ideas, ['naver-trends']);
+    assert.deepEqual(registry.knowledgeRouting.recommendation_content_news, ['naver-news']);
     assert.deepEqual(
         await registry.knowledgeRegistry.fetchForRoute('content_ideas', { kind: 'news', topic: 'AI' }),
         []

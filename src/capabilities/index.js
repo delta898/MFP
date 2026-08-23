@@ -50,11 +50,17 @@ function createCapabilityRegistry(deps = {}) {
         ? deps.CONFIG.knowledge.routing
         : (deps.CONFIG?.KNOWLEDGE_ROUTING && typeof deps.CONFIG.KNOWLEDGE_ROUTING === 'object' ? deps.CONFIG.KNOWLEDGE_ROUTING : {});
     const contentIdeaRoute = Array.isArray(configuredRouting.content_ideas) ? configuredRouting.content_ideas : [];
+    const contentNewsRoute = Array.isArray(configuredRouting.recommendation_content_news)
+        ? configuredRouting.recommendation_content_news
+        : [];
     const routing = {
         ...configuredRouting,
         content_ideas: contentIdeaRoute.includes(DEFAULT_NAVER_TRENDS_PROVIDER_ID)
             ? contentIdeaRoute
-            : [...contentIdeaRoute, DEFAULT_NAVER_TRENDS_PROVIDER_ID]
+            : [...contentIdeaRoute, DEFAULT_NAVER_TRENDS_PROVIDER_ID],
+        recommendation_content_news: contentNewsRoute.includes(DEFAULT_NAVER_NEWS_PROVIDER_ID)
+            ? contentNewsRoute
+            : [...contentNewsRoute, DEFAULT_NAVER_NEWS_PROVIDER_ID]
     };
     const serverGatewayClient = deps.serverGatewayClient || createKnowledgeServerGatewayClient({
         config: deps.CONFIG,

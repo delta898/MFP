@@ -30,3 +30,17 @@ test('producer runtime stays independent from policy, lifecycle, legacy suggesti
     assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
     assert.doesNotMatch(source, /\.materialize\(|policy_id|recommendation\.created/);
 });
+
+test('content producer stays on canonical Knowledge and candidate boundaries', () => {
+    const files = [
+        'src/recommendations/producers/content-query-plan.js',
+        'src/recommendations/producers/content-knowledge-collector.js',
+        'src/recommendations/producers/content-opportunity.js'
+    ];
+    const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
+    assert.match(source, /normalizeKnowledgeSnapshot/);
+    assert.doesNotMatch(source, /topic-ranking-policy|recommendation-materializer|lifecycle-store/);
+    assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
+    assert.doesNotMatch(source, /naver-news|naver-trends|serpapi/i);
+    assert.doesNotMatch(source, /policy_id|recommendation\.created|capability_id/);
+});

@@ -42,6 +42,33 @@ test('combines request, trend, and owner profile evidence without scoring', () =
     assert.equal(Object.hasOwn(trend, 'score'), false);
 });
 
+test('keeps the existing topic lane compatible with canonical Trends items', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: profile(),
+        knowledge: [{
+            schema_version: 1,
+            snapshot_id: 'ks_trends_fixture',
+            provider_id: 'naver-trends',
+            kind: 'trends',
+            transport: 'builtin_api',
+            freshness: 'fresh',
+            observed_at: '2026-08-24T00:00:00.000Z',
+            expires_at: '2026-08-24T00:15:00.000Z',
+            items: [{
+                id: 'trend-1', title: 'AI 에이전트', summary: '상승', observed_at: '2026-08-23T15:00:00.000Z',
+                url: '', source: 'naver-trend-posting', publisher: '', keyword: 'AI 에이전트', categories: ['IT'],
+                change_type: 'up', change_amount: 4, score: 4, display_order: 1
+            }]
+        }]
+    });
+
+    const trend = result.candidates.find((item) => item.candidate_type === 'trend_seed');
+    assert.equal(trend.topic_seed, 'AI 에이전트');
+    assert.equal(trend.trend.change_type, 'up');
+    assert.deepEqual(trend.trend.categories, ['IT']);
+    assert.equal(trend.source_refs[0].source, 'naver-trend-posting');
+});
+
 test('excludes exact recent seeds and keeps stable candidate ids', () => {
     const generator = createTopicCandidateGenerator();
     const input = {

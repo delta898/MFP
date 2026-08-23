@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: 06a complete; 06b design next
+- Phase: 06b complete; 06c design next
 - Parent integration branch: `feature/proactive-guidance-main`
 - Current child branch: none
 - Version: unchanged during feature work
@@ -26,6 +26,8 @@ Candidate로 변환한다. Producer는 후보와 근거만 만들며 노출 여�
 - no policy, materialization, delivery or UI integration
 
 ### 06b Content Producers
+
+- Status: completed and user-approved on 2026-08-24
 
 - trend content opportunity
 - news content opportunity

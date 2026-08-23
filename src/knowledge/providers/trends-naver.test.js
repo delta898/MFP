@@ -22,15 +22,17 @@ test('normalizes Naver trend data as observed weak knowledge', () => {
     }, { id: 'fixture-provider' });
 
     assert.equal(item.title, 'AI 글쓰기');
-    assert.equal(item.metadata.source, 'naver_trend');
-    assert.equal(item.metadata.evidence_stage, 'observed');
-    assert.equal(item.metadata.evidence_strength, 'weak');
-    assert.equal(item.metadata.provider_id, 'fixture-provider');
+    assert.equal(item.source, 'naver-trend-posting');
+    assert.equal(item.keyword, 'AI 글쓰기');
+    assert.equal(item.change_type, 'up');
+    assert.equal(item.change_amount, 7);
+    assert.match(item.id, /^trend_[a-f0-9]{64}$/);
 });
 
 test('fetches a bounded latest-day snapshot without creating user evidence', async () => {
     const calls = [];
     const provider = createNaverTrendsProvider({
+        now: () => new Date('2026-08-24T00:00:00.000Z'),
         remoteClient: {
             async getMeta() {
                 return {
@@ -60,8 +62,12 @@ test('fetches a bounded latest-day snapshot without creating user evidence', asy
         dateFrom: '2026-08-14',
         dateTo: '2026-08-14'
     });
-    assert.equal(result.length, 1);
-    assert.equal(result[0].metadata.evidence_stage, 'observed');
-    assert.equal(result[0].metadata.evidence_strength, 'weak');
-    assert.equal(Object.hasOwn(result[0].metadata, 'owner_user_id'), false);
+    assert.equal(result.kind, 'trends');
+    assert.equal(result.provider_id, 'naver-trends');
+    assert.equal(result.transport, 'builtin_api');
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].source, 'naver-trend-posting');
+    assert.equal(Object.hasOwn(result.items[0], 'owner_user_id'), false);
+    assert.equal(result.observed_at, '2026-08-24T00:00:00.000Z');
+    assert.equal(result.expires_at, '2026-08-24T00:15:00.000Z');
 });

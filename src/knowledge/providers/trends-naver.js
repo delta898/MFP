@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { createAccessTokenCache } = require('../../trend-posting/access-token-cache');
 const {
     DEFAULT_TRENDS_API_BASE_URL,
@@ -34,28 +35,40 @@ function finiteNumberOrNull(value) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-function normalizeNaverTrendItem(item = {}, definition = {}) {
+function stableTrendItemId(providerId, keyword, observedAt, categories = []) {
+    const identity = [providerId, keyword, observedAt, ...categories].join(':');
+    return `trend_${crypto.createHash('sha256').update(identity).digest('hex')}`;
+}
+
+function resolveTrendObservedAt(value, fallback) {
+    const date = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Date(`${date}T00:00:00+09:00`).toISOString();
+    const parsed = Date.parse(date);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : fallback;
+}
+
+function normalizeNaverTrendItem(item = {}, definition = {}, options = {}) {
     const changeAmount = finiteNumberOrNull(item.change?.amount);
     const displayOrder = finiteNumberOrNull(item.displayOrder);
+    const providerId = String(definition.id || DEFAULT_PROVIDER_ID).trim();
+    const keyword = String(item.keyword || '').trim();
+    const categories = Array.isArray(item.categories) ? item.categories.map(String).filter(Boolean) : [];
+    const fallbackObservedAt = new Date(options.now || Date.now()).toISOString();
+    const observedAt = resolveTrendObservedAt(item.latestTrendDate, fallbackObservedAt);
     return {
-        title: String(item.keyword || '').trim(),
+        id: stableTrendItemId(providerId, keyword, observedAt, categories),
+        title: keyword,
         summary: buildSummary(item),
+        observed_at: observedAt,
+        url: '',
+        source: 'naver-trend-posting',
+        publisher: '',
+        keyword,
+        categories,
+        change_type: String(item.change?.type || 'steady').trim(),
+        change_amount: Number.isFinite(changeAmount) ? changeAmount : null,
         score: item.change?.type === 'up' && Number.isFinite(changeAmount) ? changeAmount : 0,
-        timestamp: item.latestTrendDate ? `${item.latestTrendDate}T00:00:00+09:00` : '',
-        metadata: {
-            keyword: String(item.keyword || '').trim(),
-            categories: Array.isArray(item.categories) ? item.categories.map(String).filter(Boolean) : [],
-            trend_date: String(item.latestTrendDate || '').trim(),
-            change_type: String(item.change?.type || 'steady').trim(),
-            change_amount: Number.isFinite(changeAmount) ? changeAmount : null,
-            change_raw: String(item.change?.raw || '-').trim(),
-            display_order: Number.isFinite(displayOrder) ? displayOrder : null,
-            provider_id: String(definition.id || DEFAULT_PROVIDER_ID).trim(),
-            vendor: DEFAULT_VENDOR,
-            source: 'naver_trend',
-            evidence_stage: 'observed',
-            evidence_strength: 'weak'
-        }
+        ...(Number.isFinite(displayOrder) ? { display_order: displayOrder } : {})
     };
 }
 
@@ -79,6 +92,7 @@ function createNaverTrendsProvider(options = {}) {
     const axios = options.axios;
     const License = options.License;
     const injectedClient = options.remoteClient || null;
+    const now = typeof options.now === 'function' ? options.now : () => new Date();
     const clients = new Map();
 
     function getClient(config = {}) {
@@ -121,10 +135,24 @@ function createNaverTrendsProvider(options = {}) {
                 throw new Error(result?.message || 'invalid Naver trends response');
             }
 
-            return aggregateTrendKeywords(result.items)
-                .map((item) => normalizeNaverTrendItem(item, definition))
+            const snapshotObservedAt = new Date(now()).toISOString();
+            const items = aggregateTrendKeywords(result.items)
+                .map((item) => normalizeNaverTrendItem(item, definition, { now: snapshotObservedAt }))
                 .filter((item) => item.title)
                 .slice(0, limit);
+            const ttlSeconds = Math.max(60, Math.min(86400, Number(config.snapshot_ttl_seconds) || 900));
+            const snapshotIdentity = `${definition.id}:${snapshotObservedAt}:${items.map((item) => item.id).join(',')}`;
+            return {
+                schema_version: 1,
+                snapshot_id: `ks_${crypto.createHash('sha256').update(snapshotIdentity).digest('hex')}`,
+                kind: 'trends',
+                provider_id: String(definition.id || DEFAULT_PROVIDER_ID).trim(),
+                transport: String(definition.transport || 'builtin_api').trim(),
+                freshness: 'fresh',
+                observed_at: snapshotObservedAt,
+                expires_at: new Date(Date.parse(snapshotObservedAt) + ttlSeconds * 1000).toISOString(),
+                items
+            };
         }
     };
 }
@@ -135,5 +163,6 @@ module.exports = {
     createDefaultNaverTrendsDefinition,
     createNaverTrendsProvider,
     normalizeNaverTrendItem,
-    resolveLatestDate
+    resolveLatestDate,
+    stableTrendItemId
 };

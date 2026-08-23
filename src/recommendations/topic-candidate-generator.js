@@ -82,6 +82,23 @@ function flattenTrendKnowledge(knowledge = []) {
         })));
 }
 
+function readTrendItem(item = {}) {
+    const metadata = item?.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+    const observedAt = item.observed_at || item.timestamp || null;
+    return {
+        title: compact(item.keyword || item.title || metadata.keyword || metadata.query, 180),
+        categories: Array.isArray(item.categories)
+            ? item.categories
+            : (Array.isArray(metadata.categories) ? metadata.categories : []),
+        trend_date: compact(metadata.trend_date || observedAt, 80) || null,
+        change_type: compact(item.change_type || metadata.change_type, 40),
+        change_amount: item.change_amount ?? metadata.change_amount ?? null,
+        display_order: item.display_order ?? metadata.display_order ?? null,
+        source: compact(item.source || metadata.source, 80),
+        timestamp: observedAt
+    };
+}
+
 function matchesFacet(textValue, facets = []) {
     const key = normalizeKey(textValue);
     if (!key) return [];
@@ -202,9 +219,10 @@ function createTopicCandidateGenerator() {
 
             for (const entry of flattenTrendKnowledge(input.knowledge)) {
                 const item = entry.item || {};
-                const title = compact(item.title || item?.metadata?.keyword, 180);
+                const trendItem = readTrendItem(item);
+                const title = trendItem.title;
                 if (!title) continue;
-                const categoryText = Array.isArray(item?.metadata?.categories) ? item.metadata.categories.join(' ') : '';
+                const categoryText = trendItem.categories.join(' ');
                 const keywordMatches = matchesFacet(title, keywords);
                 const categoryMatches = matchesFacet(categoryText, categories);
                 append(buildCandidate({
@@ -214,19 +232,19 @@ function createTopicCandidateGenerator() {
                         kind: 'knowledge',
                         provider_id: entry.provider_id,
                         transport: entry.transport,
-                        source: compact(item?.metadata?.source, 80),
-                        timestamp: item.timestamp || null
+                        source: trendItem.source,
+                        timestamp: trendItem.timestamp
                     }],
                     owner_matches: {
                         keywords: keywordMatches,
                         categories: categoryMatches
                     },
                     trend: {
-                        categories: Array.isArray(item?.metadata?.categories) ? item.metadata.categories : [],
-                        trend_date: item?.metadata?.trend_date || null,
-                        change_type: compact(item?.metadata?.change_type, 40),
-                        change_amount: item?.metadata?.change_amount ?? null,
-                        display_order: item?.metadata?.display_order ?? null
+                        categories: trendItem.categories,
+                        trend_date: trendItem.trend_date,
+                        change_type: trendItem.change_type,
+                        change_amount: trendItem.change_amount,
+                        display_order: trendItem.display_order
                     },
                     evidence_features: {
                         owner_keyword_evidence: keywordMatches.reduce((sum, match) => sum + match.evidence_count, 0),
@@ -341,5 +359,6 @@ module.exports = {
     flattenTrendKnowledge,
     focusMatch,
     normalizeKey,
+    readTrendItem,
     stableCandidateId
 };

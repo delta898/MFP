@@ -79,7 +79,7 @@ function normalizeCommonItem(raw = {}, path = 'item') {
 function normalizeTrendItem(raw = {}, path = 'item') {
     assertOnlyKeys(raw, new Set([
         'id', 'title', 'summary', 'observed_at', 'url', 'source', 'publisher',
-        'keyword', 'categories', 'change_type', 'change_amount', 'score'
+        'keyword', 'categories', 'change_type', 'change_amount', 'score', 'display_order'
     ]), path);
     const common = normalizeCommonItem(raw, path);
     const keyword = compact(raw.keyword || raw.title, 180);
@@ -97,7 +97,8 @@ function normalizeTrendItem(raw = {}, path = 'item') {
         categories,
         change_type: changeType,
         change_amount: finiteNumberOrNull(raw.change_amount),
-        score: finiteNumberOrNull(raw.score)
+        score: finiteNumberOrNull(raw.score),
+        display_order: finiteNumberOrNull(raw.display_order)
     };
 }
 

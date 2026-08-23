@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: stage 6a complete; stage 6b design next
+- Phase: stage 6b complete; stage 6c design next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
 - Current child branch: none
@@ -133,7 +133,7 @@ Agent Runtime -> outcome events -> Memory
   - `feature/proactive-guidance-06b-content-producers`
   - `feature/proactive-guidance-06c-operational-producers`
   - `feature/proactive-guidance-06d-commerce-producer`
-- Status: detailed design confirmed; 06a completed and user-approved on 2026-08-24; 06b design next
+- Status: detailed design confirmed; 06a and 06b completed; 06c design next
 - trend content opportunity
 - news content opportunity
 - trend commerce opportunity

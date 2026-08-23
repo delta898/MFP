@@ -43,7 +43,7 @@ The desktop app exposes its licensed Trend Posting source through:
 
 - `trends + builtin_api + naver_trend_posting`
 - default provider id `naver-trends`
-- normalized keyword/category/date/change metadata
+- strict canonical Trends Snapshot with normalized keyword/category/date/change fields
 
 The provider reuses the existing access-token cache and remote client. It is a
 knowledge read, not an owner-memory write. Returned items are labelled
@@ -63,10 +63,13 @@ The registry exposes versioned envelopes with:
 - at most 50 bounded kind-specific items;
 - source/publisher provenance without credentials or raw provider responses.
 
-Legacy array-returning `builtin_api` providers retain their existing item DTOs and gain the
-snapshot envelope at the registry boundary. New `server_gateway` responses must pass strict Trends
-or News validation before reaching a consumer. Gateway failures return an empty isolated provider
-result with a stable code; other providers and owner memory continue.
+The built-in Naver Trends provider and every `server_gateway` response pass strict Trends or News
+Snapshot validation before reaching a consumer. Legacy array-returning providers, including the
+currently separate user-key SerpApi path, retain their item DTO during transition and gain a
+snapshot envelope at the registry boundary. New Recommendation Producers reject those legacy item
+DTOs rather than parsing vendor fields; the existing content-idea lane keeps a bounded compatibility
+reader. Gateway failures return an empty isolated provider result with a stable code; other providers
+and owner memory continue.
 
 External Knowledge is always `observed / weak`. Fetching, caching or displaying a snapshot does
 not create owner activity or preference evidence.
@@ -89,10 +92,11 @@ Search News results with a 15-minute cache and bounded stale fallback. A blank t
 short-circuits to an empty validated Snapshot before provider quota because Naver News Search does
 not provide a query-free latest-headlines operation.
 
-The desktop registers `naver-news` as an enabled `server_gateway` definition but Stage 5 does not
-add it to the content-idea route. Stage 6 Recommendation Producers will create justified news
-queries and consume it. This avoids silently changing existing recommendations before relevance
-and ranking policy exist.
+The desktop registers `naver-news` on the explicit `recommendation_content_news` route. The Stage 6
+content collector selects at most one justified query from each of explicit input, validated owner
+activity and canonical Trends, with a maximum of three News calls per evaluation. The existing
+`content_ideas` route remains Trends-only, so current interactive recommendations do not silently
+start spending News quota.
 
 ## Current Gap
 - `mcp_tool` transport is still structural only and needs real implementation.
