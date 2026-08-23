@@ -15,6 +15,7 @@ const recommendation = buildRecommendationContext({
     policy: { id: 'topic-ranking-v1', version: 1 },
     candidate: {
         id: 'candidate-1',
+        candidate_type: 'trend_seed',
         topic_seed: '무료 홈서버',
         source_refs: [{ kind: 'knowledge', provider_id: 'naver-trends' }],
         ranking: {
@@ -30,6 +31,8 @@ test('normalizes a compact recommendation provenance contract', () => {
         schema_version: 1,
         run_id: 'run-1',
         candidate_id: 'candidate-1',
+        candidate_type: 'trend_seed',
+        basis: 'trend',
         topic_seed: '무료 홈서버',
         policy_id: 'topic-ranking-v1',
         policy_version: 1,
@@ -42,6 +45,9 @@ test('normalizes a compact recommendation provenance contract', () => {
             provider_id: 'naver-trends',
             transport: '',
             source: '',
+            subject: '',
+            domain: '',
+            stage: '',
             timestamp: null
         }]
     });

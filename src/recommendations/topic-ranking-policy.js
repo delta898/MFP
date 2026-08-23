@@ -72,6 +72,7 @@ function scoreCandidate(candidate = {}, input = {}) {
     const now = input.now || new Date();
     const features = candidate.evidence_features || {};
     const breakdown = [];
+    const suppressionReasons = [];
 
     function add(code, points, evidence = null) {
         if (!Number.isFinite(points) || points === 0) return;
@@ -119,19 +120,24 @@ function scoreCandidate(candidate = {}, input = {}) {
         }
     }
 
-    for (const feedback of feedbackForCandidate(candidate, profile)) {
+    const latestFeedback = feedbackForCandidate(candidate, profile)[0] || null;
+    if (latestFeedback) {
+        const feedback = latestFeedback;
         const polarity = String(feedback?.feedback || '').trim().toLowerCase();
         if (['helpful', 'accepted'].includes(polarity)) {
             add('positive_feedback', finite(weights.helpful_feedback), feedback.evidence || null);
         }
         if (['not_helpful', 'rejected'].includes(polarity)) {
             add('negative_feedback', finite(weights.not_helpful_feedback), feedback.evidence || null);
+            suppressionReasons.push('negative_feedback');
         }
     }
 
     return {
         score: breakdown.reduce((sum, item) => sum + item.points, 0),
-        breakdown
+        breakdown,
+        eligible: suppressionReasons.length === 0,
+        suppression_reasons: suppressionReasons
     };
 }
 
@@ -148,7 +154,7 @@ function rankTopicCandidates(input = {}) {
     const candidates = Array.isArray(input.candidates) ? input.candidates : [];
     const policy = input.policy || TOPIC_RANKING_POLICY;
     const limit = Math.max(1, Math.min(20, Number(input.limit || 5)));
-    const scored = candidates.map((candidate, index) => {
+    const ranked = candidates.map((candidate, index) => {
         const ranking = scoreCandidate(candidate, {
             policy,
             ownerProfile: input.ownerProfile,
@@ -161,17 +167,28 @@ function rankTopicCandidates(input = {}) {
                 policy_version: policy.version,
                 score: ranking.score,
                 breakdown: ranking.breakdown,
+                eligible: ranking.eligible,
+                suppression_reasons: ranking.suppression_reasons,
                 original_index: index,
                 diversity_group: diversityGroup(candidate)
             }
         };
     }).sort((left, right) => right.ranking.score - left.ranking.score || left.ranking.original_index - right.ranking.original_index);
+    const scored = ranked.filter((candidate) => candidate.ranking.eligible !== false);
 
     const preferredCandidateTypes = Array.isArray(input.preferredCandidateTypes)
         ? input.preferredCandidateTypes.map((value) => String(value || '').trim()).filter(Boolean)
         : [];
     const selected = [];
-    const deferred = [];
+    const deferred = ranked
+        .filter((candidate) => candidate.ranking.eligible === false)
+        .map((candidate) => ({
+            ...candidate,
+            ranking: {
+                ...candidate.ranking,
+                deferred_reason: candidate.ranking.suppression_reasons[0] || 'ineligible'
+            }
+        }));
     const groupCounts = new Map();
     const maxPerGroup = Math.max(1, finite(policy?.diversity?.max_per_group, 2));
     const threshold = Math.max(0, Math.min(1, finite(policy?.diversity?.similarity_threshold, 0.75)));

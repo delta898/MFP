@@ -88,6 +88,7 @@ test('does not use generated activity signals but keeps selected writing activit
             activity: {
                 recent_subjects: [
                     { subject: '단순 추천 결과', domain: 'blog', stage: 'generated' },
+                    { subject: '거절한 추천 결과', domain: 'blog', stage: 'feedback' },
                     { subject: '사용자가 선택한 글감', domain: 'blog', stage: 'selected' }
                 ]
             }
@@ -95,7 +96,52 @@ test('does not use generated activity signals but keeps selected writing activit
     });
 
     assert.equal(result.candidates.some((item) => item.topic_seed === '단순 추천 결과'), false);
+    assert.equal(result.candidates.some((item) => item.topic_seed === '거절한 추천 결과'), false);
     assert.equal(result.candidates.some((item) => item.topic_seed === '사용자가 선택한 글감'), true);
+});
+
+test('carries the original saved-topic context so ambiguous keywords keep their meaning', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: {
+            owner_user_id: 'local:test',
+            interests: {
+                keywords: [{
+                    value: '오디세이', normalized_value: '오디세이', evidence_count: 1,
+                    evidence: { kind: 'topic_facet', id: 'facet-odyssey' },
+                    contexts: [{
+                        subject: '판교 CGV에서 영화 오디세이 관람 후기',
+                        category: '생활', source: 'manual',
+                        instruction: '그리스 로마신화 영화의 감상을 정리한다.'
+                    }]
+                }],
+                categories: [], platforms: []
+            }
+        }
+    });
+
+    const candidate = result.candidates.find((item) => item.candidate_type === 'profile_seed');
+    assert.match(candidate.semantic_context, /영화 오디세이/);
+    assert.match(candidate.semantic_context, /그리스 로마신화/);
+    assert.equal(candidate.source_refs[0].kind, 'topic_facet');
+    assert.equal(candidate.source_refs[0].subject, '판교 CGV에서 영화 오디세이 관람 후기');
+});
+
+test('does not promote automatically observed trends into owner interests', () => {
+    const result = createTopicCandidateGenerator().generate({
+        ownerProfile: {
+            owner_user_id: 'local:test',
+            interests: {
+                keywords: [{
+                    value: '자동 수집 키워드', normalized_value: '자동 수집 키워드', evidence_count: 1,
+                    evidence: { kind: 'topic_facet', id: 'facet-auto' },
+                    contexts: [{ subject: '자동 트렌드', source: 'auto-trends' }]
+                }],
+                categories: [], platforms: []
+            }
+        }
+    });
+
+    assert.equal(result.candidates.some((item) => item.topic_seed === '자동 수집 키워드'), false);
 });
 
 test('excludes candidate ids that were recommended in previous runs', () => {

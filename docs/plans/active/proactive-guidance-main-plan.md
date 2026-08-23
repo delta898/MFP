@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 3 complete; awaiting commit and parent merge approval
+- Phase: stage 4 complete; stage 5 detailed design next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: `feature/proactive-guidance-03-legacy-adapters`
+- Current child branch: `feature/proactive-guidance-04-external-knowledge-gateway`
 - Release version: undecided until release preparation
 
 ## Product Goal
@@ -54,6 +54,10 @@ Agent Runtime -> outcome events -> Memory
   entitlement, quota와 confirmation 경로를 우회하지 않는다.
 - 외부 정보 조회나 추천 노출만으로 사용자 선호를 추론하지 않는다. 사실을 먼저
   기록하고 명시적 반응과 성공한 outcome에서만 학습한다.
+- 사용자에게 보이는 추천 근거는 시스템 evidence로 생성하며 AI가 인기·수요·개인
+  이력을 창작하지 않는다. 알 수 없는 근거는 글쓰기 이력으로 추측하지 않는다.
+- 명시적인 부정 feedback은 일반 recent-activity 제한과 별도로 보존하고 후보를
+  eligibility 단계에서 억제한다.
 
 ## Branch Protocol
 
@@ -93,7 +97,7 @@ Agent Runtime -> outcome events -> Memory
 ### 3. Legacy Adapters
 
 - Branch: `feature/proactive-guidance-03-legacy-adapters`
-- Status: implementation, automated regression and user UI smoke completed on 2026-08-23
+- Status: completed and merged into the integration branch on 2026-08-23
 - 기존 generic suggestion을 canonical recommendation candidate로 변환
 - 기존 topic recommendation provenance와 outcome 계약 연결
 - `agent.suggestions.get`, Telegram renderer와 빠른 포스팅 UI 호환 유지
@@ -104,6 +108,7 @@ Agent Runtime -> outcome events -> Memory
 ### 4. External Knowledge Gateway
 
 - Branch: `feature/proactive-guidance-04-external-knowledge-gateway`
+- Status: completed and user-accepted on 2026-08-23; remaining recommendation quality work is in backlog
 - server-managed provider credential
 - license verification, cache, rate limit, backoff와 quota protection
 - normalized Trends/News Knowledge Snapshot 응답

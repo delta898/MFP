@@ -1634,11 +1634,27 @@ class KuzuEventStore {
             params.scope = scope;
         }
         const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-        const query = `MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type})-[:ArtifactHAS_TOPIC_FACET]->(f:TopicFacetNode)${whereClause} RETURN f.id AS id, f.kind AS kind, f.scope AS scope, f.normalized_value AS normalized_value, f.display_value AS display_value, count(a) AS evidence_count, max(a.timestamp) AS last_used_at ORDER BY evidence_count DESC, last_used_at DESC, normalized_value ASC LIMIT $limit`;
+        const query = `MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_ARTIFACT]->(a:ArtifactNode {artifact_type: $artifact_type})-[:ArtifactHAS_TOPIC_FACET]->(f:TopicFacetNode)${whereClause} RETURN f.id AS id, f.kind AS kind, f.scope AS scope, f.normalized_value AS normalized_value, f.display_value AS display_value, count(a) AS evidence_count, max(a.timestamp) AS last_used_at, collect(a.title) AS evidence_titles, collect(a.payload_json) AS evidence_payloads, collect(a.timestamp) AS evidence_timestamps ORDER BY evidence_count DESC, last_used_at DESC, normalized_value ASC LIMIT $limit`;
         const res = await this._runQuery(query, params);
         const items = [];
         while (res.hasNext()) {
             const row = await res.getNext();
+            const titles = Array.isArray(row.evidence_titles) ? row.evidence_titles : [];
+            const payloads = Array.isArray(row.evidence_payloads) ? row.evidence_payloads : [];
+            const timestamps = Array.isArray(row.evidence_timestamps) ? row.evidence_timestamps : [];
+            const evidenceContexts = titles.map((title, index) => {
+                let payload = {};
+                try { payload = JSON.parse(payloads[index] || '{}') || {}; } catch (_ignore) { payload = {}; }
+                return {
+                    title: String(title || '').trim(),
+                    subject: String(payload.subject || title || '').trim(),
+                    source: String(payload.source || '').trim(),
+                    category: String(payload.category || '').trim(),
+                    platform: String(payload.platform || '').trim(),
+                    instruction: String(payload.instruction || '').trim(),
+                    timestamp: timestamps[index] || null
+                };
+            }).sort((left, right) => new Date(right.timestamp || 0).getTime() - new Date(left.timestamp || 0).getTime()).slice(0, 3);
             items.push({
                 id: row.id,
                 kind: row.kind,
@@ -1646,7 +1662,8 @@ class KuzuEventStore {
                 normalized_value: row.normalized_value,
                 display_value: row.display_value,
                 evidence_count: Number(row.evidence_count || 0),
-                last_used_at: row.last_used_at
+                last_used_at: row.last_used_at,
+                evidence_contexts: evidenceContexts
             });
         }
         return items;

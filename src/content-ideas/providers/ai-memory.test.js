@@ -53,7 +53,7 @@ test('AI output is constrained to selected candidates and fills omitted candidat
         const provider = createAiMemoryContentIdeaProvider();
         const result = await provider.generate({ limit: 2 }, {
             recommendationCandidates: [
-                { id: 'candidate-1', topic_seed: '첫 번째 후보', explanation: '첫 번째 근거' },
+                { id: 'candidate-1', topic_seed: '오디세이', semantic_context: '영화 오디세이와 그리스 로마신화', explanation: '첫 번째 근거' },
                 { id: 'candidate-2', topic_seed: '두 번째 후보', explanation: '두 번째 근거' }
             ]
         });
@@ -61,8 +61,11 @@ test('AI output is constrained to selected candidates and fills omitted candidat
         assert.deepEqual(result.ideas.map((idea) => idea.candidate_id), ['candidate-1', 'candidate-2']);
         assert.doesNotMatch(result.ideas.map((idea) => idea.title).join(' '), /임의로 만든/);
         assert.match(prompt, /주제 선택은 프로그램이 이미 끝냈습니다/);
+        assert.match(prompt, /영화 오디세이와 그리스 로마신화/);
+        assert.match(prompt, /동음이의어/);
         assert.doesNotMatch(prompt, /최근 action|최근 설정 변경|외부 트렌드 신호/);
         assert.deepEqual(requestOptions.responseJsonSchema.properties.ideas.items.properties.candidate_id.enum, ['candidate-1', 'candidate-2']);
+        assert.equal(requestOptions.responseJsonSchema.properties.ideas.items.properties.reason, undefined);
         assert.equal(requestOptions.maxTokens, 1024);
         assert.equal(requestOptions.logTokenUsage, true);
     } finally {

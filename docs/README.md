@@ -60,12 +60,15 @@
 - `decisions/2026-08-23-proactive-guidance-contract.md`
 - `decisions/2026-08-23-recommendation-lifecycle-store.md`
 - `decisions/2026-08-23-recommendation-legacy-adapters.md`
+- `decisions/2026-08-23-recommendation-grounding-and-provenance.md`
+- `decisions/2026-08-23-server-managed-knowledge-gateway.md`
 
 ## Active Work
 
 - `plans/active/proactive-guidance-main-plan.md`
 - `plans/active/proactive-guidance-02-lifecycle-store-plan.md`
 - `plans/active/proactive-guidance-03-legacy-adapters-plan.md`
+- `plans/active/proactive-guidance-04-external-knowledge-gateway-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

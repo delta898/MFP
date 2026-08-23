@@ -35,8 +35,20 @@ function normalizeSourceRefs(values = []) {
         provider_id: compact(item?.provider_id, 120),
         transport: compact(item?.transport, 80),
         source: compact(item?.source, 80),
+        subject: compact(item?.subject, 180),
+        domain: compact(item?.domain, 80),
+        stage: compact(item?.stage, 80),
         timestamp: item?.timestamp || null
     })).filter((item) => item.kind || item.id || item.provider_id);
+}
+
+function recommendationBasis(candidateType = '') {
+    return ({
+        request_seed: 'request',
+        trend_seed: 'trend',
+        profile_seed: 'saved_interest',
+        activity_seed: 'writing_activity'
+    })[compact(candidateType, 60)] || 'unknown';
 }
 
 function normalizeRecommendationContext(value = {}) {
@@ -47,6 +59,8 @@ function normalizeRecommendationContext(value = {}) {
         run_id: compact(input.run_id || input.runId, 240),
         ...(recommendationId ? { recommendation_id: recommendationId } : {}),
         candidate_id: compact(input.candidate_id || input.candidateId, 240),
+        candidate_type: compact(input.candidate_type || input.candidateType, 60),
+        basis: compact(input.basis, 60) || 'unknown',
         topic_seed: compact(input.topic_seed || input.topicSeed, 180),
         policy_id: compact(input.policy_id || input.policyId, 120),
         policy_version: finite(input.policy_version ?? input.policyVersion, 0),
@@ -68,6 +82,8 @@ function buildRecommendationContext(input = {}) {
     return normalizeRecommendationContext({
         run_id: input.run_id || input.runId,
         candidate_id: candidate.id,
+        candidate_type: candidate.candidate_type,
+        basis: recommendationBasis(candidate.candidate_type),
         topic_seed: candidate.topic_seed,
         policy_id: ranking.policy_id || policy.id,
         policy_version: ranking.policy_version || policy.version,
@@ -153,6 +169,7 @@ module.exports = {
     TOPIC_RECOMMENDATION_CONTEXT_VERSION,
     TOPIC_RECOMMENDATION_OUTCOME_STAGES,
     normalizeRecommendationContext,
+    recommendationBasis,
     createRecommendationRunId,
     buildRecommendationContext,
     stableOutcomeEvidenceId,

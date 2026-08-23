@@ -129,12 +129,11 @@ function buildContentIdeaResponseSchema(candidates = []) {
                 items: {
                     type: 'object',
                     additionalProperties: false,
-                    required: ['candidate_id', 'title', 'summary', 'reason', 'keywords'],
+                    required: ['candidate_id', 'title', 'summary', 'keywords'],
                     properties: {
                         candidate_id: { type: 'string', enum: candidateIds },
                         title: { type: 'string' },
                         summary: { type: 'string' },
-                        reason: { type: 'string' },
                         keywords: {
                             type: 'array',
                             minItems: 2,
@@ -229,13 +228,13 @@ function createAiMemoryContentIdeaProvider() {
 - candidate_id는 입력값을 그대로 한 번씩 사용
 - title: 24~52자, 구체적인 블로그 제목
 - summary: 한 문장, 90자 이내
-- reason: 추천 근거 한 문장, 70자 이내
 - keywords: 2~3개
+- 제공된 문맥과 다른 동음이의어, 인물, 작품, 브랜드 또는 제품으로 주제를 바꾸지 않기
 - 자연스러운 한국어만 사용하고 '을(를)' 같은 placeholder는 사용 금지
 - JSON 외의 텍스트와 Markdown은 금지
 
 [선택된 후보]
-${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.id} | 주제=${item.topic_seed} | 선별 근거=${item.explanation}`).join('\n') : `- id 없음 | 주제=${query || '새 글감'}`}`;
+${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.id} | 주제=${item.topic_seed} | 문맥=${item.semantic_context || '추가 문맥 없음'}`).join('\n') : `- id 없음 | 주제=${query || '새 글감'}`}`;
 
             const buildFallbackResult = (reason) => {
                 const ideas = applyArtifactFeedback(

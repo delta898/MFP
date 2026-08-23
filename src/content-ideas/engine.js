@@ -122,6 +122,9 @@ function createContentIdeaEngine(options = {}) {
                 const candidate = rankedCandidates.get(idea.candidate_id);
                 return {
                     ...idea,
+                    // Recommendation evidence is a system fact. The language model may
+                    // edit presentation text, but it must not invent the recommendation reason.
+                    reason: String(candidate?.explanation || idea.reason || '').trim(),
                     recommendation: buildRecommendationContext({
                         run_id: recommendationRunId,
                         candidate,

@@ -22,9 +22,43 @@ function listProfileFacets(profile = {}, kind = '') {
             normalized_value: compact(item?.normalized_value || item?.value, 120).toLocaleLowerCase('ko-KR'),
             evidence_count: Number(item?.evidence_count || 0),
             last_used_at: item?.last_used_at || null,
-            evidence: item?.evidence || null
+            evidence: item?.evidence || null,
+            contexts: Array.isArray(item?.contexts) ? item.contexts.slice(0, 3) : []
         }))
-        .filter((item) => item.value);
+        .filter((item) => {
+            if (!item.value) return false;
+            const contextSources = item.contexts
+                .map((context) => compact(context?.source, 80).toLowerCase())
+                .filter(Boolean);
+            // Automatically observed trends remain external knowledge. They become an
+            // owner interest only after a separate user save/select/draft/publish fact.
+            return contextSources.length === 0 || contextSources.some((source) => source !== 'auto-trends');
+        });
+}
+
+function profileFacetContext(facet = {}) {
+    const context = Array.isArray(facet.contexts) ? facet.contexts[0] : null;
+    if (!context) return { summary: '', source: '', subject: '' };
+    const subject = compact(context.subject || context.title, 180);
+    const category = compact(context.category, 100);
+    const instruction = compact(context.instruction, 240);
+    return {
+        summary: [subject, category, instruction].filter(Boolean).join(' | '),
+        source: compact(context.source, 80),
+        subject
+    };
+}
+
+function profileFacetExplanation(facet = {}) {
+    const context = profileFacetContext(facet);
+    if (context.source === 'naver_trend' || context.source === 'auto-trends') {
+        return '이전에 저장한 네이버 트렌드 글감과 연결됩니다.';
+    }
+    if (context.source === 'topic_recommendation') {
+        return '이전에 선택하거나 저장한 추천 글감과 연결됩니다.';
+    }
+    if (context.subject) return '직접 저장한 글감의 주제 문맥과 연결됩니다.';
+    return '저장한 관심 주제와 연결됩니다.';
 }
 
 function collectRecentKeys(artifacts = []) {
@@ -102,6 +136,7 @@ function buildCandidate(input = {}) {
         evidence_features: input.evidence_features && typeof input.evidence_features === 'object'
             ? input.evidence_features
             : {},
+        semantic_context: compact(input.semantic_context, 500),
         explanation: compact(input.explanation, 300)
     };
 }
@@ -207,18 +242,24 @@ function createTopicCandidateGenerator() {
             const profileKeywordPool = query && focusedKeywords.length > 0 ? focusedKeywords : keywords;
             for (const facet of profileKeywordPool) {
                 const isFocused = query && focusedKeywords.includes(facet);
+                const context = profileFacetContext(facet);
                 append(buildCandidate({
                     candidate_type: 'profile_seed',
                     topic_seed: facet.value,
-                    source_refs: [facet.evidence].filter(Boolean),
+                    source_refs: [facet.evidence ? {
+                        ...facet.evidence,
+                        source: context.source,
+                        subject: context.subject
+                    } : null].filter(Boolean),
                     owner_matches: { keywords: [facet], categories: [] },
                     evidence_features: {
                         owner_keyword_evidence: facet.evidence_count,
                         last_used_at: facet.last_used_at
                     },
+                    semantic_context: context.summary,
                     explanation: isFocused
-                        ? '입력한 힌트와 연결된 저장 글감 키워드입니다.'
-                        : '저장된 글감에서 반복 확인된 사용자 키워드입니다.'
+                        ? `입력한 힌트와 ${profileFacetExplanation(facet)}`
+                        : profileFacetExplanation(facet)
                 }));
             }
 
@@ -233,7 +274,8 @@ function createTopicCandidateGenerator() {
                     timestamp: artifact?.timestamp,
                     relatedCandidateId: artifact?.payload?.recommendation?.candidate_id
                 })),
-                ...recentSubjects.filter((recent) => compact(recent?.stage, 80) !== 'generated')
+                ...recentSubjects.filter((recent) => ['saved', 'selected', 'drafted', 'published']
+                    .includes(compact(recent?.stage, 80).toLowerCase()))
             ];
             const focusedActivities = query
                 ? activityCandidates.filter((recent) => focusMatch(activityText(recent), query).matched)
@@ -258,7 +300,11 @@ function createTopicCandidateGenerator() {
                     },
                     explanation: isFocused
                         ? '입력한 힌트와 연결된 최근 글쓰기·활동 이력입니다.'
-                        : '최근 글쓰기와 활동 이력을 바탕으로 확장할 수 있는 주제입니다.'
+                        : compact(recent?.stage, 80) === 'published'
+                            ? '최근 발행한 글의 주제와 연결됩니다.'
+                            : compact(recent?.stage, 80) === 'drafted'
+                                ? '최근 작성한 초안의 주제와 연결됩니다.'
+                                : '최근 선택하거나 저장한 글감과 연결됩니다.'
                 }), {
                     allowRecent: true,
                     relatedCandidateId: recent?.relatedCandidateId || recent?.recommendation_candidate_id

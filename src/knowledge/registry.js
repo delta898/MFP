@@ -15,11 +15,26 @@ function matchesQuery(definition = {}, query = {}) {
     return true;
 }
 
+function normalizeProviderError(definition = {}, error = {}) {
+    const transport = String(definition.transport || '').trim();
+    const code = String(error?.code || 'KNOWLEDGE_PROVIDER_FAILED').trim().slice(0, 80);
+    if (transport === 'server_gateway') {
+        return {
+            code,
+            message: 'server gateway fetch failed',
+            logMessage: code
+        };
+    }
+    const message = String(error?.message || 'provider fetch failed').replace(/\s+/g, ' ').trim().slice(0, 240);
+    return { code, message, logMessage: message };
+}
+
 function createKnowledgeRegistry(options = {}) {
     const providerDefinitions = Array.isArray(options.providerDefinitions) ? options.providerDefinitions.map(normalizeProviderDefinition) : [];
     const routing = options.routing && typeof options.routing === 'object' ? options.routing : {};
     const transports = options.transports && typeof options.transports === 'object' ? options.transports : {};
     const logger = options.logger || null;
+    const now = typeof options.now === 'function' ? options.now : () => new Date();
     const map = new Map();
 
     providerDefinitions.forEach((definition) => {
@@ -50,26 +65,30 @@ function createKnowledgeRegistry(options = {}) {
                 if (logger && typeof logger.info === 'function') {
                     logger.info(`🛰️ [Knowledge] route=${routeName} provider=${definition.id} (${definition.kind}/${definition.transport}) 조회 시작`);
                 }
-                const items = await transport.fetch(definition, query, context);
+                const fetched = await transport.fetch(definition, query, context);
+                const snapshot = Array.isArray(fetched)
+                    ? materializeLegacyKnowledgeSnapshot(definition, fetched, { now })
+                    : normalizeKnowledgeSnapshot(fetched, {
+                        kind: definition.kind,
+                        provider_id: definition.id,
+                        transport: definition.transport
+                    });
                 if (logger && typeof logger.info === 'function') {
-                    logger.info(`✅ [Knowledge] route=${routeName} provider=${definition.id} 조회 완료 (${Array.isArray(items) ? items.length : 0}건)`);
+                    logger.info(`✅ [Knowledge] route=${routeName} provider=${definition.id} 조회 완료 (${snapshot.items.length}건, freshness=${snapshot.freshness})`);
                 }
-                results.push({
-                    provider_id: definition.id,
-                    kind: definition.kind,
-                    transport: definition.transport,
-                    items: Array.isArray(items) ? items : []
-                });
+                results.push(snapshot);
             } catch (error) {
+                const safeError = normalizeProviderError(definition, error);
                 if (logger && typeof logger.warn === 'function') {
-                    logger.warn(`⚠️ [Knowledge] route=${routeName} provider=${definition.id} 조회 실패: ${String(error?.message || 'provider fetch failed')}`);
+                    logger.warn(`⚠️ [Knowledge] route=${routeName} provider=${definition.id} 조회 실패: ${safeError.logMessage}`);
                 }
                 results.push({
                     provider_id: definition.id,
                     kind: definition.kind,
                     transport: definition.transport,
                     items: [],
-                    error: String(error?.message || 'provider fetch failed')
+                    error: safeError.message,
+                    error_code: safeError.code
                 });
             }
         }
@@ -107,5 +126,10 @@ function createKnowledgeRegistry(options = {}) {
 }
 
 module.exports = {
-    createKnowledgeRegistry
+    createKnowledgeRegistry,
+    normalizeProviderError
 };
+const {
+    materializeLegacyKnowledgeSnapshot,
+    normalizeKnowledgeSnapshot
+} = require('./contracts/snapshot');

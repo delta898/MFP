@@ -67,3 +67,11 @@ test('WordPress category consumers use the shared lexical cache contract', () =>
     assert.doesNotMatch(uiScripts, /\bglobalWpCategoryCache\b/);
     assert.doesNotMatch(uiScripts, /window\.categoryCache\b/);
 });
+
+test('topic recommendation labels never guess that unknown evidence came from user writing', () => {
+    const source = readScript('features/discovery/quick-discovery.js');
+    assert.match(source, /topic_facet/);
+    assert.match(source, /저장한 관심 주제/);
+    assert.match(source, /근거 확인 필요/);
+    assert.doesNotMatch(source, /return '내 글쓰기 기반'/);
+});

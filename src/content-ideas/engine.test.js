@@ -14,7 +14,7 @@ test('passes owner/trend candidates to content idea providers', async () => {
         candidateGenerator: {
             generate(input) {
                 generatorInput = input;
-                return { candidates: [{ id: 'candidate-1', topic_seed: 'AI 트렌드', explanation: 'fixture' }] };
+                return { candidates: [{ id: 'candidate-1', candidate_type: 'trend_seed', topic_seed: 'AI 트렌드', explanation: '검증된 최근 트렌드입니다.' }] };
             }
         },
         providers: [{
@@ -45,6 +45,8 @@ test('passes owner/trend candidates to content idea providers', async () => {
     assert.equal(providerContext.recommendationCandidates[0].id, 'candidate-1');
     assert.equal(result.candidates[0].id, 'candidate-1');
     assert.equal(result.ideas[0].title, 'AI 트렌드를 실무에 적용하는 법');
+    assert.equal(result.ideas[0].reason, '검증된 최근 트렌드입니다.');
+    assert.equal(result.ideas[0].recommendation.basis, 'trend');
     assert.equal(result.ideas[0].recommendation.candidate_id, 'candidate-1');
     assert.equal(result.ideas[0].recommendation.policy_id, 'topic-ranking-v1');
     assert.match(result.recommendation_run.id, /^topic_recommendation_run_/);

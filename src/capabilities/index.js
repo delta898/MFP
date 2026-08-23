@@ -12,6 +12,8 @@ const { createKnowledgeRegistry } = require('../knowledge/registry');
 const { createBuiltinApiTransport } = require('../knowledge/transports/builtin-api');
 const { createMcpToolTransport } = require('../knowledge/transports/mcp-tool');
 const { createInternalQueryTransport } = require('../knowledge/transports/internal-query');
+const { createServerGatewayTransport } = require('../knowledge/transports/server-gateway');
+const { createKnowledgeServerGatewayClient } = require('../knowledge/server-gateway-client');
 const { createSerpApiTrendsProvider } = require('../knowledge/providers/trends-serpapi');
 const {
     DEFAULT_PROVIDER_ID: DEFAULT_NAVER_TRENDS_PROVIDER_ID,
@@ -46,6 +48,10 @@ function createCapabilityRegistry(deps = {}) {
             ? contentIdeaRoute
             : [...contentIdeaRoute, DEFAULT_NAVER_TRENDS_PROVIDER_ID]
     };
+    const serverGatewayClient = deps.serverGatewayClient || createKnowledgeServerGatewayClient({
+        config: deps.CONFIG,
+        License: deps.License
+    });
     const knowledgeRegistry = deps.knowledgeRegistry || createKnowledgeRegistry({
         providerDefinitions,
         routing,
@@ -61,6 +67,7 @@ function createCapabilityRegistry(deps = {}) {
                     })
                 }
             }),
+            server_gateway: createServerGatewayTransport({ client: serverGatewayClient }),
             mcp_tool: createMcpToolTransport(),
             internal_query: createInternalQueryTransport()
         }

@@ -54,10 +54,18 @@ function handleQuickTopicIdentityInput() {
 function getQuickRecommendationSourceLabel(item = {}) {
   if (String(item?.source || '').trim() === 'fallback') return '기본 추천';
   const refs = Array.isArray(item?.recommendation?.source_refs) ? item.recommendation.source_refs : [];
-  if (refs.some((ref) => String(ref?.kind || '').toLowerCase() === 'request')) return '입력 힌트 기반';
-  if (refs.some((ref) => ['trends', 'knowledge'].includes(String(ref?.kind || '').toLowerCase()))) return '트렌드와 연결';
-  if (refs.some((ref) => ['topic', 'facet'].includes(String(ref?.kind || '').toLowerCase()))) return '관심 주제와 연결';
-  return '내 글쓰기 기반';
+  const basis = String(item?.recommendation?.basis || '').trim().toLowerCase();
+  const activityRef = refs.find((ref) => String(ref?.kind || '').toLowerCase() === 'activity');
+  const activityStage = String(activityRef?.stage || '').trim().toLowerCase();
+  if (basis === 'request' || refs.some((ref) => String(ref?.kind || '').toLowerCase() === 'request')) return '입력 힌트 기반';
+  if (basis === 'trend' || refs.some((ref) => ['trends', 'knowledge'].includes(String(ref?.kind || '').toLowerCase()))) return '최근 트렌드';
+  if (basis === 'saved_interest' || refs.some((ref) => ['topic', 'facet', 'topic_facet'].includes(String(ref?.kind || '').toLowerCase()))) return '저장한 관심 주제';
+  if (basis === 'writing_activity' || activityRef) {
+    if (activityStage === 'published') return '발행 글 기반';
+    if (activityStage === 'drafted') return '작성한 초안 기반';
+    return '최근 글감 활동';
+  }
+  return '근거 확인 필요';
 }
 
 function setQuickDiscoveryModalOpen(open) {
@@ -123,7 +131,7 @@ function setQuickDiscoveryTab(tab) {
 }
 
 function diversifyQuickTopicRecommendations(items = [], limit = 3) {
-  const sourceOrder = ['입력 힌트 기반', '트렌드와 연결', '관심 주제와 연결', '내 글쓰기 기반'];
+  const sourceOrder = ['입력 힌트 기반', '최근 트렌드', '저장한 관심 주제', '발행 글 기반', '작성한 초안 기반', '최근 글감 활동'];
   const remaining = Array.isArray(items) ? items.slice() : [];
   const selected = [];
 
@@ -545,4 +553,3 @@ async function applyQuickKeywordDiscovery(input) {
   document.getElementById('quick-subject')?.focus();
   return true;
 }
-

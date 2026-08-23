@@ -128,7 +128,17 @@ function buildOwnerActivitySignalSummary(input = {}) {
         : supportedSignals;
     const filteredEvidenceCount = supportedSignals.length - filteredSignals.length;
     filteredSignals.sort(compareTimestampDesc);
-    const limitedSignals = filteredSignals.slice(0, limit);
+    // Explicit feedback must not disappear merely because newer generated artifacts
+    // filled the shared recent-signal window. Keep a bounded feedback lane and use
+    // the remaining capacity for ordinary recency signals.
+    const feedbackSignals = filteredSignals
+        .filter((signal) => signal.stage === 'feedback')
+        .slice(0, Math.min(20, limit));
+    const feedbackIds = new Set(feedbackSignals.map((signal) => signal.id));
+    const recentSignals = filteredSignals
+        .filter((signal) => !feedbackIds.has(signal.id))
+        .slice(0, Math.max(0, limit - feedbackSignals.length));
+    const limitedSignals = [...feedbackSignals, ...recentSignals].sort(compareTimestampDesc);
     const countsByDomain = Object.fromEntries(ACTIVITY_SIGNAL_DOMAINS.map((domain) => [domain, 0]));
     const countsByStage = Object.fromEntries(ACTIVITY_SIGNAL_STAGES.map((stage) => [stage, 0]));
     const countsByStrength = Object.fromEntries(ACTIVITY_SIGNAL_STRENGTHS.map((strength) => [strength, 0]));

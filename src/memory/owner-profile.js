@@ -3,6 +3,18 @@ function text(value) {
 }
 
 function normalizeFacet(item = {}) {
+    const contexts = (Array.isArray(item.evidence_contexts) ? item.evidence_contexts : [])
+        .slice(0, 3)
+        .map((context) => ({
+            title: text(context?.title),
+            subject: text(context?.subject || context?.title),
+            source: text(context?.source),
+            category: text(context?.category),
+            platform: text(context?.platform),
+            instruction: text(context?.instruction),
+            timestamp: context?.timestamp || null
+        }))
+        .filter((context) => context.subject || context.title || context.source);
     return {
         value: text(item.display_value || item.normalized_value),
         normalized_value: text(item.normalized_value),
@@ -11,7 +23,8 @@ function normalizeFacet(item = {}) {
         evidence: {
             kind: 'topic_facet',
             id: text(item.id)
-        }
+        },
+        contexts
     };
 }
 

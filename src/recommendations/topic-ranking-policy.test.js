@@ -93,6 +93,27 @@ test('matches recommendation feedback by candidate id when the generated title c
     assert.equal(scored.breakdown[0].code, 'positive_feedback');
 });
 
+test('hard-suppresses a candidate after the latest explicit negative feedback', () => {
+    const result = rankTopicCandidates({
+        candidates: [
+            candidate('dismissed', '아이폰 폴드', { evidence_features: { owner_keyword_evidence: 1 } }),
+            candidate('safe', '워드프레스 운영', { evidence_features: { owner_keyword_evidence: 1 } })
+        ],
+        ownerProfile: {
+            feedback: {
+                recent: [{
+                    subject: '아이폰 폴드 추천',
+                    feedback: 'not_helpful',
+                    recommendation: { candidate_id: 'dismissed' }
+                }]
+            }
+        }
+    });
+
+    assert.deepEqual(result.selected.map((item) => item.id), ['safe']);
+    assert.equal(result.deferred.find((item) => item.id === 'dismissed').ranking.deferred_reason, 'negative_feedback');
+});
+
 test('defers excessive same-category candidates but keeps unrelated profile seeds', () => {
     const sameCategory = (id, seed, evidence) => candidate(id, seed, {
         candidate_type: 'trend_seed',
