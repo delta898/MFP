@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: 07a and 07b complete; 07c implementation next
+- Phase: stage 7 completed on 2026-08-24
 - Parent integration branch: `feature/proactive-guidance-main`
 - Stage integration branch: `feature/proactive-guidance-07-policy-ranking`
 - Current child branch: none
@@ -42,6 +42,7 @@ child로 나눈다.
 ### 07c Evaluation and Materialization
 
 - Branch: `feature/proactive-guidance-07c-policy-evaluation`
+- Status: completed on 2026-08-24 under approved non-UI workflow
 - Candidate -> Eligibility -> Ranking -> PolicyDecision orchestration
 - eligible Candidate만 기존 Recommendation Materializer/Lifecycle Store로 전달
 - suppressed Candidate는 저장하지 않고 bounded diagnostics만 반환

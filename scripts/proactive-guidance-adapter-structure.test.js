@@ -91,3 +91,11 @@ test('recommendation policy reads sanitized injected facts without UI, provider 
     assert.doesNotMatch(source, /naver-news|naver-trends|serpapi|raw_response/i);
     assert.doesNotMatch(source, /recommendation\.created|\.materialize\(/);
 });
+
+test('policy evaluator is the only policy layer allowed to call the existing materializer', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/policy/evaluator.js'), 'utf8');
+    assert.match(source, /materializer\.materialize/);
+    assert.doesNotMatch(source, /recommendation\.created|transitionRecommendation|saveEventAndProjection/);
+    assert.doesNotMatch(source, /config-loader|require\(['"]\.\.\/\.\.\/license['"]\)/);
+    assert.doesNotMatch(source, /telegram|ui-server|ui\/|naver-news|naver-trends|serpapi/i);
+});

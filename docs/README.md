@@ -79,6 +79,7 @@
 - `plans/active/proactive-guidance-07-policy-ranking-plan.md`
 - `plans/active/proactive-guidance-07a-policy-eligibility-plan.md`
 - `plans/active/proactive-guidance-07b-ranking-diversity-plan.md`
+- `plans/active/proactive-guidance-07c-policy-evaluation-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

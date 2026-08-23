@@ -325,6 +325,12 @@ Candidate that needs that source, except Recommendation history: without persist
 volatile history, eligibility closes recommendation creation to prevent uncontrolled duplicates
 while leaving existing application workflows unaffected.
 
+Policy evaluation validates eligibility before scoring, ranks only eligible Candidates, and
+materializes only the final diverse selection. Suppressed Candidates receive a rebuildable policy
+decision in the evaluation result but are not persisted as Recommendation facts or preferences.
+The evaluator delegates the only `recommendation.created` write to the existing materializer, so
+lifecycle identity, transaction and volatile fallback behavior remain centralized.
+
 ## Current Gaps
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.
