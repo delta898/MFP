@@ -58,6 +58,7 @@
 - `decisions/2026-08-16-keyword-provider-credentials.md`
 - `decisions/2026-08-17-smart-capability-usage.md`
 - `decisions/2026-08-23-proactive-guidance-contract.md`
+- `decisions/2026-08-23-naver-news-search-provider.md`
 - `decisions/2026-08-23-recommendation-lifecycle-store.md`
 - `decisions/2026-08-23-recommendation-legacy-adapters.md`
 - `decisions/2026-08-23-recommendation-grounding-and-provenance.md`
@@ -69,6 +70,7 @@
 - `plans/active/proactive-guidance-02-lifecycle-store-plan.md`
 - `plans/active/proactive-guidance-03-legacy-adapters-plan.md`
 - `plans/active/proactive-guidance-04-external-knowledge-gateway-plan.md`
+- `plans/active/proactive-guidance-05-news-provider-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

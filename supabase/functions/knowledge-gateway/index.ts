@@ -38,6 +38,28 @@ function staleSnapshot(payload: Record<string, unknown>) {
   return { ...payload, freshness: "stale" };
 }
 
+function classifyProviderFailure(error: unknown) {
+  const internalCode = error && typeof error === "object" && "code" in error
+    ? String(error.code || "").trim().slice(0, 80)
+    : "";
+  if (internalCode === "NAVER_NEWS_AUTH_FAILED" || internalCode === "NAVER_NEWS_NOT_CONFIGURED") {
+    return { publicCode: "PROVIDER_AUTH_FAILED", internalCode };
+  }
+  if (internalCode === "NAVER_NEWS_RATE_LIMITED") {
+    return { publicCode: "PROVIDER_RATE_LIMITED", internalCode };
+  }
+  if (internalCode === "NAVER_NEWS_REQUEST_REJECTED") {
+    return { publicCode: "UPSTREAM_REQUEST_REJECTED", internalCode };
+  }
+  if (internalCode === "NAVER_NEWS_INVALID_RESPONSE" || internalCode === "INVALID_UPSTREAM_RESPONSE") {
+    return { publicCode: "INVALID_UPSTREAM_RESPONSE", internalCode };
+  }
+  if (String((error as Error)?.message || "") === "upstream_timeout") {
+    return { publicCode: "UPSTREAM_TIMEOUT", internalCode: "UPSTREAM_TIMEOUT" };
+  }
+  return { publicCode: "UPSTREAM_FAILED", internalCode: internalCode || "UNCLASSIFIED" };
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   let timeoutId: number | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -110,6 +132,20 @@ serve(async (req: Request) => {
 
   const route = resolveKnowledgeProviderRoute(request.kind, request.purpose);
   if (!route) return json(503, { success: false, code: "NOT_CONFIGURED" });
+
+  // Some provider operations require a semantic query. A non-applicable request returns a
+  // validated empty Snapshot without consuming shared provider quota or calling upstream.
+  if (route.shouldFetch && !route.shouldFetch(request.query)) {
+    try {
+      const emptySnapshot = validateServerKnowledgeSnapshot(
+        await route.fetchSnapshot(request.query),
+        { kind: route.kind, providerId: route.providerId },
+      );
+      return json(200, { success: true, snapshot: emptySnapshot });
+    } catch (_error) {
+      return json(500, { success: false, code: "INVALID_UPSTREAM_RESPONSE" });
+    }
+  }
 
   const cacheKey = await sha256(JSON.stringify({
     provider: route.providerId,
@@ -190,19 +226,21 @@ serve(async (req: Request) => {
     if (successError) console.warn("KNOWLEDGE_PROVIDER_SUCCESS_STATE_FAILED", { code: successError.code });
     return json(200, { success: true, snapshot });
   } catch (error) {
-    const errorCode = error && typeof error === "object" && "code" in error
-      && error.code === "INVALID_UPSTREAM_RESPONSE"
-        ? "INVALID_UPSTREAM_RESPONSE"
-        : "UPSTREAM_FAILED";
+    const failure = classifyProviderFailure(error);
+    const errorCode = failure.publicCode;
     const { error: failureError } = await supabase.rpc("record_knowledge_provider_failure", {
       p_provider_id: route.providerId,
       p_error_code: errorCode,
       p_backoff_seconds: intEnv("KNOWLEDGE_PROVIDER_BACKOFF_SECONDS", 60, 5, 3600),
     });
     if (failureError) console.error("KNOWLEDGE_PROVIDER_FAILURE_STATE_FAILED", { code: failureError.code });
-    console.warn("KNOWLEDGE_PROVIDER_FAILED", { provider: route.providerId, code: errorCode });
+    console.warn("KNOWLEDGE_PROVIDER_FAILED", {
+      provider: route.providerId,
+      code: errorCode,
+      upstream_code: failure.internalCode,
+    });
     return stale
       ? json(200, { success: true, snapshot: staleSnapshot(stale) })
-      : json(502, { success: false, code: errorCode });
+      : json(errorCode === "PROVIDER_RATE_LIMITED" ? 429 : 502, { success: false, code: errorCode });
   }
 });

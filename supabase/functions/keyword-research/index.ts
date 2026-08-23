@@ -185,19 +185,11 @@ function createNaverClients(config: Record<string, string>, cache: ReturnType<ty
     const key = `${normalizeKeyword(keyword)}:${cutoffDate}:p${policy.weeklyDocumentMaxPages}`;
     const cached = await cache.get("blog_weekly", key);
     if (cached && typeof cached === "object" && "count" in cached) return cached;
-    const useApiHub = Boolean(config.apiHubClientId && config.apiHubClientSecret);
-    const url = new URL(useApiHub
-      ? "https://naverapihub.apigw.ntruss.com/search/v1/blog"
-      : "https://openapi.naver.com/v1/search/blog.json");
-    const headers: Record<string, string> = useApiHub
-      ? {
-        "X-NCP-APIGW-API-KEY-ID": config.apiHubClientId,
-        "X-NCP-APIGW-API-KEY": config.apiHubClientSecret,
-      }
-      : {
-        "X-Naver-Client-Id": config.naverClientId,
-        "X-Naver-Client-Secret": config.naverClientSecret,
-      };
+    const url = new URL("https://naverapihub.apigw.ntruss.com/search/v1/blog");
+    const headers: Record<string, string> = {
+      "X-NCP-APIGW-API-KEY-ID": config.apiHubClientId,
+      "X-NCP-APIGW-API-KEY": config.apiHubClientSecret,
+    };
     let count = 0;
     let pagesFetched = 0;
     for (let page = 0; page < policy.weeklyDocumentMaxPages; page += 1) {
@@ -269,15 +261,9 @@ serve(async (req: Request) => {
     searchAdCustomerId: Deno.env.get("NAVER_SEARCHAD_CUSTOMER_ID")?.trim() || "",
     apiHubClientId: Deno.env.get("NAVER_API_HUB_CLIENT_ID")?.trim() || "",
     apiHubClientSecret: Deno.env.get("NAVER_API_HUB_CLIENT_SECRET")?.trim() || "",
-    naverClientId: Deno.env.get("NAVER_CLIENT_ID")?.trim() || "",
-    naverClientSecret: Deno.env.get("NAVER_CLIENT_SECRET")?.trim() || "",
   };
-  const hasBlogCredentials = Boolean(
-    (config.apiHubClientId && config.apiHubClientSecret)
-    || (config.naverClientId && config.naverClientSecret)
-  );
   if (!supabaseUrl || !serviceRoleKey || !config.searchAdApiKey || !config.searchAdSecretKey
-    || !config.searchAdCustomerId || !hasBlogCredentials) {
+    || !config.searchAdCustomerId || !config.apiHubClientId || !config.apiHubClientSecret) {
     console.error("KEYWORD_RESEARCH_NOT_CONFIGURED");
     return json(500, { success: false, code: "NOT_CONFIGURED", message: "keyword_research_not_configured" });
   }

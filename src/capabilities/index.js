@@ -16,6 +16,10 @@ const { createServerGatewayTransport } = require('../knowledge/transports/server
 const { createKnowledgeServerGatewayClient } = require('../knowledge/server-gateway-client');
 const { createSerpApiTrendsProvider } = require('../knowledge/providers/trends-serpapi');
 const {
+    DEFAULT_PROVIDER_ID: DEFAULT_NAVER_NEWS_PROVIDER_ID,
+    createDefaultNaverNewsDefinition
+} = require('../knowledge/providers/news-naver');
+const {
     DEFAULT_PROVIDER_ID: DEFAULT_NAVER_TRENDS_PROVIDER_ID,
     createDefaultNaverTrendsDefinition,
     createNaverTrendsProvider
@@ -35,9 +39,13 @@ function createCapabilityRegistry(deps = {}) {
     const configuredProviderDefinitions = Array.isArray(deps.CONFIG?.knowledge?.providers)
         ? deps.CONFIG.knowledge.providers
         : (Array.isArray(deps.CONFIG?.KNOWLEDGE_PROVIDERS) ? deps.CONFIG.KNOWLEDGE_PROVIDERS : []);
-    const providerDefinitions = configuredProviderDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_TRENDS_PROVIDER_ID)
-        ? configuredProviderDefinitions
-        : [...configuredProviderDefinitions, createDefaultNaverTrendsDefinition()];
+    const providerDefinitions = [...configuredProviderDefinitions];
+    if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_TRENDS_PROVIDER_ID)) {
+        providerDefinitions.push(createDefaultNaverTrendsDefinition());
+    }
+    if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_NEWS_PROVIDER_ID)) {
+        providerDefinitions.push(createDefaultNaverNewsDefinition());
+    }
     const configuredRouting = deps.CONFIG?.knowledge?.routing && typeof deps.CONFIG.knowledge.routing === 'object'
         ? deps.CONFIG.knowledge.routing
         : (deps.CONFIG?.KNOWLEDGE_ROUTING && typeof deps.CONFIG.KNOWLEDGE_ROUTING === 'object' ? deps.CONFIG.KNOWLEDGE_ROUTING : {});

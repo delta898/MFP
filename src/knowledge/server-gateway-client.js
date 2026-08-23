@@ -10,6 +10,10 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
     RATE_LIMIT_UNAVAILABLE: '외부 지식 요청 보호 상태를 확인하지 못했습니다.',
     PROVIDER_QUOTA_EXHAUSTED: '외부 지식 공급자의 오늘 조회 한도에 도달했습니다.',
     PROVIDER_BACKOFF: '외부 지식 공급자가 일시적으로 대기 중입니다.',
+    PROVIDER_AUTH_FAILED: '외부 지식 공급자 인증 설정을 확인해야 합니다.',
+    PROVIDER_RATE_LIMITED: '외부 지식 공급자의 요청 한도에 도달했습니다.',
+    UPSTREAM_REQUEST_REJECTED: '외부 지식 공급자가 조회 조건을 거절했습니다.',
+    UPSTREAM_TIMEOUT: '외부 지식 공급자 응답 시간이 초과되었습니다.',
     UPSTREAM_FAILED: '외부 지식 공급자 응답을 받지 못했습니다.',
     INVALID_UPSTREAM_RESPONSE: '외부 지식 공급자 응답이 올바르지 않습니다.',
     NOT_CONFIGURED: '외부 지식 공급자가 아직 구성되지 않았습니다.'

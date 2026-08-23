@@ -91,8 +91,10 @@ Supabase Edge Function Secrets에만 다음 값을 저장한다.
 - `NAVER_SEARCHAD_API_KEY`
 - `NAVER_SEARCHAD_SECRET_KEY`
 - `NAVER_SEARCHAD_CUSTOMER_ID`
-- `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET`
-- 또는 `NAVER_API_HUB_CLIENT_ID` / `NAVER_API_HUB_CLIENT_SECRET`
+- `NAVER_API_HUB_CLIENT_ID` / `NAVER_API_HUB_CLIENT_SECRET`
+
+Keyword Research는 API HUB credential만 사용한다. Naver Developers의
+`NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET`으로 fallback하지 않는다.
 
 secret은 Git, 앱 설정, 함수 응답과 로그에 기록하지 않는다. secret 변경은
 Edge Function 재배포 없이 적용된다.

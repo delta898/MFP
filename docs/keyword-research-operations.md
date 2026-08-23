@@ -26,17 +26,12 @@ SQL Editor에서 다음 함수가 존재하는지 확인한다.
 NAVER_SEARCHAD_API_KEY
 NAVER_SEARCHAD_SECRET_KEY
 NAVER_SEARCHAD_CUSTOMER_ID
-NAVER_CLIENT_ID
-NAVER_CLIENT_SECRET
-```
-
-NAVER API HUB 자격증명을 사용하는 환경에서는 마지막 두 값 대신 다음 값을
-사용할 수 있다.
-
-```text
 NAVER_API_HUB_CLIENT_ID
 NAVER_API_HUB_CLIENT_SECRET
 ```
+
+`NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET`은 Naver Developers OpenAPI를 사용하는
+다른 provider용이며 Keyword Research의 fallback으로 사용하지 않는다.
 
 `KEYWORD_ACCESS_TOKEN_SECRET`은 필요하지 않다.
 

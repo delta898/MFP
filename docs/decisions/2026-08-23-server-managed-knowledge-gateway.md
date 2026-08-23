@@ -27,9 +27,10 @@ The gateway returns only validated, versioned Knowledge Snapshots. Raw provider 
 credentials and arbitrary metadata do not cross the server boundary. External knowledge remains
 `observed / weak` until an explicit user action creates stronger owner evidence.
 
-Existing Naver Trends transport remains unchanged. Actual News provider selection and direct
-SerpApi migration are deferred to Stage 5 so the security and response contracts do not depend on
-one vendor.
+Existing Naver Trends transport remains unchanged. Actual News provider selection was deferred so
+the security and response contracts did not depend on one vendor; the follow-up decision selects
+Naver News Search in `2026-08-23-naver-news-search-provider.md`. The direct user-key SerpApi Trends
+provider remains separate and unchanged.
 
 ## Consequences
 

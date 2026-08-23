@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 4 complete; stage 5 detailed design next
+- Phase: stage 5 complete; stage 6 detailed design next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: `feature/proactive-guidance-04-external-knowledge-gateway`
+- Current child branch: none; next planned `feature/proactive-guidance-06-producers`
 - Release version: undecided until release preparation
 
 ## Product Goal
@@ -118,12 +118,12 @@ Agent Runtime -> outcome events -> Memory
 ### 5. News Provider
 
 - Branch: `feature/proactive-guidance-05-news-provider`
+- Status: completed, live-verified and user-approved on 2026-08-23
 - 구현 전 Naver News/Search, SerpApi와 기타 후보의 품질, 비용, quota, 약관 비교
 - 한국어 뉴스에 적합한 provider 하나 실제 연결
 - headline, summary, publisher, published time, URL과 topic 정규화
 - freshness, duplicate event/article, source attribution 정책
-- 현재 direct `config.api_key` 방식의 SerpApi provider를 운영 경로에서 제거하거나
-  server-managed gateway로 전환
+- 기존 SerpApi Trends와 사용자 key 방식은 별도 일감으로 유지하고 이번 단계에서 제외
 - 미래 `news + mcp_tool` transport가 같은 normalized contract를 만족하도록 검증
 
 ### 6. Recommendation Producers

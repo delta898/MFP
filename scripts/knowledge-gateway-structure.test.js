@@ -26,15 +26,42 @@ test('knowledge gateway SQL keeps cache and protection state service-role only',
     assert.match(sql, /record_knowledge_provider_failure/);
 });
 
-test('stage four gateway has no live upstream provider or desktop credential route', () => {
+test('stage five gateway registers Naver news without a desktop credential route', () => {
     const providers = read('supabase/functions/_shared/knowledge-gateway-providers.ts');
+    const naverNews = read('supabase/functions/_shared/knowledge-provider-naver-news.ts');
     const transport = read('src/knowledge/transports/server-gateway.js');
     const client = read('src/knowledge/server-gateway-client.js');
-    assert.match(providers, /const ROUTES = new Map<string, KnowledgeProviderRoute>\(\);/);
-    assert.doesNotMatch(providers, /serpapi\.com|openapi\.naver\.com|fetch\(/);
+    assert.match(providers, /createNaverNewsRoute/);
+    assert.match(providers, /new Map<string, KnowledgeProviderRoute>/);
+    assert.match(naverNews, /https:\/\/openapi\.naver\.com\/v1\/search\/news\.json/);
+    assert.doesNotMatch(naverNews, /naverapihub|NAVER_API_HUB/);
+    assert.match(naverNews, /NAVER_CLIENT_ID/);
+    assert.match(naverNews, /NAVER_CLIENT_SECRET/);
+    assert.doesNotMatch(naverNews, /serpapi\.com/i);
     assert.doesNotMatch(transport, /api[_-]?key|authorization|base[_-]?url/i);
     assert.match(client, /const KNOWLEDGE_GATEWAY_FUNCTION = 'knowledge-gateway'/);
     assert.doesNotMatch(client, /SERPAPI|NAVER_CLIENT_SECRET|SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('Naver Developers and API Hub credentials have explicit non-fallback owners', () => {
+    const naverNews = read('supabase/functions/_shared/knowledge-provider-naver-news.ts');
+    const keywordResearch = read('supabase/functions/keyword-research/index.ts');
+    assert.match(naverNews, /NAVER_CLIENT_ID/);
+    assert.match(naverNews, /NAVER_CLIENT_SECRET/);
+    assert.doesNotMatch(naverNews, /NAVER_API_HUB/);
+    assert.match(keywordResearch, /NAVER_API_HUB_CLIENT_ID/);
+    assert.match(keywordResearch, /NAVER_API_HUB_CLIENT_SECRET/);
+    assert.doesNotMatch(keywordResearch, /Deno\.env\.get\("NAVER_CLIENT_(?:ID|SECRET)"\)/);
+});
+
+test('empty semantic queries short-circuit before cache and provider quota', () => {
+    const source = read('supabase/functions/knowledge-gateway/index.ts');
+    const shortCircuit = source.indexOf('route.shouldFetch');
+    const cache = source.indexOf('knowledge_gateway_cache');
+    const quota = source.indexOf('consume_knowledge_provider_quota');
+    assert.equal(shortCircuit >= 0, true);
+    assert.equal(shortCircuit < cache, true);
+    assert.equal(shortCircuit < quota, true);
 });
 
 test('gateway function orders license, rate, cache, backoff and quota before upstream', () => {
@@ -45,7 +72,7 @@ test('gateway function orders license, rate, cache, backoff and quota before ups
         'knowledge_gateway_cache',
         'knowledge_gateway_provider_state',
         'consume_knowledge_provider_quota',
-        'route.fetchSnapshot'
+        'const upstream = await withTimeout(route.fetchSnapshot'
     ].map((token) => source.indexOf(token));
     assert.equal(positions.every((position) => position >= 0), true);
     assert.deepEqual([...positions].sort((left, right) => left - right), positions);

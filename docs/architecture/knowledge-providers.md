@@ -31,8 +31,11 @@ invokes only the fixed BlogGenius Supabase `knowledge-gateway` function. Its def
 a semantic kind/purpose but cannot configure a function name, URL, credential, header or response
 parser. The server selects the actual upstream provider and owns shared-account protection.
 
-## Current Sample Provider
-- `trends + builtin_api + SerpApi`
+## Current Providers
+
+- `trends + builtin_api + SerpApi` (optional user-key provider, disabled by default)
+- `trends + builtin_api + naver_trend_posting`
+- `news + server_gateway + naver-news`
 
 ## Built-in Naver Trends Provider
 
@@ -79,11 +82,20 @@ Provider credentials remain Function Secrets. Cache keys exclude license and har
 Postgres protection tables use RLS and are accessible only to `service_role`; Edge instance memory
 is not coordination state.
 
-Stage 4 intentionally registers no live server provider. Naver Trends continues through its
-existing licensed Oracle gateway, and real News provider selection/activation belongs to Stage 5.
+The first live server route is `news + content_ideas -> naver-news`. It uses only Naver Developers
+Function Secrets and the OpenAPI endpoint. Keyword Research separately uses NAVER API HUB Secrets;
+the two authentication systems do not fall back to each other. The route returns date-sorted Naver
+Search News results with a 15-minute cache and bounded stale fallback. A blank topic
+short-circuits to an empty validated Snapshot before provider quota because Naver News Search does
+not provide a query-free latest-headlines operation.
+
+The desktop registers `naver-news` as an enabled `server_gateway` definition but Stage 5 does not
+add it to the content-idea route. Stage 6 Recommendation Producers will create justified news
+queries and consume it. This avoids silently changing existing recommendations before relevance
+and ranking policy exist.
 
 ## Current Gap
 - `mcp_tool` transport is still structural only and needs real implementation.
-- `server_gateway` has no active upstream route until the Stage 5 News provider decision.
+- a true query-free `latest_headlines` operation has no provider yet.
 - Personalized relevance, diversity, and recency weighting remain consumer
   policy rather than provider behavior.
