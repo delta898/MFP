@@ -159,6 +159,7 @@ Agent Runtime -> outcome events -> Memory
 ### 8. Capability Handoff
 
 - Branch: `feature/proactive-guidance-08-capability-handoff`
+- Status: completed on 2026-08-24 under approved non-UI workflow
 - recommendation id 기반 server-side action resolution
 - client-supplied capability/params 변조 차단
 - current-state validation, preview, entitlement, quota와 confirmation 재사용

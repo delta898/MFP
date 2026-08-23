@@ -40,6 +40,7 @@ class ConfirmationStore {
             actions: Array.isArray(item.actions) ? item.actions : [],
             previews: Array.isArray(item.previews) ? item.previews : [],
             correction: item.correction && typeof item.correction === 'object' ? item.correction : null,
+            correlation: this._normalizeCorrelation(item.correlation),
             supersededConfirmationId: String(item.supersededConfirmationId || '').trim(),
             transportChatId: String(item.transportChatId || '').trim(),
             transportMessageId: String(item.transportMessageId || '').trim(),
@@ -48,6 +49,18 @@ class ConfirmationStore {
             expiresAt: String(item.expiresAt || '').trim(),
             expiresAtMs: Number.isFinite(Number(item.expiresAtMs)) ? Number(item.expiresAtMs) : 0
         };
+    }
+
+    _normalizeCorrelation(value = {}) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const identifierPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/;
+        const normalized = {
+            kind: String(value.kind || '').trim(),
+            owner_id: String(value.owner_id || value.ownerId || '').trim(),
+            resource_id: String(value.resource_id || value.resourceId || '').trim(),
+            operation_id: String(value.operation_id || value.operationId || '').trim()
+        };
+        return Object.values(normalized).every((item) => identifierPattern.test(item)) ? normalized : null;
     }
 
     _loadPersisted() {
@@ -95,6 +108,7 @@ class ConfirmationStore {
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             previews: Array.isArray(payload.previews) ? payload.previews : [],
             correction: payload.correction && typeof payload.correction === 'object' ? payload.correction : null,
+            correlation: this._normalizeCorrelation(payload.correlation),
             supersededConfirmationId: String(payload.superseded_confirmation_id || '').trim(),
             transportChatId: String(payload.transport_chat_id || '').trim(),
             transportMessageId: String(payload.transport_message_id || '').trim(),

@@ -99,3 +99,13 @@ test('policy evaluator is the only policy layer allowed to call the existing mat
     assert.doesNotMatch(source, /config-loader|require\(['"]\.\.\/\.\.\/license['"]\)/);
     assert.doesNotMatch(source, /telegram|ui-server|ui\/|naver-news|naver-trends|serpapi/i);
 });
+
+test('trusted handoff resolves stored recommendation actions without client or channel authority', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/handoff/service.js'), 'utf8');
+    assert.match(source, /recommendationStore\.getRecommendation/);
+    assert.match(source, /capabilityRegistry\.validateAction/);
+    assert.match(source, /capabilityRegistry\.executeAction/);
+    assert.doesNotMatch(source, /input\.(?:capability|params|requires_confirmation)/);
+    assert.doesNotMatch(source, /config-loader|require\(['"]\.\.\/\.\.\/license['"]\)/);
+    assert.doesNotMatch(source, /telegram|ui-server|ui\/|naver-news|naver-trends|serpapi/i);
+});

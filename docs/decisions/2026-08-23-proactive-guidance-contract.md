@@ -60,6 +60,13 @@ A Recommendation has at most one primary handoff.
 The client cannot lower confirmation policy or execute arbitrary capability
 parameters supplied in a browser request.
 
+Stage 8 implements this boundary with an owner-scoped handoff service. A
+confirmation stores only a bounded Recommendation correlation, and approval
+re-resolves the stored Recommendation and Capability instead of trusting the
+confirmation's action snapshot. The lifecycle enters `action_in_progress` only
+immediately before execution; reject leaves it available and execution failure
+leaves it retryable as `action_failed`.
+
 ### Persistence and Compatibility
 
 New Recommendation lifecycle writes use a dedicated projection and
@@ -70,8 +77,9 @@ response through an adapter.
 Historic `SuggestionNode` and `suggestion.*` records are not backfilled. They
 remain legacy facts because they lack canonical identity, evidence, policy,
 expiry and handoff information. Existing feedback may be read through a
-compatibility adapter when useful. Agent confirmation storage remains unchanged
-and is outside this project's migration scope.
+compatibility adapter when useful. Agent confirmation semantics remain shared;
+the store supports a generic bounded correlation for trusted workflows but does
+not contain Recommendation business logic.
 
 ### Delivery Boundary
 
@@ -90,4 +98,3 @@ are optional delivery adapters after the in-app path is stable.
 - Adding News or MCP knowledge does not couple Recommendation policy to a vendor.
 - Stage 1 changes no runtime, storage, API or UI behavior; later stages perform
   the controlled write-path and product migration.
-
