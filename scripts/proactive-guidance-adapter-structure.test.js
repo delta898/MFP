@@ -79,7 +79,10 @@ test('recommendation policy reads sanitized injected facts without UI, provider 
     const files = [
         'src/recommendations/policy/context.js',
         'src/recommendations/policy/requirements.js',
-        'src/recommendations/policy/eligibility.js'
+        'src/recommendations/policy/eligibility.js',
+        'src/recommendations/policy/scoring.js',
+        'src/recommendations/policy/diversity.js',
+        'src/recommendations/policy/ranking.js'
     ];
     const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
     assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/config-loader/);

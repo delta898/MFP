@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: 07a complete; 07b implementation next
+- Phase: 07a and 07b complete; 07c implementation next
 - Parent integration branch: `feature/proactive-guidance-main`
 - Stage integration branch: `feature/proactive-guidance-07-policy-ranking`
 - Current child branch: none
@@ -33,6 +33,7 @@ child로 나눈다.
 ### 07b Explainable Ranking and Diversity
 
 - Branch: `feature/proactive-guidance-07b-ranking-diversity`
+- Status: completed on 2026-08-24 under approved non-UI workflow
 - canonical `0..1` score와 bounded breakdown
 - deterministic tie-breaking
 - kind diversity, semantic-near-duplicate suppression과 per-run limit

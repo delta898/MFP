@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: stage 7 in progress; 07a complete and 07b next
+- Phase: stage 7 in progress; 07a and 07b complete, 07c next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
 - Current child branch: `feature/proactive-guidance-07-policy-ranking`
