@@ -71,6 +71,8 @@
 - `plans/active/proactive-guidance-03-legacy-adapters-plan.md`
 - `plans/active/proactive-guidance-04-external-knowledge-gateway-plan.md`
 - `plans/active/proactive-guidance-05-news-provider-plan.md`
+- `plans/active/proactive-guidance-06-producers-plan.md`
+- `plans/active/proactive-guidance-06a-producer-runtime-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

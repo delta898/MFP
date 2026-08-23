@@ -22,3 +22,11 @@ test('Telegram keeps historic feedback callbacks beside canonical callbacks', ()
     assert.match(source, /verb === 'rec_fb'/);
     assert.match(source, /verb === 'suggest_feedback'/);
 });
+
+test('producer runtime stays independent from policy, lifecycle, legacy suggestions and UI', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/producers/runtime.js'), 'utf8');
+    assert.match(source, /validateRecommendationCandidate/);
+    assert.doesNotMatch(source, /topic-ranking-policy|recommendation-materializer|lifecycle-store/);
+    assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
+    assert.doesNotMatch(source, /\.materialize\(|policy_id|recommendation\.created/);
+});

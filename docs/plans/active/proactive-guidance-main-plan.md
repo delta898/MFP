@@ -2,10 +2,10 @@
 
 ## Status
 
-- Phase: stage 5 complete; stage 6 detailed design next
+- Phase: stage 6a complete; stage 6b design next
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: none; next planned `feature/proactive-guidance-06-producers`
+- Current child branch: none
 - Release version: undecided until release preparation
 
 ## Product Goal
@@ -128,7 +128,12 @@ Agent Runtime -> outcome events -> Memory
 
 ### 6. Recommendation Producers
 
-- Branch: `feature/proactive-guidance-06-producers`
+- Branches:
+  - `feature/proactive-guidance-06a-producer-runtime`
+  - `feature/proactive-guidance-06b-content-producers`
+  - `feature/proactive-guidance-06c-operational-producers`
+  - `feature/proactive-guidance-06d-commerce-producer`
+- Status: detailed design confirmed; 06a completed and user-approved on 2026-08-24; 06b design next
 - trend content opportunity
 - news content opportunity
 - trend commerce opportunity
