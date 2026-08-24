@@ -97,7 +97,7 @@ test('owner, future time, expiry and unavailable history are independent blocker
     assert.deepEqual(expired.suppression_reasons, ['candidate_expired']);
 });
 
-test('active duplicate, dismissed seven-day and completed fourteen-day cooldowns use exact dedupe', () => {
+test('active duplicate, rotated one-day, dismissed seven-day and completed fourteen-day cooldowns use exact dedupe', () => {
     function history(status, lastEventAt, expiresAt = '2026-08-25T09:00:00.000Z') {
         return {
             recommendation_id: `rec-${status}`, kind: 'content_opportunity', dedupe_key: 'content:policy:1',
@@ -110,11 +110,15 @@ test('active duplicate, dismissed seven-day and completed fourteen-day cooldowns
     const dismissed = evaluateCandidateEligibility(candidate(), context({
         history: { known: true, items: [history('dismissed', '2026-08-18T09:00:01.000Z')] }
     }));
+    const rotated = evaluateCandidateEligibility(candidate(), context({
+        history: { known: true, items: [history('rotated', '2026-08-24T08:00:00.000Z')] }
+    }));
     const completedBoundary = evaluateCandidateEligibility(candidate(), context({
         history: { known: true, items: [history('action_completed', '2026-08-10T09:00:00.000Z')] }
     }));
     assert.deepEqual(active.suppression_reasons, ['active_duplicate']);
     assert.deepEqual(dismissed.suppression_reasons, ['cooldown:dismissed']);
+    assert.deepEqual(rotated.suppression_reasons, ['cooldown:rotated']);
     assert.equal(completedBoundary.eligible, true);
 });
 

@@ -15,6 +15,7 @@ const RECOMMENDATION_STATES = Object.freeze([
     'action_failed',
     'action_completed',
     'dismissed',
+    'rotated',
     'expired'
 ]);
 
@@ -26,6 +27,7 @@ const RECOMMENDATION_EVENT_TYPES = Object.freeze([
     'recommendation.snoozed',
     'recommendation.reactivated',
     'recommendation.dismissed',
+    'recommendation.rotated',
     'recommendation.action_started',
     'recommendation.action_failed',
     'recommendation.action_completed',
@@ -273,6 +275,10 @@ function toPublicRecommendationDto(value = {}) {
         available_at: recommendation.available_at,
         snoozed_until: recommendation.snoozed_until,
         expires_at: recommendation.expires_at,
+        lane: ['content_opportunity', 'commerce_opportunity'].includes(recommendation.candidate.kind)
+            ? 'serendipity'
+            : 'guidance',
+        hint: compactText(recommendation.candidate.metadata?.discovery_hint, 80),
         action
     };
 }

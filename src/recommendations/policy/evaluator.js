@@ -108,7 +108,7 @@ function createRecommendationPolicyEvaluator(options = {}) {
     }
 
     return {
-        async evaluate(input = {}, context = {}) {
+        async evaluate(input = {}, context = {}, runtimeOptions = {}) {
             const evaluationId = compact(evaluationIdFactory(), 240);
             const policyContext = await contextCollector.collect(input, context);
             const diagnostics = (Array.isArray(policyContext?.diagnostics) ? policyContext.diagnostics : [])
@@ -140,7 +140,10 @@ function createRecommendationPolicyEvaluator(options = {}) {
                 seenDedupeKeys.add(dedupeKey);
             }
 
-            const ranking = rankRecommendationCandidates({ entries, policy_context: policyContext }, rankingOptions);
+            const ranking = rankRecommendationCandidates({ entries, policy_context: policyContext }, {
+                ...rankingOptions,
+                ...(runtimeOptions.rankingOptions || {})
+            });
             const suppressed = [];
             for (const entry of entries.filter((item) => item.eligibility.eligible !== true)) {
                 const policy = suppressedEligibilityPolicy(entry, policyContext.observed_at, diagnostics);

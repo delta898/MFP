@@ -41,6 +41,10 @@ This document captures the current runtime boundaries after the CLI-removal refa
 - `src/ui-api/services/recommendation-refresh.service.js`
   - Composes Memory, operational state, bounded Knowledge, producers and policy evaluation for an on-demand refresh.
   - Coalesces concurrent refreshes and applies a 15-minute process-local TTL; it does not own background scheduling.
+- `src/recommendations/delivery/scheduler.js`
+  - Starts the same refresh pipeline after HTTP listen and owns periodic timing, persisted next-run state,
+    single catch-up, concurrent-run coalescing and provider-failure backoff.
+  - It never imports UI modules or reimplements producer/policy decisions.
 - `src/ui-runtime/config-file-runtime.js`
   - Config file source resolution, read/write helpers, revision helpers.
 - `src/ui-runtime/settings-fields-runtime.js`
@@ -82,8 +86,12 @@ Not:
 
 ## Recommendation Center Boundary
 
-The Dashboard Recommendation Center reads only public Recommendation DTOs. The UI may request an
+The Dashboard `뜻밖의 발견` center reads only public content/commerce opportunity DTOs. Operational
+guidance candidates remain available to future delivery surfaces but are not rendered as a mostly-empty
+Dashboard section. The UI may request an
 allowlisted interaction but never receives capability ids, params, policy internals or owner identity.
+The three-card discovery batch reserves one backend-selected slot each for Trends, News and confirmed
+owner content history; the browser only renders the resulting public hint and does not rebalance sources.
 The UI API derives the installation-local owner, records lifecycle interactions and passes only that
 owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,

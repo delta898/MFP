@@ -278,16 +278,29 @@ the strict values `helpful` and `not_helpful`. Negative feedback is followed by 
 transition, while positive feedback does not imply action execution. Existing topic selection,
 save, draft and publish outcomes remain owner activity evidence.
 
-The in-app Recommendation Center reconciles due snooze/expiry commands before its owner-scoped read
-and exposes only `available` or retryable `action_failed` projections as public DTOs. When the
-actionable projection is empty, it performs a bounded on-demand producer/policy evaluation. This
+The in-app `뜻밖의 발견` center reconciles due snooze/expiry commands before its owner-scoped read
+and exposes only `available` or retryable `action_failed` content/commerce opportunities as public DTOs.
+Operational guidance remains canonical lifecycle data for future delivery surfaces but is not rendered
+in the Dashboard center. When the discovery projection is empty, it performs a bounded on-demand producer/policy evaluation. This
 evaluation uses a short process-local TTL and writes only policy-selected Recommendations through the
 canonical materializer; it does not treat a Dashboard view as preference evidence. `open` is an
-observational event. `나중에` creates a server-owned 24-hour snooze, while `관심 없음` records
-explicit `not_helpful` feedback followed by dismiss. Capability handoff re-resolves the persisted
+observational event. The 24-hour snooze lifecycle remains available to other delivery channels but
+the focused Dashboard discovery UI does not render a `나중에` action. `관심 없음` records explicit
+`not_helpful` feedback followed by dismiss. Capability handoff re-resolves the persisted
 Recommendation and current Registry definition, enters `action_in_progress` only immediately before
 execution, and records `action_completed` or retryable `action_failed`. Presentation navigation does
 not create an action transition.
+
+`recommendation.rotated`는 사용자가 다른 발견을 요청했다는 전달 사실이다. 이 상태 전이는
+`not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다.
+
+Serendipity discovery는 세 source lane을 독립적으로 취급한다. `trends`는 현재 Naver Trends,
+`news`는 bounded Naver News 탐색, `owner_history`는 저장·선택·작성·발행으로 확인된 owner activity다.
+각 발견 묶음은 세 lane에 한 자리씩 먼저 배정하며, source가 비었을 때만 다른 lane의 근거 있는 후보가
+빈자리를 채운다. persisted Candidate의 `discovery_source_lane` 노출 이력은 source별 순환 offset이 되지만
+그 자체는 선호 사실이 아니다. 생성된 글감이나 단순 노출은 owner history 근거로 승격하지 않는다.
+Trends와 owner history는 최근 7일을 우선하고 최대 14일까지만 discovery evidence로 인정한다.
+Recommendation의 24시간 delivery TTL과 source evidence lookback은 서로 독립된 시간 정책이다.
 
 ## Owner-Scoped Operational Reads
 
@@ -346,7 +359,8 @@ lifecycle identity, transaction and volatile fallback behavior remain centralize
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.
 - Planner-aware memory retrieval is not yet implemented.
-- Recommendation reconciliation is service-driven until the proactive guidance scheduler stage.
+- Recommendation delivery scheduling persists only timing/backoff state outside Kuzu. Recommendation facts,
+  dedupe, cooldown and daily materialization caps remain in the canonical lifecycle and policy layers.
 - Full event replay repair for a manually damaged Recommendation projection is deferred to memory hardening.
 
 ## Persistence Boundary

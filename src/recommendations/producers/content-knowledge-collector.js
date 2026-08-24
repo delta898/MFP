@@ -42,7 +42,10 @@ function createContentKnowledgeCollector(options = {}) {
             }
 
             const queryPlan = buildContentNewsQueryPlan({ ...input, knowledge: trends }, context, { now });
-            const queries = queryPlan.queries.slice(0, MAX_NEWS_QUERIES);
+            const newsEligibleQueries = input.serendipity === true
+                ? queryPlan.queries.filter((query) => query?.lane === 'discovery')
+                : queryPlan.queries;
+            const queries = newsEligibleQueries.slice(0, MAX_NEWS_QUERIES);
             const collected = await Promise.all(queries.map(async (query) => {
                 const queryDiagnostics = [];
                 if (!knowledgeRegistry?.fetchForRoute) return { query, snapshots: [], diagnostics: queryDiagnostics };
@@ -70,6 +73,7 @@ function createContentKnowledgeCollector(options = {}) {
                 schema_version: 1,
                 observed_at: new Date(now()).toISOString(),
                 trends,
+                query_plan: queryPlan,
                 news_queries: collected.map(({ query, snapshots }) => ({ query, snapshots })),
                 diagnostics: diagnostics.slice(0, MAX_DIAGNOSTICS)
             };

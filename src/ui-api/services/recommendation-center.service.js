@@ -7,6 +7,8 @@ const ACTIONABLE_STATES = new Set(['available', 'action_failed']);
 const INTERACTIONS = new Set(['open', 'snooze', 'dismiss']);
 const REQUEST_KEYS = new Set(['recommendation_id', 'interaction']);
 const CONFIRMATION_KEYS = new Set(['recommendation_id', 'confirmation_id', 'decision']);
+const DISCOVERY_REQUEST_KEYS = new Set();
+const DISCOVERY_KINDS = new Set(['content_opportunity', 'commerce_opportunity']);
 const SNOOZE_MS = 24 * 60 * 60 * 1000;
 
 function boundedLimit(value) {
@@ -83,7 +85,7 @@ function createRecommendationCenterService(options = {}) {
         }
     }
 
-    return {
+    const service = {
         async list(input = {}) {
             const owner = ownerUserId();
             const at = occurredAt();
@@ -103,6 +105,7 @@ function createRecommendationCenterService(options = {}) {
             const nowMs = Date.parse(at);
             const actionable = (Array.isArray(items) ? items : [])
                 .filter((item) => item.owner_user_id === owner && ACTIONABLE_STATES.has(item.status))
+                .filter((item) => DISCOVERY_KINDS.has(item?.candidate?.kind))
                 .filter((item) => Date.parse(item.available_at) <= nowMs && Date.parse(item.expires_at) > nowMs)
                 .sort((left, right) => right.available_at.localeCompare(left.available_at)
                     || (left.policy?.rank || 999) - (right.policy?.rank || 999)
@@ -121,6 +124,7 @@ function createRecommendationCenterService(options = {}) {
             }
             const refreshedActionable = (evaluated?.status === 'evaluated' ? items : actionable)
                 .filter((item) => item.owner_user_id === owner && ACTIONABLE_STATES.has(item.status))
+                .filter((item) => DISCOVERY_KINDS.has(item?.candidate?.kind))
                 .filter((item) => Date.parse(item.available_at) <= nowMs && Date.parse(item.expires_at) > nowMs)
                 .sort((left, right) => right.available_at.localeCompare(left.available_at)
                     || (left.policy?.rank || 999) - (right.policy?.rank || 999)
@@ -182,6 +186,39 @@ function createRecommendationCenterService(options = {}) {
             }
         },
 
+        async discover(input = {}) {
+            assertExactKeys(input, DISCOVERY_REQUEST_KEYS);
+            const owner = ownerUserId();
+            const at = occurredAt();
+            const items = await eventStore.listRecommendations(owner, { limit: 100 });
+            const current = (Array.isArray(items) ? items : [])
+                .filter((item) => item.owner_user_id === owner && ACTIONABLE_STATES.has(item.status))
+                .filter((item) => DISCOVERY_KINDS.has(item?.candidate?.kind))
+                .filter((item) => Date.parse(item.available_at) <= Date.parse(at) && Date.parse(item.expires_at) > Date.parse(at));
+            let refresh = null;
+            try {
+                refresh = await refreshService?.refresh?.({ force: true, reason: 'user_new_discovery' }) || null;
+            } catch (error) {
+                logger?.warn?.(`⚠️ [RecommendationCenter] 새로운 발견 평가 실패: ${error.message}`);
+            }
+            const afterRefresh = await eventStore.listRecommendations(owner, { limit: 100 });
+            const currentIds = new Set(current.map((item) => item.recommendation_id));
+            const replacements = (Array.isArray(afterRefresh) ? afterRefresh : [])
+                .filter((item) => item.owner_user_id === owner && ACTIONABLE_STATES.has(item.status))
+                .filter((item) => DISCOVERY_KINDS.has(item?.candidate?.kind))
+                .filter((item) => !currentIds.has(item.recommendation_id));
+            const operationId = operationIdFactory();
+            if (replacements.length > 0) {
+                for (const item of current) {
+                    await transition(owner, item.recommendation_id, 'recommendation.rotated', `${operationId}:rotate:${item.recommendation_id}`, {
+                        reason_code: 'user_new_discovery'
+                    });
+                }
+            }
+            const result = await service.list({ limit: 3 });
+            return { ...result, refresh, rotated_count: replacements.length > 0 ? current.length : 0 };
+        },
+
         async decide(input = {}, context = {}) {
             assertExactKeys(input, CONFIRMATION_KEYS);
             const recommendationId = assertIdentifier(input.recommendation_id, 'RECOMMENDATION_ID_INVALID', '추천 ID 형식이 올바르지 않습니다.');
@@ -207,10 +244,12 @@ function createRecommendationCenterService(options = {}) {
             }
         }
     };
+    return service;
 }
 
 module.exports = {
     ACTIONABLE_STATES,
+    DISCOVERY_KINDS,
     INTERACTIONS,
     SNOOZE_MS,
     boundedLimit,

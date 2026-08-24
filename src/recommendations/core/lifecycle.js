@@ -10,6 +10,7 @@ const OBSERVATIONAL_EVENTS = Object.freeze([
 const TERMINAL_STATES = Object.freeze([
     'action_completed',
     'dismissed',
+    'rotated',
     'expired'
 ]);
 
@@ -25,6 +26,7 @@ const TRANSITIONS = Object.freeze({
     'recommendation.snoozed': Object.freeze({ from: ['available', 'action_failed'], to: 'snoozed' }),
     'recommendation.reactivated': Object.freeze({ from: ['snoozed'], to: 'available' }),
     'recommendation.dismissed': Object.freeze({ from: ['available', 'snoozed', 'action_failed'], to: 'dismissed' }),
+    'recommendation.rotated': Object.freeze({ from: ['available', 'action_failed'], to: 'rotated' }),
     'recommendation.action_started': Object.freeze({ from: ['available', 'action_failed'], to: 'action_in_progress' }),
     'recommendation.action_failed': Object.freeze({ from: ['action_in_progress'], to: 'action_failed' }),
     'recommendation.action_completed': Object.freeze({ from: ['action_in_progress'], to: 'action_completed' }),

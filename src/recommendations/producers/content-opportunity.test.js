@@ -68,7 +68,12 @@ test('combines explicit, owner, Trends and deduplicated News evidence into one v
     assert.match(candidate.explanation, /현재 입력한 주제/);
     assert.match(candidate.explanation, /외부 Trends/);
     assert.match(candidate.explanation, /관련 보도 3건/);
-    assert.equal(candidate.handoff, null);
+    assert.deepEqual(candidate.handoff, {
+        type: 'presentation',
+        label: '소재 적용하기',
+        target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
+        payload: { query: 'AI 에이전트' }
+    });
     assert.deepEqual(validateRecommendationCandidate(candidate).errors, []);
 });
 
@@ -109,4 +114,117 @@ test('composes the collector and common runtime through injected Knowledge regis
     assert.equal(result.candidates[0].metadata.article_count, 1);
     assert.deepEqual(result.diagnostics.failed, []);
     assert.deepEqual(result.diagnostics.invalid, []);
+});
+
+test('serendipity mode creates one current headline per independent domain and skips prior exposure', async () => {
+    const domains = ['과학 발견', '생활 변화', '여행 문화'];
+    const queries = domains.map((topic, index) => ({
+        topic,
+        normalized_topic: topic.replace(/\s/g, ''),
+        lane: 'discovery',
+        bases: [{ lane: 'discovery', basis: { domain_index: index } }]
+    }));
+    const newsQueries = queries.map((query, index) => ({
+        query,
+        snapshots: [newsSnapshot([
+            article(`news-${index}-1`, `${query.topic} 첫 소재`, `https://news.example.com/${index}/1`),
+            article(`news-${index}-2`, `${query.topic} 다음 소재`, `https://news.example.com/${index}/2`)
+        ])]
+    }));
+    const producer = createContentOpportunityProducer({ now: () => new Date(NOW) });
+    const first = await producer.produce({
+        owner_user_id: 'owner-local',
+        serendipity: true,
+        content_knowledge: { query_plan: { queries }, news_queries: newsQueries }
+    });
+    assert.equal(first.candidates.length, 3);
+    assert.deepEqual(first.candidates.map((candidate) => candidate.metadata.discovery_domain), domains);
+
+    const second = await producer.produce({
+        owner_user_id: 'owner-local',
+        serendipity: true,
+        excluded_dedupe_keys: first.candidates.map((candidate) => candidate.dedupe_key),
+        content_knowledge: { query_plan: { queries }, news_queries: newsQueries }
+    });
+    assert.equal(second.candidates.length, 3);
+    assert.equal(second.candidates.every((candidate) => candidate.title.includes('다음 소재')), true);
+});
+
+test('serendipity mode fills three cards from healthy domains when one domain is empty', async () => {
+    const queries = ['과학 발견', '생활 변화', '여행 문화'].map((topic, index) => ({
+        topic, normalized_topic: topic.replace(/\s/g, ''), lane: 'discovery',
+        bases: [{ lane: 'discovery', basis: { domain_index: index } }]
+    }));
+    const newsQueries = queries.map((query, index) => ({
+        query,
+        snapshots: index === 2 ? [] : [newsSnapshot([
+            article(`fallback-${index}-1`, `${query.topic} 첫 소재`, `https://news.example.com/fallback/${index}/1`),
+            article(`fallback-${index}-2`, `${query.topic} 두 번째 소재`, `https://news.example.com/fallback/${index}/2`)
+        ])]
+    }));
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: { query_plan: { queries }, news_queries: newsQueries }
+    });
+    assert.equal(result.candidates.length, 3);
+    assert.equal(new Set(result.candidates.map((candidate) => candidate.metadata.discovery_domain)).size, 2);
+});
+
+test('serendipity mode reserves one card each for Trends, News and owner history', async () => {
+    const discoveryQuery = {
+        topic: '과학 발견', normalized_topic: '과학발견', lane: 'discovery',
+        bases: [{ lane: 'discovery', basis: { domain_index: 0 } }]
+    };
+    const trendQuery = {
+        topic: '오늘의 트렌드', normalized_topic: '오늘의트렌드', lane: 'trends',
+        bases: [{ lane: 'trends', basis: {
+            item_id: 'trend-mix', item_title: '오늘의 트렌드', observed_at: '2026-08-23T15:00:00.000Z',
+            snapshot_expires_at: '2026-08-24T01:00:00.000Z', provider_id: 'naver-trends',
+            transport: 'builtin_api', categories: [], change_type: 'up', change_amount: 1, score: 1
+        } }]
+    };
+    const ownerQuery = {
+        topic: '예전에 쓴 소재', normalized_topic: '예전에쓴소재', lane: 'owner_activity',
+        bases: [{ lane: 'owner_activity', basis: {
+            stage: 'published', strength: 'strong', timestamp: '2026-08-22T20:00:00.000Z',
+            source_kind: 'event', source_id: 'event:owner:1'
+        } }]
+    };
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: {
+            query_plan: { queries: [discoveryQuery, ownerQuery, trendQuery] },
+            news_queries: [{
+                query: discoveryQuery,
+                snapshots: [newsSnapshot([article('mix-news', '뜻밖의 뉴스 한 조각', 'https://news.example.com/mix')])]
+            }]
+        }
+    });
+
+    assert.deepEqual(result.candidates.map((candidate) => candidate.metadata.discovery_source_lane), [
+        'trends', 'news', 'owner_history'
+    ]);
+    assert.deepEqual(result.candidates.map((candidate) => candidate.metadata.discovery_hint), [
+        '트렌드 키워드', '뉴스 소재', '내 기록'
+    ]);
+    assert.equal(result.candidates.every((candidate) => validateRecommendationCandidate(candidate).ok), true);
+});
+
+test('serendipity mode fills an unavailable source slot without repeating a topic', async () => {
+    const queries = ['과학 발견', '생활 변화', '여행 문화'].map((topic, index) => ({
+        topic, normalized_topic: topic.replace(/\s/g, ''), lane: 'discovery',
+        bases: [{ lane: 'discovery', basis: { domain_index: index } }]
+    }));
+    const newsQueries = queries.map((query, index) => ({
+        query,
+        snapshots: [newsSnapshot([article(`news-only-${index}`, `뉴스 소재 ${index + 1}`, `https://news.example.com/news-only/${index}`)])]
+    }));
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: { query_plan: { queries }, news_queries: newsQueries }
+    });
+
+    assert.equal(result.candidates.length, 3);
+    assert.equal(result.candidates.every((candidate) => candidate.metadata.discovery_source_lane === 'news'), true);
+    assert.equal(new Set(result.candidates.map((candidate) => candidate.metadata.topic)).size, 3);
 });

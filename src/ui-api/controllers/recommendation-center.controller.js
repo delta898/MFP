@@ -23,6 +23,14 @@ function createRecommendationCenterController(deps = {}) {
                 return toErrorResponse(res, requestId, 'RECOMMENDATION_INTERACTION_FAILED', '추천 동작을 처리하지 못했습니다.', error);
             }
         },
+        async discover({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.discover(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'RECOMMENDATION_DISCOVERY_FAILED', '새로운 발견을 준비하지 못했습니다.', error);
+            }
+        },
         async confirmation({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

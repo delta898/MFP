@@ -66,7 +66,9 @@ function getApiFixture(pathname) {
             items: [{
                 schema_version: 1,
                 recommendation_id: 'recommendation:ui-smoke:1',
-                kind: 'setup_guidance',
+                kind: 'content_opportunity',
+                lane: 'serendipity',
+                hint: '지금 떠오르는 키워드',
                 title: 'WordPress 설정을 확인해보세요',
                 summary: '발행 채널 설정을 마치면 다음 작업으로 이어갈 수 있습니다.',
                 explanation: '현재 설정 상태를 근거로 한 안내입니다.',
@@ -101,6 +103,30 @@ function getApiFixture(pathname) {
                 target: { surface: 'settings.wordpress', view: 'settings', tab: 'naver-blog' },
                 payload: { section: 'wordpress' }
             }
+        };
+    }
+    if (pathname === '/api/v1/recommendations/discover') {
+        const now = new Date().toISOString();
+        return {
+            schema_version: 1,
+            generated_at: now,
+            count: 1,
+            rotated_count: 1,
+            items: [{
+                schema_version: 1,
+                recommendation_id: 'recommendation:ui-smoke:discovery',
+                kind: 'content_opportunity',
+                lane: 'serendipity',
+                title: '로컬 여행',
+                summary: '새로운 소재나 관점을 발견할 수 있습니다.',
+                explanation: '외부 Trends에서 관찰된 주제에 근거한 제안입니다.',
+                evidence: [],
+                status: 'available',
+                available_at: now,
+                snoozed_until: null,
+                expires_at: new Date(Date.now() + 86400000).toISOString(),
+                action: null
+            }]
         };
     }
     if (pathname.startsWith('/api/v1/surface-content/')) return { regions: {} };
@@ -225,6 +251,30 @@ async function run() {
 
         await page.goto(baseUrl, { waitUntil: 'networkidle' });
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
+        assert.equal(await page.evaluate(() => recommendationCenterToastMessage([
+            { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }
+        ])), '경찰 계급도 외 2건');
+
+        await page.evaluate(async () => {
+            await openRecommendationPresentation({
+                target: { surface: 'blog.quick' },
+                payload: { query: '첫 번째 뜻밖의 소재' }
+            });
+            await openRecommendationPresentation({
+                target: { surface: 'blog.quick' },
+                payload: { query: '"산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다"' }
+            });
+        });
+        assert.equal(
+            await page.locator('#quick-subject').inputValue(),
+            '산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다'
+        );
+        assert.equal(await page.evaluate(() => recommendationPresentationQuery('“겹따옴표 소재”')), '겹따옴표 소재');
+        assert.equal(await page.evaluate(() => recommendationActionLabel({
+            lane: 'serendipity', action: { type: 'presentation', label: '소재 살펴보기' }
+        })), '소재 적용하기');
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
 
         assert.equal(await page.locator('#view-dashboard').count(), 1);
         assert.equal(await page.locator('#view-dashboard').evaluate((element) => element.classList.contains('active')), true);
@@ -239,9 +289,26 @@ async function run() {
         assert.equal((await page.locator('#recommendation-nav-badge').textContent())?.trim(), '1');
         assert.equal(await page.locator('#recommendation-nav-badge').isHidden(), false);
         assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), true);
+        assert.equal(
+            await page.locator('.recommendation-evidence-toggle').evaluate((element) => getComputedStyle(element).alignSelf),
+            'flex-start'
+        );
         await page.locator('.recommendation-evidence-toggle').click();
         assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), false);
         assert.equal((await page.locator('.recommendation-card').textContent()).includes('capability_id'), false);
+        assert.equal(await page.locator('.recommendation-kind').count(), 0);
+        assert.equal((await page.locator('.recommendation-card-hint').textContent())?.trim(), '트렌드 키워드');
+        assert.equal(await page.locator('.recommendation-card-top .recommendation-card-hint').count(), 1);
+        assert.equal(await page.locator('.recommendation-card-title-row .recommendation-card-hint').count(), 0);
+        assert.equal(await page.locator('.recommendation-card').evaluate((element) => getComputedStyle(element).display), 'flex');
+        assert.equal(await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).alignItems), 'stretch');
+        assert.equal(await page.locator('[data-recommendation-action="snooze"]').count(), 0);
+        assert.equal(await page.locator('[data-recommendation-action="dismiss"]').isDisabled(), false);
+        assert.equal(
+            await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
+            3
+        );
+        assert.equal((await page.locator('#recommendation-center-title').textContent())?.trim(), '뜻밖의 발견');
         await page.locator('.recommendation-card-actions .primary').click();
         await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
         assert.equal(
@@ -249,6 +316,8 @@ async function run() {
             true
         );
         await page.locator('.nav-btn[data-view="dashboard"]').click();
+        await page.locator('#recommendation-center-refresh').click();
+        await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
@@ -314,6 +383,10 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
         const centerBox = await page.locator('#recommendation-center').boundingBox();
         assert.equal(Boolean(centerBox && centerBox.width <= 390), true);
+        assert.equal(
+            await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
+            1
+        );
         await page.locator('#mobile-menu-btn').click();
         await page.waitForFunction(() => document.querySelector('.sidebar')?.classList.contains('open'));
         assert.equal(await page.locator('#sidebar-overlay').evaluate((element) => element.classList.contains('active')), true);
@@ -321,7 +394,10 @@ async function run() {
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
         const expectedPosts = requests.filter((request) => request.method !== 'GET');
-        assert.deepEqual(expectedPosts, [{ method: 'POST', pathname: '/api/v1/recommendations/interaction' }]);
+        assert.deepEqual(expectedPosts, [
+            { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
+            { method: 'POST', pathname: '/api/v1/recommendations/discover' }
+        ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);
         assert.deepEqual(failedResponses, []);

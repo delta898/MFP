@@ -1,6 +1,6 @@
 const RECOMMENDATION_CENTER_SEEN_KEY = 'recommendation-center-seen-v1';
 const RECOMMENDATION_KIND_LABELS = Object.freeze({
-  content_opportunity: '글감 기회',
+  content_opportunity: '',
   commerce_opportunity: '쇼핑 기회',
   setup_guidance: '설정 안내',
   recovery_action: '복구 안내',
@@ -103,6 +103,51 @@ function recommendationButton(label, action, className = 'secondary') {
   return button;
 }
 
+function recommendationDisplayTitle(item = {}) {
+  const title = String(item.title || '추천').trim();
+  const legacy = title.match(/^뜻밖의 키워드,\s*(.+?)(?:을|를)\s+살펴보세요$/);
+  return legacy ? legacy[1].trim() : title;
+}
+
+function recommendationDisplayHint(item = {}) {
+  const hint = String(item.hint || '').trim();
+  const compactHints = {
+    '내 기록에서 다시 발견': '내 기록',
+    '최근 기록에서 다시 발견': '내 기록',
+    '뜻밖에 만난 뉴스 소재': '뉴스 소재',
+    '지금 떠오르는 키워드': '트렌드 키워드',
+    '최근 주목받은 키워드': '트렌드 키워드',
+    '요즘 주목받는 키워드': '트렌드 키워드'
+  };
+  return compactHints[hint] || hint || (item.kind === 'content_opportunity' ? '발견 소재' : '');
+}
+
+function recommendationActionLabel(item = {}) {
+  const label = String(item?.action?.label || (item?.action?.type === 'presentation' ? '관련 화면 열기' : '실행')).trim();
+  if (item.lane === 'serendipity' && item?.action?.type === 'presentation'
+    && ['소재 살펴보기', '이 소재 살펴보기'].includes(label)) {
+    return '소재 적용하기';
+  }
+  return label;
+}
+
+function recommendationPresentationQuery(value) {
+  let query = String(value || '').trim();
+  const quotePairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
+  let changed = true;
+  while (changed && query.length >= 2) {
+    changed = false;
+    for (const [opening, closing] of quotePairs) {
+      if (query.startsWith(opening) && query.endsWith(closing)) {
+        query = query.slice(opening.length, -closing.length).trim();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return query;
+}
+
 function createRecommendationCard(item) {
   const card = document.createElement('article');
   card.className = 'recommendation-card';
@@ -112,10 +157,20 @@ function createRecommendationCard(item) {
   top.className = 'recommendation-card-top';
   const labels = document.createElement('div');
   labels.className = 'recommendation-card-labels';
-  const kind = document.createElement('span');
-  kind.className = 'recommendation-kind';
-  kind.textContent = RECOMMENDATION_KIND_LABELS[item.kind] || '추천';
-  labels.appendChild(kind);
+  const kindLabel = RECOMMENDATION_KIND_LABELS[item.kind];
+  if (kindLabel) {
+    const kind = document.createElement('span');
+    kind.className = 'recommendation-kind';
+    kind.textContent = kindLabel;
+    labels.appendChild(kind);
+  }
+  const hintText = recommendationDisplayHint(item);
+  if (hintText) {
+    const hint = document.createElement('span');
+    hint.className = 'recommendation-card-hint';
+    hint.textContent = hintText;
+    labels.appendChild(hint);
+  }
   if (item.status === 'action_failed') {
     const state = document.createElement('span');
     state.className = 'recommendation-state';
@@ -127,12 +182,16 @@ function createRecommendationCard(item) {
   freshness.textContent = recommendationCenterRelativeTime(recommendationCenterEvidenceTime(item));
   top.append(labels, freshness);
 
+  const titleRow = document.createElement('div');
+  titleRow.className = 'recommendation-card-title-row';
   const title = document.createElement('h3');
-  title.textContent = String(item.title || '추천');
+  title.textContent = recommendationDisplayTitle(item);
+  titleRow.appendChild(title);
   const summary = document.createElement('p');
   summary.className = 'recommendation-card-summary';
   summary.textContent = String(item.summary || '');
-  card.append(top, title, summary);
+  card.append(top, titleRow);
+  if (item.lane !== 'serendipity' && summary.textContent) card.appendChild(summary);
   if (item.explanation) {
     const explanation = document.createElement('p');
     explanation.className = 'recommendation-card-explanation';
@@ -150,13 +209,10 @@ function createRecommendationCard(item) {
   const actions = document.createElement('div');
   actions.className = 'recommendation-card-actions';
   if (item.action) {
-    const label = String(item.action.label || (item.action.type === 'presentation' ? '관련 화면 열기' : '실행')).trim();
+    const label = recommendationActionLabel(item);
     actions.appendChild(recommendationButton(item.status === 'action_failed' ? `${label} 다시 시도` : label, 'open', 'primary'));
   }
-  actions.append(
-    recommendationButton('나중에', 'snooze'),
-    recommendationButton('관심 없음', 'dismiss', 'secondary recommendation-dismiss')
-  );
+  actions.append(recommendationButton('관심 없음', 'dismiss', 'secondary recommendation-dismiss'));
   card.appendChild(actions);
   return card;
 }
@@ -165,12 +221,19 @@ function renderRecommendationCenter(payload = {}) {
   const list = document.getElementById('recommendation-center-list');
   const status = document.getElementById('recommendation-center-status');
   if (!list || !status) return;
-  recommendationCenterItems = Array.isArray(payload.items) ? payload.items : [];
-  updateRecommendationCenterCount(payload.count);
+  recommendationCenterItems = (Array.isArray(payload.items) ? payload.items : [])
+    .filter((item) => item.lane === 'serendipity');
+  updateRecommendationCenterCount(recommendationCenterItems.length);
   list.replaceChildren(...recommendationCenterItems.map(createRecommendationCard));
   status.classList.remove('is-error');
   status.hidden = recommendationCenterItems.length > 0;
-  status.textContent = '현재 준비된 추천이 없습니다. 새로운 근거가 모이면 이곳에서 안내합니다.';
+  status.textContent = '새로운 발견을 준비하고 있습니다.';
+}
+
+function recommendationCenterToastMessage(items = []) {
+  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  const firstTitle = String(safeItems[0]?.title || '새로운 추천이 준비되었습니다.').trim();
+  return safeItems.length > 1 ? `${firstTitle} 외 ${safeItems.length - 1}건` : firstTitle;
 }
 
 function notifyNewRecommendationCenterItems(items) {
@@ -181,8 +244,8 @@ function notifyNewRecommendationCenterItems(items) {
   const first = newItems[0];
   showUiToast({
     dedupeKey: `recommendation:${first.recommendation_id}`,
-    title: newItems.length > 1 ? `새 추천 ${newItems.length}건` : '새 추천과 안내',
-    message: String(first.title || '새로운 추천이 준비되었습니다.'),
+    title: newItems.length > 1 ? `새로운 발견 ${newItems.length}건` : '새로운 뜻밖의 발견',
+    message: recommendationCenterToastMessage(newItems),
     actionLabel: '확인하기',
     onAction: async () => {
       await navigateTo('dashboard');
@@ -204,7 +267,9 @@ async function loadRecommendationCenter(options = {}) {
   if (refresh) refresh.disabled = true;
   recommendationCenterLoadPromise = (async () => {
     try {
-      const payload = await fetchJson(`/api/v1/recommendations?limit=6${options.refresh ? '&refresh=1' : ''}`);
+      const payload = options.discover
+        ? await postJson('/api/v1/recommendations/discover', {})
+        : await fetchJson(`/api/v1/recommendations?limit=3${options.refresh ? '&refresh=1' : ''}`);
       renderRecommendationCenter(payload);
       notifyNewRecommendationCenterItems(payload.items || []);
       return payload;
@@ -258,7 +323,11 @@ async function openRecommendationPresentation(action = {}) {
   }
   if (surface === 'blog.quick' && action?.payload?.query) {
     const subject = document.getElementById('quick-subject');
-    if (subject && !String(subject.value || '').trim()) subject.value = String(action.payload.query);
+    if (subject) {
+      subject.value = recommendationPresentationQuery(action.payload.query);
+      subject.dispatchEvent(new Event('input', { bubbles: true }));
+      subject.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
   if (surface === 'dashboard.recommendations') {
     document.getElementById('recommendation-center')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -329,6 +398,6 @@ async function handleRecommendationCenterAction(event) {
 function initRecommendationCenter() {
   document.getElementById('recommendation-center-list')?.addEventListener('click', handleRecommendationCenterAction);
   document.getElementById('recommendation-center-refresh')?.addEventListener('click', () => {
-    void loadRecommendationCenter({ force: true, refresh: true });
+    void loadRecommendationCenter({ force: true, discover: true });
   });
 }

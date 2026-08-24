@@ -69,24 +69,11 @@ const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-ru
 const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runtime');
 const { getAgentEventStore, initializeAgentMemory } = require('./memory/store');
 const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
-const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createAgentRuntime } = require('./agent/runtime');
-const { ConfirmationStore } = require('./agent/confirmation-store');
 const { createTopicRecommendationLearningService } = require('./recommendations/topic-recommendation-learning');
 const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
-const { createRecommendationHandoffService } = require('./recommendations/handoff/service');
-const { createRecommendationMaterializer } = require('./recommendations/adapters/recommendation-materializer');
-const { createRecommendationProducerRunner } = require('./recommendations/producers/runtime');
-const { createContentKnowledgeCollector } = require('./recommendations/producers/content-knowledge-collector');
-const { createContentOpportunityProducer } = require('./recommendations/producers/content-opportunity');
-const { createOperationalStateCollector } = require('./recommendations/producers/operational-state-collector');
-const { createSetupGuidanceProducer } = require('./recommendations/producers/setup-guidance');
-const { createJobRecoveryProducer } = require('./recommendations/producers/job-recovery');
-const { createPendingWorkflowProducer } = require('./recommendations/producers/pending-workflow');
-const { createCommerceOpportunityProducer } = require('./recommendations/producers/commerce-opportunity');
-const { createPolicyContextCollector } = require('./recommendations/policy/context');
-const { createRecommendationPolicyEvaluator } = require('./recommendations/policy/evaluator');
+const { createUiRecommendationRuntime } = require('./ui-runtime/recommendation-runtime');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const { createAutomationPolicyRuntime } = require('./ui-runtime/automation-policy-runtime');
@@ -114,7 +101,6 @@ const { createTopicRecommendationsService } = require('./ui-api/services/topic-r
 const { createTopicRecommendationsController } = require('./ui-api/controllers/topic-recommendations.controller');
 const { createTopicRecommendationsRouteHandler } = require('./ui-api/routes/topic-recommendations.routes');
 const { createRecommendationCenterService } = require('./ui-api/services/recommendation-center.service');
-const { createRecommendationRefreshService } = require('./ui-api/services/recommendation-refresh.service');
 const { createRecommendationCenterController } = require('./ui-api/controllers/recommendation-center.controller');
 const { createRecommendationCenterRouteHandler } = require('./ui-api/routes/recommendation-center.routes');
 const { createKeywordDiscoveryService } = require('./ui-api/services/keyword-discovery.service');
@@ -309,57 +295,19 @@ const topicRecommendationAgentRuntime = createAgentRuntime({
     capabilityRegistry: topicRecommendationCapabilityRegistry,
     eventStore: topicRecommendationEventStore
 });
-const recommendationCenterConfirmationStore = new ConfirmationStore({
-    persistPath: path.join(CONFIG.ROOT_DIR || process.cwd(), 'data', 'recommendation-confirmations.json')
-});
-const recommendationCenterHandoffService = createRecommendationHandoffService({
-    recommendationStore: topicRecommendationEventStore,
-    capabilityRegistry: topicRecommendationCapabilityRegistry,
-    confirmationStore: recommendationCenterConfirmationStore
-});
-const topicRecommendationRetrievalService = createMemoryRetrievalService({
+const {
+    handoffService: recommendationCenterHandoffService,
+    retrievalService: topicRecommendationRetrievalService,
+    refreshService: recommendationCenterRefreshService,
+    deliveryScheduler: recommendationDeliveryScheduler
+} = createUiRecommendationRuntime({
+    CONFIG,
+    License,
+    Logger,
     eventStore: topicRecommendationEventStore,
-    confirmationStore: recommendationCenterConfirmationStore
-});
-const recommendationOperationalStateCollector = createOperationalStateCollector({
-    config: CONFIG,
-    eventStore: topicRecommendationEventStore
-});
-const recommendationContentKnowledgeCollector = createContentKnowledgeCollector({
-    knowledgeRegistry: topicRecommendationCapabilityRegistry.knowledgeRegistry
-});
-const recommendationProducerRunner = createRecommendationProducerRunner({
-    producers: [
-        createContentOpportunityProducer(),
-        createSetupGuidanceProducer(),
-        createJobRecoveryProducer(),
-        createPendingWorkflowProducer(),
-        createCommerceOpportunityProducer()
-    ]
-});
-const recommendationPolicyContextCollector = createPolicyContextCollector({
     capabilityRegistry: topicRecommendationCapabilityRegistry,
-    recommendationStore: topicRecommendationEventStore,
-    licenseFeatureReader: (_input, context) => context.license_features,
-    settingReadinessReader: (_input, context) => context.operational_state?.readiness,
-    quotaReader: (_input, context) => context.quota
-});
-const recommendationPolicyEvaluator = createRecommendationPolicyEvaluator({
-    contextCollector: recommendationPolicyContextCollector,
-    materializer: createRecommendationMaterializer({
-        eventStore: topicRecommendationEventStore,
-        Logger
-    })
-});
-const recommendationCenterRefreshService = createRecommendationRefreshService({
-    eventStore: topicRecommendationEventStore,
-    memoryRetrievalService: topicRecommendationRetrievalService,
-    operationalStateCollector: recommendationOperationalStateCollector,
-    contentKnowledgeCollector: recommendationContentKnowledgeCollector,
-    producerRunner: recommendationProducerRunner,
-    policyEvaluator: recommendationPolicyEvaluator,
-    licenseStatusReader: () => License.checkLicenseStatus({ quiet: true }),
-    logger: Logger
+    fs,
+    path
 });
 const topicRecommendationLearningService = createTopicRecommendationLearningService({
     recordActivityLifecycle,
@@ -1166,6 +1114,8 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     getContentType,
     syncAutoRunnerWithConfig,
     triggerSnsStartupDiscovery,
+    startRecommendationDelivery: () => recommendationDeliveryScheduler.start(),
+    stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
     syncShoppingAutoRunnerWithConfig,
     recordUiActivity,
     handleGoogleOAuthCallback,

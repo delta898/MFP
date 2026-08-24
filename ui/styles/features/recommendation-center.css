@@ -10,6 +10,7 @@
 .recommendation-center-head,
 .recommendation-center-title-row,
 .recommendation-card-top,
+.recommendation-card-title-row,
 .recommendation-card-actions,
 .recommendation-evidence-head {
   display: flex;
@@ -87,11 +88,18 @@
 
 .recommendation-center-list {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
 }
 
 .recommendation-card {
-  padding: 17px 18px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  padding: 14px 16px;
+  box-sizing: border-box;
   border: 1px solid #dfe8f2;
   border-radius: 16px;
   background: rgba(255, 255, 255, .92);
@@ -104,6 +112,7 @@
 
 .recommendation-card-top {
   justify-content: space-between;
+  min-height: 24px;
   gap: 12px;
 }
 
@@ -133,11 +142,25 @@
   color: #b45309;
 }
 
+.recommendation-card-title-row {
+  margin-top: 8px;
+}
+
 .recommendation-card h3 {
-  margin: 10px 0 6px;
+  margin: 0;
   color: #142039;
-  font-size: 17px;
-  line-height: 1.42;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.recommendation-card-hint {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #71829a;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .recommendation-card-summary,
@@ -149,18 +172,21 @@
 }
 
 .recommendation-card-explanation {
-  margin-top: 5px;
+  margin-top: 6px;
   color: #75869b;
 }
 
 .recommendation-evidence-toggle {
-  margin: 10px 0 0;
+  align-self: flex-start;
+  width: auto;
+  margin: 7px 0 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: #47637f;
   cursor: pointer;
   font-size: 12px;
+  text-align: left;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -202,18 +228,28 @@
 .recommendation-card-actions {
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: auto;
+  padding-top: 9px;
   flex-wrap: wrap;
 }
 
 .recommendation-card-actions button {
-  min-height: 36px;
-  padding: 7px 12px;
+  min-height: 32px;
+  padding: 6px 11px;
   font-size: 12px;
 }
 
 .recommendation-card-actions .recommendation-dismiss {
-  color: #64748b;
+  border: 1px solid #cbd7e5;
+  background: #fff;
+  color: #53657d;
+  opacity: 1;
+}
+
+.recommendation-card-actions .recommendation-dismiss:hover {
+  border-color: #f0a6a6;
+  background: #fff7f7;
+  color: #a63d3d;
 }
 
 @media (max-width: 700px) {
@@ -230,7 +266,12 @@
   }
 
   .recommendation-card {
+    height: auto;
     padding: 15px 14px;
+  }
+
+  .recommendation-center-list {
+    grid-template-columns: 1fr;
   }
 
   .recommendation-card-actions {
@@ -239,5 +280,11 @@
 
   .recommendation-card-actions button {
     flex: 1 1 auto;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .recommendation-center-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

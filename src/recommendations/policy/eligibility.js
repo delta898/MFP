@@ -5,6 +5,7 @@ const { createRequirementRegistry } = require('./requirements');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_COOLDOWNS_MS = Object.freeze({
     dismissed: 7 * DAY_MS,
+    rotated: DAY_MS,
     action_completed: 14 * DAY_MS
 });
 

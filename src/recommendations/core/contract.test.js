@@ -22,7 +22,9 @@ test('exposes the canonical recommendation vocabulary', () => {
         'workflow_hint'
     ]);
     assert.equal(RECOMMENDATION_STATES.includes('action_failed'), true);
+    assert.equal(RECOMMENDATION_STATES.includes('rotated'), true);
     assert.equal(RECOMMENDATION_EVENT_TYPES.includes('recommendation.action_completed'), true);
+    assert.equal(RECOMMENDATION_EVENT_TYPES.includes('recommendation.rotated'), true);
     assert.equal(RECOMMENDATION_PRESENTATION_SURFACES.includes('settings.general'), true);
     assert.equal(RECOMMENDATION_PRESENTATION_SURFACES.includes('settings.blog'), true);
 });
@@ -51,6 +53,7 @@ test('builds a public DTO without owner, policy, dedupe, capability params, or e
     assert.equal(dto.action.type, 'capability');
     assert.equal(dto.action.label, '글감 만들기');
     assert.equal(dto.evidence[0].source.url, 'https://example.com/news/1');
+    assert.equal(dto.lane, 'serendipity');
     assert.equal(Object.hasOwn(dto, 'owner_user_id'), false);
     assert.equal(Object.hasOwn(dto, 'policy'), false);
     assert.equal(Object.hasOwn(dto, 'dedupe_key'), false);

@@ -2,17 +2,17 @@
 
 ## Status
 
-- Phase: stage 7 complete; stage 8 design and implementation next
+- Phase: stage 10 implementation, automated verification and user UI review completed
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: `feature/proactive-guidance-07-policy-ranking`
+- Current child branch: `feature/proactive-guidance-10-proactive-delivery`
 - Release version: undecided until release preparation
 
 ## Product Goal
 
 사용자 행동, 설정과 작업 상태, Trends 및 외부 Knowledge를 결합해 근거가
-있고 실행 가능한 다음 행동을 제안한다. 앱의 `추천과 안내` 센터를 기본 전달
-표면으로 두고, 사용자의 선택은 기존 Agent Runtime과 Capability Registry를
+있고 실행 가능한 다음 행동을 제안한다. 앱의 `뜻밖의 발견` 센터는 Serendipity
+소재와 키워드를 위한 기본 전달 표면이며, 사용자의 선택은 기존 Agent Runtime과 Capability Registry를
 통해 안전하게 후속 작업으로 이어진다.
 
 단순 알림이나 문구 생성기가 아니라 아래 전체 흐름을 제품 기반으로 만든다.
@@ -181,6 +181,7 @@ Agent Runtime -> outcome events -> Memory
 ### 10. Proactive Delivery
 
 - Branch: `feature/proactive-guidance-10-proactive-delivery`
+- Status: implementation, automated verification and user UI review completed; parent integration pending
 - app startup 및 bounded background evaluation
 - Stage 9 on-demand evaluation을 재사용하는 startup/background trigger
 - configurable refresh, cooldown, daily limit와 catch-up policy
@@ -189,6 +190,10 @@ Agent Runtime -> outcome events -> Memory
 - 앱 시작 성능과 offline behavior 보호
 - Dashboard가 빈 상태를 먼저 그린 뒤 평가 결과로 교체되는 지연을 startup/background 선행 평가로 제거
 - persistent dedupe로 재시작 뒤 같은 추천이 유지되는 동작을 freshness, catch-up, refresh 정책과 함께 실제 사용감 기준으로 재검토
+- Dashboard는 `뜻밖의 발견`에 집중하고, operational 안내 후보는 backend capability로만 유지
+- `새로운 발견`에서 탐색 항목을 부정 피드백 없이 rotate하고 Naver Trends, Naver News,
+  사용자 콘텐츠 기록에 각 1석을 우선 배정한 세 소재 제공
+- startup/background/manual discovery의 생성형 AI 호출 금지와 자동 architecture guard
 
 ### 11. Learning and Hardening
 

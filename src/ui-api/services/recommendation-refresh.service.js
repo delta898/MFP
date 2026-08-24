@@ -1,5 +1,29 @@
 const DEFAULT_REFRESH_TTL_MS = 15 * 60 * 1000;
 
+function discoverySourceLane(candidate = {}) {
+    const explicit = String(candidate?.metadata?.discovery_source_lane || '').trim();
+    if (['news', 'trends', 'owner_history'].includes(explicit)) return explicit;
+    const sourceLanes = Array.isArray(candidate?.metadata?.source_lanes)
+        ? candidate.metadata.source_lanes
+        : [];
+    if (sourceLanes.includes('discovery')) return 'news';
+    if (sourceLanes.includes('trends')) return 'trends';
+    if (sourceLanes.includes('owner_activity')) return 'owner_history';
+    return '';
+}
+
+function discoveryOffsets(history = []) {
+    const offsets = { news: 0, trends: 0, owner: 0 };
+    for (const item of Array.isArray(history) ? history : []) {
+        if (item?.candidate?.kind !== 'content_opportunity') continue;
+        const lane = discoverySourceLane(item.candidate);
+        if (lane === 'news') offsets.news += 1;
+        if (lane === 'trends') offsets.trends += 1;
+        if (lane === 'owner_history') offsets.owner += 1;
+    }
+    return offsets;
+}
+
 function createRecommendationRefreshService(options = {}) {
     const eventStore = options.eventStore;
     const memoryRetrievalService = options.memoryRetrievalService;
@@ -27,12 +51,30 @@ function createRecommendationRefreshService(options = {}) {
         return String(eventStore.getLocalOwnerIdentity()?.owner_user_id || '').trim();
     }
 
-    async function evaluate(owner) {
+    async function evaluate(owner, refreshInput = {}) {
         const memory = await memoryRetrievalService.buildContextPacket({ ownerUserId: owner, limit: 20 });
+        let recommendationHistory = [];
+        try {
+            recommendationHistory = typeof eventStore.listRecommendations === 'function'
+                ? await eventStore.listRecommendations(owner, { limit: 200 })
+                : [];
+        } catch (error) {
+            logger?.warn?.(`⚠️ [RecommendationCenter] 발견 이력 조회 실패: ${error.message}`);
+        }
+        const discoveryHistory = recommendationHistory.filter((item) =>
+            ['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind));
+        const excludedDedupeKeys = discoveryHistory
+            .map((item) => String(item?.candidate?.dedupe_key || '').trim())
+            .filter(Boolean);
+        const sourceOffsets = discoveryOffsets(discoveryHistory);
         const baseContext = { owner_user_id: owner, memory };
         const [operationalState, contentKnowledge, licenseStatus] = await Promise.all([
             operationalStateCollector.collect({ owner_user_id: owner }, baseContext),
-            contentKnowledgeCollector.collect({}, baseContext),
+            contentKnowledgeCollector.collect({
+                serendipity: true,
+                discovery_offset: sourceOffsets.news,
+                discovery_offsets: sourceOffsets
+            }, baseContext),
             typeof licenseStatusReader === 'function'
                 ? licenseStatusReader()
                 : Promise.resolve(null)
@@ -54,20 +96,33 @@ function createRecommendationRefreshService(options = {}) {
         };
         const produced = await producerRunner.run({
             owner_user_id: owner,
+            serendipity: true,
+            discovery_offsets: sourceOffsets,
+            excluded_dedupe_keys: excludedDedupeKeys,
             operational_state: operationalState,
             content_knowledge: contentKnowledge,
             knowledge: context.knowledge
         }, context);
+        const contentCandidates = produced.candidates.filter((candidate) => candidate?.kind === 'content_opportunity');
+        const commerceCandidates = produced.candidates.filter((candidate) => candidate?.kind === 'commerce_opportunity');
+        const discoveryCandidates = contentCandidates.length >= 3
+            ? contentCandidates.slice(0, 3)
+            : [...contentCandidates, ...commerceCandidates].slice(0, 3);
         const evaluated = await policyEvaluator.evaluate({
             owner_user_id: owner,
-            candidates: produced.candidates
-        }, context);
+            candidates: discoveryCandidates
+        }, context, refreshInput.reason === 'user_new_discovery'
+            ? { rankingOptions: { dailyLimit: 100 } }
+            : {});
+        const knowledgeDiagnostics = Array.isArray(contentKnowledge.diagnostics) ? contentKnowledge.diagnostics : [];
+        const degraded = knowledgeDiagnostics.some((item) => String(item?.code || '').includes('FAILED'));
         lastRunAt.set(owner, Date.parse(new Date(now()).toISOString()));
-        logger?.info?.(`✅ [RecommendationCenter] 추천 평가 완료 (후보=${produced.candidates.length}, 생성=${evaluated.recommendations.length})`);
+        logger?.info?.(`✅ [RecommendationCenter] 발견 평가 완료 (후보=${discoveryCandidates.length}, 생성=${evaluated.recommendations.length}${degraded ? ', Knowledge 일부 실패' : ''})`);
         return {
             status: 'evaluated',
-            candidate_count: produced.candidates.length,
-            recommendation_count: evaluated.recommendations.length
+            candidate_count: discoveryCandidates.length,
+            recommendation_count: evaluated.recommendations.length,
+            degraded
         };
     }
 
@@ -78,10 +133,10 @@ function createRecommendationRefreshService(options = {}) {
             const currentTime = Date.parse(new Date(now()).toISOString());
             const previous = lastRunAt.get(owner) || 0;
             if (input.force !== true && currentTime - previous < refreshTtlMs) {
-                return { status: 'cached', candidate_count: 0, recommendation_count: 0 };
+                return { status: 'cached', candidate_count: 0, recommendation_count: 0, degraded: false };
             }
             if (inFlight.has(owner)) return inFlight.get(owner);
-            const task = evaluate(owner).finally(() => inFlight.delete(owner));
+            const task = evaluate(owner, input).finally(() => inFlight.delete(owner));
             inFlight.set(owner, task);
             return task;
         }
@@ -90,5 +145,7 @@ function createRecommendationRefreshService(options = {}) {
 
 module.exports = {
     DEFAULT_REFRESH_TTL_MS,
-    createRecommendationRefreshService
+    createRecommendationRefreshService,
+    discoveryOffsets,
+    discoverySourceLane
 };

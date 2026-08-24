@@ -3,6 +3,7 @@ function createRecommendationCenterRouteHandler(deps = {}) {
     return async function tryHandleRecommendationCenterRoute(ctx = {}) {
         const handlers = {
             '/api/v1/recommendations': controller.list,
+            '/api/v1/recommendations/discover': controller.discover,
             '/api/v1/recommendations/interaction': controller.interaction,
             '/api/v1/recommendations/confirmation': controller.confirmation
         };

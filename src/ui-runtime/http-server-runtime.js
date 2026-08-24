@@ -22,6 +22,8 @@ function createUiHttpServerRuntime(deps = {}) {
         getContentType,
         syncAutoRunnerWithConfig,
         triggerSnsStartupDiscovery,
+        startRecommendationDelivery,
+        stopRecommendationDelivery,
         syncShoppingAutoRunnerWithConfig,
         recordUiActivity,
         handleGoogleOAuthCallback,
@@ -145,12 +147,18 @@ function createUiHttpServerRuntime(deps = {}) {
                 Logger.error(`❌ [SNS] 앱 시작 시 RSS 확인 요청 실패: ${error.message}`);
             });
         }
+        if (typeof startRecommendationDelivery === 'function') {
+            await Promise.resolve(startRecommendationDelivery()).catch((error) => {
+                Logger.error(`❌ [RecommendationDelivery] 시작 실패: ${error.message}`);
+            });
+        }
         return { server, host, port, openHost };
     }
 
     async function reloadUiServer(newHost, newPort) {
         if (activeUiServer) {
             Logger.info('🔄 설정 변경 감지: 기존 UI 서버(포트)를 종료하고 재시작합니다...');
+            if (typeof stopRecommendationDelivery === 'function') stopRecommendationDelivery();
             await stopTelegramBotService();
             await new Promise((resolve) => {
                 activeUiServer.close(() => {

@@ -68,6 +68,20 @@ test('recommendation feedback event는 상태를 바꾸지 않는다', () => {
     assert.deepEqual(applyRecommendationEvent(current, event), current);
 });
 
+test('rotation은 부정 피드백 없이 탐색 항목을 terminal 상태로 교체한다', () => {
+    const current = createRecommendation();
+    const event = buildRecommendationEvent({
+        owner_user_id: current.owner_user_id,
+        recommendation_id: current.recommendation_id,
+        event_type: 'recommendation.rotated',
+        operation_id: 'rotate-1',
+        occurred_at: '2026-08-23T02:00:00.000Z',
+        reason_code: 'user_new_discovery'
+    }, current);
+    assert.equal(event.payload.feedback, '');
+    assert.equal(applyRecommendationEvent(current, event).status, 'rotated');
+});
+
 test('created event snapshot만으로 projection을 재생한다', () => {
     const recommendation = createRecommendation();
     const event = buildRecommendationEvent({

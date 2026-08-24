@@ -73,3 +73,21 @@ test('uses supplied strict Trends and isolates one News query failure', async ()
     assert.deepEqual(result.diagnostics, [{ source: 'news:explicit', code: 'KNOWLEDGE_FETCH_FAILED' }]);
     assert.doesNotMatch(JSON.stringify(result), /secret upstream body/);
 });
+
+test('serendipity collection spends its three News queries on independent discovery domains', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        now: () => new Date('2026-08-24T00:10:00.000Z'),
+        knowledgeRegistry: {
+            async fetchForRoute(_route, query) {
+                calls.push(query);
+                if (query.kind === 'trends') return [trendSnapshot()];
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+    const result = await collector.collect({ serendipity: true, discovery_offset: 1 }, {});
+    const newsTopics = calls.filter((call) => call.kind === 'news').map((call) => call.topic);
+    assert.deepEqual(newsTopics, ['음식 취향', '환경 기후', '건강 습관']);
+    assert.equal(result.news_queries.every((entry) => entry.query.lane === 'discovery'), true);
+});

@@ -127,6 +127,64 @@ test('dismiss는 not_helpful feedback 뒤 terminal dismiss를 기록한다', asy
     assert.equal((await service.list()).count, 1);
 });
 
+test('새로운 발견은 탐색 추천만 rotated 처리하고 부정 피드백 없이 다시 평가한다', async () => {
+    const { store, primary } = await fixture();
+    const guidance = createRecommendation({
+        recommendation_id: 'recommendation:center:guidance',
+        candidate: {
+            ...createRecommendation().candidate,
+            candidate_id: 'candidate:center:guidance',
+            kind: 'setup_guidance',
+            dedupe_key: 'guidance:settings',
+            expires_at: '2026-08-26T00:00:00.000Z'
+        },
+        expires_at: '2026-08-26T00:00:00.000Z'
+    });
+    await store.createRecommendation(guidance, { operation_id: 'create-guidance' });
+    let refreshCalls = 0;
+    const replacement = createRecommendation({
+        recommendation_id: 'recommendation:center:replacement',
+        candidate: {
+            ...createRecommendation().candidate,
+            candidate_id: 'candidate:center:replacement',
+            dedupe_key: 'content:replacement',
+            expires_at: '2026-08-26T00:00:00.000Z'
+        },
+        expires_at: '2026-08-26T00:00:00.000Z'
+    });
+    const service = createRecommendationCenterService({
+        eventStore: store,
+        handoffService: { async prepare() {}, async decide() {} },
+        refreshService: { async refresh(input) {
+            refreshCalls += 1;
+            assert.equal(input.force, true);
+            await store.createRecommendation(replacement, { operation_id: 'create-replacement' });
+            return { status: 'evaluated' };
+        } },
+        now: () => new Date(NOW),
+        operationIdFactory: () => 'recommendation_ui:discover-test'
+    });
+
+    const result = await service.discover({});
+    assert.equal(result.rotated_count, 2);
+    assert.equal(refreshCalls, 1);
+    assert.equal((await store.getRecommendation('owner-local', primary.recommendation_id)).status, 'rotated');
+    assert.equal((await store.getRecommendation('owner-local', guidance.recommendation_id)).status, 'available');
+});
+
+test('새 발견을 확보하지 못하면 기존 탐색 추천을 유지한다', async () => {
+    const { store, primary } = await fixture();
+    const service = createRecommendationCenterService({
+        eventStore: store,
+        handoffService: { async prepare() {}, async decide() {} },
+        refreshService: { async refresh() { throw new Error('provider unavailable'); } },
+        now: () => new Date(NOW)
+    });
+    const result = await service.discover({});
+    assert.equal(result.rotated_count, 0);
+    assert.equal((await store.getRecommendation('owner-local', primary.recommendation_id)).status, 'available');
+});
+
 test('request owner, capability와 params 주입은 API 경계에서 거부한다', async () => {
     const { service, primary, calls } = await fixture();
     await assert.rejects(service.interact({
