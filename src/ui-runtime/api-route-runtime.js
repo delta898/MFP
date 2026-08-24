@@ -90,6 +90,11 @@ function createUiApiRouteRuntime(deps = {}) {
         createTopicRecommendationsService,
         createTopicRecommendationsController,
         createTopicRecommendationsRouteHandler,
+        createRecommendationCenterService,
+        createRecommendationCenterController,
+        createRecommendationCenterRouteHandler,
+        recommendationCenterHandoffService,
+        recommendationCenterRefreshService,
         createKeywordDiscoveryService,
         createKeywordDiscoveryController,
         createKeywordDiscoveryRouteHandler,
@@ -125,6 +130,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let manualSnsRouteHandler = null;
     let surfaceContentRouteHandler = null;
     let topicRecommendationsRouteHandler = null;
+    let recommendationCenterRouteHandler = null;
     let keywordDiscoveryRouteHandler = null;
     let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
@@ -278,6 +284,24 @@ function createUiApiRouteRuntime(deps = {}) {
         return topicRecommendationsRouteHandler;
     }
 
+    function getRecommendationCenterRouteHandlerInstance() {
+        if (!recommendationCenterRouteHandler) {
+            const service = createRecommendationCenterService({
+                eventStore: topicRecommendationEventStore,
+                handoffService: recommendationCenterHandoffService,
+                refreshService: recommendationCenterRefreshService,
+                logger: Logger
+            });
+            const controller = createRecommendationCenterController({
+                service,
+                sendSuccess,
+                sendError
+            });
+            recommendationCenterRouteHandler = createRecommendationCenterRouteHandler({ controller });
+        }
+        return recommendationCenterRouteHandler;
+    }
+
     function getKeywordsRouteHandlerInstance() {
         if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
             const service = typeof createKeywordsService === 'function'
@@ -411,6 +435,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getManualSnsRouteHandlerInstance(),
                 getSurfaceContentRouteHandlerInstance(),
                 getTopicRecommendationsRouteHandlerInstance(),
+                getRecommendationCenterRouteHandlerInstance(),
                 getKeywordDiscoveryRouteHandlerInstance(),
                 getKeywordsRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
@@ -440,6 +465,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
         getTopicRecommendationsRouteHandler: getTopicRecommendationsRouteHandlerInstance,
+        getRecommendationCenterRouteHandler: getRecommendationCenterRouteHandlerInstance,
         getKeywordDiscoveryRouteHandler: getKeywordDiscoveryRouteHandlerInstance,
         getKeywordsRouteHandler: getKeywordsRouteHandlerInstance,
         handleApi

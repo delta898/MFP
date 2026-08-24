@@ -35,6 +35,12 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Shared safe path, extension, missing-file, and cycle enforcement for UI text assets.
 - `src/ui-runtime/api-route-runtime.js`
   - API route assembly, handler caching, legacy API bridge wiring.
+- `src/ui-api/services/recommendation-center.service.js`
+  - Owner-scoped Recommendation listing and explicit open/snooze/dismiss/confirmation interactions.
+  - Accepts Recommendation identities only and delegates side-effect resolution to the trusted handoff service.
+- `src/ui-api/services/recommendation-refresh.service.js`
+  - Composes Memory, operational state, bounded Knowledge, producers and policy evaluation for an on-demand refresh.
+  - Coalesces concurrent refreshes and applies a 15-minute process-local TTL; it does not own background scheduling.
 - `src/ui-runtime/config-file-runtime.js`
   - Config file source resolution, read/write helpers, revision helpers.
 - `src/ui-runtime/settings-fields-runtime.js`
@@ -73,6 +79,16 @@ The desired direction is:
 Not:
 
 `services/core -> main/ui-server`
+
+## Recommendation Center Boundary
+
+The Dashboard Recommendation Center reads only public Recommendation DTOs. The UI may request an
+allowlisted interaction but never receives capability ids, params, policy internals or owner identity.
+The UI API derives the installation-local owner, records lifecycle interactions and passes only that
+owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
+allowlisted again in the browser before navigation. An empty first read may invoke one bounded,
+server-side evaluation so the center is usable before proactive scheduling exists. App-start and
+background triggers remain outside this surface.
 
 ## Practical Rules
 - When a UI workflow grows beyond a few helpers, move it into `src/ui-runtime/`.

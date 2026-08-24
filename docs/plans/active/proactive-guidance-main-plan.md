@@ -169,21 +169,26 @@ Agent Runtime -> outcome events -> Memory
 ### 9. In-App Recommendation Center
 
 - Branch: `feature/proactive-guidance-09-in-app-center`
+- Status: completed and UI-verified on 2026-08-25
 - Dashboard 중심 `추천과 안내` 카드
 - sidebar/header badge와 제한적인 new-item toast
 - evidence, reason, source와 freshness 표시
 - 실행, 관련 화면 열기, 나중에 보기, 관심 없음
 - persisted completion/expiry state
 - Telegram 미설정 상태에서 완전한 제품 동작
+- 빈 Dashboard 진입 시 1회 bounded on-demand evaluation과 15분 refresh TTL
 
 ### 10. Proactive Delivery
 
 - Branch: `feature/proactive-guidance-10-proactive-delivery`
 - app startup 및 bounded background evaluation
+- Stage 9 on-demand evaluation을 재사용하는 startup/background trigger
 - configurable refresh, cooldown, daily limit와 catch-up policy
 - provider error backoff와 quota-aware scheduling
 - 작업 중인 사용자를 방해하지 않는 badge/toast policy
 - 앱 시작 성능과 offline behavior 보호
+- Dashboard가 빈 상태를 먼저 그린 뒤 평가 결과로 교체되는 지연을 startup/background 선행 평가로 제거
+- persistent dedupe로 재시작 뒤 같은 추천이 유지되는 동작을 freshness, catch-up, refresh 정책과 함께 실제 사용감 기준으로 재검토
 
 ### 11. Learning and Hardening
 

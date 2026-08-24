@@ -86,6 +86,22 @@ test('projection row parser는 JSON과 indexed identity 불일치를 거부한�
     }), /identity/);
 });
 
+test('목록 조회는 query에 선언된 Kuzu parameter만 전달한다', async () => {
+    const calls = [];
+    const repository = new KuzuRecommendationRepository({
+        executeQuery: async (query, params) => {
+            calls.push({ query, params });
+            return emptyResult();
+        }
+    });
+
+    await repository.list('owner-local', { limit: 6 });
+    await repository.list('owner-local', { limit: 6, status: 'available' });
+
+    assert.deepEqual(calls[0].params, { owner_id: 'owner-local', limit: 6 });
+    assert.deepEqual(calls[1].params, { owner_id: 'owner-local', limit: 6, status: 'available' });
+});
+
 test('shared Kuzu connection의 recommendation transaction은 서로 겹치지 않는다', async () => {
     let activeTransactions = 0;
     let maximumActiveTransactions = 0;

@@ -57,6 +57,52 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
     if (pathname === '/api/v1/dashboard/activities') return { activities: [] };
     if (pathname === '/api/v1/dashboard/external-content') return {};
+    if (pathname === '/api/v1/recommendations') {
+        return {
+            schema_version: 1,
+            generated_at: new Date().toISOString(),
+            count: 1,
+            store: { mode: 'persistent', reason: '' },
+            items: [{
+                schema_version: 1,
+                recommendation_id: 'recommendation:ui-smoke:1',
+                kind: 'setup_guidance',
+                title: 'WordPress 설정을 확인해보세요',
+                summary: '발행 채널 설정을 마치면 다음 작업으로 이어갈 수 있습니다.',
+                explanation: '현재 설정 상태를 근거로 한 안내입니다.',
+                evidence: [{
+                    evidence_id: 'evidence:ui-smoke:1',
+                    kind: 'system_state',
+                    stage: 'observed',
+                    strength: 'strong',
+                    summary: 'WordPress 연결 정보가 확인되지 않았습니다.',
+                    observed_at: new Date().toISOString(),
+                    source: { label: '앱 설정 상태', url: '', timestamp: new Date().toISOString() }
+                }],
+                status: 'available',
+                available_at: new Date().toISOString(),
+                snoozed_until: null,
+                expires_at: new Date(Date.now() + 86400000).toISOString(),
+                action: {
+                    type: 'presentation', label: 'WordPress 설정 보기',
+                    target: { surface: 'settings.wordpress', view: 'settings', tab: 'naver-blog' },
+                    payload: { section: 'wordpress' }
+                }
+            }]
+        };
+    }
+    if (pathname === '/api/v1/recommendations/interaction') {
+        return {
+            ok: true,
+            status: 'presentation',
+            recommendation_id: 'recommendation:ui-smoke:1',
+            action: {
+                type: 'presentation', label: 'WordPress 설정 보기',
+                target: { surface: 'settings.wordpress', view: 'settings', tab: 'naver-blog' },
+                payload: { section: 'wordpress' }
+            }
+        };
+    }
     if (pathname.startsWith('/api/v1/surface-content/')) return { regions: {} };
     if (pathname === '/api/v1/auto/status') return { enabled: false };
     if (pathname === '/api/v1/system/update/check') return { available: false };
@@ -188,6 +234,21 @@ async function run() {
         assert.equal(await page.locator('#badge-version').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
+        await page.waitForFunction(() => document.querySelectorAll('.recommendation-card').length === 1);
+        assert.equal((await page.locator('.recommendation-card h3').textContent())?.trim(), 'WordPress 설정을 확인해보세요');
+        assert.equal((await page.locator('#recommendation-nav-badge').textContent())?.trim(), '1');
+        assert.equal(await page.locator('#recommendation-nav-badge').isHidden(), false);
+        assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), true);
+        await page.locator('.recommendation-evidence-toggle').click();
+        assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), false);
+        assert.equal((await page.locator('.recommendation-card').textContent()).includes('capability_id'), false);
+        await page.locator('.recommendation-card-actions .primary').click();
+        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
+        assert.equal(
+            await page.locator('.settings-tab-btn[data-settings-tab="naver-blog"]').evaluate((element) => element.classList.contains('active')),
+            true
+        );
+        await page.locator('.nav-btn[data-view="dashboard"]').click();
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
@@ -249,14 +310,18 @@ async function run() {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        const centerBox = await page.locator('#recommendation-center').boundingBox();
+        assert.equal(Boolean(centerBox && centerBox.width <= 390), true);
         await page.locator('#mobile-menu-btn').click();
         await page.waitForFunction(() => document.querySelector('.sidebar')?.classList.contains('open'));
         assert.equal(await page.locator('#sidebar-overlay').evaluate((element) => element.classList.contains('active')), true);
         await page.locator('#sidebar-overlay').click({ position: { x: 380, y: 420 } });
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
-        const unexpectedPosts = requests.filter((request) => request.method !== 'GET');
-        assert.deepEqual(unexpectedPosts, []);
+        const expectedPosts = requests.filter((request) => request.method !== 'GET');
+        assert.deepEqual(expectedPosts, [{ method: 'POST', pathname: '/api/v1/recommendations/interaction' }]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);
         assert.deepEqual(failedResponses, []);

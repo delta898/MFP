@@ -593,6 +593,7 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   } catch (e) { console.warn('Dash content refresh init error:', e); }
 
   try { bindNavigation(); } catch (e) { console.warn('bindNavigation error:', e); }
+  try { initRecommendationCenter(); } catch (e) { console.warn('initRecommendationCenter error:', e); }
   try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
   try { syncScopedMajorSaveActions(); } catch (e) { console.warn('syncScopedMajorSaveActions error:', e); }
   try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }

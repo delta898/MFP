@@ -91,11 +91,13 @@ class KuzuRecommendationRepository {
     async list(ownerUserId, options = {}) {
         const limit = Math.max(1, Math.min(500, Number.parseInt(options.limit, 10) || 100));
         const status = String(options.status || '').trim();
+        const params = { owner_id: String(ownerUserId || ''), limit };
+        if (status) params.status = status;
         const result = await this.executeQuery(
             status
                 ? 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_RECOMMENDATION]->(r:RecommendationNode {owner_user_id: $owner_id, status: $status}) RETURN r.id AS id, r.owner_user_id AS owner_user_id, r.recommendation_json AS recommendation_json, r.available_at AS available_at ORDER BY r.available_at DESC, r.id ASC LIMIT $limit'
                 : 'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_RECOMMENDATION]->(r:RecommendationNode {owner_user_id: $owner_id}) RETURN r.id AS id, r.owner_user_id AS owner_user_id, r.recommendation_json AS recommendation_json, r.available_at AS available_at ORDER BY r.available_at DESC, r.id ASC LIMIT $limit',
-            { owner_id: String(ownerUserId || ''), status, limit }
+            params
         );
         return (await rowsFromResult(result)).map(parseRecommendationRow);
     }

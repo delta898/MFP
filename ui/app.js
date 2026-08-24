@@ -28,6 +28,7 @@
 // @include scripts/features/content/tab-navigation.js
 // @include scripts/features/publishing/preview-utils.js
 // @include scripts/features/shell/dashboard-content.js
+// @include scripts/features/recommendations/center.js
 // @include scripts/features/shell/account-overview.js
 // @include scripts/features/shell/account-actions.js
 // @include scripts/features/shell/dashboard.js

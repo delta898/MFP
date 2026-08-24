@@ -72,8 +72,21 @@ const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createAgentRuntime } = require('./agent/runtime');
+const { ConfirmationStore } = require('./agent/confirmation-store');
 const { createTopicRecommendationLearningService } = require('./recommendations/topic-recommendation-learning');
 const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
+const { createRecommendationHandoffService } = require('./recommendations/handoff/service');
+const { createRecommendationMaterializer } = require('./recommendations/adapters/recommendation-materializer');
+const { createRecommendationProducerRunner } = require('./recommendations/producers/runtime');
+const { createContentKnowledgeCollector } = require('./recommendations/producers/content-knowledge-collector');
+const { createContentOpportunityProducer } = require('./recommendations/producers/content-opportunity');
+const { createOperationalStateCollector } = require('./recommendations/producers/operational-state-collector');
+const { createSetupGuidanceProducer } = require('./recommendations/producers/setup-guidance');
+const { createJobRecoveryProducer } = require('./recommendations/producers/job-recovery');
+const { createPendingWorkflowProducer } = require('./recommendations/producers/pending-workflow');
+const { createCommerceOpportunityProducer } = require('./recommendations/producers/commerce-opportunity');
+const { createPolicyContextCollector } = require('./recommendations/policy/context');
+const { createRecommendationPolicyEvaluator } = require('./recommendations/policy/evaluator');
 const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
 const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
 const { createAutomationPolicyRuntime } = require('./ui-runtime/automation-policy-runtime');
@@ -100,6 +113,10 @@ const { createSurfaceContentRouteHandler } = require('./ui-api/routes/surface-co
 const { createTopicRecommendationsService } = require('./ui-api/services/topic-recommendations.service');
 const { createTopicRecommendationsController } = require('./ui-api/controllers/topic-recommendations.controller');
 const { createTopicRecommendationsRouteHandler } = require('./ui-api/routes/topic-recommendations.routes');
+const { createRecommendationCenterService } = require('./ui-api/services/recommendation-center.service');
+const { createRecommendationRefreshService } = require('./ui-api/services/recommendation-refresh.service');
+const { createRecommendationCenterController } = require('./ui-api/controllers/recommendation-center.controller');
+const { createRecommendationCenterRouteHandler } = require('./ui-api/routes/recommendation-center.routes');
 const { createKeywordDiscoveryService } = require('./ui-api/services/keyword-discovery.service');
 const { createKeywordDiscoveryController } = require('./ui-api/controllers/keyword-discovery.controller');
 const { createKeywordDiscoveryRouteHandler } = require('./ui-api/routes/keyword-discovery.routes');
@@ -292,8 +309,57 @@ const topicRecommendationAgentRuntime = createAgentRuntime({
     capabilityRegistry: topicRecommendationCapabilityRegistry,
     eventStore: topicRecommendationEventStore
 });
+const recommendationCenterConfirmationStore = new ConfirmationStore({
+    persistPath: path.join(CONFIG.ROOT_DIR || process.cwd(), 'data', 'recommendation-confirmations.json')
+});
+const recommendationCenterHandoffService = createRecommendationHandoffService({
+    recommendationStore: topicRecommendationEventStore,
+    capabilityRegistry: topicRecommendationCapabilityRegistry,
+    confirmationStore: recommendationCenterConfirmationStore
+});
 const topicRecommendationRetrievalService = createMemoryRetrievalService({
+    eventStore: topicRecommendationEventStore,
+    confirmationStore: recommendationCenterConfirmationStore
+});
+const recommendationOperationalStateCollector = createOperationalStateCollector({
+    config: CONFIG,
     eventStore: topicRecommendationEventStore
+});
+const recommendationContentKnowledgeCollector = createContentKnowledgeCollector({
+    knowledgeRegistry: topicRecommendationCapabilityRegistry.knowledgeRegistry
+});
+const recommendationProducerRunner = createRecommendationProducerRunner({
+    producers: [
+        createContentOpportunityProducer(),
+        createSetupGuidanceProducer(),
+        createJobRecoveryProducer(),
+        createPendingWorkflowProducer(),
+        createCommerceOpportunityProducer()
+    ]
+});
+const recommendationPolicyContextCollector = createPolicyContextCollector({
+    capabilityRegistry: topicRecommendationCapabilityRegistry,
+    recommendationStore: topicRecommendationEventStore,
+    licenseFeatureReader: (_input, context) => context.license_features,
+    settingReadinessReader: (_input, context) => context.operational_state?.readiness,
+    quotaReader: (_input, context) => context.quota
+});
+const recommendationPolicyEvaluator = createRecommendationPolicyEvaluator({
+    contextCollector: recommendationPolicyContextCollector,
+    materializer: createRecommendationMaterializer({
+        eventStore: topicRecommendationEventStore,
+        Logger
+    })
+});
+const recommendationCenterRefreshService = createRecommendationRefreshService({
+    eventStore: topicRecommendationEventStore,
+    memoryRetrievalService: topicRecommendationRetrievalService,
+    operationalStateCollector: recommendationOperationalStateCollector,
+    contentKnowledgeCollector: recommendationContentKnowledgeCollector,
+    producerRunner: recommendationProducerRunner,
+    policyEvaluator: recommendationPolicyEvaluator,
+    licenseStatusReader: () => License.checkLicenseStatus({ quiet: true }),
+    logger: Logger
 });
 const topicRecommendationLearningService = createTopicRecommendationLearningService({
     recordActivityLifecycle,
@@ -1009,6 +1075,11 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createTopicRecommendationsService,
     createTopicRecommendationsController,
     createTopicRecommendationsRouteHandler,
+    createRecommendationCenterService,
+    createRecommendationCenterController,
+    createRecommendationCenterRouteHandler,
+    recommendationCenterHandoffService,
+    recommendationCenterRefreshService,
     createKeywordDiscoveryService,
     createKeywordDiscoveryController,
     createKeywordDiscoveryRouteHandler,

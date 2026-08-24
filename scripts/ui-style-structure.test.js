@@ -44,6 +44,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/settings-detail.css',
         'styles/components/form-widgets.css',
         'styles/features/recommendations.css',
+        'styles/features/recommendation-center.css',
         'styles/features/discovery-modal.css'
     ]);
 });

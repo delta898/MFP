@@ -38,6 +38,21 @@
           <button class="setup-guide-banner-close" onclick="dismissSetupBanner()" title="닫기">✕</button>
         </div>
 
+        <section id="recommendation-center" class="recommendation-center" aria-labelledby="recommendation-center-title">
+          <div class="recommendation-center-head">
+            <div>
+              <div class="recommendation-center-title-row">
+                <h2 id="recommendation-center-title">추천과 안내</h2>
+                <span id="recommendation-center-count" class="recommendation-center-count" hidden>0</span>
+              </div>
+              <p>현재 상황과 근거를 확인하고, 필요한 다음 행동으로 바로 이어갈 수 있습니다.</p>
+            </div>
+            <button id="recommendation-center-refresh" class="secondary compact" type="button">새로고침</button>
+          </div>
+          <div id="recommendation-center-status" class="recommendation-center-status" role="status">추천을 불러오는 중입니다...</div>
+          <div id="recommendation-center-list" class="recommendation-center-list" aria-live="polite"></div>
+        </section>
+
         <div class="dash-auto-actions-grid dash-desktop-only">
           <section class="dash-auto-column">
             <div class="dash-summary-stats grid dash-auto-cards">

@@ -81,6 +81,7 @@
 - `plans/active/proactive-guidance-07b-ranking-diversity-plan.md`
 - `plans/active/proactive-guidance-07c-policy-evaluation-plan.md`
 - `plans/active/proactive-guidance-08-capability-handoff-plan.md`
+- `plans/active/proactive-guidance-09-in-app-center-plan.md`
 - `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
 - `plans/active/account-subscription-billing-foundation-plan.md`

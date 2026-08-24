@@ -276,7 +276,18 @@ temporarily suppress adapted legacy signals but are never copied into Recommenda
 Canonical recommendation feedback is an observational `recommendation.feedback_recorded` fact with
 the strict values `helpful` and `not_helpful`. Negative feedback is followed by an explicit dismiss
 transition, while positive feedback does not imply action execution. Existing topic selection,
-save, draft and publish outcomes remain owner activity evidence until capability handoff is added.
+save, draft and publish outcomes remain owner activity evidence.
+
+The in-app Recommendation Center reconciles due snooze/expiry commands before its owner-scoped read
+and exposes only `available` or retryable `action_failed` projections as public DTOs. When the
+actionable projection is empty, it performs a bounded on-demand producer/policy evaluation. This
+evaluation uses a short process-local TTL and writes only policy-selected Recommendations through the
+canonical materializer; it does not treat a Dashboard view as preference evidence. `open` is an
+observational event. `나중에` creates a server-owned 24-hour snooze, while `관심 없음` records
+explicit `not_helpful` feedback followed by dismiss. Capability handoff re-resolves the persisted
+Recommendation and current Registry definition, enters `action_in_progress` only immediately before
+execution, and records `action_completed` or retryable `action_failed`. Presentation navigation does
+not create an action transition.
 
 ## Owner-Scoped Operational Reads
 

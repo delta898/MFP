@@ -3,6 +3,7 @@ async function loadDashboard() {
     return; // Throttle: prevent concurrent or overly frequent calls (5s cooldown)
   }
   isDashboardLoading = true;
+  void loadRecommendationCenter();
 
   const quietCatch = (e) => {
     if (e.status === 503 || String(e.message).includes('fetch failed')) return null;
@@ -233,4 +234,3 @@ async function loadDashboard() {
     loadDashboardExternalContent({ force: false, silent: true })
   ]);
 }
-
