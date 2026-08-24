@@ -406,8 +406,18 @@ async function run() {
         await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();
         await page.waitForFunction(() => document.getElementById('blog-tab-quick')?.classList.contains('active'));
 
+        await page.locator('#quick-keywords').fill('블로그 자동화, 글쓰기 도구');
+        await page.locator('#quick-keyword-discovery-open-btn').click();
+        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('[data-quick-discovery-tab="keyword"]').getAttribute('aria-selected'), 'true');
+        assert.equal(await page.locator('#quick-discovery-keyword-panel').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#quick-keyword-discovery-query').inputValue(), '블로그 자동화, 글쓰기 도구');
+        await page.locator('#quick-discovery-modal-close').click();
+        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('[data-quick-discovery-tab="topic"]').getAttribute('aria-selected'), 'true');
         await page.locator('#quick-topic-recommendations-refresh').click();
         await page.waitForFunction(() => document.querySelectorAll('.quick-topic-recommendation-row').length === 1);
         assert.match((await page.locator('#quick-topic-smart-usage').textContent()) || '', /한 번 더 새로운 글감을/);

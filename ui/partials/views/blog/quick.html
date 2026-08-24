@@ -5,16 +5,6 @@
             <div id="quick-topic-origin" class="quick-topic-origin" hidden></div>
           </div>
 
-          <section id="quick-topic-recommendations" class="quick-topic-recommendations" aria-labelledby="quick-topic-recommendations-title">
-            <div class="quick-topic-recommendations-head">
-              <div>
-                <h4 id="quick-topic-recommendations-title">나를 위한 글감 추천</h4>
-                <p>글감은 AI 제안으로, 키워드는 최근 트렌드와 네이버 지표로 살펴본 뒤 새 글을 시작할 수 있어요.</p>
-              </div>
-              <button id="quick-discovery-open-btn" class="primary quick-topic-recommendations-refresh" type="button">글감 추천</button>
-            </div>
-          </section>
-
           <div class="blog-quick-mode-switch" role="tablist" aria-label="빠른 포스팅 입력 방식">
             <button id="quick-mode-ai-btn" class="blog-quick-mode-btn is-active" type="button" data-mode="ai">바로 생성</button>
             <button id="quick-mode-manuscript-btn" class="blog-quick-mode-btn" type="button" data-mode="manuscript">원고 폴더</button>
@@ -23,26 +13,31 @@
 
           <div id="quick-ai-mode-panel">
           <div class="blog-quick-grid">
-            <!-- Row 1: Subject (Half) & Keywords (Half) -->
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">Subject (주제)</span>
-              <input id="quick-subject" type="text" placeholder="예: 도전인생의 블로그 자동화 개발 후기">
-            </label>
+            <div class="blog-quick-field blog-quick-field-full">
+              <label class="blog-quick-label" for="quick-subject">Subject (주제)</label>
+              <div class="blog-quick-input-action-row">
+                <input id="quick-subject" type="text" placeholder="예: 도전인생의 블로그 자동화 개발 후기">
+                <button id="quick-discovery-open-btn" class="primary" type="button">글감 추천</button>
+              </div>
+            </div>
 
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">Keywords (키워드)</span>
-              <input id="quick-keywords" type="text" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
-            </label>
+            <div class="blog-quick-field blog-quick-field-full">
+              <label class="blog-quick-label" for="quick-keywords">Keywords (키워드)</label>
+              <div class="blog-quick-input-action-row">
+                <input id="quick-keywords" type="text" placeholder="예: 도전인생, 블로그 자동화, 도전하는 삶">
+                <button id="quick-keyword-discovery-open-btn" class="primary" type="button">키워드 탐색</button>
+              </div>
+            </div>
 
-            <label class="blog-quick-field blog-quick-field-full">
-              <span class="blog-quick-label">Title (제목) <span class="blog-quick-label-optional">(선택)</span> <span id="quick-title-smart-usage" class="smart-usage-hint"></span></span>
-              <div class="blog-quick-title-row">
+            <div class="blog-quick-field blog-quick-field-full">
+              <label class="blog-quick-label" for="quick-title">Title (제목) <span class="blog-quick-label-optional">(선택)</span> <span id="quick-title-smart-usage" class="smart-usage-hint"></span></label>
+              <div class="blog-quick-input-action-row">
                 <input id="quick-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
                 <button id="quick-title-recommend-btn" class="primary" type="button">
                   <span>AI 제목 추천</span>
                 </button>
               </div>
-            </label>
+            </div>
 
             <!-- Row 2: Instruction (Half) & Reference URL (Half) -->
             <label class="blog-quick-field blog-quick-field-half">

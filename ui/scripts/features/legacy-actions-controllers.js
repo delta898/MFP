@@ -95,6 +95,7 @@ function bindActions() {
   const quickRecommendationList = document.getElementById('quick-topic-recommendations-list');
   const quickRecommendationRefresh = document.getElementById('quick-topic-recommendations-refresh');
   const quickDiscoveryOpenBtn = document.getElementById('quick-discovery-open-btn');
+  const quickKeywordDiscoveryOpenBtn = document.getElementById('quick-keyword-discovery-open-btn');
   const quickDiscoveryCloseBtn = document.getElementById('quick-discovery-modal-close');
   const quickDiscoveryCloseFooter = document.getElementById('quick-discovery-modal-close-footer');
   const quickKeywordDiscoverySearchBtn = document.getElementById('quick-keyword-discovery-search');
@@ -110,6 +111,14 @@ function bindActions() {
   quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickDiscoveryOpenBtn?.addEventListener('click', () => {
     setQuickDiscoveryTab('topic');
+    setQuickDiscoveryModalOpen(true);
+  });
+  quickKeywordDiscoveryOpenBtn?.addEventListener('click', () => {
+    if (quickKeywordDiscoveryQuery) {
+      quickKeywordDiscoveryQuery.value = String(quickKeywordsInput?.value || '').trim();
+      syncQuickKeywordDiscoveryControls();
+    }
+    setQuickDiscoveryTab('keyword');
     setQuickDiscoveryModalOpen(true);
   });
   quickDiscoveryCloseBtn?.addEventListener('click', () => setQuickDiscoveryModalOpen(false));
@@ -2502,4 +2511,3 @@ function bindActions() {
     }
   });
 }
-

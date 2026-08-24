@@ -2,9 +2,12 @@
 
 ## User Experience
 
-`블로그 -> 빠른 포스팅` shows a compact `나를 위한 글감 추천` lane before
-the existing input-mode switch. The original `바로 생성`, `원고 폴더`, and
-`원고 붙여넣기` workflows remain unchanged below it.
+`블로그 -> 빠른 포스팅 -> 바로 생성` places discovery beside the field it
+helps. `Subject (주제)` opens the `글감 추천` tab, `Keywords (키워드)` opens
+the `키워드 탐색` tab, and `Title (제목)` keeps its dedicated AI title action.
+The three core inputs use one full-width row each. The former standalone
+`나를 위한 글감 추천` lane is removed, while the `원고 폴더` and
+`원고 붙여넣기` workflows remain unchanged.
 
 Each recommendation provides:
 

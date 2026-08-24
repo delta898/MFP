@@ -23,6 +23,10 @@ function readScript(relativePath) {
     return fs.readFileSync(path.join(scriptsRoot, relativePath), 'utf8');
 }
 
+function readQuickView() {
+    return fs.readFileSync(path.join(repoRoot, 'ui', 'partials', 'views', 'blog', 'quick.html'), 'utf8');
+}
+
 function functionDeclarationPattern(functionName) {
     return new RegExp(`(?:async\\s+)?function\\s+${functionName}\\s*\\(`, 'g');
 }
@@ -99,4 +103,17 @@ test('older account responses cannot overwrite newer smart usage', () => {
     assert.match(accountSource, /requestRevision >= smartUsageRevision/);
     assert.match(accountSource, /renderAccountOverview\(overview, \{ smartUsageRevisionAtRequest \}\)/);
     assert.match(dashboardSource, /renderAccountOverview\(accountOverview, \{ smartUsageRevisionAtRequest \}\)/);
+});
+
+test('quick writing discovery actions are attached to their full-width fields', () => {
+    const view = readQuickView();
+    const controller = readScript('features/legacy-actions-controllers.js');
+
+    assert.doesNotMatch(view, /나를 위한 글감 추천/);
+    assert.match(view, /id="quick-discovery-open-btn"[^>]*>글감 추천</);
+    assert.match(view, /id="quick-keyword-discovery-open-btn"[^>]*>키워드 탐색</);
+    assert.equal((view.match(/blog-quick-input-action-row/g) || []).length, 3);
+    assert.match(controller, /quickKeywordDiscoveryOpenBtn/);
+    assert.match(controller, /quickKeywordDiscoveryQuery\.value = String\(quickKeywordsInput\?\.value \|\| ''\)\.trim\(\)/);
+    assert.match(controller, /setQuickDiscoveryTab\('keyword'\)/);
 });
