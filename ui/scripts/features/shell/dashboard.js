@@ -12,6 +12,7 @@ async function loadDashboard() {
   };
 
   let healthResult, accountResult, summaryResult, autoResult;
+  const smartUsageRevisionAtRequest = smartUsageRevision;
   try {
     [healthResult, accountResult, summaryResult, autoResult] = await Promise.allSettled([
       fetchJson('/api/v1/health').catch(quietCatch),
@@ -113,8 +114,7 @@ async function loadDashboard() {
   }
 
   if (accountOverview) {
-    lastAccountOverview = accountOverview;
-    renderAccountOverview(accountOverview);
+    renderAccountOverview(accountOverview, { smartUsageRevisionAtRequest });
   }
 
   // Update Summary Stats

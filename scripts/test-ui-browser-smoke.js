@@ -34,7 +34,19 @@ function createAccountOverviewFixture() {
             wordpress: { status: 'not_configured', message: 'fixture' },
             buffer: { status: 'not_configured', message: 'fixture' }
         },
-        actions: []
+        actions: [],
+        smart_usage: {
+            cycle: 'monthly',
+            items: [{
+                capability: 'content_idea',
+                label: '글감 추천',
+                limit: 20,
+                used: 0,
+                remaining: 20,
+                requestLimit: 2,
+                requestsRemaining: null
+            }]
+        }
     };
 }
 
@@ -165,12 +177,35 @@ function startFixtureServer(requests) {
         .composeCssFile({ uiRoot }).css;
     const composedUiScript = createJsCompositionRuntime({ fs, path })
         .composeJsFile({ uiRoot }).js;
+    let topicRecommendationCalls = 0;
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         requests.push({ method: req.method || 'GET', pathname: url.pathname });
 
         if (url.pathname.startsWith('/api/v1/')) {
-            const body = JSON.stringify({ success: true, data: getApiFixture(url.pathname) });
+            let data = getApiFixture(url.pathname);
+            if (url.pathname === '/api/v1/blog/topic-recommendations') {
+                topicRecommendationCalls += 1;
+                data = {
+                    ideas: [{
+                        id: `topic-${topicRecommendationCalls}`,
+                        title: `추천 글감 ${topicRecommendationCalls}`,
+                        keywords: ['테스트'],
+                        summary: '추천 흐름 테스트',
+                        reason: '테스트 근거'
+                    }],
+                    smart_usage_session_id: url.searchParams.get('session_id') || '',
+                    smart_usage: {
+                        capability: 'content_idea',
+                        limit: 20,
+                        used: 1,
+                        remaining: 19,
+                        request_limit: 2,
+                        requests_remaining: Math.max(0, 2 - topicRecommendationCalls)
+                    }
+                };
+            }
+            const body = JSON.stringify({ success: true, data });
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
             res.end(body);
             return;
@@ -373,6 +408,27 @@ async function run() {
 
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        await page.locator('#quick-topic-recommendations-refresh').click();
+        await page.waitForFunction(() => document.querySelectorAll('.quick-topic-recommendation-row').length === 1);
+        assert.match((await page.locator('#quick-topic-smart-usage').textContent()) || '', /한 번 더 새로운 글감을/);
+        await page.evaluate(() => {
+            const staleOverview = JSON.parse(JSON.stringify(lastAccountOverview));
+            staleOverview.smart_usage.items[0].remaining = 20;
+            renderAccountOverview(staleOverview, { smartUsageRevisionAtRequest: 0 });
+        });
+        assert.match((await page.locator('#quick-topic-smart-usage').textContent()) || '', /^19 \/ 20회 남음/);
+        await page.locator('#quick-discovery-modal-close').click();
+        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        await page.locator('#quick-discovery-open-btn').click();
+        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('.quick-topic-recommendation-row').count(), 1);
+        await page.locator('#quick-topic-recommendations-refresh').click();
+        await page.waitForFunction(() => document.getElementById('quick-topic-recommendations-refresh')?.textContent?.includes('계속 추천받기'));
+        await page.locator('#quick-topic-recommendations-refresh').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#ui-dialog-title').textContent())?.trim(), '계속 추천받을까요?');
+        assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /세션|provider|request/i);
+        await page.locator('#ui-dialog-cancel').click();
         await page.locator('#quick-discovery-modal-close').click();
         await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
 

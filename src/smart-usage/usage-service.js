@@ -55,10 +55,18 @@ function createSmartUsageService({ License } = {}) {
                 error.status = 503;
                 throw error;
             }
+            let usage = committed.usage || reservation.usage || null;
+            if (typeof License.getSmartUsageStatus === 'function') {
+                const status = await License.getSmartUsageStatus().catch(() => null);
+                const current = status?.success === true && Array.isArray(status.items)
+                    ? status.items.find((item) => String(item?.capability || '') === capability)
+                    : null;
+                if (current) usage = { ...(usage || {}), ...current, capability };
+            }
             return {
                 result,
                 sessionId: committed.sessionId || reservation.sessionId || sessionId,
-                usage: committed.usage || reservation.usage || null
+                usage
             };
         } catch (error) {
             await License.releaseSmartUsage({

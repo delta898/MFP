@@ -4,6 +4,32 @@ let lastDashboardLoadTime = 0;
 let isAccountOverviewLoading = false;
 let lastAccountOverview = null;
 
+function reconcileAccountSmartUsage(overview, requestRevision = null) {
+  if (!overview || requestRevision === null) return overview;
+  const incomingItems = Array.isArray(overview?.smart_usage?.items)
+    ? overview.smart_usage.items
+    : [];
+  if (requestRevision >= smartUsageRevision) {
+    latestSmartUsageByCapability.clear();
+    incomingItems.forEach((item) => {
+      const capability = String(item?.capability || '');
+      if (capability) latestSmartUsageByCapability.set(capability, { ...item });
+    });
+    return overview;
+  }
+  const itemsByCapability = new Map(incomingItems.map((item) => [String(item?.capability || ''), { ...item }]));
+  latestSmartUsageByCapability.forEach((latest, capability) => {
+    itemsByCapability.set(capability, { ...(itemsByCapability.get(capability) || {}), ...latest });
+  });
+  return {
+    ...overview,
+    smart_usage: {
+      ...(overview.smart_usage || {}),
+      items: [...itemsByCapability.values()]
+    }
+  };
+}
+
 function formatAccountDate(value) {
   const raw = String(value || '').trim();
   if (!raw) return '-';
@@ -45,7 +71,8 @@ function renderAccountConnection(elementId, connection) {
   element.className = connected ? 'state-ok' : (status === 'not_configured' ? 'state-muted' : 'state-warning');
 }
 
-function renderAccountOverview(overview) {
+function renderAccountOverview(overview, options = {}) {
+  overview = reconcileAccountSmartUsage(overview, options.smartUsageRevisionAtRequest ?? null);
   lastAccountOverview = overview;
   const subscription = overview?.subscription || {};
   const usage = overview?.usage || {};
@@ -296,13 +323,14 @@ async function loadAccountOverview({ force = false } = {}) {
   }
 
   isAccountOverviewLoading = true;
+  const smartUsageRevisionAtRequest = smartUsageRevision;
   loadingEl?.classList.remove('hidden');
   errorEl?.classList.add('hidden');
   contentEl?.classList.add('hidden');
 
   try {
     const overview = await fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`);
-    renderAccountOverview(overview);
+    renderAccountOverview(overview, { smartUsageRevisionAtRequest });
     loadingEl?.classList.add('hidden');
     contentEl?.classList.remove('hidden');
     return overview;

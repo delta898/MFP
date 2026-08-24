@@ -15,9 +15,15 @@ The policy unit is a monthly capability session, not a button click.
 - `license_capability_usage_operations` makes each provider request idempotent
   through reserve, commit, and release states.
 
-The client keeps and resends a session ID while a recommendation surface is
-open. Supabase remains authoritative: it validates the plan, month, session
-budget, and concurrent reservations.
+The client keeps and resends a session ID across closing and reopening a
+recommendation surface. Supabase remains authoritative: it validates the plan,
+month, session budget, and concurrent reservations. After an active flow is
+exhausted, the client starts a new session only after the user explicitly
+agrees to use another monthly unit.
+
+`session`, request budget, provider calls, and reservation are implementation
+terms and must not appear in end-user UI. The UI explains only whether another
+result is included and whether continuing will use one more available use.
 
 ## Initial capabilities
 
@@ -42,6 +48,24 @@ release.
   by an external provider call.
 - Input validation failures, cache hits, provider failures, and responses with
   no usable result are released and do not consume a monthly unit.
+- Once the included requests are exhausted, the UI preserves the current
+  results and asks before continuing. The confirmation shows the expected
+  monthly remaining-count change and states that a failed generation is not
+  charged.
+- Account/dashboard requests that began before a successful capability use
+  cannot overwrite the newer remaining count when their responses arrive
+  later. The client reconciles them using a monotonic local usage revision;
+  the next fresh server read remains authoritative.
+- After a recommendation response supplies its usage snapshot, that surface
+  renders the snapshot directly instead of switching between unrelated account
+  refresh responses. While a continued recommendation is pending, the last
+  confirmed count remains visible with a processing label; success replaces it
+  and failure leaves it unchanged.
+- A successful commit is followed by a read of the canonical monthly status.
+  The response keeps the committed flow's included-request count, but monthly
+  `used` and `remaining` values come from the same status read used by the
+  account surface. Status-read failure does not turn a successful provider
+  result into a failure; the committed response remains the fallback.
 - A partially degraded provider flow is successful when it still produces the
   usable feature result promised by the API contract.
 - `SMART_USAGE_EXHAUSTED` is the stable API signal for a monthly limit. The UI

@@ -46,3 +46,43 @@ test('releases a reservation when the provider call fails', async () => {
     );
     assert.deepEqual(calls.map(([name]) => name), ['reserve', 'release']);
 });
+
+test('uses the canonical monthly status after a successful commit', async () => {
+    const service = createSmartUsageService({
+        License: {
+            async reserveSmartUsage(input) {
+                return {
+                    success: true,
+                    sessionId: input.sessionId,
+                    operationId: input.operationId,
+                    usage: { capability: 'content_idea', remaining: 60, requests_remaining: 1 }
+                };
+            },
+            async commitSmartUsage(input) {
+                return {
+                    success: true,
+                    sessionId: input.sessionId,
+                    operationId: input.operationId,
+                    usage: { capability: 'content_idea', remaining: 60, requests_remaining: 1 }
+                };
+            },
+            async releaseSmartUsage() { return { success: true }; },
+            async getSmartUsageStatus() {
+                return {
+                    success: true,
+                    items: [{ capability: 'content_idea', limit: 80, used: 27, remaining: 53 }]
+                };
+            }
+        }
+    });
+
+    const result = await service.run(
+        'content_idea',
+        { sessionId: 'session-status', operationId: 'operation-status' },
+        async () => ({ ideas: ['idea'] })
+    );
+
+    assert.equal(result.usage.remaining, 53);
+    assert.equal(result.usage.used, 27);
+    assert.equal(result.usage.requests_remaining, 1);
+});

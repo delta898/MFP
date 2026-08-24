@@ -75,3 +75,28 @@ test('topic recommendation labels never guess that unknown evidence came from us
     assert.match(source, /근거 확인 필요/);
     assert.doesNotMatch(source, /return '내 글쓰기 기반'/);
 });
+
+test('topic recommendation continuation is explicit and uses user-facing language', () => {
+    const source = readScript('features/discovery/quick-discovery.js');
+    const stateSource = readScript('features/discovery/state.js');
+    const modalFunction = source.match(/function setQuickDiscoveryModalOpen[\s\S]*?\n}\n/)?.[0] || '';
+
+    assert.match(stateSource, /smartUsage:\s*null/);
+    assert.doesNotMatch(modalFunction, /quickTopicRecommendationState\.smartUsageSessionId\s*=/);
+    assert.match(source, /return quickTopicNeedsAnotherUse\(\) \? '계속 추천받기'/);
+    assert.match(source, /추천을 만들지 못하면 횟수는 사용되지 않습니다/);
+    assert.match(source, /한 번 더 새로운 글감을 받아볼 수 있어요/);
+    assert.match(source, /새 추천을 준비하고 있어요/);
+    assert.match(source, /localRemaining !== null && localLimit !== null/);
+    assert.doesNotMatch(source, /이번 추천 세션/);
+});
+
+test('older account responses cannot overwrite newer smart usage', () => {
+    const accountSource = readScript('features/shell/account-overview.js');
+    const dashboardSource = readScript('features/shell/dashboard.js');
+
+    assert.match(accountSource, /function reconcileAccountSmartUsage/);
+    assert.match(accountSource, /requestRevision >= smartUsageRevision/);
+    assert.match(accountSource, /renderAccountOverview\(overview, \{ smartUsageRevisionAtRequest \}\)/);
+    assert.match(dashboardSource, /renderAccountOverview\(accountOverview, \{ smartUsageRevisionAtRequest \}\)/);
+});

@@ -72,9 +72,15 @@ function setQuickDiscoveryModalOpen(open) {
   const modal = document.getElementById('quick-discovery-modal');
   if (!modal) return;
   if (open) {
-    quickTopicRecommendationState.smartUsageSessionId = createSmartUsageSessionId();
-    quickKeywordDiscoveryState.smartUsageSessionId = createSmartUsageSessionId();
+    // Closing and reopening the dialog must not silently begin another charged use.
+    // Keep an in-progress recommendation flow until the user explicitly continues.
+    if (!quickKeywordDiscoveryState.smartUsageSessionId) {
+      quickKeywordDiscoveryState.smartUsageSessionId = createSmartUsageSessionId();
+    }
     refreshSmartUsageHints();
+    void loadAccountOverview({ force: true })
+      .then(() => refreshSmartUsageHints())
+      .catch(() => {});
   }
   modal.classList.toggle('hidden', !open);
   modal.setAttribute('aria-hidden', String(!open));
@@ -98,19 +104,100 @@ function formatSmartUsageHint(capability) {
   return `${Math.max(0, Number(item.remaining) || 0)} / ${Math.max(0, Number(item.limit))}회 남음`;
 }
 
+function readSmartUsageNumber(usage, camelKey, snakeKey) {
+  const value = usage?.[camelKey] ?? usage?.[snakeKey];
+  if (value === null || value === undefined || value === '') return null;
+  return Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : null;
+}
+
+function getQuickTopicRequestsRemaining() {
+  return readSmartUsageNumber(quickTopicRecommendationState.smartUsage, 'requestsRemaining', 'requests_remaining');
+}
+
+function quickTopicNeedsAnotherUse() {
+  if (!quickTopicRecommendationState.smartUsageSessionId) return false;
+  if (getQuickTopicRequestsRemaining() === 0) return true;
+  const startedAt = Number(quickTopicRecommendationState.smartUsageStartedAt) || 0;
+  return startedAt > 0 && (Date.now() - startedAt) >= (15 * 60 * 1000);
+}
+
+function formatQuickTopicUsageHint() {
+  const localUsage = quickTopicRecommendationState.smartUsage;
+  const localRemaining = readSmartUsageNumber(localUsage, 'remaining', 'remaining');
+  const localLimit = readSmartUsageNumber(localUsage, 'limit', 'limit');
+  const monthlyHint = localRemaining !== null && localLimit !== null
+    ? `${localRemaining} / ${localLimit}회 남음`
+    : formatSmartUsageHint('content_idea');
+  const requestsRemaining = getQuickTopicRequestsRemaining();
+  if (quickTopicRecommendationState.loading && localRemaining !== null) {
+    return `${monthlyHint} · 새 추천을 준비하고 있어요`;
+  }
+  if (requestsRemaining === null) return monthlyHint || '이용 가능 횟수 확인 중';
+  const guidance = requestsRemaining > 0
+    ? '한 번 더 새로운 글감을 받아볼 수 있어요'
+    : '계속 추천받으면 이용 가능 횟수 1회가 사용됩니다';
+  return [monthlyHint, guidance].filter(Boolean).join(' · ');
+}
+
+function getQuickTopicRefreshLabel() {
+  if (!quickTopicRecommendationState.loaded) return '글감 추천';
+  return quickTopicNeedsAnotherUse() ? '계속 추천받기' : '다른 글감 추천';
+}
+
+async function beginAnotherQuickTopicUse() {
+  const item = getSmartUsageItem('content_idea');
+  const remaining = readSmartUsageNumber(item, 'remaining', 'remaining');
+  if (remaining === 0) {
+    await showUiPopup('이번 달 글감 추천 이용 가능 횟수를 모두 사용했습니다.');
+    return false;
+  }
+  const usageChange = remaining === null ? '' : `\n${remaining}회 → ${Math.max(0, remaining - 1)}회`;
+  const confirmed = await showUiConfirm(
+    `새로운 글감을 더 추천받으면 이용 가능 횟수 1회가 사용됩니다.${usageChange}\n\n추천을 만들지 못하면 횟수는 사용되지 않습니다.`,
+    {
+      title: '계속 추천받을까요?',
+      confirmText: '계속 추천받기',
+      cancelText: '취소'
+    }
+  );
+  if (!confirmed) return false;
+  quickTopicRecommendationState.smartUsageSessionId = createSmartUsageSessionId();
+  quickTopicRecommendationState.smartUsage = quickTopicRecommendationState.smartUsage
+    ? {
+        ...quickTopicRecommendationState.smartUsage,
+        requestsRemaining: null,
+        requests_remaining: null
+      }
+    : null;
+  quickTopicRecommendationState.smartUsageStartedAt = 0;
+  return true;
+}
+
 function refreshSmartUsageHints() {
-  setText('quick-topic-smart-usage', formatSmartUsageHint('content_idea'));
+  setText('quick-topic-smart-usage', formatQuickTopicUsageHint());
   setText('quick-keyword-smart-usage', formatSmartUsageHint('keyword_discovery'));
   setText('quick-title-smart-usage', formatSmartUsageHint('title_recommendation'));
 }
 
 function applySmartUsageUpdate(usage) {
-  if (!usage?.capability || !lastAccountOverview?.smart_usage) return;
+  if (!usage?.capability) return;
+  const capability = String(usage.capability);
+  if (String(usage.capability) === 'content_idea') {
+    quickTopicRecommendationState.smartUsage = { ...usage };
+  }
+  const currentAccountItem = getSmartUsageItem(capability) || latestSmartUsageByCapability.get(capability) || {};
+  const latestUsage = { ...currentAccountItem, ...usage };
+  latestSmartUsageByCapability.set(capability, latestUsage);
+  smartUsageRevision += 1;
+  if (!lastAccountOverview?.smart_usage) {
+    refreshSmartUsageHints();
+    return;
+  }
   const items = Array.isArray(lastAccountOverview.smart_usage.items)
     ? lastAccountOverview.smart_usage.items
     : [];
-  const index = items.findIndex((item) => String(item?.capability || '') === String(usage.capability));
-  const next = { ...usage };
+  const index = items.findIndex((item) => String(item?.capability || '') === capability);
+  const next = latestUsage;
   if (index >= 0) items[index] = { ...items[index], ...next };
   else items.push(next);
   lastAccountOverview.smart_usage.items = items;
@@ -150,9 +237,11 @@ function renderQuickTopicRecommendations() {
   const listEl = document.getElementById('quick-topic-recommendations-list');
   const refreshBtn = document.getElementById('quick-topic-recommendations-refresh');
   if (!statusEl || !listEl) return;
+  setText('quick-topic-smart-usage', formatQuickTopicUsageHint());
   if (refreshBtn) {
     refreshBtn.disabled = quickTopicRecommendationState.loading;
     refreshBtn.setAttribute('aria-busy', String(quickTopicRecommendationState.loading));
+    refreshBtn.textContent = getQuickTopicRefreshLabel();
   }
   syncQuickDiscoveryClearControl({
     inputId: 'quick-topic-recommendations-query',
@@ -169,7 +258,6 @@ function renderQuickTopicRecommendations() {
   const items = diversifyQuickTopicRecommendations(quickTopicRecommendationState.items);
   if (items.length === 0) {
     statusEl.hidden = false;
-    if (refreshBtn) refreshBtn.textContent = quickTopicRecommendationState.loaded ? '다른 글감 추천' : '글감 추천';
     statusEl.textContent = quickTopicRecommendationState.error
       ? `추천을 불러오지 못했습니다: ${quickTopicRecommendationState.error}`
       : (quickTopicRecommendationState.loaded
@@ -178,7 +266,6 @@ function renderQuickTopicRecommendations() {
     listEl.innerHTML = '';
     return;
   }
-  if (refreshBtn) refreshBtn.textContent = '다른 글감 추천';
   statusEl.hidden = true;
   listEl.innerHTML = items.map((item, index) => {
     const keywords = Array.isArray(item.keywords) ? item.keywords.slice(0, 4).join(' · ') : '';
@@ -446,6 +533,7 @@ async function loadQuickTopicRecommendations({ refresh = false } = {}) {
   const topicQuery = String(document.getElementById('quick-topic-recommendations-query')?.value || '').trim();
   if (quickTopicRecommendationState.loading
     || (quickTopicRecommendationState.loaded && !refresh && quickTopicRecommendationState.query === topicQuery)) return;
+  if (refresh && quickTopicNeedsAnotherUse() && !await beginAnotherQuickTopicUse()) return;
   quickTopicRecommendationState.loading = true;
   document.getElementById('quick-topic-recommendations-refresh')?.setAttribute('disabled', '');
   quickTopicRecommendationState.error = '';
@@ -454,7 +542,10 @@ async function loadQuickTopicRecommendations({ refresh = false } = {}) {
     const params = new URLSearchParams({ limit: '3' });
     if (refresh) params.set('refresh', '1');
     if (topicQuery) params.set('query', topicQuery);
-    params.set('session_id', quickTopicRecommendationState.smartUsageSessionId || createSmartUsageSessionId());
+    if (!quickTopicRecommendationState.smartUsageSessionId) {
+      quickTopicRecommendationState.smartUsageSessionId = createSmartUsageSessionId();
+    }
+    params.set('session_id', quickTopicRecommendationState.smartUsageSessionId);
     params.set('operation_id', createSmartUsageSessionId());
     const result = await fetchJson(`/api/v1/blog/topic-recommendations?${params.toString()}`);
     quickTopicRecommendationState.items = Array.isArray(result?.ideas) ? result.ideas.slice(0, 3) : [];
@@ -462,12 +553,24 @@ async function loadQuickTopicRecommendations({ refresh = false } = {}) {
     quickTopicRecommendationState.query = topicQuery;
     quickTopicRecommendationState.smartUsageSessionId = result?.smart_usage_session_id
       || quickTopicRecommendationState.smartUsageSessionId;
+    if (result?.smart_usage && !quickTopicRecommendationState.smartUsageStartedAt) {
+      quickTopicRecommendationState.smartUsageStartedAt = Date.now();
+    }
     applySmartUsageUpdate(result?.smart_usage);
   } catch (error) {
-    quickTopicRecommendationState.items = [];
     quickTopicRecommendationState.loaded = true;
     quickTopicRecommendationState.query = topicQuery;
-    quickTopicRecommendationState.error = error.message;
+    if (error.code === 'SMART_SESSION_REQUEST_LIMIT') {
+      quickTopicRecommendationState.smartUsage = {
+        ...(quickTopicRecommendationState.smartUsage || {}),
+        capability: 'content_idea',
+        requestsRemaining: 0
+      };
+      quickTopicRecommendationState.error = '이번 추천에서 받을 수 있는 글감을 모두 확인했습니다.';
+    } else {
+      quickTopicRecommendationState.items = [];
+      quickTopicRecommendationState.error = error.message;
+    }
   } finally {
     quickTopicRecommendationState.loading = false;
     renderQuickTopicRecommendations();

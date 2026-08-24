@@ -30,7 +30,9 @@ const quickTopicRecommendationState = {
   loading: false,
   error: '',
   query: '',
-  smartUsageSessionId: ''
+  smartUsageSessionId: '',
+  smartUsage: null,
+  smartUsageStartedAt: 0
 };
 const quickKeywordDiscoveryState = {
   analysis: null,
@@ -40,6 +42,8 @@ const quickKeywordDiscoveryState = {
   selectedKeywordKeys: [],
   smartUsageSessionId: ''
 };
+let smartUsageRevision = 0;
+const latestSmartUsageByCapability = new Map();
 const trendPostingState = {
   meta: null,
   items: [],
