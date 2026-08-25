@@ -5,6 +5,7 @@ const Constants = require('../constants');
 const { buildBlogSystemPrompt, resolvePromptPaths } = require('./blog-prompt');
 
 const promptConfig = {
+    BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
     BLOG_PROMPT_COMMON_PATH: Constants.BLOG_PROMPT_COMMON_FILE,
     BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
     BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
@@ -30,6 +31,8 @@ test('search and discovery prompts share the output and image contracts', () => 
         assert.match(prompt, /"content"/);
         assert.match(prompt, /\[\[IMAGE_N/);
         assert.match(prompt, /4:3 AR/);
+        assert.doesNotMatch(prompt, /분량은 1500~1800자/);
+        assert.doesNotMatch(prompt, /이미지 블록은 4~5개/);
     }
 });
 
@@ -81,6 +84,6 @@ test('missing prompt files fail with a clear contract error', () => {
                 readFileSync: () => ''
             }
         }),
-        /공통 블로그 프롬프트 파일이 없습니다/
+        /블로그 출력·사실성 계약 프롬프트 파일이 없습니다/
     );
 });

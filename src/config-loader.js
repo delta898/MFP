@@ -521,6 +521,7 @@ const CONFIG = {
     WAIT_UPLOAD: Constants.WAIT.UPLOAD,
     LICENSE_CHK_URL: internalSecrets.LICENSE_CHK_URL,
     LICENSE_CHK_KEY: internalSecrets.LICENSE_CHK_KEY,
+    BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/config/blog_prompt_contract.md', { mustExist: true }),
     BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: true }),
     BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/config/blog_prompt_search.md', { mustExist: true }),
     BLOG_PROMPT_DISCOVERY_PATH: resolveRuntimePath('src/config/blog_prompt_discovery.md', { mustExist: true }),

@@ -73,8 +73,12 @@ function buildCommonWritingProfilePrompt(common = {}) {
     return sections.join('\n');
 }
 
-function buildBlogWritingProfilePrompt(input = {}) {
-    const projection = projectWritingProfile(input, { kind: 'blog' });
+function buildBlogWritingProfilePromptFromProjection(projection = {}) {
+    if (projection.kind !== 'blog' || !projection.common || !projection.channel) {
+        const error = new Error('blog profile projection이 필요합니다.');
+        error.code = 'INVALID_BLOG_WRITING_PROFILE_PROJECTION';
+        throw error;
+    }
     const blog = projection.channel;
     const structure = blog.structure || {};
     const sections = [
@@ -108,7 +112,13 @@ function buildBlogWritingProfilePrompt(input = {}) {
     return sections.join('\n');
 }
 
+function buildBlogWritingProfilePrompt(input = {}) {
+    const projection = projectWritingProfile(input, { kind: 'blog' });
+    return buildBlogWritingProfilePromptFromProjection(projection);
+}
+
 module.exports = {
     buildCommonWritingProfilePrompt,
+    buildBlogWritingProfilePromptFromProjection,
     buildBlogWritingProfilePrompt
 };

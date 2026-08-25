@@ -16,7 +16,9 @@ function readPromptFile(filePath, label, fileSystem = fs) {
 
 function resolvePromptPaths({ strategy, config = {}, constants = {} }) {
     const normalizedStrategy = normalizeWritingStrategy(strategy);
-    const commonPath = config.BLOG_PROMPT_COMMON_PATH
+    const contractPath = config.BLOG_PROMPT_CONTRACT_PATH
+        || constants.BLOG_PROMPT_CONTRACT_FILE
+        || config.BLOG_PROMPT_COMMON_PATH
         || config.BLOG_PROMPT_PATH
         || constants.BLOG_PROMPT_COMMON_FILE
         || constants.PROMPT_FILE;
@@ -24,7 +26,7 @@ function resolvePromptPaths({ strategy, config = {}, constants = {} }) {
         ? (config.BLOG_PROMPT_DISCOVERY_PATH || constants.BLOG_PROMPT_DISCOVERY_FILE)
         : (config.BLOG_PROMPT_SEARCH_PATH || constants.BLOG_PROMPT_SEARCH_FILE);
 
-    return { normalizedStrategy, commonPath, strategyPath };
+    return { normalizedStrategy, contractPath, commonPath: contractPath, strategyPath };
 }
 
 function buildBlogSystemPrompt(options = {}) {
@@ -35,11 +37,11 @@ function buildBlogSystemPrompt(options = {}) {
         fileSystem = fs
     } = options;
     const paths = resolvePromptPaths({ strategy, config, constants });
-    const commonPrompt = readPromptFile(paths.commonPath, '공통 블로그', fileSystem);
+    const contractPrompt = readPromptFile(paths.contractPath, '블로그 출력·사실성 계약', fileSystem);
     const strategyLabel = paths.normalizedStrategy === 'discovery' ? '발견 중심' : '검색 중심';
     const strategyPrompt = readPromptFile(paths.strategyPath, strategyLabel, fileSystem);
 
-    return `${commonPrompt}\n\n${strategyPrompt}`;
+    return `${contractPrompt}\n\n${strategyPrompt}`;
 }
 
 module.exports = {

@@ -11,9 +11,7 @@ const BrowserLauncher = require('./browser-launcher');
 const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
-const { buildWritingStylePrompt } = require('./content/writing-style');
-const { buildBlogSystemPrompt } = require('./content/blog-prompt');
-const { resolveWritingStrategy } = require('./content/writing-strategy');
+const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1892,22 +1890,7 @@ ${messageText}
 			}
 		}
 
-		// 3) 프롬프트 로딩 (공통 계약 + 선택 전략 + 사용자 문체)
-		const writingStrategy = resolveWritingStrategy({
-			override: jobData.writing_strategy || jobData.writingStrategy || jobData.options?.writing_strategy,
-			global: CONFIG.BLOG_WRITING_STRATEGY
-		});
-		const systemPrompt = buildBlogSystemPrompt({
-			strategy: writingStrategy,
-			config: CONFIG,
-			constants: Constants
-		});
-		const writingStylePrompt = buildWritingStylePrompt({
-			writing_mode: CONFIG.BLOG_WRITING_MODE,
-			speech_level: CONFIG.BLOG_SPEECH_LEVEL
-		});
-
-		// 4) 참고 컨텍스트 구성
+		// 3) 사실 참고 컨텍스트 구성
 		let referenceSection = "(No reference provided)";
 		if (scrapedContext) {
 			referenceSection = `아래는 해당 주제와 관련된 참고 블로그 글의 내용입니다.
@@ -1925,25 +1908,25 @@ ${scrapedContext}`;
 		}
 
 		const requestedTitle = String(jobData.title || jobData.content_guide?.title || '').trim();
-		const titleInstruction = requestedTitle
-			? `- Requested Final Title: ${requestedTitle}
-			 - Title Rule: 출력 JSON의 title은 Requested Final Title을 그대로 사용하세요. 본문은 이 제목의 약속과 정확히 맞아야 합니다.`
-			: '- Requested Final Title: (None. Create a fitting title from Subject, Keywords, Instructions, and References.)';
+		const resolvedPrompt = buildBlogGenerationPrompt({
+			profile: CONFIG.CONTENT_WRITING_PROFILE,
+			strategy: jobData.writing_strategy || jobData.writingStrategy || jobData.options?.writing_strategy,
+			globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
+			config: CONFIG,
+			constants: Constants,
+			post: {
+				subject: jobData.subject,
+				title: requestedTitle,
+				keywords: jobData.keywords,
+				instruction: jobData.content_guide?.additional_instructions,
+				reference_context: referenceSection
+			}
+		});
 
-		const userPrompt = `
-				 [INPUT DATA]
-				 - Subject: ${jobData.subject || "(Context에 기반해 멋진 제목을 지어주세요)"}
-			 ${titleInstruction}
-			 - Keywords: ${jobData.keywords?.join(', ') || "(핵심 키워드 5개를 추출해주세요)"}
-			 - Instructions: ${jobData.content_guide?.additional_instructions || "None"}
-			 [REFERENCE CONTEXT]
-				 ${referenceSection}
-			 `;
-
-		// 3) Gemini 호출
+		// 4) 공통 계약 + 전략 + 선택 프로필 + 글별 입력으로 조합한 프롬프트 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
 		const rawResult = await Utils.callWritingText(
-			`${systemPrompt}\n\n${writingStylePrompt}\n\n${userPrompt}`,
+			resolvedPrompt.prompt,
 			3,
 			{
 				responseMimeType: 'application/json'
