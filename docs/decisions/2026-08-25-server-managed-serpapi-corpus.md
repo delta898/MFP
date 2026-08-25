@@ -24,9 +24,9 @@ results, and stores a bounded shared observation corpus. BlogGenius reads stored
 through a licensed API; a desktop action never directly triggers the SerpApi upstream.
 
 The corpus is separate from `knowledge_gateway_cache`. It stores only normalized title, bounded
-snippet, canonical HTTPS URL, publisher, provider/source/lane and temporal provenance. It does not
-store article bodies, raw responses, credentials or owner identity. Eligibility is capped at 14
-days and cleanup is an explicit server operation.
+snippet, canonical HTTPS URL, publisher, provider/source/lane, explicit locale/country and temporal
+provenance. It does not store article bodies, raw responses, credentials or owner identity.
+Eligibility is capped at 14 days and cleanup is an explicit server operation.
 
 The server enforces a default monthly hard limit of 200 upstream attempts, below the published
 250-search free allowance. Budget accounting is atomic and fail-closed. Collection and sampling
@@ -64,4 +64,3 @@ query-free and cross-domain discovery.
 - Reusing gateway cache: cache identity and expiry do not model a diverse shared corpus.
 - Automatically summarizing every collected item with AI: creates uncontrolled user or operator
   cost before the material has demonstrated value.
-

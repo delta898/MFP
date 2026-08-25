@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 1 implementation complete, awaiting user acceptance
+- Phase: Stage 2 implementation complete, awaiting user acceptance
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -101,12 +101,16 @@ may create a stronger owner event through the existing memory path.
 - Add pure validators/fixtures without external calls or SQL deployment.
 - Record the accepted long-lived architecture decision.
 
+Status: completed and user-accepted on 2026-08-25.
+
 ### Stage 2 — Observation corpus persistence
 
 - Work branch: `codex/feature/serpapi-collection-02-corpus-store`
 - Add backend-only observation and collection-run tables.
 - Add unique/deduplication keys, retention indexes, RLS and service-role-only grants.
 - Add bounded upsert/read/cleanup RPCs and SQL contract tests.
+
+Status: implementation complete, awaiting user acceptance.
 
 ### Stage 3 — SerpApi Google News collector
 

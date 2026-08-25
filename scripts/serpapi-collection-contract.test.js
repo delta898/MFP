@@ -14,6 +14,8 @@ async function validObservation(overrides = {}) {
         provider_id: 'serpapi-google-news',
         source: 'google-news',
         lane: 'headlines_kr',
+        locale: 'ko-KR',
+        country: 'KR',
         title: '뜻밖에 발견한 새로운 생활 기술',
         summary: '생활 방식의 변화를 소개하는 기사입니다.',
         url,
@@ -66,6 +68,7 @@ test('observations are normalized, bounded and convertible to strict News items'
     assert.equal(observation.url, 'https://news.example.test/articles/serendipity');
     assert.match(observation.observation_id, /^ko_[A-Za-z0-9_-]+$/);
     assert.equal(observation.expires_at, '2026-09-08T01:00:00.000Z');
+    assert.equal(observation.locale, 'ko-KR');
 
     const item = serpApiObservationToNewsItem(observation);
     assert.deepEqual(Object.keys(item), [
@@ -112,6 +115,9 @@ test('observations reject expired, future, old, raw and owner-specific material'
     await assert.rejects(async () => normalizeSerpApiObservation(await validObservation({
         published_at: '2026-08-10T00:00:00.000Z'
     })), /published_at_too_old/);
+    await assert.rejects(async () => normalizeSerpApiObservation(await validObservation({
+        locale: 'ja-JP', country: 'JP'
+    })), /locale_invalid/);
     await assert.rejects(async () => normalizeSerpApiObservation({
         ...(await validObservation()), raw_response: { api_key: 'secret' }
     }), /not_allowed/);

@@ -2,8 +2,9 @@
 
 ## Status
 
-- Phase: implementation complete, awaiting user acceptance
+- Phase: completed and user-accepted
 - Design accepted: 2026-08-25
+- User acceptance: 2026-08-25
 - Parent plan: `docs/plans/active/serpapi-collection-main-plan.md`
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Work branch: `codex/feature/serpapi-collection-01-contracts`
@@ -100,6 +101,8 @@ engine, endpoint, API key, country, language or arbitrary vendor options.
   provider_id: 'serpapi-google-news',
   source: 'google-news',
   lane: 'headlines_kr',
+  locale: 'ko-KR',
+  country: 'KR',
   title: '...',
   summary: '...',
   url: 'https://...',

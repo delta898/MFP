@@ -18,6 +18,8 @@ type CollectionTrigger = "scheduled" | "manual";
 type CollectionStatus = "succeeded" | "failed" | "skipped";
 
 const ALLOWED_LANES = new Set<string>(SERPAPI_COLLECTION_LANES);
+const ALLOWED_LOCALES = new Set(["ko-KR", "en-US"]);
+const ALLOWED_COUNTRIES = new Set(["KR", "US"]);
 const ALLOWED_TRIGGERS = new Set<CollectionTrigger>(["scheduled", "manual"]);
 const ALLOWED_STATUSES = new Set<CollectionStatus>(["succeeded", "failed", "skipped"]);
 const SENSITIVE_KEY = /(api[_-]?key|secret|authorization|credential|access[_-]?token|license[_-]?key|hwid|owner[_-]?id|user[_-]?id|raw[_-]?(response|payload)|headers?|html|article[_-]?body)/i;
@@ -101,7 +103,7 @@ export function normalizeSerpApiCollectionRequest(raw: unknown) {
 export async function normalizeSerpApiObservation(raw: unknown) {
   const observation = object(raw, "observation");
   assertOnlyKeys(observation, new Set([
-    "schema_version", "observation_id", "kind", "provider_id", "source", "lane", "title",
+    "schema_version", "observation_id", "kind", "provider_id", "source", "lane", "locale", "country", "title",
     "summary", "url", "publisher", "published_at", "observed_at", "expires_at",
   ]), "observation");
   if (Number(observation.schema_version) !== SERPAPI_COLLECTION_SCHEMA_VERSION) {
@@ -111,6 +113,8 @@ export async function normalizeSerpApiObservation(raw: unknown) {
   const providerId = compact(observation.provider_id, 120);
   const source = compact(observation.source, 120);
   const lane = compact(observation.lane, 40);
+  const locale = compact(observation.locale, 20);
+  const country = compact(observation.country, 8).toUpperCase();
   const title = compact(observation.title, 300);
   const summary = compact(observation.summary, 1000);
   const publisher = compact(observation.publisher, 160);
@@ -126,6 +130,9 @@ export async function normalizeSerpApiObservation(raw: unknown) {
     throw new Error("observation_identity_invalid");
   }
   if (!ALLOWED_LANES.has(lane)) throw new Error("observation_lane_invalid");
+  if (!ALLOWED_LOCALES.has(locale) || !ALLOWED_COUNTRIES.has(country)) {
+    throw new Error("observation_locale_invalid");
+  }
   if (!title || !publisher) throw new Error("observation_content_invalid");
   if (publishedMs > observedMs + FUTURE_TOLERANCE_MS) throw new Error("observation_published_at_future");
   if (observedMs - publishedMs > SERPAPI_COLLECTION_MAX_RETENTION_MS) {
@@ -145,6 +152,8 @@ export async function normalizeSerpApiObservation(raw: unknown) {
     provider_id: SERPAPI_NEWS_PROVIDER_ID,
     source: SERPAPI_NEWS_SOURCE,
     lane: lane as CollectionLane,
+    locale,
+    country,
     title,
     summary,
     url,
@@ -227,4 +236,3 @@ export function serpApiObservationToNewsItem(observation: Awaited<ReturnType<typ
     published_at: observation.published_at,
   };
 }
-
