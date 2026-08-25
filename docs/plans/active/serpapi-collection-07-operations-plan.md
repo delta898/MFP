@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Live collection and licensed corpus read verified; awaiting application verification
+- Phase: Cron activated; awaiting first scheduled-run observation
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Work branch: `codex/feature/serpapi-collection-07-operations`
 - Proposed: 2026-08-25
@@ -176,7 +176,7 @@ to automatic delivery, not an explicit AI-free `새로운 발견` request. Expli
 bypasses only the daily cap while retaining per-run/per-kind limits, active dedupe and explicit
 dismiss/completion cooldowns. Refresh logging now separates newly persisted, deduplicated and
 suppressed results so another policy block is visible without exposing content or provider data.
-Repeat UI verification is pending.
+Repeat UI verification passed on 2026-08-25.
 
 ### Phase F — Cron activation and observation
 
@@ -191,6 +191,13 @@ Inspect `cron.job`, recent `cron.job_run_details`, Function logs and
 `read_knowledge_collection_operations('serpapi-google-news')`. Five collection slots per day use at
 most 155 reservations in a 31-day window; the database hard limit remains 200 and the Account API
 guard preserves a 50-search reserve.
+
+Activated on 2026-08-25 at 19:40 KST through the linked `BlogPostingQuota` production project. The
+four headline jobs, one rotating focused job and one cleanup job exist exactly once and all report
+`active=true`. Activation itself started no collection run: operations remained at `1 / 200` used,
+`199` remaining, with no provider backoff or failure. The first scheduled collection after
+activation is the rotating focused slot at 21:20 KST; its Cron result, Function run and budget delta
+still require observation before Stage 7 completion.
 
 ## Rollback and Emergency Stop
 

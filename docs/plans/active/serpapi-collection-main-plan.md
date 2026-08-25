@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 7 live collection/read verified; awaiting application verification
+- Phase: Stage 7 Cron activated; awaiting first scheduled-run observation
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -173,7 +173,8 @@ canonical evidence retains the actual provider provenance.
 Status: in progress on 2026-08-25. Production foundations and Functions are deployed. One approved
 manual search stored six observations against exactly one local budget reservation, and the
 licensed corpus path returns all six without additional collection cost. Application verification
-and last-gated Cron activation remain.
+passed after source rotation and explicit-discovery policy stabilization. Six bounded Cron jobs are
+active; first scheduled-run observation and final operations documentation remain.
 
 ## Branch and Review Routine
 
