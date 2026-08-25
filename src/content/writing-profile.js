@@ -8,7 +8,10 @@ const PROFILE_LIMITS = Object.freeze({
     channelInstruction: 1000,
     sampleText: 12000,
     referenceUrls: 3,
-    referenceUrlLength: 2048
+    referenceUrlLength: 2048,
+    referenceTitle: 200,
+    referenceError: 300,
+    referenceMetadata: 200
 });
 
 const PROFILE_ENUMS = Object.freeze({
@@ -39,8 +42,8 @@ function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeNullableText(value) {
-    const normalized = normalizeText(value);
+function normalizeNullableText(value, maxLength = Infinity) {
+    const normalized = normalizeText(value).slice(0, maxLength);
     return normalized || null;
 }
 
@@ -112,14 +115,14 @@ function normalizeStyleReferences(input) {
 
     return {
         sample_text: {
-            value: normalizeText(sampleText.value),
+            value: normalizeText(sampleText.value).slice(0, PROFILE_LIMITS.sampleText),
             status: normalizeEnum(sampleText.status, 'referenceStatus', 'empty')
         },
         blog_urls: blogUrls,
         fingerprint: normalizeFingerprint(source.fingerprint),
-        fingerprint_input_hash: normalizeNullableText(source.fingerprint_input_hash),
-        analyzed_at: normalizeNullableText(source.analyzed_at),
-        analyzer_version: normalizeNullableText(source.analyzer_version)
+        fingerprint_input_hash: normalizeNullableText(source.fingerprint_input_hash, PROFILE_LIMITS.referenceMetadata),
+        analyzed_at: normalizeNullableText(source.analyzed_at, PROFILE_LIMITS.referenceMetadata),
+        analyzer_version: normalizeNullableText(source.analyzer_version, PROFILE_LIMITS.referenceMetadata)
     };
 }
 
@@ -147,7 +150,7 @@ function normalizeWritingProfile(input = {}) {
                 tone: normalizeEnum(voice.tone, 'tone', 'balanced'),
                 information_density: normalizeEnum(voice.information_density, 'informationDensity', 'balanced')
             },
-            style_instruction: normalizeText(common.style_instruction)
+            style_instruction: normalizeText(common.style_instruction).slice(0, PROFILE_LIMITS.commonStyleInstruction)
         },
         channels: {
             blog: {
@@ -165,13 +168,13 @@ function normalizeWritingProfile(input = {}) {
                     count_mode: normalizeEnum(imagePlan.count_mode, 'imageCountMode', 'auto'),
                     fixed_count: fixedCount
                 },
-                author_context: normalizeText(blog.author_context),
-                additional_instruction: normalizeText(blog.additional_instruction),
+                author_context: normalizeText(blog.author_context).slice(0, PROFILE_LIMITS.authorContext),
+                additional_instruction: normalizeText(blog.additional_instruction).slice(0, PROFILE_LIMITS.channelInstruction),
                 style_references: normalizeStyleReferences(blog.style_references)
             },
             shopping: {
                 mode: normalizeEnum(shopping.mode, 'shoppingMode', 'product_default'),
-                additional_instruction: normalizeText(shopping.additional_instruction)
+                additional_instruction: normalizeText(shopping.additional_instruction).slice(0, PROFILE_LIMITS.channelInstruction)
             }
         }
     };
@@ -198,6 +201,18 @@ function pushTextLimitError(errors, value, path, maxLength) {
     if (value.trim().length > maxLength) {
         errors.push({ path, code: 'TEXT_TOO_LONG', message: `${path} 값은 ${maxLength}자 이하여야 합니다.` });
     }
+}
+
+function pushStringListLimitErrors(errors, value, path, maxItems, maxLength) {
+    if (value === undefined || value === null) return;
+    if (!Array.isArray(value)) {
+        errors.push({ path, code: 'INVALID_TYPE', message: `${path} 값은 배열이어야 합니다.` });
+        return;
+    }
+    if (value.length > maxItems) {
+        errors.push({ path, code: 'TOO_MANY_ITEMS', message: `${path} 항목은 최대 ${maxItems}개까지 사용할 수 있습니다.` });
+    }
+    value.forEach((item, index) => pushTextLimitError(errors, item, `${path}.${index}`, maxLength));
 }
 
 function validateWritingProfile(input = {}) {
@@ -254,12 +269,60 @@ function validateWritingProfile(input = {}) {
     pushTextLimitError(errors, blog.author_context, 'channels.blog.author_context', PROFILE_LIMITS.authorContext);
     pushTextLimitError(errors, blog.additional_instruction, 'channels.blog.additional_instruction', PROFILE_LIMITS.channelInstruction);
     pushTextLimitError(errors, sampleText.value, 'channels.blog.style_references.sample_text.value', PROFILE_LIMITS.sampleText);
-    if (Array.isArray(styleReferences.blog_urls) && styleReferences.blog_urls.length > PROFILE_LIMITS.referenceUrls) {
+    pushEnumError(errors, sampleText.status, 'channels.blog.style_references.sample_text.status', 'referenceStatus');
+    if (styleReferences.blog_urls !== undefined && !Array.isArray(styleReferences.blog_urls)) {
+        errors.push({
+            path: 'channels.blog.style_references.blog_urls',
+            code: 'INVALID_TYPE',
+            message: 'channels.blog.style_references.blog_urls 값은 배열이어야 합니다.'
+        });
+    } else if (Array.isArray(styleReferences.blog_urls) && styleReferences.blog_urls.length > PROFILE_LIMITS.referenceUrls) {
         errors.push({
             path: 'channels.blog.style_references.blog_urls',
             code: 'TOO_MANY_ITEMS',
             message: `문체 참고 URL은 최대 ${PROFILE_LIMITS.referenceUrls}개까지 사용할 수 있습니다.`
         });
+    }
+    if (Array.isArray(styleReferences.blog_urls)) {
+        styleReferences.blog_urls.forEach((entry, index) => {
+            const itemPath = `channels.blog.style_references.blog_urls.${index}`;
+            const source = typeof entry === 'string' ? { url: entry } : entry;
+            if (!isRecord(source)) {
+                errors.push({ path: itemPath, code: 'INVALID_TYPE', message: `${itemPath} 값은 URL 문자열 또는 객체여야 합니다.` });
+                return;
+            }
+            pushTextLimitError(errors, source.url, `${itemPath}.url`, PROFILE_LIMITS.referenceUrlLength);
+            if (!normalizeText(source.url)) {
+                errors.push({ path: `${itemPath}.url`, code: 'REQUIRED', message: `${itemPath}.url 값이 필요합니다.` });
+            }
+            pushEnumError(errors, source.status, `${itemPath}.status`, 'referenceStatus');
+            pushTextLimitError(errors, source.title, `${itemPath}.title`, PROFILE_LIMITS.referenceTitle);
+            pushTextLimitError(errors, source.error, `${itemPath}.error`, PROFILE_LIMITS.referenceError);
+        });
+    }
+    pushTextLimitError(errors, styleReferences.fingerprint_input_hash, 'channels.blog.style_references.fingerprint_input_hash', PROFILE_LIMITS.referenceMetadata);
+    pushTextLimitError(errors, styleReferences.analyzed_at, 'channels.blog.style_references.analyzed_at', PROFILE_LIMITS.referenceMetadata);
+    pushTextLimitError(errors, styleReferences.analyzer_version, 'channels.blog.style_references.analyzer_version', PROFILE_LIMITS.referenceMetadata);
+    if (styleReferences.fingerprint !== undefined && styleReferences.fingerprint !== null && !isRecord(styleReferences.fingerprint)) {
+        errors.push({
+            path: 'channels.blog.style_references.fingerprint',
+            code: 'INVALID_TYPE',
+            message: 'channels.blog.style_references.fingerprint 값은 객체 또는 null이어야 합니다.'
+        });
+    } else if (isRecord(styleReferences.fingerprint)) {
+        const fingerprint = styleReferences.fingerprint;
+        const fingerprintStructure = isRecord(fingerprint.structure) ? fingerprint.structure : {};
+        const fingerprintVoice = isRecord(fingerprint.voice) ? fingerprint.voice : {};
+        pushTextLimitError(errors, fingerprintStructure.opening_pattern, 'channels.blog.style_references.fingerprint.structure.opening_pattern', 80);
+        pushStringListLimitErrors(errors, fingerprintStructure.section_flow, 'channels.blog.style_references.fingerprint.structure.section_flow', 8, 50);
+        pushTextLimitError(errors, fingerprintStructure.paragraph_length, 'channels.blog.style_references.fingerprint.structure.paragraph_length', 50);
+        pushTextLimitError(errors, fingerprintStructure.ending_pattern, 'channels.blog.style_references.fingerprint.structure.ending_pattern', 80);
+        pushTextLimitError(errors, fingerprintVoice.sentence_rhythm, 'channels.blog.style_references.fingerprint.voice.sentence_rhythm', 50);
+        pushTextLimitError(errors, fingerprintVoice.warmth, 'channels.blog.style_references.fingerprint.voice.warmth', 50);
+        pushTextLimitError(errors, fingerprintVoice.vocabulary, 'channels.blog.style_references.fingerprint.voice.vocabulary', 50);
+        pushStringListLimitErrors(errors, fingerprintVoice.rhetorical_devices, 'channels.blog.style_references.fingerprint.voice.rhetorical_devices', 8, 50);
+        pushStringListLimitErrors(errors, fingerprint.avoid, 'channels.blog.style_references.fingerprint.avoid', 12, 80);
+        pushTextLimitError(errors, fingerprint.summary, 'channels.blog.style_references.fingerprint.summary', 300);
     }
 
     pushEnumError(errors, shopping.mode, 'channels.shopping.mode', 'shoppingMode');

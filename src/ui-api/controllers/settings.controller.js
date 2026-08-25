@@ -5,6 +5,40 @@ function createSettingsController(deps = {}) {
     const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 400 });
 
     return {
+        async handleWritingProfile({ requestId, method, requestBody, res }) {
+            if (method === 'GET') {
+                try {
+                    const data = await service.getWritingProfile();
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'WRITING_PROFILE_READ_FAILED', '글쓰기 프로필을 읽지 못했습니다.', e);
+                }
+            }
+
+            if (method === 'PUT') {
+                try {
+                    const data = await service.saveWritingProfile(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'WRITING_PROFILE_SAVE_FAILED', '글쓰기 프로필을 저장하지 못했습니다.', e);
+                }
+            }
+
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleUseDefaultWritingProfile({ requestId, method, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.useDefaultWritingProfile();
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'WRITING_PROFILE_DEFAULT_FAILED', '기본 글쓰기 프로필로 전환하지 못했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
         async handleMajor({ requestId, method, requestBody, res }) {
             if (method === 'GET') {
                 try {

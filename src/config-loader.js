@@ -10,6 +10,12 @@ const {
 } = require('./ai-model-config');
 const { applyRemoteCatalog } = require('./ai/catalog-registry');
 const { resolveContentWritingPreferences } = require('./content/writing-preferences');
+const {
+    createWritingProfileRepository
+} = require('./content/writing-profile-repository');
+const {
+    DEFAULT_CONTENT_WRITING_PROFILE_METADATA
+} = require('./content/writing-profile');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const { APP_VERSION } = Constants;
 
@@ -256,7 +262,6 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
     chatSelection: resolvedChatModelSettings.selection
 });
 const resolvedContentWritingPreferences = resolveContentWritingPreferences(structuredConfig.content);
-const resolvedBlogWritingStyle = resolvedContentWritingPreferences.style;
 const resolvedBlogWritingStrategy = resolvedContentWritingPreferences.strategy;
 const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
     ? resolvedTextModelConfig.code
@@ -273,6 +278,17 @@ const activeConfigDir = (() => {
     if (fs.existsSync(execConfigDir)) return execConfigDir;
     return path.join(ROOT_DIR, 'config');
 })();
+
+const writingProfilePath = path.join(activeConfigDir, 'writing_profile.json');
+const writingProfileRepository = createWritingProfileRepository({
+    fs,
+    path,
+    filePath: writingProfilePath,
+    legacyContentConfig: structuredConfig.content
+});
+const writingProfileLoadResult = writingProfileRepository.read();
+const resolvedContentWritingProfile = writingProfileLoadResult.effective_profile;
+const resolvedContentWritingVoice = resolvedContentWritingProfile.common.voice;
 
 const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
     ? path.dirname(activeConfigDir)
@@ -396,12 +412,17 @@ const CONFIG = {
     WORDPRESS_URL: structuredConfig.platforms.wordpress.url,
     WORDPRESS_USER_ID: structuredConfig.platforms.wordpress.user_id,
     WORDPRESS_APP_PASSWORD: structuredConfig.platforms.wordpress.app_password,
-    BLOG_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
-    BLOG_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
+    BLOG_WRITING_MODE: resolvedContentWritingVoice.writing_mode,
+    BLOG_SPEECH_LEVEL: resolvedContentWritingVoice.speech_level,
     BLOG_WRITING_STRATEGY: resolvedBlogWritingStrategy,
-    CONTENT_WRITING_MODE: resolvedBlogWritingStyle.writing_mode,
-    CONTENT_SPEECH_LEVEL: resolvedBlogWritingStyle.speech_level,
+    CONTENT_WRITING_MODE: resolvedContentWritingVoice.writing_mode,
+    CONTENT_SPEECH_LEVEL: resolvedContentWritingVoice.speech_level,
     CONTENT_WRITING_STRATEGY: resolvedBlogWritingStrategy,
+    CONTENT_WRITING_PROFILE: resolvedContentWritingProfile,
+    CONTENT_WRITING_PROFILE_SOURCE: writingProfileLoadResult.source,
+    CONTENT_WRITING_PROFILE_WARNINGS: writingProfileLoadResult.warnings,
+    CONTENT_WRITING_PROFILE_METADATA: DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
+    WRITING_PROFILE_PATH: writingProfilePath,
     AUTH_FILE_PATH: resolvedAuthPath,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,

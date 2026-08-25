@@ -20,6 +20,14 @@ const { recordDashboardActivity } = require('../../activity/dashboard-activity-s
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
 const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
+const {
+    createWritingProfileRepository,
+    applyWritingProfileRuntimeAliases
+} = require('../../content/writing-profile-repository');
+const {
+    DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
+    getDefaultContentWritingProfile
+} = require('../../content/writing-profile');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [
@@ -78,7 +86,75 @@ function createSettingsService(deps = {}) {
         ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
 
+    let writingProfileRepository = null;
+
+    function getWritingProfileRepository() {
+        if (writingProfileRepository) return writingProfileRepository;
+        const runtimeFs = fs || require('node:fs');
+        const runtimePath = path || require('node:path');
+        const runtimeConfig = CONFIG || {};
+        writingProfileRepository = createWritingProfileRepository({
+            fs: runtimeFs,
+            path: runtimePath,
+            filePath: runtimeConfig.WRITING_PROFILE_PATH
+                || runtimePath.join(runtimeConfig.CONFIG_DIR || process.cwd(), 'config', 'writing_profile.json'),
+            legacyContentConfig: runtimeConfig.content
+        });
+        return writingProfileRepository;
+    }
+
+    function toWritingProfileResponse(result) {
+        return {
+            schema_version: result.document.schema_version,
+            active_profile: result.document.active_profile,
+            custom_profile: result.document.custom_profile,
+            effective_profile: result.effective_profile,
+            default_profile: getDefaultContentWritingProfile(),
+            default_profile_metadata: { ...DEFAULT_CONTENT_WRITING_PROFILE_METADATA },
+            source: result.source,
+            warnings: result.warnings,
+            updated_at: result.document.updated_at
+        };
+    }
+
+    function applyWritingProfileResult(result) {
+        if (!CONFIG) return;
+        applyWritingProfileRuntimeAliases(CONFIG, result.effective_profile);
+        CONFIG.CONTENT_WRITING_PROFILE_SOURCE = result.source;
+        CONFIG.CONTENT_WRITING_PROFILE_WARNINGS = result.warnings;
+    }
+
+    function toWritingProfileApiError(error) {
+        if (error?.code !== 'INVALID_WRITING_PROFILE') return error;
+        const message = Array.isArray(error.details) && error.details.length > 0
+            ? error.details.map((item) => item.message).join(' ')
+            : error.message;
+        return createApiError(400, 'WRITING_PROFILE_INVALID', message);
+    }
+
     return {
+        async getWritingProfile() {
+            const result = getWritingProfileRepository().read();
+            applyWritingProfileResult(result);
+            return toWritingProfileResponse(result);
+        },
+
+        async saveWritingProfile(requestBody = {}) {
+            try {
+                const result = getWritingProfileRepository().save(requestBody);
+                applyWritingProfileResult(result);
+                return toWritingProfileResponse(result);
+            } catch (error) {
+                throw toWritingProfileApiError(error);
+            }
+        },
+
+        async useDefaultWritingProfile() {
+            const result = getWritingProfileRepository().useDefault();
+            applyWritingProfileResult(result);
+            return toWritingProfileResponse(result);
+        },
+
         async getMajorSettings() {
             const aiCatalogStatus = typeof RemoteModelCatalog?.refresh === 'function'
                 ? await RemoteModelCatalog.refresh()

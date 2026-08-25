@@ -4,6 +4,16 @@ function createSettingsRouteHandler(deps = {}) {
     return async function tryHandleSettingsRoute(ctx = {}) {
         const { pathname } = ctx;
 
+        if (pathname === '/api/v1/settings/writing-profile') {
+            await controller.handleWritingProfile(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/settings/writing-profile/use-default') {
+            await controller.handleUseDefaultWritingProfile(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/major') {
             await controller.handleMajor(ctx);
             return true;

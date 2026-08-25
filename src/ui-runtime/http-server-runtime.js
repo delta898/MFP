@@ -62,7 +62,7 @@ function createUiHttpServerRuntime(deps = {}) {
                     const startTime = Date.now();
                     Logger.debug(`[API][${requestId}] Request: ${method} ${pathname}`);
                     let requestBody = {};
-                    if (method === 'POST') {
+                    if (method === 'POST' || method === 'PUT') {
                         let limitBytes = 1024 * 1024;
                         if (
                             pathname === '/api/v1/settings/shopping-image'
