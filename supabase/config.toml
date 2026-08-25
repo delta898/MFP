@@ -1,0 +1,3 @@
+[functions.serpapi-news-collector]
+verify_jwt = false
+

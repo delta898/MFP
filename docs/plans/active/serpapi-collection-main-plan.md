@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 3 implementation complete, awaiting user acceptance
+- Phase: Stage 4 completed and user-accepted; ready for Stage 5
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -50,10 +50,11 @@ BlogGenius
 The free allowance is treated as an upstream maximum, not as an operational target.
 
 - SerpApi published free allowance: 250 successful uncached searches per month
-- BlogGenius hard collection budget: 200 upstream attempts per calendar month
-- Initial planned consumption: at most 155 scheduled attempts in a 31-day month
+- BlogGenius hard collection budget: 200 upstream reservations in every trailing 31-day window
+- Initial planned consumption: at most 155 scheduled reservations in any 31 days
 - Reserved margin: at least 45 attempts for operations, contract changes and safe retries
-- The local provider counter and SerpApi Account API observation are both monitored.
+- The Account API must report more than 50 searches remaining before a local reservation is made.
+- The local reservation ledger is the concurrency authority; Account API is the external account guard.
 - A quota-state failure is fail-closed; it must never make an unmetered upstream request.
 - Manual collection uses the same budget as scheduled collection.
 
@@ -120,16 +121,21 @@ Status: completed and user-accepted on 2026-08-25.
 - Record collection runs and safely deduplicate/upsert observations.
 - Do not add scheduling or desktop consumption yet.
 
-Status: implementation complete and awaiting user acceptance on 2026-08-25. Targeted tests 22 and
+Status: completed and user-accepted on 2026-08-25. Targeted tests 22 and
 the full 778-test unit regression suite pass without a live SerpApi call or Supabase deployment.
 
 ### Stage 4 — Budget, scheduling and operations
 
 - Work branch: `codex/feature/serpapi-collection-04-scheduler`
-- Add atomic monthly hard-budget accounting with a default limit of 200.
+- Add atomic trailing-31-day hard-budget accounting with a fixed limit of 200.
 - Add Supabase Cron invocation and rotating collection-lane policy.
 - Add cleanup, Account API diagnostics, backoff and sanitized operational logs.
 - Document secret provisioning, SQL application and Edge Function deployment.
+
+Status: completed and user-accepted on 2026-08-25. The local hard guard
+uses a trailing 31-day window rather than assuming the provider renews on the first calendar day.
+SerpApi-focused tests 43 and the full 796-test unit regression suite pass without live provider
+calls, Supabase mutation, Function deployment or Cron activation.
 
 ### Stage 5 — Licensed corpus read API
 

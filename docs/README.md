@@ -71,6 +71,7 @@
 - `plans/active/serpapi-collection-01-contracts-plan.md`
 - `plans/active/serpapi-collection-02-corpus-store-plan.md`
 - `plans/active/serpapi-collection-03-collector-plan.md`
+- `plans/active/serpapi-collection-04-scheduler-plan.md`
 - `plans/active/proactive-guidance-main-plan.md`
 - `plans/active/proactive-guidance-02-lifecycle-store-plan.md`
 - `plans/active/proactive-guidance-03-legacy-adapters-plan.md`

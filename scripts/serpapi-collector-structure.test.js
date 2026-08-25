@@ -46,7 +46,7 @@ test('collector authenticates before parsing a bounded contract request', () => 
     const methodCheck = edgeFunction.indexOf('req.method !== "POST"');
     const authCheck = edgeFunction.indexOf('secureEqual(presentedSecret, collectorSecret)');
     const bodyRead = edgeFunction.indexOf('body = await req.json()');
-    const serviceRun = edgeFunction.indexOf('service.run(body)');
+    const serviceRun = edgeFunction.indexOf('service.run(body, operationId)');
     assert.ok(methodCheck >= 0 && methodCheck < authCheck);
     assert.ok(authCheck < bodyRead && bodyRead < serviceRun);
 
@@ -58,6 +58,8 @@ test('collector returns aggregate runs and logs stable codes only', () => {
     const edgeFunction = read('supabase/functions/serpapi-news-collector/index.ts');
     assert.match(edgeFunction, /fetched_count: run\.fetched_count/);
     assert.match(edgeFunction, /accepted_count: run\.accepted_count/);
+    assert.match(edgeFunction, /attempted_upstream: run\.attempted_upstream/);
+    assert.match(edgeFunction, /error_code: run\.error_code/);
     assert.match(edgeFunction, /console\.warn\("SERPAPI_COLLECTION_FAILED", \{ code: failure\.code \}\)/);
     assert.doesNotMatch(edgeFunction, /console\.(?:log|warn|error)\([^\n]*(?:body|apiKey|serpApiKey|url|error\.message)/);
     assert.doesNotMatch(edgeFunction, /observations:\s*run\.|api_key:\s*|SERPAPI_API_KEY\s*:/);

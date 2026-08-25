@@ -28,9 +28,11 @@ snippet, canonical HTTPS URL, publisher, provider/source/lane, explicit locale/c
 provenance. It does not store article bodies, raw responses, credentials or owner identity.
 Eligibility is capped at 14 days and cleanup is an explicit server operation.
 
-The server enforces a default monthly hard limit of 200 upstream attempts, below the published
-250-search free allowance. Budget accounting is atomic and fail-closed. Collection and sampling
-are deterministic and do not invoke a generative AI model.
+The server enforces a fixed limit of 200 unique upstream reservations in every trailing 31-day
+window, below the published 250-search free allowance without assuming a first-of-month renewal.
+Before reserving, the free Account API must also report more than 50 searches remaining. The local
+ledger is atomic and provides concurrency control; either guard failing is fail-closed. Collection
+and sampling are deterministic and do not invoke a generative AI model.
 
 Stored observations remain external `observed / weak` evidence. Existing Memory events record
 only later explicit user actions such as viewing, dismissing, applying, writing or publishing.

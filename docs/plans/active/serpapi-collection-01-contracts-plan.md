@@ -58,11 +58,13 @@ Recommendation consumer가 SerpApi 전용 DTO를 알지 않게 한다.
 
 Stage 4 may make a lane's eligibility shorter, but no lane may silently exceed the global maximum.
 
-### 5. Monthly cost protection is server-authoritative
+### 5. Rolling cost protection is server-authoritative
 
-Every network attempt passes an atomic provider/operation/month counter before fetch. The default
-hard limit is 200 and cannot be raised by a desktop request or Cron payload. Failed counter access
-blocks the request. SerpApi Account API is diagnostic corroboration, not the concurrency authority.
+Every Google News network attempt passes an atomic provider/operation reservation ledger before
+fetch. The fixed limit is 200 in every trailing 31-day window and cannot be raised by a desktop
+request or Cron payload. Failed ledger access blocks the request. SerpApi Account API must also
+report more than 50 searches remaining. It is an external account guard, while the database ledger
+remains the concurrency authority.
 
 ### 6. Provenance survives every boundary
 
