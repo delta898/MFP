@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 2 implementation complete, awaiting user acceptance
+- Phase: Stage 3 implementation complete, awaiting user acceptance
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -110,7 +110,7 @@ Status: completed and user-accepted on 2026-08-25.
 - Add unique/deduplication keys, retention indexes, RLS and service-role-only grants.
 - Add bounded upsert/read/cleanup RPCs and SQL contract tests.
 
-Status: implementation complete, awaiting user acceptance.
+Status: completed and user-accepted on 2026-08-25.
 
 ### Stage 3 — SerpApi Google News collector
 
@@ -119,6 +119,9 @@ Status: implementation complete, awaiting user acceptance.
 - Normalize Google News results without passing raw vendor payloads to storage.
 - Record collection runs and safely deduplicate/upsert observations.
 - Do not add scheduling or desktop consumption yet.
+
+Status: implementation complete and awaiting user acceptance on 2026-08-25. Targeted tests 22 and
+the full 778-test unit regression suite pass without a live SerpApi call or Supabase deployment.
 
 ### Stage 4 — Budget, scheduling and operations
 

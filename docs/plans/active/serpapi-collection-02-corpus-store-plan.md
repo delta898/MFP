@@ -2,11 +2,12 @@
 
 ## Status
 
-- Phase: implementation complete, awaiting user acceptance
+- Phase: completed and user-accepted
 - Parent plan: `docs/plans/active/serpapi-collection-main-plan.md`
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Work branch: `codex/feature/serpapi-collection-02-corpus-store`
 - Started: 2026-08-25
+- User acceptance: 2026-08-25
 
 ## Objective
 
