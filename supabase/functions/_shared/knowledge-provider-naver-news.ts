@@ -186,6 +186,7 @@ export function createNaverNewsRoute(options: NaverNewsRouteOptions = {}) {
     providerId: PROVIDER_ID,
     kind: "news" as const,
     purpose: "content_ideas" as const,
+    execution: "upstream" as const,
     operation: "news_search",
     cacheTtlSeconds: CACHE_TTL_SECONDS,
     staleTtlSeconds: 6 * 60 * 60,

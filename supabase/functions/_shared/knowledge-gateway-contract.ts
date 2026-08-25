@@ -1,7 +1,13 @@
 const ALLOWED_KINDS = new Set(["trends", "news"]);
-const ALLOWED_PURPOSES = new Set(["content_ideas"]);
-const ALLOWED_LOCALES = new Set(["ko-KR"]);
-const ALLOWED_COUNTRIES = new Set(["KR"]);
+const ALLOWED_PURPOSES = new Set(["content_ideas", "serendipity"]);
+const CONTENT_ALLOWED_LOCALES = new Set(["ko-KR"]);
+const CONTENT_ALLOWED_COUNTRIES = new Set(["KR"]);
+const DISCOVERY_ALLOWED_LOCALES = new Set(["ko-KR", "en-US"]);
+const DISCOVERY_ALLOWED_COUNTRIES = new Set(["KR", "US"]);
+const ALLOWED_LANES = new Set([
+  "headlines_kr", "headlines_global", "technology", "business", "science",
+  "culture_lifestyle", "travel_local",
+]);
 const ALLOWED_CHANGE_TYPES = new Set(["new", "up", "down", "steady", "unknown"]);
 const SENSITIVE_KEY = /(api[_-]?key|secret|authorization|credential|access[_-]?token|license[_-]?key|hwid|raw[_-]?(response|payload)|headers?)/i;
 
@@ -39,6 +45,23 @@ function httpsUrl(value: unknown, required: boolean) {
   return parsed.toString();
 }
 
+function boundedUniqueStrings(
+  value: unknown,
+  field: string,
+  allowed: Set<string> | null,
+  maxItems: number,
+  maxLength: number,
+) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > maxItems) throw new Error(`${field}_invalid`);
+  if (value.some((item) => typeof item !== "string")) throw new Error(`${field}_invalid`);
+  const normalized = value.map((item) => String(item).replace(/\s+/g, " ").trim());
+  if (normalized.some((item) => item.length > maxLength)) throw new Error(`${field}_invalid`);
+  const result = [...new Set(normalized)];
+  if (result.some((item) => !item || (allowed && !allowed.has(item)))) throw new Error(`${field}_invalid`);
+  return result;
+}
+
 export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) {
   const allowedBodyKeys = new Set(["schema_version", "kind", "purpose", "query", "licenseKey", "hwid"]);
   if (Object.keys(body).some((key) => !allowedBodyKeys.has(key))) throw new Error("request_field_invalid");
@@ -49,12 +72,30 @@ export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) 
     ? body.query as Record<string, unknown>
     : {};
   if (!ALLOWED_KINDS.has(kind) || !ALLOWED_PURPOSES.has(purpose)) throw new Error("route_invalid");
-  const allowedQueryKeys = new Set(["topic", "locale", "country", "limit"]);
+  const discovery = purpose === "serendipity";
+  const allowedQueryKeys = discovery
+    ? new Set(["lanes", "locales", "countries", "exclude_ids", "limit"])
+    : new Set(["topic", "locale", "country", "limit"]);
   if (Object.keys(query).some((key) => !allowedQueryKeys.has(key))) throw new Error("query_field_invalid");
-  const limit = Number(query.limit || 10);
+  const limit = Number(query.limit || (discovery ? 12 : 10));
+  if (discovery) {
+    return {
+      kind,
+      purpose,
+      query: {
+        lanes: boundedUniqueStrings(query.lanes, "lanes", ALLOWED_LANES, 7, 40),
+        locales: boundedUniqueStrings(query.locales, "locales", DISCOVERY_ALLOWED_LOCALES, 2, 20),
+        countries: boundedUniqueStrings(query.countries, "countries", DISCOVERY_ALLOWED_COUNTRIES, 2, 8),
+        exclude_ids: boundedUniqueStrings(query.exclude_ids, "exclude_ids", null, 100, 180),
+        limit: Math.max(1, Math.min(20, Number.isFinite(limit) ? Math.floor(limit) : 12)),
+      },
+      licenseKey: compact(body.licenseKey, 256),
+      hwid: compact(body.hwid, 256),
+    };
+  }
   const locale = compact(query.locale || "ko-KR", 20) || "ko-KR";
   const country = (compact(query.country || "KR", 8) || "KR").toUpperCase();
-  if (!ALLOWED_LOCALES.has(locale) || !ALLOWED_COUNTRIES.has(country)) throw new Error("locale_invalid");
+  if (!CONTENT_ALLOWED_LOCALES.has(locale) || !CONTENT_ALLOWED_COUNTRIES.has(country)) throw new Error("locale_invalid");
   return {
     kind,
     purpose,

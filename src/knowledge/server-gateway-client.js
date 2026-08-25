@@ -16,6 +16,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
     UPSTREAM_TIMEOUT: '외부 지식 공급자 응답 시간이 초과되었습니다.',
     UPSTREAM_FAILED: '외부 지식 공급자 응답을 받지 못했습니다.',
     INVALID_UPSTREAM_RESPONSE: '외부 지식 공급자 응답이 올바르지 않습니다.',
+    CORPUS_UNAVAILABLE: '발견 소재를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     NOT_CONFIGURED: '외부 지식 공급자가 아직 구성되지 않았습니다.'
 });
 

@@ -133,6 +133,26 @@ serve(async (req: Request) => {
   const route = resolveKnowledgeProviderRoute(request.kind, request.purpose);
   if (!route) return json(503, { success: false, code: "NOT_CONFIGURED" });
 
+  if (route.execution === "stored_corpus") {
+    try {
+      const stored = await route.readSnapshot(supabase, request.query);
+      const snapshot = validateServerKnowledgeSnapshot(stored, {
+        kind: route.kind,
+        providerId: route.providerId,
+      });
+      return json(200, { success: true, snapshot });
+    } catch (error) {
+      const internalCode = error && typeof error === "object" && "code" in error
+        ? String(error.code || "").trim().slice(0, 80)
+        : "";
+      const code = internalCode === "CORPUS_READ_FAILED"
+        ? "CORPUS_UNAVAILABLE"
+        : "INVALID_UPSTREAM_RESPONSE";
+      console.warn("KNOWLEDGE_CORPUS_READ_FAILED", { provider: route.providerId, code });
+      return json(code === "CORPUS_UNAVAILABLE" ? 503 : 500, { success: false, code });
+    }
+  }
+
   // Some provider operations require a semantic query. A non-applicable request returns a
   // validated empty Snapshot without consuming shared provider quota or calling upstream.
   if (route.shouldFetch && !route.shouldFetch(request.query)) {

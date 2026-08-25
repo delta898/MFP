@@ -20,6 +20,10 @@ const {
     createDefaultNaverNewsDefinition
 } = require('../knowledge/providers/news-naver');
 const {
+    DEFAULT_PROVIDER_ID: DEFAULT_SERPAPI_CORPUS_PROVIDER_ID,
+    createDefaultSerpApiCorpusDefinition
+} = require('../knowledge/providers/news-serpapi-corpus');
+const {
     DEFAULT_PROVIDER_ID: DEFAULT_NAVER_TRENDS_PROVIDER_ID,
     createDefaultNaverTrendsDefinition,
     createNaverTrendsProvider
@@ -46,12 +50,18 @@ function createCapabilityRegistry(deps = {}) {
     if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_NEWS_PROVIDER_ID)) {
         providerDefinitions.push(createDefaultNaverNewsDefinition());
     }
+    if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_SERPAPI_CORPUS_PROVIDER_ID)) {
+        providerDefinitions.push(createDefaultSerpApiCorpusDefinition());
+    }
     const configuredRouting = deps.CONFIG?.knowledge?.routing && typeof deps.CONFIG.knowledge.routing === 'object'
         ? deps.CONFIG.knowledge.routing
         : (deps.CONFIG?.KNOWLEDGE_ROUTING && typeof deps.CONFIG.KNOWLEDGE_ROUTING === 'object' ? deps.CONFIG.KNOWLEDGE_ROUTING : {});
     const contentIdeaRoute = Array.isArray(configuredRouting.content_ideas) ? configuredRouting.content_ideas : [];
     const contentNewsRoute = Array.isArray(configuredRouting.recommendation_content_news)
         ? configuredRouting.recommendation_content_news
+        : [];
+    const serendipityCorpusRoute = Array.isArray(configuredRouting.recommendation_serendipity_corpus)
+        ? configuredRouting.recommendation_serendipity_corpus
         : [];
     const routing = {
         ...configuredRouting,
@@ -60,7 +70,10 @@ function createCapabilityRegistry(deps = {}) {
             : [...contentIdeaRoute, DEFAULT_NAVER_TRENDS_PROVIDER_ID],
         recommendation_content_news: contentNewsRoute.includes(DEFAULT_NAVER_NEWS_PROVIDER_ID)
             ? contentNewsRoute
-            : [...contentNewsRoute, DEFAULT_NAVER_NEWS_PROVIDER_ID]
+            : [...contentNewsRoute, DEFAULT_NAVER_NEWS_PROVIDER_ID],
+        recommendation_serendipity_corpus: serendipityCorpusRoute.includes(DEFAULT_SERPAPI_CORPUS_PROVIDER_ID)
+            ? serendipityCorpusRoute
+            : [...serendipityCorpusRoute, DEFAULT_SERPAPI_CORPUS_PROVIDER_ID]
     };
     const serverGatewayClient = deps.serverGatewayClient || createKnowledgeServerGatewayClient({
         config: deps.CONFIG,

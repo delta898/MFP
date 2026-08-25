@@ -36,6 +36,7 @@ parser. The server selects the actual upstream provider and owns shared-account 
 - `trends + builtin_api + SerpApi` (optional user-key provider, disabled by default)
 - `trends + builtin_api + naver_trend_posting`
 - `news + server_gateway + naver-news`
+- `news + server_gateway + serpapi-corpus`
 
 ## Built-in Naver Trends Provider
 
@@ -98,8 +99,16 @@ activity and canonical Trends, with a maximum of three News calls per evaluation
 `content_ideas` route remains Trends-only, so current interactive recommendations do not silently
 start spending News quota.
 
+The server-managed `serpapi-corpus` route is different from an upstream gateway route. It uses
+`purpose=serendipity` and reads only normalized, unexpired observations through a service-role RPC
+after the same license and subject-rate checks. It bypasses upstream cache, provider quota and
+provider backoff because a desktop read cannot initiate collection. The request accepts only
+allowlisted lane/locale/country filters, at most 100 recently shown observation ids and a bounded
+limit. The server performs deterministic lane/publisher diversity before returning the same strict
+News Snapshot contract. The desktop definition is registered on
+`recommendation_serendipity_corpus`; Recommendation and UI integration remain a separate stage.
+
 ## Current Gap
 - `mcp_tool` transport is still structural only and needs real implementation.
-- a true query-free `latest_headlines` operation has no provider yet.
 - Personalized relevance, diversity, and recency weighting remain consumer
   policy rather than provider behavior.

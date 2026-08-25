@@ -26,21 +26,37 @@ test('knowledge gateway SQL keeps cache and protection state service-role only',
     assert.match(sql, /record_knowledge_provider_failure/);
 });
 
-test('stage five gateway registers Naver news without a desktop credential route', () => {
+test('gateway registers upstream Naver news and stored SerpApi corpus without desktop credentials', () => {
     const providers = read('supabase/functions/_shared/knowledge-gateway-providers.ts');
     const naverNews = read('supabase/functions/_shared/knowledge-provider-naver-news.ts');
+    const serpApiCorpus = read('supabase/functions/_shared/knowledge-provider-serpapi-corpus.ts');
     const transport = read('src/knowledge/transports/server-gateway.js');
     const client = read('src/knowledge/server-gateway-client.js');
     assert.match(providers, /createNaverNewsRoute/);
+    assert.match(providers, /createSerpApiCorpusRoute/);
     assert.match(providers, /new Map<string, KnowledgeProviderRoute>/);
     assert.match(naverNews, /https:\/\/openapi\.naver\.com\/v1\/search\/news\.json/);
     assert.doesNotMatch(naverNews, /naverapihub|NAVER_API_HUB/);
     assert.match(naverNews, /NAVER_CLIENT_ID/);
     assert.match(naverNews, /NAVER_CLIENT_SECRET/);
     assert.doesNotMatch(naverNews, /serpapi\.com/i);
+    assert.match(serpApiCorpus, /read_knowledge_observations/);
+    assert.doesNotMatch(serpApiCorpus, /SERPAPI_API_KEY|serpapi\.com\/search/i);
     assert.doesNotMatch(transport, /api[_-]?key|authorization|base[_-]?url/i);
     assert.match(client, /const KNOWLEDGE_GATEWAY_FUNCTION = 'knowledge-gateway'/);
     assert.doesNotMatch(client, /SERPAPI|NAVER_CLIENT_SECRET|SUPABASE_SERVICE_ROLE_KEY/);
+});
+
+test('stored corpus reads occur after license rate protection and before upstream machinery', () => {
+    const source = read('supabase/functions/knowledge-gateway/index.ts');
+    const license = source.indexOf('check_license_status');
+    const rate = source.indexOf('consume_knowledge_gateway_rate_limit');
+    const stored = source.indexOf('route.execution === "stored_corpus"');
+    const cache = source.indexOf('knowledge_gateway_cache');
+    const quota = source.indexOf('consume_knowledge_provider_quota');
+    assert.ok(license >= 0 && license < rate && rate < stored && stored < cache && cache < quota);
+    assert.match(source, /KNOWLEDGE_CORPUS_READ_FAILED/);
+    assert.match(source, /CORPUS_UNAVAILABLE/);
 });
 
 test('Naver Developers and API Hub credentials have explicit non-fallback owners', () => {

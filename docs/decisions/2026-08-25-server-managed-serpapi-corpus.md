@@ -39,6 +39,12 @@ only later explicit user actions such as viewing, dismissing, applying, writing 
 Naver News remains the query-based Korean news provider; the SerpApi corpus complements it with
 query-free and cross-domain discovery.
 
+The licensed read path reuses `knowledge-gateway` with a distinct `stored_corpus` execution type.
+It keeps license and per-subject gateway rate protection but never applies upstream quota, cache or
+backoff and never calls the collector. Requests contain only bounded discovery filters and recently
+shown observation ids. The server returns a provider-neutral News Snapshot after deterministic
+lane and publisher diversity selection.
+
 ## Consequences
 
 ### Positive

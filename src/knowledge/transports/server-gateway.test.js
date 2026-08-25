@@ -40,3 +40,34 @@ test('server gateway rejects unknown kinds and purposes', async () => {
         topic: '', locale: 'ko-KR', country: 'KR', limit: 10
     });
 });
+
+test('server gateway sends bounded stored-corpus discovery filters without a topic', async () => {
+    const calls = [];
+    const transport = createServerGatewayTransport({
+        client: { async fetchSnapshot(request) { calls.push(request); return { ok: true }; } }
+    });
+    await transport.fetch({
+        kind: 'news',
+        config: {
+            purpose: 'serendipity',
+            lanes: ['technology', 'science'],
+            locales: ['ko-KR', 'en-US'],
+            countries: ['KR', 'US'],
+            limit: 12,
+            api_key: 'must-not-pass'
+        }
+    }, {
+        topic: 'must-not-pass',
+        lanes: ['business', 'unknown'],
+        exclude_ids: ['obs_1', 'obs_1', 'obs_2'],
+        limit: 99
+    });
+    assert.deepEqual(calls[0], {
+        kind: 'news',
+        purpose: 'serendipity',
+        query: {
+            lanes: ['business'], locales: ['ko-KR', 'en-US'], countries: ['KR', 'US'],
+            exclude_ids: ['obs_1', 'obs_2'], limit: 20
+        }
+    });
+});

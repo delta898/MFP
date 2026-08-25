@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 4 completed and user-accepted; ready for Stage 5
+- Phase: Stage 5 completed and user-accepted; ready for Stage 6
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -144,6 +144,10 @@ calls, Supabase mutation, Function deployment or Cron activation.
 - Support locale/lane bounds, diversity and recently-shown exclusions.
 - Return strict provider-neutral knowledge/discovery DTOs.
 - Add a desktop `server_gateway`/registry definition without changing UI behavior.
+
+Status: completed and user-accepted on 2026-08-25. The route
+reuses the licensed `knowledge-gateway` with a distinct stored-corpus execution type, strict
+discovery filters, deterministic server-side diversity and a dormant desktop registry route.
 
 ### Stage 6 — Serendipity integration
 
