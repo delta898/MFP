@@ -63,9 +63,12 @@
 - `decisions/2026-08-23-recommendation-legacy-adapters.md`
 - `decisions/2026-08-23-recommendation-grounding-and-provenance.md`
 - `decisions/2026-08-23-server-managed-knowledge-gateway.md`
+- `decisions/2026-08-25-server-managed-serpapi-corpus.md`
 
 ## Active Work
 
+- `plans/active/serpapi-collection-main-plan.md`
+- `plans/active/serpapi-collection-01-contracts-plan.md`
 - `plans/active/proactive-guidance-main-plan.md`
 - `plans/active/proactive-guidance-02-lifecycle-store-plan.md`
 - `plans/active/proactive-guidance-03-legacy-adapters-plan.md`
