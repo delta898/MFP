@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "profile_version": 1,
+  "id": "product-default",
+  "label": "기본 프로필",
+  "profile": {
+    "common": {
+      "voice": {
+        "writing_mode": "conversational",
+        "speech_level": "polite",
+        "tone": "balanced",
+        "information_density": "balanced"
+      },
+      "style_instruction": ""
+    },
+    "channels": {
+      "blog": {
+        "narrator_presence": "occasional",
+        "length": {
+          "preset": "standard"
+        },
+        "structure": {
+          "opening": "contextual",
+          "development": "explanatory",
+          "ending": "judgment",
+          "heading_density": "balanced"
+        },
+        "image_plan": {
+          "count_mode": "auto",
+          "fixed_count": null
+        },
+        "author_context": "",
+        "additional_instruction": "",
+        "style_references": {
+          "sample_text": {
+            "value": "",
+            "status": "empty"
+          },
+          "blog_urls": [],
+          "fingerprint": null,
+          "fingerprint_input_hash": null,
+          "analyzed_at": null,
+          "analyzer_version": null
+        }
+      },
+      "shopping": {
+        "mode": "product_default",
+        "additional_instruction": ""
+      }
+    }
+  }
+}

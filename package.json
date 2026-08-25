@@ -51,6 +51,7 @@
       "package.json",
       "ui/**/*",
       "src/config/*.md",
+      "src/config/*.json",
       "node_modules/playwright-core/lib/**/*.js",
       "node_modules/playwright-core/package.json",
       "node_modules/axios/dist/node/axios.cjs",

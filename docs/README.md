@@ -67,6 +67,7 @@
 
 ## Active Work
 
+- `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
 - `plans/active/serpapi-collection-01-contracts-plan.md`
 - `plans/active/serpapi-collection-02-corpus-store-plan.md`

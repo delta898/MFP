@@ -30,8 +30,10 @@ module.exports = {
 
     // 3. 블로그 프롬프트(공통 계약 + 선택 전략)
     BLOG_PROMPT_COMMON_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
+    BLOG_PROMPT_CONTRACT_FILE: path.join(__dirname, 'config', 'blog_prompt_contract.md'),
     BLOG_PROMPT_SEARCH_FILE: path.join(__dirname, 'config', 'blog_prompt_search.md'),
     BLOG_PROMPT_DISCOVERY_FILE: path.join(__dirname, 'config', 'blog_prompt_discovery.md'),
+    DEFAULT_CONTENT_WRITING_PROFILE_FILE: path.join(__dirname, 'config', 'default_content_writing_profile.json'),
     // 이전 내부 참조를 위한 공통 프롬프트 별칭
     PROMPT_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
 
