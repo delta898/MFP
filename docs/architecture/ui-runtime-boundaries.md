@@ -92,7 +92,9 @@ Dashboard section. The UI may request an
 allowlisted interaction but never receives capability ids, params, policy internals or owner identity.
 The three-card discovery batch reserves one backend-selected slot each for Trends, News and confirmed
 owner content history. The News slot may come from a stored corpus or bounded query source; the browser
-only renders the resulting public hint and does not select providers or rebalance sources.
+only renders the resulting public hint and does not select providers or rebalance sources. The public
+hint distinguishes stored material as `발견 뉴스` and query-based Naver Search material as
+`네이버 뉴스` without exposing provider ids or other policy internals.
 The UI API derives the installation-local owner, records lifecycle interactions and passes only that
 owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,

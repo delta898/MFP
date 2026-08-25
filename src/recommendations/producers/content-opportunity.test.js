@@ -213,8 +213,9 @@ test('serendipity mode reserves one card each for Trends, News and owner history
         'trends', 'news', 'owner_history'
     ]);
     assert.deepEqual(result.candidates.map((candidate) => candidate.metadata.discovery_hint), [
-        '트렌드 키워드', '뉴스 소재', '내 기록'
+        '트렌드 키워드', '네이버 뉴스', '내 기록'
     ]);
+    assert.equal(result.candidates[1].metadata.discovery_news_transport, 'query_news');
     assert.equal(result.candidates.every((candidate) => validateRecommendationCandidate(candidate).ok), true);
 });
 
@@ -237,7 +238,7 @@ test('serendipity creates a grounded corpus news card without claiming live fres
     assert.doesNotMatch(`${candidate.summary} ${candidate.explanation}`, /최신/);
     assert.equal(candidate.metadata.discovery_source_lane, 'news');
     assert.equal(candidate.metadata.discovery_news_transport, 'stored_corpus');
-    assert.equal(candidate.metadata.discovery_hint, '뉴스 소재');
+    assert.equal(candidate.metadata.discovery_hint, '발견 뉴스');
     assert.equal(candidate.evidence[0].source_ref.provider_id, 'serpapi-corpus');
     assert.equal(candidate.evidence[0].source_ref.id, 'corpus-news-1');
     assert.deepEqual(candidate.handoff.payload, { query: '며칠 지나 다시 보는 우주 소재' });

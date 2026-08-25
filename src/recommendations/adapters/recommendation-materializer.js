@@ -24,7 +24,11 @@ function createRecommendationMaterializer(options = {}) {
             const candidate = { ...candidateInput, owner_user_id: ownerUserId };
             const availableAt = new Date(context.available_at || now()).toISOString();
             const recommendationId = String(context.recommendation_id || '').trim()
-                || stableAdapterId('rec', candidate.candidate_id, context.opportunity_key || candidate.dedupe_key);
+                || stableAdapterId(
+                    'rec',
+                    candidate.candidate_id,
+                    context.delivery_key || context.opportunity_key || candidate.dedupe_key
+                );
             const recommendation = normalizeRecommendation({
                 recommendation_id: recommendationId,
                 owner_user_id: ownerUserId,

@@ -1,4 +1,5 @@
 const PROVIDER_ID = "serpapi-corpus";
+const OBSERVATION_PROVIDER_ID = "serpapi-google-news";
 const KIND = "news";
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const FUTURE_TOLERANCE_MS = 10 * 60 * 1000;
@@ -75,7 +76,7 @@ function normalizeCorpusRow(raw: unknown, nowMs: number): CorpusRow | null {
   const publishedAt = iso(row.published_at);
   const observedAt = iso(row.observed_at);
   const expiresAt = iso(row.expires_at);
-  if (!observationId || row.kind !== KIND || compact(row.provider_id, 120) !== PROVIDER_ID
+  if (!observationId || row.kind !== KIND || compact(row.provider_id, 120) !== OBSERVATION_PROVIDER_ID
     || !ALLOWED_LANES.has(lane) || !ALLOWED_LOCALES.has(locale) || !ALLOWED_COUNTRIES.has(country)
     || !title || !url || !source || !publisher || !publishedAt || !observedAt || !expiresAt) return null;
   if (Date.parse(expiresAt) <= nowMs || Date.parse(observedAt) > nowMs + FUTURE_TOLERANCE_MS
@@ -181,7 +182,7 @@ export function createSerpApiCorpusRoute(options: CorpusRouteOptions = {}) {
       const excluded = new Set(excludeIds);
       const limit = Math.max(1, Math.min(20, Number(query.limit) || 12));
       const { data, error } = await client.rpc("read_knowledge_observations", {
-        p_provider_id: PROVIDER_ID,
+        p_provider_id: OBSERVATION_PROVIDER_ID,
         p_kind: KIND,
         p_lanes: lanes,
         p_locales: locales,

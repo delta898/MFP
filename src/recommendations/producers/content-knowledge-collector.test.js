@@ -98,7 +98,11 @@ test('serendipity collection spends its three News queries on independent discov
             }
         }
     });
-    const result = await collector.collect({ serendipity: true, discovery_offset: 1 }, {});
+    const result = await collector.collect({
+        serendipity: true,
+        discovery_offset: 1,
+        previous_news_source: 'stored_corpus'
+    }, {});
     const newsTopics = calls.filter((call) => call.kind === 'news').map((call) => call.topic);
     assert.deepEqual(newsTopics, ['음식 취향', '환경 기후', '건강 습관']);
     assert.equal(result.news_queries.every((entry) => entry.query.lane === 'discovery'), true);
@@ -164,10 +168,38 @@ test('empty preferred Naver News falls back to stored corpus', async () => {
             }
         }
     });
-    const result = await collector.collect({ serendipity: true, discovery_offsets: { news: 1 } }, {});
+    const result = await collector.collect({
+        serendipity: true,
+        discovery_offsets: { news: 1 },
+        previous_news_source: 'stored_corpus'
+    }, {});
     assert.equal(calls.filter((call) => call.route === 'recommendation_content_news').length, 3);
     assert.equal(calls.filter((call) => call.route === 'recommendation_serendipity_corpus').length, 1);
     assert.equal(result.serendipity_news_preference, 'query_news');
     assert.equal(result.serendipity_news_source, 'stored_corpus');
     assert.equal(result.corpus_snapshots.length, 1);
+});
+
+test('last delivered Naver News makes stored corpus the next preferred source regardless of card count', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        now: () => new Date('2026-08-24T00:10:00.000Z'),
+        knowledgeRegistry: {
+            async fetchForRoute(route, query) {
+                calls.push({ route, query });
+                if (query.kind === 'trends') return [];
+                if (route === 'recommendation_serendipity_corpus') return [corpusSnapshot()];
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+    const result = await collector.collect({
+        serendipity: true,
+        discovery_offsets: { news: 2 },
+        previous_news_source: 'query_news'
+    }, {});
+    assert.equal(calls.filter((call) => call.route === 'recommendation_serendipity_corpus').length, 1);
+    assert.equal(calls.some((call) => call.route === 'recommendation_content_news'), false);
+    assert.equal(result.serendipity_news_preference, 'stored_corpus');
+    assert.equal(result.serendipity_news_source, 'stored_corpus');
 });

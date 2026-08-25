@@ -210,7 +210,8 @@ function buildDiscoveryCandidate(ownerUserId, query, articleEntry, createdAt) {
             topic: articleTopic,
             discovery_lane: 'serendipity',
             discovery_source_lane: 'news',
-            discovery_hint: '뉴스 소재',
+            discovery_news_transport: 'query_news',
+            discovery_hint: '네이버 뉴스',
             discovery_domain: domain,
             discovery_domain_index: Number.isFinite(domainIndex) ? domainIndex : null,
             source_lanes: ['discovery'],
@@ -254,7 +255,7 @@ function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
             discovery_lane: 'serendipity',
             discovery_source_lane: 'news',
             discovery_news_transport: 'stored_corpus',
-            discovery_hint: '뉴스 소재',
+            discovery_hint: '발견 뉴스',
             source_lanes: ['corpus_discovery'],
             article_count: 1
         }

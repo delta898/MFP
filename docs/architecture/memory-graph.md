@@ -292,19 +292,33 @@ execution, and records `action_completed` or retryable `action_failed`. Presenta
 not create an action transition.
 
 `recommendation.rotated`는 사용자가 다른 발견을 요청했다는 전달 사실이다. 이 상태 전이는
-`not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다.
+`not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다. 사용자가
+명시적으로 `새로운 발견`을 요청한 평가에서는 source별 순환 offset과 현재 active 후보가 즉시
+중복을 막으므로 rotated 항목의 일반 24시간 cooldown을 다시 적용하지 않는다. dismiss와
+action-completed cooldown은 이 예외의 영향을 받지 않는다. 백그라운드·자동 전달에는 rolling
+daily materialization cap을 적용하지만, 사용자가 직접 누른 `새로운 발견`은 이 자동 노출 cap을
+적용하지 않는다. 명시적 요청도 per-run/per-kind 제한, active dedupe, dismiss/completion cooldown은
+그대로 유지한다.
+
+Candidate identity는 근거 있는 소재의 안정된 정체성이고 Recommendation identity는 그 소재를
+사용자에게 전달한 개별 occurrence다. Policy evaluation은 delivery key를 materializer에 전달하므로
+terminal Recommendation과 같은 Candidate가 다시 자격을 얻으면 새 RecommendationNode로 전달된다.
+동일 평가 retry와 현재 active dedupe key는 계속 멱등 처리되어 중복 카드를 만들지 않는다.
 
 Serendipity discovery는 세 source lane을 독립적으로 취급한다. `trends`는 현재 Naver Trends,
 `news`는 저장 corpus와 bounded query News를 교대하는 탐색, `owner_history`는
-저장·선택·작성·발행으로 확인된 owner activity다. News source는 노출 이력으로 우선순위를
-교대하고 우선 source가 비거나 실패할 때만 다른 source로 fallback한다.
+저장·선택·작성·발행으로 확인된 owner activity다. News source는 가장 최근에 전달한 News
+Candidate의 `discovery_news_transport`를 기준으로 우선순위를 교대하고, 우선 source가 비거나
+실패할 때만 다른 source로 fallback한다. 한 묶음에서 News 카드가 둘 이상 나와도 총 카드 수의
+홀짝에 의존하지 않으므로 다음 요청에서는 반대 source를 정확히 먼저 시도한다.
 각 발견 묶음은 세 lane에 한 자리씩 먼저 배정하며, source가 비었을 때만 다른 lane의 근거 있는 후보가
 빈자리를 채운다. persisted Candidate의 `discovery_source_lane` 노출 이력은 source별 순환 offset이 되지만
 그 자체는 선호 사실이 아니다. 생성된 글감이나 단순 노출은 owner history 근거로 승격하지 않는다.
 Trends와 owner history는 최근 7일을 우선하고 최대 14일까지만 discovery evidence로 인정한다.
 Recommendation의 24시간 delivery TTL과 source evidence lookback은 서로 독립된 시간 정책이다.
 저장 corpus의 단순 조회·노출 역시 owner preference로 승격하지 않으며, 최근 노출 observation id는
-반복 방지를 위한 bounded exclusion으로만 사용한다.
+반복 방지를 위한 bounded exclusion으로만 사용한다. 클라이언트는 최근 3개 id만 제외해 작은
+corpus도 교대로 순환할 수 있게 한다.
 Producer의 대체 후보 탐색도 active recommendation과 policy cooldown 안의 dedupe key만 제외한다.
 과거에 한 번 노출되었다는 이유만으로 owner-history 소재를 영구 제외하지 않는다.
 
@@ -366,7 +380,7 @@ lifecycle identity, transaction and volatile fallback behavior remain centralize
 - Promotion rules need stronger recency/confidence handling.
 - Planner-aware memory retrieval is not yet implemented.
 - Recommendation delivery scheduling persists only timing/backoff state outside Kuzu. Recommendation facts,
-  dedupe, cooldown and daily materialization caps remain in the canonical lifecycle and policy layers.
+  dedupe, cooldown and automatic-delivery materialization caps remain in the canonical lifecycle and policy layers.
 - Full event replay repair for a manually damaged Recommendation projection is deferred to memory hardening.
 
 ## Persistence Boundary

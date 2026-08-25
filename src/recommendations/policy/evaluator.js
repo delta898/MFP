@@ -120,7 +120,10 @@ function createRecommendationPolicyEvaluator(options = {}) {
             }
             const entries = normalizeCandidateOrder(input.candidates).map((candidate) => ({
                 candidate,
-                eligibility: evaluateCandidateEligibility(candidate, policyContext, { requirementRegistry })
+                eligibility: evaluateCandidateEligibility(candidate, policyContext, {
+                    requirementRegistry,
+                    ...(runtimeOptions.eligibilityOptions || {})
+                })
             }));
             const seenCandidateIds = new Set();
             const seenDedupeKeys = new Set();
@@ -175,6 +178,7 @@ function createRecommendationPolicyEvaluator(options = {}) {
                         owner_user_id: policyContext.owner_user_id,
                         available_at: policyContext.observed_at,
                         opportunity_key: entry.candidate.dedupe_key,
+                        delivery_key: evaluationId,
                         operation_id: evaluationId,
                         adapter_id: POLICY_ID
                     });

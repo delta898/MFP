@@ -114,9 +114,10 @@ function createContentKnowledgeCollector(options = {}) {
             if (!serendipityMode) {
                 collected = await collectNaverNews();
             } else {
-                const rawNewsOffset = Number.parseInt(input?.discovery_offsets?.news ?? input.discovery_offset, 10);
-                const newsOffset = Number.isFinite(rawNewsOffset) ? Math.max(0, rawNewsOffset) : 0;
-                preferredNewsSource = newsOffset % 2 === 0 ? 'stored_corpus' : 'query_news';
+                const previousNewsSource = String(input?.previous_news_source || '').trim();
+                preferredNewsSource = previousNewsSource === 'stored_corpus'
+                    ? 'query_news'
+                    : 'stored_corpus';
                 if (preferredNewsSource === 'stored_corpus') {
                     const corpus = await collectCorpus();
                     corpusSnapshots = corpus.snapshots;

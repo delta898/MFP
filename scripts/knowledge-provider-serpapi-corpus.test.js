@@ -8,7 +8,7 @@ function row(id, lane, publisher, minutesAgo = 10, overrides = {}) {
     return {
         observation_id: id,
         kind: 'news',
-        provider_id: 'serpapi-corpus',
+        provider_id: 'serpapi-google-news',
         source: 'serpapi-google-news',
         lane,
         locale: lane === 'headlines_global' ? 'en-US' : 'ko-KR',
@@ -41,7 +41,7 @@ test('stored corpus route maps a bounded RPC response to a strict News Snapshot'
     assert.equal(route.execution, 'stored_corpus');
     assert.equal(calls[0].name, 'read_knowledge_observations');
     assert.deepEqual(calls[0].params, {
-        p_provider_id: 'serpapi-corpus', p_kind: 'news', p_lanes: ['technology'],
+        p_provider_id: 'serpapi-google-news', p_kind: 'news', p_lanes: ['technology'],
         p_locales: ['ko-KR'], p_countries: ['KR'], p_exclude_ids: ['obs_old'], p_limit: 50
     });
     assert.equal(snapshot.provider_id, 'serpapi-corpus');

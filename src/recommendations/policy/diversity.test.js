@@ -76,6 +76,26 @@ test('rolling materialization cap reduces capacity independently from delivery',
     assert.equal(result.stats.daily_remaining_before_run, 1);
 });
 
+test('explicit user discovery bypasses only the rolling daily cap', () => {
+    const history = Array.from({ length: 100 }, (_, index) => ({
+        recommendation_id: `rec-${index}`, available_at: '2026-08-24T11:00:00.000Z'
+    }));
+    const result = selectDiverseCandidates([
+        entry('a', 'content_opportunity', 0.8, '주제 알파'),
+        entry('b', 'content_opportunity', 0.7, '주제 베타'),
+        entry('c', 'content_opportunity', 0.6, '주제 감마')
+    ], {
+        now: NOW,
+        policyContext: policyContext(history),
+        perRunLimit: 3,
+        perKindLimit: 3,
+        dailyLimitEnabled: false
+    });
+    assert.equal(result.selected.length, 3);
+    assert.equal(result.stats.daily_limit_enabled, false);
+    assert.equal(result.stats.daily_remaining_before_run, null);
+});
+
 test('per-run limit defers excess candidates with a distinct reason', () => {
     const result = selectDiverseCandidates([
         entry('a', 'content_opportunity', 0.8, '주제 알파'),

@@ -108,10 +108,20 @@ limit. The server performs deterministic lane/publisher diversity before returni
 News Snapshot contract. The desktop definition is registered on
 `recommendation_serendipity_corpus`.
 
+The two provider identities at this boundary are intentionally distinct. Persisted observation
+rows use `serpapi-google-news` to identify the upstream collector that produced the evidence. The
+licensed Snapshot uses `serpapi-corpus` to identify the reusable stored-corpus capability exposed
+to desktop clients. Corpus reads query by the observation identity and then map the result to the
+logical Snapshot identity; they never initiate upstream collection.
+
 Serendipity Recommendation collection alternates its single News slot between `stored_corpus` and
-`query_news` using owner-scoped delivery history. It queries the preferred source first and only
-uses the other source as fallback, so a healthy corpus read does not spend unused query-News quota.
-Recently delivered stored-corpus observation ids are bounded to 100 and sent as exclusions. The
+`query_news` using the most recently delivered owner-scoped News source. It does not infer the next
+source from the total News-card count because a fallback batch can deliver two News cards and leave
+count parity unchanged. It queries the preferred source first and only uses the other source as
+fallback, so a healthy corpus read does not spend unused query-News quota.
+The desktop sends only the three most recently delivered stored-corpus observation ids as
+exclusions, while the server contract still rejects more than 100. This prevents an immediate
+repeat without permanently exhausting a small healthy corpus. The
 Recommendation layer depends only on these neutral source types; the canonical Snapshot/evidence
 continues to retain the actual provider id, transport, URL, publisher and timestamps.
 

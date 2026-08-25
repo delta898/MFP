@@ -51,9 +51,10 @@ function selectDiverseCandidates(scoredInput = [], options = {}) {
     const perRunLimit = Math.max(1, Math.min(20, Number(options.perRunLimit) || DEFAULT_PER_RUN_LIMIT));
     const perKindLimit = Math.max(1, Math.min(10, Number(options.perKindLimit) || DEFAULT_PER_KIND_LIMIT));
     const dailyLimit = Math.max(1, Math.min(100, Number(options.dailyLimit) || DEFAULT_DAILY_LIMIT));
+    const dailyLimitEnabled = options.dailyLimitEnabled !== false;
     const recentCount = recentMaterializationCount(options.policyContext, options.now || new Date().toISOString());
-    const dailyRemaining = Math.max(0, dailyLimit - recentCount);
-    const capacity = Math.min(perRunLimit, dailyRemaining);
+    const dailyRemaining = dailyLimitEnabled ? Math.max(0, dailyLimit - recentCount) : null;
+    const capacity = dailyLimitEnabled ? Math.min(perRunLimit, dailyRemaining) : perRunLimit;
     const threshold = Math.max(0, Math.min(1, Number(options.similarityThreshold) || SIMILARITY_THRESHOLD));
     const selected = [];
     const deferred = [];
@@ -83,7 +84,7 @@ function selectDiverseCandidates(scoredInput = [], options = {}) {
             return false;
         }
         if (selected.length >= capacity) {
-            defer(entry, dailyRemaining <= selected.length ? 'daily_cap' : 'run_limit');
+            defer(entry, dailyLimitEnabled && dailyRemaining <= selected.length ? 'daily_cap' : 'run_limit');
             selectedIds.add(entry.candidate.candidate_id);
             return false;
         }
@@ -112,6 +113,7 @@ function selectDiverseCandidates(scoredInput = [], options = {}) {
             per_run_limit: perRunLimit,
             per_kind_limit: perKindLimit,
             daily_limit: dailyLimit,
+            daily_limit_enabled: dailyLimitEnabled,
             recent_materialization_count: recentCount,
             daily_remaining_before_run: dailyRemaining
         }

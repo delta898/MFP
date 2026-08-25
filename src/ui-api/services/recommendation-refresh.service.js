@@ -27,8 +27,19 @@ function discoveryOffsets(history = []) {
     return offsets;
 }
 
-function recentCorpusObservationIds(history = [], limit = 100) {
-    const boundedLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+function latestDiscoveryNewsTransport(history = []) {
+    for (const item of Array.isArray(history) ? history : []) {
+        if (item?.candidate?.kind !== 'content_opportunity') continue;
+        if (discoverySourceLane(item.candidate) !== 'news') continue;
+        const transport = String(item?.candidate?.metadata?.discovery_news_transport || '').trim();
+        if (transport === 'stored_corpus' || transport === 'query_news') return transport;
+        return 'query_news';
+    }
+    return '';
+}
+
+function recentCorpusObservationIds(history = [], limit = 3) {
+    const boundedLimit = Math.max(1, Math.min(100, Number(limit) || 3));
     const ids = [];
     const seen = new Set();
     for (const item of Array.isArray(history) ? history : []) {
@@ -47,7 +58,7 @@ function recentCorpusObservationIds(history = [], limit = 100) {
     return ids;
 }
 
-function discoveryDedupeKeys(history = [], at = new Date().toISOString()) {
+function discoveryDedupeKeys(history = [], at = new Date().toISOString(), options = {}) {
     const nowMs = Date.parse(at);
     if (!Number.isFinite(nowMs)) return [];
     const keys = [];
@@ -55,7 +66,9 @@ function discoveryDedupeKeys(history = [], at = new Date().toISOString()) {
     for (const item of Array.isArray(history) ? history : []) {
         if (!['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind)) continue;
         const active = ACTIVE_STATES.includes(item?.status) && Date.parse(item?.expires_at) > nowMs;
-        const coolingDown = isWithinCooldown(item, nowMs, DEFAULT_COOLDOWNS_MS);
+        const coolingDown = item?.status === 'rotated' && options.includeRotated === false
+            ? false
+            : isWithinCooldown(item, nowMs, DEFAULT_COOLDOWNS_MS);
         const key = String(item?.candidate?.dedupe_key || '').trim();
         if ((!active && !coolingDown) || !key || seen.has(key)) continue;
         seen.add(key);
@@ -104,8 +117,12 @@ function createRecommendationRefreshService(options = {}) {
         }
         const discoveryHistory = recommendationHistory.filter((item) =>
             ['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind));
-        const excludedDedupeKeys = discoveryDedupeKeys(discoveryHistory, evaluatedAt);
+        const isUserDiscovery = refreshInput.reason === 'user_new_discovery';
+        const excludedDedupeKeys = discoveryDedupeKeys(discoveryHistory, evaluatedAt, {
+            includeRotated: !isUserDiscovery
+        });
         const sourceOffsets = discoveryOffsets(discoveryHistory);
+        const previousNewsSource = latestDiscoveryNewsTransport(discoveryHistory);
         const recentlyShownCorpusIds = recentCorpusObservationIds(discoveryHistory);
         const baseContext = { owner_user_id: owner, memory };
         const [operationalState, contentKnowledge, licenseStatus] = await Promise.all([
@@ -114,6 +131,7 @@ function createRecommendationRefreshService(options = {}) {
                 serendipity: true,
                 discovery_offset: sourceOffsets.news,
                 discovery_offsets: sourceOffsets,
+                previous_news_source: previousNewsSource,
                 recently_shown_ids: recentlyShownCorpusIds
             }, baseContext),
             typeof licenseStatusReader === 'function'
@@ -152,17 +170,22 @@ function createRecommendationRefreshService(options = {}) {
         const evaluated = await policyEvaluator.evaluate({
             owner_user_id: owner,
             candidates: discoveryCandidates
-        }, context, refreshInput.reason === 'user_new_discovery'
-            ? { rankingOptions: { dailyLimit: 100 } }
+        }, context, isUserDiscovery
+            ? {
+                rankingOptions: { dailyLimitEnabled: false },
+                eligibilityOptions: { cooldowns: { rotated: 0 } }
+            }
             : {});
         const knowledgeDiagnostics = Array.isArray(contentKnowledge.diagnostics) ? contentKnowledge.diagnostics : [];
         const degraded = knowledgeDiagnostics.some((item) => String(item?.code || '').includes('FAILED'));
         lastRunAt.set(owner, Date.parse(new Date(now()).toISOString()));
-        logger?.info?.(`✅ [RecommendationCenter] 발견 평가 완료 (후보=${discoveryCandidates.length}, 생성=${evaluated.recommendations.length}${degraded ? ', Knowledge 일부 실패' : ''})`);
+        const createdCount = evaluated.recommendations.filter((item) => item.persisted && !item.deduplicated).length;
+        const deduplicatedCount = evaluated.recommendations.filter((item) => item.deduplicated).length;
+        logger?.info?.(`✅ [RecommendationCenter] 발견 평가 완료 (후보=${discoveryCandidates.length}, 신규=${createdCount}, 중복=${deduplicatedCount}, 억제=${evaluated.suppressed.length}${degraded ? ', Knowledge 일부 실패' : ''})`);
         return {
             status: 'evaluated',
             candidate_count: discoveryCandidates.length,
-            recommendation_count: evaluated.recommendations.length,
+            recommendation_count: createdCount,
             degraded
         };
     }
@@ -190,5 +213,6 @@ module.exports = {
     discoveryDedupeKeys,
     discoveryOffsets,
     discoverySourceLane,
+    latestDiscoveryNewsTransport,
     recentCorpusObservationIds
 };

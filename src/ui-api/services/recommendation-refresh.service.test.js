@@ -4,6 +4,7 @@ const {
     createRecommendationRefreshService,
     discoveryDedupeKeys,
     discoveryOffsets,
+    latestDiscoveryNewsTransport,
     recentCorpusObservationIds
 } = require('./recommendation-refresh.service');
 
@@ -11,6 +12,7 @@ function fixture(options = {}) {
     let producerCalls = 0;
     let evaluatorCalls = 0;
     const collectorInputs = [];
+    const evaluatorOptions = [];
     const service = createRecommendationRefreshService({
         eventStore: {
             getLocalOwnerIdentity: () => ({ owner_user_id: 'owner-local' }),
@@ -40,17 +42,21 @@ function fixture(options = {}) {
             }
         },
         policyEvaluator: {
-            async evaluate(input, context) {
+            async evaluate(input, context, runtimeOptions) {
                 evaluatorCalls += 1;
+                evaluatorOptions.push(runtimeOptions);
                 assert.equal(input.candidates.length, 1);
                 assert.equal(context.license_features.cmd_shopping, true);
-                return { recommendations: [{ recommendation_id: 'recommendation:one' }] };
+                return {
+                    recommendations: [{ recommendation_id: 'recommendation:one', persisted: true, deduplicated: false }],
+                    suppressed: []
+                };
             }
         },
         licenseStatusReader: async () => ({ success: true, remaining: -1, features: { cmd_shopping: true } }),
         now: () => new Date('2026-08-25T00:00:00.000Z')
     });
-    return { service, counts: () => ({ producerCalls, evaluatorCalls }), collectorInputs };
+    return { service, counts: () => ({ producerCalls, evaluatorCalls }), collectorInputs, evaluatorOptions };
 }
 
 test('refresh는 memory, operational, Knowledge를 결합해 producer와 policy를 한 번 실행한다', async () => {
@@ -68,6 +74,15 @@ test('refresh TTL은 Dashboard 재조회에서 외부 평가를 반복하지 않
     assert.deepEqual(counts(), { producerCalls: 2, evaluatorCalls: 2 });
 });
 
+test('사용자가 요청한 새로운 발견은 rotated cooldown만 풀고 일일 생성 한도를 확장한다', async () => {
+    const { service, evaluatorOptions } = fixture();
+    await service.refresh({ force: true, reason: 'user_new_discovery' });
+    assert.deepEqual(evaluatorOptions[0], {
+        rankingOptions: { dailyLimitEnabled: false },
+        eligibilityOptions: { cooldowns: { rotated: 0 } }
+    });
+});
+
 test('발견 이력은 News, Trends, 사용자 기록별 순환 offset으로 계산한다', () => {
     const item = (lane, sourceLanes = []) => ({ candidate: {
         kind: 'content_opportunity',
@@ -78,6 +93,17 @@ test('발견 이력은 News, Trends, 사용자 기록별 순환 offset으로 계
         item('', ['discovery']), item('', ['trends']), item('', ['owner_activity']),
         { candidate: { kind: 'commerce_opportunity', metadata: { discovery_source_lane: 'news' } } }
     ]), { news: 3, trends: 2, owner: 2 });
+});
+
+test('뉴스 출처 교대는 카드 수가 아니라 가장 최근 전달 출처를 기준으로 한다', () => {
+    const item = (transport) => ({ candidate: {
+        kind: 'content_opportunity',
+        metadata: { discovery_source_lane: 'news', discovery_news_transport: transport }
+    } });
+    assert.equal(latestDiscoveryNewsTransport([item('query_news'), item('query_news')]), 'query_news');
+    assert.equal(latestDiscoveryNewsTransport([item('stored_corpus'), item('query_news')]), 'stored_corpus');
+    assert.equal(latestDiscoveryNewsTransport([item(''), item('stored_corpus')]), 'query_news');
+    assert.equal(latestDiscoveryNewsTransport([]), '');
 });
 
 test('발견 dedupe 제외는 active 상태와 정책 cooldown 안의 이력에만 적용한다', () => {
@@ -102,6 +128,22 @@ test('발견 dedupe 제외는 active 상태와 정책 cooldown 안의 이력에�
     ], at), [
         'active', 'rotated-recent', 'dismissed-recent', 'completed-recent', 'commerce-active'
     ]);
+    assert.deepEqual(discoveryDedupeKeys([
+        item('active', 'available', '2026-08-25T10:00:00.000Z', '2026-08-26T10:00:00.000Z'),
+        item('rotated-recent', 'rotated', '2026-08-25T10:00:00.000Z', '2026-08-26T10:00:00.000Z'),
+        item('dismissed-recent', 'dismissed', '2026-08-20T10:00:00.000Z', '2026-08-21T10:00:00.000Z')
+    ], at, { includeRotated: false }), ['active', 'dismissed-recent']);
+});
+
+test('최근 corpus 제외 기본값은 순환을 막지 않도록 최근 3건으로 제한한다', () => {
+    const item = (id) => ({ candidate: {
+        kind: 'content_opportunity',
+        metadata: { discovery_news_transport: 'stored_corpus' },
+        evidence: [{ kind: 'knowledge', source_ref: { provider_id: 'serpapi-corpus', id } }]
+    } });
+    assert.deepEqual(recentCorpusObservationIds([
+        item('obs_1'), item('obs_2'), item('obs_3'), item('obs_4'), item('obs_5')
+    ]), ['obs_1', 'obs_2', 'obs_3']);
 });
 
 test('최근 corpus observation id는 owner-scoped recommendation evidence에서만 bounded 추출한다', () => {
@@ -129,5 +171,6 @@ test('refresh는 최근 corpus observation id를 Knowledge collector exclusion�
     const { service, collectorInputs } = fixture({ history });
     await service.refresh();
     assert.deepEqual(collectorInputs[0].recently_shown_ids, ['obs_recent']);
+    assert.equal(collectorInputs[0].previous_news_source, 'stored_corpus');
     assert.equal(collectorInputs[0].discovery_offsets.news, 1);
 });

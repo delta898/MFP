@@ -93,6 +93,31 @@ test('duplicate candidate or dedupe identities are suppressed deterministically'
     assert.deepEqual(result.suppressed[0].policy.suppression_reasons, ['evaluation_duplicate']);
 });
 
+test('explicit discovery may rotate a previously shown candidate without weakening other cooldowns', async () => {
+    const materialized = [];
+    const policyEvaluator = evaluator({
+        context: { history: { known: true, items: [{
+            dedupe_key: 'content:again', status: 'rotated',
+            last_event_at: '2026-08-24T14:30:00.000Z',
+            expires_at: '2026-08-25T14:00:00.000Z'
+        }] } },
+        materializer: { async materialize(item, policy) {
+            materialized.push(item.candidate_id);
+            return { recommendation: { candidate: item, policy }, persisted: true };
+        } }
+    });
+    const suppressed = await policyEvaluator.evaluate({ candidates: [candidate('again')] });
+    assert.deepEqual(suppressed.recommendations, []);
+
+    const rotated = await policyEvaluator.evaluate(
+        { candidates: [candidate('again')] },
+        {},
+        { eligibilityOptions: { cooldowns: { rotated: 0 } } }
+    );
+    assert.equal(rotated.recommendations.length, 1);
+    assert.deepEqual(materialized, ['candidate:again']);
+});
+
 test('one materialization failure is isolated without exception leakage', async () => {
     const result = await evaluator({
         materializer: { async materialize(item, policy) {

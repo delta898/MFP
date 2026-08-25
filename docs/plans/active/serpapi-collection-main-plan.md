@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 6 completed and user-accepted; ready for Stage 7
+- Phase: Stage 7 live collection/read verified; awaiting application verification
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -169,6 +169,11 @@ canonical evidence retains the actual provider provenance.
 - Run a bounded live smoke test and verify quota/run/corpus telemetry.
 - Confirm no client-driven upstream calls and no secrets in responses/logs.
 - Promote stable truth to architecture/operations docs and archive completed plans.
+
+Status: in progress on 2026-08-25. Production foundations and Functions are deployed. One approved
+manual search stored six observations against exactly one local budget reservation, and the
+licensed corpus path returns all six without additional collection cost. Application verification
+and last-gated Cron activation remain.
 
 ## Branch and Review Routine
 
