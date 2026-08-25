@@ -47,6 +47,9 @@ Stage 9의 bounded recommendation refresh를 앱 시작과 background schedule�
 - desktop/tablet의 같은 grid row 카드는 stretch하고 action 영역을 아래에 정렬해 내용 길이가 달라도
   카드 높이와 버튼 위치를 일관되게 유지한다. mobile은 불필요한 빈 공간을 피하도록 자연 높이를 쓴다.
 - Dashboard에서는 효용이 낮은 24시간 `나중에` 동작을 숨기고 `소재 적용하기`와 `관심 없음`만 제공한다.
+- `관심 없음`은 카드를 먼저 비우지 않는다. 서버가 기존 카드에서 source lane과 News transport를
+  파생해 동일 세부 출처, 동일 lane, 다른 근거 있는 발견 순으로 한 건만 보충하고 UI는 같은 자리를
+  교체한다. 이 보충은 AI와 SerpApi collector를 호출하지 않는다.
 - `소재 적용하기`는 빠른 발행 주제를 교체하며, 외부 제목 전체를 감싼 직선·스마트 따옴표는 제거하되
   제목 내부의 인용 표현은 보존한다.
 - 발견 카드는 desktop 3열, 중간 폭 2열, mobile 1열이며 한 번에 최대 3개를 노출한다.

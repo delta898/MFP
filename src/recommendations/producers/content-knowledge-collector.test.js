@@ -203,3 +203,28 @@ test('last delivered Naver News makes stored corpus the next preferred source re
     assert.equal(result.serendipity_news_preference, 'stored_corpus');
     assert.equal(result.serendipity_news_source, 'stored_corpus');
 });
+
+test('관심 없음 보충의 명시적 뉴스 출처는 자동 교대보다 우선한다', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        now: () => new Date('2026-08-24T00:10:00.000Z'),
+        knowledgeRegistry: {
+            async fetchForRoute(route, query) {
+                calls.push({ route, query });
+                if (query.kind === 'trends') return [];
+                if (route === 'recommendation_serendipity_corpus') return [corpusSnapshot()];
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+    const result = await collector.collect({
+        serendipity: true,
+        discovery_offsets: { news: 2 },
+        previous_news_source: 'query_news',
+        preferred_news_source: 'query_news'
+    }, {});
+    assert.equal(calls.filter((call) => call.route === 'recommendation_content_news').length, 3);
+    assert.equal(calls.some((call) => call.route === 'recommendation_serendipity_corpus'), false);
+    assert.equal(result.serendipity_news_preference, 'query_news');
+    assert.equal(result.serendipity_news_source, 'query_news');
+});

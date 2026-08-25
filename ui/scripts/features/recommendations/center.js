@@ -264,7 +264,7 @@ async function loadRecommendationCenter(options = {}) {
   if (!status) return null;
   if (options.force) {
     status.hidden = false;
-    status.textContent = '추천을 새로 불러오는 중입니다...';
+    status.textContent = '새로운 발견을 준비하는 중입니다...';
   }
   if (refresh) refresh.disabled = true;
   recommendationCenterLoadPromise = (async () => {
@@ -278,7 +278,7 @@ async function loadRecommendationCenter(options = {}) {
     } catch (error) {
       status.hidden = false;
       status.classList.add('is-error');
-      status.textContent = '추천을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.';
+      status.textContent = '새로운 발견을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.';
       return null;
     } finally {
       if (refresh) refresh.disabled = false;
@@ -379,21 +379,34 @@ async function handleRecommendationCenterAction(event) {
   }
   const item = recommendationCenterItems.find((entry) => entry.recommendation_id === card.dataset.recommendationId);
   if (!item) return;
+  const originalButtonLabel = button.textContent;
   card.classList.add('is-busy');
+  card.setAttribute('aria-busy', 'true');
   try {
     if (action === 'open') {
       await executeRecommendationCenterOpen(item);
     } else {
-      await postJson('/api/v1/recommendations/interaction', {
+      if (action === 'dismiss') button.textContent = '새 소재 찾는 중…';
+      const result = await postJson('/api/v1/recommendations/interaction', {
         recommendation_id: item.recommendation_id,
         interaction: action
       });
+      if (action === 'dismiss' && result?.replacement) {
+        const index = recommendationCenterItems.findIndex((entry) => entry.recommendation_id === item.recommendation_id);
+        if (index >= 0) recommendationCenterItems.splice(index, 1, result.replacement);
+        card.replaceWith(createRecommendationCard(result.replacement));
+        rememberRecommendationCenterIds([result.replacement]);
+        updateRecommendationCenterCount(recommendationCenterItems.length);
+        return;
+      }
     }
     await loadRecommendationCenter({ force: true });
   } catch (error) {
     await showUiPopup(error.message || '추천 동작을 처리하지 못했습니다.');
   } finally {
+    if (button.isConnected) button.textContent = originalButtonLabel;
     card.classList.remove('is-busy');
+    card.removeAttribute('aria-busy');
   }
 }
 

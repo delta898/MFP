@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { toPublicRecommendationDto } = require('../../recommendations/core/contract');
 const { IDENTIFIER_PATTERN } = require('../../recommendations/core/validators');
+const { discoverySourcePreference } = require('./recommendation-refresh.service');
 const { createApiError } = require('../errors');
 
 const ACTIONABLE_STATES = new Set(['available', 'action_failed']);
@@ -163,13 +164,38 @@ function createRecommendationCenterService(options = {}) {
                 return { status: 'snoozed', recommendation: toPublicRecommendationDto(result.recommendation) };
             }
             if (interaction === 'dismiss') {
+                const current = await eventStore.getRecommendation?.(owner, recommendationId);
+                const before = await eventStore.listRecommendations(owner, { limit: 100 });
+                const activeIds = new Set((Array.isArray(before) ? before : [])
+                    .filter((item) => ACTIONABLE_STATES.has(item.status))
+                    .map((item) => item.recommendation_id));
                 await transition(owner, recommendationId, 'recommendation.feedback_recorded', `${operationId}:feedback`, {
                     feedback: 'not_helpful', reason_code: 'user_not_interested'
                 });
                 const result = await transition(owner, recommendationId, 'recommendation.dismissed', `${operationId}:dismiss`, {
                     reason_code: 'user_not_interested'
                 });
-                return { status: 'dismissed', recommendation: toPublicRecommendationDto(result.recommendation) };
+                let refresh = null;
+                try {
+                    refresh = await refreshService?.refresh?.({
+                        force: true,
+                        reason: 'user_dismiss_replacement',
+                        preferred_source: discoverySourcePreference(current?.candidate)
+                    }) || null;
+                } catch (error) {
+                    logger?.warn?.(`⚠️ [RecommendationCenter] 관심 없음 대체 카드 평가 실패: ${error.message}`);
+                }
+                const after = await eventStore.listRecommendations(owner, { limit: 100 });
+                const replacement = (Array.isArray(after) ? after : [])
+                    .filter((item) => ACTIONABLE_STATES.has(item.status))
+                    .filter((item) => DISCOVERY_KINDS.has(item?.candidate?.kind))
+                    .find((item) => !activeIds.has(item.recommendation_id)) || null;
+                return {
+                    status: 'dismissed',
+                    recommendation: toPublicRecommendationDto(result.recommendation),
+                    replacement: replacement ? toPublicRecommendationDto(replacement) : null,
+                    refresh
+                };
             }
 
             await transition(owner, recommendationId, 'recommendation.opened', `${operationId}:opened`, {

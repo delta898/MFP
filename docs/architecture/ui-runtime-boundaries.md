@@ -95,6 +95,9 @@ owner content history. The News slot may come from a stored corpus or bounded qu
 only renders the resulting public hint and does not select providers or rebalance sources. The public
 hint distinguishes stored material as `발견 뉴스` and query-based Naver Search material as
 `네이버 뉴스` without exposing provider ids or other policy internals.
+When `관심 없음` succeeds, the interaction response may contain one server-selected replacement DTO.
+The browser replaces only that card in place and cannot request a provider or inject a source. If no
+grounded replacement is created, it falls back to the normal owner-scoped list read.
 The UI API derives the installation-local owner, records lifecycle interactions and passes only that
 owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,

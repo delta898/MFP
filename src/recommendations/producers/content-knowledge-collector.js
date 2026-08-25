@@ -115,9 +115,12 @@ function createContentKnowledgeCollector(options = {}) {
                 collected = await collectNaverNews();
             } else {
                 const previousNewsSource = String(input?.previous_news_source || '').trim();
-                preferredNewsSource = previousNewsSource === 'stored_corpus'
-                    ? 'query_news'
-                    : 'stored_corpus';
+                const requestedNewsSource = String(input?.preferred_news_source || '').trim();
+                preferredNewsSource = ['stored_corpus', 'query_news'].includes(requestedNewsSource)
+                    ? requestedNewsSource
+                    : previousNewsSource === 'stored_corpus'
+                        ? 'query_news'
+                        : 'stored_corpus';
                 if (preferredNewsSource === 'stored_corpus') {
                     const corpus = await collectCorpus();
                     corpusSnapshots = corpus.snapshots;

@@ -286,7 +286,11 @@ evaluation uses a short process-local TTL and writes only policy-selected Recomm
 canonical materializer; it does not treat a Dashboard view as preference evidence. `open` is an
 observational event. The 24-hour snooze lifecycle remains available to other delivery channels but
 the focused Dashboard discovery UI does not render a `나중에` action. `관심 없음` records explicit
-`not_helpful` feedback followed by dismiss. Capability handoff re-resolves the persisted
+`not_helpful` feedback followed by dismiss. The same interaction requests one bounded replacement:
+the server derives the dismissed Candidate's source lane and News transport, then prefers the same
+transport, falls back to the same lane, and only then uses another grounded discovery source. The
+replacement is a new Recommendation occurrence; it does not erase or weaken the negative feedback
+and does not invoke an AI model or a SerpApi collection run. Capability handoff re-resolves the persisted
 Recommendation and current Registry definition, enters `action_in_progress` only immediately before
 execution, and records `action_completed` or retryable `action_failed`. Presentation navigation does
 not create an action transition.

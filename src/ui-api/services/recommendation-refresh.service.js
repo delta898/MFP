@@ -15,6 +15,30 @@ function discoverySourceLane(candidate = {}) {
     return '';
 }
 
+function discoverySourcePreference(candidate = {}) {
+    const lane = discoverySourceLane(candidate);
+    const newsTransport = lane === 'news'
+        ? String(candidate?.metadata?.discovery_news_transport || '').trim()
+        : '';
+    return {
+        lane,
+        news_transport: ['stored_corpus', 'query_news'].includes(newsTransport) ? newsTransport : ''
+    };
+}
+
+function selectReplacementCandidate(candidates = [], preference = {}) {
+    const available = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    const lane = String(preference?.lane || '').trim();
+    const newsTransport = String(preference?.news_transport || '').trim();
+    if (!lane) return available[0] || null;
+    return available.find((candidate) => {
+        const source = discoverySourcePreference(candidate);
+        return source.lane === lane && (!newsTransport || source.news_transport === newsTransport);
+    }) || available.find((candidate) => discoverySourceLane(candidate) === lane)
+        || available[0]
+        || null;
+}
+
 function discoveryOffsets(history = []) {
     const offsets = { news: 0, trends: 0, owner: 0 };
     for (const item of Array.isArray(history) ? history : []) {
@@ -117,7 +141,10 @@ function createRecommendationRefreshService(options = {}) {
         }
         const discoveryHistory = recommendationHistory.filter((item) =>
             ['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind));
-        const isUserDiscovery = refreshInput.reason === 'user_new_discovery';
+        const isUserDiscovery = ['user_new_discovery', 'user_dismiss_replacement'].includes(refreshInput.reason);
+        const replacementPreference = refreshInput.reason === 'user_dismiss_replacement'
+            ? refreshInput.preferred_source || {}
+            : null;
         const excludedDedupeKeys = discoveryDedupeKeys(discoveryHistory, evaluatedAt, {
             includeRotated: !isUserDiscovery
         });
@@ -132,6 +159,7 @@ function createRecommendationRefreshService(options = {}) {
                 discovery_offset: sourceOffsets.news,
                 discovery_offsets: sourceOffsets,
                 previous_news_source: previousNewsSource,
+                preferred_news_source: replacementPreference?.news_transport || '',
                 recently_shown_ids: recentlyShownCorpusIds
             }, baseContext),
             typeof licenseStatusReader === 'function'
@@ -164,9 +192,15 @@ function createRecommendationRefreshService(options = {}) {
         }, context);
         const contentCandidates = produced.candidates.filter((candidate) => candidate?.kind === 'content_opportunity');
         const commerceCandidates = produced.candidates.filter((candidate) => candidate?.kind === 'commerce_opportunity');
-        const discoveryCandidates = contentCandidates.length >= 3
-            ? contentCandidates.slice(0, 3)
-            : [...contentCandidates, ...commerceCandidates].slice(0, 3);
+        const candidatePool = contentCandidates.length >= 3
+            ? contentCandidates
+            : [...contentCandidates, ...commerceCandidates];
+        const replacementCandidate = replacementPreference
+            ? selectReplacementCandidate(candidatePool, replacementPreference)
+            : null;
+        const discoveryCandidates = replacementPreference
+            ? [replacementCandidate].filter(Boolean)
+            : candidatePool.slice(0, 3);
         const evaluated = await policyEvaluator.evaluate({
             owner_user_id: owner,
             candidates: discoveryCandidates
@@ -186,6 +220,9 @@ function createRecommendationRefreshService(options = {}) {
             status: 'evaluated',
             candidate_count: discoveryCandidates.length,
             recommendation_count: createdCount,
+            ...(replacementPreference ? {
+                selected_source: replacementCandidate ? discoverySourcePreference(replacementCandidate) : null
+            } : {}),
             degraded
         };
     }
@@ -199,7 +236,13 @@ function createRecommendationRefreshService(options = {}) {
             if (input.force !== true && currentTime - previous < refreshTtlMs) {
                 return { status: 'cached', candidate_count: 0, recommendation_count: 0, degraded: false };
             }
-            if (inFlight.has(owner)) return inFlight.get(owner);
+            if (inFlight.has(owner)) {
+                if (input.force === true && input.reason === 'user_dismiss_replacement') {
+                    await inFlight.get(owner);
+                } else {
+                    return inFlight.get(owner);
+                }
+            }
             const task = evaluate(owner, input).finally(() => inFlight.delete(owner));
             inFlight.set(owner, task);
             return task;
@@ -213,6 +256,8 @@ module.exports = {
     discoveryDedupeKeys,
     discoveryOffsets,
     discoverySourceLane,
+    discoverySourcePreference,
     latestDiscoveryNewsTransport,
-    recentCorpusObservationIds
+    recentCorpusObservationIds,
+    selectReplacementCandidate
 };

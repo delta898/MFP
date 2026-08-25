@@ -4,8 +4,10 @@ const {
     createRecommendationRefreshService,
     discoveryDedupeKeys,
     discoveryOffsets,
+    discoverySourcePreference,
     latestDiscoveryNewsTransport,
-    recentCorpusObservationIds
+    recentCorpusObservationIds,
+    selectReplacementCandidate
 } = require('./recommendation-refresh.service');
 
 function fixture(options = {}) {
@@ -13,6 +15,7 @@ function fixture(options = {}) {
     let evaluatorCalls = 0;
     const collectorInputs = [];
     const evaluatorOptions = [];
+    const evaluatorCandidates = [];
     const service = createRecommendationRefreshService({
         eventStore: {
             getLocalOwnerIdentity: () => ({ owner_user_id: 'owner-local' }),
@@ -38,13 +41,14 @@ function fixture(options = {}) {
             async run(_input, context) {
                 producerCalls += 1;
                 assert.equal(context.memory.owner_memory.owner_user_id, 'owner-local');
-                return { candidates: [{ candidate_id: 'candidate:one', kind: 'content_opportunity' }] };
+                return { candidates: options.candidates || [{ candidate_id: 'candidate:one', kind: 'content_opportunity' }] };
             }
         },
         policyEvaluator: {
             async evaluate(input, context, runtimeOptions) {
                 evaluatorCalls += 1;
                 evaluatorOptions.push(runtimeOptions);
+                evaluatorCandidates.push(input.candidates);
                 assert.equal(input.candidates.length, 1);
                 assert.equal(context.license_features.cmd_shopping, true);
                 return {
@@ -56,7 +60,7 @@ function fixture(options = {}) {
         licenseStatusReader: async () => ({ success: true, remaining: -1, features: { cmd_shopping: true } }),
         now: () => new Date('2026-08-25T00:00:00.000Z')
     });
-    return { service, counts: () => ({ producerCalls, evaluatorCalls }), collectorInputs, evaluatorOptions };
+    return { service, counts: () => ({ producerCalls, evaluatorCalls }), collectorInputs, evaluatorOptions, evaluatorCandidates };
 }
 
 test('refresh는 memory, operational, Knowledge를 결합해 producer와 policy를 한 번 실행한다', async () => {
@@ -81,6 +85,43 @@ test('사용자가 요청한 새로운 발견은 rotated cooldown만 풀고 일�
         rankingOptions: { dailyLimitEnabled: false },
         eligibilityOptions: { cooldowns: { rotated: 0 } }
     });
+});
+
+test('관심 없음 보충은 동일 세부 출처 후보 한 건만 평가한다', async () => {
+    const candidate = (id, lane, newsTransport = '') => ({
+        candidate_id: `candidate:${id}`,
+        kind: 'content_opportunity',
+        metadata: { discovery_source_lane: lane, discovery_news_transport: newsTransport }
+    });
+    const { service, collectorInputs, evaluatorCandidates } = fixture({ candidates: [
+        candidate('trend', 'trends'),
+        candidate('naver', 'news', 'query_news'),
+        candidate('corpus', 'news', 'stored_corpus')
+    ] });
+    const result = await service.refresh({
+        force: true,
+        reason: 'user_dismiss_replacement',
+        preferred_source: { lane: 'news', news_transport: 'stored_corpus' }
+    });
+    assert.equal(collectorInputs[0].preferred_news_source, 'stored_corpus');
+    assert.deepEqual(evaluatorCandidates[0].map((item) => item.candidate_id), ['candidate:corpus']);
+    assert.deepEqual(result.selected_source, { lane: 'news', news_transport: 'stored_corpus' });
+});
+
+test('동일 세부 출처가 없으면 동일 lane, 그마저 없으면 다른 발견으로 완화한다', () => {
+    const candidate = (id, lane, newsTransport = '') => ({
+        candidate_id: id,
+        metadata: { discovery_source_lane: lane, discovery_news_transport: newsTransport }
+    });
+    const trend = candidate('trend', 'trends');
+    const naver = candidate('naver', 'news', 'query_news');
+    assert.equal(selectReplacementCandidate([trend, naver], {
+        lane: 'news', news_transport: 'stored_corpus'
+    }).candidate_id, 'naver');
+    assert.equal(selectReplacementCandidate([trend], {
+        lane: 'news', news_transport: 'stored_corpus'
+    }).candidate_id, 'trend');
+    assert.deepEqual(discoverySourcePreference(naver), { lane: 'news', news_transport: 'query_news' });
 });
 
 test('발견 이력은 News, Trends, 사용자 기록별 순환 offset으로 계산한다', () => {

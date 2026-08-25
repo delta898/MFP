@@ -13,6 +13,11 @@ async function fixture() {
         recommendation_id: 'recommendation:center:primary',
         candidate: {
             ...createRecommendation().candidate,
+            metadata: {
+                discovery_source_lane: 'news',
+                discovery_news_transport: 'query_news',
+                discovery_hint: '네이버 뉴스'
+            },
             expires_at: '2026-08-26T00:00:00.000Z'
         },
         available_at: '2026-08-23T02:00:00.000Z',
@@ -123,8 +128,47 @@ test('dismiss는 not_helpful feedback 뒤 terminal dismiss를 기록한다', asy
     const { service, store, primary } = await fixture();
     const result = await service.interact({ recommendation_id: primary.recommendation_id, interaction: 'dismiss' });
     assert.equal(result.status, 'dismissed');
+    assert.equal(result.replacement, null);
     assert.equal((await store.getRecommendation('owner-local', primary.recommendation_id)).status, 'dismissed');
     assert.equal((await service.list()).count, 1);
+});
+
+test('dismiss는 같은 출처를 요청해 만든 새 카드 한 건을 응답한다', async () => {
+    const { store, primary } = await fixture();
+    const replacement = createRecommendation({
+        recommendation_id: 'recommendation:center:dismiss-replacement',
+        candidate: {
+            ...createRecommendation().candidate,
+            candidate_id: 'candidate:center:dismiss-replacement',
+            dedupe_key: 'content:dismiss-replacement',
+            title: '새 네이버 뉴스 소재',
+            metadata: {
+                discovery_source_lane: 'news',
+                discovery_news_transport: 'query_news',
+                discovery_hint: '네이버 뉴스'
+            },
+            expires_at: '2026-08-26T00:00:00.000Z'
+        },
+        expires_at: '2026-08-26T00:00:00.000Z'
+    });
+    const service = createRecommendationCenterService({
+        eventStore: store,
+        handoffService: { async prepare() {}, async decide() {} },
+        refreshService: { async refresh(input) {
+            assert.equal(input.reason, 'user_dismiss_replacement');
+            assert.deepEqual(input.preferred_source, { lane: 'news', news_transport: 'query_news' });
+            await store.createRecommendation(replacement, { operation_id: 'create-dismiss-replacement' });
+            return { status: 'evaluated', recommendation_count: 1 };
+        } },
+        now: () => new Date(NOW),
+        operationIdFactory: () => 'recommendation_ui:dismiss-replacement-test'
+    });
+
+    const result = await service.interact({ recommendation_id: primary.recommendation_id, interaction: 'dismiss' });
+    assert.equal(result.status, 'dismissed');
+    assert.equal(result.replacement.recommendation_id, replacement.recommendation_id);
+    assert.equal(result.replacement.hint, '네이버 뉴스');
+    assert.equal((await store.getRecommendation('owner-local', primary.recommendation_id)).status, 'dismissed');
 });
 
 test('새로운 발견은 탐색 추천만 rotated 처리하고 부정 피드백 없이 다시 평가한다', async () => {
