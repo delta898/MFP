@@ -1,3 +1,6 @@
+const { ACTIVE_STATES } = require('../../recommendations/core/lifecycle');
+const { DEFAULT_COOLDOWNS_MS, isWithinCooldown } = require('../../recommendations/policy/eligibility');
+
 const DEFAULT_REFRESH_TTL_MS = 15 * 60 * 1000;
 
 function discoverySourceLane(candidate = {}) {
@@ -22,6 +25,43 @@ function discoveryOffsets(history = []) {
         if (lane === 'owner_history') offsets.owner += 1;
     }
     return offsets;
+}
+
+function recentCorpusObservationIds(history = [], limit = 100) {
+    const boundedLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+    const ids = [];
+    const seen = new Set();
+    for (const item of Array.isArray(history) ? history : []) {
+        if (item?.candidate?.kind !== 'content_opportunity') continue;
+        if (String(item?.candidate?.metadata?.discovery_news_transport || '').trim() !== 'stored_corpus') continue;
+        for (const evidence of Array.isArray(item?.candidate?.evidence) ? item.candidate.evidence : []) {
+            if (evidence?.kind !== 'knowledge') continue;
+            const source = evidence?.source_ref || {};
+            const id = String(source.id || '').replace(/\s+/g, ' ').trim();
+            if (!id || id.length > 180 || seen.has(id)) continue;
+            seen.add(id);
+            ids.push(id);
+            if (ids.length >= boundedLimit) return ids;
+        }
+    }
+    return ids;
+}
+
+function discoveryDedupeKeys(history = [], at = new Date().toISOString()) {
+    const nowMs = Date.parse(at);
+    if (!Number.isFinite(nowMs)) return [];
+    const keys = [];
+    const seen = new Set();
+    for (const item of Array.isArray(history) ? history : []) {
+        if (!['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind)) continue;
+        const active = ACTIVE_STATES.includes(item?.status) && Date.parse(item?.expires_at) > nowMs;
+        const coolingDown = isWithinCooldown(item, nowMs, DEFAULT_COOLDOWNS_MS);
+        const key = String(item?.candidate?.dedupe_key || '').trim();
+        if ((!active && !coolingDown) || !key || seen.has(key)) continue;
+        seen.add(key);
+        keys.push(key);
+    }
+    return keys;
 }
 
 function createRecommendationRefreshService(options = {}) {
@@ -52,6 +92,7 @@ function createRecommendationRefreshService(options = {}) {
     }
 
     async function evaluate(owner, refreshInput = {}) {
+        const evaluatedAt = new Date(now()).toISOString();
         const memory = await memoryRetrievalService.buildContextPacket({ ownerUserId: owner, limit: 20 });
         let recommendationHistory = [];
         try {
@@ -63,17 +104,17 @@ function createRecommendationRefreshService(options = {}) {
         }
         const discoveryHistory = recommendationHistory.filter((item) =>
             ['content_opportunity', 'commerce_opportunity'].includes(item?.candidate?.kind));
-        const excludedDedupeKeys = discoveryHistory
-            .map((item) => String(item?.candidate?.dedupe_key || '').trim())
-            .filter(Boolean);
+        const excludedDedupeKeys = discoveryDedupeKeys(discoveryHistory, evaluatedAt);
         const sourceOffsets = discoveryOffsets(discoveryHistory);
+        const recentlyShownCorpusIds = recentCorpusObservationIds(discoveryHistory);
         const baseContext = { owner_user_id: owner, memory };
         const [operationalState, contentKnowledge, licenseStatus] = await Promise.all([
             operationalStateCollector.collect({ owner_user_id: owner }, baseContext),
             contentKnowledgeCollector.collect({
                 serendipity: true,
                 discovery_offset: sourceOffsets.news,
-                discovery_offsets: sourceOffsets
+                discovery_offsets: sourceOffsets,
+                recently_shown_ids: recentlyShownCorpusIds
             }, baseContext),
             typeof licenseStatusReader === 'function'
                 ? licenseStatusReader()
@@ -146,6 +187,8 @@ function createRecommendationRefreshService(options = {}) {
 module.exports = {
     DEFAULT_REFRESH_TTL_MS,
     createRecommendationRefreshService,
+    discoveryDedupeKeys,
     discoveryOffsets,
-    discoverySourceLane
+    discoverySourceLane,
+    recentCorpusObservationIds
 };

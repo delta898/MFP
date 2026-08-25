@@ -295,12 +295,18 @@ not create an action transition.
 `not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다.
 
 Serendipity discovery는 세 source lane을 독립적으로 취급한다. `trends`는 현재 Naver Trends,
-`news`는 bounded Naver News 탐색, `owner_history`는 저장·선택·작성·발행으로 확인된 owner activity다.
+`news`는 저장 corpus와 bounded query News를 교대하는 탐색, `owner_history`는
+저장·선택·작성·발행으로 확인된 owner activity다. News source는 노출 이력으로 우선순위를
+교대하고 우선 source가 비거나 실패할 때만 다른 source로 fallback한다.
 각 발견 묶음은 세 lane에 한 자리씩 먼저 배정하며, source가 비었을 때만 다른 lane의 근거 있는 후보가
 빈자리를 채운다. persisted Candidate의 `discovery_source_lane` 노출 이력은 source별 순환 offset이 되지만
 그 자체는 선호 사실이 아니다. 생성된 글감이나 단순 노출은 owner history 근거로 승격하지 않는다.
 Trends와 owner history는 최근 7일을 우선하고 최대 14일까지만 discovery evidence로 인정한다.
 Recommendation의 24시간 delivery TTL과 source evidence lookback은 서로 독립된 시간 정책이다.
+저장 corpus의 단순 조회·노출 역시 owner preference로 승격하지 않으며, 최근 노출 observation id는
+반복 방지를 위한 bounded exclusion으로만 사용한다.
+Producer의 대체 후보 탐색도 active recommendation과 policy cooldown 안의 dedupe key만 제외한다.
+과거에 한 번 노출되었다는 이유만으로 owner-history 소재를 영구 제외하지 않는다.
 
 ## Owner-Scoped Operational Reads
 

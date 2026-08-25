@@ -106,7 +106,14 @@ provider backoff because a desktop read cannot initiate collection. The request 
 allowlisted lane/locale/country filters, at most 100 recently shown observation ids and a bounded
 limit. The server performs deterministic lane/publisher diversity before returning the same strict
 News Snapshot contract. The desktop definition is registered on
-`recommendation_serendipity_corpus`; Recommendation and UI integration remain a separate stage.
+`recommendation_serendipity_corpus`.
+
+Serendipity Recommendation collection alternates its single News slot between `stored_corpus` and
+`query_news` using owner-scoped delivery history. It queries the preferred source first and only
+uses the other source as fallback, so a healthy corpus read does not spend unused query-News quota.
+Recently delivered stored-corpus observation ids are bounded to 100 and sent as exclusions. The
+Recommendation layer depends only on these neutral source types; the canonical Snapshot/evidence
+continues to retain the actual provider id, transport, URL, publisher and timestamps.
 
 ## Current Gap
 - `mcp_tool` transport is still structural only and needs real implementation.

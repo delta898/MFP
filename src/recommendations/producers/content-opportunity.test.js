@@ -21,6 +21,14 @@ function article(id, title, url) {
     };
 }
 
+function corpusNewsSnapshot(items) {
+    return {
+        ...newsSnapshot(items),
+        snapshot_id: 'ks_corpus',
+        provider_id: 'serpapi-corpus'
+    };
+}
+
 function combinedKnowledge() {
     const topic = 'AI 에이전트';
     return {
@@ -208,6 +216,32 @@ test('serendipity mode reserves one card each for Trends, News and owner history
         '트렌드 키워드', '뉴스 소재', '내 기록'
     ]);
     assert.equal(result.candidates.every((candidate) => validateRecommendationCandidate(candidate).ok), true);
+});
+
+test('serendipity creates a grounded corpus news card without claiming live freshness', async () => {
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local',
+        serendipity: true,
+        content_knowledge: {
+            query_plan: { queries: [] },
+            news_queries: [],
+            corpus_snapshots: [corpusNewsSnapshot([
+                article('corpus-news-1', '며칠 지나 다시 보는 우주 소재', 'https://corpus.example.com/space')
+            ])]
+        }
+    });
+    assert.equal(result.candidates.length, 1);
+    const candidate = result.candidates[0];
+    assert.equal(candidate.title, '며칠 지나 다시 보는 우주 소재');
+    assert.equal(candidate.summary, '뜻밖에 만난 뉴스 소재입니다.');
+    assert.doesNotMatch(`${candidate.summary} ${candidate.explanation}`, /최신/);
+    assert.equal(candidate.metadata.discovery_source_lane, 'news');
+    assert.equal(candidate.metadata.discovery_news_transport, 'stored_corpus');
+    assert.equal(candidate.metadata.discovery_hint, '뉴스 소재');
+    assert.equal(candidate.evidence[0].source_ref.provider_id, 'serpapi-corpus');
+    assert.equal(candidate.evidence[0].source_ref.id, 'corpus-news-1');
+    assert.deepEqual(candidate.handoff.payload, { query: '며칠 지나 다시 보는 우주 소재' });
+    assert.deepEqual(validateRecommendationCandidate(candidate).errors, []);
 });
 
 test('serendipity mode fills an unavailable source slot without repeating a topic', async () => {

@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: Stage 5 completed and user-accepted; ready for Stage 6
+- Phase: Stage 6 completed and user-accepted; ready for Stage 7
 - Design accepted: 2026-08-25
 - Parent branch: `codex/feature/serpapi-collection-main`
 - Started: 2026-08-25
@@ -156,6 +156,11 @@ discovery filters, deterministic server-side diversity and a dormant desktop reg
 - Preserve source diversity and recent-item rotation.
 - Keep recommendation grounding/provenance visible and preserve explicit user feedback.
 - Request user UI testing before commit and parent merge.
+
+Status: completed and user-accepted on 2026-08-25. The three-card policy preserves Trends and owner-history slots while
+alternating the one news slot between stored corpus and query-based News, with
+preferred-source-first fallback. Recommendation code uses provider-neutral source types while
+canonical evidence retains the actual provider provenance.
 
 ### Stage 7 — Deployment verification and stabilization
 

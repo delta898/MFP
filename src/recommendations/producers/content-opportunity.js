@@ -104,6 +104,19 @@ function normalizeArticleEntries(newsQueries = [], now) {
     return entries;
 }
 
+function normalizeCorpusEntries(snapshots = [], now) {
+    const nowMs = Date.parse(now);
+    const entries = [];
+    for (const snapshot of Array.isArray(snapshots) ? snapshots : []) {
+        if (!Number.isFinite(Date.parse(snapshot?.expires_at))
+            || Date.parse(snapshot.expires_at) <= nowMs) continue;
+        for (const item of Array.isArray(snapshot?.items) ? snapshot.items : []) {
+            entries.push({ query: { lane: 'corpus_discovery' }, snapshot, item });
+        }
+    }
+    return entries;
+}
+
 function dedupeArticles(entries = []) {
     const result = [];
     const urls = new Set();
@@ -206,6 +219,48 @@ function buildDiscoveryCandidate(ownerUserId, query, articleEntry, createdAt) {
     };
 }
 
+function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
+    const item = articleEntry?.item || {};
+    const snapshot = articleEntry?.snapshot || {};
+    const articleTopic = compact(item.title, 180);
+    const articleKey = normalizeTopicKey(articleTopic);
+    const itemId = compact(item.id, 180);
+    const providerId = compact(snapshot.provider_id, 120);
+    if (!articleTopic || !articleKey || !itemId || !providerId) return null;
+    const articleHash = stableHash(`${CONTENT_PRODUCER_VERSION}:corpus:${providerId}:${itemId}`);
+    const publisher = compact(item.publisher, 160);
+    return {
+        candidate_id: `candidate:content:${articleHash}`,
+        kind: 'content_opportunity',
+        producer_id: CONTENT_PRODUCER_ID,
+        owner_user_id: ownerUserId,
+        title: articleTopic,
+        summary: '뜻밖에 만난 뉴스 소재입니다.',
+        explanation: publisher
+            ? `${publisher} 보도에서 발견한 제안입니다.`
+            : '저장된 뉴스 관찰 자료에서 발견한 제안입니다.',
+        evidence: [buildNewsEvidence(articleTopic, articleEntry)],
+        handoff: {
+            type: 'presentation',
+            label: '소재 적용하기',
+            target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
+            payload: { query: articleTopic }
+        },
+        dedupe_key: `content_opportunity:${articleHash}`,
+        created_at: createdAt,
+        expires_at: new Date(Date.parse(createdAt) + 24 * 60 * 60 * 1000).toISOString(),
+        metadata: {
+            topic: articleTopic,
+            discovery_lane: 'serendipity',
+            discovery_source_lane: 'news',
+            discovery_news_transport: 'stored_corpus',
+            discovery_hint: '뉴스 소재',
+            source_lanes: ['corpus_discovery'],
+            article_count: 1
+        }
+    };
+}
+
 function buildSourceDiscoveryCandidate(ownerUserId, query, sourceLane, createdAt) {
     const topic = compact(query?.topic, 180);
     const normalizedTopic = normalizeTopicKey(topic);
@@ -301,6 +356,9 @@ function createContentOpportunityProducer(options = {}) {
             const contentKnowledge = input.content_knowledge || context.content_knowledge
                 || (collector?.collect ? await collector.collect(input, context) : null);
             const newsQueries = Array.isArray(contentKnowledge?.news_queries) ? contentKnowledge.news_queries : [];
+            const corpusSnapshots = Array.isArray(contentKnowledge?.corpus_snapshots)
+                ? contentKnowledge.corpus_snapshots
+                : [];
             const plannedQueries = Array.isArray(contentKnowledge?.query_plan?.queries)
                 ? contentKnowledge.query_plan.queries
                 : newsQueries.map((entry) => entry.query);
@@ -333,6 +391,10 @@ function createContentOpportunityProducer(options = {}) {
                         query: collected.query,
                         entries: dedupeArticles(normalizeArticleEntries([collected], createdAt))
                     });
+                }
+                for (const entry of dedupeArticles(normalizeCorpusEntries(corpusSnapshots, createdAt))) {
+                    const candidate = buildCorpusDiscoveryCandidate(ownerUserId, entry, createdAt);
+                    if (candidate) sourceBuckets.news.push(candidate);
                 }
                 const rawNewsOffset = Number.parseInt(input?.discovery_offsets?.news, 10);
                 const articleOffset = Number.isFinite(rawNewsOffset) ? Math.max(0, rawNewsOffset) : 0;
@@ -412,11 +474,13 @@ module.exports = {
     CONTENT_PRODUCER_VERSION,
     MAX_NEWS_EVIDENCE,
     buildBasisEvidence,
+    buildCorpusDiscoveryCandidate,
     buildDiscoveryCandidate,
     buildSourceDiscoveryCandidate,
     composeSerendipityCandidates,
     createContentOpportunityProducer,
     dedupeArticles,
     describeCandidate,
-    normalizeArticleEntries
+    normalizeArticleEntries,
+    normalizeCorpusEntries
 };

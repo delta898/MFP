@@ -91,7 +91,8 @@ guidance candidates remain available to future delivery surfaces but are not ren
 Dashboard section. The UI may request an
 allowlisted interaction but never receives capability ids, params, policy internals or owner identity.
 The three-card discovery batch reserves one backend-selected slot each for Trends, News and confirmed
-owner content history; the browser only renders the resulting public hint and does not rebalance sources.
+owner content history. The News slot may come from a stored corpus or bounded query source; the browser
+only renders the resulting public hint and does not select providers or rebalance sources.
 The UI API derives the installation-local owner, records lifecycle interactions and passes only that
 owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,
