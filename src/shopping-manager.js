@@ -9,8 +9,9 @@ const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
 const RuntimeConfig = require('./runtime-config');
 const { persistAuthSessionState } = require('./auth-session');
-const { normalizeWritingStyle, buildShoppingWritingStylePrompt } = require('./content/writing-style');
 const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
+const { projectWritingProfile } = require('./content/writing-profile-projection');
+const { buildShoppingWritingProfilePromptFromProjection } = require('./content/shopping-writing-profile-prompt');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
@@ -2561,10 +2562,6 @@ function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewDat
 
 function resolveShoppingWritingPreferences(input = {}) {
     return {
-        style: normalizeWritingStyle({
-            writing_mode: input.writing_mode || input.writingMode || CONFIG.CONTENT_WRITING_MODE || CONFIG.BLOG_WRITING_MODE,
-            speech_level: input.speech_level || input.speechLevel || CONFIG.CONTENT_SPEECH_LEVEL || CONFIG.BLOG_SPEECH_LEVEL
-        }),
         strategy: normalizeWritingStrategy(
             input.writing_strategy || input.writingStrategy || CONFIG.CONTENT_WRITING_STRATEGY || CONFIG.BLOG_WRITING_STRATEGY
         )
@@ -2584,7 +2581,7 @@ function buildShoppingInstructionPrompt(input) {
     return [
         '[사용자 참고/지시사항 - 우선 반영]',
         instruction,
-        '- 위 내용은 사용자가 제공한 초안 작성 방향·경험·의견입니다. 기본 문체와 글 작성 전략이 충돌하면 사용자 지시를 우선하세요.',
+        '- 위 내용은 이 상품 글에만 적용되는 작성 방향·경험·의견입니다. 전역 쇼핑 프로필과 글 작성 전략이 충돌하면 이 상품 글에 한해 사용자 지시를 우선하세요.',
         '- 사용자가 직접 경험 서술을 요청하거나 경험을 제공했다면 1인칭 후기 표현을 충실히 반영할 수 있습니다.',
         '- 다만 사용자가 제공하거나 요청하지 않은 구체적인 사용 기간, 가족, 직업, 효과, 비교 경험은 추가로 만들지 마세요.',
         '- 공식 상품 정보와 가격·혜택·배송 조건은 제공된 Official Product Data의 범위를 벗어나지 마세요.',
@@ -2695,7 +2692,8 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const officialJson = JSON.stringify(officialProductData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
     const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences);
-    const writingStyleRules = buildShoppingWritingStylePrompt(resolvedWritingPreferences.style);
+    const writingProfileProjection = projectWritingProfile(CONFIG.CONTENT_WRITING_PROFILE, { kind: 'shopping' });
+    const writingProfileRules = buildShoppingWritingProfilePromptFromProjection(writingProfileProjection);
     const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
     const editorialPlanRules = buildShoppingEditorialPlanPrompt(product, writingPreferences);
     const userInstructionRules = buildShoppingInstructionPrompt(
@@ -2730,7 +2728,7 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
         .replace(/{{\s*SEO_KEYWORDS\s*}}/g, seoKeywordHints)
         .replace(/{{\s*PLATFORM_NAME\s*}}/g, platformLabel)
         .replace(/{{\s*PLATFORM_STYLE\s*}}/g, platformStyle)
-        .replace(/{{\s*WRITING_STYLE_RULES\s*}}/g, writingStyleRules)
+        .replace(/{{\s*WRITING_PROFILE_RULES\s*}}/g, writingProfileRules)
         .replace(/{{\s*WRITING_STRATEGY_RULES\s*}}/g, writingStrategyRules)
         .replace(/{{\s*EDITORIAL_PLAN_RULES\s*}}/g, editorialPlanRules)
         .replace(/{{\s*USER_INSTRUCTION_RULES\s*}}/g, userInstructionRules)

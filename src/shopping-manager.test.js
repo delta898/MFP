@@ -1,7 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const CONFIG = require('./config-loader');
 const ShoppingManager = require('./shopping-manager');
+const { getDefaultContentWritingProfile } = require('./content/writing-profile');
 
 const {
     extractProductData,
@@ -33,6 +35,16 @@ function createPromptProduct() {
             reviewSamples: ['아침 식사 준비가 간편하다는 반응이 있습니다.']
         }
     };
+}
+
+function withWritingProfile(profile, callback) {
+    const previous = CONFIG.CONTENT_WRITING_PROFILE;
+    CONFIG.CONTENT_WRITING_PROFILE = profile;
+    try {
+        return callback();
+    } finally {
+        CONFIG.CONTENT_WRITING_PROFILE = previous;
+    }
 }
 
 test('shopping prompt uses numbers selectively and keeps volume requirements consistent', () => {
@@ -122,24 +134,50 @@ test('shopping editorial prompt yields to explicit user instructions', () => {
     assert.match(prompt, /전체 5~6개 블록 계약은 유지하세요/);
 });
 
-test('shopping prompt applies common writing style and strategy with explicit overrides', () => {
-    const searchPrompt = buildAiPrompt(createPromptProduct(), 'naver', {
-        writing_mode: 'written',
-        speech_level: 'plain',
+test('shopping prompt applies selected common profile voice and per-post strategy', () => {
+    const writtenProfile = getDefaultContentWritingProfile();
+    writtenProfile.common.voice.writing_mode = 'written';
+    writtenProfile.common.voice.speech_level = 'plain';
+    const searchPrompt = withWritingProfile(writtenProfile, () => buildAiPrompt(createPromptProduct(), 'naver', {
         writing_strategy: 'search'
-    });
-    const discoveryPrompt = buildAiPrompt(createPromptProduct(), 'wordpress', {
-        writing_mode: 'conversational',
-        speech_level: 'polite',
+    }));
+
+    const conversationalProfile = getDefaultContentWritingProfile();
+    const discoveryPrompt = withWritingProfile(conversationalProfile, () => buildAiPrompt(createPromptProduct(), 'wordpress', {
         writing_strategy: 'discovery'
-    });
+    }));
 
     assert.match(searchPrompt, /간결하고 객관적인 설명문·칼럼형 문체/);
-    assert.match(searchPrompt, /문어체 평어/);
+    assert.match(searchPrompt, /표현 방식은 문어체/);
+    assert.match(searchPrompt, /높임 방식은 평어/);
     assert.match(searchPrompt, /검색 중심 전략/);
     assert.match(discoveryPrompt, /친근하고 자연스러운 후기형 문체/);
     assert.match(discoveryPrompt, /발견 중심\(피드\) 전략/);
     assert.doesNotMatch(discoveryPrompt, /{{\s*[A-Z_]+\s*}}/);
+});
+
+test('shopping global instruction precedes product instruction and blog-only profile fields stay excluded', () => {
+    const profile = getDefaultContentWritingProfile();
+    profile.common.style_instruction = '전문용어를 쉬운 말로 풀어주세요.';
+    profile.channels.shopping.additional_instruction = '가격보다 배송과 설치 조건을 먼저 설명하세요.';
+    profile.channels.blog.additional_instruction = '블로그 결론에 체크리스트를 추가하세요.';
+    profile.channels.blog.author_context = '여행 블로거';
+    profile.channels.blog.style_references.sample_text.value = '블로그 문체 참고 원문';
+    const productInstruction = '이 상품은 디자인 선택 기준부터 설명하세요.';
+
+    const prompt = withWritingProfile(profile, () => buildAiPrompt(createPromptProduct(), 'naver', {
+        instruction: productInstruction
+    }));
+
+    assert.match(prompt, /선택된 쇼핑 글쓰기 프로필/);
+    assert.match(prompt, /전문용어를 쉬운 말로/);
+    assert.match(prompt, /가격보다 배송과 설치 조건을 먼저/);
+    assert.match(prompt, new RegExp(productInstruction));
+    assert.ok(prompt.indexOf('가격보다 배송과 설치 조건을 먼저') < prompt.indexOf(productInstruction));
+    assert.match(prompt, /이 상품 글에 한해 사용자 지시를 우선/);
+    assert.doesNotMatch(prompt, /블로그 결론에 체크리스트/);
+    assert.doesNotMatch(prompt, /여행 블로거/);
+    assert.doesNotMatch(prompt, /블로그 문체 참고 원문/);
 });
 
 test('shopping prompt and title normalization prevent repeated product identity keywords', () => {
