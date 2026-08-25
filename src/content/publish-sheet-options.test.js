@@ -30,6 +30,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
             post_status: 'publish',
             schedule_date: '2026-04-01 10:00:00',
             image_gen: true,
+            image_count: 5,
             external_reference: false,
             writing_strategy: 'discovery'
         })
@@ -43,6 +44,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
     assert.equal(resolved.postStatus, 'publish');
     assert.equal(resolved.scheduleDate, '2026-04-01 10:00:00');
     assert.equal(resolved.imageGeneration, true);
+    assert.equal(resolved.imageCount, 5);
     assert.equal(resolved.externalReference, false);
     assert.equal(resolved.writingStrategy, 'discovery');
 });
@@ -63,6 +65,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
         postStatus: 'draft',
         scheduleDate: '2026-03-31 08:30:00',
         imageGeneration: false,
+        imageCount: 3,
         externalReference: true,
         writingStrategy: 'search'
     });
@@ -78,6 +81,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
     assert.equal(merged.post_status, 'draft');
     assert.equal(merged.schedule_date, '2026-03-31 08:30:00');
     assert.equal(merged.image_gen, false);
+    assert.equal(merged.image_count, 3);
     assert.equal(merged.external_reference, true);
     assert.equal(merged.writing_strategy, 'search');
 });

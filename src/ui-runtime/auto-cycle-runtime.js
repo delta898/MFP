@@ -650,7 +650,7 @@ function createAutoCycleRuntime(deps = {}) {
                             reference_urls: [normalizedLink]
                         },
                         use_external_ref: false,
-                        image_options: { generate: true, count: 4 },
+                        image_options: { generate: true },
                         source: 'rss',
                         status: '발행 준비 완료',
                         category: finalCategory,

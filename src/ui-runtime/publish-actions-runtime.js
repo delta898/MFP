@@ -4,6 +4,7 @@ const {
     settlePublishQuota
 } = require('../publish-quota');
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
+const { parseImageCount } = require('../content/blog-image-plan');
 const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
 
 function createPublishActionsRuntime(deps = {}) {
@@ -224,7 +225,7 @@ function createPublishActionsRuntime(deps = {}) {
                     },
                     image_options: {
                         generate: imageGenerationFinal,
-                        count: context.imageOptions?.count || 4
+                        count: context.imageOptions?.count
                     }
                 };
                 const naverResult = await Core.generateContent(naverTopic, null, {
@@ -252,7 +253,7 @@ function createPublishActionsRuntime(deps = {}) {
                     },
                     image_options: {
                         generate: imageGenerationFinal,
-                        count: context.imageOptions?.count || 4
+                        count: context.imageOptions?.count
                     }
                 };
                 const wpResult = await Core.generateContent(wpTopic, null, {
@@ -710,6 +711,12 @@ function createPublishActionsRuntime(deps = {}) {
         }
         const externalReference = normalizeBool(requestBody?.externalReference, true);
         const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+        let requestedImageCount;
+        try {
+            requestedImageCount = parseImageCount(requestBody?.imageCount ?? requestBody?.image_count) ?? undefined;
+        } catch (error) {
+            return { success: false, code: error.code || 'INVALID_BLOG_IMAGE_COUNT', message: error.message };
+        }
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         let referenceUrl = String(requestBody?.referenceUrl || '').trim();
         if (referenceUrl) {
@@ -763,6 +770,7 @@ function createPublishActionsRuntime(deps = {}) {
             instruction,
             referenceUrl,
             imageGeneration: imageGenerationFinal,
+            imageCount: requestedImageCount,
             externalReference,
             writingStrategy,
             source,
@@ -830,7 +838,7 @@ function createPublishActionsRuntime(deps = {}) {
                 use_external_ref: externalReference,
                 image_options: {
                     generate: imageGenerationFinal,
-                    count: 4
+                    count: requestedImageCount
                 },
                 source,
                 trendDate,
@@ -896,7 +904,7 @@ function createPublishActionsRuntime(deps = {}) {
                 useExternalRef: externalReference,
                 imageOptions: {
                     generate: imageGenerationFinal,
-                    count: 4
+                    count: requestedImageCount
                 },
                 category: requestBody?.category || '',
                 naverCategory: requestBody?.naverCategory || '',

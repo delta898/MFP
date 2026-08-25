@@ -49,6 +49,7 @@ test('blog generation composer keeps contract, strategy, profile and post input 
             title: '오래 운영할 도구를 고르는 기준',
             keywords: ['운영', '도구 선택'],
             instruction: '이번 글은 1,000자 안팎으로 간결하게 작성하세요.',
+            image_count: 2,
             reference_context: '공식 문서에서 유지보수 기간은 3년이라고 밝혔다.'
         }
     });
@@ -64,6 +65,9 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.match(result.prompt, /소프트웨어를 오래 운영한 개발자/);
     assert.match(result.prompt, /마지막에 선택 체크리스트/);
     assert.match(result.prompt, /이번 글은 1,000자 안팎/);
+    assert.match(result.prompt, /정확히 2개/);
+    assert.equal(result.image_plan.source, 'post');
+    assert.equal(result.image_plan.count, 2);
     assert.match(result.prompt, /유지보수 기간은 3년/);
     assert.match(result.prompt, /이번 글에 한해 해당 지시를 우선/);
 
@@ -71,10 +75,12 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     const strategyIndex = result.prompt.indexOf('[글 작성 전략]');
     const profileIndex = result.prompt.indexOf('[선택된 블로그 글쓰기 프로필]');
     const postIndex = result.prompt.indexOf('[이번 글 입력]');
+    const imagePlanIndex = result.prompt.indexOf('[블로그 이미지 영역 계획]');
     const referenceIndex = result.prompt.indexOf('[이번 글 사실 참고 컨텍스트]');
     assert.ok(contractIndex >= 0 && contractIndex < strategyIndex);
     assert.ok(strategyIndex < profileIndex);
-    assert.ok(profileIndex < postIndex);
+    assert.ok(profileIndex < imagePlanIndex);
+    assert.ok(imagePlanIndex < postIndex);
     assert.ok(postIndex < referenceIndex);
 });
 

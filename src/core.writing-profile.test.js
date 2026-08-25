@@ -30,7 +30,7 @@ test('Core.generateContent uses the selected blog profile composer for the share
             title: '프로필 연결 테스트',
             keywords: ['프로필'],
             hashtags: ['프로필'],
-            content: '생성된 본문'
+            content: '생성된 본문\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: first image\n]]\n\n[[IMAGE_1\ntitle: 둘째 이미지\nprompt: second image\n]]'
         });
     };
 
@@ -44,7 +44,7 @@ test('Core.generateContent uses the selected blog profile composer for the share
                 reference_urls: []
             },
             use_external_ref: false,
-            image_options: { generate: false }
+            image_options: { generate: false, count: 2 }
         }, targetDir, {
             platform: 'wordpress',
             enableRelatedPostsAutoLink: false
@@ -57,7 +57,9 @@ test('Core.generateContent uses the selected blog profile composer for the share
         assert.match(capturedPrompt, /핵심 용어는 첫 등장에 쉽게 풀이/);
         assert.match(capturedPrompt, /결론에 두 항목 체크리스트/);
         assert.match(capturedPrompt, /이번 글에서는 도입을 한 문장/);
+        assert.match(capturedPrompt, /정확히 2개/);
         assert.doesNotMatch(capturedPrompt, /쇼핑 전용 가격 설명/);
+        assert.deepEqual(result.imagePlan, { count: 2, source: 'post', length_preset: null });
     } finally {
         CONFIG.CONTENT_WRITING_PROFILE = previousProfile;
         CONFIG.BLOG_WRITING_STRATEGY = previousStrategy;

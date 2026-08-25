@@ -53,6 +53,7 @@ test('quick publish keeps the user image option independent from legacy license 
         subject: '테스트 글',
         title: '사용자가 정한 최종 제목',
         imageGeneration: true,
+        imageCount: 6,
         writingStrategy: 'discovery',
         publishMode: 'append_only',
         targets: ['naver']
@@ -60,13 +61,33 @@ test('quick publish keeps the user image option independent from legacy license 
 
     assert.equal(result.success, true);
     assert.equal(appendedTopics[0].image_options.generate, true);
+    assert.equal(appendedTopics[0].image_options.count, 6);
     assert.equal(appendedTopics[0].writing_strategy, 'discovery');
     assert.equal(appendedTopics[0].title, '사용자가 정한 최종 제목');
     assert.equal(appendedTopics[0].content_guide.title, '사용자가 정한 최종 제목');
     assert.equal(appendedTopics[0].source, 'manual');
     assert.equal(appendedTopics[0].trendDate, '');
     assert.equal(dedupeInput.writingStrategy, 'discovery');
+    assert.equal(dedupeInput.imageCount, 6);
     assert.equal(dedupeInput.title, '사용자가 정한 최종 제목');
+});
+
+test('quick publish rejects an out-of-range per-post image count before external work', async () => {
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        normalizeKeywords: () => [],
+        normalizeBool: (value, fallback) => typeof value === 'boolean' ? value : fallback,
+        normalizePublishMode: (value) => value
+    });
+
+    const result = await runtime.executeQuickPublish({
+        subject: '이미지 개수 검증',
+        imageCount: 7,
+        publishMode: 'append_only'
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'INVALID_BLOG_IMAGE_COUNT');
 });
 
 test('quick publish preserves trend provenance in the topics row and dedupe input', async () => {
@@ -222,7 +243,7 @@ function createPublishParams() {
         context: {
             subject: 'quota test',
             postStatus: 'draft',
-            imageOptions: { generate: false, count: 0 }
+            imageOptions: { generate: false }
         },
         targets: ['naver', 'wordpress'],
         features: {},

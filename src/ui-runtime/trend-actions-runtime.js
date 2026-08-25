@@ -253,7 +253,7 @@ function createTrendActionsRuntime(deps = {}) {
                 },
                 use_external_ref: true,
                 category: finalCategory,
-                image_options: { generate: autoImageGeneration, count: 4 },
+                image_options: { generate: autoImageGeneration },
                 source: 'auto-trends',
                 trendDate: String(item.date || '').trim(),
                 status: '발행 준비 완료'
@@ -450,7 +450,7 @@ function createTrendActionsRuntime(deps = {}) {
                     reference_urls: []
                 },
                 use_external_ref: true,
-                image_options: { generate: autoImageGeneration, count: 4 },
+                image_options: { generate: autoImageGeneration },
                 source: 'auto-trends',
                 trendDate: String(item.date || '').trim(),
                 status: '대기'
@@ -520,7 +520,7 @@ function createTrendActionsRuntime(deps = {}) {
                         reference_urls: []
                     },
                     use_external_ref: true,
-                    image_options: { generate: false, count: 4 },
+                    image_options: { generate: false },
                     source: 'manual',
                     trendDate: '',
                     status: '대기'

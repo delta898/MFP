@@ -4,6 +4,7 @@ const {
     hasSuccessfulPlatformResult,
     settlePublishQuota
 } = require('../publish-quota');
+const { parseImageCount } = require('../content/blog-image-plan');
 
 function createContentActionsRuntime(deps = {}) {
     const {
@@ -176,7 +177,13 @@ function createContentActionsRuntime(deps = {}) {
         const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
         const effectiveWritingStrategy = getVal('writing_strategy', topicData.writing_strategy || '');
         const effectiveImgGenRequested = topicData.image_gen === true;
-        const effectiveImgCount = parseIntSafe(getVal('image_count', topicData.image_count), 4, 1) || 4;
+        const effectiveImgCountRaw = getVal('image_count', topicData.image_count);
+        let effectiveImgCount;
+        try {
+            effectiveImgCount = parseImageCount(effectiveImgCountRaw) ?? undefined;
+        } catch (error) {
+            return { success: false, code: error.code || 'INVALID_BLOG_IMAGE_COUNT', message: error.message };
+        }
         const effectiveExtRef = topicData.external_reference === true;
         const effectiveImgGen = effectiveImgGenRequested;
 
@@ -236,7 +243,7 @@ function createContentActionsRuntime(deps = {}) {
                     },
                     image_options: {
                         generate: effectiveImgGen,
-                        count: publishParams.context.imageOptions?.count || 4
+                        count: publishParams.context.imageOptions?.count
                     }
                 };
                 const result = await Core.generateContent(topic, null, {

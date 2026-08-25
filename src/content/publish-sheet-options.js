@@ -16,6 +16,12 @@ function normalizeStringArray(value) {
         .filter(Boolean);
 }
 
+function normalizeOptionalImageCount(value) {
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    const numeric = Number(String(value).trim());
+    return Number.isInteger(numeric) && numeric >= 1 && numeric <= 6 ? numeric : null;
+}
+
 function parseSheetOptionsValue(rawValue) {
     if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
         return { ...rawValue };
@@ -112,6 +118,9 @@ function resolveTopicSheetState(input = {}) {
         imageGeneration: typeof parsedOptions.image_gen === 'boolean'
             ? parsedOptions.image_gen
             : input.imageGeneration === true,
+        imageCount: parsedOptions.image_count !== undefined
+            ? parsedOptions.image_count
+            : input.imageCount,
         externalReference: typeof parsedOptions.external_reference === 'boolean'
             ? parsedOptions.external_reference
             : input.externalReference !== false,
@@ -166,6 +175,11 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
     }
 
     if (fields.imageGeneration !== undefined) next.image_gen = fields.imageGeneration === true;
+    if (fields.imageCount !== undefined) {
+        const imageCount = normalizeOptionalImageCount(fields.imageCount);
+        if (imageCount !== null) next.image_count = imageCount;
+        else delete next.image_count;
+    }
     if (fields.externalReference !== undefined) next.external_reference = fields.externalReference === true;
 
     if (fields.platforms !== undefined) {

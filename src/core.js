@@ -12,6 +12,7 @@ const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
+const { validateBlogImageBlocks } = require('./content/blog-image-plan');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1919,6 +1920,7 @@ ${scrapedContext}`;
 				title: requestedTitle,
 				keywords: jobData.keywords,
 				instruction: jobData.content_guide?.additional_instructions,
+				image_count: jobData.image_options?.count,
 				reference_context: referenceSection
 			}
 		});
@@ -1944,6 +1946,7 @@ ${scrapedContext}`;
 			Logger.error(`❌ JSON 파싱 실패. 원본 응답 (처음 500자):\n${preview}...`);
 			throw new Error(`JSON 파싱 에러: ${e.message}. AI 응답이 올바른 JSON 형식이 아닙니다.`);
 		}
+		validateBlogImageBlocks(parsedData.content, resolvedPrompt.image_plan);
 
 		const finalSubject = requestedTitle || parsedData.title || parsedData.subject || jobData.subject || "제목 없음";
 		const finalContent = parsedData.content || "";
@@ -2013,7 +2016,7 @@ ${scrapedContext}`;
 		const fullFileContent = `# ${finalSubject}\n${pureContent}${relatedPostsMarkdown}${hashtagLine}`;
 
 		fs.writeFileSync(path.join(targetDir, 'contents.md'), fullFileContent, 'utf-8');
-		return { targetDir, finalSubject };
+		return { targetDir, finalSubject, imagePlan: resolvedPrompt.image_plan };
 	},
 
 	/**

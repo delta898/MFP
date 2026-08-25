@@ -1381,7 +1381,7 @@ const Utils = {
                     use_external_ref: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(extRefStr.toLowerCase()),
                     image_options: {
                         generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
-                        count: parseInt(imgCountStr) || 4
+                        count: imgCountStr ? Number(imgCountStr) : undefined
                     }
                 };
             });
@@ -1485,7 +1485,7 @@ const Utils = {
                         },
                         status: status || '',
                         image_gen: resolvedState.imageGeneration,
-                        image_count: parseInt(imgCountStr, 10) || (resolvedState.options.image_count !== undefined ? parseInt(resolvedState.options.image_count, 10) : 4),
+                        image_count: imgCountStr ? Number(imgCountStr) : resolvedState.imageCount,
                         external_reference: resolvedState.externalReference,
                         writing_strategy: resolvedState.writingStrategy,
                         options: resolvedState.options,
@@ -2329,6 +2329,7 @@ const Utils = {
                 else if (clean.includes('외부참고') || clean.includes('extref') || clean.includes('external')) map.extRef = i;
                 else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
+                else if (clean.includes('이미지개수') || clean.includes('imagecount')) map.imgCount = i;
                 else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
                 else if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
                 else if (clean === '소스' || clean.includes('source')) map.source = i;
@@ -2449,6 +2450,7 @@ const Utils = {
                     postStatus: rowPostStatus,
                     scheduleDate: rowScheduleDate,
                     imageGeneration: imageGenerate,
+                    imageCount: topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count,
                     externalReference,
                     writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
                     platforms: topic.platforms || topic.targets || topic.options?.platforms
@@ -2461,6 +2463,10 @@ const Utils = {
                 if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
                 if (map.status !== undefined) row[map.status] = rowStatus;
                 if (map.imgGen !== undefined) row[map.imgGen] = imageGenerate ? 'Yes' : 'No';
+                if (map.imgCount !== undefined) {
+                    const imageCount = topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count;
+                    row[map.imgCount] = imageCount === undefined || imageCount === null ? '' : imageCount;
+                }
                 if (map.addedAt !== undefined) row[map.addedAt] = addedAtValue;
                 if (map.source !== undefined) row[map.source] = sourceValue;
                 if (map.trendDate !== undefined) row[map.trendDate] = trendDateValue;

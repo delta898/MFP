@@ -2,6 +2,7 @@ const { buildBlogSystemPrompt } = require('./blog-prompt');
 const { projectWritingProfile } = require('./writing-profile-projection');
 const { buildBlogWritingProfilePromptFromProjection } = require('./writing-profile-prompt');
 const { resolveWritingStrategy } = require('./writing-strategy');
+const { resolveImagePlan, buildBlogImagePlanPrompt } = require('./blog-image-plan');
 
 function normalizeText(value) {
     return String(value || '').trim();
@@ -51,6 +52,11 @@ function buildBlogGenerationPrompt(options = {}) {
         fileSystem: options.fileSystem
     });
     const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection);
+    const imagePlan = resolveImagePlan({
+        post_count: options.post?.image_count,
+        blog_profile: projection.channel
+    });
+    const imagePlanPrompt = buildBlogImagePlanPrompt(imagePlan);
     const postInputPrompt = buildBlogPostInputPrompt(options.post);
 
     return {
@@ -58,8 +64,10 @@ function buildBlogGenerationPrompt(options = {}) {
         projection,
         contract_and_strategy_prompt: contractAndStrategyPrompt,
         profile_prompt: profilePrompt,
+        image_plan: imagePlan,
+        image_plan_prompt: imagePlanPrompt,
         post_input_prompt: postInputPrompt,
-        prompt: `${contractAndStrategyPrompt}\n\n${profilePrompt}\n\n${postInputPrompt}`
+        prompt: `${contractAndStrategyPrompt}\n\n${profilePrompt}\n\n${imagePlanPrompt}\n\n${postInputPrompt}`
     };
 }
 
