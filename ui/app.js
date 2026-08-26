@@ -46,6 +46,7 @@
 // @include scripts/features/content/shopping-items.js
 // @include scripts/features/content/blog-batch.js
 // @include scripts/features/settings/writing-preferences.js
+// @include scripts/features/settings/writing-profile-settings.js
 // @include scripts/features/settings/buffer.js
 // @include scripts/features/settings/sns-runtime.js
 // @include scripts/features/settings/major-form.js

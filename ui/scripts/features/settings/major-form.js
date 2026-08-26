@@ -100,8 +100,10 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(wordpressUrlEl, fields.WORDPRESS_URL || '');
   sv(wordpressUserIdEl, fields.WORDPRESS_USER_ID || '');
   sv(wordpressAppPasswordEl, fields.WORDPRESS_APP_PASSWORD || '');
-  setSelectedSettingsRadioValue('settings-blog-writing-mode', fields.BLOG_WRITING_MODE, 'conversational');
-  setSelectedSettingsRadioValue('settings-blog-speech-level', fields.BLOG_SPEECH_LEVEL, 'polite');
+  if (!settingsWritingProfileDirty) {
+    sv(document.getElementById('settings-blog-writing-mode'), fields.BLOG_WRITING_MODE || 'conversational');
+    sv(document.getElementById('settings-blog-speech-level'), fields.BLOG_SPEECH_LEVEL || 'polite');
+  }
   setSelectedSettingsRadioValue('settings-blog-writing-strategy', fields.BLOG_WRITING_STRATEGY, 'search');
   syncSettingsBlogWritingStyleDescription();
   syncSettingsBlogWritingStrategyDescription();
@@ -315,8 +317,8 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_URL: (document.getElementById('settings-wordpress-url')?.value || '').trim(),
     WORDPRESS_USER_ID: (document.getElementById('settings-wordpress-user-id')?.value || '').trim(),
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
-    BLOG_WRITING_MODE: getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational'),
-    BLOG_SPEECH_LEVEL: getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite'),
+    BLOG_WRITING_MODE: document.getElementById('settings-blog-writing-mode')?.value || 'conversational',
+    BLOG_SPEECH_LEVEL: document.getElementById('settings-blog-speech-level')?.value || 'polite',
     BLOG_WRITING_STRATEGY: getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search'),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
@@ -604,4 +606,3 @@ function syncSettingsMcpUi() {
     previewEl.textContent = buildSettingsMcpPreviewLines().join('\n');
   }
 }
-

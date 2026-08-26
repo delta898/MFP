@@ -946,6 +946,11 @@ shopping output/factuality/safety contract
 
 ## Later Extensions
 
+- confirmed follow-up after this feature: separate manuscript image regions from actual asset generation
+  - writing profile owns whether image prompt blocks are included and, when included, their auto/fixed count
+  - each post/workflow may override with `generate`, `prompt_only`, or `none`
+  - `none` is an explicit mode, not image count `0`; legacy `generate: true/false` remains compatible
+  - quick, batch, auto, Google Sheet, prompt validation and Naver/WordPress processing must migrate together
 - named multi profiles
 - category/platform/account routing
 - profile import/export

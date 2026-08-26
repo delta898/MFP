@@ -1,0 +1,175 @@
+        <div class="card form-card settings-tab-panel writing-settings-panel" id="settings-tab-writing">
+          <div class="writing-settings-heading">
+            <div>
+              <h2>글쓰기 프로필</h2>
+              <p class="muted">한 번 저장하면 일반 블로그와 쇼핑 글 생성 전체에 적용됩니다. 글별 지시사항은 해당 글에서만 우선합니다.</p>
+            </div>
+            <div class="writing-profile-actions">
+              <button id="settings-writing-profile-refresh" class="secondary" type="button">다시 불러오기</button>
+              <button id="settings-writing-profile-save" class="primary" type="button" disabled>프로필 저장 및 적용</button>
+            </div>
+          </div>
+
+          <div class="writing-profile-selector" role="radiogroup" aria-label="사용할 글쓰기 프로필">
+            <label>
+              <input type="radio" name="settings-writing-profile-kind" value="default">
+              <span><strong>제품 기본 프로필</strong><small>BlogGenius가 제공하는 읽기 전용 기본값</small></span>
+            </label>
+            <label>
+              <input type="radio" name="settings-writing-profile-kind" value="custom">
+              <span><strong>내 프로필</strong><small>기본 프로필에서 시작해 원하는 대로 편집</small></span>
+            </label>
+          </div>
+          <div class="writing-profile-state-row">
+            <span id="settings-writing-profile-badge" class="status-badge">불러오기 전</span>
+            <span id="settings-writing-profile-status" class="muted" role="status" aria-live="polite">글쓰기 탭을 열면 프로필을 불러옵니다.</span>
+            <button id="settings-writing-profile-reset-custom" class="text-btn" type="button">내 프로필을 제품 기본값으로 초기화</button>
+          </div>
+
+          <section class="writing-settings-section">
+            <div class="writing-settings-section-title">
+              <div><h3>공통 글쓰기 성향</h3><p>블로그와 쇼핑에 함께 적용되는 문장 표현입니다.</p></div>
+            </div>
+            <div class="writing-settings-grid">
+              <label>표현 방식
+                <select id="settings-blog-writing-mode" data-writing-profile-field>
+                  <option value="conversational">구어체</option>
+                  <option value="written">문어체</option>
+                </select>
+              </label>
+              <label>높임 방식
+                <select id="settings-blog-speech-level" data-writing-profile-field>
+                  <option value="polite">존댓말</option>
+                  <option value="plain">평어</option>
+                </select>
+              </label>
+              <label>어조
+                <select id="settings-writing-tone" data-writing-profile-field>
+                  <option value="calm">차분하게</option>
+                  <option value="balanced">균형 있게</option>
+                  <option value="vivid">생동감 있게</option>
+                </select>
+              </label>
+              <label>정보 밀도
+                <select id="settings-writing-density" data-writing-profile-field>
+                  <option value="light">가볍게</option>
+                  <option value="balanced">보통</option>
+                  <option value="dense">촘촘하게</option>
+                </select>
+              </label>
+              <label class="writing-settings-wide">공통 표현 지침 <span class="field-limit">최대 500자</span>
+                <textarea id="settings-writing-common-instruction" rows="3" maxlength="500" data-writing-profile-field placeholder="예: 문단을 짧게 쓰고 전문용어는 쉬운 말로 풀어 주세요."></textarea>
+              </label>
+            </div>
+            <div id="settings-writing-common-summary" class="writing-instant-summary"></div>
+          </section>
+
+          <section class="writing-settings-section">
+            <div class="writing-settings-section-title">
+              <div><h3>블로그 글 구성</h3><p>일반 블로그 본문의 길이, 흐름, 화자와 이미지 영역을 정합니다.</p></div>
+            </div>
+            <div class="writing-settings-grid">
+              <label>본문 길이
+                <select id="settings-writing-blog-length" data-writing-profile-field>
+                  <option value="short">짧게 · 900~1,200자</option>
+                  <option value="standard">보통 · 1,500~1,800자</option>
+                  <option value="long">길게 · 2,200~2,800자</option>
+                </select>
+              </label>
+              <label>글쓴이 관점
+                <select id="settings-writing-blog-narrator" data-writing-profile-field>
+                  <option value="minimal">최소화</option>
+                  <option value="occasional">필요할 때만</option>
+                  <option value="present">적극적으로</option>
+                </select>
+              </label>
+              <label>도입 방식
+                <select id="settings-writing-blog-opening" data-writing-profile-field>
+                  <option value="direct">핵심부터</option>
+                  <option value="contextual">공감 상황부터</option>
+                  <option value="scene">장면·이야기부터</option>
+                </select>
+              </label>
+              <label>전개 방식
+                <select id="settings-writing-blog-development" data-writing-profile-field>
+                  <option value="explanatory">설명형</option>
+                  <option value="problem_solution">문제 해결형</option>
+                  <option value="experience_review">경험·리뷰형</option>
+                  <option value="comparison">비교·선택형</option>
+                </select>
+              </label>
+              <label>마무리 방식
+                <select id="settings-writing-blog-ending" data-writing-profile-field>
+                  <option value="summary">핵심 요약</option>
+                  <option value="judgment">개인적 판단</option>
+                  <option value="next_step">다음 행동 제안</option>
+                </select>
+              </label>
+              <label>소제목 밀도
+                <select id="settings-writing-blog-headings" data-writing-profile-field>
+                  <option value="sparse">적게</option>
+                  <option value="balanced">보통</option>
+                  <option value="dense">많게</option>
+                </select>
+              </label>
+              <label>이미지 영역 수
+                <select id="settings-writing-blog-image-mode" data-writing-profile-field>
+                  <option value="auto">글 길이에 맞게 자동</option>
+                  <option value="fixed">직접 지정</option>
+                </select>
+              </label>
+              <label id="settings-writing-blog-image-count-field">고정 이미지 영역
+                <select id="settings-writing-blog-image-count" data-writing-profile-field>
+                  <option value="1">1개</option><option value="2">2개</option><option value="3">3개</option>
+                  <option value="4">4개</option><option value="5">5개</option><option value="6">6개</option>
+                </select>
+              </label>
+              <label class="writing-settings-wide">글쓴이 배경 <span class="field-limit">최대 300자</span>
+                <textarea id="settings-writing-blog-author-context" rows="2" maxlength="300" data-writing-profile-field placeholder="예: 초보자 눈높이에서 디지털 도구를 소개합니다."></textarea>
+              </label>
+              <label class="writing-settings-wide">블로그 추가 작성 지침 <span class="field-limit">최대 1,000자</span>
+                <textarea id="settings-writing-blog-instruction" rows="4" maxlength="1000" data-writing-profile-field placeholder="예: 본문 끝에 실천 체크리스트를 포함해 주세요."></textarea>
+              </label>
+            </div>
+            <p class="muted writing-image-note">이미지 생성 기능을 꺼도 원고의 이미지 영역과 프롬프트는 유지됩니다. 글별 이미지 개수를 지정하면 이 설정보다 우선합니다.</p>
+            <div id="settings-writing-blog-summary" class="writing-instant-summary"></div>
+          </section>
+
+          <section class="writing-settings-section writing-reference-ready">
+            <div class="writing-settings-section-title">
+              <div><h3>블로그 참고 문체</h3><p>참고 문장과 블로그 URL 분석은 다음 개발 단계에서 활성화됩니다.</p></div>
+              <span class="status-badge">준비 중</span>
+            </div>
+            <textarea rows="3" disabled placeholder="참고할 문장, 문단 또는 글 전체"></textarea>
+            <div class="writing-reference-url-grid">
+              <input type="url" disabled placeholder="참고 블로그 URL 1">
+              <input type="url" disabled placeholder="참고 블로그 URL 2">
+              <input type="url" disabled placeholder="참고 블로그 URL 3">
+            </div>
+          </section>
+
+          <section class="writing-settings-section">
+            <div class="writing-settings-section-title">
+              <div><h3>쇼핑 글 구성</h3><p>상품 사실성, 출력 구조, FTC·CTA·상품 이미지 정책은 제품 기본값으로 보호됩니다.</p></div>
+              <span class="status-badge success">제품 기본 쇼핑 구성 유지</span>
+            </div>
+            <label class="writing-settings-wide">쇼핑 추가 작성 지침 <span class="field-limit">최대 1,000자</span>
+              <textarea id="settings-writing-shopping-instruction" rows="4" maxlength="1000" data-writing-profile-field placeholder="예: 배송 조건과 추천 대상을 먼저 설명해 주세요."></textarea>
+            </label>
+            <div id="settings-writing-shopping-summary" class="writing-instant-summary"></div>
+          </section>
+
+          <section class="writing-settings-section writing-strategy-section">
+            <div class="writing-settings-section-title">
+              <div><h3>글 작성 전략</h3><p>프로필과 별개인 전역 전략입니다. 변경 후 설정 상단의 ‘저장 및 적용’을 눌러 주세요.</p></div>
+            </div>
+            <div class="settings-segmented-control" role="radiogroup" aria-label="블로그 글 작성 기본 전략">
+              <label><input id="settings-blog-writing-strategy-search" type="radio" name="settings-blog-writing-strategy" value="search"><span>검색 중심</span></label>
+              <label><input id="settings-blog-writing-strategy-discovery" type="radio" name="settings-blog-writing-strategy" value="discovery"><span>발견 중심 (피드)</span></label>
+            </div>
+            <div id="settings-blog-writing-strategy-description" class="settings-writing-style-description" aria-live="polite">
+              <span class="settings-writing-style-label">작성 방향</span>
+              <strong>검색 의도와 핵심 정보를 명확하게 전달합니다.</strong>
+            </div>
+          </section>
+        </div>

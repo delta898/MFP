@@ -22,7 +22,7 @@ function activateShoppingTab(tabName, options = {}) {
 }
 
 function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'mcp', 'naver-blog', 'shopping-connect', 'sns', 'notification', 'ai'];
+  const allowed = ['general', 'mcp', 'writing', 'naver-blog', 'shopping-connect', 'sns', 'notification', 'ai'];
   const requested = allowed.includes(String(tabName)) ? String(tabName) : 'general';
   const target = requested === 'mcp' ? 'ai' : requested;
   settingsActiveTab = target;
@@ -34,5 +34,7 @@ function activateSettingsTab(tabName, options = {}) {
   if (target === 'naver-blog' && options.forceReload !== false) {
     void loadNaverSessionStatus();
   }
+  if (target === 'writing' && options.forceReload !== false) {
+    void loadSettingsWritingProfile();
+  }
 }
-

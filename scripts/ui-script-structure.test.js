@@ -75,6 +75,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/content/shopping-items.js',
         'scripts/features/content/blog-batch.js',
         'scripts/features/settings/writing-preferences.js',
+        'scripts/features/settings/writing-profile-settings.js',
         'scripts/features/settings/buffer.js',
         'scripts/features/settings/sns-runtime.js',
         'scripts/features/settings/major-form.js',

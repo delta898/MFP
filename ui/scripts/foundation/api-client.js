@@ -38,6 +38,25 @@ async function postJson(url, payload) {
   return body.data;
 }
 
+async function putJson(url, payload) {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {})
+  });
+  const body = await readJsonResponseSafely(res);
+  if (!res.ok || !body.success) {
+    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = body?.error?.code || '';
+    err.method = 'PUT';
+    err.url = url;
+    notifyUiIssueFromError(err, { method: 'PUT', url });
+    throw err;
+  }
+  return body.data;
+}
+
 async function readJsonResponseSafely(res) {
   const text = await res.text();
   if (!text) return {};
@@ -48,4 +67,3 @@ async function readJsonResponseSafely(res) {
     return {};
   }
 }
-

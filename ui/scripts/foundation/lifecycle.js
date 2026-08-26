@@ -1,11 +1,12 @@
 window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', (event) => {
-    if (!settingsMajorHasPendingBasicChanges) return;
+    if (!settingsMajorHasPendingBasicChanges && !settingsWritingProfileDirty) return;
     event.preventDefault();
     event.returnValue = '';
   });
 
   try { initManagedSettingsSecretFields(); } catch (e) { console.warn('initManagedSettingsSecretFields error:', e); }
+  try { initSettingsWritingProfileUi(); } catch (e) { console.warn('initSettingsWritingProfileUi error:', e); }
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();

@@ -30,8 +30,8 @@ function setSelectedSettingsRadioValue(name, value, fallback) {
 }
 
 function syncSettingsBlogWritingStyleDescription() {
-  const writingMode = getSelectedSettingsRadioValue('settings-blog-writing-mode', 'conversational');
-  const speechLevel = getSelectedSettingsRadioValue('settings-blog-speech-level', 'polite');
+  const writingMode = document.getElementById('settings-blog-writing-mode')?.value || 'conversational';
+  const speechLevel = document.getElementById('settings-blog-speech-level')?.value || 'polite';
   const preview = BLOG_WRITING_STYLE_PREVIEWS[`${writingMode}:${speechLevel}`]
     || BLOG_WRITING_STYLE_PREVIEWS['conversational:polite'];
   const descriptionTarget = document.querySelector('#settings-blog-writing-style-description strong');
@@ -63,4 +63,3 @@ function syncSettingsBlogWritingStrategyDescription() {
   }
   syncWritingStrategyInheritanceLabels();
 }
-

@@ -1,0 +1,187 @@
+.writing-settings-panel {
+  gap: 18px;
+}
+
+.writing-settings-heading,
+.writing-settings-section-title,
+.writing-profile-state-row,
+.writing-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.writing-settings-heading,
+.writing-settings-section-title {
+  justify-content: space-between;
+}
+
+.writing-settings-heading h2,
+.writing-settings-section-title h3,
+.writing-settings-heading p,
+.writing-settings-section-title p {
+  margin: 0;
+}
+
+.writing-settings-heading p,
+.writing-settings-section-title p {
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.writing-profile-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.writing-profile-selector > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-solid);
+  cursor: pointer;
+}
+
+.writing-profile-selector > label:has(input:checked) {
+  border-color: var(--brand-primary);
+  background: var(--brand-light);
+}
+
+.writing-profile-selector input {
+  margin-top: 3px;
+}
+
+.writing-profile-selector span,
+.writing-profile-selector small {
+  display: block;
+}
+
+.writing-profile-selector small {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.writing-profile-state-row {
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+.writing-profile-state-row .text-btn {
+  margin-left: auto;
+}
+
+.writing-settings-section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-solid);
+}
+
+.writing-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.writing-settings-grid > label,
+.writing-settings-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.writing-settings-wide {
+  grid-column: 1 / -1;
+}
+
+.writing-settings-section textarea,
+.writing-settings-section select,
+.writing-settings-section input[type="url"] {
+  width: 100%;
+}
+
+.writing-settings-section textarea {
+  resize: vertical;
+}
+
+.field-limit {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.status-badge.warning {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.writing-instant-summary {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg-gradient);
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.writing-image-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+
+.writing-reference-ready textarea,
+.writing-reference-url-grid input {
+  margin-top: 12px;
+}
+
+.writing-reference-url-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.writing-strategy-section .settings-segmented-control {
+  margin-top: 14px;
+  max-width: 560px;
+}
+
+.writing-strategy-section .settings-writing-style-description {
+  margin-top: 12px;
+}
+
+#settings-writing-blog-image-count-field.is-muted {
+  opacity: 0.6;
+}
+
+@media (max-width: 760px) {
+  .writing-settings-heading,
+  .writing-settings-section-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .writing-profile-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .writing-profile-selector,
+  .writing-settings-grid,
+  .writing-reference-url-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-profile-state-row .text-btn {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+}
