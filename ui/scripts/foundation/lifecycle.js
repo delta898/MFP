@@ -247,6 +247,16 @@ function initKeywordResearchModal() {
     if (isLoading && keywordModalContent) keywordModalContent.innerHTML = '';
   };
 
+  const focusKeywordTitleResults = () => {
+    const target = document.getElementById('keyword-title-results');
+    if (!target || !keywordModal.contains(target)) return;
+    requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+      target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    });
+  };
+
   const openKeywordModal = () => {
     const currentSubject = (document.getElementById('quick-subject')?.value || '').trim();
     const currentKeywords = (document.getElementById('quick-keywords')?.value || '').trim();
@@ -427,7 +437,8 @@ function initKeywordResearchModal() {
     // 3. AI title results are generated only after the user confirms selected keywords.
     if (titles.length > 0) {
       html += `
-        <div class="keyword-section-title">✨ AI SEO 추천 제목 (3종)</div>
+        <section id="keyword-title-results" class="keyword-title-results" tabindex="-1" aria-labelledby="keyword-title-results-heading">
+        <div id="keyword-title-results-heading" class="keyword-section-title">✨ AI SEO 추천 제목 (3종)</div>
         <div class="title-suggestions-grid">
       `;
 
@@ -451,7 +462,7 @@ function initKeywordResearchModal() {
         `;
       });
 
-      html += `</div>`;
+      html += `</div></section>`;
     }
 
     keywordModalContent.innerHTML = html;
@@ -514,6 +525,7 @@ function initKeywordResearchModal() {
     keywordModalState.titleRequestId = requestId;
     keywordModalState.isGeneratingTitles = true;
     renderKeywordAnalysisResult();
+    let shouldFocusTitleResults = false;
     try {
       const result = await postJson('/api/v1/keywords/suggest-titles', {
         subject,
@@ -524,6 +536,7 @@ function initKeywordResearchModal() {
       });
       if (keywordModalState.titleRequestId === requestId) {
         keywordModalState.titles = Array.isArray(result?.titles) ? result.titles : [];
+        shouldFocusTitleResults = keywordModalState.titles.length > 0;
         keywordModalState.smartUsageSessionId = result?.smart_usage_session_id || keywordModalState.smartUsageSessionId;
         applySmartUsageUpdate(result?.smart_usage);
       }
@@ -535,6 +548,7 @@ function initKeywordResearchModal() {
       if (keywordModalState.titleRequestId === requestId) {
         keywordModalState.isGeneratingTitles = false;
         renderKeywordAnalysisResult();
+        if (shouldFocusTitleResults) focusKeywordTitleResults();
       }
     }
   };
