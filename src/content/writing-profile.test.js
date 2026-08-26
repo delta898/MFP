@@ -119,6 +119,9 @@ test('style reference normalization keeps bounded allowlisted data', () => {
                         voice: { warmth: 'warm', rhetorical_devices: ['light_question'] },
                         avoid: ['long_preface'],
                         summary: '짧고 따뜻한 설명'
+                    },
+                    analyzer_model: {
+                        provider: 'GOOGLE', code: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash'
                     }
                 }
             }
@@ -133,4 +136,7 @@ test('style reference normalization keeps bounded allowlisted data', () => {
     assert.equal(references.fingerprint.surface.writing_mode, 'written');
     assert.equal(references.fingerprint.settings.length_preset, 'long');
     assert.deepEqual(references.fingerprint.structure.section_flow, ['information', 'tip']);
+    assert.deepEqual(references.analyzer_model, {
+        provider: 'google', code: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash'
+    });
 });

@@ -75,6 +75,7 @@ test('writing settings exposes a minimal profile surface', () => {
 
 test('writing profile UI uses the dedicated API and joins the global settings save lifecycle', () => {
     const script = read('ui/scripts/features/settings/writing-profile-settings.js');
+    const writing = read('ui/partials/views/settings/writing.html');
     assert.match(script, /fetchJson\('\/api\/v1\/settings\/writing-profile'\)/);
     assert.match(script, /putJson\('\/api\/v1\/settings\/writing-profile'/);
     assert.doesNotMatch(script, /renderSettingsWritingSummaries/);
@@ -95,6 +96,15 @@ test('writing profile UI uses the dedicated API and joins the global settings sa
     assert.match(script, /result\.fingerprint\.settings\.ending/);
     assert.match(script, /current\.common\.writing_strategy = getSelectedSettingsRadioValue/);
     assert.match(script, /이전 분석 결과는 그대로 보존/);
+    assert.match(script, /const inputMethod = getSelectedSettingsRadioValue\('settings-writing-reference-input-method', 'text'\)/);
+    assert.match(script, /분석으로 자동 설정된 문체·길이·구성 값은 지우지 않습니다/);
+    assert.match(script, /confirmText: '지우기'/);
+    assert.match(script, /setSelectedSettingsRadioValue\('settings-writing-reference-input-method', inputMethod, 'text'\)/);
+    assert.match(script, /line\.title = line\.textContent/);
+    assert.match(script, /timeZone: 'Asia\/Seoul'/);
+    assert.match(script, /return `\$\{formatted\} KST`/);
+    assert.match(script, /AI 모델: \$\{formatSettingsWritingAnalyzerModel\(refs\.analyzer_model\)\}/);
+    assert.match(script, /'이전 AI 분석결과' : 'AI 분석결과'/);
     assert.match(script, /writing-profile\/preview/);
     assert.match(script, /샘플 \$\{result\.sample_length\}자/);
     assert.match(script, /addEventListener\('click', generateSettingsWritingPreview\)/);
@@ -118,6 +128,11 @@ test('writing profile UI uses the dedicated API and joins the global settings sa
     assert.match(styles, /\.writing-settings-section textarea,[\s\S]*font-size: 13px;[\s\S]*font-weight: 400;/);
     assert.match(styles, /button\.is-loading::before/);
     assert.match(styles, /@keyframes writing-preview-spin/);
+    assert.match(styles, /\.writing-operation-status\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?overflow-wrap:\s*anywhere;/);
+    assert.match(styles, /#settings-writing-reference-status\s*\{[\s\S]*?align-self:\s*center;/);
+    assert.match(styles, /\.writing-reference-status-list > div\s*\{[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/);
+    assert.match(writing, /id="settings-writing-reference-status" class="writing-operation-status"/);
+    assert.match(writing, /id="settings-writing-preview-status" class="writing-operation-status"/);
 });
 
 test('individual blog writing screens expose one shared three-state image mode', () => {

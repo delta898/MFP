@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "profile_version": 3,
   "id": "product-default",
   "label": "기본 프로필",
@@ -41,7 +41,8 @@
           "fingerprint": null,
           "fingerprint_input_hash": null,
           "analyzed_at": null,
-          "analyzer_version": null
+          "analyzer_version": null,
+          "analyzer_model": null
         }
       },
       "shopping": {

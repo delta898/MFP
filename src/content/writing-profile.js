@@ -1,6 +1,6 @@
 const defaultProfileDocument = require('../config/default_content_writing_profile.json');
 
-const CONTENT_WRITING_PROFILE_SCHEMA_VERSION = 3;
+const CONTENT_WRITING_PROFILE_SCHEMA_VERSION = 4;
 
 const PROFILE_LIMITS = Object.freeze({
     commonStyleInstruction: 500,
@@ -143,6 +143,7 @@ function normalizeStyleReferences(input) {
         }
     }
 
+    const analyzerModel = isRecord(source.analyzer_model) ? source.analyzer_model : {};
     return {
         sample_text: {
             value: normalizeText(sampleText.value).slice(0, PROFILE_LIMITS.sampleText),
@@ -152,7 +153,14 @@ function normalizeStyleReferences(input) {
         fingerprint: normalizeFingerprint(source.fingerprint),
         fingerprint_input_hash: normalizeNullableText(source.fingerprint_input_hash, PROFILE_LIMITS.referenceMetadata),
         analyzed_at: normalizeNullableText(source.analyzed_at, PROFILE_LIMITS.referenceMetadata),
-        analyzer_version: normalizeNullableText(source.analyzer_version, PROFILE_LIMITS.referenceMetadata)
+        analyzer_version: normalizeNullableText(source.analyzer_version, PROFILE_LIMITS.referenceMetadata),
+        analyzer_model: Object.keys(analyzerModel).length > 0
+            ? {
+                provider: normalizeText(analyzerModel.provider).toLowerCase().slice(0, 80),
+                code: normalizeText(analyzerModel.code).slice(0, 120),
+                name: normalizeText(analyzerModel.name).slice(0, 120)
+            }
+            : null
     };
 }
 
@@ -345,6 +353,17 @@ function validateWritingProfile(input = {}) {
     pushTextLimitError(errors, styleReferences.fingerprint_input_hash, 'channels.blog.style_references.fingerprint_input_hash', PROFILE_LIMITS.referenceMetadata);
     pushTextLimitError(errors, styleReferences.analyzed_at, 'channels.blog.style_references.analyzed_at', PROFILE_LIMITS.referenceMetadata);
     pushTextLimitError(errors, styleReferences.analyzer_version, 'channels.blog.style_references.analyzer_version', PROFILE_LIMITS.referenceMetadata);
+    if (styleReferences.analyzer_model !== null && styleReferences.analyzer_model !== undefined && !isRecord(styleReferences.analyzer_model)) {
+        errors.push({
+            path: 'channels.blog.style_references.analyzer_model',
+            code: 'INVALID_TYPE',
+            message: 'channels.blog.style_references.analyzer_model 값은 객체 또는 null이어야 합니다.'
+        });
+    } else if (isRecord(styleReferences.analyzer_model)) {
+        pushTextLimitError(errors, styleReferences.analyzer_model.provider, 'channels.blog.style_references.analyzer_model.provider', 80);
+        pushTextLimitError(errors, styleReferences.analyzer_model.code, 'channels.blog.style_references.analyzer_model.code', 120);
+        pushTextLimitError(errors, styleReferences.analyzer_model.name, 'channels.blog.style_references.analyzer_model.name', 120);
+    }
     if (styleReferences.fingerprint !== undefined && styleReferences.fingerprint !== null && !isRecord(styleReferences.fingerprint)) {
         errors.push({
             path: 'channels.blog.style_references.fingerprint',

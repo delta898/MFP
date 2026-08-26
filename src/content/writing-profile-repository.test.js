@@ -144,7 +144,7 @@ test('corrupt and unsupported files fall back to product default without overwri
 test('structurally incomplete selected custom profile falls back to product default', () => {
     const { filePath, repository } = createTempRepository();
     fs.writeFileSync(filePath, JSON.stringify({
-        schema_version: 3,
+        schema_version: 4,
         active_profile: 'custom',
         custom_profile: { based_on_default_version: 1, common: {} }
     }), 'utf8');

@@ -120,7 +120,11 @@ function createSettingsService(deps = {}) {
         const runtimeUtils = Utils || require('../../utils');
         writingReferenceAnalyzer = createStyleReferenceAnalyzer({
             fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
-            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils)
+            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils),
+            getWritingModelInfo: () => {
+                const model = (CONFIG || {}).TEXT_MODEL_CONFIG || {};
+                return { provider: model.provider, code: model.code, name: model.name };
+            }
         });
         return writingReferenceAnalyzer;
     }
@@ -212,7 +216,8 @@ function createSettingsService(deps = {}) {
                 fingerprint: null,
                 fingerprint_input_hash: null,
                 analyzed_at: null,
-                analyzer_version: null
+                analyzer_version: null,
+                analyzer_model: null
             };
             const result = getWritingProfileRepository().save({
                 active_profile: current.document.active_profile,

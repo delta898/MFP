@@ -61,6 +61,18 @@ function parsePublicHttpsUrl(rawUrl) {
     return parsed;
 }
 
+function normalizeNaverBlogPostUrl(parsedUrl) {
+    const parsed = new URL(parsedUrl.toString());
+    const hostname = parsed.hostname.toLowerCase();
+    if (!['blog.naver.com', 'm.blog.naver.com'].includes(hostname)) return parsed;
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    const isPostView = /^postview\.(?:naver|nhn)$/i.test(segments[0] || '');
+    const blogId = isPostView ? String(parsed.searchParams.get('blogId') || '').trim() : String(segments[0] || '').trim();
+    const logNo = isPostView ? String(parsed.searchParams.get('logNo') || '').trim() : String(segments[1] || '').trim();
+    if (!/^[a-z0-9_.-]{1,80}$/i.test(blogId) || !/^\d{6,20}$/.test(logNo)) return parsed;
+    return new URL(`https://m.blog.naver.com/${encodeURIComponent(blogId)}/${logNo}`);
+}
+
 async function resolvePublicAddresses(hostname, lookup = dns.promises.lookup) {
     const results = await lookup(hostname, { all: true, verbatim: true });
     const entries = Array.isArray(results) ? results : [results];
@@ -73,8 +85,10 @@ async function resolvePublicAddresses(hostname, lookup = dns.promises.lookup) {
 function extractReadableHtml(html, cheerio) {
     const $ = cheerio.load(String(html || ''));
     $('script,style,noscript,template,form,iframe,svg,canvas,nav,footer,header,aside').remove();
-    const title = $('title').first().text().replace(/\s+/g, ' ').trim().slice(0, 200);
-    const root = $('article').first().length ? $('article').first() : ($('main').first().length ? $('main').first() : $('body'));
+    const title = String($('meta[property="og:title"]').attr('content') || $('.se-title-text').first().text() || $('title').first().text())
+        .replace(/\s+/g, ' ').trim().slice(0, 200);
+    const roots = ['.se-main-container', '#postViewArea', '.post_ct', 'article', 'main', 'body'];
+    const root = roots.map((selector) => $(selector).first()).find((entry) => entry.length) || $('body');
     const text = root.text().replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
     return { title, text: text.slice(0, MAX_STYLE_REFERENCE_TEXT) };
 }
@@ -84,7 +98,7 @@ function createStyleReferenceFetcher(options = {}) {
     if (!axios || !cheerio) throw new Error('style reference fetcher dependencies are required.');
 
     return async function fetchStyleReference(rawUrl) {
-        let current = parsePublicHttpsUrl(rawUrl);
+        let current = normalizeNaverBlogPostUrl(parsePublicHttpsUrl(rawUrl));
         for (let redirectCount = 0; redirectCount <= MAX_STYLE_REFERENCE_REDIRECTS; redirectCount += 1) {
             const hostname = current.hostname.replace(/^\[|\]$/g, '');
             const approvedAddresses = await resolvePublicAddresses(hostname, lookup);
@@ -146,6 +160,7 @@ module.exports = {
     MAX_STYLE_REFERENCE_BYTES,
     MAX_STYLE_REFERENCE_TEXT,
     parsePublicHttpsUrl,
+    normalizeNaverBlogPostUrl,
     isPrivateIp,
     resolvePublicAddresses,
     extractReadableHtml,

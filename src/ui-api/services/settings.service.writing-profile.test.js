@@ -21,11 +21,34 @@ function createHarness(options = {}) {
     };
     const service = createSettingsService({
         fs, path, CONFIG,
+        Utils: options.Utils,
         styleReferenceAnalyzer: options.styleReferenceAnalyzer,
         writingProfilePreviewService: options.writingProfilePreviewService
     });
     return { CONFIG, service };
 }
+
+test('settings reference analyzer records the actual configured Writing Model', async () => {
+    const { CONFIG, service } = createHarness({
+        Utils: {
+            callWritingText: async () => JSON.stringify({
+                surface: { writing_mode: 'written', speech_level: 'polite', tone: 'calm', information_density: 'balanced' },
+                settings: { length_preset: 'standard', opening: 'contextual', development: 'explanatory', ending: 'summary', heading_density: 'balanced' },
+                structure: { opening_pattern: 'short_context_then_topic', section_flow: ['information'], paragraph_length: 'medium', ending_pattern: 'short_summary' },
+                voice: { sentence_rhythm: 'medium', warmth: 'neutral', vocabulary: 'balanced', rhetorical_devices: [] },
+                avoid: []
+            })
+        }
+    });
+    CONFIG.TEXT_MODEL_CONFIG = {
+        provider: 'google', code: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash'
+    };
+
+    const result = await service.analyzeWritingProfileReferences({ sample_text: '분석할 참고 문장', blog_urls: [] });
+
+    assert.deepEqual(result.analyzer_model, CONFIG.TEXT_MODEL_CONFIG);
+    assert.match(result.fingerprint.summary, /설명형으로 전개/);
+});
 
 function createCustomProfile() {
     const profile = getDefaultContentWritingProfile();
@@ -105,11 +128,13 @@ test('settings service analyzes reference drafts without persisting and deletion
                 summary: '분석 요약'
             },
             fingerprint_input_hash: 'hash',
-            analyzed_at: '2026-08-26T00:00:00.000Z', analyzer_version: 'v1'
+            analyzed_at: '2026-08-26T00:00:00.000Z', analyzer_version: 'v1',
+            analyzer_model: { provider: 'google', code: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' }
         })
     });
     const analyzed = await service.analyzeWritingProfileReferences({ sample_text: '참고', blog_urls: [] });
     assert.equal(analyzed.fingerprint.summary, '분석 요약');
+    assert.equal(analyzed.analyzer_model.code, 'gemini-3.6-flash');
     assert.equal((await service.getWritingProfile()).custom_profile, null);
 
     const custom = createCustomProfile();
@@ -120,6 +145,9 @@ test('settings service analyzes reference drafts without persisting and deletion
         structure: { opening_pattern: 'answer_first', section_flow: ['information'], paragraph_length: 'short', ending_pattern: 'short_summary' },
         voice: { sentence_rhythm: 'short', warmth: 'neutral', vocabulary: 'balanced', rhetorical_devices: [] },
         avoid: [], summary: '분석 요약'
+    };
+    custom.channels.blog.style_references.analyzer_model = {
+        provider: 'google', code: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash'
     };
     await service.saveWritingProfile({ active_profile: 'custom', custom_profile: custom });
     const deleted = await service.deleteWritingProfileReferences();

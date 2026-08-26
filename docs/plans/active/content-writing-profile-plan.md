@@ -469,7 +469,8 @@ fingerprint에는 분석에 사용한 정규화된 source들의 hash를 함께 �
           "fingerprint": null,
           "fingerprint_input_hash": null,
           "analyzed_at": null,
-          "analyzer_version": null
+          "analyzer_version": null,
+          "analyzer_model": null
         }
       },
       "shopping": {

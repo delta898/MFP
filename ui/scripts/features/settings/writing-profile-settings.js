@@ -164,6 +164,26 @@ function syncSettingsWritingReferenceCounter() {
   counter.textContent = `선택 · ${Math.max(0, maximum - input.value.length).toLocaleString('ko-KR')}자 남음`;
 }
 
+function formatSettingsWritingAnalysisTime(value) {
+  const date = new Date(String(value || ''));
+  if (Number.isNaN(date.getTime())) return '-';
+  const formatted = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23'
+  }).format(date);
+  return `${formatted} KST`;
+}
+
+function formatSettingsWritingAnalyzerModel(model) {
+  const name = String(model?.name || '').trim();
+  const code = String(model?.code || '').trim();
+  const provider = String(model?.provider || '').trim();
+  if (name && code && name !== code) return `${name} (${code})`;
+  return name || code || provider || '기록 없음';
+}
+
 function renderSettingsWritingReferenceState() {
   const profile = getVisibleSettingsWritingProfile();
   const refs = profile?.channels?.blog?.style_references;
@@ -178,16 +198,17 @@ function renderSettingsWritingReferenceState() {
   const analyzed = Boolean(refs.fingerprint) && hasAnalyzedSource && !stale;
   const missingSource = Boolean(refs.fingerprint) && statuses.length === 0;
   if (status) {
+    const completedMetadata = `분석 완료 · ${formatSettingsWritingAnalysisTime(refs.analyzed_at)} · AI 모델: ${formatSettingsWritingAnalyzerModel(refs.analyzer_model)}`;
     status.textContent = missingSource
       ? '참고할 글을 입력한 뒤 다시 분석해 주세요.'
       : stale
       ? '참고 글이 변경되었습니다. 다시 분석해 주세요.'
-      : (analyzed ? `분석 완료 · ${refs.analyzed_at || '-'}` : (failed ? '참고 글을 분석하지 못했습니다.' : ''));
+      : (analyzed ? completedMetadata : (failed ? '참고 글을 분석하지 못했습니다.' : ''));
   }
   if (summary) {
     summary.hidden = !refs.fingerprint;
     summary.textContent = refs.fingerprint
-      ? `${stale || missingSource ? '이전 분석 결과' : '분석 결과'}: ${refs.fingerprint.summary}`
+      ? `${stale || missingSource ? '이전 AI 분석결과' : 'AI 분석결과'}: ${refs.fingerprint.summary}`
       : '';
   }
   if (urlStatus) {
@@ -195,6 +216,7 @@ function renderSettingsWritingReferenceState() {
       const line = document.createElement('div');
       const label = { analyzed: '분석됨', failed: '실패', stale: '재분석 필요', pending: '분석 대기' }[entry.status] || entry.status;
       line.textContent = `${label} · ${entry.title || entry.url}${entry.error ? ` · ${entry.error}` : ''}`;
+      line.title = line.textContent;
       return line;
     }));
   }
@@ -291,19 +313,22 @@ async function analyzeSettingsWritingReferences() {
 
 async function clearSettingsWritingReferences() {
   if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
+  const inputMethod = getSelectedSettingsRadioValue('settings-writing-reference-input-method', 'text');
   const confirmed = await showUiDialog({
     title: '참고 글 지우기',
-    message: '참고 글과 분석 결과를 지울까요? 현재 설정값은 그대로 유지됩니다.',
+    message: '입력한 글 또는 URL과 해당 글의 분석 정보만 지웁니다. 분석으로 자동 설정된 문체·길이·구성 값은 지우지 않습니다.',
     showCancel: true,
-    confirmText: '삭제',
+    confirmText: '지우기',
     cancelText: '취소'
   });
   if (!confirmed) return;
   settingsWritingProfileDraft.custom_profile.channels.blog.style_references = {
     sample_text: { value: '', status: 'empty' }, blog_urls: [], fingerprint: null,
-    fingerprint_input_hash: null, analyzed_at: null, analyzer_version: null
+    fingerprint_input_hash: null, analyzed_at: null, analyzer_version: null, analyzer_model: null
   };
   renderSettingsWritingProfile();
+  setSelectedSettingsRadioValue('settings-writing-reference-input-method', inputMethod, 'text');
+  syncSettingsWritingReferenceInputMethodUi();
   syncSettingsWritingProfileDirty();
 }
 

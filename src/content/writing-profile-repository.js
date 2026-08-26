@@ -46,7 +46,8 @@ const PROFILE_SHAPE = Object.freeze({
                 fingerprint: true,
                 fingerprint_input_hash: true,
                 analyzed_at: true,
-                analyzer_version: true
+                analyzer_version: true,
+                analyzer_model: true
             }
         },
         shopping: {
@@ -61,6 +62,12 @@ const REFERENCE_URL_SHAPE = Object.freeze({
     status: true,
     title: true,
     error: true
+});
+
+const ANALYZER_MODEL_SHAPE = Object.freeze({
+    provider: true,
+    code: true,
+    name: true
 });
 
 const FINGERPRINT_SHAPE = Object.freeze({
@@ -154,6 +161,13 @@ function validateCustomProfileSnapshot(customProfile) {
     }
     errors.push(...validateExactShape(profile, PROFILE_SHAPE));
     const styleReferences = profile?.channels?.blog?.style_references;
+    if (styleReferences?.analyzer_model !== null && styleReferences?.analyzer_model !== undefined) {
+        errors.push(...validateExactShape(
+            styleReferences.analyzer_model,
+            ANALYZER_MODEL_SHAPE,
+            'custom_profile.channels.blog.style_references.analyzer_model'
+        ));
+    }
     if (Array.isArray(styleReferences?.blog_urls)) {
         styleReferences.blog_urls.forEach((entry, index) => {
             errors.push(...validateExactShape(

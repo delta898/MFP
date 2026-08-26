@@ -75,10 +75,15 @@ Quick, batch and automatic shopping all converge on `ShoppingManager.buildPostFr
 ## Style References
 
 Profile reference input is separate from per-post factual `reference_urls`.
+Public Naver Blog post URLs are normalized to their mobile post form before extraction because the
+desktop share URL serves an iframe shell rather than the article body. The normalized destination is
+subject to the same HTTPS, public-DNS, redirect and response-size checks as every other reference URL.
 
 - Input is exactly one method: one bounded pasted text or one public HTTPS blog URL.
 - URL fetching rejects credentials, private/loopback/link-local destinations, unsafe redirects, non-HTML and oversized responses.
 - The configured Writing Model produces an allowlisted structural and voice fingerprint.
+- AI analysis uses minimal reasoning and a constrained JSON schema without an arbitrary fixed output-token cap. A malformed response receives one format-repair attempt.
+- The analysis summary names the selected development pattern. Completion metadata stores the actual Writing Model provider, code and display name; the UI renders the completion timestamp in KST.
 - Raw text and fetched pages are never passed to ordinary generation.
 - Failed or stale analysis may preserve the previous fingerprint for display, but only a current result with an analyzed source is applied.
 - Reference analysis never infers gender, age, occupation or other persona attributes.

@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const cheerio = require('cheerio');
-const { parsePublicHttpsUrl, isPrivateIp, createStyleReferenceFetcher } = require('./style-reference-fetcher');
+const {
+    parsePublicHttpsUrl,
+    normalizeNaverBlogPostUrl,
+    isPrivateIp,
+    createStyleReferenceFetcher
+} = require('./style-reference-fetcher');
 
 test('style reference URL boundary rejects credentials, non-HTTPS and private destinations', () => {
     for (const url of ['http://example.com', 'https://user:pass@example.com', 'https://localhost/post', 'https://127.0.0.1/post', 'https://[::1]/post']) {
@@ -35,6 +40,43 @@ test('safe fetcher revalidates redirects and strips executable or navigational H
     assert.equal(result.title, '글 제목');
     assert.match(result.text, /짧은 문단/);
     assert.doesNotMatch(result.text, /ignore me|menu/);
+});
+
+test('Naver Blog share and PostView URLs normalize to the iframe-free mobile post', async () => {
+    for (const rawUrl of [
+        'https://blog.naver.com/amadejjs/224390967458',
+        'https://blog.naver.com/PostView.naver?blogId=amadejjs&logNo=224390967458'
+    ]) {
+        assert.equal(
+            normalizeNaverBlogPostUrl(parsePublicHttpsUrl(rawUrl)).toString(),
+            'https://m.blog.naver.com/amadejjs/224390967458'
+        );
+    }
+
+    const calls = [];
+    const fetchReference = createStyleReferenceFetcher({
+        cheerio,
+        lookup: async () => [{ address: '223.130.200.107', family: 4 }],
+        axios: {
+            async get(url) {
+                calls.push(url);
+                return {
+                    status: 200,
+                    headers: { 'content-type': 'text/html; charset=utf-8' },
+                    data: Buffer.from([
+                        '<html><head><meta property="og:title" content="참고할 네이버 글"></head><body>',
+                        '<nav>블로그 메뉴</nav><div class="se-main-container"><p>분석할 실제 본문입니다.</p></div>',
+                        '<aside>이웃 목록</aside></body></html>'
+                    ].join(''))
+                };
+            }
+        }
+    });
+    const result = await fetchReference('https://blog.naver.com/amadejjs/224390967458');
+
+    assert.deepEqual(calls, ['https://m.blog.naver.com/amadejjs/224390967458']);
+    assert.equal(result.title, '참고할 네이버 글');
+    assert.equal(result.text, '분석할 실제 본문입니다.');
 });
 
 test('safe fetcher blocks a redirect to a private destination before requesting it', async () => {
