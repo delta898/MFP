@@ -251,6 +251,46 @@ function createPublishParams() {
     };
 }
 
+test('Naver and WordPress generation receive the same per-post profile overrides', async () => {
+    const generated = [];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info() { }, warn() { }, error() { } },
+        Core: {
+            async generateContent(topic, _unused, options) {
+                generated.push({ topic, options });
+                return { targetDir: `/tmp/${options.platform}`, finalSubject: 'profile test' };
+            },
+            async prepareImages() { }
+        },
+        checkAuthSessionValid: async () => ({ ok: true })
+    });
+    const result = await runtime.buildMultiPlatformGeneratedContent({
+        context: {
+            subject: '같은 주제',
+            instruction: '이번 글 지시',
+            referenceUrls: ['https://example.com/reference'],
+            writingStrategy: 'discovery',
+            imageOptions: { generate: false, count: 5 },
+            naverCategory: '네이버 분류',
+            wordpressCategory: '워드프레스 분류'
+        },
+        targets: ['naver', 'wordpress'],
+        features: {},
+        enableRelatedPostsAutoLink: false
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(generated.map((item) => item.options.platform), ['naver', 'wordpress']);
+    for (const { topic } of generated) {
+        assert.equal(topic.writingStrategy, 'discovery');
+        assert.equal(topic.content_guide.additional_instructions, '이번 글 지시');
+        assert.deepEqual(topic.content_guide.reference_urls, ['https://example.com/reference']);
+        assert.deepEqual(topic.image_options, { generate: false, count: 5 });
+    }
+    assert.deepEqual(generated.map((item) => item.topic.category), ['네이버 분류', '워드프레스 분류']);
+});
+
 test('multi-platform publish commits one quota unit after partial success', async () => {
     const { runtime, calls } = createPublishLifecycleRuntime({ naverSuccess: true, wordpressSuccess: false });
     const result = await runtime.processMultiPlatformPublish(createPublishParams(), { operationId: 'partial-success' });

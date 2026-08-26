@@ -1,6 +1,6 @@
 # Content Writing Profile Plan
 
-> Status: implementation in progress; Stage 01 completed on its sub-feature branch and awaiting commit/parent-merge approval
+> Status: implementation complete; Stages 01–09 are verified and the parent feature branch is ready for final integration
 >
 > Scope: one global default/custom profile with shared voice and content-kind projections for blog and shopping generation
 
@@ -781,7 +781,6 @@ shopping output/factuality/safety contract
 ### Stage 01 — Shared profile and projection contracts
 
 - Work branch: `codex/feature/content-writing-profile-01-contracts`
-- Status: implemented and automatically verified on 2026-08-26; not committed or merged
 - `common`과 `channels.blog/shopping`을 가진 profile schema, enum, 제품 기본 프로필과 normalizer를 만든다.
 - `projectWritingProfile(profile, { kind })` allowlist 계약을 구현한다.
 - 기존 `blog_prompt.md`를 contract와 기본 blog profile 책임으로 분해한다.

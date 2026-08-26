@@ -46,6 +46,7 @@
 - `features/mcp-client-setup.md`
 - `features/blog-writing-style.md`
 - `features/blog-writing-strategy.md`
+- `features/content-writing-profiles.md`
 - `features/configurable-sidebar-content.md`
 - `features/personalized-topic-recommendations.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
@@ -64,6 +65,7 @@
 - `decisions/2026-08-23-recommendation-grounding-and-provenance.md`
 - `decisions/2026-08-23-server-managed-knowledge-gateway.md`
 - `decisions/2026-08-25-server-managed-serpapi-corpus.md`
+- `decisions/2026-08-26-content-writing-profile.md`
 
 ## Active Work
 
