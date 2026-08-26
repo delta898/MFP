@@ -70,6 +70,20 @@ test('dashboard refreshes persisted discoveries once per app session without rep
     assert.match(centerSource, /options\.preserveExistingOnError && recommendationCenterItems\.length > 0/);
 });
 
+test('manual discovery reports progress through the refresh button', () => {
+    const centerSource = readScript('features/recommendations/center.js');
+
+    assert.match(centerSource, /function startRecommendationCenterProgress\(button\)/);
+    assert.match(centerSource, /button\.classList\.add\('is-loading'\)/);
+    assert.match(centerSource, /button\.textContent = '발견 중\.\.\.'/);
+    assert.match(centerSource, /button\.setAttribute\('aria-busy', 'true'\)/);
+    assert.match(centerSource, /button\.classList\.remove\('is-loading'\)/);
+    assert.match(centerSource, /if \(options\.force\) \{\s*status\.hidden = true;/s);
+    assert.match(centerSource, /if \(options\.discover\) startRecommendationCenterProgress\(refresh\)/);
+    assert.match(centerSource, /if \(options\.discover\) stopRecommendationCenterProgress\(refresh\)/);
+    assert.doesNotMatch(centerSource, /새로운 발견을 준비하는 중입니다/);
+});
+
 test('dashboard cards expose only the latest recommendation evidence', () => {
     const centerSource = readScript('features/recommendations/center.js');
 

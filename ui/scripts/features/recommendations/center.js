@@ -11,6 +11,22 @@ let recommendationCenterLoadPromise = null;
 let recommendationCenterStartupRefreshPromise = null;
 let recommendationCenterStartupRefreshCompleted = false;
 
+function startRecommendationCenterProgress(button) {
+  if (!button) return;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = '발견 중...';
+}
+
+function stopRecommendationCenterProgress(button) {
+  if (!button) return;
+  button.disabled = false;
+  button.classList.remove('is-loading');
+  button.removeAttribute('aria-busy');
+  button.textContent = '새로운 발견';
+}
+
 function recommendationCenterRelativeTime(value) {
   const timestamp = Date.parse(String(value || ''));
   if (!Number.isFinite(timestamp)) return '';
@@ -281,10 +297,11 @@ async function loadRecommendationCenter(options = {}) {
   const refresh = document.getElementById('recommendation-center-refresh');
   if (!status) return null;
   if (options.force) {
-    status.hidden = false;
-    status.textContent = '새로운 발견을 준비하는 중입니다...';
+    status.hidden = true;
+    status.classList.remove('is-error');
   }
-  if (refresh) refresh.disabled = true;
+  if (options.discover) startRecommendationCenterProgress(refresh);
+  else if (refresh) refresh.disabled = true;
   recommendationCenterLoadPromise = (async () => {
     try {
       const payload = options.discover
@@ -304,7 +321,8 @@ async function loadRecommendationCenter(options = {}) {
       status.textContent = '새로운 발견을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.';
       return null;
     } finally {
-      if (refresh) refresh.disabled = false;
+      if (options.discover) stopRecommendationCenterProgress(refresh);
+      else if (refresh) refresh.disabled = false;
       recommendationCenterLoadPromise = null;
     }
   })();
