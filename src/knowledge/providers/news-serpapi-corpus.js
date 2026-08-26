@@ -1,6 +1,6 @@
 const DEFAULT_PROVIDER_ID = 'serpapi-corpus';
 const DEFAULT_LANES = Object.freeze([
-    'headlines_kr', 'headlines_global', 'technology', 'business', 'science',
+    'headlines_kr', 'technology', 'business', 'science',
     'culture_lifestyle', 'travel_local'
 ]);
 
@@ -14,8 +14,8 @@ function createDefaultSerpApiCorpusDefinition() {
         config: {
             purpose: 'serendipity',
             lanes: [...DEFAULT_LANES],
-            locales: ['ko-KR', 'en-US'],
-            countries: ['KR', 'US'],
+            locales: ['ko-KR'],
+            countries: ['KR'],
             limit: 12
         }
     };

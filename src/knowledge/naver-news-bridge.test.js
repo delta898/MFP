@@ -104,8 +104,8 @@ test('SerpApi corpus is registered on a dormant serendipity route', async () => 
         kind: 'news',
         purpose: 'serendipity',
         query: {
-            lanes: ['headlines_kr', 'headlines_global', 'technology', 'business', 'science', 'culture_lifestyle', 'travel_local'],
-            locales: ['ko-KR', 'en-US'], countries: ['KR', 'US'], exclude_ids: ['obs_old'], limit: 3
+            lanes: ['headlines_kr', 'technology', 'business', 'science', 'culture_lifestyle', 'travel_local'],
+            locales: ['ko-KR'], countries: ['KR'], exclude_ids: ['obs_old'], limit: 3
         }
     });
 });

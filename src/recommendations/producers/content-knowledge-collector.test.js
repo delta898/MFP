@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createContentKnowledgeCollector } = require('./content-knowledge-collector');
+const {
+    createContentKnowledgeCollector,
+    filterKoreanNewsSnapshots,
+    hasKoreanTitle
+} = require('./content-knowledge-collector');
 
 function trendSnapshot() {
     return {
@@ -38,6 +42,27 @@ function corpusSnapshot(items = [{
         expires_at: '2026-08-24T00:15:00.000Z', items
     };
 }
+
+test('accepts translated overseas topics and rejects titles without Korean text', () => {
+    assert.equal(hasKoreanTitle('What triggered the catastrophic flood?'), false);
+    assert.equal(hasKoreanTitle('네팔·티베트 국경 대홍수 원인은 무엇인가'), true);
+    assert.equal(hasKoreanTitle('ChatGPT 활용법'), true);
+
+    const [snapshot] = filterKoreanNewsSnapshots([corpusSnapshot([
+        {
+            id: 'english', title: 'What triggered the catastrophic flood?', summary: '요약',
+            observed_at: '2026-08-24T00:10:00.000Z', published_at: '2026-08-23T23:00:00.000Z',
+            url: 'https://corpus.example.com/en', source: 'serpapi-google-news', publisher: 'Reuters'
+        },
+        {
+            id: 'translated', title: '네팔·티베트 국경 대홍수 원인은 무엇인가', summary: '요약',
+            observed_at: '2026-08-24T00:10:00.000Z', published_at: '2026-08-23T23:00:00.000Z',
+            url: 'https://corpus.example.com/ko', source: 'serpapi-google-news', publisher: 'Reuters'
+        }
+    ])]);
+
+    assert.deepEqual(snapshot.items.map((item) => item.id), ['translated']);
+});
 
 test('fetches Trends once and News at most once per three evidence lanes', async () => {
     const calls = [];
@@ -208,6 +233,32 @@ test('empty preferred corpus falls back to Naver News discovery queries', async 
     assert.equal(calls.filter((call) => call.route === 'recommendation_content_news').length, 3);
     assert.equal(result.serendipity_news_source, 'query_news');
     assert.equal(result.news_queries.length, 3);
+});
+
+test('English-only corpus falls back to Korean Naver News discovery queries', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        knowledgeRegistry: {
+            async fetchForRoute(route, query) {
+                calls.push({ route, query });
+                if (query.kind === 'trends') return [];
+                if (route === 'recommendation_serendipity_corpus') {
+                    return [corpusSnapshot([{
+                        id: 'english-only', title: 'What triggered the catastrophic flood?', summary: 'Summary',
+                        observed_at: '2026-08-24T00:10:00.000Z', published_at: '2026-08-23T23:00:00.000Z',
+                        url: 'https://corpus.example.com/en-only', source: 'serpapi-google-news', publisher: 'Reuters'
+                    }])];
+                }
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+
+    const result = await collector.collect({ serendipity: true }, {});
+
+    assert.equal(result.corpus_snapshots[0].items.length, 0);
+    assert.equal(result.news_queries.length, 3);
+    assert.equal(result.serendipity_news_source, 'query_news');
 });
 
 test('empty preferred Naver News falls back to stored corpus', async () => {

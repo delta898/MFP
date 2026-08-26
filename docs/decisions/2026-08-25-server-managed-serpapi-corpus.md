@@ -39,6 +39,13 @@ only later explicit user actions such as viewing, dismissing, applying, writing 
 Naver News remains the query-based Korean news provider; the SerpApi corpus complements it with
 query-free and cross-domain discovery.
 
+The Korean desktop discovery surface requests `ko-KR` / `KR` corpus material and excludes the
+English-only `headlines_global` lane. Because provider localization is a preference rather than a
+language guarantee, the recommendation Knowledge collector also requires at least two Hangul
+syllables in a discovery-news title. Korean titles about overseas events remain eligible; titles
+without Korean text are discarded without invoking AI, and the existing Naver News path fills an
+empty corpus result instead of relaxing the language boundary.
+
 The licensed read path reuses `knowledge-gateway` with a distinct `stored_corpus` execution type.
 It keeps license and per-subject gateway rate protection but never applies upstream quota, cache or
 backoff and never calls the collector. Requests contain only bounded discovery filters and recently

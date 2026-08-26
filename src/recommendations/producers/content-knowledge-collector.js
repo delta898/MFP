@@ -3,6 +3,7 @@ const { buildContentNewsQueryPlan } = require('./content-query-plan');
 
 const MAX_NEWS_QUERIES = 3;
 const MAX_DIAGNOSTICS = 20;
+const MIN_KOREAN_TITLE_CHARACTERS = 2;
 
 function strictSnapshots(entries = [], kind, diagnostics, source) {
     const snapshots = [];
@@ -22,6 +23,17 @@ function strictSnapshots(entries = [], kind, diagnostics, source) {
 
 function snapshotsHaveItems(snapshots = []) {
     return snapshots.some((snapshot) => Array.isArray(snapshot?.items) && snapshot.items.length > 0);
+}
+
+function hasKoreanTitle(value) {
+    return (String(value || '').match(/[가-힣]/g) || []).length >= MIN_KOREAN_TITLE_CHARACTERS;
+}
+
+function filterKoreanNewsSnapshots(snapshots = []) {
+    return (Array.isArray(snapshots) ? snapshots : []).map((snapshot) => ({
+        ...snapshot,
+        items: (Array.isArray(snapshot?.items) ? snapshot.items : []).filter((item) => hasKoreanTitle(item?.title))
+    }));
 }
 
 function boundedObservationIds(value = []) {
@@ -82,9 +94,10 @@ function createContentKnowledgeCollector(options = {}) {
                             purpose: 'content_ideas',
                             limit: 5
                         }, context);
+                        const snapshots = strictSnapshots(fetched, 'news', queryDiagnostics, `news:${query.lane}`);
                         return {
                             query,
-                            snapshots: strictSnapshots(fetched, 'news', queryDiagnostics, `news:${query.lane}`),
+                            snapshots: serendipityMode ? filterKoreanNewsSnapshots(snapshots) : snapshots,
                             diagnostics: queryDiagnostics
                         };
                     } catch (_error) {
@@ -105,7 +118,9 @@ function createContentKnowledgeCollector(options = {}) {
                         limit: 9
                     }, context);
                     return {
-                        snapshots: strictSnapshots(fetched, 'news', corpusDiagnostics, 'corpus'),
+                        snapshots: filterKoreanNewsSnapshots(
+                            strictSnapshots(fetched, 'news', corpusDiagnostics, 'corpus')
+                        ),
                         diagnostics: corpusDiagnostics
                     };
                 } catch (_error) {
@@ -176,6 +191,8 @@ module.exports = {
     MAX_NEWS_QUERIES,
     boundedObservationIds,
     createContentKnowledgeCollector,
+    filterKoreanNewsSnapshots,
+    hasKoreanTitle,
     isPublishedOwnerQuery,
     snapshotsHaveItems,
     strictSnapshots
