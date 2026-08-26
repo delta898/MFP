@@ -1,13 +1,13 @@
 const defaultProfileDocument = require('../config/default_content_writing_profile.json');
 
-const CONTENT_WRITING_PROFILE_SCHEMA_VERSION = 1;
+const CONTENT_WRITING_PROFILE_SCHEMA_VERSION = 3;
 
 const PROFILE_LIMITS = Object.freeze({
     commonStyleInstruction: 500,
     authorContext: 300,
     channelInstruction: 1000,
     sampleText: 12000,
-    referenceUrls: 3,
+    referenceUrls: 1,
     referenceUrlLength: 2048,
     referenceTitle: 200,
     referenceError: 300,
@@ -18,6 +18,7 @@ const PROFILE_ENUMS = Object.freeze({
     writingMode: Object.freeze(['conversational', 'written']),
     speechLevel: Object.freeze(['polite', 'plain']),
     tone: Object.freeze(['calm', 'balanced', 'vivid']),
+    writingStrategy: Object.freeze(['search', 'discovery']),
     informationDensity: Object.freeze(['light', 'balanced', 'dense']),
     narratorPresence: Object.freeze(['minimal', 'occasional', 'present']),
     lengthPreset: Object.freeze(['short', 'standard', 'long']),
@@ -85,6 +86,19 @@ function normalizeFingerprint(input) {
     const structure = isRecord(input.structure) ? input.structure : {};
     const voice = isRecord(input.voice) ? input.voice : {};
     return {
+        surface: {
+            writing_mode: normalizeEnum(input.surface?.writing_mode, 'writingMode', 'conversational'),
+            speech_level: normalizeEnum(input.surface?.speech_level, 'speechLevel', 'polite'),
+            tone: normalizeEnum(input.surface?.tone, 'tone', 'balanced'),
+            information_density: normalizeEnum(input.surface?.information_density, 'informationDensity', 'balanced')
+        },
+        settings: {
+            length_preset: normalizeEnum(input.settings?.length_preset, 'lengthPreset', 'standard'),
+            opening: normalizeEnum(input.settings?.opening, 'opening', 'contextual'),
+            development: normalizeEnum(input.settings?.development, 'development', 'explanatory'),
+            ending: normalizeEnum(input.settings?.ending, 'ending', 'judgment'),
+            heading_density: normalizeEnum(input.settings?.heading_density, 'headingDensity', 'balanced')
+        },
         structure: {
             opening_pattern: normalizeEnum(structure.opening_pattern, 'fingerprintOpening', 'short_context_then_topic'),
             section_flow: normalizeEnumList(structure.section_flow, 'fingerprintFlow', 8),
@@ -160,6 +174,7 @@ function normalizeWritingProfile(input = {}) {
 
     return {
         common: {
+            writing_strategy: normalizeEnum(common.writing_strategy, 'writingStrategy', 'search'),
             voice: {
                 writing_mode: normalizeEnum(voice.writing_mode, 'writingMode', 'conversational'),
                 speech_level: normalizeEnum(voice.speech_level, 'speechLevel', 'polite'),
@@ -262,6 +277,7 @@ function validateWritingProfile(input = {}) {
     const sampleText = isRecord(styleReferences.sample_text) ? styleReferences.sample_text : {};
 
     pushEnumError(errors, voice.writing_mode, 'common.voice.writing_mode', 'writingMode');
+    pushEnumError(errors, common.writing_strategy, 'common.writing_strategy', 'writingStrategy');
     pushEnumError(errors, voice.speech_level, 'common.voice.speech_level', 'speechLevel');
     pushEnumError(errors, voice.tone, 'common.voice.tone', 'tone');
     pushEnumError(errors, voice.information_density, 'common.voice.information_density', 'informationDensity');
@@ -306,7 +322,7 @@ function validateWritingProfile(input = {}) {
         errors.push({
             path: 'channels.blog.style_references.blog_urls',
             code: 'TOO_MANY_ITEMS',
-            message: `문체 참고 URL은 최대 ${PROFILE_LIMITS.referenceUrls}개까지 사용할 수 있습니다.`
+            message: '참고 URL은 1개만 사용할 수 있습니다.'
         });
     }
     if (Array.isArray(styleReferences.blog_urls)) {
@@ -337,8 +353,19 @@ function validateWritingProfile(input = {}) {
         });
     } else if (isRecord(styleReferences.fingerprint)) {
         const fingerprint = styleReferences.fingerprint;
+        const fingerprintSurface = isRecord(fingerprint.surface) ? fingerprint.surface : {};
+        const fingerprintSettings = isRecord(fingerprint.settings) ? fingerprint.settings : {};
         const fingerprintStructure = isRecord(fingerprint.structure) ? fingerprint.structure : {};
         const fingerprintVoice = isRecord(fingerprint.voice) ? fingerprint.voice : {};
+        pushEnumError(errors, fingerprintSurface.writing_mode, 'channels.blog.style_references.fingerprint.surface.writing_mode', 'writingMode');
+        pushEnumError(errors, fingerprintSurface.speech_level, 'channels.blog.style_references.fingerprint.surface.speech_level', 'speechLevel');
+        pushEnumError(errors, fingerprintSurface.tone, 'channels.blog.style_references.fingerprint.surface.tone', 'tone');
+        pushEnumError(errors, fingerprintSurface.information_density, 'channels.blog.style_references.fingerprint.surface.information_density', 'informationDensity');
+        pushEnumError(errors, fingerprintSettings.length_preset, 'channels.blog.style_references.fingerprint.settings.length_preset', 'lengthPreset');
+        pushEnumError(errors, fingerprintSettings.opening, 'channels.blog.style_references.fingerprint.settings.opening', 'opening');
+        pushEnumError(errors, fingerprintSettings.development, 'channels.blog.style_references.fingerprint.settings.development', 'development');
+        pushEnumError(errors, fingerprintSettings.ending, 'channels.blog.style_references.fingerprint.settings.ending', 'ending');
+        pushEnumError(errors, fingerprintSettings.heading_density, 'channels.blog.style_references.fingerprint.settings.heading_density', 'headingDensity');
         pushEnumError(errors, fingerprintStructure.opening_pattern, 'channels.blog.style_references.fingerprint.structure.opening_pattern', 'fingerprintOpening');
         pushEnumListErrors(errors, fingerprintStructure.section_flow, 'channels.blog.style_references.fingerprint.structure.section_flow', 'fingerprintFlow', 8);
         pushEnumError(errors, fingerprintStructure.paragraph_length, 'channels.blog.style_references.fingerprint.structure.paragraph_length', 'fingerprintParagraph');

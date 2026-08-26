@@ -26,6 +26,7 @@ test('product default content writing profile is versioned, valid and immutable'
 test('profile normalizer applies safe field defaults independently', () => {
     const normalized = normalizeWritingProfile({
         common: {
+            writing_strategy: 'DISCOVERY',
             voice: {
                 writing_mode: 'WRITTEN',
                 speech_level: 'invalid',
@@ -54,6 +55,7 @@ test('profile normalizer applies safe field defaults independently', () => {
         tone: 'vivid',
         information_density: 'dense'
     });
+    assert.equal(normalized.common.writing_strategy, 'discovery');
     assert.equal(normalized.common.style_instruction, '짧은 문장으로 작성');
     assert.equal(normalized.channels.blog.length.preset, 'long');
     assert.deepEqual(normalized.channels.blog.image_plan, { count_mode: 'fixed', fixed_count: 5 });
@@ -64,6 +66,7 @@ test('profile normalizer applies safe field defaults independently', () => {
 test('strict profile validation rejects invalid enums, lengths and fixed image counts', () => {
     const result = validateWritingProfile({
         common: {
+            writing_strategy: 'viral',
             voice: { tone: 'loud' },
             style_instruction: '가'.repeat(501)
         },
@@ -83,6 +86,7 @@ test('strict profile validation rejects invalid enums, lengths and fixed image c
     assert.equal(result.valid, false);
     assert.deepEqual(new Set(result.errors.map((item) => item.path)), new Set([
         'common.voice.tone',
+        'common.writing_strategy',
         'common.style_instruction',
         'channels.blog.image_plan.fixed_count',
         'channels.blog.author_context',
@@ -109,6 +113,8 @@ test('style reference normalization keeps bounded allowlisted data', () => {
                         'https://example.com/d'
                     ],
                     fingerprint: {
+                        surface: { writing_mode: 'written', speech_level: 'plain', tone: 'calm', information_density: 'dense' },
+                        settings: { length_preset: 'long', opening: 'direct', development: 'comparison', ending: 'summary', heading_density: 'sparse' },
                         structure: { opening_pattern: 'short_context_then_topic', section_flow: ['information', 'tip'] },
                         voice: { warmth: 'warm', rhetorical_devices: ['light_question'] },
                         avoid: ['long_preface'],
@@ -122,7 +128,9 @@ test('style reference normalization keeps bounded allowlisted data', () => {
     const references = normalized.channels.blog.style_references;
     assert.equal(references.sample_text.value, '참고 문장');
     assert.equal(references.sample_text.status, 'analyzed');
-    assert.equal(references.blog_urls.length, 3);
+    assert.equal(references.blog_urls.length, 1);
     assert.equal(references.fingerprint.summary, '짧고 따뜻한 설명');
+    assert.equal(references.fingerprint.surface.writing_mode, 'written');
+    assert.equal(references.fingerprint.settings.length_preset, 'long');
     assert.deepEqual(references.fingerprint.structure.section_flow, ['information', 'tip']);
 });

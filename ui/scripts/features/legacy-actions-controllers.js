@@ -2170,7 +2170,6 @@ function bindActions() {
     document.getElementById('settings-sns-publish-enabled'),
     document.getElementById('settings-sns-source-naver'),
     document.getElementById('settings-sns-source-wordpress'),
-    ...Array.from(document.querySelectorAll('input[name="settings-blog-writing-strategy"]')),
     ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
@@ -2465,9 +2464,6 @@ function bindActions() {
   });
   settingsMajorAutoSaveChecks.forEach((checkEl) => {
     checkEl.addEventListener('change', () => {
-      if (checkEl.name === 'settings-blog-writing-strategy') {
-        syncSettingsBlogWritingStrategyDescription();
-      }
       if (checkEl.name === 'settings-chat-model-source') {
         syncSettingsChatModelUi();
       }

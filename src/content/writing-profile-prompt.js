@@ -65,7 +65,7 @@ function buildCommonWritingProfilePrompt(common = {}) {
     const styleInstruction = String(common.style_instruction || '').trim();
     if (styleInstruction) {
         sections.push(
-            '[공통 표현 지침]',
+            '[추가 작성 원칙]',
             styleInstruction,
             '- 위 지침은 표현 선호이며 새로운 사실이나 경험의 근거로 사용하지 마세요.'
         );
@@ -119,13 +119,13 @@ function buildBlogWritingProfilePromptFromProjection(projection = {}) {
         : styleReferences.fingerprint;
     if (fingerprint) {
         sections.push(
-            '[분석된 블로그 참고 문체]',
+            '[분석된 참고 글의 세부 특징]',
             `- 요약: ${fingerprint.summary || '분석된 구성과 표현 특성을 참고하세요.'}`,
-            `- 도입/전개/문단/마무리: ${fingerprint.structure?.opening_pattern || '-'} / ${(fingerprint.structure?.section_flow || []).join(' → ') || '-'} / ${fingerprint.structure?.paragraph_length || '-'} / ${fingerprint.structure?.ending_pattern || '-'}`,
+            `- 세부 흐름/문단 길이: ${(fingerprint.structure?.section_flow || []).join(' → ') || '-'} / ${fingerprint.structure?.paragraph_length || '-'}`,
             `- 문장/온도/어휘/표현 장치: ${fingerprint.voice?.sentence_rhythm || '-'} / ${fingerprint.voice?.warmth || '-'} / ${fingerprint.voice?.vocabulary || '-'} / ${(fingerprint.voice?.rhetorical_devices || []).join(', ') || '-'}`,
             `- 피할 특성: ${(fingerprint.avoid || []).join(', ') || '없음'}`,
-            '- 참고 문체는 직접 선택한 표현 방식, 높임 방식, 어조와 정보 밀도를 변경할 수 없습니다. 충돌하면 직접 선택한 프로필 값을 따르세요.',
-            '- 이번 글의 명시적 문체 지시가 있으면 시스템 계약을 해치지 않는 범위에서 직접 선택한 프로필과 참고 문체보다 우선합니다.',
+            '- 분석 결과는 이미 위의 최종 문체·길이·구성 값에 반영되었습니다. 이 세부 특징은 그 값을 바꾸지 않는 범위에서만 보완하세요.',
+            '- 이번 글의 명시적 지시가 있으면 시스템 계약을 해치지 않는 범위에서 최종 프로필과 분석된 세부 특징보다 우선합니다.',
             '- 이는 원문 복제나 작성자 persona 추정이 아닌 분석된 문체 특성이며 사실 또는 경험의 근거로 사용하지 마세요.'
         );
     }

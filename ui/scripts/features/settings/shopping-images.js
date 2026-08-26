@@ -157,8 +157,10 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
   const saveBtns = document.querySelectorAll('#settings-major-save-btn, .settings-major-save-btn');
   const resultEls = document.querySelectorAll('.settings-major-result');
   let savedResponse = null;
+  const shouldSaveMajor = settingsMajorHasPendingBasicChanges === true;
+  const shouldSaveWritingProfile = settingsWritingProfileDirty === true;
 
-  if (settingsMajorSaveInFlight) {
+  if (settingsMajorSaveInFlight || (!shouldSaveMajor && !shouldSaveWritingProfile)) {
     return;
   }
 
@@ -167,6 +169,14 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
   console.log(`[Settings] Save starting (mode: ${mode})`);
 
   try {
+    if (shouldSaveWritingProfile) {
+      const profileSaved = await saveSettingsWritingProfile();
+      if (!profileSaved) return;
+    }
+    if (!shouldSaveMajor) {
+      setSettingsMajorResultText('설정 저장 완료');
+      return;
+    }
     updateSettingsStatus('.settings-major-result', '주요 설정 저장 중...', 'info');
 
     await uploadPendingSettingsShoppingImages(resultEls);
@@ -279,4 +289,3 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     updateSettingsMajorSaveUi();
   }
 }
-

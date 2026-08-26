@@ -44,6 +44,20 @@ test('settings service returns default metadata and updates runtime compatibilit
     const initial = await service.getWritingProfile();
     assert.equal(initial.active_profile, 'default');
     assert.equal(initial.default_profile_metadata.id, 'product-default');
+    assert.deepEqual(initial.default_profile_overrides, {
+        writing_strategy: 'search', writing_mode: 'conversational', speech_level: 'polite'
+    });
+
+    const overridden = await service.saveWritingProfile({
+        active_profile: 'default',
+        default_profile_overrides: {
+            writing_strategy: 'discovery', writing_mode: 'written', speech_level: 'plain'
+        }
+    });
+    assert.equal(overridden.effective_profile.common.writing_strategy, 'discovery');
+    assert.equal(overridden.effective_profile.common.voice.writing_mode, 'written');
+    assert.equal(overridden.effective_profile.common.voice.tone, 'balanced');
+    assert.equal(CONFIG.CONTENT_WRITING_STRATEGY, 'discovery');
 
     const saved = await service.saveWritingProfile({
         active_profile: 'custom',
@@ -59,8 +73,8 @@ test('settings service returns default metadata and updates runtime compatibilit
     const defaulted = await service.useDefaultWritingProfile();
     assert.equal(defaulted.active_profile, 'default');
     assert.equal(defaulted.custom_profile.channels.blog.additional_instruction, '체크리스트를 포함');
-    assert.equal(CONFIG.BLOG_WRITING_MODE, 'conversational');
-    assert.equal(CONFIG.CONTENT_WRITING_MODE, 'conversational');
+    assert.equal(CONFIG.BLOG_WRITING_MODE, 'written');
+    assert.equal(CONFIG.CONTENT_WRITING_MODE, 'written');
 });
 
 test('settings preview delegates a draft without persisting or changing runtime profile', async () => {
@@ -85,7 +99,12 @@ test('settings service analyzes reference drafts without persisting and deletion
     const { service } = createHarness({
         styleReferenceAnalyzer: async () => ({
             sample_text: { value: '참고', status: 'analyzed' }, blog_urls: [],
-            fingerprint: { summary: '분석 요약' }, fingerprint_input_hash: 'hash',
+            fingerprint: {
+                surface: { writing_mode: 'written', speech_level: 'polite', tone: 'calm', information_density: 'balanced' },
+                settings: { length_preset: 'standard', opening: 'contextual', development: 'explanatory', ending: 'judgment', heading_density: 'balanced' },
+                summary: '분석 요약'
+            },
+            fingerprint_input_hash: 'hash',
             analyzed_at: '2026-08-26T00:00:00.000Z', analyzer_version: 'v1'
         })
     });
@@ -96,8 +115,10 @@ test('settings service analyzes reference drafts without persisting and deletion
     const custom = createCustomProfile();
     custom.channels.blog.style_references.sample_text = { value: '참고', status: 'analyzed' };
     custom.channels.blog.style_references.fingerprint = {
-        structure: { opening_pattern: '', section_flow: [], paragraph_length: '', ending_pattern: '' },
-        voice: { sentence_rhythm: '', warmth: '', vocabulary: '', rhetorical_devices: [] },
+        surface: { writing_mode: 'written', speech_level: 'polite', tone: 'calm', information_density: 'balanced' },
+        settings: { length_preset: 'standard', opening: 'contextual', development: 'explanatory', ending: 'judgment', heading_density: 'balanced' },
+        structure: { opening_pattern: 'answer_first', section_flow: ['information'], paragraph_length: 'short', ending_pattern: 'short_summary' },
+        voice: { sentence_rhythm: 'short', warmth: 'neutral', vocabulary: 'balanced', rhetorical_devices: [] },
         avoid: [], summary: '분석 요약'
     };
     await service.saveWritingProfile({ active_profile: 'custom', custom_profile: custom });

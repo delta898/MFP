@@ -1,10 +1,11 @@
 {
-  "schema_version": 1,
-  "profile_version": 1,
+  "schema_version": 3,
+  "profile_version": 3,
   "id": "product-default",
   "label": "기본 프로필",
   "profile": {
     "common": {
+      "writing_strategy": "search",
       "voice": {
         "writing_mode": "conversational",
         "speech_level": "polite",

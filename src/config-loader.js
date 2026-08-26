@@ -262,7 +262,7 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
     chatSelection: resolvedChatModelSettings.selection
 });
 const resolvedContentWritingPreferences = resolveContentWritingPreferences(structuredConfig.content);
-const resolvedBlogWritingStrategy = resolvedContentWritingPreferences.strategy;
+const legacyContentWritingStrategy = resolvedContentWritingPreferences.strategy;
 const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
     ? resolvedTextModelConfig.code
     : '';
@@ -289,6 +289,7 @@ const writingProfileRepository = createWritingProfileRepository({
 const writingProfileLoadResult = writingProfileRepository.read();
 const resolvedContentWritingProfile = writingProfileLoadResult.effective_profile;
 const resolvedContentWritingVoice = resolvedContentWritingProfile.common.voice;
+const resolvedBlogWritingStrategy = resolvedContentWritingProfile.common.writing_strategy || legacyContentWritingStrategy;
 
 const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
     ? path.dirname(activeConfigDir)

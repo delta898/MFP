@@ -1,20 +1,3 @@
-const WRITING_PROFILE_LABELS = {
-  writingMode: { conversational: '구어체', written: '문어체' },
-  speechLevel: { polite: '존댓말', plain: '평어' },
-  tone: { calm: '차분한 어조', balanced: '균형 잡힌 어조', vivid: '생동감 있는 어조' },
-  density: { light: '가벼운 정보 밀도', balanced: '보통 정보 밀도', dense: '촘촘한 정보 밀도' },
-  length: {
-    short: { label: '짧게', chars: '900~1,200자', headings: 'H2 3개', images: 3 },
-    standard: { label: '보통', chars: '1,500~1,800자', headings: 'H2 4~5개', images: 4 },
-    long: { label: '길게', chars: '2,200~2,800자', headings: 'H2 5~6개', images: 5 }
-  },
-  opening: { direct: '핵심부터', contextual: '공감 상황부터', scene: '장면·이야기부터' },
-  development: { explanatory: '설명형', problem_solution: '문제 해결형', experience_review: '경험·리뷰형', comparison: '비교·선택형' },
-  ending: { summary: '핵심 요약', judgment: '개인적 판단', next_step: '다음 행동 제안' },
-  headings: { sparse: '적게', balanced: '보통', dense: '많게' },
-  narrator: { minimal: '최소화', occasional: '필요할 때만', present: '적극적으로' }
-};
-
 function cloneSettingsWritingProfile(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
@@ -37,41 +20,74 @@ function getVisibleSettingsWritingProfile() {
   if (!settingsWritingProfileDraft) return null;
   return getSettingsWritingProfileActiveKind() === 'custom'
     ? settingsWritingProfileDraft.custom_profile
-    : settingsWritingProfileDraft.default_profile;
+    : getEffectiveSettingsWritingDefaultProfile();
 }
 
-function captureSettingsWritingCustomProfile() {
-  if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
+function getEffectiveSettingsWritingDefaultProfile() {
+  if (!settingsWritingProfileDraft?.default_profile) return null;
+  const profile = cloneSettingsWritingProfile(settingsWritingProfileDraft.default_profile);
+  const overrides = settingsWritingProfileDraft.default_profile_overrides || {};
+  profile.common.writing_strategy = overrides.writing_strategy || profile.common.writing_strategy;
+  profile.common.voice.writing_mode = overrides.writing_mode || profile.common.voice.writing_mode;
+  profile.common.voice.speech_level = overrides.speech_level || profile.common.voice.speech_level;
+  return profile;
+}
+
+function captureSettingsWritingProfileKind(kind = getSettingsWritingProfileActiveKind()) {
+  if (!settingsWritingProfileDraft) return;
+  if (kind === 'default') {
+    settingsWritingProfileDraft.default_profile_overrides = {
+      writing_strategy: getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search'),
+      writing_mode: getSettingsWritingProfileValue('settings-blog-writing-mode', 'conversational'),
+      speech_level: getSettingsWritingProfileValue('settings-blog-speech-level', 'polite')
+    };
+    return;
+  }
   const current = settingsWritingProfileDraft.custom_profile;
   if (!current) return;
   current.common.voice.writing_mode = getSettingsWritingProfileValue('settings-blog-writing-mode', 'conversational');
   current.common.voice.speech_level = getSettingsWritingProfileValue('settings-blog-speech-level', 'polite');
   current.common.voice.tone = getSettingsWritingProfileValue('settings-writing-tone', 'balanced');
-  current.common.voice.information_density = getSettingsWritingProfileValue('settings-writing-density', 'balanced');
+  current.common.writing_strategy = getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search');
   current.common.style_instruction = getSettingsWritingProfileValue('settings-writing-common-instruction').trim();
   const blog = current.channels.blog;
   blog.length.preset = getSettingsWritingProfileValue('settings-writing-blog-length', 'standard');
-  blog.narrator_presence = getSettingsWritingProfileValue('settings-writing-blog-narrator', 'occasional');
+  blog.narrator_presence = 'occasional';
   blog.structure.opening = getSettingsWritingProfileValue('settings-writing-blog-opening', 'contextual');
   blog.structure.development = getSettingsWritingProfileValue('settings-writing-blog-development', 'explanatory');
   blog.structure.ending = getSettingsWritingProfileValue('settings-writing-blog-ending', 'judgment');
-  blog.structure.heading_density = getSettingsWritingProfileValue('settings-writing-blog-headings', 'balanced');
   blog.image_plan.count_mode = getSettingsWritingProfileValue('settings-writing-blog-image-mode', 'auto');
   blog.image_plan.fixed_count = blog.image_plan.count_mode === 'fixed'
     ? Number(getSettingsWritingProfileValue('settings-writing-blog-image-count', '4'))
     : null;
-  blog.author_context = getSettingsWritingProfileValue('settings-writing-blog-author-context').trim();
-  blog.additional_instruction = getSettingsWritingProfileValue('settings-writing-blog-instruction').trim();
-  current.channels.shopping.additional_instruction = getSettingsWritingProfileValue('settings-writing-shopping-instruction').trim();
+  blog.author_context = '';
+  blog.additional_instruction = '';
+  current.channels.shopping.additional_instruction = '';
+}
+
+function captureSettingsWritingVisibleProfile() {
+  captureSettingsWritingProfileKind(getSettingsWritingProfileActiveKind());
+}
+
+function syncSettingsWritingReferenceInputMethodUi() {
+  const method = getSelectedSettingsRadioValue('settings-writing-reference-input-method', 'text');
+  const textField = document.getElementById('settings-writing-reference-text-field');
+  const urlField = document.getElementById('settings-writing-reference-url-field');
+  if (textField) textField.hidden = method !== 'text';
+  if (urlField) urlField.hidden = method !== 'url';
 }
 
 function getSettingsWritingReferenceInputs() {
+  const method = getSelectedSettingsRadioValue('settings-writing-reference-input-method', 'text');
+  const sampleText = method === 'text'
+    ? getSettingsWritingProfileValue('settings-writing-reference-text').trim()
+    : '';
+  const url = method === 'url'
+    ? String(document.querySelector('[data-writing-reference-url]')?.value || '').trim()
+    : '';
   return {
-    sampleText: getSettingsWritingProfileValue('settings-writing-reference-text').trim(),
-    urls: Array.from(document.querySelectorAll('[data-writing-reference-url]'))
-      .map((el) => String(el.value || '').trim())
-      .filter((value, index, values) => value && values.indexOf(value) === index)
-      .slice(0, 3)
+    sampleText,
+    urls: url ? [url] : []
   };
 }
 
@@ -106,30 +122,22 @@ function buildSettingsWritingProfileSignature() {
   if (!settingsWritingProfileDraft) return '';
   return JSON.stringify({
     active_profile: getSettingsWritingProfileActiveKind(),
+    default_profile_overrides: settingsWritingProfileDraft.default_profile_overrides,
     custom_profile: settingsWritingProfileDraft.custom_profile,
     based_on_default_version: settingsWritingProfileDraft.based_on_default_version
   });
 }
 
 function setSettingsWritingProfileStatus(message, state = 'idle') {
-  const badge = document.getElementById('settings-writing-profile-badge');
   const status = document.getElementById('settings-writing-profile-status');
   if (status) status.textContent = String(message || '');
-  if (!badge) return;
-  const labels = { idle: '저장됨', dirty: '변경됨', loading: '불러오는 중', saving: '저장 중', error: '오류' };
-  badge.textContent = labels[state] || labels.idle;
-  badge.classList.toggle('success', state === 'idle');
-  badge.classList.toggle('warning', state === 'dirty');
-  badge.classList.toggle('error', state === 'error');
 }
 
 function syncSettingsWritingProfileDirty() {
-  captureSettingsWritingCustomProfile();
+  captureSettingsWritingVisibleProfile();
   settingsWritingProfileDirty = Boolean(settingsWritingProfileDraft)
     && buildSettingsWritingProfileSignature() !== settingsWritingProfileSavedSignature;
-  const saveBtn = document.getElementById('settings-writing-profile-save');
-  if (saveBtn) saveBtn.disabled = !settingsWritingProfileDirty || settingsWritingProfileLoading || settingsWritingProfileSaving;
-  if (settingsWritingProfileDirty) setSettingsWritingProfileStatus('저장되지 않은 프로필 변경사항이 있습니다.', 'dirty');
+  updateSettingsMajorSaveUi();
 }
 
 function syncSettingsWritingImageCountUi() {
@@ -140,37 +148,25 @@ function syncSettingsWritingImageCountUi() {
   document.getElementById('settings-writing-blog-image-count-field')?.classList.toggle('is-muted', mode !== 'fixed');
 }
 
-function renderSettingsWritingSummaries() {
-  const mode = getSettingsWritingProfileValue('settings-blog-writing-mode', 'conversational');
-  const speech = getSettingsWritingProfileValue('settings-blog-speech-level', 'polite');
-  const tone = getSettingsWritingProfileValue('settings-writing-tone', 'balanced');
-  const density = getSettingsWritingProfileValue('settings-writing-density', 'balanced');
-  const commonInstruction = getSettingsWritingProfileValue('settings-writing-common-instruction').trim();
-  const common = document.getElementById('settings-writing-common-summary');
-  if (common) common.textContent = `${WRITING_PROFILE_LABELS.writingMode[mode]}, ${WRITING_PROFILE_LABELS.speechLevel[speech]}, ${WRITING_PROFILE_LABELS.tone[tone]}, ${WRITING_PROFILE_LABELS.density[density]}${commonInstruction ? ` · 공통 지침: ${commonInstruction}` : ''}`;
+function syncSettingsWritingInstructionCounter() {
+  const input = document.getElementById('settings-writing-common-instruction');
+  const counter = document.getElementById('settings-writing-common-instruction-counter');
+  if (!input || !counter) return;
+  const maximum = Number(input.maxLength) || 500;
+  counter.textContent = `선택 · ${Math.max(0, maximum - input.value.length)}자 남음`;
+}
 
-  const lengthKey = getSettingsWritingProfileValue('settings-writing-blog-length', 'standard');
-  const length = WRITING_PROFILE_LABELS.length[lengthKey] || WRITING_PROFILE_LABELS.length.standard;
-  const imageMode = getSettingsWritingProfileValue('settings-writing-blog-image-mode', 'auto');
-  const imageCount = imageMode === 'fixed'
-    ? Number(getSettingsWritingProfileValue('settings-writing-blog-image-count', '4'))
-    : length.images;
-  const blog = document.getElementById('settings-writing-blog-summary');
-  if (blog) {
-    blog.textContent = `${length.label} ${length.chars} · ${length.headings} · 이미지 영역 ${imageCount}개 · ${WRITING_PROFILE_LABELS.opening[getSettingsWritingProfileValue('settings-writing-blog-opening', 'contextual')]} → ${WRITING_PROFILE_LABELS.development[getSettingsWritingProfileValue('settings-writing-blog-development', 'explanatory')]} → ${WRITING_PROFILE_LABELS.ending[getSettingsWritingProfileValue('settings-writing-blog-ending', 'judgment')]} · 소제목 ${WRITING_PROFILE_LABELS.headings[getSettingsWritingProfileValue('settings-writing-blog-headings', 'balanced')]} · 글쓴이 관점 ${WRITING_PROFILE_LABELS.narrator[getSettingsWritingProfileValue('settings-writing-blog-narrator', 'occasional')]}`;
-  }
-
-  const shoppingInstruction = getSettingsWritingProfileValue('settings-writing-shopping-instruction').trim();
-  const shopping = document.getElementById('settings-writing-shopping-summary');
-  if (shopping) shopping.textContent = shoppingInstruction
-    ? `제품 기본 쇼핑 구성 유지 · 추가 지침: ${shoppingInstruction}`
-    : '제품 기본 쇼핑 구성 유지 · 별도 추가 지침 없음';
+function syncSettingsWritingReferenceCounter() {
+  const input = document.getElementById('settings-writing-reference-text');
+  const counter = document.getElementById('settings-writing-reference-text-counter');
+  if (!input || !counter) return;
+  const maximum = Number(input.maxLength) || 12000;
+  counter.textContent = `선택 · ${Math.max(0, maximum - input.value.length).toLocaleString('ko-KR')}자 남음`;
 }
 
 function renderSettingsWritingReferenceState() {
   const profile = getVisibleSettingsWritingProfile();
   const refs = profile?.channels?.blog?.style_references;
-  const badge = document.getElementById('settings-writing-reference-badge');
   const status = document.getElementById('settings-writing-reference-status');
   const summary = document.getElementById('settings-writing-reference-summary');
   const urlStatus = document.getElementById('settings-writing-reference-url-status');
@@ -178,21 +174,20 @@ function renderSettingsWritingReferenceState() {
   const statuses = [refs.sample_text?.status, ...(refs.blog_urls || []).map((item) => item.status)].filter((value) => value && value !== 'empty');
   const stale = statuses.some((value) => value === 'stale' || value === 'pending');
   const failed = statuses.some((value) => value === 'failed');
-  const analyzed = Boolean(refs.fingerprint) && !stale;
-  if (badge) {
-    badge.textContent = stale ? '재분석 필요' : (analyzed ? '분석됨' : (failed ? '일부 실패' : '자료 없음'));
-    badge.classList.toggle('success', analyzed);
-    badge.classList.toggle('warning', stale || failed);
-  }
+  const hasAnalyzedSource = statuses.some((value) => value === 'analyzed');
+  const analyzed = Boolean(refs.fingerprint) && hasAnalyzedSource && !stale;
+  const missingSource = Boolean(refs.fingerprint) && statuses.length === 0;
   if (status) {
-    status.textContent = stale
-      ? '참고자료가 변경되었습니다. 다시 분석하기 전에는 이전 fingerprint가 적용되지 않습니다.'
-      : (analyzed ? `마지막 분석: ${refs.analyzed_at || '-'}` : '분석된 fingerprint만 실제 블로그 생성에 적용됩니다.');
+    status.textContent = missingSource
+      ? '참고할 글을 입력한 뒤 다시 분석해 주세요.'
+      : stale
+      ? '참고 글이 변경되었습니다. 다시 분석해 주세요.'
+      : (analyzed ? `분석 완료 · ${refs.analyzed_at || '-'}` : (failed ? '참고 글을 분석하지 못했습니다.' : ''));
   }
   if (summary) {
     summary.hidden = !refs.fingerprint;
     summary.textContent = refs.fingerprint
-      ? `${stale ? '이전 분석(현재 미적용)' : '적용될 문체'}: ${refs.fingerprint.summary}`
+      ? `${stale || missingSource ? '이전 분석 결과' : '분석 결과'}: ${refs.fingerprint.summary}`
       : '';
   }
   if (urlStatus) {
@@ -213,34 +208,44 @@ function renderSettingsWritingProfile() {
   setSettingsWritingProfileValue('settings-blog-writing-mode', voice.writing_mode);
   setSettingsWritingProfileValue('settings-blog-speech-level', voice.speech_level);
   setSettingsWritingProfileValue('settings-writing-tone', voice.tone);
-  setSettingsWritingProfileValue('settings-writing-density', voice.information_density);
+  setSelectedSettingsRadioValue('settings-blog-writing-strategy', profile.common.writing_strategy, 'search');
   setSettingsWritingProfileValue('settings-writing-common-instruction', profile.common.style_instruction);
   setSettingsWritingProfileValue('settings-writing-blog-length', blog.length.preset);
-  setSettingsWritingProfileValue('settings-writing-blog-narrator', blog.narrator_presence);
   setSettingsWritingProfileValue('settings-writing-blog-opening', blog.structure.opening);
   setSettingsWritingProfileValue('settings-writing-blog-development', blog.structure.development);
   setSettingsWritingProfileValue('settings-writing-blog-ending', blog.structure.ending);
-  setSettingsWritingProfileValue('settings-writing-blog-headings', blog.structure.heading_density);
   setSettingsWritingProfileValue('settings-writing-blog-image-mode', blog.image_plan.count_mode);
   setSettingsWritingProfileValue('settings-writing-blog-image-count', blog.image_plan.fixed_count || 4);
-  setSettingsWritingProfileValue('settings-writing-blog-author-context', blog.author_context);
-  setSettingsWritingProfileValue('settings-writing-blog-instruction', blog.additional_instruction);
-  setSettingsWritingProfileValue('settings-writing-shopping-instruction', profile.channels.shopping.additional_instruction);
   const references = blog.style_references || {};
   setSettingsWritingProfileValue('settings-writing-reference-text', references.sample_text?.value || '');
-  const referenceUrlInputs = Array.from(document.querySelectorAll('[data-writing-reference-url]'));
-  referenceUrlInputs.forEach((input, index) => { input.value = references.blog_urls?.[index]?.url || ''; });
+  const referenceUrlInput = document.querySelector('[data-writing-reference-url]');
+  if (referenceUrlInput) referenceUrlInput.value = references.blog_urls?.[0]?.url || '';
+  setSelectedSettingsRadioValue(
+    'settings-writing-reference-input-method',
+    references.sample_text?.value ? 'text' : (references.blog_urls?.[0]?.url ? 'url' : 'text'),
+    'text'
+  );
 
   const editable = getSettingsWritingProfileActiveKind() === 'custom';
-  document.querySelectorAll('[data-writing-profile-field]').forEach((el) => { el.disabled = !editable; });
+  document.querySelectorAll('[data-writing-custom-detail]').forEach((section) => { section.hidden = !editable; });
+  document.querySelectorAll('[data-writing-custom-only]').forEach((field) => { field.hidden = !editable; });
+  const resetButton = document.getElementById('settings-writing-profile-reset-custom');
+  if (resetButton) resetButton.hidden = !editable;
+  document.querySelectorAll('[data-writing-profile-field]').forEach((el) => {
+    el.disabled = !editable && !['settings-blog-writing-mode', 'settings-blog-speech-level',
+      'settings-blog-writing-strategy-search', 'settings-blog-writing-strategy-discovery'].includes(el.id);
+  });
   document.querySelectorAll('[data-writing-reference-field]').forEach((el) => { el.disabled = !editable; });
   const analyzeButton = document.getElementById('settings-writing-reference-analyze');
   const clearButton = document.getElementById('settings-writing-reference-clear');
   if (analyzeButton) analyzeButton.disabled = !editable;
   if (clearButton) clearButton.disabled = !editable;
+  syncSettingsWritingReferenceInputMethodUi();
   syncSettingsWritingImageCountUi();
+  syncSettingsWritingInstructionCounter();
+  syncSettingsWritingReferenceCounter();
   syncSettingsBlogWritingStyleDescription();
-  renderSettingsWritingSummaries();
+  syncSettingsBlogWritingStrategyDescription();
   renderSettingsWritingReferenceState();
 }
 
@@ -250,18 +255,35 @@ async function analyzeSettingsWritingReferences() {
   const refs = settingsWritingProfileDraft.custom_profile.channels.blog.style_references;
   const analyzeButton = document.getElementById('settings-writing-reference-analyze');
   const status = document.getElementById('settings-writing-reference-status');
+  if (refs.fingerprint) {
+    const confirmed = await showUiDialog({
+      title: '참고 글 다시 분석',
+      message: '현재 문체와 글 구성을 새 분석 결과로 다시 채울까요?',
+      showCancel: true,
+      confirmText: '다시 분석',
+      cancelText: '취소'
+    });
+    if (!confirmed) return;
+  }
   if (analyzeButton) analyzeButton.disabled = true;
-  if (status) status.textContent = '공개 URL을 확인하고 Chat Model로 문체를 분석하는 중입니다.';
+  if (status) status.textContent = '참고 글에서 문체와 구성을 분석하는 중입니다.';
   try {
     const result = await postJson('/api/v1/settings/writing-profile/references/analyze', {
       sample_text: refs.sample_text.value,
       blog_urls: refs.blog_urls.map((entry) => entry.url)
     });
-    settingsWritingProfileDraft.custom_profile.channels.blog.style_references = result;
+    const custom = settingsWritingProfileDraft.custom_profile;
+    custom.channels.blog.style_references = result;
+    custom.common.voice = cloneSettingsWritingProfile(result.fingerprint.surface);
+    custom.channels.blog.length.preset = result.fingerprint.settings.length_preset;
+    custom.channels.blog.structure.opening = result.fingerprint.settings.opening;
+    custom.channels.blog.structure.development = result.fingerprint.settings.development;
+    custom.channels.blog.structure.ending = result.fingerprint.settings.ending;
+    custom.channels.blog.structure.heading_density = result.fingerprint.settings.heading_density;
     renderSettingsWritingProfile();
     syncSettingsWritingProfileDirty();
   } catch (error) {
-    if (status) status.textContent = `분석 실패: ${error.message}. 이전 성공 fingerprint는 그대로 보존됩니다.`;
+    if (status) status.textContent = `분석 실패: ${error.message}. 이전 분석 결과는 그대로 보존됩니다.`;
   } finally {
     if (analyzeButton) analyzeButton.disabled = false;
   }
@@ -270,8 +292,8 @@ async function analyzeSettingsWritingReferences() {
 async function clearSettingsWritingReferences() {
   if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
   const confirmed = await showUiDialog({
-    title: '참고 문체 삭제',
-    message: '참고 문장, URL과 분석된 문체 fingerprint를 모두 삭제할까요? 프로필을 저장할 때 적용됩니다.',
+    title: '참고 글 지우기',
+    message: '참고 글과 분석 결과를 지울까요? 현재 설정값은 그대로 유지됩니다.',
     showCancel: true,
     confirmText: '삭제',
     cancelText: '취소'
@@ -287,10 +309,23 @@ async function clearSettingsWritingReferences() {
 
 function syncSettingsWritingPreviewKindUi() {
   const kind = getSettingsWritingProfileValue('settings-writing-preview-kind', 'blog');
-  const topicField = document.getElementById('settings-writing-preview-topic-field');
-  const fixtureNote = document.getElementById('settings-writing-preview-fixture-note');
-  if (topicField) topicField.hidden = kind !== 'blog';
-  if (fixtureNote) fixtureNote.hidden = kind !== 'shopping';
+  const topicInput = document.getElementById('settings-writing-preview-topic');
+  const status = document.getElementById('settings-writing-preview-status');
+  const result = document.getElementById('settings-writing-preview-result');
+  if (topicInput) {
+    if (kind === 'shopping') {
+      if (!topicInput.disabled) topicInput.dataset.blogTopic = topicInput.value;
+      topicInput.value = '';
+      topicInput.placeholder = '고정된 예시 상품으로 미리 보기를 생성합니다.';
+      topicInput.disabled = true;
+    } else {
+      topicInput.disabled = false;
+      topicInput.value = topicInput.dataset.blogTopic || topicInput.value;
+      topicInput.placeholder = '미리 볼 블로그 주제를 입력해 주세요.';
+    }
+  }
+  if (status) status.textContent = '';
+  if (result) result.hidden = true;
 }
 
 function renderSettingsWritingPreview(result) {
@@ -314,28 +349,75 @@ function renderSettingsWritingPreview(result) {
   if (resultEl) resultEl.hidden = false;
 }
 
+function clearSettingsWritingPreviewResult() {
+  const resultEl = document.getElementById('settings-writing-preview-result');
+  const sectionsEl = document.getElementById('settings-writing-preview-sections');
+  ['settings-writing-preview-opening', 'settings-writing-preview-ending', 'settings-writing-preview-sample']
+    .forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+  if (sectionsEl) sectionsEl.replaceChildren();
+  if (resultEl) resultEl.hidden = true;
+}
+
+function startSettingsWritingPreviewProgress() {
+  const button = document.getElementById('settings-writing-preview-generate');
+  const status = document.getElementById('settings-writing-preview-status');
+  const frames = ['.', '...', '......', '..........'];
+  let frameIndex = 0;
+  clearSettingsWritingPreviewResult();
+  if (button) {
+    button.disabled = true;
+    button.classList.add('is-loading');
+    button.textContent = '생성 중…';
+  }
+  if (status) {
+    status.setAttribute('aria-live', 'off');
+    status.textContent = `AI가 미리보기를 생성하고 있습니다${frames[frameIndex]}`;
+  }
+  if (settingsWritingPreviewProgressTimer) clearInterval(settingsWritingPreviewProgressTimer);
+  settingsWritingPreviewProgressTimer = setInterval(() => {
+    frameIndex = (frameIndex + 1) % frames.length;
+    if (status) status.textContent = `AI가 미리보기를 생성하고 있습니다${frames[frameIndex]}`;
+  }, 650);
+}
+
+function stopSettingsWritingPreviewProgress() {
+  if (settingsWritingPreviewProgressTimer) clearInterval(settingsWritingPreviewProgressTimer);
+  settingsWritingPreviewProgressTimer = null;
+  const button = document.getElementById('settings-writing-preview-generate');
+  const status = document.getElementById('settings-writing-preview-status');
+  if (button) {
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.textContent = '미리 보기 생성';
+  }
+  if (status) status.setAttribute('aria-live', 'polite');
+}
+
 async function generateSettingsWritingPreview() {
   if (!settingsWritingProfileDraft || settingsWritingPreviewInFlight) return;
-  captureSettingsWritingCustomProfile();
+  captureSettingsWritingVisibleProfile();
   const profile = cloneSettingsWritingProfile(getVisibleSettingsWritingProfile());
   if (!profile) return;
   const kind = getSettingsWritingProfileValue('settings-writing-preview-kind', 'blog');
   const topic = getSettingsWritingProfileValue('settings-writing-preview-topic').trim();
-  const strategy = getSelectedSettingsRadioValue('settings-blog-writing-strategy', currentBlogWritingStrategy);
-  const button = document.getElementById('settings-writing-preview-generate');
   const status = document.getElementById('settings-writing-preview-status');
   settingsWritingPreviewInFlight = true;
-  if (button) button.disabled = true;
-  if (status) status.textContent = `${kind === 'blog' ? '블로그' : '쇼핑'} 미리보기를 생성하는 중입니다.`;
+  startSettingsWritingPreviewProgress();
   try {
-    const result = await postJson('/api/v1/settings/writing-profile/preview', { kind, topic, strategy, profile });
+    const result = await postJson('/api/v1/settings/writing-profile/preview', { kind, topic, profile });
     renderSettingsWritingPreview(result);
-    if (status) status.textContent = `${result.topic} · ${getWritingStrategyLabel(result.strategy)} · 현재 draft 기준`;
+    if (status) {
+      const lengthLabel = Number.isInteger(result.sample_length) ? ` · 샘플 ${result.sample_length}자` : '';
+      status.textContent = `${result.topic} · ${getWritingStrategyLabel(result.strategy)}${lengthLabel} · 현재 설정 기준`;
+    }
   } catch (error) {
     if (status) status.textContent = `미리보기 실패: ${error.message} 저장된 프로필과 실제 생성 설정은 변경되지 않았습니다.`;
   } finally {
     settingsWritingPreviewInFlight = false;
-    if (button) button.disabled = false;
+    stopSettingsWritingPreviewProgress();
   }
 }
 
@@ -351,6 +433,11 @@ function applySettingsWritingProfileResponse(data) {
   settingsWritingProfileDraft = {
     active_profile: data.active_profile === 'custom' ? 'custom' : 'default',
     default_profile: cloneSettingsWritingProfile(data.default_profile),
+    default_profile_overrides: cloneSettingsWritingProfile(data.default_profile_overrides || {
+      writing_strategy: data.default_profile.common.writing_strategy,
+      writing_mode: data.default_profile.common.voice.writing_mode,
+      speech_level: data.default_profile.common.voice.speech_level
+    }),
     custom_profile: customSnapshot,
     based_on_default_version: basedOnDefaultVersion
   };
@@ -359,12 +446,8 @@ function applySettingsWritingProfileResponse(data) {
   renderSettingsWritingProfile();
   settingsWritingProfileSavedSignature = buildSettingsWritingProfileSignature();
   settingsWritingProfileDirty = false;
-  const saveBtn = document.getElementById('settings-writing-profile-save');
-  if (saveBtn) saveBtn.disabled = true;
-  setSettingsWritingProfileStatus(
-    data.active_profile === 'custom' ? '내 프로필이 전체 글 생성에 적용 중입니다.' : '제품 기본 프로필이 적용 중입니다.',
-    'idle'
-  );
+  updateSettingsMajorSaveUi();
+  setSettingsWritingProfileStatus('');
 }
 
 async function loadSettingsWritingProfile({ force = false } = {}) {
@@ -393,7 +476,7 @@ async function loadSettingsWritingProfile({ force = false } = {}) {
 
 async function saveSettingsWritingProfile() {
   if (!settingsWritingProfileDraft || settingsWritingProfileSaving) return;
-  captureSettingsWritingCustomProfile();
+  captureSettingsWritingVisibleProfile();
   const activeProfile = getSettingsWritingProfileActiveKind();
   const custom = settingsWritingProfileDraft.custom_profile;
   settingsWritingProfileSaving = true;
@@ -401,7 +484,10 @@ async function saveSettingsWritingProfile() {
   syncSettingsWritingProfileDirty();
   setSettingsWritingProfileStatus('글쓰기 프로필을 저장하고 있습니다.', 'saving');
   try {
-    const payload = { active_profile: activeProfile };
+    const payload = {
+      active_profile: activeProfile,
+      default_profile_overrides: cloneSettingsWritingProfile(settingsWritingProfileDraft.default_profile_overrides)
+    };
     if (custom) {
       payload.custom_profile = {
         based_on_default_version: settingsWritingProfileDraft.based_on_default_version,
@@ -416,37 +502,38 @@ async function saveSettingsWritingProfile() {
     setSettingsWritingProfileStatus(`저장 실패: ${error.message}`, 'error');
   } finally {
     settingsWritingProfileSaving = false;
-    captureSettingsWritingCustomProfile();
+    captureSettingsWritingVisibleProfile();
     settingsWritingProfileDirty = buildSettingsWritingProfileSignature() !== settingsWritingProfileSavedSignature;
-    const saveBtn = document.getElementById('settings-writing-profile-save');
-    if (saveBtn) saveBtn.disabled = !settingsWritingProfileDirty;
+    updateSettingsMajorSaveUi();
     if (!saveFailed && settingsWritingProfileDirty) syncSettingsWritingProfileDirty();
   }
+  return !saveFailed;
 }
 
 async function resetSettingsWritingCustomProfile() {
   if (!settingsWritingProfileDraft) return;
   const confirmed = await showUiDialog({
     title: '내 프로필 초기화',
-    message: '내 프로필의 문체, 구성과 추가 지침을 제품 기본값으로 되돌릴까요? 저장 전까지는 적용되지 않습니다.',
+    message: '내 프로필의 문체, 구성과 추가 지침을 기본값으로 되돌릴까요? 저장 전까지는 적용되지 않습니다.',
     showCancel: true,
     confirmText: '초기화',
     cancelText: '취소'
   });
   if (!confirmed) return;
-  settingsWritingProfileDraft.custom_profile = cloneSettingsWritingProfile(settingsWritingProfileDraft.default_profile);
+  settingsWritingProfileDraft.custom_profile = cloneSettingsWritingProfile(getEffectiveSettingsWritingDefaultProfile());
   const customRadio = document.querySelector('input[name="settings-writing-profile-kind"][value="custom"]');
   if (customRadio) customRadio.checked = true;
+  settingsWritingProfileDraft.active_profile = 'custom';
   renderSettingsWritingProfile();
   syncSettingsWritingProfileDirty();
 }
 
 function handleSettingsWritingProfileKindChange() {
   if (!settingsWritingProfileDraft) return;
-  if (settingsWritingProfileDraft.active_profile === 'custom') captureSettingsWritingCustomProfile();
+  captureSettingsWritingProfileKind(settingsWritingProfileDraft.active_profile);
   const active = getSettingsWritingProfileActiveKind();
   if (active === 'custom' && !settingsWritingProfileDraft.custom_profile) {
-    settingsWritingProfileDraft.custom_profile = cloneSettingsWritingProfile(settingsWritingProfileDraft.default_profile);
+    settingsWritingProfileDraft.custom_profile = cloneSettingsWritingProfile(getEffectiveSettingsWritingDefaultProfile());
     settingsWritingProfileDraft.based_on_default_version = settingsWritingProfileResponse?.default_profile_metadata?.profile_version || 1;
   }
   settingsWritingProfileDraft.active_profile = active;
@@ -462,16 +549,24 @@ function initSettingsWritingProfileUi() {
     const eventName = field.tagName === 'TEXTAREA' ? 'input' : 'change';
     field.addEventListener(eventName, () => {
       syncSettingsWritingImageCountUi();
+      syncSettingsWritingInstructionCounter();
       syncSettingsBlogWritingStyleDescription();
-      renderSettingsWritingSummaries();
+      syncSettingsBlogWritingStrategyDescription();
       syncSettingsWritingProfileDirty();
     });
   });
   document.querySelectorAll('[data-writing-reference-field]').forEach((field) => {
-    field.addEventListener('input', markSettingsWritingReferencesChanged);
+    field.addEventListener('input', () => {
+      syncSettingsWritingReferenceCounter();
+      markSettingsWritingReferencesChanged();
+    });
   });
-  document.getElementById('settings-writing-profile-save')?.addEventListener('click', saveSettingsWritingProfile);
-  document.getElementById('settings-writing-profile-refresh')?.addEventListener('click', () => loadSettingsWritingProfile({ force: true }));
+  document.querySelectorAll('input[name="settings-writing-reference-input-method"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      syncSettingsWritingReferenceInputMethodUi();
+      markSettingsWritingReferencesChanged();
+    });
+  });
   document.getElementById('settings-writing-profile-reset-custom')?.addEventListener('click', resetSettingsWritingCustomProfile);
   document.getElementById('settings-writing-reference-analyze')?.addEventListener('click', analyzeSettingsWritingReferences);
   document.getElementById('settings-writing-reference-clear')?.addEventListener('click', clearSettingsWritingReferences);

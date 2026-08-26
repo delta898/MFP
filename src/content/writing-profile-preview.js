@@ -7,7 +7,6 @@ const { buildShoppingEditorialPlanPrompt } = require('./shopping-editorial-plan-
 const { resolveWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./writing-strategy');
 
 const DEFAULT_BLOG_PREVIEW_TOPIC = '일상에서 디지털 메모 습관을 만드는 방법';
-const PREVIEW_SAMPLE_MIN_LENGTH = 400;
 const PREVIEW_SAMPLE_MAX_LENGTH = 600;
 const SHOPPING_PREVIEW_FIXTURE = Object.freeze({
     title: 'BlogGenius 미리보기용 무선 키보드 BG-K1',
@@ -34,6 +33,17 @@ function createPreviewError(code, message, status = 400) {
     return error;
 }
 
+function trimPreviewSample(sample, maxLength = PREVIEW_SAMPLE_MAX_LENGTH) {
+    if (sample.length <= maxLength) return { value: sample, truncated: false };
+    const candidate = sample.slice(0, maxLength).trimEnd();
+    const sentenceEnds = Array.from(candidate.matchAll(/[.!?。！？](?:\s|$)/g));
+    const lastSentenceEnd = sentenceEnds.at(-1)?.index;
+    if (Number.isInteger(lastSentenceEnd) && lastSentenceEnd + 1 >= Math.floor(maxLength * 0.65)) {
+        return { value: candidate.slice(0, lastSentenceEnd + 1).trimEnd(), truncated: true };
+    }
+    return { value: `${candidate.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`, truncated: true };
+}
+
 function parsePreviewJson(raw) {
     const text = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
     const start = text.indexOf('{');
@@ -47,35 +57,57 @@ function parsePreviewJson(raw) {
     const sections = Array.isArray(outline.sections)
         ? outline.sections.slice(0, 8).map((item) => ({ heading: String(item?.heading || '').trim().slice(0, 100), role: String(item?.role || '').trim().slice(0, 200) })).filter((item) => item.heading && item.role)
         : [];
-    const sample = String(parsed?.sample || '').trim();
+    const rawSample = String(parsed?.sample || '').trim();
     if (!String(outline.opening || '').trim() || !sections.length || !String(outline.ending || '').trim()) {
         throw createPreviewError('WRITING_PREVIEW_CONTRACT_MISMATCH', '미리보기 결과가 개요 계약을 충족하지 못했습니다.', 502);
     }
-    if (sample.length < PREVIEW_SAMPLE_MIN_LENGTH || sample.length > PREVIEW_SAMPLE_MAX_LENGTH) {
+    if (!rawSample) {
         throw createPreviewError(
             'WRITING_PREVIEW_CONTRACT_MISMATCH',
-            `미리보기 샘플이 ${sample.length}자로 반환되어 400~600자 계약을 충족하지 못했습니다.`,
+            '미리보기 샘플 본문이 비어 있습니다.',
             502
         );
     }
+    const trimmedSample = trimPreviewSample(rawSample);
+    const sample = trimmedSample.value;
     return {
         outline: {
             opening: String(outline.opening).trim().slice(0, 300),
             sections,
             ending: String(outline.ending).trim().slice(0, 300)
         },
-        sample
+        sample,
+        sample_length: sample.length,
+        sample_length_status: trimmedSample.truncated
+            ? 'trimmed'
+            : (sample.length < 400 ? 'short' : 'recommended'),
+        sample_truncated: trimmedSample.truncated
     };
 }
 
-function buildPreviewOutputContract() {
+function buildPreviewOutputContract(options = {}) {
+    const kind = options.kind === 'shopping' ? 'shopping' : 'blog';
+    const layoutRules = [
+        '- sample은 실제 원고의 축소판처럼 2~3개의 짧은 문단으로 작성하세요.',
+        '- 문단 사이는 반드시 빈 줄 하나(문자열에서는 \\n\\n)로 구분하세요.'
+    ];
+    if (kind === 'blog') {
+        layoutRules.push(
+            '- 전체 원고의 이미지 개수를 모두 넣지 말고, 샘플에는 대표 이미지 영역 1개만 넣으세요.',
+            '- 이미지 영역은 실제 원고와 같은 여러 줄 형식으로 문단 사이의 독립된 줄에 배치하세요: [[IMAGE_0\\ntitle: 이미지 제목\\nprompt: 이미지 생성 프롬프트\\n]]'
+        );
+    }
+    const sampleExample = kind === 'blog'
+        ? '첫 문단...\\n\\n[[IMAGE_0\\ntitle: 이미지 제목\\nprompt: 이미지 생성 프롬프트\\n]]\\n\\n둘째 문단...'
+        : '첫 문단...\\n\\n둘째 문단...';
     return [
         '[미리보기 출력 계약]',
         '- 아래 JSON 객체 하나만 출력하고 코드블록이나 설명을 덧붙이지 마세요.',
         '- sample은 한국어 공백 포함 약 500자를 목표로 작성하고, 반드시 450~550자 안에 맞추세요.',
         '- 작성을 마친 뒤 sample의 문자 수를 확인하고 너무 짧으면 구체적인 설명을 보강하세요.',
         '- 실제 글 전체를 만들지 말고 설정 차이를 확인할 수 있는 대표 샘플만 작성하세요.',
-        '{"outline":{"opening":"도입 역할","sections":[{"heading":"예상 H2","role":"이 섹션의 역할"}],"ending":"마무리 역할"},"sample":"400~600자 샘플 본문"}'
+        ...layoutRules,
+        `{"outline":{"opening":"도입 역할","sections":[{"heading":"예상 H2","role":"이 섹션의 역할"}],"ending":"마무리 역할"},"sample":"${sampleExample}"}`
     ].join('\n');
 }
 
@@ -159,17 +191,18 @@ function buildBlogPreviewPrompt(input = {}, options = {}) {
             '당신은 블로그 글쓰기 설정을 미리 보여주는 편집자입니다.',
             composed.strategy_prompt,
             composed.profile_prompt,
-            composed.image_plan_prompt,
+            '[미리보기 이미지 영역 계획]',
+            `- 실제 전체 원고에서는 설정에 따라 이미지 영역 ${composed.image_plan.count}개를 사용합니다. 이 짧은 샘플에는 대표 영역 1개만 보여주세요.`,
             `[미리보기 주제]\n${topic}`,
-            buildPreviewOutputContract()
+            buildPreviewOutputContract({ kind: 'blog' })
         ].join('\n\n')
     };
 }
 
 function buildShoppingPreviewPrompt(input = {}, options = {}) {
     const profile = resolvePreviewProfile(input);
-    const strategy = resolveWritingStrategy({ override: input.strategy, global: options.globalStrategy });
     const projection = projectWritingProfile(profile, { kind: 'shopping' });
+    const strategy = resolveWritingStrategy({ override: input.strategy, global: projection.common.writing_strategy || options.globalStrategy });
     const profilePrompt = buildShoppingWritingProfilePromptFromProjection(projection);
     const strategyPrompt = buildShoppingWritingStrategyPrompt(strategy);
     const editorialPrompt = buildShoppingEditorialPlanPrompt(SHOPPING_PREVIEW_FIXTURE, {});
@@ -186,7 +219,7 @@ function buildShoppingPreviewPrompt(input = {}, options = {}) {
             editorialPrompt,
             `[Synthetic Official Product Data]\n${JSON.stringify(SHOPPING_PREVIEW_FIXTURE, null, 2)}`,
             '- Official Product Data와 Review Data를 구분하고 입력에 없는 구매·사용 경험을 만들지 마세요.',
-            buildPreviewOutputContract()
+            buildPreviewOutputContract({ kind: 'shopping' })
         ].join('\n\n')
     };
 }
@@ -223,6 +256,7 @@ function createWritingProfilePreviewService(options = {}) {
 module.exports = {
     DEFAULT_BLOG_PREVIEW_TOPIC,
     SHOPPING_PREVIEW_FIXTURE,
+    trimPreviewSample,
     parsePreviewJson,
     buildPreviewResponseSchema,
     buildPreviewRepairPrompt,

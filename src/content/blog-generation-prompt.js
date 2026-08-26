@@ -40,11 +40,11 @@ function buildBlogPostInputPrompt(input = {}) {
 }
 
 function buildBlogGenerationPrompt(options = {}) {
+    const projection = projectWritingProfile(options.profile, { kind: 'blog' });
     const strategy = resolveWritingStrategy({
         override: options.strategy,
-        global: options.globalStrategy
+        global: projection.common.writing_strategy || options.globalStrategy
     });
-    const projection = projectWritingProfile(options.profile, { kind: 'blog' });
     const contractAndStrategyPrompt = buildBlogSystemPrompt({
         strategy,
         config: options.config,

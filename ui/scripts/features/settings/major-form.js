@@ -104,9 +104,9 @@ function applySettingsMajorToForm(data, options = {}) {
     sv(document.getElementById('settings-blog-writing-mode'), fields.BLOG_WRITING_MODE || 'conversational');
     sv(document.getElementById('settings-blog-speech-level'), fields.BLOG_SPEECH_LEVEL || 'polite');
   }
-  setSelectedSettingsRadioValue('settings-blog-writing-strategy', fields.BLOG_WRITING_STRATEGY, 'search');
+  currentBlogWritingStrategy = fields.BLOG_WRITING_STRATEGY === 'discovery' ? 'discovery' : 'search';
+  syncWritingStrategyInheritanceLabels();
   syncSettingsBlogWritingStyleDescription();
-  syncSettingsBlogWritingStrategyDescription();
   sv(sheetUrlEl, fields.GOOGLE_SHEET_URL || '');
   sv(updateServerTypeEl, fields.UPDATE_SERVER_TYPE || 'github');
   sv(updateMirrorRepoEl, fields.UPDATE_MIRROR_REPO || 'delta898/NaverAutoBlog-Releases');
@@ -319,7 +319,6 @@ function getSettingsMajorBasicValuesFromDom() {
     WORDPRESS_APP_PASSWORD: getSettingsInputValue('settings-wordpress-app-password').trim(),
     BLOG_WRITING_MODE: document.getElementById('settings-blog-writing-mode')?.value || 'conversational',
     BLOG_SPEECH_LEVEL: document.getElementById('settings-blog-speech-level')?.value || 'polite',
-    BLOG_WRITING_STRATEGY: getSelectedSettingsRadioValue('settings-blog-writing-strategy', 'search'),
     GOOGLE_SHEET_URL: (document.getElementById('settings-google-sheet-url')?.value || '').trim(),
     UPDATE_SERVER_TYPE: (document.getElementById('settings-update-server-type')?.value || 'github').trim(),
     CUSTOM_UPDATE_CHECK_URL: (document.getElementById('settings-custom-update-check-url')?.value || '').trim(),

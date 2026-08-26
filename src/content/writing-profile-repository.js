@@ -1,6 +1,7 @@
 const {
     CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
+    PROFILE_ENUMS,
     getDefaultContentWritingProfile,
     normalizeWritingProfile,
     validateWritingProfile
@@ -9,8 +10,15 @@ const { resolveContentWritingPreferences } = require('./writing-preferences');
 
 const ACTIVE_PROFILE_VALUES = new Set(['default', 'custom']);
 
+const DEFAULT_PROFILE_OVERRIDE_SHAPE = Object.freeze({
+    writing_strategy: true,
+    writing_mode: true,
+    speech_level: true
+});
+
 const PROFILE_SHAPE = Object.freeze({
     common: {
+        writing_strategy: true,
         voice: {
             writing_mode: true,
             speech_level: true,
@@ -56,6 +64,19 @@ const REFERENCE_URL_SHAPE = Object.freeze({
 });
 
 const FINGERPRINT_SHAPE = Object.freeze({
+    surface: {
+        writing_mode: true,
+        speech_level: true,
+        tone: true,
+        information_density: true
+    },
+    settings: {
+        length_preset: true,
+        opening: true,
+        development: true,
+        ending: true,
+        heading_density: true
+    },
     structure: {
         opening_pattern: true,
         section_flow: true,
@@ -142,6 +163,13 @@ function validateCustomProfileSnapshot(customProfile) {
             ));
         });
     }
+    if (styleReferences?.sample_text?.value && Array.isArray(styleReferences?.blog_urls) && styleReferences.blog_urls.length) {
+        errors.push({
+            path: 'custom_profile.channels.blog.style_references',
+            code: 'MULTIPLE_REFERENCE_SOURCES',
+            message: '붙여넣은 글과 참고 URL 중 하나만 사용할 수 있습니다.'
+        });
+    }
     if (styleReferences?.fingerprint !== null && styleReferences?.fingerprint !== undefined) {
         errors.push(...validateExactShape(
             styleReferences.fingerprint,
@@ -163,22 +191,68 @@ function buildCustomProfile(profile, basedOnDefaultVersion = DEFAULT_CONTENT_WRI
     };
 }
 
-function buildLegacyDocument(contentConfig = {}) {
+function getProductDefaultOverrides() {
     const profile = getDefaultContentWritingProfile();
-    const legacyStyle = resolveContentWritingPreferences(contentConfig).style;
-    const defaultVoice = profile.common.voice;
-    const differsFromDefault = legacyStyle.writing_mode !== defaultVoice.writing_mode
-        || legacyStyle.speech_level !== defaultVoice.speech_level;
+    return {
+        writing_strategy: profile.common.writing_strategy,
+        writing_mode: profile.common.voice.writing_mode,
+        speech_level: profile.common.voice.speech_level
+    };
+}
 
-    if (differsFromDefault) {
-        profile.common.voice.writing_mode = legacyStyle.writing_mode;
-        profile.common.voice.speech_level = legacyStyle.speech_level;
+function normalizeDefaultProfileOverrides(input = {}) {
+    const defaults = getProductDefaultOverrides();
+    const candidate = isRecord(input) ? input : {};
+    return {
+        writing_strategy: PROFILE_ENUMS.writingStrategy.includes(candidate.writing_strategy)
+            ? candidate.writing_strategy : defaults.writing_strategy,
+        writing_mode: PROFILE_ENUMS.writingMode.includes(candidate.writing_mode)
+            ? candidate.writing_mode : defaults.writing_mode,
+        speech_level: PROFILE_ENUMS.speechLevel.includes(candidate.speech_level)
+            ? candidate.speech_level : defaults.speech_level
+    };
+}
+
+function validateDefaultProfileOverrides(input) {
+    const errors = validateExactShape(input, DEFAULT_PROFILE_OVERRIDE_SHAPE, 'default_profile_overrides');
+    if (isRecord(input)) {
+        for (const [key, enumValues] of [
+            ['writing_strategy', PROFILE_ENUMS.writingStrategy],
+            ['writing_mode', PROFILE_ENUMS.writingMode],
+            ['speech_level', PROFILE_ENUMS.speechLevel]
+        ]) {
+            if (Object.prototype.hasOwnProperty.call(input, key) && !enumValues.includes(input[key])) {
+                errors.push({
+                    path: `default_profile_overrides.${key}`,
+                    code: 'INVALID_ENUM',
+                    message: `default_profile_overrides.${key} 값이 올바르지 않습니다.`
+                });
+            }
+        }
     }
+    return { valid: errors.length === 0, errors };
+}
 
+function applyDefaultProfileOverrides(overrides) {
+    const profile = getDefaultContentWritingProfile();
+    const normalized = normalizeDefaultProfileOverrides(overrides);
+    profile.common.writing_strategy = normalized.writing_strategy;
+    profile.common.voice.writing_mode = normalized.writing_mode;
+    profile.common.voice.speech_level = normalized.speech_level;
+    return profile;
+}
+
+function buildLegacyDocument(contentConfig = {}) {
+    const legacyPreferences = resolveContentWritingPreferences(contentConfig);
     return {
         schema_version: CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
-        active_profile: differsFromDefault ? 'custom' : 'default',
-        custom_profile: differsFromDefault ? buildCustomProfile(profile) : null,
+        active_profile: 'default',
+        default_profile_overrides: normalizeDefaultProfileOverrides({
+            writing_strategy: legacyPreferences.strategy,
+            writing_mode: legacyPreferences.style.writing_mode,
+            speech_level: legacyPreferences.style.speech_level
+        }),
+        custom_profile: null,
         updated_at: null
     };
 }
@@ -188,7 +262,7 @@ function resolveEffectiveProfile(document) {
         const { based_on_default_version: _version, ...profile } = document.custom_profile;
         return normalizeWritingProfile(profile);
     }
-    return getDefaultContentWritingProfile();
+    return applyDefaultProfileOverrides(document.default_profile_overrides);
 }
 
 function applyWritingProfileRuntimeAliases(CONFIG, profile) {
@@ -199,6 +273,8 @@ function applyWritingProfileRuntimeAliases(CONFIG, profile) {
     CONFIG.BLOG_SPEECH_LEVEL = voice.speech_level;
     CONFIG.CONTENT_WRITING_MODE = voice.writing_mode;
     CONFIG.CONTENT_SPEECH_LEVEL = voice.speech_level;
+    CONFIG.BLOG_WRITING_STRATEGY = effectiveProfile.common.writing_strategy;
+    CONFIG.CONTENT_WRITING_STRATEGY = effectiveProfile.common.writing_strategy;
     CONFIG.CONTENT_WRITING_PROFILE = effectiveProfile;
 }
 
@@ -218,6 +294,7 @@ function createWritingProfileRepository(deps = {}) {
             : {
                 schema_version: CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
                 active_profile: 'default',
+                default_profile_overrides: getProductDefaultOverrides(),
                 custom_profile: null,
                 updated_at: null
             };
@@ -277,6 +354,7 @@ function createWritingProfileRepository(deps = {}) {
         const document = {
             schema_version: CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
             active_profile: resolvedActiveProfile,
+            default_profile_overrides: normalizeDefaultProfileOverrides(raw.default_profile_overrides),
             custom_profile: customProfile,
             updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null
         };
@@ -307,7 +385,7 @@ function createWritingProfileRepository(deps = {}) {
 
     function save(input = {}) {
         if (!isRecord(input)) throw createValidationError([{ path: 'body', code: 'INVALID_TYPE', message: '요청 본문은 객체여야 합니다.' }]);
-        const allowedKeys = new Set(['active_profile', 'custom_profile']);
+        const allowedKeys = new Set(['active_profile', 'default_profile_overrides', 'custom_profile']);
         const unknownKeys = Object.keys(input).filter((key) => !allowedKeys.has(key));
         if (unknownKeys.length > 0) {
             throw createValidationError(unknownKeys.map((key) => ({
@@ -321,6 +399,12 @@ function createWritingProfileRepository(deps = {}) {
         }
 
         const current = read().document;
+        let defaultProfileOverrides = current.default_profile_overrides;
+        if (Object.prototype.hasOwnProperty.call(input, 'default_profile_overrides')) {
+            const validation = validateDefaultProfileOverrides(input.default_profile_overrides);
+            if (!validation.valid) throw createValidationError(validation.errors);
+            defaultProfileOverrides = normalizeDefaultProfileOverrides(input.default_profile_overrides);
+        }
         let customProfile = current.custom_profile;
         if (Object.prototype.hasOwnProperty.call(input, 'custom_profile') && input.custom_profile !== null) {
             const validation = validateCustomProfileSnapshot(input.custom_profile);
@@ -335,6 +419,7 @@ function createWritingProfileRepository(deps = {}) {
         const document = {
             schema_version: CONTENT_WRITING_PROFILE_SCHEMA_VERSION,
             active_profile: input.active_profile,
+            default_profile_overrides: defaultProfileOverrides,
             custom_profile: customProfile,
             updated_at: now()
         };
@@ -357,7 +442,7 @@ function createWritingProfileRepository(deps = {}) {
         atomicWrite(document);
         return {
             document: clone(document),
-            effective_profile: getDefaultContentWritingProfile(),
+            effective_profile: resolveEffectiveProfile(document),
             source: 'product_default',
             warnings: []
         };
@@ -370,6 +455,9 @@ module.exports = {
     ACTIVE_PROFILE_VALUES,
     createWritingProfileRepository,
     validateCustomProfileSnapshot,
+    validateDefaultProfileOverrides,
+    getProductDefaultOverrides,
+    applyDefaultProfileOverrides,
     buildLegacyDocument,
     resolveEffectiveProfile,
     applyWritingProfileRuntimeAliases

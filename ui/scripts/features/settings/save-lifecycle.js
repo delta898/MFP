@@ -6,7 +6,7 @@ function markSettingsMajorPendingChanges(pending = true) {
 function updateSettingsMajorSaveUi() {
   const saveBtns = document.querySelectorAll('#settings-major-save-btn, .settings-major-save-btn');
   const statusEls = Array.from(document.querySelectorAll('.settings-major-save-status'));
-  const isDirty = settingsMajorHasPendingBasicChanges === true;
+  const isDirty = settingsMajorHasPendingBasicChanges === true || settingsWritingProfileDirty === true;
 
   saveBtns.forEach((btn) => {
     btn.disabled = !isDirty || settingsMajorSaveInFlight;
@@ -181,4 +181,3 @@ function buildSettingsMajorPayload() {
     ...imageSources
   };
 }
-

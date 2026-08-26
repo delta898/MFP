@@ -45,7 +45,7 @@ function createSettingsController(deps = {}) {
                     const data = await service.analyzeWritingProfileReferences(requestBody || {});
                     return sendSuccess(res, requestId, data);
                 } catch (e) {
-                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_ANALYSIS_FAILED', '참고 문체를 분석하지 못했습니다.', e);
+                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_ANALYSIS_FAILED', '참고 글을 분석하지 못했습니다.', e);
                 }
             }
             return sendMethodNotAllowed(sendError, res, requestId);
@@ -57,7 +57,7 @@ function createSettingsController(deps = {}) {
                     const data = await service.deleteWritingProfileReferences();
                     return sendSuccess(res, requestId, data);
                 } catch (e) {
-                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_DELETE_FAILED', '참고 문체 자료를 삭제하지 못했습니다.', e);
+                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_DELETE_FAILED', '참고 글 자료를 삭제하지 못했습니다.', e);
                 }
             }
             return sendMethodNotAllowed(sendError, res, requestId);

@@ -2,22 +2,25 @@
 
 ## Scope
 
-BlogGenius has one global writing-profile selection shared by ordinary blog and shopping generation. The user can choose either the versioned product default or one complete custom snapshot. Multi-profile, category-specific and per-account selection are not part of the current feature.
+BlogGenius has one global writing-profile selection shared by ordinary blog and shopping generation. The user can choose either the versioned product default with three bounded overrides or one complete custom snapshot. Multi-profile, category-specific and per-account selection are not part of the current feature.
 
 The profile stores repeatable writing preferences. It does not replace the subject, product facts, per-post references or per-post instructions.
 
 ## Profile Model
 
-The schema separates common voice from content-kind capabilities.
+The schema stores one final profile and keeps optional reference-analysis data separate from content-kind capabilities.
 
-- `common.voice`: conversational/written expression, polite/plain speech, tone and information density
-- `common.style_instruction`: expression guidance shared by blog and shopping
+- `common.writing_strategy`: final search/discovery purpose shared by blog and shopping
+- `common.voice`: final conversational/written expression, polite/plain speech, tone and density
+- `common.style_instruction`: one optional writing principle shared by blog and shopping
 - `channels.blog`: length, structure, narrator presence, image-area count, author context, blog instruction and analyzed style fingerprint
 - `channels.shopping`: product-default mode and shopping instruction
 
-The product default is loaded from `src/config/default_content_writing_profile.json`. A custom profile is stored as a complete snapshot in `config/writing_profile.json` with its `based_on_default_version`. Selecting the default preserves the custom snapshot and its reference analysis; deleting reference material is a separate explicit operation.
+The default-profile UI exposes only the choices expected to vary by user: search/discovery strategy, conversational/written expression and polite/plain speech. Tone, additional writing principle, reference analysis, blog length, flow and image-area count stay on the product defaults and are not shown. The custom-profile UI exposes the full minimal editing surface, including those settings and the optional `참고 글로 자동 설정` tool. There is no direct/reference mode. Author context and channel-specific global instructions remain empty; one-off requirements belong to the post-level instruction.
 
-Missing or corrupt profile storage fails safely to the product default without overwriting the damaged file. Legacy expression and speech settings are migrated as a custom profile only when they differ from the current product default.
+The product default is loaded from `src/config/default_content_writing_profile.json`. Storage keeps `default_profile_overrides` containing exactly `writing_strategy`, `writing_mode` and `speech_level`; all other default-profile values continue to follow the current versioned product default. A custom profile is stored separately as a complete snapshot in `config/writing_profile.json` with its `based_on_default_version`. Switching either way preserves both sets of values, so future named profiles can extend the custom side without changing default semantics.
+
+Missing or corrupt profile storage fails safely to the product default without overwriting the damaged file. When no profile file exists, the previously supported expression, speech and global strategy settings seed the three default overrides once. Because this feature has not shipped yet, intermediate development schemas are not supported or migrated.
 
 ## Content-kind Projection
 
@@ -26,7 +29,7 @@ Generation receives an allowlisted projection, not the raw stored document.
 - Blog receives `common + channels.blog`.
 - Shopping receives `common + channels.shopping`.
 
-Consequently, blog length, structure, narrator, author context, image plan and style fingerprint cannot enter the shopping prompt. Shopping instructions cannot enter the ordinary blog prompt. Common voice affects shopping expression but never becomes product evidence or permission to invent experience.
+Consequently, blog length, structure, narrator, author context, image plan and the fingerprint's blog-structure traits cannot enter the shopping prompt. Shopping instructions cannot enter the ordinary blog prompt. The final common voice—whether entered directly or filled by analysis—affects both content kinds but never becomes product evidence or permission to invent experience.
 
 ## Precedence
 
@@ -34,10 +37,10 @@ The effective order is:
 
 1. system output, safety, factuality and image-syntax contracts;
 2. explicit instruction and factual inputs for the current post;
-3. direct fields and instructions in the selected profile;
-4. an analyzed blog style fingerprint.
+3. selected profile strategy, composition, length and global writing principle;
+4. allowlisted supplementary rhythm and vocabulary traits from the analyzed reference, when present.
 
-A per-post instruction can change the selected strategy, writing direction or image-area count for that post, but it cannot mutate the global profile or override system safety contracts. Direct profile choices such as conversational/written and polite/plain remain stronger than an inferred reference style.
+A per-post instruction can change the selected strategy, writing direction or image-area count for that post, but it cannot mutate the global profile or override system safety contracts. Reference analysis first fills the final voice, length and composition fields; the user may then edit them. Generation reads those final fields directly and never resolves a conflict between source text and visible settings.
 
 ## Blog Generation
 
@@ -55,22 +58,22 @@ The image resolver selects an explicit per-post or Sheet count first, then a fix
 
 ## Shopping Generation
 
-Shopping keeps its independent product facts, reviews, anti-fabrication rules, output blocks and product/FTC/CTA image policy. The selected common voice, common style instruction and shopping instruction are adapted into this contract. Product-specific instructions override global writing preferences only for that product and cannot create unsupported price, delivery, review or personal-experience claims.
+Shopping keeps its independent product facts, reviews, anti-fabrication rules, output blocks and product/FTC/CTA image policy. The resolved common voice and single global writing principle are adapted into this contract. Product-specific instructions override global writing preferences only for that product and cannot create unsupported price, delivery, review or personal-experience claims.
 
 Quick, batch and automatic shopping all converge on `ShoppingManager.buildPostFromShortUrl`.
 
 ## Style References
 
-Blog style references are separate from per-post factual `reference_urls`.
+Profile reference input is separate from per-post factual `reference_urls`.
 
-- Input is one bounded sample text and up to three public HTTPS blog URLs.
+- Input is exactly one method: one bounded pasted text or one public HTTPS blog URL.
 - URL fetching rejects credentials, private/loopback/link-local destinations, unsafe redirects, non-HTML and oversized responses.
-- The Chat Model produces an allowlisted structural and voice fingerprint.
+- The configured Writing Model produces an allowlisted structural and voice fingerprint.
 - Raw text and fetched pages are never passed to ordinary generation.
-- Failed or stale analysis may preserve the previous fingerprint for display, but only a current `analyzed` result is applied.
+- Failed or stale analysis may preserve the previous fingerprint for display, but only a current result with an analyzed source is applied.
 - Reference analysis never infers gender, age, occupation or other persona attributes.
 
-The fingerprint applies only to blog projection and remains lower priority than direct profile fields.
+The analyzer returns allowlisted recommendations for voice, length, opening, development, ending and heading density. The UI copies them into the ordinary editable profile fields. Fine-grained rhythm, vocabulary and avoid-list traits remain blog-only supplements and may not override the final visible settings. Deleting the optional reference removes its source and supplementary traits while retaining the already filled final settings.
 
 ## Preview
 
@@ -78,7 +81,8 @@ The Writing settings screen offers an explicit AI preview button. It sends the u
 
 - Blog uses a fixed or user-entered neutral topic.
 - Shopping uses one fixed synthetic product fixture with bounded price, delivery and review facts.
-- Both return an outline and a server-validated 400–600-character sample.
+- Both target a 400–600-character sample. Short samples are shown as returned, while long samples are trimmed to at most 600 characters with a sentence boundary preferred. Length alone never triggers another model call; only malformed JSON, a missing outline or an empty sample is repaired.
+- The sample uses two or three short paragraphs separated by blank lines. Blog preview shows one representative image block in the real multiline manuscript syntax instead of forcing the full article's image count into a short sample.
 - The same normalizer, kind projection, strategy adapter and prompt components used by generation are reused.
 - A malformed or incorrectly sized model result gets one bounded format-repair attempt.
 - Preview failure never changes the stored profile or runtime effective profile.
@@ -101,4 +105,3 @@ Primary code owners:
 - `src/content/style-reference-*`: safe reference fetching and fingerprint analysis
 - `src/content/writing-profile-preview.js`: draft preview composition and validation
 - Settings service/controller/routes: API boundary and runtime activation
-

@@ -6,6 +6,17 @@ function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+function getCurrentReferenceFingerprint(profile) {
+    const references = profile.channels.blog.style_references || {};
+    const statuses = [
+        references.sample_text?.status,
+        ...(references.blog_urls || []).map((item) => item.status)
+    ].filter((status) => status && status !== 'empty');
+    const hasAnalyzedSource = statuses.some((status) => status === 'analyzed');
+    if (!references.fingerprint || !hasAnalyzedSource || statuses.some((status) => status === 'pending' || status === 'stale')) return null;
+    return references.fingerprint;
+}
+
 function projectWritingProfile(input = {}, options = {}) {
     const kind = String(options.kind || '').trim().toLowerCase();
     if (!CONTENT_KINDS.includes(kind)) {
@@ -15,14 +26,20 @@ function projectWritingProfile(input = {}, options = {}) {
     }
 
     const profile = normalizeWritingProfile(input);
+    const common = cloneValue(profile.common);
+    const channel = cloneValue(profile.channels[kind]);
+    if (kind === 'blog' && !getCurrentReferenceFingerprint(profile)) {
+        channel.style_references.fingerprint = null;
+    }
     return {
         kind,
-        common: cloneValue(profile.common),
-        channel: cloneValue(profile.channels[kind])
+        common,
+        channel
     };
 }
 
 module.exports = {
     CONTENT_KINDS,
+    getCurrentReferenceFingerprint,
     projectWritingProfile
 };

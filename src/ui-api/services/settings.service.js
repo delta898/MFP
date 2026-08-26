@@ -120,7 +120,7 @@ function createSettingsService(deps = {}) {
         const runtimeUtils = Utils || require('../../utils');
         writingReferenceAnalyzer = createStyleReferenceAnalyzer({
             fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
-            callChatText: runtimeUtils.callChatText.bind(runtimeUtils)
+            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils)
         });
         return writingReferenceAnalyzer;
     }
@@ -139,6 +139,7 @@ function createSettingsService(deps = {}) {
         return {
             schema_version: result.document.schema_version,
             active_profile: result.document.active_profile,
+            default_profile_overrides: result.document.default_profile_overrides,
             custom_profile: result.document.custom_profile,
             effective_profile: result.effective_profile,
             default_profile: getDefaultContentWritingProfile(),
@@ -428,7 +429,7 @@ function createSettingsService(deps = {}) {
                 writing_mode: fields.BLOG_WRITING_MODE,
                 speech_level: fields.BLOG_SPEECH_LEVEL
             };
-            structuredConfig.content.writing_strategy = fields.BLOG_WRITING_STRATEGY;
+            delete structuredConfig.content.writing_strategy;
 
             // Older configurations and runtimes used the blog namespace. Keep a
             // mirrored value while the common content preference is adopted.
@@ -437,7 +438,7 @@ function createSettingsService(deps = {}) {
                 writing_mode: fields.BLOG_WRITING_MODE,
                 speech_level: fields.BLOG_SPEECH_LEVEL
             };
-            structuredConfig.content.blog.writing_strategy = fields.BLOG_WRITING_STRATEGY;
+            delete structuredConfig.content.blog.writing_strategy;
 
             if (!structuredConfig.integrations) structuredConfig.integrations = {};
             if (!structuredConfig.integrations.buffer) structuredConfig.integrations.buffer = {};

@@ -407,7 +407,11 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             writing_mode: requestBody.BLOG_WRITING_MODE,
             speech_level: requestBody.BLOG_SPEECH_LEVEL
         });
-        const writingStrategy = normalizeWritingStrategy(requestBody.BLOG_WRITING_STRATEGY);
+        const writingStrategy = normalizeWritingStrategy(
+            Object.prototype.hasOwnProperty.call(requestBody, 'BLOG_WRITING_STRATEGY')
+                ? requestBody.BLOG_WRITING_STRATEGY
+                : (CONFIG.CONTENT_WRITING_PROFILE?.common?.writing_strategy || CONFIG.CONTENT_WRITING_STRATEGY)
+        );
         const googleSheetUrl = normalizeGoogleSheetUrl(requestBody.GOOGLE_SHEET_URL, requestBody.GOOGLE_SHEET_ID);
         const headless = normalizeBool(requestBody.HEADLESS, false);
         const typingSpeed = normalizeTypingSpeed(requestBody.TYPING_SPEED, 'NORMAL');

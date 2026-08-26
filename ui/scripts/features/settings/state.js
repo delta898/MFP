@@ -31,3 +31,4 @@ let settingsWritingProfileDirty = false;
 let settingsWritingProfileLoading = false;
 let settingsWritingProfileSaving = false;
 let settingsWritingPreviewInFlight = false;
+let settingsWritingPreviewProgressTimer = null;

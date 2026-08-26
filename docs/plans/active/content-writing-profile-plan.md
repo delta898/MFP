@@ -10,7 +10,7 @@
 
 글쓰기 프로필은 글별 주제와 사실 자료를 대체하지 않는다. 생성 입력을 다음 네 층으로 분리한다.
 
-1. `writing strategy`: 검색 중심 또는 발견 중심이라는 글의 목적과 큰 흐름
+1. `profile strategy`: 선택 프로필에 저장되는 검색 중심 또는 발견 중심이라는 글의 목적과 큰 흐름
 2. `common voice`: 블로그와 쇼핑이 공유하는 표현 방식, 높임, 어조와 정보 밀도
 3. `content-kind profile`: blog 또는 shopping에 허용된 구성과 지침
 4. `post input`: 이번 글/상품의 주제, 공식 데이터, 참고/지시사항과 사실 참고 URL
@@ -18,6 +18,7 @@
 ## Confirmed Decisions
 
 - 선택되는 프로필은 한 개이며 블로그와 쇼핑이 같은 공통 글쓰기 성향을 사용한다.
+- 검색/발견 작성 전략은 별도 전역 설정이 아니라 선택 프로필의 사용자 선택 항목이다.
 - 멀티 프로필, 카테고리별 프로필과 글별 프로필 선택은 후속 범위로 남긴다.
 - 문체 참고 URL은 기존 글별 `reference_urls`와 분리한다.
 - 문체 참고자료는 생성할 때마다 원문을 붙이지 않고 저장 시 스타일 특징으로 분석한다.
@@ -27,7 +28,7 @@
 - 언제든 `기본 프로필 사용`으로 전환할 수 있으며 저장된 사용자 프로필은 삭제하지 않는다.
 - 설정 위치는 기존 `설정 > 블로그`의 긴 폼에 추가하지 않고 새 최상위 `설정 > 글쓰기` 탭으로 분리한다.
 - 공통 문체와 공통 표현 지침은 블로그와 쇼핑에 적용한다.
-- 블로그 길이·구성·이미지 계획·글쓴이 배경·참고 문체는 쇼핑에 적용하지 않는다.
+- 블로그 길이·구성·이미지 계획과 분석된 세부 구성 특징은 쇼핑에 적용하지 않는다.
 - 쇼핑은 기존 상품 사실성, 출력 schema, 편집 계획과 상품/FTC/CTA 이미지 정책을 유지한다.
 - 추가 지침은 `공통 표현 지침`, `블로그 추가 지침`, `쇼핑 추가 지침`으로 분리한다.
 - 이미지 개수는 `글 길이에 맞게 자동`을 기본으로 하며, 원하는 사용자는 고정 개수로 바꿀 수 있다.
@@ -37,7 +38,7 @@
 
 1. 옵션 수보다 결과 차이를 설명할 수 있어야 한다.
 2. 프로필은 시스템 출력 계약, 사실성 규칙과 안전 규칙을 덮어쓰지 못한다.
-3. 참고 문체와 사실 참고자료는 수집, 저장, 프롬프트에서 끝까지 분리한다.
+3. 프로필 설정용 참고 글과 사실 참고자료는 수집, 저장, 프롬프트에서 끝까지 분리한다.
 4. 미리보기와 실제 생성은 동일한 프로필 정규화 및 프롬프트 조합 경로를 사용한다.
 5. 글별 명시적 지시는 같은 콘텐츠 종류의 전역 지침보다 우선하지만 프로필 자체를 변경하지 않는다.
 6. 참고 URL 장애가 실제 글 생성을 막지 않도록 분석 결과를 로컬에 고정한다.
@@ -113,29 +114,24 @@
 
 ### Section order
 
-1. 작성 전략
-2. 사용할 프로필: 기본 프로필 / 나만의 프로필
-3. 공통 글쓰기 성향과 공통 표현 지침
-4. 블로그 본문 구성과 길이
-5. 블로그 이미지 구성
-6. 블로그 추가 지침과 글쓴이 배경
-7. 쇼핑 추가 지침과 전용 안전 안내
-8. 블로그 참고 문체
-9. 콘텐츠 종류별 결과 미리보기
-10. 저장, 기본 프로필 사용
+1. 사용할 프로필: 기본 프로필 / 내 프로필
+2. 참고 글로 자동 설정
+3. 작성 전략, 문체와 추가 작성 원칙을 포함한 공통 글쓰기 방식
+4. 블로그 전용 글 구성
+5. 콘텐츠 종류별 결과 미리보기
 
-고급 항목인 `글쓴이 배경`, 콘텐츠 종류별 `추가 지침`, `참고 문체`는 기본 선택을 마친 뒤 자연스럽게 확장할 수 있도록 시각적으로 구분한다.
+참고 글 분석은 최종 문체·길이·구성 값을 자동으로 채우는 선택 도구로 구분한다.
 
 ## UX Contract
 
 ### Writing strategy
 
-기존 값을 그대로 유지한다.
+기존 값을 그대로 유지하되 선택 프로필 안에 저장한다.
 
 - 검색 중심
 - 발견 중심 (피드)
 
-전략은 프로필과 별도 개념이다. `기본 프로필 사용`으로 전환해도 사용자가 선택한 검색/발견 전략은 유지한다.
+전략은 사용자가 직접 선택하는 프로필 항목이다. 참고 글 분석은 전략을 추론하거나 변경하지 않는다. `기본 프로필`은 검색 중심을 사용하고 `내 프로필`은 사용자가 저장한 전략을 복원한다.
 
 ### Profile selection
 
@@ -208,7 +204,7 @@
 - 사용자가 직접 제공한 사실만 사용한다.
 - 현재 주제에 관련 있을 때만 반영한다.
 - 직접 경험을 입력하지 않았다면 구매/사용/방문 경험을 창작하지 않는다.
-- 참고 문체 분석으로 작성자의 성별, 나이, 직업을 추론하지 않는다.
+- 참고 글 분석으로 작성자의 성별, 나이, 직업을 추론하지 않는다.
 - 이미지 속 인물을 글쓴이로 간주하지 않는다.
 
 ### Length
@@ -319,7 +315,7 @@
 1차 제한:
 
 - 참고 텍스트: 한 항목, 최대 12,000자
-- 참고 URL: 최대 3개
+- 참고 URL: 1개
 - URL scheme: 공개 `https`만 허용
 
 ### Separate from factual references
@@ -336,7 +332,7 @@
 
 1. 사용자가 텍스트 또는 URL을 추가한다.
 2. 서버가 URL을 검증하고 제한된 크기로 본문을 추출한다.
-3. Chat Model 역할로 스타일 특징을 구조화해 분석한다. Chat Model이 writing source를 사용하도록 설정돼 있으면 현재 글쓰기 모델이 사용된다.
+3. AI 설정의 글쓰기 모델로 스타일 특징을 구조화해 분석한다.
 4. 분석 결과를 사용자에게 요약해 보여준다.
 5. 사용자가 저장하면 분석된 fingerprint를 프로필에 반영한다.
 6. 실제 글 생성은 저장된 fingerprint를 사용하며 URL을 다시 요청하지 않는다.
@@ -397,7 +393,7 @@ fingerprint에는 분석에 사용한 정규화된 source들의 hash를 함께 �
 모델 호출 없이 다음을 즉시 보여준다.
 
 - 공통 예상 문체와 공통 표현 지침
-- 블로그 목표 글자 수, 도입/전개/마무리, H2와 이미지 영역 수, 참고 문체 요약
+- 블로그 목표 글자 수, 도입/전개/마무리, H2와 이미지 영역 수, 참고 글 분석 요약
 - 쇼핑 전용 기본 구성 유지 여부와 쇼핑 추가 지침 요약
 
 ### AI preview
@@ -500,9 +496,9 @@ fingerprint에는 분석에 사용한 정규화된 source들의 hash를 함께 �
 
 기존 문체가 기본 프로필과 다르면 해당 값을 보존한 사용자 프로필을 생성하고 `active_profile: custom`으로 시작한다. 값이 같으면 `active_profile: default`로 시작한다.
 
-`writing_strategy`는 기존 canonical/fallback 경로를 유지하며 새 글쓰기 설정 탭에서 같은 값을 편집한다. 이번 단계에서 저장 위치를 강제로 다시 마이그레이션하지 않는다.
+프로필 파일이 아직 없을 때 기존 `content.writing_strategy`와 `content.blog.writing_strategy`를 초기값으로 읽는다. 이후 저장의 단일 원천은 선택된 프로필의 `common.writing_strategy`다. 배포 전 중간 profile schema 간 마이그레이션은 지원하지 않는다.
 
-기존 `BLOG_WRITING_MODE`, `BLOG_SPEECH_LEVEL` 및 `CONTENT_*` runtime alias는 전환 기간 동안 선택 profile의 `common.voice` 값을 노출한다. 기존처럼 쇼핑도 이 공통 voice를 소비한다.
+기존 `BLOG_WRITING_MODE`, `BLOG_SPEECH_LEVEL`, `BLOG_WRITING_STRATEGY` 및 `CONTENT_*` runtime alias는 호환 기간 동안 선택 profile의 `common.voice`와 `common.writing_strategy` 값을 노출한다. 기존처럼 쇼핑도 이 공통 설정을 소비한다.
 
 ## Runtime Resolution
 
@@ -707,7 +703,7 @@ shopping output/factuality/safety contract
 - enum은 저장 전에 strict validation한다.
 - fixed image count는 정수 1~6만 허용한다.
 - common style instruction 500자, author context 300자, blog/shopping additional instruction 각각 1,000자, sample text 12,000자로 제한한다.
-- URL은 최대 3개, 중복 제거 후 저장한다.
+- 붙여넣은 글 또는 URL 하나만 저장한다.
 - 사용자의 custom instruction을 system role 원문으로 취급하지 않는다.
 - 참고자료 분석 실패 시 마지막 성공 fingerprint를 자동으로 덮어쓰지 않는다.
 - profile save 실패 시 runtime effective profile을 변경하지 않는다.
@@ -882,9 +878,9 @@ shopping output/factuality/safety contract
 ### Stage 07 — Blog style reference analysis
 
 - Work branch: `codex/feature/content-writing-profile-07-blog-style-reference`
-- 참고 텍스트와 최대 3개 blog URL source lifecycle을 구현한다.
+- 참고 텍스트 또는 blog URL 하나의 source lifecycle을 구현한다.
 - 공개 HTTPS URL만 허용하는 safe fetcher와 redirect 재검증을 추가한다.
-- Chat Model 역할로 allowlisted blog fingerprint를 생성한다.
+- 글쓰기 모델로 allowlisted blog fingerprint를 생성한다.
 - input hash, pending/analyzed/stale/failed와 마지막 성공 결과 보존을 구현한다.
 - 분석 요약과 source 상태를 UI에 연결한다.
 - fingerprint가 blog projection에만 포함되도록 테스트한다.
@@ -929,6 +925,28 @@ shopping output/factuality/safety contract
 - 사용자 최종 UI 및 blog/shopping 실제 생성 확인을 받는다.
 - parent branch가 `dev` merge 후보 상태가 된다.
 
+### Stage 10 — UI simplification
+
+- Work branch: `codex/feature/content-writing-profile-10-ui-simplification`
+- 기본 프로필에서는 작성 전략, 표현 방식과 높임 방식만 노출하고 별도 override로 저장한다.
+- 기본 프로필의 어조, 추가 작성 원칙, 참고 글, 길이, 구성과 이미지 영역은 제품 기본값을 사용하며 UI에서 숨긴다.
+- 내 프로필은 기본 프로필과 분리된 완전한 snapshot으로 유지한다.
+- 설정 방법 선택은 두지 않고 `참고 글로 자동 설정`을 항상 보이는 선택 도구로 제공한다.
+- 참고 입력은 붙여넣은 글 하나 또는 공개 blog URL 하나만 허용한다.
+- 참고 글 분석 결과로 문체, 길이, 도입, 전개와 마무리 값을 채우고 사용자가 다시 편집할 수 있게 한다.
+- narrator, author context, information density, heading density와 channel별 추가 지침을 기본 UI에서 제거한다.
+- 추가 작성 원칙은 blog/shopping 공통 입력 하나로 통합한다.
+- 프로필 저장은 설정 상단의 단일 `저장 및 적용` lifecycle에 합친다.
+- 배포 전 중간 profile schema에 대한 마이그레이션 코드는 두지 않는다.
+- 작성 전략을 profile의 `common.writing_strategy`로 통합하고, 프로필 파일이 없는 기존 설치에서는 종전 전역값으로 기본 override를 초기화한다.
+
+완료 조건:
+
+- 기본 프로필에는 전략, 표현 방식과 높임 방식만 나타나며 나머지 세부 설정은 나타나지 않는다.
+- 분석된 값과 사용자가 수정한 최종 설정이 경쟁하지 않고 하나의 profile로 생성에 적용된다.
+- 길이, 구성, 이미지 영역과 글별 지시 우선순위가 유지된다.
+- blog/shopping projection과 기존 저장 파일 회귀 테스트가 통과한다.
+
 ### Per-stage routine
 
 각 stage는 동일한 순서를 따른다.
@@ -955,5 +973,4 @@ shopping output/factuality/safety contract
 - profile import/export
 - prior published-post opt-in analysis
 - shopping length/block/CTA/product-image policy customization
-- explicit opt-in application of analyzed style fingerprint to shopping
 - automatic suggestions based on accepted drafts

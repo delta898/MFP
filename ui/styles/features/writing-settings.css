@@ -4,8 +4,7 @@
 
 .writing-settings-heading,
 .writing-settings-section-title,
-.writing-profile-state-row,
-.writing-profile-actions {
+.writing-profile-state-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -21,6 +20,12 @@
 .writing-settings-heading p,
 .writing-settings-section-title p {
   margin: 0;
+}
+
+.writing-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .writing-settings-heading p,
@@ -88,12 +93,27 @@
   margin-top: 16px;
 }
 
+.writing-settings-section[hidden],
+.writing-settings-grid[hidden] {
+  display: none;
+}
+
+.writing-reference-input-method {
+  max-width: 420px;
+}
+
+.writing-single-instruction {
+  margin-top: 16px;
+}
+
 .writing-settings-grid > label,
 .writing-settings-wide {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-weight: 600;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .writing-settings-wide {
@@ -102,18 +122,31 @@
 
 .writing-settings-section textarea,
 .writing-settings-section select,
-.writing-settings-section input[type="url"] {
+.writing-settings-section input:not([type="radio"]):not([type="checkbox"]) {
   width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  background: var(--surface-solid);
+  transition: var(--transition);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.writing-settings-section textarea:focus,
+.writing-settings-section select:focus,
+.writing-settings-section input:not([type="radio"]):not([type="checkbox"]):focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-light);
 }
 
 .writing-settings-section textarea {
   resize: vertical;
-}
-
-.field-limit {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 400;
 }
 
 .status-badge.warning {
@@ -138,14 +171,41 @@
 }
 
 .writing-reference-ready textarea,
-.writing-reference-url-grid input {
+#settings-writing-reference-url-field input {
   margin-top: 12px;
 }
 
-.writing-reference-url-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.writing-reference-content {
+  margin-top: 16px;
+}
+
+.writing-textarea-with-counter {
+  position: relative;
+  display: block;
+}
+
+.writing-textarea-with-counter textarea {
+  min-height: 132px;
+  padding-bottom: 32px;
+}
+
+.writing-reference-textarea textarea {
+  min-height: 190px;
+}
+
+.writing-character-counter {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+#settings-writing-reference-text-field[hidden],
+#settings-writing-reference-url-field[hidden] {
+  display: none;
 }
 
 .writing-reference-actions {
@@ -182,11 +242,30 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  font-weight: 600;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .writing-preview-controls button {
   min-height: 42px;
+}
+
+.writing-preview-controls button.is-loading::before {
+  width: 14px;
+  height: 14px;
+  margin-right: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  vertical-align: -2px;
+  animation: writing-preview-spin 0.8s linear infinite;
+}
+
+@keyframes writing-preview-spin {
+  to { transform: rotate(360deg); }
 }
 
 .writing-preview-result {
@@ -210,13 +289,24 @@
   white-space: pre-wrap;
 }
 
-.writing-strategy-section .settings-segmented-control {
-  margin-top: 14px;
+.writing-profile-strategy .settings-segmented-control {
   max-width: 560px;
 }
 
-.writing-strategy-section .settings-writing-style-description {
+.writing-profile-strategy .settings-writing-style-description {
   margin-top: 12px;
+}
+
+.writing-profile-strategy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.writing-profile-field-label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 #settings-writing-blog-image-count-field.is-muted {
@@ -230,14 +320,8 @@
     flex-direction: column;
   }
 
-  .writing-profile-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
   .writing-profile-selector,
   .writing-settings-grid,
-  .writing-reference-url-grid,
   .writing-preview-controls {
     grid-template-columns: 1fr;
   }
@@ -247,4 +331,7 @@
     margin-left: 0;
     text-align: left;
   }
+}
+[data-writing-custom-only][hidden] {
+  display: none;
 }

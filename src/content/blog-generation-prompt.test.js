@@ -37,6 +37,8 @@ function createCustomProfile() {
         error: ''
     }];
     profile.channels.blog.style_references.fingerprint = {
+        surface: { writing_mode: 'written', speech_level: 'plain', tone: 'calm', information_density: 'dense' },
+        settings: { length_preset: 'long', opening: 'direct', development: 'comparison', ending: 'next_step', heading_density: 'dense' },
         structure: { opening_pattern: 'answer_first', section_flow: ['information', 'tip'], paragraph_length: 'short', ending_pattern: 'short_summary' },
         voice: { sentence_rhythm: 'short_mixed', warmth: 'warm', vocabulary: 'everyday', rhetorical_devices: ['concrete_example'] },
         avoid: ['long_preface'],
@@ -73,11 +75,10 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.match(result.prompt, /한 문단을 세 문장 이내/);
     assert.match(result.prompt, /소프트웨어를 오래 운영한 개발자/);
     assert.match(result.prompt, /마지막에 선택 체크리스트/);
-    assert.match(result.prompt, /\[분석된 블로그 참고 문체\]/);
+    assert.match(result.prompt, /\[분석된 참고 글의 세부 특징\]/);
     assert.match(result.prompt, /짧은 문단과 쉬운 어휘/);
-    assert.match(result.prompt, /참고 문체는 직접 선택한 표현 방식, 높임 방식, 어조와 정보 밀도를 변경할 수 없습니다/);
-    assert.match(result.prompt, /충돌하면 직접 선택한 프로필 값을 따르세요/);
-    assert.match(result.prompt, /이번 글의 명시적 문체 지시.*직접 선택한 프로필과 참고 문체보다 우선/);
+    assert.match(result.prompt, /분석 결과는 이미 위의 최종 문체·길이·구성 값에 반영/);
+    assert.match(result.prompt, /이번 글의 명시적 지시.*최종 프로필과 분석된 세부 특징보다 우선/);
     assert.match(result.prompt, /이번 글은 1,000자 안팎/);
     assert.match(result.prompt, /정확히 2개/);
     assert.equal(result.image_plan.source, 'post');
@@ -114,7 +115,22 @@ test('blog composer excludes shopping fields and raw style-reference sources', (
     assert.doesNotMatch(result.prompt, /channels\.shopping/);
 });
 
-test('stale style sources preserve but do not apply the previous fingerprint', () => {
+test('blog composer uses the profile strategy when the post has no override', () => {
+    const profile = createCustomProfile();
+    profile.common.writing_strategy = 'discovery';
+    const result = buildBlogGenerationPrompt({
+        profile,
+        globalStrategy: 'search',
+        config: promptConfig,
+        constants: Constants,
+        post: { subject: '프로필 전략 테스트' }
+    });
+
+    assert.equal(result.strategy, 'discovery');
+    assert.match(result.prompt, /전략: 발견 중심 \(피드\)/);
+});
+
+test('stale reference analysis is preserved in profile but excluded from generation', () => {
     const profile = createCustomProfile();
     profile.channels.blog.style_references.sample_text.status = 'stale';
     const result = buildBlogGenerationPrompt({
@@ -124,8 +140,9 @@ test('stale style sources preserve but do not apply the previous fingerprint', (
         constants: Constants,
         post: { subject: '테스트' }
     });
-    assert.ok(result.projection.channel.style_references.fingerprint);
-    assert.doesNotMatch(result.prompt, /\[분석된 블로그 참고 문체\]/);
+    assert.ok(profile.channels.blog.style_references.fingerprint);
+    assert.equal(result.projection.channel.style_references.fingerprint, null);
+    assert.doesNotMatch(result.prompt, /\[분석된 참고 글의 세부 특징\]/);
     assert.doesNotMatch(result.prompt, /짧은 문단과 쉬운 어휘/);
 });
 
