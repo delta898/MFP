@@ -27,7 +27,16 @@ const PROFILE_ENUMS = Object.freeze({
     headingDensity: Object.freeze(['sparse', 'balanced', 'dense']),
     imageCountMode: Object.freeze(['auto', 'fixed']),
     shoppingMode: Object.freeze(['product_default']),
-    referenceStatus: Object.freeze(['empty', 'pending', 'analyzed', 'stale', 'failed'])
+    referenceStatus: Object.freeze(['empty', 'pending', 'analyzed', 'stale', 'failed']),
+    fingerprintOpening: Object.freeze(['answer_first', 'short_context_then_topic', 'scene_then_topic', 'question_then_topic']),
+    fingerprintFlow: Object.freeze(['experience', 'information', 'interpretation', 'comparison', 'tip', 'summary', 'next_step']),
+    fingerprintParagraph: Object.freeze(['short', 'medium', 'long', 'mixed']),
+    fingerprintEnding: Object.freeze(['short_summary', 'judgment_then_soft_suggestion', 'practical_next_step', 'open_question']),
+    fingerprintRhythm: Object.freeze(['short', 'medium', 'long', 'short_mixed', 'varied']),
+    fingerprintWarmth: Object.freeze(['reserved', 'neutral', 'warm']),
+    fingerprintVocabulary: Object.freeze(['everyday', 'balanced', 'technical_explained', 'formal']),
+    fingerprintDevice: Object.freeze(['light_question', 'concrete_example', 'analogy', 'contrast', 'enumeration', 'direct_address']),
+    fingerprintAvoid: Object.freeze(['long_preface', 'repetitive_summary', 'dense_jargon', 'excessive_exclamation', 'unsupported_personal_claim', 'abrupt_ending'])
 });
 
 const ENUM_SETS = Object.freeze(Object.fromEntries(
@@ -64,24 +73,31 @@ function normalizeStringList(value, maxItems, maxLength) {
     return result;
 }
 
+function normalizeEnumList(value, enumKey, maxItems) {
+    if (!Array.isArray(value)) return [];
+    return Array.from(new Set(value.map((item) => normalizeText(item).toLowerCase())))
+        .filter((item) => ENUM_SETS[enumKey].has(item))
+        .slice(0, maxItems);
+}
+
 function normalizeFingerprint(input) {
     if (!isRecord(input)) return null;
     const structure = isRecord(input.structure) ? input.structure : {};
     const voice = isRecord(input.voice) ? input.voice : {};
     return {
         structure: {
-            opening_pattern: normalizeText(structure.opening_pattern).slice(0, 80),
-            section_flow: normalizeStringList(structure.section_flow, 8, 50),
-            paragraph_length: normalizeText(structure.paragraph_length).slice(0, 50),
-            ending_pattern: normalizeText(structure.ending_pattern).slice(0, 80)
+            opening_pattern: normalizeEnum(structure.opening_pattern, 'fingerprintOpening', 'short_context_then_topic'),
+            section_flow: normalizeEnumList(structure.section_flow, 'fingerprintFlow', 8),
+            paragraph_length: normalizeEnum(structure.paragraph_length, 'fingerprintParagraph', 'medium'),
+            ending_pattern: normalizeEnum(structure.ending_pattern, 'fingerprintEnding', 'short_summary')
         },
         voice: {
-            sentence_rhythm: normalizeText(voice.sentence_rhythm).slice(0, 50),
-            warmth: normalizeText(voice.warmth).slice(0, 50),
-            vocabulary: normalizeText(voice.vocabulary).slice(0, 50),
-            rhetorical_devices: normalizeStringList(voice.rhetorical_devices, 8, 50)
+            sentence_rhythm: normalizeEnum(voice.sentence_rhythm, 'fingerprintRhythm', 'medium'),
+            warmth: normalizeEnum(voice.warmth, 'fingerprintWarmth', 'neutral'),
+            vocabulary: normalizeEnum(voice.vocabulary, 'fingerprintVocabulary', 'balanced'),
+            rhetorical_devices: normalizeEnumList(voice.rhetorical_devices, 'fingerprintDevice', 8)
         },
-        avoid: normalizeStringList(input.avoid, 12, 80),
+        avoid: normalizeEnumList(input.avoid, 'fingerprintAvoid', 12),
         summary: normalizeText(input.summary).slice(0, 300)
     };
 }
@@ -215,6 +231,16 @@ function pushStringListLimitErrors(errors, value, path, maxItems, maxLength) {
     value.forEach((item, index) => pushTextLimitError(errors, item, `${path}.${index}`, maxLength));
 }
 
+function pushEnumListErrors(errors, value, path, enumKey, maxItems) {
+    if (value === undefined || value === null) return;
+    if (!Array.isArray(value)) {
+        errors.push({ path, code: 'INVALID_TYPE', message: `${path} 값은 배열이어야 합니다.` });
+        return;
+    }
+    if (value.length > maxItems) errors.push({ path, code: 'TOO_MANY_ITEMS', message: `${path} 항목이 너무 많습니다.` });
+    value.forEach((item, index) => pushEnumError(errors, item, `${path}.${index}`, enumKey));
+}
+
 function validateWritingProfile(input = {}) {
     const errors = [];
     if (!isRecord(input)) {
@@ -313,15 +339,15 @@ function validateWritingProfile(input = {}) {
         const fingerprint = styleReferences.fingerprint;
         const fingerprintStructure = isRecord(fingerprint.structure) ? fingerprint.structure : {};
         const fingerprintVoice = isRecord(fingerprint.voice) ? fingerprint.voice : {};
-        pushTextLimitError(errors, fingerprintStructure.opening_pattern, 'channels.blog.style_references.fingerprint.structure.opening_pattern', 80);
-        pushStringListLimitErrors(errors, fingerprintStructure.section_flow, 'channels.blog.style_references.fingerprint.structure.section_flow', 8, 50);
-        pushTextLimitError(errors, fingerprintStructure.paragraph_length, 'channels.blog.style_references.fingerprint.structure.paragraph_length', 50);
-        pushTextLimitError(errors, fingerprintStructure.ending_pattern, 'channels.blog.style_references.fingerprint.structure.ending_pattern', 80);
-        pushTextLimitError(errors, fingerprintVoice.sentence_rhythm, 'channels.blog.style_references.fingerprint.voice.sentence_rhythm', 50);
-        pushTextLimitError(errors, fingerprintVoice.warmth, 'channels.blog.style_references.fingerprint.voice.warmth', 50);
-        pushTextLimitError(errors, fingerprintVoice.vocabulary, 'channels.blog.style_references.fingerprint.voice.vocabulary', 50);
-        pushStringListLimitErrors(errors, fingerprintVoice.rhetorical_devices, 'channels.blog.style_references.fingerprint.voice.rhetorical_devices', 8, 50);
-        pushStringListLimitErrors(errors, fingerprint.avoid, 'channels.blog.style_references.fingerprint.avoid', 12, 80);
+        pushEnumError(errors, fingerprintStructure.opening_pattern, 'channels.blog.style_references.fingerprint.structure.opening_pattern', 'fingerprintOpening');
+        pushEnumListErrors(errors, fingerprintStructure.section_flow, 'channels.blog.style_references.fingerprint.structure.section_flow', 'fingerprintFlow', 8);
+        pushEnumError(errors, fingerprintStructure.paragraph_length, 'channels.blog.style_references.fingerprint.structure.paragraph_length', 'fingerprintParagraph');
+        pushEnumError(errors, fingerprintStructure.ending_pattern, 'channels.blog.style_references.fingerprint.structure.ending_pattern', 'fingerprintEnding');
+        pushEnumError(errors, fingerprintVoice.sentence_rhythm, 'channels.blog.style_references.fingerprint.voice.sentence_rhythm', 'fingerprintRhythm');
+        pushEnumError(errors, fingerprintVoice.warmth, 'channels.blog.style_references.fingerprint.voice.warmth', 'fingerprintWarmth');
+        pushEnumError(errors, fingerprintVoice.vocabulary, 'channels.blog.style_references.fingerprint.voice.vocabulary', 'fingerprintVocabulary');
+        pushEnumListErrors(errors, fingerprintVoice.rhetorical_devices, 'channels.blog.style_references.fingerprint.voice.rhetorical_devices', 'fingerprintDevice', 8);
+        pushEnumListErrors(errors, fingerprint.avoid, 'channels.blog.style_references.fingerprint.avoid', 'fingerprintAvoid', 12);
         pushTextLimitError(errors, fingerprint.summary, 'channels.blog.style_references.fingerprint.summary', 300);
     }
 

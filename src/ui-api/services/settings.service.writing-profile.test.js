@@ -10,7 +10,7 @@ const {
     getDefaultContentWritingProfile
 } = require('../../content/writing-profile');
 
-function createHarness() {
+function createHarness(options = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-profile-'));
     const CONFIG = {
         CONFIG_DIR: configDir,
@@ -19,7 +19,7 @@ function createHarness() {
             writing_style: { writing_mode: 'conversational', speech_level: 'polite' }
         }
     };
-    const service = createSettingsService({ fs, path, CONFIG });
+    const service = createSettingsService({ fs, path, CONFIG, styleReferenceAnalyzer: options.styleReferenceAnalyzer });
     return { CONFIG, service };
 }
 
@@ -57,6 +57,31 @@ test('settings service returns default metadata and updates runtime compatibilit
     assert.equal(defaulted.custom_profile.channels.blog.additional_instruction, '체크리스트를 포함');
     assert.equal(CONFIG.BLOG_WRITING_MODE, 'conversational');
     assert.equal(CONFIG.CONTENT_WRITING_MODE, 'conversational');
+});
+
+test('settings service analyzes reference drafts without persisting and deletion clears stored sources', async () => {
+    const { service } = createHarness({
+        styleReferenceAnalyzer: async () => ({
+            sample_text: { value: '참고', status: 'analyzed' }, blog_urls: [],
+            fingerprint: { summary: '분석 요약' }, fingerprint_input_hash: 'hash',
+            analyzed_at: '2026-08-26T00:00:00.000Z', analyzer_version: 'v1'
+        })
+    });
+    const analyzed = await service.analyzeWritingProfileReferences({ sample_text: '참고', blog_urls: [] });
+    assert.equal(analyzed.fingerprint.summary, '분석 요약');
+    assert.equal((await service.getWritingProfile()).custom_profile, null);
+
+    const custom = createCustomProfile();
+    custom.channels.blog.style_references.sample_text = { value: '참고', status: 'analyzed' };
+    custom.channels.blog.style_references.fingerprint = {
+        structure: { opening_pattern: '', section_flow: [], paragraph_length: '', ending_pattern: '' },
+        voice: { sentence_rhythm: '', warmth: '', vocabulary: '', rhetorical_devices: [] },
+        avoid: [], summary: '분석 요약'
+    };
+    await service.saveWritingProfile({ active_profile: 'custom', custom_profile: custom });
+    const deleted = await service.deleteWritingProfileReferences();
+    assert.equal(deleted.custom_profile.channels.blog.style_references.sample_text.value, '');
+    assert.equal(deleted.custom_profile.channels.blog.style_references.fingerprint, null);
 });
 
 test('settings service maps strict validation failures to a stable API error', async () => {

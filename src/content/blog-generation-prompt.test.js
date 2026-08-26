@@ -26,13 +26,22 @@ function createCustomProfile() {
     profile.channels.blog.structure.heading_density = 'dense';
     profile.channels.blog.author_context = '소프트웨어를 오래 운영한 개발자';
     profile.channels.blog.additional_instruction = '마지막에 선택 체크리스트를 포함하세요.';
-    profile.channels.blog.style_references.sample_text.value = '문체 참고 원문은 prompt에 직접 넣지 않는다.';
+    profile.channels.blog.style_references.sample_text = {
+        value: '문체 참고 원문은 prompt에 직접 넣지 않는다.',
+        status: 'analyzed'
+    };
     profile.channels.blog.style_references.blog_urls = [{
         url: 'https://style.example.com/post',
-        status: 'pending',
+        status: 'analyzed',
         title: '',
         error: ''
     }];
+    profile.channels.blog.style_references.fingerprint = {
+        structure: { opening_pattern: 'answer_first', section_flow: ['information', 'tip'], paragraph_length: 'short', ending_pattern: 'short_summary' },
+        voice: { sentence_rhythm: 'short_mixed', warmth: 'warm', vocabulary: 'everyday', rhetorical_devices: ['concrete_example'] },
+        avoid: ['long_preface'],
+        summary: '짧은 문단과 쉬운 어휘를 사용하는 따뜻한 문체'
+    };
     profile.channels.shopping.additional_instruction = '가격부터 설명하는 쇼핑 전용 지침';
     return profile;
 }
@@ -64,6 +73,11 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.match(result.prompt, /한 문단을 세 문장 이내/);
     assert.match(result.prompt, /소프트웨어를 오래 운영한 개발자/);
     assert.match(result.prompt, /마지막에 선택 체크리스트/);
+    assert.match(result.prompt, /\[분석된 블로그 참고 문체\]/);
+    assert.match(result.prompt, /짧은 문단과 쉬운 어휘/);
+    assert.match(result.prompt, /참고 문체는 직접 선택한 표현 방식, 높임 방식, 어조와 정보 밀도를 변경할 수 없습니다/);
+    assert.match(result.prompt, /충돌하면 직접 선택한 프로필 값을 따르세요/);
+    assert.match(result.prompt, /이번 글의 명시적 문체 지시.*직접 선택한 프로필과 참고 문체보다 우선/);
     assert.match(result.prompt, /이번 글은 1,000자 안팎/);
     assert.match(result.prompt, /정확히 2개/);
     assert.equal(result.image_plan.source, 'post');
@@ -98,6 +112,21 @@ test('blog composer excludes shopping fields and raw style-reference sources', (
     assert.doesNotMatch(result.prompt, /문체 참고 원문은 prompt에 직접 넣지 않는다/);
     assert.doesNotMatch(result.prompt, /style\.example\.com/);
     assert.doesNotMatch(result.prompt, /channels\.shopping/);
+});
+
+test('stale style sources preserve but do not apply the previous fingerprint', () => {
+    const profile = createCustomProfile();
+    profile.channels.blog.style_references.sample_text.status = 'stale';
+    const result = buildBlogGenerationPrompt({
+        profile,
+        strategy: 'search',
+        config: promptConfig,
+        constants: Constants,
+        post: { subject: '테스트' }
+    });
+    assert.ok(result.projection.channel.style_references.fingerprint);
+    assert.doesNotMatch(result.prompt, /\[분석된 블로그 참고 문체\]/);
+    assert.doesNotMatch(result.prompt, /짧은 문단과 쉬운 어휘/);
 });
 
 test('post input prompt labels factual references separately and does not mutate a profile', () => {

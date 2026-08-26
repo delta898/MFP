@@ -65,6 +65,43 @@ function captureSettingsWritingCustomProfile() {
   current.channels.shopping.additional_instruction = getSettingsWritingProfileValue('settings-writing-shopping-instruction').trim();
 }
 
+function getSettingsWritingReferenceInputs() {
+  return {
+    sampleText: getSettingsWritingProfileValue('settings-writing-reference-text').trim(),
+    urls: Array.from(document.querySelectorAll('[data-writing-reference-url]'))
+      .map((el) => String(el.value || '').trim())
+      .filter((value, index, values) => value && values.indexOf(value) === index)
+      .slice(0, 3)
+  };
+}
+
+function markSettingsWritingReferencesChanged() {
+  if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
+  const refs = settingsWritingProfileDraft.custom_profile.channels.blog.style_references;
+  const inputs = getSettingsWritingReferenceInputs();
+  const previousUrls = (refs.blog_urls || []).map((entry) => entry.url);
+  if (refs.sample_text?.value === inputs.sampleText
+    && JSON.stringify(previousUrls) === JSON.stringify(inputs.urls)) {
+    return;
+  }
+  const hasFingerprint = Boolean(refs.fingerprint);
+  refs.sample_text = {
+    value: inputs.sampleText,
+    status: inputs.sampleText ? (hasFingerprint ? 'stale' : 'pending') : 'empty'
+  };
+  refs.blog_urls = inputs.urls.map((url) => {
+    const previous = refs.blog_urls.find((entry) => entry.url === url);
+    return {
+      url,
+      status: hasFingerprint ? 'stale' : 'pending',
+      title: previous?.title || '',
+      error: ''
+    };
+  });
+  renderSettingsWritingReferenceState();
+  syncSettingsWritingProfileDirty();
+}
+
 function buildSettingsWritingProfileSignature() {
   if (!settingsWritingProfileDraft) return '';
   return JSON.stringify({
@@ -130,6 +167,44 @@ function renderSettingsWritingSummaries() {
     : '제품 기본 쇼핑 구성 유지 · 별도 추가 지침 없음';
 }
 
+function renderSettingsWritingReferenceState() {
+  const profile = getVisibleSettingsWritingProfile();
+  const refs = profile?.channels?.blog?.style_references;
+  const badge = document.getElementById('settings-writing-reference-badge');
+  const status = document.getElementById('settings-writing-reference-status');
+  const summary = document.getElementById('settings-writing-reference-summary');
+  const urlStatus = document.getElementById('settings-writing-reference-url-status');
+  if (!refs) return;
+  const statuses = [refs.sample_text?.status, ...(refs.blog_urls || []).map((item) => item.status)].filter((value) => value && value !== 'empty');
+  const stale = statuses.some((value) => value === 'stale' || value === 'pending');
+  const failed = statuses.some((value) => value === 'failed');
+  const analyzed = Boolean(refs.fingerprint) && !stale;
+  if (badge) {
+    badge.textContent = stale ? '재분석 필요' : (analyzed ? '분석됨' : (failed ? '일부 실패' : '자료 없음'));
+    badge.classList.toggle('success', analyzed);
+    badge.classList.toggle('warning', stale || failed);
+  }
+  if (status) {
+    status.textContent = stale
+      ? '참고자료가 변경되었습니다. 다시 분석하기 전에는 이전 fingerprint가 적용되지 않습니다.'
+      : (analyzed ? `마지막 분석: ${refs.analyzed_at || '-'}` : '분석된 fingerprint만 실제 블로그 생성에 적용됩니다.');
+  }
+  if (summary) {
+    summary.hidden = !refs.fingerprint;
+    summary.textContent = refs.fingerprint
+      ? `${stale ? '이전 분석(현재 미적용)' : '적용될 문체'}: ${refs.fingerprint.summary}`
+      : '';
+  }
+  if (urlStatus) {
+    urlStatus.replaceChildren(...(refs.blog_urls || []).map((entry) => {
+      const line = document.createElement('div');
+      const label = { analyzed: '분석됨', failed: '실패', stale: '재분석 필요', pending: '분석 대기' }[entry.status] || entry.status;
+      line.textContent = `${label} · ${entry.title || entry.url}${entry.error ? ` · ${entry.error}` : ''}`;
+      return line;
+    }));
+  }
+}
+
 function renderSettingsWritingProfile() {
   const profile = getVisibleSettingsWritingProfile();
   if (!profile) return;
@@ -151,12 +226,63 @@ function renderSettingsWritingProfile() {
   setSettingsWritingProfileValue('settings-writing-blog-author-context', blog.author_context);
   setSettingsWritingProfileValue('settings-writing-blog-instruction', blog.additional_instruction);
   setSettingsWritingProfileValue('settings-writing-shopping-instruction', profile.channels.shopping.additional_instruction);
+  const references = blog.style_references || {};
+  setSettingsWritingProfileValue('settings-writing-reference-text', references.sample_text?.value || '');
+  const referenceUrlInputs = Array.from(document.querySelectorAll('[data-writing-reference-url]'));
+  referenceUrlInputs.forEach((input, index) => { input.value = references.blog_urls?.[index]?.url || ''; });
 
   const editable = getSettingsWritingProfileActiveKind() === 'custom';
   document.querySelectorAll('[data-writing-profile-field]').forEach((el) => { el.disabled = !editable; });
+  document.querySelectorAll('[data-writing-reference-field]').forEach((el) => { el.disabled = !editable; });
+  const analyzeButton = document.getElementById('settings-writing-reference-analyze');
+  const clearButton = document.getElementById('settings-writing-reference-clear');
+  if (analyzeButton) analyzeButton.disabled = !editable;
+  if (clearButton) clearButton.disabled = !editable;
   syncSettingsWritingImageCountUi();
   syncSettingsBlogWritingStyleDescription();
   renderSettingsWritingSummaries();
+  renderSettingsWritingReferenceState();
+}
+
+async function analyzeSettingsWritingReferences() {
+  if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
+  markSettingsWritingReferencesChanged();
+  const refs = settingsWritingProfileDraft.custom_profile.channels.blog.style_references;
+  const analyzeButton = document.getElementById('settings-writing-reference-analyze');
+  const status = document.getElementById('settings-writing-reference-status');
+  if (analyzeButton) analyzeButton.disabled = true;
+  if (status) status.textContent = '공개 URL을 확인하고 Chat Model로 문체를 분석하는 중입니다.';
+  try {
+    const result = await postJson('/api/v1/settings/writing-profile/references/analyze', {
+      sample_text: refs.sample_text.value,
+      blog_urls: refs.blog_urls.map((entry) => entry.url)
+    });
+    settingsWritingProfileDraft.custom_profile.channels.blog.style_references = result;
+    renderSettingsWritingProfile();
+    syncSettingsWritingProfileDirty();
+  } catch (error) {
+    if (status) status.textContent = `분석 실패: ${error.message}. 이전 성공 fingerprint는 그대로 보존됩니다.`;
+  } finally {
+    if (analyzeButton) analyzeButton.disabled = false;
+  }
+}
+
+async function clearSettingsWritingReferences() {
+  if (!settingsWritingProfileDraft || getSettingsWritingProfileActiveKind() !== 'custom') return;
+  const confirmed = await showUiDialog({
+    title: '참고 문체 삭제',
+    message: '참고 문장, URL과 분석된 문체 fingerprint를 모두 삭제할까요? 프로필을 저장할 때 적용됩니다.',
+    showCancel: true,
+    confirmText: '삭제',
+    cancelText: '취소'
+  });
+  if (!confirmed) return;
+  settingsWritingProfileDraft.custom_profile.channels.blog.style_references = {
+    sample_text: { value: '', status: 'empty' }, blog_urls: [], fingerprint: null,
+    fingerprint_input_hash: null, analyzed_at: null, analyzer_version: null
+  };
+  renderSettingsWritingProfile();
+  syncSettingsWritingProfileDirty();
 }
 
 function applySettingsWritingProfileResponse(data) {
@@ -287,7 +413,12 @@ function initSettingsWritingProfileUi() {
       syncSettingsWritingProfileDirty();
     });
   });
+  document.querySelectorAll('[data-writing-reference-field]').forEach((field) => {
+    field.addEventListener('input', markSettingsWritingReferencesChanged);
+  });
   document.getElementById('settings-writing-profile-save')?.addEventListener('click', saveSettingsWritingProfile);
   document.getElementById('settings-writing-profile-refresh')?.addEventListener('click', () => loadSettingsWritingProfile({ force: true }));
   document.getElementById('settings-writing-profile-reset-custom')?.addEventListener('click', resetSettingsWritingCustomProfile);
+  document.getElementById('settings-writing-reference-analyze')?.addEventListener('click', analyzeSettingsWritingReferences);
+  document.getElementById('settings-writing-reference-clear')?.addEventListener('click', clearSettingsWritingReferences);
 }

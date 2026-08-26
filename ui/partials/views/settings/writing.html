@@ -137,15 +137,22 @@
 
           <section class="writing-settings-section writing-reference-ready">
             <div class="writing-settings-section-title">
-              <div><h3>블로그 참고 문체</h3><p>참고 문장과 블로그 URL 분석은 다음 개발 단계에서 활성화됩니다.</p></div>
-              <span class="status-badge">준비 중</span>
+              <div><h3>블로그 참고 문체</h3><p>문장이나 공개 HTTPS 블로그를 분석해 원문을 복제하지 않는 문체 특징으로 저장합니다.</p></div>
+              <span id="settings-writing-reference-badge" class="status-badge">자료 없음</span>
             </div>
-            <textarea rows="3" disabled placeholder="참고할 문장, 문단 또는 글 전체"></textarea>
+            <textarea id="settings-writing-reference-text" rows="5" maxlength="12000" data-writing-reference-field placeholder="참고할 문장, 문단 또는 글 전체 (최대 12,000자)"></textarea>
             <div class="writing-reference-url-grid">
-              <input type="url" disabled placeholder="참고 블로그 URL 1">
-              <input type="url" disabled placeholder="참고 블로그 URL 2">
-              <input type="url" disabled placeholder="참고 블로그 URL 3">
+              <input type="url" data-writing-reference-url data-writing-reference-field placeholder="https:// 참고 블로그 URL 1">
+              <input type="url" data-writing-reference-url data-writing-reference-field placeholder="https:// 참고 블로그 URL 2">
+              <input type="url" data-writing-reference-url data-writing-reference-field placeholder="https:// 참고 블로그 URL 3">
             </div>
+            <div class="writing-reference-actions">
+              <button id="settings-writing-reference-analyze" class="secondary" type="button">참고 문체 분석</button>
+              <button id="settings-writing-reference-clear" class="secondary danger-outline" type="button">참고자료 삭제</button>
+              <span id="settings-writing-reference-status" class="muted" role="status" aria-live="polite">분석된 fingerprint만 실제 블로그 생성에 적용됩니다.</span>
+            </div>
+            <div id="settings-writing-reference-summary" class="writing-instant-summary" hidden></div>
+            <div id="settings-writing-reference-url-status" class="writing-reference-status-list"></div>
           </section>
 
           <section class="writing-settings-section">

@@ -14,6 +14,16 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/writing-profile/references/analyze') {
+            await controller.handleWritingProfileReferenceAnalysis(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/settings/writing-profile/references') {
+            await controller.handleWritingProfileReferenceDelete(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/major') {
             await controller.handleMajor(ctx);
             return true;

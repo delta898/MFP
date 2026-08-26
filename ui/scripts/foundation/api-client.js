@@ -57,6 +57,21 @@ async function putJson(url, payload) {
   return body.data;
 }
 
+async function deleteJson(url) {
+  const res = await fetch(url, { method: 'DELETE' });
+  const body = await readJsonResponseSafely(res);
+  if (!res.ok || !body.success) {
+    const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = body?.error?.code || '';
+    err.method = 'DELETE';
+    err.url = url;
+    notifyUiIssueFromError(err, { method: 'DELETE', url });
+    throw err;
+  }
+  return body.data;
+}
+
 async function readJsonResponseSafely(res) {
   const text = await res.text();
   if (!text) return {};

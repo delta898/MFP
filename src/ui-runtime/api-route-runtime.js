@@ -205,7 +205,10 @@ function createUiApiRouteRuntime(deps = {}) {
                 createConfigRevision,
                 parseConfigValue,
                 TelegramService,
-                BufferClient
+                BufferClient,
+                Utils,
+                axios,
+                cheerio
             });
             const controller = createSettingsController({
                 service,

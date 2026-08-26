@@ -28,6 +28,8 @@ const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
 } = require('../../content/writing-profile');
+const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
+const { createStyleReferenceAnalyzer } = require('../../content/style-reference-analyzer');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [
@@ -82,11 +84,16 @@ function createSettingsService(deps = {}) {
         parseConfigValue,
         TelegramService,
         BufferClient,
+        Utils,
+        axios,
+        cheerio,
+        styleReferenceAnalyzer,
         RemoteModelCatalog = DefaultRemoteModelCatalog,
         ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
 
     let writingProfileRepository = null;
+    let writingReferenceAnalyzer = styleReferenceAnalyzer || null;
 
     function getWritingProfileRepository() {
         if (writingProfileRepository) return writingProfileRepository;
@@ -101,6 +108,18 @@ function createSettingsService(deps = {}) {
             legacyContentConfig: runtimeConfig.content
         });
         return writingProfileRepository;
+    }
+
+    function getWritingReferenceAnalyzer() {
+        if (writingReferenceAnalyzer) return writingReferenceAnalyzer;
+        const runtimeAxios = axios || require('axios');
+        const runtimeCheerio = cheerio || require('cheerio');
+        const runtimeUtils = Utils || require('../../utils');
+        writingReferenceAnalyzer = createStyleReferenceAnalyzer({
+            fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
+            callChatText: runtimeUtils.callChatText.bind(runtimeUtils)
+        });
+        return writingReferenceAnalyzer;
     }
 
     function toWritingProfileResponse(result) {
@@ -151,6 +170,40 @@ function createSettingsService(deps = {}) {
 
         async useDefaultWritingProfile() {
             const result = getWritingProfileRepository().useDefault();
+            applyWritingProfileResult(result);
+            return toWritingProfileResponse(result);
+        },
+
+        async analyzeWritingProfileReferences(requestBody = {}) {
+            try {
+                return await getWritingReferenceAnalyzer()({
+                    sample_text: requestBody.sample_text,
+                    blog_urls: requestBody.blog_urls
+                });
+            } catch (error) {
+                if (String(error?.code || '').startsWith('STYLE_REFERENCE_')) {
+                    throw createApiError(400, error.code, error.message);
+                }
+                throw error;
+            }
+        },
+
+        async deleteWritingProfileReferences() {
+            const current = getWritingProfileRepository().read();
+            if (!current.document.custom_profile) return toWritingProfileResponse(current);
+            const customProfile = JSON.parse(JSON.stringify(current.document.custom_profile));
+            customProfile.channels.blog.style_references = {
+                sample_text: { value: '', status: 'empty' },
+                blog_urls: [],
+                fingerprint: null,
+                fingerprint_input_hash: null,
+                analyzed_at: null,
+                analyzer_version: null
+            };
+            const result = getWritingProfileRepository().save({
+                active_profile: current.document.active_profile,
+                custom_profile: customProfile
+            });
             applyWritingProfileResult(result);
             return toWritingProfileResponse(result);
         },

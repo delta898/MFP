@@ -109,8 +109,8 @@ test('style reference normalization keeps bounded allowlisted data', () => {
                         'https://example.com/d'
                     ],
                     fingerprint: {
-                        structure: { opening_pattern: 'short_context', section_flow: ['fact', 'tip'] },
-                        voice: { warmth: 'warm', rhetorical_devices: ['question'] },
+                        structure: { opening_pattern: 'short_context_then_topic', section_flow: ['information', 'tip'] },
+                        voice: { warmth: 'warm', rhetorical_devices: ['light_question'] },
                         avoid: ['long_preface'],
                         summary: '짧고 따뜻한 설명'
                     }
@@ -124,5 +124,5 @@ test('style reference normalization keeps bounded allowlisted data', () => {
     assert.equal(references.sample_text.status, 'analyzed');
     assert.equal(references.blog_urls.length, 3);
     assert.equal(references.fingerprint.summary, '짧고 따뜻한 설명');
-    assert.deepEqual(references.fingerprint.structure.section_flow, ['fact', 'tip']);
+    assert.deepEqual(references.fingerprint.structure.section_flow, ['information', 'tip']);
 });

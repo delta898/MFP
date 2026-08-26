@@ -39,6 +39,30 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
+        async handleWritingProfileReferenceAnalysis({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.analyzeWritingProfileReferences(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_ANALYSIS_FAILED', '참고 문체를 분석하지 못했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleWritingProfileReferenceDelete({ requestId, method, res }) {
+            if (method === 'DELETE') {
+                try {
+                    const data = await service.deleteWritingProfileReferences();
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'STYLE_REFERENCE_DELETE_FAILED', '참고 문체 자료를 삭제하지 못했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
         async handleMajor({ requestId, method, requestBody, res }) {
             if (method === 'GET') {
                 try {

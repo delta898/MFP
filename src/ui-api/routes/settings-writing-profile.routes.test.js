@@ -18,6 +18,14 @@ function createHarness() {
         async useDefaultWritingProfile() {
             calls.push(['use-default']);
             return { active_profile: 'default' };
+        },
+        async analyzeWritingProfileReferences(body) {
+            calls.push(['analyze', body]);
+            return { fingerprint: { summary: '분석됨' } };
+        },
+        async deleteWritingProfileReferences() {
+            calls.push(['delete-references']);
+            return { active_profile: 'custom', custom_profile: {} };
         }
     };
     const responses = [];
@@ -63,4 +71,20 @@ test('use-default route supports POST and rejects other methods', async () => {
 test('unrelated settings path is not handled', async () => {
     const harness = createHarness();
     assert.equal(await harness.handler({ pathname: '/api/v1/settings/unknown', method: 'GET' }), false);
+});
+
+test('writing reference routes analyze drafts and delete persisted references', async () => {
+    const harness = createHarness();
+    await harness.handler({
+        pathname: '/api/v1/settings/writing-profile/references/analyze', method: 'POST', requestId: 'analyze-1',
+        requestBody: { sample_text: '참고', blog_urls: [] }
+    });
+    await harness.handler({
+        pathname: '/api/v1/settings/writing-profile/references', method: 'DELETE', requestId: 'delete-1'
+    });
+    assert.deepEqual(harness.calls, [
+        ['analyze', { sample_text: '참고', blog_urls: [] }],
+        ['delete-references']
+    ]);
+    assert.equal(harness.responses[0].data.fingerprint.summary, '분석됨');
 });

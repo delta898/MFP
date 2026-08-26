@@ -109,6 +109,27 @@ function buildBlogWritingProfilePromptFromProjection(projection = {}) {
         );
     }
 
+    const styleReferences = blog.style_references || {};
+    const sourceStatuses = [
+        styleReferences.sample_text?.status,
+        ...(styleReferences.blog_urls || []).map((item) => item.status)
+    ].filter((status) => status && status !== 'empty');
+    const fingerprint = sourceStatuses.some((status) => status === 'pending' || status === 'stale')
+        ? null
+        : styleReferences.fingerprint;
+    if (fingerprint) {
+        sections.push(
+            '[분석된 블로그 참고 문체]',
+            `- 요약: ${fingerprint.summary || '분석된 구성과 표현 특성을 참고하세요.'}`,
+            `- 도입/전개/문단/마무리: ${fingerprint.structure?.opening_pattern || '-'} / ${(fingerprint.structure?.section_flow || []).join(' → ') || '-'} / ${fingerprint.structure?.paragraph_length || '-'} / ${fingerprint.structure?.ending_pattern || '-'}`,
+            `- 문장/온도/어휘/표현 장치: ${fingerprint.voice?.sentence_rhythm || '-'} / ${fingerprint.voice?.warmth || '-'} / ${fingerprint.voice?.vocabulary || '-'} / ${(fingerprint.voice?.rhetorical_devices || []).join(', ') || '-'}`,
+            `- 피할 특성: ${(fingerprint.avoid || []).join(', ') || '없음'}`,
+            '- 참고 문체는 직접 선택한 표현 방식, 높임 방식, 어조와 정보 밀도를 변경할 수 없습니다. 충돌하면 직접 선택한 프로필 값을 따르세요.',
+            '- 이번 글의 명시적 문체 지시가 있으면 시스템 계약을 해치지 않는 범위에서 직접 선택한 프로필과 참고 문체보다 우선합니다.',
+            '- 이는 원문 복제나 작성자 persona 추정이 아닌 분석된 문체 특성이며 사실 또는 경험의 근거로 사용하지 마세요.'
+        );
+    }
+
     return sections.join('\n');
 }
 
