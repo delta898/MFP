@@ -69,3 +69,16 @@ test('every CSS module is reachable, unique, and remains below the module bounda
     assert.match(result.css, /\.quick-discovery-modal-container\s*\{/);
     assert.doesNotMatch(result.css, /\/\*\s*@include\s+/);
 });
+
+test('segmented control radios remain visually hidden inside their own label', () => {
+    const css = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'automation-settings.css'),
+        'utf8'
+    );
+
+    assert.match(css, /\.settings-segmented-control label\s*\{[^}]*position:\s*relative;/s);
+    assert.match(css, /\.settings-segmented-control input\s*\{[^}]*position:\s*absolute;/s);
+    assert.match(css, /\.settings-segmented-control input\s*\{[^}]*width:\s*1px;/s);
+    assert.match(css, /\.settings-segmented-control input\s*\{[^}]*height:\s*1px;/s);
+    assert.match(css, /\.settings-segmented-control input\s*\{[^}]*clip-path:\s*inset\(50%\);/s);
+});
