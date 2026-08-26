@@ -54,7 +54,15 @@ Length presets are:
 | `standard` | 1,500–1,800 characters | 4–5 | 4 |
 | `long` | 2,200–2,800 characters | 5–6 | 5 |
 
-The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. It requires an exact sequential set of `[[IMAGE_N ...]]` blocks. Actual image generation remains a workflow option independent from the presence of these prompt blocks. The planned three-state image policy is a separate follow-up.
+The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. It requires an exact sequential set of `[[IMAGE_N ...]]` blocks when image prompts are included.
+
+Individual blog writing screens expose one `image_options.mode` choice:
+
+- `generate`: include prompt blocks and generate the corresponding image assets;
+- `prompt_only`: include prompt blocks without generating assets;
+- `none`: request no prompt blocks and remove existing blocks from supplied manuscripts.
+
+The legacy `image_options.generate` boolean remains an input compatibility boundary and is derived from the mode internally. The setting is per post and is not stored in the writing profile. Batch, automatic-publishing and Google Sheet controls retain their existing boolean behavior until their separate workflow migration.
 
 ## Shopping Generation
 

@@ -286,7 +286,7 @@ test('Naver and WordPress generation receive the same per-post profile overrides
         assert.equal(topic.writingStrategy, 'discovery');
         assert.equal(topic.content_guide.additional_instructions, '이번 글 지시');
         assert.deepEqual(topic.content_guide.reference_urls, ['https://example.com/reference']);
-        assert.deepEqual(topic.image_options, { generate: false, count: 5 });
+        assert.deepEqual(topic.image_options, { mode: 'prompt_only', generate: false, count: 5 });
     }
     assert.deepEqual(generated.map((item) => item.topic.category), ['네이버 분류', '워드프레스 분류']);
 });

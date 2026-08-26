@@ -1,5 +1,10 @@
 const { createApiError } = require('../errors');
 const { buildLocalMarkdownPreview } = require('../../content/local-markdown-preview');
+const {
+    parseBlogImageMode,
+    generatesBlogImages,
+    stripBlogImagePromptBlocks
+} = require('../../content/blog-image-mode');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isCommandEnabled } = require('../../runtime-feature-flags');
 const { createNaverSmartCommentCollector } = require('../../naver/smart-comment-candidate-collector');
@@ -206,16 +211,32 @@ function createContentService(deps = {}) {
     }
 
     function buildLocalMarkdownPreviewPayload(requestBody = {}) {
+        const imageMode = parseBlogImageMode(requestBody?.imageMode, {
+            legacyGenerate: typeof requestBody?.imageGeneration === 'boolean'
+                ? requestBody.imageGeneration : undefined,
+            fallback: 'prompt_only'
+        });
+        const withoutImages = imageMode === 'none';
+        const selectedFiles = Array.isArray(requestBody?.selectedFiles)
+            ? requestBody.selectedFiles.map((entry) => ({
+                ...entry,
+                textContent: withoutImages && typeof entry?.textContent === 'string'
+                    ? stripBlogImagePromptBlocks(entry.textContent)
+                    : entry?.textContent
+            }))
+            : requestBody?.selectedFiles;
         return buildLocalMarkdownPreview({
             folderName: requestBody?.folderName,
-            selectedFiles: requestBody?.selectedFiles,
+            selectedFiles,
             ...(Object.prototype.hasOwnProperty.call(requestBody, 'markdownText')
-                ? { markdownText: requestBody.markdownText }
+                ? { markdownText: withoutImages
+                    ? stripBlogImagePromptBlocks(requestBody.markdownText)
+                    : requestBody.markdownText }
                 : {}),
             targets: requestBody?.targets,
             postStatus: requestBody?.postStatus,
             scheduleDate: requestBody?.scheduleDate,
-            imageGeneration: requestBody?.imageGeneration === true
+            imageGeneration: generatesBlogImages(imageMode)
         }, {
             fs,
             path,

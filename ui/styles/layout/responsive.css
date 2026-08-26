@@ -609,6 +609,19 @@
     align-items: center;
   }
 
+  body.mobile-quick-mode .blog-quick-image-mode {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 42px;
+  }
+
+  body.mobile-quick-mode .blog-quick-image-mode select {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+  }
+
   body.mobile-quick-mode .local-markdown-inline-action {
     grid-column: 1 / -1;
     width: 100%;

@@ -127,11 +127,16 @@
                     <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
                   </span>
                 </label>
-                <label class="blog-quick-check">
-                  <input id="quick-image-generation" type="checkbox"> 이미지 파일 생성
+                <label class="blog-quick-image-mode">
+                  <span>이미지 처리</span>
+                  <select id="quick-image-mode">
+                    <option value="generate">이미지 생성</option>
+                    <option value="prompt_only" selected>이미지 프롬프트만 포함</option>
+                    <option value="none">이미지 사용 안 함</option>
+                  </select>
                   <span class="tooltip-container">
                     <span class="tooltip-icon">?</span>
-                    <span class="tooltip-text">본문 내용에 맞는 이미지 파일을 AI로 생성합니다. 꺼도 원고 안의 이미지 영역과 생성 프롬프트는 유지됩니다.</span>
+                    <span class="tooltip-text">실제 이미지를 생성하거나, 원고에 프롬프트만 남기거나, 이미지 영역을 완전히 제외합니다.</span>
                   </span>
                 </label>
                 <label class="blog-quick-check">
@@ -250,11 +255,16 @@
                       <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
                     </span>
                   </label>
-                  <label class="blog-quick-check">
-                    <input id="quick-manuscript-image-generation" type="checkbox"> 이미지 파일 생성
+                  <label class="blog-quick-image-mode">
+                    <span>이미지 처리</span>
+                    <select id="quick-manuscript-image-mode">
+                      <option value="generate">이미지 생성</option>
+                      <option value="prompt_only" selected>이미지 프롬프트만 포함</option>
+                      <option value="none">이미지 사용 안 함</option>
+                    </select>
                     <span class="tooltip-container">
                       <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">원고 안에 이미지 블록은 있지만 폴더에 실제 이미지 파일이 없을 때 보완용 이미지를 생성합니다.</span>
+                      <span class="tooltip-text">원고의 이미지 블록을 생성·유지하거나 최종 글에서 제외합니다.</span>
                     </span>
                   </label>
                   <button id="quick-manuscript-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>
@@ -356,11 +366,16 @@
                       <span class="tooltip-text">네이버 블로그 포스팅 시 브라우저 창을 보여줄지 정합니다. 켜면 백그라운드에서 조용히 실행합니다.</span>
                     </span>
                   </label>
-                  <label class="blog-quick-check">
-                    <input id="quick-pasted-image-generation" type="checkbox"> 이미지 파일 생성
+                  <label class="blog-quick-image-mode">
+                    <span>이미지 처리</span>
+                    <select id="quick-pasted-image-mode">
+                      <option value="generate">이미지 생성</option>
+                      <option value="prompt_only" selected>이미지 프롬프트만 포함</option>
+                      <option value="none">이미지 사용 안 함</option>
+                    </select>
                     <span class="tooltip-container">
                       <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">원고 안에 이미지 블록이 있으면 보완용 이미지를 생성합니다.</span>
+                      <span class="tooltip-text">원고의 이미지 블록을 생성·유지하거나 최종 글에서 제외합니다.</span>
                     </span>
                   </label>
                   <button id="quick-pasted-publish-inline-btn" class="primary local-markdown-inline-action" type="button">포스팅 실행</button>

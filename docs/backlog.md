@@ -135,11 +135,10 @@
 - 메뉴 탐색 없이 주요 화면 이동과 자주 쓰는 작업을 검색·실행
 - 기존 capability와 안전한 UI action만 노출하고 별도 실행 로직을 중복 구현하지 않음
 
-14. 블로그 이미지 처리 3상태 정책
-- 글쓰기 프로필은 이미지 prompt block 포함 여부와 자동/고정 개수를 소유한다.
-- 개별 글과 실행 workflow는 `이미지 생성`, `prompt block만`, `이미지 영역 없음`으로 override한다.
-- `이미지 영역 없음`을 개수 `0`으로 표현하지 않고 별도 mode로 두며 기존 `generate` boolean을 호환한다.
-- quick, batch, auto, Google Sheet, prompt 검증과 Naver/WordPress 후속 처리를 한 단계에서 함께 전환한다.
+14. 블로그 이미지 처리 3상태 정책의 workflow 확장
+- 개별 AI 글쓰기와 직접 원고 화면은 `이미지 생성`, `프롬프트만 포함`, `이미지 사용 안 함`의 3상태를 지원한다.
+- 후속으로 batch, auto와 Google Sheet 저장·실행 경로에도 같은 mode를 확장한다.
+- 기존 `generate` boolean 호환 경계는 전체 workflow 전환이 끝날 때까지 유지한다.
 
 ## P3 (후순위)
 

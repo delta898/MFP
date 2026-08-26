@@ -19,10 +19,10 @@ function initGlobalPublishSettingsSync() {
       default: false
     },
     {
-      key: 'pub_pref_image_generation',
-      ids: ['quick-image-generation', 'quick-manuscript-image-generation', 'quick-pasted-image-generation'], // extensible
-      type: 'checkbox',
-      default: false
+      key: 'pub_pref_blog_image_mode',
+      ids: ['quick-image-mode', 'quick-manuscript-image-mode', 'quick-pasted-image-mode'],
+      type: 'input',
+      default: 'prompt_only'
     },
     {
       key: 'pub_pref_external_reference',

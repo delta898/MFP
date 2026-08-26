@@ -59,6 +59,8 @@ function buildBlogGenerationPrompt(options = {}) {
     });
     const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection);
     const imagePlan = resolveImagePlan({
+        post_mode: options.post?.image_mode,
+        post_generate: options.post?.image_generate,
         post_count: options.post?.image_count,
         blog_profile: projection.channel
     });

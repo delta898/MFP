@@ -5,6 +5,11 @@ const {
 } = require('../publish-quota');
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
 const { parseImageCount } = require('../content/blog-image-plan');
+const {
+    parseBlogImageMode,
+    generatesBlogImages,
+    stripBlogImagePromptBlocks
+} = require('../content/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
 
 function createPublishActionsRuntime(deps = {}) {
@@ -224,6 +229,7 @@ function createPublishActionsRuntime(deps = {}) {
                         reference_urls: context.referenceUrls || []
                     },
                     image_options: {
+                        mode: context.imageOptions?.mode || 'prompt_only',
                         generate: imageGenerationFinal,
                         count: context.imageOptions?.count
                     }
@@ -252,6 +258,7 @@ function createPublishActionsRuntime(deps = {}) {
                         reference_urls: context.referenceUrls || []
                     },
                     image_options: {
+                        mode: context.imageOptions?.mode || 'prompt_only',
                         generate: imageGenerationFinal,
                         count: context.imageOptions?.count
                     }
@@ -710,7 +717,16 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_TREND_DATE', message: '트렌드 날짜가 올바르지 않습니다.' };
         }
         const externalReference = normalizeBool(requestBody?.externalReference, true);
-        const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+        let imageMode;
+        try {
+            imageMode = parseBlogImageMode(requestBody?.imageMode, {
+                legacyGenerate: typeof requestBody?.imageGeneration === 'boolean'
+                    ? requestBody.imageGeneration : undefined,
+                fallback: 'prompt_only'
+            });
+        } catch (error) {
+            return { success: false, code: error.code, message: error.message };
+        }
         let requestedImageCount;
         try {
             requestedImageCount = parseImageCount(requestBody?.imageCount ?? requestBody?.image_count) ?? undefined;
@@ -759,7 +775,7 @@ function createPublishActionsRuntime(deps = {}) {
 
         const features = toFeatureMap(precheck.features);
         const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
-        const imageGenerationFinal = imageGenerationRequested;
+        const imageGenerationFinal = generatesBlogImages(imageMode);
 
         const nowMs = Date.now();
         cleanupQuickPublishDedupeCache(nowMs);
@@ -769,6 +785,7 @@ function createPublishActionsRuntime(deps = {}) {
             keywords,
             instruction,
             referenceUrl,
+            imageMode,
             imageGeneration: imageGenerationFinal,
             imageCount: requestedImageCount,
             externalReference,
@@ -837,6 +854,7 @@ function createPublishActionsRuntime(deps = {}) {
                 },
                 use_external_ref: externalReference,
                 image_options: {
+                    mode: imageMode,
                     generate: imageGenerationFinal,
                     count: requestedImageCount
                 },
@@ -903,6 +921,7 @@ function createPublishActionsRuntime(deps = {}) {
                 referenceUrls: referenceUrl ? [referenceUrl] : [],
                 useExternalRef: externalReference,
                 imageOptions: {
+                    mode: imageMode,
                     generate: imageGenerationFinal,
                     count: requestedImageCount
                 },
@@ -1184,7 +1203,16 @@ function createPublishActionsRuntime(deps = {}) {
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
-        const imageGenerationRequested = normalizeBool(requestBody?.imageGeneration, false);
+        let imageMode;
+        try {
+            imageMode = parseBlogImageMode(requestBody?.imageMode, {
+                legacyGenerate: typeof requestBody?.imageGeneration === 'boolean'
+                    ? requestBody.imageGeneration : undefined,
+                fallback: 'prompt_only'
+            });
+        } catch (error) {
+            return { success: false, code: error.code, message: error.message };
+        }
 
         if (selectedFiles.length === 0 && !markdownText.trim()) {
             return { success: false, code: 'INVALID_LOCAL_MARKDOWN_SOURCE', message: '선택하거나 붙여넣은 원고가 없습니다.' };
@@ -1202,7 +1230,7 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const features = toFeatureMap(precheck.features);
-        const imageGenerationFinal = imageGenerationRequested;
+        const imageGenerationFinal = generatesBlogImages(imageMode);
         const relatedPostsEnabled = getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const sourceType = hasPastedMarkdown ? 'pasted_markdown' : 'local_markdown';
         const sourceLabel = hasPastedMarkdown
@@ -1213,13 +1241,23 @@ function createPublishActionsRuntime(deps = {}) {
             ? '임시 저장'
             : (postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
 
-        let effectiveMarkdownText = markdownText;
+        let effectiveMarkdownText = imageMode === 'none'
+            ? stripBlogImagePromptBlocks(markdownText)
+            : markdownText;
+        const effectiveSelectedFiles = imageMode === 'none'
+            ? selectedFiles.map((entry) => ({
+                ...entry,
+                textContent: typeof entry?.textContent === 'string'
+                    ? stripBlogImagePromptBlocks(entry.textContent)
+                    : entry?.textContent
+            }))
+            : selectedFiles;
         let previewData;
         try {
             previewData = buildLocalMarkdownPreview({
                 folderName: requestBody?.folderName,
-                selectedFiles,
-                ...(hasPastedMarkdown ? { markdownText } : {}),
+                selectedFiles: effectiveSelectedFiles,
+                ...(hasPastedMarkdown ? { markdownText: effectiveMarkdownText } : {}),
                 targets,
                 postStatus,
                 scheduleDate,
@@ -1253,7 +1291,7 @@ function createPublishActionsRuntime(deps = {}) {
                     const heading = Utils.pickRelatedPostsHeading();
                     const relatedSection = Core.buildRelatedPostsSectionMarkdown(relatedPosts, heading, true);
                     effectiveMarkdownText = appendRelatedPostsToPastedMarkdown(
-                        markdownText,
+                        effectiveMarkdownText,
                         relatedSection,
                         Core.stripAiRelatedPostsSection
                     );
@@ -1305,7 +1343,7 @@ function createPublishActionsRuntime(deps = {}) {
                 }
             });
             workspace = materializeSelectedFilesToWorkspace({
-                selectedFiles,
+                selectedFiles: effectiveSelectedFiles,
                 ...(hasPastedMarkdown ? { markdownText: effectiveMarkdownText } : {})
             }, { fs, path });
             await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {

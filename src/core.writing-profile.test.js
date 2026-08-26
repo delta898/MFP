@@ -59,7 +59,7 @@ test('Core.generateContent uses the selected blog profile composer for the share
         assert.match(capturedPrompt, /이번 글에서는 도입을 한 문장/);
         assert.match(capturedPrompt, /정확히 2개/);
         assert.doesNotMatch(capturedPrompt, /쇼핑 전용 가격 설명/);
-        assert.deepEqual(result.imagePlan, { count: 2, source: 'post', length_preset: null });
+        assert.deepEqual(result.imagePlan, { mode: 'prompt_only', count: 2, source: 'post', length_preset: null });
     } finally {
         CONFIG.CONTENT_WRITING_PROFILE = previousProfile;
         CONFIG.BLOG_WRITING_STRATEGY = previousStrategy;

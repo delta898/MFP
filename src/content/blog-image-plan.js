@@ -1,3 +1,5 @@
+const { normalizeBlogImageMode, includesBlogImagePrompts } = require('./blog-image-mode');
+
 const AUTO_IMAGE_COUNT_BY_LENGTH = Object.freeze({
     short: 3,
     standard: 4,
@@ -25,9 +27,16 @@ function parseImageCount(value, path = 'image_options.count') {
 }
 
 function resolveImagePlan(input = {}) {
+    const mode = normalizeBlogImageMode(input.post_mode ?? input.postMode, {
+        legacyGenerate: input.post_generate ?? input.postGenerate,
+        fallback: 'prompt_only'
+    });
+    if (!includesBlogImagePrompts(mode)) {
+        return { mode, count: 0, source: 'post_mode', length_preset: null };
+    }
     const postCount = parseImageCount(input.post_count ?? input.postCount);
     if (postCount !== null) {
-        return { count: postCount, source: 'post', length_preset: null };
+        return { mode, count: postCount, source: 'post', length_preset: null };
     }
 
     const blog = input.blog_profile || input.blogProfile || {};
@@ -35,20 +44,27 @@ function resolveImagePlan(input = {}) {
     if (imagePlan.count_mode === 'fixed') {
         const fixedCount = parseImageCount(imagePlan.fixed_count, 'channels.blog.image_plan.fixed_count');
         if (fixedCount !== null) {
-            return { count: fixedCount, source: 'profile_fixed', length_preset: blog.length?.preset || null };
+            return { mode, count: fixedCount, source: 'profile_fixed', length_preset: blog.length?.preset || null };
         }
     }
 
     const lengthPreset = String(blog.length?.preset || '').trim().toLowerCase();
     const automaticCount = AUTO_IMAGE_COUNT_BY_LENGTH[lengthPreset];
     if (imagePlan.count_mode === 'auto' && automaticCount) {
-        return { count: automaticCount, source: 'profile_auto', length_preset: lengthPreset };
+        return { mode, count: automaticCount, source: 'profile_auto', length_preset: lengthPreset };
     }
 
-    return { count: FALLBACK_BLOG_IMAGE_COUNT, source: 'fallback', length_preset: lengthPreset || null };
+    return { mode, count: FALLBACK_BLOG_IMAGE_COUNT, source: 'fallback', length_preset: lengthPreset || null };
 }
 
 function buildBlogImagePlanPrompt(plan = {}) {
+    if (!includesBlogImagePrompts(plan.mode)) {
+        return [
+            '[블로그 이미지 영역 계획]',
+            '- content 안에 [[IMAGE_N ...]] 이미지 영역이나 이미지 생성 프롬프트를 작성하지 마세요.',
+            '- 이미지 없이 자연스럽게 이어지는 본문만 작성하세요.'
+        ].join('\n');
+    }
     const count = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     return [
         '[블로그 이미지 영역 계획]',
@@ -68,6 +84,18 @@ function collectCompleteImageBlockIndexes(content) {
 }
 
 function validateBlogImageBlocks(content, plan = {}) {
+    if (!includesBlogImagePrompts(plan.mode)) {
+        const actualIndexes = collectCompleteImageBlockIndexes(content);
+        if (actualIndexes.length > 0) {
+            const error = new Error('이미지 사용 안 함으로 설정된 글에는 이미지 영역이 없어야 합니다.');
+            error.code = 'BLOG_IMAGE_PLAN_MISMATCH';
+            error.expected_count = 0;
+            error.actual_count = actualIndexes.length;
+            error.actual_indexes = actualIndexes;
+            throw error;
+        }
+        return { count: 0, indexes: [] };
+    }
     const count = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     const actualIndexes = collectCompleteImageBlockIndexes(content);
     const expectedIndexes = Array.from({ length: count }, (_unused, index) => index);

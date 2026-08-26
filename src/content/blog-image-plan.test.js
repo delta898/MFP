@@ -24,11 +24,11 @@ test('image plan resolves post override before fixed profile and auto length map
     assert.deepEqual(resolveImagePlan({
         post_count: 2,
         blog_profile: blogProfile({ preset: 'long', mode: 'fixed', fixedCount: 6 })
-    }), { count: 2, source: 'post', length_preset: null });
+    }), { mode: 'prompt_only', count: 2, source: 'post', length_preset: null });
 
     assert.deepEqual(resolveImagePlan({
         blog_profile: blogProfile({ preset: 'long', mode: 'fixed', fixedCount: 6 })
-    }), { count: 6, source: 'profile_fixed', length_preset: 'long' });
+    }), { mode: 'prompt_only', count: 6, source: 'profile_fixed', length_preset: 'long' });
 
     assert.equal(resolveImagePlan({ blog_profile: blogProfile({ preset: 'short' }) }).count, 3);
     assert.equal(resolveImagePlan({ blog_profile: blogProfile({ preset: 'standard' }) }).count, 4);
@@ -37,6 +37,7 @@ test('image plan resolves post override before fixed profile and auto length map
 
 test('image plan uses fallback four only for an unresolved profile and rejects invalid explicit counts', () => {
     assert.deepEqual(resolveImagePlan({ blog_profile: {} }), {
+        mode: 'prompt_only',
         count: 4,
         source: 'fallback',
         length_preset: null
@@ -47,6 +48,18 @@ test('image plan uses fallback four only for an unresolved profile and rejects i
             (error) => error.code === 'INVALID_BLOG_IMAGE_COUNT'
         );
     }
+});
+
+test('image mode explicitly distinguishes generation, prompt-only and no-image manuscripts', () => {
+    assert.equal(resolveImagePlan({ post_mode: 'generate', blog_profile: blogProfile() }).mode, 'generate');
+    assert.equal(resolveImagePlan({ post_mode: 'prompt_only', blog_profile: blogProfile() }).count, 4);
+    assert.deepEqual(resolveImagePlan({ post_mode: 'none', blog_profile: blogProfile() }), {
+        mode: 'none', count: 0, source: 'post_mode', length_preset: null
+    });
+    assert.match(buildBlogImagePlanPrompt({ mode: 'none', count: 0 }), /이미지 없이/);
+    assert.deepEqual(validateBlogImageBlocks('이미지 없는 본문', { mode: 'none', count: 0 }), {
+        count: 0, indexes: []
+    });
 });
 
 test('image plan prompt requests one exact count and keeps regions when generation is off', () => {

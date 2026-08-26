@@ -231,7 +231,7 @@ function bindActions() {
         currentBlogWritingStrategy
       ),
       referenceUrl: (document.getElementById('quick-reference-url')?.value || '').trim(),
-      imageGeneration: Boolean(document.getElementById('quick-image-generation')?.checked),
+      imageMode: (document.getElementById('quick-image-mode')?.value || 'prompt_only').trim(),
       externalReference: Boolean(document.getElementById('quick-external-reference')?.checked),
       headless: Boolean(document.getElementById('quick-headless')?.checked),
       publishMode: mode,
@@ -881,7 +881,7 @@ function bindActions() {
         targets,
         postStatus: (getEl('postStatus')?.value || 'publish').trim(),
         scheduleDate: (getEl('scheduleDate')?.value || '').trim(),
-        imageGeneration: Boolean(getEl('imageGeneration')?.checked)
+        imageMode: (getEl('imageMode')?.value || 'prompt_only').trim()
       };
       if (sourceType === 'pasted') {
         const markdownText = getMarkdownInputEl()?.value || '';
@@ -935,7 +935,7 @@ function bindActions() {
         postStatus: (getEl('postStatus')?.value || 'publish').trim(),
         scheduleDate: (getEl('scheduleDate')?.value || '').trim(),
         headless: Boolean(getEl('headless')?.checked),
-        imageGeneration: Boolean(getEl('imageGeneration')?.checked)
+        imageMode: (getEl('imageMode')?.value || 'prompt_only').trim()
       };
       if (sourceType === 'pasted') {
         const markdownText = getMarkdownInputEl()?.value || '';
@@ -1306,7 +1306,7 @@ function bindActions() {
     [
       ids.targetNaver,
       ids.targetWordpress,
-      ids.imageGeneration,
+      ids.imageMode,
       ids.scheduleDate
     ].filter(Boolean).forEach((id) => {
       const el = document.getElementById(id);
@@ -1349,7 +1349,7 @@ function bindActions() {
       targetNaver: 'quick-manuscript-target-naver',
       targetWordpress: 'quick-manuscript-target-wordpress',
       headless: 'quick-manuscript-headless',
-      imageGeneration: 'quick-manuscript-image-generation',
+      imageMode: 'quick-manuscript-image-mode',
       validation: 'quick-manuscript-validation',
       previewEmpty: 'quick-manuscript-preview-empty',
       previewPanel: 'quick-manuscript-preview-panel',
@@ -1389,7 +1389,7 @@ function bindActions() {
       targetNaver: 'quick-pasted-target-naver',
       targetWordpress: 'quick-pasted-target-wordpress',
       headless: 'quick-pasted-headless',
-      imageGeneration: 'quick-pasted-image-generation',
+      imageMode: 'quick-pasted-image-mode',
       validation: 'quick-pasted-validation',
       previewEmpty: 'quick-pasted-preview-empty',
       previewPanel: 'quick-pasted-preview-panel',

@@ -13,6 +13,7 @@ const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
+const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1920,6 +1921,8 @@ ${scrapedContext}`;
 				title: requestedTitle,
 				keywords: jobData.keywords,
 				instruction: jobData.content_guide?.additional_instructions,
+				image_mode: jobData.image_options?.mode,
+				image_generate: jobData.image_options?.generate,
 				image_count: jobData.image_options?.count,
 				reference_context: referenceSection
 			}
@@ -2027,8 +2030,14 @@ ${scrapedContext}`;
 			Logger.info("🖼️ 이미지 생성 기능이 플랜 정책으로 비활성화되어 건너뜁니다.");
 			return;
 		}
-		if (jobData.image_options?.generate === false) {
-			Logger.info("🖼️ 이미지 생성 옵션이 false입니다. 가이드만 유지합니다.");
+		const imageMode = normalizeBlogImageMode(jobData.image_options?.mode, {
+			legacyGenerate: jobData.image_options?.generate,
+			fallback: 'prompt_only'
+		});
+		if (!generatesBlogImages(imageMode)) {
+			Logger.info(imageMode === 'none'
+				? "🖼️ 이미지 사용 안 함 옵션입니다."
+				: "🖼️ 이미지 프롬프트만 유지합니다.");
 			return;
 		}
 		const contentFile = path.join(dirPath, 'contents.md');

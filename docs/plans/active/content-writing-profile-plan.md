@@ -961,13 +961,24 @@ shopping output/factuality/safety contract
 8. merge 후 parent에서 통합 테스트 및 상태 확인
 9. 다음 stage는 갱신된 parent에서 새로 분기
 
+### Stage 11 — Per-post blog image mode
+
+- Work branch: `codex/feature/content-writing-profile-11-image-mode`
+- 설정 profile에는 추가하지 않고 개별 AI 글쓰기, 원고 선택과 원고 붙여넣기 화면의 boolean을 하나의 3상태 선택으로 바꾼다.
+- `generate`, `prompt_only`, `none`을 중앙 계약으로 정의하고 기존 boolean은 API 호환 입력으로만 유지한다.
+- `none`은 AI prompt에서 이미지 영역을 금지하고 사용자가 제공한 원고의 기존 이미지 prompt block도 제거한다.
+- 세 개별 화면은 마지막 선택을 공유하되 batch, auto와 Google Sheet UI는 이번 단계에서 변경하지 않는다.
+
+완료 조건:
+
+- 세 개별 글쓰기 화면이 같은 라벨과 값을 사용한다.
+- 실제 이미지 생성, prompt block 유지와 prompt block 미포함이 서로 독립적으로 동작한다.
+- Naver/WordPress 공통 생성 경로와 직접 원고 경로가 같은 mode 의미를 사용한다.
+- 기존 boolean 요청과 batch/auto/Sheet workflow에 회귀가 없다.
+
 ## Later Extensions
 
-- confirmed follow-up after this feature: separate manuscript image regions from actual asset generation
-  - writing profile owns whether image prompt blocks are included and, when included, their auto/fixed count
-  - each post/workflow may override with `generate`, `prompt_only`, or `none`
-  - `none` is an explicit mode, not image count `0`; legacy `generate: true/false` remains compatible
-  - quick, batch, auto, Google Sheet, prompt validation and Naver/WordPress processing must migrate together
+- extend the per-post image mode from individual writing screens to batch, auto and Google Sheet storage/execution
 - named multi profiles
 - category/platform/account routing
 - profile import/export

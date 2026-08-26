@@ -15,7 +15,7 @@ function createQuickPublishRuntime(options = {}) {
         return `/api/v1/blog/quick-preview/image?previewId=${encodeURIComponent(String(previewId || ''))}&target=${encodeURIComponent(String(target || ''))}&index=${encodeURIComponent(String(index))}`;
     }
 
-    function buildQuickPublishDedupeKey({ subject, title, keywords, instruction, referenceUrl, imageGeneration, imageCount, externalReference, writingStrategy, source, trendDate }) {
+    function buildQuickPublishDedupeKey({ subject, title, keywords, instruction, referenceUrl, imageMode, imageGeneration, imageCount, externalReference, writingStrategy, source, trendDate }) {
         const normalizedSubject = String(subject || '').trim().toLowerCase();
         const normalizedTitle = String(title || '').trim().toLowerCase();
         const normalizedKeywords = Array.isArray(keywords)
@@ -23,7 +23,7 @@ function createQuickPublishRuntime(options = {}) {
             : '';
         const normalizedInstruction = String(instruction || '').trim().toLowerCase();
         const normalizedReferenceUrl = String(referenceUrl || '').trim().toLowerCase();
-        const normalizedImageGeneration = imageGeneration ? '1' : '0';
+        const normalizedImageMode = String(imageMode || (imageGeneration ? 'generate' : 'prompt_only')).trim().toLowerCase();
         const normalizedImageCount = String(imageCount ?? '').trim();
         const normalizedExternalReference = externalReference ? '1' : '0';
         const normalizedWritingStrategy = String(writingStrategy || '').trim().toLowerCase();
@@ -35,7 +35,7 @@ function createQuickPublishRuntime(options = {}) {
             normalizedKeywords,
             normalizedInstruction,
             normalizedReferenceUrl,
-            normalizedImageGeneration,
+            normalizedImageMode,
             normalizedImageCount,
             normalizedExternalReference,
             normalizedWritingStrategy,
