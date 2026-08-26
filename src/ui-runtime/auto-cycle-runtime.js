@@ -1,4 +1,5 @@
 const { buildPublishQuotaPreflight } = require('../publish-quota');
+const { normalizeBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 
 function createAutoCycleRuntime(deps = {}) {
     const {
@@ -534,6 +535,15 @@ function createAutoCycleRuntime(deps = {}) {
         const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
             ? requestBody.settingsOverrides
             : {};
+        const imageMode = normalizeBlogImageMode(
+            settingsOverrides.PUBLISH_AUTO_IMAGE_MODE ?? CONFIG.PUBLISH_AUTO_IMAGE_MODE,
+            {
+                legacyGenerate: typeof CONFIG.PUBLISH_AUTO_IMAGE_GENERATION === 'boolean'
+                    ? CONFIG.PUBLISH_AUTO_IMAGE_GENERATION
+                    : true,
+                fallback: 'generate'
+            }
+        );
 
         let rssConfigs = Array.isArray(CONFIG.COLLECT_RSS_CONFIGS) ? CONFIG.COLLECT_RSS_CONFIGS : [];
         const isGlobalEnabled = parseConfigBool(CONFIG.COLLECT_RSS_ENABLED, false);
@@ -650,7 +660,7 @@ function createAutoCycleRuntime(deps = {}) {
                             reference_urls: [normalizedLink]
                         },
                         use_external_ref: false,
-                        image_options: { generate: true },
+                        image_options: { mode: imageMode, generate: generatesBlogImages(imageMode) },
                         source: 'rss',
                         status: '발행 준비 완료',
                         category: finalCategory,

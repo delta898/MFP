@@ -2,8 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+    formatSheetImageModeValue,
     mergeShoppingSheetOptions,
     mergeTopicSheetOptions,
+    parseSheetImageModeValue,
     resolveShoppingSheetState,
     resolveTopicSheetState
 } = require('./publish-sheet-options');
@@ -30,6 +32,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
             post_status: 'publish',
             schedule_date: '2026-04-01 10:00:00',
             image_gen: true,
+            image_mode: 'none',
             image_count: 5,
             external_reference: false,
             writing_strategy: 'discovery'
@@ -43,7 +46,8 @@ test('topic sheet state keeps options publish settings as effective source of tr
     assert.equal(resolved.category, 'N:옵션네이버, W:옵션워드');
     assert.equal(resolved.postStatus, 'publish');
     assert.equal(resolved.scheduleDate, '2026-04-01 10:00:00');
-    assert.equal(resolved.imageGeneration, true);
+    assert.equal(resolved.imageMode, 'none');
+    assert.equal(resolved.imageGeneration, false);
     assert.equal(resolved.imageCount, 5);
     assert.equal(resolved.externalReference, false);
     assert.equal(resolved.writingStrategy, 'discovery');
@@ -64,7 +68,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
         category: 'N:새네이버, W:새워드',
         postStatus: 'draft',
         scheduleDate: '2026-03-31 08:30:00',
-        imageGeneration: false,
+        imageMode: 'prompt_only',
         imageCount: 3,
         externalReference: true,
         writingStrategy: 'search'
@@ -81,9 +85,23 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
     assert.equal(merged.post_status, 'draft');
     assert.equal(merged.schedule_date, '2026-03-31 08:30:00');
     assert.equal(merged.image_gen, false);
+    assert.equal(merged.image_mode, 'prompt_only');
     assert.equal(merged.image_count, 3);
     assert.equal(merged.external_reference, true);
     assert.equal(merged.writing_strategy, 'search');
+});
+
+test('sheet image mode accepts canonical labels and legacy Yes No values', () => {
+    assert.equal(parseSheetImageModeValue('이미지 생성'), 'generate');
+    assert.equal(parseSheetImageModeValue('프롬프트 포함'), 'prompt_only');
+    assert.equal(parseSheetImageModeValue('미포함'), 'none');
+    assert.equal(parseSheetImageModeValue('Yes'), 'generate');
+    assert.equal(parseSheetImageModeValue('No'), 'prompt_only');
+    assert.equal(formatSheetImageModeValue('none'), '미포함');
+    assert.equal(resolveTopicSheetState({
+        imageMode: 'none',
+        options: JSON.stringify({ image_mode: 'generate', image_gen: true })
+    }).imageMode, 'none');
 });
 
 test('inherited writing strategy removes the explicit option', () => {

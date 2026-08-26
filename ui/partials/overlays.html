@@ -59,12 +59,15 @@
             <label>예약 일시</label>
             <input type="datetime-local" id="blog-edit-schedule-date" class="premium-input">
           </div>
+          <div class="field-item">
+            <label>이미지 처리</label>
+            <select id="blog-edit-image-mode">
+              <option value="generate">이미지 생성</option>
+              <option value="prompt_only">프롬프트 포함</option>
+              <option value="none">미포함</option>
+            </select>
+          </div>
           <div class="field-item" style="display: flex; align-items: flex-end; gap: 20px; padding-bottom: 5px;">
-            <label class="premium-checkbox-container">
-              <input type="checkbox" id="blog-edit-image-required">
-              <span class="checkmark"></span>
-              이미지 생성
-            </label>
             <label class="premium-checkbox-container">
               <input type="checkbox" id="blog-edit-external-ref">
               <span class="checkmark"></span>

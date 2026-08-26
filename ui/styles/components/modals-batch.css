@@ -98,7 +98,8 @@
 }
 
 .modal-grid .field-item input,
-.modal-grid .field-item textarea {
+.modal-grid .field-item textarea,
+.modal-grid .field-item select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -111,7 +112,8 @@
 }
 
 .modal-grid .field-item input:focus,
-.modal-grid .field-item textarea:focus {
+.modal-grid .field-item textarea:focus,
+.modal-grid .field-item select:focus {
   border-color: var(--brand-primary);
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
 }

@@ -976,9 +976,22 @@ shopping output/factuality/safety contract
 - Naver/WordPress 공통 생성 경로와 직접 원고 경로가 같은 mode 의미를 사용한다.
 - 기존 boolean 요청과 batch/auto/Sheet workflow에 회귀가 없다.
 
-## Later Extensions
+### Stage 12 — Image mode workflow convergence
 
-- extend the per-post image mode from individual writing screens to batch, auto and Google Sheet storage/execution
+- Work branch: `codex/feature/content-writing-profile-12-image-mode-workflows`
+- Topics Sheet와 UI의 이미지 boolean을 `generate`, `prompt_only`, `none` 3상태로 전환한다.
+- Sheet의 표시값과 `options.image_mode` canonical 값을 함께 저장하고 기존 `Yes/No`를 읽는 호환 경계를 유지한다.
+- 행 편집, batch와 자동 발행 consumer가 저장된 행 mode를 그대로 사용하게 한다.
+- 자동 트렌드/RSS 수집 설정에는 새 Topics 행의 초기 mode만 정하는 선택을 제공한다.
+
+완료 조건:
+
+- Topics 표와 편집창에서 같은 3상태를 선택하고 Sheet에 보존할 수 있다.
+- batch와 자동 발행이 기존 행의 mode를 덮어쓰지 않고 실제 prompt/asset 처리에 전달한다.
+- 자동 수집으로 추가된 새 행은 자동 포스팅 설정의 기본 mode를 가진다.
+- 기존 `이미지 생성` 헤더와 `Yes/No`, API boolean 입력을 계속 읽을 수 있다.
+
+## Later Extensions
 - named multi profiles
 - category/platform/account routing
 - profile import/export

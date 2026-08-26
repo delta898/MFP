@@ -501,6 +501,7 @@ const CONFIG = {
     PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,
     PUBLISH_AUTO_START_TIME: structuredConfig.automation.publish.blog.start_time,
     PUBLISH_AUTO_END_TIME: structuredConfig.automation.publish.blog.end_time,
+    PUBLISH_AUTO_IMAGE_MODE: structuredConfig.automation.publish.blog.image_mode || 'generate',
 
     // Automation - Publish (Shopping)
     SHOPPING_PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.shopping.enabled,

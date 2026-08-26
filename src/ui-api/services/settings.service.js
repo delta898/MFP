@@ -508,6 +508,7 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.blog.headless = fields.PUBLISH_AUTO_HEADLESS;
             structuredConfig.automation.publish.blog.start_time = fields.PUBLISH_AUTO_START_TIME || "00:00";
             structuredConfig.automation.publish.blog.end_time = fields.PUBLISH_AUTO_END_TIME || "23:59";
+            structuredConfig.automation.publish.blog.image_mode = fields.PUBLISH_AUTO_IMAGE_MODE || 'generate';
 
             if (!structuredConfig.automation.publish.shopping) structuredConfig.automation.publish.shopping = {};
             structuredConfig.automation.publish.shopping.enabled = fields.SHOPPING_PUBLISH_AUTO_ENABLED;

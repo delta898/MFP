@@ -51,6 +51,8 @@ function createRuntime(CONFIG = {}) {
             notifyEnabled: false,
             targetChannels: 'naver',
             headless: true,
+            imageMode: 'generate',
+            imageGeneration: true,
             startTime: '00:00',
             endTime: '23:59'
         },
@@ -95,7 +97,8 @@ test('automation policy keeps trend and publish normalization contracts', () => 
         COLLECT_TRENDS_CATEGORIES: '여행,맛집',
         PUBLISH_AUTO_ENABLED: true,
         PUBLISH_AUTO_POST_STATUS: 'draft',
-        PUBLISH_AUTO_TARGET_CHANNELS: 'naver,wordpress'
+        PUBLISH_AUTO_TARGET_CHANNELS: 'naver,wordpress',
+        PUBLISH_AUTO_IMAGE_MODE: 'none'
     });
 
     assert.equal(settings.COLLECT_TRENDS_ENABLED, true);
@@ -103,4 +106,5 @@ test('automation policy keeps trend and publish normalization contracts', () => 
     assert.equal(settings.PUBLISH_AUTO_ENABLED, true);
     assert.equal(settings.PUBLISH_AUTO_POST_STATUS, 'draft');
     assert.deepEqual(settings.PUBLISH_AUTO_TARGET_CHANNELS, ['naver', 'wordpress']);
+    assert.equal(settings.PUBLISH_AUTO_IMAGE_MODE, 'none');
 });

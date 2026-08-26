@@ -1978,6 +1978,20 @@ function bindActions() {
           if (resultBox) resultBox.textContent = `오류: ${err.message}`;
         }
       }
+
+      const imageModeSelect = e.target?.closest('select.inline-image-mode');
+      if (imageModeSelect) {
+        const rowIndex = Number(imageModeSelect.dataset.rowIndex);
+        if (!Number.isInteger(rowIndex)) return;
+        const previous = normalizeBlogTopicImageMode(findTopicByRowIndex(rowIndex));
+        try {
+          await saveBlogRowPatch(rowIndex, { imageMode: imageModeSelect.value }, { silent: true });
+        } catch (err) {
+          imageModeSelect.value = previous;
+          const resultBox = document.getElementById('blog-action-result');
+          if (resultBox) resultBox.textContent = `오류: ${err.message}`;
+        }
+      }
     });
 
     blogTopicsTableBody.addEventListener('click', (e) => {
@@ -2150,6 +2164,7 @@ function bindActions() {
     document.getElementById('settings-sns-ai-mode'),
     document.getElementById('settings-typing-speed'),
     document.getElementById('blog-publish-auto-post-status'),
+    document.getElementById('blog-publish-auto-image-mode'),
     document.getElementById('blog-collect-trends-filter-type')
   ].filter(Boolean);
   const settingsMajorAutoSaveChecks = [

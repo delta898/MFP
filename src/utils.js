@@ -9,8 +9,10 @@ const RuntimeConfig = require('./runtime-config');
 const { getAgentEventStore } = require('./memory/store');
 const GoogleOAuth = require('./google-oauth');
 const {
+    formatSheetImageModeValue,
     mergeShoppingSheetOptions,
     mergeTopicSheetOptions,
+    parseSheetImageModeValue,
     resolveShoppingSheetState,
     resolveTopicSheetState,
     stringifySheetOptionsValue
@@ -780,6 +782,11 @@ const Utils = {
             const latestMeta = await this.callWithRetry(() => axios.get(metaUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             }));
+            const topicsSheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+            const topicsSheet = (latestMeta.data.sheets || []).find(s => s.properties?.title === topicsSheetName);
+            if (topicsSheet?.properties?.sheetId !== undefined) {
+                await this.ensureTopicsSheetImageModeValidation(accessToken, targetSpreadsheetId, topicsSheet.properties.sheetId, topicsSheetName);
+            }
             const shoppingSheet = (latestMeta.data.sheets || []).find(s => s.properties?.title === shoppingSheetName);
             if (shoppingSheet?.properties?.sheetId !== undefined) {
                 await this.ensureShoppingSheetValidation(accessToken, targetSpreadsheetId, shoppingSheet.properties.sheetId, shoppingSheetName);
@@ -883,6 +890,66 @@ const Utils = {
             title,
             share: shareResult
         };
+    },
+
+    ensureTopicsSheetImageModeValidation: async function (accessToken, spreadsheetId, sheetId, sheetName) {
+        try {
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const headers = Array.isArray(headerRes?.data?.values?.[0]) ? headerRes.data.values[0] : [];
+            const imageModeColIndex = headers.findIndex((header) => {
+                const clean = String(header || '').toLowerCase().replace(/[\s\/_]/g, '');
+                return ['이미지처리', '이미지생성', 'imagemode', 'imagegen', 'imggen'].includes(clean);
+            });
+            if (imageModeColIndex < 0) return;
+
+            if (String(headers[imageModeColIndex] || '').trim() !== '이미지 처리') {
+                const toA1 = (colIdx) => {
+                    let letter = '';
+                    let num = colIdx;
+                    while (num >= 0) {
+                        letter = String.fromCharCode((num % 26) + 65) + letter;
+                        num = Math.floor(num / 26) - 1;
+                    }
+                    return letter;
+                };
+                const headerUpdateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!${toA1(imageModeColIndex)}1?valueInputOption=USER_ENTERED`;
+                await this.callWithRetry(() => axios.put(headerUpdateUrl, {
+                    range: `${sheetName}!${toA1(imageModeColIndex)}1`,
+                    majorDimension: 'ROWS',
+                    values: [['이미지 처리']]
+                }, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+                }));
+            }
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                requests: [{
+                    setDataValidation: {
+                        range: { sheetId, startRowIndex: 1, startColumnIndex: imageModeColIndex, endColumnIndex: imageModeColIndex + 1 },
+                        rule: {
+                            condition: {
+                                type: 'ONE_OF_LIST',
+                                values: [
+                                    { userEnteredValue: '이미지 생성' },
+                                    { userEnteredValue: '프롬프트 포함' },
+                                    { userEnteredValue: '미포함' }
+                                ]
+                            },
+                            showCustomUi: true,
+                            strict: true
+                        }
+                    }
+                }]
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+        } catch (error) {
+            Logger.warn(`⚠️ topics 이미지 처리 검증 규칙 업데이트 실패: ${error.message}`);
+        }
     },
 
     ensureShoppingSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName) {
@@ -1068,7 +1135,7 @@ const Utils = {
             if (type === 'topics') {
                 requiredHeaders = [
                     'category', 'post_status', 'schedule_date', 'subject', 'keywords',
-                    '참고/지시 사항', '상태', '이미지 생성', '외부 참고 여부', '참고 URL',
+                    '참고/지시 사항', '상태', '이미지 처리', '외부 참고 여부', '참고 URL',
                     'options', '발행 시간', '로그', '추가일시', '소스', '트렌드일자'
                 ];
             } else if (type === 'shopping') {
@@ -1079,6 +1146,9 @@ const Utils = {
 
             const missingHeaders = requiredHeaders.filter(h => {
                 const cleanH = h.toLowerCase().replace(/[\s\/_]/g, '').trim();
+                if (cleanH === '이미지처리' && currentHeadersClean.some((value) => ['이미지처리', '이미지생성', 'imagegen', 'imggen', 'imagemode'].includes(value))) {
+                    return false;
+                }
                 return !currentHeadersClean.includes(cleanH);
             });
 
@@ -1147,7 +1217,7 @@ const Utils = {
                     }
                 });
             } else if (type === 'topics') {
-                // 헤더: category, post_status, schedule_date, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
+                // 헤더: category, post_status, schedule_date, subject, keywords, 참고/지시 사항, 상태, 이미지 처리, 외부 참고 여부, 참고 URL, 발행 시간, 로그, 추가일시, 소스, 트렌드일자
                 headerRow = [[
                     'category',
                     'post_status',
@@ -1156,7 +1226,7 @@ const Utils = {
                     'keywords',
                     '참고/지시 사항',
                     '상태',
-                    '이미지 생성',
+                    '이미지 처리',
                     '외부 참고 여부',
                     '참고 URL',
                     'options', // [Added] JSON 확장 옵션 컬럼
@@ -1205,7 +1275,7 @@ const Utils = {
                     }
                 });
 
-                // Dropdown: H열 (Index 7) -> Yes, No (이미지 생성 여부)
+                // Dropdown: H열 (Index 7) -> 이미지 처리 방식
                 validationRequests.push({
                     setDataValidation: {
                         range: { sheetId: newSheetId, startRowIndex: 1, startColumnIndex: 7, endColumnIndex: 8 },
@@ -1213,8 +1283,9 @@ const Utils = {
                             condition: {
                                 type: 'ONE_OF_LIST',
                                 values: [
-                                    { userEnteredValue: 'Yes' },
-                                    { userEnteredValue: 'No' }
+                                    { userEnteredValue: '이미지 생성' },
+                                    { userEnteredValue: '프롬프트 포함' },
+                                    { userEnteredValue: '미포함' }
                                 ]
                             },
                             showCustomUi: true, strict: true
@@ -1364,7 +1435,7 @@ const Utils = {
                 const urlStr = getVal(['참고url', '참고/url', 'references', 'url']);
                 const ctgRaw = getVal(['category', '카테고리']);
                 const status = getVal(['상태', 'status']);
-                const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
+                const imageModeStr = getVal(['이미지처리', 'image_mode', 'imagemode', '이미지생성', 'image_gen', 'img_gen']);
                 const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
                 const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
 
@@ -1380,7 +1451,8 @@ const Utils = {
                     status: status ? status.trim() : "",
                     use_external_ref: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(extRefStr.toLowerCase()),
                     image_options: {
-                        generate: ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(imgGenStr.toLowerCase()),
+                        mode: parseSheetImageModeValue(imageModeStr),
+                        generate: parseSheetImageModeValue(imageModeStr) === 'generate',
                         count: imgCountStr ? Number(imgCountStr) : undefined
                     }
                 };
@@ -1445,7 +1517,7 @@ const Utils = {
                     const postStatus = getVal(['poststatus', 'post_status', '발행옵션', '발행_옵션']);
                     const scheduleDate = getVal(['scheduledate', 'schedule_date', '예약일시', '예약_일시']);
                     const status = getVal(['상태', 'status']);
-                    const imgGenStr = getVal(['이미지생성', 'image_gen', 'img_gen']);
+                    const imageModeStr = getVal(['이미지처리', 'image_mode', 'imagemode', '이미지생성', 'image_gen', 'img_gen']);
                     const imgCountStr = getVal(['이미지개수', 'image_count', 'count']);
                     const extRefStr = getVal(['외부참고여부', 'external_ref', 'ext_ref']);
                     const optionsStr = getVal(['options', '옵션', 'extra_options']);
@@ -1455,7 +1527,7 @@ const Utils = {
                     const source = getVal(['소스', 'source']);
                     const trendDate = getVal(['트렌드일자', '트렌드 일자', 'trenddate']);
 
-                    const explicitImgGen = imgGenStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(imgGenStr).toLowerCase()) : undefined;
+                    const explicitImageMode = imageModeStr ? parseSheetImageModeValue(imageModeStr) : undefined;
                     const explicitExtRef = extRefStr ? ['y', 'yes', 'true', 't', '예', '참', 'o'].includes(String(extRefStr).toLowerCase()) : undefined;
                     const resolvedState = resolveTopicSheetState({
                         subject,
@@ -1465,7 +1537,8 @@ const Utils = {
                         category: ctgRaw || '',
                         postStatus: postStatus || 'publish',
                         scheduleDate: scheduleDate || '',
-                        imageGeneration: explicitImgGen !== undefined ? explicitImgGen : false,
+                        imageMode: explicitImageMode,
+                        imageGeneration: explicitImageMode !== undefined ? explicitImageMode === 'generate' : false,
                         externalReference: explicitExtRef !== undefined ? explicitExtRef : true,
                         options: optionsStr
                     });
@@ -1484,7 +1557,13 @@ const Utils = {
                             reference_urls: resolvedState.referenceUrls
                         },
                         status: status || '',
+                        image_mode: resolvedState.imageMode,
                         image_gen: resolvedState.imageGeneration,
+                        image_options: {
+                            mode: resolvedState.imageMode,
+                            generate: resolvedState.imageGeneration,
+                            count: imgCountStr ? Number(imgCountStr) : resolvedState.imageCount
+                        },
                         image_count: imgCountStr ? Number(imgCountStr) : resolvedState.imageCount,
                         external_reference: resolvedState.externalReference,
                         writing_strategy: resolvedState.writingStrategy,
@@ -1538,7 +1617,7 @@ const Utils = {
                     if (sortBy === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
                     if (sortBy === 'instruction') return String(item.content_guide?.additional_instructions || '');
                     if (sortBy === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
-                    if (sortBy === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
+                    if (sortBy === 'imageMode' || sortBy === 'imageGeneration') return String(item.image_mode || 'prompt_only');
                     if (sortBy === 'externalReference') return item.use_external_ref === true ? 1 : 0;
                     if (sortBy === 'runtimeLog') return String(item.log || '');
                     if (sortBy === 'status') return String(item.status || '');
@@ -2330,7 +2409,7 @@ const Utils = {
                 else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
                 else if (clean.includes('상태') || clean.includes('status')) map.status = i;
                 else if (clean.includes('이미지개수') || clean.includes('imagecount')) map.imgCount = i;
-                else if (clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
+                else if (clean.includes('이미지처리') || clean.includes('imagemode') || clean.includes('이미지생성') || clean.includes('gen')) map.imgGen = i;
                 else if (clean.includes('추가일시') || clean.includes('addedat') || clean.includes('createdat')) map.addedAt = i;
                 else if (clean === '소스' || clean.includes('source')) map.source = i;
                 else if (clean.includes('트렌드일자') || clean.includes('trenddate')) map.trendDate = i;
@@ -2401,6 +2480,9 @@ const Utils = {
                                     : false
                             )
                     );
+                const imageMode = parseSheetImageModeValue(topic.image_options?.mode || topic.image_mode, {
+                    legacyGenerate: imageGenerate
+                });
                 const sourceValue = String(
                     topic.source
                     || topic.topic_source
@@ -2450,6 +2532,7 @@ const Utils = {
                     postStatus: rowPostStatus,
                     scheduleDate: rowScheduleDate,
                     imageGeneration: imageGenerate,
+                    imageMode,
                     imageCount: topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count,
                     externalReference,
                     writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
@@ -2462,7 +2545,7 @@ const Utils = {
                 if (map.extRef !== undefined) row[map.extRef] = externalReference ? 'Yes' : 'No';
                 if (map.url !== undefined) row[map.url] = referenceUrlValue || '';
                 if (map.status !== undefined) row[map.status] = rowStatus;
-                if (map.imgGen !== undefined) row[map.imgGen] = imageGenerate ? 'Yes' : 'No';
+                if (map.imgGen !== undefined) row[map.imgGen] = formatSheetImageModeValue(imageMode);
                 if (map.imgCount !== undefined) {
                     const imageCount = topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count;
                     row[map.imgCount] = imageCount === undefined || imageCount === null ? '' : imageCount;
@@ -3532,7 +3615,7 @@ const Utils = {
 
     /**
      * UI 편집용: topics 시트에서 수정 가능한 필드만 업데이트
-     * - subject, keywords, 참고/지시사항, 참고 URL, 상태, 이미지 생성 여부, 외부 참고 여부
+     * - subject, keywords, 참고/지시사항, 참고 URL, 상태, 이미지 처리, 외부 참고 여부
      */
     updateGoogleSheetTopicEditableFields: async function (rowIndex, fields = {}) {
         const safeRowIndex = parseInt(rowIndex, 10);
@@ -3541,6 +3624,9 @@ const Utils = {
         }
 
         const toYesNo = (value) => (value ? 'Yes' : 'No');
+        const imageMode = parseSheetImageModeValue(fields.imageMode, {
+            legacyGenerate: typeof fields.imageGeneration === 'boolean' ? fields.imageGeneration : undefined
+        });
         const normalized = {
             category: String(fields.category || '').trim(),
             postStatus: String(fields.postStatus || '').trim(),
@@ -3554,7 +3640,8 @@ const Utils = {
                 ? fields.referenceUrl.map(v => String(v || '').trim()).filter(Boolean).join(', ')
                 : String(fields.referenceUrl || '').trim(),
             status: String(fields.status || '').trim(),
-            imageGeneration: toYesNo(Boolean(fields.imageGeneration)),
+            imageMode,
+            imageGeneration: imageMode === 'generate',
             externalReference: toYesNo(Boolean(fields.externalReference)),
             writingStrategy: String(fields.writingStrategy || '').trim()
         };
@@ -3588,7 +3675,7 @@ const Utils = {
             else if (clean.includes('참고지시사항') || clean.includes('instruction') || clean.includes('지시사항')) map.instruction = i;
             else if (clean.includes('참고url') || clean.includes('referenceurl') || clean === 'url') map.url = i;
             else if (clean.includes('상태') || clean.includes('status')) map.status = i;
-            else if (clean.includes('이미지생성') || clean.includes('imagegen') || clean.includes('imggen')) map.imgGen = i;
+            else if (clean.includes('이미지처리') || clean.includes('imagemode') || clean.includes('이미지생성') || clean.includes('imagegen') || clean.includes('imggen')) map.imgGen = i;
             else if (clean.includes('외부참고') || clean.includes('external') || clean.includes('extref')) map.extRef = i;
             else if (clean === 'options' || clean === '옵션') map.options = i;
         });
@@ -3625,7 +3712,7 @@ const Utils = {
         if (map.instruction !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.instruction)}${targetRow}`, values: [[normalized.instruction]] });
         if (map.url !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.url)}${targetRow}`, values: [[normalized.referenceUrl]] });
         if (map.status !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.status)}${targetRow}`, values: [[normalized.status]] });
-        if (map.imgGen !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.imgGen)}${targetRow}`, values: [[normalized.imageGeneration]] });
+        if (map.imgGen !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.imgGen)}${targetRow}`, values: [[formatSheetImageModeValue(normalized.imageMode)]] });
         if (map.extRef !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.extRef)}${targetRow}`, values: [[normalized.externalReference]] });
         if (map.options !== undefined) {
             const syncedOptions = mergeTopicSheetOptions(existingOptionsRaw, {
@@ -3636,7 +3723,8 @@ const Utils = {
                 category: normalized.category,
                 postStatus: normalized.postStatus,
                 scheduleDate: normalized.scheduleDate,
-                imageGeneration: normalized.imageGeneration === 'Yes',
+                imageMode: normalized.imageMode,
+                imageGeneration: normalized.imageGeneration,
                 externalReference: normalized.externalReference === 'Yes',
                 writingStrategy: normalized.writingStrategy
             });

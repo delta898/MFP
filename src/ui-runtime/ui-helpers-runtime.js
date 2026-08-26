@@ -16,7 +16,7 @@ function getTopicSortValue(item, key) {
     if (key === 'keywords') return Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
     if (key === 'instruction') return String(item.content_guide?.additional_instructions || '');
     if (key === 'referenceUrl') return Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
-    if (key === 'imageGeneration') return item.image_options?.generate === true ? 1 : 0;
+    if (key === 'imageMode' || key === 'imageGeneration') return String(item.image_mode || item.image_options?.mode || 'prompt_only');
     if (key === 'externalReference') return item.use_external_ref === true ? 1 : 0;
     if (key === 'runtimeLog') return String(item.runtimeLog || '');
     if (key === 'status') return String(item.status || '');

@@ -1,4 +1,11 @@
 const { normalizeWritingStrategyOverride } = require('./writing-strategy');
+const { normalizeBlogImageMode } = require('./blog-image-mode');
+
+const SHEET_IMAGE_MODE_LABELS = Object.freeze({
+    generate: '이미지 생성',
+    prompt_only: '프롬프트 포함',
+    none: '미포함'
+});
 
 function normalizeString(value) {
     return String(value || '').trim();
@@ -20,6 +27,38 @@ function normalizeOptionalImageCount(value) {
     if (value === undefined || value === null || String(value).trim() === '') return null;
     const numeric = Number(String(value).trim());
     return Number.isInteger(numeric) && numeric >= 1 && numeric <= 6 ? numeric : null;
+}
+
+function parseSheetImageModeValue(value, options = {}) {
+    const normalized = normalizeString(value).toLowerCase();
+    const aliases = {
+        generate: 'generate',
+        '이미지 생성': 'generate',
+        yes: 'generate',
+        y: 'generate',
+        true: 'generate',
+        '예': 'generate',
+        prompt_only: 'prompt_only',
+        'prompt only': 'prompt_only',
+        '프롬프트 포함': 'prompt_only',
+        '프롬프트만 포함': 'prompt_only',
+        no: 'prompt_only',
+        n: 'prompt_only',
+        false: 'prompt_only',
+        '아니오': 'prompt_only',
+        none: 'none',
+        '미포함': 'none',
+        '이미지 사용 안 함': 'none'
+    };
+    if (aliases[normalized]) return aliases[normalized];
+    return normalizeBlogImageMode(options.mode, {
+        legacyGenerate: options.legacyGenerate,
+        fallback: options.fallback || 'prompt_only'
+    });
+}
+
+function formatSheetImageModeValue(mode) {
+    return SHEET_IMAGE_MODE_LABELS[normalizeBlogImageMode(mode)] || SHEET_IMAGE_MODE_LABELS.prompt_only;
 }
 
 function parseSheetOptionsValue(rawValue) {
@@ -100,6 +139,14 @@ function resolveTopicSheetState(input = {}) {
         wordpressCategory: optionWordpressCategory || parsedCategory.wordpressCategory
     });
 
+    const explicitColumnImageMode = normalizeString(input.imageMode);
+    const imageMode = parseSheetImageModeValue(explicitColumnImageMode || parsedOptions.image_mode, {
+        legacyGenerate: typeof parsedOptions.image_gen === 'boolean'
+            ? parsedOptions.image_gen
+            : input.imageGeneration,
+        fallback: 'prompt_only'
+    });
+
     return {
         options: parsedOptions,
         subject: normalizeString(parsedOptions.subject) || normalizeString(input.subject),
@@ -115,9 +162,8 @@ function resolveTopicSheetState(input = {}) {
         wordpressCategory: optionWordpressCategory || parsedCategory.wordpressCategory,
         postStatus: normalizeString(parsedOptions.post_status) || normalizeString(input.postStatus) || 'publish',
         scheduleDate: normalizeString(parsedOptions.schedule_date) || normalizeString(input.scheduleDate),
-        imageGeneration: typeof parsedOptions.image_gen === 'boolean'
-            ? parsedOptions.image_gen
-            : input.imageGeneration === true,
+        imageMode,
+        imageGeneration: imageMode === 'generate',
         imageCount: parsedOptions.image_count !== undefined
             ? parsedOptions.image_count
             : input.imageCount,
@@ -174,7 +220,13 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
         applyStringOption(next, 'writing_strategy', normalizeWritingStrategyOverride(fields.writingStrategy));
     }
 
-    if (fields.imageGeneration !== undefined) next.image_gen = fields.imageGeneration === true;
+    if (fields.imageMode !== undefined || fields.imageGeneration !== undefined) {
+        const imageMode = parseSheetImageModeValue(fields.imageMode, {
+            legacyGenerate: typeof fields.imageGeneration === 'boolean' ? fields.imageGeneration : undefined
+        });
+        next.image_mode = imageMode;
+        next.image_gen = imageMode === 'generate';
+    }
     if (fields.imageCount !== undefined) {
         const imageCount = normalizeOptionalImageCount(fields.imageCount);
         if (imageCount !== null) next.image_count = imageCount;
@@ -259,9 +311,11 @@ function mergeShoppingSheetOptions(existingOptions = {}, fields = {}) {
 
 module.exports = {
     buildStructuredCategory,
+    formatSheetImageModeValue,
     mergeShoppingSheetOptions,
     mergeTopicSheetOptions,
     parseSheetOptionsValue,
+    parseSheetImageModeValue,
     parseStructuredCategory,
     resolveShoppingSheetState,
     resolveTopicSheetState,

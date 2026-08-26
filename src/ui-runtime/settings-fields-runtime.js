@@ -172,6 +172,7 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED,
             PUBLISH_AUTO_START_TIME: CONFIG.PUBLISH_AUTO_START_TIME,
             PUBLISH_AUTO_END_TIME: CONFIG.PUBLISH_AUTO_END_TIME,
+            PUBLISH_AUTO_IMAGE_MODE: CONFIG.PUBLISH_AUTO_IMAGE_MODE || 'generate',
 
             // Automation - Shopping
             SHOPPING_PUBLISH_AUTO_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED,
@@ -346,6 +347,7 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.PUBLISH_AUTO_NOTIFY_ENABLED, false);
         CONFIG.PUBLISH_AUTO_START_TIME = autoSettings.PUBLISH_AUTO_START_TIME;
         CONFIG.PUBLISH_AUTO_END_TIME = autoSettings.PUBLISH_AUTO_END_TIME;
+        CONFIG.PUBLISH_AUTO_IMAGE_MODE = autoSettings.PUBLISH_AUTO_IMAGE_MODE;
 
         try {
             const rawRss = String(fields.COLLECT_RSS_CONFIGS || '').trim();

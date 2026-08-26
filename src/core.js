@@ -1832,7 +1832,14 @@ ${messageText}
 		Logger.info(`│ 🏷️  키워드     : ${hasKeywords ? jobData.keywords.join(', ') : '(없음)'}`);
 		Logger.info(`│ 🔗 참고 URL   : ${hasRef ? jobData.content_guide.reference_urls.join(', ') : '(없음)'}`);
 		Logger.info(`│ 🌐 외부 참고  : ${useExternalRef ? '✅ 예' : '❌ 아니오'}`);
-		Logger.info(`│ 🖼️  이미지 생성: ${jobData.image_options?.generate !== false ? '✅ 예' : '❌ 아니오'}`);
+		const loggedImageMode = normalizeBlogImageMode(jobData.image_options?.mode, {
+			legacyGenerate: jobData.image_options?.generate,
+			fallback: 'prompt_only'
+		});
+		const loggedImageModeLabel = loggedImageMode === 'generate'
+			? '이미지 생성'
+			: (loggedImageMode === 'none' ? '미포함' : '프롬프트 포함');
+		Logger.info(`│ 🖼️  이미지 처리: ${loggedImageModeLabel}`);
 		Logger.info(`│ 🤖 TEXT 모델  : ${String(CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
 		Logger.info(`│ 🎨 IMG 모델   : ${String(CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
 		Logger.info(`│ 📤 발행 옵션  : ${effectivePostStatusLabel}`);

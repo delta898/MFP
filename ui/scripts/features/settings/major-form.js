@@ -187,6 +187,7 @@ function applySettingsMajorToForm(data, options = {}) {
   sv(blogPublishAutoBatchEl, fields.PUBLISH_AUTO_BATCH_SIZE || 1);
   sv(blogPublishAutoIntervalEl, fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
   sv(blogPublishAutoPostStatusEl, fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish');
+  sv(document.getElementById('blog-publish-auto-image-mode'), fields.PUBLISH_AUTO_IMAGE_MODE || 'generate');
   sc(blogPublishAutoHeadlessEl, fields.PUBLISH_AUTO_HEADLESS ?? true);
   sc(blogPublishAutoNotifyEnabledEl, fields.PUBLISH_AUTO_NOTIFY_ENABLED);
 
@@ -362,6 +363,7 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('blog-publish-auto-interval')?.value || '60', 10),
     PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('blog-publish-auto-batch')?.value || '1', 10),
     PUBLISH_AUTO_POST_STATUS: document.getElementById('blog-publish-auto-post-status')?.value === 'draft' ? 'draft' : 'publish',
+    PUBLISH_AUTO_IMAGE_MODE: (document.getElementById('blog-publish-auto-image-mode')?.value || 'generate').trim(),
     PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')),
     PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('blog-publish-auto-headless')?.checked),
     PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-publish-auto-notify-enabled')?.checked),

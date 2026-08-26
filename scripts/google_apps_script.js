@@ -161,14 +161,14 @@ function handleKeywordResearch(e, sheet, range) {
 
         try {
             // topics 시트에 추가
-            // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 생성, 외부 참고 여부, 참고 URL, 발행 시간, 로그
+            // 헤더: blog, subject, keywords, 참고/지시 사항, 상태, 이미지 처리, 외부 참고 여부, 참고 URL, 발행 시간, 로그
             topicsSheet.appendRow([
                 'naver',    // blog
                 keyword,    // subject (원본 키워드)
                 relKw,      // keywords (연관검색어)
                 '',         // 참고/지시 사항
                 '대기',     // 상태
-                'Yes',       // 이미지 생성
+                '이미지 생성', // 이미지 처리
                 'Yes',      // 외부 참고 여부
                 '',         // 참고 URL (배치 실행 시 자동 수집)
                 '',         // 발행 시간

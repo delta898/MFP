@@ -1,3 +1,5 @@
+const { normalizeBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
+
 function createTrendActionsRuntime(deps = {}) {
     const {
         Logger,
@@ -83,7 +85,10 @@ function createTrendActionsRuntime(deps = {}) {
         const naverCategory = String(settings.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
         const wordpressCategory = String(settings.COLLECT_TRENDS_WP_CATEGORY || '').trim();
         const finalCategory = (naverCategory || wordpressCategory) ? `N:${naverCategory}, W:${wordpressCategory}` : '';
-        const autoImageGeneration = toBoolLike(settings.PUBLISH_AUTO_IMAGE_GENERATION, publishAutoDefaults.imageGeneration);
+        const autoImageMode = normalizeBlogImageMode(settings.PUBLISH_AUTO_IMAGE_MODE, {
+            legacyGenerate: toBoolLike(settings.PUBLISH_AUTO_IMAGE_GENERATION, publishAutoDefaults.imageGeneration),
+            fallback: publishAutoDefaults.imageMode || 'generate'
+        });
 
         const candidateLogLimit = 120;
         const dateCategoryMatchedRows = [];
@@ -253,7 +258,7 @@ function createTrendActionsRuntime(deps = {}) {
                 },
                 use_external_ref: true,
                 category: finalCategory,
-                image_options: { generate: autoImageGeneration },
+                image_options: { mode: autoImageMode, generate: generatesBlogImages(autoImageMode) },
                 source: 'auto-trends',
                 trendDate: String(item.date || '').trim(),
                 status: '발행 준비 완료'
@@ -402,10 +407,10 @@ function createTrendActionsRuntime(deps = {}) {
         }
 
         const autoSettings = getBlogAutoSettingsSnapshot();
-        const autoImageGeneration = toBoolLike(
-            autoSettings.PUBLISH_AUTO_IMAGE_GENERATION,
-            publishAutoDefaults.imageGeneration
-        );
+        const autoImageMode = normalizeBlogImageMode(autoSettings.PUBLISH_AUTO_IMAGE_MODE, {
+            legacyGenerate: toBoolLike(autoSettings.PUBLISH_AUTO_IMAGE_GENERATION, publishAutoDefaults.imageGeneration),
+            fallback: publishAutoDefaults.imageMode || 'generate'
+        });
         const keywordReuseGapDays = normalizeNonNegativeInt(
             autoSettings.BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS,
             collectTrendsDefaults.reuseGapDays
@@ -450,7 +455,7 @@ function createTrendActionsRuntime(deps = {}) {
                     reference_urls: []
                 },
                 use_external_ref: true,
-                image_options: { generate: autoImageGeneration },
+                image_options: { mode: autoImageMode, generate: generatesBlogImages(autoImageMode) },
                 source: 'auto-trends',
                 trendDate: String(item.date || '').trim(),
                 status: '대기'
@@ -520,7 +525,7 @@ function createTrendActionsRuntime(deps = {}) {
                         reference_urls: []
                     },
                     use_external_ref: true,
-                    image_options: { generate: false },
+                    image_options: { mode: 'prompt_only', generate: false },
                     source: 'manual',
                     trendDate: '',
                     status: '대기'

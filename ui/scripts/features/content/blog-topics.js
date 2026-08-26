@@ -55,6 +55,12 @@ function getExecutionModeLabel(val) {
   return map[norm] || val || '-';
 }
 
+function normalizeBlogTopicImageMode(item) {
+  const mode = String(item?.image_mode || item?.image_options?.mode || '').trim();
+  if (['generate', 'prompt_only', 'none'].includes(mode)) return mode;
+  return item?.image_gen === true ? 'generate' : 'prompt_only';
+}
+
 function renderBlogTable(items) {
   const tbody = document.getElementById('blog-table-body');
   if (!tbody) return;
@@ -81,7 +87,7 @@ function renderBlogTable(items) {
     const postStatus = escapeHtml(getPostStatusLabel(postStatusRaw));
     const scheduleDate = escapeHtml(item.scheduleDate || '');
     const status = escapeHtml(item.status || '');
-    const imageGeneration = Boolean(item.image_gen);
+    const imageMode = normalizeBlogTopicImageMode(item);
     const externalReference = Boolean(item.external_reference);
     const recentMeta = getRecentBatchMeta(item.rowIndex);
     const runningClass = runtimeLog ? 'running-row' : '';
@@ -90,7 +96,6 @@ function renderBlogTable(items) {
       ? `<span class="recent-badge ${recentMeta.success ? 'success' : 'fail'}">${recentMeta.success ? '방금 성공' : '방금 실패'}</span>`
       : '';
     const checked = blogSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
-    const imageChecked = imageGeneration ? 'checked' : '';
     const externalChecked = externalReference ? 'checked' : '';
     return `
       <tr class="${[runningClass, recentClass].filter(Boolean).join(' ')}" data-row-index="${item.rowIndex}">
@@ -101,7 +106,13 @@ function renderBlogTable(items) {
         <td class="editable-cell" data-field="keywords">${keywords || '-'}</td>
         <td class="editable-cell" data-field="instruction">${instruction || '-'}</td>
         <td class="editable-cell" data-field="referenceUrl">${referenceUrl || '-'}</td>
-        <td class="toggle-cell"><input type="checkbox" class="inline-toggle" data-field="imageGeneration" data-row-index="${item.rowIndex}" ${imageChecked}></td>
+        <td class="toggle-cell">
+          <select class="inline-image-mode" data-field="imageMode" data-row-index="${item.rowIndex}">
+            <option value="generate" ${imageMode === 'generate' ? 'selected' : ''}>이미지 생성</option>
+            <option value="prompt_only" ${imageMode === 'prompt_only' ? 'selected' : ''}>프롬프트 포함</option>
+            <option value="none" ${imageMode === 'none' ? 'selected' : ''}>미포함</option>
+          </select>
+        </td>
         <td class="toggle-cell"><input type="checkbox" class="inline-toggle" data-field="externalReference" data-row-index="${item.rowIndex}" ${externalChecked}></td>
         <td class="runtime-log-cell">${runtimeLog}</td>
         <td class="editable-cell" data-field="status">${status || '-'}</td>
@@ -186,8 +197,7 @@ async function openBlogTopicEditor(rowIndex) {
   postStatusText.textContent = postStatusMap[postStatusValue] || postStatusValue;
   postStatusText.dataset.value = postStatusValue;
 
-  // Checkboxes
-  document.getElementById('blog-edit-image-required').checked = Boolean(item.image_gen);
+  document.getElementById('blog-edit-image-mode').value = normalizeBlogTopicImageMode(item);
   document.getElementById('blog-edit-external-ref').checked = Boolean(item.external_reference);
 
   // document.getElementById('blog-edit-result').textContent = '';
@@ -337,7 +347,7 @@ async function saveBlogTopicModifications() {
 
   const status = document.getElementById('modal-blog-status-text').dataset.value || '대기';
   const postStatus = document.getElementById('modal-blog-post-status-text').dataset.value || 'publish';
-  const isImageRequired = document.getElementById('blog-edit-image-required').checked;
+  const imageMode = document.getElementById('blog-edit-image-mode').value || 'prompt_only';
   const isExternalRef = document.getElementById('blog-edit-external-ref').checked;
 
   const patch = {
@@ -351,7 +361,7 @@ async function saveBlogTopicModifications() {
     wordpressCategory,
     status,
     postStatus,
-    imageGeneration: isImageRequired,
+    imageMode,
     externalReference: isExternalRef,
     scheduleDate: scheduleDate ? (scheduleDate.length === 16 ? scheduleDate + ':00' : scheduleDate) : ''
   };
@@ -434,7 +444,7 @@ function buildBlogUpdatePayload(baseItem, patch = {}) {
     category: String((patch.category !== undefined ? patch.category : safeItem.category) || '').trim(),
     postStatus: String((patch.postStatus !== undefined ? patch.postStatus : safeItem.postStatus) || '').trim(),
     scheduleDate: String((patch.scheduleDate !== undefined ? patch.scheduleDate : safeItem.scheduleDate) || '').trim(),
-    imageGeneration: (patch.imageGeneration !== undefined ? patch.imageGeneration : Boolean(safeItem.image_gen)) === true,
+    imageMode: String((patch.imageMode !== undefined ? patch.imageMode : normalizeBlogTopicImageMode(safeItem)) || 'prompt_only'),
     externalReference: (patch.externalReference !== undefined ? patch.externalReference : Boolean(safeItem.external_reference)) === true,
     writingStrategy: String((patch.writingStrategy !== undefined ? patch.writingStrategy : safeItem.writing_strategy) || 'inherit').trim()
   };
@@ -487,7 +497,12 @@ async function saveBlogRowPatch(rowIndex, patch = {}, options = {}) {
   if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
 
   // 1. 캐시를 즉시 업데이트 (race condition 방지)
-  if (patch.imageGeneration !== undefined) item.image_gen = Boolean(patch.imageGeneration);
+  if (patch.imageMode !== undefined) {
+    item.image_mode = patch.imageMode;
+    item.image_gen = patch.imageMode === 'generate';
+    item.image_options = { ...(item.image_options || {}), mode: patch.imageMode, generate: patch.imageMode === 'generate' };
+    item.options = { ...(item.options || {}), image_mode: patch.imageMode, image_gen: patch.imageMode === 'generate' };
+  }
   if (patch.externalReference !== undefined) item.external_reference = Boolean(patch.externalReference);
   if (patch.subject !== undefined) item.subject = patch.subject;
   if (patch.keywords !== undefined) item.keywords = typeof patch.keywords === 'string'

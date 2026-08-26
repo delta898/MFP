@@ -129,6 +129,7 @@ async function loadBlogAutoSettings({ force = false, skipPendingConfirm = false 
   const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
   const publishBatchEl = document.getElementById('blog-publish-auto-batch');
   const postStatusEl = document.getElementById('blog-publish-auto-post-status');
+  const imageModeEl = document.getElementById('blog-publish-auto-image-mode');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
 
   setBlogAutoResultText('불러오는 중...');
@@ -140,6 +141,8 @@ async function loadBlogAutoSettings({ force = false, skipPendingConfirm = false 
     if (publishIntervalEl) publishIntervalEl.value = String(fields.PUBLISH_AUTO_INTERVAL_MIN || 60);
     if (publishBatchEl) publishBatchEl.value = String(fields.PUBLISH_AUTO_BATCH_SIZE || 1);
     if (postStatusEl) postStatusEl.value = fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish';
+    if (imageModeEl) imageModeEl.value = ['generate', 'prompt_only', 'none'].includes(fields.PUBLISH_AUTO_IMAGE_MODE)
+      ? fields.PUBLISH_AUTO_IMAGE_MODE : 'generate';
 
     const targetChannels = String(fields.PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
     document.querySelectorAll('[data-publish-target]').forEach(el => {
@@ -167,6 +170,7 @@ async function saveBlogAutoSettings() {
   const publishIntervalEl = document.getElementById('blog-publish-auto-interval');
   const publishBatchEl = document.getElementById('blog-publish-auto-batch');
   const postStatusEl = document.getElementById('blog-publish-auto-post-status');
+  const imageModeEl = document.getElementById('blog-publish-auto-image-mode');
   const headlessEl = document.getElementById('blog-publish-auto-headless');
 
   setBlogAutoResultText('저장 중...');
@@ -180,6 +184,7 @@ async function saveBlogAutoSettings() {
       PUBLISH_AUTO_INTERVAL_MIN: parseInt(publishIntervalEl?.value || '60', 10),
       PUBLISH_AUTO_BATCH_SIZE: parseInt(publishBatchEl?.value || '1', 10),
       PUBLISH_AUTO_POST_STATUS: postStatusEl?.value === 'draft' ? 'draft' : 'publish',
+      PUBLISH_AUTO_IMAGE_MODE: imageModeEl?.value || 'generate',
       PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(','),
       PUBLISH_AUTO_HEADLESS: Boolean(headlessEl?.checked),
       PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
@@ -238,7 +243,8 @@ async function runBlogCollectRssManual() {
   try {
     const data = await postJson('/api/v1/auto/collect/rss/run', {
       settingsOverrides: {
-        COLLECT_RSS_CONFIGS: currentRssConfigs
+        COLLECT_RSS_CONFIGS: currentRssConfigs,
+        PUBLISH_AUTO_IMAGE_MODE: document.getElementById('blog-publish-auto-image-mode')?.value || 'generate'
       }
     });
     if (resultEl) resultEl.textContent = `RSS 수집 완료: ${JSON.stringify(data.data?.summary || data)}`;
@@ -246,4 +252,3 @@ async function runBlogCollectRssManual() {
     if (resultEl) resultEl.textContent = `오류: ${e.message}`;
   }
 }
-

@@ -5,6 +5,7 @@ const {
     settlePublishQuota
 } = require('../publish-quota');
 const { parseImageCount } = require('../content/blog-image-plan');
+const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 
 function createContentActionsRuntime(deps = {}) {
     const {
@@ -176,7 +177,10 @@ function createContentActionsRuntime(deps = {}) {
         const effectivePostStatus = requestedPostStatus || getVal('post_status', topicData.postStatus || 'publish');
         const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
         const effectiveWritingStrategy = getVal('writing_strategy', topicData.writing_strategy || '');
-        const effectiveImgGenRequested = topicData.image_gen === true;
+        const effectiveImageMode = parseBlogImageMode(topicData.image_mode || topicData.image_options?.mode, {
+            legacyGenerate: topicData.image_gen === true,
+            fallback: 'prompt_only'
+        });
         const effectiveImgCountRaw = getVal('image_count', topicData.image_count);
         let effectiveImgCount;
         try {
@@ -185,7 +189,7 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: error.code || 'INVALID_BLOG_IMAGE_COUNT', message: error.message };
         }
         const effectiveExtRef = topicData.external_reference === true;
-        const effectiveImgGen = effectiveImgGenRequested;
+        const effectiveImgGen = generatesBlogImages(effectiveImageMode);
 
         const autoSettingsSnapshot = getBlogAutoSettingsSnapshot();
         const resolvedHeadless = typeof requestBody?.headless === 'boolean'
@@ -214,6 +218,7 @@ function createContentActionsRuntime(deps = {}) {
                 referenceUrls: effectiveRefUrls,
                 useExternalRef: effectiveExtRef,
                 imageOptions: {
+                    mode: effectiveImageMode,
                     generate: effectiveImgGen,
                     count: effectiveImgCount
                 },
@@ -242,6 +247,7 @@ function createContentActionsRuntime(deps = {}) {
                         reference_urls: publishParams.context.referenceUrls || []
                     },
                     image_options: {
+                        mode: effectiveImageMode,
                         generate: effectiveImgGen,
                         count: publishParams.context.imageOptions?.count
                     }
@@ -251,7 +257,7 @@ function createContentActionsRuntime(deps = {}) {
                     platform: targetPlatform
                 });
                 emitProgress('이미지 준비 중...');
-                await Core.prepareImages(result.targetDir, publishParams.context, {
+                await Core.prepareImages(result.targetDir, topic, {
                     imageGenerationEnabled: effectiveImgGen
                 });
 
@@ -1027,6 +1033,13 @@ function createContentActionsRuntime(deps = {}) {
             const wpCat = String(requestBody?.wordpressCategory || '').trim();
             const finalCategory = (naverCat || wpCat) ? `N:${naverCat}, W:${wpCat}` : String(requestBody?.category || '').trim();
 
+            const imageMode = parseBlogImageMode(requestBody?.imageMode, {
+                legacyGenerate: typeof requestBody?.imageGeneration === 'boolean'
+                    ? requestBody.imageGeneration
+                    : undefined,
+                fallback: 'prompt_only'
+            });
+
             await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
                 category: finalCategory,
                 postStatus: postStatusRaw,
@@ -1036,7 +1049,8 @@ function createContentActionsRuntime(deps = {}) {
                 instruction: String(requestBody?.instruction || '').trim(),
                 referenceUrl,
                 status,
-                imageGeneration: normalizeBool(requestBody?.imageGeneration, false),
+                imageMode,
+                imageGeneration: generatesBlogImages(imageMode),
                 externalReference: normalizeBool(requestBody?.externalReference, true),
                 writingStrategy
             });

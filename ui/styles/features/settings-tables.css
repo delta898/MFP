@@ -427,6 +427,26 @@ pre {
   text-align: center;
 }
 
+.data-table select.inline-image-mode {
+  width: 132px;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 28px 6px 9px;
+  background: var(--surface-solid);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  outline: none;
+}
+
+.data-table select.inline-image-mode:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-light);
+}
+
 .data-table td.editable-cell {
   cursor: pointer;
 }

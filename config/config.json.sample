@@ -165,6 +165,7 @@
         "target_channels": [
         ],
         "headless": true,
+        "image_mode": "generate",
         "notify_enabled": false,
         "start_time": "00:00",
         "end_time": "23:59"

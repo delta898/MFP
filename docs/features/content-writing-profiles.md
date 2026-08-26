@@ -62,7 +62,9 @@ Individual blog writing screens expose one `image_options.mode` choice:
 - `prompt_only`: include prompt blocks without generating assets;
 - `none`: request no prompt blocks and remove existing blocks from supplied manuscripts.
 
-The legacy `image_options.generate` boolean remains an input compatibility boundary and is derived from the mode internally. The setting is per post and is not stored in the writing profile. Batch, automatic-publishing and Google Sheet controls retain their existing boolean behavior until their separate workflow migration.
+The legacy `image_options.generate` boolean remains an input compatibility boundary and is derived from the mode internally. The setting is per post and is not stored in the writing profile. Quick writing, the Topics table/editor, batch and automatic publishing all use the same mode. The Google Sheet displays `이미지 생성`, `프롬프트 포함` or `미포함`, while its `options.image_mode` value stores the canonical contract. Existing `Yes` and `No` values remain readable as `generate` and `prompt_only`.
+
+Automatic publishing does not overwrite the mode of an existing topic. Its `새 글감 이미지 처리` setting supplies the initial mode only when trend or RSS collection creates a new Topics row; batch and automatic consumers then follow the stored row mode.
 
 ## Shopping Generation
 

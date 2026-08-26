@@ -144,6 +144,7 @@ const PUBLISH_AUTO_DEFAULTS = {
     notifyEnabled: false,
     targetChannels: 'naver',
     headless: true,
+    imageMode: 'generate',
     imageGeneration: true,
     externalReference: false,
     startTime: '00:00',

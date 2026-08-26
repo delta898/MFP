@@ -1,3 +1,5 @@
+const { normalizeBlogImageMode } = require('../content/blog-image-mode');
+
 function createAutomationPolicyRuntime(deps = {}) {
     const {
         CONFIG,
@@ -291,6 +293,17 @@ function createAutomationPolicyRuntime(deps = {}) {
             input.PUBLISH_AUTO_END_TIME ?? CONFIG.PUBLISH_AUTO_END_TIME,
             publishAutoDefaults.endTime
         );
+        const imageMode = normalizeBlogImageMode(
+            input.PUBLISH_AUTO_IMAGE_MODE ?? CONFIG.PUBLISH_AUTO_IMAGE_MODE,
+            {
+                legacyGenerate: typeof input.PUBLISH_AUTO_IMAGE_GENERATION === 'boolean'
+                    ? input.PUBLISH_AUTO_IMAGE_GENERATION
+                    : (typeof CONFIG.PUBLISH_AUTO_IMAGE_GENERATION === 'boolean'
+                        ? CONFIG.PUBLISH_AUTO_IMAGE_GENERATION
+                        : publishAutoDefaults.imageGeneration),
+                fallback: publishAutoDefaults.imageMode || 'generate'
+            }
+        );
 
         return {
             PUBLISH_AUTO_ENABLED: enabled,
@@ -301,7 +314,8 @@ function createAutomationPolicyRuntime(deps = {}) {
             PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
             PUBLISH_AUTO_HEADLESS: headless,
             PUBLISH_AUTO_START_TIME: startTime,
-            PUBLISH_AUTO_END_TIME: endTime
+            PUBLISH_AUTO_END_TIME: endTime,
+            PUBLISH_AUTO_IMAGE_MODE: imageMode
         };
     }
 

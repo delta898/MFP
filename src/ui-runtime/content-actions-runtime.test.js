@@ -64,11 +64,13 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
 test('blog batch preflight executes only rows covered by remaining quota', async () => {
     const processedRows = [];
     const processedPostStatuses = [];
+    const processedImageModes = [];
     const topics = [0, 1, 2].map((rowIndex) => ({
         rowIndex,
         subject: `topic ${rowIndex}`,
         status: '발행 준비 완료',
-        options: { platforms: ['naver'], post_status: 'publish' }
+        image_mode: rowIndex === 0 ? 'none' : 'prompt_only',
+        options: { platforms: ['naver'], post_status: 'publish', image_mode: rowIndex === 0 ? 'none' : 'prompt_only' }
     }));
     const runtime = createContentActionsRuntime({
         path,
@@ -105,6 +107,7 @@ test('blog batch preflight executes only rows covered by remaining quota', async
         processMultiPlatformPublish: async (params, options) => {
             processedRows.push(options.operationId);
             processedPostStatuses.push(params.context.postStatus);
+            processedImageModes.push(params.context.imageOptions.mode);
             return {
                 success: true,
                 results: {
@@ -131,6 +134,7 @@ test('blog batch preflight executes only rows covered by remaining quota', async
     assert.equal(processedRows.length, 2);
     assert.notEqual(processedRows[0], processedRows[1]);
     assert.deepEqual(processedPostStatuses, ['draft', 'draft']);
+    assert.deepEqual(processedImageModes, ['none', 'prompt_only']);
 });
 
 test('blog batch rejects an unsupported posting option before processing rows', async () => {
@@ -160,4 +164,50 @@ test('blog batch rejects an unsupported posting option before processing rows', 
 
     assert.equal(result.success, false);
     assert.equal(result.code, 'INVALID_POST_STATUS');
+});
+
+test('single row generation passes the stored image mode to generation and image preparation', async () => {
+    const calls = [];
+    const topicRow = {
+        rowIndex: 0,
+        subject: 'mode topic',
+        status: '대기',
+        image_mode: 'none',
+        image_gen: false,
+        image_options: { mode: 'none', generate: false },
+        options: { image_mode: 'none', image_gen: false }
+    };
+    const runtime = createContentActionsRuntime({
+        path,
+        CONFIG: {},
+        License: { async checkLicenseStatus() { return { success: true, features: {} }; } },
+        Utils: {
+            async readGoogleSheetTopicsAll() { return { items: [topicRow] }; },
+            async updateGoogleSheetStatus() {}
+        },
+        Core: {
+            async generateContent(topic) {
+                calls.push(['generate', topic.image_options]);
+                return { targetDir: '/tmp/mode-topic' };
+            },
+            async prepareImages(_dir, topic) {
+                calls.push(['prepare', topic.image_options]);
+            }
+        },
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        toFeatureMap,
+        getFeatureBool: (_features, _key, fallback) => fallback,
+        getBlogAutoSettingsSnapshot: () => ({ BLOG_AUTO_HEADLESS: true })
+    });
+
+    const result = await runtime.executeBlogRowAction({ action: 'gen', rowIndex: 0 });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(calls, [
+        ['generate', { mode: 'none', generate: false, count: undefined }],
+        ['prepare', { mode: 'none', generate: false, count: undefined }]
+    ]);
 });

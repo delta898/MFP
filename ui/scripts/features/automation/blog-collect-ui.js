@@ -188,7 +188,8 @@ function getBlogAutoSettingsFromUi() {
     COLLECT_TRENDS_FILTER_TYPE: (variationTypeEl?.value || 'min').trim(),
     COLLECT_TRENDS_FILTER_MIN_INCR: variationMin,
     COLLECT_TRENDS_FILTER_TOP_N: variationTopN,
-    COLLECT_TRENDS_REUSE_GAP_DAYS: keywordReuseGap
+    COLLECT_TRENDS_REUSE_GAP_DAYS: keywordReuseGap,
+    PUBLISH_AUTO_IMAGE_MODE: document.getElementById('blog-publish-auto-image-mode')?.value || 'generate'
   };
 }
 
