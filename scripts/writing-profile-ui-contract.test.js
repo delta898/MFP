@@ -24,6 +24,8 @@ test('writing settings exposes one global profile surface with separated blog an
     assert.match(writing, /제품 기본 쇼핑 구성 유지/);
     assert.match(writing, /id="settings-writing-reference-analyze"/);
     assert.match(writing, /공개 HTTPS 블로그/);
+    assert.match(writing, /id="settings-writing-preview-generate"/);
+    assert.match(writing, /400~600자 샘플/);
     assert.doesNotMatch(naverBlog, /settings-blog-writing-strategy/);
     assert.doesNotMatch(naverBlog, /콘텐츠 문체/);
 });
@@ -39,5 +41,7 @@ test('writing profile UI uses the dedicated API and renders exact instant blog s
     assert.match(script, /settingsWritingProfileDirty/);
     assert.match(script, /writing-profile\/references\/analyze/);
     assert.match(script, /이전 성공 fingerprint는 그대로 보존/);
+    assert.match(script, /writing-profile\/preview/);
+    assert.match(script, /addEventListener\('click', generateSettingsWritingPreview\)/);
     assert.match(read('ui/scripts/features/settings/major-form.js'), /if \(!settingsWritingProfileDirty\)/);
 });

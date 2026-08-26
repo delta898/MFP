@@ -285,6 +285,60 @@ async function clearSettingsWritingReferences() {
   syncSettingsWritingProfileDirty();
 }
 
+function syncSettingsWritingPreviewKindUi() {
+  const kind = getSettingsWritingProfileValue('settings-writing-preview-kind', 'blog');
+  const topicField = document.getElementById('settings-writing-preview-topic-field');
+  const fixtureNote = document.getElementById('settings-writing-preview-fixture-note');
+  if (topicField) topicField.hidden = kind !== 'blog';
+  if (fixtureNote) fixtureNote.hidden = kind !== 'shopping';
+}
+
+function renderSettingsWritingPreview(result) {
+  const resultEl = document.getElementById('settings-writing-preview-result');
+  const sectionsEl = document.getElementById('settings-writing-preview-sections');
+  const openingEl = document.getElementById('settings-writing-preview-opening');
+  const endingEl = document.getElementById('settings-writing-preview-ending');
+  const sampleEl = document.getElementById('settings-writing-preview-sample');
+  if (openingEl) openingEl.textContent = result.outline?.opening || '';
+  if (endingEl) endingEl.textContent = result.outline?.ending || '';
+  if (sampleEl) sampleEl.textContent = result.sample || '';
+  if (sectionsEl) {
+    sectionsEl.replaceChildren(...(result.outline?.sections || []).map((section) => {
+      const item = document.createElement('li');
+      const heading = document.createElement('strong');
+      heading.textContent = section.heading;
+      item.append(heading, document.createTextNode(` — ${section.role}`));
+      return item;
+    }));
+  }
+  if (resultEl) resultEl.hidden = false;
+}
+
+async function generateSettingsWritingPreview() {
+  if (!settingsWritingProfileDraft || settingsWritingPreviewInFlight) return;
+  captureSettingsWritingCustomProfile();
+  const profile = cloneSettingsWritingProfile(getVisibleSettingsWritingProfile());
+  if (!profile) return;
+  const kind = getSettingsWritingProfileValue('settings-writing-preview-kind', 'blog');
+  const topic = getSettingsWritingProfileValue('settings-writing-preview-topic').trim();
+  const strategy = getSelectedSettingsRadioValue('settings-blog-writing-strategy', currentBlogWritingStrategy);
+  const button = document.getElementById('settings-writing-preview-generate');
+  const status = document.getElementById('settings-writing-preview-status');
+  settingsWritingPreviewInFlight = true;
+  if (button) button.disabled = true;
+  if (status) status.textContent = `${kind === 'blog' ? '블로그' : '쇼핑'} 미리보기를 생성하는 중입니다.`;
+  try {
+    const result = await postJson('/api/v1/settings/writing-profile/preview', { kind, topic, strategy, profile });
+    renderSettingsWritingPreview(result);
+    if (status) status.textContent = `${result.topic} · ${getWritingStrategyLabel(result.strategy)} · 현재 draft 기준`;
+  } catch (error) {
+    if (status) status.textContent = `미리보기 실패: ${error.message} 저장된 프로필과 실제 생성 설정은 변경되지 않았습니다.`;
+  } finally {
+    settingsWritingPreviewInFlight = false;
+    if (button) button.disabled = false;
+  }
+}
+
 function applySettingsWritingProfileResponse(data) {
   settingsWritingProfileResponse = cloneSettingsWritingProfile(data);
   const customSnapshot = data.custom_profile
@@ -421,4 +475,7 @@ function initSettingsWritingProfileUi() {
   document.getElementById('settings-writing-profile-reset-custom')?.addEventListener('click', resetSettingsWritingCustomProfile);
   document.getElementById('settings-writing-reference-analyze')?.addEventListener('click', analyzeSettingsWritingReferences);
   document.getElementById('settings-writing-reference-clear')?.addEventListener('click', clearSettingsWritingReferences);
+  document.getElementById('settings-writing-preview-kind')?.addEventListener('change', syncSettingsWritingPreviewKindUi);
+  document.getElementById('settings-writing-preview-generate')?.addEventListener('click', generateSettingsWritingPreview);
+  syncSettingsWritingPreviewKindUi();
 }

@@ -63,6 +63,18 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
+        async handleWritingProfilePreview({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.previewWritingProfile(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'WRITING_PREVIEW_FAILED', '글쓰기 프로필 미리보기를 생성하지 못했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
         async handleMajor({ requestId, method, requestBody, res }) {
             if (method === 'GET') {
                 try {

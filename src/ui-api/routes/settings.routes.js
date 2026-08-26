@@ -24,6 +24,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/writing-profile/preview') {
+            await controller.handleWritingProfilePreview(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/major') {
             await controller.handleMajor(ctx);
             return true;

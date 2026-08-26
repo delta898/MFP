@@ -19,7 +19,11 @@ function createHarness(options = {}) {
             writing_style: { writing_mode: 'conversational', speech_level: 'polite' }
         }
     };
-    const service = createSettingsService({ fs, path, CONFIG, styleReferenceAnalyzer: options.styleReferenceAnalyzer });
+    const service = createSettingsService({
+        fs, path, CONFIG,
+        styleReferenceAnalyzer: options.styleReferenceAnalyzer,
+        writingProfilePreviewService: options.writingProfilePreviewService
+    });
     return { CONFIG, service };
 }
 
@@ -57,6 +61,24 @@ test('settings service returns default metadata and updates runtime compatibilit
     assert.equal(defaulted.custom_profile.channels.blog.additional_instruction, '체크리스트를 포함');
     assert.equal(CONFIG.BLOG_WRITING_MODE, 'conversational');
     assert.equal(CONFIG.CONTENT_WRITING_MODE, 'conversational');
+});
+
+test('settings preview delegates a draft without persisting or changing runtime profile', async () => {
+    const calls = [];
+    const { CONFIG, service } = createHarness({
+        writingProfilePreviewService: async (body) => {
+            calls.push(body);
+            return { kind: body.kind, sample: '미리보기' };
+        }
+    });
+    const draft = getDefaultContentWritingProfile();
+    draft.common.voice.writing_mode = 'written';
+    const before = JSON.stringify(await service.getWritingProfile());
+    const result = await service.previewWritingProfile({ kind: 'blog', profile: draft });
+    assert.equal(result.sample, '미리보기');
+    assert.equal(calls[0].profile.common.voice.writing_mode, 'written');
+    assert.equal(JSON.stringify(await service.getWritingProfile()), before);
+    assert.equal(CONFIG.CONTENT_WRITING_PROFILE.common.voice.writing_mode, 'conversational');
 });
 
 test('settings service analyzes reference drafts without persisting and deletion clears stored sources', async () => {

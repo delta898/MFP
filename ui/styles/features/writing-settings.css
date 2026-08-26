@@ -170,6 +170,46 @@
   color: var(--text-muted);
 }
 
+.writing-preview-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.4fr) minmax(280px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.writing-preview-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-weight: 600;
+}
+
+.writing-preview-controls button {
+  min-height: 42px;
+}
+
+.writing-preview-result {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-gradient);
+}
+
+.writing-preview-result[hidden] {
+  display: none;
+}
+
+.writing-preview-result p,
+.writing-preview-result ol {
+  margin: 6px 0 0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 .writing-strategy-section .settings-segmented-control {
   margin-top: 14px;
   max-width: 560px;
@@ -197,7 +237,8 @@
 
   .writing-profile-selector,
   .writing-settings-grid,
-  .writing-reference-url-grid {
+  .writing-reference-url-grid,
+  .writing-preview-controls {
     grid-template-columns: 1fr;
   }
 

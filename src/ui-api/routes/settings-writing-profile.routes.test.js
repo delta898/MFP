@@ -26,6 +26,10 @@ function createHarness() {
         async deleteWritingProfileReferences() {
             calls.push(['delete-references']);
             return { active_profile: 'custom', custom_profile: {} };
+        },
+        async previewWritingProfile(body) {
+            calls.push(['preview', body]);
+            return { kind: body.kind, sample: 'preview' };
         }
     };
     const responses = [];
@@ -87,4 +91,14 @@ test('writing reference routes analyze drafts and delete persisted references', 
         ['delete-references']
     ]);
     assert.equal(harness.responses[0].data.fingerprint.summary, '분석됨');
+});
+
+test('writing preview route accepts explicit POST only', async () => {
+    const harness = createHarness();
+    await harness.handler({
+        pathname: '/api/v1/settings/writing-profile/preview', method: 'POST', requestId: 'preview-1',
+        requestBody: { kind: 'blog', profile: {} }
+    });
+    assert.deepEqual(harness.calls, [['preview', { kind: 'blog', profile: {} }]]);
+    assert.equal(harness.responses[0].data.sample, 'preview');
 });

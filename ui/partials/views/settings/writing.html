@@ -166,6 +166,33 @@
             <div id="settings-writing-shopping-summary" class="writing-instant-summary"></div>
           </section>
 
+          <section class="writing-settings-section writing-ai-preview-section">
+            <div class="writing-settings-section-title">
+              <div><h3>AI 적용 미리보기</h3><p>현재 화면의 draft 설정으로 개요와 400~600자 샘플을 생성합니다. 저장하거나 실제 글 데이터로 사용하지 않습니다.</p></div>
+              <span class="status-badge">수동 실행</span>
+            </div>
+            <div class="writing-preview-controls">
+              <label>미리보기 종류
+                <select id="settings-writing-preview-kind">
+                  <option value="blog">일반 블로그</option>
+                  <option value="shopping">쇼핑</option>
+                </select>
+              </label>
+              <label id="settings-writing-preview-topic-field">블로그 주제
+                <input id="settings-writing-preview-topic" type="text" maxlength="120" value="일상에서 디지털 메모 습관을 만드는 방법">
+              </label>
+              <button id="settings-writing-preview-generate" class="primary" type="button">미리보기 생성</button>
+            </div>
+            <p id="settings-writing-preview-fixture-note" class="muted" hidden>쇼핑 미리보기는 가격·배송·리뷰 근거가 고정된 synthetic 상품을 사용합니다.</p>
+            <div id="settings-writing-preview-status" class="muted" role="status" aria-live="polite">버튼을 누를 때만 글쓰기 모델을 호출합니다.</div>
+            <div id="settings-writing-preview-result" class="writing-preview-result" hidden>
+              <div><strong>도입 역할</strong><p id="settings-writing-preview-opening"></p></div>
+              <div><strong>예상 구성</strong><ol id="settings-writing-preview-sections"></ol></div>
+              <div><strong>마무리 역할</strong><p id="settings-writing-preview-ending"></p></div>
+              <div><strong>샘플 본문</strong><p id="settings-writing-preview-sample"></p></div>
+            </div>
+          </section>
+
           <section class="writing-settings-section writing-strategy-section">
             <div class="writing-settings-section-title">
               <div><h3>글 작성 전략</h3><p>프로필과 별개인 전역 전략입니다. 변경 후 설정 상단의 ‘저장 및 적용’을 눌러 주세요.</p></div>

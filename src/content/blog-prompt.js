@@ -38,14 +38,21 @@ function buildBlogSystemPrompt(options = {}) {
     } = options;
     const paths = resolvePromptPaths({ strategy, config, constants });
     const contractPrompt = readPromptFile(paths.contractPath, '블로그 출력·사실성 계약', fileSystem);
-    const strategyLabel = paths.normalizedStrategy === 'discovery' ? '발견 중심' : '검색 중심';
-    const strategyPrompt = readPromptFile(paths.strategyPath, strategyLabel, fileSystem);
+    const strategyPrompt = buildBlogStrategyPrompt({ strategy, config, constants, fileSystem });
 
     return `${contractPrompt}\n\n${strategyPrompt}`;
+}
+
+function buildBlogStrategyPrompt(options = {}) {
+    const { strategy, config = {}, constants = {}, fileSystem = fs } = options;
+    const paths = resolvePromptPaths({ strategy, config, constants });
+    const strategyLabel = paths.normalizedStrategy === 'discovery' ? '발견 중심' : '검색 중심';
+    return readPromptFile(paths.strategyPath, strategyLabel, fileSystem);
 }
 
 module.exports = {
     readPromptFile,
     resolvePromptPaths,
+    buildBlogStrategyPrompt,
     buildBlogSystemPrompt
 };

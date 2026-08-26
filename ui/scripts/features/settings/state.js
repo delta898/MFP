@@ -30,3 +30,4 @@ let settingsWritingProfileSavedSignature = '';
 let settingsWritingProfileDirty = false;
 let settingsWritingProfileLoading = false;
 let settingsWritingProfileSaving = false;
+let settingsWritingPreviewInFlight = false;

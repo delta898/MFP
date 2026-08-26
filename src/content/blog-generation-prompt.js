@@ -1,4 +1,4 @@
-const { buildBlogSystemPrompt } = require('./blog-prompt');
+const { buildBlogSystemPrompt, buildBlogStrategyPrompt } = require('./blog-prompt');
 const { projectWritingProfile } = require('./writing-profile-projection');
 const { buildBlogWritingProfilePromptFromProjection } = require('./writing-profile-prompt');
 const { resolveWritingStrategy } = require('./writing-strategy');
@@ -51,6 +51,12 @@ function buildBlogGenerationPrompt(options = {}) {
         constants: options.constants,
         fileSystem: options.fileSystem
     });
+    const strategyPrompt = buildBlogStrategyPrompt({
+        strategy,
+        config: options.config,
+        constants: options.constants,
+        fileSystem: options.fileSystem
+    });
     const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection);
     const imagePlan = resolveImagePlan({
         post_count: options.post?.image_count,
@@ -63,6 +69,7 @@ function buildBlogGenerationPrompt(options = {}) {
         strategy,
         projection,
         contract_and_strategy_prompt: contractAndStrategyPrompt,
+        strategy_prompt: strategyPrompt,
         profile_prompt: profilePrompt,
         image_plan: imagePlan,
         image_plan_prompt: imagePlanPrompt,

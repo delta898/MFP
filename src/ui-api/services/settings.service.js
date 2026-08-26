@@ -30,6 +30,7 @@ const {
 } = require('../../content/writing-profile');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { createStyleReferenceAnalyzer } = require('../../content/style-reference-analyzer');
+const { createWritingProfilePreviewService } = require('../../content/writing-profile-preview');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [
@@ -88,12 +89,14 @@ function createSettingsService(deps = {}) {
         axios,
         cheerio,
         styleReferenceAnalyzer,
+        writingProfilePreviewService,
         RemoteModelCatalog = DefaultRemoteModelCatalog,
         ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
 
     let writingProfileRepository = null;
     let writingReferenceAnalyzer = styleReferenceAnalyzer || null;
+    let writingPreviewService = writingProfilePreviewService || null;
 
     function getWritingProfileRepository() {
         if (writingProfileRepository) return writingProfileRepository;
@@ -120,6 +123,16 @@ function createSettingsService(deps = {}) {
             callChatText: runtimeUtils.callChatText.bind(runtimeUtils)
         });
         return writingReferenceAnalyzer;
+    }
+
+    function getWritingPreviewService() {
+        if (writingPreviewService) return writingPreviewService;
+        const runtimeUtils = Utils || require('../../utils');
+        writingPreviewService = createWritingProfilePreviewService({
+            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils),
+            config: CONFIG || {}
+        });
+        return writingPreviewService;
     }
 
     function toWritingProfileResponse(result) {
@@ -206,6 +219,17 @@ function createSettingsService(deps = {}) {
             });
             applyWritingProfileResult(result);
             return toWritingProfileResponse(result);
+        },
+
+        async previewWritingProfile(requestBody = {}) {
+            try {
+                return await getWritingPreviewService()(requestBody);
+            } catch (error) {
+                if (String(error?.code || '').startsWith('WRITING_PREVIEW_')) {
+                    throw createApiError(error.status || 400, error.code, error.message);
+                }
+                throw error;
+            }
         },
 
         async getMajorSettings() {
