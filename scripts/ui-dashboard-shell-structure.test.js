@@ -58,3 +58,14 @@ test('temporary feature modules no longer own dashboard shell controllers', () =
         assert.doesNotMatch(legacySource, functionDeclarationPattern(functionName));
     });
 });
+
+test('dashboard refreshes persisted discoveries once per app session without replacing them on failure', () => {
+    const dashboardSource = readScript('features/shell/dashboard.js');
+    const centerSource = readScript('features/recommendations/center.js');
+
+    assert.match(dashboardSource, /loadRecommendationCenterForDashboard\(\)/);
+    assert.match(centerSource, /recommendationCenterStartupRefreshCompleted/);
+    assert.match(centerSource, /if \(!initial \|\| initial\.refresh\) return initial/);
+    assert.match(centerSource, /loadRecommendationCenter\(\{ discover: true, preserveExistingOnError: true \}\)/);
+    assert.match(centerSource, /options\.preserveExistingOnError && recommendationCenterItems\.length > 0/);
+});

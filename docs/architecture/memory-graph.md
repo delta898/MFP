@@ -295,6 +295,12 @@ Recommendation and current Registry definition, enters `action_in_progress` only
 execution, and records `action_completed` or retryable `action_failed`. Presentation navigation does
 not create an action transition.
 
+The UI renders persisted discovery cards immediately and then requests one background discovery rotation
+on the first Dashboard load of each app renderer session. Repeated Dashboard navigation and polling use
+the normal list read and do not trigger another automatic rotation. If the initial list read already caused
+the empty-projection evaluation, the UI skips the extra rotation. A background rotation failure preserves
+the rendered cards; the explicit `새로운 발견` action remains available for a user-requested retry.
+
 `recommendation.rotated`는 사용자가 다른 발견을 요청했다는 전달 사실이다. 이 상태 전이는
 `not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다. 사용자가
 명시적으로 `새로운 발견`을 요청한 평가에서는 source별 순환 offset과 현재 active 후보가 즉시

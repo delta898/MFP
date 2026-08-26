@@ -8,6 +8,8 @@ const RECOMMENDATION_KIND_LABELS = Object.freeze({
 });
 let recommendationCenterItems = [];
 let recommendationCenterLoadPromise = null;
+let recommendationCenterStartupRefreshPromise = null;
+let recommendationCenterStartupRefreshCompleted = false;
 
 function recommendationCenterRelativeTime(value) {
   const timestamp = Date.parse(String(value || ''));
@@ -276,6 +278,11 @@ async function loadRecommendationCenter(options = {}) {
       notifyNewRecommendationCenterItems(payload.items || []);
       return payload;
     } catch (error) {
+      if (options.preserveExistingOnError && recommendationCenterItems.length > 0) {
+        status.hidden = true;
+        status.classList.remove('is-error');
+        return null;
+      }
       status.hidden = false;
       status.classList.add('is-error');
       status.textContent = '새로운 발견을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.';
@@ -286,6 +293,26 @@ async function loadRecommendationCenter(options = {}) {
     }
   })();
   return recommendationCenterLoadPromise;
+}
+
+async function loadRecommendationCenterForDashboard() {
+  if (recommendationCenterStartupRefreshCompleted) {
+    return loadRecommendationCenter();
+  }
+  if (recommendationCenterStartupRefreshPromise) {
+    return recommendationCenterStartupRefreshPromise;
+  }
+  recommendationCenterStartupRefreshPromise = (async () => {
+    const initial = await loadRecommendationCenter();
+    if (!initial || initial.refresh) return initial;
+    return loadRecommendationCenter({ discover: true, preserveExistingOnError: true });
+  })();
+  try {
+    return await recommendationCenterStartupRefreshPromise;
+  } finally {
+    recommendationCenterStartupRefreshCompleted = true;
+    recommendationCenterStartupRefreshPromise = null;
+  }
 }
 
 function recommendationPreviewMessage(confirmation = {}) {
