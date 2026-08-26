@@ -178,7 +178,7 @@ test('serendipity mode fills three cards from healthy domains when one domain is
     assert.equal(new Set(result.candidates.map((candidate) => candidate.metadata.discovery_domain)).size, 2);
 });
 
-test('serendipity mode reserves one card each for Trends, News and owner history', async () => {
+test('serendipity mode expands published owner history with a different grounded headline', async () => {
     const discoveryQuery = {
         topic: '과학 발견', normalized_topic: '과학발견', lane: 'discovery',
         bases: [{ lane: 'discovery', basis: { domain_index: 0 } }]
@@ -202,10 +202,19 @@ test('serendipity mode reserves one card each for Trends, News and owner history
         owner_user_id: 'owner-local', serendipity: true,
         content_knowledge: {
             query_plan: { queries: [discoveryQuery, ownerQuery, trendQuery] },
-            news_queries: [{
-                query: discoveryQuery,
-                snapshots: [newsSnapshot([article('mix-news', '뜻밖의 뉴스 한 조각', 'https://news.example.com/mix')])]
-            }]
+            news_queries: [
+                {
+                    query: discoveryQuery,
+                    snapshots: [newsSnapshot([article('mix-news', '뜻밖의 뉴스 한 조각', 'https://news.example.com/mix')])]
+                },
+                {
+                    query: ownerQuery,
+                    snapshots: [newsSnapshot([
+                        article('owner-same', '예전에 쓴 소재', 'https://news.example.com/owner/same'),
+                        article('owner-news', '관련 제도의 최근 변화', 'https://news.example.com/owner/expanded')
+                    ])]
+                }
+            ]
         }
     });
 
@@ -213,10 +222,50 @@ test('serendipity mode reserves one card each for Trends, News and owner history
         'trends', 'news', 'owner_history'
     ]);
     assert.deepEqual(result.candidates.map((candidate) => candidate.metadata.discovery_hint), [
-        '트렌드 키워드', '네이버 뉴스', '내 기록'
+        '트렌드 키워드', '네이버 뉴스', '내 글에서 확장'
     ]);
     assert.equal(result.candidates[1].metadata.discovery_news_transport, 'query_news');
+    assert.equal(result.candidates[2].title, '관련 제도의 최근 변화');
+    assert.equal(result.candidates[2].metadata.origin_topic, '예전에 쓴 소재');
+    assert.equal(result.candidates[2].evidence.some((evidence) => evidence.kind === 'owner_activity'), true);
+    assert.equal(result.candidates[2].evidence.some((evidence) => evidence.kind === 'knowledge'), true);
+    assert.deepEqual(result.candidates[2].handoff.payload, { query: '관련 제도의 최근 변화' });
     assert.equal(result.candidates.every((candidate) => validateRecommendationCandidate(candidate).ok), true);
+});
+
+test('published owner history is not repeated without a different grounded headline', async () => {
+    const ownerQuery = {
+        topic: '이미 발행한 글', normalized_topic: '이미발행한글', lane: 'owner_activity',
+        bases: [{ lane: 'owner_activity', basis: {
+            stage: 'published', strength: 'strong', timestamp: '2026-08-22T20:00:00.000Z',
+            source_kind: 'event', source_id: 'event:owner:published'
+        } }]
+    };
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: { query_plan: { queries: [ownerQuery] }, news_queries: [] }
+    });
+
+    assert.deepEqual(result.candidates, []);
+});
+
+test('unfinished owner history remains available as an 이어 쓸 소재', async () => {
+    const ownerQuery = {
+        topic: '저장해 둔 여행 소재', normalized_topic: '저장해둔여행소재', lane: 'owner_activity',
+        bases: [{ lane: 'owner_activity', basis: {
+            stage: 'saved', strength: 'medium', timestamp: '2026-08-22T20:00:00.000Z',
+            source_kind: 'event', source_id: 'event:owner:saved'
+        } }]
+    };
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: { query_plan: { queries: [ownerQuery] }, news_queries: [] }
+    });
+
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].title, '저장해 둔 여행 소재');
+    assert.equal(result.candidates[0].metadata.discovery_hint, '이어 쓸 소재');
+    assert.match(result.candidates[0].explanation, /아직 발행하지 않은/);
 });
 
 test('serendipity creates a grounded corpus news card without claiming live freshness', async () => {

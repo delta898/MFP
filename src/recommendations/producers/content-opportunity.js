@@ -262,6 +262,53 @@ function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
     };
 }
 
+function buildOwnerExpansionCandidate(ownerUserId, query, articleEntry, createdAt) {
+    const originalTopic = compact(query?.topic, 180);
+    const expandedTopic = compact(articleEntry?.item?.title, 180);
+    const originalKey = normalizeTopicKey(originalTopic);
+    const expandedKey = normalizeTopicKey(expandedTopic);
+    const ownerBases = (Array.isArray(query?.bases) ? query.bases : [])
+        .filter((entry) => entry?.lane === 'owner_activity' && entry?.basis?.stage === 'published');
+    if (!originalTopic || !expandedTopic || !originalKey || !expandedKey
+        || originalKey === expandedKey || ownerBases.length === 0) return null;
+    const ownerEvidence = ownerBases
+        .map((entry) => buildBasisEvidence(originalTopic, entry, createdAt))
+        .filter(Boolean);
+    const newsEvidence = buildNewsEvidence(originalTopic, articleEntry);
+    if (ownerEvidence.length === 0 || !newsEvidence) return null;
+    const articleId = compact(articleEntry?.item?.id, 180);
+    if (!articleId) return null;
+    const articleHash = stableHash(`${CONTENT_PRODUCER_VERSION}:owner-expansion:${originalKey}:${articleId}:${expandedKey}`);
+    return {
+        candidate_id: `candidate:content:${articleHash}`,
+        kind: 'content_opportunity',
+        producer_id: CONTENT_PRODUCER_ID,
+        owner_user_id: ownerUserId,
+        title: expandedTopic,
+        summary: `이전에 다룬 '${originalTopic}'에서 이어지는 새로운 소재입니다.`,
+        explanation: '기존 발행 기록과 관련된 최근 보도를 함께 확인해 다른 관점으로 확장했습니다.',
+        evidence: [...ownerEvidence, newsEvidence],
+        handoff: {
+            type: 'presentation',
+            label: '소재 적용하기',
+            target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
+            payload: { query: expandedTopic }
+        },
+        dedupe_key: `content_opportunity:${articleHash}`,
+        created_at: createdAt,
+        expires_at: new Date(Date.parse(createdAt) + 24 * 60 * 60 * 1000).toISOString(),
+        metadata: {
+            topic: expandedTopic,
+            origin_topic: originalTopic,
+            discovery_lane: 'serendipity',
+            discovery_source_lane: 'owner_history',
+            discovery_hint: '내 글에서 확장',
+            source_lanes: ['owner_activity', 'knowledge'],
+            article_count: 1
+        }
+    };
+}
+
 function buildSourceDiscoveryCandidate(ownerUserId, query, sourceLane, createdAt) {
     const topic = compact(query?.topic, 180);
     const normalizedTopic = normalizeTopicKey(topic);
@@ -280,10 +327,10 @@ function buildSourceDiscoveryCandidate(ownerUserId, query, sourceLane, createdAt
         title: topic,
         summary: isTrend
             ? `${topic} 흐름에서 지금 눈여겨볼 소재나 관점을 발견할 수 있습니다.`
-            : `${topic} 주제를 지금의 시선으로 다시 꺼내볼 수 있습니다.`,
+            : `${topic} 주제를 이어서 구체화할 수 있습니다.`,
         explanation: isTrend
             ? '현재 네이버 트렌드에서 관찰된 키워드에 근거한 발견입니다.'
-            : '이전에 저장·선택·작성·발행한 사용자 활동에 근거한 재발견입니다.',
+            : '아직 발행하지 않은 저장·선택·작성 활동에 근거한 제안입니다.',
         evidence,
         handoff: {
             type: 'presentation',
@@ -298,7 +345,7 @@ function buildSourceDiscoveryCandidate(ownerUserId, query, sourceLane, createdAt
             topic,
             discovery_lane: 'serendipity',
             discovery_source_lane: sourceLane,
-            discovery_hint: isTrend ? '트렌드 키워드' : '내 기록',
+            discovery_hint: isTrend ? '트렌드 키워드' : '이어 쓸 소재',
             source_lanes: [basisLane],
             article_count: 0
         }
@@ -383,7 +430,17 @@ function createContentOpportunityProducer(options = {}) {
                         if (candidate) sourceBuckets.trends.push(candidate);
                     }
                     if (bases.some((entry) => entry?.lane === 'owner_activity')) {
-                        const candidate = buildSourceDiscoveryCandidate(ownerUserId, query, 'owner_history', createdAt);
+                        const published = bases.some((entry) =>
+                            entry?.lane === 'owner_activity' && entry?.basis?.stage === 'published');
+                        const queryKey = compact(query?.normalized_topic, 180) || normalizeTopicKey(query?.topic);
+                        const relatedArticles = published
+                            ? dedupeArticles(articles.filter((entry) =>
+                                (compact(entry?.query?.normalized_topic, 180) || normalizeTopicKey(entry?.query?.topic)) === queryKey
+                                && normalizeTopicKey(entry?.item?.title) !== queryKey))
+                            : [];
+                        const candidate = published
+                            ? buildOwnerExpansionCandidate(ownerUserId, query, relatedArticles[0], createdAt)
+                            : buildSourceDiscoveryCandidate(ownerUserId, query, 'owner_history', createdAt);
                         if (candidate) sourceBuckets.owner_history.push(candidate);
                     }
                 }
@@ -477,6 +534,7 @@ module.exports = {
     buildBasisEvidence,
     buildCorpusDiscoveryCandidate,
     buildDiscoveryCandidate,
+    buildOwnerExpansionCandidate,
     buildSourceDiscoveryCandidate,
     composeSerendipityCandidates,
     createContentOpportunityProducer,

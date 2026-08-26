@@ -31,6 +31,11 @@ function boundedObservationIds(value = []) {
         .slice(0, 100);
 }
 
+function isPublishedOwnerQuery(query = {}) {
+    return (Array.isArray(query.bases) ? query.bases : []).some((entry) =>
+        entry?.lane === 'owner_activity' && entry?.basis?.stage === 'published');
+}
+
 function createContentKnowledgeCollector(options = {}) {
     const knowledgeRegistry = options.knowledgeRegistry || null;
     const now = typeof options.now === 'function' ? options.now : () => new Date();
@@ -58,13 +63,16 @@ function createContentKnowledgeCollector(options = {}) {
 
             const queryPlan = buildContentNewsQueryPlan({ ...input, knowledge: trends }, context, { now });
             const serendipityMode = input.serendipity === true;
-            const newsEligibleQueries = serendipityMode
+            const discoveryQueries = serendipityMode
                 ? queryPlan.queries.filter((query) => query?.lane === 'discovery')
-                : queryPlan.queries;
-            const queries = newsEligibleQueries.slice(0, MAX_NEWS_QUERIES);
+                : [];
+            const ownerExpansionQueries = serendipityMode
+                ? queryPlan.queries.filter(isPublishedOwnerQuery).slice(0, 1)
+                : [];
+            const queries = serendipityMode ? [] : queryPlan.queries.slice(0, MAX_NEWS_QUERIES);
 
-            async function collectNaverNews() {
-                return Promise.all(queries.map(async (query) => {
+            async function collectNaverNews(selectedQueries = queries) {
+                return Promise.all(selectedQueries.slice(0, MAX_NEWS_QUERIES).map(async (query) => {
                     const queryDiagnostics = [];
                     if (!knowledgeRegistry?.fetchForRoute) return { query, snapshots: [], diagnostics: queryDiagnostics };
                     try {
@@ -122,17 +130,21 @@ function createContentKnowledgeCollector(options = {}) {
                         ? 'query_news'
                         : 'stored_corpus';
                 if (preferredNewsSource === 'stored_corpus') {
+                    collected = await collectNaverNews(ownerExpansionQueries);
                     const corpus = await collectCorpus();
                     corpusSnapshots = corpus.snapshots;
                     corpusDiagnostics = corpus.diagnostics;
                     if (snapshotsHaveItems(corpusSnapshots)) selectedNewsSource = 'stored_corpus';
                     else {
-                        collected = await collectNaverNews();
-                        if (collected.some((entry) => snapshotsHaveItems(entry.snapshots))) selectedNewsSource = 'query_news';
+                        const remaining = Math.max(0, MAX_NEWS_QUERIES - collected.length);
+                        const discovery = await collectNaverNews(discoveryQueries.slice(0, remaining));
+                        collected.push(...discovery);
+                        if (discovery.some((entry) => snapshotsHaveItems(entry.snapshots))) selectedNewsSource = 'query_news';
                     }
                 } else {
-                    collected = await collectNaverNews();
-                    if (collected.some((entry) => snapshotsHaveItems(entry.snapshots))) selectedNewsSource = 'query_news';
+                    collected = await collectNaverNews([...ownerExpansionQueries, ...discoveryQueries]);
+                    const discovery = collected.filter((entry) => entry?.query?.lane === 'discovery');
+                    if (discovery.some((entry) => snapshotsHaveItems(entry.snapshots))) selectedNewsSource = 'query_news';
                     else {
                         const corpus = await collectCorpus();
                         corpusSnapshots = corpus.snapshots;
@@ -164,6 +176,7 @@ module.exports = {
     MAX_NEWS_QUERIES,
     boundedObservationIds,
     createContentKnowledgeCollector,
+    isPublishedOwnerQuery,
     snapshotsHaveItems,
     strictSnapshots
 };

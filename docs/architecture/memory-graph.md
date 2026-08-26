@@ -299,7 +299,9 @@ The UI renders persisted discovery cards immediately and then requests one backg
 on the first Dashboard load of each app renderer session. Repeated Dashboard navigation and polling use
 the normal list read and do not trigger another automatic rotation. If the initial list read already caused
 the empty-projection evaluation, the UI skips the extra rotation. A background rotation failure preserves
-the rendered cards; the explicit `새로운 발견` action remains available for a user-requested retry.
+the rendered cards; the explicit `새로운 발견` action remains available for a user-requested retry. Candidate
+evidence remains intact for policy and provenance, while each Dashboard card displays only its most recently
+observed evidence item.
 
 `recommendation.rotated`는 사용자가 다른 발견을 요청했다는 전달 사실이다. 이 상태 전이는
 `not_helpful` 피드백을 만들지 않으며 선호 학습의 부정 근거로 사용하지 않는다. 사용자가
@@ -317,7 +319,12 @@ terminal Recommendation과 같은 Candidate가 다시 자격을 얻으면 새 Re
 
 Serendipity discovery는 세 source lane을 독립적으로 취급한다. `trends`는 현재 Naver Trends,
 `news`는 저장 corpus와 bounded query News를 교대하는 탐색, `owner_history`는
-저장·선택·작성·발행으로 확인된 owner activity다. News source는 가장 최근에 전달한 News
+저장·선택·작성·발행으로 확인된 owner activity다. 저장·선택·작성처럼 아직 발행하지 않은 기록은
+`이어 쓸 소재`로 다시 제안할 수 있지만, 발행 기록의 제목은 그 자체로 다시 추천하지 않는다.
+발행 기록은 bounded News 검색의 seed이자 owner evidence로만 사용하며, 원래 제목과 다른 관련 최신
+보도가 확인된 경우에만 `내 글에서 확장` 후보를 만든다. 관련 근거가 없으면 owner-history 자리는
+다른 source의 근거 있는 후보가 채운다. 이 확장 검색은 매 평가에서 가장 최근 순환 대상 한 건으로
+제한되고, query-based discovery와 합쳐 전체 News query 상한 3회를 공유한다. News source는 가장 최근에 전달한 News
 Candidate의 `discovery_news_transport`를 기준으로 우선순위를 교대하고, 우선 source가 비거나
 실패할 때만 다른 source로 fallback한다. 한 묶음에서 News 카드가 둘 이상 나와도 총 카드 수의
 홀짝에 의존하지 않으므로 다음 요청에서는 반대 source를 정확히 먼저 시도한다.

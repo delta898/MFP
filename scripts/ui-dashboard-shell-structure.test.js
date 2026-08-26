@@ -69,3 +69,14 @@ test('dashboard refreshes persisted discoveries once per app session without rep
     assert.match(centerSource, /loadRecommendationCenter\(\{ discover: true, preserveExistingOnError: true \}\)/);
     assert.match(centerSource, /options\.preserveExistingOnError && recommendationCenterItems\.length > 0/);
 });
+
+test('dashboard cards expose only the latest recommendation evidence', () => {
+    const centerSource = readScript('features/recommendations/center.js');
+
+    assert.match(centerSource, /function recommendationCenterLatestEvidence\(item\)/);
+    assert.match(centerSource, /evidence\?\.observed_at \|\| evidence\?\.source\?\.timestamp/);
+    assert.match(centerSource, /\.slice\(0, 1\)/);
+    assert.match(centerSource, /recommendationCenterLatestEvidence\(item\)\.forEach/);
+    assert.match(centerSource, /recommendationButton\('추천 근거', 'evidence'/);
+    assert.doesNotMatch(centerSource, /`추천 근거 \$\{evidence\.children\.length\}개`/);
+});

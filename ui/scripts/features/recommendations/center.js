@@ -66,11 +66,27 @@ function updateRecommendationCenterCount(count) {
   });
 }
 
+function recommendationCenterLatestEvidence(item) {
+  return (Array.isArray(item?.evidence) ? item.evidence : [])
+    .map((evidence, index) => ({
+      evidence,
+      index,
+      timestamp: Date.parse(String(evidence?.observed_at || evidence?.source?.timestamp || ''))
+    }))
+    .sort((left, right) => {
+      const leftTime = Number.isFinite(left.timestamp) ? left.timestamp : Number.NEGATIVE_INFINITY;
+      const rightTime = Number.isFinite(right.timestamp) ? right.timestamp : Number.NEGATIVE_INFINITY;
+      return rightTime - leftTime || left.index - right.index;
+    })
+    .slice(0, 1)
+    .map((entry) => entry.evidence);
+}
+
 function createRecommendationEvidence(item) {
   const list = document.createElement('div');
   list.className = 'recommendation-evidence-list';
   list.hidden = true;
-  (Array.isArray(item?.evidence) ? item.evidence : []).forEach((evidence) => {
+  recommendationCenterLatestEvidence(item).forEach((evidence) => {
     const row = document.createElement('div');
     row.className = 'recommendation-evidence-item';
     const head = document.createElement('div');
@@ -205,7 +221,7 @@ function createRecommendationCard(item) {
 
   const evidence = createRecommendationEvidence(item);
   if (evidence.children.length > 0) {
-    const toggle = recommendationButton(`추천 근거 ${evidence.children.length}개`, 'evidence', 'recommendation-evidence-toggle');
+    const toggle = recommendationButton('추천 근거', 'evidence', 'recommendation-evidence-toggle');
     toggle.setAttribute('aria-expanded', 'false');
     card.append(toggle, evidence);
   }

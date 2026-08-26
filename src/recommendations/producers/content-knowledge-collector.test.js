@@ -135,6 +135,62 @@ test('serendipity starts with stored corpus and does not prefetch unused Naver N
     assert.deepEqual(result.news_queries, []);
 });
 
+test('published owner history uses one bounded News query even when the discovery card comes from corpus', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        now: () => new Date('2026-08-24T00:10:00.000Z'),
+        knowledgeRegistry: {
+            async fetchForRoute(route, query) {
+                calls.push({ route, query });
+                if (query.kind === 'trends') return [];
+                if (route === 'recommendation_serendipity_corpus') return [corpusSnapshot()];
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+    const result = await collector.collect({ serendipity: true }, {
+        owner_activity: { signals: [{
+            subject: '제주도 렌터카 사고 대처법', stage: 'published', strength: 'strong',
+            timestamp: '2026-08-23T20:00:00.000Z', evidence: { kind: 'event', id: 'event:published:1' }
+        }] }
+    });
+
+    const newsCalls = calls.filter((call) => call.route === 'recommendation_content_news');
+    assert.equal(newsCalls.length, 1);
+    assert.equal(newsCalls[0].query.topic, '제주도 렌터카 사고 대처법');
+    assert.equal(result.news_queries[0].query.lane, 'owner_activity');
+    assert.equal(result.serendipity_news_source, 'stored_corpus');
+});
+
+test('published expansion and query-based discovery share the three-query bound', async () => {
+    const calls = [];
+    const collector = createContentKnowledgeCollector({
+        now: () => new Date('2026-08-24T00:10:00.000Z'),
+        knowledgeRegistry: {
+            async fetchForRoute(route, query) {
+                calls.push({ route, query });
+                if (query.kind === 'trends') return [];
+                return [newsSnapshot(query.topic)];
+            }
+        }
+    });
+    const result = await collector.collect({
+        serendipity: true,
+        previous_news_source: 'stored_corpus'
+    }, {
+        owner_activity: { signals: [{
+            subject: '제주도 렌터카 사고 대처법', stage: 'published', strength: 'strong',
+            timestamp: '2026-08-23T20:00:00.000Z', evidence: { kind: 'event', id: 'event:published:2' }
+        }] }
+    });
+
+    const newsCalls = calls.filter((call) => call.route === 'recommendation_content_news');
+    assert.equal(newsCalls.length, 3);
+    assert.equal(newsCalls[0].query.topic, '제주도 렌터카 사고 대처법');
+    assert.equal(result.news_queries.filter((entry) => entry.query.lane === 'owner_activity').length, 1);
+    assert.equal(result.news_queries.filter((entry) => entry.query.lane === 'discovery').length, 2);
+});
+
 test('empty preferred corpus falls back to Naver News discovery queries', async () => {
     const calls = [];
     const collector = createContentKnowledgeCollector({
