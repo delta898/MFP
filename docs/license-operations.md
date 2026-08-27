@@ -9,17 +9,17 @@
 ## 1. 적용 순서
 
 1. Supabase SQL Editor에서 v4 SQL 적용
-  - `sql/supabase_license_v4_unique_keys.sql`
+  - `supabase/migrations/202608270001_license_v4_unique_keys.sql`
 2. 발행 quota v5 migration 적용
-  - `sql/supabase_license_quota_v5.sql`
+  - `supabase/migrations/202608270002_license_quota_v5.sql`
 3. 스마트 기능 사용량 v1 migration 적용
-  - `sql/supabase_smart_capability_usage_v1.sql`
+  - `supabase/migrations/202608270006_smart_capability_usage_v1.sql`
   - 적용 후 Test 40 / Free 20 / Pro 80 / Ultra 300 정책과 RPC를 확인
 4. 운영용 발급/갱신·정책 SQL 사용
-  - `sql/supabase_license_operations.sql`
-  - `sql/supabase_issue_pro_license.sql`
-  - `sql/supabase_issue_test_free_license.sql`
-  - `sql/supabase_smart_capability_usage_policy.sql`
+  - `supabase/operations/licenses/supabase_license_operations.sql`
+  - `supabase/operations/licenses/supabase_issue_pro_license.sql`
+  - 과거 테스트 발급 스크립트는 `supabase/archive/tests/`에 보관
+  - `supabase/migrations/202608270007_smart_capability_usage_policy.sql`
 5. 라이선스 등록 메일 발송 함수 배포
   - `supabase/functions/send-license-code/index.ts`
   - 함수 시크릿: `BREVO_API_KEY`, `LICENSE_EMAIL_FROM`
@@ -71,7 +71,7 @@
 }
 ```
 
-기존 Supabase 환경에는 `sql/supabase_add_sns_distribution_capability.sql`을 적용해
+신규 Supabase 환경에는 canonical migration 전체를 적용해
 필수 SNS capability를 추가합니다.
 
 제거 대상 키:
@@ -103,7 +103,7 @@
 - `title_recommendation_requests_per_session`: 2회
 
 정책 변경은 앱 코드나 migration을 다시 배포하지 않고
-`sql/supabase_smart_capability_usage_policy.sql`을 수정·실행합니다. 최초 설치 migration과
+정책 변경은 새 migration으로 추가합니다. 기존 `202608270007_smart_capability_usage_policy.sql`을 수정해 재실행하지 않습니다. 최초 설치 migration과
 운영 정책 SQL의 값은 항상 동일하게 유지합니다.
 
 적용 확인:
@@ -222,7 +222,7 @@ supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" -
 
 ### 3.0 가장 빠른 발급 (권장)
 
-파일: `sql/supabase_issue_pro_license.sql`
+파일: `supabase/operations/licenses/supabase_issue_pro_license.sql`
 
 운영자 순서:
 1. SQL 파일 열기
@@ -232,7 +232,7 @@ supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" -
 
 test/free 고유키를 빠르게 발급하려면:
 
-- 파일: `sql/supabase_issue_test_free_license.sql`
+- 과거 테스트용 예시는 `supabase/archive/tests/supabase_issue_test_free_license.sql`에 보관되어 있으며 운영 절차로 사용하지 않는다.
 - 수정할 값:
   - `p_plan_code` (`test` 또는 `free`)
   - `p_email`
@@ -242,17 +242,17 @@ test/free 고유키를 빠르게 발급하려면:
 
 ### 3.1 test 플랜 고유키 발급
 
-- 권장: `sql/supabase_issue_test_free_license.sql` 사용 (`p_plan_code='test'`)
+- 테스트 발급은 development 환경 전용 운영 절차로 별도 승인 후 수행한다.
 - 기본값: 20회, 1회성(`reset_date=null`)
 
 ### 3.2 free 플랜 고유키 발급 (월 갱신형)
 
-- 권장: `sql/supabase_issue_test_free_license.sql` 사용 (`p_plan_code='free'`)
+- 무료 발급은 development/production 대상과 입력값을 확인한 운영 절차로 수행한다.
 - 기본값: 월 15회(`reset_date=now + 1 month`)
 
 ### 3.3 pro / ultra 발급
 
-- `pro`(차감형), `ultra`(무제한) 발급은 `sql/supabase_license_operations.sql`의 A/B 섹션 사용
+- `pro`(차감형), `ultra`(무제한) 발급은 `supabase/operations/licenses/supabase_license_operations.sql`의 A/B 섹션 사용
 - `ultra` 구독형은 C 섹션(`expires_at`)으로 운영
 
 ### 3.4 플랜 전환 (free -> pro 등)
@@ -318,15 +318,15 @@ where license_key = 'LICENSE-KEY-REPLACE-ME';
 
 ## 6. SQL 파일 역할 요약
 
-- `sql/supabase_smart_capability_usage_v1.sql`
+- `supabase/migrations/202608270006_smart_capability_usage_v1.sql`
   - 최초 설치 시 스마트 사용량 정책 컬럼, 세션·operation 원장, 조회·예약·확정·반환 RPC 생성
-- `sql/supabase_smart_capability_usage_policy.sql`
+- `supabase/migrations/202608270007_smart_capability_usage_policy.sql`
   - 운영 중 플랜별 월 제공량과 세션 규칙을 재적용하거나 변경할 때 사용
-- `sql/supabase_add_sns_distribution_capability.sql`
+- `supabase/migrations/202608270005_add_sns_distribution_capability.sql`
   - 기존 플랜에 필수 SNS capability를 추가할 때 앱 배포보다 먼저 적용
-- `sql/supabase_issue_pro_license.sql`
+- `supabase/operations/licenses/supabase_issue_pro_license.sql`
   - 운영자가 빠르게 pro 키를 발급할 때 사용
-- `sql/supabase_issue_test_free_license.sql`
+- `supabase/archive/tests/supabase_issue_test_free_license.sql` (historical only)
   - 운영자가 test/free 고유키를 빠르게 발급할 때 사용
-- `sql/supabase_license_operations.sql`
+- `supabase/operations/licenses/supabase_license_operations.sql`
   - 발급/갱신/비활성화/HWID 재바인딩 운영 작업

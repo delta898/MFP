@@ -5,8 +5,8 @@
 ### 1. Install Database Objects
 
 Supabase Dashboard에서 프로젝트를 열고 `SQL Editor -> New query`로 이동한다.
-최초 설치에서는 `sql/supabase_keyword_research_backend.sql` 전체를 실행한다.
-기존 설치에서는 `sql/supabase_keyword_research_weekly_documents.sql`도 이어서 실행한다.
+신규 환경은 `supabase/migrations/` 전체를 순서대로 적용한다. 키워드 탐색의 현재 정의는
+`202608270010_keyword_research_backend.sql`과 `202608270011_keyword_research_weekly_documents.sql`에 있다.
 
 성공 후 `Table Editor`에 다음 테이블이 보인다.
 

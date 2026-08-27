@@ -97,14 +97,14 @@ development deployment.
 ## Cron and Storage
 
 Production has six active `bloggenius-serpapi-*` Cron jobs. Every name and UTC schedule matches
-`sql/supabase_serpapi_collection_cron.sql`, including the cleanup job. Cron activation remains a
+`supabase/activation/serpapi_collection_cron.sql`, including the cleanup job. Cron activation remains a
 separate deployment step after functions and secrets are ready.
 
 Production has one Storage bucket:
 
 - `app-public-content`: public, 2 MiB limit, JPEG/PNG/WebP only.
 
-This matches `sql/supabase_surface_content.sql`. Stage 4B creates the bucket configuration without
+This matches `supabase/migrations/202608270012_surface_content.sql`. Stage 4B creates the bucket configuration without
 copying any Storage object.
 
 Supabase Auth runtime settings are not repository-managed and were not queried through user or

@@ -37,9 +37,9 @@ Compatibility note:
 
 Supabase note:
 - because the default storage target is the custom schema `trends.items`, add `trends` to Supabase `API Settings -> Exposed schemas`
-- run `apps/trends/trends-api/sql/001_create_naver_trends.sql` for a fresh install
-- if the table already exists and Supabase shows `RLS disabled` / `UNRESTRICTED`, run `apps/trends/trends-api/sql/002_harden_trends_access.sql`
-- run `apps/trends/trends-api/sql/003_add_trends_meta_function.sql` to install the database-side metadata aggregate
+- apply the ordered `supabase/migrations/` chain for a fresh environment
+- the Trends definitions are migrations `202608270016` through `202608270018`
+- do not apply an app-local SQL copy; the root Supabase migration chain is the source of truth
 - the intended production posture is backend-only access via `SUPABASE_SECRET_KEY`; `anon` / `authenticated` should not have direct access to `trends.items`
 
 ## Endpoints

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const sql = fs.readFileSync(
-    path.resolve(__dirname, '../sql/supabase_serpapi_observation_corpus.sql'),
+    path.resolve(__dirname, '../supabase/migrations/202608270015_serpapi_observation_corpus.sql'),
     'utf8'
 );
 

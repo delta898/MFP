@@ -231,7 +231,7 @@ in browser storage, the remote Model Catalog, logs, or activity history.
 
 ## Supabase Operations
 
-Apply `sql/supabase_ai_model_catalog.sql` to create the version table and read-only
+Apply the canonical migration chain; `supabase/migrations/202608270009_ai_model_catalog.sql` creates the version table and read-only
 `get_ai_model_catalog(channel, app_version)` RPC.
 
 The initial remote catalog is consumed from app `0.1.15` onward. Deployed `0.1.14`

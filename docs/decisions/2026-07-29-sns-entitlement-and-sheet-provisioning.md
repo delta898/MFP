@@ -41,6 +41,7 @@ Spreadsheet의 구조가 달라지고 활성화 시점의 실패 가능성이 �
 
 ## Rollout Constraint
 
-- `sql/supabase_add_sns_distribution_capability.sql`을 먼저 적용한다.
+- 신규 환경은 canonical `supabase/migrations/` chain을 적용한다. 해당 entitlement 변경은
+  `202608270005_add_sns_distribution_capability.sql`에 포함된다.
 - 그 다음 다섯 번째 필수 feature를 검증하는 앱 버전을 배포한다.
 - 순서를 바꾸면 기존 라이선스의 feature JSON에 키가 없어 fail-closed 정책 오류가 발생한다.

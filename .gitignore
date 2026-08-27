@@ -31,6 +31,7 @@ config/auth.json
 config/settings.js
 config/license.key
 supabase/.temp/
+supabase/.branches/
 log.txt
 topics 2.numbers
 topics_test.xlsx

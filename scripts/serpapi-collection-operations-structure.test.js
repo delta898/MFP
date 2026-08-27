@@ -17,7 +17,7 @@ function functionBody(sql, name, nextName) {
 }
 
 test('collection operations state is service-role only and contains no owner data', () => {
-    const sql = read('sql/supabase_serpapi_collection_operations.sql');
+    const sql = read('supabase/migrations/202608270014_serpapi_collection_operations.sql');
     for (const table of [
         'knowledge_collection_budget_reservations', 'knowledge_collection_provider_state'
     ]) {
@@ -29,7 +29,7 @@ test('collection operations state is service-role only and contains no owner dat
 });
 
 test('budget reservation is atomic, idempotent and fixed to 200 per trailing 31 days', () => {
-    const sql = read('sql/supabase_serpapi_collection_operations.sql');
+    const sql = read('supabase/migrations/202608270014_serpapi_collection_operations.sql');
     const body = functionBody(sql, 'reserve_knowledge_collection_budget', 'record_knowledge_collection_provider_success');
     const lock = body.indexOf("pg_advisory_xact_lock(hashtextextended('collection-budget:'");
     const duplicate = body.indexOf('operation_id = v_operation_id');
@@ -44,7 +44,7 @@ test('budget reservation is atomic, idempotent and fixed to 200 per trailing 31 
 });
 
 test('lease checks provider backoff and expires without spending budget', () => {
-    const sql = read('sql/supabase_serpapi_collection_operations.sql');
+    const sql = read('supabase/migrations/202608270014_serpapi_collection_operations.sql');
     const body = functionBody(sql, 'acquire_knowledge_collection_lease', 'release_knowledge_collection_lease');
     assert.match(body, /pg_advisory_xact_lock/);
     assert.match(body, /backoff_until is not null and v_state\.backoff_until > v_now/);
@@ -54,7 +54,7 @@ test('lease checks provider backoff and expires without spending budget', () => 
 });
 
 test('Account diagnostics accept only bounded usage fields', () => {
-    const sql = read('sql/supabase_serpapi_collection_operations.sql');
+    const sql = read('supabase/migrations/202608270014_serpapi_collection_operations.sql');
     const body = functionBody(sql, 'record_knowledge_collection_account_status', 'reserve_knowledge_collection_budget');
     assert.match(body, /'checked_at', 'searches_limit', 'searches_used', 'searches_remaining', 'renewal_date'/);
     assert.match(body, /collection account status contains unsupported field/);
@@ -63,7 +63,7 @@ test('Account diagnostics accept only bounded usage fields', () => {
 });
 
 test('Cron defines five daily collection slots, one cleanup and deterministic focused rotation', () => {
-    const sql = read('sql/supabase_serpapi_collection_cron.sql');
+    const sql = read('supabase/activation/serpapi_collection_cron.sql');
     const collectionSchedules = [...sql.matchAll(/select cron\.schedule\(\s*'bloggenius-serpapi-(?!cleanup)/g)];
     assert.equal(collectionSchedules.length, 5);
     assert.equal((sql.match(/select cron\.schedule\(/g) || []).length, 6);
@@ -90,4 +90,3 @@ test('collector custom secret and operation identity are validated before body p
     assert.match(read('supabase/config.toml'), /\[functions\.serpapi-news-collector\]\s+verify_jwt = false/);
     assert.doesNotMatch(edgeFunction, /console\.(?:log|warn|error)\([^\n]*(?:operationId|accountStatus|apiKey|serpApiKey|body)/);
 });
-

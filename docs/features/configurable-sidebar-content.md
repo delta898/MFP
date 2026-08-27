@@ -83,7 +83,7 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 
 ### Change plan targeting
 
-`audience_mode`와 `plan_codes`를 함께 변경하고 `policy_revision`을 증가시킨다. 운영 정책으로 되돌릴 때는 `sql/supabase_surface_content_restore_production_policy.sql`을 사용한다.
+`audience_mode`와 `plan_codes`를 함께 변경하고 `policy_revision`을 증가시킨다. 과거 복구 SQL은 `supabase/archive/recovery/`에 참고용으로만 보관한다.
 
 ## Refresh Behavior
 
@@ -98,41 +98,41 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 
 ### Foundation — 최초 환경 구성
 
-1. `sql/supabase_surface_content.sql`
+1. `supabase/migrations/202608270012_surface_content.sql`
    - 테이블, 제약, RLS, Storage 정책과 resolved RPC를 구성한다.
 
 ### Production content — 재실행 가능한 upsert
 
-2. `sql/supabase_surface_content_developer_blog_seed.sql`
+2. `supabase/operations/content/supabase_surface_content_developer_blog_seed.sql`
    - Tester/Free 대상 개발자 블로그 리소스
-3. `sql/supabase_surface_content_ebook_seed.sql`
+3. `supabase/operations/content/supabase_surface_content_ebook_seed.sql`
    - Tester/Free 대상 전자책 리소스와 Storage asset
-4. `sql/supabase_surface_content_support_seed.sql`
+4. `supabase/operations/content/supabase_surface_content_support_seed.sql`
    - 전체 플랜 대상 개발자 후원
-5. `sql/supabase_surface_content_dashboard_seed.sql`
+5. `supabase/operations/content/supabase_surface_content_dashboard_seed.sql`
    - 기존 세 campaign을 Dashboard supporting region에 배치
-6. `sql/supabase_surface_content_account_seed.sql`
+6. `supabase/operations/content/supabase_surface_content_account_seed.sql`
    - 기존 resource campaign을 Account supporting region에 배치
-7. `sql/supabase_surface_content_draft_resource_catalog_seed.sql`
+7. `supabase/operations/content/supabase_surface_content_draft_resource_catalog_seed.sql`
    - 향후 운영 후보인 전자책·블로그 resource를 비노출 `draft` 카탈로그로 등록
    - campaign과 placement는 만들지 않으며, 재실행 시 기존 lifecycle 상태를 보존
-8. `sql/supabase_surface_content_dashboard_recommendations_seed.sql`
+8. `supabase/operations/content/supabase_surface_content_dashboard_recommendations_seed.sql`
    - draft resource 5개를 Tester/Free 대상 Dashboard 일일 추천 자료로 게시
    - `dashboard.recommendations` region에 배치
-9. `sql/supabase_surface_content_restore_production_policy.sql`
+9. Production recovery is a separately approved operator action; archived examples are not migrations.
    - 운영 중인 resource와 support campaign의 audience를 운영 정책으로 복원
 
 ### Validation only — 운영값을 잠시 변경하고 반드시 복원
 
-- `sql/supabase_surface_content_test_preview_pro.sql`
+- `supabase/archive/tests/supabase_surface_content_test_preview_pro.sql`
   - 홍보 리소스를 Pro에서도 임시로 표시
-- `sql/supabase_surface_content_refresh_test.sql`
+- `supabase/archive/tests/supabase_surface_content_refresh_test.sql`
   - 제목과 순서를 임시 변경하여 focus refresh 검증
-- `sql/supabase_surface_content_refresh_restore.sql`
+- `supabase/archive/recovery/supabase_surface_content_refresh_restore.sql`
   - refresh 검증값 복원
-- `sql/supabase_surface_content_pause_test.sql`
+- `supabase/archive/tests/supabase_surface_content_pause_test.sql`
   - 후원 캠페인 pause 검증
-- `sql/supabase_surface_content_pause_restore.sql`
+- `supabase/archive/recovery/supabase_surface_content_pause_restore.sql`
   - 후원 캠페인 publish 복원
 
 Validation SQL은 한 쌍의 restore SQL까지 같은 작업으로 취급한다. 테스트가 중단되었거나 상태가 불확실하면 production policy 복원 SQL과 각 restore SQL의 결과 조회를 확인한다.

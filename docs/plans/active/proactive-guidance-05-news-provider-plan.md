@@ -130,7 +130,7 @@ Stage 6 Producer가 다음과 같은 명시적 근거에서 topic을 만든 뒤 
 로컬 구현과 테스트만으로 기존 설치의 동작은 바뀌지 않는다. 실제 provider 호출 전에는
 다음 운영 작업이 필요하다.
 
-1. `sql/supabase_knowledge_gateway.sql`을 linked Supabase project에 한 번 적용한다.
+1. canonical `supabase/migrations/` chain을 target-aware 절차로 적용한다.
 2. Naver Developers credential 쌍이 존재하고 Search API 권한이 활성화되어 있는지
    확인한다.
 3. `knowledge-gateway` Edge Function을 배포한다.

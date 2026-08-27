@@ -1,7 +1,7 @@
 # 개발·운영 환경 분리 Main Plan
 
 > 작성일: 2026-08-27
-> 상태: 설계 및 착수 준비
+> 상태: Stage 4B 구현·검증 완료, Stage 5 준비
 > Parent branch: `feature/development-environment-main`
 > 기준 branch: `dev`
 
@@ -150,7 +150,7 @@ Status: completed and integrated into the parent feature branch
 
 Branch: `feature/development-environment-04a-production-schema-audit`
 
-Status: read-only audit complete, awaiting Stage 4A handoff
+Status: completed and integrated into the parent feature branch
 
 작업:
 
@@ -178,6 +178,8 @@ Status: read-only audit complete, awaiting Stage 4A handoff
 ### Stage 4B — Migration baseline과 local Supabase 재현
 
 Branch: `feature/development-environment-04b-local-supabase`
+
+Status: implementation complete, awaiting Stage 4B handoff
 
 작업:
 

@@ -68,10 +68,10 @@ Preflight result on 2026-08-25:
 
 Apply in this exact order:
 
-1. `sql/supabase_serpapi_observation_corpus.sql`
-2. `sql/supabase_serpapi_collection_operations.sql`
+1. `supabase/migrations/202608270015_serpapi_observation_corpus.sql`
+2. `supabase/migrations/202608270014_serpapi_collection_operations.sql`
 
-Do not apply `sql/supabase_serpapi_collection_cron.sql` yet. Verify tables, RLS, client revocations,
+Do not apply `supabase/activation/serpapi_collection_cron.sql` yet. Verify tables, RLS, client revocations,
 service-role-only RPCs and the 200-per-trailing-31-days budget constant after each script.
 
 Applied and verified on 2026-08-25. The four corpus/control-plane tables exist with zero initial
@@ -180,7 +180,7 @@ Repeat UI verification passed on 2026-08-25.
 
 ### Phase F — Cron activation and observation
 
-Apply `sql/supabase_serpapi_collection_cron.sql` only after Phases A~E pass. Verify exactly these six
+Apply `supabase/activation/serpapi_collection_cron.sql` only after Phases A~E pass. Verify exactly these six
 jobs exist:
 
 - four daily headline jobs;

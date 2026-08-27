@@ -1204,6 +1204,8 @@ declare
     v_effective_count integer := 0;
     v_effective_limit integer := 0;
     v_remaining integer := 0;
+    v_period_start_at timestamptz;
+    v_next_reset_at timestamptz;
 
     v_non_test_used boolean := false;
     v_test_exhausted_at timestamptz;

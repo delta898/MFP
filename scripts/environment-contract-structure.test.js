@@ -83,15 +83,29 @@ test('runtime and deployment manifests share environment names and source contra
 
 test('Supabase SQL inventory covers every committed SQL asset exactly once', () => {
     const inventory = readJson('supabase/inventory.json');
-    const actual = [
-        ...collectFiles('sql', (file) => file.endsWith('.sql')),
-        ...collectFiles('apps/trends/trends-api/sql', (file) => file.endsWith('.sql'))
-    ].sort();
+    const actual = collectFiles('supabase', (file) => file.endsWith('.sql'));
     const inventoried = inventory.database_assets.map((asset) => asset.path).sort();
 
     assert.deepEqual(inventoried, actual);
     assert.equal(new Set(inventoried).size, inventoried.length);
     assert.ok(inventory.database_assets.every((asset) => asset.classification));
+});
+
+test('local Supabase owns one canonical migration and seed structure', () => {
+    const packageJson = readJson('package.json');
+    const migrations = collectFiles('supabase/migrations', (file) => file.endsWith('.sql'));
+    const rootSqlDirectory = path.join(REPO_ROOT, 'sql');
+    const legacyTrendsSqlDirectory = path.join(REPO_ROOT, 'apps/trends/trends-api/sql');
+
+    assert.equal(fs.existsSync(rootSqlDirectory), false);
+    assert.equal(fs.existsSync(legacyTrendsSqlDirectory), false);
+    assert.ok(migrations.length > 0);
+    assert.deepEqual(migrations, [...migrations].sort());
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, 'supabase/seed.sql')), true);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, 'supabase/tests/local_baseline.sql')), true);
+    assert.match(packageJson.scripts['env:local:reset'], /database-reset/);
+    assert.match(packageJson.scripts['env:local:reset'], /supabase db reset --local/);
+    assert.match(packageJson.scripts['env:local:verify'], /local_baseline\.sql/);
 });
 
 test('Edge Function inventory covers every function entrypoint and shared module', () => {

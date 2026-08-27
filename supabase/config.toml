@@ -1,3 +1,17 @@
-[functions.serpapi-news-collector]
+[analytics]
+enabled = false
+
+[functions.send-license-code]
 verify_jwt = false
 
+[functions.issue-trends-access-token]
+verify_jwt = false
+
+[functions.keyword-research]
+verify_jwt = false
+
+[functions.knowledge-gateway]
+verify_jwt = true
+
+[functions.serpapi-news-collector]
+verify_jwt = false

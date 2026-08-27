@@ -193,9 +193,9 @@ The 15-minute token is not user-managed configuration.
 - XLSX export is intentionally stubbed with `501 Not Implemented` until a concrete workbook format is defined.
 
 ## Supabase Schema
-- Reference SQL lives at [apps/trends/trends-api/sql/001_create_naver_trends.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/001_create_naver_trends.sql).
-- Existing installs can be hardened with [apps/trends/trends-api/sql/002_harden_trends_access.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/002_harden_trends_access.sql).
-- Metadata aggregation is installed with [apps/trends/trends-api/sql/003_add_trends_meta_function.sql](/Users/delta898/Project/NaverAutoBlog/apps/trends/trends-api/sql/003_add_trends_meta_function.sql).
+- The canonical table definition is [202608270016_create_naver_trends.sql](/Users/delta898/Project/NaverAutoBlog/supabase/migrations/202608270016_create_naver_trends.sql).
+- Access hardening is [202608270017_harden_trends_access.sql](/Users/delta898/Project/NaverAutoBlog/supabase/migrations/202608270017_harden_trends_access.sql).
+- Metadata aggregation is [202608270018_add_trends_meta_function.sql](/Users/delta898/Project/NaverAutoBlog/supabase/migrations/202608270018_add_trends_meta_function.sql).
 - Default schema/table: `trends.items`
 - Supabase project setup must also expose the `trends` schema in `API Settings -> Exposed schemas`.
 - Security posture:

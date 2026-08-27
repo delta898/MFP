@@ -92,7 +92,7 @@ infer actual upstream localization from a lane label such as `headlines_global`.
 
 ## Implementation Notes
 
-- SQL schema and RPCs: `sql/supabase_serpapi_observation_corpus.sql`
+- SQL schema and RPCs: `supabase/migrations/202608270015_serpapi_observation_corpus.sql`
 - Structure tests: `scripts/serpapi-corpus-store-structure.test.js`
 - Observation contract now records explicit allowlisted `locale` and `country` provenance.
 - Validation: 16 focused contract/store/Snapshot tests and all 766 unit tests passed on 2026-08-25.

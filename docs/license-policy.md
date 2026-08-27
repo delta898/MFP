@@ -191,21 +191,22 @@ Google Spreadsheet의 `SNS` 행 추가, Buffer 발행을 함께 제어한다.
 
 상세 결정은 `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`를 따른다.
 
-배포 시에는 앱보다 먼저 `sql/supabase_add_sns_distribution_capability.sql`을 적용한다.
+신규 환경은 앱보다 먼저 `supabase/migrations/` 전체를 적용한다. SNS entitlement 변경은
+`202608270005_add_sns_distribution_capability.sql`에 포함된다.
 앱의 필수 feature 검증은 누락된 키를 허용하지 않으므로 순서를 바꾸면 기존
 라이선스가 일시적으로 정책 오류가 될 수 있다.
 
 ## 7. SQL 반영 메모
 
 - v4 적용 SQL:
-  - `sql/supabase_license_v4_unique_keys.sql` (권장)
+  - `supabase/migrations/202608270001_license_v4_unique_keys.sql`
   - 포함 RPC: `issue_test_license`, `check_license_status`, `check_and_use_license`
 - v4 적용 후에는 RPC가 고유키 전용 경로로 동작합니다.
 - v5 quota migration:
-  - `sql/supabase_license_quota_v5.sql`
+  - `supabase/migrations/202608270002_license_quota_v5.sql`
   - v4 적용 후 실행하며 ledger와 reserve/commit/release RPC를 추가합니다.
 - registration email send audit hotfix:
-  - `sql/supabase_license_registration_send_audit.sql`
+  - `supabase/migrations/202608270003_license_registration_send_audit.sql`
   - 기존 `license_registration_codes` 데이터를 보존하면서 메일 발송 성공/실패 상태 컬럼과 기록 RPC를 추가합니다.
 
 ## 8. 라이선스 UI 운영 원칙
@@ -240,4 +241,4 @@ Google Spreadsheet의 `SNS` 행 추가, Buffer 발행을 함께 제어한다.
 
 새 발행 경로는 v5 RPC만 사용한다. 기존 `check_and_use_license`는 이전 앱 호환용으로 남아 있으며 트렌드/RSS 수집과 콘텐츠 생성 전용 경로는 quota RPC를 호출하지 않는다.
 
-Supabase에 `sql/supabase_license_quota_v5.sql`을 먼저 적용한 뒤 이 앱 버전을 실행해야 한다.
+Supabase에 canonical migration 전체를 적용한 뒤 이 앱 버전을 실행해야 한다.

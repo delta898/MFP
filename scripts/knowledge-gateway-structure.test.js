@@ -10,7 +10,7 @@ function read(relativePath) {
 }
 
 test('knowledge gateway SQL keeps cache and protection state service-role only', () => {
-    const sql = read('sql/supabase_knowledge_gateway.sql');
+    const sql = read('supabase/migrations/202608270013_knowledge_gateway.sql');
     for (const table of [
         'knowledge_gateway_cache',
         'knowledge_gateway_rate_limits',

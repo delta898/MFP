@@ -103,8 +103,8 @@ Corpus cleanup runs separately once daily and consumes no SerpApi budget.
 The production order is intentionally explicit because scheduling before every protection boundary
 exists could spend provider quota.
 
-1. Apply `sql/supabase_serpapi_observation_corpus.sql`.
-2. Apply `sql/supabase_serpapi_collection_operations.sql`.
+1. Apply `supabase/migrations/202608270015_serpapi_observation_corpus.sql` through the canonical chain.
+2. Apply `supabase/migrations/202608270014_serpapi_collection_operations.sql` through the canonical chain.
 3. Create one strong random collector secret outside the repository.
 4. Set `SERPAPI_API_KEY` and `SERPAPI_COLLECTOR_SECRET` as Edge Function Secrets using an operator
    environment file; never paste their values into a committed script.
@@ -114,7 +114,7 @@ exists could spend provider quota.
    `serpapi_collection_collector_secret`. The latter must equal the Function Secret from step 4.
 7. Perform one explicitly approved manual smoke invocation with a unique `kco_manual_*` operation
    ID and verify the Account diagnostic, one reservation, one run and normalized observations.
-8. Apply `sql/supabase_serpapi_collection_cron.sql` last to activate five collection jobs and one
+8. Apply `supabase/activation/serpapi_collection_cron.sql` last to activate five collection jobs and one
    cleanup job.
 9. Verify `cron.job`, `cron.job_run_details`, Function logs and
    `read_knowledge_collection_operations('serpapi-google-news')` without displaying secrets.

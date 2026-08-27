@@ -218,7 +218,7 @@ src/knowledge/registry.js
 
 supabase/functions/knowledge-gateway/index.ts
 supabase/functions/_shared/knowledge-gateway-*.ts
-sql/supabase_knowledge_gateway.sql
+supabase/migrations/202608270013_knowledge_gateway.sql
 ```
 
 Pure desktop contract/policy helpers receive clocks and HTTP/function clients through dependency

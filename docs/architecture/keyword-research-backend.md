@@ -75,7 +75,7 @@ BlogGenius는 키워드의 의미 적합성을 추론하거나 대표 키워드�
 
 ## State
 
-`sql/supabase_keyword_research_backend.sql`이 다음 backend-only 객체를 만든다.
+`supabase/migrations/202608270010_keyword_research_backend.sql`이 다음 backend-only 객체를 만든다.
 
 - `keyword_research_cache`: Search Ads 6시간, 최근 7일 Blog Search 측정 1시간 TTL cache
 - `keyword_research_rate_limits`: 익명화된 라이선스 subject의 고정 구간 사용량
@@ -109,8 +109,7 @@ Edge Function 재배포 없이 적용된다.
 
 ## Deployment Order
 
-1. 최초 설치는 `sql/supabase_keyword_research_backend.sql`, 기존 설치는
-   `sql/supabase_keyword_research_weekly_documents.sql` 적용
+1. 신규 환경은 `supabase/migrations/` 전체를 순서대로 적용
 2. Supabase에 네이버 secret 설정
 3. `keyword-research`를 `--no-verify-jwt`로 배포
 4. 실제 라이선스로 함수 호출과 cache/rate-limit row 확인
