@@ -1,22 +1,12 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-08-27 · 준비 중인 릴리스: `v0.3.0`
+> 현행 기준: 2026-08-27 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
 
-## P0 — v0.3.0 릴리스 마무리
+## P0 — 현재 진행
 
-1. 릴리스 문서 정리
-   - `CHANGELOG.md`에 글쓰기 프로필, 글별 이미지 처리, 뜻밖의 발견 개선을 사용자 관점으로 정리한다.
-   - 구현이 끝난 글쓰기 프로필, Proactive Guidance, SerpApi corpus 계획을 canonical 문서로 승격하거나 archive한다.
-   - `docs/README.md`의 active/archive 목록을 실제 상태와 맞춘다.
-
-2. 릴리스 검증
-   - 전체 단위 테스트와 패키징 smoke test를 실행한다.
-   - 블로그·쇼핑의 빠른/일괄/자동 발행에서 프로필과 이미지 처리 우선순위를 최종 확인한다.
-   - 참고 글 분석, AI 적용 미리보기, 새로운 발견의 성공·실패·진행 표시를 수동 확인한다.
-
-3. 릴리스 메타데이터
-   - 최종 승인 후에만 버전을 `0.3.0`으로 확정한다.
-   - `CHANGELOG.md`를 기준으로 build/update 메타데이터를 생성하고 배포 산출물을 확인한다.
+1. 개발·운영 환경 분리
+   - 상세 범위와 단계는 `docs/plans/active/development-environment-separation-main-plan.md`를 따른다.
+   - `local → development → production` 승격 흐름과 fail-closed 보호를 우선 구현한다.
 
 ## P1 — 다음 개발 우선순위
 

@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-27",
+  "linked_project_classification": "production",
+  "linked_project_metadata_path": "supabase/.temp/linked-project.json",
+  "desktop_consumers": [
+    "src/license.js",
+    "src/runtime-config.js",
+    "src/ai/remote-model-catalog.js",
+    "src/keyword-research/supabase-client.js",
+    "src/knowledge/server-gateway-client.js",
+    "src/surface-content/supabase-provider.js"
+  ],
+  "operator_service_consumers": [
+    "apps/trends/trends-api/src/server.js"
+  ],
+  "edge_functions": [
+    "supabase/functions/issue-trends-access-token/index.ts",
+    "supabase/functions/keyword-research/index.ts",
+    "supabase/functions/knowledge-gateway/index.ts",
+    "supabase/functions/send-license-code/index.ts",
+    "supabase/functions/serpapi-news-collector/index.ts"
+  ],
+  "shared_edge_modules": [
+    "supabase/functions/_shared/knowledge-gateway-contract.ts",
+    "supabase/functions/_shared/knowledge-gateway-providers.ts",
+    "supabase/functions/_shared/knowledge-provider-naver-news.ts",
+    "supabase/functions/_shared/knowledge-provider-serpapi-account.ts",
+    "supabase/functions/_shared/knowledge-provider-serpapi-corpus.ts",
+    "supabase/functions/_shared/knowledge-provider-serpapi-google-news.ts",
+    "supabase/functions/_shared/license-access-token.ts",
+    "supabase/functions/_shared/serpapi-collection-contract.ts",
+    "supabase/functions/_shared/serpapi-collection-operations-service.ts",
+    "supabase/functions/_shared/serpapi-collection-service.ts"
+  ],
+  "database_assets": [
+    {
+      "path": "sql/supabase_add_sns_distribution_capability.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_ai_model_catalog.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_issue_pro_license.sql",
+      "classification": "operator_action"
+    },
+    {
+      "path": "sql/supabase_issue_test_free_license.sql",
+      "classification": "test_operator_action"
+    },
+    {
+      "path": "sql/supabase_keyword_research_backend.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_keyword_research_weekly_documents.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_knowledge_gateway.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_license_operations.sql",
+      "classification": "operator_action"
+    },
+    {
+      "path": "sql/supabase_license_precheck.sql",
+      "classification": "superseded_history"
+    },
+    {
+      "path": "sql/supabase_license_quota_v5.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_license_registration_send_audit.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_license_status_hotfix.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_license_v2.sql",
+      "classification": "superseded_history"
+    },
+    {
+      "path": "sql/supabase_license_v3.sql",
+      "classification": "superseded_history"
+    },
+    {
+      "path": "sql/supabase_license_v4_unique_keys.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_runtime_config.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_serpapi_collection_cron.sql",
+      "classification": "deployment_activation"
+    },
+    {
+      "path": "sql/supabase_serpapi_collection_operations.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_serpapi_observation_corpus.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_smart_capability_usage_policy.sql",
+      "classification": "ordered_change_candidate"
+    },
+    {
+      "path": "sql/supabase_smart_capability_usage_v1.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_surface_content.sql",
+      "classification": "baseline_candidate"
+    },
+    {
+      "path": "sql/supabase_surface_content_account_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_dashboard_recommendations_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_dashboard_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_developer_blog_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_draft_resource_catalog_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_ebook_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_pause_restore.sql",
+      "classification": "production_recovery_action"
+    },
+    {
+      "path": "sql/supabase_surface_content_pause_test.sql",
+      "classification": "test_operator_action"
+    },
+    {
+      "path": "sql/supabase_surface_content_refresh_restore.sql",
+      "classification": "production_recovery_action"
+    },
+    {
+      "path": "sql/supabase_surface_content_refresh_test.sql",
+      "classification": "test_operator_action"
+    },
+    {
+      "path": "sql/supabase_surface_content_restore_production_policy.sql",
+      "classification": "production_recovery_action"
+    },
+    {
+      "path": "sql/supabase_surface_content_support_seed.sql",
+      "classification": "content_seed"
+    },
+    {
+      "path": "sql/supabase_surface_content_test_preview_pro.sql",
+      "classification": "test_operator_action"
+    },
+    {
+      "path": "apps/trends/trends-api/sql/001_create_naver_trends.sql",
+      "classification": "operator_service_baseline"
+    },
+    {
+      "path": "apps/trends/trends-api/sql/002_harden_trends_access.sql",
+      "classification": "operator_service_ordered_change"
+    },
+    {
+      "path": "apps/trends/trends-api/sql/003_add_trends_meta_function.sql",
+      "classification": "operator_service_ordered_change"
+    }
+  ],
+  "managed_surfaces": {
+    "database": true,
+    "edge_functions": true,
+    "cron": [
+      "sql/supabase_serpapi_collection_cron.sql"
+    ],
+    "storage": [
+      "sql/supabase_surface_content.sql"
+    ],
+    "auth_configuration": [],
+    "desktop_release_injection": [
+      ".github/workflows/build.yml",
+      "build.sh",
+      "build.bat",
+      "src/config/secret.js",
+      "src/config-loader.js"
+    ]
+  }
+}

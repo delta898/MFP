@@ -41,6 +41,7 @@
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
 - `architecture/chat-model-role.md`
+- `architecture/development-environment-inventory.md`
 - `license-policy.md`
 - `keyword-research-operations.md`
 - `features/mcp-client-setup.md`
@@ -66,9 +67,12 @@
 - `decisions/2026-08-23-server-managed-knowledge-gateway.md`
 - `decisions/2026-08-25-server-managed-serpapi-corpus.md`
 - `decisions/2026-08-26-content-writing-profile.md`
+- `decisions/2026-08-27-development-environment-boundaries.md`
 
 ## Active Work
 
+- `plans/active/development-environment-separation-main-plan.md`
+- `plans/active/development-environment-01-contract-plan.md`
 - `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
 - `plans/active/serpapi-collection-01-contracts-plan.md`
