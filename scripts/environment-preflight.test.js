@@ -93,6 +93,44 @@ test('JSON output contains safe preflight fields and no environment object', () 
     assert.equal(Object.hasOwn(parsed, 'env'), false);
 });
 
+test('development Supabase URL identity does not expose its hosting implementation', () => {
+    const outcome = runCli({
+        argv: [
+            'check', '--target', 'development', '--operation', 'function-deploy',
+            '--supabase-url', 'https://development.example.invalid'
+        ],
+        branch: 'dev',
+        env: {
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME: 'Development project',
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: 'https://development.example.invalid'
+        },
+        linkedProject: { name: 'Production project', ref: 'production-ref' }
+    });
+
+    assert.equal(outcome.exitCode, 0);
+    assert.match(outcome.output, /Project identity: explicit_supabase_url/);
+    assert.doesNotMatch(outcome.output, /self.hosted|SSH|Docker/i);
+});
+
+test('explicit project ref avoids relying on the ambient production link', () => {
+    const outcome = runCli({
+        argv: [
+            'check', '--target', 'development', '--operation', 'database-migrate',
+            '--project-ref', 'development-ref'
+        ],
+        branch: 'dev',
+        env: {
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME: 'Development project',
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: 'development-ref'
+        },
+        linkedProject: { name: 'Production project', ref: 'production-ref' }
+    });
+
+    assert.equal(outcome.exitCode, 0);
+    assert.match(outcome.output, /Project identity: explicit_project_ref/);
+    assert.match(outcome.output, /Linked project: not_used/);
+});
+
 test('text formatter never prints a supplied production approval token', () => {
     const outcome = runCli({
         argv: [

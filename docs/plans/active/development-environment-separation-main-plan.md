@@ -1,7 +1,7 @@
 # 개발·운영 환경 분리 Main Plan
 
 > 작성일: 2026-08-27
-> 상태: Stage 4B 구현·검증 완료, Stage 5 준비
+> 상태: Stage 5 provider-neutral Supabase 계약 구현 중
 > Parent branch: `feature/development-environment-main`
 > 기준 branch: `dev`
 
@@ -206,13 +206,16 @@ Status: implementation complete, awaiting Stage 4B handoff
 
 Branch: `feature/development-environment-05-hosted-development`
 
+Status: provider-neutral handoff contract implemented, external development environment setup pending
+
 작업:
 
 - 별도 development Supabase project에 동일 migration을 적용한다.
-- Edge Function과 환경별 secrets를 development target으로 배포한다.
+- Edge Function과 필요한 환경변수 계약을 development target 운영자에게 인계한다.
 - Auth, Storage, Cron, rate limit, provider budget을 development 정책으로 구성한다.
 - 이메일·Telegram은 sink 또는 allowlist로 제한하고 실제 블로그 발행 capability를 차단한다.
 - PortOne 연동 전까지도 payment capability가 production으로 향하지 않도록 test-only 계약을 둔다.
+- BlogGenius는 Supabase 환경의 SSH, container, filesystem, Compose, Secret 저장 방식을 알지 않는다.
 
 검증:
 
@@ -242,7 +245,8 @@ Branch: `feature/development-environment-06-release-gate`
 
 다음 항목은 코드만으로 임의 생성하거나 결정하지 않는다.
 
-- 별도 hosted development Supabase organization/project 생성 및 project ref
+- 별도 development Supabase endpoint와 publishable key
+- 환경 제공자 측 migration, Edge Function, Secret 적용 절차
 - development와 production의 GitHub Environment/secrets 등록
 - 별도 승인된 production schema read-only audit 권한과 검증 가능한 자료
 - development용 provider 계정·예산, 이메일/Telegram sink, 이후 PortOne test channel

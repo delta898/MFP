@@ -79,6 +79,10 @@
       "classification": "archived_test_operator_action"
     },
     {
+      "path": "supabase/development-seed.sql",
+      "classification": "hosted_development_seed"
+    },
+    {
       "path": "supabase/migrations/202608270000_license_foundation.sql",
       "classification": "canonical_migration"
     },
@@ -226,8 +230,10 @@
   "deployment_safety": {
     "policy": "src/environment/deployment-guard.js",
     "preflight_cli": "scripts/environment-preflight.js",
+    "hosted_development_plan": "scripts/hosted-development-plan.js",
+    "hosted_development_execution_owner": "supabase_environment_provider",
     "linked_project_metadata_path": "supabase/.temp/linked-project.json",
-    "execution_mode": "dry_run_only"
+    "execution_mode": "external_operator_handoff"
   },
   "production_schema_audit": {
     "analyzer": "src/environment/schema-audit.js",

@@ -74,19 +74,24 @@ function resolveTargetProject(targetEnvironment, env = process.env, environmentM
     const target = assertEnvironmentName(targetEnvironment);
     const profile = environmentManifest?.profiles?.[target];
     if (!profile) {
-        return Object.freeze({ target, name: '', ref: '', configured: false });
+        return Object.freeze({ target, name: '', ref: '', url: '', configured: false });
     }
 
     const name = normalizeText(profile.project_name)
         || normalizeText(env[profile.project_name_source]);
     const ref = normalizeText(profile.project_ref)
         || normalizeText(env[profile.project_ref_source]);
+    const url = normalizeText(env[profile.supabase_url_source]).replace(/\/+$/, '');
+    const configured = target === ENVIRONMENTS.LOCAL
+        ? Boolean(name && ref)
+        : Boolean(name && (ref || url));
 
     return Object.freeze({
         target,
         name,
         ref,
-        configured: Boolean(name && ref)
+        url,
+        configured
     });
 }
 
@@ -99,6 +104,8 @@ function evaluateDeploymentPreflight(options = {}) {
     const branchEvaluation = evaluateBranchTarget(options.branch, target);
     const project = resolveTargetProject(target, options.env || {}, environmentManifest);
     const linkedProject = options.linkedProject || null;
+    const explicitProjectRef = normalizeText(options.explicitProjectRef);
+    const explicitSupabaseUrl = normalizeText(options.explicitSupabaseUrl).replace(/\/+$/, '');
     const reasons = [];
 
     if (!descriptor.bypassesMutationBranchPolicy && !branchEvaluation.allowed) {
@@ -115,22 +122,38 @@ function evaluateDeploymentPreflight(options = {}) {
         reasons.push('production_operation_prohibited');
     }
 
+    let projectIdentityMode = 'local';
     let linkedProjectStatus = 'not_required';
     if (target !== ENVIRONMENTS.LOCAL) {
-        linkedProjectStatus = 'missing';
-        if (!linkedProject) {
-            reasons.push('linked_project_missing');
+        if (explicitSupabaseUrl) {
+            projectIdentityMode = 'explicit_supabase_url';
+            linkedProjectStatus = 'not_used';
+            if (explicitSupabaseUrl !== project.url) {
+                reasons.push('explicit_supabase_url_mismatch');
+            }
+        } else if (explicitProjectRef) {
+            projectIdentityMode = 'explicit_project_ref';
+            linkedProjectStatus = 'not_used';
+            if (explicitProjectRef !== project.ref) {
+                reasons.push('explicit_project_ref_mismatch');
+            }
         } else {
-            const linkedRef = normalizeText(linkedProject.ref);
-            const linkedName = normalizeText(linkedProject.name);
-            if (!linkedRef || linkedRef !== project.ref) {
-                linkedProjectStatus = 'ref_mismatch';
-                reasons.push('linked_project_ref_mismatch');
-            } else if (linkedName && project.name && linkedName !== project.name) {
-                linkedProjectStatus = 'name_mismatch';
-                reasons.push('linked_project_name_mismatch');
+            projectIdentityMode = 'linked_project';
+            linkedProjectStatus = 'missing';
+            if (!linkedProject) {
+                reasons.push('linked_project_missing');
             } else {
-                linkedProjectStatus = 'matched';
+                const linkedRef = normalizeText(linkedProject.ref);
+                const linkedName = normalizeText(linkedProject.name);
+                if (!linkedRef || linkedRef !== project.ref) {
+                    linkedProjectStatus = 'ref_mismatch';
+                    reasons.push('linked_project_ref_mismatch');
+                } else if (linkedName && project.name && linkedName !== project.name) {
+                    linkedProjectStatus = 'name_mismatch';
+                    reasons.push('linked_project_name_mismatch');
+                } else {
+                    linkedProjectStatus = 'matched';
+                }
             }
         }
     }
@@ -153,6 +176,15 @@ function evaluateDeploymentPreflight(options = {}) {
         surface: descriptor.surface,
         readOnly: descriptor.readOnly === true,
         project,
+        projectIdentity: Object.freeze({
+            mode: projectIdentityMode,
+            explicitRefMatched: Boolean(
+                explicitProjectRef && explicitProjectRef === project.ref
+            ),
+            explicitUrlMatched: Boolean(
+                explicitSupabaseUrl && explicitSupabaseUrl === project.url
+            )
+        }),
         linkedProject: Object.freeze({
             status: linkedProjectStatus,
             name: normalizeText(linkedProject?.name),

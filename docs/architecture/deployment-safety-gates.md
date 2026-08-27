@@ -25,8 +25,8 @@ Supabase CLI를 직접 실행해 guard를 우회하는 방식은 지원되는 �
 | `function-deploy` | 차단 | 허용 후보 | 승인 후 허용 후보 |
 | `cron-deploy` | 차단 | 허용 후보 | 승인 후 허용 후보 |
 
-`허용 후보`는 operation 자체의 범위만 뜻한다. branch, target project 설정, Supabase link가
-모두 일치해야 최종 `ALLOWED`가 된다.
+`허용 후보`는 operation 자체의 범위만 뜻한다. branch, target project 설정, 그리고 linked
+project 또는 명시적인 project ref가 모두 일치해야 최종 `ALLOWED`가 된다.
 
 ## Gate order
 
@@ -35,7 +35,7 @@ explicit target + operation
   -> branch/target policy
   -> operation/target policy
   -> target project name/ref configured
-  -> hosted target linked-project name/ref match
+  -> hosted target linked-project name/ref 또는 explicit project ref match
   -> production ref confirmation
   -> ALLOWED or DENIED
 ```
@@ -58,7 +58,25 @@ explicit target + operation
 | production | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME` | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF` |
 
 현재 Supabase CLI link는 `supabase/.temp/linked-project.json`에서 읽는다. 이 파일은 Git에
-포함하지 않는다. hosted target의 configured name/ref와 linked name/ref가 모두 일치해야 한다.
+포함하지 않는다. hosted 명령이 `--project-ref`를 명시하지 않은 경우 configured name/ref와
+linked name/ref가 모두 일치해야 한다.
+
+Stage 5부터 SaaS hosted 명령은 기존 production link를 바꾸지 않도록 명시적인 ref를 사용할 수 있다.
+preflight의 `--project-ref`는 Supabase CLI에 전달할 동일 ref여야 하며 configured target ref와
+정확히 일치해야 한다.
+
+```bash
+npm run env:preflight -- \
+  --target development \
+  --operation function-deploy \
+  --project-ref <DEVELOPMENT_PROJECT_REF>
+```
+
+명시적 ref가 있으면 ambient link는 사용하지 않는다. 그렇더라도 branch 정책은 완화되지 않으므로
+development hosted operation은 `dev`에서만 허용된다.
+
+project ref가 없는 development Supabase는 `--supabase-url`로 configured HTTPS endpoint를 다시
+확인할 수 있다. 이 identity는 환경 제공자의 종류나 내부 배포 방식을 드러내지 않는다.
 
 ## Production confirmation
 
@@ -91,8 +109,9 @@ environment는 출력하거나 결과 객체에 포함하지 않는다. 자동�
 
 ## Stage boundary
 
-Stage 3은 안전 판단과 dry-run 출력만 제공한다. 다음 항목은 후속 단계의 책임이다.
+Stage 3의 공통 CLI는 안전 판단과 dry-run 출력을 제공한다. 실제 실행기는 각 후속 단계가 이
+판단을 호출한 뒤 명시적인 target으로만 명령을 구성한다.
 
 - Stage 4B: local migration/reset/seed command와 preflight 결합;
-- Stage 5: hosted development project 설정과 deployment command 결합;
+- Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 외부 적용 인계;
 - Stage 6: CI drift check, production dry-run checklist, 별도 사용자 승인 절차.

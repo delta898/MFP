@@ -1,0 +1,63 @@
+{
+  "schema_version": 3,
+  "target": "development",
+  "connection": {
+    "required_sources": [
+      "BLOGGENIUS_ENV",
+      "BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME",
+      "BLOGGENIUS_DEVELOPMENT_SUPABASE_URL",
+      "BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY"
+    ]
+  },
+  "project": {
+    "name_source": "BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME",
+    "url_source": "BLOGGENIUS_DEVELOPMENT_SUPABASE_URL",
+    "publishable_key_source": "BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY",
+    "production_url_source": "BLOGGENIUS_PRODUCTION_SUPABASE_URL"
+  },
+  "database": {
+    "migration_directory": "supabase/migrations",
+    "seed_file": "supabase/development-seed.sql",
+    "remote_seed_allowed": true,
+    "remote_reset_allowed": false
+  },
+  "edge_functions": [
+    { "name": "send-license-code", "verify_jwt": false },
+    { "name": "issue-trends-access-token", "verify_jwt": false },
+    { "name": "keyword-research", "verify_jwt": false },
+    { "name": "knowledge-gateway", "verify_jwt": true },
+    { "name": "serpapi-news-collector", "verify_jwt": false }
+  ],
+  "edge_function_environment": [
+    { "name": "BLOGGENIUS_ENV", "required_for_core": true, "development_value": "development" },
+    { "name": "BLOGGENIUS_NOTIFICATION_MODE", "required_for_core": true, "development_values": ["sink", "allowlist"] },
+    { "name": "TRENDS_READ_TOKEN_SECRET", "required_for_core": true },
+    { "name": "TRENDS_READ_TOKEN_ISSUER", "required_for_core": false },
+    { "name": "TRENDS_READ_TOKEN_AUDIENCE", "required_for_core": false },
+    { "name": "NAVER_SEARCHAD_API_KEY", "required_for_core": false },
+    { "name": "NAVER_SEARCHAD_SECRET_KEY", "required_for_core": false },
+    { "name": "NAVER_SEARCHAD_CUSTOMER_ID", "required_for_core": false },
+    { "name": "NAVER_API_HUB_CLIENT_ID", "required_for_core": false },
+    { "name": "NAVER_API_HUB_CLIENT_SECRET", "required_for_core": false },
+    { "name": "NAVER_CLIENT_ID", "required_for_core": false },
+    { "name": "NAVER_CLIENT_SECRET", "required_for_core": false },
+    { "name": "SERPAPI_API_KEY", "required_for_core": false },
+    { "name": "SERPAPI_COLLECTOR_SECRET", "required_for_core": false },
+    { "name": "BREVO_API_KEY", "required_for_core": false },
+    { "name": "LICENSE_EMAIL_FROM", "required_for_core": false },
+    { "name": "LICENSE_EMAIL_ALLOWLIST", "required_for_core": false }
+  ],
+  "safety": {
+    "live_publish": false,
+    "live_payment": false,
+    "notification_modes": ["sink", "allowlist"],
+    "default_notification_mode": "sink",
+    "cron_activation": false,
+    "paid_provider_smoke_test": false
+  },
+  "cost_limits": {
+    "keyword_rate_limit_per_minute": 5,
+    "knowledge_rate_limit_per_minute": 5,
+    "serpapi_daily_request_limit": 10
+  }
+}

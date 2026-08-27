@@ -10,7 +10,8 @@ const {
 
 const DEV_ENV = Object.freeze({
     BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME: 'BlogGenius Development',
-    BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: 'development-ref'
+    BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF: 'development-ref',
+    BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: 'https://development.example.invalid'
 });
 const PROD_ENV = Object.freeze({
     BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME: 'BlogGenius Production',
@@ -93,6 +94,61 @@ test('dev branch requires the hosted development project ref and name to match t
     assert.equal(matched.linkedProject.status, 'matched');
     assert.equal(mismatched.allowed, false);
     assert.ok(mismatched.reasons.includes('linked_project_ref_mismatch'));
+});
+
+test('dev branch may identify hosted development explicitly without changing the current CLI link', () => {
+    const matched = evaluateDeploymentPreflight({
+        target: 'development',
+        branch: 'dev',
+        operation: 'function-deploy',
+        env: DEV_ENV,
+        explicitProjectRef: 'development-ref',
+        linkedProject: { name: 'BlogGenius Production', ref: 'production-ref' }
+    });
+    const mismatched = evaluateDeploymentPreflight({
+        target: 'development',
+        branch: 'dev',
+        operation: 'function-deploy',
+        env: DEV_ENV,
+        explicitProjectRef: 'other-ref',
+        linkedProject: { name: 'BlogGenius Production', ref: 'production-ref' }
+    });
+
+    assert.equal(matched.allowed, true);
+    assert.equal(matched.projectIdentity.mode, 'explicit_project_ref');
+    assert.equal(matched.projectIdentity.explicitRefMatched, true);
+    assert.equal(matched.linkedProject.status, 'not_used');
+    assert.equal(mismatched.allowed, false);
+    assert.ok(mismatched.reasons.includes('explicit_project_ref_mismatch'));
+});
+
+test('development Supabase may use its HTTPS identity without exposing its hosting model', () => {
+    const env = {
+        BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME: 'BlogGenius Development',
+        BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: 'https://supabase.development.invalid/'
+    };
+    const matched = evaluateDeploymentPreflight({
+        target: 'development',
+        branch: 'dev',
+        operation: 'database-migrate',
+        env,
+        explicitSupabaseUrl: 'https://supabase.development.invalid',
+        linkedProject: { name: 'Production', ref: 'production-ref' }
+    });
+    const mismatched = evaluateDeploymentPreflight({
+        target: 'development',
+        branch: 'dev',
+        operation: 'database-migrate',
+        env,
+        explicitSupabaseUrl: 'https://production.invalid'
+    });
+
+    assert.equal(matched.allowed, true);
+    assert.equal(matched.projectIdentity.mode, 'explicit_supabase_url');
+    assert.equal(matched.projectIdentity.explicitUrlMatched, true);
+    assert.equal(matched.linkedProject.status, 'not_used');
+    assert.equal(mismatched.allowed, false);
+    assert.ok(mismatched.reasons.includes('explicit_supabase_url_mismatch'));
 });
 
 test('hosted target fails closed when its project identity is not configured', () => {

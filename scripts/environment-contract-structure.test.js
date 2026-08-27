@@ -76,7 +76,11 @@ test('runtime and deployment manifests share environment names and source contra
             'allows_live_payment',
             'allows_live_notifications'
         ]) {
-            assert.equal(runtimeProfile[field], deploymentProfile[field], `${environment}.${field}`);
+            if (Array.isArray(runtimeProfile[field]) || Array.isArray(deploymentProfile[field])) {
+                assert.deepEqual(runtimeProfile[field], deploymentProfile[field], `${environment}.${field}`);
+            } else {
+                assert.equal(runtimeProfile[field], deploymentProfile[field], `${environment}.${field}`);
+            }
         }
     }
 });
@@ -191,13 +195,16 @@ test('target-aware deployment workflows are routed through the dry-run preflight
 
     assert.equal(safety.policy, 'src/environment/deployment-guard.js');
     assert.equal(safety.preflight_cli, 'scripts/environment-preflight.js');
-    assert.equal(safety.execution_mode, 'dry_run_only');
+    assert.equal(safety.hosted_development_plan, 'scripts/hosted-development-plan.js');
+    assert.equal(safety.hosted_development_execution_owner, 'supabase_environment_provider');
+    assert.equal(safety.execution_mode, 'external_operator_handoff');
     assert.equal(
         packageJson.scripts['env:preflight'],
         'node scripts/environment-preflight.js check'
     );
     assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.policy)), true);
     assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.preflight_cli)), true);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.hosted_development_plan)), true);
 });
 
 test('production schema audit keeps only a sanitized report in the repository', () => {

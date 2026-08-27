@@ -12,6 +12,35 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function resolveDeliveryPolicy() {
+  const environment = Deno.env.get("BLOGGENIUS_ENV")?.trim().toLowerCase() || "";
+  const mode = Deno.env.get("BLOGGENIUS_NOTIFICATION_MODE")?.trim().toLowerCase() || "";
+  if (!environment || !["local", "development", "production"].includes(environment)) {
+    return { allowed: false, environment, mode, reason: "environment_not_configured" };
+  }
+  if (environment === "production") {
+    return mode === "live"
+      ? { allowed: true, environment, mode, reason: "" }
+      : { allowed: false, environment, mode, reason: "production_notification_mode_invalid" };
+  }
+  if (mode === "sink" || (environment === "local" && !mode)) {
+    return { allowed: true, environment, mode: "sink", reason: "" };
+  }
+  if (environment === "development" && mode === "allowlist") {
+    return { allowed: true, environment, mode, reason: "" };
+  }
+  return { allowed: false, environment, mode, reason: "nonproduction_notification_mode_invalid" };
+}
+
+function resolveEmailAllowlist() {
+  return new Set(
+    String(Deno.env.get("LICENSE_EMAIL_ALLOWLIST") || "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
 function parseSender(input: string) {
   const raw = String(input || "").trim();
   // "Name <email@domain.com>" 형식 지원
@@ -67,11 +96,14 @@ serve(async (req: Request) => {
     return json(405, { success: false, message: "method_not_allowed" });
   }
 
-  const brevoApiKey = Deno.env.get("BREVO_API_KEY")?.trim() || "";
-  const fromRaw = Deno.env.get("LICENSE_EMAIL_FROM")?.trim() || "";
-  const sender = parseSender(fromRaw);
-  if (!brevoApiKey || !sender) {
-    return json(500, { success: false, message: "email_sender_not_configured" });
+  const deliveryPolicy = resolveDeliveryPolicy();
+  if (!deliveryPolicy.allowed) {
+    console.error("LICENSE_EMAIL_POLICY_DENIED", {
+      environment: deliveryPolicy.environment || "missing",
+      mode: deliveryPolicy.mode || "missing",
+      reason: deliveryPolicy.reason,
+    });
+    return json(500, { success: false, message: deliveryPolicy.reason });
   }
 
   let body: any = null;
@@ -95,6 +127,21 @@ serve(async (req: Request) => {
   }
   if (!/^\d{6}$/.test(code)) {
     return json(400, { success: false, message: "invalid_code" });
+  }
+
+  if (deliveryPolicy.mode === "sink") {
+    console.info("LICENSE_EMAIL_SINK_ACCEPTED", { environment: deliveryPolicy.environment });
+    return json(200, { success: true, message: "accepted_by_development_sink" });
+  }
+  if (deliveryPolicy.mode === "allowlist" && !resolveEmailAllowlist().has(email)) {
+    return json(403, { success: false, message: "email_recipient_not_allowed" });
+  }
+
+  const brevoApiKey = Deno.env.get("BREVO_API_KEY")?.trim() || "";
+  const fromRaw = Deno.env.get("LICENSE_EMAIL_FROM")?.trim() || "";
+  const sender = parseSender(fromRaw);
+  if (!brevoApiKey || !sender) {
+    return json(500, { success: false, message: "email_sender_not_configured" });
   }
 
   const subject = "[BlogGenius] 라이선스 등록 인증 코드";

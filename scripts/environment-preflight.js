@@ -20,6 +20,8 @@ function parseArgs(argv) {
         command: normalizeText(args.shift()),
         target: '',
         operation: '',
+        projectRef: '',
+        supabaseUrl: '',
         productionApproval: '',
         json: false
     };
@@ -28,6 +30,8 @@ function parseArgs(argv) {
         const arg = normalizeText(args[index]);
         if (arg === '--target') parsed.target = normalizeText(args[++index]);
         else if (arg === '--operation') parsed.operation = normalizeText(args[++index]);
+        else if (arg === '--project-ref') parsed.projectRef = normalizeText(args[++index]);
+        else if (arg === '--supabase-url') parsed.supabaseUrl = normalizeText(args[++index]);
         else if (arg === '--approve-production') {
             parsed.productionApproval = normalizeText(args[++index]);
         } else if (arg === '--json') parsed.json = true;
@@ -76,6 +80,7 @@ function formatPreflightText(result) {
         `Operation: ${result.operation} (${result.surface})`,
         `Project: ${result.project.name || '(not configured)'}`,
         `Project ref: ${result.project.ref || '(not configured)'}`,
+        `Project identity: ${result.projectIdentity.mode}`,
         `Linked project: ${result.linkedProject.status}`,
         `Production approval: ${result.productionApprovalRequired
             ? (result.productionApprovalVerified ? 'verified' : 'required')
@@ -100,6 +105,8 @@ function runCli(options = {}) {
         target: parsed.target,
         branch,
         operation: parsed.operation,
+        explicitProjectRef: parsed.projectRef,
+        explicitSupabaseUrl: parsed.supabaseUrl,
         productionApproval: parsed.productionApproval,
         env,
         linkedProject
