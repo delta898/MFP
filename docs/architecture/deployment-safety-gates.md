@@ -1,0 +1,93 @@
+# Deployment Safety Gates
+
+BlogGenius의 Supabase 변경 작업은 target을 추측하지 않는다. DB, seed, fixture, Edge Function,
+Cron 작업은 실제 실행 명령을 만들기 전에 공통 environment preflight를 통과해야 한다.
+
+## Preflight command
+
+```bash
+npm run env:preflight -- --target local --operation database-reset
+```
+
+이 명령은 dry-run 검증만 수행하며 DB, Function, Cron을 변경하지 않는다. Stage 4 이후 실제
+migration과 deployment command는 이 preflight 결과가 `ALLOWED`일 때만 실행되도록 결합한다.
+Supabase CLI를 직접 실행해 guard를 우회하는 방식은 지원되는 운영 경로가 아니다.
+
+모든 작업은 `--target`과 `--operation`을 명시해야 한다. 지원 operation은 다음과 같다.
+
+| Operation | local | development | production |
+| --- | --- | --- | --- |
+| `database-migrate` | 허용 후보 | 허용 후보 | 승인 후 허용 후보 |
+| `database-reset` | 허용 후보 | 차단 | 항상 차단 |
+| `database-seed` | 허용 후보 | 허용 후보 | 항상 차단 |
+| `fixture-load` | 허용 후보 | 허용 후보 | 항상 차단 |
+| `function-deploy` | 차단 | 허용 후보 | 승인 후 허용 후보 |
+| `cron-deploy` | 차단 | 허용 후보 | 승인 후 허용 후보 |
+
+`허용 후보`는 operation 자체의 범위만 뜻한다. branch, target project 설정, Supabase link가
+모두 일치해야 최종 `ALLOWED`가 된다.
+
+## Gate order
+
+```text
+explicit target + operation
+  -> branch/target policy
+  -> operation/target policy
+  -> target project name/ref configured
+  -> hosted target linked-project name/ref match
+  -> production ref confirmation
+  -> ALLOWED or DENIED
+```
+
+- `feature/*`는 `local`만 허용한다.
+- `dev`는 `local`과 `development`만 허용한다.
+- `main`과 `release/*`만 production 후보가 된다.
+- detached HEAD와 분류되지 않은 branch는 local-only로 취급한다.
+- GitHub Actions의 detached checkout은 `GITHUB_HEAD_REF` 또는 branch 타입의
+  `GITHUB_REF_NAME`만 branch 증거로 사용하며 tag 이름은 branch로 승격하지 않는다.
+- hosted target은 다음 환경변수에서 project identity를 읽는다.
+
+| Target | Project name | Project ref |
+| --- | --- | --- |
+| development | `BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME` | `BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_REF` |
+| production | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME` | `BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF` |
+
+현재 Supabase CLI link는 `supabase/.temp/linked-project.json`에서 읽는다. 이 파일은 Git에
+포함하지 않는다. hosted target의 configured name/ref와 linked name/ref가 모두 일치해야 한다.
+
+## Production confirmation
+
+Production mutation preflight는 허용 branch와 일치하는 link만으로 통과하지 않는다. target의
+project ref를 명시적으로 다시 입력해야 한다.
+
+```bash
+npm run env:preflight -- \
+  --target production \
+  --operation database-migrate \
+  --approve-production <PRODUCTION_PROJECT_REF>
+```
+
+Project ref confirmation은 production 배포 승인 자체를 대신하지 않는다. 사용자의 release
+승인 후 운영자가 실행하는 마지막 오입력 방지 장치다. `database-reset`, `database-seed`,
+`fixture-load`는 정확한 ref를 입력해도 production에서 허용되지 않는다.
+
+## Safe output
+
+Preflight는 다음 값만 출력한다.
+
+- decision과 거부 reason;
+- target, branch, operation, surface;
+- project name/ref와 link match 상태;
+- production approval 확인 여부.
+
+Supabase URL, publishable key, service-role key, database password, provider secret과 전체 process
+environment는 출력하거나 결과 객체에 포함하지 않는다. 자동화용 `--json` 출력도 같은 계약을
+지킨다.
+
+## Stage boundary
+
+Stage 3은 안전 판단과 dry-run 출력만 제공한다. 다음 항목은 후속 단계의 책임이다.
+
+- Stage 4B: local migration/reset/seed command와 preflight 결합;
+- Stage 5: hosted development project 설정과 deployment command 결합;
+- Stage 6: CI drift check, production dry-run checklist, 별도 사용자 승인 절차.

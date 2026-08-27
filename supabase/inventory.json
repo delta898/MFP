@@ -206,5 +206,11 @@
       "src/config-loader.js"
     ],
     "generated_desktop_build_artifact": "src/config/secret.js"
+  },
+  "deployment_safety": {
+    "policy": "src/environment/deployment-guard.js",
+    "preflight_cli": "scripts/environment-preflight.js",
+    "linked_project_metadata_path": "supabase/.temp/linked-project.json",
+    "execution_mode": "dry_run_only"
   }
 }

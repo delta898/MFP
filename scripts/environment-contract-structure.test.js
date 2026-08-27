@@ -62,14 +62,22 @@ test('runtime and deployment manifests share environment names and source contra
     assert.deepEqual(Object.keys(runtimeManifest.profiles), Object.keys(deploymentManifest.profiles));
 
     for (const environment of ENVIRONMENT_NAMES) {
-        assert.equal(
-            runtimeManifest.profiles[environment].supabase_url_source,
-            deploymentManifest.profiles[environment].supabase_url_source
-        );
-        assert.equal(
-            runtimeManifest.profiles[environment].supabase_publishable_key_source,
-            deploymentManifest.profiles[environment].supabase_publishable_key_source
-        );
+        const runtimeProfile = runtimeManifest.profiles[environment];
+        const deploymentProfile = deploymentManifest.profiles[environment];
+        for (const field of [
+            'project_name',
+            'project_name_source',
+            'project_ref',
+            'project_ref_source',
+            'supabase_url_source',
+            'supabase_publishable_key_source',
+            'allows_destructive_database_operations',
+            'allows_live_publish',
+            'allows_live_payment',
+            'allows_live_notifications'
+        ]) {
+            assert.equal(runtimeProfile[field], deploymentProfile[field], `${environment}.${field}`);
+        }
     }
 });
 
@@ -160,6 +168,22 @@ test('build environment config is generated, ignored, and validated explicitly',
 test('packaging includes the runtime environment implementation', () => {
     const packageJson = readJson('package.json');
     assert.ok(packageJson.pkg.scripts.includes('src/environment/**/*.js'));
+});
+
+test('target-aware deployment workflows are routed through the dry-run preflight boundary', () => {
+    const inventory = readJson('supabase/inventory.json');
+    const packageJson = readJson('package.json');
+    const safety = inventory.deployment_safety;
+
+    assert.equal(safety.policy, 'src/environment/deployment-guard.js');
+    assert.equal(safety.preflight_cli, 'scripts/environment-preflight.js');
+    assert.equal(safety.execution_mode, 'dry_run_only');
+    assert.equal(
+        packageJson.scripts['env:preflight'],
+        'node scripts/environment-preflight.js check'
+    );
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.policy)), true);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.preflight_cli)), true);
 });
 
 test('config loading and diagnostics expose only the resolved environment boundary', () => {

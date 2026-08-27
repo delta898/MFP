@@ -110,7 +110,7 @@ Branch: `feature/development-environment-01-contract`
 
 Branch: `feature/development-environment-02-runtime-profile`
 
-Status: implementation complete, awaiting Stage 2 handoff
+Status: completed and integrated into the parent feature branch
 
 작업:
 
@@ -129,6 +129,8 @@ Status: implementation complete, awaiting Stage 2 handoff
 ### Stage 3 — Target-aware CLI와 배포 안전장치
 
 Branch: `feature/development-environment-03-deploy-guard`
+
+Status: implementation complete, awaiting Stage 3 handoff
 
 작업:
 

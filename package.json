@@ -16,6 +16,7 @@
     "mcp:http": "node src/mcp/http-server.js",
     "trends:collector": "node ./bin/trends-collector",
     "trends:api": "node ./bin/trends-api",
+    "env:preflight": "node scripts/environment-preflight.js check",
     "ver:patch": "node scripts/bump-version.js patch",
     "ver:minor": "node scripts/bump-version.js minor",
     "ver:major": "node scripts/bump-version.js major",
