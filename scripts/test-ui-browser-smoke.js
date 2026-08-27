@@ -129,10 +129,19 @@ function getApiFixture(pathname) {
                 recommendation_id: 'recommendation:ui-smoke:discovery',
                 kind: 'content_opportunity',
                 lane: 'serendipity',
+                hint: '지금 떠오르는 키워드',
                 title: '로컬 여행',
                 summary: '새로운 소재나 관점을 발견할 수 있습니다.',
                 explanation: '외부 Trends에서 관찰된 주제에 근거한 제안입니다.',
-                evidence: [],
+                evidence: [{
+                    evidence_id: 'evidence:ui-smoke:discovery',
+                    kind: 'trends',
+                    stage: 'observed',
+                    strength: 'weak',
+                    summary: '최근 트렌드에서 관찰된 여행 주제입니다.',
+                    observed_at: now,
+                    source: { label: '네이버 트렌드', url: '', timestamp: now }
+                }],
                 status: 'available',
                 available_at: now,
                 snoozed_until: null,
@@ -319,8 +328,11 @@ async function run() {
         assert.equal(await page.locator('#badge-version').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
-        await page.waitForFunction(() => document.querySelectorAll('.recommendation-card').length === 1);
-        assert.equal((await page.locator('.recommendation-card h3').textContent())?.trim(), 'WordPress 설정을 확인해보세요');
+        await page.waitForFunction(() => (
+            document.querySelectorAll('.recommendation-card').length === 1
+            && document.querySelector('.recommendation-card h3')?.textContent?.trim() === '로컬 여행'
+        ));
+        assert.equal((await page.locator('.recommendation-card h3').textContent())?.trim(), '로컬 여행');
         assert.equal((await page.locator('#recommendation-nav-badge').textContent())?.trim(), '1');
         assert.equal(await page.locator('#recommendation-nav-badge').isHidden(), false);
         assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), true);
@@ -414,6 +426,26 @@ async function run() {
         assert.equal(await page.locator('#quick-keyword-discovery-query').inputValue(), '블로그 자동화, 글쓰기 도구');
         await page.locator('#quick-discovery-modal-close').click();
         await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+
+        await page.evaluate(async () => {
+            const originalConfirm = showUiConfirm;
+            showUiConfirm = async () => true;
+            try {
+                document.getElementById('quick-subject').value = '사용자가 작성한 주제';
+                await applyQuickKeywordDiscovery([{ keyword: '선택 키워드' }]);
+            } finally {
+                showUiConfirm = originalConfirm;
+            }
+        });
+        assert.equal(await page.locator('#quick-subject').inputValue(), '사용자가 작성한 주제');
+        assert.equal(await page.locator('#quick-keywords').inputValue(), '선택 키워드');
+
+        await page.evaluate(async () => {
+            document.getElementById('quick-subject').value = '   ';
+            await applyQuickKeywordDiscovery([{ keyword: '빈 주제 자동 입력' }]);
+        });
+        assert.equal(await page.locator('#quick-subject').inputValue(), '빈 주제 자동 입력');
+        assert.equal(await page.locator('#quick-keywords').inputValue(), '빈 주제 자동 입력');
 
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));

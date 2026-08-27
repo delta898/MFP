@@ -646,7 +646,10 @@ async function applyQuickKeywordDiscovery(input) {
   }
   applyQuickInputMode('ai');
   document.getElementById('quick-title').value = '';
-  document.getElementById('quick-subject').value = keywords[0];
+  const subjectInput = document.getElementById('quick-subject');
+  if (subjectInput && !String(subjectInput.value || '').trim()) {
+    subjectInput.value = keywords[0];
+  }
   document.getElementById('quick-keywords').value = keywords.join(', ');
   document.getElementById('quick-instruction').value = '';
   document.getElementById('quick-reference-url').value = '';

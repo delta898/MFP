@@ -117,3 +117,13 @@ test('quick writing discovery actions are attached to their full-width fields', 
     assert.match(controller, /quickKeywordDiscoveryQuery\.value = String\(quickKeywordsInput\?\.value \|\| ''\)\.trim\(\)/);
     assert.match(controller, /setQuickDiscoveryTab\('keyword'\)/);
 });
+
+test('applying discovered keywords preserves an existing quick-writing subject', () => {
+    const source = readScript('features/discovery/quick-discovery.js');
+    const applyFunction = source.match(/async function applyQuickKeywordDiscovery[\s\S]*?\n}\n/)?.[0] || '';
+
+    assert.match(applyFunction, /const subjectInput = document\.getElementById\('quick-subject'\)/);
+    assert.match(applyFunction, /if \(subjectInput && !String\(subjectInput\.value \|\| ''\)\.trim\(\)\)/);
+    assert.match(applyFunction, /subjectInput\.value = keywords\[0\]/);
+    assert.doesNotMatch(applyFunction, /document\.getElementById\('quick-subject'\)\.value = keywords\[0\]/);
+});
