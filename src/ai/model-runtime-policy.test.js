@@ -65,6 +65,17 @@ test('Gemini runtime capabilities adapt a common minimal effort per model', () =
     );
 });
 
+test('runtime model definition replaces stale display names with the catalog name', () => {
+    const definition = getModelRuntimeDefinition('text', {
+        provider: 'google',
+        name: 'Gemini 3.1 Flash Lite Preview',
+        code: 'gemini-3.6-flash'
+    });
+
+    assert.equal(definition.name, 'Gemini 3.6 Flash');
+    assert.equal(definition.code, 'gemini-3.6-flash');
+});
+
 test('OpenAI chat policy uses current token and structured-output fields', () => {
     const request = buildOpenAiChatRequest({
         provider: 'openai',

@@ -9,6 +9,7 @@ function getModelRuntimeDefinition(kind, modelConfig = {}) {
     return {
         kind: String(kind || '').trim(),
         provider,
+        name: String(catalogDefinition?.name || modelConfig.name || code).trim(),
         code,
         transport: String(
             catalogDefinition?.transport

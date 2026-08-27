@@ -3963,7 +3963,7 @@ const Utils = {
         const runtimePolicy = applyTextRuntimePolicy(modelConfig, options);
         const transport = runtimePolicy.definition.transport;
         const usageLabel = String(options?.usageLabel || modelConfig.name || '텍스트 모델').trim();
-        const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
+        const modelName = String(runtimePolicy.definition.name || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
         Logger.info(`🤖 [${usageLabel}] 텍스트 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'}`);
         if (runtimePolicy.definition.status === 'unavailable') {
@@ -4149,11 +4149,11 @@ const Utils = {
     callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
         const modelConfig = CONFIG.IMAGE_MODEL_CONFIG || {};
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
-        const modelName = String(modelConfig.name || '').trim() || String(modelConfig.code || '').trim() || '알 수 없는 모델';
         const modelCode = String(modelConfig.code || '').trim();
         const aspectRatio = resolveWritingImageAspectRatio(options);
         const imageSize = resolveWritingImageSize(options);
         const runtimeDefinition = getModelRuntimeDefinition('image', modelConfig);
+        const modelName = String(runtimeDefinition.name || '').trim() || '알 수 없는 모델';
         const transport = runtimeDefinition.transport;
         Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'} / aspect=${aspectRatio || 'default'}`);
         if (runtimeDefinition.status === 'unavailable') {
