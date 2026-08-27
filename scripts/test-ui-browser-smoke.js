@@ -146,7 +146,11 @@ function getApiFixture(pathname) {
                 available_at: now,
                 snoozed_until: null,
                 expires_at: new Date(Date.now() + 86400000).toISOString(),
-                action: null
+                action: {
+                    type: 'presentation', label: 'WordPress 설정 보기',
+                    target: { surface: 'settings.wordpress', view: 'settings', tab: 'naver-blog' },
+                    payload: { section: 'wordpress' }
+                }
             }]
         };
     }
