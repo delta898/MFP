@@ -3,6 +3,12 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.3.0-dev2] - 2026-08-27
+
+### Fixed
+- **키워드 적용 시 주제 보존**: 키워드 탐색 결과를 빠른 글 작성에 적용할 때 이미 입력한 주제는 유지합니다. 주제가 비어 있는 경우에만 첫 번째 선택 키워드를 주제로 자동 입력합니다.
+- **AI 모델 로그 이름 정합성 개선**: 설정을 변경한 뒤 이전 모델 이름이 로그에 남지 않도록 선택한 모델 ID에 맞는 공식 모델 이름을 표시합니다.
+
 ## [0.3.0-dev1] - 2026-08-27
 
 ### Added
