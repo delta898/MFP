@@ -17,6 +17,7 @@ Supabase CLI를 직접 실행해 guard를 우회하는 방식은 지원되는 �
 
 | Operation | local | development | production |
 | --- | --- | --- | --- |
+| `schema-audit` | 읽기 전용 | 읽기 전용 | 별도 승인 후 읽기 전용 |
 | `database-migrate` | 허용 후보 | 허용 후보 | 승인 후 허용 후보 |
 | `database-reset` | 허용 후보 | 차단 | 항상 차단 |
 | `database-seed` | 허용 후보 | 허용 후보 | 항상 차단 |
@@ -46,6 +47,10 @@ explicit target + operation
 - GitHub Actions의 detached checkout은 `GITHUB_HEAD_REF` 또는 branch 타입의
   `GITHUB_REF_NAME`만 branch 증거로 사용하며 tag 이름은 branch로 승격하지 않는다.
 - hosted target은 다음 환경변수에서 project identity를 읽는다.
+
+`schema-audit`는 mutation/deployment가 아니므로 Stage 4A 전용 feature branch에서도 실행할 수
+있다. 다만 hosted project/link 일치와 production ref 확인을 동일하게 요구하고, 별도 사용자
+승인 없이는 실행하지 않는다.
 
 | Target | Project name | Project ref |
 | --- | --- | --- |

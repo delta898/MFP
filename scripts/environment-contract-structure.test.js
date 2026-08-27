@@ -186,6 +186,21 @@ test('target-aware deployment workflows are routed through the dry-run preflight
     assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.preflight_cli)), true);
 });
 
+test('production schema audit keeps only a sanitized report in the repository', () => {
+    const inventory = readJson('supabase/inventory.json');
+    const audit = inventory.production_schema_audit;
+    const report = fs.readFileSync(path.join(REPO_ROOT, audit.sanitized_report), 'utf8');
+
+    assert.equal(audit.raw_schema_committed, false);
+    assert.equal(audit.row_data_collected, false);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, audit.analyzer)), true);
+    assert.match(report, /COPY` statements \| 0/);
+    assert.match(report, /INSERT` statements \| 0/);
+    assert.match(report, /public\.licenses/);
+    assert.doesNotMatch(report, /hocfjolcthvtgfaxjmse/);
+    assert.doesNotMatch(report, /eyJ[A-Za-z0-9_-]{20,}/);
+});
+
 test('config loading and diagnostics expose only the resolved environment boundary', () => {
     const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
     const systemService = fs.readFileSync(

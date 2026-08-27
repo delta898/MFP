@@ -44,6 +44,7 @@
 - `architecture/development-environment-inventory.md`
 - `architecture/runtime-environment-profiles.md`
 - `architecture/deployment-safety-gates.md`
+- `architecture/production-schema-audit-2026-08-27.md`
 - `license-policy.md`
 - `keyword-research-operations.md`
 - `features/mcp-client-setup.md`
@@ -77,6 +78,7 @@
 - `plans/active/development-environment-01-contract-plan.md`
 - `plans/active/development-environment-02-runtime-profile-plan.md`
 - `plans/active/development-environment-03-deploy-guard-plan.md`
+- `plans/active/development-environment-04a-production-schema-audit-plan.md`
 - `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
 - `plans/active/serpapi-collection-01-contracts-plan.md`

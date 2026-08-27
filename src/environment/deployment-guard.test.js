@@ -19,6 +19,7 @@ const PROD_ENV = Object.freeze({
 
 test('deployment operations cover database, function, cron, seed, and fixture changes', () => {
     assert.deepEqual(Object.keys(DEPLOYMENT_OPERATIONS), [
+        'schema-audit',
         'database-migrate',
         'database-reset',
         'database-seed',
@@ -28,6 +29,21 @@ test('deployment operations cover database, function, cron, seed, and fixture ch
     ]);
     assert.equal(assertDeploymentOperation(' FUNCTION-DEPLOY '), 'function-deploy');
     assert.throws(() => assertDeploymentOperation(''), /Unknown deployment operation/);
+});
+
+test('approved production schema audit is read-only and may run from its audit feature branch', () => {
+    const result = evaluateDeploymentPreflight({
+        target: 'production',
+        branch: 'feature/development-environment-04a-production-schema-audit',
+        operation: 'schema-audit',
+        env: PROD_ENV,
+        linkedProject: { name: 'BlogGenius Production', ref: 'production-ref' },
+        productionApproval: 'production-ref'
+    });
+
+    assert.equal(result.allowed, true);
+    assert.equal(result.readOnly, true);
+    assert.equal(result.surface, 'database_schema');
 });
 
 test('feature branch can preflight local database reset without consulting a hosted link', () => {

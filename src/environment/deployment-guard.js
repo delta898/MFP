@@ -9,6 +9,14 @@ const {
 } = require('./contract');
 
 const DEPLOYMENT_OPERATIONS = Object.freeze({
+    'schema-audit': Object.freeze({
+        surface: 'database_schema',
+        allowedTargets: ENVIRONMENT_NAMES,
+        destructiveDatabaseOperation: false,
+        productionProhibited: false,
+        readOnly: true,
+        bypassesMutationBranchPolicy: true
+    }),
     'database-migrate': Object.freeze({
         surface: 'database',
         allowedTargets: ENVIRONMENT_NAMES,
@@ -93,7 +101,9 @@ function evaluateDeploymentPreflight(options = {}) {
     const linkedProject = options.linkedProject || null;
     const reasons = [];
 
-    if (!branchEvaluation.allowed) reasons.push('branch_target_denied');
+    if (!descriptor.bypassesMutationBranchPolicy && !branchEvaluation.allowed) {
+        reasons.push('branch_target_denied');
+    }
     if (!descriptor.allowedTargets.includes(target)) reasons.push('operation_target_denied');
     if (!project.configured) reasons.push('target_project_not_configured');
 
@@ -141,6 +151,7 @@ function evaluateDeploymentPreflight(options = {}) {
         branchPolicy: branchEvaluation.policyId,
         operation,
         surface: descriptor.surface,
+        readOnly: descriptor.readOnly === true,
         project,
         linkedProject: Object.freeze({
             status: linkedProjectStatus,

@@ -130,7 +130,7 @@ Status: completed and integrated into the parent feature branch
 
 Branch: `feature/development-environment-03-deploy-guard`
 
-Status: implementation complete, awaiting Stage 3 handoff
+Status: completed and integrated into the parent feature branch
 
 작업:
 
@@ -149,6 +149,8 @@ Status: implementation complete, awaiting Stage 3 handoff
 ### Stage 4A — Production schema read-only audit
 
 Branch: `feature/development-environment-04a-production-schema-audit`
+
+Status: read-only audit complete, awaiting Stage 4A handoff
 
 작업:
 

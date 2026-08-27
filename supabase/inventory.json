@@ -212,5 +212,11 @@
     "preflight_cli": "scripts/environment-preflight.js",
     "linked_project_metadata_path": "supabase/.temp/linked-project.json",
     "execution_mode": "dry_run_only"
+  },
+  "production_schema_audit": {
+    "analyzer": "src/environment/schema-audit.js",
+    "sanitized_report": "docs/architecture/production-schema-audit-2026-08-27.md",
+    "raw_schema_committed": false,
+    "row_data_collected": false
   }
 }
