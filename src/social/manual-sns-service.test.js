@@ -123,6 +123,31 @@ test('manual publish works while SNS automation is disabled', async () => {
     assert.deepEqual(calls[0].deliveries.map((item) => item.channelId), ['threads-1', 'x-1']);
 });
 
+test('manual SNS publish is blocked before Buffer access in development', async () => {
+    let publishCount = 0;
+    const service = createManualSnsService({
+        CONFIG: createConfig({
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development',
+                configured: true,
+                effects: { livePublish: false }
+            }
+        }),
+        bufferClient: {
+            async shareNowMany() {
+                publishCount += 1;
+                return [];
+            }
+        }
+    });
+
+    await assert.rejects(
+        () => service.publish({ channelIds: ['threads-1'], text: '개발 환경 테스트' }),
+        (error) => error.apiCode === 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT'
+    );
+    assert.equal(publishCount, 0);
+});
+
 test('manual publish rejects a channel that is not in saved Buffer settings', async () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),

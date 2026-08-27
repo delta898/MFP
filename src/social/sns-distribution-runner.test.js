@@ -113,6 +113,36 @@ test('SNS content composer combines title, summary, URL, and hashtags', () => {
     ), true);
 });
 
+test('SNS distribution stops before license and Buffer work in development', async () => {
+    let bufferCallCount = 0;
+    const runner = createRunner({
+        CONFIG: createConfig({
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development',
+                configured: true,
+                effects: { livePublish: false }
+            }
+        }),
+        store: createStore([]),
+        bufferClient: {
+            async shareNowMany() {
+                bufferCallCount += 1;
+                return [];
+            },
+            async listRecentPosts() {
+                bufferCallCount += 1;
+                return [];
+            }
+        }
+    });
+
+    const result = await runner.run('auto');
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT');
+    assert.equal(bufferCallCount, 0);
+});
+
 test('distribution runner processes one entry group and records per-channel partial results', async () => {
     const store = createStore([
         {

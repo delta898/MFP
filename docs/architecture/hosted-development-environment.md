@@ -97,8 +97,26 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 4. desktop integration smoke는 development 가짜 라이선스로 핵심 계약을 확인한다.
 5. 유료 provider, 실제 알림, Cron은 각각 별도 승인 후 검증한다.
 
+### 실제 발행 경계
+
+환경 manifest의 `allows_live_publish`는 문서용 표식이 아니라 runtime 실행 정책이다.
+`local`과 `development`, 또는 환경 profile을 해석하지 못한 실행은 다음 경로를 공통으로 차단한다.
+
+- Naver Blog와 WordPress 직접 발행
+- Buffer 수동 SNS 발행과 SNS 배포 runner
+- 블로그·쇼핑·SNS 자동 발행 scheduler
+- Agent capability를 통한 발행 시작 요청
+
+실제 runtime은 명시적으로 준비된 `production` profile만 live publish를 허용한다. 의존성을 직접
+주입하는 기존 단위 테스트는 profile 자체가 없을 때만 호환 모드로 동작하며, 애플리케이션
+`CONFIG`에는 항상 해석된 profile이 존재하므로 운영 경계가 우회되지 않는다.
+
 ## Auth and Storage
 
 현재 desktop 인증은 Supabase Auth user session이 아니라 라이선스 RPC 계약을 사용한다. 따라서
 development Auth user를 임의로 만들지 않는다. Storage bucket과 RLS는 canonical migration으로
 재현하며 production object는 복사하지 않는다.
+
+development seed의 고정 라이선스는 특정 장비를 흉내 낸 placeholder HWID에 결합하지 않는다.
+초기 `hwid`를 비워 실제 development desktop의 무차감 라이선스 검증에 사용할 수 있게 하며,
+이 fixture는 production migration이나 production seed에 포함하지 않는다.

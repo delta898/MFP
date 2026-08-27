@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-08-27 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
+> 현행 기준: 2026-08-28 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
 
 ## P0 — 현재 진행
 
@@ -107,6 +107,13 @@
    - sample placeholder가 실제 설정값처럼 동작하지 않도록 한다.
    - Gemini API Key 등 필수 외부 설정의 공식 도움 경로를 제공한다.
 
+13. macOS 설정 접근 실패 시작 오류 패치
+   - Downloads 등 macOS 보호 폴더에서 외부 `config/` 접근이 `EPERM`으로 거부되어도 Electron main process가 종료되지 않게 한다.
+   - GUI runtime의 쓰기 가능한 기본 위치는 `Application Support`로 일관되게 사용하고, portable mode는 명시적으로 선택된 경우에만 활성화하는 방향을 검토한다.
+   - 배포본 안에 읽기 전용 기본 설정을 확실히 포함하고, 사용자 설정을 읽지 못하면 빈 객체 대신 검증된 기본값과 원인을 알 수 있는 오류 상태를 반환한다.
+   - `platforms.naver` 같은 필수 설정 경로를 사용 전에 검증하고, 권한 복구 또는 데이터 위치 이동 안내를 제공한다.
+   - 기존 portable 사용자 데이터의 소유권과 이동·rollback 방식을 정한 뒤 patch release 범위로 구현하고 macOS 패키지 회귀 테스트를 추가한다.
+
 ## P2 — 중기
 
 1. UI 포트 충돌 복구
@@ -164,6 +171,13 @@
 11. 통합 명령 팔레트
    - 주요 화면 이동과 자주 쓰는 작업을 검색·실행한다.
    - 기존 capability와 안전한 UI action만 노출한다.
+
+12. Dockerize 개발·서비스 실행 환경
+   - Electron Desktop과 로컬 브라우저 자동화를 무리하게 하나의 container에 넣지 않고, 먼저 Supabase·서버·worker 등 headless 구성요소의 container 경계를 정한다.
+   - local 개발 환경을 재현할 수 있는 Docker Compose 진입점과 명시적인 environment profile을 제공한다.
+   - source, config, workspace, cache와 secret의 volume·소유권을 분리하고 production credential을 image나 repository에 포함하지 않는다.
+   - health check, 의존 서비스 기동 순서, migration·seed 실행과 로그 수집을 자동화한다.
+   - macOS arm64와 CI/Linux 환경에서 동일한 build·test가 가능한지 검증하고, image version과 앱 release version의 관계를 문서화한다.
 
 ## P3 — 후순위
 

@@ -1,3 +1,5 @@
+const { isLivePublishAllowed } = require('../environment/runtime-effects');
+
 function createAutoRunnerRuntime(deps = {}) {
     const {
         CONFIG,
@@ -354,7 +356,7 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function syncPublishRunner() {
-        const isEnabled = Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
+        const isEnabled = isLivePublishAllowed(CONFIG) && Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
         let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
         if (intervalMin < 1) intervalMin = 60;
         const startTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_START_TIME, publishAutoDefaults.startTime);
@@ -508,7 +510,7 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function syncSnsRunner() {
-        const isEnabled = CONFIG.SNS_PUBLISH_ENABLED === true;
+        const isEnabled = isLivePublishAllowed(CONFIG) && CONFIG.SNS_PUBLISH_ENABLED === true;
         const intervalMin = Math.max(10, Number.parseInt(CONFIG.SNS_PUBLISH_INTERVAL_MIN, 10) || 10);
         const statusChanged = snsRuntimeState.enabled !== isEnabled;
         const intervalChanged = snsRuntimeState.lastInterval !== intervalMin;
@@ -619,6 +621,10 @@ function createAutoRunnerRuntime(deps = {}) {
 
     function syncShoppingAutoRunnerWithConfig() {
         const settings = normalizeShoppingAutoSettings(CONFIG);
+        if (!isLivePublishAllowed(CONFIG)) {
+            stopShoppingAutoRunner('현재 실행 환경에서는 실제 발행이 차단되어 있습니다.');
+            return;
+        }
         if (settings.SHOPPING_PUBLISH_AUTO_ENABLED) {
             startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (주기: ${settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN}분)`);
         } else {

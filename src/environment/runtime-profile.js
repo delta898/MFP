@@ -76,6 +76,11 @@ function createUnavailableProfile({ status, environment = '', selectionSource = 
         configured: false,
         selectionSource,
         reason,
+        effects: Object.freeze({
+            livePublish: false,
+            livePayment: false,
+            liveNotifications: false
+        }),
         supabase: Object.freeze({
             url: '',
             publishableKey: '',
@@ -162,6 +167,11 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
         configured: true,
         selectionSource: selected.source,
         reason: '',
+        effects: Object.freeze({
+            livePublish: descriptor.allows_live_publish === true,
+            livePayment: descriptor.allows_live_payment === true,
+            liveNotifications: descriptor.allows_live_notifications === true
+        }),
         supabase: Object.freeze({
             url: url.value,
             publishableKey: publishableKey.value,

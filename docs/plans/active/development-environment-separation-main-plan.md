@@ -206,7 +206,7 @@ Status: implementation complete, awaiting Stage 4B handoff
 
 Branch: `feature/development-environment-05-hosted-development`
 
-Status: provider-neutral handoff contract implemented, external development environment setup pending
+Status: development Supabase deployment and desktop core integration complete
 
 작업:
 
@@ -222,6 +222,18 @@ Status: provider-neutral handoff contract implemented, external development envi
 - desktop development profile에서 라이선스·키워드·모델 카탈로그·knowledge gateway smoke test
 - 실제 사용자·발행·알림·결제로 외부 영향이 없음을 확인
 - Edge Function과 DB migration version의 일치 확인
+
+2026-08-28 적용 상태:
+
+- canonical migration 20개와 원격 migration 이력이 일치한다.
+- development seed와 환경 표식이 적용됐다.
+- Edge Function 5개가 `ACTIVE`이며 manifest의 JWT 정책과 일치한다.
+- readiness와 무변경 HTTP smoke가 통과했다.
+- desktop runtime, 무차감 라이선스, 원격 모델 카탈로그, Knowledge Gateway와 UI health가 통과했다.
+- 키워드와 content news는 provider credential 미설정 상태의 안전한 fallback을 확인했으며, 실제 provider 호출은 별도 승인 범위다.
+- manifest의 live-effect 정책을 runtime 발행 경계와 자동 scheduler에 연결해 `local`과
+  `development`에서 Naver·WordPress·SNS 실제 발행을 fail-closed로 차단했다.
+- 발행 경계 집중 테스트 61개와 전체 unit test 989개가 통과했다.
 
 ### Stage 6 — CI, drift 검증, production 승격 절차
 

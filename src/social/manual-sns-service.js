@@ -6,6 +6,7 @@ const {
     requiresImageAsset,
     measurePost
 } = require('./sns-content-formatter');
+const { assertLivePublishAllowed } = require('../environment/runtime-effects');
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 10000;
@@ -326,6 +327,7 @@ function createManualSnsService(deps = {}) {
     }
 
     async function publish(input = {}) {
+        assertLivePublishAllowed(CONFIG);
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
         if (!apiKey) {
             throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정 > SNS에서 Buffer API Key를 먼저 저장해 주세요.');

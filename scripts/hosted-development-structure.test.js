@@ -51,6 +51,13 @@ test('development contract contains no infrastructure-provider implementation de
     assert.doesNotMatch(sample, /SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD/);
 });
 
+test('development seed license is not bound to a placeholder machine', () => {
+    const seed = read('supabase/development-seed.sql');
+
+    assert.doesNotMatch(seed, /HOSTED-DEVELOPMENT-HWID/);
+    assert.match(seed, /'active',\s*null,\s*0,\s*100,/);
+});
+
 test('license email function fails closed and supports development sink or allowlist only', () => {
     const source = read('supabase/functions/send-license-code/index.ts');
 

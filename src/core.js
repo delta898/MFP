@@ -14,6 +14,7 @@ const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
 const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
+const { assertLivePublishAllowed } = require('./environment/runtime-effects');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -2084,6 +2085,7 @@ ${scrapedContext}`;
 	* 3. 블로그 발행 (Publish)
 	*/
 	publishToBlog: async function (dirPath, options = {}) {
+		assertLivePublishAllowed(CONFIG);
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
 		const authPath = CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH;
@@ -2765,6 +2767,7 @@ ${scrapedContext}`;
 	 * WordPress 발행 (Publish)
 	 */
 	publishToWordPress: async function (dirPath, options = {}) {
+		assertLivePublishAllowed(CONFIG);
 		Logger.info(`🚀 [WordPress] 발행 시작: ${path.basename(dirPath)}`);
 
 		const wpClient = new WordPressClient({

@@ -1,5 +1,10 @@
 const { isTransientBufferError } = require('./gateways/buffer-client');
 const {
+    LIVE_PUBLISH_BLOCKED_CODE,
+    LIVE_PUBLISH_BLOCKED_MESSAGE,
+    isLivePublishAllowed
+} = require('../environment/runtime-effects');
+const {
     formatSnsPost,
     isSnsServiceSupported,
     isSnsServiceDisabled,
@@ -195,6 +200,13 @@ function createSnsDistributionRunner(options = {}) {
     }
 
     async function run(trigger = 'auto') {
+        if (!isLivePublishAllowed(CONFIG)) {
+            return {
+                success: false,
+                code: LIVE_PUBLISH_BLOCKED_CODE,
+                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+            };
+        }
         if (CONFIG.SNS_PUBLISH_ENABLED !== true) {
             return {
                 success: false,

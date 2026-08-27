@@ -74,3 +74,29 @@ test('publish execute reports running state when another publish is already acti
     assert.equal(result.success, false);
     assert.equal(result.data.running, true);
 });
+
+test('publish execute does not contact the UI endpoint in development', async () => {
+    let requestCount = 0;
+    const capability = getExecuteCapability({
+        axios: {
+            async post() {
+                requestCount += 1;
+                return {};
+            }
+        },
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development',
+                configured: true,
+                effects: { livePublish: false }
+            }
+        }
+    });
+
+    const result = await capability.execute({ targetRowIndices: [0] });
+
+    assert.equal(result.success, false);
+    assert.match(result.message, /실제 발행이 차단/);
+    assert.equal(requestCount, 0);
+    assert.deepEqual(result.sideEffects, []);
+});

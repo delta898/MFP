@@ -1,3 +1,8 @@
+const {
+    LIVE_PUBLISH_BLOCKED_MESSAGE,
+    isLivePublishAllowed
+} = require('../../environment/runtime-effects');
+
 function normalizeArray(value) {
     if (!Array.isArray(value)) return [];
     return value.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 0);
@@ -111,6 +116,14 @@ function createPublishCapabilities(deps = {}) {
                 const normalizedParams = normalizePublishParams(params);
                 const axios = deps.axios || require('axios');
                 const CONFIG = deps.CONFIG || require('../../config-loader');
+                if (!isLivePublishAllowed(CONFIG)) {
+                    return {
+                        success: false,
+                        message: LIVE_PUBLISH_BLOCKED_MESSAGE,
+                        data: { environment: CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment || 'unselected' },
+                        sideEffects: []
+                    };
+                }
                 const port = CONFIG.UI_SERVER_PORT || 4577;
 
                 const postData = {

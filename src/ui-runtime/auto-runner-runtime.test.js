@@ -216,3 +216,45 @@ test('SNS startup does not request discovery when app activation is disabled', a
     assert.equal(discoveryCount, 0);
     assert.equal(runtime.snsRuntimeState.lastRunAt, null);
 });
+
+test('development environment keeps every live publishing scheduler stopped', () => {
+    const CONFIG = {
+        RUNTIME_ENVIRONMENT_PROFILE: {
+            environment: 'development',
+            configured: true,
+            effects: { livePublish: false }
+        },
+        PUBLISH_AUTO_ENABLED: true,
+        SNS_PUBLISH_ENABLED: true,
+        SNS_PUBLISH_INTERVAL_MIN: 10
+    };
+    const runtime = createAutoRunnerRuntime({
+        CONFIG,
+        Logger: { info() {}, error() {} },
+        parseConfigBool: (value) => value === true,
+        normalizeNonNegativeInt: (value, fallback) => Number.parseInt(value, 10) || fallback,
+        normalizeTimeHHmm: (value, fallback) => String(value || fallback),
+        computeNextWindowedRunAt: () => ({
+            runAt: new Date(Date.now() + 60000),
+            candidateAt: new Date(Date.now() + 60000),
+            adjustedByWindow: false
+        }),
+        normalizeShoppingAutoSettings: () => ({ SHOPPING_PUBLISH_AUTO_ENABLED: true }),
+        getBlogAutoSettingsSnapshot: () => ({}),
+        getShoppingAutoSettingsSnapshot: () => ({}),
+        publishAutoDefaults: { intervalMin: 60, startTime: '00:00', endTime: '23:59' },
+        shoppingAutoDefaults: {}
+    });
+
+    runtime.syncPublishRunner();
+    runtime.syncSnsRunner();
+    runtime.syncShoppingAutoRunnerWithConfig();
+
+    assert.equal(runtime.publishRuntimeState.enabled, false);
+    assert.equal(runtime.publishRuntimeState.nextRunAt, null);
+    assert.equal(runtime.snsRuntimeState.enabled, false);
+    assert.equal(runtime.snsRuntimeState.nextRunAt, null);
+    assert.equal(runtime.shoppingAutoRuntimeState.enabled, false);
+    assert.equal(runtime.shoppingAutoRuntimeState.nextRunAt, null);
+    assert.match(runtime.shoppingAutoRuntimeState.message, /실제 발행이 차단/);
+});

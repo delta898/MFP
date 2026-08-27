@@ -19,7 +19,7 @@ insert into public.licenses (
 values (
     'BG-DEVELOPMENT-00000000-00000000-00000000',
     'active',
-    'HOSTED-DEVELOPMENT-HWID',
+    null,
     0,
     100,
     date_trunc('month', timezone('utc', now())) + interval '1 month',
