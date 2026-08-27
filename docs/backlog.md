@@ -128,29 +128,50 @@
    - 일반 사용자용 device pairing과 relay가 필요한지, PC가 꺼진 상태의 cloud execution 수요가 충분한지 판단한다.
    - 모바일 push, share target, camera와 offline 작성 요구를 근거로 네이티브 wrapper 필요성을 결정한다.
 
-3. 블로그 목록·검색 UX
+3. 발행 플랫폼 확장 계약
+   - 새 플랫폼을 UI와 발행 분기에 직접 추가하지 않고 `platform adapter + auth + renderer + asset transport + publish result` 계약으로 분리한다.
+   - 플랫폼별로 인증, 글 생성, 초안, 예약, 수정, 삭제, 카테고리·태그, 이미지 업로드와 결과 URL 지원 여부를 capability matrix로 관리한다.
+   - 같은 글을 여러 플랫폼에 발행할 때 하나의 operation/quota를 유지하고 플랫폼별 성공·실패와 재시도를 독립적으로 기록한다.
+   - 플랫폼이 지원하지 않는 기능은 조용히 생략하지 않고 실행 전에 차이와 fallback을 사용자에게 보여준다.
+   - Naver와 WordPress를 먼저 공통 adapter 계약의 기준 구현으로 정리한 뒤 Tistory·Blogger를 추가한다.
+
+4. Tistory 지원 가능성 검증
+   - 2024년에 종료된 Tistory Open API를 제품 경로로 사용하거나 비공식적으로 복원하지 않는다.
+   - 별도 development 계정·테스트 블로그에서 로그인, 에디터 진입, 본문·이미지 입력, 초안 저장과 발행의 browser automation PoC를 먼저 수행한다.
+   - 에디터 DOM 변경, 로그인·보안 확인, 예약·카테고리·태그와 이미지 업로드 안정성 및 서비스 정책을 검토한 뒤 정식 지원 여부를 결정한다.
+   - 자동화가 안정적이지 않으면 `Tistory용 HTML/Markdown + 이미지 묶음 내보내기`와 에디터 열기·붙여넣기 같은 manual handoff를 첫 지원으로 제공한다.
+   - 사용자 계정 정보와 session은 PC에만 보관하고 BlogAnywhere나 서버로 전달하지 않는다.
+
+5. Google Blogger 지원 가능성 검증
+   - Blogger API v3와 OAuth 2.0으로 블로그 조회, 글 생성, draft, 수정, 발행과 결과 URL을 전용 development 계정에서 검증한다.
+   - 공식 Posts API에 별도 media upload가 없으므로 `images[]` 응답 필드를 이미지 업로드 기능으로 오해하지 않는다.
+   - 외부 공개 이미지 URL을 사용할 경우 WordPress에 종속되지 않는 asset storage, 접근 권한, 비용, 보존·삭제와 게시물 수명주기 계약을 먼저 정의한다.
+   - 외부 asset storage 없이 text-only/draft-only 지원이 사용자에게 충분한지 실제 수요를 확인하고, 충분하지 않으면 정식 지원을 보류한다.
+   - Blogger Web UI의 이미지 업로드를 browser automation으로 보완하는 혼합 방식은 별도 PoC로 검증하되 기본 경로로 가정하지 않는다.
+
+6. 블로그 목록·검색 UX
    - 텍스트 컬럼 inline edit의 저장·실패 안내와 실행 중 편집 잠금을 정리한다.
    - Trends/Keywords/Topics의 상태·자유검색과 Enter 동작을 통일한다.
    - 탭 이동 후에도 검색 조건을 유지하는 방안을 검토한다.
 
-4. 실행 로그 UX
+7. 실행 로그 UX
    - 새 작업 시작 시 runtime 상태 초기화 규칙을 유지한다.
    - 결과 요약 카드와 장기 이력의 역할을 분리한다.
 
-5. Trends 날짜 선택
+8. Trends 날짜 선택
    - 텍스트 입력을 달력 중심 UI로 바꾸고 `어제` 빠른 선택을 제공한다.
    - 선택 날짜와 확인 문구를 다른 화면과 일관되게 맞춘다.
 
-6. 쇼핑 빠른발행 미리보기 재설계
+9. 쇼핑 빠른발행 미리보기 재설계
    - 자동 blur 호출 없이 수동 `미리보기` 버튼으로만 실행한다.
    - headless 해석을 사용하고 실패가 발행을 막지 않게 한다.
    - 결과는 썸네일 중심의 간결한 카드로 표시한다.
 
-7. Remote MCP 고도화
+10. Remote MCP 고도화
    - Streamable HTTP transport, 인증, 재연결과 confirmation 복구를 설계한다.
    - App 수명주기와 endpoint 상태 표시를 capability 경계 안에서 연결한다.
 
-8. 통합 명령 팔레트
+11. 통합 명령 팔레트
    - 주요 화면 이동과 자주 쓰는 작업을 검색·실행한다.
    - 기존 capability와 안전한 UI action만 노출한다.
 
