@@ -26,7 +26,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 | Knowledge gateway | `src/knowledge/server-gateway-client.js` | news and managed provider snapshots |
 | Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |
 
-These consumers currently receive `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` through the shared config loader. Stage 2 replaces the direct shared pair with the selected environment profile while retaining compatibility only at the resolver boundary.
+These consumers now obtain an immutable public connection through `resolveSupabasePublicConnection`. The config loader retains `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` only as temporary internal aliases populated by the selected environment profile; client owners no longer read those aliases directly.
 
 ## Operator-only service consumer
 
@@ -94,7 +94,7 @@ License precheck, v2, and v3 are retained as historical implementation inputs. T
 | Storage | surface content SQL | bucket and policy migration verification |
 | Auth | no committed project config found | explicit environment checklist before hosted deployment |
 | Secrets | build injection and Supabase secret store | per-environment secret names and no desktop leakage |
-| Desktop release | GitHub workflow, `build.sh`, `build.bat` | production config only in approved release builds |
+| Desktop release | GitHub workflow, `build.sh`, `build.bat` | generated production profile validated before packaging |
 
 ## Production baseline procedure
 

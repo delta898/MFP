@@ -5,11 +5,13 @@ const { machineIdSync } = require('node-machine-id');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const { validateLicenseFeaturePolicy } = require('./license-feature-policy');
+const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
 
 // Supabase 클라이언트 초기화 (설정 누락 시 null 처리하여 안전하게 기동)
 let supabase = null;
-if (CONFIG.LICENSE_CHK_URL && CONFIG.LICENSE_CHK_KEY) {
-    supabase = createClient(CONFIG.LICENSE_CHK_URL, CONFIG.LICENSE_CHK_KEY);
+const supabaseConnection = resolveSupabasePublicConnection(CONFIG);
+if (supabaseConnection.configured) {
+    supabase = createClient(supabaseConnection.url, supabaseConnection.publishableKey);
 } else {
     Logger.warn("⚠️ 라이선스 서버 설정이 누락되었습니다.");
 }

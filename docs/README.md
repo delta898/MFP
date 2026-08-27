@@ -42,6 +42,7 @@
 - `architecture/ai-model-management.md`
 - `architecture/chat-model-role.md`
 - `architecture/development-environment-inventory.md`
+- `architecture/runtime-environment-profiles.md`
 - `license-policy.md`
 - `keyword-research-operations.md`
 - `features/mcp-client-setup.md`
@@ -73,6 +74,7 @@
 
 - `plans/active/development-environment-separation-main-plan.md`
 - `plans/active/development-environment-01-contract-plan.md`
+- `plans/active/development-environment-02-runtime-profile-plan.md`
 - `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
 - `plans/active/serpapi-collection-01-contracts-plan.md`

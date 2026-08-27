@@ -8,6 +8,7 @@ const {
     ENVIRONMENT_SCHEMA_VERSION,
     ENVIRONMENT_NAMES
 } = require('../src/environment/contract');
+const runtimeManifest = require('../src/environment/manifest');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
@@ -52,6 +53,24 @@ test('environment manifest has all canonical profiles and contains no secret val
     assert.equal(manifest.profiles.local.allows_destructive_database_operations, true);
     assert.equal(manifest.profiles.development.allows_live_publish, false);
     assert.equal(manifest.profiles.production.allows_destructive_database_operations, false);
+});
+
+test('runtime and deployment manifests share environment names and source contracts', () => {
+    const deploymentManifest = readJson('supabase/environment-manifest.json');
+    assert.equal(runtimeManifest.schema_version, deploymentManifest.schema_version);
+    assert.equal(runtimeManifest.environment_variable, deploymentManifest.environment_variable);
+    assert.deepEqual(Object.keys(runtimeManifest.profiles), Object.keys(deploymentManifest.profiles));
+
+    for (const environment of ENVIRONMENT_NAMES) {
+        assert.equal(
+            runtimeManifest.profiles[environment].supabase_url_source,
+            deploymentManifest.profiles[environment].supabase_url_source
+        );
+        assert.equal(
+            runtimeManifest.profiles[environment].supabase_publishable_key_source,
+            deploymentManifest.profiles[environment].supabase_publishable_key_source
+        );
+    }
 });
 
 test('Supabase SQL inventory covers every committed SQL asset exactly once', () => {
@@ -108,4 +127,52 @@ test('inventory never stores linked project metadata or credential values', () =
     assert.equal(serialized.includes('service_role_key'), false);
     assert.equal(serialized.includes('publishable_key_value'), false);
     assert.equal(inventory.linked_project_classification, 'production');
+});
+
+test('desktop Supabase clients resolve public connections through one environment boundary', () => {
+    const inventory = readJson('supabase/inventory.json');
+    for (const relativePath of inventory.desktop_consumers) {
+        const source = fs.readFileSync(path.join(REPO_ROOT, relativePath), 'utf8');
+        assert.match(source, /resolveSupabasePublicConnection/);
+        assert.doesNotMatch(source, /config\.LICENSE_CHK_(URL|KEY)/);
+        assert.doesNotMatch(source, /CONFIG\.LICENSE_CHK_(URL|KEY)/);
+    }
+});
+
+test('build environment config is generated, ignored, and validated explicitly', () => {
+    const gitignore = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
+    const sample = fs.readFileSync(path.join(REPO_ROOT, 'src/config/secret.js.sample'), 'utf8');
+    const workflow = fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/build.yml'), 'utf8');
+    const buildSh = fs.readFileSync(path.join(REPO_ROOT, 'build.sh'), 'utf8');
+    const buildBat = fs.readFileSync(path.join(REPO_ROOT, 'build.bat'), 'utf8');
+
+    assert.match(gitignore, /^src\/config\/secret\.js$/m);
+    assert.match(sample, /BLOGGENIUS_ENV/);
+    assert.match(sample, /SUPABASE_PUBLISHABLE_KEY/);
+    assert.doesNotMatch(sample, /hocfjolcthvtgfaxjmse/);
+    assert.match(workflow, /build-environment-config\.js write/);
+    assert.match(workflow, /--target production/);
+    assert.doesNotMatch(workflow, /echo "module\.exports/);
+    assert.match(buildSh, /build-environment-config\.js validate --target production/);
+    assert.match(buildBat, /build-environment-config\.js validate --target production/);
+});
+
+test('packaging includes the runtime environment implementation', () => {
+    const packageJson = readJson('package.json');
+    assert.ok(packageJson.pkg.scripts.includes('src/environment/**/*.js'));
+});
+
+test('config loading and diagnostics expose only the resolved environment boundary', () => {
+    const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
+    const systemService = fs.readFileSync(
+        path.join(REPO_ROOT, 'src/ui-api/services/system.service.js'),
+        'utf8'
+    );
+
+    assert.match(configLoader, /resolveRuntimeEnvironmentProfile/);
+    assert.match(configLoader, /RUNTIME_ENVIRONMENT_PROFILE: runtimeEnvironmentProfile/);
+    assert.doesNotMatch(configLoader, /LICENSE_CHK_URL: internalSecrets\.LICENSE_CHK_URL/);
+    assert.doesNotMatch(configLoader, /LICENSE_CHK_KEY: internalSecrets\.LICENSE_CHK_KEY/);
+    assert.match(systemService, /toSafeRuntimeEnvironmentDiagnostic/);
+    assert.doesNotMatch(systemService, /publishableKey/);
 });

@@ -110,6 +110,8 @@ Branch: `feature/development-environment-01-contract`
 
 Branch: `feature/development-environment-02-runtime-profile`
 
+Status: implementation complete, awaiting Stage 2 handoff
+
 작업:
 
 - environment resolver를 도입하고 Supabase client들이 resolver 결과만 사용하게 한다.

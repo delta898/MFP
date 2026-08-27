@@ -1,5 +1,6 @@
 const { createApiError } = require('../errors');
 const { listRecentDashboardActivities } = require('../../activity/dashboard-activity-store');
+const { toSafeRuntimeEnvironmentDiagnostic } = require('../../environment/runtime-profile');
 
 function createSystemService(deps = {}) {
     const {
@@ -531,6 +532,9 @@ function createSystemService(deps = {}) {
                 sourcePath: String(CONFIG.CONFIG_SOURCE_PATH || ''),
                 message: String(CONFIG.CONFIG_ERROR_MESSAGE || ''),
                 version: String(APP_VERSION || '0.0.0'),
+                runtimeEnvironment: toSafeRuntimeEnvironmentDiagnostic(
+                    CONFIG.RUNTIME_ENVIRONMENT_PROFILE
+                ),
                 isEssentialSet: CONFIG.CONFIG_IS_ESSENTIAL_SET === true,
                 isNaverSet: CONFIG.CONFIG_IS_NAVER_SET === true,
                 isWpSet: CONFIG.CONFIG_IS_WP_SET === true

@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
 const DEFAULT_TIMEOUT_MS = 3500;
 
@@ -20,10 +21,9 @@ function createSupabaseSurfaceContentProvider(options = {}) {
 
     function getClient() {
         if (client) return client;
-        const url = String(config.LICENSE_CHK_URL || '').trim();
-        const key = String(config.LICENSE_CHK_KEY || '').trim();
-        if (!url || !key) return null;
-        client = createClientImpl(url, key);
+        const connection = resolveSupabasePublicConnection(config);
+        if (!connection.configured) return null;
+        client = createClientImpl(connection.url, connection.publishableKey);
         return client;
     }
 
@@ -54,7 +54,8 @@ function createSupabaseSurfaceContentProvider(options = {}) {
 
         getStorageOrigin() {
             try {
-                return new URL(String(config.LICENSE_CHK_URL || '')).origin;
+                const connection = resolveSupabasePublicConnection(config);
+                return connection.configured ? new URL(connection.url).origin : '';
             } catch (error) {
                 logger.debug?.(`[SurfaceContent] Storage origin unavailable: ${error.message}`);
                 return '';

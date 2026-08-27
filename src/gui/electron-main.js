@@ -24,6 +24,9 @@ if (!fs.existsSync(logDir)) {
 const { startUiServer } = require('../ui-server');
 const { startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service');
 const Logger = require('../logger');
+const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
+
+logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
 
 let win = null;
 let uiServer = null;

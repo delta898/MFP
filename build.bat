@@ -40,6 +40,12 @@ if not exist src\config\secret.js (
     exit /b 1
 )
 
+call node scripts\build-environment-config.js validate --target production --input src\config\secret.js
+if errorlevel 1 (
+    echo 🚨 [Error] Production build 환경 설정이 올바르지 않습니다.
+    exit /b 1
+)
+
 echo 🧹 [Prepare] dist 폴더를 준비합니다...
 if not exist dist mkdir dist
 

@@ -2,6 +2,8 @@ node_modules/
 __pycache__/
 *.pyc
 .env
+src/config/secret.js
+!src/config/secret.js.sample
 config/config.txt
 config/config.json
 tools/keywordmaster-cli/config.env

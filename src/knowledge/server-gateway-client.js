@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
 const KNOWLEDGE_GATEWAY_FUNCTION = 'knowledge-gateway';
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -57,14 +58,13 @@ function createKnowledgeServerGatewayClient(options = {}) {
 
     function getClient() {
         if (client) return client;
-        const url = String(config.LICENSE_CHK_URL || '').trim();
-        const key = String(config.LICENSE_CHK_KEY || '').trim();
-        if (!url || !key) {
+        const connection = resolveSupabasePublicConnection(config);
+        if (!connection.configured) {
             const error = new Error('외부 지식 서버 연결이 설정되지 않았습니다.');
             error.code = 'KNOWLEDGE_GATEWAY_NOT_CONFIGURED';
             throw error;
         }
-        client = createClientImpl(url, key);
+        client = createClientImpl(connection.url, connection.publishableKey);
         return client;
     }
 

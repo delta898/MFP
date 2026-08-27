@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
 const DEFAULT_TIMEOUT_MS = 60000;
 
@@ -46,10 +47,9 @@ function createKeywordResearchSupabaseClient(options = {}) {
 
     function getClient() {
         if (client) return client;
-        const url = String(config.LICENSE_CHK_URL || '').trim();
-        const key = String(config.LICENSE_CHK_KEY || '').trim();
-        if (!url || !key) throw new Error('Supabase 키워드 분석 연결이 설정되지 않았습니다.');
-        client = createClientImpl(url, key);
+        const connection = resolveSupabasePublicConnection(config);
+        if (!connection.configured) throw new Error('Supabase 키워드 분석 연결이 설정되지 않았습니다.');
+        client = createClientImpl(connection.url, connection.publishableKey);
         return client;
     }
 

@@ -138,9 +138,16 @@ jobs:
         run: choco install innosetup --no-progress -y
       - name: Create secret.js
         shell: bash
+        env:
+          BLOGGENIUS_BUILD_SUPABASE_URL: ${{ secrets.LICENSE_CHK_URL }}
+          BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.LICENSE_CHK_KEY }}
         run: |
-          mkdir -p src/config
-          echo "module.exports = { LICENSE_CHK_URL: '${{ secrets.LICENSE_CHK_URL }}', LICENSE_CHK_KEY: '${{ secrets.LICENSE_CHK_KEY }}' };" > src/config/secret.js
+          node scripts/build-environment-config.js write \
+            --target production \
+            --output src/config/secret.js
+          node scripts/build-environment-config.js validate \
+            --target production \
+            --input src/config/secret.js
 
       - name: Build GUI App
         shell: bash

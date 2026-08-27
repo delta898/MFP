@@ -17,6 +17,9 @@ const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
 } = require('./content/writing-profile');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
+const {
+    resolveRuntimeEnvironmentProfile
+} = require('./environment/runtime-profile');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -63,17 +66,16 @@ const EXEC_DIR = ACTIVE_ROOT;
 // =========================================================
 let internalSecrets = {};
 try {
-    // pkg 빌드 시 번들링되는 내부 파일 (secret.js)
+    // Release build 시 환경별 public 연결값만 담아 생성되는 파일이다.
     internalSecrets = require('./config/secret');
-} catch (e) {
-    console.warn("⚠️ 라이선스 서버 설정 파일을 찾지 못했습니다.");
-    internalSecrets = {
-        LICENSE_CHK_URL: "",
-        LICENSE_CHK_KEY: "",
-        GOOGLE_OAUTH_CLIENT_ID: "",
-        GOOGLE_OAUTH_CLIENT_SECRET: ""
-    };
+} catch (_error) {
+    internalSecrets = {};
 }
+
+const runtimeEnvironmentProfile = resolveRuntimeEnvironmentProfile({
+    env: process.env,
+    buildConfig: internalSecrets
+});
 
 // =========================================================
 // 2. 📂 [경로 정의]
@@ -394,6 +396,16 @@ const CONFIG = {
     CONFIG_SOURCE_TYPE: configSourceType,
     CONFIG_ERROR_MESSAGE: configErrorMessage,
     ROOT_DIR: ROOT_DIR,
+    RUNTIME_ENVIRONMENT: runtimeEnvironmentProfile.environment,
+    RUNTIME_ENVIRONMENT_STATUS: runtimeEnvironmentProfile.status,
+    RUNTIME_ENVIRONMENT_PROFILE: runtimeEnvironmentProfile,
+    SUPABASE_PUBLIC_CONFIG: Object.freeze({
+        environment: runtimeEnvironmentProfile.environment,
+        configured: runtimeEnvironmentProfile.configured,
+        url: runtimeEnvironmentProfile.supabase.url,
+        publishableKey: runtimeEnvironmentProfile.supabase.publishableKey,
+        endpointHost: runtimeEnvironmentProfile.supabase.endpointHost
+    }),
 
     // 🔧 [Essential Resolved]
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
@@ -521,8 +533,9 @@ const CONFIG = {
     CLOSE_DELAY_SECONDS: structuredConfig.platforms.naver.close_delay_seconds,
     WAIT_LOAD: Constants.WAIT.LOAD,
     WAIT_UPLOAD: Constants.WAIT.UPLOAD,
-    LICENSE_CHK_URL: internalSecrets.LICENSE_CHK_URL,
-    LICENSE_CHK_KEY: internalSecrets.LICENSE_CHK_KEY,
+    // 기존 내부 호출 경계를 위한 별칭. 값은 Environment Resolver에서만 공급한다.
+    LICENSE_CHK_URL: runtimeEnvironmentProfile.supabase.url,
+    LICENSE_CHK_KEY: runtimeEnvironmentProfile.supabase.publishableKey,
     BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/config/blog_prompt_contract.md', { mustExist: true }),
     BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: true }),
     BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/config/blog_prompt_search.md', { mustExist: true }),

@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
 
 function createRuntimeConfigApi(options = {}) {
     const config = options.config || CONFIG;
@@ -16,8 +17,9 @@ function createRuntimeConfigApi(options = {}) {
 
     function getSupabaseClient() {
         if (supabase) return supabase;
-        if (!config.LICENSE_CHK_URL || !config.LICENSE_CHK_KEY) return null;
-        supabase = createClientImpl(config.LICENSE_CHK_URL, config.LICENSE_CHK_KEY);
+        const connection = resolveSupabasePublicConnection(config);
+        if (!connection.configured) return null;
+        supabase = createClientImpl(connection.url, connection.publishableKey);
         return supabase;
     }
 

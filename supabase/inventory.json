@@ -201,8 +201,10 @@
       ".github/workflows/build.yml",
       "build.sh",
       "build.bat",
-      "src/config/secret.js",
+      "scripts/build-environment-config.js",
+      "src/config/secret.js.sample",
       "src/config-loader.js"
-    ]
+    ],
+    "generated_desktop_build_artifact": "src/config/secret.js"
   }
 }

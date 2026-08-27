@@ -39,8 +39,11 @@ process.emitWarning = (warning, ...args) => {
 const { spawn } = require('child_process');
 const Logger = require('./logger');
 const CONFIG = require('./config-loader');
+const { logRuntimeEnvironmentStatus } = require('./environment/runtime-profile');
 const { startUiServer } = require('./ui-server');
 const { startRemoteMcpService, stopRemoteMcpService } = require('./mcp/remote-service');
+
+logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
 
 function openUrlInDefaultBrowser(url) {
     const target = String(url || '').trim();

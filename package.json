@@ -41,6 +41,7 @@
       "src/kuzu-service.js",
       "src/insight-engine.js",
       "src/content/**/*.js",
+      "src/environment/**/*.js",
       "src/naver/**/*.js",
       "src/ai/**/*.js",
       "src/social/**/*.js",

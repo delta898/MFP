@@ -10,6 +10,7 @@ const {
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
 const { createQuickPublishSuggestionService } = require('./quick-publish-suggestion');
 const { createKeywordResearchSupabaseClient } = require('./supabase-client');
+const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
@@ -38,7 +39,7 @@ function createKeywordResearchService(options = {}) {
     });
 
     function isConfigured() {
-        return Boolean(String(config.LICENSE_CHK_URL || '').trim() && String(config.LICENSE_CHK_KEY || '').trim());
+        return resolveSupabasePublicConnection(config).configured;
     }
 
     async function analyze(request = {}) {

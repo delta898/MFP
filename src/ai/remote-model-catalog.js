@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const CONFIG = require('../config-loader');
 const Logger = require('../logger');
 const { APP_VERSION } = require('../constants');
+const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 const {
     applyRemoteCatalog,
     getCatalogStatus
@@ -55,8 +56,9 @@ function createRemoteModelCatalogService(options = {}) {
 
     function getClient() {
         if (client) return client;
-        if (!config.LICENSE_CHK_URL || !config.LICENSE_CHK_KEY) return null;
-        client = createClientImpl(config.LICENSE_CHK_URL, config.LICENSE_CHK_KEY);
+        const connection = resolveSupabasePublicConnection(config);
+        if (!connection.configured) return null;
+        client = createClientImpl(connection.url, connection.publishableKey);
         return client;
     }
 
