@@ -46,8 +46,10 @@ test('production remains a manual non-deploying checklist', () => {
 
 test('environment validation uses Node 24 based artifact and Supabase actions', () => {
     assert.doesNotMatch(workflow, /actions\/(?:upload|download)-artifact@v4/);
-    assert.doesNotMatch(workflow, /supabase\/setup-cli@v1/);
+    assert.doesNotMatch(workflow, /supabase\/setup-cli@v[12]/);
+    assert.doesNotMatch(workflow, /version:\s*latest/);
     assert.match(workflow, /actions\/upload-artifact@v6/);
     assert.match(workflow, /actions\/download-artifact@v7/);
-    assert.match(workflow, /supabase\/setup-cli@v2/);
+    assert.equal((workflow.match(/supabase\/setup-cli@v3/g) || []).length, 2);
+    assert.equal((workflow.match(/version:\s*2\.114\.0/g) || []).length, 2);
 });

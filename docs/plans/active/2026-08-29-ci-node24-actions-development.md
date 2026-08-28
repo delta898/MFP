@@ -34,3 +34,6 @@
 - workflow contract test 5개와 전체 unit test 1,054개가 통과했다.
 - `git diff --check`가 통과했다.
 - `dev` push 후 실제 GitHub Actions 결과는 병합 뒤 확인한다.
+
+`supabase/setup-cli@v2`의 실제 CLI 설치 단계가 6분 이상 정체되어 후속 hotfix에서 v3와 검증된
+고정 CLI 버전으로 전환한다.
