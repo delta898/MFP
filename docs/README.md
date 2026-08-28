@@ -15,6 +15,8 @@
   - In-progress design and implementation plans.
 - `plans/archive/`
   - Completed or superseded plans kept only for historical reference.
+- `development-journal-topics.md`
+  - Reusable topic seeds learned while building BlogGenius, kept free of secrets and private data.
 
 ## Lifecycle
 1. Start design work in `plans/active/`.
@@ -49,6 +51,7 @@
 - `architecture/hosted-development-environment.md`
 - `architecture/runtime-credential-boundaries.md`
 - `development-environment-guide.md`
+- `development-journal-topics.md`
 - `supabase-recovery-runbook.md`
 - `license-policy.md`
 - `keyword-research-operations.md`
@@ -82,6 +85,7 @@
 
 - `plans/active/development-environment-separation-main-plan.md`
 - `plans/active/runtime-credential-security-main-plan.md`
+- `plans/active/2026-08-29-runtime-credential-security-03-naver-blog-gateway-development.md`
 - `plans/active/development-environment-01-contract-plan.md`
 - `plans/active/development-environment-02-runtime-profile-plan.md`
 - `plans/active/development-environment-03-deploy-guard-plan.md`

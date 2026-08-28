@@ -173,7 +173,7 @@ Branch: `feature/runtime-credential-security-01-contract`
 
 Branch: `feature/runtime-credential-security-02-google-oauth`
 
-Status: implementation complete; Development manual OAuth verification pending
+Status: complete; Local and Development manual OAuth verification passed
 
 - 개발 실행과 정식 build에서 OAuth Client 설정을 공급하는 생성 계약을 추가한다.
 - Runtime Config Google credential fallback을 제거한다.
@@ -191,6 +191,8 @@ Status: implementation complete; Development manual OAuth verification pending
 ### Stage 3 — Naver 외부 참고 검색 Gateway
 
 Branch: `feature/runtime-credential-security-03-naver-blog-gateway`
+
+Status: implementation complete; Local contracts passed, Development deploy/smoke deferred to parent integration
 
 - 외부 참고 검색을 기능 제한형 server gateway로 이전한다.
 - 결과 계약, license/access, rate limit, cache와 failure fallback을 구현한다.
@@ -286,15 +288,5 @@ RPC를 먼저 제거하면 Google Sheets, 외부 참고, 쇼핑 fallback이 중�
 
 ## 9. 개발 일지 제안 예약
 
-이 기능의 통합 검증 또는 Production rollout 설계가 마무리되는 시점에 다음 주제를 사용자에게
-다시 제안한다. 실제 secret, token, project 정보와 악용 가능한 운영 세부사항은 글감에서 제외한다.
-
-1. **Supabase Edge Function과 Secret의 역할과 주의사항**
-   - Secret은 Edge Function 내부에서 외부 provider를 호출할 때만 보호되며, Desktop에 반환하는
-     순간 더 이상 secret이 아니라는 점을 BlogGenius의 Runtime Config 개선 과정과 함께 설명한다.
-2. **Google Client ID와 Client Secret의 보안 모델**
-   - 서버 앱의 secret과 설치형 Desktop OAuth Client Secret이 왜 다른지, PKCE와 직접 OAuth를
-     유지하면서 DB 노출 경로를 제거한 판단과 교체 시 앱 업데이트·재연결 영향을 정리한다.
-3. **Access Token과 Refresh Token으로 이해하는 OAuth 2.0**
-   - 짧게 사용하는 access token, 장기 권한을 이어 주는 refresh token, scope, 만료와 재인증의
-     관계를 Google Sheets 연결 사례로 설명하고 안전한 저장·로그·폐기 원칙을 정리한다.
+이 기능에서 도출된 주제는 `docs/development-journal-topics.md`에 축적한다. 통합 검증 또는
+Production rollout 설계가 마무리되는 시점에 관련 주제를 선별해 사용자에게 다시 제안한다.

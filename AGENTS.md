@@ -56,6 +56,21 @@
 - Prefer fast-forward merges when branch history permits. Never rewrite shared history to force a merge.
 - Before every merge or branch deletion, confirm the current branch, target branch, merge status, and working-tree state. Never discard uncommitted user work to make Git operations convenient.
 
+## Feature Branch Development Records
+- Every feature branch, including a parent feature branch and each independently reviewable sub-feature branch, must have its own development record under `/Users/delta898/Project/NaverAutoBlog/docs/plans/active/`.
+- Create the record when the branch begins, before material implementation. Its filename must start with the branch start date in `YYYY-MM-DD-` format, followed by the normalized branch purpose (for example, `2026-08-29-runtime-credential-security-03-naver-blog-gateway-development.md`), so records sort chronologically and remain easy to associate with their branches. Write the exact branch name, start date, and base/parent branch inside the document.
+- Include at least:
+  - branch name, base/parent branch, and current status
+  - user need, goal, scope, and explicit non-goals
+  - proposed design, affected boundaries, and implementation stages
+  - decisions made with the user, alternatives considered, and important tradeoffs
+  - meaningful implementation progress, failures, corrections, and changes from the original plan
+  - final result, automated verification, manual checks still required, and remaining risks or follow-up work
+- Update the record as decisions and implementation change; do not wait until the end and reconstruct the process from memory.
+- A multi-stage parent record should summarize the whole feature and link its sub-feature records. A sub-feature record should remain independently understandable and must not rely only on the parent record for its result or verification.
+- Before merging a feature branch, bring its development record up to date. After a successful merge, keep the finalized record with the merged code and move it to `docs/plans/archive/` when the feature or stage is complete, unless its stable content has been promoted into canonical architecture, feature, or decision documents.
+- Development records must not contain credentials, private data, raw secret values, or exploitable operational details. Avoid duplicating canonical documentation or `CHANGELOG.md`; link to them and capture the branch-specific reasoning and outcome instead.
+
 ## Verification and Handoff
 - Match verification effort to risk: documentation or version-only edits need focused consistency checks; domain or prompt changes need unit/contract tests; UI behavior changes need the relevant browser/UI regression tests in addition to focused tests.
 - Run the narrowest relevant automated tests during implementation, then run the agreed broader regression suite before merging a completed feature parent or preparing a release.
