@@ -64,3 +64,48 @@ Developers의 Blog Search를, 키워드 경쟁도를 측정할 때는 NAVER API 
 fallback하거나 하나의 설정으로 합치면 안 된다. BlogGenius가 이 값들을 사용자 설정에서 제거하고
 기능별 Supabase Edge Function Secret으로 분리한 과정과 함께, API를 도입할 때 `제품명`이 아니라
 `발급 체계 + 인증 방식 + endpoint + 사용 목적 + quota` 표를 먼저 만드는 방법을 정리한다.
+
+## 개발과 배포 환경
+
+### Local에서 Development를 거쳐 Production까지 DB 변경을 안전하게 승격하기
+
+처음에는 필요한 SQL을 환경마다 직접 실행하면 된다고 생각하기 쉽지만, 시간이 지나면 어느 DB에
+무엇이 적용됐는지 알 수 없고 운영 데이터에 실수로 개발 변경을 적용할 위험이 커진다. BlogGenius가
+Local Docker Supabase, 원격 Development Supabase와 Production Supabase의 역할을 분리하고,
+canonical migration을 모든 환경의 단일 변경 이력으로 삼은 과정을 설명한다.
+
+Feature 브랜치에서는 Local DB를 reset하여 빈 데이터베이스에 migration과 seed가 처음부터 순서대로
+적용되는지 확인한다. `dev`에서는 같은 migration과 Edge Function을 Development에 적용한 뒤 원격
+migration 이력, Function 상태와 공개 smoke 결과를 읽어 credential이 없는 evidence를 만든다.
+
+먼저 배포 `artifact`와 `fingerprint`의 개념부터 설명한다. Artifact는 설치 파일이나 DB 복사본이
+아니라, 이번에 승격할 변경 묶음을 기계가 비교할 수 있도록 표현한 JSON 명세다. BlogGenius는 다음
+정보를 artifact에 기록한다.
+
+- 모든 migration의 version, 경로와 파일 내용 SHA-256
+- 모든 Edge Function 및 shared module의 경로와 파일 내용 SHA-256
+- Function 이름과 `verify_jwt` 정책
+- 환경·hosted-development manifest의 파일 내용 SHA-256
+- 정확한 40자리 Git commit SHA
+
+이 artifact 전체를 일정한 순서의 JSON으로 만든 뒤 다시 SHA-256으로 계산한 하나의 64자리 대표값이
+`fingerprint`다. 파일을 압축하거나 DB에 합치는 작업이 아니며 실제 DB 데이터, 사용자 정보, API
+Secret, token과 비밀번호는 포함하지 않는다. Migration SQL 한 글자, Function 코드 한 줄, JWT 정책,
+manifest 또는 Git commit 중 하나만 달라져도 fingerprint가 달라진다.
+
+Development 검증 결과에는 `fingerprint ABC를 검증했다`는 evidence를 남긴다. Release 후보에서 같은
+artifact를 다시 계산했을 때 ABC가 아니면 Development에서 검증하지 않은 변경이 섞인 것으로 보고
+승격을 차단한다. Fingerprint는 두 변경 묶음이 동일하다는 증거이지 그 내용이 올바르다는 증거는
+아니다. 올바름은 Local reset, 자동 테스트, Development smoke와 사용자 검증이 담당하고, fingerprint는
+검증한 바로 그 대상을 Production 후보로 가져가는 역할을 담당한다.
+
+Production checklist는 배포 버튼이 아니라 `동일한 변경이 Development에서 검증되었다`는 사실을
+확인하는 승인 준비 단계다. 실제 운영 적용 전에는 read-only schema audit, backup/PITR, 대상 project
+ref, 영향 범위와 중단 조건을 다시 확인하고 사용자 승인을 받아야 한다. 적용 순서는 schema migration
+후 Edge Function이며, 완료 후 read-only smoke와 결과 기록을 남긴다. 장애 시 과거 migration을
+수정하거나 무리하게 되돌리기보다 새 migration으로 forward fix한다.
+
+이번 Naver Gateway 작업처럼 기존 CHECK constraint에 새 cache kind를 추가하는 변경은 테이블·컬럼·
+데이터를 삭제하지 않는 additive migration이라 구버전과 함께 적용하기 쉽다. 반면 credential row
+삭제처럼 옛 앱이 의존하는 변경은 migration 파일이 있다는 이유만으로 안전하지 않다. 최소 지원
+버전, 구버전 종료 정책과 rollback·복구 조건까지 함께 설계해야 한다는 교훈을 정리한다.
