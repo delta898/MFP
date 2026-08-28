@@ -410,6 +410,7 @@ async function run() {
 
         await page.locator('.blog-tab-btn[data-blog-tab="collect"]').click();
         await page.waitForFunction(() => document.getElementById('blog-tab-collect')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('blog-collect-trends-result')?.textContent?.includes('불러오기 완료'));
         await page.evaluate(() => setBlogCollectResultText('수집 설정 테스트'));
         assert.equal((await page.locator('#blog-collect-trends-result').textContent())?.trim(), '수집 설정 테스트');
 
@@ -445,8 +446,14 @@ async function run() {
         assert.equal(await page.locator('#quick-keywords').inputValue(), '선택 키워드');
 
         await page.evaluate(async () => {
-            document.getElementById('quick-subject').value = '   ';
-            await applyQuickKeywordDiscovery([{ keyword: '빈 주제 자동 입력' }]);
+            const originalConfirm = showUiConfirm;
+            showUiConfirm = async () => true;
+            try {
+                document.getElementById('quick-subject').value = '   ';
+                await applyQuickKeywordDiscovery([{ keyword: '빈 주제 자동 입력' }]);
+            } finally {
+                showUiConfirm = originalConfirm;
+            }
         });
         assert.equal(await page.locator('#quick-subject').inputValue(), '빈 주제 자동 입력');
         assert.equal(await page.locator('#quick-keywords').inputValue(), '빈 주제 자동 입력');
@@ -497,6 +504,7 @@ async function run() {
 
         const expectedPosts = requests.filter((request) => request.method !== 'GET');
         assert.deepEqual(expectedPosts, [
+            { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' }
         ]);
