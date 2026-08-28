@@ -37,6 +37,8 @@ parser. The server selects the actual upstream provider and owns shared-account 
 - `trends + builtin_api + naver_trend_posting`
 - `news + server_gateway + naver-news`
 - `news + server_gateway + serpapi-corpus`
+- `blog_reference + server_gateway + naver-blog-reference`
+- `shopping_product + server_gateway + naver-shopping-product`
 
 ## Built-in Naver Trends Provider
 
@@ -64,7 +66,7 @@ The registry exposes versioned envelopes with:
 - at most 50 bounded kind-specific items;
 - source/publisher provenance without credentials or raw provider responses.
 
-The built-in Naver Trends provider and every `server_gateway` response pass strict Trends or News
+The built-in Naver Trends provider and every `server_gateway` response pass strict kind-specific
 Snapshot validation before reaching a consumer. Legacy array-returning providers, including the
 currently separate user-key SerpApi path, retain their item DTO during transition and gain a
 snapshot envelope at the registry boundary. New Recommendation Producers reject those legacy item
@@ -92,6 +94,13 @@ the two authentication systems do not fall back to each other. The route returns
 Search News results with a 15-minute cache and bounded stale fallback. A blank topic
 short-circuits to an empty validated Snapshot before provider quota because Naver News Search does
 not provide a query-free latest-headlines operation.
+
+`blog_reference + writing_reference -> naver-blog-reference` returns at most five recent HTTPS blog
+references without exposing Naver credentials to the desktop. `shopping_product + product_recovery
+-> naver-shopping-product` accepts a numeric product identity and returns at most one minimal product
+record. A product name may broaden the upstream query but never relaxes identity matching: the
+provider must match the requested product id or an exact product id in the returned URL. Empty,
+mismatched or failed recovery never substitutes the first search result.
 
 The desktop registers `naver-news` on the explicit `recommendation_content_news` route. The Stage 6
 content collector selects at most one justified query from each of explicit input, validated owner

@@ -30,11 +30,13 @@ test('gateway registers upstream Naver news and stored SerpApi corpus without de
     const providers = read('supabase/functions/_shared/knowledge-gateway-providers.ts');
     const naverNews = read('supabase/functions/_shared/knowledge-provider-naver-news.ts');
     const naverBlogReference = read('supabase/functions/_shared/knowledge-provider-naver-blog-reference.ts');
+    const naverShoppingProduct = read('supabase/functions/_shared/knowledge-provider-naver-shopping-product.ts');
     const serpApiCorpus = read('supabase/functions/_shared/knowledge-provider-serpapi-corpus.ts');
     const transport = read('src/knowledge/transports/server-gateway.js');
     const client = read('src/knowledge/server-gateway-client.js');
     assert.match(providers, /createNaverNewsRoute/);
     assert.match(providers, /createNaverBlogReferenceRoute/);
+    assert.match(providers, /createNaverShoppingProductRoute/);
     assert.match(providers, /createSerpApiCorpusRoute/);
     assert.match(providers, /new Map<string, KnowledgeProviderRoute>/);
     assert.match(naverNews, /https:\/\/openapi\.naver\.com\/v1\/search\/news\.json/);
@@ -46,6 +48,10 @@ test('gateway registers upstream Naver news and stored SerpApi corpus without de
     assert.match(naverBlogReference, /NAVER_CLIENT_ID/);
     assert.match(naverBlogReference, /NAVER_CLIENT_SECRET/);
     assert.doesNotMatch(naverBlogReference, /NAVER_API_HUB/);
+    assert.match(naverShoppingProduct, /https:\/\/openapi\.naver\.com\/v1\/search\/shop\.json/);
+    assert.match(naverShoppingProduct, /NAVER_CLIENT_ID/);
+    assert.match(naverShoppingProduct, /NAVER_CLIENT_SECRET/);
+    assert.doesNotMatch(naverShoppingProduct, /NAVER_API_HUB/);
     assert.match(serpApiCorpus, /read_knowledge_observations/);
     assert.doesNotMatch(serpApiCorpus, /SERPAPI_API_KEY|serpapi\.com\/search/i);
     assert.doesNotMatch(transport, /api[_-]?key|authorization|base[_-]?url/i);
@@ -57,6 +63,12 @@ test('blog reference cache kind is added through an ordered migration', () => {
     const migration = read('supabase/migrations/202608290000_add_blog_reference_gateway.sql');
     assert.match(migration, /drop constraint if exists knowledge_gateway_cache_kind_check/i);
     assert.match(migration, /'trends', 'news', 'blog_reference'/i);
+});
+
+test('shopping product cache kind is added through an ordered migration', () => {
+    const migration = read('supabase/migrations/202608290010_add_shopping_product_gateway.sql');
+    assert.match(migration, /drop constraint if exists knowledge_gateway_cache_kind_check/i);
+    assert.match(migration, /'trends', 'news', 'blog_reference', 'shopping_product'/i);
 });
 
 test('desktop external-reference flow uses the fixed gateway and has no direct provider credential access', () => {
@@ -72,6 +84,20 @@ test('desktop external-reference flow uses the fixed gateway and has no direct p
     assert.match(topPosts, /searchOptionalReferences/);
     assert.doesNotMatch(topPosts, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
     assert.match(core, /관련 최신 글 수집 및 분석 시작/);
+});
+
+test('desktop shopping fallback uses the fixed gateway and has no direct provider credential access', () => {
+    const gateway = read('src/content/shopping-product-gateway.js');
+    const shoppingManager = read('src/shopping-manager.js');
+    assert.match(gateway, /kind: SHOPPING_KIND/);
+    assert.match(gateway, /purpose: SHOPPING_PURPOSE/);
+    assert.doesNotMatch(gateway, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
+    const fallbackStart = shoppingManager.indexOf('async function resolveViaShoppingSearchGateway');
+    const fallbackEnd = shoppingManager.indexOf('function extractDeepProductLinksFromHtml', fallbackStart);
+    const fallback = shoppingManager.slice(fallbackStart, fallbackEnd);
+    assert.match(fallback, /recoverOptionalProduct/);
+    assert.doesNotMatch(fallback, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com|axios\.(?:get|post)/);
+    assert.doesNotMatch(shoppingManager, /resolveViaShoppingSearchApi/);
 });
 
 test('stored corpus reads occur after license rate protection and before upstream machinery', () => {

@@ -7,8 +7,12 @@ const CONFIG = require('./config-loader');
 const Utils = require('./utils');
 const Logger = require('./logger');
 const BrowserLauncher = require('./browser-launcher');
-const RuntimeConfig = require('./runtime-config');
+const License = require('./license');
 const { persistAuthSessionState } = require('./auth-session');
+const {
+    createShoppingProductGateway,
+    recoverOptionalProduct
+} = require('./content/shopping-product-gateway');
 const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
 const { projectWritingProfile } = require('./content/writing-profile-projection');
 const { buildShoppingWritingProfilePromptFromProjection } = require('./content/shopping-writing-profile-prompt');
@@ -20,6 +24,7 @@ const {
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
 const DEFAULT_CTA_IMAGE_INSERT_COUNT = 2;
+const shoppingProductGateway = createShoppingProductGateway({ config: CONFIG, License });
 
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -3226,67 +3231,12 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
     }
 }
 
-async function resolveViaShoppingSearchApi(channelProductNo) {
-    await RuntimeConfig.ensureNaverSearchCredentials();
-    if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) return null;
-
-    try {
-        const apiUrl = 'https://openapi.naver.com/v1/search/shop.json';
-        const res = await axios.get(apiUrl, {
-            headers: {
-                'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
-                'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
-            },
-            params: { query: channelProductNo, display: 20, sort: 'sim' },
-            timeout: 15000
-        });
-
-        const items = res.data?.items || [];
-        if (!Array.isArray(items) || items.length === 0) return null;
-
-        const matched = items.find(item =>
-            String(item.productId || '') === String(channelProductNo) ||
-            String(item.link || '').includes(String(channelProductNo))
-        ) || items[0];
-
-        if (!matched) return null;
-
-        const link = decodeHtml(matched.link || '');
-        const image = decodeHtml(matched.image || '');
-        const title = stripTags(decodeHtml(matched.title || ''));
-        const category = [matched.category1, matched.category2, matched.category3, matched.category4].filter(Boolean).join(' > ');
-        const body = [
-            title ? `상품명: ${title}` : '',
-            matched.mallName ? `스토어: ${matched.mallName}` : '',
-            category ? `카테고리: ${category}` : '',
-            matched.lprice ? `최저가: ${matched.lprice}` : '',
-            matched.hprice ? `최고가: ${matched.hprice}` : ''
-        ].filter(Boolean).join('\n');
-
-        const commerceData = {
-            salePrice: parseKrwNumber(matched.lprice),
-            originalPrice: parseKrwNumber(matched.hprice),
-            discountRate: null,
-            freeShipping: false,
-            deliveryMethods: [],
-            installment: '',
-            benefitHighlights: []
-        };
-        commerceData.facts = buildCommerceFacts(commerceData);
-
-        return {
-            title,
-            description: '',
-            body,
-            imageUrls: image ? [image] : [],
-            commerceData,
-            reviewData: { reviewCount: null, averageRating: null, aiSummaryPoints: [], reviewSamples: [], reviewHighlights: [], facts: [] },
-            productLink: link
-        };
-    } catch (e) {
-        Logger.warn(`⚠️ 쇼핑 검색 API fallback 실패: ${e.message}`);
-        return null;
-    }
+async function resolveViaShoppingSearchGateway(channelProductNo, productName = '', gateway = shoppingProductGateway) {
+    return await recoverOptionalProduct(
+        gateway,
+        { productId: channelProductNo, productName },
+        (error) => Logger.warn(`⚠️ 쇼핑 상품 Gateway fallback 실패: ${error.message}`)
+    );
 }
 
 function extractDeepProductLinksFromHtml(html, channelProductNo) {
@@ -3423,7 +3373,7 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
         }
     }
 
-    const searchFallback = await resolveViaShoppingSearchApi(channelProductNo);
+    const searchFallback = await resolveViaShoppingSearchGateway(channelProductNo, options.productName);
     if (searchFallback) {
         const merged = mergeProductData(baseData, {
             title: searchFallback.title,
@@ -3436,7 +3386,7 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
         });
         const finalUrl = searchFallback.productLink || `channelProductNo:${channelProductNo}`;
         Logger.info(`✅ [Shopping] 검색API fallback 적용: ${finalUrl}`);
-        return { productData: merged, finalUrl, source: 'shop_search_api' };
+        return { productData: merged, finalUrl, source: 'shopping_product_gateway' };
     }
 
     return null;
@@ -4029,23 +3979,6 @@ const ShoppingManager = {
             }
         }
 
-        if (isLikelyInvalidLanding(productData, finalUrl) && channelProductNo) {
-            const searchFallback = await resolveViaShoppingSearchApi(channelProductNo);
-            if (searchFallback) {
-                const fallbackData = {
-                    title: searchFallback.title,
-                    description: searchFallback.description,
-                    body: searchFallback.body,
-                    imageUrls: searchFallback.imageUrls,
-                    commerceData: searchFallback.commerceData,
-                    reviewData: searchFallback.reviewData
-                };
-                productData = mergeProductData(productData, fallbackData);
-                finalUrl = searchFallback.productLink || finalUrl;
-                resolvedSource = 'shop_search_api';
-            }
-        }
-
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             throw new Error(`상품 정보를 추출하지 못했습니다. 단축 URL이 상품 페이지를 가리키는지 확인해주세요. (resolved: ${finalUrl})`);
         }
@@ -4112,7 +4045,9 @@ const ShoppingManager = {
 
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             if (channelProductNo) {
-                const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml);
+                const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
+                    productName: productNameHint
+                });
                 if (fallback) {
                     finalUrl = fallback.finalUrl;
                     productData = fallback.productData;
@@ -4494,7 +4429,8 @@ ShoppingManager.__test = {
     selectPrimaryPricePair,
     extractDiscountRateFromText,
     mergeProductData,
-    choosePreferredProductTitle
+    choosePreferredProductTitle,
+    resolveViaShoppingSearchGateway
 };
 
 module.exports = ShoppingManager;

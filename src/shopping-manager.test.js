@@ -16,7 +16,8 @@ const {
     resolveShoppingProductTitle,
     selectPrimaryPricePair,
     mergeProductData,
-    choosePreferredProductTitle
+    choosePreferredProductTitle,
+    resolveViaShoppingSearchGateway
 } = ShoppingManager.__test;
 
 function createPromptProduct() {
@@ -46,6 +47,22 @@ function withWritingProfile(profile, callback) {
         CONFIG.CONTENT_WRITING_PROFILE = previous;
     }
 }
+
+test('shopping fallback delegates exact product recovery to the server gateway', async () => {
+    let input;
+    const expected = { title: '정확한 상품', productLink: 'https://example.com/products/123456' };
+    const gateway = {
+        recoverProduct: async (value) => {
+            input = value;
+            return expected;
+        }
+    };
+
+    const result = await resolveViaShoppingSearchGateway('123456', '정확한 상품', gateway);
+
+    assert.deepEqual(input, { productId: '123456', productName: '정확한 상품' });
+    assert.equal(result, expected);
+});
 
 test('shopping prompt uses numbers selectively and keeps volume requirements consistent', () => {
     const prompt = buildAiPrompt(createPromptProduct(), 'naver');

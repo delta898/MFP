@@ -210,6 +210,8 @@ Status: implementation complete; Local contracts passed, Development deploy/smok
 
 Branch: `feature/runtime-credential-security-04-naver-shopping-gateway`
 
+Status: implementation complete; Local contracts passed, Development deploy/smoke deferred to parent integration
+
 - URL/HTML/browser 추출은 Desktop에 유지한다.
 - 상품 정보가 부족할 때만 gateway를 호출한다.
 - exact product match와 최소 응답 field 계약을 적용한다.

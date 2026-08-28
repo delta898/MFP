@@ -86,6 +86,7 @@
 - `plans/active/development-environment-separation-main-plan.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/2026-08-29-runtime-credential-security-03-naver-blog-gateway-development.md`
+- `plans/active/2026-08-29-runtime-credential-security-04-naver-shopping-gateway-development.md`
 - `plans/active/development-environment-01-contract-plan.md`
 - `plans/active/development-environment-02-runtime-profile-plan.md`
 - `plans/active/development-environment-03-deploy-guard-plan.md`

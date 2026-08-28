@@ -49,7 +49,7 @@ Desktop은 Google Client 설정을 Runtime Config RPC에서 조회하지 않는�
 | Feature | Current consumer | Current location | Target |
 | --- | --- | --- | --- |
 | External blog reference | `fetchNaverBlogTopPosts` | `knowledge-gateway`의 제한형 `blog_reference:writing_reference` route | 현재 구조 유지 |
-| Shopping product recovery | `resolveViaShoppingSearchApi` | Desktop direct API | capability gateway |
+| Shopping product recovery | `resolveViaShoppingSearchGateway` | `knowledge-gateway`의 제한형 `shopping_product:product_recovery` route | 현재 구조 유지 |
 | Recommendation news | Naver news Knowledge provider | Edge Function | 유지 |
 | Single blog search helper | `fetchNaverBlogSearchResults` | no caller found | 제거 후보 |
 
@@ -60,6 +60,10 @@ fallback은 Desktop 추출이 부족할 때만 서버를 호출한다. 뉴스는
 외부 참고 route는 검색어와 최대 5건만 받으며 제목, HTTPS URL과 작성일만 반환한다. 라이선스,
 device rate limit, provider quota/backoff와 짧은 cache는 기존 `knowledge-gateway` 경계를 재사용한다.
 Gateway 실패 시 Desktop은 Naver API를 직접 호출하지 않고 자동 참고만 생략한다.
+
+쇼핑 복구 route는 숫자 product ID와 선택적인 사용자 상품명만 받는다. 상품명은 검색어 보완에만
+사용하며, provider의 product ID 또는 상품 URL이 요청 ID와 정확히 일치할 때만 최소 상품 정보를
+반환한다. 일치 결과가 없거나 Gateway가 실패하면 검색 첫 결과를 대체 상품으로 사용하지 않는다.
 
 ### Keyword research
 

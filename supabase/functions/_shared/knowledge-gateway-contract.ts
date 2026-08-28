@@ -3,6 +3,7 @@ const ALLOWED_ROUTES = new Set([
   "news:content_ideas",
   "news:serendipity",
   "blog_reference:writing_reference",
+  "shopping_product:product_recovery",
 ]);
 const CONTENT_ALLOWED_LOCALES = new Set(["ko-KR"]);
 const CONTENT_ALLOWED_COUNTRIES = new Set(["KR"]);
@@ -77,9 +78,12 @@ export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) 
     : {};
   if (!ALLOWED_ROUTES.has(`${kind}:${purpose}`)) throw new Error("route_invalid");
   const discovery = purpose === "serendipity";
+  const productRecovery = purpose === "product_recovery";
   const allowedQueryKeys = discovery
     ? new Set(["lanes", "locales", "countries", "exclude_ids", "limit"])
-    : new Set(["topic", "locale", "country", "limit"]);
+    : productRecovery
+      ? new Set(["product_id", "product_name", "locale", "country"])
+      : new Set(["topic", "locale", "country", "limit"]);
   if (Object.keys(query).some((key) => !allowedQueryKeys.has(key))) throw new Error("query_field_invalid");
   const defaultLimit = discovery ? 12 : (purpose === "writing_reference" ? 3 : 10);
   const limit = Number(query.limit || defaultLimit);
@@ -101,6 +105,22 @@ export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) 
   const locale = compact(query.locale || "ko-KR", 20) || "ko-KR";
   const country = (compact(query.country || "KR", 8) || "KR").toUpperCase();
   if (!CONTENT_ALLOWED_LOCALES.has(locale) || !CONTENT_ALLOWED_COUNTRIES.has(country)) throw new Error("locale_invalid");
+  if (productRecovery) {
+    const productId = compact(query.product_id, 40);
+    if (!/^\d{1,40}$/.test(productId)) throw new Error("product_id_invalid");
+    return {
+      kind,
+      purpose,
+      query: {
+        product_id: productId,
+        product_name: compact(query.product_name, 180),
+        locale,
+        country,
+      },
+      licenseKey: compact(body.licenseKey, 256),
+      hwid: compact(body.hwid, 256),
+    };
+  }
   return {
     kind,
     purpose,
@@ -145,7 +165,9 @@ export function validateServerKnowledgeSnapshot(
     const commonAllowed = ["id", "title", "summary", "observed_at", "url", "source", "publisher"];
     const kindAllowed = expected.kind === "trends"
       ? ["keyword", "categories", "change_type", "change_amount", "score"]
-      : ["published_at"];
+      : expected.kind === "shopping_product"
+        ? ["product_id", "image_url", "mall_name", "categories", "low_price", "high_price"]
+        : ["published_at"];
     if (Object.keys(item).some((key) => ![...commonAllowed, ...kindAllowed].includes(key))) {
       throw new Error(`item_${index}_field_invalid`);
     }
@@ -154,7 +176,10 @@ export function validateServerKnowledgeSnapshot(
       title: compact(item.title, 300),
       summary: compact(item.summary, 1000),
       observed_at: iso(item.observed_at, `item_${index}_observed_at`),
-      url: httpsUrl(item.url, expected.kind === "news" || expected.kind === "blog_reference"),
+      url: httpsUrl(
+        item.url,
+        expected.kind === "news" || expected.kind === "blog_reference" || expected.kind === "shopping_product",
+      ),
       source: compact(item.source, 120),
       publisher: compact(item.publisher, 160),
     } as Record<string, unknown>;
@@ -175,6 +200,24 @@ export function validateServerKnowledgeSnapshot(
       normalized.published_at = iso(item.published_at, `item_${index}_published_at`);
     } else if (expected.kind === "blog_reference") {
       normalized.published_at = iso(item.published_at, `item_${index}_published_at`);
+    } else if (expected.kind === "shopping_product") {
+      normalized.product_id = compact(item.product_id, 40);
+      if (!/^\d{1,40}$/.test(String(normalized.product_id))) {
+        throw new Error(`item_${index}_product_id_invalid`);
+      }
+      normalized.image_url = httpsUrl(item.image_url, false);
+      normalized.mall_name = compact(item.mall_name, 160);
+      normalized.categories = boundedUniqueStrings(item.categories, "categories", null, 4, 100);
+      for (const field of ["low_price", "high_price"]) {
+        const value = item[field];
+        if (value === null || value === undefined || value === "") {
+          normalized[field] = null;
+        } else {
+          const parsed = Number(value);
+          if (!Number.isSafeInteger(parsed) || parsed < 0) throw new Error(`item_${index}_${field}_invalid`);
+          normalized[field] = parsed;
+        }
+      }
     }
     return normalized;
   });

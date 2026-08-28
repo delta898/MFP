@@ -42,16 +42,25 @@ function classifyProviderFailure(error: unknown) {
   const internalCode = error && typeof error === "object" && "code" in error
     ? String(error.code || "").trim().slice(0, 80)
     : "";
-  if (["NAVER_NEWS_AUTH_FAILED", "NAVER_NEWS_NOT_CONFIGURED", "NAVER_BLOG_AUTH_FAILED", "NAVER_BLOG_NOT_CONFIGURED"].includes(internalCode)) {
+  if ([
+    "NAVER_NEWS_AUTH_FAILED", "NAVER_NEWS_NOT_CONFIGURED",
+    "NAVER_BLOG_AUTH_FAILED", "NAVER_BLOG_NOT_CONFIGURED",
+    "NAVER_SHOPPING_AUTH_FAILED", "NAVER_SHOPPING_NOT_CONFIGURED",
+  ].includes(internalCode)) {
     return { publicCode: "PROVIDER_AUTH_FAILED", internalCode };
   }
-  if (internalCode === "NAVER_NEWS_RATE_LIMITED" || internalCode === "NAVER_BLOG_RATE_LIMITED") {
+  if (["NAVER_NEWS_RATE_LIMITED", "NAVER_BLOG_RATE_LIMITED", "NAVER_SHOPPING_RATE_LIMITED"].includes(internalCode)) {
     return { publicCode: "PROVIDER_RATE_LIMITED", internalCode };
   }
-  if (internalCode === "NAVER_NEWS_REQUEST_REJECTED" || internalCode === "NAVER_BLOG_REQUEST_REJECTED") {
+  if ([
+    "NAVER_NEWS_REQUEST_REJECTED", "NAVER_BLOG_REQUEST_REJECTED", "NAVER_SHOPPING_REQUEST_REJECTED",
+  ].includes(internalCode)) {
     return { publicCode: "UPSTREAM_REQUEST_REJECTED", internalCode };
   }
-  if (["NAVER_NEWS_INVALID_RESPONSE", "NAVER_BLOG_INVALID_RESPONSE", "INVALID_UPSTREAM_RESPONSE"].includes(internalCode)) {
+  if ([
+    "NAVER_NEWS_INVALID_RESPONSE", "NAVER_BLOG_INVALID_RESPONSE", "NAVER_SHOPPING_INVALID_RESPONSE",
+    "INVALID_UPSTREAM_RESPONSE",
+  ].includes(internalCode)) {
     return { publicCode: "INVALID_UPSTREAM_RESPONSE", internalCode };
   }
   if (String((error as Error)?.message || "") === "upstream_timeout") {
