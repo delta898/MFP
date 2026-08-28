@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
 const {
     formatApiResultSummary,
@@ -7,6 +8,8 @@ const {
     parseCollectorCliArgs,
     resolveCollectorConfig
 } = require('./collect');
+
+const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
 
 test('parseCollectorCliArgs supports help and explicit date options', () => {
     assert.deepEqual(parseCollectorCliArgs(['--help']), {
@@ -73,9 +76,9 @@ test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
         TRENDS_DRY_RUN: '1'
     });
 
-    assert.match(config.rootDir, /Project\/NaverAutoBlog$/);
+    assert.equal(config.rootDir, EXPECTED_REPO_ROOT);
     assert.equal(config.naverId, 'amadejjs');
-    assert.match(config.authPath, /Project\/NaverAutoBlog\/state\/naver-auth\.json$/);
+    assert.equal(config.authPath, path.join(EXPECTED_REPO_ROOT, 'state/naver-auth.json'));
     assert.equal(config.date, '2026-04-02');
     assert.equal(config.headless, false);
     assert.equal(config.apiHost, '0.0.0.0');
@@ -89,8 +92,8 @@ test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
 test('resolveCollectorConfig falls back to repo cwd defaults', () => {
     const config = resolveCollectorConfig({});
 
-    assert.match(config.rootDir, /Project\/NaverAutoBlog$/);
-    assert.match(config.authPath, /Project\/NaverAutoBlog\/config\/naver_auth\.json$/);
+    assert.equal(config.rootDir, EXPECTED_REPO_ROOT);
+    assert.equal(config.authPath, path.join(EXPECTED_REPO_ROOT, 'config/naver_auth.json'));
     assert.equal(config.naverId, '');
     assert.equal(config.date, '');
     assert.equal(config.headless, true);
