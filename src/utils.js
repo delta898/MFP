@@ -3186,48 +3186,6 @@ const Utils = {
     },
 
     /**
-     * 1-5. 네이버 블로그 검색 (참고 URL 수집)
-     */
-    fetchNaverBlogSearchResults: async function (keyword) {
-        await RuntimeConfig.ensureNaverSearchCredentials();
-        if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
-            Logger.warn("⚠️ 네이버 검색 API 서버 설정이 없어 블로그 검색을 건너뜁니다.");
-            return [];
-        }
-
-        try {
-            const url = `https://openapi.naver.com/v1/search/blog.json`;
-            const res = await axios.get(url, {
-                headers: {
-                    'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
-                    'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
-                },
-                params: {
-                    query: keyword,
-                    display: 5,
-                    sort: 'sim' // 정확도순
-                }
-            });
-
-            if (res.data && res.data.items) {
-                // postdate 기준 내림차순 정렬 (최신순)
-                const items = res.data.items.sort((a, b) => Number(b.postdate) - Number(a.postdate));
-
-                // 가장 최신 글 1개의 링크만 리턴
-                if (items.length > 0) {
-                    let link = items[0].link;
-                    return this.convertToMobileNaverBlogUrl(link);
-                }
-            }
-            return "";
-
-        } catch (e) {
-            Logger.warn(`⚠️ 블로그 검색 API 실패 (${keyword}): ${e.message}`);
-            return "";
-        }
-    },
-
-    /**
      * 1-5-1. 네이버 블로그 인기글 상위 N개 URL 수집 (최신순)
      * - 외부 참고 여부가 Yes인 경우 batch 실행 시 호출
      * - 모든 로그는 DEBUG 레벨에서만 출력

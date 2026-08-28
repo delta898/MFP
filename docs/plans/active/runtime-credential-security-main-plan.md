@@ -228,6 +228,8 @@ Status: implementation complete; Local contracts passed, Development deploy/smok
 
 Branch: `feature/runtime-credential-security-05-runtime-config`
 
+Status: implementation complete; Local contracts passed, Production rollout deferred
+
 - Desktop의 Google/Naver credential loader를 제거한다.
 - 호출자가 없는 단건 블로그 검색 함수를 제거한다.
 - 공개 Runtime Config key를 code-owned allowlist로 제한한다.

@@ -8,6 +8,9 @@ declare
     v_superseded_tables integer;
     v_anon_functions integer;
     v_unsafe_helper_grants integer;
+    v_runtime_credential_rows integer;
+    v_runtime_result jsonb;
+    v_runtime_rejected boolean := false;
 begin
     select count(*)
       into v_public_tables
@@ -89,6 +92,25 @@ begin
            or has_function_privilege('authenticated', p.oid, 'EXECUTE')
        );
 
+    select count(*)
+      into v_runtime_credential_rows
+      from public.app_runtime_configs
+     where lower(config_key) in (
+         'google_oauth_client_id',
+         'google_oauth_client_secret',
+         'naver_client_id',
+         'naver_client_secret'
+     );
+
+    select public.get_runtime_config(array['blog_auto_categories_master'])
+      into v_runtime_result;
+
+    begin
+        perform public.get_runtime_config(array['naver_client_secret']);
+    exception when sqlstate '22023' then
+        v_runtime_rejected := true;
+    end;
+
     if v_public_tables <> 23 then
         raise exception 'expected 23 public tables, found %', v_public_tables;
     end if;
@@ -112,5 +134,14 @@ begin
     end if;
     if v_unsafe_helper_grants <> 0 then
         raise exception 'found % internal/helper RPC grants for client roles', v_unsafe_helper_grants;
+    end if;
+    if v_runtime_credential_rows <> 0 then
+        raise exception 'found % credential rows in public runtime config', v_runtime_credential_rows;
+    end if;
+    if v_runtime_result <> '{}'::jsonb then
+        raise exception 'unexpected public runtime config baseline: %', v_runtime_result;
+    end if;
+    if v_runtime_rejected is not true then
+        raise exception 'runtime config accepted a credential key';
     end if;
 end $$;

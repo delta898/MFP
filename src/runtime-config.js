@@ -3,6 +3,26 @@ const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
 
+const PUBLIC_RUNTIME_CONFIG_KEYS = Object.freeze([
+    'NAVER_AUTO_CATEGORIES_MASTER',
+    'BLOG_AUTO_CATEGORIES_MASTER',
+    'blog_auto_categories_master',
+    'naver_auto_categories_master'
+]);
+const PUBLIC_RUNTIME_CONFIG_KEY_SET = new Set(PUBLIC_RUNTIME_CONFIG_KEYS);
+
+function normalizePublicRuntimeConfigKeys(keys) {
+    if (!Array.isArray(keys) || keys.length === 0) {
+        throw new TypeError('runtime config keys must be a non-empty array');
+    }
+
+    const normalized = [...new Set(keys.map((key) => String(key || '').trim()))];
+    if (normalized.some((key) => !key || !PUBLIC_RUNTIME_CONFIG_KEY_SET.has(key))) {
+        throw new TypeError('runtime config request contains a non-public key');
+    }
+    return normalized;
+}
+
 function createRuntimeConfigApi(options = {}) {
     const config = options.config || CONFIG;
     const logger = options.logger || Logger;
@@ -28,10 +48,10 @@ function createRuntimeConfigApi(options = {}) {
     }
 
     async function fetchRuntimeConfig(keys, force = false) {
-        if (!Array.isArray(keys) || keys.length === 0) return {};
+        const requestedKeys = normalizePublicRuntimeConfigKeys(keys);
 
-        if (!force && hasFreshCache() && keys.every((key) => key in cache)) {
-            return keys.reduce((acc, key) => {
+        if (!force && hasFreshCache() && requestedKeys.every((key) => key in cache)) {
+            return requestedKeys.reduce((acc, key) => {
                 acc[key] = cache[key];
                 return acc;
             }, {});
@@ -39,7 +59,7 @@ function createRuntimeConfigApi(options = {}) {
 
         const client = getSupabaseClient();
         if (!client) {
-            return keys.reduce((acc, key) => {
+            return requestedKeys.reduce((acc, key) => {
                 if (key in cache) acc[key] = cache[key];
                 return acc;
             }, {});
@@ -47,27 +67,33 @@ function createRuntimeConfigApi(options = {}) {
 
         let lastError = null;
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            let timeoutId = null;
             try {
                 const timeout = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('runtime config timeout')), requestTimeoutMs);
+                    timeoutId = setTimeout(
+                        () => reject(new Error('runtime config timeout')),
+                        requestTimeoutMs
+                    );
                 });
-                const rpcCall = client.rpc('get_runtime_config', { p_keys: keys });
+                const rpcCall = client.rpc('get_runtime_config', { p_keys: requestedKeys });
                 const { data, error } = await Promise.race([rpcCall, timeout]);
 
                 if (error) throw error;
 
                 const map = (data && typeof data === 'object') ? data : {};
-                for (const key of keys) {
+                for (const key of requestedKeys) {
                     cache[key] = String(map[key] || '').trim();
                 }
                 lastFetchedAt = Date.now();
 
-                return keys.reduce((acc, key) => {
+                return requestedKeys.reduce((acc, key) => {
                     acc[key] = cache[key];
                     return acc;
                 }, {});
             } catch (e) {
                 lastError = e;
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
             }
         }
 
@@ -75,29 +101,15 @@ function createRuntimeConfigApi(options = {}) {
             throw lastError || new Error('runtime config unavailable');
         } catch (e) {
             logger.debug(`🔍 [Runtime Config] 서버 설정 조회 실패: ${e.message}`);
-            return keys.reduce((acc, key) => {
+            return requestedKeys.reduce((acc, key) => {
                 if (key in cache) acc[key] = cache[key];
                 return acc;
             }, {});
         }
     }
 
-    async function ensureNaverSearchCredentials(force = false) {
-        if (config.NAVER_CLIENT_ID && config.NAVER_CLIENT_SECRET) return true;
-
-        const values = await fetchRuntimeConfig(['naver_client_id', 'naver_client_secret'], force);
-        const nextId = String(values.naver_client_id || '').trim();
-        const nextSecret = String(values.naver_client_secret || '').trim();
-
-        if (!config.NAVER_CLIENT_ID && nextId) config.NAVER_CLIENT_ID = nextId;
-        if (!config.NAVER_CLIENT_SECRET && nextSecret) config.NAVER_CLIENT_SECRET = nextSecret;
-
-        return Boolean(config.NAVER_CLIENT_ID && config.NAVER_CLIENT_SECRET);
-    }
-
     return {
-        fetchRuntimeConfig,
-        ensureNaverSearchCredentials
+        fetchRuntimeConfig
     };
 }
 
@@ -105,5 +117,7 @@ const runtimeConfigApi = createRuntimeConfigApi();
 
 module.exports = {
     ...runtimeConfigApi,
+    PUBLIC_RUNTIME_CONFIG_KEYS,
+    normalizePublicRuntimeConfigKeys,
     createRuntimeConfigApi
 };

@@ -1,7 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createRuntimeConfigApi } = require('./runtime-config');
+const {
+    PUBLIC_RUNTIME_CONFIG_KEYS,
+    createRuntimeConfigApi,
+    normalizePublicRuntimeConfigKeys
+} = require('./runtime-config');
+
+const PUBLIC_SETTING = 'blog_auto_categories_master';
 
 function createConfiguredRuntime(overrides = {}) {
     return {
@@ -24,15 +30,15 @@ test('runtime config retries transient fetch failure before giving up', async ()
                     remainingFailures -= 1;
                     throw new Error('timeout');
                 }
-                return { data: { public_setting: 'value' }, error: null };
+                return { data: { [PUBLIC_SETTING]: 'value' }, error: null };
             }
         }),
         requestTimeoutMs: 50,
         maxAttempts: 2
     });
 
-    const values = await api.fetchRuntimeConfig(['public_setting'], true);
-    assert.deepEqual(values, { public_setting: 'value' });
+    const values = await api.fetchRuntimeConfig([PUBLIC_SETTING], true);
+    assert.deepEqual(values, { [PUBLIC_SETTING]: 'value' });
     assert.equal(calls.length, 2);
 });
 
@@ -44,18 +50,18 @@ test('runtime config does not poison cache when every fetch attempt fails', asyn
         createClientImpl: () => ({
             async rpc() {
                 if (fail) throw new Error('timeout');
-                return { data: { public_setting: 'value' }, error: null };
+                return { data: { [PUBLIC_SETTING]: 'value' }, error: null };
             }
         }),
         requestTimeoutMs: 50,
         maxAttempts: 1
     });
 
-    assert.deepEqual(await api.fetchRuntimeConfig(['public_setting'], true), {});
+    assert.deepEqual(await api.fetchRuntimeConfig([PUBLIC_SETTING], true), {});
     fail = false;
     assert.deepEqual(
-        await api.fetchRuntimeConfig(['public_setting'], true),
-        { public_setting: 'value' }
+        await api.fetchRuntimeConfig([PUBLIC_SETTING], true),
+        { [PUBLIC_SETTING]: 'value' }
     );
 });
 
@@ -67,39 +73,42 @@ test('runtime config reuses cached public values', async () => {
         createClientImpl: () => ({
             async rpc() {
                 callCount += 1;
-                return { data: { public_setting: 'value' }, error: null };
+                return { data: { [PUBLIC_SETTING]: 'value' }, error: null };
             }
         })
     });
 
-    const fetched = await api.fetchRuntimeConfig(['public_setting'], true);
-    const cached = await api.fetchRuntimeConfig(['public_setting'], false);
+    const fetched = await api.fetchRuntimeConfig([PUBLIC_SETTING], true);
+    const cached = await api.fetchRuntimeConfig([PUBLIC_SETTING], false);
 
-    assert.deepEqual(fetched, { public_setting: 'value' });
-    assert.deepEqual(cached, { public_setting: 'value' });
+    assert.deepEqual(fetched, { [PUBLIC_SETTING]: 'value' });
+    assert.deepEqual(cached, { [PUBLIC_SETTING]: 'value' });
     assert.equal(callCount, 1);
 });
 
-test('runtime config still resolves Naver credentials until the gateway migration stage', async () => {
-    const config = createConfiguredRuntime({ NAVER_CLIENT_ID: '', NAVER_CLIENT_SECRET: '' });
+test('runtime config rejects empty, unknown, and credential key requests before RPC', async () => {
+    let callCount = 0;
     const api = createRuntimeConfigApi({
-        config,
+        config: createConfiguredRuntime(),
         logger: { debug() {} },
         createClientImpl: () => ({
             async rpc() {
-                return {
-                    data: {
-                        naver_client_id: 'naver-id',
-                        naver_client_secret: 'naver-secret'
-                    },
-                    error: null
-                };
+                callCount += 1;
+                return { data: {}, error: null };
             }
         })
     });
 
-    assert.equal(await api.ensureNaverSearchCredentials(true), true);
-    assert.equal(config.NAVER_CLIENT_ID, 'naver-id');
-    assert.equal(config.NAVER_CLIENT_SECRET, 'naver-secret');
-    assert.equal(api.ensureGoogleOauthClientConfig, undefined);
+    await assert.rejects(api.fetchRuntimeConfig([], true), /non-empty array/);
+    await assert.rejects(api.fetchRuntimeConfig(['unknown_setting'], true), /non-public key/);
+    await assert.rejects(api.fetchRuntimeConfig(['naver_client_secret'], true), /non-public key/);
+    assert.equal(callCount, 0);
+});
+
+test('runtime config public key contract is explicit and deduplicated', () => {
+    assert.ok(PUBLIC_RUNTIME_CONFIG_KEYS.includes(PUBLIC_SETTING));
+    assert.deepEqual(
+        normalizePublicRuntimeConfigKeys([PUBLIC_SETTING, PUBLIC_SETTING]),
+        [PUBLIC_SETTING]
+    );
 });

@@ -173,6 +173,10 @@
       "classification": "canonical_migration"
     },
     {
+      "path": "supabase/migrations/202608290020_harden_public_runtime_config.sql",
+      "classification": "canonical_migration"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },

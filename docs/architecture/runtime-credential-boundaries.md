@@ -79,11 +79,8 @@ Gateway 실패 시 Desktop은 Naver API를 직접 호출하지 않고 자동 참
 
 ### Runtime Config database
 
-`app_runtime_configs`는 server-side non-secret 설정에 계속 사용할 수 있다. 현재
-`get_runtime_config`는 `anon` 실행 가능한 `SECURITY DEFINER` 함수이며 null/empty key 요청이 전체
-활성 row를 반환할 수 있다. RLS가 table 직접 접근을 막더라도 이 RPC 반환값은 보호하지 못한다.
-
-목표 RPC는 다음 조건을 모두 만족해야 한다.
+`app_runtime_configs`는 server-side non-secret 설정에 계속 사용한다. Desktop의
+`get_runtime_config` 호출은 코드가 소유한 공개 allowlist로 제한되며 다음 조건을 모두 만족한다.
 
 - code-owned public allowlist가 존재한다.
 - 요청 key가 반드시 하나 이상 있어야 한다.
@@ -91,6 +88,10 @@ Gateway 실패 시 Desktop은 Naver API를 직접 호출하지 않고 자동 참
 - credential처럼 보이는 key 이름을 규칙으로 추측해서 허용하지 않는다.
 - 반환값, 오류와 로그에 secret 원문이 포함되지 않는다.
 - server-side SQL이 직접 읽는 non-secret TTL은 Desktop 공개 RPC와 별도로 유지할 수 있다.
+
+Local/Development migration은 Google/Naver credential row를 삭제한다. Production에는 새 Desktop
+배포와 구버전 지원 정책 승인 전까지 이 migration을 적용하지 않는다. 따라서 저장되어 있을 수 있는
+Production legacy row는 공개 설정으로 간주하지 않으며 신규 코드가 읽지 않는다.
 
 ## Trust boundaries
 
@@ -135,5 +136,6 @@ Operator boundary
 - Google Client 설정 교체는 개발 설정과 build input 변경 및 앱 업데이트로 수행한다.
 - Google Client ID 변경 시 사용자 재연결 가능성을 명시한다.
 - Naver/SearchAd/SerpApi 등 provider credential은 환경 Secret에서 회전한다.
-- 노출 가능성이 있던 credential은 Desktop 전환 이후 기존 row를 삭제하고 회전한다.
+- 노출 가능성이 있던 credential은 새 Desktop 전환과 구버전 정책 승인 이후 Production row를
+  삭제하고 회전한다.
 - credential 값은 문서, migration, seed, CI artifact, diagnostic output에 기록하지 않는다.
