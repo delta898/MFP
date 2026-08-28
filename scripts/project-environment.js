@@ -4,6 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const DEFAULT_DEVELOPMENT_ENV_FILE = '.env.development';
+const DEFAULT_GOOGLE_OAUTH_ENV_FILE = '.env.oauth';
+const GOOGLE_OAUTH_ENV_KEYS = Object.freeze([
+    'GOOGLE_OAUTH_CLIENT_ID',
+    'GOOGLE_OAUTH_CLIENT_SECRET'
+]);
 
 function stripQuotes(value) {
     if (value.length >= 2 && (
@@ -44,9 +49,26 @@ function loadDevelopmentEnvironment(options = {}) {
     });
 }
 
+function loadGoogleOauthEnvironment(options = {}) {
+    const loaded = loadProjectEnvironment({
+        ...options,
+        fileName: options.fileName || DEFAULT_GOOGLE_OAUTH_ENV_FILE
+    });
+    const base = options.env || process.env;
+    const selected = {};
+    for (const key of GOOGLE_OAUTH_ENV_KEYS) {
+        if (loaded[key] !== undefined) selected[key] = loaded[key];
+        if (base[key] !== undefined) selected[key] = base[key];
+    }
+    return Object.freeze({ ...base, ...selected });
+}
+
 module.exports = {
     DEFAULT_DEVELOPMENT_ENV_FILE,
+    DEFAULT_GOOGLE_OAUTH_ENV_FILE,
+    GOOGLE_OAUTH_ENV_KEYS,
     parseEnvironmentFile,
     loadProjectEnvironment,
-    loadDevelopmentEnvironment
+    loadDevelopmentEnvironment,
+    loadGoogleOauthEnvironment
 };

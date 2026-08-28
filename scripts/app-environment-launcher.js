@@ -3,7 +3,10 @@
 
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { loadDevelopmentEnvironment } = require('./project-environment');
+const {
+    loadDevelopmentEnvironment,
+    loadGoogleOauthEnvironment
+} = require('./project-environment');
 const {
     loadManifest,
     inspectHostedDevelopmentReadiness
@@ -49,7 +52,11 @@ function runChecked(spawn, command, args, options = {}) {
 function prepareLocalEnvironment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
     const spawn = options.spawn || spawnSync;
-    const baseEnv = options.env || process.env;
+    const baseEnv = loadGoogleOauthEnvironment({
+        repoRoot,
+        fs: options.fs,
+        env: options.env || process.env
+    });
 
     runChecked(spawn, 'supabase', [
         'start',
@@ -83,10 +90,15 @@ function prepareLocalEnvironment(options = {}) {
 
 function prepareDevelopmentEnvironment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
-    const env = loadDevelopmentEnvironment({
+    const developmentEnv = loadDevelopmentEnvironment({
         repoRoot,
         fs: options.fs,
         env: options.env || process.env
+    });
+    const env = loadGoogleOauthEnvironment({
+        repoRoot,
+        fs: options.fs,
+        env: developmentEnv
     });
     const manifest = options.manifest || loadManifest(repoRoot, options.fs);
     const readiness = inspectHostedDevelopmentReadiness({

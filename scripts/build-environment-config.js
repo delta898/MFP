@@ -18,6 +18,8 @@ function createBuildEnvironmentConfig(input = {}) {
     const environment = assertEnvironmentName(input.environment);
     const supabaseUrl = normalizeText(input.supabaseUrl);
     const publishableKey = normalizeText(input.publishableKey);
+    const googleOauthClientId = normalizeText(input.googleOauthClientId);
+    const googleOauthClientSecret = normalizeText(input.googleOauthClientSecret);
     const validatedUrl = validatePublicUrl(environment, supabaseUrl);
 
     if (!validatedUrl.valid) {
@@ -26,11 +28,16 @@ function createBuildEnvironmentConfig(input = {}) {
     if (!publishableKey) {
         throw new Error(`Missing ${environment} Supabase publishable key`);
     }
+    if (!googleOauthClientId || !googleOauthClientSecret) {
+        throw new Error(`Missing ${environment} Google OAuth client configuration`);
+    }
 
     return Object.freeze({
         BLOGGENIUS_ENV: environment,
         SUPABASE_URL: supabaseUrl,
-        SUPABASE_PUBLISHABLE_KEY: publishableKey
+        SUPABASE_PUBLISHABLE_KEY: publishableKey,
+        GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
+        GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret
     });
 }
 
@@ -53,7 +60,9 @@ function validateBuildEnvironmentConfig(config, expectedEnvironment) {
     const normalized = createBuildEnvironmentConfig({
         environment: config?.BLOGGENIUS_ENV,
         supabaseUrl: config?.SUPABASE_URL,
-        publishableKey: config?.SUPABASE_PUBLISHABLE_KEY
+        publishableKey: config?.SUPABASE_PUBLISHABLE_KEY,
+        googleOauthClientId: config?.GOOGLE_OAUTH_CLIENT_ID,
+        googleOauthClientSecret: config?.GOOGLE_OAUTH_CLIENT_SECRET
     });
     if (normalized.BLOGGENIUS_ENV !== expected) {
         throw new Error(
@@ -84,7 +93,9 @@ function runCli(argv = process.argv.slice(2), env = process.env) {
         const config = createBuildEnvironmentConfig({
             environment: args.target,
             supabaseUrl: env.BLOGGENIUS_BUILD_SUPABASE_URL,
-            publishableKey: env.BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY
+            publishableKey: env.BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY,
+            googleOauthClientId: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID,
+            googleOauthClientSecret: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET
         });
         writeBuildEnvironmentConfig(args.output, config);
         process.stdout.write(`Build environment config created for ${config.BLOGGENIUS_ENV}.\n`);

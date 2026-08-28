@@ -51,6 +51,24 @@ preflight가 허용되지 않은 브랜치와 target 조합을 차단한다.
 
 Local은 일상적인 기능 개발, migration 작성, DB reset과 자동 테스트를 위한 기본 환경이다.
 
+### 개발 PC의 Google OAuth 앱 설정
+
+Local과 Development 앱은 공통으로 저장소 루트의 Git 제외 파일 `.env.oauth`에서 Google Desktop
+OAuth 앱 설정을 읽는다. `config/google-oauth.env.sample`을 참고해 개발 컴퓨터마다 한 번 준비한다.
+
+```dotenv
+GOOGLE_OAUTH_CLIENT_ID="..."
+GOOGLE_OAUTH_CLIENT_SECRET="..."
+```
+
+이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 위 두 key만 로더에 반영된다. 실제
+값은 Git, `config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은
+배포본에서 추출 가능하다는 전제를 가지며, 공용 provider quota를 보호하는 server secret과 구분한다.
+
+사용자 access/refresh token은 계속 `config/google_oauth_tokens.json`에 저장된다. `.env.oauth`을
+다른 개발 PC에 준비해도 사용자 Google 연결 상태가 복사되는 것은 아니므로 각 PC에서 한 번씩
+Google 계정을 연결해야 한다.
+
 ### 특성
 
 - 개발자 PC의 Docker Supabase 사용
@@ -201,17 +219,29 @@ Production은 실제 사용자·라이선스·사용량·발행·알림·결제�
 - 실제 적용 전 backup/PITR와 복구 계획 확인
 
 정식 패키지는 release build 과정에서 무시된 `src/config/secret.js`를 생성한다. 이 파일에는
-production의 공개 연결값만 포함한다.
+production 공개 Supabase 연결값과 Google Desktop OAuth 앱 설정이 포함된다.
 
 ```js
 {
   BLOGGENIUS_ENV: 'production',
   SUPABASE_URL: '...',
-  SUPABASE_PUBLISHABLE_KEY: '...'
+  SUPABASE_PUBLISHABLE_KEY: '...',
+  GOOGLE_OAUTH_CLIENT_ID: '...',
+  GOOGLE_OAUTH_CLIENT_SECRET: '...'
 }
 ```
 
 Service-role key, DB password, provider Secret과 결제 Secret은 desktop build에 포함하지 않는다.
+Google 설치형 앱의 Client Secret은 이 server secret 목록에 포함하지 않는다.
+
+GitHub tag build에는 다음 두 repository secret도 필요하다.
+
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+
+값이 없거나 한 쌍이 완전하지 않으면 release build config 검증이 실패한다. Client 설정을 바꾼
+경우 새 앱 버전을 배포하고, Google에서 기존 token을 더 이상 인정하지 않으면 사용자에게 다시
+연결하도록 안내한다.
 
 ## 6. 브랜치별 개발 workflow
 

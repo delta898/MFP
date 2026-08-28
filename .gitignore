@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 .env.development
+.env.oauth
 src/config/secret.js
 !src/config/secret.js.sample
 config/config.txt

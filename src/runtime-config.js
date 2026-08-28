@@ -95,23 +95,9 @@ function createRuntimeConfigApi(options = {}) {
         return Boolean(config.NAVER_CLIENT_ID && config.NAVER_CLIENT_SECRET);
     }
 
-    async function ensureGoogleOauthClientConfig(force = false) {
-        if (config.GOOGLE_OAUTH_CLIENT_ID && config.GOOGLE_OAUTH_CLIENT_SECRET) return true;
-
-        const values = await fetchRuntimeConfig(['google_oauth_client_id', 'google_oauth_client_secret'], force);
-        const nextId = String(values.google_oauth_client_id || '').trim();
-        const nextSecret = String(values.google_oauth_client_secret || '').trim();
-
-        if (!config.GOOGLE_OAUTH_CLIENT_ID && nextId) config.GOOGLE_OAUTH_CLIENT_ID = nextId;
-        if (!config.GOOGLE_OAUTH_CLIENT_SECRET && nextSecret) config.GOOGLE_OAUTH_CLIENT_SECRET = nextSecret;
-
-        return Boolean(config.GOOGLE_OAUTH_CLIENT_ID && config.GOOGLE_OAUTH_CLIENT_SECRET);
-    }
-
     return {
         fetchRuntimeConfig,
-        ensureNaverSearchCredentials,
-        ensureGoogleOauthClientConfig
+        ensureNaverSearchCredentials
     };
 }
 

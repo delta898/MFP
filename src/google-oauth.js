@@ -26,11 +26,24 @@ function getOauthClientConfig() {
     };
 }
 
+function getConfigurationStatus() {
+    const config = getOauthClientConfig();
+    const missing = [];
+    if (!config.clientId) missing.push('client_id');
+    if (!config.clientSecret) missing.push('client_secret');
+    if (!config.tokensPath) missing.push('tokens_path');
+    return {
+        configured: missing.length === 0,
+        missing
+    };
+}
+
 function ensureConfigured() {
     const config = getOauthClientConfig();
-    if (!config.clientId) throw new Error('Google OAuth 클라이언트가 아직 구성되지 않았습니다.');
-    if (!config.clientSecret) throw new Error('Google OAuth 클라이언트 시크릿이 아직 구성되지 않았습니다.');
-    if (!config.tokensPath) throw new Error('Google OAuth 토큰 저장 경로가 설정되지 않았습니다.');
+    const status = getConfigurationStatus();
+    if (!status.configured) {
+        throw new Error('Google OAuth 앱 설정이 준비되지 않았습니다. BlogGenius 앱 설정 또는 버전을 확인해 주세요.');
+    }
     return config;
 }
 
@@ -292,6 +305,7 @@ module.exports = {
     deleteTokens,
     exchangeCode,
     getAccessToken,
+    getConfigurationStatus,
     getOauthClientConfig,
     getStatus,
     readTokens,

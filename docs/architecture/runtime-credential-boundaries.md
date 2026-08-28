@@ -27,12 +27,13 @@ Desktop OAuth Client Secret은 이름에 `secret`이 있어도 설치형 앱에�
 
 | Item | Current source | Consumer | Target |
 | --- | --- | --- | --- |
-| Client ID/Secret | env/build config, 없으면 Runtime Config RPC | `src/google-oauth.js` | generated dev/build config only |
+| Client ID/Secret | ignored `.env.oauth` 또는 generated build config | `src/google-oauth.js` | 현재 구조 유지 |
 | access/refresh token | ignored `config/google_oauth_tokens.json` | `src/google-oauth.js` | 파일 유지, 후속 Keychain 검토 |
 | Sheets access token | token refresh 결과 | `src/utils.js` 및 Sheets 기능 | Desktop 직접 Google API 호출 유지 |
 
 Google OAuth는 loopback callback과 PKCE를 사용한다. Edge Function이 Client Secret을 반환하거나
 인증 code/token refresh를 대행하는 broker는 도입하지 않는다.
+Desktop은 Google Client 설정을 Runtime Config RPC에서 조회하지 않는다.
 
 ### Naver user authorization
 

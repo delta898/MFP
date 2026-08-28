@@ -70,6 +70,13 @@ test('local app launcher starts Supabase and injects its discovered public conne
         repoRoot: '/repo',
         spawn,
         quiet: true,
+        fs: {
+            existsSync: (filePath) => /[.]env[.]oauth$/.test(filePath),
+            readFileSync: () => [
+                'GOOGLE_OAUTH_CLIENT_ID=local-google-id',
+                'GOOGLE_OAUTH_CLIENT_SECRET=local-google-secret'
+            ].join('\n')
+        },
         env: { BLOGGENIUS_ENV: 'development' }
     });
 
@@ -81,15 +88,24 @@ test('local app launcher starts Supabase and injects its discovered public conne
     assert.equal(env.BLOGGENIUS_RUNTIME_ROOT, path.resolve('/repo'));
     assert.equal(env.BLOGGENIUS_LOCAL_SUPABASE_URL, 'http://127.0.0.1:54321');
     assert.equal(env.BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY, 'legacy-local-key');
+    assert.equal(env.GOOGLE_OAUTH_CLIENT_ID, 'local-google-id');
+    assert.equal(env.GOOGLE_OAUTH_CLIENT_SECRET, 'local-google-secret');
 });
 
 test('development app launcher reads the dedicated file and owns environment selection', () => {
+    const requestedPaths = [];
     const fs = {
         existsSync(filePath) {
-            assert.match(filePath, /[.]env[.]development$/);
-            return true;
+            requestedPaths.push(filePath);
+            return /[.]env[.](development|oauth)$/.test(filePath);
         },
-        readFileSync() {
+        readFileSync(filePath) {
+            if (/[.]env[.]oauth$/.test(filePath)) {
+                return [
+                    'GOOGLE_OAUTH_CLIENT_ID=development-google-id',
+                    'GOOGLE_OAUTH_CLIENT_SECRET=development-google-secret'
+                ].join('\n');
+            }
             return [
                 'BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME="BlogGenius Development"',
                 'BLOGGENIUS_DEVELOPMENT_SUPABASE_URL=https://development.example.invalid',
@@ -111,6 +127,10 @@ test('development app launcher reads the dedicated file and owns environment sel
         env.BLOGGENIUS_DEVELOPMENT_SUPABASE_URL,
         'https://development.example.invalid'
     );
+    assert.equal(env.GOOGLE_OAUTH_CLIENT_ID, 'development-google-id');
+    assert.equal(env.GOOGLE_OAUTH_CLIENT_SECRET, 'development-google-secret');
+    assert.equal(requestedPaths.some((value) => /[.]env[.]development$/.test(value)), true);
+    assert.equal(requestedPaths.some((value) => /[.]env[.]oauth$/.test(value)), true);
 });
 
 test('development runtime root makes config loading prefer the project over Electron userData', () => {
@@ -231,4 +251,5 @@ test('package scripts expose only the safe local and development launch shortcut
     assert.equal(packageJson.scripts['env:status'], 'node scripts/environment-status.js');
     assert.equal(packageJson.scripts['app:production'], undefined);
     assert.match(gitignore, /^\.env\.development$/m);
+    assert.match(gitignore, /^\.env\.oauth$/m);
 });

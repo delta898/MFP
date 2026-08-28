@@ -72,7 +72,8 @@ const EXEC_DIR = ACTIVE_ROOT;
 // =========================================================
 let internalSecrets = {};
 try {
-    // Release build 시 환경별 public 연결값만 담아 생성되는 파일이다.
+    // Release build 시 환경별 public 연결값과 Desktop OAuth 앱 설정을 담아 생성된다.
+    // 설치형 OAuth Client Secret은 앱에서 추출 가능하며 server secret으로 취급하지 않는다.
     internalSecrets = require('./config/secret');
 } catch (_error) {
     internalSecrets = {};
@@ -365,12 +366,12 @@ const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || stru
 const googleOauthTokensPath = resolveRuntimePath(googleOauthTokensRaw || './config/google_oauth_tokens.json', { mustExist: false });
 const googleOauthClientId = String(
     process.env.GOOGLE_OAUTH_CLIENT_ID
-    || internalSecrets.GOOGLE_OAUTH_CLIENT_ID
+    || (IS_PACKAGED ? internalSecrets.GOOGLE_OAUTH_CLIENT_ID : '')
     || ''
 ).trim();
 const googleOauthClientSecret = String(
     process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    || internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET
+    || (IS_PACKAGED ? internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET : '')
     || ''
 ).trim();
 

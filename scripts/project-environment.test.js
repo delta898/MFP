@@ -4,9 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     DEFAULT_DEVELOPMENT_ENV_FILE,
+    DEFAULT_GOOGLE_OAUTH_ENV_FILE,
     parseEnvironmentFile,
     loadProjectEnvironment,
-    loadDevelopmentEnvironment
+    loadDevelopmentEnvironment,
+    loadGoogleOauthEnvironment
 } = require('./project-environment');
 
 test('project environment parser reads assignments without evaluating shell syntax', () => {
@@ -56,4 +58,35 @@ test('development loader selects development regardless of ambient environment',
     });
 
     assert.equal(loaded.BLOGGENIUS_ENV, 'development');
+});
+
+test('Google OAuth loader reads only its allowed keys and preserves ambient overrides', () => {
+    const requestedPaths = [];
+    const loaded = loadGoogleOauthEnvironment({
+        repoRoot: '/repo',
+        fs: {
+            existsSync(filePath) {
+                requestedPaths.push(filePath);
+                return true;
+            },
+            readFileSync() {
+                return [
+                    'GOOGLE_OAUTH_CLIENT_ID=file-client-id',
+                    'GOOGLE_OAUTH_CLIENT_SECRET=file-client-secret',
+                    'BLOGGENIUS_ENV=production',
+                    'BLOGGENIUS_LOCAL_SUPABASE_URL=https://should-not-load.invalid'
+                ].join('\n');
+            }
+        },
+        env: {
+            BLOGGENIUS_ENV: 'local',
+            GOOGLE_OAUTH_CLIENT_ID: 'ambient-client-id'
+        }
+    });
+
+    assert.equal(requestedPaths[0], `/repo/${DEFAULT_GOOGLE_OAUTH_ENV_FILE}`);
+    assert.equal(loaded.BLOGGENIUS_ENV, 'local');
+    assert.equal(loaded.GOOGLE_OAUTH_CLIENT_ID, 'ambient-client-id');
+    assert.equal(loaded.GOOGLE_OAUTH_CLIENT_SECRET, 'file-client-secret');
+    assert.equal(loaded.BLOGGENIUS_LOCAL_SUPABASE_URL, undefined);
 });

@@ -582,13 +582,6 @@ const Utils = {
      * 🔐 수동 구글 액세스 토큰 발급 (캐싱 적용)
      */
     getGoogleAccessToken: async function (scopes = []) {
-        if (RuntimeConfig?.ensureGoogleOauthClientConfig) {
-            const ready = await RuntimeConfig.ensureGoogleOauthClientConfig();
-            if (!ready) {
-                throw new Error('Google OAuth 클라이언트를 runtime config에서 불러오지 못했습니다. Supabase app_runtime_configs 또는 네트워크 상태를 확인해 주세요.');
-            }
-        }
-
         const normalizedScopes = (() => {
             const incoming = Array.isArray(scopes) ? scopes : [];
             const merged = incoming.length > 0

@@ -173,6 +173,8 @@ Branch: `feature/runtime-credential-security-01-contract`
 
 Branch: `feature/runtime-credential-security-02-google-oauth`
 
+Status: implementation complete; Development manual OAuth verification pending
+
 - 개발 실행과 정식 build에서 OAuth Client 설정을 공급하는 생성 계약을 추가한다.
 - Runtime Config Google credential fallback을 제거한다.
 - 사용자 token JSON과 PKCE/loopback 직접 OAuth는 유지한다.

@@ -3,17 +3,19 @@ const assert = require('node:assert/strict');
 
 const { createRuntimeConfigApi } = require('./runtime-config');
 
+function createConfiguredRuntime(overrides = {}) {
+    return {
+        LICENSE_CHK_URL: 'https://example.test',
+        LICENSE_CHK_KEY: 'public-key',
+        ...overrides
+    };
+}
+
 test('runtime config retries transient fetch failure before giving up', async () => {
     const calls = [];
     let remainingFailures = 1;
-    const config = {
-        LICENSE_CHK_URL: 'https://example.test',
-        LICENSE_CHK_KEY: 'secret',
-        GOOGLE_OAUTH_CLIENT_ID: '',
-        GOOGLE_OAUTH_CLIENT_SECRET: ''
-    };
     const api = createRuntimeConfigApi({
-        config,
+        config: createConfiguredRuntime(),
         logger: { debug() {} },
         createClientImpl: () => ({
             async rpc(_name, { p_keys }) {
@@ -22,100 +24,82 @@ test('runtime config retries transient fetch failure before giving up', async ()
                     remainingFailures -= 1;
                     throw new Error('timeout');
                 }
-                return {
-                    data: {
-                        google_oauth_client_id: 'client-id',
-                        google_oauth_client_secret: 'client-secret'
-                    },
-                    error: null
-                };
+                return { data: { public_setting: 'value' }, error: null };
             }
         }),
         requestTimeoutMs: 50,
         maxAttempts: 2
     });
 
-    const ok = await api.ensureGoogleOauthClientConfig(true);
-    assert.equal(ok, true);
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_ID, 'client-id');
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_SECRET, 'client-secret');
+    const values = await api.fetchRuntimeConfig(['public_setting'], true);
+    assert.deepEqual(values, { public_setting: 'value' });
     assert.equal(calls.length, 2);
 });
 
 test('runtime config does not poison cache when every fetch attempt fails', async () => {
-    const config = {
-        LICENSE_CHK_URL: 'https://example.test',
-        LICENSE_CHK_KEY: 'secret',
-        GOOGLE_OAUTH_CLIENT_ID: '',
-        GOOGLE_OAUTH_CLIENT_SECRET: ''
-    };
     let fail = true;
     const api = createRuntimeConfigApi({
-        config,
+        config: createConfiguredRuntime(),
         logger: { debug() {} },
         createClientImpl: () => ({
             async rpc() {
                 if (fail) throw new Error('timeout');
-                return {
-                    data: {
-                        google_oauth_client_id: 'client-id',
-                        google_oauth_client_secret: 'client-secret'
-                    },
-                    error: null
-                };
+                return { data: { public_setting: 'value' }, error: null };
             }
         }),
         requestTimeoutMs: 50,
         maxAttempts: 1
     });
 
-    const first = await api.ensureGoogleOauthClientConfig(true);
-    assert.equal(first, false);
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_ID, '');
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_SECRET, '');
-
+    assert.deepEqual(await api.fetchRuntimeConfig(['public_setting'], true), {});
     fail = false;
-
-    const second = await api.ensureGoogleOauthClientConfig(true);
-    assert.equal(second, true);
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_ID, 'client-id');
-    assert.equal(config.GOOGLE_OAUTH_CLIENT_SECRET, 'client-secret');
+    assert.deepEqual(
+        await api.fetchRuntimeConfig(['public_setting'], true),
+        { public_setting: 'value' }
+    );
 });
 
-test('runtime config reuses cached values when supabase client is unavailable later', async () => {
-    const config = {
-        LICENSE_CHK_URL: 'https://example.test',
-        LICENSE_CHK_KEY: 'secret',
-        GOOGLE_OAUTH_CLIENT_ID: '',
-        GOOGLE_OAUTH_CLIENT_SECRET: ''
-    };
-    let clientAvailable = true;
+test('runtime config reuses cached public values', async () => {
+    let callCount = 0;
+    const api = createRuntimeConfigApi({
+        config: createConfiguredRuntime(),
+        logger: { debug() {} },
+        createClientImpl: () => ({
+            async rpc() {
+                callCount += 1;
+                return { data: { public_setting: 'value' }, error: null };
+            }
+        })
+    });
+
+    const fetched = await api.fetchRuntimeConfig(['public_setting'], true);
+    const cached = await api.fetchRuntimeConfig(['public_setting'], false);
+
+    assert.deepEqual(fetched, { public_setting: 'value' });
+    assert.deepEqual(cached, { public_setting: 'value' });
+    assert.equal(callCount, 1);
+});
+
+test('runtime config still resolves Naver credentials until the gateway migration stage', async () => {
+    const config = createConfiguredRuntime({ NAVER_CLIENT_ID: '', NAVER_CLIENT_SECRET: '' });
     const api = createRuntimeConfigApi({
         config,
         logger: { debug() {} },
-        createClientImpl: () => {
-            if (!clientAvailable) return null;
-            return {
-                async rpc() {
-                    return {
-                        data: {
-                            google_oauth_client_id: 'client-id',
-                            google_oauth_client_secret: 'client-secret'
-                        },
-                        error: null
-                    };
-                }
-            };
-        }
+        createClientImpl: () => ({
+            async rpc() {
+                return {
+                    data: {
+                        naver_client_id: 'naver-id',
+                        naver_client_secret: 'naver-secret'
+                    },
+                    error: null
+                };
+            }
+        })
     });
 
-    const fetched = await api.fetchRuntimeConfig(['google_oauth_client_id', 'google_oauth_client_secret'], true);
-    assert.equal(fetched.google_oauth_client_id, 'client-id');
-    assert.equal(fetched.google_oauth_client_secret, 'client-secret');
-
-    clientAvailable = false;
-
-    const cached = await api.fetchRuntimeConfig(['google_oauth_client_id', 'google_oauth_client_secret'], false);
-    assert.equal(cached.google_oauth_client_id, 'client-id');
-    assert.equal(cached.google_oauth_client_secret, 'client-secret');
+    assert.equal(await api.ensureNaverSearchCredentials(true), true);
+    assert.equal(config.NAVER_CLIENT_ID, 'naver-id');
+    assert.equal(config.NAVER_CLIENT_SECRET, 'naver-secret');
+    assert.equal(api.ensureGoogleOauthClientConfig, undefined);
 });

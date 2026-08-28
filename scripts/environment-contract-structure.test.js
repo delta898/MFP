@@ -176,8 +176,12 @@ test('build environment config is generated, ignored, and validated explicitly',
     assert.match(gitignore, /^src\/config\/secret\.js$/m);
     assert.match(sample, /BLOGGENIUS_ENV/);
     assert.match(sample, /SUPABASE_PUBLISHABLE_KEY/);
+    assert.match(sample, /GOOGLE_OAUTH_CLIENT_ID/);
+    assert.match(sample, /GOOGLE_OAUTH_CLIENT_SECRET/);
     assert.doesNotMatch(sample, /hocfjolcthvtgfaxjmse/);
     assert.match(workflow, /build-environment-config\.js write/);
+    assert.match(workflow, /BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID/);
+    assert.match(workflow, /BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET/);
     assert.match(workflow, /--target production/);
     assert.doesNotMatch(workflow, /echo "module\.exports/);
     assert.match(buildSh, /build-environment-config\.js validate --target production/);
