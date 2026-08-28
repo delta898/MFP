@@ -8,6 +8,16 @@ const path = require('node:path');
 const workflowPath = path.join(process.cwd(), '.github/workflows/environment-validation.yml');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 
+test('documentation and convenience launchers do not trigger environment validation', () => {
+    const ignoredDocumentation = workflow.match(/- 'docs\/\*\*'/g) || [];
+    const ignoredMarkdown = workflow.match(/- '\*\*\/\*\.md'/g) || [];
+    const ignoredLaunchers = workflow.match(/- 'run_\*\.sh'/g) || [];
+
+    assert.equal(ignoredDocumentation.length, 2);
+    assert.equal(ignoredMarkdown.length, 2);
+    assert.equal(ignoredLaunchers.length, 2);
+});
+
 test('environment CI rebuilds local Supabase before unit validation', () => {
     assert.match(workflow, /npm run env:local:start/);
     assert.match(workflow, /npm run env:local:reset/);

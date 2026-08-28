@@ -2,11 +2,19 @@ name: Validate Environment Promotion
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'run_*.sh'
   push:
     branches:
       - dev
       - main
       - 'release/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'run_*.sh'
   workflow_dispatch:
     inputs:
       mode:

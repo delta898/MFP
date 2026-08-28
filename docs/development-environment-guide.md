@@ -72,6 +72,12 @@ npm run env:local:verify
 - `env:local:reset`: preflight 후 DB를 비우고 canonical migration과 local seed를 다시 적용한다.
 - `env:local:verify`: schema, RLS, RPC와 seed 계약을 확인한다.
 
+Supabase migration이나 seed를 변경한 뒤 Local 앱을 테스트할 때는 다음 편의 스크립트를 사용할 수 있다.
+
+```bash
+./run_local_reset.sh
+```
+
 검증을 마친 뒤 필요하지 않으면 컨테이너를 종료한다.
 
 ```bash
@@ -84,6 +90,8 @@ supabase stop --no-backup
 
 ```bash
 npm run app:local
+# 또는
+./run_local.sh
 ```
 
 시작 로그에서 다음과 같은 상태를 확인한다.
@@ -138,6 +146,8 @@ npm run env:development:smoke
 
 ```bash
 npm run app:development
+# 또는
+./run_dev.sh
 ```
 
 시작 로그에서 development host를 확인한다.
@@ -245,6 +255,10 @@ Development migration 이력 읽기
 
 첫 `dev` push 시 원격 Development가 아직 갱신되지 않았다면 drift job 실패가 정상이다. Development
 적용을 마친 후 같은 commit에서 workflow를 다시 실행한다.
+
+문서(`docs/**`, Markdown)와 루트의 편의 실행 스크립트(`run_*.sh`)만 변경한 push 또는 PR은
+환경 검증을 실행하지 않는다. 애플리케이션, Supabase, 환경 스크립트나 패키지 변경이 함께 있으면
+전체 검증을 실행한다.
 
 ### 6.4 Release 후보 검증
 
