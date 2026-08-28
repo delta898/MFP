@@ -1,6 +1,6 @@
 # Google Sheets Credentials Plan
 
-> Status: active plan
+> Status: implemented OAuth foundation; OAuth Client configuration ownership superseded on 2026-08-28
 >
 > Scope: Google Spreadsheet 접근 자격증명 모델을 **OAuth 단일 방식** 기준으로 재정의한다.
 >
@@ -30,7 +30,8 @@
 - 앱은 access token / refresh token을 저장하고 재사용한다.
 - refresh token이 유효한 동안은 재로그인 없이 자동 갱신한다.
 - OAuth `client_id` / `client_secret`는 사용자 설정(`config.json`)에 두지 않는다.
-- OAuth client 설정은 **Supabase `app_runtime_configs`** 의 공통 운영값으로 관리한다.
+- OAuth client 설정은 개발 환경 또는 generated build config로 공급한다.
+- OAuth client 설정을 Supabase `app_runtime_configs`에서 Desktop으로 반환하지 않는다.
 - `service_account.json` 업로드/등록 흐름은 제품 구조에서 제거한다.
 - 개발자 공용 service account를 앱에 내장하거나 중앙 DB에서 앱으로 배포하는 방식은 채택하지 않는다.
 
@@ -133,20 +134,25 @@ OAuth 흐름은 현재 네이버 로그인 세션 보관과 감각적으로 비�
 - `google_oauth_client_id`
 - `google_oauth_client_secret`
 
-위 두 값은 **Supabase `app_runtime_configs`** 에 저장한다.
+위 두 값은 개발 실행의 ignored 환경/build input과 정식 앱의 generated build config에서 공급한다.
+실제 값은 Git에 넣지 않으며 handwritten source에 직접 기록하지 않는다. 설치형 앱에 포함된 값은
+추출 가능하다는 전제를 수용한다.
 
 ### why
 - 사용자 설정값이 아니다.
-- 앱 공통 운영값이며, 교체/회전 가능성이 있다.
-- 재배포 없이 운영값을 바꿀 수 있어야 한다.
-- 독립 앱이더라도 이 값은 사용자에게 노출할 필요가 없다.
+- 앱 공통 설정이며 사용자가 입력할 값은 아니다.
+- 사용자 refresh token이 BlogGenius 서버를 통과하지 않아야 한다.
+- Google 기능이 Supabase 또는 Edge Function 장애에 종속되지 않아야 한다.
+- Client 설정 교체는 앱 업데이트와 필요 시 사용자 재연결로 처리한다.
 
 ### load order
-1. `app_runtime_configs`
-2. 개발/비상용 env override
-3. 내부 secret fallback
+1. process environment 또는 ignored development build input
+2. generated application build config
 
 `config.json`은 더 이상 OAuth client 설정 source로 사용하지 않는다.
+
+이 결정의 장기 근거와 Runtime Config 제거 순서는
+`docs/decisions/2026-08-28-runtime-credential-ownership.md`를 따른다.
 
 ## OAuth Technical Shape
 

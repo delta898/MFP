@@ -47,6 +47,7 @@
 - `architecture/production-schema-audit-2026-08-27.md`
 - `architecture/local-supabase-development.md`
 - `architecture/hosted-development-environment.md`
+- `architecture/runtime-credential-boundaries.md`
 - `development-environment-guide.md`
 - `supabase-recovery-runbook.md`
 - `license-policy.md`
@@ -75,10 +76,12 @@
 - `decisions/2026-08-25-server-managed-serpapi-corpus.md`
 - `decisions/2026-08-26-content-writing-profile.md`
 - `decisions/2026-08-27-development-environment-boundaries.md`
+- `decisions/2026-08-28-runtime-credential-ownership.md`
 
 ## Active Work
 
 - `plans/active/development-environment-separation-main-plan.md`
+- `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/development-environment-01-contract-plan.md`
 - `plans/active/development-environment-02-runtime-profile-plan.md`
 - `plans/active/development-environment-03-deploy-guard-plan.md`

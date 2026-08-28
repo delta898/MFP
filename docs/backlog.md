@@ -8,13 +8,17 @@
    - 상세 범위와 단계는 `docs/plans/active/development-environment-separation-main-plan.md`를 따른다.
    - `local → development → production` 승격 흐름과 fail-closed 보호를 우선 구현한다.
 
-2. Runtime Config 민감 정보 노출 차단 (Known Issue · 환경 분리 완료 후 착수)
-   - `app_runtime_configs`와 anon 실행 가능한 `get_runtime_config`가 Google OAuth Client Secret, Naver Client Secret 등 민감값을 Desktop에 반환할 수 있는 현재 구조를 보안 이슈로 취급한다.
-   - 현재 설정·라이선스 환경 분리 작업을 완료한 뒤 별도 feature에서 실제 저장 키와 소비자를 값 노출 없이 전수 조사한다.
-   - 공개 runtime 설정과 server secret을 분리하고, 공개 RPC는 코드 allowlist의 비민감 키만 반환하며 전체 조회(`p_keys is null`)를 차단한다.
-   - Naver·SerpApi·Brevo 등 provider secret은 환경별 Edge Function Secret 또는 동등한 server-only 저장소로 이동하고 Desktop·Git·공용 seed에서 제거한다.
-   - Google OAuth는 Desktop PKCE/loopback 또는 server broker 중 제품에 맞는 방식을 결정하고, 사용자 refresh token은 장기적으로 OS 보안 저장소로 이전한다.
-   - 마이그레이션 전 기능 의존성을 확인하고, 이전 완료 후 노출 가능성이 있던 자격증명을 교체하며 Local·Development·Production 회귀 테스트를 수행한다.
+2. Runtime Credential 보안 경계 재구성 (진행 중)
+   - 상세 범위와 단계는 `docs/plans/active/runtime-credential-security-main-plan.md`를 따른다.
+   - Google은 Desktop PKCE/loopback 직접 OAuth를 유지하고 Client 설정을 generated dev/build config로 옮기며 사용자 token JSON은 우선 유지한다.
+   - 외부 참고 블로그 검색과 쇼핑 상품 fallback은 기능 제한형 server gateway로 옮기고 Naver Developers credential은 Edge Function Secret에만 둔다.
+   - 공개 Runtime Config는 코드 allowlist의 비민감 key만 반환하며 null·empty·unknown·전체 조회를 차단한다.
+   - 새 Desktop 전환 뒤 legacy credential row와 loader를 제거하고 별도 승인된 Production rollout에서 노출 가능성이 있던 credential을 회전한다.
+
+3. 새 개발 PC Bootstrap 자동화 (별도 feature)
+   - Node/npm, Docker, Supabase CLI, `npm ci`, `config/config.json`, Local Supabase와 `.env.development` 준비 상태를 값 노출 없이 점검한다.
+   - PC별 설정·사용자 로그인·테스트 라이선스와 Supabase 환경별 migration·Function·server secret을 명확히 구분한다.
+   - Runtime Credential 보안 경계가 안정화된 뒤 `bootstrap:check`, Local/Development 준비 명령과 한글 가이드를 설계한다.
 
 ## P1 — 다음 개발 우선순위
 
