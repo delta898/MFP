@@ -17,6 +17,10 @@ revoke all on function public.set_current_timestamp_updated_at()
     from public, anon, authenticated;
 revoke all on function public.set_app_surface_updated_at()
     from public, anon, authenticated;
+revoke all on function public.ai_catalog_version_tuple(text)
+    from public, anon, authenticated;
+revoke all on function public.app_surface_version_tuple(text)
+    from public, anon, authenticated;
 revoke all on function public.mark_license_registration_code_send_status(text, text, text, text, text)
     from public, anon, authenticated;
 
@@ -29,6 +33,10 @@ grant execute on function public._smart_usage_authorize(text, text)
 grant execute on function public.set_current_timestamp_updated_at()
     to service_role;
 grant execute on function public.set_app_surface_updated_at()
+    to service_role;
+grant execute on function public.ai_catalog_version_tuple(text)
+    to service_role;
+grant execute on function public.app_surface_version_tuple(text)
     to service_role;
 grant execute on function public.mark_license_registration_code_send_status(text, text, text, text, text)
     to service_role;

@@ -80,6 +80,8 @@ begin
            '_smart_usage_authorize',
            'set_current_timestamp_updated_at',
            'set_app_surface_updated_at',
+           'ai_catalog_version_tuple',
+           'app_surface_version_tuple',
            'mark_license_registration_code_send_status'
        )
        and (
