@@ -50,6 +50,7 @@
 - Create feature branches only when the user asks to begin branched development.
 - For a multi-stage feature, use one parent feature branch as the integration branch and a short-lived sub-feature branch for each independently reviewable stage.
 - Branch each sub-feature from the current parent feature branch. After verification and user approval, merge it back into the parent and delete the merged sub-feature branch when requested.
+- Treat the user's request to `parent merge` as including deletion of the successfully merged feature branch unless the user explicitly says to keep it.
 - Keep the parent feature branch until the complete feature has passed its agreed validation. Merge it into `dev` only on the user's explicit instruction, then delete merged feature branches as requested.
 - Create `release/vX.Y.Z` from the intended integration branch only when release preparation begins. Release branches contain stabilization, release notes, version metadata, and release-only fixes rather than unrelated feature expansion.
 - Prefer fast-forward merges when branch history permits. Never rewrite shared history to force a merge.
