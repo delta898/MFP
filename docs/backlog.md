@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-08-28 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
+> 현행 기준: 2026-08-29 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
 
 ## P0 — 현재 진행
 
@@ -100,26 +100,32 @@
    - 동음이의어인 영화·제품·인물 등을 구분하는 topic semantics를 검토한다.
    - 추천 funnel, provider 비용, cache, 중복·고아 recommendation을 진단할 수 있게 한다.
 
-10. AI runtime capability 자동 탐지와 자기복구
+10. 제목 최적화
+   - 단순 키워드 조합을 넘어 사용자가 클릭하고 싶어지는 궁금증과 구체적인 기대를 만드는 제목을 제안한다.
+   - 과장, 낚시성 표현과 본문에 없는 약속은 피하고 실제 본문 내용·글쓰기 전략·채널 특성에 맞춘다.
+   - 검색 중심은 핵심 검색 의도와 정보를 명확히 전달하고, 발견 중심은 호기심과 새로운 관점을 강화한다.
+   - 한 가지 정답 대신 서로 다른 각도의 후보와 간단한 추천 근거를 제공하고 사용자의 선택·수정 결과를 품질 개선에 활용한다.
+
+11. AI runtime capability 자동 탐지와 자기복구
    - provider metadata에서 모델, 생성 방식, thinking 지원과 토큰 한도를 우선 확인한다.
    - metadata에 없는 모델별 정책만 trusted catalog로 보완한다.
    - 구조화된 capability 불일치에 한해 안전한 지원 단계로 한 번 재시도한다.
    - 인증·quota·일반 요청 오류와 capability 불일치를 엄격히 구분한다.
    - 확인된 runtime policy를 모델·API 버전 단위로 bounded cache하고 안전한 진단 로그를 남긴다.
 
-11. Internal API 통합
+12. Internal API 통합
    - Telegram legacy callback을 canonical content request/capability 경로로 더 얇게 만든다.
    - content request bundle의 schema와 validator를 공용 internal API 계약으로 승격한다.
    - Desktop UI, BlogAnywhere, MCP와 Telegram이 같은 preview/confirmation/result 계약을 사용하게 한다.
    - 로그인, 시트, AI 모델, 필수 설정과 발행 대상을 한 번에 진단하고 해결 화면이나 안전한 capability로 연결한다.
 
-12. 최초 설치와 오류 UX
+13. 최초 설치와 오류 UX
    - Dashboard의 라이선스·연결 오류를 부분 상태로 표시한다.
    - quota 소진 메시지에 사용자가 취할 다음 행동을 명확히 안내한다.
    - sample placeholder가 실제 설정값처럼 동작하지 않도록 한다.
    - Gemini API Key 등 필수 외부 설정의 공식 도움 경로를 제공한다.
 
-13. macOS 설정 접근 실패 시작 오류 패치
+14. macOS 설정 접근 실패 시작 오류 패치
    - Downloads 등 macOS 보호 폴더에서 외부 `config/` 접근이 `EPERM`으로 거부되어도 Electron main process가 종료되지 않게 한다.
    - GUI runtime의 쓰기 가능한 기본 위치는 `Application Support`로 일관되게 사용하고, portable mode는 명시적으로 선택된 경우에만 활성화하는 방향을 검토한다.
    - 배포본 안에 읽기 전용 기본 설정을 확실히 포함하고, 사용자 설정을 읽지 못하면 빈 객체 대신 검증된 기본값과 원인을 알 수 있는 오류 상태를 반환한다.
