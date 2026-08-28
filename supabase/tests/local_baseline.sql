@@ -57,7 +57,7 @@ begin
            '_del_free_license_usages'
        );
 
-    select count(*)
+    select count(distinct p.oid)
       into v_anon_functions
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
