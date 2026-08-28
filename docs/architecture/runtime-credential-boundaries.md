@@ -139,3 +139,10 @@ Operator boundary
 - 노출 가능성이 있던 credential은 새 Desktop 전환과 구버전 정책 승인 이후 Production row를
   삭제하고 회전한다.
 - credential 값은 문서, migration, seed, CI artifact, diagnostic output에 기록하지 않는다.
+
+## Development rollout
+
+Development 적용 대상과 순서는 `supabase/runtime-credential-security-rollout.json`에 고정하며,
+운영 절차와 중단·복구 기준은 `docs/architecture/runtime-credential-rollout.md`를 따른다. feature
+branch에서는 계획만 검토할 수 있고 원격 적용은 로컬 `dev` 병합 후에만 허용한다. Production
+변경과 credential 회전은 이 절차에 포함하지 않는다.

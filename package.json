@@ -22,6 +22,7 @@
     "env:preflight": "node scripts/environment-preflight.js check",
     "env:development:ready": "node scripts/hosted-development-readiness.js",
     "env:development:plan": "node scripts/hosted-development-plan.js",
+    "credentials:development:plan": "node scripts/runtime-credential-rollout-plan.js",
     "env:development:smoke": "node scripts/hosted-development-smoke.js",
     "env:release:artifact": "node scripts/environment-release-gate.js create",
     "env:release:verify": "node scripts/environment-release-gate.js verify",

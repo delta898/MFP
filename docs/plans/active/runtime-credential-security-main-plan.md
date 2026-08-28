@@ -248,6 +248,8 @@ Status: implementation complete; Local contracts passed, Production rollout defe
 
 Branch: `feature/runtime-credential-security-06-integration`
 
+Status: implementation and Local verification complete; Development rollout pending
+
 - Local 전체 회귀와 Development artifact를 검증한다.
 - Edge Function secret 이름과 환경 manifest를 현행화한다.
 - 새 Desktop, server gateway, migration 배포 순서를 검증한다.

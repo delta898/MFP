@@ -51,6 +51,7 @@ legacy `anon` JWT를 호환값으로 사용할 수 있다. `JWT_SECRET`, `sb_sec
 BlogGenius artifacts
   -> npm run env:development:ready
   -> npm run env:development:plan
+  -> npm run credentials:development:plan
   -> Supabase environment provider applies artifacts and settings
   -> npm run env:development:smoke
   -> desktop development integration validation
@@ -59,6 +60,10 @@ BlogGenius artifacts
 `env:development:plan`은 원격 변경 명령이 아니라 인계할 migration, seed, Function과 branch/target
 guard 결과를 보여준다. 실제 적용 명령은 Supabase 환경 제공자가 소유한다. BlogGenius는 원격
 Secret을 조회하거나 변경하지 않으며, provider 내부에서 publishable key를 찾아오지도 않는다.
+
+Runtime Credential Security 변경의 정확한 migration·Function 목록과 Development 적용 순서는
+`docs/architecture/runtime-credential-rollout.md`를 따른다. 이 전용 planner 역시 원격 변경을
+실행하지 않으며, 로컬 `dev` branch가 아니면 적용 준비 상태를 `BLOCKED`로 판정한다.
 
 ## Edge Function environment contract
 
