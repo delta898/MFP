@@ -87,6 +87,8 @@ supabase stop --no-backup
 ### BlogGenius 앱을 Local로 실행하기
 
 다음 명령 하나로 Local Supabase를 시작하고, URL과 publishable key를 자동으로 읽어 앱에 전달한다.
+개발 런처는 Electron의 macOS 사용자 데이터 폴더가 아니라 저장소 루트의
+`config/config.json`을 사용한다.
 
 ```bash
 npm run app:local
@@ -100,9 +102,31 @@ npm run app:local
 [Runtime Environment] local / 127.0.0.1:54321
 ```
 
+## 3.1 환경별 라이선스 파일
+
+개발 앱은 Production 라이선스를 Local 또는 Development 환경의 대체값으로 사용하지 않는다.
+각 컴퓨터는 환경별 파일을 독립적으로 소유하며, 파일이 없으면 기존 HWID 기반 자동 발급 절차로
+해당 환경의 테스트 라이선스를 만들어 저장한다.
+
+| 실행 환경 | 라이선스 파일 |
+| --- | --- |
+| Local | `config/license.local.key` |
+| Development | `config/license.development.key` |
+| Production | `config/license.key` |
+
+같은 파일명이라도 컴퓨터마다 로컬 파일이 다르므로 여러 개발 장비는 서로 다른 HWID 라이선스를
+사용한다. 세 파일은 모두 Git 관리 대상이 아니다. 환경을 선택하지 못했거나 해당 환경 파일이
+없을 때 다른 환경의 파일로 fallback하지 않는다.
+
+Local DB reset은 DB에 저장된 HWID 라이선스도 제거하므로 `npm run env:local:reset`과
+`./run_local_reset.sh`가 `license.local.key`만 함께 지운다. Development와 Production
+라이선스 파일은 보존되며, 다음 Local 실행에서 이 컴퓨터의 키가 자동으로 다시 발급된다.
+
 ## 4. Development 환경
 
 Development는 `dev` 브랜치에 통합된 변경을 운영과 분리된 원격 Supabase에서 검증하는 환경이다.
+앱 설정은 Local 실행과 마찬가지로 저장소 루트의 `config/config.json`을 사용하고,
+Supabase 공개 연결 정보만 `.env.development`에서 읽는다.
 
 ### 특성
 

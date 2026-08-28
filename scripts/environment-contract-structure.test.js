@@ -109,6 +109,7 @@ test('local Supabase owns one canonical migration and seed structure', () => {
     assert.equal(fs.existsSync(path.join(REPO_ROOT, 'supabase/tests/local_baseline.sql')), true);
     assert.match(packageJson.scripts['env:local:reset'], /database-reset/);
     assert.match(packageJson.scripts['env:local:reset'], /supabase db reset --local/);
+    assert.match(packageJson.scripts['env:local:reset'], /reset-local-license-file[.]js/);
     assert.match(packageJson.scripts['env:local:verify'], /local_baseline\.sql/);
 });
 

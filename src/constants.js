@@ -16,7 +16,9 @@ try {
     // fallback
 }
 
-const RUNTIME_ROOT = process.env.BLOG_GENIUS_USER_DATA || process.cwd();
+const RUNTIME_ROOT = process.env.BLOGGENIUS_RUNTIME_ROOT
+    || process.env.BLOG_GENIUS_USER_DATA
+    || process.cwd();
 
 module.exports = {
     APP_VERSION,

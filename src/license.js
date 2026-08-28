@@ -244,15 +244,20 @@ let licenseStatusCache = {
 };
 
 function getResolvedLicenseKey() {
-    return resolveLicenseKey(process.env.LICENSE_KEY || runtimeLicenseKey || CONFIG.LICENSE_KEY);
+    return resolveLicenseKey(runtimeLicenseKey || CONFIG.LICENSE_KEY);
 }
 
 function persistLicenseKeyFile(licenseKey) {
-    // 환경변수로 주입된 키는 파일에 덮어쓰지 않는다.
-    if (process.env.LICENSE_KEY) return true;
+    // Production에서 명시적으로 제공된 환경변수 키는 파일에 덮어쓰지 않는다.
+    if (CONFIG.LICENSE_KEY_USES_ENV_OVERRIDE) return true;
 
     const targetPath = CONFIG.LICENSE_KEY_FILE_PATH
-        || path.join(CONFIG.CONFIG_DIR || path.join(process.cwd(), 'config'), 'license.key');
+        || CONFIG.PATHS?.licenseKeyFile
+        || '';
+    if (!targetPath) {
+        Logger.warn('⚠️ 현재 실행 환경의 라이선스 저장 경로를 결정하지 못했습니다.');
+        return false;
+    }
     try {
         fs.mkdirSync(path.dirname(targetPath), { recursive: true });
         fs.writeFileSync(targetPath, `${licenseKey}\n`, { encoding: 'utf-8', mode: 0o600 });

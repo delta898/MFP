@@ -29,7 +29,7 @@
     "env:development:drift": "node scripts/environment-release-gate.js verify-development",
     "env:production:checklist": "node scripts/environment-release-gate.js production-checklist",
     "env:local:start": "supabase start --exclude realtime,storage-api,imgproxy,studio",
-    "env:local:reset": "node scripts/environment-preflight.js check --target local --operation database-reset && supabase db reset --local",
+    "env:local:reset": "node scripts/environment-preflight.js check --target local --operation database-reset && supabase db reset --local && node scripts/reset-local-license-file.js",
     "env:local:verify": "supabase db query --local --file supabase/tests/local_baseline.sql",
     "ver:patch": "node scripts/bump-version.js patch",
     "ver:minor": "node scripts/bump-version.js minor",

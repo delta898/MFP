@@ -58,7 +58,13 @@ const HAS_LOCAL_CONFIG = fs.existsSync(LOCAL_CONFIG_DIR);
 // GUI 모드일 때 권한이 없는 특수 상황을 대비해 userData를 남겨두지만, 
 // 포터블 모드(로컬 config 존재)일 경우 ACTIVE_ROOT를 최우선으로 사용합니다.
 const BLOG_GENIUS_USER_DATA = process.env.BLOG_GENIUS_USER_DATA;
-const ROOT_DIR = (HAS_LOCAL_CONFIG || !BLOG_GENIUS_USER_DATA) ? ACTIVE_ROOT : BLOG_GENIUS_USER_DATA;
+// 개발 런처는 Electron 실행 파일(node_modules/electron)을 기준으로 설정 경로가
+// 잘못 결정되지 않도록 프로젝트 루트를 명시한다. 배포본은 이 값을 주입하지 않아
+// 기존 portable config / Electron userData 선택 규칙을 그대로 따른다.
+const EXPLICIT_RUNTIME_ROOT = String(process.env.BLOGGENIUS_RUNTIME_ROOT || '').trim();
+const ROOT_DIR = EXPLICIT_RUNTIME_ROOT
+    ? path.resolve(EXPLICIT_RUNTIME_ROOT)
+    : ((HAS_LOCAL_CONFIG || !BLOG_GENIUS_USER_DATA) ? ACTIVE_ROOT : BLOG_GENIUS_USER_DATA);
 const EXEC_DIR = ACTIVE_ROOT;
 
 // =========================================================
@@ -77,6 +83,13 @@ const runtimeEnvironmentProfile = resolveRuntimeEnvironmentProfile({
     buildConfig: internalSecrets
 });
 
+const LICENSE_FILE_NAMES = Object.freeze({
+    local: 'license.local.key',
+    development: 'license.development.key',
+    production: 'license.key'
+});
+const activeLicenseFileName = LICENSE_FILE_NAMES[runtimeEnvironmentProfile.environment] || '';
+
 // =========================================================
 // 2. 📂 [경로 정의]
 // =========================================================
@@ -93,8 +106,12 @@ const PATHS = {
     configJsonSampleFromExec: path.join(EXEC_DIR, 'config', 'config.json.sample'),
     configJsonSampleFromBundle: path.join(BUNDLE_DIR, 'config', 'config.json.sample'),
 
-    licenseKeyFile: path.join(ROOT_DIR, 'config', 'license.key'),
-    licenseKeyFileFromExec: path.join(EXEC_DIR, 'config', 'license.key'),
+    licenseKeyFile: activeLicenseFileName
+        ? path.join(ROOT_DIR, 'config', activeLicenseFileName)
+        : '',
+    licenseKeyFileFromExec: activeLicenseFileName
+        ? path.join(EXEC_DIR, 'config', activeLicenseFileName)
+        : '',
     auth: path.join(ROOT_DIR, 'config', 'naver_auth.json'),
     blogPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'blog_prompt.md'),
     blogPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'blog_prompt.md'),
@@ -199,10 +216,13 @@ function loadUserConfig() {
 }
 
 function loadLicenseKey() {
-    const candidates = [PATHS.licenseKeyFile, PATHS.licenseKeyFileFromExec];
+    const candidates = [...new Set([
+        PATHS.licenseKeyFile,
+        PATHS.licenseKeyFileFromExec
+    ].filter(Boolean))];
     const matchedPath = candidates.find((filePath) => fs.existsSync(filePath));
     if (!matchedPath) {
-        return { value: '', path: PATHS.licenseKeyFile };
+        return { value: '', path: PATHS.licenseKeyFile || '' };
     }
     try {
         const value = String(fs.readFileSync(matchedPath, 'utf-8') || '')
@@ -373,7 +393,12 @@ if (fs.existsSync(oldAuthPath) && !fs.existsSync(resolvedAuthPath)) {
     }
 }
 
-const resolvedLicenseKeyPath = licenseKeyInfo.path || path.join(activeConfigDir, 'license.key');
+const resolvedLicenseKeyPath = licenseKeyInfo.path || (activeLicenseFileName
+    ? path.join(activeConfigDir, activeLicenseFileName)
+    : '');
+const productionLicenseEnvironmentOverride = runtimeEnvironmentProfile.environment === 'production'
+    ? String(process.env.LICENSE_KEY || '').trim()
+    : '';
 
 const userSheetUrl = String(structuredConfig.general?.google_sheet_url || '').trim();
 const resolvedSheetId = extractGoogleSheetId(userSheetUrl);
@@ -417,7 +442,9 @@ const CONFIG = {
     LISTEN_HOST: structuredConfig.general?.listen_host || '127.0.0.1',
     LISTEN_PORT: structuredConfig.general?.listen_port || 4577,
     WORKSPACE_DIR: resolvedWorkspaceDir,
-    LICENSE_KEY: process.env.LICENSE_KEY || licenseKeyInfo.value || '',
+    LICENSE_KEY: productionLicenseEnvironmentOverride || licenseKeyInfo.value || '',
+    LICENSE_KEY_FILE_PATH: resolvedLicenseKeyPath,
+    LICENSE_KEY_USES_ENV_OVERRIDE: Boolean(productionLicenseEnvironmentOverride),
 
     // 🔧 [Flat Keys for Backward Compatibility]
     NAVER_ID: process.env.NAVER_ID || structuredConfig.platforms.naver.user_id,

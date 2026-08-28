@@ -31,6 +31,8 @@ config/google_oauth_tokens.json
 config/auth.json
 config/settings.js
 config/license.key
+config/license.local.key
+config/license.development.key
 supabase/.temp/
 supabase/.branches/
 log.txt

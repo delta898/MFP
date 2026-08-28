@@ -75,6 +75,7 @@ function prepareLocalEnvironment(options = {}) {
     return Object.freeze({
         ...baseEnv,
         BLOGGENIUS_ENV: 'local',
+        BLOGGENIUS_RUNTIME_ROOT: repoRoot,
         BLOGGENIUS_LOCAL_SUPABASE_URL: status.url,
         BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: status.publishableKey
     });
@@ -101,7 +102,10 @@ function prepareDevelopmentEnvironment(options = {}) {
         ].join(', ');
         throw new Error(`Development environment is not ready${details ? `: ${details}` : ''}`);
     }
-    return env;
+    return Object.freeze({
+        ...env,
+        BLOGGENIUS_RUNTIME_ROOT: repoRoot
+    });
 }
 
 function prepareAppEnvironment(target, options = {}) {
