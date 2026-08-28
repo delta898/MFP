@@ -37,7 +37,9 @@ Compose 구성 또는 Secret 파일 경로를 두지 않는다. 환경 제공자
 - optional cross-check: `BLOGGENIUS_PRODUCTION_SUPABASE_URL`
 
 실제 값은 Git에 넣지 않는다. 변수 이름 sample은
-`config/hosted-development.env.sample`에 둔다.
+`config/hosted-development.env.sample`에 두고, 개발자 PC의 실제 값은 Git에서 제외한
+`.env.development`에 둔다. Desktop 실행 환경은 설정 파일의 값이 아니라
+`npm run app:development` 명령이 명시적으로 선택한다.
 
 publishable key는 `sb_publishable_...` 형식을 우선 사용한다. 환경이 새 key를 제공하지 않는 경우
 legacy `anon` JWT를 호환값으로 사용할 수 있다. `JWT_SECRET`, `sb_secret_...`, legacy

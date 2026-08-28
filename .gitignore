@@ -2,6 +2,7 @@ node_modules/
 __pycache__/
 *.pyc
 .env
+.env.development
 src/config/secret.js
 !src/config/secret.js.sample
 config/config.txt

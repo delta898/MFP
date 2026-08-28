@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const { loadProjectEnvironment } = require('./project-environment');
+const { loadDevelopmentEnvironment } = require('./project-environment');
 
 const FUNCTION_NAMES = Object.freeze([
     'send-license-code',
@@ -86,7 +86,7 @@ function formatSmoke(result) {
 }
 
 if (require.main === module) {
-    runHostedDevelopmentSmoke({ env: loadProjectEnvironment() })
+    runHostedDevelopmentSmoke({ env: loadDevelopmentEnvironment() })
         .then((result) => {
             process.stdout.write(formatSmoke(result));
             process.exitCode = result.passed ? 0 : 1;

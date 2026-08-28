@@ -3,7 +3,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadProjectEnvironment } = require('./project-environment');
+const { loadDevelopmentEnvironment } = require('./project-environment');
 
 const DEFAULT_MANIFEST_PATH = 'supabase/hosted-development-manifest.json';
 
@@ -110,7 +110,7 @@ function runCli(options = {}) {
 
 if (require.main === module) {
     try {
-        const outcome = runCli({ env: loadProjectEnvironment() });
+        const outcome = runCli({ env: loadDevelopmentEnvironment() });
         process.stdout.write(outcome.output);
         process.exitCode = outcome.exitCode;
     } catch (error) {

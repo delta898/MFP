@@ -1,7 +1,7 @@
 # 개발·운영 환경 분리 Main Plan
 
 > 작성일: 2026-08-27
-> 상태: Stage 5 provider-neutral Supabase 계약 구현 중
+> 상태: Stage 6 CI·drift·production 승격 gate 검증 완료
 > Parent branch: `feature/development-environment-main`
 > 기준 branch: `dev`
 
@@ -239,6 +239,8 @@ Status: development Supabase deployment and desktop core integration complete
 
 Branch: `feature/development-environment-06-release-gate`
 
+Status: implementation and verification complete
+
 작업:
 
 - CI에서 local DB reset과 핵심 통합 테스트를 실행한다.
@@ -252,6 +254,15 @@ Branch: `feature/development-environment-06-release-gate`
 - feature -> local, dev -> hosted development, release/main -> production 후보 흐름 확인
 - 동일 commit/migration set의 환경별 승격 증명
 - production 배포 승인과 감사 로그 확인
+
+2026-08-28 적용 상태:
+
+- PR과 integration branch에서 local Supabase reset, schema contract, 전체 unit test를 수행하는 CI를 추가했다.
+- migration, Edge Function/shared code, JWT 정책, manifest와 Git revision을 하나의 fingerprint로 묶었다.
+- 실제 development migration 20개와 ACTIVE Function 5개가 현재 artifact와 일치함을 확인했다.
+- 다른 revision 또는 drift가 있는 development evidence는 production checklist에서 차단된다.
+- production은 자동 배포하지 않고 동일 artifact 확인 후 `ready_for_user_approval` checklist만 생성한다.
+- 전체 unit test 1,001개가 통과했다.
 
 ## 6. 외부 준비가 필요한 항목
 

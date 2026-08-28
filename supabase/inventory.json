@@ -230,6 +230,10 @@
   "deployment_safety": {
     "policy": "src/environment/deployment-guard.js",
     "preflight_cli": "scripts/environment-preflight.js",
+    "release_artifact": "src/environment/release-artifact.js",
+    "release_gate_cli": "scripts/environment-release-gate.js",
+    "development_evidence_cli": "scripts/development-deployment-evidence.js",
+    "validation_workflow": ".github/workflows/environment-validation.yml",
     "hosted_development_plan": "scripts/hosted-development-plan.js",
     "hosted_development_execution_owner": "supabase_environment_provider",
     "linked_project_metadata_path": "supabase/.temp/linked-project.json",

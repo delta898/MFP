@@ -47,6 +47,8 @@
 - `architecture/production-schema-audit-2026-08-27.md`
 - `architecture/local-supabase-development.md`
 - `architecture/hosted-development-environment.md`
+- `development-environment-guide.md`
+- `supabase-recovery-runbook.md`
 - `license-policy.md`
 - `keyword-research-operations.md`
 - `features/mcp-client-setup.md`
@@ -83,6 +85,7 @@
 - `plans/active/development-environment-04a-production-schema-audit-plan.md`
 - `plans/active/development-environment-04b-local-supabase-plan.md`
 - `plans/active/development-environment-05-hosted-development-plan.md`
+- `plans/active/development-environment-06-release-gate-plan.md`
 - `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
 - `plans/active/serpapi-collection-01-contracts-plan.md`

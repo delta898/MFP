@@ -115,3 +115,25 @@ Stage 3의 공통 CLI는 안전 판단과 dry-run 출력을 제공한다. 실제
 - Stage 4B: local migration/reset/seed command와 preflight 결합;
 - Stage 5: provider-neutral development manifest, readiness, HTTP smoke와 외부 적용 인계;
 - Stage 6: CI drift check, production dry-run checklist, 별도 사용자 승인 절차.
+
+## Immutable promotion artifact
+
+Stage 6부터 migration과 Function을 따로 승격하지 않는다. `npm run --silent env:release:artifact`는
+canonical migration, 모든 Edge Function/shared module, Function JWT 정책과 manifest를 해시하고
+현재 Git revision에 결합한다. `npm run env:release:verify`는 artifact가 현재 checkout과 동일한지
+확인한다.
+
+Development 적용 후 공식 Supabase CLI의 migration/Function 읽기 결과를 credential-free evidence로
+정규화한다. `npm run env:development:drift`는 다음을 exact match로 검사한다.
+
+- 적용된 migration version 전체와 순서
+- 배포된 Function 이름
+- Function별 `verify_jwt` 정책
+- 모든 Function의 ACTIVE 상태
+- development가 검증한 artifact fingerprint
+
+Production checklist는 `release/*` 또는 `main`에서만 생성할 수 있으며, 현재 revision과 같은 artifact를
+검증한 development workflow run을 명시해야 한다. 결과의 `ready_for_user_approval`은 자동 배포 허가가
+아니다. 이후 사용자 승인과 production preflight가 모두 별도로 필요하다.
+
+관련 장애·데이터 복구 원칙은 [Supabase Forward Fix와 데이터 복구 Runbook](../supabase-recovery-runbook.md)을 따른다.

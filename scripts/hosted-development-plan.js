@@ -9,7 +9,7 @@ const {
     loadManifest,
     inspectHostedDevelopmentReadiness
 } = require('./hosted-development-readiness');
-const { loadProjectEnvironment } = require('./project-environment');
+const { loadDevelopmentEnvironment } = require('./project-environment');
 
 const HANDOFF_STEPS = Object.freeze([
     Object.freeze({ name: 'migrations', operation: 'database-migrate' }),
@@ -100,7 +100,7 @@ function runCli(options = {}) {
 
 if (require.main === module) {
     try {
-        const outcome = runCli({ env: loadProjectEnvironment() });
+        const outcome = runCli({ env: loadDevelopmentEnvironment() });
         process.stdout.write(outcome.output);
         process.exitCode = outcome.exitCode;
     } catch (error) {
