@@ -61,8 +61,13 @@ begin
       into v_anon_functions
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
+      join lateral aclexplode(
+          coalesce(p.proacl, acldefault('f', p.proowner))
+      ) acl on true
+      join pg_roles granted_role on granted_role.oid = acl.grantee
      where n.nspname in ('public', 'trends')
-       and has_function_privilege('anon', p.oid, 'EXECUTE');
+       and granted_role.rolname = 'anon'
+       and acl.privilege_type = 'EXECUTE';
 
     select count(*)
       into v_unsafe_helper_grants
