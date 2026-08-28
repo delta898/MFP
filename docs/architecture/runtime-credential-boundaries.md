@@ -48,7 +48,7 @@ Desktop은 Google Client 설정을 Runtime Config RPC에서 조회하지 않는�
 
 | Feature | Current consumer | Current location | Target |
 | --- | --- | --- | --- |
-| External blog reference | `fetchNaverBlogTopPosts` | Desktop direct API | capability gateway |
+| External blog reference | `fetchNaverBlogTopPosts` | `knowledge-gateway`의 제한형 `blog_reference:writing_reference` route | 현재 구조 유지 |
 | Shopping product recovery | `resolveViaShoppingSearchApi` | Desktop direct API | capability gateway |
 | Recommendation news | Naver news Knowledge provider | Edge Function | 유지 |
 | Single blog search helper | `fetchNaverBlogSearchResults` | no caller found | 제거 후보 |
@@ -56,6 +56,10 @@ Desktop은 Google Client 설정을 Runtime Config RPC에서 조회하지 않는�
 외부 참고 검색은 검색 결과 URL만 서버에서 얻고 본문 수집과 글 작성은 Desktop이 수행한다. 쇼핑
 fallback은 Desktop 추출이 부족할 때만 서버를 호출한다. 뉴스는 기존 versioned Knowledge Snapshot
 계약을 유지한다.
+
+외부 참고 route는 검색어와 최대 5건만 받으며 제목, HTTPS URL과 작성일만 반환한다. 라이선스,
+device rate limit, provider quota/backoff와 짧은 cache는 기존 `knowledge-gateway` 경계를 재사용한다.
+Gateway 실패 시 Desktop은 Naver API를 직접 호출하지 않고 자동 참고만 생략한다.
 
 ### Keyword research
 

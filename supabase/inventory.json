@@ -24,6 +24,7 @@
   "shared_edge_modules": [
     "supabase/functions/_shared/knowledge-gateway-contract.ts",
     "supabase/functions/_shared/knowledge-gateway-providers.ts",
+    "supabase/functions/_shared/knowledge-provider-naver-blog-reference.ts",
     "supabase/functions/_shared/knowledge-provider-naver-news.ts",
     "supabase/functions/_shared/knowledge-provider-serpapi-account.ts",
     "supabase/functions/_shared/knowledge-provider-serpapi-corpus.ts",
@@ -160,6 +161,10 @@
     },
     {
       "path": "supabase/migrations/202608270019_security_hardening.sql",
+      "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/migrations/202608290000_add_blog_reference_gateway.sql",
       "classification": "canonical_migration"
     },
     {

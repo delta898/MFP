@@ -1,5 +1,9 @@
-const ALLOWED_KINDS = new Set(["trends", "news"]);
-const ALLOWED_PURPOSES = new Set(["content_ideas", "serendipity"]);
+const ALLOWED_ROUTES = new Set([
+  "trends:content_ideas",
+  "news:content_ideas",
+  "news:serendipity",
+  "blog_reference:writing_reference",
+]);
 const CONTENT_ALLOWED_LOCALES = new Set(["ko-KR"]);
 const CONTENT_ALLOWED_COUNTRIES = new Set(["KR"]);
 const DISCOVERY_ALLOWED_LOCALES = new Set(["ko-KR", "en-US"]);
@@ -71,13 +75,14 @@ export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) 
   const query = body.query && typeof body.query === "object" && !Array.isArray(body.query)
     ? body.query as Record<string, unknown>
     : {};
-  if (!ALLOWED_KINDS.has(kind) || !ALLOWED_PURPOSES.has(purpose)) throw new Error("route_invalid");
+  if (!ALLOWED_ROUTES.has(`${kind}:${purpose}`)) throw new Error("route_invalid");
   const discovery = purpose === "serendipity";
   const allowedQueryKeys = discovery
     ? new Set(["lanes", "locales", "countries", "exclude_ids", "limit"])
     : new Set(["topic", "locale", "country", "limit"]);
   if (Object.keys(query).some((key) => !allowedQueryKeys.has(key))) throw new Error("query_field_invalid");
-  const limit = Number(query.limit || (discovery ? 12 : 10));
+  const defaultLimit = discovery ? 12 : (purpose === "writing_reference" ? 3 : 10);
+  const limit = Number(query.limit || defaultLimit);
   if (discovery) {
     return {
       kind,
@@ -103,7 +108,10 @@ export function normalizeKnowledgeGatewayRequest(body: Record<string, unknown>) 
       topic: compact(query.topic, 180),
       locale,
       country,
-      limit: Math.max(1, Math.min(20, Number.isFinite(limit) ? Math.floor(limit) : 10)),
+      limit: Math.max(
+        1,
+        Math.min(purpose === "writing_reference" ? 5 : 20, Number.isFinite(limit) ? Math.floor(limit) : defaultLimit),
+      ),
     },
     licenseKey: compact(body.licenseKey, 256),
     hwid: compact(body.hwid, 256),
@@ -146,7 +154,7 @@ export function validateServerKnowledgeSnapshot(
       title: compact(item.title, 300),
       summary: compact(item.summary, 1000),
       observed_at: iso(item.observed_at, `item_${index}_observed_at`),
-      url: httpsUrl(item.url, expected.kind === "news"),
+      url: httpsUrl(item.url, expected.kind === "news" || expected.kind === "blog_reference"),
       source: compact(item.source, 120),
       publisher: compact(item.publisher, 160),
     } as Record<string, unknown>;
@@ -162,8 +170,10 @@ export function validateServerKnowledgeSnapshot(
       }
       normalized.change_amount = Number.isFinite(Number(item.change_amount)) ? Number(item.change_amount) : null;
       normalized.score = Number.isFinite(Number(item.score)) ? Number(item.score) : null;
-    } else {
+    } else if (expected.kind === "news") {
       if (!normalized.publisher) throw new Error(`item_${index}_publisher_invalid`);
+      normalized.published_at = iso(item.published_at, `item_${index}_published_at`);
+    } else if (expected.kind === "blog_reference") {
       normalized.published_at = iso(item.published_at, `item_${index}_published_at`);
     }
     return normalized;

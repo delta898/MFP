@@ -1,10 +1,11 @@
 import { createNaverNewsRoute } from "./knowledge-provider-naver-news.ts";
+import { createNaverBlogReferenceRoute } from "./knowledge-provider-naver-blog-reference.ts";
 import { createSerpApiCorpusRoute } from "./knowledge-provider-serpapi-corpus.ts";
 
 type BaseKnowledgeProviderRoute = {
   providerId: string;
-  kind: "trends" | "news";
-  purpose: "content_ideas" | "serendipity";
+  kind: "trends" | "news" | "blog_reference";
+  purpose: "content_ideas" | "serendipity" | "writing_reference";
   operation: string;
 };
 
@@ -35,9 +36,11 @@ type StoredCorpusKnowledgeProviderRoute = BaseKnowledgeProviderRoute & {
 export type KnowledgeProviderRoute = UpstreamKnowledgeProviderRoute | StoredCorpusKnowledgeProviderRoute;
 
 const naverNewsRoute = createNaverNewsRoute();
+const naverBlogReferenceRoute = createNaverBlogReferenceRoute();
 const serpApiCorpusRoute = createSerpApiCorpusRoute();
 const ROUTES = new Map<string, KnowledgeProviderRoute>([
   [`${naverNewsRoute.kind}:${naverNewsRoute.purpose}`, naverNewsRoute],
+  [`${naverBlogReferenceRoute.kind}:${naverBlogReferenceRoute.purpose}`, naverBlogReferenceRoute],
   [`${serpApiCorpusRoute.kind}:${serpApiCorpusRoute.purpose}`, serpApiCorpusRoute],
 ]);
 

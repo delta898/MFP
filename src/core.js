@@ -1859,7 +1859,7 @@ ${messageText}
 			// 검색 키워드 결정: keywords 중 첫번째 또는 subject
 			const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
 			if (searchKeyword) {
-				Logger.info(`🔍 [외부 참고] 인기글 수집 및 분석 시작: '${searchKeyword}'`);
+				Logger.info(`🔍 [외부 참고] 관련 최신 글 수집 및 분석 시작: '${searchKeyword}'`);
 				const relatedPosts = await Utils.fetchNaverBlogTopPosts(searchKeyword);
 
 				for (let i = 0; i < relatedPosts.length; i++) {
@@ -1867,7 +1867,7 @@ ${messageText}
 					const text = await Utils.fetchReferenceContent(post.link);
 					if (text) {
 						refSourceCount++;
-						scrapedContext += `\n[인기 참고글 ${refSourceCount} - ${post.title}]:\n${text}\n`;
+						scrapedContext += `\n[자동 참고글 ${refSourceCount} - ${post.title}]:\n${text}\n`;
 
 						const rawTitle = String(post.title || '').replace(/\s+/g, ' ').trim();
 						const previewTitle = rawTitle.length > 7 ? rawTitle.slice(0, 7) + '...' : rawTitle;
@@ -1875,7 +1875,7 @@ ${messageText}
 					}
 					await Utils.sleep(1000);
 				}
-				Logger.info(`🔍 [외부 참고] 인기글 스크래핑 완료: ${refSourceCount}건 성공`);
+				Logger.info(`🔍 [외부 참고] 관련 최신 글 스크래핑 완료: ${refSourceCount}건 성공`);
 				if (scrapedTitles.length > 0) {
 					scrapedTitles.forEach(t => Logger.info(t));
 				}

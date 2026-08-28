@@ -6,6 +6,11 @@ const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const RuntimeConfig = require('./runtime-config');
+const License = require('./license');
+const {
+    createReferenceSearchGateway,
+    searchOptionalReferences
+} = require('./content/reference-search-gateway');
 const { getAgentEventStore } = require('./memory/store');
 const GoogleOAuth = require('./google-oauth');
 const {
@@ -57,6 +62,7 @@ const {
 const asyncAiJobStore = createAsyncJobStore({
     filePath: path.join(CONFIG.APP_ROOT_DIR || process.cwd(), 'data', 'async-ai-jobs.json')
 });
+const referenceSearchGateway = createReferenceSearchGateway({ config: CONFIG, License });
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -3230,50 +3236,17 @@ const Utils = {
         const Constants = require('./constants');
         const blogCount = count || Constants.REFERENCE_BLOG_COUNT || 3;
 
-        await RuntimeConfig.ensureNaverSearchCredentials();
-        if (!CONFIG.NAVER_CLIENT_ID || !CONFIG.NAVER_CLIENT_SECRET) {
-            Logger.debug('🔍 [외부 참고] 네이버 검색 API 서버 설정이 없어 인기글 수집을 건너뜁니다.');
-            return [];
-        }
-
-        try {
-            const url = `https://openapi.naver.com/v1/search/blog.json`;
-            const res = await axios.get(url, {
-                headers: {
-                    'X-Naver-Client-Id': CONFIG.NAVER_CLIENT_ID,
-                    'X-Naver-Client-Secret': CONFIG.NAVER_CLIENT_SECRET
-                },
-                params: {
-                    query: keyword,
-                    display: Math.max(blogCount * 2, 10), // 여유를 두고 많이 가져와서 필터링
-                    sort: 'sim' // 정확도순
-                }
-            });
-
-            if (res.data && res.data.items && res.data.items.length > 0) {
-                // postdate 기준 내림차순 정렬 (최신순)
-                const sorted = res.data.items.sort((a, b) => Number(b.postdate) - Number(a.postdate));
-
-                // 상위 N개만 선택 후 모바일 URL 변환
-                const topPosts = sorted.slice(0, blogCount).map(item => {
-                    return {
-                        title: (item.title || '').replace(/<[^>]*>/g, ''), // HTML 태그 제거
-                        link: this.convertToMobileNaverBlogUrl(item.link),
-                        postdate: item.postdate || ''
-                    };
-                });
-
-                Logger.debug(`🔍 [외부 참고] '${keyword}' 인기글 ${topPosts.length}개 수집 완료`);
-                return topPosts;
-            }
-
-            Logger.debug(`🔍 [외부 참고] '${keyword}' 검색 결과 없음`);
-            return [];
-
-        } catch (e) {
-            Logger.debug(`🔍 [외부 참고] 인기글 수집 실패 (${keyword}): ${e.message}`);
-            return [];
-        }
+        const posts = await searchOptionalReferences(
+            referenceSearchGateway,
+            { topic: keyword, limit: blogCount },
+            (error) => Logger.debug(`🔍 [외부 참고] 관련 최신 글 수집 실패 (${keyword}): ${error.message}`)
+        );
+        const normalized = posts.map((post) => ({
+            ...post,
+            link: this.convertToMobileNaverBlogUrl(post.link)
+        }));
+        Logger.debug(`🔍 [외부 참고] '${keyword}' 관련 최신 글 ${normalized.length}개 수집 완료`);
+        return normalized;
     },
 
     _resolveOwnBlogId: function () {

@@ -42,16 +42,16 @@ function classifyProviderFailure(error: unknown) {
   const internalCode = error && typeof error === "object" && "code" in error
     ? String(error.code || "").trim().slice(0, 80)
     : "";
-  if (internalCode === "NAVER_NEWS_AUTH_FAILED" || internalCode === "NAVER_NEWS_NOT_CONFIGURED") {
+  if (["NAVER_NEWS_AUTH_FAILED", "NAVER_NEWS_NOT_CONFIGURED", "NAVER_BLOG_AUTH_FAILED", "NAVER_BLOG_NOT_CONFIGURED"].includes(internalCode)) {
     return { publicCode: "PROVIDER_AUTH_FAILED", internalCode };
   }
-  if (internalCode === "NAVER_NEWS_RATE_LIMITED") {
+  if (internalCode === "NAVER_NEWS_RATE_LIMITED" || internalCode === "NAVER_BLOG_RATE_LIMITED") {
     return { publicCode: "PROVIDER_RATE_LIMITED", internalCode };
   }
-  if (internalCode === "NAVER_NEWS_REQUEST_REJECTED") {
+  if (internalCode === "NAVER_NEWS_REQUEST_REJECTED" || internalCode === "NAVER_BLOG_REQUEST_REJECTED") {
     return { publicCode: "UPSTREAM_REQUEST_REJECTED", internalCode };
   }
-  if (internalCode === "NAVER_NEWS_INVALID_RESPONSE" || internalCode === "INVALID_UPSTREAM_RESPONSE") {
+  if (["NAVER_NEWS_INVALID_RESPONSE", "NAVER_BLOG_INVALID_RESPONSE", "INVALID_UPSTREAM_RESPONSE"].includes(internalCode)) {
     return { publicCode: "INVALID_UPSTREAM_RESPONSE", internalCode };
   }
   if (String((error as Error)?.message || "") === "upstream_timeout") {
