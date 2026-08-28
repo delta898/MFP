@@ -64,6 +64,17 @@
 - A failed external dependency should not erase the last valid local state. Verify failure, retry, and fallback behavior when changing AI, provider, publishing, or network flows.
 - Before handoff, report what changed, what was verified, what remains for manual testing, and whether changes are committed or still only in the working tree.
 
+## Development Journal Suggestions
+- Treat meaningful BlogGenius development work as a potential source of public learning material for the user's blog.
+- Suggest reusable `주제` seeds rather than polished titles or full articles unless the user explicitly asks for them.
+- Center suggestions on the user's learning journey: questions they raised, unfamiliar knowledge they acquired, alternatives discussed, decisions reached together, failed attempts, tradeoffs, and verified outcomes.
+- Accumulate related lessons and suggest them together at a natural milestone instead of interrupting the work or commenting on every small change.
+- Good suggestion points include completion of a substantial feature or stage, a release, an important architecture decision, or resolution of a difficult and broadly useful failure.
+- Do not suggest routine copy edits, trivial fixes, repetitive Git operations, or material that has already been proposed without a meaningful new angle.
+- Keep each suggestion compact: a topic statement and a short seed summary that BlogGenius can expand later. Prefer a few high-value topics over a long list.
+- Exclude secrets, credentials, private user data, exploitable operational details, and unpublished information that is not appropriate for a public blog.
+- Do not create or persist a full development journal automatically. Surface suggestions in the handoff when useful and let the user decide whether to develop or store them.
+
 ## Release / Development Routine
 - Do not bump versions during normal feature work.
 - Decide the version only right before release.
