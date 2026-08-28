@@ -62,3 +62,14 @@
 
 Development 원격 적용과 `dev` push는 이 branch를 parent와 로컬 `dev`에 병합한 뒤 사용자의 별도
 요청에 따라 진행한다. Production에는 변경을 적용하지 않았다.
+
+## Development 적용 결과
+
+- parent를 로컬 `dev`에 fast-forward 병합한 뒤 readiness와 rollout planner가 모두 `READY`였다.
+- DB dry-run에서 manifest에 선언한 migration 3개만 pending으로 확인됐다.
+- 동일한 migration 3개를 Development DB에 적용했다. seed와 DB reset은 실행하지 않았다.
+- `knowledge-gateway`를 Development에 배포했다.
+- 공개 REST 및 전체 Edge Function endpoint의 무변경 HTTP smoke가 통과했다.
+- Supabase CLI로 읽은 migration·Function evidence와 현재 artifact의 drift 검증이 통과했다.
+- Naver provider를 실제 호출하는 의미 검증은 비용·quota가 있는 선택 검사이므로 실행하지 않았다.
+- Production에는 migration, Function, Secret 또는 credential 변경을 적용하지 않았다.
