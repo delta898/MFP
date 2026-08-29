@@ -18,15 +18,20 @@ function createBuildEnvironmentConfig(input = {}) {
     const environment = assertEnvironmentName(input.environment);
     const supabaseUrl = normalizeText(input.supabaseUrl);
     const publishableKey = normalizeText(input.publishableKey);
+    const trendsApiUrl = normalizeText(input.trendsApiUrl);
     const googleOauthClientId = normalizeText(input.googleOauthClientId);
     const googleOauthClientSecret = normalizeText(input.googleOauthClientSecret);
     const validatedUrl = validatePublicUrl(environment, supabaseUrl);
+    const validatedTrendsApiUrl = validatePublicUrl(environment, trendsApiUrl);
 
     if (!validatedUrl.valid) {
         throw new Error(`Invalid ${environment} Supabase URL: ${validatedUrl.reason}`);
     }
     if (!publishableKey) {
         throw new Error(`Missing ${environment} Supabase publishable key`);
+    }
+    if (!validatedTrendsApiUrl.valid) {
+        throw new Error(`Invalid ${environment} Trends API URL: ${validatedTrendsApiUrl.reason}`);
     }
     if (!googleOauthClientId || !googleOauthClientSecret) {
         throw new Error(`Missing ${environment} Google OAuth client configuration`);
@@ -36,6 +41,7 @@ function createBuildEnvironmentConfig(input = {}) {
         BLOGGENIUS_ENV: environment,
         SUPABASE_URL: supabaseUrl,
         SUPABASE_PUBLISHABLE_KEY: publishableKey,
+        TRENDS_API_URL: trendsApiUrl.replace(/\/+$/, ''),
         GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
         GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret
     });
@@ -61,6 +67,7 @@ function validateBuildEnvironmentConfig(config, expectedEnvironment) {
         environment: config?.BLOGGENIUS_ENV,
         supabaseUrl: config?.SUPABASE_URL,
         publishableKey: config?.SUPABASE_PUBLISHABLE_KEY,
+        trendsApiUrl: config?.TRENDS_API_URL,
         googleOauthClientId: config?.GOOGLE_OAUTH_CLIENT_ID,
         googleOauthClientSecret: config?.GOOGLE_OAUTH_CLIENT_SECRET
     });
@@ -94,6 +101,7 @@ function runCli(argv = process.argv.slice(2), env = process.env) {
             environment: args.target,
             supabaseUrl: env.BLOGGENIUS_BUILD_SUPABASE_URL,
             publishableKey: env.BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY,
+            trendsApiUrl: env.BLOGGENIUS_BUILD_TRENDS_API_URL,
             googleOauthClientId: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID,
             googleOauthClientSecret: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET
         });

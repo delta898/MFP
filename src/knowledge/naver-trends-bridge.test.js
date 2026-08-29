@@ -6,6 +6,11 @@ test('adds the built-in Naver provider to content idea routing', async () => {
     const requests = [];
     const registry = createCapabilityRegistry({
         CONFIG: {
+            TRENDS_API_PUBLIC_CONFIG: {
+                environment: 'development',
+                configured: true,
+                url: 'https://trendapi-dev.example.test'
+            },
             knowledge: { providers: [], routing: { content_ideas: [] } }
         },
         Logger: { info() {}, warn() {} },

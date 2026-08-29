@@ -149,7 +149,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         License: deps.License,
         Utils: deps.Utils,
         Logger: deps.Logger,
-        axios: deps.axios
+        axios: deps.axios,
+        baseUrl: deps.CONFIG?.TRENDS_API_PUBLIC_CONFIG?.url
     });
     const trendPostingController = createTrendPostingController({
         service: trendPostingService,

@@ -84,7 +84,8 @@ function prepareLocalEnvironment(options = {}) {
         BLOGGENIUS_ENV: 'local',
         BLOGGENIUS_RUNTIME_ROOT: repoRoot,
         BLOGGENIUS_LOCAL_SUPABASE_URL: status.url,
-        BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: status.publishableKey
+        BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: status.publishableKey,
+        BLOGGENIUS_LOCAL_TRENDS_API_URL: 'http://127.0.0.1:4581'
     });
 }
 

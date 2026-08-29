@@ -1,10 +1,7 @@
 const { createApiError } = require('../errors');
 const { createAccessTokenCache } = require('../../trend-posting/access-token-cache');
 const { aggregateTrendKeywords, resolveTrendPostingFilters } = require('../../trend-posting/query');
-const {
-    DEFAULT_TRENDS_API_BASE_URL,
-    createTrendPostingRemoteClient
-} = require('../../trend-posting/remote-client');
+const { createTrendPostingRemoteClient } = require('../../trend-posting/remote-client');
 
 function createTrendPostingService(deps = {}) {
     const License = deps.License;
@@ -17,11 +14,17 @@ function createTrendPostingService(deps = {}) {
     const tokenCache = deps.tokenCache || createAccessTokenCache({
         issueToken: () => License.issueTrendsAccessToken()
     });
-    const remoteClient = deps.remoteClient || createTrendPostingRemoteClient({
-        axios: deps.axios,
-        tokenCache,
-        baseUrl: deps.baseUrl || DEFAULT_TRENDS_API_BASE_URL
-    });
+    let remoteClient = deps.remoteClient || null;
+
+    function getRemoteClient() {
+        if (remoteClient) return remoteClient;
+        remoteClient = createTrendPostingRemoteClient({
+            axios: deps.axios,
+            tokenCache,
+            baseUrl: deps.baseUrl
+        });
+        return remoteClient;
+    }
 
     function isValidYmd(value) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -48,6 +51,9 @@ function createTrendPostingService(deps = {}) {
         if (error?.code === 'TRENDS_TOKEN_ISSUE_FAILED') {
             throw createApiError(503, error.code, error.message || '트렌드 접근 권한을 확인하지 못했습니다.');
         }
+        if (error?.code === 'TRENDS_API_NOT_CONFIGURED') {
+            throw createApiError(503, error.code, '현재 환경의 트렌드 서버가 설정되지 않았습니다.');
+        }
         if (error?.code === 'TRENDS_REMOTE_RATE_LIMITED') {
             throw createApiError(429, error.code, '트렌드 조회 요청이 많습니다. 잠시 후 다시 시도해 주세요.');
         }
@@ -61,7 +67,7 @@ function createTrendPostingService(deps = {}) {
     return {
         async getMeta() {
             try {
-                const result = await remoteClient.getMeta();
+                const result = await getRemoteClient().getMeta();
                 if (!result?.success) throw new Error(result?.message || 'invalid trends metadata');
                 return {
                     categories: Array.isArray(result.categories) ? result.categories.map(String).filter(Boolean) : [],
@@ -85,7 +91,7 @@ function createTrendPostingService(deps = {}) {
             }
 
             try {
-                const result = await remoteClient.getRows(filters);
+                const result = await getRemoteClient().getRows(filters);
                 if (!result?.success || !Array.isArray(result.items)) {
                     throw new Error(result?.message || 'invalid trends response');
                 }

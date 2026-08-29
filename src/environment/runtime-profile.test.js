@@ -6,6 +6,7 @@ const {
     STATUS,
     resolveRuntimeEnvironmentProfile,
     resolveSupabasePublicConnection,
+    resolveTrendsApiPublicConnection,
     toSafeRuntimeEnvironmentDiagnostic,
     validatePublicUrl
 } = require('./runtime-profile');
@@ -155,4 +156,76 @@ test('connection helper prefers the resolved runtime profile', () => {
     assert.equal(connection.environment, 'development');
     assert.equal(connection.url, DEV_URL);
     assert.equal(connection.publishableKey, 'development-key');
+});
+
+test('Trends API connection follows the selected environment without Production fallback', () => {
+    const local = resolveRuntimeEnvironmentProfile({
+        env: {
+            BLOGGENIUS_ENV: 'local',
+            BLOGGENIUS_LOCAL_SUPABASE_URL: 'http://127.0.0.1:54321',
+            BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: 'local-key',
+            BLOGGENIUS_LOCAL_TRENDS_API_URL: 'http://127.0.0.1:4581',
+            BLOGGENIUS_PRODUCTION_TRENDS_API_URL: 'https://trendapi.example.com'
+        }
+    });
+    const missingDevelopment = resolveRuntimeEnvironmentProfile({
+        env: {
+            BLOGGENIUS_ENV: 'development',
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: DEV_URL,
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: 'development-key',
+            BLOGGENIUS_PRODUCTION_TRENDS_API_URL: 'https://trendapi.example.com'
+        }
+    });
+
+    assert.deepEqual(resolveTrendsApiPublicConnection({ RUNTIME_ENVIRONMENT_PROFILE: local }), {
+        environment: 'local',
+        configured: true,
+        url: 'http://127.0.0.1:4581',
+        endpointHost: '127.0.0.1:4581',
+        reason: ''
+    });
+    assert.equal(missingDevelopment.status, STATUS.READY);
+    assert.equal(missingDevelopment.trendsApi.configured, false);
+    assert.equal(missingDevelopment.trendsApi.url, '');
+    assert.equal(missingDevelopment.trendsApi.reason, 'trends_api_url_missing');
+});
+
+test('Development Trends API refuses the Production endpoint and insecure URLs', () => {
+    const base = {
+        BLOGGENIUS_ENV: 'development',
+        BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: DEV_URL,
+        BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: 'development-key',
+        BLOGGENIUS_PRODUCTION_TRENDS_API_URL: 'https://trendapi.example.com'
+    };
+    const productionCollision = resolveRuntimeEnvironmentProfile({
+        env: {
+            ...base,
+            BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL: 'https://trendapi.example.com'
+        }
+    });
+    const insecure = resolveRuntimeEnvironmentProfile({
+        env: {
+            ...base,
+            BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL: 'http://trendapi-dev.example.com'
+        }
+    });
+
+    assert.equal(productionCollision.trendsApi.configured, false);
+    assert.equal(productionCollision.trendsApi.reason, 'production_target_collision');
+    assert.equal(insecure.trendsApi.configured, false);
+    assert.equal(insecure.trendsApi.reason, 'hosted_requires_remote_https');
+});
+
+test('Development Trends API requires the Production URL as a collision fence', () => {
+    const profile = resolveRuntimeEnvironmentProfile({
+        env: {
+            BLOGGENIUS_ENV: 'development',
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_URL: DEV_URL,
+            BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY: 'development-key',
+            BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL: 'https://trendapi-dev.example.com'
+        }
+    });
+
+    assert.equal(profile.trendsApi.configured, false);
+    assert.equal(profile.trendsApi.reason, 'production_target_unknown');
 });

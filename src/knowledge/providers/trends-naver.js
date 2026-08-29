@@ -1,9 +1,6 @@
 const crypto = require('crypto');
 const { createAccessTokenCache } = require('../../trend-posting/access-token-cache');
-const {
-    DEFAULT_TRENDS_API_BASE_URL,
-    createTrendPostingRemoteClient
-} = require('../../trend-posting/remote-client');
+const { createTrendPostingRemoteClient } = require('../../trend-posting/remote-client');
 const { aggregateTrendKeywords } = require('../../trend-posting/query');
 
 const DEFAULT_PROVIDER_ID = 'naver-trends';
@@ -72,7 +69,8 @@ function normalizeNaverTrendItem(item = {}, definition = {}, options = {}) {
     };
 }
 
-function createDefaultNaverTrendsDefinition() {
+function createDefaultNaverTrendsDefinition(options = {}) {
+    const baseUrl = String(options.baseUrl || '').trim().replace(/\/+$/, '');
     return {
         id: DEFAULT_PROVIDER_ID,
         kind: 'trends',
@@ -83,7 +81,7 @@ function createDefaultNaverTrendsDefinition() {
             vendor: DEFAULT_VENDOR,
             categories: [],
             limit: 10,
-            base_url: DEFAULT_TRENDS_API_BASE_URL
+            ...(baseUrl ? { base_url: baseUrl } : {})
         }
     };
 }
@@ -92,6 +90,7 @@ function createNaverTrendsProvider(options = {}) {
     const axios = options.axios;
     const License = options.License;
     const injectedClient = options.remoteClient || null;
+    const runtimeBaseUrl = String(options.runtimeBaseUrl || '').trim().replace(/\/+$/, '');
     const now = typeof options.now === 'function' ? options.now : () => new Date();
     const clients = new Map();
 
@@ -101,7 +100,12 @@ function createNaverTrendsProvider(options = {}) {
         if (!License || typeof License.issueTrendsAccessToken !== 'function') {
             throw new Error('Naver trends provider requires licensed access');
         }
-        const baseUrl = String(config.base_url || DEFAULT_TRENDS_API_BASE_URL).replace(/\/+$/, '');
+        const baseUrl = runtimeBaseUrl;
+        if (!baseUrl) {
+            const error = new Error('현재 환경의 Trends API가 설정되지 않았습니다.');
+            error.code = 'TRENDS_API_NOT_CONFIGURED';
+            throw error;
+        }
         if (clients.has(baseUrl)) return clients.get(baseUrl);
         const tokenCache = createAccessTokenCache({ issueToken: () => License.issueTrendsAccessToken() });
         const client = createTrendPostingRemoteClient({

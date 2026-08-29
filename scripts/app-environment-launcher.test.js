@@ -88,6 +88,7 @@ test('local app launcher starts Supabase and injects its discovered public conne
     assert.equal(env.BLOGGENIUS_RUNTIME_ROOT, path.resolve('/repo'));
     assert.equal(env.BLOGGENIUS_LOCAL_SUPABASE_URL, 'http://127.0.0.1:54321');
     assert.equal(env.BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY, 'legacy-local-key');
+    assert.equal(env.BLOGGENIUS_LOCAL_TRENDS_API_URL, 'http://127.0.0.1:4581');
     assert.equal(env.GOOGLE_OAUTH_CLIENT_ID, 'local-google-id');
     assert.equal(env.GOOGLE_OAUTH_CLIENT_SECRET, 'local-google-secret');
 });

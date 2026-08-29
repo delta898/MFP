@@ -39,6 +39,7 @@ test('remote client refreshes once after an unauthorized response', async () => 
     const tokens = [];
     let requestCount = 0;
     const client = createTrendPostingRemoteClient({
+        baseUrl: 'https://trendapi-dev.example.test',
         tokenCache: {
             async getToken() { return 'expired-token'; },
             async refreshToken() { return 'fresh-token'; }
@@ -64,6 +65,7 @@ test('remote client refreshes once after an unauthorized response', async () => 
 test('remote client does not retry non-authentication failures', async () => {
     let requestCount = 0;
     const client = createTrendPostingRemoteClient({
+        baseUrl: 'https://trendapi-dev.example.test',
         tokenCache: {
             async getToken() { return 'read-token'; },
             async refreshToken() { return 'unused'; }
@@ -80,4 +82,14 @@ test('remote client does not retry non-authentication failures', async () => {
 
     await assert.rejects(client.getMeta(), (error) => error.code === 'TRENDS_REMOTE_RATE_LIMITED');
     assert.equal(requestCount, 1);
+});
+
+test('remote client never falls back to a Production endpoint', () => {
+    assert.throws(() => createTrendPostingRemoteClient({
+        tokenCache: {
+            async getToken() { return 'read-token'; },
+            async refreshToken() { return 'read-token'; }
+        },
+        axios: { async get() { return { data: {} }; } }
+    }), (error) => error.code === 'TRENDS_API_NOT_CONFIGURED');
 });

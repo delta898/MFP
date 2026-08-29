@@ -40,12 +40,13 @@ const { createKeywordResearchCapabilities } = require('./content/keyword-researc
 
 function createCapabilityRegistry(deps = {}) {
     const configState = createConfigStateManager(deps);
+    const trendsApiBaseUrl = String(deps.CONFIG?.TRENDS_API_PUBLIC_CONFIG?.url || '').trim();
     const configuredProviderDefinitions = Array.isArray(deps.CONFIG?.knowledge?.providers)
         ? deps.CONFIG.knowledge.providers
         : (Array.isArray(deps.CONFIG?.KNOWLEDGE_PROVIDERS) ? deps.CONFIG.KNOWLEDGE_PROVIDERS : []);
     const providerDefinitions = [...configuredProviderDefinitions];
     if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_TRENDS_PROVIDER_ID)) {
-        providerDefinitions.push(createDefaultNaverTrendsDefinition());
+        providerDefinitions.push(createDefaultNaverTrendsDefinition({ baseUrl: trendsApiBaseUrl }));
     }
     if (!providerDefinitions.some((item) => String(item?.id || '').trim() === DEFAULT_NAVER_NEWS_PROVIDER_ID)) {
         providerDefinitions.push(createDefaultNaverNewsDefinition());
@@ -90,7 +91,8 @@ function createCapabilityRegistry(deps = {}) {
                     'trends:serpapi': createSerpApiTrendsProvider(),
                     'trends:naver_trend_posting': createNaverTrendsProvider({
                         axios: deps.axios,
-                        License: deps.License
+                        License: deps.License,
+                        runtimeBaseUrl: trendsApiBaseUrl
                     })
                 }
             }),

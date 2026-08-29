@@ -87,6 +87,13 @@ function createUnavailableProfile({ status, environment = '', selectionSource = 
             endpointHost: '',
             urlSource: 'none',
             publishableKeySource: 'none'
+        }),
+        trendsApi: Object.freeze({
+            configured: false,
+            url: '',
+            endpointHost: '',
+            urlSource: 'none',
+            reason: 'runtime_environment_unavailable'
         })
     });
 }
@@ -140,6 +147,12 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
         descriptor.supabase_publishable_key_source,
         ['SUPABASE_PUBLISHABLE_KEY', 'LICENSE_CHK_KEY']
     );
+    const trendsApiUrl = readPublicValue(
+        env,
+        buildMatches ? buildConfig : {},
+        descriptor.trends_api_url_source,
+        ['TRENDS_API_URL']
+    );
 
     if (!url.value || !publishableKey.value) {
         return createUnavailableProfile({
@@ -160,6 +173,20 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
         });
     }
 
+    const validatedTrendsApiUrl = trendsApiUrl.value
+        ? validatePublicUrl(environment, trendsApiUrl.value)
+        : { valid: false, reason: 'trends_api_url_missing', host: '' };
+    const productionTrendsUrl = normalizeText(env.BLOGGENIUS_PRODUCTION_TRENDS_API_URL)
+        .replace(/\/+$/, '');
+    const normalizedTrendsUrl = normalizeText(trendsApiUrl.value).replace(/\/+$/, '');
+    const trendsTargetCollision = environment !== ENVIRONMENTS.PRODUCTION
+        && productionTrendsUrl
+        && normalizedTrendsUrl === productionTrendsUrl;
+    const productionFenceMissing = environment === ENVIRONMENTS.DEVELOPMENT && !productionTrendsUrl;
+    const trendsApiConfigured = validatedTrendsApiUrl.valid
+        && !trendsTargetCollision
+        && !productionFenceMissing;
+
     return Object.freeze({
         schemaVersion: ENVIRONMENT_SCHEMA_VERSION,
         environment,
@@ -178,6 +205,17 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
             endpointHost: validatedUrl.host,
             urlSource: url.source,
             publishableKeySource: publishableKey.source
+        }),
+        trendsApi: Object.freeze({
+            configured: trendsApiConfigured,
+            url: trendsApiConfigured ? normalizedTrendsUrl : '',
+            endpointHost: trendsApiConfigured ? validatedTrendsApiUrl.host : '',
+            urlSource: trendsApiUrl.source,
+            reason: trendsTargetCollision
+                ? 'production_target_collision'
+                : (productionFenceMissing
+                    ? 'production_target_unknown'
+                    : (validatedTrendsApiUrl.valid ? '' : validatedTrendsApiUrl.reason))
         })
     });
 }
@@ -220,6 +258,28 @@ function resolveSupabasePublicConnection(config = {}) {
     });
 }
 
+function resolveTrendsApiPublicConnection(config = {}) {
+    const profile = config.RUNTIME_ENVIRONMENT_PROFILE;
+    if (profile?.trendsApi) {
+        return Object.freeze({
+            environment: normalizeText(profile.environment),
+            configured: profile.trendsApi.configured === true,
+            url: normalizeText(profile.trendsApi.url),
+            endpointHost: normalizeText(profile.trendsApi.endpointHost),
+            reason: normalizeText(profile.trendsApi.reason)
+        });
+    }
+
+    const publicConfig = config.TRENDS_API_PUBLIC_CONFIG;
+    return Object.freeze({
+        environment: normalizeText(publicConfig?.environment),
+        configured: publicConfig?.configured === true,
+        url: normalizeText(publicConfig?.url),
+        endpointHost: normalizeText(publicConfig?.endpointHost),
+        reason: normalizeText(publicConfig?.reason) || 'trends_api_url_missing'
+    });
+}
+
 function toSafeRuntimeEnvironmentDiagnostic(profile) {
     return Object.freeze({
         environment: normalizeText(profile?.environment) || 'unselected',
@@ -250,6 +310,7 @@ module.exports = {
     STATUS,
     resolveRuntimeEnvironmentProfile,
     resolveSupabasePublicConnection,
+    resolveTrendsApiPublicConnection,
     toSafeRuntimeEnvironmentDiagnostic,
     logRuntimeEnvironmentStatus,
     validatePublicUrl

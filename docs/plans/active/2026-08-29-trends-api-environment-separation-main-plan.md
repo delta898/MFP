@@ -6,8 +6,8 @@
 
 ## 상태
 
-Stage 1 feature-main 병합 완료. Stage 2 구현 완료, feature-main 병합 대기. Production 변경과 원격
-배포는 승인 전까지 수행하지 않는다.
+Stage 1·2 feature-main 병합 완료. Stage 3 구현과 자동 검증 완료, feature-main 병합 대기.
+Production 변경과 원격 배포는 승인 전까지 수행하지 않는다.
 
 ## 배경과 사용자 필요
 
@@ -84,13 +84,17 @@ systemd `EnvironmentFile` 등 운영자가 소유한 외부 경로를 우선한�
 ./trends_dev.sh
 ./trends_local.sh api
 ./trends_dev.sh api
+./trends_local.sh collect
+./trends_dev.sh collect
 ./trends_local.sh status
 ./trends_dev.sh status
 ```
 
-사용자에게는 위 shell launcher를 기본 진입점으로 제공한다. 하위 npm 명령은 테스트와 자동화에서
-사용한다. Production launcher는 아직 제공하지 않으며, 향후 branch와 target preflight를 통과해야만
-실행할 수 있게 별도로 확정한다.
+인자 없이 실행하면 도움말만 표시하며 수집을 암묵적으로 시작하지 않는다. `api`는 해당 환경의 API
+서버, `collect`는 네이버 트렌드 수집과 동일 환경 API를 통한 Supabase upsert를 뜻한다. 사용자에게는
+위 shell launcher를 기본 진입점으로 제공하고 하위 npm 명령은 테스트와 자동화에서 사용한다.
+Production launcher는 아직 제공하지 않으며, 향후 branch와 target preflight를 통과해야만 실행할 수
+있게 별도로 확정한다.
 
 ## API와 collector의 환경 분리
 
@@ -170,7 +174,7 @@ feature-main으로 병합·삭제한다. 전체 Development 검증이 끝날 때
 
 ### Stage 1 — 환경 계약과 config loader
 
-Status: implementation complete; feature-main merge pending
+Status: feature-main merge complete
 
 - `TRENDS_ENV` 계약과 manifest
 - 환경별 env 파일 선택과 fail-closed validation
@@ -179,13 +183,15 @@ Status: implementation complete; feature-main merge pending
 
 ### Stage 2 — API와 collector runtime 분리
 
-Status: implementation complete; feature-main merge pending
+Status: feature-main merge complete
 
 - 환경별 host, port, Supabase target과 token 설정
 - collector 대상 환경 guard
 - 환경 혼합과 Production write 방지 테스트
 
 ### Stage 3 — Desktop Trends endpoint 분리
+
+Status: implementation and automated verification complete; feature-main merge pending
 
 - BlogGenius runtime profile에 공개 Trends URL 추가
 - 환경별 endpoint allowlist/validation

@@ -1,4 +1,3 @@
-const DEFAULT_TRENDS_API_BASE_URL = 'https://trendapi.hangadac.com';
 const DEFAULT_TIMEOUT_MS = 12000;
 
 function createRemoteError(error) {
@@ -19,11 +18,16 @@ function createRemoteError(error) {
 function createTrendPostingRemoteClient(options = {}) {
     const axios = options.axios;
     const tokenCache = options.tokenCache;
-    const baseUrl = String(options.baseUrl || DEFAULT_TRENDS_API_BASE_URL).replace(/\/+$/, '');
+    const baseUrl = String(options.baseUrl || '').trim().replace(/\/+$/, '');
     const timeout = Math.max(1000, Number(options.timeout) || DEFAULT_TIMEOUT_MS);
     if (!axios || typeof axios.get !== 'function') throw new Error('axios.get is required');
     if (!tokenCache || typeof tokenCache.getToken !== 'function' || typeof tokenCache.refreshToken !== 'function') {
         throw new Error('tokenCache is required');
+    }
+    if (!baseUrl) {
+        const error = new Error('현재 환경의 Trends API가 설정되지 않았습니다.');
+        error.code = 'TRENDS_API_NOT_CONFIGURED';
+        throw error;
     }
 
     async function request(pathname, params = {}) {
@@ -67,7 +71,6 @@ function createTrendPostingRemoteClient(options = {}) {
 }
 
 module.exports = {
-    DEFAULT_TRENDS_API_BASE_URL,
     createRemoteError,
     createTrendPostingRemoteClient
 };

@@ -432,6 +432,13 @@ const CONFIG = {
         publishableKey: runtimeEnvironmentProfile.supabase.publishableKey,
         endpointHost: runtimeEnvironmentProfile.supabase.endpointHost
     }),
+    TRENDS_API_PUBLIC_CONFIG: Object.freeze({
+        environment: runtimeEnvironmentProfile.environment,
+        configured: runtimeEnvironmentProfile.trendsApi.configured,
+        url: runtimeEnvironmentProfile.trendsApi.url,
+        endpointHost: runtimeEnvironmentProfile.trendsApi.endpointHost,
+        reason: runtimeEnvironmentProfile.trendsApi.reason
+    }),
 
     // 🔧 [Essential Resolved]
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,

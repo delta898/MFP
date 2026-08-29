@@ -111,6 +111,23 @@ test('trend posting service maps invalid filters and upstream rate limits', asyn
     );
 });
 
+test('trend posting service reports a missing environment endpoint without Production fallback', async () => {
+    const service = createTrendPostingService({
+        License: {
+            async issueTrendsAccessToken() {
+                throw new Error('token issuance must not run without an endpoint');
+            }
+        },
+        axios: { async get() { throw new Error('network must not run'); } },
+        Logger: { warn() {} }
+    });
+
+    await assert.rejects(
+        () => service.getMeta(),
+        (error) => error.apiCode === 'TRENDS_API_NOT_CONFIGURED' && error.status === 503
+    );
+});
+
 test('trend posting service separates inactive licenses from temporary token issuance failures', async () => {
     for (const [code, status] of [['LICENSE_NOT_ACTIVE', 401], ['TRENDS_TOKEN_ISSUE_FAILED', 503]]) {
         const service = createService({
