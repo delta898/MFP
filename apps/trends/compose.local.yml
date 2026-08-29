@@ -6,7 +6,7 @@ services:
     image: bloggenius/trends-api:local
     init: true
     env_file:
-      - ${TRENDS_LOCAL_RUNTIME_ENV_FILE:-.env.local}
+      - ${TRENDS_LOCAL_RUNTIME_ENV_FILE:-.env.trends-collector.local}
     environment:
       TRENDS_ENV: local
       TRENDS_SUPABASE_TARGET_ENV: local

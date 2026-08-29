@@ -17,42 +17,34 @@ function runLauncher(filename, args = []) {
     });
 }
 
-test('local trends shell launcher requires an explicit action and exposes safe operator commands', () => {
-    const source = readLauncher('trends_local.sh');
-    const help = runLauncher('trends_local.sh');
+test('Local collector launcher exposes one purpose without an API server command', () => {
+    const source = readLauncher('collect_trends_local.sh');
+    const help = runLauncher('collect_trends_local.sh', ['--help']);
 
     assert.equal(help.status, 0);
-    assert.match(help.stdout, /사용법: \.\/trends_local\.sh <명령>/);
-    assert.match(help.stdout, /collect\s+네이버 트렌드를 수집해 Local API로 전송/);
+    assert.match(help.stdout, /사용법: \.\/collect_trends_local\.sh/);
+    assert.match(help.stdout, /Local Trends API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
-    assert.match(source, /collect\)/);
-    assert.match(source, /node scripts\/trends-local-api-container\.js/);
     assert.match(source, /npm run trends:collector:local/);
-    assert.match(source, /npm run trends:env:status -- local/);
-    assert.doesNotMatch(source, /production/);
+    assert.doesNotMatch(source, /trends:api|production/);
 });
 
-test('development trends shell launcher requires an explicit action without production access', () => {
-    const source = readLauncher('trends_dev.sh');
-    const help = runLauncher('trends_dev.sh');
+test('Development collector launcher exposes one purpose without an API server command', () => {
+    const source = readLauncher('collect_trends_dev.sh');
+    const help = runLauncher('collect_trends_dev.sh', ['help']);
 
     assert.equal(help.status, 0);
-    assert.match(help.stdout, /사용법: \.\/trends_dev\.sh <명령>/);
-    assert.match(help.stdout, /collect\s+네이버 트렌드를 수집해 Development API로 전송/);
+    assert.match(help.stdout, /사용법: \.\/collect_trends_dev\.sh/);
+    assert.match(help.stdout, /Development Trends API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
-    assert.match(source, /collect\)/);
-    assert.match(source, /npm run trends:api:development/);
     assert.match(source, /npm run trends:collector:development/);
-    assert.match(source, /npm run trends:env:status -- development/);
-    assert.doesNotMatch(source, /production/);
+    assert.doesNotMatch(source, /trends:api|production/);
 });
 
-test('trends shell launchers reject implicit collector options and unknown commands', () => {
-    for (const filename of ['trends_local.sh', 'trends_dev.sh']) {
-        const result = runLauncher(filename, ['--date=-1d']);
+test('collector launchers pass collection options to their explicit npm environment command', () => {
+    for (const filename of ['collect_trends_local.sh', 'collect_trends_dev.sh']) {
+        const source = readLauncher(filename);
 
-        assert.equal(result.status, 2);
-        assert.match(result.stderr, /알 수 없는 명령입니다/);
-        assert.match(result.stderr, /사용법:/);
+        assert.match(source, /exec npm run trends:collector:(?:local|development) -- "\$@"/);
     }
 });

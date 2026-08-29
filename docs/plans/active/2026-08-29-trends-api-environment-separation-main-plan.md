@@ -69,30 +69,26 @@ BlogGenius Production
 ```text
 TRENDS_ENV=local|development|production
 
-apps/trends/.env.local
-apps/trends/.env.development
-apps/trends/.env.production
+apps/trends/.env.trends-collector.local
+apps/trends/.env.trends-collector.development
+apps/trends/.env.trends-collector.production
+deploy/trends-api/development/.env.trends-api.development
 ```
 
-실제 파일은 Git에서 제외하고 `.env.*.sample`만 관리한다. 서버에서는 repository 내부 파일보다
-systemd `EnvironmentFile` 등 운영자가 소유한 외부 경로를 우선한다.
+실제 파일은 Git에서 제외하고 sample/example만 관리한다. Development API의 실제 설정은
+Compose와 같은 배포 폴더에 두며, 서버 공용 ingress 설정과 분리한다.
 
 사용자 편의 실행 명령:
 
 ```text
-./trends_local.sh
-./trends_dev.sh
-./trends_local.sh api
-./trends_dev.sh api
-./trends_local.sh collect
-./trends_dev.sh collect
-./trends_local.sh status
-./trends_dev.sh status
+./collect_trends_local.sh
+./collect_trends_dev.sh
 ```
 
-인자 없이 실행하면 도움말만 표시하며 수집을 암묵적으로 시작하지 않는다. `api`는 해당 환경의 API
-서버, `collect`는 네이버 트렌드 수집과 동일 환경 API를 통한 Supabase upsert를 뜻한다. 사용자에게는
-위 shell launcher를 기본 진입점으로 제공하고 하위 npm 명령은 테스트와 자동화에서 사용한다.
+스크립트 이름 자체가 수집 의도를 드러내므로 인자 없이 실행하면 기본 날짜를 수집한다. 도움말은
+`--help`로 확인한다. 직접 API 서버를 실행하던 `api` 명령은 제거하고 Development API는
+`deploy/trends-api/development/`의 Compose로만 운영한다. 사용자에게는 위 shell launcher를 기본
+수집 진입점으로 제공하고 하위 npm 명령은 테스트와 자동화에서 사용한다.
 Production launcher는 아직 제공하지 않으며, 향후 branch와 target preflight를 통과해야만 실행할 수
 있게 별도로 확정한다.
 

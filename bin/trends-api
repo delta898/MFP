@@ -1,3 +1,0 @@
-#!/usr/bin/env node
-
-require('./run-trends-tool').runTool('api');

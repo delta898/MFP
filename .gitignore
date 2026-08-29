@@ -4,9 +4,10 @@ __pycache__/
 .env
 .env.development
 .secrets.env
-apps/trends/.env.local
-apps/trends/.env.development
-apps/trends/.env.production
+apps/trends/.env.trends-collector.local
+apps/trends/.env.trends-collector.development
+apps/trends/.env.trends-collector.production
+deploy/trends-api/development/.env.trends-api.development
 .env.oauth
 src/config/secret.js
 !src/config/secret.js.sample

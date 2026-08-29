@@ -43,7 +43,10 @@ test('Trends API image build never copies environment or secret-bearing operator
 test('Local Compose injects runtime config and exposes API only on loopback', () => {
     const compose = fs.readFileSync(path.join(TRENDS_ROOT, 'compose.local.yml'), 'utf8');
 
-    assert.match(compose, /env_file:\s*\n\s*- \$\{TRENDS_LOCAL_RUNTIME_ENV_FILE:-\.env\.local\}/);
+    assert.match(
+        compose,
+        /env_file:\s*\n\s*- \$\{TRENDS_LOCAL_RUNTIME_ENV_FILE:-\.env\.trends-collector\.local\}/
+    );
     assert.match(compose, /SUPABASE_URL: http:\/\/host\.docker\.internal:54321/);
     assert.match(compose, /"127\.0\.0\.1:4581:4581"/);
     assert.match(compose, /read_only: true/);

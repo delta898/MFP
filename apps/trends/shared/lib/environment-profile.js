@@ -39,9 +39,10 @@ function resolveEnvironmentFile(options = {}) {
             required: true
         };
     }
+    const fileName = `.env.trends-collector.${environment}`;
     return {
-        path: path.join(baseDir, `.env.${environment}`),
-        source: `conventional_file:.env.${environment}`,
+        path: path.join(baseDir, fileName),
+        source: `collector_file:${fileName}`,
         required: false
     };
 }

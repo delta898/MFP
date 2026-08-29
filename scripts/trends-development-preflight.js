@@ -3,10 +3,21 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadTrendsEnvironment } = require('../apps/trends/shared/lib/environment-profile');
+const { assertTrendsEnvironment } = require('../apps/trends/shared/lib/environment-profile');
+const { parseEnvFile } = require('../apps/trends/shared/lib/load-env');
 const { resolveApiRuntimeGuard } = require('../apps/trends/shared/lib/runtime-target-guard');
 
 const MANIFEST_PATH = path.join('apps', 'trends', 'deployment', 'development-manifest.json');
+const RUNTIME_ENV_PATH = path.join('deploy', 'trends-api', 'development', '.env.trends-api.development');
+const FIXED_DEVELOPMENT_ENV = Object.freeze({
+    TRENDS_ENV: 'development',
+    TRENDS_SUPABASE_TARGET_ENV: 'development',
+    SUPABASE_URL: 'https://bvtlwjbmjnfphxlrkzhm.supabase.co',
+    TRENDS_API_BASE_URL: 'https://trendapi-dev.hangadac.com',
+    TRENDS_PRODUCTION_API_BASE_URL: 'https://trendapi.hangadac.com',
+    TRENDS_READ_TOKEN_ISSUER: 'bloggenius-development',
+    TRENDS_READ_TOKEN_AUDIENCE: 'trends-api-development'
+});
 
 function normalizeText(value) {
     return String(value || '').trim();
@@ -24,18 +35,31 @@ function assertSecret(value, name) {
     if (normalized.length < 24) throw new Error(`${name} must be at least 24 characters`);
 }
 
+function loadDevelopmentRuntimeEnvironment(repoRoot, options = {}) {
+    const fsImpl = options.fs || fs;
+    const envPath = path.join(repoRoot, RUNTIME_ENV_PATH);
+    if (!fsImpl.existsSync(envPath)) {
+        throw new Error(`${RUNTIME_ENV_PATH} is required`);
+    }
+    const fileValues = parseEnvFile(fsImpl.readFileSync(envPath, 'utf8'));
+    return Object.freeze({
+        ...(options.env || process.env),
+        ...fileValues,
+        ...FIXED_DEVELOPMENT_ENV
+    });
+}
+
 function inspectDevelopmentDeployment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
-    const env = options.env || process.env;
-    if (!normalizeText(env.TRENDS_ENV)) env.TRENDS_ENV = 'development';
+    const env = options.env || loadDevelopmentRuntimeEnvironment(repoRoot, options);
     const manifest = options.manifest || readManifest(repoRoot, options.fs || fs);
-    const profile = loadTrendsEnvironment({ baseDir: path.join(repoRoot, 'apps', 'trends'), env });
+    const environment = assertTrendsEnvironment(env.TRENDS_ENV);
     const failures = [];
     const expected = manifest.service.public_base_url.replace(/\/+$/, '');
     let guard = null;
 
     try {
-        guard = resolveApiRuntimeGuard({ environment: profile.environment, env });
+        guard = resolveApiRuntimeGuard({ environment, env });
     } catch (error) {
         failures.push(`runtime_target_guard: ${error.message}`);
     }
@@ -62,12 +86,13 @@ function inspectDevelopmentDeployment(options = {}) {
 
     return Object.freeze({
         schemaVersion: 1,
-        environment: profile.environment,
+        environment,
         ready: failures.length === 0,
         deployment: Object.freeze({
             hostname: new URL(expected).hostname,
             containerName: manifest.service.container_name,
             containerPort: manifest.service.container_port,
+            hostPort: manifest.service.host_port,
             ingressOwner: manifest.deployment_policy.ingress_owner,
             supabaseHost: guard?.supabaseEndpointHost || (() => {
                 try { return new URL(env.SUPABASE_URL).host; } catch (_error) { return 'invalid'; }
@@ -97,6 +122,7 @@ function formatResult(result) {
         `Environment: ${result.environment}`,
         `Public API: https://${result.deployment.hostname}`,
         `Container port: ${result.deployment.containerPort}`,
+        `Host port: ${result.deployment.hostPort}`,
         `Ingress owner: ${result.deployment.ingressOwner}`,
         `Container: ${result.deployment.containerName}`,
         `Supabase host: ${result.deployment.supabaseHost}`,
@@ -131,4 +157,14 @@ if (require.main === module) {
     }
 }
 
-module.exports = { MANIFEST_PATH, assertSecret, formatResult, inspectDevelopmentDeployment, readManifest, runCli };
+module.exports = {
+    FIXED_DEVELOPMENT_ENV,
+    MANIFEST_PATH,
+    RUNTIME_ENV_PATH,
+    assertSecret,
+    formatResult,
+    inspectDevelopmentDeployment,
+    loadDevelopmentRuntimeEnvironment,
+    readManifest,
+    runCli
+};

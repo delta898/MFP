@@ -23,27 +23,27 @@ test('trends environment contract accepts only explicit canonical names', () => 
 
 test('environment file defaults to the selected conventional file', () => {
     const resolved = resolveEnvironmentFile({ environment: 'development', baseDir: '/tmp/trends' });
-    assert.equal(resolved.path, path.join('/tmp/trends', '.env.development'));
+    assert.equal(resolved.path, path.join('/tmp/trends', '.env.trends-collector.development'));
     assert.equal(resolved.required, false);
 });
 
 test('explicit environment file must be absolute', () => {
     assert.throws(() => resolveEnvironmentFile({
         environment: 'development',
-        envFile: '.env.development'
+        envFile: '.env.trends-collector.development'
     }), /must be an absolute path/);
 });
 
 test('loads only the selected environment file and preserves process values', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-env-'));
     try {
-        fs.writeFileSync(path.join(tempDir, '.env.development'), [
+        fs.writeFileSync(path.join(tempDir, '.env.trends-collector.development'), [
             'TRENDS_ENV=development',
             'SUPABASE_URL=https://development.example',
             'TRENDS_API_TOKEN=file-secret',
             ''
         ].join('\n'));
-        fs.writeFileSync(path.join(tempDir, '.env.production'), [
+        fs.writeFileSync(path.join(tempDir, '.env.trends-collector.production'), [
             'TRENDS_ENV=production',
             'SUPABASE_URL=https://production.example',
             ''
@@ -58,7 +58,7 @@ test('loads only the selected environment file and preserves process values', ()
         assert.equal(env.SUPABASE_URL, 'https://development.example');
         assert.equal(env.TRENDS_API_TOKEN, 'process-secret');
         assert.equal(profile.environment, 'development');
-        assert.equal(profile.configFileName, '.env.development');
+        assert.equal(profile.configFileName, '.env.trends-collector.development');
     } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -86,7 +86,7 @@ test('never loads the legacy shared .env implicitly', () => {
 test('rejects a selected environment and file declaration mismatch', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-env-mismatch-'));
     try {
-        fs.writeFileSync(path.join(tempDir, '.env.development'), [
+        fs.writeFileSync(path.join(tempDir, '.env.trends-collector.development'), [
             'TRENDS_ENV=production',
             'SUPABASE_URL=https://production.example',
             ''

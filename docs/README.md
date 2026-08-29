@@ -92,6 +92,7 @@
 - `plans/active/2026-08-29-trends-api-environment-05-development-e2e-development.md`
 - `plans/active/2026-08-29-ci-supabase-cli-setup-hotfix-development.md`
 - `plans/active/2026-08-29-ci-node24-actions-development.md`
+- `plans/active/2026-08-29-trends-deployment-operator-simplification-development.md`
 - `plans/active/development-environment-separation-main-plan.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/2026-08-29-runtime-credential-security-03-naver-blog-gateway-development.md`

@@ -40,7 +40,7 @@ test('runtime environment replaces stale admin keys while preserving operator co
 
 test('missing Local API secrets are generated once in the ignored per-machine environment file', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-secrets-test-'));
-    const filePath = path.join(directory, '.env.local');
+    const filePath = path.join(directory, '.env.trends-collector.local');
     fs.writeFileSync(filePath, [
         'TRENDS_API_TOKEN=',
         'TRENDS_READ_TOKEN_SECRET=already-configured'
@@ -71,7 +71,7 @@ test('Local Trends container uses a permission-limited temporary env file and re
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-container-test-'));
     const envDirectory = path.join(repoRoot, 'apps', 'trends');
     fs.mkdirSync(envDirectory, { recursive: true });
-    fs.writeFileSync(path.join(envDirectory, '.env.local'), 'TRENDS_API_TOKEN=test-token\n');
+    fs.writeFileSync(path.join(envDirectory, '.env.trends-collector.local'), 'TRENDS_API_TOKEN=test-token\n');
     let runtimeEnvPath = '';
     const calls = [];
     const spawn = (command, args, options) => {
@@ -105,7 +105,7 @@ test('runtime environment preparation can be reused by container smoke verificat
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-runtime-test-'));
     const envDirectory = path.join(repoRoot, 'apps', 'trends');
     fs.mkdirSync(envDirectory, { recursive: true });
-    fs.writeFileSync(path.join(envDirectory, '.env.local'), 'TRENDS_API_TOKEN=test-token\n');
+    fs.writeFileSync(path.join(envDirectory, '.env.trends-collector.local'), 'TRENDS_API_TOKEN=test-token\n');
     const spawn = () => ({
         status: 0,
         stdout: JSON.stringify({

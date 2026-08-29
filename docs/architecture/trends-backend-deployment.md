@@ -13,6 +13,23 @@ This document does not replace the structural contracts in [trends-backend.md](/
 
 ## Current Deployment Model
 
+Development와 Production은 운영 단위를 공유하지 않는다.
+
+### Development
+
+- 배포 단위: `deploy/trends-api/development/`
+- API 설정: 같은 폴더의 ignored `.env.trends-api.development`
+- 실행: 해당 폴더에서 `docker compose up -d --build`
+- host boundary: `4582`, 외부 Caddy 컨테이너가 Development HTTPS hostname을 소유하며
+  VCN과 host firewall은 4582의 공인 ingress를 차단
+- Collector 설정: `apps/trends/.env.trends-collector.development`
+- Collector 실행: `./collect_trends_dev.sh`
+
+재배포와 검증의 canonical runbook은
+[`deploy/trends-api/development/README.md`](../../deploy/trends-api/development/README.md)이다.
+
+### Production
+
 The trends backend is not packaged like `BlogGenius.app`.
 
 The current operating model is:
@@ -55,10 +72,10 @@ WordPress
 - Owns Supabase read/write access.
 - Serves ingest, metadata, and export endpoints.
 
-Recommended command:
+Legacy Production command (Production container 전환 전까지):
 
 ```bash
-node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
+node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
 ```
 
 ### `trends-collector`
@@ -67,10 +84,10 @@ node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
 - Posts collected rows to `trends-api`.
 - Uses the internal token to call the Oracle ingest endpoint.
 
-Recommended command:
+Low-level command:
 
 ```bash
-node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector
+node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-collector/bin/collect.js
 ```
 
 ### WordPress plugin
@@ -116,11 +133,9 @@ npm ci
 
 ### Trends environment
 
-Create the shared trends environment file:
-
-```bash
-cp /home/ubuntu/Project/NaverAutoBlog/apps/trends/.env.sample /home/ubuntu/Project/NaverAutoBlog/apps/trends/.env
-```
+Production 전용 API operator environment를 저장소 밖(예:
+`/etc/bloggenius/trends-api.production.env`)에 준비한다. Development API 또는 Collector 파일을
+복사하거나 공유하지 않는다. Production 배포 단위의 최종 컨테이너 전환은 별도 승인 범위다.
 
 Important values:
 - `SUPABASE_URL`
@@ -411,7 +426,8 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/Project/NaverAutoBlog
 Environment=HOME=/home/ubuntu
-ExecStart=/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-api
+EnvironmentFile=/etc/bloggenius/trends-api.production.env
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
 Restart=always
 RestartSec=3
 KillSignal=SIGINT
@@ -430,7 +446,8 @@ journalctl -u trends-api -f
 ```
 
 Operational notes:
-- keep `apps/trends/.env` as the runtime source of truth; `trends-api` already reads it directly
+- keep a Production-only operator environment file as the runtime source of truth; never reuse the
+  Development API environment file
 - keep `TRENDS_API_HOST=0.0.0.0` while Caddy runs in Docker; protect 4581 at the
   Oracle ingress and host firewall boundaries
 - if the Node version changes under `nvm`, update the `ExecStart` path in the unit file and reload `systemd`

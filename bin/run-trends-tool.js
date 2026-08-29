@@ -4,7 +4,6 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const TOOL_MAP = {
-    api: path.join('apps', 'trends', 'trends-api', 'src', 'server.js'),
     collector: path.join('apps', 'trends', 'trends-collector', 'bin', 'collect.js')
 };
 

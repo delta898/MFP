@@ -97,9 +97,9 @@ function prepareLocalRuntimeEnvironment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
     const spawn = options.spawn || spawnSync;
     const processEnv = options.env || process.env;
-    const baseEnvPath = path.join(repoRoot, 'apps', 'trends', '.env.local');
+    const baseEnvPath = path.join(repoRoot, 'apps', 'trends', '.env.trends-collector.local');
     if (!fs.existsSync(baseEnvPath)) {
-        throw new Error('apps/trends/.env.local file is required');
+        throw new Error('apps/trends/.env.trends-collector.local file is required');
     }
 
     const statusResult = runChecked(spawn, 'supabase', ['status', '--output', 'json'], {

@@ -1,56 +1,24 @@
 # Trends API
 
-Operator-only API service responsible for:
-- ingest validation
-- Supabase upsert
-- filtered CSV/XLSX export endpoints
-- default storage target: `trends.items`
-- WordPress download UI should treat category as multi-select
+트렌드 수집 payload를 검증해 Supabase에 저장하고 조회·내보내기 API를 제공하는 서버입니다.
+Desktop 앱 패키지와 독립된 장기 실행 서비스입니다.
 
-This runtime is intentionally separate from the desktop app packaging flow.
+## 실행 원칙
 
-## Run
+- Development 서버는 `deploy/trends-api/development/`의 Compose로만 운영합니다.
+- 운영자가 Node 진입점을 직접 실행하는 `api` 명령은 제공하지 않습니다.
+- Local API 컨테이너 실행기는 자동 검증용 내부 도구로만 유지합니다.
+- Production 배포 방식은 별도 승인 전까지 기존 서비스에 영향을 주지 않습니다.
 
-```bash
-cp apps/trends/.env.local.sample apps/trends/.env.local
-npm run trends:api:local
-```
+Development 설치·재배포 명령은 [Development 배포 안내](../../../deploy/trends-api/development/README.md)를
+참조합니다.
 
-From any shell directory you can also run:
+## 권한 경계
 
-```bash
-node /Users/delta898/Project/NaverAutoBlog/bin/trends-api
-```
-
-Important env keys:
-- `TRENDS_ENV`
-- `TRENDS_SUPABASE_TARGET_ENV` (must equal `TRENDS_ENV`)
-- `SUPABASE_URL`
-- `SUPABASE_SECRET_KEY`
-- `TRENDS_API_TOKEN`
-- `TRENDS_READ_TOKEN_SECRET` (when desktop-user read access is enabled)
-- `TRENDS_API_HOST`
-- `TRENDS_API_PORT`
-
-Environment note:
-- `TRENDS_ENV` is required and accepts only `local`, `development`, or `production`
-- the conventional config file is `apps/trends/.env.<environment>`
-- use an absolute `TRENDS_ENV_FILE` for an operator-owned systemd or container environment file
-- `.env` is not loaded implicitly
-- Local targets must use loopback URLs; Development and Production targets must use remote HTTPS
-- non-Production profiles may set `TRENDS_PRODUCTION_SUPABASE_URL` and
-  `TRENDS_PRODUCTION_API_BASE_URL` as public collision fences
-
-Compatibility note:
-- prefer the new Supabase `sb_secret_...` key via `SUPABASE_SECRET_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` is still accepted as a legacy fallback
-
-Supabase note:
-- because the default storage target is the custom schema `trends.items`, add `trends` to Supabase `API Settings -> Exposed schemas`
-- apply the ordered `supabase/migrations/` chain for a fresh environment
-- the Trends definitions are migrations `202608270016` through `202608270018`
-- do not apply an app-local SQL copy; the root Supabase migration chain is the source of truth
-- the intended production posture is backend-only access via `SUPABASE_SECRET_KEY`; `anon` / `authenticated` should not have direct access to `trends.items`
+- `GET /health`만 인증 없이 허용합니다.
+- Collector ingest 및 export는 `TRENDS_API_TOKEN`을 사용합니다.
+- Desktop read endpoint는 Supabase Edge Function이 발급한 단기 사용자 토큰을 사용합니다.
+- `SUPABASE_SECRET_KEY`, 내부 API token, 서명 secret은 Desktop에 포함하지 않습니다.
 
 ## Endpoints
 
@@ -61,51 +29,5 @@ Supabase note:
 - `GET /exports/trends.csv`
 - `GET /exports/trends.xlsx`
 
-All endpoints except `GET /health` require authorization. The service no longer
-falls back to unauthenticated access when `TRENDS_API_TOKEN` is absent.
-
-- Collector, WordPress, and CSV export requests require
-  `Authorization: Bearer <TRENDS_API_TOKEN>`.
-- Collector ingest additionally requires `X-Trends-Environment` to match the API runtime environment.
-- `GET /api/v1/trends` and `GET /api/v1/trends/meta` also accept a short-lived
-  user read token with `scope=trends:read`, issued by the
-  `issue-trends-access-token` Supabase Edge Function.
-- User read tokens require a matching `TRENDS_READ_TOKEN_SECRET`, issuer, and
-  audience. They cannot access ingest or export endpoints.
-
-## Resource Protection
-
-- Metadata is aggregated by one Supabase RPC instead of scanning rows through the API.
-- Identical metadata requests use a five-minute in-process cache and share refresh work.
-- Concurrent HTTP requests default to 8 and excess requests receive `503`.
-- Ingest request bodies default to a 1 MiB limit.
-- Incoming request timeout defaults to 30 seconds.
-- Supabase requests time out after 7 seconds by default.
-- User-token read requests are limited per anonymized license subject, defaulting to 120 per minute.
-- The HTTPS reverse proxy should apply a separate source-IP rate limit.
-
-These limits can be adjusted with:
-- `TRENDS_META_CACHE_TTL_MS`
-- `TRENDS_API_MAX_CONCURRENT_REQUESTS`
-- `TRENDS_API_MAX_BODY_BYTES`
-- `TRENDS_API_REQUEST_TIMEOUT_MS`
-- `TRENDS_API_UPSTREAM_TIMEOUT_MS`
-- `TRENDS_API_READ_RATE_LIMIT_PER_MINUTE`
-- `TRENDS_READ_TOKEN_ISSUER`
-- `TRENDS_READ_TOKEN_AUDIENCE`
-
-## Example
-
-```bash
-curl "http://127.0.0.1:4581/api/v1/trends?date_from=2026-04-01&date_to=2026-04-02&category=맛집&category=국내여행"
-```
-
-```bash
-curl "http://127.0.0.1:4581/api/v1/trends/meta"
-```
-
-Category filter rules:
-- no `category` or `categories` parameter: all categories
-- repeated `category` parameters: multi-select
-- `categories=맛집,국내여행`: comma-separated multi-select
-- `category=ALL` or `category=*`: all categories
+기본 저장 대상은 `trends.items`입니다. Supabase의 exposed schema에 `trends`가 포함되어야 하며,
+DB 정의의 source of truth는 루트 `supabase/migrations/`입니다.

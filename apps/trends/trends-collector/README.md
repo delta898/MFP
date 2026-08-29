@@ -1,61 +1,31 @@
 # Trends Collector
 
-Operator-only CLI for collecting Naver trends via Playwright and forwarding normalized payloads to the trends API.
+네이버 Creator Advisor의 트렌드를 Playwright로 수집하고 정규화된 payload를 Trends API에
+전송하는 운영자용 CLI입니다.
 
-This runtime is intentionally separate from the desktop app packaging flow.
-
-## Run
-
-```bash
-cp apps/trends/.env.local.sample apps/trends/.env.local
-npm run trends:collector:local
-```
-
-From any shell directory you can also run:
+## 최초 설정
 
 ```bash
-node /Users/delta898/Project/NaverAutoBlog/bin/trends-collector
+cp apps/trends/.env.trends-collector.local.sample \
+  apps/trends/.env.trends-collector.local
+cp apps/trends/.env.trends-collector.development.sample \
+  apps/trends/.env.trends-collector.development
 ```
 
-Help:
+실제 환경 파일은 Git에 포함되지 않습니다.
+
+## 실행
 
 ```bash
-node /Users/delta898/Project/NaverAutoBlog/bin/trends-collector --help
+./collect_trends_local.sh
+./collect_trends_dev.sh
+./collect_trends_dev.sh --date 2026-08-28
+./collect_trends_dev.sh --date=-1d
 ```
 
-Specific date collection:
+`TRENDS_ENV`에 따라 `apps/trends/.env.trends-collector.<environment>`를 읽습니다. 별도 자동화가
+필요하면 절대 경로 `TRENDS_ENV_FILE`로 교체할 수 있습니다.
 
-```bash
-npm run trends:collector:local -- --date 2026-04-01
-npm run trends:collector:development -- --date 2026-04-01
-```
-
-Relative date collection also works:
-
-```bash
-npm run trends:collector:local -- --date=-1d
-npm run trends:collector:local -- --date=-3d
-npm run trends:collector:local -- --date=yesterday
-```
-
-Important env keys:
-- `TRENDS_ENV`
-- `TRENDS_API_TARGET_ENV` (must equal `TRENDS_ENV`)
-- `TRENDS_NAVER_ID`
-- `TRENDS_AUTH_FILE_PATH`
-- `TRENDS_API_HOST`
-- `TRENDS_API_PORT`
-- `TRENDS_API_TOKEN`
-
-Notes:
-- `TRENDS_ENV` is required and the selected `apps/trends/.env.<environment>` is loaded when present
-- an operator-owned absolute `TRENDS_ENV_FILE` can replace the conventional file
-- `.env` is not loaded implicitly
-- `TRENDS_AUTH_FILE_PATH` can point at the existing app session file such as `./config/naver_auth.json`
-- relative auth paths are resolved from the repo root, so the default works from any current shell directory
-- `TRENDS_API_BASE_URL` is optional; if omitted it is derived from `TRENDS_API_HOST` and `TRENDS_API_PORT`
-- the collector checks `/health` before opening the browser and refuses an API from another environment
-- Production collection requires the explicit `TRENDS_ALLOW_PRODUCTION_WRITE=true` operator approval
-- `--date` takes precedence over `TRENDS_TARGET_DATE`
-- relative date literals such as `yesterday`, `어제`, `-1d`, and `-3d` are supported
-- collector 완료 로그의 `inserted` / `updated`는 API upsert 기준 신규/기존 row 수를 뜻합니다
+주요 설정은 API URL·대상 환경·내부 token, 네이버 계정 식별자와 세션 파일 경로입니다.
+Collector는 브라우저를 열기 전에 `/health`의 환경을 확인하며, 다른 환경의 API에는 전송하지
+않습니다. Production 수집에는 별도 명시적 승인 값이 필요합니다.

@@ -40,7 +40,7 @@ async function waitForHealth(options = {}) {
 async function verifyAuthenticatedMeta(runtimeEnvPath) {
     const env = parseEnvFile(fs.readFileSync(runtimeEnvPath, 'utf8'));
     const token = String(env.TRENDS_API_TOKEN || '').trim();
-    if (!token) throw new Error('TRENDS_API_TOKEN is missing from apps/trends/.env.local');
+    if (!token) throw new Error('TRENDS_API_TOKEN is missing from apps/trends/.env.trends-collector.local');
     const response = await fetch('http://127.0.0.1:4581/api/v1/trends/meta', {
         headers: { Authorization: `Bearer ${token}` }
     });

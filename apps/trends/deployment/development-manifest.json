@@ -6,6 +6,9 @@
     "image_name": "bloggenius/trends-api:development",
     "public_base_url": "https://trendapi-dev.hangadac.com",
     "container_port": 4581,
+    "host_port": 4582,
+    "compose_file": "deploy/trends-api/development/compose.yml",
+    "runtime_env_file": "deploy/trends-api/development/.env.trends-api.development",
     "health_path": "/health"
   },
   "supabase": {
