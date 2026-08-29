@@ -9,6 +9,10 @@ const {
     loadTrendsEnvironment
 } = require('../../shared/lib/environment-profile');
 const {
+    formatRuntimeTargetDiagnostic,
+    resolveCollectorRuntimeGuard
+} = require('../../shared/lib/runtime-target-guard');
+const {
     buildCollectedTrendPayload,
     createNaverTrendsCollector
 } = require('../../../../shared/naver-trends-core');
@@ -162,6 +166,7 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
     const apiBaseUrl = String(env.TRENDS_API_BASE_URL || `http://${apiHost}:${apiPort}`).trim();
     const authPathValue = String(env.TRENDS_AUTH_FILE_PATH || './config/naver_auth.json').trim() || './config/naver_auth.json';
     return {
+        environment: String(env.TRENDS_ENV || '').trim().toLowerCase(),
         rootDir,
         naverId: String(env.TRENDS_NAVER_ID || env.NAVER_ID || '').trim(),
         authPath: path.isAbsolute(authPathValue) ? authPathValue : path.resolve(rootDir, authPathValue),
@@ -174,6 +179,21 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
         source: String(env.TRENDS_SOURCE || DEFAULT_SOURCE).trim() || DEFAULT_SOURCE,
         dryRun: toBool(env.TRENDS_DRY_RUN, false)
     };
+}
+
+async function verifyCollectorApiEnvironment(config, logger = console) {
+    if (config.dryRun) return { skipped: true, environment: config.environment };
+    const response = await axios.get(`${config.apiBaseUrl.replace(/\/+$/, '')}/health`, {
+        timeout: 10000
+    });
+    const actualEnvironment = String(response?.data?.environment || '').trim().toLowerCase();
+    if (!actualEnvironment || actualEnvironment !== config.environment) {
+        throw new Error(
+            `Trends API environment mismatch: expected=${config.environment || 'unselected'}, actual=${actualEnvironment || 'unknown'}`
+        );
+    }
+    logger.info(`✅ Trends API target 확인: environment=${actualEnvironment}`);
+    return response.data;
 }
 
 async function pushPayloadToApi(payload, config, logger) {
@@ -192,7 +212,8 @@ async function pushPayloadToApi(payload, config, logger) {
     }
 
     const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Trends-Environment': config.environment
     };
     if (config.apiToken) {
         headers.Authorization = `Bearer ${config.apiToken}`;
@@ -236,7 +257,9 @@ function prepareCollectorRuntime(env = process.env, logger = console) {
         env
     });
     logger.info(formatTrendsEnvironmentDiagnostic(profile));
-    return profile;
+    const targets = resolveCollectorRuntimeGuard({ environment: profile.environment, env });
+    logger.info(formatRuntimeTargetDiagnostic(targets));
+    return Object.freeze({ environment: profile, targets });
 }
 
 async function runCollector(inputConfig = {}) {
@@ -250,6 +273,7 @@ async function runCollector(inputConfig = {}) {
     if (!config.naverId) {
         throw new Error('TRENDS_NAVER_ID 또는 NAVER_ID 가 필요합니다.');
     }
+    await verifyCollectorApiEnvironment(config, logger);
 
     const collector = createNaverTrendsCollector({
         launchBrowser: (options = {}) => launchBrowser({ ...options, logger }),
@@ -310,6 +334,8 @@ module.exports = {
     formatCollectorHelp,
     parseCollectorCliArgs,
     prepareCollectorRuntime,
+    pushPayloadToApi,
     resolveCollectorConfig,
-    runCollector
+    runCollector,
+    verifyCollectorApiEnvironment
 };

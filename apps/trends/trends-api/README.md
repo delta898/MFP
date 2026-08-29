@@ -23,6 +23,8 @@ node /Users/delta898/Project/NaverAutoBlog/bin/trends-api
 ```
 
 Important env keys:
+- `TRENDS_ENV`
+- `TRENDS_SUPABASE_TARGET_ENV` (must equal `TRENDS_ENV`)
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `TRENDS_API_TOKEN`
@@ -35,6 +37,9 @@ Environment note:
 - the conventional config file is `apps/trends/.env.<environment>`
 - use an absolute `TRENDS_ENV_FILE` for an operator-owned systemd or container environment file
 - `.env` is not loaded implicitly
+- Local targets must use loopback URLs; Development and Production targets must use remote HTTPS
+- non-Production profiles may set `TRENDS_PRODUCTION_SUPABASE_URL` and
+  `TRENDS_PRODUCTION_API_BASE_URL` as public collision fences
 
 Compatibility note:
 - prefer the new Supabase `sb_secret_...` key via `SUPABASE_SECRET_KEY`
@@ -61,6 +66,7 @@ falls back to unauthenticated access when `TRENDS_API_TOKEN` is absent.
 
 - Collector, WordPress, and CSV export requests require
   `Authorization: Bearer <TRENDS_API_TOKEN>`.
+- Collector ingest additionally requires `X-Trends-Environment` to match the API runtime environment.
 - `GET /api/v1/trends` and `GET /api/v1/trends/meta` also accept a short-lived
   user read token with `scope=trends:read`, issued by the
   `issue-trends-access-token` Supabase Edge Function.

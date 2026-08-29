@@ -13,6 +13,9 @@ Configuration:
 - sample files: `apps/trends/.env.<environment>.sample`
 - `TRENDS_ENV_FILE` may point to an absolute operator-owned file for systemd or containers
 - `TRENDS_API_BASE_URL` is optional and can be derived from `TRENDS_API_HOST` + `TRENDS_API_PORT`
+- API profiles declare `TRENDS_SUPABASE_TARGET_ENV`; collector profiles declare
+  `TRENDS_API_TARGET_ENV`; both must match `TRENDS_ENV`
+- Production collection additionally requires `TRENDS_ALLOW_PRODUCTION_WRITE=true`
 
 Run:
 - Local collector: `./trends_local.sh`

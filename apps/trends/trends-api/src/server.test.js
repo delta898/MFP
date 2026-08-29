@@ -409,5 +409,32 @@ test('createServer leaves health public and protects data endpoints with the con
     const protectedResponse = await fetch(`${baseUrl}/api/v1/trends/meta`);
 
     assert.equal(healthResponse.status, 200);
+    assert.equal((await healthResponse.json()).environment, 'unselected');
     assert.equal(protectedResponse.status, 401);
+});
+
+test('ingest rejects a collector from another Trends environment before database access', async (t) => {
+    const config = resolveApiConfig({
+        TRENDS_ENV: 'production',
+        TRENDS_API_HOST: '127.0.0.1',
+        TRENDS_API_PORT: '4581',
+        TRENDS_API_TOKEN: 'production-token'
+    });
+    const server = createServer(config);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+
+    const address = server.address();
+    const response = await fetch(`http://127.0.0.1:${address.port}/internal/ingest/naver-trends`, {
+        method: 'POST',
+        headers: {
+            Authorization: 'Bearer production-token',
+            'Content-Type': 'application/json',
+            'X-Trends-Environment': 'development'
+        },
+        body: JSON.stringify({ items: [] })
+    });
+
+    assert.equal(response.status, 409);
+    assert.match((await response.json()).message, /environment target mismatch/i);
 });

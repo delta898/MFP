@@ -7,6 +7,10 @@ const {
     formatTrendsEnvironmentDiagnostic,
     loadTrendsEnvironment
 } = require('../../shared/lib/environment-profile');
+const {
+    formatRuntimeTargetDiagnostic,
+    resolveApiRuntimeGuard
+} = require('../../shared/lib/runtime-target-guard');
 const { normalizeCollectedTrendItem } = require('../../../../shared/naver-trends-core');
 
 const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
@@ -26,6 +30,7 @@ function normalizeIsoTimestamp(input) {
 
 function resolveApiConfig(env = process.env) {
     return {
+        environment: String(env.TRENDS_ENV || '').trim().toLowerCase(),
         host: String(env.TRENDS_API_HOST || '127.0.0.1').trim() || '127.0.0.1',
         port: Math.max(1, toInt(env.TRENDS_API_PORT, 4581)),
         internalToken: String(env.TRENDS_API_TOKEN || '').trim(),
@@ -751,13 +756,21 @@ function createServer(config = resolveApiConfig()) {
             if (req.method === 'GET' && requestUrl.pathname === '/health') {
                 return sendJson(res, 200, {
                     success: true,
-                    service: 'trends-api'
+                    service: 'trends-api',
+                    environment: config.environment || 'unselected'
                 });
             }
 
             if (req.method === 'POST' && requestUrl.pathname === '/internal/ingest/naver-trends') {
                 if (!hasInternalAccess(req, config)) {
                     return sendJson(res, 401, { success: false, message: 'Unauthorized' });
+                }
+                const requestEnvironment = String(req.headers['x-trends-environment'] || '').trim().toLowerCase();
+                if (config.environment && requestEnvironment !== config.environment) {
+                    return sendJson(res, 409, {
+                        success: false,
+                        message: 'Trends environment target mismatch'
+                    });
                 }
                 return handleIngest(req, res, config, () => metaCache.clear());
             }
@@ -844,7 +857,9 @@ function prepareApiRuntime(env = process.env) {
         env
     });
     console.log(formatTrendsEnvironmentDiagnostic(profile));
-    return profile;
+    const targets = resolveApiRuntimeGuard({ environment: profile.environment, env });
+    console.log(formatRuntimeTargetDiagnostic(targets));
+    return Object.freeze({ environment: profile, targets });
 }
 
 if (require.main === module) {

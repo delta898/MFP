@@ -12,7 +12,8 @@ function readLauncher(filename) {
 test('local trends shell launcher defaults to the local collector and exposes safe operator commands', () => {
     const source = readLauncher('trends_local.sh');
 
-    assert.match(source, /COMMAND="\$\{1:-collector\}"/);
+    assert.match(source, /COMMAND="collector"/);
+    assert.match(source, /-\*\)/);
     assert.match(source, /npm run trends:api:local/);
     assert.match(source, /npm run trends:collector:local/);
     assert.match(source, /npm run trends:env:status -- local/);
@@ -22,7 +23,8 @@ test('local trends shell launcher defaults to the local collector and exposes sa
 test('development trends shell launcher defaults to the development collector without production access', () => {
     const source = readLauncher('trends_dev.sh');
 
-    assert.match(source, /COMMAND="\$\{1:-collector\}"/);
+    assert.match(source, /COMMAND="collector"/);
+    assert.match(source, /-\*\)/);
     assert.match(source, /npm run trends:api:development/);
     assert.match(source, /npm run trends:collector:development/);
     assert.match(source, /npm run trends:env:status -- development/);

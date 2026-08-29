@@ -1,12 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const axios = require('axios');
 
 const {
     formatApiResultSummary,
     formatCollectorHelp,
     parseCollectorCliArgs,
-    resolveCollectorConfig
+    pushPayloadToApi,
+    resolveCollectorConfig,
+    verifyCollectorApiEnvironment
 } = require('./collect');
 
 const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
@@ -64,6 +67,7 @@ test('formatApiResultSummary prefers insert and update counts over raw json', ()
 
 test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
     const config = resolveCollectorConfig({
+        TRENDS_ENV: 'development',
         TRENDS_NAVER_ID: 'amadejjs',
         TRENDS_AUTH_FILE_PATH: './state/naver-auth.json',
         TRENDS_TARGET_DATE: '2026-04-02',
@@ -77,6 +81,7 @@ test('resolveCollectorConfig normalizes env-driven paths and booleans', () => {
     });
 
     assert.equal(config.rootDir, EXPECTED_REPO_ROOT);
+    assert.equal(config.environment, 'development');
     assert.equal(config.naverId, 'amadejjs');
     assert.equal(config.authPath, path.join(EXPECTED_REPO_ROOT, 'state/naver-auth.json'));
     assert.equal(config.date, '2026-04-02');
@@ -93,6 +98,7 @@ test('resolveCollectorConfig falls back to repo cwd defaults', () => {
     const config = resolveCollectorConfig({});
 
     assert.equal(config.rootDir, EXPECTED_REPO_ROOT);
+    assert.equal(config.environment, '');
     assert.equal(config.authPath, path.join(EXPECTED_REPO_ROOT, 'config/naver_auth.json'));
     assert.equal(config.naverId, '');
     assert.equal(config.date, '');
@@ -128,4 +134,48 @@ test('resolveCollectorConfig prefers cli date over env date', () => {
     });
 
     assert.equal(config.date, '2026-04-02');
+});
+
+test('verifyCollectorApiEnvironment accepts only the selected API environment', async (t) => {
+    const originalGet = axios.get;
+    t.after(() => {
+        axios.get = originalGet;
+    });
+    axios.get = async () => ({ data: { success: true, environment: 'development' } });
+
+    await assert.doesNotReject(() => verifyCollectorApiEnvironment({
+        environment: 'development',
+        apiBaseUrl: 'https://trendapi-dev.example.com',
+        dryRun: false
+    }, { info: () => {} }));
+    await assert.rejects(
+        () => verifyCollectorApiEnvironment({
+            environment: 'production',
+            apiBaseUrl: 'https://trendapi-dev.example.com',
+            dryRun: false
+        }, { info: () => {} }),
+        /expected=production, actual=development/
+    );
+});
+
+test('pushPayloadToApi sends the selected environment with ingest requests', async (t) => {
+    const originalPost = axios.post;
+    t.after(() => {
+        axios.post = originalPost;
+    });
+    let capturedHeaders;
+    axios.post = async (_url, _payload, options) => {
+        capturedHeaders = options.headers;
+        return { data: { success: true } };
+    };
+
+    await pushPayloadToApi({ itemCount: 0 }, {
+        environment: 'development',
+        apiBaseUrl: 'https://trendapi-dev.example.com',
+        apiToken: 'development-token',
+        dryRun: false
+    }, { info: () => {} });
+
+    assert.equal(capturedHeaders['X-Trends-Environment'], 'development');
+    assert.equal(capturedHeaders.Authorization, 'Bearer development-token');
 });

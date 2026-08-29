@@ -6,8 +6,8 @@
 
 ## 상태
 
-Stage 1 구현 완료, feature-main 병합 대기. Production 변경과 원격 배포는 승인 전까지 수행하지
-않는다.
+Stage 1 feature-main 병합 완료. Stage 2 구현 완료, feature-main 병합 대기. Production 변경과 원격
+배포는 승인 전까지 수행하지 않는다.
 
 ## 배경과 사용자 필요
 
@@ -178,6 +178,8 @@ Status: implementation complete; feature-main merge pending
 - 기존 `.env` 호환 여부 결정
 
 ### Stage 2 — API와 collector runtime 분리
+
+Status: implementation complete; feature-main merge pending
 
 - 환경별 host, port, Supabase target과 token 설정
 - collector 대상 환경 guard
