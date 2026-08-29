@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 .env.development
+.secrets.env
 apps/trends/.env.local
 apps/trends/.env.development
 apps/trends/.env.production
