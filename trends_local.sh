@@ -10,8 +10,8 @@ show_help() {
 사용법: ./trends_local.sh <명령> [옵션]
 
 명령:
-  api       Local Trends API 서버 실행
-  collect   네이버 트렌드 수집 후 Local Supabase에 upsert
+  api       Local 트렌드 조회·저장 API 서버 실행
+  collect   네이버 트렌드를 수집해 Local API로 전송
   status    Local Trends 환경 설정 상태 확인
   help      이 도움말 표시
 
@@ -31,7 +31,16 @@ shift
 
 case "$COMMAND" in
     api)
-        exec npm run trends:api:local -- "$@"
+        if [[ $# -gt 0 ]]; then
+            echo "api 명령은 추가 옵션을 받지 않습니다." >&2
+            exit 2
+        fi
+        if [[ ! -f apps/trends/.env.local ]]; then
+            echo "apps/trends/.env.local 파일이 필요합니다." >&2
+            echo "먼저 apps/trends/.env.local.sample을 복사하고 Local key와 token을 설정해 주세요." >&2
+            exit 1
+        fi
+        exec node scripts/trends-local-api-container.js
         ;;
     collect)
         exec npm run trends:collector:local -- "$@"

@@ -1,3 +1,7 @@
+[api]
+schemas = ["public", "graphql_public", "trends"]
+extra_search_path = ["public", "extensions", "trends"]
+
 [analytics]
 enabled = false
 

@@ -1,0 +1,14 @@
+**
+!apps/
+!apps/trends/
+!apps/trends/trends-api/
+!apps/trends/trends-api/package.json
+!apps/trends/trends-api/package-lock.json
+!apps/trends/trends-api/src/
+!apps/trends/trends-api/src/**
+!apps/trends/shared/
+!apps/trends/shared/lib/
+!apps/trends/shared/lib/**
+!shared/
+!shared/naver-trends-core/
+!shared/naver-trends-core/**

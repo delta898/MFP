@@ -1,0 +1,28 @@
+services:
+  trends-api:
+    build:
+      context: ../..
+      dockerfile: apps/trends/trends-api/Dockerfile
+    image: bloggenius/trends-api:local
+    init: true
+    env_file:
+      - ${TRENDS_LOCAL_RUNTIME_ENV_FILE:-.env.local}
+    environment:
+      TRENDS_ENV: local
+      TRENDS_SUPABASE_TARGET_ENV: local
+      SUPABASE_URL: http://host.docker.internal:54321
+      TRENDS_API_HOST: 0.0.0.0
+      TRENDS_API_PORT: 4581
+      TRENDS_API_BASE_URL: http://127.0.0.1:4581
+    ports:
+      - "127.0.0.1:4581:4581"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"

@@ -6,8 +6,8 @@
 
 ## 상태
 
-Stage 1·2 feature-main 병합 완료. Stage 3 구현과 자동 검증 완료, feature-main 병합 대기.
-Production 변경과 원격 배포는 승인 전까지 수행하지 않는다.
+Stage 1·2·3 feature-main 병합 완료. Stage 4 구현과 Local container 검증 완료, feature-main 병합
+대기. Production 변경과 원격 배포는 승인 전까지 수행하지 않는다.
 
 ## 배경과 사용자 필요
 
@@ -191,13 +191,15 @@ Status: feature-main merge complete
 
 ### Stage 3 — Desktop Trends endpoint 분리
 
-Status: implementation and automated verification complete; feature-main merge pending
+Status: feature-main merge complete
 
 - BlogGenius runtime profile에 공개 Trends URL 추가
 - 환경별 endpoint allowlist/validation
 - Development `Unauthorized` 회귀 테스트
 
 ### Stage 4 — Docker image와 local container 검증
+
+Status: implementation and Local container verification complete; feature-main merge pending
 
 - Node 24 기반 Trends API Dockerfile
 - 환경값이나 Secret을 포함하지 않는 immutable image

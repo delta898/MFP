@@ -33,5 +33,13 @@ The shell launchers intentionally do not expose Production. The lower-level npm 
 available for tests and automation, but operators normally use the shell launchers above. A launcher
 without a command only prints help and never starts collection implicitly.
 
+The Local API command runs the Node 24 Trends API container through
+`apps/trends/compose.local.yml`. It does not copy `.env.local` into the image; Compose reads that
+ignored file only at runtime. The Local Supabase stack must be running before collection or data
+queries.
+If the ignored Local file has no internal API/read secrets, the launcher generates them once with
+per-machine file permissions so the API and host collector share the same Local-only value. The
+Supabase admin key is always resolved from the current Local stack and kept only in a temporary file.
+
 The legacy `npm run trends:api` and `npm run trends:collector` commands no longer infer an environment.
 They require `TRENDS_ENV` to be supplied by the caller and fail closed when it is missing.

@@ -24,6 +24,7 @@
     "trends:collector:local": "node ./bin/run-trends-tool.js collector --environment local",
     "trends:collector:development": "node ./bin/run-trends-tool.js collector --environment development",
     "trends:env:status": "node ./bin/trends-env-status",
+    "trends:api:local:container-smoke": "node ./scripts/trends-local-container-smoke.js",
     "env:preflight": "node scripts/environment-preflight.js check",
     "env:development:ready": "node scripts/hosted-development-readiness.js",
     "env:development:plan": "node scripts/hosted-development-plan.js",

@@ -10,8 +10,8 @@ show_help() {
 사용법: ./trends_dev.sh <명령> [옵션]
 
 명령:
-  api       Development Trends API 서버 실행
-  collect   네이버 트렌드 수집 후 Development Supabase에 upsert
+  api       Development 트렌드 조회·저장 API 서버 실행
+  collect   네이버 트렌드를 수집해 Development API로 전송
   status    Development Trends 환경 설정 상태 확인
   help      이 도움말 표시
 

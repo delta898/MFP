@@ -23,10 +23,10 @@ test('local trends shell launcher requires an explicit action and exposes safe o
 
     assert.equal(help.status, 0);
     assert.match(help.stdout, /사용법: \.\/trends_local\.sh <명령>/);
-    assert.match(help.stdout, /collect\s+네이버 트렌드 수집/);
+    assert.match(help.stdout, /collect\s+네이버 트렌드를 수집해 Local API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
     assert.match(source, /collect\)/);
-    assert.match(source, /npm run trends:api:local/);
+    assert.match(source, /node scripts\/trends-local-api-container\.js/);
     assert.match(source, /npm run trends:collector:local/);
     assert.match(source, /npm run trends:env:status -- local/);
     assert.doesNotMatch(source, /production/);
@@ -38,7 +38,7 @@ test('development trends shell launcher requires an explicit action without prod
 
     assert.equal(help.status, 0);
     assert.match(help.stdout, /사용법: \.\/trends_dev\.sh <명령>/);
-    assert.match(help.stdout, /collect\s+네이버 트렌드 수집/);
+    assert.match(help.stdout, /collect\s+네이버 트렌드를 수집해 Development API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
     assert.match(source, /collect\)/);
     assert.match(source, /npm run trends:api:development/);

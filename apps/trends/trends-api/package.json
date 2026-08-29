@@ -7,5 +7,9 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.39.0",
+    "moment-timezone": "0.6.0"
   }
 }
