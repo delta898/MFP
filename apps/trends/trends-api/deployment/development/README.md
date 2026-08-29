@@ -9,7 +9,7 @@ firewall에서는 4582를 외부에 공개하지 않습니다.
 저장소를 clone하고 대상 브랜치를 checkout한 뒤 이 폴더로 이동합니다.
 
 ```bash
-cd deploy/trends-api/development
+cd apps/trends/trends-api/deployment/development
 cp .env.trends-api.development.example .env.trends-api.development
 chmod 600 .env.trends-api.development
 ```
@@ -34,7 +34,7 @@ npm run trends:development:preflight
 최초 실행 또는 소스가 변경된 재배포:
 
 ```bash
-cd deploy/trends-api/development
+cd apps/trends/trends-api/deployment/development
 docker compose up -d --build
 ```
 
@@ -101,7 +101,7 @@ trendapi-dev.example.com {
 ```bash
 git pull
 npm run trends:development:preflight
-cd deploy/trends-api/development
+cd apps/trends/trends-api/deployment/development
 docker compose up -d --build
 docker compose ps
 curl -sS 'https://trendapi-dev.hangadac.com/health?check=development'

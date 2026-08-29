@@ -12,7 +12,7 @@ Development Trends API를 다시 배포할 때 복잡한 저장소 전역 설정
 
 ## 설계와 결정사항
 
-- Development API 배포 단위를 `deploy/trends-api/development/`에 모은다.
+- Development API 배포 단위를 `apps/trends/trends-api/deployment/development/`에 모은다.
 - Compose와 API 전용 `.env.trends-api.development`를 같은 폴더에 둔다.
 - API 컨테이너는 host `4582`에 publish하고 별도 Caddy 컨테이너가 HTTPS를 담당한다. Oracle
   VCN과 host firewall에서는 4582를 외부에 공개하지 않는다.

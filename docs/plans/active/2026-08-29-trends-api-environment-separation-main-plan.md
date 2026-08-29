@@ -72,7 +72,7 @@ TRENDS_ENV=local|development|production
 apps/trends/.env.trends-collector.local
 apps/trends/.env.trends-collector.development
 apps/trends/.env.trends-collector.production
-deploy/trends-api/development/.env.trends-api.development
+apps/trends/trends-api/deployment/development/.env.trends-api.development
 ```
 
 실제 파일은 Git에서 제외하고 sample/example만 관리한다. Development API의 실제 설정은
@@ -87,7 +87,7 @@ Compose와 같은 배포 폴더에 두며, 서버 공용 ingress 설정과 분�
 
 스크립트 이름 자체가 수집 의도를 드러내므로 인자 없이 실행하면 기본 날짜를 수집한다. 도움말은
 `--help`로 확인한다. 직접 API 서버를 실행하던 `api` 명령은 제거하고 Development API는
-`deploy/trends-api/development/`의 Compose로만 운영한다. 사용자에게는 위 shell launcher를 기본
+`apps/trends/trends-api/deployment/development/`의 Compose로만 운영한다. 사용자에게는 위 shell launcher를 기본
 수집 진입점으로 제공하고 하위 npm 명령은 테스트와 자동화에서 사용한다.
 Production launcher는 아직 제공하지 않으며, 향후 branch와 target preflight를 통과해야만 실행할 수
 있게 별도로 확정한다.

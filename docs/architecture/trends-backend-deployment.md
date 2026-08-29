@@ -17,7 +17,7 @@ Development와 Production은 운영 단위를 공유하지 않는다.
 
 ### Development
 
-- 배포 단위: `deploy/trends-api/development/`
+- 배포 단위: `apps/trends/trends-api/deployment/development/`
 - API 설정: 같은 폴더의 ignored `.env.trends-api.development`
 - 실행: 해당 폴더에서 `docker compose up -d --build`
 - host boundary: `4582`, 외부 Caddy 컨테이너가 Development HTTPS hostname을 소유하며
@@ -26,7 +26,7 @@ Development와 Production은 운영 단위를 공유하지 않는다.
 - Collector 실행: `./collect_trends_dev.sh`
 
 재배포와 검증의 canonical runbook은
-[`deploy/trends-api/development/README.md`](../../deploy/trends-api/development/README.md)이다.
+[`apps/trends/trends-api/deployment/development/README.md`](../../apps/trends/trends-api/deployment/development/README.md)이다.
 
 ### Production
 

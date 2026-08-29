@@ -7,8 +7,11 @@ const { assertTrendsEnvironment } = require('../apps/trends/shared/lib/environme
 const { parseEnvFile } = require('../apps/trends/shared/lib/load-env');
 const { resolveApiRuntimeGuard } = require('../apps/trends/shared/lib/runtime-target-guard');
 
-const MANIFEST_PATH = path.join('apps', 'trends', 'deployment', 'development-manifest.json');
-const RUNTIME_ENV_PATH = path.join('deploy', 'trends-api', 'development', '.env.trends-api.development');
+const DEVELOPMENT_DEPLOYMENT_PATH = path.join(
+    'apps', 'trends', 'trends-api', 'deployment', 'development'
+);
+const MANIFEST_PATH = path.join(DEVELOPMENT_DEPLOYMENT_PATH, 'manifest.json');
+const RUNTIME_ENV_PATH = path.join(DEVELOPMENT_DEPLOYMENT_PATH, '.env.trends-api.development');
 const FIXED_DEVELOPMENT_ENV = Object.freeze({
     TRENDS_ENV: 'development',
     TRENDS_SUPABASE_TARGET_ENV: 'development',
@@ -159,6 +162,7 @@ if (require.main === module) {
 
 module.exports = {
     FIXED_DEVELOPMENT_ENV,
+    DEVELOPMENT_DEPLOYMENT_PATH,
     MANIFEST_PATH,
     RUNTIME_ENV_PATH,
     assertSecret,

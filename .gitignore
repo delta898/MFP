@@ -7,7 +7,7 @@ __pycache__/
 apps/trends/.env.trends-collector.local
 apps/trends/.env.trends-collector.development
 apps/trends/.env.trends-collector.production
-deploy/trends-api/development/.env.trends-api.development
+apps/trends/trends-api/deployment/development/.env.trends-api.development
 .env.oauth
 src/config/secret.js
 !src/config/secret.js.sample
