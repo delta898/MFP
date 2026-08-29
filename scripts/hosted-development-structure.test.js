@@ -29,6 +29,8 @@ test('hosted development manifest matches committed Edge Functions and starts ex
         assert.ok(section, edgeFunction.name);
         assert.match(section[1], new RegExp(`verify_jwt\\s*=\\s*${edgeFunction.verify_jwt}`));
     }
+    assert.equal(manifest.safety.manual_publish, true);
+    assert.equal(manifest.safety.automated_publish, false);
     assert.equal(manifest.safety.live_publish, false);
     assert.equal(manifest.safety.live_payment, false);
     assert.equal(manifest.safety.default_notification_mode, 'sink');

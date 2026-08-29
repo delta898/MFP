@@ -5,6 +5,44 @@ const path = require('path');
 const { createContentActionsRuntime } = require('./content-actions-runtime');
 const { isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
 
+const DEVELOPMENT_CONFIG = Object.freeze({
+    RUNTIME_ENVIRONMENT_PROFILE: Object.freeze({
+        environment: 'development',
+        configured: true,
+        effects: Object.freeze({ manualPublish: true, automatedPublish: false, livePublish: false })
+    })
+});
+
+test('development blocks shopping batch before sheet or license access', async () => {
+    let externalAccess = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: DEVELOPMENT_CONFIG,
+        async ensureSheetsReadyForUi() { externalAccess += 1; },
+        License: { async checkLicenseStatus() { externalAccess += 1; return { success: true }; } }
+    });
+
+    const result = await runtime.executeShoppingBatchRowsAction({ rowIndices: [0] });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT');
+    assert.equal(externalAccess, 0);
+});
+
+test('development blocks blog batch before sheet access', async () => {
+    let sheetRead = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: DEVELOPMENT_CONFIG,
+        parseIntSafe: (value) => Number(value),
+        Utils: { async readGoogleSheetTopicsAll() { sheetRead += 1; return { items: [] }; } }
+    });
+
+    const result = await runtime.executeBlogRowAction({ action: 'batch', rowIndex: 0 });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT');
+    assert.equal(sheetRead, 0);
+});
+
 test('shopping batch requires both shopping and batch capabilities', async () => {
     const runtime = createContentActionsRuntime({
         async ensureSheetsReadyForUi() { },

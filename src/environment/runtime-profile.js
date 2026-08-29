@@ -77,6 +77,8 @@ function createUnavailableProfile({ status, environment = '', selectionSource = 
         selectionSource,
         reason,
         effects: Object.freeze({
+            manualPublish: false,
+            automatedPublish: false,
             livePublish: false,
             livePayment: false,
             liveNotifications: false
@@ -195,7 +197,9 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
         selectionSource: selected.source,
         reason: '',
         effects: Object.freeze({
-            livePublish: descriptor.allows_live_publish === true,
+            manualPublish: descriptor.allows_manual_publish === true,
+            automatedPublish: descriptor.allows_automated_publish === true,
+            livePublish: descriptor.allows_automated_publish === true,
             livePayment: descriptor.allows_live_payment === true,
             liveNotifications: descriptor.allows_live_notifications === true
         }),

@@ -48,6 +48,8 @@
     { "name": "LICENSE_EMAIL_ALLOWLIST", "required_for_core": false }
   ],
   "safety": {
+    "manual_publish": true,
+    "automated_publish": false,
     "live_publish": false,
     "live_payment": false,
     "notification_modes": ["sink", "allowlist"],

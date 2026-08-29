@@ -36,7 +36,7 @@
    - destructive reset, seed, test policy와 fixture 작업은 production에서 fail-closed하고 production 변경은 별도 확인과 명시적 release action이 있어야 실행한다.
    - Git feature parent/sub-feature는 local 검증, `dev`는 development 통합 검증, 승인된 `release/*` 또는 `main`만 production 승격 후보로 취급한다.
    - DB migration, Edge Function, secrets, Auth·Storage 정책과 Cron 배포를 같은 environment manifest/checklist로 관리하고 schema drift를 검사한다.
-   - development에서는 PortOne test channel·webhook, 낮은 외부 provider budget, email/Telegram sink와 발행 차단 capability를 사용해 실제 결제·알림·발행을 방지한다.
+   - development에서는 PortOne test channel·webhook, 낮은 외부 provider budget, email/Telegram sink를 사용한다. 발행은 지정한 테스트 채널의 단건 수동 실행만 허용하고 예약·일괄·자동 실행은 차단한다.
    - 완료 기준은 `local db reset → 자동 테스트 → development 배포·통합 테스트 → 동일 migration의 production dry-run·승인 배포`가 재현되는 것이다.
 
 2. 실행형 Dashboard와 모바일 정보 구조

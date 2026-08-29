@@ -25,6 +25,7 @@ test('missing environment fails closed without using legacy production build val
 
     assert.equal(profile.status, STATUS.ENVIRONMENT_NOT_SELECTED);
     assert.equal(profile.configured, false);
+    assert.equal(profile.effects.manualPublish, false);
     assert.equal(profile.effects.livePublish, false);
     assert.equal(profile.supabase.url, '');
 });
@@ -52,6 +53,7 @@ test('local profile requires a local endpoint', () => {
     });
 
     assert.equal(valid.status, STATUS.READY);
+    assert.equal(valid.effects.manualPublish, false);
     assert.equal(valid.effects.livePublish, false);
     assert.equal(valid.supabase.endpointHost, '127.0.0.1:54321');
     assert.equal(invalid.status, STATUS.PUBLIC_CONFIG_INVALID);
@@ -78,6 +80,8 @@ test('explicit process environment wins over a matching build profile', () => {
     });
 
     assert.equal(profile.environment, 'development');
+    assert.equal(profile.effects.manualPublish, true);
+    assert.equal(profile.effects.automatedPublish, false);
     assert.equal(profile.effects.livePublish, false);
     assert.equal(profile.supabase.url, DEV_URL);
     assert.equal(profile.supabase.publishableKey, 'development-key');
@@ -94,6 +98,8 @@ test('production profile explicitly enables live effects', () => {
     });
 
     assert.deepEqual(profile.effects, {
+        manualPublish: true,
+        automatedPublish: true,
         livePublish: true,
         livePayment: true,
         liveNotifications: true

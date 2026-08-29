@@ -106,17 +106,21 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 
 ### 실제 발행 경계
 
-환경 manifest의 `allows_live_publish`는 문서용 표식이 아니라 runtime 실행 정책이다.
-`local`과 `development`, 또는 환경 profile을 해석하지 못한 실행은 다음 경로를 공통으로 차단한다.
+환경 manifest의 `allows_manual_publish`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
+실행 정책이다. `local`과 환경 profile을 해석하지 못한 실행은 모든 외부 발행을 차단한다.
+`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행만 허용하고 다음 경로를
+계속 차단한다.
 
-- Naver Blog와 WordPress 직접 발행
-- Buffer 수동 SNS 발행과 SNS 배포 runner
-- 블로그·쇼핑·SNS 자동 발행 scheduler
+- 예약 발행
+- 블로그·쇼핑 여러 행 일괄 발행
+- 블로그·쇼핑·SNS 자동 발행 scheduler와 수동 자동-cycle 실행
+- SNS 자동 배포 runner
 - Agent capability를 통한 발행 시작 요청
 
-실제 runtime은 명시적으로 준비된 `production` profile만 live publish를 허용한다. 의존성을 직접
-주입하는 기존 단위 테스트는 profile 자체가 없을 때만 호환 모드로 동작하며, 애플리케이션
-`CONFIG`에는 항상 해석된 profile이 존재하므로 운영 경계가 우회되지 않는다.
+명시적으로 준비된 `production` profile만 수동·예약·일괄·자동 발행을 모두 허용한다. 기존
+`livePublish` 값은 자동화 경계의 호환 alias로 유지된다. 의존성을 직접 주입하는 기존 단위 테스트는
+profile 자체가 없을 때만 호환 모드로 동작하며, 애플리케이션 `CONFIG`에는 항상 해석된 profile이
+존재하므로 환경 경계가 우회되지 않는다.
 
 ## Auth and Storage
 

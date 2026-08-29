@@ -151,7 +151,8 @@ Supabase 공개 연결 정보만 `.env.development`에서 읽는다.
 - Production과 다른 Supabase project 사용
 - 실제 서버와 유사한 DB·Edge Function 통합 검증
 - DB reset 금지
-- 실제 발행·결제 차단
+- 지정한 테스트 채널로 단건 수동 발행 허용
+- 예약·일괄·자동 발행과 실제 결제 차단
 - 알림은 sink 또는 명시적 allowlist만 허용
 - 유료 provider 호출과 Cron 활성화는 별도 승인 범위
 
@@ -198,11 +199,15 @@ npm run app:development
 [Runtime Environment] development / <development-project>.supabase.co
 ```
 
-Development에서도 실제 발행은 공통 runtime guard가 다음 코드로 차단한다.
+Development에서 자동·예약·일괄 발행은 공통 runtime guard가 다음 코드로 차단한다.
 
 ```text
 LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT
 ```
+
+사용자가 직접 실행한 단건 Blog·Shopping·SNS 발행은 Development에서 허용된다. 개발자는 운영
+계정이 아닌 테스트용 Naver Blog, WordPress와 SNS 채널을 설정해야 한다. Local 또는 환경 미선택
+상태의 수동 발행은 `MANUAL_PUBLISH_BLOCKED_BY_ENVIRONMENT`로 차단한다.
 
 ## 5. Production 환경
 

@@ -6,6 +6,11 @@ const {
 } = require('../publish-quota');
 const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
+const {
+    LIVE_PUBLISH_BLOCKED_CODE,
+    LIVE_PUBLISH_BLOCKED_MESSAGE,
+    isLivePublishAllowed
+} = require('../environment/runtime-effects');
 
 function createContentActionsRuntime(deps = {}) {
     const {
@@ -143,6 +148,13 @@ function createContentActionsRuntime(deps = {}) {
 
         if (!['gen', 'batch'].includes(action)) {
             return { success: false, code: 'INVALID_ACTION', message: '지원하지 않는 action입니다. (gen|batch)' };
+        }
+        if (action === 'batch' && !isLivePublishAllowed(CONFIG)) {
+            return {
+                success: false,
+                code: LIVE_PUBLISH_BLOCKED_CODE,
+                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+            };
         }
         if (rowIndex === null) {
             return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
@@ -726,6 +738,13 @@ function createContentActionsRuntime(deps = {}) {
     }
 
     async function executeShoppingBatchRowsAction(requestBody = {}) {
+        if (!isLivePublishAllowed(CONFIG)) {
+            return {
+                success: false,
+                code: LIVE_PUBLISH_BLOCKED_CODE,
+                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+            };
+        }
         try {
             await ensureSheetsReadyForUi();
         } catch (error) {
@@ -859,6 +878,13 @@ function createContentActionsRuntime(deps = {}) {
     }
 
     async function executeShoppingAutoManualAction(requestBody = {}) {
+        if (!isLivePublishAllowed(CONFIG)) {
+            return {
+                success: false,
+                code: LIVE_PUBLISH_BLOCKED_CODE,
+                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+            };
+        }
         try {
             await ensureSheetsReadyForUi();
         } catch (error) {

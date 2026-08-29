@@ -34,6 +34,8 @@ test('provider-neutral development connection passes without infrastructure deta
         'BLOGGENIUS_NOTIFICATION_MODE',
         'TRENDS_READ_TOKEN_SECRET'
     ]);
+    assert.equal(result.safety.manualPublish, true);
+    assert.equal(result.safety.automatedPublish, false);
     assert.equal(result.safety.livePublish, false);
     assert.equal(result.safety.livePayment, false);
 });

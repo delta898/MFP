@@ -31,6 +31,8 @@ const DEVELOPMENT_MANIFEST = Object.freeze({
     }),
     edge_function_environment: Object.freeze([]),
     safety: Object.freeze({
+        manual_publish: true,
+        automated_publish: false,
         live_publish: false,
         live_payment: false,
         cron_activation: false,

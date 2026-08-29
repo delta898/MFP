@@ -11,6 +11,8 @@ module.exports = Object.freeze({
             supabase_publishable_key_source: 'BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY',
             trends_api_url_source: 'BLOGGENIUS_LOCAL_TRENDS_API_URL',
             allows_destructive_database_operations: true,
+            allows_manual_publish: false,
+            allows_automated_publish: false,
             allows_live_publish: false,
             allows_live_payment: false,
             allows_live_notifications: false
@@ -22,6 +24,8 @@ module.exports = Object.freeze({
             supabase_publishable_key_source: 'BLOGGENIUS_DEVELOPMENT_SUPABASE_PUBLISHABLE_KEY',
             trends_api_url_source: 'BLOGGENIUS_DEVELOPMENT_TRENDS_API_URL',
             allows_destructive_database_operations: false,
+            allows_manual_publish: true,
+            allows_automated_publish: false,
             allows_live_publish: false,
             allows_live_payment: false,
             allows_live_notifications: false
@@ -33,6 +37,8 @@ module.exports = Object.freeze({
             supabase_publishable_key_source: 'BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY',
             trends_api_url_source: 'BLOGGENIUS_PRODUCTION_TRENDS_API_URL',
             allows_destructive_database_operations: false,
+            allows_manual_publish: true,
+            allows_automated_publish: true,
             allows_live_publish: true,
             allows_live_payment: true,
             allows_live_notifications: true

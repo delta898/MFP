@@ -35,7 +35,9 @@ function inspectHostedDevelopmentReadiness(options = {}) {
     if (developmentUrl && productionUrl && developmentUrl === productionUrl) {
         policyViolations.push('development_supabase_url_matches_production');
     }
-    if (manifest.safety.live_publish !== false) policyViolations.push('live_publish_must_be_disabled');
+    if (manifest.safety.manual_publish !== true) policyViolations.push('manual_publish_must_be_enabled');
+    if (manifest.safety.automated_publish !== false) policyViolations.push('automated_publish_must_be_disabled');
+    if (manifest.safety.live_publish !== false) policyViolations.push('live_publish_alias_must_be_disabled');
     if (manifest.safety.live_payment !== false) policyViolations.push('live_payment_must_be_disabled');
     if (manifest.safety.cron_activation !== false) policyViolations.push('cron_must_start_disabled');
 
@@ -60,6 +62,8 @@ function inspectHostedDevelopmentReadiness(options = {}) {
         safety: Object.freeze({
             notificationModes: Object.freeze([...manifest.safety.notification_modes]),
             defaultNotificationMode: manifest.safety.default_notification_mode,
+            manualPublish: manifest.safety.manual_publish,
+            automatedPublish: manifest.safety.automated_publish,
             livePublish: manifest.safety.live_publish,
             livePayment: manifest.safety.live_payment,
             cronActivation: manifest.safety.cron_activation,
@@ -79,7 +83,8 @@ function formatReadiness(result) {
         'Edge Function configuration owner: Supabase environment provider',
         `Required Edge Function settings declared: ${result.edgeFunctionEnvironment.requiredNames.length}`,
         `Notifications: ${result.safety.defaultNotificationMode} by default`,
-        `Live publish: ${result.safety.livePublish ? 'enabled' : 'blocked'}`,
+        `Manual publish: ${result.safety.manualPublish ? 'enabled' : 'blocked'}`,
+        `Automated publish: ${result.safety.automatedPublish ? 'enabled' : 'blocked'}`,
         `Live payment: ${result.safety.livePayment ? 'enabled' : 'blocked'}`,
         `Cron activation: ${result.safety.cronActivation ? 'enabled' : 'deferred'}`,
         `Paid provider smoke test: ${result.safety.paidProviderSmokeTest ? 'enabled' : 'blocked'}`

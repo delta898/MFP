@@ -96,10 +96,17 @@ test('manual optimization delegates to Chat Model with the shortest selected cha
     assert.deepEqual(calls[0].services, ['threads', 'twitter']);
 });
 
-test('manual publish works while SNS automation is disabled', async () => {
+test('manual publish works in development while SNS automation is disabled', async () => {
     const calls = [];
     const service = createManualSnsService({
-        CONFIG: createConfig({ SNS_PUBLISH_ENABLED: false }),
+        CONFIG: createConfig({
+            SNS_PUBLISH_ENABLED: false,
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development',
+                configured: true,
+                effects: { manualPublish: true, automatedPublish: false, livePublish: false }
+            }
+        }),
         bufferClient: {
             async shareNowMany(apiKey, deliveries) {
                 calls.push({ apiKey, deliveries });
@@ -123,14 +130,14 @@ test('manual publish works while SNS automation is disabled', async () => {
     assert.deepEqual(calls[0].deliveries.map((item) => item.channelId), ['threads-1', 'x-1']);
 });
 
-test('manual SNS publish is blocked before Buffer access in development', async () => {
+test('manual SNS publish is blocked before Buffer access in local', async () => {
     let publishCount = 0;
     const service = createManualSnsService({
         CONFIG: createConfig({
             RUNTIME_ENVIRONMENT_PROFILE: {
-                environment: 'development',
+                environment: 'local',
                 configured: true,
-                effects: { livePublish: false }
+                effects: { manualPublish: false, automatedPublish: false, livePublish: false }
             }
         }),
         bufferClient: {
@@ -142,8 +149,8 @@ test('manual SNS publish is blocked before Buffer access in development', async 
     });
 
     await assert.rejects(
-        () => service.publish({ channelIds: ['threads-1'], text: '개발 환경 테스트' }),
-        (error) => error.apiCode === 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT'
+        () => service.publish({ channelIds: ['threads-1'], text: '로컬 환경 테스트' }),
+        (error) => error.apiCode === 'MANUAL_PUBLISH_BLOCKED_BY_ENVIRONMENT'
     );
     assert.equal(publishCount, 0);
 });
