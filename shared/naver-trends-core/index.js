@@ -4,6 +4,8 @@ const moment = require('moment-timezone');
 
 const DEFAULT_TIMEZONE = 'Asia/Seoul';
 const DEFAULT_SOURCE = 'naver_creator_advisor';
+const NAVER_SESSION_EXPIRED_CODE = 'NAVER_SESSION_EXPIRED';
+const NAVER_SESSION_EXPIRED_MESSAGE = '네이버 로그인 세션이 만료되었습니다. BlogGenius 설정에서 다시 로그인해 주세요.';
 
 function createLoggerProxy(logger = console) {
     return {
@@ -390,6 +392,47 @@ async function selectTrendDate(page, targetDate) {
     }
 }
 
+function isNaverLoginUrl(urlLike) {
+    const value = String(urlLike || '').trim();
+    return /nid\.naver\.com/i.test(value) || /nidlogin\.login/i.test(value);
+}
+
+async function isNaverLoginRequired(page) {
+    if (!page) return false;
+
+    try {
+        if (isNaverLoginUrl(page.url?.())) return true;
+    } catch (_error) {}
+
+    const candidates = [
+        'a:has-text("로그인하고 서비스 이용하기")',
+        'button:has-text("로그인하고 서비스 이용하기")',
+        'a[href*="nidlogin.login"]:has-text("로그인")',
+        'a[href*="nid.naver.com"]:has-text("로그인")'
+    ];
+
+    for (const selector of candidates) {
+        try {
+            const node = page.locator(selector).first();
+            if (await node.count() > 0 && await node.isVisible()) return true;
+        } catch (_error) {}
+    }
+
+    return false;
+}
+
+function createNaverSessionExpiredError() {
+    const error = new Error(NAVER_SESSION_EXPIRED_MESSAGE);
+    error.code = NAVER_SESSION_EXPIRED_CODE;
+    return error;
+}
+
+async function assertNaverSessionActive(page) {
+    if (await isNaverLoginRequired(page)) {
+        throw createNaverSessionExpiredError();
+    }
+}
+
 async function waitForTrendDataReady(page, timeoutMs = 12000) {
     const startedAt = Date.now();
     const listLocator = page.locator('.u_ni_trend_list_box');
@@ -406,6 +449,8 @@ async function waitForTrendDataReady(page, timeoutMs = 12000) {
     ];
 
     while ((Date.now() - startedAt) < timeoutMs) {
+        await assertNaverSessionActive(page);
+
         try {
             if (await listLocator.count() > 0 && await listLocator.first().isVisible()) {
                 return { state: 'ready' };
@@ -497,6 +542,7 @@ function createNaverTrendsCollector(options = {}) {
                 const targetUrl = `https://creator-advisor.naver.com/naver_blog/${naverId}/trends`;
                 logger.info(`🔗 접속 중: ${targetUrl}`);
                 await page.goto(targetUrl, { waitUntil: 'networkidle' });
+                await assertNaverSessionActive(page);
 
                 if (targetDate) {
                     await selectTrendDate(page, targetDate);
@@ -701,7 +747,8 @@ function createNaverTrendsCollector(options = {}) {
                 throw error;
             } finally {
                 const currentUrl = String(page?.url?.() || '');
-                if (context && authPath && fs.existsSync(authPath) && currentUrl && !/nid\.naver\.com/i.test(currentUrl) && !/nidlogin\.login/i.test(currentUrl)) {
+                const loginRequired = await isNaverLoginRequired(page);
+                if (context && authPath && fs.existsSync(authPath) && currentUrl && !loginRequired) {
                     await persistAuthSessionState(context, { authPath });
                 }
                 if (browser) await browser.close();
@@ -712,8 +759,14 @@ function createNaverTrendsCollector(options = {}) {
 
 module.exports = {
     DEFAULT_SOURCE,
+    NAVER_SESSION_EXPIRED_CODE,
+    NAVER_SESSION_EXPIRED_MESSAGE,
+    assertNaverSessionActive,
     buildCollectedTrendPayload,
+    createNaverSessionExpiredError,
     createNaverTrendsCollector,
+    isNaverLoginRequired,
+    isNaverLoginUrl,
     normalizeCollectedTrendItem,
     normalizeIsoTimestamp,
     resolveTrendDateInput
