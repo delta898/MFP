@@ -6,8 +6,8 @@
 
 ## 상태
 
-Stage 1·2·3·4 feature-main 병합 완료. Stage 5 Development 배포·인증 E2E 설계 진행 중. Production
-변경과 원격 배포는 승인 전까지 수행하지 않는다.
+Stage 1~5 구현과 Development 배포·인증 E2E 검증 완료. Stage 6 배포 자동화와 Production 전환은
+별도 후속 feature로 분리한다.
 
 ## 배경과 사용자 필요
 
@@ -205,7 +205,7 @@ Status: feature-main merge complete
 
 ### Stage 5 — Development 배포와 인증 E2E
 
-Status: approved topology implementation and preflight in progress
+Status: Development deployment and E2E verification complete
 
 - Development signing secret과 issuer/audience 계약
 - Development Supabase trends 데이터 준비 절차
@@ -218,7 +218,17 @@ Status: approved topology implementation and preflight in progress
 소유한다. 기존 Production systemd service와
 `trendapi.hangadac.com`은 변경하지 않는다.
 
+확인 결과:
+
+- Development container health와 외부 HTTPS route가 `environment=development`를 반환했다.
+- 인증 없는 read endpoint는 `401`, Development token을 사용한 read는 정상 응답했다.
+- Development collector가 640개 항목을 Development Supabase에 신규 upsert했다.
+- BlogGenius Development Desktop의 키워드 탐색이 Development Trends API에서 정상 조회됐다.
+- Production endpoint, systemd service, database와 Secret은 변경하지 않았다.
+
 ### Stage 6 — 배포 자동화
+
+Status: deferred to a separate feature after Development workflow stabilization
 
 - CI에서 unit test 후 immutable image를 Git SHA와 digest로 생성
 - Development Compose/Caddy/DNS rollout manifest
@@ -252,9 +262,8 @@ smoke`를 자동화하고, 흐름이 안정된 뒤 Development 자동 배포를 
 - BlogGenius Development 키워드 탐색이 Production Trends API 없이 동작한다.
 - Production 서비스와 Secret은 명시적 승인 전까지 변경되지 않는다.
 
-## 논의·결정이 필요한 항목
+## 후속 별도 feature에서 결정할 항목
 
-1. 기존 `apps/trends/.env`를 즉시 폐기할지, 한시적 경고 호환을 둘지
-2. Production 실행 명령을 repository에서 제공할지, 서버 운영 명령으로만 남길지
-3. Docker image registry를 GHCR로 사용할지
-4. Development 배포를 수동 workflow로 시작할지, `dev` 통과 후 자동 배포할지
+1. Production 실행 명령을 repository에서 제공할지, 서버 운영 명령으로만 남길지
+2. Docker image registry를 GHCR로 사용할지
+3. Development 배포를 수동 workflow로 유지할지, `dev` 통과 후 자동 배포할지

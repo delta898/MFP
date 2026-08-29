@@ -7,6 +7,7 @@
 1. 개발·운영 환경 분리
    - 상세 범위와 단계는 `docs/plans/active/development-environment-separation-main-plan.md`를 따른다.
    - `local → development → production` 승격 흐름과 fail-closed 보호를 우선 구현한다.
+   - Trends API는 Local·Development 인증/저장 경계를 분리하고 Development container·collector·Desktop E2E를 완료했다. GHCR 자동화와 Production 전환은 별도 승인 작업으로 남긴다.
 
 2. Runtime Credential 보안 경계 재구성 (진행 중)
    - 상세 범위와 단계는 `docs/plans/active/runtime-credential-security-main-plan.md`를 따른다.

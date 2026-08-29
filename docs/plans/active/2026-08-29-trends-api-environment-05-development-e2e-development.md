@@ -88,5 +88,16 @@ BlogGenius Development
 - Development Supabase의 `TRENDS_READ_TOKEN_SECRET`, issuer와 audience가 API server runtime file과
   SHA-256 기준으로 모두 일치함을 확인했다.
 - hosted Data API에 `trends` schema를 노출한 뒤 server secret key로 `trends.get_items_meta` RPC가
-  정상 응답했다. 현재 Development trends 데이터는 `0`건이므로 1회 collector 실행은 아직 필요하다.
-- 현재 원격 container·Caddy·DNS는 변경하지 않았고 Production service에도 접근하지 않았다.
+  정상 응답했다.
+- Oracle host에 별도 Development container를 배포하고 Caddy HTTPS route를 연결했다. health는
+  `environment=development`를 반환했고 인증 없는 read endpoint는 `401`로 보호됐다.
+- Development collector가 640개 항목을 수집해 Development Supabase에 신규 upsert했다.
+- BlogGenius Development Desktop의 키워드 탐색이 Development Trends API에서 정상 조회됐다.
+- 배포 파일은 `apps/trends/trends-api/deployment/development/`에 통합했고 재배포 절차를 실제로
+  다시 수행해 확인했다.
+- Production endpoint, systemd service, database와 Secret은 변경하지 않았다.
+
+## 상태
+
+Development 배포와 인증 E2E 검증 완료. GHCR·자동 배포와 Production Docker 전환은 별도 후속
+feature로 분리한다.
