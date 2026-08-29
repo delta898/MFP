@@ -13,8 +13,8 @@ Keep the user-facing desktop app and the operator-only trends backend in the sam
 src/                        # existing BlogGenius app
 apps/
   trends/
-    trends-collector/       # operator-only collector CLI
-    trends-api/             # operator-only ingest/export API
+    trends-collector/       # operator-only collector CLI, commands, config
+    trends-api/             # operator-only ingest/export API and deployments
 shared/
   naver-trends-core/        # shared Naver trends collection logic
 wordpress/
@@ -35,6 +35,9 @@ wordpress/
 - `apps/trends/` is the operator-only trends system workspace.
 - `apps/trends/trends-collector` is an internal CLI.
 - `apps/trends/trends-api` is an internal service/API.
+- Human-facing component commands live under the owning app's `commands/` directory.
+- Environment-specific API Compose units live under `trends-api/deployment/<environment>/`.
+- App-specific operator configuration lives with the owning app rather than at `apps/trends/` root.
 
 ### `shared/`
 - Contains reusable, product-agnostic modules.

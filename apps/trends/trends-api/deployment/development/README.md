@@ -107,7 +107,9 @@ docker compose ps
 curl -sS 'https://trendapi-dev.hangadac.com/health?check=development'
 ```
 
-그 뒤 운영자 PC에서 `./collect_trends_dev.sh`를 실행해 수집·upsert까지 확인합니다.
+그 뒤 운영자 PC에서
+`./apps/trends/trends-collector/commands/collect_development.sh`를 실행해 수집·upsert까지
+확인합니다.
 
 ## 문제 해결
 

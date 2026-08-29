@@ -15,7 +15,7 @@ function main() {
     const environment = resolveStatusEnvironment();
     const env = { ...process.env, TRENDS_ENV: environment };
     const profile = loadTrendsEnvironment({
-        baseDir: path.resolve(__dirname, '../apps/trends'),
+        baseDir: path.resolve(__dirname, '../apps/trends/trends-collector/config'),
         env
     });
     process.stdout.write(`${formatTrendsEnvironmentDiagnostic(profile)}\n`);

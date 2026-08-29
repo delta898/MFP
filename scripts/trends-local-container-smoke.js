@@ -7,7 +7,11 @@ const { spawnSync } = require('node:child_process');
 const { parseEnvFile } = require('../apps/trends/shared/lib/load-env');
 const { prepareLocalRuntimeEnvironment } = require('./trends-local-api-container');
 
-const COMPOSE_ARGS = ['compose', '--file', 'apps/trends/compose.local.yml'];
+const COMPOSE_ARGS = [
+    'compose',
+    '--file',
+    'apps/trends/trends-api/deployment/local/compose.yml'
+];
 
 function runDocker(repoRoot, runtimeEnv, args) {
     const result = spawnSync('docker', [...COMPOSE_ARGS, ...args], {
@@ -40,7 +44,12 @@ async function waitForHealth(options = {}) {
 async function verifyAuthenticatedMeta(runtimeEnvPath) {
     const env = parseEnvFile(fs.readFileSync(runtimeEnvPath, 'utf8'));
     const token = String(env.TRENDS_API_TOKEN || '').trim();
-    if (!token) throw new Error('TRENDS_API_TOKEN is missing from apps/trends/.env.trends-collector.local');
+    if (!token) {
+        throw new Error(
+            'TRENDS_API_TOKEN is missing from '
+            + 'apps/trends/trends-collector/config/.env.trends-collector.local'
+        );
+    }
     const response = await fetch('http://127.0.0.1:4581/api/v1/trends/meta', {
         headers: { Authorization: `Bearer ${token}` }
     });

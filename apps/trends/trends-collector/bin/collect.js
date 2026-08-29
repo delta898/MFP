@@ -47,7 +47,7 @@ function formatCollectorHelp() {
         '',
         'Environment:',
         '  TRENDS_ENV=local|development|production is required.',
-        '  apps/trends/.env.trends-collector.<environment> is loaded when present.',
+        '  apps/trends/trends-collector/config/.env.trends-collector.<environment> is loaded when present.',
         '  If --date is omitted, TRENDS_TARGET_DATE is used when present.',
         '  If neither is set, the collector uses the provider default date.',
     ].join('\n');
@@ -253,7 +253,7 @@ function formatApiResultSummary(apiResult = {}) {
 
 function prepareCollectorRuntime(env = process.env, logger = console) {
     const profile = loadTrendsEnvironment({
-        baseDir: path.resolve(__dirname, '../..'),
+        baseDir: path.resolve(__dirname, '../config'),
         env
     });
     logger.info(formatTrendsEnvironmentDiagnostic(profile));

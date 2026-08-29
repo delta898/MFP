@@ -3,17 +3,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+cd "$REPO_ROOT"
 
 show_help() {
     cat <<'EOF'
-사용법: ./collect_trends_dev.sh [수집 옵션]
+사용법: ./apps/trends/trends-collector/commands/collect_development.sh [수집 옵션]
 
 네이버 Creator Advisor 트렌드를 수집해 Development Trends API로 전송합니다.
 
 예시:
-  ./collect_trends_dev.sh
-  ./collect_trends_dev.sh --date=-1d
+  ./apps/trends/trends-collector/commands/collect_development.sh
+  ./apps/trends/trends-collector/commands/collect_development.sh --date=-1d
 EOF
 }
 

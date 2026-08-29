@@ -97,9 +97,18 @@ function prepareLocalRuntimeEnvironment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
     const spawn = options.spawn || spawnSync;
     const processEnv = options.env || process.env;
-    const baseEnvPath = path.join(repoRoot, 'apps', 'trends', '.env.trends-collector.local');
+    const baseEnvPath = path.join(
+        repoRoot,
+        'apps',
+        'trends',
+        'trends-collector',
+        'config',
+        '.env.trends-collector.local'
+    );
     if (!fs.existsSync(baseEnvPath)) {
-        throw new Error('apps/trends/.env.trends-collector.local file is required');
+        throw new Error(
+            'apps/trends/trends-collector/config/.env.trends-collector.local file is required'
+        );
     }
 
     const statusResult = runChecked(spawn, 'supabase', ['status', '--output', 'json'], {
@@ -138,7 +147,7 @@ function runLocalTrendsApiContainer(options = {}) {
         const result = spawn('docker', [
             'compose',
             '--file',
-            'apps/trends/compose.local.yml',
+            'apps/trends/trends-api/deployment/local/compose.yml',
             'up',
             '--build',
             'trends-api'

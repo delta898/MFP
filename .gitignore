@@ -4,9 +4,9 @@ __pycache__/
 .env
 .env.development
 .secrets.env
-apps/trends/.env.trends-collector.local
-apps/trends/.env.trends-collector.development
-apps/trends/.env.trends-collector.production
+apps/trends/trends-collector/config/.env.trends-collector.local
+apps/trends/trends-collector/config/.env.trends-collector.development
+apps/trends/trends-collector/config/.env.trends-collector.production
 apps/trends/trends-api/deployment/development/.env.trends-api.development
 .env.oauth
 src/config/secret.js

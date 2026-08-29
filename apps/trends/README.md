@@ -5,14 +5,15 @@ BlogGenius의 트렌드 백엔드는 역할별로 분리되어 있습니다.
 - `trends-api/`: 장기 실행되는 조회·저장 API 소스
 - `trends-collector/`: 네이버 Creator Advisor 수집기
 - `shared/lib/`: 두 프로그램이 공유하는 환경·검증 코드
+- `trends-api/deployment/local/`: Local API Compose 배포 단위
 - `trends-api/deployment/development/`: Development API 배포 단위
 
 ## 환경 파일
 
 이름만 보고 소유자를 알 수 있도록 파일을 분리합니다.
 
-- Collector Local: `apps/trends/.env.trends-collector.local`
-- Collector Development: `apps/trends/.env.trends-collector.development`
+- Collector Local: `apps/trends/trends-collector/config/.env.trends-collector.local`
+- Collector Development: `apps/trends/trends-collector/config/.env.trends-collector.development`
 - Development API: `apps/trends/trends-api/deployment/development/.env.trends-api.development`
 
 각 실제 파일은 Git에서 제외됩니다. 같은 위치의 `.sample` 또는 `.example`을 복사해 한 번만
@@ -21,14 +22,14 @@ BlogGenius의 트렌드 백엔드는 역할별로 분리되어 있습니다.
 ## 수집
 
 ```bash
-./collect_trends_local.sh
-./collect_trends_dev.sh
+./apps/trends/trends-collector/commands/collect_local.sh
+./apps/trends/trends-collector/commands/collect_development.sh
 ```
 
 날짜를 지정할 수도 있습니다.
 
 ```bash
-./collect_trends_dev.sh --date=-1d
+./apps/trends/trends-collector/commands/collect_development.sh --date=-1d
 ```
 
 두 스크립트는 수집만 담당합니다. API 서버를 직접 실행하는 `api` 명령은 제공하지 않습니다.

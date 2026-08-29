@@ -22,8 +22,10 @@ Development와 Production은 운영 단위를 공유하지 않는다.
 - 실행: 해당 폴더에서 `docker compose up -d --build`
 - host boundary: `4582`, 외부 Caddy 컨테이너가 Development HTTPS hostname을 소유하며
   VCN과 host firewall은 4582의 공인 ingress를 차단
-- Collector 설정: `apps/trends/.env.trends-collector.development`
-- Collector 실행: `./collect_trends_dev.sh`
+- Collector 설정:
+  `apps/trends/trends-collector/config/.env.trends-collector.development`
+- Collector 실행:
+  `./apps/trends/trends-collector/commands/collect_development.sh`
 
 재배포와 검증의 canonical runbook은
 [`apps/trends/trends-api/deployment/development/README.md`](../../apps/trends/trends-api/deployment/development/README.md)이다.
@@ -171,7 +173,7 @@ project. Configure these function secrets:
 - optional `TRENDS_READ_TOKEN_TTL_SECONDS=900`
 
 Configure the same `TRENDS_READ_TOKEN_SECRET`, issuer, and audience in the
-server-side `apps/trends/.env`. The secret is shared only between the Edge
+Production API operator environment. The secret is shared only between the Edge
 Function and `trends-api`; it is never packaged into the desktop app.
 
 BlogGenius desktop clients call only these read endpoints:
@@ -272,7 +274,7 @@ trends access token.
 - Generate two different high-entropy values:
   - `TRENDS_API_TOKEN`: collector and WordPress internal operations
   - `TRENDS_READ_TOKEN_SECRET`: Edge Function signing and Oracle verification
-- Put both values in Oracle `apps/trends/.env`.
+- Put both values in the Production API operator environment.
 - Put only `TRENDS_READ_TOKEN_SECRET` in the Supabase Edge Function secrets.
 - Deploy `issue-trends-access-token` in the same Supabase project that owns the
   license RPC.

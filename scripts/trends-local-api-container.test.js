@@ -69,7 +69,7 @@ test('missing Local API secrets are generated once in the ignored per-machine en
 
 test('Local Trends container uses a permission-limited temporary env file and removes it', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-container-test-'));
-    const envDirectory = path.join(repoRoot, 'apps', 'trends');
+    const envDirectory = path.join(repoRoot, 'apps', 'trends', 'trends-collector', 'config');
     fs.mkdirSync(envDirectory, { recursive: true });
     fs.writeFileSync(path.join(envDirectory, '.env.trends-collector.local'), 'TRENDS_API_TOKEN=test-token\n');
     let runtimeEnvPath = '';
@@ -95,6 +95,7 @@ test('Local Trends container uses a permission-limited temporary env file and re
     try {
         assert.equal(runLocalTrendsApiContainer({ repoRoot, spawn }), 0);
         assert.deepEqual(calls.map(({ command }) => command), ['supabase', 'docker']);
+        assert.ok(calls[1].args.includes('apps/trends/trends-api/deployment/local/compose.yml'));
         assert.equal(fs.existsSync(runtimeEnvPath), false);
     } finally {
         fs.rmSync(repoRoot, { recursive: true, force: true });
@@ -103,7 +104,7 @@ test('Local Trends container uses a permission-limited temporary env file and re
 
 test('runtime environment preparation can be reused by container smoke verification', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-runtime-test-'));
-    const envDirectory = path.join(repoRoot, 'apps', 'trends');
+    const envDirectory = path.join(repoRoot, 'apps', 'trends', 'trends-collector', 'config');
     fs.mkdirSync(envDirectory, { recursive: true });
     fs.writeFileSync(path.join(envDirectory, '.env.trends-collector.local'), 'TRENDS_API_TOKEN=test-token\n');
     const spawn = () => ({

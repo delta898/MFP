@@ -7,11 +7,11 @@ Desktop 앱 패키지와 독립된 장기 실행 서비스입니다.
 
 - Development 서버는 `deployment/development/`의 Compose로만 운영합니다.
 - 운영자가 Node 진입점을 직접 실행하는 `api` 명령은 제공하지 않습니다.
-- Local API 컨테이너 실행기는 자동 검증용 내부 도구로만 유지합니다.
+- Local API는 `deployment/local/`의 Compose와 자동 검증 helper로만 실행합니다.
 - Production 배포 방식은 별도 승인 전까지 기존 서비스에 영향을 주지 않습니다.
 
-Development 설치·재배포 명령은 [Development 배포 안내](deployment/development/README.md)를
-참조합니다.
+Local 검증은 [Local 배포 안내](deployment/local/README.md), Development 설치·재배포는
+[Development 배포 안내](deployment/development/README.md)를 참조합니다.
 
 ## 권한 경계
 

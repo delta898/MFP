@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const API_ROOT = __dirname;
-const TRENDS_ROOT = path.resolve(API_ROOT, '..');
 const REPO_ROOT = path.resolve(API_ROOT, '..', '..', '..');
 
 function read(relativePath) {
@@ -41,11 +40,11 @@ test('Trends API image build never copies environment or secret-bearing operator
 });
 
 test('Local Compose injects runtime config and exposes API only on loopback', () => {
-    const compose = fs.readFileSync(path.join(TRENDS_ROOT, 'compose.local.yml'), 'utf8');
+    const compose = read('deployment/local/compose.yml');
 
     assert.match(
         compose,
-        /env_file:\s*\n\s*- \$\{TRENDS_LOCAL_RUNTIME_ENV_FILE:-\.env\.trends-collector\.local\}/
+        /env_file:\s*\n\s*- \$\{TRENDS_LOCAL_RUNTIME_ENV_FILE:\?TRENDS_LOCAL_RUNTIME_ENV_FILE is required\}/
     );
     assert.match(compose, /SUPABASE_URL: http:\/\/host\.docker\.internal:54321/);
     assert.match(compose, /"127\.0\.0\.1:4581:4581"/);

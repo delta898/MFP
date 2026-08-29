@@ -31,7 +31,8 @@ wordpress/
 - Calls `shared/naver-trends-core`.
 - Sends normalized payloads to the internal ingest API.
 - Does not write to Supabase directly.
-- Auto-loads the shared environment file from `apps/trends/.env`.
+- Auto-loads its environment-specific operator file from
+  `apps/trends/trends-collector/config/`.
 
 ### `apps/trends/trends-api`
 - Owns Supabase write/read access for the trends backend.
@@ -39,7 +40,7 @@ wordpress/
 - Upserts trend rows into Supabase.
 - Serves filtered JSON/CSV exports.
 - Stores operational scrape history in file logs, not in a database `collection_runs` table.
-- Auto-loads the shared environment file from `apps/trends/.env`.
+- Receives API-owned runtime configuration from its deployment environment.
 - Runs as the central Node service on Oracle Cloud Free Tier.
 - Is reached by the WordPress plugin with the internal token and by BlogGenius
   desktop clients with short-lived user read tokens.
@@ -54,7 +55,9 @@ wordpress/
   - config constants: `BG_TRENDS_API_BASE_URL`, `BG_TRENDS_API_TOKEN`
 
 ## Runtime Flow
-1. Operator runs `npm run trends:collector` from the repo root, or `node /Users/delta898/Project/NaverAutoBlog/bin/trends-collector` from any shell directory.
+1. Operator uses an environment-specific command under
+   `apps/trends/trends-collector/commands/`. The legacy `bin/trends-collector` entrypoint remains only
+   for the current Production schedule until its container transition.
 2. Collector fetches trends through `shared/naver-trends-core`.
 3. Collector posts payloads to `POST /internal/ingest/naver-trends`.
 4. API validates and upserts into Supabase.

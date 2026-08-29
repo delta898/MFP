@@ -7,22 +7,28 @@ const { spawnSync } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '..');
 
 function readLauncher(filename) {
-    return fs.readFileSync(path.join(repoRoot, filename), 'utf8');
+    return fs.readFileSync(
+        path.join(repoRoot, 'apps', 'trends', 'trends-collector', 'commands', filename),
+        'utf8'
+    );
 }
 
 function runLauncher(filename, args = []) {
-    return spawnSync('bash', [path.join(repoRoot, filename), ...args], {
+    return spawnSync('bash', [
+        path.join(repoRoot, 'apps', 'trends', 'trends-collector', 'commands', filename),
+        ...args
+    ], {
         cwd: repoRoot,
         encoding: 'utf8'
     });
 }
 
 test('Local collector launcher exposes one purpose without an API server command', () => {
-    const source = readLauncher('collect_trends_local.sh');
-    const help = runLauncher('collect_trends_local.sh', ['--help']);
+    const source = readLauncher('collect_local.sh');
+    const help = runLauncher('collect_local.sh', ['--help']);
 
     assert.equal(help.status, 0);
-    assert.match(help.stdout, /사용법: \.\/collect_trends_local\.sh/);
+    assert.match(help.stdout, /trends-collector\/commands\/collect_local\.sh/);
     assert.match(help.stdout, /Local Trends API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
     assert.match(source, /npm run trends:collector:local/);
@@ -30,11 +36,11 @@ test('Local collector launcher exposes one purpose without an API server command
 });
 
 test('Development collector launcher exposes one purpose without an API server command', () => {
-    const source = readLauncher('collect_trends_dev.sh');
-    const help = runLauncher('collect_trends_dev.sh', ['help']);
+    const source = readLauncher('collect_development.sh');
+    const help = runLauncher('collect_development.sh', ['help']);
 
     assert.equal(help.status, 0);
-    assert.match(help.stdout, /사용법: \.\/collect_trends_dev\.sh/);
+    assert.match(help.stdout, /trends-collector\/commands\/collect_development\.sh/);
     assert.match(help.stdout, /Development Trends API로 전송/);
     assert.doesNotMatch(help.stdout, /npm run/);
     assert.match(source, /npm run trends:collector:development/);
@@ -42,7 +48,7 @@ test('Development collector launcher exposes one purpose without an API server c
 });
 
 test('collector launchers pass collection options to their explicit npm environment command', () => {
-    for (const filename of ['collect_trends_local.sh', 'collect_trends_dev.sh']) {
+    for (const filename of ['collect_local.sh', 'collect_development.sh']) {
         const source = readLauncher(filename);
 
         assert.match(source, /exec npm run trends:collector:(?:local|development) -- "\$@"/);

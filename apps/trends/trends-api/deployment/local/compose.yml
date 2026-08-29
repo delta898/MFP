@@ -1,12 +1,12 @@
 services:
   trends-api:
     build:
-      context: ../..
+      context: ../../../../..
       dockerfile: apps/trends/trends-api/Dockerfile
     image: bloggenius/trends-api:local
     init: true
     env_file:
-      - ${TRENDS_LOCAL_RUNTIME_ENV_FILE:-.env.trends-collector.local}
+      - ${TRENDS_LOCAL_RUNTIME_ENV_FILE:?TRENDS_LOCAL_RUNTIME_ENV_FILE is required}
     environment:
       TRENDS_ENV: local
       TRENDS_SUPABASE_TARGET_ENV: local
