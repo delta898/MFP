@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .env
 .env.development
+apps/trends/.env.local
+apps/trends/.env.development
+apps/trends/.env.production
 .env.oauth
 src/config/secret.js
 !src/config/secret.js.sample

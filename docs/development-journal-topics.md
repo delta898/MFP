@@ -30,6 +30,32 @@ DB 노출 경로를 제거한 이유, 자격증명 교체 시 앱 업데이트�
 재인증의 관계를 Google Sheets 연결 사례로 설명한다. 토큰을 client id/secret과 혼동하지 않는 법,
 사용자별 토큰을 안전하게 저장하고 로그에서 제외하며 연결 해제 시 폐기하는 원칙도 함께 다룬다.
 
+### 장기 비밀키 대신 단기 접근 토큰을 발급하는 이유
+
+BlogGenius Desktop이 Trends API를 읽어야 하지만 서버의 장기 `TRENDS_API_TOKEN`을 설치 파일에
+넣으면 누구나 추출해 수집·export 같은 내부 기능까지 호출할 수 있다. 이를 피하기 위해 Desktop은
+기존 라이선스 키와 HWID를 Supabase Edge Function에 제시하고, Function은 라이선스를 확인한 뒤
+약 15분 동안 `trends:read` 범위에서만 유효한 서명 토큰을 발급한다. Desktop은 이 토큰을 파일에
+저장하지 않고 메모리에서 재사용하며, Trends API는 서명, 만료 시각, issuer, audience와 scope를
+모두 확인한 뒤 읽기 endpoint만 허용한다.
+
+```text
+Desktop
+  -> 라이선스 확인 요청
+Supabase Edge Function
+  -> 단기 trends:read 토큰 발급
+Desktop
+  -> Authorization: Bearer <short-lived token>
+Trends API
+  -> 서명·만료·scope 검증 후 읽기 허용
+```
+
+이 구조가 장기 secret의 Desktop 노출을 막고, 권한과 유효기간을 최소화하며, 유출 시 피해 시간을
+제한하는 원리를 설명한다. 또한 Development Edge Function이 Development secret으로 서명한 토큰을
+Production Trends API가 거부한 사례를 통해 토큰 발급자와 검증자가 같은 환경의 secret, issuer와
+audience 계약을 공유해야 한다는 점, 단기 토큰 자체보다 토큰을 무제한 발급할 수 있는 signing
+secret을 더 강하게 보호해야 한다는 점을 정리한다.
+
 ### 값의 민감도와 사용 범위로 저장 위치 결정하기
 
 GitHub Actions를 설정하며 모든 값을 막연히 `Secret`으로 취급하면 오히려 용도와 책임 경계가
@@ -66,6 +92,22 @@ fallback하거나 하나의 설정으로 합치면 안 된다. BlogGenius가 이
 `발급 체계 + 인증 방식 + endpoint + 사용 목적 + quota` 표를 먼저 만드는 방법을 정리한다.
 
 ## 개발과 배포 환경
+
+### GHCR로 Docker image를 보관하고 같은 artifact를 승격하기
+
+GHCR(GitHub Container Registry)은 소스 저장소가 아니라 빌드가 끝난 Docker image를 보관하는
+GitHub의 container registry다. GitHub Actions가 테스트를 통과한 Trends API image를 Git commit과
+연결된 tag·digest로 GHCR에 올리고, Development와 Production 서버는 image를 다시 빌드하지 않고
+정확한 digest를 내려받아 실행할 수 있다. 이를 통해 Development에서 검증한 실행물과 Production에
+배포한 실행물이 한 비트도 다르지 않음을 확인하고, 문제가 생기면 이전 digest로 되돌리는 흐름을
+설명한다.
+
+Docker Hub가 Docker 생태계 전반에서 널리 사용하는 독립 registry라면 GHCR은 GitHub repository,
+Actions 권한, Packages와 조직·사용자 권한 모델에 자연스럽게 연결된다. 공개 범용 image 배포와
+Docker 중심 커뮤니티 노출에는 Docker Hub가 편하고, GitHub에 소스와 CI가 있으며 repository 권한과
+image 권한을 함께 관리하려는 프로젝트에는 GHCR이 편하다. Registry는 container를 실행하는 서버나
+배포 도구가 아니므로 `소스 저장소 -> CI build -> image registry -> 실행 서버`의 역할을 구분하고,
+tag는 움직일 수 있지만 digest는 immutable identity라는 점도 함께 정리한다.
 
 ### Local에서 Development를 거쳐 Production까지 DB 변경을 안전하게 승격하기
 

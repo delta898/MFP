@@ -4,7 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { chromium } = require('playwright');
-const { loadEnvFiles } = require('../../shared/lib/load-env');
+const {
+    formatTrendsEnvironmentDiagnostic,
+    loadTrendsEnvironment
+} = require('../../shared/lib/environment-profile');
 const {
     buildCollectedTrendPayload,
     createNaverTrendsCollector
@@ -13,8 +16,6 @@ const {
 const DEFAULT_BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
 const DEFAULT_SOURCE = 'naver_creator_advisor';
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '../../../..');
-
-loadEnvFiles({ baseDir: path.resolve(__dirname, '../..'), fileNames: ['.env'] });
 
 function createLogger() {
     return {
@@ -41,7 +42,8 @@ function formatCollectorHelp() {
         '                       Supported: YYYY-MM-DD, YYYYMMDD, yesterday, 어제, -1d, -3d',
         '',
         'Environment:',
-        '  apps/trends/.env is loaded automatically.',
+        '  TRENDS_ENV=local|development|production is required.',
+        '  apps/trends/.env.<environment> is loaded when present.',
         '  If --date is omitted, TRENDS_TARGET_DATE is used when present.',
         '  If neither is set, the collector uses the provider default date.',
     ].join('\n');
@@ -228,6 +230,15 @@ function formatApiResultSummary(apiResult = {}) {
     return JSON.stringify(apiResult);
 }
 
+function prepareCollectorRuntime(env = process.env, logger = console) {
+    const profile = loadTrendsEnvironment({
+        baseDir: path.resolve(__dirname, '../..'),
+        env
+    });
+    logger.info(formatTrendsEnvironmentDiagnostic(profile));
+    return profile;
+}
+
 async function runCollector(inputConfig = {}) {
     const logger = inputConfig.logger || createLogger();
     const cliOptions = inputConfig.cliOptions || {};
@@ -280,6 +291,7 @@ if (require.main === module) {
             process.stdout.write(`${formatCollectorHelp()}\n`);
             process.exit(0);
         }
+        prepareCollectorRuntime();
     } catch (error) {
         console.error(`❌ trends collector failed: ${error.message}`);
         console.error('ℹ️ 사용법은 "node bin/trends-collector --help" 로 확인할 수 있습니다.');
@@ -297,6 +309,7 @@ module.exports = {
     formatApiResultSummary,
     formatCollectorHelp,
     parseCollectorCliArgs,
+    prepareCollectorRuntime,
     resolveCollectorConfig,
     runCollector
 };

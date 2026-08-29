@@ -3,12 +3,13 @@ const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { createClient } = require('@supabase/supabase-js');
-const { loadEnvFiles } = require('../../shared/lib/load-env');
+const {
+    formatTrendsEnvironmentDiagnostic,
+    loadTrendsEnvironment
+} = require('../../shared/lib/environment-profile');
 const { normalizeCollectedTrendItem } = require('../../../../shared/naver-trends-core');
 
 const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
-
-loadEnvFiles({ baseDir: path.resolve(__dirname, '../..'), fileNames: ['.env'] });
 
 function toInt(value, fallback) {
     const parsed = parseInt(value, 10);
@@ -837,8 +838,23 @@ function startServer(config = resolveApiConfig()) {
     return server;
 }
 
+function prepareApiRuntime(env = process.env) {
+    const profile = loadTrendsEnvironment({
+        baseDir: path.resolve(__dirname, '../..'),
+        env
+    });
+    console.log(formatTrendsEnvironmentDiagnostic(profile));
+    return profile;
+}
+
 if (require.main === module) {
-    startServer();
+    try {
+        prepareApiRuntime();
+        startServer();
+    } catch (error) {
+        console.error(`trends-api failed to start: ${error.message}`);
+        process.exitCode = 1;
+    }
 }
 
 module.exports = {
@@ -861,6 +877,7 @@ module.exports = {
     normalizeCategoryList,
     normalizeMetaPayload,
     readJsonBody,
+    prepareApiRuntime,
     resolveTrendReadAccess,
     resolveTrendQueryParams,
     resolveApiConfig,

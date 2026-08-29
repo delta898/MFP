@@ -12,8 +12,8 @@ This runtime is intentionally separate from the desktop app packaging flow.
 ## Run
 
 ```bash
-cp apps/trends/.env.sample apps/trends/.env
-npm run trends:api
+cp apps/trends/.env.local.sample apps/trends/.env.local
+npm run trends:api:local
 ```
 
 From any shell directory you can also run:
@@ -30,10 +30,15 @@ Important env keys:
 - `TRENDS_API_HOST`
 - `TRENDS_API_PORT`
 
+Environment note:
+- `TRENDS_ENV` is required and accepts only `local`, `development`, or `production`
+- the conventional config file is `apps/trends/.env.<environment>`
+- use an absolute `TRENDS_ENV_FILE` for an operator-owned systemd or container environment file
+- `.env` is not loaded implicitly
+
 Compatibility note:
 - prefer the new Supabase `sb_secret_...` key via `SUPABASE_SECRET_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` is still accepted as a legacy fallback
-- shared `.env` is auto-loaded from `apps/trends/`
 
 Supabase note:
 - because the default storage target is the custom schema `trends.items`, add `trends` to Supabase `API Settings -> Exposed schemas`

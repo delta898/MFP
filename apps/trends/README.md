@@ -8,11 +8,26 @@ Layout:
 - `shared/lib/`
 
 Configuration:
-- shared environment file: `apps/trends/.env`
-- sample file: `apps/trends/.env.sample`
+- environment selection: `TRENDS_ENV=local|development|production`
+- environment files: `apps/trends/.env.local`, `.env.development`, `.env.production`
+- sample files: `apps/trends/.env.<environment>.sample`
+- `TRENDS_ENV_FILE` may point to an absolute operator-owned file for systemd or containers
 - `TRENDS_API_BASE_URL` is optional and can be derived from `TRENDS_API_HOST` + `TRENDS_API_PORT`
 
 Run:
-- from the repo root: `npm run trends:api` / `npm run trends:collector`
-- from any directory: `node /Users/delta898/Project/NaverAutoBlog/bin/trends-api`
-- from any directory: `node /Users/delta898/Project/NaverAutoBlog/bin/trends-collector`
+- Local collector: `./trends_local.sh`
+- Development collector: `./trends_dev.sh`
+- Local API: `./trends_local.sh api`
+- Development API: `./trends_dev.sh api`
+- Local status: `./trends_local.sh status`
+- Development status: `./trends_dev.sh status`
+
+Collector arguments are passed through, for example:
+`./trends_local.sh --date=-1d`
+
+The shell launchers intentionally do not expose Production. The lower-level npm commands remain
+available for tests and automation, but operators normally use the shell launchers above. The exact
+launcher UX will be revisited during end-to-end environment testing.
+
+The legacy `npm run trends:api` and `npm run trends:collector` commands no longer infer an environment.
+They require `TRENDS_ENV` to be supplied by the caller and fail closed when it is missing.

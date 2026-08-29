@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+
+const path = require('path');
+const {
+    formatTrendsEnvironmentDiagnostic,
+    loadTrendsEnvironment
+} = require('../apps/trends/shared/lib/environment-profile');
+
+function resolveStatusEnvironment(argv = process.argv.slice(2), env = process.env) {
+    const argument = String(argv[0] || '').trim();
+    return argument || String(env.TRENDS_ENV || '').trim();
+}
+
+function main() {
+    const environment = resolveStatusEnvironment();
+    const env = { ...process.env, TRENDS_ENV: environment };
+    const profile = loadTrendsEnvironment({
+        baseDir: path.resolve(__dirname, '../apps/trends'),
+        env
+    });
+    process.stdout.write(`${formatTrendsEnvironmentDiagnostic(profile)}\n`);
+}
+
+if (require.main === module) {
+    try {
+        main();
+    } catch (error) {
+        console.error(`❌ trends environment unavailable: ${error.message}`);
+        process.exitCode = 1;
+    }
+}
+
+module.exports = { resolveStatusEnvironment };
