@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "environment": "development",
+  "service": {
+    "container_name": "bloggenius-trends-api-development",
+    "image_name": "bloggenius/trends-api:development",
+    "public_base_url": "https://trendapi-dev.hangadac.com",
+    "container_port": 4581,
+    "health_path": "/health"
+  },
+  "supabase": {
+    "target_environment": "development",
+    "required_schema": "trends",
+    "token_function": "issue-trends-access-token"
+  },
+  "token_contract": {
+    "issuer": "bloggenius-development",
+    "audience": "trends-api-development"
+  },
+  "required_runtime_settings": [
+    "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "TRENDS_API_TOKEN",
+    "TRENDS_READ_TOKEN_SECRET",
+    "TRENDS_PRODUCTION_SUPABASE_URL",
+    "TRENDS_PRODUCTION_API_BASE_URL"
+  ],
+  "secret_owners": {
+    "SUPABASE_SECRET_KEY": ["development_api_server"],
+    "TRENDS_API_TOKEN": ["development_api_server", "development_collector"],
+    "TRENDS_READ_TOKEN_SECRET": ["development_api_server", "development_supabase_edge_function"]
+  },
+  "deployment_policy": {
+    "ingress_owner": "external_server_routing",
+    "production_service_mutation_allowed": false,
+    "production_database_mutation_allowed": false,
+    "production_secret_reuse_allowed": false,
+    "initial_collection": "one_time_manual"
+  }
+}

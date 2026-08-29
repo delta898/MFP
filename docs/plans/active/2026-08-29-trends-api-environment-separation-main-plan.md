@@ -6,8 +6,8 @@
 
 ## 상태
 
-Stage 1·2·3 feature-main 병합 완료. Stage 4 구현과 Local container 검증 완료, feature-main 병합
-대기. Production 변경과 원격 배포는 승인 전까지 수행하지 않는다.
+Stage 1·2·3·4 feature-main 병합 완료. Stage 5 Development 배포·인증 E2E 설계 진행 중. Production
+변경과 원격 배포는 승인 전까지 수행하지 않는다.
 
 ## 배경과 사용자 필요
 
@@ -199,7 +199,7 @@ Status: feature-main merge complete
 
 ### Stage 4 — Docker image와 local container 검증
 
-Status: implementation and Local container verification complete; feature-main merge pending
+Status: feature-main merge complete
 
 - Node 24 기반 Trends API Dockerfile
 - 환경값이나 Secret을 포함하지 않는 immutable image
@@ -209,11 +209,18 @@ Status: implementation and Local container verification complete; feature-main m
 
 ### Stage 5 — Development 배포와 인증 E2E
 
+Status: approved topology implementation and preflight in progress
+
 - Development signing secret과 issuer/audience 계약
 - Development Supabase trends 데이터 준비 절차
 - Development container, hostname과 Caddy route 배포
 - Edge Function -> Development Trends API 읽기 smoke
 - Production secret과 endpoint 비접촉 증거
+
+확정 topology는 `trendapi-dev.hangadac.com`, 기존 Oracle host의 별도 Development container와
+1회 수동 Development collector이다. host port, TLS와 reverse proxy는 외부 server routing이
+소유한다. 기존 Production systemd service와
+`trendapi.hangadac.com`은 변경하지 않는다.
 
 ### Stage 6 — 배포 자동화
 
@@ -251,10 +258,7 @@ smoke`를 자동화하고, 흐름이 안정된 뒤 Development 자동 배포를 
 
 ## 논의·결정이 필요한 항목
 
-1. Development hostname을 어떤 이름으로 사용할지
-2. Development API를 현재 Oracle 호스트의 별도 service로 둘지
-3. Development 초기 데이터를 collector 실수집과 fixture 중 무엇으로 시작할지
-4. 기존 `apps/trends/.env`를 즉시 폐기할지, 한시적 경고 호환을 둘지
-5. Production 실행 명령을 repository에서 제공할지, 서버 운영 명령으로만 남길지
-6. Docker image registry를 GHCR로 사용할지
-7. Development 배포를 수동 workflow로 시작할지, `dev` 통과 후 자동 배포할지
+1. 기존 `apps/trends/.env`를 즉시 폐기할지, 한시적 경고 호환을 둘지
+2. Production 실행 명령을 repository에서 제공할지, 서버 운영 명령으로만 남길지
+3. Docker image registry를 GHCR로 사용할지
+4. Development 배포를 수동 workflow로 시작할지, `dev` 통과 후 자동 배포할지
