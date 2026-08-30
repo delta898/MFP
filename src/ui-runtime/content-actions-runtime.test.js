@@ -249,3 +249,95 @@ test('single row generation passes the stored image mode to generation and image
         ['prepare', { mode: 'none', generate: false, count: undefined }]
     ]);
 });
+
+test('continuous runner refuses a topic whose ready state changed before execution', async () => {
+    let licenseChecks = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: {},
+        License: {
+            async checkLicenseStatus() {
+                licenseChecks += 1;
+                return { success: true, features: { cmd_batch: true } };
+            }
+        },
+        Utils: {
+            async readGoogleSheetTopicsAll() {
+                return { items: [{ rowIndex: 3, status: '대기', subject: '다시 대기로 돌아간 글' }] };
+            }
+        },
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        }
+    });
+
+    const result = await runtime.executeBlogRowAction({
+        action: 'batch',
+        rowIndex: 3,
+        requireReadyStatus: true
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'TOPIC_NOT_READY');
+    assert.equal(licenseChecks, 0);
+});
+
+test('WordPress-only continuous publishing does not require a Naver session', async () => {
+    let naverSessionChecks = 0;
+    let receivedTargets = [];
+    const runtime = createContentActionsRuntime({
+        path,
+        CONFIG: DEVELOPMENT_CONFIG,
+        License: {
+            async checkLicenseStatus() {
+                return { success: true, features: { cmd_batch: true } };
+            }
+        },
+        Utils: {
+            async readGoogleSheetTopicsAll() {
+                return {
+                    items: [{
+                        rowIndex: 4,
+                        status: '발행 준비 완료',
+                        subject: '워드프레스 글감',
+                        options: { platforms: ['wordpress'], post_status: 'draft' }
+                    }]
+                };
+            },
+            async updateGoogleSheetStatus() { }
+        },
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        checkAuthSessionValid: async () => {
+            naverSessionChecks += 1;
+            return { ok: false };
+        },
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool: (_features, _key, fallback) => fallback,
+        getBlogAutoSettingsSnapshot: () => ({ BLOG_AUTO_HEADLESS: true }),
+        processMultiPlatformPublish: async (params) => {
+            receivedTargets = params.targets;
+            return {
+                success: true,
+                results: {
+                    naver: { success: false, targetDir: null },
+                    wordpress: { success: true, targetDir: '/tmp/wordpress' }
+                }
+            };
+        }
+    });
+
+    const result = await runtime.executeBlogRowAction({
+        action: 'batch',
+        rowIndex: 4,
+        requireReadyStatus: true
+    }, { manualTrigger: true });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.status, '임시 저장 완료');
+    assert.deepEqual(receivedTargets, ['wordpress']);
+    assert.equal(naverSessionChecks, 0);
+});

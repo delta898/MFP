@@ -6,8 +6,9 @@
 사용자가 정한 시간대와 간격에 따라 한 건씩 생성·발행하는 BlogGenius의 새 글쓰기 흐름이다.
 
 현재 구현은 기존 `블로그` 메뉴와 분리된 `블로그 Beta`에서 `바로 생성` 글감을 저장하고
-`발행 준비 완료` Queue를 확인하는 단계다. 등록 과정은 AI·이미지 생성·quota·플랫폼 발행을
-호출하지 않으며, 실제 원고 생성과 발행은 후속 runner 단계에서 연결한다.
+`발행 준비 완료` Queue를 관리하며, 가장 오래된 항목 한 건을 수동으로 실행하는 단계다.
+Queue 등록 자체는 AI·이미지 생성·quota·플랫폼 발행을 호출하지 않고, 사용자가 `다음 1건 실행`을
+누를 때 기존 생성·발행 엔진이 글감의 발행 계획을 그대로 사용한다.
 
 ## 사용자 흐름
 
@@ -79,6 +80,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - domain contract: `src/continuous-publishing/`
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
 - Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/queue/remove`
+- 단건 runner API: `/api/v1/continuous-publishing/runner/start`, `/api/v1/continuous-publishing/runner/status`
 
 새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. 글감 등록 API는 기존 Topics
 Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPress 발행 dependency를
@@ -91,10 +93,13 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 - `발행 대기열`: Topics Sheet의 준비된 글감을 행 번호 오름차순으로 표시
 - `발행 계획 수정`: 같은 Topics 행에서 플랫폼·카테고리·전략·이미지·외부 참고·발행 방식을 수정
 - `대기열에서 빼기`: 행을 삭제하지 않고 상태만 `대기`로 복귀
+- `다음 1건 실행`: 행 번호 오름차순의 첫 준비 글감을 생성·발행하고 진행·결과를 표시
 - 글감별 저장 정보: 플랫폼, 대상별 카테고리, 글쓰기 전략, 이미지 처리, 외부 참고, 발행 방식과 예약 일시
 
-실패 재시도와 연속 발행 runner는 아직 제공하지 않는다. Queue mutation은 요청 직전에도 해당 행이
-여전히 `발행 준비 완료`인지 확인하여 오래된 화면이 이미 처리된 글을 덮어쓰지 않게 한다.
+수동 runner는 실행 직전에도 해당 행이 `발행 준비 완료`인지 다시 확인하고, 한 앱 프로세스
+안에서 중복 실행을 차단한다. Development에서는 수동 발행 정책을 따르고, Local과 후속 timer 실행은
+각 환경의 자동 발행 정책을 우회하지 않는다. 주기 timer, 무제한 자동 재시도와 여러 PC를 아우르는
+distributed lease는 아직 제공하지 않는다.
 
 ## 후속 계약
 

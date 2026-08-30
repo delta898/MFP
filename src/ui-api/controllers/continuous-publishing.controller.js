@@ -39,6 +39,24 @@ function createContinuousPublishingController(deps = {}) {
             } catch (error) {
                 return toErrorResponse(res, requestId, 'QUEUE_REMOVE_FAILED', '대기열에서 글감을 빼지 못했습니다.', error);
             }
+        },
+
+        async startRunner({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.startNextReadyTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_RUNNER_START_FAILED', '다음 글감 실행을 시작하지 못했습니다.', error);
+            }
+        },
+
+        async runnerStatus({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getRunnerStatus());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_RUNNER_STATUS_FAILED', '연속 발행 상태를 불러오지 못했습니다.', error);
+            }
         }
     };
 }

@@ -9,7 +9,10 @@ const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-ima
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
-    isLivePublishAllowed
+    MANUAL_PUBLISH_BLOCKED_CODE,
+    MANUAL_PUBLISH_BLOCKED_MESSAGE,
+    isLivePublishAllowed,
+    isManualPublishAllowed
 } = require('../environment/runtime-effects');
 
 function createContentActionsRuntime(deps = {}) {
@@ -149,11 +152,15 @@ function createContentActionsRuntime(deps = {}) {
         if (!['gen', 'batch'].includes(action)) {
             return { success: false, code: 'INVALID_ACTION', message: '지원하지 않는 action입니다. (gen|batch)' };
         }
-        if (action === 'batch' && !isLivePublishAllowed(CONFIG)) {
+        const manualTrigger = options.manualTrigger === true;
+        const publishAllowed = manualTrigger
+            ? isManualPublishAllowed(CONFIG)
+            : isLivePublishAllowed(CONFIG);
+        if (action === 'batch' && !publishAllowed) {
             return {
                 success: false,
-                code: LIVE_PUBLISH_BLOCKED_CODE,
-                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+                code: manualTrigger ? MANUAL_PUBLISH_BLOCKED_CODE : LIVE_PUBLISH_BLOCKED_CODE,
+                message: manualTrigger ? MANUAL_PUBLISH_BLOCKED_MESSAGE : LIVE_PUBLISH_BLOCKED_MESSAGE
             };
         }
         if (rowIndex === null) {
@@ -164,6 +171,13 @@ function createContentActionsRuntime(deps = {}) {
         const topicData = (topics.items || []).find((item) => item.rowIndex === rowIndex);
         if (!topicData) {
             return { success: false, code: 'TOPIC_NOT_FOUND', message: `대상 rowIndex(${rowIndex})를 찾지 못했습니다.` };
+        }
+        if (requestBody?.requireReadyStatus === true && String(topicData.status || '').trim() !== '발행 준비 완료') {
+            return {
+                success: false,
+                code: 'TOPIC_NOT_READY',
+                message: '이 글감은 더 이상 발행 준비 상태가 아닙니다.'
+            };
         }
 
         const precheck = await License.checkLicenseStatus();
@@ -295,14 +309,17 @@ function createContentActionsRuntime(deps = {}) {
             emitProgress('사전 검증 중...');
             await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '프로세스 시작');
 
-            const session = await checkAuthSessionValid();
-            if (!session.ok) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '네이버 세션 만료');
-                return {
-                    success: false,
-                    code: 'NAVER_SESSION_INVALID',
-                    message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
-                };
+            const requiresNaverSession = Array.isArray(effectiveTargets) && effectiveTargets.includes('naver');
+            if (requiresNaverSession) {
+                const session = await checkAuthSessionValid();
+                if (!session.ok) {
+                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '네이버 세션 만료');
+                    return {
+                        success: false,
+                        code: 'NAVER_SESSION_INVALID',
+                        message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+                    };
+                }
             }
 
             emitProgress('발행 처리 시작...');

@@ -16,6 +16,9 @@ function createService(state = {}) {
             },
             async readGoogleSheetTopicsAll(options) {
                 state.readOptions = options;
+                if (Array.isArray(state.readItems)) {
+                    return { items: state.readItems, total: state.readItems.length, limit: options.limit, offset: 0 };
+                }
                 return {
                     items: [{ rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글' }],
                     total: 1,
@@ -33,8 +36,23 @@ function createService(state = {}) {
             clearSheetCache(prefix) {
                 state.clearedPrefix = prefix;
             }
+        },
+        async executeBlogRowAction(requestBody, options) {
+            state.runnerRequest = requestBody;
+            state.runnerOptions = options;
+            if (typeof state.executeRunner === 'function') return state.executeRunner(requestBody, options);
+            return { success: true, data: { status: '발행 완료' } };
         }
     });
+}
+
+async function waitForRunner(service) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        const status = service.getRunnerStatus();
+        if (!status.busy) return status;
+        await new Promise(resolve => setImmediate(resolve));
+    }
+    throw new Error('runner did not settle');
 }
 
 test('save captures a waiting topic without AI, license, or publishing dependencies', async () => {
@@ -152,4 +170,73 @@ test('queue mutation refuses a stale row that is no longer ready', async () => {
         (error) => error.status === 409 && error.apiCode === 'QUEUE_ITEM_NOT_READY'
     );
     assert.equal(state.statusUpdate, undefined);
+});
+
+test('single-item runner selects the oldest ready topic without overriding its plan', async () => {
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '첫 번째 글' }]
+    };
+    const service = createService(state);
+
+    const accepted = service.startNextReadyTopic({ headless: false });
+    const result = await waitForRunner(service);
+
+    assert.equal(accepted.accepted, true);
+    assert.deepEqual(state.readOptions, {
+        status: '발행 준비 완료', limit: 1, offset: 0, sortBy: 'rowNumber', sortDir: 'asc'
+    });
+    assert.deepEqual(state.runnerRequest, {
+        action: 'batch', rowIndex: 7, headless: false, requireReadyStatus: true
+    });
+    assert.equal(Object.hasOwn(state.runnerRequest, 'targets'), false);
+    assert.equal(Object.hasOwn(state.runnerRequest, 'postStatus'), false);
+    assert.equal(state.runnerOptions.manualTrigger, true);
+    assert.equal(state.runnerOptions.isAutoCycle, false);
+    assert.equal(result.state, 'completed');
+    assert.equal(result.resultStatus, '발행 완료');
+});
+
+test('single-item runner reports an empty queue without invoking publishing', async () => {
+    const state = { readItems: [] };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(result.state, 'empty');
+    assert.equal(state.runnerRequest, undefined);
+});
+
+test('single-item runner rejects duplicate starts while one run is active', async () => {
+    let releaseExecution;
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '첫 번째 글' }],
+        executeRunner: () => new Promise(resolve => { releaseExecution = resolve; })
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.throws(
+        () => service.startNextReadyTopic(),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    releaseExecution({ success: true, data: { status: '임시 저장 완료' } });
+    const result = await waitForRunner(service);
+    assert.equal(result.resultStatus, '임시 저장 완료');
+});
+
+test('single-item runner retains a stable failure result for UI polling', async () => {
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '첫 번째 글' }],
+        executeRunner: async () => ({ success: false, code: 'NAVER_SESSION_INVALID', message: '로그인이 필요합니다.' })
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(result.state, 'failed');
+    assert.equal(result.resultStatus, 'NAVER_SESSION_INVALID');
+    assert.equal(result.message, '로그인이 필요합니다.');
 });

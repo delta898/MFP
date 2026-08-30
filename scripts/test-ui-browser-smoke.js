@@ -192,6 +192,15 @@ function startFixtureServer(requests) {
         .composeJsFile({ uiRoot }).js;
     let topicRecommendationCalls = 0;
     const continuousPublishingQueue = [];
+    let continuousRunnerStatus = {
+        state: 'idle',
+        message: '실행 대기 중',
+        rowIndex: null,
+        rowNumber: null,
+        subject: '',
+        resultStatus: '',
+        busy: false
+    };
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
@@ -259,6 +268,30 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/continuous-publishing/runner/start' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const item = continuousPublishingQueue[0] || null;
+                continuousRunnerStatus = item
+                    ? {
+                        state: 'running', message: '글감을 생성하고 발행하고 있습니다.',
+                        rowIndex: item.rowIndex, rowNumber: item.rowNumber, subject: item.subject,
+                        resultStatus: '', busy: true
+                    }
+                    : {
+                        state: 'empty', message: '발행 준비된 글감이 없습니다.',
+                        rowIndex: null, rowNumber: null, subject: '', resultStatus: '', busy: false
+                    };
+                const body = JSON.stringify({ success: true, data: { accepted: true, ...continuousRunnerStatus } });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
         if (url.pathname.startsWith('/api/v1/')) {
             let data = getApiFixture(url.pathname);
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
@@ -268,6 +301,19 @@ function startFixtureServer(requests) {
                     limit: 50,
                     offset: 0
                 };
+            }
+            if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
+                if (continuousRunnerStatus.state === 'running') {
+                    continuousPublishingQueue.shift();
+                    continuousRunnerStatus = {
+                        ...continuousRunnerStatus,
+                        state: 'completed',
+                        message: '다음 글감 한 건을 처리했습니다.',
+                        resultStatus: '임시 저장 완료',
+                        busy: false
+                    };
+                }
+                data = continuousRunnerStatus;
             }
             if (url.pathname === '/api/v1/blog/topic-recommendations') {
                 topicRecommendationCalls += 1;
@@ -493,8 +539,18 @@ async function run() {
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건 대기 중');
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.locator('#blog-next-subject').fill('수동 실행할 글감');
+        await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-enqueue-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
         await page.locator('[data-blog-next-tab="automation"]').click();
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
+        await page.locator('#blog-next-runner-start').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-runner-message')?.textContent.includes('한 건을 처리했습니다'));
+        assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('수동 실행할 글감'), true);
+        assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('임시 저장 완료'), true);
+        assert.equal(await page.locator('#blog-next-runner-start').isDisabled(), false);
 
         await page.locator('.nav-btn[data-view="social"]').click();
         await page.locator('#manual-sns-text').fill('테스트 문구');
@@ -633,7 +689,9 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
-            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' }
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' }
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);

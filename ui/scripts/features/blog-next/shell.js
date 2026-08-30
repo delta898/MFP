@@ -25,6 +25,9 @@ function activateBlogNextTab(tabName) {
   if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
   }
+  if (target === 'automation' && typeof loadBlogNextRunnerStatus === 'function') {
+    loadBlogNextRunnerStatus();
+  }
 }
 
 function activateBlogNextInputMode(modeName) {
