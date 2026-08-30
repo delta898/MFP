@@ -358,6 +358,24 @@ Production 적용은 현재 자동화 범위에 포함되지 않는다. 별도 �
 장애 대응은 기존 migration을 되돌리는 방식보다 새 migration을 통한 forward fix를 기본으로 한다.
 세부 절차는 [Supabase Forward Fix와 데이터 복구 Runbook](supabase-recovery-runbook.md)을 따른다.
 
+### 6.6 Trends API Production 전환
+
+Trends API는 Supabase Production 적용과 별개의 runtime 전환이다. 현재 실제 트래픽은 host
+`4581`의 legacy systemd가 처리하며, 준비된 Production 컨테이너를 바로 그 port에 덮어쓰지
+않는다.
+
+1. `npm run trends:production:transition:preflight`로 설정 계약을 읽기 전용 검사한다.
+2. 별도 승인 후 후보 컨테이너를 host `4583`에 병행 기동한다.
+3. 후보의 health, 무인증 `401`, internal/user token 경계를 확인한다.
+4. 다시 승인받은 뒤 Caddy upstream만 `4581`에서 `4583`으로 바꾼다.
+5. systemd는 관찰 기간 동안 rollback 경로로 유지한다.
+6. 실패하면 Caddy를 `4581`로 먼저 되돌리고 원인을 조사한다.
+
+실행 명령과 중단 조건은
+[Trends API Production 전환 runbook](../apps/trends/trends-api/deployment/production/README.md)을
+따른다. Production preflight와 GitHub `production-checklist`는 모두 배포 승인 자료일 뿐, 그
+자체로 DB·컨테이너·Caddy를 변경하지 않는다.
+
 ## 7. GitHub Development Environment 준비
 
 GitHub 저장소에 `development` Environment를 만들고 아래 항목을 등록한다.

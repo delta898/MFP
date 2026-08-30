@@ -1,13 +1,16 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-08-29 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
+> 현행 기준: 2026-08-30 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
 
 ## P0 — 현재 진행
 
 1. 개발·운영 환경 분리
    - 상세 범위와 단계는 `docs/plans/active/development-environment-separation-main-plan.md`를 따른다.
    - `local → development → production` 승격 흐름과 fail-closed 보호를 우선 구현한다.
-   - Trends API는 Local·Development 인증/저장 경계를 분리하고 Development container·collector·Desktop E2E를 완료했다. GHCR 자동화와 Production 전환은 별도 승인 작업으로 남긴다.
+   - Trends API는 Local·Development 인증/저장 경계를 분리하고 Development container·collector·Desktop E2E를 완료했다.
+   - Production은 별도 container를 host `4583`에 배포하고 Caddy를 전환했으며, 기존 host `4581` systemd는 client 검증과 안정화 기간 동안 rollback 경로로 유지한다.
+   - 안정화 후 legacy systemd 제거와 16자 `TRENDS_API_TOKEN`의 API·Collector·WordPress 동시 회전을 별도 승인 작업으로 진행한다.
+   - GHCR image build·배포 자동화는 후속 작업으로 남긴다.
 
 2. Runtime Credential 보안 경계 재구성 (진행 중)
    - 상세 범위와 단계는 `docs/plans/active/runtime-credential-security-main-plan.md`를 따른다.

@@ -34,12 +34,22 @@ Development와 Production은 운영 단위를 공유하지 않는다.
 
 The trends backend is not packaged like `BlogGenius.app`.
 
+2026-08-30 기준 실제 트래픽은 여전히 host `4581`의 systemd Node 서비스가 처리한다. 다음 전환
+후보는 `apps/trends/trends-api/deployment/production/`에 준비되어 있지만, 저장소에 구조가
+존재하는 것만으로 배포나 전환이 승인된 것은 아니다.
+
 The current operating model is:
 - run `trends-api` as a systemd Node service on Oracle Cloud Free Tier
 - run `trends-collector` on the operator Mac Studio against the Oracle API
 - let the WordPress plugin call the Oracle API with the internal token
 - let BlogGenius desktop clients call only the HTTPS read endpoints with
   short-lived licensed-user tokens
+
+준비된 전환 방식은 기존 systemd를 유지한 채 Production 컨테이너를 host `4583`에 병행 기동하고,
+후보 검증과 별도 사용자 승인을 거친 뒤 Caddy upstream만 `4581`에서 `4583`으로 교체하는
+blue/green 형태다. 문제가 생기면 Caddy를 `4581`로 되돌리는 것이 첫 rollback이다. canonical
+runbook은
+[`apps/trends/trends-api/deployment/production/README.md`](../../apps/trends/trends-api/deployment/production/README.md)이다.
 
 Preferred shape:
 
@@ -79,6 +89,10 @@ Legacy Production command (Production container 전환 전까지):
 ```bash
 node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
 ```
+
+Production 후보 컨테이너는 내부 `4581`, host `4583`을 사용한다. public Caddy가 전환되기 전에는
+실제 사용자 트래픽을 받지 않으며, Production Supabase가 알려진 Development Supabase와 같으면
+runtime guard가 시작을 거부한다.
 
 ### `trends-collector`
 - Runs on the operator Mac Studio in the current topology.
@@ -241,8 +255,10 @@ GET /api/v1/trends
 GET /api/v1/trends/meta
 POST /internal/ingest/naver-trends       # internal token only
 GET /exports/trends.csv                  # internal token only
-GET /exports/trends.xlsx                 # internal token only
 ```
+
+`/exports/trends.xlsx` is not proxied because the API currently reserves that
+path with `501 Not Implemented`; the WordPress integration uses CSV.
 
 The collector and WordPress use the same HTTPS hostname with the internal token.
 The API authorization layer keeps ingest and export unavailable to user read
@@ -339,7 +355,7 @@ trendapi.hangadac.com {
     encode zstd gzip
 
     @trends_routes {
-        path /health /api/v1/trends /api/v1/trends/meta /internal/ingest/naver-trends /exports/trends.csv /exports/trends.xlsx
+        path /health /api/v1/trends /api/v1/trends/meta /internal/ingest/naver-trends /exports/trends.csv
     }
 
     handle @trends_routes {

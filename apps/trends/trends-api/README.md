@@ -27,7 +27,9 @@ Local 검증은 [Local 배포 안내](deployment/local/README.md), Development �
 - `GET /api/v1/trends`
 - `GET /api/v1/trends/meta`
 - `GET /exports/trends.csv`
-- `GET /exports/trends.xlsx`
+
+`GET /exports/trends.xlsx`는 향후 호환을 위해 예약된 경로이며 현재는 인증 후에도 `501 Not
+Implemented`를 반환합니다. 실제 다운로드 기능과 WordPress UI는 CSV만 사용합니다.
 
 기본 저장 대상은 `trends.items`입니다. Supabase의 exposed schema에 `trends`가 포함되어야 하며,
 DB 정의의 source of truth는 루트 `supabase/migrations/`입니다.

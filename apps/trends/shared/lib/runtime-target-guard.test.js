@@ -71,6 +71,22 @@ test('non-Production API runtime rejects known Production targets', () => {
     );
 });
 
+test('Production API runtime rejects known Development targets', () => {
+    assert.throws(
+        () => resolveApiRuntimeGuard({
+            env: {
+                ...LOCAL_API_ENV,
+                TRENDS_ENV: 'production',
+                TRENDS_SUPABASE_TARGET_ENV: 'production',
+                SUPABASE_URL: 'https://development.supabase.co',
+                TRENDS_DEVELOPMENT_SUPABASE_URL: 'https://development.supabase.co',
+                TRENDS_API_BASE_URL: 'https://trendapi.example.com'
+            }
+        }),
+        /must not use the known Development target/
+    );
+});
+
 test('collector guard requires matching API environment and an ingest token', () => {
     const base = {
         TRENDS_ENV: 'development',

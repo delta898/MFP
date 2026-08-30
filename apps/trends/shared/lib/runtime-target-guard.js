@@ -59,6 +59,15 @@ function assertNotKnownProductionTarget(environment, actualUrl, productionUrl, v
     }
 }
 
+function assertNotKnownDevelopmentTarget(environment, actualUrl, developmentUrl, variableName) {
+    if (environment !== TRENDS_ENVIRONMENTS.PRODUCTION || !normalizeText(developmentUrl)) return;
+    const actual = new URL(actualUrl).toString().replace(/\/$/, '');
+    const development = new URL(developmentUrl).toString().replace(/\/$/, '');
+    if (actual === development) {
+        throw new Error(`${variableName} must not use the known Development target`);
+    }
+}
+
 function deriveApiBaseUrl(env = {}) {
     const explicit = normalizeText(env.TRENDS_API_BASE_URL);
     if (explicit) return explicit;
@@ -91,6 +100,18 @@ function resolveApiRuntimeGuard(options = {}) {
         environment,
         apiBaseUrl.toString(),
         env.TRENDS_PRODUCTION_API_BASE_URL,
+        'TRENDS_API_BASE_URL'
+    );
+    assertNotKnownDevelopmentTarget(
+        environment,
+        supabaseUrl.toString(),
+        env.TRENDS_DEVELOPMENT_SUPABASE_URL,
+        'SUPABASE_URL'
+    );
+    assertNotKnownDevelopmentTarget(
+        environment,
+        apiBaseUrl.toString(),
+        env.TRENDS_DEVELOPMENT_API_BASE_URL,
         'TRENDS_API_BASE_URL'
     );
 
@@ -142,6 +163,7 @@ function formatRuntimeTargetDiagnostic(profile = {}) {
 }
 
 module.exports = {
+    assertNotKnownDevelopmentTarget,
     assertMatchingTargetEnvironment,
     deriveApiBaseUrl,
     formatRuntimeTargetDiagnostic,

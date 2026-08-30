@@ -8,6 +8,7 @@ apps/trends/trends-collector/config/.env.trends-collector.local
 apps/trends/trends-collector/config/.env.trends-collector.development
 apps/trends/trends-collector/config/.env.trends-collector.production
 apps/trends/trends-api/deployment/development/.env.trends-api.development
+apps/trends/trends-api/deployment/production/.env.trends-api.production
 .env.oauth
 src/config/secret.js
 !src/config/secret.js.sample

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "environment": "production",
+  "service": {
+    "container_name": "bloggenius-trends-api-production",
+    "image_name": "bloggenius/trends-api:production",
+    "public_base_url": "https://trendapi.hangadac.com",
+    "container_port": 4581,
+    "candidate_host_port": 4583,
+    "legacy_host_port": 4581,
+    "compose_file": "apps/trends/trends-api/deployment/production/compose.yml",
+    "runtime_env_file": "apps/trends/trends-api/deployment/production/.env.trends-api.production",
+    "health_path": "/health"
+  },
+  "supabase": {
+    "target_environment": "production",
+    "required_schema": "trends",
+    "token_function": "issue-trends-access-token"
+  },
+  "token_contract": {
+    "issuer": "bloggenius-license",
+    "audience": "trends-api"
+  },
+  "required_runtime_settings": [
+    "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "TRENDS_API_TOKEN",
+    "TRENDS_READ_TOKEN_SECRET"
+  ],
+  "transition_policy": {
+    "candidate_runs_in_parallel": true,
+    "ingress_owner": "external_server_routing",
+    "traffic_cutover_requires_explicit_approval": true,
+    "legacy_service_removal_requires_explicit_approval": true,
+    "production_database_mutation_allowed_by_preflight": false,
+    "production_secret_mutation_allowed_by_preflight": false,
+    "rollback_upstream_port": 4581
+  }
+}

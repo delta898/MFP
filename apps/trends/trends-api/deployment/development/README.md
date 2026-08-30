@@ -85,7 +85,7 @@ TCP 4582는 Caddy의 host gateway 접근에만 쓰고 공인 ingress에서는 �
 ```caddyfile
 trendapi-dev.example.com {
     @trends_routes {
-        path /health /internal/ingest/naver-trends /api/v1/trends /api/v1/trends/meta /exports/trends.csv /exports/trends.xlsx
+        path /health /internal/ingest/naver-trends /api/v1/trends /api/v1/trends/meta /exports/trends.csv
     }
     handle @trends_routes {
         reverse_proxy host.docker.internal:4582

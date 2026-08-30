@@ -1,0 +1,30 @@
+services:
+  trends-api-production:
+    build:
+      context: ../../../../..
+      dockerfile: apps/trends/trends-api/Dockerfile
+    image: bloggenius/trends-api:production
+    container_name: bloggenius-trends-api-production
+    init: true
+    env_file:
+      - ${TRENDS_API_RUNTIME_ENV_FILE:-./.env.trends-api.production}
+    environment:
+      TRENDS_ENV: production
+      TRENDS_SUPABASE_TARGET_ENV: production
+      TRENDS_API_HOST: 0.0.0.0
+      TRENDS_API_PORT: 4581
+      TRENDS_API_BASE_URL: https://trendapi.hangadac.com
+      TRENDS_DEVELOPMENT_SUPABASE_URL: https://bvtlwjbmjnfphxlrkzhm.supabase.co
+      TRENDS_DEVELOPMENT_API_BASE_URL: https://trendapi-dev.hangadac.com
+      TRENDS_READ_TOKEN_ISSUER: bloggenius-license
+      TRENDS_READ_TOKEN_AUDIENCE: trends-api
+    ports:
+      - "4583:4581"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

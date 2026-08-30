@@ -144,7 +144,9 @@ Legacy compatibility:
 - `GET /api/v1/trends`
 - `GET /api/v1/trends/meta`
 - `GET /exports/trends.csv`
-- `GET /exports/trends.xlsx`
+
+`GET /exports/trends.xlsx` is a reserved compatibility route and currently
+returns `501 Not Implemented`. CSV is the only implemented export contract.
 
 ### Access Classes
 - `TRENDS_API_TOKEN` is an internal shared secret for collector, WordPress, and export access.
