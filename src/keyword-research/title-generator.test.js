@@ -34,6 +34,26 @@ test('buildTitlePrompt constructs structured prompt with guidelines', () => {
     assert.ok(prompt.includes('검색 의도형'));
     assert.ok(prompt.includes('상황 공감형'));
     assert.ok(prompt.includes('구체 범위형'));
+    assert.match(prompt, /정직한 호기심 간극/);
+    assert.match(prompt, /검색 중심: 핵심 키워드와 대상·범위/);
+    assert.match(prompt, /제목에서 만든 질문과 약속.*실제 회수/);
+});
+
+test('title modes keep their distinct curiosity-gap emphasis', () => {
+    const discoveryPrompt = buildTitlePrompt({
+        keyword: '제주 일주일 살기',
+        subject: '제주에서 맞은 둘째 날 아침',
+        titleMode: 'discovery'
+    });
+    const balancedPrompt = buildTitlePrompt({
+        keyword: '제주 일주일 살기',
+        subject: '제주에서 맞은 둘째 날 아침'
+    });
+
+    assert.match(discoveryPrompt, /발견 중심: 구체적인 상황·변화·공감 문제/);
+    assert.match(discoveryPrompt, /열린 고리/);
+    assert.match(discoveryPrompt, /`이것`/);
+    assert.match(balancedPrompt, /균형 중심: 핵심 키워드와 대상 단서/);
 });
 
 test('buildTitlePrompt keeps one primary keyword and treats other selected keywords as optional context', () => {

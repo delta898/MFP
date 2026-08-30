@@ -59,6 +59,32 @@ test('each strategy selects only its own writing rules', () => {
     assert.doesNotMatch(discoveryPrompt, /네이버|워드프레스/);
 });
 
+test('both strategies create an honest curiosity gap and require the body to close it', () => {
+    const searchPrompt = buildBlogSystemPrompt({
+        strategy: 'search',
+        config: promptConfig,
+        constants: Constants
+    });
+    const discoveryPrompt = buildBlogSystemPrompt({
+        strategy: 'discovery',
+        config: promptConfig,
+        constants: Constants
+    });
+
+    for (const prompt of [searchPrompt, discoveryPrompt]) {
+        assert.match(prompt, /정직한 호기심 간극/);
+        assert.match(prompt, /이유·결과·판단/);
+        assert.match(prompt, /반드시 회수/);
+        assert.match(prompt, /`이것`/);
+        assert.match(prompt, /본문에 없는 경험, 수치|본문에 근거/);
+    }
+
+    assert.match(searchPrompt, /메인 키워드 또는 대상 식별 단서/);
+    assert.match(searchPrompt, /검색 질문의 답 전체를 제목에 적기보다/);
+    assert.match(discoveryPrompt, /무엇에 관한 글인지조차 알 수 없게 전부 감추지는 마세요/);
+    assert.match(discoveryPrompt, /다음 내용을 확인해야 의미가 완성되는 열린 고리/);
+});
+
 test('invalid strategies safely select the search prompt', () => {
     const paths = resolvePromptPaths({
         strategy: 'invalid',

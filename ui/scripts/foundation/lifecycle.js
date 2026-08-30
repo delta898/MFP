@@ -227,6 +227,10 @@ function initKeywordResearchModal() {
     .split(',')
     .map((keyword) => keyword.trim())
     .filter(Boolean);
+  const getQuickTitleMode = () => getSelectedSettingsRadioValue(
+    'quick-writing-strategy',
+    currentBlogWritingStrategy
+  );
 
   const collectAnalysisKeywords = (analysis) => {
     const seen = new Set();
@@ -530,6 +534,7 @@ function initKeywordResearchModal() {
       const result = await postJson('/api/v1/keywords/suggest-titles', {
         subject,
         keywords,
+        title_mode: getQuickTitleMode(),
         count: 3,
         smart_usage_session_id: keywordModalState.smartUsageSessionId || createSmartUsageSessionId(),
         smart_usage_operation_id: createSmartUsageSessionId()

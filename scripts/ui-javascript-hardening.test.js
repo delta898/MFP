@@ -51,3 +51,10 @@ test('successful keyword title recommendations focus and reveal the result secti
     assert.match(styles, /\.keyword-title-results\s*\{[\s\S]*scroll-margin-top: 18px;[\s\S]*outline: none;/);
     assert.match(styles, /\.keyword-title-results:focus-visible\s*\{[\s\S]*outline: 2px solid/);
 });
+
+test('quick title recommendations use the selected writing strategy', () => {
+    const source = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
+
+    assert.match(source, /const getQuickTitleMode = \(\) => getSelectedSettingsRadioValue\([\s\S]*'quick-writing-strategy',[\s\S]*currentBlogWritingStrategy[\s\S]*\);/);
+    assert.match(source, /postJson\('\/api\/v1\/keywords\/suggest-titles',[\s\S]*title_mode: getQuickTitleMode\(\)/);
+});

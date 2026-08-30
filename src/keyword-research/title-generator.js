@@ -30,6 +30,22 @@ function normalizeTitleMode(mode) {
     return VALID_TITLE_MODES.has(norm) ? norm : DEFAULT_TITLE_MODE;
 }
 
+function buildCuriosityGapRules(titleMode) {
+    const modeRule = titleMode === 'search'
+        ? '검색 중심: 핵심 키워드와 대상·범위를 알아볼 수 있게 유지하되, 핵심 이유·결과·비교 결론 중 하나는 본문에서 확인하도록 남기세요.'
+        : titleMode === 'discovery'
+            ? '발견 중심: 구체적인 상황·변화·공감 문제를 보여주되, 이유·결과·판단 중 하나는 다음 내용을 읽어야 의미가 완성되는 열린 고리로 남기세요.'
+            : '균형 중심: 핵심 키워드와 대상 단서를 유지하면서 이유·결과·판단 중 하나는 본문에서 확인하도록 남기세요.';
+
+    return [
+        modeRule,
+        '제목에서 답과 결론을 전부 소비하지 말고, 본문에서 확인할 구체적인 한 가지를 남겨 정직한 호기심 간극을 만드세요.',
+        '문장을 문법적으로 어색하게 끊거나 무엇에 관한 글인지 전부 감추지 마세요.',
+        '`이것`, `그 이유`, `충격`, `놀라운 결과` 같은 상투어는 구체적인 상황·대상 단서와 함께 쓸 때만 제한적으로 사용하세요.',
+        '제목에서 만든 질문과 약속은 제공된 주제나 본문으로 실제 회수할 수 있어야 합니다.'
+    ];
+}
+
 function buildTitlePrompt(input = {}) {
     const keywords = normalizeTitleKeywords(input.keywords || input.keyword);
     const keyword = keywords[0] || '';
@@ -38,6 +54,7 @@ function buildTitlePrompt(input = {}) {
     const content = String(input.content || '').trim();
     const titleMode = normalizeTitleMode(input.title_mode || input.titleMode);
     const count = Math.max(1, Math.min(3, Number(input.count) || 3));
+    const curiosityGapRules = buildCuriosityGapRules(titleMode);
 
     return [
         '당신은 한국어 블로그 제목 편집자입니다.',
@@ -59,7 +76,12 @@ function buildTitlePrompt(input = {}) {
         '   - [상황 공감형]: 독자가 겪는 현실적인 고민, 문제 상황을 짚고 키워드로 연결.',
         '   - [구체 범위형]: 대상, 상황, 조건, 범위(초보자용, 단계별, 비교 등)를 좁혀 신뢰감 부여.',
         '5. 본문에 없는 근거 없는 수치(예: 7가지 꿀팁 등), 허위 보장, 과도한 특수문자, 낚시성 표현을 절대 사용하지 마세요.',
-        '6. 각 설명 필드는 한 문장, 35자 이내로 작성하세요.',
+        `6. ${curiosityGapRules[0]}`,
+        `7. ${curiosityGapRules[1]}`,
+        `8. ${curiosityGapRules[2]}`,
+        `9. ${curiosityGapRules[3]}`,
+        `10. ${curiosityGapRules[4]}`,
+        '11. 각 설명 필드는 한 문장, 35자 이내로 작성하세요.',
         '',
         '## 출력 형식',
         '반드시 아래 JSON 포맷으로만 응답하세요 (설명이나 마크다운 코드블록 제외):',
@@ -186,6 +208,7 @@ module.exports = {
     DEFAULT_TITLE_MODE,
     normalizeTitleMode,
     normalizeTitleKeywords,
+    buildCuriosityGapRules,
     buildTitlePrompt,
     parseTitleResponse,
     createTitleGenerator
