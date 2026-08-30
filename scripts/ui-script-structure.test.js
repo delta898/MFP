@@ -70,6 +70,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/social/manual-optimization.js',
         'scripts/features/social/manual-publish.js',
         'scripts/features/social/manual-lifecycle.js',
+        'scripts/features/blog-next/shell.js',
         'scripts/foundation/navigation.js',
         'scripts/features/content/blog-topics.js',
         'scripts/features/content/shopping-items.js',

@@ -60,6 +60,7 @@
 - `features/blog-writing-style.md`
 - `features/blog-writing-strategy.md`
 - `features/content-writing-profiles.md`
+- `features/continuous-publishing.md`
 - `features/configurable-sidebar-content.md`
 - `features/personalized-topic-recommendations.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
@@ -84,6 +85,8 @@
 
 ## Active Work
 
+- `plans/active/2026-08-30-continuous-publishing-main-development.md`
+- `plans/archive/2026-08-30-continuous-publishing-01-contract-shell-development.md`
 - `plans/archive/2026-08-30-local-trends-auth-infrastructure-development.md`
 - `plans/archive/2026-08-30-title-curiosity-strategy-development.md`
 - `plans/active/2026-08-29-ci-supabase-cli-setup-hotfix-development.md`

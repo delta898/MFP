@@ -50,6 +50,11 @@ async function navigateTo(viewName, subTab) {
     activateBlogTab(blogActiveTab, { forceReload: true });
     return;
   }
+  if (viewName === 'blog-next') {
+    initBlogNextShell();
+    activateBlogNextTab(requestedSubTab || blogNextActiveTab);
+    return;
+  }
   if (viewName === 'shopping') {
     const ready = await ensureSheetsPreflightUi();
     if (!ready) return;

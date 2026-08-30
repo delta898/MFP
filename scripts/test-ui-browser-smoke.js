@@ -370,10 +370,19 @@ async function run() {
         await page.locator('#recommendation-center-refresh').click();
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
-        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog']) {
+        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
+
+        assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
+        assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+        await page.locator('[data-blog-next-input-mode="folder"]').click();
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"]').evaluate((element) => element.hidden), false);
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
+        await page.locator('[data-blog-next-tab="automation"]').click();
+        assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
 
         await page.locator('.nav-btn[data-view="social"]').click();
         await page.locator('#manual-sns-text').fill('테스트 문구');

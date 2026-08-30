@@ -23,6 +23,7 @@
 }
 
 @media (max-width: 960px) {
+  body.mobile-quick-mode .nav-btn[data-view="blog-next"],
   body.mobile-quick-mode .nav-btn[data-view="shopping"],
   body.mobile-quick-mode .nav-btn[data-view="settings"],
   body.mobile-quick-mode .nav-btn[data-view="logs"],
