@@ -54,3 +54,25 @@ test('collector launchers pass collection options to their explicit npm environm
         assert.match(source, /exec npm run trends:collector:(?:local|development) -- "\$@"/);
     }
 });
+
+test('Production collector launcher documents interactive, dry-run, and explicit automation modes', () => {
+    const launcherPath = path.join(
+        repoRoot,
+        'apps',
+        'trends',
+        'trends-collector',
+        'commands',
+        'collect_production.sh'
+    );
+    const source = readLauncher('collect_production.sh');
+    const help = runLauncher('collect_production.sh', ['--help']);
+
+    assert.notEqual(fs.statSync(launcherPath).mode & 0o111, 0);
+    assert.equal(help.status, 0);
+    assert.match(help.stdout, /collect_production\.sh/);
+    assert.match(help.stdout, /PRODUCTION 입력/);
+    assert.match(help.stdout, /--dry-run/);
+    assert.match(help.stdout, /--confirm-production/);
+    assert.doesNotMatch(help.stdout, /npm run/);
+    assert.match(source, /exec npm run trends:collector:production -- "\$@"/);
+});

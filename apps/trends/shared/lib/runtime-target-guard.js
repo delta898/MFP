@@ -136,7 +136,11 @@ function resolveCollectorRuntimeGuard(options = {}) {
     const dryRun = toBool(env.TRENDS_DRY_RUN);
 
     if (!dryRun) assertRequired(env.TRENDS_API_TOKEN, 'TRENDS_API_TOKEN');
-    if (environment === TRENDS_ENVIRONMENTS.PRODUCTION && !toBool(env.TRENDS_ALLOW_PRODUCTION_WRITE)) {
+    if (
+        environment === TRENDS_ENVIRONMENTS.PRODUCTION
+        && !dryRun
+        && !toBool(env.TRENDS_ALLOW_PRODUCTION_WRITE)
+    ) {
         throw new Error('Production collector requires TRENDS_ALLOW_PRODUCTION_WRITE=true');
     }
     assertNotKnownProductionTarget(

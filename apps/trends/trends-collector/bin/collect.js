@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline/promises');
 const axios = require('axios');
 const { chromium } = require('playwright');
 const {
@@ -44,19 +45,25 @@ function formatCollectorHelp() {
         '  -h, --help           Show this help message',
         '  -d, --date <value>   Collect trends for a specific date',
         '                       Supported: YYYY-MM-DD, YYYYMMDD, yesterday, 어제, -1d, -3d',
+        '      --dry-run        Collect and summarize without writing to the API',
+        '      --confirm-production',
+        '                       Write to Production without an interactive prompt',
         '',
         'Environment:',
         '  TRENDS_ENV=local|development|production is required.',
         '  apps/trends/trends-collector/config/.env.trends-collector.<environment> is loaded when present.',
         '  If --date is omitted, TRENDS_TARGET_DATE is used when present.',
         '  If neither is set, the collector uses the provider default date.',
+        '  Production defaults to interactive confirmation and requires a TTY.',
     ].join('\n');
 }
 
 function parseCollectorCliArgs(argv = process.argv.slice(2)) {
     const options = {
         help: false,
-        date: ''
+        date: '',
+        dryRun: false,
+        confirmProduction: false
     };
 
     for (let index = 0; index < argv.length; index += 1) {
@@ -84,6 +91,16 @@ function parseCollectorCliArgs(argv = process.argv.slice(2)) {
                 throw new Error('--date 옵션에는 날짜 값이 필요합니다.');
             }
             options.date = value;
+            continue;
+        }
+
+        if (argument === '--dry-run') {
+            options.dryRun = true;
+            continue;
+        }
+
+        if (argument === '--confirm-production') {
+            options.confirmProduction = true;
             continue;
         }
 
@@ -177,8 +194,59 @@ function resolveCollectorConfig(env = process.env, cliOptions = {}) {
         apiBaseUrl,
         apiToken: String(env.TRENDS_API_TOKEN || '').trim(),
         source: String(env.TRENDS_SOURCE || DEFAULT_SOURCE).trim() || DEFAULT_SOURCE,
-        dryRun: toBool(env.TRENDS_DRY_RUN, false)
+        dryRun: cliOptions.dryRun === true || toBool(env.TRENDS_DRY_RUN, false)
     };
+}
+
+function resolveCollectorExecutionMode(environment, cliOptions = {}, options = {}) {
+    const selectedEnvironment = String(environment || '').trim().toLowerCase();
+    if (cliOptions.dryRun && cliOptions.confirmProduction) {
+        throw new Error('--dry-run 과 --confirm-production 은 함께 사용할 수 없습니다.');
+    }
+    if (selectedEnvironment !== 'production') {
+        if (cliOptions.confirmProduction) {
+            throw new Error('--confirm-production 은 Production 환경에서만 사용할 수 있습니다.');
+        }
+        return cliOptions.dryRun ? 'dry-run' : 'direct';
+    }
+    if (cliOptions.dryRun) return 'dry-run';
+    if (cliOptions.confirmProduction) return 'confirmed';
+    if (options.isTTY !== true) {
+        throw new Error(
+            'Production interactive 수집에는 TTY가 필요합니다. 자동화는 --dry-run 또는 --confirm-production 을 명시하세요.'
+        );
+    }
+    return 'interactive';
+}
+
+async function promptForProductionConfirmation(payload, options = {}) {
+    const input = options.input || process.stdin;
+    const output = options.output || process.stdout;
+    const rl = readline.createInterface({ input, output });
+    try {
+        const answer = await rl.question(
+            `\n⚠️ Production에 trendDate=${payload.trendDate || '-'}, items=${payload.itemCount}를 반영하려면 PRODUCTION을 입력하세요: `
+        );
+        return String(answer || '').trim() === 'PRODUCTION';
+    } finally {
+        rl.close();
+    }
+}
+
+function authorizeProductionWrite(config, env = process.env) {
+    if (config.environment !== 'production') return null;
+    return resolveCollectorRuntimeGuard({
+        environment: 'production',
+        env: {
+            ...env,
+            TRENDS_ENV: 'production',
+            TRENDS_API_TARGET_ENV: 'production',
+            TRENDS_API_BASE_URL: config.apiBaseUrl,
+            TRENDS_API_TOKEN: config.apiToken,
+            TRENDS_DRY_RUN: 'false',
+            TRENDS_ALLOW_PRODUCTION_WRITE: 'true'
+        }
+    });
 }
 
 async function verifyCollectorApiEnvironment(config, logger = console) {
@@ -199,7 +267,9 @@ async function verifyCollectorApiEnvironment(config, logger = console) {
 async function pushPayloadToApi(payload, config, logger) {
     if (config.dryRun) {
         logger.info('ℹ️ TRENDS_DRY_RUN=1 이므로 API 전송을 생략합니다.');
-        process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+        if (config.printDryRunPayload !== false) {
+            process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+        }
         return {
             success: true,
             dryRun: true,
@@ -251,13 +321,16 @@ function formatApiResultSummary(apiResult = {}) {
     return JSON.stringify(apiResult);
 }
 
-function prepareCollectorRuntime(env = process.env, logger = console) {
+function prepareCollectorRuntime(env = process.env, logger = console, cliOptions = {}) {
     const profile = loadTrendsEnvironment({
         baseDir: path.resolve(__dirname, '../config'),
         env
     });
     logger.info(formatTrendsEnvironmentDiagnostic(profile));
-    const targets = resolveCollectorRuntimeGuard({ environment: profile.environment, env });
+    const guardEnv = profile.environment === 'production'
+        ? { ...env, TRENDS_DRY_RUN: 'true' }
+        : { ...env, ...(cliOptions.dryRun ? { TRENDS_DRY_RUN: 'true' } : {}) };
+    const targets = resolveCollectorRuntimeGuard({ environment: profile.environment, env: guardEnv });
     logger.info(formatRuntimeTargetDiagnostic(targets));
     return Object.freeze({ environment: profile, targets });
 }
@@ -269,13 +342,18 @@ async function runCollector(inputConfig = {}) {
         ...resolveCollectorConfig(process.env, cliOptions),
         ...inputConfig
     };
+    const executionMode = resolveCollectorExecutionMode(config.environment, cliOptions, {
+        isTTY: inputConfig.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY)
+    });
 
     if (!config.naverId) {
         throw new Error('TRENDS_NAVER_ID 또는 NAVER_ID 가 필요합니다.');
     }
-    await verifyCollectorApiEnvironment(config, logger);
+    if (executionMode === 'direct') {
+        await verifyCollectorApiEnvironment(config, logger);
+    }
 
-    const collector = createNaverTrendsCollector({
+    const collector = inputConfig.collector || createNaverTrendsCollector({
         launchBrowser: (options = {}) => launchBrowser({ ...options, logger }),
         persistAuthSessionState,
         logger,
@@ -299,11 +377,36 @@ async function runCollector(inputConfig = {}) {
     });
 
     logger.info(`📦 수집 payload 준비 완료: trendDate=${payload.trendDate || '-'}, items=${payload.itemCount}`);
-    const apiResult = await pushPayloadToApi(payload, config, logger);
+    if (executionMode === 'dry-run') {
+        const apiResult = await pushPayloadToApi(payload, {
+            ...config,
+            dryRun: true,
+            printDryRunPayload: config.printDryRunPayload ?? config.environment !== 'production'
+        }, logger);
+        logger.info(`✅ collector dry-run 완료: ${formatApiResultSummary(apiResult)}`);
+        return { payload, apiResult, executionMode };
+    }
+
+    if (executionMode === 'interactive') {
+        const confirm = inputConfig.confirmProduction || promptForProductionConfirmation;
+        const approved = await confirm(payload);
+        if (!approved) {
+            const apiResult = { success: true, cancelled: true, accepted: 0 };
+            logger.info('ℹ️ 사용자가 Production 반영을 취소했습니다. API 전송 없이 종료합니다.');
+            return { payload, apiResult, executionMode };
+        }
+    }
+
+    if (config.environment === 'production') {
+        authorizeProductionWrite(config, inputConfig.env || process.env);
+        await verifyCollectorApiEnvironment({ ...config, dryRun: false }, logger);
+    }
+    const apiResult = await pushPayloadToApi(payload, { ...config, dryRun: false }, logger);
     logger.info(`✅ collector 완료: ${formatApiResultSummary(apiResult)}`);
     return {
         payload,
-        apiResult
+        apiResult,
+        executionMode
     };
 }
 
@@ -315,7 +418,7 @@ if (require.main === module) {
             process.stdout.write(`${formatCollectorHelp()}\n`);
             process.exit(0);
         }
-        prepareCollectorRuntime();
+        prepareCollectorRuntime(process.env, console, cliOptions);
     } catch (error) {
         console.error(`❌ trends collector failed: ${error.message}`);
         console.error('ℹ️ 사용법은 "node bin/trends-collector --help" 로 확인할 수 있습니다.');
@@ -330,12 +433,15 @@ if (require.main === module) {
 
 module.exports = {
     createLogger,
+    authorizeProductionWrite,
     formatApiResultSummary,
     formatCollectorHelp,
     parseCollectorCliArgs,
     prepareCollectorRuntime,
+    promptForProductionConfirmation,
     pushPayloadToApi,
     resolveCollectorConfig,
+    resolveCollectorExecutionMode,
     runCollector,
     verifyCollectorApiEnvironment
 };

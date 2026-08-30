@@ -37,12 +37,12 @@ test('parseToolLauncherArgs separates the environment from tool arguments', () =
     );
 });
 
-test('package scripts expose safe local and development shortcuts without production convenience launchers', () => {
+test('package scripts expose environment-specific collectors without API server launchers', () => {
     assert.equal(typeof packageJson.scripts['trends:collector:local'], 'string');
     assert.equal(typeof packageJson.scripts['trends:collector:development'], 'string');
     assert.equal(packageJson.scripts['trends:api'], undefined);
     assert.equal(packageJson.scripts['trends:api:local'], undefined);
     assert.equal(packageJson.scripts['trends:api:development'], undefined);
     assert.equal(packageJson.scripts['trends:api:production'], undefined);
-    assert.equal(packageJson.scripts['trends:collector:production'], undefined);
+    assert.equal(typeof packageJson.scripts['trends:collector:production'], 'string');
 });

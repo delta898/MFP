@@ -34,21 +34,21 @@ Development와 Production은 운영 단위를 공유하지 않는다.
 
 The trends backend is not packaged like `BlogGenius.app`.
 
-2026-08-30 기준 실제 트래픽은 여전히 host `4581`의 systemd Node 서비스가 처리한다. 다음 전환
-후보는 `apps/trends/trends-api/deployment/production/`에 준비되어 있지만, 저장소에 구조가
-존재하는 것만으로 배포나 전환이 승인된 것은 아니다.
+2026-08-30 기준 실제 트래픽은
+`apps/trends/trends-api/deployment/production/`의 Production 컨테이너가 host `4583`에서
+처리한다. 기존 host `4581`의 systemd Node 서비스는 안정화 기간 동안 즉시 되돌릴 수 있는
+rollback 경로로만 유지한다.
 
 The current operating model is:
-- run `trends-api` as a systemd Node service on Oracle Cloud Free Tier
+- run `trends-api` as a hardened Docker container on Oracle Cloud Free Tier
 - run `trends-collector` on the operator Mac Studio against the Oracle API
 - let the WordPress plugin call the Oracle API with the internal token
 - let BlogGenius desktop clients call only the HTTPS read endpoints with
   short-lived licensed-user tokens
 
-준비된 전환 방식은 기존 systemd를 유지한 채 Production 컨테이너를 host `4583`에 병행 기동하고,
-후보 검증과 별도 사용자 승인을 거친 뒤 Caddy upstream만 `4581`에서 `4583`으로 교체하는
-blue/green 형태다. 문제가 생기면 Caddy를 `4581`로 되돌리는 것이 첫 rollback이다. canonical
-runbook은
+전환은 기존 systemd를 유지한 채 Production 컨테이너를 host `4583`에 병행 기동하고 검증한 뒤,
+Caddy upstream만 `4581`에서 `4583`으로 교체하는 blue/green 방식으로 완료했다. 문제가 생기면
+Caddy를 `4581`로 되돌리는 것이 첫 rollback이다. canonical runbook은
 [`apps/trends/trends-api/deployment/production/README.md`](../../apps/trends/trends-api/deployment/production/README.md)이다.
 
 Preferred shape:
@@ -78,21 +78,20 @@ WordPress
 ## Runtime Topology
 
 ### `trends-api`
-- Runs as a long-lived service on Oracle Cloud.
-- Binds to `0.0.0.0:4581` so the Docker bridge can reach the host service.
-- Must not expose port `4581` directly to the public Internet.
+- Runs as a long-lived hardened container on Oracle Cloud.
+- Binds container `4581` to host `4583` for the external Caddy reverse proxy.
+- Must not expose host port `4583` directly to the public Internet.
 - Owns Supabase read/write access.
 - Serves ingest, metadata, and export endpoints.
 
-Legacy Production command (Production container 전환 전까지):
+Legacy Production rollback command:
 
 ```bash
 node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
 ```
 
-Production 후보 컨테이너는 내부 `4581`, host `4583`을 사용한다. public Caddy가 전환되기 전에는
-실제 사용자 트래픽을 받지 않으며, Production Supabase가 알려진 Development Supabase와 같으면
-runtime guard가 시작을 거부한다.
+Production 컨테이너는 내부 `4581`, host `4583`을 사용한다. Production Supabase가 알려진
+Development Supabase와 같으면 runtime guard가 시작을 거부한다.
 
 ### `trends-collector`
 - Runs on the operator Mac Studio in the current topology.
@@ -105,6 +104,19 @@ Low-level command:
 ```bash
 node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-collector/bin/collect.js
 ```
+
+Canonical operator commands:
+
+```bash
+./apps/trends/trends-collector/commands/collect_local.sh
+./apps/trends/trends-collector/commands/collect_development.sh
+./apps/trends/trends-collector/commands/collect_production.sh --dry-run
+```
+
+Production command를 인자 없이 실행하거나 `--date`만 지정하면 payload를 한 번 수집해 날짜와
+건수를 보여준 뒤, TTY에서 정확히 `PRODUCTION`을 입력한 경우에만 확인한 동일 payload를
+upsert한다. `--dry-run`은 항상 무변경으로 끝나며, 비대화형 자동화는
+`--confirm-production`을 명시해야 한다. 두 옵션은 함께 사용할 수 없다.
 
 ### WordPress plugin
 - Stays in WordPress only.
@@ -477,15 +489,20 @@ sudo systemctl restart trends-api
 
 ### `cron` for `trends-collector`
 
+Production 자동화는 아직 등록하지 않았다. cron 또는 systemd timer를 도입할 때는 interactive
+prompt 대신 `--confirm-production`을 명시하고, 중복 실행 lock·실패 알림·재시도 정책을 함께
+설계해야 한다. 옵션 없이 비대화형으로 실행하면 Collector는 수집 전에 실패한다.
+
 If the collector is hosted on the server, prefer the same absolute Node path discovered with `which node`.
 
 Example once-per-day run:
 
 ```cron
-15 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && /home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector >> /home/ubuntu/Project/NaverAutoBlog/logs/trends-collector.log 2>&1
+15 6 * * * cd /home/ubuntu/Project/NaverAutoBlog && ./apps/trends/trends-collector/commands/collect_production.sh --confirm-production >> /home/ubuntu/Project/NaverAutoBlog/logs/trends-collector.log 2>&1
 ```
 
-This keeps the collector stateless and easy to retry.
+이 예시는 승인 계약을 보여주기 위한 형태이며 lock·알림·재시도 설계 전에는 그대로 등록하지
+않는다.
 
 ## Naver Auth Refresh Model
 
@@ -531,7 +548,7 @@ sudo systemctl restart trends-api
 If collector behavior changed materially, run one manual collection after update:
 
 ```bash
-node /home/ubuntu/Project/NaverAutoBlog/bin/trends-collector
+./apps/trends/trends-collector/commands/collect_production.sh --dry-run
 ```
 
 ## Scope Boundaries

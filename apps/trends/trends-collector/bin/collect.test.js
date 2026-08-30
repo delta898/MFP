@@ -9,6 +9,8 @@ const {
     parseCollectorCliArgs,
     pushPayloadToApi,
     resolveCollectorConfig,
+    resolveCollectorExecutionMode,
+    runCollector,
     verifyCollectorApiEnvironment
 } = require('./collect');
 
@@ -17,19 +19,39 @@ const EXPECTED_REPO_ROOT = path.resolve(__dirname, '../../../..');
 test('parseCollectorCliArgs supports help and explicit date options', () => {
     assert.deepEqual(parseCollectorCliArgs(['--help']), {
         help: true,
-        date: ''
+        date: '',
+        dryRun: false,
+        confirmProduction: false
     });
     assert.deepEqual(parseCollectorCliArgs(['--date', '2026-04-02']), {
         help: false,
-        date: '2026-04-02'
+        date: '2026-04-02',
+        dryRun: false,
+        confirmProduction: false
     });
     assert.deepEqual(parseCollectorCliArgs(['--date=20260402']), {
         help: false,
-        date: '20260402'
+        date: '20260402',
+        dryRun: false,
+        confirmProduction: false
     });
     assert.deepEqual(parseCollectorCliArgs(['-d', '2026-04-03']), {
         help: false,
-        date: '2026-04-03'
+        date: '2026-04-03',
+        dryRun: false,
+        confirmProduction: false
+    });
+    assert.deepEqual(parseCollectorCliArgs(['--dry-run']), {
+        help: false,
+        date: '',
+        dryRun: true,
+        confirmProduction: false
+    });
+    assert.deepEqual(parseCollectorCliArgs(['--confirm-production']), {
+        help: false,
+        date: '',
+        dryRun: false,
+        confirmProduction: true
     });
 });
 
@@ -46,6 +68,43 @@ test('formatCollectorHelp mentions help and date flags', () => {
     assert.match(output, /TRENDS_TARGET_DATE/);
     assert.match(output, /-1d/);
     assert.match(output, /yesterday/);
+    assert.match(output, /--dry-run/);
+    assert.match(output, /--confirm-production/);
+});
+
+test('Production execution requires one explicit safe mode outside a TTY', () => {
+    assert.equal(
+        resolveCollectorExecutionMode('production', { dryRun: true }, { isTTY: false }),
+        'dry-run'
+    );
+    assert.equal(
+        resolveCollectorExecutionMode('production', { confirmProduction: true }, { isTTY: false }),
+        'confirmed'
+    );
+    assert.equal(
+        resolveCollectorExecutionMode('production', {}, { isTTY: true }),
+        'interactive'
+    );
+    assert.throws(
+        () => resolveCollectorExecutionMode('production', {}, { isTTY: false }),
+        /TTY가 필요합니다/
+    );
+    assert.throws(
+        () => resolveCollectorExecutionMode(
+            'production',
+            { dryRun: true, confirmProduction: true },
+            { isTTY: false }
+        ),
+        /함께 사용할 수 없습니다/
+    );
+    assert.throws(
+        () => resolveCollectorExecutionMode(
+            'development',
+            { confirmProduction: true },
+            { isTTY: false }
+        ),
+        /Production 환경에서만/
+    );
 });
 
 test('formatApiResultSummary prefers insert and update counts over raw json', () => {
@@ -178,4 +237,80 @@ test('pushPayloadToApi sends the selected environment with ingest requests', asy
 
     assert.equal(capturedHeaders['X-Trends-Environment'], 'development');
     assert.equal(capturedHeaders.Authorization, 'Bearer development-token');
+});
+
+test('interactive Production collection confirms and writes the same payload without recollecting', async (t) => {
+    const originalGet = axios.get;
+    const originalPost = axios.post;
+    t.after(() => {
+        axios.get = originalGet;
+        axios.post = originalPost;
+    });
+    axios.get = async () => ({ data: { success: true, environment: 'production' } });
+
+    let postedPayload;
+    axios.post = async (_url, payload) => {
+        postedPayload = payload;
+        return { data: { success: true, accepted: payload.itemCount } };
+    };
+    let collectionCount = 0;
+    let confirmedPayload;
+    const collector = {
+        fetchTrends: async () => {
+            collectionCount += 1;
+            return {
+                date: '2026-08-29',
+                keywords: [{ category: '생활', keyword: '테스트', changeRaw: 'new' }]
+            };
+        }
+    };
+
+    const result = await runCollector({
+        environment: 'production',
+        naverId: 'operator',
+        apiBaseUrl: 'https://trendapi.hangadac.com',
+        apiToken: 'legacy-token-123',
+        collector,
+        cliOptions: {},
+        isTTY: true,
+        confirmProduction: async (payload) => {
+            confirmedPayload = payload;
+            return true;
+        },
+        logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+    });
+
+    assert.equal(collectionCount, 1);
+    assert.strictEqual(confirmedPayload, result.payload);
+    assert.strictEqual(postedPayload, result.payload);
+    assert.equal(result.executionMode, 'interactive');
+    assert.equal(result.apiResult.accepted, 1);
+});
+
+test('interactive Production cancellation never checks or writes the API', async (t) => {
+    const originalGet = axios.get;
+    const originalPost = axios.post;
+    t.after(() => {
+        axios.get = originalGet;
+        axios.post = originalPost;
+    });
+    axios.get = async () => { throw new Error('unexpected API check'); };
+    axios.post = async () => { throw new Error('unexpected API write'); };
+
+    const result = await runCollector({
+        environment: 'production',
+        naverId: 'operator',
+        apiBaseUrl: 'https://trendapi.hangadac.com',
+        apiToken: 'legacy-token-123',
+        collector: {
+            fetchTrends: async () => ({ date: '2026-08-29', keywords: [] })
+        },
+        cliOptions: {},
+        isTTY: true,
+        confirmProduction: async () => false,
+        logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+    });
+
+    assert.equal(result.executionMode, 'interactive');
+    assert.equal(result.apiResult.cancelled, true);
 });

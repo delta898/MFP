@@ -125,6 +125,12 @@ test('Production collector requires an explicit write approval', () => {
         }).environment,
         'production'
     );
+    assert.equal(
+        resolveCollectorRuntimeGuard({
+            env: { ...env, TRENDS_API_TOKEN: '', TRENDS_DRY_RUN: 'true' }
+        }).dryRun,
+        true
+    );
 });
 
 test('runtime target diagnostics do not expose credentials', () => {

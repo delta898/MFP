@@ -20,6 +20,7 @@
     "trends:collector": "node ./bin/trends-collector",
     "trends:collector:local": "node ./bin/run-trends-tool.js collector --environment local",
     "trends:collector:development": "node ./bin/run-trends-tool.js collector --environment development",
+    "trends:collector:production": "node ./bin/run-trends-tool.js collector --environment production",
     "trends:env:status": "node ./bin/trends-env-status",
     "trends:api:local:container-smoke": "node ./scripts/trends-local-container-smoke.js",
     "trends:development:preflight": "node ./scripts/trends-development-preflight.js",

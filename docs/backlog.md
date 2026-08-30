@@ -9,6 +9,8 @@
    - `local → development → production` 승격 흐름과 fail-closed 보호를 우선 구현한다.
    - Trends API는 Local·Development 인증/저장 경계를 분리하고 Development container·collector·Desktop E2E를 완료했다.
    - Production은 별도 container를 host `4583`에 배포하고 Caddy를 전환했으며, 기존 host `4581` systemd는 client 검증과 안정화 기간 동안 rollback 경로로 유지한다.
+   - Production Collector는 기본 interactive 확인, 무변경 `--dry-run`, 자동화용 명시적 `--confirm-production` 모드로 운영 write를 보호한다.
+   - 정기 수집 자동화는 중복 실행 lock·실패 알림·재시도 정책을 설계한 뒤 별도 승인으로 등록한다.
    - 안정화 후 legacy systemd 제거와 16자 `TRENDS_API_TOKEN`의 API·Collector·WordPress 동시 회전을 별도 승인 작업으로 진행한다.
    - GHCR image build·배포 자동화는 후속 작업으로 남긴다.
 
