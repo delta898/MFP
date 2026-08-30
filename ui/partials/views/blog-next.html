@@ -122,12 +122,82 @@
             </form>
           </div>
           <div class="blog-next-mode-panel" data-blog-next-mode-panel="folder" hidden>
-            <h3>원고 폴더</h3>
-            <p>Markdown과 이미지가 담긴 로컬 폴더를 사용합니다. Queue 편입 전 파일 지속성과 실행 PC 소유권을 먼저 검증합니다.</p>
+            <div class="blog-next-draft-heading">
+              <div>
+                <h3>원고 폴더</h3>
+                <p>Markdown과 같은 폴더의 이미지를 확인한 뒤 바로 포스팅합니다. 이 원고는 Queue에 저장하지 않습니다.</p>
+              </div>
+              <span class="blog-next-stage-badge">완성 원고 즉시 실행</span>
+            </div>
+            <div class="blog-next-draft-toolbar">
+              <button class="secondary" id="blog-next-folder-select" type="button">원고 폴더 선택</button>
+              <button class="ghost" id="blog-next-folder-clear" type="button">선택 지우기</button>
+              <input id="blog-next-folder-input" type="file" webkitdirectory directory multiple hidden>
+            </div>
+            <label class="blog-next-field blog-next-field-wide">
+              <span>선택한 원고 폴더</span>
+              <input id="blog-next-folder-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
+            </label>
+            <div class="blog-next-draft-options" data-blog-next-draft-options="folder">
+              <label class="blog-next-field"><span>네이버 카테고리</span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리"></label>
+              <label class="blog-next-field"><span>워드프레스 카테고리</span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily"></label>
+              <label class="blog-next-field"><span>포스팅 옵션</span><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></label>
+              <label class="blog-next-field" data-draft-schedule-field hidden><span>예약 일시</span><input data-draft-field="schedule-date" type="datetime-local"></label>
+              <label class="blog-next-field"><span>이미지 처리</span><select data-draft-field="image-mode"><option value="generate">이미지 생성</option><option value="prompt_only" selected>이미지 프롬프트만 포함</option><option value="none">이미지 사용 안 함</option></select></label>
+            </div>
+            <div class="blog-next-draft-actions" data-blog-next-draft-actions="folder">
+              <div class="blog-next-draft-targets">
+                <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
+                <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
+                <label><input data-draft-field="headless" type="checkbox" checked> 브라우저 숨기기</label>
+              </div>
+              <button class="primary" data-blog-next-draft-publish="folder" type="button" disabled>포스팅 실행</button>
+            </div>
+            <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder">원고 폴더를 선택해 주세요.</div>
+            <div class="blog-next-draft-preview" data-blog-next-draft-preview="folder" hidden>
+              <strong data-draft-preview-title>제목 없음</strong>
+              <span data-draft-preview-meta>-</span>
+              <pre data-draft-preview-body></pre>
+              <div data-draft-preview-images></div>
+            </div>
+            <pre class="blog-next-draft-result" data-blog-next-draft-result="folder"></pre>
           </div>
           <div class="blog-next-mode-panel" data-blog-next-mode-panel="paste" hidden>
-            <h3>원고 붙여넣기</h3>
-            <p>완성된 Markdown 원고를 붙여넣어 바로 발행하거나 안전하게 보관하는 흐름을 준비합니다.</p>
+            <div class="blog-next-draft-heading">
+              <div>
+                <h3>원고 붙여넣기</h3>
+                <p>완성된 Markdown 원고를 확인한 뒤 바로 포스팅합니다. 이 원고는 Queue에 저장하지 않습니다.</p>
+              </div>
+              <span class="blog-next-stage-badge">완성 원고 즉시 실행</span>
+            </div>
+            <label class="blog-next-field blog-next-field-wide">
+              <span>Markdown 원고</span>
+              <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
+            </label>
+            <div class="blog-next-draft-toolbar"><button class="ghost" id="blog-next-paste-clear" type="button">내용 지우기</button></div>
+            <div class="blog-next-draft-options" data-blog-next-draft-options="paste">
+              <label class="blog-next-field"><span>네이버 카테고리</span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리"></label>
+              <label class="blog-next-field"><span>워드프레스 카테고리</span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily"></label>
+              <label class="blog-next-field"><span>포스팅 옵션</span><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></label>
+              <label class="blog-next-field" data-draft-schedule-field hidden><span>예약 일시</span><input data-draft-field="schedule-date" type="datetime-local"></label>
+              <label class="blog-next-field"><span>이미지 처리</span><select data-draft-field="image-mode"><option value="generate">이미지 생성</option><option value="prompt_only" selected>이미지 프롬프트만 포함</option><option value="none">이미지 사용 안 함</option></select></label>
+            </div>
+            <div class="blog-next-draft-actions" data-blog-next-draft-actions="paste">
+              <div class="blog-next-draft-targets">
+                <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
+                <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
+                <label><input data-draft-field="headless" type="checkbox" checked> 브라우저 숨기기</label>
+              </div>
+              <button class="primary" data-blog-next-draft-publish="paste" type="button" disabled>포스팅 실행</button>
+            </div>
+            <div class="blog-next-draft-validation" data-blog-next-draft-validation="paste">Markdown 원고를 붙여넣어 주세요.</div>
+            <div class="blog-next-draft-preview" data-blog-next-draft-preview="paste" hidden>
+              <strong data-draft-preview-title>제목 없음</strong>
+              <span data-draft-preview-meta>-</span>
+              <pre data-draft-preview-body></pre>
+              <div data-draft-preview-images></div>
+            </div>
+            <pre class="blog-next-draft-result" data-blog-next-draft-result="paste"></pre>
           </div>
         </section>
 

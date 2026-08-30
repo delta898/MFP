@@ -4,6 +4,35 @@ const assert = require('node:assert/strict');
 const { createPublishActionsRuntime } = require('./publish-actions-runtime');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
 
+test('local environment blocks direct manuscript publishing before license or file work', async () => {
+    let licenseChecks = 0;
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'local',
+                configured: true,
+                effects: { manualPublish: false, automatedPublish: false }
+            }
+        },
+        License: {
+            async checkLicenseStatus() {
+                licenseChecks += 1;
+                return { success: true, features: {} };
+            }
+        }
+    });
+
+    const result = await runtime.executeLocalMarkdownPublish({
+        markdownText: '# local manuscript',
+        targets: ['naver'],
+        postStatus: 'draft'
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'MANUAL_PUBLISH_BLOCKED_BY_ENVIRONMENT');
+    assert.equal(licenseChecks, 0);
+});
+
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
     let dedupeInput = null;

@@ -49,3 +49,15 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
 });
+
+test('completed manuscripts publish directly without entering the continuous queue', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const draftInputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+
+    assert.match(betaView, /data-blog-next-draft-publish="folder"/);
+    assert.match(betaView, /data-blog-next-draft-publish="paste"/);
+    assert.match(betaView, /Queue에 저장하지 않습니다/);
+    assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/preview/);
+    assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/publish/);
+    assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);
+});

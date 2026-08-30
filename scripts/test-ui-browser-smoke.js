@@ -292,6 +292,49 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/blog/local-markdown/preview' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const markdown = String(payload.markdownText || payload.selectedFiles?.find(item => /\.md$/i.test(item.name || ''))?.textContent || '');
+                const title = markdown.match(/^#\s+(.+)$/m)?.[1] || '제목 없음';
+                const body = JSON.stringify({
+                    success: true,
+                    data: {
+                        source: { type: payload.markdownText !== undefined ? 'pasted_markdown' : 'local_markdown', folderName: payload.folderName || '붙여넣기' },
+                        title,
+                        rawMarkdown: markdown,
+                        bodyPreview: markdown,
+                        contentItems: [],
+                        images: [],
+                        stats: { contentCount: 2, imageBlockCount: 0, imageResolvedCount: 0 },
+                        validation: { ok: true, errors: [], warnings: [] }
+                    }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/blog/local-markdown/publish' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const body = JSON.stringify({
+                    success: true,
+                    data: { status: payload.postStatus === 'draft' ? '임시 저장 완료' : '발행 완료', postStatus: payload.postStatus || 'publish' }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
         if (url.pathname.startsWith('/api/v1/')) {
             let data = getApiFixture(url.pathname);
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
@@ -552,6 +595,20 @@ async function run() {
         assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('임시 저장 완료'), true);
         assert.equal(await page.locator('#blog-next-runner-start').isDisabled(), false);
 
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.locator('[data-blog-next-input-mode="paste"]').click();
+        await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
+        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
+        assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
+        await page.locator('[data-blog-next-draft-publish="paste"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-result="paste"]')?.textContent.includes('요청 처리 완료'));
+        const pastedPublishRequest = requests.find((request) => request.pathname === '/api/v1/blog/local-markdown/publish');
+        assert.equal(pastedPublishRequest?.body?.markdownText.startsWith('# 붙여넣은 원고'), true);
+        assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);
+
         await page.locator('.nav-btn[data-view="social"]').click();
         await page.locator('#manual-sns-text').fill('테스트 문구');
         await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
@@ -691,7 +748,9 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
-            { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' }
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
+            { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
+            { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);

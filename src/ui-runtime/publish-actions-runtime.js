@@ -11,6 +11,10 @@ const {
     stripBlogImagePromptBlocks
 } = require('../content/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
+const {
+    MANUAL_PUBLISH_BLOCKED_CODE,
+    assertDirectPublishAllowed
+} = require('../environment/runtime-effects');
 
 function createPublishActionsRuntime(deps = {}) {
     const {
@@ -1203,6 +1207,15 @@ function createPublishActionsRuntime(deps = {}) {
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
+        try {
+            assertDirectPublishAllowed(CONFIG, { postStatus });
+        } catch (error) {
+            return {
+                success: false,
+                code: error.code || MANUAL_PUBLISH_BLOCKED_CODE,
+                message: error.message
+            };
+        }
         let imageMode;
         try {
             imageMode = parseBlogImageMode(requestBody?.imageMode, {
