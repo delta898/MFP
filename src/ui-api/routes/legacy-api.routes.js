@@ -137,9 +137,14 @@ function createLegacyApiRouteHandler(deps = {}) {
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeBlogRowAction: deps.executeBlogRowAction,
         CONFIG: deps.CONFIG,
+        TelegramService: deps.TelegramService,
+        SlackService: deps.SlackService,
         fs: deps.fs,
         path: deps.path
     });
+    if (String(deps.CONFIG?.CONFIG_DIR || '').trim()) {
+        continuousPublishingService.startAutomationScheduler();
+    }
     const continuousPublishingController = createContinuousPublishingController({
         service: continuousPublishingService,
         sendSuccess: deps.sendSuccess,

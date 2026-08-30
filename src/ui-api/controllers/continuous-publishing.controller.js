@@ -19,6 +19,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async automationTest({ requestId, method, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.scheduleAutomationTest());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_AUTOMATION_TEST_FAILED', '시험 자동 실행을 예약하지 못했습니다.', error);
+            }
+        },
+
         async topics({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

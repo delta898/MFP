@@ -1,4 +1,5 @@
 let blogNextAutomationSaving = false;
+let blogNextAutomationPollingTimer = null;
 
 function readBlogNextAutomationForm() {
   return {
@@ -32,12 +33,18 @@ function formatBlogNextAutomationTime(value) {
 
 function describeBlogNextAutomationRuntime(runtime = {}, settings = {}) {
   if (settings.enabled !== true) {
-    return { state: 'disabled', title: '이 기기의 연속 발행이 꺼져 있습니다.', detail: '설정을 켜더라도 저장만 되며 아직 자동 실행은 시작되지 않습니다.' };
+    return { state: 'disabled', title: '이 기기의 연속 발행이 꺼져 있습니다.', detail: '설정을 켜면 허용 시간대와 간격에 따라 글감 한 건씩 처리합니다.' };
   }
   if (runtime.environment_allows_automation !== true) {
-    return { state: 'blocked', title: '설정은 저장됐지만 현재 환경에서는 자동 실행하지 않습니다.', detail: 'Local과 Development는 자동 발행을 차단합니다. 수동으로 다음 1건을 실행해 검증할 수 있습니다.' };
+    return { state: 'blocked', title: '설정은 저장됐지만 현재 환경에서는 자동 실행하지 않습니다.', detail: '환경 권한을 확인해 주세요.' };
   }
-  return { state: 'waiting', title: '자동 실행 정책이 저장되었습니다.', detail: '여러 기기의 중복 실행을 막는 안전장치가 연결되기 전까지 실제 timer는 시작하지 않습니다.' };
+  if (runtime.automation_mode === 'simulation') {
+    return { state: 'waiting', title: 'Local 시뮬레이션이 예약되었습니다.', detail: 'Queue 선두와 예정 동작만 확인하며 AI·Topics Sheet·외부 플랫폼은 변경하지 않습니다.' };
+  }
+  if (runtime.automation_mode === 'development_draft') {
+    return { state: 'waiting', title: 'Development 안전 자동 실행이 예약되었습니다.', detail: '임시 저장 글감만 처리하며 공개 발행과 예약 발행은 차단합니다.' };
+  }
+  return { state: 'waiting', title: '연속 발행이 예약되었습니다.', detail: '글감별 발행 계획과 이 기기의 실행 정책에 따라 한 건씩 처리합니다.' };
 }
 
 function renderBlogNextAutomationSettings(data = {}) {
@@ -48,13 +55,43 @@ function renderBlogNextAutomationSettings(data = {}) {
   const detail = document.getElementById('blog-next-automation-status-detail');
   const environment = document.getElementById('blog-next-automation-environment');
   const nextRun = document.getElementById('blog-next-automation-next-run');
+  const testButton = document.getElementById('blog-next-automation-test');
   const description = describeBlogNextAutomationRuntime(runtime, settings);
   fillBlogNextAutomationForm(settings);
   if (status) status.dataset.state = description.state;
   if (title) title.textContent = description.title;
   if (detail) detail.textContent = description.detail;
   if (environment) environment.textContent = runtime.environment || '확인 불가';
-  if (nextRun) nextRun.textContent = formatBlogNextAutomationTime(runtime.next_run_at_preview);
+  const testRunAt = runtime.scheduler?.test_run_at;
+  if (nextRun) nextRun.textContent = formatBlogNextAutomationTime(testRunAt || runtime.next_run_at_preview);
+  if (testButton) {
+    const development = runtime.environment === 'development';
+    testButton.hidden = !development;
+    testButton.disabled = runtime.scheduler?.test_scheduled === true;
+    testButton.textContent = runtime.scheduler?.test_scheduled === true
+      ? '30초 시험 실행 대기 중...'
+      : '30초 후 1회 자동 실행 테스트';
+  }
+  clearTimeout(blogNextAutomationPollingTimer);
+  if (runtime.scheduler?.test_scheduled === true) {
+    blogNextAutomationPollingTimer = setTimeout(loadBlogNextAutomationSettings, 1000);
+  } else if (runtime.scheduler?.last_finished_at && typeof loadBlogNextRunnerStatus === 'function') {
+    loadBlogNextRunnerStatus({ poll: true });
+  }
+}
+
+async function scheduleBlogNextAutomationTest() {
+  const button = document.getElementById('blog-next-automation-test');
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    await postJson('/api/v1/continuous-publishing/automation/test', {});
+    showUiToast({ level: 'success', title: '시험 실행 예약', message: '30초 후 가장 오래된 임시 저장 글감 한 건을 확인합니다.' });
+    await loadBlogNextAutomationSettings();
+  } catch (error) {
+    showUiToast({ level: 'error', title: '시험 실행 예약 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+    if (button) button.disabled = false;
+  }
 }
 
 function setBlogNextAutomationSaving(saving) {
@@ -100,5 +137,6 @@ function initBlogNextAutomationSettings() {
   if (!form || form.dataset.bound === 'true') return;
   form.dataset.bound = 'true';
   form.addEventListener('submit', saveBlogNextAutomationSettings);
+  document.getElementById('blog-next-automation-test')?.addEventListener('click', scheduleBlogNextAutomationTest);
   loadBlogNextAutomationSettings();
 }

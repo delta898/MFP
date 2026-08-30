@@ -14,6 +14,7 @@ function createUiApiRouteRuntime(deps = {}) {
         cheerio,
         RuntimeConfig,
         TelegramService,
+        SlackService,
         snsAiService,
         recordActivityLifecycle,
         DEFAULT_HOST,
@@ -354,7 +355,9 @@ function createUiApiRouteRuntime(deps = {}) {
             ShoppingManager,
             axios,
             cheerio,
-            RuntimeConfig
+            RuntimeConfig,
+            TelegramService,
+            SlackService
         };
 
         const runtimeDeps = {

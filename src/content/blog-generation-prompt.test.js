@@ -80,7 +80,7 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.match(result.prompt, /분석 결과는 이미 위의 최종 문체·길이·구성 값에 반영/);
     assert.match(result.prompt, /이번 글의 명시적 지시.*최종 프로필과 분석된 세부 특징보다 우선/);
     assert.match(result.prompt, /이번 글은 1,000자 안팎/);
-    assert.match(result.prompt, /정확히 2개/);
+    assert.match(result.prompt, /2개를 권장/);
     assert.equal(result.image_plan.source, 'post');
     assert.equal(result.image_plan.count, 2);
     assert.match(result.prompt, /유지보수 기간은 3년/);

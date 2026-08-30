@@ -54,7 +54,7 @@ Length presets are:
 | `standard` | 1,500–1,800 characters | 4–5 | 4 |
 | `long` | 2,200–2,800 characters | 5–6 | 5 |
 
-The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. It requires an exact sequential set of `[[IMAGE_N ...]]` blocks when image prompts are included.
+The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. The resolved count is a writing recommendation rather than a generation success condition. Runtime accepts the complete image blocks the model actually produced as long as their indexes start at `IMAGE_0` and remain sequential; `none` still requires no image blocks.
 
 Individual blog writing screens expose one `image_options.mode` choice:
 

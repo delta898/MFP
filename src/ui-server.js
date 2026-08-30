@@ -948,6 +948,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     cheerio,
     RuntimeConfig,
     TelegramService,
+    SlackService,
     snsAiService,
     recordActivityLifecycle,
     DEFAULT_HOST,

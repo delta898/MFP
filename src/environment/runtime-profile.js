@@ -78,6 +78,7 @@ function createUnavailableProfile({ status, environment = '', selectionSource = 
         reason,
         effects: Object.freeze({
             manualPublish: false,
+            automatedDraft: false,
             automatedPublish: false,
             livePublish: false,
             livePayment: false,
@@ -198,6 +199,7 @@ function resolveRuntimeEnvironmentProfile(options = {}) {
         reason: '',
         effects: Object.freeze({
             manualPublish: descriptor.allows_manual_publish === true,
+            automatedDraft: descriptor.allows_automated_draft === true,
             automatedPublish: descriptor.allows_automated_publish === true,
             livePublish: descriptor.allows_automated_publish === true,
             livePayment: descriptor.allows_live_payment === true,

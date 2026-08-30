@@ -12,7 +12,8 @@ const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     MANUAL_PUBLISH_BLOCKED_MESSAGE,
     isLivePublishAllowed,
-    isManualPublishAllowed
+    isManualPublishAllowed,
+    isContinuousAutomationAllowed
 } = require('../environment/runtime-effects');
 
 function createContentActionsRuntime(deps = {}) {
@@ -153,15 +154,16 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_ACTION', message: '지원하지 않는 action입니다. (gen|batch)' };
         }
         const manualTrigger = options.manualTrigger === true;
-        const publishAllowed = manualTrigger
-            ? isManualPublishAllowed(CONFIG)
-            : isLivePublishAllowed(CONFIG);
-        if (action === 'batch' && !publishAllowed) {
-            return {
-                success: false,
-                code: manualTrigger ? MANUAL_PUBLISH_BLOCKED_CODE : LIVE_PUBLISH_BLOCKED_CODE,
-                message: manualTrigger ? MANUAL_PUBLISH_BLOCKED_MESSAGE : LIVE_PUBLISH_BLOCKED_MESSAGE
-            };
+        const continuousAutomation = options.continuousAutomation === true;
+        if (action === 'batch' && !continuousAutomation) {
+            const allowed = manualTrigger ? isManualPublishAllowed(CONFIG) : isLivePublishAllowed(CONFIG);
+            if (!allowed) {
+                return {
+                    success: false,
+                    code: manualTrigger ? MANUAL_PUBLISH_BLOCKED_CODE : LIVE_PUBLISH_BLOCKED_CODE,
+                    message: manualTrigger ? MANUAL_PUBLISH_BLOCKED_MESSAGE : LIVE_PUBLISH_BLOCKED_MESSAGE
+                };
+            }
         }
         if (rowIndex === null) {
             return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
@@ -180,6 +182,19 @@ function createContentActionsRuntime(deps = {}) {
             };
         }
 
+        const rowOptions = topicData.options || {};
+        const postStatus = String(topicData.postStatus || rowOptions.post_status || 'publish').trim().toLowerCase();
+        const publishAllowed = continuousAutomation
+            ? isContinuousAutomationAllowed(CONFIG, { postStatus })
+            : true;
+        if (action === 'batch' && !publishAllowed) {
+            return {
+                success: false,
+                code: manualTrigger ? MANUAL_PUBLISH_BLOCKED_CODE : LIVE_PUBLISH_BLOCKED_CODE,
+                message: manualTrigger ? MANUAL_PUBLISH_BLOCKED_MESSAGE : LIVE_PUBLISH_BLOCKED_MESSAGE
+            };
+        }
+
         const precheck = await License.checkLicenseStatus();
         if (!precheck.success) {
             return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
@@ -187,7 +202,6 @@ function createContentActionsRuntime(deps = {}) {
         const features = toFeatureMap(precheck.features);
         const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
 
-        const rowOptions = topicData.options || {};
         const getVal = (key, fallback) => {
             if (rowOptions[key] !== undefined && rowOptions[key] !== null && rowOptions[key] !== '') return rowOptions[key];
             return fallback;

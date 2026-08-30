@@ -73,3 +73,13 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(automationScript, /continuous-publishing\/automation\/settings/);
     assert.doesNotMatch(automationScript, /platforms|post_status|image_mode|naver_category|wordpress_category/);
 });
+
+test('safe timer UI exposes a development-only 30 second test without multi-device lease controls', () => {
+    const html = read('ui/partials/views/blog-next.html');
+    const script = read('ui/scripts/features/blog-next/automation-settings.js');
+    assert.match(html, /id="blog-next-automation-test"/);
+    assert.match(html, /30초 후 1회 자동 실행 테스트/);
+    assert.match(script, /\/api\/v1\/continuous-publishing\/automation\/test/);
+    assert.match(script, /development_draft/);
+    assert.doesNotMatch(html, /claim|lease/i);
+});

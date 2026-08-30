@@ -15,6 +15,7 @@ function resolveRuntimeEffectPolicy(config = {}) {
             environment: 'legacy',
             configured: true,
             manualPublish: true,
+            automatedDraft: true,
             automatedPublish: true,
             livePublish: true,
             livePayment: true,
@@ -24,6 +25,7 @@ function resolveRuntimeEffectPolicy(config = {}) {
 
     const configured = profile.configured === true;
     const manualPublish = configured && profile.effects?.manualPublish === true;
+    const automatedDraft = configured && profile.effects?.automatedDraft === true;
     const automatedPublish = configured && (
         profile.effects?.automatedPublish === true
         || profile.effects?.livePublish === true
@@ -32,6 +34,7 @@ function resolveRuntimeEffectPolicy(config = {}) {
         environment: String(profile.environment || 'unselected').trim() || 'unselected',
         configured,
         manualPublish,
+        automatedDraft,
         automatedPublish,
         // Compatibility alias: callers using livePublish are automation boundaries.
         livePublish: automatedPublish,
@@ -46,6 +49,12 @@ function isLivePublishAllowed(config = {}) {
 
 function isManualPublishAllowed(config = {}) {
     return resolveRuntimeEffectPolicy(config).manualPublish;
+}
+
+function isContinuousAutomationAllowed(config = {}, options = {}) {
+    const policy = resolveRuntimeEffectPolicy(config);
+    const postStatus = String(options.postStatus || options.post_status || '').trim().toLowerCase();
+    return postStatus === 'draft' ? policy.automatedDraft : policy.automatedPublish;
 }
 
 function createLivePublishBlockedError(config = {}) {
@@ -90,6 +99,7 @@ module.exports = {
     resolveRuntimeEffectPolicy,
     isLivePublishAllowed,
     isManualPublishAllowed,
+    isContinuousAutomationAllowed,
     createLivePublishBlockedError,
     createManualPublishBlockedError,
     assertLivePublishAllowed,

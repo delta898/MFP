@@ -68,8 +68,8 @@ function buildBlogImagePlanPrompt(plan = {}) {
     const count = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     return [
         '[블로그 이미지 영역 계획]',
-        `- content 안에 [[IMAGE_N ...]] 블록을 정확히 ${count}개 작성하세요. 범위가 아니라 정확히 ${count}개입니다.`,
-        `- 이미지 번호는 0부터 ${count - 1}까지 순서대로 한 번씩만 사용하고 중복하거나 건너뛰지 마세요.`,
+        `- content 안에 [[IMAGE_N ...]] 블록 ${count}개를 권장합니다. 글의 실제 흐름에 따라 개수는 조정할 수 있습니다.`,
+        '- 실제로 작성한 이미지 블록은 IMAGE_0부터 시작해 순서대로 번호를 붙이고 중복하거나 건너뛰지 마세요.',
         '- 실제 AI 이미지 파일 생성 여부와 무관하게 본문 안의 이미지 영역 및 prompt 블록은 유지하세요.'
     ].join('\n');
 }
@@ -96,20 +96,16 @@ function validateBlogImageBlocks(content, plan = {}) {
         }
         return { count: 0, indexes: [] };
     }
-    const count = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     const actualIndexes = collectCompleteImageBlockIndexes(content);
-    const expectedIndexes = Array.from({ length: count }, (_unused, index) => index);
-    const valid = actualIndexes.length === expectedIndexes.length
-        && actualIndexes.every((value, index) => value === expectedIndexes[index]);
+    const valid = actualIndexes.every((value, index) => value === index);
     if (!valid) {
-        const error = new Error(`블로그 이미지 영역은 0부터 ${count - 1}까지 정확히 ${count}개여야 합니다.`);
+        const error = new Error('블로그 이미지 영역 번호는 IMAGE_0부터 중복이나 누락 없이 순서대로 작성되어야 합니다.');
         error.code = 'BLOG_IMAGE_PLAN_MISMATCH';
-        error.expected_count = count;
         error.actual_count = actualIndexes.length;
         error.actual_indexes = actualIndexes;
         throw error;
     }
-    return { count, indexes: actualIndexes };
+    return { count: actualIndexes.length, indexes: actualIndexes };
 }
 
 module.exports = {

@@ -225,13 +225,13 @@
               <h2>연속 발행 설정</h2>
               <p>글감의 발행 계획은 바꾸지 않고, 언제 한 건씩 처리할지만 관리합니다.</p>
             </div>
-            <span class="blog-next-stage-badge">자동 실행 준비</span>
+            <span class="blog-next-stage-badge">자동 실행</span>
           </div>
           <form id="blog-next-automation-form" class="blog-next-automation-form">
             <div class="blog-next-automation-toggle">
               <label>
                 <input id="blog-next-automation-enabled" type="checkbox">
-                <span><strong>이 기기에서 연속 발행 사용</strong><small>기본값은 꺼짐이며, 여러 기기 중복 실행 보호가 준비되기 전에는 실제 자동 실행을 시작하지 않습니다.</small></span>
+                <span><strong>이 기기에서 연속 발행 사용</strong><small>기본값은 꺼짐입니다. 여러 기기에서는 한 기기에서만 켜 주세요.</small></span>
               </label>
             </div>
             <div class="blog-next-automation-fields">
@@ -242,6 +242,7 @@
             </div>
             <div class="blog-next-automation-actions">
               <button class="primary" id="blog-next-automation-save" type="submit">설정 저장</button>
+              <button class="secondary" id="blog-next-automation-test" type="button" hidden>30초 후 1회 자동 실행 테스트</button>
               <span>발행 대상과 발행 방식은 각 글감의 계획을 그대로 사용합니다.</span>
             </div>
           </form>
@@ -251,7 +252,7 @@
             <p id="blog-next-automation-status-detail">저장된 실행 정책과 환경 제한을 불러옵니다.</p>
             <dl>
               <div><dt>실행 환경</dt><dd id="blog-next-automation-environment">-</dd></div>
-              <div><dt>예상 다음 실행</dt><dd id="blog-next-automation-next-run">-</dd></div>
+              <div><dt>다음 실행</dt><dd id="blog-next-automation-next-run">-</dd></div>
             </dl>
           </div>
           <div class="blog-next-runner-card">

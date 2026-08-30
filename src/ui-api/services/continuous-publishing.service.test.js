@@ -8,6 +8,10 @@ function createService(state = {}) {
         CONFIG: state.CONFIG,
         automationSettingsRepository: state.automationSettingsRepository,
         now: state.now,
+        setTimeout: state.setTimeout,
+        clearTimeout: state.clearTimeout,
+        TelegramService: state.TelegramService,
+        SlackService: state.SlackService,
         async ensureSheetsReadyForUi() {
             state.preflightCalls = (state.preflightCalls || 0) + 1;
         },
@@ -91,6 +95,115 @@ test('automation settings remain device-local and do not activate the timer in d
     assert.equal(result.runtime.effective_enabled, false);
     assert.equal(result.runtime.status, 'blocked_by_environment');
     assert.equal(result.runtime.next_run_at_preview, '2026-08-30T02:00:00.000Z');
+});
+
+function createAutomationTestState(postStatus = 'draft', environment = 'development') {
+    const timers = [];
+    const state = {
+        timers,
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment,
+                configured: true,
+                effects: {
+                    manualPublish: environment !== 'local',
+                    automatedDraft: environment !== 'local',
+                    automatedPublish: environment === 'production'
+                }
+            }
+        },
+        now: () => new Date('2026-08-31T10:00:00+09:00'),
+        setTimeout(fn, delay) {
+            const timer = { fn, delay, unref() {} };
+            timers.push(timer);
+            return timer;
+        },
+        clearTimeout() {},
+        readItems: [{
+            rowIndex: 7,
+            rowNumber: 9,
+            status: '발행 준비 완료',
+            subject: '자동 실행 글감',
+            postStatus,
+            options: { post_status: postStatus }
+        }],
+        automationEnabled: false,
+        notificationEnabled: false,
+        automationSettingsRepository: {
+            read() {
+                return {
+                    document: { schema_version: 1, enabled: state.automationEnabled, allowed_start_time: '00:00', allowed_end_time: '23:59', interval_minutes: 10, notification_enabled: state.notificationEnabled },
+                    source: 'saved', warnings: []
+                };
+            },
+            save(input) { return { document: { schema_version: 1, ...input }, source: 'saved', warnings: [] }; }
+        }
+    };
+    return state;
+}
+
+test('development 30-second test automatically processes draft plans only', async () => {
+    const state = createAutomationTestState('draft');
+    const service = createService(state);
+
+    const accepted = service.scheduleAutomationTest();
+    assert.equal(accepted.accepted, true);
+    assert.equal(state.timers[0].delay, 30000);
+    await state.timers[0].fn();
+
+    assert.equal(state.runnerOptions.manualTrigger, false);
+    assert.equal(state.runnerOptions.continuousAutomation, true);
+    assert.equal(state.runnerOptions.isAutoCycle, true);
+    assert.equal(service.getRunnerStatus().state, 'completed');
+});
+
+test('development automatic runner stops at the FIFO head when it is public publish', async () => {
+    const state = createAutomationTestState('publish');
+    const service = createService(state);
+
+    service.scheduleAutomationTest();
+    await state.timers[0].fn();
+
+    const result = service.getRunnerStatus();
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(result.state, 'needs_attention');
+    assert.equal(result.resultStatus, 'blocked:publish');
+});
+
+test('local recurring timer simulates the FIFO head without executing or mutating it', async () => {
+    const state = createAutomationTestState('publish', 'local');
+    state.automationEnabled = true;
+    const service = createService(state);
+
+    const scheduled = service.startAutomationScheduler();
+    assert.equal(scheduled.recurring_scheduled, true);
+    await state.timers[0].fn();
+
+    const result = service.getRunnerStatus();
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(state.clearedPrefix, undefined);
+    assert.equal(result.state, 'simulated');
+    assert.equal(result.resultStatus, 'publish');
+});
+
+test('automatic result notification follows the local setting and escapes topic text', async () => {
+    const messages = [];
+    const state = createAutomationTestState('draft');
+    state.notificationEnabled = true;
+    state.readItems[0].subject = '<위험한 & 글감>';
+    state.CONFIG.NOTIFY_TELEGRAM_ENABLED = true;
+    state.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = 'fixture';
+    state.CONFIG.NOTIFY_TELEGRAM_CHAT_ID = 'fixture';
+    state.TelegramService = {
+        async sendNotification(message) { messages.push(message); return { success: true }; }
+    };
+    const service = createService(state);
+
+    service.scheduleAutomationTest();
+    await state.timers[0].fn();
+
+    assert.equal(messages.length, 1);
+    assert.match(messages[0], /&lt;위험한 &amp; 글감&gt;/);
 });
 
 async function waitForRunner(service) {

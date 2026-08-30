@@ -62,20 +62,23 @@ test('image mode explicitly distinguishes generation, prompt-only and no-image m
     });
 });
 
-test('image plan prompt requests one exact count and keeps regions when generation is off', () => {
+test('image plan prompt recommends a target count and keeps regions when generation is off', () => {
     const prompt = buildBlogImagePlanPrompt({ count: 3 });
-    assert.match(prompt, /정확히 3개/);
-    assert.match(prompt, /0부터 2까지/);
+    assert.match(prompt, /3개를 권장/);
+    assert.match(prompt, /실제 흐름에 따라 개수는 조정/);
+    assert.match(prompt, /IMAGE_0부터 시작/);
     assert.match(prompt, /실제 AI 이미지 파일 생성 여부와 무관하게/);
-    assert.doesNotMatch(prompt, /3~4/);
+    assert.doesNotMatch(prompt, /정확히 3개/);
 });
 
-test('image block validation accepts exact sequential blocks and rejects missing duplicate or skipped indexes', () => {
-    assert.deepEqual(validateBlogImageBlocks(imageBlocks(3), { count: 3 }), {
-        count: 3,
-        indexes: [0, 1, 2]
-    });
-    for (const content of [imageBlocks(2), imageBlocks(3, [0, 1, 1]), imageBlocks(3, [0, 2, 3])]) {
+test('image block validation accepts the actual sequential count and rejects duplicate or skipped indexes', () => {
+    for (const count of [0, 2, 3, 5, 6]) {
+        assert.deepEqual(validateBlogImageBlocks(imageBlocks(count), { count: 3 }), {
+            count,
+            indexes: Array.from({ length: count }, (_unused, index) => index)
+        });
+    }
+    for (const content of [imageBlocks(3, [0, 1, 1]), imageBlocks(3, [0, 2, 3])]) {
         assert.throws(
             () => validateBlogImageBlocks(content, { count: 3 }),
             (error) => error.code === 'BLOG_IMAGE_PLAN_MISMATCH'

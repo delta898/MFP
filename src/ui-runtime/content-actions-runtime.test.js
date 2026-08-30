@@ -9,7 +9,7 @@ const DEVELOPMENT_CONFIG = Object.freeze({
     RUNTIME_ENVIRONMENT_PROFILE: Object.freeze({
         environment: 'development',
         configured: true,
-        effects: Object.freeze({ manualPublish: true, automatedPublish: false, livePublish: false })
+        effects: Object.freeze({ manualPublish: true, automatedDraft: true, automatedPublish: false, livePublish: false })
     })
 });
 
@@ -41,6 +41,38 @@ test('development blocks blog batch before sheet access', async () => {
     assert.equal(result.success, false);
     assert.equal(result.code, 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT');
     assert.equal(sheetRead, 0);
+});
+
+test('development continuous automation admits draft rows but still blocks public rows', async () => {
+    let licenseCalls = 0;
+    const createRuntime = (postStatus) => createContentActionsRuntime({
+        CONFIG: DEVELOPMENT_CONFIG,
+        parseIntSafe: (value) => Number(value),
+        Utils: {
+            async readGoogleSheetTopicsAll() {
+                return { items: [{ rowIndex: 0, status: '발행 준비 완료', options: { post_status: postStatus } }] };
+            }
+        },
+        License: {
+            async checkLicenseStatus() {
+                licenseCalls += 1;
+                return { success: false, message: 'fixture stop' };
+            }
+        }
+    });
+
+    const draft = await createRuntime('draft').executeBlogRowAction(
+        { action: 'batch', rowIndex: 0, requireReadyStatus: true },
+        { continuousAutomation: true }
+    );
+    const publish = await createRuntime('publish').executeBlogRowAction(
+        { action: 'batch', rowIndex: 0, requireReadyStatus: true },
+        { continuousAutomation: true }
+    );
+
+    assert.equal(draft.code, 'LICENSE_STATUS_FAILED');
+    assert.equal(publish.code, 'LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT');
+    assert.equal(licenseCalls, 1);
 });
 
 test('shopping batch requires both shopping and batch capabilities', async () => {

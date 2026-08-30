@@ -225,10 +225,12 @@ function startFixtureServer(requests) {
                         warnings: [],
                         runtime: {
                             environment: 'development',
-                            environment_allows_automation: false,
-                            effective_enabled: false,
-                            status: continuousAutomationSettings.enabled ? 'blocked_by_environment' : 'disabled',
-                            next_run_at_preview: continuousAutomationSettings.enabled ? '2026-08-31T01:00:00.000Z' : null
+                            environment_allows_automation: true,
+                            automation_mode: 'development_draft',
+                            effective_enabled: continuousAutomationSettings.enabled,
+                            status: continuousAutomationSettings.enabled ? 'scheduled' : 'disabled',
+                            next_run_at_preview: continuousAutomationSettings.enabled ? '2026-08-31T01:00:00.000Z' : null,
+                            scheduler: { state: continuousAutomationSettings.enabled ? 'scheduled' : 'stopped', test_scheduled: false }
                         }
                     }
                 });
@@ -639,9 +641,10 @@ async function run() {
         await page.locator('#blog-next-automation-interval').fill('90');
         await page.locator('#blog-next-automation-notify').check();
         await page.locator('#blog-next-automation-save').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'blocked');
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'waiting');
         assert.equal((await page.locator('#blog-next-automation-environment').textContent())?.trim(), 'development');
-        assert.equal((await page.locator('#blog-next-automation-status-title').textContent())?.includes('자동 실행하지 않습니다'), true);
+        assert.equal((await page.locator('#blog-next-automation-status-title').textContent())?.includes('안전 자동 실행'), true);
+        assert.equal(await page.locator('#blog-next-automation-test').isVisible(), true);
         await page.locator('#blog-next-runner-start').click();
         await page.waitForFunction(() => document.getElementById('blog-next-runner-message')?.textContent.includes('한 건을 처리했습니다'));
         assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('수동 실행할 글감'), true);

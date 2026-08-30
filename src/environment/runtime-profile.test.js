@@ -82,6 +82,7 @@ test('explicit process environment wins over a matching build profile', () => {
     assert.equal(profile.environment, 'development');
     assert.equal(profile.effects.manualPublish, true);
     assert.equal(profile.effects.automatedPublish, false);
+    assert.equal(profile.effects.automatedDraft, true);
     assert.equal(profile.effects.livePublish, false);
     assert.equal(profile.supabase.url, DEV_URL);
     assert.equal(profile.supabase.publishableKey, 'development-key');
@@ -99,6 +100,7 @@ test('production profile explicitly enables live effects', () => {
 
     assert.deepEqual(profile.effects, {
         manualPublish: true,
+        automatedDraft: true,
         automatedPublish: true,
         livePublish: true,
         livePayment: true,

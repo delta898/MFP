@@ -106,16 +106,20 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 
 ### 실제 발행 경계
 
-환경 manifest의 `allows_manual_publish`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
+환경 manifest의 `allows_manual_publish`, `allows_automated_draft`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
 실행 정책이다. `local`과 환경 profile을 해석하지 못한 실행은 모든 외부 발행을 차단한다.
-`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행만 허용하고 다음 경로를
-계속 차단한다.
+`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 Blog Beta 연속
+발행의 `임시 저장`만 허용한다. 다음 경로는 계속 차단한다.
 
 - 예약 발행
 - 블로그·쇼핑 여러 행 일괄 발행
 - 블로그·쇼핑·SNS 자동 발행 scheduler와 수동 자동-cycle 실행
 - SNS 자동 배포 runner
 - Agent capability를 통한 발행 시작 요청
+
+Blog Beta의 Development timer는 Queue 선두 글감이 공개 또는 예약 계획이면 뒤 항목을 건너뛰지
+않고 `확인 필요`로 멈춘다. Local timer는 Queue 선두와 예정 동작만 시뮬레이션하며 AI, Topics Sheet와
+외부 플랫폼을 변경하지 않는다.
 
 명시적으로 준비된 `production` profile만 수동·예약·일괄·자동 발행을 모두 허용한다. 기존
 `livePublish` 값은 자동화 경계의 호환 alias로 유지된다. 의존성을 직접 주입하는 기존 단위 테스트는

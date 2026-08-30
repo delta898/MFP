@@ -53,6 +53,7 @@ test('environment manifest has all canonical profiles and contains no secret val
     assert.equal(manifest.profiles.local.allows_destructive_database_operations, true);
     assert.equal(manifest.profiles.local.allows_manual_publish, false);
     assert.equal(manifest.profiles.development.allows_manual_publish, true);
+    assert.equal(manifest.profiles.development.allows_automated_draft, true);
     assert.equal(manifest.profiles.development.allows_automated_publish, false);
     assert.equal(manifest.profiles.development.allows_live_publish, false);
     assert.equal(manifest.profiles.production.allows_destructive_database_operations, false);
@@ -76,6 +77,7 @@ test('runtime and deployment manifests share environment names and source contra
             'supabase_publishable_key_source',
             'allows_destructive_database_operations',
             'allows_manual_publish',
+            'allows_automated_draft',
             'allows_automated_publish',
             'allows_live_publish',
             'allows_live_payment',

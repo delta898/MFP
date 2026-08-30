@@ -6,30 +6,39 @@ const {
     LIVE_PUBLISH_BLOCKED_CODE,
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed,
+    isContinuousAutomationAllowed,
     assertLivePublishAllowed,
     assertManualPublishAllowed,
     resolveRuntimeEffectPolicy
 } = require('./runtime-effects');
 
-function configFor(environment, configured, { manualPublish = false, automatedPublish = false } = {}) {
+function configFor(environment, configured, { manualPublish = false, automatedDraft = false, automatedPublish = false } = {}) {
     return {
         RUNTIME_ENVIRONMENT_PROFILE: {
             environment,
             configured,
-            effects: { manualPublish, automatedPublish, livePublish: automatedPublish }
+            effects: { manualPublish, automatedDraft, automatedPublish, livePublish: automatedPublish }
         }
     };
 }
 
 test('development allows manual publishing but keeps automated publishing blocked', () => {
     const local = resolveRuntimeEffectPolicy(configFor('local', true));
-    const development = resolveRuntimeEffectPolicy(configFor('development', true, { manualPublish: true }));
+    const development = resolveRuntimeEffectPolicy(configFor('development', true, { manualPublish: true, automatedDraft: true }));
 
     assert.equal(local.manualPublish, false);
     assert.equal(local.automatedPublish, false);
     assert.equal(development.manualPublish, true);
     assert.equal(development.automatedPublish, false);
+    assert.equal(development.automatedDraft, true);
     assert.equal(development.livePublish, false);
+});
+
+test('development continuous automation allows drafts but blocks publish and schedule', () => {
+    const development = configFor('development', true, { manualPublish: true, automatedDraft: true });
+    assert.equal(isContinuousAutomationAllowed(development, { postStatus: 'draft' }), true);
+    assert.equal(isContinuousAutomationAllowed(development, { postStatus: 'publish' }), false);
+    assert.equal(isContinuousAutomationAllowed(development, { postStatus: 'schedule' }), false);
 });
 
 test('production allows manual and automated publishing only when configured', () => {

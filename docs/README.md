@@ -86,6 +86,7 @@
 ## Active Work
 
 - `plans/active/2026-08-30-continuous-publishing-main-development.md`
+- `plans/archive/2026-08-31-continuous-publishing-07-safe-timer-development.md`
 - `plans/archive/2026-08-30-continuous-publishing-06-automation-settings-development.md`
 - `plans/archive/2026-08-30-continuous-publishing-05-draft-inputs-development.md`
 - `plans/archive/2026-08-30-continuous-publishing-04-single-item-runner-development.md`
