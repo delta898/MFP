@@ -29,8 +29,8 @@ BLOGGENIUS_ENV=development
 npm run env:status
 ```
 
-이 명령은 저장된 환경을 전환하지 않는다. BlogGenius의 환경은 `app:local` 또는
-`app:development`로 앱을 실행할 때 선택된다.
+이 명령은 저장된 환경을 전환하지 않는다. BlogGenius의 환경은 `app:local`,
+`app:development` 또는 보호된 `app:production` 명령으로 앱을 실행할 때 선택된다.
 
 | 개발 단계 | 일반적인 브랜치 | 실행 환경 | Supabase 대상 |
 | --- | --- | --- | --- |
@@ -222,6 +222,52 @@ Production은 실제 사용자·라이선스·사용량·발행·알림·결제�
 - production project ref 재확인 필요
 - 사용자 최종 승인 필요
 - 실제 적용 전 backup/PITR와 복구 계획 확인
+
+### Production을 소스에서 실행하기
+
+패키징 전에 실제 Production 공개 연결과 runtime 동작을 빠르게 확인해야 할 때는 보호된 source
+launcher를 사용한다. 이 명령은 `main` 또는 `release/*` branch에서만 동작하며 feature·dev branch와
+detached HEAD에서는 시작 전에 실패한다.
+
+저장소 루트의 `.env.production.sample`을 `.env.production`으로 복사해 공개 Desktop 연결값을 한
+번 설정한다. 실제 파일은 Git에 포함되지 않는다.
+
+```dotenv
+BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME="BlogGenius Production"
+BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_REF="..."
+BLOGGENIUS_PRODUCTION_SUPABASE_URL="https://....supabase.co"
+BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY="..."
+BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.example.com"
+```
+
+Google Desktop OAuth 설정은 기존 `.env.oauth`을 재사용한다. `.env.production`에는 service-role
+key, DB password, provider secret, `TRENDS_API_TOKEN`, `TRENDS_READ_TOKEN_SECRET`을 넣지 않는다.
+launcher도 이들 server-only secret이 파일에 있으면 실행을 거부한다.
+
+```bash
+./run_production.sh
+# 또는
+npm run app:production
+```
+
+launcher는 다음을 순서대로 수행한다.
+
+1. 현재 branch가 `main` 또는 `release/*`인지 검사
+2. Production Supabase project ref·URL과 Trends API 연결 검증
+3. branch, project identity와 endpoint host만 출력
+4. 자동 발행·결제·알림 등 실제 부작용이 활성화됨을 경고
+5. 대화형 터미널에서 정확히 `PRODUCTION`을 입력한 경우에만 Electron source runtime 시작
+
+이 명령은 Production DB migration·reset·seed를 수행하지 않으며 앱을 package하지도 않는다.
+실행 전 `config/config.json`의 자동 발행 대상과 Naver·WordPress·SNS 계정이 실제 운영 대상임을
+반드시 확인한다.
+
+### Source run과 패키징 검증의 구분
+
+- `run_production.sh`: Production backend 연결과 source runtime 동작을 빠르게 확인
+- `-dev`·`-rc` tag build: 앱 번들 경로, 포함 자산, generated config, updater와 플랫폼 packaging 확인
+
+따라서 source run이 성공해도 release artifact 검증을 생략하지 않는다.
 
 정식 패키지는 release build 과정에서 무시된 `src/config/secret.js`를 생성한다. 이 파일에는
 production 공개 Supabase 연결값과 Google Desktop OAuth 앱 설정이 포함된다.

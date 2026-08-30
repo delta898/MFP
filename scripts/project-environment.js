@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const DEFAULT_DEVELOPMENT_ENV_FILE = '.env.development';
+const DEFAULT_PRODUCTION_ENV_FILE = '.env.production';
 const DEFAULT_GOOGLE_OAUTH_ENV_FILE = '.env.oauth';
 const GOOGLE_OAUTH_ENV_KEYS = Object.freeze([
     'GOOGLE_OAUTH_CLIENT_ID',
@@ -49,6 +50,16 @@ function loadDevelopmentEnvironment(options = {}) {
     });
 }
 
+function loadProductionEnvironment(options = {}) {
+    return Object.freeze({
+        ...loadProjectEnvironment({
+            ...options,
+            fileName: options.fileName || DEFAULT_PRODUCTION_ENV_FILE
+        }),
+        BLOGGENIUS_ENV: 'production'
+    });
+}
+
 function loadGoogleOauthEnvironment(options = {}) {
     const loaded = loadProjectEnvironment({
         ...options,
@@ -65,10 +76,12 @@ function loadGoogleOauthEnvironment(options = {}) {
 
 module.exports = {
     DEFAULT_DEVELOPMENT_ENV_FILE,
+    DEFAULT_PRODUCTION_ENV_FILE,
     DEFAULT_GOOGLE_OAUTH_ENV_FILE,
     GOOGLE_OAUTH_ENV_KEYS,
     parseEnvironmentFile,
     loadProjectEnvironment,
     loadDevelopmentEnvironment,
+    loadProductionEnvironment,
     loadGoogleOauthEnvironment
 };

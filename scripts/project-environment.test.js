@@ -4,10 +4,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     DEFAULT_DEVELOPMENT_ENV_FILE,
+    DEFAULT_PRODUCTION_ENV_FILE,
     DEFAULT_GOOGLE_OAUTH_ENV_FILE,
     parseEnvironmentFile,
     loadProjectEnvironment,
     loadDevelopmentEnvironment,
+    loadProductionEnvironment,
     loadGoogleOauthEnvironment
 } = require('./project-environment');
 
@@ -58,6 +60,30 @@ test('development loader selects development regardless of ambient environment',
     });
 
     assert.equal(loaded.BLOGGENIUS_ENV, 'development');
+});
+
+test('production loader reads its dedicated file and owns environment selection', () => {
+    const requestedPaths = [];
+    const loaded = loadProductionEnvironment({
+        repoRoot: '/repo',
+        fs: {
+            existsSync(filePath) {
+                requestedPaths.push(filePath);
+                return true;
+            },
+            readFileSync() {
+                return 'BLOGGENIUS_PRODUCTION_SUPABASE_URL=https://production.example.invalid';
+            }
+        },
+        env: { BLOGGENIUS_ENV: 'development' }
+    });
+
+    assert.equal(requestedPaths[0], `/repo/${DEFAULT_PRODUCTION_ENV_FILE}`);
+    assert.equal(loaded.BLOGGENIUS_ENV, 'production');
+    assert.equal(
+        loaded.BLOGGENIUS_PRODUCTION_SUPABASE_URL,
+        'https://production.example.invalid'
+    );
 });
 
 test('Google OAuth loader reads only its allowed keys and preserves ambient overrides', () => {

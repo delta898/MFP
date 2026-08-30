@@ -239,7 +239,7 @@ test('app launcher refuses production and unspecified targets', () => {
     );
 });
 
-test('package scripts expose only the safe local and development launch shortcuts', () => {
+test('package scripts expose safe environment-specific launch shortcuts', () => {
     const packageJson = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
     const gitignore = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
 
@@ -252,7 +252,11 @@ test('package scripts expose only the safe local and development launch shortcut
         'node scripts/app-environment-launcher.js development'
     );
     assert.equal(packageJson.scripts['env:status'], 'node scripts/environment-status.js');
-    assert.equal(packageJson.scripts['app:production'], undefined);
+    assert.equal(
+        packageJson.scripts['app:production'],
+        'node scripts/production-app-launcher.js'
+    );
     assert.match(gitignore, /^\.env\.development$/m);
+    assert.match(gitignore, /^\.env\.production$/m);
     assert.match(gitignore, /^\.env\.oauth$/m);
 });

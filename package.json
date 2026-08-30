@@ -7,6 +7,7 @@
     "start": "electron .",
     "app:local": "node scripts/app-environment-launcher.js local",
     "app:development": "node scripts/app-environment-launcher.js development",
+    "app:production": "node scripts/production-app-launcher.js",
     "env:status": "node scripts/environment-status.js",
     "ui": "node src/main.js",
     "test:ui-blog-auto": "node scripts/test-ui-blog-auto.js",

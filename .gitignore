@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 .env.development
+.env.production
 .secrets.env
 apps/trends/trends-collector/config/.env.trends-collector.local
 apps/trends/trends-collector/config/.env.trends-collector.development
