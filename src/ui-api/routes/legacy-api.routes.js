@@ -4,6 +4,7 @@ const { createContentRouteHandler } = require('./content.routes');
 const { createTrendsRouteHandler } = require('./trends.routes');
 const { createTrendPostingRouteHandler } = require('./trend-posting.routes');
 const { createAccountRouteHandler } = require('./account.routes');
+const { createContinuousPublishingRouteHandler } = require('./continuous-publishing.routes');
 const { createSystemService } = require('../services/system.service');
 const { createSessionLicenseService } = require('../services/session-license.service');
 const { createContentService } = require('../services/content.service');
@@ -15,6 +16,8 @@ const { createContentController } = require('../controllers/content.controller')
 const { createTrendsController } = require('../controllers/trends.controller');
 const { createTrendPostingController } = require('../controllers/trend-posting.controller');
 const { createAccountController } = require('../controllers/account.controller');
+const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
+const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const WordPressClient = require('../../wordpress-client');
 
@@ -129,6 +132,16 @@ function createLegacyApiRouteHandler(deps = {}) {
         logger: deps.Logger
     });
 
+    const continuousPublishingService = createContinuousPublishingService({
+        Utils: deps.Utils,
+        ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi
+    });
+    const continuousPublishingController = createContinuousPublishingController({
+        service: continuousPublishingService,
+        sendSuccess: deps.sendSuccess,
+        sendError: deps.sendError
+    });
+
     const trendsService = createTrendsService({
         Utils: deps.Utils,
         Logger: deps.Logger,
@@ -162,6 +175,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         createSystemRouteHandler({ controller: systemController }),
         createSessionLicenseRouteHandler({ controller: sessionLicenseController }),
         createAccountRouteHandler({ controller: accountController }),
+        createContinuousPublishingRouteHandler({ controller: continuousPublishingController }),
         createContentRouteHandler({ controller: contentController }),
         createTrendsRouteHandler({ controller: trendsController }),
         createTrendPostingRouteHandler({ controller: trendPostingController })

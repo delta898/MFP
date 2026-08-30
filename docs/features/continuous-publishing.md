@@ -5,8 +5,9 @@
 연속 발행은 떠오르는 글감을 빠르게 개인 Topics Sheet에 쌓고, 발행 계획이 완성된 글을
 사용자가 정한 시간대와 간격에 따라 한 건씩 생성·발행하는 BlogGenius의 새 글쓰기 흐름이다.
 
-현재 구현은 기존 `블로그` 메뉴와 분리된 `블로그 Beta` shell 단계다. 실제 Topics 읽기·쓰기,
-AI 생성과 발행은 후속 vertical slice에서 연결한다.
+현재 구현은 기존 `블로그` 메뉴와 분리된 `블로그 Beta`에서 `바로 생성` 글감을 저장하고
+`발행 준비 완료` Queue를 확인하는 단계다. 등록 과정은 AI·이미지 생성·quota·플랫폼 발행을
+호출하지 않으며, 실제 원고 생성과 발행은 후속 runner 단계에서 연결한다.
 
 ## 사용자 흐름
 
@@ -76,9 +77,20 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - DOM·CSS namespace: `blog-next-*`
 - UI module: `ui/scripts/features/blog-next/`
 - domain contract: `src/continuous-publishing/`
+- application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
 
-새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. AI 생성, preview,
-Naver/WordPress 발행, Google Sheet와 quota 엔진은 후속 application boundary를 통해 재사용한다.
+새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. 글감 등록 API는 기존 Topics
+Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPress 발행 dependency를
+갖지 않는다. 실제 실행 단계에서는 검증된 생성·발행 엔진을 별도 application boundary로 재사용한다.
+
+## 현재 제공 범위
+
+- `글감 저장`: 아이디어 필드 하나 이상을 확인하고 `대기`로 저장
+- `발행 대기열에 추가`: 아이디어, 발행 대상과 예약 정보를 확인하고 `발행 준비 완료`로 저장
+- `발행 대기열`: Topics Sheet의 준비된 글감을 행 번호 오름차순으로 표시
+- 글감별 저장 정보: 플랫폼, 대상별 카테고리, 글쓰기 전략, 이미지 처리, 외부 참고, 발행 방식과 예약 일시
+
+Queue 행 수정·제외·재시도와 연속 발행 runner는 아직 제공하지 않는다.
 
 ## 후속 계약
 

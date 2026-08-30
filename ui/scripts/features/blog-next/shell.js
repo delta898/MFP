@@ -21,6 +21,10 @@ function activateBlogNextTab(tabName) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+
+  if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
+    loadBlogNextQueue();
+  }
 }
 
 function activateBlogNextInputMode(modeName) {

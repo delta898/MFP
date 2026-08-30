@@ -37,3 +37,15 @@ test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1'
 
     assert.doesNotMatch(betaScript, /fetchJson|postJson|fetch\s*\(|publish|appendGoogleSheet|generate/i);
 });
+
+test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queue', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+
+    assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 저장/);
+    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
+    assert.match(betaView, /id="blog-next-queue-list"/);
+    assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
+    assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
+    assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
+});

@@ -60,6 +60,9 @@ BlogGenius가 설정된 간격과 시간대에 한 건씩 원고를 생성하고
 - 2026-08-30: canonical 기능 계약을 `docs/features/continuous-publishing.md`에 기록했다.
 - 2026-08-30: Stage 1에서 독립 `블로그 Beta` shell과 상태·소유권 코드 계약을 구현하고 자동 검증을 완료했다.
 - 2026-08-30: Stage 1 UI 결과를 사용자 승인 후 parent 통합 대상으로 확정했다.
+- 2026-08-30: Stage 1을 parent에 통합하고 Stage 2 빠른 등록·최소 Queue vertical slice를 시작했다.
+- 2026-08-30: Stage 2에서 legacy quick-publish를 호출하지 않는 AI-free topic capture API와 Topics 기반 FIFO Queue를 구현했다.
+- 2026-08-30: 사용자가 Stage 2의 `대기` 저장과 Queue 추가를 Local에서 확인했으며, 기존 추천 기능은 후속 입력 보조 단계에서 새 경계로 연결하기로 했다.
 
 ## 완료 기준
 

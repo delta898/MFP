@@ -52,6 +52,7 @@ async function navigateTo(viewName, subTab) {
   }
   if (viewName === 'blog-next') {
     initBlogNextShell();
+    initBlogNextQuickQueue();
     activateBlogNextTab(requestedSubTab || blogNextActiveTab);
     return;
   }

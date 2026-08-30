@@ -34,7 +34,7 @@
               <h2>빠른 글 작성</h2>
               <p>입력 방식을 고른 뒤 글감만 저장하거나, 발행 계획을 완성해 대기열에 추가합니다.</p>
             </div>
-            <span class="blog-next-stage-badge">Stage 2에서 입력 기능 연결</span>
+            <span class="blog-next-stage-badge">AI 호출 없이 글감 등록</span>
           </div>
 
           <div class="blog-next-mode-switch" role="tablist" aria-label="빠른 글 작성 입력 방식">
@@ -48,10 +48,78 @@
 
           <div class="blog-next-mode-panel active" data-blog-next-mode-panel="ai">
             <h3>바로 생성</h3>
-            <p>주제, 키워드와 지시사항을 등록하고 글감별 발행 대상과 실행 방식을 확정합니다.</p>
-            <div class="blog-next-flow-preview" aria-label="바로 생성 예정 흐름">
-              <span>글감 입력</span><span aria-hidden="true">→</span><span>발행 계획 확인</span><span aria-hidden="true">→</span><span>대기열 추가</span>
-            </div>
+            <p>아이디어만 저장해 두거나, 발행 계획까지 정해 대기열에 바로 추가할 수 있습니다.</p>
+            <form id="blog-next-topic-form" class="blog-next-topic-form">
+              <div class="blog-next-form-grid">
+                <label class="blog-next-field blog-next-field-wide">
+                  <span>주제</span>
+                  <input id="blog-next-subject" type="text" placeholder="예: 제주 일주일 살기에서 발견한 작은 즐거움">
+                </label>
+                <label class="blog-next-field blog-next-field-wide">
+                  <span>키워드</span>
+                  <input id="blog-next-keywords" type="text" placeholder="쉼표로 구분해 입력하세요">
+                </label>
+                <label class="blog-next-field blog-next-field-wide">
+                  <span>참고·지시사항</span>
+                  <textarea id="blog-next-instruction" rows="3" placeholder="글에 꼭 담고 싶은 경험이나 방향을 적어주세요"></textarea>
+                </label>
+                <label class="blog-next-field blog-next-field-wide">
+                  <span>참고 URL</span>
+                  <input id="blog-next-reference-url" type="url" placeholder="https://...">
+                </label>
+                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
+                  <legend>발행 대상</legend>
+                  <label><input id="blog-next-target-naver" type="checkbox" value="naver" checked> 네이버 블로그</label>
+                  <label><input id="blog-next-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
+                </fieldset>
+                <label class="blog-next-field">
+                  <span>네이버 카테고리 <small>(선택)</small></span>
+                  <input id="blog-next-naver-category" type="text" placeholder="비우면 기본 카테고리">
+                </label>
+                <label class="blog-next-field">
+                  <span>워드프레스 카테고리 <small>(선택)</small></span>
+                  <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily">
+                </label>
+                <label class="blog-next-field">
+                  <span>글쓰기 전략</span>
+                  <select id="blog-next-writing-strategy">
+                    <option value="search">검색 중심</option>
+                    <option value="discovery">발견 중심 (피드)</option>
+                  </select>
+                </label>
+                <label class="blog-next-field">
+                  <span>이미지 처리</span>
+                  <select id="blog-next-image-mode">
+                    <option value="prompt_only">프롬프트 포함</option>
+                    <option value="generate">이미지 생성</option>
+                    <option value="none">미포함</option>
+                  </select>
+                </label>
+                <label class="blog-next-field">
+                  <span>발행 방식</span>
+                  <select id="blog-next-post-status">
+                    <option value="publish">공개 발행</option>
+                    <option value="draft">임시 저장</option>
+                    <option value="schedule">예약 발행 등록</option>
+                  </select>
+                </label>
+                <label class="blog-next-field" id="blog-next-schedule-field" hidden>
+                  <span>예약 발행 일시</span>
+                  <input id="blog-next-schedule-date" type="datetime-local">
+                </label>
+                <label class="blog-next-field blog-next-external-reference">
+                  <span>외부 참고</span>
+                  <span class="blog-next-check-label"><input id="blog-next-external-reference" type="checkbox"> 관련 자료 자동 검색</span>
+                </label>
+              </div>
+              <p class="blog-next-form-help">글감 저장은 아이디어만 있어도 가능합니다. 대기열 추가는 발행 대상과 예약 정보를 함께 확인합니다.</p>
+              <div class="blog-next-form-actions">
+                <button class="secondary" id="blog-next-save-topic" type="button">글감 저장</button>
+                <button class="primary" id="blog-next-enqueue-topic" type="submit">발행 대기열에 추가</button>
+                <button class="ghost" id="blog-next-clear-topic" type="button">내용 지우기</button>
+              </div>
+              <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
+            </form>
           </div>
           <div class="blog-next-mode-panel" data-blog-next-mode-panel="folder" hidden>
             <h3>원고 폴더</h3>
@@ -69,12 +137,13 @@
               <h2>발행 대기열</h2>
               <p>Topics Sheet에서 발행 계획이 완성된 글감을 순서대로 확인하는 화면입니다.</p>
             </div>
-            <span class="blog-next-stage-badge">Stage 2에서 목록 연결</span>
+            <button class="secondary" id="blog-next-queue-refresh" type="button">새로고침</button>
           </div>
-          <div class="blog-next-empty-state">
-            <strong>Queue는 별도 저장소가 아닙니다.</strong>
-            <p><code>발행 준비 완료</code> 상태인 Topics 글감이 이곳에 표시됩니다.</p>
+          <div class="blog-next-queue-summary">
+            <strong id="blog-next-queue-count">확인 중</strong>
+            <span>Topics Sheet의 <code>발행 준비 완료</code> 글감을 오래된 순서부터 표시합니다.</span>
           </div>
+          <div id="blog-next-queue-list" class="blog-next-queue-list" aria-live="polite"></div>
           <div class="blog-next-status-flow" aria-label="연속 발행 상태 흐름">
             <span>대기</span><span>발행 준비 완료</span><span>발행 중</span><span>완료 또는 확인 필요</span>
           </div>

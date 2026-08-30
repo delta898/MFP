@@ -191,12 +191,49 @@ function startFixtureServer(requests) {
     const composedUiScript = createJsCompositionRuntime({ fs, path })
         .composeJsFile({ uiRoot }).js;
     let topicRecommendationCalls = 0;
+    const continuousPublishingQueue = [];
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
-        requests.push({ method: req.method || 'GET', pathname: url.pathname });
+        const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
+        requests.push(requestRecord);
+
+        if (url.pathname === '/api/v1/continuous-publishing/topics' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const queued = payload.action === 'enqueue';
+                if (queued) {
+                    continuousPublishingQueue.push({
+                        rowNumber: 12 + continuousPublishingQueue.length,
+                        status: '발행 준비 완료',
+                        subject: payload.subject,
+                        keywordsRaw: payload.keywords,
+                        postStatus: payload.postStatus,
+                        options: { platforms: payload.platforms }
+                    });
+                }
+                const body = JSON.stringify({
+                    success: true,
+                    data: { action: payload.action, status: queued ? '발행 준비 완료' : '대기', rowNumber: 12 }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
 
         if (url.pathname.startsWith('/api/v1/')) {
             let data = getApiFixture(url.pathname);
+            if (url.pathname === '/api/v1/continuous-publishing/queue') {
+                data = {
+                    items: continuousPublishingQueue,
+                    total: continuousPublishingQueue.length,
+                    limit: 50,
+                    offset: 0
+                };
+            }
             if (url.pathname === '/api/v1/blog/topic-recommendations') {
                 topicRecommendationCalls += 1;
                 data = {
@@ -377,10 +414,35 @@ async function run() {
 
         assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+
+        await page.locator('#blog-next-subject').fill('나중에 다듬을 제주 글감');
+        await page.locator('#blog-next-save-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('글감을 저장했습니다'));
+        const savedTopicRequest = requests.find((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+            && request.body?.action === 'save'
+        ));
+        assert.equal(savedTopicRequest?.body?.subject, '나중에 다듬을 제주 글감');
+
+        await page.locator('#blog-next-subject').fill('곧 발행할 제주 글감');
+        await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-enqueue-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
+        const queuedTopicRequest = requests.find((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+            && request.body?.action === 'enqueue'
+        ));
+        assert.deepEqual(queuedTopicRequest?.body?.platforms, ['naver']);
+        assert.equal(queuedTopicRequest?.body?.postStatus, 'draft');
+
         await page.locator('[data-blog-next-input-mode="folder"]').click();
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"]').evaluate((element) => element.hidden), false);
         await page.locator('[data-blog-next-tab="queue"]').click();
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
+        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '1건 대기 중');
+        assert.equal((await page.locator('.blog-next-queue-item strong').textContent())?.trim(), '곧 발행할 제주 글감');
+        assert.equal((await page.locator('.blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
         await page.locator('[data-blog-next-tab="automation"]').click();
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
 
@@ -511,11 +573,15 @@ async function run() {
         await page.locator('#sidebar-overlay').click({ position: { x: 380, y: 420 } });
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
-        const expectedPosts = requests.filter((request) => request.method !== 'GET');
+        const expectedPosts = requests
+            .filter((request) => request.method !== 'GET')
+            .map(({ method, pathname }) => ({ method, pathname }));
         assert.deepEqual(expectedPosts, [
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
-            { method: 'POST', pathname: '/api/v1/recommendations/discover' }
+            { method: 'POST', pathname: '/api/v1/recommendations/discover' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' }
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);

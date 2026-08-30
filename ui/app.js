@@ -42,6 +42,7 @@
 // @include scripts/features/social/manual-publish.js
 // @include scripts/features/social/manual-lifecycle.js
 // @include scripts/features/blog-next/shell.js
+// @include scripts/features/blog-next/quick-queue.js
 // @include scripts/foundation/navigation.js
 // @include scripts/features/content/blog-topics.js
 // @include scripts/features/content/shopping-items.js

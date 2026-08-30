@@ -2595,7 +2595,7 @@ const Utils = {
             if (postAppendDelayMs > 0) {
                 await this.sleep(postAppendDelayMs);
             }
-            this.clearSheetCache('topics_all');
+            this.clearSheetCache('topics');
 
             // [Universal Memory] Kuzu DB에 토픽 기록
             for (const topic of newTopics) {
