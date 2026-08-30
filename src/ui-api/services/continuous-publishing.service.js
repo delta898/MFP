@@ -1,9 +1,17 @@
 const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
 const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
+const {
+    createAutomationSettingsRepository,
+    resolveAutomationSettingsPath,
+    computeNextRunPreview
+} = require('../../continuous-publishing/automation-settings');
+const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction } = deps;
+    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, CONFIG = {}, fs, path, now } = deps;
+    const pathImpl = path || require('node:path');
+    let automationSettingsRepository = deps.automationSettingsRepository || null;
     let runnerPromise = null;
     let runnerState = {
         state: 'idle',
@@ -29,6 +37,39 @@ function createContinuousPublishingService(deps = {}) {
         return rowIndex;
     }
 
+    function getAutomationSettingsRepository() {
+        if (automationSettingsRepository) return automationSettingsRepository;
+        automationSettingsRepository = createAutomationSettingsRepository({
+            fs,
+            path: pathImpl,
+            filePath: resolveAutomationSettingsPath(CONFIG, pathImpl)
+        });
+        return automationSettingsRepository;
+    }
+
+    function toAutomationSettingsResponse(result) {
+        const policy = resolveRuntimeEffectPolicy(CONFIG);
+        const configuredEnabled = result.document.enabled === true;
+        const nextRunAtPreview = configuredEnabled
+            ? computeNextRunPreview(result.document, { now: typeof now === 'function' ? now() : new Date() })
+            : null;
+        let status = 'disabled';
+        if (configuredEnabled && !policy.automatedPublish) status = 'blocked_by_environment';
+        else if (configuredEnabled) status = 'awaiting_safe_runner';
+        return {
+            settings: result.document,
+            source: result.source,
+            warnings: result.warnings,
+            runtime: {
+                environment: policy.environment,
+                environment_allows_automation: policy.automatedPublish,
+                effective_enabled: false,
+                status,
+                next_run_at_preview: nextRunAtPreview
+            }
+        };
+    }
+
     async function requireReadyQueueItem(rowIndex) {
         await ensureSheetsReadyForUi();
         const result = await Utils.readGoogleSheetTopicsAll({
@@ -47,6 +88,14 @@ function createContinuousPublishingService(deps = {}) {
     }
 
     return {
+        getAutomationSettings() {
+            return toAutomationSettingsResponse(getAutomationSettingsRepository().read());
+        },
+
+        saveAutomationSettings(requestBody = {}) {
+            return toAutomationSettingsResponse(getAutomationSettingsRepository().save(requestBody));
+        },
+
         async captureTopic(requestBody = {}) {
             const action = String(requestBody.action || '').trim();
             if (!['save', 'enqueue'].includes(action)) {

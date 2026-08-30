@@ -5,6 +5,20 @@ function createContinuousPublishingController(deps = {}) {
     const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 400 });
 
     return {
+        async automationSettings({ requestId, method, requestBody, res }) {
+            try {
+                if (method === 'GET') {
+                    return sendSuccess(res, requestId, service.getAutomationSettings());
+                }
+                if (method === 'POST') {
+                    return sendSuccess(res, requestId, service.saveAutomationSettings(requestBody || {}));
+                }
+                return sendMethodNotAllowed(sendError, res, requestId);
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_AUTOMATION_SETTINGS_FAILED', '연속 발행 설정을 저장하지 못했습니다.', error);
+            }
+        },
+
         async topics({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

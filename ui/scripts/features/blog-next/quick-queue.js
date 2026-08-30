@@ -85,6 +85,7 @@ async function submitBlogNextTopic(action) {
     showUiToast({ level: 'success', title: editing ? '발행 계획 수정 완료' : queued ? '대기열 추가 완료' : '글감 저장 완료', message });
     resetBlogNextTopicForm();
     if (queued) await loadBlogNextQueue({ force: true });
+    if (editing) activateBlogNextTab('queue');
   } catch (error) {
     setBlogNextTopicResult(error.message || '글감을 저장하지 못했습니다.', 'error');
   } finally {
@@ -189,8 +190,8 @@ async function removeBlogNextQueueItem(item = {}, button) {
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   const confirmed = await showUiConfirm(
-    '글감은 삭제하지 않고 대기 상태로 되돌립니다. 대기열에서 뺄까요?',
-    { title: '대기열에서 빼기', confirmText: '대기로 이동', cancelText: '취소' }
+    '글감은 삭제하지 않고 보관 상태로 되돌립니다. 대기열에서 뺄까요?',
+    { title: '대기열에서 빼기', confirmText: '글감 보관으로 이동', cancelText: '취소' }
   );
   if (!confirmed) return;
   if (button) {
@@ -199,7 +200,7 @@ async function removeBlogNextQueueItem(item = {}, button) {
   }
   try {
     await postJson('/api/v1/continuous-publishing/queue/remove', { rowIndex });
-    showUiToast({ level: 'success', title: '대기열에서 제외', message: '글감을 삭제하지 않고 대기 상태로 되돌렸습니다.' });
+    showUiToast({ level: 'success', title: '대기열에서 제외', message: '글감을 삭제하지 않고 보관된 글감으로 옮겼습니다.' });
     await loadBlogNextQueue({ force: true });
   } catch (error) {
     setBlogNextTopicResult(error.message || '대기열에서 글감을 빼지 못했습니다.', 'error');
@@ -217,7 +218,7 @@ function renderBlogNextQueue(data = {}) {
   const count = document.getElementById('blog-next-queue-count');
   if (!list || !count) return;
   const items = Array.isArray(data.items) ? data.items : [];
-  count.textContent = `${Number(data.total ?? items.length)}건 대기 중`;
+  count.textContent = `발행 준비 ${Number(data.total ?? items.length)}건`;
   list.replaceChildren();
   if (items.length === 0) {
     const empty = document.createElement('div');

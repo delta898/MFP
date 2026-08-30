@@ -81,6 +81,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
 - Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/queue/remove`
 - 단건 runner API: `/api/v1/continuous-publishing/runner/start`, `/api/v1/continuous-publishing/runner/status`
+- 자동 실행 정책 API: `/api/v1/continuous-publishing/automation/settings`
 - 완성 원고 미리보기·직접 실행 API: `/api/v1/blog/local-markdown/preview`, `/api/v1/blog/local-markdown/publish`
 
 새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. 글감 등록 API는 기존 Topics
@@ -97,6 +98,7 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 - `다음 1건 실행`: 행 번호 오름차순의 첫 준비 글감을 생성·발행하고 진행·결과를 표시
 - `원고 폴더`: Markdown·이미지를 검증하고 Queue 저장 없이 바로 공개·임시 저장·예약 등록
 - `원고 붙여넣기`: 완성된 Markdown을 검증하고 Queue 저장 없이 바로 공개·임시 저장·예약 등록
+- `연속 발행 설정`: 현재 기기의 활성화 의사, 허용 시간대, 최소 간격과 알림 설정을 별도 로컬 파일에 저장
 - 글감별 저장 정보: 플랫폼, 대상별 카테고리, 글쓰기 전략, 이미지 처리, 외부 참고, 발행 방식과 예약 일시
 
 수동 runner는 실행 직전에도 해당 행이 `발행 준비 완료`인지 다시 확인하고, 한 앱 프로세스
@@ -104,6 +106,10 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 각 환경의 자동 발행 정책을 우회하지 않는다. 완성 원고 직접 실행도 Local에서는 차단되고
 Development·Production의 수동 발행 정책을 따른다. 주기 timer, 무제한 자동 재시도와 여러 PC를 아우르는
 distributed lease는 아직 제공하지 않는다.
+
+자동 실행 정책은 각 기기의 쓰기 가능한 `config/continuous_publishing.json`에 원자적으로 저장한다.
+이 파일은 개인 Queue나 발행 대상을 저장하지 않으며 Git 관리 대상도 아니다. 현재 화면의 다음 실행 시각은
+정책 미리보기다. 실제 timer는 여러 PC claim·lease가 준비될 때까지 연결하지 않는다.
 
 ## 후속 계약
 

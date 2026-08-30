@@ -5,6 +5,9 @@ const { createContinuousPublishingService } = require('./continuous-publishing.s
 
 function createService(state = {}) {
     return createContinuousPublishingService({
+        CONFIG: state.CONFIG,
+        automationSettingsRepository: state.automationSettingsRepository,
+        now: state.now,
         async ensureSheetsReadyForUi() {
             state.preflightCalls = (state.preflightCalls || 0) + 1;
         },
@@ -45,6 +48,50 @@ function createService(state = {}) {
         }
     });
 }
+
+test('automation settings remain device-local and do not activate the timer in development', () => {
+    let savedDocument = null;
+    const state = {
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development', configured: true,
+                effects: { manualPublish: true, automatedPublish: false }
+            }
+        },
+        now: () => new Date('2026-08-30T10:00:00+09:00'),
+        automationSettingsRepository: {
+            read() {
+                return {
+                    document: savedDocument || {
+                        schema_version: 1, enabled: false, allowed_start_time: '09:00', allowed_end_time: '18:00',
+                        interval_minutes: 60, notification_enabled: false, updated_at: null
+                    },
+                    source: savedDocument ? 'saved' : 'default', warnings: []
+                };
+            },
+            save(input) {
+                savedDocument = { schema_version: 1, ...input, updated_at: '2026-08-30T01:00:00.000Z' };
+                return { document: savedDocument, source: 'saved', warnings: [] };
+            }
+        }
+    };
+    const service = createService(state);
+
+    const result = service.saveAutomationSettings({
+        enabled: true,
+        allowed_start_time: '09:00',
+        allowed_end_time: '18:00',
+        interval_minutes: 60,
+        notification_enabled: true
+    });
+
+    assert.equal(result.settings.enabled, true);
+    assert.equal(result.runtime.environment, 'development');
+    assert.equal(result.runtime.environment_allows_automation, false);
+    assert.equal(result.runtime.effective_enabled, false);
+    assert.equal(result.runtime.status, 'blocked_by_environment');
+    assert.equal(result.runtime.next_run_at_preview, '2026-08-30T02:00:00.000Z');
+});
 
 async function waitForRunner(service) {
     for (let attempt = 0; attempt < 20; attempt += 1) {

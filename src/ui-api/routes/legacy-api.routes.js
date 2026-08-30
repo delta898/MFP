@@ -135,7 +135,10 @@ function createLegacyApiRouteHandler(deps = {}) {
     const continuousPublishingService = createContinuousPublishingService({
         Utils: deps.Utils,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
-        executeBlogRowAction: deps.executeBlogRowAction
+        executeBlogRowAction: deps.executeBlogRowAction,
+        CONFIG: deps.CONFIG,
+        fs: deps.fs,
+        path: deps.path
     });
     const continuousPublishingController = createContinuousPublishingController({
         service: continuousPublishingService,

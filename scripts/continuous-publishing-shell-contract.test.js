@@ -61,3 +61,15 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/publish/);
     assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);
 });
+
+test('continuous automation settings own timing but never topic delivery targets', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const automationScript = read('ui/scripts/features/blog-next/automation-settings.js');
+
+    assert.match(betaView, /id="blog-next-automation-enabled"/);
+    assert.match(betaView, /id="blog-next-automation-start-time"/);
+    assert.match(betaView, /id="blog-next-automation-end-time"/);
+    assert.match(betaView, /id="blog-next-automation-interval"/);
+    assert.match(automationScript, /continuous-publishing\/automation\/settings/);
+    assert.doesNotMatch(automationScript, /platforms|post_status|image_mode|naver_category|wordpress_category/);
+});
