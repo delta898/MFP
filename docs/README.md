@@ -84,6 +84,7 @@
 
 ## Active Work
 
+- `plans/archive/2026-08-30-local-trends-auth-infrastructure-development.md`
 - `plans/active/2026-08-29-ci-supabase-cli-setup-hotfix-development.md`
 - `plans/active/2026-08-29-ci-node24-actions-development.md`
 - `plans/active/2026-08-30-development-manual-publishing-development.md`

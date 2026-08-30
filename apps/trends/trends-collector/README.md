@@ -51,4 +51,5 @@ Production은 기본적으로 한 번 수집한 payload의 날짜·건수를 먼
 
 주요 설정은 API URL·대상 환경·내부 token, 네이버 계정 식별자와 세션 파일 경로입니다.
 Collector는 브라우저를 열기 전에 `/health`의 환경을 확인하며, 다른 환경의 API에는 전송하지
-않습니다. Production token과 secret은 진단이나 confirmation에 출력하지 않습니다.
+않습니다. Collector는 Supabase에 직접 접속하지 않으므로 Collector 설정 파일에 Supabase URL이나
+admin key를 두지 않습니다. Production token과 secret은 진단이나 confirmation에 출력하지 않습니다.

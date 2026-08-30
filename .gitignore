@@ -5,6 +5,7 @@ __pycache__/
 .env.development
 .env.production
 .secrets.env
+supabase/functions/.env
 apps/trends/trends-collector/config/.env.trends-collector.local
 apps/trends/trends-collector/config/.env.trends-collector.development
 apps/trends/trends-collector/config/.env.trends-collector.production

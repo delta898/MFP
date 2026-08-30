@@ -42,6 +42,43 @@ const DEVELOPMENT_MANIFEST = Object.freeze({
     })
 });
 
+test('local app launcher recreates an already-running Supabase stack when function secrets are first prepared', () => {
+    const calls = [];
+    const spawn = (command, args) => {
+        calls.push([command, ...args]);
+        if (args[0] === 'status') {
+            return {
+                status: 0,
+                stdout: JSON.stringify({
+                    API_URL: 'http://127.0.0.1:54321',
+                    PUBLISHABLE_KEY: 'local-public-key'
+                })
+            };
+        }
+        return { status: 0, stdout: '' };
+    };
+
+    prepareLocalEnvironment({
+        repoRoot: '/repo',
+        spawn,
+        quiet: true,
+        fs: {
+            existsSync: () => false,
+            readFileSync: () => ''
+        },
+        env: {},
+        prepareLocalSecrets: () => ({ requiresFunctionRuntimeRestart: true }),
+        startLocalTrendsApi: () => 0
+    });
+
+    assert.deepEqual(calls, [
+        ['supabase', 'status', '--output', 'json'],
+        ['supabase', 'stop'],
+        ['supabase', 'start', '--exclude', 'realtime,storage-api,imgproxy,studio'],
+        ['supabase', 'status', '--output', 'json']
+    ]);
+});
+
 test('local status parser supports current publishable key output', () => {
     assert.deepEqual(parseLocalSupabaseStatus(JSON.stringify({
         API_URL: 'http://127.0.0.1:54321/',
@@ -79,12 +116,19 @@ test('local app launcher starts Supabase and injects its discovered public conne
                 'GOOGLE_OAUTH_CLIENT_SECRET=local-google-secret'
             ].join('\n')
         },
-        env: { BLOGGENIUS_ENV: 'development' }
+        env: { BLOGGENIUS_ENV: 'development' },
+        prepareLocalSecrets: () => { calls.push(['prepare-local-secrets']); },
+        startLocalTrendsApi: ({ detached }) => {
+            calls.push(['start-local-trends-api', detached]);
+            return 0;
+        }
     });
 
     assert.deepEqual(calls, [
+        ['prepare-local-secrets'],
         ['supabase', 'start', '--exclude', 'realtime,storage-api,imgproxy,studio'],
-        ['supabase', 'status', '--output', 'json']
+        ['supabase', 'status', '--output', 'json'],
+        ['start-local-trends-api', true]
     ]);
     assert.equal(env.BLOGGENIUS_ENV, 'local');
     assert.equal(env.BLOGGENIUS_RUNTIME_ROOT, path.resolve('/repo'));
@@ -259,4 +303,6 @@ test('package scripts expose safe environment-specific launch shortcuts', () => 
     assert.match(gitignore, /^\.env\.development$/m);
     assert.match(gitignore, /^\.env\.production$/m);
     assert.match(gitignore, /^\.env\.oauth$/m);
+    assert.match(gitignore, /^supabase\/functions\/\.env$/m);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, 'supabase', 'functions', '.env.sample')), true);
 });

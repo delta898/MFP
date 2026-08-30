@@ -104,7 +104,8 @@ supabase stop --no-backup
 
 ### BlogGenius 앱을 Local로 실행하기
 
-다음 명령 하나로 Local Supabase를 시작하고, URL과 publishable key를 자동으로 읽어 앱에 전달한다.
+다음 명령 하나로 Local secret을 준비하고, Local Supabase와 Local Trends API를 시작한 뒤 URL과
+publishable key를 자동으로 읽어 앱에 전달한다.
 개발 런처는 Electron의 macOS 사용자 데이터 폴더가 아니라 저장소 루트의
 `config/config.json`을 사용한다.
 
@@ -119,6 +120,25 @@ npm run app:local
 ```text
 [Runtime Environment] local / 127.0.0.1:54321
 ```
+
+첫 실행에서는 Git에서 제외된 다음 파일을 sample로부터 자동으로 만들고 권한을 `600`으로 제한한다.
+
+- `supabase/functions/.env`: Local Edge Function이 단기 Trends read token을 서명하는 secret
+- `apps/trends/trends-collector/config/.env.trends-collector.local`: Collector가 Local Trends API에
+  적재할 때 사용하는 내부 token
+
+기존 Collector 파일에 `TRENDS_READ_TOKEN_SECRET`이 있으면 Functions 파일로 한 번 이전한 뒤
+Collector 파일에서는 제거한다. 이전 구조에서 남은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `TRENDS_SUPABASE_TARGET_ENV`도 함께 제거한다. Collector는 Supabase에
+직접 쓰지 않고 `TRENDS_API_TOKEN`으로 Local Trends API에 수집 결과를 전달한다.
+고정 Local endpoint는 `TRENDS_API_BASE_URL` 하나로 표현하므로 과거의 중복
+`TRENDS_API_HOST`·`TRENDS_API_PORT` 항목도 정리한다.
+두 secret 값은 앱 환경이나 로그로 전달하지 않는다.
+이때 Local Supabase가 이미 실행 중이면 새 Functions secret을 반영하기 위해 기존 데이터를 보존하는
+`supabase stop` 후 한 번만 다시 시작한다. 이후 실행에서는 불필요한 재시작을 하지 않는다.
+
+`run_local.sh`의 준비 순서는 Local secret 준비 → Local Supabase 시작 → loopback
+`127.0.0.1:4581`의 Local Trends API 시작 → BlogGenius Desktop 실행이다.
 
 ## 3.1 환경별 라이선스 파일
 

@@ -15,11 +15,15 @@ BlogGenius의 트렌드 백엔드는 역할별로 분리되어 있습니다.
 - Collector Local: `apps/trends/trends-collector/config/.env.trends-collector.local`
 - Collector Development: `apps/trends/trends-collector/config/.env.trends-collector.development`
 - Collector Production: `apps/trends/trends-collector/config/.env.trends-collector.production`
+- Local Edge Functions: `supabase/functions/.env`
 - Development API: `apps/trends/trends-api/deployment/development/.env.trends-api.development`
 - Production API: `apps/trends/trends-api/deployment/production/.env.trends-api.production`
 
 각 실제 파일은 Git에서 제외됩니다. 같은 위치의 `.sample` 또는 `.example`을 복사해 한 번만
 설정합니다. Desktop용 저장소 루트 `.env.development`와는 별개입니다.
+
+Local에서는 `./run_local.sh`가 두 Local 파일을 sample에서 자동 생성한다. 단기 read token의 signing
+secret은 공식 Supabase Local Functions 파일이 소유하며, Collector 파일에는 ingest token만 둔다.
 
 ## 수집
 

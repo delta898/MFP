@@ -11,6 +11,10 @@ const {
     loadManifest,
     inspectHostedDevelopmentReadiness
 } = require('./hosted-development-readiness');
+const {
+    ensureLocalSecretFiles,
+    runLocalTrendsApiContainer
+} = require('./trends-local-api-container');
 
 const SUPPORTED_ENVIRONMENTS = Object.freeze(['local', 'development']);
 const LOCAL_EXCLUDED_SERVICES = 'realtime,storage-api,imgproxy,studio';
@@ -57,6 +61,25 @@ function prepareLocalEnvironment(options = {}) {
         fs: options.fs,
         env: options.env || process.env
     });
+    const prepareLocalSecrets = options.prepareLocalSecrets || ensureLocalSecretFiles;
+    const startLocalTrendsApi = options.startLocalTrendsApi || runLocalTrendsApiContainer;
+    const localSecrets = prepareLocalSecrets({ repoRoot });
+    if (localSecrets?.requiresFunctionRuntimeRestart) {
+        const existingStatus = spawn('supabase', ['status', '--output', 'json'], {
+            cwd: repoRoot,
+            env: baseEnv,
+            stdio: 'pipe',
+            encoding: 'utf8'
+        });
+        if (!existingStatus.error && existingStatus.status === 0) {
+            runChecked(spawn, 'supabase', ['stop'], {
+                cwd: repoRoot,
+                env: baseEnv,
+                stdio: options.quiet ? 'pipe' : 'inherit',
+                encoding: 'utf8'
+            });
+        }
+    }
 
     runChecked(spawn, 'supabase', [
         'start',
@@ -78,6 +101,15 @@ function prepareLocalEnvironment(options = {}) {
         encoding: 'utf8'
     });
     const status = parseLocalSupabaseStatus(statusResult.stdout);
+    const trendsStatus = startLocalTrendsApi({
+        repoRoot,
+        spawn,
+        env: baseEnv,
+        detached: true
+    });
+    if (trendsStatus !== 0) {
+        throw new Error(`Local Trends API failed to start with exit code ${trendsStatus}`);
+    }
 
     return Object.freeze({
         ...baseEnv,
