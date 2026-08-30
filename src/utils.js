@@ -3464,7 +3464,7 @@ const Utils = {
      * 2. 구글 시트 상태 업데이트
      * 🔧 [Refactored] callWithRetry 사용 및 백업 로깅 유지
      */
-    updateGoogleSheetStatus: async function (rowIndex, status, logMessage) {
+    updateGoogleSheetStatus: async function (rowIndex, status, logMessage, options = {}) {
         try {
             const accessToken = await this.getGoogleAccessToken();
             const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
@@ -3534,6 +3534,7 @@ const Utils = {
             } catch (fileErr) {
                 Logger.error(`   ❌ 백업 로그 기록 실패: ${fileErr.message}`);
             }
+            if (options.throwOnError === true) throw e;
         }
     },
 
@@ -3567,11 +3568,14 @@ const Utils = {
             imageMode,
             imageGeneration: imageMode === 'generate',
             externalReference: toYesNo(Boolean(fields.externalReference)),
-            writingStrategy: String(fields.writingStrategy || '').trim()
+            writingStrategy: String(fields.writingStrategy || '').trim(),
+            platforms: Array.isArray(fields.platforms)
+                ? fields.platforms.map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
+                : String(fields.platforms || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
         };
 
-        if (!normalized.subject) {
-            throw new Error('Subject는 비워둘 수 없습니다.');
+        if (!normalized.subject && !normalized.keywords && !normalized.instruction && !normalized.referenceUrl) {
+            throw new Error('주제, 키워드, 지시사항 또는 참고 URL 중 하나가 필요합니다.');
         }
 
         const accessToken = await this.getGoogleAccessToken();
@@ -3650,7 +3654,8 @@ const Utils = {
                 imageMode: normalized.imageMode,
                 imageGeneration: normalized.imageGeneration,
                 externalReference: normalized.externalReference === 'Yes',
-                writingStrategy: normalized.writingStrategy
+                writingStrategy: normalized.writingStrategy,
+                platforms: normalized.platforms
             });
             dataToUpdate.push({
                 range: `${sheetName}!${toA1(map.options)}${targetRow}`,
@@ -3670,6 +3675,7 @@ const Utils = {
             headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
         }));
         await this.sleep(300);
+        this.clearSheetCache('topics');
     },
 
     /**

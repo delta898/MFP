@@ -17,11 +17,21 @@ function createService(state = {}) {
             async readGoogleSheetTopicsAll(options) {
                 state.readOptions = options;
                 return {
-                    items: [{ rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글' }],
+                    items: [{ rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글' }],
                     total: 1,
                     limit: options.limit,
                     offset: 0
                 };
+            },
+            async updateGoogleSheetTopicEditableFields(rowIndex, fields) {
+                state.updatedRowIndex = rowIndex;
+                state.updatedFields = fields;
+            },
+            async updateGoogleSheetStatus(rowIndex, status, message, options) {
+                state.statusUpdate = { rowIndex, status, message, options };
+            },
+            clearSheetCache(prefix) {
+                state.clearedPrefix = prefix;
             }
         }
     });
@@ -93,4 +103,53 @@ test('ready queue is the FIFO projection of Topics ready rows', async () => {
         sortBy: 'rowNumber',
         sortDir: 'asc'
     });
+});
+
+test('ready topic update validates and preserves the row identity', async () => {
+    const state = {};
+    const service = createService(state);
+
+    const result = await service.updateReadyTopic({
+        rowIndex: 2,
+        subject: '수정한 글감',
+        keywords: '제주, 산책',
+        platforms: ['naver', 'wordpress'],
+        postStatus: 'draft',
+        writingStrategy: 'discovery',
+        imageMode: 'none'
+    });
+
+    assert.equal(result.rowNumber, 4);
+    assert.equal(state.updatedRowIndex, 2);
+    assert.deepEqual(state.updatedFields.platforms, ['naver', 'wordpress']);
+    assert.equal(state.updatedFields.status, '발행 준비 완료');
+    assert.equal(state.updatedFields.postStatus, 'draft');
+    assert.equal(state.clearedPrefix, 'topics');
+});
+
+test('remove returns the same topic to waiting without deleting it', async () => {
+    const state = {};
+    const service = createService(state);
+
+    const result = await service.removeReadyTopic({ rowIndex: 2 });
+
+    assert.equal(result.status, '대기');
+    assert.deepEqual(state.statusUpdate, {
+        rowIndex: 2,
+        status: '대기',
+        message: '연속 발행 대기열에서 제외',
+        options: { throwOnError: true }
+    });
+    assert.equal(state.clearedPrefix, 'topics');
+});
+
+test('queue mutation refuses a stale row that is no longer ready', async () => {
+    const state = {};
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.removeReadyTopic({ rowIndex: 99 }),
+        (error) => error.status === 409 && error.apiCode === 'QUEUE_ITEM_NOT_READY'
+    );
+    assert.equal(state.statusUpdate, undefined);
 });

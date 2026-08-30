@@ -86,6 +86,7 @@
 ## Active Work
 
 - `plans/active/2026-08-30-continuous-publishing-main-development.md`
+- `plans/archive/2026-08-30-continuous-publishing-03-queue-management-development.md`
 - `plans/archive/2026-08-30-continuous-publishing-02-quick-queue-slice-development.md`
 - `plans/archive/2026-08-30-continuous-publishing-01-contract-shell-development.md`
 - `plans/archive/2026-08-30-local-trends-auth-infrastructure-development.md`

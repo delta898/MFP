@@ -21,6 +21,24 @@ function createContinuousPublishingController(deps = {}) {
             } catch (error) {
                 return toErrorResponse(res, requestId, 'CONTINUOUS_QUEUE_READ_FAILED', '발행 대기열을 불러오지 못했습니다.', error);
             }
+        },
+
+        async updateTopic({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.updateReadyTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'QUEUE_PLAN_UPDATE_FAILED', '발행 계획을 수정하지 못했습니다.', error);
+            }
+        },
+
+        async removeFromQueue({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.removeReadyTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'QUEUE_REMOVE_FAILED', '대기열에서 글감을 빼지 못했습니다.', error);
+            }
         }
     };
 }

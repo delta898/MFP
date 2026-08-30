@@ -206,6 +206,7 @@ function startFixtureServer(requests) {
                 const queued = payload.action === 'enqueue';
                 if (queued) {
                     continuousPublishingQueue.push({
+                        rowIndex: 10 + continuousPublishingQueue.length,
                         rowNumber: 12 + continuousPublishingQueue.length,
                         status: '발행 준비 완료',
                         subject: payload.subject,
@@ -218,6 +219,40 @@ function startFixtureServer(requests) {
                     success: true,
                     data: { action: payload.action, status: queued ? '발행 준비 완료' : '대기', rowNumber: 12 }
                 });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/continuous-publishing/topics/update' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const item = continuousPublishingQueue.find(candidate => candidate.rowIndex === payload.rowIndex);
+                if (item) {
+                    item.subject = payload.subject;
+                    item.postStatus = payload.postStatus;
+                    item.options = { ...item.options, platforms: payload.platforms };
+                }
+                const body = JSON.stringify({ success: true, data: { rowIndex: payload.rowIndex, status: '발행 준비 완료' } });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/continuous-publishing/queue/remove' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === payload.rowIndex);
+                if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
+                const body = JSON.stringify({ success: true, data: { rowIndex: payload.rowIndex, status: '대기' } });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
             });
@@ -443,6 +478,21 @@ async function run() {
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '1건 대기 중');
         assert.equal((await page.locator('.blog-next-queue-item strong').textContent())?.trim(), '곧 발행할 제주 글감');
         assert.equal((await page.locator('.blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
+        await page.locator('.blog-next-queue-actions .secondary').click();
+        assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '발행 계획 저장');
+        await page.locator('#blog-next-subject').fill('수정한 제주 글감');
+        await page.locator('#blog-next-target-wordpress').check();
+        await page.locator('#blog-next-enqueue-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('발행 계획을 수정했습니다'));
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.waitForFunction(() => document.querySelector('.blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
+        assert.equal((await page.locator('.blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
+        await page.locator('.blog-next-queue-actions .ghost').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
+        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건 대기 중');
         await page.locator('[data-blog-next-tab="automation"]').click();
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
 
@@ -581,7 +631,9 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
-            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' }
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' }
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);

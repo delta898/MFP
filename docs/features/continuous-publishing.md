@@ -78,6 +78,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - UI module: `ui/scripts/features/blog-next/`
 - domain contract: `src/continuous-publishing/`
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
+- Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/queue/remove`
 
 새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. 글감 등록 API는 기존 Topics
 Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPress 발행 dependency를
@@ -88,9 +89,12 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 - `글감 저장`: 아이디어 필드 하나 이상을 확인하고 `대기`로 저장
 - `발행 대기열에 추가`: 아이디어, 발행 대상과 예약 정보를 확인하고 `발행 준비 완료`로 저장
 - `발행 대기열`: Topics Sheet의 준비된 글감을 행 번호 오름차순으로 표시
+- `발행 계획 수정`: 같은 Topics 행에서 플랫폼·카테고리·전략·이미지·외부 참고·발행 방식을 수정
+- `대기열에서 빼기`: 행을 삭제하지 않고 상태만 `대기`로 복귀
 - 글감별 저장 정보: 플랫폼, 대상별 카테고리, 글쓰기 전략, 이미지 처리, 외부 참고, 발행 방식과 예약 일시
 
-Queue 행 수정·제외·재시도와 연속 발행 runner는 아직 제공하지 않는다.
+실패 재시도와 연속 발행 runner는 아직 제공하지 않는다. Queue mutation은 요청 직전에도 해당 행이
+여전히 `발행 준비 완료`인지 확인하여 오래된 화면이 이미 처리된 글을 덮어쓰지 않게 한다.
 
 ## 후속 계약
 

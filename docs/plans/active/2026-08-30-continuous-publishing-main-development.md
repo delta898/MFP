@@ -63,6 +63,9 @@ BlogGenius가 설정된 간격과 시간대에 한 건씩 원고를 생성하고
 - 2026-08-30: Stage 1을 parent에 통합하고 Stage 2 빠른 등록·최소 Queue vertical slice를 시작했다.
 - 2026-08-30: Stage 2에서 legacy quick-publish를 호출하지 않는 AI-free topic capture API와 Topics 기반 FIFO Queue를 구현했다.
 - 2026-08-30: 사용자가 Stage 2의 `대기` 저장과 Queue 추가를 Local에서 확인했으며, 기존 추천 기능은 후속 입력 보조 단계에서 새 경계로 연결하기로 했다.
+- 2026-08-30: Stage 2를 parent에 통합하고 Stage 3 Queue 발행 계획 관리 작업을 시작했다.
+- 2026-08-30: Stage 3에서 same-row 발행 계획 수정, 안전한 `대기` 복귀와 stale mutation 차단을 구현하고 자동 검증을 완료했다.
+- 2026-08-30: 사용자가 Stage 3 mutation을 확인했다. Queue 수와 Topics `대기` 상태의 라벨 충돌, 수정·제거 후 화면 문맥 이탈은 후속 UI 정리 대상으로 남겼다.
 
 ## 완료 기준
 
