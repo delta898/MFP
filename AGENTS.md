@@ -73,6 +73,10 @@
 
 ## Verification and Handoff
 - Match verification effort to risk: documentation or version-only edits need focused consistency checks; domain or prompt changes need unit/contract tests; UI behavior changes need the relevant browser/UI regression tests in addition to focused tests.
+- During implementation, run the narrowest focused tests that cover the changed module or contract. Do not repeatedly run the full unit suite after small UI, copy, style, or locally bounded edits.
+- For UI work, run focused UI contract tests while iterating and the relevant browser smoke test when the reviewable UI slice is complete.
+- Run the full unit suite before merging a completed sub-feature into its parent, before merging a completed parent feature into `dev`, during release preparation, or earlier only when a change crosses shared configuration, Sheet contracts, publishing engines, environment boundaries, or another broad-risk boundary.
+- If the user has chosen to perform hands-on UI acceptance before parent merge, focused and browser verification may precede that review; defer the full unit suite until the merge candidate is otherwise ready unless risk requires it sooner.
 - Run the narrowest relevant automated tests during implementation, then run the agreed broader regression suite before merging a completed feature parent or preparing a release.
 - The agent should verify behavior that can be automated. The user performs final visual and exploratory UI testing when they have chosen to do so; provide a concise list of flows that need manual confirmation.
 - Do not use a successful automated test as evidence that visual layout is correct. Likewise, a user-approved UI does not replace automated regression checks for underlying behavior.

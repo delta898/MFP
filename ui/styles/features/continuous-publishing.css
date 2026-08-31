@@ -237,6 +237,10 @@
   gap: 10px;
 }
 
+.blog-next-form-actions .blog-next-clear-action {
+  margin-inline-start: 12px;
+}
+
 .blog-next-form-actions button,
 #blog-next-queue-refresh {
   padding: 11px 16px;

@@ -178,7 +178,18 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/blog/topics') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/shopping/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/blog/auto/categories') return { categories: [] };
-    if (pathname === '/api/v1/trend-posting/meta') return { categories: [] };
+    if (pathname === '/api/v1/trend-posting/meta') {
+        return { categories: ['여행'], dateRange: { min: '2026-08-20', max: '2026-08-30' } };
+    }
+    if (pathname === '/api/v1/trend-posting/keywords') {
+        return {
+            count: 1,
+            items: [{
+                id: 'trend-beta-1', keyword: '제주 가을 여행', latestTrendDate: '2026-08-30',
+                categories: ['여행'], change: { type: 'up', amount: 12, raw: '12↑' }
+            }]
+        };
+    }
     if (pathname === '/api/v1/trend-posting/recent-topics') return { items: [] };
     return {};
 }
@@ -294,6 +305,22 @@ function startFixtureServer(requests) {
                         smart_usage_session_id: payload.smart_usage_session_id || '',
                         smart_usage: { capability: 'title_recommendation', limit: 20, used: 1, remaining: 19 }
                     }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/trend-posting/topics' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const body = JSON.stringify({
+                    success: true,
+                    data: { ...payload, source: 'naver_trend', status: '대기', rowNumber: 2, rowIndex: 0 }
                 });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
@@ -722,6 +749,29 @@ async function run() {
 
         assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+        assert.deepEqual(
+            await page.locator('.blog-next-form-actions button').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
+            ['바로 포스팅', '발행 대기열에 추가', '글감 보관', '내용 지우기']
+        );
+        assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.classList.contains('primary')), true);
+        assert.equal(await page.locator('#blog-next-clear-topic').evaluate((element) => element.classList.contains('blog-next-clear-action')), true);
+
+        await page.locator('[data-blog-next-tab="trend-posting"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-trend-query')?.disabled === false);
+        await page.locator('#blog-next-trend-query').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
+        assert.equal(await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').count(), 1);
+        await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-trend-results [data-blog-next-trend-save]')?.textContent === '보관 완료');
+        assert.equal(await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').isDisabled(), true);
+        const savedTrendRequest = requests.find((request) => request.pathname === '/api/v1/trend-posting/topics');
+        assert.deepEqual(savedTrendRequest?.body, { keyword: '제주 가을 여행', trendDate: '2026-08-30' });
+        await page.locator('#blog-next-trend-results [data-blog-next-trend-select]').click();
+        assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '제주 가을 여행');
+        assert.equal(await page.locator('#blog-next-keywords').inputValue(), '제주 가을 여행');
+        assert.equal(await page.locator('#blog-next-title').inputValue(), '');
+        await page.locator('#blog-next-clear-topic').click();
 
         await page.locator('#blog-next-subject').fill('기존에 적어둔 제주 글감');
         await page.locator('#blog-next-keywords').fill('제주 산책');
@@ -805,8 +855,8 @@ async function run() {
         await page.locator('#blog-next-saved-list .blog-next-queue-copy').click();
         assert.equal((await page.locator('#blog-next-editor-title').textContent())?.trim(), '보관한 글감 계속 작성');
         assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
-        assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '보관');
-        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '대기열 추가');
+        assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '저장');
+        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '발행 대기열에 추가');
         assert.equal((await page.locator('#blog-next-clear-topic').textContent())?.trim(), '취소');
         await page.locator('#blog-next-subject').fill('다듬은 제주 글감');
         await page.locator('#blog-next-save-topic').click();
@@ -824,6 +874,17 @@ async function run() {
         assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
         assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '저장');
         assert.equal(await page.locator('#blog-next-save-topic').evaluate((element) => element.hidden), true);
+        assert.equal((await page.locator('#blog-next-publish-now').textContent())?.trim(), '바로 포스팅');
+        assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-publish-now').isEnabled(), true);
+        assert.deepEqual(
+            await page.locator('#blog-next-editor-actions-slot .blog-next-form-actions button:not([hidden])')
+                .evaluateAll((buttons) => buttons
+                    .map((button) => ({ text: button.textContent.trim(), order: Number(getComputedStyle(button).order) }))
+                    .sort((left, right) => left.order - right.order)
+                    .map(({ text }) => text)),
+            ['저장', '바로 포스팅', '취소']
+        );
         await page.locator('#blog-next-subject').fill('수정한 제주 글감');
         await page.locator('#blog-next-target-wordpress').check();
         await page.locator('#blog-next-enqueue-topic').click();
@@ -831,12 +892,34 @@ async function run() {
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('#blog-next-queue-list .blog-next-queue-actions button', { hasText: '빼기' }).click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
         assert.equal((await page.locator('#blog-next-saved-count').textContent())?.trim(), '1건');
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건');
+
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.locator('#blog-next-subject').fill('바로 처리할 글감');
+        await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-subject')?.value === '');
+        const directTopicRequest = requests.find((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+            && request.body?.subject === '바로 처리할 글감'
+        ));
+        const directRunnerRequest = requests.find((request) => (
+            request.pathname === '/api/v1/continuous-publishing/runner/start'
+            && Number.isInteger(request.body?.rowIndex)
+        ));
+        assert.equal(directTopicRequest?.body?.action, 'enqueue');
+        assert.equal(Number.isInteger(directRunnerRequest?.body?.rowIndex), true);
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.locator('[data-blog-next-management-tab="ready"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('#blog-next-subject').fill('먼저 실행할 글감');
@@ -853,6 +936,7 @@ async function run() {
         assert.equal(await readyCards.nth(0).locator('[data-blog-next-queue-move="up"]').isDisabled(), true);
         assert.equal(await readyCards.nth(0).locator('[data-blog-next-queue-move="down"]').isDisabled(), false);
         assert.equal(await readyCards.nth(1).locator('[data-blog-next-queue-move="down"]').isDisabled(), true);
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await readyCards.nth(0).locator('[data-blog-next-queue-move="down"]').click();
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '나중 실행할 글감');
         assert.equal((await page.locator('#ui-toast-container').textContent()).includes('순서 변경 완료'), false);
@@ -1056,6 +1140,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
+            { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
@@ -1064,6 +1149,8 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/delete' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/reorder' },

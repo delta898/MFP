@@ -88,4 +88,29 @@ test('normalization ignores unknown platforms and uses safe defaults', () => {
     assert.equal(topic.writingStrategy, 'search');
     assert.equal(topic.imageMode, 'prompt_only');
     assert.equal(topic.postStatus, 'publish');
+    assert.equal(topic.source, 'blog_next');
+    assert.equal(topic.trendDate, '');
+});
+
+test('selected Naver trend keeps its provenance in the Topics row', () => {
+    const row = buildTopicSheetRow({
+        subject: '제주 가을 여행',
+        keywords: '제주 가을 여행',
+        platforms: ['naver'],
+        source: 'naver_trend',
+        trendDate: '2026-08-30'
+    }, { ready: true });
+
+    assert.equal(row.source, 'naver_trend');
+    assert.equal(row.trendDate, '2026-08-30');
+});
+
+test('selected Naver trend rejects a missing or impossible trend date', () => {
+    const missing = validateTopicCapture({ subject: '트렌드 글감', source: 'naver_trend' });
+    const impossible = validateTopicCapture({ subject: '트렌드 글감', source: 'naver_trend', trendDate: '2026-02-31' });
+
+    assert.equal(missing.valid, false);
+    assert.equal(missing.errors[0].code, 'TREND_DATE_INVALID');
+    assert.equal(impossible.valid, false);
+    assert.equal(impossible.errors[0].code, 'TREND_DATE_INVALID');
 });

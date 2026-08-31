@@ -25,6 +25,12 @@ function normalizePlatforms(value) {
         .filter((item) => READY_PLATFORMS.includes(item));
 }
 
+function isValidYmd(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 function hasIdeaSeed(topic = {}) {
     return Boolean(
         topic.subject
@@ -38,6 +44,7 @@ function normalizeTopicCaptureInput(input = {}) {
     const postStatus = normalizeEnum(input.postStatus, READY_POST_STATUSES, 'publish');
     const imageMode = normalizeEnum(input.imageMode, IMAGE_MODES, 'prompt_only');
 
+    const source = normalizeText(input.source) === 'naver_trend' ? 'naver_trend' : 'blog_next';
     return {
         subject: normalizeText(input.subject),
         title: normalizeText(input.title),
@@ -51,7 +58,9 @@ function normalizeTopicCaptureInput(input = {}) {
         imageMode,
         externalReference: input.externalReference !== false,
         postStatus,
-        scheduleDate: normalizeText(input.scheduleDate)
+        scheduleDate: normalizeText(input.scheduleDate),
+        source,
+        trendDate: source === 'naver_trend' ? normalizeText(input.trendDate) : ''
     };
 }
 
@@ -67,6 +76,10 @@ function validateTopicCapture(input = {}, options = {}) {
     const invalidReferenceUrl = topic.referenceUrls.find((url) => !/^https?:\/\//i.test(url));
     if (invalidReferenceUrl) {
         errors.push({ field: 'referenceUrls', code: 'REFERENCE_URL_INVALID', message: '참고 URL은 http 또는 https 주소로 입력해 주세요.' });
+    }
+
+    if (topic.source === 'naver_trend' && !isValidYmd(topic.trendDate)) {
+        errors.push({ field: 'trendDate', code: 'TREND_DATE_INVALID', message: '선택한 트렌드의 기준일을 확인해 주세요.' });
     }
 
     if (ready && topic.platforms.length === 0) {
@@ -108,7 +121,8 @@ function buildTopicSheetRow(input = {}, options = {}) {
             mode: topic.imageMode,
             generate: topic.imageMode === 'generate'
         },
-        source: 'blog_next',
+        source: topic.source,
+        trendDate: topic.trendDate,
         status,
         category: (topic.naverCategory || topic.wordpressCategory)
             ? `N:${topic.naverCategory}, W:${topic.wordpressCategory}`

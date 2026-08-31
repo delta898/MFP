@@ -83,6 +83,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - 글감·Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/topics/delete`, `/api/v1/continuous-publishing/queue/remove`, `/api/v1/continuous-publishing/queue/reorder`
 - 단건 runner API: `/api/v1/continuous-publishing/runner/start`, `/api/v1/continuous-publishing/runner/status`
 - 자동 실행 정책 API: `/api/v1/continuous-publishing/automation/settings`
+- 수동 트렌드 탐색 API: `/api/v1/trend-posting/meta`, `/api/v1/trend-posting/keywords`
 - 완성 원고 미리보기·직접 실행 API: `/api/v1/blog/local-markdown/preview`, `/api/v1/blog/local-markdown/publish`
 
 새 UI는 legacy blog DOM controller를 호출하거나 복제하지 않는다. 글감 등록 API는 기존 Topics
@@ -102,6 +103,8 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 - `순서 변경`: 준비 항목의 위·아래 버튼으로 Topics Sheet 행 전체를 인접 준비 항목 앞이나 뒤로 이동
 - `지금 실행`: 선택한 준비 글감을 대기 순서와 무관하게 현재 포스팅 계획 그대로 수동 처리
 - `입력 보조`: 기존 글감 추천·키워드 탐색·AI 제목 추천을 Blog Beta 입력 대상으로 재사용
+- `트렌드 포스팅`: 사용자가 카테고리·기간으로 키워드를 조회하고 하나를 선택해 빠른 글 작성에서 구체화
+- `바로 포스팅`: 발행 계획을 먼저 `발행 준비 완료` 행으로 안전하게 기록한 뒤 해당 행을 기존 runner로 즉시 처리
 - `추천 제목 보존`: 사용자가 선택한 AI 제목을 글감 옵션으로 저장하고 실제 원고 생성에 사용
 - `반복 입력 편의`: 보관·대기열 추가 후 주제·제목 등 내용만 비우고 포스팅 설정은 유지
 - `기기별 기본값`: 최근 성공적으로 사용한 대상·카테고리·전략·이미지·포스팅 옵션·외부 참고 설정을 브라우저 저장소에 조용히 기억
@@ -131,6 +134,10 @@ distributed lease는 제공하지 않는다. 사용자는 여러 기기 중 한 
 추천 UI는 하나의 구현을 공유하되 명시적인 입력 대상을 사용하므로 기존 `빠른 포스팅` 값과
 `블로그 Beta` 값이 서로 덮어쓰이지 않는다.
 
+트렌드 포스팅은 기존 조회 service와 API만 공유하고 Blog Beta 전용 DOM·controller를 사용한다.
+키워드 선택은 주제와 키워드를 빠른 글 작성으로 옮길 뿐 AI, Topics 저장이나 발행을 시작하지 않는다.
+사용자가 발행 계획을 확인한 뒤 보관·대기열 추가·바로 포스팅 중 하나를 명시적으로 선택한다.
+
 기기별 기본값에는 비밀정보를 저장하지 않는다. 실제 글감의 발행 계획은 계속 Topics Sheet 행이
 소유하며, 브라우저 저장소는 다음 글을 입력할 때 폼을 편리하게 채우는 용도로만 사용한다.
 
@@ -150,4 +157,4 @@ distributed lease는 제공하지 않는다. 사용자는 여러 기기 중 한 
 
 - 단일 활성 기기 원칙을 사용자가 놓치지 않게 안내하는 운영 UX
 - 예약 시각이 처리 시점에 지났거나 너무 가까운 경우의 확인 정책
-- Trends/RSS가 발행 계획을 완성해 자동으로 `발행 준비 완료`가 되는 고급 규칙
+- 기존 `블로그` 메뉴를 숨기기 전에 Blog Beta 대체 흐름과 운영 회귀를 최종 확인

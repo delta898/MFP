@@ -120,6 +120,22 @@
   box-shadow: none;
 }
 
+.blog-next-editor-modal-actions #blog-next-save-topic {
+  order: 0;
+}
+
+.blog-next-editor-modal-actions #blog-next-enqueue-topic {
+  order: 1;
+}
+
+.blog-next-editor-modal-actions #blog-next-publish-now {
+  order: 2;
+}
+
+.blog-next-editor-modal-actions #blog-next-clear-topic {
+  order: 3;
+}
+
 .blog-next-editor-modal-body .blog-next-form-result {
   margin-bottom: 0;
 }

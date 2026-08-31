@@ -42,9 +42,16 @@ test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1'
 test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queue', () => {
     const betaView = read('ui/partials/views/blog-next.html');
     const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
+    const enqueueIndex = betaView.indexOf('id="blog-next-enqueue-topic"');
+    const saveIndex = betaView.indexOf('id="blog-next-save-topic"');
+    const clearIndex = betaView.indexOf('id="blog-next-clear-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
+    assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>바로 포스팅/);
+    assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*>내용 지우기/);
+    assert.equal(publishIndex < enqueueIndex && enqueueIndex < saveIndex && saveIndex < clearIndex, true);
     assert.match(betaView, /id="blog-next-queue-list"/);
     assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
@@ -149,4 +156,25 @@ test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic 
     assert.match(routeSource, /\/api\/v1\/continuous-publishing\/queue\/reorder/);
     assert.match(orderSource, /moveDimension/);
     assert.doesNotMatch(orderSource, /claim|lease|order[_-](?:id|column)|drag/i);
+});
+
+test('Stage 10 keeps trend discovery manual and hands one selection to quick writing', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
+    const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+
+    assert.match(betaView, /data-blog-next-tab="trend-posting">트렌드 포스팅/);
+    assert.match(betaView, /id="blog-next-panel-trend-posting"/);
+    assert.match(trendScript, /data-blog-next-trend-select/);
+    assert.match(trendScript, /data-blog-next-trend-save/);
+    assert.match(trendScript, /\/api\/v1\/trend-posting\/topics/);
+    assert.match(betaView, /id="blog-next-publish-now"[^>]*>바로 포스팅/);
+    assert.match(trendScript, /\/api\/v1\/trend-posting\/meta/);
+    assert.match(trendScript, /\/api\/v1\/trend-posting\/keywords/);
+    assert.match(trendScript, /activateBlogNextTab\('quick'\)/);
+    assert.match(trendScript, /blog-next-subject/);
+    assert.doesNotMatch(trendScript, /continuous-publishing\/topics|runner\/start|quick-publish/);
+    assert.match(quickQueueScript, /action === 'publish-now' \? 'enqueue'/);
+    assert.match(quickQueueScript, /editing\s*\? '\/api\/v1\/continuous-publishing\/topics\/update'/);
+    assert.match(quickQueueScript, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\) \}\)/);
 });

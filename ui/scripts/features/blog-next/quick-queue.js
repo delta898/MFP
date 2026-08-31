@@ -82,6 +82,7 @@ function rememberBlogNextTopicDefaults() {
 }
 
 function readBlogNextTopicPayload(action) {
+  const trendContext = typeof blogNextTrendContext !== 'undefined' ? blogNextTrendContext : null;
   return {
     action,
     subject: document.getElementById('blog-next-subject')?.value || '',
@@ -90,7 +91,9 @@ function readBlogNextTopicPayload(action) {
     instruction: document.getElementById('blog-next-instruction')?.value || '',
     referenceUrl: document.getElementById('blog-next-reference-url')?.value || '',
     ...readBlogNextTopicSettings(),
-    scheduleDate: document.getElementById('blog-next-schedule-date')?.value || ''
+    scheduleDate: document.getElementById('blog-next-schedule-date')?.value || '',
+    source: trendContext?.source || 'blog_next',
+    trendDate: trendContext?.trendDate || ''
   };
 }
 
@@ -99,15 +102,22 @@ function setBlogNextTopicBusy(busy, action = '') {
   const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
+  const publishButton = document.getElementById('blog-next-publish-now');
   if (saveButton) {
     saveButton.disabled = busy || editingReady;
-    saveButton.textContent = busy && action === 'save' ? '보관 중...' : (blogNextEditingRowIndex !== null ? '보관' : '글감 보관');
+    saveButton.textContent = busy && action === 'save'
+      ? (blogNextEditingRowIndex !== null ? '저장 중...' : '보관 중...')
+      : (blogNextEditingRowIndex !== null ? '저장' : '글감 보관');
   }
   if (enqueueButton) {
     enqueueButton.disabled = busy;
     enqueueButton.textContent = busy && action === 'enqueue'
-      ? (blogNextEditingRowIndex !== null ? '저장 중...' : '추가 중...')
-      : (editingReady ? '저장' : blogNextEditingRowIndex !== null ? '대기열 추가' : '발행 대기열에 추가');
+      ? (editingReady ? '저장 중...' : '추가 중...')
+      : (editingReady ? '저장' : '발행 대기열에 추가');
+  }
+  if (publishButton) {
+    publishButton.disabled = busy || (blogNextEditingRowIndex !== null && !editingReady);
+    publishButton.textContent = busy && action === 'publish-now' ? '준비 중...' : '바로 포스팅';
   }
 }
 
@@ -121,6 +131,7 @@ function setBlogNextTopicResult(message, level = '') {
 function clearBlogNextTopicContent() {
   ['blog-next-subject', 'blog-next-title', 'blog-next-keywords', 'blog-next-instruction', 'blog-next-reference-url', 'blog-next-schedule-date']
     .forEach((id) => { const element = document.getElementById(id); if (element) element.value = ''; });
+  if (typeof clearBlogNextTrendContext === 'function') clearBlogNextTrendContext();
 }
 
 function restoreBlogNextTopicFormHome() {
@@ -145,7 +156,18 @@ function finishBlogNextTopicEditing() {
   const clearButton = document.getElementById('blog-next-clear-topic');
   if (clearButton) clearButton.textContent = '내용 지우기';
   const saveButton = document.getElementById('blog-next-save-topic');
+  const enqueueButton = document.getElementById('blog-next-enqueue-topic');
+  const publishButton = document.getElementById('blog-next-publish-now');
   if (saveButton) saveButton.hidden = false;
+  if (enqueueButton) {
+    enqueueButton.classList.remove('primary');
+    enqueueButton.classList.add('secondary');
+  }
+  if (publishButton) {
+    publishButton.hidden = false;
+    publishButton.classList.remove('secondary');
+    publishButton.classList.add('primary');
+  }
   setBlogNextTopicBusy(false);
 }
 
@@ -208,7 +230,8 @@ async function submitBlogNextTopic(action) {
   try {
     const editing = blogNextEditingRowIndex !== null;
     const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
-    const payload = readBlogNextTopicPayload(action);
+    const captureAction = action === 'publish-now' ? 'enqueue' : action;
+    const payload = readBlogNextTopicPayload(captureAction);
     if (editing) {
       payload.rowIndex = blogNextEditingRowIndex;
       payload.sourceStatus = blogNextEditingSourceStatus;
@@ -224,9 +247,19 @@ async function submitBlogNextTopic(action) {
     clearBlogNextTopicContent();
     finishBlogNextTopicEditing();
     setBlogNextTopicResult(message, 'success');
-    showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
+    if (action !== 'publish-now') {
+      showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
+    }
     await loadBlogNextQueue({ force: true });
     if (editing) activateBlogNextTab('queue');
+    if (action === 'publish-now' && Number.isInteger(Number(data?.rowIndex))) {
+      try {
+        await startBlogNextRunner({ rowIndex: Number(data.rowIndex) });
+        setBlogNextTopicResult('바로 포스팅을 시작했습니다.', 'success');
+      } catch (_error) {
+        setBlogNextTopicResult('글감은 발행 대기열에 추가했습니다. 실행 시작에 실패해 대기열에서 다시 실행할 수 있습니다.', 'error');
+      }
+    }
   } catch (error) {
     setBlogNextTopicResult(error.message || '글감을 저장하지 못했습니다.', 'error');
   } finally {
@@ -271,11 +304,32 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   document.getElementById('blog-next-post-status').value = item.postStatus || item.options?.post_status || 'publish';
   document.getElementById('blog-next-schedule-date').value = String(item.scheduleDate || item.options?.schedule_date || '').replace(' ', 'T').slice(0, 16);
   document.getElementById('blog-next-external-reference').checked = item.external_reference === true;
+  if (String(item.source || '') === 'naver_trend' && String(item.trendDate || '').trim()) {
+    blogNextTrendContext = {
+      id: String(item.id || ''),
+      keyword: String(item.subject || item.keywordsRaw || ''),
+      trendDate: String(item.trendDate),
+      source: 'naver_trend'
+    };
+  } else if (typeof clearBlogNextTrendContext === 'function') {
+    clearBlogNextTrendContext();
+  }
   const clearButton = document.getElementById('blog-next-clear-topic');
   const saveButton = document.getElementById('blog-next-save-topic');
+  const enqueueButton = document.getElementById('blog-next-enqueue-topic');
+  const publishButton = document.getElementById('blog-next-publish-now');
   const editorTitle = document.getElementById('blog-next-editor-title');
   if (clearButton) clearButton.textContent = '취소';
   if (saveButton) saveButton.hidden = sourceStatus === '발행 준비 완료';
+  if (enqueueButton) {
+    enqueueButton.classList.remove('secondary');
+    enqueueButton.classList.add('primary');
+  }
+  if (publishButton) {
+    publishButton.hidden = sourceStatus !== '발행 준비 완료';
+    publishButton.classList.remove('primary');
+    publishButton.classList.add('secondary');
+  }
   if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 계속 작성' : '발행 계획 수정';
   syncBlogNextScheduleField();
   setBlogNextTopicBusy(false);
@@ -517,6 +571,12 @@ function initBlogNextQuickQueue() {
   activateBlogNextManagementTab(blogNextActiveManagementTab);
   form.addEventListener('submit', (event) => { event.preventDefault(); submitBlogNextTopic('enqueue'); });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
+  document.getElementById('blog-next-publish-now')?.addEventListener('click', async () => {
+    const confirmed = await showUiConfirm('현재 발행 계획으로 이 글을 바로 처리할까요?', {
+      title: '바로 포스팅', confirmText: '실행', cancelText: '취소'
+    });
+    if (confirmed) submitBlogNextTopic('publish-now');
+  });
   document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
     const editing = blogNextEditingRowIndex !== null;
     if (editing) await closeBlogNextEditor();

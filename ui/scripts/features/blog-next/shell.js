@@ -1,4 +1,4 @@
-const BLOG_NEXT_TABS = Object.freeze(['quick', 'queue', 'automation']);
+const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'automation']);
 const BLOG_NEXT_INPUT_MODES = Object.freeze(['ai', 'folder', 'paste']);
 
 let blogNextActiveTab = 'quick';
@@ -29,6 +29,9 @@ function activateBlogNextTab(tabName) {
   if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
   }
+  if (target === 'trend-posting' && typeof loadBlogNextTrendMeta === 'function') {
+    loadBlogNextTrendMeta();
+  }
   if (target === 'automation' && typeof loadBlogNextRunnerStatus === 'function') {
     loadBlogNextRunnerStatus();
   }
@@ -56,6 +59,7 @@ function activateBlogNextInputMode(modeName) {
 }
 
 function initBlogNextShell() {
+  if (typeof initBlogNextTrendPosting === 'function') initBlogNextTrendPosting();
   if (!blogNextShellBound) {
     document.querySelectorAll('[data-blog-next-tab]').forEach((button) => {
       button.addEventListener('click', () => activateBlogNextTab(button.dataset.blogNextTab));
