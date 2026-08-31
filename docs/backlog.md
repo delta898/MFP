@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-08-30 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
+> 현행 기준: 2026-09-01 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
 
 ## P0 — 현재 진행
 
@@ -57,14 +57,23 @@
    - development에서는 PortOne test channel·webhook, 낮은 외부 provider budget, email/Telegram sink를 사용한다. 발행은 지정한 테스트 채널의 단건 수동 실행만 허용하고 예약·일괄·자동 실행은 차단한다.
    - 완료 기준은 `local db reset → 자동 테스트 → development 배포·통합 테스트 → 동일 migration의 production dry-run·승인 배포`가 재현되는 것이다.
 
-2. 실행형 Dashboard와 모바일 정보 구조
+2. Dashboard 고도화와 모바일 정보 구조
    - 단순 누적 통계보다 지금 확인하거나 처리할 일을 우선한다.
+   - 블로그 Beta의 연속 발행 상태를 Dashboard의 핵심 운영 정보로 연결하고, 기능별로 흩어진 상태를 다시 열지 않아도 현재 대기열과 실행 흐름을 파악할 수 있게 한다.
+   - 연속 발행의 켜짐 여부, 허용 시간대, 다음 실행 예정, 대기·실행·실패 건수와 최근 결과를 한눈에 보여준다.
+   - 연속 발행 항목에서 대기열 확인, 실패 원인 확인, 해당 글감 열기와 안전한 재시도 등 실제 다음 행동으로 바로 이동하게 한다.
    - 발행 실패·연결 문제·설정 누락, 오늘의 작성·임시 저장·발행·예약, 다음 예약과 최근 중단 작업을 한 화면에 정리한다.
    - 실패·중단·예약 항목에서 재시도, 이어서 작성, 설정 화면으로 바로 이동할 수 있게 한다.
    - `뜻밖의 발견`과 플랜별 잔여량을 같은 화면에서 과도한 정보 없이 연결한다.
    - 이후 BlogAnywhere에서 그대로 사용할 수 있도록 처음부터 모바일 우선의 카드와 액션 구조로 설계한다.
 
-3. BlogAnywhere 기반과 사용자 범위
+3. 쇼핑커넥트 흐름 고도화
+   - 블로그 Beta에서 검증한 상위 탐색, 입력, 글감·대기열 관리와 연속 실행의 정보 구조를 쇼핑커넥트 목적에 맞게 재설계한다.
+   - 기존 빠른 포스팅·일괄 포스팅·자동 포스팅 설정의 역할과 상태를 명확히 나누고, 상품 등록부터 원고 준비와 발행까지 현재 단계를 한 화면에서 이해할 수 있게 한다.
+   - 블로그 Beta의 화면을 그대로 복제하지 않고 상품 URL, 상품 분석 결과, 쇼핑 전용 검증과 발행 상태 등 쇼핑 고유 정보를 우선한다.
+   - 기존 쇼핑 발행 계약과 저장 데이터는 유지하면서 단계별로 교체하고, 새 흐름의 검증이 끝나기 전까지 기존 경로의 rollback 가능성을 보존한다.
+
+4. BlogAnywhere 기반과 사용자 범위
    - 초기 제품 계약은 `PC BlogGenius가 켜져 있는 동안 모바일에서 연결하는 companion`으로 확정한다.
    - 모바일은 전체 설정 복제가 아니라 상태 확인, 빠른 글감 저장, 초안 작성, 간단한 수정, 미리보기, 임시 저장·예약·발행과 실패 확인에 집중한다.
    - AI Key, 네이버 로그인과 발행 자격증명은 PC에 유지하고 모바일이나 중계 계층에 복제하지 않는다.
@@ -73,33 +82,33 @@
    - 첫 vertical slice는 `휴대폰 연결 → 주제·지시 입력 → 초안 저장 → PC에서 이어서 확인`으로 제한한다.
    - pairing 성공률, 모바일 초안 저장 성공률과 PC·모바일 간 이어서 하기 비율을 다음 단계 확장의 판단 근거로 삼는다.
 
-4. BlogAnywhere 모바일 Web/PWA
+5. BlogAnywhere 모바일 Web/PWA
    - 기존 Web UI를 재사용하되 홈, 글감, 빠른 글 작성, 미리보기, 발행 확인과 작업 결과에 한정한 모바일 화면을 제공한다.
    - 홈 화면 설치, 독립 실행, 느리거나 끊긴 네트워크에서 작성 중인 입력 보존을 지원하는 PWA 기반을 검토한다.
    - 작은 화면에서 긴 표와 전체 설정을 축소해 억지로 제공하지 않고 모바일 목적에 맞는 카드·편집·액션 흐름을 만든다.
    - 네이티브 iOS·Android 앱은 공유 메뉴, push, 카메라, offline 요구가 충분히 확인된 이후 기존 Web UI를 감싸는 방식을 우선 검토한다.
 
-5. BlogAnywhere 안전한 PC 연결
+6. BlogAnywhere 안전한 PC 연결
    - 개발자·고급 사용자용 첫 검증은 Tailscale 또는 동등한 private network/Serve 방식으로 진행한다.
    - `0.0.0.0` UI 서버를 공용 인터넷에 직접 노출하는 방식은 제품 경로로 사용하지 않는다.
    - 연결 transport와 무관한 기기 pairing, 만료·폐기 가능한 access token, HTTPS, owner 확인과 capability 기반 권한 계약을 먼저 정의한다.
    - 모바일에는 필요한 최소 결과만 반환하고 API Key, 로그인 cookie, 원본 secret과 무제한 내부 API를 노출하지 않는다.
    - 일반 사용자 단계에서는 Tailscale 설치가 필수가 되지 않도록 PC의 outbound 연결을 사용하는 안전한 relay를 후속 선택지로 검토한다.
 
-6. Telegram companion 재정의
+7. Telegram companion 재정의
    - Telegram을 긴 글 편집이나 전체 설정 UI가 아니라 선택 가능한 channel adapter로 유지한다.
    - 텍스트·URL·사진·음성 메모의 빠른 글감 저장, 발행 성공·실패 알림, 예약 확인과 단순 승인에 집중한다.
    - 복잡한 작업은 inline button이나 `모바일에서 계속 작성` 링크를 통해 BlogAnywhere 화면으로 넘긴다.
    - 기존 명령을 늘리기 전에 사용 빈도가 낮은 원인을 확인하고, 명령 암기 없이 사용할 수 있는 최소 메뉴와 자연어 입력을 제공한다.
 
-7. AI 작업 도우미 MVP
+8. AI 작업 도우미 MVP
    - 범용 채팅창이 아니라 BlogGenius의 현재 상태를 설명하고 다음 작업을 준비·실행하는 도우미로 정의한다.
    - 첫 단계는 발행·예약·실패·잔여량 조회, 화면 이동과 `오늘 무엇을 하면 되는지` 안내 같은 read-first 작업으로 제한한다.
    - 이후 글감 추천, 초안 준비와 프로필 적용을 추가하고, 설정 변경·예약·발행은 항상 preview와 사용자 confirmation을 거친다.
    - 단순 상태 조회와 결정 가능한 명령은 AI 없이 처리하고 자연어 해석·생성에만 Chat Model을 사용한다.
    - Desktop과 BlogAnywhere가 같은 Agent Runtime, Capability Registry, Memory와 confirmation 계약을 사용하게 한다.
 
-8. 유료화 정책 확정과 PortOne V2 연동
+9. 유료화 정책 확정과 PortOne V2 연동
    - 사용자에게 `구독 = 기능 권한과 월 기본 제공량`, `크레딧 = 현재 플랜 안에서 사용하는 추가 발행 횟수`로 단순하게 설명한다.
    - 결제 전에 유료 권한의 소유자를 account, verified email, license와 어떻게 연결하고 기기 변경·복구할지 확정한다.
    - PortOne V2를 첫 provider adapter로 검토하되 실제 PG 계약, 정기결제·빌링키 지원, 심사 조건, 수수료와 정산 조건을 먼저 확인한다.
@@ -111,7 +120,7 @@
    - 환불, 청약철회, 일부 사용 크레딧, chargeback, 미납 grace period와 구독 종료 시점은 출시 전에 정책·약관·법적 검토를 거쳐 확정한다.
    - 테스트 결제, 중복 webhook, 앱 종료 후 복귀, 결제 성공 후 entitlement 반영 지연과 일일 대사를 운영 시나리오로 검증한다.
 
-9. 뜻밖의 발견 품질과 관측성
+10. 뜻밖의 발견 품질과 관측성
    - 저장·작성·발행 이력의 가중치와 source diversity를 실제 사용 결과로 조정한다.
    - 후보가 부족할 때 약한 소재를 억지로 채우지 않고 명확한 빈 상태를 제공한다.
    - fallback 제목을 주제 유형별로 자연스럽게 개선한다.
@@ -119,32 +128,32 @@
    - 동음이의어인 영화·제품·인물 등을 구분하는 topic semantics를 검토한다.
    - 추천 funnel, provider 비용, cache, 중복·고아 recommendation을 진단할 수 있게 한다.
 
-10. 제목 최적화
+11. 제목 최적화
    - 단순 키워드 조합을 넘어 사용자가 클릭하고 싶어지는 궁금증과 구체적인 기대를 만드는 제목을 제안한다.
    - 과장, 낚시성 표현과 본문에 없는 약속은 피하고 실제 본문 내용·글쓰기 전략·채널 특성에 맞춘다.
    - 검색 중심은 핵심 검색 의도와 정보를 명확히 전달하고, 발견 중심은 호기심과 새로운 관점을 강화한다.
    - 한 가지 정답 대신 서로 다른 각도의 후보와 간단한 추천 근거를 제공하고 사용자의 선택·수정 결과를 품질 개선에 활용한다.
 
-11. AI runtime capability 자동 탐지와 자기복구
+12. AI runtime capability 자동 탐지와 자기복구
    - provider metadata에서 모델, 생성 방식, thinking 지원과 토큰 한도를 우선 확인한다.
    - metadata에 없는 모델별 정책만 trusted catalog로 보완한다.
    - 구조화된 capability 불일치에 한해 안전한 지원 단계로 한 번 재시도한다.
    - 인증·quota·일반 요청 오류와 capability 불일치를 엄격히 구분한다.
    - 확인된 runtime policy를 모델·API 버전 단위로 bounded cache하고 안전한 진단 로그를 남긴다.
 
-12. Internal API 통합
+13. Internal API 통합
    - Telegram legacy callback을 canonical content request/capability 경로로 더 얇게 만든다.
    - content request bundle의 schema와 validator를 공용 internal API 계약으로 승격한다.
    - Desktop UI, BlogAnywhere, MCP와 Telegram이 같은 preview/confirmation/result 계약을 사용하게 한다.
    - 로그인, 시트, AI 모델, 필수 설정과 발행 대상을 한 번에 진단하고 해결 화면이나 안전한 capability로 연결한다.
 
-13. 최초 설치와 오류 UX
+14. 최초 설치와 오류 UX
    - Dashboard의 라이선스·연결 오류를 부분 상태로 표시한다.
    - quota 소진 메시지에 사용자가 취할 다음 행동을 명확히 안내한다.
    - sample placeholder가 실제 설정값처럼 동작하지 않도록 한다.
    - Gemini API Key 등 필수 외부 설정의 공식 도움 경로를 제공한다.
 
-14. macOS 설정 접근 실패 시작 오류 패치
+15. macOS 설정 접근 실패 시작 오류 패치
    - Downloads 등 macOS 보호 폴더에서 외부 `config/` 접근이 `EPERM`으로 거부되어도 Electron main process가 종료되지 않게 한다.
    - GUI runtime의 쓰기 가능한 기본 위치는 `Application Support`로 일관되게 사용하고, portable mode는 명시적으로 선택된 경우에만 활성화하는 방향을 검토한다.
    - 배포본 안에 읽기 전용 기본 설정을 확실히 포함하고, 사용자 설정을 읽지 못하면 빈 객체 대신 검증된 기본값과 원인을 알 수 있는 오류 상태를 반환한다.
