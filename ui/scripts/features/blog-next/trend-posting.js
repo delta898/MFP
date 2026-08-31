@@ -60,13 +60,15 @@ function resolveBlogNextTrendDateRange() {
   return { dateFrom: period === '7days' ? subtractBlogNextTrendDays(latest, 6) : latest, dateTo: latest };
 }
 
-function renderBlogNextTrendCategories(categories) {
+function renderBlogNextTrendCategories(categories, selectedCategories = null) {
   const container = document.getElementById('blog-next-trend-categories');
   if (!container) return;
+  const hasSelectionSnapshot = Array.isArray(selectedCategories);
+  const selected = new Set(hasSelectionSnapshot ? selectedCategories : []);
   container.innerHTML = (Array.isArray(categories) ? categories : []).map((category, index) => `
-    <button type="button" class="category-option-btn${index === 0 ? ' active' : ''}"
+    <button type="button" class="category-option-btn${hasSelectionSnapshot ? (selected.has(category) ? ' active' : '') : (index === 0 ? ' active' : '')}"
       data-blog-next-trend-category data-category="${escapeHtml(category)}"
-      aria-pressed="${index === 0 ? 'true' : 'false'}">${escapeHtml(category)}</button>
+      aria-pressed="${hasSelectionSnapshot ? String(selected.has(category)) : (index === 0 ? 'true' : 'false')}">${escapeHtml(category)}</button>
   `).join('') || '<span class="category-hint">선택할 수 있는 카테고리가 없습니다.</span>';
   syncBlogNextTrendCategoryLimit();
 }
@@ -151,8 +153,22 @@ async function loadBlogNextTrendMeta(options = {}) {
   if (blogNextTrendState.meta && options.force !== true) return;
   const status = document.getElementById('blog-next-trend-status');
   const queryButton = document.getElementById('blog-next-trend-query');
+  const refreshButton = document.getElementById('blog-next-trend-refresh');
+  const previousLatest = String(blogNextTrendState.meta?.dateRange?.max || '');
+  const selectedCategories = options.force === true ? getSelectedBlogNextTrendCategories() : null;
+  const preservedDates = options.force === true
+    ? Object.fromEntries(['from', 'to'].map((side) => [side, document.getElementById(`blog-next-trend-date-${side}`)?.value || '']))
+    : {};
   blogNextTrendState.loading = true;
-  if (status) status.textContent = '트렌드 조회 정보를 불러오는 중...';
+  if (queryButton) queryButton.disabled = true;
+  if (refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.classList.add('is-loading');
+    refreshButton.setAttribute('aria-busy', 'true');
+  }
+  if (status) status.textContent = options.force === true
+    ? '최신 데이터 날짜를 확인하는 중...'
+    : '트렌드 조회 정보를 불러오는 중...';
   try {
     const meta = await fetchJson('/api/v1/trend-posting/meta');
     blogNextTrendState.meta = meta;
@@ -166,17 +182,36 @@ async function loadBlogNextTrendMeta(options = {}) {
     ['from', 'to'].forEach((side) => {
       const input = document.getElementById(`blog-next-trend-date-${side}`);
       if (!input) return;
-      input.min = String(meta?.dateRange?.min || '');
+      const minimum = String(meta?.dateRange?.min || '');
+      const preserved = String(preservedDates[side] || '');
+      input.min = minimum;
       input.max = latest;
-      input.value = latest;
+      input.value = preserved
+        ? (minimum && preserved < minimum ? minimum : (latest && preserved > latest ? latest : preserved))
+        : latest;
     });
-    renderBlogNextTrendCategories(meta?.categories || []);
-    if (queryButton) queryButton.disabled = !latest || !Array.isArray(meta?.categories) || meta.categories.length === 0;
-    if (status) status.textContent = '기간과 트렌드 카테고리를 선택한 뒤 조회하세요.';
+    renderBlogNextTrendCategories(meta?.categories || [], selectedCategories);
+    if (status) {
+      status.textContent = options.force === true
+        ? (previousLatest === latest
+          ? '이미 최신 데이터입니다.'
+          : (label ? `최신 데이터가 ${label}로 갱신되었습니다.` : '최신 날짜를 확인하지 못했습니다.'))
+        : '기간과 트렌드 카테고리를 선택한 뒤 조회하세요.';
+    }
   } catch (error) {
-    if (status) status.textContent = `조회 정보를 불러오지 못했습니다: ${error.message}`;
+    if (status) status.textContent = options.force === true
+      ? `최신 데이터 날짜를 확인하지 못했습니다: ${error.message}`
+      : `조회 정보를 불러오지 못했습니다: ${error.message}`;
   } finally {
     blogNextTrendState.loading = false;
+    const currentMeta = blogNextTrendState.meta;
+    if (queryButton) queryButton.disabled = !String(currentMeta?.dateRange?.max || '')
+      || !Array.isArray(currentMeta?.categories) || currentMeta.categories.length === 0;
+    if (refreshButton) {
+      refreshButton.disabled = false;
+      refreshButton.classList.remove('is-loading');
+      refreshButton.setAttribute('aria-busy', 'false');
+    }
   }
 }
 
@@ -201,8 +236,10 @@ async function queryBlogNextTrends() {
   }
   const status = document.getElementById('blog-next-trend-status');
   const queryButton = document.getElementById('blog-next-trend-query');
+  const refreshButton = document.getElementById('blog-next-trend-refresh');
   blogNextTrendState.loading = true;
   if (queryButton) queryButton.disabled = true;
+  if (refreshButton) refreshButton.disabled = true;
   if (status) status.textContent = '트렌드 키워드를 조회하는 중...';
   try {
     const params = new URLSearchParams({ dateFrom, dateTo });
@@ -217,6 +254,7 @@ async function queryBlogNextTrends() {
   } finally {
     blogNextTrendState.loading = false;
     if (queryButton) queryButton.disabled = false;
+    if (refreshButton) refreshButton.disabled = false;
   }
 }
 
@@ -278,6 +316,9 @@ async function saveBlogNextTrend(item, button) {
 function initBlogNextTrendPosting() {
   if (blogNextTrendState.bound) return;
   document.getElementById('blog-next-trend-period')?.addEventListener('change', syncBlogNextTrendPeriod);
+  document.getElementById('blog-next-trend-refresh')?.addEventListener('click', () => {
+    void loadBlogNextTrendMeta({ force: true });
+  });
   document.getElementById('blog-next-trend-categories')?.addEventListener('click', (event) => {
     const button = event.target?.closest('[data-blog-next-trend-category]');
     if (!button || button.disabled) return;

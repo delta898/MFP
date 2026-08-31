@@ -513,9 +513,13 @@ function startFixtureServer(requests) {
                         title,
                         rawMarkdown: markdown,
                         bodyPreview: markdown,
-                        contentItems: [],
-                        images: [],
-                        stats: { contentCount: 2, imageBlockCount: 0, imageResolvedCount: 0 },
+                        contentItems: [
+                            { type: 'header-h2', text: '미리보기 소제목' },
+                            { type: 'paragraph', text: 'Markdown 본문입니다.', boldRanges: [{ start: 0, end: 8 }] },
+                            { type: 'image', index: 0, text: '미리보기 이미지', prompt: '따뜻한 분위기의 이미지' }
+                        ],
+                        images: [{ index: 0, title: '미리보기 이미지', prompt: '따뜻한 분위기의 이미지', exists: false, imagePath: '', fileName: '' }],
+                        stats: { contentCount: 3, imageBlockCount: 1, imageResolvedCount: 0 },
                         validation: { ok: true, errors: [], warnings: [] }
                     }
                 });
@@ -771,6 +775,17 @@ async function run() {
 
         await page.locator('[data-blog-next-tab="trend-posting"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-trend-query')?.disabled === false);
+        await page.locator('#blog-next-trend-period').selectOption('custom');
+        await page.locator('#blog-next-trend-date-from').fill('2026-08-25');
+        await page.locator('#blog-next-trend-date-to').fill('2026-08-29');
+        await page.locator('#blog-next-trend-refresh').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-trend-status')?.textContent === '이미 최신 데이터입니다.');
+        assert.equal(await page.locator('#blog-next-trend-date-from').inputValue(), '2026-08-25');
+        assert.equal(await page.locator('#blog-next-trend-date-to').inputValue(), '2026-08-29');
+        assert.equal(await page.locator('[data-blog-next-trend-category].active').count(), 1);
+        assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('aria-busy'), 'false');
+        assert.equal(requests.filter((request) => request.pathname === '/api/v1/trend-posting/meta').length >= 2, true);
+        await page.locator('#blog-next-trend-period').selectOption('latest');
         await page.locator('#blog-next-trend-query').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
         assert.equal(await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').count(), 1);
@@ -1020,6 +1035,9 @@ async function run() {
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
+        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').textContent())?.trim(), '미리보기 소제목');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
+        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '누락');
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         await page.locator('[data-blog-next-draft-publish="paste"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));

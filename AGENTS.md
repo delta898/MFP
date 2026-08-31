@@ -16,6 +16,7 @@
 - If a choice materially changes user-visible behavior, data ownership, compatibility, cost, or external side effects, explain the tradeoff and get agreement before proceeding.
 
 ## Product and UI Direction
+- Unless the user explicitly requests work in another Blog surface, apply Blog feature and UI changes only to `블로그 Beta` (`view-blog-next`). Treat the existing `블로그` surface as out of scope by default.
 - Start from the user's need and use the user's language. Do not expose internal architecture, storage, provider, or prompt concepts unless they help the user make a decision.
 - Prefer the smallest UI that communicates the available choice. Remove redundant labels, status text, controls, and explanations before adding visual polish.
 - Keep default paths simple and reveal detailed controls only where customization is meaningful.
@@ -79,6 +80,7 @@
 - If the user has chosen to perform hands-on UI acceptance before parent merge, focused and browser verification may precede that review; defer the full unit suite until the merge candidate is otherwise ready unless risk requires it sooner.
 - Run the narrowest relevant automated tests during implementation, then run the agreed broader regression suite before merging a completed feature parent or preparing a release.
 - The agent should verify behavior that can be automated. The user performs final visual and exploratory UI testing when they have chosen to do so; provide a concise list of flows that need manual confirmation.
+- When the user states that they will perform the UI testing, stop at automated UI regression checks and hand off the manual test flows. Do not launch or operate the app for visual or exploratory acceptance unless the user explicitly asks for that assistance later.
 - Do not use a successful automated test as evidence that visual layout is correct. Likewise, a user-approved UI does not replace automated regression checks for underlying behavior.
 - Tests that call paid AI models, publish content, mutate remote data, or contact production services require explicit scope or approval. Prefer fixtures, mocks, read-only checks, or non-billable connection tests by default.
 - A failed external dependency should not erase the last valid local state. Verify failure, retry, and fallback behavior when changing AI, provider, publishing, or network flows.

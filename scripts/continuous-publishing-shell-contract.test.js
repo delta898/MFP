@@ -33,6 +33,25 @@ test('Blog Beta quick shell preserves all three existing input concepts', () => 
     assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
+test('Blog Beta keeps trend and management headers compact', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const usabilityCss = read('ui/styles/features/continuous-publishing-usability.css');
+    const betaCss = read('ui/styles/features/continuous-publishing-interactions.css');
+    const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
+
+    assert.doesNotMatch(betaView, /네이버 트렌드에서 글감 찾기/);
+    assert.match(betaView, /class="trend-posting-head blog-next-trend-head"/);
+    assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*flex-end;/s);
+    assert.match(betaView, /id="blog-next-trend-refresh"[^>]*aria-label="최신 데이터 새로고침"/);
+    assert.match(betaCss, /\.blog-next-trend-refresh\.is-loading span/);
+    assert.match(trendScript, /loadBlogNextTrendMeta\(\{ force: true \}\)/);
+    assert.match(trendScript, /이미 최신 데이터입니다/);
+    assert.match(trendScript, /selectedCategories/);
+    assert.match(trendScript, /preservedDates/);
+    assert.match(betaView, /class="blog-next-management-actions"[\s\S]*?id="blog-next-queue-refresh"/);
+    assert.match(usabilityCss, /\.blog-next-management-actions\s*{[^}]*margin-inline-start:\s*auto;/s);
+});
+
 test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1', () => {
     const betaScript = read('ui/scripts/features/blog-next/shell.js');
 
@@ -71,6 +90,12 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
     assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/preview/);
     assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/publish/);
+    assert.match(betaView, /data-draft-preview-body[^>]*><\/div>/);
+    assert.match(betaView, /class="local-markdown-image-list" data-draft-preview-images/);
+    assert.match(draftInputs, /renderBlogNextDraftBodyHtml/);
+    assert.match(draftInputs, /renderInlinePreviewHtml/);
+    assert.match(draftInputs, /local-markdown-image-card/);
+    assert.match(draftInputs, /URL\.createObjectURL/);
     assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);
 });
 

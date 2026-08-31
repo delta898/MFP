@@ -178,15 +178,17 @@
             </div>
           </div>
           <div class="blog-next-mode-panel" data-blog-next-mode-panel="folder" hidden>
-            <div class="blog-next-draft-toolbar">
-              <button class="secondary" id="blog-next-folder-select" type="button">원고 폴더 선택</button>
-              <button class="ghost" id="blog-next-folder-clear" type="button">선택 지우기</button>
+            <div class="blog-next-field blog-next-field-wide blog-next-folder-field">
+              <label for="blog-next-folder-path">선택한 원고 폴더</label>
+              <div class="blog-next-folder-row">
+                <div class="blog-next-folder-path">
+                  <input id="blog-next-folder-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다" readonly>
+                  <button id="blog-next-folder-clear" class="blog-next-folder-clear" type="button" aria-label="선택 지우기" title="선택 지우기" hidden>×</button>
+                </div>
+                <button class="secondary blog-next-folder-select" id="blog-next-folder-select" type="button">원고 폴더 선택</button>
+              </div>
               <input id="blog-next-folder-input" type="file" webkitdirectory directory multiple hidden>
             </div>
-            <label class="blog-next-field blog-next-field-wide">
-              <span>선택한 원고 폴더</span>
-              <input id="blog-next-folder-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
-            </label>
             <div class="blog-next-draft-options" data-blog-next-draft-options="folder">
               <label class="blog-next-field"><span>네이버 카테고리</span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리"></label>
               <label class="blog-next-field"><span>워드프레스 카테고리</span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily"></label>
@@ -204,11 +206,23 @@
               <button class="primary" data-blog-next-draft-publish="folder" type="button" disabled>포스팅 실행</button>
             </div>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder">원고 폴더를 선택해 주세요.</div>
-            <div class="blog-next-draft-preview" data-blog-next-draft-preview="folder" hidden>
-              <strong data-draft-preview-title>제목 없음</strong>
-              <span data-draft-preview-meta>-</span>
-              <pre data-draft-preview-body></pre>
-              <div data-draft-preview-images></div>
+            <div class="blog-next-draft-preview local-markdown-preview-panel" data-blog-next-draft-preview="folder" hidden>
+              <div class="local-markdown-preview-head">
+                <div>
+                  <h4 data-draft-preview-title>제목 없음</h4>
+                  <div class="local-markdown-preview-meta" data-draft-preview-meta>-</div>
+                </div>
+              </div>
+              <div class="local-markdown-preview-sections">
+                <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                  <h5>본문 Preview</h5>
+                  <div class="local-markdown-body-preview" data-draft-preview-body></div>
+                </section>
+                <section class="local-markdown-preview-section">
+                  <h5>이미지 매칭</h5>
+                  <div class="local-markdown-image-list" data-draft-preview-images></div>
+                </section>
+              </div>
             </div>
             <pre class="blog-next-draft-result" data-blog-next-draft-result="folder"></pre>
           </div>
@@ -235,22 +249,37 @@
               <button class="primary" data-blog-next-draft-publish="paste" type="button" disabled>포스팅 실행</button>
             </div>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="paste">Markdown 원고를 붙여넣어 주세요.</div>
-            <div class="blog-next-draft-preview" data-blog-next-draft-preview="paste" hidden>
-              <strong data-draft-preview-title>제목 없음</strong>
-              <span data-draft-preview-meta>-</span>
-              <pre data-draft-preview-body></pre>
-              <div data-draft-preview-images></div>
+            <div class="blog-next-draft-preview local-markdown-preview-panel" data-blog-next-draft-preview="paste" hidden>
+              <div class="local-markdown-preview-head">
+                <div>
+                  <h4 data-draft-preview-title>제목 없음</h4>
+                  <div class="local-markdown-preview-meta" data-draft-preview-meta>-</div>
+                </div>
+              </div>
+              <div class="local-markdown-preview-sections">
+                <section class="local-markdown-preview-section local-markdown-preview-section-main">
+                  <h5>본문 Preview</h5>
+                  <div class="local-markdown-body-preview" data-draft-preview-body></div>
+                </section>
+                <section class="local-markdown-preview-section">
+                  <h5>이미지 매칭</h5>
+                  <div class="local-markdown-image-list" data-draft-preview-images></div>
+                </section>
+              </div>
             </div>
             <pre class="blog-next-draft-result" data-blog-next-draft-result="paste"></pre>
           </div>
         </section>
 
         <section class="card form-card blog-next-panel trend-posting-panel" id="blog-next-panel-trend-posting" role="tabpanel" hidden>
-          <div class="trend-posting-head">
-            <div>
-              <h3>네이버 트렌드에서 글감 찾기</h3>
+          <div class="trend-posting-head blog-next-trend-head">
+            <div class="blog-next-trend-latest">
+              <span id="blog-next-trend-latest-badge" class="trend-posting-latest-badge">최신 데이터 확인 중</span>
+              <button id="blog-next-trend-refresh" class="blog-next-trend-refresh" type="button"
+                aria-label="최신 데이터 새로고침" title="최신 데이터 새로고침" aria-busy="false">
+                <span aria-hidden="true">↻</span>
+              </button>
             </div>
-            <span id="blog-next-trend-latest-badge" class="trend-posting-latest-badge">최신 데이터 확인 중</span>
           </div>
 
           <div class="auto-section trend-posting-query-section">

@@ -1160,6 +1160,7 @@ function bindActions() {
       if (config.draftStorageKey) localStorage.removeItem(config.draftStorageKey);
       setState(createLocalMarkdownPreviewState());
       renderPreview(null);
+      if (config.hideClearWhenEmpty && clearBtn) clearBtn.hidden = true;
     };
 
     const runPublishAction = async () => {
@@ -1251,6 +1252,7 @@ function bindActions() {
           imageObjectUrls: {}
         });
         if (getPathEl()) getPathEl().value = nextSelection.folderLabel || '';
+        if (config.hideClearWhenEmpty && clearBtn) clearBtn.hidden = false;
         await loadPreview();
       } catch (e) {
         renderPreviewError(e.message);
@@ -1335,6 +1337,7 @@ function bindActions() {
     actionPrefix: '원고',
     confirmMessage: '포스팅을 실행하겠습니까?',
     scheduleStorageKey: 'quick_manuscript_schedule_date',
+    hideClearWhenEmpty: true,
     getState: () => quickManuscriptPreviewState,
     setState: (nextState) => {
       quickManuscriptPreviewState = nextState;

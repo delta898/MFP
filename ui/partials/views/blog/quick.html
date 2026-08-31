@@ -202,16 +202,17 @@
               <p>Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.</p>
             </div>
 
-            <div class="local-markdown-toolbar">
-              <button id="quick-manuscript-select-btn" class="secondary" type="button">원고 폴더 선택</button>
-              <button id="quick-manuscript-clear-btn" class="secondary" type="button">선택 지우기</button>
+            <div class="blog-quick-field blog-quick-field-full blog-quick-field-spaced">
+              <label class="blog-quick-label" for="quick-manuscript-path">선택한 원고 폴더</label>
+              <div class="quick-manuscript-folder-row">
+                <div class="quick-manuscript-folder-path">
+                  <input id="quick-manuscript-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다" readonly>
+                  <button id="quick-manuscript-clear-btn" class="quick-manuscript-folder-clear" type="button" aria-label="선택 지우기" title="선택 지우기" hidden>×</button>
+                </div>
+                <button id="quick-manuscript-select-btn" class="secondary quick-manuscript-folder-select" type="button">원고 폴더 선택</button>
+              </div>
               <input id="quick-manuscript-folder-input" type="file" webkitdirectory directory multiple hidden>
             </div>
-
-            <label class="blog-quick-field blog-quick-field-full blog-quick-field-spaced">
-              <span class="blog-quick-label">선택한 원고 폴더</span>
-              <input id="quick-manuscript-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다." readonly>
-            </label>
 
             <div class="blog-quick-grid">
               <label class="blog-quick-field blog-quick-field-half">

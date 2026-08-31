@@ -669,6 +669,17 @@
     border-radius: 16px;
   }
 
+  body.mobile-quick-mode .quick-manuscript-folder-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body.mobile-quick-mode .quick-manuscript-folder-select {
+    width: 100%;
+    min-height: 50px;
+    border-radius: 16px;
+  }
+
   body.mobile-quick-mode .local-markdown-validation,
   body.mobile-quick-mode .local-markdown-empty {
     border-radius: 18px;

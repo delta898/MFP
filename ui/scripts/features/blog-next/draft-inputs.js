@@ -2,7 +2,7 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
-  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false },
+  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {} },
   paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false }
 };
 
@@ -114,6 +114,102 @@ function setBlogNextDraftValidation(type, validation = null, fallback = '') {
   }
 }
 
+function revokeBlogNextDraftImageUrls() {
+  const state = blogNextDraftState.folder;
+  Object.values(state.imageObjectUrls || {}).forEach((url) => {
+    try {
+      URL.revokeObjectURL(url);
+    } catch (_error) { }
+  });
+  state.imageObjectUrls = {};
+}
+
+function getBlogNextDraftImageUrl(type, relativePath) {
+  if (type !== 'folder' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return '';
+  const normalizedPath = normalizeBlogNextDraftPath(relativePath);
+  const state = blogNextDraftState.folder;
+  if (!normalizedPath) return '';
+  if (state.imageObjectUrls[normalizedPath]) return state.imageObjectUrls[normalizedPath];
+  const file = state.files.find((entry) => (
+    normalizeBlogNextDraftPath(entry.webkitRelativePath || entry.name) === normalizedPath
+    && isBlogNextImageFile(entry)
+  ));
+  if (!file) return '';
+  const url = URL.createObjectURL(file);
+  state.imageObjectUrls[normalizedPath] = url;
+  return url;
+}
+
+function renderBlogNextDraftBodyHtml(type, preview = {}) {
+  const items = Array.isArray(preview.contentItems) ? preview.contentItems : [];
+  const imageMap = new Map((Array.isArray(preview.images) ? preview.images : [])
+    .map((image) => [Number(image.index), image]));
+  const fragments = [];
+  let activeListType = '';
+
+  const closeList = () => {
+    if (!activeListType) return;
+    fragments.push(activeListType === 'ordered' ? '</ol>' : '</ul>');
+    activeListType = '';
+  };
+
+  items.forEach((item) => {
+    const itemType = String(item?.type || 'paragraph');
+    const text = renderInlinePreviewHtml(item?.text || '', item?.boldRanges);
+    if (itemType !== 'list-item') closeList();
+    if (itemType === 'header-h2') fragments.push(`<h2>${text}</h2>`);
+    else if (itemType === 'header-h3') fragments.push(`<h3>${text}</h3>`);
+    else if (itemType === 'quote') fragments.push(`<blockquote><p>${text}</p></blockquote>`);
+    else if (itemType === 'list-item') {
+      const nextListType = item?.listType === 'ordered' ? 'ordered' : 'unordered';
+      if (activeListType !== nextListType) {
+        closeList();
+        fragments.push(nextListType === 'ordered' ? '<ol>' : '<ul>');
+        activeListType = nextListType;
+      }
+      fragments.push(`<li>${text}</li>`);
+    } else if (itemType === 'image') {
+      const image = imageMap.get(Number(item.index));
+      const previewUrl = image?.exists ? getBlogNextDraftImageUrl(type, image.imagePath) : '';
+      const imageBody = previewUrl
+        ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy">`
+        : '<div class="local-markdown-inline-image-missing">매칭되는 로컬 이미지가 없습니다.</div>';
+      fragments.push(`<figure>${imageBody}<figcaption>
+        <div class="image-caption-title">${escapeHtml(image?.title || item.text || `IMAGE_${item.index}`)}</div>
+        ${image?.prompt || item.prompt ? `<div class="image-caption-prompt">${escapeHtml(image?.prompt || item.prompt || '')}</div>` : ''}
+      </figcaption></figure>`);
+    } else if (itemType === 'separator') {
+      fragments.push('<div class="local-markdown-preview-separator" role="separator" aria-label="구분선"></div>');
+    } else if (itemType === 'newline') fragments.push('<div style="height:8px"></div>');
+    else fragments.push(`<p>${text}</p>`);
+  });
+
+  closeList();
+  return fragments.join('') || '<div class="local-markdown-empty">본문 Preview를 표시할 내용이 없습니다.</div>';
+}
+
+function renderBlogNextDraftImages(type, preview = {}) {
+  const imageItems = Array.isArray(preview.images) ? preview.images : [];
+  if (imageItems.length === 0) return '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>';
+  return imageItems.map((image) => {
+    const previewUrl = image.exists ? getBlogNextDraftImageUrl(type, image.imagePath) : '';
+    const previewContent = previewUrl
+      ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy">`
+      : '<div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div>';
+    return `<article class="local-markdown-image-card">
+      <div class="local-markdown-image-card-header">
+        <div>
+          <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
+          <div class="local-markdown-image-card-meta">${escapeHtml(image.fileName || '파일 미매칭')}</div>
+        </div>
+        <span class="local-markdown-image-card-status ${image.exists ? 'ok' : 'missing'}">${image.exists ? '매칭됨' : '누락'}</span>
+      </div>
+      <div class="local-markdown-image-card-preview">${previewContent}</div>
+      <p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt || '')}</p>
+    </article>`;
+  }).join('');
+}
+
 function renderBlogNextDraftPreview(type, preview = null) {
   const container = document.querySelector(`[data-blog-next-draft-preview="${type}"]`);
   const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
@@ -137,16 +233,9 @@ function renderBlogNextDraftPreview(type, preview = null) {
       `이미지 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}개`
     ].filter(Boolean).join(' · ');
   }
-  if (body) body.textContent = preview.bodyPreview || preview.rawMarkdown || '';
-  if (images) {
-    const imageItems = Array.isArray(preview.images) ? preview.images : [];
-    images.replaceChildren(...imageItems.map((image) => {
-      const item = document.createElement('span');
-      item.className = image.exists ? 'is-ok' : 'is-missing';
-      item.textContent = `IMAGE_${image.index} ${image.title || ''} · ${image.exists ? '매칭됨' : '이미지 파일 없음'}`;
-      return item;
-    }));
-  }
+  if (body) body.innerHTML = renderBlogNextDraftBodyHtml(type, preview);
+  if (images) images.innerHTML = renderBlogNextDraftImages(type, preview);
+  setLocalMarkdownPreviewDensity(container, body, images, preview.stats || {});
   setBlogNextDraftValidation(type, preview.validation);
 }
 
@@ -226,14 +315,17 @@ async function publishBlogNextDraft(type) {
 
 function clearBlogNextFolderDraft() {
   const state = blogNextDraftState.folder;
+  revokeBlogNextDraftImageUrls();
   state.files = [];
   state.folderName = '';
   state.preview = null;
   state.requestId += 1;
   const input = document.getElementById('blog-next-folder-input');
   const path = document.getElementById('blog-next-folder-path');
+  const clear = document.getElementById('blog-next-folder-clear');
   if (input) input.value = '';
   if (path) path.value = '';
+  if (clear) clear.hidden = true;
   renderBlogNextDraftPreview('folder', null);
   setBlogNextDraftValidation('folder', null, '원고 폴더를 선택해 주세요.');
 }
@@ -269,12 +361,15 @@ function initBlogNextDraftInputs() {
   document.getElementById('blog-next-folder-clear')?.addEventListener('click', clearBlogNextFolderDraft);
   folderInput.addEventListener('change', async (event) => {
     const files = Array.from(event.target?.files || []);
+    revokeBlogNextDraftImageUrls();
     const firstPath = normalizeBlogNextDraftPath(files[0]?.webkitRelativePath || files[0]?.name);
     const folderName = firstPath.includes('/') ? firstPath.split('/')[0] : '';
     blogNextDraftState.folder.files = files;
     blogNextDraftState.folder.folderName = folderName;
     const path = document.getElementById('blog-next-folder-path');
+    const clear = document.getElementById('blog-next-folder-clear');
     if (path) path.value = folderName;
+    if (clear) clear.hidden = files.length === 0;
     event.target.value = '';
     await loadBlogNextDraftPreview('folder');
   });

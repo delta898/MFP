@@ -68,6 +68,10 @@
   white-space: nowrap;
 }
 
+.blog-next-management-actions {
+  margin-inline-start: auto;
+}
+
 .blog-next-management-panel[hidden] {
   display: none;
 }

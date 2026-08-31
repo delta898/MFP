@@ -387,6 +387,54 @@
   margin-bottom: 22px;
 }
 
+.quick-manuscript-folder-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.quick-manuscript-folder-path {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.blog-quick-field .quick-manuscript-folder-path input {
+  height: 100%;
+  padding-right: 48px;
+}
+
+.quick-manuscript-folder-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quick-manuscript-folder-clear:hover {
+  background: #e8f1fb;
+  color: var(--text-main);
+}
+
+.quick-manuscript-folder-clear:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.24);
+  outline-offset: 1px;
+}
+
+.quick-manuscript-folder-select {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .local-markdown-validation {
   margin-top: 16px;
   border: 1px solid #d8e2f1;
