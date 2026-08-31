@@ -20,6 +20,8 @@
           <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
             aria-controls="blog-next-panel-queue" data-blog-next-tab="queue">글감 관리</button>
           <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
+            aria-controls="blog-next-panel-auto-topic" data-blog-next-tab="auto-topic">자동 글감</button>
+          <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
             aria-controls="blog-next-panel-automation" data-blog-next-tab="automation">연속 발행 설정</button>
         </div>
 
@@ -233,6 +235,77 @@
               <div id="blog-next-saved-list" class="blog-next-queue-list" aria-live="polite"></div>
             </section>
           </div>
+        </section>
+
+        <section class="card form-card blog-next-panel" id="blog-next-panel-auto-topic" role="tabpanel" hidden>
+          <form id="blog-next-auto-topic-form" class="blog-next-topic-form blog-next-auto-topic-form">
+            <div class="blog-next-form-grid">
+              <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
+                <legend>
+                  포스팅 대상
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">Trends와 RSS에서 새로 수집하는 글감을 올릴 블로그를 선택합니다.</span>
+                  </span>
+                </legend>
+                <label><input id="blog-next-auto-topic-target-naver" type="checkbox" value="naver"> 네이버 블로그</label>
+                <label><input id="blog-next-auto-topic-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
+              </fieldset>
+              <label class="blog-next-field">
+                <span class="blog-next-field-label-with-help">
+                  글쓰기 전략
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">검색 중심은 정보 탐색에, 발견 중심은 피드에서 관심을 끄는 흐름에 맞춰 작성합니다.</span>
+                  </span>
+                </span>
+                <select id="blog-next-auto-topic-writing-strategy">
+                  <option value="search">검색 중심</option>
+                  <option value="discovery">발견 중심 (피드)</option>
+                </select>
+              </label>
+              <label class="blog-next-field">
+                <span class="blog-next-field-label-with-help">
+                  이미지 처리
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">이미지를 생성하거나 원고에 프롬프트만 남기거나 이미지 영역을 제외합니다.</span>
+                  </span>
+                </span>
+                <select id="blog-next-auto-topic-image-mode">
+                  <option value="generate">이미지 생성</option>
+                  <option value="prompt_only">이미지 프롬프트만 포함</option>
+                  <option value="none">이미지 사용 안 함</option>
+                </select>
+              </label>
+              <label class="blog-next-field">
+                <span class="blog-next-field-label-with-help">
+                  포스팅 옵션
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">자동 글감은 처리 시 공개하거나 블로그에 임시 저장할 수 있습니다.</span>
+                  </span>
+                </span>
+                <select id="blog-next-auto-topic-post-status">
+                  <option value="publish">즉시 발행</option>
+                  <option value="draft">임시 저장</option>
+                </select>
+              </label>
+              <div class="blog-next-field blog-next-external-reference">
+                <label class="blog-next-check-label">
+                  <input id="blog-next-auto-topic-external-reference" type="checkbox"> 외부 참고 사용
+                  <span class="tooltip-container">
+                    <span class="tooltip-icon">?</span>
+                    <span class="tooltip-text">켜면 수집한 글감과 관련된 외부 자료를 자동으로 찾아 원고 작성에 참고합니다.</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <p class="blog-next-form-result" id="blog-next-auto-topic-result" role="status" aria-live="polite"></p>
+            <div class="blog-next-auto-topic-actions">
+              <button class="primary" id="blog-next-auto-topic-save" type="submit">설정 저장</button>
+            </div>
+          </form>
         </section>
 
         <section class="card form-card blog-next-panel" id="blog-next-panel-automation" role="tabpanel" hidden>

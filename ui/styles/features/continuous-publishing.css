@@ -412,6 +412,22 @@
   background: #fbfdff;
 }
 
+.blog-next-auto-topic-form {
+  max-width: 980px;
+}
+
+.blog-next-auto-topic-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.blog-next-auto-topic-actions button {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
 .blog-next-automation-toggle label,
 .blog-next-automation-notify {
   display: flex;
