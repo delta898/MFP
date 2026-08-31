@@ -340,9 +340,35 @@ h1 {
 
 .view-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.view-title-copy,
+.view-title-heading {
+  display: flex;
+}
+
+.view-title-copy {
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.view-title-heading {
+  align-items: center;
+  gap: 12px;
+}
+
+.view-title-copy h1,
+.view-title-copy p {
+  margin: 0;
+}
+
+.view-title-copy p {
+  color: var(--text-muted);
+  line-height: 1.65;
 }
 
 h2 {

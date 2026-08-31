@@ -446,6 +446,7 @@ function initClockWidget() {
       serverControl.setAttribute('aria-label', '앱 제어');
       serverControl.prepend(serverControlLabel);
       menu.appendChild(serverControl);
+      serverControl.hidden = false;
     }
 
     display.parentNode.insertBefore(unit, display);
@@ -761,5 +762,4 @@ function initClockWidget() {
   renderClock();
   clockInterval = setInterval(renderClock, 1000);
 }
-
 

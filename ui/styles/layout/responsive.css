@@ -163,12 +163,12 @@
     display: none;
   }
 
-  body.mobile-quick-mode #view-dashboard .dashboard-title-row,
+  body.mobile-quick-mode #view-dashboard .view-title-row,
   body.mobile-quick-mode #view-blog .view-title-row {
     display: block;
   }
 
-  body.mobile-quick-mode #view-dashboard .dash-clock-widget,
+  body.mobile-quick-mode #view-dashboard .page-clock-widget,
   body.mobile-quick-mode #view-blog .page-clock-widget {
     display: none;
   }
@@ -188,7 +188,7 @@
     display: none;
   }
 
-  body.mobile-quick-mode #view-dashboard .dashboard-title-row {
+  body.mobile-quick-mode #view-dashboard .view-title-row {
     display: none;
   }
 
@@ -320,20 +320,8 @@
     justify-content: flex-start;
   }
 
-  .account-title-row,
-  .account-header-tools {
-    align-items: flex-start;
-  }
-
-  .account-header-tools {
-    max-width: 100%;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .account-description-row {
-    align-items: baseline;
-    flex-wrap: wrap;
+  .account-view-actions {
+    margin-top: -4px;
   }
 
   .clock-display {

@@ -2,34 +2,12 @@
   gap: 18px;
 }
 
-.blog-next-title-row {
-  align-items: flex-start;
-}
-
-.blog-next-title-copy,
-.blog-next-title-heading {
-  display: flex;
-}
-
-.blog-next-title-copy {
-  flex-direction: column;
-  gap: 8px;
-}
-
-.blog-next-title-heading {
-  align-items: center;
-  gap: 12px;
-}
-
-.blog-next-title-copy h1,
-.blog-next-title-copy p,
 .blog-next-mode-panel h3,
 .blog-next-mode-panel p,
 .blog-next-empty-state p {
   margin: 0;
 }
 
-.blog-next-title-copy p,
 .blog-next-mode-panel p,
 .blog-next-empty-state p {
   color: var(--text-muted);

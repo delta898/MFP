@@ -11,14 +11,17 @@
   margin-bottom: 16px;
 }
 
-.dashboard-header {
-  margin-bottom: 0;
-}
-
-.dashboard-title-row {
+.dashboard-status-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: -4px 0 20px;
+}
+
+.dashboard-status-row .dash-badges {
+  margin-top: 0;
 }
 
 .dash-auto-actions-grid {
