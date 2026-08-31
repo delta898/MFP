@@ -1,3 +1,8 @@
+const {
+    normalizeAutoTopicPlan,
+    resolveAutoTopicPlan
+} = require('../continuous-publishing/auto-topic-plan');
+
 function createUiSettingsFieldsRuntime(deps = {}) {
     const {
         fs,
@@ -100,6 +105,14 @@ function createUiSettingsFieldsRuntime(deps = {}) {
 
     function buildMajorSettings(raw, configSource) {
         const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG);
+        const autoTopicPlanResolution = resolveAutoTopicPlan({
+            explicitPlan: CONFIG.AUTO_TOPIC_PLAN,
+            legacyPublish: {
+                target_channels: CONFIG.PUBLISH_AUTO_TARGET_CHANNELS,
+                image_mode: CONFIG.PUBLISH_AUTO_IMAGE_MODE,
+                post_status: CONFIG.PUBLISH_AUTO_POST_STATUS
+            }
+        });
         // 이제 raw(text)를 파싱하는 대신 이미 로드된 CONFIG 객체의 값을 우선 시용합니다.
         const fields = {
             LISTEN_HOST: CONFIG.LISTEN_HOST,
@@ -151,6 +164,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             // Automation - RSS
             COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
             COLLECT_RSS_CONFIGS: CONFIG.COLLECT_RSS_CONFIGS || [],
+            AUTO_TOPIC_PLAN: autoTopicPlanResolution.plan,
+            AUTO_TOPIC_PLAN_SOURCE: autoTopicPlanResolution.source,
 
             // Buffer SNS Distribution
             BUFFER_API_KEY: CONFIG.BUFFER_API_KEY || '',
@@ -328,6 +343,9 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.COLLECT_TRENDS_TIME = normalizeTimeHHmm(fields.COLLECT_TRENDS_TIME, '07:30');
         CONFIG.COLLECT_TRENDS_NAVER_CATEGORY = String(fields.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
         CONFIG.COLLECT_TRENDS_WP_CATEGORY = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
+        if (Object.prototype.hasOwnProperty.call(fields, 'AUTO_TOPIC_PLAN')) {
+            CONFIG.AUTO_TOPIC_PLAN = normalizeAutoTopicPlan(fields.AUTO_TOPIC_PLAN, { strict: true });
+        }
 
         CONFIG.BUFFER_API_KEY = String(fields.BUFFER_API_KEY || '').trim();
         CONFIG.BUFFER_ORGANIZATION_ID = String(fields.BUFFER_ORGANIZATION_ID || '').trim();
@@ -475,6 +493,10 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         const bufferChannels = normalizeBufferChannels(requestBody.BUFFER_CHANNELS);
         const snsSourceBlogs = normalizeSnsSourceBlogs(requestBody.SNS_SOURCE_BLOGS);
 
+        const autoTopicPlanFields = Object.prototype.hasOwnProperty.call(requestBody, 'AUTO_TOPIC_PLAN')
+            ? { AUTO_TOPIC_PLAN: normalizeAutoTopicPlan(requestBody.AUTO_TOPIC_PLAN, { strict: true }) }
+            : {};
+
         return {
             LISTEN_HOST: listenHost,
             LISTEN_PORT: listenPort,
@@ -511,6 +533,7 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             ...collectTrendsSettings,
             COLLECT_RSS_ENABLED: collectRssEnabled,
             COLLECT_RSS_CONFIGS: rssConfigs,
+            ...autoTopicPlanFields,
 
             BUFFER_API_KEY: String(requestBody.BUFFER_API_KEY || '').trim(),
             BUFFER_ORGANIZATION_ID: String(requestBody.BUFFER_ORGANIZATION_ID || '').trim(),

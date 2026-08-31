@@ -1,0 +1,90 @@
+# 연속 발행 Stage 10-1: 자동 글감 공통 발행 계획 계약
+
+## 브랜치 정보
+
+- branch: `feature/continuous-publishing-10-auto-topic-contract`
+- 시작일: 2026-08-31
+- base/parent branch: `feature/continuous-publishing-main`
+- 상태: 완료
+
+## 사용자 필요
+
+기존 `자동 글감 설정`에서 수집하는 Trends/RSS 글감은 자동 실행 대상이므로 Topics Sheet에
+`발행 준비 완료`로 들어가야 한다. 다만 기존 구현은 발행 대상·이미지·포스팅 옵션 일부를
+`자동 포스팅 설정`에서 실행 시점에 빌려 쓰므로, 글감별 발행 계획 소유 원칙과 맞지 않는다.
+
+## 목표
+
+- Trends/RSS가 공유하는 하나의 `새 자동 글감 발행 계획` 계약을 정의한다.
+- 지원 값은 포스팅 대상, 글쓰기 전략, 이미지 처리, 외부 참고, 즉시 발행·임시 저장이다.
+- 예약 발행은 자동 글감 기본 계획에서 제외한다.
+- 자동 수집기가 새 Topics 행을 만들 때 계획 전체를 행에 복사할 수 있는 경계를 제공한다.
+- 새 설정이 아직 없으면 기존 자동 포스팅 설정을 안전한 초기값으로 읽는 fallback을 제공한다.
+
+## 명시적 비목표
+
+- 이 단계에서 `자동 글감` UI를 추가하지 않는다.
+- Trends/RSS scheduler를 새로 만들거나 교체하지 않는다.
+- 실제 수집 동작과 Topics append를 아직 전환하지 않는다.
+- 기존 글감이나 예약 발행 행을 일괄 수정하지 않는다.
+- 여러 발행 프로필을 도입하지 않는다.
+
+## 합의된 결정
+
+1. 사용자 메뉴 이름은 `자동 글감`이다.
+2. Trends와 RSS는 하나의 공통 발행 계획을 사용한다.
+3. Trends 카테고리와 RSS 피드별 카테고리는 각 출처 설정에 남긴다.
+4. 수동 트렌드 탐색은 `대기열 추가`만 제공한다.
+5. 자동 글감의 포스팅 옵션은 즉시 발행과 임시 저장만 허용한다.
+6. 자동 수집 행은 완전한 계획과 함께 `발행 준비 완료`로 저장한다.
+7. 공통 계획 변경은 이미 생성된 Topics 행을 바꾸지 않는다.
+
+## 제안 설계
+
+1. domain module이 공통 계획의 기본값·정규화·검증과 legacy fallback을 소유한다.
+2. 설정 저장소에는 비밀정보가 아닌 자동 글감 기본 계획만 저장한다.
+3. legacy `PUBLISH_AUTO_*` 값은 새 계획이 없을 때 최초 표시·전환용 fallback으로만 사용한다.
+4. 후속 Trends/RSS producer는 이 계획과 출처별 카테고리를 결합해 완전한 Topics 행을 만든다.
+
+## 구현 단계
+
+1. 현재 structured settings 경계와 기존 자동 수집·발행 필드 조사
+2. 공통 계획 domain contract 및 단위 테스트
+3. settings read/write 경계 연결과 legacy fallback 테스트
+4. canonical 문서 및 Stage 10 parent 기록 현행화
+
+## 검증 계획
+
+- 허용되는 플랫폼·전략·이미지·포스팅 옵션 정규화
+- 발행 대상 누락과 예약 발행 거부
+- 새 설정 우선, legacy 값 fallback, 안전한 기본값 순서
+- 설정 API round trip에서 기존 설정과 unknown field 보존
+- 비밀정보나 사용자 Topics 데이터가 설정 계약에 들어가지 않는지 확인
+
+## 진행 기록
+
+- 2026-08-31: 자동 Trends/RSS 글감은 `발행 준비 완료`이며 하나의 공통 계획을 행 생성 시점에 복사하기로 합의했다.
+- 2026-08-31: 예약 발행과 다중 프로필을 제외하고 UI 전에 domain·저장 계약부터 구현하기로 했다.
+- 2026-08-31: `automation.collect.blog.topic_plan`을 독립 저장 경계로 정했다. 명시 저장 전에는 기존 자동 포스팅 설정을 초기값으로만 사용하며, 명시 저장 후에는 새 계획을 우선한다.
+- 2026-08-31: 발행 대상·글쓰기 전략·이미지 처리·외부 참고·포스팅 옵션을 검증하는 domain contract를 추가했다. 빈 발행 대상과 예약 발행은 저장 전에 거부한다.
+
+## 결과
+
+- 공통 계획 domain contract와 `automation.collect.blog.topic_plan` 저장 경계를 추가했다.
+- 지원 값은 Naver/WordPress 발행 대상, 검색/발견 전략, 이미지 생성/프롬프트/없음,
+  외부 참고 사용 여부, 즉시 발행/임시 저장이다.
+- 명시 저장 전에는 기존 `PUBLISH_AUTO_*` 값을 초기값으로 반환하고, 명시 저장 후에는 새 계획이 우선한다.
+- 기존 설정 저장 요청이 `AUTO_TOPIC_PLAN`을 보내지 않으면 저장된 계획을 수정하지 않는다.
+- UI와 Trends/RSS producer 전환은 다음 하위 단계로 남겼다.
+
+## 자동 검증
+
+- focused domain/settings tests: 12 passed
+- full unit suite: 1,201 passed, 0 failed
+- `git diff --check`: passed
+
+## 수동 확인 및 남은 위험
+
+- 이 단계는 UI를 변경하지 않아 별도 시각 확인 항목이 없다.
+- 다음 단계 UI에서 legacy fallback 표시, 최초 저장 후 `explicit` source 전환을 확인해야 한다.
+- 실제 자동 수집 행에 계획을 복사하는 동작은 아직 연결하지 않았으므로 현재 Trends/RSS 동작은 바뀌지 않는다.
