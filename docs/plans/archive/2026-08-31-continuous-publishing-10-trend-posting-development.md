@@ -5,7 +5,7 @@
 - branch: `feature/continuous-publishing-10-trend-posting`
 - 시작일: 2026-08-31
 - base/parent branch: `feature/continuous-publishing-main`
-- 상태: 자동 검증 완료, 사용자 확인 대기
+- 상태: 완료, 부모 브랜치 병합 준비
 
 ## 사용자 필요
 
@@ -86,12 +86,12 @@ Blog Beta의 빠른 글 작성에서 구체화한 뒤 바로 포스팅하거나 
 ## 자동 검증
 
 - focused domain/UI composition tests: 21 passed
-- full unit suite: 1,196 passed, 0 failed
+- full unit suite: 1,196 passed, 0 failed (최종 병합 후보 재검증 완료)
 - browser UI smoke: passed, 107 fixture requests
 - legacy blog auto API smoke: passed
 - `git diff --check`: passed
 
-버튼 우선순위와 트렌드 글감 보관 동작을 조정한 후에는 변경 범위에 맞춰 focused tests 21건과 browser UI smoke만 다시 실행해 모두 통과했다. 전체 단위 테스트는 사용자 UI 확인 후 병합 후보가 준비되는 시점에 실행한다.
+버튼 우선순위와 트렌드 글감 보관 동작을 조정한 후에는 변경 범위에 맞춰 focused tests 21건과 browser UI smoke를 실행해 모두 통과했다. 사용자 UI 확인과 최종 문구 조정을 마친 뒤 병합 후보에서 전체 단위 테스트 1,196건과 기존 블로그 자동 포스팅 API smoke를 다시 실행해 통과했다.
 
 ## 사용자 확인 항목
 
