@@ -19,18 +19,7 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
     assert.match(betaView, /data-blog-next-tab="quick"/);
     assert.match(betaView, /data-blog-next-tab="queue"/);
     assert.match(betaView, /data-blog-next-tab="queue">글감 관리/);
-    assert.match(betaView, /data-blog-next-tab="auto-topic">자동 글감/);
     assert.match(betaView, /data-blog-next-tab="automation"/);
-    assert.match(betaView, /id="blog-next-panel-auto-topic"/);
-    assert.match(betaView, /id="blog-next-auto-topic-target-naver"/);
-    assert.match(betaView, /id="blog-next-auto-topic-target-wordpress"/);
-    assert.match(betaView, /id="blog-next-auto-topic-writing-strategy"/);
-    assert.match(betaView, /id="blog-next-auto-topic-image-mode"/);
-    assert.match(betaView, /id="blog-next-auto-topic-post-status"/);
-    assert.doesNotMatch(
-        betaView.match(/id="blog-next-panel-auto-topic"[\s\S]*?id="blog-next-panel-automation"/)?.[0] || '',
-        /value="schedule"/
-    );
     assert.doesNotMatch(betaView, /\bid="blog-tab-/);
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
 });
@@ -61,19 +50,6 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
-});
-
-test('Stage 10 automatic topic UI owns one validated Trends and RSS publishing plan', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
-    const autoTopicScript = read('ui/scripts/features/blog-next/auto-topic-settings.js');
-
-    assert.match(betaView, /data-blog-next-tab="auto-topic">자동 글감/);
-    assert.match(autoTopicScript, /fetchJson\('\/api\/v1\/settings\/major'\)/);
-    assert.match(autoTopicScript, /postJson\('\/api\/v1\/settings\/major'/);
-    assert.match(autoTopicScript, /AUTO_TOPIC_PLAN: plan/);
-    assert.match(autoTopicScript, /platforms\.length === 0/);
-    assert.match(autoTopicScript, /blog-next-auto-topic-save/);
-    assert.doesNotMatch(autoTopicScript, /schedule|naver_category|wordpress_category|COLLECT_TRENDS|COLLECT_RSS/);
 });
 
 test('completed manuscripts publish directly without entering the continuous queue', () => {

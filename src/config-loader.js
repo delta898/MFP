@@ -513,7 +513,6 @@ const CONFIG = {
     // Automation - RSS
     COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
     COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
-    AUTO_TOPIC_PLAN: structuredConfig.automation.collect?.blog?.topic_plan,
 
     // Buffer SNS Distribution
     BUFFER_API_KEY: process.env.BUFFER_API_KEY || structuredConfig.integrations?.buffer?.api_key || '',

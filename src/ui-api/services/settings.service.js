@@ -494,9 +494,6 @@ function createSettingsService(deps = {}) {
             if (!structuredConfig.automation.collect.blog.rss) structuredConfig.automation.collect.blog.rss = {};
             structuredConfig.automation.collect.blog.rss.enabled = fields.COLLECT_RSS_ENABLED;
             structuredConfig.automation.collect.blog.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
-            if (Object.prototype.hasOwnProperty.call(fields, 'AUTO_TOPIC_PLAN')) {
-                structuredConfig.automation.collect.blog.topic_plan = fields.AUTO_TOPIC_PLAN;
-            }
 
             if (!structuredConfig.publish) structuredConfig.publish = {};
             structuredConfig.publish.image_optimization_enabled = fields.IMAGE_OPTIMIZATION_ENABLED !== false;

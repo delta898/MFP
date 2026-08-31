@@ -203,16 +203,6 @@ function startFixtureServer(requests) {
         notification_enabled: false,
         updated_at: null
     };
-    let majorSettingsFields = {
-        AUTO_TOPIC_PLAN: {
-            platforms: ['naver'],
-            writing_strategy: 'search',
-            image_mode: 'generate',
-            external_reference: true,
-            post_status: 'publish'
-        },
-        AUTO_TOPIC_PLAN_SOURCE: 'explicit'
-    };
     let continuousRunnerStatus = {
         state: 'idle',
         message: '실행 대기 중',
@@ -226,36 +216,6 @@ function startFixtureServer(requests) {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
         requests.push(requestRecord);
-
-        if (url.pathname === '/api/v1/settings/major') {
-            const respond = () => {
-                const body = JSON.stringify({
-                    success: true,
-                    data: {
-                        configPath: 'fixture/config.json',
-                        fields: majorSettingsFields,
-                        aiPresets: { text: [], image: [], chat: [] },
-                        aiProviderProfiles: { text: {}, image: {}, chat: {} },
-                        shoppingImageDefaults: {},
-                        shoppingImageSlots: {}
-                    }
-                });
-                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(body);
-            };
-            if (req.method === 'GET') return respond();
-            if (req.method === 'POST') {
-                const chunks = [];
-                req.on('data', (chunk) => chunks.push(chunk));
-                req.on('end', () => {
-                    const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-                    requestRecord.body = payload;
-                    majorSettingsFields = { ...majorSettingsFields, ...payload };
-                    respond();
-                });
-                return;
-            }
-        }
 
         if (url.pathname === '/api/v1/continuous-publishing/automation/settings') {
             const respond = () => {
@@ -763,31 +723,6 @@ async function run() {
         assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
 
-        await page.locator('[data-blog-next-tab="auto-topic"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-auto-topic-target-naver')?.checked === true);
-        assert.equal(await page.locator('#blog-next-panel-auto-topic').evaluate((element) => element.hidden), false);
-        assert.equal(await page.locator('#blog-next-auto-topic-post-status option').count(), 2);
-        await page.locator('#blog-next-auto-topic-target-wordpress').check();
-        await page.locator('#blog-next-auto-topic-writing-strategy').selectOption('discovery');
-        await page.locator('#blog-next-auto-topic-image-mode').selectOption('prompt_only');
-        await page.locator('#blog-next-auto-topic-post-status').selectOption('draft');
-        await page.locator('#blog-next-auto-topic-external-reference').uncheck();
-        await page.locator('#blog-next-auto-topic-save').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-auto-topic-result')?.textContent === '저장했습니다.');
-        const autoTopicSaveRequest = requests.find((request) => (
-            request.pathname === '/api/v1/settings/major'
-            && request.method === 'POST'
-            && request.body?.AUTO_TOPIC_PLAN
-        ));
-        assert.deepEqual(autoTopicSaveRequest?.body?.AUTO_TOPIC_PLAN, {
-            platforms: ['naver', 'wordpress'],
-            writing_strategy: 'discovery',
-            image_mode: 'prompt_only',
-            external_reference: false,
-            post_status: 'draft'
-        });
-        await page.locator('[data-blog-next-tab="quick"]').click();
-
         await page.locator('#blog-next-subject').fill('기존에 적어둔 제주 글감');
         await page.locator('#blog-next-keywords').fill('제주 산책');
         await page.locator('#blog-next-keyword-recommend').click();
@@ -1121,7 +1056,6 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
-            { method: 'POST', pathname: '/api/v1/settings/major' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },

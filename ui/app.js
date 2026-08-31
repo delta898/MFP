@@ -44,7 +44,6 @@
 // @include scripts/features/blog-next/shell.js
 // @include scripts/features/blog-next/quick-queue.js
 // @include scripts/features/blog-next/draft-inputs.js
-// @include scripts/features/blog-next/auto-topic-settings.js
 // @include scripts/features/blog-next/automation-settings.js
 // @include scripts/features/blog-next/runner.js
 // @include scripts/foundation/navigation.js

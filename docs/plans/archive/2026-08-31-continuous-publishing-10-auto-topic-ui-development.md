@@ -5,7 +5,7 @@
 - branch: `feature/continuous-publishing-10-auto-topic-ui`
 - 시작일: 2026-08-31
 - base/parent branch: `feature/continuous-publishing-main`
-- 상태: 완료
+- 상태: 구현·사용자 확인 후 제품 방향 변경으로 폐기
 
 ## 사용자 필요
 
@@ -86,3 +86,9 @@ Trends와 RSS가 자동으로 만드는 글감의 발행 계획을 기존 자동
 
 - 다음 단계에서 Trends/RSS producer가 수집 시점의 공통 계획을 각 Topics 행에 복사하도록 연결해야 한다.
 - 출처별 카테고리와 활성화·수집 조건 UI는 후속 단계에서 기존 화면을 참고해 이전한다.
+
+## 후속 결정
+
+- 2026-08-31: Blog Beta는 자동으로 글감을 만들기보다 사용자가 선택한 글감을 구체화하고 발행하는 흐름에 집중하기로 했다.
+- 이 단계에서 추가한 `자동 글감` 탭과 공통 계획 UI는 parent의 후속 정리 커밋에서 제거한다.
+- 기존 `블로그` 메뉴는 조만간 Beta 안정화 후 숨김 여부를 판단하므로 현재 기능을 그대로 유지한다.

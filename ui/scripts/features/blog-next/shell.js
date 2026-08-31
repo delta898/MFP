@@ -1,4 +1,4 @@
-const BLOG_NEXT_TABS = Object.freeze(['quick', 'queue', 'auto-topic', 'automation']);
+const BLOG_NEXT_TABS = Object.freeze(['quick', 'queue', 'automation']);
 const BLOG_NEXT_INPUT_MODES = Object.freeze(['ai', 'folder', 'paste']);
 
 let blogNextActiveTab = 'quick';
@@ -28,9 +28,6 @@ function activateBlogNextTab(tabName) {
 
   if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
-  }
-  if (target === 'auto-topic' && typeof loadBlogNextAutoTopicPlan === 'function') {
-    loadBlogNextAutoTopicPlan();
   }
   if (target === 'automation' && typeof loadBlogNextRunnerStatus === 'function') {
     loadBlogNextRunnerStatus();

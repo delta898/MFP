@@ -5,7 +5,7 @@
 - branch: `feature/continuous-publishing-10-auto-topic-contract`
 - 시작일: 2026-08-31
 - base/parent branch: `feature/continuous-publishing-main`
-- 상태: 완료
+- 상태: 구현 후 제품 방향 변경으로 폐기
 
 ## 사용자 필요
 
@@ -88,3 +88,9 @@
 - 이 단계는 UI를 변경하지 않아 별도 시각 확인 항목이 없다.
 - 다음 단계 UI에서 legacy fallback 표시, 최초 저장 후 `explicit` source 전환을 확인해야 한다.
 - 실제 자동 수집 행에 계획을 복사하는 동작은 아직 연결하지 않았으므로 현재 Trends/RSS 동작은 바뀌지 않는다.
+
+## 후속 결정
+
+- 2026-08-31: 자동 Trends/RSS 글감이 사람의 확인 없이 발행 대기열로 이어지는 기능은 글 품질과 제품 복잡도에 비해 효용이 낮다고 판단했다.
+- 이 단계에서 추가한 공통 계획 계약과 저장 경계는 parent의 후속 정리 커밋에서 제거한다.
+- 기존 `블로그` 메뉴의 자동 글감 기능과 수동 트렌드 포스팅은 호환성 유지를 위해 변경하지 않는다.

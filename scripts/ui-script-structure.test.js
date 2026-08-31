@@ -73,7 +73,6 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/blog-next/shell.js',
         'scripts/features/blog-next/quick-queue.js',
         'scripts/features/blog-next/draft-inputs.js',
-        'scripts/features/blog-next/auto-topic-settings.js',
         'scripts/features/blog-next/automation-settings.js',
         'scripts/features/blog-next/runner.js',
         'scripts/foundation/navigation.js',
