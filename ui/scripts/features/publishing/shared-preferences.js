@@ -2,7 +2,7 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'quick-manuscript-headless', 'quick-pasted-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless'],
+      ids: ['quick-headless', 'quick-manuscript-headless', 'quick-pasted-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless', 'blog-next-runner-headless', 'blog-next-folder-headless', 'blog-next-paste-headless'],
       type: 'checkbox',
       default: true
     },

@@ -25,6 +25,22 @@
             aria-controls="blog-next-panel-automation" data-blog-next-tab="automation">연속 발행 설정</button>
         </div>
 
+        <section class="blog-next-publish-status" id="blog-next-publish-status" role="status" aria-live="polite" hidden>
+          <span class="blog-next-publish-status-indicator" aria-hidden="true"></span>
+          <div class="blog-next-publish-status-copy">
+            <div class="blog-next-publish-status-heading">
+              <strong id="blog-next-publish-status-title">발행 중</strong>
+              <span id="blog-next-publish-status-subject" hidden></span>
+            </div>
+            <p id="blog-next-publish-status-message"></p>
+          </div>
+          <div class="blog-next-publish-status-actions">
+            <button class="secondary compact" id="blog-next-publish-status-manage" type="button" hidden>글감 관리</button>
+            <button class="ghost compact blog-next-publish-status-dismiss" id="blog-next-publish-status-dismiss"
+              type="button" aria-label="닫기" title="닫기" hidden>×</button>
+          </div>
+        </section>
+
         <section class="card form-card blog-next-panel active" id="blog-next-panel-quick" role="tabpanel">
           <div class="blog-next-mode-switch" role="tablist" aria-label="빠른 글 작성 입력 방식">
             <button class="blog-next-mode-btn active" type="button" role="tab" aria-selected="true"
@@ -132,12 +148,19 @@
                   <span>예약 일시</span>
                   <input id="blog-next-schedule-date" type="datetime-local">
                 </label>
-                <div class="blog-next-field blog-next-external-reference">
+                <div class="blog-next-field blog-next-field-wide blog-next-execution-options">
                   <label class="blog-next-check-label">
                     <input id="blog-next-external-reference" type="checkbox" checked> 외부 참고 사용
                     <span class="tooltip-container">
                       <span class="tooltip-icon">?</span>
                       <span class="tooltip-text">켜면 입력한 주제와 키워드에 맞는 외부 자료를 자동으로 찾아 원고 작성에 참고합니다. 참고 URL을 입력했다면 함께 사용합니다.</span>
+                    </span>
+                  </label>
+                  <label class="blog-next-check-label blog-next-headless-option">
+                    <input id="blog-next-runner-headless" type="checkbox" checked> 보이지 않게 실행
+                    <span class="tooltip-container">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text">켜면 포스팅 브라우저를 화면에 띄우지 않고 실행합니다.</span>
                     </span>
                   </label>
                 </div>
@@ -148,6 +171,8 @@
                 <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form">발행 대기열에 추가</button>
                 <button class="secondary" id="blog-next-save-topic" type="button">글감 보관</button>
                 <button class="ghost blog-next-clear-action" id="blog-next-clear-topic" type="button">내용 지우기</button>
+                <button class="ghost compact blog-next-runner-status-jump" data-blog-next-runner-status-jump
+                  type="button" hidden>상태 보기 ↑</button>
               </div>
             </form>
             </div>
@@ -173,7 +198,8 @@
               <div class="blog-next-draft-targets">
                 <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
                 <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
-                <label><input data-draft-field="headless" type="checkbox" checked> 브라우저 숨기기</label>
+                <label class="blog-next-draft-headless"><input id="blog-next-folder-headless"
+                  data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
               </div>
               <button class="primary" data-blog-next-draft-publish="folder" type="button" disabled>포스팅 실행</button>
             </div>
@@ -203,7 +229,8 @@
               <div class="blog-next-draft-targets">
                 <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
                 <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
-                <label><input data-draft-field="headless" type="checkbox" checked> 브라우저 숨기기</label>
+                <label class="blog-next-draft-headless"><input id="blog-next-paste-headless"
+                  data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
               </div>
               <button class="primary" data-blog-next-draft-publish="paste" type="button" disabled>포스팅 실행</button>
             </div>
@@ -302,7 +329,11 @@
               <button class="blog-next-management-tab" type="button" role="tab" aria-selected="false"
                 data-blog-next-management-tab="saved">보관한 글감 <strong id="blog-next-saved-count">확인 중</strong></button>
             </div>
-            <button class="secondary blog-next-management-refresh" id="blog-next-queue-refresh" type="button">새로고침</button>
+            <div class="blog-next-management-actions">
+              <button class="ghost compact blog-next-runner-status-jump" data-blog-next-runner-status-jump
+                type="button" hidden>상태 보기 ↑</button>
+              <button class="secondary blog-next-management-refresh" id="blog-next-queue-refresh" type="button">새로고침</button>
+            </div>
           </div>
           <div class="blog-next-management-panels">
             <section class="blog-next-management-panel active" data-blog-next-management-panel="ready" role="tabpanel">

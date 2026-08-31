@@ -178,3 +178,27 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.match(quickQueueScript, /editing\s*\? '\/api\/v1\/continuous-publishing\/topics\/update'/);
     assert.match(quickQueueScript, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\) \}\)/);
 });
+
+test('Stage 11 exposes one shared publish status with an explicit status shortcut and no internal row details', () => {
+    const betaView = read('ui/partials/views/blog-next.html');
+    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const publishPreferences = read('ui/scripts/features/publishing/shared-preferences.js');
+
+    assert.match(betaView, /id="blog-next-publish-status"[^>]*role="status"[^>]*hidden/);
+    assert.match(betaView, /id="blog-next-publish-status-title"/);
+    assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
+    assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
+    assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
+    assert.match(betaView, /data-blog-next-runner-status-jump[^>]*hidden>상태 보기 ↑/);
+    assert.match(runnerScript, /state === 'completed'/);
+    assert.match(runnerScript, /state === 'failed'/);
+    assert.match(runnerScript, /state === 'needs_attention'/);
+    assert.match(runnerScript, /rawMessage === '다음 글감 한 건을 처리했습니다.'/);
+    assert.match(runnerScript, /'글감 처리 완료'/);
+    assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+    assert.doesNotMatch(runnerScript, /\.focus\s*\(/);
+    assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
+    assert.match(publishPreferences, /'blog-next-runner-headless'/);
+    assert.match(publishPreferences, /'blog-next-folder-headless'/);
+    assert.match(publishPreferences, /'blog-next-paste-headless'/);
+});

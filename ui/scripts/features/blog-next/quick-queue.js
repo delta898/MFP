@@ -100,6 +100,7 @@ function readBlogNextTopicPayload(action) {
 function setBlogNextTopicBusy(busy, action = '') {
   blogNextTopicSubmitting = busy;
   const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
+  const runnerActive = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
@@ -116,8 +117,10 @@ function setBlogNextTopicBusy(busy, action = '') {
       : (editingReady ? '저장' : '발행 대기열에 추가');
   }
   if (publishButton) {
-    publishButton.disabled = busy || (blogNextEditingRowIndex !== null && !editingReady);
-    publishButton.textContent = busy && action === 'publish-now' ? '준비 중...' : '바로 포스팅';
+    publishButton.disabled = busy || runnerActive || (blogNextEditingRowIndex !== null && !editingReady);
+    publishButton.textContent = runnerActive ? '포스팅 진행 중...'
+      : busy && action === 'publish-now' ? '준비 중...'
+        : '바로 포스팅';
   }
 }
 
@@ -395,6 +398,7 @@ function createBlogNextListItem(item, position, saved) {
     runButton.type = 'button';
     runButton.className = 'primary';
     runButton.dataset.blogNextRunNow = 'true';
+    runButton.disabled = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
     runButton.textContent = '지금 실행';
     runButton.addEventListener('click', () => runBlogNextQueueItemNow(item, runButton));
     actions.append(runButton);
