@@ -136,3 +136,17 @@ test('Stage 8 aligns posting language and external-reference controls with the e
     assert.equal((html.match(/class="tooltip-container"/g) || []).length >= 5, true);
     assert.match(css, /\.blog-next-input-action-row button\s*\{[^}]*inline-size:\s*156px;/s);
 });
+
+test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic order fields', () => {
+    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
+    const orderSource = read('src/continuous-publishing/queue-order.js');
+
+    assert.match(queueScript, /dataset\.blogNextQueueMove/);
+    assert.match(queueScript, /symbol: '↑'/);
+    assert.match(queueScript, /symbol: '↓'/);
+    assert.match(queueScript, /\/api\/v1\/continuous-publishing\/queue\/reorder/);
+    assert.match(routeSource, /\/api\/v1\/continuous-publishing\/queue\/reorder/);
+    assert.match(orderSource, /moveDimension/);
+    assert.doesNotMatch(orderSource, /claim|lease|order[_-](?:id|column)|drag/i);
+});

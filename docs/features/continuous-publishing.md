@@ -6,7 +6,7 @@
 사용자가 정한 시간대와 간격에 따라 한 건씩 생성·발행하는 BlogGenius의 새 글쓰기 흐름이다.
 
 현재 구현은 기존 `블로그` 메뉴와 분리된 `블로그 Beta`에서 `바로 생성` 글감을 보관하고
-`보관한 글감`과 `발행 대기열`을 나누어 관리하며, 가장 오래된 준비 항목 한 건을 실행하는 단계다.
+`보관한 글감`과 `발행 대기열`을 나누어 관리하며, Topics Sheet에서 가장 위에 있는 준비 항목 한 건을 실행하는 단계다.
 Queue 등록 자체는 AI·이미지 생성·quota·플랫폼 발행을 호출하지 않고, 사용자가 `다음 1건 실행`을
 누를 때 기존 생성·발행 엔진이 글감의 발행 계획을 그대로 사용한다.
 
@@ -19,7 +19,7 @@ Queue 등록 자체는 AI·이미지 생성·quota·플랫폼 발행을 호출�
   └─ 바로 포스팅 → 즉시 생성·실행
 
 발행 준비 완료
-  → 이 기기의 연속 발행기가 FIFO 한 건 선택
+  → 연속 발행기가 Topics Sheet 최상단의 준비 항목 한 건 선택
   → 원고 생성
   → 글감별 계획에 따라 공개·임시 저장·예약 등록
   → 결과 기록
@@ -32,6 +32,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - 개인별 Google Spreadsheet의 Topics Sheet가 모든 글감의 source of truth다.
 - 수동 입력, Trends, RSS와 다른 channel에서 온 글감도 같은 Topics 계약을 사용한다.
 - Queue는 별도 데이터 저장소가 아니라 `발행 준비 완료` 상태의 Topics를 보여주는 projection이다.
+- Queue 순서는 별도 컬럼 없이 Topics Sheet의 실제 행 순서를 그대로 사용한다.
 - Supabase는 라이선스, 사용량과 server capability 같은 시스템 책임을 유지하며 개인 Queue를 소유하지 않는다.
 
 ## 상태 의미
@@ -79,7 +80,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - UI module: `ui/scripts/features/blog-next/`
 - domain contract: `src/continuous-publishing/`
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
-- 글감·Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/topics/delete`, `/api/v1/continuous-publishing/queue/remove`
+- 글감·Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/topics/delete`, `/api/v1/continuous-publishing/queue/remove`, `/api/v1/continuous-publishing/queue/reorder`
 - 단건 runner API: `/api/v1/continuous-publishing/runner/start`, `/api/v1/continuous-publishing/runner/status`
 - 자동 실행 정책 API: `/api/v1/continuous-publishing/automation/settings`
 - 완성 원고 미리보기·직접 실행 API: `/api/v1/blog/local-markdown/preview`, `/api/v1/blog/local-markdown/publish`
@@ -98,12 +99,13 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 - `상태 구분`: `보관한 글감`과 실행 가능한 `발행 대기열`을 별도 목록과 숫자로 표시
 - `발행 계획 수정`: 같은 Topics 행에서 플랫폼·카테고리·전략·이미지·외부 참고·발행 방식을 수정
 - `대기열에서 빼기`: 행을 삭제하지 않고 상태만 `대기`로 복귀
+- `순서 변경`: 준비 항목의 위·아래 버튼으로 Topics Sheet 행 전체를 인접 준비 항목 앞이나 뒤로 이동
 - `지금 실행`: 선택한 준비 글감을 대기 순서와 무관하게 현재 포스팅 계획 그대로 수동 처리
 - `입력 보조`: 기존 글감 추천·키워드 탐색·AI 제목 추천을 Blog Beta 입력 대상으로 재사용
 - `추천 제목 보존`: 사용자가 선택한 AI 제목을 글감 옵션으로 저장하고 실제 원고 생성에 사용
 - `반복 입력 편의`: 보관·대기열 추가 후 주제·제목 등 내용만 비우고 포스팅 설정은 유지
 - `기기별 기본값`: 최근 성공적으로 사용한 대상·카테고리·전략·이미지·포스팅 옵션·외부 참고 설정을 브라우저 저장소에 조용히 기억
-- `다음 1건 실행`: 행 번호 오름차순의 첫 준비 글감을 생성·발행하고 진행·결과를 표시
+- `다음 1건 실행`: 실행 직전 최신 Topics Sheet를 읽고 가장 위의 준비 글감을 생성·발행하며 진행·결과를 표시
 - `원고 폴더`: Markdown·이미지를 검증하고 Queue 저장 없이 바로 공개·임시 저장·예약 등록
 - `원고 붙여넣기`: 완성된 Markdown을 검증하고 Queue 저장 없이 바로 공개·임시 저장·예약 등록
 - `연속 발행 설정`: 현재 기기의 활성화 의사, 허용 시간대, 최소 간격과 알림 설정을 별도 로컬 파일에 저장
@@ -116,6 +118,12 @@ Sheet gateway만 재사용하고 AI, 라이선스 quota, preview와 Naver/WordPr
 Development·Production의 수동 발행 정책을 따른다. 무제한 자동 재시도와 여러 PC를 아우르는
 distributed lease는 제공하지 않는다. 사용자는 여러 기기 중 한 기기에서만 연속 발행을 켜며,
 앱은 한 프로세스 안의 수동·자동 실행 중복만 차단한다.
+
+순서 변경은 별도 저장 버튼 없이 즉시 Sheet에 반영된다. 첫 항목의 위 버튼과 마지막 항목의 아래
+버튼은 비활성화하며, 이동 요청 시 서버가 최신 Sheet를 다시 읽어 대상이 여전히 준비 상태인지와
+실제 인접 항목을 재계산한다. 화면은 먼저 순서를 바꾸고 성공 시 최신 서버 결과로 조용히
+동기화한다. 실패할 때만 이전 순서로 복원하고 오류를 알린다. 서버는 성공 후 Topics cache를
+무효화하고 최신 목록을 반환한다.
 
 글감을 수정할 때 입력 폼은 별도 팝업으로 열리고 저장·취소 뒤에도 사용자가 보던 내부 탭 문맥을 유지한다.
 보관한 글감도 팝업에서 다시 보관하거나 발행 대기열로 승격할 수 있다. 변경 후 팝업을 닫으면
@@ -132,7 +140,7 @@ distributed lease는 제공하지 않는다. 사용자는 여러 기기 중 한 
 
 환경별 실행은 다음과 같다.
 
-- Local: FIFO 선두와 예정 동작만 시뮬레이션하고 아무 것도 변경하지 않는다.
+- Local: Topics Sheet 최상단 준비 글감과 예정 동작만 시뮬레이션하고 아무 것도 변경하지 않는다.
 - Development: `임시 저장` 글감만 자동 실행한다. 공개·예약 계획이면 확인이 필요한 상태로 멈춘다.
 - Production: 환경이 명시적으로 준비된 경우에만 글감별 공개·임시 저장·예약 계획을 실행한다.
 - Development 화면은 설정과 별개인 `30초 테스트`를 보조 동작으로 제공한다.

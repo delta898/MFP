@@ -6,6 +6,8 @@ const BLOG_NEXT_BUILTIN_DEFAULTS = Object.freeze({
 
 let blogNextTopicSubmitting = false;
 let blogNextQueueLoading = false;
+let blogNextQueueReordering = false;
+let blogNextQueueState = { items: [], saved_items: [], status_summary: {} };
 let blogNextEditingRowIndex = null;
 let blogNextEditingSourceStatus = '';
 let blogNextEditingInitialSnapshot = '';
@@ -308,6 +310,24 @@ function createBlogNextListItem(item, position, saved) {
   copy.append(title, meta);
   const actions = document.createElement('div');
   actions.className = 'blog-next-queue-actions';
+  if (!saved) {
+    const readyCount = Number(item.queueSize || 0);
+    [
+      { direction: 'up', label: '위로 이동', symbol: '↑', disabled: position === 0 },
+      { direction: 'down', label: '아래로 이동', symbol: '↓', disabled: position === readyCount - 1 }
+    ].forEach((control) => {
+      const moveButton = document.createElement('button');
+      moveButton.type = 'button';
+      moveButton.className = 'ghost blog-next-queue-move';
+      moveButton.dataset.blogNextQueueMove = control.direction;
+      moveButton.textContent = control.symbol;
+      moveButton.title = control.label;
+      moveButton.setAttribute('aria-label', control.label);
+      moveButton.disabled = control.disabled;
+      moveButton.addEventListener('click', () => reorderBlogNextQueueItem(item, control.direction));
+      actions.append(moveButton);
+    });
+  }
   const secondaryAction = document.createElement('button');
   secondaryAction.type = 'button';
   secondaryAction.className = 'ghost';
@@ -327,6 +347,53 @@ function createBlogNextListItem(item, position, saved) {
   }
   article.append(order, copy, actions);
   return article;
+}
+
+function setBlogNextQueueActionsBusy(busy) {
+  document.querySelectorAll('#blog-next-queue-list .blog-next-queue-actions button').forEach((button) => {
+    if (busy) {
+      button.dataset.blogNextPreviouslyDisabled = button.disabled ? 'true' : 'false';
+      button.disabled = true;
+      return;
+    }
+    if (!Object.hasOwn(button.dataset, 'blogNextPreviouslyDisabled')) return;
+    button.disabled = button.dataset.blogNextPreviouslyDisabled === 'true';
+    delete button.dataset.blogNextPreviouslyDisabled;
+  });
+}
+
+async function reorderBlogNextQueueItem(item = {}, direction) {
+  if (blogNextQueueReordering) return;
+  const rowIndex = Number(item.rowIndex);
+  if (!Number.isInteger(rowIndex)) return;
+  const previousQueue = {
+    ...blogNextQueueState,
+    items: [...blogNextQueueState.items],
+    saved_items: [...blogNextQueueState.saved_items],
+    status_summary: { ...blogNextQueueState.status_summary }
+  };
+  const sourcePosition = previousQueue.items.findIndex(candidate => Number(candidate.rowIndex) === rowIndex);
+  const targetPosition = direction === 'up' ? sourcePosition - 1 : sourcePosition + 1;
+  if (sourcePosition < 0 || targetPosition < 0 || targetPosition >= previousQueue.items.length) return;
+  const optimisticItems = [...previousQueue.items];
+  [optimisticItems[sourcePosition], optimisticItems[targetPosition]] = [
+    optimisticItems[targetPosition],
+    optimisticItems[sourcePosition]
+  ];
+  blogNextQueueReordering = true;
+  renderBlogNextQueue({ ...previousQueue, items: optimisticItems });
+  setBlogNextQueueActionsBusy(true);
+  try {
+    const queue = await postJson('/api/v1/continuous-publishing/queue/reorder', { rowIndex, direction });
+    renderBlogNextQueue(queue);
+  } catch (error) {
+    renderBlogNextQueue(previousQueue);
+    showUiToast({ level: 'error', title: '순서 변경 실패', message: error.message || '새로고침 후 다시 시도해 주세요.' });
+    await loadBlogNextQueue({ force: true });
+  } finally {
+    blogNextQueueReordering = false;
+    setBlogNextQueueActionsBusy(false);
+  }
 }
 
 async function deleteBlogNextSavedItem(item = {}, button) {
@@ -408,6 +475,12 @@ function renderBlogNextQueue(data = {}) {
   const readyItems = Array.isArray(data.items) ? data.items : [];
   const savedItems = Array.isArray(data.saved_items) ? data.saved_items : [];
   const summary = data.status_summary || {};
+  blogNextQueueState = {
+    ...data,
+    items: readyItems,
+    saved_items: savedItems,
+    status_summary: summary
+  };
   readyCount.textContent = `${Number(summary.ready ?? data.total ?? readyItems.length)}건`;
   savedCount.textContent = `${Number(summary.saved ?? savedItems.length)}건`;
   readyList.replaceChildren();
@@ -415,7 +488,10 @@ function renderBlogNextQueue(data = {}) {
   if (savedItems.length === 0) renderBlogNextEmptyState(savedList, '보관한 글감이 없습니다.', '빠른 글 작성에서 떠오른 아이디어를 먼저 보관해 보세요.');
   else savedItems.forEach((item, index) => savedList.appendChild(createBlogNextListItem(item, index, true)));
   if (readyItems.length === 0) renderBlogNextEmptyState(readyList, '아직 준비된 글감이 없습니다.', '발행 계획을 완성해 대기열에 추가해 보세요.');
-  else readyItems.forEach((item, index) => readyList.appendChild(createBlogNextListItem(item, index, false)));
+  else readyItems.forEach((item, index) => readyList.appendChild(createBlogNextListItem({
+    ...item,
+    queueSize: readyItems.length
+  }, index, false)));
 }
 
 async function loadBlogNextQueue(options = {}) {

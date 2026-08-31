@@ -40,8 +40,13 @@ function createService(state = {}) {
             async updateGoogleSheetStatus(rowIndex, status, message, options) {
                 state.statusUpdate = { rowIndex, status, message, options };
             },
+            async moveGoogleSheetTopicRow(move) {
+                state.rowMove = move;
+                return { success: true };
+            },
             clearSheetCache(prefix) {
                 state.clearedPrefix = prefix;
+                state.clearedPrefixes = [...(state.clearedPrefixes || []), prefix];
             }
         },
         async executeBlogRowAction(requestBody, options) {
@@ -161,7 +166,7 @@ test('development 30-second test automatically processes draft plans only', asyn
     assert.equal(service.getRunnerStatus().state, 'completed');
 });
 
-test('development automatic runner stops at the FIFO head when it is public publish', async () => {
+test('development automatic runner stops at the top ready row when it is public publish', async () => {
     const state = createAutomationTestState('publish');
     const service = createService(state);
 
@@ -174,7 +179,7 @@ test('development automatic runner stops at the FIFO head when it is public publ
     assert.equal(result.resultStatus, 'blocked:publish');
 });
 
-test('local recurring timer simulates the FIFO head without executing or mutating it', async () => {
+test('local recurring timer simulates the top ready row without executing or mutating it', async () => {
     const state = createAutomationTestState('publish', 'local');
     state.automationEnabled = true;
     const service = createService(state);
@@ -185,7 +190,9 @@ test('local recurring timer simulates the FIFO head without executing or mutatin
 
     const result = service.getRunnerStatus();
     assert.equal(state.runnerRequest, undefined);
-    assert.equal(state.clearedPrefix, undefined);
+    assert.equal(state.statusUpdate, undefined);
+    assert.equal(state.rowMove, undefined);
+    assert.equal(state.clearedPrefix, 'topics');
     assert.equal(result.state, 'simulated');
     assert.equal(result.resultStatus, 'publish');
 });
@@ -272,7 +279,7 @@ test('capture rejects an unknown action before touching the sheet', async () => 
     assert.equal(state.preflightCalls, undefined);
 });
 
-test('ready queue is the FIFO projection of Topics ready rows', async () => {
+test('ready queue follows the physical order of Topics ready rows', async () => {
     const state = {
         readItems: [
             { rowIndex: 1, rowNumber: 3, status: '대기', subject: '저장한 글감' },
@@ -294,6 +301,42 @@ test('ready queue is the FIFO projection of Topics ready rows', async () => {
         sortBy: 'rowNumber',
         sortDir: 'asc'
     });
+});
+
+test('ready queue reorder moves the whole Sheet row relative to the adjacent ready topic', async () => {
+    const state = {
+        readItems: [
+            { rowIndex: 1, rowNumber: 3, status: '발행 준비 완료', subject: '첫 글' },
+            { rowIndex: 3, rowNumber: 5, status: '대기', subject: '보관 글' },
+            { rowIndex: 5, rowNumber: 7, status: '발행 준비 완료', subject: '둘째 글' }
+        ]
+    };
+    const service = createService(state);
+
+    const result = await service.reorderReadyTopic({ rowIndex: 5, direction: 'up' });
+
+    assert.equal(state.rowMove.sourceStartIndex, 6);
+    assert.equal(state.rowMove.sourceEndIndex, 7);
+    assert.equal(state.rowMove.destinationIndex, 2);
+    assert.equal(result.moved.subject, '둘째 글');
+    assert.ok(state.clearedPrefixes.length >= 3);
+    assert.ok(state.clearedPrefixes.every(prefix => prefix === 'topics'));
+});
+
+test('ready queue reorder rejects a boundary move without mutating the Sheet', async () => {
+    const state = {
+        readItems: [
+            { rowIndex: 1, rowNumber: 3, status: '발행 준비 완료', subject: '첫 글' },
+            { rowIndex: 5, rowNumber: 7, status: '발행 준비 완료', subject: '둘째 글' }
+        ]
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.reorderReadyTopic({ rowIndex: 1, direction: 'up' }),
+        error => error.apiCode === 'QUEUE_MOVE_BOUNDARY' && error.status === 409
+    );
+    assert.equal(state.rowMove, undefined);
 });
 
 test('ready topic update validates and preserves the row identity', async () => {
@@ -386,7 +429,7 @@ test('queue mutation refuses a stale row that is no longer ready', async () => {
     assert.equal(state.statusUpdate, undefined);
 });
 
-test('single-item runner selects the oldest ready topic without overriding its plan', async () => {
+test('single-item runner selects the top ready topic without overriding its plan', async () => {
     const state = {
         readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '첫 번째 글' }]
     };

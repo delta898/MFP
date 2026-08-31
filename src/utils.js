@@ -31,6 +31,7 @@ const {
     SNS_SHEET_HEADERS,
     buildSnsStatusValidationRequest
 } = require('./social/sns-sheet-schema');
+const { buildTopicRowMoveRequest } = require('./continuous-publishing/queue-order');
 const { parseFeedXml } = require('./social/feed-entry');
 const {
     applyTextRuntimePolicy,
@@ -1646,6 +1647,41 @@ const Utils = {
                 return { items: [], total: 0, limit: 0, offset: 0 };
             }
         });
+    },
+
+    /**
+     * Topics Sheet의 행 전체를 다른 위치로 이동한다.
+     * move index는 Google Sheets grid 기준(헤더 포함, 0-based)이다.
+     */
+    moveGoogleSheetTopicRow: async function (move = {}) {
+        const sourceStartIndex = Number(move.sourceStartIndex);
+        const sourceEndIndex = Number(move.sourceEndIndex);
+        const destinationIndex = Number(move.destinationIndex);
+        if (!Number.isInteger(sourceStartIndex) || sourceStartIndex < 1
+            || !Number.isInteger(sourceEndIndex) || sourceEndIndex !== sourceStartIndex + 1
+            || !Number.isInteger(destinationIndex) || destinationIndex < 1) {
+            throw new Error('Topics Sheet 행 이동 범위를 확인해 주세요.');
+        }
+
+        const accessToken = await this.getGoogleAccessToken();
+        const sheetName = CONFIG.GOOGLE_TOPICS_SHEET || 'topics';
+        const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
+        const sheetId = await this.getSheetIdByName(spreadsheetId, sheetName);
+        if (!Number.isInteger(Number(sheetId))) {
+            throw new Error(`'${sheetName}' 시트를 찾지 못했습니다.`);
+        }
+
+        const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+        const request = buildTopicRowMoveRequest(Number(sheetId), {
+            sourceStartIndex,
+            sourceEndIndex,
+            destinationIndex
+        });
+        await this.callWithRetry(() => axios.post(updateUrl, { requests: [request] }, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        }));
+        this.clearSheetCache('topics');
+        return { success: true, sourceStartIndex, sourceEndIndex, destinationIndex };
     },
 
 

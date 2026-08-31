@@ -73,6 +73,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async reorderQueue({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.reorderReadyTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'QUEUE_REORDER_FAILED', '대기열 순서를 변경하지 못했습니다.', error);
+            }
+        },
+
         async startRunner({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

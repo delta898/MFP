@@ -410,6 +410,40 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/continuous-publishing/queue/reorder' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const sourceIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === payload.rowIndex);
+                const targetIndex = payload.direction === 'up' ? sourceIndex - 1 : sourceIndex + 1;
+                if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= continuousPublishingQueue.length) {
+                    res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(JSON.stringify({ success: false, error: { message: '대기열 경계를 벗어났습니다.' } }));
+                    return;
+                }
+                [continuousPublishingQueue[sourceIndex], continuousPublishingQueue[targetIndex]] = [
+                    continuousPublishingQueue[targetIndex],
+                    continuousPublishingQueue[sourceIndex]
+                ];
+                const body = JSON.stringify({
+                    success: true,
+                    data: {
+                        items: continuousPublishingQueue,
+                        saved_items: continuousSavedTopics,
+                        total: continuousPublishingQueue.length,
+                        limit: 50,
+                        offset: 0,
+                        status_summary: { saved: continuousSavedTopics.length, ready: continuousPublishingQueue.length }
+                    }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
         if (url.pathname === '/api/v1/continuous-publishing/runner/start' && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -797,7 +831,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
-        await page.locator('#blog-next-queue-list .blog-next-queue-actions .ghost').click();
+        await page.locator('#blog-next-queue-list .blog-next-queue-actions button', { hasText: '빼기' }).click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
@@ -805,12 +839,37 @@ async function run() {
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건');
 
         await page.locator('[data-blog-next-tab="quick"]').click();
-        await page.locator('#blog-next-subject').fill('지금 실행할 글감');
+        await page.locator('#blog-next-subject').fill('먼저 실행할 글감');
         await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-enqueue-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
+        await page.locator('#blog-next-subject').fill('나중 실행할 글감');
         await page.locator('#blog-next-enqueue-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
         await page.locator('[data-blog-next-tab="queue"]').click();
         await page.locator('[data-blog-next-management-tab="ready"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 2);
+        const readyCards = page.locator('#blog-next-queue-list .blog-next-queue-item');
+        assert.equal(await readyCards.nth(0).locator('[data-blog-next-queue-move="up"]').isDisabled(), true);
+        assert.equal(await readyCards.nth(0).locator('[data-blog-next-queue-move="down"]').isDisabled(), false);
+        assert.equal(await readyCards.nth(1).locator('[data-blog-next-queue-move="down"]').isDisabled(), true);
+        await readyCards.nth(0).locator('[data-blog-next-queue-move="down"]').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '나중 실행할 글감');
+        assert.equal((await page.locator('#ui-toast-container').textContent()).includes('순서 변경 완료'), false);
+        assert.equal(await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(0).locator('[data-blog-next-queue-move="up"]').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('[data-blog-next-queue-move="down"]').isDisabled(), true);
+        await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('[data-blog-next-queue-move="up"]').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '먼저 실행할 글감');
+        assert.equal(await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(0).locator('[data-blog-next-queue-move="up"]').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('[data-blog-next-queue-move="down"]').isDisabled(), true);
+        const reorderRequests = requests.filter((request) => request.pathname === '/api/v1/continuous-publishing/queue/reorder');
+        assert.deepEqual(reorderRequests.map(request => request.body?.direction), ['down', 'up']);
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
+        await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('button', { hasText: '빼기' }).click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('[data-blog-next-run-now]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('임시 저장'), true);
@@ -1006,6 +1065,10 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/reorder' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/reorder' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },

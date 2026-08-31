@@ -8,6 +8,7 @@ const {
 } = require('../../continuous-publishing/automation-settings');
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
+const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
 
 function createContinuousPublishingService(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now } = deps;
@@ -127,6 +128,7 @@ function createContinuousPublishingService(deps = {}) {
 
     async function requireTopicInStatus(rowIndex, expectedStatus) {
         await ensureSheetsReadyForUi();
+        Utils.clearSheetCache('topics');
         const result = await Utils.readGoogleSheetTopicsAll({
             status: expectedStatus,
             limit: 10000,
@@ -184,6 +186,7 @@ function createContinuousPublishingService(deps = {}) {
                     topic = await requireReadyQueueItem(requestedRowIndex);
                 } else {
                     await ensureSheetsReadyForUi();
+                    Utils.clearSheetCache('topics');
                     const queue = await Utils.readGoogleSheetTopicsAll({
                         status: TOPIC_STATUS.READY,
                         limit: 1,
@@ -346,6 +349,7 @@ function createContinuousPublishingService(deps = {}) {
 
         async getReadyQueue({ searchParams } = {}) {
             await ensureSheetsReadyForUi();
+            Utils.clearSheetCache('topics');
             const requestedLimit = Number.parseInt(String(searchParams?.get('limit') || '50'), 10);
             const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
             const topics = await Utils.readGoogleSheetTopicsAll({
@@ -441,6 +445,39 @@ function createContinuousPublishingService(deps = {}) {
             );
             Utils.clearSheetCache('topics');
             return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.WAITING };
+        },
+
+        async reorderReadyTopic(requestBody = {}) {
+            const rowIndex = parseRowIndex(requestBody.rowIndex);
+            await ensureSheetsReadyForUi();
+            Utils.clearSheetCache('topics');
+            const topics = await Utils.readGoogleSheetTopicsAll({
+                limit: 100000,
+                offset: 0,
+                sortBy: 'rowNumber',
+                sortDir: 'asc'
+            });
+            let move;
+            try {
+                move = resolveReadyQueueMove(topics?.items, rowIndex, requestBody.direction);
+            } catch (error) {
+                throw createApiError(error.code === 'QUEUE_MOVE_BOUNDARY' ? 409 : 400, error.code || 'QUEUE_MOVE_INVALID', error.message);
+            }
+            if (typeof Utils.moveGoogleSheetTopicRow !== 'function') {
+                throw createApiError(500, 'QUEUE_MOVE_UNAVAILABLE', '대기열 순서 변경 기능을 준비하지 못했습니다.');
+            }
+            await Utils.moveGoogleSheetTopicRow(move);
+            Utils.clearSheetCache('topics');
+            const queue = await this.getReadyQueue({ searchParams: new URLSearchParams('limit=50') });
+            return {
+                ...queue,
+                moved: {
+                    direction: move.direction,
+                    subject: move.source.subject || '',
+                    previousRowIndex: Number(move.source.rowIndex),
+                    adjacentRowIndex: Number(move.target.rowIndex)
+                }
+            };
         },
 
         startNextReadyTopic(requestBody = {}) {
