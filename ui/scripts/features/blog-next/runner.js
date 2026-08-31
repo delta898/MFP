@@ -28,6 +28,9 @@ function renderBlogNextRunnerStatus(status = {}) {
     startButton.textContent = active ? '실행 중...' : '다음 1건 실행';
   }
   if (headless) headless.disabled = active || blogNextRunnerRequesting;
+  document.querySelectorAll('[data-blog-next-run-now]').forEach((button) => {
+    button.disabled = active || blogNextRunnerRequesting;
+  });
   return active;
 }
 
@@ -49,18 +52,23 @@ async function loadBlogNextRunnerStatus(options = {}) {
   }
 }
 
-async function startBlogNextRunner() {
+async function startBlogNextRunner(options = {}) {
   if (blogNextRunnerRequesting) return;
   blogNextRunnerRequesting = true;
   const headless = document.getElementById('blog-next-runner-headless')?.checked !== false;
-  renderBlogNextRunnerStatus({ state: 'selecting', busy: true, message: '다음 글감을 확인하고 있습니다.' });
+  const rowIndex = Number(options.rowIndex);
+  const selected = Number.isInteger(rowIndex);
+  renderBlogNextRunnerStatus({ state: 'selecting', busy: true, message: selected ? '선택한 글감을 확인하고 있습니다.' : '다음 글감을 확인하고 있습니다.' });
   try {
-    const status = await postJson('/api/v1/continuous-publishing/runner/start', { headless });
+    const status = await postJson('/api/v1/continuous-publishing/runner/start', selected ? { headless, rowIndex } : { headless });
     renderBlogNextRunnerStatus(status);
+    if (selected) showUiToast({ level: 'success', title: '실행 시작', message: '선택한 글감을 지금 처리합니다.' });
     scheduleBlogNextRunnerPoll();
+    return status;
   } catch (error) {
     renderBlogNextRunnerStatus({ state: 'failed', message: error.message || '다음 글감 실행을 시작하지 못했습니다.' });
     showUiToast({ level: 'error', title: '실행 시작 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+    throw error;
   } finally {
     blogNextRunnerRequesting = false;
   }
@@ -70,5 +78,5 @@ function initBlogNextRunner() {
   const startButton = document.getElementById('blog-next-runner-start');
   if (!startButton || startButton.dataset.bound === 'true') return;
   startButton.dataset.bound = 'true';
-  startButton.addEventListener('click', startBlogNextRunner);
+  startButton.addEventListener('click', () => startBlogNextRunner());
 }

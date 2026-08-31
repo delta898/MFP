@@ -33,8 +33,10 @@
    - 발행 대상, 대상별 카테고리, 글쓰기 전략, 이미지 처리와 공개·임시 저장·예약 등록 방식은 글감이 소유한다.
    - 연속 발행 설정은 켜기, 허용 시간대, 글 사이의 간격과 알림만 소유하며 글감 설정을 덮어쓰지 않는다.
    - 대기열 추가 시 AI를 호출하지 않고, 실행기가 설정된 간격에 따라 한 번에 한 건씩 원고 생성과 발행을 수행한다.
-   - 첫 vertical slice는 `바로 생성 → 발행 대기열에 추가 → Topics 저장 → 최소 대기열 확인`으로 제한한다.
-   - 원고 폴더의 파일 지속성, 여러 PC의 중복 실행 방지와 Trends/RSS 자동 승격 규칙은 후속 단계에서 별도 계약한다.
+   - Stage 1~7에서 등록·Queue 관리·단건 runner·완성 원고 직접 처리·자동 실행 정책·환경별 안전 timer를 구현하고 검증했다.
+   - Stage 8에서 저장 글감과 발행 Queue의 의미 분리, Queue 문맥 유지, 기존 추천 기능 재사용을 기능 우선으로 검증한다.
+   - 여러 PC의 동시 실행 방지 lease는 도입하지 않고 한 기기만 활성화하는 운영 원칙을 사용한다.
+   - Trends/RSS 자동 승격 규칙과 기존 블로그 화면 대체 판단은 후속 단계에서 별도 계약한다.
 
 ## P1 — 다음 개발 우선순위
 
@@ -212,6 +214,11 @@
    - source, config, workspace, cache와 secret의 volume·소유권을 분리하고 production credential을 image나 repository에 포함하지 않는다.
    - health check, 의존 서비스 기동 순서, migration·seed 실행과 로그 수집을 자동화한다.
    - macOS arm64와 CI/Linux 환경에서 동일한 build·test가 가능한지 검증하고, image version과 앱 release version의 관계를 문서화한다.
+
+13. App runtime 종료 안정화와 의존성 경고 정리
+   - UI 종료 요청이 `process.exit()`를 직접 호출하지 않게 하고, Electron·CLI가 공통 graceful shutdown coordinator를 사용하도록 정리한다.
+   - HTTP 서버, 추천 scheduler, Telegram, MCP 등 비동기 자원의 종료 완료와 제한 시간 이후 강제 종료를 검증한다.
+   - 현재 Supabase SDK 하위의 `whatwg-url / tr46`에서 발생하는 Node `punycode` deprecation 경고를 SDK 갱신과 전체 회귀 검증으로 제거한다.
 
 ## P3 — 후순위
 

@@ -204,6 +204,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function initKeywordResearchModal() {
   const keywordModal = document.getElementById('keyword-research-modal');
   const titleRecommendBtn = document.getElementById('quick-title-recommend-btn');
+  const blogNextTitleRecommendBtn = document.getElementById('blog-next-title-recommend');
   const keywordModalCloseBtn = document.getElementById('keyword-research-modal-close');
   const keywordModalCloseFooter = document.getElementById('keyword-research-modal-close-footer');
   const keywordModalInput = document.getElementById('keyword-modal-input');
@@ -227,10 +228,9 @@ function initKeywordResearchModal() {
     .split(',')
     .map((keyword) => keyword.trim())
     .filter(Boolean);
-  const getQuickTitleMode = () => getSelectedSettingsRadioValue(
-    'quick-writing-strategy',
-    currentBlogWritingStrategy
-  );
+  const getQuickTitleMode = () => quickDiscoveryInputTarget === 'blogNext'
+    ? (document.getElementById('blog-next-writing-strategy')?.value || currentBlogWritingStrategy)
+    : getSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy);
 
   const collectAnalysisKeywords = (analysis) => {
     const seen = new Set();
@@ -262,9 +262,9 @@ function initKeywordResearchModal() {
   };
 
   const openKeywordModal = () => {
-    const currentSubject = (document.getElementById('quick-subject')?.value || '').trim();
-    const currentKeywords = (document.getElementById('quick-keywords')?.value || '').trim();
-    const currentTitle = (document.getElementById('quick-title')?.value || '').trim();
+    const currentSubject = readQuickDiscoveryInput('subject');
+    const currentKeywords = readQuickDiscoveryInput('keywords');
+    const currentTitle = readQuickDiscoveryInput('title');
     const initialQuery = currentSubject || currentKeywords || currentTitle;
     keywordModalState.analysis = null;
     keywordModalState.selectedKeywords = [];
@@ -291,7 +291,7 @@ function initKeywordResearchModal() {
       showUiPopup('분석할 글감(주제)을 입력해 주세요.');
       return;
     }
-    const enteredKeywords = splitKeywords(document.getElementById('quick-keywords')?.value);
+    const enteredKeywords = splitKeywords(readQuickDiscoveryInput('keywords'));
     // A subject is not a keyword when the user has already supplied keywords.
     // It remains a fallback so a subject-only workflow still works.
     const seedKeywords = (enteredKeywords.length > 0 ? enteredKeywords : [q])
@@ -500,9 +500,9 @@ function initKeywordResearchModal() {
     keywordModalContent.querySelectorAll('.title-apply-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const chosenTitle = btn.dataset.title || '';
-        const titleInput = document.getElementById('quick-title');
-        const keywordInput = document.getElementById('quick-keywords');
-        const subjectInput = document.getElementById('quick-subject');
+        const titleInput = getQuickDiscoveryInputElement('title');
+        const keywordInput = getQuickDiscoveryInputElement('keywords');
+        const subjectInput = getQuickDiscoveryInputElement('subject');
 
         if (titleInput) titleInput.value = chosenTitle;
         if (keywordInput) keywordInput.value = keywordModalState.selectedKeywords.join(', ');
@@ -558,7 +558,14 @@ function initKeywordResearchModal() {
     }
   };
 
-  if (titleRecommendBtn) titleRecommendBtn.addEventListener('click', openKeywordModal);
+  if (titleRecommendBtn) titleRecommendBtn.addEventListener('click', () => {
+    setQuickDiscoveryInputTarget('quick');
+    openKeywordModal();
+  });
+  if (blogNextTitleRecommendBtn) blogNextTitleRecommendBtn.addEventListener('click', () => {
+    setQuickDiscoveryInputTarget('blogNext');
+    openKeywordModal();
+  });
   if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
   if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
   if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => void runKeywordAnalysis());

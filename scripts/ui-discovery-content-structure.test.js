@@ -122,8 +122,8 @@ test('applying discovered keywords preserves an existing quick-writing subject',
     const source = readScript('features/discovery/quick-discovery.js');
     const applyFunction = source.match(/async function applyQuickKeywordDiscovery[\s\S]*?\n}\n/)?.[0] || '';
 
-    assert.match(applyFunction, /const subjectInput = document\.getElementById\('quick-subject'\)/);
+    assert.match(applyFunction, /const subjectInput = getQuickDiscoveryInputElement\('subject'\)/);
     assert.match(applyFunction, /if \(subjectInput && !String\(subjectInput\.value \|\| ''\)\.trim\(\)\)/);
     assert.match(applyFunction, /subjectInput\.value = keywords\[0\]/);
-    assert.doesNotMatch(applyFunction, /document\.getElementById\('quick-subject'\)\.value = keywords\[0\]/);
+    assert.doesNotMatch(applyFunction, /writeQuickDiscoveryInput\('subject', keywords\[0\]\)/);
 });

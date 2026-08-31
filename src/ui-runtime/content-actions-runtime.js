@@ -208,6 +208,7 @@ function createContentActionsRuntime(deps = {}) {
         };
 
         const effectiveTargets = getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
+        const effectiveTitle = getVal('title', '');
         const effectiveSubject = getVal('subject', topicData.subject);
         const effectiveKeywords = getVal('keywords', topicData.keywords || []);
         const effectiveInstruction = getVal('instruction', topicData.content_guide?.additional_instructions || '');
@@ -252,6 +253,7 @@ function createContentActionsRuntime(deps = {}) {
 
         const publishParams = {
             context: {
+                title: effectiveTitle,
                 subject: effectiveSubject,
                 keywords: effectiveKeywords,
                 instruction: effectiveInstruction,

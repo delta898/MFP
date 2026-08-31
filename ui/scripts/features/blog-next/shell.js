@@ -22,6 +22,10 @@ function activateBlogNextTab(tabName) {
     panel.hidden = !active;
   });
 
+  if (typeof syncBlogNextTopicFormHostForTab === 'function') {
+    syncBlogNextTopicFormHostForTab(target);
+  }
+
   if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
   }

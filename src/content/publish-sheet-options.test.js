@@ -22,6 +22,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
         imageGeneration: false,
         externalReference: true,
         options: JSON.stringify({
+            title: '선택한 최종 제목',
             subject: '옵션 제목',
             keywords: ['옵션 키워드'],
             instruction: '옵션 지시',
@@ -39,6 +40,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
         })
     });
 
+    assert.equal(resolved.title, '선택한 최종 제목');
     assert.equal(resolved.subject, '옵션 제목');
     assert.deepEqual(resolved.keywords, ['옵션 키워드']);
     assert.equal(resolved.instruction, '옵션 지시');
@@ -61,6 +63,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
         naver_category: '예전N',
         wordpress_category: '예전W'
     }, {
+        title: '새 최종 제목',
         subject: '새 제목',
         keywords: '하나, 둘',
         instruction: '새 지시',
@@ -75,6 +78,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
     });
 
     assert.equal(merged.custom_flag, 'keep-me');
+    assert.equal(merged.title, '새 최종 제목');
     assert.equal(merged.subject, '새 제목');
     assert.deepEqual(merged.keywords, ['하나', '둘']);
     assert.equal(merged.instruction, '새 지시');

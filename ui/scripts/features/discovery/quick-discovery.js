@@ -1,3 +1,48 @@
+const QUICK_DISCOVERY_INPUT_TARGETS = Object.freeze({
+  quick: Object.freeze({
+    subject: 'quick-subject', keywords: 'quick-keywords', title: 'quick-title',
+    instruction: 'quick-instruction', referenceUrl: 'quick-reference-url', label: '빠른 포스팅'
+  }),
+  blogNext: Object.freeze({
+    subject: 'blog-next-subject', keywords: 'blog-next-keywords', title: 'blog-next-title',
+    instruction: 'blog-next-instruction', referenceUrl: 'blog-next-reference-url', label: '블로그 Beta'
+  })
+});
+
+function setQuickDiscoveryInputTarget(target) {
+  quickDiscoveryInputTarget = Object.hasOwn(QUICK_DISCOVERY_INPUT_TARGETS, target) ? target : 'quick';
+}
+
+function getQuickDiscoveryInputTarget() {
+  return QUICK_DISCOVERY_INPUT_TARGETS[quickDiscoveryInputTarget] || QUICK_DISCOVERY_INPUT_TARGETS.quick;
+}
+
+function getQuickDiscoveryInputElement(field) {
+  const id = getQuickDiscoveryInputTarget()[field];
+  return id ? document.getElementById(id) : null;
+}
+
+function readQuickDiscoveryInput(field) {
+  return String(getQuickDiscoveryInputElement(field)?.value || '').trim();
+}
+
+function writeQuickDiscoveryInput(field, value) {
+  const element = getQuickDiscoveryInputElement(field);
+  if (element) element.value = String(value || '');
+}
+
+function getQuickDiscoveryInputValues() {
+  return ['subject', 'keywords', 'title', 'instruction', 'referenceUrl'].map(readQuickDiscoveryInput);
+}
+
+function activateQuickDiscoveryInputMode() {
+  if (quickDiscoveryInputTarget === 'blogNext') {
+    if (typeof activateBlogNextInputMode === 'function') activateBlogNextInputMode('ai');
+    return;
+  }
+  applyQuickInputMode('ai');
+}
+
 function applyQuickInputMode(mode) {
   const nextMode = ['ai', 'manuscript', 'pasted'].includes(mode) ? mode : 'ai';
   quickInputMode = nextMode;
@@ -15,16 +60,18 @@ function applyQuickInputMode(mode) {
 
 function getActiveQuickTrendContext() {
   if (!quickTrendTopicContext) return null;
-  const subject = String(document.getElementById('quick-subject')?.value || '').trim();
-  const keywords = String(document.getElementById('quick-keywords')?.value || '').trim();
+  if (quickTrendTopicContext.inputTarget && quickTrendTopicContext.inputTarget !== quickDiscoveryInputTarget) return null;
+  const subject = readQuickDiscoveryInput('subject');
+  const keywords = readQuickDiscoveryInput('keywords');
   if (subject !== quickTrendTopicContext.subject || keywords !== quickTrendTopicContext.keyword) return null;
   return quickTrendTopicContext;
 }
 
 function getActiveQuickRecommendationContext() {
   if (!quickRecommendationTopicContext) return null;
-  const subject = String(document.getElementById('quick-subject')?.value || '').trim();
-  const keywords = String(document.getElementById('quick-keywords')?.value || '').trim();
+  if (quickRecommendationTopicContext.inputTarget !== quickDiscoveryInputTarget) return null;
+  const subject = readQuickDiscoveryInput('subject');
+  const keywords = readQuickDiscoveryInput('keywords');
   if (subject !== quickRecommendationTopicContext.subject || keywords !== quickRecommendationTopicContext.keywordsText) return null;
   return quickRecommendationTopicContext;
 }
@@ -32,6 +79,10 @@ function getActiveQuickRecommendationContext() {
 function syncQuickTopicOrigin() {
   const originEl = document.getElementById('quick-topic-origin');
   if (!originEl) return;
+  if (quickDiscoveryInputTarget !== 'quick') {
+    originEl.hidden = true;
+    return;
+  }
   const trendContext = getActiveQuickTrendContext();
   const recommendationContext = getActiveQuickRecommendationContext();
   const context = trendContext || recommendationContext;
@@ -593,27 +644,27 @@ async function recordQuickTopicRecommendationOutcome(item, stage, extra = {}) {
 
 async function applyQuickTopicRecommendation(item) {
   if (!item) return false;
-  const values = ['quick-subject', 'quick-keywords', 'quick-title', 'quick-instruction', 'quick-reference-url']
-    .map((id) => String(document.getElementById(id)?.value || '').trim());
+  const values = getQuickDiscoveryInputValues();
   const activeContext = getActiveQuickRecommendationContext();
   const same = activeContext?.id === String(item.id || '');
   if (!same && values.some(Boolean)) {
     const confirmed = await showUiConfirm(
-      '빠른 포스팅에 작성 중인 내용이 있습니다. 선택한 추천 글감으로 교체할까요?',
+      `${getQuickDiscoveryInputTarget().label}에 작성 중인 내용이 있습니다. 선택한 추천 글감으로 교체할까요?`,
       { title: '추천 글감으로 교체', confirmText: '교체', cancelText: '취소' }
     );
     if (!confirmed) return false;
   }
-  applyQuickInputMode('ai');
+  activateQuickDiscoveryInputMode();
   const keywordsText = Array.isArray(item.keywords) ? item.keywords.join(', ') : '';
   // A newly selected topic starts a new draft; do not keep a title from the previous one.
-  document.getElementById('quick-title').value = '';
-  document.getElementById('quick-subject').value = String(item.title || '').trim();
-  document.getElementById('quick-keywords').value = keywordsText;
-  document.getElementById('quick-instruction').value = String(item.summary || '').trim();
-  document.getElementById('quick-reference-url').value = '';
+  writeQuickDiscoveryInput('title', '');
+  writeQuickDiscoveryInput('subject', String(item.title || '').trim());
+  writeQuickDiscoveryInput('keywords', keywordsText);
+  writeQuickDiscoveryInput('instruction', String(item.summary || '').trim());
+  writeQuickDiscoveryInput('referenceUrl', '');
   quickTrendTopicContext = null;
   quickRecommendationTopicContext = {
+    inputTarget: quickDiscoveryInputTarget,
     id: String(item.id || ''),
     subject: String(item.title || '').trim(),
     keywordsText,
@@ -622,7 +673,7 @@ async function applyQuickTopicRecommendation(item) {
   };
   syncQuickTopicOrigin();
   await recordQuickTopicRecommendationOutcome(item, 'selected');
-  document.getElementById('quick-subject')?.focus();
+  getQuickDiscoveryInputElement('subject')?.focus();
   return true;
 }
 
@@ -635,27 +686,26 @@ async function applyQuickKeywordDiscovery(input) {
     .slice(0, 3);
   const keywords = selectedItems.map((item) => String(item?.keyword || '').trim()).filter(Boolean);
   if (keywords.length === 0) return false;
-  const values = ['quick-subject', 'quick-keywords', 'quick-title', 'quick-instruction', 'quick-reference-url']
-    .map((id) => String(document.getElementById(id)?.value || '').trim());
+  const values = getQuickDiscoveryInputValues();
   if (values.some(Boolean)) {
     const confirmed = await showUiConfirm(
-      '빠른 포스팅에 작성 중인 내용이 있습니다. 선택한 키워드로 새 글을 시작할까요?',
+      `${getQuickDiscoveryInputTarget().label}에 작성 중인 내용이 있습니다. 선택한 키워드로 새 글을 시작할까요?`,
       { title: '선택 키워드로 교체', confirmText: '교체', cancelText: '취소' }
     );
     if (!confirmed) return false;
   }
-  applyQuickInputMode('ai');
-  document.getElementById('quick-title').value = '';
-  const subjectInput = document.getElementById('quick-subject');
+  activateQuickDiscoveryInputMode();
+  writeQuickDiscoveryInput('title', '');
+  const subjectInput = getQuickDiscoveryInputElement('subject');
   if (subjectInput && !String(subjectInput.value || '').trim()) {
     subjectInput.value = keywords[0];
   }
-  document.getElementById('quick-keywords').value = keywords.join(', ');
-  document.getElementById('quick-instruction').value = '';
-  document.getElementById('quick-reference-url').value = '';
+  writeQuickDiscoveryInput('keywords', keywords.join(', '));
+  writeQuickDiscoveryInput('instruction', '');
+  writeQuickDiscoveryInput('referenceUrl', '');
   quickTrendTopicContext = null;
   quickRecommendationTopicContext = null;
   syncQuickTopicOrigin();
-  document.getElementById('quick-subject')?.focus();
+  getQuickDiscoveryInputElement('subject')?.focus();
   return true;
 }

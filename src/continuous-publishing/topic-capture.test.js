@@ -47,6 +47,7 @@ test('topic capture rejects a non-http reference URL', () => {
 test('ready row keeps the topic-owned delivery plan in sheet options', () => {
     const row = buildTopicSheetRow({
         subject: '제주 산책',
+        title: '아침 산책에서 뜻밖에 마주친 것',
         keywords: '제주, 아침 산책, 제주',
         instruction: '경험 중심으로 작성',
         referenceUrl: 'https://example.com/reference',
@@ -64,6 +65,7 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
     assert.deepEqual(row.keywords, ['제주', '아침 산책']);
     assert.deepEqual(row.targets, ['naver', 'wordpress']);
     assert.equal(row.options.naver_category, '여행');
+    assert.equal(row.options.title, '아침 산책에서 뜻밖에 마주친 것');
     assert.equal(row.options.wordpress_category, 'Daily');
     assert.equal(row.options.writing_strategy, 'discovery');
     assert.equal(row.options.image_mode, 'none');

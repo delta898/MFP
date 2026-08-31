@@ -24,6 +24,7 @@ let quickGeneratedPreviewState = {
 };
 let quickTrendTopicContext = null;
 let quickRecommendationTopicContext = null;
+let quickDiscoveryInputTarget = 'quick';
 const quickTopicRecommendationState = {
   items: [],
   loaded: false,

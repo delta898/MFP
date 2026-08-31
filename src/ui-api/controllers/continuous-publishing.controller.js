@@ -49,9 +49,18 @@ function createContinuousPublishingController(deps = {}) {
         async updateTopic({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
-                return sendSuccess(res, requestId, await service.updateReadyTopic(requestBody || {}));
+                return sendSuccess(res, requestId, await service.updateTopic(requestBody || {}));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'QUEUE_PLAN_UPDATE_FAILED', '발행 계획을 수정하지 못했습니다.', error);
+            }
+        },
+
+        async deleteSavedTopic({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.deleteSavedTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'SAVED_TOPIC_DELETE_FAILED', '보관한 글감을 삭제하지 못했습니다.', error);
             }
         },
 

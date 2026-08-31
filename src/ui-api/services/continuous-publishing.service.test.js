@@ -49,6 +49,10 @@ function createService(state = {}) {
             state.runnerOptions = options;
             if (typeof state.executeRunner === 'function') return state.executeRunner(requestBody, options);
             return { success: true, data: { status: '발행 완료' } };
+        },
+        async executeBlogTopicsDelete(requestBody) {
+            state.deleteRequest = requestBody;
+            return state.deleteResult || { success: true, data: { deletedCount: 1 } };
         }
     });
 }
@@ -234,12 +238,14 @@ test('enqueue captures a ready topic with its own delivery plan', async () => {
     const result = await service.captureTopic({
         action: 'enqueue',
         subject: '곧 발행할 아이디어',
+        title: '선택한 발행 제목',
         platforms: ['naver'],
         postStatus: 'draft'
     });
 
     assert.equal(result.status, '발행 준비 완료');
     assert.deepEqual(state.appendedRows[0].options.platforms, ['naver']);
+    assert.equal(state.appendedRows[0].options.title, '선택한 발행 제목');
     assert.equal(state.appendedRows[0].options.post_status, 'draft');
 });
 
@@ -267,16 +273,23 @@ test('capture rejects an unknown action before touching the sheet', async () => 
 });
 
 test('ready queue is the FIFO projection of Topics ready rows', async () => {
-    const state = {};
+    const state = {
+        readItems: [
+            { rowIndex: 1, rowNumber: 3, status: '대기', subject: '저장한 글감' },
+            { rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글' }
+        ]
+    };
     const service = createService(state);
     const searchParams = new URLSearchParams({ limit: '500' });
 
     const result = await service.getReadyQueue({ searchParams });
 
     assert.equal(result.total, 1);
+    assert.deepEqual(result.status_summary, { saved: 1, ready: 1 });
+    assert.deepEqual(result.saved_items.map(item => item.subject), ['저장한 글감']);
+    assert.deepEqual(result.items.map(item => item.subject), ['먼저 쓸 글']);
     assert.deepEqual(state.readOptions, {
-        status: '발행 준비 완료',
-        limit: 100,
+        limit: 100000,
         offset: 0,
         sortBy: 'rowNumber',
         sortDir: 'asc'
@@ -290,6 +303,7 @@ test('ready topic update validates and preserves the row identity', async () => 
     const result = await service.updateReadyTopic({
         rowIndex: 2,
         subject: '수정한 글감',
+        title: '수정한 최종 제목',
         keywords: '제주, 산책',
         platforms: ['naver', 'wordpress'],
         postStatus: 'draft',
@@ -302,6 +316,46 @@ test('ready topic update validates and preserves the row identity', async () => 
     assert.deepEqual(state.updatedFields.platforms, ['naver', 'wordpress']);
     assert.equal(state.updatedFields.status, '발행 준비 완료');
     assert.equal(state.updatedFields.postStatus, 'draft');
+    assert.equal(state.updatedFields.title, '수정한 최종 제목');
+    assert.equal(state.clearedPrefix, 'topics');
+});
+
+test('saved topic can be updated in place or promoted to the ready queue', async () => {
+    const state = {
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감' }]
+    };
+    const service = createService(state);
+
+    const saved = await service.updateTopic({
+        action: 'save',
+        sourceStatus: '대기',
+        rowIndex: 2,
+        subject: '조금 더 적은 글감'
+    });
+    assert.equal(saved.status, '대기');
+    assert.equal(state.updatedFields.status, '대기');
+
+    const promoted = await service.updateTopic({
+        action: 'enqueue',
+        sourceStatus: '대기',
+        rowIndex: 2,
+        subject: '발행할 글감',
+        platforms: ['naver']
+    });
+    assert.equal(promoted.status, '발행 준비 완료');
+    assert.equal(state.updatedFields.status, '발행 준비 완료');
+});
+
+test('saved topic deletion verifies waiting state before deleting the row', async () => {
+    const state = {
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '지울 글감' }]
+    };
+    const service = createService(state);
+
+    const result = await service.deleteSavedTopic({ rowIndex: 2 });
+
+    assert.equal(result.deleted, true);
+    assert.deepEqual(state.deleteRequest, { rowIndices: [2] });
     assert.equal(state.clearedPrefix, 'topics');
 });
 
@@ -353,6 +407,29 @@ test('single-item runner selects the oldest ready topic without overriding its p
     assert.equal(state.runnerOptions.manualTrigger, true);
     assert.equal(state.runnerOptions.isAutoCycle, false);
     assert.equal(result.state, 'completed');
+    assert.equal(result.resultStatus, '발행 완료');
+});
+
+test('manual runner can execute one explicitly selected ready topic without changing queue order', async () => {
+    const state = {
+        readItems: [
+            { rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '첫 번째 글' },
+            { rowIndex: 11, rowNumber: 13, status: '발행 준비 완료', subject: '지금 실행할 글', postStatus: 'draft' }
+        ]
+    };
+    const service = createService(state);
+
+    const accepted = service.startNextReadyTopic({ rowIndex: 11, headless: true });
+    const result = await waitForRunner(service);
+
+    assert.equal(accepted.accepted, true);
+    assert.deepEqual(state.readOptions, {
+        status: '발행 준비 완료', limit: 10000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc'
+    });
+    assert.deepEqual(state.runnerRequest, {
+        action: 'batch', rowIndex: 11, headless: true, requireReadyStatus: true
+    });
+    assert.equal(result.subject, '지금 실행할 글');
     assert.equal(result.resultStatus, '발행 완료');
 });
 

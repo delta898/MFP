@@ -40,6 +40,7 @@ function normalizeTopicCaptureInput(input = {}) {
 
     return {
         subject: normalizeText(input.subject),
+        title: normalizeText(input.title),
         keywords: normalizeList(input.keywords),
         instruction: normalizeText(input.instruction),
         referenceUrls: normalizeList(input.referenceUrls || input.referenceUrl),
@@ -117,6 +118,7 @@ function buildTopicSheetRow(input = {}, options = {}) {
         targets: topic.platforms,
         writing_strategy: topic.writingStrategy,
         options: {
+            title: topic.title,
             platforms: topic.platforms,
             naver_category: topic.naverCategory,
             wordpress_category: topic.wordpressCategory,

@@ -1548,6 +1548,7 @@ const Utils = {
                         category: resolvedState.category || '',
                         postStatus: resolvedState.postStatus || 'publish',
                         scheduleDate: resolvedState.scheduleDate || '',
+                        title: resolvedState.title || '',
                         subject: resolvedState.subject || '',
                         keywords: resolvedState.keywords,
                         keywordsRaw: resolvedState.keywords.join(', ') || kwStr || '',
@@ -2517,6 +2518,7 @@ const Utils = {
                 const rowPostStatus = topic.postStatus || topic.post_status || '';
                 const rowScheduleDate = topic.scheduleDate || topic.schedule_date || '';
                 const syncedOptions = mergeTopicSheetOptions(topic.options, {
+                    title: topic.title,
                     subject: topic.subject,
                     keywords: Array.isArray(topic.keywords) ? topic.keywords : keywordValue,
                     instruction: instructionValue,
@@ -3553,6 +3555,7 @@ const Utils = {
             legacyGenerate: typeof fields.imageGeneration === 'boolean' ? fields.imageGeneration : undefined
         });
         const normalized = {
+            title: String(fields.title || '').trim(),
             category: String(fields.category || '').trim(),
             postStatus: String(fields.postStatus || '').trim(),
             scheduleDate: String(fields.scheduleDate || '').trim(),
@@ -3644,6 +3647,7 @@ const Utils = {
         if (map.extRef !== undefined) dataToUpdate.push({ range: `${sheetName}!${toA1(map.extRef)}${targetRow}`, values: [[normalized.externalReference]] });
         if (map.options !== undefined) {
             const syncedOptions = mergeTopicSheetOptions(existingOptionsRaw, {
+                title: normalized.title,
                 subject: normalized.subject,
                 keywords: normalized.keywords,
                 instruction: normalized.instruction,

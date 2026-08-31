@@ -317,6 +317,7 @@ test('continuous runner refuses a topic whose ready state changed before executi
 test('WordPress-only continuous publishing does not require a Naver session', async () => {
     let naverSessionChecks = 0;
     let receivedTargets = [];
+    let receivedTitle = '';
     const runtime = createContentActionsRuntime({
         path,
         CONFIG: DEVELOPMENT_CONFIG,
@@ -332,7 +333,7 @@ test('WordPress-only continuous publishing does not require a Naver session', as
                         rowIndex: 4,
                         status: '발행 준비 완료',
                         subject: '워드프레스 글감',
-                        options: { platforms: ['wordpress'], post_status: 'draft' }
+                        options: { title: '선택한 워드프레스 제목', platforms: ['wordpress'], post_status: 'draft' }
                     }]
                 };
             },
@@ -352,6 +353,7 @@ test('WordPress-only continuous publishing does not require a Naver session', as
         getBlogAutoSettingsSnapshot: () => ({ BLOG_AUTO_HEADLESS: true }),
         processMultiPlatformPublish: async (params) => {
             receivedTargets = params.targets;
+            receivedTitle = params.context.title;
             return {
                 success: true,
                 results: {
@@ -371,5 +373,6 @@ test('WordPress-only continuous publishing does not require a Naver session', as
     assert.equal(result.success, true);
     assert.equal(result.data.status, '임시 저장 완료');
     assert.deepEqual(receivedTargets, ['wordpress']);
+    assert.equal(receivedTitle, '선택한 워드프레스 제목');
     assert.equal(naverSessionChecks, 0);
 });

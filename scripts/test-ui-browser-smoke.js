@@ -190,8 +190,10 @@ function startFixtureServer(requests) {
         .composeCssFile({ uiRoot }).css;
     const composedUiScript = createJsCompositionRuntime({ fs, path })
         .composeJsFile({ uiRoot }).js;
-    let topicRecommendationCalls = 0;
+    const topicRecommendationCallsBySession = new Map();
     const continuousPublishingQueue = [];
+    const continuousSavedTopics = [];
+    let continuousTopicSequence = 10;
     let continuousAutomationSettings = {
         schema_version: 1,
         enabled: false,
@@ -251,6 +253,54 @@ function startFixtureServer(requests) {
             }
         }
 
+        if (url.pathname === '/api/v1/keywords/analyze' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const keyword = Array.isArray(payload.keywords) && payload.keywords[0] ? payload.keywords[0] : payload.subject;
+                const body = JSON.stringify({
+                    success: true,
+                    data: {
+                        input_keywords: [{
+                            keyword,
+                            is_input_keyword: true,
+                            monthly_search_volume: { total: 1200, mobile: 900, pc: 300 },
+                            estimated_weekly_search_volume: 280,
+                            weekly_new_blog_documents: { count: 20, capped: false },
+                            competition_strength: { level: '낮음' },
+                            opportunity: { estimated_weekly_searches_per_new_document: 14 }
+                        }],
+                        related_candidates: []
+                    }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/keywords/suggest-titles' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const body = JSON.stringify({
+                    success: true,
+                    data: {
+                        titles: [{ title: '제주 아침 산책에서 뜻밖에 마주친 것', role: '클릭 유도형' }],
+                        smart_usage_session_id: payload.smart_usage_session_id || '',
+                        smart_usage: { capability: 'title_recommendation', limit: 20, used: 1, remaining: 19 }
+                    }
+                });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
+            });
+            return;
+        }
+
         if (url.pathname === '/api/v1/continuous-publishing/topics' && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -258,20 +308,29 @@ function startFixtureServer(requests) {
                 const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 requestRecord.body = payload;
                 const queued = payload.action === 'enqueue';
-                if (queued) {
-                    continuousPublishingQueue.push({
-                        rowIndex: 10 + continuousPublishingQueue.length,
-                        rowNumber: 12 + continuousPublishingQueue.length,
-                        status: '발행 준비 완료',
-                        subject: payload.subject,
-                        keywordsRaw: payload.keywords,
-                        postStatus: payload.postStatus,
-                        options: { platforms: payload.platforms }
-                    });
-                }
+                const rowIndex = continuousTopicSequence++;
+                const item = {
+                    rowIndex,
+                    rowNumber: rowIndex + 2,
+                    status: queued ? '발행 준비 완료' : '대기',
+                    subject: payload.subject,
+                    title: payload.title,
+                    keywordsRaw: payload.keywords,
+                    postStatus: payload.postStatus,
+                    writing_strategy: payload.writingStrategy,
+                    image_mode: payload.imageMode,
+                    external_reference: payload.externalReference,
+                    content_guide: { additional_instructions: payload.instruction, reference_urls: payload.referenceUrl ? [payload.referenceUrl] : [] },
+                    options: {
+                        platforms: payload.platforms,
+                        naver_category: payload.naverCategory,
+                        wordpress_category: payload.wordpressCategory
+                    }
+                };
+                (queued ? continuousPublishingQueue : continuousSavedTopics).push(item);
                 const body = JSON.stringify({
                     success: true,
-                    data: { action: payload.action, status: queued ? '발행 준비 완료' : '대기', rowNumber: 12 }
+                    data: { action: payload.action, status: item.status, rowNumber: item.rowNumber, rowIndex }
                 });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
@@ -285,15 +344,49 @@ function startFixtureServer(requests) {
             req.on('end', () => {
                 const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 requestRecord.body = payload;
-                const item = continuousPublishingQueue.find(candidate => candidate.rowIndex === payload.rowIndex);
+                const source = payload.sourceStatus === '대기' ? continuousSavedTopics : continuousPublishingQueue;
+                const itemIndex = source.findIndex(candidate => candidate.rowIndex === payload.rowIndex);
+                const item = source[itemIndex];
                 if (item) {
                     item.subject = payload.subject;
+                    item.title = payload.title;
+                    item.keywordsRaw = payload.keywords;
                     item.postStatus = payload.postStatus;
-                    item.options = { ...item.options, platforms: payload.platforms };
+                    item.writing_strategy = payload.writingStrategy;
+                    item.image_mode = payload.imageMode;
+                    item.external_reference = payload.externalReference;
+                    item.options = {
+                        ...item.options,
+                        platforms: payload.platforms,
+                        naver_category: payload.naverCategory,
+                        wordpress_category: payload.wordpressCategory
+                    };
+                    if (payload.action === 'enqueue' && source === continuousSavedTopics) {
+                        source.splice(itemIndex, 1);
+                        item.status = '발행 준비 완료';
+                        continuousPublishingQueue.push(item);
+                    }
                 }
-                const body = JSON.stringify({ success: true, data: { rowIndex: payload.rowIndex, status: '발행 준비 완료' } });
+                const body = JSON.stringify({
+                    success: true,
+                    data: { rowIndex: payload.rowIndex, status: payload.action === 'enqueue' ? '발행 준비 완료' : '대기' }
+                });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/continuous-publishing/topics/delete' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const itemIndex = continuousSavedTopics.findIndex(candidate => candidate.rowIndex === payload.rowIndex);
+                if (itemIndex >= 0) continuousSavedTopics.splice(itemIndex, 1);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: { rowIndex: payload.rowIndex, deleted: true } }));
             });
             return;
         }
@@ -305,7 +398,11 @@ function startFixtureServer(requests) {
                 const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 requestRecord.body = payload;
                 const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === payload.rowIndex);
-                if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
+                if (itemIndex >= 0) {
+                    const [item] = continuousPublishingQueue.splice(itemIndex, 1);
+                    item.status = '대기';
+                    continuousSavedTopics.push(item);
+                }
                 const body = JSON.stringify({ success: true, data: { rowIndex: payload.rowIndex, status: '대기' } });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
@@ -319,7 +416,10 @@ function startFixtureServer(requests) {
             req.on('end', () => {
                 const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 requestRecord.body = payload;
-                const item = continuousPublishingQueue[0] || null;
+                const requestedRowIndex = Number(payload.rowIndex);
+                const item = Number.isInteger(requestedRowIndex)
+                    ? continuousPublishingQueue.find(candidate => candidate.rowIndex === requestedRowIndex) || null
+                    : continuousPublishingQueue[0] || null;
                 continuousRunnerStatus = item
                     ? {
                         state: 'running', message: '글감을 생성하고 발행하고 있습니다.',
@@ -385,14 +485,17 @@ function startFixtureServer(requests) {
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
                 data = {
                     items: continuousPublishingQueue,
+                    saved_items: continuousSavedTopics,
                     total: continuousPublishingQueue.length,
                     limit: 50,
-                    offset: 0
+                    offset: 0,
+                    status_summary: { saved: continuousSavedTopics.length, ready: continuousPublishingQueue.length }
                 };
             }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
                 if (continuousRunnerStatus.state === 'running') {
-                    continuousPublishingQueue.shift();
+                    const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === continuousRunnerStatus.rowIndex);
+                    if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
                     continuousRunnerStatus = {
                         ...continuousRunnerStatus,
                         state: 'completed',
@@ -404,7 +507,9 @@ function startFixtureServer(requests) {
                 data = continuousRunnerStatus;
             }
             if (url.pathname === '/api/v1/blog/topic-recommendations') {
-                topicRecommendationCalls += 1;
+                const sessionId = url.searchParams.get('session_id') || 'anonymous';
+                const topicRecommendationCalls = (topicRecommendationCallsBySession.get(sessionId) || 0) + 1;
+                topicRecommendationCallsBySession.set(sessionId, topicRecommendationCalls);
                 data = {
                     ideas: [{
                         id: `topic-${topicRecommendationCalls}`,
@@ -584,9 +689,49 @@ async function run() {
         assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
 
+        await page.locator('#blog-next-subject').fill('기존에 적어둔 제주 글감');
+        await page.locator('#blog-next-keywords').fill('제주 산책');
+        await page.locator('#blog-next-keyword-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#quick-keyword-discovery-query').inputValue(), '제주 산책');
+        await page.locator('#quick-discovery-modal-close').click();
+        await page.evaluate(async () => {
+            const originalConfirm = showUiConfirm;
+            showUiConfirm = async () => true;
+            try {
+                setQuickDiscoveryInputTarget('blogNext');
+                await applyQuickKeywordDiscovery([{ keyword: '제주 아침 산책' }]);
+            } finally {
+                showUiConfirm = originalConfirm;
+            }
+        });
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '기존에 적어둔 제주 글감');
+        assert.equal(await page.locator('#blog-next-keywords').inputValue(), '제주 아침 산책');
+        await page.locator('#blog-next-clear-topic').click();
+
+        await page.locator('#blog-next-topic-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        await page.locator('#quick-topic-recommendations-refresh').click();
+        await page.waitForFunction(() => document.querySelectorAll('.quick-topic-recommendation-row').length === 1);
+        await page.locator('.quick-topic-recommendation-row [data-recommendation-action="quick"]').click();
+        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '추천 글감 1');
+        assert.equal(await page.locator('#blog-next-keywords').inputValue(), '테스트');
+
+        await page.locator('#blog-next-title-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        await page.waitForFunction(() => document.querySelectorAll('.keyword-selection-checkbox').length === 1);
+        await page.locator('.keyword-selection-checkbox').check();
+        await page.locator('#keyword-generate-titles-btn').click();
+        await page.waitForFunction(() => document.querySelectorAll('.title-apply-btn').length === 1);
+        await page.locator('.title-apply-btn').click();
+        assert.equal(await page.locator('#blog-next-title').inputValue(), '제주 아침 산책에서 뜻밖에 마주친 것');
+        assert.equal(await page.locator('#blog-next-keywords').inputValue(), '테스트');
+        await page.locator('#blog-next-clear-topic').click();
+
         await page.locator('#blog-next-subject').fill('나중에 다듬을 제주 글감');
         await page.locator('#blog-next-save-topic').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('글감을 저장했습니다'));
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('글감을 보관했습니다'));
         const savedTopicRequest = requests.find((request) => (
             request.pathname === '/api/v1/continuous-publishing/topics'
             && request.body?.action === 'save'
@@ -603,38 +748,85 @@ async function run() {
         ));
         assert.deepEqual(queuedTopicRequest?.body?.platforms, ['naver']);
         assert.equal(queuedTopicRequest?.body?.postStatus, 'draft');
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '');
+        assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}').postStatus), 'draft');
+        await page.locator('#blog-next-clear-topic').click();
 
         await page.locator('[data-blog-next-input-mode="folder"]').click();
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"]').evaluate((element) => element.hidden), false);
         await page.locator('[data-blog-next-tab="queue"]').click();
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
-        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '발행 준비 1건');
-        assert.equal((await page.locator('.blog-next-queue-item strong').textContent())?.trim(), '곧 발행할 제주 글감');
-        assert.equal((await page.locator('.blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
-        await page.locator('.blog-next-queue-actions .secondary').click();
-        assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
-        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '발행 계획 저장');
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-saved-list .blog-next-queue-item').length === 1);
+        assert.equal((await page.locator('#blog-next-saved-count').textContent())?.trim(), '1건');
+        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '1건');
+        assert.equal((await page.locator('#blog-next-saved-list .blog-next-queue-item strong').textContent())?.trim(), '나중에 다듬을 제주 글감');
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item strong').textContent())?.trim(), '곧 발행할 제주 글감');
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
+
+        assert.equal((await page.locator('[data-blog-next-tab="queue"]').textContent())?.trim(), '글감 관리');
+        await page.locator('[data-blog-next-management-tab="saved"]').click();
+        assert.equal(await page.locator('[data-blog-next-management-panel="saved"]').evaluate((element) => element.hidden), false);
+        await page.locator('#blog-next-saved-list .blog-next-queue-copy').click();
+        assert.equal((await page.locator('#blog-next-editor-title').textContent())?.trim(), '보관한 글감 계속 작성');
+        assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
+        assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '보관');
+        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '대기열 추가');
+        assert.equal((await page.locator('#blog-next-clear-topic').textContent())?.trim(), '취소');
+        await page.locator('#blog-next-subject').fill('다듬은 제주 글감');
+        await page.locator('#blog-next-save-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('보관한 글감을 수정했습니다'));
+        await page.waitForFunction(() => document.querySelector('#blog-next-saved-list .blog-next-queue-item strong')?.textContent === '다듬은 제주 글감');
+        await page.locator('#blog-next-saved-list .blog-next-queue-actions .ghost').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-saved-list .blog-next-queue-item').length === 0);
+        assert.equal((await page.locator('#blog-next-saved-count').textContent())?.trim(), '0건');
+
+        await page.locator('[data-blog-next-management-tab="ready"]').click();
+        await page.locator('#blog-next-queue-list .blog-next-queue-copy').click();
+        assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
+        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '저장');
+        assert.equal(await page.locator('#blog-next-save-topic').evaluate((element) => element.hidden), true);
         await page.locator('#blog-next-subject').fill('수정한 제주 글감');
         await page.locator('#blog-next-target-wordpress').check();
         await page.locator('#blog-next-enqueue-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('발행 계획을 수정했습니다'));
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
-        await page.waitForFunction(() => document.querySelector('.blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
-        assert.equal((await page.locator('.blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
-        await page.locator('.blog-next-queue-actions .ghost').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
+        await page.locator('#blog-next-queue-list .blog-next-queue-actions .ghost').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
-        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '발행 준비 0건');
+        assert.equal((await page.locator('#blog-next-saved-count').textContent())?.trim(), '1건');
+        assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건');
+
         await page.locator('[data-blog-next-tab="quick"]').click();
-        await page.locator('#blog-next-subject').fill('수동 실행할 글감');
+        await page.locator('#blog-next-subject').fill('지금 실행할 글감');
         await page.locator('#blog-next-post-status').selectOption('draft');
         await page.locator('#blog-next-enqueue-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.locator('[data-blog-next-management-tab="ready"]').click();
+        await page.locator('[data-blog-next-run-now]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('임시 저장'), true);
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
+        const selectedRunnerRequest = requests.find((request) => (
+            request.pathname === '/api/v1/continuous-publishing/runner/start'
+            && Number.isInteger(request.body?.rowIndex)
+        ));
+        assert.equal(selectedRunnerRequest?.body?.headless, true);
+
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('[data-blog-next-tab="automation"]').click();
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
-        await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'disabled');
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-form')?.dataset.loaded === 'true');
+        assert.equal(await page.locator('#blog-next-automation-status').evaluate((element) => element.hidden), true);
         await page.locator('#blog-next-automation-enabled').check();
         await page.locator('#blog-next-automation-start-time').fill('09:00');
         await page.locator('#blog-next-automation-end-time').fill('21:00');
@@ -642,14 +834,8 @@ async function run() {
         await page.locator('#blog-next-automation-notify').check();
         await page.locator('#blog-next-automation-save').click();
         await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'waiting');
-        assert.equal((await page.locator('#blog-next-automation-environment').textContent())?.trim(), 'development');
-        assert.equal((await page.locator('#blog-next-automation-status-title').textContent())?.includes('안전 자동 실행'), true);
+        assert.equal((await page.locator('#blog-next-automation-status').textContent())?.includes('다음 실행'), true);
         assert.equal(await page.locator('#blog-next-automation-test').isVisible(), true);
-        await page.locator('#blog-next-runner-start').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-runner-message')?.textContent.includes('한 건을 처리했습니다'));
-        assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('수동 실행할 글감'), true);
-        assert.equal((await page.locator('#blog-next-runner-detail').textContent())?.includes('임시 저장 완료'), true);
-        assert.equal(await page.locator('#blog-next-runner-start').isDisabled(), false);
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="paste"]').click();
@@ -748,6 +934,18 @@ async function run() {
         assert.equal(await page.locator('#quick-subject').inputValue(), '빈 주제 자동 입력');
         assert.equal(await page.locator('#quick-keywords').inputValue(), '빈 주제 자동 입력');
 
+        await page.evaluate(() => {
+            Object.assign(quickTopicRecommendationState, {
+                items: [],
+                loaded: false,
+                loading: false,
+                error: '',
+                query: '',
+                smartUsageSessionId: '',
+                smartUsage: null,
+                smartUsageStartedAt: 0
+            });
+        });
         await page.locator('#quick-discovery-open-btn').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
         assert.equal(await page.locator('[data-quick-discovery-tab="topic"]').getAttribute('aria-selected'), 'true');
@@ -799,13 +997,17 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
+            { method: 'POST', pathname: '/api/v1/keywords/analyze' },
+            { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/delete' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
-            { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
         ]);

@@ -110,10 +110,12 @@ function bindActions() {
   quickSubjectInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickDiscoveryOpenBtn?.addEventListener('click', () => {
+    setQuickDiscoveryInputTarget('quick');
     setQuickDiscoveryTab('topic');
     setQuickDiscoveryModalOpen(true);
   });
   quickKeywordDiscoveryOpenBtn?.addEventListener('click', () => {
+    setQuickDiscoveryInputTarget('quick');
     if (quickKeywordDiscoveryQuery) {
       quickKeywordDiscoveryQuery.value = String(quickKeywordsInput?.value || '').trim();
       syncQuickKeywordDiscoveryControls();

@@ -18,6 +18,7 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
     assert.match(betaView, /id="view-blog-next"/);
     assert.match(betaView, /data-blog-next-tab="quick"/);
     assert.match(betaView, /data-blog-next-tab="queue"/);
+    assert.match(betaView, /data-blog-next-tab="queue">글감 관리/);
     assert.match(betaView, /data-blog-next-tab="automation"/);
     assert.doesNotMatch(betaView, /\bid="blog-tab-/);
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
@@ -26,10 +27,10 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
 test('Blog Beta quick shell preserves all three existing input concepts', () => {
     const betaView = read('ui/partials/views/blog-next.html');
 
-    assert.match(betaView, /data-blog-next-input-mode="ai">바로 생성/);
-    assert.match(betaView, /data-blog-next-input-mode="folder">원고 폴더/);
-    assert.match(betaView, /data-blog-next-input-mode="paste">원고 붙여넣기/);
-    assert.match(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
+    assert.match(betaView, /data-blog-next-input-mode="ai"[^>]*>바로 생성/);
+    assert.match(betaView, /data-blog-next-input-mode="folder"[^>]*>원고 폴더/);
+    assert.match(betaView, /data-blog-next-input-mode="paste"[^>]*>원고 붙여넣기/);
+    assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
 test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1', () => {
@@ -42,9 +43,10 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     const betaView = read('ui/partials/views/blog-next.html');
     const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
 
-    assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 저장/);
+    assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
     assert.match(betaView, /id="blog-next-queue-list"/);
+    assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
@@ -56,7 +58,10 @@ test('completed manuscripts publish directly without entering the continuous que
 
     assert.match(betaView, /data-blog-next-draft-publish="folder"/);
     assert.match(betaView, /data-blog-next-draft-publish="paste"/);
-    assert.match(betaView, /Queue에 저장하지 않습니다/);
+    assert.doesNotMatch(betaView, /Queue에 저장하지 않습니다/);
+    assert.match(betaView, /data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다."/);
+    assert.match(betaView, /data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 붙여넣어 바로 포스팅합니다."/);
+    assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
     assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/preview/);
     assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/publish/);
     assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);
@@ -70,6 +75,10 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(betaView, /id="blog-next-automation-start-time"/);
     assert.match(betaView, /id="blog-next-automation-end-time"/);
     assert.match(betaView, /id="blog-next-automation-interval"/);
+    assert.match(betaView, />발행 간격</);
+    assert.doesNotMatch(betaView, /글 사이 최소 간격/);
+    assert.match(betaView, />연속 발행 사용</);
+    assert.doesNotMatch(betaView, /이 기기|기본값은 꺼짐|글감이 정하는 것|연속 발행이 정하는 것|blog-next-runner-card/);
     assert.match(automationScript, /continuous-publishing\/automation\/settings/);
     assert.doesNotMatch(automationScript, /platforms|post_status|image_mode|naver_category|wordpress_category/);
 });
@@ -78,8 +87,52 @@ test('safe timer UI exposes a development-only 30 second test without multi-devi
     const html = read('ui/partials/views/blog-next.html');
     const script = read('ui/scripts/features/blog-next/automation-settings.js');
     assert.match(html, /id="blog-next-automation-test"/);
-    assert.match(html, /30초 후 1회 자동 실행 테스트/);
+    assert.match(html, />30초 테스트</);
     assert.match(script, /\/api\/v1\/continuous-publishing\/automation\/test/);
-    assert.match(script, /development_draft/);
+    assert.match(script, /runtime\.environment === 'development'/);
     assert.doesNotMatch(html, /claim|lease/i);
+});
+
+test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reuses recommendation surfaces', () => {
+    const html = read('ui/partials/views/blog-next.html');
+    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const discoveryScript = read('ui/scripts/features/discovery/quick-discovery.js');
+
+    assert.match(html, /id="blog-next-saved-count"/);
+    assert.match(html, /id="blog-next-queue-count"/);
+    assert.match(html, /id="blog-next-editor-modal"/);
+    assert.match(html, /data-blog-next-management-tab="ready">발행 대기열/);
+    assert.match(html, /data-blog-next-management-tab="saved">보관한 글감/);
+    assert.doesNotMatch(html, /blog-next-status-flow|blog-next-management-description/);
+    assert.doesNotMatch(html, /blog-next-reset-defaults|설정 초기화/);
+    assert.doesNotMatch(html, /AI 호출 없이 글감 등록|글감 보관은 아이디어만 있어도 가능합니다/);
+    assert.match(html, /id="blog-next-topic-recommend"/);
+    assert.match(html, /id="blog-next-keyword-recommend"/);
+    assert.match(html, /id="blog-next-title-recommend"/);
+    assert.match(queueScript, /moveBlogNextTopicFormToQueueEditor/);
+    assert.match(queueScript, /copy\.dataset\.blogNextEdit/);
+    assert.doesNotMatch(queueScript, /primaryAction\.textContent = '수정'/);
+    assert.match(queueScript, /blogNextRunNow/);
+    assert.doesNotMatch(queueScript, /blog-next-queue-status/);
+    assert.match(queueScript, /\/api\/v1\/continuous-publishing\/topics\/delete/);
+    assert.match(queueScript, /blog_next_topic_defaults_v1/);
+    assert.match(queueScript, /localStorage\.setItem/);
+    assert.doesNotMatch(queueScript, /activateBlogNextTab\('quick'\)/);
+    assert.match(discoveryScript, /blogNext: Object\.freeze/);
+    assert.match(discoveryScript, /getQuickDiscoveryInputElement/);
+});
+
+test('Stage 8 aligns posting language and external-reference controls with the existing blog flow', () => {
+    const html = read('ui/partials/views/blog-next.html');
+    const css = read('ui/styles/features/continuous-publishing-usability.css');
+
+    assert.match(html, /포스팅 대상/);
+    assert.match(html, /포스팅 옵션/);
+    assert.match(html, /<option value="publish">즉시 발행<\/option>/);
+    assert.match(html, /<option value="draft">임시 저장<\/option>/);
+    assert.match(html, /<option value="schedule">예약 발행<\/option>/);
+    assert.match(html, /id="blog-next-external-reference"[^>]*checked> 외부 참고 사용/);
+    assert.doesNotMatch(html, /관련 자료 자동 검색/);
+    assert.equal((html.match(/class="tooltip-container"/g) || []).length >= 5, true);
+    assert.match(css, /\.blog-next-input-action-row button\s*\{[^}]*inline-size:\s*156px;/s);
 });

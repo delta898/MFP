@@ -10,7 +10,7 @@ const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effect
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, CONFIG = {}, fs, path, now } = deps;
+    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now } = deps;
     const pathImpl = path || require('node:path');
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
@@ -125,10 +125,10 @@ function createContinuousPublishingService(deps = {}) {
         if (tasks.length > 0) await Promise.allSettled(tasks);
     }
 
-    async function requireReadyQueueItem(rowIndex) {
+    async function requireTopicInStatus(rowIndex, expectedStatus) {
         await ensureSheetsReadyForUi();
         const result = await Utils.readGoogleSheetTopicsAll({
-            status: TOPIC_STATUS.READY,
+            status: expectedStatus,
             limit: 10000,
             offset: 0,
             sortBy: 'rowNumber',
@@ -137,9 +137,20 @@ function createContinuousPublishingService(deps = {}) {
         const item = (Array.isArray(result?.items) ? result.items : [])
             .find(candidate => Number(candidate?.rowIndex) === rowIndex);
         if (!item) {
-            throw createApiError(409, 'QUEUE_ITEM_NOT_READY', '이 글감은 더 이상 발행 대기 상태가 아닙니다. 대기열을 새로고침해 주세요.');
+            const ready = expectedStatus === TOPIC_STATUS.READY;
+            throw createApiError(
+                409,
+                ready ? 'QUEUE_ITEM_NOT_READY' : 'SAVED_TOPIC_NOT_WAITING',
+                ready
+                    ? '이 글감은 더 이상 발행 대기 상태가 아닙니다. 대기열을 새로고침해 주세요.'
+                    : '이 글감은 더 이상 보관 상태가 아닙니다. 목록을 새로고침해 주세요.'
+            );
         }
         return item;
+    }
+
+    function requireReadyQueueItem(rowIndex) {
+        return requireTopicInStatus(rowIndex, TOPIC_STATUS.READY);
     }
 
     function startRunner(requestBody = {}, execution = {}) {
@@ -151,10 +162,13 @@ function createContinuousPublishingService(deps = {}) {
         }
 
         const headless = requestBody.headless !== false;
+        const requestedRowIndex = requestBody.rowIndex === undefined || requestBody.rowIndex === null || requestBody.rowIndex === ''
+            ? null
+            : parseRowIndex(requestBody.rowIndex);
         const startedAt = new Date().toISOString();
         updateRunnerState({
             state: 'selecting',
-            message: '다음 발행 준비 글감을 확인하고 있습니다.',
+            message: requestedRowIndex === null ? '다음 발행 준비 글감을 확인하고 있습니다.' : '선택한 발행 준비 글감을 확인하고 있습니다.',
             rowIndex: null,
             rowNumber: null,
             subject: '',
@@ -165,15 +179,20 @@ function createContinuousPublishingService(deps = {}) {
 
         runnerPromise = (async () => {
             try {
-                await ensureSheetsReadyForUi();
-                const queue = await Utils.readGoogleSheetTopicsAll({
-                    status: TOPIC_STATUS.READY,
-                    limit: 1,
-                    offset: 0,
-                    sortBy: 'rowNumber',
-                    sortDir: 'asc'
-                });
-                const topic = Array.isArray(queue?.items) ? queue.items[0] : null;
+                let topic;
+                if (requestedRowIndex !== null) {
+                    topic = await requireReadyQueueItem(requestedRowIndex);
+                } else {
+                    await ensureSheetsReadyForUi();
+                    const queue = await Utils.readGoogleSheetTopicsAll({
+                        status: TOPIC_STATUS.READY,
+                        limit: 1,
+                        offset: 0,
+                        sortBy: 'rowNumber',
+                        sortDir: 'asc'
+                    });
+                    topic = Array.isArray(queue?.items) ? queue.items[0] : null;
+                }
                 if (!topic || !Number.isInteger(Number(topic.rowIndex))) {
                     updateRunnerState({
                         state: 'empty',
@@ -329,26 +348,52 @@ function createContinuousPublishingService(deps = {}) {
             await ensureSheetsReadyForUi();
             const requestedLimit = Number.parseInt(String(searchParams?.get('limit') || '50'), 10);
             const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
-            return Utils.readGoogleSheetTopicsAll({
-                status: TOPIC_STATUS.READY,
-                limit,
+            const topics = await Utils.readGoogleSheetTopicsAll({
+                limit: 100000,
                 offset: 0,
                 sortBy: 'rowNumber',
                 sortDir: 'asc'
             });
+            const allItems = Array.isArray(topics?.items) ? topics.items : [];
+            const readyItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.READY);
+            const savedItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.WAITING);
+            return {
+                items: readyItems.slice(0, limit),
+                saved_items: savedItems.slice(0, limit),
+                total: readyItems.length,
+                limit,
+                offset: 0,
+                status_summary: {
+                    saved: savedItems.length,
+                    ready: readyItems.length
+                }
+            };
         },
 
-        async updateReadyTopic(requestBody = {}) {
+        async updateTopic(requestBody = {}) {
             const rowIndex = parseRowIndex(requestBody.rowIndex);
-            await requireReadyQueueItem(rowIndex);
+            const action = String(requestBody.action || 'enqueue').trim();
+            if (!['save', 'enqueue'].includes(action)) {
+                throw createApiError(400, 'TOPIC_UPDATE_ACTION_INVALID', '글감 저장 방식을 확인해 주세요.');
+            }
+            const sourceStatus = String(requestBody.sourceStatus || TOPIC_STATUS.READY).trim();
+            if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(sourceStatus)) {
+                throw createApiError(400, 'TOPIC_SOURCE_STATUS_INVALID', '수정할 글감 상태를 확인해 주세요.');
+            }
+            if (sourceStatus === TOPIC_STATUS.READY && action === 'save') {
+                throw createApiError(409, 'READY_TOPIC_CANNOT_BE_SAVED', '발행 대기열 글감은 먼저 보관한 글감으로 옮겨 주세요.');
+            }
+            await requireTopicInStatus(rowIndex, sourceStatus);
+            const ready = action === 'enqueue';
             let row;
             try {
-                row = buildTopicSheetRow(requestBody, { ready: true });
+                row = buildTopicSheetRow(requestBody, { ready });
             } catch (error) {
-                throw createApiError(400, error.code || 'QUEUE_PLAN_INVALID', error.message);
+                throw createApiError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message);
             }
 
             await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
+                title: row.options.title || '',
                 category: row.category,
                 postStatus: row.postStatus,
                 scheduleDate: row.scheduleDate,
@@ -356,7 +401,7 @@ function createContinuousPublishingService(deps = {}) {
                 keywords: row.keywords,
                 instruction: row.content_guide.additional_instructions,
                 referenceUrl: row.content_guide.reference_urls,
-                status: TOPIC_STATUS.READY,
+                status: row.status,
                 imageMode: row.image_options.mode,
                 imageGeneration: row.image_options.generate,
                 externalReference: row.use_external_ref,
@@ -364,7 +409,25 @@ function createContinuousPublishingService(deps = {}) {
                 platforms: row.targets
             });
             Utils.clearSheetCache('topics');
-            return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.READY };
+            return { action, rowIndex, rowNumber: rowIndex + 2, status: row.status };
+        },
+
+        updateReadyTopic(requestBody = {}) {
+            return this.updateTopic({ ...requestBody, action: 'enqueue', sourceStatus: TOPIC_STATUS.READY });
+        },
+
+        async deleteSavedTopic(requestBody = {}) {
+            const rowIndex = parseRowIndex(requestBody.rowIndex);
+            await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
+            if (typeof executeBlogTopicsDelete !== 'function') {
+                throw createApiError(500, 'SAVED_TOPIC_DELETE_UNAVAILABLE', '보관한 글감 삭제 기능을 준비하지 못했습니다.');
+            }
+            const result = await executeBlogTopicsDelete({ rowIndices: [rowIndex] });
+            if (!result?.success) {
+                throw createApiError(400, result?.code || 'SAVED_TOPIC_DELETE_FAILED', result?.message || '보관한 글감을 삭제하지 못했습니다.');
+            }
+            Utils.clearSheetCache('topics');
+            return { rowIndex, rowNumber: rowIndex + 2, deleted: true };
         },
 
         async removeReadyTopic(requestBody = {}) {

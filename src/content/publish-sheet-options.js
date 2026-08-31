@@ -149,6 +149,7 @@ function resolveTopicSheetState(input = {}) {
 
     return {
         options: parsedOptions,
+        title: normalizeString(parsedOptions.title) || normalizeString(input.title),
         subject: normalizeString(parsedOptions.subject) || normalizeString(input.subject),
         keywords: Array.isArray(parsedOptions.keywords)
             ? normalizeStringArray(parsedOptions.keywords)
@@ -210,6 +211,7 @@ function applyArrayOption(target, key, value) {
 function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
     const next = parseSheetOptionsValue(existingOptions);
 
+    if (fields.title !== undefined) applyStringOption(next, 'title', fields.title);
     if (fields.subject !== undefined) applyStringOption(next, 'subject', fields.subject);
     if (fields.keywords !== undefined) applyArrayOption(next, 'keywords', fields.keywords);
     if (fields.instruction !== undefined) applyStringOption(next, 'instruction', fields.instruction);
