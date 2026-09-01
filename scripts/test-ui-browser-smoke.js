@@ -751,7 +751,24 @@ async function run() {
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
 
-        assert.equal((await page.locator('.nav-btn[data-view="blog-next"] .nav-label').textContent())?.trim(), '블로그 Beta');
+        assert.equal(
+            await page.locator('.nav-btn[data-view="blog-next"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
+            '블로그 Beta'
+        );
+        assert.deepEqual(
+            await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').evaluate((element) => ({
+                text: element.textContent?.trim(),
+                label: element.getAttribute('aria-label'),
+                color: getComputedStyle(element).color,
+                background: getComputedStyle(element).backgroundColor
+            })),
+            {
+                text: 'new',
+                label: '새 메뉴',
+                color: 'rgb(159, 18, 57)',
+                background: 'rgb(255, 241, 242)'
+            }
+        );
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
         assert.deepEqual(

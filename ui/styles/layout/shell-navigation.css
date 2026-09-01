@@ -186,6 +186,22 @@
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+.nav-new-badge {
+  display: inline-block;
+  margin-inline-start: 5px;
+  padding: 2px 4px;
+  border: 1px solid rgba(159, 18, 57, 0.2);
+  border-radius: 999px;
+  background: #fff1f2;
+  color: #9f1239;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  transform: translateY(-0.55em);
+}
+
 .sidebar.collapsed .nav-label {
   opacity: 0;
   transform: translateX(10px);
