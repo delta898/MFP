@@ -85,3 +85,33 @@ test('segmented control radios remain visually hidden inside their own label', (
     assert.match(css, /\.settings-segmented-control input\s*\{[^}]*height:\s*1px;/s);
     assert.match(css, /\.settings-segmented-control input\s*\{[^}]*clip-path:\s*inset\(50%\);/s);
 });
+
+test('Blog Beta form typography separates labels, edit values, and compact automation fields', () => {
+    const css = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'continuous-publishing.css'),
+        'utf8'
+    );
+
+    assert.match(css, /\.blog-next-field\s*\{[^}]*font-size:\s*15px;[^}]*font-weight:\s*400;/s);
+    assert.match(css, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*14px;[\s\S]*?font-weight:\s*700;/);
+    assert.match(css, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*400;/);
+    assert.match(css, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;/s);
+});
+
+test('Blog Beta management typography distinguishes navigation, item content, metadata, and actions', () => {
+    const coreCss = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'continuous-publishing.css'),
+        'utf8'
+    );
+    const usabilityCss = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'continuous-publishing-usability.css'),
+        'utf8'
+    );
+
+    assert.match(usabilityCss, /\.blog-next-management-tab\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/s);
+    assert.match(usabilityCss, /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*700;/s);
+    assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*15px;[^}]*font-weight:\s*600;/s);
+    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*400;/s);
+    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;/s);
+    assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/s);
+});
