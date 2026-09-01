@@ -57,7 +57,7 @@ test('Core.generateContent uses the selected blog profile composer for the share
         assert.match(capturedPrompt, /핵심 용어는 첫 등장에 쉽게 풀이/);
         assert.match(capturedPrompt, /결론에 두 항목 체크리스트/);
         assert.match(capturedPrompt, /이번 글에서는 도입을 한 문장/);
-        assert.match(capturedPrompt, /2개를 권장/);
+        assert.match(capturedPrompt, /정확히 2개 작성/);
         assert.doesNotMatch(capturedPrompt, /쇼핑 전용 가격 설명/);
         assert.deepEqual(result.imagePlan, { mode: 'prompt_only', count: 2, source: 'post', length_preset: null });
     } finally {

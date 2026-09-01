@@ -65,6 +65,7 @@ The goal is to define one measurable blog body-length contract, align profile se
 ## Verification and handoff
 
 - `node --test src/content/blog-*.test.js src/content/writing-profile-*.test.js` — 43 tests passed.
+- `npm run test:unit` — 1,206 tests passed after aligning the shared Core prompt expectation with the approved exact image-block instruction. The first sandboxed run could not open two loopback test ports; the unrestricted local rerun passed.
 - `git diff --check` — passed.
 
 No UI control, post-generation length/count validation, warning, retry or correction call was added. No paid model or publishing action was used. The implementation is ready for integration review on the feature branch.
