@@ -282,6 +282,18 @@
   line-height: 1.55;
 }
 
+.blog-next-form-result-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 34px;
+}
+
+.blog-next-form-result-row .blog-next-runner-status-jump {
+  margin-inline-start: 0;
+}
+
 .blog-next-form-result[data-level="success"] {
   color: var(--success);
 }

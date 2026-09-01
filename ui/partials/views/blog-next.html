@@ -165,14 +165,16 @@
                   </label>
                 </div>
               </div>
-              <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
+              <div class="blog-next-form-result-row">
+                <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
+                <button class="ghost compact blog-next-runner-status-jump" data-blog-next-runner-status-jump
+                  type="button" hidden>상태 보기 ↑</button>
+              </div>
               <div class="blog-next-form-actions">
                 <button class="primary" id="blog-next-publish-now" type="button">바로 포스팅</button>
                 <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form">발행 대기열에 추가</button>
                 <button class="secondary" id="blog-next-save-topic" type="button">글감 보관</button>
                 <button class="ghost blog-next-clear-action" id="blog-next-clear-topic" type="button">내용 지우기</button>
-                <button class="ghost compact blog-next-runner-status-jump" data-blog-next-runner-status-jump
-                  type="button" hidden>상태 보기 ↑</button>
               </div>
             </form>
             </div>

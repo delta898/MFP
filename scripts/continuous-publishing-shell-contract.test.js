@@ -215,6 +215,10 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
     assert.match(betaView, /data-blog-next-runner-status-jump[^>]*hidden>상태 보기 ↑/);
+    assert.match(
+        betaView,
+        /class="blog-next-form-result-row">[\s\S]*?id="blog-next-topic-result"[\s\S]*?data-blog-next-runner-status-jump[\s\S]*?<\/div>/
+    );
     assert.match(runnerScript, /state === 'completed'/);
     assert.match(runnerScript, /state === 'failed'/);
     assert.match(runnerScript, /state === 'needs_attention'/);
