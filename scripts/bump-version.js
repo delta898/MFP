@@ -2,27 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { bumpVersion, formatVersion, parseVersion } = require('./version-utils');
 
 const packageJsonFile = path.join(__dirname, '..', 'package.json');
 const packageLockFile = path.join(__dirname, '..', 'package-lock.json');
 const mode = process.argv[2] || 'patch';
-
-function parseVersion(input) {
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(input.trim());
-  if (!m) return null;
-  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
-}
-
-function formatVersion(v) {
-  return `${v.major}.${v.minor}.${v.patch}`;
-}
-
-function bump(v, kind) {
-  if (kind === 'major') return { major: v.major + 1, minor: 0, patch: 0 };
-  if (kind === 'minor') return { major: v.major, minor: v.minor + 1, patch: 0 };
-  if (kind === 'patch') return { major: v.major, minor: v.minor, patch: v.patch + 1 };
-  return null;
-}
 
 let packageJson;
 try {
@@ -39,19 +23,19 @@ if (!packageJson || typeof packageJson.version !== 'string') {
 
 const current = parseVersion(packageJson.version);
 if (!current) {
-  console.error('package.json version 형식이 올바르지 않습니다. (x.y.z)');
+  console.error('package.json version 형식이 올바르지 않습니다. (x.y.z 또는 x.y.z-prerelease)');
   process.exit(1);
 }
 let next;
 
-if (/^\d+\.\d+\.\d+$/.test(mode)) {
+if (/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(mode)) {
   next = parseVersion(mode);
 } else {
-  next = bump(current, mode);
+  next = bumpVersion(current, mode);
 }
 
 if (!next) {
-  console.error('사용법: node scripts/bump-version.js [patch|minor|major|x.y.z]');
+  console.error('사용법: node scripts/bump-version.js [patch|minor|major|x.y.z|x.y.z-prerelease]');
   process.exit(1);
 }
 
