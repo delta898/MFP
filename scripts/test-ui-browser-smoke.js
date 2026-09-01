@@ -1090,6 +1090,36 @@ async function run() {
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.getElementById('blog-next-automation-form')?.dataset.loaded === 'true');
         assert.equal(await page.locator('#blog-next-automation-status').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
+        assert.deepEqual(
+            await page.locator('#blog-next-automation-save').evaluate((button) => ({
+                cursor: getComputedStyle(button).cursor,
+                visuallyMuted: Number(getComputedStyle(button).opacity) < 1
+            })),
+            { cursor: 'not-allowed', visuallyMuted: true }
+        );
+        await page.locator('#blog-next-automation-interval').fill('61');
+        assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), false);
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('저장하지 않고 이동'), true);
+        await page.locator('#ui-dialog-cancel').click();
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '61');
+        await page.locator('.nav-btn[data-view="dashboard"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-cancel').click();
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#view-blog-next').evaluate((element) => element.classList.contains('active')), true);
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-panel-quick')?.hidden === false);
+        await page.locator('[data-blog-next-tab="automation"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-panel-automation')?.hidden === false);
+        assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '60');
+        assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
         await page.locator('#blog-next-automation-enabled').check();
         await page.locator('#blog-next-automation-start-time').fill('09:00');
         await page.locator('#blog-next-automation-end-time').fill('21:00');
@@ -1097,6 +1127,7 @@ async function run() {
         await page.locator('#blog-next-automation-notify').check();
         await page.locator('#blog-next-automation-save').click();
         await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'waiting');
+        assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
         assert.equal((await page.locator('#blog-next-automation-status').textContent())?.includes('다음 실행'), true);
         assert.equal(await page.locator('#blog-next-automation-test').isVisible(), true);
 

@@ -1,12 +1,31 @@
 let blogNextAutomationSaving = false;
 let blogNextAutomationPollingTimer = null;
+let blogNextAutomationSavedSettings = null;
+let blogNextAutomationDirty = false;
+
+function normalizeBlogNextAutomationSettings(settings = {}) {
+  return {
+    enabled: settings.enabled === true,
+    allowed_start_time: String(settings.allowed_start_time || '00:00'),
+    allowed_end_time: String(settings.allowed_end_time || '23:59'),
+    interval_minutes: Number.parseInt(String(settings.interval_minutes ?? '60'), 10),
+    notification_enabled: settings.notification_enabled === true
+  };
+}
+
+function serializeBlogNextAutomationSettings(settings = {}) {
+  return JSON.stringify(normalizeBlogNextAutomationSettings(settings));
+}
 
 function readBlogNextAutomationForm() {
+  const startTime = document.getElementById('blog-next-automation-start-time');
+  const endTime = document.getElementById('blog-next-automation-end-time');
+  const interval = document.getElementById('blog-next-automation-interval');
   return {
     enabled: document.getElementById('blog-next-automation-enabled')?.checked === true,
-    allowed_start_time: document.getElementById('blog-next-automation-start-time')?.value || '00:00',
-    allowed_end_time: document.getElementById('blog-next-automation-end-time')?.value || '23:59',
-    interval_minutes: Number.parseInt(document.getElementById('blog-next-automation-interval')?.value || '60', 10),
+    allowed_start_time: startTime ? startTime.value : '00:00',
+    allowed_end_time: endTime ? endTime.value : '23:59',
+    interval_minutes: Number.parseInt(interval ? interval.value : '60', 10),
     notification_enabled: document.getElementById('blog-next-automation-notify')?.checked === true
   };
 }
@@ -24,6 +43,51 @@ function fillBlogNextAutomationForm(settings = {}) {
   if (notify) notify.checked = settings.notification_enabled === true;
 }
 
+function syncBlogNextAutomationSaveState() {
+  const button = document.getElementById('blog-next-automation-save');
+  const form = document.getElementById('blog-next-automation-form');
+  if (form) form.dataset.dirty = blogNextAutomationDirty ? 'true' : 'false';
+  if (!button) return;
+  button.disabled = blogNextAutomationSaving || !blogNextAutomationDirty;
+  button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+  button.textContent = blogNextAutomationSaving ? '저장 중...' : '설정 저장';
+}
+
+function updateBlogNextAutomationDirtyState() {
+  blogNextAutomationDirty = Boolean(blogNextAutomationSavedSettings)
+    && serializeBlogNextAutomationSettings(readBlogNextAutomationForm())
+      !== serializeBlogNextAutomationSettings(blogNextAutomationSavedSettings);
+  syncBlogNextAutomationSaveState();
+  return blogNextAutomationDirty;
+}
+
+function setBlogNextAutomationSavedSettings(settings = {}) {
+  blogNextAutomationSavedSettings = normalizeBlogNextAutomationSettings(settings);
+  blogNextAutomationDirty = false;
+  syncBlogNextAutomationSaveState();
+}
+
+function discardBlogNextAutomationChanges() {
+  if (blogNextAutomationSavedSettings) fillBlogNextAutomationForm(blogNextAutomationSavedSettings);
+  blogNextAutomationDirty = false;
+  syncBlogNextAutomationSaveState();
+}
+
+async function confirmDiscardUnsavedBlogNextAutomationSettings() {
+  if (!blogNextAutomationDirty) return true;
+  const shouldDiscard = await showUiConfirm(
+    '저장되지 않은 연속 발행 설정이 있습니다.\n저장하지 않고 이동하면 변경사항이 사라집니다.',
+    {
+      title: '연속 발행 설정 변경사항',
+      confirmText: '저장 안 하고 이동',
+      cancelText: '계속 편집'
+    }
+  );
+  if (!shouldDiscard) return false;
+  discardBlogNextAutomationChanges();
+  return true;
+}
+
 function formatBlogNextAutomationTime(value) {
   if (!value) return '';
   const parsed = new Date(value);
@@ -38,6 +102,7 @@ function renderBlogNextAutomationSettings(data = {}) {
   const form = document.getElementById('blog-next-automation-form');
   const testButton = document.getElementById('blog-next-automation-test');
   fillBlogNextAutomationForm(settings);
+  setBlogNextAutomationSavedSettings(settings);
   if (form) form.dataset.loaded = 'true';
   if (status) {
     const nextRun = formatBlogNextAutomationTime(runtime.scheduler?.test_run_at || runtime.next_run_at_preview);
@@ -83,14 +148,11 @@ async function scheduleBlogNextAutomationTest() {
 
 function setBlogNextAutomationSaving(saving) {
   blogNextAutomationSaving = saving;
-  const button = document.getElementById('blog-next-automation-save');
-  if (button) {
-    button.disabled = saving;
-    button.textContent = saving ? '저장 중...' : '설정 저장';
-  }
+  syncBlogNextAutomationSaveState();
 }
 
-async function loadBlogNextAutomationSettings() {
+async function loadBlogNextAutomationSettings(options = {}) {
+  if (blogNextAutomationDirty && options.force !== true) return null;
   try {
     const data = await fetchJson('/api/v1/continuous-publishing/automation/settings');
     renderBlogNextAutomationSettings(data);
@@ -126,6 +188,9 @@ function initBlogNextAutomationSettings() {
   if (!form || form.dataset.bound === 'true') return;
   form.dataset.bound = 'true';
   form.addEventListener('submit', saveBlogNextAutomationSettings);
+  form.addEventListener('input', updateBlogNextAutomationDirtyState);
+  form.addEventListener('change', updateBlogNextAutomationDirtyState);
   document.getElementById('blog-next-automation-test')?.addEventListener('click', scheduleBlogNextAutomationTest);
+  syncBlogNextAutomationSaveState();
   loadBlogNextAutomationSettings();
 }

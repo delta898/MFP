@@ -38,7 +38,7 @@
 
 - 완료: 현재 순서 기준 처리 예상 시간과 runner 완료 후 목록 갱신 기반.
 - 완료: Queue 실행 상태 UX — `../archive/2026-09-02-release-queue-running-state-ux-development.md`.
-- 구현 완료·UI 검토 대기: Blog Beta 공통 실행 잠금 — `2026-09-02-release-blog-next-execution-lock-development.md`.
+- 완료: Blog Beta 공통 실행 잠금과 연속 발행 설정 변경 보호 — `../archive/2026-09-02-release-blog-next-execution-lock-development.md`.
 
 ## Decisions and tradeoffs
 
@@ -54,6 +54,7 @@
 - 2026-09-01: 글감 관리 탭에서 runner 완료 시각 변화를 감시하고 완료 후 대기열을 다시 읽도록 했다. 수동 실행은 scheduler를 갱신하지 않는다.
 - 2026-09-02: Queue 실행 상태 하위 단계에서 실행 row 표시, 완료 후 제거, 실행 중 수정·이동·제외·추가 실행과 30초 시험 실행 차단을 구현하고 사용자 UI 검토를 통과했다.
 - 2026-09-02: 공통 실행 잠금 하위 단계에서 continuous runner와 원고 폴더/붙여넣기를 같은 서버 coordinator로 묶고 교차 화면 중복 실행을 차단했다.
+- 2026-09-02: 연속 발행 설정 저장 버튼의 변경 감지와 미저장 이탈 안내까지 사용자 검토를 마치고 하위 단계를 완료했다.
 - 단위 테스트: `node --test src/continuous-publishing/automation-settings.test.js src/ui-api/services/continuous-publishing.service.test.js` — 30 passed.
 - UI 계약 테스트: `node --test scripts/continuous-publishing-shell-contract.test.js` — 14 passed.
 - 브라우저 회귀 테스트: `npm run test:ui-browser` — passed, 117 fixture requests.

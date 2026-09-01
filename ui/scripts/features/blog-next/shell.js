@@ -45,6 +45,20 @@ function activateBlogNextTab(tabName) {
   }
 }
 
+async function requestActivateBlogNextTab(tabName) {
+  const target = BLOG_NEXT_TABS.includes(String(tabName || '').trim())
+    ? String(tabName).trim()
+    : 'quick';
+  if (blogNextActiveTab === 'automation'
+    && target !== 'automation'
+    && typeof confirmDiscardUnsavedBlogNextAutomationSettings === 'function') {
+    const canLeave = await confirmDiscardUnsavedBlogNextAutomationSettings();
+    if (!canLeave) return false;
+  }
+  activateBlogNextTab(target);
+  return true;
+}
+
 function activateBlogNextInputMode(modeName) {
   const target = BLOG_NEXT_INPUT_MODES.includes(String(modeName || '').trim())
     ? String(modeName).trim()
@@ -67,7 +81,9 @@ function initBlogNextShell() {
   if (typeof initBlogNextTrendPosting === 'function') initBlogNextTrendPosting();
   if (!blogNextShellBound) {
     document.querySelectorAll('[data-blog-next-tab]').forEach((button) => {
-      button.addEventListener('click', () => activateBlogNextTab(button.dataset.blogNextTab));
+      button.addEventListener('click', () => {
+        void requestActivateBlogNextTab(button.dataset.blogNextTab);
+      });
     });
     document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
       button.addEventListener('click', () => activateBlogNextInputMode(button.dataset.blogNextInputMode));

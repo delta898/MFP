@@ -152,6 +152,16 @@
   box-shadow: none;
 }
 
+#blog-next-automation-save:disabled,
+#blog-next-automation-save:disabled:hover {
+  background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-solid));
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
+}
+
 @keyframes blog-next-trend-refresh-spin {
   to { transform: rotate(360deg); }
 }

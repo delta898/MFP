@@ -1,6 +1,8 @@
 window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', (event) => {
-    if (!settingsMajorHasPendingBasicChanges && !settingsWritingProfileDirty) return;
+    if (!settingsMajorHasPendingBasicChanges
+      && !settingsWritingProfileDirty
+      && !(typeof blogNextAutomationDirty !== 'undefined' && blogNextAutomationDirty)) return;
     event.preventDefault();
     event.returnValue = '';
   });

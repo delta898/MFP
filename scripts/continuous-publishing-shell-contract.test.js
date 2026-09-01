@@ -117,6 +117,10 @@ test('Blog Beta execution paths share one server-side coordinator without wideni
 test('continuous automation settings own timing but never topic delivery targets', () => {
     const betaView = read('ui/partials/views/blog-next.html');
     const automationScript = read('ui/scripts/features/blog-next/automation-settings.js');
+    const shellScript = read('ui/scripts/features/blog-next/shell.js');
+    const navigationScript = read('ui/scripts/foundation/navigation.js');
+    const lifecycleScript = read('ui/scripts/foundation/lifecycle.js');
+    const interactionCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
     assert.match(betaView, /id="blog-next-automation-enabled"/);
     assert.match(betaView, /id="blog-next-automation-start-time"/);
@@ -125,8 +129,15 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(betaView, />발행 간격</);
     assert.doesNotMatch(betaView, /글 사이 최소 간격/);
     assert.match(betaView, />연속 발행 사용</);
+    assert.match(betaView, /id="blog-next-automation-save"[^>]*disabled/);
     assert.doesNotMatch(betaView, /이 기기|기본값은 꺼짐|글감이 정하는 것|연속 발행이 정하는 것|blog-next-runner-card/);
     assert.match(automationScript, /continuous-publishing\/automation\/settings/);
+    assert.match(automationScript, /updateBlogNextAutomationDirtyState/);
+    assert.match(automationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
+    assert.match(shellScript, /requestActivateBlogNextTab/);
+    assert.match(navigationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
+    assert.match(lifecycleScript, /blogNextAutomationDirty/);
+    assert.match(interactionCss, /#blog-next-automation-save:disabled/);
     assert.doesNotMatch(automationScript, /platforms|post_status|image_mode|naver_category|wordpress_category/);
 });
 

@@ -15,6 +15,14 @@ async function navigateTo(viewName, subTab) {
     if (!canLeaveSettings) return;
   }
 
+  const blogNextViewActive = document.getElementById('view-blog-next')?.classList.contains('active') === true;
+  if (viewName !== 'blog-next'
+    && blogNextViewActive
+    && typeof confirmDiscardUnsavedBlogNextAutomationSettings === 'function') {
+    const canLeaveBlogNext = await confirmDiscardUnsavedBlogNextAutomationSettings();
+    if (!canLeaveBlogNext) return;
+  }
+
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   const views = Array.from(document.querySelectorAll('.view'));
   navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));

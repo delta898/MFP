@@ -5,7 +5,7 @@
 - Branch: `codex/release-blog-next-execution-lock`
 - Base/parent: `codex/release-queue-schedule-visibility`
 - Start date: 2026-09-02
-- Status: Implementation complete — awaiting user UI acceptance and merge request
+- Status: Complete — user UI acceptance received, ready for parent merge
 
 ## User need and goal
 
@@ -57,13 +57,17 @@ Blog Beta의 빠른 바로 생성, 원고 폴더, 원고 붙여넣기, Queue 단
 - 2026-09-02: 원고 폴더/붙여넣기 실행도 공통 상단 진행 상태를 사용하고, 실행 중 두 원고 버튼과 Queue 실행 동작을 함께 비활성화하도록 UI 상태를 연결했다.
 - 2026-09-02: Preview와 runner가 버튼 상태를 서로 덮어쓰던 경합을 하나의 동기화 함수로 통합했다. 브라우저 fixture도 원고 발행 중 공통 runner 상태를 반환하도록 맞춰 교차 화면 잠금을 검증했다.
 - 2026-09-02: 빠른 글 작성 결과 옆 `상태 보기`는 상단 진행 패널에 실제 실행 중 상태가 있을 때만 표시한다. 완료·실패·대기 상태나 패널을 닫은 뒤에는 볼 대상이 없으므로 숨긴다.
+- 2026-09-02: 연속 발행 설정은 서버에서 읽은 저장 스냅샷과 현재 폼을 비교해 실제 변경이 있을 때만 `설정 저장`을 활성화한다. 미저장 상태에서 Blog Beta의 다른 탭이나 앱의 다른 메뉴로 이동하거나 창을 닫을 때 변경사항 유실을 안내한다.
+- 2026-09-02: `설정 저장`의 disabled 속성은 정상 적용됐지만 공통 primary hover가 남아 활성 버튼처럼 보이는 문제를 확인했다. 비활성 전용 색상·커서·opacity를 적용하고 hover 이동·그림자를 제거했다.
 - 집중 단위·계약 테스트: `node --test src/blog-next/execution-coordinator.test.js src/ui-api/services/content.service.blog-next-execution.test.js src/ui-api/services/continuous-publishing.service.test.js scripts/continuous-publishing-shell-contract.test.js` — 45 passed.
 - 브라우저 회귀 테스트: `npm run test:ui-browser` — passed, 124 fixture requests.
+- 설정 변경 감지·이탈 확인 및 비활성 시각 상태 보완 후 브라우저 회귀 테스트: `npm run test:ui-browser` — passed, 126 fixture requests.
 - 전체 단위 테스트: `npm run test:unit` — 1224 passed.
+- 병합 직전 전체 단위 테스트 재실행: `npm run test:unit` — 1224 passed.
 
 ## Remaining risks and manual checks
 
 - 여러 앱 인스턴스나 기기에서 동시에 실행하는 경우는 in-memory 잠금 범위 밖이다.
 - 화면 전환 직후 poll 전까지는 짧은 표시 지연이 있을 수 있지만, 서버 coordinator가 중복 외부 작업을 최종 차단한다.
-- 사용자 수동 확인: 원고 폴더/붙여넣기 실행 중 Queue의 이동·빼기·지금 실행과 30초 테스트가 비활성화되고, 완료 또는 실패 뒤 다시 활성화되는지 확인한다.
+- 사용자가 원고 실행 중 교차 화면 잠금, 완료 후 재활성화, 설정 저장 변경 감지와 이탈 안내를 수동 확인했다.
 - 유료 AI나 실제 발행은 자동 테스트에서 호출하지 않았다.
