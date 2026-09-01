@@ -6,7 +6,7 @@ const path = require('node:path');
 const AUTOMATION_SETTINGS_SCHEMA_VERSION = 1;
 const AUTOMATION_SETTINGS_FILE_NAME = 'continuous_publishing.json';
 const MIN_INTERVAL_MINUTES = 10;
-const MAX_INTERVAL_MINUTES = 1440;
+const MAX_INTERVAL_MINUTES = 360;
 
 const DEFAULT_AUTOMATION_SETTINGS = Object.freeze({
     schema_version: AUTOMATION_SETTINGS_SCHEMA_VERSION,
@@ -38,12 +38,12 @@ function normalizeTime(value, fieldName) {
 function normalizeAutomationSettings(input = {}, options = {}) {
     const strict = options.strict === true;
     const source = { ...DEFAULT_AUTOMATION_SETTINGS, ...(input && typeof input === 'object' ? input : {}) };
-    const interval = Number.parseInt(String(source.interval_minutes), 10);
+    const interval = Number(String(source.interval_minutes));
     if (!Number.isInteger(interval) || interval < MIN_INTERVAL_MINUTES || interval > MAX_INTERVAL_MINUTES) {
         if (strict) {
             throw createSettingsError(
                 'CONTINUOUS_AUTOMATION_INTERVAL_INVALID',
-                `글 사이 간격은 ${MIN_INTERVAL_MINUTES}~${MAX_INTERVAL_MINUTES}분으로 입력해 주세요.`
+                `발행 간격은 ${MIN_INTERVAL_MINUTES}~${MAX_INTERVAL_MINUTES}분 사이의 정수로 입력해 주세요.`
             );
         }
     }

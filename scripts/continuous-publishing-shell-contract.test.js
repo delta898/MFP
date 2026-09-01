@@ -106,7 +106,7 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(betaView, /id="blog-next-automation-enabled"/);
     assert.match(betaView, /id="blog-next-automation-start-time"/);
     assert.match(betaView, /id="blog-next-automation-end-time"/);
-    assert.match(betaView, /id="blog-next-automation-interval"/);
+    assert.match(betaView, /id="blog-next-automation-interval"[^>]*min="10"[^>]*max="360"[^>]*step="1"/);
     assert.match(betaView, />발행 간격</);
     assert.doesNotMatch(betaView, /글 사이 최소 간격/);
     assert.match(betaView, />연속 발행 사용</);

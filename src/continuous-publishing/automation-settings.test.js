@@ -24,9 +24,26 @@ test('automation settings reject unsafe intervals and malformed time windows', (
         error => error.code === 'CONTINUOUS_AUTOMATION_INTERVAL_INVALID'
     );
     assert.throws(
+        () => normalizeAutomationSettings({ interval_minutes: 361 }, { strict: true }),
+        error => error.code === 'CONTINUOUS_AUTOMATION_INTERVAL_INVALID'
+    );
+    assert.throws(
+        () => normalizeAutomationSettings({ interval_minutes: 10.5 }, { strict: true }),
+        error => error.code === 'CONTINUOUS_AUTOMATION_INTERVAL_INVALID'
+    );
+    assert.throws(
         () => normalizeAutomationSettings({ allowed_start_time: '25:00' }, { strict: true }),
         error => error.code === 'CONTINUOUS_AUTOMATION_TIME_INVALID'
     );
+});
+
+test('automation settings accept every whole minute from 10 through 360', () => {
+    for (const interval of [10, 11, 16, 25, 359, 360]) {
+        assert.equal(
+            normalizeAutomationSettings({ interval_minutes: interval }, { strict: true }).interval_minutes,
+            interval
+        );
+    }
 });
 
 test('next run preview respects ordinary and overnight allowed windows', () => {
