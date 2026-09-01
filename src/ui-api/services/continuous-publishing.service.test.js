@@ -6,7 +6,17 @@ const { createContinuousPublishingService } = require('./continuous-publishing.s
 function createService(state = {}) {
     return createContinuousPublishingService({
         CONFIG: state.CONFIG,
-        automationSettingsRepository: state.automationSettingsRepository,
+        automationSettingsRepository: state.automationSettingsRepository || {
+            read() {
+                return {
+                    document: {
+                        schema_version: 1, enabled: false, allowed_start_time: '00:00', allowed_end_time: '23:59',
+                        interval_minutes: 60, notification_enabled: false, updated_at: null
+                    },
+                    source: 'default', warnings: []
+                };
+            }
+        },
         now: state.now,
         setTimeout: state.setTimeout,
         clearTimeout: state.clearTimeout,
@@ -295,12 +305,54 @@ test('ready queue follows the physical order of Topics ready rows', async () => 
     assert.deepEqual(result.status_summary, { saved: 1, ready: 1 });
     assert.deepEqual(result.saved_items.map(item => item.subject), ['저장한 글감']);
     assert.deepEqual(result.items.map(item => item.subject), ['먼저 쓸 글']);
+    assert.equal(result.items[0].processing_estimate_at, null);
+    assert.equal(result.automation_schedule.effective_enabled, false);
     assert.deepEqual(state.readOptions, {
         limit: 100000,
         offset: 0,
         sortBy: 'rowNumber',
         sortDir: 'asc'
     });
+});
+
+test('ready queue exposes processing estimates from the current automatic schedule', async () => {
+    const firstRunAt = new Date(2026, 7, 30, 17, 50, 0, 0, 0).toISOString();
+    const state = {
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'production', configured: true,
+                effects: { manualPublish: true, automatedPublish: true }
+            }
+        },
+        now: () => new Date(2026, 7, 30, 17, 25, 0, 0),
+        readItems: [
+            { rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '첫 글' },
+            { rowIndex: 3, rowNumber: 5, status: '발행 준비 완료', subject: '둘째 글' },
+            { rowIndex: 4, rowNumber: 6, status: '발행 준비 완료', subject: '셋째 글' }
+        ],
+        automationSettingsRepository: {
+            read() {
+                return {
+                    document: {
+                        schema_version: 1, enabled: true, allowed_start_time: '09:00', allowed_end_time: '18:00',
+                        interval_minutes: 25, notification_enabled: false, updated_at: null
+                    },
+                    source: 'saved', warnings: []
+                };
+            }
+        }
+    };
+    const service = createService(state);
+    service.startAutomationScheduler();
+
+    const result = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+
+    assert.equal(result.automation_schedule.next_processing_at, firstRunAt);
+    assert.deepEqual(result.items.map(item => item.processing_estimate_at), [
+        firstRunAt,
+        new Date(2026, 7, 31, 9, 0, 0, 0).toISOString(),
+        new Date(2026, 7, 31, 9, 25, 0, 0).toISOString()
+    ]);
 });
 
 test('ready queue reorder moves the whole Sheet row relative to the adjacent ready topic', async () => {

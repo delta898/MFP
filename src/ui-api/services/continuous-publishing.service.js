@@ -4,7 +4,8 @@ const { buildTopicSheetRow } = require('../../continuous-publishing/topic-captur
 const {
     createAutomationSettingsRepository,
     resolveAutomationSettingsPath,
-    computeNextRunPreview
+    computeNextRunPreview,
+    computeQueueRunProjections
 } = require('../../continuous-publishing/automation-settings');
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
@@ -92,6 +93,33 @@ function createContinuousPublishingService(deps = {}) {
                 status,
                 next_run_at_preview: nextRunAtPreview,
                 scheduler
+            }
+        };
+    }
+
+    function addQueueSchedule(readyItems = []) {
+        const automation = toAutomationSettingsResponse(getAutomationSettingsRepository().read());
+        const { settings, runtime } = automation;
+        const schedulerRunning = runtime.scheduler?.running === true;
+        const firstRunAt = runtime.effective_enabled && !schedulerRunning
+            ? (runtime.scheduler?.next_run_at || runtime.next_run_at_preview)
+            : null;
+        const projections = computeQueueRunProjections(settings, {
+            firstRunAt,
+            count: readyItems.length
+        });
+        return {
+            items: readyItems.map((item, index) => ({
+                ...item,
+                processing_estimate_at: projections[index] || null
+            })),
+            automation_schedule: {
+                enabled: settings.enabled === true,
+                effective_enabled: runtime.effective_enabled === true,
+                status: runtime.status,
+                interval_minutes: settings.interval_minutes,
+                next_processing_at: projections[0] || null,
+                basis: 'current_queue_order'
             }
         };
     }
@@ -361,12 +389,14 @@ function createContinuousPublishingService(deps = {}) {
             const allItems = Array.isArray(topics?.items) ? topics.items : [];
             const readyItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.READY);
             const savedItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.WAITING);
+            const scheduledQueue = addQueueSchedule(readyItems.slice(0, limit));
             return {
-                items: readyItems.slice(0, limit),
+                items: scheduledQueue.items,
                 saved_items: savedItems.slice(0, limit),
                 total: readyItems.length,
                 limit,
                 offset: 0,
+                automation_schedule: scheduledQueue.automation_schedule,
                 status_summary: {
                     saved: savedItems.length,
                     ready: readyItems.length

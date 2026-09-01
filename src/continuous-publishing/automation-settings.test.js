@@ -9,6 +9,7 @@ const {
     DEFAULT_AUTOMATION_SETTINGS,
     normalizeAutomationSettings,
     computeNextRunPreview,
+    computeQueueRunProjections,
     createAutomationSettingsRepository
 } = require('./automation-settings');
 
@@ -60,6 +61,32 @@ test('next run preview respects ordinary and overnight allowed windows', () => {
         }),
         new Date(2026, 7, 30, 22, 0, 0, 0).toISOString()
     );
+});
+
+test('queue run projections preserve order and move across the allowed window', () => {
+    const projections = computeQueueRunProjections({
+        enabled: true,
+        interval_minutes: 25,
+        allowed_start_time: '09:00',
+        allowed_end_time: '18:00'
+    }, {
+        firstRunAt: new Date(2026, 7, 30, 17, 50, 0, 0).toISOString(),
+        count: 3
+    });
+
+    assert.deepEqual(projections, [
+        new Date(2026, 7, 30, 17, 50, 0, 0, 0).toISOString(),
+        new Date(2026, 7, 31, 9, 0, 0, 0).toISOString(),
+        new Date(2026, 7, 31, 9, 25, 0, 0).toISOString()
+    ]);
+});
+
+test('queue run projections require an authoritative first run time', () => {
+    assert.deepEqual(computeQueueRunProjections(DEFAULT_AUTOMATION_SETTINGS, { count: 2 }), []);
+    assert.deepEqual(computeQueueRunProjections(DEFAULT_AUTOMATION_SETTINGS, {
+        firstRunAt: new Date(2026, 7, 30, 10, 0, 0, 0).toISOString(),
+        count: 0
+    }), []);
 });
 
 test('automation settings repository saves atomically in the device config directory', () => {

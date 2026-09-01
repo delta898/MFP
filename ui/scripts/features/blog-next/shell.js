@@ -29,6 +29,11 @@ function activateBlogNextTab(tabName) {
   if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
   }
+  if (target === 'queue' && typeof loadBlogNextRunnerStatus === 'function') {
+    loadBlogNextRunnerStatus();
+  } else if (typeof syncBlogNextRunnerWatchForTab === 'function') {
+    syncBlogNextRunnerWatchForTab();
+  }
   if (target === 'trend-posting' && typeof loadBlogNextTrendMeta === 'function') {
     loadBlogNextTrendMeta();
   }

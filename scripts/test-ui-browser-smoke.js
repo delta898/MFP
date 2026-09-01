@@ -223,6 +223,32 @@ function startFixtureServer(requests) {
         resultStatus: '',
         busy: false
     };
+    const buildContinuousQueueResponse = () => {
+        const firstRunAt = '2026-08-31T01:00:00.000Z';
+        const intervalMs = continuousAutomationSettings.interval_minutes * 60 * 1000;
+        const items = continuousPublishingQueue.map((item, index) => ({
+            ...item,
+            processing_estimate_at: continuousAutomationSettings.enabled
+                ? new Date(new Date(firstRunAt).getTime() + (intervalMs * index)).toISOString()
+                : null
+        }));
+        return {
+            items,
+            saved_items: continuousSavedTopics,
+            total: items.length,
+            limit: 50,
+            offset: 0,
+            automation_schedule: {
+                enabled: continuousAutomationSettings.enabled,
+                effective_enabled: continuousAutomationSettings.enabled,
+                status: continuousAutomationSettings.enabled ? 'scheduled' : 'disabled',
+                interval_minutes: continuousAutomationSettings.interval_minutes,
+                next_processing_at: continuousAutomationSettings.enabled ? firstRunAt : null,
+                basis: 'current_queue_order'
+            },
+            status_summary: { saved: continuousSavedTopics.length, ready: items.length }
+        };
+    };
     const server = http.createServer((req, res) => {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
@@ -457,12 +483,7 @@ function startFixtureServer(requests) {
                 const body = JSON.stringify({
                     success: true,
                     data: {
-                        items: continuousPublishingQueue,
-                        saved_items: continuousSavedTopics,
-                        total: continuousPublishingQueue.length,
-                        limit: 50,
-                        offset: 0,
-                        status_summary: { saved: continuousSavedTopics.length, ready: continuousPublishingQueue.length }
+                        ...buildContinuousQueueResponse()
                     }
                 });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -548,14 +569,7 @@ function startFixtureServer(requests) {
         if (url.pathname.startsWith('/api/v1/')) {
             let data = getApiFixture(url.pathname);
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
-                data = {
-                    items: continuousPublishingQueue,
-                    saved_items: continuousSavedTopics,
-                    total: continuousPublishingQueue.length,
-                    limit: 50,
-                    offset: 0,
-                    status_summary: { saved: continuousSavedTopics.length, ready: continuousPublishingQueue.length }
-                };
+                data = buildContinuousQueueResponse();
             }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
                 if (continuousRunnerStatus.state === 'running') {
@@ -566,6 +580,7 @@ function startFixtureServer(requests) {
                         state: 'completed',
                         message: '다음 글감 한 건을 처리했습니다.',
                         resultStatus: '임시 저장 완료',
+                        finishedAt: new Date().toISOString(),
                         busy: false
                     };
                 }
@@ -1048,6 +1063,16 @@ async function run() {
         assert.equal(await page.locator('#blog-next-automation-test').isVisible(), true);
 
         await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.locator('[data-blog-next-input-mode="ai"]').click();
+        await page.locator('#blog-next-subject').fill('예상 시간 표시 글감');
+        await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-enqueue-topic').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('대기열에 추가했습니다'));
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('다음 처리'), true);
+
+        await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="paste"]').click();
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
@@ -1228,6 +1253,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
+            { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
         ]);

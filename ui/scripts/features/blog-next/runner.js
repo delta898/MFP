@@ -6,6 +6,8 @@ let blogNextRunnerRequesting = false;
 let blogNextRunnerActive = false;
 let blogNextRunnerDismissedKey = '';
 let blogNextRunnerLastStatus = { state: 'idle' };
+let blogNextRunnerObservedFinishedAt = '';
+let blogNextRunnerStatusInitialized = false;
 
 function getBlogNextRunnerStatusKey(status = {}) {
   return [status.state, status.rowIndex, status.finishedAt, status.resultStatus, status.message]
@@ -88,20 +90,39 @@ function renderBlogNextRunnerStatus(status = {}) {
   return active;
 }
 
-function scheduleBlogNextRunnerPoll() {
+function scheduleBlogNextRunnerPoll(delay = 1000) {
   clearTimeout(blogNextRunnerPollingTimer);
-  blogNextRunnerPollingTimer = setTimeout(() => loadBlogNextRunnerStatus({ poll: true }), 1000);
+  blogNextRunnerPollingTimer = setTimeout(() => loadBlogNextRunnerStatus({ poll: true }), delay);
+}
+
+function syncBlogNextRunnerWatchForTab() {
+  clearTimeout(blogNextRunnerPollingTimer);
+  if (blogNextRunnerActive) scheduleBlogNextRunnerPoll(1000);
+  else if (typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab === 'queue') scheduleBlogNextRunnerPoll(5000);
 }
 
 async function loadBlogNextRunnerStatus(options = {}) {
   try {
     const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
+    const previousFinishedAt = blogNextRunnerObservedFinishedAt;
+    const finishedAt = String(status.finishedAt || '');
+    const finishedChanged = blogNextRunnerStatusInitialized
+      && Boolean(finishedAt)
+      && finishedAt !== previousFinishedAt;
+    blogNextRunnerObservedFinishedAt = finishedAt || previousFinishedAt;
+    blogNextRunnerStatusInitialized = true;
     const active = renderBlogNextRunnerStatus(status);
-    if (active) scheduleBlogNextRunnerPoll();
-    else if (options.poll === true && typeof loadBlogNextQueue === 'function') loadBlogNextQueue({ force: true });
+    if (finishedChanged
+      && typeof blogNextActiveTab !== 'undefined'
+      && blogNextActiveTab === 'queue'
+      && typeof loadBlogNextQueue === 'function') {
+      loadBlogNextQueue({ force: true });
+    }
+    syncBlogNextRunnerWatchForTab();
     return status;
   } catch (error) {
     renderBlogNextRunnerStatus({ state: 'failed', message: error.message || '실행 상태를 불러오지 못했습니다.' });
+    syncBlogNextRunnerWatchForTab();
     return null;
   }
 }
@@ -117,7 +138,7 @@ async function startBlogNextRunner(options = {}) {
   try {
     const status = await postJson('/api/v1/continuous-publishing/runner/start', selected ? { headless, rowIndex } : { headless });
     renderBlogNextRunnerStatus(status);
-    scheduleBlogNextRunnerPoll();
+    scheduleBlogNextRunnerPoll(1000);
     return status;
   } catch (error) {
     renderBlogNextRunnerStatus({ state: 'failed', message: error.message || '다음 글감 실행을 시작하지 못했습니다.' });

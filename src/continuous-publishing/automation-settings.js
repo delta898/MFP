@@ -96,6 +96,23 @@ function computeNextRunPreview(settings, options = {}) {
     return setTimeOnDate(candidate, start).toISOString();
 }
 
+function computeQueueRunProjections(settings, options = {}) {
+    const count = Number.parseInt(String(options.count || '0'), 10);
+    if (!Number.isInteger(count) || count <= 0) return [];
+    if (typeof options.firstRunAt !== 'string' || !options.firstRunAt.trim()) return [];
+    const firstRunAt = new Date(options.firstRunAt);
+    if (Number.isNaN(firstRunAt.getTime())) return [];
+    const projections = [firstRunAt.toISOString()];
+    while (projections.length < count) {
+        const nextRunAt = computeNextRunPreview(settings, {
+            now: new Date(projections[projections.length - 1])
+        });
+        if (!nextRunAt) break;
+        projections.push(nextRunAt);
+    }
+    return projections;
+}
+
 function createAutomationSettingsRepository(options = {}) {
     const fsImpl = options.fs || fs;
     const pathImpl = options.path || path;
@@ -154,6 +171,7 @@ module.exports = {
     DEFAULT_AUTOMATION_SETTINGS,
     normalizeAutomationSettings,
     computeNextRunPreview,
+    computeQueueRunProjections,
     createAutomationSettingsRepository,
     resolveAutomationSettingsPath
 };

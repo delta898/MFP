@@ -362,7 +362,11 @@ function createBlogNextListItem(item, position, saved) {
   else {
     const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '대상 확인 필요';
     const postStatus = item.postStatus === 'draft' ? '임시 저장' : item.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-    meta.textContent = `${platforms} · ${postStatus}`;
+    const estimate = formatBlogNextQueueEstimate(item.processing_estimate_at);
+    const schedule = estimate
+      ? `${position === 0 ? '다음 처리' : '처리 예상'} ${estimate}${position === 0 ? '' : ' 이후'}`
+      : '';
+    meta.textContent = [platforms, postStatus, schedule].filter(Boolean).join(' · ');
   }
   copy.append(title, meta);
   const actions = document.createElement('div');
@@ -522,6 +526,19 @@ function renderBlogNextEmptyState(list, title, message) {
   copy.textContent = message;
   empty.append(strong, copy);
   list.appendChild(empty);
+}
+
+function formatBlogNextQueueEstimate(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 }
 
 function renderBlogNextQueue(data = {}) {

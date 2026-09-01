@@ -231,3 +231,18 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(publishPreferences, /'blog-next-folder-headless'/);
     assert.match(publishPreferences, /'blog-next-paste-headless'/);
 });
+
+test('release queue shows processing estimates and refreshes when a runner finishes', () => {
+    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+
+    assert.match(queueScript, /processing_estimate_at/);
+    assert.match(queueScript, /다음 처리/);
+    assert.match(queueScript, /처리 예상/);
+    assert.match(serviceSource, /computeQueueRunProjections/);
+    assert.match(serviceSource, /basis: 'current_queue_order'/);
+    assert.match(runnerScript, /finishedChanged/);
+    assert.match(runnerScript, /loadBlogNextQueue\(\{ force: true \}\)/);
+    assert.match(runnerScript, /blogNextActiveTab === 'queue'/);
+});
