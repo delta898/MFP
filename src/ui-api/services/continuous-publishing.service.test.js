@@ -71,7 +71,7 @@ test('automation settings remain device-local and do not activate the timer in d
                 effects: { manualPublish: true, automatedPublish: false }
             }
         },
-        now: () => new Date('2026-08-30T10:00:00+09:00'),
+        now: () => new Date(2026, 7, 30, 10, 0, 0, 0),
         automationSettingsRepository: {
             read() {
                 return {
@@ -103,7 +103,7 @@ test('automation settings remain device-local and do not activate the timer in d
     assert.equal(result.runtime.environment_allows_automation, false);
     assert.equal(result.runtime.effective_enabled, false);
     assert.equal(result.runtime.status, 'blocked_by_environment');
-    assert.equal(result.runtime.next_run_at_preview, '2026-08-30T02:00:00.000Z');
+    assert.equal(result.runtime.next_run_at_preview, new Date(2026, 7, 30, 11, 0, 0, 0).toISOString());
 });
 
 function createAutomationTestState(postStatus = 'draft', environment = 'development') {
@@ -121,7 +121,7 @@ function createAutomationTestState(postStatus = 'draft', environment = 'developm
                 }
             }
         },
-        now: () => new Date('2026-08-31T10:00:00+09:00'),
+        now: () => new Date(2026, 7, 31, 10, 0, 0, 0),
         setTimeout(fn, delay) {
             const timer = { fn, delay, unref() {} };
             timers.push(timer);

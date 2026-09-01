@@ -6,7 +6,7 @@ const { TEST_DELAY_MS, createContinuousPublishingScheduler } = require('./schedu
 
 function createFixture(overrides = {}) {
     const timers = [];
-    let current = new Date('2026-08-31T09:00:00+09:00');
+    let current = new Date(2026, 7, 31, 9, 0, 0, 0);
     const settings = { enabled: true, allowed_start_time: '09:00', allowed_end_time: '18:00', interval_minutes: 10 };
     const runs = [];
     const scheduler = createContinuousPublishingScheduler({
@@ -30,7 +30,7 @@ test('scheduler starts from now plus interval and never catches up missed runs',
     const fixture = createFixture();
     const status = fixture.scheduler.start();
     assert.equal(status.state, 'scheduled');
-    assert.equal(status.next_run_at, '2026-08-31T00:10:00.000Z');
+    assert.equal(status.next_run_at, new Date(2026, 7, 31, 9, 10, 0, 0).toISOString());
     assert.equal(fixture.timers[0].delay, 10 * 60 * 1000);
 });
 

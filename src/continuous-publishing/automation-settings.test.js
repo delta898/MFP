@@ -30,17 +30,18 @@ test('automation settings reject unsafe intervals and malformed time windows', (
 });
 
 test('next run preview respects ordinary and overnight allowed windows', () => {
+    const evening = new Date(2026, 7, 30, 20, 0, 0, 0);
     assert.equal(
         computeNextRunPreview({ enabled: true, interval_minutes: 60, allowed_start_time: '09:00', allowed_end_time: '18:00' }, {
-            now: new Date('2026-08-30T20:00:00+09:00')
+            now: evening
         }),
-        '2026-08-31T00:00:00.000Z'
+        new Date(2026, 7, 31, 9, 0, 0, 0).toISOString()
     );
     assert.equal(
         computeNextRunPreview({ enabled: true, interval_minutes: 60, allowed_start_time: '22:00', allowed_end_time: '06:00' }, {
-            now: new Date('2026-08-30T20:00:00+09:00')
+            now: evening
         }),
-        '2026-08-30T13:00:00.000Z'
+        new Date(2026, 7, 30, 22, 0, 0, 0).toISOString()
     );
 });
 
