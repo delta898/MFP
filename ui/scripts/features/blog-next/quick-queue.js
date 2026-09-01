@@ -656,6 +656,7 @@ function renderBlogNextQueue(data = {}) {
     queueSize: readyItems.length
   }, index, false)));
   if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
+  if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
 }
 
 async function loadBlogNextQueue(options = {}) {

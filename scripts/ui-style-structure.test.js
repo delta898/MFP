@@ -35,6 +35,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/automation-settings.css',
         'styles/features/dashboard.css',
         'styles/components/clock.css',
+        'styles/components/global-publishing-status.css',
         'styles/features/dashboard-feeds.css',
         'styles/features/content-tabs.css',
         'styles/features/continuous-publishing.css',

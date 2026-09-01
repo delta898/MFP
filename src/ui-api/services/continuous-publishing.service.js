@@ -341,6 +341,97 @@ function createContinuousPublishingService(deps = {}) {
         return { ...runnerState };
     }
 
+    function getRunnerStatusSnapshot() {
+        const sharedStatus = blogNextExecutionCoordinator.getStatus();
+        if (!runnerPromise && sharedStatus.busy) {
+            externalExecutionObserved = true;
+            return {
+                state: 'running',
+                message: sharedStatus.message,
+                rowIndex: null,
+                rowNumber: null,
+                subject: sharedStatus.subject,
+                resultStatus: '',
+                startedAt: sharedStatus.startedAt,
+                finishedAt: '',
+                source: sharedStatus.source,
+                busy: true
+            };
+        }
+        if (!runnerPromise && externalExecutionObserved) {
+            externalExecutionObserved = false;
+            updateRunnerState({
+                state: 'idle',
+                message: '실행 대기 중',
+                rowIndex: null,
+                rowNumber: null,
+                subject: '',
+                resultStatus: '',
+                startedAt: '',
+                finishedAt: ''
+            });
+        }
+        return { ...runnerState, busy: runnerPromise !== null };
+    }
+
+    async function hasReadyTopic() {
+        await ensureSheetsReadyForUi();
+        const result = await Utils.readGoogleSheetTopicsAll({
+            status: TOPIC_STATUS.READY,
+            limit: 1,
+            offset: 0,
+            sortBy: 'rowNumber',
+            sortDir: 'asc'
+        });
+        return (Array.isArray(result?.items) ? result.items : [])
+            .some(item => String(item?.status || '').trim() === TOPIC_STATUS.READY);
+    }
+
+    async function getGlobalStatusSummary() {
+        const runner = getRunnerStatusSnapshot();
+        if (['failed', 'needs_attention', 'blocked'].includes(runner.state)) {
+            return {
+                state: 'attention',
+                subject: runner.subject || '',
+                message: runner.message || '',
+                result_status: runner.resultStatus || '',
+                next_processing_at: null
+            };
+        }
+        if (runner.busy || ['selecting', 'running'].includes(runner.state)) {
+            return {
+                state: 'running',
+                subject: runner.subject || '',
+                message: runner.message || '',
+                result_status: '',
+                next_processing_at: null
+            };
+        }
+
+        const automation = toAutomationSettingsResponse(getAutomationSettingsRepository().read());
+        const testRunAt = automation.runtime.scheduler?.test_run_at || null;
+        const recurringRunAt = automation.runtime.effective_enabled
+            ? (automation.runtime.scheduler?.next_run_at || automation.runtime.next_run_at_preview)
+            : null;
+        const nextProcessingAt = testRunAt || recurringRunAt;
+        if (nextProcessingAt && await hasReadyTopic()) {
+            return {
+                state: 'scheduled',
+                subject: '',
+                message: '',
+                result_status: '',
+                next_processing_at: nextProcessingAt
+            };
+        }
+        return {
+            state: 'idle',
+            subject: '',
+            message: '',
+            result_status: '',
+            next_processing_at: null
+        };
+    }
+
     return {
         startAutomationScheduler() {
             return getAutomationScheduler().start();
@@ -554,36 +645,11 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         getRunnerStatus() {
-            const sharedStatus = blogNextExecutionCoordinator.getStatus();
-            if (!runnerPromise && sharedStatus.busy) {
-                externalExecutionObserved = true;
-                return {
-                    state: 'running',
-                    message: sharedStatus.message,
-                    rowIndex: null,
-                    rowNumber: null,
-                    subject: sharedStatus.subject,
-                    resultStatus: '',
-                    startedAt: sharedStatus.startedAt,
-                    finishedAt: '',
-                    source: sharedStatus.source,
-                    busy: true
-                };
-            }
-            if (!runnerPromise && externalExecutionObserved) {
-                externalExecutionObserved = false;
-                updateRunnerState({
-                    state: 'idle',
-                    message: '실행 대기 중',
-                    rowIndex: null,
-                    rowNumber: null,
-                    subject: '',
-                    resultStatus: '',
-                    startedAt: '',
-                    finishedAt: ''
-                });
-            }
-            return { ...runnerState, busy: runnerPromise !== null };
+            return getRunnerStatusSnapshot();
+        },
+
+        async getGlobalStatusSummary() {
+            return getGlobalStatusSummary();
         }
     };
 }

@@ -75,6 +75,8 @@ test('Blog Beta navigation exposes a compact accessible new badge', () => {
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*background:\s*#fff1f2;/s);
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*color:\s*#9f1239;/s);
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*transform:\s*translateY\(-0\.55em\);/s);
+    assert.match(html, /id="blog-next-global-nav-status"[^>]*hidden[^>]*aria-hidden="true"/);
+    assert.doesNotMatch(html, /id="recommendation-nav-badge"/);
 });
 
 test('local script, stylesheet, image, and icon assets referenced by the UI shell exist', () => {

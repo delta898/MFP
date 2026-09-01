@@ -36,6 +36,7 @@
 // @include scripts/features/shell/system-logs.js
 // @include scripts/features/shell/celebration.js
 // @include scripts/features/shell/clock.js
+// @include scripts/features/shell/global-publishing-status.js
 // @include scripts/features/social/manual-state.js
 // @include scripts/features/social/manual-composer.js
 // @include scripts/features/social/manual-optimization.js

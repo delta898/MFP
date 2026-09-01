@@ -65,6 +65,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/shell/system-logs.js',
         'scripts/features/shell/celebration.js',
         'scripts/features/shell/clock.js',
+        'scripts/features/shell/global-publishing-status.js',
         'scripts/features/social/manual-state.js',
         'scripts/features/social/manual-composer.js',
         'scripts/features/social/manual-optimization.js',

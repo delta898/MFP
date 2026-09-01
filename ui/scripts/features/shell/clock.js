@@ -386,6 +386,15 @@ function initClockWidget() {
     const meta = document.createElement('div');
     meta.className = 'clock-ambient-meta';
     meta.setAttribute('aria-live', 'polite');
+    const metaCopy = document.createElement('span');
+    metaCopy.className = 'clock-ambient-copy';
+    const publishingStatus = document.createElement('button');
+    publishingStatus.type = 'button';
+    publishingStatus.className = 'clock-publishing-status';
+    publishingStatus.dataset.globalPublishingStatus = '';
+    publishingStatus.hidden = true;
+    publishingStatus.innerHTML = '<span class="clock-publishing-status-indicator" aria-hidden="true"></span><span data-global-publishing-status-label></span>';
+    meta.append(metaCopy, publishingStatus);
     const menu = document.createElement('div');
     menu.className = 'clock-style-menu';
     menu.setAttribute('role', 'dialog');
@@ -457,7 +466,7 @@ function initClockWidget() {
     controlRail.appendChild(inlineActions);
     main.appendChild(meta);
     unit.appendChild(menu);
-    widgetUnits.push({ unit, button, inlineActions, meta, menu });
+    widgetUnits.push({ unit, button, inlineActions, metaCopy, menu });
 
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -610,7 +619,7 @@ function initClockWidget() {
         : '클릭하여 시계 스타일 변경';
     });
 
-    widgetUnits.forEach(({ unit, button, inlineActions, meta }) => {
+    widgetUnits.forEach(({ unit, button, inlineActions, metaCopy }) => {
       const completionEffectActive = timerCompletionPulseUntil > now.getTime();
       unit.dataset.clockSeason = mood.season;
       unit.dataset.clockDisplayMode = displayMode;
@@ -636,9 +645,9 @@ function initClockWidget() {
         metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
       }
       const moodKey = `${displayMode}|${mood.season}|${metaHtml}`;
-      if (meta.dataset.clockMoodKey !== moodKey) {
-        meta.dataset.clockMoodKey = moodKey;
-        meta.innerHTML = metaHtml;
+      if (metaCopy.dataset.clockMoodKey !== moodKey) {
+        metaCopy.dataset.clockMoodKey = moodKey;
+        metaCopy.innerHTML = metaHtml;
       }
     });
     refreshTimerControls(timerSnapshot);
@@ -762,4 +771,3 @@ function initClockWidget() {
   renderClock();
   clockInterval = setInterval(renderClock, 1000);
 }
-

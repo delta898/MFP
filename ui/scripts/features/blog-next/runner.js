@@ -97,6 +97,7 @@ function renderBlogNextRunnerStatus(status = {}) {
     button.hidden = !panelVisible || !active;
   });
   syncBlogNextRunnerTriggerState();
+  if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
   return active;
 }
 

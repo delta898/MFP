@@ -582,6 +582,39 @@ function startFixtureServer(requests) {
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
                 data = buildContinuousQueueResponse();
             }
+            if (url.pathname === '/api/v1/continuous-publishing/status-summary') {
+                if (localMarkdownPublishing || ['selecting', 'running'].includes(continuousRunnerStatus.state)) {
+                    data = {
+                        state: 'running',
+                        subject: localMarkdownPublishing ? '원고 붙여넣기' : continuousRunnerStatus.subject,
+                        message: localMarkdownPublishing
+                            ? '원고 포스팅을 처리하고 있습니다.'
+                            : continuousRunnerStatus.message,
+                        result_status: '',
+                        next_processing_at: null
+                    };
+                } else if (['failed', 'needs_attention', 'blocked'].includes(continuousRunnerStatus.state)) {
+                    data = {
+                        state: 'attention',
+                        subject: continuousRunnerStatus.subject,
+                        message: continuousRunnerStatus.message,
+                        result_status: continuousRunnerStatus.resultStatus,
+                        next_processing_at: null
+                    };
+                } else if (continuousAutomationSettings.enabled && continuousPublishingQueue.length > 0) {
+                    data = {
+                        state: 'scheduled',
+                        subject: '',
+                        message: '',
+                        result_status: '',
+                        next_processing_at: '2026-08-31T01:00:00.000Z'
+                    };
+                } else {
+                    data = {
+                        state: 'idle', subject: '', message: '', result_status: '', next_processing_at: null
+                    };
+                }
+            }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
                 if (localMarkdownPublishing) {
                     data = {
@@ -752,8 +785,21 @@ async function run() {
             && document.querySelector('.recommendation-card h3')?.textContent?.trim() === '로컬 여행'
         ));
         assert.equal((await page.locator('.recommendation-card h3').textContent())?.trim(), '로컬 여행');
-        assert.equal((await page.locator('#recommendation-nav-badge').textContent())?.trim(), '1');
-        assert.equal(await page.locator('#recommendation-nav-badge').isHidden(), false);
+        assert.equal(await page.locator('#recommendation-nav-badge').count(), 0);
+        assert.equal((await page.locator('#recommendation-center-count').textContent())?.trim(), '1');
+        assert.equal(await page.locator('#recommendation-center-count').isHidden(), false);
+        assert.equal(await page.locator('#view-dashboard [data-global-publishing-status]').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-global-nav-status').isHidden(), true);
+        await page.evaluate(() => renderGlobalPublishingStatus({
+            state: 'attention', subject: '확인이 필요한 글감', message: '발행 결과를 확인해 주세요.'
+        }));
+        assert.equal(
+            (await page.locator('#view-dashboard [data-global-publishing-status]').textContent())?.includes('발행 확인 필요'),
+            true
+        );
+        assert.equal(await page.locator('#blog-next-global-nav-status').getAttribute('data-state'), 'attention');
+        await page.evaluate(() => renderGlobalPublishingStatus({ state: 'idle' }));
+        assert.equal(await page.locator('#view-dashboard [data-global-publishing-status]').isHidden(), true);
         assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), true);
         assert.equal(
             await page.locator('.recommendation-evidence-toggle').evaluate((element) => getComputedStyle(element).alignSelf),
@@ -1068,6 +1114,15 @@ async function run() {
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item')?.classList.contains('is-running'));
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('처리 중'), true);
+        await page.waitForFunction(() => (
+            document.querySelector('#view-blog-next [data-global-publishing-status]')?.textContent?.includes('발행 중')
+        ));
+        assert.equal(await page.locator('#blog-next-global-nav-status').isHidden(), false);
+        assert.equal(await page.locator('#blog-next-global-nav-status').getAttribute('data-state'), 'running');
+        assert.equal(
+            await page.locator('#blog-next-global-nav-status').evaluate((element) => getComputedStyle(element).backgroundColor),
+            'rgb(255, 255, 255)'
+        );
         assert.equal(
             await page.locator('#blog-next-queue-list .blog-next-queue-actions button').evaluateAll(buttons => buttons.every(button => button.disabled)),
             true
@@ -1140,6 +1195,17 @@ async function run() {
         await page.locator('[data-blog-next-tab="queue"]').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('다음 처리'), true);
+        await page.waitForFunction(() => (
+            document.querySelector('#view-blog-next [data-global-publishing-status]')?.textContent?.includes('다음 처리')
+        ));
+        assert.equal(await page.locator('#blog-next-global-nav-status').isHidden(), true);
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        await page.locator('#view-dashboard [data-global-publishing-status]').click();
+        await page.waitForFunction(() => (
+            document.getElementById('view-blog-next')?.classList.contains('active')
+            && document.getElementById('blog-next-panel-queue')?.hidden === false
+        ));
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="paste"]').click();

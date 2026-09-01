@@ -98,6 +98,15 @@ function createContinuousPublishingController(deps = {}) {
             } catch (error) {
                 return toErrorResponse(res, requestId, 'CONTINUOUS_RUNNER_STATUS_FAILED', '연속 발행 상태를 불러오지 못했습니다.', error);
             }
+        },
+
+        async statusSummary({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getGlobalStatusSummary());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_STATUS_SUMMARY_FAILED', '연속 발행 요약 상태를 불러오지 못했습니다.', error);
+            }
         }
     };
 }

@@ -39,6 +39,7 @@
 - 완료: 현재 순서 기준 처리 예상 시간과 runner 완료 후 목록 갱신 기반.
 - 완료: Queue 실행 상태 UX — `../archive/2026-09-02-release-queue-running-state-ux-development.md`.
 - 완료: Blog Beta 공통 실행 잠금과 연속 발행 설정 변경 보호 — `../archive/2026-09-02-release-blog-next-execution-lock-development.md`.
+- 완료: 전역 연속 발행 상태 — `../archive/2026-09-02-release-global-publishing-status-development.md`.
 
 ## Decisions and tradeoffs
 

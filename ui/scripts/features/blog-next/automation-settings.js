@@ -130,6 +130,7 @@ function renderBlogNextAutomationSettings(data = {}) {
   } else if (runtime.scheduler?.last_finished_at && typeof loadBlogNextRunnerStatus === 'function') {
     loadBlogNextRunnerStatus({ poll: true });
   }
+  if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
 }
 
 async function scheduleBlogNextAutomationTest() {

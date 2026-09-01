@@ -118,6 +118,81 @@ test('automation settings remain device-local and do not activate the timer in d
     assert.equal(result.runtime.next_run_at_preview, new Date(2026, 7, 30, 11, 0, 0, 0).toISOString());
 });
 
+test('global status summary exposes one scheduled item only when automation and a ready topic exist', async () => {
+    const state = {
+        CONFIG: {
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'production', configured: true,
+                effects: { manualPublish: true, automatedPublish: true }
+            }
+        },
+        now: () => new Date(2026, 8, 2, 7, 0, 0, 0),
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '예약 글감' }],
+        automationSettingsRepository: {
+            read() {
+                return {
+                    document: {
+                        schema_version: 1, enabled: true, allowed_start_time: '00:00', allowed_end_time: '23:59',
+                        interval_minutes: 30, notification_enabled: false, updated_at: null
+                    },
+                    source: 'saved', warnings: []
+                };
+            }
+        }
+    };
+    const service = createService(state);
+
+    const summary = await service.getGlobalStatusSummary();
+
+    assert.equal(summary.state, 'scheduled');
+    assert.equal(summary.next_processing_at, new Date(2026, 8, 2, 7, 30, 0, 0).toISOString());
+    assert.deepEqual(state.readOptions, {
+        status: '발행 준비 완료', limit: 1, offset: 0, sortBy: 'rowNumber', sortDir: 'asc'
+    });
+
+    state.readItems = [];
+    assert.equal((await service.getGlobalStatusSummary()).state, 'idle');
+});
+
+test('global status summary prioritizes a running item without reading the queue', async () => {
+    let releaseExecution;
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '처리 중인 글감' }],
+        executeRunner: () => new Promise(resolve => { releaseExecution = resolve; })
+    };
+    const service = createService(state);
+    service.startNextReadyTopic({ rowIndex: 7 });
+    await new Promise(resolve => setImmediate(resolve));
+    state.readOptions = null;
+
+    const summary = await service.getGlobalStatusSummary();
+
+    assert.equal(summary.state, 'running');
+    assert.equal(summary.subject, '처리 중인 글감');
+    assert.equal(state.readOptions, null);
+
+    releaseExecution({ success: true, data: { status: '임시 저장 완료' } });
+    await waitForRunner(service);
+});
+
+test('global status summary prioritizes a runner failure as attention', async () => {
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '확인할 글감' }],
+        executeRunner: async () => ({ success: false, code: 'NAVER_SESSION_INVALID', message: '로그인이 필요합니다.' })
+    };
+    const service = createService(state);
+    service.startNextReadyTopic();
+    await waitForRunner(service);
+    state.readOptions = null;
+
+    const summary = await service.getGlobalStatusSummary();
+
+    assert.equal(summary.state, 'attention');
+    assert.equal(summary.subject, '확인할 글감');
+    assert.equal(summary.message, '로그인이 필요합니다.');
+    assert.equal(state.readOptions, null);
+});
+
 function createAutomationTestState(postStatus = 'draft', environment = 'development') {
     const timers = [];
     const state = {

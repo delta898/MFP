@@ -29,6 +29,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
+  try { initGlobalPublishingStatus(); } catch (e) { console.warn('initGlobalPublishingStatus error:', e); }
   try { ensureUpdateCheckFresh({ silent: true }); } catch (e) { console.warn('checkUpdate error:', e); }
   try { applyMobileQuickMode(); } catch (e) { console.warn('applyMobileQuickMode error:', e); }
   window.addEventListener('resize', applyMobileQuickMode);

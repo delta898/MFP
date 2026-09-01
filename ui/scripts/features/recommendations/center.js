@@ -74,12 +74,10 @@ function rememberRecommendationCenterIds(items) {
 
 function updateRecommendationCenterCount(count) {
   const safeCount = Math.max(0, Number(count) || 0);
-  ['recommendation-center-count', 'recommendation-nav-badge'].forEach((id) => {
-    const element = document.getElementById(id);
-    if (!element) return;
-    element.textContent = safeCount > 99 ? '99+' : String(safeCount);
-    element.hidden = safeCount === 0;
-  });
+  const element = document.getElementById('recommendation-center-count');
+  if (!element) return;
+  element.textContent = safeCount > 99 ? '99+' : String(safeCount);
+  element.hidden = safeCount === 0;
 }
 
 function recommendationCenterLatestEvidence(item) {

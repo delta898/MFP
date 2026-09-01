@@ -284,3 +284,31 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.match(queueCss, /\.blog-next-queue-item\.is-running/);
     assert.match(queueCss, /blog-next-queue-running-indicator/);
 });
+
+test('global publishing status exposes one prioritized summary in the clock and only urgent sidebar signals', () => {
+    const shell = read('ui/index.html');
+    const app = read('ui/app.js');
+    const clockScript = read('ui/scripts/features/shell/clock.js');
+    const statusScript = read('ui/scripts/features/shell/global-publishing-status.js');
+    const statusCss = read('ui/styles/components/global-publishing-status.css');
+    const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
+    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+
+    assert.match(shell, /id="blog-next-global-nav-status"[^>]*hidden/);
+    assert.doesNotMatch(shell, /id="recommendation-nav-badge"/);
+    assert.match(app, /scripts\/features\/shell\/global-publishing-status\.js/);
+    assert.match(clockScript, /data-global-publishing-status/);
+    assert.match(statusScript, /continuous-publishing\/status-summary/);
+    assert.match(statusScript, /\['attention', 'running', 'scheduled'\]/);
+    assert.match(statusScript, /\['running', 'attention'\]/);
+    assert.match(statusScript, /다음 처리/);
+    assert.match(statusScript, /navigateTo\('blog-next', 'queue'\)/);
+    assert.match(statusCss, /\.clock-publishing-status\[data-state="attention"\]/);
+    assert.match(statusCss, /\.blog-next-global-nav-status\[data-state="running"\]/);
+    assert.match(statusCss, /\.nav-btn\.active \.blog-next-global-nav-status\[data-state="running"\]\s*\{[^}]*background:\s*#fff;/s);
+    assert.match(routeSource, /\/api\/v1\/continuous-publishing\/status-summary/);
+    assert.match(serviceSource, /getGlobalStatusSummary/);
+    assert.match(serviceSource, /state: 'attention'/);
+    assert.match(serviceSource, /state: 'running'/);
+    assert.match(serviceSource, /state: 'scheduled'/);
+});
