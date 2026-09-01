@@ -10,13 +10,17 @@ const {
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
 const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
+const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 
 function createContinuousPublishingService(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now } = deps;
     const pathImpl = path || require('node:path');
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
+    const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
+        || createBlogNextExecutionCoordinator({ now });
     let runnerPromise = null;
+    let externalExecutionObserved = false;
     let runnerState = {
         state: 'idle',
         message: '실행 대기 중',
@@ -184,7 +188,7 @@ function createContinuousPublishingService(deps = {}) {
     }
 
     function requireRunnerIdle() {
-        if (runnerPromise) {
+        if (blogNextExecutionCoordinator.getStatus().busy) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 글감을 처리하는 동안에는 발행 대기열을 변경하거나 추가 실행할 수 없습니다.');
         }
     }
@@ -195,6 +199,15 @@ function createContinuousPublishingService(deps = {}) {
         }
         if (typeof executeBlogRowAction !== 'function' && execution.simulation !== true) {
             throw createApiError(500, 'CONTINUOUS_RUNNER_UNAVAILABLE', '연속 발행 실행기를 준비하지 못했습니다.');
+        }
+
+        const executionLease = blogNextExecutionCoordinator.acquire({
+            source: 'continuous_runner',
+            subject: '발행 대기열',
+            message: '발행 대기열의 글감을 처리하고 있습니다.'
+        });
+        if (!executionLease) {
+            throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 Blog Beta 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
 
         const headless = requestBody.headless !== false;
@@ -303,6 +316,7 @@ function createContinuousPublishingService(deps = {}) {
                     finishedAt: new Date().toISOString()
                 });
             } finally {
+                executionLease.release();
                 runnerPromise = null;
             }
         })();
@@ -540,6 +554,35 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         getRunnerStatus() {
+            const sharedStatus = blogNextExecutionCoordinator.getStatus();
+            if (!runnerPromise && sharedStatus.busy) {
+                externalExecutionObserved = true;
+                return {
+                    state: 'running',
+                    message: sharedStatus.message,
+                    rowIndex: null,
+                    rowNumber: null,
+                    subject: sharedStatus.subject,
+                    resultStatus: '',
+                    startedAt: sharedStatus.startedAt,
+                    finishedAt: '',
+                    source: sharedStatus.source,
+                    busy: true
+                };
+            }
+            if (!runnerPromise && externalExecutionObserved) {
+                externalExecutionObserved = false;
+                updateRunnerState({
+                    state: 'idle',
+                    message: '실행 대기 중',
+                    rowIndex: null,
+                    rowNumber: null,
+                    subject: '',
+                    resultStatus: '',
+                    startedAt: '',
+                    finishedAt: ''
+                });
+            }
             return { ...runnerState, busy: runnerPromise !== null };
         }
     };

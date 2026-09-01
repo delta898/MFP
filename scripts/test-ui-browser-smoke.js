@@ -224,6 +224,7 @@ function startFixtureServer(requests) {
         busy: false
     };
     let continuousRunnerPollsRemaining = 0;
+    let localMarkdownPublishing = false;
     const buildContinuousQueueResponse = () => {
         const firstRunAt = '2026-08-31T01:00:00.000Z';
         const intervalMs = continuousAutomationSettings.interval_minutes * 60 * 1000;
@@ -557,6 +558,7 @@ function startFixtureServer(requests) {
         }
 
         if (url.pathname === '/api/v1/blog/local-markdown/publish' && req.method === 'POST') {
+            localMarkdownPublishing = true;
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
@@ -567,7 +569,10 @@ function startFixtureServer(requests) {
                     data: { status: payload.postStatus === 'draft' ? '임시 저장 완료' : '발행 완료', postStatus: payload.postStatus || 'publish' }
                 });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(body);
+                setTimeout(() => {
+                    localMarkdownPublishing = false;
+                    res.end(body);
+                }, 350);
             });
             return;
         }
@@ -578,6 +583,15 @@ function startFixtureServer(requests) {
                 data = buildContinuousQueueResponse();
             }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
+                if (localMarkdownPublishing) {
+                    data = {
+                        state: 'running',
+                        busy: true,
+                        source: 'local_markdown',
+                        subject: '원고 붙여넣기',
+                        message: '원고 포스팅을 처리하고 있습니다.'
+                    };
+                } else {
                 if (continuousRunnerStatus.state === 'running') {
                     if (continuousRunnerPollsRemaining > 0) continuousRunnerPollsRemaining -= 1;
                     else {
@@ -594,6 +608,7 @@ function startFixtureServer(requests) {
                     }
                 }
                 data = continuousRunnerStatus;
+                }
             }
             if (url.pathname === '/api/v1/blog/topic-recommendations') {
                 const sessionId = url.searchParams.get('session_id') || 'anonymous';
@@ -795,6 +810,7 @@ async function run() {
         );
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-topic-form [data-blog-next-runner-status-jump]').evaluate((element) => element.hidden), true);
         assert.deepEqual(
             await page.locator('.blog-next-execution-options').evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -1008,6 +1024,7 @@ async function run() {
         assert.equal((await page.locator('#blog-next-publish-status-dismiss').textContent())?.trim(), '×');
         assert.equal(await page.locator('#blog-next-publish-status-dismiss').getAttribute('aria-label'), '닫기');
         assert.equal(await page.locator('#blog-next-publish-status-manage').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-topic-form [data-blog-next-runner-status-jump]').evaluate((element) => element.hidden), true);
         await page.locator('#blog-next-publish-status-dismiss').click();
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
 
@@ -1102,10 +1119,18 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '누락');
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
+        await page.waitForTimeout(600);
+        assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         await page.locator('[data-blog-next-draft-publish="paste"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'running');
+        assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isDisabled(), true);
+        assert.equal((await page.locator('[data-blog-next-draft-publish="paste"]').textContent()).includes('진행 중'), true);
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-result="paste"]')?.textContent.includes('요청 처리 완료'));
+        assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), false);
         const pastedPublishRequest = requests.find((request) => request.pathname === '/api/v1/blog/local-markdown/publish');
         assert.equal(pastedPublishRequest?.body?.markdownText.startsWith('# 붙여넣은 원고'), true);
         assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);

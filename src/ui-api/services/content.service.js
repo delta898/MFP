@@ -12,6 +12,7 @@ const {
     generateSmartCommentDraftBatch,
     generateSmartCommentDrafts
 } = require('../../naver/smart-comment-draft-generator');
+const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 
 function createContentService(deps = {}) {
     const {
@@ -63,6 +64,20 @@ function createContentService(deps = {}) {
         executeBlogTopicsDelete,
         executeShoppingTopicsDelete
     } = deps;
+    const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
+        || createBlogNextExecutionCoordinator();
+
+    async function runBlogNextExecution(input, task) {
+        const lease = blogNextExecutionCoordinator.acquire(input);
+        if (!lease) {
+            throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 Blog Beta 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+        }
+        try {
+            return await task();
+        } finally {
+            lease.release();
+        }
+    }
 
     async function requireShoppingExecution() {
         const status = await License.checkLicenseStatus({ quiet: true });
@@ -798,11 +813,18 @@ function createContentService(deps = {}) {
         },
 
         async localMarkdownPublish(requestBody = {}) {
-            const result = await executeLocalMarkdownPublish(requestBody || {});
-            if (!result.success) {
-                throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
-            }
-            return result.data;
+            const pasted = Object.prototype.hasOwnProperty.call(requestBody || {}, 'markdownText');
+            return runBlogNextExecution({
+                source: 'local_markdown',
+                subject: pasted ? '원고 붙여넣기' : '원고 폴더',
+                message: '원고 포스팅을 처리하고 있습니다.'
+            }, async () => {
+                const result = await executeLocalMarkdownPublish(requestBody || {});
+                if (!result.success) {
+                    throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
+                }
+                return result.data;
+            });
         },
 
         async shoppingQuickPublish(requestBody = {}) {

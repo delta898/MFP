@@ -54,6 +54,7 @@ function syncBlogNextRunnerTriggerState() {
     automationTestButton.textContent = active ? '실행 중...' : testScheduled ? '테스트 대기 중...' : '30초 테스트';
   }
   if (typeof setBlogNextTopicBusy === 'function') setBlogNextTopicBusy(blogNextTopicSubmitting);
+  if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState(active);
   if (typeof syncBlogNextQueueRunnerState === 'function') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
 }
 
@@ -93,7 +94,7 @@ function renderBlogNextRunnerStatus(status = {}) {
   if (manage) manage.hidden = presentation.manage !== true;
   if (dismiss) dismiss.hidden = !terminal;
   document.querySelectorAll('[data-blog-next-runner-status-jump]').forEach((button) => {
-    button.hidden = !panelVisible;
+    button.hidden = !panelVisible || !active;
   });
   syncBlogNextRunnerTriggerState();
   return active;

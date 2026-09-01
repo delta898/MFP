@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createContinuousPublishingService } = require('./continuous-publishing.service');
+const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 
 function createService(state = {}) {
     return createContinuousPublishingService({
@@ -17,6 +18,7 @@ function createService(state = {}) {
                 };
             }
         },
+        blogNextExecutionCoordinator: state.blogNextExecutionCoordinator,
         now: state.now,
         setTimeout: state.setTimeout,
         clearTimeout: state.clearTimeout,
@@ -598,6 +600,44 @@ test('single-item runner rejects duplicate starts while one run is active', asyn
     releaseExecution({ success: true, data: { status: '임시 저장 완료' } });
     const result = await waitForRunner(service);
     assert.equal(result.resultStatus, '임시 저장 완료');
+});
+
+test('continuous runner and queue mutations respect a shared Blog Beta manuscript execution', async () => {
+    const coordinator = createBlogNextExecutionCoordinator({
+        now: () => new Date('2026-09-02T00:00:00.000Z')
+    });
+    const lease = coordinator.acquire({
+        source: 'local_markdown',
+        subject: '원고 붙여넣기',
+        message: '원고 포스팅을 처리하고 있습니다.'
+    });
+    const state = { blogNextExecutionCoordinator: coordinator };
+    const service = createService(state);
+
+    assert.throws(
+        () => service.startNextReadyTopic(),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    await assert.rejects(
+        () => service.removeReadyTopic({ rowIndex: 2 }),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    assert.deepEqual(service.getRunnerStatus(), {
+        state: 'running',
+        message: '원고 포스팅을 처리하고 있습니다.',
+        rowIndex: null,
+        rowNumber: null,
+        subject: '원고 붙여넣기',
+        resultStatus: '',
+        startedAt: '2026-09-02T00:00:00.000Z',
+        finishedAt: '',
+        source: 'local_markdown',
+        busy: true
+    });
+
+    lease.release();
+    assert.equal(service.getRunnerStatus().state, 'idle');
+    assert.equal(service.getRunnerStatus().busy, false);
 });
 
 test('single-item runner retains a stable failure result for UI polling', async () => {

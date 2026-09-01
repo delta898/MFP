@@ -96,7 +96,22 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(draftInputs, /renderInlinePreviewHtml/);
     assert.match(draftInputs, /local-markdown-image-card/);
     assert.match(draftInputs, /URL\.createObjectURL/);
+    assert.match(draftInputs, /syncBlogNextDraftExecutionState/);
+    assert.match(draftInputs, /renderBlogNextRunnerStatus/);
     assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);
+});
+
+test('Blog Beta execution paths share one server-side coordinator without widening to legacy products', () => {
+    const routes = read('src/ui-api/routes/legacy-api.routes.js');
+    const contentService = read('src/ui-api/services/content.service.js');
+    const continuousService = read('src/ui-api/services/continuous-publishing.service.js');
+
+    assert.match(routes, /const blogNextExecutionCoordinator =/);
+    assert.equal((routes.match(/blogNextExecutionCoordinator/g) || []).length >= 3, true);
+    assert.match(contentService, /source: 'local_markdown'/);
+    assert.match(continuousService, /source: 'continuous_runner'/);
+    assert.match(contentService, /BLOG_NEXT_EXECUTION_BUSY/);
+    assert.doesNotMatch(contentService, /shoppingQuickPublish[\s\S]{0,300}runBlogNextExecution/);
 });
 
 test('continuous automation settings own timing but never topic delivery targets', () => {

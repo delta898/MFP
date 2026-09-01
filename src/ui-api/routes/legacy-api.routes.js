@@ -19,9 +19,12 @@ const { createAccountController } = require('../controllers/account.controller')
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
 const { createAccountOverviewService } = require('../../account/overview-service');
+const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const WordPressClient = require('../../wordpress-client');
 
 function createLegacyApiRouteHandler(deps = {}) {
+    const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
+        || createBlogNextExecutionCoordinator();
     const systemService = createSystemService({
         APP_VERSION: deps.APP_VERSION,
         Utils: deps.Utils,
@@ -123,7 +126,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         executeShoppingRowUpdate: deps.executeShoppingRowUpdate,
         executeBlogTopicUpdate: deps.executeBlogTopicUpdate,
         executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
-        executeShoppingTopicsDelete: deps.executeShoppingTopicsDelete
+        executeShoppingTopicsDelete: deps.executeShoppingTopicsDelete,
+        blogNextExecutionCoordinator
     });
     const contentController = createContentController({
         service: contentService,
@@ -141,7 +145,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         TelegramService: deps.TelegramService,
         SlackService: deps.SlackService,
         fs: deps.fs,
-        path: deps.path
+        path: deps.path,
+        blogNextExecutionCoordinator
     });
     if (String(deps.CONFIG?.CONFIG_DIR || '').trim()) {
         continuousPublishingService.startAutomationScheduler();

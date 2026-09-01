@@ -212,9 +212,8 @@ function renderBlogNextDraftImages(type, preview = {}) {
 
 function renderBlogNextDraftPreview(type, preview = null) {
   const container = document.querySelector(`[data-blog-next-draft-preview="${type}"]`);
-  const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
   blogNextDraftState[type].preview = preview;
-  if (button) button.disabled = !preview?.validation?.ok || blogNextDraftState[type].publishing;
+  syncBlogNextDraftExecutionState();
   if (!container || !preview) {
     if (container) container.hidden = true;
     return;
@@ -276,11 +275,26 @@ function scheduleBlogNextDraftPreview(type) {
 function setBlogNextDraftPublishing(type, publishing) {
   const state = blogNextDraftState[type];
   state.publishing = publishing;
-  const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
-  if (button) {
-    button.disabled = publishing || !state.preview?.validation?.ok;
-    button.textContent = publishing ? '포스팅 진행 중...' : '포스팅 실행';
-  }
+  syncBlogNextDraftExecutionState();
+}
+
+function syncBlogNextDraftExecutionState(runnerActive) {
+  const anotherRunnerActive = typeof runnerActive === 'boolean'
+    ? runnerActive
+    : ((typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
+      || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
+  const manuscriptActive = BLOG_NEXT_DRAFT_TYPES.some(type => blogNextDraftState[type].publishing);
+  const executionActive = anotherRunnerActive || manuscriptActive;
+  BLOG_NEXT_DRAFT_TYPES.forEach((type) => {
+    const state = blogNextDraftState[type];
+    const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
+    if (!button) return;
+    button.disabled = executionActive || !state.preview?.validation?.ok;
+    button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    button.textContent = state.publishing
+      ? '포스팅 진행 중...'
+      : executionActive ? '다른 작업 실행 중...' : '포스팅 실행';
+  });
 }
 
 async function publishBlogNextDraft(type) {
@@ -298,6 +312,16 @@ async function publishBlogNextDraft(type) {
 
   const result = document.querySelector(`[data-blog-next-draft-result="${type}"]`);
   setBlogNextDraftPublishing(type, true);
+  if (typeof renderBlogNextRunnerStatus === 'function') {
+    renderBlogNextRunnerStatus({
+      state: 'running',
+      busy: true,
+      source: 'local_markdown',
+      subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+      message: `원고 ${action}을 처리하고 있습니다.`,
+      startedAt: new Date().toISOString()
+    });
+  }
   try {
     const payload = await buildBlogNextDraftPayload(type, { includeImages: true });
     await runWithLiveProgress({
@@ -305,9 +329,29 @@ async function publishBlogNextDraft(type) {
       requestLabel: `원고 ${action}`,
       requestFn: () => postJson('/api/v1/blog/local-markdown/publish', payload)
     });
+    if (typeof renderBlogNextRunnerStatus === 'function') {
+      renderBlogNextRunnerStatus({
+        state: 'completed',
+        busy: false,
+        subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+        message: `원고 ${action}을 완료했습니다.`,
+        resultStatus: settings.postStatus === 'draft' ? '임시 저장 완료'
+          : settings.postStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
+        finishedAt: new Date().toISOString()
+      });
+    }
     showUiToast({ level: 'success', title: `원고 ${action} 완료`, message: 'Queue를 거치지 않고 원고를 처리했습니다.' });
-  } catch (_error) {
+  } catch (error) {
     // runWithLiveProgress renders the detailed failure.
+    if (typeof renderBlogNextRunnerStatus === 'function') {
+      renderBlogNextRunnerStatus({
+        state: 'failed',
+        busy: false,
+        subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+        message: error.message || `원고 ${action}에 실패했습니다.`,
+        finishedAt: new Date().toISOString()
+      });
+    }
   } finally {
     setBlogNextDraftPublishing(type, false);
   }
