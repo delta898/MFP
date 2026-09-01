@@ -35,5 +35,6 @@ Make the Blog Beta navigation entry easier to notice without making the Beta lab
 - Updated the browser contract to verify the base label and visual badge independently rather than treating the badge text as part of the menu name.
 - `node --test scripts/ui-structure-contract.test.js scripts/ui-style-structure.test.js` — 10 tests passed.
 - `npm run test:ui-browser` — passed with 109 fixture requests.
+- `npm run test:unit` — 1,207 tests passed. One MCP stdio debug-trace test timed out on the first full run, passed immediately in isolation, and the complete rerun passed.
 - `git diff --check` — passed.
 - The user approved parent integration and feature-branch deletion.
