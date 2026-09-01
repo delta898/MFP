@@ -160,6 +160,13 @@
    - `platforms.naver` 같은 필수 설정 경로를 사용 전에 검증하고, 권한 복구 또는 데이터 위치 이동 안내를 제공한다.
    - 기존 portable 사용자 데이터의 소유권과 이동·rollback 방식을 정한 뒤 patch release 범위로 구현하고 macOS 패키지 회귀 테스트를 추가한다.
 
+16. 릴리스 빌드 사전검증 관문
+   - GitHub Release 생성과 OS별 packaging matrix 실행 전에 필수 Repository Variables·Secrets의 존재와 형식을 한 번 검증한다.
+   - 태그, `package.json` 앱 버전과 `CHANGELOG.md`의 해당 버전 항목이 일치하고 사용자 관점의 릴리스 내용이 비어 있지 않은지 확인한다.
+   - 검증 로그에는 secret 원문을 출력하지 않고 누락되거나 잘못된 설정 이름과 해결 방향만 표시한다.
+   - 사전검증이 실패하면 빈 GitHub Release를 만들거나 모든 target OS에서 같은 실패를 반복하지 않고 즉시 중단한다.
+   - 릴리스 업로드 액션의 Node runtime 경고와 외부 액션 의존성은 Node 24 지원 버전 또는 `gh release` 기반 통합으로 별도 정리한다.
+
 ## P2 — 중기
 
 1. UI 포트 충돌 복구
