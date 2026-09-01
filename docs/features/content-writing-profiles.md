@@ -54,7 +54,11 @@ Length presets are:
 | `standard` | 1,500–1,800 characters | 4–5 | 4 |
 | `long` | 2,200–2,800 characters | 5–6 | 5 |
 
-The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. The resolved count is a writing recommendation rather than a generation success condition. Runtime accepts the complete image blocks the model actually produced as long as their indexes start at `IMAGE_0` and remain sequential; `none` still requires no image blocks.
+The character target means reader-visible, space-inclusive content: opening, visible H2 text, section prose and ending. Markdown markers and the complete `[[IMAGE_N ...]]` block—including its title and generation prompt—do not count. Opening targets approximately 150–250 characters. Opening and ending do not count as H2 sections, and every H2 must contain explanation plus interpretation or practical information rather than a thin one- or two-sentence filler section.
+
+The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. The resolved count is sent to the model as an exact writing instruction. In accordance with the current product decision, runtime does not measure length, retry, correct or enforce the resolved H2/image count after generation; it only requires complete image blocks to start at `IMAGE_0` and remain sequential. `none` still requires no image blocks.
+
+Search-oriented generation chooses one core keyword from the provided keywords. When the model owns title creation it places that keyword naturally near the front; an explicit requested title remains unchanged. The core keyword appears in the opening's first two or three sentences and is distributed approximately four or five times across reader-visible content and ending. One or two H2 headings use the core keyword or a closely related sub-keyword. Two to four useful related/sub-keywords are placed once or twice in the most relevant explanations, comparisons or cautions rather than crowded into the opening or every heading. Natural prose, descriptive structure, search-intent completeness and people-first usefulness take precedence over mechanical repetition or keyword stuffing; these counts are product composition guidance, not a ranking guarantee.
 
 Individual blog writing screens expose one `image_options.mode` choice:
 

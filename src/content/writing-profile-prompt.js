@@ -14,10 +14,26 @@ const DENSITY_RULES = Object.freeze({
 });
 
 const LENGTH_RULES = Object.freeze({
-    short: '- 본문은 공백 포함 약 900~1,200자를 목표로 작성하세요.',
-    standard: '- 본문은 공백 포함 약 1,500~1,800자를 목표로 작성하세요.',
-    long: '- 본문은 공백 포함 약 2,200~2,800자를 목표로 작성하세요.'
+    short: Object.freeze({
+        length: '- 독자가 실제로 읽는 순수 본문은 공백 포함 약 900~1,200자를 목표로 작성하세요.',
+        headings: '- 도입과 마무리를 제외한 H2 소제목은 3개를 사용하세요.'
+    }),
+    standard: Object.freeze({
+        length: '- 독자가 실제로 읽는 순수 본문은 공백 포함 약 1,500~1,800자를 목표로 작성하세요.',
+        headings: '- 도입과 마무리를 제외한 H2 소제목은 4~5개를 사용하세요.'
+    }),
+    long: Object.freeze({
+        length: '- 독자가 실제로 읽는 순수 본문은 공백 포함 약 2,200~2,800자를 목표로 작성하세요.',
+        headings: '- 도입과 마무리를 제외한 H2 소제목은 5~6개를 사용하세요.'
+    })
 });
+
+const BODY_STRUCTURE_RULES = Object.freeze([
+    '- 순수 본문 글자 수에는 도입, 소제목의 실제 문구, 각 섹션 본문과 마무리만 포함하고, Markdown 문법 기호와 [[IMAGE_N ...]] 블록 전체의 title·prompt는 포함하지 마세요.',
+    '- 도입은 H2 없이 약 150~250자로 작성하고, 마무리도 H2 개수에서 제외하세요.',
+    '- 소제목 숫자를 맞추기 위한 한두 문장짜리 빈약한 섹션은 만들지 마세요.',
+    '- 각 H2 섹션에는 핵심 설명과 함께 해석 또는 독자에게 유용한 실용 정보를 충분히 포함하세요.'
+]);
 
 const OPENING_RULES = Object.freeze({
     direct: '- 도입은 핵심 답변이나 결론부터 제시한 뒤 글에서 다룰 범위를 안내하세요.',
@@ -81,11 +97,14 @@ function buildBlogWritingProfilePromptFromProjection(projection = {}) {
     }
     const blog = projection.channel;
     const structure = blog.structure || {};
+    const lengthRule = LENGTH_RULES[blog.length?.preset] || LENGTH_RULES.standard;
     const sections = [
         '[선택된 블로그 글쓰기 프로필]',
         buildCommonWritingProfilePrompt(projection.common),
         '[블로그 길이와 구성]',
-        LENGTH_RULES[blog.length?.preset] || LENGTH_RULES.standard,
+        lengthRule.length,
+        lengthRule.headings,
+        ...BODY_STRUCTURE_RULES,
         OPENING_RULES[structure.opening] || OPENING_RULES.contextual,
         DEVELOPMENT_RULES[structure.development] || DEVELOPMENT_RULES.explanatory,
         ENDING_RULES[structure.ending] || ENDING_RULES.judgment,

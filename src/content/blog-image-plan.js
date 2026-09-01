@@ -68,8 +68,9 @@ function buildBlogImagePlanPrompt(plan = {}) {
     const count = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     return [
         '[블로그 이미지 영역 계획]',
-        `- content 안에 [[IMAGE_N ...]] 블록 ${count}개를 권장합니다. 글의 실제 흐름에 따라 개수는 조정할 수 있습니다.`,
+        `- content 안에 [[IMAGE_N ...]] 이미지 블록을 정확히 ${count}개 작성하세요.`,
         '- 실제로 작성한 이미지 블록은 IMAGE_0부터 시작해 순서대로 번호를 붙이고 중복하거나 건너뛰지 마세요.',
+        '- 이미지 블록 전체의 title, prompt와 문법 문자는 순수 본문 글자 수에 포함하지 마세요.',
         '- 실제 AI 이미지 파일 생성 여부와 무관하게 본문 안의 이미지 영역 및 prompt 블록은 유지하세요.'
     ].join('\n');
 }

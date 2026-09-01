@@ -50,11 +50,23 @@ test('each strategy selects only its own writing rules', () => {
 
     assert.match(searchPrompt, /전략: 검색 중심/);
     assert.match(searchPrompt, /검색 의도/);
+    assert.match(searchPrompt, /도입부 첫 2~3문장/);
+    assert.match(searchPrompt, /content 전체에서 약 4~5회/);
+    assert.match(searchPrompt, /H2 소제목 1~2개에는 핵심 키워드 또는.*서브 키워드/);
+    assert.match(searchPrompt, /유사·서브 키워드 중 2~4개/);
+    assert.match(searchPrompt, /각각.*1~2회 자연스럽게 분산/);
+    assert.match(searchPrompt, /하위 질문, 대상명, 조건, 장단점/);
+    assert.match(searchPrompt, /마무리에는 핵심 키워드를.*한 번/);
+    assert.match(searchPrompt, /keywords는 핵심 키워드를 첫 항목/);
+    assert.match(searchPrompt, /Requested Final Title이 있으면.*제목을 바꾸지 마세요/);
+    assert.match(searchPrompt, /정보 완결성이 횟수보다 우선/);
     assert.doesNotMatch(searchPrompt, /전략: 발견 중심/);
 
     assert.match(discoveryPrompt, /전략: 발견 중심 \(피드\)/);
     assert.match(discoveryPrompt, /피드에서 우연히/);
     assert.doesNotMatch(discoveryPrompt, /전략: 검색 중심/);
+    assert.doesNotMatch(discoveryPrompt, /content 전체에서 약 4~5회/);
+    assert.doesNotMatch(discoveryPrompt, /유사·서브 키워드 중 2~4개/);
     assert.doesNotMatch(discoveryPrompt, /제목 앞 10자|5~10회/);
     assert.doesNotMatch(discoveryPrompt, /네이버|워드프레스/);
 });
