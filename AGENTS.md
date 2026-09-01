@@ -109,7 +109,11 @@
   - `chore: ...`
 - Keep commits logically scoped. One logical change should map to one commit when practical.
 - `CHANGELOG.md` is the source of truth for user-facing release notes.
-- Write release notes from the user's perspective: describe new capabilities, changed workflows, and resolved problems rather than internal modules, schemas, or commit history.
+- Maintain the existing root `CHANGELOG.md`; do not create a second changelog with different casing or in another location. Create or update its version section during release preparation, after the included product scope is known.
+- Write every release-note item from the user's perspective and lead with the capability or value the user receives: describe what they can now do, what became easier or clearer, and which user-visible problem was resolved.
+- Include an item only when a user can observe the change or benefit from it in the released app. Do not list internal architecture, module or schema changes, refactors, migrations, test infrastructure, build/CI work, credential ownership, or Development/Production environment separation as standalone release notes.
+- If internal work materially changes user-visible reliability, performance, privacy, or safety, describe only that observable outcome in user language and omit the implementation mechanism.
+- Do not turn implementation stages, development records, or raw commit history into release-note bullets. Consolidate related work into a smaller number of meaningful user outcomes and omit maintenance work that has no direct release value for users.
 - Before final release approval, verify version consistency, release notes, relevant automated tests, build inputs, and the final Git diff. Tagging, pushing, packaging, and publication remain separate explicit actions.
 - Future `build.sh` / `update.json` release metadata should be generated from `CHANGELOG.md`, not directly from raw commit messages.
 
