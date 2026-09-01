@@ -302,7 +302,7 @@ test('ready queue follows the physical order of Topics ready rows', async () => 
     const result = await service.getReadyQueue({ searchParams });
 
     assert.equal(result.total, 1);
-    assert.deepEqual(result.status_summary, { saved: 1, ready: 1 });
+    assert.deepEqual(result.status_summary, { saved: 1, ready: 1, running: 0 });
     assert.deepEqual(result.saved_items.map(item => item.subject), ['저장한 글감']);
     assert.deepEqual(result.items.map(item => item.subject), ['먼저 쓸 글']);
     assert.equal(result.items[0].processing_estimate_at, null);
@@ -353,6 +353,29 @@ test('ready queue exposes processing estimates from the current automatic schedu
         new Date(2026, 7, 31, 9, 0, 0, 0).toISOString(),
         new Date(2026, 7, 31, 9, 25, 0, 0).toISOString()
     ]);
+});
+
+test('ready queue keeps the active runner row visible until execution finishes', async () => {
+    let releaseExecution;
+    const state = {
+        readItems: [{ rowIndex: 7, rowNumber: 9, status: '발행 준비 완료', subject: '처리 중인 글감' }],
+        executeRunner: () => new Promise(resolve => { releaseExecution = resolve; })
+    };
+    const service = createService(state);
+    service.startNextReadyTopic({ rowIndex: 7 });
+    await new Promise(resolve => setImmediate(resolve));
+    state.readItems[0].status = '발행 중';
+
+    const queue = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+
+    assert.equal(queue.total, 1);
+    assert.deepEqual(queue.status_summary, { saved: 0, ready: 0, running: 1 });
+    assert.equal(queue.items[0].subject, '처리 중인 글감');
+    assert.equal(queue.items[0].queue_runtime_state, 'running');
+    assert.equal(queue.items[0].processing_estimate_at, null);
+
+    releaseExecution({ success: true, data: { status: '임시 저장 완료' } });
+    await waitForRunner(service);
 });
 
 test('ready queue reorder moves the whole Sheet row relative to the adjacent ready topic', async () => {
@@ -553,6 +576,25 @@ test('single-item runner rejects duplicate starts while one run is active', asyn
         () => service.startNextReadyTopic(),
         (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
     );
+    assert.throws(
+        () => service.scheduleAutomationTest(),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    await assert.rejects(
+        () => service.updateReadyTopic({ rowIndex: 7, subject: '실행 중 수정 시도' }),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    await assert.rejects(
+        () => service.removeReadyTopic({ rowIndex: 7 }),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    await assert.rejects(
+        () => service.reorderReadyTopic({ rowIndex: 7, direction: 'down' }),
+        (error) => error.status === 409 && error.apiCode === 'CONTINUOUS_RUNNER_BUSY'
+    );
+    assert.equal(state.updatedFields, undefined);
+    assert.equal(state.statusUpdate, undefined);
+    assert.equal(state.rowMove, undefined);
     releaseExecution({ success: true, data: { status: '임시 저장 완료' } });
     const result = await waitForRunner(service);
     assert.equal(result.resultStatus, '임시 저장 완료');

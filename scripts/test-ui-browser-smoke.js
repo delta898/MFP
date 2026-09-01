@@ -223,11 +223,16 @@ function startFixtureServer(requests) {
         resultStatus: '',
         busy: false
     };
+    let continuousRunnerPollsRemaining = 0;
     const buildContinuousQueueResponse = () => {
         const firstRunAt = '2026-08-31T01:00:00.000Z';
         const intervalMs = continuousAutomationSettings.interval_minutes * 60 * 1000;
         const items = continuousPublishingQueue.map((item, index) => ({
             ...item,
+            queue_runtime_state: continuousRunnerStatus.state === 'running'
+                && Number(continuousRunnerStatus.rowIndex) === Number(item.rowIndex)
+                ? 'running'
+                : undefined,
             processing_estimate_at: continuousAutomationSettings.enabled
                 ? new Date(new Date(firstRunAt).getTime() + (intervalMs * index)).toISOString()
                 : null
@@ -512,6 +517,7 @@ function startFixtureServer(requests) {
                         state: 'empty', message: '발행 준비된 글감이 없습니다.',
                         rowIndex: null, rowNumber: null, subject: '', resultStatus: '', busy: false
                     };
+                continuousRunnerPollsRemaining = item ? 2 : 0;
                 const body = JSON.stringify({ success: true, data: { accepted: true, ...continuousRunnerStatus } });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(body);
@@ -573,16 +579,19 @@ function startFixtureServer(requests) {
             }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
                 if (continuousRunnerStatus.state === 'running') {
-                    const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === continuousRunnerStatus.rowIndex);
-                    if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
-                    continuousRunnerStatus = {
-                        ...continuousRunnerStatus,
-                        state: 'completed',
-                        message: '다음 글감 한 건을 처리했습니다.',
-                        resultStatus: '임시 저장 완료',
-                        finishedAt: new Date().toISOString(),
-                        busy: false
-                    };
+                    if (continuousRunnerPollsRemaining > 0) continuousRunnerPollsRemaining -= 1;
+                    else {
+                        const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === continuousRunnerStatus.rowIndex);
+                        if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
+                        continuousRunnerStatus = {
+                            ...continuousRunnerStatus,
+                            state: 'completed',
+                            message: '다음 글감 한 건을 처리했습니다.',
+                            resultStatus: '임시 저장 완료',
+                            finishedAt: new Date().toISOString(),
+                            busy: false
+                        };
+                    }
                 }
                 data = continuousRunnerStatus;
             }
@@ -1040,6 +1049,18 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('임시 저장'), true);
         await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item')?.classList.contains('is-running'));
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('처리 중'), true);
+        assert.equal(
+            await page.locator('#blog-next-queue-list .blog-next-queue-actions button').evaluateAll(buttons => buttons.every(button => button.disabled)),
+            true
+        );
+        assert.equal(await page.locator('#blog-next-queue-list .blog-next-queue-copy').isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-run-now]').evaluate(button => getComputedStyle(button).cursor), 'not-allowed');
+        assert.equal(Number(await page.locator('[data-blog-next-run-now]').evaluate(button => getComputedStyle(button).opacity)) < 1, true);
+        assert.equal(await page.locator('#blog-next-automation-test').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-automation-test').evaluate(button => getComputedStyle(button).cursor), 'not-allowed');
+        assert.equal(await page.locator('.blog-next-management-actions [data-blog-next-runner-status-jump]').count(), 0);
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
         const selectedRunnerRequest = requests.filter((request) => (
             request.pathname === '/api/v1/continuous-publishing/runner/start'

@@ -183,6 +183,12 @@ function createContinuousPublishingService(deps = {}) {
         return requireTopicInStatus(rowIndex, TOPIC_STATUS.READY);
     }
 
+    function requireRunnerIdle() {
+        if (runnerPromise) {
+            throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 글감을 처리하는 동안에는 발행 대기열을 변경하거나 추가 실행할 수 없습니다.');
+        }
+    }
+
     function startRunner(requestBody = {}, execution = {}) {
         if (runnerPromise) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '이미 다음 글감을 처리하고 있습니다.');
@@ -337,6 +343,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         scheduleAutomationTest() {
+            requireRunnerIdle();
             const policy = resolveRuntimeEffectPolicy(CONFIG);
             if (policy.environment !== 'development' || policy.automatedDraft !== true) {
                 throw createApiError(403, 'CONTINUOUS_AUTOMATION_TEST_ENVIRONMENT_BLOCKED', '30초 시험 실행은 Development 환경에서만 사용할 수 있습니다.');
@@ -389,17 +396,32 @@ function createContinuousPublishingService(deps = {}) {
             const allItems = Array.isArray(topics?.items) ? topics.items : [];
             const readyItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.READY);
             const savedItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.WAITING);
-            const scheduledQueue = addQueueSchedule(readyItems.slice(0, limit));
+            const activeRowIndex = runnerPromise && Number.isInteger(Number(runnerState.rowIndex))
+                ? Number(runnerState.rowIndex)
+                : null;
+            const activeItem = activeRowIndex === null
+                ? null
+                : allItems.find(item => Number(item?.rowIndex) === activeRowIndex) || null;
+            const scheduledQueue = addQueueSchedule(readyItems);
+            const visibleItems = scheduledQueue.items.map(item => Number(item?.rowIndex) === activeRowIndex
+                ? { ...item, processing_estimate_at: null, queue_runtime_state: 'running' }
+                : item);
+            if (activeItem && !visibleItems.some(item => Number(item?.rowIndex) === activeRowIndex)) {
+                visibleItems.push({ ...activeItem, processing_estimate_at: null, queue_runtime_state: 'running' });
+                visibleItems.sort((left, right) => Number(left?.rowNumber || 0) - Number(right?.rowNumber || 0));
+            }
+            const runningCount = activeItem && !readyItems.some(item => Number(item?.rowIndex) === activeRowIndex) ? 1 : 0;
             return {
-                items: scheduledQueue.items,
+                items: visibleItems.slice(0, limit),
                 saved_items: savedItems.slice(0, limit),
-                total: readyItems.length,
+                total: readyItems.length + runningCount,
                 limit,
                 offset: 0,
                 automation_schedule: scheduledQueue.automation_schedule,
                 status_summary: {
                     saved: savedItems.length,
-                    ready: readyItems.length
+                    ready: readyItems.length,
+                    running: runningCount
                 }
             };
         },
@@ -417,6 +439,7 @@ function createContinuousPublishingService(deps = {}) {
             if (sourceStatus === TOPIC_STATUS.READY && action === 'save') {
                 throw createApiError(409, 'READY_TOPIC_CANNOT_BE_SAVED', '발행 대기열 글감은 먼저 보관한 글감으로 옮겨 주세요.');
             }
+            if (sourceStatus === TOPIC_STATUS.READY) requireRunnerIdle();
             await requireTopicInStatus(rowIndex, sourceStatus);
             const ready = action === 'enqueue';
             let row;
@@ -465,6 +488,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async removeReadyTopic(requestBody = {}) {
+            requireRunnerIdle();
             const rowIndex = parseRowIndex(requestBody.rowIndex);
             await requireReadyQueueItem(rowIndex);
             await Utils.updateGoogleSheetStatus(
@@ -478,6 +502,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async reorderReadyTopic(requestBody = {}) {
+            requireRunnerIdle();
             const rowIndex = parseRowIndex(requestBody.rowIndex);
             await ensureSheetsReadyForUi();
             Utils.clearSheetCache('topics');

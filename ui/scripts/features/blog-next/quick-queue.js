@@ -286,7 +286,25 @@ function parseBlogNextQueueCategory(item = {}) {
   };
 }
 
+function isBlogNextQueueRunnerLocked() {
+  return (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
+    || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting)
+    || document.querySelector('#blog-next-queue-list [data-blog-next-queue-server-running="true"]') !== null;
+}
+
+function showBlogNextQueueRunnerLockedNotice() {
+  showUiToast({
+    level: 'warning',
+    title: '다른 글감 처리 중',
+    message: '현재 실행이 끝난 뒤 발행 대기열을 변경하거나 다음 글감을 실행해 주세요.'
+  });
+}
+
 function populateBlogNextTopicForm(item = {}, sourceStatus) {
+  if (sourceStatus === '발행 준비 완료' && isBlogNextQueueRunnerLocked()) {
+    showBlogNextQueueRunnerLockedNotice();
+    return;
+  }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   blogNextEditingRowIndex = rowIndex;
@@ -346,6 +364,8 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
 function createBlogNextListItem(item, position, saved) {
   const article = document.createElement('article');
   article.className = `blog-next-queue-item${saved ? ' blog-next-saved-item' : ''}`;
+  if (Number.isInteger(Number(item.rowIndex))) article.dataset.blogNextQueueRowIndex = String(Number(item.rowIndex));
+  if (item.queue_runtime_state === 'running') article.dataset.blogNextQueueServerRunning = 'true';
   const order = document.createElement('span');
   order.className = 'blog-next-queue-order';
   order.textContent = String(position + 1);
@@ -358,6 +378,7 @@ function createBlogNextListItem(item, position, saved) {
   const title = document.createElement('strong');
   title.textContent = item.subject || item.keywordsRaw || '제목 없는 글감';
   const meta = document.createElement('span');
+  meta.className = 'blog-next-queue-meta';
   if (saved) meta.textContent = item.keywordsRaw ? `키워드 · ${item.keywordsRaw}` : '아이디어 보관';
   else {
     const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '대상 확인 필요';
@@ -368,7 +389,17 @@ function createBlogNextListItem(item, position, saved) {
       : '';
     meta.textContent = [platforms, postStatus, schedule].filter(Boolean).join(' · ');
   }
-  copy.append(title, meta);
+  meta.dataset.planText = meta.textContent;
+  const running = document.createElement('span');
+  running.className = 'blog-next-queue-running';
+  running.hidden = true;
+  const runningIndicator = document.createElement('i');
+  runningIndicator.className = 'blog-next-queue-running-indicator';
+  runningIndicator.setAttribute('aria-hidden', 'true');
+  const runningText = document.createElement('span');
+  runningText.dataset.blogNextQueueRunningText = 'true';
+  running.append(runningIndicator, runningText);
+  copy.append(title, meta, running);
   const actions = document.createElement('div');
   actions.className = 'blog-next-queue-actions';
   if (!saved) {
@@ -385,6 +416,7 @@ function createBlogNextListItem(item, position, saved) {
       moveButton.title = control.label;
       moveButton.setAttribute('aria-label', control.label);
       moveButton.disabled = control.disabled;
+      moveButton.dataset.blogNextQueueDefaultDisabled = control.disabled ? 'true' : 'false';
       moveButton.addEventListener('click', () => reorderBlogNextQueueItem(item, control.direction));
       actions.append(moveButton);
     });
@@ -392,6 +424,7 @@ function createBlogNextListItem(item, position, saved) {
   const secondaryAction = document.createElement('button');
   secondaryAction.type = 'button';
   secondaryAction.className = 'ghost';
+  secondaryAction.dataset.blogNextQueueDefaultDisabled = 'false';
   secondaryAction.textContent = saved ? '삭제' : '빼기';
   secondaryAction.addEventListener('click', () => saved
     ? deleteBlogNextSavedItem(item, secondaryAction)
@@ -402,6 +435,7 @@ function createBlogNextListItem(item, position, saved) {
     runButton.type = 'button';
     runButton.className = 'primary';
     runButton.dataset.blogNextRunNow = 'true';
+    runButton.dataset.blogNextQueueDefaultDisabled = 'false';
     runButton.disabled = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
     runButton.textContent = '지금 실행';
     runButton.addEventListener('click', () => runBlogNextQueueItemNow(item, runButton));
@@ -424,7 +458,52 @@ function setBlogNextQueueActionsBusy(busy) {
   });
 }
 
+function syncBlogNextQueueRunnerState(status = {}) {
+  const state = String(status.state || 'idle');
+  const serverRunning = document.querySelector('#blog-next-queue-list [data-blog-next-queue-server-running="true"]') !== null;
+  const active = status.busy === true || state === 'selecting' || state === 'running' || serverRunning;
+  const activeRowIndex = Number(status.rowIndex);
+  const progressMessage = String(status.message || '').trim();
+  document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').forEach((article) => {
+    const rowIndex = Number(article.dataset.blogNextQueueRowIndex);
+    const running = (active && Number.isInteger(activeRowIndex) && rowIndex === activeRowIndex)
+      || article.dataset.blogNextQueueServerRunning === 'true';
+    article.classList.toggle('is-running', running);
+    article.setAttribute('aria-busy', running ? 'true' : 'false');
+    const copy = article.querySelector('.blog-next-queue-copy');
+    if (copy) {
+      copy.disabled = active;
+      copy.setAttribute('aria-disabled', active ? 'true' : 'false');
+      copy.title = active ? '다른 글감을 처리하는 동안에는 수정할 수 없습니다.' : '';
+    }
+    const meta = article.querySelector('.blog-next-queue-meta');
+    const runningStatus = article.querySelector('.blog-next-queue-running');
+    if (meta) meta.hidden = running;
+    if (runningStatus) runningStatus.hidden = !running;
+    const runningText = article.querySelector('[data-blog-next-queue-running-text]');
+    const planText = String(meta?.dataset.planText || '').trim();
+    if (runningText) runningText.textContent = running
+      ? `${planText ? `${planText} · ` : ''}처리 중${progressMessage ? ` · ${progressMessage}` : ''}`
+      : '';
+    article.querySelectorAll('.blog-next-queue-actions button').forEach((button) => {
+      const defaultDisabled = button.dataset.blogNextQueueDefaultDisabled === 'true';
+      if (!Object.hasOwn(button.dataset, 'blogNextQueueDefaultTitle')) {
+        button.dataset.blogNextQueueDefaultTitle = button.title || '';
+      }
+      button.disabled = active || defaultDisabled;
+      button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+      button.title = active
+        ? '다른 글감을 처리하는 동안에는 사용할 수 없습니다.'
+        : button.dataset.blogNextQueueDefaultTitle;
+    });
+  });
+}
+
 async function reorderBlogNextQueueItem(item = {}, direction) {
+  if (isBlogNextQueueRunnerLocked()) {
+    showBlogNextQueueRunnerLockedNotice();
+    return;
+  }
   if (blogNextQueueReordering) return;
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
@@ -455,6 +534,7 @@ async function reorderBlogNextQueueItem(item = {}, direction) {
   } finally {
     blogNextQueueReordering = false;
     setBlogNextQueueActionsBusy(false);
+    if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
   }
 }
 
@@ -478,6 +558,10 @@ async function deleteBlogNextSavedItem(item = {}, button) {
 }
 
 async function removeBlogNextQueueItem(item = {}, button) {
+  if (isBlogNextQueueRunnerLocked()) {
+    showBlogNextQueueRunnerLockedNotice();
+    return;
+  }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   const confirmed = await showUiConfirm('글감은 삭제하지 않고 보관 상태로 되돌립니다. 대기열에서 뺄까요?', {
@@ -497,6 +581,10 @@ async function removeBlogNextQueueItem(item = {}, button) {
 }
 
 async function runBlogNextQueueItemNow(item = {}, button) {
+  if (isBlogNextQueueRunnerLocked()) {
+    showBlogNextQueueRunnerLockedNotice();
+    return;
+  }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '포스팅 대상 확인 필요';
@@ -556,7 +644,7 @@ function renderBlogNextQueue(data = {}) {
     saved_items: savedItems,
     status_summary: summary
   };
-  readyCount.textContent = `${Number(summary.ready ?? data.total ?? readyItems.length)}건`;
+  readyCount.textContent = `${Number(summary.ready ?? data.total ?? readyItems.length) + Number(summary.running || 0)}건`;
   savedCount.textContent = `${Number(summary.saved ?? savedItems.length)}건`;
   readyList.replaceChildren();
   savedList.replaceChildren();
@@ -567,6 +655,7 @@ function renderBlogNextQueue(data = {}) {
     ...item,
     queueSize: readyItems.length
   }, index, false)));
+  if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
 }
 
 async function loadBlogNextQueue(options = {}) {

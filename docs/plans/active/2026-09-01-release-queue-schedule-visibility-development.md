@@ -37,7 +37,7 @@
 ## Stages and sub-feature records
 
 - 완료: 현재 순서 기준 처리 예상 시간과 runner 완료 후 목록 갱신 기반.
-- 진행 예정: Queue 실행 상태 UX — `2026-09-02-release-queue-running-state-ux-development.md`.
+- 완료: Queue 실행 상태 UX — `../archive/2026-09-02-release-queue-running-state-ux-development.md`.
 - 후속 예정: Blog Beta 공통 실행 잠금. 별도 하위 FB 시작 시 개발 기록을 만든다.
 
 ## Decisions and tradeoffs
@@ -52,9 +52,12 @@
 - 2026-09-01: 허용 시간대와 발행 간격을 재사용하는 순서 기반 처리 예상 시간 계산을 추가했다.
 - 2026-09-01: 대기열 API가 자동화 상태와 글감별 `processing_estimate_at`을 반환하고, UI가 첫 글은 `다음 처리`, 이후 글은 `처리 예상 … 이후`로 표시하게 했다.
 - 2026-09-01: 글감 관리 탭에서 runner 완료 시각 변화를 감시하고 완료 후 대기열을 다시 읽도록 했다. 수동 실행은 scheduler를 갱신하지 않는다.
+- 2026-09-02: Queue 실행 상태 하위 단계에서 실행 row 표시, 완료 후 제거, 실행 중 수정·이동·제외·추가 실행과 30초 시험 실행 차단을 구현하고 사용자 UI 검토를 통과했다.
 - 단위 테스트: `node --test src/continuous-publishing/automation-settings.test.js src/ui-api/services/continuous-publishing.service.test.js` — 30 passed.
 - UI 계약 테스트: `node --test scripts/continuous-publishing-shell-contract.test.js` — 14 passed.
 - 브라우저 회귀 테스트: `npm run test:ui-browser` — passed, 117 fixture requests.
+- Queue 실행 상태 하위 단계 브라우저 회귀: `npm run test:ui-browser` — passed, 121 fixture requests.
+- 부모 병합 전 전체 단위 테스트: `npm run test:unit` — 1217 passed.
 
 ## Remaining risks and manual checks
 

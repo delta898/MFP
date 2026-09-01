@@ -52,7 +52,9 @@ function renderBlogNextAutomationSettings(data = {}) {
   if (testButton) {
     const development = runtime.environment === 'development';
     testButton.hidden = !development;
-    testButton.disabled = runtime.scheduler?.test_scheduled === true;
+    testButton.dataset.testScheduled = runtime.scheduler?.test_scheduled === true ? 'true' : 'false';
+    testButton.disabled = runtime.scheduler?.test_scheduled === true
+      || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive);
     testButton.textContent = runtime.scheduler?.test_scheduled === true
       ? '테스트 대기 중...'
       : '30초 테스트';
@@ -67,7 +69,7 @@ function renderBlogNextAutomationSettings(data = {}) {
 
 async function scheduleBlogNextAutomationTest() {
   const button = document.getElementById('blog-next-automation-test');
-  if (button?.disabled) return;
+  if (button?.disabled || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)) return;
   if (button) button.disabled = true;
   try {
     await postJson('/api/v1/continuous-publishing/automation/test', {});

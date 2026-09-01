@@ -118,7 +118,10 @@ test('continuous automation settings own timing but never topic delivery targets
 test('safe timer UI exposes a development-only 30 second test without multi-device lease controls', () => {
     const html = read('ui/partials/views/blog-next.html');
     const script = read('ui/scripts/features/blog-next/automation-settings.js');
+    const css = read('ui/styles/features/continuous-publishing-interactions.css');
     assert.match(html, /id="blog-next-automation-test"/);
+    assert.match(css, /\.blog-next-queue-actions button:disabled/);
+    assert.match(css, /#blog-next-automation-test:disabled/);
     assert.match(html, />30초 테스트</);
     assert.match(script, /\/api\/v1\/continuous-publishing\/automation\/test/);
     assert.match(script, /runtime\.environment === 'development'/);
@@ -214,7 +217,8 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
-    assert.match(betaView, /data-blog-next-runner-status-jump[^>]*hidden>상태 보기 ↑/);
+    assert.match(betaView, /data-blog-next-runner-status-jump[^>]*hidden>상태 보기/);
+    assert.equal((betaView.match(/data-blog-next-runner-status-jump/g) || []).length, 1);
     assert.match(
         betaView,
         /class="blog-next-form-result-row">[\s\S]*?id="blog-next-topic-result"[\s\S]*?data-blog-next-runner-status-jump[\s\S]*?<\/div>/
@@ -227,6 +231,7 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
     assert.doesNotMatch(runnerScript, /\.focus\s*\(/);
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
+    assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-editor-modal \.blog-next-runner-status-jump/);
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
     assert.match(publishPreferences, /'blog-next-folder-headless'/);
     assert.match(publishPreferences, /'blog-next-paste-headless'/);
@@ -236,6 +241,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
     const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const queueCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
     assert.match(queueScript, /processing_estimate_at/);
     assert.match(queueScript, /다음 처리/);
@@ -245,4 +251,10 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.match(runnerScript, /finishedChanged/);
     assert.match(runnerScript, /loadBlogNextQueue\(\{ force: true \}\)/);
     assert.match(runnerScript, /blogNextActiveTab === 'queue'/);
+    assert.match(queueScript, /syncBlogNextQueueRunnerState/);
+    assert.match(queueScript, /aria-busy/);
+    assert.match(queueScript, /queue_runtime_state/);
+    assert.match(serviceSource, /queue_runtime_state: 'running'/);
+    assert.match(queueCss, /\.blog-next-queue-item\.is-running/);
+    assert.match(queueCss, /blog-next-queue-running-indicator/);
 });

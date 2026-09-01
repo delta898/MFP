@@ -45,7 +45,16 @@ function syncBlogNextRunnerTriggerState() {
   document.querySelectorAll('[data-blog-next-run-now]').forEach((button) => {
     button.disabled = active;
   });
+  const automationTestButton = document.getElementById('blog-next-automation-test');
+  if (automationTestButton) {
+    const testScheduled = automationTestButton.dataset.testScheduled === 'true';
+    automationTestButton.disabled = active || testScheduled;
+    automationTestButton.setAttribute('aria-disabled', automationTestButton.disabled ? 'true' : 'false');
+    automationTestButton.title = active ? '현재 실행이 끝난 뒤 시험 실행할 수 있습니다.' : '';
+    automationTestButton.textContent = active ? '실행 중...' : testScheduled ? '테스트 대기 중...' : '30초 테스트';
+  }
   if (typeof setBlogNextTopicBusy === 'function') setBlogNextTopicBusy(blogNextTopicSubmitting);
+  if (typeof syncBlogNextQueueRunnerState === 'function') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
 }
 
 function renderBlogNextRunnerStatus(status = {}) {
