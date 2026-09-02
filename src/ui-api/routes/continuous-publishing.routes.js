@@ -8,6 +8,7 @@ function createContinuousPublishingRouteHandler(deps = {}) {
         if (ctx.pathname === '/api/v1/continuous-publishing/topics/update') return controller.updateTopic(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/topics/delete') return controller.deleteSavedTopic(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/queue') return controller.queue(ctx);
+        if (ctx.pathname === '/api/v1/continuous-publishing/dashboard-overview') return controller.dashboardOverview(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/queue/remove') return controller.removeFromQueue(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/queue/reorder') return controller.reorderQueue(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/runner/start') return controller.startRunner(ctx);

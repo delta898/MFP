@@ -11,6 +11,7 @@ const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effect
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
 const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
 
 function createContinuousPublishingService(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now } = deps;
@@ -529,6 +530,15 @@ function createContinuousPublishingService(deps = {}) {
                     running: runningCount
                 }
             };
+        },
+
+        async getDashboardOverview() {
+            const queue = await this.getReadyQueue({ searchParams: new URLSearchParams({ limit: '4' }) });
+            return buildDashboardBlogOperationsOverview({
+                queue,
+                runner: getRunnerStatusSnapshot(),
+                generatedAt: typeof now === 'function' ? now() : new Date()
+            });
         },
 
         async updateTopic(requestBody = {}) {

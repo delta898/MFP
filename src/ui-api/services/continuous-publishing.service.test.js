@@ -34,6 +34,7 @@ function createService(state = {}) {
                 return { success: true, rowNumbers: [12], rowIndices: [10] };
             },
             async readGoogleSheetTopicsAll(options) {
+                state.readCalls = (state.readCalls || 0) + 1;
                 state.readOptions = options;
                 if (Array.isArray(state.readItems)) {
                     return { items: state.readItems, total: state.readItems.length, limit: options.limit, offset: 0 };
@@ -390,6 +391,30 @@ test('ready queue follows the physical order of Topics ready rows', async () => 
         sortBy: 'rowNumber',
         sortDir: 'asc'
     });
+});
+
+test('dashboard overview uses one Topics snapshot and returns a compact queue projection', async () => {
+    const state = {
+        now: () => new Date('2026-09-02T03:00:00.000Z'),
+        readItems: [
+            { rowIndex: 0, rowNumber: 2, status: '대기', subject: '보관 글감' },
+            {
+                rowIndex: 1, rowNumber: 3, status: '발행 준비 완료', subject: '첫 글',
+                options: { platforms: ['naver'], post_status: 'draft', reference_urls: ['https://private.example'] }
+            },
+            { rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '둘째 글', targets: ['wordpress'] }
+        ]
+    };
+    const service = createService(state);
+
+    const overview = await service.getDashboardOverview();
+
+    assert.equal(state.readCalls, 1);
+    assert.equal(overview.generated_at, '2026-09-02T03:00:00.000Z');
+    assert.deepEqual(overview.queue.next_items.map(item => item.subject), ['첫 글', '둘째 글']);
+    assert.deepEqual(overview.queue.next_items[0].targets, ['naver']);
+    assert.equal(overview.queue.saved_count, 1);
+    assert.equal(JSON.stringify(overview).includes('private.example'), false);
 });
 
 test('ready queue exposes processing estimates from the current automatic schedule', async () => {

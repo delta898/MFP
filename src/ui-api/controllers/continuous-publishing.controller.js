@@ -46,6 +46,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async dashboardOverview({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getDashboardOverview());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_DASHBOARD_OVERVIEW_FAILED', '블로그 운영 현황을 불러오지 못했습니다.', error);
+            }
+        },
+
         async updateTopic({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
