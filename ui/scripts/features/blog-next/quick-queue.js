@@ -12,6 +12,7 @@ let blogNextEditingRowIndex = null;
 let blogNextEditingSourceStatus = '';
 let blogNextEditingInitialSnapshot = '';
 let blogNextActiveManagementTab = 'ready';
+let blogNextPendingImmediateSubmission = null;
 
 function readBlogNextTopicSettings() {
   const platforms = [];
@@ -197,6 +198,35 @@ function snapshotBlogNextEditingPayload() {
   return JSON.stringify(payload);
 }
 
+function rememberBlogNextImmediateSubmission({ rowIndex, snapshot, editing }) {
+  blogNextPendingImmediateSubmission = {
+    rowIndex: Number(rowIndex),
+    snapshot: String(snapshot || ''),
+    editing: editing === true
+  };
+}
+
+function settleBlogNextImmediateSubmission(status = {}) {
+  const pending = blogNextPendingImmediateSubmission;
+  if (!pending) return;
+  const state = String(status.state || '').trim();
+  const hasRowIndex = status.rowIndex !== null && status.rowIndex !== undefined && status.rowIndex !== '';
+  const rowIndex = Number(status.rowIndex);
+  if (hasRowIndex && Number.isInteger(rowIndex) && rowIndex !== pending.rowIndex) return;
+  if (['selecting', 'running', 'idle'].includes(state)) return;
+
+  if (state === 'completed') {
+    if (snapshotBlogNextEditingPayload() === pending.snapshot) {
+      clearBlogNextTopicContent();
+      finishBlogNextTopicEditing();
+    }
+    setBlogNextTopicResult('포스팅을 완료했습니다.', 'success');
+  } else {
+    setBlogNextTopicResult(String(status.message || '포스팅을 완료하지 못했습니다. 입력 내용을 확인한 후 다시 시도해 주세요.'), 'error');
+  }
+  blogNextPendingImmediateSubmission = null;
+}
+
 async function closeBlogNextEditor(options = {}) {
   if (blogNextEditingRowIndex === null) return;
   const changed = blogNextEditingInitialSnapshot !== snapshotBlogNextEditingPayload();
@@ -235,6 +265,8 @@ async function submitBlogNextTopic(action) {
     const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
     const captureAction = action === 'publish-now' ? 'enqueue' : action;
     const payload = readBlogNextTopicPayload(captureAction);
+    const submittedSnapshot = snapshotBlogNextEditingPayload();
+    if (action === 'publish-now') await preflightBlogNextPublishTargets(payload);
     if (editing) {
       payload.rowIndex = blogNextEditingRowIndex;
       payload.sourceStatus = blogNextEditingSourceStatus;
@@ -247,8 +279,10 @@ async function submitBlogNextTopic(action) {
       ? (editingReady ? '발행 계획을 수정했습니다.' : queued ? '글감을 발행 대기열에 추가했습니다.' : '보관한 글감을 수정했습니다.')
       : (queued ? '발행 계획을 확인해 대기열에 추가했습니다.' : '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.');
     rememberBlogNextTopicDefaults();
-    clearBlogNextTopicContent();
-    finishBlogNextTopicEditing();
+    if (action !== 'publish-now') {
+      clearBlogNextTopicContent();
+      finishBlogNextTopicEditing();
+    }
     setBlogNextTopicResult(message, 'success');
     if (action !== 'publish-now') {
       showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
@@ -256,11 +290,17 @@ async function submitBlogNextTopic(action) {
     await loadBlogNextQueue({ force: true });
     if (editing) activateBlogNextTab('queue');
     if (action === 'publish-now' && Number.isInteger(Number(data?.rowIndex))) {
+      rememberBlogNextImmediateSubmission({
+        rowIndex: Number(data.rowIndex),
+        snapshot: submittedSnapshot,
+        editing
+      });
       try {
         await startBlogNextRunner({ rowIndex: Number(data.rowIndex) });
         setBlogNextTopicResult('바로 포스팅을 시작했습니다.', 'success');
-      } catch (_error) {
-        setBlogNextTopicResult('글감은 발행 대기열에 추가했습니다. 실행 시작에 실패해 대기열에서 다시 실행할 수 있습니다.', 'error');
+      } catch (error) {
+        blogNextPendingImmediateSubmission = null;
+        setBlogNextTopicResult(error.message || '실행을 시작하지 못했습니다. 발행 대기열에서 다시 시도해 주세요.', 'error');
       }
     }
   } catch (error) {
@@ -679,6 +719,10 @@ function initBlogNextQuickQueue() {
   if (!form || form.dataset.bound === 'true') return;
   form.dataset.bound = 'true';
   applyBlogNextTopicSettings(loadBlogNextTopicDefaults());
+  if (typeof syncPlatformUiState === 'function') {
+    syncPlatformUiState('naver', typeof uiNaverReady === 'undefined' || uiNaverReady === true);
+    syncPlatformUiState('wordpress', typeof uiWpReady === 'undefined' || uiWpReady === true);
+  }
   activateBlogNextManagementTab(blogNextActiveManagementTab);
   form.addEventListener('submit', (event) => { event.preventDefault(); submitBlogNextTopic('enqueue'); });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));

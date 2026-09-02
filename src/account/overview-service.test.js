@@ -36,7 +36,7 @@ function createService(overrides = {}) {
         },
         APP_VERSION: '0.1.13',
         toFeatureMap: (value) => ({ ...value }),
-        checkNaverSessionForUi: async () => ({ ok: true, reason: '', message: 'valid' }),
+        peekNaverSessionForUi: () => ({ ok: true, reason: '', message: 'valid', checkedAt: Date.now() }),
         resolveMachineId: () => 'raw-machine-id-must-not-leak',
         runtimeVersions: { node: '24.16.0', electron: '40.6.1' },
         platform: 'darwin',
@@ -95,6 +95,31 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.actions.find((item) => item.id === 'purchase_credits').enabled, false);
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 등록');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
+});
+
+test('account overview reads cached connection state without running an active Naver check', async () => {
+    let peekCount = 0;
+    const service = createService({
+        CONFIG: {
+            WORDPRESS_URL: 'https://blog.example',
+            WORDPRESS_USER_ID: 'editor',
+            WORDPRESS_APP_PASSWORD: 'wrong-password'
+        },
+        peekNaverSessionForUi() {
+            peekCount += 1;
+            return { ok: false, reason: 'not_checked', checked: false };
+        },
+        getWordPressVerification() {
+            return { status: 'failed', message: '인증 실패', checked_at: '2026-09-02T00:00:00.000Z' };
+        }
+    });
+
+    const overview = await service.getOverview();
+
+    assert.equal(peekCount, 1);
+    assert.equal(overview.connections.naver.status, 'unverified');
+    assert.equal(overview.connections.wordpress.status, 'failed');
+    assert.equal(overview.connections.wordpress.message, '인증 실패');
 });
 
 test('account overview exposes smart capability usage separately from publishing quota', async () => {

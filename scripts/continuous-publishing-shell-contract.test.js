@@ -156,7 +156,10 @@ test('safe timer UI exposes a development-only 30 second test without multi-devi
 
 test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reuses recommendation surfaces', () => {
     const html = read('ui/partials/views/blog-next.html');
-    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const queueScript = [
+        read('ui/scripts/features/blog-next/publish-preflight.js'),
+        read('ui/scripts/features/blog-next/quick-queue.js')
+    ].join('\n');
     const discoveryScript = read('ui/scripts/features/discovery/quick-discovery.js');
 
     assert.match(html, /id="blog-next-saved-count"/);
@@ -261,6 +264,26 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
     assert.match(publishPreferences, /'blog-next-folder-headless'/);
     assert.match(publishPreferences, /'blog-next-paste-headless'/);
+});
+
+test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {
+    const queueScript = [
+        read('ui/scripts/features/blog-next/publish-preflight.js'),
+        read('ui/scripts/features/blog-next/quick-queue.js')
+    ].join('\n');
+    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const readinessScript = read('ui/scripts/foundation/readiness.js');
+
+    assert.match(queueScript, /preflightBlogNextPublishTargets\(payload\)/);
+    assert.match(queueScript, /\/api\/v1\/session\/naver\?force=true/);
+    assert.match(queueScript, /\/api\/v1\/session\/wordpress-verify/);
+    assert.match(queueScript, /네이버 로그인 후 다시 시도해 주세요\./);
+    assert.match(queueScript, /워드프레스 연결을 확인한 후 다시 시도해 주세요\./);
+    assert.match(queueScript, /if \(action !== 'publish-now'\) \{[\s\S]*?clearBlogNextTopicContent\(\)/);
+    assert.match(queueScript, /snapshotBlogNextEditingPayload\(\) === pending\.snapshot/);
+    assert.match(runnerScript, /settleBlogNextImmediateSubmission\(status\)/);
+    assert.match(readinessScript, /'blog-next-target-naver'/);
+    assert.match(readinessScript, /'blog-next-target-wordpress'/);
 });
 
 test('release queue shows processing estimates and refreshes when a runner finishes', () => {

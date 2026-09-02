@@ -43,6 +43,7 @@
 // @include scripts/features/social/manual-publish.js
 // @include scripts/features/social/manual-lifecycle.js
 // @include scripts/features/blog-next/shell.js
+// @include scripts/features/blog-next/publish-preflight.js
 // @include scripts/features/blog-next/quick-queue.js
 // @include scripts/features/blog-next/trend-posting.js
 // @include scripts/features/blog-next/draft-inputs.js

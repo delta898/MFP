@@ -21,6 +21,10 @@ const { createContinuousPublishingService } = require('../services/continuous-pu
 const { createAccountOverviewService } = require('../../account/overview-service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const WordPressClient = require('../../wordpress-client');
+const {
+    recordWordPressVerification,
+    getWordPressVerification
+} = require('../../connections/verification-state');
 
 function createLegacyApiRouteHandler(deps = {}) {
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
@@ -56,7 +60,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         setNaverLoginState: deps.setNaverLoginState,
         runNaverLoginFlowForUi: deps.runNaverLoginFlowForUi,
         WordPressClient,
-        CONFIG: deps.CONFIG
+        CONFIG: deps.CONFIG,
+        recordWordPressVerification
     });
     const sessionLicenseController = createSessionLicenseController({
         service: sessionLicenseService,
@@ -70,7 +75,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         CONFIG: deps.CONFIG,
         APP_VERSION: deps.APP_VERSION,
         toFeatureMap: deps.toFeatureMap,
-        checkNaverSessionForUi: deps.checkNaverSessionForUi
+        peekNaverSessionForUi: deps.peekNaverSessionForUi,
+        getWordPressVerification
     });
     const accountController = createAccountController({
         service: accountService,

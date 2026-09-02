@@ -75,6 +75,9 @@ function renderBlogNextRunnerStatus(status = {}) {
 
   blogNextRunnerLastStatus = { ...status };
   blogNextRunnerActive = active;
+  if (typeof settleBlogNextImmediateSubmission === 'function') {
+    settleBlogNextImmediateSubmission(status);
+  }
   if (panel) {
     panel.hidden = !panelVisible;
     panel.dataset.state = state;

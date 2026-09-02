@@ -53,7 +53,8 @@ function syncPlatformUiState(platform, isReady) {
       'shopping-quick-target-naver',
       'shopping-batch-target-naver',
       'blog-publish-auto-target-naver',
-      'shopping-publish-auto-target-naver'
+      'shopping-publish-auto-target-naver',
+      'blog-next-target-naver'
     ],
     wordpress: [
       'quick-target-wordpress',
@@ -62,7 +63,8 @@ function syncPlatformUiState(platform, isReady) {
       'shopping-quick-target-wordpress',
       'shopping-batch-target-wordpress',
       'blog-publish-auto-target-wordpress',
-      'shopping-publish-auto-target-wordpress'
+      'shopping-publish-auto-target-wordpress',
+      'blog-next-target-wordpress'
     ]
   };
 
@@ -168,4 +170,3 @@ async function ensureSheetsPreflightUi(options = {}) {
     return false;
   }
 }
-

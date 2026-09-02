@@ -16,6 +16,9 @@ function createRuntime(overrides = {}) {
         async checkAuthSessionValid() {
             return { ok: true };
         },
+        peekAuthSessionState() {
+            return { ok: false, reason: 'not_checked', checked: false };
+        },
         clearAuthSession() {
             return { ok: true, removed: true };
         },
@@ -40,6 +43,16 @@ test('UI session runtime forwards forced Naver session checks', async () => {
     assert.equal(result.ok, true);
     assert.equal(receivedOptions.forceRefresh, true);
     assert.equal(receivedOptions.cacheTtlMs, 120000);
+});
+
+test('UI session runtime exposes cached Naver state without an active check', () => {
+    const runtime = createRuntime({
+        peekAuthSessionState() {
+            return { ok: true, checked: true, checkedAt: 1234 };
+        }
+    });
+
+    assert.deepEqual(runtime.peekNaverSessionForUi(), { ok: true, checked: true, checkedAt: 1234 });
 });
 
 test('UI session runtime clears persisted Naver auth and resets login flow state', async () => {

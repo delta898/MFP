@@ -1,5 +1,10 @@
-async function loadDashboard() {
-  if (isDashboardLoading || (Date.now() - lastDashboardLoadTime < 5000)) {
+async function loadDashboard(options = {}) {
+  const force = options.force === true;
+  if (isDashboardLoading) {
+    if (force) dashboardForceRefreshPending = true;
+    return;
+  }
+  if (!force && (Date.now() - lastDashboardLoadTime < 5000)) {
     return; // Throttle: prevent concurrent or overly frequent calls (5s cooldown)
   }
   isDashboardLoading = true;
@@ -23,6 +28,10 @@ async function loadDashboard() {
     lastDashboardLoadTime = Date.now();
   } finally {
     isDashboardLoading = false;
+    if (dashboardForceRefreshPending) {
+      dashboardForceRefreshPending = false;
+      queueMicrotask(() => void loadDashboard({ force: true }));
+    }
   }
 
   const healthOk = healthResult.status === 'fulfilled' && Boolean(healthResult.value);
@@ -58,19 +67,34 @@ async function loadDashboard() {
     if (button) button.dataset.state = state;
     if (labelElement) labelElement.textContent = label;
   };
+  const naverStatus = String(naverConnection?.status || '').trim();
   setReadinessItem(
     'dashboard-naver-status',
     'dashboard-naver-status-label',
     sessionOk && session?.valid ? 'ready' : 'action',
-    sessionOk && session?.valid ? '네이버 로그인됨' : (sessionOk ? '네이버 로그인 필요' : '네이버 확인 불가')
+    sessionOk && session?.valid
+      ? '네이버 로그인 확인됨'
+      : (sessionOk && naverStatus === 'unverified'
+        ? '네이버 확인 필요'
+        : (sessionOk ? '네이버 로그인 필요' : '네이버 확인 불가'))
   );
 
-  const wordpressConfigured = ['configured', 'connected'].includes(String(wordpressConnection?.status || '').trim());
+  const wordpressStatus = String(wordpressConnection?.status || '').trim();
+  const wordpressConnected = wordpressStatus === 'connected';
+  const wordpressLabel = !accountOk
+    ? 'WordPress 확인 불가'
+    : wordpressConnected
+      ? 'WordPress 연결 확인됨'
+      : wordpressStatus === 'failed'
+        ? 'WordPress 연결 실패'
+        : wordpressStatus === 'unverified'
+          ? 'WordPress 확인 필요'
+          : 'WordPress 미사용';
   setReadinessItem(
     'dashboard-wordpress-status',
     'dashboard-wordpress-status-label',
-    wordpressConfigured ? 'ready' : 'neutral',
-    accountOk ? (wordpressConfigured ? 'WordPress 설정됨' : 'WordPress 미사용') : 'WordPress 확인 불가'
+    wordpressConnected ? 'ready' : (wordpressStatus === 'failed' ? 'action' : 'neutral'),
+    wordpressLabel
   );
 
   const usageButton = document.getElementById('dashboard-usage-status');
@@ -110,7 +134,7 @@ async function loadDashboard() {
   bindReadinessNavigation('dashboard-google-status', 'settings', 'general');
   bindReadinessNavigation('dashboard-health-status', 'logs');
 
-  if (sessionOk && session) {
+  if (sessionOk && session && naverStatus !== 'unverified') {
     const sessionStateKey = session.valid
       ? 'valid'
       : `invalid:${String(session.reason || 'unknown').trim().toLowerCase() || 'unknown'}`;

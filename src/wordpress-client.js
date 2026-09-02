@@ -162,14 +162,21 @@ class WordPressClient {
      * Verify authentication and permissions
      * @returns {Promise<{success: boolean, message: string, user?: Object}>}
      */
-    async verifyAuth() {
+    async verifyAuth(options = {}) {
         if (!this.isConfigured()) {
-            return { success: false, message: '워드프레스 설정(URL, App ID, Password)이 누락되었습니다.' };
+            return {
+                success: false,
+                configured: false,
+                connected: false,
+                canEdit: false,
+                canPublish: false,
+                message: '워드프레스 설정(URL, App ID, Password)이 누락되었습니다.'
+            };
         }
         try {
             // Get current user info to verify credentials
             const url = `${this.apiBase}/users/me?context=edit`;
-            const response = await axios.get(url, {
+            const response = await this.axios.get(url, {
                 headers: this.authHeader,
                 timeout: 15000 // 🛡️ [Added] 타임아웃 15초
             });
@@ -177,18 +184,41 @@ class WordPressClient {
             // Check if user has capability to create/publish posts
             const user = response.data;
             const capabilities = user.capabilities || {};
-            const canPublish = capabilities.publish_posts || capabilities.edit_posts || false;
+            const roles = Array.isArray(user.roles)
+                ? user.roles.map((role) => String(role || '').trim().toLowerCase())
+                : [];
+            const canEdit = capabilities.edit_posts === true
+                || capabilities.publish_posts === true
+                || roles.some((role) => ['administrator', 'editor', 'author', 'contributor'].includes(role));
+            const canPublish = capabilities.publish_posts === true
+                || roles.some((role) => ['administrator', 'editor', 'author'].includes(role));
+            const permissionRequired = options.requirePublish === true || options.requireEdit === true;
+            const hasRequiredPermission = options.requirePublish === true
+                ? canPublish
+                : (options.requireEdit === true ? canEdit : true);
 
-            if (canPublish) {
+            if (hasRequiredPermission) {
                 return {
                     success: true,
-                    message: `연동 성공! 사용자: ${user.name || user.slug}`,
+                    configured: true,
+                    connected: true,
+                    canEdit,
+                    canPublish,
+                    message: permissionRequired
+                        ? `연동 및 글쓰기 권한 확인! 사용자: ${user.name || user.slug}`
+                        : `연동 성공! 사용자: ${user.name || user.slug}`,
                     user: { id: user.id, name: user.name, roles: user.roles }
                 };
             } else {
                 return {
-                    success: true,
-                    message: `연동은 성공했으나, 글쓰기 권한이 없는 것 같습니다. (사용자: ${user.name})`,
+                    success: false,
+                    configured: true,
+                    connected: true,
+                    canEdit,
+                    canPublish,
+                    message: options.requirePublish === true
+                        ? `워드프레스에 연결했지만 글 게시 권한이 없습니다. (사용자: ${user.name})`
+                        : `워드프레스에 연결했지만 글쓰기 권한이 없습니다. (사용자: ${user.name})`,
                     user: { id: user.id, name: user.name, roles: user.roles }
                 };
             }
@@ -199,6 +229,10 @@ class WordPressClient {
             Logger.error(`❌ WordPress 연동 확인 실패: ${errorMsg}`);
             return {
                 success: false,
+                configured: true,
+                connected: false,
+                canEdit: false,
+                canPublish: false,
                 message: `연동 실패: ${errorMsg}`
             };
         }

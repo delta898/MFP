@@ -136,7 +136,8 @@ function createAccountOverviewService(deps = {}) {
         CONFIG = {},
         APP_VERSION = '',
         toFeatureMap = (value) => value || {},
-        checkNaverSessionForUi = async () => ({ ok: false, reason: 'unknown', message: '' }),
+        peekNaverSessionForUi = () => ({ ok: false, reason: 'not_checked', checked: false, message: '' }),
+        getWordPressVerification = () => null,
         resolveMachineId = () => machineIdSync({ original: true }),
         runtimeVersions = process.versions,
         platform = process.platform,
@@ -149,11 +150,9 @@ function createAccountOverviewService(deps = {}) {
     }
 
     async function getOverview({ quiet = true, force = false } = {}) {
-        const [licenseStatus, naverSession, smartUsageStatus] = await Promise.all([
+        const naverSession = peekNaverSessionForUi();
+        const [licenseStatus, smartUsageStatus] = await Promise.all([
             License.checkLicenseStatus({ quiet, force }),
-            Promise.resolve()
-                .then(() => checkNaverSessionForUi())
-                .catch((error) => ({ ok: false, reason: 'check_failed', message: error.message })),
             typeof License.getSmartUsageStatus === 'function'
                 ? License.getSmartUsageStatus()
                 : Promise.resolve({ success: false, items: [] })
@@ -193,6 +192,13 @@ function createAccountOverviewService(deps = {}) {
             && String(CONFIG.WORDPRESS_USER_ID || '').trim()
             && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
         );
+        const wordpressVerification = wordpressConfigured
+            ? getWordPressVerification({
+                url: CONFIG.WORDPRESS_URL,
+                userId: CONFIG.WORDPRESS_USER_ID,
+                appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+            })
+            : null;
 
         return {
             identity: {
@@ -248,13 +254,19 @@ function createAccountOverviewService(deps = {}) {
                 electron_version: String(runtimeVersions?.electron || '').trim()
             },
             connections: {
-                naver: normalizeConnection(naverSession?.ok ? 'connected' : 'not_connected', {
+                naver: normalizeConnection(
+                    naverSession?.ok ? 'connected' : (naverSession?.reason === 'not_checked' ? 'unverified' : 'not_connected'), {
                     reason: String(naverSession?.reason || '').trim(),
                     message: String(naverSession?.message || '').trim(),
-                    checked_at: new Date().toISOString()
+                    checked_at: naverSession?.checkedAt ? new Date(naverSession.checkedAt).toISOString() : ''
                 }),
                 google_sheets: normalizeConnection(googleConfigured ? 'configured' : 'not_configured'),
-                wordpress: normalizeConnection(wordpressConfigured ? 'configured' : 'not_configured')
+                wordpress: normalizeConnection(
+                    !wordpressConfigured
+                        ? 'not_configured'
+                        : (wordpressVerification?.status || 'unverified'),
+                    wordpressVerification || {}
+                )
             },
             actions,
             generated_at: new Date().toISOString()

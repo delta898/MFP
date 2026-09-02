@@ -61,7 +61,11 @@ test('dashboard readiness prioritizes publishing channels and usable quota over 
   assert.match(dashboard, /id="dashboard-health-status"[^>]*hidden/);
   assert.doesNotMatch(dashboard, /id="badge-(?:health|session|license|version)"/);
   assert.doesNotMatch(dashboard, /Health:|Plan:|버전 확인 중/);
-  assert.match(dashboardScript, /WordPress 설정됨/);
+  assert.match(dashboardScript, /WordPress 연결 확인됨/);
+  assert.match(dashboardScript, /WordPress 확인 필요/);
+  assert.match(dashboardScript, /WordPress 연결 실패/);
+  assert.match(dashboardScript, /if \(force\) dashboardForceRefreshPending = true/);
+  assert.match(dashboardScript, /queueMicrotask\(\(\) => void loadDashboard\(\{ force: true \}\)\)/);
   assert.match(dashboardScript, /WordPress 미사용/);
   assert.match(dashboardScript, /기본 \$\{Math\.max\(0, remaining\)\}회 남음/);
   assert.match(dashboardScript, /navigateTo\(view, tab\)/);

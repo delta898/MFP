@@ -1,5 +1,6 @@
 let isDashboardLoading = false;
 let lastDashboardLoadTime = 0;
+let dashboardForceRefreshPending = false;
 
 let isAccountOverviewLoading = false;
 let lastAccountOverview = null;

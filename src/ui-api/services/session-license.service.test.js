@@ -29,6 +29,7 @@ function createService(overrides = {}) {
         async runNaverLoginFlowForUi() {},
         WordPressClient: class {},
         CONFIG: {},
+        recordWordPressVerification() {},
         ...overrides
     });
 }
@@ -61,6 +62,63 @@ test('session service returns an idempotent Naver logout result', async () => {
     assert.equal(result.loggedOut, true);
     assert.equal(result.removed, false);
     assert.match(result.message, /로그인 정보/);
+});
+
+test('WordPress verification requires publish permission for public or scheduled posts', async () => {
+    const received = [];
+    const service = createService({
+        WordPressClient: class {
+            async verifyAuth(options) {
+                received.push(options);
+                return { success: true };
+            }
+        },
+        CONFIG: {
+            WORDPRESS_URL: 'https://blog.example',
+            WORDPRESS_USER_ID: 'editor',
+            WORDPRESS_APP_PASSWORD: 'app-password'
+        }
+    });
+
+    await service.verifyWordPressAuth({ postStatus: 'draft' });
+    await service.verifyWordPressAuth({ postStatus: 'publish' });
+    await service.verifyWordPressAuth({ postStatus: 'schedule' });
+
+    assert.deepEqual(received, [
+        { requirePublish: false, requireEdit: true },
+        { requirePublish: true, requireEdit: false },
+        { requirePublish: true, requireEdit: false }
+    ]);
+});
+
+test('WordPress verification records the checked candidate settings and result', async () => {
+    let recorded = null;
+    const service = createService({
+        WordPressClient: class {
+            async verifyAuth() {
+                return { success: false, connected: false, message: '인증 실패' };
+            }
+        },
+        recordWordPressVerification(config, result) {
+            recorded = { config, result };
+        }
+    });
+
+    const result = await service.verifyWordPressAuth({
+        wordpressUrl: 'https://blog.example',
+        wordpressUserId: 'editor',
+        wordpressAppPassword: 'wrong-password'
+    });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(recorded, {
+        config: {
+            url: 'https://blog.example',
+            userId: 'editor',
+            appPassword: 'wrong-password'
+        },
+        result: { success: false, connected: false, message: '인증 실패' }
+    });
 });
 
 test('session route exposes Naver logout as a POST operation', async () => {

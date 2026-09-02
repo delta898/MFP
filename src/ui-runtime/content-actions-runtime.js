@@ -333,7 +333,7 @@ function createContentActionsRuntime(deps = {}) {
                     return {
                         success: false,
                         code: 'NAVER_SESSION_INVALID',
-                        message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+                        message: '네이버 로그인 후 다시 시도해 주세요.'
                     };
                 }
             }

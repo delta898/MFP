@@ -172,7 +172,8 @@ function getApiFixture(pathname) {
         };
     }
     if (pathname === '/api/v1/google-oauth/status') return { configured: false, connected: false };
-    if (pathname === '/api/v1/session/naver') return { status: 'not_logged_in', valid: false };
+    if (pathname === '/api/v1/session/naver') return { status: 'logged_in', valid: true };
+    if (pathname === '/api/v1/session/wordpress-verify') return { success: true, message: '연동 성공' };
     if (pathname === '/api/v1/logs/files') return { files: [] };
     if (pathname === '/api/v1/trends/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/blog/topics') return { items: [], total: 0, limit: 50, offset: 0 };
@@ -745,7 +746,7 @@ async function run() {
             if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`);
         });
 
-        await page.goto(baseUrl, { waitUntil: 'networkidle' });
+        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
         assert.equal(await page.evaluate(() => recommendationCenterToastMessage([
             { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }
@@ -780,7 +781,7 @@ async function run() {
         assert.equal(await page.locator('#badge-version').count(), 0);
         assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
-        assert.equal((await page.locator('#dashboard-naver-status-label').textContent())?.trim(), '네이버 로그인됨');
+        assert.equal((await page.locator('#dashboard-naver-status-label').textContent())?.trim(), '네이버 로그인 확인됨');
         assert.equal((await page.locator('#dashboard-wordpress-status-label').textContent())?.trim(), 'WordPress 미사용');
         assert.equal((await page.locator('#dashboard-usage-status-label').textContent())?.trim(), '기본 10회 남음');
         assert.equal((await page.locator('#dashboard-plan-status-label').textContent())?.trim(), 'Free');
@@ -1053,13 +1054,66 @@ async function run() {
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), false);
+        await page.evaluate(() => syncPlatformUiState('wordpress', false));
+        assert.equal(await page.locator('#blog-next-target-wordpress').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-target-wordpress').isChecked(), false);
+        await page.evaluate(() => syncPlatformUiState('wordpress', true));
+        assert.equal(await page.locator('#blog-next-target-wordpress').isDisabled(), false);
+
+        await page.route('**/api/v1/session/naver?force=true', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, data: { valid: false, reason: 'expired' } })
+            });
+        });
+        const captureCountBeforeExpiredSession = requests.filter((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+        )).length;
+        await page.locator('#blog-next-subject').fill('로그인 후 다시 쓸 글감');
+        await page.locator('#blog-next-keywords').fill('로그인 만료, 입력 보존');
+        await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent === '네이버 로그인 후 다시 시도해 주세요.');
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '로그인 후 다시 쓸 글감');
+        assert.equal(await page.locator('#blog-next-keywords').inputValue(), '로그인 만료, 입력 보존');
+        assert.equal(requests.filter((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+        )).length, captureCountBeforeExpiredSession);
+        await page.unroute('**/api/v1/session/naver?force=true');
+        await page.locator('#blog-next-clear-topic').click();
+
+        await page.route('**/api/v1/session/wordpress-verify', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, data: { success: false, message: '인증 실패' } })
+            });
+        });
+        await page.locator('#blog-next-target-naver').uncheck();
+        await page.locator('#blog-next-target-wordpress').check();
+        await page.locator('#blog-next-subject').fill('워드프레스 연결을 고칠 글감');
+        await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent === '워드프레스 연결을 확인한 후 다시 시도해 주세요.');
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '워드프레스 연결을 고칠 글감');
+        assert.equal(requests.filter((request) => (
+            request.pathname === '/api/v1/continuous-publishing/topics'
+        )).length, captureCountBeforeExpiredSession);
+        await page.unroute('**/api/v1/session/wordpress-verify');
+        await page.locator('#blog-next-clear-topic').click();
+        await page.locator('#blog-next-target-naver').check();
+        await page.locator('#blog-next-target-wordpress').uncheck();
+
         await page.locator('#blog-next-subject').fill('바로 처리할 글감');
         await page.locator('#blog-next-post-status').selectOption('draft');
         await page.locator('#blog-next-publish-now').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-subject')?.value === '');
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.hidden === false);
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '바로 처리할 글감');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '발행 중');
         assert.equal((await page.locator('#blog-next-publish-status-subject').textContent())?.trim(), '바로 처리할 글감');
         assert.equal((await page.locator('#blog-next-publish-status').textContent()).includes('Topics'), false);
@@ -1079,6 +1133,7 @@ async function run() {
         await page.locator('[data-blog-next-management-tab="ready"]').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status-title')?.textContent === '임시 저장 완료');
+        await page.waitForFunction(() => document.getElementById('blog-next-subject')?.value === '');
         assert.equal((await page.locator('#blog-next-publish-status-message').textContent())?.trim(), '글감 처리 완료');
         assert.equal(await page.locator('#blog-next-publish-status-dismiss').evaluate((element) => element.hidden), false);
         assert.equal((await page.locator('#blog-next-publish-status-dismiss').textContent())?.trim(), '×');

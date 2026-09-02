@@ -4,6 +4,7 @@ function createUiSessionRuntime(deps = {}) {
         Utils,
         Logger,
         checkAuthSessionValid,
+        peekAuthSessionState,
         clearAuthSession,
         runInteractiveNaverLoginFlow,
         sessionCheckTtlMs = 120000,
@@ -125,6 +126,13 @@ function createUiSessionRuntime(deps = {}) {
         });
     }
 
+    function peekNaverSessionForUi() {
+        if (typeof peekAuthSessionState !== 'function') {
+            return { ok: false, reason: 'not_checked', checked: false };
+        }
+        return peekAuthSessionState();
+    }
+
     async function logoutNaverSessionForUi() {
         const result = await clearAuthSession({
             authPath: CONFIG.AUTH_FILE_PATH
@@ -189,6 +197,7 @@ function createUiSessionRuntime(deps = {}) {
         getNaverLoginStatus,
         ensureSheetsReadyForUi,
         checkNaverSessionForUi,
+        peekNaverSessionForUi,
         logoutNaverSessionForUi,
         runNaverLoginFlowForUi
     };

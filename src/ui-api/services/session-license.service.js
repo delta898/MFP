@@ -12,7 +12,8 @@ function createSessionLicenseService(deps = {}) {
         setNaverLoginState,
         runNaverLoginFlowForUi,
         WordPressClient,
-        CONFIG
+        CONFIG,
+        recordWordPressVerification = () => null
     } = deps;
 
     return {
@@ -153,7 +154,13 @@ function createSessionLicenseService(deps = {}) {
                 userId,
                 appPassword
             });
-            return await wpClient.verifyAuth();
+            const postStatus = String(requestBody.postStatus || '').trim().toLowerCase();
+            const result = await wpClient.verifyAuth({
+                requirePublish: ['publish', 'schedule'].includes(postStatus),
+                requireEdit: postStatus === 'draft'
+            });
+            recordWordPressVerification({ url, userId, appPassword }, result);
+            return result;
         }
     };
 }

@@ -8,12 +8,32 @@ const { NAVER_DEFAULT_USER_AGENT } = require('./naver-auth-flow');
 
 let cachedSession = null;
 let cachedAtMs = 0;
+let cachedSessionConfigKey = '';
 let sessionCheckInFlight = null;
 let lastSessionStateKey = null;
 let sessionStateGeneration = 0;
 
 function cloneSessionResult(result) {
     return result ? { ...result } : result;
+}
+
+function getSessionConfigKey() {
+    return [
+        String(CONFIG.AUTH_FILE_PATH || '').trim(),
+        String(CONFIG.NAVER_ID || '').trim().toLowerCase(),
+        String(CONFIG.WRITE_URL || '').trim()
+    ].join('\u0000');
+}
+
+function peekAuthSessionState() {
+    const authPath = String(CONFIG.AUTH_FILE_PATH || '').trim();
+    if (!authPath || !fs.existsSync(authPath)) {
+        return { ok: false, reason: 'missing_auth', checked: true };
+    }
+    if (cachedSession && cachedSessionConfigKey === getSessionConfigKey()) {
+        return { ...cloneSessionResult(cachedSession), checked: true, checkedAt: cachedAtMs || null };
+    }
+    return { ok: false, reason: 'not_checked', checked: false };
 }
 
 function getSessionStateKey(result) {
@@ -114,7 +134,10 @@ async function checkAuthSessionValid(options = {}) {
     const forceRefresh = options.forceRefresh === true;
     const now = Date.now();
 
-    if (!forceRefresh && cacheTtlMs > 0 && cachedSession && (now - cachedAtMs) < cacheTtlMs) {
+    const sessionConfigKey = getSessionConfigKey();
+    if (!forceRefresh && cacheTtlMs > 0 && cachedSession
+        && cachedSessionConfigKey === sessionConfigKey
+        && (now - cachedAtMs) < cacheTtlMs) {
         return cloneSessionResult(cachedSession);
     }
 
@@ -131,6 +154,7 @@ async function checkAuthSessionValid(options = {}) {
         logSessionStateTransition(result);
         cachedSession = cloneSessionResult(result);
         cachedAtMs = Date.now();
+        cachedSessionConfigKey = sessionConfigKey;
         return result;
     })();
 
@@ -163,6 +187,7 @@ async function clearAuthSession(options = {}) {
     sessionCheckInFlight = null;
     cachedSession = { ok: false, reason: 'missing_auth' };
     cachedAtMs = Date.now();
+    cachedSessionConfigKey = getSessionConfigKey();
     logSessionStateTransition(cachedSession);
 
     return { ok: true, removed };
@@ -170,6 +195,7 @@ async function clearAuthSession(options = {}) {
 
 module.exports = {
     checkAuthSessionValid,
+    peekAuthSessionState,
     persistAuthSessionState,
     clearAuthSession
 };

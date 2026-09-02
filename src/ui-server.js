@@ -15,7 +15,7 @@ const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 Logger.debug(`Application version: ${APP_VERSION}`);
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
-const { checkAuthSessionValid, clearAuthSession } = require('./auth-session');
+const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
@@ -176,6 +176,7 @@ const uiSessionRuntime = createUiSessionRuntime({
     Utils,
     Logger,
     checkAuthSessionValid,
+    peekAuthSessionState,
     clearAuthSession,
     runInteractiveNaverLoginFlow,
     sessionCheckTtlMs: UI_SESSION_CHECK_TTL_MS,
@@ -187,6 +188,7 @@ const {
     getNaverLoginStatus,
     ensureSheetsReadyForUi,
     checkNaverSessionForUi,
+    peekNaverSessionForUi,
     logoutNaverSessionForUi,
     runNaverLoginFlowForUi
 } = uiSessionRuntime;
@@ -958,6 +960,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     ensureSheetsReadyForUi,
     toFeatureMap,
     checkNaverSessionForUi,
+    peekNaverSessionForUi,
     logoutNaverSessionForUi,
     getNaverLoginStatus,
     getNaverLoginState,

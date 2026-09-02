@@ -73,6 +73,8 @@ async function loadNaverSessionStatus({ force = false } = {}) {
     const suffix = force ? '?force=1' : '';
     const data = await fetchJson(`/api/v1/session/naver${suffix}`);
     renderNaverSessionStatus(data);
+    lastDashboardLoadTime = 0;
+    void loadDashboard({ force: true });
     return data;
   } catch (e) {
     renderNaverSessionStatus({
@@ -144,12 +146,15 @@ async function verifyWordPressAuthFromUi() {
     } else {
       updateSettingsStatus('#settings-wordpress-verify-result', '❌ ' + res.message, 'error');
     }
+    lastDashboardLoadTime = 0;
+    void loadDashboard({ force: true });
   } catch (e) {
     updateSettingsStatus('#settings-wordpress-verify-result', `❌ 오류: ${e.message}`, 'error');
+    lastDashboardLoadTime = 0;
+    void loadDashboard({ force: true });
   } finally {
     if (btn) btn.disabled = false;
   }
 }
-
 
 
