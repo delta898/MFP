@@ -90,6 +90,40 @@
           </section>
         </div>
 
+        <section class="dashboard-beta-results-card" aria-labelledby="dashboard-beta-results-title">
+          <div class="dashboard-beta-section-heading">
+            <div>
+              <span class="dashboard-beta-eyebrow">활동</span>
+              <h2 id="dashboard-beta-results-title">발행 성과</h2>
+            </div>
+            <div class="dashboard-beta-period-tabs" role="group" aria-label="통계 기간">
+              <button type="button" class="active" data-dashboard-beta-period="today" aria-pressed="true">오늘</button>
+              <button type="button" data-dashboard-beta-period="week" aria-pressed="false">이번 주</button>
+            </div>
+          </div>
+          <div class="dashboard-beta-results-grid">
+            <div class="dashboard-beta-stat-summary" aria-live="polite">
+              <div class="dashboard-beta-stat-card">
+                <span>처리 완료</span>
+                <strong id="dashboard-beta-processed-count">-</strong>
+                <p>임시 저장·예약·공개 발행</p>
+              </div>
+              <div class="dashboard-beta-stat-card">
+                <span>공개 발행</span>
+                <strong id="dashboard-beta-published-count">-</strong>
+                <p>BlogGenius가 공개까지 완료</p>
+              </div>
+            </div>
+            <div class="dashboard-beta-recent-results">
+              <h3>최근 결과</h3>
+              <div id="dashboard-beta-recent-results-list" class="dashboard-beta-recent-results-list" aria-live="polite">
+                <p class="dashboard-beta-empty">최근 결과를 불러오는 중입니다.</p>
+              </div>
+            </div>
+          </div>
+          <p id="dashboard-beta-stats-error" class="dashboard-beta-inline-error" hidden>발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+        </section>
+
         <section class="dashboard-beta-queue-card" aria-labelledby="dashboard-beta-queue-title">
           <div class="dashboard-beta-section-heading">
             <div>

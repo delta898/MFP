@@ -96,6 +96,26 @@ function getApiFixture(pathname) {
             }
         };
     }
+    if (pathname === '/api/v1/continuous-publishing/dashboard-result-stats') {
+        return {
+            schema_version: 1,
+            generated_at: '2026-09-02T01:00:00.000Z',
+            timezone: 'Asia/Seoul',
+            available: true,
+            periods: {
+                today: { from: '2026-09-01T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 3, published_count: 1 },
+                week: { from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4 }
+            },
+            recent_results: [{
+                id: 'dashboard-result-1',
+                occurred_at: '2026-09-02T00:50:00.000Z',
+                subject: 'Dashboard Beta 최근 발행 결과',
+                platform: 'wordpress',
+                post_status: 'publish',
+                result_url: 'https://example.com/dashboard-result'
+            }]
+        };
+    }
     if (pathname === '/api/v1/recommendations') {
         return {
             schema_version: 1,
@@ -778,9 +798,16 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         await page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.');
         assert.equal(await page.locator('#dashboard-beta-ready-count').textContent(), '2건');
+        await page.waitForFunction(() => document.getElementById('dashboard-beta-processed-count')?.textContent === '3건');
+        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
+        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('Dashboard Beta 최근 발행 결과'), true);
+        await page.locator('[data-dashboard-beta-period="week"]').click();
+        assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
+        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
+        assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-result-stats'), true);
         await page.evaluate(() => navigateTo('dashboard'));
         assert.equal(await page.evaluate(() => recommendationCenterToastMessage([
             { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }

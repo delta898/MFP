@@ -24,17 +24,30 @@ test('Dashboard Beta is isolated from the legacy Dashboard shell', () => {
     assert.doesNotMatch(betaScript, /dashboard\/summary|dashboard\/external-content|\/api\/v1\/auto\/status/);
 });
 
-test('Dashboard Beta loads only account readiness and the bounded operations overview', () => {
+test('Dashboard Beta loads independent readiness, operations, and result stats read models', () => {
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
     const lifecycle = read('ui/scripts/foundation/lifecycle.js');
 
     assert.match(betaScript, /\/api\/v1\/account\/overview\?quiet=1/);
     assert.match(betaScript, /\/api\/v1\/continuous-publishing\/dashboard-overview/);
+    assert.match(betaScript, /\/api\/v1\/continuous-publishing\/dashboard-result-stats/);
     assert.match(betaScript, /Array\.isArray\(items\) \? items\.slice\(0, 3\)/);
     assert.match(navigation, /viewName === 'dashboard-beta'[\s\S]*loadDashboardBeta\(\)/);
     assert.match(lifecycle, /Initial Dashboard Beta load attempted/);
     assert.match(lifecycle, /view-dashboard-beta[\s\S]*loadDashboardBeta\(\{ force: true \}\)/);
+});
+
+test('Dashboard Beta distinguishes processed and public results across today and week', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+
+    assert.match(betaView, /data-dashboard-beta-period="today"[^>]*>오늘/);
+    assert.match(betaView, /data-dashboard-beta-period="week"[^>]*>이번 주/);
+    assert.match(betaView, /id="dashboard-beta-processed-count"/);
+    assert.match(betaView, /id="dashboard-beta-published-count"/);
+    assert.match(betaView, /id="dashboard-beta-recent-results-list"/);
+    assert.match(betaScript, /Array\.isArray\(items\) \? items\.slice\(0, 5\)/);
 });
 
 test('Dashboard Beta exposes direct paths to queue and automation without legacy controls', () => {

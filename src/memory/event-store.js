@@ -1568,6 +1568,28 @@ class KuzuEventStore {
         return items;
     }
 
+    async listOwnerBlogPublishResultEvents(ownerUserId = '', options = {}) {
+        await this.initialize();
+        const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);
+        const limit = Math.max(1, Math.min(5000, parseInt(options.limit, 10) || 5000));
+        const eventTypePrefix = 'activity.lifecycle.blog.';
+        const res = await this._runQuery(
+            'MATCH (o:OwnerNode {id: $owner_id})-[:OwnerOWNS_EVENT]->(e:EventNode) WHERE e.event_type STARTS WITH $event_type_prefix RETURN e.id AS id, e.event_type AS event_type, e.timestamp AS timestamp, e.payload_json AS payload_json ORDER BY e.timestamp DESC LIMIT $limit',
+            { owner_id: resolvedOwnerUserId, event_type_prefix: eventTypePrefix, limit }
+        );
+        const items = [];
+        while (res.hasNext()) {
+            const row = await res.getNext();
+            items.push({
+                id: row.id,
+                event_type: row.event_type,
+                timestamp: row.timestamp,
+                payload: (() => { try { return JSON.parse(row.payload_json || '{}'); } catch (_ignore) { return {}; } })()
+            });
+        }
+        return items;
+    }
+
     async listOwnerJobRuns(ownerUserId = '', options = {}) {
         await this.initialize();
         const resolvedOwnerUserId = this._resolveOwnerUserId(ownerUserId);

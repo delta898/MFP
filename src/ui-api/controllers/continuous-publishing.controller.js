@@ -55,6 +55,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async dashboardResultStats({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getDashboardResultStats());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_DASHBOARD_STATS_FAILED', '발행 통계를 불러오지 못했습니다.', error);
+            }
+        },
+
         async updateTopic({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

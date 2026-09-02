@@ -11,6 +11,10 @@ function createHarness() {
         async getDashboardOverview() {
             calls.push('overview');
             return { schema_version: 1, queue: { ready_count: 2 } };
+        },
+        async getDashboardResultStats() {
+            calls.push('stats');
+            return { schema_version: 1, periods: { today: { processed_count: 2 } } };
         }
     };
     const controller = createContinuousPublishingController({
@@ -38,6 +42,27 @@ test('dashboard overview route exposes the continuous publishing read model', as
     assert.equal(handled, true);
     assert.deepEqual(harness.calls, ['overview']);
     assert.equal(harness.responses[0].data.queue.ready_count, 2);
+});
+
+test('dashboard result stats route exposes only the read model', async () => {
+    const harness = createHarness();
+    await harness.handler({
+        pathname: '/api/v1/continuous-publishing/dashboard-result-stats',
+        method: 'GET',
+        requestId: 'stats-1'
+    });
+
+    assert.deepEqual(harness.calls, ['stats']);
+    assert.equal(harness.responses[0].data.periods.today.processed_count, 2);
+
+    const rejected = createHarness();
+    await rejected.handler({
+        pathname: '/api/v1/continuous-publishing/dashboard-result-stats',
+        method: 'POST',
+        requestId: 'stats-write'
+    });
+    assert.deepEqual(rejected.calls, []);
+    assert.equal(rejected.responses[0].status, 405);
 });
 
 test('dashboard overview route rejects mutation methods', async () => {

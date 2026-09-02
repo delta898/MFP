@@ -1,6 +1,8 @@
 let dashboardBetaLoading = false;
 let dashboardBetaLastLoadedAt = 0;
 let dashboardBetaFollowUpTimer = null;
+let dashboardBetaResultStats = null;
+let dashboardBetaSelectedPeriod = 'today';
 
 function isDashboardBetaActive() {
   return document.getElementById('view-dashboard-beta')?.classList.contains('active') === true;
@@ -226,11 +228,94 @@ function renderDashboardBetaOperationsError() {
   if (error) error.hidden = false;
 }
 
+function renderDashboardBetaRecentResults(items) {
+  const container = document.getElementById('dashboard-beta-recent-results-list');
+  if (!container) return;
+  container.innerHTML = '';
+  const results = Array.isArray(items) ? items.slice(0, 5) : [];
+  if (results.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'dashboard-beta-empty';
+    empty.textContent = '아직 기록된 발행 결과가 없습니다.';
+    container.appendChild(empty);
+    return;
+  }
+  const platformLabels = { naver: '네이버', wordpress: 'WordPress' };
+  const statusLabels = { draft: '임시 저장', schedule: '예약 등록', publish: '공개 발행' };
+  results.forEach((item) => {
+    const row = document.createElement('article');
+    row.className = 'dashboard-beta-result-item';
+    const copy = document.createElement('div');
+    const subject = document.createElement('strong');
+    subject.textContent = String(item?.subject || '제목 없는 글');
+    const meta = document.createElement('span');
+    meta.textContent = [
+      platformLabels[item?.platform] || item?.platform || '플랫폼 확인 필요',
+      statusLabels[item?.post_status] || '처리 완료',
+      formatDashboardBetaDateTime(item?.occurred_at) || '시각 확인 불가'
+    ].join(' · ');
+    copy.append(subject, meta);
+    row.appendChild(copy);
+    if (item?.result_url) {
+      const link = document.createElement('a');
+      link.href = item.result_url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = '결과 보기';
+      row.appendChild(link);
+    }
+    container.appendChild(row);
+  });
+}
+
+function renderDashboardBetaStatsPeriod() {
+  const stats = dashboardBetaResultStats;
+  const period = stats?.periods?.[dashboardBetaSelectedPeriod];
+  document.querySelectorAll('[data-dashboard-beta-period]').forEach((button) => {
+    const selected = button.dataset.dashboardBetaPeriod === dashboardBetaSelectedPeriod;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  setText('dashboard-beta-processed-count', stats?.available === false ? '-' : `${Number(period?.processed_count) || 0}건`);
+  setText('dashboard-beta-published-count', stats?.available === false ? '-' : `${Number(period?.published_count) || 0}건`);
+}
+
+function renderDashboardBetaResultStats(stats) {
+  dashboardBetaResultStats = stats || null;
+  renderDashboardBetaStatsPeriod();
+  renderDashboardBetaRecentResults(stats?.available === false ? [] : stats?.recent_results);
+  const error = document.getElementById('dashboard-beta-stats-error');
+  if (error) {
+    error.textContent = stats?.available === false
+      ? '발행 기록 기능을 사용할 수 없어 통계를 확인하지 못했습니다.'
+      : '발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    error.hidden = stats?.available !== false;
+  }
+}
+
+function renderDashboardBetaResultStatsError() {
+  dashboardBetaResultStats = null;
+  setText('dashboard-beta-processed-count', '-');
+  setText('dashboard-beta-published-count', '-');
+  renderDashboardBetaRecentResults([]);
+  const error = document.getElementById('dashboard-beta-stats-error');
+  if (error) {
+    error.textContent = '발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    error.hidden = false;
+  }
+}
+
 function bindDashboardBetaActions() {
   const view = document.getElementById('view-dashboard-beta');
   if (!view || view.dataset.actionsBound === 'true') return;
   view.dataset.actionsBound = 'true';
   view.addEventListener('click', (event) => {
+    const periodButton = event.target.closest('[data-dashboard-beta-period]');
+    if (periodButton) {
+      dashboardBetaSelectedPeriod = periodButton.dataset.dashboardBetaPeriod === 'week' ? 'week' : 'today';
+      renderDashboardBetaStatsPeriod();
+      return;
+    }
     const target = event.target.closest('[data-dashboard-beta-nav]');
     if (!target) return;
     void navigateTo(target.dataset.dashboardBetaNav, target.dataset.dashboardBetaTab || '');
@@ -255,7 +340,10 @@ async function loadDashboardBeta(options = {}) {
   const operationsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-overview')
     .then(renderDashboardBetaOperations)
     .catch(renderDashboardBetaOperationsError);
-  await Promise.allSettled([accountRequest, operationsRequest]);
+  const statsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-result-stats')
+    .then(renderDashboardBetaResultStats)
+    .catch(renderDashboardBetaResultStatsError);
+  await Promise.allSettled([accountRequest, operationsRequest, statsRequest]);
   dashboardBetaLastLoadedAt = Date.now();
   dashboardBetaLoading = false;
   refreshButton?.classList.remove('is-loading');

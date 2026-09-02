@@ -24,6 +24,7 @@ function createService(state = {}) {
         clearTimeout: state.clearTimeout,
         TelegramService: state.TelegramService,
         SlackService: state.SlackService,
+        eventStore: state.eventStore,
         async ensureSheetsReadyForUi() {
             state.preflightCalls = (state.preflightCalls || 0) + 1;
         },
@@ -415,6 +416,49 @@ test('dashboard overview uses one Topics snapshot and returns a compact queue pr
     assert.deepEqual(overview.queue.next_items[0].targets, ['naver']);
     assert.equal(overview.queue.saved_count, 1);
     assert.equal(JSON.stringify(overview).includes('private.example'), false);
+});
+
+test('dashboard result stats reads owner-scoped publish evidence without touching Topics', async () => {
+    const state = {
+        now: () => new Date('2026-09-02T21:00:00.000Z'),
+        eventStore: {
+            disabled: false,
+            async listOwnerBlogPublishResultEvents(ownerUserId, options) {
+                state.eventRead = { ownerUserId, options };
+                return [{
+                    id: 'published-1',
+                    event_type: 'activity.lifecycle.blog.published',
+                    timestamp: '2026-09-02T20:00:00.000Z',
+                    payload: {
+                        domain: 'blog', stage: 'published', subject: '완료한 글', source: 'quick-publish',
+                        entity_ref: 'operation-1', platform: 'naver', result_ref: 'https://blog.naver.com/post/1',
+                        metadata: { post_status: 'publish' }
+                    }
+                }];
+            }
+        }
+    };
+    const service = createService(state);
+
+    const stats = await service.getDashboardResultStats();
+
+    assert.deepEqual(state.eventRead, { ownerUserId: '', options: { limit: 5000 } });
+    assert.equal(state.readCalls, undefined);
+    assert.equal(stats.available, true);
+    assert.equal(stats.periods.today.processed_count, 1);
+    assert.equal(stats.periods.today.published_count, 1);
+});
+
+test('dashboard result stats reports unavailable memory instead of a misleading empty success', async () => {
+    const service = createService({
+        now: () => new Date('2026-09-02T21:00:00.000Z'),
+        eventStore: { disabled: true }
+    });
+
+    const stats = await service.getDashboardResultStats();
+
+    assert.equal(stats.available, false);
+    assert.equal(stats.periods.today.processed_count, 0);
 });
 
 test('ready queue exposes processing estimates from the current automatic schedule', async () => {

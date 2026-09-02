@@ -358,7 +358,8 @@ function createUiApiRouteRuntime(deps = {}) {
             cheerio,
             RuntimeConfig,
             TelegramService,
-            SlackService
+            SlackService,
+            eventStore: topicRecommendationEventStore
         };
 
         const runtimeDeps = {

@@ -162,6 +162,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         SlackService: deps.SlackService,
         fs: deps.fs,
         path: deps.path,
+        eventStore: deps.eventStore,
         blogNextExecutionCoordinator
     });
     if (String(deps.CONFIG?.CONFIG_DIR || '').trim()) {

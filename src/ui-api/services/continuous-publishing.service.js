@@ -12,9 +12,10 @@ const { createContinuousPublishingScheduler } = require('../../continuous-publis
 const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
+const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now } = deps;
+    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
     const pathImpl = path || require('node:path');
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
@@ -539,6 +540,19 @@ function createContinuousPublishingService(deps = {}) {
                 runner: getRunnerStatusSnapshot(),
                 generatedAt: typeof now === 'function' ? now() : new Date()
             });
+        },
+
+        async getDashboardResultStats() {
+            const generatedAt = typeof now === 'function' ? now() : new Date();
+            const available = Boolean(
+                eventStore
+                && eventStore.disabled !== true
+                && typeof eventStore.listOwnerBlogPublishResultEvents === 'function'
+            );
+            const events = available
+                ? await eventStore.listOwnerBlogPublishResultEvents('', { limit: 5000 })
+                : [];
+            return buildDashboardBlogResultStats({ events, available, generatedAt });
         },
 
         async updateTopic(requestBody = {}) {
