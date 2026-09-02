@@ -32,6 +32,7 @@
 // @include scripts/features/shell/account-overview.js
 // @include scripts/features/shell/account-actions.js
 // @include scripts/features/shell/dashboard.js
+// @include scripts/features/shell/dashboard-beta.js
 // @include scripts/features/shell/activity-logs.js
 // @include scripts/features/shell/system-logs.js
 // @include scripts/features/shell/celebration.js

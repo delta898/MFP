@@ -69,6 +69,33 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
     if (pathname === '/api/v1/dashboard/activities') return { activities: [] };
     if (pathname === '/api/v1/dashboard/external-content') return {};
+    if (pathname === '/api/v1/continuous-publishing/dashboard-overview') {
+        return {
+            schema_version: 1,
+            generated_at: '2026-09-02T01:00:00.000Z',
+            flow: {
+                state: 'idle', busy: false, subject: '', message: '',
+                started_at: null, finished_at: null, result_status: '', source: null
+            },
+            automation: {
+                enabled: true, effective_enabled: true, status: 'scheduled', interval_minutes: 30,
+                next_processing_at: '2026-09-02T01:30:00.000Z'
+            },
+            queue: {
+                ready_count: 2,
+                saved_count: 1,
+                running_count: 0,
+                next_items: [{
+                    row_index: 1,
+                    row_number: 3,
+                    subject: 'Dashboard Beta 다음 글감',
+                    targets: ['naver'],
+                    post_status: 'draft',
+                    processing_estimate_at: '2026-09-02T01:30:00.000Z'
+                }]
+            }
+        };
+    }
     if (pathname === '/api/v1/recommendations') {
         return {
             schema_version: 1,
@@ -748,6 +775,13 @@ async function run() {
 
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.');
+        assert.equal(await page.locator('#dashboard-beta-ready-count').textContent(), '2건');
+        assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
+        assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
+        assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
+        await page.evaluate(() => navigateTo('dashboard'));
         assert.equal(await page.evaluate(() => recommendationCenterToastMessage([
             { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }
         ])), '경찰 계급도 외 2건');

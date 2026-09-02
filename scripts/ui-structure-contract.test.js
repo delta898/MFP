@@ -108,6 +108,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
     assert.equal(shell.split('\n').length - 1 <= 250, true);
     assert.deepEqual(includePaths, [
         'partials/views/dashboard.html',
+        'partials/views/dashboard-beta.html',
         'partials/views/blog.html',
         'partials/views/blog-next.html',
         'partials/views/shopping.html',

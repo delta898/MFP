@@ -1,0 +1,106 @@
+      <section class="view active" id="view-dashboard-beta">
+        <div class="view-title-block">
+          <div class="view-title-row">
+            <div class="view-title-copy">
+              <div class="view-title-heading">
+                <h1>Dashboard</h1>
+                <span class="dashboard-beta-badge">Beta</span>
+              </div>
+              <p>글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.</p>
+            </div>
+            <div class="page-clock-widget dash-clock-widget">
+              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+            </div>
+          </div>
+        </div>
+
+        <section class="dashboard-beta-readiness" aria-labelledby="dashboard-beta-readiness-title">
+          <div class="dashboard-beta-section-heading">
+            <div>
+              <span class="dashboard-beta-eyebrow">사용 준비</span>
+              <h2 id="dashboard-beta-readiness-title">연결 상태</h2>
+            </div>
+            <button id="dashboard-beta-refresh" class="dashboard-beta-icon-button" type="button" aria-label="대시보드 새로고침" title="새로고침">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+              </svg>
+            </button>
+          </div>
+          <div id="dashboard-beta-readiness-items" class="dashboard-beta-readiness-items" aria-live="polite">
+            <button type="button" data-dashboard-beta-state="loading" data-dashboard-beta-nav="settings" data-dashboard-beta-tab="naver-blog">
+              <span class="dashboard-beta-state-dot" aria-hidden="true"></span>
+              <span>네이버 확인 중</span>
+            </button>
+            <button type="button" data-dashboard-beta-state="loading" data-dashboard-beta-nav="settings" data-dashboard-beta-tab="naver-blog">
+              <span class="dashboard-beta-state-dot" aria-hidden="true"></span>
+              <span>WordPress 확인 중</span>
+            </button>
+            <button type="button" data-dashboard-beta-state="loading" data-dashboard-beta-nav="account">
+              <span class="dashboard-beta-state-dot" aria-hidden="true"></span>
+              <span>이용 가능 횟수 확인 중</span>
+            </button>
+          </div>
+          <p id="dashboard-beta-readiness-error" class="dashboard-beta-inline-error" hidden>연결 상태를 불러오지 못했습니다.</p>
+        </section>
+
+        <div class="dashboard-beta-overview-grid">
+          <section class="dashboard-beta-flow-card" aria-labelledby="dashboard-beta-flow-title">
+            <div class="dashboard-beta-section-heading">
+              <div>
+                <span class="dashboard-beta-eyebrow">지금</span>
+                <h2 id="dashboard-beta-flow-title">발행 흐름</h2>
+              </div>
+              <span id="dashboard-beta-flow-badge" class="dashboard-beta-flow-badge" data-state="loading">확인 중</span>
+            </div>
+            <div class="dashboard-beta-flow-body" aria-live="polite">
+              <span id="dashboard-beta-flow-indicator" class="dashboard-beta-flow-indicator" data-state="loading" aria-hidden="true"></span>
+              <div>
+                <strong id="dashboard-beta-flow-subject">운영 상태를 불러오는 중입니다.</strong>
+                <p id="dashboard-beta-flow-message">잠시만 기다려 주세요.</p>
+              </div>
+            </div>
+            <div class="dashboard-beta-flow-actions">
+              <button class="primary" type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">글감 관리</button>
+              <button class="secondary" type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="automation">연속 발행 설정</button>
+            </div>
+          </section>
+
+          <section class="dashboard-beta-next-card" aria-labelledby="dashboard-beta-next-title">
+            <div class="dashboard-beta-section-heading">
+              <div>
+                <span class="dashboard-beta-eyebrow">다음</span>
+                <h2 id="dashboard-beta-next-title">연속 발행</h2>
+              </div>
+              <span id="dashboard-beta-automation-badge" class="dashboard-beta-automation-badge" data-state="loading">확인 중</span>
+            </div>
+            <strong id="dashboard-beta-next-time" class="dashboard-beta-next-time">일정을 불러오는 중입니다.</strong>
+            <p id="dashboard-beta-next-copy" class="dashboard-beta-next-copy">연속 발행 설정과 대기열을 확인하고 있습니다.</p>
+            <div class="dashboard-beta-counts" aria-label="글감 현황">
+              <button type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">
+                <span>발행 대기</span><strong id="dashboard-beta-ready-count">-</strong>
+              </button>
+              <button type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">
+                <span>보관한 글감</span><strong id="dashboard-beta-saved-count">-</strong>
+              </button>
+              <div>
+                <span>실행 중</span><strong id="dashboard-beta-running-count">-</strong>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="dashboard-beta-queue-card" aria-labelledby="dashboard-beta-queue-title">
+          <div class="dashboard-beta-section-heading">
+            <div>
+              <span class="dashboard-beta-eyebrow">대기열</span>
+              <h2 id="dashboard-beta-queue-title">다가오는 글</h2>
+            </div>
+            <button class="dashboard-beta-text-action" type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">전체 대기열 보기</button>
+          </div>
+          <div id="dashboard-beta-queue-list" class="dashboard-beta-queue-list" aria-live="polite">
+            <p class="dashboard-beta-empty">다음 글감을 불러오는 중입니다.</p>
+          </div>
+          <p id="dashboard-beta-operations-error" class="dashboard-beta-inline-error" hidden>발행 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+        </section>
+      </section>

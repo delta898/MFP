@@ -13,7 +13,6 @@ window.addEventListener('DOMContentLoaded', () => {
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
-  void initDashboardDynamicContent();
   void initAccountDynamicContent();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
@@ -39,7 +38,12 @@ window.addEventListener('DOMContentLoaded', () => {
       flushPendingQuickPostingCelebration();
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
-      void initDashboardDynamicContent();
+      if (document.getElementById('view-dashboard')?.classList.contains('active')) {
+        void initDashboardDynamicContent();
+      }
+      if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
+        void loadDashboardBeta({ force: true });
+      }
       void refreshAccountDynamicContent();
     }
   });
@@ -47,7 +51,12 @@ window.addEventListener('DOMContentLoaded', () => {
     flushPendingQuickPostingCelebration();
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
-    void initDashboardDynamicContent();
+    if (document.getElementById('view-dashboard')?.classList.contains('active')) {
+      void initDashboardDynamicContent();
+    }
+    if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
+      void loadDashboardBeta({ force: true });
+    }
     void refreshAccountDynamicContent();
   });
   setInterval(() => {
@@ -652,16 +661,18 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   window.toggleQuickWpOptions();
   initShoppingQuickCategoryPersistence();
 
-  // 대시보드 별도 로드 (블로킹 방지)
-  loadDashboard().finally(() => {
-    console.log('[UI] Initial dashboard load attempted');
+  // 새 대시보드를 기본 화면으로 비동기 로드
+  loadDashboardBeta().finally(() => {
+    console.log('[UI] Initial Dashboard Beta load attempted');
   });
 
   // 시트 검사는 백그라운드에서 진행
   setTimeout(() => {
     if (uiConfigReady) {
       ensureSheetsPreflightUi({ silent: true }).then(ready => {
-        if (ready) loadDashboard();
+        if (ready && document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
+          loadDashboardBeta({ force: true });
+        }
       });
     }
   }, 2000);
@@ -678,7 +689,11 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   renderShoppingPagination();
   setInterval(() => {
     if (isDashboardPollingPaused()) return;
-    loadDashboard();
+    if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
+      loadDashboardBeta({ force: true });
+    } else if (document.getElementById('view-dashboard')?.classList.contains('active')) {
+      loadDashboard();
+    }
     checkSetupBanner();
 
     // 자동 새로고침: 로그/이력 뷰가 활성화되어 있으면 함께 갱신

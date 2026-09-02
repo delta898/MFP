@@ -2,7 +2,7 @@ async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'blog', 'social', 'account'].includes(requestedView)) {
+    if (!['dashboard', 'dashboard-beta', 'blog', 'social', 'account'].includes(requestedView)) {
       viewName = 'blog';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -29,7 +29,12 @@ async function navigateTo(viewName, subTab) {
   views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
   if (viewName === 'dashboard') {
     void ensureUpdateCheckFresh({ silent: true });
+    void initDashboardDynamicContent();
     loadDashboard();
+    return;
+  }
+  if (viewName === 'dashboard-beta') {
+    loadDashboardBeta();
     return;
   }
   if (viewName === 'logs') {
@@ -126,7 +131,7 @@ function applyMobileQuickMode() {
     return;
   }
 
-  if (activeView && !['dashboard', 'blog'].includes(activeView)) {
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog'].includes(activeView)) {
     void navigateTo('blog', 'quick');
   }
 }
