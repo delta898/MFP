@@ -153,6 +153,17 @@ test('Supabase JavaScript client inventory covers every non-test client owner', 
     assert.deepEqual(inventoried, clientOwners);
 });
 
+test('desktop Supabase client does not restore the deprecated node-fetch punycode chain', () => {
+    const packageJson = readJson('package.json');
+    const packageLock = readJson('package-lock.json');
+    const supabasePackage = packageLock.packages['node_modules/@supabase/supabase-js'];
+
+    assert.equal(packageJson.dependencies['@supabase/supabase-js'], '2.113.0');
+    assert.equal(supabasePackage.version, '2.113.0');
+    assert.equal(Object.hasOwn(supabasePackage.dependencies || {}, '@supabase/node-fetch'), false);
+    assert.equal(Object.hasOwn(packageLock.packages, 'node_modules/@supabase/node-fetch'), false);
+});
+
 test('inventory never stores linked project metadata or credential values', () => {
     const inventory = readJson('supabase/inventory.json');
     const serialized = JSON.stringify(inventory);
