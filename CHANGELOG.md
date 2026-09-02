@@ -3,6 +3,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.0-dev2] - 2026-09-02
+
 ### Added
 - **발행 대기열 처리 시간 안내**: 연속 발행을 켜면 현재 대기 순서와 자동 실행 설정을 기준으로 각 글감의 다음 처리 또는 예상 처리 시간을 확인할 수 있습니다. `지금 실행`은 기존 자동 일정을 변경하지 않으며, 처리가 끝난 글감은 열린 대기열에서도 자동으로 정리됩니다.
 
