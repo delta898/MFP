@@ -40,6 +40,7 @@
 - 완료: Queue 실행 상태 UX — `../archive/2026-09-02-release-queue-running-state-ux-development.md`.
 - 완료: Blog Beta 공통 실행 잠금과 연속 발행 설정 변경 보호 — `../archive/2026-09-02-release-blog-next-execution-lock-development.md`.
 - 완료: 전역 연속 발행 상태 — `../archive/2026-09-02-release-global-publishing-status-development.md`.
+- 완료: Dashboard 사용 준비 상태 — `../archive/2026-09-02-release-dashboard-readiness-status-development.md`.
 
 ## Decisions and tradeoffs
 

@@ -824,9 +824,3 @@
     transform: translateY(0) rotateX(0deg) scaleY(1);
   }
 }
-
-.dash-badges {
-  margin-top: 12px;
-  display: flex;
-  gap: 8px;
-}

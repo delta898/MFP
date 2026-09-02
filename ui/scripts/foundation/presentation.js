@@ -40,8 +40,6 @@ function syncAppVersionDisplays(version) {
   const normalizedVersion = String(version || '').trim();
   if (!normalizedVersion) return;
 
-  const versionBadge = document.getElementById('badge-version');
-  if (versionBadge) versionBadge.textContent = `v${normalizedVersion}`;
   const settingsVersionDisplay = document.getElementById('settings-current-version-display');
   if (settingsVersionDisplay) settingsVersionDisplay.textContent = `v${normalizedVersion}`;
   syncFooterVersion(normalizedVersion);
@@ -59,4 +57,3 @@ function scrollLogTargetIntoView(targetEl) {
     targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
-

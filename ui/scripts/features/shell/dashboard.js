@@ -25,7 +25,7 @@ async function loadDashboard() {
     isDashboardLoading = false;
   }
 
-  const healthOk = healthResult.status === 'fulfilled';
+  const healthOk = healthResult.status === 'fulfilled' && Boolean(healthResult.value);
   const accountOk = accountResult.status === 'fulfilled' && Boolean(accountResult.value);
   const licenseOk = accountOk;
   const sessionOk = accountOk;
@@ -40,6 +40,8 @@ async function loadDashboard() {
     remaining: accountOverview.usage?.remaining
   } : null;
   const naverConnection = accountOverview?.connections?.naver || null;
+  const wordpressConnection = accountOverview?.connections?.wordpress || null;
+  const googleConnection = accountOverview?.connections?.google_sheets || null;
   const session = naverConnection ? {
     valid: naverConnection.status === 'connected',
     reason: naverConnection.reason || '',
@@ -48,40 +50,66 @@ async function loadDashboard() {
   const summary = summaryOk ? summaryResult.value : null;
   const auto = autoOk ? autoResult.value : null;
 
-  // Update Badges
-  const healthBadge = document.getElementById('badge-health');
-  if (healthBadge) {
-    if (healthOk && health) {
-      healthBadge.textContent = 'Health: OK';
-      healthBadge.style.background = '#dcfce7'; healthBadge.style.color = '#166534';
+  if (health?.version) syncAppVersionDisplays(health.version);
 
-      syncAppVersionDisplays(health.version);
-    } else {
-      healthBadge.textContent = 'Health: Error';
-      healthBadge.style.background = '#fee2e2'; healthBadge.style.color = '#991b1b';
-    }
-    healthBadge.style.cursor = 'pointer';
-    if (!healthBadge._navBound) {
-      healthBadge._navBound = true;
-      healthBadge.addEventListener('click', () => void navigateTo('settings', 'general'));
-    }
+  const setReadinessItem = (buttonId, labelId, state, label) => {
+    const button = document.getElementById(buttonId);
+    const labelElement = document.getElementById(labelId);
+    if (button) button.dataset.state = state;
+    if (labelElement) labelElement.textContent = label;
+  };
+  setReadinessItem(
+    'dashboard-naver-status',
+    'dashboard-naver-status-label',
+    sessionOk && session?.valid ? 'ready' : 'action',
+    sessionOk && session?.valid ? '네이버 로그인됨' : (sessionOk ? '네이버 로그인 필요' : '네이버 확인 불가')
+  );
+
+  const wordpressConfigured = ['configured', 'connected'].includes(String(wordpressConnection?.status || '').trim());
+  setReadinessItem(
+    'dashboard-wordpress-status',
+    'dashboard-wordpress-status-label',
+    wordpressConfigured ? 'ready' : 'neutral',
+    accountOk ? (wordpressConfigured ? 'WordPress 설정됨' : 'WordPress 미사용') : 'WordPress 확인 불가'
+  );
+
+  const usageButton = document.getElementById('dashboard-usage-status');
+  const usageLabel = document.getElementById('dashboard-usage-status-label');
+  const planLabel = document.getElementById('dashboard-plan-status-label');
+  if (licenseOk && license) {
+    const remaining = Number(license.remaining);
+    const remainingLabel = remaining < 0
+      ? '기본 발행 무제한'
+      : Number.isFinite(remaining) ? `기본 ${Math.max(0, remaining)}회 남음` : '사용량 확인 불가';
+    const rawPlanName = String(license.planName || license.planCode || '').trim();
+    const compactPlanName = rawPlanName.replace(/\s+plan$/i, '').trim() || rawPlanName;
+    if (usageButton) usageButton.dataset.state = remaining === 0 ? 'attention' : 'ready';
+    if (usageLabel) usageLabel.textContent = remainingLabel;
+    if (planLabel) planLabel.textContent = compactPlanName;
+  } else {
+    if (usageButton) usageButton.dataset.state = 'attention';
+    if (usageLabel) usageLabel.textContent = '사용량 확인 불가';
+    if (planLabel) planLabel.textContent = '';
   }
 
-  const sessionBadge = document.getElementById('badge-session');
-  if (sessionBadge) {
-    if (sessionOk && session && session.valid) {
-      sessionBadge.textContent = 'Naver: 로그인';
-      sessionBadge.style.background = '#dbeafe'; sessionBadge.style.color = '#1e3a8a';
-    } else {
-      sessionBadge.textContent = 'Naver: 로그인 필요';
-      sessionBadge.style.background = '#fef3c7'; sessionBadge.style.color = '#92400e';
-    }
-    sessionBadge.style.cursor = 'pointer';
-    if (!sessionBadge._navBound) {
-      sessionBadge._navBound = true;
-      sessionBadge.addEventListener('click', () => void navigateTo('settings', 'naver-blog'));
-    }
-  }
+  const googleConfigured = ['configured', 'connected'].includes(String(googleConnection?.status || '').trim());
+  const googleStatus = document.getElementById('dashboard-google-status');
+  if (googleStatus) googleStatus.hidden = !accountOk || googleConfigured;
+  const healthStatus = document.getElementById('dashboard-health-status');
+  if (healthStatus) healthStatus.hidden = healthOk && health?.status === 'ok';
+
+  const bindReadinessNavigation = (id, view, tab) => {
+    const element = document.getElementById(id);
+    if (!element || element._navBound) return;
+    element._navBound = true;
+    element.addEventListener('click', () => void navigateTo(view, tab));
+  };
+  bindReadinessNavigation('dashboard-naver-status', 'settings', 'naver-blog');
+  bindReadinessNavigation('dashboard-wordpress-status', 'settings', 'naver-blog');
+  bindReadinessNavigation('dashboard-usage-status', 'account');
+  bindReadinessNavigation('dashboard-google-status', 'settings', 'general');
+  bindReadinessNavigation('dashboard-health-status', 'logs');
+
   if (sessionOk && session) {
     const sessionStateKey = session.valid
       ? 'valid'
@@ -93,24 +121,6 @@ async function loadDashboard() {
       { code: 'NAVER_SESSION_INVALID', message: session.message || '', reason: session.reason || '' },
       { source: 'dashboard-session-status', reason: session.reason || '' }
     );
-  }
-
-  const licenseBadge = document.getElementById('badge-license');
-  if (licenseBadge) {
-    if (licenseOk && license) {
-      const rawPlanName = String(license.planName || license.planCode || '').trim();
-      const compactPlanName = rawPlanName.replace(/\s+plan$/i, '').trim() || rawPlanName || '-';
-      licenseBadge.textContent = `Plan: ${compactPlanName} (잔여 ${license.remaining})`;
-      licenseBadge.style.background = '#f3e8ff'; licenseBadge.style.color = '#6b21a8';
-    } else {
-      licenseBadge.textContent = 'Plan: 확인불가';
-      licenseBadge.style.background = '#fee2e2'; licenseBadge.style.color = '#991b1b';
-    }
-    licenseBadge.style.cursor = 'pointer';
-    if (!licenseBadge._navBound) {
-      licenseBadge._navBound = true;
-      licenseBadge.addEventListener('click', () => void navigateTo('account'));
-    }
   }
 
   if (accountOverview) {

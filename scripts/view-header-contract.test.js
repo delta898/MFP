@@ -43,9 +43,26 @@ test('status and refresh controls remain outside title copy while app controls s
   const clock = read('ui/scripts/features/shell/clock.js');
 
   assert.match(dashboard, /class="page-clock-widget dash-clock-widget">\s*<div class="server-control" id="server-control" hidden>/);
-  assert.match(dashboard, /<div class="dashboard-status-row">\s*<div class="dash-badges"/);
+  assert.match(dashboard, /<div class="dashboard-status-row">\s*<div class="dashboard-readiness-bar"/);
   assert.doesNotMatch(dashboard, /<div class="dashboard-status-row">[\s\S]*id="server-control"/);
   assert.match(clock, /display\.closest\('\.dash-clock-widget'\)\?\.querySelector\('#server-control'\)/);
   assert.match(clock, /menu\.appendChild\(serverControl\);\s*serverControl\.hidden = false;/);
   assert.match(account, /<\/div>\s*<div class="account-view-actions">\s*<button id="account-refresh-btn"/);
+});
+
+test('dashboard readiness prioritizes publishing channels and usable quota over healthy and duplicate version badges', () => {
+  const dashboard = read('ui/partials/views/dashboard.html');
+  const dashboardScript = read('ui/scripts/features/shell/dashboard.js');
+
+  assert.match(dashboard, /id="dashboard-naver-status"/);
+  assert.match(dashboard, /id="dashboard-wordpress-status"/);
+  assert.match(dashboard, /id="dashboard-usage-status"/);
+  assert.match(dashboard, /id="dashboard-google-status"[^>]*hidden/);
+  assert.match(dashboard, /id="dashboard-health-status"[^>]*hidden/);
+  assert.doesNotMatch(dashboard, /id="badge-(?:health|session|license|version)"/);
+  assert.doesNotMatch(dashboard, /Health:|Plan:|버전 확인 중/);
+  assert.match(dashboardScript, /WordPress 설정됨/);
+  assert.match(dashboardScript, /WordPress 미사용/);
+  assert.match(dashboardScript, /기본 \$\{Math\.max\(0, remaining\)\}회 남음/);
+  assert.match(dashboardScript, /navigateTo\(view, tab\)/);
 });

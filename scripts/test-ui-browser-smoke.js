@@ -777,9 +777,23 @@ async function run() {
         assert.notEqual(await page.locator('#view-dashboard').evaluate((element) => getComputedStyle(element).display), 'none');
         assert.equal(await page.locator('#view-settings').evaluate((element) => getComputedStyle(element).display), 'none');
         assert.equal(await page.locator('.sidebar').evaluate((element) => getComputedStyle(element).display), 'flex');
-        assert.equal(await page.locator('#badge-version').textContent(), 'v0.2.0');
+        assert.equal(await page.locator('#badge-version').count(), 0);
         assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
+        assert.equal((await page.locator('#dashboard-naver-status-label').textContent())?.trim(), '네이버 로그인됨');
+        assert.equal((await page.locator('#dashboard-wordpress-status-label').textContent())?.trim(), 'WordPress 미사용');
+        assert.equal((await page.locator('#dashboard-usage-status-label').textContent())?.trim(), '기본 10회 남음');
+        assert.equal((await page.locator('#dashboard-plan-status-label').textContent())?.trim(), 'Free');
+        assert.equal(await page.locator('#dashboard-google-status').isHidden(), true);
+        assert.equal(await page.locator('#dashboard-health-status').isHidden(), true);
+        assert.equal(await page.locator('#dashboard-readiness-bar').evaluate((element) => getComputedStyle(element).display), 'flex');
+        await page.locator('#dashboard-wordpress-status').click();
+        await page.waitForFunction(() => (
+            document.getElementById('view-settings')?.classList.contains('active')
+            && document.querySelector('.settings-tab-btn[data-settings-tab="naver-blog"]')?.classList.contains('active')
+        ));
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
         await page.waitForFunction(() => (
             document.querySelectorAll('.recommendation-card').length === 1
             && document.querySelector('.recommendation-card h3')?.textContent?.trim() === '로컬 여행'
