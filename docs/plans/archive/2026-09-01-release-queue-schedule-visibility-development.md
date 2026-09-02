@@ -5,7 +5,7 @@
 - Branch: `codex/release-queue-schedule-visibility`
 - Base/parent: `release/v0.4.0`
 - Start date: 2026-09-01
-- Status: Parent integration branch in progress
+- Status: Complete — all stages and user UI review passed
 
 ## User need and goal
 
@@ -64,8 +64,11 @@
 - 부모 병합 전 전체 단위 테스트: `npm run test:unit` — 1217 passed.
 - 공통 실행 잠금 브라우저 회귀: `npm run test:ui-browser` — passed, 124 fixture requests.
 - 공통 실행 잠금 전체 단위 테스트: `npm run test:unit` — 1224 passed.
+- 전역 연속 발행 상태와 Dashboard 준비 상태 하위 단계를 구현하고 사용자 UI 검토를 통과했다.
+- 최종 부모 병합 전 전체 단위 테스트: `npm run test:unit` — 1229 passed.
+- 최종 브라우저 회귀 테스트: `npm run test:ui-browser` — passed.
 
 ## Remaining risks and manual checks
 
 - 여러 앱 인스턴스가 같은 대기열을 동시에 처리하는 경우는 이번 범위의 보호 대상이 아니다.
-- 최종 글꼴, 간격, 긴 제목에서의 배치는 사용자 UI 검토가 필요하다.
+- 최종 글꼴, 간격, 실행 신호와 Dashboard 준비 상태 배치는 사용자 UI 검토를 통과했다.
