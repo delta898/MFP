@@ -138,6 +138,7 @@ function createAccountOverviewService(deps = {}) {
         toFeatureMap = (value) => value || {},
         peekNaverSessionForUi = () => ({ ok: false, reason: 'not_checked', checked: false, message: '' }),
         getWordPressVerification = () => null,
+        getConnectionReadiness = null,
         resolveMachineId = () => machineIdSync({ original: true }),
         runtimeVersions = process.versions,
         platform = process.platform,
@@ -150,13 +151,16 @@ function createAccountOverviewService(deps = {}) {
     }
 
     async function getOverview({ quiet = true, force = false } = {}) {
-        const naverSession = peekNaverSessionForUi();
-        const [licenseStatus, smartUsageStatus] = await Promise.all([
+        const [licenseStatus, smartUsageStatus, connectionReadiness] = await Promise.all([
             License.checkLicenseStatus({ quiet, force }),
             typeof License.getSmartUsageStatus === 'function'
                 ? License.getSmartUsageStatus()
-                : Promise.resolve({ success: false, items: [] })
+                : Promise.resolve({ success: false, items: [] }),
+            typeof getConnectionReadiness === 'function'
+                ? getConnectionReadiness({ force })
+                : Promise.resolve(null)
         ]);
+        const naverSession = connectionReadiness?.naver || peekNaverSessionForUi();
 
         const hasLicenseContext = Boolean(
             licenseStatus?.planCode
@@ -193,11 +197,11 @@ function createAccountOverviewService(deps = {}) {
             && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
         );
         const wordpressVerification = wordpressConfigured
-            ? getWordPressVerification({
+            ? (connectionReadiness?.wordpress || getWordPressVerification({
                 url: CONFIG.WORDPRESS_URL,
                 userId: CONFIG.WORDPRESS_USER_ID,
                 appPassword: CONFIG.WORDPRESS_APP_PASSWORD
-            })
+            }))
             : null;
 
         return {

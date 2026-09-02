@@ -122,6 +122,33 @@ test('account overview reads cached connection state without running an active N
     assert.equal(overview.connections.wordpress.message, '인증 실패');
 });
 
+test('account overview uses active readiness to restore connections after app restart', async () => {
+    const readinessCalls = [];
+    const service = createService({
+        CONFIG: {
+            WORDPRESS_URL: 'https://blog.example',
+            WORDPRESS_USER_ID: 'editor',
+            WORDPRESS_APP_PASSWORD: 'app-password'
+        },
+        peekNaverSessionForUi() {
+            throw new Error('active readiness should replace the process-local peek');
+        },
+        async getConnectionReadiness(options) {
+            readinessCalls.push(options);
+            return {
+                naver: { ok: true, checkedAt: Date.now() },
+                wordpress: { status: 'connected', connected: true, checked_at: '2026-09-02T07:00:00.000Z' }
+            };
+        }
+    });
+
+    const overview = await service.getOverview({ force: false });
+
+    assert.deepEqual(readinessCalls, [{ force: false }]);
+    assert.equal(overview.connections.naver.status, 'connected');
+    assert.equal(overview.connections.wordpress.status, 'connected');
+});
+
 test('account overview exposes smart capability usage separately from publishing quota', async () => {
     const service = createService({
         License: {
