@@ -1,4 +1,4 @@
-const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'automation']);
+const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'smart-comment', 'automation']);
 const BLOG_NEXT_INPUT_MODES = Object.freeze(['ai', 'folder', 'paste']);
 
 let blogNextActiveTab = 'quick';
@@ -37,6 +37,9 @@ function activateBlogNextTab(tabName) {
   if (target === 'trend-posting' && typeof loadBlogNextTrendMeta === 'function') {
     loadBlogNextTrendMeta();
   }
+  if (target === 'smart-comment' && typeof loadBlogNextSmartCommentSettings === 'function') {
+    loadBlogNextSmartCommentSettings();
+  }
   if (target === 'automation' && typeof loadBlogNextRunnerStatus === 'function') {
     loadBlogNextRunnerStatus();
   }
@@ -53,6 +56,12 @@ async function requestActivateBlogNextTab(tabName) {
     && target !== 'automation'
     && typeof confirmDiscardUnsavedBlogNextAutomationSettings === 'function') {
     const canLeave = await confirmDiscardUnsavedBlogNextAutomationSettings();
+    if (!canLeave) return false;
+  }
+  if (blogNextActiveTab === 'smart-comment'
+    && target !== 'smart-comment'
+    && typeof confirmDiscardUnsavedBlogNextSmartCommentSettings === 'function') {
+    const canLeave = await confirmDiscardUnsavedBlogNextSmartCommentSettings();
     if (!canLeave) return false;
   }
   activateBlogNextTab(target);
@@ -79,6 +88,7 @@ function activateBlogNextInputMode(modeName) {
 
 function initBlogNextShell() {
   if (typeof initBlogNextTrendPosting === 'function') initBlogNextTrendPosting();
+  if (typeof initBlogNextSmartComment === 'function') initBlogNextSmartComment();
   if (!blogNextShellBound) {
     document.querySelectorAll('[data-blog-next-tab]').forEach((button) => {
       button.addEventListener('click', () => {

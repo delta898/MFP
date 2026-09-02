@@ -628,7 +628,6 @@ const CONFIG = {
     MCP_REMOTE_AUTH_TOKEN: String(structuredConfig.mcp?.remote?.auth?.bearer_token || '').trim(),
     NAVER_COMMENT_DRAFT_AI_MODE: structuredConfig.features?.naver?.comment_draft?.ai_mode === 'custom' ? 'custom' : 'default',
     NAVER_COMMENT_DRAFT_FETCH_LIMIT: Number(structuredConfig.features?.naver?.comment_draft?.fetch_limit || 10),
-    NAVER_COMMENT_DRAFT_TONE: structuredConfig.features?.naver?.comment_draft?.tone || 'empathetic',
     NAVER_COMMENT_DRAFT_MAX_CHARS: Number(structuredConfig.features?.naver?.comment_draft?.max_chars || 60),
     NAVER_COMMENT_DRAFT_HEADLESS: structuredConfig.features?.naver?.comment_draft?.headless !== false,
 

@@ -331,6 +331,16 @@
   white-space: pre-wrap;
 }
 
+.comment-draft-tone {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--brand-hover);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .comment-draft-actions {
   display: flex;
   flex-wrap: wrap;

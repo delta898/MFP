@@ -2,6 +2,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', (event) => {
     if (!settingsMajorHasPendingBasicChanges
       && !settingsWritingProfileDirty
+      && !(typeof blogNextSmartCommentDirty !== 'undefined' && blogNextSmartCommentDirty)
       && !(typeof blogNextAutomationDirty !== 'undefined' && blogNextAutomationDirty)) return;
     event.preventDefault();
     event.returnValue = '';

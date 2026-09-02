@@ -8,9 +8,24 @@ function getNaverCommentDraftSettingsFromUi() {
   return {
     aiMode: (document.getElementById('naver-comment-draft-ai-mode')?.value || 'default').trim(),
     fetchLimit: parseInt(document.getElementById('naver-comment-draft-fetch-limit')?.value || '10', 10) || 10,
-    tone: (document.getElementById('naver-comment-draft-tone')?.value || 'empathetic').trim(),
     maxChars: parseInt(document.getElementById('naver-comment-draft-max-chars')?.value || '60', 10) || 60,
     headless: Boolean(document.getElementById('naver-comment-draft-headless')?.checked)
+  };
+}
+
+function normalizeNaverCommentDraftForDisplay(draft, index = 0) {
+  const tones = [
+    { id: 'empathetic', label: '공감형' },
+    { id: 'friendly', label: '친근형' },
+    { id: 'calm', label: '담백형' }
+  ];
+  const fallback = tones[index] || { id: '', label: '댓글 제안' };
+  const tone = draft && typeof draft === 'object' && !Array.isArray(draft)
+    ? String(draft.tone || fallback.id)
+    : fallback.id;
+  return {
+    label: tones.find((entry) => entry.id === tone)?.label || '댓글 제안',
+    text: String(draft && typeof draft === 'object' && !Array.isArray(draft) ? draft.text : draft || '')
   };
 }
 
@@ -28,12 +43,16 @@ function renderNaverCommentDraftItems(items = []) {
   listEl.innerHTML = safeItems.map((item, index) => {
     const drafts = Array.isArray(item?.drafts) ? item.drafts : [];
     const draftHtml = drafts.length > 0
-      ? drafts.map((draft, draftIndex) => `
+      ? drafts.map((draft, draftIndex) => {
+        const normalizedDraft = normalizeNaverCommentDraftForDisplay(draft, draftIndex);
+        return `
         <div class="comment-draft-item">
           <button class="secondary compact" type="button" data-comment-draft-copy="${index}:${draftIndex}">복사</button>
-          <div class="comment-draft-item-text">${escapeHtml(draft)}</div>
+          <span class="comment-draft-tone">${escapeHtml(normalizedDraft.label)}</span>
+          <div class="comment-draft-item-text">${escapeHtml(normalizedDraft.text)}</div>
         </div>
-      `).join('')
+      `;
+      }).join('')
       : `<div class="comment-draft-item"><div class="comment-draft-item-text">${escapeHtml(item?.error || '초안을 생성하지 못했습니다.')}</div></div>`;
 
     const chips = [
@@ -72,12 +91,10 @@ async function loadNaverCommentDraftSettings() {
     const settings = data?.settings || {};
     const aiModeEl = document.getElementById('naver-comment-draft-ai-mode');
     const fetchLimitEl = document.getElementById('naver-comment-draft-fetch-limit');
-    const toneEl = document.getElementById('naver-comment-draft-tone');
     const maxCharsEl = document.getElementById('naver-comment-draft-max-chars');
     const headlessEl = document.getElementById('naver-comment-draft-headless');
     if (aiModeEl) aiModeEl.value = String(settings.aiMode || 'default');
     if (fetchLimitEl) fetchLimitEl.value = String(settings.fetchLimit || 10);
-    if (toneEl) toneEl.value = String(settings.tone || 'empathetic');
     if (maxCharsEl) maxCharsEl.value = String(settings.maxChars || 60);
     if (headlessEl) headlessEl.checked = Boolean(settings.headless ?? true);
     if (hadItems) {
@@ -183,4 +200,3 @@ async function redraftNaverCommentDraft(itemIndex) {
     if (currentRedraftBtn) currentRedraftBtn.disabled = false;
   }
 }
-

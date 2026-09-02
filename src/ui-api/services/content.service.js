@@ -145,8 +145,7 @@ function createContentService(deps = {}) {
 
     const COMMENT_DRAFT_DEFAULTS = {
         aiMode: 'default',
-        fetchLimit: 10,
-        tone: 'empathetic',
+        fetchLimit: 3,
         maxChars: 60,
         headless: true
     };
@@ -155,19 +154,12 @@ function createContentService(deps = {}) {
         return String(value || 'default').trim().toLowerCase() === 'custom' ? 'custom' : 'default';
     }
 
-    function normalizeCommentDraftTone(value) {
-        const normalized = String(value || 'empathetic').trim().toLowerCase();
-        if (['empathetic', 'friendly', 'calm'].includes(normalized)) return normalized;
-        return COMMENT_DRAFT_DEFAULTS.tone;
-    }
-
     function normalizeCommentDraftSettings(input = {}) {
         const fetchLimit = parseInt(input.fetchLimit ?? input.fetch_limit ?? CONFIG.NAVER_COMMENT_DRAFT_FETCH_LIMIT ?? COMMENT_DRAFT_DEFAULTS.fetchLimit, 10);
         const maxChars = parseInt(input.maxChars ?? input.max_chars ?? CONFIG.NAVER_COMMENT_DRAFT_MAX_CHARS ?? COMMENT_DRAFT_DEFAULTS.maxChars, 10);
         return {
             aiMode: normalizeCommentDraftAiMode(input.aiMode ?? input.ai_mode ?? CONFIG.NAVER_COMMENT_DRAFT_AI_MODE ?? COMMENT_DRAFT_DEFAULTS.aiMode),
             fetchLimit: Number.isFinite(fetchLimit) ? Math.min(10, Math.max(1, fetchLimit)) : COMMENT_DRAFT_DEFAULTS.fetchLimit,
-            tone: normalizeCommentDraftTone(input.tone ?? CONFIG.NAVER_COMMENT_DRAFT_TONE ?? COMMENT_DRAFT_DEFAULTS.tone),
             maxChars: Number.isFinite(maxChars) ? Math.min(200, Math.max(20, maxChars)) : COMMENT_DRAFT_DEFAULTS.maxChars,
             headless: typeof input.headless === 'boolean'
                 ? input.headless
@@ -178,7 +170,6 @@ function createContentService(deps = {}) {
     function updateCommentDraftRuntimeConfig(settings = {}) {
         CONFIG.NAVER_COMMENT_DRAFT_AI_MODE = settings.aiMode;
         CONFIG.NAVER_COMMENT_DRAFT_FETCH_LIMIT = settings.fetchLimit;
-        CONFIG.NAVER_COMMENT_DRAFT_TONE = settings.tone;
         CONFIG.NAVER_COMMENT_DRAFT_MAX_CHARS = settings.maxChars;
         CONFIG.NAVER_COMMENT_DRAFT_HEADLESS = settings.headless;
     }
@@ -200,25 +191,23 @@ function createContentService(deps = {}) {
         });
     }
 
-    async function generateCommentDrafts({ aiMode, authorName, title, excerpt, maxChars, tone }) {
+    async function generateCommentDrafts({ aiMode, authorName, title, excerpt, maxChars }) {
         return generateSmartCommentDrafts({
             aiMode,
             authorName,
             title,
             excerpt,
             maxChars,
-            tone,
             logger: Logger,
             callModel: callCommentDraftModel
         });
     }
 
-    async function generateCommentDraftBatch({ aiMode, candidates, maxChars, tone }) {
+    async function generateCommentDraftBatch({ aiMode, candidates, maxChars }) {
         return generateSmartCommentDraftBatch({
             aiMode,
             items: candidates,
             maxChars,
-            tone,
             logger: Logger,
             callModel: callCommentDraftModel
         });
@@ -520,7 +509,10 @@ function createContentService(deps = {}) {
 
         async getNaverCommentDraftSettings() {
             return {
-                settings: normalizeCommentDraftSettings()
+                settings: normalizeCommentDraftSettings(),
+                runtime: {
+                    environment: String(CONFIG.RUNTIME_ENVIRONMENT || '')
+                }
             };
         },
 
@@ -545,7 +537,6 @@ function createContentService(deps = {}) {
             structuredConfig.features.naver.comment_draft = {
                 ai_mode: settings.aiMode,
                 fetch_limit: settings.fetchLimit,
-                tone: settings.tone,
                 max_chars: settings.maxChars,
                 headless: settings.headless
             };
@@ -561,6 +552,9 @@ function createContentService(deps = {}) {
         },
 
         async runNaverCommentDraft(requestBody = {}) {
+            if (smartCommentProgress.state === 'running') {
+                throw createApiError(409, 'NAVER_COMMENT_DRAFT_BUSY', '다른 스마트 댓글 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+            }
             const settings = normalizeCommentDraftSettings(requestBody || {});
             updateSmartCommentProgress({
                 state: 'running',
@@ -579,7 +573,12 @@ function createContentService(deps = {}) {
             if (typeof checkNaverSessionForUi !== 'function') {
                 throw markSmartCommentFailed(createApiError(500, 'NAVER_SESSION_CHECK_UNAVAILABLE', '네이버 로그인 상태를 확인할 수 없습니다.'));
             }
-            const session = await checkNaverSessionForUi({ forceRefresh: true });
+            let session;
+            try {
+                session = await checkNaverSessionForUi({ forceRefresh: true });
+            } catch (error) {
+                throw markSmartCommentFailed(error);
+            }
             if (!session?.ok) {
                 const reason = String(session?.reason || '').trim().toLowerCase();
                 const message = reason === 'missing_auth'
@@ -600,7 +599,10 @@ function createContentService(deps = {}) {
             try {
                 candidates = await getSmartCommentCollector().collect({
                     fetchLimit: settings.fetchLimit,
-                    headless: settings.headless
+                    headless: settings.headless,
+                    excludePostUrls: Array.isArray(requestBody?.excludePostUrls)
+                        ? requestBody.excludePostUrls
+                        : []
                 });
             } catch (error) {
                 throw markSmartCommentFailed(error);
@@ -650,8 +652,7 @@ function createContentService(deps = {}) {
                     const batchResults = await generateCommentDraftBatch({
                         aiMode: settings.aiMode,
                         candidates: batchCandidates,
-                        maxChars: settings.maxChars,
-                        tone: settings.tone
+                        maxChars: settings.maxChars
                     });
                     batchCandidates.forEach((candidate, index) => {
                         const result = batchResults[index] || {};
@@ -680,7 +681,7 @@ function createContentService(deps = {}) {
                             items.push({
                                 ...candidate,
                                 drafts: [],
-                                error: 'AI 요청 한도로 이해 실행을 중단했습니다.'
+                                error: 'AI 요청 한도로 인해 실행을 중단했습니다.'
                             });
                         });
                         stoppedByRateLimit = true;
@@ -753,8 +754,7 @@ function createContentService(deps = {}) {
                 authorName,
                 title,
                 excerpt,
-                maxChars: settings.maxChars,
-                tone: settings.tone
+                maxChars: settings.maxChars
             });
             return { drafts };
         },

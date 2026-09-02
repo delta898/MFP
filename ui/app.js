@@ -47,6 +47,7 @@
 // @include scripts/features/blog-next/quick-queue.js
 // @include scripts/features/blog-next/trend-posting.js
 // @include scripts/features/blog-next/draft-inputs.js
+// @include scripts/features/blog-next/smart-comment.js
 // @include scripts/features/blog-next/automation-settings.js
 // @include scripts/features/blog-next/runner.js
 // @include scripts/foundation/navigation.js

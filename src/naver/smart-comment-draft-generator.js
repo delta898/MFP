@@ -3,7 +3,8 @@ const TONE_LABELS = {
     friendly: '친근형',
     calm: '담백형'
 };
-const SMART_COMMENT_PROMPT_VERSION = '2026-08-10-v1';
+const SMART_COMMENT_TONES = Object.freeze(Object.keys(TONE_LABELS));
+const SMART_COMMENT_PROMPT_VERSION = '2026-09-02-v2';
 
 function stripCodeFence(raw) {
     return String(raw || '')
@@ -48,6 +49,15 @@ function sanitizeDraftText(raw, maxChars) {
     return text;
 }
 
+function normalizeDraft(draft, index, maxChars) {
+    const isStructured = draft && typeof draft === 'object' && !Array.isArray(draft);
+    const fallbackTone = SMART_COMMENT_TONES[index] || '';
+    return {
+        tone: isStructured ? String(draft.tone || '').trim().toLowerCase() : fallbackTone,
+        text: sanitizeDraftText(isStructured ? draft.text : draft, maxChars)
+    };
+}
+
 function parseDraftResponse(raw, maxChars) {
     let parsed;
     try {
@@ -62,12 +72,12 @@ function parseDraftResponse(raw, maxChars) {
         return { drafts: [], errors: ['drafts 배열이 없습니다.'] };
     }
 
-    const drafts = parsed.drafts.map((draft) => sanitizeDraftText(draft, maxChars));
+    const drafts = parsed.drafts.map((draft, index) => normalizeDraft(draft, index, maxChars));
     const errors = [];
     if (drafts.length !== 3) errors.push('댓글 초안은 정확히 3개여야 합니다.');
-    if (drafts.some((draft) => !draft)) errors.push(`모든 댓글은 비어 있지 않고 ${maxChars}자 이하여야 합니다.`);
+    if (drafts.some((draft) => !draft.text)) errors.push(`모든 댓글은 비어 있지 않고 ${maxChars}자 이하여야 합니다.`);
 
-    return { drafts: drafts.filter(Boolean), errors };
+    return { drafts: drafts.filter((draft) => draft.text), errors };
 }
 
 function normalizeForDuplicateCheck(text) {
@@ -81,7 +91,7 @@ function validateDrafts(drafts, maxChars) {
     }
 
     drafts.forEach((draft, index) => {
-        const value = String(draft || '').trim();
+        const value = String(draft?.text ?? draft ?? '').trim();
         const hangulCount = (value.match(/[가-힣]/g) || []).length;
         const latinCount = (value.match(/[A-Za-z]/g) || []).length;
         if (value.length < 12) errors.push(`${index + 1}번 댓글이 너무 짧습니다.`);
@@ -98,29 +108,37 @@ function validateDrafts(drafts, maxChars) {
         }
     });
 
-    const unique = new Set(drafts.map(normalizeForDuplicateCheck));
+    const tones = drafts.map((draft) => String(draft?.tone || '').trim());
+    if (new Set(tones).size !== SMART_COMMENT_TONES.length
+        || SMART_COMMENT_TONES.some((tone) => !tones.includes(tone))) {
+        errors.push('공감형·친근형·담백형 댓글이 각각 하나씩 필요합니다.');
+    }
+    const unique = new Set(drafts.map((draft) => normalizeForDuplicateCheck(draft?.text ?? draft)));
     if (unique.size !== drafts.length) errors.push('댓글 초안끼리 내용이 중복됩니다.');
     return [...new Set(errors)];
 }
 
-function buildCommentDraftPrompt({ authorName = '', title = '', excerpt = '', tone = 'empathetic', maxChars = 60, feedback = [] }) {
+function buildCommentDraftPrompt({ authorName = '', title = '', excerpt = '', maxChars = 60, feedback = [] }) {
     const excerptText = String(excerpt || '').replace(/\s+/g, ' ').trim().slice(0, 400);
     const lines = [
         `프롬프트 버전: ${SMART_COMMENT_PROMPT_VERSION}`,
         '당신은 네이버 블로그 이웃새글 카드의 제목과 공개된 본문 일부를 보고 자연스러운 한국어 댓글 초안을 만드는 도우미입니다.',
-        `댓글 톤: ${TONE_LABELS[tone] || TONE_LABELS.empathetic}`,
         `최대 글자수: ${maxChars}자`,
         '조건:',
         '- 제목이나 본문 일부에 실제로 나온 구체적인 주제 또는 세부 내용을 언급한다.',
         '- 보이지 않은 내용을 읽었다고 가정하거나 방문, 구매, 사용 경험을 지어내지 않는다.',
         '- 한국어 존댓말로 된 완결된 댓글을 정확히 3개 만든다.',
+        '- empathetic(공감형), friendly(친근형), calm(담백형) 톤을 각각 하나씩 만든다.',
+        '- 공감형은 글의 경험이나 감정에 자연스럽게 공감한다.',
+        '- 친근형은 가깝고 부드럽게 반응하되 과한 친밀감을 만들지 않는다.',
+        '- 담백형은 구체적인 내용에 짧고 차분하게 반응한다.',
         '- 단순 감탄이나 어디에나 붙일 수 있는 상투적인 문장만 쓰지 않는다.',
-        '- 초안 3개는 관점과 표현을 서로 다르게 한다.',
+        '- 초안 3개는 톤만 바꾼 동일 문장이 아니라 관점과 표현도 서로 다르게 한다.',
         '- 한자, 일본어, 중국어, 불필요한 영어를 섞지 않는다. 고유명사는 예외로 한다.',
         '- 반말, 과장, 홍보성 표현, 자동화 티가 나는 표현을 쓰지 않는다.',
         '- 각 초안은 1~2문장이고 문장 중간에서 끊지 않는다.',
         `- 각 초안은 공백을 포함해 ${maxChars}자 이내다.`,
-        '- 반드시 {"drafts":["...","...","..."]} 형태의 JSON만 반환한다.',
+        '- 반드시 {"drafts":[{"tone":"empathetic","text":"..."},{"tone":"friendly","text":"..."},{"tone":"calm","text":"..."}]} 형태의 JSON만 반환한다.',
         '- JSON 앞뒤에 설명, 주석, 코드 블록을 붙이지 않는다.'
     ];
 
@@ -133,21 +151,22 @@ function buildCommentDraftPrompt({ authorName = '', title = '', excerpt = '', to
     return lines.join('\n');
 }
 
-function buildCommentDraftBatchPrompt({ items = [], tone = 'empathetic', maxChars = 60, feedbackById = {} }) {
+function buildCommentDraftBatchPrompt({ items = [], maxChars = 60, feedbackById = {} }) {
     const lines = [
         `프롬프트 버전: ${SMART_COMMENT_PROMPT_VERSION}-batch`,
         '당신은 네이버 블로그 이웃새글 카드의 제목과 공개된 본문 일부를 보고 자연스러운 한국어 댓글 초안을 만드는 도우미입니다.',
-        `댓글 톤: ${TONE_LABELS[tone] || TONE_LABELS.empathetic}`,
         `최대 글자수: ${maxChars}자`,
         '각 입력 글마다 다음 조건을 독립적으로 적용한다:',
         '- 제목이나 본문 일부에 실제로 나온 구체적인 주제 또는 세부 내용을 언급한다.',
         '- 보이지 않은 내용을 읽었다고 가정하거나 방문, 구매, 사용 경험을 지어내지 않는다.',
         '- 한국어 존댓말로 된 완결된 댓글을 정확히 3개 만든다.',
+        '- empathetic(공감형), friendly(친근형), calm(담백형) 톤을 각각 하나씩 만든다.',
+        '- 공감형은 글의 경험이나 감정에 자연스럽게 공감하고, 친근형은 부드럽고 가깝게, 담백형은 구체적인 내용에 짧고 차분하게 반응한다.',
         '- 단순 감탄이나 어디에나 붙일 수 있는 상투적인 문장만 쓰지 않는다.',
-        '- 댓글 3개는 관점과 표현을 서로 다르게 한다.',
+        '- 댓글 3개는 톤만 바꾼 동일 문장이 아니라 관점과 표현도 서로 다르게 한다.',
         `- 각 댓글은 공백을 포함해 ${maxChars}자 이내의 1~2문장이다.`,
         '- 입력 id를 변경하거나 누락하지 않는다.',
-        '- 반드시 {"items":[{"id":"...","drafts":["...","...","..."]}]} 형태의 JSON만 반환한다.',
+        '- 반드시 {"items":[{"id":"...","drafts":[{"tone":"empathetic","text":"..."},{"tone":"friendly","text":"..."},{"tone":"calm","text":"..."}]}]} 형태의 JSON만 반환한다.',
         '- JSON 앞뒤에 설명, 주석, 코드 블록을 붙이지 않는다.',
         '',
         '입력 글:'
@@ -186,7 +205,9 @@ function parseBatchDraftResponse(raw, expectedItems, maxChars) {
         if (!matched || !Array.isArray(matched.drafts)) {
             return { id, drafts: [], errors: ['해당 글의 drafts 배열이 없습니다.'] };
         }
-        const drafts = matched.drafts.map((draft) => sanitizeDraftText(draft, maxChars)).filter(Boolean);
+        const drafts = matched.drafts
+            .map((draft, index) => normalizeDraft(draft, index, maxChars))
+            .filter((draft) => draft.text);
         return { id, drafts, errors: validateDrafts(drafts, maxChars) };
     });
 }
@@ -197,7 +218,6 @@ async function generateSmartCommentDraftBatch(options = {}) {
         aiMode,
         items = [],
         maxChars = 60,
-        tone = 'empathetic',
         logger
     } = options;
     if (typeof callModel !== 'function') throw new Error('댓글 초안 생성 모델 호출기가 없습니다.');
@@ -207,7 +227,7 @@ async function generateSmartCommentDraftBatch(options = {}) {
     let feedbackById = {};
 
     for (let attempt = 0; attempt < 2 && pending.length > 0; attempt += 1) {
-        const prompt = buildCommentDraftBatchPrompt({ items: pending, tone, maxChars, feedbackById });
+        const prompt = buildCommentDraftBatchPrompt({ items: pending, maxChars, feedbackById });
         const perItemMaxTokens = Math.max(1024, maxChars * 8);
         const maxTokens = Math.min(8192, pending.length * perItemMaxTokens);
         let raw;
@@ -265,14 +285,13 @@ async function generateSmartCommentDrafts(options = {}) {
         title,
         excerpt,
         maxChars = 60,
-        tone = 'empathetic',
         logger
     } = options;
     if (typeof callModel !== 'function') throw new Error('댓글 초안 생성 모델 호출기가 없습니다.');
 
     let feedback = [];
     for (let attempt = 0; attempt < 2; attempt += 1) {
-        const prompt = buildCommentDraftPrompt({ authorName, title, excerpt, tone, maxChars, feedback });
+        const prompt = buildCommentDraftPrompt({ authorName, title, excerpt, maxChars, feedback });
         const raw = await callModel(aiMode, prompt, Math.max(768, maxChars * 8));
         const parsed = parseDraftResponse(raw, maxChars);
         const errors = parsed.errors.length > 0
@@ -291,6 +310,7 @@ async function generateSmartCommentDrafts(options = {}) {
 
 module.exports = {
     SMART_COMMENT_PROMPT_VERSION,
+    SMART_COMMENT_TONES,
     buildCommentDraftBatchPrompt,
     buildCommentDraftPrompt,
     extractFirstJsonObject,

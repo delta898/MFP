@@ -48,7 +48,8 @@ function createSmartCommentService(options = {}) {
             NAVER_ID: 'owner-id',
             AUTH_FILE_PATH: '/tmp/naver-smart-comment-auth.json',
             TEXT_MODEL_CONFIG: { code: 'writing-model' },
-            CHAT_MODEL_CONFIG: { code: 'chat-model' }
+            CHAT_MODEL_CONFIG: { code: 'chat-model' },
+            RUNTIME_ENVIRONMENT: options.environment || 'production'
         },
         BrowserLauncher: {
             async launchBrowser(launchOptions) {
@@ -64,6 +65,7 @@ function createSmartCommentService(options = {}) {
         },
         checkNaverSessionForUi: async (sessionOptions) => {
             calls.sessionOptions.push(sessionOptions);
+            if (typeof options.checkSession === 'function') return options.checkSession(sessionOptions);
             return options.sessionResult || { ok: true };
         },
         ...(options.candidates ? {
@@ -92,6 +94,26 @@ test('smart comment stops before browser launch when the Naver session is missin
     );
     assert.deepEqual(calls.sessionOptions, [{ forceRefresh: true }]);
     assert.equal(calls.launchOptions.length, 0);
+});
+
+test('smart comment releases the busy state when the Naver session check throws', async () => {
+    const { service } = createSmartCommentService({
+        async checkSession() { throw new Error('session gateway unavailable'); }
+    });
+
+    await assert.rejects(() => service.runNaverCommentDraft({ fetchLimit: 1 }), /session gateway unavailable/);
+    const { progress } = await service.getNaverCommentDraftProgress();
+    assert.equal(progress.state, 'failed');
+});
+
+test('smart comment settings use a conservative default and expose the runtime environment', async () => {
+    const { service } = createSmartCommentService({ environment: 'development' });
+
+    const result = await service.getNaverCommentDraftSettings();
+
+    assert.equal(result.settings.fetchLimit, 3);
+    assert.equal(result.settings.headless, true);
+    assert.equal(result.runtime.environment, 'development');
 });
 
 test('smart comment collects candidates with the saved Naver storage state', async () => {
@@ -232,6 +254,15 @@ test('smart comment exposes live batch and rate-limit progress', async () => {
     assert.equal(progress.batchIndex, 1);
     assert.equal(progress.batchTotal, 1);
     assert.equal(progress.completedCount, 0);
+
+    await assert.rejects(
+        () => service.runNaverCommentDraft({ fetchLimit: 1 }),
+        (error) => {
+            assert.equal(error.status, 409);
+            assert.equal(error.apiCode, 'NAVER_COMMENT_DRAFT_BUSY');
+            return true;
+        }
+    );
 
     await calls.modelOptions[0].onRetry({ delayMs: 5000 });
     ({ progress } = await service.getNaverCommentDraftProgress());

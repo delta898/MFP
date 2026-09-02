@@ -129,3 +129,29 @@ test('collector falls back to the post blog id when the visible author is missin
     const result = await collector.collect({ fetchLimit: 1 });
     assert.equal(result[0].authorName, 'neighbor-id');
 });
+
+test('collector skips previously prepared posts and scans ahead for replacements', async () => {
+    const { collector, calls } = createCollectorFixture([
+        {
+            authorName: '이웃1',
+            title: '이미 준비한 글',
+            excerpt: '앞선 실행에서 댓글 초안을 만든 글입니다.',
+            postUrl: 'https://blog.naver.com/neighbor1/123456789'
+        },
+        {
+            authorName: '이웃2',
+            title: '새로운 후보 글',
+            excerpt: '이번 실행에서 새로 댓글을 준비할 글입니다.',
+            postUrl: 'https://blog.naver.com/neighbor2/123456780'
+        }
+    ]);
+
+    const result = await collector.collect({
+        fetchLimit: 1,
+        excludePostUrls: ['https://blog.naver.com/neighbor1/123456789']
+    });
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].title, '새로운 후보 글');
+    assert.deepEqual(calls.evaluateLimit, [2]);
+});

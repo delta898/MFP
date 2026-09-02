@@ -171,8 +171,13 @@ function createNaverSmartCommentCollector(deps = {}) {
     if (!CONFIG) throw new Error('CONFIG가 필요합니다.');
 
     return {
-        async collect({ fetchLimit = 10, headless = true } = {}) {
+        async collect({ fetchLimit = 10, headless = true, excludePostUrls = [] } = {}) {
             const limit = Math.min(10, Math.max(1, parseInt(fetchLimit, 10) || 10));
+            const excluded = new Set((Array.isArray(excludePostUrls) ? excludePostUrls : [])
+                .slice(0, 100)
+                .map((value) => String(value || '').trim())
+                .filter(Boolean));
+            const scanLimit = Math.min(50, limit + excluded.size);
             const feedUrl = buildNeighborFeedUrl();
             let browser = null;
             let context = null;
@@ -219,7 +224,7 @@ function createNaverSmartCommentCollector(deps = {}) {
                     }
                 }
                 if (typeof page.waitForTimeout === 'function') await page.waitForTimeout(300);
-                const rawItems = await page.evaluate(extractNeighborFeedCards, limit);
+                const rawItems = await page.evaluate(extractNeighborFeedCards, scanLimit);
                 const ownBlogId = String(CONFIG.NAVER_ID || '').trim().toLowerCase();
                 const items = (Array.isArray(rawItems) ? rawItems : [])
                     .map((item) => {
@@ -246,6 +251,7 @@ function createNaverSmartCommentCollector(deps = {}) {
                             return false;
                         }
                     })
+                    .filter((item) => !excluded.has(item.postUrl))
                     .filter((item) => !(item.likedStateKnown && item.liked))
                     .slice(0, limit);
                 Logger.info(`✅ [NaverCommentDraft] 이웃새글 후보 수집 완료 (${items.length}건)`);
