@@ -10,6 +10,7 @@ const ACTIVITY_SIGNAL_STAGES = Object.freeze([
     'saved',
     'selected',
     'drafted',
+    'scheduled',
     'published',
     'feedback'
 ]);
@@ -20,6 +21,7 @@ const DEFAULT_STRENGTH_BY_STAGE = Object.freeze({
     saved: 'medium',
     selected: 'strong',
     drafted: 'strong',
+    scheduled: 'strong',
     published: 'strong',
     feedback: 'explicit'
 });

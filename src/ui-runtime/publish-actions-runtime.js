@@ -11,6 +11,7 @@ const {
     stripBlogImagePromptBlocks
 } = require('../content/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
+const { buildBlogPublishResultEvidence } = require('../memory/blog-publish-result');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
@@ -111,31 +112,16 @@ function createPublishActionsRuntime(deps = {}) {
     }
 
     async function recordBlogTerminalResults({ operationId, subject, source, postStatus, results }) {
-        const normalizedStatus = String(postStatus || '').trim().toLowerCase();
-        const stage = normalizedStatus === 'draft'
-            ? 'drafted'
-            : normalizedStatus === 'publish'
-                ? 'published'
-                : '';
-        if (!stage) return [];
-
         const recorded = [];
-        for (const [platform, result] of Object.entries(results || {})) {
-            if (result?.success !== true) continue;
-            recorded.push(await recordActivityLifecycle({
-                domain: 'blog',
-                stage,
-                subject,
-                source,
-                entity_ref: operationId,
-                platform,
-                result_ref: result.postUrl || '',
-                evidence_id: `${operationId}:blog:${platform}:${stage}`,
-                metadata: {
-                    post_status: normalizedStatus,
-                    reused: result.reused === true
-                }
-            }));
+        const evidenceItems = buildBlogPublishResultEvidence({
+            operationId,
+            subject,
+            source,
+            postStatus,
+            results
+        });
+        for (const evidence of evidenceItems) {
+            recorded.push(await recordActivityLifecycle(evidence));
         }
         return recorded;
     }

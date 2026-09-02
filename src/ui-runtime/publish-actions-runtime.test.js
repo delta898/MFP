@@ -234,6 +234,7 @@ test('shopping quick publish rejects an overlong instruction before external wor
 
 function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserveSuccess = true, reservationMetadata } = {}) {
     const calls = [];
+    const lifecycleCalls = [];
     const runtime = createPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() { }, warn() { }, error() { } },
@@ -262,9 +263,13 @@ function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserve
         TelegramBotService: { async sendNotification() { } },
         checkAuthSessionValid: async () => ({ ok: true }),
         formatActivityTargets: () => '',
-        recordUiActivity() { }
+        recordUiActivity() { },
+        async recordActivityLifecycle(input) {
+            lifecycleCalls.push(input);
+            return input;
+        }
     });
-    return { runtime, calls };
+    return { runtime, calls, lifecycleCalls };
 }
 
 function createPublishParams() {
@@ -345,7 +350,7 @@ test('multi-platform publish does not call platforms when quota reserve fails', 
 });
 
 test('multi-platform retry skips targets already committed in the operation ledger', async () => {
-    const { runtime, calls } = createPublishLifecycleRuntime({
+    const { runtime, calls, lifecycleCalls } = createPublishLifecycleRuntime({
         naverSuccess: true,
         wordpressSuccess: true,
         reservationMetadata: { successful_targets: ['naver'] }
@@ -355,4 +360,29 @@ test('multi-platform retry skips targets already committed in the operation ledg
     assert.equal(result.success, true);
     assert.equal(result.results.naver.reused, true);
     assert.deepEqual(calls, ['quota:reserve', 'publish:wordpress', 'quota:commit']);
+    const resultCalls = lifecycleCalls.filter((item) => item.stage !== 'selected');
+    assert.deepEqual(resultCalls.map((item) => item.evidence_id), [
+        'partial-retry:blog:naver:drafted',
+        'partial-retry:blog:wordpress:drafted'
+    ]);
+    assert.equal(resultCalls[0].metadata.reused, true);
+});
+
+test('scheduled publish records only successful platform results as processed facts', async () => {
+    const { runtime, lifecycleCalls } = createPublishLifecycleRuntime({
+        naverSuccess: true,
+        wordpressSuccess: false
+    });
+    const params = createPublishParams();
+    params.context.postStatus = 'schedule';
+
+    const result = await runtime.processMultiPlatformPublish(params, { operationId: 'scheduled-partial' });
+
+    assert.equal(result.success, true);
+    const resultCalls = lifecycleCalls.filter((item) => item.stage !== 'selected');
+    assert.equal(resultCalls.length, 1);
+    assert.equal(resultCalls[0].platform, 'naver');
+    assert.equal(resultCalls[0].stage, 'scheduled');
+    assert.equal(resultCalls[0].metadata.processed, true);
+    assert.equal(resultCalls[0].metadata.publicly_published, false);
 });

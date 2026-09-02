@@ -54,7 +54,7 @@ function buildDisabledEventStore(reason) {
                 domains: requestedDomains.length > 0 ? requestedDomains : ['blog', 'shopping', 'sns'],
                 signals: [],
                 counts_by_domain: { blog: 0, shopping: 0, sns: 0 },
-                counts_by_stage: { observed: 0, generated: 0, saved: 0, selected: 0, drafted: 0, published: 0, feedback: 0 },
+                counts_by_stage: { observed: 0, generated: 0, saved: 0, selected: 0, drafted: 0, scheduled: 0, published: 0, feedback: 0 },
                 counts_by_strength: { weak: 0, medium: 0, strong: 0, explicit: 0 },
                 scanned_evidence_count: 0,
                 supported_evidence_count: 0,

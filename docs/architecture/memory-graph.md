@@ -213,6 +213,7 @@ applied:
 - `saved`: durably registered as a topic;
 - `selected`: explicitly chosen for writing;
 - `drafted`: successfully stored as a draft;
+- `scheduled`: successfully registered for later publication;
 - `published`: successfully published;
 - `feedback`: an explicit positive or negative response.
 
@@ -229,6 +230,14 @@ idempotent. Owner activity retrieval combines these events with existing saved
 artifacts while retaining whether each signal came from an event or artifact.
 Product integrations must record terminal evidence only after platform-confirmed
 success, and GraphDB failure must not reverse the business operation.
+
+Blog publishing terminal evidence is recorded once per successful platform. The
+stable evidence key combines the publish operation, blog domain, platform, and
+lifecycle stage, so partial-success retries do not create duplicate facts.
+`drafted`, `scheduled`, and `published` all mean a completed platform operation;
+only `published` means that BlogGenius completed public publication. Dashboard
+statistics derive these meanings from the validated lifecycle stage rather than
+trusting mutable display text or caller-provided boolean flags.
 
 Feedback becomes lifecycle evidence only when its target carries a controlled
 content domain. Content ideas and topics map to blog feedback; shopping item

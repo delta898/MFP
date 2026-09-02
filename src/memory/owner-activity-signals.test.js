@@ -25,3 +25,24 @@ test('preserves explicit feedback when newer generated artifacts fill the recent
     assert.equal(summary.signals.length, 3);
     assert.equal(summary.signals.some((signal) => signal.stage === 'feedback'), true);
 });
+
+test('includes scheduled publishing as a strong owner activity signal', () => {
+    const summary = buildOwnerActivitySignalSummary({
+        events: [{
+            id: 'scheduled-1',
+            event_type: 'activity.lifecycle.blog.scheduled',
+            timestamp: '2026-09-02T12:00:00.000Z',
+            payload: {
+                domain: 'blog',
+                stage: 'scheduled',
+                strength: 'strong',
+                subject: '예약한 글',
+                source: 'continuous-publishing',
+                platform: 'naver'
+            }
+        }]
+    });
+
+    assert.equal(summary.counts_by_stage.scheduled, 1);
+    assert.equal(summary.signals[0].stage, 'scheduled');
+});
