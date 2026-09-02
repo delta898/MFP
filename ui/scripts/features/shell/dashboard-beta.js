@@ -278,6 +278,33 @@ function renderDashboardBetaStatsPeriod() {
   });
   setText('dashboard-beta-processed-count', stats?.available === false ? '-' : `${Number(period?.processed_count) || 0}건`);
   setText('dashboard-beta-published-count', stats?.available === false ? '-' : `${Number(period?.published_count) || 0}건`);
+  const trend = document.getElementById('dashboard-beta-trend');
+  if (trend) trend.hidden = dashboardBetaSelectedPeriod !== 'month' || stats?.available === false;
+  renderDashboardBetaTrend(stats?.daily_series);
+}
+
+function renderDashboardBetaTrend(items) {
+  const container = document.getElementById('dashboard-beta-trend-bars');
+  if (!container) return;
+  container.innerHTML = '';
+  const series = Array.isArray(items) ? items.slice(-30) : [];
+  const maxCount = Math.max(1, ...series.map(item => Number(item?.processed_count) || 0));
+  series.forEach((item) => {
+    const group = document.createElement('span');
+    group.className = 'dashboard-beta-trend-day';
+    const processed = Math.max(0, Number(item?.processed_count) || 0);
+    const published = Math.max(0, Number(item?.published_count) || 0);
+    group.title = `${item?.date || ''} · 처리 완료 ${processed}건 · 공개 발행 ${published}건`;
+    group.setAttribute('aria-label', group.title);
+    const processedBar = document.createElement('i');
+    processedBar.dataset.series = 'processed';
+    processedBar.style.height = `${Math.max(processed > 0 ? 8 : 2, (processed / maxCount) * 100)}%`;
+    const publishedBar = document.createElement('i');
+    publishedBar.dataset.series = 'published';
+    publishedBar.style.height = `${Math.max(published > 0 ? 8 : 2, (published / maxCount) * 100)}%`;
+    group.append(processedBar, publishedBar);
+    container.appendChild(group);
+  });
 }
 
 function renderDashboardBetaResultStats(stats) {
@@ -295,8 +322,7 @@ function renderDashboardBetaResultStats(stats) {
 
 function renderDashboardBetaResultStatsError() {
   dashboardBetaResultStats = null;
-  setText('dashboard-beta-processed-count', '-');
-  setText('dashboard-beta-published-count', '-');
+  renderDashboardBetaStatsPeriod();
   renderDashboardBetaRecentResults([]);
   const error = document.getElementById('dashboard-beta-stats-error');
   if (error) {
@@ -312,7 +338,8 @@ function bindDashboardBetaActions() {
   view.addEventListener('click', (event) => {
     const periodButton = event.target.closest('[data-dashboard-beta-period]');
     if (periodButton) {
-      dashboardBetaSelectedPeriod = periodButton.dataset.dashboardBetaPeriod === 'week' ? 'week' : 'today';
+      const requestedPeriod = periodButton.dataset.dashboardBetaPeriod;
+      dashboardBetaSelectedPeriod = ['today', 'week', 'month'].includes(requestedPeriod) ? requestedPeriod : 'today';
       renderDashboardBetaStatsPeriod();
       return;
     }

@@ -29,6 +29,10 @@ function buildKoreanPeriodBoundaries(nowValue = new Date()) {
         week: {
             from: new Date(weekStartUtc).toISOString(),
             to: new Date(weekStartUtc + (7 * DAY_MS)).toISOString()
+        },
+        month: {
+            from: new Date(dayStartUtc - (29 * DAY_MS)).toISOString(),
+            to: new Date(dayStartUtc + DAY_MS).toISOString()
         }
     };
 }
@@ -46,6 +50,23 @@ function countPeriod(results, period) {
         processed_count: selected.length,
         published_count: selected.filter((result) => result.publicly_published).length
     };
+}
+
+function buildDailySeries(results, period) {
+    const fromMs = Date.parse(period.from);
+    return Array.from({ length: 30 }, (_unused, index) => {
+        const startMs = fromMs + (index * DAY_MS);
+        const endMs = startMs + DAY_MS;
+        const selected = results.filter((result) => {
+            const timestamp = Date.parse(result.timestamp || '');
+            return Number.isFinite(timestamp) && timestamp >= startMs && timestamp < endMs;
+        });
+        return {
+            date: new Date(startMs + KST_OFFSET_MS).toISOString().slice(0, 10),
+            processed_count: selected.length,
+            published_count: selected.filter((result) => result.publicly_published).length
+        };
+    });
 }
 
 function buildDashboardBlogResultStats(input = {}) {
@@ -72,8 +93,10 @@ function buildDashboardBlogResultStats(input = {}) {
         available,
         periods: {
             today: countPeriod(results, periods.today),
-            week: countPeriod(results, periods.week)
+            week: countPeriod(results, periods.week),
+            month: countPeriod(results, periods.month)
         },
+        daily_series: buildDailySeries(results, periods.month),
         recent_results: results.slice(0, 5).map((result) => ({
             id: result.id,
             occurred_at: toIso(result.timestamp),
@@ -87,5 +110,6 @@ function buildDashboardBlogResultStats(input = {}) {
 
 module.exports = {
     buildKoreanPeriodBoundaries,
+    buildDailySeries,
     buildDashboardBlogResultStats
 };

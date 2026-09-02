@@ -44,9 +44,11 @@ test('Dashboard Beta distinguishes processed and public results across today and
 
     assert.match(betaView, /data-dashboard-beta-period="today"[^>]*>오늘/);
     assert.match(betaView, /data-dashboard-beta-period="week"[^>]*>이번 주/);
+    assert.match(betaView, /data-dashboard-beta-period="month"[^>]*>최근 30일/);
     assert.match(betaView, /id="dashboard-beta-processed-count"/);
     assert.match(betaView, /id="dashboard-beta-published-count"/);
     assert.match(betaView, /id="dashboard-beta-recent-results-list"/);
+    assert.match(betaView, /id="dashboard-beta-trend-bars"/);
     assert.match(betaScript, /Array\.isArray\(items\) \? items\.slice\(0, 5\)/);
 });
 

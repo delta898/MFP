@@ -30,6 +30,10 @@ test('Korean periods start at midnight and Monday in Asia/Seoul', () => {
         from: '2026-08-30T15:00:00.000Z',
         to: '2026-09-06T15:00:00.000Z'
     });
+    assert.deepEqual(periods.month, {
+        from: '2026-08-04T15:00:00.000Z',
+        to: '2026-09-03T15:00:00.000Z'
+    });
 });
 
 test('dashboard stats separates processed and public results for today and week', () => {
@@ -47,8 +51,13 @@ test('dashboard stats separates processed and public results for today and week'
     assert.deepEqual(stats.periods.today.published_count, 1);
     assert.deepEqual(stats.periods.week.processed_count, 3);
     assert.deepEqual(stats.periods.week.published_count, 1);
+    assert.deepEqual(stats.periods.month.processed_count, 4);
     assert.equal(stats.recent_results.length, 4);
     assert.equal(stats.recent_results[0].id, 'publish-today');
+    assert.equal(stats.daily_series.length, 30);
+    assert.deepEqual(stats.daily_series.at(-1), {
+        date: '2026-09-03', processed_count: 2, published_count: 1
+    });
 });
 
 test('dashboard stats deduplicates events and caps recent results', () => {

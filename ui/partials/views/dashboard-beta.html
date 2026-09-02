@@ -99,6 +99,7 @@
             <div class="dashboard-beta-period-tabs" role="group" aria-label="통계 기간">
               <button type="button" class="active" data-dashboard-beta-period="today" aria-pressed="true">오늘</button>
               <button type="button" data-dashboard-beta-period="week" aria-pressed="false">이번 주</button>
+              <button type="button" data-dashboard-beta-period="month" aria-pressed="false">최근 30일</button>
             </div>
           </div>
           <div class="dashboard-beta-results-grid">
@@ -120,6 +121,13 @@
                 <p class="dashboard-beta-empty">최근 결과를 불러오는 중입니다.</p>
               </div>
             </div>
+          </div>
+          <div id="dashboard-beta-trend" class="dashboard-beta-trend" hidden>
+            <div class="dashboard-beta-trend-heading">
+              <h3>일별 추이</h3>
+              <span><i data-series="processed"></i>처리 완료 <i data-series="published"></i>공개 발행</span>
+            </div>
+            <div id="dashboard-beta-trend-bars" class="dashboard-beta-trend-bars" role="img" aria-label="최근 30일 발행 활동 추이"></div>
           </div>
           <p id="dashboard-beta-stats-error" class="dashboard-beta-inline-error" hidden>발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
         </section>

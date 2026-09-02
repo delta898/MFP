@@ -104,8 +104,14 @@ function getApiFixture(pathname) {
             available: true,
             periods: {
                 today: { from: '2026-09-01T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 3, published_count: 1 },
-                week: { from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4 }
+                week: { from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4 },
+                month: { from: '2026-08-03T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 19, published_count: 9 }
             },
+            daily_series: Array.from({ length: 30 }, (_unused, index) => ({
+                date: new Date(Date.UTC(2026, 7, 4 + index)).toISOString().slice(0, 10),
+                processed_count: index % 4,
+                published_count: index % 3 === 0 ? 1 : 0
+            })),
             recent_results: [{
                 id: 'dashboard-result-1',
                 occurred_at: '2026-09-02T00:50:00.000Z',
@@ -804,6 +810,11 @@ async function run() {
         await page.locator('[data-dashboard-beta-period="week"]').click();
         assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');
+        await page.locator('[data-dashboard-beta-period="month"]').click();
+        assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '19건');
+        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '9건');
+        assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
+        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 30);
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
