@@ -96,6 +96,27 @@ function createSystemService(deps = {}) {
         return Math.max(5, Math.min(100, Math.floor(value)));
     }
 
+    function logUiEvent(input = {}) {
+        const event = String(input.event || '').trim();
+        const stage = String(input.stage || '').trim();
+        const postStatus = String(input.postStatus || '').trim().toLowerCase();
+        const allowedStages = new Set(['requested', 'queued', 'displayed', 'displayed_after_focus']);
+        const allowedPostStatuses = new Set(['publish', 'draft']);
+        if (event !== 'posting_completion_effect'
+            || !allowedStages.has(stage)
+            || !allowedPostStatuses.has(postStatus)) {
+            throw createApiError(400, 'UI_EVENT_INVALID', '허용되지 않은 UI 이벤트입니다.');
+        }
+        const stageLabels = {
+            requested: '요청됨',
+            queued: '화면 복귀 대기',
+            displayed: '화면 표시 실행',
+            displayed_after_focus: '화면 복귀 후 표시 실행'
+        };
+        Logger.info(`✨ [CompletionEffect] 포스팅 완료 효과 ${stageLabels[stage]} (status=${postStatus})`);
+        return { logged: true };
+    }
+
     function getDashboardFeedState(sourceKey) {
         const key = String(sourceKey || '').trim() || 'unknown';
         if (!dashboardFeedStateByKey.has(key)) {
@@ -558,7 +579,9 @@ function createSystemService(deps = {}) {
         async ensureSheets({ forceRaw }) {
             const force = parseBoolQuery(forceRaw);
             return ensureSheetsReadyForUi({ force });
-        }
+        },
+
+        logUiEvent
     };
 }
 

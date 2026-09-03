@@ -341,6 +341,9 @@ async function publishBlogNextDraft(type) {
       });
     }
     showUiToast({ level: 'success', title: `원고 ${action} 완료`, message: 'Queue를 거치지 않고 원고를 처리했습니다.' });
+    if (typeof showPostingCompletionCelebration === 'function') {
+      showPostingCompletionCelebration(settings.postStatus);
+    }
   } catch (error) {
     // runWithLiveProgress renders the detailed failure.
     if (typeof renderBlogNextRunnerStatus === 'function') {

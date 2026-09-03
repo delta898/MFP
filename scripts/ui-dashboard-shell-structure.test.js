@@ -17,7 +17,7 @@ const shellContracts = Object.freeze({
     'features/shell/dashboard.js': ['loadDashboard'],
     'features/shell/activity-logs.js': ['loadDashboardLogs'],
     'features/shell/system-logs.js': ['loadSystemLog', 'formatSystemLogHtml'],
-    'features/shell/celebration.js': ['showAppCelebration', 'flushPendingQuickPostingCelebration'],
+    'features/shell/celebration.js': ['showAppCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
     'features/shell/clock.js': ['initClockWidget']
 });
 

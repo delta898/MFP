@@ -8,6 +8,16 @@ const POMODORO_DURATIONS = Object.freeze({ focus: 25 * 60 * 1000, break: 5 * 60 
 const QUICK_POSTING_CELEBRATION_MAX_WAIT_MS = 10 * 60 * 1000;
 let celebrationCleanupTimer = null;
 let pendingQuickPostingCelebrationAt = 0;
+let pendingQuickPostingCelebrationPostStatus = '';
+
+function reportPostingCompletionEffect(stage, postStatus = '') {
+  if (typeof postJson !== 'function') return;
+  void postJson('/api/v1/system/ui-event', {
+    event: 'posting_completion_effect',
+    stage: String(stage || '').trim(),
+    postStatus: String(postStatus || '').trim()
+  }).catch((error) => console.warn('[CompletionEffect] 로그 기록 실패:', error));
+}
 
 function showAppCelebration({ title, message } = {}) {
   document.querySelectorAll('.app-celebration').forEach((item) => item.remove());
@@ -50,20 +60,36 @@ function isQuickPostingCelebrationStatus(postStatus) {
   return postStatus === 'publish' || postStatus === 'draft';
 }
 
-function showOrQueueQuickPostingCelebration() {
+function showPostingCompletionCelebration(postStatus) {
+  if (!isQuickPostingCelebrationStatus(postStatus)) return false;
+  reportPostingCompletionEffect('requested', postStatus);
+  showOrQueueQuickPostingCelebration(postStatus);
+  return true;
+}
+
+function showOrQueueQuickPostingCelebration(postStatus = '') {
   if (document.visibilityState === 'visible' && document.hasFocus()) {
     pendingQuickPostingCelebrationAt = 0;
+    pendingQuickPostingCelebrationPostStatus = '';
     showQuickPostingCelebration();
+    reportPostingCompletionEffect('displayed', postStatus);
     return;
   }
   pendingQuickPostingCelebrationAt = Date.now();
+  pendingQuickPostingCelebrationPostStatus = String(postStatus || '').trim();
+  reportPostingCompletionEffect('queued', postStatus);
 }
 
-function flushPendingQuickPostingCelebration() {
+function flushPendingQuickPostingCelebration(options = {}) {
   if (!pendingQuickPostingCelebrationAt) return;
-  if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
+  const windowFocused = options.windowFocused === true;
+  if (document.visibilityState !== 'visible' || (!windowFocused && !document.hasFocus())) return;
   const waitedMs = Date.now() - pendingQuickPostingCelebrationAt;
+  const postStatus = pendingQuickPostingCelebrationPostStatus;
   pendingQuickPostingCelebrationAt = 0;
-  if (waitedMs <= QUICK_POSTING_CELEBRATION_MAX_WAIT_MS) showQuickPostingCelebration();
+  pendingQuickPostingCelebrationPostStatus = '';
+  if (waitedMs <= QUICK_POSTING_CELEBRATION_MAX_WAIT_MS) {
+    showQuickPostingCelebration();
+    reportPostingCompletionEffect('displayed_after_focus', postStatus);
+  }
 }
-

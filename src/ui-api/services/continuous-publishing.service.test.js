@@ -672,6 +672,9 @@ test('single-item runner selects the top ready topic without overriding its plan
     assert.equal(state.runnerOptions.isAutoCycle, false);
     assert.equal(result.state, 'completed');
     assert.equal(result.resultStatus, '발행 완료');
+    const globalStatus = await service.getGlobalStatusSummary();
+    assert.equal(globalStatus.last_completion_at, result.finishedAt);
+    assert.equal(globalStatus.last_result_status, '발행 완료');
 });
 
 test('manual runner can execute one explicitly selected ready topic without changing queue order', async () => {

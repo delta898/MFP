@@ -85,6 +85,7 @@
 
 ## Active Work
 
+- `plans/archive/2026-09-04-manual-publish-celebration-development.md`
 - `plans/active/2026-08-30-continuous-publishing-main-development.md`
 - `plans/active/2026-08-31-continuous-publishing-08-usability-development.md`
 - `plans/archive/2026-08-31-continuous-publishing-07-safe-timer-development.md`

@@ -99,6 +99,17 @@ function createSystemController(deps = {}) {
             return true;
         },
 
+        async uiEvent({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, await service.logUiEvent(requestBody));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'UI_EVENT_INVALID', 'UI 이벤트를 기록하지 못했습니다.', e);
+            }
+        },
+
         async dashboardSummary({ requestId, method, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);

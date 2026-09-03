@@ -286,6 +286,31 @@ test('immediate publishing preflights selected connections and preserves the for
     assert.match(readinessScript, /'blog-next-target-wordpress'/);
 });
 
+test('Blog Beta celebrates each newly observed successful publish or draft completion', () => {
+    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const globalStatusScript = read('ui/scripts/features/shell/global-publishing-status.js');
+    const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const celebrationScript = read('ui/scripts/features/shell/celebration.js');
+    const lifecycleScript = read('ui/scripts/foundation/lifecycle.js');
+    const systemRoute = read('src/ui-api/routes/system.routes.js');
+    const systemController = read('src/ui-api/controllers/system.controller.js');
+    const systemService = read('src/ui-api/services/system.service.js');
+
+    assert.match(celebrationScript, /function showPostingCompletionCelebration\(postStatus\)/);
+    assert.match(celebrationScript, /isQuickPostingCelebrationStatus\(postStatus\)/);
+    assert.match(globalStatusScript, /last_completion_at/);
+    assert.match(globalStatusScript, /showPostingCompletionCelebration\(inferGlobalPublishingCompletionPostStatus\(summary\)\)/);
+    assert.match(draftScript, /showPostingCompletionCelebration\(settings\.postStatus\)/);
+    assert.doesNotMatch(runnerScript, /showPostingCompletionCelebration|completionEffectToken|ManualCompletionEffects/);
+    assert.match(celebrationScript, /options\.windowFocused === true/);
+    assert.match(lifecycleScript, /flushPendingQuickPostingCelebration\(\{ windowFocused: true \}\)/);
+    assert.match(celebrationScript, /posting_completion_effect/);
+    assert.match(celebrationScript, /reportPostingCompletionEffect\('displayed'/);
+    assert.match(systemRoute, /\/api\/v1\/system\/ui-event/);
+    assert.match(systemController, /service\.logUiEvent\(requestBody\)/);
+    assert.match(systemService, /\[CompletionEffect\] 포스팅 완료 효과/);
+});
+
 test('release queue shows processing estimates and refreshes when a runner finishes', () => {
     const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');

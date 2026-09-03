@@ -9,6 +9,30 @@ let globalPublishingStatusTimer = null;
 let globalPublishingStatusRequest = null;
 let globalPublishingStatusSnapshot = { state: 'idle' };
 let globalPublishingStatusBound = false;
+let globalPublishingCompletionInitialized = false;
+let globalPublishingObservedCompletionAt = '';
+
+function inferGlobalPublishingCompletionPostStatus(summary = {}) {
+  const resultStatus = String(summary.last_result_status || '').trim();
+  if (resultStatus === '발행 완료') return 'publish';
+  if (resultStatus === '임시 저장 완료') return 'draft';
+  if (resultStatus === '예약 발행 완료') return 'schedule';
+  return '';
+}
+
+function observeGlobalPublishingCompletion(summary = {}) {
+  const completedAt = String(summary.last_completion_at || '').trim();
+  if (!globalPublishingCompletionInitialized) {
+    globalPublishingCompletionInitialized = true;
+    globalPublishingObservedCompletionAt = completedAt;
+    return;
+  }
+  if (!completedAt || completedAt === globalPublishingObservedCompletionAt) return;
+  globalPublishingObservedCompletionAt = completedAt;
+  if (typeof showPostingCompletionCelebration === 'function') {
+    showPostingCompletionCelebration(inferGlobalPublishingCompletionPostStatus(summary));
+  }
+}
 
 function globalPublishingSeoulDateParts(value) {
   const date = value instanceof Date ? value : new Date(value);
@@ -103,6 +127,7 @@ async function loadGlobalPublishingStatus() {
   if (globalPublishingStatusRequest) return globalPublishingStatusRequest;
   globalPublishingStatusRequest = fetchJson('/api/v1/continuous-publishing/status-summary')
     .then((summary) => {
+      observeGlobalPublishingCompletion(summary);
       renderGlobalPublishingStatus(summary);
       return summary;
     })

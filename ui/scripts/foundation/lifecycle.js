@@ -51,7 +51,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   window.addEventListener('focus', () => {
-    flushPendingQuickPostingCelebration();
+    flushPendingQuickPostingCelebration({ windowFocused: true });
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
     if (document.getElementById('view-dashboard')?.classList.contains('active')) {

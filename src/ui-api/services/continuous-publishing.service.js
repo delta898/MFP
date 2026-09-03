@@ -391,8 +391,15 @@ function createContinuousPublishingService(deps = {}) {
 
     async function getGlobalStatusSummary() {
         const runner = getRunnerStatusSnapshot();
+        const completion = runner.state === 'completed'
+            ? {
+                last_completion_at: runner.finishedAt || null,
+                last_result_status: runner.resultStatus || ''
+            }
+            : { last_completion_at: null, last_result_status: '' };
         if (['failed', 'needs_attention', 'blocked'].includes(runner.state)) {
             return {
+                ...completion,
                 state: 'attention',
                 subject: runner.subject || '',
                 message: runner.message || '',
@@ -402,6 +409,7 @@ function createContinuousPublishingService(deps = {}) {
         }
         if (runner.busy || ['selecting', 'running'].includes(runner.state)) {
             return {
+                ...completion,
                 state: 'running',
                 subject: runner.subject || '',
                 message: runner.message || '',
@@ -418,6 +426,7 @@ function createContinuousPublishingService(deps = {}) {
         const nextProcessingAt = testRunAt || recurringRunAt;
         if (nextProcessingAt && await hasReadyTopic()) {
             return {
+                ...completion,
                 state: 'scheduled',
                 subject: '',
                 message: '',
@@ -426,6 +435,7 @@ function createContinuousPublishingService(deps = {}) {
             };
         }
         return {
+            ...completion,
             state: 'idle',
             subject: '',
             message: '',

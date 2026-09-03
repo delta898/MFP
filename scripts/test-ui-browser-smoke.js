@@ -709,6 +709,17 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/system/ui-event' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: { logged: true } }));
+            });
+            return;
+        }
+
         if (url.pathname.startsWith('/api/v1/')) {
             let data = getApiFixture(url.pathname);
             if (url.pathname === '/api/v1/continuous-publishing/queue') {
@@ -746,6 +757,15 @@ function startFixtureServer(requests) {
                         state: 'idle', subject: '', message: '', result_status: '', next_processing_at: null
                     };
                 }
+                data = {
+                    ...data,
+                    last_completion_at: continuousRunnerStatus.state === 'completed'
+                        ? continuousRunnerStatus.finishedAt || null
+                        : null,
+                    last_result_status: continuousRunnerStatus.state === 'completed'
+                        ? continuousRunnerStatus.resultStatus || ''
+                        : ''
+                };
             }
             if (url.pathname === '/api/v1/continuous-publishing/runner/status') {
                 if (localMarkdownPublishing) {
@@ -1385,11 +1405,19 @@ async function run() {
         assert.equal(await page.locator('#blog-next-automation-test').evaluate(button => getComputedStyle(button).cursor), 'not-allowed');
         assert.equal(await page.locator('.blog-next-management-actions [data-blog-next-runner-status-jump]').count(), 0);
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
+        await page.waitForFunction(() => document.querySelector('.app-celebration-message')?.textContent.includes('글쓰기 완료'));
+        await page.waitForTimeout(100);
         const selectedRunnerRequest = requests.filter((request) => (
             request.pathname === '/api/v1/continuous-publishing/runner/start'
             && Number.isInteger(request.body?.rowIndex)
         )).at(-1);
         assert.equal(selectedRunnerRequest?.body?.headless, true);
+        assert.equal(requests.some((request) => (
+            request.pathname === '/api/v1/system/ui-event'
+            && request.body?.event === 'posting_completion_effect'
+            && request.body?.stage === 'displayed'
+            && request.body?.postStatus === 'draft'
+        )), true);
 
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('[data-blog-next-tab="automation"]').click();
@@ -1469,6 +1497,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         await page.waitForTimeout(600);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
+        await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
         await page.locator('[data-blog-next-draft-publish="paste"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
@@ -1479,6 +1508,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-result="paste"]')?.textContent.includes('요청 처리 완료'));
         assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), false);
+        await page.waitForFunction(() => document.querySelector('.app-celebration-message')?.textContent.includes('글쓰기 완료'));
         const pastedPublishRequest = requests.find((request) => request.pathname === '/api/v1/blog/local-markdown/publish');
         assert.equal(pastedPublishRequest?.body?.markdownText.startsWith('# 붙여넣은 원고'), true);
         assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);
@@ -1623,7 +1653,7 @@ async function run() {
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
         const expectedPosts = requests
-            .filter((request) => request.method !== 'GET')
+            .filter((request) => request.method !== 'GET' && request.pathname !== '/api/v1/system/ui-event')
             .map(({ method, pathname }) => ({ method, pathname }));
         assert.deepEqual(expectedPosts, [
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
