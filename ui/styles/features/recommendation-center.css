@@ -39,11 +39,13 @@
   font-size: 13px;
 }
 
-#recommendation-center-refresh {
+#recommendation-center-refresh,
+[data-recommendation-refresh] {
   min-width: 112px;
 }
 
-#recommendation-center-refresh.is-loading::before {
+#recommendation-center-refresh.is-loading::before,
+[data-recommendation-refresh].is-loading::before {
   display: inline-block;
   width: 14px;
   height: 14px;

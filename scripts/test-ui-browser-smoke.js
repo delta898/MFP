@@ -862,6 +862,11 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-tips-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#dashboard-beta-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
         assert.equal(await page.locator('#dashboard-beta-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
+        await page.waitForFunction(() => document.querySelector('#dashboard-beta-discovery-list .recommendation-card h3')?.textContent?.trim() === '로컬 여행');
+        assert.equal((await page.locator('#dashboard-beta-discovery-title').textContent())?.trim(), '새로운 발견');
+        assert.equal((await page.locator('#dashboard-beta-discovery-count').textContent())?.trim(), '1');
+        assert.equal((await page.locator('#dashboard-beta-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
+        assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
         assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').textContent()).trim(), '대시보드');
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);

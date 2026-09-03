@@ -24,7 +24,29 @@ function stopRecommendationCenterProgress(button) {
   button.disabled = false;
   button.classList.remove('is-loading');
   button.removeAttribute('aria-busy');
-  button.textContent = '새로운 발견';
+  button.textContent = button.dataset.idleLabel || '새로운 발견';
+}
+
+function recommendationCenterMounts() {
+  return Array.from(document.querySelectorAll('[data-recommendation-center]')).map((center) => ({
+    center,
+    count: center.querySelector('[data-recommendation-count], .recommendation-center-count'),
+    status: center.querySelector('[data-recommendation-status], .recommendation-center-status'),
+    list: center.querySelector('[data-recommendation-list], .recommendation-center-list'),
+    refresh: center.querySelector('[data-recommendation-refresh], #recommendation-center-refresh')
+  })).filter((mount) => mount.status && mount.list);
+}
+
+function activeRecommendationCenterMount() {
+  const activeCenter = document.querySelector('.view.active [data-recommendation-center]');
+  return recommendationCenterMounts().find((mount) => mount.center === activeCenter)
+    || recommendationCenterMounts().find((mount) => mount.center.id === 'dashboard-beta-discovery')
+    || recommendationCenterMounts()[0]
+    || null;
+}
+
+function scrollToActiveRecommendationCenter() {
+  activeRecommendationCenterMount()?.center?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function recommendationCenterRelativeTime(value) {
@@ -74,10 +96,11 @@ function rememberRecommendationCenterIds(items) {
 
 function updateRecommendationCenterCount(count) {
   const safeCount = Math.max(0, Number(count) || 0);
-  const element = document.getElementById('recommendation-center-count');
-  if (!element) return;
-  element.textContent = safeCount > 99 ? '99+' : String(safeCount);
-  element.hidden = safeCount === 0;
+  recommendationCenterMounts().forEach(({ count: element }) => {
+    if (!element) return;
+    element.textContent = safeCount > 99 ? '99+' : String(safeCount);
+    element.hidden = safeCount === 0;
+  });
 }
 
 function recommendationCenterLatestEvidence(item) {
@@ -252,16 +275,18 @@ function createRecommendationCard(item) {
 }
 
 function renderRecommendationCenter(payload = {}) {
-  const list = document.getElementById('recommendation-center-list');
-  const status = document.getElementById('recommendation-center-status');
-  if (!list || !status) return;
   recommendationCenterItems = (Array.isArray(payload.items) ? payload.items : [])
     .filter((item) => item.lane === 'serendipity');
   updateRecommendationCenterCount(recommendationCenterItems.length);
-  list.replaceChildren(...recommendationCenterItems.map(createRecommendationCard));
-  status.classList.remove('is-error');
-  status.hidden = recommendationCenterItems.length > 0;
-  status.textContent = '새로운 발견을 준비하고 있습니다.';
+  const activeMount = activeRecommendationCenterMount();
+  recommendationCenterMounts().forEach(({ center, list, status }) => {
+    const isActiveMount = center === activeMount?.center;
+    list.replaceChildren(...(isActiveMount ? recommendationCenterItems.map(createRecommendationCard) : []));
+    if (!isActiveMount) return;
+    status.classList.remove('is-error');
+    status.hidden = recommendationCenterItems.length > 0;
+    status.textContent = '새로운 발견을 준비하고 있습니다.';
+  });
 }
 
 function recommendationCenterToastMessage(items = []) {
@@ -282,8 +307,8 @@ function notifyNewRecommendationCenterItems(items) {
     message: recommendationCenterToastMessage(newItems),
     actionLabel: '확인하기',
     onAction: async () => {
-      await navigateTo('dashboard');
-      document.getElementById('recommendation-center')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      await navigateTo('dashboard-beta');
+      scrollToActiveRecommendationCenter();
     },
     timeoutMs: 8000
   });
@@ -291,8 +316,9 @@ function notifyNewRecommendationCenterItems(items) {
 
 async function loadRecommendationCenter(options = {}) {
   if (recommendationCenterLoadPromise) return recommendationCenterLoadPromise;
-  const status = document.getElementById('recommendation-center-status');
-  const refresh = document.getElementById('recommendation-center-refresh');
+  const mount = activeRecommendationCenterMount();
+  const status = mount?.status;
+  const refresh = mount?.refresh;
   if (!status) return null;
   if (options.force) {
     status.hidden = true;
@@ -329,6 +355,10 @@ async function loadRecommendationCenter(options = {}) {
 
 async function loadRecommendationCenterForDashboard() {
   if (recommendationCenterStartupRefreshCompleted) {
+    if (recommendationCenterItems.length > 0) {
+      renderRecommendationCenter({ items: recommendationCenterItems });
+      return { items: recommendationCenterItems };
+    }
     return loadRecommendationCenter();
   }
   if (recommendationCenterStartupRefreshPromise) {
@@ -358,7 +388,7 @@ function recommendationPreviewMessage(confirmation = {}) {
 async function openRecommendationPresentation(action = {}) {
   const surface = String(action?.target?.surface || '').trim();
   const targets = {
-    'dashboard.recommendations': ['dashboard', ''],
+    'dashboard.recommendations': ['dashboard-beta', ''],
     'blog.quick': ['blog', 'quick'],
     'blog.topics': ['blog', 'topics'],
     'blog.collect': ['blog', 'collect'],
@@ -391,7 +421,7 @@ async function openRecommendationPresentation(action = {}) {
     }
   }
   if (surface === 'dashboard.recommendations') {
-    document.getElementById('recommendation-center')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToActiveRecommendationCenter();
   }
 }
 
@@ -453,9 +483,8 @@ async function handleRecommendationCenterAction(event) {
       if (action === 'dismiss' && result?.replacement) {
         const index = recommendationCenterItems.findIndex((entry) => entry.recommendation_id === item.recommendation_id);
         if (index >= 0) recommendationCenterItems.splice(index, 1, result.replacement);
-        card.replaceWith(createRecommendationCard(result.replacement));
+        renderRecommendationCenter({ items: recommendationCenterItems });
         rememberRecommendationCenterIds([result.replacement]);
-        updateRecommendationCenterCount(recommendationCenterItems.length);
         return;
       }
     }
@@ -470,8 +499,12 @@ async function handleRecommendationCenterAction(event) {
 }
 
 function initRecommendationCenter() {
-  document.getElementById('recommendation-center-list')?.addEventListener('click', handleRecommendationCenterAction);
-  document.getElementById('recommendation-center-refresh')?.addEventListener('click', () => {
-    void loadRecommendationCenter({ force: true, discover: true });
+  recommendationCenterMounts().forEach(({ center, list, refresh }) => {
+    if (center.dataset.recommendationBound === 'true') return;
+    center.dataset.recommendationBound = 'true';
+    list.addEventListener('click', handleRecommendationCenterAction);
+    refresh?.addEventListener('click', () => {
+      void loadRecommendationCenter({ force: true, discover: true });
+    });
   });
 }

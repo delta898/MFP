@@ -99,7 +99,7 @@ function renderDashboardBetaReadinessError() {
   if (error) error.hidden = false;
 }
 
-function dashboardBetaFlowCopy(flow = {}) {
+function dashboardBetaFlowCopy(flow = {}, queue = {}) {
   const state = String(flow.state || 'idle');
   if (flow.busy || ['selecting', 'running'].includes(state)) {
     return {
@@ -122,15 +122,18 @@ function dashboardBetaFlowCopy(flow = {}) {
       message: flow.message || flow.result_status || '다음 발행을 준비할 수 있습니다.'
     };
   }
+  const readyCount = Math.max(0, Number(queue.ready_count) || 0);
   return {
     state: 'idle', badge: '대기 중',
     subject: '현재 실행 중인 글이 없습니다.',
-    message: '대기열에서 바로 실행하거나 연속 발행을 설정할 수 있습니다.'
+    message: readyCount > 0
+      ? `발행 대기 ${readyCount}건이 있습니다. 글감 관리에서 순서와 시간을 확인할 수 있습니다.`
+      : '대기열에 글감을 추가하거나 연속 발행을 설정할 수 있습니다.'
   };
 }
 
 function renderDashboardBetaOperations(overview) {
-  const flowCopy = dashboardBetaFlowCopy(overview?.flow);
+  const flowCopy = dashboardBetaFlowCopy(overview?.flow, overview?.queue);
   const flowBadge = document.getElementById('dashboard-beta-flow-badge');
   const flowIndicator = document.getElementById('dashboard-beta-flow-indicator');
   if (flowBadge) {
@@ -165,6 +168,9 @@ function renderDashboardBetaOperations(overview) {
     automationBadge.dataset.state = automationState;
     automationBadge.textContent = automationLabel;
   }
+  setText('dashboard-beta-automation-action', automationState === 'on'
+    ? '설정 보기'
+    : automationState === 'attention' ? '설정 확인' : '연속 발행 설정');
   setText('dashboard-beta-next-time', nextTime);
   setText('dashboard-beta-next-copy', nextCopy);
 
@@ -380,6 +386,7 @@ function bindDashboardBetaActions() {
 
 async function loadDashboardBeta(options = {}) {
   bindDashboardBetaActions();
+  void loadRecommendationCenterForDashboard();
   const force = options.force === true;
   if (dashboardBetaLoading) return;
   if (!force && Date.now() - dashboardBetaLastLoadedAt < 5000) return;

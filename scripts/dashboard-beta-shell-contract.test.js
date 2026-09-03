@@ -60,11 +60,39 @@ test('Dashboard Beta distinguishes processed and public results across today and
 
 test('Dashboard Beta exposes direct paths to queue and automation without legacy controls', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaStyle = read('ui/styles/features/dashboard-beta.css');
 
     assert.match(betaView, /data-dashboard-beta-tab="queue">글감 관리/);
     assert.match(betaView, /data-dashboard-beta-tab="automation">연속 발행 설정/);
     assert.match(betaView, /data-dashboard-beta-tab="queue">전체 대기열 보기/);
+    assert.equal((betaView.match(/data-dashboard-beta-tab="automation"/g) || []).length, 1);
+    assert.match(betaView, /id="dashboard-beta-automation-action"/);
+    assert.match(betaView, /<p>실제 공개된 글<\/p>/);
+    assert.match(betaScript, /발행 대기 \$\{readyCount\}건이 있습니다/);
+    assert.match(betaScript, /automationState === 'on'[\s\S]*'설정 보기'[\s\S]*'설정 확인'/);
+    assert.match(betaStyle, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(betaStyle, /\.dashboard-beta-flow-actions\s*\{[^}]*justify-content:\s*flex-end/);
+    assert.match(betaStyle, /@media \(max-width: 720px\)[\s\S]*\.dashboard-beta-flow-actions\s*\{[^}]*justify-content:\s*flex-start/);
     assert.doesNotMatch(betaView, /쇼핑 자동발행|최신 콘텐츠|뜻밖의 발견|최근 활동 이력/);
+});
+
+test('Dashboard Beta restores the shared new discovery center without blocking operations', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const legacyView = read('ui/partials/views/dashboard.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const centerScript = read('ui/scripts/features/recommendations/center.js');
+
+    assert.match(betaView, /id="dashboard-beta-discovery"[^>]*data-recommendation-center/);
+    assert.match(betaView, /dashboard-beta-eyebrow">글감<\/span>\s*<div class="recommendation-center-title-row">\s*<h2 id="dashboard-beta-discovery-title">새로운 발견/);
+    assert.match(betaView, /id="dashboard-beta-discovery-title">새로운 발견/);
+    assert.match(betaView, /id="dashboard-beta-discovery-list"[^>]*data-recommendation-list/);
+    assert.match(betaView, /data-idle-label="새 소재 찾기"/);
+    assert.match(legacyView, /id="recommendation-center"[^>]*data-recommendation-center/);
+    assert.match(betaScript, /void loadRecommendationCenterForDashboard\(\)/);
+    assert.match(centerScript, /function activeRecommendationCenterMount\(\)/);
+    assert.match(centerScript, /'dashboard\.recommendations': \['dashboard-beta', ''\]/);
+    assert.match(centerScript, /await navigateTo\('dashboard-beta'\)/);
 });
 
 test('the productized Dashboard shows one remote BlogGenius tip and hides an empty region', () => {
