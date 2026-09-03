@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-02 · 최신 릴리스: `v0.4.0` · 다음 버전: `v0.4.1`
+> 현행 기준: 2026-09-03 · 최신 릴리스: `v0.4.1` · 다음 버전: `v0.4.2`
 
 ## P0 — 현재 진행
 
@@ -267,13 +267,19 @@
    - HTTP 서버, 추천 scheduler, Telegram, MCP 등 비동기 자원의 종료 완료와 제한 시간 이후 강제 종료를 검증한다.
    - 현재 Supabase SDK 하위의 `whatwg-url / tr46`에서 발생하는 Node `punycode` deprecation 경고를 SDK 갱신과 전체 회귀 검증으로 제거한다.
 
-14. 여행커넥트 연동
+14. Windows AgentMemory 저장소 복구
+   - Kuzu 0.11.3 Windows prebuilt가 `node.exe`가 아닌 Electron 실행 파일에서 load되지 않는 제약을 해결한다.
+   - release CI에서 Kuzu 전체 C++ 소스를 매번 빌드하는 방식은 긴 실행 시간과 Actions quota 비용 때문에 사용하지 않는다.
+   - Electron·Kuzu·Windows x64 조합별로 한 번 검증한 native binary를 통제된 package 또는 asset으로 제공하고 SHA-256과 실제 packaged-app load gate를 함께 운영하는 방안을 검토한다.
+   - Kuzu upstream이 archive된 점을 고려해 SQLite 등 유지되는 저장소를 사용하는 durable fallback 또는 backend 교체 비용과 migration·rollback을 비교한다.
+
+15. 여행커넥트 연동
    - 여행 상품·숙소·교통·체험 등 실제 연동 대상과 제휴 제공자를 먼저 조사하고, 사용자에게 제공할 정보와 수익 모델을 정의한다.
    - 여행 소재 탐색부터 상품 선택, 여행 글 작성, 링크 삽입과 발행 결과까지의 흐름을 별도 product capability로 설계한다.
    - provider 이름을 UI·본문 생성 로직에 직접 결합하지 않고 검색·상품 정보·제휴 링크 생성·성과 추적을 adapter 계약으로 분리한다.
    - 가격·재고·일정처럼 변하는 정보는 출처와 확인 시각을 표시하고, 유효하지 않은 링크나 사실과 다른 추천이 발행되지 않도록 실행 전 검증한다.
 
-15. 카드뉴스 생성·발행
+16. 카드뉴스 생성·발행
    - 블로그 원고나 입력한 주제를 여러 장의 카드로 요약하고, 표지·본문·마무리 카드의 메시지 계층을 일관되게 구성한다.
    - 카드 수, 화면 비율, 브랜드 스타일, 글자량과 이미지 사용 방식을 profile로 관리하고 작은 화면에서도 읽을 수 있는 결과를 우선한다.
    - 이미지 생성과 텍스트 배치를 분리해 카드별 수정·재생성이 가능하게 하고, 실패해도 마지막으로 확인한 카드 묶음을 보존한다.
