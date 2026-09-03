@@ -5,7 +5,7 @@
 - Branch: `codex/feature/help-upgrade-main`
 - Base/parent branch: `dev`
 - Start date: 2026-09-03
-- Status: 진행 중
+- Status: 완료
 
 ## 사용자 필요와 목표
 
@@ -67,4 +67,12 @@ Dashboard는 운영 정보를 중심으로 유지하고, 설치·연동·글쓰�
 
 ## 최종 결과 및 검증
 
-진행 중. 각 단계는 독립적인 sub-feature 기록과 자동 검증 결과를 남긴다.
+내부 Help 기반, 원격 카탈로그, Dashboard 연결의 3단계를 완료했다. Help는 설치·연동·글쓰기·자동화 가이드와 보조 자료를 한 화면에서 제공하며, 원격 장애나 빈 응답에도 로컬 핵심 가이드를 유지한다. 콘텐츠가 충분히 늘어나면 검색이나 분류 방식은 후속 최적화로 다룬다.
+
+- 사용자 UI 확인: 3단계 모두 완료
+- focused UI/contracts: 통과
+- browser smoke: 최종 176 fixture requests 통과
+- full unit suite: 최종 1,305 passed
+- Development Help placement: 11건 적용 및 확인
+- Production Help placement: 11건을 `minimum_app_version = 0.4.2`로 선반영 및 확인
+- release, tag, push: 수행하지 않음
