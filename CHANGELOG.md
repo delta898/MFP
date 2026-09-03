@@ -3,6 +3,15 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-03
+
+### Fixed
+- **Windows 신규 설치 화면 복구**: Windows x64 installer로 처음 설치한 뒤 Dashboard의 스타일과 화면 동작이 적용되지 않던 문제를 해결했습니다.
+- **macOS Apple Silicon 첫 실행 안정화**: 앱을 새 위치에서 처음 실행할 때 기본 설정을 찾지 못해 종료되던 문제를 해결하고, 필요한 기본 설정과 이미지를 안전하게 준비합니다.
+
+### Known limitations
+- **Windows 지능형 메모리 제한**: Windows 신규 설치 환경에서는 지능형 메모리가 비활성화될 수 있습니다. 이 경우에도 Dashboard와 블로그 작성·발행 등 나머지 기능은 계속 사용할 수 있습니다.
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

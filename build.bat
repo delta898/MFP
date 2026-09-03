@@ -76,7 +76,9 @@ echo    📦 GUI 빌드 중...
 call npx electron-packager . "%APP_NAME%" ^
     --platform=win32 --arch=x64 ^
     --out=dist\gui-temp --overwrite ^
-    --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" ^
+    --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" ^
+    --extra-resource="config/config.json.sample" ^
+    --extra-resource="config/images" ^
     --icon=assets/icons/icon ^
     --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|NaverBlogAutoTool|BlogGenius.app)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" ^
     --quiet
@@ -89,6 +91,13 @@ if exist "dist\gui-temp\%APP_NAME%-win32-x64" (
     xcopy /e /i /y "dist\gui-temp\%APP_NAME%-win32-x64\*" "%ROOT_OUT%\" >nul
 )
 if exist "dist\gui-temp" rmdir /s /q "dist\gui-temp"
+
+echo    📦 Microsoft Visual C++ x64 runtime 포함 중...
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\copy-vc-runtime.ps1" -PackageDir "%ROOT_OUT%"
+if errorlevel 1 (
+    echo    ❌ [Error] Microsoft Visual C++ x64 runtime 포함 실패
+    exit /b 1
+)
 
 echo    ✅ win-x64 빌드 완료
 

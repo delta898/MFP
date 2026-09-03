@@ -15,7 +15,7 @@ function buildDisabledEventStore(reason) {
         loggedDisabledReason = true;
         Logger.warn(`⚠️ [AgentMemory] Kuzu 메모리 기능을 비활성화합니다: ${message}`);
         if (process.platform === 'win32') {
-            Logger.warn('ℹ️ [AgentMemory] Windows에서 Microsoft Visual C++ Redistributable(2015-2022 x64) 설치가 필요할 수 있습니다.');
+            Logger.warn('ℹ️ [AgentMemory] 이 버전의 Windows에서는 지능형 메모리가 제한되지만 Dashboard와 작성·발행 기능은 계속 사용할 수 있습니다.');
         }
     }
 
