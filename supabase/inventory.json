@@ -213,6 +213,10 @@
       "classification": "content_operator_action"
     },
     {
+      "path": "supabase/operations/content/supabase_surface_content_help_catalog.sql",
+      "classification": "content_operator_action"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_support_seed.sql",
       "classification": "content_operator_action"
     },

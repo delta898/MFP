@@ -48,6 +48,21 @@ function createSurfaceContentController(deps = {}) {
                     error
                 );
             }
+        },
+
+        async help({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getHelp());
+            } catch (error) {
+                return toErrorResponse(
+                    res,
+                    requestId,
+                    'SURFACE_CONTENT_FAILED',
+                    '도움말 콘텐츠를 불러오지 못했습니다.',
+                    error
+                );
+            }
         }
     };
 }

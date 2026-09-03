@@ -259,6 +259,32 @@ function getApiFixture(pathname) {
             }
         };
     }
+    if (pathname === '/api/v1/surface-content/help') {
+        const block = (id, kind, title, targetUrl, ctaLabel, icon = 'book', sortOrder = 100) => ({
+            id, kind, presentation: 'compact_card', title, icon, media: null,
+            targetUrl, ctaLabel, disclosure: '', sortOrder
+        });
+        return {
+            schemaVersion: 1,
+            policyRevision: 1,
+            surface: 'help',
+            generatedAt: new Date().toISOString(),
+            regions: {
+                getting_started: { blocks: [
+                    block('remote-help-install', 'resource', '원격 설치 가이드', 'https://example.com/help/install', '설치 방법 보기')
+                ] },
+                writing: { blocks: [
+                    block('remote-help-writing', 'resource', '원격 글쓰기 가이드', 'https://example.com/help/writing', '작성 방법 보기')
+                ] },
+                automation: { blocks: [
+                    block('remote-help-automation', 'resource', '원격 자동화 가이드', 'https://example.com/help/automation', '자동화 방법 보기')
+                ] },
+                supporting: { blocks: [
+                    block('remote-help-support', 'support', '개발자 응원하기', 'https://example.com/help/support', '후원 페이지 열기', 'heart')
+                ] }
+            }
+        };
+    }
     if (pathname.startsWith('/api/v1/surface-content/')) return { regions: {} };
     if (pathname === '/api/v1/auto/status') return { enabled: false };
     if (pathname === '/api/v1/system/update/check') return { available: false };
@@ -892,9 +918,12 @@ async function run() {
         await page.locator('.nav-btn[data-view="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
         assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
-        assert.notEqual((await page.locator('#view-help [data-clock-display]').textContent()).trim(), '');
-        assert.equal(await page.locator('#view-help .help-start-list a').count(), 5);
+        assert.notEqual((await page.locator('#view-help [data-clock-display]').innerHTML()).trim(), '');
+        await page.waitForFunction(() => document.querySelector('#help-getting-started-region strong')?.textContent === '원격 설치 가이드');
+        assert.equal(await page.locator('#view-help .help-start-list a').count(), 1);
         assert.equal(await page.locator('#view-help .help-topic-card').count(), 2);
+        assert.equal(await page.locator('#help-supporting-section').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#help-supporting-region').textContent()).includes('개발자 응원하기'), true);
         assert.equal(await page.locator('#view-help .help-contact-action').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);

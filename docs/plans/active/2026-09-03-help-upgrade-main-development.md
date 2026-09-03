@@ -25,7 +25,7 @@ Dashboard는 운영 정보를 중심으로 유지하고, 설치·연동·글쓰�
 - Help 콘텐츠 편집용 backoffice
 - 전문 검색, 즐겨찾기, 열람 이력 동기화
 - 결제·후원 처리
-- production surface-content 데이터 변경
+- Help 카탈로그 외 production surface-content 데이터 변경
 - 버전 변경, release, push 또는 배포
 
 ## 사용자와 결정한 사항
@@ -58,6 +58,9 @@ Dashboard는 운영 정보를 중심으로 유지하고, 설치·연동·글쓰�
 
 - 2026-09-03: Dashboard 2차 고도화 parent를 `dev`에 병합한 뒤 Help 고도화 parent를 시작했다.
 - 2026-09-03: 첫 sub-feature `codex/feature/help-upgrade-01-foundation`에서 내부 Help view와 기본 가이드 탐색 동선을 구현하고 사용자 UI 확인 및 전체 unit suite를 완료했다. 세부 기록은 [Help 기반 개발 기록](../archive/2026-09-03-help-upgrade-01-foundation-development.md)을 따른다.
+- 2026-09-03: 두 번째 sub-feature `codex/feature/help-upgrade-02-remote-catalog`에서 Help 전용 원격 가이드 카탈로그 연결을 시작했다. 세부 기록은 [원격 카탈로그 개발 기록](../archive/2026-09-03-help-upgrade-02-remote-catalog-development.md)을 따른다.
+- 2026-09-04: 2단계 코드와 fixture 기반 자동 검증을 완료하고, 사용자 승인에 따라 Help 카탈로그 운영 SQL을 Development에만 적용했다. 총 11개 placement를 확인했으며 Production에는 적용하지 않았다.
+- 2026-09-04: v0.4.1이 installer hot patch로 이미 배포됐다는 사용자 확인에 따라 다음 기능 버전을 `0.4.2` 후보로 정정했다. 사용자 승인 후 Help 카탈로그 11건을 Production에 `minimum_app_version = 0.4.2`로 선반영하고 조회 검증했다.
 
 ## 최종 결과 및 검증
 

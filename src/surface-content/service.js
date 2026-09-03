@@ -1,4 +1,9 @@
-const { normalizeSidebarPayload, normalizeDashboardPayload, normalizeAccountPayload } = require('./schema');
+const {
+    normalizeSidebarPayload,
+    normalizeDashboardPayload,
+    normalizeAccountPayload,
+    normalizeHelpPayload
+} = require('./schema');
 
 const MEMORY_CACHE_TTL_MS = 60 * 1000;
 
@@ -31,6 +36,21 @@ function emptyAccountPayload() {
         policyRevision: 0,
         surface: 'account',
         regions: { supporting: { blocks: [] } },
+        generatedAt: ''
+    };
+}
+
+function emptyHelpPayload() {
+    return {
+        schemaVersion: 1,
+        policyRevision: 0,
+        surface: 'help',
+        regions: {
+            getting_started: { blocks: [] },
+            writing: { blocks: [] },
+            automation: { blocks: [] },
+            supporting: { blocks: [] }
+        },
         generatedAt: ''
     };
 }
@@ -77,7 +97,8 @@ function createSurfaceContentService(options = {}) {
     return {
         getSidebar: () => loadSurface('sidebar', normalizeSidebarPayload, emptySidebarPayload),
         getDashboard: () => loadSurface('dashboard', normalizeDashboardPayload, emptyDashboardPayload),
-        getAccount: () => loadSurface('account', normalizeAccountPayload, emptyAccountPayload)
+        getAccount: () => loadSurface('account', normalizeAccountPayload, emptyAccountPayload),
+        getHelp: () => loadSurface('help', normalizeHelpPayload, emptyHelpPayload)
     };
 }
 
@@ -85,5 +106,6 @@ module.exports = {
     createSurfaceContentService,
     emptySidebarPayload,
     emptyDashboardPayload,
-    emptyAccountPayload
+    emptyAccountPayload,
+    emptyHelpPayload
 };

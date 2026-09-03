@@ -44,6 +44,9 @@ window.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
         void loadDashboardBeta({ force: true });
       }
+      if (document.getElementById('view-help')?.classList.contains('active')) {
+        void refreshHelpCatalog();
+      }
       void refreshAccountDynamicContent();
     }
   });
@@ -56,6 +59,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
       void loadDashboardBeta({ force: true });
+    }
+    if (document.getElementById('view-help')?.classList.contains('active')) {
+      void refreshHelpCatalog();
     }
     void refreshAccountDynamicContent();
   });

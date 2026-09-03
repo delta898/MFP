@@ -34,13 +34,21 @@ test('Help foundation exposes the agreed guide groups and safe official links', 
   });
 });
 
-test('Help navigation initializes once and remains available in mobile quick mode', () => {
+test('Help navigation initializes once, refreshes its catalog, and remains available in mobile quick mode', () => {
   const helpScript = read('ui/scripts/features/shell/help.js');
   const navigation = read('ui/scripts/foundation/navigation.js');
   const responsive = read('ui/styles/layout/responsive.css');
 
-  assert.match(helpScript, /view\.dataset\.initialized === 'true'/);
+  assert.match(helpScript, /view\.dataset\.initialized !== 'true'/);
   assert.match(helpScript, /navigateTo\(button\.dataset\.helpNav, button\.dataset\.helpTab \|\| undefined\)/);
+  assert.match(helpScript, /fetchJson\('\/api\/v1\/surface-content\/help'\)/);
+  assert.match(helpScript, /keeping local guides/);
+  assert.match(helpScript, /captureHelpLocalFallbacks\(view\)/);
+  assert.match(helpScript, /restoreHelpLocalFallback\(element\)/);
+  assert.match(helpScript, /copy\.className = 'help-catalog-copy'/);
+  assert.match(helpScript, /arrow\.className = 'help-link-arrow'/);
+  assert.match(helpScript, /regions\.getting_started\?\.blocks/);
+  assert.match(helpScript, /renderHelpSupportingRegion\(regions\.supporting\?\.blocks\)/);
   assert.match(navigation, /'account', 'help'/);
   assert.match(navigation, /viewName === 'help'[\s\S]*initHelpView\(\)/);
   assert.doesNotMatch(responsive, /body\.mobile-quick-mode \.nav-help-link\s*\{/);

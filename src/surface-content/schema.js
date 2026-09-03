@@ -221,8 +221,18 @@ function normalizeAccountPayload(rawPayload, options = {}) {
     });
 }
 
+function normalizeHelpPayload(rawPayload, options = {}) {
+    return normalizeCompactCardPayload(rawPayload, options, 'help', {
+        getting_started: new Set(['resource']),
+        writing: new Set(['resource']),
+        automation: new Set(['resource']),
+        supporting: ALLOWED_KINDS
+    });
+}
+
 module.exports = {
     normalizeSidebarPayload,
     normalizeDashboardPayload,
-    normalizeAccountPayload
+    normalizeAccountPayload,
+    normalizeHelpPayload
 };
