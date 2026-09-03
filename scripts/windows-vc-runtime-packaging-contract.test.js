@@ -14,8 +14,8 @@ test('Windows release packaging bundles and verifies the app-local VC runtime', 
 
     assert.match(workflow, /Bundle and Verify Windows VC\+\+ Runtime/);
     assert.match(workflow, /copy-vc-runtime[.]ps1 -PackageDir/);
-    assert.match(workflow, /ELECTRON_RUN_AS_NODE/);
-    assert.match(workflow, /Kuzu native module loaded/);
+    assert.match(workflow, /--verify-native-modules/);
+    assert.match(workflow, /BlogGenius packaged Kuzu native module loaded/);
 
     for (const file of ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll']) {
         assert.match(script, new RegExp(file.replace(/[.]/g, '[.]'), 'i'));

@@ -152,6 +152,11 @@ jobs:
             --target production \
             --input src/config/secret.js
 
+      - name: Rebuild Windows Kuzu for Electron
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: ./scripts/windows/rebuild-kuzu-for-electron.ps1
+
       - name: Build GUI App
         shell: bash
         run: |
@@ -199,15 +204,13 @@ jobs:
             }
           }
 
-          $kuzuPath = Join-Path $packageDir 'resources\app.asar.unpacked\node_modules\kuzu'
-          $env:ELECTRON_RUN_AS_NODE = '1'
-          try {
-            & (Join-Path $packageDir 'BlogGenius.exe') -e "require(process.argv[1]); process.stdout.write('Kuzu native module loaded\\n')" $kuzuPath
-            if ($LASTEXITCODE -ne 0) {
-              throw "Packaged Kuzu load smoke test failed with exit code $LASTEXITCODE"
-            }
-          } finally {
-            Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+          $verificationOutput = @(& (Join-Path $packageDir 'BlogGenius.exe') --verify-native-modules 2>&1)
+          $verificationOutput | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Packaged Kuzu load smoke test failed with exit code $LASTEXITCODE"
+          }
+          if (($verificationOutput -join "`n") -notmatch 'BlogGenius packaged Kuzu native module loaded') {
+            throw 'Packaged Kuzu load smoke test did not emit its success marker.'
           }
 
       - name: Code Sign (macOS)

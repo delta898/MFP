@@ -3,12 +3,17 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.1-dev2] - 2026-09-03
+
+### Fixed
+- **Windows 지능형 메모리 실행 복구**: Windows용 지능형 메모리 구성 요소를 앱 실행 환경에 맞춰 제공해 신규 설치 후 관련 기능이 비활성화되던 문제를 해결했습니다.
+
 ## [0.4.1-dev1] - 2026-09-03
 
 ### Fixed
 - **Windows 신규 설치 화면 복구**: Windows x64 installer로 처음 설치한 뒤 Dashboard의 스타일과 화면 동작이 적용되지 않던 문제를 해결했습니다.
 - **macOS Apple Silicon 첫 실행 안정화**: 앱을 새 위치에서 처음 실행할 때 기본 설정을 찾지 못해 종료되던 문제를 해결하고, 필요한 기본 설정과 이미지를 안전하게 준비합니다.
-- **Windows 지능형 메모리 실행 지원**: 깨끗한 Windows 환경에서도 필요한 Visual C++ 실행 구성 요소를 앱과 함께 제공해 지능형 메모리가 비활성화되는 문제를 해결했습니다.
+- **Windows 지능형 메모리 실행 구성 요소 포함**: 깨끗한 Windows 환경에 필요한 Visual C++ 실행 구성 요소를 앱과 함께 제공합니다.
 
 ## [0.4.0] - 2026-09-02
 
