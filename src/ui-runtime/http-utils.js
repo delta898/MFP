@@ -71,9 +71,22 @@ function createUiHttpUtils(deps = {}) {
     }
 
     function sanitizePathname(pathname) {
-        const safe = String(pathname || '/').split('?')[0].split('#')[0];
-        const normalized = path.normalize(safe).replace(/^(\.\.[/\\])+/, '');
-        return normalized.startsWith('/') ? normalized.slice(1) : normalized;
+        const rawPath = String(pathname || '/')
+            .split('?')[0]
+            .split('#')[0]
+            .replace(/\\/g, '/');
+        const segments = [];
+
+        for (const segment of rawPath.split('/')) {
+            if (!segment || segment === '.') continue;
+            if (segment === '..') {
+                segments.pop();
+                continue;
+            }
+            segments.push(segment);
+        }
+
+        return segments.join('/');
     }
 
     function shouldServeUiShell(pathname, safePath) {
