@@ -3,7 +3,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
-## [0.4.1-rc1] - 2026-09-03
+## [0.4.1] - 2026-09-03
 
 ### Fixed
 - **Windows 신규 설치 화면 복구**: Windows x64 installer로 처음 설치한 뒤 Dashboard의 스타일과 화면 동작이 적용되지 않던 문제를 해결했습니다.
