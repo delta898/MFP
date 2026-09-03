@@ -26,8 +26,7 @@
   body.mobile-quick-mode .nav-btn[data-view="blog-next"],
   body.mobile-quick-mode .nav-btn[data-view="shopping"],
   body.mobile-quick-mode .nav-btn[data-view="settings"],
-  body.mobile-quick-mode .nav-btn[data-view="logs"],
-  body.mobile-quick-mode .nav-help-link {
+  body.mobile-quick-mode .nav-btn[data-view="logs"] {
     display: none;
   }
 

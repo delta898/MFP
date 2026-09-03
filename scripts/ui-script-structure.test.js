@@ -62,6 +62,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/shell/account-actions.js',
         'scripts/features/shell/dashboard.js',
         'scripts/features/shell/dashboard-beta.js',
+        'scripts/features/shell/help.js',
         'scripts/features/shell/activity-logs.js',
         'scripts/features/shell/system-logs.js',
         'scripts/features/shell/celebration.js',

@@ -2,7 +2,7 @@ async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'dashboard-beta', 'blog', 'social', 'account'].includes(requestedView)) {
+    if (!['dashboard', 'dashboard-beta', 'blog', 'social', 'account', 'help'].includes(requestedView)) {
       viewName = 'blog';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -48,6 +48,10 @@ async function navigateTo(viewName, subTab) {
   }
   if (viewName === 'account') {
     loadAccountOverview().catch((error) => console.warn('[Account Overview]', error.message));
+    return;
+  }
+  if (viewName === 'help') {
+    initHelpView();
     return;
   }
   if (viewName === 'social') {
@@ -131,7 +135,7 @@ function applyMobileQuickMode() {
     return;
   }
 
-  if (activeView && !['dashboard', 'dashboard-beta', 'blog'].includes(activeView)) {
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog', 'help'].includes(activeView)) {
     void navigateTo('blog', 'quick');
   }
 }

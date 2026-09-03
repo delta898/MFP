@@ -888,6 +888,14 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
         assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').textContent()).trim(), '대시보드');
+        assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
+        await page.locator('.nav-btn[data-view="help"]').click();
+        assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
+        assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
+        assert.notEqual((await page.locator('#view-help [data-clock-display]').textContent()).trim(), '');
+        assert.equal(await page.locator('#view-help .help-start-list a').count(), 5);
+        assert.equal(await page.locator('#view-help .help-topic-card').count(), 2);
+        assert.equal(await page.locator('#view-help .help-contact-action').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);

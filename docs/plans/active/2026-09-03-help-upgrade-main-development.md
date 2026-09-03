@@ -57,6 +57,7 @@ Dashboard는 운영 정보를 중심으로 유지하고, 설치·연동·글쓰�
 ## 진행 및 변경 기록
 
 - 2026-09-03: Dashboard 2차 고도화 parent를 `dev`에 병합한 뒤 Help 고도화 parent를 시작했다.
+- 2026-09-03: 첫 sub-feature `codex/feature/help-upgrade-01-foundation`에서 내부 Help view와 기본 가이드 탐색 동선을 구현하고 사용자 UI 확인 및 전체 unit suite를 완료했다. 세부 기록은 [Help 기반 개발 기록](../archive/2026-09-03-help-upgrade-01-foundation-development.md)을 따른다.
 
 ## 최종 결과 및 검증
 

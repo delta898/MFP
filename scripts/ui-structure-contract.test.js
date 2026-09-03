@@ -116,6 +116,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
         'partials/views/account.html',
         'partials/views/settings.html',
         'partials/views/logs.html',
+        'partials/views/help.html',
         'partials/overlays.html'
     ]);
     assert.equal(new Set(includePaths).size, includePaths.length);
