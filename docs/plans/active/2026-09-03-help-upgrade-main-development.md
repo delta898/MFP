@@ -61,6 +61,9 @@ Dashboard는 운영 정보를 중심으로 유지하고, 설치·연동·글쓰�
 - 2026-09-03: 두 번째 sub-feature `codex/feature/help-upgrade-02-remote-catalog`에서 Help 전용 원격 가이드 카탈로그 연결을 시작했다. 세부 기록은 [원격 카탈로그 개발 기록](../archive/2026-09-03-help-upgrade-02-remote-catalog-development.md)을 따른다.
 - 2026-09-04: 2단계 코드와 fixture 기반 자동 검증을 완료하고, 사용자 승인에 따라 Help 카탈로그 운영 SQL을 Development에만 적용했다. 총 11개 placement를 확인했으며 Production에는 적용하지 않았다.
 - 2026-09-04: v0.4.1이 installer hot patch로 이미 배포됐다는 사용자 확인에 따라 다음 기능 버전을 `0.4.2` 후보로 정정했다. 사용자 승인 후 Help 카탈로그 11건을 Production에 `minimum_app_version = 0.4.2`로 선반영하고 조회 검증했다.
+- 2026-09-04: 2단계를 parent에 병합하고 마지막 sub-feature `codex/feature/help-upgrade-03-dashboard-link`에서 Dashboard 활용 팁과 내부 Help 연결을 시작했다. 세부 기록은 [Dashboard 연결 개발 기록](../archive/2026-09-04-help-upgrade-03-dashboard-link-development.md)을 따른다.
+- 2026-09-04: Dashboard 활용 팁 우측에 중복 없는 `전체 가이드 보기` 행동을 추가하고 내부 Help 이동을 자동 검증했다. 사용자 UI 확인을 기다린다.
+- 2026-09-04: 사용자가 Dashboard 연결 UI를 승인했다. 3단계 parent 병합 전 전체 단위 테스트 1,305개를 통과했다.
 
 ## 최종 결과 및 검증
 

@@ -915,7 +915,7 @@ async function run() {
         assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').textContent()).trim(), '대시보드');
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
-        await page.locator('.nav-btn[data-view="help"]').click();
+        await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
         assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
         assert.notEqual((await page.locator('#view-help [data-clock-display]').innerHTML()).trim(), '');

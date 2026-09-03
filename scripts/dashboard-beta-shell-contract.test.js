@@ -103,6 +103,8 @@ test('the productized Dashboard shows one remote BlogGenius tip and hides an emp
     assert.match(betaView, /id="dashboard-beta-tips-section"[^>]*hidden/);
     assert.match(betaView, /id="dashboard-beta-tips-title">BlogGenius 활용 팁/);
     assert.match(betaView, /id="dashboard-beta-tips-region"/);
+    assert.match(betaView, /data-dashboard-beta-nav="help">전체 가이드 보기/);
+    assert.equal((betaView.match(/data-dashboard-beta-nav="help"/g) || []).length, 1);
     assert.match(betaScript, /initDashboardBetaDynamicContent\(\)/);
     assert.match(supportingScript, /function initDashboardBetaDynamicContent\(\)/);
     assert.match(betaView, /30분마다 새롭게/);
