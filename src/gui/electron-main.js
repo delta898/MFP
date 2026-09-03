@@ -8,10 +8,6 @@ process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
 
 // 💡 [Portable First] 하위 모듈 설정 로드
 const CONFIG = require('../config-loader');
-const {
-    isNativeModuleVerificationRequested,
-    verifyPackagedNativeModules
-} = require('./native-module-verification');
 
 // 로그 디렉토리를 미리 생성해 둡니다. (logger.js 가 로드될 때 오류 방지)
 // config-loader 가 결정한 ROOT_DIR 을 따릅니다.
@@ -243,13 +239,6 @@ async function createWindow() {
 
 // 앱 준비 완료 시 실행
 app.whenReady().then(() => {
-    if (isNativeModuleVerificationRequested()) {
-        const { loadKuzu } = require('../memory/event-store');
-        const succeeded = verifyPackagedNativeModules({ loadKuzu });
-        app.exit(succeeded ? 0 : 1);
-        return;
-    }
-
     createMenu();
     createWindow();
 

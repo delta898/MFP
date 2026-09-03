@@ -14,8 +14,8 @@ test('Windows release packaging bundles and verifies the app-local VC runtime', 
 
     assert.match(workflow, /Bundle and Verify Windows VC\+\+ Runtime/);
     assert.match(workflow, /copy-vc-runtime[.]ps1 -PackageDir/);
-    assert.match(workflow, /--verify-native-modules/);
-    assert.match(workflow, /BlogGenius packaged Kuzu native module loaded/);
+    assert.doesNotMatch(workflow, /rebuild-kuzu-for-electron/);
+    assert.doesNotMatch(workflow, /--verify-native-modules/);
 
     for (const file of ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll']) {
         assert.match(script, new RegExp(file.replace(/[.]/g, '[.]'), 'i'));
@@ -23,6 +23,13 @@ test('Windows release packaging bundles and verifies the app-local VC runtime', 
     }
     assert.match(script, /Microsoft[.]VC[*][.]CRT/);
     assert.match(script, /Copy-Item/);
+});
+
+test('release uploads use the Node 24 compatible GitHub Release action', () => {
+    const workflow = read('.github/workflows/build.yml');
+
+    assert.doesNotMatch(workflow, /softprops\/action-gh-release@v2/);
+    assert.equal((workflow.match(/softprops\/action-gh-release@v3/g) || []).length, 9);
 });
 
 test('local Windows packaging unpacks Kuzu and invokes the shared runtime bundler', () => {

@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-01 · 최신 릴리스: `v0.3.0` · 다음 버전: 미정
+> 현행 기준: 2026-09-03 · 최신 릴리스: `v0.4.0` · 다음 버전: `v0.4.1`
 
 ## P0 — 현재 진행
 
@@ -253,6 +253,12 @@
    - UI 종료 요청이 `process.exit()`를 직접 호출하지 않게 하고, Electron·CLI가 공통 graceful shutdown coordinator를 사용하도록 정리한다.
    - HTTP 서버, 추천 scheduler, Telegram, MCP 등 비동기 자원의 종료 완료와 제한 시간 이후 강제 종료를 검증한다.
    - 현재 Supabase SDK 하위의 `whatwg-url / tr46`에서 발생하는 Node `punycode` deprecation 경고를 SDK 갱신과 전체 회귀 검증으로 제거한다.
+
+14. Windows AgentMemory 저장소 복구
+   - Kuzu 0.11.3 Windows prebuilt가 `node.exe`가 아닌 Electron 실행 파일에서 load되지 않는 제약을 해결한다.
+   - release CI에서 Kuzu 전체 C++ 소스를 매번 빌드하는 방식은 긴 실행 시간과 Actions quota 비용 때문에 사용하지 않는다.
+   - Electron·Kuzu·Windows x64 조합별로 한 번 검증한 native binary를 통제된 package 또는 asset으로 제공하고 SHA-256과 실제 packaged-app load gate를 함께 운영하는 방안을 검토한다.
+   - Kuzu upstream이 archive된 점을 고려해 SQLite 등 유지되는 저장소를 사용하는 durable fallback 또는 backend 교체 비용과 migration·rollback을 비교한다.
 
 ## P3 — 후순위
 

@@ -72,13 +72,6 @@ if exist "README.md" (
     copy /y "README.md" "%ROOT_OUT%\README.md" >nul
 )
 
-echo    🔧 Windows Kuzu Electron 호환 모듈 빌드 중...
-powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\rebuild-kuzu-for-electron.ps1"
-if errorlevel 1 (
-    echo    ❌ [Error] Windows Kuzu Electron 호환 모듈 빌드 실패
-    exit /b 1
-)
-
 echo    📦 GUI 빌드 중...
 call npx electron-packager . "%APP_NAME%" ^
     --platform=win32 --arch=x64 ^
