@@ -228,7 +228,20 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/surface-content/dashboard') {
         return {
             regions: {
-                supporting: { blocks: [] },
+                supporting: {
+                    blocks: [{
+                        id: 'developer-support-dashboard',
+                        kind: 'support',
+                        presentation: 'compact_card',
+                        title: '개발자 응원하기',
+                        icon: 'heart',
+                        media: null,
+                        targetUrl: 'https://example.com/support',
+                        ctaLabel: '후원 페이지 열기',
+                        disclosure: '',
+                        sortOrder: 300
+                    }]
+                },
                 recommendations: {
                     blocks: [{
                         id: 'bloggenius-tip-1',
@@ -862,6 +875,12 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-tips-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#dashboard-beta-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
         assert.equal(await page.locator('#dashboard-beta-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
+        await page.waitForFunction(() => document.querySelector('#dashboard-beta-support-teaser-region .surface-supporting-card-support'));
+        assert.equal(await page.locator('#dashboard-beta-support-teaser').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-beta-support-teaser-region').textContent()).includes('개발자 응원하기'), true);
+        assert.equal(await page.locator('#dashboard-beta-support-teaser-region a').getAttribute('href'), 'https://example.com/support');
+        await page.evaluate(() => initDashboardBetaSupportTeaser({ operationallyEligible: true }));
+        assert.equal(await page.locator('#dashboard-beta-support-teaser').evaluate(element => element.hidden), false);
         await page.waitForFunction(() => document.querySelector('#dashboard-beta-discovery-list .recommendation-card h3')?.textContent?.trim() === '로컬 여행');
         assert.equal((await page.locator('#dashboard-beta-discovery-title').textContent())?.trim(), '새로운 발견');
         assert.equal((await page.locator('#dashboard-beta-discovery-count').textContent())?.trim(), '1');

@@ -187,6 +187,28 @@
   display: none;
 }
 
+.dashboard-beta-support-teaser {
+  margin-top: 14px;
+}
+
+.dashboard-beta-support-teaser[hidden] {
+  display: none;
+}
+
+.dashboard-beta-support-teaser-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 6px 6px;
+  color: var(--text-light);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+#dashboard-beta-support-teaser-region .surface-supporting-card {
+  min-height: 76px;
+}
+
 .dashboard-beta-results-card {
   margin-bottom: 18px;
 }

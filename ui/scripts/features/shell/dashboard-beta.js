@@ -32,6 +32,17 @@ function dashboardBetaConnectionState(connection, labels = {}) {
   return { state: 'attention', label: labels.attention || '확인 필요' };
 }
 
+function dashboardBetaCanShowSupportTeaser(accountOverview, operationsOverview) {
+  if (!accountOverview || !operationsOverview) return false;
+  const allowedConnectionStates = new Set(['connected', 'configured', 'not_configured']);
+  const connections = accountOverview.connections || {};
+  if (![connections.naver, connections.wordpress]
+    .every((connection) => allowedConnectionStates.has(String(connection?.status || '').trim()))) return false;
+  const flow = operationsOverview.flow || {};
+  const state = String(flow.state || 'idle');
+  return flow.busy !== true && !['selecting', 'running', 'failed', 'needs_attention', 'blocked'].includes(state);
+}
+
 function createDashboardBetaReadinessButton({ label, state, view, tab }) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -394,17 +405,28 @@ async function loadDashboardBeta(options = {}) {
   const refreshButton = document.getElementById('dashboard-beta-refresh');
   refreshButton?.classList.add('is-loading');
 
+  let accountOverview = null;
+  let operationsOverview = null;
   const accountRequest = fetchJson('/api/v1/account/overview?quiet=1')
-    .then(renderDashboardBetaReadiness)
+    .then((overview) => {
+      accountOverview = overview;
+      renderDashboardBetaReadiness(overview);
+    })
     .catch(renderDashboardBetaReadinessError);
   const operationsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-overview')
-    .then(renderDashboardBetaOperations)
+    .then((overview) => {
+      operationsOverview = overview;
+      renderDashboardBetaOperations(overview);
+    })
     .catch(renderDashboardBetaOperationsError);
   const statsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-result-stats')
     .then(renderDashboardBetaResultStats)
     .catch(renderDashboardBetaResultStatsError);
   const tipsRequest = initDashboardBetaDynamicContent();
   await Promise.allSettled([accountRequest, operationsRequest, statsRequest, tipsRequest]);
+  void initDashboardBetaSupportTeaser({
+    operationallyEligible: dashboardBetaCanShowSupportTeaser(accountOverview, operationsOverview)
+  });
   dashboardBetaLastLoadedAt = Date.now();
   dashboardBetaLoading = false;
   refreshButton?.classList.remove('is-loading');

@@ -111,3 +111,19 @@ test('the productized Dashboard shows one remote BlogGenius tip and hides an emp
     assert.match(supportingScript, /30 \* 60 \* 1000/);
     assert.match(supportingScript, /visibilityTarget\.hidden = !selected/);
 });
+
+test('Dashboard Beta shows the remote support teaser rarely and suppresses it during priority work', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const supportingScript = read('ui/scripts/features/shell/supporting-surfaces.js');
+
+    assert.match(betaView, /id="dashboard-beta-support-teaser"[^>]*[\s\S]*?hidden>/);
+    assert.match(betaView, /가끔 만나는 이야기/);
+    assert.doesNotMatch(betaView, /오늘은 그만 보기|data-dashboard-beta-support-dismiss/);
+    assert.match(betaScript, /function dashboardBetaCanShowSupportTeaser/);
+    assert.match(betaScript, /flow\.busy !== true/);
+    assert.match(betaScript, /void initDashboardBetaSupportTeaser/);
+    assert.match(supportingScript, /DASHBOARD_SUPPORT_TEASER_INTERVAL_MS = 3 \* 24 \* 60 \* 60 \* 1000/);
+    assert.match(supportingScript, /kinds: \['support'\]/);
+    assert.doesNotMatch(supportingScript, /dismissDashboardSupportTeaser/);
+});

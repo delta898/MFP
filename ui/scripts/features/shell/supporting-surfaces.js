@@ -59,6 +59,36 @@ function selectHalfHourCycleSurfaceBlock(blocks, surface, region) {
   return blocks[(installationOffset + halfHourSlot) % blocks.length] || blocks[0];
 }
 
+const DASHBOARD_SUPPORT_TEASER_LAST_SHOWN_KEY = 'blog_genius_dashboard_support_teaser_last_shown_v1';
+const DASHBOARD_SUPPORT_TEASER_SESSION_VISIBLE_KEY = 'blog_genius_dashboard_support_teaser_session_visible_v1';
+const DASHBOARD_SUPPORT_TEASER_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
+
+function readSurfaceTimestamp(storage, key) {
+  try {
+    const value = Number(storage?.getItem(key));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function shouldShowDashboardSupportTeaser(options = {}) {
+  if (options.operationallyEligible !== true) return false;
+  try {
+    if (sessionStorage.getItem(DASHBOARD_SUPPORT_TEASER_SESSION_VISIBLE_KEY) === 'true') return true;
+  } catch (_) { /* use persisted cadence only */ }
+  const now = Number(options.now) || Date.now();
+  const lastShownAt = readSurfaceTimestamp(localStorage, DASHBOARD_SUPPORT_TEASER_LAST_SHOWN_KEY);
+  return !lastShownAt || now - lastShownAt >= DASHBOARD_SUPPORT_TEASER_INTERVAL_MS;
+}
+
+function rememberDashboardSupportTeaserShown(now = Date.now()) {
+  try {
+    localStorage.setItem(DASHBOARD_SUPPORT_TEASER_LAST_SHOWN_KEY, String(now));
+    sessionStorage.setItem(DASHBOARD_SUPPORT_TEASER_SESSION_VISIBLE_KEY, 'true');
+  } catch (_) { /* teaser remains non-blocking when storage is unavailable */ }
+}
+
 function createSupportingContentCard(block) {
   const link = document.createElement('a');
   link.className = `surface-supporting-card surface-supporting-card-${block.kind}`;
@@ -123,9 +153,9 @@ async function refreshSupportingSurfaceContent(surface, regionConfigs) {
     try {
       const payload = await fetchJson(`/api/v1/surface-content/${surface}`);
       const selections = configs.map((config) => {
-        const blocks = Array.isArray(payload?.regions?.[config.region]?.blocks)
+        const blocks = (Array.isArray(payload?.regions?.[config.region]?.blocks)
           ? payload.regions[config.region].blocks
-          : [];
+          : []).filter((block) => !Array.isArray(config.kinds) || config.kinds.includes(block.kind));
         return {
           config,
           selected: config.selection === 'half_hour_cycle'
@@ -187,6 +217,27 @@ function initDashboardBetaDynamicContent() {
   }]);
   scheduleDashboardBetaSurfaceRotation();
   return refresh;
+}
+
+async function initDashboardBetaSupportTeaser(options = {}) {
+  const section = document.getElementById('dashboard-beta-support-teaser');
+  const region = document.getElementById('dashboard-beta-support-teaser-region');
+  if (!section || !region) return;
+  if (!shouldShowDashboardSupportTeaser(options)) {
+    section.hidden = true;
+    return;
+  }
+  await refreshSupportingSurfaceContent('dashboard', [{
+    region: 'supporting',
+    elementId: 'dashboard-beta-support-teaser-region',
+    visibilityElementId: 'dashboard-beta-support-teaser',
+    selection: 'daily_rotate',
+    kinds: ['support']
+  }]);
+  if (region.childElementCount > 0) {
+    section.hidden = false;
+    rememberDashboardSupportTeaserShown();
+  }
 }
 
 let dashboardBetaSurfaceRotationTimer = null;
