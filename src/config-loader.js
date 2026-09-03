@@ -18,6 +18,10 @@ const {
 } = require('./content/writing-profile');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
 const {
+    copyMissingDefaultImages,
+    resolvePackagedDefaultAssets
+} = require('./config/packaged-default-assets');
+const {
     resolveRuntimeEnvironmentProfile
 } = require('./environment/runtime-profile');
 const { APP_VERSION } = Constants;
@@ -96,6 +100,7 @@ const activeLicenseFileName = LICENSE_FILE_NAMES[runtimeEnvironmentProfile.envir
 // =========================================================
 // 🚀 [App Bundle Support] 앱 번들(ASAR) 내부의 원본 경로
 const BUNDLE_DIR = path.join(__dirname, '..');
+const PACKAGED_DEFAULT_ASSETS = resolvePackagedDefaultAssets(process.resourcesPath, path);
 
 const PATHS = {
     // 실제 설정 파일 (쓰기 가능한 ROOT_DIR 또는 EXEC_DIR 우선)
@@ -106,6 +111,8 @@ const PATHS = {
     configJsonSample: path.join(ROOT_DIR, 'config', 'config.json.sample'),
     configJsonSampleFromExec: path.join(EXEC_DIR, 'config', 'config.json.sample'),
     configJsonSampleFromBundle: path.join(BUNDLE_DIR, 'config', 'config.json.sample'),
+    configJsonSampleFromResources: PACKAGED_DEFAULT_ASSETS.configSample,
+    configImagesFromResources: PACKAGED_DEFAULT_ASSETS.imagesDir,
 
     licenseKeyFile: activeLicenseFileName
         ? path.join(ROOT_DIR, 'config', activeLicenseFileName)
@@ -127,7 +134,8 @@ function readDefaultStructuredConfig() {
     const sampleCandidates = [
         PATHS.configJsonSample,
         PATHS.configJsonSampleFromExec,
-        PATHS.configJsonSampleFromBundle
+        PATHS.configJsonSampleFromBundle,
+        PATHS.configJsonSampleFromResources
     ];
 
     for (const samplePath of sampleCandidates) {
@@ -163,7 +171,14 @@ const DEFAULT_STRUCTURED_CONFIG = readDefaultStructuredConfig();
 
 function ensureConfigJsonFromSample() {
     const pairs = [
-        { config: PATHS.configJson, samples: [PATHS.configJsonSample, PATHS.configJsonSampleFromBundle] },
+        {
+            config: PATHS.configJson,
+            samples: [
+                PATHS.configJsonSample,
+                PATHS.configJsonSampleFromBundle,
+                PATHS.configJsonSampleFromResources
+            ]
+        },
         { config: PATHS.configJsonFromExec, samples: [PATHS.configJsonSampleFromExec] }
     ];
 
@@ -189,6 +204,16 @@ function ensureConfigJsonFromSample() {
 function loadUserConfig() {
     // 💡 [JSON First] config.json이 있으면 최우선으로 사용, 없으면 샘플로부터 생성 시도
     ensureConfigJsonFromSample();
+    try {
+        copyMissingDefaultImages({
+            sourceDir: PATHS.configImagesFromResources,
+            targetDir: path.join(ROOT_DIR, 'config', 'images'),
+            fsImpl: fs,
+            pathImpl: path
+        });
+    } catch (error) {
+        console.warn(`⚠️ 기본 이미지 초기화 실패: ${error.message}`);
+    }
 
     const jsonPath = PATHS.configJson;
     if (fs.existsSync(jsonPath)) {

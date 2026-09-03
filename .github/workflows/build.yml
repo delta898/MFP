@@ -169,7 +169,7 @@ jobs:
             E_PLAT="win32"; E_ARCH="x64"
             APP_ICON="assets/icons/icon.ico"
           fi
-          npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --icon="${APP_ICON}" --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
+          npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --extra-resource="config/config.json.sample" --extra-resource="config/images" --icon="${APP_ICON}" --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
 
           PACKAGED_APP_DIR=$(find dist/gui-temp -mindepth 1 -maxdepth 1 -type d -name "${APP_NAME}-*" -print -quit)
           if [[ -z "${PACKAGED_APP_DIR}" || ! -d "${PACKAGED_APP_DIR}" ]]; then
@@ -184,6 +184,31 @@ jobs:
           find "${PACKAGED_APP_DIR}" -path "*/app.asar.unpacked/node_modules/kuzu/kuzu-source" -prune -exec rm -rf {} +
 
           echo "PACKAGED_APP_DIR=${PACKAGED_APP_DIR}" >> "$GITHUB_ENV"
+
+      - name: Bundle and Verify Windows VC++ Runtime
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          $packageDir = (Resolve-Path $env:PACKAGED_APP_DIR).Path
+          ./scripts/windows/copy-vc-runtime.ps1 -PackageDir $packageDir
+
+          foreach ($name in @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+            $runtimePath = Join-Path $packageDir $name
+            if (!(Test-Path -LiteralPath $runtimePath -PathType Leaf)) {
+              throw "Required app-local VC runtime is missing: $runtimePath"
+            }
+          }
+
+          $kuzuPath = Join-Path $packageDir 'resources\app.asar.unpacked\node_modules\kuzu'
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          try {
+            & (Join-Path $packageDir 'BlogGenius.exe') -e "require(process.argv[1]); process.stdout.write('Kuzu native module loaded\\n')" $kuzuPath
+            if ($LASTEXITCODE -ne 0) {
+              throw "Packaged Kuzu load smoke test failed with exit code $LASTEXITCODE"
+            }
+          } finally {
+            Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+          }
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')

@@ -224,6 +224,8 @@ build_platform() {
         --platform=${e_plat} --arch=${arch} \
         --out=dist/gui-temp --overwrite \
         --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" \
+        --extra-resource="config/config.json.sample" \
+        --extra-resource="config/images" \
         $ICON_OPT \
         --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)" \
         --quiet
