@@ -172,6 +172,10 @@
   white-space: nowrap;
 }
 
+.nav-btn[hidden] {
+  display: none !important;
+}
+
 .sidebar.collapsed .nav-btn,
 .sidebar.collapsed .nav-link-btn {
   padding: 0;

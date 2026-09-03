@@ -4,7 +4,6 @@
             <div class="view-title-copy">
               <div class="view-title-heading">
                 <h1>Dashboard</h1>
-                <span class="dashboard-beta-badge">Beta</span>
               </div>
               <p>글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.</p>
             </div>
@@ -116,7 +115,7 @@
               </div>
             </div>
             <div class="dashboard-beta-recent-results">
-              <h3>최근 결과</h3>
+              <h3 id="dashboard-beta-recent-results-title">오늘 결과</h3>
               <div id="dashboard-beta-recent-results-list" class="dashboard-beta-recent-results-list" aria-live="polite">
                 <p class="dashboard-beta-empty">최근 결과를 불러오는 중입니다.</p>
               </div>
@@ -124,7 +123,7 @@
           </div>
           <div id="dashboard-beta-trend" class="dashboard-beta-trend" hidden>
             <div class="dashboard-beta-trend-heading">
-              <h3>일별 추이</h3>
+              <h3 id="dashboard-beta-trend-title">최근 30일 일별 추이</h3>
               <span><i data-series="processed"></i>처리 완료 <i data-series="published"></i>공개 발행</span>
             </div>
             <div id="dashboard-beta-trend-bars" class="dashboard-beta-trend-bars" role="img" aria-label="최근 30일 발행 활동 추이"></div>
@@ -144,5 +143,16 @@
             <p class="dashboard-beta-empty">다음 글감을 불러오는 중입니다.</p>
           </div>
           <p id="dashboard-beta-operations-error" class="dashboard-beta-inline-error" hidden>발행 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+        </section>
+
+        <section id="dashboard-beta-tips-section" class="dashboard-beta-tips-card" aria-labelledby="dashboard-beta-tips-title" hidden>
+          <div class="dashboard-beta-section-heading">
+            <div>
+              <span class="dashboard-beta-eyebrow">30분마다 새롭게</span>
+              <h2 id="dashboard-beta-tips-title">BlogGenius 활용 팁</h2>
+            </div>
+          </div>
+          <p class="dashboard-beta-tips-copy">글쓰기와 콘텐츠 운영에 도움이 되는 자료를 선별해 소개합니다.</p>
+          <div id="dashboard-beta-tips-region" class="dashboard-beta-tips-region"></div>
         </section>
       </section>

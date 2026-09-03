@@ -46,6 +46,19 @@ function selectDailyCycleSurfaceBlock(blocks, surface, region) {
   return blocks[(installationOffset + localDayNumber) % blocks.length] || blocks[0];
 }
 
+function selectHalfHourCycleSurfaceBlock(blocks, surface, region) {
+  if (!Array.isArray(blocks) || !blocks.length) return null;
+  const halfHourSlot = Math.floor(Date.now() / (30 * 60 * 1000));
+  const source = `${getSurfaceRotationSeed()}|${surface}|${region}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const installationOffset = Math.abs(hash >>> 0) % blocks.length;
+  return blocks[(installationOffset + halfHourSlot) % blocks.length] || blocks[0];
+}
+
 function createSupportingContentCard(block) {
   const link = document.createElement('a');
   link.className = `surface-supporting-card surface-supporting-card-${block.kind}`;
@@ -101,8 +114,9 @@ function createSupportingContentCard(block) {
 async function refreshSupportingSurfaceContent(surface, regionConfigs) {
   const configs = Array.isArray(regionConfigs) ? regionConfigs : [];
   if (!configs.some((config) => document.getElementById(config.elementId))) return;
-  const state = supportingSurfaceStates.get(surface) || { signature: null, pending: null };
-  supportingSurfaceStates.set(surface, state);
+  const stateKey = `${surface}|${configs.map((config) => `${config.region}:${config.elementId}`).join(',')}`;
+  const state = supportingSurfaceStates.get(stateKey) || { signature: null, pending: null };
+  supportingSurfaceStates.set(stateKey, state);
   if (state.pending) return state.pending;
 
   state.pending = (async () => {
@@ -114,9 +128,11 @@ async function refreshSupportingSurfaceContent(surface, regionConfigs) {
           : [];
         return {
           config,
-          selected: config.selection === 'daily_cycle'
-            ? selectDailyCycleSurfaceBlock(blocks, surface, config.region)
-            : selectDailySurfaceBlock(blocks, surface, config.region)
+          selected: config.selection === 'half_hour_cycle'
+            ? selectHalfHourCycleSurfaceBlock(blocks, surface, config.region)
+            : config.selection === 'daily_cycle'
+              ? selectDailyCycleSurfaceBlock(blocks, surface, config.region)
+              : selectDailySurfaceBlock(blocks, surface, config.region)
         };
       });
       const nextSignature = JSON.stringify(selections.map(({ config, selected }) => ({
@@ -162,6 +178,37 @@ function initDashboardDynamicContent() {
   ]);
 }
 
+function initDashboardBetaDynamicContent() {
+  const refresh = refreshSupportingSurfaceContent('dashboard', [{
+    region: 'recommendations',
+    elementId: 'dashboard-beta-tips-region',
+    visibilityElementId: 'dashboard-beta-tips-section',
+    selection: 'half_hour_cycle'
+  }]);
+  scheduleDashboardBetaSurfaceRotation();
+  return refresh;
+}
+
+let dashboardBetaSurfaceRotationTimer = null;
+
+function scheduleDashboardBetaSurfaceRotation() {
+  if (dashboardBetaSurfaceRotationTimer) clearTimeout(dashboardBetaSurfaceRotationTimer);
+  const intervalMs = 30 * 60 * 1000;
+  const delayMs = intervalMs - (Date.now() % intervalMs) + 250;
+  dashboardBetaSurfaceRotationTimer = setTimeout(async () => {
+    dashboardBetaSurfaceRotationTimer = null;
+    const dashboard = document.getElementById('view-dashboard-beta');
+    if (!dashboard?.classList.contains('active')) return;
+    await refreshSupportingSurfaceContent('dashboard', [{
+      region: 'recommendations',
+      elementId: 'dashboard-beta-tips-region',
+      visibilityElementId: 'dashboard-beta-tips-section',
+      selection: 'half_hour_cycle'
+    }]);
+    scheduleDashboardBetaSurfaceRotation();
+  }, delayMs);
+}
+
 function refreshAccountDynamicContent() {
   return refreshSupportingSurfaceContent('account', [{
     region: 'supporting',
@@ -173,4 +220,3 @@ function refreshAccountDynamicContent() {
 function initAccountDynamicContent() {
   void refreshAccountDynamicContent();
 }
-

@@ -27,7 +27,7 @@ function createAccountOverviewFixture() {
     return {
         identity: { email: 'ui-smoke@example.com', email_verified: true },
         subscription: { plan_code: 'free', plan_name: 'Free', status: 'active' },
-        usage: { used: 0, limit: 10, remaining: 10 },
+        usage: { mode: 'metered', cycle: 'monthly', used: 2, limit: 10, remaining: 8 },
         connections: {
             naver: { status: 'connected', message: 'fixture' },
             google_sheets: { status: 'connected', message: 'fixture' },
@@ -71,7 +71,7 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/dashboard/external-content') return {};
     if (pathname === '/api/v1/continuous-publishing/dashboard-overview') {
         return {
-            schema_version: 1,
+            schema_version: 2,
             generated_at: '2026-09-02T01:00:00.000Z',
             flow: {
                 state: 'idle', busy: false, subject: '', message: '',
@@ -103,23 +103,41 @@ function getApiFixture(pathname) {
             timezone: 'Asia/Seoul',
             available: true,
             periods: {
-                today: { from: '2026-09-01T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 3, published_count: 1 },
-                week: { from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4 },
-                month: { from: '2026-08-03T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 19, published_count: 9 }
-            },
-            daily_series: Array.from({ length: 30 }, (_unused, index) => ({
-                date: new Date(Date.UTC(2026, 7, 4 + index)).toISOString().slice(0, 10),
-                processed_count: index % 4,
-                published_count: index % 3 === 0 ? 1 : 0
-            })),
-            recent_results: [{
-                id: 'dashboard-result-1',
-                occurred_at: '2026-09-02T00:50:00.000Z',
-                subject: 'Dashboard Beta 최근 발행 결과',
-                platform: 'wordpress',
-                post_status: 'publish',
-                result_url: 'https://example.com/dashboard-result'
-            }]
+                today: {
+                    from: '2026-09-01T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 3, published_count: 1,
+                    daily_series: [],
+                    recent_results: [{
+                        id: 'dashboard-result-today', occurred_at: '2026-09-02T00:50:00.000Z',
+                        subject: '오늘 발행 결과', platform: 'wordpress', post_status: 'publish',
+                        result_url: 'https://example.com/dashboard-result', navigation_url: 'https://example.com/dashboard-result',
+                        navigation_kind: 'result'
+                    }]
+                },
+                week: {
+                    from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4,
+                    daily_series: Array.from({ length: 7 }, (_unused, index) => ({
+                        date: new Date(Date.UTC(2026, 7, 31 + index)).toISOString().slice(0, 10),
+                        processed_count: index % 3, published_count: index % 2
+                    })),
+                    recent_results: [{
+                        id: 'dashboard-result-week', occurred_at: '2026-08-31T01:00:00.000Z',
+                        subject: '이번 주 임시 저장 결과', platform: 'naver', post_status: 'draft',
+                        result_url: null, navigation_url: 'https://blog.naver.com/fixture', navigation_kind: 'platform_home'
+                    }]
+                },
+                month: {
+                    from: '2026-08-03T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 19, published_count: 9,
+                    daily_series: Array.from({ length: 30 }, (_unused, index) => ({
+                        date: new Date(Date.UTC(2026, 7, 4 + index)).toISOString().slice(0, 10),
+                        processed_count: index % 4, published_count: index % 3 === 0 ? 1 : 0
+                    })),
+                    recent_results: [{
+                        id: 'dashboard-result-month', occurred_at: '2026-08-20T01:00:00.000Z',
+                        subject: '30일 발행 결과', platform: 'wordpress', post_status: 'publish',
+                        result_url: 'https://example.com/month-result', navigation_url: 'https://example.com/month-result', navigation_kind: 'result'
+                    }]
+                }
+            }
         };
     }
     if (pathname === '/api/v1/recommendations') {
@@ -205,6 +223,27 @@ function getApiFixture(pathname) {
                     payload: { section: 'wordpress' }
                 }
             }]
+        };
+    }
+    if (pathname === '/api/v1/surface-content/dashboard') {
+        return {
+            regions: {
+                supporting: { blocks: [] },
+                recommendations: {
+                    blocks: [{
+                        id: 'bloggenius-tip-1',
+                        kind: 'resource',
+                        presentation: 'compact_card',
+                        title: 'BlogGenius로 꾸준한 글쓰기 흐름 만들기',
+                        icon: 'sparkles',
+                        media: null,
+                        targetUrl: 'https://example.com/bloggenius-tip',
+                        ctaLabel: '팁 보기',
+                        disclosure: '',
+                        sortOrder: 100
+                    }]
+                }
+            }
         };
     }
     if (pathname.startsWith('/api/v1/surface-content/')) return { regions: {} };
@@ -806,15 +845,25 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-ready-count').textContent(), '2건');
         await page.waitForFunction(() => document.getElementById('dashboard-beta-processed-count')?.textContent === '3건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
-        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('Dashboard Beta 최근 발행 결과'), true);
+        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
+        assert.equal((await page.locator('#dashboard-beta-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
         await page.locator('[data-dashboard-beta-period="week"]').click();
         assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');
+        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('이번 주 임시 저장 결과'), true);
+        assert.equal(await page.locator('#dashboard-beta-recent-results-list a').textContent(), '블로그 열기');
+        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 7);
         await page.locator('[data-dashboard-beta-period="month"]').click();
         assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '19건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '9건');
+        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('30일 발행 결과'), true);
         assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
         assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 30);
+        assert.equal(await page.locator('#dashboard-beta-tips-section').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-beta-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
+        assert.equal(await page.locator('#dashboard-beta-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
+        assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
+        assert.equal((await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').textContent()).trim(), '대시보드');
         assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
@@ -855,7 +904,7 @@ async function run() {
         assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
         assert.equal((await page.locator('#dashboard-naver-status-label').textContent())?.trim(), '네이버 로그인 확인됨');
         assert.equal((await page.locator('#dashboard-wordpress-status-label').textContent())?.trim(), 'WordPress 미사용');
-        assert.equal((await page.locator('#dashboard-usage-status-label').textContent())?.trim(), '기본 10회 남음');
+        assert.equal((await page.locator('#dashboard-usage-status-label').textContent())?.trim(), '기본 8회 남음');
         assert.equal((await page.locator('#dashboard-plan-status-label').textContent())?.trim(), 'Free');
         assert.equal(await page.locator('#dashboard-google-status').isHidden(), true);
         assert.equal(await page.locator('#dashboard-health-status').isHidden(), true);
@@ -914,11 +963,11 @@ async function run() {
             await page.locator('.settings-tab-btn[data-settings-tab="naver-blog"]').evaluate((element) => element.classList.contains('active')),
             true
         );
-        await page.locator('.nav-btn[data-view="dashboard"]').click();
+        await page.evaluate(() => navigateTo('dashboard'));
         await page.locator('#recommendation-center-refresh').click();
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
-        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard', 'blog', 'blog-next']) {
+        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
@@ -1303,7 +1352,7 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '61');
-        await page.locator('.nav-btn[data-view="dashboard"]').click();
+        await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-cancel').click();
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -1395,7 +1444,7 @@ async function run() {
             true
         );
 
-        await page.locator('.nav-btn[data-view="dashboard"]').click();
+        await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
         await page.locator('.nav-btn[data-view="blog"]').click();
 

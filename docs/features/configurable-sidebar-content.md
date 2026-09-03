@@ -14,6 +14,8 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
 - 한 번에 표시하는 동적 항목: 최대 3개
 - Core 메뉴와 Help는 원격 설정과 무관하게 앱이 항상 렌더링한다.
 
+Dashboard는 같은 기반 계약의 `dashboard.recommendations / compact_card`를 사용한다. 이 영역은 공식 BlogGenius 사용 가이드 8건을 모든 유효 플랜에 제공하고, 앱에서 30분마다 한 건씩 순환한다. resolved RPC와 클라이언트 schema가 한 region당 최대 10건까지만 전달하므로 서로 다른 목적의 콘텐츠를 한 후보 풀에 무제한으로 섞지 않는다.
+
 새로운 `resource`, `support` 또는 disclosure가 포함된 `affiliate` 항목은 아래 계약 안에서 Supabase 데이터만으로 추가할 수 있다. 새로운 surface, region, presentation, content kind, 아이콘 또는 상호작용을 추가하려면 앱 변경과 배포가 필요하다.
 
 ## Placement Model
@@ -117,9 +119,15 @@ BlogGenius의 제품 탐색 메뉴는 앱이 소유하고, 홍보·후원처럼 
    - 향후 운영 후보인 전자책·블로그 resource를 비노출 `draft` 카탈로그로 등록
    - campaign과 placement는 만들지 않으며, 재실행 시 기존 lifecycle 상태를 보존
 8. `supabase/operations/content/supabase_surface_content_dashboard_recommendations_seed.sql`
-   - draft resource 5개를 Tester/Free 대상 Dashboard 일일 추천 자료로 게시
+   - draft resource 5개를 Tester/Free 대상 Dashboard 추천 자료로 게시한 이전 운영 seed
    - `dashboard.recommendations` region에 배치
-9. Production recovery is a separately approved operator action; archived examples are not migrations.
+9. `supabase/operations/content/supabase_surface_content_bloggenius_guides_seed.sql`
+   - 설치·연동·글쓰기·SEO 관련 공식 사용 가이드 8건을 모든 유효 플랜에 게시
+   - `dashboard.recommendations` region에 30분 순환 후보로 배치
+10. `supabase/operations/content/supabase_surface_content_dashboard_guides_policy.sql`
+   - 공식 가이드 8건을 검증한 뒤 이전 추천 자료 campaign 5건을 삭제 없이 pause
+   - Dashboard 활용 팁 후보를 공식 가이드로 한정해 region 10건 제한에 걸리지 않게 함
+11. Production recovery is a separately approved operator action; archived examples are not migrations.
    - 운영 중인 resource와 support campaign의 audience를 운영 정책으로 복원
 
 ### Validation only — 운영값을 잠시 변경하고 반드시 복원

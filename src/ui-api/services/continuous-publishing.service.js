@@ -552,7 +552,21 @@ function createContinuousPublishingService(deps = {}) {
             const events = available
                 ? await eventStore.listOwnerBlogPublishResultEvents('', { limit: 5000 })
                 : [];
-            return buildDashboardBlogResultStats({ events, available, generatedAt });
+            const naverId = CONFIG.CONFIG_IS_NAVER_SET === true
+                ? String(CONFIG.NAVER_ID || '').trim()
+                : '';
+            const wordpressUrl = CONFIG.CONFIG_IS_WP_SET === true
+                ? String(CONFIG.WORDPRESS_URL || '').trim().replace(/\/$/, '')
+                : '';
+            return buildDashboardBlogResultStats({
+                events,
+                available,
+                generatedAt,
+                platformHomeUrls: {
+                    naver: naverId ? `https://blog.naver.com/${encodeURIComponent(naverId)}` : '',
+                    wordpress: wordpressUrl
+                }
+            });
         },
 
         async updateTopic(requestBody = {}) {

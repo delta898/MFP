@@ -83,6 +83,8 @@ begin
            '_smart_usage_authorize',
            'set_current_timestamp_updated_at',
            'set_app_surface_updated_at',
+           'track_unlimited_license_usage_count',
+           'effective_license_usage_count',
            'ai_catalog_version_tuple',
            'app_surface_version_tuple',
            'mark_license_registration_code_send_status'
@@ -117,8 +119,8 @@ begin
     if v_trends_tables <> 1 then
         raise exception 'expected one trends table, found %', v_trends_tables;
     end if;
-    if v_custom_functions <> 44 then
-        raise exception 'expected 44 baseline functions, found %', v_custom_functions;
+    if v_custom_functions <> 46 then
+        raise exception 'expected 46 baseline functions, found %', v_custom_functions;
     end if;
     if v_rls_disabled <> 0 then
         raise exception 'expected RLS on every custom table, found % disabled', v_rls_disabled;

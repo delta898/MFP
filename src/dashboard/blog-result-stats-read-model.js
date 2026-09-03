@@ -38,12 +38,7 @@ function buildKoreanPeriodBoundaries(nowValue = new Date()) {
 }
 
 function countPeriod(results, period) {
-    const fromMs = Date.parse(period.from);
-    const toMs = Date.parse(period.to);
-    const selected = results.filter((result) => {
-        const timestamp = Date.parse(result.timestamp || '');
-        return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp < toMs;
-    });
+    const selected = selectPeriodResults(results, period);
     return {
         from: period.from,
         to: period.to,
@@ -52,9 +47,18 @@ function countPeriod(results, period) {
     };
 }
 
-function buildDailySeries(results, period) {
+function selectPeriodResults(results, period) {
     const fromMs = Date.parse(period.from);
-    return Array.from({ length: 30 }, (_unused, index) => {
+    const toMs = Date.parse(period.to);
+    return results.filter((result) => {
+        const timestamp = Date.parse(result.timestamp || '');
+        return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp < toMs;
+    });
+}
+
+function buildDailySeries(results, period, dayCount) {
+    const fromMs = Date.parse(period.from);
+    return Array.from({ length: dayCount }, (_unused, index) => {
         const startMs = fromMs + (index * DAY_MS);
         const endMs = startMs + DAY_MS;
         const selected = results.filter((result) => {
@@ -67,6 +71,42 @@ function buildDailySeries(results, period) {
             published_count: selected.filter((result) => result.publicly_published).length
         };
     });
+}
+
+function normalizeExternalUrl(value) {
+    try {
+        const parsed = new URL(String(value || '').trim());
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+        return parsed.toString();
+    } catch (_ignore) {
+        return null;
+    }
+}
+
+function toResultItem(result, platformHomeUrls = {}) {
+    const resultUrl = normalizeExternalUrl(result.result_ref);
+    const platformHomeUrl = normalizeExternalUrl(platformHomeUrls?.[result.platform]);
+    return {
+        id: result.id,
+        occurred_at: toIso(result.timestamp),
+        subject: result.subject,
+        platform: result.platform,
+        post_status: result.post_status,
+        result_url: resultUrl,
+        navigation_url: resultUrl || platformHomeUrl,
+        navigation_kind: resultUrl ? 'result' : (platformHomeUrl ? 'platform_home' : null)
+    };
+}
+
+function buildPeriodResult(results, period, options = {}) {
+    const selected = selectPeriodResults(results, period);
+    return {
+        ...countPeriod(results, period),
+        daily_series: options.dayCount
+            ? buildDailySeries(selected, period, options.dayCount)
+            : [],
+        recent_results: selected.slice(0, 5).map((result) => toResultItem(result, options.platformHomeUrls))
+    };
 }
 
 function buildDashboardBlogResultStats(input = {}) {
@@ -87,24 +127,23 @@ function buildDashboardBlogResultStats(input = {}) {
         .sort((left, right) => Date.parse(right.timestamp || 0) - Date.parse(left.timestamp || 0));
 
     return {
-        schema_version: 1,
+        schema_version: 2,
         generated_at: generatedAt,
         timezone: 'Asia/Seoul',
         available,
         periods: {
-            today: countPeriod(results, periods.today),
-            week: countPeriod(results, periods.week),
-            month: countPeriod(results, periods.month)
-        },
-        daily_series: buildDailySeries(results, periods.month),
-        recent_results: results.slice(0, 5).map((result) => ({
-            id: result.id,
-            occurred_at: toIso(result.timestamp),
-            subject: result.subject,
-            platform: result.platform,
-            post_status: result.post_status,
-            result_url: result.result_ref || null
-        }))
+            today: buildPeriodResult(results, periods.today, {
+                platformHomeUrls: input.platformHomeUrls
+            }),
+            week: buildPeriodResult(results, periods.week, {
+                dayCount: 7,
+                platformHomeUrls: input.platformHomeUrls
+            }),
+            month: buildPeriodResult(results, periods.month, {
+                dayCount: 30,
+                platformHomeUrls: input.platformHomeUrls
+            })
+        }
     };
 }
 

@@ -47,6 +47,7 @@
    - 로컬 Supabase CLI stack을 day-to-day 개발과 자동 테스트의 기본으로 삼고, schema migration과 비식별 seed만으로 언제든 재생성할 수 있게 한다.
    - 외부 webhook, Edge Function, 원격 모바일 연결처럼 local로 충분하지 않은 통합 테스트에는 별도의 hosted development Supabase project를 사용한다.
    - 현재 수동 `sql/*.sql` 적용 상태를 조사해 production schema를 기준으로 baseline을 만들고, 이후 변경은 순서가 있는 `supabase/migrations/`로 관리한다.
+   - Production의 실제 schema와 Supabase CLI migration ledger가 비어 있는 현재 drift를 먼저 감사하고, 이미 적용된 migration만 안전하게 baseline/repair한 뒤 `db push --dry-run`이 신규 migration만 표시하도록 복구한다.
    - `supabase/seed.sql`에는 가짜 account·license·plan·usage·recommendation·billing 자료만 두고 production 사용자, 이메일, HWID, secret과 결제 정보를 복사하지 않는다.
    - 앱 runtime은 명시적인 environment profile에서 Supabase URL과 publishable key를 선택하며 개발 build가 production endpoint를 기본값으로 사용하지 않게 한다.
    - service-role, provider secret, webhook secret과 billing key는 각 환경의 server secret store에만 두고 앱·Git·공용 seed에 포함하지 않는다.
