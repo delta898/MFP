@@ -31,6 +31,11 @@ const {
     SNS_SHEET_HEADERS,
     buildSnsStatusValidationRequest
 } = require('./social/sns-sheet-schema');
+const {
+    CARD_NEWS_SHEET_NAME,
+    CARD_NEWS_SHEET_HEADERS,
+    buildCardNewsStatusValidationRequests
+} = require('./card-news/ledger-sheet-schema');
 const { buildTopicRowMoveRequest } = require('./continuous-publishing/queue-order');
 const { parseFeedXml } = require('./social/feed-entry');
 const {
@@ -687,6 +692,19 @@ const Utils = {
         };
     },
 
+    ensureCardNewsSheetReadyStrict: async function (spreadsheetId = CONFIG.GOOGLE_SHEET_ID) {
+        const accessToken = await this.getGoogleAccessToken();
+        const targetSpreadsheetId = String(spreadsheetId || '').trim();
+        if (!targetSpreadsheetId) throw new Error('GOOGLE_SHEET_ID가 비어 있습니다.');
+
+        await this._ensureCardNewsSheetReady(accessToken, targetSpreadsheetId, { suppressError: false });
+        return {
+            success: true,
+            spreadsheetId: targetSpreadsheetId,
+            sheetName: CARD_NEWS_SHEET_NAME
+        };
+    },
+
     readGoogleSheetTrends: async function (options = {}) {
         const result = [];
         try {
@@ -795,6 +813,8 @@ const Utils = {
             // SNS는 모든 플랜에 공통으로 준비하되, 준비 실패가 topics/shopping 사용을 막지는 않는다.
             // 실제 SNS 수집/발행 경로에서는 ensureSnsSheetReadyStrict()로 다시 확인한다.
             const snsResult = await this._ensureSnsSheetReady(accessToken, targetSpreadsheetId, { suppressError: true });
+            // 카드뉴스 관리대장은 SNS처럼 독립적으로 준비하며, 실패가 기존 글쓰기 기능을 막지 않는다.
+            const cardNewsResult = await this._ensureCardNewsSheetReady(accessToken, targetSpreadsheetId, { suppressError: true });
 
             if (this._sheetsHealthLogState?.hasIssue === true) {
                 Logger.info("✅ 필수 시트 준비 이슈 해지");
@@ -808,7 +828,9 @@ const Utils = {
                 success: true,
                 spreadsheetId: targetSpreadsheetId,
                 snsReady: snsResult.success,
-                snsMessage: snsResult.message || ''
+                snsMessage: snsResult.message || '',
+                cardNewsReady: cardNewsResult.success,
+                cardNewsMessage: cardNewsResult.message || ''
             };
 
         } catch (e) {
@@ -1075,6 +1097,84 @@ const Utils = {
         }
     },
 
+    _ensureCardNewsSheetReady: async function (accessToken, spreadsheetId, options = {}) {
+        const suppressError = options.suppressError !== false;
+        try {
+            const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+            let metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            let cardNewsSheet = (metaRes.data.sheets || []).find(
+                (sheet) => sheet.properties?.title === CARD_NEWS_SHEET_NAME
+            );
+
+            if (!cardNewsSheet) {
+                Logger.info(`✨ '${CARD_NEWS_SHEET_NAME}' 시트가 없어서 생성을 시작합니다...`);
+                await this.createSheetIfMissing(accessToken, spreadsheetId, CARD_NEWS_SHEET_NAME, 'cardnews');
+                metaRes = await this.callWithRetry(() => axios.get(metaUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }));
+                cardNewsSheet = (metaRes.data.sheets || []).find(
+                    (sheet) => sheet.properties?.title === CARD_NEWS_SHEET_NAME
+                );
+            }
+
+            if (cardNewsSheet?.properties?.sheetId === undefined) {
+                throw new Error(`'${CARD_NEWS_SHEET_NAME}' 시트의 sheetId를 확인하지 못했습니다.`);
+            }
+
+            await this._syncSheetHeadersIfMissing(
+                accessToken,
+                spreadsheetId,
+                CARD_NEWS_SHEET_NAME,
+                'cardnews',
+                { suppressError: false }
+            );
+            await this.ensureCardNewsSheetValidation(
+                accessToken,
+                spreadsheetId,
+                cardNewsSheet.properties.sheetId,
+                CARD_NEWS_SHEET_NAME,
+                { suppressError: false }
+            );
+            return { success: true, sheetName: CARD_NEWS_SHEET_NAME };
+        } catch (e) {
+            const message = String(e?.message || e || 'unknown');
+            Logger.warn(`⚠️ '${CARD_NEWS_SHEET_NAME}' 시트 준비 실패: ${message}`);
+            if (!suppressError) throw e;
+            return { success: false, sheetName: CARD_NEWS_SHEET_NAME, message };
+        }
+    },
+
+    ensureCardNewsSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName, options = {}) {
+        const suppressError = options.suppressError !== false;
+        try {
+            const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`;
+            const headerRes = await this.callWithRetry(() => axios.get(readUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            }));
+            const normalizedHeaders = new Set((headerRes?.data?.values?.[0] || []).map(
+                (header) => String(header || '').toLowerCase().replace(/[\s/_]/g, '').trim()
+            ));
+            const missingHeaders = CARD_NEWS_SHEET_HEADERS.filter((header) => !normalizedHeaders.has(
+                String(header || '').toLowerCase().replace(/[\s/_]/g, '').trim()
+            ));
+            if (missingHeaders.length > 0) {
+                throw new Error(`'${sheetName}' 시트 필수 헤더가 없습니다: ${missingHeaders.join(', ')}`);
+            }
+
+            const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+            await this.callWithRetry(() => axios.post(updateUrl, {
+                requests: buildCardNewsStatusValidationRequests(sheetId)
+            }, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            }));
+        } catch (e) {
+            if (!suppressError) throw e;
+            Logger.warn(`⚠️ '${CARD_NEWS_SHEET_NAME}' 시트 검증 규칙 업데이트 실패: ${e.message}`);
+        }
+    },
+
     ensureSnsSheetValidation: async function (accessToken, spreadsheetId, sheetId, sheetName, options = {}) {
         const suppressError = options.suppressError !== false;
         try {
@@ -1142,6 +1242,8 @@ const Utils = {
                 requiredHeaders = [
                     'category', 'post_status', 'schedule_date', 'URL', '상품', '참고/지시 사항', '상태', '발행 시간', '로그', 'options'
                 ];
+            } else if (type === 'cardnews') {
+                requiredHeaders = [...CARD_NEWS_SHEET_HEADERS];
             }
 
             const missingHeaders = requiredHeaders.filter(h => {
@@ -1378,6 +1480,9 @@ const Utils = {
             } else if (type === 'sns') {
                 headerRow = [[...SNS_SHEET_HEADERS]];
                 validationRequests.push(buildSnsStatusValidationRequest(newSheetId));
+            } else if (type === 'cardnews') {
+                headerRow = [[...CARD_NEWS_SHEET_HEADERS]];
+                validationRequests.push(...buildCardNewsStatusValidationRequests(newSheetId));
             }
 
             // 3. 드롭다운 적용
