@@ -157,8 +157,29 @@
               <button id="card-news-regenerate" class="secondary" type="button">구성 다시 만들기</button>
               <button id="card-news-bulk-image-action" class="primary" type="button">이미지 모두 만들기</button>
               <a id="card-news-export-all" class="card-news-export-all" href="#" download hidden>전체 이미지 받기</a>
+              <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
             </div>
           </div>
+          <section id="card-news-publishing-panel" class="card-news-publishing-panel" aria-labelledby="card-news-publishing-title" hidden>
+            <div class="card-news-publishing-heading">
+              <div>
+                <h3 id="card-news-publishing-title">SNS 발행</h3>
+                <p>완성된 카드를 순서대로 선택한 채널에 바로 발행합니다.</p>
+              </div>
+              <button id="card-news-publishing-close" class="text-btn" type="button" aria-label="발행 설정 닫기">닫기</button>
+            </div>
+            <div id="card-news-publishing-notice" class="card-news-publishing-notice" aria-live="polite"></div>
+            <div id="card-news-publishing-channels" class="card-news-publishing-channels"></div>
+            <label class="card-news-publishing-text" for="card-news-publishing-text">
+              <span>발행 문구</span>
+              <textarea id="card-news-publishing-text" rows="4" maxlength="5000"></textarea>
+            </label>
+            <div class="card-news-publishing-actions">
+              <span id="card-news-publishing-status" aria-live="polite"></span>
+              <button id="card-news-publish-button" class="primary" type="button">지금 발행</button>
+            </div>
+            <div id="card-news-publishing-result" class="card-news-publishing-result" hidden></div>
+          </section>
           <div id="card-news-result-grid" class="card-news-result-grid"></div>
         </section>
       </section>

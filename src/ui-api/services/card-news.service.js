@@ -3,6 +3,7 @@ const { createCardNewsSourceService } = require('../../card-news/source-service'
 const { createCardNewsProject } = require('../../card-news/project');
 const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
 const { createCardNewsGenerationService } = require('../../card-news/generation-service');
+const { createCardNewsPublishingService } = require('../../card-news/publishing-service');
 const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { parseFeedXml } = require('../../social/feed-entry');
@@ -116,6 +117,21 @@ function createCardNewsService(deps = {}) {
         now,
         createId
     }) : null);
+    const publishingService = deps.publishingService || (
+        generationService
+        && deps.bufferClient
+        && typeof deps.createWordPressClient === 'function'
+            ? createCardNewsPublishingService({
+                CONFIG,
+                generationService,
+                bufferClient: deps.bufferClient,
+                createWordPressClient: deps.createWordPressClient,
+                fileSystem: fs,
+                pathApi: path,
+                logger
+            })
+            : null
+    );
 
     async function listSources() {
         try {
@@ -219,7 +235,29 @@ function createCardNewsService(deps = {}) {
         }
     }
 
-    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset, createExportBundle };
+    function getPublishingConfig(generationId) {
+        if (!publishingService?.getConfig) {
+            throw createApiError('CARD_NEWS_PUBLISHING_UNAVAILABLE', '카드뉴스 SNS 발행 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return publishingService.getConfig(generationId);
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_PUBLISHING_CONFIG_FAILED', '카드뉴스 발행 설정을 확인하지 못했습니다.');
+        }
+    }
+
+    async function publish(input = {}) {
+        if (!publishingService?.publish) {
+            throw createApiError('CARD_NEWS_PUBLISHING_UNAVAILABLE', '카드뉴스 SNS 발행 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return await publishingService.publish(input);
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_PUBLISH_FAILED', '카드뉴스를 SNS에 발행하지 못했습니다.');
+        }
+    }
+
+    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset, createExportBundle, getPublishingConfig, publish };
 }
 
 module.exports = {

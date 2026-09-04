@@ -100,12 +100,17 @@ function toPublicGenerationResult(generation) {
         schema_version: generation.schema_version,
         id: generation.id,
         title: generation.title,
+        source_url: String(generation.source?.canonical_url || ''),
         status: generation.status,
         image_mode: generation.image_mode,
         settings: generation.settings,
         variation: generation.variation,
         created_at: generation.created_at,
         completed_at: generation.completed_at,
+        publishing_copy: {
+            caption: String(generation.publishing_copy?.caption || generation.title || ''),
+            hashtags: Array.isArray(generation.publishing_copy?.hashtags) ? generation.publishing_copy.hashtags : []
+        },
         cards: generation.cards.map((card) => ({
             index: card.index,
             headline: card.headline,
@@ -258,6 +263,7 @@ function createCardNewsGenerationService(options = {}) {
             const plan = normalizeCardPlan(parseStructuredJsonResponse(planRaw), settings);
             generation.title = plan.set_title || snapshot.title;
             generation.art_direction = plan.art_direction;
+            generation.publishing_copy = plan.publishing_copy;
             generation.cards = plan.cards.map((card) => ({
                 index: card.index,
                 headline: card.headline,
@@ -427,7 +433,7 @@ function createCardNewsGenerationService(options = {}) {
         return { path: assetPath, file_name: safeName, mime_type: mimeType };
     }
 
-    function createExportBundle(generationId) {
+    function resolveCompleteAssets(generationId) {
         const { generation, outputDir } = resolveGeneration(generationId);
         const cards = [...generation.cards].sort((left, right) => Number(left.index) - Number(right.index));
         if (!cards.length || cards.some((card) => !safeAssetName(card.file_name))) {
@@ -436,7 +442,7 @@ function createCardNewsGenerationService(options = {}) {
             error.status = 409;
             throw error;
         }
-        const entries = cards.map((card) => {
+        const assets = cards.map((card) => {
             const sourcePath = pathApi.join(outputDir, card.file_name);
             if (!fileSystem.existsSync(sourcePath) || !fileSystem.statSync(sourcePath).isFile()) {
                 const error = new Error('일부 카드 이미지를 찾지 못했습니다. 해당 이미지를 다시 준비해 주세요.');
@@ -444,12 +450,22 @@ function createCardNewsGenerationService(options = {}) {
                 error.status = 409;
                 throw error;
             }
-            const extension = imageExtension(card.file_name);
             return {
-                name: `${String(card.index).padStart(2, '0')}${extension}`,
-                data: fileSystem.readFileSync(sourcePath)
+                index: Number(card.index),
+                path: sourcePath,
+                file_name: card.file_name,
+                mime_type: resolveAsset(generation.id, card.file_name)?.mime_type || 'application/octet-stream'
             };
         });
+        return { generation, cards, assets };
+    }
+
+    function createExportBundle(generationId) {
+        const { generation, cards, assets } = resolveCompleteAssets(generationId);
+        const entries = assets.map((asset) => ({
+            name: `${String(asset.index).padStart(2, '0')}${imageExtension(asset.file_name)}`,
+            data: fileSystem.readFileSync(asset.path)
+        }));
         const exportedNames = new Map(cards.map((card, index) => [Number(card.index), entries[index].name]));
         const portableManifest = {
             schema_version: 1,
@@ -481,7 +497,7 @@ function createCardNewsGenerationService(options = {}) {
         };
     }
 
-    return { generate, generateImages, importLocalImage, resolveAsset, createExportBundle, exportRoot };
+    return { generate, generateImages, importLocalImage, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
 }
 
 module.exports = {

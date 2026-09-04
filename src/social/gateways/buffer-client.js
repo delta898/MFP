@@ -41,7 +41,12 @@ function normalizeChannel(item = {}) {
 function normalizePublishDelivery(item = {}, index = 0) {
     const channelId = String(item.channelId || item.channel_id || '').trim();
     const text = String(item.text || '').trim();
-    const imageUrl = String(item.imageUrl || item.image_url || '').trim();
+    const legacyImageUrl = String(item.imageUrl || item.image_url || '').trim();
+    const imageUrls = (Array.isArray(item.imageUrls || item.image_urls)
+        ? (item.imageUrls || item.image_urls)
+        : (legacyImageUrl ? [legacyImageUrl] : []))
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
     if (!channelId) throw new BufferApiError(`Buffer 발행 채널 ID가 비어 있습니다. (${index + 1}번째)`, {
         code: 'BUFFER_CHANNEL_REQUIRED'
     });
@@ -52,7 +57,8 @@ function normalizePublishDelivery(item = {}, index = 0) {
         deliveryKey: String(item.deliveryKey || item.delivery_key || channelId).trim(),
         channelId,
         text,
-        imageUrl
+        imageUrl: imageUrls[0] || '',
+        imageUrls
     };
 }
 
@@ -385,8 +391,8 @@ class BufferClient {
                 channelId: delivery.channelId,
                 schedulingType: 'automatic',
                 mode: 'shareNow',
-                ...(delivery.imageUrl
-                    ? { assets: [{ image: { url: delivery.imageUrl } }] }
+                ...(delivery.imageUrls.length > 0
+                    ? { assets: delivery.imageUrls.map((url) => ({ image: { url } })) }
                     : {})
             };
         });
@@ -396,7 +402,7 @@ class BufferClient {
                 ${mutationFields}
             }
         `, variables, {
-            timeoutMs: normalized.some((delivery) => delivery.imageUrl)
+            timeoutMs: normalized.some((delivery) => delivery.imageUrls.length > 0)
                 ? this.mediaTimeoutMs
                 : this.timeoutMs
         });

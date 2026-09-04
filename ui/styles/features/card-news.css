@@ -767,6 +767,184 @@
   display: none !important;
 }
 
+.card-news-publishing-panel {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  border-radius: 16px;
+  background: rgba(240, 249, 255, 0.62);
+}
+
+.card-news-publishing-panel[hidden] {
+  display: none !important;
+}
+
+.card-news-publishing-heading,
+.card-news-publishing-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.card-news-publishing-heading h3,
+.card-news-publishing-heading p {
+  margin: 0;
+}
+
+.card-news-publishing-heading h3 {
+  color: var(--text-main);
+  font-size: 17px;
+}
+
+.card-news-publishing-heading p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.card-news-publishing-notice {
+  min-height: 18px;
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.card-news-publishing-notice[data-state="warning"],
+.card-news-publishing-actions span[data-state="warning"] {
+  color: #b45309;
+}
+
+.card-news-publishing-notice[data-state="error"],
+.card-news-publishing-actions span[data-state="error"] {
+  color: #dc2626;
+}
+
+.card-news-publishing-notice[data-state="ready"],
+.card-news-publishing-actions span[data-state="ready"] {
+  color: #047857;
+}
+
+.card-news-publishing-channels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.card-news-publishing-channel {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.card-news-publishing-channel.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.card-news-publishing-channel span,
+.card-news-publishing-channel strong,
+.card-news-publishing-channel small {
+  display: block;
+  min-width: 0;
+}
+
+.card-news-publishing-channel strong {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-news-publishing-channel small {
+  margin-top: 2px;
+  color: var(--text-light);
+  font-size: 10px;
+}
+
+.card-news-publishing-text {
+  display: block;
+  margin-top: 14px;
+}
+
+.card-news-publishing-text > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.card-news-publishing-text textarea {
+  width: 100%;
+  min-height: 92px;
+  padding: 12px 13px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.card-news-publishing-actions {
+  margin-top: 12px;
+}
+
+.card-news-publishing-actions span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.card-news-publishing-result {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.card-news-publishing-result[hidden] {
+  display: none !important;
+}
+
+.card-news-publishing-result-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.card-news-publishing-result-item strong {
+  overflow: hidden;
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-news-publishing-result-item a {
+  color: var(--brand-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.card-news-publishing-result-item[data-state="error"] span {
+  color: #dc2626;
+}
+
 .card-news-result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1046,7 +1224,8 @@
   }
 
   .card-news-generation-controls,
-  .card-news-result-grid {
+  .card-news-result-grid,
+  .card-news-publishing-channels {
     grid-template-columns: 1fr;
   }
 
@@ -1071,5 +1250,16 @@
   .card-news-generation-buttons {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .card-news-publishing-heading,
+  .card-news-publishing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .card-news-publishing-result-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

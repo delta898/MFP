@@ -62,6 +62,15 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /\/api\/v1\/card-news\/images\/import/);
     assert.match(html, /id="card-news-export-all"[^>]*>전체 이미지 받기</);
     assert.match(script, /\/api\/v1\/card-news\/exports\/\$\{encodeURIComponent\(generation\.id\)\}\.zip/);
+    assert.match(html, /id="card-news-publish-open"[^>]*hidden>SNS 발행</);
+    assert.match(html, /id="card-news-publishing-title">SNS 발행</);
+    assert.match(html, /id="card-news-publishing-panel"[^>]*hidden/);
+    assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
+    assert.match(script, /\/api\/v1\/card-news\/publishing\/publish/);
+    assert.match(script, /완성된 카드 \$\{generation\.cards\?\.length \|\| 0\}장을 선택한/);
+    assert.match(script, /config\.default_text/);
+    assert.match(script, /outcome === 'completed'[\s\S]*?'발행 완료'/);
+    assert.match(script, /outcome === 'partial' \? '실패 채널 다시 시도'/);
     assert.match(script, /data-card-news-image-working/);
     assert.match(script, /새 이미지 만드는 중…/);
     assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, \[data-card-news-image-action\], \[data-card-news-local-image\]/);

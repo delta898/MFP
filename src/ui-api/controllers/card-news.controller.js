@@ -99,6 +99,24 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async publishingConfig({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getPublishingConfig(searchParams?.get('generation_id') || ''));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_PUBLISHING_CONFIG_FAILED', '카드뉴스 발행 설정을 확인하지 못했습니다.', error);
+            }
+        },
+
+        async publish({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.publish({ ...(requestBody || {}), request_id: requestId }));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_PUBLISH_FAILED', '카드뉴스를 Buffer로 발행하지 못했습니다.', error);
+            }
+        },
+
         async projects({ requestId, method, requestBody, res }) {
             if (method === 'GET') {
                 try {

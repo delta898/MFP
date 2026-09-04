@@ -17,6 +17,8 @@ function createHarness(overrides = {}) {
                 mime_type: 'application/zip'
             };
         },
+        getPublishingConfig() { return { channels: [{ id: 'channel-1' }] }; },
+        async publish() { return { success: true, success_count: 1 }; },
         ...overrides.service
     };
     const fs = overrides.fs || {
@@ -98,4 +100,22 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
     assert.match(response.headers['Content-Disposition'], /card-news-set-1\.zip/);
     assert.match(response.headers['Content-Disposition'], /filename\*=UTF-8''%EC%B9%B4%EB%93%9C%EB%89%B4%EC%8A%A4-/);
     assert.equal(response.body.toString(), 'zip');
+});
+
+test('reads publishing config and publishes a completed card-news set', async () => {
+    const { controller, responses } = createHarness();
+    await controller.publishingConfig({
+        requestId: 'req-config',
+        method: 'GET',
+        searchParams: new URLSearchParams('generation_id=set-1'),
+        res: {}
+    });
+    await controller.publish({
+        requestId: 'req-publish',
+        method: 'POST',
+        requestBody: { generation_id: 'set-1', channel_ids: ['channel-1'] },
+        res: {}
+    });
+    assert.equal(responses[0].data.channels[0].id, 'channel-1');
+    assert.equal(responses[1].data.success, true);
 });

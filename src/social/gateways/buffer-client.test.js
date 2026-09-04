@@ -189,6 +189,38 @@ test('shareNowMany keeps the short timeout for text-only posts', async () => {
     assert.equal(axios.calls[0].options.timeout, 15000);
 });
 
+test('shareNowMany preserves ordered image assets for a carousel post', async () => {
+    const axios = createAxiosMock([{
+        status: 200,
+        data: {
+            data: {
+                delivery0: {
+                    __typename: 'PostActionSuccess',
+                    post: { id: 'post-carousel', channelId: 'channel-1' }
+                }
+            }
+        }
+    }]);
+    const client = new BufferClient({ axios });
+
+    await client.shareNowMany('secret-key', [{
+        channelId: 'channel-1',
+        text: '카드뉴스',
+        imageUrls: [
+            'https://blog.example/card-01.png',
+            'https://blog.example/card-02.png',
+            'https://blog.example/card-03.png'
+        ]
+    }]);
+
+    assert.deepEqual(axios.calls[0].body.variables.input0.assets, [
+        { image: { url: 'https://blog.example/card-01.png' } },
+        { image: { url: 'https://blog.example/card-02.png' } },
+        { image: { url: 'https://blog.example/card-03.png' } }
+    ]);
+    assert.equal(axios.calls[0].options.timeout, 60000);
+});
+
 test('request exposes an explicit timeout error code', async () => {
     const timeoutError = new Error('timeout of 60000ms exceeded');
     timeoutError.code = 'ECONNABORTED';

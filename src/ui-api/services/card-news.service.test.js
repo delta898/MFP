@@ -128,6 +128,19 @@ test('delegates complete-set export through the card-news boundary', () => {
     });
 });
 
+test('delegates publishing config and execution through the card-news boundary', async () => {
+    const calls = [];
+    const { service } = createHarness({
+        publishingService: {
+            getConfig(generationId) { calls.push(['config', generationId]); return { generation_id: generationId }; },
+            async publish(input) { calls.push(['publish', input]); return { success: true }; }
+        }
+    });
+    assert.equal(service.getPublishingConfig('generation-1').generation_id, 'generation-1');
+    assert.equal((await service.publish({ generation_id: 'generation-1' })).success, true);
+    assert.equal(calls.length, 2);
+});
+
 test('validates configured AI models before generation starts', async () => {
     assert.equal(isConfiguredAiModel({ provider: 'google', code: 'model', api_key: 'key' }), true);
     assert.equal(isConfiguredAiModel({ provider: 'direct', code: 'model', base_url: 'http://localhost:1234' }), true);

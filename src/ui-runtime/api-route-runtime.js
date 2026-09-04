@@ -254,7 +254,22 @@ function createUiApiRouteRuntime(deps = {}) {
 
     function getCardNewsRouteHandlerInstance() {
         if (!cardNewsRouteHandler) {
-            const service = createCardNewsService({ CONFIG, axios, cheerio, fs, path, logger: Logger, Utils });
+            const service = createCardNewsService({
+                CONFIG,
+                axios,
+                cheerio,
+                fs,
+                path,
+                logger: Logger,
+                Utils,
+                bufferClient: new BufferClient({ axios }),
+                createWordPressClient: () => new WordPressClient({
+                    url: CONFIG.WORDPRESS_URL,
+                    userId: CONFIG.WORDPRESS_USER_ID,
+                    appPassword: CONFIG.WORDPRESS_APP_PASSWORD,
+                    axios
+                })
+            });
             const controller = createCardNewsController({ service, sendSuccess, sendError, fs });
             cardNewsRouteHandler = createCardNewsRouteHandler({ controller });
         }

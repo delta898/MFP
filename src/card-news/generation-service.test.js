@@ -26,6 +26,8 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
             callWritingText: async () => JSON.stringify({
                 set_title: '제주 세트',
                 art_direction: '맑은 여행 잡지',
+                social_caption: '제주의 장면을 카드로 만나보세요.',
+                hashtags: ['제주여행', '카드뉴스'],
                 cards: Array.from({ length: 3 }, (_, index) => ({
                     headline: `카드 ${index + 1}`,
                     body: '내용',
@@ -46,6 +48,10 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
         assert.equal(result.status, 'completed');
         assert.equal(result.cards.length, 3);
         assert.equal(result.image_mode, 'generate');
+        assert.deepEqual(result.publishing_copy, {
+            caption: '제주의 장면을 카드로 만나보세요.',
+            hashtags: ['#제주여행', '#카드뉴스']
+        });
         assert.match(result.cards[0].image_prompt, /장면 1/);
         assert.match(result.cards[0].image_prompt, /같은 세트의 다른 카드와/);
         assert.equal(imageCalls[0].prompt, result.cards[0].image_prompt);

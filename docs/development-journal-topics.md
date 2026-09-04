@@ -169,6 +169,71 @@ rate limit이 받쳐줘야 하며, Secret 역시 과도한 권한을 갖지 않�
 `공식 제품명 + 발급 콘솔 + 인증 방식 + base URL/endpoint + 사용 기능 + quota/비용 + 데이터 최신성
 + 장애 시 fallback` 표를 만들고, 코드와 Secret도 기능별 adapter 경계로 분리하는 방법을 설명한다.
 
+## 외부 서비스와 미디어 연동
+
+### Google Drive 공유 링크를 SNS API의 이미지 호스팅으로 사용할 수 있을까
+
+**참고사항**
+
+SNS 발행 API가 이미지 파일 업로드를 직접 받지 않고 공개 URL만 요구하면, 이미 Google 계정과
+연결된 애플리케이션에서는 Google Drive를 임시 이미지 저장소로 활용하고 싶어진다. 이때
+`브라우저에서 공유 링크가 열린다`는 사실만으로 SNS API도 이미지를 가져갈 수 있다고 판단하거나,
+반대로 일반 Drive 공유 링크가 미리보기 화면을 보여준다는 이유만으로 Drive 전체를 사용할 수
+없다고 단정하기 쉽다. 두 판단 모두 접근 권한과 미디어 전송 계약을 섞은 것이다.
+
+Drive 권한은 파일 소유자와 애플리케이션만 업로드·수정·삭제할 수 있게 유지하면서, 해당 파일에
+`type=anyone`, `role=reader` 권한을 추가해 익명 사용자에게 읽기만 허용할 수 있다. 애플리케이션이
+직접 만든 파일만 다룬다면 전체 Drive 권한 대신 범위가 좁은 `drive.file` OAuth scope를 우선
+검토한다. 다만 `webViewLink` 같은 일반 공유·미리보기 주소와 바이너리 파일의 브라우저 다운로드용
+`webContentLink`는 용도가 다르다. SNS API가 요구하는 것은 로그인 화면이나 HTML 미리보기가 아니라
+인증 없이 실제 이미지 바이트를 반환하는 HTTPS URL이다.
+
+이 가설은 문서 해석만으로 확정하지 말고 최소한의 disposable PoC로 검증한다.
+
+1. 대상 Google Cloud 프로젝트에서 Drive API가 활성화되어 있는지 확인한다.
+2. 애플리케이션의 기존 OAuth 연결과 `drive.file` scope로 작은 임시 PNG 한 장을 업로드한다.
+3. 그 파일에만 `anyone:reader` 권한을 적용한다.
+4. Drive가 반환한 `webContentLink`를 인증 헤더와 로그인 쿠키 없이 요청한다.
+5. HTTP 200, `Content-Type: image/*`, 충분한 응답 크기와 PNG/JPEG 같은 실제 파일 signature를
+   함께 검사한다. 화면에 보인다는 사실이나 파일 확장자만 확인해서는 안 된다.
+6. 최초 URL, redirect 유무와 최종 host를 기록하되 접근 token이나 민감한 query 값은 로그에
+   남기지 않는다.
+7. 성공과 실패에 관계없이 `finally` 성격의 정리 단계에서 임시 파일을 삭제한다.
+
+실제 검증에서는 첫 요청이 HTTP 403으로 실패했다. OAuth 연결이나 scope 문제가 아니라 Google
+Cloud 프로젝트에서 Drive API가 비활성화된 것이 원인이었다. API를 활성화한 뒤 같은 절차를 다시
+실행하자 `anyone:reader` 적용과 익명 다운로드가 성공했고, 요청은 `drive.google.com`에서
+`drive.usercontent.google.com`으로 이동한 뒤 HTTP 200, `image/png`와 유효한 PNG 바이트를 반환했다.
+테스트 파일도 검증 직후 삭제되었다. 이 과정은 `Google 계정 연결 완료`와 `필요한 Google API
+활성화 완료`가 서로 다른 준비 조건이라는 점도 보여준다.
+
+그러나 이 결과가 곧 특정 SNS 발행 서비스와의 완전한 호환성을 의미하지는 않는다. 외부 서비스가
+redirect를 따르는지, 최종 다운로드 주소를 안정적으로 처리하는지, 여러 이미지를 순서대로 가져가는지
+실제 end-to-end 테스트가 남는다. 공급자가 `공개·직접·안정적인 URL`을 요구한다면 익명 요청뿐 아니라
+redirect, content type, 파일 크기 제한, URL 수명과 예약 발행 시점까지의 가용성을 확인해야 한다.
+글을 작성할 때에는 Google Drive와 연결 대상 SNS API의 최신 공식 문서를 다시 확인한다.
+
+임시 파일의 수명주기도 핵심이다. 즉시 발행은 외부 서비스가 파일을 정상적으로 가져가고 발행 결과가
+확정된 뒤 삭제할 수 있다. 예약·대기열 발행은 실제 발행 시점까지 파일을 유지해야 한다. Timeout처럼
+성공 여부가 모호한 경우에는 곧바로 삭제하거나 같은 발행 요청을 반복하면 이미지 누락이나 중복
+게시가 생길 수 있으므로, 결과를 재조회하고 정리 여부를 결정한다. 공개 기간에는 링크를 아는 누구나
+파일을 읽을 수 있으므로 무작위 파일 ID를 접근 통제로 오해하지 않고, 최소 공개 시간·사용자 안내와
+정리 실패 재시도도 함께 설계한다.
+
+구현에서는 카드뉴스 생성과 저장소, SNS 발행을 한 덩어리로 묶지 않는다. `로컬 파일을 임시 공개
+URL로 전환`, `외부 발행`, `결과 확정 후 정리`를 분리하면 Google Drive, WordPress 미디어,
+Cloudflare R2나 전용 CDN을 상황에 따라 교체할 수 있다. Google Drive는 기존 사용자 계정과 좁은
+권한을 재사용할 수 있다는 장점이 있지만 CDN을 목적으로 한 제품은 아니므로, 안정성·대량 처리·예약
+보존이 중요해지면 객체 저장소와 비용, 개인정보, 운영 복잡도를 다시 비교한다.
+
+**공식 문서 확인 대상**
+
+- [Google Drive 파일·폴더 공유 권한](https://developers.google.com/workspace/drive/api/guides/manage-sharing)
+- [Google Drive 파일의 `webViewLink`와 `webContentLink`](https://developers.google.com/workspace/drive/api/reference/rest/v3/files)
+- [Google Drive 파일 다운로드](https://developers.google.com/workspace/drive/api/guides/manage-downloads)
+- [Google Drive OAuth scope 선택](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
+- [Buffer 미디어 URL 요구사항](https://developers.buffer.com/guides/hosting-media.html)
+
 ## 개발과 배포 환경
 
 ### GHCR에 Docker image를 보관하고 동일한 artifact를 환경별로 승격하는 방법

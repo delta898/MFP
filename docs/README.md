@@ -85,6 +85,8 @@
 
 ## Active Work
 
+- `plans/active/2026-09-05-v0.4.3-card-news-08-buffer-publishing-development.md`
+- `plans/archive/2026-09-05-v0.4.3-card-news-07-local-export-development.md`
 - `plans/active/2026-09-04-v0.4.3-card-news-03-source-preview-development.md`
 - `plans/archive/2026-09-04-v0.4.3-card-news-02-source-project-development.md`
 - `plans/archive/2026-09-04-v0.4.3-card-news-01-feasibility-development.md`
