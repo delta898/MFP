@@ -85,6 +85,8 @@
 
 ## Active Work
 
+- `plans/archive/2026-09-04-v0.4.3-card-news-01-feasibility-development.md`
+- `plans/active/2026-09-04-v0.4.3-card-news-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
 - `plans/active/2026-09-04-v0.4.2-settings-help-links-development.md`
