@@ -30,9 +30,16 @@ function createAccountOverviewFixture() {
         usage: { mode: 'metered', cycle: 'monthly', used: 2, limit: 10, remaining: 8 },
         connections: {
             naver: { status: 'connected', message: 'fixture' },
+            google_account: { status: 'configured', message: 'fixture' },
             google_sheets: { status: 'connected', message: 'fixture' },
             wordpress: { status: 'not_configured', message: 'fixture' },
             buffer: { status: 'not_configured', message: 'fixture' }
+        },
+        setup: {
+            ready: true,
+            ai: { configured: true },
+            google: { configured: true, account_connected: true, spreadsheet_configured: true },
+            publishing_channel: { configured: true, naver_configured: true, wordpress_configured: false }
         },
         actions: [],
         smart_usage: {
@@ -923,6 +930,22 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
         assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
         assert.equal((await page.locator('#dashboard-beta-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
+        assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), true);
+        await page.evaluate(() => renderDashboardBetaOnboarding({
+            ready: false,
+            ai: { configured: true },
+            google: { configured: false },
+            publishing_channel: { configured: false }
+        }));
+        assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-beta-onboarding-progress').textContent()).trim(), '1/3 준비됨');
+        assert.equal((await page.locator('#dashboard-beta-onboarding-action').textContent()).trim(), 'Google 연결하기');
+        await page.locator('#dashboard-beta-onboarding-action').click();
+        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
+        assert.equal(await page.locator('.settings-tab-btn[data-settings-tab="general"]').evaluate(element => element.classList.contains('active')), true);
+        await page.waitForFunction(() => document.getElementById('settings-google-auth-section')?.classList.contains('settings-navigation-target'));
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         await page.locator('[data-dashboard-beta-period="week"]').click();
         assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');

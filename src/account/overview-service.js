@@ -137,6 +137,7 @@ function createAccountOverviewService(deps = {}) {
         APP_VERSION = '',
         toFeatureMap = (value) => value || {},
         peekNaverSessionForUi = () => ({ ok: false, reason: 'not_checked', checked: false, message: '' }),
+        peekGoogleOauthStatus = () => ({ state: 'disconnected', connected: false }),
         getWordPressVerification = () => null,
         getConnectionReadiness = null,
         resolveMachineId = () => machineIdSync({ original: true }),
@@ -161,6 +162,16 @@ function createAccountOverviewService(deps = {}) {
                 : Promise.resolve(null)
         ]);
         const naverSession = connectionReadiness?.naver || peekNaverSessionForUi();
+        let googleOauth;
+        try {
+            googleOauth = peekGoogleOauthStatus();
+        } catch (error) {
+            googleOauth = {
+                state: 'error',
+                connected: false,
+                message: String(error?.message || 'Google 연결 상태를 확인하지 못했습니다.')
+            };
+        }
 
         const hasLicenseContext = Boolean(
             licenseStatus?.planCode
@@ -190,12 +201,28 @@ function createAccountOverviewService(deps = {}) {
             hardwareId = maskHardwareId(resolveMachineId());
         } catch (_ignore) { }
 
-        const googleConfigured = Boolean(String(CONFIG.GOOGLE_SHEET_URL || CONFIG.GOOGLE_SHEET_ID || '').trim());
-        const wordpressConfigured = Boolean(
-            String(CONFIG.WORDPRESS_URL || '').trim()
-            && String(CONFIG.WORDPRESS_USER_ID || '').trim()
-            && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
-        );
+        const hasUsableConfigValue = (value) => {
+            const normalized = String(value || '').trim().toLowerCase();
+            return Boolean(normalized)
+                && !normalized.includes('본인의_')
+                && !normalized.includes('your_')
+                && !normalized.startsWith('xxxxxxx');
+        };
+        const googleConfigured = hasUsableConfigValue(CONFIG.GOOGLE_SHEET_URL || CONFIG.GOOGLE_SHEET_ID);
+        const googleAccountConnected = googleOauth?.connected === true
+            || ['connected', 'connected_cached'].includes(String(googleOauth?.state || '').trim());
+        const textModelProvider = String(CONFIG.TEXT_MODEL_PROVIDER || CONFIG.TEXT_MODEL_CONFIG?.provider || '').trim().toLowerCase();
+        const textModelIdentity = CONFIG.TEXT_MODEL || CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL_CONFIG?.code;
+        const textModelConfigured = textModelProvider === 'direct'
+            ? hasUsableConfigValue(textModelIdentity)
+                && hasUsableConfigValue(CONFIG.TEXT_MODEL_BASE_URL || CONFIG.TEXT_MODEL_CONFIG?.base_url)
+            : hasUsableConfigValue(textModelIdentity) && hasUsableConfigValue(CONFIG.TEXT_MODEL_API_KEY);
+        const wordpressFieldsConfigured = hasUsableConfigValue(CONFIG.WORDPRESS_URL)
+            && hasUsableConfigValue(CONFIG.WORDPRESS_USER_ID)
+            && hasUsableConfigValue(CONFIG.WORDPRESS_APP_PASSWORD);
+        const wordpressConfigured = typeof CONFIG.CONFIG_IS_WP_SET === 'boolean'
+            ? CONFIG.CONFIG_IS_WP_SET
+            : wordpressFieldsConfigured;
         const wordpressVerification = wordpressConfigured
             ? (connectionReadiness?.wordpress || getWordPressVerification({
                 url: CONFIG.WORDPRESS_URL,
@@ -203,6 +230,12 @@ function createAccountOverviewService(deps = {}) {
                 appPassword: CONFIG.WORDPRESS_APP_PASSWORD
             }))
             : null;
+        const naverConfigured = naverSession?.ok === true || CONFIG.CONFIG_IS_NAVER_SET === true;
+        const publishingChannelConfigured = naverConfigured || wordpressConfigured;
+        const setupReady = textModelConfigured
+            && googleAccountConnected
+            && googleConfigured
+            && publishingChannelConfigured;
 
         return {
             identity: {
@@ -264,6 +297,10 @@ function createAccountOverviewService(deps = {}) {
                     message: String(naverSession?.message || '').trim(),
                     checked_at: naverSession?.checkedAt ? new Date(naverSession.checkedAt).toISOString() : ''
                 }),
+                google_account: normalizeConnection(googleAccountConnected ? 'configured' : 'not_configured', {
+                    reason: String(googleOauth?.state || '').trim(),
+                    message: String(googleOauth?.message || '').trim()
+                }),
                 google_sheets: normalizeConnection(googleConfigured ? 'configured' : 'not_configured'),
                 wordpress: normalizeConnection(
                     !wordpressConfigured
@@ -271,6 +308,20 @@ function createAccountOverviewService(deps = {}) {
                         : (wordpressVerification?.status || 'unverified'),
                     wordpressVerification || {}
                 )
+            },
+            setup: {
+                ready: setupReady,
+                ai: { configured: textModelConfigured },
+                google: {
+                    configured: googleAccountConnected && googleConfigured,
+                    account_connected: googleAccountConnected,
+                    spreadsheet_configured: googleConfigured
+                },
+                publishing_channel: {
+                    configured: publishingChannelConfigured,
+                    naver_configured: naverConfigured,
+                    wordpress_configured: wordpressConfigured
+                }
             },
             actions,
             generated_at: new Date().toISOString()

@@ -32,11 +32,14 @@ function createService(overrides = {}) {
         },
         CONFIG: {
             GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
-            WORDPRESS_URL: ''
+            WORDPRESS_URL: '',
+            TEXT_MODEL_API_KEY: 'test-api-key',
+            TEXT_MODEL: 'test-model'
         },
         APP_VERSION: '0.1.13',
         toFeatureMap: (value) => ({ ...value }),
         peekNaverSessionForUi: () => ({ ok: true, reason: '', message: 'valid', checkedAt: Date.now() }),
+        peekGoogleOauthStatus: () => ({ state: 'connected_cached', connected: true, message: 'saved' }),
         resolveMachineId: () => 'raw-machine-id-must-not-leak',
         runtimeVersions: { node: '24.16.0', electron: '40.6.1' },
         platform: 'darwin',
@@ -81,8 +84,23 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.device.hw_id, '******not-leak');
     assert.equal(JSON.stringify(overview).includes('raw-machine-id-must-not-leak'), false);
     assert.equal(overview.connections.naver.status, 'connected');
+    assert.equal(overview.connections.google_account.status, 'configured');
     assert.equal(overview.connections.google_sheets.status, 'configured');
     assert.equal(overview.connections.wordpress.status, 'not_configured');
+    assert.deepEqual(overview.setup, {
+        ready: true,
+        ai: { configured: true },
+        google: {
+            configured: true,
+            account_connected: true,
+            spreadsheet_configured: true
+        },
+        publishing_channel: {
+            configured: true,
+            naver_configured: true,
+            wordpress_configured: false
+        }
+    });
     assert.deepEqual(overview.capabilities.items.map((item) => item.id), [
         'cmd_batch',
         'cmd_trends',
@@ -95,6 +113,73 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.actions.find((item) => item.id === 'purchase_credits').enabled, false);
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 등록');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
+});
+
+test('account overview identifies the next setup gaps without active Google network access', async () => {
+    let googlePeekCount = 0;
+    const service = createService({
+        CONFIG: {
+            GOOGLE_SHEET_URL: '',
+            WORDPRESS_URL: '',
+            TEXT_MODEL_API_KEY: '',
+            TEXT_MODEL: ''
+        },
+        peekNaverSessionForUi: () => ({ ok: false, reason: 'not_checked', checked: false }),
+        peekGoogleOauthStatus() {
+            googlePeekCount += 1;
+            return { state: 'disconnected', connected: false, message: 'not connected' };
+        }
+    });
+
+    const overview = await service.getOverview();
+
+    assert.equal(googlePeekCount, 1);
+    assert.equal(overview.setup.ready, false);
+    assert.deepEqual(overview.setup.ai, { configured: false });
+    assert.deepEqual(overview.setup.google, {
+        configured: false,
+        account_connected: false,
+        spreadsheet_configured: false
+    });
+    assert.deepEqual(overview.setup.publishing_channel, {
+        configured: false,
+        naver_configured: false,
+        wordpress_configured: false
+    });
+});
+
+test('account overview keeps rendering when cached Google status inspection fails', async () => {
+    const service = createService({
+        peekGoogleOauthStatus() {
+            throw new Error('token file unavailable');
+        }
+    });
+
+    const overview = await service.getOverview();
+
+    assert.equal(overview.connections.google_account.status, 'not_configured');
+    assert.equal(overview.connections.google_account.reason, 'error');
+    assert.equal(overview.connections.google_account.message, 'token file unavailable');
+    assert.equal(overview.setup.google.account_connected, false);
+    assert.equal(overview.setup.ready, false);
+});
+
+test('account overview accepts a complete direct text model without an API key', async () => {
+    const service = createService({
+        CONFIG: {
+            GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
+            WORDPRESS_URL: '',
+            TEXT_MODEL_PROVIDER: 'direct',
+            TEXT_MODEL_NAME: 'local-model',
+            TEXT_MODEL_BASE_URL: 'http://127.0.0.1:11434/v1/',
+            TEXT_MODEL_API_KEY: ''
+        }
+    });
+
+    const overview = await service.getOverview();
+
+    assert.equal(overview.setup.ai.configured, true);
+    assert.equal(overview.setup.ready, true);
 });
 
 test('account overview reads cached connection state without running an active Naver check', async () => {

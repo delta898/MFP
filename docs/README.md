@@ -86,6 +86,7 @@
 ## Active Work
 
 - `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
+- `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
 - `plans/archive/2026-09-04-v0.4.2-product-surface-routing-development.md`
 - `plans/archive/2026-09-04-publishing-progress-links-development.md`
 - `plans/archive/2026-09-04-manual-publish-celebration-development.md`

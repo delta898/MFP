@@ -41,6 +41,26 @@ test('Dashboard Beta loads independent readiness, operations, and result stats r
     assert.match(lifecycle, /view-dashboard-beta[\s\S]*loadDashboardBeta\(\{ force: true \}\)/);
 });
 
+test('Dashboard guides incomplete setup inline and routes the next action to the exact setting', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaStyle = read('ui/styles/features/dashboard-beta.css');
+    const generalSettings = read('ui/partials/views/settings/general.html');
+
+    assert.match(betaView, /id="dashboard-beta-onboarding"[^>]*hidden/);
+    assert.match(betaView, /AI 글쓰기 모델/);
+    assert.match(betaView, /Google Spreadsheet/);
+    assert.match(betaView, /네이버 또는 WordPress 중 하나를 준비합니다/);
+    assert.doesNotMatch(betaView, /온보딩[^<]*닫기|data-dashboard-beta-onboarding-dismiss/);
+    assert.match(betaScript, /function renderDashboardBetaOnboarding/);
+    assert.match(betaScript, /section\.hidden = complete/);
+    assert.match(betaScript, /setup\?\.publishing_channel\?\.configured === true/);
+    assert.match(betaScript, /navigateToSettingsTarget\(settingsTarget\.dataset\.settingsTab, settingsTarget\.dataset\.settingsTarget\)/);
+    assert.match(generalSettings, /id="settings-google-auth-section"/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding\[hidden\]\s*\{\s*display:\s*none/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+});
+
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');

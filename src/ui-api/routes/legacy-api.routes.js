@@ -28,6 +28,7 @@ const {
 } = require('../../connections/verification-state');
 
 function createLegacyApiRouteHandler(deps = {}) {
+    const GoogleOAuth = require('../../google-oauth');
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();
     const systemService = createSystemService({
@@ -85,6 +86,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         APP_VERSION: deps.APP_VERSION,
         toFeatureMap: deps.toFeatureMap,
         peekNaverSessionForUi: deps.peekNaverSessionForUi,
+        peekGoogleOauthStatus: GoogleOAuth.peekStatus,
         getWordPressVerification,
         getConnectionReadiness: connectionReadinessService.getReadiness
     });
@@ -102,7 +104,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         RuntimeConfig: deps.RuntimeConfig,
         CONFIG: deps.CONFIG,
         License: deps.License,
-        GoogleOAuth: require('../../google-oauth'),
+        GoogleOAuth,
         BrowserLauncher: deps.BrowserLauncher,
         ShoppingManager: deps.ShoppingManager,
         Logger: deps.Logger,

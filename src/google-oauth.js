@@ -276,6 +276,33 @@ async function getStatus() {
     }
 }
 
+function peekStatus() {
+    try {
+        const config = ensureConfigured();
+        const tokens = readTokens();
+        const connected = Boolean(tokens?.refresh_token);
+        return {
+            state: connected ? 'connected_cached' : 'disconnected',
+            configured: Boolean(config.clientId),
+            connected,
+            connectedEmail: connected ? String(tokens.connected_email || '') : '',
+            lastVerifiedAt: connected ? String(tokens.last_verified_at || '') : '',
+            message: connected
+                ? '저장된 Google 계정 연결 정보가 있습니다.'
+                : 'Google 계정이 아직 연결되지 않았습니다.'
+        };
+    } catch (error) {
+        return {
+            state: 'error',
+            configured: false,
+            connected: false,
+            connectedEmail: '',
+            lastVerifiedAt: '',
+            message: error.message
+        };
+    }
+}
+
 function renderCallbackHtml({ success, message = '', email = '' }) {
     const title = success ? 'Google 연결 완료' : 'Google 연결 실패';
     const description = success
@@ -308,6 +335,7 @@ module.exports = {
     getConfigurationStatus,
     getOauthClientConfig,
     getStatus,
+    peekStatus,
     readTokens,
     renderCallbackHtml
 };
