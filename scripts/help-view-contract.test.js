@@ -53,3 +53,37 @@ test('Help navigation initializes once, refreshes its catalog, and remains avail
   assert.match(navigation, /viewName === 'help'[\s\S]*initHelpView\(\)/);
   assert.doesNotMatch(responsive, /body\.mobile-quick-mode \.nav-help-link\s*\{/);
 });
+
+test('AI settings routes users to the existing Help guide instead of duplicating an external link', () => {
+  const aiView = read('ui/partials/views/settings/ai.html');
+  const helpView = read('ui/partials/views/help.html');
+  const helpScript = read('ui/scripts/features/shell/help.js');
+  const navigation = read('ui/scripts/foundation/navigation.js');
+
+  assert.match(aiView, /data-help-guide-url="https:\/\/m\.blog\.naver\.com\/amadejjs\/224368506082"/);
+  assert.match(aiView, /AI 설정 가이드 보기/);
+  assert.match(helpView, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/224368506082"/);
+  assert.match(helpScript, /async function navigateToHelpGuide/);
+  assert.match(helpScript, /await navigateTo\('help'\)/);
+  assert.match(helpScript, /help-guide-navigation-target/);
+  assert.match(navigation, /data-help-guide-url/);
+});
+
+test('configuration sections expose only contextual Help entry points', () => {
+  const general = read('ui/partials/views/settings/general.html');
+  const blog = read('ui/partials/views/settings/naver-blog.html');
+  const writing = read('ui/partials/views/settings/writing.html');
+  const expected = [
+    '224367369056',
+    '224369593466',
+    '224364560786',
+    '224364876173',
+    'blog.gongzza.com/blog/%eb%b8%94%eb%a1%9c%ea%b7%b8-%ec%9e%90%eb%8f%99%ed%99%94-%ed%9a%a8%ec%9c%a8-%ec%98%ac%eb%a6%ac%eb%8a%94-bloggenius-%eb%b9%a0%eb%a5%b8-%ea%b8%80-%ec%9e%91%ec%84%b1-%eb%b0%a9%eb%b2%95/'
+  ];
+  expected.forEach((fragment) => assert.match(`${general}\n${blog}\n${writing}`, new RegExp(`data-help-guide-url="[^"]*${fragment}`)));
+  assert.match(general, /Google 계정 연결[\s\S]*연결 방법 보기/);
+  assert.match(general, /앱 업데이트[\s\S]*업데이트 팁 보기/);
+  assert.match(blog, /네이버 블로그[\s\S]*로그인 방법 보기/);
+  assert.match(blog, /워드프레스[\s\S]*연동 방법 보기/);
+  assert.match(writing, /빠른 글 작성 가이드 보기/);
+});

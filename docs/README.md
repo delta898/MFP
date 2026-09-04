@@ -87,6 +87,7 @@
 
 - `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
+- `plans/active/2026-09-04-v0.4.2-settings-help-links-development.md`
 - `plans/archive/2026-09-04-v0.4.2-product-surface-routing-development.md`
 - `plans/archive/2026-09-04-publishing-progress-links-development.md`
 - `plans/archive/2026-09-04-manual-publish-celebration-development.md`
@@ -155,3 +156,4 @@
 Completed and superseded implementation plans are retained under
 `plans/archive/` for historical context. They are not current architecture or
 open-work sources of truth.
+- `2026-09-04-v0.4.2-ai-help-link-development.md` — AI 설정에서 Help 가이드로 이동

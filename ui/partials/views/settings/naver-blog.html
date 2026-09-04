@@ -1,7 +1,10 @@
         <div class="card form-card settings-tab-panel" id="settings-tab-naver-blog">
           <h2>블로그 설정</h2>
           <div class="form-grid">
-            <div class="settings-section-divider">네이버 블로그</div>
+            <div class="settings-section-divider settings-section-divider-with-links">
+              <span>네이버 블로그</span>
+              <button type="button" class="secondary" data-help-guide-url="https://m.blog.naver.com/amadejjs/224364560786">로그인 방법 보기 <span aria-hidden="true">↗</span></button>
+            </div>
             <label class="settings-naver-auth-field">NAVER_ID
               <div class="input-with-action settings-naver-auth-row">
                 <input id="settings-naver-id" type="text" placeholder="네이버 아이디">
@@ -14,7 +17,10 @@
               </div>
             </label>
 
-            <div class="settings-section-divider" style="grid-column: 1 / -1; margin-top: 24px;">워드프레스</div>
+            <div class="settings-section-divider settings-section-divider-with-links" style="grid-column: 1 / -1; margin-top: 24px;">
+              <span>워드프레스</span>
+              <button type="button" class="secondary" data-help-guide-url="https://m.blog.naver.com/amadejjs/224364876173">연동 방법 보기 <span aria-hidden="true">↗</span></button>
+            </div>
             <label style="grid-column: 1 / -1;">WORDPRESS_URL
               <input id="settings-wordpress-url" type="text" placeholder="https://your-wordpress-site.com">
             </label>

@@ -17,6 +17,28 @@
   gap: 12px;
 }
 
+.settings-ai-guide-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: -4px 0 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.settings-ai-guide-links button {
+  padding: 7px 11px;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .settings-ai-guide-links {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .settings-section-divider .buffer-resource-links {
   font-weight: 500;
   flex-wrap: wrap;

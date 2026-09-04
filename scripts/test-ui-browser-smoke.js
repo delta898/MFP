@@ -281,7 +281,8 @@ function getApiFixture(pathname) {
                     block('remote-help-install', 'resource', '원격 설치 가이드', 'https://example.com/help/install', '설치 방법 보기')
                 ] },
                 writing: { blocks: [
-                    block('remote-help-writing', 'resource', '원격 글쓰기 가이드', 'https://example.com/help/writing', '작성 방법 보기')
+                    block('remote-help-writing', 'resource', '원격 글쓰기 가이드', 'https://example.com/help/writing', '작성 방법 보기'),
+                    block('remote-help-ai', 'resource', 'AI 설정 가이드', 'https://m.blog.naver.com/amadejjs/224368506082', 'AI 설정 방법 보기')
                 ] },
                 automation: { blocks: [
                     block('remote-help-automation', 'resource', '원격 자동화 가이드', 'https://example.com/help/automation', '자동화 방법 보기')
@@ -1100,6 +1101,12 @@ async function run() {
         await page.evaluate(() => navigateTo('dashboard'));
         await page.locator('#recommendation-center-refresh').click();
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
+
+        await page.locator('.nav-btn[data-view="settings"]').click();
+        await page.locator('.settings-tab-btn[data-settings-tab="ai"]').click();
+        await page.locator('[data-help-guide-url]').click();
+        await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
+        await page.waitForFunction(() => document.querySelector('#view-help a[href*="224368506082"]')?.classList.contains('help-guide-navigation-target'));
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();

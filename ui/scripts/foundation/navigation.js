@@ -119,6 +119,12 @@ function bindNavigation() {
       void navigateTo(btn.dataset.view);
     });
   });
+  document.addEventListener('click', (event) => {
+    const guide = event.target.closest('[data-help-guide-url]');
+    if (!guide) return;
+    event.preventDefault();
+    void navigateToHelpGuide(guide.dataset.helpGuideUrl);
+  });
 }
 
 function applyMobileQuickMode() {

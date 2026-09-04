@@ -2,6 +2,22 @@ let helpCatalogSignature = null;
 let helpCatalogPending = null;
 const helpLocalRegionMarkup = new Map();
 
+async function navigateToHelpGuide(targetUrl) {
+  const url = String(targetUrl || '').trim();
+  if (!url) return false;
+  await navigateTo('help');
+  await refreshHelpCatalog();
+  const guide = Array.from(document.querySelectorAll('#view-help a[href]'))
+    .find((element) => element.getAttribute('href') === url);
+  if (!guide) return false;
+  guide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  guide.classList.remove('help-guide-navigation-target');
+  void guide.offsetWidth;
+  guide.classList.add('help-guide-navigation-target');
+  setTimeout(() => guide.classList.remove('help-guide-navigation-target'), 1800);
+  return true;
+}
+
 function captureHelpLocalFallbacks(view) {
   [
     'help-getting-started-region',
