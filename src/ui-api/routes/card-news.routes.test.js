@@ -7,13 +7,23 @@ test('routes only card-news endpoints to their controllers', async () => {
     const controller = {
         sources: async (ctx) => calls.push(['sources', ctx.method]),
         preview: async (ctx) => calls.push(['preview', ctx.method]),
+        generate: async (ctx) => calls.push(['generate', ctx.method]),
+        asset: async (ctx) => calls.push(['asset', ctx.method]),
         projects: async (ctx) => calls.push(['projects', ctx.method])
     };
     const handler = createCardNewsRouteHandler({ controller });
 
     assert.equal(await handler({ pathname: '/api/v1/card-news/sources', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/source-preview', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/generations', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/assets/set-1/card-01.png', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/projects', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/other', method: 'GET' }), false);
-    assert.deepEqual(calls, [['sources', 'GET'], ['preview', 'POST'], ['projects', 'GET']]);
+    assert.deepEqual(calls, [
+        ['sources', 'GET'],
+        ['preview', 'POST'],
+        ['generate', 'POST'],
+        ['asset', 'GET'],
+        ['projects', 'GET']
+    ]);
 });

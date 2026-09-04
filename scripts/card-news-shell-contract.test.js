@@ -32,6 +32,14 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /\/api\/v1\/card-news\/sources/);
     assert.match(script, /\/api\/v1\/card-news\/source-preview/);
     assert.doesNotMatch(script, /\/api\/v1\/card-news\/projects/);
+    assert.match(html, /id="card-news-generation-panel"[^>]*hidden/);
+    assert.match(html, /id="card-news-slide-count"/);
+    assert.match(html, /id="card-news-aspect-ratio"/);
+    assert.match(html, /id="card-news-style"/);
+    assert.match(html, /id="card-news-include-korean-text"/);
+    assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
+    assert.match(script, /\/api\/v1\/card-news\/generations/);
+    assert.match(script, /sameVariation/);
     assert.match(script, /const sources = cardNewsViewState\.configuredSources;[\s\S]*sources\.length < 2/);
     assert.match(script, /CARD_NEWS_PLATFORM_STORAGE_KEY/);
     assert.match(script, /void previewCardNewsSource\(cardNewsViewState\.articles\[cardNewsViewState\.selectedArticleIndex\]\)/);

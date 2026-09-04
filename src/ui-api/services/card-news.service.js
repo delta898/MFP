@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { createCardNewsSourceService } = require('../../card-news/source-service');
 const { createCardNewsProject } = require('../../card-news/project');
 const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
+const { createCardNewsGenerationService } = require('../../card-news/generation-service');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { parseFeedXml } = require('../../social/feed-entry');
 
@@ -53,6 +54,14 @@ function summarizeProject(project = {}) {
     };
 }
 
+function isConfiguredAiModel(model = {}) {
+    const provider = String(model.provider || '').trim().toLowerCase();
+    const code = String(model.code || '').trim();
+    if (!code) return false;
+    if (provider === 'direct') return Boolean(String(model.base_url || '').trim());
+    return Boolean(String(model.api_key || '').trim());
+}
+
 function createCardNewsService(deps = {}) {
     const {
         CONFIG = {},
@@ -61,6 +70,7 @@ function createCardNewsService(deps = {}) {
         fs,
         path,
         logger,
+        Utils,
         now = () => new Date().toISOString(),
         createId = () => crypto.randomUUID()
     } = deps;
@@ -94,6 +104,17 @@ function createCardNewsService(deps = {}) {
         path,
         workspaceDir: CONFIG.PATHS?.workspace
     });
+    const generationService = deps.generationService || (Utils ? createCardNewsGenerationService({
+        fs,
+        path,
+        workspaceDir: CONFIG.PATHS?.workspace,
+        callWritingText: Utils.callWritingText.bind(Utils),
+        callWritingImage: Utils.callWritingImage.bind(Utils),
+        parseStructuredJsonResponse: Utils.parseStructuredJsonResponse,
+        logger,
+        now,
+        createId
+    }) : null);
 
     async function listSources() {
         try {
@@ -140,12 +161,34 @@ function createCardNewsService(deps = {}) {
         }
     }
 
-    return { listSources, previewSource, createProject, listProjects };
+    async function generate(input = {}) {
+        if (!generationService) {
+            throw createApiError('CARD_NEWS_GENERATION_UNAVAILABLE', '카드뉴스 생성 기능이 준비되지 않았습니다.', 500);
+        }
+        if (!isConfiguredAiModel(CONFIG.TEXT_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_TEXT_MODEL_REQUIRED', '설정에서 글쓰기 AI를 먼저 연결해 주세요.');
+        }
+        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
+        }
+        try {
+            return { generation: await generationService.generate(input) };
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_GENERATION_FAILED', '카드뉴스를 만들지 못했습니다. 설정한 AI 모델을 확인한 뒤 다시 시도해 주세요.');
+        }
+    }
+
+    function resolveAsset(generationId, fileName) {
+        return generationService?.resolveAsset(generationId, fileName) || null;
+    }
+
+    return { listSources, previewSource, createProject, listProjects, generate, resolveAsset };
 }
 
 module.exports = {
     CARD_NEWS_SOURCE_LIMIT,
     createCardNewsService,
     limitArticlesPerPlatform,
-    summarizeProject
+    summarizeProject,
+    isConfiguredAiModel
 };

@@ -11,10 +11,13 @@ const cardNewsViewState = {
   previewCache: new Map(),
   previewRequestId: 0,
   busy: false,
-  loadingSources: false
+  loadingSources: false,
+  generating: false,
+  generation: null
 };
 
 const CARD_NEWS_PLATFORM_STORAGE_KEY = 'bloggenius.cardNews.sourcePlatform';
+const CARD_NEWS_GENERATION_SETTINGS_STORAGE_KEY = 'bloggenius.cardNews.generationSettings';
 
 function cardNewsSourceLabel(kind) {
   if (kind === 'feed_item') return '내 블로그 글';
@@ -93,6 +96,113 @@ function markCardNewsPreviewStale() {
   if (badge) {
     badge.textContent = cardNewsPreviewMatchesCurrentSource() ? '확인 완료' : '다시 확인 필요';
     badge.dataset.state = cardNewsPreviewMatchesCurrentSource() ? 'ready' : 'stale';
+  }
+  updateCardNewsGenerationAvailability();
+}
+
+function readCardNewsGenerationSettings() {
+  return {
+    slide_count: Number.parseInt(document.getElementById('card-news-slide-count')?.value || '5', 10),
+    aspect_ratio: document.getElementById('card-news-aspect-ratio')?.value || '4:5',
+    style: document.getElementById('card-news-style')?.value || 'ai_recommended',
+    include_korean_text: Boolean(document.getElementById('card-news-include-korean-text')?.checked)
+  };
+}
+
+function saveCardNewsGenerationSettings() {
+  try {
+    localStorage.setItem(CARD_NEWS_GENERATION_SETTINGS_STORAGE_KEY, JSON.stringify(readCardNewsGenerationSettings()));
+  } catch (_) { }
+}
+
+function restoreCardNewsGenerationSettings() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(CARD_NEWS_GENERATION_SETTINGS_STORAGE_KEY) || 'null'); } catch (_) { }
+  if (!saved || typeof saved !== 'object') return;
+  const values = {
+    'card-news-slide-count': String(saved.slide_count || ''),
+    'card-news-aspect-ratio': String(saved.aspect_ratio || ''),
+    'card-news-style': String(saved.style || '')
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field && [...field.options].some((option) => option.value === value)) field.value = value;
+  });
+  const koreanText = document.getElementById('card-news-include-korean-text');
+  if (koreanText && typeof saved.include_korean_text === 'boolean') koreanText.checked = saved.include_korean_text;
+}
+
+function updateCardNewsGenerationAvailability() {
+  const panel = document.getElementById('card-news-generation-panel');
+  const ready = Boolean(cardNewsViewState.preview && cardNewsPreviewMatchesCurrentSource());
+  if (panel) panel.hidden = !ready;
+  const button = document.getElementById('card-news-generate-button');
+  if (button) button.disabled = !ready || cardNewsViewState.generating;
+}
+
+function setCardNewsGenerating(generating) {
+  cardNewsViewState.generating = generating;
+  const primary = document.getElementById('card-news-generate-button');
+  const same = document.getElementById('card-news-regenerate-same');
+  const fresh = document.getElementById('card-news-regenerate-new');
+  [primary, same, fresh].forEach((button) => { if (button) button.disabled = generating; });
+  if (primary) primary.textContent = generating ? '카드뉴스 만드는 중…' : '카드뉴스 만들기';
+  updateCardNewsGenerationAvailability();
+}
+
+function setCardNewsGenerationStatus(message = '', state = '') {
+  const status = document.getElementById('card-news-generation-status');
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.state = state;
+}
+
+function renderCardNewsGeneration(generation) {
+  cardNewsViewState.generation = generation;
+  const panel = document.getElementById('card-news-result-panel');
+  const grid = document.getElementById('card-news-result-grid');
+  if (!panel || !grid) return;
+  panel.hidden = false;
+  panel.dataset.aspectRatio = generation.settings?.aspect_ratio || '4:5';
+  document.getElementById('card-news-result-title').textContent = generation.title || '만든 카드뉴스';
+  document.getElementById('card-news-result-summary').textContent = `${generation.cards?.length || 0}장의 카드가 완성되었습니다. 각 이미지를 내려받을 수 있습니다.`;
+  grid.innerHTML = (generation.cards || []).map((card) => `
+    <article class="card-news-result-item">
+      <div class="card-news-result-image-wrap">
+        <img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">
+        <span>${card.index}</span>
+      </div>
+      <div class="card-news-result-copy">
+        <strong>${escapeHtml(card.headline)}</strong>
+        <p>${escapeHtml(card.body || '')}</p>
+        <a href="${escapeHtml(card.download_url)}" download>이미지 받기</a>
+      </div>
+    </article>`).join('');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function generateCardNews(options = {}) {
+  if (cardNewsViewState.generating || !cardNewsViewState.preview || !cardNewsPreviewMatchesCurrentSource()) return;
+  saveCardNewsGenerationSettings();
+  setCardNewsGenerating(true);
+  setCardNewsGenerationStatus('카드 구성과 이미지를 만들고 있습니다. 카드 수에 따라 몇 분 정도 걸릴 수 있습니다.', 'loading');
+  try {
+    const payload = {
+      source_snapshot: cardNewsViewState.preview,
+      settings: options.sameVariation && cardNewsViewState.generation?.settings
+        ? cardNewsViewState.generation.settings
+        : readCardNewsGenerationSettings()
+    };
+    if (options.sameVariation && cardNewsViewState.generation?.variation?.seed) {
+      payload.variation_seed = cardNewsViewState.generation.variation.seed;
+    }
+    const result = await postJson('/api/v1/card-news/generations', payload);
+    renderCardNewsGeneration(result.generation);
+    setCardNewsGenerationStatus('카드뉴스를 완성했습니다.', 'ready');
+  } catch (error) {
+    setCardNewsGenerationStatus(error.message || '카드뉴스를 만들지 못했습니다. AI 설정을 확인한 뒤 다시 시도해 주세요.', 'error');
+  } finally {
+    setCardNewsGenerating(false);
   }
 }
 
@@ -228,6 +338,7 @@ function renderCardNewsPreview(snapshot) {
   document.getElementById('card-news-preview-time').textContent = snapshot?.retrieved_at
     ? `${formatCardNewsDate(snapshot.retrieved_at)} 확인`
     : '';
+  updateCardNewsGenerationAvailability();
 }
 
 async function previewCardNewsSource(sourceOverride = null) {
@@ -302,6 +413,12 @@ function bindCardNewsView() {
   });
   document.getElementById('card-news-source-refresh')?.addEventListener('click', () => void loadCardNewsSources());
   document.getElementById('card-news-preview-button')?.addEventListener('click', () => void previewCardNewsSource());
+  document.getElementById('card-news-generate-button')?.addEventListener('click', () => void generateCardNews());
+  document.getElementById('card-news-regenerate-same')?.addEventListener('click', () => void generateCardNews({ sameVariation: true }));
+  document.getElementById('card-news-regenerate-new')?.addEventListener('click', () => void generateCardNews());
+  ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', saveCardNewsGenerationSettings);
+  });
   ['card-news-url', 'card-news-manuscript-title', 'card-news-manuscript-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', () => {
       cardNewsViewState.previewRequestId += 1;
@@ -314,6 +431,7 @@ function bindCardNewsView() {
 function initCardNewsView() {
   if (!cardNewsViewState.initialized) {
     cardNewsViewState.initialized = true;
+    restoreCardNewsGenerationSettings();
     bindCardNewsView();
     void loadCardNewsSources();
   }

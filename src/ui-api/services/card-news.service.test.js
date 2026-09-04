@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCardNewsService, CARD_NEWS_SOURCE_LIMIT } = require('./card-news.service');
+const { createCardNewsService, CARD_NEWS_SOURCE_LIMIT, isConfiguredAiModel } = require('./card-news.service');
 
 function createHarness(overrides = {}) {
     const saved = [];
@@ -42,14 +42,23 @@ function createHarness(overrides = {}) {
             };
         }
     };
+    const generationService = overrides.generationService || {
+        async generate(input) { return { id: 'generation-1', status: 'completed', input }; },
+        resolveAsset(generationId, fileName) { return { generationId, fileName }; }
+    };
     return {
         saved,
         service: createCardNewsService({
-            CONFIG: { PATHS: { workspace: '/tmp/card-news-test' } },
+            CONFIG: {
+                PATHS: { workspace: '/tmp/card-news-test' },
+                TEXT_MODEL_CONFIG: { provider: 'google', code: 'text-model', api_key: 'test-key' },
+                IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', api_key: 'test-key' }
+            },
             sourceService,
             repository,
             createId: () => 'project-1',
             now: () => '2026-09-04T00:00:00.000Z',
+            generationService,
             ...overrides
         })
     };
@@ -88,4 +97,31 @@ test('creates and lists durable source projects', async () => {
     assert.equal(created.project.source_kind, 'manuscript');
     assert.equal(saved.length, 1);
     assert.deepEqual(service.listProjects().projects.map((project) => project.id), ['project-1']);
+});
+
+test('delegates generation and local asset lookup through the card-news boundary', async () => {
+    const { service } = createHarness();
+    const generated = await service.generate({ source_snapshot: { title: '제목', text: '본문' } });
+    assert.equal(generated.generation.id, 'generation-1');
+    assert.deepEqual(service.resolveAsset('generation-1', 'card-01.png'), {
+        generationId: 'generation-1',
+        fileName: 'card-01.png'
+    });
+});
+
+test('validates configured AI models before generation starts', async () => {
+    assert.equal(isConfiguredAiModel({ provider: 'google', code: 'model', api_key: 'key' }), true);
+    assert.equal(isConfiguredAiModel({ provider: 'direct', code: 'model', base_url: 'http://localhost:1234' }), true);
+    assert.equal(isConfiguredAiModel({ provider: 'google', code: 'model' }), false);
+
+    const { service } = createHarness({
+        CONFIG: {
+            PATHS: { workspace: '/tmp/card-news-test' },
+            TEXT_MODEL_CONFIG: { provider: 'google', code: 'text-model', api_key: 'test-key' },
+            IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', api_key: '' }
+        }
+    });
+    await assert.rejects(() => service.generate({ source_snapshot: { title: '제목', text: '본문' } }), {
+        code: 'CARD_NEWS_IMAGE_MODEL_REQUIRED'
+    });
 });

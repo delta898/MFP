@@ -69,6 +69,7 @@
       "src/naver/**/*.js",
       "src/ai/**/*.js",
       "src/social/**/*.js",
+      "src/card-news/**/*.js",
       "src/keyword-discovery/**/*.js",
       "src/ui-api/**/*.js"
     ],

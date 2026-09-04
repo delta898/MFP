@@ -91,4 +91,66 @@
             </div>
           </section>
         </div>
+
+        <section id="card-news-generation-panel" class="card-news-generation-panel" aria-labelledby="card-news-generation-title" hidden>
+          <div class="card-news-generation-heading">
+            <div>
+              <span class="card-news-eyebrow">2단계</span>
+              <h2 id="card-news-generation-title">카드 설정</h2>
+              <p>필요한 것만 고르고 바로 만드세요. AI 추천은 내용에 맞춰 매번 새로운 시각 방향을 제안합니다.</p>
+            </div>
+          </div>
+          <div class="card-news-generation-controls">
+            <label class="card-news-compact-field" for="card-news-slide-count">
+              <span>카드 수</span>
+              <select id="card-news-slide-count">
+                <option value="3">3장</option>
+                <option value="5" selected>5장</option>
+                <option value="7">7장</option>
+              </select>
+            </label>
+            <label class="card-news-compact-field" for="card-news-aspect-ratio">
+              <span>화면 비율</span>
+              <select id="card-news-aspect-ratio">
+                <option value="1:1">1:1 · 정사각형</option>
+                <option value="4:5" selected>4:5 · 피드</option>
+                <option value="9:16">9:16 · 스토리</option>
+              </select>
+            </label>
+            <label class="card-news-compact-field" for="card-news-style">
+              <span>스타일</span>
+              <select id="card-news-style">
+                <option value="ai_recommended" selected>AI 추천</option>
+                <option value="informative">정보형</option>
+                <option value="magazine">매거진형</option>
+                <option value="emotional">감성형</option>
+                <option value="impact">임팩트형</option>
+              </select>
+            </label>
+            <label class="card-news-text-option">
+              <input id="card-news-include-korean-text" type="checkbox" checked>
+              <span>이미지에 한글 문구 포함</span>
+            </label>
+          </div>
+          <p class="card-news-model-role-note">글쓰기 AI가 구성을 만들고, 이미지 AI가 각 카드를 제작합니다.</p>
+          <div class="card-news-generation-actions">
+            <span id="card-news-generation-status" aria-live="polite"></span>
+            <button id="card-news-generate-button" class="primary" type="button">카드뉴스 만들기</button>
+          </div>
+        </section>
+
+        <section id="card-news-result-panel" class="card-news-result-panel" aria-labelledby="card-news-result-title" hidden>
+          <div class="card-news-result-heading">
+            <div>
+              <span class="card-news-eyebrow">완성</span>
+              <h2 id="card-news-result-title">만든 카드뉴스</h2>
+              <p id="card-news-result-summary"></p>
+            </div>
+            <div class="card-news-result-actions">
+              <button id="card-news-regenerate-same" class="secondary" type="button">같은 스타일로 다시 만들기</button>
+              <button id="card-news-regenerate-new" class="primary" type="button">새 스타일로 다시 만들기</button>
+            </div>
+          </div>
+          <div id="card-news-result-grid" class="card-news-result-grid"></div>
+        </section>
       </section>

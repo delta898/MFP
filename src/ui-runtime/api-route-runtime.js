@@ -254,8 +254,8 @@ function createUiApiRouteRuntime(deps = {}) {
 
     function getCardNewsRouteHandlerInstance() {
         if (!cardNewsRouteHandler) {
-            const service = createCardNewsService({ CONFIG, axios, cheerio, fs, path, logger: Logger });
-            const controller = createCardNewsController({ service, sendSuccess, sendError });
+            const service = createCardNewsService({ CONFIG, axios, cheerio, fs, path, logger: Logger, Utils });
+            const controller = createCardNewsController({ service, sendSuccess, sendError, fs });
             cardNewsRouteHandler = createCardNewsRouteHandler({ controller });
         }
         return cardNewsRouteHandler;
