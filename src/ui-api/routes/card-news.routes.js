@@ -10,9 +10,10 @@ function createCardNewsRouteHandler(deps = {}) {
             '/api/v1/card-news/images/import': controller.importImage,
             '/api/v1/card-news/projects': controller.projects
         };
-        const handler = String(ctx.pathname || '').startsWith('/api/v1/card-news/assets/')
+        const pathname = String(ctx.pathname || '');
+        const handler = pathname.startsWith('/api/v1/card-news/assets/')
             ? controller.asset
-            : handlers[ctx.pathname];
+            : (pathname.startsWith('/api/v1/card-news/exports/') ? controller.exportBundle : handlers[ctx.pathname]);
         if (!handler) return false;
         await handler(ctx);
         return true;

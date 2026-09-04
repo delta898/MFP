@@ -131,6 +131,10 @@
               <input id="card-news-include-korean-text" type="checkbox" checked>
               <span>이미지에 한글 문구 포함</span>
             </label>
+            <label class="card-news-request-field" for="card-news-additional-request">
+              <span>추가 요청사항 <em>선택</em></span>
+              <textarea id="card-news-additional-request" rows="2" maxlength="500" placeholder="예: 따뜻한 여행 잡지 느낌으로 만들고 첫 카드의 제목을 강조해 주세요."></textarea>
+            </label>
           </div>
           <p class="card-news-model-role-note">글쓰기 AI가 구성을 만들고, 이미지 AI가 각 카드를 제작합니다.</p>
           <div class="card-news-generation-actions">
@@ -152,6 +156,7 @@
             <div class="card-news-result-actions">
               <button id="card-news-regenerate" class="secondary" type="button">구성 다시 만들기</button>
               <button id="card-news-bulk-image-action" class="primary" type="button">이미지 모두 만들기</button>
+              <a id="card-news-export-all" class="card-news-export-all" href="#" download hidden>전체 이미지 받기</a>
             </div>
           </div>
           <div id="card-news-result-grid" class="card-news-result-grid"></div>

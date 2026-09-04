@@ -38,8 +38,12 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-aspect-ratio"/);
     assert.match(html, /id="card-news-style"/);
     assert.match(html, /id="card-news-include-korean-text"/);
+    assert.match(html, /id="card-news-additional-request"[^>]*maxlength="500"/);
+    assert.match(script, /additional_request: document\.getElementById\('card-news-additional-request'\)/);
     assert.match(html, /id="card-news-compose-button"[^>]*>카드 구성만 만들기</);
     assert.match(html, /id="card-news-generate-button"[^>]*>이미지까지 만들기</);
+    assert.match(script, /compose\?\.classList\.toggle\('is-loading', generating && imageMode === 'prompt_only'\)/);
+    assert.match(script, /status\.setAttribute\('aria-busy', String\(state === 'loading'\)\)/);
     assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
     assert.match(script, /image_mode: imageMode/);
@@ -56,8 +60,12 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /\/api\/v1\/card-news\/images\/generate/);
     assert.match(script, /data-card-news-local-image/);
     assert.match(script, /\/api\/v1\/card-news\/images\/import/);
+    assert.match(html, /id="card-news-export-all"[^>]*>전체 이미지 받기</);
+    assert.match(script, /\/api\/v1\/card-news\/exports\/\$\{encodeURIComponent\(generation\.id\)\}\.zip/);
     assert.match(script, /data-card-news-image-working/);
     assert.match(script, /새 이미지 만드는 중…/);
+    assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, \[data-card-news-image-action\], \[data-card-news-local-image\]/);
+    assert.match(script, /card-news-result-panel'\)\?\.setAttribute\('aria-busy', String\(working\)\)/);
     assert.match(script, /rememberCardNewsScrollPosition/);
     assert.match(navigation, /currentViewName === 'card-news'[\s\S]*rememberCardNewsScrollPosition/);
     assert.match(navigation, /viewName === 'card-news'[\s\S]*restoreCardNewsScrollPosition/);

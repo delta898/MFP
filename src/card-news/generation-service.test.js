@@ -3,7 +3,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createCardNewsGenerationService, safeAssetName, decodeLocalImage } = require('./generation-service');
+const {
+    createCardNewsGenerationService,
+    safeAssetName,
+    safeExportTitle,
+    cardPlanMaxTokens,
+    decodeLocalImage
+} = require('./generation-service');
 
 test('generates a coherent set, persists assets, and exposes safe local URLs', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-generation-'));
@@ -56,6 +62,7 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
 test('creates a reusable prompt-only composition without calling an image model', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-prompt-only-'));
     let imageCalls = 0;
+    let textCallOptions = null;
     try {
         const service = createCardNewsGenerationService({
             workspaceDir,
@@ -64,15 +71,18 @@ test('creates a reusable prompt-only composition without calling an image model'
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
-                set_title: '구성 세트',
-                art_direction: '정보형',
-                cards: Array.from({ length: 3 }, (_, index) => ({
-                    headline: `제목 ${index + 1}`,
-                    body: '본문',
-                    image_prompt: `프롬프트 ${index + 1}`
-                }))
-            }),
+            callWritingText: async (_prompt, _retries, options) => {
+                textCallOptions = options;
+                return JSON.stringify({
+                    set_title: '구성 세트',
+                    art_direction: '정보형',
+                    cards: Array.from({ length: 3 }, (_, index) => ({
+                        headline: `제목 ${index + 1}`,
+                        body: '본문',
+                        image_prompt: `프롬프트 ${index + 1}`
+                    }))
+                });
+            },
             callWritingImage: async () => { imageCalls += 1; }
         });
         const result = await service.generate({
@@ -87,6 +97,8 @@ test('creates a reusable prompt-only composition without calling an image model'
         assert.equal(result.cards[0].image_url, '');
         assert.equal(result.cards[0].download_url, '');
         assert.equal(imageCalls, 0);
+        assert.equal(textCallOptions.maxTokens, 4096);
+        assert.equal(textCallOptions.logTokenUsage, true);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -131,6 +143,9 @@ test('returns the valid composition when later image generation fails', async ()
 test('rejects unsafe asset names and keeps a failed manifest', async () => {
     assert.equal(safeAssetName('../secret'), '');
     assert.equal(safeAssetName('card-01.png'), 'card-01.png');
+    assert.equal(safeExportTitle(' 제주: 여행 / 첫날? '), '제주 여행 첫날');
+    assert.equal(Array.from(safeExportTitle('가'.repeat(100))).length, 80);
+    assert.deepEqual([3, 5, 7].map(cardPlanMaxTokens), [4096, 6144, 8192]);
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-generation-failure-'));
     try {
         const service = createCardNewsGenerationService({
@@ -245,6 +260,84 @@ test('replaces one card with a copied local image and validates local image inpu
         assert.equal(result.status, 'partial');
         assert.match(result.cards[1].image_url, /card-02-local-.*\.webp$/);
         assert.equal(service.resolveAsset(composed.id, path.basename(decodeURIComponent(result.cards[1].image_url))).mime_type, 'image/webp');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('exports every completed card in manifest order with portable names and metadata', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-export-'));
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-export', 'variation-export'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '내보내기 세트',
+                art_direction: '정보형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async (_prompt, savePath) => {
+                const filePath = `${savePath}.png`;
+                fs.writeFileSync(filePath, `image:${path.basename(savePath)}`);
+                return filePath;
+            }
+        });
+        const generated = await service.generate({
+            source_snapshot: { source: { kind: 'url' }, title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'generate'
+        });
+        const bundle = service.createExportBundle(generated.id);
+        assert.equal(bundle.mime_type, 'application/zip');
+        assert.equal(bundle.card_count, 3);
+        assert.equal(bundle.file_name, '카드뉴스-내보내기 세트.zip');
+        assert.equal(bundle.fallback_file_name, 'card-news-generation-export.zip');
+        assert.equal(bundle.buffer.readUInt32LE(0), 0x04034b50);
+        const archiveText = bundle.buffer.toString('utf8');
+        assert.ok(archiveText.indexOf('01.png') < archiveText.indexOf('02.png'));
+        assert.ok(archiveText.indexOf('02.png') < archiveText.indexOf('03.png'));
+        assert.match(archiveText, /card-news\.json/);
+        assert.match(archiveText, /내보내기 세트/);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('blocks complete-set export while any card image is missing', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-export-incomplete-'));
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-incomplete', 'variation-incomplete'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            })
+        });
+        const generated = await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        assert.throws(() => service.createExportBundle(generated.id), {
+            code: 'CARD_NEWS_EXPORT_INCOMPLETE',
+            status: 409
+        });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

@@ -9,6 +9,14 @@ function createHarness(overrides = {}) {
         async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
         importLocalImage() { return { generation: { id: 'set-1', status: 'completed' } }; },
         resolveAsset() { return { path: '/safe/card-01.png', file_name: 'card-01.png', mime_type: 'image/png' }; },
+        createExportBundle() {
+            return {
+                buffer: Buffer.from('zip'),
+                file_name: '카드뉴스-제주 여행.zip',
+                fallback_file_name: 'card-news-set-1.zip',
+                mime_type: 'application/zip'
+            };
+        },
         ...overrides.service
     };
     const fs = overrides.fs || {
@@ -69,4 +77,25 @@ test('returns not found without exposing arbitrary asset paths', async () => {
     });
     assert.equal(responses[0].code, 'CARD_NEWS_ASSET_NOT_FOUND');
     assert.equal(responses[0].status, 404);
+});
+
+test('downloads a completed card-news set as one ZIP bundle', async () => {
+    const { controller } = createHarness();
+    const response = {
+        headers: null,
+        writeHead(status, headers) { this.status = status; this.headers = headers; },
+        end(body) { this.body = body; }
+    };
+    await controller.exportBundle({
+        requestId: 'req-export',
+        method: 'GET',
+        pathname: '/api/v1/card-news/exports/set-1.zip',
+        res: response
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['Content-Type'], 'application/zip');
+    assert.equal(response.headers['Content-Length'], 3);
+    assert.match(response.headers['Content-Disposition'], /card-news-set-1\.zip/);
+    assert.match(response.headers['Content-Disposition'], /filename\*=UTF-8''%EC%B9%B4%EB%93%9C%EB%89%B4%EC%8A%A4-/);
+    assert.equal(response.body.toString(), 'zip');
 });

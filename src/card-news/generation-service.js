@@ -11,6 +11,7 @@ const {
     normalizeCardPlan,
     buildSlideImagePrompt
 } = require('./generation');
+const { createStoredZip } = require('./zip-bundle');
 
 function safeGenerationId(value) {
     const normalized = String(value || '').trim();
@@ -68,6 +69,23 @@ function deriveGenerationStatus(cards = []) {
     const imageCount = cards.filter((card) => card?.file_name).length;
     if (imageCount === 0) return 'prompt_ready';
     return imageCount === cards.length ? 'completed' : 'partial';
+}
+
+function safeExportTitle(value) {
+    const normalized = String(value || '')
+        .normalize('NFKC')
+        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[. ]+$/g, '');
+    return Array.from(normalized || '카드뉴스').slice(0, 80).join('');
+}
+
+function cardPlanMaxTokens(slideCount) {
+    const count = Number(slideCount);
+    if (count <= 3) return 4096;
+    if (count <= 5) return 6144;
+    return 8192;
 }
 
 function writeJsonAtomic(fileSystem, pathApi, filePath, payload) {
@@ -231,9 +249,10 @@ function createCardNewsGenerationService(options = {}) {
                 2,
                 {
                     usageLabel: '카드뉴스 구성 AI',
-                    maxTokens: 3200,
+                    maxTokens: cardPlanMaxTokens(settings.slide_count),
                     temperature: 0.8,
-                    responseMimeType: 'application/json'
+                    responseMimeType: 'application/json',
+                    logTokenUsage: true
                 }
             );
             const plan = normalizeCardPlan(parseStructuredJsonResponse(planRaw), settings);
@@ -408,7 +427,61 @@ function createCardNewsGenerationService(options = {}) {
         return { path: assetPath, file_name: safeName, mime_type: mimeType };
     }
 
-    return { generate, generateImages, importLocalImage, resolveAsset, exportRoot };
+    function createExportBundle(generationId) {
+        const { generation, outputDir } = resolveGeneration(generationId);
+        const cards = [...generation.cards].sort((left, right) => Number(left.index) - Number(right.index));
+        if (!cards.length || cards.some((card) => !safeAssetName(card.file_name))) {
+            const error = new Error('모든 카드의 이미지를 준비한 후 전체 이미지를 받아 주세요.');
+            error.code = 'CARD_NEWS_EXPORT_INCOMPLETE';
+            error.status = 409;
+            throw error;
+        }
+        const entries = cards.map((card) => {
+            const sourcePath = pathApi.join(outputDir, card.file_name);
+            if (!fileSystem.existsSync(sourcePath) || !fileSystem.statSync(sourcePath).isFile()) {
+                const error = new Error('일부 카드 이미지를 찾지 못했습니다. 해당 이미지를 다시 준비해 주세요.');
+                error.code = 'CARD_NEWS_EXPORT_ASSET_MISSING';
+                error.status = 409;
+                throw error;
+            }
+            const extension = imageExtension(card.file_name);
+            return {
+                name: `${String(card.index).padStart(2, '0')}${extension}`,
+                data: fileSystem.readFileSync(sourcePath)
+            };
+        });
+        const exportedNames = new Map(cards.map((card, index) => [Number(card.index), entries[index].name]));
+        const portableManifest = {
+            schema_version: 1,
+            title: generation.title,
+            source: generation.source,
+            settings: generation.settings,
+            created_at: generation.created_at,
+            completed_at: generation.completed_at,
+            cards: cards.map((card) => ({
+                index: card.index,
+                headline: card.headline,
+                body: card.body,
+                image_prompt: card.image_prompt,
+                image_file: exportedNames.get(Number(card.index)) || ''
+            }))
+        };
+        entries.push({
+            name: 'card-news.json',
+            data: Buffer.from(`${JSON.stringify(portableManifest, null, 2)}\n`, 'utf8')
+        });
+        const archive = createStoredZip(entries, { date: new Date(generation.completed_at || generation.created_at || Date.now()) });
+        logger?.info?.(`✅ [CardNews] 전체 이미지 묶음 준비 완료 (${cards.length}장)`);
+        return {
+            buffer: archive,
+            file_name: `카드뉴스-${safeExportTitle(generation.title)}.zip`,
+            fallback_file_name: `card-news-${generation.id}.zip`,
+            mime_type: 'application/zip',
+            card_count: cards.length
+        };
+    }
+
+    return { generate, generateImages, importLocalImage, resolveAsset, createExportBundle, exportRoot };
 }
 
 module.exports = {
@@ -418,6 +491,8 @@ module.exports = {
     imageExtension,
     decodeLocalImage,
     deriveGenerationStatus,
+    safeExportTitle,
+    cardPlanMaxTokens,
     toPublicGenerationResult,
     createCardNewsGenerationService
 };

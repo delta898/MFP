@@ -3,6 +3,8 @@ const { createControllerErrorResponder, sendMethodNotAllowed } = require('./cont
 function createCardNewsController(deps = {}) {
     const { service, sendSuccess, sendError, fs } = deps;
     const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 500 });
+    const encodeHeaderFileName = (value) => encodeURIComponent(String(value || ''))
+        .replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
 
     return {
         async sources({ requestId, method, res }) {
@@ -73,6 +75,28 @@ function createCardNewsController(deps = {}) {
             res.writeHead(200, headers);
             fs.createReadStream(asset.path).pipe(res);
             return true;
+        },
+
+        async exportBundle({ requestId, method, pathname, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/exports\/([^/]+)\.zip$/);
+            let generationId = '';
+            try {
+                generationId = decodeURIComponent(match?.[1] || '');
+            } catch (_error) { }
+            try {
+                const bundle = service.createExportBundle(generationId);
+                res.writeHead(200, {
+                    'Content-Type': bundle.mime_type,
+                    'Content-Length': bundle.buffer.length,
+                    'Content-Disposition': `attachment; filename="${bundle.fallback_file_name.replace(/["\\]/g, '')}"; filename*=UTF-8''${encodeHeaderFileName(bundle.file_name)}`,
+                    'Cache-Control': 'no-store'
+                });
+                res.end(bundle.buffer);
+                return true;
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_EXPORT_FAILED', '전체 이미지를 준비하지 못했습니다.', error);
+            }
         },
 
         async projects({ requestId, method, requestBody, res }) {

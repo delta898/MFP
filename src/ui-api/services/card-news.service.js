@@ -208,7 +208,18 @@ function createCardNewsService(deps = {}) {
         return generationService?.resolveAsset(generationId, fileName) || null;
     }
 
-    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset };
+    function createExportBundle(generationId) {
+        if (!generationService?.createExportBundle) {
+            throw createApiError('CARD_NEWS_EXPORT_UNAVAILABLE', '전체 이미지 받기 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return generationService.createExportBundle(generationId);
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_EXPORT_FAILED', '전체 이미지를 준비하지 못했습니다.');
+        }
+    }
+
+    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset, createExportBundle };
 }
 
 module.exports = {
