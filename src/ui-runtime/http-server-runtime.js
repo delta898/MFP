@@ -67,6 +67,7 @@ function createUiHttpServerRuntime(deps = {}) {
                         if (
                             pathname === '/api/v1/settings/shopping-image'
                             || pathname === '/api/v1/social/manual/publish'
+                            || pathname === '/api/v1/card-news/images/import'
                         ) {
                             limitBytes = 15 * 1024 * 1024;
                         } else if (pathname === '/api/v1/blog/local-markdown/publish') {

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createCardNewsGenerationService, safeAssetName } = require('./generation-service');
+const { createCardNewsGenerationService, safeAssetName, decodeLocalImage } = require('./generation-service');
 
 test('generates a coherent set, persists assets, and exposes safe local URLs', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-generation-'));
@@ -150,6 +150,101 @@ test('rejects unsafe asset names and keeps a failed manifest', async () => {
         const manifest = JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-456', 'manifest.json')));
         assert.equal(manifest.status, 'failed');
         assert.equal(manifest.cards.length, 0);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('fills only missing image slots and preserves completed cards when a later image fails', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-image-fill-'));
+    let imageCall = 0;
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-fill', 'variation-fill'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '채우기 세트',
+                art_direction: '정보형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async (_prompt, savePath) => {
+                imageCall += 1;
+                if (imageCall === 2) throw new Error('temporary image failure');
+                const filePath = `${savePath}.png`;
+                fs.writeFileSync(filePath, 'generated image');
+                return filePath;
+            }
+        });
+        const composed = await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        const imported = service.importLocalImage({
+            generation_id: composed.id,
+            card_index: 1,
+            file_name: 'mine.png',
+            mime_type: 'image/png',
+            base64_data: Buffer.alloc(256, 1).toString('base64')
+        });
+        const firstUrl = imported.cards[0].image_url;
+        const result = await service.generateImages({ generation_id: composed.id, mode: 'missing' });
+        assert.equal(result.status, 'partial');
+        assert.equal(result.cards[0].image_url, firstUrl);
+        assert.match(result.cards[1].image_url, /card-02-/);
+        assert.equal(result.cards[2].image_url, '');
+        assert.match(result.message, /완성한 이미지는 유지했습니다/);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('replaces one card with a copied local image and validates local image input', async () => {
+    assert.throws(() => decodeLocalImage({ file_name: 'note.txt', base64_data: 'abc' }), {
+        code: 'CARD_NEWS_IMAGE_FORMAT_INVALID'
+    });
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-local-image-'));
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-local', 'variation-local'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '로컬 세트',
+                art_direction: '매거진',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            })
+        });
+        const composed = await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        const result = service.importLocalImage({
+            generation_id: composed.id,
+            card_index: 2,
+            file_name: 'selected.webp',
+            mime_type: 'image/webp',
+            base64_data: `data:image/webp;base64,${Buffer.alloc(256, 2).toString('base64')}`
+        });
+        assert.equal(result.status, 'partial');
+        assert.match(result.cards[1].image_url, /card-02-local-.*\.webp$/);
+        assert.equal(service.resolveAsset(composed.id, path.basename(decodeURIComponent(result.cards[1].image_url))).mime_type, 'image/webp');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

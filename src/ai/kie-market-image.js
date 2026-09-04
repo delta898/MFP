@@ -31,7 +31,7 @@ function createKieMarketImageProgressReporter(options = {}) {
             submittedAt = timestamp;
             lastSummaryAt = timestamp;
             lastProgressMilestone = 0;
-            logInfo(`   🧾 KIE 이미지 작업 생성 완료: ${event.taskId}`);
+            logInfo(`   🧾 KIE 이미지 생성 요청 접수 완료: ${event.taskId}`);
             return;
         }
         if (state === 'poll_retry') {

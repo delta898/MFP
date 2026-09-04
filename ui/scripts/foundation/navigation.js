@@ -1,6 +1,7 @@
 async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
+  const currentViewName = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
   if (isMobileQuickMode) {
     if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'help'].includes(requestedView)) {
       viewName = 'blog-next';
@@ -28,6 +29,9 @@ async function navigateTo(viewName, subTab) {
 
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   const views = Array.from(document.querySelectorAll('.view'));
+  if (currentViewName === 'card-news' && viewName !== 'card-news' && typeof rememberCardNewsScrollPosition === 'function') {
+    rememberCardNewsScrollPosition();
+  }
   navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
   views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
   if (viewName === 'dashboard') {
@@ -81,6 +85,7 @@ async function navigateTo(viewName, subTab) {
   }
   if (viewName === 'card-news') {
     initCardNewsView();
+    if (typeof restoreCardNewsScrollPosition === 'function') restoreCardNewsScrollPosition();
     return;
   }
   if (viewName === 'shopping') {

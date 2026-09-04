@@ -4012,7 +4012,7 @@ const Utils = {
 
                 const fullPath = `${savePath}.png`;
                 fs.writeFileSync(fullPath, Buffer.from(imagePart.inlineData.data, 'base64'));
-                Logger.info(`   ✅ 이미지 저장 완료: ${path.basename(fullPath)}`);
+                Logger.debug(`🛠️ Gemini 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
 
                 // 🎨 플랫폼별 최적의 포맷으로 자동 변환 연동
                 try {
@@ -4078,7 +4078,7 @@ const Utils = {
                 if (!imageBuffer) throw new Error('OpenAI-compatible 이미지 응답에서 b64_json 또는 url을 찾지 못했습니다.');
                 const fullPath = `${savePath}.png`;
                 fs.writeFileSync(fullPath, imageBuffer);
-                Logger.info(`   ✅ 이미지 저장 완료: ${path.basename(fullPath)}`);
+                Logger.debug(`🛠️ OpenAI-compatible 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
                 return fullPath;
             } catch (e) {
                 Logger.warn(`⚠️ OpenAI-compatible Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
@@ -4112,7 +4112,8 @@ const Utils = {
         const credit = Number.isFinite(Number(result.creditsConsumed))
             ? ` · ${Number(result.creditsConsumed)} credits`
             : '';
-        Logger.info(`   ✅ KIE 이미지 저장 완료: ${path.basename(fullPath)}${credit}`);
+        Logger.debug(`🛠️ KIE 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
+        Logger.info(`   ✅ KIE 이미지 결과 수신 완료${credit}`);
         return fullPath;
     },
 
@@ -4125,29 +4126,34 @@ const Utils = {
         const runtimeDefinition = getModelRuntimeDefinition('image', modelConfig);
         const modelName = String(runtimeDefinition.name || '').trim() || '알 수 없는 모델';
         const transport = runtimeDefinition.transport;
+        const startedAt = Date.now();
         Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'} / aspect=${aspectRatio || 'default'}`);
         if (runtimeDefinition.status === 'unavailable') {
             throw new Error(`${modelName} 모델은 현재 사용할 수 없습니다. 설정에서 다른 모델을 선택해 주세요.`);
         }
+        let resultPath;
         if (transport === 'gemini_generate_content') {
-            return this.callGeminiImage(prompt, savePath, retries, {
+            resultPath = await this.callGeminiImage(prompt, savePath, retries, {
                 apiKey: String(modelConfig.api_key || '').trim(),
                 aspectRatio,
                 useCase: options.useCase
             });
-        }
-        if (transport === 'kie_market_image_jobs') {
-            return this.callKieMarketImageByConfig(modelConfig, prompt, savePath, {
+        } else if (transport === 'kie_market_image_jobs') {
+            resultPath = await this.callKieMarketImageByConfig(modelConfig, prompt, savePath, {
+                aspectRatio,
+                imageSize,
+                useCase: options.useCase
+            });
+        } else {
+            resultPath = await this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries, {
                 aspectRatio,
                 imageSize,
                 useCase: options.useCase
             });
         }
-        return this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries, {
-            aspectRatio,
-            imageSize,
-            useCase: options.useCase
-        });
+        const elapsedSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+        Logger.info(`✅ [Writing Image] 이미지 생성 완료 · ${elapsedSeconds}초`);
+        return resultPath;
     },
 
     parseMarkdown: function (raw) {

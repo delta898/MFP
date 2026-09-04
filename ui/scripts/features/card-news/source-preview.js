@@ -13,7 +13,8 @@ const cardNewsViewState = {
   busy: false,
   loadingSources: false,
   generating: false,
-  generation: null
+  generation: null,
+  scrollTop: 0
 };
 
 const CARD_NEWS_PLATFORM_STORAGE_KEY = 'bloggenius.cardNews.sourcePlatform';
@@ -149,6 +150,10 @@ function setCardNewsGenerating(generating, imageMode = 'generate') {
   const regenerate = document.getElementById('card-news-regenerate');
   const bulkImage = document.getElementById('card-news-bulk-image-action');
   [compose, primary, regenerate, bulkImage].forEach((button) => { if (button) button.disabled = generating; });
+  document.querySelectorAll('[data-card-news-image-action], [data-card-news-local-image]').forEach((control) => {
+    control.disabled = generating;
+    control.closest('.card-news-local-image-action')?.classList.toggle('is-disabled', generating);
+  });
   if (compose) compose.textContent = generating && imageMode === 'prompt_only' ? '카드 구성 만드는 중…' : '카드 구성만 만들기';
   if (primary) primary.textContent = generating && imageMode === 'generate' ? '이미지까지 만드는 중…' : '이미지까지 만들기';
   updateCardNewsGenerationAvailability();
@@ -161,7 +166,7 @@ function setCardNewsGenerationStatus(message = '', state = '') {
   status.dataset.state = state;
 }
 
-function renderCardNewsGeneration(generation) {
+function renderCardNewsGeneration(generation, options = {}) {
   cardNewsViewState.generation = generation;
   const panel = document.getElementById('card-news-result-panel');
   const grid = document.getElementById('card-news-result-grid');
@@ -180,12 +185,20 @@ function renderCardNewsGeneration(generation) {
     ? `${generation.cards?.length || 0}장의 구성과 ${imageCount}장의 이미지가 준비되었습니다.`
     : `${generation.cards?.length || 0}장의 구성과 이미지 프롬프트가 준비되었습니다.`;
   grid.innerHTML = (generation.cards || []).map((card) => `
-    <article class="card-news-result-item">
-      <div class="card-news-result-image-wrap">
+    <article class="card-news-result-item" data-card-news-result-index="${card.index}">
+      <div class="card-news-result-image-wrap${card.image_url ? '' : ' is-empty'}">
         ${card.image_url
           ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">`
-          : '<div class="card-news-result-image-empty"><span>이미지 미지정</span><small>다음 단계에서 AI 또는 로컬 이미지로 채울 수 있습니다.</small></div>'}
+          : '<div class="card-news-result-image-empty"><span>이미지 미지정</span><small>AI로 만들거나 내 이미지로 채울 수 있습니다.</small></div>'}
         <span>${card.index}</span>
+        <label class="card-news-local-image-trigger" tabindex="0" data-card-news-local-trigger="${card.index}" aria-label="${card.image_url ? '내 이미지로 교체' : '내 이미지 선택'}" title="${card.image_url ? '내 이미지로 교체' : '내 이미지 선택'}">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-card-news-local-image="${card.index}" hidden>
+          <span aria-hidden="true">＋</span>
+        </label>
+        <div class="card-news-image-working" data-card-news-image-working hidden>
+          <span class="card-news-image-working-spinner" aria-hidden="true"></span>
+          <strong>이미지 만드는 중…</strong>
+        </div>
       </div>
       <div class="card-news-result-copy">
         <strong>${escapeHtml(card.headline)}</strong>
@@ -205,18 +218,121 @@ function renderCardNewsGeneration(generation) {
     button.addEventListener('click', () => void copyCardNewsPrompt(Number(button.dataset.cardNewsPromptCopy), button));
   });
   grid.querySelectorAll('[data-card-news-image-action]').forEach((button) => {
-    button.addEventListener('click', showCardNewsImageActionPreview);
+    button.addEventListener('click', () => void runCardNewsImageGeneration({
+      mode: 'single',
+      cardIndex: Number(button.dataset.cardNewsImageAction)
+    }));
   });
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  grid.querySelectorAll('[data-card-news-local-image]').forEach((input) => {
+    input.addEventListener('change', () => void importCardNewsLocalImage(Number(input.dataset.cardNewsLocalImage), input));
+  });
+  grid.querySelectorAll('[data-card-news-local-trigger]').forEach((trigger) => {
+    trigger.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      trigger.querySelector('[data-card-news-local-image]')?.click();
+    });
+  });
+  if (options.scroll !== false) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function showCardNewsImageActionPreview() {
-  const message = '이미지 생성 기능은 다음 단계에서 연결할 예정입니다.';
-  if (typeof showUiToast === 'function') {
-    showUiToast({ level: 'info', title: '이미지 기능 준비 중', message });
+function setCardNewsImageWorking(working, message = '', options = {}) {
+  cardNewsViewState.generating = working;
+  document.querySelectorAll('#card-news-regenerate, #card-news-bulk-image-action, [data-card-news-image-action], [data-card-news-local-image]').forEach((control) => {
+    control.disabled = working;
+    control.closest('.card-news-local-image-trigger')?.classList.toggle('is-disabled', working);
+  });
+  const targetIndexes = new Set((options.cardIndexes || []).map(Number));
+  document.querySelectorAll('[data-card-news-result-index]').forEach((cardElement) => {
+    const isTarget = working && targetIndexes.has(Number(cardElement.dataset.cardNewsResultIndex));
+    const overlay = cardElement.querySelector('[data-card-news-image-working]');
+    if (!overlay) return;
+    overlay.hidden = !isTarget;
+    const label = overlay.querySelector('strong');
+    if (label && isTarget) label.textContent = options.replacing ? '새 이미지 만드는 중…' : '이미지 만드는 중…';
+  });
+  if (working && message) setCardNewsGenerationStatus(message, 'loading');
+  updateCardNewsGenerationAvailability();
+}
+
+async function runCardNewsImageGeneration({ mode = 'missing', cardIndex = 0 } = {}) {
+  const generation = cardNewsViewState.generation;
+  if (cardNewsViewState.generating || !generation) return;
+  const card = generation.cards?.find((item) => Number(item.index) === Number(cardIndex));
+  const replacing = mode === 'all' || (mode === 'single' && Boolean(card?.image_url));
+  if (replacing) {
+    const message = mode === 'all'
+      ? '현재 이미지를 모두 다시 만들까요? 새 이미지가 완성된 카드부터 교체됩니다.'
+      : '이 카드의 이미지를 다시 만들까요? 새 이미지가 완성된 후 교체됩니다.';
+    const confirmed = await showUiConfirm(message, {
+      title: '이미지 다시 만들기', confirmText: '다시 만들기', cancelText: '취소'
+    });
+    if (confirmed === false) return;
+  }
+  const targetCards = mode === 'single'
+    ? (card ? [card] : [])
+    : generation.cards.filter((item) => mode === 'all' || !item.image_url);
+  setCardNewsImageWorking(
+    true,
+    mode === 'single' ? '카드 이미지를 만들고 있습니다.' : '카드 이미지를 차례로 만들고 있습니다.',
+    { cardIndexes: targetCards.map((item) => item.index), replacing }
+  );
+  try {
+    const result = await postJson('/api/v1/card-news/images/generate', {
+      generation_id: generation.id,
+      mode,
+      card_index: cardIndex || undefined
+    });
+    renderCardNewsGeneration(result.generation, { scroll: false });
+    setCardNewsGenerationStatus(
+      result.generation.status === 'partial'
+        ? (result.generation.message || '완성한 이미지는 유지했습니다. 만들지 못한 이미지는 다시 시도해 주세요.')
+        : '카드 이미지를 준비했습니다.',
+      result.generation.status === 'partial' ? 'warning' : 'ready'
+    );
+  } catch (error) {
+    setCardNewsGenerationStatus(error.message || '카드 이미지를 만들지 못했습니다. 다시 시도해 주세요.', 'error');
+  } finally {
+    setCardNewsImageWorking(false);
+  }
+}
+
+function readCardNewsFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('이미지 파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function importCardNewsLocalImage(cardIndex, input) {
+  const file = input?.files?.[0];
+  const generation = cardNewsViewState.generation;
+  if (!file || !generation || cardNewsViewState.generating) return;
+  if (file.size > 10 * 1024 * 1024) {
+    setCardNewsGenerationStatus('이미지는 최대 10MB까지 선택할 수 있습니다.', 'error');
+    input.value = '';
     return;
   }
-  setCardNewsGenerationStatus(message, 'warning');
+  setCardNewsImageWorking(true, '선택한 이미지를 적용하고 있습니다.', { cardIndexes: [cardIndex], replacing: true });
+  try {
+    const base64Data = await readCardNewsFileAsDataUrl(file);
+    const result = await postJson('/api/v1/card-news/images/import', {
+      generation_id: generation.id,
+      card_index: cardIndex,
+      file_name: file.name,
+      mime_type: file.type || '',
+      base64_data: base64Data
+    });
+    renderCardNewsGeneration(result.generation, { scroll: false });
+    setCardNewsGenerationStatus('선택한 이미지를 카드에 적용했습니다.', 'ready');
+  } catch (error) {
+    setCardNewsGenerationStatus(error.message || '선택한 이미지를 적용하지 못했습니다.', 'error');
+  } finally {
+    input.value = '';
+    setCardNewsImageWorking(false);
+  }
 }
 
 async function copyCardNewsPrompt(cardIndex, button) {
@@ -494,7 +610,12 @@ function bindCardNewsView() {
   document.getElementById('card-news-compose-button')?.addEventListener('click', () => void generateCardNews({ imageMode: 'prompt_only' }));
   document.getElementById('card-news-generate-button')?.addEventListener('click', () => void generateCardNews({ imageMode: 'generate' }));
   document.getElementById('card-news-regenerate')?.addEventListener('click', () => void regenerateCardNewsComposition());
-  document.getElementById('card-news-bulk-image-action')?.addEventListener('click', showCardNewsImageActionPreview);
+  document.getElementById('card-news-bulk-image-action')?.addEventListener('click', () => {
+    const cards = cardNewsViewState.generation?.cards || [];
+    const imageCount = cards.filter((card) => card.image_url).length;
+    const mode = imageCount === cards.length && cards.length > 0 ? 'all' : 'missing';
+    void runCardNewsImageGeneration({ mode });
+  });
   ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', saveCardNewsGenerationSettings);
   });
@@ -514,4 +635,15 @@ function initCardNewsView() {
     bindCardNewsView();
     void loadCardNewsSources();
   }
+}
+
+function rememberCardNewsScrollPosition() {
+  const main = document.querySelector('.main');
+  if (main) cardNewsViewState.scrollTop = main.scrollTop;
+}
+
+function restoreCardNewsScrollPosition() {
+  const main = document.querySelector('.main');
+  if (!main) return;
+  window.requestAnimationFrame(() => { main.scrollTop = cardNewsViewState.scrollTop || 0; });
 }

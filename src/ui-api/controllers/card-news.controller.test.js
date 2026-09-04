@@ -6,6 +6,8 @@ function createHarness(overrides = {}) {
     const responses = [];
     const service = {
         async generate() { return { generation: { id: 'set-1' } }; },
+        async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
+        importLocalImage() { return { generation: { id: 'set-1', status: 'completed' } }; },
         resolveAsset() { return { path: '/safe/card-01.png', file_name: 'card-01.png', mime_type: 'image/png' }; },
         ...overrides.service
     };
@@ -27,6 +29,14 @@ test('creates a generation through the controller', async () => {
     const { controller, responses } = createHarness();
     await controller.generate({ requestId: 'req-1', method: 'POST', requestBody: {}, res: {} });
     assert.deepEqual(responses[0], { kind: 'success', data: { generation: { id: 'set-1' } }, status: 201 });
+});
+
+test('updates generated and local card images through the controller', async () => {
+    const { controller, responses } = createHarness();
+    await controller.generateImages({ requestId: 'req-image-1', method: 'POST', requestBody: {}, res: {} });
+    await controller.importImage({ requestId: 'req-image-2', method: 'POST', requestBody: {}, res: {} });
+    assert.equal(responses[0].data.generation.status, 'completed');
+    assert.equal(responses[1].data.generation.status, 'completed');
 });
 
 test('streams a resolved local card image with optional download headers', async () => {

@@ -8,6 +8,8 @@ test('routes only card-news endpoints to their controllers', async () => {
         sources: async (ctx) => calls.push(['sources', ctx.method]),
         preview: async (ctx) => calls.push(['preview', ctx.method]),
         generate: async (ctx) => calls.push(['generate', ctx.method]),
+        generateImages: async (ctx) => calls.push(['generateImages', ctx.method]),
+        importImage: async (ctx) => calls.push(['importImage', ctx.method]),
         asset: async (ctx) => calls.push(['asset', ctx.method]),
         projects: async (ctx) => calls.push(['projects', ctx.method])
     };
@@ -16,6 +18,8 @@ test('routes only card-news endpoints to their controllers', async () => {
     assert.equal(await handler({ pathname: '/api/v1/card-news/sources', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/source-preview', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/images/generate', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/images/import', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/assets/set-1/card-01.png', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/projects', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/other', method: 'GET' }), false);
@@ -23,6 +27,8 @@ test('routes only card-news endpoints to their controllers', async () => {
         ['sources', 'GET'],
         ['preview', 'POST'],
         ['generate', 'POST'],
+        ['generateImages', 'POST'],
+        ['importImage', 'POST'],
         ['asset', 'GET'],
         ['projects', 'GET']
     ]);

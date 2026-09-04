@@ -22,6 +22,54 @@ function safeAssetName(value) {
     return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,120}$/.test(normalized) ? normalized : '';
 }
 
+function safeCardIndex(value) {
+    const index = Number(value);
+    return Number.isInteger(index) && index >= 1 && index <= 50 ? index : 0;
+}
+
+function imageExtension(fileName = '', mimeType = '') {
+    const extension = path.extname(String(fileName || '')).toLowerCase();
+    if (['.png', '.jpg', '.jpeg', '.webp', '.avif'].includes(extension)) return extension === '.jpeg' ? '.jpg' : extension;
+    const normalizedMime = String(mimeType || '').toLowerCase();
+    if (normalizedMime === 'image/png') return '.png';
+    if (normalizedMime === 'image/jpeg') return '.jpg';
+    if (normalizedMime === 'image/webp') return '.webp';
+    if (normalizedMime === 'image/avif') return '.avif';
+    return '';
+}
+
+function decodeLocalImage(input = {}) {
+    const fileName = String(input.file_name || '').trim();
+    const mimeType = String(input.mime_type || '').trim();
+    let base64Data = String(input.base64_data || '').trim();
+    const dataUrl = base64Data.match(/^data:([^;,]+);base64,(.+)$/i);
+    if (dataUrl) base64Data = dataUrl[2] || '';
+    const extension = imageExtension(fileName, mimeType || dataUrl?.[1]);
+    if (!extension) {
+        const error = new Error('PNG, JPG, WebP 또는 AVIF 이미지를 선택해 주세요.');
+        error.code = 'CARD_NEWS_IMAGE_FORMAT_INVALID';
+        throw error;
+    }
+    const buffer = Buffer.from(base64Data, 'base64');
+    if (!buffer.length || buffer.length < 128) {
+        const error = new Error('선택한 이미지 데이터가 올바르지 않습니다.');
+        error.code = 'CARD_NEWS_IMAGE_DATA_INVALID';
+        throw error;
+    }
+    if (buffer.length > 10 * 1024 * 1024) {
+        const error = new Error('이미지는 최대 10MB까지 선택할 수 있습니다.');
+        error.code = 'CARD_NEWS_IMAGE_TOO_LARGE';
+        throw error;
+    }
+    return { buffer, extension };
+}
+
+function deriveGenerationStatus(cards = []) {
+    const imageCount = cards.filter((card) => card?.file_name).length;
+    if (imageCount === 0) return 'prompt_ready';
+    return imageCount === cards.length ? 'completed' : 'partial';
+}
+
 function writeJsonAtomic(fileSystem, pathApi, filePath, payload) {
     fileSystem.mkdirSync(pathApi.dirname(filePath), { recursive: true });
     const temporary = `${filePath}.${process.pid}.${Date.now()}.tmp`;
@@ -72,6 +120,80 @@ function createCardNewsGenerationService(options = {}) {
     }
 
     const exportRoot = pathApi.join(workspaceDir, 'card-news', 'exports');
+
+    function resolveGeneration(generationId) {
+        const id = safeGenerationId(generationId);
+        if (!id) {
+            const error = new Error('카드뉴스 결과를 찾지 못했습니다.');
+            error.code = 'CARD_NEWS_GENERATION_NOT_FOUND';
+            throw error;
+        }
+        const outputDir = pathApi.join(exportRoot, id);
+        const manifestPath = pathApi.join(outputDir, 'manifest.json');
+        if (!fileSystem.existsSync(manifestPath)) {
+            const error = new Error('카드뉴스 결과를 찾지 못했습니다.');
+            error.code = 'CARD_NEWS_GENERATION_NOT_FOUND';
+            throw error;
+        }
+        let generation;
+        try {
+            generation = JSON.parse(fileSystem.readFileSync(manifestPath, 'utf8'));
+        } catch (_error) {
+            const error = new Error('저장된 카드뉴스 결과를 읽지 못했습니다.');
+            error.code = 'CARD_NEWS_GENERATION_INVALID';
+            throw error;
+        }
+        if (generation?.id !== id || !Array.isArray(generation.cards)) {
+            const error = new Error('저장된 카드뉴스 결과가 올바르지 않습니다.');
+            error.code = 'CARD_NEWS_GENERATION_INVALID';
+            throw error;
+        }
+        return { generation, outputDir, manifestPath };
+    }
+
+    function getGenerationCard(generation, cardIndex) {
+        const index = safeCardIndex(cardIndex);
+        const card = generation.cards.find((item) => Number(item.index) === index);
+        if (!card) {
+            const error = new Error('선택한 카드를 찾지 못했습니다.');
+            error.code = 'CARD_NEWS_CARD_NOT_FOUND';
+            throw error;
+        }
+        return card;
+    }
+
+    function removePreviousAsset(outputDir, previousFileName, nextFileName) {
+        if (!previousFileName || previousFileName === nextFileName || !safeAssetName(previousFileName)) return;
+        const previousPath = pathApi.join(outputDir, previousFileName);
+        try {
+            if (fileSystem.existsSync(previousPath)) fileSystem.unlinkSync(previousPath);
+        } catch (error) {
+            logger?.debug?.(`🛠️ [CardNews] 이전 이미지 정리 실패: ${error.message}`);
+        }
+    }
+
+    function saveGeneratedImage({ generation, outputDir, manifestPath, card, generatedPath }) {
+        const resolvedPath = pathApi.resolve(String(generatedPath || ''));
+        if (pathApi.dirname(resolvedPath) !== pathApi.resolve(outputDir) || !fileSystem.existsSync(resolvedPath)) {
+            const error = new Error(`${card.index}번째 카드 이미지를 저장하지 못했습니다.`);
+            error.code = 'CARD_NEWS_IMAGE_MISSING';
+            throw error;
+        }
+        const extension = imageExtension(pathApi.basename(resolvedPath));
+        if (!extension) {
+            const error = new Error(`${card.index}번째 카드 이미지 형식을 확인하지 못했습니다.`);
+            error.code = 'CARD_NEWS_IMAGE_FORMAT_INVALID';
+            throw error;
+        }
+        const suffix = crypto.randomUUID().slice(0, 8);
+        const nextFileName = `card-${String(card.index).padStart(2, '0')}-${suffix}${extension}`;
+        const nextPath = pathApi.join(outputDir, nextFileName);
+        fileSystem.renameSync(resolvedPath, nextPath);
+        const previousFileName = card.file_name;
+        card.file_name = nextFileName;
+        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+        removePreviousAsset(outputDir, previousFileName, nextFileName);
+    }
 
     async function generate(input = {}) {
         const snapshot = validateSourceSnapshot(input.source_snapshot);
@@ -159,6 +281,7 @@ function createCardNewsGenerationService(options = {}) {
                     }
                     generation.cards[card.index - 1].file_name = fileName;
                     writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+                    logger?.info?.(`✅ [CardNews] ${card.index}번 카드 이미지 적용 완료`);
                 } catch (error) {
                     generation.status = 'partial';
                     generation.completed_at = now();
@@ -194,6 +317,82 @@ function createCardNewsGenerationService(options = {}) {
         }
     }
 
+    async function generateImages(input = {}) {
+        if (typeof callWritingImage !== 'function') {
+            const error = new Error('카드 이미지를 만들 이미지 AI 기능이 준비되지 않았습니다.');
+            error.code = 'CARD_NEWS_IMAGE_GENERATOR_UNAVAILABLE';
+            throw error;
+        }
+        const { generation, outputDir, manifestPath } = resolveGeneration(input.generation_id);
+        const mode = ['all', 'missing', 'single'].includes(input.mode) ? input.mode : 'missing';
+        const targets = mode === 'single'
+            ? [getGenerationCard(generation, input.card_index)]
+            : generation.cards.filter((card) => mode === 'all' || !card.file_name);
+        if (!targets.length) return toPublicGenerationResult(generation);
+
+        generation.status = 'generating_images';
+        generation.image_mode = 'generate';
+        delete generation.error;
+        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+
+        for (const card of targets) {
+            logger?.info?.(`🎨 [CardNews] ${card.index}번 카드 이미지 ${card.file_name ? '다시 생성' : '생성'} 중`);
+            try {
+                const temporaryBase = pathApi.join(outputDir, `pending-${String(card.index).padStart(2, '0')}-${crypto.randomUUID().slice(0, 8)}`);
+                const generatedPath = await callWritingImage(
+                    card.image_prompt,
+                    temporaryBase,
+                    2,
+                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news' }
+                );
+                saveGeneratedImage({ generation, outputDir, manifestPath, card, generatedPath });
+                logger?.info?.(`✅ [CardNews] ${card.index}번 카드 이미지 적용 완료`);
+            } catch (error) {
+                generation.status = 'partial';
+                generation.completed_at = now();
+                generation.error = {
+                    code: String(error?.code || 'CARD_NEWS_IMAGE_GENERATION_FAILED'),
+                    message: String(error?.message || '카드 이미지를 만들지 못했습니다.').slice(0, 500),
+                    occurred_at: now()
+                };
+                writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+                logger?.warn?.(`⚠️ [CardNews] 이미지 작업 중단: ${generation.error.message}`);
+                return {
+                    ...toPublicGenerationResult(generation),
+                    message: '완성한 이미지는 유지했습니다. 만들지 못한 이미지는 다시 시도해 주세요.'
+                };
+            }
+        }
+
+        generation.status = deriveGenerationStatus(generation.cards);
+        generation.completed_at = now();
+        delete generation.error;
+        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+        logger?.info?.(`✅ [CardNews] 이미지 작업 완료 (${targets.length}장)`);
+        return toPublicGenerationResult(generation);
+    }
+
+    function importLocalImage(input = {}) {
+        const { generation, outputDir, manifestPath } = resolveGeneration(input.generation_id);
+        const card = getGenerationCard(generation, input.card_index);
+        const { buffer, extension } = decodeLocalImage(input);
+        const suffix = crypto.randomUUID().slice(0, 8);
+        const nextFileName = `card-${String(card.index).padStart(2, '0')}-local-${suffix}${extension}`;
+        const nextPath = pathApi.join(outputDir, nextFileName);
+        const temporaryPath = `${nextPath}.${process.pid}.${Date.now()}.tmp`;
+        fileSystem.writeFileSync(temporaryPath, buffer, { mode: 0o600 });
+        fileSystem.renameSync(temporaryPath, nextPath);
+        const previousFileName = card.file_name;
+        card.file_name = nextFileName;
+        generation.status = deriveGenerationStatus(generation.cards);
+        generation.completed_at = now();
+        delete generation.error;
+        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+        removePreviousAsset(outputDir, previousFileName, nextFileName);
+        logger?.info?.(`✅ [CardNews] ${card.index}번 카드 로컬 이미지 적용 완료`);
+        return toPublicGenerationResult(generation);
+    }
+
     function resolveAsset(generationId, fileName) {
         const safeId = safeGenerationId(generationId);
         const safeName = safeAssetName(fileName);
@@ -203,16 +402,22 @@ function createCardNewsGenerationService(options = {}) {
         const extension = pathApi.extname(safeName).toLowerCase();
         const mimeType = extension === '.png'
             ? 'image/png'
-            : (extension === '.webp' ? 'image/webp' : (extension === '.jpg' || extension === '.jpeg' ? 'image/jpeg' : 'application/octet-stream'));
+            : (extension === '.webp'
+                ? 'image/webp'
+                : (extension === '.avif' ? 'image/avif' : (extension === '.jpg' || extension === '.jpeg' ? 'image/jpeg' : 'application/octet-stream')));
         return { path: assetPath, file_name: safeName, mime_type: mimeType };
     }
 
-    return { generate, resolveAsset, exportRoot };
+    return { generate, generateImages, importLocalImage, resolveAsset, exportRoot };
 }
 
 module.exports = {
     safeGenerationId,
     safeAssetName,
+    safeCardIndex,
+    imageExtension,
+    decodeLocalImage,
+    deriveGenerationStatus,
     toPublicGenerationResult,
     createCardNewsGenerationService
 };

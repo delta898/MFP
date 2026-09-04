@@ -6,6 +6,8 @@ function createCardNewsRouteHandler(deps = {}) {
             '/api/v1/card-news/sources': controller.sources,
             '/api/v1/card-news/source-preview': controller.preview,
             '/api/v1/card-news/generations': controller.generate,
+            '/api/v1/card-news/images/generate': controller.generateImages,
+            '/api/v1/card-news/images/import': controller.importImage,
             '/api/v1/card-news/projects': controller.projects
         };
         const handler = String(ctx.pathname || '').startsWith('/api/v1/card-news/assets/')

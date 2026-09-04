@@ -176,7 +176,7 @@ test('KIE Market progress reporter logs at most once per minute unless progress 
     report({ taskId: 'task-1', state: 'poll_retry', consecutivePollErrors: 1 });
 
     assert.equal(info.length, 4);
-    assert.match(info[0], /작업 생성 완료/);
+    assert.match(info[0], /이미지 생성 요청 접수 완료/);
     assert.match(info[1], /60초 경과/);
     assert.match(info[2], /62초 경과 · 25%/);
     assert.match(info[3], /122초 경과 · 25%/);

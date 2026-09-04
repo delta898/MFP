@@ -11,6 +11,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
     const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/ui-runtime/http-server-runtime.js'), 'utf8');
 
     assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
     assert.match(html, /id="view-card-news"/);
@@ -52,7 +53,16 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /빈 이미지 모두 만들기/);
     assert.match(script, /이미지 모두 다시 만들기/);
     assert.match(script, /data-card-news-image-action/);
-    assert.match(script, /이미지 생성 기능은 다음 단계에서 연결할 예정입니다/);
+    assert.match(script, /\/api\/v1\/card-news\/images\/generate/);
+    assert.match(script, /data-card-news-local-image/);
+    assert.match(script, /\/api\/v1\/card-news\/images\/import/);
+    assert.match(script, /data-card-news-image-working/);
+    assert.match(script, /새 이미지 만드는 중…/);
+    assert.match(script, /rememberCardNewsScrollPosition/);
+    assert.match(navigation, /currentViewName === 'card-news'[\s\S]*rememberCardNewsScrollPosition/);
+    assert.match(navigation, /viewName === 'card-news'[\s\S]*restoreCardNewsScrollPosition/);
+    assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/images\/import'[\s\S]{0,180}15 \* 1024 \* 1024/);
+    assert.doesNotMatch(script, /이미지 생성 기능은 다음 단계에서 연결할 예정입니다/);
     assert.doesNotMatch(script, /sameVariation/);
     assert.match(script, /const sources = cardNewsViewState\.configuredSources;[\s\S]*sources\.length < 2/);
     assert.match(script, /CARD_NEWS_PLATFORM_STORAGE_KEY/);

@@ -44,6 +44,8 @@ function createHarness(overrides = {}) {
     };
     const generationService = overrides.generationService || {
         async generate(input) { return { id: 'generation-1', status: 'completed', input }; },
+        async generateImages(input) { return { id: 'generation-1', status: 'completed', input }; },
+        importLocalImage(input) { return { id: 'generation-1', status: 'completed', input }; },
         resolveAsset(generationId, fileName) { return { generationId, fileName }; }
     };
     return {
@@ -107,6 +109,14 @@ test('delegates generation and local asset lookup through the card-news boundary
         generationId: 'generation-1',
         fileName: 'card-01.png'
     });
+});
+
+test('delegates AI image work and local image import through the card-news boundary', async () => {
+    const { service } = createHarness();
+    const generated = await service.generateImages({ generation_id: 'generation-1', mode: 'missing' });
+    assert.equal(generated.generation.input.mode, 'missing');
+    const imported = service.importLocalImage({ generation_id: 'generation-1', card_index: 2 });
+    assert.equal(imported.generation.input.card_index, 2);
 });
 
 test('validates configured AI models before generation starts', async () => {

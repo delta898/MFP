@@ -179,11 +179,36 @@ function createCardNewsService(deps = {}) {
         }
     }
 
+    async function generateImages(input = {}) {
+        if (!generationService?.generateImages) {
+            throw createApiError('CARD_NEWS_IMAGE_GENERATION_UNAVAILABLE', '카드 이미지 생성 기능이 준비되지 않았습니다.', 500);
+        }
+        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
+        }
+        try {
+            return { generation: await generationService.generateImages(input) };
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_IMAGE_GENERATION_FAILED', '카드 이미지를 만들지 못했습니다. 다시 시도해 주세요.');
+        }
+    }
+
+    function importLocalImage(input = {}) {
+        if (!generationService?.importLocalImage) {
+            throw createApiError('CARD_NEWS_IMAGE_IMPORT_UNAVAILABLE', '로컬 이미지 적용 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return { generation: generationService.importLocalImage(input) };
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_IMAGE_IMPORT_FAILED', '선택한 이미지를 적용하지 못했습니다.');
+        }
+    }
+
     function resolveAsset(generationId, fileName) {
         return generationService?.resolveAsset(generationId, fileName) || null;
     }
 
-    return { listSources, previewSource, createProject, listProjects, generate, resolveAsset };
+    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset };
 }
 
 module.exports = {
