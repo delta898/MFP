@@ -85,6 +85,9 @@ function createUiApiRouteRuntime(deps = {}) {
         createManualSnsService,
         createManualSnsController,
         createManualSnsRouteHandler,
+        createCardNewsService,
+        createCardNewsController,
+        createCardNewsRouteHandler,
         createSurfaceContentService,
         createSupabaseSurfaceContentProvider,
         createSurfaceContentController,
@@ -130,6 +133,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let blogAutoRouteHandler = null;
     let settingsRouteHandler = null;
     let manualSnsRouteHandler = null;
+    let cardNewsRouteHandler = null;
     let surfaceContentRouteHandler = null;
     let topicRecommendationsRouteHandler = null;
     let recommendationCenterRouteHandler = null;
@@ -246,6 +250,15 @@ function createUiApiRouteRuntime(deps = {}) {
             manualSnsRouteHandler = createManualSnsRouteHandler({ controller });
         }
         return manualSnsRouteHandler;
+    }
+
+    function getCardNewsRouteHandlerInstance() {
+        if (!cardNewsRouteHandler) {
+            const service = createCardNewsService({ CONFIG, axios, cheerio, fs, path, logger: Logger });
+            const controller = createCardNewsController({ service, sendSuccess, sendError });
+            cardNewsRouteHandler = createCardNewsRouteHandler({ controller });
+        }
+        return cardNewsRouteHandler;
     }
 
     function getSurfaceContentRouteHandlerInstance() {
@@ -442,6 +455,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getBlogAutoRouteHandlerInstance(),
                 getSettingsRouteHandlerInstance(),
                 getManualSnsRouteHandlerInstance(),
+                getCardNewsRouteHandlerInstance(),
                 getSurfaceContentRouteHandlerInstance(),
                 getTopicRecommendationsRouteHandlerInstance(),
                 getRecommendationCenterRouteHandlerInstance(),
@@ -472,6 +486,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
+        getCardNewsRouteHandler: getCardNewsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
         getTopicRecommendationsRouteHandler: getTopicRecommendationsRouteHandlerInstance,
         getRecommendationCenterRouteHandler: getRecommendationCenterRouteHandlerInstance,

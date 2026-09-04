@@ -1,0 +1,94 @@
+      <section class="view card-news-view" id="view-card-news">
+        <div class="view-title-block">
+          <div class="view-title-row">
+            <div class="view-title-copy">
+              <div class="view-title-heading">
+                <h1>카드뉴스</h1>
+                <span class="card-news-stage-badge">준비 단계</span>
+              </div>
+              <p>공개한 블로그 글이나 원하는 내용을 골라 카드뉴스를 준비하세요.</p>
+            </div>
+            <div class="page-clock-widget">
+              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-news-layout">
+          <section class="card-news-source-card" aria-labelledby="card-news-source-title">
+            <div class="card-news-section-heading">
+              <div>
+                <span class="card-news-eyebrow">1단계</span>
+                <h2 id="card-news-source-title">내용 선택</h2>
+                <p>먼저 내용을 확인합니다. 아직 AI 생성이나 이미지 작업은 시작하지 않습니다.</p>
+              </div>
+            </div>
+
+            <div class="card-news-source-tabs" role="tablist" aria-label="내용 입력 방식">
+              <button class="card-news-source-tab active" type="button" role="tab" aria-selected="true" data-card-news-source-kind="feed_item">내 블로그 글</button>
+              <button class="card-news-source-tab" type="button" role="tab" aria-selected="false" data-card-news-source-kind="url">URL 직접 입력</button>
+              <button class="card-news-source-tab" type="button" role="tab" aria-selected="false" data-card-news-source-kind="manuscript">내용 직접 입력</button>
+            </div>
+
+            <div class="card-news-source-panel" data-card-news-source-panel="feed_item">
+              <div class="card-news-panel-toolbar">
+                <div id="card-news-platform-tabs" class="card-news-platform-tabs" role="tablist" aria-label="블로그 플랫폼" hidden></div>
+                <button id="card-news-source-refresh" class="card-news-icon-button" type="button" aria-label="블로그 글 새로고침" title="블로그 글 새로고침">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+                  </svg>
+                </button>
+              </div>
+              <div id="card-news-feed-list" class="card-news-feed-list" aria-live="polite">
+                <div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>
+              </div>
+              <p id="card-news-feed-note" class="card-news-inline-note" hidden></p>
+            </div>
+
+            <div class="card-news-source-panel" data-card-news-source-panel="url" hidden>
+              <label class="card-news-field" for="card-news-url">
+                <span>공개 글 주소</span>
+                <input id="card-news-url" type="url" inputmode="url" placeholder="https://example.com/article">
+                <small>로그인이나 접근 권한이 필요 없는 HTTPS 페이지를 지원합니다.</small>
+              </label>
+            </div>
+
+            <div class="card-news-source-panel" data-card-news-source-panel="manuscript" hidden>
+              <label class="card-news-field" for="card-news-manuscript-title">
+                <span>제목 <em>선택</em></span>
+                <input id="card-news-manuscript-title" type="text" maxlength="300" placeholder="카드뉴스 제목">
+              </label>
+              <label class="card-news-field" for="card-news-manuscript-text">
+                <span>내용</span>
+                <textarea id="card-news-manuscript-text" rows="10" placeholder="카드뉴스로 만들 내용을 붙여 넣으세요."></textarea>
+              </label>
+            </div>
+
+            <span id="card-news-source-status" class="card-news-inline-status" aria-live="polite"></span>
+            <div id="card-news-source-actions" class="card-news-source-actions" hidden>
+              <button id="card-news-preview-button" class="primary" type="button">내용 확인</button>
+            </div>
+          </section>
+
+          <section class="card-news-preview-card" aria-label="선택한 내용">
+            <div class="card-news-preview-surface">
+              <span id="card-news-preview-badge" class="card-news-preview-badge" data-state="idle">선택 전</span>
+              <div id="card-news-preview-empty" class="card-news-preview-empty">
+                <span aria-hidden="true">▤</span>
+                <strong>카드뉴스로 만들 내용을 선택해 주세요.</strong>
+                <p>블로그 글을 고르거나 원하는 내용을 직접 입력할 수 있습니다.</p>
+              </div>
+              <article id="card-news-preview-content" class="card-news-preview-content" hidden>
+                <span id="card-news-preview-kind" class="card-news-preview-kind"></span>
+                <h3 id="card-news-preview-heading"></h3>
+                <p id="card-news-preview-excerpt"></p>
+                <div class="card-news-preview-meta">
+                  <a id="card-news-preview-link" href="#" target="_blank" rel="noopener noreferrer" hidden>원문 열기 ↗</a>
+                  <small id="card-news-preview-time"></small>
+                </div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>

@@ -29,13 +29,13 @@ function normalizePublicHttpsUrl(value, fieldName) {
 function normalizeCardNewsSource(input = {}) {
     const kind = compact(input.kind, 40).toLowerCase();
     if (!CARD_NEWS_SOURCE_KINDS.includes(kind)) {
-        throw createCardNewsContractError('CARD_NEWS_SOURCE_KIND_INVALID', '지원하지 않는 카드뉴스 원문 방식입니다.');
+        throw createCardNewsContractError('CARD_NEWS_SOURCE_KIND_INVALID', '지원하지 않는 카드뉴스 내용 입력 방식입니다.');
     }
 
     if (kind === 'manuscript') {
         const text = compact(input.text);
         if (!text) {
-            throw createCardNewsContractError('CARD_NEWS_SOURCE_TEXT_REQUIRED', '카드뉴스로 만들 원고를 입력해 주세요.');
+            throw createCardNewsContractError('CARD_NEWS_SOURCE_TEXT_REQUIRED', '카드뉴스로 만들 내용을 입력해 주세요.');
         }
         return {
             kind,
@@ -45,7 +45,7 @@ function normalizeCardNewsSource(input = {}) {
         };
     }
 
-    const canonicalUrl = normalizePublicHttpsUrl(input.canonical_url || input.canonicalUrl || input.url, '원문');
+    const canonicalUrl = normalizePublicHttpsUrl(input.canonical_url || input.canonicalUrl || input.url, 'URL');
     if (kind === 'url') {
         return {
             kind,

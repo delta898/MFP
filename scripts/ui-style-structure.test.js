@@ -42,6 +42,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/content-tabs.css',
         'styles/features/continuous-publishing.css',
         'styles/features/blog-next-smart-comment.css',
+        'styles/features/card-news.css',
         'styles/features/continuous-publishing-interactions.css',
         'styles/features/continuous-publishing-usability.css',
         'styles/features/settings-tables.css',

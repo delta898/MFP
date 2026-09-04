@@ -116,6 +116,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
         'partials/views/dashboard-beta.html',
         'partials/views/blog.html',
         'partials/views/blog-next.html',
+        'partials/views/card-news.html',
         'partials/views/shopping.html',
         'partials/views/social.html',
         'partials/views/account.html',

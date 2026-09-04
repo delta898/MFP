@@ -20,6 +20,7 @@ test('configured feeds expose public articles while isolating a failing feed', a
     });
 
     assert.equal(result.configured_feed_count, 2);
+    assert.deepEqual(result.configured_sources, ['naver', 'wordpress']);
     assert.equal(result.failures.length, 1);
     assert.equal(result.failures[0].source_platform, 'naver');
     assert.deepEqual(result.articles.map((item) => item.item_key), ['wp-1', 'wp-0']);
@@ -48,7 +49,29 @@ test('feed item keeps RSS identity but resolves the current article body', async
     assert.equal(snapshot.source.item_key, 'stable-rss-key');
     assert.equal(snapshot.title, '플랫폼에서 수정한 제목');
     assert.equal(snapshot.text, '플랫폼에서 수정한 현재 본문');
+    assert.equal(snapshot.excerpt, '플랫폼에서 수정한 현재 본문');
     assert.equal(snapshot.retrieved_at, '2026-09-04T03:00:00.000Z');
+});
+
+test('feed preview uses the fetched page body instead of the short RSS summary', async () => {
+    const fullText = '페이지 본문 '.repeat(250);
+    const service = createCardNewsSourceService({
+        fetchFeed: async () => [],
+        fetchPublicDocument: async () => ({ text: `${fullText} 더 읽기` })
+    });
+
+    const snapshot = await service.resolveSourceSnapshot({
+        kind: 'feed_item',
+        feed_url: 'https://blog.example/feed/',
+        item_key: 'stable-rss-key',
+        canonical_url: 'https://blog.example/post',
+        title: 'RSS 제목',
+        preview_text: '더 읽기'
+    });
+
+    assert.ok(snapshot.excerpt.length > 500);
+    assert.match(snapshot.excerpt, /^페이지 본문/);
+    assert.doesNotMatch(snapshot.excerpt, /더 읽기$/);
 });
 
 test('manuscript resolution never requires a network fetch', async () => {

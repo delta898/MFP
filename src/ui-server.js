@@ -93,6 +93,9 @@ const { createSettingsController } = require('./ui-api/controllers/settings.cont
 const { createSettingsRouteHandler } = require('./ui-api/routes/settings.routes');
 const { createManualSnsController } = require('./ui-api/controllers/manual-sns.controller');
 const { createManualSnsRouteHandler } = require('./ui-api/routes/manual-sns.routes');
+const { createCardNewsService } = require('./ui-api/services/card-news.service');
+const { createCardNewsController } = require('./ui-api/controllers/card-news.controller');
+const { createCardNewsRouteHandler } = require('./ui-api/routes/card-news.routes');
 const { createSurfaceContentService } = require('./surface-content/service');
 const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
 const { createSurfaceContentController } = require('./ui-api/controllers/surface-content.controller');
@@ -1021,6 +1024,9 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createManualSnsService,
     createManualSnsController,
     createManualSnsRouteHandler,
+    createCardNewsService,
+    createCardNewsController,
+    createCardNewsRouteHandler,
     createSurfaceContentService,
     createSupabaseSurfaceContentProvider,
     createSurfaceContentController,

@@ -2,7 +2,7 @@ async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'social', 'account', 'help'].includes(requestedView)) {
+    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'help'].includes(requestedView)) {
       viewName = 'blog-next';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -77,6 +77,10 @@ async function navigateTo(viewName, subTab) {
     initBlogNextAutomationSettings();
     initBlogNextRunner();
     activateBlogNextTab(requestedSubTab || blogNextActiveTab);
+    return;
+  }
+  if (viewName === 'card-news') {
+    initCardNewsView();
     return;
   }
   if (viewName === 'shopping') {
@@ -155,7 +159,7 @@ function applyMobileQuickMode() {
     return;
   }
 
-  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'help'].includes(activeView)) {
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'card-news', 'help'].includes(activeView)) {
     void navigateTo('blog-next', 'quick');
   }
 }

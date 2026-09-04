@@ -5,6 +5,14 @@ function compact(value, maxLength = 50000) {
     return String(value || '').trim().slice(0, maxLength);
 }
 
+const CARD_NEWS_PREVIEW_TEXT_LIMIT = 1400;
+
+function cleanPreviewText(value) {
+    return compact(value, CARD_NEWS_PREVIEW_TEXT_LIMIT)
+        .replace(/\s*(?:더 읽기|read more)\s*$/i, '')
+        .trim();
+}
+
 function sourceKey(platform, feedUrl, item = {}) {
     return compact(item.guid || item.item_key || item.link || `${platform}:${feedUrl}:${item.title}`, 1000);
 }
@@ -52,7 +60,12 @@ function createCardNewsSourceService(options = {}) {
                 });
             }
         }
-        return { articles, failures, configured_feed_count: feeds.length };
+        return {
+            articles,
+            failures,
+            configured_feed_count: feeds.length,
+            configured_sources: feeds.map((feed) => feed.sourcePlatform)
+        };
     }
 
     async function resolveSourceSnapshot(input = {}) {
@@ -62,7 +75,7 @@ function createCardNewsSourceService(options = {}) {
                 source,
                 title: source.title,
                 text: source.text,
-                excerpt: compact(source.text, 500),
+                excerpt: cleanPreviewText(source.text),
                 canonical_url: '',
                 attribution: source.attribution,
                 retrieved_at: now()
@@ -74,13 +87,13 @@ function createCardNewsSourceService(options = {}) {
         const document = await fetchPublicDocument(source.canonical_url);
         const text = compact(document?.text);
         if (!text) {
-            throw createCardNewsContractError('CARD_NEWS_SOURCE_EMPTY', '원문에서 카드뉴스로 만들 내용을 찾지 못했습니다.');
+            throw createCardNewsContractError('CARD_NEWS_SOURCE_EMPTY', '선택한 글에서 카드뉴스로 만들 내용을 찾지 못했습니다.');
         }
         return {
             source,
             title: compact(document?.title || source.title, 300),
             text,
-            excerpt: compact(document?.excerpt || source.preview_text || text, 500),
+            excerpt: cleanPreviewText(document?.text || document?.excerpt || source.preview_text || text),
             canonical_url: compact(document?.url || source.canonical_url, 4000),
             attribution: compact(document?.attribution, 500),
             retrieved_at: now()
@@ -90,4 +103,4 @@ function createCardNewsSourceService(options = {}) {
     return { discoverConfiguredArticles, resolveSourceSnapshot };
 }
 
-module.exports = { createCardNewsSourceService };
+module.exports = { CARD_NEWS_PREVIEW_TEXT_LIMIT, createCardNewsSourceService };
