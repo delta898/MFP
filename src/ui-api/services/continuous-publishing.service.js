@@ -13,6 +13,7 @@ const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-ord
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
 const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
+const { presentPublishingProgress, buildCompletionLinks } = require('../../continuous-publishing/presentation');
 
 function createContinuousPublishingService(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
@@ -30,6 +31,8 @@ function createContinuousPublishingService(deps = {}) {
         rowNumber: null,
         subject: '',
         resultStatus: '',
+        progressStage: '',
+        completionLinks: [],
         startedAt: '',
         finishedAt: ''
     };
@@ -224,6 +227,8 @@ function createContinuousPublishingService(deps = {}) {
             rowNumber: null,
             subject: '',
             resultStatus: '',
+            progressStage: 'preparing',
+            completionLinks: [],
             startedAt,
             finishedAt: ''
         });
@@ -259,6 +264,7 @@ function createContinuousPublishingService(deps = {}) {
                 updateRunnerState({
                     state: 'running',
                     message: execution.simulation === true ? 'Local에서 예정 동작을 확인하고 있습니다.' : '글감을 생성하고 발행하고 있습니다.',
+                    progressStage: execution.simulation === true ? 'simulation' : 'writing',
                     rowIndex,
                     rowNumber: Number(topic.rowNumber || rowIndex + 2),
                     subject: String(topic.subject || topic.keywordsRaw || '제목 없는 글감')
@@ -291,7 +297,10 @@ function createContinuousPublishingService(deps = {}) {
                         isAutoCycle: execution.automatic === true,
                         isLast: true,
                         operationId: `continuous-publishing:row-${rowIndex}`,
-                        onProgress: (message) => updateRunnerState({ message: String(message || '처리 중') })
+                        onProgress: (message) => {
+                            const progress = presentPublishingProgress(message, { postStatus });
+                            updateRunnerState({ progressStage: progress.stage, message: progress.message });
+                        }
                     }
                 );
                 Utils.clearSheetCache('topics');
@@ -308,6 +317,12 @@ function createContinuousPublishingService(deps = {}) {
                     state: 'completed',
                     message: '다음 글감 한 건을 처리했습니다.',
                     resultStatus: result?.data?.status || '',
+                    progressStage: '',
+                    completionLinks: buildCompletionLinks({
+                        postStatus: result?.data?.postStatus || postStatus,
+                        results: result?.data?.results,
+                        config: CONFIG
+                    }),
                     finishedAt: new Date().toISOString()
                 });
             } catch (error) {
@@ -369,6 +384,8 @@ function createContinuousPublishingService(deps = {}) {
                 rowNumber: null,
                 subject: '',
                 resultStatus: '',
+                progressStage: '',
+                completionLinks: [],
                 startedAt: '',
                 finishedAt: ''
             });

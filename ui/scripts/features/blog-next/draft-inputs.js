@@ -324,7 +324,7 @@ async function publishBlogNextDraft(type) {
   }
   try {
     const payload = await buildBlogNextDraftPayload(type, { includeImages: true });
-    await runWithLiveProgress({
+    const publishResult = await runWithLiveProgress({
       targetEl: result,
       requestLabel: `원고 ${action}`,
       requestFn: () => postJson('/api/v1/blog/local-markdown/publish', payload)
@@ -337,6 +337,7 @@ async function publishBlogNextDraft(type) {
         message: `원고 ${action}을 완료했습니다.`,
         resultStatus: settings.postStatus === 'draft' ? '임시 저장 완료'
           : settings.postStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
+        completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
         finishedAt: new Date().toISOString()
       });
     }

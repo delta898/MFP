@@ -18,7 +18,14 @@ function getBlogNextRunnerStatusKey(status = {}) {
 function presentBlogNextRunnerStatus(status = {}) {
   const state = String(status.state || 'idle');
   const resultStatus = String(status.resultStatus || '').trim();
-  if (state === 'selecting' || state === 'running') return { title: '발행 중', tone: 'progress' };
+  if (state === 'selecting') return { title: '준비 중', tone: 'progress' };
+  if (state === 'running') {
+    const progressTitles = {
+      preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',
+      quota: '발행 준비 중', publishing: '발행 중', finalizing: '마무리 중'
+    };
+    return { title: progressTitles[String(status.progressStage || '')] || '처리 중', tone: 'progress' };
+  }
   if (state === 'completed') {
     const safeResult = ['발행 완료', '임시 저장 완료', '예약 발행 완료'].includes(resultStatus)
       ? resultStatus
@@ -31,6 +38,39 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (state === 'failed') return { title: '발행 실패', tone: 'error', manage: true };
   if (state === 'empty') return { title: '실행할 글감 없음', tone: 'warning', manage: true };
   return { title: '', tone: '' };
+}
+
+function safeBlogNextCompletionUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
+  } catch (_error) {
+    return '';
+  }
+}
+
+function renderBlogNextCompletionLinks(status = {}) {
+  const container = document.getElementById('blog-next-publish-status-links');
+  if (!container) return;
+  container.replaceChildren();
+  if (String(status.state || '') !== 'completed') {
+    container.hidden = true;
+    return;
+  }
+  const links = Array.isArray(status.completionLinks) ? status.completionLinks : [];
+  links.slice(0, 2).forEach((item) => {
+    const url = safeBlogNextCompletionUrl(item?.url);
+    const label = String(item?.label || '').trim();
+    if (!url || !label) return;
+    const anchor = document.createElement('a');
+    anchor.className = 'secondary compact blog-next-publish-result-link';
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = label;
+    container.appendChild(anchor);
+  });
+  container.hidden = container.childElementCount === 0;
 }
 
 function syncBlogNextRunnerTriggerState() {
@@ -94,6 +134,7 @@ function renderBlogNextRunnerStatus(status = {}) {
       ? '글감 처리 완료'
       : rawMessage;
   }
+  renderBlogNextCompletionLinks(status);
   if (manage) manage.hidden = presentation.manage !== true;
   if (dismiss) dismiss.hidden = !terminal;
   document.querySelectorAll('[data-blog-next-runner-status-jump]').forEach((button) => {

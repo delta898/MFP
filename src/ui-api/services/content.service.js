@@ -13,6 +13,7 @@ const {
     generateSmartCommentDrafts
 } = require('../../naver/smart-comment-draft-generator');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 
 function createContentService(deps = {}) {
     const {
@@ -823,7 +824,14 @@ function createContentService(deps = {}) {
                 if (!result.success) {
                     throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
                 }
-                return result.data;
+                return {
+                    ...result.data,
+                    completionLinks: buildCompletionLinks({
+                        postStatus: result.data?.postStatus || requestBody?.postStatus,
+                        results: result.data?.results,
+                        config: CONFIG
+                    })
+                };
             });
         },
 

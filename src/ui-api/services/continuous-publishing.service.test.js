@@ -700,6 +700,35 @@ test('manual runner can execute one explicitly selected ready topic without chan
     assert.equal(result.resultStatus, '발행 완료');
 });
 
+test('runner exposes user-facing progress and successful completion links', async () => {
+    const state = {
+        CONFIG: { NAVER_ID: 'owner', WORDPRESS_URL: 'https://blog.example' },
+        readItems: [{ rowIndex: 11, rowNumber: 13, status: '발행 준비 완료', subject: '안내할 글', postStatus: 'draft' }],
+        async executeRunner(_request, options) {
+            options.onProgress('네이버 콘텐츠 생성 중...');
+            state.progressSnapshot = service.getRunnerStatus();
+            return {
+                success: true,
+                data: {
+                    status: '임시 저장 완료',
+                    postStatus: 'draft',
+                    results: { naver: { success: true, postUrl: 'https://blog.naver.com/owner/123' } }
+                }
+            };
+        }
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic({ rowIndex: 11 });
+    const result = await waitForRunner(service);
+
+    assert.equal(state.progressSnapshot.progressStage, 'writing');
+    assert.equal(state.progressSnapshot.message, '네이버 블로그용 글을 작성하고 있습니다.');
+    assert.deepEqual(result.completionLinks, [
+        { platform: 'naver', kind: 'home', label: '네이버 블로그 열기', url: 'https://blog.naver.com/owner' }
+    ]);
+});
+
 test('single-item runner reports an empty queue without invoking publishing', async () => {
     const state = { readItems: [] };
     const service = createService(state);

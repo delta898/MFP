@@ -353,6 +353,8 @@ function startFixtureServer(requests) {
         rowNumber: null,
         subject: '',
         resultStatus: '',
+        progressStage: '',
+        completionLinks: [],
         busy: false
     };
     let continuousRunnerPollsRemaining = 0;
@@ -644,11 +646,12 @@ function startFixtureServer(requests) {
                     ? {
                         state: 'running', message: '글감을 생성하고 발행하고 있습니다.',
                         rowIndex: item.rowIndex, rowNumber: item.rowNumber, subject: item.subject,
-                        resultStatus: '', busy: true
+                        resultStatus: '', progressStage: 'writing', completionLinks: [], busy: true
                     }
                     : {
                         state: 'empty', message: '발행 준비된 글감이 없습니다.',
-                        rowIndex: null, rowNumber: null, subject: '', resultStatus: '', busy: false
+                        rowIndex: null, rowNumber: null, subject: '', resultStatus: '',
+                        progressStage: '', completionLinks: [], busy: false
                     };
                 continuousRunnerPollsRemaining = item ? 2 : 0;
                 const body = JSON.stringify({ success: true, data: { accepted: true, ...continuousRunnerStatus } });
@@ -698,7 +701,13 @@ function startFixtureServer(requests) {
                 requestRecord.body = payload;
                 const body = JSON.stringify({
                     success: true,
-                    data: { status: payload.postStatus === 'draft' ? '임시 저장 완료' : '발행 완료', postStatus: payload.postStatus || 'publish' }
+                    data: {
+                        status: payload.postStatus === 'draft' ? '임시 저장 완료' : '발행 완료',
+                        postStatus: payload.postStatus || 'publish',
+                        completionLinks: payload.postStatus === 'draft'
+                            ? [{ platform: 'naver', kind: 'home', label: '네이버 블로그 열기', url: 'https://blog.naver.com/fixture' }]
+                            : [{ platform: 'naver', kind: 'post', label: '네이버 글 보기', url: 'https://blog.naver.com/fixture/123' }]
+                    }
                 });
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 setTimeout(() => {
@@ -781,12 +790,20 @@ function startFixtureServer(requests) {
                     if (continuousRunnerPollsRemaining > 0) continuousRunnerPollsRemaining -= 1;
                     else {
                         const itemIndex = continuousPublishingQueue.findIndex(candidate => candidate.rowIndex === continuousRunnerStatus.rowIndex);
+                        const completedItem = itemIndex >= 0 ? continuousPublishingQueue[itemIndex] : null;
                         if (itemIndex >= 0) continuousPublishingQueue.splice(itemIndex, 1);
                         continuousRunnerStatus = {
                             ...continuousRunnerStatus,
                             state: 'completed',
                             message: '다음 글감 한 건을 처리했습니다.',
                             resultStatus: '임시 저장 완료',
+                            progressStage: '',
+                            completionLinks: (completedItem?.options?.platforms || ['naver']).map((platform) => ({
+                                platform,
+                                kind: 'home',
+                                label: platform === 'wordpress' ? '워드프레스 열기' : '네이버 블로그 열기',
+                                url: platform === 'wordpress' ? 'https://example.com/' : 'https://blog.naver.com/fixture'
+                            })),
                             finishedAt: new Date().toISOString(),
                             busy: false
                         };
@@ -1316,7 +1333,7 @@ async function run() {
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.hidden === false);
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '바로 처리할 글감');
-        assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '발행 중');
+        assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '글 작성 중');
         assert.equal((await page.locator('#blog-next-publish-status-subject').textContent())?.trim(), '바로 처리할 글감');
         assert.equal((await page.locator('#blog-next-publish-status').textContent()).includes('Topics'), false);
         const directTopicRequest = requests.find((request) => (
@@ -1337,6 +1354,11 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status-title')?.textContent === '임시 저장 완료');
         await page.waitForFunction(() => document.getElementById('blog-next-subject')?.value === '');
         assert.equal((await page.locator('#blog-next-publish-status-message').textContent())?.trim(), '글감 처리 완료');
+        assert.equal((await page.locator('#blog-next-publish-status-links').textContent())?.trim(), '네이버 블로그 열기');
+        assert.equal(
+            await page.locator('#blog-next-publish-status-links a').getAttribute('href'),
+            'https://blog.naver.com/fixture'
+        );
         assert.equal(await page.locator('#blog-next-publish-status-dismiss').evaluate((element) => element.hidden), false);
         assert.equal((await page.locator('#blog-next-publish-status-dismiss').textContent())?.trim(), '×');
         assert.equal(await page.locator('#blog-next-publish-status-dismiss').getAttribute('aria-label'), '닫기');

@@ -243,6 +243,7 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
 
     assert.match(betaView, /id="blog-next-publish-status"[^>]*role="status"[^>]*hidden/);
     assert.match(betaView, /id="blog-next-publish-status-title"/);
+    assert.match(betaView, /id="blog-next-publish-status-links"[^>]*hidden/);
     assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
@@ -257,6 +258,9 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(runnerScript, /state === 'needs_attention'/);
     assert.match(runnerScript, /rawMessage === '다음 글감 한 건을 처리했습니다.'/);
     assert.match(runnerScript, /'글감 처리 완료'/);
+    assert.match(runnerScript, /progressStage/);
+    assert.match(runnerScript, /renderBlogNextCompletionLinks\(status\)/);
+    assert.match(runnerScript, /noopener noreferrer/);
     assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
     assert.doesNotMatch(runnerScript, /\.focus\s*\(/);
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
