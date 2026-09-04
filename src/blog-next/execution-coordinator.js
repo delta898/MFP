@@ -26,7 +26,7 @@ function createBlogNextExecutionCoordinator(options = {}) {
             if (active) return null;
             const source = normalizeText(input.source, 40);
             if (!ALLOWED_SOURCES.has(source)) {
-                const error = new Error('지원하지 않는 Blog Beta 실행 경로입니다.');
+                const error = new Error('지원하지 않는 블로그 실행 경로입니다.');
                 error.code = 'BLOG_NEXT_EXECUTION_SOURCE_INVALID';
                 throw error;
             }
@@ -37,7 +37,7 @@ function createBlogNextExecutionCoordinator(options = {}) {
                 executionId: `blog-next-${sequence}`,
                 source,
                 subject: normalizeText(input.subject) || (source === 'local_markdown' ? '원고 포스팅' : '발행 대기열'),
-                message: normalizeText(input.message, 200) || 'Blog Beta 작업을 처리하고 있습니다.',
+                message: normalizeText(input.message, 200) || '블로그 작업을 처리하고 있습니다.',
                 startedAt: now().toISOString()
             };
             let released = false;

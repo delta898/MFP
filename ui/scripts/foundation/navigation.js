@@ -2,10 +2,13 @@ async function navigateTo(viewName, subTab) {
   const requestedView = String(viewName || '').trim();
   const requestedSubTab = String(subTab || '').trim();
   if (isMobileQuickMode) {
-    if (!['dashboard', 'dashboard-beta', 'blog', 'social', 'account', 'help'].includes(requestedView)) {
-      viewName = 'blog';
+    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'social', 'account', 'help'].includes(requestedView)) {
+      viewName = 'blog-next';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
+      viewName = 'blog-next';
+      subTab = 'quick';
+    } else if (requestedView === 'blog-next') {
       subTab = 'quick';
     }
   }
@@ -98,6 +101,17 @@ async function navigateTo(viewName, subTab) {
   }
 }
 
+async function navigateToBlogQuickCreate() {
+  await navigateTo('blog-next', 'quick');
+  const blogView = document.getElementById('view-blog-next');
+  if (!blogView?.classList.contains('active')) return false;
+  if (typeof activateBlogNextInputMode === 'function') {
+    activateBlogNextInputMode('ai');
+  }
+  requestAnimationFrame(() => document.getElementById('blog-next-subject')?.focus());
+  return true;
+}
+
 function bindNavigation() {
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'));
   navButtons.forEach(btn => {
@@ -117,25 +131,25 @@ function applyMobileQuickMode() {
     return;
   }
 
-  blogActiveTab = 'quick';
+  blogNextActiveTab = 'quick';
 
   const activeView = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
-  const activeBlogTab = document.querySelector('.blog-tab-panel.active')?.id?.replace(/^blog-tab-/, '') || '';
+  const activeBlogNextTab = document.querySelector('.blog-next-tab-btn.active')?.dataset.blogNextTab || '';
 
   if (!hasInitializedMobileQuickEntry) {
     hasInitializedMobileQuickEntry = true;
-    if (activeView !== 'blog' || activeBlogTab !== 'quick') {
-      void navigateTo('blog', 'quick');
+    if (activeView !== 'blog-next') {
+      void navigateTo('blog-next', 'quick');
     }
     return;
   }
 
-  if (activeView === 'blog' && activeBlogTab !== 'quick') {
-    activateBlogTab('quick', { forceReload: false });
+  if (activeView === 'blog-next' && activeBlogNextTab !== 'quick') {
+    activateBlogNextTab('quick');
     return;
   }
 
-  if (activeView && !['dashboard', 'dashboard-beta', 'blog', 'help'].includes(activeView)) {
-    void navigateTo('blog', 'quick');
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'help'].includes(activeView)) {
+    void navigateTo('blog-next', 'quick');
   }
 }

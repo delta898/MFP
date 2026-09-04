@@ -105,7 +105,7 @@ function renderGlobalPublishingStatus(summary = {}) {
     sidebarSignal.title = presentation.label;
     sidebarSignal.setAttribute('aria-hidden', 'true');
     const navButton = sidebarSignal.closest('.nav-btn');
-    if (navButton) navButton.title = signalVisible ? `블로그 Beta · ${presentation.label}` : '';
+    if (navButton) navButton.title = signalVisible ? `블로그 · ${presentation.label}` : '';
   }
   return presentation;
 }

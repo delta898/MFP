@@ -212,7 +212,7 @@ function createContinuousPublishingService(deps = {}) {
             message: '발행 대기열의 글감을 처리하고 있습니다.'
         });
         if (!executionLease) {
-            throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 Blog Beta 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+            throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
 
         const headless = requestBody.headless !== false;

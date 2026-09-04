@@ -17,7 +17,7 @@ test('the productized Dashboard stays isolated while the legacy Dashboard is hid
 
     assert.match(index, /data-view="dashboard" hidden aria-hidden="true" tabindex="-1"/);
     assert.match(index, /class="nav-btn active" data-view="dashboard-beta"/);
-    assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/);
+    assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/);
     assert.doesNotMatch(index, /대시보드 Beta/);
     assert.match(legacyView, /class="view" id="view-dashboard"/);
     assert.match(betaView, /class="view active" id="view-dashboard-beta"/);
@@ -77,6 +77,22 @@ test('Dashboard Beta exposes direct paths to queue and automation without legacy
     assert.doesNotMatch(betaView, /쇼핑 자동발행|최신 콘텐츠|뜻밖의 발견|최근 활동 이력/);
 });
 
+test('Dashboard strengthens its visual hierarchy and the native File menu opens quick create', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaStyle = read('ui/styles/features/dashboard-beta.css');
+    const navigation = read('ui/scripts/foundation/navigation.js');
+    const electronMain = read('src/gui/electron-main.js');
+
+    assert.match(betaView, /class="view-title-block dashboard-beta-hero"/);
+    assert.doesNotMatch(betaView, /dashboard-beta-quick-create|data-dashboard-beta-action="quick-create"/);
+    assert.match(navigation, /async function navigateToBlogQuickCreate\(\)[\s\S]*navigateTo\('blog-next', 'quick'\)[\s\S]*activateBlogNextInputMode\('ai'\)[\s\S]*blog-next-subject/);
+    assert.match(electronMain, /function openBlogQuickCreate\(\)[\s\S]*navigateToBlogQuickCreate/);
+    assert.match(electronMain, /label: '새 글 작성', click: openBlogQuickCreate/);
+    assert.doesNotMatch(electronMain, /label: '새 글 작성'[^\n]*accelerator/);
+    assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*radial-gradient/);
+    assert.match(betaStyle, /\.dashboard-beta-stat-card:nth-child\(2\)/);
+});
+
 test('Dashboard Beta restores the shared new discovery center without blocking operations', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const legacyView = read('ui/partials/views/dashboard.html');
@@ -93,6 +109,22 @@ test('Dashboard Beta restores the shared new discovery center without blocking o
     assert.match(centerScript, /function activeRecommendationCenterMount\(\)/);
     assert.match(centerScript, /'dashboard\.recommendations': \['dashboard-beta', ''\]/);
     assert.match(centerScript, /await navigateTo\('dashboard-beta'\)/);
+    assert.match(centerScript, /'blog\.quick': \['blog-next', 'quick'\]/);
+    assert.match(centerScript, /getElementById\('blog-next-subject'\)/);
+    assert.doesNotMatch(centerScript, /surface === 'blog\.quick'[\s\S]{0,300}getElementById\('quick-subject'\)/);
+});
+
+test('productized navigation hides legacy Blog and uses the new Blog on mobile', () => {
+    const index = read('ui/index.html');
+    const navigation = read('ui/scripts/foundation/navigation.js');
+    const responsive = read('ui/styles/layout/responsive.css');
+
+    assert.match(index, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
+    assert.match(index, /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<sup class="nav-new-badge"/);
+    assert.match(navigation, /viewName = 'blog-next';[\s\S]*subTab = 'quick';/);
+    assert.match(navigation, /void navigateTo\('blog-next', 'quick'\)/);
+    assert.match(responsive, /mobile-quick-mode \.nav-btn\[data-view="blog"\]/);
+    assert.doesNotMatch(responsive, /mobile-quick-mode \.nav-btn\[data-view="blog-next"\]/);
 });
 
 test('the productized Dashboard shows one remote BlogGenius tip and hides an empty region', () => {

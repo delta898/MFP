@@ -5,7 +5,7 @@ const QUICK_DISCOVERY_INPUT_TARGETS = Object.freeze({
   }),
   blogNext: Object.freeze({
     subject: 'blog-next-subject', keywords: 'blog-next-keywords', title: 'blog-next-title',
-    instruction: 'blog-next-instruction', referenceUrl: 'blog-next-reference-url', label: '블로그 Beta'
+    instruction: 'blog-next-instruction', referenceUrl: 'blog-next-reference-url', label: '블로그'
   })
 });
 

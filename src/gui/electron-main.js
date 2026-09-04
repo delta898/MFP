@@ -76,12 +76,25 @@ async function recoverWindowFromBrokenRoute() {
     }
 }
 
+function openBlogQuickCreate() {
+    if (!win || win.isDestroyed()) return;
+    void win.webContents.executeJavaScript(`
+        if (typeof navigateToBlogQuickCreate === 'function') {
+            void navigateToBlogQuickCreate();
+        }
+    `).catch((error) => {
+        Logger.warn(`Electron 메뉴에서 새 글 작성 화면을 열지 못했습니다: ${error.message}`);
+    });
+}
+
 // Electron의 기본 메뉴를 제거하거나 커스터마이징합니다.
 function createMenu() {
     const template = [
         {
             label: '파일',
             submenu: [
+                { label: '새 글 작성', click: openBlogQuickCreate },
+                { type: 'separator' },
                 { label: '종료', role: 'quit' }
             ]
         },

@@ -64,14 +64,19 @@ test('primary navigation buttons map one-to-one to UI views', () => {
     assert.equal(sectionViews.length, new Set(sectionViews).size);
 });
 
-test('Blog Beta navigation exposes a compact accessible new badge', () => {
+test('productized Dashboard and Blog navigation expose compact accessible new badges', () => {
     const html = readComposedUiShell();
     const navigationCss = readUiFile(path.join(uiRoot, 'styles', 'layout', 'shell-navigation.css'));
 
     assert.match(
         html,
-        /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그 Beta<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
+        /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
     );
+    assert.match(
+        html,
+        /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
+    );
+    assert.match(html, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*background:\s*#fff1f2;/s);
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*color:\s*#9f1239;/s);
     assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*transform:\s*translateY\(-0\.55em\);/s);

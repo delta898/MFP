@@ -950,8 +950,20 @@ async function run() {
         assert.equal((await page.locator('#dashboard-beta-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
         assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
         assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
-        assert.equal((await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').textContent()).trim(), '대시보드');
+        assert.equal(
+            await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
+            '대시보드'
+        );
+        assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').textContent(), 'new');
+        assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
+        await page.evaluate(() => navigateToBlogQuickCreate());
+        await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
+        assert.equal(await page.locator('[data-blog-next-tab="quick"]').getAttribute('aria-selected'), 'true');
+        assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-subject');
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
         assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
@@ -981,8 +993,9 @@ async function run() {
                 payload: { query: '"산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다"' }
             });
         });
+        assert.equal(await page.locator('#view-blog-next').evaluate((element) => element.classList.contains('active')), true);
         assert.equal(
-            await page.locator('#quick-subject').inputValue(),
+            await page.locator('#blog-next-subject').inputValue(),
             '산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다'
         );
         assert.equal(await page.evaluate(() => recommendationPresentationQuery('“겹따옴표 소재”')), '겹따옴표 소재');
@@ -1065,14 +1078,14 @@ async function run() {
         await page.locator('#recommendation-center-refresh').click();
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
-        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog', 'blog-next']) {
+        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
 
         assert.equal(
             await page.locator('.nav-btn[data-view="blog-next"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
-            '블로그 Beta'
+            '블로그'
         );
         assert.deepEqual(
             await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').evaluate((element) => ({
@@ -1109,6 +1122,7 @@ async function run() {
         );
         assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.classList.contains('primary')), true);
         assert.equal(await page.locator('#blog-next-clear-topic').evaluate((element) => element.classList.contains('blog-next-clear-action')), true);
+        await page.locator('#blog-next-clear-topic').click();
 
         await page.locator('[data-blog-next-tab="trend-posting"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-trend-query')?.disabled === false);
@@ -1559,7 +1573,7 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
-        await page.locator('.nav-btn[data-view="blog"]').click();
+        await page.evaluate(() => navigateTo('blog', 'topics'));
 
         await page.locator('.blog-tab-btn[data-blog-tab="topics"]').click();
         await page.waitForFunction(() => document.getElementById('blog-tab-topics')?.classList.contains('active'));
@@ -1579,7 +1593,7 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
         assert.equal(await page.locator('#shopping-table').count(), 1);
 
-        await page.locator('.nav-btn[data-view="blog"]').click();
+        await page.evaluate(() => navigateTo('blog', 'quick'));
         await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();
         await page.waitForFunction(() => document.getElementById('blog-tab-quick')?.classList.contains('active'));
 
@@ -1659,6 +1673,9 @@ async function run() {
 
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
+        await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
+        assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
+        assert.equal(await page.locator('.nav-btn[data-view="blog-next"]').isVisible(), true);
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
         await page.evaluate(() => navigateTo('dashboard'));
         await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));

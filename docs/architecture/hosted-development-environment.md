@@ -108,7 +108,7 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 
 환경 manifest의 `allows_manual_publish`, `allows_automated_draft`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
 실행 정책이다. `local`과 환경 profile을 해석하지 못한 실행은 모든 외부 발행을 차단한다.
-`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 Blog Beta 연속
+`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 블로그 연속
 발행의 `임시 저장`만 허용한다. 다음 경로는 계속 차단한다.
 
 - 예약 발행
@@ -117,7 +117,7 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 - SNS 자동 배포 runner
 - Agent capability를 통한 발행 시작 요청
 
-Blog Beta의 Development timer는 Queue 선두 글감이 공개 또는 예약 계획이면 뒤 항목을 건너뛰지
+블로그의 Development timer는 Queue 선두 글감이 공개 또는 예약 계획이면 뒤 항목을 건너뛰지
 않고 `확인 필요`로 멈춘다. Local timer는 Queue 선두와 예정 동작만 시뮬레이션하며 AI, Topics Sheet와
 외부 플랫폼을 변경하지 않는다.
 

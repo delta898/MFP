@@ -389,7 +389,7 @@ async function openRecommendationPresentation(action = {}) {
   const surface = String(action?.target?.surface || '').trim();
   const targets = {
     'dashboard.recommendations': ['dashboard-beta', ''],
-    'blog.quick': ['blog', 'quick'],
+    'blog.quick': ['blog-next', 'quick'],
     'blog.topics': ['blog', 'topics'],
     'blog.collect': ['blog', 'collect'],
     'blog.trend_posting': ['blog', 'trend-posting'],
@@ -413,7 +413,7 @@ async function openRecommendationPresentation(action = {}) {
     document.querySelector('.logs-tab-btn[data-logs-tab="system"]')?.click();
   }
   if (surface === 'blog.quick' && action?.payload?.query) {
-    const subject = document.getElementById('quick-subject');
+    const subject = document.getElementById('blog-next-subject');
     if (subject) {
       subject.value = recommendationPresentationQuery(action.payload.query);
       subject.dispatchEvent(new Event('input', { bubbles: true }));

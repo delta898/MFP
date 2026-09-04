@@ -71,7 +71,7 @@ function createContentService(deps = {}) {
     async function runBlogNextExecution(input, task) {
         const lease = blogNextExecutionCoordinator.acquire(input);
         if (!lease) {
-            throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 Blog Beta 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+            throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
         try {
             return await task();
