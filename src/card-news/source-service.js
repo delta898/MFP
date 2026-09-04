@@ -42,7 +42,8 @@ function createCardNewsSourceService(options = {}) {
                                 canonical_url: item.link,
                                 title: item.title,
                                 published_at: item.pubDate,
-                                preview_text: item.summary || item.description || item.content
+                                preview_text: item.summary || item.description || item.content,
+                                source_platform: feed.sourcePlatform
                             }),
                             source_platform: feed.sourcePlatform,
                             image_url: compact(item.imageUrl, 4000)

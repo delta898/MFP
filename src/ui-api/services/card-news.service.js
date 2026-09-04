@@ -4,6 +4,7 @@ const { createCardNewsProject } = require('../../card-news/project');
 const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
 const { createCardNewsGenerationService } = require('../../card-news/generation-service');
 const { createCardNewsPublishingService } = require('../../card-news/publishing-service');
+const { createCardNewsLedgerSyncService } = require('../../card-news/ledger-sync-service');
 const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { parseFeedXml } = require('../../social/feed-entry');
@@ -132,10 +133,16 @@ function createCardNewsService(deps = {}) {
             })
             : null
     );
+    const ledgerSync = deps.ledgerSync || createCardNewsLedgerSyncService({
+        store: deps.ledgerStore,
+        logger,
+        now
+    });
 
     async function listSources() {
         try {
             const result = await sourceService.discoverConfiguredArticles(CONFIG);
+            await ledgerSync.registerSources(result.articles);
             return {
                 ...result,
                 articles: limitArticlesPerPlatform(result.articles)
@@ -151,7 +158,14 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_SOURCE_REQUIRED', '카드뉴스로 만들 내용을 선택하거나 입력해 주세요.');
         }
         try {
-            return { source_snapshot: await sourceService.resolveSourceSnapshot(input.source) };
+            const sourceSnapshot = await sourceService.resolveSourceSnapshot(input.source);
+            if (sourceSnapshot.source?.kind === 'manuscript' && !sourceSnapshot.source.management_id) {
+                sourceSnapshot.source = {
+                    ...sourceSnapshot.source,
+                    management_id: createId()
+                };
+            }
+            return { source_snapshot: sourceSnapshot };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_SOURCE_PREVIEW_FAILED', '선택한 내용을 확인하지 못했습니다.');
         }
@@ -189,7 +203,9 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {
-            return { generation: await generationService.generate(input) };
+            const generation = await generationService.generate(input);
+            await ledgerSync.recordGeneration(input.source_snapshot, generation);
+            return { generation };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_GENERATION_FAILED', '카드뉴스를 만들지 못했습니다. 설정한 AI 모델을 확인한 뒤 다시 시도해 주세요.');
         }
@@ -203,18 +219,22 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {
-            return { generation: await generationService.generateImages(input) };
+            const generation = await generationService.generateImages(input);
+            await ledgerSync.recordGenerationProgress(generation);
+            return { generation };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_IMAGE_GENERATION_FAILED', '카드 이미지를 만들지 못했습니다. 다시 시도해 주세요.');
         }
     }
 
-    function importLocalImage(input = {}) {
+    async function importLocalImage(input = {}) {
         if (!generationService?.importLocalImage) {
             throw createApiError('CARD_NEWS_IMAGE_IMPORT_UNAVAILABLE', '로컬 이미지 적용 기능이 준비되지 않았습니다.', 500);
         }
         try {
-            return { generation: generationService.importLocalImage(input) };
+            const generation = generationService.importLocalImage(input);
+            await ledgerSync.recordGenerationProgress(generation);
+            return { generation };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_IMAGE_IMPORT_FAILED', '선택한 이미지를 적용하지 못했습니다.');
         }
@@ -251,8 +271,11 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_PUBLISHING_UNAVAILABLE', '카드뉴스 SNS 발행 기능이 준비되지 않았습니다.', 500);
         }
         try {
-            return await publishingService.publish(input);
+            const result = await publishingService.publish(input);
+            await ledgerSync.recordPublishing(input.generation_id || input.generationId, result);
+            return result;
         } catch (error) {
+            await ledgerSync.recordPublishingFailure(input.generation_id || input.generationId, error);
             throw toCardNewsError(error, 'CARD_NEWS_PUBLISH_FAILED', '카드뉴스를 SNS에 발행하지 못했습니다.');
         }
     }

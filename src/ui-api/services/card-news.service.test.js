@@ -83,6 +83,7 @@ test('previews a source and requires explicit source input', async () => {
     await assert.rejects(() => service.previewSource({}), { code: 'CARD_NEWS_SOURCE_REQUIRED' });
     const result = await service.previewSource({ source: { kind: 'manuscript', title: '제목', text: '본문' } });
     assert.equal(result.source_snapshot.title, '제목');
+    assert.equal(result.source_snapshot.source.management_id, 'project-1');
 });
 
 test('translates shared public fetch errors into card-news user language', async () => {
@@ -116,8 +117,51 @@ test('delegates AI image work and local image import through the card-news bound
     const { service } = createHarness();
     const generated = await service.generateImages({ generation_id: 'generation-1', mode: 'missing' });
     assert.equal(generated.generation.input.mode, 'missing');
-    const imported = service.importLocalImage({ generation_id: 'generation-1', card_index: 2 });
+    const imported = await service.importLocalImage({ generation_id: 'generation-1', card_index: 2 });
     assert.equal(imported.generation.input.card_index, 2);
+});
+
+test('synchronizes RSS discovery, generation, image progress, and publishing through the ledger boundary', async () => {
+    const calls = [];
+    const ledgerSync = {
+        async registerSources(items) { calls.push(['sources', items.length]); },
+        async recordGeneration(snapshot, generation) { calls.push(['generation', snapshot.title, generation.id]); },
+        async recordGenerationProgress(generation) { calls.push(['progress', generation.id]); },
+        async recordPublishing(id, result) { calls.push(['published', id, result.success]); },
+        async recordPublishingFailure(id, error) { calls.push(['publish-failed', id, error.message]); }
+    };
+    const { service } = createHarness({
+        ledgerSync,
+        publishingService: {
+            getConfig() { return {}; },
+            async publish() { return { success: true, confirmed: true, results: [] }; }
+        }
+    });
+    await service.listSources();
+    await service.generate({ source_snapshot: { title: '제목', text: '본문' }, image_mode: 'prompt_only' });
+    await service.generateImages({ generation_id: 'generation-1' });
+    await service.importLocalImage({ generation_id: 'generation-1', card_index: 1 });
+    await service.publish({ generation_id: 'generation-1' });
+    assert.deepEqual(calls.map((call) => call[0]), ['sources', 'generation', 'progress', 'progress', 'published']);
+});
+
+test('keeps publishing errors while recording the ledger failure state', async () => {
+    const calls = [];
+    const { service } = createHarness({
+        ledgerSync: {
+            async registerSources() {},
+            async recordGeneration() {},
+            async recordGenerationProgress() {},
+            async recordPublishing() {},
+            async recordPublishingFailure(id, error) { calls.push([id, error.message]); }
+        },
+        publishingService: {
+            getConfig() { return {}; },
+            async publish() { throw new Error('Buffer failure'); }
+        }
+    });
+    await assert.rejects(() => service.publish({ generation_id: 'generation-1' }), /Buffer failure/);
+    assert.deepEqual(calls, [['generation-1', 'Buffer failure']]);
 });
 
 test('delegates complete-set export through the card-news boundary', () => {

@@ -7,6 +7,7 @@ function createCardNewsLedgerGateway(options = {}) {
     const CONFIG = options.CONFIG;
     const httpClient = options.httpClient || axios;
     if (!Utils || !CONFIG) throw new Error('Card News Sheets gateway에는 Utils와 CONFIG가 필요합니다.');
+    let preparePromise = null;
 
     function resolveSpreadsheetId() {
         const spreadsheetId = String(CONFIG.GOOGLE_SHEET_ID || '').trim();
@@ -26,7 +27,14 @@ function createCardNewsLedgerGateway(options = {}) {
 
     return {
         async prepare() {
-            await Utils.ensureCardNewsSheetReadyStrict(resolveSpreadsheetId());
+            if (!preparePromise) {
+                preparePromise = Utils.ensureCardNewsSheetReadyStrict(resolveSpreadsheetId())
+                    .catch((error) => {
+                        preparePromise = null;
+                        throw error;
+                    });
+            }
+            await preparePromise;
         },
         async readAll() {
             const spreadsheetId = resolveSpreadsheetId();

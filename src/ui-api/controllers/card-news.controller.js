@@ -46,7 +46,7 @@ function createCardNewsController(deps = {}) {
         async importImage({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
-                return sendSuccess(res, requestId, service.importLocalImage(requestBody || {}));
+                return sendSuccess(res, requestId, await service.importLocalImage(requestBody || {}));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'CARD_NEWS_IMAGE_IMPORT_FAILED', '선택한 이미지를 적용하지 못했습니다.', error);
             }

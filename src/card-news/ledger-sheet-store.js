@@ -69,6 +69,10 @@ function buildEntryKey(source = {}) {
     const kind = compact(source.kind || source.sourceKind, 40).toLowerCase();
     const stableFeedIdentity = compact(source.item_key || source.itemKey || source.rss_guid || source.rssGuid || source.guid, 1000);
     if (kind === 'feed_item' && stableFeedIdentity) return sha256(`feed_item\n${stableFeedIdentity}`);
+    if (kind === 'manuscript') {
+        const managementId = compact(source.management_id || source.managementId, 1000);
+        if (managementId) return sha256(`manuscript\n${managementId}`);
+    }
     const originalUrl = normalizeOriginalUrl(source.canonical_url || source.canonicalUrl || source.original_url || source.originalUrl || source.url);
     if (originalUrl) return sha256(`url\n${originalUrl}`);
     throw new Error('카드뉴스 관리대장 등록에는 RSS 항목 식별자 또는 원문 URL이 필요합니다.');
@@ -142,6 +146,37 @@ function createCardNewsLedgerStore(options = {}) {
         return (await readPreparedRows()).items;
     }
 
+    async function findByGenerationId(generationId) {
+        const normalizedId = compact(generationId, 500);
+        if (!normalizedId) return null;
+        return (await listRows()).find((item) => item.generationId === normalizedId) || null;
+    }
+
+    function normalizeMutablePatch(patch = {}) {
+        if (patch.workflowStatus !== undefined && !CARD_NEWS_WORKFLOW_STATUSES.includes(compact(patch.workflowStatus, 100))) {
+            throw new Error(`허용되지 않은 카드뉴스 상태입니다: ${patch.workflowStatus}`);
+        }
+        if (patch.publishingStatus !== undefined && !CARD_NEWS_PUBLISHING_STATUSES.includes(compact(patch.publishingStatus, 100))) {
+            throw new Error(`허용되지 않은 카드뉴스 발행 상태입니다: ${patch.publishingStatus}`);
+        }
+        return Object.fromEntries(MUTABLE_FIELDS
+            .filter((field) => patch[field] !== undefined)
+            .map((field) => [field, compact(patch[field])]));
+    }
+
+    async function updateParsedRow(parsed, existing, patch = {}) {
+        const normalizedPatch = normalizeMutablePatch(patch);
+        const changedEntries = Object.entries(normalizedPatch)
+            .filter(([field, value]) => compact(existing[field]) !== value);
+        const updates = changedEntries.map(([field, value]) => ({
+            rowNumber: existing.rowNumber,
+            columnIndex: parsed.headerMap[field],
+            value
+        }));
+        if (updates.length > 0) await gateway.updateCells(updates);
+        return { ...existing, ...Object.fromEntries(changedEntries), rowNumber: existing.rowNumber };
+    }
+
     async function upsertCandidates(candidates = []) {
         await gateway.prepare();
         const parsed = await readPreparedRows();
@@ -177,24 +212,34 @@ function createCardNewsLedgerStore(options = {}) {
         const parsed = await readPreparedRows();
         const existing = parsed.items.find((item) => item.rowNumber === normalizedRowNumber);
         if (!existing) throw new Error(`cardnews 시트 ${normalizedRowNumber}행을 찾지 못했습니다.`);
-        if (patch.workflowStatus !== undefined && !CARD_NEWS_WORKFLOW_STATUSES.includes(compact(patch.workflowStatus, 100))) {
-            throw new Error(`허용되지 않은 카드뉴스 상태입니다: ${patch.workflowStatus}`);
-        }
-        if (patch.publishingStatus !== undefined && !CARD_NEWS_PUBLISHING_STATUSES.includes(compact(patch.publishingStatus, 100))) {
-            throw new Error(`허용되지 않은 카드뉴스 발행 상태입니다: ${patch.publishingStatus}`);
-        }
-        const updates = MUTABLE_FIELDS.filter((field) => patch[field] !== undefined).map((field) => ({
-            rowNumber: normalizedRowNumber,
-            columnIndex: parsed.headerMap[field],
-            value: compact(patch[field])
-        }));
-        if (updates.length > 0) await gateway.updateCells(updates);
-        return { ...existing, ...Object.fromEntries(updates.map((update) => [
-            Object.keys(parsed.headerMap).find((field) => parsed.headerMap[field] === update.columnIndex), update.value
-        ])), rowNumber: normalizedRowNumber };
+        return updateParsedRow(parsed, existing, patch);
     }
 
-    return { listRows, upsertCandidates, updateRow };
+    async function updateByGenerationId(generationId, patch = {}) {
+        await gateway.prepare();
+        const normalizedId = compact(generationId, 500);
+        if (!normalizedId) return null;
+        const parsed = await readPreparedRows();
+        const existing = parsed.items.find((item) => item.generationId === normalizedId);
+        if (!existing) return null;
+        return updateParsedRow(parsed, existing, patch);
+    }
+
+    async function upsertCandidateWithPatch(input = {}, patch = {}) {
+        await gateway.prepare();
+        const parsed = await readPreparedRows();
+        const candidate = normalizeCandidate(input, now);
+        const existing = parsed.items.find((item) => item.entryKey === candidate.entryKey);
+        if (existing) return updateParsedRow(parsed, existing, patch);
+        const normalizedPatch = normalizeMutablePatch(patch);
+        const item = { ...candidate, ...normalizedPatch };
+        const appendResult = await gateway.appendRows([
+            buildSheetRow(parsed.headers.length, parsed.headerMap, item)
+        ]);
+        return { ...item, rowNumber: appendResult?.rowNumbers?.[0] || null };
+    }
+
+    return { listRows, findByGenerationId, upsertCandidates, updateRow, updateByGenerationId, upsertCandidateWithPatch };
 }
 
 module.exports = {

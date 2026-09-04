@@ -48,6 +48,8 @@ const { BufferClient } = require('./social/gateways/buffer-client');
 const WordPressClient = require('./wordpress-client');
 const { createSnsSheetStore } = require('./social/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
+const { createCardNewsLedgerGateway } = require('./card-news/google-sheets-ledger-gateway');
+const { createCardNewsLedgerStore } = require('./card-news/ledger-sheet-store');
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
 const { createSnsAiService } = require('./social/sns-ai-service');
@@ -269,6 +271,14 @@ const snsSheetGateway = createGoogleSheetsSnsGateway({
 });
 const snsSheetStore = createSnsSheetStore({
     gateway: snsSheetGateway
+});
+const cardNewsLedgerGateway = createCardNewsLedgerGateway({
+    Utils,
+    CONFIG,
+    httpClient: axios
+});
+const cardNewsLedgerStore = createCardNewsLedgerStore({
+    gateway: cardNewsLedgerGateway
 });
 const snsRssDiscovery = createSnsRssDiscovery({
     CONFIG,
@@ -955,6 +965,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     TelegramService,
     SlackService,
     snsAiService,
+    cardNewsLedgerStore,
     recordActivityLifecycle,
     DEFAULT_HOST,
     DEFAULT_PORT,

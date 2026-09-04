@@ -41,7 +41,10 @@ function normalizeCardNewsSource(input = {}) {
             kind,
             title: compact(input.title, 300),
             text,
-            attribution: compact(input.attribution, 500)
+            attribution: compact(input.attribution, 500),
+            ...(compact(input.management_id || input.managementId, 1000)
+                ? { management_id: compact(input.management_id || input.managementId, 1000) }
+                : {})
         };
     }
 
@@ -51,7 +54,10 @@ function normalizeCardNewsSource(input = {}) {
             kind,
             canonical_url: canonicalUrl,
             title: compact(input.title, 300),
-            preview_text: compact(input.preview_text || input.previewText)
+            preview_text: compact(input.preview_text || input.previewText),
+            ...(compact(input.source_platform || input.sourcePlatform, 100)
+                ? { source_platform: compact(input.source_platform || input.sourcePlatform, 100) }
+                : {})
         };
     }
 
@@ -64,7 +70,10 @@ function normalizeCardNewsSource(input = {}) {
         canonical_url: canonicalUrl,
         title: compact(input.title, 300),
         published_at: compact(input.published_at || input.publishedAt, 80),
-        preview_text: compact(input.preview_text || input.previewText)
+        preview_text: compact(input.preview_text || input.previewText),
+        ...(compact(input.source_platform || input.sourcePlatform, 100)
+            ? { source_platform: compact(input.source_platform || input.sourcePlatform, 100) }
+            : {})
     };
 }
 

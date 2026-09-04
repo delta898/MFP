@@ -11,13 +11,14 @@ const {
 
 function createMemoryGateway(initialRows = []) {
     const values = [[...CARD_NEWS_SHEET_HEADERS], ...initialRows.map((row) => [...row])];
-    const calls = { prepare: 0, updates: [] };
+    const calls = { prepare: 0, reads: 0, appends: 0, updates: [] };
     return {
         values,
         calls,
         async prepare() { calls.prepare += 1; },
-        async readAll() { return values.map((row) => [...row]); },
+        async readAll() { calls.reads += 1; return values.map((row) => [...row]); },
         async appendRows(rows) {
+            calls.appends += 1;
             const firstRowNumber = values.length + 1;
             rows.forEach((row) => values.push([...row]));
             return { rowNumbers: rows.map((_, index) => firstRowNumber + index) };
@@ -41,6 +42,10 @@ test('cardnews entry key prefers RSS identity and normalizes URL fallbacks', () 
         buildEntryKey({ kind: 'url', canonical_url: 'https://example.com/article' })
     );
     assert.equal(normalizeOriginalUrl('https://Example.com/article/?utm_source=mail#top'), 'https://example.com/article');
+    assert.equal(
+        buildEntryKey({ kind: 'manuscript', management_id: 'manual-session-1' }),
+        buildEntryKey({ kind: 'manuscript', management_id: 'manual-session-1', text: '수정된 본문' })
+    );
 });
 
 test('cardnews ledger appends each RSS candidate once and preserves source fields', async () => {
@@ -80,6 +85,32 @@ test('cardnews ledger updates only approved state fields and leaves identity int
     assert.equal(valueAt(gateway.values[1], 'entry_key'), beforeKey);
     assert.equal(valueAt(gateway.values[1], 'generation_id'), 'generation-1');
     assert.equal(valueAt(gateway.values[1], '카드 수'), '3');
+    assert.equal((await store.findByGenerationId('generation-1')).rowNumber, 2);
+    assert.equal(await store.findByGenerationId('missing-generation'), null);
+});
+
+test('cardnews ledger updates a generation with one read and skips identical writes', async () => {
+    const gateway = createMemoryGateway();
+    const store = createCardNewsLedgerStore({ gateway });
+    await store.upsertCandidateWithPatch({
+        source: { kind: 'url', canonical_url: 'https://example.com/post' },
+        title: '글'
+    }, {
+        workflowStatus: '제작 중',
+        generationId: 'generation-1',
+        cardCount: 3
+    });
+    const readsBeforeUpdate = gateway.calls.reads;
+    const writesBeforeUpdate = gateway.calls.updates.length;
+    await store.updateByGenerationId('generation-1', {
+        workflowStatus: '제작 중',
+        cardCount: 3
+    });
+    assert.equal(gateway.calls.reads - readsBeforeUpdate, 1);
+    assert.equal(gateway.calls.updates.length, writesBeforeUpdate);
+
+    await store.updateByGenerationId('generation-1', { workflowStatus: '제작 완료' });
+    assert.equal(gateway.calls.updates.length, writesBeforeUpdate + 1);
 });
 
 test('cardnews ledger rejects invalid independent states', async () => {

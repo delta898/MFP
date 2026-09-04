@@ -16,6 +16,7 @@ function createUiApiRouteRuntime(deps = {}) {
         TelegramService,
         SlackService,
         snsAiService,
+        cardNewsLedgerStore,
         recordActivityLifecycle,
         DEFAULT_HOST,
         DEFAULT_PORT,
@@ -262,6 +263,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 path,
                 logger: Logger,
                 Utils,
+                ledgerStore: cardNewsLedgerStore,
                 bufferClient: new BufferClient({ axios }),
                 createWordPressClient: () => new WordPressClient({
                     url: CONFIG.WORDPRESS_URL,
