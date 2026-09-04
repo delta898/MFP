@@ -39,11 +39,90 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
         });
         assert.equal(result.status, 'completed');
         assert.equal(result.cards.length, 3);
+        assert.equal(result.image_mode, 'generate');
+        assert.match(result.cards[0].image_prompt, /장면 1/);
+        assert.match(result.cards[0].image_prompt, /같은 세트의 다른 카드와/);
+        assert.equal(imageCalls[0].prompt, result.cards[0].image_prompt);
         assert.equal(imageCalls.length, 3);
         assert.equal(imageCalls[0].options.aspectRatio, '4:5');
         assert.match(result.cards[0].image_url, /^\/api\/v1\/card-news\/assets\/generation-123\/card-01\.png$/);
         assert.equal(service.resolveAsset('generation-123', 'card-01.png').mime_type, 'image/png');
         assert.equal(JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-123', 'manifest.json'))).status, 'completed');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('creates a reusable prompt-only composition without calling an image model', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-prompt-only-'));
+    let imageCalls = 0;
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-789', 'variation-789'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '구성 세트',
+                art_direction: '정보형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async () => { imageCalls += 1; }
+        });
+        const result = await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        assert.equal(result.status, 'prompt_ready');
+        assert.equal(result.image_mode, 'prompt_only');
+        assert.match(result.cards[0].image_prompt, /프롬프트 1/);
+        assert.match(result.cards[0].image_prompt, /같은 세트의 다른 카드와/);
+        assert.equal(result.cards[0].image_url, '');
+        assert.equal(result.cards[0].download_url, '');
+        assert.equal(imageCalls, 0);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('returns the valid composition when later image generation fails', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-partial-'));
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-partial', 'variation-partial'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '부분 세트',
+                art_direction: '감성형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async () => { throw new Error('image rate limited'); }
+        });
+        const result = await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'generate'
+        });
+        assert.equal(result.status, 'partial');
+        assert.equal(result.cards.length, 3);
+        assert.match(result.cards[0].image_prompt, /프롬프트 1/);
+        assert.equal(result.cards[0].image_url, '');
+        assert.match(result.message, /카드 구성은 보관했습니다/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

@@ -37,9 +37,23 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-aspect-ratio"/);
     assert.match(html, /id="card-news-style"/);
     assert.match(html, /id="card-news-include-korean-text"/);
+    assert.match(html, /id="card-news-compose-button"[^>]*>카드 구성만 만들기</);
+    assert.match(html, /id="card-news-generate-button"[^>]*>이미지까지 만들기</);
     assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
-    assert.match(script, /sameVariation/);
+    assert.match(script, /image_mode: imageMode/);
+    assert.match(script, /data-card-news-prompt-copy/);
+    assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
+    assert.match(script, /card-news-result-image-empty/);
+    assert.match(html, /id="card-news-regenerate"[^>]*>구성 다시 만들기</);
+    assert.match(script, /구성을 다시 만들면 현재 이미지가 초기화됩니다\. 계속할까요\?/);
+    assert.match(script, /generateCardNews\(\{ imageMode: 'prompt_only' \}\)/);
+    assert.match(html, /id="card-news-bulk-image-action"[^>]*>이미지 모두 만들기</);
+    assert.match(script, /빈 이미지 모두 만들기/);
+    assert.match(script, /이미지 모두 다시 만들기/);
+    assert.match(script, /data-card-news-image-action/);
+    assert.match(script, /이미지 생성 기능은 다음 단계에서 연결할 예정입니다/);
+    assert.doesNotMatch(script, /sameVariation/);
     assert.match(script, /const sources = cardNewsViewState\.configuredSources;[\s\S]*sources\.length < 2/);
     assert.match(script, /CARD_NEWS_PLATFORM_STORAGE_KEY/);
     assert.match(script, /void previewCardNewsSource\(cardNewsViewState\.articles\[cardNewsViewState\.selectedArticleIndex\]\)/);
@@ -79,4 +93,10 @@ test('Card News preserves the last valid preview when a later request fails', ()
     assert.match(script, /cardNewsViewState\.preview = snapshot/);
     assert.match(script, /if \(cardNewsViewState\.preview\)[\s\S]*이전 미리보기/);
     assert.doesNotMatch(script, /catch \(error\)[\s\S]{0,220}cardNewsViewState\.preview = null/);
+});
+
+test('Card News preserves the last valid generated set when a later request fails', () => {
+    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    assert.match(script, /cardNewsViewState\.generation = generation/);
+    assert.doesNotMatch(script, /catch \(error\)[\s\S]{0,260}cardNewsViewState\.generation = null/);
 });

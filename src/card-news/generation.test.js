@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
     createVariation,
     normalizeGenerationSettings,
+    normalizeImageMode,
     validateSourceSnapshot,
     buildCardPlanPrompt,
     normalizeCardPlan,
@@ -18,6 +19,12 @@ test('normalizes the deliberately small card-news setting surface', () => {
     });
     assert.equal(normalizeGenerationSettings({ slide_count: 7, aspect_ratio: '9:16', style: 'impact', include_korean_text: false }).slide_count, 7);
     assert.equal(normalizeGenerationSettings({ slide_count: 10, aspect_ratio: '2:1', style: 'custom' }).slide_count, 5);
+});
+
+test('normalizes image intent without creating a separate workflow', () => {
+    assert.equal(normalizeImageMode('prompt_only'), 'prompt_only');
+    assert.equal(normalizeImageMode('generate'), 'generate');
+    assert.equal(normalizeImageMode('unknown'), 'generate');
 });
 
 test('creates deterministic but seed-specific variation directions', () => {

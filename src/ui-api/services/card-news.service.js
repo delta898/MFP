@@ -3,6 +3,7 @@ const { createCardNewsSourceService } = require('../../card-news/source-service'
 const { createCardNewsProject } = require('../../card-news/project');
 const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
 const { createCardNewsGenerationService } = require('../../card-news/generation-service');
+const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { parseFeedXml } = require('../../social/feed-entry');
 
@@ -168,7 +169,7 @@ function createCardNewsService(deps = {}) {
         if (!isConfiguredAiModel(CONFIG.TEXT_MODEL_CONFIG)) {
             throw createApiError('CARD_NEWS_TEXT_MODEL_REQUIRED', '설정에서 글쓰기 AI를 먼저 연결해 주세요.');
         }
-        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {

@@ -4,6 +4,7 @@ const CARD_NEWS_GENERATION_SCHEMA_VERSION = 1;
 const CARD_NEWS_SLIDE_COUNTS = Object.freeze([3, 5, 7]);
 const CARD_NEWS_ASPECT_RATIOS = Object.freeze(['1:1', '4:5', '9:16']);
 const CARD_NEWS_STYLES = Object.freeze(['ai_recommended', 'informative', 'magazine', 'emotional', 'impact']);
+const CARD_NEWS_IMAGE_MODES = Object.freeze(['prompt_only', 'generate']);
 
 const STYLE_GUIDES = Object.freeze({
     ai_recommended: '원문의 성격과 독자에게 가장 어울리는 시각 방향을 스스로 선택',
@@ -47,6 +48,12 @@ function normalizeGenerationSettings(input = {}) {
         style: CARD_NEWS_STYLES.includes(style) ? style : 'ai_recommended',
         include_korean_text: input.include_korean_text !== false
     };
+}
+
+function normalizeImageMode(value) {
+    return CARD_NEWS_IMAGE_MODES.includes(String(value || '').trim())
+        ? String(value).trim()
+        : 'generate';
 }
 
 function validateSourceSnapshot(snapshot = {}) {
@@ -130,9 +137,11 @@ module.exports = {
     CARD_NEWS_SLIDE_COUNTS,
     CARD_NEWS_ASPECT_RATIOS,
     CARD_NEWS_STYLES,
+    CARD_NEWS_IMAGE_MODES,
     STYLE_GUIDES,
     createVariation,
     normalizeGenerationSettings,
+    normalizeImageMode,
     validateSourceSnapshot,
     buildCardPlanPrompt,
     normalizeCardPlan,

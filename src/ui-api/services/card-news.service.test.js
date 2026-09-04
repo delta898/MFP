@@ -124,4 +124,9 @@ test('validates configured AI models before generation starts', async () => {
     await assert.rejects(() => service.generate({ source_snapshot: { title: '제목', text: '본문' } }), {
         code: 'CARD_NEWS_IMAGE_MODEL_REQUIRED'
     });
+    const composed = await service.generate({
+        source_snapshot: { title: '제목', text: '본문' },
+        image_mode: 'prompt_only'
+    });
+    assert.equal(composed.generation.id, 'generation-1');
 });
