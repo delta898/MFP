@@ -1,0 +1,77 @@
+@media (max-width: 1100px) {
+  .dashboard-beta-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-beta-hero {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .dashboard-beta-hero .view-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-beta-hero .dash-clock-widget {
+    justify-content: flex-start;
+  }
+
+  .dashboard-beta-readiness,
+  .dashboard-beta-onboarding,
+  .dashboard-beta-flow-card,
+  .dashboard-beta-next-card,
+  .dashboard-beta-results-card,
+  .dashboard-beta-queue-card,
+  .dashboard-beta-discovery-card,
+  .dashboard-beta-tips-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .dashboard-beta-onboarding-head,
+  .dashboard-beta-onboarding-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-beta-onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-beta-onboarding-action-row button {
+    width: 100%;
+  }
+
+  .dashboard-beta-readiness-items {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-beta-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-beta-results-grid,
+  .dashboard-beta-stat-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-beta-flow-body {
+    min-height: 104px;
+  }
+
+  .dashboard-beta-flow-body strong {
+    font-size: 17px;
+  }
+
+  .dashboard-beta-flow-actions {
+    justify-content: flex-start;
+  }
+
+  .dashboard-beta-next-actions {
+    justify-content: flex-start;
+  }
+}

@@ -87,6 +87,7 @@ test('Dashboard Beta exposes direct paths to queue and automation without legacy
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
+    const betaResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
 
     assert.match(betaView, /data-dashboard-beta-tab="queue">글감 관리/);
     assert.match(betaView, /data-dashboard-beta-tab="automation">연속 발행 설정/);
@@ -98,7 +99,7 @@ test('Dashboard Beta exposes direct paths to queue and automation without legacy
     assert.match(betaScript, /automationState === 'on'[\s\S]*'설정 보기'[\s\S]*'설정 확인'/);
     assert.match(betaStyle, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(betaStyle, /\.dashboard-beta-flow-actions\s*\{[^}]*justify-content:\s*flex-end/);
-    assert.match(betaStyle, /@media \(max-width: 720px\)[\s\S]*\.dashboard-beta-flow-actions\s*\{[^}]*justify-content:\s*flex-start/);
+    assert.match(betaResponsiveStyle, /@media \(max-width: 720px\)[\s\S]*\.dashboard-beta-flow-actions\s*\{[^}]*justify-content:\s*flex-start/);
     assert.doesNotMatch(betaView, /쇼핑 자동발행|최신 콘텐츠|뜻밖의 발견|최근 활동 이력/);
 });
 
