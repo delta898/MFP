@@ -298,7 +298,7 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/system/update/check') return { available: false };
     if (pathname === '/api/v1/sheets/ensure') return { ready: true };
     if (pathname === '/api/v1/social/manual/config') {
-        return { configured: false, local_media_available: false, channels: [], ai: { available: false, model_name: '' } };
+        return { configured: false, local_media_available: true, channels: [], ai: { available: false, model_name: '' } };
     }
     if (pathname === '/api/v1/settings/major') {
         return {
@@ -1580,6 +1580,10 @@ async function run() {
         assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);
 
         await page.locator('.nav-btn[data-view="social"]').click();
+        assert.equal(await page.locator('#manual-sns-image-source-local').isChecked(), true);
+        assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
+        assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);
+        assert.equal(await page.locator('#manual-sns-image-url-panel').isHidden(), true);
         await page.locator('#manual-sns-text').fill('테스트 문구');
         await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);

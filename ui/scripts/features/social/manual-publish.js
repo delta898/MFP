@@ -29,7 +29,7 @@ async function publishManualSns() {
   if (resultEl) {
     resultEl.classList.add('is-visible');
     resultEl.textContent = image.mode === 'local'
-      ? 'WordPress에 이미지를 임시 업로드하고 Buffer로 발행하고 있습니다.'
+      ? 'Google Drive에 이미지를 임시 업로드하고 Buffer로 발행하고 있습니다.'
       : 'Buffer로 즉시 발행하고 있습니다.';
   }
   try {
@@ -56,4 +56,3 @@ async function publishManualSns() {
     syncManualSnsComposerState();
   }
 }
-

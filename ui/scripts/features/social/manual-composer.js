@@ -35,15 +35,18 @@ function getManualSnsImageValidation() {
     if (manualSnsConfig.local_media_available !== true) {
       return { valid: false, mode: 'local', hasImage: false, message: '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.' };
     }
-    if (!manualSnsLocalImageFile) return { valid: true, mode: 'local', hasImage: false, file: null, url: '' };
+    if (manualSnsLocalImages.length === 0) return { valid: true, mode: 'local', hasImage: false, files: [], url: '' };
     const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
-    if (!allowedTypes.has(String(manualSnsLocalImageFile.type || '').toLowerCase())) {
+    if (manualSnsLocalImages.some(({ file }) => !allowedTypes.has(String(file.type || '').toLowerCase()))) {
       return { valid: false, mode: 'local', hasImage: false, message: 'png, jpg, webp, gif 이미지만 사용할 수 있습니다.' };
     }
-    if (manualSnsLocalImageFile.size > 10 * 1024 * 1024) {
-      return { valid: false, mode: 'local', hasImage: false, message: '이미지 파일은 최대 10MB까지 사용할 수 있습니다.' };
+    if (manualSnsLocalImages.some(({ file }) => file.size > 10 * 1024 * 1024)) {
+      return { valid: false, mode: 'local', hasImage: false, message: '이미지 파일은 한 장당 최대 10MB까지 사용할 수 있습니다.' };
     }
-    return { valid: true, mode: 'local', hasImage: true, file: manualSnsLocalImageFile, url: '' };
+    if (manualSnsLocalImages.length > 1) {
+      return { valid: false, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), url: '', message: '다중 이미지 발행 연결 전입니다. 현재는 한 장만 선택해 발행할 수 있습니다.' };
+    }
+    return { valid: true, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), file: manualSnsLocalImages[0].file, url: '' };
   }
   const raw = String(document.getElementById('manual-sns-image-url')?.value || '').trim();
   if (!raw) return { valid: true, mode: 'url', hasImage: false, url: '' };
@@ -58,10 +61,20 @@ function getManualSnsImageValidation() {
   }
 }
 
-function setManualSnsLocalImageFile(file = null) {
-  if (manualSnsLocalImagePreviewUrl) URL.revokeObjectURL(manualSnsLocalImagePreviewUrl);
-  manualSnsLocalImageFile = file || null;
-  manualSnsLocalImagePreviewUrl = file ? URL.createObjectURL(file) : '';
+function addManualSnsLocalImageFiles(files = []) {
+  const existingKeys = new Set(manualSnsLocalImages.map(({ file }) => `${file.name}:${file.size}:${file.lastModified}`));
+  Array.from(files).forEach((file) => {
+    const key = `${file.name}:${file.size}:${file.lastModified}`;
+    if (!existingKeys.has(key)) {
+      manualSnsLocalImages.push({ file, previewUrl: URL.createObjectURL(file) });
+      existingKeys.add(key);
+    }
+  });
+}
+
+function removeManualSnsLocalImage(index) {
+  const [removed] = manualSnsLocalImages.splice(index, 1);
+  if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
 }
 
 function syncManualSnsImageSourceUi() {
@@ -70,13 +83,13 @@ function syncManualSnsImageSourceUi() {
   const urlRadio = document.getElementById('manual-sns-image-source-url');
   const urlPanel = document.getElementById('manual-sns-image-url-panel');
   const localPanel = document.getElementById('manual-sns-image-local-panel');
-  const localAvailable = manualSnsConfig.local_media_available === true;
-  if (localRadio) localRadio.disabled = !localAvailable;
+  const localUnavailable = manualSnsConfig.local_media_available === false;
+  if (localRadio) localRadio.disabled = localUnavailable;
   if (localLabel) {
-    localLabel.classList.toggle('is-disabled', !localAvailable);
-    localLabel.title = localAvailable ? '' : 'Google 계정을 먼저 연결해 주세요.';
+    localLabel.classList.toggle('is-disabled', localUnavailable);
+    localLabel.title = localUnavailable ? 'Google 계정을 먼저 연결해 주세요.' : '';
   }
-  if (!localAvailable && localRadio?.checked && urlRadio) urlRadio.checked = true;
+  if (localUnavailable && localRadio?.checked && urlRadio) urlRadio.checked = true;
   const localMode = localRadio?.checked === true;
   if (urlPanel) urlPanel.hidden = localMode;
   if (localPanel) localPanel.hidden = !localMode;
@@ -85,10 +98,9 @@ function syncManualSnsImageSourceUi() {
 function syncManualSnsImagePreview() {
   const inputEl = document.getElementById('manual-sns-image-url');
   const removeBtn = document.getElementById('manual-sns-image-remove-btn');
-  const fileRemoveBtn = document.getElementById('manual-sns-image-file-remove-btn');
   const filePickerEl = document.getElementById('manual-sns-image-file-picker');
   const fileNameEl = document.getElementById('manual-sns-image-file-name');
-  const fileActionEl = document.getElementById('manual-sns-image-file-action');
+  const gridEl = document.getElementById('manual-sns-image-grid');
   const previewEl = document.getElementById('manual-sns-image-preview');
   const imageEl = document.getElementById('manual-sns-image-preview-img');
   const statusEl = document.getElementById('manual-sns-image-preview-status');
@@ -96,10 +108,35 @@ function syncManualSnsImagePreview() {
   syncManualSnsImageSourceUi();
   const validation = getManualSnsImageValidation();
   if (removeBtn) removeBtn.hidden = !raw;
-  if (fileRemoveBtn) fileRemoveBtn.hidden = !manualSnsLocalImageFile;
-  if (filePickerEl) filePickerEl.classList.toggle('has-file', Boolean(manualSnsLocalImageFile));
-  if (fileNameEl) fileNameEl.textContent = manualSnsLocalImageFile?.name || '이미지 파일 선택';
-  if (fileActionEl) fileActionEl.textContent = manualSnsLocalImageFile ? '변경' : '파일 찾기';
+  if (filePickerEl) filePickerEl.classList.toggle('has-file', manualSnsLocalImages.length > 0);
+  if (fileNameEl) fileNameEl.textContent = manualSnsLocalImages.length > 0 ? '이미지 더 추가' : '이미지 추가';
+  if (gridEl) {
+    gridEl.replaceChildren();
+    manualSnsLocalImages.forEach(({ file, previewUrl }, index) => {
+      const tile = document.createElement('figure');
+      tile.className = 'social-local-image-tile';
+      const image = document.createElement('img');
+      image.src = previewUrl;
+      image.alt = `${index + 1}번 이미지: ${file.name}`;
+      const order = document.createElement('span');
+      order.className = 'social-local-image-order';
+      order.textContent = String(index + 1);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'social-local-image-remove';
+      remove.setAttribute('aria-label', `${file.name} 제거`);
+      remove.textContent = '×';
+      remove.addEventListener('click', () => {
+        removeManualSnsLocalImage(index);
+        syncManualSnsImagePreview();
+        syncManualSnsComposerState();
+      });
+      const caption = document.createElement('figcaption');
+      caption.textContent = file.name;
+      tile.append(image, order, remove, caption);
+      gridEl.appendChild(tile);
+    });
+  }
   if (!previewEl || !imageEl || !statusEl) return;
 
   if (!validation.hasImage || !validation.valid) {
@@ -109,10 +146,8 @@ function syncManualSnsImagePreview() {
   }
   previewEl.hidden = false;
   if (validation.mode === 'local') {
-    imageEl.onload = null;
-    imageEl.onerror = null;
-    imageEl.src = manualSnsLocalImagePreviewUrl;
-    statusEl.textContent = `${validation.file.name} · Google Drive에 임시 업로드됩니다.`;
+    previewEl.hidden = true;
+    imageEl.removeAttribute('src');
     return;
   }
   statusEl.textContent = '이미지 미리보기를 불러오는 중입니다.';

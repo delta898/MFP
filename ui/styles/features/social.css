@@ -371,19 +371,26 @@
   font: inherit;
 }
 
-.social-local-image-row {
-  align-items: stretch;
+.social-local-image-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.social-local-image-panel[hidden] {
+  display: none;
 }
 
 .social-local-image-picker {
   position: relative;
   display: flex;
-  flex: 1;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   min-width: 0;
-  min-height: 72px;
-  padding: 12px 14px;
+  aspect-ratio: 1;
+  padding: 14px;
   border: 1px dashed #9fb1c8;
   border-radius: var(--radius-sm);
   background: #f8fbff;
@@ -405,6 +412,71 @@
   border-style: solid;
   border-color: #79a9df;
   background: #f3f8fe;
+}
+
+.social-local-image-grid {
+  display: contents;
+}
+
+.social-local-image-grid:empty {
+  display: contents;
+}
+
+.social-local-image-tile {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.social-local-image-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #f4f7fb;
+  object-fit: cover;
+}
+
+.social-local-image-tile figcaption {
+  overflow: hidden;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.social-local-image-order,
+.social-local-image-remove {
+  position: absolute;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.social-local-image-order {
+  left: 8px;
+  background: rgba(24, 39, 64, 0.82);
+}
+
+.social-local-image-remove {
+  right: 8px;
+  padding: 0;
+  border: 0;
+  background: rgba(24, 39, 64, 0.82);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .social-local-image-input {
@@ -437,6 +509,7 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+  text-align: center;
 }
 
 .social-local-image-copy strong {

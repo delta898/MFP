@@ -3,7 +3,6 @@ function initManualSnsComposer() {
   const imageUrlEl = document.getElementById('manual-sns-image-url');
   const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
   const imageFileEl = document.getElementById('manual-sns-image-file');
-  const imageFileRemoveBtn = document.getElementById('manual-sns-image-file-remove-btn');
   const imageSourceUrlEl = document.getElementById('manual-sns-image-source-url');
   const imageSourceLocalEl = document.getElementById('manual-sns-image-source-local');
   const selectAllEl = document.getElementById('manual-sns-select-all');
@@ -22,16 +21,10 @@ function initManualSnsComposer() {
     imageUrlEl?.focus();
   });
   imageFileEl?.addEventListener('change', () => {
-    setManualSnsLocalImageFile(imageFileEl.files?.[0] || null);
+    addManualSnsLocalImageFiles(imageFileEl.files || []);
+    imageFileEl.value = '';
     syncManualSnsImagePreview();
     syncManualSnsComposerState();
-  });
-  imageFileRemoveBtn?.addEventListener('click', () => {
-    setManualSnsLocalImageFile(null);
-    if (imageFileEl) imageFileEl.value = '';
-    syncManualSnsImagePreview();
-    syncManualSnsComposerState();
-    imageFileEl?.focus();
   });
   [imageSourceUrlEl, imageSourceLocalEl].forEach((radio) => {
     radio?.addEventListener('change', () => {
@@ -52,4 +45,3 @@ function initManualSnsComposer() {
   syncManualSnsImageSourceUi();
   syncManualSnsComposerState();
 }
-
