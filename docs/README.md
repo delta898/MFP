@@ -63,6 +63,7 @@
 - `features/continuous-publishing.md`
 - `features/configurable-sidebar-content.md`
 - `features/personalized-topic-recommendations.md`
+- `features/card-news.md`
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
@@ -85,11 +86,6 @@
 
 ## Active Work
 
-- `plans/active/2026-09-05-v0.4.3-card-news-08-buffer-publishing-development.md`
-- `plans/archive/2026-09-05-v0.4.3-card-news-07-local-export-development.md`
-- `plans/active/2026-09-04-v0.4.3-card-news-03-source-preview-development.md`
-- `plans/archive/2026-09-04-v0.4.3-card-news-02-source-project-development.md`
-- `plans/archive/2026-09-04-v0.4.3-card-news-01-feasibility-development.md`
 - `plans/active/2026-09-04-v0.4.3-card-news-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
