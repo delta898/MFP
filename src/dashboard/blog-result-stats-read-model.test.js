@@ -108,6 +108,22 @@ test('dashboard stats uses a configured blog home only when a direct result URL 
     assert.equal(drafted.navigation_kind, 'platform_home');
 });
 
+test('dashboard stats never treats a WordPress draft permalink as a public result', () => {
+    const wordpressDraft = event('wordpress-draft', 'drafted', '2026-09-02T18:00:00.000Z', 'wordpress');
+    wordpressDraft.payload.result_ref = 'https://blog.example/?p=321';
+    const stats = buildDashboardBlogResultStats({
+        generatedAt: '2026-09-02T21:00:00.000Z',
+        platformHomeUrls: { wordpress: 'https://blog.example/' },
+        events: [wordpressDraft]
+    });
+
+    const [drafted] = stats.periods.today.recent_results;
+    assert.equal(drafted.post_status, 'draft');
+    assert.equal(drafted.result_url, null);
+    assert.equal(drafted.navigation_url, 'https://blog.example/');
+    assert.equal(drafted.navigation_kind, 'platform_home');
+});
+
 test('dashboard stats rejects unsafe navigation URLs', () => {
     const unsafe = event('unsafe', 'drafted', '2026-09-02T16:00:00.000Z');
     unsafe.payload.result_ref = 'javascript:alert(1)';

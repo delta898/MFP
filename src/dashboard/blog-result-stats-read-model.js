@@ -86,15 +86,17 @@ function normalizeExternalUrl(value) {
 function toResultItem(result, platformHomeUrls = {}) {
     const resultUrl = normalizeExternalUrl(result.result_ref);
     const platformHomeUrl = normalizeExternalUrl(platformHomeUrls?.[result.platform]);
+    const isDraft = result.post_status === 'draft';
+    const navigableResultUrl = isDraft ? null : resultUrl;
     return {
         id: result.id,
         occurred_at: toIso(result.timestamp),
         subject: result.subject,
         platform: result.platform,
         post_status: result.post_status,
-        result_url: resultUrl,
-        navigation_url: resultUrl || platformHomeUrl,
-        navigation_kind: resultUrl ? 'result' : (platformHomeUrl ? 'platform_home' : null)
+        result_url: navigableResultUrl,
+        navigation_url: navigableResultUrl || platformHomeUrl,
+        navigation_kind: navigableResultUrl ? 'result' : (platformHomeUrl ? 'platform_home' : null)
     };
 }
 
