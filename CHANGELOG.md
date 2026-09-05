@@ -3,7 +3,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
-## [0.4.3] - 2026-09-05
+## [0.4.3-dev1] - 2026-09-05
 
 ### Added
 - **카드뉴스 만들기**: 공개 블로그 글, 직접 입력한 URL 또는 붙여넣은 내용을 카드뉴스로 구성하고, 카드별 문구와 이미지 프롬프트를 확인한 뒤 AI 이미지나 내 이미지로 완성할 수 있습니다.
