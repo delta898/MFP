@@ -20,6 +20,7 @@ declare
         'guide-google-sheets-connection',
         'guide-ai-api-key',
         'guide-automatic-update',
+        'guide-buffer-sns-publishing',
         'guide-quick-writing',
         'guide-bloggenius-seo-benefits',
         'developer-blog',
@@ -80,6 +81,7 @@ from (values
     ('guide-quick-writing-help-v1', 'guide-quick-writing'),
     ('guide-bloggenius-seo-benefits-help-v1', 'guide-bloggenius-seo-benefits'),
     ('guide-automatic-update-help-v1', 'guide-automatic-update'),
+    ('guide-buffer-sns-publishing-help-v1', 'guide-buffer-sns-publishing'),
     ('developer-blog-help-v1', 'developer-blog'),
     ('oracle-cloud-guide-help-v1', 'oracle-cloud-guide'),
     ('developer-support-help-v1', 'developer-support')
@@ -120,6 +122,7 @@ from (values
     ('guide-quick-writing-help-v1', 'writing', 100),
     ('guide-bloggenius-seo-benefits-help-v1', 'writing', 200),
     ('guide-automatic-update-help-v1', 'automation', 100),
+    ('guide-buffer-sns-publishing-help-v1', 'automation', 200),
     ('developer-blog-help-v1', 'supporting', 100),
     ('oracle-cloud-guide-help-v1', 'supporting', 200),
     ('developer-support-help-v1', 'supporting', 300)

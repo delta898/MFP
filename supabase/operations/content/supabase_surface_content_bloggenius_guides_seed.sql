@@ -1,5 +1,5 @@
 -- ============================================================
--- BlogGenius Dashboard: 공식 사용 가이드 8건
+-- BlogGenius Dashboard: 공식 사용 가이드와 Buffer 안내
 -- 대상: Supabase SQL Editor
 -- 전제: supabase/migrations/202608270012_surface_content.sql 적용 완료
 -- ============================================================
@@ -85,6 +85,17 @@ values
         'https://m.blog.naver.com/amadejjs/224369593466',
         'sparkles',
         '업데이트 팁 보기',
+        null,
+        null,
+        'active'
+    ),
+    (
+        'guide-buffer-sns-publishing',
+        'resource',
+        'Buffer로 SNS 발행 준비',
+        'https://m.blog.naver.com/amadejjs/223940980574',
+        'sparkles',
+        'Buffer 도움말 보기',
         null,
         null,
         'active'

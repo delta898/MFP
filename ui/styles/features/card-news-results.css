@@ -27,6 +27,12 @@
   font-size: 17px;
 }
 
+.card-news-publishing-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .card-news-publishing-heading p {
   margin-top: 4px;
   color: var(--text-muted);
@@ -537,6 +543,10 @@
   .card-news-publishing-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .card-news-publishing-heading-actions {
+    justify-content: space-between;
   }
 
   .card-news-publishing-result-item {

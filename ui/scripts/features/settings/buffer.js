@@ -119,8 +119,10 @@ function renderSettingsBufferChannels() {
 function syncSettingsBufferHelpLink(url = '') {
   const wrapEl = document.getElementById('settings-buffer-help-wrap');
   const linkEl = document.getElementById('settings-buffer-help-link');
-  const normalizedUrl = String(url || '').trim() || DEFAULT_BUFFER_HELP_URL;
-  if (linkEl) linkEl.href = normalizedUrl;
+  const normalizedUrl = String(url || '')
+    .trim()
+    .replace(/^https:\/\/blog\.naver\.com\//i, 'https://m.blog.naver.com/') || DEFAULT_BUFFER_HELP_URL;
+  if (linkEl) linkEl.dataset.helpGuideUrl = normalizedUrl;
   if (wrapEl) wrapEl.style.display = '';
 }
 
@@ -218,4 +220,3 @@ function formatSettingsSnsRuntimeStatus(sns = {}) {
   }
   return lines.join('\n');
 }
-

@@ -291,7 +291,8 @@ function getApiFixture(pathname) {
                     block('remote-help-ai', 'resource', 'AI 설정 가이드', 'https://m.blog.naver.com/amadejjs/224368506082', 'AI 설정 방법 보기')
                 ] },
                 automation: { blocks: [
-                    block('remote-help-automation', 'resource', '원격 자동화 가이드', 'https://example.com/help/automation', '자동화 방법 보기')
+                    block('remote-help-automation', 'resource', '원격 자동화 가이드', 'https://example.com/help/automation', '자동화 방법 보기'),
+                    block('remote-help-buffer', 'resource', 'Buffer로 SNS 발행 준비', 'https://m.blog.naver.com/amadejjs/223940980574', 'Buffer 도움말 보기', 'sparkles', 200)
                 ] },
                 supporting: { blocks: [
                     block('remote-help-support', 'support', '개발자 응원하기', 'https://example.com/help/support', '후원 페이지 열기', 'heart')
@@ -1147,6 +1148,10 @@ async function run() {
         await page.locator('#settings-tab-ai [data-help-guide-url]').click();
         await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-help a[href*="224368506082"]')?.classList.contains('help-guide-navigation-target'));
+        await page.evaluate(() => navigateTo('settings', 'sns'));
+        await page.locator('#settings-tab-sns #settings-buffer-help-link').click();
+        await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
+        await page.waitForFunction(() => document.querySelector('#view-help a[href*="223940980574"]')?.classList.contains('help-guide-navigation-target'));
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();

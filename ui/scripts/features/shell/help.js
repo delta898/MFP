@@ -2,13 +2,19 @@ let helpCatalogSignature = null;
 let helpCatalogPending = null;
 const helpLocalRegionMarkup = new Map();
 
+function normalizeHelpGuideUrl(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^https:\/\/blog\.naver\.com\//i, 'https://m.blog.naver.com/');
+}
+
 async function navigateToHelpGuide(targetUrl) {
-  const url = String(targetUrl || '').trim();
+  const url = normalizeHelpGuideUrl(targetUrl);
   if (!url) return false;
   await navigateTo('help');
   await refreshHelpCatalog();
   const guide = Array.from(document.querySelectorAll('#view-help a[href]'))
-    .find((element) => element.getAttribute('href') === url);
+    .find((element) => normalizeHelpGuideUrl(element.getAttribute('href')) === url);
   if (!guide) return false;
   guide.scrollIntoView({ behavior: 'smooth', block: 'center' });
   guide.classList.remove('help-guide-navigation-target');

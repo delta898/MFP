@@ -413,8 +413,7 @@ function getSettingsMajorBasicValuesFromDom() {
     BUFFER_ORGANIZATION_ID: (document.getElementById('settings-buffer-organization')?.value || '').trim(),
     BUFFER_CHANNELS: getSelectedSettingsBufferChannels(),
     BUFFER_HELP_URL: (() => {
-      const href = document.getElementById('settings-buffer-help-link')?.getAttribute('href') || '';
-      return href === '#' ? '' : href.trim();
+      return (document.getElementById('settings-buffer-help-link')?.dataset.helpGuideUrl || '').trim();
     })(),
     SNS_PUBLISH_ENABLED: Boolean(document.getElementById('settings-sns-publish-enabled')?.checked),
     SNS_AI_MODE: (document.getElementById('settings-sns-ai-mode')?.value || 'none').trim(),

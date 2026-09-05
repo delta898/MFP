@@ -27,7 +27,9 @@ test('Help foundation exposes the agreed guide groups and safe official links', 
   assert.match(view, /data-help-nav="blog-next" data-help-tab="quick"/);
   assert.match(view, /data-help-nav="blog-next" data-help-tab="automation"/);
   assert.match(view, /data-help-nav="settings"/);
-  assert.equal(externalLinks.length, 9);
+  assert.match(view, /Buffer로 SNS 발행 준비/);
+  assert.match(view, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"/);
+  assert.equal(externalLinks.length, 10);
   externalLinks.forEach((link) => {
     assert.match(link, /target="_blank"/);
     assert.match(link, /rel="noopener noreferrer"/);
@@ -64,6 +66,7 @@ test('AI settings routes users to the existing Help guide instead of duplicating
   assert.match(aiView, /AI 설정 가이드 보기/);
   assert.match(helpView, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/224368506082"/);
   assert.match(helpScript, /async function navigateToHelpGuide/);
+  assert.match(helpScript, /function normalizeHelpGuideUrl/);
   assert.match(helpScript, /await navigateTo\('help'\)/);
   assert.match(helpScript, /help-guide-navigation-target/);
   assert.match(navigation, /data-help-guide-url/);
@@ -86,4 +89,31 @@ test('configuration sections expose only contextual Help entry points', () => {
   assert.match(blog, /네이버 블로그[\s\S]*로그인 방법 보기/);
   assert.match(blog, /워드프레스[\s\S]*연동 방법 보기/);
   assert.match(writing, /빠른 글 작성 가이드 보기/);
+});
+
+test('Buffer guidance uses one contextual Help action across SNS publishing surfaces', () => {
+  const help = read('ui/partials/views/help.html');
+  const settings = read('ui/partials/views/settings/sns.html');
+  const social = read('ui/partials/views/social.html');
+  const cardNews = read('ui/partials/views/card-news.html');
+  const appChrome = read('ui/styles/components/app-chrome.css');
+  const navigation = read('ui/scripts/foundation/navigation.js');
+  const settingsBuffer = read('ui/scripts/features/settings/buffer.js');
+  const settingsForm = read('ui/scripts/features/settings/major-form.js');
+  const manualComposer = read('ui/scripts/features/social/manual-composer.js');
+  const catalog = read('supabase/operations/content/supabase_surface_content_help_catalog.sql');
+  const guideUrl = 'https://m.blog.naver.com/amadejjs/223940980574';
+
+  assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  [settings, social, cardNews].forEach((view) => {
+    assert.match(view, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+    assert.match(view, /Buffer 도움말/);
+  });
+  assert.match(settings, /href="https:\/\/join\.buffer\.com\/delta898-gmail-com"[^>]*target="_blank"/);
+  assert.match(appChrome, /\.context-help-link\s*\{/);
+  assert.match(navigation, /closest\('\[data-help-guide-url\]'\)/);
+  assert.match(settingsBuffer, /linkEl\.dataset\.helpGuideUrl = normalizedUrl/);
+  assert.match(settingsForm, /dataset\.helpGuideUrl/);
+  assert.doesNotMatch(manualComposer, /helpLinkEl\.href = DEFAULT_BUFFER_HELP_URL/);
+  assert.match(catalog, /'guide-buffer-sns-publishing-help-v1', 'automation', 200/);
 });
