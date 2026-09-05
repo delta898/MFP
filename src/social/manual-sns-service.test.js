@@ -26,6 +26,8 @@ test('composer config exposes channels but never the Buffer key or automation st
     assert.equal(result.configured, true);
     assert.equal(result.channels.length, 3);
     assert.equal(result.channels[0].limit, 500);
+    assert.equal(result.channels[0].max_assets, 10);
+    assert.equal(result.channels[2].max_assets, 4);
     assert.equal(result.channels[1].image_required, true);
     assert.equal(result.ai.available, false);
     assert.equal(result.local_media_available, false);
@@ -237,7 +239,13 @@ function createLocalMediaDeps(overrides = {}) {
         isAvailable() { return true; },
         async upload(input) {
             calls.upload.push(input);
-            return { id: 91, url: 'https://blog.example/wp-content/uploads/manual.png' };
+            const sequence = calls.upload.length;
+            return {
+                id: 90 + sequence,
+                url: sequence === 1
+                    ? 'https://blog.example/wp-content/uploads/manual.png'
+                    : `https://blog.example/wp-content/uploads/manual-${sequence}.png`
+            };
         },
         async remove(media) {
             calls.remove.push(media.id);
@@ -246,8 +254,8 @@ function createLocalMediaDeps(overrides = {}) {
     };
     const deps = {
         CONFIG: createConfig(),
-        parseImagePayload() {
-            return { buffer: Buffer.from('local-image'), ext: '.png' };
+        parseImagePayload(input) {
+            return { buffer: Buffer.from(String(input.fileName || 'local-image')), ext: '.png' };
         },
         mediaTransport,
         bufferClient: {
@@ -292,6 +300,82 @@ test('local image is uploaded to Google Drive, published, confirmed sent, and de
     assert.deepEqual(result.media_cleanup, { attempted: true, retained: false });
 });
 
+test('ordered local images are uploaded sequentially and sent to Buffer as one ordered asset set', async () => {
+    const { deps, calls } = createLocalMediaDeps();
+    const service = createManualSnsService(deps);
+
+    const result = await service.publish({
+        channelIds: ['threads-1'],
+        text: '다중 이미지 테스트',
+        localImages: [
+            { fileName: 'first.png', mimeType: 'image/png', base64Data: 'ignored' },
+            { fileName: 'second.png', mimeType: 'image/png', base64Data: 'ignored' },
+            { fileName: 'third.png', mimeType: 'image/png', base64Data: 'ignored' }
+        ]
+    });
+
+    assert.deepEqual(calls.upload.map((item) => item.buffer.toString()), ['first.png', 'second.png', 'third.png']);
+    assert.deepEqual(calls.share[0][0].imageUrls, [
+        'https://blog.example/wp-content/uploads/manual.png',
+        'https://blog.example/wp-content/uploads/manual-2.png',
+        'https://blog.example/wp-content/uploads/manual-3.png'
+    ]);
+    assert.deepEqual(calls.remove, [91, 92, 93]);
+    assert.equal(result.success, true);
+});
+
+test('channel image limit is validated before Google Drive upload', async () => {
+    const { deps, calls } = createLocalMediaDeps();
+    const service = createManualSnsService(deps);
+    const localImages = Array.from({ length: 5 }, (_, index) => ({ fileName: `${index}.png`, base64Data: 'ignored' }));
+
+    await assert.rejects(
+        service.publish({ channelIds: ['x-1'], text: '이미지 제한', localImages }),
+        (error) => error.apiCode === 'MANUAL_SNS_CHANNEL_ASSET_LIMIT' && /최대 4장/.test(error.message)
+    );
+    assert.equal(calls.upload.length, 0);
+});
+
+test('total local image size is validated before Google Drive upload', async () => {
+    const { deps, calls } = createLocalMediaDeps({
+        parseImagePayload() {
+            return { buffer: { length: 9 * 1024 * 1024 }, ext: '.png' };
+        }
+    });
+    const service = createManualSnsService(deps);
+
+    await assert.rejects(
+        service.publish({
+            channelIds: ['threads-1'],
+            text: '전체 크기 제한',
+            localImages: Array.from({ length: 7 }, (_, index) => ({ fileName: `${index}.png`, base64Data: 'ignored' }))
+        }),
+        (error) => error.apiCode === 'MANUAL_SNS_LOCAL_IMAGES_TOO_LARGE'
+    );
+    assert.equal(calls.upload.length, 0);
+});
+
+test('partial Google Drive upload failure cleans up every image already uploaded', async () => {
+    const { deps, calls, mediaTransport } = createLocalMediaDeps();
+    mediaTransport.upload = async (input) => {
+        calls.upload.push(input);
+        if (calls.upload.length === 3) throw new Error('Drive unavailable');
+        return { id: 90 + calls.upload.length, url: `https://cdn.example/${calls.upload.length}.png` };
+    };
+    const service = createManualSnsService(deps);
+
+    await assert.rejects(
+        service.publish({
+            channelIds: ['threads-1'],
+            text: '부분 실패',
+            localImages: ['one', 'two', 'three'].map((name) => ({ fileName: `${name}.png`, base64Data: 'ignored' }))
+        }),
+        (error) => error.apiCode === 'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED'
+    );
+    assert.deepEqual(calls.remove, [91, 92]);
+    assert.equal(calls.share.length, 0);
+});
+
 test('Buffer terminal error still deletes temporary Google Drive media', async () => {
     const { deps, calls } = createLocalMediaDeps();
     deps.bufferClient.getPostsByIds = async (_apiKey, postIds) => postIds.map((postId) => ({
@@ -325,11 +409,14 @@ test('Buffer request failure deletes temporary Google Drive media before returni
         service.publish({
             channelIds: ['threads-1'],
             text: 'Buffer 요청 실패',
-            localImage: { fileName: 'photo.png', mimeType: 'image/png', base64Data: 'ignored' }
+            localImages: [
+                { fileName: 'one.png', mimeType: 'image/png', base64Data: 'ignored' },
+                { fileName: 'two.png', mimeType: 'image/png', base64Data: 'ignored' }
+            ]
         }),
         (error) => error.apiCode === 'BUFFER_CONNECTION_FAILED'
     );
-    assert.deepEqual(calls.remove, [91]);
+    assert.deepEqual(calls.remove, [91, 92]);
 });
 
 test('Buffer request timeout retains temporary Google Drive media because delivery is ambiguous', async () => {
@@ -345,12 +432,16 @@ test('Buffer request timeout retains temporary Google Drive media because delive
         service.publish({
             channelIds: ['threads-1'],
             text: 'Buffer 시간 초과',
-            localImage: { fileName: 'photo.png', mimeType: 'image/png', base64Data: 'ignored' }
+            localImages: [
+                { fileName: 'one.png', mimeType: 'image/png', base64Data: 'ignored' },
+                { fileName: 'two.png', mimeType: 'image/png', base64Data: 'ignored' }
+            ]
         }),
         (error) => error.apiCode === 'BUFFER_REQUEST_TIMEOUT'
             && error.status === 504
             && /즉시 다시 시도하지 마세요/.test(error.message)
     );
+    assert.equal(calls.upload.length, 2);
     assert.deepEqual(calls.remove, []);
 });
 

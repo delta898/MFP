@@ -33,18 +33,18 @@ async function publishManualSns() {
       : 'Buffer로 즉시 발행하고 있습니다.';
   }
   try {
-    const localImage = image.mode === 'local' && image.file
-      ? {
-          fileName: image.file.name,
-          mimeType: image.file.type,
-          base64Data: await readManualSnsFileAsDataUrl(image.file)
-        }
-      : null;
+    const localImages = image.mode === 'local'
+      ? await Promise.all((image.files || []).map(async (file) => ({
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data: await readManualSnsFileAsDataUrl(file)
+        })))
+      : [];
     const data = await postJson('/api/v1/social/manual/publish', {
       channelIds: selectedChannels.map((channel) => channel.id),
       text,
       imageUrl: image.url,
-      localImage
+      localImages
     });
     renderManualSnsPublishResult(data);
   } catch (error) {

@@ -43,8 +43,12 @@ function getManualSnsImageValidation() {
     if (manualSnsLocalImages.some(({ file }) => file.size > 10 * 1024 * 1024)) {
       return { valid: false, mode: 'local', hasImage: false, message: '이미지 파일은 한 장당 최대 10MB까지 사용할 수 있습니다.' };
     }
-    if (manualSnsLocalImages.length > 1) {
-      return { valid: false, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), url: '', message: '다중 이미지 발행 연결 전입니다. 현재는 한 장만 선택해 발행할 수 있습니다.' };
+    const totalBytes = manualSnsLocalImages.reduce((sum, { file }) => sum + Number(file.size || 0), 0);
+    if (totalBytes > 60 * 1024 * 1024) {
+      return { valid: false, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), url: '', message: '선택한 이미지의 전체 크기는 최대 60MB까지 사용할 수 있습니다.' };
+    }
+    if (manualSnsLocalImages.length > 10) {
+      return { valid: false, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), url: '', message: '로컬 이미지는 최대 10장까지 선택할 수 있습니다.' };
     }
     return { valid: true, mode: 'local', hasImage: true, files: manualSnsLocalImages.map(({ file }) => file), file: manualSnsLocalImages[0].file, url: '' };
   }
@@ -226,8 +230,12 @@ function syncManualSnsComposerState() {
   } else if (!image.valid) {
     errorMessage = image.message;
   } else {
+    const assetLimitExceeded = selectedChannels.find((channel) => image.hasImage && Number(channel.max_assets || 1) < (image.files?.length || 1));
+    if (assetLimitExceeded) {
+      errorMessage = `${assetLimitExceeded.name || assetLimitExceeded.service} 채널은 이미지를 최대 ${assetLimitExceeded.max_assets}장까지 지원합니다.`;
+    }
     const imageRequired = selectedChannels.find((channel) => channel.image_required === true);
-    if (imageRequired && !image.hasImage) {
+    if (!errorMessage && imageRequired && !image.hasImage) {
       errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지가 필요합니다.`;
     }
   }
@@ -244,7 +252,7 @@ function syncManualSnsComposerState() {
   }
   if (summaryEl) {
     summaryEl.textContent = selectedChannels.length > 0
-      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ' · 이미지 포함' : ''}.`
+      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ` · 이미지 ${image.files?.length || 1}장` : ''}.`
       : '발행할 채널을 선택하세요.';
   }
   if (publishBtn) {
@@ -334,7 +342,7 @@ function renderManualSnsChannels() {
     const detail = document.createElement('span');
     detail.textContent = unavailable
       ? '현재 수동 발행 미지원'
-      : `${channel.service} · 최대 ${Number(channel.limit || 0).toLocaleString('ko-KR')}자${channel.image_required ? ' · 이미지 필수' : ''}`;
+      : `${channel.service} · 최대 ${Number(channel.limit || 0).toLocaleString('ko-KR')}자 · 이미지 ${Number(channel.max_assets || 1)}장${channel.image_required ? ' 필수' : ''}`;
     copy.append(name, detail);
     label.append(input, copy);
     listEl.appendChild(label);

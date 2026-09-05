@@ -11,6 +11,18 @@ const SNS_SERVICE_POLICIES = Object.freeze({
     startpage: Object.freeze({ limit: 5000 })
 });
 
+const SNS_SERVICE_ASSET_LIMITS = Object.freeze({
+    facebook: 10,
+    instagram: 10,
+    twitter: 4,
+    linkedin: 20,
+    pinterest: 1,
+    mastodon: 4,
+    googlebusiness: 1,
+    threads: 10,
+    bluesky: 4
+});
+
 const SNS_DISABLED_SERVICES = Object.freeze(new Set([
     'tiktok',
     'youtube',
@@ -176,6 +188,7 @@ function formatSnsPost(input = {}) {
 
 module.exports = {
     SNS_SERVICE_POLICIES,
+    SNS_SERVICE_ASSET_LIMITS,
     SNS_DISABLED_SERVICES,
     normalizeSnsService,
     isSnsServiceSupported,

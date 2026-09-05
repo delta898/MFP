@@ -1,5 +1,6 @@
 const {
     SNS_SERVICE_POLICIES,
+    SNS_SERVICE_ASSET_LIMITS,
     normalizeSnsService,
     isSnsServiceSupported,
     isSnsServiceDisabled,
@@ -10,6 +11,9 @@ const { assertManualPublishAllowed } = require('../environment/runtime-effects')
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 10000;
+const MAX_LOCAL_IMAGES = 10;
+const MAX_LOCAL_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_LOCAL_IMAGES_TOTAL_BYTES = 60 * 1024 * 1024;
 const BUFFER_STATUS_POLL_TIMEOUT_MS = 3 * 60 * 1000;
 const BUFFER_STATUS_POLL_INTERVAL_MS = 5000;
 const BUFFER_RECOVERY_MAX_ATTEMPTS = 3;
@@ -43,7 +47,8 @@ function normalizeConfiguredChannel(item = {}) {
         supported: isSnsServiceSupported(service),
         disabled: isSnsServiceDisabled(service),
         limit: Number(policy?.limit) || 0,
-        image_required: requiresImageAsset(service)
+        image_required: requiresImageAsset(service),
+        max_assets: Number(SNS_SERVICE_ASSET_LIMITS[service]) || 1
     };
 }
 
@@ -77,6 +82,13 @@ function normalizeImageUrl(value) {
         throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_URL_INVALID', '이미지는 인증 정보가 없는 공개 HTTPS URL만 사용할 수 있습니다.');
     }
     return parsed.toString();
+}
+
+function normalizeLocalImages(input = {}) {
+    const many = input.localImages || input.local_images;
+    if (Array.isArray(many)) return many.filter((item) => item && typeof item === 'object');
+    const one = input.localImage || input.local_image;
+    return one && typeof one === 'object' ? [one] : [];
 }
 
 function createManualSnsService(deps = {}) {
@@ -342,11 +354,14 @@ function createManualSnsService(deps = {}) {
         }
 
         const requestedImageUrl = normalizeImageUrl(input.imageUrl || input.image_url);
-        const localImage = input.localImage || input.local_image || null;
-        if (requestedImageUrl && localImage) {
+        const localImages = normalizeLocalImages(input);
+        if (requestedImageUrl && localImages.length > 0) {
             throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_SOURCE_CONFLICT', '이미지 URL과 로컬 이미지는 동시에 사용할 수 없습니다.');
         }
-        if (localImage && !isPublicMediaAvailable()) {
+        if (localImages.length > MAX_LOCAL_IMAGES) {
+            throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_LIMIT_EXCEEDED', `로컬 이미지는 최대 ${MAX_LOCAL_IMAGES}장까지 선택할 수 있습니다.`);
+        }
+        if (localImages.length > 0 && !isPublicMediaAvailable()) {
             throw createManualSnsError(400, 'MANUAL_SNS_GOOGLE_DRIVE_REQUIRED', '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.');
         }
         const selectedChannels = resolveSelectedChannels(input);
@@ -354,8 +369,12 @@ function createManualSnsService(deps = {}) {
 
         for (const channel of selectedChannels) {
             const label = channel.name || channel.service || '선택한 채널';
-            if (channel.image_required && !requestedImageUrl && !localImage) {
+            if (channel.image_required && !requestedImageUrl && localImages.length === 0) {
                 throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_REQUIRED', `${label} 채널은 이미지가 필요합니다.`);
+            }
+            const imageCount = requestedImageUrl ? 1 : localImages.length;
+            if (imageCount > channel.max_assets) {
+                throw createManualSnsError(400, 'MANUAL_SNS_CHANNEL_ASSET_LIMIT', `${label} 채널은 이미지를 최대 ${channel.max_assets}장까지 지원합니다.`);
             }
             const characterCount = measurePost(text, channel.service);
             if (characterCount > channel.limit) {
@@ -382,50 +401,58 @@ function createManualSnsService(deps = {}) {
             }
         });
 
-        let imageUrl = requestedImageUrl;
-        let temporaryMedia = null;
+        let imageUrls = requestedImageUrl ? [requestedImageUrl] : [];
+        const temporaryMedia = [];
         let publicMediaTransport = null;
-        if (localImage) {
-            let parsedImage;
-            try {
-                parsedImage = parseImagePayload({ ...localImage });
-            } catch (error) {
-                throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', error?.message || '로컬 이미지 파일을 확인해 주세요.');
+        async function cleanupTemporaryMedia() {
+            if (typeof publicMediaTransport?.remove !== 'function') return false;
+            let allRemoved = true;
+            for (const media of temporaryMedia) {
+                if (await publicMediaTransport.remove(media) !== true) allRemoved = false;
             }
-            const ext = String(parsedImage?.ext || '').trim().toLowerCase();
-            const mimeType = IMAGE_MIME_BY_EXT[ext];
-            if (!mimeType) {
-                throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', '지원하지 않는 이미지 형식입니다.');
-            }
+            return allRemoved;
+        }
+        if (localImages.length > 0) {
             publicMediaTransport = mediaTransport;
-            const fileName = `manual-sns-${now()}${ext}`;
+            let totalImageBytes = 0;
+            const parsedImages = localImages.map((localImage, index) => {
+                try {
+                    const parsedImage = parseImagePayload({ ...localImage });
+                    const imageBytes = Number(parsedImage?.buffer?.length) || 0;
+                    if (imageBytes > MAX_LOCAL_IMAGE_BYTES) throw new Error('파일 크기는 최대 10MB까지 사용할 수 있습니다.');
+                    totalImageBytes += imageBytes;
+                    const ext = String(parsedImage?.ext || '').trim().toLowerCase();
+                    const mimeType = IMAGE_MIME_BY_EXT[ext];
+                    if (!mimeType) throw new Error('지원하지 않는 이미지 형식입니다.');
+                    return { ...parsedImage, ext, mimeType, index };
+                } catch (error) {
+                    throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', `${index + 1}번째 이미지: ${error?.message || '파일을 확인해 주세요.'}`);
+                }
+            });
+            if (totalImageBytes > MAX_LOCAL_IMAGES_TOTAL_BYTES) {
+                throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGES_TOO_LARGE', '선택한 이미지의 전체 크기는 최대 60MB까지 사용할 수 있습니다.');
+            }
             try {
-                temporaryMedia = await publicMediaTransport.upload({
-                    buffer: parsedImage.buffer,
-                    file_name: fileName,
-                    description: 'SNS 임시 이미지',
-                    mime_type: mimeType
-                });
+                for (const parsedImage of parsedImages) {
+                    const media = await publicMediaTransport.upload({
+                        buffer: parsedImage.buffer,
+                        file_name: `manual-sns-${now()}-${String(parsedImage.index + 1).padStart(2, '0')}${parsedImage.ext}`,
+                        description: `SNS 임시 이미지 ${parsedImage.index + 1}/${parsedImages.length}`,
+                        mime_type: parsedImage.mimeType
+                    });
+                    if (!media?.id || !media?.url) throw new Error(`${parsedImage.index + 1}번째 이미지 업로드 결과가 올바르지 않습니다.`);
+                    temporaryMedia.push({ ...media, url: normalizeImageUrl(media.url) });
+                }
             } catch (error) {
                 Logger?.warn?.(`⚠️ [MANUAL_SNS] Google Drive 임시 이미지 업로드 실패: ${error?.message || 'unknown error'}`);
-                temporaryMedia = null;
-            }
-            if (!temporaryMedia?.id || !temporaryMedia?.url) {
+                await cleanupTemporaryMedia();
                 throw createManualSnsError(
                     502,
                     'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED',
                     'Google Drive에 이미지를 임시 업로드하지 못했습니다. 이미지 URL을 사용하거나 이미지를 제거한 후 다시 발행해 주세요.'
                 );
             }
-            try {
-                imageUrl = normalizeImageUrl(temporaryMedia.url);
-            } catch (_error) {
-                throw createManualSnsError(
-                    502,
-                    'MANUAL_SNS_MEDIA_URL_INVALID',
-                    'Google Drive가 공개 HTTPS 이미지 URL을 반환하지 않았습니다. Google 계정 연결을 확인해 주세요.'
-                );
-            }
+            imageUrls = temporaryMedia.map((media) => media.url);
         }
 
         let publishResults;
@@ -435,7 +462,8 @@ function createManualSnsService(deps = {}) {
                 deliveryKey: channel.id,
                 channelId: channel.id,
                 text,
-                imageUrl
+                imageUrl: imageUrls[0] || '',
+                imageUrls
             })));
         } catch (error) {
             const requestTimedOut = String(error?.code || '').trim() === 'BUFFER_REQUEST_TIMEOUT';
@@ -445,14 +473,14 @@ function createManualSnsService(deps = {}) {
             if (publishResults) {
                 Logger?.info?.('✅ [MANUAL_SNS] Buffer 응답 유실 게시물을 최근 게시물 조회로 복구했습니다.');
             } else {
-                if (!requestTimedOut && temporaryMedia?.id && typeof publicMediaTransport?.remove === 'function') {
-                    await publicMediaTransport.remove(temporaryMedia);
+                if (!requestTimedOut && temporaryMedia.length > 0) {
+                    await cleanupTemporaryMedia();
                 }
                 Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 즉시 발행 실패: ${error?.message || 'unknown error'}`);
                 throw createManualSnsError(
                     error?.code === 'BUFFER_AUTH_INVALID' ? 401 : requestTimedOut ? 504 : 502,
                     error?.code || 'MANUAL_SNS_PUBLISH_FAILED',
-                    requestTimedOut && temporaryMedia?.id
+                    requestTimedOut && temporaryMedia.length > 0
                         ? 'Buffer 응답 시간이 초과되어 발행 여부를 확인하지 못했습니다. 중복 발행 방지를 위해 즉시 다시 시도하지 마세요. 임시 이미지는 Google Drive에 남겨두었습니다.'
                         : error?.message || 'Buffer 즉시 발행에 실패했습니다.'
                 );
@@ -462,12 +490,12 @@ function createManualSnsService(deps = {}) {
 
         let allTerminal = true;
         let cleanupSucceeded = false;
-        if (temporaryMedia?.id) {
+        if (temporaryMedia.length > 0) {
             const reconciliation = await waitForTerminalPosts(apiKey, publishResults);
             publishResults = reconciliation.results;
             allTerminal = reconciliation.allTerminal;
-            if (allTerminal && typeof publicMediaTransport?.remove === 'function') {
-                cleanupSucceeded = await publicMediaTransport.remove(temporaryMedia) === true;
+            if (allTerminal) {
+                cleanupSucceeded = await cleanupTemporaryMedia();
             }
         }
 
@@ -513,7 +541,7 @@ function createManualSnsService(deps = {}) {
             success: failureCount === 0,
             success_count: successCount,
             failure_count: failureCount,
-            media_cleanup: temporaryMedia?.id
+            media_cleanup: temporaryMedia.length > 0
                 ? { attempted: allTerminal, retained: !allTerminal || !cleanupSucceeded }
                 : null,
             results
@@ -530,11 +558,15 @@ function createManualSnsService(deps = {}) {
 module.exports = {
     MAX_CHANNELS,
     MAX_TEXT_LENGTH,
+    MAX_LOCAL_IMAGES,
+    MAX_LOCAL_IMAGE_BYTES,
+    MAX_LOCAL_IMAGES_TOTAL_BYTES,
     BUFFER_STATUS_POLL_TIMEOUT_MS,
     BUFFER_STATUS_POLL_INTERVAL_MS,
     createManualSnsError,
     normalizeConfiguredChannel,
     normalizeConfiguredChannels,
     normalizeImageUrl,
+    normalizeLocalImages,
     createManualSnsService
 };

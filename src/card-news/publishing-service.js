@@ -1,19 +1,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { assertManualPublishAllowed } = require('../environment/runtime-effects');
-const { SNS_SERVICE_POLICIES, normalizeSnsService, measurePost } = require('../social/sns-content-formatter');
+const {
+    SNS_SERVICE_POLICIES,
+    SNS_SERVICE_ASSET_LIMITS,
+    normalizeSnsService,
+    measurePost
+} = require('../social/sns-content-formatter');
 
-const CARD_NEWS_CHANNEL_LIMITS = Object.freeze({
-    facebook: 10,
-    instagram: 10,
-    twitter: 4,
-    linkedin: 20,
-    pinterest: 1,
-    mastodon: 4,
-    googlebusiness: 1,
-    threads: 10,
-    bluesky: 4
-});
+const CARD_NEWS_CHANNEL_LIMITS = SNS_SERVICE_ASSET_LIMITS;
 const MAX_CHANNELS = 3;
 const STATUS_POLL_TIMEOUT_MS = 3 * 60 * 1000;
 const STATUS_POLL_INTERVAL_MS = 5000;
