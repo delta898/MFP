@@ -375,6 +375,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 12px;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.social-local-image-panel.is-file-drag-over {
+  border-color: var(--brand-primary);
+  background: rgba(47, 128, 237, 0.06);
 }
 
 .social-local-image-panel[hidden] {
@@ -430,6 +439,46 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
+  cursor: grab;
+  transition: border-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+}
+
+.social-local-image-tile.is-dragging {
+  opacity: 0.45;
+}
+
+.social-local-image-tile.is-drop-before,
+.social-local-image-tile.is-drop-after {
+  border-color: var(--brand-primary);
+}
+
+.social-local-image-tile.is-drop-before {
+  transform: translateX(9px);
+}
+
+.social-local-image-tile.is-drop-after {
+  transform: translateX(-9px);
+}
+
+.social-local-image-tile.is-drop-before::before,
+.social-local-image-tile.is-drop-after::after {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  z-index: 3;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  box-shadow: 0 0 0 4px rgba(47, 128, 237, 0.12);
+  content: '';
+}
+
+.social-local-image-tile.is-drop-before::before {
+  left: 2px;
+}
+
+.social-local-image-tile.is-drop-after::after {
+  right: 2px;
 }
 
 .social-local-image-tile img {

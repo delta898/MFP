@@ -77,6 +77,14 @@ function removeManualSnsLocalImage(index) {
   if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
 }
 
+function moveManualSnsLocalImage(fromIndex, toIndex) {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return;
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= manualSnsLocalImages.length || toIndex >= manualSnsLocalImages.length) return;
+  if (fromIndex === toIndex) return;
+  const [moved] = manualSnsLocalImages.splice(fromIndex, 1);
+  manualSnsLocalImages.splice(toIndex, 0, moved);
+}
+
 function syncManualSnsImageSourceUi() {
   const localRadio = document.getElementById('manual-sns-image-source-local');
   const localLabel = document.getElementById('manual-sns-image-source-local-label');
@@ -115,6 +123,8 @@ function syncManualSnsImagePreview() {
     manualSnsLocalImages.forEach(({ file, previewUrl }, index) => {
       const tile = document.createElement('figure');
       tile.className = 'social-local-image-tile';
+      tile.draggable = true;
+      tile.dataset.imageIndex = String(index);
       const image = document.createElement('img');
       image.src = previewUrl;
       image.alt = `${index + 1}번 이미지: ${file.name}`;
@@ -130,6 +140,39 @@ function syncManualSnsImagePreview() {
         removeManualSnsLocalImage(index);
         syncManualSnsImagePreview();
         syncManualSnsComposerState();
+      });
+      tile.addEventListener('dragstart', (event) => {
+        manualSnsDraggedImageIndex = index;
+        tile.classList.add('is-dragging');
+        event.dataTransfer?.setData('application/x-bloggenius-sns-image-index', String(index));
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      });
+      tile.addEventListener('dragover', (event) => {
+        if (manualSnsDraggedImageIndex === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        document.querySelectorAll('.social-local-image-tile').forEach((element) => {
+          element.classList.remove('is-drop-before', 'is-drop-after');
+        });
+        if (manualSnsDraggedImageIndex < index) tile.classList.add('is-drop-after');
+        if (manualSnsDraggedImageIndex > index) tile.classList.add('is-drop-before');
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      });
+      tile.addEventListener('dragleave', () => tile.classList.remove('is-drop-before', 'is-drop-after'));
+      tile.addEventListener('drop', (event) => {
+        if (manualSnsDraggedImageIndex === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        moveManualSnsLocalImage(manualSnsDraggedImageIndex, index);
+        manualSnsDraggedImageIndex = null;
+        syncManualSnsImagePreview();
+        syncManualSnsComposerState();
+      });
+      tile.addEventListener('dragend', () => {
+        manualSnsDraggedImageIndex = null;
+        document.querySelectorAll('.social-local-image-tile').forEach((element) => {
+          element.classList.remove('is-dragging', 'is-drop-before', 'is-drop-after');
+        });
       });
       const caption = document.createElement('figcaption');
       caption.textContent = file.name;

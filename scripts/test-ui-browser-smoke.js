@@ -1584,6 +1584,17 @@ async function run() {
         assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
         assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);
         assert.equal(await page.locator('#manual-sns-image-url-panel').isHidden(), true);
+        await page.locator('#manual-sns-image-file').setInputFiles([
+            path.join(repoRoot, 'assets/icons/1.png'),
+            path.join(repoRoot, 'assets/icons/2.png')
+        ]);
+        await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile').length === 2);
+        assert.equal(await page.locator('.social-local-image-tile').nth(0).getAttribute('draggable'), 'true');
+        assert.equal((await page.locator('.social-local-image-tile figcaption').nth(0).textContent())?.trim(), '1.png');
+        await page.locator('.social-local-image-tile').nth(0).dragTo(page.locator('.social-local-image-tile').nth(1));
+        assert.equal((await page.locator('.social-local-image-tile figcaption').nth(0).textContent())?.trim(), '2.png');
+        await page.locator('.social-local-image-remove').nth(1).click();
+        assert.equal(await page.locator('.social-local-image-tile').count(), 1);
         await page.locator('#manual-sns-text').fill('테스트 문구');
         await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);

@@ -5,6 +5,7 @@ function initManualSnsComposer() {
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const imageSourceUrlEl = document.getElementById('manual-sns-image-source-url');
   const imageSourceLocalEl = document.getElementById('manual-sns-image-source-local');
+  const imageLocalPanelEl = document.getElementById('manual-sns-image-local-panel');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
@@ -23,6 +24,29 @@ function initManualSnsComposer() {
   imageFileEl?.addEventListener('change', () => {
     addManualSnsLocalImageFiles(imageFileEl.files || []);
     imageFileEl.value = '';
+    syncManualSnsImagePreview();
+    syncManualSnsComposerState();
+  });
+  imageLocalPanelEl?.addEventListener('dragenter', (event) => {
+    if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return;
+    event.preventDefault();
+    imageLocalPanelEl.classList.add('is-file-drag-over');
+  });
+  imageLocalPanelEl?.addEventListener('dragover', (event) => {
+    if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    imageLocalPanelEl.classList.add('is-file-drag-over');
+  });
+  imageLocalPanelEl?.addEventListener('dragleave', (event) => {
+    if (imageLocalPanelEl.contains(event.relatedTarget)) return;
+    imageLocalPanelEl.classList.remove('is-file-drag-over');
+  });
+  imageLocalPanelEl?.addEventListener('drop', (event) => {
+    if (!event.dataTransfer?.files?.length) return;
+    event.preventDefault();
+    imageLocalPanelEl.classList.remove('is-file-drag-over');
+    addManualSnsLocalImageFiles(event.dataTransfer.files);
     syncManualSnsImagePreview();
     syncManualSnsComposerState();
   });
