@@ -86,6 +86,7 @@
 
 ## Active Work
 
+- `plans/archive/2026-09-06-v0.4.3-dashboard-clock-menu-clipping-development.md`
 - `plans/active/2026-09-06-v0.4.3-windows-update-restart-development.md`
 - `plans/archive/2026-09-06-v0.4.3-buffer-help-links-development.md`
 - `plans/archive/2026-09-06-v0.4.3-persistent-license-storage-development.md`

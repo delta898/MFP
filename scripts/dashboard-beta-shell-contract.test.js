@@ -115,6 +115,7 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
     assert.match(electronMain, /label: '새 글 작성', click: openBlogQuickCreate/);
     assert.doesNotMatch(electronMain, /label: '새 글 작성'[^\n]*accelerator/);
     assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*radial-gradient/);
+    assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[^}]*overflow:\s*visible/);
     assert.match(betaStyle, /\.dashboard-beta-stat-card:nth-child\(2\)/);
 });
 
