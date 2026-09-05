@@ -58,6 +58,7 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
         assert.equal(imageCalls.length, 3);
         assert.equal(imageCalls[0].options.aspectRatio, '4:5');
         assert.match(result.cards[0].image_url, /^\/api\/v1\/card-news\/assets\/generation-123\/card-01\.png$/);
+        assert.equal(service.getGeneration('generation-123').title, '제주 세트');
         assert.equal(service.resolveAsset('generation-123', 'card-01.png').mime_type, 'image/png');
         assert.equal(JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-123', 'manifest.json'))).status, 'completed');
     } finally {

@@ -4,6 +4,7 @@ function createCardNewsRouteHandler(deps = {}) {
     return async function tryHandleCardNewsRoute(ctx = {}) {
         const handlers = {
             '/api/v1/card-news/sources': controller.sources,
+            '/api/v1/card-news/managed': controller.managed,
             '/api/v1/card-news/source-preview': controller.preview,
             '/api/v1/card-news/generations': controller.generate,
             '/api/v1/card-news/images/generate': controller.generateImages,
@@ -15,7 +16,9 @@ function createCardNewsRouteHandler(deps = {}) {
         const pathname = String(ctx.pathname || '');
         const handler = pathname.startsWith('/api/v1/card-news/assets/')
             ? controller.asset
-            : (pathname.startsWith('/api/v1/card-news/exports/') ? controller.exportBundle : handlers[ctx.pathname]);
+            : (pathname.startsWith('/api/v1/card-news/exports/')
+                ? controller.exportBundle
+                : (/^\/api\/v1\/card-news\/generations\/[^/]+$/.test(pathname) ? controller.generation : handlers[ctx.pathname]));
         if (!handler) return false;
         await handler(ctx);
         return true;

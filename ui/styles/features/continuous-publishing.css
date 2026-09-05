@@ -870,25 +870,20 @@
     flex-direction: column;
     border-radius: var(--radius-md);
   }
-
   .blog-next-tab-btn {
     text-align: left;
   }
-
   .blog-next-mode-switch {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
   }
-
   .blog-next-form-grid {
     grid-template-columns: 1fr;
   }
-
   .blog-next-field-wide {
     grid-column: auto;
   }
-
   .blog-next-queue-summary,
   .blog-next-queue-item {
     align-items: flex-start;

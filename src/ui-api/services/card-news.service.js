@@ -65,6 +65,38 @@ function isConfiguredAiModel(model = {}) {
     return Boolean(String(model.api_key || '').trim());
 }
 
+function cardNewsManagementStatus(row = {}) {
+    const publishing = String(row.publishingStatus || '미발행');
+    if (publishing === '실패' || publishing === '일부 완료' || String(row.lastError || '').trim()) return '확인 필요';
+    if (publishing === '발행 완료') return '발행 완료';
+    if (String(row.workflowStatus || '') === '제작 완료') return '발행 대기';
+    return '작업 중';
+}
+
+function splitLedgerValues(value = '') {
+    return String(value || '').split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function summarizeManagedCardNews(row = {}, generation = null) {
+    const cards = Array.isArray(generation?.cards) ? generation.cards : [];
+    return {
+        generation_id: String(row.generationId || ''),
+        title: String(row.title || generation?.title || '제목 없는 카드뉴스'),
+        source_platform: String(row.sourcePlatform || ''),
+        source_url: String(row.originalUrl || generation?.source_url || ''),
+        status: cardNewsManagementStatus(row),
+        workflow_status: String(row.workflowStatus || ''),
+        publishing_status: String(row.publishingStatus || ''),
+        card_count: Number(row.cardCount || cards.length || 0),
+        image_count: cards.filter((card) => card.image_url).length,
+        local_available: Boolean(generation),
+        channels: splitLedgerValues(row.channels),
+        post_links: splitLedgerValues(row.postLinks),
+        updated_at: String(row.processedAt || generation?.completed_at || generation?.created_at || row.collectedAt || row.rssPublishedAt || ''),
+        last_error: String(row.lastError || '')
+    };
+}
+
 function createCardNewsService(deps = {}) {
     const {
         CONFIG = {},
@@ -142,14 +174,37 @@ function createCardNewsService(deps = {}) {
     async function listSources() {
         try {
             const result = await sourceService.discoverConfiguredArticles(CONFIG);
-            await ledgerSync.registerSources(result.articles);
+            const registration = await ledgerSync.registerSources(result.articles);
             return {
                 ...result,
-                articles: limitArticlesPerPlatform(result.articles)
+                articles: limitArticlesPerPlatform(ledgerSync.annotateSources?.(result.articles, registration) || result.articles)
             };
         } catch (error) {
             logger?.warn?.(`⚠️ [CardNews] 소스 목록 조회 실패: ${error.message}`);
             throw toCardNewsError(error, 'CARD_NEWS_SOURCES_FAILED', '블로그 글 목록을 불러오지 못했습니다.');
+        }
+    }
+
+    async function listManagedItems() {
+        const rows = await ledgerSync.listManagedRows?.() || [];
+        const items = rows.map((row) => {
+            let generation = null;
+            try { generation = generationService?.getGeneration?.(row.generationId) || null; } catch (error) {
+                logger?.warn?.(`⚠️ [CardNews] 로컬 결과 확인 실패 (${row.generationId}): ${error.message}`);
+            }
+            return summarizeManagedCardNews(row, generation);
+        }).sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)));
+        return { items };
+    }
+
+    function getGeneration(generationId) {
+        if (!generationService?.getGeneration) {
+            throw createApiError('CARD_NEWS_GENERATION_UNAVAILABLE', '카드뉴스 결과 조회 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return { generation: generationService.getGeneration(generationId) };
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_GENERATION_NOT_FOUND', '카드뉴스 결과를 찾지 못했습니다.');
         }
     }
 
@@ -280,7 +335,21 @@ function createCardNewsService(deps = {}) {
         }
     }
 
-    return { listSources, previewSource, createProject, listProjects, generate, generateImages, importLocalImage, resolveAsset, createExportBundle, getPublishingConfig, publish };
+    return {
+        listSources,
+        listManagedItems,
+        getGeneration,
+        previewSource,
+        createProject,
+        listProjects,
+        generate,
+        generateImages,
+        importLocalImage,
+        resolveAsset,
+        createExportBundle,
+        getPublishingConfig,
+        publish
+    };
 }
 
 module.exports = {
@@ -288,5 +357,7 @@ module.exports = {
     createCardNewsService,
     limitArticlesPerPlatform,
     summarizeProject,
-    isConfiguredAiModel
+    isConfiguredAiModel,
+    cardNewsManagementStatus,
+    summarizeManagedCardNews
 };

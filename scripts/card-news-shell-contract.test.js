@@ -10,7 +10,10 @@ const uiRoot = path.join(repoRoot, 'ui');
 test('Card News is a top-level source-preview workflow', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
-    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const script = [
+        'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/management.js'
+    ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
     const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/ui-runtime/http-server-runtime.js'), 'utf8');
 
     assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
@@ -27,6 +30,13 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(html, /플랫폼을 선택해 공개된 글을 확인하세요/);
     assert.match(html, /id="card-news-platform-tabs"[^>]*hidden/);
     assert.match(html, /id="card-news-source-refresh"[^>]*aria-label="블로그 글 새로고침"/);
+    assert.match(html, /data-card-news-workspace="create">새 카드뉴스/);
+    assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
+    assert.match(html, /id="card-news-include-published"/);
+    assert.match(html, /data-card-news-managed-filter="발행 완료"/);
+    assert.match(script, /\/api\/v1\/card-news\/managed/);
+    assert.match(script, /\/api\/v1\/card-news\/generations\/\$\{encodeURIComponent\(generationId\)\}/);
+    assert.match(script, /로컬 결과 없음/);
     assert.doesNotMatch(html, /id="card-news-create-project"/);
     assert.doesNotMatch(html, /id="card-news-project-list"/);
     assert.match(navigation, /viewName === 'card-news'[\s\S]*initCardNewsView\(\)/);

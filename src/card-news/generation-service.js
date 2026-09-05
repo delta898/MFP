@@ -149,6 +149,7 @@ function createCardNewsGenerationService(options = {}) {
         if (!id) {
             const error = new Error('카드뉴스 결과를 찾지 못했습니다.');
             error.code = 'CARD_NEWS_GENERATION_NOT_FOUND';
+            error.status = 404;
             throw error;
         }
         const outputDir = pathApi.join(exportRoot, id);
@@ -156,6 +157,7 @@ function createCardNewsGenerationService(options = {}) {
         if (!fileSystem.existsSync(manifestPath)) {
             const error = new Error('카드뉴스 결과를 찾지 못했습니다.');
             error.code = 'CARD_NEWS_GENERATION_NOT_FOUND';
+            error.status = 404;
             throw error;
         }
         let generation;
@@ -172,6 +174,10 @@ function createCardNewsGenerationService(options = {}) {
             throw error;
         }
         return { generation, outputDir, manifestPath };
+    }
+
+    function getGeneration(generationId) {
+        return toPublicGenerationResult(resolveGeneration(generationId).generation);
     }
 
     function getGenerationCard(generation, cardIndex) {
@@ -497,7 +503,7 @@ function createCardNewsGenerationService(options = {}) {
         };
     }
 
-    return { generate, generateImages, importLocalImage, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
+    return { generate, generateImages, importLocalImage, getGeneration, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
 }
 
 module.exports = {

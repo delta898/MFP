@@ -24,7 +24,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 50, true);
+    assert.equal(manifest.split('\n').length - 1 <= 60, true);
     assert.deepEqual(includePaths, [
         'styles/base/foundation.css',
         'styles/layout/shell-navigation.css',
@@ -43,6 +43,8 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/continuous-publishing.css',
         'styles/features/blog-next-smart-comment.css',
         'styles/features/card-news.css',
+        'styles/features/card-news-results.css',
+        'styles/features/card-news-management.css',
         'styles/features/continuous-publishing-interactions.css',
         'styles/features/continuous-publishing-usability.css',
         'styles/features/settings-tables.css',

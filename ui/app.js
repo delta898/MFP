@@ -53,6 +53,7 @@
 // @include scripts/features/blog-next/automation-settings.js
 // @include scripts/features/blog-next/runner.js
 // @include scripts/features/card-news/source-preview.js
+// @include scripts/features/card-news/management.js
 // @include scripts/foundation/navigation.js
 // @include scripts/features/content/blog-topics.js
 // @include scripts/features/content/shopping-items.js

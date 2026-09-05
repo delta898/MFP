@@ -46,6 +46,10 @@ function createHarness(overrides = {}) {
         async generate(input) { return { id: 'generation-1', status: 'completed', input }; },
         async generateImages(input) { return { id: 'generation-1', status: 'completed', input }; },
         importLocalImage(input) { return { id: 'generation-1', status: 'completed', input }; },
+        getGeneration(id) {
+            if (id === 'missing-generation') throw new Error('missing');
+            return { id, title: '저장된 카드뉴스', status: 'completed', completed_at: '2026-09-05T01:00:00.000Z', cards: [{ image_url: '/image.png' }] };
+        },
         resolveAsset(generationId, fileName) { return { generationId, fileName }; },
         createExportBundle(generationId) { return { generationId, file_name: 'cards.zip' }; }
     };
@@ -76,6 +80,39 @@ test('lists configured articles with a separate limit per platform and isolated 
     assert.equal(result.configured_feed_count, 2);
     assert.deepEqual(result.configured_sources, ['naver', 'wordpress']);
     assert.equal(result.failures.length, 1);
+});
+
+test('annotates source articles and lists only ledger rows with a generation', async () => {
+    const ledgerSync = {
+        async registerSources() { return { results: [] }; },
+        annotateSources(items) {
+            return items.map((item, index) => index === 0
+                ? { ...item, management: { publishing_status: '발행 완료', generation_id: 'generation-1' } }
+                : item);
+        },
+        async listManagedRows() {
+            return [
+                {
+                    generationId: 'generation-1', title: '완료 글', workflowStatus: '제작 완료', publishingStatus: '발행 완료',
+                    sourcePlatform: 'naver', originalUrl: 'https://example.com/one', cardCount: '1', channels: 'Threads',
+                    postLinks: 'https://threads.net/post/1', processedAt: '2026-09-05T02:00:00.000Z'
+                },
+                {
+                    generationId: 'missing-generation', title: '로컬 없음', workflowStatus: '제작 중', publishingStatus: '미발행',
+                    sourcePlatform: 'wordpress', originalUrl: 'https://example.com/two', cardCount: '3', collectedAt: '2026-09-05T00:00:00.000Z'
+                }
+            ];
+        }
+    };
+    const { service } = createHarness({ ledgerSync });
+    const sources = await service.listSources();
+    const managed = await service.listManagedItems();
+    assert.equal(sources.articles[0].management.publishing_status, '발행 완료');
+    assert.equal(managed.items[0].status, '발행 완료');
+    assert.equal(managed.items[0].local_available, true);
+    assert.equal(managed.items[1].status, '작업 중');
+    assert.equal(managed.items[1].local_available, false);
+    assert.equal(service.getGeneration('generation-1').generation.id, 'generation-1');
 });
 
 test('previews a source and requires explicit source input', async () => {

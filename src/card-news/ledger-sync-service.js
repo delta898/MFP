@@ -1,3 +1,5 @@
+const { buildEntryKey } = require('./ledger-sheet-store');
+
 function compact(value, maxLength = 4000) {
     return String(value || '').trim().slice(0, maxLength);
 }
@@ -59,6 +61,7 @@ function createCardNewsLedgerSyncService(options = {}) {
     const logger = options.logger;
     const now = typeof options.now === 'function' ? options.now : () => new Date().toISOString();
     let lastRegisteredSourceSignature = '';
+    let lastRegistrationResult = null;
 
     async function safely(label, operation) {
         if (!store) return null;
@@ -70,20 +73,64 @@ function createCardNewsLedgerSyncService(options = {}) {
         }
     }
 
+    function refreshCachedRow(updated) {
+        if (!updated || !lastRegistrationResult?.results) return;
+        lastRegistrationResult = {
+            ...lastRegistrationResult,
+            results: lastRegistrationResult.results.map((result) => {
+                const item = result.item || {};
+                const sameEntry = updated.entryKey && item.entryKey === updated.entryKey;
+                const sameGeneration = updated.generationId && item.generationId === updated.generationId;
+                return sameEntry || sameGeneration ? { ...result, item: { ...item, ...updated } } : result;
+            })
+        };
+    }
+
     async function registerSources(sources = []) {
         const items = Array.isArray(sources) ? sources : [];
         if (items.length === 0) return null;
         const signature = sourceSetSignature(items);
-        if (signature && signature === lastRegisteredSourceSignature) return { success: true, skipped: true };
+        if (signature && signature === lastRegisteredSourceSignature) return { ...lastRegistrationResult, skipped: true };
         const result = await safely('RSS 동기화', () => store.upsertCandidates(
             items.map((source) => buildLedgerCandidate(source, source))
         ));
-        if (result) lastRegisteredSourceSignature = signature;
+        if (result) {
+            lastRegisteredSourceSignature = signature;
+            lastRegistrationResult = result;
+        }
         return result;
     }
 
+    function annotateSources(sources = [], registrationResult = lastRegistrationResult) {
+        const rows = new Map((registrationResult?.results || []).map((result) => [result.entryKey, result.item || {}]));
+        return (Array.isArray(sources) ? sources : []).map((source) => {
+            let row = null;
+            try { row = rows.get(buildEntryKey(source)) || null; } catch (_error) { }
+            if (!row) return source;
+            return {
+                ...source,
+                management: {
+                    workflow_status: compact(row.workflowStatus, 100),
+                    publishing_status: compact(row.publishingStatus, 100),
+                    generation_id: compact(row.generationId, 500)
+                }
+            };
+        });
+    }
+
+    async function listManagedRows() {
+        if (!store) throw new Error('카드뉴스 관리대장이 준비되지 않았습니다.');
+        try {
+            const rows = await store.listRows();
+            return Array.isArray(rows) ? rows.filter((row) => compact(row.generationId, 500)) : [];
+        } catch (error) {
+            logger?.warn?.(`⚠️ [CardNews] 관리대장 목록 조회 실패: ${error.message}`);
+            throw error;
+        }
+    }
+
     async function recordGeneration(snapshot = {}, generation = {}) {
-        return safely('생성 결과 동기화', async () => {
+        const result = await safely('생성 결과 동기화', async () => {
             const source = snapshot.source && typeof snapshot.source === 'object' ? snapshot.source : {};
             return store.upsertCandidateWithPatch(buildLedgerCandidate(source, snapshot), {
                 workflowStatus: workflowStatusForGeneration(generation),
@@ -92,32 +139,48 @@ function createCardNewsLedgerSyncService(options = {}) {
                 lastError: ''
             });
         });
+        refreshCachedRow(result);
+        return result;
     }
 
     async function recordGenerationProgress(generation = {}) {
-        return safely('이미지 결과 동기화', () => store.updateByGenerationId(generation.id, {
+        const result = await safely('이미지 결과 동기화', () => store.updateByGenerationId(generation.id, {
                 workflowStatus: workflowStatusForGeneration(generation),
                 cardCount: String(Array.isArray(generation.cards) ? generation.cards.length : 0),
                 lastError: ''
             }));
+        refreshCachedRow(result);
+        return result;
     }
 
     async function recordPublishing(generationId, result = {}) {
-        return safely('발행 결과 동기화', () => store.updateByGenerationId(
+        const updated = await safely('발행 결과 동기화', () => store.updateByGenerationId(
             generationId,
             buildPublishingPatch(result, now)
         ));
+        refreshCachedRow(updated);
+        return updated;
     }
 
     async function recordPublishingFailure(generationId, error) {
-        return safely('발행 실패 동기화', () => store.updateByGenerationId(generationId, {
+        const result = await safely('발행 실패 동기화', () => store.updateByGenerationId(generationId, {
                 publishingStatus: '실패',
                 processedAt: compact(now(), 100),
                 lastError: compact(error?.message || error?.code || 'SNS 발행 실패', 1000)
             }));
+        refreshCachedRow(result);
+        return result;
     }
 
-    return { registerSources, recordGeneration, recordGenerationProgress, recordPublishing, recordPublishingFailure };
+    return {
+        registerSources,
+        annotateSources,
+        listManagedRows,
+        recordGeneration,
+        recordGenerationProgress,
+        recordPublishing,
+        recordPublishingFailure
+    };
 }
 
 module.exports = {

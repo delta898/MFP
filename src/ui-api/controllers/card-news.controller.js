@@ -16,6 +16,27 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async managed({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.listManagedItems());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_MANAGED_LIST_FAILED', '만든 카드뉴스 목록을 불러오지 못했습니다.', error);
+            }
+        },
+
+        async generation({ requestId, method, pathname, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/generations\/([^/]+)$/);
+            let generationId = '';
+            try { generationId = decodeURIComponent(match?.[1] || ''); } catch (_error) { }
+            try {
+                return sendSuccess(res, requestId, service.getGeneration(generationId));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_GENERATION_NOT_FOUND', '카드뉴스 결과를 찾지 못했습니다.', error);
+            }
+        },
+
         async preview({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

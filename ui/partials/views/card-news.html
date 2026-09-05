@@ -14,6 +14,12 @@
           </div>
         </div>
 
+        <div class="card-news-workspace-tabs" role="tablist" aria-label="카드뉴스 작업 구분">
+          <button class="active" type="button" role="tab" aria-selected="true" data-card-news-workspace="create">새 카드뉴스</button>
+          <button type="button" role="tab" aria-selected="false" data-card-news-workspace="managed">만든 카드뉴스</button>
+        </div>
+
+        <div id="card-news-create-workspace" data-card-news-workspace-panel="create">
         <div class="card-news-layout">
           <section class="card-news-source-card" aria-labelledby="card-news-source-title">
             <div class="card-news-section-heading">
@@ -33,6 +39,10 @@
             <div class="card-news-source-panel" data-card-news-source-panel="feed_item">
               <div class="card-news-panel-toolbar">
                 <div id="card-news-platform-tabs" class="card-news-platform-tabs" role="tablist" aria-label="블로그 플랫폼" hidden></div>
+                <label class="card-news-published-toggle">
+                  <input id="card-news-include-published" type="checkbox">
+                  <span>발행 완료 포함</span>
+                </label>
                 <button id="card-news-source-refresh" class="card-news-icon-button" type="button" aria-label="블로그 글 새로고침" title="블로그 글 새로고침">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
@@ -181,5 +191,32 @@
             <div id="card-news-publishing-result" class="card-news-publishing-result" hidden></div>
           </section>
           <div id="card-news-result-grid" class="card-news-result-grid"></div>
+        </section>
+        </div>
+
+        <section id="card-news-managed-workspace" class="card-news-managed-workspace" data-card-news-workspace-panel="managed" hidden>
+          <div class="card-news-managed-heading">
+            <div>
+              <span class="card-news-eyebrow">관리</span>
+              <h2>만든 카드뉴스</h2>
+              <p>카드 구성을 만든 항목만 모아 이어서 작업하거나 발행 결과를 확인합니다.</p>
+            </div>
+            <button id="card-news-managed-refresh" class="card-news-icon-button" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+              </svg>
+            </button>
+          </div>
+          <div class="card-news-managed-filters" role="tablist" aria-label="만든 카드뉴스 상태">
+            <button class="active" type="button" role="tab" aria-selected="true" data-card-news-managed-filter="전체">전체</button>
+            <button type="button" role="tab" aria-selected="false" data-card-news-managed-filter="작업 중">작업 중</button>
+            <button type="button" role="tab" aria-selected="false" data-card-news-managed-filter="발행 대기">발행 대기</button>
+            <button type="button" role="tab" aria-selected="false" data-card-news-managed-filter="발행 완료">발행 완료</button>
+            <button type="button" role="tab" aria-selected="false" data-card-news-managed-filter="확인 필요">확인 필요</button>
+          </div>
+          <div id="card-news-managed-list" class="card-news-managed-list" aria-live="polite">
+            <div class="card-news-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>
+          </div>
         </section>
       </section>

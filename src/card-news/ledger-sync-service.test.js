@@ -101,3 +101,30 @@ test('an unchanged RSS source set is registered only once per app session', asyn
     await service.registerSources([...sources, { kind: 'feed_item', item_key: 'rss-2', canonical_url: 'https://example.com/2' }]);
     assert.equal(upserts, 2);
 });
+
+test('cached RSS annotations follow generation and publishing updates in the same app session', async () => {
+    const source = { kind: 'feed_item', item_key: 'rss-1', canonical_url: 'https://example.com/1' };
+    let row = {
+        entryKey: require('./ledger-sheet-store').buildEntryKey(source),
+        workflowStatus: '후보', publishingStatus: '미발행', generationId: ''
+    };
+    const service = createCardNewsLedgerSyncService({
+        store: {
+            async upsertCandidates() { return { success: true, results: [{ entryKey: row.entryKey, item: { ...row } }] }; },
+            async upsertCandidateWithPatch(_candidate, patch) { row = { ...row, ...patch }; return { ...row }; },
+            async updateByGenerationId(_id, patch) { row = { ...row, ...patch }; return { ...row }; },
+            async listRows() { return [row, { generationId: '' }]; }
+        },
+        now: () => '2026-09-05T02:00:00.000Z'
+    });
+    const registered = await service.registerSources([source]);
+    await service.recordGeneration({ source, title: '글' }, { id: 'generation-1', status: 'completed', cards: [{}] });
+    await service.recordPublishing('generation-1', {
+        confirmed: true,
+        results: [{ success: true, channel_name: 'Threads', external_link: 'https://threads.example/1' }]
+    });
+    const annotated = service.annotateSources([source], await service.registerSources([source]));
+    assert.equal(registered.results[0].item.publishingStatus, '미발행');
+    assert.equal(annotated[0].management.publishing_status, '발행 완료');
+    assert.equal((await service.listManagedRows()).length, 1);
+});

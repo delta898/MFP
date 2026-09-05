@@ -5,6 +5,8 @@ const { createCardNewsController } = require('./card-news.controller');
 function createHarness(overrides = {}) {
     const responses = [];
     const service = {
+        async listManagedItems() { return { items: [{ generation_id: 'set-1' }] }; },
+        getGeneration(id) { return { generation: { id } }; },
         async generate() { return { generation: { id: 'set-1' } }; },
         async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
         importLocalImage() { return { generation: { id: 'set-1', status: 'completed' } }; },
@@ -39,6 +41,19 @@ test('creates a generation through the controller', async () => {
     const { controller, responses } = createHarness();
     await controller.generate({ requestId: 'req-1', method: 'POST', requestBody: {}, res: {} });
     assert.deepEqual(responses[0], { kind: 'success', data: { generation: { id: 'set-1' } }, status: 201 });
+});
+
+test('lists managed card news and reloads one local result', async () => {
+    const { controller, responses } = createHarness();
+    await controller.managed({ requestId: 'req-managed', method: 'GET', res: {} });
+    await controller.generation({
+        requestId: 'req-generation',
+        method: 'GET',
+        pathname: '/api/v1/card-news/generations/set-1',
+        res: {}
+    });
+    assert.equal(responses[0].data.items[0].generation_id, 'set-1');
+    assert.equal(responses[1].data.generation.id, 'set-1');
 });
 
 test('updates generated and local card images through the controller', async () => {
