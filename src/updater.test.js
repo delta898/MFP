@@ -131,22 +131,73 @@ test('Windows updater defers helper launch until restart and exits only after re
                 return child;
             }
         });
+        updater.updateInfo = { latestVersion: '0.4.3-dev6' };
 
         updater.prepareWindowsDeferredApply(path.join(appRootDir, 'tmp_update', 'extracted'));
         assert.equal(spawnCalls.length, 0);
-        assert.match(fs.readFileSync(updater._pendingExternalRestart.helperScriptPath, 'utf8'), /ReadyPath/);
+        const helperScript = fs.readFileSync(updater._pendingExternalRestart.helperScriptPath, 'utf8');
+        const helperSpec = JSON.parse(fs.readFileSync(updater._pendingExternalRestart.helperSpecPath, 'utf8'));
+        assert.match(helperScript, /Join-Path \$PSScriptRoot 'apply-update\.json'/);
+        assert.match(helperScript, /exit 1/);
+        assert.doesNotMatch(helperScript, /^param\(/m);
+        assert.equal(/^[\x00-\x7F]*$/.test(helperScript), true);
+        assert.equal(helperSpec.sourceDir, path.join(appRootDir, 'tmp_update', 'extracted'));
+        assert.equal(helperSpec.appDir, appRootDir);
+        assert.equal(helperSpec.waitPid, process.pid);
+        assert.equal(helperSpec.targetVersion, '0.4.3-dev6');
 
         await updater.restart();
 
         assert.equal(spawnCalls.length, 1);
         assert.equal(spawnCalls[0].command, 'powershell-test.exe');
-        assert.equal(spawnCalls[0].args.includes('-ReadyPath'), true);
+        assert.deepEqual(spawnCalls[0].args, [
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            updater._pendingExternalRestart.helperScriptPath
+        ]);
         assert.equal(spawnCalls[0].child.unrefCalled, true);
         assert.deepEqual(exitCodes, [0]);
         assert.match(
             fs.readFileSync(updater._pendingExternalRestart.helperBootstrapLogPath, 'utf8'),
             /helper ready: powershell-test\.exe/
         );
+    } finally {
+        fs.rmSync(appRootDir, { recursive: true, force: true });
+    }
+});
+
+test('Windows updater rejects helpers that exit cleanly before readiness', async () => {
+    const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-updater-early-exit-'));
+    fs.mkdirSync(path.join(appRootDir, 'tmp_update'), { recursive: true });
+    const exitCodes = [];
+
+    try {
+        const updater = new Updater({
+            appRootDir,
+            platform: 'win32',
+            windowsPowerShellCandidates: ['powershell-first.exe', 'powershell-second.exe'],
+            windowsHelperReadyTimeoutMs: 100,
+            exitProcess: (code) => exitCodes.push(code),
+            spawnProcess: () => {
+                const child = createFakeChild();
+                setImmediate(() => child.emit('exit', 0, null));
+                return child;
+            }
+        });
+        updater.prepareWindowsDeferredApply(path.join(appRootDir, 'tmp_update', 'extracted'));
+
+        await assert.rejects(
+            updater.restart(),
+            /Windows helper가 준비 전에 종료되었습니다. \(code=0, signal=none\)/
+        );
+
+        assert.deepEqual(exitCodes, []);
+        const bootstrapLog = fs.readFileSync(updater._pendingExternalRestart.helperBootstrapLogPath, 'utf8');
+        assert.match(bootstrapLog, /launch failed: powershell-first\.exe/);
+        assert.match(bootstrapLog, /launch failed: powershell-second\.exe/);
     } finally {
         fs.rmSync(appRootDir, { recursive: true, force: true });
     }

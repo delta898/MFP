@@ -532,26 +532,22 @@ class Updater {
         if (this.platform !== 'win32') return;
 
         const helperScriptPath = path.join(this.tempDir, 'apply-update.ps1');
+        const helperSpecPath = path.join(this.tempDir, 'apply-update.json');
         const helperLogPath = path.join(this.tempDir, 'apply-update.log');
         const helperBootstrapLogPath = path.join(this.tempDir, 'apply-update-bootstrap.log');
         const helperReadyPath = path.join(this.tempDir, 'apply-update.ready');
+        const helperCompletedPath = path.join(this.tempDir, 'apply-update.completed');
+        const helperFailedPath = path.join(this.tempDir, 'apply-update.failed');
         const scriptBody = `
-param(
-    [Parameter(Mandatory = $true)][string]$SourceDir,
-    [Parameter(Mandatory = $true)][string]$AppDir,
-    [Parameter(Mandatory = $true)][string]$ExePath,
-    [Parameter(Mandatory = $true)][int]$WaitPid,
-    [Parameter(Mandatory = $true)][string]$LogPath,
-    [Parameter(Mandatory = $true)][string]$ReadyPath
-)
-
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 $preserve = @('config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store')
+$config = $null
+$logPath = $null
 
 function Write-Log {
     param([string]$Message)
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    Add-Content -LiteralPath $LogPath -Value "[$timestamp] $Message"
+    Add-Content -LiteralPath $script:logPath -Value "[$timestamp] $Message" -Encoding UTF8
 }
 
 function Remove-BackupArtifacts {
@@ -568,59 +564,128 @@ function Remove-BackupArtifacts {
 }
 
 try {
-    Write-Log "helper started (pid=$PID, waitingFor=$WaitPid)"
-    Set-Content -LiteralPath $ReadyPath -Value $PID -Encoding ASCII -Force
+    $configPath = Join-Path $PSScriptRoot 'apply-update.json'
+    $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $sourceDir = [string]$config.sourceDir
+    $appDir = [string]$config.appDir
+    $exePath = [string]$config.exePath
+    $waitPid = [int]$config.waitPid
+    $script:logPath = [string]$config.logPath
+    $readyPath = [string]$config.readyPath
+    $completedPath = [string]$config.completedPath
+    $failedPath = [string]$config.failedPath
+    $targetVersion = [string]$config.targetVersion
+
+    if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
+        throw "Update source directory does not exist: $sourceDir"
+    }
+    if (-not (Test-Path -LiteralPath $appDir -PathType Container)) {
+        throw "Application directory does not exist: $appDir"
+    }
+    if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
+        throw "Application executable does not exist: $exePath"
+    }
+    if ($waitPid -le 0) {
+        throw "Invalid application process id: $waitPid"
+    }
+
+    Write-Log "helper started (pid=$PID, waitingFor=$waitPid, target=$targetVersion)"
+    Set-Content -LiteralPath $readyPath -Value $PID -Encoding ASCII -Force
     for ($i = 0; $i -lt 600; $i++) {
-        $target = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
+        $target = Get-Process -Id $waitPid -ErrorAction SilentlyContinue
         if (-not $target) { break }
         Start-Sleep -Milliseconds 500
     }
+    $target = Get-Process -Id $waitPid -ErrorAction SilentlyContinue
+    if ($target) {
+        throw "Timed out waiting for the running app to exit (pid=$waitPid)."
+    }
     Start-Sleep -Milliseconds 500
 
-    Get-ChildItem -LiteralPath $SourceDir -Force | ForEach-Object {
+    Get-ChildItem -LiteralPath $sourceDir -Force | ForEach-Object {
         $name = $_.Name
         if ($preserve -contains $name) {
             Write-Log "preserve skip: $name"
-            return
-        }
-
-        $srcPath = $_.FullName
-        $destPath = Join-Path $AppDir $name
-        $backupPath = "$destPath.old"
-
-        if (Test-Path -LiteralPath $backupPath) {
-            Remove-Item -LiteralPath $backupPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
-
-        if (Test-Path -LiteralPath $destPath) {
-            try {
-                Rename-Item -LiteralPath $destPath -NewName ([System.IO.Path]::GetFileName($backupPath)) -ErrorAction Stop
-                Write-Log "backup created: $name"
-            } catch {
-                Write-Log "backup rename failed, deleting directly: $name - $($_.Exception.Message)"
-                Remove-Item -LiteralPath $destPath -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
-
-        if ($_.PSIsContainer) {
-            Copy-Item -LiteralPath $srcPath -Destination $destPath -Recurse -Force -ErrorAction Stop
         } else {
-            Copy-Item -LiteralPath $srcPath -Destination $destPath -Force -ErrorAction Stop
-        }
+            $srcPath = $_.FullName
+            $destPath = Join-Path $appDir $name
+            $backupPath = "$destPath.old"
 
-        Write-Log "replaced: $name"
+            if (Test-Path -LiteralPath $backupPath) {
+                Remove-Item -LiteralPath $backupPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            if (Test-Path -LiteralPath $destPath) {
+                try {
+                    Rename-Item -LiteralPath $destPath -NewName ([System.IO.Path]::GetFileName($backupPath)) -ErrorAction Stop
+                    Write-Log "backup created: $name"
+                } catch {
+                    Write-Log "backup rename failed, deleting directly: $name - $($_.Exception.Message)"
+                    Remove-Item -LiteralPath $destPath -Recurse -Force -ErrorAction Stop
+                }
+            }
+
+            if ($_.PSIsContainer) {
+                Copy-Item -LiteralPath $srcPath -Destination $destPath -Recurse -Force -ErrorAction Stop
+            } else {
+                Copy-Item -LiteralPath $srcPath -Destination $destPath -Force -ErrorAction Stop
+            }
+
+            Write-Log "replaced: $name"
+        }
     }
 
-    Remove-BackupArtifacts -RootPath $AppDir
-    Write-Log "relaunch: $ExePath"
-    Start-Process -FilePath $ExePath | Out-Null
+    Remove-BackupArtifacts -RootPath $appDir
+    Set-Content -LiteralPath $completedPath -Value $targetVersion -Encoding UTF8 -Force
+    Write-Log "apply completed (target=$targetVersion)"
+    Write-Log "relaunch: $exePath"
+    Start-Process -FilePath $exePath | Out-Null
+    exit 0
 } catch {
-    Write-Log "fatal: $($_.Exception.Message)"
+    $fatalMessage = $_.Exception.Message
+    try {
+        if ($script:logPath) {
+            Write-Log "fatal: $fatalMessage"
+        }
+        if ($config -and $config.failedPath) {
+            Set-Content -LiteralPath ([string]$config.failedPath) -Value $fatalMessage -Encoding UTF8 -Force
+        }
+    } catch { }
+    Write-Error $fatalMessage
+    try {
+        $shouldRelaunch = $false
+        if ($config -and $config.readyPath -and (Test-Path -LiteralPath ([string]$config.readyPath))) {
+            $runningApp = Get-Process -Id ([int]$config.waitPid) -ErrorAction SilentlyContinue
+            $shouldRelaunch = -not $runningApp
+        }
+        if ($shouldRelaunch -and $config.exePath -and (Test-Path -LiteralPath ([string]$config.exePath) -PathType Leaf)) {
+            Start-Process -FilePath ([string]$config.exePath) | Out-Null
+        }
+    } catch { }
+    exit 1
 }
 `.trimStart();
 
         this.fs.writeFileSync(helperScriptPath, scriptBody, 'utf8');
-        for (const stalePath of [helperLogPath, helperBootstrapLogPath, helperReadyPath]) {
+        const helperSpec = {
+            sourceDir,
+            appDir: this.appRootDir,
+            exePath: process.execPath,
+            waitPid: process.pid,
+            logPath: helperLogPath,
+            readyPath: helperReadyPath,
+            completedPath: helperCompletedPath,
+            failedPath: helperFailedPath,
+            targetVersion: String(this.updateInfo?.latestVersion || '').trim()
+        };
+        this.fs.writeFileSync(helperSpecPath, JSON.stringify(helperSpec, null, 2), 'utf8');
+        for (const stalePath of [
+            helperLogPath,
+            helperBootstrapLogPath,
+            helperReadyPath,
+            helperCompletedPath,
+            helperFailedPath
+        ]) {
             try {
                 if (this.fs.existsSync(stalePath)) this.fs.rmSync(stalePath, { force: true });
             } catch (_) { }
@@ -628,30 +693,22 @@ try {
 
         const args = [
             '-NoProfile',
+            '-NonInteractive',
             '-ExecutionPolicy',
             'Bypass',
             '-File',
-            helperScriptPath,
-            '-SourceDir',
-            sourceDir,
-            '-AppDir',
-            this.appRootDir,
-            '-ExePath',
-            process.execPath,
-            '-WaitPid',
-            String(process.pid),
-            '-LogPath',
-            helperLogPath,
-            '-ReadyPath',
-            helperReadyPath
+            helperScriptPath
         ];
 
         this._pendingExternalRestart = {
             mode: 'windows-update-helper',
             helperScriptPath,
+            helperSpecPath,
             helperLogPath,
             helperBootstrapLogPath,
             helperReadyPath,
+            helperCompletedPath,
+            helperFailedPath,
             args
         };
         Logger.info(`🪟 [Updater] Windows helper 스크립트 준비 완료: ${helperScriptPath}`);
