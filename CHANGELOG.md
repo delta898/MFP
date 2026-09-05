@@ -3,6 +3,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev5] - 2026-09-06
+
 ### Fixed
 - **Dashboard 시계 메뉴 표시 개선**: Dashboard에서 시계·타이머 컨트롤을 열 때 상단 카드 경계에 가려지지 않고 전체 메뉴를 확인할 수 있습니다.
 
