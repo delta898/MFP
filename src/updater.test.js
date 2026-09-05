@@ -74,6 +74,26 @@ test('updater invalidates a recent result when update source settings change', a
     }
 });
 
+test('updater supports only macOS Apple Silicon and Windows x64 release assets', () => {
+    const assets = [
+        { name: 'BlogGenius-mac-arm64.zip' },
+        { name: 'BlogGenius-win-x64.zip' },
+        { name: 'BlogGenius-mac-intel.zip' },
+        { name: 'BlogGenius-linux-x64.zip' }
+    ];
+
+    assert.equal(
+        new Updater({ platform: 'darwin', arch: 'arm64' }).getPlatformAsset(assets)?.name,
+        'BlogGenius-mac-arm64.zip'
+    );
+    assert.equal(
+        new Updater({ platform: 'win32', arch: 'x64' }).getPlatformAsset(assets)?.name,
+        'BlogGenius-win-x64.zip'
+    );
+    assert.equal(new Updater({ platform: 'darwin', arch: 'x64' }).getPlatformAsset(assets), null);
+    assert.equal(new Updater({ platform: 'linux', arch: 'x64' }).getPlatformAsset(assets), null);
+});
+
 function createFakeChild(pid = 4321) {
     const child = new EventEmitter();
     child.pid = pid;

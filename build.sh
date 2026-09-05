@@ -280,8 +280,6 @@ EOF
 # ---------------------------------------------------
 # build_platform <pkg_os> <electron_os> <arch> <suffix>
 build_platform "macos" "darwin" "arm64" "mac-arm64"
-# build_platform "macos" "darwin" "x64"   "mac-intel"
-# build_platform "linux" "linux"  "x64"   "linux-x64"
 
 # Prerelease 여부 판별 (버전에 - 접미사가 있는 경우)
 IS_PRERELEASE=false

@@ -111,12 +111,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            platform_name: Linux x64
-            suffix: linux-x64
-          - os: macos-15-intel
-            platform_name: macOS Intel
-            suffix: mac-intel
           - os: macos-15
             platform_name: macOS Apple Silicon
             suffix: mac-arm64
@@ -156,18 +150,15 @@ jobs:
         shell: bash
         run: |
           APP_NAME="BlogGenius"
-          if [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
-            E_PLAT="linux"; E_ARCH="x64"
-            APP_ICON="assets/icons/icon.png"
-          elif [[ "${{ matrix.suffix }}" == "mac-intel" ]]; then
-            E_PLAT="darwin"; E_ARCH="x64"
-            APP_ICON="assets/icons/icon.icns"
-          elif [[ "${{ matrix.suffix }}" == "mac-arm64" ]]; then
+          if [[ "${{ matrix.suffix }}" == "mac-arm64" ]]; then
             E_PLAT="darwin"; E_ARCH="arm64"
             APP_ICON="assets/icons/icon.icns"
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             E_PLAT="win32"; E_ARCH="x64"
             APP_ICON="assets/icons/icon.ico"
+          else
+            echo "::error::Unsupported release target: ${{ matrix.suffix }}"
+            exit 1
           fi
           npx --no-install electron-packager . ${APP_NAME} --platform=${E_PLAT} --arch=${E_ARCH} --out=dist/gui-temp --overwrite --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" --extra-resource="config/config.json.sample" --extra-resource="config/images" --icon="${APP_ICON}" --ignore="^/([.]git|dist|logs|data|config|Videos|workspace|supabase|temp|docs|tmp|tmp_update|tests|testscripts|test_images|scripts|sql|apps|wordpress|NaverBlogAutoTool|BlogGenius.app|BlogGenius-cli|BlogGenius-cli.exe)($|/)|^/(debug_.*|trend_structure_dump[.]html|jobs[.]xlsx|topics.*[.]xlsx|topics 2[.]numbers|[.]DS_Store)$|(?:[.]zip|[.]tar[.]gz|[.]bak|[.]numbers|[.]dmg|[.]old|[.]build_stamp_.*)$|/node_modules/(electron|electron-packager|[.]cache)($|/)"
 
@@ -225,16 +216,13 @@ jobs:
           
           # 3. GUI 배치
           APP_NAME="BlogGenius"
-          if [[ "${{ matrix.suffix }}" == "mac-"* ]]; then
+          if [[ "${{ matrix.suffix }}" == "mac-arm64" ]]; then
             cp -r "${PACKAGED_APP_DIR}/${APP_NAME}.app" "${ROOT_OUT}/"
-          elif [[ "${{ matrix.suffix }}" == "linux-x64" ]]; then
-            mkdir -p "${ROOT_OUT}/lib"
-            cp -a "${PACKAGED_APP_DIR}/." "${ROOT_OUT}/lib/"
-            mv "${ROOT_OUT}/lib/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
-            echo -e "#!/bin/bash\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\nexport LD_LIBRARY_PATH=\"\$HERE/lib:\$LD_LIBRARY_PATH\"\n\"\$HERE/lib/${APP_NAME}-bin\" \"\$@\"" > "${ROOT_OUT}/${APP_NAME}"
-            chmod +x "${ROOT_OUT}/${APP_NAME}" "${ROOT_OUT}/lib/${APP_NAME}-bin"
           elif [[ "${{ matrix.suffix }}" == "win-x64" ]]; then
             cp -a "${PACKAGED_APP_DIR}/." "${ROOT_OUT}/"
+          else
+            echo "::error::Unsupported release target: ${{ matrix.suffix }}"
+            exit 1
           fi
           
           # 4. ZIP 생성을 위해 원본 dist 정리 (ROOT_OUT만 남김)

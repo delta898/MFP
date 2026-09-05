@@ -219,7 +219,7 @@
    - OS 통합과 최소 실행·복구를 담당하는 안정적인 installer/launcher 껍데기와 자주 갱신되는 BlogGenius 앱 내용(payload)의 수명주기를 분리한다.
    - 껍데기는 설치 경로, 코드 서명, 권한, 바로가기, 실행 환경 확인과 손상 복구만 담당하고 기능 코드·UI·기본 콘텐츠는 독립적으로 교체 가능하게 한다.
    - 앱 내용 업데이트는 manifest, 무결성·서명 검증, atomic 교체와 이전 정상 버전 rollback을 기본 계약으로 두며 사용자 config·workspace·로그와 분리한다.
-   - macOS Apple Silicon/Intel과 Windows의 패키징·권한 차이, 최초 전체 설치와 이후 소형 업데이트, launcher 자체 업데이트 경로를 각각 검증한다.
+   - 공식 지원 대상인 macOS Apple Silicon과 Windows x64의 패키징·권한 차이, 최초 전체 설치와 이후 소형 업데이트, launcher 자체 업데이트 경로를 각각 검증한다.
    - 기존 installer 및 자동 업데이트와의 전환 방식, 구버전 데이터 보존, offline 설치와 복구 실패 시 사용자 안내를 설계한 뒤 단계적으로 적용한다.
 
 ## P2 — 중기

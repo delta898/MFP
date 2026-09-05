@@ -17,6 +17,7 @@ class Updater {
         this.appRootDir = options.appRootDir || CONFIG.APP_ROOT_DIR;
         this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
         this.platform = options.platform || process.platform;
+        this.arch = options.arch || process.arch;
         this.spawnProcess = options.spawnProcess || spawn;
         this.exitProcess = options.exitProcess || ((code) => process.exit(code));
         this.fs = options.fs || fs;
@@ -353,22 +354,15 @@ class Updater {
     getPlatformAsset(assets) {
         if (!Array.isArray(assets)) return null;
 
-        const platform = process.platform;
-        const arch = process.arch;
+        const platform = this.platform;
+        const arch = this.arch;
         Logger.info(`🔍 [Updater] 플랫폼 확인: ${platform}-${arch} (총 에셋 수: ${assets.length})`);
 
         let patterns = [];
-        if (platform === 'darwin') {
-            // macOS: arm64(M1/M2/M3) 또는 x64(Intel)
-            if (arch === 'arm64') {
-                patterns = ['mac-arm64'];
-            } else {
-                patterns = ['mac-intel', 'macos-x64'];
-            }
-        } else if (platform === 'win32') {
+        if (platform === 'darwin' && arch === 'arm64') {
+            patterns = ['mac-arm64'];
+        } else if (platform === 'win32' && arch === 'x64') {
             patterns = ['win-x64', 'windows-x64'];
-        } else if (platform === 'linux') {
-            patterns = ['linux-x64'];
         }
 
         const asset = assets.find(a => {
@@ -382,7 +376,7 @@ class Updater {
             Logger.warn(`❌ [Updater] 현재 플랫폼에 맞는 에셋을 찾지 못함 (Patterns: ${patterns.join(', ')})`);
         }
 
-        return asset;
+        return asset || null;
     }
 
     /**
@@ -490,7 +484,7 @@ class Updater {
             this.progress = { active: true, stage: 'extracting', message: '압축 해제 중...', percent: 100, totalSize, downloadedSize };
             await this.unzip(zipPath, extractDir);
 
-            // 중요: 압축을 해제한 내용물이 'BlogGenius-v0.8.42-linux-x64' 같이 중첩된 폴더일 수 있음
+            // 중요: 압축을 해제한 내용물이 버전·플랫폼 이름의 루트 폴더로 중첩될 수 있음
             let sourceDir = extractDir;
             const entries = fs.readdirSync(extractDir);
             if (entries.length === 1 && fs.statSync(path.join(extractDir, entries[0])).isDirectory()) {

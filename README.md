@@ -59,7 +59,7 @@
 
 ## 🍎 macOS 사용자라면 꼭 확인하세요!
 
-BlogGenius v0.4.3 이상은 **macOS 13(Ventura) 이상**에서 실행할 수 있습니다.
+BlogGenius v0.4.3 이상은 **Apple Silicon(M1 이상) 기반 macOS 13(Ventura) 이상**에서 실행할 수 있습니다. Intel Mac과 Linux는 공식 지원하지 않으며, Windows는 x64 환경을 지원합니다.
 
 맥(Mac)에서 처음 실행할 때 "확인되지 않은 개발자"라고 뜨나요? 당황하지 마세요!
 - 터미널(Terminal)을 열고 프로그램이 있는 폴더에서 아래 명령어를 한 번만 복사해서 붙여넣어 주세요.

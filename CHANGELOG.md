@@ -3,6 +3,14 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev4] - 2026-09-06
+
+### Changed
+- **공식 지원 환경 단순화**: 설치 파일은 macOS Apple Silicon과 Windows x64용으로 제공합니다. Intel Mac과 Linux용 설치 파일은 더 이상 제공하지 않습니다.
+
+### Fixed
+- **Windows 자동 업데이트 재시작 보강**: 업데이트 적용을 시작할 helper가 실제로 준비된 뒤 앱을 종료하고, 시작에 실패하면 앱을 닫지 않은 채 오류와 진단 로그를 남기도록 개선했습니다.
+
 ## [0.4.3-dev3] - 2026-09-06
 
 ### Changed
