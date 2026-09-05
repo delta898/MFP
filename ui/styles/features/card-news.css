@@ -129,6 +129,7 @@
 
 .card-news-panel-toolbar {
   align-items: center;
+  min-width: 0;
   margin-bottom: 12px;
 }
 
@@ -144,12 +145,17 @@
 }
 
 .card-news-platform-tabs {
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 auto;
   gap: 5px;
-  margin-bottom: 7px;
+  min-width: 0;
+  margin-bottom: 0;
   padding: 4px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border-radius: 11px;
   background: #eef2f7;
+  scrollbar-width: thin;
 }
 
 .card-news-platform-tabs[hidden] {
@@ -158,6 +164,7 @@
 
 .card-news-platform-tab {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   min-height: 32px;
@@ -168,7 +175,12 @@
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.card-news-panel-toolbar > .card-news-icon-button {
+  flex: 0 0 auto;
 }
 
 .card-news-platform-tab.active {
@@ -547,6 +559,16 @@
   margin-bottom: 20px;
 }
 
+.card-news-result-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  display: grid;
+}
+
+.card-news-result-heading > div:first-child {
+  min-width: 0;
+}
+
 .card-news-generation-heading h2,
 .card-news-result-heading h2 {
   margin: 4px 0 6px;
@@ -728,9 +750,15 @@
 
 .card-news-result-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-self: start;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.card-news-result-actions button,
+.card-news-result-actions a {
+  white-space: nowrap;
 }
 
 #view-card-news button:disabled,

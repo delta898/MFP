@@ -45,7 +45,7 @@ function normalizePublicImageUrl(value) {
     try {
         parsed = new URL(String(value || '').trim());
     } catch (_error) {
-        throw createPublishingError(502, 'CARD_NEWS_MEDIA_URL_INVALID', 'WordPress가 올바른 이미지 주소를 반환하지 않았습니다.');
+        throw createPublishingError(502, 'CARD_NEWS_MEDIA_URL_INVALID', '이미지 전달 서비스가 올바른 공개 주소를 반환하지 않았습니다.');
     }
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
         throw createPublishingError(502, 'CARD_NEWS_MEDIA_URL_INVALID', 'Buffer 발행에는 공개 HTTPS 이미지 주소가 필요합니다.');
@@ -68,7 +68,7 @@ function createCardNewsPublishingService(options = {}) {
         CONFIG = {},
         generationService,
         bufferClient,
-        createWordPressClient,
+        mediaTransport,
         fileSystem = fs,
         pathApi = path,
         logger,
@@ -86,12 +86,11 @@ function createCardNewsPublishingService(options = {}) {
             .filter((channel) => channel.id);
     }
 
-    function wordpressAvailable() {
+    function mediaTransportAvailable() {
         return Boolean(
-            String(CONFIG.WORDPRESS_URL || '').trim()
-            && String(CONFIG.WORDPRESS_USER_ID || '').trim()
-            && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
-            && typeof createWordPressClient === 'function'
+            mediaTransport?.upload
+            && mediaTransport?.remove
+            && (typeof mediaTransport.isAvailable !== 'function' || mediaTransport.isAvailable())
         );
     }
 
@@ -125,7 +124,7 @@ function createCardNewsPublishingService(options = {}) {
             default_text: buildDefaultPublishText(generation),
             card_count: cardCount,
             buffer_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
-            media_transport: wordpressAvailable() ? 'wordpress' : '',
+            media_transport: mediaTransportAvailable() ? String(mediaTransport.transport || 'public_media') : '',
             channels
         };
     }
@@ -145,9 +144,9 @@ function createCardNewsPublishingService(options = {}) {
         });
     }
 
-    async function cleanupMedia(client, media) {
-        if (!client?.deleteMedia) return false;
-        const results = await Promise.all((Array.isArray(media) ? media : []).map((item) => client.deleteMedia(item.id)));
+    async function cleanupMedia(media) {
+        if (!mediaTransport?.remove) return false;
+        const results = await Promise.all((Array.isArray(media) ? media : []).map((item) => mediaTransport.remove(item)));
         return results.every((result) => result === true);
     }
 
@@ -186,7 +185,7 @@ function createCardNewsPublishingService(options = {}) {
         assertManualPublishAllowed(CONFIG);
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
         if (!apiKey) throw createPublishingError(400, 'BUFFER_API_KEY_REQUIRED', '설정 > SNS에서 Buffer API Key를 먼저 저장해 주세요.');
-        if (!wordpressAvailable()) throw createPublishingError(400, 'CARD_NEWS_WORDPRESS_REQUIRED', 'Buffer에 카드 이미지를 전달하려면 설정 > 블로그에서 WordPress를 연결해 주세요.');
+        if (!mediaTransportAvailable()) throw createPublishingError(400, 'CARD_NEWS_GOOGLE_DRIVE_REQUIRED', 'Buffer에 카드 이미지를 전달하려면 설정에서 Google 계정을 연결해 주세요.');
 
         const { generation, assets } = generationService.resolveCompleteAssets(input.generation_id || input.generationId);
         const channels = selectChannels(input.channel_ids || input.channelIds, assets.length);
@@ -197,31 +196,28 @@ function createCardNewsPublishingService(options = {}) {
         }
         const text = String(input.text || '').trim() || buildDefaultPublishText(generation);
         if (!text) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_REQUIRED', '발행 문구를 입력해 주세요.');
+        const sourceUrl = String(generation.source?.canonical_url || '').trim();
         for (const channel of channels) {
-            const length = measurePost(text, channel.service);
+            const length = measurePost(text, channel.service, sourceUrl);
             const limit = Number(SNS_SERVICE_POLICIES[channel.service]?.limit) || 0;
             if (limit > 0 && length > limit) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_TOO_LONG', `${channel.name || channel.service} 채널의 글자 수 제한을 초과했습니다. (${length}/${limit}자)`);
         }
 
-        const wordpress = createWordPressClient();
-        if (!wordpress?.isConfigured?.() || !wordpress.uploadMedia || !wordpress.deleteMedia) {
-            throw createPublishingError(400, 'CARD_NEWS_WORDPRESS_REQUIRED', 'WordPress 연결 정보를 확인해 주세요.');
-        }
         const uploaded = [];
         try {
             for (const asset of assets) {
                 const extension = pathApi.extname(asset.file_name).toLowerCase() || '.png';
-                const media = await wordpress.uploadMedia(
-                    fileSystem.readFileSync(asset.path),
-                    `card-news-${generation.id}-${String(asset.index).padStart(2, '0')}${extension}`,
-                    `${generation.title} ${asset.index}번째 카드`,
-                    asset.mime_type
-                );
-                if (!media?.id || !media?.url) throw createPublishingError(502, 'CARD_NEWS_MEDIA_UPLOAD_FAILED', `${asset.index}번째 이미지를 WordPress에 임시 업로드하지 못했습니다.`);
+                const media = await mediaTransport.upload({
+                    buffer: fileSystem.readFileSync(asset.path),
+                    file_name: `card-news-${generation.id}-${String(asset.index).padStart(2, '0')}${extension}`,
+                    description: `${generation.title} ${asset.index}번째 카드`,
+                    mime_type: asset.mime_type
+                });
+                if (!media?.id || !media?.url) throw createPublishingError(502, 'CARD_NEWS_MEDIA_UPLOAD_FAILED', `${asset.index}번째 이미지를 Google Drive에 임시 업로드하지 못했습니다.`);
                 uploaded.push({ id: media.id, url: normalizePublicImageUrl(media.url) });
             }
         } catch (error) {
-            await cleanupMedia(wordpress, uploaded);
+            await cleanupMedia(uploaded);
             throw error;
         }
 
@@ -235,7 +231,7 @@ function createCardNewsPublishingService(options = {}) {
                 imageUrls
             })));
         } catch (error) {
-            if (String(error?.code || '') !== 'BUFFER_REQUEST_TIMEOUT') await cleanupMedia(wordpress, uploaded);
+            if (String(error?.code || '') !== 'BUFFER_REQUEST_TIMEOUT') await cleanupMedia(uploaded);
             throw createPublishingError(
                 String(error?.code || '') === 'BUFFER_REQUEST_TIMEOUT' ? 504 : 502,
                 error?.code || 'CARD_NEWS_BUFFER_PUBLISH_FAILED',
@@ -246,7 +242,7 @@ function createCardNewsPublishingService(options = {}) {
         }
 
         const terminal = await waitForTerminal(apiKey, results);
-        const cleanupSucceeded = terminal.all_terminal ? await cleanupMedia(wordpress, uploaded) : false;
+        const cleanupSucceeded = terminal.all_terminal ? await cleanupMedia(uploaded) : false;
         const byChannel = new Map(terminal.results.map((result) => [String(result.channelId), result]));
         const normalizedResults = channels.map((channel) => {
             const result = byChannel.get(channel.id) || {};

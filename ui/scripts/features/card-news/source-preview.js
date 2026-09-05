@@ -20,7 +20,6 @@ const cardNewsViewState = {
   publishingOutcome: '',
   publishedChannelIds: new Set(),
   generation: null,
-  includePublished: false,
   workspace: 'create',
   managedItems: [],
   managedFilter: '전체',
@@ -313,7 +312,7 @@ function renderCardNewsPublishingConfig(config = {}) {
   if (!notice || !channels || !text) return;
   const issues = [];
   if (!config.buffer_configured) issues.push('설정 > SNS에서 Buffer 연결과 채널을 먼저 설정해 주세요.');
-  if (!config.media_transport) issues.push('카드 이미지를 Buffer에 전달하려면 설정 > 블로그에서 WordPress를 연결해 주세요.');
+  if (!config.media_transport) issues.push('카드 이미지를 Buffer에 전달하려면 설정에서 Google 계정을 연결해 주세요.');
   notice.textContent = issues.join(' ');
   notice.dataset.state = issues.length ? 'warning' : 'ready';
   channels.innerHTML = (config.channels || []).map((channel) => {
@@ -372,7 +371,9 @@ function setCardNewsPublishing(publishing) {
     status.textContent = '이미지를 준비하고 SNS에 발행하고 있습니다.';
     status.dataset.state = 'loading';
   }
-  if (!publishing) syncCardNewsPublishButton();
+  button?.classList.toggle('is-loading', publishing);
+  button?.setAttribute('aria-busy', String(publishing));
+  syncCardNewsPublishButton();
 }
 
 async function publishCardNews() {

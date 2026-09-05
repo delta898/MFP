@@ -13,6 +13,7 @@ const Constants = require('./constants');
 const { APP_VERSION } = Constants;
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const GoogleOAuth = require('./google-oauth');
 Logger.debug(`Application version: ${APP_VERSION}`);
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./auth-session');
@@ -54,6 +55,7 @@ const { createCardNewsFeedFetcher } = require('./card-news/feed-fetcher');
 const { createCardNewsSourceService } = require('./card-news/source-service');
 const { createCardNewsRssIntake } = require('./card-news/rss-intake');
 const { createCardNewsRssIntakeScheduler } = require('./card-news/rss-intake-scheduler');
+const { createGoogleDrivePublicMediaTransport } = require('./social/google-drive-public-media-transport');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
@@ -284,6 +286,12 @@ const cardNewsLedgerGateway = createCardNewsLedgerGateway({
 });
 const cardNewsLedgerStore = createCardNewsLedgerStore({
     gateway: cardNewsLedgerGateway
+});
+const cardNewsMediaTransport = createGoogleDrivePublicMediaTransport({
+    httpClient: axios,
+    getAccessToken: (scopes) => Utils.getGoogleAccessToken(scopes),
+    peekStatus: GoogleOAuth.peekStatus,
+    logger: Logger
 });
 const cardNewsFeedFetcher = createCardNewsFeedFetcher({ httpClient: axios });
 const cardNewsSourceService = createCardNewsSourceService({
@@ -987,6 +995,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     SlackService,
     snsAiService,
     cardNewsLedgerStore,
+    cardNewsMediaTransport,
     recordActivityLifecycle,
     DEFAULT_HOST,
     DEFAULT_PORT,
@@ -1113,7 +1122,6 @@ setAutoRunnerHandlers({
 });
 
 async function handleGoogleOAuthCallback({ url, res }) {
-    const GoogleOAuth = require('./google-oauth');
     try {
         const code = String(url.searchParams.get('code') || '').trim();
         const state = String(url.searchParams.get('state') || '').trim();
@@ -1129,7 +1137,7 @@ async function handleGoogleOAuthCallback({ url, res }) {
         return true;
     } catch (error) {
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(require('./google-oauth').renderCallbackHtml({ success: false, message: error.message }));
+        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: error.message }));
         return true;
     }
 }

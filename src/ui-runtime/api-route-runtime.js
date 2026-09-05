@@ -17,6 +17,7 @@ function createUiApiRouteRuntime(deps = {}) {
         SlackService,
         snsAiService,
         cardNewsLedgerStore,
+        cardNewsMediaTransport,
         recordActivityLifecycle,
         DEFAULT_HOST,
         DEFAULT_PORT,
@@ -265,12 +266,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 Utils,
                 ledgerStore: cardNewsLedgerStore,
                 bufferClient: new BufferClient({ axios }),
-                createWordPressClient: () => new WordPressClient({
-                    url: CONFIG.WORDPRESS_URL,
-                    userId: CONFIG.WORDPRESS_USER_ID,
-                    appPassword: CONFIG.WORDPRESS_APP_PASSWORD,
-                    axios
-                })
+                mediaTransport: cardNewsMediaTransport
             });
             const controller = createCardNewsController({ service, sendSuccess, sendError, fs });
             cardNewsRouteHandler = createCardNewsRouteHandler({ controller });

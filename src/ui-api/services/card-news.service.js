@@ -142,12 +142,12 @@ function createCardNewsService(deps = {}) {
     const publishingService = deps.publishingService || (
         generationService
         && deps.bufferClient
-        && typeof deps.createWordPressClient === 'function'
+        && deps.mediaTransport
             ? createCardNewsPublishingService({
                 CONFIG,
                 generationService,
                 bufferClient: deps.bufferClient,
-                createWordPressClient: deps.createWordPressClient,
+                mediaTransport: deps.mediaTransport,
                 fileSystem: fs,
                 pathApi: path,
                 logger

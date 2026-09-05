@@ -39,10 +39,6 @@
             <div class="card-news-source-panel" data-card-news-source-panel="feed_item">
               <div class="card-news-panel-toolbar">
                 <div id="card-news-platform-tabs" class="card-news-platform-tabs" role="tablist" aria-label="RSS 소스" hidden></div>
-                <label class="card-news-published-toggle" hidden>
-                  <input id="card-news-include-published" type="checkbox">
-                  <span>발행 완료 포함</span>
-                </label>
                 <button id="card-news-source-refresh" class="card-news-icon-button" type="button" aria-label="피드 새로고침" title="피드 새로고침">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
@@ -178,6 +174,7 @@
               </div>
               <button id="card-news-publishing-close" class="text-btn" type="button" aria-label="발행 설정 닫기">닫기</button>
             </div>
+            <p class="card-news-drive-notice">카드 이미지는 연결된 Google Drive에 공개 링크가 있는 임시 파일로 올라갑니다. 발행 완료 확인 후 자동 삭제되며, 상태를 확인할 수 없으면 파일이 남을 수 있습니다.</p>
             <div id="card-news-publishing-notice" class="card-news-publishing-notice" aria-live="polite"></div>
             <div id="card-news-publishing-channels" class="card-news-publishing-channels"></div>
             <label class="card-news-publishing-text" for="card-news-publishing-text">

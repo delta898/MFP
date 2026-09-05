@@ -32,7 +32,9 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-source-refresh"[^>]*aria-label="피드 새로고침"/);
     assert.match(html, /data-card-news-workspace="create">새 카드뉴스/);
     assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
-    assert.match(html, /class="card-news-published-toggle" hidden>[\s\S]*id="card-news-include-published"/);
+    assert.doesNotMatch(html, /card-news-include-published|card-news-published-toggle/);
+    assert.doesNotMatch(script, /includePublished|card-news-include-published/);
+    assert.match(script, /발행한 카드뉴스는 만든 카드뉴스에서 확인할 수 있습니다/);
     assert.match(html, /data-card-news-managed-filter="발행 완료"/);
     assert.match(html, /id="card-news-zip-select"[^>]*>ZIP 가져오기</);
     assert.match(html, /id="card-news-zip-file"[^>]*accept="\.zip/);
@@ -83,10 +85,15 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-publishing-panel"[^>]*hidden/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/publish/);
+    assert.match(script, /카드 이미지를 Buffer에 전달하려면 설정에서 Google 계정을 연결/);
+    assert.doesNotMatch(script, /카드 이미지를 Buffer에 전달하려면[^\n]*WordPress/);
+    assert.match(html, /class="card-news-drive-notice"[^>]*>[^<]*Google Drive[^<]*공개 링크[^<]*자동 삭제/);
     assert.match(script, /완성된 카드 \$\{generation\.cards\?\.length \|\| 0\}장을 선택한/);
     assert.match(script, /config\.default_text/);
     assert.match(script, /outcome === 'completed'[\s\S]*?'발행 완료'/);
     assert.match(script, /outcome === 'partial' \? '실패 채널 다시 시도'/);
+    assert.match(script, /button\?\.classList\.toggle\('is-loading', publishing\)/);
+    assert.match(script, /button\?\.setAttribute\('aria-busy', String\(publishing\)\)/);
     assert.match(script, /data-card-news-image-working/);
     assert.match(script, /새 이미지 만드는 중…/);
     assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, \[data-card-news-image-action\], \[data-card-news-local-image\]/);

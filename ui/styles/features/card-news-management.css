@@ -34,28 +34,6 @@
   display: none !important;
 }
 
-.card-news-published-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.card-news-published-toggle[hidden] {
-  display: none !important;
-}
-
-.card-news-published-toggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand-primary);
-}
-
 .card-news-feed-item strong em {
   display: inline-flex;
   align-items: center;

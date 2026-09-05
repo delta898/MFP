@@ -14,7 +14,7 @@ function visibleCardNewsArticlesForPlatform(platform = '') {
   return cardNewsViewState.articles
     .map((article, index) => ({ article, index }))
     .filter(({ article }) => !platform || article.source_platform === platform)
-    .filter(({ article }) => cardNewsViewState.includePublished || !isCardNewsSourcePublished(article));
+    .filter(({ article }) => !isCardNewsSourcePublished(article));
 }
 
 function renderCardNewsPlatformTabs() {
@@ -67,7 +67,7 @@ function renderCardNewsVisibleArticles() {
     const message = visibleFailures.length
       ? '잠시 후 새로고침해 주세요.'
       : (onlyPublished
-        ? '발행 완료 포함을 선택하면 이전 글도 다시 볼 수 있습니다.'
+        ? '발행한 카드뉴스는 만든 카드뉴스에서 확인할 수 있습니다.'
         : (hasConfiguredSource ? 'RSS 주소를 확인한 뒤 새로고침해 주세요.' : '설정에서 블로그를 연결하거나 RSS를 추가해 주세요.'));
     list.innerHTML = `<div class="card-news-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   } else {
@@ -113,8 +113,6 @@ function renderCardNewsArticles(result = {}) {
       ? savedPlatform
       : (cardNewsViewState.configuredSources[0] || '');
   }
-  const publishedToggle = document.querySelector('.card-news-published-toggle');
-  if (publishedToggle) publishedToggle.hidden = !cardNewsViewState.articles.some(isCardNewsSourcePublished);
   renderCardNewsPlatformTabs();
   renderCardNewsVisibleArticles();
   markCardNewsPreviewStale();
@@ -383,11 +381,4 @@ function bindCardNewsManagementView() {
   document.getElementById('card-news-zip-cancel')?.addEventListener('click', resetCardNewsZipImport);
   document.getElementById('card-news-zip-import')?.addEventListener('click', () => void importCardNewsZip());
   document.getElementById('card-news-zip-source-url')?.addEventListener('input', updateCardNewsZipSourceMatch);
-  document.getElementById('card-news-include-published')?.addEventListener('change', (event) => {
-    cardNewsViewState.includePublished = Boolean(event.currentTarget.checked);
-    cardNewsViewState.selectedArticleIndex = -1;
-    renderCardNewsPlatformTabs();
-    renderCardNewsVisibleArticles();
-    markCardNewsPreviewStale();
-  });
 }

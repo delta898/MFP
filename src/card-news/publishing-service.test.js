@@ -31,10 +31,17 @@ function config() {
             { id: 'instagram-1', name: 'Instagram', service: 'instagram' },
             { id: 'bluesky-1', name: 'Bluesky', service: 'bluesky' },
             { id: 'pinterest-1', name: 'Pinterest', service: 'pinterest' }
-        ],
-        WORDPRESS_URL: 'https://blog.example',
-        WORDPRESS_USER_ID: 'writer',
-        WORDPRESS_APP_PASSWORD: 'app-password'
+        ]
+    };
+}
+
+function transport(overrides = {}) {
+    return {
+        transport: 'google_drive',
+        isAvailable: () => true,
+        async upload() { return { id: 'drive-file', url: 'https://drive.usercontent.google.com/download?id=drive-file' }; },
+        async remove() { return true; },
+        ...overrides
     };
 }
 
@@ -45,15 +52,34 @@ test('publishing config reports channel-specific carousel compatibility', () => 
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
             bufferClient: { shareNowMany: async () => [] },
-            createWordPressClient: () => ({})
+            mediaTransport: transport()
         });
         const result = service.getConfig('generation-123');
         assert.equal(result.card_count, 3);
-        assert.equal(result.media_transport, 'wordpress');
+        assert.equal(result.media_transport, 'google_drive');
         assert.equal(result.default_text, '제주의 새로운 모습을 카드로 만나보세요.\n\nhttps://blog.example/jeju\n\n#제주여행 #카드뉴스');
         assert.equal(result.channels.find((item) => item.service === 'instagram').compatible, true);
         assert.equal(result.channels.find((item) => item.service === 'bluesky').compatible, true);
         assert.equal(result.channels.find((item) => item.service === 'pinterest').compatible, false);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('publishing config and execution require Google public media without WordPress settings', async () => {
+    const data = fixture();
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config(),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: { shareNowMany: async () => [] },
+            mediaTransport: transport({ isAvailable: () => false })
+        });
+        assert.equal(service.getConfig('generation-123').media_transport, '');
+        await assert.rejects(
+            () => service.publish({ generation_id: 'generation-123', channel_ids: ['instagram-1'], text: '카드뉴스' }),
+            (error) => error.code === 'CARD_NEWS_GOOGLE_DRIVE_REQUIRED' && /Google 계정/.test(error.message)
+        );
     } finally {
         fs.rmSync(data.root, { recursive: true, force: true });
     }
@@ -73,7 +99,7 @@ test('default publishing copy keeps the verified source URL deterministic and su
     fs.rmSync(data.root, { recursive: true, force: true });
 });
 
-test('publish uploads images in order, sends an ordered Buffer asset list, and cleans up after terminal success', async () => {
+test('publish uploads images to public media in order, sends an ordered Buffer asset list, and cleans up after terminal success', async () => {
     const data = fixture();
     const uploaded = [];
     const deleted = [];
@@ -91,13 +117,12 @@ test('publish uploads images in order, sends an ordered Buffer asset list, and c
                     return ids.map((id, index) => ({ id, status: 'sent', externalLink: `https://social.example/${index + 1}` }));
                 }
             },
-            createWordPressClient: () => ({
-                isConfigured: () => true,
-                async uploadMedia(buffer, fileName) {
-                    uploaded.push({ buffer, fileName });
-                    return { id: uploaded.length, url: `https://blog.example/media/${uploaded.length}.png` };
+            mediaTransport: transport({
+                async upload(input) {
+                    uploaded.push(input);
+                    return { id: uploaded.length, url: `https://drive.usercontent.google.com/download?id=${uploaded.length}` };
                 },
-                async deleteMedia(id) { deleted.push(id); return true; }
+                async remove(item) { deleted.push(item.id); return true; }
             }),
             pollIntervalMs: 0,
             pollTimeoutMs: 10
@@ -112,9 +137,9 @@ test('publish uploads images in order, sends an ordered Buffer asset list, and c
         assert.equal(result.success, true);
         assert.equal(uploaded.length, 3);
         assert.deepEqual(deliveries[0].imageUrls, [
-            'https://blog.example/media/1.png',
-            'https://blog.example/media/2.png',
-            'https://blog.example/media/3.png'
+            'https://drive.usercontent.google.com/download?id=1',
+            'https://drive.usercontent.google.com/download?id=2',
+            'https://drive.usercontent.google.com/download?id=3'
         ]);
         assert.deepEqual(deleted, [1, 2, 3]);
         assert.equal(result.results[0].external_link, 'https://social.example/1');
@@ -131,11 +156,7 @@ test('publish rejects channels whose image limit is below the card count before 
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
             bufferClient: { shareNowMany: async () => [] },
-            createWordPressClient: () => ({
-                isConfigured: () => true,
-                async uploadMedia() { uploadCalled = true; },
-                async deleteMedia() { return true; }
-            })
+            mediaTransport: transport({ async upload() { uploadCalled = true; } })
         });
         await assert.rejects(
             () => service.publish({ generation_id: 'generation-123', channel_ids: ['pinterest-1'], text: '카드뉴스' }),
@@ -147,7 +168,41 @@ test('publish rejects channels whose image limit is below the card count before 
     }
 });
 
-test('partial WordPress upload failure removes images already uploaded', async () => {
+test('Bluesky validation counts the verified source URL using its fixed link length', async () => {
+    const data = fixture();
+    data.generation.source.canonical_url = `https://blog.example/${'한글주소'.repeat(35)}`;
+    const deliveries = [];
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config(),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async shareNowMany(_key, input) {
+                    deliveries.push(...input);
+                    return [{ success: true, channelId: 'bluesky-1', bufferPostId: 'post-1' }];
+                },
+                async getPostsByIds() {
+                    return [{ id: 'post-1', status: 'sent', externalLink: 'https://bsky.app/post/1' }];
+                }
+            },
+            mediaTransport: transport(),
+            pollIntervalMs: 0,
+            pollTimeoutMs: 10
+        });
+        const text = `${'가'.repeat(260)}\n\n${data.generation.source.canonical_url}`;
+        const result = await service.publish({
+            generation_id: 'generation-123',
+            channel_ids: ['bluesky-1'],
+            text
+        });
+        assert.equal(result.success, true);
+        assert.equal(deliveries[0].text, text);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('partial public-media upload failure removes images already uploaded', async () => {
     const data = fixture();
     const deleted = [];
     let uploadCount = 0;
@@ -156,13 +211,12 @@ test('partial WordPress upload failure removes images already uploaded', async (
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
             bufferClient: { shareNowMany: async () => [] },
-            createWordPressClient: () => ({
-                isConfigured: () => true,
-                async uploadMedia() {
+            mediaTransport: transport({
+                async upload() {
                     uploadCount += 1;
-                    return uploadCount === 1 ? { id: 91, url: 'https://blog.example/media/91.png' } : null;
+                    return uploadCount === 1 ? { id: 91, url: 'https://drive.usercontent.google.com/download?id=91' } : null;
                 },
-                async deleteMedia(id) { deleted.push(id); return true; }
+                async remove(item) { deleted.push(item.id); return true; }
             })
         });
         await assert.rejects(
@@ -190,13 +244,12 @@ test('ambiguous Buffer timeout retains temporary media to avoid breaking a deliv
                     throw error;
                 }
             },
-            createWordPressClient: () => ({
-                isConfigured: () => true,
-                async uploadMedia(_buffer, _fileName) {
+            mediaTransport: transport({
+                async upload() {
                     const id = nextMediaId++;
-                    return { id, url: `https://blog.example/media/${id}.png` };
+                    return { id, url: `https://drive.usercontent.google.com/download?id=${id}` };
                 },
-                async deleteMedia(id) { deleted.push(id); return true; }
+                async remove(item) { deleted.push(item.id); return true; }
             })
         });
         await assert.rejects(
@@ -223,7 +276,7 @@ test('publishing config rejects unsupported remote formats and Instagram story r
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
             bufferClient: { shareNowMany: async () => [] },
-            createWordPressClient: () => ({})
+            mediaTransport: transport()
         });
         const result = service.getConfig('generation-123');
         assert.equal(result.channels.find((item) => item.service === 'instagram').compatible, false);
