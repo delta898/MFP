@@ -1117,20 +1117,8 @@ async function run() {
             await page.locator('.nav-btn[data-view="blog-next"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
             '블로그'
         );
-        assert.deepEqual(
-            await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').evaluate((element) => ({
-                text: element.textContent?.trim(),
-                label: element.getAttribute('aria-label'),
-                color: getComputedStyle(element).color,
-                background: getComputedStyle(element).backgroundColor
-            })),
-            {
-                text: 'new',
-                label: '새 메뉴',
-                color: 'rgb(159, 18, 57)',
-                background: 'rgb(255, 241, 242)'
-            }
-        );
+        assert.equal(await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').count(), 0);
+        assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').textContent(), 'new');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-topic-form [data-blog-next-runner-status-jump]').evaluate((element) => element.hidden), true);

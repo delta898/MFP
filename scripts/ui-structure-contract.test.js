@@ -70,7 +70,7 @@ test('productized Dashboard and Blog navigation expose compact accessible new ba
 
     assert.match(
         html,
-        /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
+        /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<\/span>/
     );
     assert.match(
         html,

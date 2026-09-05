@@ -140,7 +140,7 @@ test('productized navigation hides legacy Blog and uses the new Blog on mobile',
     const responsive = read('ui/styles/layout/responsive.css');
 
     assert.match(index, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
-    assert.match(index, /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<sup class="nav-new-badge"/);
+    assert.match(index, /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<\/span>/);
     assert.match(navigation, /viewName = 'blog-next';[\s\S]*subTab = 'quick';/);
     assert.match(navigation, /void navigateTo\('blog-next', 'quick'\)/);
     assert.match(responsive, /mobile-quick-mode \.nav-btn\[data-view="blog"\]/);
