@@ -122,8 +122,9 @@ order by plan_code;
 
 ### 3.-1 최초 실행 자동 test 발급
 
-- 사용자가 `config/license.key` 없이 앱을 실행하면 자동으로 `issue_test_license(p_hwid)`를 호출합니다.
-- 발급 성공 시 앱이 `config/license.key`를 자동 저장합니다.
+- 사용자의 Electron 데이터 영역에 환경별 라이선스 키가 없으면 자동으로 `issue_test_license(p_hwid)`를 호출합니다.
+- 발급 성공 시 앱이 Electron 사용자 데이터 영역의 `config/license.key`를 자동 저장합니다.
+- 이전 앱 폴더의 `config/license.key`가 있으면 새 저장소로 복사해 기존 플랜을 이어가며, 이전 파일은 삭제하지 않습니다.
 - 운영자 개입은 기본적으로 필요하지 않습니다.
 - 실패 시(네트워크/DB/RPC 오류)만 운영자가 키를 수동 발급해 전달합니다.
 
@@ -228,7 +229,7 @@ supabase secrets set LICENSE_EMAIL_FROM="BlogGenius <license@your-domain.com>" -
 1. SQL 파일 열기
 2. `params` CTE의 값 수정 (`p_email`, `p_usage_limit`, `p_note`)
 3. 실행 후 반환된 `license_key`를 사용자에게 전달
-4. 사용자는 `config/license.key`에 입력
+4. 사용자는 앱의 라이선스 등록·복구 동선을 사용하거나 Electron 사용자 데이터 영역의 `config/license.key`에 입력
 
 test/free 고유키를 빠르게 발급하려면:
 
@@ -301,10 +302,10 @@ where license_key = 'LICENSE-KEY-REPLACE-ME';
 ## 4. 사용자 안내 템플릿
 
 1. 발급 안내:
-  - `LICENSE_KEY`를 전달하고 `config/license.key`에 입력하도록 안내
+  - `LICENSE_KEY`를 전달하고 앱의 라이선스 등록·복구 동선 또는 Electron 사용자 데이터 영역의 `config/license.key`를 사용하도록 안내
 2. 플랜 전환 안내:
   - 기존 키 유지 전환이면 별도 조치 없음
-  - 새 키 발급 전환이면 `config/license.key`의 키 교체 안내
+  - 새 키 발급 전환이면 Electron 사용자 데이터 영역 `config/license.key`의 키 교체 안내
 3. 기기 변경 안내:
   - 운영자가 HWID reset 후 재실행 요청
 

@@ -146,7 +146,7 @@ Collector 파일에서는 제거한다. 이전 구조에서 남은 `SUPABASE_URL
 각 컴퓨터는 환경별 파일을 독립적으로 소유하며, 파일이 없으면 기존 HWID 기반 자동 발급 절차로
 해당 환경의 테스트 라이선스를 만들어 저장한다.
 
-| 실행 환경 | 라이선스 파일 |
+| 실행 환경 | 사용자 데이터 영역의 라이선스 파일 |
 | --- | --- |
 | Local | `config/license.local.key` |
 | Development | `config/license.development.key` |
@@ -155,6 +155,10 @@ Collector 파일에서는 제거한다. 이전 구조에서 남은 `SUPABASE_URL
 같은 파일명이라도 컴퓨터마다 로컬 파일이 다르므로 여러 개발 장비는 서로 다른 HWID 라이선스를
 사용한다. 세 파일은 모두 Git 관리 대상이 아니다. 환경을 선택하지 못했거나 해당 환경 파일이
 없을 때 다른 환경의 파일로 fallback하지 않는다.
+
+Electron 실행에서는 `app.getPath('userData')/config`가 사용자 데이터 영역이다. Electron을 통하지
+않는 CLI 실행에서는 기존처럼 선택한 runtime root의 `config`를 사용한다. 앱 폴더에 남아 있는
+동일 환경의 기존 키는 Electron 첫 실행에서 사용자 데이터 영역으로 복사하고 원본은 보존한다.
 
 Local DB reset은 DB에 저장된 HWID 라이선스도 제거하므로 `npm run env:local:reset`과
 `./run_local_reset.sh`가 `license.local.key`만 함께 지운다. Development와 Production

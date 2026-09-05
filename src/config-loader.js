@@ -25,6 +25,10 @@ const {
 const {
     resolveRuntimeEnvironmentProfile
 } = require('./environment/runtime-profile');
+const {
+    resolveLicenseKeyStoragePaths,
+    loadLicenseKey
+} = require('./config/license-key-storage');
 const { APP_VERSION } = Constants;
 
 // 💡 [경로 기준점 고도화]
@@ -95,6 +99,13 @@ const LICENSE_FILE_NAMES = Object.freeze({
     production: 'license.key'
 });
 const activeLicenseFileName = LICENSE_FILE_NAMES[runtimeEnvironmentProfile.environment] || '';
+const licenseKeyStoragePaths = resolveLicenseKeyStoragePaths({
+    fileName: activeLicenseFileName,
+    userDataDir: BLOG_GENIUS_USER_DATA,
+    rootDir: ROOT_DIR,
+    execDir: EXEC_DIR,
+    pathImpl: path
+});
 
 // =========================================================
 // 2. 📂 [경로 정의]
@@ -115,12 +126,11 @@ const PATHS = {
     configJsonSampleFromResources: PACKAGED_DEFAULT_ASSETS.configSample,
     configImagesFromResources: PACKAGED_DEFAULT_ASSETS.imagesDir,
 
-    licenseKeyFile: activeLicenseFileName
-        ? path.join(ROOT_DIR, 'config', activeLicenseFileName)
-        : '',
+    licenseKeyFile: licenseKeyStoragePaths.primaryPath,
     licenseKeyFileFromExec: activeLicenseFileName
         ? path.join(EXEC_DIR, 'config', activeLicenseFileName)
         : '',
+    legacyLicenseKeyFiles: licenseKeyStoragePaths.legacyPaths,
     auth: path.join(ROOT_DIR, 'config', 'naver_auth.json'),
     blogPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'blog_prompt.md'),
     blogPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'blog_prompt.md'),
@@ -242,25 +252,6 @@ function loadUserConfig() {
     };
 }
 
-function loadLicenseKey() {
-    const candidates = [...new Set([
-        PATHS.licenseKeyFile,
-        PATHS.licenseKeyFileFromExec
-    ].filter(Boolean))];
-    const matchedPath = candidates.find((filePath) => fs.existsSync(filePath));
-    if (!matchedPath) {
-        return { value: '', path: PATHS.licenseKeyFile || '' };
-    }
-    try {
-        const value = String(fs.readFileSync(matchedPath, 'utf-8') || '')
-            .split(/\r?\n/)
-            .find((line) => String(line || '').trim() !== '') || '';
-        return { value: String(value).trim(), path: matchedPath };
-    } catch (e) {
-        return { value: '', path: matchedPath };
-    }
-}
-
 function extractGoogleSheetId(input) {
     const raw = String(input || '').trim();
     if (!raw) return '';
@@ -319,7 +310,15 @@ const geminiImageModelCode = resolvedImageModelConfig.transport === 'gemini_gene
     ? resolvedImageModelConfig.code
     : '';
 
-const licenseKeyInfo = loadLicenseKey();
+const licenseKeyInfo = loadLicenseKey({
+    primaryPath: licenseKeyStoragePaths.primaryPath,
+    legacyPaths: licenseKeyStoragePaths.legacyPaths,
+    fsImpl: fs,
+    pathImpl: path
+});
+if (licenseKeyInfo.migrationError) {
+    console.warn(`⚠️ 라이선스 정보 이전 실패: ${licenseKeyInfo.migrationError}`);
+}
 
 const activeConfigDir = (() => {
     if (configReady && configSourcePath) return path.dirname(configSourcePath);
@@ -420,9 +419,7 @@ if (fs.existsSync(oldAuthPath) && !fs.existsSync(resolvedAuthPath)) {
     }
 }
 
-const resolvedLicenseKeyPath = licenseKeyInfo.path || (activeLicenseFileName
-    ? path.join(activeConfigDir, activeLicenseFileName)
-    : '');
+const resolvedLicenseKeyPath = licenseKeyInfo.path || licenseKeyStoragePaths.primaryPath;
 const productionLicenseEnvironmentOverride = runtimeEnvironmentProfile.environment === 'production'
     ? String(process.env.LICENSE_KEY || '').trim()
     : '';

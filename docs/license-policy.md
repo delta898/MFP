@@ -35,7 +35,7 @@
 앱 역할:
 - `LICENSE_KEY`를 읽어 RPC에 전달
 - `LICENSE_KEY`가 비어 있으면 `issue_test_license(p_hwid)`로 test 키 자동 발급 시도
-- 발급 성공 시 `config/license.key`에 자동 저장
+- 발급 성공 시 Electron 사용자 데이터 영역의 `config/license.key`에 자동 저장
 - HWID와 함께 RPC 호출
 - 앱의 라이선스 화면에서 이메일 인증 후 현재 키에 이메일 연결
 - 앱의 라이선스 화면에서 이메일 인증 후 기존 키 복구
@@ -133,13 +133,15 @@
 
 ## 5. 설정 값
 
-`config/license.key`:
+Electron 사용자 데이터 영역의 `config/license.key`:
 
 ```txt
 발급받은_라이선스_키
 ```
 
 - 최초 실행에서는 빈 값이어도 test 키 자동 발급/저장 후 진행됩니다.
+- 현재 앱 이름 기준으로 macOS에서는 `~/Library/Application Support/blog-genius/config/license.key`, Windows에서는 `%APPDATA%/blog-genius/config/license.key`에 해당합니다.
+- 이전 버전의 앱 폴더 안에 유효한 `config/license.key`가 있으면 처음 읽을 때 사용자 데이터 영역으로 복사하며, 원본은 rollback을 위해 남겨 둡니다.
 - 공유 키(`test`, `free`)는 사용하지 않습니다.
 - 플랜 변경 시에도 새로 발급받은 고유 키를 사용합니다.
 

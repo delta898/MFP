@@ -6,6 +6,7 @@ const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const { validateLicenseFeaturePolicy } = require('./license-feature-policy');
 const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
+const { writeLicenseKey } = require('./config/license-key-storage');
 
 // Supabase 클라이언트 초기화 (설정 누락 시 null 처리하여 안전하게 기동)
 let supabase = null;
@@ -259,9 +260,7 @@ function persistLicenseKeyFile(licenseKey) {
         return false;
     }
     try {
-        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-        fs.writeFileSync(targetPath, `${licenseKey}\n`, { encoding: 'utf-8', mode: 0o600 });
-        try { fs.chmodSync(targetPath, 0o600); } catch (e) { }
+        writeLicenseKey(targetPath, licenseKey, fs, path);
         return true;
     } catch (e) {
         Logger.warn('⚠️ 라이선스 정보를 로컬에 저장하지 못했습니다. 다음 실행에서 다시 인증이 필요할 수 있습니다.');

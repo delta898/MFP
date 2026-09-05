@@ -183,6 +183,7 @@ test('development app launcher reads the dedicated file and owns environment sel
 test('development runtime root makes config loading prefer the project over Electron userData', () => {
     const runtimeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-runtime-root-'));
     const electronUserData = path.join(runtimeRoot, 'electron-user-data');
+    const persistentLicensePath = path.join(electronUserData, 'config', 'license.local.key');
     const configDir = path.join(runtimeRoot, 'config');
     const configPath = path.join(configDir, 'config.json');
     const localLicensePath = path.join(configDir, 'license.local.key');
@@ -223,7 +224,38 @@ test('development runtime root makes config loading prefer the project over Elec
             source: configPath,
             port: 49123,
             license: 'local-license',
-            licensePath: localLicensePath
+            licensePath: persistentLicensePath
+        });
+        assert.equal(fs.readFileSync(persistentLicensePath, 'utf8'), 'local-license\n');
+        assert.equal(fs.readFileSync(localLicensePath, 'utf8'), 'local-license\n');
+
+        const nextRuntimeRoot = path.join(runtimeRoot, 'next-version');
+        const nextConfigDir = path.join(nextRuntimeRoot, 'config');
+        const nextConfigPath = path.join(nextConfigDir, 'config.json');
+        fs.mkdirSync(nextConfigDir, { recursive: true });
+        fs.writeFileSync(nextConfigPath, JSON.stringify(sample), 'utf8');
+
+        const nextResult = spawnSync(process.execPath, [
+            '-e',
+            `const config = require(${JSON.stringify(loaderPath)}); process.stdout.write(JSON.stringify({ root: config.ROOT_DIR, license: config.LICENSE_KEY, licensePath: config.LICENSE_KEY_FILE_PATH }));`
+        ], {
+            cwd: REPO_ROOT,
+            env: {
+                ...process.env,
+                BLOGGENIUS_ENV: 'local',
+                BLOGGENIUS_RUNTIME_ROOT: nextRuntimeRoot,
+                BLOGGENIUS_LOCAL_SUPABASE_URL: 'http://127.0.0.1:54321',
+                BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: 'local-public-key',
+                BLOG_GENIUS_USER_DATA: electronUserData
+            },
+            encoding: 'utf8'
+        });
+
+        assert.equal(nextResult.status, 0, nextResult.stderr);
+        assert.deepEqual(JSON.parse(nextResult.stdout), {
+            root: nextRuntimeRoot,
+            license: 'local-license',
+            licensePath: persistentLicensePath
         });
     } finally {
         fs.rmSync(runtimeRoot, { recursive: true, force: true });
