@@ -3,6 +3,12 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev3] - 2026-09-06
+
+### Changed
+- **업데이트 후에도 플랜 유지**: 라이선스 정보를 앱 버전 폴더가 아닌 사용자 전용 영역에 보관해, 새 버전을 설치하거나 다른 폴더에 풀어도 기존 플랜을 이어서 확인할 수 있습니다.
+- **첫 실행 설정 동선 강화**: Dashboard의 사용 준비 안내를 더 눈에 띄게 표시하고, AI 모델·Google Spreadsheet·발행 채널 카드를 눌러 해당 설정으로 바로 이동할 수 있습니다.
+
 ## [0.4.3-dev2] - 2026-09-05
 
 ### Added

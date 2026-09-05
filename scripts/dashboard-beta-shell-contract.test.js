@@ -56,9 +56,14 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaScript, /section\.hidden = complete/);
     assert.match(betaScript, /setup\?\.publishing_channel\?\.configured === true/);
     assert.match(betaScript, /navigateToSettingsTarget\(settingsTarget\.dataset\.settingsTab, settingsTarget\.dataset\.settingsTarget\)/);
+    assert.match(betaView, /data-dashboard-beta-setup-step="ai"[^>]*data-settings-tab="ai"[^>]*data-settings-target="settings-text-model-api-key-wrap"/);
+    assert.match(betaView, /data-dashboard-beta-setup-step="google"[^>]*data-settings-tab="general"[^>]*data-settings-target="settings-google-auth-section"/);
+    assert.match(betaView, /data-dashboard-beta-setup-step="channel"[^>]*data-settings-tab="naver-blog"[^>]*data-settings-target="settings-naver-id"/);
     assert.match(generalSettings, /id="settings-google-auth-section"/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\[hidden\]\s*\{\s*display:\s*none/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*border:\s*2px solid/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding-step:hover\s*\{[^}]*transform:\s*translateY\(-2px\)/);
 });
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {
