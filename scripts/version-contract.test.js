@@ -6,9 +6,14 @@ const packageLock = require('../package-lock.json');
 const { bumpVersion, formatVersion, parseVersion } = require('./version-utils');
 
 test('desktop package and lockfile root versions remain consistent', () => {
-  assert.equal(packageJson.version, '0.4.1');
+  assert.equal(packageJson.version, '0.4.3');
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[''].version, packageJson.version);
+});
+
+test('desktop runtime stays on the supported Electron 44 release line', () => {
+  assert.match(packageJson.devDependencies.electron, /^\^44\./);
+  assert.match(packageLock.packages['node_modules/electron'].version, /^44\./);
 });
 
 test('release version helpers accept prerelease versions and promote patch to stable', () => {
