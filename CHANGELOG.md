@@ -3,6 +3,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev6] - 2026-09-06
+
 ### Fixed
 - **Windows 자동 업데이트 적용 복구**: 업데이트 후 앱만 다시 열리고 이전 버전이 유지되던 문제를 수정하고, 적용 실패 시 원인을 확인할 수 있도록 단계별 기록을 보강했습니다.
 
