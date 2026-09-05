@@ -1,5 +1,6 @@
 const { normalizeCardNewsSource, createCardNewsContractError } = require('./contract');
-const { resolveSnsFeedDefinitions, sortOldestFirst } = require('../social/sns-rss-discovery');
+const { sortOldestFirst } = require('../social/sns-rss-discovery');
+const { resolveCardNewsFeedDefinitions } = require('./feed-sources');
 
 function compact(value, maxLength = 50000) {
     return String(value || '').trim().slice(0, maxLength);
@@ -13,8 +14,10 @@ function cleanPreviewText(value) {
         .trim();
 }
 
-function sourceKey(platform, feedUrl, item = {}) {
-    return compact(item.guid || item.item_key || item.link || `${platform}:${feedUrl}:${item.title}`, 1000);
+function sourceKey(feed, item = {}) {
+    const identity = compact(item.guid || item.item_key || item.link || item.title, 900);
+    if (feed.origin !== 'custom_rss') return identity;
+    return compact(`${feed.sourcePlatform}\n${feed.url}\n${identity}`, 1000);
 }
 
 function createCardNewsSourceService(options = {}) {
@@ -26,7 +29,7 @@ function createCardNewsSourceService(options = {}) {
         if (typeof fetchFeed !== 'function') {
             throw new Error('카드뉴스 RSS 조회 기능이 필요합니다.');
         }
-        const feeds = resolveSnsFeedDefinitions(config);
+        const feeds = resolveCardNewsFeedDefinitions(config);
         const articles = [];
         const failures = [];
         for (const feed of feeds) {
@@ -38,14 +41,17 @@ function createCardNewsSourceService(options = {}) {
                             ...normalizeCardNewsSource({
                                 kind: 'feed_item',
                                 feed_url: feed.url,
-                                item_key: sourceKey(feed.sourcePlatform, feed.url, item),
+                                item_key: sourceKey(feed, item),
                                 canonical_url: item.link,
                                 title: item.title,
                                 published_at: item.pubDate,
                                 preview_text: item.summary || item.description || item.content,
-                                source_platform: feed.sourcePlatform
+                                source_platform: feed.sourcePlatform,
+                                feed_label: feed.label
                             }),
                             source_platform: feed.sourcePlatform,
+                            feed_id: feed.id,
+                            feed_label: feed.label,
                             image_url: compact(item.imageUrl, 4000)
                         });
                     } catch (_error) {
@@ -55,6 +61,8 @@ function createCardNewsSourceService(options = {}) {
             } catch (error) {
                 failures.push({
                     source_platform: feed.sourcePlatform,
+                    feed_id: feed.id,
+                    feed_label: feed.label,
                     feed_url: feed.url,
                     code: compact(error?.code || 'CARD_NEWS_FEED_FETCH_FAILED', 100),
                     message: compact(error?.message || '블로그 글 목록을 불러오지 못했습니다.', 500)
@@ -65,7 +73,13 @@ function createCardNewsSourceService(options = {}) {
             articles,
             failures,
             configured_feed_count: feeds.length,
-            configured_sources: feeds.map((feed) => feed.sourcePlatform)
+            configured_sources: feeds.map((feed) => feed.sourcePlatform),
+            feed_sources: feeds.map((feed) => ({
+                id: feed.id,
+                label: feed.label,
+                source_platform: feed.sourcePlatform,
+                origin: feed.origin
+            }))
         };
     }
 

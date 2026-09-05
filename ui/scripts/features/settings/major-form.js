@@ -87,6 +87,14 @@ function applySettingsMajorToForm(data, options = {}) {
 
   settingsMajorApplyingForm = true;
 
+  settingsCardNewsRssSources = normalizeSettingsCardNewsRssSources(fields.CARD_NEWS_RSS_SOURCES);
+  renderSettingsCardNewsRssSources();
+  const cardNewsBuiltinSources = new Set(Array.isArray(fields.CARD_NEWS_BUILTIN_SOURCES)
+    ? fields.CARD_NEWS_BUILTIN_SOURCES
+    : ['naver', 'wordpress']);
+  sc(document.getElementById('settings-card-news-source-naver'), cardNewsBuiltinSources.has('naver'));
+  sc(document.getElementById('settings-card-news-source-wordpress'), cardNewsBuiltinSources.has('wordpress'));
+
   sv(listenHostEl, fields.LISTEN_HOST || '127.0.0.1');
   sv(listenPortEl, fields.LISTEN_PORT || 4577);
   sc(mcpRemoteEnabledEl, fields.MCP_REMOTE_ENABLED ?? false);
@@ -337,6 +345,10 @@ function getSettingsMajorBasicValuesFromDom() {
     AI_MODEL_PROFILES: serializeSettingsAiProviderProfiles(),
 
     IMAGE_OPTIMIZATION_ENABLED: Boolean(document.getElementById('settings-image-optimization')?.checked),
+    CARD_NEWS_RSS_SOURCES: normalizeSettingsCardNewsRssSources(settingsCardNewsRssSources),
+    CARD_NEWS_BUILTIN_SOURCES: ['naver', 'wordpress'].filter((source) => (
+      Boolean(document.getElementById(`settings-card-news-source-${source}`)?.checked)
+    )),
 
     TYPING_SPEED: (document.getElementById('settings-typing-speed')?.value || 'NORMAL').trim().toUpperCase(),
 

@@ -30,6 +30,7 @@ function createWindowsServerHarness() {
             };
         }
     };
+    const lifecycle = { cardNewsStarts: 0, cardNewsStops: 0 };
     const runtime = createUiHttpServerRuntime({
         http,
         fs,
@@ -53,6 +54,8 @@ function createWindowsServerHarness() {
         getContentType: httpUtils.getContentType,
         syncAutoRunnerWithConfig() {},
         triggerSnsStartupDiscovery: null,
+        startCardNewsRssIntake() { lifecycle.cardNewsStarts += 1; },
+        stopCardNewsRssIntake() { lifecycle.cardNewsStops += 1; },
         startRecommendationDelivery: null,
         stopRecommendationDelivery() {},
         syncShoppingAutoRunnerWithConfig() {},
@@ -63,8 +66,12 @@ function createWindowsServerHarness() {
     });
 
     return {
+        lifecycle,
         async start() {
             await runtime.startUiServer();
+        },
+        async reload() {
+            await runtime.reloadUiServer('127.0.0.1', 4577);
         },
         async request(url) {
             const response = { statusCode: 0, headers: {}, body: null };
@@ -90,6 +97,7 @@ function createWindowsServerHarness() {
 test('Windows UI server returns composed CSS and JavaScript assets', async () => {
     const harness = createWindowsServerHarness();
     await harness.start();
+    assert.equal(harness.lifecycle.cardNewsStarts, 1);
 
     const styles = await harness.request('/styles.css?v=3');
     assert.equal(styles.statusCode, 200);
@@ -100,4 +108,13 @@ test('Windows UI server returns composed CSS and JavaScript assets', async () =>
     assert.equal(script.statusCode, 200);
     assert.equal(script.headers['Content-Type'], 'application/javascript; charset=utf-8');
     assert.equal(script.body, 'globalThis.composed = true;');
+});
+
+test('UI server restart replaces the Card News RSS scheduler instead of duplicating it', async () => {
+    const harness = createWindowsServerHarness();
+    await harness.start();
+    await harness.reload();
+
+    assert.equal(harness.lifecycle.cardNewsStops, 1);
+    assert.equal(harness.lifecycle.cardNewsStarts, 2);
 });

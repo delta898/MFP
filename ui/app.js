@@ -62,6 +62,7 @@
 // @include scripts/features/settings/writing-profile-settings.js
 // @include scripts/features/settings/buffer.js
 // @include scripts/features/settings/sns-runtime.js
+// @include scripts/features/settings/card-news-rss.js
 // @include scripts/features/settings/major-form.js
 // @include scripts/features/settings/ai-models.js
 // @include scripts/features/settings/save-lifecycle.js

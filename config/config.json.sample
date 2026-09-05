@@ -12,6 +12,10 @@
         "speech_level": "polite"
       },
       "writing_strategy": "search"
+    },
+    "card_news": {
+      "builtin_sources": ["naver", "wordpress"],
+      "rss_sources": []
     }
   },
   "ai_settings": {

@@ -195,6 +195,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
     console.log('[Settings] Save successful');
     applySettingsMajorToForm(data);
     commitSettingsMajorSavedState();
+    if (typeof markCardNewsSourcesStale === 'function') markCardNewsSourcesStale();
     uiSheetsReady = false;
     invalidateWpCategoryCache();
 

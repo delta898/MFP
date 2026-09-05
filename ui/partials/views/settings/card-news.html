@@ -1,0 +1,29 @@
+        <div class="card form-card settings-tab-panel" id="settings-tab-card-news">
+          <h2>카드뉴스 소스</h2>
+          <p class="muted">연결된 네이버·WordPress 블로그를 기본 소스로 사용할 수 있고, 다른 공개 RSS도 추가할 수 있습니다.</p>
+
+          <div class="card-news-rss-settings">
+            <div class="settings-section-divider">연결된 블로그</div>
+            <div class="card-news-builtin-source-options">
+              <label class="settings-checkbox-label">
+                <input id="settings-card-news-source-naver" type="checkbox">
+                <span>네이버 블로그 사용</span>
+              </label>
+              <label class="settings-checkbox-label">
+                <input id="settings-card-news-source-wordpress" type="checkbox">
+                <span>WordPress 사용</span>
+              </label>
+            </div>
+            <p class="muted">끄면 카드뉴스 글 목록과 새 글 수집에서만 제외됩니다.</p>
+
+            <div class="settings-section-divider settings-section-divider-with-links">
+              <span>추가 RSS</span>
+              <button id="settings-card-news-rss-add" class="secondary" type="button">RSS 추가</button>
+            </div>
+            <div id="settings-card-news-rss-list" class="card-news-rss-settings-list"></div>
+            <p class="muted">로그인 없이 접근 가능한 HTTPS RSS 주소를 최대 20개까지 등록할 수 있습니다. 체크를 해제하면 목록과 수집에서 제외됩니다.</p>
+          </div>
+
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-color);">
+          <pre class="settings-major-result"></pre>
+        </div>

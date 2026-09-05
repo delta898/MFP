@@ -71,6 +71,9 @@ function normalizeCardNewsSource(input = {}) {
         title: compact(input.title, 300),
         published_at: compact(input.published_at || input.publishedAt, 80),
         preview_text: compact(input.preview_text || input.previewText),
+        ...(compact(input.feed_label || input.feedLabel, 80)
+            ? { feed_label: compact(input.feed_label || input.feedLabel, 80) }
+            : {}),
         ...(compact(input.source_platform || input.sourcePlatform, 100)
             ? { source_platform: compact(input.source_platform || input.sourcePlatform, 100) }
             : {})

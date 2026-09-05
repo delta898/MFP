@@ -9,6 +9,7 @@ const {
 
 test('ledger candidates cover feed, URL, and directly entered text identities', () => {
     assert.equal(buildLedgerCandidate({ kind: 'feed_item', source_platform: 'naver' }, {}).source_platform, 'naver');
+    assert.equal(buildLedgerCandidate({ kind: 'feed_item', source_platform: 'rss-123', feed_label: '업계 뉴스' }, {}).source_platform, '업계 뉴스');
     assert.equal(buildLedgerCandidate({ kind: 'url' }, {}).source_platform, 'URL 직접 입력');
     assert.equal(buildLedgerCandidate({ kind: 'manuscript', management_id: 'manual-1' }, {}).source_platform, '직접 입력');
 });

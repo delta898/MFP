@@ -8,6 +8,7 @@ let settingsBufferChannels = [];
 let settingsBufferSelectedChannelIds = new Set();
 let settingsSnsCheckInFlight = false;
 let settingsSnsPublishInFlight = false;
+let settingsCardNewsRssSources = [];
 let naverCommentDraftItems = [];
 let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;

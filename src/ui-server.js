@@ -50,6 +50,11 @@ const { createSnsSheetStore } = require('./social/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
 const { createCardNewsLedgerGateway } = require('./card-news/google-sheets-ledger-gateway');
 const { createCardNewsLedgerStore } = require('./card-news/ledger-sheet-store');
+const { createCardNewsFeedFetcher } = require('./card-news/feed-fetcher');
+const { createCardNewsSourceService } = require('./card-news/source-service');
+const { createCardNewsRssIntake } = require('./card-news/rss-intake');
+const { createCardNewsRssIntakeScheduler } = require('./card-news/rss-intake-scheduler');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
 const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
 const { createSnsAiService } = require('./social/sns-ai-service');
@@ -279,6 +284,20 @@ const cardNewsLedgerGateway = createCardNewsLedgerGateway({
 });
 const cardNewsLedgerStore = createCardNewsLedgerStore({
     gateway: cardNewsLedgerGateway
+});
+const cardNewsFeedFetcher = createCardNewsFeedFetcher({ httpClient: axios });
+const cardNewsSourceService = createCardNewsSourceService({
+    fetchFeed: cardNewsFeedFetcher
+});
+const cardNewsRssIntake = createCardNewsRssIntake({
+    CONFIG,
+    discoverConfiguredArticles: (config) => cardNewsSourceService.discoverConfiguredArticles(config),
+    ledgerStore: cardNewsLedgerStore,
+    logger: Logger
+});
+const cardNewsRssIntakeScheduler = createCardNewsRssIntakeScheduler({
+    intake: cardNewsRssIntake,
+    logger: Logger
 });
 const snsRssDiscovery = createSnsRssDiscovery({
     CONFIG,
@@ -711,6 +730,8 @@ const uiSettingsFieldsRuntime = createUiSettingsFieldsRuntime({
     normalizeBufferChannels,
     normalizeSnsAiMode,
     normalizeSnsSourceBlogs,
+    normalizeCardNewsBuiltinSources,
+    normalizeCardNewsRssSources,
     getAiModelCatalog,
     normalizeStoredModelProfiles,
     getRemoteServiceStatus,
@@ -1136,6 +1157,8 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     getContentType,
     syncAutoRunnerWithConfig,
     triggerSnsStartupDiscovery,
+    startCardNewsRssIntake: () => cardNewsRssIntakeScheduler.start(),
+    stopCardNewsRssIntake: () => cardNewsRssIntakeScheduler.stop(),
     startRecommendationDelivery: () => recommendationDeliveryScheduler.start(),
     stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
     syncShoppingAutoRunnerWithConfig,

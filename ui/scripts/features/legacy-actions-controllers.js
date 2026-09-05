@@ -2114,6 +2114,7 @@ function bindActions() {
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
+  document.getElementById('settings-card-news-rss-add')?.addEventListener('click', addSettingsCardNewsRssSource);
   const settingsMajorAutoSaveInputs = [
     document.getElementById('settings-listen-port'),
     document.getElementById('settings-mcp-remote-port'),
@@ -2190,6 +2191,8 @@ function bindActions() {
     document.getElementById('settings-sns-publish-enabled'),
     document.getElementById('settings-sns-source-naver'),
     document.getElementById('settings-sns-source-wordpress'),
+    document.getElementById('settings-card-news-source-naver'),
+    document.getElementById('settings-card-news-source-wordpress'),
     ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]')),
     ...Array.from(document.querySelectorAll('[data-publish-target]')),
     ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))

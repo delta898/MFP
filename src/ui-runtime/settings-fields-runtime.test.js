@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const { createUiSettingsFieldsRuntime } = require('./settings-fields-runtime');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../card-news/feed-sources');
 
 const slotMap = {
     ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },
@@ -14,6 +15,8 @@ const slotMap = {
 function createRuntime() {
     return createUiSettingsFieldsRuntime({
         path,
+        normalizeCardNewsRssSources,
+        normalizeCardNewsBuiltinSources,
         shoppingImageSlotMap: slotMap,
         defaultShoppingImageSources: {},
         allowedImageExts: new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])

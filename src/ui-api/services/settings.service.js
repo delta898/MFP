@@ -444,6 +444,9 @@ function createSettingsService(deps = {}) {
                 speech_level: fields.BLOG_SPEECH_LEVEL
             };
             delete structuredConfig.content.blog.writing_strategy;
+            if (!structuredConfig.content.card_news) structuredConfig.content.card_news = {};
+            structuredConfig.content.card_news.builtin_sources = fields.CARD_NEWS_BUILTIN_SOURCES;
+            structuredConfig.content.card_news.rss_sources = fields.CARD_NEWS_RSS_SOURCES;
 
             if (!structuredConfig.integrations) structuredConfig.integrations = {};
             if (!structuredConfig.integrations.buffer) structuredConfig.integrations.buffer = {};
@@ -787,6 +790,8 @@ function createSettingsService(deps = {}) {
                 COLLECT_TRENDS_NAVER_CATEGORY: parseConfigValue(content, 'COLLECT_TRENDS_NAVER_CATEGORY'),
                 COLLECT_TRENDS_WP_CATEGORY: parseConfigValue(content, 'COLLECT_TRENDS_WP_CATEGORY'),
                 COLLECT_RSS_CONFIGS: parseConfigValue(content, 'COLLECT_RSS_CONFIGS'),
+                CARD_NEWS_RSS_SOURCES: parseConfigValue(content, 'CARD_NEWS_RSS_SOURCES'),
+                CARD_NEWS_BUILTIN_SOURCES: parseConfigValue(content, 'CARD_NEWS_BUILTIN_SOURCES'),
                 PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'PUBLISH_AUTO_ENABLED'),
                 PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'PUBLISH_AUTO_INTERVAL_MIN'),
                 PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'PUBLISH_AUTO_BATCH_SIZE'),

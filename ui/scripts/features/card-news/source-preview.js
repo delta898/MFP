@@ -4,6 +4,7 @@ const cardNewsViewState = {
   articles: [],
   selectedArticleIndex: -1,
   configuredSources: [],
+  feedSources: [],
   failures: [],
   activePlatform: '',
   preview: null,
@@ -12,6 +13,7 @@ const cardNewsViewState = {
   previewRequestId: 0,
   busy: false,
   loadingSources: false,
+  sourcesStale: true,
   generating: false,
   publishing: false,
   publishingConfig: null,
@@ -29,8 +31,8 @@ const cardNewsViewState = {
 const CARD_NEWS_PLATFORM_STORAGE_KEY = 'bloggenius.cardNews.sourcePlatform';
 const CARD_NEWS_GENERATION_SETTINGS_STORAGE_KEY = 'bloggenius.cardNews.generationSettings';
 
-function cardNewsSourceLabel(kind) {
-  if (kind === 'feed_item') return '내 블로그 글';
+function cardNewsSourceLabel(kind, source = {}) {
+  if (kind === 'feed_item') return source.feed_label || 'RSS 피드';
   if (kind === 'url') return '웹 URL';
   return '직접 입력 내용';
 }
@@ -608,7 +610,7 @@ function renderCardNewsPreview(snapshot) {
     badge.textContent = '확인 완료';
     badge.dataset.state = 'ready';
   }
-  document.getElementById('card-news-preview-kind').textContent = cardNewsSourceLabel(snapshot?.source?.kind);
+  document.getElementById('card-news-preview-kind').textContent = cardNewsSourceLabel(snapshot?.source?.kind, snapshot?.source);
   document.getElementById('card-news-preview-heading').textContent = snapshot?.title || '제목 없는 내용';
   document.getElementById('card-news-preview-excerpt').textContent = snapshot?.excerpt || snapshot?.text || '';
   const link = document.getElementById('card-news-preview-link');
@@ -726,8 +728,14 @@ function initCardNewsView() {
     cardNewsViewState.initialized = true;
     restoreCardNewsGenerationSettings();
     bindCardNewsView();
+  }
+  if (cardNewsViewState.sourcesStale && !cardNewsViewState.loadingSources) {
     void loadCardNewsSources();
   }
+}
+
+function markCardNewsSourcesStale() {
+  cardNewsViewState.sourcesStale = true;
 }
 
 function rememberCardNewsScrollPosition() {

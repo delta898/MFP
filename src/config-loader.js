@@ -17,6 +17,7 @@ const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
 } = require('./content/writing-profile');
 const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
 const {
     copyMissingDefaultImages,
     resolvePackagedDefaultAssets
@@ -538,6 +539,8 @@ const CONFIG = {
     // Automation - RSS
     COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
     COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
+    CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(structuredConfig.content?.card_news?.rss_sources),
+    CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(structuredConfig.content?.card_news?.builtin_sources),
 
     // Buffer SNS Distribution
     BUFFER_API_KEY: process.env.BUFFER_API_KEY || structuredConfig.integrations?.buffer?.api_key || '',

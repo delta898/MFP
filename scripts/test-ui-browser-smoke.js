@@ -1104,7 +1104,7 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="settings"]').click();
         await page.locator('.settings-tab-btn[data-settings-tab="ai"]').click();
-        await page.locator('[data-help-guide-url]').click();
+        await page.locator('#settings-tab-ai [data-help-guide-url]').click();
         await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-help a[href*="224368506082"]')?.classList.contains('help-guide-navigation-target'));
 

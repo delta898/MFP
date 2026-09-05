@@ -1,0 +1,113 @@
+#settings-tab-card-news > h2 {
+  margin-bottom: 0;
+}
+
+.card-news-rss-settings {
+  margin-top: 12px;
+}
+
+.card-news-builtin-source-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 14px 0 8px;
+}
+
+.card-news-rss-settings-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 10px;
+}
+
+.card-news-rss-settings-row {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 0.7fr) minmax(280px, 1.8fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-solid, #fff);
+}
+
+.card-news-rss-settings-row input[type="text"],
+.card-news-rss-settings-row input[type="url"] {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-solid, #fff);
+  color: var(--text-main);
+  font: inherit;
+  outline: none;
+}
+
+.card-news-rss-settings-row input[type="text"]:focus,
+.card-news-rss-settings-row input[type="url"]:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.card-news-rss-enabled {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 42px;
+  cursor: pointer;
+}
+
+.card-news-rss-enabled input {
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  accent-color: var(--brand-primary);
+}
+
+.card-news-rss-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.card-news-rss-remove:hover {
+  border-color: #fca5a5;
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.card-news-rss-remove svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.card-news-rss-settings-empty {
+  padding: 22px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .card-news-rss-settings-row {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .card-news-rss-settings-row input[type="url"] {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}

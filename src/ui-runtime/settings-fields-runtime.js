@@ -9,6 +9,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         normalizeBufferChannels,
         normalizeSnsAiMode,
         normalizeSnsSourceBlogs,
+        normalizeCardNewsBuiltinSources,
+        normalizeCardNewsRssSources,
         getAiModelCatalog,
         normalizeStoredModelProfiles,
         getRemoteServiceStatus,
@@ -151,6 +153,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             // Automation - RSS
             COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
             COLLECT_RSS_CONFIGS: CONFIG.COLLECT_RSS_CONFIGS || [],
+            CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(CONFIG.CARD_NEWS_RSS_SOURCES),
+            CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(CONFIG.CARD_NEWS_BUILTIN_SOURCES),
 
             // Buffer SNS Distribution
             BUFFER_API_KEY: CONFIG.BUFFER_API_KEY || '',
@@ -356,6 +360,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         } catch {
             CONFIG.COLLECT_RSS_CONFIGS = [];
         }
+        CONFIG.CARD_NEWS_RSS_SOURCES = normalizeCardNewsRssSources(fields.CARD_NEWS_RSS_SOURCES);
+        CONFIG.CARD_NEWS_BUILTIN_SOURCES = normalizeCardNewsBuiltinSources(fields.CARD_NEWS_BUILTIN_SOURCES);
 
         CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
         CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
@@ -450,6 +456,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             });
         })();
         const collectRssEnabled = normalizeBool(requestBody.COLLECT_RSS_ENABLED, false);
+        const cardNewsRssSources = normalizeCardNewsRssSources(requestBody.CARD_NEWS_RSS_SOURCES, { strict: true });
+        const cardNewsBuiltinSources = normalizeCardNewsBuiltinSources(requestBody.CARD_NEWS_BUILTIN_SOURCES);
         const imageOptimizationEnabled = normalizeBool(requestBody.IMAGE_OPTIMIZATION_ENABLED, true);
         const updateServerType = String(requestBody.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
         const customUpdateCheckUrl = String(requestBody.CUSTOM_UPDATE_CHECK_URL || '').trim();
@@ -511,6 +519,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             ...collectTrendsSettings,
             COLLECT_RSS_ENABLED: collectRssEnabled,
             COLLECT_RSS_CONFIGS: rssConfigs,
+            CARD_NEWS_RSS_SOURCES: cardNewsRssSources,
+            CARD_NEWS_BUILTIN_SOURCES: cardNewsBuiltinSources,
 
             BUFFER_API_KEY: String(requestBody.BUFFER_API_KEY || '').trim(),
             BUFFER_ORGANIZATION_ID: String(requestBody.BUFFER_ORGANIZATION_ID || '').trim(),

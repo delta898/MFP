@@ -7,7 +7,7 @@ function compact(value, maxLength = 4000) {
 function buildLedgerCandidate(source = {}, snapshot = {}) {
     return {
         source,
-        source_platform: compact(source.source_platform || source.sourcePlatform || (source.kind === 'manuscript' ? '직접 입력' : 'URL 직접 입력'), 100),
+        source_platform: compact(source.feed_label || source.feedLabel || source.source_platform || source.sourcePlatform || (source.kind === 'manuscript' ? '직접 입력' : 'URL 직접 입력'), 100),
         title: compact(snapshot.title || source.title, 300),
         original_url: compact(snapshot.canonical_url || source.canonical_url || source.canonicalUrl, 4000),
         rss_guid: compact(source.item_key || source.itemKey || source.guid, 1000),

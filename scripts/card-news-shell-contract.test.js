@@ -18,7 +18,7 @@ test('Card News is a top-level source-preview workflow', () => {
 
     assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
     assert.match(html, /id="view-card-news"/);
-    assert.match(html, /data-card-news-source-kind="feed_item"[^>]*>내 블로그 글/);
+    assert.match(html, /data-card-news-source-kind="feed_item"[^>]*>피드에서 선택/);
     assert.match(html, /data-card-news-source-kind="url"[^>]*>URL 직접 입력/);
     assert.match(html, /data-card-news-source-kind="manuscript"[^>]*>내용 직접 입력/);
     assert.match(html, /id="card-news-source-actions"[^>]*hidden/);
@@ -29,10 +29,10 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(html, /<span class="card-news-eyebrow">확인<\/span>/);
     assert.doesNotMatch(html, /플랫폼을 선택해 공개된 글을 확인하세요/);
     assert.match(html, /id="card-news-platform-tabs"[^>]*hidden/);
-    assert.match(html, /id="card-news-source-refresh"[^>]*aria-label="블로그 글 새로고침"/);
+    assert.match(html, /id="card-news-source-refresh"[^>]*aria-label="피드 새로고침"/);
     assert.match(html, /data-card-news-workspace="create">새 카드뉴스/);
     assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
-    assert.match(html, /id="card-news-include-published"/);
+    assert.match(html, /class="card-news-published-toggle" hidden>[\s\S]*id="card-news-include-published"/);
     assert.match(html, /data-card-news-managed-filter="발행 완료"/);
     assert.match(script, /\/api\/v1\/card-news\/managed/);
     assert.match(script, /\/api\/v1\/card-news\/generations\/\$\{encodeURIComponent\(generationId\)\}/);
@@ -97,6 +97,33 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /previewCache: new Map\(\)/);
     assert.match(script, /requestId !== cardNewsViewState\.previewRequestId/);
     assert.doesNotMatch(script, /setCardNewsStatus\('내용을 확인했습니다\.'/);
+});
+
+test('Card News settings provide a minimal custom RSS registry', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const app = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
+    const settingsScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/card-news-rss.js'), 'utf8');
+    const cardNewsScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const settingsSaveScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/shopping-images.js'), 'utf8');
+    const majorForm = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/major-form.js'), 'utf8');
+
+    assert.match(html, /data-settings-tab="card-news"[^>]*>카드뉴스/);
+    assert.match(html, /id="settings-tab-card-news"/);
+    assert.match(html, /id="settings-card-news-rss-add"/);
+    assert.match(html, /id="settings-card-news-rss-list"/);
+    assert.match(html, /id="settings-card-news-source-naver"/);
+    assert.match(html, /id="settings-card-news-source-wordpress"/);
+    assert.match(app, /settings\/card-news-rss\.js/);
+    assert.match(majorForm, /CARD_NEWS_RSS_SOURCES/);
+    assert.match(settingsScript, /data-card-news-rss-field="enabled"/);
+    assert.match(settingsScript, /aria-label="이 RSS 사용"/);
+    assert.doesNotMatch(settingsScript, /<span>사용<\/span>/);
+    assert.match(settingsScript, /class="card-news-rss-remove"/);
+    assert.match(cardNewsScript, /sourcesStale:\s*true/);
+    assert.match(cardNewsScript, /function markCardNewsSourcesStale/);
+    assert.match(cardNewsScript, /cardNewsViewState\.sourcesStale[\s\S]*loadCardNewsSources/);
+    assert.match(settingsSaveScript, /Save successful[\s\S]*markCardNewsSourcesStale/);
+    assert.doesNotMatch(html, /카드뉴스[^\n]*(예약|주기 발행)/);
 });
 
 test('Card News preview uses fetched page text for a fuller, non-RSS preview', () => {

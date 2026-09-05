@@ -5,9 +5,9 @@ const { createCardNewsProjectRepository } = require('../../card-news/project-rep
 const { createCardNewsGenerationService } = require('../../card-news/generation-service');
 const { createCardNewsPublishingService } = require('../../card-news/publishing-service');
 const { createCardNewsLedgerSyncService } = require('../../card-news/ledger-sync-service');
+const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
 const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
-const { parseFeedXml } = require('../../social/feed-entry');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 
@@ -110,20 +110,9 @@ function createCardNewsService(deps = {}) {
         createId = () => crypto.randomUUID()
     } = deps;
 
-    const fetchFeed = deps.fetchFeed || (async (url) => {
-        if (!axios) throw createApiError('CARD_NEWS_FEED_UNAVAILABLE', '블로그 글 목록 조회 기능이 준비되지 않았습니다.', 500);
-        const response = await axios.get(url, {
-            responseType: 'text',
-            timeout: 10000,
-            maxRedirects: 5,
-            validateStatus: (status) => status >= 200 && status < 300,
-            headers: {
-                'User-Agent': 'BlogGenius Card News/1.0',
-                Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml'
-            }
-        });
-        return parseFeedXml(String(response.data || ''), { feedUrl: url });
-    });
+    const fetchFeed = deps.fetchFeed || (axios
+        ? createCardNewsFeedFetcher({ httpClient: axios })
+        : async () => { throw createApiError('CARD_NEWS_FEED_UNAVAILABLE', '블로그 글 목록 조회 기능이 준비되지 않았습니다.', 500); });
 
     let sourceService = deps.sourceService;
     if (!sourceService) {

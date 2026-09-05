@@ -91,6 +91,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/settings/writing-profile-settings.js',
         'scripts/features/settings/buffer.js',
         'scripts/features/settings/sns-runtime.js',
+        'scripts/features/settings/card-news-rss.js',
         'scripts/features/settings/major-form.js',
         'scripts/features/settings/ai-models.js',
         'scripts/features/settings/save-lifecycle.js',

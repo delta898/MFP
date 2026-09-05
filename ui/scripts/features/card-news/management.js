@@ -1,4 +1,6 @@
 function getCardNewsPlatformLabel(platform) {
+  const feedSource = cardNewsViewState.feedSources.find((source) => source.source_platform === platform);
+  if (feedSource?.label) return feedSource.label;
   if (platform === 'wordpress') return 'WordPress';
   if (platform === 'naver') return '네이버';
   return platform || '직접 입력';
@@ -61,12 +63,12 @@ function renderCardNewsVisibleArticles() {
     const onlyPublished = platformArticles.length > 0 && platformArticles.every(isCardNewsSourcePublished);
     const title = visibleFailures.length
       ? `${getCardNewsPlatformLabel(activePlatform)} 글을 불러오지 못했습니다.`
-      : (onlyPublished ? '새로 만들 글이 없습니다.' : (hasConfiguredSource ? '공개된 글을 찾지 못했습니다.' : '연결된 블로그가 없습니다.'));
+      : (onlyPublished ? '새로 만들 글이 없습니다.' : (hasConfiguredSource ? '공개된 글을 찾지 못했습니다.' : '등록된 피드가 없습니다.'));
     const message = visibleFailures.length
       ? '잠시 후 새로고침해 주세요.'
       : (onlyPublished
         ? '발행 완료 포함을 선택하면 이전 글도 다시 볼 수 있습니다.'
-        : (hasConfiguredSource ? '블로그 RSS를 확인한 뒤 새로고침해 주세요.' : '설정에서 네이버 또는 WordPress 블로그를 먼저 연결해 주세요.'));
+        : (hasConfiguredSource ? 'RSS 주소를 확인한 뒤 새로고침해 주세요.' : '설정에서 블로그를 연결하거나 RSS를 추가해 주세요.'));
     list.innerHTML = `<div class="card-news-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   } else {
     list.innerHTML = visibleArticles.map(({ article, index }) => {
@@ -99,8 +101,9 @@ function renderCardNewsVisibleArticles() {
 function renderCardNewsArticles(result = {}) {
   cardNewsViewState.articles = Array.isArray(result.articles) ? result.articles : [];
   cardNewsViewState.failures = Array.isArray(result.failures) ? result.failures : [];
+  cardNewsViewState.feedSources = Array.isArray(result.feed_sources) ? result.feed_sources : [];
   cardNewsViewState.configuredSources = Array.isArray(result.configured_sources)
-    ? [...new Set(result.configured_sources.filter((source) => source === 'naver' || source === 'wordpress'))]
+    ? [...new Set(result.configured_sources.filter(Boolean))]
     : [...new Set(cardNewsViewState.articles.map((article) => article.source_platform).filter(Boolean))];
   cardNewsViewState.selectedArticleIndex = -1;
   let savedPlatform = '';
@@ -118,11 +121,13 @@ function renderCardNewsArticles(result = {}) {
 }
 
 async function loadCardNewsSources() {
+  if (cardNewsViewState.loadingSources) return;
   const list = document.getElementById('card-news-feed-list');
   if (list) list.innerHTML = '<div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>';
   setCardNewsSourceLoading(true);
   try {
     renderCardNewsArticles(await fetchJson('/api/v1/card-news/sources'));
+    cardNewsViewState.sourcesStale = false;
   } catch (error) {
     if (list) list.innerHTML = `<div class="card-news-empty-state"><strong>글 목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
   } finally {

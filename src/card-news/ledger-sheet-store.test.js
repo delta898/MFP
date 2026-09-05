@@ -69,6 +69,27 @@ test('cardnews ledger appends each RSS candidate once and preserves source field
     assert.equal(valueAt(gateway.values[1], '글 제목'), '첫 글');
 });
 
+test('repeated RSS intake appends only unseen rows and never rewrites existing state', async () => {
+    const gateway = createMemoryGateway();
+    const store = createCardNewsLedgerStore({ gateway });
+    const existing = { source: { kind: 'feed_item', item_key: 'rss-1', canonical_url: 'https://blog.example/post/1', title: '기존 제목' } };
+    await store.upsertCandidates([existing]);
+    await store.updateRow(2, { workflowStatus: '제외', publishingStatus: '발행 완료' });
+    const updatesBefore = gateway.calls.updates.length;
+
+    const result = await store.upsertCandidates([
+        { source: { ...existing.source, title: 'RSS에서 바뀐 제목' } },
+        { source: { kind: 'feed_item', item_key: 'rss-2', canonical_url: 'https://blog.example/post/2', title: '새 글' } }
+    ]);
+
+    assert.equal(result.createdCount, 1);
+    assert.equal(result.existingCount, 1);
+    assert.equal(gateway.calls.updates.length, updatesBefore);
+    assert.equal(valueAt(gateway.values[1], '상태'), '제외');
+    assert.equal(valueAt(gateway.values[1], '발행 상태'), '발행 완료');
+    assert.equal(valueAt(gateway.values[1], '글 제목'), '기존 제목');
+});
+
 test('cardnews ledger updates only approved state fields and leaves identity intact', async () => {
     const gateway = createMemoryGateway();
     const store = createCardNewsLedgerStore({ gateway });

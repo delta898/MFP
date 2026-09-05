@@ -27,6 +27,23 @@ test('configured feeds expose public articles while isolating a failing feed', a
     assert.equal(result.articles[0].source_platform, 'wordpress');
 });
 
+test('configured discovery includes custom RSS metadata and keeps identities feed-scoped', async () => {
+    const service = createCardNewsSourceService({
+        async fetchFeed() {
+            return [{ guid: 'shared-guid', link: 'https://example.com/post', title: '글' }];
+        },
+        async fetchPublicDocument() { return {}; }
+    });
+    const result = await service.discoverConfiguredArticles({
+        NAVER_ID: 'writer',
+        CARD_NEWS_RSS_SOURCES: [{ name: '업계 뉴스', url: 'https://news.example/rss' }]
+    });
+
+    assert.deepEqual(result.feed_sources.map((feed) => feed.label), ['네이버', '업계 뉴스']);
+    assert.equal(new Set(result.articles.map((article) => article.item_key)).size, 2);
+    assert.equal(result.articles.find((article) => article.feed_label === '업계 뉴스').source_platform, result.feed_sources[1].source_platform);
+});
+
 test('feed item keeps RSS identity but resolves the current article body', async () => {
     const service = createCardNewsSourceService({
         fetchFeed: async () => [],
@@ -43,10 +60,12 @@ test('feed item keeps RSS identity but resolves the current article body', async
         feed_url: 'https://blog.example/feed/',
         item_key: 'stable-rss-key',
         canonical_url: 'https://blog.example/post',
-        title: 'RSS 제목'
+        title: 'RSS 제목',
+        feed_label: '업계 뉴스'
     });
 
     assert.equal(snapshot.source.item_key, 'stable-rss-key');
+    assert.equal(snapshot.source.feed_label, '업계 뉴스');
     assert.equal(snapshot.title, '플랫폼에서 수정한 제목');
     assert.equal(snapshot.text, '플랫폼에서 수정한 현재 본문');
     assert.equal(snapshot.excerpt, '플랫폼에서 수정한 현재 본문');
