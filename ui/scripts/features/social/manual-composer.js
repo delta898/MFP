@@ -29,6 +29,24 @@ function getManualSnsSelectedChannels() {
     .filter((channel) => selectedIds.has(String(channel.id || '').trim()));
 }
 
+function getManualSnsPublishSignature() {
+  const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
+  const channelIds = getManualSnsSelectedChannels()
+    .map((channel) => String(channel.id || '').trim())
+    .filter(Boolean)
+    .sort();
+  const image = getManualSnsImageValidation();
+  const imageIdentity = image.mode === 'local'
+    ? (image.files || []).map((file) => ({
+        name: String(file.name || ''),
+        size: Number(file.size || 0),
+        type: String(file.type || ''),
+        lastModified: Number(file.lastModified || 0)
+      }))
+    : String(image.url || '').trim();
+  return JSON.stringify({ text, channelIds, imageMode: image.mode, imageIdentity });
+}
+
 function getManualSnsImageValidation() {
   const localMode = document.getElementById('manual-sns-image-source-local')?.checked === true;
   if (localMode) {
@@ -66,6 +84,7 @@ function getManualSnsImageValidation() {
 }
 
 function addManualSnsLocalImageFiles(files = []) {
+  if (manualSnsPublishingInFlight) return;
   const existingKeys = new Set(manualSnsLocalImages.map(({ file }) => `${file.name}:${file.size}:${file.lastModified}`));
   Array.from(files).forEach((file) => {
     const key = `${file.name}:${file.size}:${file.lastModified}`;
@@ -77,11 +96,13 @@ function addManualSnsLocalImageFiles(files = []) {
 }
 
 function removeManualSnsLocalImage(index) {
+  if (manualSnsPublishingInFlight) return;
   const [removed] = manualSnsLocalImages.splice(index, 1);
   if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
 }
 
 function moveManualSnsLocalImage(fromIndex, toIndex) {
+  if (manualSnsPublishingInFlight) return;
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return;
   if (fromIndex < 0 || toIndex < 0 || fromIndex >= manualSnsLocalImages.length || toIndex >= manualSnsLocalImages.length) return;
   if (fromIndex === toIndex) return;
@@ -96,9 +117,10 @@ function syncManualSnsImageSourceUi() {
   const urlPanel = document.getElementById('manual-sns-image-url-panel');
   const localPanel = document.getElementById('manual-sns-image-local-panel');
   const localUnavailable = manualSnsConfig.local_media_available === false;
-  if (localRadio) localRadio.disabled = localUnavailable;
+  if (localRadio) localRadio.disabled = localUnavailable || manualSnsPublishingInFlight;
+  if (urlRadio) urlRadio.disabled = manualSnsPublishingInFlight;
   if (localLabel) {
-    localLabel.classList.toggle('is-disabled', localUnavailable);
+    localLabel.classList.toggle('is-disabled', localUnavailable || manualSnsPublishingInFlight);
     localLabel.title = localUnavailable ? 'Google 계정을 먼저 연결해 주세요.' : '';
   }
   if (localUnavailable && localRadio?.checked && urlRadio) urlRadio.checked = true;
@@ -110,6 +132,7 @@ function syncManualSnsImageSourceUi() {
 function syncManualSnsImagePreview() {
   const inputEl = document.getElementById('manual-sns-image-url');
   const removeBtn = document.getElementById('manual-sns-image-remove-btn');
+  const imageFileEl = document.getElementById('manual-sns-image-file');
   const filePickerEl = document.getElementById('manual-sns-image-file-picker');
   const fileNameEl = document.getElementById('manual-sns-image-file-name');
   const gridEl = document.getElementById('manual-sns-image-grid');
@@ -119,8 +142,14 @@ function syncManualSnsImagePreview() {
   const raw = String(inputEl?.value || '').trim();
   syncManualSnsImageSourceUi();
   const validation = getManualSnsImageValidation();
-  if (removeBtn) removeBtn.hidden = !raw;
+  if (inputEl) inputEl.disabled = manualSnsPublishingInFlight;
+  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight;
+  if (removeBtn) {
+    removeBtn.hidden = !raw;
+    removeBtn.disabled = manualSnsPublishingInFlight;
+  }
   if (filePickerEl) filePickerEl.classList.toggle('has-file', manualSnsLocalImages.length > 0);
+  if (filePickerEl) filePickerEl.classList.toggle('is-disabled', manualSnsPublishingInFlight);
   if (fileNameEl) fileNameEl.textContent = manualSnsLocalImages.length > 0 ? '이미지 더 추가' : '이미지 추가';
   if (gridEl) {
     gridEl.replaceChildren();
@@ -139,6 +168,7 @@ function syncManualSnsImagePreview() {
       remove.type = 'button';
       remove.className = 'social-local-image-remove';
       remove.setAttribute('aria-label', `${file.name} 제거`);
+      remove.disabled = manualSnsPublishingInFlight;
       remove.textContent = '×';
       remove.addEventListener('click', () => {
         removeManualSnsLocalImage(index);
@@ -146,6 +176,10 @@ function syncManualSnsImagePreview() {
         syncManualSnsComposerState();
       });
       tile.addEventListener('dragstart', (event) => {
+        if (manualSnsPublishingInFlight) {
+          event.preventDefault();
+          return;
+        }
         manualSnsDraggedImageIndex = index;
         tile.classList.add('is-dragging');
         event.dataTransfer?.setData('application/x-bloggenius-sns-image-index', String(index));
@@ -218,11 +252,24 @@ function syncManualSnsComposerState() {
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const optimizeActionEl = document.getElementById('manual-sns-ai-action');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
+  const imageUrlEl = document.getElementById('manual-sns-image-url');
+  const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
+  const imageFileEl = document.getElementById('manual-sns-image-file');
+  const imageFilePickerEl = document.getElementById('manual-sns-image-file-picker');
   const text = String(textEl?.value || '').trim();
   const characterCount = Array.from(text).length;
   const selectedChannels = getManualSnsSelectedChannels();
   const image = getManualSnsImageValidation();
+  const publishSignature = getManualSnsPublishSignature();
+  const alreadyPublished = Boolean(manualSnsLastPublishedSignature)
+    && manualSnsLastPublishedSignature === publishSignature;
   let errorMessage = '';
+
+  if (textEl) textEl.disabled = manualSnsPublishingInFlight;
+  if (imageUrlEl) imageUrlEl.disabled = manualSnsPublishingInFlight;
+  if (imageRemoveBtn) imageRemoveBtn.disabled = manualSnsPublishingInFlight;
+  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight;
+  if (imageFilePickerEl) imageFilePickerEl.classList.toggle('is-disabled', manualSnsPublishingInFlight);
 
   const exceeded = selectedChannels.find((channel) => characterCount > Number(channel.limit || 0));
   if (exceeded) {
@@ -256,28 +303,37 @@ function syncManualSnsComposerState() {
       : '발행할 채널을 선택하세요.';
   }
   if (publishBtn) {
-    publishBtn.textContent = selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
-    publishBtn.disabled = manualSnsOptimizationInFlight || !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+    publishBtn.textContent = manualSnsPublishingInFlight
+      ? '발행 중...'
+      : alreadyPublished
+        ? '발행 완료'
+        : selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
+    publishBtn.disabled = manualSnsPublishingInFlight || alreadyPublished || manualSnsOptimizationInFlight || !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+    publishBtn.classList.toggle('is-loading', manualSnsPublishingInFlight);
+    publishBtn.classList.toggle('is-published', alreadyPublished);
+    publishBtn.setAttribute('aria-busy', manualSnsPublishingInFlight ? 'true' : 'false');
   }
   if (optimizeBtn) {
     const aiAvailable = manualSnsConfig.ai?.available === true;
     if (optimizeActionEl) optimizeActionEl.hidden = !aiAvailable;
-    optimizeBtn.disabled = manualSnsOptimizationInFlight || selectedChannels.length === 0 || !text;
+    optimizeBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || selectedChannels.length === 0 || !text;
     optimizeBtn.textContent = manualSnsOptimizationInFlight ? 'AI 최적화 중...' : 'AI 최적화';
   }
   if (undoBtn) {
     undoBtn.hidden = manualSnsOptimizationSnapshot === null;
-    undoBtn.disabled = manualSnsOptimizationInFlight;
+    undoBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight;
   }
 
   document.querySelectorAll('.social-channel-option').forEach((label) => {
     const input = label.querySelector('[data-manual-sns-channel]');
     label.classList.toggle('is-selected', Boolean(input?.checked));
+    if (input) input.disabled = input.dataset.manualSnsUnavailable === 'true' || manualSnsPublishingInFlight;
+    label.classList.toggle('is-locked', manualSnsPublishingInFlight);
   });
   if (selectAllEl) {
     const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
     const selectedCount = enabledInputs.filter((input) => input.checked).length;
-    selectAllEl.disabled = enabledInputs.length === 0;
+    selectAllEl.disabled = manualSnsPublishingInFlight || enabledInputs.length === 0;
     selectAllEl.checked = enabledInputs.length > 0 && selectedCount === enabledInputs.length;
     selectAllEl.indeterminate = selectedCount > 0 && selectedCount < enabledInputs.length;
   }
@@ -329,6 +385,7 @@ function renderManualSnsChannels() {
     input.type = 'checkbox';
     input.value = channel.id;
     input.dataset.manualSnsChannel = 'true';
+    input.dataset.manualSnsUnavailable = unavailable ? 'true' : 'false';
     input.disabled = unavailable;
     input.checked = !unavailable && savedChannelIds?.has(String(channel.id || '').trim()) === true;
     input.addEventListener('change', () => {

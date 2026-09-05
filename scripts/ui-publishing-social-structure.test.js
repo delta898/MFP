@@ -50,3 +50,25 @@ test('temporary feature modules no longer own extracted publishing or social con
         assert.doesNotMatch(legacySource, functionDeclarationPattern(functionName));
     });
 });
+
+test('manual SNS publishing owns a busy state that locks duplicate actions', () => {
+    const stateSource = readScript('features/social/manual-state.js');
+    const composerSource = readScript('features/social/manual-composer.js');
+    const publishSource = readScript('features/social/manual-publish.js');
+    const styles = fs.readFileSync(path.join(repoRoot, 'ui', 'styles', 'features', 'social.css'), 'utf8');
+
+    assert.match(stateSource, /manualSnsPublishingInFlight/);
+    assert.match(stateSource, /manualSnsLastPublishedSignature/);
+    assert.match(publishSource, /manualSnsPublishingInFlight\s*=\s*true/);
+    assert.match(publishSource, /manualSnsPublishingInFlight\s*=\s*false/);
+    assert.match(publishSource, /publishBtn\.disabled\s*\|\|\s*manualSnsPublishingInFlight/);
+    assert.match(composerSource, /publishBtn\.classList\.toggle\('is-loading',\s*manualSnsPublishingInFlight\)/);
+    assert.match(composerSource, /manualSnsLastPublishedSignature\s*===\s*publishSignature/);
+    assert.match(composerSource, /\? '발행 완료'/);
+    assert.match(composerSource, /imageFileEl\.disabled\s*=\s*manualSnsPublishingInFlight/);
+    assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);
+    assert.match(composerSource, /manualSnsDraggedImageIndex/);
+    assert.match(styles, /#manual-sns-publish-btn\.is-loading::before/);
+    assert.match(styles, /@keyframes manual-sns-publish-spin/);
+    assert.match(styles, /#manual-sns-publish-btn:disabled/);
+});

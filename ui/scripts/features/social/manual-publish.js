@@ -10,7 +10,7 @@ function readManualSnsFileAsDataUrl(file) {
 async function publishManualSns() {
   syncManualSnsComposerState();
   const publishBtn = document.getElementById('manual-sns-publish-btn');
-  if (!publishBtn || publishBtn.disabled) return;
+  if (!publishBtn || publishBtn.disabled || manualSnsPublishingInFlight) return;
   const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
   const selectedChannels = getManualSnsSelectedChannels();
   const image = getManualSnsImageValidation();
@@ -24,8 +24,9 @@ async function publishManualSns() {
   if (!confirmed) return;
 
   const resultEl = document.getElementById('manual-sns-publish-result');
-  publishBtn.disabled = true;
-  publishBtn.textContent = '발행 중...';
+  const publishSignature = getManualSnsPublishSignature();
+  manualSnsPublishingInFlight = true;
+  syncManualSnsComposerState();
   if (resultEl) {
     resultEl.classList.add('is-visible');
     resultEl.textContent = image.mode === 'local'
@@ -46,6 +47,9 @@ async function publishManualSns() {
       imageUrl: image.url,
       localImages
     });
+    if (data?.success === true) {
+      manualSnsLastPublishedSignature = publishSignature;
+    }
     renderManualSnsPublishResult(data);
   } catch (error) {
     if (resultEl) {
@@ -53,6 +57,7 @@ async function publishManualSns() {
       resultEl.textContent = `❌ 발행 실패: ${error.message}`;
     }
   } finally {
+    manualSnsPublishingInFlight = false;
     syncManualSnsComposerState();
   }
 }
