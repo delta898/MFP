@@ -72,6 +72,11 @@ function createUiHttpServerRuntime(deps = {}) {
                             || pathname === '/api/v1/card-news/images/import'
                         ) {
                             limitBytes = 15 * 1024 * 1024;
+                        } else if (
+                            pathname === '/api/v1/card-news/zip/preview'
+                            || pathname === '/api/v1/card-news/zip/import'
+                        ) {
+                            limitBytes = 55 * 1024 * 1024;
                         } else if (pathname === '/api/v1/blog/local-markdown/publish') {
                             limitBytes = 40 * 1024 * 1024;
                         }

@@ -12,6 +12,7 @@ const {
     buildSlideImagePrompt
 } = require('./generation');
 const { createStoredZip } = require('./zip-bundle');
+const { parseCardNewsZip, toZipPreview } = require('./zip-import');
 
 function safeGenerationId(value) {
     const normalized = String(value || '').trim();
@@ -424,6 +425,83 @@ function createCardNewsGenerationService(options = {}) {
         return toPublicGenerationResult(generation);
     }
 
+    function previewZip(input = {}) {
+        return toZipPreview(parseCardNewsZip(input));
+    }
+
+    function importZip(input = {}) {
+        const parsed = parseCardNewsZip(input);
+        const id = safeGenerationId(input.id) || safeGenerationId(createId()) || crypto.randomUUID();
+        const title = String(input.title || parsed.metadata?.title || '').trim().slice(0, 300) || '가져온 카드뉴스';
+        const sourceUrl = String(input.source_url || parsed.metadata?.source_url || '').trim();
+        if (sourceUrl) {
+            let parsedUrl;
+            try { parsedUrl = new URL(sourceUrl); } catch (_error) { }
+            if (!parsedUrl || parsedUrl.protocol !== 'https:') {
+                const error = new Error('원문 주소는 공개된 HTTPS 주소만 입력할 수 있습니다.');
+                error.code = 'CARD_NEWS_IMPORT_SOURCE_URL_INVALID';
+                throw error;
+            }
+        }
+        const outputDir = pathApi.join(exportRoot, id);
+        const manifestPath = pathApi.join(outputDir, 'manifest.json');
+        if (fileSystem.existsSync(outputDir)) {
+            const error = new Error('같은 카드뉴스 결과가 이미 존재합니다.');
+            error.code = 'CARD_NEWS_GENERATION_EXISTS';
+            throw error;
+        }
+        fileSystem.mkdirSync(outputDir, { recursive: true });
+        const generation = {
+            schema_version: CARD_NEWS_GENERATION_SCHEMA_VERSION,
+            id,
+            title,
+            status: 'completed',
+            image_mode: 'imported',
+            settings: {
+                aspect_ratio: String(parsed.metadata?.settings?.aspect_ratio || '4:5'),
+                slide_count: parsed.images.length,
+                style: String(parsed.metadata?.settings?.style || 'imported'),
+                include_korean_text: parsed.metadata?.settings?.include_korean_text !== false,
+                additional_request: ''
+            },
+            variation: null,
+            source: {
+                kind: sourceUrl ? 'url' : 'manuscript',
+                title,
+                canonical_url: sourceUrl,
+                management_id: String(input.management_id || id)
+            },
+            publishing_copy: { caption: title, hashtags: [] },
+            cards: [],
+            created_at: now(),
+            completed_at: now()
+        };
+        try {
+            for (const image of parsed.images) {
+                const fileName = `card-${String(image.index).padStart(2, '0')}-imported${image.extension}`;
+                const temporaryPath = pathApi.join(outputDir, `${fileName}.${process.pid}.${Date.now()}.tmp`);
+                const finalPath = pathApi.join(outputDir, fileName);
+                fileSystem.writeFileSync(temporaryPath, image.data, { mode: 0o600 });
+                fileSystem.renameSync(temporaryPath, finalPath);
+                generation.cards.push({
+                    index: image.index,
+                    headline: image.headline || pathApi.basename(image.original_name, pathApi.extname(image.original_name)),
+                    body: image.body || '',
+                    scene_prompt: '',
+                    image_prompt: image.image_prompt || '',
+                    file_name: fileName,
+                    imported_file_name: image.original_name
+                });
+            }
+            writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+        } catch (error) {
+            try { fileSystem.rmSync(outputDir, { recursive: true, force: true }); } catch (_cleanupError) { }
+            throw error;
+        }
+        logger?.info?.(`✅ [CardNews] ZIP 카드뉴스 가져오기 완료 (${generation.cards.length}장)`);
+        return toPublicGenerationResult(generation);
+    }
+
     function resolveAsset(generationId, fileName) {
         const safeId = safeGenerationId(generationId);
         const safeName = safeAssetName(fileName);
@@ -503,7 +581,7 @@ function createCardNewsGenerationService(options = {}) {
         };
     }
 
-    return { generate, generateImages, importLocalImage, getGeneration, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
+    return { generate, generateImages, importLocalImage, previewZip, importZip, getGeneration, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
 }
 
 module.exports = {

@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const { resolveSnsFeedDefinitions } = require('../social/sns-rss-discovery');
 
-const CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT = 20;
+const CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT = 3;
 const CARD_NEWS_BUILTIN_SOURCE_IDS = ['naver', 'wordpress'];
 
 function compact(value, maxLength = 4000) {
@@ -34,6 +34,9 @@ function fallbackSourceName(url) {
 function normalizeCardNewsRssSources(value, options = {}) {
     const strict = options.strict === true;
     const items = Array.isArray(value) ? value : [];
+    if (strict && items.length > CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT) {
+        throw new Error(`추가 RSS는 최대 ${CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT}개까지 등록할 수 있습니다.`);
+    }
     const results = [];
     const seenUrls = new Set();
     for (const item of items.slice(0, CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT)) {

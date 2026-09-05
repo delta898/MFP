@@ -1,5 +1,7 @@
+const SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT = 3;
+
 function normalizeSettingsCardNewsRssSources(value) {
-  return (Array.isArray(value) ? value : []).slice(0, 20).map((source) => ({
+  return (Array.isArray(value) ? value : []).slice(0, SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT).map((source) => ({
     id: String(source?.id || ''),
     name: String(source?.name || '').slice(0, 80),
     url: String(source?.url || '').slice(0, 4000),
@@ -56,8 +58,8 @@ function handleSettingsCardNewsRssChange(event) {
 }
 
 function addSettingsCardNewsRssSource() {
-  if (settingsCardNewsRssSources.length >= 20) {
-    showUiToast({ title: 'RSS 추가 불가', message: 'RSS는 최대 20개까지 등록할 수 있습니다.', level: 'warning' });
+  if (settingsCardNewsRssSources.length >= SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT) {
+    showUiToast({ title: 'RSS 추가 불가', message: `추가 RSS는 최대 ${SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT}개까지 등록할 수 있습니다.`, level: 'warning' });
     return;
   }
   settingsCardNewsRssSources.push({ id: '', name: '', url: '', enabled: true });

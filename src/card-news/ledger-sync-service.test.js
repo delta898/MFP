@@ -85,6 +85,24 @@ test('ledger failures are logged and never replace the successful local result',
     assert.equal(warnings.length, 1);
 });
 
+test('ZIP import attaches to an existing ledger row with the same original URL', async () => {
+    const calls = [];
+    const store = {
+        async listRows() { return [{ rowNumber: 7, originalUrl: 'https://example.com/article', generationId: '' }]; },
+        async updateRow(rowNumber, patch) { calls.push([rowNumber, patch]); return { rowNumber, ...patch }; },
+        async upsertCandidateWithPatch() { throw new Error('must not create a duplicate row'); }
+    };
+    const service = createCardNewsLedgerSyncService({ store });
+    await service.recordImportedGeneration({
+        source: { kind: 'url', canonical_url: 'https://example.com/article' },
+        canonical_url: 'https://example.com/article',
+        title: '가져온 카드뉴스'
+    }, { id: 'generation-zip', status: 'completed', cards: [{}, {}] });
+    assert.equal(calls[0][0], 7);
+    assert.equal(calls[0][1].generationId, 'generation-zip');
+    assert.equal(calls[0][1].workflowStatus, '제작 완료');
+});
+
 test('an unchanged RSS source set is registered only once per app session', async () => {
     let upserts = 0;
     const service = createCardNewsLedgerSyncService({

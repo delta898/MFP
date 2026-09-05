@@ -284,6 +284,41 @@ function createCardNewsService(deps = {}) {
         }
     }
 
+    function previewZip(input = {}) {
+        if (!generationService?.previewZip) {
+            throw createApiError('CARD_NEWS_ZIP_IMPORT_UNAVAILABLE', 'ZIP 가져오기 기능이 준비되지 않았습니다.', 500);
+        }
+        try {
+            return generationService.previewZip(input);
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_ZIP_PREVIEW_FAILED', 'ZIP 파일을 확인하지 못했습니다.');
+        }
+    }
+
+    async function importZip(input = {}) {
+        if (!generationService?.importZip) {
+            throw createApiError('CARD_NEWS_ZIP_IMPORT_UNAVAILABLE', 'ZIP 가져오기 기능이 준비되지 않았습니다.', 500);
+        }
+        const managementId = createId();
+        try {
+            const generation = generationService.importZip({ ...input, management_id: managementId });
+            const title = String(generation.title || input.title || '').trim().slice(0, 300);
+            const sourceUrl = String(generation.source_url || input.source_url || '').trim();
+            const source = sourceUrl
+                ? { kind: 'url', canonical_url: sourceUrl, title }
+                : { kind: 'manuscript', management_id: managementId, title };
+            await (ledgerSync.recordImportedGeneration || ledgerSync.recordGeneration)({
+                source,
+                title,
+                canonical_url: sourceUrl,
+                retrieved_at: now()
+            }, generation);
+            return { generation };
+        } catch (error) {
+            throw toCardNewsError(error, 'CARD_NEWS_ZIP_IMPORT_FAILED', 'ZIP 카드뉴스를 가져오지 못했습니다.');
+        }
+    }
+
     function resolveAsset(generationId, fileName) {
         return generationService?.resolveAsset(generationId, fileName) || null;
     }
@@ -334,6 +369,8 @@ function createCardNewsService(deps = {}) {
         generate,
         generateImages,
         importLocalImage,
+        previewZip,
+        importZip,
         resolveAsset,
         createExportBundle,
         getPublishingConfig,

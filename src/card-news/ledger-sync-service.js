@@ -1,4 +1,4 @@
-const { buildEntryKey } = require('./ledger-sheet-store');
+const { buildEntryKey, normalizeOriginalUrl } = require('./ledger-sheet-store');
 
 function compact(value, maxLength = 4000) {
     return String(value || '').trim().slice(0, maxLength);
@@ -153,6 +153,28 @@ function createCardNewsLedgerSyncService(options = {}) {
         return result;
     }
 
+    async function recordImportedGeneration(snapshot = {}, generation = {}) {
+        const originalUrl = normalizeOriginalUrl(snapshot.canonical_url || snapshot.source?.canonical_url || '');
+        if (originalUrl && store?.listRows && store?.updateRow) {
+            const linked = await safely('ZIP 가져오기 연결', async () => {
+                const rows = await store.listRows();
+                const existing = rows.find((row) => normalizeOriginalUrl(row.originalUrl) === originalUrl);
+                if (!existing) return null;
+                return store.updateRow(existing.rowNumber, {
+                    workflowStatus: workflowStatusForGeneration(generation),
+                    generationId: compact(generation.id, 500),
+                    cardCount: String(Array.isArray(generation.cards) ? generation.cards.length : 0),
+                    lastError: ''
+                });
+            });
+            if (linked) {
+                refreshCachedRow(linked);
+                return linked;
+            }
+        }
+        return recordGeneration(snapshot, generation);
+    }
+
     async function recordPublishing(generationId, result = {}) {
         const updated = await safely('발행 결과 동기화', () => store.updateByGenerationId(
             generationId,
@@ -177,6 +199,7 @@ function createCardNewsLedgerSyncService(options = {}) {
         annotateSources,
         listManagedRows,
         recordGeneration,
+        recordImportedGeneration,
         recordGenerationProgress,
         recordPublishing,
         recordPublishingFailure

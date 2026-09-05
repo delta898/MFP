@@ -73,6 +73,24 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async previewZip({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.previewZip(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_ZIP_PREVIEW_FAILED', 'ZIP 파일을 확인하지 못했습니다.', error);
+            }
+        },
+
+        async importZip({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.importZip(requestBody || {}), 201);
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_ZIP_IMPORT_FAILED', 'ZIP 카드뉴스를 가져오지 못했습니다.', error);
+            }
+        },
+
         async asset({ requestId, method, pathname, searchParams, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             const match = String(pathname || '').match(/^\/api\/v1\/card-news\/assets\/([^/]+)\/([^/]+)$/);

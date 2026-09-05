@@ -1,10 +1,24 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT,
     normalizeCardNewsBuiltinSources,
     normalizeCardNewsRssSources,
     resolveCardNewsFeedDefinitions
 } = require('./feed-sources');
+
+test('custom Card News RSS sources are limited to three beyond configured blogs', () => {
+    const inputs = Array.from({ length: 4 }, (_, index) => ({
+        name: `추가 RSS ${index + 1}`,
+        url: `https://feed-${index + 1}.example/rss`
+    }));
+    assert.equal(CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT, 3);
+    assert.equal(normalizeCardNewsRssSources(inputs).length, 3);
+    assert.throws(
+        () => normalizeCardNewsRssSources(inputs, { strict: true }),
+        /최대 3개/
+    );
+});
 
 test('custom Card News RSS sources require HTTPS, deduplicate URLs, and derive stable ids', () => {
     const sources = normalizeCardNewsRssSources([

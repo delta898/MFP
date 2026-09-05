@@ -25,6 +25,8 @@ const cardNewsViewState = {
   managedItems: [],
   managedFilter: '전체',
   managedLoading: false,
+  zipImport: null,
+  zipImporting: false,
   scrollTop: 0
 };
 
@@ -207,10 +209,12 @@ function renderCardNewsGeneration(generation, options = {}) {
   panel.dataset.aspectRatio = generation.settings?.aspect_ratio || '4:5';
   document.getElementById('card-news-result-title').textContent = generation.title || '만든 카드뉴스';
   const imageCount = (generation.cards || []).filter((card) => card.image_url).length;
+  const importedGeneration = generation.image_mode === 'imported';
   const bulkImageAction = document.getElementById('card-news-bulk-image-action');
   const regenerate = document.getElementById('card-news-regenerate');
-  if (regenerate) regenerate.hidden = options.allowCompositionRegeneration === false;
+  if (regenerate) regenerate.hidden = importedGeneration || options.allowCompositionRegeneration === false;
   if (bulkImageAction) {
+    bulkImageAction.hidden = importedGeneration;
     bulkImageAction.textContent = imageCount === 0
       ? '이미지 모두 만들기'
       : (imageCount < (generation.cards?.length || 0) ? '빈 이미지 모두 만들기' : '이미지 모두 다시 만들기');
@@ -248,14 +252,14 @@ function renderCardNewsGeneration(generation, options = {}) {
         <strong>${escapeHtml(card.headline)}</strong>
         <p>${escapeHtml(card.body || '')}</p>
         <div class="card-news-result-card-actions">
-          <button class="secondary compact" type="button" data-card-news-prompt-copy="${card.index}">프롬프트 복사</button>
-          <button class="primary compact" type="button" data-card-news-image-action="${card.index}">${card.image_url ? '이미지 다시 만들기' : '이미지 만들기'}</button>
+          ${card.image_prompt ? `<button class="secondary compact" type="button" data-card-news-prompt-copy="${card.index}">프롬프트 복사</button>` : ''}
+          ${importedGeneration ? '' : `<button class="primary compact" type="button" data-card-news-image-action="${card.index}">${card.image_url ? '이미지 다시 만들기' : '이미지 만들기'}</button>`}
           ${card.download_url ? `<a href="${escapeHtml(card.download_url)}" download>이미지 받기</a>` : ''}
         </div>
-        <details class="card-news-prompt-details">
+        ${card.image_prompt ? `<details class="card-news-prompt-details">
           <summary>프롬프트 보기</summary>
           <p>${escapeHtml(card.image_prompt || '')}</p>
-        </details>
+        </details>` : ''}
       </div>
     </article>`).join('');
   grid.querySelectorAll('[data-card-news-prompt-copy]').forEach((button) => {
@@ -496,11 +500,11 @@ async function runCardNewsImageGeneration({ mode = 'missing', cardIndex = 0 } = 
   }
 }
 
-function readCardNewsFileAsDataUrl(file) {
+function readCardNewsFileAsDataUrl(file, label = '이미지') {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('이미지 파일을 읽지 못했습니다.'));
+    reader.onerror = () => reject(new Error(`${label} 파일을 읽지 못했습니다.`));
     reader.readAsDataURL(file);
   });
 }

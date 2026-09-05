@@ -46,6 +46,8 @@ function createHarness(overrides = {}) {
         async generate(input) { return { id: 'generation-1', status: 'completed', input }; },
         async generateImages(input) { return { id: 'generation-1', status: 'completed', input }; },
         importLocalImage(input) { return { id: 'generation-1', status: 'completed', input }; },
+        previewZip(input) { return { card_count: 2, input }; },
+        importZip(input) { return { id: 'generation-zip', title: input.title, status: 'completed', cards: [{}, {}] }; },
         getGeneration(id) {
             if (id === 'missing-generation') throw new Error('missing');
             return { id, title: '저장된 카드뉴스', status: 'completed', completed_at: '2026-09-05T01:00:00.000Z', cards: [{ image_url: '/image.png' }] };
@@ -156,6 +158,21 @@ test('delegates AI image work and local image import through the card-news bound
     assert.equal(generated.generation.input.mode, 'missing');
     const imported = await service.importLocalImage({ generation_id: 'generation-1', card_index: 2 });
     assert.equal(imported.generation.input.card_index, 2);
+});
+
+test('previews and imports a ZIP without requiring an AI model', async () => {
+    const calls = [];
+    const { service } = createHarness({
+        ledgerSync: {
+            async registerSources() {},
+            async recordImportedGeneration(snapshot, generation) { calls.push([snapshot, generation]); }
+        }
+    });
+    assert.equal(service.previewZip({ base64_data: 'zip' }).card_count, 2);
+    const imported = await service.importZip({ base64_data: 'zip', title: '가져온 세트', source_url: 'https://example.com/post' });
+    assert.equal(imported.generation.id, 'generation-zip');
+    assert.equal(calls[0][0].canonical_url, 'https://example.com/post');
+    assert.equal(calls[0][1].status, 'completed');
 });
 
 test('synchronizes RSS discovery, generation, image progress, and publishing through the ledger boundary', async () => {

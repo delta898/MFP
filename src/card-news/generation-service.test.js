@@ -10,6 +10,7 @@ const {
     cardPlanMaxTokens,
     decodeLocalImage
 } = require('./generation-service');
+const { createStoredZip } = require('./zip-bundle');
 
 test('generates a coherent set, persists assets, and exposes safe local URLs', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-generation-'));
@@ -106,6 +107,81 @@ test('creates a reusable prompt-only composition without calling an image model'
         assert.equal(imageCalls, 0);
         assert.equal(textCallOptions.maxTokens, 4096);
         assert.equal(textCallOptions.logTokenUsage, true);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('previews and imports an ordered ZIP as a completed local generation', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-zip-import-'));
+    const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(128, 1)]);
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: () => 'generation-zip-1',
+            now: () => '2026-09-05T05:00:00.000Z',
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => '{}',
+            callWritingImage: async () => ''
+        });
+        const base64Data = createStoredZip([
+            { name: '10.png', data: png },
+            { name: '2.png', data: png },
+            { name: '1.png', data: png }
+        ]).toString('base64');
+        assert.deepEqual(service.previewZip({ base64_data: base64Data }).images.map((image) => image.file_name), ['1.png', '2.png', '10.png']);
+        const result = service.importZip({
+            base64_data: base64Data,
+            title: '외부 카드뉴스',
+            source_url: 'https://example.com/article',
+            management_id: 'import-1'
+        });
+        assert.equal(result.id, 'generation-zip-1');
+        assert.equal(result.image_mode, 'imported');
+        assert.equal(result.status, 'completed');
+        assert.equal(result.cards.length, 3);
+        assert.equal(result.source_url, 'https://example.com/article');
+        assert.ok(result.cards.every((card) => card.image_url));
+        const manifest = JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-zip-1', 'manifest.json')));
+        assert.deepEqual(manifest.cards.map((card) => card.imported_file_name), ['1.png', '2.png', '10.png']);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('imports title, source, settings, and card copy from a BlogGenius ZIP manifest', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-import-manifest-'));
+    const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(128, 1)]);
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: () => 'generation-import-manifest',
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => '{}'
+        });
+        const metadata = {
+            title: '복원된 카드뉴스',
+            source: { canonical_url: 'https://example.com/source' },
+            settings: { aspect_ratio: '1:1', style: 'editorial', include_korean_text: false },
+            cards: [{ image_file: '01.png', headline: '복원 제목', body: '복원 본문', image_prompt: '복원 프롬프트' }]
+        };
+        const base64Data = createStoredZip([
+            { name: 'card-news.json', data: Buffer.from(JSON.stringify(metadata)) },
+            { name: '01.png', data: png }
+        ]).toString('base64');
+        const result = service.importZip({ base64_data: base64Data });
+        assert.equal(result.title, '복원된 카드뉴스');
+        assert.equal(result.source_url, 'https://example.com/source');
+        assert.deepEqual(result.settings, {
+            aspect_ratio: '1:1',
+            slide_count: 1,
+            style: 'editorial',
+            include_korean_text: false,
+            additional_request: ''
+        });
+        assert.equal(result.cards[0].headline, '복원 제목');
+        assert.equal(result.cards[0].body, '복원 본문');
+        assert.equal(result.cards[0].image_prompt, '복원 프롬프트');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

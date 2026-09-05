@@ -34,6 +34,12 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
     assert.match(html, /class="card-news-published-toggle" hidden>[\s\S]*id="card-news-include-published"/);
     assert.match(html, /data-card-news-managed-filter="발행 완료"/);
+    assert.match(html, /id="card-news-zip-select"[^>]*>ZIP 가져오기</);
+    assert.match(html, /id="card-news-zip-file"[^>]*accept="\.zip/);
+    assert.match(html, /id="card-news-zip-panel"[^>]*hidden/);
+    assert.match(script, /\/api\/v1\/card-news\/zip\/preview/);
+    assert.match(script, /\/api\/v1\/card-news\/zip\/import/);
+    assert.match(script, /image_mode === 'imported'/);
     assert.match(script, /\/api\/v1\/card-news\/managed/);
     assert.match(script, /\/api\/v1\/card-news\/generations\/\$\{encodeURIComponent\(generationId\)\}/);
     assert.match(script, /로컬 결과 없음/);
@@ -89,6 +95,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(navigation, /currentViewName === 'card-news'[\s\S]*rememberCardNewsScrollPosition/);
     assert.match(navigation, /viewName === 'card-news'[\s\S]*restoreCardNewsScrollPosition/);
     assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/images\/import'[\s\S]{0,180}15 \* 1024 \* 1024/);
+    assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/zip\/preview'[\s\S]{0,180}55 \* 1024 \* 1024/);
     assert.doesNotMatch(script, /이미지 생성 기능은 다음 단계에서 연결할 예정입니다/);
     assert.doesNotMatch(script, /sameVariation/);
     assert.match(script, /const sources = cardNewsViewState\.configuredSources;[\s\S]*sources\.length < 2/);
@@ -119,6 +126,9 @@ test('Card News settings provide a minimal custom RSS registry', () => {
     assert.match(settingsScript, /aria-label="이 RSS 사용"/);
     assert.doesNotMatch(settingsScript, /<span>사용<\/span>/);
     assert.match(settingsScript, /class="card-news-rss-remove"/);
+    assert.match(html, /공개 HTTPS RSS를 3개까지 추가/);
+    assert.match(settingsScript, /SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT = 3/);
+    assert.match(settingsScript, /settingsCardNewsRssSources\.length >= SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT/);
     assert.match(cardNewsScript, /sourcesStale:\s*true/);
     assert.match(cardNewsScript, /function markCardNewsSourcesStale/);
     assert.match(cardNewsScript, /cardNewsViewState\.sourcesStale[\s\S]*loadCardNewsSources/);

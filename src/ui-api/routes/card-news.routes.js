@@ -9,6 +9,8 @@ function createCardNewsRouteHandler(deps = {}) {
             '/api/v1/card-news/generations': controller.generate,
             '/api/v1/card-news/images/generate': controller.generateImages,
             '/api/v1/card-news/images/import': controller.importImage,
+            '/api/v1/card-news/zip/preview': controller.previewZip,
+            '/api/v1/card-news/zip/import': controller.importZip,
             '/api/v1/card-news/publishing/config': controller.publishingConfig,
             '/api/v1/card-news/publishing/publish': controller.publish,
             '/api/v1/card-news/projects': controller.projects

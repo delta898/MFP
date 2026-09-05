@@ -10,6 +10,8 @@ function createHarness(overrides = {}) {
         async generate() { return { generation: { id: 'set-1' } }; },
         async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
         importLocalImage() { return { generation: { id: 'set-1', status: 'completed' } }; },
+        previewZip() { return { card_count: 3 }; },
+        async importZip() { return { generation: { id: 'zip-1', status: 'completed' } }; },
         resolveAsset() { return { path: '/safe/card-01.png', file_name: 'card-01.png', mime_type: 'image/png' }; },
         createExportBundle() {
             return {
@@ -62,6 +64,15 @@ test('updates generated and local card images through the controller', async () 
     await controller.importImage({ requestId: 'req-image-2', method: 'POST', requestBody: {}, res: {} });
     assert.equal(responses[0].data.generation.status, 'completed');
     assert.equal(responses[1].data.generation.status, 'completed');
+});
+
+test('previews and imports a card-news ZIP through the controller', async () => {
+    const { controller, responses } = createHarness();
+    await controller.previewZip({ requestId: 'req-zip-preview', method: 'POST', requestBody: {}, res: {} });
+    await controller.importZip({ requestId: 'req-zip-import', method: 'POST', requestBody: {}, res: {} });
+    assert.equal(responses[0].data.card_count, 3);
+    assert.equal(responses[1].data.generation.id, 'zip-1');
+    assert.equal(responses[1].status, 201);
 });
 
 test('streams a resolved local card image with optional download headers', async () => {
