@@ -68,9 +68,19 @@ function createSystemController(deps = {}) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
+            if (updater.isWindowsDeferredApplyPending?.()) {
+                try {
+                    await updater.restart({ exitDelayMs: 1000 });
+                    return sendSuccess(res, requestId, { success: true });
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'UPDATE_RESTART_ERROR', '업데이트 재시작에 실패했습니다.', e);
+                }
+            }
             sendSuccess(res, requestId, { success: true });
             setTimeout(() => {
-                updater.restart();
+                Promise.resolve(updater.restart()).catch((error) => {
+                    logger.error(`업데이트 재시작을 시작하지 못했습니다: ${error.message}`);
+                });
             }, 1000);
             return true;
         },
@@ -80,9 +90,19 @@ function createSystemController(deps = {}) {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             logger.info('🔄 [System] UI에서 서버 재시작 요청');
+            if (updater.isWindowsDeferredApplyPending?.()) {
+                try {
+                    await updater.restart({ exitDelayMs: 1000 });
+                    return sendSuccess(res, requestId, { success: true, message: '서버를 재시작합니다.' });
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'SYSTEM_RESTART_ERROR', '서버 재시작에 실패했습니다.', e);
+                }
+            }
             sendSuccess(res, requestId, { success: true, message: '서버를 재시작합니다.' });
             setTimeout(() => {
-                updater.restart();
+                Promise.resolve(updater.restart()).catch((error) => {
+                    logger.error(`서버 재시작을 시작하지 못했습니다: ${error.message}`);
+                });
             }, 1000);
             return true;
         },

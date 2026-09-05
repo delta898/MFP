@@ -12,10 +12,17 @@ const { APP_VERSION } = require('./constants');
  * Handles version checking and full folder self-updating from a public GitHub mirror repository.
  */
 class Updater {
-    constructor() {
+    constructor(options = {}) {
         this.currentVersion = APP_VERSION;
-        this.appRootDir = CONFIG.APP_ROOT_DIR;
+        this.appRootDir = options.appRootDir || CONFIG.APP_ROOT_DIR;
         this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
+        this.platform = options.platform || process.platform;
+        this.spawnProcess = options.spawnProcess || spawn;
+        this.exitProcess = options.exitProcess || ((code) => process.exit(code));
+        this.fs = options.fs || fs;
+        this.env = options.env || process.env;
+        this.windowsHelperReadyTimeoutMs = options.windowsHelperReadyTimeoutMs || 5000;
+        this.windowsPowerShellCandidates = options.windowsPowerShellCandidates || null;
         this.isUpdating = false;
         this.lastCheck = 0;
         this.updateInfo = null;
@@ -491,7 +498,7 @@ class Updater {
                 Logger.info(`📂 [Updater] 중첩 폴더 발견: ${entries[0]}`);
             }
 
-            if (process.platform === 'win32') {
+            if (this.platform === 'win32') {
                 Logger.info('🪟 [Updater] Windows 지연 적용 준비 중...');
                 this.progress.stage = 'syncing';
                 this.progress.message = '재시작 후 업데이트 적용 준비 중...';
@@ -513,7 +520,7 @@ class Updater {
                 }
             }
 
-            Logger.info(process.platform === 'win32'
+            Logger.info(this.platform === 'win32'
                 ? '✅ [Updater] 업데이트 적용 준비 완료! 재시작 후 Windows helper가 파일을 교체합니다.'
                 : '✅ [Updater] 업데이트 완료! 앱을 재시작해 주세요.');
             this.progress = { active: true, stage: 'done', message: '업데이트 완료! 재시작 중...', percent: 100, totalSize, downloadedSize };
@@ -528,17 +535,20 @@ class Updater {
     }
 
     prepareWindowsDeferredApply(sourceDir) {
-        if (process.platform !== 'win32') return;
+        if (this.platform !== 'win32') return;
 
         const helperScriptPath = path.join(this.tempDir, 'apply-update.ps1');
         const helperLogPath = path.join(this.tempDir, 'apply-update.log');
+        const helperBootstrapLogPath = path.join(this.tempDir, 'apply-update-bootstrap.log');
+        const helperReadyPath = path.join(this.tempDir, 'apply-update.ready');
         const scriptBody = `
 param(
     [Parameter(Mandatory = $true)][string]$SourceDir,
     [Parameter(Mandatory = $true)][string]$AppDir,
     [Parameter(Mandatory = $true)][string]$ExePath,
     [Parameter(Mandatory = $true)][int]$WaitPid,
-    [Parameter(Mandatory = $true)][string]$LogPath
+    [Parameter(Mandatory = $true)][string]$LogPath,
+    [Parameter(Mandatory = $true)][string]$ReadyPath
 )
 
 $ErrorActionPreference = 'Continue'
@@ -565,6 +575,7 @@ function Remove-BackupArtifacts {
 
 try {
     Write-Log "helper started (pid=$PID, waitingFor=$WaitPid)"
+    Set-Content -LiteralPath $ReadyPath -Value $PID -Encoding ASCII -Force
     for ($i = 0; $i -lt 600; $i++) {
         $target = Get-Process -Id $WaitPid -ErrorAction SilentlyContinue
         if (-not $target) { break }
@@ -614,7 +625,12 @@ try {
 }
 `.trimStart();
 
-        fs.writeFileSync(helperScriptPath, scriptBody, 'utf8');
+        this.fs.writeFileSync(helperScriptPath, scriptBody, 'utf8');
+        for (const stalePath of [helperLogPath, helperBootstrapLogPath, helperReadyPath]) {
+            try {
+                if (this.fs.existsSync(stalePath)) this.fs.rmSync(stalePath, { force: true });
+            } catch (_) { }
+        }
 
         const args = [
             '-NoProfile',
@@ -631,22 +647,132 @@ try {
             '-WaitPid',
             String(process.pid),
             '-LogPath',
-            helperLogPath
+            helperLogPath,
+            '-ReadyPath',
+            helperReadyPath
         ];
-
-        const child = spawn('powershell.exe', args, {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true
-        });
-        child.unref();
 
         this._pendingExternalRestart = {
             mode: 'windows-update-helper',
             helperScriptPath,
-            helperLogPath
+            helperLogPath,
+            helperBootstrapLogPath,
+            helperReadyPath,
+            args
         };
-        Logger.info(`🪟 [Updater] Windows helper 준비 완료: ${helperScriptPath}`);
+        Logger.info(`🪟 [Updater] Windows helper 스크립트 준비 완료: ${helperScriptPath}`);
+    }
+
+    getWindowsPowerShellCandidates() {
+        if (Array.isArray(this.windowsPowerShellCandidates)) {
+            return this.windowsPowerShellCandidates.map(value => String(value || '').trim()).filter(Boolean);
+        }
+
+        const candidates = [];
+        const systemRoot = String(this.env.SystemRoot || this.env.WINDIR || '').trim();
+        if (systemRoot) {
+            const bundledWindowsPowerShell = path.join(
+                systemRoot,
+                'System32',
+                'WindowsPowerShell',
+                'v1.0',
+                'powershell.exe'
+            );
+            if (this.fs.existsSync(bundledWindowsPowerShell)) candidates.push(bundledWindowsPowerShell);
+        }
+        candidates.push('powershell.exe', 'pwsh.exe');
+        return [...new Set(candidates)];
+    }
+
+    appendWindowsHelperBootstrapLog(message) {
+        const logPath = this._pendingExternalRestart?.helperBootstrapLogPath;
+        if (!logPath) return;
+        try {
+            const timestamp = new Date().toISOString();
+            this.fs.appendFileSync(logPath, `[${timestamp}] ${message}\n`, 'utf8');
+        } catch (_) { }
+    }
+
+    waitForWindowsHelperReady(child, readyPath) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            let pollTimer = null;
+            let timeoutTimer = null;
+
+            const finish = (error = null) => {
+                if (settled) return;
+                settled = true;
+                if (pollTimer) clearInterval(pollTimer);
+                if (timeoutTimer) clearTimeout(timeoutTimer);
+                child.removeListener('error', onError);
+                child.removeListener('exit', onExit);
+                if (error) reject(error);
+                else resolve();
+            };
+            const isReady = () => {
+                try {
+                    return this.fs.existsSync(readyPath);
+                } catch (_) {
+                    return false;
+                }
+            };
+            const onError = (error) => finish(error);
+            const onExit = (code, signal) => {
+                if (isReady()) finish();
+                else finish(new Error(`Windows helper가 준비 전에 종료되었습니다. (code=${code ?? 'null'}, signal=${signal || 'none'})`));
+            };
+
+            child.once('error', onError);
+            child.once('exit', onExit);
+            pollTimer = setInterval(() => {
+                if (isReady()) finish();
+            }, 50);
+            timeoutTimer = setTimeout(() => {
+                finish(new Error('Windows helper 준비 확인 시간이 초과되었습니다.'));
+            }, this.windowsHelperReadyTimeoutMs);
+            if (isReady()) finish();
+        });
+    }
+
+    async launchWindowsDeferredApply() {
+        const pending = this._pendingExternalRestart;
+        if (this.platform !== 'win32' || pending?.mode !== 'windows-update-helper') return false;
+
+        let lastError = null;
+        for (const command of this.getWindowsPowerShellCandidates()) {
+            let outputFd = null;
+            let child = null;
+            try {
+                this.appendWindowsHelperBootstrapLog(`launch requested: ${command}`);
+                outputFd = this.fs.openSync(pending.helperBootstrapLogPath, 'a');
+                child = this.spawnProcess(command, pending.args, {
+                    detached: true,
+                    stdio: ['ignore', outputFd, outputFd],
+                    windowsHide: true
+                });
+                await this.waitForWindowsHelperReady(child, pending.helperReadyPath);
+                child.unref();
+                this.appendWindowsHelperBootstrapLog(`helper ready: ${command} (pid=${child.pid || 'unknown'})`);
+                return true;
+            } catch (error) {
+                lastError = error;
+                this.appendWindowsHelperBootstrapLog(`launch failed: ${command} - ${error.message}`);
+                try {
+                    if (child && !child.killed) child.kill();
+                } catch (_) { }
+            } finally {
+                try {
+                    if (outputFd !== null) this.fs.closeSync(outputFd);
+                } catch (_) { }
+            }
+        }
+
+        throw new Error(`Windows 업데이트 helper를 시작하지 못했습니다: ${lastError?.message || 'PowerShell을 찾을 수 없습니다.'}`);
+    }
+
+    isWindowsDeferredApplyPending() {
+        return this.platform === 'win32'
+            && this._pendingExternalRestart?.mode === 'windows-update-helper';
     }
 
     /**
@@ -753,7 +879,7 @@ try {
     async unzip(zipPath, targetDir) {
         return new Promise((resolve, reject) => {
             let cmd = '';
-            if (process.platform === 'win32') {
+            if (this.platform === 'win32') {
                 cmd = `powershell -Command "Expand-Archive -Path '${zipPath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force"`;
             } else {
                 // -q: quiet mode (대량의 파일 압축 해제 시 stdout 버퍼 행 방지)
@@ -776,11 +902,26 @@ try {
         });
     }
 
-    restart() {
-        if (process.platform === 'win32' && this._pendingExternalRestart?.mode === 'windows-update-helper') {
-            Logger.info('🪟 [Updater] Windows helper가 업데이트 적용을 이어서 진행합니다. 현재 프로세스를 종료합니다.');
-            process.exit(0);
-            return;
+    async restart(options = {}) {
+        if (this.isWindowsDeferredApplyPending()) {
+            Logger.info('🪟 [Updater] Windows helper 실행 및 준비 상태를 확인합니다.');
+            try {
+                await this.launchWindowsDeferredApply();
+            } catch (error) {
+                Logger.error(`❌ [Updater] Windows helper 시작 실패: ${error.message}`);
+                this.progress = {
+                    ...this.progress,
+                    active: false,
+                    stage: 'error',
+                    message: `업데이트 재시작 실패: ${error.message}`
+                };
+                throw error;
+            }
+            Logger.info('🪟 [Updater] Windows helper 준비 확인 완료. 현재 프로세스를 종료합니다.');
+            const exitDelayMs = Math.max(0, Number(options.exitDelayMs) || 0);
+            if (exitDelayMs > 0) setTimeout(() => this.exitProcess(0), exitDelayMs);
+            else this.exitProcess(0);
+            return true;
         }
 
         const bin = process.execPath;
@@ -788,12 +929,13 @@ try {
 
         Logger.info('🔄 [Updater] 프로세스 재시작 중...');
 
-        const child = spawn(bin, args, {
+        const child = this.spawnProcess(bin, args, {
             detached: true,
             stdio: 'inherit'
         });
         child.unref();
-        process.exit(0);
+        this.exitProcess(0);
+        return true;
     }
 }
 
