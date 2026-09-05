@@ -49,6 +49,24 @@ function showAppCelebration({ title, message } = {}) {
   celebrationCleanupTimer = setTimeout(() => celebration.remove(), 3600);
 }
 
+async function showPendingUpdateCelebration() {
+  try {
+    const completion = await fetchJson('/api/v1/system/update/completion');
+    if (!completion?.pending || !completion.operationId || !completion.targetVersion) return false;
+    showAppCelebration({
+      title: '업데이트 완료! 🎉',
+      message: `BlogGenius v${completion.targetVersion} 업데이트가 적용되었습니다.`
+    });
+    await postJson('/api/v1/system/update/completion/ack', {
+      operationId: completion.operationId
+    });
+    return true;
+  } catch (error) {
+    console.warn('[UpdateCompletion] 완료 안내 확인 실패:', error);
+    return false;
+  }
+}
+
 function showQuickPostingCelebration() {
   showAppCelebration({
     title: '글쓰기 완료! 🎉',

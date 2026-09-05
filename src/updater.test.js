@@ -145,6 +145,8 @@ test('Windows updater defers helper launch until restart and exits only after re
         assert.equal(helperSpec.appDir, appRootDir);
         assert.equal(helperSpec.waitPid, process.pid);
         assert.equal(helperSpec.targetVersion, '0.4.3-dev6');
+        assert.equal(helperSpec.receiptPath, updater.updateCompletionReceiptPath);
+        assert.match(helperScript, /ConvertTo-Json -Compress/);
 
         await updater.restart();
 
@@ -164,6 +166,55 @@ test('Windows updater defers helper launch until restart and exits only after re
             fs.readFileSync(updater._pendingExternalRestart.helperBootstrapLogPath, 'utf8'),
             /helper ready: powershell-test\.exe/
         );
+    } finally {
+        fs.rmSync(appRootDir, { recursive: true, force: true });
+    }
+});
+
+test('update completion receipt is shown only by its target version and consumed by matching acknowledgement', () => {
+    const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-update-receipt-'));
+    const receiptPath = path.join(appRootDir, 'persistent', 'update-state', 'completion.json');
+
+    try {
+        const updater = new Updater({ appRootDir, updateCompletionReceiptPath: receiptPath });
+        updater.currentVersion = '0.4.3-dev7';
+        updater.writeUpdateCompletionReceipt({
+            operationId: 'operation-7',
+            targetVersion: '0.4.3-dev7'
+        });
+
+        assert.deepEqual(updater.getPendingUpdateCompletion(), {
+            pending: true,
+            operationId: 'operation-7',
+            targetVersion: '0.4.3-dev7',
+            completedAt: updater.readUpdateCompletionReceipt().completedAt
+        });
+        assert.deepEqual(updater.acknowledgeUpdateCompletion('another-operation'), { acknowledged: false });
+        assert.equal(fs.existsSync(receiptPath), true);
+        assert.deepEqual(updater.acknowledgeUpdateCompletion('operation-7'), { acknowledged: true });
+        assert.deepEqual(updater.getPendingUpdateCompletion(), { pending: false });
+        assert.equal(fs.existsSync(receiptPath), false);
+    } finally {
+        fs.rmSync(appRootDir, { recursive: true, force: true });
+    }
+});
+
+test('update completion receipt remains pending for a future target version', () => {
+    const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-update-receipt-target-'));
+    const receiptPath = path.join(appRootDir, 'completion.json');
+
+    try {
+        fs.writeFileSync(receiptPath, '\uFEFF' + JSON.stringify({
+            operationId: 'operation-next',
+            targetVersion: '0.4.3-dev8',
+            completedAt: '2026-09-06T00:00:00.000Z'
+        }), 'utf8');
+        const updater = new Updater({ appRootDir, updateCompletionReceiptPath: receiptPath });
+        updater.currentVersion = '0.4.3-dev7';
+
+        assert.deepEqual(updater.getPendingUpdateCompletion(), { pending: false });
+        assert.deepEqual(updater.acknowledgeUpdateCompletion('operation-next'), { acknowledged: false });
+        assert.equal(fs.existsSync(receiptPath), true);
     } finally {
         fs.rmSync(appRootDir, { recursive: true, force: true });
     }
@@ -288,4 +339,38 @@ test('update restart endpoint reports helper launch failure while the app remain
         code: 'UPDATE_RESTART_ERROR',
         message: 'PowerShell launch failed'
     });
+});
+
+test('update completion endpoints expose and consume only the matching operation', async () => {
+    const calls = [];
+    const controller = createSystemController({
+        service: {},
+        updater: {
+            getPendingUpdateCompletion: () => ({
+                pending: true,
+                operationId: 'operation-api',
+                targetVersion: '0.4.3-dev7'
+            }),
+            acknowledgeUpdateCompletion: (operationId) => {
+                calls.push(operationId);
+                return { acknowledged: operationId === 'operation-api' };
+            }
+        },
+        logger: { error() {} },
+        sendSuccess: (_res, requestId, payload) => ({ requestId, payload }),
+        sendError: (_res, requestId, status, code, message) => ({ requestId, status, code, message })
+    });
+
+    const pending = await controller.updateCompletion({ requestId: 'completion-get', method: 'GET', res: {} });
+    const acknowledged = await controller.updateCompletionAcknowledge({
+        requestId: 'completion-ack',
+        method: 'POST',
+        requestBody: { operationId: 'operation-api' },
+        res: {}
+    });
+
+    assert.equal(pending.payload.pending, true);
+    assert.equal(pending.payload.targetVersion, '0.4.3-dev7');
+    assert.deepEqual(calls, ['operation-api']);
+    assert.deepEqual(acknowledged.payload, { acknowledged: true });
 });

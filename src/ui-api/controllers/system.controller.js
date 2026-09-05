@@ -52,6 +52,32 @@ function createSystemController(deps = {}) {
             }
         },
 
+        async updateCompletion({ requestId, method, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, updater.getPendingUpdateCompletion());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'UPDATE_COMPLETION_ERROR', '업데이트 완료 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async updateCompletionAcknowledge({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(
+                    res,
+                    requestId,
+                    updater.acknowledgeUpdateCompletion(requestBody?.operationId)
+                );
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'UPDATE_COMPLETION_ACK_ERROR', '업데이트 완료 안내를 처리하지 못했습니다.', e);
+            }
+        },
+
         async updateCancel({ requestId, method, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

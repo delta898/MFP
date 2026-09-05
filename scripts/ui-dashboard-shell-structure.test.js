@@ -17,7 +17,7 @@ const shellContracts = Object.freeze({
     'features/shell/dashboard.js': ['loadDashboard'],
     'features/shell/activity-logs.js': ['loadDashboardLogs'],
     'features/shell/system-logs.js': ['loadSystemLog', 'formatSystemLogHtml'],
-    'features/shell/celebration.js': ['showAppCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
+    'features/shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
     'features/shell/clock.js': ['initClockWidget']
 });
 
@@ -45,6 +45,17 @@ test('dashboard shell responsibilities have one explicit feature owner', () => {
             );
         });
     });
+});
+
+test('self-update completion uses the shared celebration and acknowledges it after display', () => {
+    const celebrationSource = readScript('features/shell/celebration.js');
+    const lifecycleSource = readScript('foundation/lifecycle.js');
+
+    assert.match(celebrationSource, /fetchJson\('\/api\/v1\/system\/update\/completion'\)/);
+    assert.match(celebrationSource, /showAppCelebration\(\{/);
+    assert.match(celebrationSource, /BlogGenius v\$\{completion\.targetVersion\} 업데이트가 적용되었습니다/);
+    assert.match(celebrationSource, /postJson\('\/api\/v1\/system\/update\/completion\/ack'/);
+    assert.match(lifecycleSource, /void showPendingUpdateCelebration\(\)/);
 });
 
 test('temporary feature modules no longer own dashboard shell controllers', () => {

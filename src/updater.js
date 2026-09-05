@@ -22,6 +22,11 @@ class Updater {
         this.exitProcess = options.exitProcess || ((code) => process.exit(code));
         this.fs = options.fs || fs;
         this.env = options.env || process.env;
+        this.userDataDir = options.userDataDir
+            || String(this.env.BLOG_GENIUS_USER_DATA || '').trim()
+            || this.appRootDir;
+        this.updateCompletionReceiptPath = options.updateCompletionReceiptPath
+            || path.join(this.userDataDir, 'update-state', 'completion.json');
         this.windowsHelperReadyTimeoutMs = options.windowsHelperReadyTimeoutMs || 5000;
         this.windowsPowerShellCandidates = options.windowsPowerShellCandidates || null;
         this.isUpdating = false;
@@ -405,6 +410,10 @@ class Updater {
         if (!asset) throw new Error(`현재 플랫폼(${process.platform}-${process.arch})에 맞는 배포 파일을 찾을 수 없습니다.`);
 
         this.isUpdating = true;
+        const updateOperation = {
+            operationId: crypto.randomUUID(),
+            targetVersion: String(this.updateInfo.latestVersion || '').trim()
+        };
         this.progress = { active: true, stage: 'downloading', message: '다운로드 준비 중...', percent: 0, totalSize: 0, downloadedSize: 0 };
         try {
             if (!fs.existsSync(this.tempDir)) fs.mkdirSync(this.tempDir, { recursive: true });
@@ -496,7 +505,7 @@ class Updater {
                 Logger.info('🪟 [Updater] Windows 지연 적용 준비 중...');
                 this.progress.stage = 'syncing';
                 this.progress.message = '재시작 후 업데이트 적용 준비 중...';
-                this.prepareWindowsDeferredApply(sourceDir);
+                this.prepareWindowsDeferredApply(sourceDir, updateOperation);
             } else {
                 Logger.info('📂 [Updater] 전체 폴더 동기화 업데이트 시작...');
                 this.progress.stage = 'syncing';
@@ -512,6 +521,7 @@ class Updater {
                 } catch (cleanupErr) {
                     Logger.warn(`⚠️ [Updater] tmp_update 정리 실패 (무시됨): ${cleanupErr.message}`);
                 }
+                this.writeUpdateCompletionReceipt(updateOperation);
             }
 
             Logger.info(this.platform === 'win32'
@@ -528,7 +538,7 @@ class Updater {
         }
     }
 
-    prepareWindowsDeferredApply(sourceDir) {
+    prepareWindowsDeferredApply(sourceDir, updateOperation = {}) {
         if (this.platform !== 'win32') return;
 
         const helperScriptPath = path.join(this.tempDir, 'apply-update.ps1');
@@ -574,6 +584,8 @@ try {
     $readyPath = [string]$config.readyPath
     $completedPath = [string]$config.completedPath
     $failedPath = [string]$config.failedPath
+    $receiptPath = [string]$config.receiptPath
+    $operationId = [string]$config.operationId
     $targetVersion = [string]$config.targetVersion
 
     if (-not (Test-Path -LiteralPath $sourceDir -PathType Container)) {
@@ -636,6 +648,19 @@ try {
     }
 
     Remove-BackupArtifacts -RootPath $appDir
+    $receiptDir = Split-Path -Parent $receiptPath
+    New-Item -ItemType Directory -Path $receiptDir -Force | Out-Null
+    $receipt = [ordered]@{
+        operationId = $operationId
+        targetVersion = $targetVersion
+        completedAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    $tempReceiptPath = "$receiptPath.tmp-$PID"
+    $receipt | ConvertTo-Json -Compress | Set-Content -LiteralPath $tempReceiptPath -Encoding UTF8 -Force
+    if (Test-Path -LiteralPath $receiptPath) {
+        Remove-Item -LiteralPath $receiptPath -Force -ErrorAction Stop
+    }
+    Move-Item -LiteralPath $tempReceiptPath -Destination $receiptPath -Force -ErrorAction Stop
     Set-Content -LiteralPath $completedPath -Value $targetVersion -Encoding UTF8 -Force
     Write-Log "apply completed (target=$targetVersion)"
     Write-Log "relaunch: $exePath"
@@ -676,8 +701,11 @@ try {
             readyPath: helperReadyPath,
             completedPath: helperCompletedPath,
             failedPath: helperFailedPath,
-            targetVersion: String(this.updateInfo?.latestVersion || '').trim()
+            receiptPath: this.updateCompletionReceiptPath,
+            operationId: String(updateOperation.operationId || crypto.randomUUID()),
+            targetVersion: String(updateOperation.targetVersion || this.updateInfo?.latestVersion || '').trim()
         };
+        this.fs.mkdirSync(path.dirname(this.updateCompletionReceiptPath), { recursive: true });
         this.fs.writeFileSync(helperSpecPath, JSON.stringify(helperSpec, null, 2), 'utf8');
         for (const stalePath of [
             helperLogPath,
@@ -824,6 +852,70 @@ try {
     isWindowsDeferredApplyPending() {
         return this.platform === 'win32'
             && this._pendingExternalRestart?.mode === 'windows-update-helper';
+    }
+
+    writeUpdateCompletionReceipt(updateOperation = {}) {
+        const operationId = String(updateOperation.operationId || '').trim();
+        const targetVersion = String(updateOperation.targetVersion || '').trim();
+        if (!operationId || !targetVersion) {
+            throw new Error('업데이트 완료 기록 정보가 올바르지 않습니다.');
+        }
+
+        const receipt = {
+            operationId,
+            targetVersion,
+            completedAt: new Date().toISOString()
+        };
+        const receiptDir = path.dirname(this.updateCompletionReceiptPath);
+        const tempPath = `${this.updateCompletionReceiptPath}.tmp-${process.pid}`;
+        this.fs.mkdirSync(receiptDir, { recursive: true });
+        this.fs.writeFileSync(tempPath, JSON.stringify(receipt, null, 2), 'utf8');
+        if (this.fs.existsSync(this.updateCompletionReceiptPath)) {
+            this.fs.rmSync(this.updateCompletionReceiptPath, { force: true });
+        }
+        this.fs.renameSync(tempPath, this.updateCompletionReceiptPath);
+        Logger.info(`🎉 [Updater] 업데이트 완료 기록 저장: v${targetVersion}`);
+        return receipt;
+    }
+
+    readUpdateCompletionReceipt() {
+        try {
+            if (!this.fs.existsSync(this.updateCompletionReceiptPath)) return null;
+            const raw = this.fs.readFileSync(this.updateCompletionReceiptPath, 'utf8').replace(/^\uFEFF/, '');
+            const parsed = JSON.parse(raw);
+            const receipt = {
+                operationId: String(parsed?.operationId || '').trim(),
+                targetVersion: String(parsed?.targetVersion || '').trim(),
+                completedAt: String(parsed?.completedAt || '').trim()
+            };
+            if (!receipt.operationId || !receipt.targetVersion) return null;
+            return receipt;
+        } catch (error) {
+            Logger.warn(`⚠️ [Updater] 업데이트 완료 기록을 읽지 못했습니다: ${error.message}`);
+            return null;
+        }
+    }
+
+    getPendingUpdateCompletion() {
+        const receipt = this.readUpdateCompletionReceipt();
+        if (!receipt || receipt.targetVersion !== this.currentVersion) {
+            return { pending: false };
+        }
+        return { pending: true, ...receipt };
+    }
+
+    acknowledgeUpdateCompletion(operationId) {
+        const expectedOperationId = String(operationId || '').trim();
+        const receipt = this.readUpdateCompletionReceipt();
+        if (!receipt
+            || !expectedOperationId
+            || receipt.operationId !== expectedOperationId
+            || receipt.targetVersion !== this.currentVersion) {
+            return { acknowledged: false };
+        }
+        this.fs.rmSync(this.updateCompletionReceiptPath, { force: true });
+        Logger.info(`✨ [Updater] 업데이트 완료 안내 확인: v${receipt.targetVersion}`);
+        return { acknowledged: true };
     }
 
     /**
