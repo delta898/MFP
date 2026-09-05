@@ -3,7 +3,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
-## [0.4.3-dev1] - 2026-09-05
+## [0.4.3-dev2] - 2026-09-05
 
 ### Added
 - **카드뉴스 만들기**: 공개 블로그 글, 직접 입력한 URL 또는 붙여넣은 내용을 카드뉴스로 구성하고, 카드별 문구와 이미지 프롬프트를 확인한 뒤 AI 이미지나 내 이미지로 완성할 수 있습니다.
@@ -21,6 +21,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 ### Fixed
 - **카드뉴스와 SNS 화면 안정화**: 긴 제목, 많은 RSS 탭, 여러 이미지 선택과 끌어놓기 상황에서도 주요 버튼과 목록이 겹치지 않도록 화면 배치를 정리했습니다.
 - **카드뉴스 소스와 발행 상태 혼동 감소**: 이미 발행한 글과 새로 만들 글을 구분하고, 카드뉴스 발행 이력이 있는 항목이 반복해서 새 작업처럼 보이는 불편을 줄였습니다.
+- **첫 실행 설정 안내 복구**: 아직 AI, Google Spreadsheet, 블로그 채널을 설정하지 않은 새 설치에서 라이선스 확인이 완료되지 않아도 Dashboard가 필요한 설정과 다음 단계를 안내합니다.
 
 ## [0.4.1] - 2026-09-03
 

@@ -67,6 +67,12 @@ function getApiFixture(pathname) {
             isEssentialSet: true,
             isNaverSet: true,
             isWpSet: true,
+            setup: {
+                ready: true,
+                ai: { configured: true },
+                google: { configured: true, account_connected: true, spreadsheet_configured: true },
+                publishing_channel: { configured: true, naver_configured: true, wordpress_configured: false }
+            },
             version: '0.2.0',
             message: ''
         };
@@ -932,21 +938,55 @@ async function run() {
         assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
         assert.equal((await page.locator('#dashboard-beta-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
         assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), true);
-        await page.evaluate(() => renderDashboardBetaOnboarding({
-            ready: false,
-            ai: { configured: true },
-            google: { configured: false },
-            publishing_channel: { configured: false }
-        }));
+        const operationsRequestCountBeforeSetupCheck = requests.filter((request) => (
+            request.pathname === '/api/v1/continuous-publishing/dashboard-overview'
+        )).length;
+        const accountFailureRoute = async (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({ success: false, error: { message: '라이선스 상태를 확인하지 못했습니다.' } })
+        });
+        const setupRequiredRoute = async (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({
+                success: true,
+                data: {
+                    ready: true,
+                    isEssentialSet: false,
+                    setup: {
+                        ready: false,
+                        ai: { configured: true },
+                        google: { configured: false, account_connected: false, spreadsheet_configured: false },
+                        publishing_channel: { configured: false, naver_configured: false, wordpress_configured: false }
+                    }
+                }
+            })
+        });
+        await page.route('**/api/v1/account/overview?quiet=1', accountFailureRoute);
+        await page.route('**/api/v1/config/status', setupRequiredRoute);
+        await page.evaluate(() => loadDashboardBeta({ force: true }));
         assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#dashboard-beta-onboarding-progress').textContent()).trim(), '1/3 준비됨');
         assert.equal((await page.locator('#dashboard-beta-onboarding-action').textContent()).trim(), 'Google 연결하기');
+        assert.equal((await page.locator('#dashboard-beta-flow-subject').textContent()).trim(), 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
+        assert.equal(requests.filter((request) => (
+            request.pathname === '/api/v1/continuous-publishing/dashboard-overview'
+        )).length, operationsRequestCountBeforeSetupCheck);
+        assert.equal(consoleErrors.some((item) => item.includes('/api/v1/account/overview?quiet=1')), true);
+        for (let index = consoleErrors.length - 1; index >= 0; index -= 1) {
+            if (consoleErrors[index].includes('/api/v1/account/overview?quiet=1')) consoleErrors.splice(index, 1);
+        }
         await page.locator('#dashboard-beta-onboarding-action').click();
         await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
         assert.equal(await page.locator('.settings-tab-btn[data-settings-tab="general"]').evaluate(element => element.classList.contains('active')), true);
         await page.waitForFunction(() => document.getElementById('settings-google-auth-section')?.classList.contains('settings-navigation-target'));
+        await page.unroute('**/api/v1/account/overview?quiet=1', accountFailureRoute);
+        await page.unroute('**/api/v1/config/status', setupRequiredRoute);
         await page.evaluate(() => navigateTo('dashboard-beta'));
         await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.evaluate(() => loadDashboardBeta({ force: true }));
+        await page.waitForFunction(() => document.getElementById('dashboard-beta-onboarding')?.hidden === true);
         await page.locator('[data-dashboard-beta-period="week"]').click();
         assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');

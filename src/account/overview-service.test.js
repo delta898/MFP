@@ -417,16 +417,33 @@ test('account overview does not render a zero usage limit as a real quota', asyn
     assert.equal(overview.usage.remaining, 0);
 });
 
-test('account overview rejects failures with no usable license context', async () => {
+test('account overview keeps setup guidance available when license context is unavailable', async () => {
     const service = createService({
         License: {
             async checkLicenseStatus() {
                 return { success: false, message: '서버 연결 실패' };
             }
-        }
+        },
+        CONFIG: {
+            GOOGLE_SHEET_URL: '',
+            TEXT_MODEL: '',
+            TEXT_MODEL_API_KEY: '',
+            CONFIG_IS_NAVER_SET: false,
+            CONFIG_IS_WP_SET: false
+        },
+        peekNaverSessionForUi: () => ({ ok: false, reason: 'not_checked', message: '' }),
+        peekGoogleOauthStatus: () => ({ state: 'disconnected', connected: false })
     });
 
-    await assert.rejects(() => service.getOverview(), /서버 연결 실패/);
+    const overview = await service.getOverview();
+
+    assert.equal(overview.subscription.status, 'unavailable');
+    assert.equal(overview.subscription.message, '서버 연결 실패');
+    assert.equal(overview.usage.remaining, null);
+    assert.equal(overview.setup.ready, false);
+    assert.equal(overview.setup.ai.configured, false);
+    assert.equal(overview.setup.google.configured, false);
+    assert.equal(overview.setup.publishing_channel.configured, false);
 });
 
 test('account overview rejects invalid feature policy even with plan context', async () => {

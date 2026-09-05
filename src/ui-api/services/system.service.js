@@ -1,6 +1,7 @@
 const { createApiError } = require('../errors');
 const { listRecentDashboardActivities } = require('../../activity/dashboard-activity-store');
 const { toSafeRuntimeEnvironmentDiagnostic } = require('../../environment/runtime-profile');
+const { buildSetupReadiness } = require('../../account/setup-readiness');
 
 function createSystemService(deps = {}) {
     const {
@@ -13,7 +14,8 @@ function createSystemService(deps = {}) {
         ensureSheetsReadyForUi,
         Logger,
         axios,
-        cheerio
+        cheerio,
+        peekGoogleOauthStatus = () => ({ state: 'disconnected', connected: false })
     } = deps;
     if (typeof Logger?.getRecentLogs !== 'function') {
         console.error('❌ [System] Logger dependency missing or invalid in SystemService');
@@ -547,6 +549,16 @@ function createSystemService(deps = {}) {
         },
 
         async getConfigStatus() {
+            let googleOauth;
+            try {
+                googleOauth = peekGoogleOauthStatus();
+            } catch (error) {
+                googleOauth = {
+                    state: 'error',
+                    connected: false,
+                    message: String(error?.message || '')
+                };
+            }
             return {
                 ready: CONFIG.CONFIG_READY === true,
                 sourceType: String(CONFIG.CONFIG_SOURCE_TYPE || ''),
@@ -558,7 +570,8 @@ function createSystemService(deps = {}) {
                 ),
                 isEssentialSet: CONFIG.CONFIG_IS_ESSENTIAL_SET === true,
                 isNaverSet: CONFIG.CONFIG_IS_NAVER_SET === true,
-                isWpSet: CONFIG.CONFIG_IS_WP_SET === true
+                isWpSet: CONFIG.CONFIG_IS_WP_SET === true,
+                setup: buildSetupReadiness({ CONFIG, googleOauth })
             };
         },
 

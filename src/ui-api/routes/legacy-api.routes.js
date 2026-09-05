@@ -41,7 +41,8 @@ function createLegacyApiRouteHandler(deps = {}) {
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         Logger: deps.Logger,
         axios: deps.axios,
-        cheerio: deps.cheerio
+        cheerio: deps.cheerio,
+        peekGoogleOauthStatus: GoogleOAuth.peekStatus
     });
     const systemController = createSystemController({
         service: systemService,

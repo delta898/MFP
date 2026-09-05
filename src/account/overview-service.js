@@ -1,6 +1,7 @@
 const os = require('os');
 const { machineIdSync } = require('node-machine-id');
 const { normalizeSmartUsageItems } = require('../smart-usage');
+const { buildSetupReadiness } = require('./setup-readiness');
 
 const FEATURE_LABELS = {
     cmd_batch: '일괄·자동 발행',
@@ -173,18 +174,9 @@ function createAccountOverviewService(deps = {}) {
             };
         }
 
-        const hasLicenseContext = Boolean(
-            licenseStatus?.planCode
-            || licenseStatus?.planDisplayName
-            || Number.isFinite(Number(licenseStatus?.remaining))
-        );
         if (licenseStatus?.code === 'LICENSE_FEATURE_POLICY_INVALID') {
             throw new Error(licenseStatus.message || '라이선스 기능 정책이 올바르지 않습니다.');
         }
-        if (!licenseStatus?.success && !hasLicenseContext) {
-            throw new Error(licenseStatus?.message || '라이선스 상태를 확인하지 못했습니다.');
-        }
-
         const features = toFeatureMap(licenseStatus?.features || {});
         const usage = normalizeUsageReadModel(licenseStatus);
         const planCode = String(licenseStatus?.planCode || '').trim().toLowerCase();
@@ -201,28 +193,15 @@ function createAccountOverviewService(deps = {}) {
             hardwareId = maskHardwareId(resolveMachineId());
         } catch (_ignore) { }
 
-        const hasUsableConfigValue = (value) => {
-            const normalized = String(value || '').trim().toLowerCase();
-            return Boolean(normalized)
-                && !normalized.includes('본인의_')
-                && !normalized.includes('your_')
-                && !normalized.startsWith('xxxxxxx');
-        };
-        const googleConfigured = hasUsableConfigValue(CONFIG.GOOGLE_SHEET_URL || CONFIG.GOOGLE_SHEET_ID);
         const googleAccountConnected = googleOauth?.connected === true
             || ['connected', 'connected_cached'].includes(String(googleOauth?.state || '').trim());
-        const textModelProvider = String(CONFIG.TEXT_MODEL_PROVIDER || CONFIG.TEXT_MODEL_CONFIG?.provider || '').trim().toLowerCase();
-        const textModelIdentity = CONFIG.TEXT_MODEL || CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL_CONFIG?.code;
-        const textModelConfigured = textModelProvider === 'direct'
-            ? hasUsableConfigValue(textModelIdentity)
-                && hasUsableConfigValue(CONFIG.TEXT_MODEL_BASE_URL || CONFIG.TEXT_MODEL_CONFIG?.base_url)
-            : hasUsableConfigValue(textModelIdentity) && hasUsableConfigValue(CONFIG.TEXT_MODEL_API_KEY);
-        const wordpressFieldsConfigured = hasUsableConfigValue(CONFIG.WORDPRESS_URL)
-            && hasUsableConfigValue(CONFIG.WORDPRESS_USER_ID)
-            && hasUsableConfigValue(CONFIG.WORDPRESS_APP_PASSWORD);
-        const wordpressConfigured = typeof CONFIG.CONFIG_IS_WP_SET === 'boolean'
-            ? CONFIG.CONFIG_IS_WP_SET
-            : wordpressFieldsConfigured;
+        const setup = buildSetupReadiness({
+            CONFIG,
+            googleOauth,
+            naverConnected: naverSession?.ok === true
+        });
+        const googleConfigured = setup.google.spreadsheet_configured;
+        const wordpressConfigured = setup.publishing_channel.wordpress_configured;
         const wordpressVerification = wordpressConfigured
             ? (connectionReadiness?.wordpress || getWordPressVerification({
                 url: CONFIG.WORDPRESS_URL,
@@ -230,12 +209,6 @@ function createAccountOverviewService(deps = {}) {
                 appPassword: CONFIG.WORDPRESS_APP_PASSWORD
             }))
             : null;
-        const naverConfigured = naverSession?.ok === true || CONFIG.CONFIG_IS_NAVER_SET === true;
-        const publishingChannelConfigured = naverConfigured || wordpressConfigured;
-        const setupReady = textModelConfigured
-            && googleAccountConnected
-            && googleConfigured
-            && publishingChannelConfigured;
 
         return {
             identity: {
@@ -309,20 +282,7 @@ function createAccountOverviewService(deps = {}) {
                     wordpressVerification || {}
                 )
             },
-            setup: {
-                ready: setupReady,
-                ai: { configured: textModelConfigured },
-                google: {
-                    configured: googleAccountConnected && googleConfigured,
-                    account_connected: googleAccountConnected,
-                    spreadsheet_configured: googleConfigured
-                },
-                publishing_channel: {
-                    configured: publishingChannelConfigured,
-                    naver_configured: naverConfigured,
-                    wordpress_configured: wordpressConfigured
-                }
-            },
+            setup,
             actions,
             generated_at: new Date().toISOString()
         };

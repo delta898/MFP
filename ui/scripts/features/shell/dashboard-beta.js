@@ -128,9 +128,12 @@ function renderDashboardBetaReadiness(overview) {
   const wordpress = dashboardBetaConnectionState(connections.wordpress, {
     ready: 'WordPress 연결 확인됨', attention: 'WordPress 연결 확인 필요', notConfigured: 'WordPress 미사용'
   });
-  const remaining = Number(overview?.usage?.remaining);
-  const used = Number(overview?.usage?.used);
-  const limit = Number(overview?.usage?.limit);
+  const toOptionalNumber = (value) => (
+    value === null || value === undefined || value === '' ? Number.NaN : Number(value)
+  );
+  const remaining = toOptionalNumber(overview?.usage?.remaining);
+  const used = toOptionalNumber(overview?.usage?.used);
+  const limit = toOptionalNumber(overview?.usage?.limit);
   const unlimited = overview?.usage?.mode === 'unlimited' || remaining < 0;
   const planName = String(overview?.subscription?.plan_name || overview?.subscription?.plan_code || '플랜')
     .replace(/\s+plan$/i, '')
@@ -156,7 +159,6 @@ function renderDashboardBetaReadiness(overview) {
       view: 'account'
     })
   );
-  renderDashboardBetaOnboarding(overview?.setup || {});
 }
 
 function renderDashboardBetaReadinessError() {
@@ -164,8 +166,6 @@ function renderDashboardBetaReadinessError() {
   const error = document.getElementById('dashboard-beta-readiness-error');
   if (container) container.innerHTML = '';
   if (error) error.hidden = false;
-  const onboarding = document.getElementById('dashboard-beta-onboarding');
-  if (onboarding) onboarding.hidden = true;
 }
 
 function dashboardBetaFlowCopy(flow = {}, queue = {}) {
@@ -314,6 +314,32 @@ function renderDashboardBetaOperationsError() {
   renderDashboardBetaQueue([]);
   const error = document.getElementById('dashboard-beta-operations-error');
   if (error) error.hidden = false;
+}
+
+function renderDashboardBetaOperationsSetupRequired() {
+  const flowBadge = document.getElementById('dashboard-beta-flow-badge');
+  const flowIndicator = document.getElementById('dashboard-beta-flow-indicator');
+  if (flowBadge) {
+    flowBadge.dataset.state = 'attention';
+    flowBadge.textContent = '설정 필요';
+  }
+  if (flowIndicator) flowIndicator.dataset.state = 'attention';
+  setText('dashboard-beta-flow-subject', 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
+  setText('dashboard-beta-flow-message', '위의 사용 준비 안내에서 Google 계정과 Spreadsheet를 연결해 주세요.');
+  const automationBadge = document.getElementById('dashboard-beta-automation-badge');
+  if (automationBadge) {
+    automationBadge.dataset.state = 'attention';
+    automationBadge.textContent = '설정 필요';
+  }
+  setText('dashboard-beta-next-time', 'Google 연결이 필요합니다.');
+  setText('dashboard-beta-next-copy', '연결을 마치면 발행 대기와 다음 실행 일정을 확인할 수 있습니다.');
+  setText('dashboard-beta-ready-count', '-');
+  setText('dashboard-beta-saved-count', '-');
+  setText('dashboard-beta-running-count', '-');
+  const queue = document.getElementById('dashboard-beta-queue-list');
+  if (queue) queue.innerHTML = '';
+  const error = document.getElementById('dashboard-beta-operations-error');
+  if (error) error.hidden = true;
 }
 
 function renderDashboardBetaRecentResults(items, periodKey = 'today') {
@@ -470,23 +496,37 @@ async function loadDashboardBeta(options = {}) {
 
   let accountOverview = null;
   let operationsOverview = null;
+  const configRequest = fetchJson('/api/v1/config/status')
+    .then((status) => {
+      const setup = status?.setup || null;
+      if (setup) renderDashboardBetaOnboarding(setup);
+      return setup;
+    })
+    .catch(() => null);
   const accountRequest = fetchJson('/api/v1/account/overview?quiet=1')
     .then((overview) => {
       accountOverview = overview;
       renderDashboardBetaReadiness(overview);
     })
     .catch(renderDashboardBetaReadinessError);
-  const operationsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-overview')
-    .then((overview) => {
-      operationsOverview = overview;
-      renderDashboardBetaOperations(overview);
-    })
-    .catch(renderDashboardBetaOperationsError);
+  const operationsRequest = configRequest.then((setup) => {
+    if (setup?.google?.configured === false) {
+      renderDashboardBetaOperationsSetupRequired();
+      return null;
+    }
+    return fetchJson('/api/v1/continuous-publishing/dashboard-overview')
+      .then((overview) => {
+        operationsOverview = overview;
+        renderDashboardBetaOperations(overview);
+        return overview;
+      })
+      .catch(renderDashboardBetaOperationsError);
+  });
   const statsRequest = fetchJson('/api/v1/continuous-publishing/dashboard-result-stats')
     .then(renderDashboardBetaResultStats)
     .catch(renderDashboardBetaResultStatsError);
   const tipsRequest = initDashboardBetaDynamicContent();
-  await Promise.allSettled([accountRequest, operationsRequest, statsRequest, tipsRequest]);
+  await Promise.allSettled([configRequest, accountRequest, operationsRequest, statsRequest, tipsRequest]);
   void initDashboardBetaSupportTeaser({
     operationallyEligible: dashboardBetaCanShowSupportTeaser(accountOverview, operationsOverview)
   });
