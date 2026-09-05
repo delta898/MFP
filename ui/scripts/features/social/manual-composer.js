@@ -33,7 +33,7 @@ function getManualSnsImageValidation() {
   const localMode = document.getElementById('manual-sns-image-source-local')?.checked === true;
   if (localMode) {
     if (manualSnsConfig.local_media_available !== true) {
-      return { valid: false, mode: 'local', hasImage: false, message: '로컬 이미지를 사용하려면 WordPress 연결 설정이 필요합니다.' };
+      return { valid: false, mode: 'local', hasImage: false, message: '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.' };
     }
     if (!manualSnsLocalImageFile) return { valid: true, mode: 'local', hasImage: false, file: null, url: '' };
     const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -74,7 +74,7 @@ function syncManualSnsImageSourceUi() {
   if (localRadio) localRadio.disabled = !localAvailable;
   if (localLabel) {
     localLabel.classList.toggle('is-disabled', !localAvailable);
-    localLabel.title = localAvailable ? '' : '설정 > 블로그에서 WordPress 연결 정보를 먼저 저장해 주세요.';
+    localLabel.title = localAvailable ? '' : 'Google 계정을 먼저 연결해 주세요.';
   }
   if (!localAvailable && localRadio?.checked && urlRadio) urlRadio.checked = true;
   const localMode = localRadio?.checked === true;
@@ -112,7 +112,7 @@ function syncManualSnsImagePreview() {
     imageEl.onload = null;
     imageEl.onerror = null;
     imageEl.src = manualSnsLocalImagePreviewUrl;
-    statusEl.textContent = `${validation.file.name} · WordPress를 통해 임시 업로드됩니다.`;
+    statusEl.textContent = `${validation.file.name} · Google Drive에 임시 업로드됩니다.`;
     return;
   }
   statusEl.textContent = '이미지 미리보기를 불러오는 중입니다.';
@@ -298,4 +298,3 @@ async function loadManualSnsComposer({ force = false } = {}) {
     manualSnsConfigLoading = false;
   }
 }
-

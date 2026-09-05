@@ -235,12 +235,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 bufferClient: new BufferClient({ axios }),
                 aiService: snsAiService,
                 parseImagePayload: parseBase64ImagePayload,
-                createWordPressClient: () => new WordPressClient({
-                    url: CONFIG.WORDPRESS_URL,
-                    userId: CONFIG.WORDPRESS_USER_ID,
-                    appPassword: CONFIG.WORDPRESS_APP_PASSWORD,
-                    axios
-                }),
+                mediaTransport: cardNewsMediaTransport,
                 Logger,
                 recordActivityLifecycle
             });

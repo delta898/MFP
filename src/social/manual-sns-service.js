@@ -86,7 +86,7 @@ function createManualSnsService(deps = {}) {
         aiService,
         Logger,
         parseImagePayload,
-        createWordPressClient,
+        mediaTransport,
         sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
         now = () => Date.now(),
         pollTimeoutMs = BUFFER_STATUS_POLL_TIMEOUT_MS,
@@ -103,13 +103,13 @@ function createManualSnsService(deps = {}) {
         return normalizeConfiguredChannels(CONFIG.BUFFER_CHANNELS);
     }
 
-    function isWordPressMediaAvailable() {
+    function isPublicMediaAvailable() {
         return Boolean(
-            String(CONFIG.WORDPRESS_URL || '').trim()
-            && String(CONFIG.WORDPRESS_USER_ID || '').trim()
-            && String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim()
-            && typeof parseImagePayload === 'function'
-            && typeof createWordPressClient === 'function'
+            typeof parseImagePayload === 'function'
+            && mediaTransport
+            && typeof mediaTransport.upload === 'function'
+            && typeof mediaTransport.remove === 'function'
+            && mediaTransport.isAvailable?.() === true
         );
     }
 
@@ -120,7 +120,7 @@ function createManualSnsService(deps = {}) {
             : { available: false, model_name: '' };
         return {
             configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
-            local_media_available: isWordPressMediaAvailable(),
+            local_media_available: isPublicMediaAvailable(),
             channels,
             ai
         };
@@ -346,8 +346,8 @@ function createManualSnsService(deps = {}) {
         if (requestedImageUrl && localImage) {
             throw createManualSnsError(400, 'MANUAL_SNS_IMAGE_SOURCE_CONFLICT', '이미지 URL과 로컬 이미지는 동시에 사용할 수 없습니다.');
         }
-        if (localImage && !isWordPressMediaAvailable()) {
-            throw createManualSnsError(400, 'MANUAL_SNS_WORDPRESS_REQUIRED', '로컬 이미지를 사용하려면 설정 > 블로그에서 WordPress 연결 정보를 먼저 저장해 주세요.');
+        if (localImage && !isPublicMediaAvailable()) {
+            throw createManualSnsError(400, 'MANUAL_SNS_GOOGLE_DRIVE_REQUIRED', '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.');
         }
         const selectedChannels = resolveSelectedChannels(input);
         const operationId = String(input.requestId || input.request_id || '').trim() || `manual-sns-${now()}`;
@@ -384,7 +384,7 @@ function createManualSnsService(deps = {}) {
 
         let imageUrl = requestedImageUrl;
         let temporaryMedia = null;
-        let wordpressClient = null;
+        let publicMediaTransport = null;
         if (localImage) {
             let parsedImage;
             try {
@@ -397,42 +397,33 @@ function createManualSnsService(deps = {}) {
             if (!mimeType) {
                 throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', '지원하지 않는 이미지 형식입니다.');
             }
-            wordpressClient = createWordPressClient();
-            if (
-                !wordpressClient
-                || typeof wordpressClient.uploadMedia !== 'function'
-                || typeof wordpressClient.deleteMedia !== 'function'
-                || !wordpressClient.isConfigured?.()
-            ) {
-                throw createManualSnsError(400, 'MANUAL_SNS_WORDPRESS_REQUIRED', 'WordPress 연결 정보를 확인해 주세요.');
-            }
+            publicMediaTransport = mediaTransport;
             const fileName = `manual-sns-${now()}${ext}`;
             try {
-                temporaryMedia = await wordpressClient.uploadMedia(parsedImage.buffer, fileName, 'SNS 임시 이미지', mimeType);
+                temporaryMedia = await publicMediaTransport.upload({
+                    buffer: parsedImage.buffer,
+                    file_name: fileName,
+                    description: 'SNS 임시 이미지',
+                    mime_type: mimeType
+                });
             } catch (error) {
-                Logger?.warn?.(`⚠️ [MANUAL_SNS] WordPress 임시 이미지 업로드 실패: ${error?.message || 'unknown error'}`);
+                Logger?.warn?.(`⚠️ [MANUAL_SNS] Google Drive 임시 이미지 업로드 실패: ${error?.message || 'unknown error'}`);
                 temporaryMedia = null;
             }
             if (!temporaryMedia?.id || !temporaryMedia?.url) {
-                if (temporaryMedia?.id && typeof wordpressClient.deleteMedia === 'function') {
-                    await wordpressClient.deleteMedia(temporaryMedia.id);
-                }
                 throw createManualSnsError(
                     502,
-                    'MANUAL_SNS_WORDPRESS_UPLOAD_FAILED',
-                    'WordPress에 이미지를 업로드하지 못했습니다. 이미지 URL을 사용하거나 이미지를 제거한 후 다시 발행해 주세요.'
+                    'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED',
+                    'Google Drive에 이미지를 임시 업로드하지 못했습니다. 이미지 URL을 사용하거나 이미지를 제거한 후 다시 발행해 주세요.'
                 );
             }
             try {
                 imageUrl = normalizeImageUrl(temporaryMedia.url);
             } catch (_error) {
-                if (typeof wordpressClient.deleteMedia === 'function') {
-                    await wordpressClient.deleteMedia(temporaryMedia.id);
-                }
                 throw createManualSnsError(
                     502,
-                    'MANUAL_SNS_WORDPRESS_MEDIA_URL_INVALID',
-                    'WordPress가 공개 HTTPS 이미지 URL을 반환하지 않았습니다. WordPress 사이트 주소를 확인해 주세요.'
+                    'MANUAL_SNS_MEDIA_URL_INVALID',
+                    'Google Drive가 공개 HTTPS 이미지 URL을 반환하지 않았습니다. Google 계정 연결을 확인해 주세요.'
                 );
             }
         }
@@ -454,15 +445,15 @@ function createManualSnsService(deps = {}) {
             if (publishResults) {
                 Logger?.info?.('✅ [MANUAL_SNS] Buffer 응답 유실 게시물을 최근 게시물 조회로 복구했습니다.');
             } else {
-                if (!requestTimedOut && temporaryMedia?.id && typeof wordpressClient?.deleteMedia === 'function') {
-                    await wordpressClient.deleteMedia(temporaryMedia.id);
+                if (!requestTimedOut && temporaryMedia?.id && typeof publicMediaTransport?.remove === 'function') {
+                    await publicMediaTransport.remove(temporaryMedia);
                 }
                 Logger?.warn?.(`⚠️ [MANUAL_SNS] Buffer 즉시 발행 실패: ${error?.message || 'unknown error'}`);
                 throw createManualSnsError(
                     error?.code === 'BUFFER_AUTH_INVALID' ? 401 : requestTimedOut ? 504 : 502,
                     error?.code || 'MANUAL_SNS_PUBLISH_FAILED',
                     requestTimedOut && temporaryMedia?.id
-                        ? 'Buffer 응답 시간이 초과되어 발행 여부를 확인하지 못했습니다. 중복 발행 방지를 위해 즉시 다시 시도하지 마세요. 임시 이미지는 WordPress 미디어에 남겨두었습니다.'
+                        ? 'Buffer 응답 시간이 초과되어 발행 여부를 확인하지 못했습니다. 중복 발행 방지를 위해 즉시 다시 시도하지 마세요. 임시 이미지는 Google Drive에 남겨두었습니다.'
                         : error?.message || 'Buffer 즉시 발행에 실패했습니다.'
                 );
             }
@@ -475,8 +466,8 @@ function createManualSnsService(deps = {}) {
             const reconciliation = await waitForTerminalPosts(apiKey, publishResults);
             publishResults = reconciliation.results;
             allTerminal = reconciliation.allTerminal;
-            if (allTerminal && typeof wordpressClient?.deleteMedia === 'function') {
-                cleanupSucceeded = await wordpressClient.deleteMedia(temporaryMedia.id) === true;
+            if (allTerminal && typeof publicMediaTransport?.remove === 'function') {
+                cleanupSucceeded = await publicMediaTransport.remove(temporaryMedia) === true;
             }
         }
 

@@ -33,16 +33,12 @@ test('composer config exposes channels but never the Buffer key or automation st
     assert.equal(Object.hasOwn(result, 'SNS_PUBLISH_ENABLED'), false);
 });
 
-test('composer config enables local media only when WordPress and media dependencies are ready', () => {
+test('composer config enables local media when Google public media is ready', () => {
     const service = createManualSnsService({
-        CONFIG: createConfig({
-            WORDPRESS_URL: 'https://blog.example',
-            WORDPRESS_USER_ID: 'editor',
-            WORDPRESS_APP_PASSWORD: 'app-password'
-        }),
+        CONFIG: createConfig(),
         bufferClient: { async shareNowMany() { return []; } },
         parseImagePayload() {},
-        createWordPressClient() {}
+        mediaTransport: { isAvailable: () => true, upload: async () => ({}), remove: async () => true }
     });
 
     assert.equal(service.getComposerConfig().local_media_available, true);
@@ -237,27 +233,23 @@ test('manual publish preserves partial Buffer results per channel', async () => 
 
 function createLocalMediaDeps(overrides = {}) {
     const calls = { upload: [], remove: [], share: [], query: [] };
-    const wordpressClient = {
-        isConfigured() { return true; },
-        async uploadMedia(...args) {
-            calls.upload.push(args);
+    const mediaTransport = {
+        isAvailable() { return true; },
+        async upload(input) {
+            calls.upload.push(input);
             return { id: 91, url: 'https://blog.example/wp-content/uploads/manual.png' };
         },
-        async deleteMedia(mediaId) {
-            calls.remove.push(mediaId);
+        async remove(media) {
+            calls.remove.push(media.id);
             return true;
         }
     };
     const deps = {
-        CONFIG: createConfig({
-            WORDPRESS_URL: 'https://blog.example',
-            WORDPRESS_USER_ID: 'editor',
-            WORDPRESS_APP_PASSWORD: 'app-password'
-        }),
+        CONFIG: createConfig(),
         parseImagePayload() {
             return { buffer: Buffer.from('local-image'), ext: '.png' };
         },
-        createWordPressClient() { return wordpressClient; },
+        mediaTransport,
         bufferClient: {
             async shareNowMany(_apiKey, deliveries) {
                 calls.share.push(deliveries);
@@ -278,10 +270,10 @@ function createLocalMediaDeps(overrides = {}) {
         },
         ...overrides
     };
-    return { deps, calls, wordpressClient };
+    return { deps, calls, mediaTransport };
 }
 
-test('local image is uploaded to WordPress, published, confirmed sent, and deleted', async () => {
+test('local image is uploaded to Google Drive, published, confirmed sent, and deleted', async () => {
     const { deps, calls } = createLocalMediaDeps();
     const service = createManualSnsService(deps);
 
@@ -292,7 +284,7 @@ test('local image is uploaded to WordPress, published, confirmed sent, and delet
     });
 
     assert.equal(calls.upload.length, 1);
-    assert.equal(calls.upload[0][3], 'image/png');
+    assert.equal(calls.upload[0].mime_type, 'image/png');
     assert.equal(calls.share[0][0].imageUrl, 'https://blog.example/wp-content/uploads/manual.png');
     assert.deepEqual(calls.remove, [91]);
     assert.equal(result.success, true);
@@ -300,7 +292,7 @@ test('local image is uploaded to WordPress, published, confirmed sent, and delet
     assert.deepEqual(result.media_cleanup, { attempted: true, retained: false });
 });
 
-test('Buffer terminal error still deletes temporary WordPress media', async () => {
+test('Buffer terminal error still deletes temporary Google Drive media', async () => {
     const { deps, calls } = createLocalMediaDeps();
     deps.bufferClient.getPostsByIds = async (_apiKey, postIds) => postIds.map((postId) => ({
         id: postId,
@@ -320,7 +312,7 @@ test('Buffer terminal error still deletes temporary WordPress media', async () =
     assert.equal(result.results[0].code, 'BUFFER_POST_PUBLISH_FAILED');
 });
 
-test('Buffer request failure deletes temporary WordPress media before returning the error', async () => {
+test('Buffer request failure deletes temporary Google Drive media before returning the error', async () => {
     const { deps, calls } = createLocalMediaDeps();
     deps.bufferClient.shareNowMany = async () => {
         const error = new Error('Buffer unavailable');
@@ -340,7 +332,7 @@ test('Buffer request failure deletes temporary WordPress media before returning 
     assert.deepEqual(calls.remove, [91]);
 });
 
-test('Buffer request timeout retains temporary WordPress media because delivery is ambiguous', async () => {
+test('Buffer request timeout retains temporary Google Drive media because delivery is ambiguous', async () => {
     const { deps, calls } = createLocalMediaDeps();
     deps.bufferClient.shareNowMany = async () => {
         const error = new Error('Buffer가 60초 안에 응답하지 않았습니다.');
@@ -437,9 +429,9 @@ test('Buffer request timeout retries recent-post recovery without resending the 
     assert.equal(result.results[0].buffer_post_id, 'delayed-recovered-post');
 });
 
-test('WordPress upload failure stops before Buffer publishing', async () => {
-    const { deps, calls, wordpressClient } = createLocalMediaDeps();
-    wordpressClient.uploadMedia = async () => null;
+test('Google Drive upload failure stops before Buffer publishing', async () => {
+    const { deps, calls, mediaTransport } = createLocalMediaDeps();
+    mediaTransport.upload = async () => null;
     const service = createManualSnsService(deps);
 
     await assert.rejects(
@@ -448,13 +440,13 @@ test('WordPress upload failure stops before Buffer publishing', async () => {
             text: '업로드 실패',
             localImage: { fileName: 'photo.png', mimeType: 'image/png', base64Data: 'ignored' }
         }),
-        (error) => error.apiCode === 'MANUAL_SNS_WORDPRESS_UPLOAD_FAILED' && /이미지 URL/.test(error.message)
+        (error) => error.apiCode === 'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED' && /이미지 URL/.test(error.message)
     );
     assert.equal(calls.share.length, 0);
     assert.equal(calls.remove.length, 0);
 });
 
-test('Buffer status timeout retains temporary WordPress media without a recovery job', async () => {
+test('Buffer status timeout retains temporary Google Drive media without a recovery job', async () => {
     const { deps, calls } = createLocalMediaDeps({ pollTimeoutMs: 0 });
     deps.bufferClient.getPostsByIds = async (_apiKey, postIds) => postIds.map((postId) => ({
         id: postId,
@@ -473,10 +465,10 @@ test('Buffer status timeout retains temporary WordPress media without a recovery
     assert.deepEqual(result.media_cleanup, { attempted: false, retained: true });
 });
 
-test('WordPress cleanup failure is reported without changing a successful SNS result', async () => {
-    const { deps, calls, wordpressClient } = createLocalMediaDeps();
-    wordpressClient.deleteMedia = async (mediaId) => {
-        calls.remove.push(mediaId);
+test('Google Drive cleanup failure is reported without changing a successful SNS result', async () => {
+    const { deps, calls, mediaTransport } = createLocalMediaDeps();
+    mediaTransport.remove = async (media) => {
+        calls.remove.push(media.id);
         return false;
     };
     const service = createManualSnsService(deps);
