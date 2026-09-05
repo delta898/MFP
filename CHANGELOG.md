@@ -3,6 +3,8 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev7] - 2026-09-06
+
 ### Added
 - **업데이트 완료 안내**: macOS와 Windows에서 self-update가 실제로 적용된 뒤 새 앱을 실행하면 적용된 버전을 폭죽 효과와 함께 한 번만 확인할 수 있습니다.
 
