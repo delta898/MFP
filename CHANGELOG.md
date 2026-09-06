@@ -3,6 +3,11 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
+## [0.4.3-dev9] - 2026-09-06
+
+### Fixed
+- **Windows 자동 업데이트 안정성**: 느린 환경에서도 업데이트 helper를 충분히 기다리고 중복 실행을 차단합니다. 적용이 실패하면 기존 파일과 앱을 복구한 뒤 실패 원인을 안내합니다.
+
 ## [0.4.3-dev8] - 2026-09-06
 
 ### Fixed

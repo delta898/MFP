@@ -51,6 +51,20 @@ function showAppCelebration({ title, message } = {}) {
 
 async function showPendingUpdateCelebration() {
   try {
+    const failure = await fetchJson('/api/v1/system/update/failure');
+    if (failure?.pending && failure.operationId) {
+      const detail = String(failure.message || '').trim();
+      await showUiDialog({
+        title: '업데이트 실패',
+        message: `업데이트를 적용하지 못해 기존 버전으로 다시 실행했습니다.${detail ? `\n\n원인: ${detail}` : ''}\n\n로그/이력에서 자세한 내용을 확인한 뒤 다시 시도해 주세요.`,
+        showCancel: false,
+        confirmText: '확인'
+      });
+      await postJson('/api/v1/system/update/failure/ack', {
+        operationId: failure.operationId
+      });
+      return false;
+    }
     const completion = await fetchJson('/api/v1/system/update/completion');
     if (!completion?.pending || !completion.operationId || !completion.targetVersion) return false;
     showAppCelebration({

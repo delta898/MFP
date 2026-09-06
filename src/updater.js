@@ -28,7 +28,9 @@ class Updater {
             || this.appRootDir;
         this.updateCompletionReceiptPath = options.updateCompletionReceiptPath
             || path.join(this.userDataDir, 'update-state', 'completion.json');
-        this.windowsHelperReadyTimeoutMs = options.windowsHelperReadyTimeoutMs || 5000;
+        this.updateFailureReceiptPath = options.updateFailureReceiptPath
+            || path.join(this.userDataDir, 'update-state', 'failure.json');
+        this.windowsHelperReadyTimeoutMs = options.windowsHelperReadyTimeoutMs || 30000;
         this.windowsPowerShellCandidates = options.windowsPowerShellCandidates || null;
         this.isUpdating = false;
         this.lastCheck = 0;
@@ -550,11 +552,14 @@ class Updater {
         const helperReadyPath = path.join(this.tempDir, 'apply-update.ready');
         const helperCompletedPath = path.join(this.tempDir, 'apply-update.completed');
         const helperFailedPath = path.join(this.tempDir, 'apply-update.failed');
+        const helperAbortPath = path.join(this.tempDir, 'apply-update.abort');
+        const helperLockPath = path.join(this.tempDir, 'apply-update.lock');
         const scriptBody = `
 $ErrorActionPreference = 'Stop'
 $preserve = @('config', 'logs', 'data', 'workspace', 'tmp_update', '.git', '.DS_Store')
 $config = $null
 $logPath = $null
+$lockStream = $null
 
 function Write-Log {
     param([string]$Message)
@@ -575,6 +580,24 @@ function Remove-BackupArtifacts {
         }
 }
 
+function Restore-BackupArtifacts {
+    param([string]$RootPath)
+    Get-ChildItem -LiteralPath $RootPath -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like '*.old' } |
+        ForEach-Object {
+            $targetPath = $_.FullName.Substring(0, $_.FullName.Length - 4)
+            try {
+                if (Test-Path -LiteralPath $targetPath) {
+                    Remove-Item -LiteralPath $targetPath -Recurse -Force -ErrorAction Stop
+                }
+                Move-Item -LiteralPath $_.FullName -Destination $targetPath -Force -ErrorAction Stop
+                Write-Log "rollback restored: $([System.IO.Path]::GetFileName($targetPath))"
+            } catch {
+                Write-Log "rollback failed: $targetPath - $($_.Exception.Message)"
+            }
+        }
+}
+
 try {
     $configPath = Join-Path $PSScriptRoot 'apply-update.json'
     $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -586,7 +609,10 @@ try {
     $readyPath = [string]$config.readyPath
     $completedPath = [string]$config.completedPath
     $failedPath = [string]$config.failedPath
+    $abortPath = [string]$config.abortPath
+    $lockPath = [string]$config.lockPath
     $receiptPath = [string]$config.receiptPath
+    $failureReceiptPath = [string]$config.failureReceiptPath
     $operationId = [string]$config.operationId
     $targetVersion = [string]$config.targetVersion
 
@@ -603,9 +629,26 @@ try {
         throw "Invalid application process id: $waitPid"
     }
 
+    try {
+        $lockStream = [System.IO.File]::Open(
+            $lockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+    } catch [System.IO.IOException] {
+        exit 0
+    }
+    if (Test-Path -LiteralPath $abortPath) {
+        throw 'Update was cancelled before the helper became ready.'
+    }
+
     Write-Log "helper started (pid=$PID, waitingFor=$waitPid, target=$targetVersion)"
     Set-Content -LiteralPath $readyPath -Value $PID -Encoding ASCII -Force
     for ($i = 0; $i -lt 600; $i++) {
+        if (Test-Path -LiteralPath $abortPath) {
+            throw 'Update was cancelled while waiting for the running app to exit.'
+        }
         $target = Get-Process -Id $waitPid -ErrorAction SilentlyContinue
         if (-not $target) { break }
         Start-Sleep -Milliseconds 500
@@ -649,7 +692,6 @@ try {
         }
     }
 
-    Remove-BackupArtifacts -RootPath $appDir
     $receiptDir = Split-Path -Parent $receiptPath
     New-Item -ItemType Directory -Path $receiptDir -Force | Out-Null
     $receipt = [ordered]@{
@@ -664,9 +706,13 @@ try {
     }
     Move-Item -LiteralPath $tempReceiptPath -Destination $receiptPath -Force -ErrorAction Stop
     Set-Content -LiteralPath $completedPath -Value $targetVersion -Encoding UTF8 -Force
+    if (Test-Path -LiteralPath $failureReceiptPath) {
+        Remove-Item -LiteralPath $failureReceiptPath -Force -ErrorAction SilentlyContinue
+    }
     Write-Log "apply completed (target=$targetVersion)"
     Write-Log "relaunch: $exePath"
     Start-Process -FilePath $exePath | Out-Null
+    Remove-BackupArtifacts -RootPath $appDir
     exit 0
 } catch {
     $fatalMessage = $_.Exception.Message
@@ -676,6 +722,32 @@ try {
         }
         if ($config -and $config.failedPath) {
             Set-Content -LiteralPath ([string]$config.failedPath) -Value $fatalMessage -Encoding UTF8 -Force
+        }
+        if ($config -and $config.receiptPath -and (Test-Path -LiteralPath ([string]$config.receiptPath))) {
+            Remove-Item -LiteralPath ([string]$config.receiptPath) -Force -ErrorAction SilentlyContinue
+        }
+        if ($config -and $config.completedPath -and (Test-Path -LiteralPath ([string]$config.completedPath))) {
+            Remove-Item -LiteralPath ([string]$config.completedPath) -Force -ErrorAction SilentlyContinue
+        }
+        if ($config -and $config.appDir) {
+            Restore-BackupArtifacts -RootPath ([string]$config.appDir)
+        }
+        if ($config -and $config.failureReceiptPath) {
+            $failureReceiptPath = [string]$config.failureReceiptPath
+            $failureReceiptDir = Split-Path -Parent $failureReceiptPath
+            New-Item -ItemType Directory -Path $failureReceiptDir -Force | Out-Null
+            $failureReceipt = [ordered]@{
+                operationId = [string]$config.operationId
+                targetVersion = [string]$config.targetVersion
+                failedAt = (Get-Date).ToUniversalTime().ToString('o')
+                message = $fatalMessage
+            }
+            $tempFailureReceiptPath = "$failureReceiptPath.tmp-$PID"
+            $failureReceipt | ConvertTo-Json -Compress | Set-Content -LiteralPath $tempFailureReceiptPath -Encoding UTF8 -Force
+            if (Test-Path -LiteralPath $failureReceiptPath) {
+                Remove-Item -LiteralPath $failureReceiptPath -Force -ErrorAction SilentlyContinue
+            }
+            Move-Item -LiteralPath $tempFailureReceiptPath -Destination $failureReceiptPath -Force
         }
     } catch { }
     Write-Error $fatalMessage
@@ -690,6 +762,10 @@ try {
         }
     } catch { }
     exit 1
+} finally {
+    if ($lockStream) {
+        $lockStream.Dispose()
+    }
 }
 `.trimStart();
 
@@ -703,18 +779,28 @@ try {
             readyPath: helperReadyPath,
             completedPath: helperCompletedPath,
             failedPath: helperFailedPath,
+            abortPath: helperAbortPath,
+            lockPath: helperLockPath,
             receiptPath: this.updateCompletionReceiptPath,
+            failureReceiptPath: this.updateFailureReceiptPath,
             operationId: String(updateOperation.operationId || crypto.randomUUID()),
             targetVersion: String(updateOperation.targetVersion || this.updateInfo?.latestVersion || '').trim()
         };
         this.fs.mkdirSync(path.dirname(this.updateCompletionReceiptPath), { recursive: true });
+        try {
+            if (this.fs.existsSync(this.updateFailureReceiptPath)) {
+                this.fs.rmSync(this.updateFailureReceiptPath, { force: true });
+            }
+        } catch (_) { }
         this.fs.writeFileSync(helperSpecPath, JSON.stringify(helperSpec, null, 2), 'utf8');
         for (const stalePath of [
             helperLogPath,
             helperBootstrapLogPath,
             helperReadyPath,
             helperCompletedPath,
-            helperFailedPath
+            helperFailedPath,
+            helperAbortPath,
+            helperLockPath
         ]) {
             try {
                 if (this.fs.existsSync(stalePath)) this.fs.rmSync(stalePath, { force: true });
@@ -733,7 +819,7 @@ $readyPath = [string]$config.readyPath
 $enginePath = (Get-Process -Id $PID -ErrorAction Stop).Path
 $arguments = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', '${encodedHelperCommand}')
 $helper = Start-Process -FilePath $enginePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
-for ($i = 0; $i -lt 100; $i++) {
+for ($i = 0; $i -lt 600; $i++) {
     if (Test-Path -LiteralPath $readyPath) {
         Write-Output "apply helper ready pid=$($helper.Id)"
         exit 0
@@ -766,6 +852,8 @@ throw 'Timed out waiting for the apply helper readiness marker.'
             helperReadyPath,
             helperCompletedPath,
             helperFailedPath,
+            helperAbortPath,
+            helperLockPath,
             args
         };
         Logger.info(`🪟 [Updater] Windows helper 스크립트 준비 완료: ${helperScriptPath}`);
@@ -801,7 +889,7 @@ throw 'Timed out waiting for the apply helper readiness marker.'
         } catch (_) { }
     }
 
-    waitForWindowsBootstrapReady(child, readyPath) {
+    waitForWindowsBootstrapReady(child, readyPath, abortPath) {
         return new Promise((resolve, reject) => {
             let settled = false;
             let timeoutTimer = null;
@@ -831,6 +919,9 @@ throw 'Timed out waiting for the apply helper readiness marker.'
             child.once('error', onError);
             child.once('exit', onExit);
             timeoutTimer = setTimeout(() => {
+                try {
+                    this.fs.writeFileSync(abortPath, 'timeout', 'ascii');
+                } catch (_) { }
                 finish(new Error('Windows helper 및 bootstrap 준비 확인 시간이 초과되었습니다.'));
             }, this.windowsHelperReadyTimeoutMs);
         });
@@ -840,35 +931,39 @@ throw 'Timed out waiting for the apply helper readiness marker.'
         const pending = this._pendingExternalRestart;
         if (this.platform !== 'win32' || pending?.mode !== 'windows-update-helper') return false;
 
-        let lastError = null;
-        for (const command of this.getWindowsPowerShellCandidates()) {
-            let outputFd = null;
-            let child = null;
-            try {
-                this.appendWindowsHelperBootstrapLog(`launch requested: ${command}`);
-                outputFd = this.fs.openSync(pending.helperBootstrapLogPath, 'a');
-                child = this.spawnProcess(command, pending.args, {
-                    detached: false,
-                    stdio: ['ignore', outputFd, outputFd],
-                    windowsHide: true
-                });
-                await this.waitForWindowsBootstrapReady(child, pending.helperReadyPath);
-                this.appendWindowsHelperBootstrapLog(`helper ready: ${command} (pid=${child.pid || 'unknown'})`);
-                return true;
-            } catch (error) {
-                lastError = error;
-                this.appendWindowsHelperBootstrapLog(`launch failed: ${command} - ${error.message}`);
-                try {
-                    if (child && !child.killed) child.kill();
-                } catch (_) { }
-            } finally {
-                try {
-                    if (outputFd !== null) this.fs.closeSync(outputFd);
-                } catch (_) { }
-            }
+        const command = this.getWindowsPowerShellCandidates()[0];
+        if (!command) {
+            throw new Error('Windows 업데이트 helper를 시작하지 못했습니다: PowerShell을 찾을 수 없습니다.');
         }
 
-        throw new Error(`Windows 업데이트 helper를 시작하지 못했습니다: ${lastError?.message || 'PowerShell을 찾을 수 없습니다.'}`);
+        let outputFd = null;
+        let child = null;
+        try {
+            this.appendWindowsHelperBootstrapLog(`launch requested: ${command}`);
+            outputFd = this.fs.openSync(pending.helperBootstrapLogPath, 'a');
+            child = this.spawnProcess(command, pending.args, {
+                detached: false,
+                stdio: ['ignore', outputFd, outputFd],
+                windowsHide: true
+            });
+            await this.waitForWindowsBootstrapReady(
+                child,
+                pending.helperReadyPath,
+                pending.helperAbortPath
+            );
+            this.appendWindowsHelperBootstrapLog(`helper ready: ${command} (pid=${child.pid || 'unknown'})`);
+            return true;
+        } catch (error) {
+            this.appendWindowsHelperBootstrapLog(`launch failed: ${command} - ${error.message}`);
+            try {
+                if (child && !child.killed) child.kill();
+            } catch (_) { }
+            throw new Error(`Windows 업데이트 helper를 시작하지 못했습니다: ${error.message}`);
+        } finally {
+            try {
+                if (outputFd !== null) this.fs.closeSync(outputFd);
+            } catch (_) { }
+        }
     }
 
     isWindowsDeferredApplyPending() {
@@ -937,6 +1032,42 @@ throw 'Timed out waiting for the apply helper readiness marker.'
         }
         this.fs.rmSync(this.updateCompletionReceiptPath, { force: true });
         Logger.info(`✨ [Updater] 업데이트 완료 안내 확인: v${receipt.targetVersion}`);
+        return { acknowledged: true };
+    }
+
+    readUpdateFailureReceipt() {
+        try {
+            if (!this.fs.existsSync(this.updateFailureReceiptPath)) return null;
+            const raw = this.fs.readFileSync(this.updateFailureReceiptPath, 'utf8').replace(/^\uFEFF/, '');
+            const parsed = JSON.parse(raw);
+            const receipt = {
+                operationId: String(parsed?.operationId || '').trim(),
+                targetVersion: String(parsed?.targetVersion || '').trim(),
+                failedAt: String(parsed?.failedAt || '').trim(),
+                message: String(parsed?.message || '').trim()
+            };
+            if (!receipt.operationId || !receipt.targetVersion) return null;
+            return receipt;
+        } catch (error) {
+            Logger.warn(`⚠️ [Updater] 업데이트 실패 기록을 읽지 못했습니다: ${error.message}`);
+            return null;
+        }
+    }
+
+    getPendingUpdateFailure() {
+        const receipt = this.readUpdateFailureReceipt();
+        if (!receipt) return { pending: false };
+        return { pending: true, ...receipt };
+    }
+
+    acknowledgeUpdateFailure(operationId) {
+        const expectedOperationId = String(operationId || '').trim();
+        const receipt = this.readUpdateFailureReceipt();
+        if (!receipt || !expectedOperationId || receipt.operationId !== expectedOperationId) {
+            return { acknowledged: false };
+        }
+        this.fs.rmSync(this.updateFailureReceiptPath, { force: true });
+        Logger.info(`🧹 [Updater] 업데이트 실패 안내 확인: v${receipt.targetVersion}`);
         return { acknowledged: true };
     }
 

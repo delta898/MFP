@@ -147,6 +147,10 @@ test('Windows updater defers helper launch until restart and exits only after re
         assert.match(bootstrapScript, /Start-Process -FilePath \$enginePath/);
         assert.match(bootstrapScript, /-EncodedCommand/);
         assert.match(bootstrapScript, /apply helper ready/);
+        assert.match(bootstrapScript, /for \(\$i = 0; \$i -lt 600; \$i\+\+\)/);
+        assert.match(helperScript, /\[System\.IO\.FileShare\]::None/);
+        assert.match(helperScript, /Restore-BackupArtifacts/);
+        assert.match(helperScript, /failureReceiptPath/);
         const encodedCommand = bootstrapScript.match(/'-EncodedCommand', '([^']+)'/)?.[1];
         assert.equal(
             Buffer.from(encodedCommand, 'base64').toString('utf16le'),
@@ -232,7 +236,36 @@ test('update completion receipt remains pending for a future target version', ()
     }
 });
 
-test('Windows updater rejects helpers that exit cleanly before readiness', async () => {
+test('update failure receipt remains visible until the matching acknowledgement', () => {
+    const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-update-failure-receipt-'));
+    const failurePath = path.join(appRootDir, 'persistent', 'update-state', 'failure.json');
+    fs.mkdirSync(path.dirname(failurePath), { recursive: true });
+    fs.writeFileSync(failurePath, JSON.stringify({
+        operationId: 'operation-failed',
+        targetVersion: '0.4.3-dev9',
+        failedAt: '2026-09-06T00:00:00.000Z',
+        message: 'BlogGenius.exe is locked'
+    }), 'utf8');
+
+    try {
+        const updater = new Updater({ appRootDir, updateFailureReceiptPath: failurePath });
+        assert.deepEqual(updater.getPendingUpdateFailure(), {
+            pending: true,
+            operationId: 'operation-failed',
+            targetVersion: '0.4.3-dev9',
+            failedAt: '2026-09-06T00:00:00.000Z',
+            message: 'BlogGenius.exe is locked'
+        });
+        assert.deepEqual(updater.acknowledgeUpdateFailure('another-operation'), { acknowledged: false });
+        assert.equal(fs.existsSync(failurePath), true);
+        assert.deepEqual(updater.acknowledgeUpdateFailure('operation-failed'), { acknowledged: true });
+        assert.equal(fs.existsSync(failurePath), false);
+    } finally {
+        fs.rmSync(appRootDir, { recursive: true, force: true });
+    }
+});
+
+test('Windows updater rejects a helper that exits cleanly before readiness without launching a fallback', async () => {
     const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-updater-early-exit-'));
     fs.mkdirSync(path.join(appRootDir, 'tmp_update'), { recursive: true });
     const exitCodes = [];
@@ -244,7 +277,8 @@ test('Windows updater rejects helpers that exit cleanly before readiness', async
             windowsPowerShellCandidates: ['powershell-first.exe', 'powershell-second.exe'],
             windowsHelperReadyTimeoutMs: 100,
             exitProcess: (code) => exitCodes.push(code),
-            spawnProcess: () => {
+            spawnProcess: (command) => {
+                assert.equal(command, 'powershell-first.exe');
                 const child = createFakeChild();
                 setImmediate(() => child.emit('exit', 0, null));
                 return child;
@@ -260,7 +294,34 @@ test('Windows updater rejects helpers that exit cleanly before readiness', async
         assert.deepEqual(exitCodes, []);
         const bootstrapLog = fs.readFileSync(updater._pendingExternalRestart.helperBootstrapLogPath, 'utf8');
         assert.match(bootstrapLog, /launch failed: powershell-first\.exe/);
-        assert.match(bootstrapLog, /launch failed: powershell-second\.exe/);
+        assert.doesNotMatch(bootstrapLog, /powershell-second\.exe/);
+    } finally {
+        fs.rmSync(appRootDir, { recursive: true, force: true });
+    }
+});
+
+test('Windows updater times out once, writes an abort marker, and never starts a second helper', async () => {
+    const appRootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-updater-timeout-'));
+    fs.mkdirSync(path.join(appRootDir, 'tmp_update'), { recursive: true });
+    const spawnCalls = [];
+
+    try {
+        const updater = new Updater({
+            appRootDir,
+            platform: 'win32',
+            windowsPowerShellCandidates: ['powershell-first.exe', 'powershell-second.exe'],
+            windowsHelperReadyTimeoutMs: 20,
+            spawnProcess: (command) => {
+                spawnCalls.push(command);
+                return createFakeChild();
+            }
+        });
+        updater.prepareWindowsDeferredApply(path.join(appRootDir, 'tmp_update', 'extracted'));
+
+        await assert.rejects(updater.restart(), /준비 확인 시간이 초과/);
+
+        assert.deepEqual(spawnCalls, ['powershell-first.exe']);
+        assert.equal(fs.existsSync(updater._pendingExternalRestart.helperAbortPath), true);
     } finally {
         fs.rmSync(appRootDir, { recursive: true, force: true });
     }
@@ -318,6 +379,16 @@ test('update UI reports restart failures without simulating a restart by reloadi
     assert.match(updateUi, /await postJson\('\/api\/v1\/system\/update\/restart'\)/);
     assert.match(updateUi, /업데이트 재시작 실패/);
     assert.doesNotMatch(updateUi, /location\.reload/);
+});
+
+test('update startup UI reports a deferred apply failure after relaunch', () => {
+    const celebrationUi = fs.readFileSync(
+        path.join(__dirname, '..', 'ui', 'scripts', 'features', 'shell', 'celebration.js'),
+        'utf8'
+    );
+    assert.match(celebrationUi, /\/api\/v1\/system\/update\/failure/);
+    assert.match(celebrationUi, /업데이트를 적용하지 못해 기존 버전으로 다시 실행했습니다/);
+    assert.match(celebrationUi, /\/api\/v1\/system\/update\/failure\/ack/);
 });
 
 test('update restart endpoint confirms a pending Windows helper before reporting success', async () => {
@@ -394,5 +465,40 @@ test('update completion endpoints expose and consume only the matching operation
     assert.equal(pending.payload.pending, true);
     assert.equal(pending.payload.targetVersion, '0.4.3-dev7');
     assert.deepEqual(calls, ['operation-api']);
+    assert.deepEqual(acknowledged.payload, { acknowledged: true });
+});
+
+test('update failure endpoints expose and consume the persisted failure', async () => {
+    const calls = [];
+    const controller = createSystemController({
+        service: {},
+        updater: {
+            getPendingUpdateFailure: () => ({
+                pending: true,
+                operationId: 'operation-failed-api',
+                targetVersion: '0.4.3-dev9',
+                message: 'apply failed'
+            }),
+            acknowledgeUpdateFailure: (operationId) => {
+                calls.push(operationId);
+                return { acknowledged: operationId === 'operation-failed-api' };
+            }
+        },
+        logger: { error() {} },
+        sendSuccess: (_res, requestId, payload) => ({ requestId, payload }),
+        sendError: (_res, requestId, status, code, message) => ({ requestId, status, code, message })
+    });
+
+    const pending = await controller.updateFailure({ requestId: 'failure-get', method: 'GET', res: {} });
+    const acknowledged = await controller.updateFailureAcknowledge({
+        requestId: 'failure-ack',
+        method: 'POST',
+        requestBody: { operationId: 'operation-failed-api' },
+        res: {}
+    });
+
+    assert.equal(pending.payload.pending, true);
+    assert.equal(pending.payload.message, 'apply failed');
+    assert.deepEqual(calls, ['operation-failed-api']);
     assert.deepEqual(acknowledged.payload, { acknowledged: true });
 });

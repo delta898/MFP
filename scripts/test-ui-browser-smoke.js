@@ -303,6 +303,8 @@ function getApiFixture(pathname) {
     if (pathname.startsWith('/api/v1/surface-content/')) return { regions: {} };
     if (pathname === '/api/v1/auto/status') return { enabled: false };
     if (pathname === '/api/v1/system/update/check') return { available: false };
+    if (pathname === '/api/v1/system/update/failure') return { pending: false };
+    if (pathname === '/api/v1/system/update/completion') return { pending: false };
     if (pathname === '/api/v1/sheets/ensure') return { ready: true };
     if (pathname === '/api/v1/social/manual/config') {
         return { configured: false, local_media_available: true, channels: [], ai: { available: false, model_name: '' } };

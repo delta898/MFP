@@ -78,6 +78,32 @@ function createSystemController(deps = {}) {
             }
         },
 
+        async updateFailure({ requestId, method, res }) {
+            if (method !== 'GET') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(res, requestId, updater.getPendingUpdateFailure());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'UPDATE_FAILURE_ERROR', '업데이트 실패 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async updateFailureAcknowledge({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') {
+                return sendMethodNotAllowed(sendError, res, requestId);
+            }
+            try {
+                return sendSuccess(
+                    res,
+                    requestId,
+                    updater.acknowledgeUpdateFailure(requestBody?.operationId)
+                );
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'UPDATE_FAILURE_ACK_ERROR', '업데이트 실패 안내를 처리하지 못했습니다.', e);
+            }
+        },
+
         async updateCancel({ requestId, method, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);
