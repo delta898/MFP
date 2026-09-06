@@ -3,7 +3,7 @@
 ## Status
 
 - Phase: completed
-- Parent plan: `docs/plans/active/proactive-guidance-main-plan.md`
+- Parent plan: `docs/plans/archive/proactive-guidance-main-plan.md`
 - Parent branch: `feature/proactive-guidance-main`
 - Work branch: `feature/proactive-guidance-01-contracts`
 - Started: 2026-08-23

@@ -83,86 +83,20 @@
 - `decisions/2026-08-26-content-writing-profile.md`
 - `decisions/2026-08-27-development-environment-boundaries.md`
 - `decisions/2026-08-28-runtime-credential-ownership.md`
+- `decisions/2026-09-06-naver-oauth-publishing-boundary.md`
 
 ## Active Work
 
-- `plans/archive/2026-09-06-v0.4.3-dashboard-style-boundary-development.md`
-- `plans/archive/2026-09-06-v0.4.3-dashboard-clock-menu-clipping-development.md`
-- `plans/archive/2026-09-06-v0.4.3-windows-update-restart-development.md`
-- `plans/archive/2026-09-06-v0.4.3-buffer-help-links-development.md`
-- `plans/archive/2026-09-06-v0.4.3-persistent-license-storage-development.md`
-- `plans/active/2026-09-05-v0.4.3-electron-44-upgrade-development.md`
-- `plans/archive/2026-09-05-release-v0.4.3-development.md`
-- `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
-- `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
-- `plans/active/2026-09-04-v0.4.2-settings-help-links-development.md`
-- `plans/archive/2026-09-04-v0.4.3-card-news-main-development.md`
-- `plans/archive/2026-09-04-v0.4.2-product-surface-routing-development.md`
-- `plans/archive/2026-09-04-publishing-progress-links-development.md`
-- `plans/archive/2026-09-04-manual-publish-celebration-development.md`
-- `plans/active/2026-08-30-continuous-publishing-main-development.md`
-- `plans/active/2026-08-31-continuous-publishing-08-usability-development.md`
-- `plans/archive/2026-08-31-continuous-publishing-07-safe-timer-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-06-automation-settings-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-05-draft-inputs-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-04-single-item-runner-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-03-queue-management-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-02-quick-queue-slice-development.md`
-- `plans/archive/2026-08-30-continuous-publishing-01-contract-shell-development.md`
-- `plans/archive/2026-08-30-local-trends-auth-infrastructure-development.md`
-- `plans/archive/2026-08-30-title-curiosity-strategy-development.md`
-- `plans/active/2026-08-29-ci-supabase-cli-setup-hotfix-development.md`
-- `plans/active/2026-08-29-ci-node24-actions-development.md`
-- `plans/active/2026-08-30-development-manual-publishing-development.md`
-- `plans/active/development-environment-separation-main-plan.md`
+- `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
-- `plans/active/2026-08-29-runtime-credential-security-03-naver-blog-gateway-development.md`
-- `plans/active/2026-08-29-runtime-credential-security-04-naver-shopping-gateway-development.md`
-- `plans/active/2026-08-29-runtime-credential-security-05-runtime-config-development.md`
-- `plans/active/2026-08-29-runtime-credential-security-06-integration-development.md`
-- `plans/active/2026-08-29-runtime-credential-security-browser-smoke-fix-development.md`
-- `plans/active/development-environment-01-contract-plan.md`
-- `plans/active/development-environment-02-runtime-profile-plan.md`
-- `plans/active/development-environment-03-deploy-guard-plan.md`
-- `plans/active/development-environment-04a-production-schema-audit-plan.md`
-- `plans/active/development-environment-04b-local-supabase-plan.md`
-- `plans/active/development-environment-05-hosted-development-plan.md`
-- `plans/active/development-environment-06-release-gate-plan.md`
-- `plans/active/content-writing-profile-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
-- `plans/active/serpapi-collection-01-contracts-plan.md`
-- `plans/active/serpapi-collection-02-corpus-store-plan.md`
-- `plans/active/serpapi-collection-03-collector-plan.md`
-- `plans/active/serpapi-collection-04-scheduler-plan.md`
-- `plans/active/serpapi-collection-05-read-api-plan.md`
-- `plans/active/serpapi-collection-06-serendipity-plan.md`
 - `plans/active/serpapi-collection-07-operations-plan.md`
-- `plans/active/proactive-guidance-main-plan.md`
-- `plans/active/proactive-guidance-02-lifecycle-store-plan.md`
-- `plans/active/proactive-guidance-03-legacy-adapters-plan.md`
-- `plans/active/proactive-guidance-04-external-knowledge-gateway-plan.md`
-- `plans/active/proactive-guidance-05-news-provider-plan.md`
-- `plans/active/proactive-guidance-06-producers-plan.md`
-- `plans/active/proactive-guidance-06a-producer-runtime-plan.md`
-- `plans/active/proactive-guidance-06b-content-producers-plan.md`
-- `plans/active/proactive-guidance-06c-operational-producers-plan.md`
-- `plans/active/proactive-guidance-06d-commerce-producer-plan.md`
-- `plans/active/proactive-guidance-07-policy-ranking-plan.md`
-- `plans/active/proactive-guidance-07a-policy-eligibility-plan.md`
-- `plans/active/proactive-guidance-07b-ranking-diversity-plan.md`
-- `plans/active/proactive-guidance-07c-policy-evaluation-plan.md`
-- `plans/active/proactive-guidance-08-capability-handoff-plan.md`
-- `plans/active/proactive-guidance-09-in-app-center-plan.md`
-- `plans/active/proactive-guidance-10-proactive-delivery-plan.md`
-- `plans/active/proactive-guidance-01-contracts-plan.md`
 - `plans/active/agent-redesign-plan.md`
-- `plans/active/account-subscription-billing-foundation-plan.md`
-- `plans/active/google-sheets-credentials-plan.md`
 - `plans/active/internal-api-redesign-plan.md`
-- `plans/active/paid-plans-and-credits-plan.md`
 - `plans/active/remote-mcp-server-plan.md`
+- `plans/active/account-subscription-billing-foundation-plan.md`
+- `plans/active/paid-plans-and-credits-plan.md`
 
 Completed and superseded implementation plans are retained under
 `plans/archive/` for historical context. They are not current architecture or
 open-work sources of truth.
-- `2026-09-04-v0.4.2-ai-help-link-development.md` — AI 설정에서 Help 가이드로 이동

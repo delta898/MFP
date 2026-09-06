@@ -2,11 +2,11 @@
 
 ## Status
 
-- Phase: stage 10 implementation, automated verification and user UI review completed
+- Phase: complete — Stages 1~10 integrated and released through v0.3.0
 - Started: 2026-08-23
 - Integration branch: `feature/proactive-guidance-main`
-- Current child branch: `feature/proactive-guidance-10-proactive-delivery`
-- Release version: undecided until release preparation
+- Final child branch: `feature/proactive-guidance-10-proactive-delivery`
+- Released baseline: `v0.3.0`
 
 ## Product Goal
 

@@ -1,7 +1,7 @@
 # 개발·운영 환경 분리 Main Plan
 
 > 작성일: 2026-08-27
-> 상태: Stage 6 CI·drift·production 승격 gate 검증 완료
+> 상태: 완료 — Stage 1~6 구현·검증 및 canonical 문서 승격 완료
 > Parent branch: `feature/development-environment-main`
 > 기준 branch: `dev`
 

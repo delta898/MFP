@@ -4,7 +4,7 @@
 
 - Phase: completed
 - Design accepted: 2026-08-23
-- Parent plan: `docs/plans/active/proactive-guidance-main-plan.md`
+- Parent plan: `docs/plans/archive/proactive-guidance-main-plan.md`
 - Parent branch: `feature/proactive-guidance-main`
 - Work branch: `feature/proactive-guidance-02-lifecycle-store`
 - Started: 2026-08-23

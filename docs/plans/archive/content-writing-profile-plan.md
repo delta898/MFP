@@ -1,6 +1,6 @@
 # Content Writing Profile Plan
 
-> Status: implementation complete; Stages 01–09 are verified and the parent feature branch is ready for final integration
+> Status: complete — integrated and released in v0.3.0
 >
 > Scope: one global default/custom profile with shared voice and content-kind projections for blog and shopping generation
 
