@@ -92,7 +92,7 @@
 - `plans/archive/2026-09-06-v0.4.3-buffer-help-links-development.md`
 - `plans/archive/2026-09-06-v0.4.3-persistent-license-storage-development.md`
 - `plans/active/2026-09-05-v0.4.3-electron-44-upgrade-development.md`
-- `plans/active/2026-09-05-release-v0.4.3-development.md`
+- `plans/archive/2026-09-05-release-v0.4.3-development.md`
 - `plans/active/2026-09-04-v0.4.2-product-surface-main-development.md`
 - `plans/active/2026-09-04-v0.4.2-onboarding-guidance-development.md`
 - `plans/active/2026-09-04-v0.4.2-settings-help-links-development.md`
