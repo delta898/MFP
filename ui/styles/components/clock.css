@@ -93,7 +93,7 @@
   background: rgba(255, 255, 255, 0.46);
   color: #64748b;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
   transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
@@ -126,7 +126,7 @@
   min-height: 18px;
   padding: 7px 4px 0;
   border-top: 1px solid color-mix(in srgb, var(--clock-season) 12%, rgba(148, 163, 184, 0.18));
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
@@ -186,7 +186,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ui-border-default);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
@@ -213,16 +213,16 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
 
 .clock-mode-switch button.active {
-  background: var(--surface-solid);
+  background: var(--ui-surface);
   color: var(--clock-season);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 .clock-style-section {
@@ -237,7 +237,7 @@
 }
 
 .clock-menu-section-label {
-  color: var(--text-light);
+  color: var(--ui-text-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -285,19 +285,19 @@
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 12px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
 .clock-style-option:hover,
 .clock-style-option:focus-visible {
-  border-color: var(--line);
+  border-color: var(--ui-border-default);
   background: #f8fafc;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   outline: none;
 }
 
@@ -322,7 +322,7 @@
   gap: 7px;
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--ui-border-default);
 }
 
 .pomodoro-menu-heading {
@@ -333,7 +333,7 @@
 }
 
 .pomodoro-menu-heading [data-pomodoro-status] {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 10px;
   font-weight: 700;
 }
@@ -348,14 +348,14 @@
 .pomodoro-preset-actions button,
 .pomodoro-running-actions button {
   min-height: 36px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ui-border-default);
   border-radius: 10px;
   background: #f8fafc;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
 .pomodoro-preset-actions button:hover:not(:disabled),
@@ -385,14 +385,14 @@
   justify-content: space-between;
   gap: 10px;
   padding: 0 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--ui-border-default);
   border-radius: 10px;
   background: #f8fafc;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 10px;
   font-weight: 800;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
 .pomodoro-sound-toggle [data-pomodoro-sound-state] {
@@ -407,7 +407,7 @@
 .pomodoro-sound-toggle.active {
   border-color: color-mix(in srgb, var(--clock-season) 30%, transparent);
   background: var(--clock-season-soft);
-  color: var(--text-main);
+  color: var(--ui-text-primary);
 }
 
 .pomodoro-sound-toggle.active [data-pomodoro-sound-state] {
@@ -508,7 +508,7 @@
   justify-content: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.96);
-  color: var(--text-main);
+  color: var(--ui-text-primary);
 }
 
 .pomodoro-ring-center .pomodoro-face-time {
@@ -523,7 +523,7 @@
 }
 
 .pomodoro-face-flip > .pomodoro-face-label {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
 }
 
 .pomodoro-flip-values {
@@ -599,8 +599,8 @@
   font-size: 11px;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition);
+  box-shadow: var(--ui-shadow-sm);
+  transition: var(--ui-transition-interactive);
 }
 
 .pomodoro-inline-actions button:hover,
@@ -684,7 +684,7 @@
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24), 0 0 0 8px rgba(56, 189, 248, 0.1);
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   text-align: center;
   backdrop-filter: blur(14px);
   transform: translate(-50%, -50%);
@@ -697,7 +697,7 @@
 }
 
 .app-celebration-message span {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 13px;
   font-weight: 700;
 }
@@ -723,12 +723,12 @@
   gap: 7px;
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--ui-border-default);
 }
 
 .clock-server-control-label {
   grid-column: 1 / -1;
-  color: var(--text-light);
+  color: var(--ui-text-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;

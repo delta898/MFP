@@ -1,0 +1,38 @@
+:root {
+  /* Existing public tokens remain stable while surfaces migrate incrementally. */
+  --bg-gradient: var(--ui-canvas);
+  --surface: var(--ui-surface-translucent);
+  --surface-solid: var(--ui-surface);
+  --line: var(--ui-border-default);
+  --text-main: var(--ui-text-primary);
+  --text-muted: var(--ui-text-secondary);
+  --text-light: var(--ui-text-muted);
+  --brand-primary: var(--ui-action-primary);
+  --brand-hover: var(--ui-action-primary-hover);
+  --brand-light: var(--ui-action-primary-soft);
+  --success: var(--ui-status-success);
+  --warning: var(--ui-status-warning);
+  --danger: var(--ui-status-danger);
+  --shadow-sm: var(--ui-shadow-sm);
+  --shadow-md: var(--ui-shadow-md);
+  --shadow-lg: var(--ui-shadow-lg);
+  --glass-shadow: var(--ui-shadow-glass);
+  --radius-sm: var(--ui-radius-sm);
+  --radius-md: var(--ui-radius-md);
+  --radius-lg: var(--ui-radius-lg);
+  --radius-full: var(--ui-radius-full);
+  --transition: var(--ui-transition-interactive);
+
+  /* Previously referenced without definitions. */
+  --text-primary: var(--ui-text-primary);
+  --text-secondary: var(--ui-text-secondary);
+  --border-color: var(--ui-border-default);
+  --brand: var(--ui-action-primary);
+  --shadow-soft: var(--ui-shadow-soft);
+  --surface-color: var(--ui-surface);
+  --secondary-bg: var(--ui-surface-muted);
+  --bg-card: var(--ui-surface);
+  --bg-surface: var(--ui-surface);
+  --bg-surface-secondary: var(--ui-surface-muted);
+  --bg-surface-hover: var(--ui-surface-hover);
+}

@@ -90,6 +90,8 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-06: 사용자가 Design Principles `v0.1` 출발과 세 차례 필수 검토 게이트를 승인했다.
 - 2026-09-06: 1단계 원칙·현황·계약 수립을 완료했다. Design Principles와 style contract는 architecture로 승격하고 세부 조사와 개발 기록은 archive로 이동했다.
 - 2026-09-06: `dev`에서 독립적으로 수정한 SerpApi archive 계획 테스트 경로를 parent에 동기화했다. 동기화 후 full unit suite는 1,473 passed, 0 failed, 1 skipped로 기준선을 회복했다.
+- 2026-09-06: `codex/feature/design-system-02-foundation`에서 compatibility style, semantic token, registry, 공통 shell과 `블로그 Beta`의 제한 migration을 목표로 2단계를 완료했다. 세부 기록은 [2단계 개발 기록](../archive/2026-09-06-design-system-02-foundation-development.md)을 따른다.
+- 2026-09-06: Gate 1에서 Product Experience Principles 8개를 모두 유지하고, 완료형 form/dialog의 primary action을 inline-end 하단에 두며 secondary·destructive action의 위계를 분리하는 운영 가이드를 추가하기로 사용자와 합의했다. compatibility 외형은 즉시 바꾸지 않고 첫 정식 style에서 공통 action pattern으로 적용한다.
 
 ## Design Principles 필수 검토 일정
 

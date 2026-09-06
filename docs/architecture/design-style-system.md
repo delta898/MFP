@@ -123,7 +123,7 @@ feature 고유의 계산값이나 layout contract만 허용한다. color나 일�
 
 style에 따라 component anatomy를 바꿀 필요가 생기면 style 분기가 아니라 공통 component variant가 정말 필요한지 먼저 검토한다.
 
-## File Responsibility 초안
+## File Responsibility
 
 ```text
 ui/styles/
@@ -136,7 +136,7 @@ ui/styles/
 └─ features/             feature 고유 layout과 예외
 ```
 
-실제 디렉터리 변경은 기존 CSS composition 구조를 보존하면서 작은 단계로 수행한다.
+2단계 foundation은 기존 CSS composition 구조를 보존하면서 `--ui-*` namespace를 semantic contract로 사용한다. `ui/styles/styles/compatibility.css`가 현재 style 값을 공급하고, `ui/styles/tokens/legacy-aliases.css`가 아직 이전되지 않은 surface를 연결한다.
 
 ## Registry와 Fallback
 

@@ -8,10 +8,10 @@
   max-width: 100%;
   margin: 1px auto 0;
   padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-action-primary) 18%, transparent);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.76);
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
   font: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -32,9 +32,9 @@
 
 .clock-publishing-status:hover,
 .clock-publishing-status:focus-visible {
-  border-color: color-mix(in srgb, var(--brand-primary) 42%, transparent);
+  border-color: color-mix(in srgb, var(--ui-action-primary) 42%, transparent);
   background: #fff;
-  color: var(--brand-hover);
+  color: var(--ui-action-primary-hover);
   outline: none;
 }
 
@@ -49,12 +49,12 @@
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
 }
 
 .clock-publishing-status[data-state="running"] .clock-publishing-status-indicator {
-  border: 2px solid color-mix(in srgb, var(--brand-primary) 25%, transparent);
-  border-top-color: var(--brand-primary);
+  border: 2px solid color-mix(in srgb, var(--ui-action-primary) 25%, transparent);
+  border-top-color: var(--ui-action-primary);
   background: transparent;
   animation: global-publishing-spin 0.8s linear infinite;
 }
@@ -76,8 +76,8 @@
   flex: 0 0 9px;
   margin-inline-start: auto;
   border-radius: 50%;
-  background: var(--brand-primary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  background: var(--ui-action-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-action-primary) 12%, transparent);
 }
 
 .blog-next-global-nav-status[hidden] {

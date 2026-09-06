@@ -35,16 +35,16 @@
 }
 
 .blog-next-smart-comment-heading h2 {
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   font-size: 20px;
   line-height: 1.35;
 }
 
 .blog-next-smart-comment-heading span {
   padding: 4px 8px;
-  border-radius: var(--radius-full);
-  background: var(--brand-light);
-  color: var(--brand-hover);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
   font-size: 11px;
   font-weight: 700;
 }
@@ -54,7 +54,7 @@
 .blog-next-smart-comment-guidance,
 .blog-next-smart-comment-excerpt,
 .blog-next-smart-comment-empty p {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
 }
 
 .blog-next-smart-comment-intro p {
@@ -65,9 +65,9 @@
 .blog-next-smart-comment-form,
 .blog-next-smart-comment-results {
   padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-solid);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
 }
 
 .blog-next-smart-comment-settings {
@@ -85,12 +85,12 @@
 .blog-next-smart-comment-details {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--ui-border-default);
 }
 
 .blog-next-smart-comment-details summary {
   width: fit-content;
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -109,7 +109,7 @@
   align-items: center;
   gap: 8px;
   min-height: 48px;
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
   font-weight: 600;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .blog-next-smart-comment-diagnostic small {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-weight: 400;
 }
 
@@ -134,9 +134,9 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-solid);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
 }
 
 .blog-next-smart-comment-status[hidden] {
@@ -147,27 +147,27 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--text-muted);
+  background: var(--ui-text-secondary);
 }
 
 .blog-next-smart-comment-status[data-state="running"] .blog-next-smart-comment-status-indicator,
 .blog-next-smart-comment-status[data-state="waiting"] .blog-next-smart-comment-status-indicator {
-  border: 2px solid var(--brand-light);
-  border-top-color: var(--brand-primary);
+  border: 2px solid var(--ui-action-primary-soft);
+  border-top-color: var(--ui-action-primary);
   background: transparent;
   animation: blog-next-publish-spin 0.8s linear infinite;
 }
 
 .blog-next-smart-comment-status[data-state="success"] .blog-next-smart-comment-status-indicator {
-  background: var(--success);
+  background: var(--ui-status-success);
 }
 
 .blog-next-smart-comment-status[data-state="warning"] .blog-next-smart-comment-status-indicator {
-  background: var(--warning);
+  background: var(--ui-status-warning);
 }
 
 .blog-next-smart-comment-status[data-state="error"] .blog-next-smart-comment-status-indicator {
-  background: var(--danger);
+  background: var(--ui-status-danger);
 }
 
 .blog-next-smart-comment-status-copy {
@@ -175,13 +175,13 @@
 }
 
 .blog-next-smart-comment-status-copy strong {
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   font-size: 15px;
 }
 
 .blog-next-smart-comment-status-copy p {
   margin-top: 3px;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   line-height: 1.45;
 }
 
@@ -189,8 +189,8 @@
   height: 4px;
   margin-top: 9px;
   overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--brand-light);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary-soft);
 }
 
 .blog-next-smart-comment-progress[hidden] {
@@ -202,7 +202,7 @@
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   transition: width 0.25s ease;
 }
 
@@ -213,7 +213,7 @@
 }
 
 .blog-next-smart-comment-results-head h3 {
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   font-size: 17px;
 }
 
@@ -230,9 +230,9 @@
 
 .blog-next-smart-comment-card {
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-translucent);
 }
 
 .blog-next-smart-comment-card-head {
@@ -246,13 +246,13 @@
 }
 
 .blog-next-smart-comment-card-copy span {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 12px;
 }
 
 .blog-next-smart-comment-card h4 {
   margin-top: 3px;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   font-size: 16px;
   line-height: 1.45;
 }
@@ -277,8 +277,8 @@
   align-items: flex-start;
   gap: 12px;
   padding: 11px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-solid);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
 }
 
 .blog-next-smart-comment-draft {
@@ -304,25 +304,25 @@
   justify-content: center;
   min-height: 34px;
   padding: 7px 11px;
-  border-radius: var(--radius-sm);
-  background: var(--brand-primary);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-action-primary);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
   text-decoration: none;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
 .blog-next-smart-comment-post-action:hover {
-  background: var(--brand-hover);
+  background: var(--ui-action-primary-hover);
 }
 
 .blog-next-smart-comment-draft p {
   display: -webkit-box;
   min-width: 0;
   overflow: hidden;
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -331,9 +331,9 @@
 .blog-next-smart-comment-tone {
   width: fit-content;
   padding: 3px 7px;
-  border-radius: var(--radius-full);
-  background: var(--brand-light);
-  color: var(--brand-hover);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
   font-size: 11px;
   font-weight: 700;
 }
@@ -346,7 +346,7 @@
 .blog-next-smart-comment-failure {
   align-items: center;
   justify-content: space-between;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 13px;
 }
 
@@ -359,7 +359,7 @@
 }
 
 .blog-next-smart-comment-redraft {
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
 }
 
 .blog-next-smart-comment-empty {
@@ -368,7 +368,7 @@
 }
 
 .blog-next-smart-comment-empty strong {
-  color: var(--text-secondary);
+  color: var(--ui-text-secondary);
 }
 
 .blog-next-smart-comment-empty p {

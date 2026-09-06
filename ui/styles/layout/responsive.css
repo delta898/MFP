@@ -65,7 +65,7 @@
     border-radius: 12px;
     background: #ffffff;
     color: #0f172a;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--ui-shadow-sm);
     font-size: 21px;
     display: inline-flex;
     align-items: center;
@@ -251,26 +251,26 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    background: var(--surface-solid);
-    border-bottom: 1px solid var(--line);
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-border-default);
     position: sticky;
     top: 0;
     z-index: 20;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--ui-shadow-sm);
   }
 
   .mobile-topbar-title {
     font-size: 18px;
     font-weight: 800;
     letter-spacing: -0.5px;
-    color: var(--text-main);
+    color: var(--ui-text-primary);
   }
 
   .hamburger-btn {
     background: transparent;
     border: none;
     font-size: 24px;
-    color: var(--text-main);
+    color: var(--ui-text-primary);
     cursor: pointer;
     line-height: 1;
     padding: 4px;
@@ -283,7 +283,7 @@
     left: 0;
     height: 100vh;
     border-right: none;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--ui-shadow-lg);
     transform: translateX(-100%);
     z-index: 10;
   }

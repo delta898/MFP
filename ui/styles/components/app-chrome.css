@@ -57,25 +57,25 @@
   align-items: center;
   gap: 4px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--ui-radius-sm);
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
   white-space: nowrap;
 }
 
 .server-control-btn.restart {
-  background: var(--brand-light);
-  color: var(--brand-hover);
-  border: 1px solid var(--brand-primary);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+  border: 1px solid var(--ui-action-primary);
 }
 
 .server-control-btn.restart:hover {
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   color: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
   transform: translateY(-1px);
 }
 
@@ -88,7 +88,7 @@
 .server-control-btn.stop:hover {
   background: #dc2626;
   color: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
   transform: translateY(-1px);
 }
 
@@ -142,20 +142,20 @@ button.secondary {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
   line-height: 1.2;
   white-space: nowrap;
 }
 
 button.primary {
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   color: #fff;
 }
 
 button.primary:hover {
-  background: var(--brand-hover);
+  background: var(--ui-action-primary-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 button.secondary {
@@ -166,7 +166,7 @@ button.secondary {
 button.secondary:hover {
   background: #334155;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 .context-help-link {
@@ -176,15 +176,15 @@ button.secondary:hover {
   flex: 0 0 auto;
   padding: 7px 10px;
   border: 1px solid rgba(14, 165, 233, 0.28);
-  border-radius: var(--radius-full);
+  border-radius: var(--ui-radius-full);
   background: rgba(240, 249, 255, 0.9);
-  color: var(--brand-hover);
+  color: var(--ui-action-primary-hover);
   font-size: 12px;
   font-weight: 750;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
 .context-help-link::before {
@@ -195,7 +195,7 @@ button.secondary:hover {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -212,20 +212,20 @@ button.secondary:hover {
 .primary.compact {
   padding: 8px 16px;
   font-size: 14px;
-  border-radius: var(--radius-sm);
-  background: var(--brand-primary);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-action-primary);
   color: #fff;
   border: none;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
+  transition: var(--ui-transition-interactive);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 .primary.compact:hover {
-  background: var(--brand-hover);
+  background: var(--ui-action-primary-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--ui-shadow-md);
 }
 
 .close-btn {
@@ -250,7 +250,7 @@ button.secondary:hover {
   margin-bottom: 16px;
   position: sticky;
   top: 0;
-  background: var(--bg-gradient);
+  background: var(--ui-canvas);
   z-index: 100;
   padding: 8px 0;
 }
@@ -263,7 +263,7 @@ button.secondary:hover {
 }
 
 #refresh-btn {
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -293,7 +293,7 @@ button.secondary:hover {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   font-size: 13px;
 }
 
@@ -308,7 +308,7 @@ button.secondary:hover {
   font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
 }
 
 .app-footer-version {
@@ -326,7 +326,7 @@ button.secondary:hover {
 .app-footer-meta {
   flex: 1 1 auto;
   text-align: center;
-  color: var(--text-light);
+  color: var(--ui-text-muted);
 }
 
 .app-footer-links {
@@ -346,8 +346,8 @@ button.secondary:hover {
   border: 1px solid rgba(191, 219, 254, 0.72);
   color: #475569;
   text-decoration: none;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition);
+  box-shadow: var(--ui-shadow-sm);
+  transition: var(--ui-transition-interactive);
 }
 
 .app-footer-link svg {
@@ -357,9 +357,9 @@ button.secondary:hover {
 
 .app-footer-link:hover {
   transform: translateY(-1px);
-  color: var(--brand-hover);
+  color: var(--ui-action-primary-hover);
   border-color: rgba(14, 165, 233, 0.45);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--ui-shadow-md);
 }
 
 h1 {
@@ -367,7 +367,7 @@ h1 {
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
 }
 
 .view-title-block {
@@ -407,7 +407,7 @@ h1 {
 }
 
 .view-title-copy p {
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   line-height: 1.65;
 }
 
@@ -415,12 +415,12 @@ h2 {
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
 }
 
 .muted {
   margin: 0 0 16px;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
 }
 
 .grid {
@@ -430,16 +430,16 @@ h2 {
 }
 
 .card {
-  background: var(--surface-solid);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-lg);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition);
+  box-shadow: var(--ui-shadow-sm);
+  transition: var(--ui-transition-interactive);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--ui-shadow-md);
   transform: translateY(-2px);
 }
 

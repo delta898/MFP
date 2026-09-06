@@ -26,6 +26,8 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
 
     assert.equal(manifest.split('\n').length - 1 <= 60, true);
     assert.deepEqual(includePaths, [
+        'styles/styles/compatibility.css',
+        'styles/tokens/legacy-aliases.css',
         'styles/base/foundation.css',
         'styles/layout/shell-navigation.css',
         'styles/features/account.css',

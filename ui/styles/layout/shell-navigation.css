@@ -9,12 +9,12 @@
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid var(--line);
-  background: var(--surface-solid);
+  border-right: 1px solid var(--ui-border-default);
+  background: var(--ui-surface);
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--ui-shadow-sm);
   z-index: 10;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
   overflow: hidden;
@@ -40,19 +40,19 @@
 .sidebar-toggle-btn {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--ui-text-secondary);
   cursor: pointer;
   padding: 8px;
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
+  border-radius: var(--ui-radius-sm);
+  transition: var(--ui-transition-interactive);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .sidebar-toggle-btn:hover {
-  background: var(--brand-light);
-  color: var(--brand-primary);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary);
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -67,7 +67,7 @@
 .logo {
   font-size: 24px;
   font-weight: 800;
-  color: var(--text-main);
+  color: var(--ui-text-primary);
   letter-spacing: -0.5px;
   display: flex;
   align-items: center;
@@ -105,7 +105,7 @@
 
   .sidebar.open {
     transform: translateX(0);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--ui-shadow-lg);
   }
 }
 
@@ -125,7 +125,7 @@
 .nav-section-label {
   flex-shrink: 0;
   padding: 2px 16px 0;
-  color: var(--text-light);
+  color: var(--ui-text-muted);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -158,12 +158,12 @@
   /* 좌우 패딩만 유지 */
   height: 48px;
   /* 고정 높이 설정 */
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-text-secondary);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -214,15 +214,15 @@
 
 .nav-btn:hover,
 .nav-link-btn:hover {
-  background: var(--brand-light);
-  color: var(--brand-hover);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
 }
 
 .nav-btn.active {
-  background: var(--brand-primary);
+  background: var(--ui-action-primary);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--ui-shadow-md);
 }
 
 .nav-help-link {
@@ -285,7 +285,7 @@
 .nav-dynamic-badge {
   margin-left: auto;
   padding: 2px 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--ui-radius-full);
   background: #fff7ed;
   color: #c2410c;
   font-size: 10px;

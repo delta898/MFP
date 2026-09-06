@@ -3,7 +3,7 @@
 ## 문서 상태
 
 - Version: `v0.1 Working Principles`
-- Status: 사용자 승인, 적용 및 검증 대기
+- Status: 사용자 승인, Gate 1 검토 대기
 - Source stage: `codex/feature/design-system-01-principles`
 - 적용 대상: BlogGenius 제품 UI 전반
 - 목적: 개별 화면의 취향이 아니라 반복 가능한 제품·UX 판단 기준을 제공한다.
@@ -216,6 +216,19 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 - style을 제거하거나 교체해도 기능과 상태가 동일하게 동작하는가?
 - 이 차이는 style token으로 표현할 수 있는가, 아니면 별도 component variant가 필요한가?
 
+## Operational Guidelines
+
+### 결정 행동의 위치와 위계
+
+- 완료형 form과 dialog의 결정 행동은 기본적으로 화면의 `inline-end` 하단에 모으고, primary action을 가장 끝에 둔다.
+- secondary action은 primary action에 인접시키되 outline, ghost 또는 낮은 강조 surface를 사용해 시각적 강도를 낮춘다.
+- 삭제, 초기화, 취소처럼 결과나 성격이 다른 행동은 공간 또는 표현으로 분리한다. 파괴적 행동은 위험 의미와 실행 결과를 명확히 보여준다.
+- toolbar, 반복 list row, navigation과 좁은 화면처럼 작업 맥락이나 공간 제약이 다른 경우에는 기계적인 우측 정렬을 적용하지 않는다.
+- 반응형 재배치 후에도 중요 행동의 발견 가능성, 논리적인 keyboard 순서와 접근성 의미를 유지한다.
+- 배치 관습만으로 행동의 우선순위를 정하지 않는다. 사용자의 실제 주된 목적과 되돌리기 어려운 정도를 먼저 판단한다.
+
+이 규칙은 특정 style의 취향이 아니라 공통 action pattern의 계약이다. 구체적인 색상, radius와 elevation은 style pack이 정하되, 하나의 action group에서 여러 filled button이 같은 강도로 경쟁하지 않게 한다.
+
 ## Design System Engineering Principles
 
 - **Semantic first**: 화면과 component는 원시 색상값보다 의미 기반 token을 사용한다.
@@ -231,6 +244,10 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 - 새로운 원칙은 기존 원칙으로 판단할 수 없는 반복적인 문제에만 추가한다.
 - component guide와 style 값은 구현 경험에 따라 자주 개선할 수 있다.
 - 사용자-visible 행동이나 다중 style contract를 바꾸는 결정은 사용자 합의 후 반영한다.
+
+## 검토 이력
+
+- 2026-09-06 Gate 1: Product Experience Principles 8개를 모두 `유지`하기로 사용자와 합의했다. compatibility 화면 검토에서 완료 행동의 좌측 배치와 강한 secondary button이 서로 경쟁하는 문제를 확인해 `결정 행동의 위치와 위계` 운영 가이드를 추가했다. 현재 외형은 foundation 단계에서 즉시 바꾸지 않고 첫 정식 style 적용 시 공통 action pattern으로 검증한다.
 
 ## 필수 검토 게이트
 

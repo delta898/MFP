@@ -27,6 +27,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
 
     assert.equal(manifest.split('\n').length - 1 <= 90, true);
     assert.deepEqual(includePaths, [
+        'scripts/foundation/style-system.js',
         'scripts/foundation/ui-feedback-state.js',
         'scripts/features/shell/setup-banner.js',
         'scripts/features/shell/sidebar.js',
