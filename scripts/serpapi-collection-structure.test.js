@@ -26,9 +26,9 @@ test('collection request cannot inject vendor execution parameters', () => {
     assert.doesNotMatch(requestContract, /query|engine|endpoint|country|locale|api_key/i);
 });
 
-test('active plans preserve staged branches and server-push client-read boundaries', () => {
+test('current and archived plans preserve staged branches and server-push client-read boundaries', () => {
     const mainPlan = read('docs/plans/active/serpapi-collection-main-plan.md');
-    const stagePlan = read('docs/plans/active/serpapi-collection-01-contracts-plan.md');
+    const stagePlan = read('docs/plans/archive/serpapi-collection-01-contracts-plan.md');
     const decision = read('docs/decisions/2026-08-25-server-managed-serpapi-corpus.md');
     for (let stage = 1; stage <= 7; stage += 1) {
         assert.match(mainPlan, new RegExp(`### Stage ${stage} —`));
