@@ -3,7 +3,7 @@
 - Branch: `codex/fix/windows-self-update-bootstrap`
 - Base/parent branch: `release/v0.4.3`
 - Start date: 2026-09-06
-- Status: In progress
+- Status: Completed and manually accepted
 
 ## User need
 
@@ -28,7 +28,7 @@ Apply the verified Windows launch method to BlogGenius, make restart failures vi
 
 - No change to update downloads, release discovery, or macOS apply behavior.
 - No change to Windows signing or installer format.
-- No version bump, tag, packaging, or release publication in this branch.
+- No change to the installer format or release publication mechanism. Development checkpoint bumps and tags were later added only on the user's explicit request for packaged acceptance.
 
 ## Design
 
@@ -61,6 +61,7 @@ Only one apply helper may hold the update lock. BlogGenius starts one resolved P
 - Added an exclusive apply lock so even an accidental duplicate process cannot modify files concurrently.
 - Added rollback of `.old` backups plus a persistent failure receipt and one-time startup failure dialog.
 - Advanced the corrected Windows self-update checkpoint to `0.4.3-dev9` for affected-machine acceptance.
+- Packaged self-update succeeded on all three Windows machines used for final acceptance, including the slower machine that exposed the original five-second timeout race.
 
 ## Verification
 
@@ -69,7 +70,8 @@ Only one apply helper may hold the update lock. BlogGenius starts one resolved P
 - Browser UI smoke test: passed (203 fixture requests).
 - JavaScript syntax, workflow YAML, and Git diff checks: passed.
 - Actual Windows production-bootstrap workflow remains available through manual dispatch; branch push does not run it automatically.
+- Manual Windows acceptance: 3 of 3 machines successfully completed self-update and relaunched the updated app.
 
 ## Result and remaining checks
 
-The corrected implementation is locally complete. The next packaged checkpoint must be installed cleanly before testing a same-version forced update or the following dev-version update on an affected Windows machine. Acceptance requires exactly one `helper started` entry, either a successful relaunch with the completion celebration or a restored previous app with a visible failure dialog. The Windows-only production-bootstrap workflow remains an optional manual diagnostic.
+The corrected implementation is complete and accepted on three Windows machines. Slow helper startup no longer creates a second writer, successful updates relaunch with the completion notice, and failures retain or restore a usable app with a visible explanation. The Windows-only production-bootstrap workflow remains an optional manual diagnostic.
