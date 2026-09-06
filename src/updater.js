@@ -20,6 +20,7 @@ class Updater {
         this.arch = options.arch || process.arch;
         this.spawnProcess = options.spawnProcess || spawn;
         this.exitProcess = options.exitProcess || ((code) => process.exit(code));
+        this.executablePath = options.executablePath || process.execPath;
         this.fs = options.fs || fs;
         this.env = options.env || process.env;
         this.userDataDir = options.userDataDir
@@ -542,6 +543,7 @@ class Updater {
         if (this.platform !== 'win32') return;
 
         const helperScriptPath = path.join(this.tempDir, 'apply-update.ps1');
+        const helperBootstrapScriptPath = path.join(this.tempDir, 'apply-update-bootstrap.ps1');
         const helperSpecPath = path.join(this.tempDir, 'apply-update.json');
         const helperLogPath = path.join(this.tempDir, 'apply-update.log');
         const helperBootstrapLogPath = path.join(this.tempDir, 'apply-update-bootstrap.log');
@@ -695,7 +697,7 @@ try {
         const helperSpec = {
             sourceDir,
             appDir: this.appRootDir,
-            exePath: process.execPath,
+            exePath: this.executablePath,
             waitPid: process.pid,
             logPath: helperLogPath,
             readyPath: helperReadyPath,
@@ -719,18 +721,45 @@ try {
             } catch (_) { }
         }
 
+        const encodedHelperCommand = Buffer.from(
+            `& '${helperScriptPath.replace(/'/g, "''")}'`,
+            'utf16le'
+        ).toString('base64');
+        const bootstrapBody = `
+$ErrorActionPreference = 'Stop'
+$configPath = Join-Path $PSScriptRoot 'apply-update.json'
+$config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$readyPath = [string]$config.readyPath
+$enginePath = (Get-Process -Id $PID -ErrorAction Stop).Path
+$arguments = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', '${encodedHelperCommand}')
+$helper = Start-Process -FilePath $enginePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
+for ($i = 0; $i -lt 100; $i++) {
+    if (Test-Path -LiteralPath $readyPath) {
+        Write-Output "apply helper ready pid=$($helper.Id)"
+        exit 0
+    }
+    if ($helper.HasExited) {
+        throw "Apply helper exited before readiness (code=$($helper.ExitCode))."
+    }
+    Start-Sleep -Milliseconds 50
+}
+throw 'Timed out waiting for the apply helper readiness marker.'
+`.trimStart();
+        this.fs.writeFileSync(helperBootstrapScriptPath, bootstrapBody, 'utf8');
+
         const args = [
             '-NoProfile',
             '-NonInteractive',
             '-ExecutionPolicy',
             'Bypass',
             '-File',
-            helperScriptPath
+            helperBootstrapScriptPath
         ];
 
         this._pendingExternalRestart = {
             mode: 'windows-update-helper',
             helperScriptPath,
+            helperBootstrapScriptPath,
             helperSpecPath,
             helperLogPath,
             helperBootstrapLogPath,
@@ -772,16 +801,14 @@ try {
         } catch (_) { }
     }
 
-    waitForWindowsHelperReady(child, readyPath) {
+    waitForWindowsBootstrapReady(child, readyPath) {
         return new Promise((resolve, reject) => {
             let settled = false;
-            let pollTimer = null;
             let timeoutTimer = null;
 
             const finish = (error = null) => {
                 if (settled) return;
                 settled = true;
-                if (pollTimer) clearInterval(pollTimer);
                 if (timeoutTimer) clearTimeout(timeoutTimer);
                 child.removeListener('error', onError);
                 child.removeListener('exit', onExit);
@@ -797,19 +824,15 @@ try {
             };
             const onError = (error) => finish(error);
             const onExit = (code, signal) => {
-                if (isReady()) finish();
-                else finish(new Error(`Windows helper가 준비 전에 종료되었습니다. (code=${code ?? 'null'}, signal=${signal || 'none'})`));
+                if (code === 0 && isReady()) finish();
+                else finish(new Error(`Windows helper가 준비되기 전에 bootstrap이 종료되었습니다. (code=${code ?? 'null'}, signal=${signal || 'none'})`));
             };
 
             child.once('error', onError);
             child.once('exit', onExit);
-            pollTimer = setInterval(() => {
-                if (isReady()) finish();
-            }, 50);
             timeoutTimer = setTimeout(() => {
-                finish(new Error('Windows helper 준비 확인 시간이 초과되었습니다.'));
+                finish(new Error('Windows helper 및 bootstrap 준비 확인 시간이 초과되었습니다.'));
             }, this.windowsHelperReadyTimeoutMs);
-            if (isReady()) finish();
         });
     }
 
@@ -825,12 +848,11 @@ try {
                 this.appendWindowsHelperBootstrapLog(`launch requested: ${command}`);
                 outputFd = this.fs.openSync(pending.helperBootstrapLogPath, 'a');
                 child = this.spawnProcess(command, pending.args, {
-                    detached: true,
+                    detached: false,
                     stdio: ['ignore', outputFd, outputFd],
                     windowsHide: true
                 });
-                await this.waitForWindowsHelperReady(child, pending.helperReadyPath);
-                child.unref();
+                await this.waitForWindowsBootstrapReady(child, pending.helperReadyPath);
                 this.appendWindowsHelperBootstrapLog(`helper ready: ${command} (pid=${child.pid || 'unknown'})`);
                 return true;
             } catch (error) {

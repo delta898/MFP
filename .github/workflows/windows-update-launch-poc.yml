@@ -2,9 +2,6 @@ name: Windows Update Helper Launch PoC
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - codex/poc/windows-update-helper-launch
 
 permissions:
   contents: read
@@ -19,6 +16,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Exercise the production Windows bootstrap implementation
+        run: node --test src/updater.windows.integration.test.js
       - name: Package and run unsigned Electron PoC
         id: poc
         continue-on-error: true

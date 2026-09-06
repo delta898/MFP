@@ -223,8 +223,18 @@ async function applyUpdate() {
     clearTimeout(pollTimer);
     setProgressUi({ stage: 'done', percent: 100 });
     setTimeout(async () => {
-      try { await postJson('/api/v1/system/update/restart'); } catch (_) { }
-      setTimeout(() => location.reload(), 3000);
+      try {
+        await postJson('/api/v1/system/update/restart');
+      } catch (e) {
+        setProgressUi({
+          stage: 'error',
+          message: `업데이트 재시작 실패: ${e.message}`,
+          percent: 0
+        });
+        if (updateNowBtn) updateNowBtn.style.display = '';
+        if (updateCloseBtn) updateCloseBtn.style.display = '';
+        if (updateCancelBtn) updateCancelBtn.style.display = 'none';
+      }
     }, 1500);
   } catch (e) {
     if (cancelled) return;
@@ -239,4 +249,3 @@ async function applyUpdate() {
     }, 4000);
   }
 }
-

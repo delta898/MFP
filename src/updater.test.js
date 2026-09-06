@@ -127,6 +127,7 @@ test('Windows updater defers helper launch until restart and exits only after re
                 spawnCalls.push({ command, args, options, child });
                 setImmediate(() => {
                     fs.writeFileSync(updater._pendingExternalRestart.helperReadyPath, String(child.pid), 'ascii');
+                    child.emit('exit', 0, null);
                 });
                 return child;
             }
@@ -136,11 +137,21 @@ test('Windows updater defers helper launch until restart and exits only after re
         updater.prepareWindowsDeferredApply(path.join(appRootDir, 'tmp_update', 'extracted'));
         assert.equal(spawnCalls.length, 0);
         const helperScript = fs.readFileSync(updater._pendingExternalRestart.helperScriptPath, 'utf8');
+        const bootstrapScript = fs.readFileSync(updater._pendingExternalRestart.helperBootstrapScriptPath, 'utf8');
         const helperSpec = JSON.parse(fs.readFileSync(updater._pendingExternalRestart.helperSpecPath, 'utf8'));
         assert.match(helperScript, /Join-Path \$PSScriptRoot 'apply-update\.json'/);
         assert.match(helperScript, /exit 1/);
         assert.doesNotMatch(helperScript, /^param\(/m);
         assert.equal(/^[\x00-\x7F]*$/.test(helperScript), true);
+        assert.equal(/^[\x00-\x7F]*$/.test(bootstrapScript), true);
+        assert.match(bootstrapScript, /Start-Process -FilePath \$enginePath/);
+        assert.match(bootstrapScript, /-EncodedCommand/);
+        assert.match(bootstrapScript, /apply helper ready/);
+        const encodedCommand = bootstrapScript.match(/'-EncodedCommand', '([^']+)'/)?.[1];
+        assert.equal(
+            Buffer.from(encodedCommand, 'base64').toString('utf16le'),
+            `& '${updater._pendingExternalRestart.helperScriptPath.replace(/'/g, "''")}'`
+        );
         assert.equal(helperSpec.sourceDir, path.join(appRootDir, 'tmp_update', 'extracted'));
         assert.equal(helperSpec.appDir, appRootDir);
         assert.equal(helperSpec.waitPid, process.pid);
@@ -158,9 +169,10 @@ test('Windows updater defers helper launch until restart and exits only after re
             '-ExecutionPolicy',
             'Bypass',
             '-File',
-            updater._pendingExternalRestart.helperScriptPath
+            updater._pendingExternalRestart.helperBootstrapScriptPath
         ]);
-        assert.equal(spawnCalls[0].child.unrefCalled, true);
+        assert.equal(spawnCalls[0].options.detached, false);
+        assert.equal(spawnCalls[0].child.unrefCalled, false);
         assert.deepEqual(exitCodes, [0]);
         assert.match(
             fs.readFileSync(updater._pendingExternalRestart.helperBootstrapLogPath, 'utf8'),
@@ -242,7 +254,7 @@ test('Windows updater rejects helpers that exit cleanly before readiness', async
 
         await assert.rejects(
             updater.restart(),
-            /Windows helper가 준비 전에 종료되었습니다. \(code=0, signal=none\)/
+            /Windows helper가 준비되기 전에 bootstrap이 종료되었습니다. \(code=0, signal=none\)/
         );
 
         assert.deepEqual(exitCodes, []);
@@ -296,6 +308,16 @@ test('system restart controller observes asynchronous updater failures', () => {
     assert.match(controller, /await updater\.restart\(\{ exitDelayMs: 1000 \}\)/);
     assert.match(controller, /UPDATE_RESTART_ERROR/);
     assert.match(controller, /Promise\.resolve\(updater\.restart\(\)\)\.catch/);
+});
+
+test('update UI reports restart failures without simulating a restart by reloading', () => {
+    const updateUi = fs.readFileSync(
+        path.join(__dirname, '..', 'ui', 'scripts', 'features', 'shell', 'update.js'),
+        'utf8'
+    );
+    assert.match(updateUi, /await postJson\('\/api\/v1\/system\/update\/restart'\)/);
+    assert.match(updateUi, /업데이트 재시작 실패/);
+    assert.doesNotMatch(updateUi, /location\.reload/);
 });
 
 test('update restart endpoint confirms a pending Windows helper before reporting success', async () => {
