@@ -3,7 +3,7 @@
 - Branch: `codex/poc/windows-update-helper-launch`
 - Base/parent branch: `release/v0.4.3`
 - Start date: 2026-09-06
-- Status: In progress
+- Status: Windows CI PoC passed; affected-machine confirmation pending
 
 ## User need
 
@@ -56,8 +56,18 @@ A PowerShell runner executes both modes sequentially, checks their marker files,
 - `node --check scripts/windows/update-launch-poc/app/main.js`: passed
 - Git diff whitespace check: passed
 - Workflow YAML parse check: passed
+- GitHub Actions Windows packaged-Electron PoC: passed ([run 34002635559](https://github.com/delta898/MFP/actions/runs/34002635559))
 
-Windows execution remains required because macOS cannot exercise the failing process-creation boundary.
+### Windows packaged result
+
+Environment: Windows NT 10.0.26100.0, x64, packaged Electron 44.2.0, unsigned executable.
+
+- `current`: parent exited 1; detached PowerShell exited 0 before creating any helper marker or log.
+- `bootstrap`: parent exited 0; helper created the ready marker and remained alive long enough to create the survived marker after its Electron parent exited.
+- Authenticode status: `NotSigned`.
+- Relevant accessible Code Integrity, AppLocker, and Defender events during the run: none.
+
+This reproduces the reported BlogGenius signature exactly at the isolated process boundary and demonstrates that the two-step bootstrap avoids it in an unsigned packaged application. Confirmation on at least one affected user machine remains useful before changing the production updater.
 
 ## Progress
 
@@ -70,4 +80,4 @@ Windows execution remains required because macOS cannot exercise the failing pro
 
 ## Result
 
-The isolated PoC and evidence collector are ready. Final result is pending execution of the unsigned packaged PoC on Windows.
+The isolated PoC passed on a Windows GitHub runner. Evidence supports Node/libuv's detached PowerShell process creation as the immediate cause rather than `-File`, path encoding, or unsigned-package status by itself. The recommended BlogGenius change is the two-step non-detached bootstrap plus `Start-Process` helper, together with removal of the UI's false restart reload.
