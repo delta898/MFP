@@ -3,7 +3,7 @@
 - Branch: `codex/poc/windows-update-helper-launch`
 - Base/parent branch: `release/v0.4.3`
 - Start date: 2026-09-06
-- Status: Windows CI PoC passed; affected-machine confirmation pending
+- Status: Complete
 
 ## User need
 
@@ -67,7 +67,7 @@ Environment: Windows NT 10.0.26100.0, x64, packaged Electron 44.2.0, unsigned ex
 - Authenticode status: `NotSigned`.
 - Relevant accessible Code Integrity, AppLocker, and Defender events during the run: none.
 
-This reproduces the reported BlogGenius signature exactly at the isolated process boundary and demonstrates that the two-step bootstrap avoids it in an unsigned packaged application. Confirmation on at least one affected user machine remains useful before changing the production updater.
+This reproduces the reported BlogGenius signature exactly at the isolated process boundary and demonstrates that the two-step bootstrap avoids it in an unsigned packaged application. The result is sufficient to proceed with an isolated BlogGenius updater implementation branch; affected-machine verification remains part of release acceptance.
 
 ## Progress
 
@@ -80,4 +80,4 @@ This reproduces the reported BlogGenius signature exactly at the isolated proces
 
 ## Result
 
-The isolated PoC passed on a Windows GitHub runner. Evidence supports Node/libuv's detached PowerShell process creation as the immediate cause rather than `-File`, path encoding, or unsigned-package status by itself. The recommended BlogGenius change is the two-step non-detached bootstrap plus `Start-Process` helper, together with removal of the UI's false restart reload.
+The isolated PoC passed on a Windows GitHub runner. Evidence supports Node/libuv's detached PowerShell process creation as the immediate cause rather than `-File`, path encoding, or unsigned-package status by itself. The selected BlogGenius change is the two-step non-detached bootstrap plus `Start-Process` helper, together with removal of the UI's false restart reload.
