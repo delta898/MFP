@@ -1,0 +1,40 @@
+name: Windows Update Helper Launch PoC
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/poc/windows-update-helper-launch
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-electron-poc:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Package and run unsigned Electron PoC
+        id: poc
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          ./scripts/windows/update-launch-poc/build-and-run.ps1 `
+            -OutputDir (Join-Path $env:RUNNER_TEMP 'BlogGenius-update-launch-poc')
+      - name: Upload PoC package and evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-update-helper-launch-poc
+          path: ${{ runner.temp }}/BlogGenius-update-launch-poc
+          if-no-files-found: error
+          retention-days: 14
+      - name: Require bootstrap survival
+        if: steps.poc.outcome == 'failure'
+        shell: pwsh
+        run: throw 'The bootstrap helper did not survive the packaged Electron parent.'
