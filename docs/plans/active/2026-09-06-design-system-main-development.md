@@ -89,6 +89,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-06: 사용자가 첫 적용 범위, `1 style = 1 theme`, compatibility style, style 선택 UI 제공 시점을 승인했다.
 - 2026-09-06: 사용자가 Design Principles `v0.1` 출발과 세 차례 필수 검토 게이트를 승인했다.
 - 2026-09-06: 1단계 원칙·현황·계약 수립을 완료했다. Design Principles와 style contract는 architecture로 승격하고 세부 조사와 개발 기록은 archive로 이동했다.
+- 2026-09-06: `dev`에서 독립적으로 수정한 SerpApi archive 계획 테스트 경로를 parent에 동기화했다. 동기화 후 full unit suite는 1,473 passed, 0 failed, 1 skipped로 기준선을 회복했다.
 
 ## Design Principles 필수 검토 일정
 
