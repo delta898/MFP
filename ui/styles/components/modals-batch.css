@@ -134,32 +134,32 @@
 
 .modal-footer button {
   padding: 10px 24px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ui-button-radius);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--ui-transition-interactive);
 }
 
-.modal-footer button.primary {
+[data-style-scope="compatibility"] .modal-footer button.primary {
   background: var(--brand-primary);
   color: white;
   border: none;
   box-shadow: var(--shadow-sm);
 }
 
-.modal-footer button.primary:hover {
+[data-style-scope="compatibility"] .modal-footer button.primary:hover {
   background: var(--brand-hover);
   transform: translateY(-1px);
 }
 
-.modal-footer button.secondary {
+[data-style-scope="compatibility"] .modal-footer button.secondary {
   background: white;
   color: var(--text-muted);
   border: 1px solid var(--line);
 }
 
-.modal-footer button.secondary:hover {
+[data-style-scope="compatibility"] .modal-footer button.secondary:hover {
   background: #f1f5f9;
   color: var(--text-main);
 }

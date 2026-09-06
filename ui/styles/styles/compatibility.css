@@ -1,4 +1,5 @@
-[data-style="compatibility"] {
+[data-style="compatibility"],
+[data-style-scope="compatibility"] {
   /* Canvas and surfaces */
   --ui-canvas: linear-gradient(135deg, #f0f4f8 0%, #e0e8f0 100%);
   --ui-surface: #ffffff;
@@ -71,4 +72,32 @@
   --ui-motion-slow: 300ms;
   --ui-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 10px;
+  --ui-button-primary-background: #0ea5e9;
+  --ui-button-primary-hover: #0284c7;
+  --ui-button-primary-text: #ffffff;
+  --ui-button-primary-border: transparent;
+  --ui-button-secondary-background: #475569;
+  --ui-button-secondary-hover: #334155;
+  --ui-button-secondary-text: #ffffff;
+  --ui-button-secondary-border: transparent;
+  --ui-button-secondary-hover-border: transparent;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #f0f4f8;
+  --ui-button-tertiary-text: #64748b;
+  --ui-button-tertiary-border: #e2e8f0;
+  --ui-button-danger-text: #b91c1c;
+  --ui-button-danger-hover: #fff1f2;
+  --ui-button-disabled-opacity: 0.65;
+  --ui-action-group-gap: 10px;
+
+  /* Shared card component */
+  --ui-card-background: var(--ui-surface);
+  --ui-card-border: var(--ui-border-default);
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: var(--ui-shadow-sm);
+  --ui-card-hover-shadow: var(--ui-shadow-md);
+  --ui-card-hover-transform: translateY(-2px);
 }

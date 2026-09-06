@@ -252,10 +252,12 @@
   opacity: 1;
 }
 
-.recommendation-card-actions .recommendation-dismiss:hover {
-  border-color: #f0a6a6;
-  background: #fff7f7;
-  color: #a63d3d;
+.recommendation-card-actions button.recommendation-dismiss:hover:not(:disabled) {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+  box-shadow: none;
+  transform: none;
 }
 
 @media (max-width: 700px) {

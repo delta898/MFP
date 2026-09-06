@@ -182,8 +182,8 @@
 }
 
 .ui-dialog-input:focus {
-  border-color: var(--ui-action-primary);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .ui-dialog-input.hidden {
@@ -198,24 +198,8 @@
 }
 
 .ui-dialog-actions button {
-  border: none;
-  border-radius: var(--ui-radius-sm);
   padding: 10px 16px;
   font-weight: 600;
-  cursor: pointer;
-  background: var(--ui-action-primary);
-  color: #fff;
-  transition: var(--ui-transition-interactive);
-}
-
-.ui-dialog-actions button:hover {
-  background: var(--ui-action-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--ui-shadow-md);
-}
-
-.ui-dialog-actions button.secondary {
-  background: #475569;
 }
 
 .ui-dialog-actions button.hidden {

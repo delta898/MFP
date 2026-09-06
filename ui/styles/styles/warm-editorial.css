@@ -1,0 +1,102 @@
+[data-style="warm-editorial"] {
+  /* Canvas and surfaces */
+  --ui-canvas: linear-gradient(135deg, #f5f0e7 0%, #ebe3d7 100%);
+  --ui-surface: #fffdf9;
+  --ui-surface-translucent: rgba(255, 253, 249, 0.92);
+  --ui-surface-muted: #f7f2ea;
+  --ui-surface-hover: #f0e8dd;
+  --ui-surface-emphasis: #29251f;
+  --ui-overlay: rgba(41, 37, 31, 0.58);
+
+  /* Text and borders */
+  --ui-text-primary: #29251f;
+  --ui-text-secondary: #625b52;
+  --ui-text-muted: #8c8377;
+  --ui-text-inverse: #fffdf9;
+  --ui-border-default: #ded5c8;
+  --ui-border-strong: #c8bbab;
+  --ui-border-focus: #b65f42;
+
+  /* Actions and status */
+  --ui-action-primary: #b65f42;
+  --ui-action-primary-hover: #9f4e35;
+  --ui-action-primary-soft: #f7e9e2;
+  --ui-action-secondary: #625b52;
+  --ui-action-secondary-hover: #4f4942;
+  --ui-action-danger: #a44f43;
+  --ui-status-info: #68798a;
+  --ui-status-success: #52715c;
+  --ui-status-warning: #a96f2d;
+  --ui-status-danger: #a44f43;
+  --ui-focus-ring: 0 0 0 3px rgba(182, 95, 66, 0.2);
+
+  /* Typography */
+  --ui-font-sans: 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ui-type-display-size: 28px;
+  --ui-type-heading-size: 20px;
+  --ui-type-body-size: 15px;
+  --ui-type-label-size: 14px;
+  --ui-type-caption-size: 12px;
+  --ui-line-height-tight: 1.25;
+  --ui-line-height-body: 1.6;
+  --ui-weight-regular: 400;
+  --ui-weight-medium: 500;
+  --ui-weight-semibold: 600;
+  --ui-weight-bold: 700;
+
+  /* Space and shape */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+  --ui-space-12: 48px;
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-full: 9999px;
+
+  /* Elevation and motion */
+  --ui-shadow-sm: 0 1px 2px rgb(65 52 39 / 0.06);
+  --ui-shadow-md: 0 7px 18px rgb(65 52 39 / 0.09), 0 2px 5px rgb(65 52 39 / 0.05);
+  --ui-shadow-lg: 0 18px 42px rgb(65 52 39 / 0.13), 0 5px 12px rgb(65 52 39 / 0.06);
+  --ui-shadow-soft: 0 10px 30px rgba(65, 52, 39, 0.08);
+  --ui-shadow-glass: 0 10px 34px rgba(96, 72, 51, 0.07);
+  --ui-motion-fast: 120ms;
+  --ui-motion-standard: 180ms;
+  --ui-motion-slow: 280ms;
+  --ui-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 9px;
+  --ui-button-primary-background: #b65f42;
+  --ui-button-primary-hover: #9f4e35;
+  --ui-button-primary-text: #ffffff;
+  --ui-button-primary-border: #b65f42;
+  --ui-button-secondary-background: #fffdf9;
+  --ui-button-secondary-hover: #f7f2ea;
+  --ui-button-secondary-text: #514b43;
+  --ui-button-secondary-border: #cfc6b8;
+  --ui-button-secondary-hover-border: #b7aa99;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #f0e8dd;
+  --ui-button-tertiary-text: #625b52;
+  --ui-button-tertiary-border: #ded5c8;
+  --ui-button-danger-text: #9b4a3c;
+  --ui-button-danger-hover: #f8e9e5;
+  --ui-button-disabled-opacity: 0.58;
+  --ui-action-group-gap: 10px;
+
+  /* Shared card component */
+  --ui-card-background: var(--ui-surface);
+  --ui-card-border: var(--ui-border-default);
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: 0 1px 2px rgb(65 52 39 / 0.05);
+  --ui-card-hover-shadow: 0 7px 20px rgb(65 52 39 / 0.08);
+  --ui-card-hover-transform: none;
+}

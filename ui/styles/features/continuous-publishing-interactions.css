@@ -41,7 +41,7 @@
 }
 
 .blog-next-folder-clear:focus-visible {
-  outline: 3px solid rgba(14, 165, 233, 0.24);
+  outline: 3px solid color-mix(in srgb, var(--ui-border-focus) 24%, transparent);
   outline-offset: 1px;
 }
 
@@ -59,42 +59,6 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-}
-
-.blog-next-trend-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--ui-border-default);
-  border-radius: 50%;
-  background: var(--ui-surface);
-  color: var(--ui-text-secondary);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.blog-next-trend-refresh:hover:not(:disabled) {
-  border-color: var(--ui-action-primary);
-  color: var(--ui-action-primary-hover);
-  background: var(--ui-action-primary-soft);
-}
-
-.blog-next-trend-refresh:focus-visible {
-  outline: 3px solid rgba(14, 165, 233, 0.24);
-  outline-offset: 2px;
-}
-
-.blog-next-trend-refresh:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.blog-next-trend-refresh.is-loading span {
-  animation: blog-next-trend-refresh-spin 0.8s linear infinite;
 }
 
 .blog-next-queue-item.is-running {
@@ -160,10 +124,6 @@
   opacity: 0.62;
   transform: none;
   box-shadow: none;
-}
-
-@keyframes blog-next-trend-refresh-spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 760px) {

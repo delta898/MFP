@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-06 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
+> 현행 기준: 2026-09-07 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
@@ -94,6 +94,27 @@
 9. 제목 결과 학습
    - 배포된 검색·발견 중심 호기심 전략은 완료된 기준선으로 본다.
    - 서로 다른 각도의 제목 후보를 제공하고 명시적인 선택·수정과 검증된 콘텐츠 결과에서만 학습한다.
+
+10. Blog Beta 탭 구조와 콘텐츠 시작점 일관성
+   - 다섯 top-level tab에 공통 panel anatomy를 정의한다: 목적을 설명하는 intro, 선택적인 local navigation,
+     현재 상태·도구, primary content 순서를 기본 문법으로 사용한다.
+   - 빠른 글 작성의 mode switch, 트렌드의 최신 데이터 상태, 글감 관리의 local tab, 스마트 댓글의 intro,
+     연속 발행의 enable control이 제각각 첫 요소가 된 현재 구조를 역할별 slot으로 재배치한다.
+   - 모든 tab을 같은 모양으로 강제하지 않고 같은 content inset, 첫 의미 요소의 시작선, 수직 간격과
+     heading hierarchy를 유지한다.
+   - selected, hover, keyboard focus-visible 상태를 분리해 mouse로 선택한 tab의 focus ring이 영구적인
+     두 번째 active 표현처럼 보이지 않게 한다.
+   - desktop과 좁은 화면에서 tab 전환 전후의 콘텐츠 시작 좌표, scroll 위치, focus 이동과 대표 상태를
+     browser contract 및 사용자 시각 검토로 확인한다.
+
+11. Blog Beta 빠른 글 작성 대표 흐름 재설계
+   - 주제·키워드·제목과 사용자의 경험·요청을 기본 경로로 남기고 참고 자료, 생성 방식과 발행 세부 설정은
+     progressive disclosure로 정리한다.
+   - 접힌 설정은 현재 발행 대상, 공개 방식, 이미지 처리와 실행 방식을 요약해 위험한 실행 결과를 숨기지 않는다.
+   - `AI 글감 추천`, `AI 키워드 탐색`, `AI 제목 추천`을 일반 secondary와 구별되는 `AI Assist` 후보
+     pattern으로 검증하되 최종 primary action과 경쟁시키지 않는다.
+   - 긴 form의 최대 폭, section rhythm과 하단 action 접근성을 개선하고 입력·기본값·편집·발행 동작을 보존한다.
+   - 탭 구조와 콘텐츠 시작점 일관성 작업의 공통 panel anatomy를 먼저 적용한 뒤 내부 정보구조를 변경한다.
 
 ## P2 — 제품 확장과 유지보수
 

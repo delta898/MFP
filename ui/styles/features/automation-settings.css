@@ -548,15 +548,18 @@
 }
 
 .auto-manual-row button {
-  border: none;
-  border-radius: 10px;
+  border-radius: var(--ui-button-radius);
   padding: 9px 14px;
   font-weight: 700;
   cursor: pointer;
-  background: #475569;
-  color: #fff;
   align-self: center;
   margin-left: 0;
+}
+
+[data-style-scope="compatibility"] .auto-manual-row button {
+  border: none;
+  background: #475569;
+  color: #fff;
 }
 
 .auto-actions {

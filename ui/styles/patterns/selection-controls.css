@@ -1,0 +1,3 @@
+:where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--ui-action-primary);
+}

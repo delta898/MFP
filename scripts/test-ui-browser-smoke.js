@@ -1130,6 +1130,27 @@ async function run() {
         assert.equal(await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).alignItems), 'stretch');
         assert.equal(await page.locator('[data-recommendation-action="snooze"]').count(), 0);
         assert.equal(await page.locator('[data-recommendation-action="dismiss"]').isDisabled(), false);
+        const recommendationDismiss = page.locator('[data-recommendation-action="dismiss"]');
+        await recommendationDismiss.hover();
+        await page.waitForFunction(() => {
+            const element = document.querySelector('[data-recommendation-action="dismiss"]');
+            if (!element?.matches(':hover')) return false;
+            const style = getComputedStyle(element);
+            return style.backgroundColor === 'rgb(248, 250, 252)' && style.color === 'rgb(100, 116, 139)';
+        });
+        const recommendationDismissHover = await recommendationDismiss.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+                hovered: element.matches(':hover'),
+                background: style.backgroundColor,
+                color: style.color,
+                transform: style.transform
+            };
+        });
+        assert.equal(recommendationDismissHover.hovered, true);
+        assert.equal(recommendationDismissHover.background, 'rgb(248, 250, 252)');
+        assert.equal(recommendationDismissHover.color, 'rgb(100, 116, 139)');
+        assert.equal(recommendationDismissHover.transform, 'none');
         assert.equal(
             await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
             3
@@ -1167,6 +1188,24 @@ async function run() {
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').count(), 0);
         assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').textContent(), 'new');
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('html').getAttribute('data-style'), 'warm-editorial');
+        assert.equal(await page.locator('#view-dashboard-beta').getAttribute('data-style-scope'), 'compatibility');
+        assert.equal(await page.locator('#view-blog-next').getAttribute('data-style-scope'), null);
+        assert.equal(
+            await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
+            'rgb(182, 95, 66)'
+        );
+        assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('aria-label'), '최신 데이터 새로고침');
+        assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('title'), '최신 데이터 새로고침');
+        assert.equal((await page.locator('#blog-next-queue-refresh').textContent())?.trim(), '새로고침');
+        assert.equal(
+            await page.locator('#blog-next-trend-query').evaluate((element) => getComputedStyle(element).backgroundColor),
+            'rgb(182, 95, 66)'
+        );
+        assert.equal(
+            await page.locator('#quick-discovery-modal-close-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
+            'rgb(255, 253, 249)'
+        );
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-topic-form [data-blog-next-runner-status-jump]').evaluate((element) => element.hidden), true);
         assert.deepEqual(
@@ -1183,7 +1222,25 @@ async function run() {
         );
         assert.deepEqual(
             await page.locator('.blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
-            ['바로 포스팅', '발행 대기열에 추가', '글감 보관', '내용 지우기']
+            ['내용 지우기', '글감 보관', '발행 대기열에 추가', '바로 포스팅']
+        );
+        assert.deepEqual(
+            await page.locator('.blog-next-form-actions').evaluate((element) => {
+                const primary = getComputedStyle(element.querySelector('.primary'));
+                const secondary = getComputedStyle(element.querySelector('.secondary'));
+                return {
+                    justify: getComputedStyle(element).justifyContent,
+                    primaryBackground: primary.backgroundColor,
+                    secondaryBackground: secondary.backgroundColor,
+                    secondaryBorder: secondary.borderTopStyle
+                };
+            }),
+            {
+                justify: 'flex-end',
+                primaryBackground: 'rgb(182, 95, 66)',
+                secondaryBackground: 'rgb(255, 253, 249)',
+                secondaryBorder: 'solid'
+            }
         );
         assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.classList.contains('primary')), true);
         assert.equal(await page.locator('#blog-next-clear-topic').evaluate((element) => element.classList.contains('blog-next-clear-action')), true);
@@ -1493,7 +1550,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-global-nav-status').getAttribute('data-state'), 'running');
         assert.equal(
             await page.locator('#blog-next-global-nav-status').evaluate((element) => getComputedStyle(element).backgroundColor),
-            'rgb(255, 255, 255)'
+            'rgb(255, 253, 249)'
         );
         assert.equal(
             await page.locator('#blog-next-queue-list .blog-next-queue-actions button').evaluateAll(buttons => buttons.every(button => button.disabled)),

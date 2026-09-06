@@ -25,16 +25,17 @@ function loadStyleSystem(initialStyle = '') {
   return { root, contract: context.__styleContract };
 }
 
-test('UI root selects the single compatibility style without a separate theme axis', () => {
+test('UI root selects warm editorial while compatibility remains the safe fallback', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-  assert.match(html, /<html lang="ko" data-style="compatibility">/);
+  assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
   assert.doesNotMatch(html, /data-theme=/);
 
-  const { root, contract } = loadStyleSystem('compatibility');
+  const { root, contract } = loadStyleSystem('warm-editorial');
   assert.equal(contract.defaultId, 'compatibility');
-  assert.deepEqual(Object.keys(contract.registry), ['compatibility']);
+  assert.deepEqual(Object.keys(contract.registry), ['compatibility', 'warm-editorial']);
   assert.equal(contract.registry.compatibility.selectable, false);
-  assert.equal(root.dataset.style, 'compatibility');
+  assert.equal(contract.registry['warm-editorial'].selectable, false);
+  assert.equal(root.dataset.style, 'warm-editorial');
 });
 
 test('unknown or empty style ids fail safely to compatibility', () => {
@@ -49,19 +50,88 @@ test('unknown or empty style ids fail safely to compatibility', () => {
   assert.equal(anotherRoot.dataset.style, 'compatibility');
 });
 
-test('compatibility style supplies every required semantic token', () => {
+test('every registered style supplies every required semantic and component token', () => {
   const { contract } = loadStyleSystem('compatibility');
-  const css = read('ui/styles/styles/compatibility.css');
-  const definitions = new Set(
-    Array.from(css.matchAll(/(^|[;{])\s*(--ui-[a-z0-9-]+)\s*:/gm), (match) => match[2])
-  );
+  const styleFiles = {
+    compatibility: 'ui/styles/styles/compatibility.css',
+    'warm-editorial': 'ui/styles/styles/warm-editorial.css'
+  };
 
   assert.equal(contract.requiredTokens.length, new Set(contract.requiredTokens).size);
-  assert.equal(
-    contract.requiredTokens.filter((token) => !definitions.has(token)).length,
-    0
-  );
-  assert.match(css, /^\[data-style="compatibility"\]\s*\{/);
+  Object.keys(contract.registry).forEach((styleId) => {
+    const css = read(styleFiles[styleId]);
+    const definitions = new Set(
+      Array.from(css.matchAll(/(^|[;{])\s*(--ui-[a-z0-9-]+)\s*:/gm), (match) => match[2])
+    );
+    assert.equal(
+      contract.requiredTokens.filter((token) => !definitions.has(token)).length,
+      0,
+      styleId
+    );
+    assert.match(css, new RegExp(`\\[data-style="${styleId}"\\]`));
+  });
+});
+
+test('non-target views opt into compatibility containment explicitly', () => {
+  const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+  const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
+  assert.equal(viewTags.length > 1, true);
+  viewTags.forEach(([tag, viewId]) => {
+    if (viewId === 'view-blog-next') {
+      assert.doesNotMatch(tag, /data-style-scope=/);
+      return;
+    }
+    assert.match(tag, /data-style-scope="compatibility"/, viewId);
+  });
+
+  const compatibility = read('ui/styles/styles/compatibility.css');
+  const aliases = read('ui/styles/tokens/legacy-aliases.css');
+  assert.match(compatibility, /\[data-style-scope="compatibility"\]/);
+  assert.match(aliases, /\[data-style-scope="compatibility"\]/);
+  assert.match(html, /id="blog-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
+  assert.match(html, /id="shopping-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
+});
+
+test('shared action pattern keeps one filled primary and lower-emphasis alternatives', () => {
+  const actions = read('ui/styles/patterns/actions.css');
+  const blogNext = read('ui/partials/views/blog-next.html');
+  const automationSettings = read('ui/styles/features/automation-settings.css');
+  const modalBatch = read('ui/styles/components/modals-batch.css');
+  const selectionControls = read('ui/styles/patterns/selection-controls.css');
+  const actionGroup = blogNext.match(/<div class="blog-next-form-actions">([\s\S]*?)<\/div>/)?.[1] || '';
+  const autoManualRule = automationSettings.match(/\.auto-manual-row button\s*\{([^}]*)\}/)?.[1] || '';
+
+  assert.match(actions, /button\.primary\s*\{[^}]*--ui-button-primary-background/s);
+  assert.match(actions, /button\.secondary\s*\{[^}]*--ui-button-secondary-background/s);
+  assert.match(actions, /button\.ghost\s*\{[^}]*--ui-button-tertiary-background/s);
+  assert.equal((actionGroup.match(/class="primary"/g) || []).length, 1);
+  assert.equal(actionGroup.indexOf('blog-next-clear-topic') < actionGroup.indexOf('blog-next-save-topic'), true);
+  assert.equal(actionGroup.indexOf('blog-next-save-topic') < actionGroup.indexOf('blog-next-enqueue-topic'), true);
+  assert.equal(actionGroup.indexOf('blog-next-enqueue-topic') < actionGroup.indexOf('blog-next-publish-now'), true);
+  assert.match(blogNext, /id="blog-next-topic-recommend" class="secondary"/);
+  assert.match(blogNext, /id="blog-next-keyword-recommend" class="secondary"/);
+  assert.match(blogNext, /id="blog-next-title-recommend" class="secondary"/);
+  assert.match(blogNext, /id="blog-next-trend-query" class="primary"/);
+  assert.match(blogNext, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon[^"]*"[^>]*aria-label="최신 데이터 새로고침"[^>]*title="최신 데이터 새로고침"/);
+  assert.match(blogNext, /class="[^"]*ui-refresh-action-text[^"]*"[\s\S]*?id="blog-next-queue-refresh"[^>]*>새로고침<\/button>/);
+  assert.match(actions, /\.ui-refresh-action-icon\s*\{[^}]*--ui-border-default[^}]*--ui-surface[^}]*--ui-text-secondary/s);
+  assert.match(actions, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]\s*\{[^}]*ui-refresh-action-spin/s);
+  assert.match(selectionControls, /input\[type="checkbox"\][\s\S]*input\[type="radio"\][\s\S]*accent-color:\s*var\(--ui-action-primary\);/);
+  assert.match(blogNext, /id="blog-next-automation-test"[\s\S]*id="blog-next-automation-save"/);
+  assert.doesNotMatch(autoManualRule, /(?:^|;)\s*(?:border|background|color)\s*:/);
+  assert.match(automationSettings, /\[data-style-scope="compatibility"\] \.auto-manual-row button\s*\{[^}]*background:\s*#475569;/s);
+  assert.doesNotMatch(modalBatch, /\n\.modal-footer button\.(?:primary|secondary)(?::hover)?\s*\{/);
+  assert.match(modalBatch, /\[data-style-scope="compatibility"\] \.modal-footer button\.secondary\s*\{/);
+  const overlays = read('ui/partials/overlays.html');
+  assert.match(overlays, /id="ui-dialog-cancel" class="secondary hidden"/);
+  assert.match(overlays, /id="ui-dialog-confirm" class="primary"/);
+});
+
+test('warm editorial avoids the compatibility blue and dark filled secondary palette', () => {
+  const css = read('ui/styles/styles/warm-editorial.css');
+  assert.match(css, /--ui-action-primary:\s*#b65f42;/);
+  assert.match(css, /--ui-button-secondary-background:\s*#fffdf9;/);
+  assert.doesNotMatch(css, /#0ea5e9|#0284c7|#475569|#334155/i);
 });
 
 test('legacy aliases preserve existing surfaces and repair missing global tokens', () => {

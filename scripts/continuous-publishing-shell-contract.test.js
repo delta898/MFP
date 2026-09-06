@@ -37,13 +37,15 @@ test('Blog Beta keeps trend and management headers compact', () => {
     const betaView = read('ui/partials/views/blog-next.html');
     const usabilityCss = read('ui/styles/features/continuous-publishing-usability.css');
     const betaCss = read('ui/styles/features/continuous-publishing-interactions.css');
+    const actionCss = read('ui/styles/patterns/actions.css');
     const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
 
     assert.doesNotMatch(betaView, /네이버 트렌드에서 글감 찾기/);
     assert.match(betaView, /class="trend-posting-head blog-next-trend-head"/);
     assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*flex-end;/s);
     assert.match(betaView, /id="blog-next-trend-refresh"[^>]*aria-label="최신 데이터 새로고침"/);
-    assert.match(betaCss, /\.blog-next-trend-refresh\.is-loading span/);
+    assert.match(betaView, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon/);
+    assert.match(actionCss, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]/);
     assert.match(trendScript, /loadBlogNextTrendMeta\(\{ force: true \}\)/);
     assert.match(trendScript, /이미 최신 데이터입니다/);
     assert.match(trendScript, /selectedCategories/);
@@ -70,7 +72,7 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>바로 포스팅/);
     assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*>내용 지우기/);
-    assert.equal(publishIndex < enqueueIndex && enqueueIndex < saveIndex && saveIndex < clearIndex, true);
+    assert.equal(clearIndex < saveIndex && saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
     assert.match(betaView, /id="blog-next-queue-list"/);
     assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
@@ -357,7 +359,7 @@ test('global publishing status exposes one prioritized summary in the clock and 
     assert.match(statusScript, /navigateTo\('blog-next', 'queue'\)/);
     assert.match(statusCss, /\.clock-publishing-status\[data-state="attention"\]/);
     assert.match(statusCss, /\.blog-next-global-nav-status\[data-state="running"\]/);
-    assert.match(statusCss, /\.nav-btn\.active \.blog-next-global-nav-status\[data-state="running"\]\s*\{[^}]*background:\s*#fff;/s);
+    assert.match(statusCss, /\.nav-btn\.active \.blog-next-global-nav-status\[data-state="running"\]\s*\{[^}]*background:\s*var\(--ui-surface\);/s);
     assert.match(routeSource, /\/api\/v1\/continuous-publishing\/status-summary/);
     assert.match(serviceSource, /getGlobalStatusSummary/);
     assert.match(serviceSource, /state: 'attention'/);

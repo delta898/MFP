@@ -61,21 +61,21 @@
                   <span>주제</span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-subject" type="text" placeholder="예: 제주 일주일 살기에서 발견한 작은 즐거움">
-                    <button id="blog-next-topic-recommend" class="primary" type="button">글감 추천</button>
+                    <button id="blog-next-topic-recommend" class="secondary" type="button">글감 추천</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
                   <span>키워드</span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-keywords" type="text" placeholder="쉼표로 구분해 입력하세요">
-                    <button id="blog-next-keyword-recommend" class="primary" type="button">키워드 탐색</button>
+                    <button id="blog-next-keyword-recommend" class="secondary" type="button">키워드 탐색</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
                   <span>제목 <small>(선택)</small></span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
-                    <button id="blog-next-title-recommend" class="primary" type="button">AI 제목 추천</button>
+                    <button id="blog-next-title-recommend" class="secondary" type="button">AI 제목 추천</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
@@ -173,10 +173,10 @@
                   type="button" hidden>상태 보기</button>
               </div>
               <div class="blog-next-form-actions">
-                <button class="primary" id="blog-next-publish-now" type="button">바로 포스팅</button>
-                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form">발행 대기열에 추가</button>
-                <button class="secondary" id="blog-next-save-topic" type="button">글감 보관</button>
                 <button class="ghost blog-next-clear-action" id="blog-next-clear-topic" type="button">내용 지우기</button>
+                <button class="secondary" id="blog-next-save-topic" type="button">글감 보관</button>
+                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form">발행 대기열에 추가</button>
+                <button class="primary" id="blog-next-publish-now" type="button">바로 포스팅</button>
               </div>
             </form>
             </div>
@@ -279,7 +279,7 @@
           <div class="trend-posting-head blog-next-trend-head">
             <div class="blog-next-trend-latest">
               <span id="blog-next-trend-latest-badge" class="trend-posting-latest-badge">최신 데이터 확인 중</span>
-              <button id="blog-next-trend-refresh" class="blog-next-trend-refresh" type="button"
+              <button id="blog-next-trend-refresh" class="ghost compact ui-refresh-action ui-refresh-action-icon blog-next-trend-refresh" type="button"
                 aria-label="최신 데이터 새로고침" title="최신 데이터 새로고침" aria-busy="false">
                 <span aria-hidden="true">↻</span>
               </button>
@@ -363,7 +363,8 @@
                 data-blog-next-management-tab="saved">보관한 글감 <strong id="blog-next-saved-count">확인 중</strong></button>
             </div>
             <div class="blog-next-management-actions">
-              <button class="secondary blog-next-management-refresh" id="blog-next-queue-refresh" type="button">새로고침</button>
+              <button class="secondary compact ui-refresh-action ui-refresh-action-text blog-next-management-refresh"
+                id="blog-next-queue-refresh" type="button">새로고침</button>
             </div>
           </div>
           <div class="blog-next-management-panels">
@@ -473,8 +474,8 @@
               <label class="blog-next-automation-notify"><input id="blog-next-automation-notify" type="checkbox"><span>완료·실패 알림 사용</span></label>
             </div>
             <div class="blog-next-automation-actions">
-              <button class="primary" id="blog-next-automation-save" type="submit" disabled>설정 저장</button>
               <button class="secondary" id="blog-next-automation-test" type="button" hidden>30초 테스트</button>
+              <button class="primary" id="blog-next-automation-save" type="submit" disabled>설정 저장</button>
             </div>
             <p class="blog-next-automation-summary" id="blog-next-automation-status" hidden aria-live="polite"></p>
           </form>

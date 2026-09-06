@@ -53,6 +53,8 @@
 - `architecture/runtime-credential-rollout.md`
 - `architecture/design-principles.md`
 - `architecture/design-style-system.md`
+- `architecture/design-style-warm-editorial.md`
+- `architecture/design-component-patterns.md`
 - `development-environment-guide.md`
 - `development-journal-topics.md`
 - `supabase-recovery-runbook.md`
@@ -90,6 +92,7 @@
 ## Active Work
 
 - `plans/active/2026-09-06-design-system-main-development.md`
+- `plans/archive/2026-09-06-design-system-03-first-style-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`

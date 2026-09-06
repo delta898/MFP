@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-style-scope="compatibility"] {
   /* Existing public tokens remain stable while surfaces migrate incrementally. */
   --bg-gradient: var(--ui-canvas);
   --surface: var(--ui-surface-translucent);

@@ -62,13 +62,43 @@ const DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([
   '--ui-motion-standard',
   '--ui-motion-slow',
   '--ui-ease-standard',
-  '--ui-transition-interactive'
+  '--ui-transition-interactive',
+  '--ui-button-radius',
+  '--ui-button-primary-background',
+  '--ui-button-primary-hover',
+  '--ui-button-primary-text',
+  '--ui-button-primary-border',
+  '--ui-button-secondary-background',
+  '--ui-button-secondary-hover',
+  '--ui-button-secondary-text',
+  '--ui-button-secondary-border',
+  '--ui-button-secondary-hover-border',
+  '--ui-button-tertiary-background',
+  '--ui-button-tertiary-hover',
+  '--ui-button-tertiary-text',
+  '--ui-button-tertiary-border',
+  '--ui-button-danger-text',
+  '--ui-button-danger-hover',
+  '--ui-button-disabled-opacity',
+  '--ui-action-group-gap',
+  '--ui-card-background',
+  '--ui-card-border',
+  '--ui-card-radius',
+  '--ui-card-shadow',
+  '--ui-card-hover-shadow',
+  '--ui-card-hover-transform'
 ]);
 
 const DESIGN_STYLE_REGISTRY = Object.freeze({
   compatibility: Object.freeze({
     id: 'compatibility',
     label: 'Compatibility',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: false
+  }),
+  'warm-editorial': Object.freeze({
+    id: 'warm-editorial',
+    label: '따뜻한 에디토리얼',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: false
   })
