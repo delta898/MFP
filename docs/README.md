@@ -51,6 +51,8 @@
 - `architecture/hosted-development-environment.md`
 - `architecture/runtime-credential-boundaries.md`
 - `architecture/runtime-credential-rollout.md`
+- `architecture/design-principles.md`
+- `architecture/design-style-system.md`
 - `development-environment-guide.md`
 - `development-journal-topics.md`
 - `supabase-recovery-runbook.md`
@@ -87,6 +89,7 @@
 
 ## Active Work
 
+- `plans/active/2026-09-06-design-system-main-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
