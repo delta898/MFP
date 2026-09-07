@@ -560,7 +560,7 @@ test('ready queue reorder rejects a boundary move without mutating the Sheet', a
     assert.equal(state.rowMove, undefined);
 });
 
-test('ready topic update validates and preserves the row identity', async () => {
+test('ready topic save validates content and preserves row identity and queue location', async () => {
     const state = {};
     const service = createService(state);
 
@@ -576,6 +576,8 @@ test('ready topic update validates and preserves the row identity', async () => 
     });
 
     assert.equal(result.rowNumber, 4);
+    assert.equal(result.action, 'save');
+    assert.equal(result.status, '발행 준비 완료');
     assert.equal(state.updatedRowIndex, 2);
     assert.deepEqual(state.updatedFields.platforms, ['naver', 'wordpress']);
     assert.equal(state.updatedFields.status, '발행 준비 완료');

@@ -287,6 +287,26 @@ test('queue rows share one transient hover and keyboard focus surface', () => {
   assert.match(queueCss, /\.blog-next-queue-copy:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--ui-action-primary\)/s);
 });
 
+test('queue editor changes content without owning collection transitions or execution', () => {
+  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const service = read('src/ui-api/services/continuous-publishing.service.js');
+  const editorCss = read('ui/styles/features/continuous-publishing-usability.css');
+
+  assert.match(queueScript, /if \(recoverableSlot\) recoverableSlot\.hidden = true/);
+  assert.match(queueScript, /if \(saveButton\) \{[\s\S]*saveButton\.hidden = false;[\s\S]*saveButton\.classList\.add\('primary'\)/);
+  assert.match(queueScript, /if \(enqueueButton\) \{\s*enqueueButton\.hidden = true;/);
+  assert.match(queueScript, /if \(publishButton\) \{\s*publishButton\.hidden = true;/);
+  assert.match(flowScript, /const editingChanged = !editing \|\| \([\s\S]*snapshotBlogNextEditingPayload\(\) !== blogNextEditingInitialSnapshot/);
+  assert.match(flowScript, /if \(save\) save\.disabled = busy \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
+  assert.match(queueScript, /blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload\(\);\s*syncBlogNextTopicActionAvailability\(\);/);
+  assert.match(service, /const ready = sourceStatus === TOPIC_STATUS\.READY \|\| action === 'enqueue'/);
+  assert.match(service, /updateReadyTopic\(requestBody = \{\}\) \{\s*return this\.updateTopic\(\{ \.\.\.requestBody, action: 'save', sourceStatus: TOPIC_STATUS\.READY \}\)/);
+  assert.doesNotMatch(service, /READY_TOPIC_CANNOT_BE_SAVED/);
+  assert.match(editorCss, /\.blog-next-editor-modal-actions \.blog-next-form-actions \.blog-next-cancel-action\s*\{[^}]*margin-inline-end:\s*0;/s);
+  assert.match(editorCss, /\.blog-next-editor-modal-actions \.blog-next-recoverable-action-slot\[hidden\]\s*\{[^}]*display:\s*none;/s);
+});
+
 test('smart comment identifies its model role and preserves results through async states', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/smart-comment.js');

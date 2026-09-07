@@ -86,12 +86,18 @@ function syncBlogNextTopicActionAvailability() {
   const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
   const editingReady = typeof blogNextEditingSourceStatus !== 'undefined'
     && blogNextEditingSourceStatus === '발행 준비 완료';
+  const editingChanged = !editing || (
+    typeof blogNextEditingInitialSnapshot !== 'undefined'
+    && Boolean(blogNextEditingInitialSnapshot)
+    && typeof snapshotBlogNextEditingPayload === 'function'
+    && snapshotBlogNextEditingPayload() !== blogNextEditingInitialSnapshot
+  );
   const runnerActive = (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting);
   const save = document.getElementById('blog-next-save-topic');
   const enqueue = document.getElementById('blog-next-enqueue-topic');
   const publish = document.getElementById('blog-next-publish-now');
-  if (save) save.disabled = busy || editingReady || !ideaValid;
+  if (save) save.disabled = busy || !editingChanged || (editingReady ? !readyValid : !ideaValid);
   if (enqueue) enqueue.disabled = busy || !readyValid;
   if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !readyValid;
 }

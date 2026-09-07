@@ -129,6 +129,14 @@
   box-shadow: none;
 }
 
+.blog-next-editor-modal-actions .blog-next-form-actions .blog-next-cancel-action {
+  margin-inline-end: 0;
+}
+
+.blog-next-editor-modal-actions .blog-next-recoverable-action-slot[hidden] {
+  display: none;
+}
+
 .blog-next-editor-modal-actions #blog-next-save-topic {
   order: 0;
 }

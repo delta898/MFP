@@ -138,6 +138,21 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
 - 2026-09-08: Slice 3에서 queue row의 pointer hover와 내부 keyboard focus를 공통 `surface-hover`로 연결하고
   실제 control focus ring은 유지했다. row 반응과 중복되던 제목 단독 accent hover는 제거했다.
 - 2026-09-08: row interaction 정리 후 focused queue/shell contract 35개와 `git diff --check`가 통과했다.
+- 2026-09-08: Slice 4에서 Material, Carbon, Fluent, Apple HIG와 GNOME HIG의 transactional dialog 원칙을
+  canonical guide에 반영했다. dialog는 좁은 task와 최대 세 action을 기본으로 하고, 복잡하거나 지속적인 편집은
+  page·non-modal surface·autosave를 우선 검토하도록 정했다.
+- 2026-09-08: queue editor를 내용 수정 전용으로 단순화했다. editor에서는 recoverable clear, 대기열 이동과
+  즉시 실행 action을 숨기고 `취소 · 저장`만 제공한다. `save`는 보관/발행 대기열의 기존 상태를 보존하면서
+  editable content만 갱신하며 성공 시 닫고, 빠른 글 작성으로 돌아오면 기존 clear·enqueue·publish action을 복원한다.
+- 2026-09-08: 사용자 요청에 따라 이 slice의 자동 테스트는 실행하지 않았고 `git diff --check`만 통과했다.
+  보관한 글감과 발행 대기열 각각에서 저장 후 위치 보존 및 dialog 종료를 사용자가 직접 확인할 예정이다.
+- 2026-09-08: editor modal에만 적용되는 action spacing을 보강해 `취소 · 저장`을 inline-end에 인접 배치하고
+  primary `저장`이 가장 오른쪽에 놓이게 했다. 빠른 글 작성의 recoverable action 분리 규칙은 유지한다.
+- 2026-09-08: 사용자 화면에서 취소가 여전히 분리된 것을 확인했다. 공통 cancel margin보다 editor override의
+  specificity를 높이고, author `display`가 native hidden을 덮지 않도록 빈 recoverable slot을 명시적으로 제외했다.
+- 2026-09-08: editor save를 dirty state 기반으로 바꿨다. 최초 진입과 원래 값으로 복원한 상태에서는 disabled,
+  유효한 실제 변경이 있을 때만 enabled가 되며 기존 validation 및 submitting 조건과 함께 평가한다. 빠른 글 작성의
+  신규 글감 보관 action에는 이 editing-only 규칙을 적용하지 않는다.
 - 2026-09-08: 교정 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
 
 ## 최종 결과

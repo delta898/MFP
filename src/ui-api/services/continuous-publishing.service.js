@@ -606,12 +606,9 @@ function createContinuousPublishingService(deps = {}) {
             if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(sourceStatus)) {
                 throw createApiError(400, 'TOPIC_SOURCE_STATUS_INVALID', '수정할 글감 상태를 확인해 주세요.');
             }
-            if (sourceStatus === TOPIC_STATUS.READY && action === 'save') {
-                throw createApiError(409, 'READY_TOPIC_CANNOT_BE_SAVED', '발행 대기열 글감은 먼저 보관한 글감으로 옮겨 주세요.');
-            }
             if (sourceStatus === TOPIC_STATUS.READY) requireRunnerIdle();
             await requireTopicInStatus(rowIndex, sourceStatus);
-            const ready = action === 'enqueue';
+            const ready = sourceStatus === TOPIC_STATUS.READY || action === 'enqueue';
             let row;
             try {
                 row = buildTopicSheetRow(requestBody, { ready });
@@ -640,7 +637,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         updateReadyTopic(requestBody = {}) {
-            return this.updateTopic({ ...requestBody, action: 'enqueue', sourceStatus: TOPIC_STATUS.READY });
+            return this.updateTopic({ ...requestBody, action: 'save', sourceStatus: TOPIC_STATUS.READY });
         },
 
         async deleteSavedTopic(requestBody = {}) {

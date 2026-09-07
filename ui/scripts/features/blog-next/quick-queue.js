@@ -164,8 +164,15 @@ function finishBlogNextTopicEditing() {
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
-  if (saveButton) saveButton.hidden = false;
+  const recoverableSlot = document.querySelector('.blog-next-form-actions .blog-next-recoverable-action-slot');
+  if (recoverableSlot) recoverableSlot.hidden = false;
+  if (saveButton) {
+    saveButton.hidden = false;
+    saveButton.classList.remove('primary');
+    saveButton.classList.add('secondary');
+  }
   if (enqueueButton) {
+    enqueueButton.hidden = false;
     enqueueButton.classList.remove('primary');
     enqueueButton.classList.add('secondary');
   }
@@ -360,24 +367,28 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
+  const recoverableSlot = document.querySelector('.blog-next-form-actions .blog-next-recoverable-action-slot');
   const editorTitle = document.getElementById('blog-next-editor-title');
-  if (saveButton) saveButton.hidden = sourceStatus === '발행 준비 완료';
+  if (recoverableSlot) recoverableSlot.hidden = true;
+  if (saveButton) {
+    saveButton.hidden = false;
+    saveButton.classList.remove('secondary');
+    saveButton.classList.add('primary');
+  }
   if (enqueueButton) {
-    enqueueButton.classList.remove('secondary');
-    enqueueButton.classList.add('primary');
+    enqueueButton.hidden = true;
   }
   if (publishButton) {
-    publishButton.hidden = sourceStatus !== '발행 준비 완료';
-    publishButton.classList.remove('primary');
-    publishButton.classList.add('secondary');
+    publishButton.hidden = true;
   }
-  if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 계속 작성' : '발행 계획 수정';
+  if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 수정' : '발행 계획 수정';
   syncBlogNextScheduleField();
   syncBlogNextTopicClearAction();
   setBlogNextTopicBusy(false);
   activateBlogNextInputMode('ai');
   moveBlogNextTopicFormToQueueEditor();
   blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload();
+  syncBlogNextTopicActionAvailability();
   setBlogNextTopicResult('');
   document.getElementById('blog-next-subject')?.focus();
 }

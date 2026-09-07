@@ -43,6 +43,18 @@
 
 ## Form action group
 
+- transactional dialog는 하나의 좁고 명확한 작업을 완료하는 surface로 사용한다. 기본 footer는 dismissive action과
+  하나의 primary completion action으로 구성하고, 명확히 다른 결과가 필요할 때만 secondary action 하나를 더한다.
+  세 개를 넘는 footer action이나 반복적인 `저장하고 계속`이 필요하면 full page, non-modal panel 또는 autosave가
+  더 적합한지 먼저 검토한다.
+- transactional dialog의 primary action은 유효한 변경을 확정하고 dialog를 닫는다. `취소`, close icon과 `Escape`는
+  같은 dismiss contract를 사용하고, 변경이 없으면 바로 닫되 저장 ambiguities나 데이터 손실이 있으면 폐기 여부를
+  확인한다. 저장 실패 시 dialog와 입력값을 유지한다.
+- 편집 dialog의 save action은 입력이 유효하고 최초 또는 마지막 저장 기준과 비교해 실제 반영할 변경이 있을 때만
+  활성화한다. 사용자가 값을 원래 상태로 되돌리면 다시 비활성화하고, 변경 없는 save를 dialog dismiss의 대체
+  동작으로 사용하지 않는다. 단순 확인이나 다음 단계 이동처럼 persistence가 목적이 아닌 completion action은 예외다.
+- content editor dialog는 content 저장만 소유한다. collection 사이 이동, 실행·발행처럼 별도 lifecycle을 바꾸는
+  action은 원래 collection row나 목적이 분명한 별도 flow가 소유하며 content 저장의 암묵적 부수 효과로 넣지 않는다.
 - 완료형 form과 dialog의 action group은 내용의 마지막에 둔다.
 - desktop에서는 inline-end에 모으고 primary를 가장 끝에 둔다.
 - 성격이 다른 danger action은 가능한 경우 반대쪽에 분리한다.
@@ -51,6 +63,12 @@
 - 상태 문구와 action이 함께 있을 때 상태를 가리거나 action 위치를 흔들지 않는다.
 - 닫힌 dialog는 opacity나 pointer 차단에만 의존하지 않고 layout·렌더링 및 접근성 트리에서 제외한다. 열 때만
   명시적으로 노출해 초기 화면이나 view 전환 중 dialog surface가 순간적으로 보이지 않게 한다.
+
+Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.html),
+[IBM Carbon modal](https://carbondesignsystem.com/components/modal/usage/),
+[Fluent 2 dialog](https://fluent2.microsoft.design/components/web/react/core/dialog/usage),
+[Apple modality](https://developer.apple.com/design/human-interface-guidelines/modality),
+[GNOME dialogs](https://developer.gnome.org/hig/patterns/feedback/dialogs.html).
 
 ## Button states
 
