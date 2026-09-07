@@ -438,6 +438,17 @@
   font-size: var(--ui-type-caption-size);
 }
 
+@media (max-width: 1100px) {
+  .blog-next-view .trend-posting-results-workspace > .table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .blog-next-view .trend-posting-table {
+    min-width: 900px;
+  }
+}
+
 .blog-next-management-status {
   margin: 0;
   padding: var(--ui-space-3) var(--ui-space-4);
@@ -564,5 +575,10 @@
   .blog-next-view .trend-posting-filter-view-shell {
     flex: 0 0 auto;
     width: 100%;
+  }
+
+  .blog-next-view .trend-posting-row-actions {
+    flex-wrap: nowrap;
+    min-width: max-content;
   }
 }
