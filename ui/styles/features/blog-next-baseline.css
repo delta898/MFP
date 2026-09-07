@@ -217,7 +217,7 @@
 .blog-next-manuscript-image-details > summary:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--ui-border-focus) 24%, transparent);
   outline-offset: 4px;
-  border-radius: var(--ui-radius-xs);
+  border-radius: var(--ui-radius-sm);
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-list {
@@ -289,7 +289,7 @@
 }
 
 .blog-next-state-row td {
-  padding-block: var(--ui-space-7);
+  padding-block: var(--ui-space-8);
   color: var(--ui-text-secondary);
   text-align: center;
 }

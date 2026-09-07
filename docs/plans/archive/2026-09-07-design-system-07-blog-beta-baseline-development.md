@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-blog-beta-baseline`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: parent 통합 준비 — 빠른 글 작성 완료, 트렌드 포스팅 조회 준비 상태까지 적용
+- Status: 완료 — parent 통합 승인 및 Full TC 통과
 
 ## 사용자 필요와 목표
 
@@ -229,6 +229,9 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
   최초 실패 시 badge와 category placeholder가 더 이상 `확인 중`에 머물지 않고 새로고침 재시도를 안내한다.
   갱신 실패에 기존 meta가 있으면 선택값과 사용 가능한 기존 조건은 보존한다. 최신 날짜 badge는 성공 상태가
   아니라 정보 metadata이므로 success 색을 제거하고 neutral semantic token을 사용한다.
+- 2026-09-07: parent 통합 전 Full TC에서 manuscript image disclosure의 focus 표시와 결과 상태 행이 각각
+  정의되지 않은 `--ui-radius-xs`, `--ui-space-7`을 참조한 사실을 발견했다. 단일 사용처를 위해 새 토큰을
+  추가하지 않고 기존 공통 값인 `--ui-radius-sm`, `--ui-space-8`로 교정했다.
 
 ## 구현 결과와 자동 검증
 
@@ -237,6 +240,7 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
 - Warm Editorial과 Quiet Sage Studio는 동일 DOM·기능을 사용하고 style-specific selector를 추가하지 않았다.
 - 최신 Stage 7 및 기존 Blog Beta focused contract·구조 검사: 52 passed, 0 failed
 - browser UI smoke: passed (fixture-backed)
+- parent 통합 전 Full unit suite: 1,512 passed, 0 failed, 1 skipped
 - browser smoke 범위: 세 mode keyboard 이동, 발행 설정·예약 값 보존, provider 종속 state, 붙여넣기
   되돌리기, 트렌드 filter state, 글감 관리 local tab, 스마트 댓글 model role, 연속 발행 종속 field·저장
   feedback, 두 style focus와 390px narrow panel/mode overflow
@@ -259,5 +263,5 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
 - Full unit suite는 사용자 UI 승인과 별도 실행 승인 뒤에만 수행한다.
 - 현재 브랜치의 구현 범위는 빠른 글 작성 완료와 트렌드 포스팅의 조회 준비 상태까지로 확정했다. 나머지
   트렌드 포스팅 개선은 갱신된 parent에서 별도 sub-feature branch로 이어간다.
-- 최근 변경 뒤 Full TC, parent merge, branch 삭제, push와 release는 아직 수행하지 않았다.
+- parent merge와 완료 branch 삭제는 이 기록을 마감하는 `cmd` 절차에서 수행한다. push와 release는 수행하지 않는다.
 - 원고 공통 editor와 로컬 이미지 연결은 Stage 7 완료 조건이 아니며 별도 feature scope와 검증 계획으로 시작한다.
