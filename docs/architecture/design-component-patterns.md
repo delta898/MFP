@@ -49,6 +49,8 @@
 - DOM과 keyboard 순서는 시각적 진행 순서와 일치시킨다.
 - 좁은 화면에서는 한 열로 쌓을 수 있으며 button 너비와 간격을 일관되게 유지한다.
 - 상태 문구와 action이 함께 있을 때 상태를 가리거나 action 위치를 흔들지 않는다.
+- 닫힌 dialog는 opacity나 pointer 차단에만 의존하지 않고 layout·렌더링 및 접근성 트리에서 제외한다. 열 때만
+  명시적으로 노출해 초기 화면이나 view 전환 중 dialog surface가 순간적으로 보이지 않게 한다.
 
 ## Button states
 
@@ -120,6 +122,15 @@
 - style은 card background, border, radius와 elevation을 바꿀 수 있다.
 - 모든 card가 hover에서 떠오를 필요는 없다. 클릭 가능성이나 의미가 없으면 움직임을 사용하지 않는다.
 - card 안에 같은 역할의 card를 반복해서 중첩하지 않는다.
+- card의 제목이나 넓은 content 영역 전체가 수정·상세 보기 action이면 pointer cursor, hover·focus 반응과
+  accessible name을 일관되게 제공한다. 반복되는 편집 목록처럼 동작이 문맥상 자명하면 별도 label을 생략하고,
+  그렇지 않을 때만 `수정`, `보기`처럼 결과를 설명하는 작은 상시 cue를 둘 수 있다. 전체 영역은 하나의
+  button과 accessible name을 유지하고 같은 동작의 label이나 별도 button을 중복 추가하지 않는다.
+- 상시 cue는 caption size와 muted text를 기본으로 하며 badge surface나 독립 action처럼 강조하지 않는다.
+  accessible name에 이미 동작이 포함되어 있으면 시각 cue를 보조 기술이 중복해서 읽지 않게 한다.
+- 반복 row의 action group은 같은 역할의 control이 행마다 같은 열과 폭을 사용해 수직으로 정렬한다. label 길이가
+  달라져도 이동·보조·primary action의 위치를 흔들지 않으며, 좁은 화면에서는 고정 열보다 자연스러운 줄바꿈과
+  조작 가능한 폭을 우선한다.
 
 ## Data tables
 

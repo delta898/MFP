@@ -151,6 +151,7 @@ function restoreBlogNextTopicFormHome() {
   if (modal) {
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
+    modal.hidden = true;
   }
 }
 
@@ -183,6 +184,7 @@ function moveBlogNextTopicFormToQueueEditor() {
   const actionsSlot = document.getElementById('blog-next-editor-actions-slot');
   const form = document.getElementById('blog-next-topic-form');
   if (!modal || !slot || !actionsSlot || !form) return;
+  modal.hidden = false;
   slot.appendChild(form);
   const actions = form.querySelector('.blog-next-form-actions');
   if (actions) actionsSlot.appendChild(actions);

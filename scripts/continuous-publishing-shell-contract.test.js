@@ -178,7 +178,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
 
     assert.match(html, /id="blog-next-saved-count"/);
     assert.match(html, /id="blog-next-queue-count"/);
-    assert.match(html, /id="blog-next-editor-modal"/);
+    assert.match(html, /id="blog-next-editor-modal"[^>]*aria-hidden="true"[^>]*hidden/);
     assert.match(html, /data-blog-next-management-tab="ready">발행 대기열/);
     assert.match(html, /data-blog-next-management-tab="saved">보관한 글감/);
     assert.doesNotMatch(html, /blog-next-status-flow|blog-next-management-description/);
@@ -188,6 +188,9 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     assert.match(html, /id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist"/);
     assert.match(html, /id="blog-next-title-recommend" class="secondary blog-next-ai-assist"/);
     assert.match(queueScript, /moveBlogNextTopicFormToQueueEditor/);
+    assert.match(queueScript, /modal\.hidden = false;[\s\S]*modal\.classList\.remove\('hidden'\)/);
+    assert.match(queueScript, /modal\.classList\.add\('hidden'\);[\s\S]*modal\.hidden = true;/);
+    assert.match(read('ui/styles/features/continuous-publishing-usability.css'), /#blog-next-editor-modal\[hidden\]\s*\{[^}]*display:\s*none;/s);
     assert.match(queueScript, /copy\.dataset\.blogNextEdit/);
     assert.doesNotMatch(queueScript, /primaryAction\.textContent = '수정'/);
     assert.match(queueScript, /blogNextRunNow/);

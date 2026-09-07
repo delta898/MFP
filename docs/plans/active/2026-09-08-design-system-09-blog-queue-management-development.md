@@ -114,6 +114,21 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
   같은 핵심 동사를 유지한다는 기준을 canonical component guide에 추가했다.
 - 2026-09-08: Slice 1 첫 조각 focused queue/shell contract 33개와 `git diff --check`가 통과했고 사용자가
   action 문구와 방향을 확인했다.
+- 2026-09-08: Slice 1의 두 번째 조각에서 제목 전체가 기존 수정 button인 구조와 accessible name을 유지하면서
+  caption/muted `수정` cue를 제목 옆에 추가했다. cue는 별도 action이나 badge가 아니며 보조 기술에는 중복
+  노출하지 않는다. hover·focus에서는 기존 title 반응과 같은 primary text로 전환한다.
+- 2026-09-08: 넓은 card content가 action일 때 hover에만 발견 가능성을 맡기지 않고 필요 시 낮은 강조의 상시
+  결과 cue를 제공하되 같은 action button을 중복하지 않는 기준을 canonical component guide에 추가했다.
+- 2026-09-08: Slice 1 두 번째 조각의 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: 사용자 확인 결과 반복 row와 pointer 반응만으로 수정 동작이 충분히 명확해 상시 `수정` cue는
+  정보 중복으로 판단해 제거했다. 대신 accessible name과 hover·focus 반응은 유지했다.
+- 2026-09-08: 실행 결과에 따라 primary action 문구 길이가 달라도 이동·보관·실행 control의 열이 흔들리지
+  않도록 desktop action group을 역할별 고정 grid로 정렬하고, 좁은 화면에서는 기존 flex 흐름을 유지했다.
+- 2026-09-08: Slice 2 첫 조각에서 닫힌 queue editor modal을 opacity 상태뿐 아니라 native `hidden`과 scoped
+  `display: none`으로 렌더링에서 제외했다. editor를 열 때만 hidden 상태를 해제해 최초 글감 관리 진입 중 흰
+  modal surface가 순간 노출될 수 있는 경로를 차단했다.
+- 2026-09-08: modal flash 보강 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: 교정 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
 
 ## 최종 결과
 

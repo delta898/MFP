@@ -263,6 +263,17 @@ test('queue row actions describe their actual outcomes consistently', () => {
   assert.doesNotMatch(queueScript, /button\.textContent = '빼기'/);
 });
 
+test('queue item titles avoid redundant edit labels and queue actions keep stable columns', () => {
+  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueCss = read('ui/styles/features/continuous-publishing.css');
+
+  assert.match(queueScript, /copy\.setAttribute\('aria-label', `\$\{item\.subject[\s\S]*?\} 수정`\)/);
+  assert.match(queueScript, /copy\.append\(title, meta, running\)/);
+  assert.doesNotMatch(queueScript, /editCue|blog-next-queue-edit-cue/);
+  assert.match(queueCss, /\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*36px 36px 112px 120px;/s);
+  assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
+});
+
 test('smart comment identifies its model role and preserves results through async states', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/smart-comment.js');

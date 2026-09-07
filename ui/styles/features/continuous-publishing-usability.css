@@ -96,6 +96,10 @@
   max-height: 94vh;
 }
 
+#blog-next-editor-modal[hidden] {
+  display: none;
+}
+
 .blog-next-editor-modal-container .modal-header {
   align-items: flex-start;
 }
