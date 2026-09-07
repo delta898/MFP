@@ -339,7 +339,7 @@
 .blog-next-view .trend-posting-table th.blog-next-sortable::after {
   content: '↕';
   margin-inline-start: var(--ui-space-2);
-  color: var(--ui-text-tertiary);
+  color: var(--ui-text-muted);
   font-size: var(--ui-type-caption-size);
 }
 
