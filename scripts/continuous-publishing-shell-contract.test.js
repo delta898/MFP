@@ -33,7 +33,7 @@ test('Blog Beta quick shell preserves all three existing input concepts', () => 
     assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
-test('Blog Beta keeps trend and management headers compact', () => {
+test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => {
     const betaView = read('ui/partials/views/blog-next.html');
     const usabilityCss = read('ui/styles/features/continuous-publishing-usability.css');
     const betaCss = read('ui/styles/features/continuous-publishing-interactions.css');
@@ -41,8 +41,9 @@ test('Blog Beta keeps trend and management headers compact', () => {
     const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
 
     assert.doesNotMatch(betaView, /네이버 트렌드에서 글감 찾기/);
-    assert.match(betaView, /class="trend-posting-head blog-next-trend-head"/);
-    assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*flex-end;/s);
+    assert.match(betaView, /class="trend-posting-head blog-next-trend-head blog-next-panel-lead blog-next-panel-intro"/);
+    assert.match(betaView, /지금 관심받는 주제로 글 준비/);
+    assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*space-between;/s);
     assert.match(betaView, /id="blog-next-trend-refresh"[^>]*aria-label="최신 데이터 새로고침"/);
     assert.match(betaView, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon/);
     assert.match(actionCss, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]/);

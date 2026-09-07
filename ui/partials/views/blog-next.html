@@ -14,15 +14,15 @@
         </div>
 
         <div class="blog-next-tabs" role="tablist" aria-label="블로그 기능">
-          <button class="blog-next-tab-btn active" type="button" role="tab" aria-selected="true"
+          <button class="blog-next-tab-btn active" id="blog-next-tab-quick" type="button" role="tab" aria-selected="true" tabindex="0"
             aria-controls="blog-next-panel-quick" data-blog-next-tab="quick">빠른 글 작성</button>
-          <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
+          <button class="blog-next-tab-btn" id="blog-next-tab-trend-posting" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-trend-posting" data-blog-next-tab="trend-posting">트렌드 포스팅</button>
-          <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
+          <button class="blog-next-tab-btn" id="blog-next-tab-queue" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-queue" data-blog-next-tab="queue">글감 관리</button>
-          <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
+          <button class="blog-next-tab-btn" id="blog-next-tab-smart-comment" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-smart-comment" data-blog-next-tab="smart-comment">스마트 댓글</button>
-          <button class="blog-next-tab-btn" type="button" role="tab" aria-selected="false"
+          <button class="blog-next-tab-btn" id="blog-next-tab-automation" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-automation" data-blog-next-tab="automation">연속 발행 설정</button>
         </div>
 
@@ -43,8 +43,15 @@
           </div>
         </section>
 
-        <section class="card form-card blog-next-panel active" id="blog-next-panel-quick" role="tabpanel">
-          <div class="blog-next-mode-switch" role="tablist" aria-label="빠른 글 작성 입력 방식">
+        <section class="card form-card blog-next-panel active" id="blog-next-panel-quick" role="tabpanel"
+          aria-labelledby="blog-next-tab-quick">
+          <div class="blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>원하는 방식으로 글 준비</h2>
+              <p>주제에서 새 글을 만들거나 준비한 원고를 바로 불러오세요.</p>
+            </div>
+          </div>
+          <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav" role="tablist" aria-label="빠른 글 작성 입력 방식">
             <button class="blog-next-mode-btn active" type="button" role="tab" aria-selected="true"
               data-blog-next-input-mode="ai" title="주제나 키워드로 새 글을 만듭니다.">바로 생성</button>
             <button class="blog-next-mode-btn" type="button" role="tab" aria-selected="false"
@@ -275,8 +282,13 @@
           </div>
         </section>
 
-        <section class="card form-card blog-next-panel trend-posting-panel" id="blog-next-panel-trend-posting" role="tabpanel" hidden>
-          <div class="trend-posting-head blog-next-trend-head">
+        <section class="card form-card blog-next-panel trend-posting-panel" id="blog-next-panel-trend-posting" role="tabpanel"
+          aria-labelledby="blog-next-tab-trend-posting" hidden>
+          <div class="trend-posting-head blog-next-trend-head blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>지금 관심받는 주제로 글 준비</h2>
+              <p>카테고리와 기간을 선택해 새로운 글의 출발점을 찾아보세요.</p>
+            </div>
             <div class="blog-next-trend-latest">
               <span id="blog-next-trend-latest-badge" class="trend-posting-latest-badge">최신 데이터 확인 중</span>
               <button id="blog-next-trend-refresh" class="ghost compact ui-refresh-action ui-refresh-action-icon blog-next-trend-refresh" type="button"
@@ -354,9 +366,16 @@
           </div>
         </section>
 
-        <section class="card form-card blog-next-panel" id="blog-next-panel-queue" role="tabpanel" hidden>
-          <div class="blog-next-management-tabs">
-            <div class="blog-next-management-tab-list" role="tablist" aria-label="글감 상태">
+        <section class="card form-card blog-next-panel" id="blog-next-panel-queue" role="tabpanel"
+          aria-labelledby="blog-next-tab-queue" hidden>
+          <div class="blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>준비한 글을 한곳에서 관리</h2>
+              <p>발행 순서를 정하고 보관한 글감을 대기열로 옮길 수 있습니다.</p>
+            </div>
+          </div>
+          <div class="blog-next-management-tabs blog-next-panel-local-nav">
+            <div class="blog-next-management-tab-list blog-next-segmented-nav" role="tablist" aria-label="글감 상태">
               <button class="blog-next-management-tab active" type="button" role="tab" aria-selected="true"
                 data-blog-next-management-tab="ready">발행 대기열 <strong id="blog-next-queue-count">확인 중</strong></button>
               <button class="blog-next-management-tab" type="button" role="tab" aria-selected="false"
@@ -378,10 +397,10 @@
         </section>
 
         <section class="card form-card blog-next-panel blog-next-smart-comment" id="blog-next-panel-smart-comment"
-          role="tabpanel" hidden>
-          <div class="blog-next-smart-comment-intro">
-            <div>
-              <div class="blog-next-smart-comment-heading">
+          role="tabpanel" aria-labelledby="blog-next-tab-smart-comment" hidden>
+          <div class="blog-next-smart-comment-intro blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <div class="blog-next-smart-comment-heading blog-next-panel-intro-heading">
                 <h2>이웃의 글에 어울리는 댓글 준비</h2>
                 <span>네이버 전용</span>
               </div>
@@ -459,7 +478,14 @@
           </section>
         </section>
 
-        <section class="card form-card blog-next-panel" id="blog-next-panel-automation" role="tabpanel" hidden>
+        <section class="card form-card blog-next-panel" id="blog-next-panel-automation" role="tabpanel"
+          aria-labelledby="blog-next-tab-automation" hidden>
+          <div class="blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>준비된 글을 원하는 시간에 이어서 발행</h2>
+              <p>사용 여부와 발행 시간대를 정하면 대기열의 글을 순서대로 처리합니다.</p>
+            </div>
+          </div>
           <form id="blog-next-automation-form" class="blog-next-automation-form">
             <div class="blog-next-automation-toggle">
               <label>

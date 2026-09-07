@@ -21,10 +21,6 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  padding: 5px;
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-translucent);
 }
 
 .blog-next-management-tab-list {

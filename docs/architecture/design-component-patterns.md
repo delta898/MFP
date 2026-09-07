@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 첫 정식 style 적용 완료, 두 번째 style로 확장성 검증 중
+- Status: Design Principles v1.0 기반, Blog Beta 적용 기준 확장 중
 - Source stage: `codex/feature/design-system-03-first-style`
 - 적용 대상: 공통 shell과 `블로그 Beta`에서 검증된 반복 UI
 
@@ -94,6 +94,22 @@
 - field border와 focus ring은 canvas와 surface 모두에서 보여야 한다.
 - error와 success는 색상 외에 문구 또는 상태 표시를 함께 사용한다.
 - 입력 중이거나 실패한 요청 때문에 기존 사용자 값을 임의로 지우지 않는다.
+- native date/time input의 닫힌 field는 현재 style의 focus token을 사용한다.
+- 내부 picker trigger의 focus ring, 펼쳐진 popup의 색상과 선택 UI는 운영체제·브라우저 소유 영역으로 보고 style pack 예외로 허용한다. focus 위치는 가려서는 안 되며, 시각 통일만을 위해 custom picker로 재구현하지 않는다.
+
+## Tab panels and content start
+
+- 같은 수준의 top-level tab은 하나의 공통 content frame과 panel inset을 사용한다.
+- panel 시작부는 `intro → local navigation → status and tools → primary content`의 역할 순서를 기본 문법으로 삼는다. 기능에 필요하지 않은 slot은 생략하며 빈 여백을 남기지 않는다.
+- 모든 panel을 같은 모양으로 강제하지 않는다. 대신 첫 의미 요소의 시작선, slot 사이의 수직 rhythm과 heading hierarchy를 일관되게 유지한다.
+- intro는 tab label을 반복하지 않고 사용자가 얻을 결과나 다음 행동을 설명할 때만 표시한다.
+- `블로그 Beta`의 다섯 top-level panel은 예측 가능한 시작점을 위해 동일한 `제목 + 한 줄 설명` intro slot을 사용한다. 이는 해당 제품 surface의 규칙이며 모든 tab UI에 일괄 강제하지 않는다.
+- local navigation과 status/tool이 같은 줄에 있어도 별도 role group으로 구분한다.
+- 같은 수준의 local tab과 mode switch는 공통 segmented navigation을 사용한다. count는 segment 내부 badge로, refresh 같은 도구는 segment 바깥의 보조 action으로 둔다.
+- 선택 상태는 지속적인 surface·text 표현, hover는 일시적 반응, `focus-visible`은 keyboard 위치를 나타내는 ring으로 각각 구분한다.
+- native checkbox와 선택 button도 브라우저 기본 outline에 맡기지 않고 현재 style의 focus token을 사용한다. focus ring은 checked/selected 표현을 대체하지 않는다.
+- tab은 `aria-controls`/`aria-labelledby`, roving `tabindex`, 좌우 방향키와 `Home`/`End` 이동을 지원한다.
+- tab 전환은 사용자가 읽던 page scroll을 임의로 초기화하지 않는다. 전환으로 숨겨지는 panel 안에 focus가 있었다면 새 선택 tab 또는 합리적인 첫 작업점으로 focus를 복구한다.
 
 ## 현재 검증 사례
 
@@ -104,9 +120,11 @@
 - `블로그 Beta` 선택 control: 발행 대상 / 외부 참고 / 실행 방식 / 자동화 설정
 - 원고 폴더 및 붙여넣기: 발행 대상 / 포스팅 실행
 - 공통 dialog와 전역 상태 action
+- `블로그 Beta` top-level tab과 panel: 역할 기반 시작 slot / keyboard tab navigation / scroll 안정성
+- 공통 footer 외부 링크와 Blog Beta native time field: style별 field focus ring / native picker UI 예외
 
 ## 후속 검증 필요
 
 - 대상 밖 view의 form과 modal action은 compatibility scope를 유지한다.
-- 두 번째 style에서 component token 누락과 특정 style 종속성을 검증한다.
+- 다른 제품 surface로 확산할 때 component token 누락과 특정 style 종속성을 계속 검증한다.
 - style 선택 UI를 만들기 전 keyboard, narrow layout과 진행 중 상태를 다시 검증한다.

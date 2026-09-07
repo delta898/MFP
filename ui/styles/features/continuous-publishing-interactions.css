@@ -52,13 +52,24 @@
 
 .blog-next-trend-head {
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .blog-next-trend-latest {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+@media (max-width: 760px) {
+  .blog-next-trend-head {
+    align-items: stretch;
+  }
+
+  .blog-next-trend-latest {
+    align-self: flex-start;
+  }
 }
 
 .blog-next-view .trend-posting-latest-badge {

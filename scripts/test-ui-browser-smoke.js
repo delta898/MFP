@@ -1029,6 +1029,63 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-tab="quick"]').getAttribute('aria-selected'), 'true');
         assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-subject');
+        await page.locator('[data-blog-next-tab="quick"]').focus();
+        await page.keyboard.press('ArrowRight');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-trend-posting');
+        assert.equal(await page.locator('[data-blog-next-tab="trend-posting"]').getAttribute('aria-selected'), 'true');
+        assert.equal(await page.locator('[data-blog-next-tab="quick"]').getAttribute('tabindex'), '-1');
+        assert.equal(await page.locator('[data-blog-next-tab="trend-posting"]').getAttribute('tabindex'), '0');
+        await page.keyboard.press('End');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-automation');
+        await page.keyboard.press('Home');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-quick');
+        const panelAnatomy = await page.evaluate(() => {
+            const names = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
+            return names.map((name) => {
+                activateBlogNextTab(name);
+                const panel = document.getElementById(`blog-next-panel-${name}`);
+                const lead = panel.querySelector('.blog-next-panel-lead');
+                const panelBox = panel.getBoundingClientRect();
+                const leadBox = lead.getBoundingClientRect();
+                return { name, panelLeft: panelBox.left, leadLeft: leadBox.left, leadHeight: leadBox.height };
+            });
+        });
+        assert.equal(panelAnatomy.every((item) => Math.abs(item.panelLeft - panelAnatomy[0].panelLeft) < 1), true);
+        assert.equal(panelAnatomy.every((item) => Math.abs(item.leadLeft - panelAnatomy[0].leadLeft) < 1), true);
+        assert.equal(panelAnatomy.every((item) => item.leadHeight >= 64), true);
+        assert.equal(await page.locator('.blog-next-panel > .blog-next-panel-intro').count(), 5);
+        assert.equal(await page.locator('.blog-next-segmented-nav').count(), 2);
+        const segmentedSelectionStyles = await page.evaluate(() => {
+            const quick = getComputedStyle(document.querySelector('.blog-next-mode-btn.active'));
+            const queue = getComputedStyle(document.querySelector('.blog-next-management-tab.active'));
+            const track = getComputedStyle(document.querySelector('.blog-next-segmented-nav'));
+            return {
+                quick: quick.backgroundColor,
+                queue: queue.backgroundColor,
+                track: track.backgroundColor,
+                selectedShadow: quick.boxShadow
+            };
+        });
+        assert.equal(segmentedSelectionStyles.quick, segmentedSelectionStyles.queue);
+        assert.notEqual(segmentedSelectionStyles.quick, segmentedSelectionStyles.track);
+        assert.notEqual(segmentedSelectionStyles.selectedShadow, 'none');
+        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.locator('#blog-next-automation-enabled').focus();
+        assert.equal(await page.locator('#blog-next-automation-enabled').evaluate((element) => {
+            const style = getComputedStyle(element);
+            return style.outlineStyle === 'none' && style.boxShadow !== 'none';
+        }), true);
+        const scrollBeforeTabSwitch = await page.evaluate(() => {
+            activateBlogNextTab('quick');
+            window.scrollTo(0, 160);
+            return window.scrollY;
+        });
+        const scrollAfterTabSwitch = await page.evaluate(() => {
+            activateBlogNextTab('queue');
+            return window.scrollY;
+        });
+        assert.equal(scrollAfterTabSwitch, scrollBeforeTabSwitch);
+        await page.evaluate(() => activateBlogNextTab('quick'));
         await page.evaluate(() => navigateTo('dashboard-beta'));
         await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
@@ -1234,6 +1291,20 @@ async function run() {
             }),
             { background: 'rgba(250, 252, 250, 0.94)', borderColor: 'rgb(206, 216, 209)', borderRadius: '12px' }
         );
+        await page.locator('.app-footer-link').nth(1).focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
+        const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
+        assert.notEqual(quietFooterFocus, 'none');
+        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.locator('#blog-next-automation-enabled').focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
+        const quietTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
+            fieldShadow: getComputedStyle(element).boxShadow
+        }));
+        assert.notEqual(quietTimeFocus.fieldShadow, 'none');
+        await page.evaluate(() => activateBlogNextTab('quick'));
         await page.locator('#blog-next-subject').fill('스타일 전환 중에도 보존할 주제');
         await page.evaluate(() => {
             window.__blogNextSubjectBeforeStyleChange = document.getElementById('blog-next-subject');
@@ -1249,6 +1320,22 @@ async function run() {
             await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
             'rgb(182, 95, 66)'
         );
+        await page.locator('.app-footer-link').nth(1).focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
+        const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
+        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.locator('#blog-next-automation-enabled').focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
+        const warmTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
+            fieldShadow: getComputedStyle(element).boxShadow
+        }));
+        assert.notEqual(warmFooterFocus, 'none');
+        assert.notEqual(warmTimeFocus.fieldShadow, 'none');
+        assert.notEqual(warmFooterFocus, quietFooterFocus);
+        assert.notEqual(warmTimeFocus.fieldShadow, quietTimeFocus.fieldShadow);
+        await page.evaluate(() => activateBlogNextTab('quick'));
         await page.evaluate(() => applyDesignStyle('quiet-sage-studio'));
         assert.equal(await page.locator('html').getAttribute('data-style'), 'quiet-sage-studio');
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');

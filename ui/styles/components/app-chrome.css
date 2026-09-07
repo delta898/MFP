@@ -327,6 +327,16 @@
   box-shadow: var(--ui-shadow-md);
 }
 
+.app-footer-link:focus {
+  outline: none;
+}
+
+.app-footer-link:focus-visible {
+  color: var(--ui-action-primary-hover);
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
+}
+
 h1 {
   margin: 0 0 8px;
   font-size: 28px;

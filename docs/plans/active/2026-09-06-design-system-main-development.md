@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-main`
 - Base/parent branch: `dev`
 - Start date: 2026-09-06
-- Status: 기능 단계 완료 — parent의 `dev` 통합 대기
+- Status: 진행 중 — 디자인 기반 단계 완료, 제품 전반 개편 진행
 
 ## 사용자 필요와 목표
 
@@ -66,6 +66,34 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 작은 검증용 두 번째 style pack으로 첫 스타일 종속성을 찾는다.
 - 구조가 검증되면 후속 정식 스타일을 별도 단계로 확장한다.
 
+### 5. Blog Beta panel anatomy
+
+- 다섯 top-level tab의 콘텐츠 시작 구조를 역할 기반 slot으로 통일한다.
+- 같은 모양을 강제하지 않고 content inset, 시작선, heading hierarchy와 상태 표현을 일관되게 만든다.
+- 선택·hover·focus-visible을 구분하고 tab 전환 시 scroll과 focus 동작을 검증한다.
+
+### 6. Blog Beta 대표 흐름 재설계
+
+- 가장 자주 쓰는 빠른 글 작성 화면의 정보 밀도와 위계를 재구성한다.
+- 핵심 입력은 바로 보이고 세부 설정은 현재 값을 요약한 progressive disclosure로 정리한다.
+- AI Assist의 별도 의미를 부여하되 최종 primary action과 경쟁하지 않게 한다.
+
+### 7. Blog Beta 기준면 완성
+
+- 나머지 tab과 상태를 공통 원칙·component pattern에 맞춰 점검하고 보완한다.
+- 접근성, 반응형, 오류·빈 상태와 주요 사용자 흐름을 자동 검증 및 사용자 시각 검토로 확정한다.
+
+### 8. 다른 제품 surface로 확산
+
+- Blog Beta에서 검증한 기준을 우선순위가 높은 다른 화면에 단계적으로 적용한다.
+- 각 surface는 독립 sub-feature branch에서 범위와 회귀 위험을 합의한 뒤 migration한다.
+
+### 9. style 선택 경험과 향후 확장
+
+- 정식 제공 style인 Warm Editorial과 Quiet Sage Studio 사이의 사용자 선택과 저장 경험을 제공한다.
+- 세 번째 이후 style은 같은 contract와 검증 절차를 따라 필요할 때 확장한다.
+- 전체 디자인 개편의 합의된 범위와 검증을 마친 뒤에만 parent를 `dev`에 통합한다.
+
 ## 사용자와 결정한 사항
 
 - Design Principle을 먼저 만들고 그 기준에 따라 UI를 개선한다.
@@ -80,6 +108,8 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - Design Principles는 `v0.1 Working Principles`로 시작해 세 필수 Gate 완료 후 `v1.0` 안정판으로 승격한다.
 - compatibility style 기반 완료 후, 첫 정식 style 적용 후, 두 번째 style 확장성 검증 후에 필수 원칙 검토를 수행한다.
 - 세 검토는 다음 단계 진행을 위한 gate이며, 결과와 사용자 합의를 개발 기록에 남긴다.
+- `codex/feature/design-system-main`은 기반 구축뿐 아니라 Blog Beta 개편, 다른 제품 surface 확산과 후속 style까지 모든 디자인 개편을 통합하는 장기 parent branch로 유지한다.
+- 1–4단계 완료는 디자인 기반 milestone이며 전체 기능 완료나 `dev` 통합 대기를 뜻하지 않는다.
 
 ## 진행 및 변경 기록
 
@@ -98,6 +128,10 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: `codex/feature/design-system-04-extensibility-validation`에서 두 번째 검증 style, 첫 style 종속성 제거와 Gate 3를 목표로 4단계를 시작했다. 세부 기록은 [4단계 개발 기록](../archive/2026-09-07-design-system-04-extensibility-validation-development.md)을 따른다.
 - 2026-09-07: 두 번째 검증 style로 `고요한 세이지 스튜디오`를 선택해 registry와 대표 surface에 연결했다. 첫 적용에서 드러난 공통 feedback과 Blog Beta trend surface의 raw compatibility palette를 semantic token으로 교정하고 사용자 시각 검토를 준비했다.
 - 2026-09-07: Gate 3에서 Product Experience Principles 8개를 모두 유지하고 Design Principles와 다중 Style Contract를 `v1.0`으로 승격하기로 사용자와 합의했다. 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, 다른 surface migration 순서로 진행한다.
+- 2026-09-07: 사용자가 `codex/feature/design-system-main`을 모든 디자인 개편의 장기 integration branch로 유지하고 전체 작업 완료 후에만 `dev`로 통합하기로 확정했다. 따라서 1–4단계 결과는 기반 milestone으로 재분류하고 Stage 5 이후 제품 개편을 같은 parent 아래에서 계속한다.
+- 2026-09-07: `codex/feature/design-system-05-blog-beta-panel-anatomy`에서 다섯 Blog Beta tab의 콘텐츠 시작 문법과 panel anatomy 통일을 목표로 5단계를 시작했다. 세부 기록은 [5단계 개발 기록](2026-09-07-design-system-05-blog-beta-panel-anatomy-development.md)을 따른다.
+- 2026-09-07: Quiet Sage Studio가 이미 사용자 승인과 확장성 검증을 마친 두 번째 정식 style임을 재확인했다. 후속 단계를 새로운 두 번째 style 제작이 아니라 style 선택 경험과 향후 확장으로 바로잡았다.
+- 2026-09-07: Stage 5에서 Blog Beta 다섯 panel의 intro·content inset·local navigation·keyboard focus 문법을 통일하고 사용자 시각 검토를 완료했다. native date/time picker 내부 focus 색은 브라우저 소유 known issue로 남기고 parent merge gate를 준비했다.
 
 ## Design Principles 필수 검토 일정
 
@@ -111,9 +145,10 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 
 - 사용자용 style 선택 UI와 설정 저장은 둘 이상의 정식 제공 style 범위를 결정한 뒤 별도 제품 단계로 진행한다.
 - 공통 shell과 `블로그 Beta` 이후 surface는 Compatibility containment를 한 번에 제거하지 않고 단계별로 migration한다.
-- 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, 다른 surface migration 순서로 별도 branch와 사용자 합의를 거친다.
+- 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, Blog Beta 기준면 완성, 다른 surface migration 순서로 별도 branch와 사용자 합의를 거친다.
+- Stage 7 이후 세부 stage와 surface 우선순위는 앞 단계에서 얻은 근거를 바탕으로 사용자와 확정한다.
 
-## 최종 결과 및 검증
+## 기반 milestone 결과 및 검증
 
 - Design Principles와 다중 Style Contract `v1.0` 확정
 - Compatibility, Warm Editorial과 Quiet Sage Studio registry 및 token contract 구현
@@ -123,4 +158,5 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - browser UI smoke: passed, 206 fixture requests
 - full unit suite: 1,485 passed, 0 failed, 1 skipped
 - 사용자 시각 확인 및 Gate 1·2·3 합의 완료
-- parent의 `dev` merge, release, tag, push, 배포: 수행하지 않음
+- 전체 디자인 개편: 진행 중
+- parent의 `dev` merge, release, tag, push, 배포: 전체 완료 전에는 수행하지 않음

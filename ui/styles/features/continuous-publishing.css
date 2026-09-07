@@ -206,10 +206,6 @@
 
 .blog-next-mode-switch {
   width: fit-content;
-  padding: 5px;
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-canvas);
 }
 
 .blog-next-mode-panel {
@@ -231,7 +227,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 10px;
 }
 
 .blog-next-form-grid {

@@ -155,6 +155,7 @@
    - 결과 요약과 장기 실행 로그의 역할 분리
    - 달력 중심 Trends 날짜 선택과 `어제` 빠른 동작
    - 수동 실행·실패 격리를 적용한 쇼핑 미리보기
+   - native date/time picker trigger의 브라우저 소유 focus 색은 known issue로 유지한다. 향후 정확한 style 통일이 필요할 때만 접근 가능한 custom trigger 도입을 검토한다.
 
 8. Remote MCP와 명령 접근
    - Streamable HTTP transport, 인증, 재연결, confirmation 복구와 수명주기 상태를 capability 경계에 둔다.

@@ -15,6 +15,7 @@ function activateBlogNextTab(tabName) {
     const active = button.dataset.blogNextTab === target;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('.blog-next-panel').forEach((panel) => {
     const active = panel.id === `blog-next-panel-${target}`;
@@ -45,6 +46,29 @@ function activateBlogNextTab(tabName) {
   }
   if (target === 'automation' && typeof loadBlogNextAutomationSettings === 'function') {
     loadBlogNextAutomationSettings();
+  }
+}
+
+async function handleBlogNextTabKeydown(event) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+
+  const buttons = Array.from(document.querySelectorAll('[data-blog-next-tab]'));
+  const currentIndex = buttons.indexOf(event.currentTarget);
+  if (currentIndex < 0 || buttons.length === 0) return;
+
+  event.preventDefault();
+  let targetIndex = currentIndex;
+  if (event.key === 'Home') targetIndex = 0;
+  if (event.key === 'End') targetIndex = buttons.length - 1;
+  if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % buttons.length;
+
+  const targetButton = buttons[targetIndex];
+  const activated = await requestActivateBlogNextTab(targetButton.dataset.blogNextTab);
+  if (activated) {
+    targetButton.focus();
+  } else {
+    buttons[currentIndex].focus();
   }
 }
 
@@ -93,6 +117,9 @@ function initBlogNextShell() {
     document.querySelectorAll('[data-blog-next-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         void requestActivateBlogNextTab(button.dataset.blogNextTab);
+      });
+      button.addEventListener('keydown', (event) => {
+        void handleBlogNextTabKeydown(event);
       });
     });
     document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
