@@ -1,14 +1,14 @@
-# BlogGenius Design Principles v0.1
+# BlogGenius Design Principles v1.0
 
 ## 문서 상태
 
-- Version: `v0.1 Working Principles`
-- Status: 사용자 승인, Gate 1 검토 대기
+- Version: `v1.0 Stable Principles`
+- Status: Gate 1·2·3 사용자 승인 및 안정판 승격 완료
 - Source stage: `codex/feature/design-system-01-principles`
 - 적용 대상: BlogGenius 제품 UI 전반
 - 목적: 개별 화면의 취향이 아니라 반복 가능한 제품·UX 판단 기준을 제공한다.
 
-이 문서는 색상이나 픽셀 값을 정하지 않는다. 제품 경험에서 지켜야 할 원칙을 정의하고, 구체적인 시각 값은 별도의 style contract와 style pack이 담당한다. `v0.1`은 실제 적용을 통해 검증할 working version이며, 아래의 필수 검토 게이트를 모두 통과한 뒤 `v1.0` 확정을 검토한다.
+이 문서는 색상이나 픽셀 값을 정하지 않는다. 제품 경험에서 지켜야 할 원칙을 정의하고, 구체적인 시각 값은 별도의 style contract와 style pack이 담당한다. `v1.0`은 compatibility 기반, Warm Editorial 실제 적용과 Quiet Sage 확장성 검증의 세 필수 Gate를 통과한 안정판이다. 하위 실행·component 가이드는 실제 화면 적용을 통해 계속 발전시킨다.
 
 ## 원칙의 계층
 
@@ -248,6 +248,8 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 ## 검토 이력
 
 - 2026-09-06 Gate 1: Product Experience Principles 8개를 모두 `유지`하기로 사용자와 합의했다. compatibility 화면 검토에서 완료 행동의 좌측 배치와 강한 secondary button이 서로 경쟁하는 문제를 확인해 `결정 행동의 위치와 위계` 운영 가이드를 추가했다. 현재 외형은 foundation 단계에서 즉시 바꾸지 않고 첫 정식 style 적용 시 공통 action pattern으로 검증한다.
+- 2026-09-07 Gate 2: 첫 정식 style `따뜻한 에디토리얼`을 공통 shell과 Blog Beta에 적용하고 Product Experience Principles 8개를 모두 `유지`하기로 합의했다. action hierarchy, refresh와 selection control 규칙은 하위 component guide로 구체화했다. 빠른 글 작성의 과밀도와 tab별 시작 문법 차이는 원칙의 결함이 아니라 적용 gap으로 판단해 독립 P1 일감으로 분리했다.
+- 2026-09-07 Gate 3: 두 번째 style `고요한 세이지 스튜디오`로 palette, density, radius와 elevation 축을 달리해 확장성을 검증하고 Product Experience Principles 8개를 모두 `유지`하기로 사용자와 합의했다. 두 style이 동일 DOM·기능·상태·입력을 유지했고 첫 style 또는 compatibility에 가려졌던 공통 feedback, trend surface와 embedded widget 결합을 semantic contract로 교정했다. Design Principles와 다중 Style Contract를 `v1.0`으로 승격했다.
 
 ## 필수 검토 게이트
 
@@ -320,4 +322,4 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 
 ## 사용자 검토가 필요한 사항
 
-`v0.1 Working Principles`와 세 차례 필수 검토 게이트는 사용자 승인을 받았다. 개별 원칙의 유지·수정 여부는 실제 적용 근거를 바탕으로 각 Gate에서 반드시 다시 검토한다.
+세 차례 필수 검토 Gate는 모두 사용자 승인을 받아 완료됐다. 이후 원칙 변경은 개별 화면을 정당화하기 위한 예외가 아니라, 기존 원칙으로 판단할 수 없는 반복 문제와 실제 적용 근거 및 사용자 합의가 있을 때만 수행한다.

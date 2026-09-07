@@ -77,9 +77,10 @@ test('productized Dashboard and Blog navigation expose compact accessible new ba
         /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
     );
     assert.match(html, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\);/s);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*color:\s*var\(--ui-action-primary-hover\);/s);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*transform:\s*translateY\(-0\.55em\);/s);
+    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*background:\s*var\(--ui-action-primary\);/s);
+    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*color:\s*var\(--ui-text-inverse\);/s);
+    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*font-size:\s*10px;/s);
+    assert.match(navigationCss, /\.nav-btn\.active \.nav-new-badge\s*\{[^}]*background:\s*var\(--ui-text-inverse\);/s);
     assert.match(html, /id="blog-next-global-nav-status"[^>]*hidden[^>]*aria-hidden="true"/);
     assert.doesNotMatch(html, /id="recommendation-nav-badge"/);
 });

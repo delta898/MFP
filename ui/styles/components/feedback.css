@@ -12,11 +12,11 @@
 
 .ui-toast {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-left: 4px solid #3b82f6;
-  border-radius: 16px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  background: var(--ui-surface-translucent);
+  border: 1px solid var(--ui-border-default);
+  border-left: 4px solid var(--ui-status-info);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-lg);
   padding: 14px 16px;
   color: var(--ui-text-primary);
   animation: uiToastEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -27,19 +27,19 @@
 }
 
 .ui-toast.ui-toast-info {
-  border-left-color: #3b82f6;
+  border-left-color: var(--ui-status-info);
 }
 
 .ui-toast.ui-toast-warn {
-  border-left-color: #f59e0b;
+  border-left-color: var(--ui-status-warning);
 }
 
 .ui-toast.ui-toast-error {
-  border-left-color: #ef4444;
+  border-left-color: var(--ui-status-danger);
 }
 
 .ui-toast.ui-toast-attention {
-  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
+  box-shadow: var(--ui-shadow-lg), var(--ui-focus-ring);
 }
 
 .ui-toast-header {
@@ -84,17 +84,17 @@
 
 .ui-toast-action {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-full);
   padding: 8px 12px;
-  background: #e0f2fe;
-  color: #075985;
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .ui-toast-action:hover {
-  background: #bae6fd;
+  background: var(--ui-surface-hover);
 }
 
 @keyframes uiToastEnter {
@@ -125,7 +125,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--ui-overlay);
   display: flex;
   align-items: center;
   justify-content: center;

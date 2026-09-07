@@ -1,8 +1,8 @@
-# 다중 Style Contract v0.1
+# 다중 Style Contract v1.0
 
 ## 문서 상태
 
-- Status: 초기 계약 사용자 승인 완료
+- Status: 두 정식 style 확장성 검증 및 사용자 승인 완료
 - Source stage: `codex/feature/design-system-01-principles`
 - 목적: 여러 style이 같은 기능·component 위에서 안전하게 동작하기 위한 최소 계약을 정의한다.
 
@@ -173,7 +173,18 @@ style registry는 최소한 다음 정보를 제공해야 한다.
 - focused UI test와 관련 browser smoke가 통과한다.
 - 사용자가 대표 flow의 시각적 완성도를 확인한다.
 
-각 style 단계의 Definition of Done을 충족한 뒤에는 [Design Principles v0.1](./design-principles.md)에 정의한 해당 필수 검토 Gate를 수행해야 한다. style 구현 완료만으로 다음 단계 진행이 자동 승인되지는 않는다.
+각 style 단계의 Definition of Done을 충족한 뒤에는 [Design Principles v1.0](./design-principles.md)에 정의한 검토 기준을 적용한다. 새 style 구현 완료만으로 제품 제공이나 전체 surface 확산이 자동 승인되지는 않는다.
+
+## v1.0 검증 결과
+
+- Compatibility, Warm Editorial과 Quiet Sage Studio가 동일 registry 및 필수 token contract를 사용한다.
+- Warm Editorial과 Quiet Sage Studio는 색온도, spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
+- runtime style 전환 중 동일 input DOM과 입력값이 보존된다.
+- 공통 component, pattern, layout과 feature CSS는 정식 style ID를 직접 판별하지 않는다.
+- 두 번째 style 적용으로 발견한 feedback, trend surface와 embedded clock 외곽의 raw palette·형태 결합을 semantic/component 규칙으로 교정했다.
+- 미이전 surface는 명시적인 Compatibility containment를 유지한다.
+
+필수 token의 제거·의미 변경, style 소유 범위 변경과 별도 theme 축 추가는 contract version 변경 대상으로 본다. 하위 호환 token 추가와 새 style pack 연결은 검증을 거쳐 `v1.x` 범위에서 확장할 수 있다.
 
 ## 2단계 최소 구현 제안
 

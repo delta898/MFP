@@ -28,6 +28,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
     assert.deepEqual(includePaths, [
         'styles/styles/compatibility.css',
         'styles/styles/warm-editorial.css',
+        'styles/styles/quiet-sage-studio.css',
         'styles/tokens/legacy-aliases.css',
         'styles/base/foundation.css',
         'styles/layout/shell-navigation.css',

@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-main`
 - Base/parent branch: `dev`
 - Start date: 2026-09-06
-- Status: 진행 중
+- Status: 기능 단계 완료 — parent의 `dev` 통합 대기
 
 ## 사용자 필요와 목표
 
@@ -77,7 +77,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 첫 스타일을 적용한 뒤 새로운 스타일을 점진적으로 확장한다.
 - 큰 작업을 parent feature branch와 단계별 sub-feature branch로 나눈다.
 - 각 단계는 조사, 합의, 구현, 자동 검증, 사용자 UI 확인의 경계를 명확히 한다.
-- Design Principles는 `v0.1 Working Principles`로 시작한다.
+- Design Principles는 `v0.1 Working Principles`로 시작해 세 필수 Gate 완료 후 `v1.0` 안정판으로 승격한다.
 - compatibility style 기반 완료 후, 첫 정식 style 적용 후, 두 번째 style 확장성 검증 후에 필수 원칙 검토를 수행한다.
 - 세 검토는 다음 단계 진행을 위한 gate이며, 결과와 사용자 합의를 개발 기록에 남긴다.
 
@@ -95,6 +95,9 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-06: `codex/feature/design-system-03-first-style`에서 첫 정식 style의 시각 방향 합의, 공통 component/action pattern, 공통 shell과 `블로그 Beta` 적용 및 Gate 2를 목표로 3단계를 시작했다. 세부 기록은 [3단계 개발 기록](../archive/2026-09-06-design-system-03-first-style-development.md)을 따른다.
 - 2026-09-07: 첫 style 사용자 검토에서 빠른 글 작성의 과밀도와 AI 보조 action의 낮은 식별성, 다섯 Blog Beta tab의 서로 다른 콘텐츠 시작 문법을 확인했다. 현재 3단계의 정보구조 비범위는 유지하고, `Blog Beta 탭 구조와 콘텐츠 시작점 일관성`과 `빠른 글 작성 대표 흐름 재설계`를 순서가 있는 독립 P1 일감으로 등록했다.
 - 2026-09-07: Gate 2에서 Product Experience Principles 8개를 모두 유지하기로 합의하고 3단계를 완료했다. 확인된 적용 gap은 후속 P1 일감으로 유지하고, 다음 단계는 작은 두 번째 style pack으로 첫 style 종속성을 찾는 확장성 검증으로 진행한다.
+- 2026-09-07: `codex/feature/design-system-04-extensibility-validation`에서 두 번째 검증 style, 첫 style 종속성 제거와 Gate 3를 목표로 4단계를 시작했다. 세부 기록은 [4단계 개발 기록](../archive/2026-09-07-design-system-04-extensibility-validation-development.md)을 따른다.
+- 2026-09-07: 두 번째 검증 style로 `고요한 세이지 스튜디오`를 선택해 registry와 대표 surface에 연결했다. 첫 적용에서 드러난 공통 feedback과 Blog Beta trend surface의 raw compatibility palette를 semantic token으로 교정하고 사용자 시각 검토를 준비했다.
+- 2026-09-07: Gate 3에서 Product Experience Principles 8개를 모두 유지하고 Design Principles와 다중 Style Contract를 `v1.0`으로 승격하기로 사용자와 합의했다. 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, 다른 surface migration 순서로 진행한다.
 
 ## Design Principles 필수 검토 일정
 
@@ -102,16 +105,22 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 2. **Gate 2 — 첫 번째 정식 style 적용 완료 후**: 원칙이 실제 시각·사용성 결정을 안내했는지 검토한다.
 3. **Gate 3 — 두 번째 style 확장성 검증 후**: 첫 style 종속성을 확인하고 `v1.0` 승격 여부를 결정한다.
 
-각 Gate는 사용자 합의 전에는 완료로 처리하지 않으며 다음 디자인 시스템 단계로 진행하지 않는다. 상세 검토 항목과 기록 규칙은 [Design Principles v0.1](../../architecture/design-principles.md)을 따른다.
+세 Gate는 모두 사용자 합의로 완료됐다. 상세 검토 결과와 이후 변경 규칙은 [Design Principles v1.0](../../architecture/design-principles.md)을 따른다.
 
 ## 현재 위험과 확인할 결정
 
-- 기존 UI가 단일 CSS와 페이지별 예외에 강하게 결합되어 있다면 점진적 이전 경계가 필요하다.
-- style별 허용 범위를 넓힐수록 검증 대상이 증가하므로 초기 token contract를 제한해야 한다.
-- 공통 shell과 `블로그 Beta` 이후 surface의 migration 순서와 범위는 단계별 사용자 합의가 필요하다.
-- 첫 스타일의 시각적 성격과 제품 인상을 별도 단계에서 합의해야 한다.
+- 사용자용 style 선택 UI와 설정 저장은 둘 이상의 정식 제공 style 범위를 결정한 뒤 별도 제품 단계로 진행한다.
+- 공통 shell과 `블로그 Beta` 이후 surface는 Compatibility containment를 한 번에 제거하지 않고 단계별로 migration한다.
+- 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, 다른 surface migration 순서로 별도 branch와 사용자 합의를 거친다.
 
 ## 최종 결과 및 검증
 
-- 진행 중
-- commit, merge, release, tag, push, 배포: 수행하지 않음
+- Design Principles와 다중 Style Contract `v1.0` 확정
+- Compatibility, Warm Editorial과 Quiet Sage Studio registry 및 token contract 구현
+- 공통 shell과 `블로그 Beta` style 적용, 비대상 surface containment 완료
+- action, refresh, selection, feedback, embedded widget과 discovery badge component/pattern guide 보강
+- focused style/shell/Blog Beta contracts: 42 passed, 0 failed
+- browser UI smoke: passed, 206 fixture requests
+- full unit suite: 1,485 passed, 0 failed, 1 skipped
+- 사용자 시각 확인 및 Gate 1·2·3 합의 완료
+- parent의 `dev` merge, release, tag, push, 배포: 수행하지 않음

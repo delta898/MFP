@@ -192,18 +192,24 @@
 
 .nav-new-badge {
   display: inline-block;
-  margin-inline-start: 5px;
-  padding: 2px 4px;
-  border: 1px solid color-mix(in srgb, var(--ui-action-primary) 22%, transparent);
-  border-radius: 999px;
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-action-primary-hover);
-  font-size: 9px;
+  margin-inline-start: 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--ui-action-primary);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary);
+  color: var(--ui-text-inverse);
+  font-size: 10px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.03em;
   text-transform: lowercase;
-  transform: translateY(-0.55em);
+  transform: translateY(-0.32em);
+}
+
+.nav-btn.active .nav-new-badge {
+  border-color: color-mix(in srgb, var(--ui-text-inverse) 76%, transparent);
+  background: var(--ui-text-inverse);
+  color: var(--ui-action-primary-hover);
 }
 
 .sidebar.collapsed .nav-label {

@@ -25,17 +25,21 @@ function loadStyleSystem(initialStyle = '') {
   return { root, contract: context.__styleContract };
 }
 
-test('UI root selects warm editorial while compatibility remains the safe fallback', () => {
+test('UI root selects the quiet sage validation style while compatibility remains the safe fallback', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-  assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
+  assert.match(html, /<html lang="ko" data-style="quiet-sage-studio">/);
   assert.doesNotMatch(html, /data-theme=/);
 
-  const { root, contract } = loadStyleSystem('warm-editorial');
+  const { root, contract } = loadStyleSystem('quiet-sage-studio');
   assert.equal(contract.defaultId, 'compatibility');
-  assert.deepEqual(Object.keys(contract.registry), ['compatibility', 'warm-editorial']);
+  assert.deepEqual(Object.keys(contract.registry), ['compatibility', 'warm-editorial', 'quiet-sage-studio']);
+  assert.equal(contract.registry.compatibility.contractVersion, '1.0');
+  assert.equal(contract.registry['warm-editorial'].contractVersion, '1.0');
+  assert.equal(contract.registry['quiet-sage-studio'].contractVersion, '1.0');
   assert.equal(contract.registry.compatibility.selectable, false);
   assert.equal(contract.registry['warm-editorial'].selectable, false);
-  assert.equal(root.dataset.style, 'warm-editorial');
+  assert.equal(contract.registry['quiet-sage-studio'].selectable, false);
+  assert.equal(root.dataset.style, 'quiet-sage-studio');
 });
 
 test('unknown or empty style ids fail safely to compatibility', () => {
@@ -54,7 +58,8 @@ test('every registered style supplies every required semantic and component toke
   const { contract } = loadStyleSystem('compatibility');
   const styleFiles = {
     compatibility: 'ui/styles/styles/compatibility.css',
-    'warm-editorial': 'ui/styles/styles/warm-editorial.css'
+    'warm-editorial': 'ui/styles/styles/warm-editorial.css',
+    'quiet-sage-studio': 'ui/styles/styles/quiet-sage-studio.css'
   };
 
   assert.equal(contract.requiredTokens.length, new Set(contract.requiredTokens).size);
@@ -132,6 +137,44 @@ test('warm editorial avoids the compatibility blue and dark filled secondary pal
   assert.match(css, /--ui-action-primary:\s*#b65f42;/);
   assert.match(css, /--ui-button-secondary-background:\s*#fffdf9;/);
   assert.doesNotMatch(css, /#0ea5e9|#0284c7|#475569|#334155/i);
+});
+
+test('quiet sage varies palette, density, radius and elevation without style-specific component selectors', () => {
+  const css = read('ui/styles/styles/quiet-sage-studio.css');
+  const shared = [
+    read('ui/styles/patterns/actions.css'),
+    read('ui/styles/patterns/selection-controls.css'),
+    read('ui/styles/features/continuous-publishing.css'),
+    read('ui/styles/features/blog-next-smart-comment.css')
+  ].join('\n');
+
+  assert.match(css, /--ui-action-primary:\s*#49675a;/);
+  assert.match(css, /--ui-radius-md:\s*8px;/);
+  assert.match(css, /--ui-space-4:\s*14px;/);
+  assert.match(css, /--ui-card-shadow:\s*none;/);
+  assert.doesNotMatch(css, /#0ea5e9|#0284c7|#475569|#334155/i);
+  assert.doesNotMatch(shared, /quiet-sage-studio/);
+});
+
+test('shared feedback and Blog Beta trend surfaces do not retain the compatibility palette', () => {
+  const feedback = read('ui/styles/components/feedback.css');
+  const blogNext = read('ui/styles/features/continuous-publishing-interactions.css');
+
+  assert.match(feedback, /\.ui-toast\s*\{[^}]*--ui-surface-translucent[^}]*--ui-border-default[^}]*--ui-status-info/s);
+  assert.match(feedback, /\.ui-toast\.ui-toast-warn\s*\{[^}]*--ui-status-warning/s);
+  assert.match(feedback, /\.ui-dialog-backdrop\s*\{[^}]*--ui-overlay/s);
+  assert.doesNotMatch(feedback, /#3b82f6|#f59e0b|#ef4444|#e0f2fe|#075985|#bae6fd/i);
+  assert.match(blogNext, /\.blog-next-view \.auto-section[\s\S]*--ui-border-default[\s\S]*--ui-surface-muted/);
+  assert.match(blogNext, /\.blog-next-view \.category-option-btn\.active\s*\{[^}]*--ui-action-primary[^}]*--ui-text-inverse/s);
+});
+
+test('clock shell follows the product style while seasonal color remains a local accent', () => {
+  const clock = read('ui/styles/components/clock.css');
+
+  assert.match(clock, /\.clock-widget-main\s*\{[^}]*border:\s*1px solid var\(--ui-border-default\);[^}]*border-radius:\s*var\(--ui-radius-lg\);[^}]*background:\s*var\(--ui-surface-translucent\);[^}]*box-shadow:\s*var\(--ui-shadow-md\);/s);
+  assert.match(clock, /\.clock-season-dot\s*\{[^}]*background:\s*var\(--clock-season\);/s);
+  assert.match(clock, /\.clock-ambient-message\s*\{[^}]*color:\s*var\(--clock-season\);/s);
+  assert.doesNotMatch(clock.match(/\.clock-widget-main\s*\{([^}]*)\}/)?.[1] || '', /rgba\(|#[0-9a-f]{3,8}|--clock-season-glow/i);
 });
 
 test('legacy aliases preserve existing surfaces and repair missing global tokens', () => {

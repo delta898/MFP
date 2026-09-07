@@ -1,4 +1,4 @@
-const DESIGN_STYLE_CONTRACT_VERSION = '0.1';
+const DESIGN_STYLE_CONTRACT_VERSION = '1.0';
 const DESIGN_STYLE_DEFAULT_ID = 'compatibility';
 
 const DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([
@@ -99,6 +99,12 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
   'warm-editorial': Object.freeze({
     id: 'warm-editorial',
     label: '따뜻한 에디토리얼',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: false
+  }),
+  'quiet-sage-studio': Object.freeze({
+    id: 'quiet-sage-studio',
+    label: '고요한 세이지 스튜디오',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: false
   })

@@ -61,6 +61,30 @@
   gap: 7px;
 }
 
+.blog-next-view .trend-posting-latest-badge {
+  background: color-mix(in srgb, var(--ui-status-success) 12%, var(--ui-surface));
+  color: var(--ui-status-success);
+}
+
+.blog-next-view .auto-section,
+.blog-next-view .category-options {
+  border-color: var(--ui-border-default);
+  background: var(--ui-surface-muted);
+}
+
+.blog-next-view .trend-posting-panel .field-label-text,
+.blog-next-view .trend-posting-panel .field-hint,
+.blog-next-view .category-hint,
+.blog-next-view .category-meta {
+  color: var(--ui-text-secondary);
+}
+
+.blog-next-view .category-option-btn.active {
+  border-color: var(--ui-action-primary);
+  background: var(--ui-action-primary);
+  color: var(--ui-text-inverse);
+}
+
 .blog-next-queue-item.is-running {
   border-color: var(--ui-action-primary-soft);
   background: color-mix(in srgb, var(--ui-action-primary-soft) 18%, var(--ui-surface));

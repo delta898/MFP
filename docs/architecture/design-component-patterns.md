@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 첫 정식 style 적용을 통해 검증 중
+- Status: 첫 정식 style 적용 완료, 두 번째 style로 확장성 검증 중
 - Source stage: `codex/feature/design-system-03-first-style`
 - 적용 대상: 공통 shell과 `블로그 Beta`에서 검증된 반복 UI
 
@@ -73,6 +73,20 @@
 - style은 card background, border, radius와 elevation을 바꿀 수 있다.
 - 모든 card가 hover에서 떠오를 필요는 없다. 클릭 가능성이나 의미가 없으면 움직임을 사용하지 않는다.
 - card 안에 같은 역할의 card를 반복해서 중첩하지 않는다.
+
+## Embedded widgets
+
+- timer, clock처럼 독립적인 내부 표현을 가진 widget도 제품 shell 안에서는 현재 style의 surface, border, radius, elevation과 기본 text를 따른다.
+- 계절, 진행 단계나 집중·휴식처럼 widget 고유 의미가 있는 색은 점, 진행 표시, 짧은 상태 문구 등 국소적인 accent로 사용할 수 있다.
+- widget 고유 accent가 외곽 card 전체를 지배하거나 primary action과 경쟁하지 않게 한다.
+- style마다 widget DOM이나 기능을 분기하지 않는다.
+
+## Discovery badges
+
+- `new`처럼 새 기능의 발견을 돕는 badge는 상태 오류나 긴급 알림이 아니므로 animation이나 위험색을 사용하지 않는다.
+- 비활성 navigation에서는 작은 filled primary badge로 일반 보조문구보다 분명하게 표현한다.
+- 활성 navigation에서는 inverse badge로 전환해 active surface 위의 대비를 유지한다.
+- badge는 메뉴 label을 대신하지 않으며, 접근 가능한 이름으로 의미를 전달한다.
 
 ## Fields and focus
 
