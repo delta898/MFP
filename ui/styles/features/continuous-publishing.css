@@ -897,8 +897,26 @@
 
   .blog-next-queue-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-start;
+    width: 100%;
     grid-column: 1 / -1;
+  }
+
+  .blog-next-queue-copy strong {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .blog-next-queue-copy span {
+    overflow-wrap: anywhere;
+  }
+
+  .blog-next-queue-actions button {
+    min-height: 40px;
   }
 
   .blog-next-queue-item:not(.blog-next-saved-item) .blog-next-queue-actions {
