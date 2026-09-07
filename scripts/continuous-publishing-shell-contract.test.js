@@ -181,9 +181,9 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     assert.doesNotMatch(html, /blog-next-status-flow|blog-next-management-description/);
     assert.doesNotMatch(html, /blog-next-reset-defaults|설정 초기화/);
     assert.doesNotMatch(html, /AI 호출 없이 글감 등록|글감 보관은 아이디어만 있어도 가능합니다/);
-    assert.match(html, /id="blog-next-topic-recommend"/);
-    assert.match(html, /id="blog-next-keyword-recommend"/);
-    assert.match(html, /id="blog-next-title-recommend"/);
+    assert.match(html, /id="blog-next-topic-recommend" class="secondary blog-next-ai-assist"/);
+    assert.match(html, /id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist"/);
+    assert.match(html, /id="blog-next-title-recommend" class="secondary blog-next-ai-assist"/);
     assert.match(queueScript, /moveBlogNextTopicFormToQueueEditor/);
     assert.match(queueScript, /copy\.dataset\.blogNextEdit/);
     assert.doesNotMatch(queueScript, /primaryAction\.textContent = '수정'/);
@@ -208,7 +208,7 @@ test('Stage 8 aligns posting language and external-reference controls with the e
     assert.match(html, /<option value="schedule">예약 발행<\/option>/);
     assert.match(html, /id="blog-next-external-reference"[^>]*checked> 외부 참고 사용/);
     assert.doesNotMatch(html, /관련 자료 자동 검색/);
-    assert.equal((html.match(/class="tooltip-container"/g) || []).length >= 5, true);
+    assert.equal((html.match(/class="[^"]*\btooltip-container\b[^"]*"/g) || []).length >= 5, true);
     assert.match(css, /\.blog-next-input-action-row button\s*\{[^}]*inline-size:\s*156px;/s);
 });
 
@@ -244,7 +244,7 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.doesNotMatch(trendScript, /continuous-publishing\/topics|runner\/start|quick-publish/);
     assert.match(quickQueueScript, /action === 'publish-now' \? 'enqueue'/);
     assert.match(quickQueueScript, /editing\s*\? '\/api\/v1\/continuous-publishing\/topics\/update'/);
-    assert.match(quickQueueScript, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\) \}\)/);
+    assert.match(quickQueueScript, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\), platforms: payload\.platforms \}\)/);
 });
 
 test('Stage 11 exposes one shared publish status with an explicit status shortcut and no internal row details', () => {

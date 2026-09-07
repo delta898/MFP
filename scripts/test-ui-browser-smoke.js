@@ -1341,17 +1341,98 @@ async function run() {
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');
         assert.equal(await page.locator('#blog-next-publish-status').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-topic-form [data-blog-next-runner-status-jump]').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('.blog-next-ai-assist').count(), 3);
+        assert.equal(await page.locator('#blog-next-content-settings').getAttribute('open'), null);
+        assert.equal(await page.locator('#blog-next-publish-settings').getAttribute('open'), null);
+        assert.equal((await page.locator('#blog-next-content-settings-summary').textContent())?.trim(), '외부 참고 사용 · 검색 중심 · 이미지 프롬프트만 포함');
+        assert.equal((await page.locator('#blog-next-publish-settings-summary').textContent())?.trim(), '네이버 · 즉시 발행 · 보이지 않게 실행');
+        await page.locator('#blog-next-content-settings > summary').click();
+        const writingHelpTrigger = page.locator('[aria-describedby="blog-next-help-writing-strategy"]');
+        const writingHelp = page.locator('#blog-next-help-writing-strategy');
+        assert.equal(await writingHelp.isVisible(), false);
+        await writingHelpTrigger.focus();
+        assert.equal(await writingHelp.isVisible(), true);
+        assert.equal(
+            await writingHelp.evaluate((element) => getComputedStyle(element).backgroundColor),
+            await page.evaluate(() => {
+                const probe = document.createElement('span');
+                probe.style.backgroundColor = 'var(--ui-surface-emphasis)';
+                document.body.appendChild(probe);
+                const color = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                return color;
+            })
+        );
+        await writingHelpTrigger.press('Escape');
+        assert.equal(await writingHelp.isVisible(), false);
+        await page.locator('#blog-next-external-reference').uncheck();
+        await page.locator('#blog-next-image-mode').selectOption('generate');
+        assert.equal((await page.locator('#blog-next-content-settings-summary').textContent())?.trim(), '외부 참고 안 함 · 검색 중심 · 이미지 생성');
+        await page.locator('#blog-next-publish-settings > summary').click();
+        assert.equal(await page.locator('#blog-next-schedule-field').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-schedule-date').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-schedule-required').evaluate((element) => element.hidden), true);
+        assert.equal(
+            await page.locator('#blog-next-post-status').evaluate((element) => getComputedStyle(element.parentElement, '::after').right),
+            await page.locator('#blog-next-writing-strategy').evaluate((element) => getComputedStyle(element.parentElement, '::after').right)
+        );
+        for (const helpId of [
+            'blog-next-help-external-reference',
+            'blog-next-help-writing-strategy',
+            'blog-next-help-image-mode',
+            'blog-next-help-publish-targets',
+            'blog-next-help-post-status',
+            'blog-next-help-headless'
+        ]) {
+            const trigger = page.locator(`[aria-describedby="${helpId}"]`);
+            await trigger.focus();
+            const tooltipBox = await page.locator(`#${helpId}`).boundingBox();
+            const disclosureBox = await trigger.evaluate((element) => {
+                const rect = element.closest('.blog-next-disclosure').getBoundingClientRect();
+                const triggerRect = element.getBoundingClientRect();
+                return { left: rect.left, right: rect.right, triggerLeft: triggerRect.left, placement: element.dataset.helpPlacement || 'center', focused: document.activeElement === element };
+            });
+            assert.equal(Boolean(tooltipBox && tooltipBox.x >= disclosureBox.left - 1), true,
+                `${helpId} tooltip crossed the disclosure start boundary: ${JSON.stringify({ tooltipBox, disclosureBox })}`);
+            assert.equal(Boolean(tooltipBox && tooltipBox.x + tooltipBox.width <= disclosureBox.right + 1), true,
+                `${helpId} tooltip crossed the disclosure end boundary: ${JSON.stringify({ tooltipBox, disclosureBox })}`);
+            await trigger.press('Escape');
+        }
+        assert.equal(await page.locator('#blog-next-runner-headless').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), true);
+        await page.locator('#blog-next-target-wordpress').check();
+        await page.locator('#blog-next-target-naver').uncheck();
+        assert.equal(await page.locator('#blog-next-runner-headless').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), true);
+        assert.equal((await page.locator('#blog-next-publish-settings-summary').textContent())?.trim(), '워드프레스 · 즉시 발행');
+        await page.locator('#blog-next-target-naver').check();
+        assert.equal(await page.locator('#blog-next-runner-headless').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), true);
+        await page.locator('#blog-next-target-wordpress').uncheck();
+        await page.locator('#blog-next-post-status').selectOption('schedule');
+        assert.equal(await page.locator('#blog-next-schedule-field').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-schedule-date').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-schedule-date').getAttribute('required'), '');
+        assert.equal(await page.locator('#blog-next-schedule-required').evaluate((element) => element.hidden), false);
+        assert.equal((await page.locator('#blog-next-schedule-required').textContent())?.trim(), '(필수)');
+        await page.locator('#blog-next-schedule-date').fill('2026-09-08T09:30');
+        await page.locator('#blog-next-post-status').selectOption('publish');
+        assert.equal(await page.locator('#blog-next-schedule-field').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-schedule-date').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-schedule-required').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-schedule-date').inputValue(), '2026-09-08T09:30');
         assert.deepEqual(
-            await page.locator('.blog-next-execution-options').evaluate((element) => {
+            await page.locator('#blog-next-publish-settings .blog-next-execution-options').evaluate((element) => {
                 const style = getComputedStyle(element);
                 return {
+                    background: style.backgroundColor,
                     display: style.display,
                     direction: style.flexDirection,
                     justify: style.justifyContent,
                     border: style.borderTopStyle
                 };
             }),
-            { display: 'flex', direction: 'row', justify: 'flex-start', border: 'solid' }
+            { background: 'rgba(0, 0, 0, 0)', display: 'flex', direction: 'row', justify: 'flex-start', border: 'solid' }
         );
         assert.deepEqual(
             await page.locator('.blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
@@ -1377,6 +1458,12 @@ async function run() {
         );
         assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.classList.contains('primary')), true);
         assert.equal(await page.locator('#blog-next-clear-topic').evaluate((element) => element.classList.contains('blog-next-clear-action')), true);
+        await page.locator('#blog-next-clear-topic').click();
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '');
+        assert.equal(await page.locator('#blog-next-clear-undo').evaluate((element) => element.hidden), false);
+        await page.locator('#blog-next-clear-undo').click();
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');
+        assert.equal(await page.locator('#blog-next-clear-undo').evaluate((element) => element.hidden), true);
         await page.locator('#blog-next-clear-topic').click();
 
         await page.locator('[data-blog-next-tab="trend-posting"]').click();

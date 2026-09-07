@@ -26,22 +26,7 @@
             aria-controls="blog-next-panel-automation" data-blog-next-tab="automation">연속 발행 설정</button>
         </div>
 
-        <section class="blog-next-publish-status" id="blog-next-publish-status" role="status" aria-live="polite" hidden>
-          <span class="blog-next-publish-status-indicator" aria-hidden="true"></span>
-          <div class="blog-next-publish-status-copy">
-            <div class="blog-next-publish-status-heading">
-              <strong id="blog-next-publish-status-title">발행 중</strong>
-              <span id="blog-next-publish-status-subject" hidden></span>
-            </div>
-            <p id="blog-next-publish-status-message"></p>
-          </div>
-          <div class="blog-next-publish-status-actions">
-            <span class="blog-next-publish-status-links" id="blog-next-publish-status-links" hidden></span>
-            <button class="secondary compact" id="blog-next-publish-status-manage" type="button" hidden>글감 관리</button>
-            <button class="ghost compact blog-next-publish-status-dismiss" id="blog-next-publish-status-dismiss"
-              type="button" aria-label="닫기" title="닫기" hidden>×</button>
-          </div>
-        </section>
+        <!-- @include blog-next/publish-status.html -->
 
         <section class="card form-card blog-next-panel active" id="blog-next-panel-quick" role="tabpanel"
           aria-labelledby="blog-next-tab-quick">
@@ -63,119 +48,149 @@
           <div class="blog-next-mode-panel active" data-blog-next-mode-panel="ai">
             <div id="blog-next-topic-form-home">
             <form id="blog-next-topic-form" class="blog-next-topic-form">
-              <div class="blog-next-form-grid">
+              <div class="blog-next-form-grid blog-next-core-fields">
                 <label class="blog-next-field blog-next-field-wide">
                   <span>주제</span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-subject" type="text" placeholder="예: 제주 일주일 살기에서 발견한 작은 즐거움">
-                    <button id="blog-next-topic-recommend" class="secondary" type="button">글감 추천</button>
+                    <button id="blog-next-topic-recommend" class="secondary blog-next-ai-assist" type="button"
+                      aria-label="AI 글감 추천" title="AI로 글감 추천"><span aria-hidden="true">✦</span> 글감 추천</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
                   <span>키워드</span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-keywords" type="text" placeholder="쉼표로 구분해 입력하세요">
-                    <button id="blog-next-keyword-recommend" class="secondary" type="button">키워드 탐색</button>
+                    <button id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist" type="button"
+                      aria-label="AI 키워드 탐색" title="AI로 키워드 탐색"><span aria-hidden="true">✦</span> 키워드 탐색</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
                   <span>제목 <small>(선택)</small></span>
                   <span class="blog-next-input-action-row">
                     <input id="blog-next-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
-                    <button id="blog-next-title-recommend" class="secondary" type="button">AI 제목 추천</button>
+                    <button id="blog-next-title-recommend" class="secondary blog-next-ai-assist" type="button"
+                      aria-label="AI 제목 추천" title="AI로 제목 추천"><span aria-hidden="true">✦</span> 제목 추천</button>
                   </span>
                 </label>
                 <label class="blog-next-field blog-next-field-wide">
-                  <span>참고·지시사항</span>
-                  <textarea id="blog-next-instruction" rows="3" placeholder="글에 꼭 담고 싶은 경험이나 방향을 적어주세요"></textarea>
+                  <span>담고 싶은 경험·방향</span>
+                  <textarea id="blog-next-instruction" rows="3" placeholder="직접 겪은 일, 꼭 넣을 내용이나 글의 방향을 적어주세요"></textarea>
                 </label>
-                <label class="blog-next-field blog-next-field-wide">
-                  <span>참고 URL</span>
-                  <input id="blog-next-reference-url" type="url" placeholder="https://...">
-                </label>
-                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
-                  <legend>
-                    포스팅 대상
-                    <span class="tooltip-container">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">이 글감을 실제로 올릴 블로그를 선택합니다. 선택한 대상과 카테고리는 이 글감에 저장됩니다.</span>
-                    </span>
-                  </legend>
-                  <label><input id="blog-next-target-naver" type="checkbox" value="naver" checked> 네이버 블로그</label>
-                  <label><input id="blog-next-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
-                </fieldset>
-                <label class="blog-next-field">
-                  <span>네이버 카테고리 <small>(선택)</small></span>
-                  <input id="blog-next-naver-category" type="text" placeholder="비우면 기본 카테고리">
-                </label>
-                <label class="blog-next-field">
-                  <span>워드프레스 카테고리 <small>(선택)</small></span>
-                  <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily">
-                </label>
+              </div>
+
+              <div class="blog-next-disclosures">
+                <details class="blog-next-disclosure" id="blog-next-content-settings">
+                  <summary>
+                    <strong>참고·글 구성</strong>
+                    <span id="blog-next-content-settings-summary">외부 참고 사용 · 검색 중심 · 이미지 프롬프트</span>
+                  </summary>
+                  <div class="blog-next-disclosure-grid blog-next-form-grid">
+                    <label class="blog-next-field blog-next-field-wide">
+                      <span>참고 URL</span>
+                      <input id="blog-next-reference-url" type="url" placeholder="https://...">
+                    </label>
+                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options blog-next-dependent-field" id="blog-next-headless-field" data-dependency-active="true">
+                      <label class="blog-next-check-label">
+                        <input id="blog-next-external-reference" type="checkbox" checked> 외부 참고 사용
+                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="외부 참고 사용 도움말" aria-describedby="blog-next-help-external-reference">
+                          <span class="tooltip-icon">?</span>
+                          <span class="tooltip-text" id="blog-next-help-external-reference" role="tooltip">켜면 입력한 주제와 키워드에 맞는 외부 자료를 자동으로 찾아 원고 작성에 참고합니다. 참고 URL을 입력했다면 함께 사용합니다.</span>
+                        </span>
+                      </label>
+                    </div>
                 <label class="blog-next-field">
                   <span class="blog-next-field-label-with-help">
                     글쓰기 전략
-                    <span class="tooltip-container">
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="글쓰기 전략 도움말" aria-describedby="blog-next-help-writing-strategy">
                       <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다.</span>
+                      <span class="tooltip-text" id="blog-next-help-writing-strategy" role="tooltip">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다.</span>
                     </span>
                   </span>
-                  <select id="blog-next-writing-strategy">
-                    <option value="search">검색 중심</option>
-                    <option value="discovery">발견 중심 (피드)</option>
-                  </select>
+                  <span class="blog-next-select-shell">
+                    <select id="blog-next-writing-strategy">
+                      <option value="search">검색 중심</option>
+                      <option value="discovery">발견 중심 (피드)</option>
+                    </select>
+                  </span>
                 </label>
                 <label class="blog-next-field">
                   <span class="blog-next-field-label-with-help">
                     이미지 처리
-                    <span class="tooltip-container">
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 처리 도움말" aria-describedby="blog-next-help-image-mode">
                       <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">실제 이미지를 생성하거나, 원고에 프롬프트만 남기거나, 이미지 영역을 완전히 제외합니다.</span>
+                      <span class="tooltip-text" id="blog-next-help-image-mode" role="tooltip">실제 이미지를 생성하거나, 원고에 프롬프트만 남기거나, 이미지 영역을 완전히 제외합니다.</span>
                     </span>
                   </span>
-                  <select id="blog-next-image-mode">
-                    <option value="prompt_only">이미지 프롬프트만 포함</option>
-                    <option value="generate">이미지 생성</option>
-                    <option value="none">이미지 사용 안 함</option>
-                  </select>
-                </label>
-                <label class="blog-next-field">
-                  <span class="blog-next-field-label-with-help">
-                    포스팅 옵션
-                    <span class="tooltip-container">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">즉시 발행은 처리되는 즉시 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 처리 시점에 원고와 공개 일시를 등록합니다.</span>
-                    </span>
+                  <span class="blog-next-select-shell">
+                    <select id="blog-next-image-mode">
+                      <option value="prompt_only">이미지 프롬프트만 포함</option>
+                      <option value="generate">이미지 생성</option>
+                      <option value="none">이미지 사용 안 함</option>
+                    </select>
                   </span>
-                  <select id="blog-next-post-status">
-                    <option value="publish">즉시 발행</option>
-                    <option value="draft">임시 저장</option>
-                    <option value="schedule">예약 발행</option>
-                  </select>
                 </label>
-                <label class="blog-next-field" id="blog-next-schedule-field" hidden>
-                  <span>예약 일시</span>
-                  <input id="blog-next-schedule-date" type="datetime-local">
-                </label>
-                <div class="blog-next-field blog-next-field-wide blog-next-execution-options">
-                  <label class="blog-next-check-label">
-                    <input id="blog-next-external-reference" type="checkbox" checked> 외부 참고 사용
-                    <span class="tooltip-container">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">켜면 입력한 주제와 키워드에 맞는 외부 자료를 자동으로 찾아 원고 작성에 참고합니다. 참고 URL을 입력했다면 함께 사용합니다.</span>
-                    </span>
-                  </label>
-                  <label class="blog-next-check-label blog-next-headless-option">
-                    <input id="blog-next-runner-headless" type="checkbox" checked> 보이지 않게 실행
-                    <span class="tooltip-container">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text">켜면 포스팅 브라우저를 화면에 띄우지 않고 실행합니다.</span>
-                    </span>
-                  </label>
-                </div>
+                  </div>
+                </details>
+
+                <details class="blog-next-disclosure" id="blog-next-publish-settings">
+                  <summary>
+                    <strong>발행 설정</strong>
+                    <span id="blog-next-publish-settings-summary">네이버 · 즉시 발행 · 보이지 않게 실행</span>
+                  </summary>
+                  <div class="blog-next-disclosure-grid blog-next-form-grid">
+                    <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
+                      <legend>
+                        포스팅 대상
+                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 대상 도움말" aria-describedby="blog-next-help-publish-targets">
+                          <span class="tooltip-icon">?</span>
+                          <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">이 글감을 실제로 올릴 블로그를 선택합니다. 선택한 대상과 카테고리는 이 글감에 저장됩니다.</span>
+                        </span>
+                      </legend>
+                      <label><input id="blog-next-target-naver" type="checkbox" value="naver" checked> 네이버 블로그</label>
+                      <label><input id="blog-next-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
+                    </fieldset>
+                    <label class="blog-next-field">
+                      <span>네이버 카테고리 <small>(선택)</small></span>
+                      <input id="blog-next-naver-category" type="text" placeholder="비우면 기본 카테고리">
+                    </label>
+                    <label class="blog-next-field">
+                      <span>워드프레스 카테고리 <small>(선택)</small></span>
+                      <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily">
+                    </label>
+                    <label class="blog-next-field">
+                      <span class="blog-next-field-label-with-help">
+                        포스팅 옵션
+                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 옵션 도움말" aria-describedby="blog-next-help-post-status">
+                          <span class="tooltip-icon">?</span>
+                          <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 처리되는 즉시 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 처리 시점에 원고와 공개 일시를 등록합니다.</span>
+                        </span>
+                      </span>
+                      <span class="blog-next-select-shell"><select id="blog-next-post-status">
+                        <option value="publish">즉시 발행</option>
+                        <option value="draft">임시 저장</option>
+                        <option value="schedule">예약 발행</option>
+                      </select></span>
+                    </label>
+                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-schedule-field" data-dependency-active="false">
+                      <span>예약 일시 <small id="blog-next-schedule-required" hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
+                      <input id="blog-next-schedule-date" type="datetime-local" aria-describedby="blog-next-schedule-hint" disabled>
+                    </label>
+                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options">
+                      <label class="blog-next-check-label blog-next-headless-option">
+                        <input id="blog-next-runner-headless" type="checkbox" checked> 보이지 않게 실행
+                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="보이지 않게 실행 도움말" aria-describedby="blog-next-help-headless">
+                          <span class="tooltip-icon">?</span>
+                          <span class="tooltip-text" id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저를 화면에 띄우지 않고 실행합니다.</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </details>
               </div>
               <div class="blog-next-form-result-row">
                 <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
+                <button class="blog-next-undo-action" id="blog-next-clear-undo" type="button" hidden>되돌리기</button>
                 <button class="blog-next-runner-status-jump" data-blog-next-runner-status-jump
                   type="button" hidden>상태 보기</button>
               </div>
@@ -480,18 +495,5 @@
 
         <!-- @include blog-next/automation.html -->
 
-        <div id="blog-next-editor-modal" class="modal-backdrop hidden" aria-hidden="true">
-          <div class="modal-container blog-next-editor-modal-container" role="dialog" aria-modal="true" aria-labelledby="blog-next-editor-title">
-            <div class="modal-header">
-              <div>
-                <h3 id="blog-next-editor-title">발행 계획 수정</h3>
-              </div>
-              <button id="blog-next-editor-close" class="close-btn" type="button" aria-label="닫기">✕</button>
-            </div>
-            <div class="modal-body blog-next-editor-modal-body">
-              <div id="blog-next-queue-editor-slot"></div>
-            </div>
-            <div id="blog-next-editor-actions-slot" class="blog-next-editor-modal-actions"></div>
-          </div>
-        </div>
+        <!-- @include blog-next/editor-modal.html -->
       </section>

@@ -116,9 +116,9 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.equal(actionGroup.indexOf('blog-next-clear-topic') < actionGroup.indexOf('blog-next-save-topic'), true);
   assert.equal(actionGroup.indexOf('blog-next-save-topic') < actionGroup.indexOf('blog-next-enqueue-topic'), true);
   assert.equal(actionGroup.indexOf('blog-next-enqueue-topic') < actionGroup.indexOf('blog-next-publish-now'), true);
-  assert.match(blogNext, /id="blog-next-topic-recommend" class="secondary"/);
-  assert.match(blogNext, /id="blog-next-keyword-recommend" class="secondary"/);
-  assert.match(blogNext, /id="blog-next-title-recommend" class="secondary"/);
+  assert.match(blogNext, /id="blog-next-topic-recommend" class="secondary blog-next-ai-assist"/);
+  assert.match(blogNext, /id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist"/);
+  assert.match(blogNext, /id="blog-next-title-recommend" class="secondary blog-next-ai-assist"/);
   assert.match(blogNext, /id="blog-next-trend-query" class="primary"/);
   assert.match(blogNext, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon[^"]*"[^>]*aria-label="최신 데이터 새로고침"[^>]*title="최신 데이터 새로고침"/);
   assert.match(blogNext, /class="[^"]*ui-refresh-action-text[^"]*"[\s\S]*?id="blog-next-queue-refresh"[^>]*>새로고침<\/button>/);
