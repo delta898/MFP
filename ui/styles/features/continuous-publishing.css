@@ -757,6 +757,11 @@
   white-space: pre-line;
 }
 
+.blog-next-draft-validation[hidden],
+.blog-next-draft-preview[hidden] {
+  display: none;
+}
+
 .blog-next-draft-validation.is-ok {
   border-color: color-mix(in srgb, var(--ui-status-success) 35%, transparent);
   background: color-mix(in srgb, var(--ui-status-success) 8%, var(--ui-surface));

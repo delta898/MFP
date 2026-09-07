@@ -2,6 +2,7 @@ let blogNextSmartCommentItems = [];
 let blogNextSmartCommentSavedSettings = null;
 let blogNextSmartCommentDirty = false;
 let blogNextSmartCommentRunning = false;
+let blogNextSmartCommentLoading = false;
 let blogNextSmartCommentLoaded = false;
 let blogNextSmartCommentBound = false;
 let blogNextSmartCommentProgressTimer = null;
@@ -70,19 +71,36 @@ function syncBlogNextSmartCommentButtons() {
   const saveButton = document.getElementById('blog-next-smart-comment-save');
   const runButton = document.getElementById('blog-next-smart-comment-run');
   if (saveButton) {
-    saveButton.disabled = blogNextSmartCommentRunning || !blogNextSmartCommentDirty;
+    saveButton.disabled = blogNextSmartCommentLoading || blogNextSmartCommentRunning || !blogNextSmartCommentDirty;
     saveButton.setAttribute('aria-disabled', saveButton.disabled ? 'true' : 'false');
     saveButton.textContent = '설정 저장';
   }
   if (runButton) {
-    runButton.disabled = blogNextSmartCommentRunning;
+    runButton.disabled = blogNextSmartCommentLoading || blogNextSmartCommentRunning;
     runButton.textContent = blogNextSmartCommentRunning
       ? '댓글 준비 중...'
       : (blogNextSmartCommentSeenPostUrls.size > 0 ? '새 이웃 글 더 찾기' : '댓글 초안 만들기');
   }
 }
 
+function syncBlogNextSmartCommentModelRole() {
+  const custom = document.getElementById('blog-next-smart-comment-ai-mode')?.value === 'custom';
+  const label = custom ? 'Chat Model' : '글쓰기 모델';
+  const summary = document.getElementById('blog-next-smart-comment-settings-summary');
+  const role = document.getElementById('blog-next-smart-comment-model-role');
+  if (summary) summary.textContent = `${label} 사용`;
+  if (role) role.textContent = `현재: ${label}`;
+}
+
+function setBlogNextSmartCommentFormDisabled(disabled) {
+  document.getElementById('blog-next-smart-comment-form')?.querySelectorAll('select, input').forEach((control) => {
+    control.disabled = disabled;
+  });
+  syncBlogNextSmartCommentButtons();
+}
+
 function updateBlogNextSmartCommentDirtyState() {
+  syncBlogNextSmartCommentModelRole();
   blogNextSmartCommentDirty = Boolean(blogNextSmartCommentSavedSettings)
     && serializeBlogNextSmartCommentSettings(readBlogNextSmartCommentForm())
       !== serializeBlogNextSmartCommentSettings(blogNextSmartCommentSavedSettings);
@@ -197,6 +215,7 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
   const summaryElement = document.getElementById('blog-next-smart-comment-summary');
   if (!list) return;
   blogNextSmartCommentItems = Array.isArray(items) ? items.map((item) => ({ ...(item || {}) })) : [];
+  list.dataset.state = blogNextSmartCommentItems.length > 0 ? 'results' : 'empty';
   const successCount = summary?.successCount ?? blogNextSmartCommentItems.filter((item) => Array.isArray(item.drafts) && item.drafts.length > 0).length;
   const failureCount = summary?.failureCount ?? Math.max(0, blogNextSmartCommentItems.length - successCount);
   if (summaryElement) {
@@ -272,6 +291,11 @@ function renderBlogNextSmartCommentCompletion(summary = {}) {
 async function loadBlogNextSmartCommentSettings(options = {}) {
   if (blogNextSmartCommentDirty && options.force !== true) return null;
   if (blogNextSmartCommentLoaded && options.force !== true) return blogNextSmartCommentSavedSettings;
+  blogNextSmartCommentLoading = true;
+  setBlogNextSmartCommentFormDisabled(true);
+  if (!blogNextSmartCommentLoaded) {
+    renderBlogNextSmartCommentStatus({ state: 'running', title: '설정 확인 중', message: '사용할 댓글 설정을 불러오고 있습니다.' });
+  }
   try {
     const data = await fetchJson('/api/v1/blog/naver-comment-draft/settings');
     const settings = normalizeBlogNextSmartCommentSettings(data?.settings || {});
@@ -280,11 +304,16 @@ async function loadBlogNextSmartCommentSettings(options = {}) {
     if (diagnostic) diagnostic.hidden = blogNextSmartCommentEnvironment === 'production';
     fillBlogNextSmartCommentForm(settings);
     setBlogNextSmartCommentSavedSettings(settings);
+    syncBlogNextSmartCommentModelRole();
     blogNextSmartCommentLoaded = true;
+    renderBlogNextSmartCommentStatus({ state: 'idle' });
     return settings;
   } catch (error) {
     renderBlogNextSmartCommentStatus({ state: 'error', title: '설정을 불러오지 못했습니다', message: error.message || '잠시 후 다시 시도해 주세요.' });
     return null;
+  } finally {
+    blogNextSmartCommentLoading = false;
+    setBlogNextSmartCommentFormDisabled(false);
   }
 }
 
@@ -328,6 +357,7 @@ async function runBlogNextSmartComment() {
   if (blogNextSmartCommentRunning) return;
   blogNextSmartCommentRunning = true;
   syncBlogNextSmartCommentButtons();
+  document.getElementById('blog-next-smart-comment-list')?.setAttribute('aria-busy', 'true');
   renderBlogNextSmartCommentStatus({ state: 'running', title: '댓글 준비 시작', message: '네이버 연결 상태를 확인하고 있습니다.' });
   pollBlogNextSmartCommentProgress();
   try {
@@ -352,6 +382,7 @@ async function runBlogNextSmartComment() {
     });
   } finally {
     blogNextSmartCommentRunning = false;
+    document.getElementById('blog-next-smart-comment-list')?.setAttribute('aria-busy', 'false');
     stopBlogNextSmartCommentProgressPolling();
     syncBlogNextSmartCommentButtons();
   }
@@ -415,5 +446,6 @@ function initBlogNextSmartComment() {
   document.getElementById('blog-next-smart-comment-run')?.addEventListener('click', runBlogNextSmartComment);
   document.getElementById('blog-next-smart-comment-list')?.addEventListener('click', handleBlogNextSmartCommentListClick);
   blogNextSmartCommentBound = true;
+  syncBlogNextSmartCommentModelRole();
   syncBlogNextSmartCommentButtons();
 }

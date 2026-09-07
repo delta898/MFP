@@ -246,21 +246,6 @@ async function closeBlogNextEditor(options = {}) {
   setBlogNextTopicResult('');
 }
 
-function activateBlogNextManagementTab(tabName) {
-  const target = tabName === 'saved' ? 'saved' : 'ready';
-  blogNextActiveManagementTab = target;
-  document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
-    const active = button.dataset.blogNextManagementTab === target;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-  document.querySelectorAll('[data-blog-next-management-panel]').forEach((panel) => {
-    const active = panel.dataset.blogNextManagementPanel === target;
-    panel.classList.toggle('active', active);
-    panel.hidden = !active;
-  });
-}
-
 async function submitBlogNextTopic(action) {
   if (blogNextTopicSubmitting) return;
   setBlogNextTopicBusy(true, action);
@@ -643,17 +628,6 @@ async function runBlogNextQueueItemNow(item = {}, button) {
   }
 }
 
-function renderBlogNextEmptyState(list, title, message) {
-  const empty = document.createElement('div');
-  empty.className = 'blog-next-empty-state';
-  const strong = document.createElement('strong');
-  strong.textContent = title;
-  const copy = document.createElement('p');
-  copy.textContent = message;
-  empty.append(strong, copy);
-  list.appendChild(empty);
-}
-
 function formatBlogNextQueueEstimate(value) {
   if (!value) return '';
   const parsed = new Date(value);
@@ -682,8 +656,13 @@ function renderBlogNextQueue(data = {}) {
     saved_items: savedItems,
     status_summary: summary
   };
+  blogNextQueueHasLoaded = true;
   readyCount.textContent = `${Number(summary.ready ?? data.total ?? readyItems.length) + Number(summary.running || 0)}건`;
   savedCount.textContent = `${Number(summary.saved ?? savedItems.length)}건`;
+  readyList.dataset.state = readyItems.length > 0 ? 'results' : 'empty';
+  savedList.dataset.state = savedItems.length > 0 ? 'results' : 'empty';
+  readyList.setAttribute('aria-busy', 'false');
+  savedList.setAttribute('aria-busy', 'false');
   readyList.replaceChildren();
   savedList.replaceChildren();
   if (savedItems.length === 0) renderBlogNextEmptyState(savedList, '보관한 글감이 없습니다.', '빠른 글 작성에서 떠오른 아이디어를 먼저 보관해 보세요.');
@@ -701,14 +680,30 @@ async function loadBlogNextQueue(options = {}) {
   if (blogNextQueueLoading && options.force !== true) return;
   blogNextQueueLoading = true;
   const refreshButton = document.getElementById('blog-next-queue-refresh');
-  if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = '불러오는 중...'; }
+  setBlogNextManagementStatus('loading', '글감 목록을 불러오는 중입니다.');
+  setBlogNextQueueListsBusy(true);
+  if (refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.textContent = '불러오는 중...';
+    refreshButton.setAttribute('aria-busy', 'true');
+  }
   try {
     renderBlogNextQueue(await fetchJson('/api/v1/continuous-publishing/queue?limit=50'));
+    setBlogNextManagementStatus('ready');
   } catch (error) {
-    setBlogNextTopicResult(error.message || '발행 대기열을 불러오지 못했습니다.', 'error');
+    const message = error.message || '발행 대기열을 불러오지 못했습니다.';
+    setBlogNextManagementStatus('error', blogNextQueueHasLoaded
+      ? `${message} 기존 목록은 그대로 유지했습니다.`
+      : `${message} 새로고침으로 다시 시도해 주세요.`);
+    renderBlogNextQueueInitialError('새로고침으로 다시 시도해 주세요.');
   } finally {
     blogNextQueueLoading = false;
-    if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = '새로고침'; }
+    setBlogNextQueueListsBusy(false);
+    if (refreshButton) {
+      refreshButton.disabled = false;
+      refreshButton.textContent = '새로고침';
+      refreshButton.setAttribute('aria-busy', 'false');
+    }
   }
 }
 
@@ -760,6 +755,7 @@ function initBlogNextQuickQueue() {
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', () => loadBlogNextQueue({ force: true }));
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
     button.addEventListener('click', () => activateBlogNextManagementTab(button.dataset.blogNextManagementTab));
+    button.addEventListener('keydown', handleBlogNextManagementTabKeydown);
   });
   document.getElementById('blog-next-editor-close')?.addEventListener('click', () => closeBlogNextEditor());
   document.getElementById('blog-next-editor-modal')?.addEventListener('click', (event) => {

@@ -1,4 +1,5 @@
 let blogNextAutomationSaving = false;
+let blogNextAutomationLoading = false;
 let blogNextAutomationPollingTimer = null;
 let blogNextAutomationSavedSettings = null;
 let blogNextAutomationDirty = false;
@@ -41,6 +42,29 @@ function fillBlogNextAutomationForm(settings = {}) {
   if (endTime) endTime.value = settings.allowed_end_time || '23:59';
   if (interval) interval.value = String(settings.interval_minutes || 60);
   if (notify) notify.checked = settings.notification_enabled === true;
+  syncBlogNextAutomationDependentFields();
+}
+
+function setBlogNextAutomationFeedback(state, message = '') {
+  const feedback = document.getElementById('blog-next-automation-feedback');
+  if (!feedback) return;
+  feedback.dataset.state = state;
+  feedback.textContent = message;
+  feedback.hidden = !message;
+}
+
+function syncBlogNextAutomationDependentFields() {
+  const enabledControl = document.getElementById('blog-next-automation-enabled');
+  const fields = document.querySelector('.blog-next-automation-fields');
+  const active = enabledControl?.checked === true;
+  const locked = blogNextAutomationLoading || blogNextAutomationSaving;
+  if (enabledControl) enabledControl.disabled = locked;
+  if (fields) {
+    fields.dataset.dependencyActive = String(active);
+    fields.querySelectorAll('input, select, textarea').forEach((control) => {
+      control.disabled = locked || !active;
+    });
+  }
 }
 
 function syncBlogNextAutomationSaveState() {
@@ -48,9 +72,10 @@ function syncBlogNextAutomationSaveState() {
   const form = document.getElementById('blog-next-automation-form');
   if (form) form.dataset.dirty = blogNextAutomationDirty ? 'true' : 'false';
   if (!button) return;
-  button.disabled = blogNextAutomationSaving || !blogNextAutomationDirty;
+  button.disabled = blogNextAutomationLoading || blogNextAutomationSaving || !blogNextAutomationDirty;
   button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
   button.textContent = blogNextAutomationSaving ? '저장 중...' : '설정 저장';
+  syncBlogNextAutomationDependentFields();
 }
 
 function updateBlogNextAutomationDirtyState() {
@@ -154,18 +179,20 @@ function setBlogNextAutomationSaving(saving) {
 
 async function loadBlogNextAutomationSettings(options = {}) {
   if (blogNextAutomationDirty && options.force !== true) return null;
+  blogNextAutomationLoading = true;
+  syncBlogNextAutomationSaveState();
+  setBlogNextAutomationFeedback('loading', '연속 발행 설정을 불러오는 중입니다.');
   try {
     const data = await fetchJson('/api/v1/continuous-publishing/automation/settings');
     renderBlogNextAutomationSettings(data);
+    setBlogNextAutomationFeedback('ready');
     return data;
   } catch (error) {
-    const status = document.getElementById('blog-next-automation-status');
-    if (status) {
-      status.hidden = false;
-      status.dataset.state = 'error';
-      status.textContent = error.message || '연속 발행 설정을 불러오지 못했습니다.';
-    }
+    setBlogNextAutomationFeedback('error', error.message || '연속 발행 설정을 불러오지 못했습니다.');
     return null;
+  } finally {
+    blogNextAutomationLoading = false;
+    syncBlogNextAutomationSaveState();
   }
 }
 
@@ -173,11 +200,14 @@ async function saveBlogNextAutomationSettings(event) {
   event?.preventDefault();
   if (blogNextAutomationSaving) return;
   setBlogNextAutomationSaving(true);
+  setBlogNextAutomationFeedback('loading', '연속 발행 설정을 저장하는 중입니다.');
   try {
     const data = await postJson('/api/v1/continuous-publishing/automation/settings', readBlogNextAutomationForm());
     renderBlogNextAutomationSettings(data);
+    setBlogNextAutomationFeedback('success', '설정을 저장했습니다.');
     showUiToast({ level: 'success', title: '연속 발행 설정 저장', message: '설정을 저장했습니다.' });
   } catch (error) {
+    setBlogNextAutomationFeedback('error', error.message || '설정을 저장하지 못했습니다. 입력값을 확인해 주세요.');
     showUiToast({ level: 'error', title: '설정 저장 실패', message: error.message || '입력값을 확인해 주세요.' });
   } finally {
     setBlogNextAutomationSaving(false);
@@ -190,7 +220,10 @@ function initBlogNextAutomationSettings() {
   form.dataset.bound = 'true';
   form.addEventListener('submit', saveBlogNextAutomationSettings);
   form.addEventListener('input', updateBlogNextAutomationDirtyState);
-  form.addEventListener('change', updateBlogNextAutomationDirtyState);
+  form.addEventListener('change', () => {
+    syncBlogNextAutomationDependentFields();
+    updateBlogNextAutomationDirtyState();
+  });
   document.getElementById('blog-next-automation-test')?.addEventListener('click', scheduleBlogNextAutomationTest);
   syncBlogNextAutomationSaveState();
   loadBlogNextAutomationSettings();

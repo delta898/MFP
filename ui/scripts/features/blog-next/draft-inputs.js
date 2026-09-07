@@ -3,7 +3,7 @@ const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {} },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false }
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null }
 };
 
 function blogNextDraftContainer(type) {
@@ -46,18 +46,54 @@ function readBlogNextDraftSettings(type) {
     wordpressCategory: blogNextDraftField(type, 'wordpress-category')?.value?.trim() || '',
     postStatus: blogNextDraftField(type, 'post-status')?.value || 'publish',
     scheduleDate: blogNextDraftField(type, 'schedule-date')?.value || '',
-    headless: blogNextDraftField(type, 'headless')?.checked !== false,
+    headless: targets.includes('naver') && blogNextDraftField(type, 'headless')?.checked !== false,
     imageMode: blogNextDraftField(type, 'image-mode')?.value || 'prompt_only'
   };
+}
+
+function syncBlogNextDraftSettingsSummary(type) {
+  const summary = document.querySelector(`[data-blog-next-draft-settings-summary="${type}"]`);
+  if (!summary) return;
+  const settings = readBlogNextDraftSettings(type);
+  const targetLabels = settings.targets.map(target => target === 'naver' ? '네이버' : '워드프레스');
+  const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
+    : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
+  const imageLabel = settings.imageMode === 'generate' ? '이미지 생성'
+    : settings.imageMode === 'none' ? '이미지 없음' : '이미지 프롬프트';
+  const parts = [targetLabels.length > 0 ? targetLabels.join('+') : '발행 대상 없음', statusLabel, imageLabel];
+  if (settings.targets.includes('naver')) {
+    parts.push(settings.headless ? '보이지 않게 실행' : '브라우저 표시');
+  }
+  summary.textContent = parts.join(' · ');
 }
 
 function syncBlogNextDraftSchedule(type) {
   const container = blogNextDraftContainer(type);
   const field = container?.querySelector('[data-draft-schedule-field]');
   const input = blogNextDraftField(type, 'schedule-date');
+  const requiredIndicator = container?.querySelector('[data-draft-schedule-required]');
   const scheduled = blogNextDraftField(type, 'post-status')?.value === 'schedule';
-  if (field) field.hidden = !scheduled;
-  if (input) input.required = scheduled;
+  if (field) field.dataset.dependencyActive = String(scheduled);
+  if (input) {
+    input.disabled = !scheduled;
+    input.required = scheduled;
+  }
+  if (requiredIndicator) requiredIndicator.hidden = !scheduled;
+}
+
+function syncBlogNextDraftProviderFields(type) {
+  const container = blogNextDraftContainer(type);
+  if (!container) return;
+  const naverSelected = blogNextDraftField(type, 'target-naver')?.checked === true;
+  const wordpressSelected = blogNextDraftField(type, 'target-wordpress')?.checked === true;
+  container.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
+    const active = field.dataset.draftProviderField === 'naver' ? naverSelected : wordpressSelected;
+    field.dataset.dependencyActive = String(active);
+    field.querySelectorAll('input, select, textarea').forEach((control) => {
+      control.disabled = !active;
+    });
+  });
+  syncBlogNextDraftSettingsSummary(type);
 }
 
 async function serializeBlogNextFolderFiles(files = [], options = {}) {
@@ -94,24 +130,42 @@ async function buildBlogNextDraftPayload(type, options = {}) {
   };
 }
 
-function setBlogNextDraftValidation(type, validation = null, fallback = '') {
+function summarizeBlogNextDraftWarnings(type, validation = null, preview = null) {
+  const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
+  const missingCount = Number(preview?.stats?.imageMissingCount || 0);
+  if (type !== 'folder' || missingCount === 0) return warnings;
+
+  const imageWarningPattern = /^\d+_image 규칙의 이미지 파일을 찾지 못했습니다\./;
+  const imageWarnings = warnings.filter(message => imageWarningPattern.test(String(message || '')));
+  if (imageWarnings.length === 0) return warnings;
+
+  return [
+    `이미지 ${missingCount}개를 확인해 주세요.`,
+    ...warnings.filter(message => !imageWarningPattern.test(String(message || '')))
+  ];
+}
+
+function setBlogNextDraftValidation(type, validation = null, fallback = '', preview = null) {
   const element = document.querySelector(`[data-blog-next-draft-validation="${type}"]`);
   if (!element) return;
   element.classList.remove('has-error', 'has-warning', 'is-ok');
   const errors = Array.isArray(validation?.errors) ? validation.errors : [];
-  const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
+  const warnings = summarizeBlogNextDraftWarnings(type, validation, preview);
+  let message = '';
   if (errors.length > 0) {
     element.classList.add('has-error');
-    element.textContent = errors.join('\n');
+    message = errors.join('\n');
   } else if (warnings.length > 0) {
     element.classList.add('has-warning');
-    element.textContent = warnings.join('\n');
-  } else if (validation?.ok === true) {
+    message = warnings.join('\n');
+  } else if (validation?.ok === true && type !== 'folder') {
     element.classList.add('is-ok');
-    element.textContent = '검증을 통과했습니다. 현재 원고를 바로 포스팅할 수 있습니다.';
+    message = '검증을 통과했습니다. 현재 원고를 바로 포스팅할 수 있습니다.';
   } else {
-    element.textContent = fallback;
+    message = fallback;
   }
+  element.textContent = message;
+  element.hidden = !message;
 }
 
 function revokeBlogNextDraftImageUrls() {
@@ -173,7 +227,7 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
       const previewUrl = image?.exists ? getBlogNextDraftImageUrl(type, image.imagePath) : '';
       const imageBody = previewUrl
         ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy">`
-        : '<div class="local-markdown-inline-image-missing">매칭되는 로컬 이미지가 없습니다.</div>';
+        : '<div class="local-markdown-inline-image-missing">이미지 파일 없음</div>';
       fragments.push(`<figure>${imageBody}<figcaption>
         <div class="image-caption-title">${escapeHtml(image?.title || item.text || `IMAGE_${item.index}`)}</div>
         ${image?.prompt || item.prompt ? `<div class="image-caption-prompt">${escapeHtml(image?.prompt || item.prompt || '')}</div>` : ''}
@@ -191,8 +245,20 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
 function renderBlogNextDraftImages(type, preview = {}) {
   const imageItems = Array.isArray(preview.images) ? preview.images : [];
   if (imageItems.length === 0) return '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>';
-  return imageItems.map((image) => {
+  const visibleItems = type === 'folder'
+    ? imageItems.filter(image => !image.exists)
+    : imageItems;
+  return visibleItems.map((image) => {
     const previewUrl = image.exists ? getBlogNextDraftImageUrl(type, image.imagePath) : '';
+    if (type === 'folder') {
+      return `<article class="local-markdown-image-card is-missing">
+        <div class="local-markdown-image-card-header">
+          <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
+          <span class="local-markdown-image-card-status missing">파일 없음</span>
+        </div>
+        ${image.prompt ? `<p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt)}</p>` : ''}
+      </article>`;
+    }
     const previewContent = previewUrl
       ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image.title || '')}" loading="lazy">`
       : '<div class="local-markdown-image-card-placeholder">매칭되는 로컬 이미지가 없습니다.</div>';
@@ -223,9 +289,11 @@ function renderBlogNextDraftPreview(type, preview = null) {
   const meta = container.querySelector('[data-draft-preview-meta]');
   const body = container.querySelector('[data-draft-preview-body]');
   const images = container.querySelector('[data-draft-preview-images]');
+  const imageDetails = container.querySelector('[data-draft-preview-image-details]');
+  const imageSummary = container.querySelector('[data-draft-preview-image-summary]');
   if (title) title.textContent = preview.title || '제목 없음';
+  const stats = preview.stats || {};
   if (meta) {
-    const stats = preview.stats || {};
     meta.textContent = [
       preview.source?.folderName || preview.source?.fileName || '',
       `본문 ${stats.contentCount || 0}개`,
@@ -234,8 +302,12 @@ function renderBlogNextDraftPreview(type, preview = null) {
   }
   if (body) body.innerHTML = renderBlogNextDraftBodyHtml(type, preview);
   if (images) images.innerHTML = renderBlogNextDraftImages(type, preview);
-  setLocalMarkdownPreviewDensity(container, body, images, preview.stats || {});
-  setBlogNextDraftValidation(type, preview.validation);
+  if (imageDetails) imageDetails.hidden = Number(stats.imageMissingCount || 0) === 0;
+  if (imageSummary) {
+    imageSummary.textContent = `누락 ${stats.imageMissingCount || 0}개`;
+  }
+  setLocalMarkdownPreviewDensity(container, body, images, stats);
+  setBlogNextDraftValidation(type, preview.validation, '', preview);
 }
 
 async function loadBlogNextDraftPreview(type) {
@@ -248,10 +320,13 @@ async function loadBlogNextDraftPreview(type) {
     renderBlogNextDraftPreview(type, null);
     setBlogNextDraftValidation(type, null, type === 'paste'
       ? 'Markdown 원고를 붙여넣어 주세요.'
-      : '원고 폴더를 선택해 주세요.');
+      : '');
     return null;
   }
   try {
+    if (type === 'folder' && !state.preview) {
+      setBlogNextDraftValidation(type, null, '원고를 확인하고 있습니다.');
+    }
     const payload = await buildBlogNextDraftPayload(type);
     const preview = await postJson('/api/v1/blog/local-markdown/preview', payload);
     if (requestId !== state.requestId) return null;
@@ -369,23 +444,62 @@ function clearBlogNextFolderDraft() {
   state.preview = null;
   state.requestId += 1;
   const input = document.getElementById('blog-next-folder-input');
+  if (input) input.value = '';
+  syncBlogNextFolderSelection();
+  renderBlogNextDraftPreview('folder', null);
+  setBlogNextDraftValidation('folder');
+}
+
+function syncBlogNextFolderSelection(folderName = '') {
+  const selection = document.querySelector('.blog-next-folder-selection');
   const path = document.getElementById('blog-next-folder-path');
   const clear = document.getElementById('blog-next-folder-clear');
-  if (input) input.value = '';
-  if (path) path.value = '';
-  if (clear) clear.hidden = true;
-  renderBlogNextDraftPreview('folder', null);
-  setBlogNextDraftValidation('folder', null, '원고 폴더를 선택해 주세요.');
+  const select = document.getElementById('blog-next-folder-select');
+  const selected = Boolean(folderName);
+  if (selection) {
+    selection.dataset.empty = String(!selected);
+    selection.title = selected ? folderName : '';
+  }
+  if (path) path.textContent = selected ? folderName : '아직 선택하지 않았습니다';
+  if (clear) clear.hidden = !selected;
+  if (select) select.textContent = selected ? '원고 폴더 변경' : '원고 폴더 선택';
 }
 
 function clearBlogNextPastedDraft() {
   const input = document.getElementById('blog-next-paste-markdown');
+  const currentValue = input?.value || '';
+  if (!currentValue) return;
+  blogNextDraftState.paste.clearSnapshot = currentValue;
   if (input) input.value = '';
   localStorage.removeItem('blog_next_pasted_markdown_draft');
   blogNextDraftState.paste.preview = null;
   blogNextDraftState.paste.requestId += 1;
   renderBlogNextDraftPreview('paste', null);
   setBlogNextDraftValidation('paste', null, 'Markdown 원고를 붙여넣어 주세요.');
+  const undo = document.getElementById('blog-next-paste-clear-undo');
+  if (undo) undo.hidden = false;
+  input?.focus();
+}
+
+function discardBlogNextPastedClearSnapshot() {
+  blogNextDraftState.paste.clearSnapshot = null;
+  const undo = document.getElementById('blog-next-paste-clear-undo');
+  if (undo) undo.hidden = true;
+}
+
+function restoreBlogNextPastedDraft() {
+  const snapshot = blogNextDraftState.paste.clearSnapshot;
+  const input = document.getElementById('blog-next-paste-markdown');
+  if (!snapshot || !input) return;
+  input.value = snapshot;
+  try {
+    localStorage.setItem('blog_next_pasted_markdown_draft', snapshot);
+  } catch (_error) {
+    // The restored live input remains usable when browser storage is full.
+  }
+  discardBlogNextPastedClearSnapshot();
+  scheduleBlogNextDraftPreview('paste');
+  input.focus();
 }
 
 function bindBlogNextDraftOptions(type) {
@@ -393,12 +507,18 @@ function bindBlogNextDraftOptions(type) {
   container?.querySelectorAll('[data-draft-field]').forEach((field) => {
     field.addEventListener('change', () => {
       if (field.dataset.draftField === 'post-status') syncBlogNextDraftSchedule(type);
+      if (field.dataset.draftField === 'target-naver' || field.dataset.draftField === 'target-wordpress') {
+        syncBlogNextDraftProviderFields(type);
+      }
+      syncBlogNextDraftSettingsSummary(type);
       scheduleBlogNextDraftPreview(type);
     });
   });
   document.querySelector(`[data-blog-next-draft-publish="${type}"]`)
     ?.addEventListener('click', () => publishBlogNextDraft(type));
   syncBlogNextDraftSchedule(type);
+  syncBlogNextDraftProviderFields(type);
+  syncBlogNextDraftSettingsSummary(type);
 }
 
 function initBlogNextDraftInputs() {
@@ -414,11 +534,9 @@ function initBlogNextDraftInputs() {
     const folderName = firstPath.includes('/') ? firstPath.split('/')[0] : '';
     blogNextDraftState.folder.files = files;
     blogNextDraftState.folder.folderName = folderName;
-    const path = document.getElementById('blog-next-folder-path');
-    const clear = document.getElementById('blog-next-folder-clear');
-    if (path) path.value = folderName;
-    if (clear) clear.hidden = files.length === 0;
+    syncBlogNextFolderSelection(folderName);
     event.target.value = '';
+    renderBlogNextDraftPreview('folder', null);
     await loadBlogNextDraftPreview('folder');
   });
 
@@ -426,6 +544,7 @@ function initBlogNextDraftInputs() {
   if (pastedInput) {
     pastedInput.value = localStorage.getItem('blog_next_pasted_markdown_draft') || '';
     pastedInput.addEventListener('input', () => {
+      if (blogNextDraftState.paste.clearSnapshot !== null) discardBlogNextPastedClearSnapshot();
       try {
         localStorage.setItem('blog_next_pasted_markdown_draft', pastedInput.value);
       } catch (_error) {
@@ -436,5 +555,6 @@ function initBlogNextDraftInputs() {
     if (pastedInput.value.trim()) scheduleBlogNextDraftPreview('paste');
   }
   document.getElementById('blog-next-paste-clear')?.addEventListener('click', clearBlogNextPastedDraft);
+  document.getElementById('blog-next-paste-clear-undo')?.addEventListener('click', restoreBlogNextPastedDraft);
   BLOG_NEXT_DRAFT_TYPES.forEach(bindBlogNextDraftOptions);
 }

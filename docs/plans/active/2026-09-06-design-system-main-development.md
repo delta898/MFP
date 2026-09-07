@@ -136,6 +136,8 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: Stage 5를 parent에 통합하고 `codex/feature/design-system-06-blog-beta-quick-flow`에서 기본 경로, progressive disclosure, 설정 summary와 AI Assist pattern을 목표로 6단계를 시작했다. 세부 기록은 [6단계 개발 기록](2026-09-07-design-system-06-blog-beta-quick-flow-development.md)을 따른다.
 - 2026-09-07: Stage 6 본 작업 전에 UI root 활성 style을 주 style인 Warm Editorial로 복원했다. Quiet Sage Studio는 두 번째 정식 style로 유지해 이후 선택·확장 검증에 사용한다.
 - 2026-09-07: Stage 6에서 `빠른 글 작성 → 바로 생성`을 progressive disclosure와 설정 summary 중심으로 재구성하고 AI Assist, 복구 가능한 지우기, tooltip·surface·종속 field·provider 옵션 기준을 확립했다. 사용자 UI 검토와 Full TC 1,498 passed, 0 failed, 1 skipped를 거쳐 parent 통합을 준비했다. 세부 기록은 [6단계 개발 기록](../archive/2026-09-07-design-system-06-blog-beta-quick-flow-development.md)을 따른다.
+- 2026-09-07: `codex/feature/design-system-07-blog-beta-baseline`에서 남은 빠른 작성 mode와 네 개 panel의 상태·접근성·반응형 gap을 정리해 Blog Beta 기준면을 완성하는 7단계를 시작했다. 세부 기록은 [7단계 개발 기록](2026-09-07-design-system-07-blog-beta-baseline-development.md)을 따른다.
+- 2026-09-07: Stage 7 구현에서 원고 mode의 공유 발행 설정과 복구, 트렌드·글감 관리 async 상태, 스마트 댓글 model role, 연속 발행 종속 field를 공통 기준에 맞췄다. focused contract 64개와 browser smoke 235 fixture request를 통과했으며 사용자 UI 검토를 기다린다.
 
 ## Design Principles 필수 검토 일정
 

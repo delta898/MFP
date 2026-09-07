@@ -102,6 +102,8 @@
 ## Cards and surfaces
 
 - card는 실제 정보 그룹을 표현할 때만 사용한다.
+- 제목 아래 metadata는 사용자의 다음 판단이나 행동에 필요한 정보만 둔다. 같은 화면에서 이미 확인 가능한 source
+  이름이나 사용자가 해석하기 어려운 내부 block 수처럼 중복·구현 중심인 값은 요약을 풍성하게 보이기 위해 반복하지 않는다.
 - style은 card background, border, radius와 elevation을 바꿀 수 있다.
 - 모든 card가 hover에서 떠오를 필요는 없다. 클릭 가능성이나 의미가 없으면 움직임을 사용하지 않는다.
 - card 안에 같은 역할의 card를 반복해서 중첩하지 않는다.
@@ -126,6 +128,9 @@
 - field border와 focus ring은 canvas와 surface 모두에서 보여야 한다.
 - error와 success는 색상 외에 문구 또는 상태 표시를 함께 사용한다.
 - 입력 중이거나 실패한 요청 때문에 기존 사용자 값을 임의로 지우지 않는다.
+- file, folder처럼 picker가 결정한 값을 보여주는 영역은 편집 가능한 text field처럼 표현하지 않는다. 선택 결과는
+  읽기 전용 summary로 표시하고, 변경과 지우기는 이름이 분명한 별도 action으로 제공한다. 긴 값은 한 줄에서
+  생략할 수 있지만 전체 값은 accessible name이나 보충 설명으로 확인할 수 있어야 한다.
 - 일반 크기의 input, select와 disclosure에 붙는 우측 affordance는 공통 trailing inset을 사용해 같은 기준선과 충분한 클릭 여백을 만든다. icon과 화살표 모양은 기능에 따라 달라도 anchor 위치는 맞춘다.
 - 같은 form과 density 안의 동일한 select에는 이 기준을 빠짐없이 적용한다. compact control처럼 밀도가 다른 component만 별도 inset을 사용할 수 있으며, 예외는 사용 맥락과 적용 범위가 분명해야 한다. 획일적인 형태보다 예측 가능한 정렬·간격 규칙을 우선한다.
 - 같은 화면의 인접 선택으로 활성화할 수 있고 기능의 존재·의존 관계나 안정적인 layout을 보여주는 편이 유용한 종속 field는 표시한 채 disabled 처리한다. 활성화 조건을 가까운 문구로 설명하고 색상만으로 상태를 전달하지 않는다.
@@ -150,6 +155,27 @@
 - 되돌리기는 원래 field 값과 연결된 출처 context를 함께 복원하고 합리적인 첫 입력점으로 focus를 돌려준다.
 - 새 입력을 시작하거나 저장·발행 등 후속 상태 전이가 발생하면 오래된 복구 snapshot을 폐기한다.
 
+## Async status and collection states
+
+- 비동기 작업을 소유한 form, 목록 또는 결과 영역은 자신의 `loading`, `empty`, `error`, `success` 상태를
+  가까운 status surface와 접근성 속성으로 표현한다. 다른 화면이나 인접 form의 status 영역을 빌려 쓰지 않는다.
+- 필수 source를 아직 제공하지 않은 `idle` 상태에서는 결과 placeholder, 빈 preview와 source control이 이미
+  전달하는 안내를 반복 노출하지 않는다. source가 제공된 뒤에만 loading, 결과, warning 또는 error를 보여준다.
+- 같은 원인의 warning이 여러 건이면 상위 status에는 건수와 사용자 영향만 한 번 요약하고, 대상별 식별 정보는
+  결과 안의 상세 목록에 둔다. 같은 조치 문장을 항목마다 반복하지 않는다.
+- 결과 자체에서 문제 위치를 볼 수 있다면 해당 위치에는 짧은 상태만 표시하고, 인접 상세 목록에는 조치가 필요한
+  항목만 모은다. 정상 항목까지 진단 목록에 반복하거나 플랫폼마다 달라지는 결과를 모호한 가능성 문구로 일반화하지 않는다.
+- loading 중에는 실행 control을 잠그고 `aria-busy` 또는 명시적인 진행 문구로 중복 실행 방지 이유를 알린다.
+  기존에 유효한 목록이나 결과가 있으면 새 요청 중에도 지우지 않는다.
+- 최초 load 실패처럼 보여줄 유효한 내용이 없을 때는 해당 content 영역 안에 error state와 재시도 방향을 둔다.
+  갱신 실패처럼 마지막 정상 내용이 있을 때는 내용을 보존하고 별도 error status로 실패 사실을 알린다.
+- empty는 오류가 아니다. 조회 전 `idle`, 정상 요청의 결과 없음 `empty`, 사용자가 적용한 filter의 결과 없음
+  `filtered empty`를 문구와 상태로 구분하고 다음 행동을 가까이 제안한다.
+- 작업의 일시적인 성공·실패 feedback과 장기적인 예약·실행 요약은 별도 역할이다. 새 feedback이 기존 운영
+  summary를 덮어쓰거나 반대로 오래된 summary가 현재 요청 실패를 숨기지 않게 한다.
+- 결과를 만드는 AI action은 사용하는 model role을 실행 전 확인할 수 있게 하고, 실행 중 중복 요청을 막으며,
+  새 요청 실패 시 마지막 성공 결과를 유지한다.
+
 ## Tab panels and content start
 
 - 같은 수준의 top-level tab은 하나의 공통 content frame과 panel inset을 사용한다.
@@ -168,6 +194,9 @@
 
 - `블로그 Beta` 빠른 글 작성: 내용 지우기 / 글감 보관 / 대기열 추가 / 바로 포스팅
 - `블로그 Beta` 빠른 글 작성 보조: AI Assist / 설정 summary disclosure / 내용 지우기 되돌리기
+- `블로그 Beta` 원고 폴더·붙여넣기: 공유 발행 설정 / 예약·provider 종속 field / 붙여넣기 되돌리기
+- `블로그 Beta` 트렌드 포스팅: 조회 전·loading·empty·filtered empty·error·결과 상태
+- `블로그 Beta` 글감 관리: 목록 loading·empty·error / 갱신 실패 시 마지막 정상 목록 보존
 - `블로그 Beta` Smart Comment: 설정 저장 / 댓글 초안 만들기
 - `블로그 Beta` 연속 발행 설정: 30초 테스트 / 설정 저장
 - `블로그 Beta` 갱신: 최신 데이터 부분 갱신 / 글감 관리 panel 새로고침

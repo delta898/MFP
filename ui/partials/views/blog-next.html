@@ -37,15 +37,19 @@
             </div>
           </div>
           <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav" role="tablist" aria-label="빠른 글 작성 입력 방식">
-            <button class="blog-next-mode-btn active" type="button" role="tab" aria-selected="true"
+            <button class="blog-next-mode-btn active" id="blog-next-mode-tab-ai" type="button" role="tab" aria-selected="true" tabindex="0"
+              aria-controls="blog-next-mode-panel-ai"
               data-blog-next-input-mode="ai" title="주제나 키워드로 새 글을 만듭니다.">바로 생성</button>
-            <button class="blog-next-mode-btn" type="button" role="tab" aria-selected="false"
+            <button class="blog-next-mode-btn" id="blog-next-mode-tab-folder" type="button" role="tab" aria-selected="false" tabindex="-1"
+              aria-controls="blog-next-mode-panel-folder"
               data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.">원고 폴더</button>
-            <button class="blog-next-mode-btn" type="button" role="tab" aria-selected="false"
+            <button class="blog-next-mode-btn" id="blog-next-mode-tab-paste" type="button" role="tab" aria-selected="false" tabindex="-1"
+              aria-controls="blog-next-mode-panel-paste"
               data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 붙여넣어 바로 포스팅합니다.">원고 붙여넣기</button>
           </div>
 
-          <div class="blog-next-mode-panel active" data-blog-next-mode-panel="ai">
+          <div class="blog-next-mode-panel active" id="blog-next-mode-panel-ai" role="tabpanel"
+            aria-labelledby="blog-next-mode-tab-ai" data-blog-next-mode-panel="ai">
             <div id="blog-next-topic-form-home">
             <form id="blog-next-topic-form" class="blog-next-topic-form">
               <div class="blog-next-form-grid blog-next-core-fields">
@@ -203,98 +207,7 @@
             </form>
             </div>
           </div>
-          <div class="blog-next-mode-panel" data-blog-next-mode-panel="folder" hidden>
-            <div class="blog-next-field blog-next-field-wide blog-next-folder-field">
-              <label for="blog-next-folder-path">선택한 원고 폴더</label>
-              <div class="blog-next-folder-row">
-                <div class="blog-next-folder-path">
-                  <input id="blog-next-folder-path" type="text" placeholder="아직 폴더를 선택하지 않았습니다" readonly>
-                  <button id="blog-next-folder-clear" class="blog-next-folder-clear" type="button" aria-label="선택 지우기" title="선택 지우기" hidden>×</button>
-                </div>
-                <button class="secondary blog-next-folder-select" id="blog-next-folder-select" type="button">원고 폴더 선택</button>
-              </div>
-              <input id="blog-next-folder-input" type="file" webkitdirectory directory multiple hidden>
-            </div>
-            <div class="blog-next-draft-options" data-blog-next-draft-options="folder">
-              <label class="blog-next-field"><span>네이버 카테고리</span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리"></label>
-              <label class="blog-next-field"><span>워드프레스 카테고리</span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily"></label>
-              <label class="blog-next-field"><span>포스팅 옵션</span><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></label>
-              <label class="blog-next-field" data-draft-schedule-field hidden><span>예약 일시</span><input data-draft-field="schedule-date" type="datetime-local"></label>
-              <label class="blog-next-field"><span>이미지 처리</span><select data-draft-field="image-mode"><option value="generate">이미지 생성</option><option value="prompt_only" selected>이미지 프롬프트만 포함</option><option value="none">이미지 사용 안 함</option></select></label>
-            </div>
-            <div class="blog-next-draft-actions" data-blog-next-draft-actions="folder">
-              <div class="blog-next-draft-targets">
-                <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
-                <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
-                <label class="blog-next-draft-headless"><input id="blog-next-folder-headless"
-                  data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
-              </div>
-              <button class="primary" data-blog-next-draft-publish="folder" type="button" disabled>포스팅 실행</button>
-            </div>
-            <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder">원고 폴더를 선택해 주세요.</div>
-            <div class="blog-next-draft-preview local-markdown-preview-panel" data-blog-next-draft-preview="folder" hidden>
-              <div class="local-markdown-preview-head">
-                <div>
-                  <h4 data-draft-preview-title>제목 없음</h4>
-                  <div class="local-markdown-preview-meta" data-draft-preview-meta>-</div>
-                </div>
-              </div>
-              <div class="local-markdown-preview-sections">
-                <section class="local-markdown-preview-section local-markdown-preview-section-main">
-                  <h5>본문 Preview</h5>
-                  <div class="local-markdown-body-preview" data-draft-preview-body></div>
-                </section>
-                <section class="local-markdown-preview-section">
-                  <h5>이미지 매칭</h5>
-                  <div class="local-markdown-image-list" data-draft-preview-images></div>
-                </section>
-              </div>
-            </div>
-            <pre class="blog-next-draft-result" data-blog-next-draft-result="folder"></pre>
-          </div>
-          <div class="blog-next-mode-panel" data-blog-next-mode-panel="paste" hidden>
-            <label class="blog-next-field blog-next-field-wide">
-              <span>Markdown 원고</span>
-              <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
-            </label>
-            <div class="blog-next-draft-toolbar"><button class="ghost" id="blog-next-paste-clear" type="button">내용 지우기</button></div>
-            <div class="blog-next-draft-options" data-blog-next-draft-options="paste">
-              <label class="blog-next-field"><span>네이버 카테고리</span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리"></label>
-              <label class="blog-next-field"><span>워드프레스 카테고리</span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily"></label>
-              <label class="blog-next-field"><span>포스팅 옵션</span><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></label>
-              <label class="blog-next-field" data-draft-schedule-field hidden><span>예약 일시</span><input data-draft-field="schedule-date" type="datetime-local"></label>
-              <label class="blog-next-field"><span>이미지 처리</span><select data-draft-field="image-mode"><option value="generate">이미지 생성</option><option value="prompt_only" selected>이미지 프롬프트만 포함</option><option value="none">이미지 사용 안 함</option></select></label>
-            </div>
-            <div class="blog-next-draft-actions" data-blog-next-draft-actions="paste">
-              <div class="blog-next-draft-targets">
-                <label><input data-draft-field="target-naver" type="checkbox" checked> 네이버 블로그</label>
-                <label><input data-draft-field="target-wordpress" type="checkbox"> 워드프레스</label>
-                <label class="blog-next-draft-headless"><input id="blog-next-paste-headless"
-                  data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
-              </div>
-              <button class="primary" data-blog-next-draft-publish="paste" type="button" disabled>포스팅 실행</button>
-            </div>
-            <div class="blog-next-draft-validation" data-blog-next-draft-validation="paste">Markdown 원고를 붙여넣어 주세요.</div>
-            <div class="blog-next-draft-preview local-markdown-preview-panel" data-blog-next-draft-preview="paste" hidden>
-              <div class="local-markdown-preview-head">
-                <div>
-                  <h4 data-draft-preview-title>제목 없음</h4>
-                  <div class="local-markdown-preview-meta" data-draft-preview-meta>-</div>
-                </div>
-              </div>
-              <div class="local-markdown-preview-sections">
-                <section class="local-markdown-preview-section local-markdown-preview-section-main">
-                  <h5>본문 Preview</h5>
-                  <div class="local-markdown-body-preview" data-draft-preview-body></div>
-                </section>
-                <section class="local-markdown-preview-section">
-                  <h5>이미지 매칭</h5>
-                  <div class="local-markdown-image-list" data-draft-preview-images></div>
-                </section>
-              </div>
-            </div>
-            <pre class="blog-next-draft-result" data-blog-next-draft-result="paste"></pre>
-          </div>
+          <!-- @include blog-next/quick-draft-modes.html -->
         </section>
 
         <section class="card form-card blog-next-panel trend-posting-panel" id="blog-next-panel-trend-posting" role="tabpanel"
@@ -349,15 +262,15 @@
             </div>
           </div>
 
-          <div id="blog-next-trend-status" class="trend-posting-status">조회 조건을 선택해 주세요.</div>
-          <div id="blog-next-trend-filters" class="auto-section trend-posting-result-filters">
+          <div id="blog-next-trend-status" class="trend-posting-status" data-state="idle" role="status" aria-live="polite">조회 조건을 선택해 주세요.</div>
+          <div id="blog-next-trend-filters" class="auto-section trend-posting-result-filters" aria-disabled="true">
             <div class="trend-posting-filter-summary">
               <span class="field-label-text">결과 필터</span>
               <span id="blog-next-trend-filter-count" class="category-meta">조회 후 사용할 수 있습니다.</span>
             </div>
             <input id="blog-next-trend-filter-keyword" class="trend-posting-filter-keyword" type="search"
-              aria-label="결과 내 키워드 검색" placeholder="결과 내 키워드 검색">
-            <select id="blog-next-trend-filter-view" class="trend-posting-filter-view" aria-label="결과 보기">
+              aria-label="결과 내 키워드 검색" placeholder="결과 내 키워드 검색" disabled>
+            <select id="blog-next-trend-filter-view" class="trend-posting-filter-view" aria-label="결과 보기" disabled>
               <option value="all">전체</option>
               <option value="up">상승 전체</option>
               <option value="top10">급상승 Top 10</option>
@@ -365,17 +278,17 @@
               <option value="down">하락</option>
               <option value="steady">변화 없음</option>
             </select>
-            <button id="blog-next-trend-filter-reset" class="secondary compact" type="button">초기화</button>
+            <button id="blog-next-trend-filter-reset" class="secondary compact" type="button" disabled>초기화</button>
           </div>
           <div class="table-responsive">
-            <div class="table-wrap trend-posting-table-wrap">
+            <div class="table-wrap trend-posting-table-wrap" aria-busy="false">
               <table class="data-table trend-posting-table">
                 <colgroup>
                   <col class="trend-posting-col-category"><col class="trend-posting-col-date">
                   <col class="trend-posting-col-keyword"><col class="trend-posting-col-change"><col class="trend-posting-col-actions">
                 </colgroup>
                 <thead><tr><th>트렌드 카테고리</th><th>최신 반영일</th><th>키워드</th><th>변화</th><th>작업</th></tr></thead>
-                <tbody id="blog-next-trend-results"><tr><td colspan="5">아직 조회하지 않았습니다.</td></tr></tbody>
+                <tbody id="blog-next-trend-results" data-state="idle"><tr class="blog-next-state-row"><td colspan="5">아직 조회하지 않았습니다.</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -391,22 +304,31 @@
           </div>
           <div class="blog-next-management-tabs blog-next-panel-local-nav">
             <div class="blog-next-management-tab-list blog-next-segmented-nav" role="tablist" aria-label="글감 상태">
-              <button class="blog-next-management-tab active" type="button" role="tab" aria-selected="true"
+              <button class="blog-next-management-tab active" id="blog-next-management-tab-ready" type="button" role="tab"
+                aria-selected="true" aria-controls="blog-next-management-panel-ready" tabindex="0"
                 data-blog-next-management-tab="ready">발행 대기열 <strong id="blog-next-queue-count">확인 중</strong></button>
-              <button class="blog-next-management-tab" type="button" role="tab" aria-selected="false"
+              <button class="blog-next-management-tab" id="blog-next-management-tab-saved" type="button" role="tab"
+                aria-selected="false" aria-controls="blog-next-management-panel-saved" tabindex="-1"
                 data-blog-next-management-tab="saved">보관한 글감 <strong id="blog-next-saved-count">확인 중</strong></button>
             </div>
             <div class="blog-next-management-actions">
               <button class="secondary compact ui-refresh-action ui-refresh-action-text blog-next-management-refresh"
-                id="blog-next-queue-refresh" type="button">새로고침</button>
+                id="blog-next-queue-refresh" type="button" aria-busy="false">새로고침</button>
             </div>
           </div>
+          <p class="blog-next-management-status" id="blog-next-management-status" data-state="idle" role="status" aria-live="polite" hidden></p>
           <div class="blog-next-management-panels">
-            <section class="blog-next-management-panel active" data-blog-next-management-panel="ready" role="tabpanel">
-              <div id="blog-next-queue-list" class="blog-next-queue-list" aria-live="polite"></div>
+            <section class="blog-next-management-panel active" id="blog-next-management-panel-ready" data-blog-next-management-panel="ready"
+              role="tabpanel" aria-labelledby="blog-next-management-tab-ready">
+              <div id="blog-next-queue-list" class="blog-next-queue-list" data-state="loading" aria-live="polite" aria-busy="true">
+                <div class="blog-next-empty-state is-loading"><strong>발행 대기열을 확인하고 있습니다.</strong></div>
+              </div>
             </section>
-            <section class="blog-next-management-panel" data-blog-next-management-panel="saved" role="tabpanel" hidden>
-              <div id="blog-next-saved-list" class="blog-next-queue-list" aria-live="polite"></div>
+            <section class="blog-next-management-panel" id="blog-next-management-panel-saved" data-blog-next-management-panel="saved"
+              role="tabpanel" aria-labelledby="blog-next-management-tab-saved" hidden>
+              <div id="blog-next-saved-list" class="blog-next-queue-list" data-state="loading" aria-live="polite" aria-busy="true">
+                <div class="blog-next-empty-state is-loading"><strong>보관한 글감을 확인하고 있습니다.</strong></div>
+              </div>
             </section>
           </div>
         </section>
@@ -427,31 +349,31 @@
             <div class="blog-next-smart-comment-settings">
               <label class="blog-next-field">
                 <span>후보 글</span>
-                <select id="blog-next-smart-comment-fetch-limit">
+                <span class="blog-next-select-shell"><select id="blog-next-smart-comment-fetch-limit" disabled>
                   <option value="3">3개 · 권장</option>
                   <option value="5">5개</option>
                   <option value="10">10개 · AI 사용량 높음</option>
-                </select>
+                </select></span>
               </label>
               <label class="blog-next-field">
                 <span>댓글 길이</span>
-                <select id="blog-next-smart-comment-max-chars">
+                <span class="blog-next-select-shell"><select id="blog-next-smart-comment-max-chars" disabled>
                   <option value="40">짧게 · 약 40자</option>
                   <option value="60">보통 · 약 60자</option>
                   <option value="100">길게 · 약 100자</option>
-                </select>
+                </select></span>
               </label>
             </div>
             <p class="blog-next-smart-comment-guidance">각 후보에 공감형·친근형·담백형 댓글을 하나씩 제안합니다. 3개부터 시작하면 AI 사용 한도 부담을 줄일 수 있습니다.</p>
-            <details class="blog-next-smart-comment-details">
-              <summary>세부 설정</summary>
-              <div class="blog-next-smart-comment-detail-fields">
+            <details class="blog-next-disclosure blog-next-smart-comment-details">
+              <summary><strong>세부 설정</strong><span id="blog-next-smart-comment-settings-summary">글쓰기 모델 사용</span></summary>
+              <div class="blog-next-disclosure-grid blog-next-smart-comment-detail-fields">
                 <label class="blog-next-field">
                   <span>사용할 AI</span>
-                  <select id="blog-next-smart-comment-ai-mode">
+                  <span class="blog-next-select-shell"><select id="blog-next-smart-comment-ai-mode" disabled>
                     <option value="default">글쓰기 모델</option>
                     <option value="custom">Chat Model</option>
-                  </select>
+                  </select></span>
                 </label>
                 <label class="blog-next-smart-comment-diagnostic" id="blog-next-smart-comment-diagnostic" hidden>
                   <input id="blog-next-smart-comment-show-browser" type="checkbox">
@@ -460,8 +382,10 @@
               </div>
             </details>
             <div class="blog-next-smart-comment-form-actions">
+              <span class="blog-next-smart-comment-model-role" id="blog-next-smart-comment-model-role">현재: 글쓰기 모델</span>
               <button class="secondary" id="blog-next-smart-comment-save" type="submit" disabled>설정 저장</button>
-              <button class="primary" id="blog-next-smart-comment-run" type="button">댓글 초안 만들기</button>
+              <button class="primary" id="blog-next-smart-comment-run" type="button"
+                aria-describedby="blog-next-smart-comment-model-role" disabled>댓글 초안 만들기</button>
             </div>
           </form>
 
@@ -484,7 +408,7 @@
                 <p id="blog-next-smart-comment-summary">아직 만든 댓글이 없습니다.</p>
               </div>
             </div>
-            <div id="blog-next-smart-comment-list" class="blog-next-smart-comment-list" aria-live="polite">
+            <div id="blog-next-smart-comment-list" class="blog-next-smart-comment-list" data-state="idle" aria-live="polite" aria-busy="false">
               <div class="blog-next-smart-comment-empty">
                 <strong>댓글 초안을 준비해 보세요.</strong>
                 <p>완성된 댓글을 확인한 뒤 복사해서 사용할 수 있습니다.</p>

@@ -10,6 +10,26 @@ const blogNextTrendState = {
 
 let blogNextTrendContext = null;
 
+function setBlogNextTrendStatus(state, message) {
+  const status = document.getElementById('blog-next-trend-status');
+  if (!status) return;
+  status.dataset.state = state;
+  status.textContent = message;
+}
+
+function syncBlogNextTrendFilterAvailability() {
+  const filters = document.getElementById('blog-next-trend-filters');
+  const available = !blogNextTrendState.loading && blogNextTrendState.items.length > 0;
+  filters?.setAttribute('aria-disabled', available ? 'false' : 'true');
+  filters?.querySelectorAll('input, select, button').forEach((control) => {
+    control.disabled = !available;
+  });
+}
+
+function setBlogNextTrendTableBusy(busy) {
+  document.querySelector('.trend-posting-table-wrap')?.setAttribute('aria-busy', busy ? 'true' : 'false');
+}
+
 function formatBlogNextTrendDate(value) {
   const parts = String(value || '').split('-').map(Number);
   if (parts.length !== 3 || parts.some(part => !Number.isInteger(part))) return String(value || '');
@@ -121,15 +141,20 @@ function renderBlogNextTrendResults(items) {
     ? `${blogNextTrendState.items.length}개 중 ${visible.length}개 표시`
     : (blogNextTrendState.queryRange ? '0개 중 0개 표시' : '조회 후 사용할 수 있습니다.');
   if (blogNextTrendState.items.length === 0) {
+    body.dataset.state = blogNextTrendState.queryRange ? 'empty' : 'idle';
     body.innerHTML = blogNextTrendState.queryRange
-      ? '<tr><td colspan="5">조건에 맞는 트렌드 키워드가 없습니다.</td></tr>'
-      : '<tr><td colspan="5">아직 조회하지 않았습니다.</td></tr>';
+      ? '<tr class="blog-next-state-row"><td colspan="5"><strong>조건에 맞는 키워드가 없습니다.</strong><span>카테고리나 조회 기간을 바꿔 다시 확인해 보세요.</span></td></tr>'
+      : '<tr class="blog-next-state-row"><td colspan="5">아직 조회하지 않았습니다.</td></tr>';
+    syncBlogNextTrendFilterAvailability();
     return;
   }
   if (visible.length === 0) {
-    body.innerHTML = '<tr><td colspan="5">현재 결과 필터에 맞는 키워드가 없습니다.</td></tr>';
+    body.dataset.state = 'filtered-empty';
+    body.innerHTML = '<tr class="blog-next-state-row"><td colspan="5"><strong>필터에 맞는 키워드가 없습니다.</strong><span>검색어를 지우거나 결과 보기를 변경해 보세요.</span></td></tr>';
+    syncBlogNextTrendFilterAvailability();
     return;
   }
+  body.dataset.state = 'results';
   body.innerHTML = visible.map((item) => {
     const id = String(item.id || '');
     const saved = blogNextTrendState.savedIds.has(`${id}:${String(item.latestTrendDate || '')}`);
@@ -146,12 +171,12 @@ function renderBlogNextTrendResults(items) {
       </div></td>
     </tr>`;
   }).join('');
+  syncBlogNextTrendFilterAvailability();
 }
 
 async function loadBlogNextTrendMeta(options = {}) {
   if (blogNextTrendState.loading) return;
   if (blogNextTrendState.meta && options.force !== true) return;
-  const status = document.getElementById('blog-next-trend-status');
   const queryButton = document.getElementById('blog-next-trend-query');
   const refreshButton = document.getElementById('blog-next-trend-refresh');
   const previousLatest = String(blogNextTrendState.meta?.dateRange?.max || '');
@@ -160,15 +185,16 @@ async function loadBlogNextTrendMeta(options = {}) {
     ? Object.fromEntries(['from', 'to'].map((side) => [side, document.getElementById(`blog-next-trend-date-${side}`)?.value || '']))
     : {};
   blogNextTrendState.loading = true;
+  syncBlogNextTrendFilterAvailability();
   if (queryButton) queryButton.disabled = true;
   if (refreshButton) {
     refreshButton.disabled = true;
     refreshButton.classList.add('is-loading');
     refreshButton.setAttribute('aria-busy', 'true');
   }
-  if (status) status.textContent = options.force === true
+  setBlogNextTrendStatus('loading', options.force === true
     ? '최신 데이터 날짜를 확인하는 중...'
-    : '트렌드 조회 정보를 불러오는 중...';
+    : '트렌드 조회 정보를 불러오는 중...');
   try {
     const meta = await fetchJson('/api/v1/trend-posting/meta');
     blogNextTrendState.meta = meta;
@@ -191,19 +217,18 @@ async function loadBlogNextTrendMeta(options = {}) {
         : latest;
     });
     renderBlogNextTrendCategories(meta?.categories || [], selectedCategories);
-    if (status) {
-      status.textContent = options.force === true
+    setBlogNextTrendStatus('ready', options.force === true
         ? (previousLatest === latest
           ? '이미 최신 데이터입니다.'
           : (label ? `최신 데이터가 ${label}로 갱신되었습니다.` : '최신 날짜를 확인하지 못했습니다.'))
-        : '기간과 트렌드 카테고리를 선택한 뒤 조회하세요.';
-    }
+        : '기간과 트렌드 카테고리를 선택한 뒤 조회하세요.');
   } catch (error) {
-    if (status) status.textContent = options.force === true
+    setBlogNextTrendStatus('error', options.force === true
       ? `최신 데이터 날짜를 확인하지 못했습니다: ${error.message}`
-      : `조회 정보를 불러오지 못했습니다: ${error.message}`;
+      : `조회 정보를 불러오지 못했습니다: ${error.message}`);
   } finally {
     blogNextTrendState.loading = false;
+    syncBlogNextTrendFilterAvailability();
     const currentMeta = blogNextTrendState.meta;
     if (queryButton) queryButton.disabled = !String(currentMeta?.dateRange?.max || '')
       || !Array.isArray(currentMeta?.categories) || currentMeta.categories.length === 0;
@@ -234,13 +259,14 @@ async function queryBlogNextTrends() {
     await showUiPopup('직접 지정 기간은 최대 31일까지 조회할 수 있습니다.');
     return;
   }
-  const status = document.getElementById('blog-next-trend-status');
   const queryButton = document.getElementById('blog-next-trend-query');
   const refreshButton = document.getElementById('blog-next-trend-refresh');
   blogNextTrendState.loading = true;
+  syncBlogNextTrendFilterAvailability();
+  setBlogNextTrendTableBusy(true);
   if (queryButton) queryButton.disabled = true;
   if (refreshButton) refreshButton.disabled = true;
-  if (status) status.textContent = '트렌드 키워드를 조회하는 중...';
+  setBlogNextTrendStatus('loading', '트렌드 키워드를 조회하는 중...');
   try {
     const params = new URLSearchParams({ dateFrom, dateTo });
     categories.forEach(category => params.append('categories[]', category));
@@ -248,11 +274,16 @@ async function queryBlogNextTrends() {
     blogNextTrendState.queryRange = { dateFrom, dateTo };
     blogNextTrendState.savedIds.clear();
     renderBlogNextTrendResults(result?.items || []);
-    if (status) status.textContent = `${Number(result?.count || 0)}개의 키워드를 찾았습니다.`;
+    setBlogNextTrendStatus(blogNextTrendState.items.length > 0 ? 'success' : 'empty',
+      blogNextTrendState.items.length > 0
+        ? `${Number(result?.count || 0)}개의 키워드를 찾았습니다.`
+        : '조건에 맞는 트렌드 키워드가 없습니다.');
   } catch (error) {
-    if (status) status.textContent = `트렌드 조회에 실패했습니다: ${error.message}`;
+    setBlogNextTrendStatus('error', `트렌드 조회에 실패했습니다: ${error.message}`);
   } finally {
     blogNextTrendState.loading = false;
+    setBlogNextTrendTableBusy(false);
+    syncBlogNextTrendFilterAvailability();
     if (queryButton) queryButton.disabled = false;
     if (refreshButton) refreshButton.disabled = false;
   }
@@ -308,8 +339,7 @@ async function saveBlogNextTrend(item, button) {
   } catch (error) {
     button.disabled = false;
     button.textContent = '다시 시도';
-    const status = document.getElementById('blog-next-trend-status');
-    if (status) status.textContent = `글감을 보관하지 못했습니다: ${error.message}`;
+    setBlogNextTrendStatus('error', `글감을 보관하지 못했습니다: ${error.message}`);
   }
 }
 

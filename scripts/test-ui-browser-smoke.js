@@ -1297,13 +1297,22 @@ async function run() {
         const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         assert.notEqual(warmFooterFocus, 'none');
         await page.evaluate(() => activateBlogNextTab('automation'));
+        assert.equal(await page.locator('#blog-next-automation-start-time').isDisabled(), true);
         await page.locator('#blog-next-automation-enabled').focus();
+        await page.evaluate(() => {
+            document.getElementById('blog-next-automation-enabled').checked = true;
+            syncBlogNextAutomationDependentFields();
+        });
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
         const warmTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
             fieldShadow: getComputedStyle(element).boxShadow
         }));
         assert.notEqual(warmTimeFocus.fieldShadow, 'none');
+        await page.evaluate(() => {
+            document.getElementById('blog-next-automation-enabled').checked = false;
+            syncBlogNextAutomationDependentFields();
+        });
         await page.evaluate(() => activateBlogNextTab('quick'));
         await page.locator('#blog-next-subject').fill('스타일 전환 중에도 보존할 주제');
         await page.evaluate(() => {
@@ -1326,11 +1335,19 @@ async function run() {
         const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         await page.evaluate(() => activateBlogNextTab('automation'));
         await page.locator('#blog-next-automation-enabled').focus();
+        await page.evaluate(() => {
+            document.getElementById('blog-next-automation-enabled').checked = true;
+            syncBlogNextAutomationDependentFields();
+        });
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
         const quietTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
             fieldShadow: getComputedStyle(element).boxShadow
         }));
+        await page.evaluate(() => {
+            document.getElementById('blog-next-automation-enabled').checked = false;
+            syncBlogNextAutomationDependentFields();
+        });
         assert.notEqual(quietFooterFocus, 'none');
         assert.notEqual(quietTimeFocus.fieldShadow, 'none');
         assert.notEqual(warmFooterFocus, quietFooterFocus);
@@ -1468,6 +1485,8 @@ async function run() {
 
         await page.locator('[data-blog-next-tab="trend-posting"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-trend-query')?.disabled === false);
+        assert.equal(await page.locator('#blog-next-trend-filter-keyword').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'true');
         await page.locator('#blog-next-trend-period').selectOption('custom');
         await page.locator('#blog-next-trend-date-from').fill('2026-08-25');
         await page.locator('#blog-next-trend-date-to').fill('2026-08-29');
@@ -1481,6 +1500,14 @@ async function run() {
         await page.locator('#blog-next-trend-period').selectOption('latest');
         await page.locator('#blog-next-trend-query').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
+        assert.equal(await page.locator('#blog-next-trend-status').getAttribute('data-state'), 'success');
+        assert.equal(await page.locator('#blog-next-trend-filter-keyword').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'false');
+        await page.locator('#blog-next-trend-filter-keyword').fill('결과에 없는 검색어');
+        assert.equal(await page.locator('#blog-next-trend-results').getAttribute('data-state'), 'filtered-empty');
+        assert.equal((await page.locator('#blog-next-trend-results').textContent()).includes('필터에 맞는 키워드가 없습니다.'), true);
+        await page.locator('#blog-next-trend-filter-reset').click();
+        assert.equal(await page.locator('#blog-next-trend-results').getAttribute('data-state'), 'results');
         assert.equal(await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').count(), 1);
         await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').click();
         await page.waitForFunction(() => document.querySelector('#blog-next-trend-results [data-blog-next-trend-save]')?.textContent === '보관 완료');
@@ -1558,13 +1585,32 @@ async function run() {
         assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}').postStatus), 'draft');
         await page.locator('#blog-next-clear-topic').click();
 
-        await page.locator('[data-blog-next-input-mode="folder"]').click();
+        await page.locator('[data-blog-next-input-mode="ai"]').focus();
+        await page.keyboard.press('ArrowRight');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"]').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('[data-blog-next-input-mode="folder"]').getAttribute('tabindex'), '0');
+        assert.equal(await page.locator('[data-blog-next-input-mode="folder"]').evaluate((element) => element === document.activeElement), true);
+        await page.locator('[data-blog-next-draft-settings="folder"] summary').click();
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('schedule');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isEnabled(), true);
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').fill('2026-09-20T11:30');
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').inputValue(), '2026-09-20T11:30');
         assert.equal(await page.locator('#blog-next-folder-headless').isChecked(), true);
         await page.locator('#blog-next-folder-headless').uncheck();
-        await page.locator('[data-blog-next-input-mode="paste"]').click();
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-wordpress"]').check();
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-naver"]').uncheck();
+        assert.equal(await page.locator('#blog-next-folder-headless').isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="naver-category"]').isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="wordpress-category"]').isEnabled(), true);
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-naver"]').check();
+        await page.locator('[data-blog-next-input-mode="folder"]').focus();
+        await page.keyboard.press('ArrowRight');
         assert.equal(await page.locator('#blog-next-paste-headless').isChecked(), false);
-        await page.locator('[data-blog-next-input-mode="ai"]').click();
+        await page.locator('[data-blog-next-input-mode="paste"]').focus();
+        await page.keyboard.press('Home');
         assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), false);
         await page.locator('[data-blog-next-tab="queue"]').click();
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
@@ -1577,7 +1623,10 @@ async function run() {
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
 
         assert.equal((await page.locator('[data-blog-next-tab="queue"]').textContent())?.trim(), '글감 관리');
-        await page.locator('[data-blog-next-management-tab="saved"]').click();
+        await page.locator('[data-blog-next-management-tab="ready"]').focus();
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.locator('[data-blog-next-management-tab="saved"]').getAttribute('tabindex'), '0');
+        assert.equal(await page.locator('[data-blog-next-management-tab="saved"]').evaluate((element) => element === document.activeElement), true);
         assert.equal(await page.locator('[data-blog-next-management-panel="saved"]').evaluate((element) => element.hidden), false);
         await page.locator('#blog-next-saved-list .blog-next-queue-copy').click();
         assert.equal((await page.locator('#blog-next-editor-title').textContent())?.trim(), '보관한 글감 계속 작성');
@@ -1798,7 +1847,20 @@ async function run() {
         )), true);
 
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
+        await page.locator('[data-blog-next-tab="smart-comment"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-smart-comment-run')?.disabled === false);
+        assert.equal((await page.locator('#blog-next-smart-comment-model-role').textContent())?.trim(), '현재: 글쓰기 모델');
+        assert.equal((await page.locator('#blog-next-smart-comment-settings-summary').textContent())?.trim(), '글쓰기 모델 사용');
+        await page.locator('.blog-next-smart-comment-details summary').click();
+        await page.locator('#blog-next-smart-comment-ai-mode').selectOption('custom');
+        assert.equal((await page.locator('#blog-next-smart-comment-model-role').textContent())?.trim(), '현재: Chat Model');
+        assert.equal((await page.locator('#blog-next-smart-comment-settings-summary').textContent())?.trim(), 'Chat Model 사용');
+        assert.equal(await page.locator('#blog-next-smart-comment-save').isDisabled(), false);
         await page.locator('[data-blog-next-tab="automation"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#ui-dialog-title').textContent())?.trim(), '스마트 댓글 설정 변경사항');
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-panel-automation')?.hidden === false);
         assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.getElementById('blog-next-automation-form')?.dataset.loaded === 'true');
         assert.equal(await page.locator('#blog-next-automation-status').evaluate((element) => element.hidden), true);
@@ -1810,6 +1872,9 @@ async function run() {
             })),
             { cursor: 'not-allowed', visuallyMuted: true }
         );
+        assert.equal(await page.locator('#blog-next-automation-interval').isDisabled(), true);
+        await page.locator('#blog-next-automation-enabled').check();
+        assert.equal(await page.locator('#blog-next-automation-interval').isEnabled(), true);
         await page.locator('#blog-next-automation-interval').fill('61');
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), false);
         await page.locator('[data-blog-next-tab="quick"]').click();
@@ -1831,6 +1896,7 @@ async function run() {
         await page.locator('[data-blog-next-tab="automation"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-panel-automation')?.hidden === false);
         assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '60');
+        assert.equal(await page.locator('#blog-next-automation-interval').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
         await page.locator('#blog-next-automation-enabled').check();
         await page.locator('#blog-next-automation-start-time').fill('09:00');
@@ -1838,6 +1904,8 @@ async function run() {
         await page.locator('#blog-next-automation-interval').fill('90');
         await page.locator('#blog-next-automation-notify').check();
         await page.locator('#blog-next-automation-save').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-feedback')?.dataset.state === 'success');
+        assert.equal((await page.locator('#blog-next-automation-feedback').textContent())?.trim(), '설정을 저장했습니다.');
         await page.waitForFunction(() => document.getElementById('blog-next-automation-status')?.dataset.state === 'waiting');
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
         assert.equal((await page.locator('#blog-next-automation-status').textContent())?.includes('다음 실행'), true);
@@ -1867,6 +1935,12 @@ async function run() {
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="paste"]').click();
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
+        await page.locator('#blog-next-paste-clear').click();
+        assert.equal(await page.locator('#blog-next-paste-markdown').inputValue(), '');
+        assert.equal(await page.locator('#blog-next-paste-clear-undo').isVisible(), true);
+        await page.locator('#blog-next-paste-clear-undo').click();
+        assert.equal((await page.locator('#blog-next-paste-markdown').inputValue()).startsWith('# 붙여넣은 원고'), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').textContent())?.trim(), '미리보기 소제목');
@@ -2031,6 +2105,26 @@ async function run() {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
+        const blogNextNarrowLayout = await page.evaluate(() => {
+            const panelNames = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
+            const panelChecks = panelNames.map((name) => {
+                activateBlogNextTab(name);
+                const panel = document.getElementById(`blog-next-panel-${name}`);
+                const rect = panel.getBoundingClientRect();
+                return { name, left: rect.left, right: rect.right, width: rect.width };
+            });
+            activateBlogNextTab('quick');
+            const modeChecks = ['ai', 'folder', 'paste'].map((name) => {
+                activateBlogNextInputMode(name);
+                const panel = document.getElementById(`blog-next-mode-panel-${name}`);
+                const rect = panel.getBoundingClientRect();
+                return { name, left: rect.left, right: rect.right, width: rect.width };
+            });
+            activateBlogNextInputMode('ai');
+            return { viewportWidth: window.innerWidth, panelChecks, modeChecks };
+        });
+        assert.equal(blogNextNarrowLayout.panelChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
+        assert.equal(blogNextNarrowLayout.modeChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
         assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"]').isVisible(), true);
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
@@ -2074,6 +2168,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
         ]);

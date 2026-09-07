@@ -102,12 +102,30 @@ function activateBlogNextInputMode(modeName) {
     const active = button.dataset.blogNextInputMode === target;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-blog-next-mode-panel]').forEach((panel) => {
     const active = panel.dataset.blogNextModePanel === target;
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+}
+
+function handleBlogNextInputModeKeydown(event) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const buttons = Array.from(document.querySelectorAll('[data-blog-next-input-mode]'));
+  const currentIndex = buttons.indexOf(event.currentTarget);
+  if (currentIndex < 0 || buttons.length === 0) return;
+
+  event.preventDefault();
+  let targetIndex = currentIndex;
+  if (event.key === 'Home') targetIndex = 0;
+  if (event.key === 'End') targetIndex = buttons.length - 1;
+  if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % buttons.length;
+  const targetButton = buttons[targetIndex];
+  activateBlogNextInputMode(targetButton.dataset.blogNextInputMode);
+  targetButton.focus();
 }
 
 function initBlogNextShell() {
@@ -124,6 +142,7 @@ function initBlogNextShell() {
     });
     document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
       button.addEventListener('click', () => activateBlogNextInputMode(button.dataset.blogNextInputMode));
+      button.addEventListener('keydown', handleBlogNextInputModeKeydown);
     });
     blogNextShellBound = true;
   }

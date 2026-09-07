@@ -13,16 +13,17 @@
                 <strong>연속 발행 사용</strong>
               </label>
             </div>
-            <div class="blog-next-automation-fields">
-              <label class="blog-next-field"><span>발행 허용 시작</span><input id="blog-next-automation-start-time" type="time" value="00:00" required></label>
-              <label class="blog-next-field"><span>발행 허용 종료</span><input id="blog-next-automation-end-time" type="time" value="23:59" required></label>
-              <label class="blog-next-field"><span>발행 간격</span><span class="blog-next-number-field"><input id="blog-next-automation-interval" type="number" min="10" max="360" step="1" value="60" required><em>분</em></span></label>
-              <label class="blog-next-automation-notify"><input id="blog-next-automation-notify" type="checkbox"><span>완료·실패 알림 사용</span></label>
+            <div class="blog-next-automation-fields blog-next-dependent-field" data-dependency-active="false">
+              <label class="blog-next-field"><span>발행 허용 시작</span><input id="blog-next-automation-start-time" type="time" value="00:00" required disabled></label>
+              <label class="blog-next-field"><span>발행 허용 종료</span><input id="blog-next-automation-end-time" type="time" value="23:59" required disabled></label>
+              <label class="blog-next-field"><span>발행 간격</span><span class="blog-next-number-field"><input id="blog-next-automation-interval" type="number" min="10" max="360" step="1" value="60" required disabled><em>분</em></span></label>
+              <label class="blog-next-automation-notify"><input id="blog-next-automation-notify" type="checkbox" disabled><span>완료·실패 알림 사용</span></label>
             </div>
             <div class="blog-next-automation-actions">
               <button class="secondary" id="blog-next-automation-test" type="button" hidden>30초 테스트</button>
               <button class="primary" id="blog-next-automation-save" type="submit" disabled>설정 저장</button>
             </div>
-            <p class="blog-next-automation-summary" id="blog-next-automation-status" hidden aria-live="polite"></p>
+            <p class="blog-next-automation-feedback" id="blog-next-automation-feedback" data-state="idle" role="status" aria-live="polite" hidden></p>
+            <p class="blog-next-automation-summary" id="blog-next-automation-status" role="status" aria-live="polite" hidden></p>
           </form>
         </section>

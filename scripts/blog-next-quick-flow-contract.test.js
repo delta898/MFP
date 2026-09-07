@@ -69,10 +69,11 @@ test('quick flow width and disclosure layout adapt without style-specific select
 
   assert.match(css, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
   assert.match(css, /\.blog-next-disclosure > summary\s*\{/);
-  assert.equal((html.match(/<span class="blog-next-select-shell">/g) || []).length, 3);
-  assert.match(html, /<span class="blog-next-select-shell">\s*<select id="blog-next-writing-strategy">/);
-  assert.match(html, /<span class="blog-next-select-shell">\s*<select id="blog-next-image-mode">/);
-  assert.match(html, /<span class="blog-next-select-shell">\s*<select id="blog-next-post-status">/);
+  const topicForm = html.match(/<form id="blog-next-topic-form"[\s\S]*?<\/form>/)?.[0] || '';
+  assert.equal((topicForm.match(/<span class="blog-next-select-shell">/g) || []).length, 3);
+  assert.match(topicForm, /<span class="blog-next-select-shell">\s*<select id="blog-next-writing-strategy">/);
+  assert.match(topicForm, /<span class="blog-next-select-shell">\s*<select id="blog-next-image-mode">/);
+  assert.match(topicForm, /<span class="blog-next-select-shell"><select id="blog-next-post-status">/);
   assert.match(css, /\.blog-next-select-shell::after\s*\{[^}]*inset-inline-end:\s*var\(--ui-space-4\)/s);
   assert.match(css, /\.blog-next-select-shell > select\s*\{[^}]*appearance:\s*none/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.blog-next-disclosure > summary/s);
