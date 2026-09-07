@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-10-smart-comments`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 구현 완료 — parent 병합 전 full unit 승인 대기
+- Status: 완료 — parent branch 병합 준비
 
 ## 사용자 필요와 목표
 
@@ -135,6 +135,8 @@ Blog Beta의 `스마트 댓글` 화면을 지금까지 정립한 디자인 원�
   이번 branch에서 추가 변경하지 않기로 했다.
 - 2026-09-08: focused Blog Beta/Smart Comment contract 23개와 제목 link contract 3개가 통과했다. browser UI smoke도
   235 fixture requests로 통과했다.
+- 2026-09-08: 사용자 승인 후 full unit suite를 실행해 1,521개 통과, 실패 0, Windows 전용 integration test 1개
+  조건부 skip을 확인했다.
 
 ## 검증 계획
 
@@ -149,4 +151,4 @@ Blog Beta의 `스마트 댓글` 화면을 지금까지 정립한 디자인 원�
 - 진단 checkbox와 inline guidance가 공통 typography·간결성 기준을 따른다.
 - 설정 저장·전체 생성·개별 재생성은 충돌 범위를 잠그고 실패 후 기존 결과와 action 상태를 복원한다.
 - 결과 제목에서 네이버 원문을 확인하고 별도의 댓글 작성 action으로 다음 단계를 진행할 수 있다.
-- parent 병합 전 full unit suite와 최종 기록 archive가 남아 있다.
+- 사용자 시각 확인, focused contract, browser smoke와 full unit suite를 마쳐 parent 병합 조건을 충족했다.
