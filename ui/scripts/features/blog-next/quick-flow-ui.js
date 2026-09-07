@@ -8,8 +8,8 @@ function syncBlogNextQuickFlowSummaries() {
   const publishSummary = document.getElementById('blog-next-publish-settings-summary');
   const externalReference = document.getElementById('blog-next-external-reference')?.checked === true;
   const platforms = [];
-  if (document.getElementById('blog-next-target-naver')?.checked) platforms.push('네이버');
-  if (document.getElementById('blog-next-target-wordpress')?.checked) platforms.push('워드프레스');
+  if (document.getElementById('blog-next-target-naver')?.checked) platforms.push('naver');
+  if (document.getElementById('blog-next-target-wordpress')?.checked) platforms.push('wordpress');
   if (contentSummary) {
     contentSummary.textContent = [
       externalReference ? '외부 참고 사용' : '외부 참고 안 함',
@@ -19,7 +19,7 @@ function syncBlogNextQuickFlowSummaries() {
   }
   if (publishSummary) {
     const summaryParts = [
-      platforms.length > 0 ? platforms.join('+') : '발행 대상 없음',
+      formatBlogPlatformList(platforms, ' + ') || '발행 대상 없음',
       readBlogNextSelectedText('blog-next-post-status', '즉시 발행')
     ];
     if (document.getElementById('blog-next-target-naver')?.checked) {

@@ -422,6 +422,11 @@ function getBlogNextQueueRunActionCopy(item = {}) {
   };
 }
 
+function formatBlogNextPostStatus(item = {}) {
+  const postStatus = item.postStatus || item.options?.post_status;
+  return postStatus === 'draft' ? '임시 저장' : postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
+}
+
 function createBlogNextListItem(item, position, saved) {
   const article = document.createElement('article');
   article.className = `blog-next-queue-item${saved ? ' blog-next-saved-item' : ''}`;
@@ -440,10 +445,10 @@ function createBlogNextListItem(item, position, saved) {
   title.textContent = item.subject || item.keywordsRaw || '제목 없는 글감';
   const meta = document.createElement('span');
   meta.className = 'blog-next-queue-meta';
-  if (saved) meta.textContent = item.keywordsRaw ? `키워드 · ${item.keywordsRaw}` : '아이디어 보관';
+  const platforms = formatBlogPlatformList(item.options?.platforms) || '발행 대상 미정';
+  const postStatus = formatBlogNextPostStatus(item);
+  if (saved) meta.textContent = `${platforms} · ${postStatus}`;
   else {
-    const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '대상 확인 필요';
-    const postStatus = item.postStatus === 'draft' ? '임시 저장' : item.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
     const estimate = formatBlogNextQueueEstimate(item.processing_estimate_at);
     const schedule = estimate
       ? `${position === 0 ? '다음 처리' : '처리 예상'} ${estimate}${position === 0 ? '' : ' 이후'}`
@@ -700,8 +705,8 @@ async function runBlogNextQueueItemNow(item = {}, button) {
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   const actionCopy = getBlogNextQueueRunActionCopy(item);
-  const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '포스팅 대상 확인 필요';
-  const postStatus = item.postStatus === 'draft' ? '임시 저장' : item.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
+  const platforms = formatBlogPlatformList(item.options?.platforms) || '포스팅 대상 확인 필요';
+  const postStatus = formatBlogNextPostStatus(item);
   const confirmed = await showUiConfirm(`${platforms} · ${postStatus}\n${actionCopy.question}`, {
     title: actionCopy.confirmTitle, confirmText: actionCopy.confirmText, cancelText: '취소'
   });

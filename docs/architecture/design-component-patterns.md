@@ -8,6 +8,15 @@
 
 이 문서는 style의 색상 취향이 아니라 component의 의미, 상태와 배치 계약을 정의한다. 구체적인 색상·radius·shadow 값은 각 style pack이 component token으로 공급한다.
 
+## Product terminology
+
+- API, Sheet와 설정 저장소의 identifier는 안정적인 내부 값으로 유지하되 사용자에게 그대로 노출하지 않는다.
+- 여러 화면에서 반복되는 platform·provider·상태 명칭은 공통 presentation formatter를 단일 출처로 사용한다.
+  동일한 대상을 화면별 약칭이나 영문 표기로 바꾸지 않으며, 문맥상 더 짧은 일반 명칭이 필요한 경우에만 그 이유와
+  범위를 별도로 정한다.
+- Blog UI의 platform 표준 명칭은 `네이버 블로그`, `워드프레스`다. 설정 summary, 목록 metadata와 실행 확인처럼
+  선택된 발행 대상을 표현하는 곳에서는 이 명칭을 사용한다.
+
 ## Action variants
 
 ### Primary
@@ -149,6 +158,10 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 반복 row의 action group은 같은 역할의 control이 행마다 같은 열과 폭을 사용해 수직으로 정렬한다. label 길이가
   달라져도 이동·보조·primary action의 위치를 흔들지 않으며, 좁은 화면에서는 고정 열보다 자연스러운 줄바꿈과
   조작 가능한 폭을 우선한다.
+- 같은 entity가 collection 사이를 이동할 때 row의 공통 metadata 순서와 용어는 유지한다. 특정 collection에서만
+  의미가 있는 처리 순서·예상 시각 같은 정보는 공통 metadata 뒤에 추가할 수 있지만, 위치가 바뀌었다는 이유만으로
+  키워드·상태 등 서로 다른 정보 체계로 교체하지 않는다. 공통 값이 정해지지 않았다면 생략으로 의미를 숨기기보다
+  `발행 대상 미정`처럼 짧고 명확한 상태를 표시한다.
 - 하나의 collection row에 content action과 여러 보조 action이 함께 있으면 pointer hover와 내부 keyboard
   focus를 row 전체의 `surface-hover`로 연결해 현재 작업 위치를 보여준다. 실제 control의 focus ring은 유지하고,
   일시적인 row 반응을 선택 상태처럼 지속하거나 별도의 accent text 강조와 중복하지 않는다.

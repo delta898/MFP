@@ -273,6 +273,31 @@ test('queue row actions describe their actual outcomes consistently', () => {
   assert.doesNotMatch(queueScript, /button\.textContent = '빼기'/);
 });
 
+test('queue metadata presents platform identifiers in user language', () => {
+  const html = read('ui/partials/views/blog-next.html');
+  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const presentationScript = read('ui/scripts/foundation/presentation.js');
+
+  assert.match(presentationScript, /const BLOG_PLATFORM_LABELS = Object\.freeze\(\{[\s\S]*naver: '네이버 블로그',[\s\S]*wordpress: '워드프레스'/);
+  assert.match(presentationScript, /function formatBlogPlatformList\(platforms, separator = ' · '\)/);
+  assert.match(queueScript, /formatBlogPlatformList\(item\.options\?\.platforms\)/);
+  assert.match(flowScript, /formatBlogPlatformList\(platforms, ' \+ '\)/);
+  assert.match(draftScript, /formatBlogPlatformList\(settings\.targets, ' \+ '\)/);
+  assert.match(html, /id="blog-next-publish-settings-summary">네이버 블로그 · 즉시 발행/);
+  assert.doesNotMatch(queueScript, /item\.options\?\.platforms\) \? item\.options\.platforms\.join\(' · '\)/);
+});
+
+test('saved and ready rows share the same base metadata structure', () => {
+  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+
+  assert.match(queueScript, /const platforms = formatBlogPlatformList\(item\.options\?\.platforms\) \|\| '발행 대상 미정'/);
+  assert.match(queueScript, /const postStatus = formatBlogNextPostStatus\(item\)/);
+  assert.match(queueScript, /if \(saved\) meta\.textContent = `\$\{platforms\} · \$\{postStatus\}`/);
+  assert.doesNotMatch(queueScript, /아이디어 보관|`키워드 · \$\{item\.keywordsRaw\}`/);
+});
+
 test('queue item titles avoid redundant edit labels and queue actions keep stable columns', () => {
   const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
   const queueCss = read('ui/styles/features/continuous-publishing.css');

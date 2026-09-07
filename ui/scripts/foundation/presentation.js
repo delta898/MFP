@@ -4,6 +4,21 @@ function formatRemaining(value) {
   return '-';
 }
 
+const BLOG_PLATFORM_LABELS = Object.freeze({
+  naver: '네이버 블로그',
+  wordpress: '워드프레스'
+});
+
+function formatBlogPlatformLabel(platform) {
+  const normalized = String(platform || '').trim().toLowerCase();
+  return BLOG_PLATFORM_LABELS[normalized] || String(platform || '').trim();
+}
+
+function formatBlogPlatformList(platforms, separator = ' · ') {
+  if (!Array.isArray(platforms)) return '';
+  return platforms.map(formatBlogPlatformLabel).filter(Boolean).join(separator);
+}
+
 /**
  * 설정 화면의 상태 메시지 UI를 공통된 스타일로 업데이트합니다.
  * @param {string} selector - 대상 엘리먼트 선택자 (id 또는 class)

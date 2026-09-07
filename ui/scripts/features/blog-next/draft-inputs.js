@@ -55,12 +55,11 @@ function syncBlogNextDraftSettingsSummary(type) {
   const summary = document.querySelector(`[data-blog-next-draft-settings-summary="${type}"]`);
   if (!summary) return;
   const settings = readBlogNextDraftSettings(type);
-  const targetLabels = settings.targets.map(target => target === 'naver' ? '네이버' : '워드프레스');
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
   const imageLabel = settings.imageMode === 'generate' ? '이미지 생성'
     : settings.imageMode === 'none' ? '이미지 없음' : '이미지 프롬프트';
-  const parts = [targetLabels.length > 0 ? targetLabels.join('+') : '발행 대상 없음', statusLabel, imageLabel];
+  const parts = [formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음', statusLabel, imageLabel];
   if (settings.targets.includes('naver')) {
     parts.push(settings.headless ? '보이지 않게 실행' : '브라우저 표시');
   }
