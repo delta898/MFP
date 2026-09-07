@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-trend-posting-results`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 진행 중 — 로딩 피드백 slice 구현·자동 검증 완료, 사용자 UI 확인 대기
+- Status: 진행 중 — 카테고리 surface slice 구현·자동 검증 완료, 사용자 UI 확인 대기
 
 ## 사용자 필요와 목표
 
@@ -96,6 +96,10 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
   refresh는 회전 icon, 조회는 `조회 중...` button과 `aria-busy`가 각각 진행을 소유하게 하고 별도 loading
   surface를 제거했다. error status는 사용자의 대응이 필요하므로 유지하며, 이 선택 기준을 canonical guide에
   추가했다.
+- 2026-09-07: 카테고리 선택 group과 그 상위 조회 section에 동일한 muted fill이 중첩되어 선택 상태가 아닌
+  영역 전체를 강조하던 문제를 분리했다. section과 group은 border·spacing으로 범위를 유지하되 기본 surface는
+  채우지 않고, 실제 선택된 category chip만 primary fill을 유지한다. multi-select chip group의 재사용 기준도
+  canonical surface fill guide에 추가했다.
 
 ## 검증 계획
 

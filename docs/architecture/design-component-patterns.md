@@ -84,6 +84,8 @@
 - 기본 container는 border와 spacing만으로 충분하면 채우지 않는다. hover의 `surface-hover`는 일시적 반응이고, 펼쳐진 disclosure header의 `surface-muted`는 지속 상태이므로 서로 구분한다.
 - 단독 checkbox나 radio row는 native checked state만으로 의미가 충분하면 상시 채우지 않는다. option card pattern을 쓸 때만 선택된 항목에 state-dependent soft surface를 적용한다.
 - 여러 control을 하나의 의미 단위로 묶을 때는 먼저 fieldset, border와 spacing을 사용한다. nested surface가 실제 hierarchy를 더 명확하게 만들 때만 muted fill을 추가한다.
+- 여러 chip을 고르는 selection group은 group border와 spacing으로 범위를 표현하고, 선택된 chip에만 지속적인
+  selected fill을 적용한다. 선택된 child가 있다는 이유만으로 group 전체나 그 상위 form section을 채우지 않는다.
 - 같은 역할에서 fill 유무가 다르면 상태·hierarchy·density 중 하나의 합당한 이유와 적용 범위가 있어야 한다.
 
 ## Help tooltips

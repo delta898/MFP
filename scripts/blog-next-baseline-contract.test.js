@@ -196,6 +196,8 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
 test('trend posting state styling remains semantic and style-independent', () => {
   const css = read('ui/styles/features/blog-next-baseline.css');
 
+  assert.match(css, /trend-posting-query-section\s*\{[^}]*background:\s*var\(--ui-surface\)/s);
+  assert.match(css, /trend-posting-query-section \.trend-posting-categories\s*\{[^}]*background:\s*transparent/s);
   assert.doesNotMatch(css, /trend-posting-status\[data-state="loading"\]/);
   assert.match(css, /trend-posting-status\[data-state="error"\][\s\S]*var\(--ui-status-danger\)/);
   assert.doesNotMatch(css, /trend-posting-status\[data-state="success"\]/);

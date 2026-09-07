@@ -271,6 +271,14 @@
   color: var(--ui-text-primary);
 }
 
+.blog-next-view .trend-posting-query-section {
+  background: var(--ui-surface);
+}
+
+.blog-next-view .trend-posting-query-section .trend-posting-categories {
+  background: transparent;
+}
+
 .blog-next-view .trend-posting-result-filters[aria-disabled="true"] {
   background: var(--ui-surface-muted);
   color: var(--ui-text-muted);
