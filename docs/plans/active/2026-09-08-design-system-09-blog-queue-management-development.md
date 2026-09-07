@@ -180,6 +180,13 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
 - 2026-09-08: narrow layout에서 긴 제목과 네 개의 대기열 action이 조작점을 밀어내지 않도록 760px 이하에서
   제목을 최대 두 줄로 표시하고 metadata의 안전한 줄바꿈을 허용했다. action group은 전체 row 폭에서 wrap하며
   각 button은 40px 이상의 조작 높이를 유지한다. desktop의 고정 역할 열과 순서는 변경하지 않았다.
+- 2026-09-08: 보관함의 순번도 발행 우선순위 전용 표현으로 제거하지 않고 두 collection에서 현재 목록 위치를
+  나타내는 공통 row 구조로 유지하기로 사용자와 결정했다. 탭 이동 전후 제목 시작점과 scan pattern의 일관성을
+  우선하며, 보관함에 순서 변경 action을 추가하는 의미로 확대하지 않는다.
+- 2026-09-08: final boundary audit에서 첫째·마지막 순서 button의 disabled 계약, action accessible name,
+  마지막 정상 목록 보존, narrow action 접근성과 operation lock 범위를 점검했다. 공통 operation lock이 button만
+  잠그고 목록의 접근성 busy 상태를 일관되게 소유하지 않던 gap을 보완해, 비동기 action 동안 두 목록의
+  `aria-busy`도 함께 설정하고 re-render 이후에도 유지한 뒤 완료 시 해제한다.
 
 ## 최종 결과
 

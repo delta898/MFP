@@ -262,7 +262,7 @@ test('queue row actions describe their actual outcomes consistently', () => {
   assert.match(queueScript, /enqueueButton\.textContent = '대기열로 이동'/);
   assert.match(queueScript, /archiveButton\.textContent = '보관으로 이동'/);
   assert.match(queueScript, /deleteButton\.textContent = '삭제'/);
-  assert.match(queueScript, /function setBlogNextQueueOperationBusy\(busy\)[\s\S]*setBlogNextQueueActionsBusy\(busy\)/);
+  assert.match(queueScript, /function setBlogNextQueueOperationBusy\(busy\)[\s\S]*setBlogNextQueueListsBusy\(busy\);[\s\S]*setBlogNextQueueActionsBusy\(busy\)/);
   assert.match(queueScript, /setBlogNextQueueOperationBusy\(true\);[\s\S]*button\.textContent = '이동 중\.\.\.'/);
   assert.match(queueScript, /async function refreshBlogNextQueue\(\)[\s\S]*setBlogNextQueueOperationBusy\(true\)/);
   assert.doesNotMatch(queueScript, /showUiConfirm\('글감은 삭제하지 않고 보관한 글감으로 이동합니다/);

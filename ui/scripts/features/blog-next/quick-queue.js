@@ -551,6 +551,7 @@ function setBlogNextQueueActionsBusy(busy) {
 
 function setBlogNextQueueOperationBusy(busy) {
   blogNextQueueOperationBusy = busy;
+  setBlogNextQueueListsBusy(busy);
   setBlogNextQueueActionsBusy(busy);
 }
 
@@ -782,7 +783,10 @@ function renderBlogNextQueue(data = {}) {
     queueSize: readyItems.length
   }, index, false)));
   if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
-  if (blogNextQueueOperationBusy) setBlogNextQueueActionsBusy(true);
+  if (blogNextQueueOperationBusy) {
+    setBlogNextQueueListsBusy(true);
+    setBlogNextQueueActionsBusy(true);
+  }
   if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
 }
 
