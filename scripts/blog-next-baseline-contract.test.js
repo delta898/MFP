@@ -155,14 +155,19 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/trend-posting.js');
 
-  assert.match(html, /id="blog-next-trend-status"[^>]*data-state="idle"[^>]*role="status"[^>]*aria-live="polite"/);
-  assert.match(html, /id="blog-next-trend-filters"[^>]*aria-disabled="true"/);
+  assert.match(html, /id="blog-next-trend-status"[^>]*data-state="idle"[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
+  assert.match(html, /id="blog-next-trend-results-workspace"[^>]*hidden/);
+  assert.match(html, /id="blog-next-trend-filters"[^>]*aria-disabled="true"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-filter-keyword"[^>]*disabled/);
   assert.match(html, /id="blog-next-trend-period" disabled/);
   assert.match(html, /id="blog-next-trend-categories"[^>]*aria-busy="true"/);
   assert.match(html, /class="table-wrap trend-posting-table-wrap" aria-busy="false"/);
-  assert.match(html, /id="blog-next-trend-results" data-state="idle"/);
+  assert.match(html, /id="blog-next-trend-results" data-state="idle"><\/tbody>/);
+  assert.doesNotMatch(html, /아직 조회하지 않았습니다|조회 후 사용할 수 있습니다/);
   assert.match(script, /function setBlogNextTrendStatus\(state, message\)/);
+  assert.match(script, /status\.hidden = !text/);
+  assert.match(script, /function syncBlogNextTrendResultsWorkspace\(\)/);
+  assert.match(script, /workspace\.hidden = !blogNextTrendState\.queryRange/);
   assert.match(script, /function syncBlogNextTrendFilterAvailability\(\)/);
   assert.match(script, /function readBlogNextTrendQueryValidity\(\)/);
   assert.match(script, /inclusiveDays >= 1 && inclusiveDays <= 31/);
@@ -170,9 +175,13 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   assert.match(script, /query\.disabled = !controlsAvailable \|\| !readBlogNextTrendQueryValidity\(\)/);
   assert.match(script, /badge\.dataset\.state = 'unavailable'/);
   assert.match(script, /새로고침 후 카테고리를 선택할 수 있습니다/);
-  assert.match(script, /const available = !blogNextTrendState\.loading && blogNextTrendState\.items\.length > 0/);
+  assert.match(script, /const hasResults = blogNextTrendState\.items\.length > 0/);
+  assert.match(script, /const available = !blogNextTrendState\.loading && hasResults/);
   assert.match(script, /body\.dataset\.state = blogNextTrendState\.queryRange \? 'empty' : 'idle'/);
+  assert.match(script, /filters\.hidden = !hasResults/);
   assert.match(script, /body\.dataset\.state = 'filtered-empty'/);
+  assert.doesNotMatch(script, /개의 키워드를 찾았습니다/);
+  assert.doesNotMatch(script, /setBlogNextTrendStatus\(blogNextTrendState\.items\.length/);
   assert.match(script, /setBlogNextTrendStatus\('error', `트렌드 조회에 실패했습니다:/);
   assert.match(script, /setBlogNextTrendTableBusy\(true\)/);
   assert.match(script, /setBlogNextTrendTableBusy\(false\)/);
@@ -183,8 +192,10 @@ test('trend posting state styling remains semantic and style-independent', () =>
 
   assert.match(css, /trend-posting-status\[data-state="loading"\][\s\S]*var\(--ui-action-primary-soft\)/);
   assert.match(css, /trend-posting-status\[data-state="error"\][\s\S]*var\(--ui-status-danger\)/);
-  assert.match(css, /trend-posting-status\[data-state="success"\][\s\S]*var\(--ui-status-success\)/);
+  assert.doesNotMatch(css, /trend-posting-status\[data-state="success"\]/);
   assert.match(css, /trend-posting-result-filters\[aria-disabled="true"\][\s\S]*var\(--ui-surface-muted\)/);
+  assert.match(css, /trend-posting-result-filters\[hidden\]\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /trend-posting-results-workspace > \.table-responsive\s*\{[^}]*overflow:\s*visible/s);
   assert.match(css, /trend-posting-latest-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
 });
 

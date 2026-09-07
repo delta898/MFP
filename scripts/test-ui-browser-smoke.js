@@ -1522,6 +1522,8 @@ async function run() {
         assert.equal(await page.locator('#blog-next-trend-query').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filter-keyword').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'true');
+        assert.equal(await page.locator('#blog-next-trend-results-workspace').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-trend-status').isHidden(), true);
         await page.locator('#blog-next-trend-period').selectOption('custom');
         await page.locator('#blog-next-trend-date-from').fill('2026-08-29');
         await page.locator('#blog-next-trend-date-to').fill('2026-08-25');
@@ -1529,19 +1531,23 @@ async function run() {
         await page.locator('#blog-next-trend-date-from').fill('2026-08-25');
         await page.locator('#blog-next-trend-date-to').fill('2026-08-29');
         assert.equal(await page.locator('#blog-next-trend-query').isEnabled(), true);
-        await page.locator('#blog-next-trend-refresh').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-trend-status')?.textContent === '이미 최신 데이터입니다.');
+        await Promise.all([
+            page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/trend-posting/meta'),
+            page.locator('#blog-next-trend-refresh').click()
+        ]);
         assert.equal(await page.locator('#blog-next-trend-date-from').inputValue(), '2026-08-25');
         assert.equal(await page.locator('#blog-next-trend-date-to').inputValue(), '2026-08-29');
         assert.equal(await page.locator('[data-blog-next-trend-category].active').count(), 1);
         assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('aria-busy'), 'false');
+        assert.equal(await page.locator('#blog-next-trend-status').isHidden(), true);
         assert.equal(requests.filter((request) => request.pathname === '/api/v1/trend-posting/meta').length >= 2, true);
         await page.locator('#blog-next-trend-period').selectOption('latest');
         assert.equal(await page.locator('#blog-next-trend-date-from').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-trend-date-to').isDisabled(), true);
         await page.locator('#blog-next-trend-query').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
-        assert.equal(await page.locator('#blog-next-trend-status').getAttribute('data-state'), 'success');
+        assert.equal(await page.locator('#blog-next-trend-results-workspace').isHidden(), false);
+        assert.equal(await page.locator('#blog-next-trend-status').isHidden(), true);
         assert.equal(await page.locator('#blog-next-trend-filter-keyword').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'false');
         await page.locator('#blog-next-trend-filter-keyword').fill('결과에 없는 검색어');
@@ -1549,6 +1555,13 @@ async function run() {
         assert.equal((await page.locator('#blog-next-trend-results').textContent()).includes('필터에 맞는 키워드가 없습니다.'), true);
         await page.locator('#blog-next-trend-filter-reset').click();
         assert.equal(await page.locator('#blog-next-trend-results').getAttribute('data-state'), 'results');
+        await page.evaluate(() => renderBlogNextTrendResults([]));
+        assert.equal(await page.locator('#blog-next-trend-results-workspace').isHidden(), false);
+        assert.equal(await page.locator('#blog-next-trend-filters').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-trend-results').getAttribute('data-state'), 'empty');
+        assert.equal((await page.locator('#blog-next-trend-results').textContent()).includes('조건에 맞는 키워드가 없습니다.'), true);
+        await page.locator('#blog-next-trend-query').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
         assert.equal(await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').count(), 1);
         await page.locator('#blog-next-trend-results [data-blog-next-trend-save]').click();
         await page.waitForFunction(() => document.querySelector('#blog-next-trend-results [data-blog-next-trend-save]')?.textContent === '보관 완료');

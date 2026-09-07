@@ -267,12 +267,6 @@
   color: var(--ui-status-danger);
 }
 
-.blog-next-view .trend-posting-status[data-state="success"] {
-  border-color: color-mix(in srgb, var(--ui-status-success) 34%, var(--ui-border-default));
-  background: color-mix(in srgb, var(--ui-status-success) 8%, var(--ui-surface));
-  color: var(--ui-status-success);
-}
-
 .blog-next-view .trend-posting-latest-badge {
   background: var(--ui-surface-muted);
   color: var(--ui-text-secondary);
@@ -286,6 +280,14 @@
 .blog-next-view .trend-posting-result-filters[aria-disabled="true"] {
   background: var(--ui-surface-muted);
   color: var(--ui-text-muted);
+}
+
+.blog-next-view .trend-posting-result-filters[hidden] {
+  display: none;
+}
+
+.blog-next-view .trend-posting-results-workspace > .table-responsive {
+  overflow: visible;
 }
 
 .blog-next-state-row td {
