@@ -1249,7 +1249,7 @@ async function run() {
                 const style = getComputedStyle(element);
                 return { background: style.backgroundColor, color: style.color, fontSize: style.fontSize };
             }),
-            { background: 'rgb(73, 103, 90)', color: 'rgb(250, 255, 251)', fontSize: '10px' }
+            { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
         );
         await page.locator('.nav-btn[data-view="card-news"]').click();
         assert.deepEqual(
@@ -1257,28 +1257,28 @@ async function run() {
                 const style = getComputedStyle(element);
                 return { background: style.backgroundColor, color: style.color };
             }),
-            { background: 'rgb(250, 255, 251)', color: 'rgb(56, 81, 70)' }
+            { background: 'rgb(255, 253, 249)', color: 'rgb(159, 78, 53)' }
         );
         await page.locator('.nav-btn[data-view="blog-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
-        assert.equal(await page.locator('html').getAttribute('data-style'), 'quiet-sage-studio');
+        assert.equal(await page.locator('html').getAttribute('data-style'), 'warm-editorial');
         assert.equal(await page.locator('#view-dashboard-beta').getAttribute('data-style-scope'), 'compatibility');
         assert.equal(await page.locator('#view-blog-next').getAttribute('data-style-scope'), null);
         assert.equal(
             await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
-            'rgb(73, 103, 90)'
+            'rgb(182, 95, 66)'
         );
         assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('aria-label'), '최신 데이터 새로고침');
         assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('title'), '최신 데이터 새로고침');
         assert.equal((await page.locator('#blog-next-queue-refresh').textContent())?.trim(), '새로고침');
         assert.equal(
             await page.locator('#blog-next-trend-query').evaluate((element) => getComputedStyle(element).backgroundColor),
-            'rgb(73, 103, 90)'
+            'rgb(182, 95, 66)'
         );
         assert.equal(
             await page.locator('#quick-discovery-modal-close-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
-            'rgb(250, 252, 250)'
+            'rgb(255, 253, 249)'
         );
         assert.deepEqual(
             await page.locator('#view-blog-next .clock-widget-main').evaluate((element) => {
@@ -1289,41 +1289,13 @@ async function run() {
                     borderRadius: style.borderTopLeftRadius
                 };
             }),
-            { background: 'rgba(250, 252, 250, 0.94)', borderColor: 'rgb(206, 216, 209)', borderRadius: '12px' }
-        );
-        await page.locator('.app-footer-link').nth(1).focus();
-        await page.keyboard.press('Tab');
-        await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
-        const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
-        assert.notEqual(quietFooterFocus, 'none');
-        await page.evaluate(() => activateBlogNextTab('automation'));
-        await page.locator('#blog-next-automation-enabled').focus();
-        await page.keyboard.press('Tab');
-        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
-        const quietTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
-            fieldShadow: getComputedStyle(element).boxShadow
-        }));
-        assert.notEqual(quietTimeFocus.fieldShadow, 'none');
-        await page.evaluate(() => activateBlogNextTab('quick'));
-        await page.locator('#blog-next-subject').fill('스타일 전환 중에도 보존할 주제');
-        await page.evaluate(() => {
-            window.__blogNextSubjectBeforeStyleChange = document.getElementById('blog-next-subject');
-            applyDesignStyle('warm-editorial');
-        });
-        assert.equal(await page.locator('html').getAttribute('data-style'), 'warm-editorial');
-        assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');
-        assert.equal(
-            await page.evaluate(() => window.__blogNextSubjectBeforeStyleChange === document.getElementById('blog-next-subject')),
-            true
-        );
-        assert.equal(
-            await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
-            'rgb(182, 95, 66)'
+            { background: 'rgba(255, 253, 249, 0.92)', borderColor: 'rgb(222, 213, 200)', borderRadius: '16px' }
         );
         await page.locator('.app-footer-link').nth(1).focus();
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
         const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
+        assert.notEqual(warmFooterFocus, 'none');
         await page.evaluate(() => activateBlogNextTab('automation'));
         await page.locator('#blog-next-automation-enabled').focus();
         await page.keyboard.press('Tab');
@@ -1331,8 +1303,36 @@ async function run() {
         const warmTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
             fieldShadow: getComputedStyle(element).boxShadow
         }));
-        assert.notEqual(warmFooterFocus, 'none');
         assert.notEqual(warmTimeFocus.fieldShadow, 'none');
+        await page.evaluate(() => activateBlogNextTab('quick'));
+        await page.locator('#blog-next-subject').fill('스타일 전환 중에도 보존할 주제');
+        await page.evaluate(() => {
+            window.__blogNextSubjectBeforeStyleChange = document.getElementById('blog-next-subject');
+            applyDesignStyle('quiet-sage-studio');
+        });
+        assert.equal(await page.locator('html').getAttribute('data-style'), 'quiet-sage-studio');
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');
+        assert.equal(
+            await page.evaluate(() => window.__blogNextSubjectBeforeStyleChange === document.getElementById('blog-next-subject')),
+            true
+        );
+        assert.equal(
+            await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
+            'rgb(73, 103, 90)'
+        );
+        await page.locator('.app-footer-link').nth(1).focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
+        const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
+        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.locator('#blog-next-automation-enabled').focus();
+        await page.keyboard.press('Tab');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-automation-start-time');
+        const quietTimeFocus = await page.locator('#blog-next-automation-start-time').evaluate((element) => ({
+            fieldShadow: getComputedStyle(element).boxShadow
+        }));
+        assert.notEqual(quietFooterFocus, 'none');
+        assert.notEqual(quietTimeFocus.fieldShadow, 'none');
         assert.notEqual(warmFooterFocus, quietFooterFocus);
         assert.notEqual(warmTimeFocus.fieldShadow, quietTimeFocus.fieldShadow);
         await page.evaluate(() => activateBlogNextTab('quick'));

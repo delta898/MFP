@@ -134,6 +134,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: Stage 5에서 Blog Beta 다섯 panel의 intro·content inset·local navigation·keyboard focus 문법을 통일하고 사용자 시각 검토를 완료했다. native date/time picker 내부 focus 색은 브라우저 소유 known issue로 남기고 parent merge gate를 준비했다.
 - 2026-09-07: Stage 5 parent merge gate Full TC에서 드러난 Blog Beta partial 500줄 경계를 하위 composition으로 회복했다. 최종 Full TC는 1,489 passed, 0 failed, 1 skipped로 통과했다.
 - 2026-09-07: Stage 5를 parent에 통합하고 `codex/feature/design-system-06-blog-beta-quick-flow`에서 기본 경로, progressive disclosure, 설정 summary와 AI Assist pattern을 목표로 6단계를 시작했다. 세부 기록은 [6단계 개발 기록](2026-09-07-design-system-06-blog-beta-quick-flow-development.md)을 따른다.
+- 2026-09-07: Stage 6 본 작업 전에 UI root 활성 style을 주 style인 Warm Editorial로 복원했다. Quiet Sage Studio는 두 번째 정식 style로 유지해 이후 선택·확장 검증에 사용한다.
 
 ## Design Principles 필수 검토 일정
 

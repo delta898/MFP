@@ -64,3 +64,5 @@
 
 - 2026-09-07: Stage 5를 parent에 fast-forward 병합하고 완료 branch를 삭제했다.
 - 2026-09-07: parent에서 Stage 6 branch를 시작하고 기존 합의와 backlog를 목표·범위·비범위로 구체화했다.
+- 2026-09-07: 사용자 요청에 따라 확장성 검증을 위해 임시 활성화했던 Quiet Sage Studio 대신 주 style인 Warm Editorial을 UI root의 활성 style로 복원했다. Compatibility fallback과 Quiet Sage의 정식 registry·style pack은 유지한다.
+- 2026-09-07: style foundation focused contract 17개와 browser UI smoke 225 fixture request를 통과했다. 브라우저 검사는 Warm Editorial 초기 렌더링, Quiet Sage 전환과 입력·DOM·focus 상태 보존을 확인한다.

@@ -25,12 +25,12 @@ function loadStyleSystem(initialStyle = '') {
   return { root, contract: context.__styleContract };
 }
 
-test('UI root selects the quiet sage validation style while compatibility remains the safe fallback', () => {
+test('UI root selects warm editorial as the main style while compatibility remains the safe fallback', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-  assert.match(html, /<html lang="ko" data-style="quiet-sage-studio">/);
+  assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
   assert.doesNotMatch(html, /data-theme=/);
 
-  const { root, contract } = loadStyleSystem('quiet-sage-studio');
+  const { root, contract } = loadStyleSystem('warm-editorial');
   assert.equal(contract.defaultId, 'compatibility');
   assert.deepEqual(Object.keys(contract.registry), ['compatibility', 'warm-editorial', 'quiet-sage-studio']);
   assert.equal(contract.registry.compatibility.contractVersion, '1.0');
@@ -39,7 +39,7 @@ test('UI root selects the quiet sage validation style while compatibility remain
   assert.equal(contract.registry.compatibility.selectable, false);
   assert.equal(contract.registry['warm-editorial'].selectable, false);
   assert.equal(contract.registry['quiet-sage-studio'].selectable, false);
-  assert.equal(root.dataset.style, 'quiet-sage-studio');
+  assert.equal(root.dataset.style, 'warm-editorial');
 });
 
 test('unknown or empty style ids fail safely to compatibility', () => {
