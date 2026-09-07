@@ -129,7 +129,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: 두 번째 검증 style로 `고요한 세이지 스튜디오`를 선택해 registry와 대표 surface에 연결했다. 첫 적용에서 드러난 공통 feedback과 Blog Beta trend surface의 raw compatibility palette를 semantic token으로 교정하고 사용자 시각 검토를 준비했다.
 - 2026-09-07: Gate 3에서 Product Experience Principles 8개를 모두 유지하고 Design Principles와 다중 Style Contract를 `v1.0`으로 승격하기로 사용자와 합의했다. 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, 다른 surface migration 순서로 진행한다.
 - 2026-09-07: 사용자가 `codex/feature/design-system-main`을 모든 디자인 개편의 장기 integration branch로 유지하고 전체 작업 완료 후에만 `dev`로 통합하기로 확정했다. 따라서 1–4단계 결과는 기반 milestone으로 재분류하고 Stage 5 이후 제품 개편을 같은 parent 아래에서 계속한다.
-- 2026-09-07: `codex/feature/design-system-05-blog-beta-panel-anatomy`에서 다섯 Blog Beta tab의 콘텐츠 시작 문법과 panel anatomy 통일을 목표로 5단계를 시작했다. 세부 기록은 [5단계 개발 기록](2026-09-07-design-system-05-blog-beta-panel-anatomy-development.md)을 따른다.
+- 2026-09-07: `codex/feature/design-system-05-blog-beta-panel-anatomy`에서 다섯 Blog Beta tab의 콘텐츠 시작 문법과 panel anatomy 통일을 완료했다. 세부 기록은 [5단계 개발 기록](../archive/2026-09-07-design-system-05-blog-beta-panel-anatomy-development.md)을 따른다.
 - 2026-09-07: Quiet Sage Studio가 이미 사용자 승인과 확장성 검증을 마친 두 번째 정식 style임을 재확인했다. 후속 단계를 새로운 두 번째 style 제작이 아니라 style 선택 경험과 향후 확장으로 바로잡았다.
 - 2026-09-07: Stage 5에서 Blog Beta 다섯 panel의 intro·content inset·local navigation·keyboard focus 문법을 통일하고 사용자 시각 검토를 완료했다. native date/time picker 내부 focus 색은 브라우저 소유 known issue로 남기고 parent merge gate를 준비했다.
 - 2026-09-07: Stage 5 parent merge gate Full TC에서 드러난 Blog Beta partial 500줄 경계를 하위 composition으로 회복했다. 최종 Full TC는 1,489 passed, 0 failed, 1 skipped로 통과했다.
