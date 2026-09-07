@@ -1371,7 +1371,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-content-settings').getAttribute('open'), null);
         assert.equal(await page.locator('#blog-next-publish-settings').getAttribute('open'), null);
         assert.equal((await page.locator('#blog-next-content-settings-summary').textContent())?.trim(), '외부 참고 사용 · 검색 중심 · 이미지 프롬프트만 포함');
-        assert.equal((await page.locator('#blog-next-publish-settings-summary').textContent())?.trim(), '네이버 · 즉시 발행 · 보이지 않게 실행');
+        assert.equal((await page.locator('#blog-next-publish-settings-summary').textContent())?.trim(), '네이버 블로그 · 즉시 발행 · 보이지 않게 실행');
         await page.locator('#blog-next-content-settings > summary').click();
         const writingHelpTrigger = page.locator('[aria-describedby="blog-next-help-writing-strategy"]');
         const writingHelp = page.locator('#blog-next-help-writing-strategy');
@@ -1693,7 +1693,7 @@ async function run() {
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '1건');
         assert.equal((await page.locator('#blog-next-saved-list .blog-next-queue-item strong').textContent())?.trim(), '나중에 다듬을 제주 글감');
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item strong').textContent())?.trim(), '곧 발행할 제주 글감');
-        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · 임시 저장'), true);
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('네이버 블로그 · 임시 저장'), true);
 
         assert.equal((await page.locator('[data-blog-next-tab="queue"]').textContent())?.trim(), '글감 관리');
         await page.locator('[data-blog-next-management-tab="ready"]').focus();
@@ -1702,17 +1702,18 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-management-tab="saved"]').evaluate((element) => element === document.activeElement), true);
         assert.equal(await page.locator('[data-blog-next-management-panel="saved"]').evaluate((element) => element.hidden), false);
         await page.locator('#blog-next-saved-list .blog-next-queue-copy').click();
-        assert.equal((await page.locator('#blog-next-editor-title').textContent())?.trim(), '보관한 글감 계속 작성');
+        assert.equal((await page.locator('#blog-next-editor-title').textContent())?.trim(), '보관한 글감 수정');
         assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
         assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '저장');
-        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '발행 대기열에 추가');
+        assert.equal(await page.locator('#blog-next-enqueue-topic').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-clear-topic').isHidden(), true);
         assert.equal(await page.locator('#blog-next-cancel-edit').isVisible(), true);
         await page.locator('#blog-next-subject').fill('다듬은 제주 글감');
         await page.locator('#blog-next-save-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('보관한 글감을 수정했습니다'));
         await page.waitForFunction(() => document.querySelector('#blog-next-saved-list .blog-next-queue-item strong')?.textContent === '다듬은 제주 글감');
-        await page.locator('#blog-next-saved-list .blog-next-queue-actions .ghost').click();
+        await page.locator('#blog-next-saved-list .blog-next-queue-actions button', { hasText: '삭제' }).click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-saved-list .blog-next-queue-item').length === 0);
@@ -1722,30 +1723,26 @@ async function run() {
         await page.locator('#blog-next-queue-list .blog-next-queue-copy').click();
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
-        assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '저장');
-        assert.equal(await page.locator('#blog-next-save-topic').evaluate((element) => element.hidden), true);
-        assert.equal((await page.locator('#blog-next-publish-now').textContent())?.trim(), '바로 포스팅');
-        assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.hidden), false);
-        assert.equal(await page.locator('#blog-next-publish-now').isEnabled(), true);
+        assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '저장');
+        assert.equal(await page.locator('#blog-next-enqueue-topic').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.hidden), true);
         assert.deepEqual(
             await page.locator('#blog-next-editor-actions-slot .blog-next-form-actions button:not([hidden])')
                 .evaluateAll((buttons) => buttons
                     .map((button) => ({ text: button.textContent.trim(), order: Number(getComputedStyle(button).order) }))
                     .sort((left, right) => left.order - right.order)
                     .map(({ text }) => text)),
-            ['취소', '저장', '바로 포스팅']
+            ['취소', '저장']
         );
         await page.locator('#blog-next-subject').fill('수정한 제주 글감');
         await page.locator('#blog-next-target-wordpress').check();
-        await page.locator('#blog-next-enqueue-topic').click();
+        await page.locator('#blog-next-save-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('발행 계획을 수정했습니다'));
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
-        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
+        assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('네이버 블로그 · 워드프레스'), true);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('#blog-next-queue-list .blog-next-queue-actions button', { hasText: '보관으로 이동' }).click();
-        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
         assert.equal((await page.locator('#blog-next-saved-count').textContent())?.trim(), '1건');
         assert.equal((await page.locator('#blog-next-queue-count').textContent())?.trim(), '0건');
@@ -1876,8 +1873,6 @@ async function run() {
         assert.deepEqual(reorderRequests.map(request => request.body?.direction), ['down', 'up']);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('button', { hasText: '보관으로 이동' }).click();
-        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('[data-blog-next-run-now]').click();

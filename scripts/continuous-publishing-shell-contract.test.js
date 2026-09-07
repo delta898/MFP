@@ -17,6 +17,13 @@ function readBlogNextView() {
     }).html;
 }
 
+function readBlogNextQueueScripts() {
+    return [
+        read('ui/scripts/features/blog-next/queue-ui.js'),
+        read('ui/scripts/features/blog-next/quick-queue.js')
+    ].join('\n');
+}
+
 test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
     const legacyView = read('ui/partials/views/blog.html');
     const betaView = readBlogNextView();
@@ -172,7 +179,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     const html = readBlogNextView();
     const queueScript = [
         read('ui/scripts/features/blog-next/publish-preflight.js'),
-        read('ui/scripts/features/blog-next/quick-queue.js')
+        readBlogNextQueueScripts()
     ].join('\n');
     const discoveryScript = read('ui/scripts/features/discovery/quick-discovery.js');
 
@@ -219,7 +226,7 @@ test('Stage 8 aligns posting language and external-reference controls with the e
 });
 
 test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic order fields', () => {
-    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const queueScript = readBlogNextQueueScripts();
     const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
     const orderSource = read('src/continuous-publishing/queue-order.js');
 
@@ -333,7 +340,7 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
 });
 
 test('release queue shows processing estimates and refreshes when a runner finishes', () => {
-    const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const queueScript = readBlogNextQueueScripts();
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
     const queueCss = read('ui/styles/features/continuous-publishing-interactions.css');

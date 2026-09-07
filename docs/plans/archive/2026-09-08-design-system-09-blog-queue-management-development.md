@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-09-blog-queue-management`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 진행 중 — slice 설계
+- Status: 완료 — parent branch 병합 준비
 
 ## 사용자 필요와 목표
 
@@ -187,7 +187,33 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
   마지막 정상 목록 보존, narrow action 접근성과 operation lock 범위를 점검했다. 공통 operation lock이 button만
   잠그고 목록의 접근성 busy 상태를 일관되게 소유하지 않던 gap을 보완해, 비동기 action 동안 두 목록의
   `aria-busy`도 함께 설정하고 re-render 이후에도 유지한 뒤 완료 시 해제한다.
+- 2026-09-08: 최종 구조 검증에서 `quick-queue.js`와 continuous publishing style이 파일 경계 상한에 도달한
+  문제를 발견했다. 상한을 늘리지 않고 queue renderer·표시 formatter를 기존 `queue-ui.js` 경계로 분리하고,
+  queue 전용 narrow 규칙을 usability stylesheet로 옮겨 모듈 책임과 구조 기준을 복원했다.
+- 2026-09-08: browser smoke의 기존 기대값이 공통 플랫폼 사용자 표기, 내용 수정 전용 editor, 확인 없는
+  recoverable 이동이라는 이번 단계의 확정 계약을 반영하지 못한 부분을 교정했다.
 
 ## 최종 결과
 
-- 구현 및 검증 후 갱신한다.
+- 발행 대기열과 보관함이 공통 row hierarchy, 플랫폼·발행 방식 metadata와 action 정렬을 사용한다.
+- 수정 dialog는 collection을 변경하거나 즉시 발행하지 않고 내용 저장에만 집중하며, 실제 변경이 있을 때만
+  저장할 수 있다. collection 이동은 목록 row에서 즉시 수행하고 삭제·발행처럼 위험하거나 외부 효과가 있는
+  action만 confirmation을 유지한다.
+- 목록의 모든 비동기 mutation은 공통 operation lock과 `aria-busy`를 사용하며 마지막 정상 목록을 보존한다.
+  최초 진입과 refresh에는 별도 loading rectangle을 만들지 않고 action/count가 진행 상태를 소유한다.
+- canonical component guide에 action 결과 언어, row interaction, transactional dialog, operation lock과
+  collection metadata 원칙을 반영했다.
+
+## 검증 결과
+
+- focused Blog Beta contract: 36/36 통과
+- continuous publishing shell contract: 18/18 통과
+- full unit suite: 1,521 통과, 0 실패, 1 skip
+- browser UI smoke: 235 fixture requests 통과
+- `git diff --check`: 최종 commit 전에 재확인
+
+## 사용자 확인 및 후속
+
+- 사용자가 주요 화면 동작과 각 slice의 시각 결과를 단계별로 확인했다.
+- 다른 Blog Beta tab과 제품 surface에는 해당 영역을 작업하는 단계에서 이번 canonical 기준을 적용한다.
+- release, version bump, push와 배포는 이번 branch 범위가 아니다.

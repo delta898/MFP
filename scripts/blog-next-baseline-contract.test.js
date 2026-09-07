@@ -15,6 +15,20 @@ function readBlogNextView() {
   }).html;
 }
 
+function readBlogNextQueueScripts() {
+  return [
+    read('ui/scripts/features/blog-next/queue-ui.js'),
+    read('ui/scripts/features/blog-next/quick-queue.js')
+  ].join('\n');
+}
+
+function readBlogNextQueueStyles() {
+  return [
+    read('ui/styles/features/continuous-publishing.css'),
+    read('ui/styles/features/continuous-publishing-usability.css')
+  ].join('\n');
+}
+
 test('folder and paste modes share one manuscript publishing grammar', () => {
   const html = readBlogNextView();
 
@@ -111,7 +125,7 @@ test('manuscript summaries expose consequential values without opening settings'
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
 
   assert.match(script, /function syncBlogNextDraftSettingsSummary\(type\)/);
-  assert.match(script, /targetLabels\.length > 0 \? targetLabels\.join\('\+'\) : '발행 대상 없음'/);
+  assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '발행 대상 없음'/);
   assert.match(script, /settings\.postStatus === 'draft' \? '임시 저장'/);
   assert.match(script, /settings\.imageMode === 'generate' \? '이미지 생성'/);
   assert.match(script, /if \(settings\.targets\.includes\('naver'\)\)/);
@@ -220,7 +234,7 @@ test('trend posting state styling remains semantic and style-independent', () =>
 test('queue management exposes complete local tabs and list-owned async states', () => {
   const html = readBlogNextView();
   const uiScript = read('ui/scripts/features/blog-next/queue-ui.js');
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueScript = readBlogNextQueueScripts();
 
   for (const type of ['ready', 'saved']) {
     assert.match(html, new RegExp(`id="blog-next-management-tab-${type}"[\\s\\S]*?aria-controls="blog-next-management-panel-${type}"`));
@@ -253,7 +267,7 @@ test('queue reserves status surfaces for actionable errors', () => {
 });
 
 test('queue row actions describe their actual outcomes consistently', () => {
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueScript = readBlogNextQueueScripts();
 
   assert.match(queueScript, /function getBlogNextQueueRunActionCopy\(item = \{\}\)/);
   assert.match(queueScript, /label: '지금 임시 저장'[\s\S]*busyLabel: '임시 저장 중\.\.\.'/);
@@ -275,7 +289,7 @@ test('queue row actions describe their actual outcomes consistently', () => {
 
 test('queue metadata presents platform identifiers in user language', () => {
   const html = read('ui/partials/views/blog-next.html');
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
   const presentationScript = read('ui/scripts/foundation/presentation.js');
@@ -290,7 +304,7 @@ test('queue metadata presents platform identifiers in user language', () => {
 });
 
 test('saved and ready rows share the same base metadata structure', () => {
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueScript = readBlogNextQueueScripts();
 
   assert.match(queueScript, /const platforms = formatBlogPlatformList\(item\.options\?\.platforms\) \|\| '발행 대상 미정'/);
   assert.match(queueScript, /const postStatus = formatBlogNextPostStatus\(item\)/);
@@ -299,23 +313,22 @@ test('saved and ready rows share the same base metadata structure', () => {
 });
 
 test('queue item titles avoid redundant edit labels and queue actions keep stable columns', () => {
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
-  const queueCss = read('ui/styles/features/continuous-publishing.css');
+  const queueScript = readBlogNextQueueScripts();
+  const queueCss = readBlogNextQueueStyles();
 
   assert.match(queueScript, /copy\.setAttribute\('aria-label', `\$\{item\.subject[\s\S]*?\} 수정`\)/);
   assert.match(queueScript, /copy\.append\(title, meta, running\)/);
   assert.doesNotMatch(queueScript, /editCue|blog-next-queue-edit-cue/);
   assert.match(queueCss, /\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*36px 36px 112px 120px;/s);
   assert.match(queueCss, /\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*120px 72px;/s);
-  assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
-  assert.match(queueCss, /@media[\s\S]*\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
+  assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions,[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions,[\s\S]*\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions\s*\{[^}]*flex-wrap:\s*wrap;[^}]*width:\s*100%;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-copy strong\s*\{[^}]*white-space:\s*normal;[^}]*-webkit-line-clamp:\s*2;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions button\s*\{[^}]*min-height:\s*40px;/s);
 });
 
 test('queue rows share one transient hover and keyboard focus surface', () => {
-  const queueCss = read('ui/styles/features/continuous-publishing.css');
+  const queueCss = readBlogNextQueueStyles();
 
   assert.match(queueCss, /\.blog-next-queue-item:hover,\s*\.blog-next-queue-item:focus-within\s*\{[^}]*background:\s*var\(--ui-surface-hover\);/s);
   assert.match(queueCss, /\.blog-next-queue-item\s*\{[^}]*transition:[^;]*background-color var\(--ui-transition-interactive\)/s);
@@ -324,7 +337,7 @@ test('queue rows share one transient hover and keyboard focus surface', () => {
 });
 
 test('queue editor changes content without owning collection transitions or execution', () => {
-  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const service = read('src/ui-api/services/continuous-publishing.service.js');
   const editorCss = read('ui/styles/features/continuous-publishing-usability.css');
