@@ -273,6 +273,16 @@
   color: var(--ui-status-success);
 }
 
+.blog-next-view .trend-posting-latest-badge {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+}
+
+.blog-next-view .trend-posting-latest-badge[data-state="loading"] {
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-text-primary);
+}
+
 .blog-next-view .trend-posting-result-filters[aria-disabled="true"] {
   background: var(--ui-surface-muted);
   color: var(--ui-text-muted);

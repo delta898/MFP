@@ -158,10 +158,18 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   assert.match(html, /id="blog-next-trend-status"[^>]*data-state="idle"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.match(html, /id="blog-next-trend-filters"[^>]*aria-disabled="true"/);
   assert.match(html, /id="blog-next-trend-filter-keyword"[^>]*disabled/);
+  assert.match(html, /id="blog-next-trend-period" disabled/);
+  assert.match(html, /id="blog-next-trend-categories"[^>]*aria-busy="true"/);
   assert.match(html, /class="table-wrap trend-posting-table-wrap" aria-busy="false"/);
   assert.match(html, /id="blog-next-trend-results" data-state="idle"/);
   assert.match(script, /function setBlogNextTrendStatus\(state, message\)/);
   assert.match(script, /function syncBlogNextTrendFilterAvailability\(\)/);
+  assert.match(script, /function readBlogNextTrendQueryValidity\(\)/);
+  assert.match(script, /inclusiveDays >= 1 && inclusiveDays <= 31/);
+  assert.match(script, /function syncBlogNextTrendQueryAvailability\(\)/);
+  assert.match(script, /query\.disabled = !controlsAvailable \|\| !readBlogNextTrendQueryValidity\(\)/);
+  assert.match(script, /badge\.dataset\.state = 'unavailable'/);
+  assert.match(script, /새로고침 후 카테고리를 선택할 수 있습니다/);
   assert.match(script, /const available = !blogNextTrendState\.loading && blogNextTrendState\.items\.length > 0/);
   assert.match(script, /body\.dataset\.state = blogNextTrendState\.queryRange \? 'empty' : 'idle'/);
   assert.match(script, /body\.dataset\.state = 'filtered-empty'/);
@@ -177,6 +185,7 @@ test('trend posting state styling remains semantic and style-independent', () =>
   assert.match(css, /trend-posting-status\[data-state="error"\][\s\S]*var\(--ui-status-danger\)/);
   assert.match(css, /trend-posting-status\[data-state="success"\][\s\S]*var\(--ui-status-success\)/);
   assert.match(css, /trend-posting-result-filters\[aria-disabled="true"\][\s\S]*var\(--ui-surface-muted\)/);
+  assert.match(css, /trend-posting-latest-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
 });
 
 test('queue management exposes complete local tabs and list-owned async states', () => {

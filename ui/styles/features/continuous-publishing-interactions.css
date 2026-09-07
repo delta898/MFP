@@ -108,11 +108,6 @@
   }
 }
 
-.blog-next-view .trend-posting-latest-badge {
-  background: color-mix(in srgb, var(--ui-status-success) 12%, var(--ui-surface));
-  color: var(--ui-status-success);
-}
-
 .blog-next-view .auto-section,
 .blog-next-view .category-options {
   border-color: var(--ui-border-default);

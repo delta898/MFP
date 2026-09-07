@@ -1515,11 +1515,20 @@ async function run() {
 
         await page.locator('[data-blog-next-tab="trend-posting"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-trend-query')?.disabled === false);
+        assert.equal(await page.locator('#blog-next-trend-period').isEnabled(), true);
+        await page.locator('[data-blog-next-trend-category].active').click();
+        assert.equal(await page.locator('#blog-next-trend-query').isDisabled(), true);
+        await page.locator('[data-blog-next-trend-category]').first().click();
+        assert.equal(await page.locator('#blog-next-trend-query').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filter-keyword').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'true');
         await page.locator('#blog-next-trend-period').selectOption('custom');
+        await page.locator('#blog-next-trend-date-from').fill('2026-08-29');
+        await page.locator('#blog-next-trend-date-to').fill('2026-08-25');
+        assert.equal(await page.locator('#blog-next-trend-query').isDisabled(), true);
         await page.locator('#blog-next-trend-date-from').fill('2026-08-25');
         await page.locator('#blog-next-trend-date-to').fill('2026-08-29');
+        assert.equal(await page.locator('#blog-next-trend-query').isEnabled(), true);
         await page.locator('#blog-next-trend-refresh').click();
         await page.waitForFunction(() => document.getElementById('blog-next-trend-status')?.textContent === '이미 최신 데이터입니다.');
         assert.equal(await page.locator('#blog-next-trend-date-from').inputValue(), '2026-08-25');
@@ -1528,6 +1537,8 @@ async function run() {
         assert.equal(await page.locator('#blog-next-trend-refresh').getAttribute('aria-busy'), 'false');
         assert.equal(requests.filter((request) => request.pathname === '/api/v1/trend-posting/meta').length >= 2, true);
         await page.locator('#blog-next-trend-period').selectOption('latest');
+        assert.equal(await page.locator('#blog-next-trend-date-from').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-trend-date-to').isDisabled(), true);
         await page.locator('#blog-next-trend-query').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
         assert.equal(await page.locator('#blog-next-trend-status').getAttribute('data-state'), 'success');
