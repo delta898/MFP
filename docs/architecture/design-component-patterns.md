@@ -163,7 +163,7 @@
 - file, folder처럼 picker가 결정한 값을 보여주는 영역은 편집 가능한 text field처럼 표현하지 않는다. 선택 결과는
   읽기 전용 summary로 표시하고, 변경과 지우기는 이름이 분명한 별도 action으로 제공한다. 긴 값은 한 줄에서
   생략할 수 있지만 전체 값은 accessible name이나 보충 설명으로 확인할 수 있어야 한다.
-- 일반 크기의 input, select와 disclosure에 붙는 우측 affordance는 공통 trailing inset을 사용해 같은 기준선과 충분한 클릭 여백을 만든다. icon과 화살표 모양은 기능에 따라 달라도 anchor 위치는 맞춘다. select 화살표는 텍스트 glyph가 아니라 고정된 아이콘 박스를 사용하고 control 높이의 수직 중앙에 배치한다.
+- 일반 크기의 input, select와 disclosure에 붙는 우측 affordance는 공통 trailing inset을 사용해 같은 기준선과 충분한 클릭 여백을 만든다. icon과 화살표 모양은 기능에 따라 달라도 anchor 위치는 맞춘다. select와 disclosure 화살표는 텍스트 glyph가 아니라 고정된 아이콘 박스를 사용하고 control 높이의 수직 중앙에 배치한다. disclosure는 닫힘·펼침 상태를 같은 아이콘의 회전으로 표현한다.
 - 같은 form과 density 안의 동일한 select에는 이 기준을 빠짐없이 적용한다. compact control처럼 밀도가 다른 component만 별도 inset을 사용할 수 있으며, 예외는 사용 맥락과 적용 범위가 분명해야 한다. 획일적인 형태보다 예측 가능한 정렬·간격 규칙을 우선한다.
 - 같은 화면의 인접 선택으로 활성화할 수 있고 기능의 존재·의존 관계나 안정적인 layout을 보여주는 편이 유용한 종속 field는 표시한 채 disabled 처리한다. 활성화 조건을 가까운 문구로 설명하고 색상만으로 상태를 전달하지 않는다.
 - 현재 작업과 완전히 무관하고 노출이 불필요한 복잡성만 늘리는 종속 field는 숨긴다. disabled와 hidden은 화면 밀도를 일률적으로 맞추기 위한 선택이 아니라 발견 가능성, 맥락 이해와 layout 안정성을 기준으로 결정한다.

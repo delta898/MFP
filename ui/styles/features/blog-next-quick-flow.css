@@ -66,16 +66,21 @@
 }
 
 .blog-next-disclosure > summary::after {
-  content: '⌄';
+  width: 8px;
+  height: 8px;
   grid-column: 3;
+  align-self: center;
+  box-sizing: border-box;
   color: var(--ui-text-secondary);
-  font-size: 18px;
-  line-height: 1;
+  content: '';
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
   transition: transform var(--ui-motion-standard) var(--ui-ease-standard);
+  transform: rotate(45deg);
 }
 
 .blog-next-disclosure[open] > summary::after {
-  transform: rotate(180deg);
+  transform: rotate(225deg);
 }
 
 .blog-next-disclosure > summary:hover {

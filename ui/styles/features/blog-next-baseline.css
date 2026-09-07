@@ -197,17 +197,20 @@
 
 .blog-next-manuscript-image-details > summary::after {
   content: '';
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  align-self: center;
+  box-sizing: border-box;
   margin-inline-start: var(--ui-space-1);
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
   transition: transform var(--ui-motion-fast) var(--ui-ease-standard);
 }
 
 .blog-next-manuscript-image-details[open] > summary::after {
-  transform: translateY(2px) rotate(225deg);
+  transform: rotate(225deg);
 }
 
 .blog-next-manuscript-image-details > summary strong {

@@ -109,6 +109,9 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
   붙는 적용 누락을 발견했다. 새 token이나 전용 arrow를 만들지 않고 빠른 글 작성에서 검증한
   `blog-next-select-shell`을 재사용해 같은 arrow anchor와 클릭 여백을 적용했으며 narrow width 계약을 함께 유지한다.
   이어진 사용자 확인에서 같은 form의 조회 기간 select도 동일한 누락임을 확인해 같은 shell에 연결했다.
+- 2026-09-07: select와 disclosure가 서로 다른 텍스트 glyph 화살표를 사용해 control 높이에 따라 시각적 수직 정렬이
+  달라지는 문제를 확인했다. Blog Beta의 `select-shell`, `blog-next-disclosure`, 원고 미리보기의 이미지 확인
+  disclosure를 고정 chevron 박스와 공통 수직 중앙 기준으로 통일하고, disclosure 상태는 아이콘 회전으로 표현한다.
 
 ## 검증 계획
 
