@@ -248,6 +248,21 @@ test('queue loading and error feedback use the shared semantic baseline', () => 
   assert.match(css, /blog-next-empty-state\.is-loading[\s\S]*var\(--ui-surface-muted\)/);
 });
 
+test('queue row actions describe their actual outcomes consistently', () => {
+  const queueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+
+  assert.match(queueScript, /function getBlogNextQueueRunActionCopy\(item = \{\}\)/);
+  assert.match(queueScript, /label: '지금 임시 저장'[\s\S]*busyLabel: '임시 저장 중\.\.\.'/);
+  assert.match(queueScript, /label: '지금 예약 등록'[\s\S]*busyLabel: '예약 등록 중\.\.\.'/);
+  assert.match(queueScript, /label: '지금 발행'[\s\S]*busyLabel: '발행 중\.\.\.'/);
+  assert.match(queueScript, /secondaryAction\.textContent = saved \? '삭제' : '보관으로 이동'/);
+  assert.match(queueScript, /title: actionCopy\.confirmTitle, confirmText: actionCopy\.confirmText/);
+  assert.match(queueScript, /button\.textContent = actionCopy\.busyLabel/);
+  assert.match(queueScript, /button\.textContent = actionCopy\.label/);
+  assert.doesNotMatch(queueScript, /button\.textContent = '지금 실행'/);
+  assert.doesNotMatch(queueScript, /button\.textContent = '빼기'/);
+});
+
 test('smart comment identifies its model role and preserves results through async states', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/smart-comment.js');

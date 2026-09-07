@@ -1743,7 +1743,7 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('#blog-next-queue-list .blog-next-queue-item strong')?.textContent === '수정한 제주 글감');
         assert.equal((await page.locator('#blog-next-queue-list .blog-next-queue-item').textContent()).includes('naver · wordpress'), true);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
-        await page.locator('#blog-next-queue-list .blog-next-queue-actions button', { hasText: '빼기' }).click();
+        await page.locator('#blog-next-queue-list .blog-next-queue-actions button', { hasText: '보관으로 이동' }).click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 0);
@@ -1875,7 +1875,7 @@ async function run() {
         const reorderRequests = requests.filter((request) => request.pathname === '/api/v1/continuous-publishing/queue/reorder');
         assert.deepEqual(reorderRequests.map(request => request.body?.direction), ['down', 'up']);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
-        await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('button', { hasText: '빼기' }).click();
+        await page.locator('#blog-next-queue-list .blog-next-queue-item').nth(1).locator('button', { hasText: '보관으로 이동' }).click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);

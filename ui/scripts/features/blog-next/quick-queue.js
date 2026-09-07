@@ -380,6 +380,34 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   document.getElementById('blog-next-subject')?.focus();
 }
 
+function getBlogNextQueueRunActionCopy(item = {}) {
+  if (item.postStatus === 'draft') {
+    return {
+      label: '지금 임시 저장',
+      busyLabel: '임시 저장 중...',
+      confirmTitle: '지금 임시 저장',
+      confirmText: '임시 저장',
+      question: '이 글감을 지금 임시 저장할까요?'
+    };
+  }
+  if (item.postStatus === 'schedule') {
+    return {
+      label: '지금 예약 등록',
+      busyLabel: '예약 등록 중...',
+      confirmTitle: '지금 예약 등록',
+      confirmText: '예약 등록',
+      question: '이 글감의 예약 발행을 지금 등록할까요?'
+    };
+  }
+  return {
+    label: '지금 발행',
+    busyLabel: '발행 중...',
+    confirmTitle: '지금 발행',
+    confirmText: '발행',
+    question: '이 글감을 지금 발행할까요?'
+  };
+}
+
 function createBlogNextListItem(item, position, saved) {
   const article = document.createElement('article');
   article.className = `blog-next-queue-item${saved ? ' blog-next-saved-item' : ''}`;
@@ -444,7 +472,7 @@ function createBlogNextListItem(item, position, saved) {
   secondaryAction.type = 'button';
   secondaryAction.className = 'ghost';
   secondaryAction.dataset.blogNextQueueDefaultDisabled = 'false';
-  secondaryAction.textContent = saved ? '삭제' : '빼기';
+  secondaryAction.textContent = saved ? '삭제' : '보관으로 이동';
   secondaryAction.addEventListener('click', () => saved
     ? deleteBlogNextSavedItem(item, secondaryAction)
     : removeBlogNextQueueItem(item, secondaryAction));
@@ -456,7 +484,7 @@ function createBlogNextListItem(item, position, saved) {
     runButton.dataset.blogNextRunNow = 'true';
     runButton.dataset.blogNextQueueDefaultDisabled = 'false';
     runButton.disabled = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
-    runButton.textContent = '지금 실행';
+    runButton.textContent = getBlogNextQueueRunActionCopy(item).label;
     runButton.addEventListener('click', () => runBlogNextQueueItemNow(item, runButton));
     actions.append(runButton);
   }
@@ -583,19 +611,19 @@ async function removeBlogNextQueueItem(item = {}, button) {
   }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
-  const confirmed = await showUiConfirm('글감은 삭제하지 않고 보관 상태로 되돌립니다. 대기열에서 뺄까요?', {
-    title: '대기열에서 빼기', confirmText: '보관한 글감으로 이동', cancelText: '취소'
+  const confirmed = await showUiConfirm('글감은 삭제하지 않고 보관한 글감으로 이동합니다. 계속할까요?', {
+    title: '보관으로 이동', confirmText: '이동', cancelText: '취소'
   });
   if (!confirmed) return;
   if (button) { button.disabled = true; button.textContent = '이동 중...'; }
   try {
     await postJson('/api/v1/continuous-publishing/queue/remove', { rowIndex });
-    showUiToast({ level: 'success', title: '대기열에서 제외', message: '글감을 삭제하지 않고 보관한 글감으로 옮겼습니다.' });
+    showUiToast({ level: 'success', title: '보관으로 이동 완료', message: '글감을 보관한 글감으로 옮겼습니다.' });
     await loadBlogNextQueue({ force: true });
   } catch (error) {
     showUiToast({ level: 'error', title: '대기열 변경 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
   } finally {
-    if (button?.isConnected) { button.disabled = false; button.textContent = '빼기'; }
+    if (button?.isConnected) { button.disabled = false; button.textContent = '보관으로 이동'; }
   }
 }
 
@@ -606,13 +634,14 @@ async function runBlogNextQueueItemNow(item = {}, button) {
   }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
+  const actionCopy = getBlogNextQueueRunActionCopy(item);
   const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms.join(' · ') : '포스팅 대상 확인 필요';
   const postStatus = item.postStatus === 'draft' ? '임시 저장' : item.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-  const confirmed = await showUiConfirm(`${platforms} · ${postStatus}\n이 글감을 지금 처리할까요?`, {
-    title: '지금 실행', confirmText: '실행', cancelText: '취소'
+  const confirmed = await showUiConfirm(`${platforms} · ${postStatus}\n${actionCopy.question}`, {
+    title: actionCopy.confirmTitle, confirmText: actionCopy.confirmText, cancelText: '취소'
   });
   if (!confirmed) return;
-  if (button) { button.disabled = true; button.textContent = '실행 중...'; }
+  if (button) { button.disabled = true; button.textContent = actionCopy.busyLabel; }
   let accepted = false;
   try {
     await startBlogNextRunner({ rowIndex, platforms: item.options?.platforms });
@@ -620,7 +649,7 @@ async function runBlogNextQueueItemNow(item = {}, button) {
   } catch (_error) {
     // Runner가 공통 실패 상태와 안내를 표시한다.
   } finally {
-    if (!accepted && button?.isConnected) { button.disabled = false; button.textContent = '지금 실행'; }
+    if (!accepted && button?.isConnected) { button.disabled = false; button.textContent = actionCopy.label; }
   }
 }
 

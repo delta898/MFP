@@ -34,6 +34,13 @@
 - 평상시 primary보다 강하게 보일 필요는 없지만 위험 의미를 숨기지 않는다.
 - 대상과 영향을 확인해야 하는 행동은 실행 전 확인 흐름을 유지한다.
 
+### Action wording
+
+- action label은 `실행`, `처리`, `빼기` 같은 내부 동작보다 사용자가 얻게 될 결과를 설명한다.
+- 같은 control의 결과가 선택된 mode나 상태에 따라 달라지면 `발행`, `임시 저장`, `예약 등록`처럼 실제 결과에 맞춰
+  label을 바꾼다. 결과 차이가 중요하지 않을 때만 하나의 포괄적인 label을 사용한다.
+- default, confirmation, loading과 실패 후 복구 상태는 같은 핵심 동사를 유지해 사용자가 다른 작업으로 오해하지 않게 한다.
+
 ## Form action group
 
 - 완료형 form과 dialog의 action group은 내용의 마지막에 둔다.
