@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-trend-posting-results`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 진행 중 — 카테고리 surface slice 구현·자동 검증 완료, 사용자 UI 확인 대기
+- Status: 진행 중 — 결과 table style slice 구현·자동 검증 완료, 사용자 UI 확인 대기
 
 ## 사용자 필요와 목표
 
@@ -100,6 +100,15 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
   영역 전체를 강조하던 문제를 분리했다. section과 group은 border·spacing으로 범위를 유지하되 기본 surface는
   채우지 않고, 실제 선택된 category chip만 primary fill을 유지한다. multi-select chip group의 재사용 기준도
   canonical surface fill guide에 추가했다.
+- 2026-09-07: 결과 table이 legacy 공통 CSS의 blue-gray header, blue hover와 raw-color badge를 그대로 상속해
+  활성 style과 이질적인 문제를 분리했다. Blog Beta table 구조와 기능은 유지하고 header·cell·hover·metadata와
+  변화 badge를 semantic surface·border·text·primary-soft token으로 연결했다. category는 neutral metadata,
+  상승·신규는 product accent, 하락·유지는 문구가 의미를 전달하는 neutral 표현을 사용한다. 재사용 가능한 table
+  surface·badge·sortable header 기준은 canonical component guide에 추가했으며 실제 sort 복구는 다음 slice다.
+- 2026-09-07: table UI 확인 중 결과 filter select만 native arrow를 사용해 공통 trailing inset보다 오른쪽에
+  붙는 적용 누락을 발견했다. 새 token이나 전용 arrow를 만들지 않고 빠른 글 작성에서 검증한
+  `blog-next-select-shell`을 재사용해 같은 arrow anchor와 클릭 여백을 적용했으며 narrow width 계약을 함께 유지한다.
+  이어진 사용자 확인에서 같은 form의 조회 기간 select도 동일한 누락임을 확인해 같은 shell에 연결했다.
 
 ## 검증 계획
 
@@ -113,7 +122,8 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
 - Blog Beta baseline 및 UI 구조 focused tests: 28 passed, 0 failed
 - browser UI smoke: passed (fixture-backed)
 - browser 확인 범위: 최초 결과 workspace 숨김, meta 새로고침 뒤 불필요한 success 안내 미노출,
-  조회 button busy 상태 복원, 정상 결과·filter 결과 없음·조회 결과 없음·재조회 전환, 결과 행 action 클릭 가능성
+  조회 button busy 상태 복원, 정상 결과·filter 결과 없음·조회 결과 없음·재조회 전환, 결과 행 action 클릭 가능성,
+  table header·metadata badge·row hover의 compatibility blue 미사용
 - 실제 원격 저장이나 발행은 실행하지 않았다.
 
 ## 남은 위험과 수동 확인

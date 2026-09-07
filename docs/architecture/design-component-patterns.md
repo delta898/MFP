@@ -114,6 +114,24 @@
 - 모든 card가 hover에서 떠오를 필요는 없다. 클릭 가능성이나 의미가 없으면 움직임을 사용하지 않는다.
 - card 안에 같은 역할의 card를 반복해서 중첩하지 않는다.
 
+## Data tables
+
+- table canvas, header, cell border와 row hover는 현재 style의 `surface`, `surface-muted`, `surface-hover`,
+  `border`와 `text` token을 사용한다. compatibility palette나 원시 색상을 feature table에 직접 상속하지 않는다.
+- header는 열의 구조를 구분하는 낮은 강조 surface로 표현하고 primary action이나 selected row처럼 보이지 않게 한다.
+- row hover는 pointer가 위치한 행을 찾는 일시적 반응일 뿐 선택·성공 상태를 뜻하지 않는다. hover가 사라지면
+  기본 surface로 돌아가며 layout과 text 대비를 흔들지 않는다.
+- category 같은 metadata badge는 neutral surface를 기본으로 한다. 상승·하락·신규처럼 domain 의미가 있는 값도
+  문구나 기호를 함께 사용하고, 오류·성공용 status 색을 의미가 다른 데이터에 빌려 쓰지 않는다.
+- table header와 cell은 같은 열 정렬 기준을 공유한다. 자연어와 긴 식별자는 시작 정렬(start), 날짜와 상태 badge,
+  조작 button group은 가운데 정렬(center)을 기본으로 하며, 단독 숫자 값은 비교가 쉬운 끝 정렬(end)을 사용한다.
+- 정렬은 데이터의 읽기 방식에 따라 열 단위로 결정하고 모든 cell을 획일적으로 맞추지 않는다. 상태 badge나 action처럼
+  하나의 시각 단위로 읽는 값은 해당 열 전체를 가운데 정렬하되, 내부 텍스트의 읽기 방향은 유지한다.
+- 짧은 categorical badge 또는 badge group은 긴 자연어와 달리 가운데 정렬을 허용한다. 열 폭이 넓고 값이 짧아
+  시작 정렬이 불필요한 여백을 만들 때 적용하며, header와 badge group 모두 같은 기준선을 사용한다.
+- 정렬 가능한 열은 비정렬 header와 affordance가 구분되어야 한다. 실제 button, keyboard 동작과 `aria-sort`로
+  조작 가능성과 현재 방향을 함께 전달하며 색상만으로 정렬 상태를 표시하지 않는다.
+
 ## Content previews
 
 - preview는 실제 결과의 순서와 비율을 알아볼 수 있어야 하지만 작성·설정 화면 전체를 대신하지 않는다.
@@ -145,7 +163,7 @@
 - file, folder처럼 picker가 결정한 값을 보여주는 영역은 편집 가능한 text field처럼 표현하지 않는다. 선택 결과는
   읽기 전용 summary로 표시하고, 변경과 지우기는 이름이 분명한 별도 action으로 제공한다. 긴 값은 한 줄에서
   생략할 수 있지만 전체 값은 accessible name이나 보충 설명으로 확인할 수 있어야 한다.
-- 일반 크기의 input, select와 disclosure에 붙는 우측 affordance는 공통 trailing inset을 사용해 같은 기준선과 충분한 클릭 여백을 만든다. icon과 화살표 모양은 기능에 따라 달라도 anchor 위치는 맞춘다.
+- 일반 크기의 input, select와 disclosure에 붙는 우측 affordance는 공통 trailing inset을 사용해 같은 기준선과 충분한 클릭 여백을 만든다. icon과 화살표 모양은 기능에 따라 달라도 anchor 위치는 맞춘다. select 화살표는 텍스트 glyph가 아니라 고정된 아이콘 박스를 사용하고 control 높이의 수직 중앙에 배치한다.
 - 같은 form과 density 안의 동일한 select에는 이 기준을 빠짐없이 적용한다. compact control처럼 밀도가 다른 component만 별도 inset을 사용할 수 있으며, 예외는 사용 맥락과 적용 범위가 분명해야 한다. 획일적인 형태보다 예측 가능한 정렬·간격 규칙을 우선한다.
 - 같은 화면의 인접 선택으로 활성화할 수 있고 기능의 존재·의존 관계나 안정적인 layout을 보여주는 편이 유용한 종속 field는 표시한 채 disabled 처리한다. 활성화 조건을 가까운 문구로 설명하고 색상만으로 상태를 전달하지 않는다.
 - 현재 작업과 완전히 무관하고 노출이 불필요한 복잡성만 늘리는 종속 field는 숨긴다. disabled와 hidden은 화면 밀도를 일률적으로 맞추기 위한 선택이 아니라 발견 가능성, 맥락 이해와 layout 안정성을 기준으로 결정한다.

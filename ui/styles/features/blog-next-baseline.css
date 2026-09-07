@@ -288,8 +288,99 @@
   display: none;
 }
 
+.blog-next-view .trend-posting-filter-view-shell {
+  flex: 0 0 180px;
+}
+
+.blog-next-view .trend-posting-filter-view-shell > select {
+  width: 100%;
+  min-width: 0;
+}
+
+.blog-next-view .trend-posting-period-select-shell > select {
+  width: 100%;
+}
+
 .blog-next-view .trend-posting-results-workspace > .table-responsive {
   overflow: visible;
+}
+
+.blog-next-view .trend-posting-table-wrap {
+  border-color: var(--ui-border-default);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.blog-next-view .trend-posting-table {
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+}
+
+.blog-next-view .trend-posting-table th,
+.blog-next-view .trend-posting-table td {
+  border-color: var(--ui-border-default);
+}
+
+.blog-next-view .trend-posting-table th {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-primary);
+  box-shadow: 0 2px 0 var(--ui-border-default);
+}
+
+.blog-next-view .trend-posting-table tbody td {
+  background: var(--ui-surface);
+  vertical-align: middle;
+}
+
+.blog-next-view .trend-posting-table th,
+.blog-next-view .trend-posting-table td {
+  text-align: start;
+}
+
+.blog-next-view .trend-posting-table th:nth-child(2),
+.blog-next-view .trend-posting-table td:nth-child(2),
+.blog-next-view .trend-posting-table th:nth-child(4),
+.blog-next-view .trend-posting-table td:nth-child(4),
+.blog-next-view .trend-posting-table th:nth-child(5),
+.blog-next-view .trend-posting-table td:nth-child(5) {
+  text-align: center;
+}
+
+.blog-next-view .trend-posting-table th:first-child,
+.blog-next-view .trend-posting-table td:first-child {
+  text-align: center;
+}
+
+.blog-next-view .trend-posting-table td:first-child .trend-category-tags {
+  justify-content: center;
+}
+
+.blog-next-view .trend-posting-table td:nth-child(5) .trend-posting-row-actions {
+  justify-content: center;
+}
+
+.blog-next-view .trend-posting-table tbody tr:hover td {
+  background: var(--ui-surface-hover);
+}
+
+.blog-next-view .trend-posting-table .trend-category-tag,
+.blog-next-view .trend-posting-table .trend-change {
+  border: 1px solid var(--ui-border-default);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+}
+
+.blog-next-view .trend-posting-table .trend-change-up,
+.blog-next-view .trend-posting-table .trend-change-new {
+  border-color: color-mix(in srgb, var(--ui-action-primary) 24%, var(--ui-border-default));
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+}
+
+.blog-next-view .trend-posting-table .trend-change-down,
+.blog-next-view .trend-posting-table .trend-change-steady {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
 }
 
 .blog-next-state-row td {
@@ -433,5 +524,10 @@
   .blog-next-smart-comment-model-role {
     width: 100%;
     margin-inline-end: 0;
+  }
+
+  .blog-next-view .trend-posting-filter-view-shell {
+    flex: 0 0 auto;
+    width: 100%;
   }
 }

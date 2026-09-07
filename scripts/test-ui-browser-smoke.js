@@ -1297,6 +1297,7 @@ async function run() {
         const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         assert.notEqual(warmFooterFocus, 'none');
         await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-enabled')?.disabled === false);
         assert.equal(await page.locator('#blog-next-automation-start-time').isDisabled(), true);
         await page.locator('#blog-next-automation-enabled').focus();
         await page.evaluate(() => {
@@ -1341,6 +1342,7 @@ async function run() {
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
         const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-enabled')?.disabled === false);
         await page.locator('#blog-next-automation-enabled').focus();
         await page.evaluate(() => {
             document.getElementById('blog-next-automation-enabled').checked = true;
@@ -1552,6 +1554,21 @@ async function run() {
         assert.equal(await page.locator('#blog-next-trend-status').isHidden(), true);
         assert.equal(await page.locator('#blog-next-trend-filter-keyword').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-trend-filters').getAttribute('aria-disabled'), 'false');
+        const trendTablePalette = await page.locator('.blog-next-view .trend-posting-table').evaluate((table) => {
+            const header = table.querySelector('th');
+            const badge = table.querySelector('.trend-category-tag');
+            return {
+                headerBackground: getComputedStyle(header).backgroundColor,
+                badgeBackground: getComputedStyle(badge).backgroundColor
+            };
+        });
+        assert.notEqual(trendTablePalette.headerBackground, 'rgb(241, 245, 249)');
+        assert.notEqual(trendTablePalette.badgeBackground, 'rgb(241, 245, 249)');
+        await page.locator('#blog-next-trend-results tr').first().hover();
+        assert.notEqual(
+            await page.locator('#blog-next-trend-results td').first().evaluate((cell) => getComputedStyle(cell).backgroundColor),
+            'rgb(249, 252, 255)'
+        );
         await page.locator('#blog-next-trend-filter-keyword').fill('결과에 없는 검색어');
         assert.equal(await page.locator('#blog-next-trend-results').getAttribute('data-state'), 'filtered-empty');
         assert.equal((await page.locator('#blog-next-trend-results').textContent()).includes('필터에 맞는 키워드가 없습니다.'), true);

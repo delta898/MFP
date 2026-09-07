@@ -120,14 +120,17 @@
 
 .blog-next-select-shell::after {
   position: absolute;
+  width: 8px;
+  height: 8px;
   inset-inline-end: var(--ui-space-4);
   top: 50%;
+  box-sizing: border-box;
   color: var(--ui-text-secondary);
-  content: '⌄';
-  font-size: 18px;
-  line-height: 1;
+  content: '';
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
   pointer-events: none;
-  transform: translateY(-50%);
+  transform: translateY(-65%) rotate(45deg);
 }
 
 .blog-next-disclosure-grid {

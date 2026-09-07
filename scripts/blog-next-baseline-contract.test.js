@@ -159,7 +159,8 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   assert.match(html, /id="blog-next-trend-results-workspace"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-filters"[^>]*aria-disabled="true"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-filter-keyword"[^>]*disabled/);
-  assert.match(html, /id="blog-next-trend-period" disabled/);
+  assert.match(html, /class="blog-next-select-shell trend-posting-filter-view-shell">\s*<select id="blog-next-trend-filter-view"/);
+  assert.match(html, /class="blog-next-select-shell trend-posting-period-select-shell">\s*<select id="blog-next-trend-period" disabled/);
   assert.match(html, /id="blog-next-trend-categories"[^>]*aria-busy="true"/);
   assert.match(html, /class="table-wrap trend-posting-table-wrap" aria-busy="false"/);
   assert.match(html, /id="blog-next-trend-results" data-state="idle"><\/tbody>/);
@@ -203,8 +204,17 @@ test('trend posting state styling remains semantic and style-independent', () =>
   assert.doesNotMatch(css, /trend-posting-status\[data-state="success"\]/);
   assert.match(css, /trend-posting-result-filters\[aria-disabled="true"\][\s\S]*var\(--ui-surface-muted\)/);
   assert.match(css, /trend-posting-result-filters\[hidden\]\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /trend-posting-filter-view-shell\s*\{[^}]*flex:\s*0 0 180px/s);
+  assert.match(css, /trend-posting-filter-view-shell > select\s*\{[^}]*width:\s*100%/s);
+  assert.match(css, /trend-posting-period-select-shell > select\s*\{[^}]*width:\s*100%/s);
   assert.match(css, /trend-posting-results-workspace > \.table-responsive\s*\{[^}]*overflow:\s*visible/s);
   assert.match(css, /trend-posting-latest-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
+  assert.match(css, /trend-posting-table th\s*\{[^}]*background:\s*var\(--ui-surface-muted\)[^}]*color:\s*var\(--ui-text-primary\)/s);
+  assert.match(css, /trend-posting-table tbody tr:hover td\s*\{[^}]*background:\s*var\(--ui-surface-hover\)/s);
+  assert.match(css, /trend-posting-table \.trend-category-tag,[\s\S]*background:\s*var\(--ui-surface-muted\)[^}]*color:\s*var\(--ui-text-secondary\)/s);
+  assert.match(css, /trend-change-up,[\s\S]*trend-change-new[\s\S]*background:\s*var\(--ui-action-primary-soft\)[^}]*color:\s*var\(--ui-action-primary-hover\)/s);
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);
+  assert.doesNotMatch(css, /\[data-style=/);
 });
 
 test('queue management exposes complete local tabs and list-owned async states', () => {
