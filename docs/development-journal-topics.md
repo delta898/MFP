@@ -297,3 +297,128 @@ migration 파일을 수정하거나 DB를 무리하게 과거로 되돌리기보
 클라이언트가 계속 동작하는 변경은 단계적 배포가 쉽다. 반면 기존 credential row나 column을
 삭제하는 변경은 migration 문법이 단순해도 구버전 앱을 즉시 깨뜨릴 수 있다. 최소 지원 버전,
 구버전 종료 정책, data backfill, rollback·복구 조건을 migration 설계와 함께 결정해야 한다.
+
+## 디자인 시스템과 AI 협업
+
+### 예쁜 화면보다 먼저 판단 체계를 만든 이유: Design Principle에서 Component Guide까지
+
+**참고사항**
+
+디자인 고도화를 색상, 서체와 둥근 모서리를 바꾸는 작업으로 시작하면 개별 화면은 그럴듯해져도
+제품 전체에는 설명하기 어려운 예외가 쌓이기 쉽다. 같은 역할의 버튼이 화면마다 다르게 강조되고,
+선택 상태와 keyboard focus가 비슷하게 보이며, 어떤 영역은 이유 없이 배경색이 채워지는 식이다.
+사람과 AI가 함께 UI를 반복해서 개선하는 환경에서는 취향을 전달하는 style guide만으로 부족하다.
+새로운 문제를 만날 때 같은 판단을 다시 내릴 수 있는 계층적인 기준이 필요하다.
+
+글에서는 디자인 관련 문서의 역할을 다음처럼 구분한다.
+
+1. **Product Experience Principles**는 제품이 지향할 경험과 판단 이유를 정의한다. 사용자의 목적을
+   화면의 주인공으로 삼고, 시작은 단순하게 만들며, 시스템 상태와 작업의 연속성을 보존하고, 같은
+   의미를 같은 방식으로 표현하는 것처럼 style이 바뀌어도 유지될 기준이다.
+2. **Operational Guidelines**는 원칙을 반복 가능한 화면 결정으로 번역한다. 완료 행동의 위치와
+   위계, secondary·danger action의 분리, 예외를 허용하는 조건처럼 실제 review에서 바로 사용할 수
+   있는 규칙을 다룬다.
+3. **Component and Pattern Guide**는 구현 과정에서 검증된 세부 계약을 축적한다. selected, hover와
+   focus-visible의 차이, disabled와 hidden의 선택 기준, inline 안내와 tooltip의 역할, progressive
+   disclosure의 summary, provider 종속 control, 복구 가능한 초기화 등이 여기에 속한다.
+4. **Semantic Token 및 Style Contract**는 style이 변경할 수 있는 것과 소유하면 안 되는 것을
+   구분한다. 색상, typography, radius, elevation과 density는 style pack이 바꿀 수 있지만 기능,
+   DOM, action priority, 상태 전이, ARIA와 keyboard 순서는 공통 계약으로 유지한다.
+5. **Style Pack**은 같은 계약 안에서 하나의 완결된 시각적 성격을 제공한다. 성격이 다른 두 번째
+   style을 실제 화면에 연결하면 첫 style의 공통 규칙처럼 숨어 있던 raw color, spacing과 component
+   결합을 발견할 수 있다.
+6. **Development Record와 Validation Gate**는 어떤 문제를 관찰했고 어떤 대안을 검토했으며 왜 현재
+   기준을 선택했는지 보존한다. 원칙 초안, compatibility 기반, 첫 정식 style, 두 번째 style 같은
+   단계에서 자동 검증과 사용자 확인을 거쳐야 선언이 실제 제품 계약으로 발전한다.
+
+구체적인 사례를 통해 `일관성`과 `획일성`의 차이를 설명한다. 모든 component를 같은 모양으로 만드는
+것이 아니라 같은 의미에 같은 판단 규칙을 적용하는 것이 일관성이다. 예를 들어 인접한 선택으로
+활성화할 수 있는 예약 field는 존재와 의존 관계를 보여주기 위해 disabled로 남길 수 있지만, 현재
+작업과 완전히 무관해 복잡성만 늘리는 field는 숨길 수 있다. 항상 필요한 짧은 정보는 inline hint,
+필요할 때만 확인할 긴 설명은 tooltip, control과 상태만으로 충분히 이해되는 내용은 시각적으로
+생략한다. 특정 provider에서만 유효한 옵션은 그 provider가 선택된 동안만 활성화하되 사용자의
+선호값은 지우지 않는다.
+
+작은 불일치를 고치는 과정도 기준을 발전시키는 자료가 된다. Select와 disclosure 화살표의 우측
+여백을 공통 trailing inset으로 맞추고, tooltip이 container에 잘리는 문제를 field별 위치
+hard-coding이 아니라 가용 공간을 측정하는 collision-aware placement로 해결할 수 있다. 반대로 native
+date/time picker 내부 UI처럼 운영체제와 브라우저가 소유하는 영역은 focus 접근성을 해치지 않는지
+확인한 뒤 합리적인 예외로 기록한다. 시각 통일만을 위해 복잡한 custom widget을 다시 만드는 비용도
+함께 비교한다.
+
+AI와의 역할 분담도 다룬다. 사용자는 제품 방향, 실제 사용 중 느끼는 미묘한 위계와 예외의 타당성을
+판단하고, coding agent는 관련 구조를 조사해 일회성 CSS 대신 공통 규칙을 구현하며 자동 검증과 문서를
+갱신한다. `발견 -> 원인 조사 -> 기준 도출 -> 제한된 적용 -> 사용자 확인 -> canonical guide 승격`의
+순환을 사용하면 작은 UI feedback이 제품 전체에서 재사용할 수 있는 설계 자산으로 남는다. 디자인
+시스템의 완성도를 component 개수보다 새로운 화면에서도 일관된 결정을 재현할 수 있는지로 평가하는
+관점을 제안한다.
+
+### Codex 바이브 코딩에서 품질을 유지하며 불필요한 토큰과 사용량을 줄이는 방법
+
+**참고사항**
+
+Coding agent를 경제적으로 오래 사용하는 방법을 단순히 prompt 글자 수를 줄이는 요령으로 설명하면
+핵심을 놓치기 쉽다. 짧지만 모호한 요청은 광범위한 탐색, 반복 질문, 잘못된 구현과 재작업을 만들 수
+있다. 반대로 목표, 범위와 완료 조건을 조금 길게 적은 요청은 전체 작업량을 줄일 수 있다. 핵심은
+모델에게 덜 생각하라고 요구하는 것이 아니라 이미 끝난 조사와 결정을 다시 생각하지 않게 하고,
+현재 변경의 위험에 필요하지 않은 문맥·도구·검증을 소비하지 않게 만드는 것이다.
+
+먼저 큰 프로젝트를 목표와 검증 경계가 분명한 stage로 나눈다. 각 stage에는 `사용자 필요`, `목표`,
+`포함 범위`, `명시적 비범위`, `보존할 동작`, `목표 산출물`, `완료 조건`, `검증 수준`을 기록한다.
+이렇게 하면 agent가 선의로 인접 기능까지 확장하거나 완료 기준을 추측하는 일을 줄일 수 있다. 기능
+branch의 development record에는 중요한 결정, 실패한 접근, 교정 내용과 마지막 검증 결과를 남기고,
+장기간 유효한 구조만 canonical architecture 문서로 승격한다. 프로젝트 전체에서 반복할 규칙은
+`AGENTS.md` 같은 지침 파일에 두되, 너무 길거나 서로 충돌하는 지침은 오히려 매 작업의 input context와
+판단 비용을 키울 수 있으므로 주기적으로 감사한다.
+
+Thread를 오래 유지하면 요구사항과 결정뿐 아니라 탐색 출력, 긴 test log, 이미 해결된 오류와 오래된
+대안도 함께 쌓인다. Stage나 review milestone이 끝났을 때 새 thread로 이동하고 전체 대화를 복사하는
+대신 다음 정보만 인계한다.
+
+- 현재 repository, branch와 working-tree 상태
+- 완료된 범위와 아직 남은 범위
+- 사용자가 확정한 중요한 결정과 명시적 비범위
+- 관련 canonical 문서와 development record 경로
+- 최근 focused test, browser smoke와 full regression 결과
+- known issue, 다음 목표와 첫 착수 순서
+
+새 thread의 agent는 이 인계문을 그대로 믿기보다 Git과 문서를 짧게 확인한 뒤 작업을 계속한다. 이
+방식은 대화 기억을 버리는 것이 아니라 가치 있는 문맥을 저장소의 검증 가능한 상태로 압축하는
+것이다. API 기반 agent workflow에서는 공식 compaction 기능을 검토할 수 있지만, 사람이 사용하는
+Codex에서도 milestone별 요약과 새 thread 분리는 같은 목적의 실용적인 운영 방법이 된다.
+
+탐색과 도구 출력도 필요한 부분만 남긴다. 먼저 file list와 `rg` 같은 targeted search로 후보를 좁힌
+뒤 관련 구간을 읽고, 전체 파일·전체 로그를 매번 대화에 싣지 않는다. 명령 결과가 길다면 실패 이름,
+원인과 다음 행동을 요약하고 원문은 repository 또는 test artifact에서 다시 확인할 수 있게 한다.
+Agent에게도 진행 중에는 핵심 상태만, 완료 시에는 변경점·검증 결과·수동 확인 항목만 보고하도록
+요청하면 구현 품질과 무관한 output token을 줄일 수 있다.
+
+검증은 변경 위험에 맞춰 단계적으로 넓힌다. 작은 UI나 copy 수정마다 full suite를 반복하지 않고
+구현 중에는 관련 focused contract를, 하나의 reviewable slice가 완성되면 browser smoke를, 사용자
+확인과 merge 준비가 끝난 뒤 full regression을 수행한다. 테스트를 생략하는 것이 아니라 같은
+증거를 변화 없이 반복 생성하지 않는 것이다. 실패가 나왔을 때만 관련 범위를 다시 좁혀 원인을
+찾고, 수정 후 필요한 수준까지 재검증한다.
+
+모델과 reasoning effort도 작업 난이도에 맞춘다. 단순한 위치 탐색, 반복 변환과 읽기 중심 요약은
+빠르고 경제적인 모델 또는 낮은 reasoning으로 처리할 수 있고, 모호한 다단계 구현, architecture,
+보안과 어려운 회귀 분석에는 더 강한 모델과 높은 reasoning을 사용한다. 높은 reasoning이 항상 더
+좋다는 전제보다 실제 작업에서 품질 차이를 평가해 기본값을 정한다. 모델 이름, 제공 범위와 사용량
+정책은 바뀔 수 있으므로 글 작성 시점의 공식 OpenAI 문서를 다시 확인한다.
+
+하위 agent의 병렬 실행도 시간과 token을 구분해 판단한다. 독립적인 code mapping, 문서 조사, 보안과
+test gap 검토처럼 결과를 요약해 합칠 수 있는 작업은 병렬화의 이점이 있다. 그러나 각 agent가 별도
+context와 도구를 사용하므로 단일 agent보다 총 token 사용량이 늘 수 있고, 같은 파일을 여러 agent가
+동시에 편집하면 충돌과 조정 비용까지 생긴다. 작업이 실제로 독립적이고 병렬 결과가 시간 또는 품질을
+충분히 개선할 때만 사용하고, 범위가 작은 순차 수정에는 한 agent를 유지한다.
+
+마지막으로 `토큰을 일정 비율 줄이면 사용 시간이 같은 비율로 늘어난다`거나 `prompt가 짧을수록 항상
+저렴하다`고 단정하지 않는다. Codex와 구독형 제품의 실제 사용 한도는 선택한 모델, reasoning 수준,
+기능, tool call, 병렬 agent와 시점별 정책의 영향을 받을 수 있다. 글의 초점은 보장할 수 없는 절감률이
+아니라 `재탐색`, `재작업`, `불필요한 전체 검증`, `과도한 출력`, `중복 context`를 줄이면서 비슷한
+품질의 근거와 검증을 유지하는 작업 설계에 둔다.
+
+**공식 문서 확인 대상**
+
+- [OpenAI 모델별 prompting 및 testing guidance](https://developers.openai.com/api/docs/guides/latest-model)
+- [Codex 하위 agent, 모델과 reasoning 설정](https://learn.chatgpt.com/ko-KR/docs/agent-configuration/subagents)
+- [OpenAI Responses compaction](https://developers.openai.com/api/docs/guides/compaction)
