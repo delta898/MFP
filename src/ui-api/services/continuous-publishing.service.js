@@ -668,6 +668,20 @@ function createContinuousPublishingService(deps = {}) {
             return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.WAITING };
         },
 
+        async addSavedTopicToQueue(requestBody = {}) {
+            requireRunnerIdle();
+            const rowIndex = parseRowIndex(requestBody.rowIndex);
+            await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
+            await Utils.updateGoogleSheetStatus(
+                rowIndex,
+                TOPIC_STATUS.READY,
+                '연속 발행 대기열에 추가',
+                { throwOnError: true }
+            );
+            Utils.clearSheetCache('topics');
+            return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.READY };
+        },
+
         async reorderReadyTopic(requestBody = {}) {
             requireRunnerIdle();
             const rowIndex = parseRowIndex(requestBody.rowIndex);

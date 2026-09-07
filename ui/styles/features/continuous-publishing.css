@@ -502,6 +502,15 @@
   width: 100%;
 }
 
+.blog-next-saved-item .blog-next-queue-actions {
+  display: grid;
+  grid-template-columns: 120px 72px;
+}
+
+.blog-next-saved-item .blog-next-queue-actions button {
+  width: 100%;
+}
+
 .blog-next-queue-actions button {
   padding: 7px 10px;
   border-radius: var(--ui-radius-sm);
@@ -896,7 +905,15 @@
     display: flex;
   }
 
+  .blog-next-saved-item .blog-next-queue-actions {
+    display: flex;
+  }
+
   .blog-next-queue-item:not(.blog-next-saved-item) .blog-next-queue-actions button {
+    width: auto;
+  }
+
+  .blog-next-saved-item .blog-next-queue-actions button {
     width: auto;
   }
 }

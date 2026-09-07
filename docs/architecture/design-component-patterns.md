@@ -252,6 +252,10 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   항목만 모은다. 정상 항목까지 진단 목록에 반복하거나 플랫폼마다 달라지는 결과를 모호한 가능성 문구로 일반화하지 않는다.
 - loading 중에는 실행 control을 잠그고 `aria-busy` 또는 명시적인 진행 문구로 중복 실행 방지 이유를 알린다.
   기존에 유효한 목록이나 결과가 있으면 새 요청 중에도 지우지 않는다.
+- 하나의 비동기 operation이 같은 데이터 집합의 순서·소속·내용·실행 상태를 바꾸는 동안에는, 오래된 상태를
+  기준으로 요청이 겹칠 수 있는 refresh와 sibling mutation action도 같은 operation scope에서 잠근다. 단순 tab
+  전환이나 읽기처럼 진행 중인 결과와 충돌하지 않는 navigation까지 획일적으로 막지 않는다. 잠금 범위는 button의
+  개수가 아니라 동시 실행 시 데이터 또는 사용자 결과가 충돌하는지로 결정한다.
 - 사용자가 누른 하나의 action이 소유하고 짧게 끝나는 작업은 그 action의 label 또는 progress indicator와
   `aria-busy`로 loading을 표현한다. 같은 내용을 별도 status surface에 반복하지 않는다.
 - 초기 metadata처럼 이미 badge, placeholder 또는 content skeleton이 진행 상태를 직접 표현하면 별도 loading

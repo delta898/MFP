@@ -91,6 +91,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async addToQueue({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.addSavedTopicToQueue(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'QUEUE_ADD_FAILED', '글감을 대기열로 옮기지 못했습니다.', error);
+            }
+        },
+
         async reorderQueue({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

@@ -154,6 +154,20 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
   유효한 실제 변경이 있을 때만 enabled가 되며 기존 validation 및 submitting 조건과 함께 평가한다. 빠른 글 작성의
   신규 글감 보관 action에는 이 editing-only 규칙을 적용하지 않는다.
 - 2026-09-08: 교정 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: collection 이동은 content editor가 아니라 원래 목록 row가 소유한다는 기준에 따라 보관 글감에
+  `대기열로 이동` action을 추가했다. 반대 방향의 `보관으로 이동`과 대칭을 이루며, 서버는 원고 내용을 다시 쓰지
+  않고 기존 row의 상태만 바꾼다. 대기열 편입은 사용자의 작업 순서 지정이므로 발행 필드 완성 여부를 미리
+  강제하지 않고 실제 발행 시점의 검증 책임을 유지한다.
+- 2026-09-08: 보관 글감 action은 desktop에서 상태 변경을 먼저, 파괴적 action을 마지막에 두는
+  `대기열로 이동 · 삭제` 역할 열을 고정해 행마다 정렬하고,
+  narrow viewport에서는 기존 유연한 flex 흐름으로 전환한다. 사용자 요청에 따라 자동 테스트는 실행하지 않았다.
+- 2026-09-08: `대기열로 이동`과 `보관으로 이동`은 모두 즉시 되돌릴 수 있는 내부 상태 변경이므로 사전
+  confirmation 없이 실행하고 결과 toast로 알린다. 짧은 이동 transaction 중에는 누른 action의 `이동 중…`만
+  진행 상태를 표시하며, stale 목록을 기준으로 요청이 겹치지 않도록 두 목록의 수정·이동·삭제·발행 action과
+  새로고침을 함께 잠근 뒤 성공 또는 실패 시 복원한다. 별도 loading surface나 page block은 추가하지 않는다.
+- 2026-09-08: 동시 action 방지 기준을 이동에 한정하지 않고 글감 관리의 모든 비동기 operation으로 일반화했다.
+  새로고침·순서 변경·collection 이동·삭제·발행 요청 중에는 두 목록의 action과 새로고침을 하나의 operation
+  lock으로 잠근다. 현재 collection을 살펴보는 local tab navigation은 상태 변경이 아니므로 계속 허용한다.
 
 ## 최종 결과
 

@@ -259,7 +259,13 @@ test('queue row actions describe their actual outcomes consistently', () => {
   assert.match(queueScript, /label: '지금 임시 저장'[\s\S]*busyLabel: '임시 저장 중\.\.\.'/);
   assert.match(queueScript, /label: '지금 예약 등록'[\s\S]*busyLabel: '예약 등록 중\.\.\.'/);
   assert.match(queueScript, /label: '지금 발행'[\s\S]*busyLabel: '발행 중\.\.\.'/);
-  assert.match(queueScript, /secondaryAction\.textContent = saved \? '삭제' : '보관으로 이동'/);
+  assert.match(queueScript, /enqueueButton\.textContent = '대기열로 이동'/);
+  assert.match(queueScript, /archiveButton\.textContent = '보관으로 이동'/);
+  assert.match(queueScript, /deleteButton\.textContent = '삭제'/);
+  assert.match(queueScript, /function setBlogNextQueueOperationBusy\(busy\)[\s\S]*setBlogNextQueueActionsBusy\(busy\)/);
+  assert.match(queueScript, /setBlogNextQueueOperationBusy\(true\);[\s\S]*button\.textContent = '이동 중\.\.\.'/);
+  assert.match(queueScript, /async function refreshBlogNextQueue\(\)[\s\S]*setBlogNextQueueOperationBusy\(true\)/);
+  assert.doesNotMatch(queueScript, /showUiConfirm\('글감은 삭제하지 않고 보관한 글감으로 이동합니다/);
   assert.match(queueScript, /title: actionCopy\.confirmTitle, confirmText: actionCopy\.confirmText/);
   assert.match(queueScript, /button\.textContent = actionCopy\.busyLabel/);
   assert.match(queueScript, /button\.textContent = actionCopy\.label/);
@@ -275,7 +281,9 @@ test('queue item titles avoid redundant edit labels and queue actions keep stabl
   assert.match(queueScript, /copy\.append\(title, meta, running\)/);
   assert.doesNotMatch(queueScript, /editCue|blog-next-queue-edit-cue/);
   assert.match(queueCss, /\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*36px 36px 112px 120px;/s);
+  assert.match(queueCss, /\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*120px 72px;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
+  assert.match(queueCss, /@media[\s\S]*\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
 });
 
 test('queue rows share one transient hover and keyboard focus surface', () => {

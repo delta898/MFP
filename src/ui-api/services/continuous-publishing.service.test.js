@@ -641,6 +641,36 @@ test('remove returns the same topic to waiting without deleting it', async () =>
     assert.equal(state.clearedPrefix, 'topics');
 });
 
+test('add moves the same saved topic to the ready queue without rewriting its content', async () => {
+    const state = {
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감' }]
+    };
+    const service = createService(state);
+
+    const result = await service.addSavedTopicToQueue({ rowIndex: 2 });
+
+    assert.equal(result.status, '발행 준비 완료');
+    assert.deepEqual(state.statusUpdate, {
+        rowIndex: 2,
+        status: '발행 준비 완료',
+        message: '연속 발행 대기열에 추가',
+        options: { throwOnError: true }
+    });
+    assert.equal(state.updatedFields, undefined);
+    assert.equal(state.clearedPrefix, 'topics');
+});
+
+test('add refuses a stale saved row without changing its status', async () => {
+    const state = { readItems: [] };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.addSavedTopicToQueue({ rowIndex: 2 }),
+        (error) => error.status === 409 && error.apiCode === 'SAVED_TOPIC_NOT_WAITING'
+    );
+    assert.equal(state.statusUpdate, undefined);
+});
+
 test('queue mutation refuses a stale row that is no longer ready', async () => {
     const state = {};
     const service = createService(state);

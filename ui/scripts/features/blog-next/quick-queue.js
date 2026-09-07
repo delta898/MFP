@@ -7,6 +7,7 @@ const BLOG_NEXT_BUILTIN_DEFAULTS = Object.freeze({
 let blogNextTopicSubmitting = false;
 let blogNextQueueLoading = false;
 let blogNextQueueReordering = false;
+let blogNextQueueOperationBusy = false;
 let blogNextQueueState = { items: [], saved_items: [], status_summary: {} };
 let blogNextEditingRowIndex = null;
 let blogNextEditingSourceStatus = '';
@@ -481,16 +482,29 @@ function createBlogNextListItem(item, position, saved) {
       actions.append(moveButton);
     });
   }
-  const secondaryAction = document.createElement('button');
-  secondaryAction.type = 'button';
-  secondaryAction.className = 'ghost';
-  secondaryAction.dataset.blogNextQueueDefaultDisabled = 'false';
-  secondaryAction.textContent = saved ? '삭제' : '보관으로 이동';
-  secondaryAction.addEventListener('click', () => saved
-    ? deleteBlogNextSavedItem(item, secondaryAction)
-    : removeBlogNextQueueItem(item, secondaryAction));
-  actions.append(secondaryAction);
-  if (!saved) {
+  if (saved) {
+    const enqueueButton = document.createElement('button');
+    enqueueButton.type = 'button';
+    enqueueButton.className = 'primary';
+    enqueueButton.dataset.blogNextQueueDefaultDisabled = 'false';
+    enqueueButton.textContent = '대기열로 이동';
+    enqueueButton.addEventListener('click', () => addBlogNextSavedItemToQueue(item, enqueueButton));
+    actions.append(enqueueButton);
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'ghost';
+    deleteButton.dataset.blogNextQueueDefaultDisabled = 'false';
+    deleteButton.textContent = '삭제';
+    deleteButton.addEventListener('click', () => deleteBlogNextSavedItem(item, deleteButton));
+    actions.append(deleteButton);
+  } else {
+    const archiveButton = document.createElement('button');
+    archiveButton.type = 'button';
+    archiveButton.className = 'ghost';
+    archiveButton.dataset.blogNextQueueDefaultDisabled = 'false';
+    archiveButton.textContent = '보관으로 이동';
+    archiveButton.addEventListener('click', () => removeBlogNextQueueItem(item, archiveButton));
+    actions.append(archiveButton);
     const runButton = document.createElement('button');
     runButton.type = 'button';
     runButton.className = 'primary';
@@ -506,8 +520,9 @@ function createBlogNextListItem(item, position, saved) {
 }
 
 function setBlogNextQueueActionsBusy(busy) {
-  document.querySelectorAll('#blog-next-queue-list .blog-next-queue-actions button').forEach((button) => {
+  document.querySelectorAll('#blog-next-queue-list button, #blog-next-saved-list button').forEach((button) => {
     if (busy) {
+      if (Object.hasOwn(button.dataset, 'blogNextPreviouslyDisabled')) return;
       button.dataset.blogNextPreviouslyDisabled = button.disabled ? 'true' : 'false';
       button.disabled = true;
       return;
@@ -516,6 +531,22 @@ function setBlogNextQueueActionsBusy(busy) {
     button.disabled = button.dataset.blogNextPreviouslyDisabled === 'true';
     delete button.dataset.blogNextPreviouslyDisabled;
   });
+  const refreshButton = document.getElementById('blog-next-queue-refresh');
+  if (!refreshButton) return;
+  if (busy) {
+    if (!Object.hasOwn(refreshButton.dataset, 'blogNextPreviouslyDisabled')) {
+      refreshButton.dataset.blogNextPreviouslyDisabled = refreshButton.disabled ? 'true' : 'false';
+    }
+    refreshButton.disabled = true;
+  } else if (Object.hasOwn(refreshButton.dataset, 'blogNextPreviouslyDisabled')) {
+    refreshButton.disabled = refreshButton.dataset.blogNextPreviouslyDisabled === 'true';
+    delete refreshButton.dataset.blogNextPreviouslyDisabled;
+  }
+}
+
+function setBlogNextQueueOperationBusy(busy) {
+  blogNextQueueOperationBusy = busy;
+  setBlogNextQueueActionsBusy(busy);
 }
 
 function syncBlogNextQueueRunnerState(status = {}) {
@@ -583,7 +614,7 @@ async function reorderBlogNextQueueItem(item = {}, direction) {
   ];
   blogNextQueueReordering = true;
   renderBlogNextQueue({ ...previousQueue, items: optimisticItems });
-  setBlogNextQueueActionsBusy(true);
+  setBlogNextQueueOperationBusy(true);
   try {
     const queue = await postJson('/api/v1/continuous-publishing/queue/reorder', { rowIndex, direction });
     renderBlogNextQueue(queue);
@@ -593,7 +624,7 @@ async function reorderBlogNextQueueItem(item = {}, direction) {
     await loadBlogNextQueue({ force: true, showRefreshProgress: false });
   } finally {
     blogNextQueueReordering = false;
-    setBlogNextQueueActionsBusy(false);
+    setBlogNextQueueOperationBusy(false);
     if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
   }
 }
@@ -605,7 +636,8 @@ async function deleteBlogNextSavedItem(item = {}, button) {
     title: '보관한 글감 삭제', confirmText: '삭제', cancelText: '취소'
   });
   if (!confirmed) return;
-  if (button) { button.disabled = true; button.textContent = '삭제 중...'; }
+  setBlogNextQueueOperationBusy(true);
+  if (button) button.textContent = '삭제 중...';
   try {
     await postJson('/api/v1/continuous-publishing/topics/delete', { rowIndex });
     showUiToast({ level: 'success', title: '글감 삭제 완료', message: '보관한 글감을 삭제했습니다.' });
@@ -613,7 +645,8 @@ async function deleteBlogNextSavedItem(item = {}, button) {
   } catch (error) {
     showUiToast({ level: 'error', title: '글감 삭제 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
   } finally {
-    if (button?.isConnected) { button.disabled = false; button.textContent = '삭제'; }
+    setBlogNextQueueOperationBusy(false);
+    if (button?.isConnected) button.textContent = '삭제';
   }
 }
 
@@ -624,11 +657,8 @@ async function removeBlogNextQueueItem(item = {}, button) {
   }
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
-  const confirmed = await showUiConfirm('글감은 삭제하지 않고 보관한 글감으로 이동합니다. 계속할까요?', {
-    title: '보관으로 이동', confirmText: '이동', cancelText: '취소'
-  });
-  if (!confirmed) return;
-  if (button) { button.disabled = true; button.textContent = '이동 중...'; }
+  setBlogNextQueueOperationBusy(true);
+  if (button) button.textContent = '이동 중...';
   try {
     await postJson('/api/v1/continuous-publishing/queue/remove', { rowIndex });
     showUiToast({ level: 'success', title: '보관으로 이동 완료', message: '글감을 보관한 글감으로 옮겼습니다.' });
@@ -636,7 +666,29 @@ async function removeBlogNextQueueItem(item = {}, button) {
   } catch (error) {
     showUiToast({ level: 'error', title: '대기열 변경 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
   } finally {
-    if (button?.isConnected) { button.disabled = false; button.textContent = '보관으로 이동'; }
+    setBlogNextQueueOperationBusy(false);
+    if (button?.isConnected) button.textContent = '보관으로 이동';
+  }
+}
+
+async function addBlogNextSavedItemToQueue(item = {}, button) {
+  if (isBlogNextQueueRunnerLocked()) {
+    showBlogNextQueueRunnerLockedNotice();
+    return;
+  }
+  const rowIndex = Number(item.rowIndex);
+  if (!Number.isInteger(rowIndex)) return;
+  setBlogNextQueueOperationBusy(true);
+  if (button) button.textContent = '이동 중...';
+  try {
+    await postJson('/api/v1/continuous-publishing/queue/add', { rowIndex });
+    showUiToast({ level: 'success', title: '대기열로 이동 완료', message: '글감을 발행 대기열로 옮겼습니다.' });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
+  } catch (error) {
+    showUiToast({ level: 'error', title: '대기열로 이동 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+  } finally {
+    setBlogNextQueueOperationBusy(false);
+    if (button?.isConnected) button.textContent = '대기열로 이동';
   }
 }
 
@@ -654,7 +706,8 @@ async function runBlogNextQueueItemNow(item = {}, button) {
     title: actionCopy.confirmTitle, confirmText: actionCopy.confirmText, cancelText: '취소'
   });
   if (!confirmed) return;
-  if (button) { button.disabled = true; button.textContent = actionCopy.busyLabel; }
+  setBlogNextQueueOperationBusy(true);
+  if (button) button.textContent = actionCopy.busyLabel;
   let accepted = false;
   try {
     await startBlogNextRunner({ rowIndex, platforms: item.options?.platforms });
@@ -662,7 +715,20 @@ async function runBlogNextQueueItemNow(item = {}, button) {
   } catch (_error) {
     // Runner가 공통 실패 상태와 안내를 표시한다.
   } finally {
-    if (!accepted && button?.isConnected) { button.disabled = false; button.textContent = actionCopy.label; }
+    setBlogNextQueueOperationBusy(false);
+    if (!accepted && button?.isConnected) button.textContent = actionCopy.label;
+    if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
+  }
+}
+
+async function refreshBlogNextQueue() {
+  if (blogNextQueueOperationBusy) return;
+  setBlogNextQueueOperationBusy(true);
+  try {
+    await loadBlogNextQueue({ force: true });
+  } finally {
+    setBlogNextQueueOperationBusy(false);
+    if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
   }
 }
 
@@ -711,6 +777,7 @@ function renderBlogNextQueue(data = {}) {
     queueSize: readyItems.length
   }, index, false)));
   if (typeof blogNextRunnerLastStatus !== 'undefined') syncBlogNextQueueRunnerState(blogNextRunnerLastStatus);
+  if (blogNextQueueOperationBusy) setBlogNextQueueActionsBusy(true);
   if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
 }
 
@@ -743,7 +810,7 @@ async function loadBlogNextQueue(options = {}) {
     blogNextQueueLoading = false;
     setBlogNextQueueListsBusy(false);
     if (refreshButton) {
-      refreshButton.disabled = false;
+      refreshButton.disabled = blogNextQueueOperationBusy;
       refreshButton.textContent = '새로고침';
       refreshButton.setAttribute('aria-busy', 'false');
     }
@@ -796,7 +863,7 @@ function initBlogNextQuickQueue() {
   });
   syncBlogNextQuickFlowSummaries();
   syncBlogNextTopicClearAction();
-  document.getElementById('blog-next-queue-refresh')?.addEventListener('click', () => loadBlogNextQueue({ force: true }));
+  document.getElementById('blog-next-queue-refresh')?.addEventListener('click', refreshBlogNextQueue);
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
     button.addEventListener('click', () => activateBlogNextManagementTab(button.dataset.blogNextManagementTab));
     button.addEventListener('keydown', handleBlogNextManagementTabKeydown);
