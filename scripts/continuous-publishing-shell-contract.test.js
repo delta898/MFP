@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -9,9 +10,16 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
+function readBlogNextView() {
+    return createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
+        uiRoot: path.join(repoRoot, 'ui'),
+        entryFile: 'partials/views/blog-next.html'
+    }).html;
+}
+
 test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
     const legacyView = read('ui/partials/views/blog.html');
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const betaScript = read('ui/scripts/features/blog-next/shell.js');
 
     assert.match(legacyView, /id="view-blog"/);
@@ -25,7 +33,7 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
 });
 
 test('Blog Beta quick shell preserves all three existing input concepts', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
 
     assert.match(betaView, /data-blog-next-input-mode="ai"[^>]*>바로 생성/);
     assert.match(betaView, /data-blog-next-input-mode="folder"[^>]*>원고 폴더/);
@@ -34,7 +42,7 @@ test('Blog Beta quick shell preserves all three existing input concepts', () => 
 });
 
 test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const usabilityCss = read('ui/styles/features/continuous-publishing-usability.css');
     const betaCss = read('ui/styles/features/continuous-publishing-interactions.css');
     const actionCss = read('ui/styles/patterns/actions.css');
@@ -62,7 +70,7 @@ test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1'
 });
 
 test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queue', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
     const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
     const enqueueIndex = betaView.indexOf('id="blog-next-enqueue-topic"');
@@ -82,7 +90,7 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
 });
 
 test('completed manuscripts publish directly without entering the continuous queue', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const draftInputs = read('ui/scripts/features/blog-next/draft-inputs.js');
 
     assert.match(betaView, /data-blog-next-draft-publish="folder"/);
@@ -118,7 +126,7 @@ test('Blog Beta execution paths share one server-side coordinator without wideni
 });
 
 test('continuous automation settings own timing but never topic delivery targets', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const automationScript = read('ui/scripts/features/blog-next/automation-settings.js');
     const shellScript = read('ui/scripts/features/blog-next/shell.js');
     const navigationScript = read('ui/scripts/foundation/navigation.js');
@@ -145,7 +153,7 @@ test('continuous automation settings own timing but never topic delivery targets
 });
 
 test('safe timer UI exposes a development-only 30 second test without multi-device lease controls', () => {
-    const html = read('ui/partials/views/blog-next.html');
+    const html = readBlogNextView();
     const script = read('ui/scripts/features/blog-next/automation-settings.js');
     const css = read('ui/styles/features/continuous-publishing-interactions.css');
     assert.match(html, /id="blog-next-automation-test"/);
@@ -158,7 +166,7 @@ test('safe timer UI exposes a development-only 30 second test without multi-devi
 });
 
 test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reuses recommendation surfaces', () => {
-    const html = read('ui/partials/views/blog-next.html');
+    const html = readBlogNextView();
     const queueScript = [
         read('ui/scripts/features/blog-next/publish-preflight.js'),
         read('ui/scripts/features/blog-next/quick-queue.js')
@@ -190,7 +198,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
 });
 
 test('Stage 8 aligns posting language and external-reference controls with the existing blog flow', () => {
-    const html = read('ui/partials/views/blog-next.html');
+    const html = readBlogNextView();
     const css = read('ui/styles/features/continuous-publishing-usability.css');
 
     assert.match(html, /포스팅 대상/);
@@ -219,7 +227,7 @@ test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic 
 });
 
 test('Stage 10 keeps trend discovery manual and hands one selection to quick writing', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
     const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
 
@@ -240,7 +248,7 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
 });
 
 test('Stage 11 exposes one shared publish status with an explicit status shortcut and no internal row details', () => {
-    const betaView = read('ui/partials/views/blog-next.html');
+    const betaView = readBlogNextView();
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const publishPreferences = read('ui/scripts/features/publishing/shared-preferences.js');
 

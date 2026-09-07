@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-05-blog-beta-panel-anatomy`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 구현·자동 검증·사용자 시각 검토 완료 — parent merge gate 대기
+- Status: 완료 — parent merge 준비
 
 ## 사용자 필요와 목표
 
@@ -124,6 +124,9 @@ slot의 존재 여부는 기능 의미가 결정한다. 생략된 slot이 빈 �
 - 2026-09-07: 사용자 수동 재확인에서 indicator 자체 focus에는 여전히 Chromium 기본 황적색 ring이 적용됨을 확인했다. selector 존재와 실제 author style 적용은 별개였으며, focus 표시 제거와 custom trigger 구현 모두 비용 대비 부적절하다고 판단했다. 효과 없는 override를 제거하고 native picker 내부 focus 색을 known issue 및 style pack 예외로 확정했다.
 - 2026-09-07: 세 빠른 글 작성 mode 중 바로 생성의 첫 필드만 10px 낮게 시작하는 것을 확인했다. 별도 의미 없는 topic form 전용 `margin-top`을 제거하고 공통 mode panel padding을 단일 시작 기준으로 삼았다.
 - 2026-09-07: 최종 정렬 교정 후 focused contract 27개와 browser UI smoke를 통과했다. browser 검사는 225 fixture request를 검증했으며, 사용자가 대표 화면과 keyboard focus를 직접 확인해 Stage 5 UI 검토를 완료했다.
+- 2026-09-07: parent merge gate Full TC 첫 실행에서 1,488 passed, 1 failed, 1 skipped를 확인했다. 기능 실패가 아니라 Stage 5 markup 증가로 `blog-next.html`이 524줄이 되어 partial 500줄 구조 경계를 넘은 문제였다. 연속 발행 panel을 하위 partial로 분리하고 HTML 계약들이 composed view를 검증하도록 교정했다.
+- 2026-09-07: 두 번째 Full TC에서 구조 경계는 회복됐으나 디자인 action 계약 한 곳이 조합 전 원본 partial을 읽어 분리된 연속 발행 action을 찾지 못했다. 이 계약도 composed view를 읽도록 교정했다.
+- 2026-09-07: 관련 구조·디자인 계약 41개를 통과한 뒤 세 번째 Full TC에서 1,489 passed, 0 failed, 1 skipped를 확인했다. Stage 5의 구현, 사용자 UI 검토와 parent merge gate 검증이 모두 완료됐다.
 
 ## 현황 조사
 
@@ -145,4 +148,4 @@ slot의 존재 여부는 기능 의미가 결정한다. 생략된 slot이 빈 �
 - browser UI smoke: passed, 225 fixture requests
 - syntax 및 diff whitespace 검사: 통과
 - 사용자 수동 확인: 대표 panel 시작점, local selected 상태, checkbox·link·native date/time keyboard focus를 확인했다. native picker 내부 황적색 focus ring은 known issue로 승인했다.
-- full unit suite: 아직 수행하지 않음. merge 후보 승인 후 별도 허가를 받아 실행
+- full unit suite: 1,489 passed, 0 failed, 1 skipped

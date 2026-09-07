@@ -132,6 +132,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: `codex/feature/design-system-05-blog-beta-panel-anatomy`에서 다섯 Blog Beta tab의 콘텐츠 시작 문법과 panel anatomy 통일을 목표로 5단계를 시작했다. 세부 기록은 [5단계 개발 기록](2026-09-07-design-system-05-blog-beta-panel-anatomy-development.md)을 따른다.
 - 2026-09-07: Quiet Sage Studio가 이미 사용자 승인과 확장성 검증을 마친 두 번째 정식 style임을 재확인했다. 후속 단계를 새로운 두 번째 style 제작이 아니라 style 선택 경험과 향후 확장으로 바로잡았다.
 - 2026-09-07: Stage 5에서 Blog Beta 다섯 panel의 intro·content inset·local navigation·keyboard focus 문법을 통일하고 사용자 시각 검토를 완료했다. native date/time picker 내부 focus 색은 브라우저 소유 known issue로 남기고 parent merge gate를 준비했다.
+- 2026-09-07: Stage 5 parent merge gate Full TC에서 드러난 Blog Beta partial 500줄 경계를 하위 composition으로 회복했다. 최종 Full TC는 1,489 passed, 0 failed, 1 skipped로 통과했다.
 
 ## Design Principles 필수 검토 일정
 

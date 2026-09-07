@@ -99,7 +99,10 @@ test('non-target views opt into compatibility containment explicitly', () => {
 
 test('shared action pattern keeps one filled primary and lower-emphasis alternatives', () => {
   const actions = read('ui/styles/patterns/actions.css');
-  const blogNext = read('ui/partials/views/blog-next.html');
+  const blogNext = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
+    uiRoot,
+    entryFile: 'partials/views/blog-next.html'
+  }).html;
   const automationSettings = read('ui/styles/features/automation-settings.css');
   const modalBatch = read('ui/styles/components/modals-batch.css');
   const selectionControls = read('ui/styles/patterns/selection-controls.css');

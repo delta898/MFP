@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -9,8 +10,15 @@ function read(relativePath) {
     return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
 
+function readBlogNextView() {
+    return createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
+        uiRoot: path.join(ROOT, 'ui'),
+        entryFile: 'partials/views/blog-next.html'
+    }).html;
+}
+
 test('Blog Beta top-level tabs and panels expose a complete accessibility relationship', () => {
-    const view = read('ui/partials/views/blog-next.html');
+    const view = readBlogNextView();
     const tabNames = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
 
     for (const name of tabNames) {
@@ -29,7 +37,7 @@ test('Blog Beta top-level tabs and panels expose a complete accessibility relati
 });
 
 test('Blog Beta panels share one intro slot and keep distinct local roles', () => {
-    const view = read('ui/partials/views/blog-next.html');
+    const view = readBlogNextView();
     const styles = read('ui/styles/features/blog-next-panel-anatomy.css');
 
     assert.equal((view.match(/blog-next-panel-lead blog-next-panel-intro/g) || []).length, 5);
