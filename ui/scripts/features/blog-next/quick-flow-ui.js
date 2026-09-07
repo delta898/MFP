@@ -45,12 +45,55 @@ function syncBlogNextScheduleField() {
 
 function syncBlogNextProviderDependentFields() {
   const naverSelected = document.getElementById('blog-next-target-naver')?.checked === true;
+  const wordpressSelected = document.getElementById('blog-next-target-wordpress')?.checked === true;
   const field = document.getElementById('blog-next-headless-field');
   const input = document.getElementById('blog-next-runner-headless');
   const runnerBusy = (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting);
   if (field) field.dataset.dependencyActive = String(naverSelected);
   if (input) input.disabled = !naverSelected || runnerBusy;
+  [
+    ['blog-next-naver-category-field', 'blog-next-naver-category', naverSelected],
+    ['blog-next-wordpress-category-field', 'blog-next-wordpress-category', wordpressSelected]
+  ].forEach(([fieldId, inputId, selected]) => {
+    const categoryField = document.getElementById(fieldId);
+    const categoryInput = document.getElementById(inputId);
+    if (categoryField) categoryField.dataset.dependencyActive = String(selected);
+    if (categoryInput) categoryInput.disabled = !selected;
+  });
+}
+
+function readBlogNextTopicActionValidity() {
+  const values = ['blog-next-subject', 'blog-next-keywords', 'blog-next-instruction']
+    .map(id => String(document.getElementById(id)?.value || '').trim());
+  const references = String(document.getElementById('blog-next-reference-url')?.value || '')
+    .split(',').map(value => value.trim()).filter(Boolean);
+  const hasIdea = values.some(Boolean) || references.length > 0;
+  const referencesValid = references.every(value => /^https?:\/\//i.test(value));
+  const hasTarget = document.getElementById('blog-next-target-naver')?.checked === true
+    || document.getElementById('blog-next-target-wordpress')?.checked === true;
+  const scheduled = document.getElementById('blog-next-post-status')?.value === 'schedule';
+  const scheduleValid = !scheduled || Boolean(document.getElementById('blog-next-schedule-date')?.value);
+  return {
+    ideaValid: hasIdea && referencesValid,
+    readyValid: hasIdea && referencesValid && hasTarget && scheduleValid
+  };
+}
+
+function syncBlogNextTopicActionAvailability() {
+  const { ideaValid, readyValid } = readBlogNextTopicActionValidity();
+  const busy = typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting;
+  const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
+  const editingReady = typeof blogNextEditingSourceStatus !== 'undefined'
+    && blogNextEditingSourceStatus === '발행 준비 완료';
+  const runnerActive = (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
+    || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting);
+  const save = document.getElementById('blog-next-save-topic');
+  const enqueue = document.getElementById('blog-next-enqueue-topic');
+  const publish = document.getElementById('blog-next-publish-now');
+  if (save) save.disabled = busy || editingReady || !ideaValid;
+  if (enqueue) enqueue.disabled = busy || !readyValid;
+  if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !readyValid;
 }
 
 function syncBlogNextHelpPlacement(trigger) {
@@ -104,6 +147,7 @@ function syncBlogNextTopicClearAction() {
   const cancel = document.getElementById('blog-next-cancel-edit');
   if (clear) clear.hidden = editing || !hasBlogNextClearableContent(captureBlogNextClearableContent());
   if (cancel) cancel.hidden = !editing;
+  syncBlogNextTopicActionAvailability();
 }
 
 function restoreBlogNextClearedTopicContent() {

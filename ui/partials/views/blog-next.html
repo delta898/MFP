@@ -154,13 +154,13 @@
                       <label><input id="blog-next-target-naver" type="checkbox" value="naver" checked> 네이버 블로그</label>
                       <label><input id="blog-next-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
                     </fieldset>
-                    <label class="blog-next-field">
+                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-dependency-active="true">
                       <span>네이버 카테고리 <small>(선택)</small></span>
                       <input id="blog-next-naver-category" type="text" placeholder="비우면 기본 카테고리">
                     </label>
-                    <label class="blog-next-field">
+                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-wordpress-category-field" data-dependency-active="false">
                       <span>워드프레스 카테고리 <small>(선택)</small></span>
-                      <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily">
+                      <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily" disabled>
                     </label>
                     <label class="blog-next-field">
                       <span class="blog-next-field-label-with-help">
@@ -203,9 +203,9 @@
                   <button class="blog-next-undo-action" id="blog-next-clear-undo" type="button" hidden>되돌리기</button>
                 </span>
                 <button class="ghost blog-next-cancel-action" id="blog-next-cancel-edit" type="button" hidden>취소</button>
-                <button class="secondary" id="blog-next-save-topic" type="button">글감 보관</button>
-                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form">발행 대기열에 추가</button>
-                <button class="primary" id="blog-next-publish-now" type="button">바로 포스팅</button>
+                <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
+                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form" disabled>발행 대기열에 추가</button>
+                <button class="primary" id="blog-next-publish-now" type="button" disabled>바로 포스팅</button>
               </div>
             </form>
             </div>

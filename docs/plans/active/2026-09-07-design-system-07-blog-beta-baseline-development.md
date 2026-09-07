@@ -217,6 +217,13 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
   같은 action slot을 교대 사용하는 것이 직접 조작의 연속성에 맞다고 결정했다. 바로 생성과 원고 붙여넣기 모두
   지운 직후 같은 위치에 neutral `되돌리기`를 표시하고 focus를 이동하며, 별도 완료 문구는 반복 안내로 보아
   제거했다. 새 입력과 후속 상태 전이 시 복구 action을 폐기하는 기존 계약은 유지한다.
+- 2026-09-07: 바로 생성의 완료 action이 빈 입력이나 지우기 직후에도 활성화되고, platform별 category가 선택과
+  무관하게 편집되는 적용 gap을 확인했다. 글감 보관은 domain의 idea seed 조건, 대기열·즉시 발행은 idea seed와
+  target·예약 조건을 각각 반영하도록 공통 availability를 두었다. platform 종속 category는 원고 mode와 같이
+  표시를 유지한 채 disabled/enabled 처리하고 값을 보존한다. 사용자·AI·트렌드·복구 입력은 같은 동기화를 거친다.
+- 2026-09-07: 사용자 반복 UI 확인과 최종 action·category 상태 보정을 마쳐 Stage 7의 `빠른 글 작성` 범위를
+  완료로 판단했다. 세 source mode의 입력 이후 공통 원고 편집과 로컬 이미지 교체는 별도 feature로 유지하며,
+  Stage 7 전체 완료 판정과 상위 branch 통합 전에는 나머지 Blog Beta panel 확인과 승인된 Full TC가 남아 있다.
 
 ## 구현 결과와 자동 검증
 
@@ -224,7 +231,7 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
 - 트렌드, 글감 관리, 스마트 댓글과 연속 발행 설정이 각 작업 영역 안에서 주요 비동기 상태를 표현한다.
 - Warm Editorial과 Quiet Sage Studio는 동일 DOM·기능을 사용하고 style-specific selector를 추가하지 않았다.
 - 최신 Stage 7 및 기존 Blog Beta focused contract·구조 검사: 52 passed, 0 failed
-- browser UI smoke: passed, 230 fixture requests
+- browser UI smoke: passed, 236 fixture requests
 - browser smoke 범위: 세 mode keyboard 이동, 발행 설정·예약 값 보존, provider 종속 state, 붙여넣기
   되돌리기, 트렌드 filter state, 글감 관리 local tab, 스마트 댓글 model role, 연속 발행 종속 field·저장
   feedback, 두 style focus와 390px narrow panel/mode overflow

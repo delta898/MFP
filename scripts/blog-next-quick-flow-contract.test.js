@@ -61,6 +61,12 @@ test('quick flow summaries update from existing controls and clear remains undoa
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
   assert.match(script, /clearBlogNextTopicContent\(\{ preserveUndo: true \}\)/);
   assert.match(uiScript, /function restoreBlogNextClearedTopicContent\(\)/);
+  assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
+  assert.match(uiScript, /ideaValid: hasIdea && referencesValid/);
+  assert.match(uiScript, /readyValid: hasIdea && referencesValid && hasTarget && scheduleValid/);
+  assert.match(uiScript, /save\.disabled = busy \|\| editingReady \|\| !ideaValid/);
+  assert.match(uiScript, /enqueue\.disabled = busy \|\| !readyValid/);
+  assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !readyValid/);
   assert.match(script, /document\.getElementById\('blog-next-clear-undo'\)\?\.addEventListener\('click', restoreBlogNextClearedTopicContent\)/);
 });
 
@@ -140,10 +146,15 @@ test('provider-dependent controls align UI, summaries and runner payloads', () =
   const runnerScript = read('ui/scripts/features/blog-next/runner.js');
 
   assert.match(html, /id="blog-next-headless-field" data-dependency-active="true"/);
+  assert.match(html, /id="blog-next-naver-category-field" data-dependency-active="true"/);
+  assert.match(html, /id="blog-next-wordpress-category-field" data-dependency-active="false"[\s\S]*id="blog-next-wordpress-category"[^>]*disabled/);
   assert.match(html, /id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저/);
   assert.match(css, /\.blog-next-dependent-field\[data-dependency-active="false"\] \.blog-next-check-label\s*\{[^}]*color:\s*var\(--ui-text-muted\)/s);
   assert.match(uiScript, /function syncBlogNextProviderDependentFields\(\)/);
   assert.match(uiScript, /input\.disabled = !naverSelected \|\| runnerBusy;/);
+  assert.match(uiScript, /\['blog-next-naver-category-field', 'blog-next-naver-category', naverSelected\]/);
+  assert.match(uiScript, /\['blog-next-wordpress-category-field', 'blog-next-wordpress-category', wordpressSelected\]/);
+  assert.match(uiScript, /categoryInput\.disabled = !selected/);
   assert.match(uiScript, /if \(document\.getElementById\('blog-next-target-naver'\)\?\.checked\)\s*\{\s*summaryParts\.push/s);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\), platforms: payload\.platforms \}\)/);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex, platforms: item\.options\?\.platforms \}\)/);

@@ -51,6 +51,10 @@
 - `disabled`: 실행할 수 없음을 opacity와 cursor로 함께 표시한다.
 - `loading`: label 또는 진행 표시로 상태를 알리고 중복 실행을 막는다.
 - reduced motion에서는 lift와 불필요한 transition을 제거한다.
+- 완료 action은 화면이 열렸다는 이유만으로 활성화하지 않는다. 실제로 요구하는 최소 입력, 대상과 조건을
+  충족할 때만 활성화하며 client 상태는 domain validation과 같은 의미를 사용한다. 하나의 form 안에서도
+  보관과 발행처럼 결과가 다르면 활성화 조건을 분리한다.
+- 사용자 입력뿐 아니라 추천·불러오기·되돌리기 같은 프로그램 입력도 동일한 availability 동기화를 거친다.
 
 ## AI Assist actions
 
