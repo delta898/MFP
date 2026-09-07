@@ -55,6 +55,8 @@ test('folder preview presents one reading surface and defers image diagnostics',
   assert.match(script, /local-markdown-image-card-status missing">파일 없음/);
   assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
+  assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?figure img\s*{[\s\S]*?max-height: min\(38vh, 360px\);/);
 });
 
 test('folder draft keeps idle results quiet and summarizes repeated image warnings', () => {
@@ -114,8 +116,14 @@ test('pasted manuscript clearing is recoverable until new input replaces the sna
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
 
-  assert.match(html, /id="blog-next-paste-clear"[^>]*>내용 지우기/);
+  assert.match(html, /id="blog-next-paste-source-title"[^>]*for="blog-next-paste-markdown">Markdown 원고<\/label>/);
+  assert.doesNotMatch(html, /완성된 원고 입력/);
+  assert.match(html, /data-blog-next-draft-validation="paste"[^>]*aria-live="polite" hidden><\/div>/);
+  assert.match(html, /id="blog-next-paste-clear"[^>]*hidden>내용 지우기/);
   assert.match(html, /id="blog-next-paste-clear-undo"[^>]*hidden>되돌리기/);
+  assert.match(script, /function syncBlogNextPastedDraftActions\(\)/);
+  assert.match(script, /if \(clear\) clear\.hidden = !input\?\.value/);
+  assert.doesNotMatch(script, /setBlogNextDraftValidation\('paste', null, 'Markdown 원고를 붙여넣어 주세요\.'\)/);
   assert.match(script, /blogNextDraftState\.paste\.clearSnapshot = currentValue/);
   assert.match(script, /function restoreBlogNextPastedDraft\(\)/);
   assert.match(script, /function discardBlogNextPastedClearSnapshot\(\)/);

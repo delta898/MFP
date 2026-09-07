@@ -108,6 +108,14 @@
 - 모든 card가 hover에서 떠오를 필요는 없다. 클릭 가능성이나 의미가 없으면 움직임을 사용하지 않는다.
 - card 안에 같은 역할의 card를 반복해서 중첩하지 않는다.
 
+## Content previews
+
+- preview는 실제 결과의 순서와 비율을 알아볼 수 있어야 하지만 작성·설정 화면 전체를 대신하지 않는다.
+- 긴 본문은 작업 맥락을 유지할 수 있는 제한된 높이 안에서 읽게 할 수 있다. 내부 scroll을 둘 때는 page scroll과
+  경쟁하지 않을 만큼 충분한 높이를 제공하고 별도의 toolbar나 단계 control을 습관적으로 추가하지 않는다.
+- 큰 이미지에는 화면과 preview 높이를 함께 고려한 최대 크기를 두고 `contain`으로 전체 형태를 보존한다.
+  실제 결과를 닮게 한다는 이유로 한 이미지가 다음 작업 영역을 지나치게 밀어내거나 임의로 잘리게 하지 않는다.
+
 ## Embedded widgets
 
 - timer, clock처럼 독립적인 내부 표현을 가진 widget도 제품 shell 안에서는 현재 style의 surface, border, radius, elevation과 기본 text를 따른다.

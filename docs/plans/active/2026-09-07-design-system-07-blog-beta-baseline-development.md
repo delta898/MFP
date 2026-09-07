@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-blog-beta-baseline`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 구현·자동 검증 완료 — 사용자 UI 검토 대기
+- Status: 사용자 검토 보정 진행 중 — 원고 붙여넣기 공통 기준 적용
 
 ## 사용자 필요와 목표
 
@@ -185,6 +185,21 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
   모호하게 일반화하므로 제거했다. 상단 status는 `이미지 N개를 확인해 주세요`로 영향 범위만 짧게 알리고,
   본문은 누락 위치를 `이미지 파일 없음`으로 표시하며, 접힌 `이미지 확인`에는 정상 매칭을 반복하지 않고
   누락 항목의 번호·제목·prompt만 표시한다. 누락이 없으면 진단 disclosure 자체를 숨긴다.
+- 2026-09-07: 실제 결과를 닮은 미리보기는 유지하되 긴 본문과 세로 이미지 한 장이 이후 작업 영역을 과도하게
+  밀어내지 않도록 folder preview의 읽기 높이와 이미지 최대 높이를 desktop·narrow viewport별로 제한했다.
+  이미지는 자르지 않고 `contain`으로 전체 비율을 보존하며 별도 toolbar나 확대 기능은 추가하지 않았다.
+- 2026-09-07: 사용자는 `원고 폴더`와 `원고 붙여넣기`를 source 진입 방식만 다른 하나의 원고 작업공간으로
+  통합하고, folder 원고도 원본을 암묵적으로 덮어쓰지 않는 범위에서 수정하며, image block에 로컬 이미지를
+  연결·교체해 preview와 실제 발행에 동일하게 사용하는 후속 방향을 제안했다. 이는 editor state, asset
+  ownership, preview API와 publish payload를 함께 바꾸는 새 제품 기능이므로 Stage 7에는 포함하지 않는다.
+  공통 작업공간 모듈, 이미지 우선순위와 단계적 구현안은 `docs/backlog.md`의 P1 일감으로 기록했다.
+- 2026-09-07: 사용자 확인을 거친 Stage 7 기준면 변경을 `048e58a`에 커밋했다. 별도 요청이었던 개발 저널
+  seed는 `abf82a6`으로 분리했다. 이후 적용한 folder preview 높이·이미지 최대 크기 조정은 최종 시각 확인과
+  커밋이 남아 있다.
+- 2026-09-07: Stage 7 종료 점검에서 folder mode에서 정립한 idle·preview 기준이 paste mode에는 아직
+  적용되지 않은 것을 확인해 종료 판정을 철회했다. 첫 보정으로 paste source의 중복 section heading과
+  idle validation을 제거하고, textarea에 내용이 있을 때만 `내용 지우기`를 노출하도록 했다. 이후 조각에서
+  두 mode의 preview markup, 상태와 image diagnostics를 공통 계약으로 통합한다.
 
 ## 구현 결과와 자동 검증
 
@@ -213,4 +228,7 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
 - native date/time picker 내부 focus 색과 popup UI는 브라우저 소유 known issue로 유지한다.
 - 사용자 UI 승인 전에는 시각적 완료로 판정하지 않는다.
 - Full unit suite는 사용자 UI 승인과 별도 실행 승인 뒤에만 수행한다.
-- commit, parent merge, branch 삭제, push와 release는 아직 수행하지 않았다.
+- Stage 7의 새 기능 구현 범위는 종료했다. 현재 미커밋된 folder preview 밀도 조정을 확정한 뒤 development
+  record의 최종 검증 결과를 갱신해야 한다.
+- 최근 변경 뒤 Full TC, parent merge, branch 삭제, push와 release는 아직 수행하지 않았다.
+- 원고 공통 editor와 로컬 이미지 연결은 Stage 7 완료 조건이 아니며 별도 feature scope와 검증 계획으로 시작한다.

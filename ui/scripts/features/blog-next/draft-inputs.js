@@ -318,9 +318,7 @@ async function loadBlogNextDraftPreview(type) {
     : state.files.length > 0;
   if (!hasSource) {
     renderBlogNextDraftPreview(type, null);
-    setBlogNextDraftValidation(type, null, type === 'paste'
-      ? 'Markdown 원고를 붙여넣어 주세요.'
-      : '');
+    setBlogNextDraftValidation(type);
     return null;
   }
   try {
@@ -475,7 +473,8 @@ function clearBlogNextPastedDraft() {
   blogNextDraftState.paste.preview = null;
   blogNextDraftState.paste.requestId += 1;
   renderBlogNextDraftPreview('paste', null);
-  setBlogNextDraftValidation('paste', null, 'Markdown 원고를 붙여넣어 주세요.');
+  setBlogNextDraftValidation('paste');
+  syncBlogNextPastedDraftActions();
   const undo = document.getElementById('blog-next-paste-clear-undo');
   if (undo) undo.hidden = false;
   input?.focus();
@@ -485,6 +484,12 @@ function discardBlogNextPastedClearSnapshot() {
   blogNextDraftState.paste.clearSnapshot = null;
   const undo = document.getElementById('blog-next-paste-clear-undo');
   if (undo) undo.hidden = true;
+}
+
+function syncBlogNextPastedDraftActions() {
+  const input = document.getElementById('blog-next-paste-markdown');
+  const clear = document.getElementById('blog-next-paste-clear');
+  if (clear) clear.hidden = !input?.value;
 }
 
 function restoreBlogNextPastedDraft() {
@@ -498,6 +503,7 @@ function restoreBlogNextPastedDraft() {
     // The restored live input remains usable when browser storage is full.
   }
   discardBlogNextPastedClearSnapshot();
+  syncBlogNextPastedDraftActions();
   scheduleBlogNextDraftPreview('paste');
   input.focus();
 }
@@ -543,8 +549,10 @@ function initBlogNextDraftInputs() {
   const pastedInput = document.getElementById('blog-next-paste-markdown');
   if (pastedInput) {
     pastedInput.value = localStorage.getItem('blog_next_pasted_markdown_draft') || '';
+    syncBlogNextPastedDraftActions();
     pastedInput.addEventListener('input', () => {
       if (blogNextDraftState.paste.clearSnapshot !== null) discardBlogNextPastedClearSnapshot();
+      syncBlogNextPastedDraftActions();
       try {
         localStorage.setItem('blog_next_pasted_markdown_draft', pastedInput.value);
       } catch (_error) {
