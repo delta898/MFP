@@ -112,6 +112,12 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
 - 2026-09-07: select와 disclosure가 서로 다른 텍스트 glyph 화살표를 사용해 control 높이에 따라 시각적 수직 정렬이
   달라지는 문제를 확인했다. Blog Beta의 `select-shell`, `blog-next-disclosure`, 원고 미리보기의 이미지 확인
   disclosure를 고정 chevron 박스와 공통 수직 중앙 기준으로 통일하고, disclosure 상태는 아이콘 회전으로 표현한다.
+- 2026-09-07: 결과 table header의 기존 정렬 affordance와 Blog Beta renderer 연결이 빠져 있던 문제를 확인했다. 구형
+  공통 sortable handler와 충돌하지 않도록 Blog Beta 전용 sort state·stable comparator·click/keyboard handler를 추가하고,
+  filter 이후 정렬·`aria-sort`·ascending/descending affordance를 함께 제공한다.
+- 2026-09-07: `변화` 정렬에서 비수치 상태인 `new`를 숫자 변화량과 같은 Infinity 값으로 취급하면 내림차순 첫 항목이
+  되어 의미가 어색해지는 점을 확인했다. `+`, `0`, `-`만 방향별로 비교하고 `new`는 양방향 모두 마지막에 두도록
+  명시적 domain 규칙을 적용했다.
 
 ## 검증 계획
 

@@ -330,6 +330,38 @@
   box-shadow: 0 2px 0 var(--ui-border-default);
 }
 
+.blog-next-view .trend-posting-table th.blog-next-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.blog-next-view .trend-posting-table th.blog-next-sortable::after {
+  content: '↕';
+  margin-inline-start: var(--ui-space-2);
+  color: var(--ui-text-tertiary);
+  font-size: var(--ui-type-caption-size);
+}
+
+.blog-next-view .trend-posting-table th.blog-next-sortable.active-sort {
+  color: var(--ui-action-primary-hover);
+}
+
+.blog-next-view .trend-posting-table th.blog-next-sortable[data-sort-dir="asc"]::after {
+  content: '↑';
+  color: var(--ui-action-primary-hover);
+}
+
+.blog-next-view .trend-posting-table th.blog-next-sortable[data-sort-dir="desc"]::after {
+  content: '↓';
+  color: var(--ui-action-primary-hover);
+}
+
+.blog-next-view .trend-posting-table th.blog-next-sortable:focus-visible {
+  outline: none;
+  box-shadow: inset var(--ui-focus-ring);
+}
+
 .blog-next-view .trend-posting-table tbody td {
   background: var(--ui-surface);
   vertical-align: middle;

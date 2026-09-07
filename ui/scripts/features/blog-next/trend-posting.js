@@ -4,6 +4,7 @@ const blogNextTrendState = {
   itemsById: new Map(),
   queryRange: null,
   savedIds: new Set(),
+  sort: { key: 'latestTrendDate', direction: 'desc' },
   loading: false,
   bound: false
 };
@@ -173,6 +174,77 @@ function getFilteredBlogNextTrends() {
   return filtered;
 }
 
+function getBlogNextTrendSortValue(change = {}) {
+  const type = String(change?.type || 'steady');
+  const amount = Number(change?.amount);
+  if (type === 'new') return Number.POSITIVE_INFINITY;
+  if (type === 'up') return Number.isFinite(amount) ? Math.abs(amount) : 0;
+  if (type === 'down') return Number.isFinite(amount) ? -Math.abs(amount) : 0;
+  return 0;
+}
+
+function compareBlogNextTrendItems(left, right, key) {
+  if (key === 'change') {
+    const leftType = String(left?.change?.type || 'steady');
+    const rightType = String(right?.change?.type || 'steady');
+    const leftIsNew = leftType === 'new';
+    const rightIsNew = rightType === 'new';
+    if (leftIsNew !== rightIsNew) return leftIsNew ? 1 : -1;
+    if (leftIsNew && rightIsNew) return 0;
+    const leftValue = getBlogNextTrendSortValue(left?.change);
+    const rightValue = getBlogNextTrendSortValue(right?.change);
+    if (leftValue !== rightValue) return leftValue < rightValue ? -1 : 1;
+    return 0;
+  }
+  if (key === 'categories') {
+    const leftValue = Array.isArray(left?.categories) ? left.categories.join(', ') : '';
+    const rightValue = Array.isArray(right?.categories) ? right.categories.join(', ') : '';
+    return leftValue.localeCompare(rightValue, 'ko');
+  }
+  return String(left?.[key] || '').localeCompare(String(right?.[key] || ''), 'ko');
+}
+
+function getSortedBlogNextTrendItems() {
+  const direction = blogNextTrendState.sort.direction === 'desc' ? -1 : 1;
+  return getFilteredBlogNextTrends()
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftIsNew = String(left.item?.change?.type || 'steady') === 'new';
+      const rightIsNew = String(right.item?.change?.type || 'steady') === 'new';
+      if (leftIsNew !== rightIsNew) return leftIsNew ? 1 : -1;
+      const compared = compareBlogNextTrendItems(left.item, right.item, blogNextTrendState.sort.key);
+      return compared === 0 ? left.index - right.index : compared * direction;
+    })
+    .map(({ item }) => item);
+}
+
+function syncBlogNextTrendSortHeaders() {
+  document.querySelectorAll('#blog-next-trend-results-workspace th[data-blog-next-sort-key]').forEach((header) => {
+    const key = String(header.dataset.blogNextSortKey || '');
+    const active = blogNextTrendState.sort.key === key;
+    header.classList.toggle('active-sort', active);
+    header.dataset.sortDir = active ? blogNextTrendState.sort.direction : '';
+    header.setAttribute('aria-sort', active
+      ? (blogNextTrendState.sort.direction === 'desc' ? 'descending' : 'ascending')
+      : 'none');
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+  });
+}
+
+function toggleBlogNextTrendSort(key) {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return;
+  if (blogNextTrendState.sort.key === normalizedKey) {
+    blogNextTrendState.sort.direction = blogNextTrendState.sort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    blogNextTrendState.sort.key = normalizedKey;
+    blogNextTrendState.sort.direction = 'asc';
+  }
+  syncBlogNextTrendSortHeaders();
+  renderBlogNextTrendResults();
+}
+
 function renderBlogNextTrendResults(items) {
   const body = document.getElementById('blog-next-trend-results');
   if (!body) return;
@@ -180,7 +252,7 @@ function renderBlogNextTrendResults(items) {
     blogNextTrendState.items = items.slice();
     blogNextTrendState.itemsById = new Map(items.map(item => [String(item.id || ''), item]));
   }
-  const visible = getFilteredBlogNextTrends();
+  const visible = getSortedBlogNextTrendItems();
   const count = document.getElementById('blog-next-trend-filter-count');
   if (count) count.textContent = blogNextTrendState.items.length > 0
     ? `${blogNextTrendState.items.length}개 중 ${visible.length}개 표시`
@@ -418,6 +490,15 @@ function initBlogNextTrendPosting() {
   });
   document.getElementById('blog-next-trend-query')?.addEventListener('click', queryBlogNextTrends);
   document.getElementById('blog-next-trend-filters')?.addEventListener('input', renderBlogNextTrendResults);
+  document.querySelectorAll('#blog-next-trend-results-workspace th[data-blog-next-sort-key]').forEach((header) => {
+    const onSort = () => toggleBlogNextTrendSort(header.dataset.blogNextSortKey);
+    header.addEventListener('click', onSort);
+    header.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      onSort();
+    });
+  });
   document.getElementById('blog-next-trend-filter-reset')?.addEventListener('click', () => {
     const keyword = document.getElementById('blog-next-trend-filter-keyword');
     const view = document.getElementById('blog-next-trend-filter-view');
@@ -433,5 +514,6 @@ function initBlogNextTrendPosting() {
     if (button.matches('[data-blog-next-trend-save]')) void saveBlogNextTrend(item, button);
     else void selectBlogNextTrend(item);
   });
+  syncBlogNextTrendSortHeaders();
   blogNextTrendState.bound = true;
 }
