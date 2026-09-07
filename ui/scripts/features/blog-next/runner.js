@@ -174,7 +174,7 @@ async function loadBlogNextRunnerStatus(options = {}) {
       && typeof blogNextActiveTab !== 'undefined'
       && blogNextActiveTab === 'queue'
       && typeof loadBlogNextQueue === 'function') {
-      loadBlogNextQueue({ force: true });
+      loadBlogNextQueue({ force: true, showRefreshProgress: false });
     }
     syncBlogNextRunnerWatchForTab();
     return status;

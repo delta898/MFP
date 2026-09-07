@@ -34,7 +34,7 @@ function handleBlogNextManagementTabKeydown(event) {
 
 function renderBlogNextEmptyState(list, title, message, state = 'empty') {
   const empty = document.createElement('div');
-  empty.className = `blog-next-empty-state${state === 'loading' ? ' is-loading' : ''}${state === 'error' ? ' has-error' : ''}`;
+  empty.className = `blog-next-empty-state${state === 'error' ? ' has-error' : ''}`;
   const strong = document.createElement('strong');
   strong.textContent = title;
   empty.appendChild(strong);

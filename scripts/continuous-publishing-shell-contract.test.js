@@ -344,7 +344,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.match(serviceSource, /computeQueueRunProjections/);
     assert.match(serviceSource, /basis: 'current_queue_order'/);
     assert.match(runnerScript, /finishedChanged/);
-    assert.match(runnerScript, /loadBlogNextQueue\(\{ force: true \}\)/);
+    assert.match(runnerScript, /loadBlogNextQueue\(\{ force: true, showRefreshProgress: false \}\)/);
     assert.match(runnerScript, /blogNextActiveTab === 'queue'/);
     assert.match(queueScript, /syncBlogNextQueueRunnerState/);
     assert.match(queueScript, /aria-busy/);

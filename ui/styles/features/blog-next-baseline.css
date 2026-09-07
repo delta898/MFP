@@ -459,22 +459,11 @@
   line-height: 1.5;
 }
 
-.blog-next-management-status[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--ui-action-primary) 28%, var(--ui-border-default));
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-text-primary);
-}
-
 .blog-next-management-status[data-state="error"],
 .blog-next-empty-state.has-error {
   border-color: color-mix(in srgb, var(--ui-status-danger) 36%, var(--ui-border-default));
   background: color-mix(in srgb, var(--ui-status-danger) 8%, var(--ui-surface));
   color: var(--ui-status-danger);
-}
-
-.blog-next-empty-state.is-loading {
-  border-style: solid;
-  background: var(--ui-surface-muted);
 }
 
 .blog-next-smart-comment-details.blog-next-disclosure {

@@ -128,6 +128,13 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
   `display: none`으로 렌더링에서 제외했다. editor를 열 때만 hidden 상태를 해제해 최초 글감 관리 진입 중 흰
   modal surface가 순간 노출될 수 있는 경로를 차단했다.
 - 2026-09-08: modal flash 보강 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: Slice 2 두 번째 조각에서 최초 목록 placeholder와 공통 loading status bar를 제거했다. 최초 진입과
+  직접 새로고침은 count 및 refresh action이 진행 상태를 소유하고, 이동·삭제·보관과 background refresh는 해당
+  action 상태만 유지한다. 독립 status surface는 사용자의 대응이 필요한 load error에만 남겼다.
+- 2026-09-08: loading feedback 정리 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: 실패 feedback도 소유 위치별로 교정했다. 최초 load 실패는 비어 있는 목록 내부 error state만,
+  기존 목록의 갱신 실패는 목록을 유지한 채 management status만 표시해 같은 오류 안내가 중복되지 않게 했다.
+- 2026-09-08: 실패 feedback 분리 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
 - 2026-09-08: 교정 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
 
 ## 최종 결과

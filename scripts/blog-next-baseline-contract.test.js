@@ -228,24 +228,28 @@ test('queue management exposes complete local tabs and list-owned async states',
   }
   assert.match(html, /id="blog-next-management-status"[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
   assert.equal((html.match(/class="blog-next-queue-list" data-state="loading" aria-live="polite" aria-busy="true"/g) || []).length, 2);
+  assert.doesNotMatch(html, /발행 대기열을 확인하고 있습니다|보관한 글감을 확인하고 있습니다/);
   assert.match(uiScript, /function handleBlogNextManagementTabKeydown\(event\)/);
   assert.match(uiScript, /button\.tabIndex = active \? 0 : -1/);
   assert.match(uiScript, /function setBlogNextManagementStatus\(state, message = ''\)/);
   assert.match(uiScript, /if \(blogNextQueueHasLoaded\) return/);
   assert.match(queueScript, /blogNextQueueHasLoaded = true/);
-  assert.match(queueScript, /setBlogNextManagementStatus\('loading'/);
+  assert.doesNotMatch(queueScript, /setBlogNextManagementStatus\('loading'/);
+  assert.match(queueScript, /const showRefreshProgress = options\.showRefreshProgress !== false/);
+  assert.match(queueScript, /if \(showRefreshProgress\) \{[\s\S]*refreshButton\.textContent = '불러오는 중\.\.\.'/);
+  assert.match(queueScript, /loadBlogNextQueue\(\{ force: true, showRefreshProgress: false \}\)/);
   assert.match(queueScript, /setBlogNextManagementStatus\('error'/);
   assert.match(queueScript, /existing list|기존 목록/);
+  assert.match(queueScript, /if \(blogNextQueueHasLoaded\) \{[\s\S]*setBlogNextManagementStatus\('error',[\s\S]*\} else \{[\s\S]*setBlogNextManagementStatus\('idle'\);[\s\S]*renderBlogNextQueueInitialError/);
   assert.doesNotMatch(queueScript, /setBlogNextTopicResult\(error\.message \|\| '발행 대기열/);
 });
 
-test('queue loading and error feedback use the shared semantic baseline', () => {
+test('queue reserves status surfaces for actionable errors', () => {
   const css = read('ui/styles/features/blog-next-baseline.css');
 
   assert.match(css, /\.blog-next-management-status\s*\{[^}]*var\(--ui-border-default\)/s);
-  assert.match(css, /blog-next-management-status\[data-state="loading"\][\s\S]*var\(--ui-action-primary-soft\)/);
   assert.match(css, /blog-next-management-status\[data-state="error"\][\s\S]*var\(--ui-status-danger\)/);
-  assert.match(css, /blog-next-empty-state\.is-loading[\s\S]*var\(--ui-surface-muted\)/);
+  assert.doesNotMatch(css, /blog-next-management-status\[data-state="loading"\]|blog-next-empty-state\.is-loading/);
 });
 
 test('queue row actions describe their actual outcomes consistently', () => {

@@ -276,7 +276,7 @@ async function submitBlogNextTopic(action) {
     if (action !== 'publish-now') {
       showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
     }
-    await loadBlogNextQueue({ force: true });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
     if (editing) activateBlogNextTab('queue');
     if (action === 'publish-now' && Number.isInteger(Number(data?.rowIndex))) {
       rememberBlogNextImmediateSubmission({
@@ -579,7 +579,7 @@ async function reorderBlogNextQueueItem(item = {}, direction) {
   } catch (error) {
     renderBlogNextQueue(previousQueue);
     showUiToast({ level: 'error', title: '순서 변경 실패', message: error.message || '새로고침 후 다시 시도해 주세요.' });
-    await loadBlogNextQueue({ force: true });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
   } finally {
     blogNextQueueReordering = false;
     setBlogNextQueueActionsBusy(false);
@@ -598,7 +598,7 @@ async function deleteBlogNextSavedItem(item = {}, button) {
   try {
     await postJson('/api/v1/continuous-publishing/topics/delete', { rowIndex });
     showUiToast({ level: 'success', title: '글감 삭제 완료', message: '보관한 글감을 삭제했습니다.' });
-    await loadBlogNextQueue({ force: true });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
   } catch (error) {
     showUiToast({ level: 'error', title: '글감 삭제 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
   } finally {
@@ -621,7 +621,7 @@ async function removeBlogNextQueueItem(item = {}, button) {
   try {
     await postJson('/api/v1/continuous-publishing/queue/remove', { rowIndex });
     showUiToast({ level: 'success', title: '보관으로 이동 완료', message: '글감을 보관한 글감으로 옮겼습니다.' });
-    await loadBlogNextQueue({ force: true });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
   } catch (error) {
     showUiToast({ level: 'error', title: '대기열 변경 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
   } finally {
@@ -707,22 +707,27 @@ async function loadBlogNextQueue(options = {}) {
   if (blogNextQueueLoading && options.force !== true) return;
   blogNextQueueLoading = true;
   const refreshButton = document.getElementById('blog-next-queue-refresh');
-  setBlogNextManagementStatus('loading', '글감 목록을 불러오는 중입니다.');
+  const showRefreshProgress = options.showRefreshProgress !== false;
+  setBlogNextManagementStatus('idle');
   setBlogNextQueueListsBusy(true);
   if (refreshButton) {
     refreshButton.disabled = true;
-    refreshButton.textContent = '불러오는 중...';
-    refreshButton.setAttribute('aria-busy', 'true');
+    if (showRefreshProgress) {
+      refreshButton.textContent = '불러오는 중...';
+      refreshButton.setAttribute('aria-busy', 'true');
+    }
   }
   try {
     renderBlogNextQueue(await fetchJson('/api/v1/continuous-publishing/queue?limit=50'));
     setBlogNextManagementStatus('ready');
   } catch (error) {
     const message = error.message || '발행 대기열을 불러오지 못했습니다.';
-    setBlogNextManagementStatus('error', blogNextQueueHasLoaded
-      ? `${message} 기존 목록은 그대로 유지했습니다.`
-      : `${message} 새로고침으로 다시 시도해 주세요.`);
-    renderBlogNextQueueInitialError('새로고침으로 다시 시도해 주세요.');
+    if (blogNextQueueHasLoaded) {
+      setBlogNextManagementStatus('error', `${message} 기존 목록은 그대로 유지했습니다.`);
+    } else {
+      setBlogNextManagementStatus('idle');
+      renderBlogNextQueueInitialError('새로고침으로 다시 시도해 주세요.');
+    }
   } finally {
     blogNextQueueLoading = false;
     setBlogNextQueueListsBusy(false);

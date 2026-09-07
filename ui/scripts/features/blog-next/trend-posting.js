@@ -463,7 +463,9 @@ async function saveBlogNextTrend(item, button) {
     });
     blogNextTrendState.savedIds.add(`${String(item.id || '')}:${String(item.latestTrendDate || '')}`);
     button.textContent = '보관 완료';
-    if (typeof loadBlogNextQueue === 'function') await loadBlogNextQueue({ force: true });
+    if (typeof loadBlogNextQueue === 'function') {
+      await loadBlogNextQueue({ force: true, showRefreshProgress: false });
+    }
   } catch (error) {
     button.disabled = false;
     button.textContent = '다시 시도';
