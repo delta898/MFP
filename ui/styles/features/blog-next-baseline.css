@@ -255,12 +255,6 @@
   }
 }
 
-.blog-next-view .trend-posting-status[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--ui-action-primary) 28%, var(--ui-border-default));
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-text-primary);
-}
-
 .blog-next-view .trend-posting-status[data-state="error"] {
   border-color: color-mix(in srgb, var(--ui-status-danger) 36%, var(--ui-border-default));
   background: color-mix(in srgb, var(--ui-status-danger) 8%, var(--ui-surface));

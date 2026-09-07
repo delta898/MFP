@@ -173,6 +173,12 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   assert.match(script, /inclusiveDays >= 1 && inclusiveDays <= 31/);
   assert.match(script, /function syncBlogNextTrendQueryAvailability\(\)/);
   assert.match(script, /query\.disabled = !controlsAvailable \|\| !readBlogNextTrendQueryValidity\(\)/);
+  assert.match(script, /function setBlogNextTrendQueryBusy\(busy\)/);
+  assert.match(script, /query\.setAttribute\('aria-busy', busy \? 'true' : 'false'\)/);
+  assert.match(script, /query\.textContent = busy \? '조회 중\.\.\.' : '트렌드 조회'/);
+  assert.match(script, /setBlogNextTrendQueryBusy\(true\)/);
+  assert.match(script, /setBlogNextTrendQueryBusy\(false\)/);
+  assert.doesNotMatch(script, /setBlogNextTrendStatus\('loading'/);
   assert.match(script, /badge\.dataset\.state = 'unavailable'/);
   assert.match(script, /새로고침 후 카테고리를 선택할 수 있습니다/);
   assert.match(script, /const hasResults = blogNextTrendState\.items\.length > 0/);
@@ -190,7 +196,7 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
 test('trend posting state styling remains semantic and style-independent', () => {
   const css = read('ui/styles/features/blog-next-baseline.css');
 
-  assert.match(css, /trend-posting-status\[data-state="loading"\][\s\S]*var\(--ui-action-primary-soft\)/);
+  assert.doesNotMatch(css, /trend-posting-status\[data-state="loading"\]/);
   assert.match(css, /trend-posting-status\[data-state="error"\][\s\S]*var\(--ui-status-danger\)/);
   assert.doesNotMatch(css, /trend-posting-status\[data-state="success"\]/);
   assert.match(css, /trend-posting-result-filters\[aria-disabled="true"\][\s\S]*var\(--ui-surface-muted\)/);

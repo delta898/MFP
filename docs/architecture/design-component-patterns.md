@@ -186,6 +186,11 @@
   항목만 모은다. 정상 항목까지 진단 목록에 반복하거나 플랫폼마다 달라지는 결과를 모호한 가능성 문구로 일반화하지 않는다.
 - loading 중에는 실행 control을 잠그고 `aria-busy` 또는 명시적인 진행 문구로 중복 실행 방지 이유를 알린다.
   기존에 유효한 목록이나 결과가 있으면 새 요청 중에도 지우지 않는다.
+- 사용자가 누른 하나의 action이 소유하고 짧게 끝나는 작업은 그 action의 label 또는 progress indicator와
+  `aria-busy`로 loading을 표현한다. 같은 내용을 별도 status surface에 반복하지 않는다.
+- 초기 metadata처럼 이미 badge, placeholder 또는 content skeleton이 진행 상태를 직접 표현하면 별도 loading
+  surface를 추가하지 않는다. 독립 status surface는 시작 control과 떨어진 background 작업, 여러 단계의 진행,
+  또는 사용자의 주의와 대응이 필요한 warning·error에 사용한다.
 - 최초 load 실패처럼 보여줄 유효한 내용이 없을 때는 해당 content 영역 안에 error state와 재시도 방향을 둔다.
   갱신 실패처럼 마지막 정상 내용이 있을 때는 내용을 보존하고 별도 error status로 실패 사실을 알린다.
 - empty는 오류가 아니다. 조회 전 `idle`, 정상 요청의 결과 없음 `empty`, 사용자가 적용한 filter의 결과 없음

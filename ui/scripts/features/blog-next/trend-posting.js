@@ -81,6 +81,14 @@ function syncBlogNextTrendQueryAvailability() {
   if (query) query.disabled = !controlsAvailable || !readBlogNextTrendQueryValidity();
 }
 
+function setBlogNextTrendQueryBusy(busy) {
+  const query = document.getElementById('blog-next-trend-query');
+  if (!query) return;
+  query.classList.toggle('is-loading', busy);
+  query.setAttribute('aria-busy', busy ? 'true' : 'false');
+  query.textContent = busy ? '조회 중...' : '트렌드 조회';
+}
+
 function syncBlogNextTrendCategoryLimit() {
   const selected = getSelectedBlogNextTrendCategories();
   const atLimit = selected.length >= 5;
@@ -230,9 +238,7 @@ async function loadBlogNextTrendMeta(options = {}) {
     refreshButton.classList.add('is-loading');
     refreshButton.setAttribute('aria-busy', 'true');
   }
-  setBlogNextTrendStatus('loading', options.force === true
-    ? '최신 데이터 날짜를 확인하는 중...'
-    : '트렌드 조회 정보를 불러오는 중...');
+  setBlogNextTrendStatus('idle', '');
   try {
     const meta = await fetchJson('/api/v1/trend-posting/meta');
     blogNextTrendState.meta = meta;
@@ -314,8 +320,9 @@ async function queryBlogNextTrends() {
   syncBlogNextTrendFilterAvailability();
   syncBlogNextTrendCategoryLimit();
   setBlogNextTrendTableBusy(true);
+  setBlogNextTrendQueryBusy(true);
   if (refreshButton) refreshButton.disabled = true;
-  setBlogNextTrendStatus('loading', '트렌드 키워드를 조회하는 중...');
+  setBlogNextTrendStatus('idle', '');
   try {
     const params = new URLSearchParams({ dateFrom, dateTo });
     categories.forEach(category => params.append('categories[]', category));
@@ -329,6 +336,7 @@ async function queryBlogNextTrends() {
   } finally {
     blogNextTrendState.loading = false;
     setBlogNextTrendTableBusy(false);
+    setBlogNextTrendQueryBusy(false);
     syncBlogNextTrendCategoryLimit();
     syncBlogNextTrendFilterAvailability();
     syncBlogNextTrendQueryAvailability();

@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-trend-posting-results`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 진행 중 — Slice 1 구현·자동 검증 완료, 사용자 UI 확인 대기
+- Status: 진행 중 — 로딩 피드백 slice 구현·자동 검증 완료, 사용자 UI 확인 대기
 
 ## 사용자 필요와 목표
 
@@ -91,6 +91,11 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
 - 2026-09-07: 기존 filter의 author-level `display: flex`가 native `hidden` 표시를 덮을 수 있어 Blog Beta의
   `[hidden]` 계약을 명시했다. browser smoke에 최초 숨김, 결과 있음, filter 결과 없음, 조회 결과 없음과 재조회
   전환을 연결해 progressive disclosure가 실제 computed layout에서도 유지되는지 검증한다.
+- 2026-09-07: 사용자 확인에서 초기 meta load와 명시적 조회 모두 별도 rectangular loading status를 보여
+  다른 workflow보다 과하게 느껴지는 문제를 확인했다. 초기 load는 기존 latest badge와 category placeholder,
+  refresh는 회전 icon, 조회는 `조회 중...` button과 `aria-busy`가 각각 진행을 소유하게 하고 별도 loading
+  surface를 제거했다. error status는 사용자의 대응이 필요하므로 유지하며, 이 선택 기준을 canonical guide에
+  추가했다.
 
 ## 검증 계획
 
@@ -102,9 +107,9 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
 ## 현재 자동 검증
 
 - Blog Beta baseline 및 UI 구조 focused tests: 28 passed, 0 failed
-- browser UI smoke: passed, 238 fixture requests
+- browser UI smoke: passed (fixture-backed)
 - browser 확인 범위: 최초 결과 workspace 숨김, meta 새로고침 뒤 불필요한 success 안내 미노출,
-  정상 결과·filter 결과 없음·조회 결과 없음·재조회 전환, 결과 행 action 클릭 가능성
+  조회 button busy 상태 복원, 정상 결과·filter 결과 없음·조회 결과 없음·재조회 전환, 결과 행 action 클릭 가능성
 - 실제 원격 저장이나 발행은 실행하지 않았다.
 
 ## 남은 위험과 수동 확인

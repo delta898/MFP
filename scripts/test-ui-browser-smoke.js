@@ -1546,6 +1546,8 @@ async function run() {
         assert.equal(await page.locator('#blog-next-trend-date-to').isDisabled(), true);
         await page.locator('#blog-next-trend-query').click();
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-trend-results [data-blog-next-trend-select]').length === 1);
+        assert.equal(await page.locator('#blog-next-trend-query').textContent(), '트렌드 조회');
+        assert.equal(await page.locator('#blog-next-trend-query').getAttribute('aria-busy'), 'false');
         assert.equal(await page.locator('#blog-next-trend-results-workspace').isHidden(), false);
         assert.equal(await page.locator('#blog-next-trend-status').isHidden(), true);
         assert.equal(await page.locator('#blog-next-trend-filter-keyword').isEnabled(), true);
