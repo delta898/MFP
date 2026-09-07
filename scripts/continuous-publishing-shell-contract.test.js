@@ -80,12 +80,14 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>바로 포스팅/);
-    assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*>내용 지우기/);
+    assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*hidden>내용 지우기/);
+    assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
     assert.equal(clearIndex < saveIndex && saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
     assert.match(betaView, /id="blog-next-queue-list"/);
     assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
+    assert.match(quickQueueScript, /getElementById\('blog-next-cancel-edit'\).*closeBlogNextEditor/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
 });
 

@@ -160,6 +160,13 @@
 ## Recoverable destructive actions
 
 - 작성 중 내용을 한 번에 지우는 action은 danger 의미를 유지하되, 실행 직후 방금 지운 내용을 되돌릴 수 있게 한다.
+- action의 위치는 영향 범위, variant는 결과의 위험도, 노출 여부는 현재 실행 가능성으로 결정한다. form 전체를
+  지우는 action은 개별 field heading이 아니라 form 마지막 action group의 반대쪽에 분리하고, 지울 내용이 있을
+  때만 표시한다. 같은 역할은 입력 방식과 관계없이 같은 위치·variant·복구 흐름을 사용한다.
+- `내용 지우기`처럼 즉시 복구 가능한 단일 action은 실행 뒤 같은 action slot을 중립적인 `되돌리기`가 이어받는다.
+  별도 위치에 중복 완료 문구를 추가하지 않으며 keyboard focus도 새로 활성화된 복구 action으로 이동한다.
+- 편집 흐름을 닫는 `취소`는 내용을 초기화하는 danger action과 의미가 다르므로 같은 button의 label과 variant를
+  바꾸어 재사용하지 않는다. 별도 neutral secondary 또는 tertiary action으로 표현한다.
 - 되돌리기는 원래 field 값과 연결된 출처 context를 함께 복원하고 합리적인 첫 입력점으로 focus를 돌려준다.
 - 새 입력을 시작하거나 저장·발행 등 후속 상태 전이가 발생하면 오래된 복구 snapshot을 폐기한다.
 

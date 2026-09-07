@@ -1478,6 +1478,7 @@ async function run() {
         await page.locator('#blog-next-clear-topic').click();
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '');
         assert.equal(await page.locator('#blog-next-clear-undo').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-clear-undo').evaluate((element) => element === document.activeElement), true);
         await page.locator('#blog-next-clear-undo').click();
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '스타일 전환 중에도 보존할 주제');
         assert.equal(await page.locator('#blog-next-clear-undo').evaluate((element) => element.hidden), true);
@@ -1583,7 +1584,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '');
         assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
         assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}').postStatus), 'draft');
-        await page.locator('#blog-next-clear-topic').click();
+        assert.equal(await page.locator('#blog-next-clear-topic').isHidden(), true);
 
         await page.locator('[data-blog-next-input-mode="ai"]').focus();
         await page.keyboard.press('ArrowRight');
@@ -1633,7 +1634,8 @@ async function run() {
         assert.equal(await page.locator('#blog-next-editor-modal').evaluate((element) => element.classList.contains('hidden')), false);
         assert.equal((await page.locator('#blog-next-save-topic').textContent())?.trim(), '저장');
         assert.equal((await page.locator('#blog-next-enqueue-topic').textContent())?.trim(), '발행 대기열에 추가');
-        assert.equal((await page.locator('#blog-next-clear-topic').textContent())?.trim(), '취소');
+        assert.equal(await page.locator('#blog-next-clear-topic').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-cancel-edit').isVisible(), true);
         await page.locator('#blog-next-subject').fill('다듬은 제주 글감');
         await page.locator('#blog-next-save-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('보관한 글감을 수정했습니다'));
@@ -1659,7 +1661,7 @@ async function run() {
                     .map((button) => ({ text: button.textContent.trim(), order: Number(getComputedStyle(button).order) }))
                     .sort((left, right) => left.order - right.order)
                     .map(({ text }) => text)),
-            ['저장', '바로 포스팅', '취소']
+            ['취소', '저장', '바로 포스팅']
         );
         await page.locator('#blog-next-subject').fill('수정한 제주 글감');
         await page.locator('#blog-next-target-wordpress').check();
@@ -1935,17 +1937,25 @@ async function run() {
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="paste"]').click();
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
+        await page.waitForFunction(() => (
+            document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
+            && document.querySelector('[data-blog-next-draft-publish="paste"]')?.disabled === false
+        ));
+        assert.equal(await page.locator('[data-blog-next-draft-validation="paste"]').isHidden(), true);
         await page.locator('#blog-next-paste-clear').click();
         assert.equal(await page.locator('#blog-next-paste-markdown').inputValue(), '');
         assert.equal(await page.locator('#blog-next-paste-clear-undo').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-paste-clear-undo').evaluate((element) => element === document.activeElement), true);
         await page.locator('#blog-next-paste-clear-undo').click();
         assert.equal((await page.locator('#blog-next-paste-markdown').inputValue()).startsWith('# 붙여넣은 원고'), true);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="paste"]')?.classList.contains('is-ok'));
+        await page.waitForFunction(() => (
+            document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
+            && document.querySelector('[data-blog-next-draft-publish="paste"]')?.disabled === false
+        ));
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').textContent())?.trim(), '미리보기 소제목');
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
-        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '누락');
+        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '파일 없음');
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         await page.waitForTimeout(600);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);

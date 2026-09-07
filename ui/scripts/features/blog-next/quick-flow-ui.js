@@ -98,6 +98,14 @@ function hasBlogNextClearableContent(snapshot) {
     || snapshot?.trendContext !== null;
 }
 
+function syncBlogNextTopicClearAction() {
+  const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
+  const clear = document.getElementById('blog-next-clear-topic');
+  const cancel = document.getElementById('blog-next-cancel-edit');
+  if (clear) clear.hidden = editing || !hasBlogNextClearableContent(captureBlogNextClearableContent());
+  if (cancel) cancel.hidden = !editing;
+}
+
 function restoreBlogNextClearedTopicContent() {
   const snapshot = blogNextClearedTopicSnapshot;
   if (!snapshot) return;
@@ -109,6 +117,7 @@ function restoreBlogNextClearedTopicContent() {
   syncBlogNextScheduleField();
   syncBlogNextQuickFlowSummaries();
   setBlogNextClearUndoAvailable(false);
+  syncBlogNextTopicClearAction();
   setBlogNextTopicResult('지운 내용을 되돌렸습니다.', 'success');
   document.getElementById('blog-next-subject')?.focus();
 }
@@ -120,4 +129,5 @@ function clearBlogNextTopicContent(options = {}) {
   if (options.preserveUndo !== true) setBlogNextClearUndoAvailable(false);
   syncBlogNextScheduleField();
   syncBlogNextQuickFlowSummaries();
+  syncBlogNextTopicClearAction();
 }

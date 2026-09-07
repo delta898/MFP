@@ -200,14 +200,31 @@ Blog Beta의 남은 화면과 상태에 적용한다. 새 디자인 방향이나
   적용되지 않은 것을 확인해 종료 판정을 철회했다. 첫 보정으로 paste source의 중복 section heading과
   idle validation을 제거하고, textarea에 내용이 있을 때만 `내용 지우기`를 노출하도록 했다. 이후 조각에서
   두 mode의 preview markup, 상태와 image diagnostics를 공통 계약으로 통합한다.
+- 2026-09-07: folder와 paste의 source 이후 preview를 동일한 `blog-next-manuscript-preview` markup과
+  semantic CSS로 통합했다. 두 mode 모두 제목·단일 본문 surface·누락 image disclosure를 사용하고,
+  기술 metadata·중첩 section·정상 success 문구를 노출하지 않는다. 반복 image warning 요약, 누락 항목만
+  보여주는 diagnostics, 본문과 이미지 최대 높이도 같은 rendering helper와 style contract를 사용한다.
+- 2026-09-07: 공통 preview 적용 뒤에도 folder source에만 남아 있던 고정 하단 margin이 warning의 수직
+  위치를 다르게 만들고, tertiary `ghost` button은 색상 token만 있고 기본 button box 계약이 없어 paste의
+  `내용 지우기`가 브라우저 기본 형태로 표시되는 예외를 확인했다. folder 전용 간격을 제거하고 primary·
+  secondary·tertiary가 크기·테두리·typography·interaction 기본값을 공유하도록 action primitive를 보강했다.
+- 2026-09-07: 바로 생성과 원고 붙여넣기의 `내용 지우기`가 같은 복구 가능한 전체-form action인데도 서로 다른
+  위치와 표현을 사용하던 예외를 정리했다. 두 action을 form 마지막 action group의 반대쪽에 둔 동일한 저강도
+  danger action으로 통합하고 실제 지울 내용이 있을 때만 표시한다. 편집 mode의 `취소`는 danger 초기화와 다른
+  중립 행동이므로 별도 button으로 분리했다. 위치·variant·노출을 각각 영향 범위·위험도·실행 가능성으로 정하는
+  기준은 component guide에 승격했다.
+- 2026-09-07: 사용자 확인 뒤 복구 가능한 지우기는 `내용 지우기`와 `되돌리기`가 떨어진 두 위치를 차지하기보다
+  같은 action slot을 교대 사용하는 것이 직접 조작의 연속성에 맞다고 결정했다. 바로 생성과 원고 붙여넣기 모두
+  지운 직후 같은 위치에 neutral `되돌리기`를 표시하고 focus를 이동하며, 별도 완료 문구는 반복 안내로 보아
+  제거했다. 새 입력과 후속 상태 전이 시 복구 action을 폐기하는 기존 계약은 유지한다.
 
 ## 구현 결과와 자동 검증
 
 - Blog Beta 세 빠른 작성 mode가 공통 tab keyboard 문법과 발행 설정 상태 계약을 공유한다.
 - 트렌드, 글감 관리, 스마트 댓글과 연속 발행 설정이 각 작업 영역 안에서 주요 비동기 상태를 표현한다.
 - Warm Editorial과 Quiet Sage Studio는 동일 DOM·기능을 사용하고 style-specific selector를 추가하지 않았다.
-- Stage 7 및 기존 Blog Beta focused contract·구조 검사: 64 passed, 0 failed
-- browser UI smoke: passed, 235 fixture requests
+- 최신 Stage 7 및 기존 Blog Beta focused contract·구조 검사: 52 passed, 0 failed
+- browser UI smoke: passed, 230 fixture requests
 - browser smoke 범위: 세 mode keyboard 이동, 발행 설정·예약 값 보존, provider 종속 state, 붙여넣기
   되돌리기, 트렌드 filter state, 글감 관리 local tab, 스마트 댓글 model role, 연속 발행 종속 field·저장
   feedback, 두 style focus와 390px narrow panel/mode overflow

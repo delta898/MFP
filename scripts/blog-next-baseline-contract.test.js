@@ -34,40 +34,45 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
   }
 });
 
-test('folder preview presents one reading surface and defers image diagnostics', () => {
+test('folder and paste previews share one reading surface and defer image diagnostics', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
-  const panel = html.match(/<div class="blog-next-draft-preview blog-next-folder-preview local-markdown-preview-panel"[\s\S]*?(?=<details class="blog-next-disclosure)/)?.[0] || '';
 
-  assert.match(panel, /class="blog-next-draft-preview blog-next-folder-preview local-markdown-preview-panel"/);
-  assert.match(panel, /data-blog-next-draft-preview="folder" hidden/);
-  assert.match(panel, /data-draft-preview-title/);
-  assert.doesNotMatch(panel, /data-draft-preview-meta/);
-  assert.match(panel, /data-draft-preview-body aria-label="본문 미리보기"/);
-  assert.doesNotMatch(panel, /본문 Preview/);
-  assert.match(panel, /data-draft-preview-image-details/);
-  assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
+  for (const type of ['folder', 'paste']) {
+    const panel = html.match(new RegExp(`<div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"[\\s\\S]*?data-blog-next-draft-preview="${type}"[\\s\\S]*?(?=<details class="blog-next-disclosure)`))?.[0] || '';
+    assert.match(panel, /class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"/);
+    assert.match(panel, new RegExp(`data-blog-next-draft-preview="${type}" hidden`));
+    assert.match(panel, /data-draft-preview-title/);
+    assert.doesNotMatch(panel, /data-draft-preview-meta/);
+    assert.match(panel, /data-draft-preview-body aria-label="본문 미리보기"/);
+    assert.doesNotMatch(panel, /본문 Preview|이미지 매칭/);
+    assert.match(panel, /data-draft-preview-image-details/);
+    assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
+  }
   assert.match(script, /imageDetails\.hidden = Number\(stats\.imageMissingCount \|\| 0\) === 0/);
   assert.match(script, /imageSummary\.textContent = `누락 \$\{stats\.imageMissingCount \|\| 0\}개`/);
   assert.match(script, /imageItems\.filter\(image => !image\.exists\)/);
   assert.match(script, /local-markdown-image-card is-missing/);
   assert.match(script, /local-markdown-image-card-status missing">파일 없음/);
-  assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
-  assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
-  assert.match(css, /\.blog-next-folder-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
+  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
+  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
+  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*?figure img\s*{[\s\S]*?max-height: min\(38vh, 360px\);/);
 });
 
-test('folder draft keeps idle results quiet and summarizes repeated image warnings', () => {
+test('manuscript drafts keep idle results quiet and summarize repeated image warnings', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
   const sharedCss = read('ui/styles/features/continuous-publishing.css');
 
-  assert.match(html, /data-blog-next-draft-validation="folder"[^>]*aria-live="polite" hidden><\/div>/);
+  for (const type of ['folder', 'paste']) {
+    assert.match(html, new RegExp(`data-blog-next-draft-validation="${type}"[^>]*aria-live="polite" hidden><\\/div>`));
+  }
   assert.match(script, /function summarizeBlogNextDraftWarnings\(type, validation = null, preview = null\)/);
+  assert.match(script, /!BLOG_NEXT_DRAFT_TYPES\.includes\(type\) \|\| missingCount === 0/);
   assert.match(script, /`이미지 \$\{missingCount\}개를 확인해 주세요\.`/);
-  assert.match(script, /validation\?\.ok === true && type !== 'folder'/);
+  assert.doesNotMatch(script, /검증을 통과했습니다/);
   assert.match(script, /setBlogNextDraftValidation\('folder'\);/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('folder', null, '원고 폴더를 선택해 주세요\.'\)/);
   assert.match(sharedCss, /\.blog-next-draft-validation\[hidden\],[\s\S]*?\.blog-next-draft-preview\[hidden\]\s*\{\s*display: none;/);
@@ -121,6 +126,7 @@ test('pasted manuscript clearing is recoverable until new input replaces the sna
   assert.match(html, /data-blog-next-draft-validation="paste"[^>]*aria-live="polite" hidden><\/div>/);
   assert.match(html, /id="blog-next-paste-clear"[^>]*hidden>내용 지우기/);
   assert.match(html, /id="blog-next-paste-clear-undo"[^>]*hidden>되돌리기/);
+  assert.match(html, /data-blog-next-draft-actions="paste">\s*<span class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-paste-clear"[\s\S]*?id="blog-next-paste-clear-undo"/);
   assert.match(script, /function syncBlogNextPastedDraftActions\(\)/);
   assert.match(script, /if \(clear\) clear\.hidden = !input\?\.value/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('paste', null, 'Markdown 원고를 붙여넣어 주세요\.'\)/);
@@ -132,11 +138,15 @@ test('pasted manuscript clearing is recoverable until new input replaces the sna
 
 test('manuscript baseline styles use semantic tokens and collapse predictably', () => {
   const css = read('ui/styles/features/blog-next-baseline.css');
+  const actionCss = read('ui/styles/patterns/actions.css');
+  const interactionCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
   assert.match(css, /\.blog-next-draft-mode\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
   assert.match(css, /\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /data-dependency-active="false"[\s\S]*color:\s*var\(--ui-text-muted\)/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(actionCss, /button\.primary,\s*button\.secondary,\s*button\.ghost\s*\{[^}]*border:\s*1px solid/s);
+  assert.doesNotMatch(interactionCss, /\.blog-next-folder-field\s*\{[^}]*margin-bottom/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(css, /\[data-style=/);
 });

@@ -55,6 +55,7 @@ test('quick flow summaries update from existing controls and clear remains undoa
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
 
   assert.match(html, /id="blog-next-clear-undo"[^>]*hidden>되돌리기/);
+  assert.match(html, /class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-clear-topic"[\s\S]*?id="blog-next-clear-undo"/);
   assert.match(uiScript, /function syncBlogNextQuickFlowSummaries\(\)/);
   assert.match(uiScript, /platforms\.length > 0 \? platforms\.join\('\+'\) : '발행 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);

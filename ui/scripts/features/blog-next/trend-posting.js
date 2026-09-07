@@ -321,6 +321,7 @@ async function selectBlogNextTrend(item) {
     source: 'naver_trend'
   };
   setBlogNextTopicResult('');
+  syncBlogNextTopicClearAction();
   document.getElementById('blog-next-subject')?.focus();
 }
 

@@ -162,8 +162,6 @@ function finishBlogNextTopicEditing() {
   blogNextEditingInitialSnapshot = '';
   restoreBlogNextTopicFormHome();
   applyBlogNextTopicSettings(loadBlogNextTopicDefaults());
-  const clearButton = document.getElementById('blog-next-clear-topic');
-  if (clearButton) clearButton.textContent = '내용 지우기';
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
@@ -178,6 +176,7 @@ function finishBlogNextTopicEditing() {
     publishButton.classList.add('primary');
   }
   setBlogNextTopicBusy(false);
+  syncBlogNextTopicClearAction();
 }
 
 function moveBlogNextTopicFormToQueueEditor() {
@@ -358,12 +357,10 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   } else if (typeof clearBlogNextTrendContext === 'function') {
     clearBlogNextTrendContext();
   }
-  const clearButton = document.getElementById('blog-next-clear-topic');
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
   const editorTitle = document.getElementById('blog-next-editor-title');
-  if (clearButton) clearButton.textContent = '취소';
   if (saveButton) saveButton.hidden = sourceStatus === '발행 준비 완료';
   if (enqueueButton) {
     enqueueButton.classList.remove('secondary');
@@ -376,6 +373,7 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   }
   if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 계속 작성' : '발행 계획 수정';
   syncBlogNextScheduleField();
+  syncBlogNextTopicClearAction();
   setBlogNextTopicBusy(false);
   activateBlogNextInputMode('ai');
   moveBlogNextTopicFormToQueueEditor();
@@ -727,18 +725,14 @@ function initBlogNextQuickQueue() {
     if (confirmed) submitBlogNextTopic('publish-now');
   });
   document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
-    const editing = blogNextEditingRowIndex !== null;
-    if (editing) await closeBlogNextEditor();
-    else {
-      const snapshot = captureBlogNextClearableContent();
-      blogNextClearedTopicSnapshot = hasBlogNextClearableContent(snapshot) ? snapshot : null;
-      clearBlogNextTopicContent({ preserveUndo: true });
-      setBlogNextClearUndoAvailable(Boolean(blogNextClearedTopicSnapshot));
-      setBlogNextTopicResult(blogNextClearedTopicSnapshot ? '입력한 내용을 지웠습니다.' : '지울 내용이 없습니다.', 'info');
-    }
-    if (editing) setBlogNextTopicResult('');
-    if (editing && blogNextActiveTab === 'queue') loadBlogNextQueue({ force: true });
+    const snapshot = captureBlogNextClearableContent();
+    blogNextClearedTopicSnapshot = hasBlogNextClearableContent(snapshot) ? snapshot : null;
+    clearBlogNextTopicContent({ preserveUndo: true });
+    setBlogNextClearUndoAvailable(Boolean(blogNextClearedTopicSnapshot));
+    setBlogNextTopicResult('');
+    document.getElementById('blog-next-clear-undo')?.focus();
   });
+  document.getElementById('blog-next-cancel-edit')?.addEventListener('click', () => closeBlogNextEditor());
   document.getElementById('blog-next-clear-undo')?.addEventListener('click', restoreBlogNextClearedTopicContent);
   document.getElementById('blog-next-post-status')?.addEventListener('change', syncBlogNextScheduleField);
   form.addEventListener('change', (event) => {
@@ -750,8 +744,10 @@ function initBlogNextQuickQueue() {
     if (blogNextClearedTopicSnapshot && event.target?.id !== 'blog-next-clear-undo') {
       setBlogNextClearUndoAvailable(false);
     }
+    syncBlogNextTopicClearAction();
   });
   syncBlogNextQuickFlowSummaries();
+  syncBlogNextTopicClearAction();
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', () => loadBlogNextQueue({ force: true }));
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
     button.addEventListener('click', () => activateBlogNextManagementTab(button.dataset.blogNextManagementTab));

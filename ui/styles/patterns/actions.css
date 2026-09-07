@@ -1,5 +1,6 @@
 button.primary,
-button.secondary {
+button.secondary,
+button.ghost {
   border: 1px solid;
   border-radius: var(--ui-button-radius);
   padding: 9px 14px;
@@ -117,15 +118,25 @@ button.ghost:disabled {
   opacity: var(--ui-button-disabled-opacity);
 }
 
-.blog-next-form-actions .blog-next-clear-action {
-  margin-inline-end: auto;
+.blog-next-clear-action {
   border-color: transparent;
   color: var(--ui-button-danger-text);
 }
 
-.blog-next-form-actions .blog-next-clear-action:hover:not(:disabled) {
+.blog-next-clear-action:hover:not(:disabled) {
   background: var(--ui-button-danger-hover);
   color: var(--ui-button-danger-text);
+}
+
+.blog-next-recoverable-action-slot,
+.blog-next-form-actions .blog-next-cancel-action,
+.blog-next-draft-actions .blog-next-recoverable-action-slot {
+  margin-inline-end: auto;
+}
+
+.blog-next-recoverable-action-slot {
+  display: inline-flex;
+  align-items: center;
 }
 
 @keyframes ui-refresh-action-spin {
@@ -151,8 +162,14 @@ button.ghost:disabled {
     flex-direction: column;
   }
 
-  .blog-next-form-actions .blog-next-clear-action {
+  .blog-next-recoverable-action-slot,
+  .blog-next-form-actions .blog-next-cancel-action,
+  .blog-next-draft-actions .blog-next-recoverable-action-slot {
     margin-inline-end: 0;
+  }
+
+  .blog-next-recoverable-action-slot {
+    width: 100%;
   }
 
   .blog-next-form-actions button {

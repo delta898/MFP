@@ -672,6 +672,9 @@ async function applyQuickTopicRecommendation(item) {
     recommendation: item.recommendation
   };
   syncQuickTopicOrigin();
+  if (quickDiscoveryInputTarget === 'blogNext' && typeof syncBlogNextTopicClearAction === 'function') {
+    syncBlogNextTopicClearAction();
+  }
   await recordQuickTopicRecommendationOutcome(item, 'selected');
   getQuickDiscoveryInputElement('subject')?.focus();
   return true;
@@ -706,6 +709,9 @@ async function applyQuickKeywordDiscovery(input) {
   quickTrendTopicContext = null;
   quickRecommendationTopicContext = null;
   syncQuickTopicOrigin();
+  if (quickDiscoveryInputTarget === 'blogNext' && typeof syncBlogNextTopicClearAction === 'function') {
+    syncBlogNextTopicClearAction();
+  }
   getQuickDiscoveryInputElement('subject')?.focus();
   return true;
 }

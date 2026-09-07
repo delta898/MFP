@@ -23,13 +23,13 @@
             </section>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder" role="status"
               aria-live="polite" hidden></div>
-            <div class="blog-next-draft-preview blog-next-folder-preview local-markdown-preview-panel"
+            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
               data-blog-next-draft-preview="folder" hidden>
               <div class="local-markdown-preview-head">
                 <h4 data-draft-preview-title>제목 없음</h4>
               </div>
               <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
-              <details class="blog-next-folder-image-details" data-draft-preview-image-details>
+              <details class="blog-next-manuscript-image-details" data-draft-preview-image-details>
                 <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
                 <div class="local-markdown-image-list" data-draft-preview-images></div>
               </details>
@@ -72,7 +72,6 @@
               <div class="blog-next-field blog-next-field-wide blog-next-paste-field">
                 <div class="blog-next-paste-field-head">
                   <label id="blog-next-paste-source-title" for="blog-next-paste-markdown">Markdown 원고</label>
-                  <button class="ghost blog-next-clear-action" id="blog-next-paste-clear" type="button" hidden>내용 지우기</button>
                 </div>
                 <small>본문을 붙여넣으면 내용과 이미지 블록을 확인합니다.</small>
                 <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
@@ -81,20 +80,17 @@
             <div class="blog-next-draft-feedback-row">
               <div class="blog-next-draft-validation" data-blog-next-draft-validation="paste" role="status"
                 aria-live="polite" hidden></div>
-              <button class="blog-next-undo-action" id="blog-next-paste-clear-undo" type="button" hidden>되돌리기</button>
             </div>
-            <div class="blog-next-draft-preview local-markdown-preview-panel" data-blog-next-draft-preview="paste" hidden>
+            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
+              data-blog-next-draft-preview="paste" hidden>
               <div class="local-markdown-preview-head">
-                <div><h4 data-draft-preview-title>제목 없음</h4><div class="local-markdown-preview-meta" data-draft-preview-meta>-</div></div>
+                <h4 data-draft-preview-title>제목 없음</h4>
               </div>
-              <div class="local-markdown-preview-sections">
-                <section class="local-markdown-preview-section local-markdown-preview-section-main">
-                  <h5>본문 Preview</h5><div class="local-markdown-body-preview" data-draft-preview-body></div>
-                </section>
-                <section class="local-markdown-preview-section">
-                  <h5>이미지 매칭</h5><div class="local-markdown-image-list" data-draft-preview-images></div>
-                </section>
-              </div>
+              <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
+              <details class="blog-next-manuscript-image-details" data-draft-preview-image-details>
+                <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
+                <div class="local-markdown-image-list" data-draft-preview-images></div>
+              </details>
             </div>
             <details class="blog-next-disclosure blog-next-draft-settings" data-blog-next-draft-settings="paste">
               <summary><strong>발행 설정</strong><span data-blog-next-draft-settings-summary="paste">네이버 · 즉시 발행 · 이미지 프롬프트 · 보이지 않게 실행</span></summary>
@@ -123,6 +119,10 @@
               </div>
             </details>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="paste">
+              <span class="blog-next-recoverable-action-slot">
+                <button class="ghost blog-next-clear-action" id="blog-next-paste-clear" type="button" hidden>내용 지우기</button>
+                <button class="blog-next-undo-action" id="blog-next-paste-clear-undo" type="button" hidden>되돌리기</button>
+              </span>
               <button class="primary" data-blog-next-draft-publish="paste" type="button" disabled>포스팅 실행</button>
             </div>
             <pre class="blog-next-draft-result" data-blog-next-draft-result="paste"></pre>
