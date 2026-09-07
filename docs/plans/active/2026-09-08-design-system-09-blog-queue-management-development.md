@@ -135,6 +135,9 @@ Blog Beta의 `글감 관리`를 기존 디자인 원칙과 component guide에 �
 - 2026-09-08: 실패 feedback도 소유 위치별로 교정했다. 최초 load 실패는 비어 있는 목록 내부 error state만,
   기존 목록의 갱신 실패는 목록을 유지한 채 management status만 표시해 같은 오류 안내가 중복되지 않게 했다.
 - 2026-09-08: 실패 feedback 분리 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
+- 2026-09-08: Slice 3에서 queue row의 pointer hover와 내부 keyboard focus를 공통 `surface-hover`로 연결하고
+  실제 control focus ring은 유지했다. row 반응과 중복되던 제목 단독 accent hover는 제거했다.
+- 2026-09-08: row interaction 정리 후 focused queue/shell contract 35개와 `git diff --check`가 통과했다.
 - 2026-09-08: 교정 후 focused queue/shell contract 34개와 `git diff --check`가 통과했다.
 
 ## 최종 결과

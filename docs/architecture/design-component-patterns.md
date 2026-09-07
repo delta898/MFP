@@ -131,6 +131,9 @@
 - 반복 row의 action group은 같은 역할의 control이 행마다 같은 열과 폭을 사용해 수직으로 정렬한다. label 길이가
   달라져도 이동·보조·primary action의 위치를 흔들지 않으며, 좁은 화면에서는 고정 열보다 자연스러운 줄바꿈과
   조작 가능한 폭을 우선한다.
+- 하나의 collection row에 content action과 여러 보조 action이 함께 있으면 pointer hover와 내부 keyboard
+  focus를 row 전체의 `surface-hover`로 연결해 현재 작업 위치를 보여준다. 실제 control의 focus ring은 유지하고,
+  일시적인 row 반응을 선택 상태처럼 지속하거나 별도의 accent text 강조와 중복하지 않는다.
 
 ## Data tables
 

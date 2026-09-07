@@ -427,7 +427,12 @@
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface);
-  transition: border-color var(--ui-transition-interactive), box-shadow var(--ui-transition-interactive);
+  transition: background-color var(--ui-transition-interactive), border-color var(--ui-transition-interactive), box-shadow var(--ui-transition-interactive);
+}
+
+.blog-next-queue-item:hover,
+.blog-next-queue-item:focus-within {
+  background: var(--ui-surface-hover);
 }
 
 .blog-next-queue-order {
@@ -458,10 +463,6 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-}
-
-.blog-next-queue-copy:hover strong {
-  color: var(--ui-action-primary-hover);
 }
 
 .blog-next-queue-copy:focus-visible {

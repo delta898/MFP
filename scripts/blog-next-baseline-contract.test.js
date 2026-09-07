@@ -278,6 +278,15 @@ test('queue item titles avoid redundant edit labels and queue actions keep stabl
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
 });
 
+test('queue rows share one transient hover and keyboard focus surface', () => {
+  const queueCss = read('ui/styles/features/continuous-publishing.css');
+
+  assert.match(queueCss, /\.blog-next-queue-item:hover,\s*\.blog-next-queue-item:focus-within\s*\{[^}]*background:\s*var\(--ui-surface-hover\);/s);
+  assert.match(queueCss, /\.blog-next-queue-item\s*\{[^}]*transition:[^;]*background-color var\(--ui-transition-interactive\)/s);
+  assert.doesNotMatch(queueCss, /\.blog-next-queue-copy:hover strong/);
+  assert.match(queueCss, /\.blog-next-queue-copy:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--ui-action-primary\)/s);
+});
+
 test('smart comment identifies its model role and preserves results through async states', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/smart-comment.js');
