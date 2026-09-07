@@ -481,13 +481,6 @@
   margin-top: 0;
 }
 
-.blog-next-smart-comment-model-role {
-  margin-inline-end: auto;
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-medium);
-}
-
 .blog-next-smart-comment-list[aria-busy="true"] {
   opacity: 0.72;
 }
@@ -554,11 +547,6 @@
   .blog-next-draft-actions,
   .blog-next-draft-actions .primary {
     width: 100%;
-  }
-
-  .blog-next-smart-comment-model-role {
-    width: 100%;
-    margin-inline-end: 0;
   }
 
   .blog-next-view .trend-posting-filter-view-shell {

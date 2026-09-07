@@ -139,6 +139,8 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 항상 보이는 hint는 사용자가 입력하거나 실행하기 전에 반드시 알아야 하는 조건, 형식, 결과 또는 안전 정보를 짧게 설명할 때 사용한다. 오류, 위험, 비용과 필수 선행 조건은 tooltip에 숨기지 않는다.
 - tooltip은 없어도 기본 작업을 완료할 수 있는 용어 정의, 선택지 비교와 낮은 빈도의 보충 설명에 사용한다. 단순히 긴 inline 문구를 감추기 위한 대체 수단으로 쓰지 않는다.
 - label, 인접 control, disabled·selected 같은 명확한 상태만으로 관계를 충분히 이해할 수 있으면 시각 안내를 생략한다. 접근성에 필요한 관계 설명은 visually hidden description과 `aria-describedby`로 유지할 수 있다.
+- 같은 현재 설정이나 상태를 summary와 action 주변에 반복하지 않는다. 하나의 시각적 출처를 정하고, 다른 control이
+  같은 설명을 필요로 하면 별도 문구를 복제하지 않고 그 출처를 `aria-describedby`로 참조한다.
 - 같은 역할의 안내 형식이 다르면 정보 중요도, 노출 빈도 또는 접근성 중 설명 가능한 이유가 있어야 한다.
 
 ## Cards and surfaces
@@ -153,6 +155,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   accessible name을 일관되게 제공한다. 반복되는 편집 목록처럼 동작이 문맥상 자명하면 별도 label을 생략하고,
   그렇지 않을 때만 `수정`, `보기`처럼 결과를 설명하는 작은 상시 cue를 둘 수 있다. 전체 영역은 하나의
   button과 accessible name을 유지하고 같은 동작의 label이나 별도 button을 중복 추가하지 않는다.
+- 외부 원문 확인이 결과를 판단하는 자연스러운 다음 단계라면 card의 대표 제목을 원문 link로 사용할 수 있다.
+  제목 link는 hover·focus에서 조작 가능성을 드러내고 새 창 이동을 accessible name으로 알린다. card 안에 별도의
+  실행·작성 link가 있으면 원문 읽기와 후속 action의 목적 및 URL을 구분하며 card 전체를 중복 link로 만들지 않는다.
 - 상시 cue는 caption size와 muted text를 기본으로 하며 badge surface나 독립 action처럼 강조하지 않는다.
   accessible name에 이미 동작이 포함되어 있으면 시각 cue를 보조 기술이 중복해서 읽지 않게 한다.
 - 반복 row의 action group은 같은 역할의 control이 행마다 같은 열과 폭을 사용해 수직으로 정렬한다. label 길이가
@@ -216,6 +221,8 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 ## Fields and focus
 
 - label, 입력값, hint와 validation의 typography 역할을 구분한다.
+- 같은 form density의 checkbox·radio label은 공통 label size와 weight를 사용한다. 개발·진단 전용 여부는 노출
+  조건으로 구분하며 typography 예외의 근거로 삼지 않고, 보조 설명만 caption·secondary text로 낮춘다.
 - field border와 focus ring은 canvas와 surface 모두에서 보여야 한다.
 - error와 success는 색상 외에 문구 또는 상태 표시를 함께 사용한다.
 - 입력 중이거나 실패한 요청 때문에 기존 사용자 값을 임의로 지우지 않는다.
@@ -259,6 +266,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   가까운 status surface와 접근성 속성으로 표현한다. 다른 화면이나 인접 form의 status 영역을 빌려 쓰지 않는다.
 - 필수 source를 아직 제공하지 않은 `idle` 상태에서는 결과 placeholder, 빈 preview와 source control이 이미
   전달하는 안내를 반복 노출하지 않는다. source가 제공된 뒤에만 loading, 결과, warning 또는 error를 보여준다.
+- 별도 source 입력 없이 action으로 시작하는 workflow는 결과 영역에 다음 행동과 결과 사용법을 알려주는 초기 안내
+  하나를 둘 수 있다. 같은 제품 surface의 empty state와 공통 border, typography, spacing과 density를 사용하고,
+  heading·summary·안내 card가 같은 사실을 반복하지 않게 한다.
 - 같은 원인의 warning이 여러 건이면 상위 status에는 건수와 사용자 영향만 한 번 요약하고, 대상별 식별 정보는
   결과 안의 상세 목록에 둔다. 같은 조치 문장을 항목마다 반복하지 않는다.
 - 결과 자체에서 문제 위치를 볼 수 있다면 해당 위치에는 짧은 상태만 표시하고, 인접 상세 목록에는 조치가 필요한

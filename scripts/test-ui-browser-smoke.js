@@ -1918,11 +1918,9 @@ async function run() {
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
         await page.locator('[data-blog-next-tab="smart-comment"]').click();
         await page.waitForFunction(() => document.getElementById('blog-next-smart-comment-run')?.disabled === false);
-        assert.equal((await page.locator('#blog-next-smart-comment-model-role').textContent())?.trim(), '현재: 글쓰기 모델');
         assert.equal((await page.locator('#blog-next-smart-comment-settings-summary').textContent())?.trim(), '글쓰기 모델 사용');
         await page.locator('.blog-next-smart-comment-details summary').click();
         await page.locator('#blog-next-smart-comment-ai-mode').selectOption('custom');
-        assert.equal((await page.locator('#blog-next-smart-comment-model-role').textContent())?.trim(), '현재: Chat Model');
         assert.equal((await page.locator('#blog-next-smart-comment-settings-summary').textContent())?.trim(), 'Chat Model 사용');
         assert.equal(await page.locator('#blog-next-smart-comment-save').isDisabled(), false);
         await page.locator('[data-blog-next-tab="automation"]').click();

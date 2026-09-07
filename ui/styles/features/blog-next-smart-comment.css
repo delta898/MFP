@@ -110,7 +110,9 @@
   gap: 8px;
   min-height: 48px;
   color: var(--ui-text-secondary);
-  font-weight: 600;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
 }
 
 .blog-next-smart-comment-diagnostic[hidden] {
@@ -119,7 +121,8 @@
 
 .blog-next-smart-comment-diagnostic small {
   color: var(--ui-text-secondary);
-  font-weight: 400;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
 }
 
 .blog-next-smart-comment-form-actions {
@@ -212,6 +215,16 @@
   margin-bottom: 14px;
 }
 
+.blog-next-smart-comment-results-head[hidden] {
+  display: none;
+}
+
+.blog-next-smart-comment-results[data-state="idle"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .blog-next-smart-comment-results-head h3 {
   color: var(--ui-text-primary);
   font-size: 17px;
@@ -255,6 +268,24 @@
   color: var(--ui-text-primary);
   font-size: 16px;
   line-height: 1.45;
+}
+
+.blog-next-smart-comment-title-link {
+  border-radius: 3px;
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.blog-next-smart-comment-title-link:hover {
+  color: var(--ui-action-primary-hover);
+  text-decoration: underline;
+}
+
+.blog-next-smart-comment-title-link:focus-visible {
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+  text-decoration: underline;
 }
 
 .blog-next-smart-comment-excerpt {
@@ -360,19 +391,6 @@
 
 .blog-next-smart-comment-redraft {
   color: var(--ui-text-secondary);
-}
-
-.blog-next-smart-comment-empty {
-  padding: 34px 20px;
-  text-align: center;
-}
-
-.blog-next-smart-comment-empty strong {
-  color: var(--ui-text-secondary);
-}
-
-.blog-next-smart-comment-empty p {
-  margin-top: 5px;
 }
 
 @media (max-width: 760px) {

@@ -3,6 +3,8 @@ let blogNextSmartCommentSavedSettings = null;
 let blogNextSmartCommentDirty = false;
 let blogNextSmartCommentRunning = false;
 let blogNextSmartCommentLoading = false;
+let blogNextSmartCommentSaving = false;
+let blogNextSmartCommentRedraftingIndex = null;
 let blogNextSmartCommentLoaded = false;
 let blogNextSmartCommentBound = false;
 let blogNextSmartCommentProgressTimer = null;
@@ -70,33 +72,69 @@ function fillBlogNextSmartCommentForm(settings = {}) {
 function syncBlogNextSmartCommentButtons() {
   const saveButton = document.getElementById('blog-next-smart-comment-save');
   const runButton = document.getElementById('blog-next-smart-comment-run');
+  const busy = blogNextSmartCommentLoading
+    || blogNextSmartCommentRunning
+    || blogNextSmartCommentSaving
+    || blogNextSmartCommentRedraftingIndex !== null;
   if (saveButton) {
-    saveButton.disabled = blogNextSmartCommentLoading || blogNextSmartCommentRunning || !blogNextSmartCommentDirty;
+    saveButton.disabled = busy || !blogNextSmartCommentDirty;
     saveButton.setAttribute('aria-disabled', saveButton.disabled ? 'true' : 'false');
-    saveButton.textContent = '설정 저장';
+    saveButton.setAttribute('aria-busy', blogNextSmartCommentSaving ? 'true' : 'false');
+    saveButton.textContent = blogNextSmartCommentSaving ? '저장 중...' : '설정 저장';
   }
   if (runButton) {
-    runButton.disabled = blogNextSmartCommentLoading || blogNextSmartCommentRunning;
+    runButton.disabled = busy;
+    runButton.setAttribute('aria-busy', blogNextSmartCommentRunning ? 'true' : 'false');
     runButton.textContent = blogNextSmartCommentRunning
       ? '댓글 준비 중...'
       : (blogNextSmartCommentSeenPostUrls.size > 0 ? '새 이웃 글 더 찾기' : '댓글 초안 만들기');
   }
 }
 
+function isBlogNextSmartCommentOperationBusy() {
+  return blogNextSmartCommentLoading
+    || blogNextSmartCommentRunning
+    || blogNextSmartCommentSaving
+    || blogNextSmartCommentRedraftingIndex !== null;
+}
+
 function syncBlogNextSmartCommentModelRole() {
   const custom = document.getElementById('blog-next-smart-comment-ai-mode')?.value === 'custom';
   const label = custom ? 'Chat Model' : '글쓰기 모델';
   const summary = document.getElementById('blog-next-smart-comment-settings-summary');
-  const role = document.getElementById('blog-next-smart-comment-model-role');
   if (summary) summary.textContent = `${label} 사용`;
-  if (role) role.textContent = `현재: ${label}`;
 }
 
 function setBlogNextSmartCommentFormDisabled(disabled) {
-  document.getElementById('blog-next-smart-comment-form')?.querySelectorAll('select, input').forEach((control) => {
+  const form = document.getElementById('blog-next-smart-comment-form');
+  form?.querySelectorAll('select, input').forEach((control) => {
     control.disabled = disabled;
   });
+  form?.setAttribute('aria-busy', disabled ? 'true' : 'false');
   syncBlogNextSmartCommentButtons();
+}
+
+function setBlogNextSmartCommentRedraftActionsBusy(busy, activeItemIndex = null) {
+  document.querySelectorAll('[data-blog-next-smart-comment-redraft]').forEach((button) => {
+    if (busy) {
+      if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent;
+      button.disabled = true;
+      const itemIndex = Number(button.dataset.blogNextSmartCommentRedraft);
+      const active = Number.isInteger(activeItemIndex) && itemIndex === activeItemIndex;
+      button.setAttribute('aria-busy', active ? 'true' : 'false');
+      if (active) button.textContent = '만드는 중...';
+      return;
+    }
+    button.disabled = false;
+    button.setAttribute('aria-busy', 'false');
+    if (button.dataset.idleLabel) button.textContent = button.dataset.idleLabel;
+    delete button.dataset.idleLabel;
+  });
+  document.querySelectorAll('[data-blog-next-smart-comment-card]').forEach((card) => {
+    const itemIndex = Number(card.dataset.blogNextSmartCommentCard);
+    const active = busy && Number.isInteger(activeItemIndex) && itemIndex === activeItemIndex;
+    card.setAttribute('aria-busy', active ? 'true' : 'false');
+  });
 }
 
 function updateBlogNextSmartCommentDirtyState() {
@@ -212,10 +250,14 @@ function normalizeBlogNextSmartCommentDraft(draft, index = 0) {
 
 function renderBlogNextSmartCommentItems(items = [], summary = null) {
   const list = document.getElementById('blog-next-smart-comment-list');
+  const results = document.querySelector('.blog-next-smart-comment-results');
+  const resultsHead = document.querySelector('.blog-next-smart-comment-results-head');
   const summaryElement = document.getElementById('blog-next-smart-comment-summary');
   if (!list) return;
   blogNextSmartCommentItems = Array.isArray(items) ? items.map((item) => ({ ...(item || {}) })) : [];
   list.dataset.state = blogNextSmartCommentItems.length > 0 ? 'results' : 'empty';
+  if (results) results.dataset.state = list.dataset.state;
+  if (resultsHead) resultsHead.hidden = false;
   const successCount = summary?.successCount ?? blogNextSmartCommentItems.filter((item) => Array.isArray(item.drafts) && item.drafts.length > 0).length;
   const failureCount = summary?.failureCount ?? Math.max(0, blogNextSmartCommentItems.length - successCount);
   if (summaryElement) {
@@ -225,7 +267,7 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
   }
   if (blogNextSmartCommentItems.length === 0) {
     list.innerHTML = `
-      <div class="blog-next-smart-comment-empty">
+      <div class="blog-next-empty-state blog-next-smart-comment-empty">
         <strong>조건에 맞는 이웃 글을 찾지 못했습니다.</strong>
         <p>잠시 후 다시 실행하거나 후보 수를 조정해 보세요.</p>
       </div>`;
@@ -233,9 +275,14 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
   }
   list.innerHTML = blogNextSmartCommentItems.map((item, itemIndex) => {
     const drafts = Array.isArray(item.drafts) ? item.drafts : [];
-    const postUrl = safeBlogNextSmartCommentUrl(item.commentUrl || item.postUrl);
-    const postAction = postUrl
-      ? `<a class="blog-next-smart-comment-post-action" href="${escapeHtml(postUrl)}" target="_blank" rel="noopener noreferrer">네이버에서 댓글 쓰기</a>`
+    const title = String(item.title || '제목 없음');
+    const originalPostUrl = safeBlogNextSmartCommentUrl(item.postUrl);
+    const commentUrl = safeBlogNextSmartCommentUrl(item.commentUrl || item.postUrl);
+    const titleMarkup = originalPostUrl
+      ? `<h4><a class="blog-next-smart-comment-title-link" href="${escapeHtml(originalPostUrl)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${title} — 네이버 원문 새 창에서 보기`)}">${escapeHtml(title)}</a></h4>`
+      : `<h4>${escapeHtml(title)}</h4>`;
+    const postAction = commentUrl
+      ? `<a class="blog-next-smart-comment-post-action" href="${escapeHtml(commentUrl)}" target="_blank" rel="noopener noreferrer">네이버에서 댓글 쓰기</a>`
       : '';
     const draftRows = drafts.length > 0
       ? drafts.map((draft, draftIndex) => {
@@ -258,7 +305,7 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
         <div class="blog-next-smart-comment-card-head">
           <div class="blog-next-smart-comment-card-copy">
             <span>${escapeHtml(item.authorName || '작성자 미상')}</span>
-            <h4>${escapeHtml(item.title || '제목 없음')}</h4>
+            ${titleMarkup}
           </div>
         </div>
         <p class="blog-next-smart-comment-excerpt">${escapeHtml(item.excerpt || '본문 내용을 불러오지 못했습니다.')}</p>
@@ -319,17 +366,21 @@ async function loadBlogNextSmartCommentSettings(options = {}) {
 
 async function saveBlogNextSmartCommentSettings(event) {
   event?.preventDefault();
-  if (blogNextSmartCommentRunning || !blogNextSmartCommentDirty) return;
-  const button = document.getElementById('blog-next-smart-comment-save');
-  if (button) button.textContent = '저장 중...';
+  if (isBlogNextSmartCommentOperationBusy() || !blogNextSmartCommentDirty) return;
+  const settings = readBlogNextSmartCommentForm();
+  blogNextSmartCommentSaving = true;
+  setBlogNextSmartCommentFormDisabled(true);
+  setBlogNextSmartCommentRedraftActionsBusy(true);
   try {
-    const data = await postJson('/api/v1/blog/naver-comment-draft/settings', readBlogNextSmartCommentForm());
-    setBlogNextSmartCommentSavedSettings(data?.settings || readBlogNextSmartCommentForm());
+    const data = await postJson('/api/v1/blog/naver-comment-draft/settings', settings);
+    setBlogNextSmartCommentSavedSettings(data?.settings || settings);
     showUiToast({ level: 'success', title: '스마트 댓글 설정 저장', message: '다음 실행에도 같은 설정을 사용합니다.' });
   } catch (error) {
     showUiToast({ level: 'error', title: '설정 저장 실패', message: error.message || '입력값을 확인해 주세요.' });
   } finally {
-    syncBlogNextSmartCommentButtons();
+    blogNextSmartCommentSaving = false;
+    setBlogNextSmartCommentFormDisabled(false);
+    setBlogNextSmartCommentRedraftActionsBusy(false);
   }
 }
 
@@ -354,15 +405,17 @@ function pollBlogNextSmartCommentProgress() {
 }
 
 async function runBlogNextSmartComment() {
-  if (blogNextSmartCommentRunning) return;
+  if (isBlogNextSmartCommentOperationBusy()) return;
+  const settings = readBlogNextSmartCommentForm();
   blogNextSmartCommentRunning = true;
-  syncBlogNextSmartCommentButtons();
+  setBlogNextSmartCommentFormDisabled(true);
+  setBlogNextSmartCommentRedraftActionsBusy(true);
   document.getElementById('blog-next-smart-comment-list')?.setAttribute('aria-busy', 'true');
   renderBlogNextSmartCommentStatus({ state: 'running', title: '댓글 준비 시작', message: '네이버 연결 상태를 확인하고 있습니다.' });
   pollBlogNextSmartCommentProgress();
   try {
     const data = await postJson('/api/v1/blog/naver-comment-draft/run', {
-      ...readBlogNextSmartCommentForm(),
+      ...settings,
       excludePostUrls: Array.from(blogNextSmartCommentSeenPostUrls)
     });
     const nextItems = Array.isArray(data?.items) ? data.items : [];
@@ -384,22 +437,23 @@ async function runBlogNextSmartComment() {
     blogNextSmartCommentRunning = false;
     document.getElementById('blog-next-smart-comment-list')?.setAttribute('aria-busy', 'false');
     stopBlogNextSmartCommentProgressPolling();
-    syncBlogNextSmartCommentButtons();
+    setBlogNextSmartCommentFormDisabled(false);
+    setBlogNextSmartCommentRedraftActionsBusy(false);
   }
 }
 
 async function redraftBlogNextSmartComment(itemIndex) {
-  if (blogNextSmartCommentRunning) return;
+  if (isBlogNextSmartCommentOperationBusy()) return;
   const item = blogNextSmartCommentItems[itemIndex];
   const button = document.querySelector(`[data-blog-next-smart-comment-redraft="${itemIndex}"]`);
   if (!item || button?.disabled) return;
-  if (button) {
-    button.disabled = true;
-    button.textContent = '만드는 중...';
-  }
+  const settings = readBlogNextSmartCommentForm();
+  blogNextSmartCommentRedraftingIndex = itemIndex;
+  setBlogNextSmartCommentFormDisabled(true);
+  setBlogNextSmartCommentRedraftActionsBusy(true, itemIndex);
   try {
     const data = await postJson('/api/v1/blog/naver-comment-draft/redraft', {
-      ...readBlogNextSmartCommentForm(),
+      ...settings,
       title: item.title || '',
       authorName: item.authorName || '',
       excerpt: item.excerpt || '',
@@ -412,6 +466,10 @@ async function redraftBlogNextSmartComment(itemIndex) {
     showUiToast({ level: 'success', title: '댓글 다시 만들기 완료', message: '새로운 댓글 초안을 준비했습니다.' });
   } catch (error) {
     showUiToast({ level: 'error', title: '댓글 다시 만들기 실패', message: error.message || '기존 댓글은 그대로 유지했습니다.' });
+  } finally {
+    blogNextSmartCommentRedraftingIndex = null;
+    setBlogNextSmartCommentFormDisabled(false);
+    setBlogNextSmartCommentRedraftActionsBusy(false);
   }
 }
 

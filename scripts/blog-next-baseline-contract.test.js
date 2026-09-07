@@ -361,12 +361,18 @@ test('smart comment identifies its model role and preserves results through asyn
   const script = read('ui/scripts/features/blog-next/smart-comment.js');
 
   assert.match(html, /id="blog-next-smart-comment-settings-summary">글쓰기 모델 사용/);
-  assert.match(html, /id="blog-next-smart-comment-model-role">현재: 글쓰기 모델/);
-  assert.match(html, /id="blog-next-smart-comment-run"[^>]*aria-describedby="blog-next-smart-comment-model-role"[^>]*disabled/);
+  assert.doesNotMatch(html, /id="blog-next-smart-comment-model-role"/);
+  assert.match(html, /id="blog-next-smart-comment-run"[^>]*aria-describedby="blog-next-smart-comment-settings-summary"[^>]*disabled/);
+  assert.match(html, /class="blog-next-empty-state blog-next-smart-comment-empty"/);
+  assert.match(html, /class="blog-next-smart-comment-results-head" hidden/);
   assert.match(html, /id="blog-next-smart-comment-list"[^>]*data-state="idle"[^>]*aria-busy="false"/);
   assert.match(script, /function syncBlogNextSmartCommentModelRole\(\)/);
   assert.match(script, /const label = custom \? 'Chat Model' : '글쓰기 모델'/);
-  assert.match(script, /blogNextSmartCommentLoading \|\| blogNextSmartCommentRunning/);
+  assert.match(script, /function isBlogNextSmartCommentOperationBusy\(\)/);
+  assert.match(script, /blogNextSmartCommentSaving/);
+  assert.match(script, /blogNextSmartCommentRedraftingIndex/);
+  assert.match(script, /setBlogNextSmartCommentFormDisabled\(true\)/);
+  assert.match(script, /setBlogNextSmartCommentRedraftActionsBusy\(true/);
   assert.match(script, /setAttribute\('aria-busy', 'true'\)/);
   assert.match(script, /setAttribute\('aria-busy', 'false'\)/);
   assert.match(script, /if \(nextItems\.length > 0 \|\| blogNextSmartCommentItems\.length === 0\)/);
