@@ -140,6 +140,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: Stage 7은 빠른 글 작성 세 mode의 공통 입력·미리보기·발행 상태와 트렌드 포스팅의 조회 준비 상태까지 완료하고 Full unit suite 1,512건 통과 후 parent 통합 대상으로 확정했다. 트렌드 결과 영역부터는 별도 sub-feature에서 작은 조각으로 이어간다.
 - 2026-09-07: Stage 7 완료 branch를 fast-forward 통합한 뒤 `codex/feature/design-system-07-trend-posting-results`를 시작했다. 결과 상태 노출, 행별 보관 action, 반응형을 작은 조각으로 진행하며 세부 범위는 [트렌드 결과 영역 개발 기록](2026-09-07-design-system-07-trend-posting-results-development.md)을 따른다.
 - 2026-09-07: Stage 7 구현에서 원고 mode의 공유 발행 설정과 복구, 트렌드·글감 관리 async 상태, 스마트 댓글 model role, 연속 발행 종속 field를 공통 기준에 맞췄다. focused contract 64개와 browser smoke 235 fixture request를 통과했으며 사용자 UI 검토를 기다린다.
+- 2026-09-07: Blog Beta 상위 탭·panel intro·local sub-tab의 typography 위계를 semantic role로 명문화하고 우선 적용하기 위해 `codex/feature/design-system-08-blog-typography-hierarchy`를 시작했다. 다른 제품 surface는 각 메뉴 phase에서 같은 기준을 적용한다. 세부 기록은 [Blog Beta typography hierarchy 개발 기록](2026-09-07-design-system-08-blog-typography-hierarchy-development.md)을 따른다.
 
 ## Design Principles 필수 검토 일정
 

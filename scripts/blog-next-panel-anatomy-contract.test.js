@@ -56,6 +56,36 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
     assert.match(styles, /\.blog-next-management-tab\.active strong\s*\{[^}]*background:\s*var\(--ui-surface\)/s);
 });
 
+test('Blog Beta typography hierarchy uses shared semantic roles', () => {
+    const shellStyles = read('ui/styles/features/continuous-publishing.css');
+    const anatomyStyles = read('ui/styles/features/blog-next-panel-anatomy.css');
+    const usabilityStyles = read('ui/styles/features/continuous-publishing-usability.css');
+    const styleEntry = read('ui/styles.css');
+
+    assert.match(
+        shellStyles,
+        /\.blog-next-tab-btn\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s
+    );
+    assert.match(shellStyles, /\.blog-next-tab-btn,\s*\.blog-next-mode-btn\s*\{[^}]*font-family:\s*inherit;/s);
+    assert.match(
+        anatomyStyles,
+        /\.blog-next-segmented-nav :where\([^)]*\)\s*\{[^}]*font-family:\s*inherit;[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s
+    );
+    assert.match(
+        anatomyStyles,
+        /\.blog-next-panel-intro h2\s*\{[^}]*font-size:\s*var\(--ui-type-heading-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s
+    );
+    assert.match(
+        anatomyStyles,
+        /\.blog-next-panel-intro p\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);[^}]*line-height:\s*var\(--ui-line-height-body\);/s
+    );
+    assert.match(
+        usabilityStyles,
+        /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*inherit;/s
+    );
+    assert.match(styleEntry, /Noto\+Sans\+KR:wght@400;500;600;700/);
+});
+
 test('Blog Beta quick modes share the same content start inset', () => {
     const styles = read('ui/styles/features/continuous-publishing.css');
 

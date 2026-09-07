@@ -236,6 +236,20 @@
 - `블로그 Beta`의 다섯 top-level panel은 예측 가능한 시작점을 위해 동일한 `제목 + 한 줄 설명` intro slot을 사용한다. 이는 해당 제품 surface의 규칙이며 모든 tab UI에 일괄 강제하지 않는다.
 - local navigation과 status/tool이 같은 줄에 있어도 별도 role group으로 구분한다.
 - 같은 수준의 local tab과 mode switch는 공통 segmented navigation을 사용한다. count는 segment 내부 badge로, refresh 같은 도구는 segment 바깥의 보조 action으로 둔다.
+- navigation과 panel intro의 typography는 역할에 따라 다음 semantic token을 사용한다. 모든 tab button은 제품 font family를
+  상속하며 native button의 기본 font에 맡기지 않는다.
+
+  | 역할 | size | weight | line-height |
+  | --- | --- | --- | --- |
+  | panel 제목 | `--ui-type-heading-size` | `--ui-weight-bold` | `--ui-line-height-tight` |
+  | 제품 surface의 top-level tab | `--ui-type-body-size` | `--ui-weight-semibold` | `--ui-line-height-tight` |
+  | panel 한 줄 설명 | `--ui-type-body-size` | `--ui-weight-regular` | `--ui-line-height-body` |
+  | local segmented tab | `--ui-type-label-size` | `--ui-weight-semibold` | `--ui-line-height-tight` |
+  | tab count badge | `--ui-type-caption-size` | tab label 상속 | `--ui-line-height-tight` |
+
+- top-level tab과 설명은 같은 body size를 사용할 수 있다. navigation은 semibold, 설명은 regular·secondary color로 역할을
+  구분하며, 읽기 문장을 작게 줄여 hierarchy를 만들지 않는다. local tab은 label size로 한 단계 낮춘다.
+- count badge는 별도 굵기 강조 없이 작은 크기·surface·radius로 보조 정보임을 표현한다.
 - 선택 상태는 지속적인 surface·text 표현, hover는 일시적 반응, `focus-visible`은 keyboard 위치를 나타내는 ring으로 각각 구분한다.
 - native checkbox와 선택 button도 브라우저 기본 outline에 맡기지 않고 현재 style의 focus token을 사용한다. focus ring은 checked/selected 표현을 대체하지 않는다.
 - tab은 `aria-controls`/`aria-labelledby`, roving `tabindex`, 좌우 방향키와 `Home`/`End` 이동을 지원한다.

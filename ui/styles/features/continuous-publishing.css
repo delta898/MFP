@@ -168,7 +168,7 @@
   border: 0;
   background: transparent;
   color: var(--ui-text-secondary);
-  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
   transition: var(--ui-transition-interactive);
 }
@@ -176,6 +176,9 @@
 .blog-next-tab-btn {
   padding: 11px 18px;
   border-radius: var(--ui-radius-full);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
 }
 
 .blog-next-mode-btn {

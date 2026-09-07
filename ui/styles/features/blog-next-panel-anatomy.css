@@ -34,8 +34,16 @@
   min-height: 42px;
   padding: 8px 16px;
   border-radius: var(--ui-radius-sm);
-  font-size: 14px;
-  line-height: 1.3;
+  font-family: inherit;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+/* Segmented sub-tab labels share one readable weight across quick writing and management. */
+.blog-next-segmented-nav .blog-next-mode-btn,
+.blog-next-segmented-nav .blog-next-management-tab {
+  font-weight: var(--ui-weight-semibold);
 }
 
 .blog-next-segmented-nav .blog-next-mode-btn:hover:not(.active),
@@ -59,14 +67,17 @@
 
 .blog-next-panel-intro h2 {
   color: var(--ui-text-primary);
-  font-size: 20px;
-  line-height: 1.35;
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-weight-bold);
+  line-height: var(--ui-line-height-tight);
 }
 
 .blog-next-panel-intro p {
   margin-top: 6px;
   color: var(--ui-text-secondary);
-  line-height: 1.55;
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
 }
 
 .blog-next-tab-btn:focus,
