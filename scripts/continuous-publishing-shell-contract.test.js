@@ -56,7 +56,8 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
     assert.match(betaView, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon/);
     assert.match(actionCss, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]/);
     assert.match(trendScript, /loadBlogNextTrendMeta\(\{ force: true \}\)/);
-    assert.match(trendScript, /이미 최신 데이터입니다/);
+    assert.doesNotMatch(trendScript, /이미 최신 데이터입니다/);
+    assert.match(trendScript, /setBlogNextTrendStatus\('idle', ''\)/);
     assert.match(trendScript, /selectedCategories/);
     assert.match(trendScript, /preservedDates/);
     assert.match(betaView, /class="blog-next-management-actions"[\s\S]*?id="blog-next-queue-refresh"/);

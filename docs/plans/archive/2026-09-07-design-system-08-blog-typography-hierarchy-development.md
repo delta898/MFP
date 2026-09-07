@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-08-blog-typography-hierarchy`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 구현 및 사용자 시각 확인 완료 — parent merge gate 대기
+- Status: 완료 — 사용자 시각 확인 및 parent merge gate Full TC 통과
 
 ## 사용자 필요와 목표
 
@@ -78,6 +78,11 @@ Blog Beta에서 다음 역할을 사용한다.
 - 2026-09-07: 기존 management typography contract가 과거 `14px/700` 리터럴을 요구해 실패한 것을 확인하고,
   새 semantic label/semibold와 badge weight 상속 계약으로 갱신했다.
 - 2026-09-08: 사용자가 Blog Beta의 상위 탭, 설명과 local sub-tab typography hierarchy를 시각 확인하고 승인했다.
+- 2026-09-08: parent merge gate Full TC에서 이전 트렌드 포스팅 slice가 성공 상태 문구를 생략하도록 바뀌었지만
+  shell contract만 과거 `이미 최신 데이터입니다` 문구를 요구하는 불일치를 발견했다. canonical async feedback
+  기준과 구현에 맞춰 성공 문구를 노출하지 않고 idle status를 유지하는 계약으로 교정했다.
+- 2026-09-08: 교정한 trend refresh focused contract 18개가 통과했으며, 재실행한 Full TC는 1,513 passed,
+  0 failed, 1 skipped로 parent merge gate를 통과했다.
 
 ## 검증 계획
 
@@ -98,6 +103,9 @@ Blog Beta에서 다음 역할을 사용한다.
 
 - canonical guide와 Blog Beta 우선 적용 구현 완료
 - focused anatomy/style contract: 10 passed, 0 failed
+- trend refresh focused contract: 18 passed, 0 failed
 - `git diff --check`: passed
 - 사용자 시각 확인: 완료
-- commit과 parent integration: 대기
+- 첫 parent merge gate Full TC: 1 stale trend refresh contract failure
+- stale contract 교정 후 Full TC: 1,513 passed, 0 failed, 1 skipped
+- commit 완료, parent integration 및 branch 삭제 승인됨
