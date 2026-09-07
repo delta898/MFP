@@ -15,6 +15,14 @@
 - Preserve unrelated working-tree changes. Before editing, identify pre-existing changes and do not absorb them into the current logical change without agreement.
 - If a choice materially changes user-visible behavior, data ownership, compatibility, cost, or external side effects, explain the tradeoff and get agreement before proceeding.
 
+## Efficiency and Verification
+- Minimize output tokens without sacrificing correctness. Keep progress updates and final handoffs concise and focused on decisions, results, failures, remaining risks, and required user actions.
+- Do not reproduce long command or test output when a summary is sufficient. Report detailed output only when it is needed to diagnose a failure.
+- Run focused tests autonomously when they are proportionate to the current change.
+- Before running the full unit suite or another broad regression suite, tell the user why the full run is now warranted and request explicit approval. Do not run it until approved or explicitly requested by the user.
+- A required merge or release gate is not waived by the approval requirement. If approval has not been given, stop before that gate and report that full validation remains pending.
+- Avoid repeatedly running a broad suite when no relevant code has changed since the last successful run.
+
 ## Product and UI Direction
 - Unless the user explicitly requests work in another Blog surface, apply Blog feature and UI changes only to `블로그 Beta` (`view-blog-next`). Treat the existing `블로그` surface as out of scope by default.
 - Start from the user's need and use the user's language. Do not expose internal architecture, storage, provider, or prompt concepts unless they help the user make a decision.
@@ -25,6 +33,10 @@
 - Preview and sample features should resemble real output, but moderate AI variation should not be treated as failure when the result remains useful.
 
 ## Agent Work
+- Use the smallest capable tool, model, reasoning effort, or agent arrangement that can complete the task reliably.
+- Do not delegate work merely to parallelize it. Delegate only concrete, independently reviewable work when multi-agent execution is explicitly requested or permitted by the active runtime policy.
+- Keep tightly coupled or small tasks local when delegation overhead would exceed its benefit.
+- Use more capable or expensive execution only when complexity, uncertainty, risk, or required quality justifies it.
 - Treat Telegram as a channel adapter, not as the place where business logic should grow.
 - Keep `Agent Runtime -> Capability Registry -> Memory` as the primary control path.
 - Before extending behavior, check whether the change belongs in:
@@ -74,9 +86,9 @@
 
 ## Verification and Handoff
 - Match verification effort to risk: documentation or version-only edits need focused consistency checks; domain or prompt changes need unit/contract tests; UI behavior changes need the relevant browser/UI regression tests in addition to focused tests.
-- During implementation, run the narrowest focused tests that cover the changed module or contract. Do not repeatedly run the full unit suite after small UI, copy, style, or locally bounded edits.
+- During implementation, run the narrowest focused tests that cover the changed module or contract.
 - For UI work, run focused UI contract tests while iterating and the relevant browser smoke test when the reviewable UI slice is complete.
-- Run the full unit suite before merging a completed sub-feature into its parent, before merging a completed parent feature into `dev`, during release preparation, or earlier only when a change crosses shared configuration, Sheet contracts, publishing engines, environment boundaries, or another broad-risk boundary.
+- The full unit suite remains required before merging a completed sub-feature into its parent, before merging a completed parent feature into `dev`, during release preparation, or earlier when a change crosses shared configuration, Sheet contracts, publishing engines, environment boundaries, or another broad-risk boundary. Request and receive explicit user approval before starting it.
 - If the user has chosen to perform hands-on UI acceptance before parent merge, focused and browser verification may precede that review; defer the full unit suite until the merge candidate is otherwise ready unless risk requires it sooner.
 - Run the narrowest relevant automated tests during implementation, then run the agreed broader regression suite before merging a completed feature parent or preparing a release.
 - The agent should verify behavior that can be automated. The user performs final visual and exploratory UI testing when they have chosen to do so; provide a concise list of flows that need manual confirmation.
