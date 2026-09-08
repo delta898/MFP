@@ -249,3 +249,30 @@ test('migrated shell and Blog Beta styles consume semantic tokens instead of leg
     assert.doesNotMatch(read(file), legacyTokenPattern, file);
   });
 });
+
+test('Blog Beta feature styles do not bypass the style contract', () => {
+  const featureFiles = [
+    'ui/styles/features/continuous-publishing.css',
+    'ui/styles/features/continuous-publishing-interactions.css',
+    'ui/styles/features/continuous-publishing-usability.css',
+    'ui/styles/features/blog-next-baseline.css',
+    'ui/styles/features/blog-next-panel-anatomy.css',
+    'ui/styles/features/blog-next-quick-flow.css',
+    'ui/styles/features/blog-next-smart-comment.css'
+  ];
+
+  featureFiles.forEach((file) => {
+    const css = read(file);
+    assert.doesNotMatch(css, /!important\b/, `${file} must resolve cascade through component boundaries`);
+    assert.doesNotMatch(css, /\[data-style(?:=|-)/, `${file} must not branch on a concrete style`);
+
+    const shadowValues = Array.from(css.matchAll(/box-shadow:\s*([^;]+);/g), (match) => match[1].trim());
+    shadowValues.forEach((value) => {
+      assert.match(
+        value,
+        /^(?:none|(?:inset\s+)?var\(--ui-[a-z0-9-]+\))$/,
+        `${file} owns a raw shadow recipe: ${value}`
+      );
+    });
+  });
+});

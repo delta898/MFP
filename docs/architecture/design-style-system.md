@@ -162,6 +162,8 @@ style registry는 최소한 다음 정보를 제공해야 한다.
 5. feature별 raw value는 component 의미가 확인된 단위로 치환한다.
 6. 한 surface의 이전이 끝날 때 focused contract와 browser regression을 수행한다.
 7. 첫 정식 style 이후 작은 두 번째 검증 style을 연결해 숨은 결합을 찾는다.
+8. 이전이 끝난 feature CSS는 구체적인 style ID, `!important` cascade 예외와 숫자형 shadow recipe의 재유입을
+   contract test로 차단한다. 합의되지 않은 layout·typography 값까지 숫자라는 이유만으로 일괄 금지하지 않는다.
 
 ## Definition of Done
 

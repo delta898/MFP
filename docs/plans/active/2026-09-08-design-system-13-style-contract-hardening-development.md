@@ -78,6 +78,10 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
 - 2026-09-08: segmented active와 badge, running row, table header divider, sticky footer의 다섯 raw shadow를
   feature 이름 없는 component token으로 분리했다. 세 style pack에는 기존 recipe와 동일한 값을 공급해 현재
   계산 결과를 유지하되, 이후 style이 상태 outline·구분선·anchored surface elevation을 독립 조정할 수 있게 했다.
+- 2026-09-08: elevation recipe slice를 `c08731a`로 commit했다.
+- 2026-09-08: 최종 regression guard는 Blog Beta의 이전 완료된 일곱 feature stylesheet에서 구체적 style ID,
+  `!important`와 숫자형 shadow recipe를 금지한다. 아직 의미 합의가 필요한 raw typography와 feature layout은
+  false positive를 피하기 위해 이 guard에 포함하지 않았다.
 
 ## Inventory and migration map
 
@@ -139,10 +143,11 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 - Smart Comment safe typography focused contracts and style foundation: 15 passed, 0 failed
 - Queue cascade and style foundation focused contracts: 30 passed, 0 failed
 - Shared elevation recipe and related Blog Beta contracts: 52 passed, 0 failed
+- Style contract regression guard and related focused contracts: 56 passed, 0 failed
 - 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
   Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
 - browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정
 
 ## 최종 결과
 
-- 진행 중
+- 구현 완료. 최종 regression guard commit과 sub-feature merge 전 full unit suite 승인이 남아 있다.
