@@ -145,7 +145,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-08: `codex/feature/design-system-10-smart-comments`에서 스마트 댓글의 초기 안내, model 정보, async action 상태와 원문 확인 흐름을 canonical guide에 맞춰 개선하고 검증을 마쳤다. 세부 기록은 [스마트 댓글 개발 기록](../archive/2026-09-08-design-system-10-smart-comments-development.md)을 따른다.
 - 2026-09-08: `codex/feature/design-system-11-continuous-publishing-navigation`에서 연속 발행 설정을 글감 관리 local navigation으로 이동하고 Full TC를 통과했다. 세부 기록은 [연속 발행 설정 정보구조 개발 기록](../archive/2026-09-08-design-system-11-continuous-publishing-navigation-development.md)을 따른다.
 - 2026-09-08: 디자인 원칙·가이드·구현의 전체 정합성 검토에서 파괴적 action 확인 범위, 완료된 Gate 서술, 기능 문서와 현재 구현의 차이를 확인했다. `codex/feature/design-system-12-contract-documentation`에서 문서 계약 정리와 사용자 승인을 완료했으며, 동작·접근성과 style token 정리는 후속 독립 단계로 진행한다. 세부 기록은 [문서 계약 정리 개발 기록](../archive/2026-09-08-design-system-12-contract-documentation-development.md)을 따른다.
-- 2026-09-08: `codex/feature/design-system-13-style-contract-hardening`에서 Blog Beta feature CSS의 raw typography·shadow·cascade override를 작은 slice로 분류·교정하는 단계를 시작했다. 시각적 계산값을 보존하는 inventory를 먼저 만들고 새 token이 필요한 항목은 별도 사용자 합의 후 진행한다. 세부 기록은 [Style Contract 마무리 개발 기록](2026-09-08-design-system-13-style-contract-hardening-development.md)을 따른다.
+- 2026-09-08: `codex/feature/design-system-13-style-contract-hardening`에서 Blog Beta feature CSS의 raw typography·shadow·cascade override를 작은 slice로 분류·교정했다. 시각적 계산값을 유지하면서 semantic typography, 역할별 elevation, cascade 경계와 재유입 방지 guard를 확립했고 Full TC 1,524 passed, 0 failed, 1 skipped로 완료했다. 세부 기록은 [Style Contract 마무리 개발 기록](../archive/2026-09-08-design-system-13-style-contract-hardening-development.md)을 따른다.
 
 ## Design Principles 필수 검토 일정
 

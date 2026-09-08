@@ -110,9 +110,9 @@ test('Blog Beta form typography separates labels, edit values, and compact autom
         'utf8'
     );
 
-    assert.match(css, /\.blog-next-field\s*\{[^}]*font-size:\s*15px;[^}]*font-weight:\s*400;/s);
-    assert.match(css, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*14px;[\s\S]*?font-weight:\s*700;/);
-    assert.match(css, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*400;/);
+    assert.match(css, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+    assert.match(css, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-bold\);/);
+    assert.match(css, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-regular\);/);
     assert.match(css, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;/s);
 });
 
@@ -128,8 +128,8 @@ test('Blog Beta management typography follows shared navigation roles and distin
 
     assert.match(usabilityCss, /\.blog-next-management-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s);
     assert.match(usabilityCss, /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*inherit;/s);
-    assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*15px;[^}]*font-weight:\s*600;/s);
-    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*400;/s);
-    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;/s);
-    assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/s);
+    assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });

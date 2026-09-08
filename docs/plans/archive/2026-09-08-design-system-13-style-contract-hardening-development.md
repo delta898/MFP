@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-13-style-contract-hardening`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 진행 중 — raw style 분류와 side-effect 방지 기준선 수립
+- Status: 완료 — semantic typography·elevation·cascade 계약 교정 및 regression guard 검증
 
 ## 사용자 필요와 목표
 
@@ -82,6 +82,11 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
 - 2026-09-08: 최종 regression guard는 Blog Beta의 이전 완료된 일곱 feature stylesheet에서 구체적 style ID,
   `!important`와 숫자형 shadow recipe를 금지한다. 아직 의미 합의가 필요한 raw typography와 feature layout은
   false positive를 피하기 위해 이 guard에 포함하지 않았다.
+- 2026-09-08: 첫 full unit suite에서 제품 구현이 아니라 기존 정적 contract 3건이 raw typography와 inline
+  shadow 표현을 계속 기대해 실패했다. 해당 contract를 동일한 semantic typography와 elevation token 기대값으로
+  교정하고 focused 재검증 후 전체 suite를 다시 실행한다.
+- 2026-09-08: 실패한 기존 contract 3건을 교정한 뒤 focused contract 24건과 full unit suite를 재실행해
+  모두 통과했다. 계산값을 유지한 CSS contract 정리이므로 별도 browser smoke와 시각 재승인은 생략했다.
 
 ## Inventory and migration map
 
@@ -144,10 +149,14 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 - Queue cascade and style foundation focused contracts: 30 passed, 0 failed
 - Shared elevation recipe and related Blog Beta contracts: 52 passed, 0 failed
 - Style contract regression guard and related focused contracts: 56 passed, 0 failed
+- Legacy contract correction focused tests: 24 passed, 0 failed
+- Full unit suite: 1,524 passed, 0 failed, 1 skipped
+- Browser smoke와 사용자 시각 확인: CSS 계산값과 DOM·동작을 변경하지 않아 생략
 - 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
   Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
 - browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정
 
 ## 최종 결과
 
-- 구현 완료. 최종 regression guard commit과 sub-feature merge 전 full unit suite 승인이 남아 있다.
+- Blog Beta의 의미가 확정된 typography를 semantic token으로 이전하고, cascade 예외와 raw shadow recipe를
+  component contract로 교정했다. 재유입 방지 guard와 전체 단위 테스트까지 통과해 parent 통합 준비를 마쳤다.

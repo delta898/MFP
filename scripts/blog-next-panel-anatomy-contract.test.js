@@ -53,7 +53,7 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
     assert.match(styles, /\.blog-next-panel-lead\s*\{[^}]*min-height:\s*64px;/s);
     assert.match(styles, /\.blog-next-segmented-nav\s*\{/);
     assert.match(styles, /\.blog-next-segmented-nav \.blog-next-mode-btn\.active,[\s\S]{0,100}\.blog-next-segmented-nav \.blog-next-management-tab\.active/);
-    assert.match(styles, /\.active\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\);[^}]*box-shadow:\s*inset/s);
+    assert.match(styles, /\.active\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\);[^}]*box-shadow:\s*var\(--ui-segmented-active-shadow\)/s);
     assert.match(styles, /:hover:not\(\.active\)\s*\{/);
     assert.match(styles, /\.blog-next-management-tab\.active strong\s*\{[^}]*background:\s*var\(--ui-surface\)/s);
 });
