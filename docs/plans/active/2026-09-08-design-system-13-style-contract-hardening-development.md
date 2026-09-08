@@ -70,6 +70,10 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
 - 2026-09-08: Smart Comment에서 역할과 기존 token이 정확히 대응하는 status body, card metadata와 bold
   emphasis만 token으로 옮겼다. `11/13/16/17/20px`와 line-height는 새 role 합의 또는 시각 변화가 필요하므로
   그대로 유지했다.
+- 2026-09-08: Smart Comment safe typography slice를 `c720f33`으로 commit했다.
+- 2026-09-08: queue 실행 상태 문구의 `!important`는 상태 의미가 아닌 `.blog-next-queue-copy span`과의
+  specificity 충돌을 덮던 예외임을 확인했다. 상태 selector에 component 경계를 명시해 같은 색과 hidden 동작을
+  유지하면서 `!important`를 제거했다. elevation token 교정은 cascade 변경과 섞지 않고 다음 slice로 분리했다.
 
 ## Inventory and migration map
 
@@ -129,6 +133,7 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 - Inventory 문서: `git diff --check` 통과
 - Shared form and queue typography focused contracts: 33 passed, 0 failed
 - Smart Comment safe typography focused contracts and style foundation: 15 passed, 0 failed
+- Queue cascade and style foundation focused contracts: 30 passed, 0 failed
 - 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
   Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
 - browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정

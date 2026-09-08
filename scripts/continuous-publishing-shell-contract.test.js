@@ -364,6 +364,8 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.match(serviceSource, /queue_runtime_state: 'running'/);
     assert.match(queueCss, /\.blog-next-queue-item\.is-running/);
     assert.match(queueCss, /blog-next-queue-running-indicator/);
+    assert.match(queueCss, /\.blog-next-queue-copy \.blog-next-queue-running\s*\{[^}]*color:\s*var\(--ui-action-primary-hover\);/s);
+    assert.doesNotMatch(queueCss, /\.blog-next-queue-running[^}]*!important/s);
 });
 
 test('global publishing status exposes one prioritized summary in the clock and only urgent sidebar signals', () => {

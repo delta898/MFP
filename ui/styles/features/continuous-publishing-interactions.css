@@ -133,14 +133,14 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 10%, transparent);
 }
 
-.blog-next-queue-running {
+.blog-next-queue-copy .blog-next-queue-running {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--ui-action-primary-hover) !important;
+  color: var(--ui-action-primary-hover);
 }
 
-.blog-next-queue-running[hidden] {
+.blog-next-queue-copy .blog-next-queue-running[hidden] {
   display: none;
 }
 
