@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-01-shell-core-connections`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-08
-- Status: 공용화·상태 규약 보완 및 focused/browser 검증 완료 — 사용자 UI 검토 대기
+- Status: 공용 settings-card pattern/controller 추출 및 focused/browser 검증 완료 — 사용자 UI 검토 대기
 
 ## 사용자 필요와 목표
 
@@ -99,6 +99,8 @@ top menu
 - 2026-09-09: 저장된 WordPress application password는 원문·부분값·길이를 Settings Beta와 core connection response에 보내지 않고 `등록됨` boolean만 제공하도록 전환했다. 빈 secret input은 기존 값을 유지하며, 새로 직접 입력한 값에만 보기/숨기기 icon control을 제공한다.
 - 2026-09-09: readiness summary는 대응하는 connection card로 이동하는 1:1 detail jump로 확정했다. settings card는 고정 높이·footer spacer 없이 content-driven compact density로 구성해, 정상 card의 큰 빈 공간을 제거하면서 feedback/action anchor 규칙은 유지한다.
 - 2026-09-09: 사용자 UI 검토에서 compact card의 빈 feedback reservation과 행 gap이 여전히 크게 보이는 것을 확인했다. feedback은 action 위치 안정성을 위해 실제 한 줄만 예약하고 별도 padding을 두지 않으며, card 내부 gap을 compact density로 낮췄다.
+- 2026-09-09: baseline을 먼저 커밋한 뒤, Settings Beta에만 있던 readiness card·card anatomy·feedback/jump DOM 조작을 공용 `settings-card` pattern/controller로 추출했다. 공통 layer는 visual anatomy와 local detail 이동만 맡고, Google·네이버·워드프레스의 연결 workflow는 feature controller에 유지한다. 이는 copy/paste 없이 후속 설정 탭이 동일한 card contract를 사용할 수 있게 하는 경계다.
+- 2026-09-09: Spreadsheet `접근 확인`이 Google OAuth 상태만 재확인하고 성공 결과를 card badge·readiness summary에 반영하지 않던 누락을 교정했다. 실제 Spreadsheet 조회 성공은 두 surface를 `접근 가능`으로 갱신하고, 실패는 `확인 실패`로, 주소 편집은 `접근 확인 필요`로 즉시 되돌린다.
 - 2026-09-08: 저장된 credential과 실제 연결 성공을 구분하고, 최초 load 실패·갱신 실패·연결별 동시 실행 잠금 규약을 Settings Beta controller에 반영했다.
 - 2026-09-08: 설정과 local override의 소유권, 필수 연결과 선택적 부가 서비스의 배치 기준을 canonical `settings-information-architecture.md`로 승격했다.
 
@@ -110,6 +112,8 @@ top menu
 - settings API smoke: passed
 - browser UI smoke: passed, latest run 229 fixture requests. Settings Beta 진입, Timer 렌더링, top/local tab 방향키와 Home 이동을 명시적으로 포함했다.
 - browser UI smoke: passed, latest secret-field run 226 fixture requests.
+- 공용 settings-card pattern/controller focused contracts: 30 passed.
+- browser UI smoke: passed, latest shared-card run 228 fixture requests. Settings Beta의 summary-to-detail focus 이동을 포함했다.
 - browser UI smoke: passed, latest summary-jump/compact-density run 236 fixture requests (summary click → form focus 포함).
 - JavaScript syntax 및 Git whitespace check: passed
 - full unit suite: parent 통합 후보 승인 전에 사용자 승인 후 실행 예정

@@ -312,14 +312,17 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/settings/major') {
         return {
             configPath: 'fixture/config.json',
-            fields: {},
+            fields: { GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit' },
             aiPresets: { text: [], image: [], chat: [] },
             aiProviderProfiles: { text: {}, image: {}, chat: {} },
             shoppingImageDefaults: {},
             shoppingImageSlots: {}
         };
     }
-    if (pathname === '/api/v1/google-oauth/status') return { configured: false, connected: false };
+    if (pathname === '/api/v1/google-oauth/status') return { state: 'connected', connectedEmail: 'fixture@example.com' };
+    if (pathname === '/api/v1/google-oauth/test') {
+        return { ok: true, spreadsheetId: 'fixture-sheet-id', spreadsheetTitle: 'UI smoke spreadsheet' };
+    }
     if (pathname === '/api/v1/session/naver') return { status: 'logged_in', valid: true };
     if (pathname === '/api/v1/session/wordpress-verify') return { success: true, message: '연동 성공' };
     if (pathname === '/api/v1/logs/files') return { files: [] };
@@ -1239,6 +1242,9 @@ async function run() {
         await page.locator('.nav-btn[data-view="settings-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
+        await page.locator('#settings-next-content-save').click();
+        await page.waitForFunction(() => document.getElementById('settings-next-content-status')?.textContent === '접근 가능');
+        assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '접근 가능');
         const settingsTopTab = page.locator('[data-settings-next-tab="core"]');
         await settingsTopTab.focus();
         await settingsTopTab.press('ArrowRight');
@@ -1252,7 +1258,7 @@ async function run() {
         await page.locator('[data-settings-next-core-tab="publishing"]').press('Home');
         assert.equal(await settingsLocalTab.getAttribute('aria-selected'), 'true');
         await page.locator('[data-settings-next-core-tab="publishing"]').click();
-        await page.locator('[data-settings-next-jump="naver"]').click();
+        await page.locator('[data-settings-card-target="settings-next-naver-form"]').click();
         await page.waitForFunction(() => document.activeElement?.id === 'settings-next-naver-form');
 
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
@@ -2261,6 +2267,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
+            { method: 'POST', pathname: '/api/v1/google-oauth/test' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

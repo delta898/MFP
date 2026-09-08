@@ -88,6 +88,8 @@
   후속 외부 확인을 수행한다. 값이 바뀌지 않았다면 persistence를 반복하지 않고 확인만 수행한다.
 - 각 connection card는 공통 component 규정의 `header → body → feedback → footer` anatomy를 따른다. 지속 상태는
   header badge 한 곳, 최근 operation 결과는 footer 직전 feedback 한 곳, action은 footer 오른쪽 한 group에 둔다.
+- card anatomy, summary-to-detail 이동, feedback DOM 갱신은 shared settings-card pattern/controller를 사용한다.
+  provider별 feature는 각 연결의 입력·검증·로그인 workflow만 소유하며, 동일 card markup과 상태 surface를 복사하지 않는다.
 - 정상 성공은 header badge가 표현하므로 feedback으로 반복하지 않는다. feedback은 오류·부분 성공·다음 행동처럼
   대응이 필요한 예외만 한 줄 예약 영역에 표시하며, 그 변화가 action footer의 위치를 움직이지 않게 한다.
 - loading은 사용자가 누른 button에서만 표현한다. 직접 operation이 완료된 뒤의 전체 readiness 재조회는 background로
@@ -102,6 +104,8 @@
 - 내부 반영과 외부 확인은 결과를 별도로 추적한다. 반영 뒤 인증·접근 확인만 실패하면 값을 되돌리지 않고
   `입력값은 반영됨 · 확인 실패`로 부분 성공을 알린다. 이는 실패 복구에 필요한 예외 feedback이다.
 - header badge와 readiness card의 `연결됨`은 local persistence가 아니라 외부 검증 성공만 뜻한다.
+- Google Spreadsheet의 `접근 가능` badge와 readiness summary도 주소 저장 여부가 아니라 해당 주소를 Google 계정으로
+  실제 조회한 마지막 성공 결과만 뜻한다. 주소를 편집하면 이 검증 결과는 즉시 `접근 확인 필요`로 돌아간다.
 - WordPress application password 같은 secret은 `WORDPRESS_APP_PASSWORD_CONFIGURED`처럼 등록 여부만 Settings Beta에
   전달한다. 새 입력값만 일시적으로 보기/숨기기를 지원하고, 빈 입력으로 connection을 확인하거나 값을 반영할 때는
   저장된 secret을 유지한다.

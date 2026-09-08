@@ -132,6 +132,13 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - compact settings card에서는 control의 최소 조작 높이와 reserved feedback의 실제 한 줄 높이만 유지한다. card 내부의
   행 gap과 readiness summary padding은 한 density 단계 낮추며, 빈 feedback에 추가 여백을 예약하지 않는다. 공간을
   줄이기 위해 label, hint 또는 상태 정보를 생략하지 않는다.
+- 구현은 공통 `settings-card` pattern을 단일 출처로 사용한다. `.ui-settings-card`,
+  `.ui-settings-card-heading`, `.ui-settings-card-detail`, `.ui-settings-card-feedback`,
+  `.ui-settings-card-footer`, `.ui-settings-readiness-card`가 anatomy와 density를 소유한다. 화면별 stylesheet에는
+  provider 고유 field·상태·action layout만 둔다.
+- readiness의 detail 이동과 feedback text/tone 갱신은 공통 settings-card controller가 소유한다. 화면 controller는
+  target id와 feedback id만 지정하며, 같은 scroll·focus·feedback DOM 조작을 복사하지 않는다. 단, OAuth·로그인·외부
+  연결 확인처럼 provider에 의존하는 workflow와 domain validation은 해당 feature에 남긴다.
 
 ## Selection controls
 

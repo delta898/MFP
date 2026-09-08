@@ -61,6 +61,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         /settings-next-panel-lead[\s\S]*?settings-next-local-nav-row[\s\S]*?settings-next-core-panel-content/
     );
     assert.match(html, /id="settings-next-google-sheet-url"/);
+    assert.match(html, /id="settings-next-content-status"[^>]*>확인 필요/);
     assert.match(html, /id="settings-next-naver-id"/);
     assert.match(html, /id="settings-next-wordpress-url"/);
     assert.match(html, /id="settings-next-wordpress-password-visibility"[^>]*aria-label="새 애플리케이션 비밀번호 표시"/);
@@ -68,9 +69,9 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-next-jump=/g) || []).length, 4);
-    assert.match(html, /data-settings-next-jump="naver"/);
-    assert.match(html, /data-settings-next-jump="wordpress"/);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 4);
+    assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
+    assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
 });
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
@@ -102,6 +103,8 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(script, /void settingsNextLoadStatuses\(\{ force: true \}\)/);
     assert.doesNotMatch(script, /await settingsNextLoadStatuses\(\{ force: true \}\)/);
     assert.match(script, /connected: state === 'connected'/);
+    assert.match(script, /settingsNextSheetVerification/);
+    assert.match(script, /'settings-next-content-status'/);
     assert.doesNotMatch(script, /connected: state === 'connected' \|\| state === 'configured'/);
     assert.match(navigation, /confirmDiscardUnsavedSettingsNext/);
     assert.match(lifecycle, /hasPendingSettingsNextChanges/);
@@ -111,7 +114,8 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
 test('Settings Beta styling consumes semantic design tokens only', () => {
     const css = read('ui/styles/features/settings-next.css');
     const tabs = read('ui/styles/patterns/tab-navigation.css');
-    const styles = `${tabs}\n${css}`;
+    const cards = read('ui/styles/patterns/settings-card.css');
+    const styles = `${tabs}\n${cards}\n${css}`;
 
     assert.doesNotMatch(styles, /#[0-9a-f]{3,8}|rgba?\(/i);
     assert.doesNotMatch(styles, /!important\b/);
@@ -181,14 +185,15 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     const html = read('ui/partials/views/settings-next.html');
     const actions = read('ui/styles/patterns/actions.css');
     const featureStyles = read('ui/styles/features/settings-next.css');
+    const cardStyles = read('ui/styles/patterns/settings-card.css');
 
     assert.match(actions, /button\.ui-danger-action/);
     assert.match(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
     assert.match(html, /settings-next-naver-logout" class="ghost ui-danger-action"/);
     assert.match(html, /settings-next-google-disconnect[\s\S]*settings-next-google-test/);
     assert.match(html, /settings-next-google-status[\s\S]*settings-next-google-detail[\s\S]*settings-next-google-feedback[\s\S]*settings-next-action-row/);
-    assert.match(html, /settings-next-naver-status[\s\S]*settings-next-naver-detail[\s\S]*settings-next-naver-feedback[\s\S]*settings-next-form-footer[\s\S]*settings-next-naver-logout[\s\S]*settings-next-naver-login/);
-    assert.match(html, /settings-next-wordpress-status[\s\S]*settings-next-wordpress-feedback[\s\S]*settings-next-form-footer[\s\S]*settings-next-wordpress-save/);
+    assert.match(html, /settings-next-naver-status[\s\S]*settings-next-naver-detail[\s\S]*settings-next-naver-feedback[\s\S]*ui-settings-card-footer[\s\S]*settings-next-naver-logout[\s\S]*settings-next-naver-login/);
+    assert.match(html, /settings-next-wordpress-status[\s\S]*settings-next-wordpress-feedback[\s\S]*ui-settings-card-footer[\s\S]*settings-next-wordpress-save/);
     assert.equal((html.match(/class="settings-next-completion-group"/g) || []).length, 3);
     assert.equal((html.match(/id="settings-next-(?:google|content|naver|wordpress)-feedback"/g) || []).length, 4);
     assert.doesNotMatch(html, /settings-next-channel-summary/);
@@ -196,6 +201,15 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
+    assert.equal((html.match(/class="ui-settings-card"/g) || []).length, 4);
+    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 4);
+    assert.match(cardStyles, /\.ui-settings-card\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-readiness-card\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-card\s*\{[\s\S]*gap: var\(--ui-space-1\)/);
+    assert.match(cardStyles, /\.ui-settings-card-footer\s*\{[\s\S]*margin-block-start: calc\(var\(--ui-space-1\) \* -1\)/);
+    assert.doesNotMatch(featureStyles, /\.settings-next-section\s*\{/);
+    assert.doesNotMatch(featureStyles, /\.settings-next-readiness-item\s*\{/);
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
@@ -205,7 +219,9 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
 
 test('Settings Beta shows operation loading only on the initiating action', () => {
     const script = read('ui/scripts/features/settings-next/shell.js');
-    const styles = read('ui/styles/features/settings-next.css');
+    const styles = read('ui/styles/patterns/settings-card.css');
+    const shared = read('ui/scripts/foundation/settings-card.js');
+    const app = read('ui/app.js');
 
     assert.match(script, /button\.textContent = busy \? '연결 확인 중\.\.\.' : '연결 확인'/);
     assert.match(script, /busyAction === 'login' \? '로그인 중\.\.\.' : '로그인'/);
@@ -213,9 +229,11 @@ test('Settings Beta shows operation loading only on the initiating action', () =
     assert.doesNotMatch(script, /SetScopeFeedback\([^\n]*확인 중/);
     assert.doesNotMatch(script, /SetFeedback\('settings-next-wordpress-feedback',\s*'[^']*확인하고 있습니다/);
     assert.doesNotMatch(script, /연결을 확인했습니다\.|로그인했습니다\.|로그아웃했습니다\.|연동 성공/);
-    assert.match(styles, /\.settings-next-section > \.settings-next-feedback\s*\{[\s\S]*min-block-size[\s\S]*white-space: nowrap/);
-    assert.match(styles, /\.settings-next-section > \.settings-next-feedback:empty\s*\{\s*display: flex/);
+    assert.match(styles, /\.ui-settings-card-feedback\s*\{[\s\S]*min-block-size[\s\S]*white-space: nowrap/);
     assert.match(script, /function settingsNextToggleWordpressPasswordVisibility/);
-    assert.match(script, /function settingsNextJumpToConfiguration/);
-    assert.match(script, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+    assert.match(app, /@include scripts\/foundation\/settings-card\.js/);
+    assert.match(shared, /function initUiSettingsCardPattern/);
+    assert.match(shared, /data-settings-card-target/);
+    assert.match(shared, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+    assert.doesNotMatch(script, /function settingsNextJumpToConfiguration/);
 });

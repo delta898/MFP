@@ -48,9 +48,12 @@
   gap: var(--ui-action-group-gap);
 }
 
+.settings-next-load-feedback:empty {
+  display: none;
+  min-block-size: 0;
+}
+
 .settings-next-panel-intro,
-.settings-next-section-heading,
-.settings-next-form-footer,
 .settings-next-action-row,
 .settings-next-action-group,
 .settings-next-completion-group {
@@ -59,21 +62,16 @@
 }
 
 .settings-next-panel-intro,
-.settings-next-section-heading,
-.settings-next-action-row,
-.settings-next-form-footer {
+.settings-next-action-row {
   justify-content: space-between;
 }
 
-.settings-next-panel-intro,
-.settings-next-section-heading {
+.settings-next-panel-intro {
   gap: var(--ui-space-6);
 }
 
 .settings-next-panel-intro h2,
 .settings-next-panel-intro p,
-.settings-next-section-heading h3,
-.settings-next-section-heading p,
 .settings-next-placeholder h2,
 .settings-next-placeholder p {
   margin: 0;
@@ -87,7 +85,6 @@
 }
 
 .settings-next-panel-intro p,
-.settings-next-section-heading p,
 .settings-next-placeholder p {
   margin-top: var(--ui-space-2);
   color: var(--ui-text-secondary);
@@ -100,42 +97,6 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ui-space-3);
-}
-
-.settings-next-readiness-item {
-  display: flex;
-  align-items: center;
-  gap: var(--ui-space-3);
-  min-width: 0;
-  padding: var(--ui-space-3);
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-muted);
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition: var(--ui-transition-interactive);
-}
-
-.settings-next-readiness-item:hover,
-.settings-next-readiness-item:focus-visible {
-  border-color: var(--ui-border-focus);
-  background: var(--ui-surface-hover);
-  box-shadow: var(--ui-focus-ring);
-}
-
-.settings-next-readiness-item span:last-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--ui-space-1);
-}
-
-.settings-next-readiness-item small {
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  line-height: var(--ui-line-height-body);
 }
 
 .settings-next-status-dot {
@@ -156,27 +117,6 @@
 
 .settings-next-status-dot[data-tone="danger"] {
   background: var(--ui-status-danger);
-}
-
-.settings-next-section {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: var(--ui-space-2);
-  min-width: 0;
-  margin: 0;
-  min-block-size: 0;
-  padding: var(--ui-space-4);
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface);
-}
-
-.settings-next-section-heading h3 {
-  color: var(--ui-text-primary);
-  font-size: var(--ui-type-body-size);
-  font-weight: var(--ui-weight-semibold);
-  line-height: var(--ui-line-height-tight);
 }
 
 .settings-next-status {
@@ -201,44 +141,6 @@
 }
 
 .settings-next-status[data-tone="danger"] {
-  color: var(--ui-status-danger);
-}
-
-.settings-next-detail,
-.settings-next-feedback {
-  margin: 0;
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  line-height: var(--ui-line-height-body);
-  white-space: pre-line;
-}
-
-.settings-next-feedback:empty {
-  display: none;
-}
-
-.settings-next-section > .settings-next-feedback {
-  display: flex;
-  align-items: center;
-  min-block-size: calc(var(--ui-type-caption-size) * var(--ui-line-height-body));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-next-section > .settings-next-feedback:empty {
-  display: flex;
-}
-
-.settings-next-feedback[data-tone="success"] {
-  color: var(--ui-status-success);
-}
-
-.settings-next-feedback[data-tone="warning"] {
-  color: var(--ui-status-warning);
-}
-
-.settings-next-feedback[data-tone="danger"] {
   color: var(--ui-status-danger);
 }
 
@@ -341,8 +243,7 @@
   gap: var(--ui-space-2);
 }
 
-.settings-next-action-row,
-.settings-next-form-footer {
+.settings-next-action-row {
   gap: var(--ui-space-4);
   min-height: 42px;
   margin-block-start: 0;
@@ -382,9 +283,7 @@
 @media (max-width: 760px) {
   .settings-next-panel-intro,
   .settings-next-local-nav-row,
-  .settings-next-section-heading,
-  .settings-next-action-row,
-  .settings-next-form-footer {
+  .settings-next-action-row {
     align-items: stretch;
     flex-direction: column;
   }
@@ -412,7 +311,6 @@
 
   .settings-next-action-group > button,
   .settings-next-completion-group > button,
-  .settings-next-form-footer > button,
   .settings-next-input-action > button,
   .settings-next-refresh {
     width: 100%;

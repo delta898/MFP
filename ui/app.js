@@ -8,6 +8,7 @@
 // @include scripts/foundation/presentation.js
 // @include scripts/foundation/tab-navigation.js
 // @include scripts/foundation/settings-secrets.js
+// @include scripts/foundation/settings-card.js
 // @include scripts/features/content/state-core.js
 // @include scripts/features/discovery/state.js
 // @include scripts/features/settings/state.js

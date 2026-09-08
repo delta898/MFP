@@ -7,6 +7,7 @@ let settingsNextMajorFields = {};
 let settingsNextAccountOverview = null;
 let settingsNextGoogleStatus = null;
 let settingsNextNaverStatus = null;
+let settingsNextSheetVerification = null;
 let settingsNextBound = false;
 let settingsNextLoaded = false;
 let settingsNextLoading = false;
@@ -31,13 +32,7 @@ function settingsNextSetText(id, value) {
   if (element) element.textContent = String(value || '');
 }
 
-function settingsNextSetFeedback(id, message, tone = 'neutral') {
-  const element = document.getElementById(id);
-  if (!element) return;
-  element.textContent = String(message || '');
-  element.title = String(message || '');
-  element.dataset.tone = tone;
-}
+const settingsNextSetFeedback = setUiSettingsCardFeedback;
 
 function settingsNextScopeFeedbackId(scope) {
   return {
@@ -61,19 +56,6 @@ function settingsNextToggleWordpressPasswordVisibility() {
   button.setAttribute('aria-pressed', visible ? 'true' : 'false');
   button.setAttribute('aria-label', visible ? '새 애플리케이션 비밀번호 숨기기' : '새 애플리케이션 비밀번호 표시');
   button.title = visible ? '비밀번호 숨기기' : '비밀번호 표시';
-}
-
-function settingsNextJumpToConfiguration(targetName) {
-  const targets = {
-    google: 'settings-next-google-section',
-    spreadsheet: 'settings-next-content-form',
-    naver: 'settings-next-naver-form',
-    wordpress: 'settings-next-wordpress-form'
-  };
-  const target = document.getElementById(targets[targetName]);
-  if (!target) return;
-  target.focus({ preventScroll: true });
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function settingsNextSetStatus(id, label, tone = 'neutral') {
@@ -311,7 +293,7 @@ function settingsNextRenderReadiness() {
   const googleState = String(settingsNextGoogleStatus?.state || '').trim().toLowerCase();
   const googleConnected = googleState === 'connected';
   const googleReadiness = document.getElementById('settings-next-google-readiness');
-  const googleDot = googleReadiness?.closest('.settings-next-readiness-item')?.querySelector('.settings-next-status-dot');
+  const googleDot = googleReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
   settingsNextSetText(
     'settings-next-google-readiness',
     googleState === 'error'
@@ -326,20 +308,29 @@ function settingsNextRenderReadiness() {
   );
 
   const sheet = settingsNextConnectionState(settingsNextAccountOverview?.connections?.google_sheets);
-  const hasSheetUrl = Boolean(String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim());
+  const sheetUrl = String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim();
+  const hasSheetUrl = Boolean(sheetUrl);
+  const localVerification = settingsNextSheetVerification?.url === sheetUrl ? settingsNextSheetVerification : null;
+  const sheetAccessible = localVerification?.success === true || (!localVerification && sheet.connected);
+  const sheetFailed = localVerification?.success === false;
   const sheetReadiness = document.getElementById('settings-next-sheet-readiness');
-  const sheetDot = sheetReadiness?.closest('.settings-next-readiness-item')?.querySelector('.settings-next-status-dot');
+  const sheetDot = sheetReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
   settingsNextSetText(
     'settings-next-sheet-readiness',
     settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? '상태 확인 실패'
-      : (sheet.connected ? '접근 가능' : (hasSheetUrl ? '접근 확인 필요' : '주소 필요'))
+      : (sheetAccessible ? '접근 가능' : (sheetFailed ? '접근 확인 실패' : (hasSheetUrl ? '접근 확인 필요' : '주소 필요')))
   );
   settingsNextSetDot(
     sheetDot,
     settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? 'danger'
-      : (sheet.connected ? 'success' : (hasSheetUrl ? 'warning' : 'danger'))
+      : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'danger')))
+  );
+  settingsNextSetStatus(
+    'settings-next-content-status',
+    sheetAccessible ? '접근 가능' : (sheetFailed ? '확인 실패' : (hasSheetUrl ? '확인 필요' : '주소 필요')),
+    sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral'))
   );
 
   const wordpress = settingsNextConnectionState(settingsNextAccountOverview?.connections?.wordpress);
@@ -528,14 +519,14 @@ async function settingsNextTestGoogle({ feedbackId = 'settings-next-google-feedb
   if (ownerScope) settingsNextSetScopeBusy(ownerScope, true, 'verify');
   settingsNextSetFeedback(feedbackId, '');
   try {
-    await postJson('/api/v1/google-oauth/test', {});
+    const result = await postJson('/api/v1/google-oauth/test', {});
     settingsNextSetFeedback(feedbackId, '');
     void settingsNextLoadStatuses({ force: true });
-    return true;
+    return result;
   } catch (error) {
     settingsNextSetFeedback(feedbackId, error.message || '연결을 확인하지 못했습니다.', 'danger');
     void settingsNextLoadStatuses({ force: true });
-    return false;
+    return null;
   } finally {
     if (ownerScope) settingsNextSetScopeBusy(ownerScope, false);
     settingsNextSetGoogleBusy(false);
@@ -597,7 +588,14 @@ async function settingsNextSubmitContent(event) {
   event.preventDefault();
   if (settingsNextDirtyScopes.has('content') && !await settingsNextSaveScope('content')) return;
   if (String(settingsNextGoogleStatus?.state || '').trim().toLowerCase() === 'connected') {
-    await settingsNextTestGoogle({ feedbackId: 'settings-next-content-feedback', ownerScope: 'content' });
+    const result = await settingsNextTestGoogle({ feedbackId: 'settings-next-content-feedback', ownerScope: 'content' });
+    const url = String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim();
+    settingsNextSheetVerification = {
+      url,
+      success: Boolean(result?.ok && result?.spreadsheetId),
+      title: String(result?.spreadsheetTitle || '')
+    };
+    settingsNextRenderReadiness();
   } else {
     settingsNextSetScopeFeedback('content', 'Google 계정을 연결하면 Spreadsheet 접근을 확인할 수 있습니다.', 'warning');
   }
@@ -719,16 +717,17 @@ function initSettingsNext() {
         if (!settingsNextLoading) void loadSettingsNext({ force: true });
       });
     });
-    document.querySelectorAll('[data-settings-next-jump]').forEach((button) => {
-      button.addEventListener('click', () => settingsNextJumpToConfiguration(button.dataset.settingsNextJump));
-    });
+    initUiSettingsCardPattern();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],
       wordpress: ['settings-next-wordpress-url', 'settings-next-wordpress-user-id', 'settings-next-wordpress-app-password']
     };
     Object.entries(scopedInputs).forEach(([scope, ids]) => {
-      ids.forEach((id) => document.getElementById(id)?.addEventListener('input', () => settingsNextSyncScopeDirty(scope)));
+      ids.forEach((id) => document.getElementById(id)?.addEventListener('input', () => {
+        if (scope === 'content') settingsNextSheetVerification = null;
+        settingsNextSyncScopeDirty(scope);
+      }));
     });
     document.getElementById('settings-next-content-form')?.addEventListener('submit', settingsNextSubmitContent);
     document.getElementById('settings-next-naver-form')?.addEventListener('submit', settingsNextSubmitNaver);
