@@ -7,20 +7,18 @@
               </div>
               <p>글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.</p>
             </div>
-            <div class="page-clock-widget">
-              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
-            </div>
+            <!-- @include shared/page-clock-widget.html -->
           </div>
         </div>
 
-        <div class="blog-next-tabs" role="tablist" aria-label="블로그 기능">
-          <button class="blog-next-tab-btn active" id="blog-next-tab-quick" type="button" role="tab" aria-selected="true" tabindex="0"
+        <div class="blog-next-tabs ui-top-tabs" role="tablist" aria-label="블로그 기능">
+          <button class="blog-next-tab-btn ui-top-tab active" id="blog-next-tab-quick" type="button" role="tab" aria-selected="true" tabindex="0"
             aria-controls="blog-next-panel-quick" data-blog-next-tab="quick">빠른 글 작성</button>
-          <button class="blog-next-tab-btn" id="blog-next-tab-trend-posting" type="button" role="tab" aria-selected="false" tabindex="-1"
+          <button class="blog-next-tab-btn ui-top-tab" id="blog-next-tab-trend-posting" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-trend-posting" data-blog-next-tab="trend-posting">트렌드 포스팅</button>
-          <button class="blog-next-tab-btn" id="blog-next-tab-queue" type="button" role="tab" aria-selected="false" tabindex="-1"
+          <button class="blog-next-tab-btn ui-top-tab" id="blog-next-tab-queue" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-queue" data-blog-next-tab="queue">글감 관리</button>
-          <button class="blog-next-tab-btn" id="blog-next-tab-smart-comment" type="button" role="tab" aria-selected="false" tabindex="-1"
+          <button class="blog-next-tab-btn ui-top-tab" id="blog-next-tab-smart-comment" type="button" role="tab" aria-selected="false" tabindex="-1"
             aria-controls="blog-next-panel-smart-comment" data-blog-next-tab="smart-comment">스마트 댓글</button>
         </div>
 
@@ -34,14 +32,14 @@
               <p>주제에서 새 글을 만들거나 준비한 원고를 바로 불러오세요.</p>
             </div>
           </div>
-          <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav" role="tablist" aria-label="빠른 글 작성 입력 방식">
-            <button class="blog-next-mode-btn active" id="blog-next-mode-tab-ai" type="button" role="tab" aria-selected="true" tabindex="0"
+          <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav ui-segmented-tabs" role="tablist" aria-label="빠른 글 작성 입력 방식">
+            <button class="blog-next-mode-btn ui-segmented-tab active" id="blog-next-mode-tab-ai" type="button" role="tab" aria-selected="true" tabindex="0"
               aria-controls="blog-next-mode-panel-ai"
               data-blog-next-input-mode="ai" title="주제나 키워드로 새 글을 만듭니다.">바로 생성</button>
-            <button class="blog-next-mode-btn" id="blog-next-mode-tab-folder" type="button" role="tab" aria-selected="false" tabindex="-1"
+            <button class="blog-next-mode-btn ui-segmented-tab" id="blog-next-mode-tab-folder" type="button" role="tab" aria-selected="false" tabindex="-1"
               aria-controls="blog-next-mode-panel-folder"
               data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.">원고 폴더</button>
-            <button class="blog-next-mode-btn" id="blog-next-mode-tab-paste" type="button" role="tab" aria-selected="false" tabindex="-1"
+            <button class="blog-next-mode-btn ui-segmented-tab" id="blog-next-mode-tab-paste" type="button" role="tab" aria-selected="false" tabindex="-1"
               aria-controls="blog-next-mode-panel-paste"
               data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 붙여넣어 바로 포스팅합니다.">원고 붙여넣기</button>
           </div>
@@ -316,14 +314,14 @@
             </div>
           </div>
           <div class="blog-next-management-tabs blog-next-panel-local-nav">
-            <div class="blog-next-management-tab-list blog-next-segmented-nav" role="tablist" aria-label="글감 관리 보기">
-              <button class="blog-next-management-tab active" id="blog-next-management-tab-ready" type="button" role="tab"
+            <div class="blog-next-management-tab-list blog-next-segmented-nav ui-segmented-tabs" role="tablist" aria-label="글감 관리 보기">
+              <button class="blog-next-management-tab ui-segmented-tab active" id="blog-next-management-tab-ready" type="button" role="tab"
                 aria-selected="true" aria-controls="blog-next-management-panel-ready" tabindex="0"
                 data-blog-next-management-tab="ready">발행 대기열 <strong id="blog-next-queue-count">확인 중</strong></button>
-              <button class="blog-next-management-tab" id="blog-next-management-tab-saved" type="button" role="tab"
+              <button class="blog-next-management-tab ui-segmented-tab" id="blog-next-management-tab-saved" type="button" role="tab"
                 aria-selected="false" aria-controls="blog-next-management-panel-saved" tabindex="-1"
                 data-blog-next-management-tab="saved">보관한 글감 <strong id="blog-next-saved-count">확인 중</strong></button>
-              <button class="blog-next-management-tab" id="blog-next-management-tab-automation" type="button" role="tab"
+              <button class="blog-next-management-tab ui-segmented-tab" id="blog-next-management-tab-automation" type="button" role="tab"
                 aria-selected="false" aria-controls="blog-next-management-panel-automation" tabindex="-1"
                 data-blog-next-management-tab="automation">연속 발행 설정</button>
             </div>

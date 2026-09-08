@@ -11,6 +11,7 @@
 /* @include styles/components/app-chrome.css */
 /* @include styles/patterns/actions.css */
 /* @include styles/patterns/selection-controls.css */
+/* @include styles/patterns/tab-navigation.css */
 
 /* @include styles/features/social.css */
 
@@ -50,6 +51,7 @@
 /* @include styles/layout/responsive.css */
 
 /* @include styles/features/settings-detail.css */
+/* @include styles/features/settings-next.css */
 /* @include styles/features/card-news-settings.css */
 
 /* @include styles/features/writing-settings.css */

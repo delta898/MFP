@@ -82,7 +82,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
   assert.equal(viewTags.length > 1, true);
   viewTags.forEach(([tag, viewId]) => {
-    if (viewId === 'view-blog-next') {
+    if (['view-blog-next', 'view-settings-next'].includes(viewId)) {
       assert.doesNotMatch(tag, /data-style-scope=/);
       return;
     }
@@ -159,18 +159,19 @@ test('quiet sage varies palette, density, radius and elevation without style-spe
   assert.doesNotMatch(shared, /quiet-sage-studio/);
 });
 
-test('Blog Beta state and anchored surfaces consume shared elevation recipes', () => {
+test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {
   const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
+  const tabs = read('ui/styles/patterns/tab-navigation.css');
   const queue = read('ui/styles/features/continuous-publishing-interactions.css');
   const baseline = read('ui/styles/features/blog-next-baseline.css');
   const usability = read('ui/styles/features/continuous-publishing-usability.css');
 
-  assert.match(panel, /box-shadow:\s*var\(--ui-segmented-active-shadow\)/);
+  assert.match(tabs, /box-shadow:\s*var\(--ui-segmented-active-shadow\)/);
   assert.match(panel, /box-shadow:\s*var\(--ui-segmented-badge-shadow\)/);
   assert.match(queue, /box-shadow:\s*var\(--ui-row-running-shadow\)/);
   assert.match(baseline, /box-shadow:\s*var\(--ui-table-header-divider-shadow\)/);
   assert.match(usability, /box-shadow:\s*var\(--ui-sticky-footer-shadow\)/);
-  assert.doesNotMatch([panel, queue, baseline, usability].join('\n'), /box-shadow:\s*(?:inset\s+)?0\s+(?:-?\d+px|0)\s+/);
+  assert.doesNotMatch([tabs, panel, queue, baseline, usability].join('\n'), /box-shadow:\s*(?:inset\s+)?0\s+(?:-?\d+px|0)\s+/);
 });
 
 test('shared feedback and Blog Beta trend surfaces do not retain the compatibility palette', () => {
@@ -241,7 +242,8 @@ test('migrated shell and Blog Beta styles consume semantic tokens instead of leg
     'ui/styles/features/continuous-publishing.css',
     'ui/styles/features/continuous-publishing-interactions.css',
     'ui/styles/features/continuous-publishing-usability.css',
-    'ui/styles/features/blog-next-smart-comment.css'
+    'ui/styles/features/blog-next-smart-comment.css',
+    'ui/styles/patterns/tab-navigation.css'
   ];
   const legacyTokenPattern = /var\(--(?:bg-gradient|surface|surface-solid|line|text-main|text-muted|text-light|brand-primary|brand-hover|brand-light|success|warning|danger|shadow-sm|shadow-md|shadow-lg|glass-shadow|radius-sm|radius-md|radius-lg|radius-full|transition|text-secondary|border-color|brand|shadow-soft)\)/;
 
@@ -250,7 +252,7 @@ test('migrated shell and Blog Beta styles consume semantic tokens instead of leg
   });
 });
 
-test('Blog Beta feature styles do not bypass the style contract', () => {
+test('design-system feature styles do not bypass the style contract', () => {
   const featureFiles = [
     'ui/styles/features/continuous-publishing.css',
     'ui/styles/features/continuous-publishing-interactions.css',
@@ -258,7 +260,9 @@ test('Blog Beta feature styles do not bypass the style contract', () => {
     'ui/styles/features/blog-next-baseline.css',
     'ui/styles/features/blog-next-panel-anatomy.css',
     'ui/styles/features/blog-next-quick-flow.css',
-    'ui/styles/features/blog-next-smart-comment.css'
+    'ui/styles/features/blog-next-smart-comment.css',
+    'ui/styles/features/settings-next.css',
+    'ui/styles/patterns/tab-navigation.css'
   ];
 
   featureFiles.forEach((file) => {

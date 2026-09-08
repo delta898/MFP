@@ -410,7 +410,8 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         const naverId = String(requestBody.NAVER_ID || '').trim();
         const wordpressUrl = String(requestBody.WORDPRESS_URL || '').trim();
         const wordpressUserId = String(requestBody.WORDPRESS_USER_ID || '').trim();
-        const wordpressAppPassword = String(requestBody.WORDPRESS_APP_PASSWORD || '').trim();
+        const wordpressAppPassword = String(requestBody.WORDPRESS_APP_PASSWORD || '').trim()
+            || String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim();
         const writingStyle = normalizeWritingStyle({
             writing_mode: requestBody.BLOG_WRITING_MODE,
             speech_level: requestBody.BLOG_SPEECH_LEVEL

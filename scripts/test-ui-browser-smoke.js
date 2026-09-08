@@ -1236,6 +1236,25 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-help a[href*="223940980574"]')?.classList.contains('help-guide-navigation-target'));
 
+        await page.locator('.nav-btn[data-view="settings-next"]').click();
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
+        const settingsTopTab = page.locator('[data-settings-next-tab="core"]');
+        await settingsTopTab.focus();
+        await settingsTopTab.press('ArrowRight');
+        assert.equal(await page.locator('[data-settings-next-tab="ai"]').getAttribute('aria-selected'), 'true');
+        await page.locator('[data-settings-next-tab="ai"]').press('Home');
+        assert.equal(await settingsTopTab.getAttribute('aria-selected'), 'true');
+        const settingsLocalTab = page.locator('[data-settings-next-core-tab="content"]');
+        await settingsLocalTab.focus();
+        await settingsLocalTab.press('ArrowRight');
+        assert.equal(await page.locator('[data-settings-next-core-tab="publishing"]').getAttribute('aria-selected'), 'true');
+        await page.locator('[data-settings-next-core-tab="publishing"]').press('Home');
+        assert.equal(await settingsLocalTab.getAttribute('aria-selected'), 'true');
+        await page.locator('[data-settings-next-core-tab="publishing"]').click();
+        await page.locator('[data-settings-next-jump="naver"]').click();
+        await page.waitForFunction(() => document.activeElement?.id === 'settings-next-naver-form');
+
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);

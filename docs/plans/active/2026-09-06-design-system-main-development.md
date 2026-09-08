@@ -146,6 +146,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-08: `codex/feature/design-system-11-continuous-publishing-navigation`에서 연속 발행 설정을 글감 관리 local navigation으로 이동하고 Full TC를 통과했다. 세부 기록은 [연속 발행 설정 정보구조 개발 기록](../archive/2026-09-08-design-system-11-continuous-publishing-navigation-development.md)을 따른다.
 - 2026-09-08: 디자인 원칙·가이드·구현의 전체 정합성 검토에서 파괴적 action 확인 범위, 완료된 Gate 서술, 기능 문서와 현재 구현의 차이를 확인했다. `codex/feature/design-system-12-contract-documentation`에서 문서 계약 정리와 사용자 승인을 완료했으며, 동작·접근성과 style token 정리는 후속 독립 단계로 진행한다. 세부 기록은 [문서 계약 정리 개발 기록](../archive/2026-09-08-design-system-12-contract-documentation-development.md)을 따른다.
 - 2026-09-08: `codex/feature/design-system-13-style-contract-hardening`에서 Blog Beta feature CSS의 raw typography·shadow·cascade override를 작은 slice로 분류·교정했다. 시각적 계산값을 유지하면서 semantic typography, 역할별 elevation, cascade 경계와 재유입 방지 guard를 확립했고 Full TC 1,524 passed, 0 failed, 1 skipped로 완료했다. 세부 기록은 [Style Contract 마무리 개발 기록](../archive/2026-09-08-design-system-13-style-contract-hardening-development.md)을 따른다.
+- 2026-09-08: 다른 surface 확산의 첫 대상으로 설정 개편을 시작했다. `codex/feature/design-system-settings-main` 아래 첫 sub-feature에서 기존 설정을 보존한 `설정 Beta`, provider-neutral한 `콘텐츠 공간`과 `블로그 발행 채널`, 기존 `config.json` schema를 유지하는 scoped save 경계를 구현하고 focused contract와 browser smoke를 통과했다. 세부 기록은 [설정 Beta parent 기록](2026-09-08-design-system-settings-main-development.md)과 [첫 sub-feature 기록](2026-09-08-design-system-settings-01-shell-core-connections-development.md)을 따른다.
 
 ## Design Principles 필수 검토 일정
 

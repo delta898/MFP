@@ -1,0 +1,101 @@
+.ui-top-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-2);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface);
+}
+
+.ui-top-tab,
+.ui-segmented-tab {
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font-family: inherit;
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+  cursor: pointer;
+  transition: var(--ui-transition-interactive);
+}
+
+.ui-top-tab {
+  padding: var(--ui-space-3) var(--ui-space-5);
+  border-radius: var(--ui-radius-full);
+  font-size: var(--ui-type-body-size);
+}
+
+.ui-top-tab:hover:not(.active),
+.ui-segmented-tab:hover:not(.active) {
+  background: var(--ui-surface-hover);
+  color: var(--ui-text-primary);
+}
+
+.ui-top-tab.active,
+.ui-segmented-tab.active {
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+}
+
+.ui-top-tab:focus,
+.ui-segmented-tab:focus {
+  outline: none;
+}
+
+.ui-top-tab:focus-visible,
+.ui-segmented-tab:focus-visible {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.ui-segmented-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  width: fit-content;
+  padding: var(--ui-space-1);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-translucent);
+}
+
+.ui-segmented-tab {
+  min-height: 42px;
+  padding: var(--ui-space-2) var(--ui-space-4);
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-type-label-size);
+}
+
+.ui-segmented-tab.active {
+  box-shadow: var(--ui-segmented-active-shadow);
+}
+
+@media (max-width: 760px) {
+  .ui-top-tabs {
+    align-items: stretch;
+    flex-direction: column;
+    border-radius: var(--ui-radius-md);
+  }
+
+  .ui-top-tab {
+    text-align: left;
+  }
+
+  .ui-segmented-tabs {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ui-segmented-tab {
+    width: 100%;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-top-tab,
+  .ui-segmented-tab {
+    transition: none;
+  }
+}

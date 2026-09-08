@@ -56,6 +56,101 @@ function removeManagedKeywordCredentials(structuredConfig = {}) {
     return structuredConfig;
 }
 
+function extractSpreadsheetId(value) {
+    const match = String(value || '').trim().match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+    return match?.[1] || '';
+}
+
+function redactMajorSecretFields(settings = {}) {
+    const fields = { ...(settings?.fields || {}) };
+    const wordpressPassword = String(fields.WORDPRESS_APP_PASSWORD || '').trim();
+    delete fields.WORDPRESS_APP_PASSWORD;
+    fields.WORDPRESS_APP_PASSWORD_CONFIGURED = Boolean(wordpressPassword);
+    return { ...settings, fields };
+}
+
+function normalizeCoreConnectionSettings(requestBody = {}) {
+    const scope = String(requestBody.scope || '').trim().toLowerCase();
+    const values = requestBody.values && typeof requestBody.values === 'object'
+        ? requestBody.values
+        : {};
+
+    if (!['content', 'naver', 'wordpress'].includes(scope)) {
+        throw createApiError(400, 'CORE_CONNECTION_SCOPE_INVALID', '저장할 기본 연결 항목을 확인해 주세요.');
+    }
+
+    if (scope === 'content') {
+        const GOOGLE_SHEET_URL = String(values.GOOGLE_SHEET_URL || '').trim();
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(GOOGLE_SHEET_URL);
+        } catch (_error) {
+            throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', '올바른 Google Spreadsheet 주소를 입력해 주세요.');
+        }
+        const spreadsheetId = extractSpreadsheetId(GOOGLE_SHEET_URL);
+        if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'docs.google.com' || !spreadsheetId) {
+            throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', 'Google Spreadsheet의 HTTPS 주소를 입력해 주세요.');
+        }
+        return { scope, fields: { GOOGLE_SHEET_URL, GOOGLE_SHEET_ID: spreadsheetId } };
+    }
+
+    if (scope === 'naver') {
+        const NAVER_ID = String(values.NAVER_ID || '').trim();
+        if (!NAVER_ID) {
+            throw createApiError(400, 'NAVER_ID_REQUIRED', '네이버 아이디를 입력해 주세요.');
+        }
+        return { scope, fields: { NAVER_ID } };
+    }
+
+    const WORDPRESS_URL = String(values.WORDPRESS_URL || '').trim();
+    const WORDPRESS_USER_ID = String(values.WORDPRESS_USER_ID || '').trim();
+    const WORDPRESS_APP_PASSWORD = String(values.WORDPRESS_APP_PASSWORD || '').trim();
+    if (!WORDPRESS_URL || !WORDPRESS_USER_ID) {
+        throw createApiError(
+            400,
+            'WORDPRESS_CONNECTION_REQUIRED',
+            '사이트 주소, 사용자 ID와 애플리케이션 비밀번호를 모두 입력해 주세요.'
+        );
+    }
+    try {
+        const parsedUrl = new URL(WORDPRESS_URL);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('unsupported protocol');
+    } catch (_error) {
+        throw createApiError(400, 'WORDPRESS_URL_INVALID', '올바른 워드프레스 사이트 주소를 입력해 주세요.');
+    }
+    return {
+        scope,
+        fields: { WORDPRESS_URL, WORDPRESS_USER_ID, WORDPRESS_APP_PASSWORD }
+    };
+}
+
+function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
+    const { scope, fields = {} } = normalized;
+    if (scope === 'content') {
+        if (!structuredConfig.general || typeof structuredConfig.general !== 'object') structuredConfig.general = {};
+        structuredConfig.general.google_sheet_url = fields.GOOGLE_SHEET_URL;
+    }
+    if (scope === 'naver') {
+        if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
+        if (!structuredConfig.platforms.naver || typeof structuredConfig.platforms.naver !== 'object') {
+            structuredConfig.platforms.naver = {};
+        }
+        structuredConfig.platforms.naver.user_id = fields.NAVER_ID;
+    }
+    if (scope === 'wordpress') {
+        if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
+        if (!structuredConfig.platforms.wordpress || typeof structuredConfig.platforms.wordpress !== 'object') {
+            structuredConfig.platforms.wordpress = {};
+        }
+        structuredConfig.platforms.wordpress.url = fields.WORDPRESS_URL;
+        structuredConfig.platforms.wordpress.user_id = fields.WORDPRESS_USER_ID;
+        if (fields.WORDPRESS_APP_PASSWORD) {
+            structuredConfig.platforms.wordpress.app_password = fields.WORDPRESS_APP_PASSWORD;
+        }
+    }
+    return structuredConfig;
+}
+
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -90,6 +185,7 @@ function createSettingsService(deps = {}) {
         cheerio,
         styleReferenceAnalyzer,
         writingProfilePreviewService,
+        dashboardActivityRecorder = recordDashboardActivity,
         RemoteModelCatalog = DefaultRemoteModelCatalog,
         ModelConnectionTester = DefaultModelConnectionTester
     } = deps;
@@ -247,7 +343,7 @@ function createSettingsService(deps = {}) {
                 path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
                 sourceType: CONFIG.CONFIG_SOURCE_TYPE
             };
-            const data = buildMajorSettings(null, configSource);
+            const data = redactMajorSecretFields(buildMajorSettings(null, configSource));
             const savedTokenExists = (() => {
                 try {
                     const configPath = configSource.path || resolveWritableConfigPath();
@@ -266,6 +362,77 @@ function createSettingsService(deps = {}) {
             return {
                 ...data,
                 aiCatalogStatus
+            };
+        },
+
+        async saveCoreConnectionSettings(requestBody = {}) {
+            const normalized = normalizeCoreConnectionSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try {
+                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
+                } catch (_error) {
+                    throw createApiError(
+                        409,
+                        'CONFIG_JSON_INVALID',
+                        '현재 설정 파일을 읽을 수 없어 안전하게 저장하지 못했습니다.'
+                    );
+                }
+            }
+
+            const existingWordpressPassword = String(
+                structuredConfig?.platforms?.wordpress?.app_password || CONFIG.WORDPRESS_APP_PASSWORD || ''
+            ).trim();
+            if (normalized.scope === 'wordpress' && !normalized.fields.WORDPRESS_APP_PASSWORD && !existingWordpressPassword) {
+                throw createApiError(
+                    400,
+                    'WORDPRESS_CONNECTION_REQUIRED',
+                    '사이트 주소, 사용자 ID와 애플리케이션 비밀번호를 모두 입력해 주세요.'
+                );
+            }
+
+            applyCoreConnectionSettings(structuredConfig, normalized);
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+
+            const runtimeFields = normalized.scope === 'wordpress' && !normalized.fields.WORDPRESS_APP_PASSWORD
+                ? { ...normalized.fields, WORDPRESS_APP_PASSWORD: existingWordpressPassword }
+                : normalized.fields;
+            Object.assign(CONFIG, runtimeFields);
+            if (normalized.scope === 'content') {
+                if (!CONFIG.general || typeof CONFIG.general !== 'object') CONFIG.general = {};
+                CONFIG.general.google_sheet_url = normalized.fields.GOOGLE_SHEET_URL;
+            }
+            if (normalized.scope === 'naver') {
+                if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
+                if (!CONFIG.platforms.naver || typeof CONFIG.platforms.naver !== 'object') CONFIG.platforms.naver = {};
+                CONFIG.platforms.naver.user_id = normalized.fields.NAVER_ID;
+            }
+            if (normalized.scope === 'wordpress') {
+                if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
+                if (!CONFIG.platforms.wordpress || typeof CONFIG.platforms.wordpress !== 'object') CONFIG.platforms.wordpress = {};
+                CONFIG.platforms.wordpress.url = normalized.fields.WORDPRESS_URL;
+                CONFIG.platforms.wordpress.user_id = normalized.fields.WORDPRESS_USER_ID;
+                if (normalized.fields.WORDPRESS_APP_PASSWORD) {
+                    CONFIG.platforms.wordpress.app_password = normalized.fields.WORDPRESS_APP_PASSWORD;
+                }
+            }
+            CONFIG.CONFIG_READY = true;
+            CONFIG.CONFIG_SOURCE_TYPE = 'json';
+            CONFIG.CONFIG_SOURCE_PATH = writablePath;
+            CONFIG.CONFIG_ERROR_MESSAGE = '';
+
+            dashboardActivityRecorder({
+                category: 'settings',
+                type: 'core_connection_saved',
+                title: '기본 연결 설정 저장 완료',
+                detail: normalized.scope
+            });
+            return {
+                scope: normalized.scope,
+                message: '기본 연결 설정을 저장했습니다.',
+                fields: redactMajorSecretFields(buildMajorSettings(null, { path: writablePath, sourceType: 'json' })).fields
             };
         },
 
@@ -666,7 +833,7 @@ function createSettingsService(deps = {}) {
                     ? '주요 설정 저장 완료. 서버가 재시작됩니다...'
                     : (mcpSettingsChanged ? '주요 설정 저장 완료. MCP 서버 설정이 적용되었습니다.' : '주요 설정 저장 완료'),
                 warnings,
-                fields: updatedSettings.fields,
+                fields: redactMajorSecretFields(updatedSettings).fields,
                 aiPresets: updatedSettings.aiPresets,
                 aiProviderProfiles: updatedSettings.aiProviderProfiles,
                 shoppingImageSlots: updatedSettings.shoppingImageSlots,
@@ -896,5 +1063,8 @@ function createSettingsService(deps = {}) {
 module.exports = {
     createSettingsService,
     createApiError,
-    removeManagedKeywordCredentials
+    removeManagedKeywordCredentials,
+    normalizeCoreConnectionSettings,
+    redactMajorSecretFields,
+    applyCoreConnectionSettings
 };

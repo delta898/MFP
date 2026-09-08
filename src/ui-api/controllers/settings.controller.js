@@ -97,6 +97,25 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
+        async handleCoreConnections({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    const data = await service.saveCoreConnectionSettings(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(
+                        res,
+                        requestId,
+                        'SETTINGS_CORE_CONNECTION_SAVE_FAILED',
+                        '기본 연결 설정을 저장하지 못했습니다.',
+                        e
+                    );
+                }
+            }
+
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
         async handleAdvanced({ requestId, method, requestBody, res }) {
             if (method === 'GET') {
                 try {

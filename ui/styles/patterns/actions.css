@@ -48,6 +48,18 @@ button.ghost:hover:not(:disabled) {
   background: var(--ui-button-tertiary-hover);
 }
 
+button.ui-danger-action {
+  border-color: color-mix(in srgb, var(--ui-action-danger) 45%, var(--ui-border-default));
+  background: var(--ui-button-tertiary-background);
+  color: var(--ui-button-danger-text);
+}
+
+button.ui-danger-action:hover:not(:disabled) {
+  border-color: var(--ui-action-danger);
+  background: var(--ui-button-danger-hover);
+  color: var(--ui-button-danger-text);
+}
+
 .ui-refresh-action-icon {
   display: inline-flex;
   align-items: center;

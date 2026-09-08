@@ -34,6 +34,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/core-connections') {
+            await controller.handleCoreConnections(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/advanced') {
             await controller.handleAdvanced(ctx);
             return true;

@@ -4,7 +4,7 @@
 
 - Status: Blog Beta 검증 기반의 운영 중인 living contract
 - Initial source stage: `codex/feature/design-system-03-first-style`
-- 적용 대상: 공통 shell과 `블로그 Beta`에서 검증된 반복 UI
+- 적용 대상: 공통 shell, `블로그 Beta`, `설정 Beta`에서 검증된 반복 UI
 
 이 문서는 style의 색상 취향이 아니라 component의 의미, 상태와 배치 계약을 정의한다. 구체적인 색상·radius·shadow 값은 각 style pack이 component token으로 공급한다.
 
@@ -42,6 +42,8 @@
 - 삭제, 초기화와 되돌리기 어려운 행동에 사용한다.
 - 평상시 primary보다 강하게 보일 필요는 없지만 위험 의미를 숨기지 않는다.
 - 대상과 영향을 확인해야 하는 행동은 실행 전 확인 흐름을 유지한다.
+- 구현은 공통 `.ui-danger-action` variant를 사용한다. feature stylesheet가 같은 danger border, text와 hover
+  표현을 복제하지 않으며, primary·secondary·ghost 중 배치 위계는 유지한 채 위험 의미만 더한다.
 
 ### Action wording
 
@@ -103,9 +105,33 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 - 작은 상태나 부분 데이터만 갱신할 때는 갱신 대상 바로 옆에 icon-only tertiary action을 둔다.
 - 목록이나 panel 전체를 다시 불러올 때는 `새로고침`이라는 명시적인 secondary action을 사용한다.
+- 설정 화면의 panel refresh는 정상 작업을 반복하는 primary path가 아니라, 앱 밖에서 계정·권한·세션·연결 값이
+  바뀌었거나 최신 확인이 실패했을 때 사용하는 recovery action이다. 직접 연결·확인·로그인 action 뒤에는
+  background reconciliation을 우선하고, 모든 card에 refresh를 복제하지 않는다.
 - 조건을 적용해 새로운 결과를 요청하는 행동은 새로고침과 구분하고 `조회`, `검색`, `탐색`처럼 결과를 설명하는 primary label을 사용한다.
 - icon-only action은 앱에서 같은 icon을 사용하고 접근 가능한 이름과 tooltip을 모두 제공한다. 갱신 대상이 모호하면 text action을 사용한다.
 - 실행 중에는 진행 상태를 보여주고 `aria-busy`와 disabled 상태로 중복 실행을 막는다.
+
+## Sensitive credential fields
+
+- 저장된 password, token, API key와 credential은 화면과 read API에 원문·부분값·길이를 반환하거나 표시하지 않는다.
+  화면은 `등록됨` 여부만 사용하며, 값 변경을 위한 input은 항상 빈 상태에서 시작한다.
+- 사용자가 이번 입력에서 직접 작성한 secret에 한해 input 끝의 accessible show/hide control을 제공할 수 있다. 이 control은
+  현재 입력값만 전환하며 저장된 원문을 다시 채우거나 표시하지 않는다.
+- secret이 이미 등록된 상태에서 빈 input을 제출하면 기존 secret을 유지한다. 삭제는 별도의 명시적·확인 가능한 action으로만
+  제공하며, 빈값 submit을 삭제로 해석하지 않는다.
+
+## Summary-to-detail and settings density
+
+- 한 local panel의 readiness summary가 하위 설정 card와 1:1 대응할 때, summary 전체는 해당 card로 이동하는
+  button이 될 수 있다. 이동 뒤에는 관련 설정의 첫 action 또는 form에 keyboard focus를 두고, hover와
+  `focus-visible`로 clickability를 표현한다. 단순 정보 summary에는 이 interaction을 추가하지 않는다.
+- 설정 card의 높이는 content-driven이다. 고정 높이, 화면 높이에 맞춘 stretch, footer를 card 하단으로 밀어내는
+  spacer를 사용하지 않는다. `header → body → reserved feedback → footer`가 바로 이어지며, footer는 feedback
+  바로 다음의 고정 action anchor를 유지한다.
+- compact settings card에서는 control의 최소 조작 높이와 reserved feedback의 실제 한 줄 높이만 유지한다. card 내부의
+  행 gap과 readiness summary padding은 한 density 단계 낮추며, 빈 feedback에 추가 여백을 예약하지 않는다. 공간을
+  줄이기 위해 label, hint 또는 상태 정보를 생략하지 않는다.
 
 ## Selection controls
 
@@ -212,6 +238,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 계절, 진행 단계나 집중·휴식처럼 widget 고유 의미가 있는 색은 점, 진행 표시, 짧은 상태 문구 등 국소적인 accent로 사용할 수 있다.
 - widget 고유 accent가 외곽 card 전체를 지배하거나 primary action과 경쟁하지 않게 한다.
 - style마다 widget DOM이나 기능을 분기하지 않는다.
+- 여러 제품 surface에서 같은 timer 기능을 제공하면 공통 widget DOM·초기화 코드·token을 재사용한다. page header는
+  `intro + optional utility` slot으로 배치할 수 있고, utility가 없어도 intro 시작선과 content frame은 유지한다.
+  좁은 화면에서는 utility를 intro 아래로 자연스럽게 쌓되 별도의 feature 전용 복사본을 만들지 않는다.
 
 ## Discovery badges
 
@@ -298,6 +327,49 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 결과를 만드는 AI action은 사용하는 model role을 실행 전 확인할 수 있게 하고, 실행 중 중복 요청을 막으며,
   새 요청 실패 시 마지막 성공 결과를 유지한다.
 
+### Connection and readiness states
+
+#### Settings connection card anatomy
+
+- Settings의 account, document, channel connection card는 `header → body → feedback → footer` 순서를 공통 문법으로
+  사용한다. header 왼쪽에는 title과 한 줄 description, 오른쪽에는 현재의 지속 상태 badge 하나만 둔다.
+- body에는 field, field별 hint와 계정·세션 같은 지속 정보만 둔다. 같은 연결 상태를 body나 footer에 다시 label로
+  반복하지 않는다.
+- feedback은 body 다음, footer 직전의 전용 surface 한 곳에서 예외 실패 또는 사용자 대응 안내만 보여준다. 정상
+  성공은 persistent badge가 이미 표현하므로 같은 사실을 feedback으로 반복하지 않는다. 새 입력으로 결과의 전제가
+  바뀌면 오래된 feedback을 지운다.
+- footer에는 action만 두고 inline-end에 한 group으로 정렬한다. 같은 connection의 `연결 해제`·`로그아웃`과
+  확인 action을 함께 둘 때는 danger outline과 확인 dialog로 의미를 구분한다.
+- feedback surface는 한 줄 높이를 항상 예약하고, 긴 문구는 한 줄 안에서 줄임 처리하되 assistive technology와 title로
+  전체 문구를 제공한다. feedback의 출현·소멸·내용 변화가 footer 또는 primary action의 좌표를 움직여서는 안 된다.
+  footer는 card 안의 고정된 interaction anchor다.
+- 사용자가 시작한 operation의 loading은 그 button label과 card/form의 `aria-busy`에만 표시한다. feedback이나
+  button 옆에 같은 `확인 중` 문구를 추가하지 않는다. OAuth처럼 별도 화면에서 이어지는 여러 단계 흐름은 다음
+  행동을 설명하는 feedback을 함께 둘 수 있으나 button의 loading label과 같은 문장을 복제하지 않는다.
+- 직접 operation의 응답이 끝나면 해당 action의 loading도 끝낸다. 이후 여러 connection을 다시 읽는 aggregate
+  reconciliation은 background에서 수행하며 button을 계속 loading 상태로 붙잡지 않는다. reconciliation 결과가
+  달라지면 persistent badge와 readiness summary를 나중에 갱신한다.
+
+- 외부 계정·문서·발행 채널은 `미설정`, `설정됨/확인 필요`, `확인 중`, `연결됨`, `다시 로그인 필요`, `확인 실패`를
+  서로 다른 상태로 다룬다. credential이나 주소가 저장됐다는 사실만으로 `연결됨` 또는 `접근 가능`으로 표시하지 않는다.
+- `연결됨`은 현재 검증 source가 성공을 확인한 경우에만 사용한다. 저장값만 있으면 `확인 필요`, 인증이 만료됐으면
+  `다시 로그인 필요`, 최초 확인 자체가 실패했으면 `확인 실패`와 재시도 방향을 보여준다.
+- 새로고침 실패 시 마지막으로 검증된 상태와 입력은 유지하고, 최신 확인에 실패했다는 일시적 feedback을 별도로 둔다.
+  유효한 이전 상태가 없는 최초 실패에서는 실패를 정상·미연결 상태로 가장하지 않는다.
+- 연결·해제·로그인·로그아웃·검증이 진행되는 동안 같은 connection scope의 sibling mutation과 상태 새로고침을
+  함께 잠근다. 다른 독립 connection과 tab navigation은 충돌하지 않는 한 계속 사용할 수 있다.
+- 한 local panel이 동급 connection 항목 여러 개를 관리하면 content 시작부의 readiness group도 항목별 1:1 summary
+  card로 구성한다. 사용 빈도만으로 같은 제품 역할의 provider를 축소하거나 optional 위계로 내리지 않는다.
+- 데이터 삭제·전체 초기화처럼 복구가 어렵고 편집 completion과 lifecycle이 다른 danger action은 inline-start에
+  분리한다. 반면 다시 연결할 수 있는 `연결 해제`, `로그아웃`처럼 같은 connection을 관리하는 문맥적 action은
+  관련 확인 action과 inline-end group에 둘 수 있다. 이 경우 danger outline과 확인 dialog로 의미를 구분하고,
+  더 안전하고 자주 쓰는 action을 읽기 흐름의 마지막에 둔다.
+- connection form이 사용자의 목적 action 전에 값을 내부적으로 반영하더라도 button label에는 `저장하고` 같은
+  구현 절차를 노출하지 않고 `접근 확인`, `로그인`, `연결 확인`처럼 사용자가 얻을 결과만 쓴다. 정상 상태에서는
+  `저장됨` label을 상시 노출하지 않으며 현재 연결 상태와 가능한 action에 시선을 집중시킨다.
+- 내부 반영과 외부 확인은 결과를 별도로 추적한다. 외부 확인만 실패한 예외 상황에서는 `입력값은 반영됨 · 연결 확인 실패`처럼
+  부분 성공을 알려 사용자가 같은 값을 다시 입력하지 않게 한다. 반영 자체가 실패하면 입력을 유지하고 해당 action을 재시도할 수 있게 한다.
+
 ## Tab panels and content start
 
 - 같은 수준의 top-level tab은 하나의 공통 content frame과 panel inset을 사용한다.
@@ -312,6 +384,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   의미 없는 count나 refresh를 복제하지 않는다.
 - local navigation과 status/tool이 같은 줄에 있어도 별도 role group으로 구분한다.
 - 같은 수준의 local tab과 mode switch는 공통 segmented navigation을 사용한다. count는 segment 내부 badge로, refresh 같은 도구는 segment 바깥의 보조 action으로 둔다.
+- 구현에서는 top-level navigation에 `.ui-top-tabs` / `.ui-top-tab`, local navigation에 `.ui-segmented-tabs` / `.ui-segmented-tab` 공통 pattern을 사용한다. keyboard 이동은 공통 `handleUiTabNavigationKeydown` controller를 사용한다. feature class와 activation callback은 업무 상태 전이만 연결하며 공통 크기·간격·색상·focus·방향키 계산을 다시 정의하지 않는다.
 - navigation과 panel intro의 typography는 역할에 따라 다음 semantic token을 사용한다. 모든 tab button은 제품 font family를
   상속하며 native button의 기본 font에 맡기지 않는다.
 
@@ -345,6 +418,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 원고 폴더 및 붙여넣기: 발행 대상 / 포스팅 실행
 - 공통 dialog와 전역 상태 action
 - `블로그 Beta` top-level tab과 panel: 역할 기반 시작 slot / keyboard tab navigation / scroll 안정성
+- `설정 Beta` 기본 연결: 공용 top/local navigation / header Timer utility / 연결 상태 구분 / scoped 저장 및 갱신
 - 공통 footer 외부 링크와 Blog Beta native time field: style별 field focus ring / native picker UI 예외
 
 ## 후속 검증 필요

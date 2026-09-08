@@ -6,10 +6,12 @@
 // @include scripts/foundation/notifications.js
 // @include scripts/foundation/api-client.js
 // @include scripts/foundation/presentation.js
+// @include scripts/foundation/tab-navigation.js
 // @include scripts/foundation/settings-secrets.js
 // @include scripts/features/content/state-core.js
 // @include scripts/features/discovery/state.js
 // @include scripts/features/settings/state.js
+// @include scripts/features/settings-next/shell.js
 // @include scripts/features/content/table-state.js
 // @include scripts/shared/runtime-state.js
 // @include scripts/features/shell/update-state.js

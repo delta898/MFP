@@ -2,6 +2,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', (event) => {
     if (!settingsMajorHasPendingBasicChanges
       && !settingsWritingProfileDirty
+      && !hasPendingSettingsNextChanges()
       && !(typeof blogNextSmartCommentDirty !== 'undefined' && blogNextSmartCommentDirty)
       && !(typeof blogNextAutomationDirty !== 'undefined' && blogNextAutomationDirty)) return;
     event.preventDefault();
@@ -10,6 +11,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   try { initManagedSettingsSecretFields(); } catch (e) { console.warn('initManagedSettingsSecretFields error:', e); }
   try { initSettingsWritingProfileUi(); } catch (e) { console.warn('initSettingsWritingProfileUi error:', e); }
+  try { initSettingsNext(); } catch (e) { console.warn('initSettingsNext error:', e); }
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();

@@ -45,29 +45,6 @@ function activateBlogNextTab(tabName) {
   }
 }
 
-async function handleBlogNextTabKeydown(event) {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-
-  const buttons = Array.from(document.querySelectorAll('[data-blog-next-tab]'));
-  const currentIndex = buttons.indexOf(event.currentTarget);
-  if (currentIndex < 0 || buttons.length === 0) return;
-
-  event.preventDefault();
-  let targetIndex = currentIndex;
-  if (event.key === 'Home') targetIndex = 0;
-  if (event.key === 'End') targetIndex = buttons.length - 1;
-  if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
-  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % buttons.length;
-
-  const targetButton = buttons[targetIndex];
-  const activated = await requestActivateBlogNextTab(targetButton.dataset.blogNextTab);
-  if (activated) {
-    targetButton.focus();
-  } else {
-    buttons[currentIndex].focus();
-  }
-}
-
 async function requestActivateBlogNextTab(tabName) {
   const target = BLOG_NEXT_TABS.includes(String(tabName || '').trim())
     ? String(tabName).trim()
@@ -109,23 +86,6 @@ function activateBlogNextInputMode(modeName) {
   });
 }
 
-function handleBlogNextInputModeKeydown(event) {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-  const buttons = Array.from(document.querySelectorAll('[data-blog-next-input-mode]'));
-  const currentIndex = buttons.indexOf(event.currentTarget);
-  if (currentIndex < 0 || buttons.length === 0) return;
-
-  event.preventDefault();
-  let targetIndex = currentIndex;
-  if (event.key === 'Home') targetIndex = 0;
-  if (event.key === 'End') targetIndex = buttons.length - 1;
-  if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
-  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % buttons.length;
-  const targetButton = buttons[targetIndex];
-  activateBlogNextInputMode(targetButton.dataset.blogNextInputMode);
-  targetButton.focus();
-}
-
 function initBlogNextShell() {
   if (typeof initBlogNextTrendPosting === 'function') initBlogNextTrendPosting();
   if (typeof initBlogNextSmartComment === 'function') initBlogNextSmartComment();
@@ -135,12 +95,20 @@ function initBlogNextShell() {
         void requestActivateBlogNextTab(button.dataset.blogNextTab);
       });
       button.addEventListener('keydown', (event) => {
-        void handleBlogNextTabKeydown(event);
+        void handleUiTabNavigationKeydown(event, {
+          selector: '[data-blog-next-tab]',
+          dataKey: 'blogNextTab',
+          activate: requestActivateBlogNextTab
+        });
       });
     });
     document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
       button.addEventListener('click', () => activateBlogNextInputMode(button.dataset.blogNextInputMode));
-      button.addEventListener('keydown', handleBlogNextInputModeKeydown);
+      button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
+        selector: '[data-blog-next-input-mode]',
+        dataKey: 'blogNextInputMode',
+        activate: activateBlogNextInputMode
+      }));
     });
     blogNextShellBound = true;
   }

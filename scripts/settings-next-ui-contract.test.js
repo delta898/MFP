@@ -1,0 +1,221 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+
+const repoRoot = path.resolve(__dirname, '..');
+const uiRoot = path.join(repoRoot, 'ui');
+
+function read(relativePath) {
+    return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
+test('legacy Settings and independent Settings Beta coexist in navigation and views', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+
+    assert.match(html, /class="nav-btn" data-view="settings"/);
+    assert.match(html, /class="nav-btn" data-view="settings-next"/);
+    assert.match(html, /id="view-settings"/);
+    assert.match(html, /id="view-settings-next"/);
+    assert.match(html, /설정 Beta<sup class="nav-new-badge"/);
+});
+
+test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
+        uiRoot,
+        entryFile: 'partials/views/settings-next.html'
+    }).html;
+    const topTabs = Array.from(
+        html.matchAll(/data-settings-next-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g),
+        (match) => [match[1], match[2]]
+    );
+    const coreTabs = Array.from(
+        html.matchAll(/data-settings-next-core-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g),
+        (match) => [match[1], match[2]]
+    );
+
+    assert.deepEqual(topTabs, [
+        ['core', '기본 연결'],
+        ['ai', 'AI'],
+        ['writing', '글쓰기'],
+        ['publishing', '발행'],
+        ['extras', '부가 서비스'],
+        ['app', '앱']
+    ]);
+    assert.deepEqual(coreTabs, [
+        ['content', '콘텐츠 공간'],
+        ['publishing', '블로그 발행 채널']
+    ]);
+    assert.equal((html.match(/role="tab"/g) || []).length, 8);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 8);
+    assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
+    assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 6);
+    assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 2);
+    assert.match(html, /class="page-clock-widget"[\s\S]*?data-clock-display/);
+    assert.match(
+        html,
+        /settings-next-panel-lead[\s\S]*?settings-next-local-nav-row[\s\S]*?settings-next-core-panel-content/
+    );
+    assert.match(html, /id="settings-next-google-sheet-url"/);
+    assert.match(html, /id="settings-next-naver-id"/);
+    assert.match(html, /id="settings-next-wordpress-url"/);
+    assert.match(html, /id="settings-next-wordpress-password-visibility"[^>]*aria-label="새 애플리케이션 비밀번호 표시"/);
+    assert.match(html, /id="settings-next-wordpress-password-hint"/);
+    assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
+    assert.match(html, /settings-next-naver-readiness/);
+    assert.match(html, /settings-next-wordpress-readiness/);
+    assert.equal((html.match(/data-settings-next-jump=/g) || []).length, 4);
+    assert.match(html, /data-settings-next-jump="naver"/);
+    assert.match(html, /data-settings-next-jump="wordpress"/);
+});
+
+test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
+    const script = read('ui/scripts/features/settings-next/shell.js');
+    const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
+    const navigation = read('ui/scripts/foundation/navigation.js');
+    const lifecycle = read('ui/scripts/foundation/lifecycle.js');
+    const composed = createJsCompositionRuntime({ fs, path }).composeJsFile({ uiRoot }).js;
+
+    assert.match(script, /postJson\('\/api\/v1\/settings\/core-connections', \{ scope, values \}\)/);
+    assert.doesNotMatch(script, /postJson\('\/api\/v1\/settings\/major'/);
+    assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
+    assert.match(script, /handleUiTabNavigationKeydown/);
+    assert.doesNotMatch(script, /function settingsNextHandleTabKeydown/);
+    assert.match(script, /settingsNextHasValidSheetUrl/);
+    assert.match(script, /settingsNextBusyScopes\.has\('naver'\)/);
+    assert.match(script, /settingsNextBusyScopes\.has\('wordpress'\)/);
+    assert.match(script, /button\.hidden = loggedIn && !dirty/);
+    assert.match(script, /login\.hidden = valid && !settingsNextDirtyScopes\.has\('naver'\)/);
+    assert.match(script, /settingsNextSetScopeFeedback\('naver'/);
+    assert.match(script, /settingsNextSetScopeFeedback\('wordpress'/);
+    assert.match(script, /입력값은 반영되었습니다/);
+    assert.match(script, /아이디는 반영되었습니다/);
+    assert.doesNotMatch(script, /저장하고|저장됨|저장되지 않은/);
+    assert.doesNotMatch(script, /save-status/);
+    assert.match(script, /WORDPRESS_APP_PASSWORD_CONFIGURED/);
+    assert.match(script, /비밀번호 등록됨/);
+    assert.doesNotMatch(script, /enteredPassword \|\| String\(settingsNextMajorFields\.WORDPRESS_APP_PASSWORD/);
+    assert.match(script, /void settingsNextLoadStatuses\(\{ force: true \}\)/);
+    assert.doesNotMatch(script, /await settingsNextLoadStatuses\(\{ force: true \}\)/);
+    assert.match(script, /connected: state === 'connected'/);
+    assert.doesNotMatch(script, /connected: state === 'connected' \|\| state === 'configured'/);
+    assert.match(navigation, /confirmDiscardUnsavedSettingsNext/);
+    assert.match(lifecycle, /hasPendingSettingsNextChanges/);
+    assert.equal((composed.match(/function initSettingsNext\s*\(/g) || []).length, 1);
+});
+
+test('Settings Beta styling consumes semantic design tokens only', () => {
+    const css = read('ui/styles/features/settings-next.css');
+    const tabs = read('ui/styles/patterns/tab-navigation.css');
+    const styles = `${tabs}\n${css}`;
+
+    assert.doesNotMatch(styles, /#[0-9a-f]{3,8}|rgba?\(/i);
+    assert.doesNotMatch(styles, /!important\b/);
+    assert.doesNotMatch(styles, /var\(--(?:brand|surface|text-main|text-muted|line|danger|warning|success)\)/);
+    assert.match(tabs, /\.ui-top-tabs/);
+    assert.match(tabs, /\.ui-segmented-tabs/);
+    assert.match(styles, /var\(--ui-action-primary-soft\)/);
+    assert.match(styles, /var\(--ui-focus-ring\)/);
+    assert.match(styles, /prefers-reduced-motion/);
+});
+
+test('Blog Beta and Settings Beta use the same shared tab patterns', () => {
+    const blog = read('ui/partials/views/blog-next.html');
+    const settings = read('ui/partials/views/settings-next.html');
+
+    [blog, settings].forEach((html) => {
+        assert.match(html, /ui-top-tabs/);
+        assert.match(html, /ui-top-tab/);
+        assert.match(html, /ui-segmented-tabs/);
+        assert.match(html, /ui-segmented-tab/);
+    });
+
+    const blogFeatureCss = [
+        'ui/styles/features/continuous-publishing.css',
+        'ui/styles/features/blog-next-panel-anatomy.css',
+        'ui/styles/features/continuous-publishing-usability.css'
+    ].map(read).join('\n');
+    assert.doesNotMatch(blogFeatureCss, /\.blog-next-tabs\s*\{/);
+    assert.doesNotMatch(blogFeatureCss, /\.blog-next-tab-btn\s*\{/);
+    assert.doesNotMatch(blogFeatureCss, /\.blog-next-segmented-nav\s*\{/);
+    assert.doesNotMatch(blogFeatureCss, /\.blog-next-management-tab\s*\{/);
+});
+
+test('Blog Beta and Settings Beta use one shared keyboard tab controller', () => {
+    const app = read('ui/app.js');
+    const shared = read('ui/scripts/foundation/tab-navigation.js');
+    const blogShell = read('ui/scripts/features/blog-next/shell.js');
+    const blogQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+    const settings = read('ui/scripts/features/settings-next/shell.js');
+
+    assert.match(app, /@include scripts\/foundation\/tab-navigation\.js/);
+    assert.match(shared, /function handleUiTabNavigationKeydown/);
+    [blogShell, blogQueue, settings].forEach((script) => assert.match(script, /handleUiTabNavigationKeydown/));
+    assert.doesNotMatch(blogShell, /function handleBlogNextTabKeydown|function handleBlogNextInputModeKeydown/);
+    assert.doesNotMatch(settings, /function settingsNextHandleTabKeydown/);
+});
+
+test('Blog Beta and Settings Beta compose the same page clock widget partial', () => {
+    const blogSource = read('ui/partials/views/blog-next.html');
+    const settingsSource = read('ui/partials/views/settings-next.html');
+    const widget = read('ui/partials/views/shared/page-clock-widget.html');
+    const clockStyles = read('ui/styles/components/clock.css');
+    const dashboardStyles = read('ui/styles/features/dashboard.css');
+
+    assert.match(widget, /class="page-clock-widget"[\s\S]*?data-clock-display/);
+    assert.match(blogSource, /@include shared\/page-clock-widget\.html/);
+    assert.match(settingsSource, /@include shared\/page-clock-widget\.html/);
+    assert.doesNotMatch(blogSource, /<div class="page-clock-widget">/);
+    assert.doesNotMatch(settingsSource, /<div class="page-clock-widget">/);
+    assert.match(clockStyles, /\.page-clock-widget\s*\{/);
+    assert.match(clockStyles, /\.clock-display\s*\{/);
+    assert.doesNotMatch(dashboardStyles, /\.page-clock-widget\s*\{/);
+    assert.doesNotMatch(dashboardStyles, /(^|\n)\.clock-display\s*\{/);
+});
+
+test('Settings Beta cards use one status, one feedback surface, and action-only footers', () => {
+    const html = read('ui/partials/views/settings-next.html');
+    const actions = read('ui/styles/patterns/actions.css');
+    const featureStyles = read('ui/styles/features/settings-next.css');
+
+    assert.match(actions, /button\.ui-danger-action/);
+    assert.match(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
+    assert.match(html, /settings-next-naver-logout" class="ghost ui-danger-action"/);
+    assert.match(html, /settings-next-google-disconnect[\s\S]*settings-next-google-test/);
+    assert.match(html, /settings-next-google-status[\s\S]*settings-next-google-detail[\s\S]*settings-next-google-feedback[\s\S]*settings-next-action-row/);
+    assert.match(html, /settings-next-naver-status[\s\S]*settings-next-naver-detail[\s\S]*settings-next-naver-feedback[\s\S]*settings-next-form-footer[\s\S]*settings-next-naver-logout[\s\S]*settings-next-naver-login/);
+    assert.match(html, /settings-next-wordpress-status[\s\S]*settings-next-wordpress-feedback[\s\S]*settings-next-form-footer[\s\S]*settings-next-wordpress-save/);
+    assert.equal((html.match(/class="settings-next-completion-group"/g) || []).length, 3);
+    assert.equal((html.match(/id="settings-next-(?:google|content|naver|wordpress)-feedback"/g) || []).length, 4);
+    assert.doesNotMatch(html, /settings-next-channel-summary/);
+    assert.doesNotMatch(html, /settings-next-(?:content|naver|wordpress)-save-status/);
+    assert.doesNotMatch(featureStyles, /settings-next-save-status/);
+    assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
+    assert.doesNotMatch(html, /저장됨/);
+    assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
+    assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
+    assert.doesNotMatch(html, />상태 새로고침<\/button>/);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 5);
+    assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
+});
+
+test('Settings Beta shows operation loading only on the initiating action', () => {
+    const script = read('ui/scripts/features/settings-next/shell.js');
+    const styles = read('ui/styles/features/settings-next.css');
+
+    assert.match(script, /button\.textContent = busy \? '연결 확인 중\.\.\.' : '연결 확인'/);
+    assert.match(script, /busyAction === 'login' \? '로그인 중\.\.\.' : '로그인'/);
+    assert.match(script, /busyAction === 'logout' \? '로그아웃 중\.\.\.' : '로그아웃'/);
+    assert.doesNotMatch(script, /SetScopeFeedback\([^\n]*확인 중/);
+    assert.doesNotMatch(script, /SetFeedback\('settings-next-wordpress-feedback',\s*'[^']*확인하고 있습니다/);
+    assert.doesNotMatch(script, /연결을 확인했습니다\.|로그인했습니다\.|로그아웃했습니다\.|연동 성공/);
+    assert.match(styles, /\.settings-next-section > \.settings-next-feedback\s*\{[\s\S]*min-block-size[\s\S]*white-space: nowrap/);
+    assert.match(styles, /\.settings-next-section > \.settings-next-feedback:empty\s*\{\s*display: flex/);
+    assert.match(script, /function settingsNextToggleWordpressPasswordVisibility/);
+    assert.match(script, /function settingsNextJumpToConfiguration/);
+    assert.match(script, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+});

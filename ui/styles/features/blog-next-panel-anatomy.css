@@ -19,47 +19,6 @@
   margin: 0;
 }
 
-.blog-next-segmented-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  padding: 5px;
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-translucent);
-}
-
-.blog-next-segmented-nav :where(.blog-next-mode-btn, .blog-next-management-tab) {
-  min-height: 42px;
-  padding: 8px 16px;
-  border-radius: var(--ui-radius-sm);
-  font-family: inherit;
-  font-size: var(--ui-type-label-size);
-  font-weight: var(--ui-weight-semibold);
-  line-height: var(--ui-line-height-tight);
-}
-
-/* Segmented sub-tab labels share one readable weight across quick writing and management. */
-.blog-next-segmented-nav .blog-next-mode-btn,
-.blog-next-segmented-nav .blog-next-management-tab {
-  font-weight: var(--ui-weight-semibold);
-}
-
-.blog-next-segmented-nav .blog-next-mode-btn:hover:not(.active),
-.blog-next-segmented-nav .blog-next-management-tab:hover:not(.active) {
-  color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-surface-hover) 55%, var(--ui-surface));
-  box-shadow: none;
-}
-
-.blog-next-segmented-nav .blog-next-mode-btn.active,
-.blog-next-segmented-nav .blog-next-management-tab.active {
-  color: var(--ui-action-primary-hover);
-  background: var(--ui-action-primary-soft);
-  box-shadow: var(--ui-segmented-active-shadow);
-}
-
 .blog-next-segmented-nav .blog-next-management-tab.active strong {
   background: var(--ui-surface);
   box-shadow: var(--ui-segmented-badge-shadow);
@@ -78,19 +37,6 @@
   font-size: var(--ui-type-body-size);
   font-weight: var(--ui-weight-regular);
   line-height: var(--ui-line-height-body);
-}
-
-.blog-next-tab-btn:focus,
-.blog-next-mode-btn:focus,
-.blog-next-management-tab:focus {
-  outline: none;
-}
-
-.blog-next-tab-btn:focus-visible,
-.blog-next-mode-btn:focus-visible,
-.blog-next-management-tab:focus-visible {
-  outline: none;
-  box-shadow: var(--ui-focus-ring);
 }
 
 .blog-next-view .category-option-btn:focus,
@@ -125,7 +71,4 @@
     gap: 12px;
   }
 
-  .blog-next-segmented-nav {
-    width: 100%;
-  }
 }

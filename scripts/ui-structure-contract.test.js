@@ -122,6 +122,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
         'partials/views/social.html',
         'partials/views/account.html',
         'partials/views/settings.html',
+        'partials/views/settings-next.html',
         'partials/views/logs.html',
         'partials/views/help.html',
         'partials/overlays.html'
@@ -137,8 +138,9 @@ test('every HTML partial is reachable and remains below the feature file boundar
     const partialFiles = collectHtmlFiles(partialRoot);
     const result = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot });
     const reachable = new Set(result.includedFiles);
+    const duplicateIncludes = result.includedFiles.filter((includePath, index, items) => items.indexOf(includePath) !== index);
 
-    assert.equal(reachable.size, result.includedFiles.length);
+    assert.deepEqual(new Set(duplicateIncludes), new Set(['partials/views/shared/page-clock-widget.html']));
     assert.deepEqual(
         new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath))),
         reachable

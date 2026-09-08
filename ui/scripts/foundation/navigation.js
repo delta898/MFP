@@ -3,7 +3,7 @@ async function navigateTo(viewName, subTab) {
   const requestedSubTab = String(subTab || '').trim();
   const currentViewName = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
   if (isMobileQuickMode) {
-    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'help'].includes(requestedView)) {
+    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'settings-next', 'help'].includes(requestedView)) {
       viewName = 'blog-next';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -17,6 +17,11 @@ async function navigateTo(viewName, subTab) {
   if (viewName !== 'settings' && isSettingsViewActive() && settingsMajorHasPendingBasicChanges) {
     const canLeaveSettings = await confirmDiscardUnsavedSettings();
     if (!canLeaveSettings) return;
+  }
+
+  if (viewName !== 'settings-next' && isSettingsNextViewActive() && hasPendingSettingsNextChanges()) {
+    const canLeaveSettingsNext = await confirmDiscardUnsavedSettingsNext();
+    if (!canLeaveSettingsNext) return;
   }
 
   const blogNextViewActive = document.getElementById('view-blog-next')?.classList.contains('active') === true;
@@ -113,6 +118,12 @@ async function navigateTo(viewName, subTab) {
     activateSettingsTab(tab, { forceReload: true });
     return;
   }
+  if (viewName === 'settings-next') {
+    initSettingsNext();
+    settingsNextActivateTab(subTab || settingsNextActiveTab);
+    await loadSettingsNext({ force: true });
+    return;
+  }
 }
 
 async function navigateToBlogQuickCreate() {
@@ -169,7 +180,7 @@ function applyMobileQuickMode() {
     return;
   }
 
-  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'card-news', 'help'].includes(activeView)) {
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'card-news', 'settings-next', 'help'].includes(activeView)) {
     void navigateTo('blog-next', 'quick');
   }
 }

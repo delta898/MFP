@@ -1,0 +1,160 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const {
+    createSettingsService,
+    normalizeCoreConnectionSettings
+} = require('./settings.service');
+
+function createHarness(initialConfig = {}) {
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-core-connections-'));
+    const configPath = path.join(configDir, 'config.json');
+    fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
+    const CONFIG = {
+        GOOGLE_SHEET_URL: initialConfig.general?.google_sheet_url || '',
+        NAVER_ID: initialConfig.platforms?.naver?.user_id || '',
+        WORDPRESS_URL: initialConfig.platforms?.wordpress?.url || '',
+        WORDPRESS_USER_ID: initialConfig.platforms?.wordpress?.user_id || '',
+        WORDPRESS_APP_PASSWORD: initialConfig.platforms?.wordpress?.app_password || '',
+        ...initialConfig
+    };
+    const activities = [];
+    const service = createSettingsService({
+        fs,
+        path,
+        CONFIG,
+        resolveWritableConfigPath: () => configPath,
+        buildMajorSettings: () => ({
+            fields: {
+                GOOGLE_SHEET_URL: CONFIG.GOOGLE_SHEET_URL,
+                NAVER_ID: CONFIG.NAVER_ID,
+                WORDPRESS_URL: CONFIG.WORDPRESS_URL,
+                WORDPRESS_USER_ID: CONFIG.WORDPRESS_USER_ID,
+                WORDPRESS_APP_PASSWORD: CONFIG.WORDPRESS_APP_PASSWORD
+            }
+        }),
+        dashboardActivityRecorder: (activity) => activities.push(activity)
+    });
+    return { CONFIG, activities, configPath, service };
+}
+
+test('core connection normalization validates each independently saved scope', () => {
+    assert.deepEqual(
+        normalizeCoreConnectionSettings({
+            scope: 'content',
+            values: { GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890/edit' }
+        }),
+        {
+            scope: 'content',
+            fields: {
+                GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890/edit',
+                GOOGLE_SHEET_ID: 'sheet-id_1234567890'
+            }
+        }
+    );
+    assert.throws(
+        () => normalizeCoreConnectionSettings({ scope: 'content', values: { GOOGLE_SHEET_URL: 'https://example.com/sheet' } }),
+        (error) => error.apiCode === 'GOOGLE_SHEET_URL_INVALID'
+    );
+    assert.throws(
+        () => normalizeCoreConnectionSettings({ scope: 'wordpress', values: { WORDPRESS_URL: 'ftp://example.com' } }),
+        (error) => error.apiCode === 'WORDPRESS_CONNECTION_REQUIRED'
+    );
+});
+
+test('content scope preserves unrelated settings and updates runtime sheet aliases', async () => {
+    const initial = {
+        general: { google_sheet_url: 'https://docs.google.com/spreadsheets/d/old-sheet-id_123456/edit', listen_port: 3000 },
+        ai_settings: { TEXT_MODEL: { provider: 'google', api_key: 'keep-ai-key' } },
+        automation: { publish: { blog_enabled: { enabled: true } } },
+        mcp: { remote: { auth: {} } },
+        NAVER_SEARCHAD_API_KEY: 'preserve-unrelated-value',
+        platforms: { naver: { user_id: 'keep-naver', typing_speed: 'NORMAL' } }
+    };
+    const { CONFIG, activities, configPath, service } = createHarness(initial);
+    const nextUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654/edit';
+
+    const result = await service.saveCoreConnectionSettings({
+        scope: 'content', values: { GOOGLE_SHEET_URL: nextUrl }
+    });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.equal(saved.general.google_sheet_url, nextUrl);
+    assert.equal(saved.general.listen_port, 3000);
+    assert.deepEqual(saved.ai_settings, initial.ai_settings);
+    assert.deepEqual(saved.automation, initial.automation);
+    assert.deepEqual(saved.platforms, initial.platforms);
+    assert.equal(saved.NAVER_SEARCHAD_API_KEY, 'preserve-unrelated-value');
+    assert.equal(Object.hasOwn(saved.mcp.remote.auth, 'bearer_token'), false);
+    assert.equal(CONFIG.GOOGLE_SHEET_URL, nextUrl);
+    assert.equal(CONFIG.GOOGLE_SHEET_ID, 'new-sheet-id_987654');
+    assert.equal(result.scope, 'content');
+    assert.equal(activities[0].type, 'core_connection_saved');
+});
+
+test('naver and wordpress scopes update only their own provider fields', async () => {
+    const initial = {
+        platforms: {
+            naver: { user_id: 'old-naver', typing_speed: 'FAST' },
+            wordpress: { url: 'https://old.example', user_id: 'old-user', app_password: 'old-password' }
+        },
+        notification: { telegram: { enabled: true, bot_token: 'keep-token' } }
+    };
+    const { configPath, service } = createHarness(initial);
+
+    await service.saveCoreConnectionSettings({ scope: 'naver', values: { NAVER_ID: 'new-naver' } });
+    await service.saveCoreConnectionSettings({
+        scope: 'wordpress',
+        values: {
+            WORDPRESS_URL: 'https://blog.example/',
+            WORDPRESS_USER_ID: 'publisher',
+            WORDPRESS_APP_PASSWORD: 'app password'
+        }
+    });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.deepEqual(saved.platforms.naver, { user_id: 'new-naver', typing_speed: 'FAST' });
+    assert.deepEqual(saved.platforms.wordpress, {
+        url: 'https://blog.example/', user_id: 'publisher', app_password: 'app password'
+    });
+    assert.deepEqual(saved.notification, initial.notification);
+});
+
+test('wordpress keeps an existing application password without returning it to the client', async () => {
+    const initial = {
+        platforms: {
+            wordpress: { url: 'https://old.example', user_id: 'old-user', app_password: 'stored-secret' }
+        }
+    };
+    const { configPath, service } = createHarness(initial);
+
+    const result = await service.saveCoreConnectionSettings({
+        scope: 'wordpress',
+        values: { WORDPRESS_URL: 'https://blog.example/', WORDPRESS_USER_ID: 'publisher', WORDPRESS_APP_PASSWORD: '' }
+    });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.equal(saved.platforms.wordpress.app_password, 'stored-secret');
+    assert.equal(result.fields.WORDPRESS_APP_PASSWORD, undefined);
+    assert.equal(result.fields.WORDPRESS_APP_PASSWORD_CONFIGURED, true);
+    assert.doesNotMatch(JSON.stringify(result), /stored-secret/);
+
+    const readResult = await service.getMajorSettings();
+    assert.equal(readResult.fields.WORDPRESS_APP_PASSWORD, undefined);
+    assert.equal(readResult.fields.WORDPRESS_APP_PASSWORD_CONFIGURED, true);
+    assert.doesNotMatch(JSON.stringify(readResult), /stored-secret/);
+});
+
+test('invalid existing config is not overwritten', async () => {
+    const { configPath, service } = createHarness({});
+    fs.writeFileSync(configPath, '{ invalid json');
+
+    await assert.rejects(
+        service.saveCoreConnectionSettings({ scope: 'naver', values: { NAVER_ID: 'safe-id' } }),
+        (error) => error.status === 409 && error.apiCode === 'CONFIG_JSON_INVALID'
+    );
+    assert.equal(fs.readFileSync(configPath, 'utf8'), '{ invalid json');
+});
