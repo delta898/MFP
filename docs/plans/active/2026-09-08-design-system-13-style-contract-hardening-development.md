@@ -61,6 +61,11 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
 - 2026-09-08: Blog Beta 관련 일곱 feature stylesheet를 조사했다. raw typography는 size 36건, weight 30건,
   line-height 29건이며, raw shadow recipe 5건과 `!important` 1건을 확인했다. `box-shadow: none`과 icon 크기처럼
   token 대상이 아닌 선언을 숫자만 보고 위반으로 분류하지 않았다.
+- 2026-09-08: inventory와 migration map을 `5e15e54`로 먼저 commit했다.
+- 2026-09-08: shared form, folder/paste label과 queue의 의미가 확정된 `15/14/12px` 및 weight 선언을 기존
+  body·label·caption·regular·medium·semibold·bold token으로 옮겼다. 세 style이 같은 공급값을 사용하므로
+  이 slice의 computed typography 값은 바뀌지 않는다. `13px`, line-height, icon 크기와 Smart Comment는 유지했다.
+- 2026-09-08: 대상 selector가 다시 raw size/weight로 돌아가지 않도록 focused contract를 추가했다.
 
 ## Inventory and migration map
 
@@ -114,6 +119,14 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 - slice별 focused design contract
 - reviewable UI slice별 관련 browser smoke
 - 사용자 hands-on UI 확인 후 최종 merge gate 결정
+
+## 현재 검증
+
+- Inventory 문서: `git diff --check` 통과
+- Shared form and queue typography focused contracts: 33 passed, 0 failed
+- 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
+  Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
+- browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정
 
 ## 최종 결과
 

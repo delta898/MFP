@@ -7,8 +7,8 @@
 
 .blog-next-folder-label > span {
   color: var(--ui-text-secondary);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
   line-height: 1.4;
 }
 

@@ -29,6 +29,21 @@ function readBlogNextQueueStyles() {
   ].join('\n');
 }
 
+test('shared Blog Beta form and queue typography uses semantic roles', () => {
+  const publishing = read('ui/styles/features/continuous-publishing.css');
+  const interactions = read('ui/styles/features/continuous-publishing-interactions.css');
+  const baseline = read('ui/styles/features/blog-next-baseline.css');
+
+  assert.match(publishing, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+  assert.match(publishing, /\.blog-next-field > span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(publishing, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+  assert.match(publishing, /\.blog-next-queue-order\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(publishing, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+  assert.match(publishing, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(interactions, /\.blog-next-folder-label > span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(baseline, /\.blog-next-paste-field-head label\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+});
+
 test('folder and paste modes share one manuscript publishing grammar', () => {
   const html = readBlogNextView();
 
