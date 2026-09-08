@@ -5,8 +5,12 @@ function formatBlogNextPostStatus(item = {}) {
   return postStatus === 'draft' ? '임시 저장' : postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
 }
 
+const BLOG_NEXT_MANAGEMENT_TABS = Object.freeze(['ready', 'saved', 'automation']);
+
 function activateBlogNextManagementTab(tabName) {
-  const target = tabName === 'saved' ? 'saved' : 'ready';
+  const target = BLOG_NEXT_MANAGEMENT_TABS.includes(String(tabName || '').trim())
+    ? String(tabName).trim()
+    : 'ready';
   blogNextActiveManagementTab = target;
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
     const active = button.dataset.blogNextManagementTab === target;
@@ -19,9 +23,36 @@ function activateBlogNextManagementTab(tabName) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+  const actions = document.querySelector('.blog-next-management-actions');
+  if (actions) actions.hidden = target === 'automation';
+  const status = document.getElementById('blog-next-management-status');
+  if (status) status.hidden = target === 'automation' || !status.textContent;
+  if (target === 'automation' && typeof loadBlogNextAutomationSettings === 'function') {
+    loadBlogNextAutomationSettings();
+  }
+  if (target !== 'automation'
+    && typeof blogNextActiveTab !== 'undefined'
+    && blogNextActiveTab === 'queue'
+    && typeof loadBlogNextQueue === 'function') {
+    loadBlogNextQueue();
+  }
 }
 
-function handleBlogNextManagementTabKeydown(event) {
+async function requestActivateBlogNextManagementTab(tabName) {
+  const target = BLOG_NEXT_MANAGEMENT_TABS.includes(String(tabName || '').trim())
+    ? String(tabName).trim()
+    : 'ready';
+  if (blogNextActiveManagementTab === 'automation'
+    && target !== 'automation'
+    && typeof confirmDiscardUnsavedBlogNextAutomationSettings === 'function') {
+    const canLeave = await confirmDiscardUnsavedBlogNextAutomationSettings();
+    if (!canLeave) return false;
+  }
+  activateBlogNextManagementTab(target);
+  return true;
+}
+
+async function handleBlogNextManagementTabKeydown(event) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   const buttons = Array.from(document.querySelectorAll('[data-blog-next-management-tab]'));
   const currentIndex = buttons.indexOf(event.currentTarget);
@@ -33,8 +64,9 @@ function handleBlogNextManagementTabKeydown(event) {
   if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + buttons.length) % buttons.length;
   if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % buttons.length;
   const targetButton = buttons[targetIndex];
-  activateBlogNextManagementTab(targetButton.dataset.blogNextManagementTab);
-  targetButton.focus();
+  const activated = await requestActivateBlogNextManagementTab(targetButton.dataset.blogNextManagementTab);
+  if (activated) targetButton.focus();
+  else buttons[currentIndex].focus();
 }
 
 function renderBlogNextEmptyState(list, title, message, state = 'empty') {
@@ -56,7 +88,7 @@ function setBlogNextManagementStatus(state, message = '') {
   if (!status) return;
   status.dataset.state = state;
   status.textContent = message;
-  status.hidden = !message;
+  status.hidden = blogNextActiveManagementTab === 'automation' || !message;
 }
 
 function setBlogNextQueueListsBusy(busy) {

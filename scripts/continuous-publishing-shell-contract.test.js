@@ -34,7 +34,9 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
     assert.match(betaView, /data-blog-next-tab="quick"/);
     assert.match(betaView, /data-blog-next-tab="queue"/);
     assert.match(betaView, /data-blog-next-tab="queue">글감 관리/);
-    assert.match(betaView, /data-blog-next-tab="automation"/);
+    assert.doesNotMatch(betaView, /data-blog-next-tab="automation"/);
+    assert.match(betaView, /data-blog-next-management-tab="automation">연속 발행 설정/);
+    assert.match(betaView, /id="blog-next-management-panel-automation"[\s\S]*?data-blog-next-management-panel="automation"/);
     assert.doesNotMatch(betaView, /\bid="blog-tab-/);
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
 });
@@ -156,7 +158,10 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(automationScript, /updateBlogNextAutomationDirtyState/);
     assert.match(automationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
     assert.match(shellScript, /requestActivateBlogNextTab/);
+    assert.match(shellScript, /blogNextActiveManagementTab === 'automation'/);
+    assert.match(read('ui/scripts/features/blog-next/queue-ui.js'), /requestActivateBlogNextManagementTab/);
     assert.match(navigationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
+    assert.match(navigationScript, /requestedSubTab === 'automation'[\s\S]*requestActivateBlogNextTab\('queue'\)[\s\S]*requestActivateBlogNextManagementTab\('automation'\)/);
     assert.match(lifecycleScript, /blogNextAutomationDirty/);
     assert.match(interactionCss, /#blog-next-automation-save:disabled/);
     assert.doesNotMatch(automationScript, /platforms|post_status|image_mode|naver_category|wordpress_category/);

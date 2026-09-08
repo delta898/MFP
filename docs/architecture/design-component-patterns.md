@@ -299,7 +299,12 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - panel 시작부는 `intro → local navigation → status and tools → primary content`의 역할 순서를 기본 문법으로 삼는다. 기능에 필요하지 않은 slot은 생략하며 빈 여백을 남기지 않는다.
 - 모든 panel을 같은 모양으로 강제하지 않는다. 대신 첫 의미 요소의 시작선, slot 사이의 수직 rhythm과 heading hierarchy를 일관되게 유지한다.
 - intro는 tab label을 반복하지 않고 사용자가 얻을 결과나 다음 행동을 설명할 때만 표시한다.
-- `블로그 Beta`의 다섯 top-level panel은 예측 가능한 시작점을 위해 동일한 `제목 + 한 줄 설명` intro slot을 사용한다. 이는 해당 제품 surface의 규칙이며 모든 tab UI에 일괄 강제하지 않는다.
+- `블로그 Beta`의 top-level panel은 예측 가능한 시작점을 위해 동일한 `제목 + 한 줄 설명` intro slot을 사용한다. 이는 해당 제품 surface의 규칙이며 모든 tab UI에 일괄 강제하지 않는다.
+- top-level tab은 사용자가 독립된 주 작업으로 인식하고 직접 진입할 필요가 있는 기능에 사용한다. 특정 작업 영역의
+  운영 방식만 조정하는 저빈도 설정은 해당 영역의 local navigation에 둔다. 구현 모듈이 분리되어 있다는 이유만으로
+  top-level tab을 추가하지 않는다.
+- local tab의 count badge와 보조 action은 해당 view의 역할에 따라 선택적으로 제공한다. 목록이 아닌 설정 view에는
+  의미 없는 count나 refresh를 복제하지 않는다.
 - local navigation과 status/tool이 같은 줄에 있어도 별도 role group으로 구분한다.
 - 같은 수준의 local tab과 mode switch는 공통 segmented navigation을 사용한다. count는 segment 내부 badge로, refresh 같은 도구는 segment 바깥의 보조 action으로 둔다.
 - navigation과 panel intro의 typography는 역할에 따라 다음 semantic token을 사용한다. 모든 tab button은 제품 font family를

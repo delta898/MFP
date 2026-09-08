@@ -236,12 +236,14 @@ test('queue management exposes complete local tabs and list-owned async states',
   const uiScript = read('ui/scripts/features/blog-next/queue-ui.js');
   const queueScript = readBlogNextQueueScripts();
 
-  for (const type of ['ready', 'saved']) {
+  for (const type of ['ready', 'saved', 'automation']) {
     assert.match(html, new RegExp(`id="blog-next-management-tab-${type}"[\\s\\S]*?aria-controls="blog-next-management-panel-${type}"`));
     assert.match(html, new RegExp(`id="blog-next-management-panel-${type}"[\\s\\S]*?role="tabpanel"[\\s\\S]*?aria-labelledby="blog-next-management-tab-${type}"`));
   }
   assert.match(html, /id="blog-next-management-status"[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
   assert.equal((html.match(/class="blog-next-queue-list" data-state="loading" aria-live="polite" aria-busy="true"/g) || []).length, 2);
+  assert.match(html, /data-blog-next-management-tab="automation">연속 발행 설정/);
+  assert.doesNotMatch(html, /data-blog-next-tab="automation"/);
   assert.doesNotMatch(html, /발행 대기열을 확인하고 있습니다|보관한 글감을 확인하고 있습니다/);
   assert.match(uiScript, /function handleBlogNextManagementTabKeydown\(event\)/);
   assert.match(uiScript, /button\.tabIndex = active \? 0 : -1/);

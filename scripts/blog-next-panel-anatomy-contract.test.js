@@ -19,7 +19,7 @@ function readBlogNextView() {
 
 test('Blog Beta top-level tabs and panels expose a complete accessibility relationship', () => {
     const view = readBlogNextView();
-    const tabNames = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
+    const tabNames = ['quick', 'trend-posting', 'queue', 'smart-comment'];
 
     for (const name of tabNames) {
         assert.match(
@@ -33,21 +33,23 @@ test('Blog Beta top-level tabs and panels expose a complete accessibility relati
     }
 
     assert.match(view, /id="blog-next-tab-quick"[^>]*tabindex="0"/);
-    assert.equal((view.match(/class="blog-next-tab-btn[^>]*tabindex="-1"/g) || []).length, 4);
+    assert.equal((view.match(/class="blog-next-tab-btn[^>]*tabindex="-1"/g) || []).length, 3);
+    assert.doesNotMatch(view, /data-blog-next-tab="automation"/);
 });
 
 test('Blog Beta panels share one intro slot and keep distinct local roles', () => {
     const view = readBlogNextView();
     const styles = read('ui/styles/features/blog-next-panel-anatomy.css');
 
-    assert.equal((view.match(/blog-next-panel-lead blog-next-panel-intro/g) || []).length, 5);
+    assert.equal((view.match(/blog-next-panel-lead blog-next-panel-intro/g) || []).length, 4);
     assert.match(view, /원하는 방식으로 글 준비/);
     assert.match(view, /준비한 글을 한곳에서 관리/);
     assert.match(view, /blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav/);
     assert.match(view, /blog-next-management-tab-list blog-next-segmented-nav/);
     assert.match(view, /blog-next-trend-head blog-next-panel-lead blog-next-panel-intro/);
     assert.match(view, /blog-next-smart-comment-intro blog-next-panel-lead blog-next-panel-intro/);
-    assert.match(view, /blog-next-panel-lead blog-next-panel-intro[^>]*>[\s\S]{0,180}준비된 글을 원하는 시간에 이어서 발행/);
+    assert.match(view, /data-blog-next-management-tab="automation">연속 발행 설정/);
+    assert.match(view, /data-blog-next-management-panel="automation"[\s\S]{0,120}aria-labelledby="blog-next-management-tab-automation"/);
     assert.match(styles, /\.blog-next-panel-lead\s*\{[^}]*min-height:\s*64px;/s);
     assert.match(styles, /\.blog-next-segmented-nav\s*\{/);
     assert.match(styles, /\.blog-next-segmented-nav \.blog-next-mode-btn\.active,[\s\S]{0,100}\.blog-next-segmented-nav \.blog-next-management-tab\.active/);

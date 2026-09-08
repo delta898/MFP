@@ -143,6 +143,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-07: Blog Beta 상위 탭·panel intro·local sub-tab의 typography 위계를 semantic role로 명문화하고 우선 적용하기 위해 `codex/feature/design-system-08-blog-typography-hierarchy`를 시작했다. 다른 제품 surface는 각 메뉴 phase에서 같은 기준을 적용한다. 사용자 시각 확인과 Full TC 1,513 passed, 0 failed, 1 skipped를 거쳐 완료했으며 세부 기록은 [Blog Beta typography hierarchy 개발 기록](../archive/2026-09-07-design-system-08-blog-typography-hierarchy-development.md)을 따른다.
 - 2026-09-08: `codex/feature/design-system-09-blog-queue-management`에서 글감 관리의 행별 action 의미, 정보 hierarchy, async 상태와 narrow layout을 작은 slice로 개선하고 검증을 마쳤다. 세부 기록은 [글감 관리 개발 기록](../archive/2026-09-08-design-system-09-blog-queue-management-development.md)을 따른다.
 - 2026-09-08: `codex/feature/design-system-10-smart-comments`에서 스마트 댓글의 초기 안내, model 정보, async action 상태와 원문 확인 흐름을 canonical guide에 맞춰 개선하고 검증을 마쳤다. 세부 기록은 [스마트 댓글 개발 기록](../archive/2026-09-08-design-system-10-smart-comments-development.md)을 따른다.
+- 2026-09-08: `codex/feature/design-system-11-continuous-publishing-navigation`에서 연속 발행 설정을 글감 관리 local navigation으로 이동하고 Full TC를 통과했다. 세부 기록은 [연속 발행 설정 정보구조 개발 기록](../archive/2026-09-08-design-system-11-continuous-publishing-navigation-development.md)을 따른다.
 
 ## Design Principles 필수 검토 일정
 

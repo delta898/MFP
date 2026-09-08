@@ -118,6 +118,10 @@
   margin-inline-start: auto;
 }
 
+.blog-next-management-actions[hidden] {
+  display: none;
+}
+
 .blog-next-management-panel[hidden] {
   display: none;
 }
@@ -251,6 +255,10 @@
 
   .blog-next-management-tab {
     padding-inline: 8px;
+  }
+
+  .blog-next-management-tab:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .blog-next-management-refresh {

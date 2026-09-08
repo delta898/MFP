@@ -226,5 +226,4 @@ function initBlogNextAutomationSettings() {
   });
   document.getElementById('blog-next-automation-test')?.addEventListener('click', scheduleBlogNextAutomationTest);
   syncBlogNextAutomationSaveState();
-  loadBlogNextAutomationSettings();
 }

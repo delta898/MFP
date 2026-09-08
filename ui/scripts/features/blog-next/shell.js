@@ -1,4 +1,4 @@
-const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'smart-comment', 'automation']);
+const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'smart-comment']);
 const BLOG_NEXT_INPUT_MODES = Object.freeze(['ai', 'folder', 'paste']);
 
 let blogNextActiveTab = 'quick';
@@ -27,7 +27,9 @@ function activateBlogNextTab(tabName) {
     syncBlogNextTopicFormHostForTab(target);
   }
 
-  if (target === 'queue' && typeof loadBlogNextQueue === 'function') {
+  if (target === 'queue'
+    && (typeof blogNextActiveManagementTab === 'undefined' || blogNextActiveManagementTab !== 'automation')
+    && typeof loadBlogNextQueue === 'function') {
     loadBlogNextQueue();
   }
   if (target === 'queue' && typeof loadBlogNextRunnerStatus === 'function') {
@@ -40,12 +42,6 @@ function activateBlogNextTab(tabName) {
   }
   if (target === 'smart-comment' && typeof loadBlogNextSmartCommentSettings === 'function') {
     loadBlogNextSmartCommentSettings();
-  }
-  if (target === 'automation' && typeof loadBlogNextRunnerStatus === 'function') {
-    loadBlogNextRunnerStatus();
-  }
-  if (target === 'automation' && typeof loadBlogNextAutomationSettings === 'function') {
-    loadBlogNextAutomationSettings();
   }
 }
 
@@ -76,8 +72,10 @@ async function requestActivateBlogNextTab(tabName) {
   const target = BLOG_NEXT_TABS.includes(String(tabName || '').trim())
     ? String(tabName).trim()
     : 'quick';
-  if (blogNextActiveTab === 'automation'
-    && target !== 'automation'
+  if (blogNextActiveTab === 'queue'
+    && typeof blogNextActiveManagementTab !== 'undefined'
+    && blogNextActiveManagementTab === 'automation'
+    && target !== 'queue'
     && typeof confirmDiscardUnsavedBlogNextAutomationSettings === 'function') {
     const canLeave = await confirmDiscardUnsavedBlogNextAutomationSettings();
     if (!canLeave) return false;

@@ -1036,11 +1036,11 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-tab="quick"]').getAttribute('tabindex'), '-1');
         assert.equal(await page.locator('[data-blog-next-tab="trend-posting"]').getAttribute('tabindex'), '0');
         await page.keyboard.press('End');
-        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-automation');
+        await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-smart-comment');
         await page.keyboard.press('Home');
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-tab-quick');
         const panelAnatomy = await page.evaluate(() => {
-            const names = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
+            const names = ['quick', 'trend-posting', 'queue', 'smart-comment'];
             return names.map((name) => {
                 activateBlogNextTab(name);
                 const panel = document.getElementById(`blog-next-panel-${name}`);
@@ -1053,7 +1053,7 @@ async function run() {
         assert.equal(panelAnatomy.every((item) => Math.abs(item.panelLeft - panelAnatomy[0].panelLeft) < 1), true);
         assert.equal(panelAnatomy.every((item) => Math.abs(item.leadLeft - panelAnatomy[0].leadLeft) < 1), true);
         assert.equal(panelAnatomy.every((item) => item.leadHeight >= 64), true);
-        assert.equal(await page.locator('.blog-next-panel > .blog-next-panel-intro').count(), 5);
+        assert.equal(await page.locator('.blog-next-panel > .blog-next-panel-intro').count(), 4);
         assert.equal(await page.locator('.blog-next-segmented-nav').count(), 2);
         const segmentedSelectionStyles = await page.evaluate(() => {
             const quick = getComputedStyle(document.querySelector('.blog-next-mode-btn.active'));
@@ -1069,7 +1069,10 @@ async function run() {
         assert.equal(segmentedSelectionStyles.quick, segmentedSelectionStyles.queue);
         assert.notEqual(segmentedSelectionStyles.quick, segmentedSelectionStyles.track);
         assert.notEqual(segmentedSelectionStyles.selectedShadow, 'none');
-        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.evaluate(() => {
+            activateBlogNextTab('queue');
+            activateBlogNextManagementTab('automation');
+        });
         await page.locator('#blog-next-automation-enabled').focus();
         assert.equal(await page.locator('#blog-next-automation-enabled').evaluate((element) => {
             const style = getComputedStyle(element);
@@ -1296,7 +1299,10 @@ async function run() {
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
         const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         assert.notEqual(warmFooterFocus, 'none');
-        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.evaluate(() => {
+            activateBlogNextTab('queue');
+            activateBlogNextManagementTab('automation');
+        });
         await page.waitForFunction(() => document.getElementById('blog-next-automation-enabled')?.disabled === false);
         assert.equal(await page.locator('#blog-next-automation-start-time').isDisabled(), true);
         await page.locator('#blog-next-automation-enabled').focus();
@@ -1341,7 +1347,10 @@ async function run() {
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
         const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
-        await page.evaluate(() => activateBlogNextTab('automation'));
+        await page.evaluate(() => {
+            activateBlogNextTab('queue');
+            activateBlogNextManagementTab('automation');
+        });
         await page.waitForFunction(() => document.getElementById('blog-next-automation-enabled')?.disabled === false);
         await page.locator('#blog-next-automation-enabled').focus();
         await page.evaluate(() => {
@@ -1923,12 +1932,14 @@ async function run() {
         await page.locator('#blog-next-smart-comment-ai-mode').selectOption('custom');
         assert.equal((await page.locator('#blog-next-smart-comment-settings-summary').textContent())?.trim(), 'Chat Model 사용');
         assert.equal(await page.locator('#blog-next-smart-comment-save').isDisabled(), false);
-        await page.locator('[data-blog-next-tab="automation"]').click();
+        await page.locator('[data-blog-next-tab="queue"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal((await page.locator('#ui-dialog-title').textContent())?.trim(), '스마트 댓글 설정 변경사항');
         await page.locator('#ui-dialog-confirm').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-panel-automation')?.hidden === false);
-        assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
+        await page.waitForFunction(() => document.getElementById('blog-next-panel-queue')?.hidden === false);
+        await page.locator('[data-blog-next-management-tab="automation"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-management-panel-automation')?.hidden === false);
+        assert.equal(await page.locator('#blog-next-management-panel-automation').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.getElementById('blog-next-automation-form')?.dataset.loaded === 'true');
         assert.equal(await page.locator('#blog-next-automation-status').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
@@ -1944,12 +1955,18 @@ async function run() {
         assert.equal(await page.locator('#blog-next-automation-interval').isEnabled(), true);
         await page.locator('#blog-next-automation-interval').fill('61');
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), false);
+        await page.locator('[data-blog-next-management-tab="saved"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#ui-dialog-title').textContent())?.trim(), '연속 발행 설정 변경사항');
+        await page.locator('#ui-dialog-cancel').click();
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#blog-next-management-panel-automation').evaluate((element) => element.hidden), false);
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('저장하지 않고 이동'), true);
         await page.locator('#ui-dialog-cancel').click();
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        assert.equal(await page.locator('#blog-next-panel-automation').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-management-panel-automation').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '61');
         await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -1960,8 +1977,9 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.getElementById('blog-next-panel-quick')?.hidden === false);
-        await page.locator('[data-blog-next-tab="automation"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-panel-automation')?.hidden === false);
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.locator('[data-blog-next-management-tab="automation"]').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-management-panel-automation')?.hidden === false);
         assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '60');
         assert.equal(await page.locator('#blog-next-automation-interval').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
@@ -2181,7 +2199,7 @@ async function run() {
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         const blogNextNarrowLayout = await page.evaluate(() => {
-            const panelNames = ['quick', 'trend-posting', 'queue', 'smart-comment', 'automation'];
+            const panelNames = ['quick', 'trend-posting', 'queue', 'smart-comment'];
             const panelChecks = panelNames.map((name) => {
                 activateBlogNextTab(name);
                 const panel = document.getElementById(`blog-next-panel-${name}`);

@@ -80,7 +80,12 @@ async function navigateTo(viewName, subTab) {
     initBlogNextDraftInputs();
     initBlogNextAutomationSettings();
     initBlogNextRunner();
-    activateBlogNextTab(requestedSubTab || blogNextActiveTab);
+    if (requestedSubTab === 'automation') {
+      const activated = await requestActivateBlogNextTab('queue');
+      if (activated) await requestActivateBlogNextManagementTab('automation');
+    } else {
+      await requestActivateBlogNextTab(requestedSubTab || blogNextActiveTab);
+    }
     return;
   }
   if (viewName === 'card-news') {

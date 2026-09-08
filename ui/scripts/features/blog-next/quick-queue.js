@@ -772,7 +772,7 @@ function initBlogNextQuickQueue() {
   syncBlogNextTopicClearAction();
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', refreshBlogNextQueue);
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
-    button.addEventListener('click', () => activateBlogNextManagementTab(button.dataset.blogNextManagementTab));
+    button.addEventListener('click', () => { void requestActivateBlogNextManagementTab(button.dataset.blogNextManagementTab); });
     button.addEventListener('keydown', handleBlogNextManagementTabKeydown);
   });
   document.getElementById('blog-next-editor-close')?.addEventListener('click', () => closeBlogNextEditor());
