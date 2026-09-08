@@ -90,6 +90,10 @@ style pack 내부에서 사용하는 palette와 scale이다. feature와 componen
 - navigation active state
 - dialog width and overlay
 
+선택·실행 상태의 outline, table header divider와 sticky footer처럼 여러 feature에서 같은 역할로 해석되는
+shadow recipe도 component token으로 공급한다. feature stylesheet가 색상과 blur 값을 직접 소유하지 않으며,
+단순 구분선과 떠 있는 surface의 elevation은 서로 다른 역할로 이름을 구분한다.
+
 component token이 feature 이름을 포함하지 않도록 한다.
 
 ### 4. Feature layout tokens

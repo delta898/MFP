@@ -100,4 +100,11 @@
   --ui-card-shadow: var(--ui-shadow-sm);
   --ui-card-hover-shadow: var(--ui-shadow-md);
   --ui-card-hover-transform: translateY(-2px);
+
+  /* Shared state and anchored-surface elevation */
+  --ui-segmented-active-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 26%, transparent), var(--ui-shadow-sm);
+  --ui-segmented-badge-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 14%, transparent);
+  --ui-row-running-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 10%, transparent);
+  --ui-table-header-divider-shadow: 0 2px 0 var(--ui-border-default);
+  --ui-sticky-footer-shadow: 0 -8px 18px rgba(15, 23, 42, 0.06);
 }

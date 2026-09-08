@@ -130,7 +130,7 @@
 .blog-next-queue-item.is-running {
   border-color: var(--ui-action-primary-soft);
   background: color-mix(in srgb, var(--ui-action-primary-soft) 18%, var(--ui-surface));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 10%, transparent);
+  box-shadow: var(--ui-row-running-shadow);
 }
 
 .blog-next-queue-copy .blog-next-queue-running {

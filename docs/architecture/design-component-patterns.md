@@ -146,6 +146,8 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 ## Cards and surfaces
 
 - card는 실제 정보 그룹을 표현할 때만 사용한다.
+- 선택 control, 실행 중 row, table header 구분선과 sticky footer의 shadow는 역할별 component token을 사용한다.
+  같은 숫자로 보이더라도 선택 강조, 상태 outline, 경계선과 elevation을 하나의 범용 shadow로 합치지 않는다.
 - 제목 아래 metadata는 사용자의 다음 판단이나 행동에 필요한 정보만 둔다. 같은 화면에서 이미 확인 가능한 source
   이름이나 사용자가 해석하기 어려운 내부 block 수처럼 중복·구현 중심인 값은 요약을 풍성하게 보이기 위해 반복하지 않는다.
 - style은 card background, border, radius와 elevation을 바꿀 수 있다.

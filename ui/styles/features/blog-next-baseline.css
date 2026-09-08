@@ -327,7 +327,7 @@
 .blog-next-view .trend-posting-table th {
   background: var(--ui-surface-muted);
   color: var(--ui-text-primary);
-  box-shadow: 0 2px 0 var(--ui-border-default);
+  box-shadow: var(--ui-table-header-divider-shadow);
 }
 
 .blog-next-view .trend-posting-table th.blog-next-sortable {

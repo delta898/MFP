@@ -86,7 +86,12 @@ const DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([
   '--ui-card-radius',
   '--ui-card-shadow',
   '--ui-card-hover-shadow',
-  '--ui-card-hover-transform'
+  '--ui-card-hover-transform',
+  '--ui-segmented-active-shadow',
+  '--ui-segmented-badge-shadow',
+  '--ui-row-running-shadow',
+  '--ui-table-header-divider-shadow',
+  '--ui-sticky-footer-shadow'
 ]);
 
 const DESIGN_STYLE_REGISTRY = Object.freeze({

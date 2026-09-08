@@ -57,12 +57,12 @@
 .blog-next-segmented-nav .blog-next-management-tab.active {
   color: var(--ui-action-primary-hover);
   background: var(--ui-action-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 26%, transparent), var(--ui-shadow-sm);
+  box-shadow: var(--ui-segmented-active-shadow);
 }
 
 .blog-next-segmented-nav .blog-next-management-tab.active strong {
   background: var(--ui-surface);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 14%, transparent);
+  box-shadow: var(--ui-segmented-badge-shadow);
 }
 
 .blog-next-panel-intro h2 {

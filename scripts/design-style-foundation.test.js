@@ -159,6 +159,20 @@ test('quiet sage varies palette, density, radius and elevation without style-spe
   assert.doesNotMatch(shared, /quiet-sage-studio/);
 });
 
+test('Blog Beta state and anchored surfaces consume shared elevation recipes', () => {
+  const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
+  const queue = read('ui/styles/features/continuous-publishing-interactions.css');
+  const baseline = read('ui/styles/features/blog-next-baseline.css');
+  const usability = read('ui/styles/features/continuous-publishing-usability.css');
+
+  assert.match(panel, /box-shadow:\s*var\(--ui-segmented-active-shadow\)/);
+  assert.match(panel, /box-shadow:\s*var\(--ui-segmented-badge-shadow\)/);
+  assert.match(queue, /box-shadow:\s*var\(--ui-row-running-shadow\)/);
+  assert.match(baseline, /box-shadow:\s*var\(--ui-table-header-divider-shadow\)/);
+  assert.match(usability, /box-shadow:\s*var\(--ui-sticky-footer-shadow\)/);
+  assert.doesNotMatch([panel, queue, baseline, usability].join('\n'), /box-shadow:\s*(?:inset\s+)?0\s+(?:-?\d+px|0)\s+/);
+});
+
 test('shared feedback and Blog Beta trend surfaces do not retain the compatibility palette', () => {
   const feedback = read('ui/styles/components/feedback.css');
   const blogNext = read('ui/styles/features/continuous-publishing-interactions.css');

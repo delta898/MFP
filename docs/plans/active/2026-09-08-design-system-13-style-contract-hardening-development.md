@@ -74,6 +74,10 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
 - 2026-09-08: queue 실행 상태 문구의 `!important`는 상태 의미가 아닌 `.blog-next-queue-copy span`과의
   specificity 충돌을 덮던 예외임을 확인했다. 상태 selector에 component 경계를 명시해 같은 색과 hidden 동작을
   유지하면서 `!important`를 제거했다. elevation token 교정은 cascade 변경과 섞지 않고 다음 slice로 분리했다.
+- 2026-09-08: cascade exception slice를 `c0914fe`로 commit했다.
+- 2026-09-08: segmented active와 badge, running row, table header divider, sticky footer의 다섯 raw shadow를
+  feature 이름 없는 component token으로 분리했다. 세 style pack에는 기존 recipe와 동일한 값을 공급해 현재
+  계산 결과를 유지하되, 이후 style이 상태 outline·구분선·anchored surface elevation을 독립 조정할 수 있게 했다.
 
 ## Inventory and migration map
 
@@ -134,6 +138,7 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 - Shared form and queue typography focused contracts: 33 passed, 0 failed
 - Smart Comment safe typography focused contracts and style foundation: 15 passed, 0 failed
 - Queue cascade and style foundation focused contracts: 30 passed, 0 failed
+- Shared elevation recipe and related Blog Beta contracts: 52 passed, 0 failed
 - 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
   Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
 - browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정
