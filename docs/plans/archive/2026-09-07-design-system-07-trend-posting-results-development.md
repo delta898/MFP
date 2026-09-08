@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-07-trend-posting-results`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-07
-- Status: 진행 중 — 결과 table style slice 구현·자동 검증 완료, 사용자 UI 확인 대기
+- Status: 완료 — 사용자 UI 확인, 자동 검증 및 parent 병합 완료
 
 ## 사용자 필요와 목표
 
@@ -130,7 +130,7 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
 - 실제 원격 저장은 fixture·mock으로 대체한다.
 - 완료 sub-feature를 parent에 통합하기 전 Full unit suite는 사용자 승인을 받고 실행한다.
 
-## 현재 자동 검증
+## 최종 검증
 
 - Blog Beta baseline 및 UI 구조 focused tests: 28 passed, 0 failed
 - browser UI smoke: passed (fixture-backed)
@@ -139,8 +139,11 @@ sub-feature로 분리한다. 이미 정리된 조회 준비 상태를 출발점�
   table header·metadata badge·row hover의 compatibility blue 미사용
 - 실제 원격 저장이나 발행은 실행하지 않았다.
 
-## 남은 위험과 수동 확인
+## 최종 결과와 후속 작업
 
-- 결과 표는 긴 제목·category·날짜와 행 action이 함께 있어 좁은 폭에서 overflow가 발생할 수 있다.
-- 재조회와 행별 저장이 겹칠 때 상태 소유권이 섞이지 않는지 자동·수동 확인이 필요하다.
-- 시각적 밀도와 결과 탐색성은 자동 테스트만으로 확정하지 않고 사용자 확인을 받는다.
+- 사용자가 조회·filter·table style·정렬 방향과 `new` 후순위 동작을 시각적으로 확인했다.
+- focused contract 28건과 browser UI smoke가 통과했으며, 당시 사용자 요청에 따라 이 sub-feature 병합 직전의
+  별도 Full TC는 생략했다. 이후 parent 기준 Full TC 1,521건 통과로 통합 상태를 검증했다.
+- 결과 table의 긴 문구와 action은 최소 읽기 폭과 가로 scroll을 유지한다.
+- 2026-09-08 전체 정합성 재검토에서 sortable header의 실제 button semantics와 idle·empty affordance가
+  canonical table guide에 완전히 맞지 않는 점을 발견했으며, 구현 교정은 후속 독립 단계에서 수행한다.

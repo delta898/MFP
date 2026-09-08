@@ -186,21 +186,8 @@ style registry는 최소한 다음 정보를 제공해야 한다.
 
 필수 token의 제거·의미 변경, style 소유 범위 변경과 별도 theme 축 추가는 contract version 변경 대상으로 본다. 하위 호환 token 추가와 새 style pack 연결은 검증을 거쳐 `v1.x` 범위에서 확장할 수 있다.
 
-## 2단계 최소 구현 제안
-
-- style registry와 안전한 기본값
-- root `data-style` lifecycle
-- semantic color, typography, spacing, radius, elevation, motion contract
-- 현재 외형을 보존하는 compatibility style
-- 기존 token alias와 미정의 변수 교정
-- 공통 shell 및 `블로그 Beta`의 제한된 migration
-- token completeness와 미정의 참조 자동 검사
-
-style 선택 UI와 앱 전체 surface migration은 각각 별도 sub-feature로 분리한다. 별도 dark theme 축은 현재 범위에 포함하지 않는다.
-
-## 사용자 합의가 필요한 사항
-
-1. 첫 기반 적용 범위는 `공통 shell + 블로그 Beta`로 제한한다. 사용자 승인 완료.
-2. 초기 계약은 별도 theme 축 없이 `1 style = 1 theme`로 한다. 사용자 승인 완료.
-3. 첫 정식 style 적용 전 현재 외형을 compatibility style로 보존한다. 사용자 승인 완료.
-4. style 선택 UI는 둘 이상의 검증된 style이 준비된 이후 제공한다. 사용자 승인 완료.
+초기 foundation 제안과 사용자 승인 과정은 완료된 개발 이력이므로
+[디자인 시스템 1단계](../plans/archive/2026-09-06-design-system-01-principles-development.md),
+[2단계](../plans/archive/2026-09-06-design-system-02-foundation-development.md) 및
+[4단계](../plans/archive/2026-09-07-design-system-04-extensibility-validation-development.md) 개발 기록에서 관리한다.
+현재 구현과 후속 style은 이 문서의 계약, Definition of Done과 위 검증 기준선을 따른다.

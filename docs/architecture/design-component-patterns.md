@@ -1,9 +1,9 @@
-# Design Component and Pattern Guide v0.1
+# Design Component and Pattern Guide
 
 ## 문서 상태
 
-- Status: Design Principles v1.0 기반, Blog Beta 적용 기준 확장 중
-- Source stage: `codex/feature/design-system-03-first-style`
+- Status: Blog Beta 검증 기반의 운영 중인 living contract
+- Initial source stage: `codex/feature/design-system-03-first-style`
 - 적용 대상: 공통 shell과 `블로그 Beta`에서 검증된 반복 UI
 
 이 문서는 style의 색상 취향이 아니라 component의 의미, 상태와 배치 계약을 정의한다. 구체적인 색상·radius·shadow 값은 각 style pack이 component token으로 공급한다.
@@ -249,6 +249,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 ## Recoverable destructive actions
 
+- 파괴적 action의 사전 확인 여부는 label의 위험한 어감이 아니라 복구 가능성, 외부 영향과 사용자 비용으로 결정한다.
+  삭제·발행처럼 되돌리기 어렵거나 외부 상태를 바꾸는 action은 대상과 영향을 보여주고 확인받는다. 실행 직후 같은
+  맥락에서 이전 상태를 완전하게 복원할 수 있는 로컬 action은 아래 되돌리기 계약을 충족하면 사전 확인을 생략할 수 있다.
 - 작성 중 내용을 한 번에 지우는 action은 danger 의미를 유지하되, 실행 직후 방금 지운 내용을 되돌릴 수 있게 한다.
 - action의 위치는 영향 범위, variant는 결과의 위험도, 노출 여부는 현재 실행 가능성으로 결정한다. form 전체를
   지우는 action은 개별 field heading이 아니라 form 마지막 action group의 반대쪽에 분리하고, 지울 내용이 있을

@@ -128,7 +128,8 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 **실행 규칙**
 
 - 새 요청이 실패하면 마지막 정상 결과를 유지한다.
-- 파괴적 작업은 대상과 영향을 명확히 보여주고 확인을 받는다.
+- 되돌리기 어렵거나 외부 상태에 영향을 주는 파괴적 작업은 대상과 영향을 명확히 보여주고 확인을 받는다.
+- 즉시 완전하게 복구 가능한 로컬 작업은 결과를 명확히 알리고 같은 맥락에서 바로 되돌릴 수 있게 하면 사전 확인을 생략할 수 있다.
 - 저장되지 않은 변경과 저장 완료 상태를 구분한다.
 - 재시도는 가능한 경우 기존 입력과 문맥을 보존한다.
 
@@ -220,14 +221,12 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 
 ### 결정 행동의 위치와 위계
 
-- 완료형 form과 dialog의 결정 행동은 기본적으로 화면의 `inline-end` 하단에 모으고, primary action을 가장 끝에 둔다.
-- secondary action은 primary action에 인접시키되 outline, ghost 또는 낮은 강조 surface를 사용해 시각적 강도를 낮춘다.
-- 삭제, 초기화, 취소처럼 결과나 성격이 다른 행동은 공간 또는 표현으로 분리한다. 파괴적 행동은 위험 의미와 실행 결과를 명확히 보여준다.
-- toolbar, 반복 list row, navigation과 좁은 화면처럼 작업 맥락이나 공간 제약이 다른 경우에는 기계적인 우측 정렬을 적용하지 않는다.
-- 반응형 재배치 후에도 중요 행동의 발견 가능성, 논리적인 keyboard 순서와 접근성 의미를 유지한다.
-- 배치 관습만으로 행동의 우선순위를 정하지 않는다. 사용자의 실제 주된 목적과 되돌리기 어려운 정도를 먼저 판단한다.
+- 완료형 form과 dialog는 사용자의 실제 주된 목적과 되돌리기 어려운 정도로 action 위계를 정하고, 하나의 action group에서 여러 filled button이 같은 강도로 경쟁하지 않게 한다.
+- 결과나 성격이 다른 secondary·dismissive·danger action은 primary와 구분하되, toolbar·반복 row·navigation·좁은 화면에 기계적인 한 방향 정렬을 강제하지 않는다.
+- 반응형 재배치 후에도 중요 action의 발견 가능성, 논리적인 keyboard 순서와 접근성 의미를 유지한다.
 
-이 규칙은 특정 style의 취향이 아니라 공통 action pattern의 계약이다. 구체적인 색상, radius와 elevation은 style pack이 정하되, 하나의 action group에서 여러 filled button이 같은 강도로 경쟁하지 않게 한다.
+구체적인 action variant, dialog action 수, 배치, keyboard 순서와 확인 흐름은
+[Design Component and Pattern Guide](./design-component-patterns.md#action-variants)가 단일 상세 계약으로 소유한다.
 
 ## Design System Engineering Principles
 
@@ -251,75 +250,18 @@ AI 생성, 발행, 수집, 저장처럼 시간이 걸리거나 외부 상태에 
 - 2026-09-07 Gate 2: 첫 정식 style `따뜻한 에디토리얼`을 공통 shell과 Blog Beta에 적용하고 Product Experience Principles 8개를 모두 `유지`하기로 합의했다. action hierarchy, refresh와 selection control 규칙은 하위 component guide로 구체화했다. 빠른 글 작성의 과밀도와 tab별 시작 문법 차이는 원칙의 결함이 아니라 적용 gap으로 판단해 독립 P1 일감으로 분리했다.
 - 2026-09-07 Gate 3: 두 번째 style `고요한 세이지 스튜디오`로 palette, density, radius와 elevation 축을 달리해 확장성을 검증하고 Product Experience Principles 8개를 모두 `유지`하기로 사용자와 합의했다. 두 style이 동일 DOM·기능·상태·입력을 유지했고 첫 style 또는 compatibility에 가려졌던 공통 feedback, trend surface와 embedded widget 결합을 semantic contract로 교정했다. Design Principles와 다중 Style Contract를 `v1.0`으로 승격했다.
 
-## 필수 검토 게이트
+## v1.0 검증 기준선과 이후 검토
 
-다음 세 시점에는 Design Principles 검토를 생략할 수 없다. 각 검토를 완료하고 사용자와 결과를 합의하기 전에는 다음 디자인 시스템 단계로 넘어가지 않는다.
+Compatibility 기반, 첫 정식 style 적용, 두 번째 style 확장성 검증의 세 Gate는 모두 자동 검증과 사용자 승인을 거쳐 완료됐다.
+당시 상세 목적·완료 조건·결과는
+[디자인 시스템 1단계 개발 기록](../plans/archive/2026-09-06-design-system-01-principles-development.md)과 각 후속 단계 개발 기록에 보존한다.
 
-### Gate 1. Compatibility style 기반 완료 후
+이후에는 다음 중 하나가 발생할 때 원칙과 하위 계약을 다시 검토한다.
 
-**시점**
+- 기존 원칙으로 일관되게 판단할 수 없는 문제가 여러 surface에서 반복될 때
+- 사용자-visible 행동, 정보 구조 또는 접근성 계약을 변경할 때
+- 필수 semantic token의 의미나 style이 소유할 수 있는 범위를 변경할 때
+- 새로운 style 또는 제품 surface 적용에서 기존 원칙과 실제 사용성 사이 충돌이 확인될 때
 
-현재 외형을 보존하는 compatibility style, semantic token과 style registry 기반 구현 및 자동 검증을 완료한 직후
-
-**검토 목적**
-
-- 원칙이 현재 제품 구조와 점진적 migration에 실제로 적용 가능한지 확인한다.
-- 구현 편의를 위해 원칙을 왜곡하거나, 반대로 원칙이 구현 가능한 판단 기준을 제공하지 못하는 부분이 없는지 확인한다.
-- 발견된 결함과 예외가 principle, operational guideline, component rule 중 어디에 속하는지 분류한다.
-
-**완료 조건**
-
-- 각 원칙을 `유지`, `수정`, `보류` 중 하나로 기록한다.
-- 수정 또는 보류에는 실제 코드·검증 결과에 근거한 이유를 남긴다.
-- 사용자 합의 결과를 parent 및 해당 sub-feature 개발 기록에 반영한다.
-
-### Gate 2. 첫 번째 정식 style 적용 완료 후
-
-**시점**
-
-첫 번째 정식 style을 공통 shell과 `블로그 Beta`에 적용하고, 관련 자동 검증과 사용자 UI 확인을 완료한 직후
-
-**검토 목적**
-
-- 원칙이 실제 시각적 판단과 사용성 개선을 충분히 안내했는지 확인한다.
-- 첫 style의 취향이나 구현 특성이 보편적인 원칙으로 잘못 들어가지 않았는지 확인한다.
-- 아름다움, 명료성, 작업 효율, 상태 가시성과 회복 가능성 사이의 충돌을 검토한다.
-
-**완료 조건**
-
-- 원칙별로 대표적인 적용 사례와 충돌 또는 예외를 기록한다.
-- 사용자 시각 검토에서 발견된 차이를 principle 변경과 하위 guideline 변경으로 구분한다.
-- 사용자 합의 없이 두 번째 style 검증 단계로 넘어가지 않는다.
-
-### Gate 3. 두 번째 style 확장성 검증 후
-
-**시점**
-
-동일한 style contract에 두 번째 style을 연결하고 기능·DOM·접근성·상태 불변과 시각적 차이를 검증한 직후
-
-**검토 목적**
-
-- Design Principles와 style contract가 첫 style에 종속되지 않았는지 확인한다.
-- 두 style에서 공통으로 유지해야 할 제품 경험과 style별 표현 자유의 경계를 최종 점검한다.
-- working principles를 안정된 `v1.0`으로 승격할 수 있는지 판단한다.
-
-**완료 조건**
-
-- 두 style의 비교 근거와 contract 위반 또는 예외를 기록한다.
-- 남은 임시 원칙, 충돌, 검증되지 않은 가정이 없는지 확인한다.
-- 사용자 승인 후에만 `v1.0`으로 확정한다. 조건이 부족하면 `v0.x`로 유지하고 추가 검증 계획을 남긴다.
-
-## 검토 기록 규칙
-
-각 Gate의 검토 기록에는 최소한 다음을 포함한다.
-
-- 검토 날짜와 대상 branch/style/surface
-- 자동 검증 및 사용자 UI 확인 결과
-- 원칙별 유지·수정·보류 결정과 근거
-- 하위 guideline, token, component contract에 미치는 영향
-- 해결하지 않은 충돌과 다음 검토까지 확인할 가정
-- 사용자의 최종 합의
-
-## 사용자 검토가 필요한 사항
-
-세 차례 필수 검토 Gate는 모두 사용자 승인을 받아 완료됐다. 이후 원칙 변경은 개별 화면을 정당화하기 위한 예외가 아니라, 기존 원칙으로 판단할 수 없는 반복 문제와 실제 적용 근거 및 사용자 합의가 있을 때만 수행한다.
+검토 결과는 실제 코드·자동 검증·사용자 확인 근거와 함께 해당 feature 개발 기록에 남긴다. 개별 화면의 예외를
+정당화하기 위해 원칙을 바꾸지 않으며, 제품 경험 또는 다중 style contract 변경은 사용자 합의 후 반영한다.
