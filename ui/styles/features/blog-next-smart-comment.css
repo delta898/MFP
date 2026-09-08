@@ -46,7 +46,7 @@
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-smart-comment-intro p,
@@ -92,7 +92,7 @@
   width: fit-content;
   color: var(--ui-text-secondary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
 
@@ -179,7 +179,7 @@
 
 .blog-next-smart-comment-status-copy strong {
   color: var(--ui-text-primary);
-  font-size: 15px;
+  font-size: var(--ui-type-body-size);
 }
 
 .blog-next-smart-comment-status-copy p {
@@ -260,7 +260,7 @@
 
 .blog-next-smart-comment-card-copy span {
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .blog-next-smart-comment-card h4 {
@@ -339,7 +339,7 @@
   background: var(--ui-action-primary);
   color: var(--ui-text-inverse);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
   line-height: 1.25;
   text-decoration: none;
   transition: var(--ui-transition-interactive);
@@ -366,7 +366,7 @@
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-smart-comment-draft button,

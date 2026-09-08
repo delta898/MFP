@@ -56,6 +56,12 @@ test('Smart Comment keeps results on failures and presents friendly progress sta
     assert.match(styles, /grid-template-columns:\s*64px minmax\(0, 1fr\) auto/);
     assert.match(styles, /-webkit-line-clamp:\s*2/);
     assert.match(styles, /\.blog-next-smart-comment-title-link:focus-visible/);
+    assert.match(styles, /\.blog-next-smart-comment-status-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\)/);
+    assert.match(styles, /\.blog-next-smart-comment-card-copy span\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\)/);
+    assert.match(styles, /\.blog-next-smart-comment-heading span\s*\{[^}]*font-weight:\s*var\(--ui-weight-bold\)/);
+    assert.match(styles, /\.blog-next-smart-comment-details summary\s*\{[^}]*font-weight:\s*var\(--ui-weight-bold\)/);
+    assert.match(styles, /\.blog-next-smart-comment-post-action\s*\{[^}]*font-weight:\s*var\(--ui-weight-bold\)/);
+    assert.match(styles, /\.blog-next-smart-comment-tone\s*\{[^}]*font-weight:\s*var\(--ui-weight-bold\)/);
     assert.doesNotMatch(script, /blogNextSmartCommentItems = \[\];[\s\S]{0,220}catch/);
     assert.match(script, /function isBlogNextSmartCommentOperationBusy\(\)/);
     assert.match(script, /saveButton\.setAttribute\('aria-busy', blogNextSmartCommentSaving \? 'true' : 'false'\)/);

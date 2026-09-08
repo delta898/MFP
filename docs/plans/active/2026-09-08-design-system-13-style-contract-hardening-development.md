@@ -66,6 +66,10 @@ Blog Beta에 남아 있는 원시 typography·shadow와 `!important` 의존을 s
   body·label·caption·regular·medium·semibold·bold token으로 옮겼다. 세 style이 같은 공급값을 사용하므로
   이 slice의 computed typography 값은 바뀌지 않는다. `13px`, line-height, icon 크기와 Smart Comment는 유지했다.
 - 2026-09-08: 대상 selector가 다시 raw size/weight로 돌아가지 않도록 focused contract를 추가했다.
+- 2026-09-08: shared form·queue typography slice를 `8ea1d8a`로 commit했다.
+- 2026-09-08: Smart Comment에서 역할과 기존 token이 정확히 대응하는 status body, card metadata와 bold
+  emphasis만 token으로 옮겼다. `11/13/16/17/20px`와 line-height는 새 role 합의 또는 시각 변화가 필요하므로
+  그대로 유지했다.
 
 ## Inventory and migration map
 
@@ -124,6 +128,7 @@ selector만 token으로 옮긴다. 이 slice는 computed typography 값을 바�
 
 - Inventory 문서: `git diff --check` 통과
 - Shared form and queue typography focused contracts: 33 passed, 0 failed
+- Smart Comment safe typography focused contracts and style foundation: 15 passed, 0 failed
 - 현재 style 공급값 비교: body `15px`, label `14px`, caption `12px`, weight `400/500/600/700`이
   Compatibility, Warm Editorial과 Quiet Sage Studio에서 동일함을 확인
 - browser smoke와 사용자 시각 확인: 이 slice의 computed 값은 동일하므로 후속 시각 변화 slice와 묶어 수행 예정
