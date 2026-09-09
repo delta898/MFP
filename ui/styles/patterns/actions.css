@@ -96,6 +96,40 @@ button.ui-danger-action:hover:not(:disabled) {
   animation: ui-refresh-action-spin 0.8s linear infinite;
 }
 
+.ui-refresh-action-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ui-text-action {
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--ui-button-radius);
+  background: transparent;
+  color: var(--ui-action-primary);
+  font-family: inherit;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+  cursor: pointer;
+  transition: var(--ui-transition-interactive);
+}
+
+.ui-text-action:hover:not(:disabled) {
+  background: var(--ui-surface-hover);
+  color: var(--ui-action-primary-hover);
+}
+
+.ui-text-action:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
 button.primary:focus-visible,
 button.secondary:focus-visible,
 button.ghost:focus-visible {

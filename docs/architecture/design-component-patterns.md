@@ -52,6 +52,15 @@
   label을 바꾼다. 결과 차이가 중요하지 않을 때만 하나의 포괄적인 label을 사용한다.
 - default, confirmation, loading과 실패 후 복구 상태는 같은 핵심 동사를 유지해 사용자가 다른 작업으로 오해하지 않게 한다.
 
+### Dashboard action hierarchy
+
+- Dashboard의 primary action은 현재 card가 제시하는 상태를 실제 다음 작업으로 진행시키는 대표 행동이다. 독립된 card마다
+  하나를 둘 수 있지만 같은 action group 안에서는 하나만 사용한다.
+- 설정 변경·재조회·대체 경로는 secondary, 전체 목록·상세·가이드로 이동하는 단순 탐색은 공통 `.ui-text-action`을
+  사용한다. 같은 위치에 있다는 이유로 역할이 다른 행동을 같은 모양으로 만들지 않는다.
+- 반복 collection card의 `적용`, `선택`처럼 각 item을 작업 흐름에 반영하는 행동은 해당 item action group의 primary가
+  될 수 있다. dismiss나 보관 같은 보조 행동은 secondary 또는 ghost로 낮춘다.
+
 ## Form action group
 
 - transactional dialog는 하나의 좁고 명확한 작업을 완료하는 surface로 사용한다. 기본 footer는 dismissive action과
@@ -177,6 +186,13 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   변경하면 즉시 Settings Beta 공통 dirty scope에 등록한다. 이탈 시 변경한 card 이름을 포함한 discard 확인을 보이고,
   해당 action의 성공 뒤에만 dirty를 해제한다. 실패 시 입력값과 dirty 상태를 유지한다.
 
+## Overview data sections
+
+- 같은 overview card 안에서 요약 수치와 상세 목록을 나란히 보여줄 때는 양쪽에 같은 위계의 정적 subheading을 둔다.
+  기간·filter 선택값을 상세 제목에 반복하지 않으며, 선택값은 filter와 결과·빈 상태 문구에서만 표현한다.
+- overview 내부의 정적 section 제목은 공통 `.ui-overview-subheading`이 typography와 heading-to-content 간격을 소유한다.
+  feature stylesheet에서 고정 font size나 margin으로 같은 위계를 다시 정의하지 않는다.
+
 ## Selection controls
 
 - native select의 공통 arrow shell은 `styles/patterns/select-shell.css`의 `.ui-select-shell`을 사용한다. 두 개 이상의
@@ -219,6 +235,24 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 ## Cards and surfaces
 
 - card는 실제 정보 그룹을 표현할 때만 사용한다.
+- Dashboard처럼 현재 상태를 읽고 다음 행동을 판단하는 surface는 공통 `.ui-overview-card`를 사용한다. 제목 영역은
+  `.ui-overview-heading`, 짧은 분류는 `.ui-overview-eyebrow`, 상태는 `.ui-status-badge`가 소유한다. feature stylesheet는
+  grid, section 간격과 domain 고유 content layout만 정의하고 card border·radius·background·shadow, heading typography와
+  status tone을 다시 구현하지 않는다.
+- `.ui-settings-card`는 저장·검증하는 form anatomy, `.ui-overview-card`는 읽기·판단하는 summary anatomy에 사용한다.
+  둘은 같은 style token을 소비하지만 footer와 field 구조를 억지로 공유하지 않는다.
+- 수치, 개수, 기간과 category는 성공·정보 상태가 아니다. 상태 의미가 없는 통계 card는 같은 neutral surface를 사용하고,
+  단순 개수는 `.ui-count-badge`로 표시한다. 성공·경고·실패 색상은 실제 domain 상태가 있을 때만 사용한다.
+- 추천·가이드처럼 Dashboard의 보조 콘텐츠도 공통 overview/supporting surface를 사용한다. 카드 전체에 장식 목적의 특정
+  색상이나 gradient를 고정하지 않고, 실제 action·focus·작은 icon에만 현재 style의 primary accent를 사용한다.
+- product style 대상 feature와 shared pattern은 고정 색상, style 이름 조건문과 compatibility alias를 소유하지 않는다.
+  색상·radius·spacing·shadow는 semantic/component token으로 결정해 `warm-editorial`, `quiet-sage-studio` 등 등록된
+  style에서 같은 정보 위계를 유지하면서 서로 다른 표현과 density를 제공한다.
+- product style 대상 overview의 typography는 `--ui-type-*`, `--ui-weight-*`, `--ui-line-height-*` token을 사용한다.
+  feature stylesheet에 특정 style에서만 자연스러운 px 글자 크기나 숫자 font weight를 고정하지 않는다. chart bar 간격,
+  responsive breakpoint와 icon hit area처럼 정보 시각화·조작에 필요한 불변 geometry는 feature/component가 소유할 수 있다.
+- 동일한 domain 상태를 card header badge와 body indicator처럼 두 번 표현하지 않는다. 상태의 대표 위치는 header의
+  `.ui-status-badge`이며, body에는 상태를 이해하거나 다음 행동을 결정하는 내용만 둔다.
 - 선택 control, 실행 중 row, table header 구분선과 sticky footer의 shadow는 역할별 component token을 사용한다.
   같은 숫자로 보이더라도 선택 강조, 상태 outline, 경계선과 elevation을 하나의 범용 shadow로 합치지 않는다.
 - 제목 아래 metadata는 사용자의 다음 판단이나 행동에 필요한 정보만 둔다. 같은 화면에서 이미 확인 가능한 source

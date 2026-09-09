@@ -1493,8 +1493,25 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('html').getAttribute('data-style'), 'warm-editorial');
-        assert.equal(await page.locator('#view-dashboard-beta').getAttribute('data-style-scope'), 'compatibility');
+        assert.equal(await page.locator('#view-dashboard-beta').getAttribute('data-style-scope'), null);
         assert.equal(await page.locator('#view-blog-next').getAttribute('data-style-scope'), null);
+        const dashboardStyleProbe = async () => page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+            const style = getComputedStyle(element);
+            return { borderRadius: style.borderRadius, boxShadow: style.boxShadow };
+        });
+        const dashboardCountProbe = async () => page.locator('#dashboard-beta-discovery-count').evaluate((element) => {
+            const style = getComputedStyle(element);
+            return { background: style.backgroundColor, color: style.color };
+        });
+        const warmDashboardStyle = await dashboardStyleProbe();
+        const warmDashboardCount = await dashboardCountProbe();
+        await page.locator('html').evaluate((element) => { element.dataset.style = 'quiet-sage-studio'; });
+        const quietDashboardStyle = await dashboardStyleProbe();
+        const quietDashboardCount = await dashboardCountProbe();
+        assert.notEqual(quietDashboardStyle.borderRadius, warmDashboardStyle.borderRadius);
+        assert.notEqual(quietDashboardStyle.boxShadow, warmDashboardStyle.boxShadow);
+        assert.notDeepEqual(quietDashboardCount, warmDashboardCount);
+        await page.locator('html').evaluate((element) => { element.dataset.style = 'warm-editorial'; });
         assert.equal(
             await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
             'rgb(182, 95, 66)'

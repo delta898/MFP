@@ -1,4 +1,4 @@
-      <section class="view active" id="view-dashboard-beta" data-style-scope="compatibility">
+      <section class="view active" id="view-dashboard-beta">
         <div class="view-title-block dashboard-beta-hero">
           <div class="view-title-row">
             <div class="view-title-copy">
@@ -13,13 +13,13 @@
           </div>
         </div>
 
-        <section class="dashboard-beta-readiness" aria-labelledby="dashboard-beta-readiness-title">
-          <div class="dashboard-beta-section-heading">
+        <section class="dashboard-beta-readiness ui-overview-card" aria-labelledby="dashboard-beta-readiness-title">
+          <div class="dashboard-beta-section-heading ui-overview-heading">
             <div>
-              <span class="dashboard-beta-eyebrow">사용 준비</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">사용 준비</span>
               <h2 id="dashboard-beta-readiness-title">연결 상태</h2>
             </div>
-            <button id="dashboard-beta-refresh" class="dashboard-beta-icon-button" type="button" aria-label="대시보드 새로고침" title="새로고침">
+            <button id="dashboard-beta-refresh" class="ui-refresh-action-icon" type="button" aria-label="대시보드 새로고침" title="새로고침">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
                 <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
@@ -43,14 +43,14 @@
           <p id="dashboard-beta-readiness-error" class="dashboard-beta-inline-error" hidden>연결 상태를 불러오지 못했습니다.</p>
         </section>
 
-        <section id="dashboard-beta-onboarding" class="dashboard-beta-onboarding" aria-labelledby="dashboard-beta-onboarding-title" hidden>
-          <div class="dashboard-beta-onboarding-head">
+        <section id="dashboard-beta-onboarding" class="dashboard-beta-onboarding ui-overview-card" aria-labelledby="dashboard-beta-onboarding-title" hidden>
+          <div class="dashboard-beta-onboarding-head ui-overview-heading">
             <div>
-              <span class="dashboard-beta-eyebrow">시작 안내</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">시작 안내</span>
               <h2 id="dashboard-beta-onboarding-title">사용 준비를 마쳐볼까요?</h2>
               <p>필요한 항목만 차례로 연결하면 바로 글쓰기를 시작할 수 있습니다.</p>
             </div>
-            <span id="dashboard-beta-onboarding-progress" class="dashboard-beta-onboarding-progress">0/3 준비됨</span>
+            <span id="dashboard-beta-onboarding-progress" class="dashboard-beta-onboarding-progress ui-status-badge">0/3 준비됨</span>
           </div>
           <div class="dashboard-beta-onboarding-steps">
             <div class="dashboard-beta-onboarding-step" data-dashboard-beta-setup-step="ai" data-state="pending"
@@ -76,16 +76,15 @@
         </section>
 
         <div class="dashboard-beta-overview-grid">
-          <section class="dashboard-beta-flow-card" aria-labelledby="dashboard-beta-flow-title">
-            <div class="dashboard-beta-section-heading">
+          <section class="dashboard-beta-flow-card ui-overview-card" aria-labelledby="dashboard-beta-flow-title">
+            <div class="dashboard-beta-section-heading ui-overview-heading">
               <div>
-                <span class="dashboard-beta-eyebrow">지금</span>
+                <span class="dashboard-beta-eyebrow ui-overview-eyebrow">지금</span>
                 <h2 id="dashboard-beta-flow-title">발행 흐름</h2>
               </div>
-              <span id="dashboard-beta-flow-badge" class="dashboard-beta-flow-badge" data-state="loading">확인 중</span>
+              <span id="dashboard-beta-flow-badge" class="dashboard-beta-flow-badge ui-status-badge" data-state="loading">확인 중</span>
             </div>
             <div class="dashboard-beta-flow-body" aria-live="polite">
-              <span id="dashboard-beta-flow-indicator" class="dashboard-beta-flow-indicator" data-state="loading" aria-hidden="true"></span>
               <div>
                 <strong id="dashboard-beta-flow-subject">운영 상태를 불러오는 중입니다.</strong>
                 <p id="dashboard-beta-flow-message">잠시만 기다려 주세요.</p>
@@ -96,13 +95,13 @@
             </div>
           </section>
 
-          <section class="dashboard-beta-next-card" aria-labelledby="dashboard-beta-next-title">
-            <div class="dashboard-beta-section-heading">
+          <section class="dashboard-beta-next-card ui-overview-card" aria-labelledby="dashboard-beta-next-title">
+            <div class="dashboard-beta-section-heading ui-overview-heading">
               <div>
-                <span class="dashboard-beta-eyebrow">다음</span>
+                <span class="dashboard-beta-eyebrow ui-overview-eyebrow">다음</span>
                 <h2 id="dashboard-beta-next-title">연속 발행</h2>
               </div>
-              <span id="dashboard-beta-automation-badge" class="dashboard-beta-automation-badge" data-state="loading">확인 중</span>
+              <span id="dashboard-beta-automation-badge" class="dashboard-beta-automation-badge ui-status-badge" data-state="loading">확인 중</span>
             </div>
             <strong id="dashboard-beta-next-time" class="dashboard-beta-next-time">일정을 불러오는 중입니다.</strong>
             <p id="dashboard-beta-next-copy" class="dashboard-beta-next-copy">연속 발행 설정과 대기열을 확인하고 있습니다.</p>
@@ -124,33 +123,36 @@
           </section>
         </div>
 
-        <section class="dashboard-beta-results-card" aria-labelledby="dashboard-beta-results-title">
-          <div class="dashboard-beta-section-heading">
+        <section class="dashboard-beta-results-card ui-overview-card" aria-labelledby="dashboard-beta-results-title">
+          <div class="dashboard-beta-section-heading ui-overview-heading">
             <div>
-              <span class="dashboard-beta-eyebrow">활동</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">활동</span>
               <h2 id="dashboard-beta-results-title">발행 성과</h2>
             </div>
-            <div class="dashboard-beta-period-tabs" role="group" aria-label="통계 기간">
-              <button type="button" class="active" data-dashboard-beta-period="today" aria-pressed="true">오늘</button>
-              <button type="button" data-dashboard-beta-period="week" aria-pressed="false">이번 주</button>
-              <button type="button" data-dashboard-beta-period="month" aria-pressed="false">최근 30일</button>
+            <div class="dashboard-beta-period-tabs ui-segmented-tabs" role="group" aria-label="통계 기간">
+              <button type="button" class="ui-segmented-tab active" data-dashboard-beta-period="today" aria-pressed="true">오늘</button>
+              <button type="button" class="ui-segmented-tab" data-dashboard-beta-period="week" aria-pressed="false">이번 주</button>
+              <button type="button" class="ui-segmented-tab" data-dashboard-beta-period="month" aria-pressed="false">최근 30일</button>
             </div>
           </div>
           <div class="dashboard-beta-results-grid">
-            <div class="dashboard-beta-stat-summary" aria-live="polite">
-              <div class="dashboard-beta-stat-card">
-                <span>처리 완료</span>
-                <strong id="dashboard-beta-processed-count">-</strong>
-                <p>임시 저장·예약·공개 발행</p>
-              </div>
-              <div class="dashboard-beta-stat-card">
-                <span>공개 발행</span>
-                <strong id="dashboard-beta-published-count">-</strong>
-                <p>실제 공개된 글</p>
+            <div class="dashboard-beta-stat-column" aria-labelledby="dashboard-beta-stat-summary-title">
+              <h3 id="dashboard-beta-stat-summary-title" class="ui-overview-subheading">요약</h3>
+              <div class="dashboard-beta-stat-summary" aria-live="polite">
+                <div class="dashboard-beta-stat-card">
+                  <span>처리 완료</span>
+                  <strong id="dashboard-beta-processed-count">-</strong>
+                  <p>임시 저장·예약·공개 발행</p>
+                </div>
+                <div class="dashboard-beta-stat-card">
+                  <span>공개 발행</span>
+                  <strong id="dashboard-beta-published-count">-</strong>
+                  <p>실제 공개된 글</p>
+                </div>
               </div>
             </div>
             <div class="dashboard-beta-recent-results">
-              <h3 id="dashboard-beta-recent-results-title">오늘 결과</h3>
+              <h3 id="dashboard-beta-recent-results-title" class="ui-overview-subheading">발행 내역</h3>
               <div id="dashboard-beta-recent-results-list" class="dashboard-beta-recent-results-list" aria-live="polite">
                 <p class="dashboard-beta-empty">최근 결과를 불러오는 중입니다.</p>
               </div>
@@ -166,13 +168,13 @@
           <p id="dashboard-beta-stats-error" class="dashboard-beta-inline-error" hidden>발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
         </section>
 
-        <section class="dashboard-beta-queue-card" aria-labelledby="dashboard-beta-queue-title">
-          <div class="dashboard-beta-section-heading">
+        <section class="dashboard-beta-queue-card ui-overview-card" aria-labelledby="dashboard-beta-queue-title">
+          <div class="dashboard-beta-section-heading ui-overview-heading">
             <div>
-              <span class="dashboard-beta-eyebrow">대기열</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">대기열</span>
               <h2 id="dashboard-beta-queue-title">다가오는 글</h2>
             </div>
-            <button class="dashboard-beta-text-action" type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">전체 대기열 보기</button>
+            <button class="ui-text-action" type="button" data-dashboard-beta-nav="blog-next" data-dashboard-beta-tab="queue">전체 대기열 보기</button>
           </div>
           <div id="dashboard-beta-queue-list" class="dashboard-beta-queue-list" aria-live="polite">
             <p class="dashboard-beta-empty">다음 글감을 불러오는 중입니다.</p>
@@ -180,14 +182,14 @@
           <p id="dashboard-beta-operations-error" class="dashboard-beta-inline-error" hidden>발행 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
         </section>
 
-        <section id="dashboard-beta-discovery" class="dashboard-beta-discovery-card recommendation-center"
+        <section id="dashboard-beta-discovery" class="dashboard-beta-discovery-card ui-overview-card recommendation-center"
           data-recommendation-center aria-labelledby="dashboard-beta-discovery-title">
           <div class="recommendation-center-head">
             <div>
-              <span class="dashboard-beta-eyebrow">글감</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">글감</span>
               <div class="recommendation-center-title-row">
                 <h2 id="dashboard-beta-discovery-title">새로운 발견</h2>
-                <span id="dashboard-beta-discovery-count" class="recommendation-center-count" data-recommendation-count hidden>0</span>
+                <span id="dashboard-beta-discovery-count" class="recommendation-center-count ui-count-badge" data-recommendation-count hidden>0</span>
               </div>
               <p>뉴스와 트렌드, 이전 글에서 다음에 써볼 소재를 발견합니다.</p>
             </div>
@@ -198,13 +200,13 @@
           <div id="dashboard-beta-discovery-list" class="recommendation-center-list" data-recommendation-list aria-live="polite"></div>
         </section>
 
-        <section id="dashboard-beta-tips-section" class="dashboard-beta-tips-card" aria-labelledby="dashboard-beta-tips-title" hidden>
-          <div class="dashboard-beta-section-heading">
+        <section id="dashboard-beta-tips-section" class="dashboard-beta-tips-card ui-overview-card" aria-labelledby="dashboard-beta-tips-title" hidden>
+          <div class="dashboard-beta-section-heading ui-overview-heading">
             <div>
-              <span class="dashboard-beta-eyebrow">30분마다 새롭게</span>
+              <span class="dashboard-beta-eyebrow ui-overview-eyebrow">30분마다 새롭게</span>
               <h2 id="dashboard-beta-tips-title">BlogGenius 활용 팁</h2>
             </div>
-            <button class="dashboard-beta-text-action" type="button" data-dashboard-beta-nav="help">전체 가이드 보기</button>
+            <button class="ui-text-action" type="button" data-dashboard-beta-nav="help">전체 가이드 보기</button>
           </div>
           <p class="dashboard-beta-tips-copy">글쓰기와 콘텐츠 운영에 도움이 되는 자료를 선별해 소개합니다.</p>
           <div id="dashboard-beta-tips-region" class="dashboard-beta-tips-region"></div>

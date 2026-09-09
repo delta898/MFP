@@ -204,12 +204,10 @@ function dashboardBetaFlowCopy(flow = {}, queue = {}) {
 function renderDashboardBetaOperations(overview) {
   const flowCopy = dashboardBetaFlowCopy(overview?.flow, overview?.queue);
   const flowBadge = document.getElementById('dashboard-beta-flow-badge');
-  const flowIndicator = document.getElementById('dashboard-beta-flow-indicator');
   if (flowBadge) {
     flowBadge.dataset.state = flowCopy.state;
     flowBadge.textContent = flowCopy.badge;
   }
-  if (flowIndicator) flowIndicator.dataset.state = flowCopy.state;
   setText('dashboard-beta-flow-subject', flowCopy.subject);
   setText('dashboard-beta-flow-message', flowCopy.message);
 
@@ -300,12 +298,10 @@ function renderDashboardBetaQueue(items) {
 
 function renderDashboardBetaOperationsError() {
   const flowBadge = document.getElementById('dashboard-beta-flow-badge');
-  const flowIndicator = document.getElementById('dashboard-beta-flow-indicator');
   if (flowBadge) {
     flowBadge.dataset.state = 'attention';
     flowBadge.textContent = '확인 불가';
   }
-  if (flowIndicator) flowIndicator.dataset.state = 'attention';
   setText('dashboard-beta-flow-subject', '발행 현황을 불러오지 못했습니다.');
   setText('dashboard-beta-flow-message', '새로고침하거나 잠시 후 다시 시도해 주세요.');
   setText('dashboard-beta-ready-count', '-');
@@ -318,12 +314,10 @@ function renderDashboardBetaOperationsError() {
 
 function renderDashboardBetaOperationsSetupRequired() {
   const flowBadge = document.getElementById('dashboard-beta-flow-badge');
-  const flowIndicator = document.getElementById('dashboard-beta-flow-indicator');
   if (flowBadge) {
     flowBadge.dataset.state = 'attention';
     flowBadge.textContent = '설정 필요';
   }
-  if (flowIndicator) flowIndicator.dataset.state = 'attention';
   setText('dashboard-beta-flow-subject', 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
   setText('dashboard-beta-flow-message', '위의 사용 준비 안내에서 Google 계정과 Spreadsheet를 연결해 주세요.');
   const automationBadge = document.getElementById('dashboard-beta-automation-badge');
@@ -347,7 +341,6 @@ function renderDashboardBetaRecentResults(items, periodKey = 'today') {
   if (!container) return;
   container.innerHTML = '';
   const periodLabels = { today: '오늘', week: '이번 주', month: '최근 30일' };
-  setText('dashboard-beta-recent-results-title', `${periodLabels[periodKey] || '선택 기간'} 결과`);
   const results = Array.isArray(items) ? items.slice(0, 5) : [];
   if (results.length === 0) {
     const empty = document.createElement('p');

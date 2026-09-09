@@ -5,11 +5,6 @@
 }
 
 @media (max-width: 720px) {
-  .dashboard-beta-hero {
-    padding: 18px;
-    border-radius: 18px;
-  }
-
   .dashboard-beta-hero .view-title-row {
     align-items: stretch;
     flex-direction: column;
@@ -27,8 +22,7 @@
   .dashboard-beta-queue-card,
   .dashboard-beta-discovery-card,
   .dashboard-beta-tips-card {
-    padding: 18px;
-    border-radius: 18px;
+    padding: var(--ui-space-5);
   }
 
   .dashboard-beta-onboarding-head,
@@ -59,16 +53,14 @@
     grid-template-columns: 1fr;
   }
 
-  .dashboard-beta-flow-body {
-    min-height: 104px;
-  }
-
-  .dashboard-beta-flow-body strong {
-    font-size: 17px;
-  }
-
   .dashboard-beta-flow-actions {
     justify-content: flex-start;
+  }
+
+  .dashboard-beta-period-tabs.ui-segmented-tabs {
+    align-items: center;
+    flex-direction: row;
+    width: fit-content;
   }
 
   .dashboard-beta-next-actions {

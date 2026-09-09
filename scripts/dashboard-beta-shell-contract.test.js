@@ -9,7 +9,7 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('the productized Dashboard stays isolated while the legacy Dashboard is hidden', () => {
+test('the productized Dashboard uses the current style while the legacy Dashboard is hidden', () => {
     const index = read('ui/index.html');
     const legacyView = read('ui/partials/views/dashboard.html');
     const betaView = read('ui/partials/views/dashboard-beta.html');
@@ -21,6 +21,7 @@ test('the productized Dashboard stays isolated while the legacy Dashboard is hid
     assert.doesNotMatch(index, /대시보드 Beta/);
     assert.match(legacyView, /class="view" id="view-dashboard"/);
     assert.match(betaView, /class="view active" id="view-dashboard-beta"/);
+    assert.doesNotMatch(betaView, /data-style-scope=/);
     assert.doesNotMatch(betaView, /\bid="dashboard-(?!beta)/);
     assert.doesNotMatch(betaScript, /getElementById\('dashboard-(?!beta)/);
     assert.doesNotMatch(betaScript, /dashboard\/summary|dashboard\/external-content|\/api\/v1\/auto\/status/);
@@ -62,8 +63,9 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(generalSettings, /id="settings-google-auth-section"/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\[hidden\]\s*\{\s*display:\s*none/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
-    assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*border:\s*2px solid/);
-    assert.match(betaStyle, /\.dashboard-beta-onboarding-step:hover\s*\{[^}]*transform:\s*translateY\(-2px\)/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*border-width:\s*2px/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*var\(--ui-action-primary\)/);
+    assert.match(betaStyle, /\.dashboard-beta-onboarding-step:hover\s*\{[^}]*transform:\s*var\(--ui-card-hover-transform\)/);
 });
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {
@@ -75,12 +77,26 @@ test('Dashboard Beta distinguishes processed and public results across today and
     assert.match(betaView, /data-dashboard-beta-period="month"[^>]*>최근 30일/);
     assert.match(betaView, /id="dashboard-beta-processed-count"/);
     assert.match(betaView, /id="dashboard-beta-published-count"/);
+    assert.match(betaView, /id="dashboard-beta-stat-summary-title" class="ui-overview-subheading">요약/);
+    assert.match(betaView, /id="dashboard-beta-recent-results-title" class="ui-overview-subheading">발행 내역/);
     assert.match(betaView, /id="dashboard-beta-recent-results-list"/);
     assert.match(betaView, /id="dashboard-beta-trend-bars"/);
     assert.match(betaScript, /Array\.isArray\(items\) \? items\.slice\(0, 5\)/);
     assert.match(betaScript, /period\?\.recent_results/);
     assert.match(betaScript, /period\?\.daily_series/);
+    assert.doesNotMatch(betaScript, /dashboard-beta-recent-results-title/);
     assert.match(betaScript, /navigation_kind === 'result' \? '글 보기' : '블로그 열기'/);
+});
+
+test('Dashboard Beta presents flow state once through the shared status badge', () => {
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaStyle = read('ui/styles/features/dashboard-beta.css');
+
+    assert.match(betaView, /id="dashboard-beta-flow-badge" class="dashboard-beta-flow-badge ui-status-badge"/);
+    assert.doesNotMatch(betaView, /dashboard-beta-flow-indicator/);
+    assert.doesNotMatch(betaScript, /flowIndicator|dashboard-beta-flow-indicator/);
+    assert.doesNotMatch(betaStyle, /dashboard-beta-flow-indicator|dashboard-beta-spin/);
 });
 
 test('Dashboard Beta exposes direct paths to queue and automation without legacy controls', () => {
@@ -90,8 +106,12 @@ test('Dashboard Beta exposes direct paths to queue and automation without legacy
     const betaResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
 
     assert.match(betaView, /data-dashboard-beta-tab="queue">글감 관리/);
+    assert.match(betaView, /class="primary"[^>]*data-dashboard-beta-nav="blog-next"[^>]*data-dashboard-beta-tab="queue">글감 관리/);
     assert.match(betaView, /data-dashboard-beta-tab="automation">연속 발행 설정/);
-    assert.match(betaView, /data-dashboard-beta-tab="queue">전체 대기열 보기/);
+    assert.match(betaView, /id="dashboard-beta-automation-action" class="secondary"/);
+    assert.match(betaView, /class="ui-text-action"[^>]*data-dashboard-beta-tab="queue">전체 대기열 보기/);
+    assert.match(betaView, /id="dashboard-beta-discovery-refresh" class="secondary compact"/);
+    assert.match(betaView, /class="ui-text-action"[^>]*data-dashboard-beta-nav="help">전체 가이드 보기/);
     assert.equal((betaView.match(/data-dashboard-beta-tab="automation"/g) || []).length, 1);
     assert.match(betaView, /id="dashboard-beta-automation-action"/);
     assert.match(betaView, /<p>실제 공개된 글<\/p>/);
@@ -115,9 +135,9 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
     assert.match(electronMain, /function openBlogQuickCreate\(\)[\s\S]*navigateToBlogQuickCreate/);
     assert.match(electronMain, /label: '새 글 작성', click: openBlogQuickCreate/);
     assert.doesNotMatch(electronMain, /label: '새 글 작성'[^\n]*accelerator/);
-    assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*radial-gradient/);
+    assert.doesNotMatch(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*?radial-gradient/);
     assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[^}]*overflow:\s*visible/);
-    assert.match(betaStyle, /\.dashboard-beta-stat-card:nth-child\(2\)/);
+    assert.doesNotMatch(betaStyle, /\.dashboard-beta-stat-card:nth-child\(2\)/);
 });
 
 test('Dashboard Beta restores the shared new discovery center without blocking operations', () => {
@@ -127,10 +147,11 @@ test('Dashboard Beta restores the shared new discovery center without blocking o
     const centerScript = read('ui/scripts/features/recommendations/center.js');
 
     assert.match(betaView, /id="dashboard-beta-discovery"[^>]*data-recommendation-center/);
-    assert.match(betaView, /dashboard-beta-eyebrow">글감<\/span>\s*<div class="recommendation-center-title-row">\s*<h2 id="dashboard-beta-discovery-title">새로운 발견/);
+    assert.match(betaView, /dashboard-beta-eyebrow ui-overview-eyebrow">글감<\/span>\s*<div class="recommendation-center-title-row">\s*<h2 id="dashboard-beta-discovery-title">새로운 발견/);
     assert.match(betaView, /id="dashboard-beta-discovery-title">새로운 발견/);
     assert.match(betaView, /id="dashboard-beta-discovery-list"[^>]*data-recommendation-list/);
     assert.match(betaView, /data-idle-label="새 소재 찾기"/);
+    assert.match(betaView, /class="recommendation-center-count ui-count-badge"/);
     assert.match(legacyView, /id="recommendation-center"[^>]*data-recommendation-center/);
     assert.match(betaScript, /void loadRecommendationCenterForDashboard\(\)/);
     assert.match(centerScript, /function activeRecommendationCenterMount\(\)/);

@@ -82,7 +82,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
   assert.equal(viewTags.length > 1, true);
   viewTags.forEach(([tag, viewId]) => {
-    if (['view-blog-next', 'view-settings-next'].includes(viewId)) {
+    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta'].includes(viewId)) {
       assert.doesNotMatch(tag, /data-style-scope=/);
       return;
     }
@@ -135,6 +135,39 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.match(overlays, /id="ui-dialog-confirm" class="primary"/);
 });
 
+test('overview cards share style-driven surfaces, headings, status badges, and refresh actions', () => {
+  const overview = read('ui/styles/patterns/overview-card.css');
+  const actions = read('ui/styles/patterns/actions.css');
+  const dashboard = read('ui/partials/views/dashboard-beta.html');
+  const dashboardStyle = read('ui/styles/features/dashboard-beta.css');
+  const dashboardResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
+  const recommendationCenterStyle = read('ui/styles/features/recommendation-center.css');
+
+  assert.match(overview, /\.ui-overview-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
+  assert.match(overview, /\.ui-overview-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-semibold\)/s);
+  assert.match(overview, /\.ui-overview-subheading\s*\{[^}]*var\(--ui-space-3\)[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-weight-semibold\)/s);
+  assert.match(overview, /\.ui-status-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-type-caption-size\)/s);
+  assert.match(overview, /\.ui-count-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
+  assert.match(actions, /\.ui-refresh-action-icon svg\s*\{[^}]*stroke:\s*currentColor/s);
+  assert.match(actions, /\.ui-text-action\s*\{[^}]*background:\s*transparent[^}]*var\(--ui-action-primary\)/s);
+  assert.match(dashboard, /class="dashboard-beta-readiness ui-overview-card"/);
+  assert.match(dashboard, /class="dashboard-beta-section-heading ui-overview-heading"/);
+  assert.match(dashboard, /class="ui-overview-subheading">요약/);
+  assert.match(dashboard, /class="ui-overview-subheading">발행 내역/);
+  assert.match(dashboard, /class="dashboard-beta-flow-badge ui-status-badge"/);
+  assert.match(dashboard, /id="dashboard-beta-refresh" class="ui-refresh-action-icon"/);
+  assert.match(dashboard, /id="dashboard-beta-discovery-count" class="recommendation-center-count ui-count-badge"/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-section-heading\s*\{/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-recent-results h3\s*\{/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-icon-button/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-flow-badge\s*,/);
+  assert.doesNotMatch(dashboard, /dashboard-beta-flow-indicator|\sstyle=/);
+  [dashboardStyle, dashboardResponsiveStyle, recommendationCenterStyle].forEach((css) => {
+    assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|rem)\b/);
+    assert.doesNotMatch(css, /font-weight:\s*[0-9]{3}\b/);
+  });
+});
+
 test('warm editorial avoids the compatibility blue and dark filled secondary palette', () => {
   const css = read('ui/styles/styles/warm-editorial.css');
   assert.match(css, /--ui-action-primary:\s*#b65f42;/);
@@ -147,6 +180,10 @@ test('quiet sage varies palette, density, radius and elevation without style-spe
   const shared = [
     read('ui/styles/patterns/actions.css'),
     read('ui/styles/patterns/selection-controls.css'),
+    read('ui/styles/patterns/overview-card.css'),
+    read('ui/styles/features/dashboard-beta.css'),
+    read('ui/styles/features/recommendation-center.css'),
+    read('ui/styles/features/recommendations.css'),
     read('ui/styles/features/continuous-publishing.css'),
     read('ui/styles/features/blog-next-smart-comment.css')
   ].join('\n');
@@ -262,6 +299,12 @@ test('design-system feature styles do not bypass the style contract', () => {
     'ui/styles/features/blog-next-quick-flow.css',
     'ui/styles/features/blog-next-smart-comment.css',
     'ui/styles/features/settings-next.css',
+    'ui/styles/features/dashboard-beta.css',
+    'ui/styles/features/dashboard-beta-responsive.css',
+    'ui/styles/features/recommendation-center.css',
+    'ui/styles/features/recommendations.css',
+    'ui/styles/patterns/actions.css',
+    'ui/styles/patterns/overview-card.css',
     'ui/styles/patterns/tab-navigation.css'
   ];
 
@@ -269,6 +312,7 @@ test('design-system feature styles do not bypass the style contract', () => {
     const css = read(file);
     assert.doesNotMatch(css, /!important\b/, `${file} must resolve cascade through component boundaries`);
     assert.doesNotMatch(css, /\[data-style(?:=|-)/, `${file} must not branch on a concrete style`);
+    assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i, `${file} must consume style tokens instead of fixed colors`);
 
     const shadowValues = Array.from(css.matchAll(/box-shadow:\s*([^;]+);/g), (match) => match[1].trim());
     shadowValues.forEach((value) => {
