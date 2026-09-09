@@ -8,6 +8,7 @@ const {
     createSettingsService,
     normalizeCoreConnectionSettings,
     normalizeAiRoleSettings,
+    normalizeAppInputSettings,
     redactAiRoleSecretFields,
     redactAiProviderProfiles
 } = require('./settings.service');
@@ -257,4 +258,28 @@ test('invalid existing config is not overwritten', async () => {
         (error) => error.status === 409 && error.apiCode === 'CONFIG_JSON_INVALID'
     );
     assert.equal(fs.readFileSync(configPath, 'utf8'), '{ invalid json');
+});
+
+test('app input owns only Naver typing speed and preserves unrelated config', async () => {
+    const initial = {
+        platforms: { naver: { user_id: 'publisher', typing_speed: 'NORMAL' } },
+        general: { listen_port: 4577 },
+        publish: { image_optimization_enabled: true }
+    };
+    const { CONFIG, configPath, service } = createHarness(initial);
+
+    assert.deepEqual(normalizeAppInputSettings({ values: { TYPING_SPEED: 'human' } }), { fields: { TYPING_SPEED: 'HUMAN' } });
+    assert.throws(
+        () => normalizeAppInputSettings({ values: { TYPING_SPEED: 'instant' } }),
+        (error) => error.apiCode === 'TYPING_SPEED_INVALID'
+    );
+    const result = await service.saveAppInputSettings({ values: { TYPING_SPEED: 'HUMAN' } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.equal(result.fields.TYPING_SPEED, 'HUMAN');
+    assert.equal(saved.platforms.naver.typing_speed, 'HUMAN');
+    assert.equal(saved.platforms.naver.user_id, 'publisher');
+    assert.deepEqual(saved.general, initial.general);
+    assert.deepEqual(saved.publish, initial.publish);
+    assert.equal(CONFIG.TYPING_SPEED, 'HUMAN');
 });

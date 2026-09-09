@@ -46,6 +46,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/settings-next/writing-defaults.js',
         'scripts/features/settings-next/optional-services.js',
         'scripts/features/settings-next/external-connections.js',
+        'scripts/features/settings-next/app-input.js',
         'scripts/features/settings-next/app-general.js',
         'scripts/features/content/table-state.js',
         'scripts/shared/runtime-state.js',

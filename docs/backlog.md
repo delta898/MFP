@@ -121,6 +121,15 @@
    - 네이버와 WordPress 모두에서 실패·재시도·부분 성공과 중복 방지의 결과를 확인할 수 있는 focused regression을
      추가한다.
 
+12. 기능별 실행 설정의 Settings Beta 소유권 이관
+   - Settings Beta에 이미 이관한 연결·AI 역할·글쓰기 기본값을 다시 복제하지 않는다.
+   - 브라우저 표시 방식은 `블로그 Beta`의 글별 실행 설정으로 유지한다. 네이버 입력 속도는 `설정 Beta > 앱 > 입력 환경`으로
+     이관 완료했으며, 이미지 최적화는 기본 최적화·실패 시 원본 fallback으로 제공하고 설정 control을 만들지 않는다.
+   - 블로그·쇼핑·SNS 자동 발행과 Buffer 발행 대상은 각 실제 기능의 자동화/발행 화면으로 옮긴다.
+   - Trends·RSS·카드뉴스 source, 쇼핑 FTC·CTA는 각각 글감 관리·카드뉴스·쇼핑커넥트가 소유한다.
+   - legacy 설정은 교체 전까지 동일 canonical 값을 읽는 호환 surface로 유지하며, 두 화면의 writable owner가
+     생기지 않게 단계별로 제거한다.
+
 ## P2 — 제품 확장과 유지보수
 
 1. BlogAnywhere companion

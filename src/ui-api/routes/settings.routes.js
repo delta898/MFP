@@ -65,6 +65,11 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/app-input') {
+            await controller.handleAppInput(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/advanced') {
             await controller.handleAdvanced(ctx);
             return true;

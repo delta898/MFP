@@ -44,6 +44,13 @@ function createHarness() {
                 calls.push(body);
                 return { fields: body.values };
             },
+            async getAppInputSettings() {
+                return { fields: { TYPING_SPEED: 'NORMAL' } };
+            },
+            async saveAppInputSettings(body) {
+                calls.push(body);
+                return { fields: body.values };
+            },
             async testOptionalServiceConnection(body) {
                 calls.push(body);
                 return { message: 'ok' };
@@ -94,6 +101,16 @@ test('app general route exposes the UI server address and applies scoped values'
     assert.equal(harness.responses[0].data.fields.LISTEN_PORT, 4577);
     const body = { values: { LISTEN_HOST: '0.0.0.0', LISTEN_PORT: '4588' } };
     await harness.handler({ pathname: '/api/v1/settings/app-general', method: 'POST', requestId: 'app-general-save', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
+    assert.deepEqual(harness.responses[1].data, { fields: body.values });
+});
+
+test('app input route exposes and applies the Naver typing speed', async () => {
+    const harness = createHarness();
+    await harness.handler({ pathname: '/api/v1/settings/app-input', method: 'GET', requestId: 'app-input-get' });
+    assert.equal(harness.responses[0].data.fields.TYPING_SPEED, 'NORMAL');
+    const body = { values: { TYPING_SPEED: 'HUMAN' } };
+    await harness.handler({ pathname: '/api/v1/settings/app-input', method: 'POST', requestId: 'app-input-save', requestBody: body });
     assert.deepEqual(harness.calls, [body]);
     assert.deepEqual(harness.responses[1].data, { fields: body.values });
 });

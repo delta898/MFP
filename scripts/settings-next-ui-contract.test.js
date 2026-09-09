@@ -54,14 +54,15 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     );
     assert.deepEqual(appTabs, [
         ['external', '외부 연결'],
+        ['input', '입력 환경'],
         ['general', '일반']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 12);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 12);
+    assert.equal((html.match(/role="tab"/g) || []).length, 13);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 13);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
     assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 5);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 7);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 8);
     assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
     assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
     assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);
@@ -70,6 +71,10 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /id="settings-next-telegram-inbound-enabled"/);
     assert.match(html, /data-settings-next-external-scope="mcp"/);
     assert.match(html, /id="settings-next-mcp-remote-token"[^>]*type="password"/);
+    assert.match(html, /id="settings-next-app-input-form"/);
+    assert.match(html, /id="settings-next-typing-speed"/);
+    assert.match(html, /id="settings-next-typing-sample-output"/);
+    assert.doesNotMatch(html, /settings-next-typing-sample-test/);
     assert.match(html, /id="settings-next-app-general-form"/);
     assert.match(html, /id="settings-next-listen-host"/);
     assert.match(html, /id="settings-next-listen-port"/);
@@ -121,6 +126,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
     const externalConnections = read('ui/scripts/features/settings-next/external-connections.js');
     const appGeneral = read('ui/scripts/features/settings-next/app-general.js');
+    const appInput = read('ui/scripts/features/settings-next/app-input.js');
     const settingsCardStyles = read('ui/styles/patterns/settings-card.css');
     const settingsNextStyles = read('ui/styles/features/settings-next.css');
     assert.match(secrets, /function syncSettingsNextSecretRegistration/);
@@ -128,6 +134,11 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(externalConnections, /postJson\('\/api\/v1\/settings\/external-connections'/);
     assert.match(externalConnections, /TELEGRAM_INBOUND_ENABLED/);
     assert.match(externalConnections, /MCP_REMOTE_AUTH_TOKEN/);
+    assert.match(appInput, /\/api\/v1\/settings\/app-input/);
+    assert.match(appInput, /settingsNextRunTypingSample/);
+    assert.match(appInput, /repeat >= 3/);
+    assert.match(appInput, /settingsNextMarkScopeDirty\('app-input'\)/);
+    assert.match(appInput, /'변경됨', 'warning'/);
     assert.match(externalConnections, /settingsNextExternalState\.loaded/);
     assert.match(appGeneral, /postJson\('\/api\/v1\/settings\/app-general'/);
     assert.match(appGeneral, /setUiSettingsCardFooterDetail\('settings-next-app-general-footer-detail'/);
@@ -158,7 +169,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.doesNotMatch(script, /postJson\('\/api\/v1\/settings\/major'/);
     assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
     assert.match(script, /handleUiTabNavigationKeydown/);
-    assert.match(script, /const SETTINGS_NEXT_APP_TABS = Object\.freeze\(\['external', 'general'\]\)/);
+    assert.match(script, /const SETTINGS_NEXT_APP_TABS = Object\.freeze\(\['external', 'input', 'general'\]\)/);
     assert.match(script, /function settingsNextActivateAppTab\(tabName\)/);
     assert.match(script, /selector: '\[data-settings-next-app-tab\]'/);
     assert.match(optionalServices, /function settingsNextOptionalToggleDelivery\(scope, input\)/);
@@ -303,7 +314,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 20);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 21);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
@@ -330,7 +341,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 17);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 18);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

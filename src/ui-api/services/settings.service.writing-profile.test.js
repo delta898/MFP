@@ -9,6 +9,8 @@ const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
 } = require('../../content/writing-profile');
+const Constants = require('../../constants');
+const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
 
 function createHarness(options = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-profile-'));
@@ -98,6 +100,32 @@ test('settings service returns default metadata and updates runtime compatibilit
     assert.equal(defaulted.custom_profile.channels.blog.additional_instruction, '체크리스트를 포함');
     assert.equal(CONFIG.BLOG_WRITING_MODE, 'written');
     assert.equal(CONFIG.CONTENT_WRITING_MODE, 'written');
+});
+
+test('saved writing defaults become the profile used by blog generation', async () => {
+    const { service } = createHarness();
+    const custom = createCustomProfile();
+    custom.channels.blog.length.preset = 'long';
+    custom.channels.blog.structure.opening = 'direct';
+    const saved = await service.saveWritingProfile({ active_profile: 'custom', custom_profile: custom });
+
+    const generated = buildBlogGenerationPrompt({
+        profile: saved.effective_profile,
+        strategy: 'search',
+        config: {
+            BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
+            BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
+            BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
+        },
+        constants: Constants,
+        post: { subject: '설정 기본값 반영 확인' }
+    });
+
+    assert.match(generated.profile_prompt, /문어체/);
+    assert.match(generated.profile_prompt, /평어/);
+    assert.match(generated.profile_prompt, /약 2,200~2,800자/);
+    assert.match(generated.profile_prompt, /핵심 답변이나 결론부터/);
+    assert.match(generated.profile_prompt, /체크리스트를 포함/);
 });
 
 test('settings preview delegates a draft without persisting or changing runtime profile', async () => {

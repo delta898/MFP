@@ -221,6 +221,15 @@ function normalizeAppGeneralSettings(requestBody = {}) {
     return { fields: { LISTEN_HOST, LISTEN_PORT } };
 }
 
+function normalizeAppInputSettings(requestBody = {}) {
+    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
+    const TYPING_SPEED = String(values.TYPING_SPEED || '').trim().toUpperCase();
+    if (!['QUICK', 'FAST', 'NORMAL', 'HUMAN'].includes(TYPING_SPEED)) {
+        throw createApiError(400, 'TYPING_SPEED_INVALID', '네이버 입력 속도를 확인해 주세요.');
+    }
+    return { fields: { TYPING_SPEED } };
+}
+
 function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     const { scope, fields = {} } = normalized;
     if (scope === 'content') {
@@ -527,6 +536,36 @@ function createSettingsService(deps = {}) {
                 LISTEN_HOST: normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST),
                 LISTEN_PORT: normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT)
             } };
+        },
+
+        async getAppInputSettings() {
+            return { fields: { TYPING_SPEED: String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase() } };
+        },
+
+        async saveAppInputSettings(requestBody = {}) {
+            const { fields } = normalizeAppInputSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            }
+            if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
+            if (!structuredConfig.platforms.naver || typeof structuredConfig.platforms.naver !== 'object') structuredConfig.platforms.naver = {};
+            structuredConfig.platforms.naver.typing_speed = fields.TYPING_SPEED;
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+            CONFIG.TYPING_SPEED = fields.TYPING_SPEED;
+            if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
+            if (!CONFIG.platforms.naver || typeof CONFIG.platforms.naver !== 'object') CONFIG.platforms.naver = {};
+            CONFIG.platforms.naver.typing_speed = fields.TYPING_SPEED;
+            dashboardActivityRecorder({
+                category: 'settings',
+                type: 'app_input_saved',
+                title: '네이버 입력 속도 적용',
+                detail: fields.TYPING_SPEED
+            });
+            return { fields, message: '네이버 입력 속도를 적용했습니다.' };
         },
 
         async saveAppGeneralSettings(requestBody = {}) {
@@ -1504,6 +1543,7 @@ module.exports = {
     normalizeOptionalServiceSettings,
     normalizeExternalConnectionSettings,
     normalizeAppGeneralSettings,
+    normalizeAppInputSettings,
     redactMajorSecretFields,
     redactAiRoleSecretFields,
     redactAiProviderProfiles,
