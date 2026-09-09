@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-dashboard-09-01-foundation`
 - Base/parent branch: `codex/feature/design-system-dashboard-09`
 - Start date: 2026-09-09
-- Status: 완료 · parent merge 대기
+- Status: 완료
 
 ## 사용자 필요와 목표
 
@@ -68,6 +68,7 @@ Dashboard를 Settings Beta의 form card로 복제하지 않으면서 같은 디�
 - 고정 typography와 중복 flow indicator 재유입 방지 계약: 통과
 - Browser UI smoke: 통과 (최종 fixture request 261건, 오늘 11개 시간 bucket ↔ 주간 7개 일 bucket 전환,
   모든 시간 bucket의 동일 baseline과 30일 날짜 label 5개 확인 포함)
+- Full unit suite: 1,572개 중 1,571개 통과, 실패 0개, 플랫폼 조건부 1개 skip
 - Browser에서 `warm-editorial`과 `quiet-sage-studio`를 전환해 card radius·shadow와 neutral count 표현이
   각 style token에 따라 달라지는 것을 확인
 - 사용자 시각 확인: 완료
@@ -78,4 +79,4 @@ Dashboard를 Settings Beta의 form card로 복제하지 않으면서 같은 디�
 
 - readiness 정보 구조와 navigation은 다음 slice에서 정리한다.
 - 발행 흐름, 결과, 대기열·추천 content는 각각 후속 slice에서 공통 pattern 위에 재배치한다.
-- 현재 slice 결과는 commit되었으며 필수 full unit gate 통과 후 parent merge한다.
+- 현재 slice 결과는 필수 full unit gate를 통과했으며 parent Dashboard branch에 통합한다.
